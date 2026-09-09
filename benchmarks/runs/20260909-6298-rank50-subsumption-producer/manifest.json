@@ -1,0 +1,55 @@
+{
+  "rank": 50,
+  "input": "benchmarks/cache/tierD24-26/04ded94454830d4ea960327e8b91f5a3-mdp-28-14-sat.cnf.xz",
+  "input_sha256_compressed": "0120ee45acc3ee4d9fd9b48c32d4f3c0b85c80e83eacca950a45fbec7c594c10",
+  "stop_conflict": 1000000,
+  "stream_from": 0,
+  "common_decisions": 139633,
+  "resource_contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "cpus_per_task": 12,
+    "memory_mib": 48000,
+    "array": "0-1",
+    "throttle": null,
+    "node_constraint": null,
+    "solver_timeout": 1200,
+    "allocation_minutes": 25
+  },
+  "candidate_authority": {
+    "path": "benchmarks/runs/20260908-6127-publication-diagnostic-builds/summary.json",
+    "sha256": "2aae80a547f88ff0a7864b6d40a8ce23d0eb073c5c1cbf7e942c110b2ae6fb34"
+  },
+  "native_authority": {
+    "path": "benchmarks/runs/20260908-6092-rank37-macro-heaps/manifest.json",
+    "sha256": "39668f289367568f0effdaaddc0a587ae10257095d8234893a1610cd581b92a9"
+  },
+  "selection_sha256": "727420ea950f42bfc6e7c4e36b5ac5aaa521bb326e17bfa841685b79a8c4d59b",
+  "purpose": "Identify native source/literal/conflict of subsumption-counter increments2509 and2510.",
+  "hypothesis": "Actual added-literal producer explains new forward material without root/removal growth at823562.",
+  "validation": "Full ordinary trace, admission trace and partial-proof hash identity against6286 native before producer interpretation. No final verdict or runtime claim.",
+  "test_consideration": "Actual native added-literal fixture verifies flips,repeated/opposite polarity,clear/rearm and range filters; schema negative controls. Read-only observer, unchanged12CPU48000MiB/1200solver contract.",
+  "limitation": "Nativeinstrumenteddiagnostic rerun allowed;frozen timingvectorunchanged. Observer-neutrality mustbevalidated beforecausalinterpretation. Allpriorcampaign scriptsandpins untouched.",
+  "earlier_closure": {
+    "benchmarks/runs/20260908-6115-substitute-publication-ranks1-50/results/049.json": "ca13a9ed1bfca6dcc781687e4ad1b431df56f7e2f26389b91139137b60f265ff",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/049.json": "8776b485ac0b14c6fe1ecb688ec9cf07b1084a1f871b023a1f1d0b84487931c9",
+    "benchmarks/reports/2026-09-09-rank50-loss-breakdown-6198.json": "2329d71f72020955071d122b1c8e39863615079e39e1061c38a2c3bb29519323"
+  },
+  "scope": "Trace6127 represents semantic6107;latest6169 exactly replays full work/certificate on this rank. First prefix is localization,not full-run observer neutrality. No rank-specific policy change or changed fixed reference.",
+  "hashes": {
+    "pins/kissat": "4ff34f6a4a720c2da2ead7aa525cbecff2ecee4439ba6ffdbf3aea1c88aab1ea",
+    "run.py": "422ed9abec48b3a174e8c92f1cc0d7a756accac0ada3fa65a434ca07d653e9bb",
+    "array.sbatch": "5c18d655b96928980aa1e0162e75ef52f7e7f0e4991a3c26d5e63c7d78481f6d"
+  },
+  "parent_summary": {
+    "path": "benchmarks/runs/20260909-6286-rank50-admission/summary.json",
+    "sha256": "3feacd95599baa51bc77f937ef8965eb4be41e9a3b37d23362120cf9cbf50932"
+  },
+  "admission_conflict": 823562,
+  "observer_build": {
+    "path": "benchmarks/runs/20260909-6293-subsumption-producer-build/manifest.json",
+    "sha256": "876f0452ecb57709bbb6e19be7dd8d847d4e3ebc23700b3655f0509ca56893af"
+  },
+  "sources": {
+    "kissat": "tools/solvers/variants/kissat-subsumption-producer-6293/build/kissat"
+  }
+}

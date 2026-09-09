@@ -1,0 +1,43 @@
+{
+  "full_parent_trace_and_proof_replay": true,
+  "producers": [
+    {
+      "conflicts": 780400,
+      "decisions": 1165921,
+      "count": 2509,
+      "literal": 574,
+      "source": "new_binary_clause"
+    },
+    {
+      "conflicts": 780400,
+      "decisions": 1165921,
+      "count": 2510,
+      "literal": -525,
+      "source": "new_binary_clause"
+    }
+  ],
+  "partial_certificate": {
+    "bytes": 63963136,
+    "sha256": "eab8f5a38264ade4d15148a8565432e51c8c31ebe6b3d9d055cf216146637068"
+  },
+  "hashes": {
+    "benchmarks/runs/20260909-6298-rank50-subsumption-producer/pins/kissat": "4ff34f6a4a720c2da2ead7aa525cbecff2ecee4439ba6ffdbf3aea1c88aab1ea",
+    "benchmarks/runs/20260909-6298-rank50-subsumption-producer/run.py": "422ed9abec48b3a174e8c92f1cc0d7a756accac0ada3fa65a434ca07d653e9bb",
+    "benchmarks/runs/20260909-6298-rank50-subsumption-producer/array.sbatch": "5c18d655b96928980aa1e0162e75ef52f7e7f0e4991a3c26d5e63c7d78481f6d",
+    "benchmarks/runs/20260909-6286-rank50-admission/summary.json": "3feacd95599baa51bc77f937ef8965eb4be41e9a3b37d23362120cf9cbf50932",
+    "benchmarks/runs/20260909-6286-rank50-admission/traces/kissat.decisions.tsv": "50459ae8c3c1ef04f736ec5f621169c15d2b038d6f9fe87e7d1d5a21a6c2f52e",
+    "benchmarks/runs/20260909-6286-rank50-admission/traces/kissat.boundaries.tsv": "30f124e7308e0b0c12314f25d63f13c2717468349a9583792994624f1603c087",
+    "benchmarks/runs/20260909-6286-rank50-admission/traces/kissat.admission.tsv": "cce19829d2b4822e5038ae7d699b47fdb5d8bd150f100b7503c333c0656c6338",
+    "benchmarks/runs/20260909-6286-rank50-admission/traces/kissat.prefix.tsv": "d33229b4b6e1b9fd2cb1eaa2958e29cd3d1df1daaf746a1d4f7957976024f965",
+    "benchmarks/runs/20260909-6298-rank50-subsumption-producer/traces/kissat.prefix.tsv": "d33229b4b6e1b9fd2cb1eaa2958e29cd3d1df1daaf746a1d4f7957976024f965",
+    "benchmarks/runs/20260909-6298-rank50-subsumption-producer/traces/kissat.decisions.tsv": "50459ae8c3c1ef04f736ec5f621169c15d2b038d6f9fe87e7d1d5a21a6c2f52e",
+    "benchmarks/runs/20260909-6298-rank50-subsumption-producer/traces/kissat.admission.tsv": "cce19829d2b4822e5038ae7d699b47fdb5d8bd150f100b7503c333c0656c6338",
+    "benchmarks/runs/20260909-6298-rank50-subsumption-producer/traces/kissat.boundaries.tsv": "30f124e7308e0b0c12314f25d63f13c2717468349a9583792994624f1603c087",
+    "benchmarks/runs/20260909-6298-rank50-subsumption-producer/traces/kissat.subsumption.tsv": "b4d9034626250c6a105ef66e02995eaff6d68f65c8027b003b6602217761e488",
+    "benchmarks/runs/20260909-6298-rank50-subsumption-producer/manifest.json": "5ba556b0170c17bc1c2613f288abbdb8075d5804358348335ccb255a1d1ee43f",
+    "benchmarks/runs/20260909-6298-rank50-subsumption-producer/launch.json": "d4788a514a92bd1634ad224b5057beeb618d9df83041e61d0a9976d679994fb8",
+    "benchmarks/runs/20260909-6298-rank50-subsumption-producer/results/kissat.json": "81158651473a17b2e711e1ef5026169270dd6f260e42803014eb70828b8fe58e",
+    "benchmarks/runs/20260909-6286-rank50-admission/results/kissat.json": "203af6364ff2ccf4bc95eed490d060528661aca60b796ff9b27cb9005765cf55"
+  },
+  "limitation": "Native producer identity only; no Tactix tracker implemented or timing claim. Counterexample motivates a separately approved kernel-material tracker; public/proof semantics unchanged."
+}
