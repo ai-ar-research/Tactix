@@ -456,10 +456,10 @@ contain no journal branch. Dynamic candidate descriptions are lazy: production
 does not construct or allocate them on the search hot path. Replay stops at the
 first field mismatch and never injects a transformation.
 
-Every inprocessing family reports invocation allowance, entry/exit ticks,
-candidate frontier/order, disposition, semantic pose/lineage, elapsed time, and
-normalized yield. Historical Rank-27 convergence details are in frozen
-campaigns and reports; living code retains only accepted invariants above.
+Complete inprocessing coverage is still pending: budgeted Substitute emits
+schedule records but lacks per-round transactions. Unbudgeted composed calls
+record rewrites, reconstruction and final reconnection under the source meter;
+the full frontier/pose/time/yield contract remains owned by the plan.
 
 ## 19. Congruence indices
 

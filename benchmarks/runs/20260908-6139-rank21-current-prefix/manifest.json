@@ -1,0 +1,38 @@
+{
+  "rank": 21,
+  "input": "benchmarks/cache/tierD24-26/ac3887576c2ce781202b9fe0fdc31420-pj2008_k80.cnf.xz",
+  "input_sha256_compressed": "07b881ae5d1057ccbfdd564ddebf1a8f6e45582542b96aee21974ccdcd446450",
+  "stop_conflict": 10000,
+  "stream_from": 0,
+  "common_decisions": 1,
+  "resource_contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "cpus_per_task": 12,
+    "memory_mib": 48000,
+    "array": "0-1",
+    "throttle": null,
+    "node_constraint": null,
+    "solver_timeout": 1200,
+    "allocation_minutes": 25
+  },
+  "candidate_authority": {
+    "path": "benchmarks/runs/20260908-6127-publication-diagnostic-builds/summary.json",
+    "sha256": "2aae80a547f88ff0a7864b6d40a8ce23d0eb073c5c1cbf7e942c110b2ae6fb34"
+  },
+  "native_authority": {
+    "path": "benchmarks/runs/20260908-6092-rank37-macro-heaps/manifest.json",
+    "sha256": "39668f289367568f0effdaaddc0a587ae10257095d8234893a1610cd581b92a9"
+  },
+  "selection_sha256": "727420ea950f42bfc6e7c4e36b5ac5aaa521bb326e17bfa841685b79a8c4d59b",
+  "purpose": "Locate first decision or portable-boundary mismatch oncurrent6107 versusnative;prefix only,not runtime,finalproof ormodel acceptance.",
+  "hypothesis": "Rank21 excess work afterReduce rootpublication needsits next coupled boundary,not reverting the validated general repair.",
+  "validation": "Both exactrequested stops,completecontiguous decisionstreams from0,hash-bound partialproofs/traces andclean scratch. Report firstmismatch withoutinferringcause fromlatercounts. Initialone-decision hash isnot afullprefix claim.",
+  "test_consideration": "No newsolverorobserver source;trace98/98 andjournal99/99 buildauthority. Reused boundedrunner with allrank37-specificselectors removed;allfirst-prefix decisions retained forbotharms. Existing decision-prefix/comparator tests required.",
+  "limitation": "Nativeinstrumenteddiagnostic rerun allowed;frozen timingvectorunchanged. Observer-neutrality mustbevalidated beforecausalinterpretation. Allpriorcampaign scriptsandpins untouched.",
+  "hashes": {
+    "pins/candidate": "51782853043dab4cff8ce86a41ea25643f811436daecda3312b29dae8ad50c9f",
+    "pins/kissat": "a902fccbe9e63c2eedc1aa4332a7d912d0859088aaa98740b90facc6373f1add",
+    "run.py": "335e3940d9e263b6c6051bfa8074e223472687240057d93b279323017b2bba41",
+    "array.sbatch": "5e2aefd7b9a9a0b400fc53532f1a7af770c1e1b40103397e8befa91a2107b891"
+  }
+}
