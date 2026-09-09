@@ -1,0 +1,25 @@
+{
+  "source": ".claude/worktrees/runtime-substitute-journal-6136",
+  "parent": ".claude/worktrees/runtime-substitute-publication-6107",
+  "binaries": {
+    "build/pin-6136-substitute-journal-release": "86a251c9fec53cdd54c338a5b6cbc32aafe7f117b4ee06ea8e10c22d50bee235",
+    "build/pin-6137-substitute-journal-journal": "e801b90e68e637d9e5b748184982cf67aa0be9062d70848053c42b5db76c799f"
+  },
+  "release_byte_identical_to_6107": true,
+  "files": {
+    "src/policies/default_policy.cpp": "8b4bdd0258b7221cf0c9a9f45ede68877f7be5a8e901f006c8688e30f022349f",
+    "tests/test_substitute_publication.cpp": "dde5124cae2cb4a0318ab3f9351f8a674d48ef14ceb8ca23707b1e25e96d1ea7"
+  },
+  "logs": {
+    "logs/journal-build.log": "b94042471f9b3298d0096deb403a4ff6783b78b6872eddacb549843597206aec",
+    "logs/release-configure.log": "5c87e1276038a71f35ec904ec10c530f440fa64d54621f38db2fdda391ae61d5",
+    "logs/release-build.log": "08cccb10bf089d23d91f3eb18bae3946faec4f29b5d8693bf15fbc4590c5d78a",
+    "logs/journal-configure.log": "f7b50a22cb4c6e5d2a87924497e3009378705ef8118d5256f8f6159d54e1d201",
+    "logs/old-build.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "logs/old-negative.log": "fb10a53d93e74c2ae741a99ae53c2062d2343e33fda4b4564f71a4e4576153c5",
+    "logs/release-ctest.log": "08ce5f6bb450881cbb96f45d5e956ef3c7c299eb0b6f8b670ec07aeb17f3df80",
+    "logs/journal-ctest.log": "0f423c3a6dd1511e00c683a51d5ca3b5290efbba3b9bbad00c99c836bc6cfd8e"
+  },
+  "test_consideration": "Actual old journal objects fail missing-transaction assertion. New complete suites cover8 policycases, unbudgeted transaction currency, reconstruction/retirement/final-reconnect root and unchanged schedule-only budgeted path.",
+  "limitation": "Restores unbudgeted caller transaction only;existing budgeted schedule-only coverage remains explicit debt. No production behavior/runtime gain;6107source fuzz gate remainspending."
+}

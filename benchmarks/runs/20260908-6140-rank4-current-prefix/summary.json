@@ -1,0 +1,174 @@
+{
+  "rank": 4,
+  "stop": 100000,
+  "prefixes": {
+    "candidate": {
+      "solver": "tactix",
+      "conflict": 100000,
+      "start_decisions": 18446744073709551447,
+      "end_decisions": 169290,
+      "count": 169459,
+      "hash": "46e6fab0df4109a6",
+      "common": 1,
+      "common_reached": 1,
+      "common_hash": "44bbe9d473cad473",
+      "first": 450,
+      "common_last": 450,
+      "last": -762,
+      "max_level": 169
+    },
+    "kissat": {
+      "solver": "kissat",
+      "conflict": 100000,
+      "start_decisions": 18446744073709551447,
+      "end_decisions": 169290,
+      "count": 169459,
+      "hash": "46e6fab0df4109a6",
+      "common": 1,
+      "common_reached": 1,
+      "common_hash": "44bbe9d473cad473",
+      "first": 450,
+      "common_last": 450,
+      "last": -762,
+      "max_level": 169
+    }
+  },
+  "decisions": {
+    "matching_rows": 169459,
+    "left": null,
+    "right": null,
+    "complete_equal": true
+  },
+  "boundaries_all": {
+    "equal": false,
+    "candidate_rows": 196,
+    "kissat_rows": 194,
+    "first": {
+      "index": 6,
+      "candidate": {
+        "name": "Substitute",
+        "stage": "begin",
+        "conflicts": 0,
+        "decisions": 0,
+        "active": 450,
+        "irred": 10,
+        "red": 0,
+        "binary": 20025
+      },
+      "kissat": {
+        "name": "Factor",
+        "stage": "begin",
+        "conflicts": 0,
+        "decisions": 0,
+        "active": 450,
+        "irred": 10,
+        "red": 0,
+        "binary": 20025
+      },
+      "preceding_candidate": [
+        {
+          "name": "Backbone",
+          "stage": "end",
+          "conflicts": 0,
+          "decisions": 0,
+          "active": 450,
+          "irred": 10,
+          "red": 0,
+          "binary": 20025
+        },
+        {
+          "name": "Sweep",
+          "stage": "begin",
+          "conflicts": 0,
+          "decisions": 0,
+          "active": 450,
+          "irred": 10,
+          "red": 0,
+          "binary": 20025
+        },
+        {
+          "name": "Sweep",
+          "stage": "end",
+          "conflicts": 0,
+          "decisions": 0,
+          "active": 450,
+          "irred": 10,
+          "red": 0,
+          "binary": 20025
+        }
+      ],
+      "preceding_kissat": [
+        {
+          "name": "Backbone",
+          "stage": "end",
+          "conflicts": 0,
+          "decisions": 0,
+          "active": 450,
+          "irred": 10,
+          "red": 0,
+          "binary": 20025
+        },
+        {
+          "name": "Sweep",
+          "stage": "begin",
+          "conflicts": 0,
+          "decisions": 0,
+          "active": 450,
+          "irred": 10,
+          "red": 0,
+          "binary": 20025
+        },
+        {
+          "name": "Sweep",
+          "stage": "end",
+          "conflicts": 0,
+          "decisions": 0,
+          "active": 450,
+          "irred": 10,
+          "red": 0,
+          "binary": 20025
+        }
+      ]
+    }
+  },
+  "boundaries_search": {
+    "equal": true,
+    "candidate_rows": 186,
+    "kissat_rows": 186,
+    "first": null
+  },
+  "ignored_boundary_names": {
+    "candidate": {
+      "SparseCollect": 2
+    },
+    "kissat": {
+      "trace": 1,
+      "startup": 1,
+      "lucky_early": 2,
+      "preprocess": 2,
+      "substitute": 2,
+      "lucky_late": 2,
+      "restart": 5344,
+      "reduce": 56,
+      "switch": 32,
+      "rephase": 18,
+      "probe": 12,
+      "reorder": 8,
+      "eliminate": 6
+    }
+  },
+  "hashes": {
+    "benchmarks/runs/20260908-6140-rank4-current-prefix/manifest.json": "d9f2fa0eeb6c1455ec3a4936151f4a6997625992b0394b3abc4e24cf5c445b52",
+    "benchmarks/runs/20260908-6140-rank4-current-prefix/launch.json": "9422366af4cf67ecfd6b8c00bb1d5ea5f7f7cffd983cc59171ab490b3184e459",
+    "benchmarks/runs/20260908-6140-rank4-current-prefix/results/candidate.json": "6d10d66e249ff1e617e189e0fbb74690910903ea2b82ca09666bbc71ac211891",
+    "benchmarks/runs/20260908-6140-rank4-current-prefix/traces/candidate.macro.tsv": "c382ce2e8250b57bdb06ecec4afceec9e2348c337d1fa6989c44b785fc351904",
+    "benchmarks/runs/20260908-6140-rank4-current-prefix/traces/candidate.boundaries.tsv": "99683ee233bee5a2be11588b825e33e503ac78173ccca68ab3e1027636af4d00",
+    "benchmarks/runs/20260908-6140-rank4-current-prefix/traces/candidate.decisions.tsv": "04200b400244ef1baf44cccb6bee3c3fac079016a87915d4f958f30e23942cf8",
+    "benchmarks/runs/20260908-6140-rank4-current-prefix/traces/candidate.prefix.tsv": "55553fc537efb1a2ed0a2e1e7a292ea138becf6d64d1926e0c1893440ac8d59a",
+    "benchmarks/runs/20260908-6140-rank4-current-prefix/results/kissat.json": "7f4a9d5a3cc7e4b0f098cf79ec2e159cffac298fa232f4513375902fdecdb80d",
+    "benchmarks/runs/20260908-6140-rank4-current-prefix/traces/kissat.decisions.tsv": "04200b400244ef1baf44cccb6bee3c3fac079016a87915d4f958f30e23942cf8",
+    "benchmarks/runs/20260908-6140-rank4-current-prefix/traces/kissat.boundaries.tsv": "0d1f7e3ea19c86461fbccd63dbb97101e82b7f627a64e802da6071419f1e22ff",
+    "benchmarks/runs/20260908-6140-rank4-current-prefix/traces/kissat.prefix.tsv": "4afec9b4afb4c0f18a9deaec9c27bfabbe92cda52aca10bb530b21cad43dde3b"
+  },
+  "limitation": "Exact selected decision stream comparison,not full-solve trajectory,unit-cost acceptance or checked final proof. Coarse boundary ordinals/counts do notproveformula/pose/effort parity. Startup resets explain unsigned start_decisions wrap; useactualrowcount,notthatfieldasanabsoluteordinal. Additionalobserver payloads mustreplaytheseordinarytraces beforecausalinterpretation."
+}
