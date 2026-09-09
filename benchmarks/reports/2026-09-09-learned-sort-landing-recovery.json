@@ -1,0 +1,16 @@
+{
+  "original_landing_sha256": "2095f5271d12f7123dfd58937d37aa512ebcfaf52345a5ef32888d07517a7227",
+  "failure": "git diff --check rejected trailing padding in four raw perf text reports; no solver or checker failed.",
+  "correction": "Only the four newly staged raw text reports were unstaged; raw bytes remain unchanged and hash-bound locally. Tracked summary retains normalized full self-sample rows. No frozen artifact was rewritten or deleted.",
+  "local_raw_profiles": {
+    "benchmarks/runs/20260909-6166-rank4-release-profile/profiles/000-self.txt": "c192987a937fb5bc7cb3d9de7823ac936e1592f265897b5085c7179186980250",
+    "benchmarks/runs/20260909-6166-rank4-release-profile/profiles/000-callpaths.txt": "f75bf1ff0ad10cc8e4e276e0a62a9d84ffe890c075d32d1718b8362354330eb9",
+    "benchmarks/runs/20260909-6166-rank4-release-profile/profiles/001-self.txt": "9bc18525af6ffa36acaf12cd99b52f5d9f4e2b87ce7c0060dae6618485b03df0",
+    "benchmarks/runs/20260909-6166-rank4-release-profile/profiles/001-callpaths.txt": "2da036b5c398428f96000a76155c76a260a0992e62cf0bb49a3c40207b5c300e"
+  },
+  "report": {
+    "report-to-andrew/20260909-0056-learned-sort/report.tex": "d537a78ac18c74553da07405e8f45fc1c29718e98782ba7b95ed9aae6bff6d90",
+    "report-to-andrew/20260909-0056-learned-sort/report.pdf": "f42805cc5494ab80abbceec88b78530114fd49f311bf0104b47bb018ac1f66f0"
+  },
+  "no_push": true
+}
