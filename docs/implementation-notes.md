@@ -239,8 +239,8 @@ pending half-analysis or schedules Backjump independently.
   threshold. Lucky walks permanent maps directly and does not construct a
   dense high-water copy.
 - Variable compaction remaps target/best phase arrays and recomputes assigned
-  high-water counts. VMTF cursor, random permutation, and import ranks are
-  mapped rather than reset.
+  high-water counts. VMTF cursor, random permutation and import ranks are mapped;
+  isolated6357 also preserves detached stamps/links that production resets (SP-COMPACT-1).
 - `ReservedTrail` owns pre-reserved storage plus a logical end. Variable growth
   reserves before assignment; backtrack shrinks only the logical end.
 - BVE reuses touched-only indexes, flat pools, and persistent Kitten stacks;

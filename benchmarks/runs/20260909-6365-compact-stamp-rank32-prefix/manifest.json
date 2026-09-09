@@ -1,0 +1,59 @@
+{
+  "rank": 32,
+  "input": "benchmarks/cache/tierD24-26/753ca299a6ab46e28ece1aefa38f4947-oski15a01b01s_opt.cnf.xz",
+  "input_sha256_compressed": "038955b162df4caa3a11b24eb039a6775b3774ed3e7a32886cd81c462755e7f3",
+  "stop_conflict": 3000000,
+  "stream_from": 1000000,
+  "common_decisions": 96083379,
+  "resource_contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "cpus_per_task": 12,
+    "memory_mib": 48000,
+    "array": "0",
+    "throttle": null,
+    "node_constraint": null,
+    "solver_timeout": 1200,
+    "allocation_minutes": 25
+  },
+  "candidate_authority": {
+    "path": "benchmarks/runs/20260909-6357-compact-stamp-build/manifest.json",
+    "sha256": "31fffa03dec7b1aa81b6d30b792c44408cb498ada5ac7bed9841fa77cbb3c4f8"
+  },
+  "native_authority": {
+    "path": "benchmarks/runs/20260908-6092-rank37-macro-heaps/manifest.json",
+    "sha256": "39668f289367568f0effdaaddc0a587ae10257095d8234893a1610cd581b92a9"
+  },
+  "selection_sha256": "727420ea950f42bfc6e7c4e36b5ac5aaa521bb326e17bfa841685b79a8c4d59b",
+  "purpose": "Test whether current detached queue-stamp repair preserves the1M closure and changes the later Rank32 split.",
+  "hypothesis": "Preserving the fixed representative stamp should restore transitive scheduling at1368343; test inherited1M prefix first, then the full3M stream. An earlier changed prefix invalidates this localization, not solver correctness.",
+  "validation": "Hash/frame-check both traces and inherited1M prefix; compare every later row through3M. Earlier-prefix change invalidates this localization, not solver correctness.",
+  "test_consideration": "No runner or observer code changes beyond scratch label; reuse decision-prefix and boundary parser regression fixtures. Current6357 unit/proof gates bound by source authority.",
+  "limitation": "Cached native is a deterministic trace oracle, not matched timing. Partial proofs are hash-bound and deleted, not accepted final certificates.",
+  "earlier_closure": {
+    "benchmarks/runs/20260908-6060-root-lock-rank32-prefix/summary.json": "640e4bc6a6e4b78c843a167ef8c3d27baaa0d6f528932454e274f01c06f367d1",
+    "benchmarks/runs/20260908-6061-root-lock-ranks1-40/results/031.json": "4e5b988dab8183c4a33b76d9b1de013140b21f862c46e7723d4ab309b2899f13",
+    "benchmarks/runs/20260908-6115-substitute-publication-ranks1-50/results/031.json": "54f7798a1c5da66733a873db02d943bce52c091ea7580bd704b021da01db89a2"
+  },
+  "scope": "Current6357 trace; native6303 reused without a new Kissat invocation.",
+  "hashes": {
+    "pins/candidate": "0c774270938d21563fee79df709d38e06d89c67d29316925ab4d89479c6fe1b5",
+    "run.py": "aec03f86ae23af6f2489165232da58b0ad346884c66da88ad115d3acd7215030",
+    "array.sbatch": "c4ea5bd52a30a9b105ae702b6a759adcf43465c23e2b32c19b7df95d79bbec48"
+  },
+  "cached_native": {
+    "path": "benchmarks/runs/20260909-6303-rank32-later-prefix/results/kissat.json",
+    "sha256": "4e6b7d27473cdee93d27474c19295e1dc88f4bd0c00cd44b774431890b5ae837"
+  },
+  "parent_summary": {
+    "path": "benchmarks/runs/20260909-6276-vivify-binary-rank32-prefix/summary.json",
+    "sha256": "6c1318ba5fd18f17a630aedc5fdead694fdb6b8ecbc5e8481f8a79b9351dd6fc"
+  },
+  "parent_runs": {
+    "candidate": "benchmarks/runs/20260909-6276-vivify-binary-rank32-prefix",
+    "kissat": "benchmarks/runs/20260909-6183-rank32-current-prefix"
+  },
+  "provisional_gate": {
+    "path": "benchmarks/runs/20260909-6362-compact-stamp-BC-gate/solver-checkpoint-6364.json",
+    "sha256": "c7a73b557a329effa090c7923a33628499543ac12a56b9529b16ef68a5d99473"
+  }
+}
