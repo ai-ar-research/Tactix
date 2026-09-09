@@ -1,0 +1,749 @@
+# clause-pose-series	1
+# begin	0	0	0	congruence	begin
+# end	0	0
+# begin	1	0	0	congruence	end
+# end	1	0
+# begin	2	0	0	backbone	begin
+# end	2	0
+# begin	3	0	0	backbone	end
+# end	3	0
+# begin	4	0	0	sweep	begin
+# end	4	0
+# begin	5	0	0	sweep	end
+# end	5	0
+# begin	6	0	0	factor	begin
+# end	6	0
+# begin	7	0	0	factor	end
+# end	7	0
+# begin	8	1000	356633	reduce	begin
+# end	8	0
+# begin	9	1000	356633	reduce	end
+# end	9	0
+# begin	10	2001	388336	reduce	begin
+# end	10	0
+# begin	11	2001	388336	reduce	end
+# end	11	0
+# begin	12	3071	512046	congruence	begin
+# end	12	0
+# begin	13	3071	512046	congruence	end
+# end	13	0
+# begin	14	3071	512046	vivify	begin
+# end	14	0
+# begin	15	3071	512046	vivify	end
+# end	15	0
+# begin	16	3071	512046	sweep	begin
+# end	16	0
+# begin	17	3071	512046	sweep	end
+# end	17	0
+# begin	18	3071	512046	factor	begin
+# end	18	0
+# begin	19	3071	512046	factor	end
+# end	19	0
+# begin	20	3071	512046	congruence	begin
+# end	20	0
+# begin	21	3071	512046	congruence	end
+# end	21	0
+# begin	22	3071	512046	vivify	begin
+# end	22	0
+# begin	23	3071	512046	vivify	end
+# end	23	0
+# begin	24	3071	512046	sweep	begin
+# end	24	0
+# begin	25	3071	512046	sweep	end
+# end	25	0
+# begin	26	3071	512046	factor	begin
+# end	26	0
+# begin	27	3071	512046	factor	end
+# end	27	0
+# begin	28	3417	628987	reduce	begin
+# end	28	0
+# begin	29	3417	628987	reduce	end
+# end	29	0
+# begin	30	5150	676482	reduce	begin
+# end	30	0
+# begin	31	5150	676482	reduce	end
+# end	31	0
+# begin	32	7150	1440307	reduce	begin
+# end	32	0
+# begin	33	7150	1440307	reduce	end
+# end	33	0
+# begin	34	9386	1773064	reduce	begin
+# end	34	0
+# begin	35	9386	1773064	reduce	end
+# end	35	0
+# begin	36	9458	1792921	congruence	begin
+# end	36	0
+# begin	37	9458	1792921	congruence	end
+# end	37	0
+# begin	38	9458	1792921	vivify	begin
+# end	38	0
+# begin	39	9458	1792921	vivify	end
+# end	39	0
+# begin	40	9458	1792921	sweep	begin
+# end	40	0
+# begin	41	9458	1792921	sweep	end
+# end	41	0
+# begin	42	9458	1792921	factor	begin
+# end	42	0
+# begin	43	9458	1792921	factor	end
+# end	43	0
+# begin	44	9458	1792921	congruence	begin
+# end	44	0
+# begin	45	9458	1792921	congruence	end
+# end	45	0
+# begin	46	9458	1792921	vivify	begin
+# end	46	0
+# begin	47	9458	1792921	vivify	end
+# end	47	0
+# begin	48	9458	1792921	sweep	begin
+# end	48	0
+# begin	49	9458	1792921	sweep	end
+# end	49	0
+# begin	50	9458	1792921	factor	begin
+# end	50	0
+# begin	51	9458	1792921	factor	end
+# end	51	0
+# begin	52	11836	1994390	reduce	begin
+# end	52	0
+# begin	53	11836	1994390	reduce	end
+# end	53	0
+# begin	54	14481	16534110	reduce	begin
+# end	54	0
+# begin	55	14481	16534110	reduce	end
+# end	55	0
+# begin	56	15353	18100166	strengthen	begin
+# end	56	0
+# begin	57	15353	18100166	strengthen	end
+# end	57	0
+# begin	58	15353	18100166	bve	begin
+# end	58	0
+# begin	59	15353	18100166	bve	end
+# end	59	0
+# begin	60	15353	18100166	strengthen	begin
+# end	60	0
+# begin	61	15353	18100166	strengthen	end
+# end	61	0
+# begin	62	15353	18100166	bve	begin
+# end	62	0
+# begin	63	15353	18100166	bve	end
+# end	63	0
+# begin	64	17314	18335286	reduce	begin
+# end	64	0
+# begin	65	17314	18335286	reduce	end
+# end	65	0
+# begin	66	19375	18522616	congruence	begin
+# end	66	0
+# begin	67	19375	18522616	congruence	end
+# end	67	0
+# begin	68	19375	18522616	vivify	begin
+# end	68	0
+# begin	69	19375	18522616	vivify	end
+# end	69	0
+# begin	70	19375	18522616	sweep	begin
+# end	70	0
+# begin	71	19375	18522616	sweep	end
+# end	71	0
+# begin	72	19375	18522616	factor	begin
+# end	72	0
+# begin	73	19375	18522616	factor	end
+# end	73	0
+# begin	74	19375	18522616	congruence	begin
+# end	74	0
+# begin	75	19375	18522616	congruence	end
+# end	75	0
+# begin	76	19375	18522616	vivify	begin
+# end	76	0
+# begin	77	19375	18522616	vivify	end
+# end	77	0
+# begin	78	19375	18522616	sweep	begin
+# end	78	0
+# begin	79	19375	18522616	sweep	end
+# end	79	0
+# begin	80	19375	18522616	factor	begin
+# end	80	0
+# begin	81	19375	18522616	factor	end
+# end	81	0
+# begin	82	20314	18661769	reduce	begin
+# end	82	0
+# begin	83	20314	18661769	reduce	end
+# end	83	0
+# begin	84	23477	18995539	reduce	begin
+# end	84	0
+# begin	85	23477	18995539	reduce	end
+# end	85	0
+# begin	86	26793	19011295	reduce	begin
+# end	86	0
+# begin	87	26793	19011295	reduce	end
+# end	87	0
+# begin	88	29705	19026701	strengthen	begin
+# end	88	0
+# begin	89	29705	19026701	strengthen	end
+# end	89	0
+# begin	90	29705	19026701	bve	begin
+# end	90	0
+# begin	91	29705	19026701	bve	end
+# end	91	0
+# begin	92	29705	19026701	strengthen	begin
+# end	92	0
+# begin	93	29705	19026701	strengthen	end
+# end	93	0
+# begin	94	29705	19026701	bve	begin
+# end	94	0
+# begin	95	29705	19026701	bve	end
+# end	95	0
+# begin	96	30257	19041876	reduce	begin
+# end	96	0
+# begin	97	30257	19041876	reduce	end
+# end	97	0
+# begin	98	32047	19059343	congruence	begin
+# end	98	0
+# begin	99	32047	19059343	congruence	end
+# end	99	0
+# begin	100	32047	19059343	vivify	begin
+# end	100	0
+# begin	101	32047	19059343	vivify	end
+# end	101	0
+# begin	102	32047	19059343	sweep	begin
+# end	102	0
+# begin	103	32047	19059343	sweep	end
+# end	103	0
+# begin	104	32047	19059343	factor	begin
+# end	104	0
+# begin	105	32047	19059343	factor	end
+# end	105	0
+# begin	106	32047	19059343	congruence	begin
+# end	106	0
+# begin	107	32047	19059343	congruence	end
+# end	107	0
+# begin	108	32047	19059343	vivify	begin
+# end	108	0
+# begin	109	32047	19059343	vivify	end
+# end	109	0
+# begin	110	32047	19059343	sweep	begin
+# end	110	0
+# begin	111	32047	19059343	sweep	end
+# end	111	0
+# begin	112	32047	19059343	factor	begin
+# end	112	0
+# begin	113	32047	19059343	factor	end
+# end	113	0
+# begin	114	33863	19215722	reduce	begin
+# end	114	0
+# begin	115	33863	19215722	reduce	end
+# end	115	0
+# begin	116	37604	19345367	reduce	begin
+# end	116	0
+# begin	117	37604	19345367	reduce	end
+# end	117	0
+# begin	118	41477	21963041	reduce	begin
+# end	118	0
+# begin	119	41477	21963041	reduce	end
+# end	119	0
+# begin	120	45477	22821452	reduce	begin
+# end	120	0
+# begin	121	45477	22821452	reduce	end
+# end	121	0
+# begin	122	48315	23101946	congruence	begin
+# end	122	0
+# begin	123	48315	23101946	congruence	end
+# end	123	0
+# begin	124	48315	23101946	vivify	begin
+# end	124	0
+# begin	125	48315	23101946	vivify	end
+# end	125	0
+# begin	126	48315	23101946	sweep	begin
+# end	126	0
+# begin	127	48315	23101946	sweep	end
+# end	127	0
+# begin	128	48315	23101946	factor	begin
+# end	128	0
+# begin	129	48315	23101946	factor	end
+# end	129	0
+# begin	130	48315	23101946	congruence	begin
+# end	130	0
+# begin	131	48315	23101946	congruence	end
+# end	131	0
+# begin	132	48315	23101946	vivify	begin
+# end	132	0
+# begin	133	48315	23101946	vivify	end
+# end	133	0
+# begin	134	48315	23101946	sweep	begin
+# end	134	0
+# begin	135	48315	23101946	sweep	end
+# end	135	0
+# begin	136	48315	23101946	factor	begin
+# end	136	0
+# begin	137	48315	23101946	factor	end
+# end	137	0
+# begin	138	49601	23258792	reduce	begin
+# end	138	0
+# begin	139	49601	23258792	reduce	end
+# end	139	0
+# begin	140	53843	23751411	reduce	begin
+# end	140	0
+# begin	141	53843	23751411	reduce	end
+# end	141	0
+# begin	142	58202	24472378	reduce	begin
+# end	142	0
+# begin	143	58202	24472378	reduce	end
+# end	143	0
+# begin	144	60486	25161053	strengthen	begin
+# end	144	0
+# begin	145	60486	25161053	strengthen	end
+# end	145	0
+# begin	146	60486	25161053	bve	begin
+# end	146	0
+# begin	147	60486	25161053	bve	end
+# end	147	0
+# begin	148	60486	25161053	strengthen	begin
+# end	148	0
+# begin	149	60486	25161053	strengthen	end
+# end	149	0
+# begin	150	60486	25161053	bve	begin
+# end	150	0
+# begin	151	60486	25161053	bve	end
+# end	151	0
+# begin	152	62674	25700245	reduce	begin
+# end	152	0
+# begin	153	62674	25700245	reduce	end
+# end	153	0
+# begin	154	67260	28398379	reduce	begin
+# end	154	0
+# begin	155	67260	28398379	reduce	end
+# end	155	0
+# begin	156	68325	28791623	congruence	begin
+# end	156	0
+# begin	157	68325	28791623	congruence	end
+# end	157	0
+# begin	158	68325	28791623	vivify	begin
+# end	158	0
+# begin	159	68325	28791623	vivify	end
+# end	159	0
+# begin	160	68325	28791623	sweep	begin
+# end	160	0
+# begin	161	68325	28791623	sweep	end
+# end	161	0
+# begin	162	68325	28791623	factor	begin
+# end	162	0
+# begin	163	68325	28791623	factor	end
+# end	163	0
+# begin	164	68325	28791623	congruence	begin
+# end	164	0
+# begin	165	68325	28791623	congruence	end
+# end	165	0
+# begin	166	68325	28791623	vivify	begin
+# end	166	0
+# begin	167	68325	28791623	vivify	end
+# end	167	0
+# begin	168	68325	28791623	sweep	begin
+# end	168	0
+# begin	169	68325	28791623	sweep	end
+# end	169	0
+# begin	170	68325	28791623	factor	begin
+# end	170	0
+# begin	171	68325	28791623	factor	end
+# end	171	0
+# begin	172	71950	29439722	reduce	begin
+# end	172	0
+# begin	173	71950	29439722	reduce	end
+# end	173	0
+# begin	174	76746	30483485	reduce	begin
+# end	174	0
+# begin	175	76746	30483485	reduce	end
+# end	175	0
+# begin	176	81645	31294466	reduce	begin
+# end	176	0
+# begin	177	81645	31294466	reduce	end
+# end	177	0
+# begin	178	86646	34079756	reduce	begin
+# end	178	0
+# begin	179	86646	34079756	reduce	end
+# end	179	0
+# begin	180	91745	37453028	reduce	begin
+# end	180	0
+# begin	181	91745	37453028	reduce	end
+# end	181	0
+# begin	182	92037	37540419	congruence	begin
+# end	182	0
+# begin	183	92037	37540419	congruence	end
+# end	183	0
+# begin	184	92037	37540419	vivify	begin
+# end	184	0
+# begin	185	92037	37540419	vivify	end
+# end	185	0
+# begin	186	92037	37540419	sweep	begin
+# end	186	0
+# begin	187	92037	37540419	sweep	end
+# end	187	0
+# begin	188	92037	37540419	factor	begin
+# end	188	0
+# begin	189	92037	37540419	factor	end
+# end	189	0
+# begin	190	92037	37540419	congruence	begin
+# end	190	0
+# begin	191	92037	37540419	congruence	end
+# end	191	0
+# begin	192	92037	37540419	vivify	begin
+# end	192	0
+# begin	193	92037	37540419	vivify	end
+# end	193	0
+# begin	194	92037	37540419	sweep	begin
+# end	194	0
+# begin	195	92037	37540419	sweep	end
+# end	195	0
+# begin	196	92037	37540419	factor	begin
+# end	196	0
+# begin	197	92037	37540419	factor	end
+# end	197	0
+# begin	198	96944	39810607	reduce	begin
+# end	198	0
+# begin	199	96944	39810607	reduce	end
+# end	199	0
+# begin	200	102236	39987146	reduce	begin
+# end	200	0
+# begin	201	102236	39987146	reduce	end
+# end	201	0
+# begin	202	107622	40965452	reduce	begin
+# end	202	0
+# begin	203	107622	40965452	reduce	end
+# end	203	0
+# begin	204	109849	41234528	strengthen	begin
+# end	204	0
+# begin	205	109849	41234528	strengthen	end
+# end	205	0
+# begin	206	109849	41234528	bve	begin
+# end	206	0
+# begin	207	109849	41234528	bve	end
+# end	207	0
+# begin	208	109849	41234528	strengthen	begin
+# end	208	0
+# begin	209	109849	41234528	strengthen	end
+# end	209	0
+# begin	210	109849	41234528	bve	begin
+# end	210	0
+# begin	211	109849	41234528	bve	end
+# end	211	0
+# begin	212	113099	41881967	reduce	begin
+# end	212	0
+# begin	213	113099	41881967	reduce	end
+# end	213	0
+# begin	214	118668	42571111	reduce	begin
+# end	214	0
+# begin	215	118668	42571111	reduce	end
+# end	215	0
+# begin	216	119720	42600538	congruence	begin
+# end	216	0
+# begin	217	119720	42600538	congruence	end
+# end	217	0
+# begin	218	119720	42600538	vivify	begin
+# end	218	0
+# begin	219	119720	42600538	vivify	end
+# end	219	0
+# begin	220	119720	42600538	sweep	begin
+# end	220	0
+# begin	221	119720	42600538	sweep	end
+# end	221	0
+# begin	222	119720	42600538	factor	begin
+# end	222	0
+# begin	223	119720	42600538	factor	end
+# end	223	0
+# begin	224	119720	42600538	congruence	begin
+# end	224	0
+# begin	225	119720	42600538	congruence	end
+# end	225	0
+# begin	226	119720	42600538	vivify	begin
+# end	226	0
+# begin	227	119720	42600538	vivify	end
+# end	227	0
+# begin	228	119720	42600538	sweep	begin
+# end	228	0
+# begin	229	119720	42600538	sweep	end
+# end	229	0
+# begin	230	119720	42600538	factor	begin
+# end	230	0
+# begin	231	119720	42600538	factor	end
+# end	231	0
+# begin	232	124325	42976860	reduce	begin
+# end	232	0
+# begin	233	124325	42976860	reduce	end
+# end	233	0
+# begin	234	130069	43661575	reduce	begin
+# end	234	0
+# begin	235	130069	43661575	reduce	end
+# end	235	0
+# begin	236	135899	44005041	reduce	begin
+# end	236	0
+# begin	237	135899	44005041	reduce	end
+# end	237	0
+# begin	238	141816	44044321	reduce	begin
+# end	238	0
+# begin	239	141816	44044321	reduce	end
+# end	239	0
+# begin	240	147816	45497187	reduce	begin
+# end	240	0
+# begin	241	147816	45497187	reduce	end
+# end	241	0
+# begin	242	151337	46040285	congruence	begin
+# end	242	0
+# begin	243	151337	46040285	congruence	end
+# end	243	0
+# begin	244	151337	46040285	vivify	begin
+# end	244	0
+# begin	245	151337	46040285	vivify	end
+# end	245	0
+# begin	246	151337	46040285	sweep	begin
+# end	246	0
+# begin	247	151337	46040285	sweep	end
+# end	247	0
+# begin	248	151337	46040285	factor	begin
+# end	248	0
+# begin	249	151337	46040285	factor	end
+# end	249	0
+# begin	250	151337	46040285	congruence	begin
+# end	250	0
+# begin	251	151337	46040285	congruence	end
+# end	251	0
+# begin	252	151337	46040285	vivify	begin
+# end	252	0
+# begin	253	151337	46040285	vivify	end
+# end	253	0
+# begin	254	151337	46040285	sweep	begin
+# end	254	0
+# begin	255	151337	46040285	sweep	end
+# end	255	0
+# begin	256	151337	46040285	factor	begin
+# end	256	0
+# begin	257	151337	46040285	factor	end
+# end	257	0
+# begin	258	153898	46312273	reduce	begin
+# end	258	0
+# begin	259	153898	46312273	reduce	end
+# end	259	0
+# begin	260	160062	46959627	reduce	begin
+# end	260	0
+# begin	261	160062	46959627	reduce	end
+# end	261	0
+# begin	262	166308	49374006	reduce	begin
+# end	262	0
+# begin	263	166308	49374006	reduce	end
+# end	263	0
+# begin	264	172633	50263071	reduce	begin
+# end	264	0
+# begin	265	172633	50263071	reduce	end
+# end	265	0
+# begin	266	179036	54936898	reduce	begin
+# end	266	0
+# begin	267	179036	54936898	reduce	end
+# end	267	0
+# begin	268	179463	55033606	strengthen	begin
+# end	268	0
+# begin	269	179463	55033606	strengthen	end
+# end	269	0
+# begin	270	179463	55033606	bve	begin
+# end	270	0
+# begin	271	179463	55033606	bve	end
+# end	271	0
+# begin	272	179463	55033606	strengthen	begin
+# end	272	0
+# begin	273	179463	55033606	strengthen	end
+# end	273	0
+# begin	274	179463	55033606	bve	begin
+# end	274	0
+# begin	275	179463	55033606	bve	end
+# end	275	0
+# begin	276	185517	56696237	reduce	begin
+# end	276	0
+# begin	277	185517	56696237	reduce	end
+# end	277	0
+# begin	278	187028	58478147	congruence	begin
+# end	278	0
+# begin	279	187028	58478147	congruence	end
+# end	279	0
+# begin	280	187028	58478147	vivify	begin
+# end	280	0
+# begin	281	187028	58478147	vivify	end
+# end	281	0
+# begin	282	187028	58478147	sweep	begin
+# end	282	0
+# begin	283	187028	58478147	sweep	end
+# end	283	0
+# begin	284	187028	58478147	factor	begin
+# end	284	0
+# begin	285	187028	58478147	factor	end
+# end	285	0
+# begin	286	187028	58478147	congruence	begin
+# end	286	0
+# begin	287	187028	58478147	congruence	end
+# end	287	0
+# begin	288	187028	58478147	vivify	begin
+# end	288	0
+# begin	289	187028	58478147	vivify	end
+# end	289	0
+# begin	290	187028	58478147	sweep	begin
+# end	290	0
+# begin	291	187028	58478147	sweep	end
+# end	291	0
+# begin	292	187028	58478147	factor	begin
+# end	292	0
+# begin	293	187028	58478147	factor	end
+# end	293	0
+# begin	294	192075	58537497	reduce	begin
+# end	294	0
+# begin	295	192075	58537497	reduce	end
+# end	295	0
+# begin	296	198709	58574927	reduce	begin
+# end	296	0
+# begin	297	198709	58574927	reduce	end
+# end	297	0
+# begin	298	205419	59120384	reduce	begin
+# end	298	0
+# begin	299	205419	59120384	reduce	end
+# end	299	0
+# begin	300	212202	59666870	reduce	begin
+# end	300	0
+# begin	301	212202	59666870	reduce	end
+# end	301	0
+# begin	302	219057	59684102	reduce	begin
+# end	302	0
+# begin	303	219057	59684102	reduce	end
+# end	303	0
+# begin	304	225987	61013973	reduce	begin
+# end	304	0
+# begin	305	225987	61013973	reduce	end
+# end	305	0
+# begin	306	226862	61503452	congruence	begin
+# end	306	0
+# begin	307	226862	61503452	congruence	end
+# end	307	0
+# begin	308	226862	61503452	vivify	begin
+# end	308	0
+# begin	309	226862	61503452	vivify	end
+# end	309	0
+# begin	310	226862	61503452	sweep	begin
+# end	310	0
+# begin	311	226862	61503452	sweep	end
+# end	311	0
+# begin	312	226862	61503452	factor	begin
+# end	312	0
+# begin	313	226862	61503452	factor	end
+# end	313	0
+# begin	314	226862	61503452	congruence	begin
+# end	314	0
+# begin	315	226862	61503452	congruence	end
+# end	315	0
+# begin	316	226862	61503452	vivify	begin
+# end	316	0
+# begin	317	226862	61503452	vivify	end
+# end	317	0
+# begin	318	226862	61503452	sweep	begin
+# end	318	0
+# begin	319	226862	61503452	sweep	end
+# end	319	0
+# begin	320	226862	61503452	factor	begin
+# end	320	0
+# begin	321	226862	61503452	factor	end
+# end	321	0
+# begin	322	232989	62090479	reduce	begin
+# end	322	0
+# begin	323	232989	62090479	reduce	end
+# end	323	0
+# begin	324	240062	64659574	reduce	begin
+# end	324	0
+# begin	325	240062	64659574	reduce	end
+# end	325	0
+# begin	326	247206	65290913	reduce	begin
+326	1351108	1	3	-4349,4172,51,-47,53,-4166,-93630	0,0,0,0,0,0,0
+# end	326	1
+# begin	327	247206	65290913	reduce	end
+327	1290408	1	2	-4349,4172,51,-47,53,-4166,-93630	0,0,0,0,0,0,0
+# end	327	1
+# begin	328	254418	65688525	reduce	begin
+328	1290408	1	2	-4349,4172,51,-47,53,-4166,-93630	0,0,0,0,0,0,0
+# end	328	1
+# begin	329	254418	65688525	reduce	end
+329	1279819	1	2	-4349,4172,51,-47,53,-4166,-93630	0,0,0,0,0,0,0
+# end	329	1
+# begin	330	261698	66709568	reduce	begin
+330	1279819	1	2	-4349,4172,51,-47,53,-4166,-93630	1,1,1,-1,-1,-1,-1
+# end	330	1
+# begin	331	261698	66709568	reduce	end
+331	1266903	1	2	4172,-4349,51,-47,53,-4166,-93630	1,1,1,-1,-1,-1,-1
+# end	331	1
+# begin	332	269047	67947651	reduce	begin
+332	1266903	1	2	4172,-4349,51,-47,53,-4166,-93630	0,0,0,0,0,0,0
+# end	332	1
+# begin	333	269047	67947651	reduce	end
+333	1266110	1	2	4172,-4349,51,-47,53,-4166,-93630	0,0,0,0,0,0,0
+# end	333	1
+# begin	334	270978	67953783	congruence	begin
+334	1266110	1	2	4172,-4349,51,-47,53,-4166,-93630	0,0,0,0,0,0,0
+# end	334	1
+# begin	335	270978	67953783	congruence	end
+335	1266110	1	2	4172,-4349,51,-47,53,-4166,-93630	0,0,0,0,0,0,0
+# end	335	1
+# begin	336	270978	67953783	vivify	begin
+336	1266110	1	2	4172,-4349,51,-47,53,-4166,-93630	0,0,0,0,0,0,0
+# end	336	1
+# begin	337	270978	67953783	vivify	end
+337	1266110	1	4	-47,51,53,-4349,4172,-93630,-4166	0,0,0,0,0,0,0
+# end	337	1
+# begin	338	270978	67953783	sweep	begin
+338	1266110	1	4	-47,51,53,-4349,4172,-93630,-4166	0,0,0,0,0,0,0
+# end	338	1
+# begin	339	270978	67953783	sweep	end
+339	1266110	1	4	-47,51,53,-4349,4172,-93630,-4166	0,0,0,0,0,0,0
+# end	339	1
+# begin	340	270978	67953783	factor	begin
+340	1266110	1	2	-47,51,53,-4349,4172,-93630,-4166	0,0,0,0,0,0,0
+# end	340	1
+# begin	341	270978	67953783	factor	end
+341	1266110	1	2	-47,51,53,-4349,4172,-93630,-4166	0,0,0,0,0,0,0
+# end	341	1
+# begin	342	270978	67953783	congruence	begin
+342	1266110	1	2	-47,51,53,-4349,4172,-93630,-4166	0,0,0,0,0,0,0
+# end	342	1
+# begin	343	270978	67953783	congruence	end
+343	1266110	1	2	-47,51,53,-4349,4172,-93630,-4166	0,0,0,0,0,0,0
+# end	343	1
+# begin	344	270978	67953783	vivify	begin
+344	1266110	1	2	-47,51,53,-4349,4172,-93630,-4166	0,0,0,0,0,0,0
+# end	344	1
+# begin	345	270978	67953783	vivify	end
+345	1266110	1	2	-4349,4172,53,51,-47,-93630,-4166	0,0,0,0,0,0,0
+# end	345	1
+# begin	346	270978	67953783	sweep	begin
+346	1266110	1	2	-4349,4172,53,51,-47,-93630,-4166	0,0,0,0,0,0,0
+# end	346	1
+# begin	347	270978	67953783	sweep	end
+347	1266110	1	2	-4349,4172,53,51,-47,-93630,-4166	0,0,0,0,0,0,0
+# end	347	1
+# begin	348	270978	67953783	factor	begin
+348	1266110	1	2	-4349,4172,53,51,-47,-93630,-4166	0,0,0,0,0,0,0
+# end	348	1
+# begin	349	270978	67953783	factor	end
+349	1266110	1	2	-4349,4172,53,51,-47,-93630,-4166	0,0,0,0,0,0,0
+# end	349	1
+# begin	350	271079	67954244	strengthen	begin
+350	1266110	1	2	-4349,4172,53,51,-47,-93630,-4166	0,0,0,0,0,0,0
+# end	350	1
+# begin	351	271079	67954244	strengthen	end
+351	1266110	1	2	-4349,4172,53,51,-47,-93630,-4166	0,0,0,0,0,0,0
+# end	351	1
+# begin	352	271079	67954244	bve	begin
+352	1266110	1	2	-4349,4172,53,51,-47,-93630,-4166	0,0,0,0,0,0,0
+# end	352	1
+# begin	353	271079	67954244	bve	end
+353	735696	1	2	-4349,4172,53,51,-47,-93630,-4166	0,0,0,0,0,0,0
+# end	353	1
+# begin	354	271079	67954244	strengthen	begin
+354	735696	1	2	-4349,4172,53,51,-47,-93630,-4166	0,0,0,0,0,0,0
+# end	354	1
+# begin	355	271079	67954244	strengthen	end
+355	735696	1	2	-4349,4172,53,51,-47,-93630,-4166	0,0,0,0,0,0,0
+# end	355	1
+# begin	356	271079	67954244	bve	begin
+356	735696	1	2	-4349,4172,53,51,-47,-93630,-4166	0,0,0,0,0,0,0
+# end	356	1
+# begin	357	271079	67954244	bve	end
+357	690460	1	2	-4349,4172,53,51,-47,-93630,-4166	0,0,0,0,0,0,0
+# end	357	1

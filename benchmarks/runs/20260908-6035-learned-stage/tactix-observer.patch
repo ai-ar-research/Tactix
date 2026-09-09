@@ -1,0 +1,23 @@
+--- a/src/diagnostics/event_trace.cpp
++++ b/src/diagnostics/event_trace.cpp
+@@ -3059,0 +3060,10 @@
++#include "learned-stage-6030.h"
++static void emit_learned_stage(const Kernel &k, const char *event,
++                               const std::vector<Lit> &clause) {
++  if (!ls_begin(event, k.stats.conflicts, k.stats.decisions, k.level, clause.size()))
++    return;
++  for (size_t i = 0; i < clause.size(); ++i)
++    std::fprintf(ls_file, "%s%d", i ? "," : "", kernel_externalize(k, clause[i]));
++  ls_end();
++}
++
+@@ -3061,0 +3072 @@
++  emit_learned_stage(k, event, clause);
+@@ -6002,0 +6014 @@
++  emit_learned_stage(k, "learned", clause);
+--- a/tests/CMakeLists.txt
++++ b/tests/CMakeLists.txt
+@@ -4,0 +5,3 @@
++  add_executable(test_learned_stage test_learned_stage.cpp)
++  target_link_libraries(test_learned_stage PRIVATE tactix_lib)
++  add_test(NAME learned_stage COMMAND test_learned_stage)

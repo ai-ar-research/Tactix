@@ -1,0 +1,785 @@
+{
+  "summary_sha256": "e8f413c5aff18a6ae74e4befad4e785c7e83b7fdc435f95da974ee10726eccc8",
+  "first_population": {
+    "reduction": 52,
+    "conflict": 247206,
+    "exact_clause_metadata": false,
+    "candidate_only_copies": 1,
+    "kissat_only_copies": 0,
+    "ranked_common_projection_equal": true,
+    "summaries": {
+      "candidate": {
+        "solver": "tactix",
+        "kind": "summary",
+        "reduction": 52,
+        "conflict": 247206,
+        "mode": "stable",
+        "tier1": 2,
+        "tier2": 27,
+        "live_red": 22807,
+        "candidates": 5484,
+        "victims": 3706,
+        "ref": null,
+        "size": null,
+        "glue": null,
+        "used": null,
+        "reason": null,
+        "eligibility": null,
+        "rank": null,
+        "selected": null,
+        "literals": null
+      },
+      "kissat": {
+        "solver": "kissat",
+        "kind": "summary",
+        "reduction": 52,
+        "conflict": 247206,
+        "mode": "stable",
+        "tier1": 2,
+        "tier2": 27,
+        "live_red": 22806,
+        "candidates": 5483,
+        "victims": 3706,
+        "ref": null,
+        "size": null,
+        "glue": null,
+        "used": null,
+        "reason": null,
+        "eligibility": null,
+        "rank": null,
+        "selected": null,
+        "literals": null
+      }
+    },
+    "only_rows": {
+      "candidate": [
+        {
+          "solver": "tactix",
+          "kind": "clause",
+          "reduction": 52,
+          "conflict": 247206,
+          "mode": "stable",
+          "tier1": 2,
+          "tier2": 27,
+          "live_red": 22807,
+          "candidates": 5484,
+          "victims": 3706,
+          "ref": 5337963,
+          "size": 5,
+          "glue": 3,
+          "used": 23,
+          "reason": 0,
+          "eligibility": "candidate",
+          "rank": 3540,
+          "selected": 1,
+          "literals": [
+            -449407,
+            -449396,
+            -326375,
+            201473,
+            201492
+          ]
+        }
+      ],
+      "kissat": []
+    },
+    "first_metadata_difference": {
+      "candidate": [
+        {
+          "literals": [
+            -63135,
+            64773,
+            65004
+          ],
+          "size": 3,
+          "glue": 2,
+          "used": 0,
+          "reason": 0,
+          "eligibility": "candidate",
+          "rank": 5207,
+          "selected": 0,
+          "multiplicity": 1
+        },
+        {
+          "literals": [
+            -63062,
+            63203,
+            65004
+          ],
+          "size": 3,
+          "glue": 2,
+          "used": 0,
+          "reason": 0,
+          "eligibility": "candidate",
+          "rank": 5208,
+          "selected": 0,
+          "multiplicity": 1
+        },
+        {
+          "literals": [
+            -65733,
+            -55754,
+            -51389,
+            51384,
+            51394
+          ],
+          "size": 5,
+          "glue": 2,
+          "used": 0,
+          "reason": 0,
+          "eligibility": "candidate",
+          "rank": 5081,
+          "selected": 0,
+          "multiplicity": 1
+        }
+      ],
+      "kissat": [
+        {
+          "literals": [
+            -63135,
+            64773,
+            65004
+          ],
+          "size": 3,
+          "glue": 2,
+          "used": 0,
+          "reason": 0,
+          "eligibility": "candidate",
+          "rank": 5206,
+          "selected": 0,
+          "multiplicity": 1
+        },
+        {
+          "literals": [
+            -63062,
+            63203,
+            65004
+          ],
+          "size": 3,
+          "glue": 2,
+          "used": 0,
+          "reason": 0,
+          "eligibility": "candidate",
+          "rank": 5207,
+          "selected": 0,
+          "multiplicity": 1
+        },
+        {
+          "literals": [
+            -65733,
+            -55754,
+            -51389,
+            51384,
+            51394
+          ],
+          "size": 5,
+          "glue": 2,
+          "used": 0,
+          "reason": 0,
+          "eligibility": "candidate",
+          "rank": 5080,
+          "selected": 0,
+          "multiplicity": 1
+        }
+      ]
+    }
+  },
+  "witness_learning_stages": {
+    "candidate": [
+      [
+        "learned_raw",
+        190828,
+        58533494,
+        544,
+        5,
+        [
+          201492,
+          -326375,
+          201473,
+          -449396,
+          -449407
+        ]
+      ],
+      [
+        "learned_sorted",
+        190828,
+        58533494,
+        544,
+        5,
+        [
+          201492,
+          201473,
+          -449396,
+          -326375,
+          -449407
+        ]
+      ],
+      [
+        "learned_shrunk",
+        190828,
+        58533494,
+        544,
+        5,
+        [
+          201492,
+          201473,
+          -449396,
+          -326375,
+          -449407
+        ]
+      ],
+      [
+        "learned",
+        190828,
+        58533494,
+        544,
+        5,
+        [
+          201492,
+          201473,
+          -449396,
+          -326375,
+          -449407
+        ]
+      ],
+      [
+        "learned_raw",
+        206563,
+        59431348,
+        652,
+        5,
+        [
+          484780,
+          -72128,
+          -364380,
+          70014,
+          -485618
+        ]
+      ],
+      [
+        "learned_sorted",
+        206563,
+        59431348,
+        652,
+        5,
+        [
+          484780,
+          -72128,
+          -364380,
+          70014,
+          -485618
+        ]
+      ],
+      [
+        "learned_shrunk",
+        206563,
+        59431348,
+        652,
+        5,
+        [
+          484780,
+          -72128,
+          -364380,
+          70014,
+          -485618
+        ]
+      ],
+      [
+        "learned",
+        206563,
+        59431348,
+        652,
+        5,
+        [
+          484780,
+          -72128,
+          -364380,
+          70014,
+          -485618
+        ]
+      ],
+      [
+        "learned_shrunk",
+        245473,
+        65220441,
+        1549,
+        7,
+        [
+          -47,
+          -4349,
+          51,
+          4172,
+          53,
+          -4166,
+          -93630
+        ]
+      ],
+      [
+        "learned",
+        245473,
+        65220441,
+        1549,
+        7,
+        [
+          -47,
+          -4349,
+          51,
+          4172,
+          53,
+          -4166,
+          -93630
+        ]
+      ]
+    ],
+    "kissat": [
+      [
+        "learned_raw",
+        190828,
+        58533494,
+        544,
+        5,
+        [
+          201492,
+          -326375,
+          201473,
+          -449396,
+          -449407
+        ]
+      ],
+      [
+        "learned_sorted",
+        190828,
+        58533494,
+        544,
+        5,
+        [
+          201492,
+          201473,
+          -449396,
+          -326375,
+          -449407
+        ]
+      ],
+      [
+        "learned_shrunk",
+        190828,
+        58533494,
+        544,
+        5,
+        [
+          201492,
+          201473,
+          -449396,
+          -326375,
+          -449407
+        ]
+      ],
+      [
+        "learned",
+        190828,
+        58533494,
+        544,
+        5,
+        [
+          201492,
+          201473,
+          -449396,
+          -326375,
+          -449407
+        ]
+      ],
+      [
+        "learned_raw",
+        206563,
+        59431348,
+        652,
+        5,
+        [
+          484780,
+          -72128,
+          -364380,
+          70014,
+          -485618
+        ]
+      ],
+      [
+        "learned_sorted",
+        206563,
+        59431348,
+        652,
+        5,
+        [
+          484780,
+          -72128,
+          -364380,
+          70014,
+          -485618
+        ]
+      ],
+      [
+        "learned_shrunk",
+        206563,
+        59431348,
+        652,
+        5,
+        [
+          484780,
+          -72128,
+          -364380,
+          70014,
+          -485618
+        ]
+      ],
+      [
+        "learned",
+        206563,
+        59431348,
+        652,
+        5,
+        [
+          484780,
+          -72128,
+          -364380,
+          70014,
+          -485618
+        ]
+      ],
+      [
+        "learned_shrunk",
+        245473,
+        65220441,
+        1549,
+        7,
+        [
+          -47,
+          -4349,
+          51,
+          4172,
+          53,
+          -4166,
+          -93630
+        ]
+      ],
+      [
+        "learned",
+        245473,
+        65220441,
+        1549,
+        7,
+        [
+          -47,
+          -4349,
+          51,
+          4172,
+          53,
+          -4166,
+          -93630
+        ]
+      ]
+    ]
+  },
+  "first_learning_difference_by_stage": {
+    "learned_sorted": {
+      "conflict": 17632,
+      "candidate": [
+        [
+          "learned_raw",
+          17632,
+          18374247,
+          87,
+          4,
+          [
+            89448,
+            -89401,
+            89402,
+            89453
+          ]
+        ],
+        [
+          "learned_sorted",
+          17632,
+          18374247,
+          87,
+          2,
+          [
+            89448,
+            89453
+          ]
+        ],
+        [
+          "learned_shrunk",
+          17632,
+          18374247,
+          87,
+          2,
+          [
+            89448,
+            89453
+          ]
+        ],
+        [
+          "learned",
+          17632,
+          18374247,
+          87,
+          2,
+          [
+            89448,
+            89453
+          ]
+        ]
+      ],
+      "kissat": [
+        [
+          "learned_raw",
+          17632,
+          18374247,
+          87,
+          4,
+          [
+            89448,
+            -89401,
+            89402,
+            89453
+          ]
+        ],
+        [
+          "learned_sorted",
+          17632,
+          18374247,
+          87,
+          4,
+          [
+            89448,
+            -89401,
+            89402,
+            89453
+          ]
+        ],
+        [
+          "learned_shrunk",
+          17632,
+          18374247,
+          87,
+          2,
+          [
+            89448,
+            89453
+          ]
+        ],
+        [
+          "learned",
+          17632,
+          18374247,
+          87,
+          2,
+          [
+            89448,
+            89453
+          ]
+        ]
+      ]
+    }
+  },
+  "population_transitions": [
+    {
+      "reduction": 51,
+      "conflict": 240062,
+      "incoming": {
+        "candidate": [],
+        "kissat": []
+      },
+      "outgoing": {
+        "candidate": [
+          {
+            "literals": [
+              -449407,
+              -449396,
+              -326375,
+              201473,
+              201492
+            ],
+            "multiplicity": 1
+          }
+        ],
+        "kissat": []
+      },
+      "incoming_equals_previous_survivor_difference": true
+    },
+    {
+      "reduction": 52,
+      "conflict": 247206,
+      "incoming": {
+        "candidate": [
+          {
+            "literals": [
+              -449407,
+              -449396,
+              -326375,
+              201473,
+              201492
+            ],
+            "multiplicity": 1
+          }
+        ],
+        "kissat": []
+      },
+      "outgoing": {
+        "candidate": [
+          {
+            "literals": [
+              -485618,
+              -364380,
+              -72128,
+              70014,
+              484780
+            ],
+            "multiplicity": 1
+          }
+        ],
+        "kissat": []
+      },
+      "incoming_equals_previous_survivor_difference": true
+    },
+    {
+      "reduction": 53,
+      "conflict": 254418,
+      "incoming": {
+        "candidate": [
+          {
+            "literals": [
+              -485618,
+              -364380,
+              -72128,
+              70014,
+              484780
+            ],
+            "multiplicity": 1
+          }
+        ],
+        "kissat": []
+      },
+      "outgoing": {
+        "candidate": [
+          {
+            "literals": [
+              -414683,
+              -204813,
+              204815,
+              314009
+            ],
+            "multiplicity": 1
+          }
+        ],
+        "kissat": []
+      },
+      "incoming_equals_previous_survivor_difference": true
+    },
+    {
+      "reduction": 54,
+      "conflict": 261698,
+      "incoming": {
+        "candidate": [
+          {
+            "literals": [
+              -414683,
+              -204813,
+              204815,
+              314009
+            ],
+            "multiplicity": 1
+          }
+        ],
+        "kissat": []
+      },
+      "outgoing": {
+        "candidate": [
+          {
+            "literals": [
+              -414683,
+              -204813,
+              204815,
+              314009
+            ],
+            "multiplicity": 1
+          }
+        ],
+        "kissat": [
+          {
+            "literals": [
+              -93630,
+              -4349,
+              -4166,
+              -47,
+              51,
+              53,
+              4172
+            ],
+            "multiplicity": 1
+          }
+        ]
+      },
+      "incoming_equals_previous_survivor_difference": true
+    },
+    {
+      "reduction": 55,
+      "conflict": 269047,
+      "incoming": {
+        "candidate": [
+          {
+            "literals": [
+              -414683,
+              -204813,
+              204815,
+              314009
+            ],
+            "multiplicity": 1
+          }
+        ],
+        "kissat": [
+          {
+            "literals": [
+              -93630,
+              -4349,
+              -4166,
+              -47,
+              51,
+              53,
+              4172
+            ],
+            "multiplicity": 1
+          }
+        ]
+      },
+      "outgoing": {
+        "candidate": [
+          {
+            "literals": [
+              -414683,
+              -204813,
+              204815,
+              314009
+            ],
+            "multiplicity": 1
+          }
+        ],
+        "kissat": [
+          {
+            "literals": [
+              -93630,
+              -4349,
+              -4166,
+              -47,
+              51,
+              53,
+              4172
+            ],
+            "multiplicity": 1
+          }
+        ]
+      },
+      "incoming_equals_previous_survivor_difference": true
+    }
+  ],
+  "limitation": "Survivor difference equality establishes multiset continuity only, not absence of cancelling changes. Learned-stage differences may be callback timing, requiring real clause and reason witnesses."
+}
