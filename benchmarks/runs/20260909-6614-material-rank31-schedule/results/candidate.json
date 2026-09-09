@@ -1,0 +1,30 @@
+{
+  "scratch": "/tmp/tactix-6614-1678416-yxhpjlfu",
+  "arm": "candidate",
+  "slurm_job": "1678416",
+  "node": "node017",
+  "binary_sha256": "6de176aa2f7d4522954ce8efb279f1b74ef52cea9c0a26a1b9b11869048f80e2",
+  "purpose": "Stopped diagnostic; no checked final verdict or timing claim.",
+  "command": [
+    "timeout",
+    "1200",
+    "taskset",
+    "-c",
+    "54",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6614-material-rank31-schedule/pins/candidate",
+    "/tmp/tactix-6614-1678416-yxhpjlfu/input.cnf",
+    "/tmp/tactix-6614-1678416-yxhpjlfu/partial.drat"
+  ],
+  "exit_code": 0,
+  "partial_certificate": {
+    "bytes": 117440512,
+    "sha256": "2bae6e4b9a7407c52cc0ea7e0c9ed1fbae015ef8014a96145d30daf1e8ca6ccb"
+  },
+  "trace_sha256": {
+    "candidate.macro.tsv": "326dc10385bb4f9a48e826b3fd4f95d7e79ed8ae1742b57c38fc0baaa7d4e725",
+    "candidate.bve-schedule.tsv": "11cf9981a42360785ad919f4d7bcde67e5f2d306ed057e15c430b38b63040b0c",
+    "candidate.decisions.tsv": "fcd3f6a7088bb13149dadf7139778e280e646f563a23997b1a9468c426c89afe",
+    "candidate.boundaries.tsv": "4f65c7909825ba81ceb6584bea90ab603406f93441e8edd76d7a367f09603abf"
+  },
+  "scratch_deleted": true
+}
