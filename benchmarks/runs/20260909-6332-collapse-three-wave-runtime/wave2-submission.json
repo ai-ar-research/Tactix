@@ -1,0 +1,33 @@
+{
+  "job_id": "1677568",
+  "tasks": [
+    12,
+    13,
+    14,
+    15,
+    16,
+    17
+  ],
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--array=12-17",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6332-collapse-three-wave-runtime/array.sbatch"
+  ],
+  "accounting_since": "2026-09-09T05:14:30",
+  "manifest_sha256": "9ce739b19a0225945d579a7fa4676f3afc32ab8c48e41f3b0f47974bbf5bf500",
+  "preceding_records": {
+    "benchmarks/runs/20260909-6332-collapse-three-wave-runtime/provisional/003.json": "de98929c4daf1a998b12ed2d888da5e8d1c346609e76caa5dd781bc37928bc69",
+    "benchmarks/runs/20260909-6332-collapse-three-wave-runtime/provisional/007.json": "b42d1cce9f64fbb045e3bac08d6a33ed6cd0c80f89d4165b41b7913756835a4e",
+    "benchmarks/runs/20260909-6332-collapse-three-wave-runtime/provisional/002.json": "0f88456b22707e9b5230e5a6dc935ffdc8ce7c9dac282765f13855bfd8a762f6",
+    "benchmarks/runs/20260909-6332-collapse-three-wave-runtime/provisional/006.json": "27c817e51f15042d25dd79083146cc027bd2bdb0a22cd80d376fbe551c4170d1",
+    "benchmarks/runs/20260909-6332-collapse-three-wave-runtime/provisional/000.json": "8b509cccfa956e6c6c13a46b3ace53325c1e8abb23113ef106dd76d5e653475b",
+    "benchmarks/runs/20260909-6332-collapse-three-wave-runtime/provisional/004.json": "d5619a0e55355400824c3dfd96a2ca5e75a469e6daf2c22315f46491edec6ced",
+    "benchmarks/runs/20260909-6332-collapse-three-wave-runtime/provisional/008.json": "c088535df70fc28857d23980b4c99497b83a351c4986761ea7e2f9a5f9121826",
+    "benchmarks/runs/20260909-6332-collapse-three-wave-runtime/provisional/010.json": "3606fa468869a361d8fe6c59c21fb9b1a866e85c3cf1a2bca355bc8e1f2292bd",
+    "benchmarks/runs/20260909-6332-collapse-three-wave-runtime/provisional/009.json": "a20d3bd0ab6a7e361c163d63ab395a632d37352856cff8c78f481db4e45ce3c9",
+    "benchmarks/runs/20260909-6332-collapse-three-wave-runtime/provisional/011.json": "f1571b419ec716ad7d4e5cdedfd7bf203eae19d6e3371941d1756f9f8305fa91",
+    "benchmarks/runs/20260909-6332-collapse-three-wave-runtime/provisional/001.json": "3183a50a3c7647ecb7e87995d8df8d57f1e1b546fc03a55923506ab033ae9518",
+    "benchmarks/runs/20260909-6332-collapse-three-wave-runtime/results/005.json": "fe78953840382af2f142dc511a4ef00495cd9721a1d278070e5acb5306e79cc0"
+  }
+}
