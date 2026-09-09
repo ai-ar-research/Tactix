@@ -1,0 +1,21 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260908-6100-rank37-substitute-deactivation/replay-controls/replay",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260908-6100-rank37-substitute-deactivation/candidate.substitute-begin.tsv",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260908-6100-rank37-substitute-deactivation/candidate.removal-order.txt",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260908-6100-rank37-substitute-deactivation/kissat.removal-order.txt",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260908-6100-rank37-substitute-deactivation/candidate.substitute-end.tsv",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260908-6100-rank37-substitute-deactivation/kissat.substitute-end.tsv"
+  ],
+  "stdout": "candidate removal order: 0 differing final positions\nnative removal order: 0 differing final positions\n",
+  "hashes": {
+    "benchmarks/runs/20260908-6100-rank37-substitute-deactivation/replay-controls/replay": "8fcf128eec4d612e04245e97ed385a2ca8c0af15904c56ffeeb6174848b167a0",
+    "benchmarks/runs/20260908-6100-rank37-substitute-deactivation/candidate.substitute-begin.tsv": "4fe161bbb41260d946ac392b701fa91ca74ff988cac5896ee371f25b61b7d2ca",
+    "benchmarks/runs/20260908-6100-rank37-substitute-deactivation/candidate.removal-order.txt": "fb42f57e58b5a3888afc653ca861f0c6e4cbbbe7f05ef2d59299962e2c8d4196",
+    "benchmarks/runs/20260908-6100-rank37-substitute-deactivation/kissat.removal-order.txt": "53025deb195580363b44f72e288a38a9287eed2b7cbbb406c3a275188a6da755",
+    "benchmarks/runs/20260908-6100-rank37-substitute-deactivation/candidate.substitute-end.tsv": "6b81daab6da08b1c73cc3ab861a1c86c5c26b8f78e61141a2b02ccdfb2e8d69d",
+    "benchmarks/runs/20260908-6100-rank37-substitute-deactivation/kissat.substitute-end.tsv": "45c5b747cbe5beab3bc1af99cbac6a2d42b0b95fab323ac15d3e8212e2a8e332"
+  },
+  "deactivation_summary_sha256": "a891982780560bf7ba11ca654f4c449593546fa9cc7a3b3d3107856096ff044e",
+  "conclusion": "Both observed removal orders exactly reproduce their complete output heaps using actual Tactix heap code."
+}

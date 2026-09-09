@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare candidate-only full40 measurements or score against a frozen reference.
+"""Prepare candidate-only full-view measurements or score a frozen reference.
 
 This tool never submits jobs or reruns Kissat. Solver/checker execution remains
 owned by the reference campaign's immutable runtime_task.py.
@@ -14,7 +14,7 @@ from pathlib import Path
 import shutil
 
 ROOT = Path(__file__).resolve().parents[2]
-REFERENCE = ROOT / 'benchmarks/baselines/rank1-40-kissat-12cpu-v1/manifest.json'
+REFERENCE = ROOT / 'benchmarks/baselines/rank1-50-kissat-12cpu-v1/manifest.json'
 
 
 def sha(path):
@@ -32,10 +32,21 @@ def require(condition, message):
 
 def reference(path=REFERENCE):
     ref = json.loads(path.read_text())
-    require(ref['schema'] == 'tactix-fixed-rank1-40-kissat-reference-v1', 'reference schema')
+    sizes = {'tactix-fixed-rank1-40-kissat-reference-v1': 40,
+             'tactix-fixed-rank1-50-kissat-reference-v1': 50}
+    require(ref['schema'] in sizes, 'reference schema')
+    count = sizes[ref['schema']]
     rows = ref['records']
-    require(len(rows) == 40 and {r['rank'] for r in rows} == set(range(1,41)), 'reference rank coverage')
-    require(len({r['instance'] for r in rows}) == 40, 'duplicate reference input')
+    require(len(rows) == count and {r['rank'] for r in rows} == set(range(1,count+1)), 'reference rank coverage')
+    require(len({r['instance'] for r in rows}) == count, 'duplicate reference input')
+    if count == 50:
+        binding = ref['original_reference']
+        original_path = ROOT / binding['path']
+        require(sha(original_path) == binding['sha256'], 'original reference changed')
+        original = reference(original_path)
+        require(rows[:40] == original['records'], 'original forty measurements changed')
+        for key in ('partition','cpus_per_task','memory_mib','solve_timeout','checker_timeout','one_solver_per_task'):
+            require(ref['resource_contract'][key] == original['resource_contract'][key], 'extended resource mismatch: ' + key)
     total = math.fsum(r['measurement']['solve']['wall_seconds'] for r in rows)
     require(math.isclose(total, ref['solver_seconds'], rel_tol=0, abs_tol=1e-8), 'reference total')
     return ref
@@ -47,11 +58,11 @@ def candidate_rows(ref):
             for i,r in enumerate(sorted(ref['records'], key=lambda r:r['rank']))]
 
 
-def prepare(campaign, authority, release, bc):
+def prepare(campaign, authority, release, bc, reference_path=REFERENCE):
     campaign = campaign.resolve()
     require(campaign.parent == ROOT / 'benchmarks/runs', 'campaign must be directly under benchmarks/runs')
     require(not campaign.exists(), 'campaign already exists')
-    ref = reference()
+    ref = reference(reference_path)
     origin = ROOT / ref['source_campaign']
     require(sha(ROOT / ref['source_manifest']['path']) == ref['source_manifest']['sha256'], 'source manifest changed')
     m = json.loads((origin / 'manifest.json').read_text())
@@ -79,20 +90,21 @@ def prepare(campaign, authority, release, bc):
         writer.writerows(rows)
     batch = (origin / 'array.sbatch').read_text().replace(str(origin), str(campaign))
     require('#SBATCH --array=0-79' in batch, 'unexpected source array')
-    batch = batch.replace('#SBATCH --array=0-79', '#SBATCH --array=0-39')
+    array = f'0-{len(rows)-1}'
+    batch = batch.replace('#SBATCH --array=0-79', '#SBATCH --array=' + array)
     (campaign / 'array.sbatch').write_text(batch)
     arm = dict(path='pins/tactix', sha256=sha(release), source_commit=a['production'],
         source_build=str(release.parent.relative_to(ROOT)), arguments=[],
         source_patch='pins/candidate-source.patch', source_patch_sha256=sha(authority / 'cumulative.patch'))
-    contract = dict(m['resource_contract'], array='0-39', proof_mode='DRAT')
+    contract = dict(m['resource_contract'], array=array, proof_mode='DRAT')
     manifest = dict(schema='tactix-fixed-reference-runtime-v1', created_at=dt.datetime.now(dt.timezone.utc).isoformat(),
         arms=dict(tactix=arm), input_sha256={r['instance']:r['input_sha256'] for r in ref['records']},
         resource_contract=contract, collect_runtime_context=True,
         candidate_authority=dict(path=str((authority / 'manifest.json').relative_to(ROOT)),sha256=sha(authority / 'manifest.json')),
-        fixed_reference=dict(path=str(REFERENCE.relative_to(ROOT)),sha256=sha(REFERENCE)),
-        purpose='All40 candidate-only proof-on solves against the fixed Kissat vector; no new reference arm.',
+        fixed_reference=dict(path=str(reference_path.relative_to(ROOT)),sha256=sha(reference_path)),
+        purpose=f'All{len(rows)} candidate-only proof-on solves against the fixed Kissat vector; no new reference arm.',
         test_consideration=a['test_consideration'] + ' Runner unchanged; fixed-runtime tests cover candidate-only matrix and score completeness/identity/check status.',
-        validation='Expected solves allow provisional development; all40 candidate and reference certificates, B28+C5, memory and current-source fuzz required for acceptance.',
+        validation=f'Expected solves allow provisional development; all{len(rows)} candidate and reference certificates, B28+C5, memory and current-source fuzz required for acceptance.',
         limitation='Cross-window fixed reference; not isolated unit-cost attribution or promotion.')
     manifest['pin_sha256'] = {str(p.relative_to(campaign)):sha(p)
         for p in [*(campaign / 'pins').iterdir(), campaign / 'matrix.tsv', campaign / 'array.sbatch']}
@@ -129,12 +141,12 @@ def score_records(ref, records):
         per_rank.append(dict(rank=rank, solved=ok, candidate_par2_seconds=seconds,
             kissat_seconds=base['measurement']['solve']['wall_seconds'],
             candidate_peak_rss_kb=s.get('peak_rss_kb'), kissat_peak_rss_kb=base['measurement']['solve'].get('peak_rss_kb')))
-    complete = seen == set(range(1,41))
+    complete = seen == set(expected)
     return dict(records=len(records), expected_solves=solved, checked_clean=checked,
         complete=complete, candidate_par2=total if complete else None,
         fixed_kissat_seconds=ref['solver_seconds'],
         ratio=total / ref['solver_seconds'] if complete else None,
-        runtime_target_met=bool(complete and solved == 40 and total <= 1.01 * ref['solver_seconds']),
+        runtime_target_met=bool(complete and solved == len(expected) and total <= 1.01 * ref['solver_seconds']),
         per_rank=sorted(per_rank,key=lambda r:r['rank']))
 
 
@@ -164,15 +176,15 @@ def score(campaign):
     reference_checked = 0
     for row in ref['records']:
         r = row['measurement']
-        p = ROOT / ref['source_campaign'] / 'results' / f'{int(r["task"]):03}.json'
+        p = ROOT / row.get('source_campaign', ref['source_campaign']) / 'results' / f'{int(r["task"]):03}.json'
         if not p.exists(): continue
         final = json.loads(p.read_text())
         require(final['valid'] and final['expected_match'], 'rejected reference certificate')
         for key in ('solve','certificate_sha256','certificate_bytes','instance','rank','arm'):
             require(final[key] == r[key], 'reference measurement changed')
-        reference_checked += 1
+        reference_checked += bool(final.get('artifact_deleted') and final.get('derived_artifacts_deleted') and not final.get('cleanup_pending'))
     output.update(reference_checked=reference_checked,
-        all_certificates_checked=reference_checked == 40 and output['checked_clean'] == 40,
+        all_certificates_checked=reference_checked == len(ref['records']) and output['checked_clean'] == len(ref['records']),
         limitation='Fixed-reference cross-window score; runtime_target_met alone is not acceptance. B28+C5,current-source fuzz and memory gates remain separate.')
     return output
 
@@ -184,11 +196,12 @@ def main():
     p.add_argument('campaign', type=Path)
     for arg in ('authority','release','bc'):
         p.add_argument('--' + arg, type=Path, required=True)
+    p.add_argument('--reference', type=Path, default=REFERENCE)
     p = sub.add_parser('score')
     p.add_argument('campaign', type=Path)
     args = ap.parse_args()
     if args.command == 'prepare':
-        prepare(args.campaign.resolve(), args.authority.resolve(), args.release.resolve(), args.bc.resolve())
+        prepare(args.campaign.resolve(), args.authority.resolve(), args.release.resolve(), args.bc.resolve(), args.reference.resolve())
         print(args.campaign)
     else:
         print(json.dumps(score(args.campaign.resolve()), indent=2))

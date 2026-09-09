@@ -1,0 +1,10 @@
+{
+  "job_id": "1676803",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260908-6114-substitute-publication-BC-gate/array.sbatch"
+  ],
+  "manifest_sha256": "27c57c3c896ab15daa9d51ff87f9a977472d28b2b43b849be7322b96eb598bb1",
+  "continuation": "Independent12CPU48000MiB1200solver16000checker5h full-width gate. Continue while proofscheck. No prior source,pin,runner or fixed timing changed."
+}
