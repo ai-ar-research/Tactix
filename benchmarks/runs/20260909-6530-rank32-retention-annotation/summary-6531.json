@@ -1,0 +1,133 @@
+{
+  "hashes": {
+    "benchmarks/runs/20260909-6530-rank32-retention-annotation/manifest.json": "92a92f7e6e75cbd071d52b4dd8b35bf7360fd77f76d825709aa88dab5246145e",
+    "benchmarks/runs/20260909-6530-rank32-retention-annotation/candidate-rebuild-periods.txt": "0dcb5ae1e8292ba5fca14b8a8f7b628f0dfadf35c4107f1929231cced2115122",
+    "benchmarks/runs/20260909-6530-rank32-retention-annotation/candidate-rebuild-periods.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "benchmarks/runs/20260909-6530-rank32-retention-annotation/candidate-rebuild-percent.txt": "ccc49a684cce185655813fd246d24375337f651dbc47928b239ec10f58742cc7",
+    "benchmarks/runs/20260909-6530-rank32-retention-annotation/candidate-rebuild-percent.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "benchmarks/runs/20260909-6530-rank32-retention-annotation/candidate-collect-periods.txt": "e2acfdfe51ee95af19df02a4b9691577e526bd9b5b4af6cc3b5319ce85646b25",
+    "benchmarks/runs/20260909-6530-rank32-retention-annotation/candidate-collect-periods.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "benchmarks/runs/20260909-6530-rank32-retention-annotation/candidate-collect-percent.txt": "48a92df5e6deba1249b7c688303961a6fe5d811b668f0d997c2ace9e43c3835b",
+    "benchmarks/runs/20260909-6530-rank32-retention-annotation/candidate-collect-percent.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "benchmarks/runs/20260909-6530-rank32-retention-annotation/kissat-rebuild-periods.txt": "20d7476e5fd721f807ef4df2bd3de6fa08f8c1ab070bb1e942287d23792213fc",
+    "benchmarks/runs/20260909-6530-rank32-retention-annotation/kissat-rebuild-periods.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "benchmarks/runs/20260909-6530-rank32-retention-annotation/kissat-rebuild-percent.txt": "e0a243cfc26af284207b80b6decc1c197d8ef6515e197b18ab3d250c6f3d00a7",
+    "benchmarks/runs/20260909-6530-rank32-retention-annotation/kissat-rebuild-percent.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "benchmarks/runs/20260909-6530-rank32-retention-annotation/kissat-flush-periods.txt": "16b3e0d4d80e26a3cc9f3fe65babff4f52c12739247bfb81c21f51a179ae772f",
+    "benchmarks/runs/20260909-6530-rank32-retention-annotation/kissat-flush-periods.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "benchmarks/runs/20260909-6530-rank32-retention-annotation/kissat-flush-percent.txt": "9d8e38cf5076b9305581cb429b75f8e7f837d612d5c98f0883bc80fe9f94d836",
+    "benchmarks/runs/20260909-6530-rank32-retention-annotation/kissat-flush-percent.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "benchmarks/runs/20260909-6372-rank32-release-profile/profiles/000-self.txt": "7b38957dc43c048d9f2fc68c95bf483230487b74a47d052bfb5427e1c968cbce",
+    "benchmarks/runs/20260909-6372-rank32-release-profile/profiles/001-self.txt": "7cd1502c64a1d547e33e0aae52828b7a1e6ad62bdc3afe02abfc9a1ff3c91b14",
+    "tools/bench/perf_annotation.py": "f0cb9bf96822ef1ed3cc46639e72ef56922de6dad57115e39bd681d5f1e7cf7e",
+    "tools/bench/test_perf_annotation.py": "694967e78651e6aaeaa78b97a1b00235a34a9b6692fcaba8d85132240efa697a",
+    "benchmarks/probes/scratch/summarize-retention-6531.py": "12f8c632d6d0be7ef0855cbfcccc97fdbbb056891ee636aa514ac93ed5c44c78"
+  },
+  "global_event_periods": {
+    "candidate": 1226065909430,
+    "kissat": 1027207264918
+  },
+  "functions": {
+    "candidate-rebuild": {
+      "symbol": "tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)",
+      "instruction_rows": 786,
+      "samples": 1468,
+      "period": 27696277447,
+      "percent_program": 2.2589550230522306
+    },
+    "candidate-collect": {
+      "symbol": "tactix::kernel_collect_garbage(tactix::Kernel&, unsigned int, bool, bool)",
+      "instruction_rows": 935,
+      "samples": 1429,
+      "period": 26805912356,
+      "percent_program": 2.1863353470501528
+    },
+    "kissat-rebuild": {
+      "symbol": "kissat_watch_large_clauses",
+      "instruction_rows": 575,
+      "samples": 1368,
+      "period": 25783600457,
+      "percent_program": 2.510067961703742
+    },
+    "kissat-flush": {
+      "symbol": "kissat_flush_large_watches",
+      "instruction_rows": 89,
+      "samples": 396,
+      "period": 7473016246,
+      "percent_program": 0.7275081184902403
+    }
+  },
+  "regions": {
+    "rebuild_retention_and_list_bookkeeping": {
+      "function": "candidate-rebuild",
+      "ranges": [
+        [
+          "0x410c1d",
+          "0x410cd4"
+        ],
+        [
+          "0x4110e8",
+          "0x4110f2"
+        ]
+      ],
+      "period": 4961628461,
+      "percent_function": 17.91442359174313,
+      "percent_program": 0.4046787715765353
+    },
+    "rebuild_entry_loop_subset": {
+      "function": "candidate-rebuild",
+      "ranges": [
+        [
+          "0x410c68",
+          "0x410c97"
+        ]
+      ],
+      "period": 2122142056,
+      "percent_function": 7.662192365241004,
+      "percent_program": 0.1730854793105362
+    },
+    "collection_pure_retention_and_metadata": {
+      "function": "candidate-collect",
+      "ranges": [
+        [
+          "0x420153",
+          "0x4201db"
+        ],
+        [
+          "0x420780",
+          "0x42078a"
+        ]
+      ],
+      "period": 651139912,
+      "percent_function": 2.4290906548989537,
+      "percent_program": 0.05310806759994787
+    },
+    "collection_entry_loop_subset": {
+      "function": "candidate-collect",
+      "ranges": [
+        [
+          "0x420180",
+          "0x4201b2"
+        ]
+      ],
+      "period": 314884308,
+      "percent_function": 1.1746823007481746,
+      "percent_program": 0.02568249435679932
+    },
+    "collection_shared_ref_mapping_loop_not_fast_path": {
+      "function": "candidate-collect",
+      "ranges": [
+        [
+          "0x4201f0",
+          "0x420203"
+        ]
+      ],
+      "period": 1081858050,
+      "percent_function": 4.035893409007011,
+      "percent_program": 0.08823816417038767
+    }
+  },
+  "combined_two_retention_sites_percent_program": 0.45778683917648316,
+  "decision": "Deprioritize the scan-only proposal as the main Rank32 gap-closing step. Keep baseline contract tests; no implementation or new timing is selected by this attribution.",
+  "limitations": "One sampled pair; instruction skid and frequency-weighted sampling apply. Region shares are not time savings, independent ablations or hardware-stall causes. Mixed-list and bookkeeping work remains after a fast path. Drop-large caller coverage is not measured here; do not claim a complete three-site ceiling. Native scopes differ. Source equality does not establish new linked-image cost."
+}

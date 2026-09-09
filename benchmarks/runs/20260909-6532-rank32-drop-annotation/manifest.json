@@ -1,0 +1,56 @@
+{
+  "parent": "benchmarks/runs/20260909-6372-rank32-release-profile",
+  "authorities": {
+    "manifest.json": "fe3be2666d547e91e32a362906754015c1f82e1469231afa7554e891f63ff05e",
+    "solver-summary-6378.json": "5f88080bacba0ef1e7d6927c2edc069dbff5aa23e435fdc8deae8f5ae9268031",
+    "results/000.json": "ceb00ad92064308d05b73146040c38cdd723be1eb087b10f00c2b3f78310e42f",
+    "profiles/000.perf.data.xz": "65ec69af4c9cd31c85dd6f7699ad7b7f4f54d23d0f9773f8402e709f0edebfc8",
+    "pins/candidate": "00a23b9c8f5ec050cb0a1eb05a903c44496b8fd40c650e62eae7ae182a78a695"
+  },
+  "source_kernel_watch_exact_current": {
+    "src/kernel/kernel.cpp": "a1a7b65339bca339fa8f7794a8fbb444f7d77d613d9c76b48ff4fb65228c454d",
+    "src/kernel/watch.hpp": "0287bd266961a1d0b7d0b4180a8669b2b878a377949c7c747be71e58fdad7f8b"
+  },
+  "outputs": {
+    "candidate-drop-periods": {
+      "command": [
+        "perf",
+        "annotate",
+        "--stdio",
+        "--stdio-color",
+        "never",
+        "--no-source",
+        "-i",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6532-rank32-drop-annotation/candidate-3u7g3nu4/profile.data",
+        "--symbol",
+        "tactix::kernel_drop_large_watches(tactix::Kernel&)",
+        "--show-total-period"
+      ],
+      "exit": 0,
+      "stdout_sha256": "99da273da4f16a864bfdd9fc88c8db8249c4e841a372755d373715d72527f080",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "candidate-drop-percent": {
+      "command": [
+        "perf",
+        "annotate",
+        "--stdio",
+        "--stdio-color",
+        "never",
+        "--no-source",
+        "-i",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6532-rank32-drop-annotation/candidate-3u7g3nu4/profile.data",
+        "--symbol",
+        "tactix::kernel_drop_large_watches(tactix::Kernel&)",
+        "--percent-type",
+        "local-period"
+      ],
+      "exit": 0,
+      "stdout_sha256": "b305ea654fd62739df0a85cd7992725bc598ba3bbe41639dc74bebdcdb792c3d",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "temporary_expansions_deleted_bytes": 550070760,
+  "scope": "Offline attribution of already checked profiles; no new solver/profile/correctness or runtime-gain claim.",
+  "test_consideration": "Existing annotate helper pattern, exact pin/profile/source hashes and nonempty successful symbol outputs. No solver/parser implementation changed; new attribution parser will need focused tests if introduced."
+}

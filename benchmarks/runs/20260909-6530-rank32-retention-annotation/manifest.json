@@ -1,0 +1,170 @@
+{
+  "parent": "benchmarks/runs/20260909-6372-rank32-release-profile",
+  "authorities": {
+    "manifest.json": "fe3be2666d547e91e32a362906754015c1f82e1469231afa7554e891f63ff05e",
+    "solver-summary-6378.json": "5f88080bacba0ef1e7d6927c2edc069dbff5aa23e435fdc8deae8f5ae9268031",
+    "results/000.json": "ceb00ad92064308d05b73146040c38cdd723be1eb087b10f00c2b3f78310e42f",
+    "profiles/000.perf.data.xz": "65ec69af4c9cd31c85dd6f7699ad7b7f4f54d23d0f9773f8402e709f0edebfc8",
+    "pins/candidate": "00a23b9c8f5ec050cb0a1eb05a903c44496b8fd40c650e62eae7ae182a78a695",
+    "results/001.json": "76f36bba26fcffda034b6dbdee2e1c4107dd3d910d4f750bf6fe520def2ff741",
+    "profiles/001.perf.data.xz": "48140862bf6ce98f77924b563658dc41fd129ab3463a3de696c60634831f1e27",
+    "pins/kissat": "3aa8e41f976e213d3c4627150e9cd4e5fce0ce9508d67ab469a7696e26a8d49c"
+  },
+  "source_kernel_watch_exact_current": {
+    "src/kernel/kernel.cpp": "a1a7b65339bca339fa8f7794a8fbb444f7d77d613d9c76b48ff4fb65228c454d",
+    "src/kernel/watch.hpp": "0287bd266961a1d0b7d0b4180a8669b2b878a377949c7c747be71e58fdad7f8b"
+  },
+  "outputs": {
+    "candidate-rebuild-periods": {
+      "command": [
+        "perf",
+        "annotate",
+        "--stdio",
+        "--stdio-color",
+        "never",
+        "--no-source",
+        "-i",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6530-rank32-retention-annotation/candidate-bio9x1wm/profile.data",
+        "--symbol",
+        "tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)",
+        "--show-total-period"
+      ],
+      "exit": 0,
+      "stdout_sha256": "0dcb5ae1e8292ba5fca14b8a8f7b628f0dfadf35c4107f1929231cced2115122",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "candidate-rebuild-percent": {
+      "command": [
+        "perf",
+        "annotate",
+        "--stdio",
+        "--stdio-color",
+        "never",
+        "--no-source",
+        "-i",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6530-rank32-retention-annotation/candidate-bio9x1wm/profile.data",
+        "--symbol",
+        "tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)",
+        "--percent-type",
+        "local-period"
+      ],
+      "exit": 0,
+      "stdout_sha256": "ccc49a684cce185655813fd246d24375337f651dbc47928b239ec10f58742cc7",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "candidate-collect-periods": {
+      "command": [
+        "perf",
+        "annotate",
+        "--stdio",
+        "--stdio-color",
+        "never",
+        "--no-source",
+        "-i",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6530-rank32-retention-annotation/candidate-bio9x1wm/profile.data",
+        "--symbol",
+        "tactix::kernel_collect_garbage(tactix::Kernel&, unsigned int, bool, bool)",
+        "--show-total-period"
+      ],
+      "exit": 0,
+      "stdout_sha256": "e2acfdfe51ee95af19df02a4b9691577e526bd9b5b4af6cc3b5319ce85646b25",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "candidate-collect-percent": {
+      "command": [
+        "perf",
+        "annotate",
+        "--stdio",
+        "--stdio-color",
+        "never",
+        "--no-source",
+        "-i",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6530-rank32-retention-annotation/candidate-bio9x1wm/profile.data",
+        "--symbol",
+        "tactix::kernel_collect_garbage(tactix::Kernel&, unsigned int, bool, bool)",
+        "--percent-type",
+        "local-period"
+      ],
+      "exit": 0,
+      "stdout_sha256": "48a92df5e6deba1249b7c688303961a6fe5d811b668f0d997c2ace9e43c3835b",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "kissat-rebuild-periods": {
+      "command": [
+        "perf",
+        "annotate",
+        "--stdio",
+        "--stdio-color",
+        "never",
+        "--no-source",
+        "-i",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6530-rank32-retention-annotation/kissat-aopeq63_/profile.data",
+        "--symbol",
+        "kissat_watch_large_clauses",
+        "--show-total-period"
+      ],
+      "exit": 0,
+      "stdout_sha256": "20d7476e5fd721f807ef4df2bd3de6fa08f8c1ab070bb1e942287d23792213fc",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "kissat-rebuild-percent": {
+      "command": [
+        "perf",
+        "annotate",
+        "--stdio",
+        "--stdio-color",
+        "never",
+        "--no-source",
+        "-i",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6530-rank32-retention-annotation/kissat-aopeq63_/profile.data",
+        "--symbol",
+        "kissat_watch_large_clauses",
+        "--percent-type",
+        "local-period"
+      ],
+      "exit": 0,
+      "stdout_sha256": "e0a243cfc26af284207b80b6decc1c197d8ef6515e197b18ab3d250c6f3d00a7",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "kissat-flush-periods": {
+      "command": [
+        "perf",
+        "annotate",
+        "--stdio",
+        "--stdio-color",
+        "never",
+        "--no-source",
+        "-i",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6530-rank32-retention-annotation/kissat-aopeq63_/profile.data",
+        "--symbol",
+        "kissat_flush_large_watches",
+        "--show-total-period"
+      ],
+      "exit": 0,
+      "stdout_sha256": "16b3e0d4d80e26a3cc9f3fe65babff4f52c12739247bfb81c21f51a179ae772f",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "kissat-flush-percent": {
+      "command": [
+        "perf",
+        "annotate",
+        "--stdio",
+        "--stdio-color",
+        "never",
+        "--no-source",
+        "-i",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6530-rank32-retention-annotation/kissat-aopeq63_/profile.data",
+        "--symbol",
+        "kissat_flush_large_watches",
+        "--percent-type",
+        "local-period"
+      ],
+      "exit": 0,
+      "stdout_sha256": "9d8e38cf5076b9305581cb429b75f8e7f837d612d5c98f0883bc80fe9f94d836",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "temporary_expansions_deleted_bytes": 1010452800,
+  "scope": "Offline attribution of already checked profiles; no new solver/profile/correctness or runtime-gain claim.",
+  "test_consideration": "Existing annotate helper pattern, exact pin/profile/source hashes and nonempty successful symbol outputs. No solver/parser implementation changed; new attribution parser will need focused tests if introduced."
+}

@@ -1,0 +1,394 @@
+{
+  "observed_at": "2026-09-09T16:10:04.658798+00:00",
+  "prior_audit": {
+    "path": "benchmarks/reports/2026-09-09-retention-contract-audit-6528.json",
+    "sha256": "265c79ed4d0b0f22087b986ea7ee030f18650ebcd0d1a795f7df906eb90b6644"
+  },
+  "owned_hashes": {
+    "PROGRESS.md": "9f7bba5daad2f1f217061d577d774a7cd8d2057e8e90df04921de3042aaf9e8d",
+    "benchmarks/probes/scratch/annotate-drop-6532.py": "579fe00fd56759a0320b209e4088b9b03236ce12607d3b19e2fd0faf8cc01599",
+    "benchmarks/probes/scratch/annotate-retention-6530.py": "1e965c340846a79a7c393aee3a57ecc0342bf1b4fa1e8f552bd386f1cc5e9a69",
+    "benchmarks/probes/scratch/audit-retention-attribution-6533.py": "39c09f10971949784db1605c83d719ddfbf9b38fc3187d540d2733213035441a",
+    "benchmarks/probes/scratch/land-retention-attribution-6534.py": "181e11a454a061655a557aaaf67fe82cee31a603e899aafb2d347251dcfb3ec4",
+    "benchmarks/probes/scratch/summarize-retention-6531.py": "12f8c632d6d0be7ef0855cbfcccc97fdbbb056891ee636aa514ac93ed5c44c78",
+    "benchmarks/reports/2026-09-09-rank32-retention-attribution.md": "698ae3dd7c96f4b5484c5f14cfbb6713f7daf1fb3635787c4477c64298517535",
+    "benchmarks/runs/20260909-6530-rank32-retention-annotation/manifest.json": "92a92f7e6e75cbd071d52b4dd8b35bf7360fd77f76d825709aa88dab5246145e",
+    "benchmarks/runs/20260909-6530-rank32-retention-annotation/summary-6531.json": "c6b4e44a232fac2e7d3ba8e679634eb934c5f2683e06358fef8c260901f1d529",
+    "benchmarks/runs/20260909-6532-rank32-drop-annotation/manifest.json": "ef49dac1b45ce5a59de8b745b821d0b6000e0393d0ff2f40d0033fe5a4accdf7",
+    "tools/bench/perf_annotation.py": "f0cb9bf96822ef1ed3cc46639e72ef56922de6dad57115e39bd681d5f1e7cf7e",
+    "tools/bench/test_perf_annotation.py": "694967e78651e6aaeaa78b97a1b00235a34a9b6692fcaba8d85132240efa697a"
+  },
+  "local_hash_bound": {
+    ".claude/worktrees/runtime-activation-stamp-6424/src/kernel/watch.hpp": "0287bd266961a1d0b7d0b4180a8669b2b878a377949c7c747be71e58fdad7f8b",
+    ".claude/worktrees/runtime-activation-stamp-6424/src/kernel/kernel.cpp": "a1a7b65339bca339fa8f7794a8fbb444f7d77d613d9c76b48ff4fb65228c454d",
+    "tools/solvers/variants/kissat-macro-heap-6090/src/watch.c": "876f76c9b7f8cbe551d80d8bd3c0e6138e36ddf34b1dcff4201fda0d72b1ab24",
+    "tools/solvers/variants/cadical-extdiag/src/watch.cpp": "7ec77c44072567aff7bcd1b5a8b4d3b60191d32d7684178a404b0df9b3e079d3",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/results/000.json": "c20f6347fdab7633c96868399a6d412d7a6ebd033a69e29422f577730cc78f2d",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/results/001.json": "8fa2cf247fe7184fab2fca5c495b768769052e7cd20a9fc378d69fca169cced4",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/results/002.json": "222e23391576c9baf09fb269653b1afbf62ffea44352f2db083d023689b05c91",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/results/003.json": "4d1fc7de57850942b2314f06fcfa45863bb0d1625bc37cac0c99f4569ec4894c",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/results/004.json": "eddf34a484d28ca96b8859e362377686692d61ad07dad39a49904727c32ebf86",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/results/005.json": "979c908a341256a77d130546da7935c5c9d400a0de2df97c09bbf4d44c10ca34",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/results/006.json": "e990af3c4c7addc265ff80c96e439874bdcc8bd997f92e0ebf6bee4796b7b591",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/results/007.json": "9be73cd26d20217808f603052059eb5f2d1d9ceaaccaebd6a467dcc466743bf3",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/results/008.json": "bac7696d3226b7978334f41984debec9f6dbb10aeb38767670ba2e15e684572f",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/results/009.json": "651247485b5532bcb7311d318926e622efb63442d545e0ae00689e6d859aaff2",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/results/010.json": "6925c1079657d25f8b663489b72c031dd95e98c20ea952014d0c68ad5d5c85a2",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/results/011.json": "04967450638ec67d70d1f3a99d4df657857c35c59da114e135e3a28d1d1d1bdc",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/results/012.json": "b2941a355a7456e262f5c973266511d5b469644f74ba3175d82e44a191e9f456",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/results/013.json": "623b0b71bf6a92a1a300326c545276d0bf89d8651e5d9ab7babaf0e4fe5e807a",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/results/014.json": "3c87e70e57ba53021b3386d05314fba790ce8be2ec1a311598544f16016d6a78",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/results/015.json": "260b0fbf3b019d0bb1b67e328ba70b32698da0fa9366ad09563f6fa12ccd06b6",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/results/016.json": "935dbd00c402e428850ead2369d3b24d2727bcd7f34807c3673e983255453787",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/results/017.json": "7ad91a54f9b872a6fed9d8e4c86f41edcfbd83bca25039bbcc8157c989726c47",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/results/018.json": "f71d18b5b0138c897c07ce7d806b16e6c887ac991187fd3c21c41f07473b6baf",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/results/019.json": "4f117540f6f6c7c509e13bc7c11a4bc71d9d02cec72a571043bbc74a8f6493ca",
+    "benchmarks/runs/20260909-6372-rank32-release-profile/results/000.json": "ceb00ad92064308d05b73146040c38cdd723be1eb087b10f00c2b3f78310e42f",
+    "benchmarks/runs/20260909-6372-rank32-release-profile/results/001.json": "76f36bba26fcffda034b6dbdee2e1c4107dd3d910d4f750bf6fe520def2ff741",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/000.json": "17a2c82567b0d3ddf3f38b5c7063aa5170fd09edf7666b1de6286b70996ae1bb",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/001.json": "9f48fb30e54c95b466019a51caaff0f1a732ae5dc4cef333e532fd7cf08de9b2",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/002.json": "d6e6faa3356b3487820a7d3ad4f74d43e92b7a308dc9f50013b82f557aff7b30",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/003.json": "515aa5320b86341a0b599805324cb15781c378f48db4a7fe180f745998ca4ae8",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/004.json": "727177cfc0075487c7f66a99e1595499220f77c665dda5fd9bff9cb03e6fc0a9",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/005.json": "1a5e9097aa2ebc571ccbceb680fac391a8bf7408511f55b100c717f615be0540",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/006.json": "a7360ca0469087ee919847ee745eb19102656452debcf2b8a00fb362228e27b1",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/007.json": "455e3d17bce45a9aef197aac7c979d68ff27e28168eccbe7f16ca74007d9d61d",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/008.json": "20b8c85db7d6d19c2635542d9165cc2414c45198d94957b5c14e06ac3a243723",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/009.json": "79d92a855a80309824f1f0569c93b5d543bf39f681eae99d11947dea85b939ed",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/010.json": "f26d75c3f581e3ae52743754c0f63a8d367942da9c2f54ddf07315aa5d7038c4",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/011.json": "554e1773cf3308c01a3937b1751c013b06cbfaf169cbbb81afaafd441825600d",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/012.json": "c0487ae707f74544b0fba3fdbbebc63cf68fc60ced80c54e032ad64d60a208f1",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/013.json": "5df7d03efd682580ee5dc78942c50e94377d71737d1572091164244dc3ee9cf4",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/014.json": "cd31ebf348970a590098bf174b8bde977ea9d4f51ac65160720646901e734a47",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/015.json": "211286bdec1331bbbe7bb1ff0f6c1e0ec3dda5994a282d1d42dc849bd59a8d9a",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/016.json": "33d7cf541d7b9e635b95b7429e2ad30fde8cc6b6120396607a9c28d836334864",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/017.json": "0241bbf01c2f4c1b50ada1186811be63c239f0a033cf6fb25df0a062bd0e1111",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/018.json": "8228e614a88815948b60096eb8ef8a966707919a1f46e59ad13dfc443ede7e1b",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/019.json": "74e001ac44fa115eb8fc83a3c6152267fcb61820f7939f7868d7b29d17a50e99",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/020.json": "5640ff32392d161a43c680048103f41ffd26b9da6e4b3d135486e43f4a897b0d",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/021.json": "3e80570b36f7aa4cecf92ff36c46089835a7da9be133e4c46a58129f5702a1b3",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/022.json": "b22fca8ae694e544ae648d4a8f8b36ddd3190be12bc21b500c64eb28a28828d8",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/023.json": "538f87af9b7870556ee768cf9eb5f9418bf28360a0b143a18028742c143d24ef",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/024.json": "c1fc16f8c2b91d54990acf4febacee97dbd498117c6a44b9aa4ef7c39fe93b53",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/025.json": "ae8c68cb39d6d7818f48abeeaa134567d333996477319c0b254cb43b8f97e763",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/026.json": "2f738900234144bd2a9c9ecb19b64ec82d69135eb05c34803278d513233f2932",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/027.json": "fcc33c5364e97320a3e41503b621b5ff91c9dc098f1b8e528939821ec0602ced",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/028.json": "1ebbc21c3a90c172843fb76e18a4ded6b0b2cd595f801e31074f1bb830cf1d4c",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/029.json": "41c21c1ff3a958cff294300cc6ae55c52648af51160fa1a4d701acff3d376e1b",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/030.json": "698da96c57f88aa7060cfb3fe6c82507eb709f31dcea90cba96fa58469c5466a",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/031.json": "d2f10a04cd19e5eb21926e6034d4a1a93c566589505a466d1528a9c7aa685e62",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/032.json": "8f497ef0524063a15935e9bac1e708a399f0418de95af27bec7c60d78bb3eca3",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/033.json": "f4a479c25fec8689e9962c47573dc895c7308ddc837c2109b60692f5a5845a1d",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/034.json": "8a4150c594f829182176ae6c25d494ff6a8ef5c5296e87906964d17c1017c965",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/035.json": "27db90a4eb866a78ba948eca360dd71c4be5ee4a02001877ec091f1bedbe0ad0",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/036.json": "fd7c21b4c5a8405eb3aabc34229a379f0816c625dce7f957a053c7968ec4584d",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/037.json": "7ab37cce63da4cc905bda2ca9e876cddc22f39b92e9b48d9ab6e540339c8492c",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/038.json": "0c81624713b48eea0f5cad8d559646aea111c6aae620d45cf03bf612a4708ed5",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/039.json": "606787f9b04b7995f3c79660d76954e415d73bc837ac1a0749567ae3a07cf9ea",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/040.json": "bbd9402394d8adfbc2aee69e5a57bd18174f3e1887bf04820d0d27919099bbd5",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/041.json": "be30e87bf585e7b9a265a1b514bb612acbcebc6ba462df198034c8d35b3dc4ca",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/042.json": "9fa38b5f795cfbc75bd353e73441508fae5f7dc9cf89058b77e1cd0cbc1ec641",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/043.json": "a42dab9b159e7860910650f55bf70f53119a0e7ece482cb1b33915c6300f70d1",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/044.json": "4b95131de7e45febde09073201016269a3198af0b2abf8d34f5172bde4d07f8e",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/045.json": "4c73515e2e34af158fb9213c52f5fa1f74ce87ae47bd906f7bb945023cbec632",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/046.json": "62c53289458b1f0efe8d811a08fe8f89962d443474093b8647cbe0e75eb51326",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/047.json": "6886e6c02c7fbfad6c52bc05c3aeb5baa61a1326ce554c5ebdd1ed692937224b",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/048.json": "36eac351cfc6003c566c17a4a47fb281675032692398a98e312a5e8898137b39",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/049.json": "e1f2dac6bc04aed24e81643ec1767e5994852644d7de6ac2bf8d30283fbabe21",
+    "benchmarks/baselines/rank1-50-kissat-12cpu-v1/manifest.json": "5f7865e46af2b9ed0d1899ce6e450bfb9b3575801c50183e059d0e4326f5a1e0",
+    "benchmarks/runs/20260909-6530-rank32-retention-annotation/candidate-rebuild-periods.txt": "0dcb5ae1e8292ba5fca14b8a8f7b628f0dfadf35c4107f1929231cced2115122",
+    "benchmarks/runs/20260909-6530-rank32-retention-annotation/candidate-rebuild-periods.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "benchmarks/runs/20260909-6530-rank32-retention-annotation/candidate-rebuild-percent.txt": "ccc49a684cce185655813fd246d24375337f651dbc47928b239ec10f58742cc7",
+    "benchmarks/runs/20260909-6530-rank32-retention-annotation/candidate-rebuild-percent.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "benchmarks/runs/20260909-6530-rank32-retention-annotation/candidate-collect-periods.txt": "e2acfdfe51ee95af19df02a4b9691577e526bd9b5b4af6cc3b5319ce85646b25",
+    "benchmarks/runs/20260909-6530-rank32-retention-annotation/candidate-collect-periods.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "benchmarks/runs/20260909-6530-rank32-retention-annotation/candidate-collect-percent.txt": "48a92df5e6deba1249b7c688303961a6fe5d811b668f0d997c2ace9e43c3835b",
+    "benchmarks/runs/20260909-6530-rank32-retention-annotation/candidate-collect-percent.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "benchmarks/runs/20260909-6530-rank32-retention-annotation/kissat-rebuild-periods.txt": "20d7476e5fd721f807ef4df2bd3de6fa08f8c1ab070bb1e942287d23792213fc",
+    "benchmarks/runs/20260909-6530-rank32-retention-annotation/kissat-rebuild-periods.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "benchmarks/runs/20260909-6530-rank32-retention-annotation/kissat-rebuild-percent.txt": "e0a243cfc26af284207b80b6decc1c197d8ef6515e197b18ab3d250c6f3d00a7",
+    "benchmarks/runs/20260909-6530-rank32-retention-annotation/kissat-rebuild-percent.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "benchmarks/runs/20260909-6530-rank32-retention-annotation/kissat-flush-periods.txt": "16b3e0d4d80e26a3cc9f3fe65babff4f52c12739247bfb81c21f51a179ae772f",
+    "benchmarks/runs/20260909-6530-rank32-retention-annotation/kissat-flush-periods.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "benchmarks/runs/20260909-6530-rank32-retention-annotation/kissat-flush-percent.txt": "9d8e38cf5076b9305581cb429b75f8e7f837d612d5c98f0883bc80fe9f94d836",
+    "benchmarks/runs/20260909-6530-rank32-retention-annotation/kissat-flush-percent.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "benchmarks/runs/20260909-6532-rank32-drop-annotation/candidate-drop-periods.txt": "99da273da4f16a864bfdd9fc88c8db8249c4e841a372755d373715d72527f080",
+    "benchmarks/runs/20260909-6532-rank32-drop-annotation/candidate-drop-periods.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "benchmarks/runs/20260909-6532-rank32-drop-annotation/candidate-drop-percent.txt": "b305ea654fd62739df0a85cd7992725bc598ba3bbe41639dc74bebdcdb792c3d",
+    "benchmarks/runs/20260909-6532-rank32-drop-annotation/candidate-drop-percent.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "report-to-andrew/20260909-1215-retention-attribution/report-overflow.log": "84afda008a950c3d92a8e2595628ef6e8707a4bd7f31d4bf4fac11ed99a9a798"
+  },
+  "protected_campaign_hashes": {
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/manifest.json": "b2f9e98291c56c415e4cb9439a77378c55cc78593d632c1fc84a6d5ee194acf6",
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/array.sbatch": "b90503efeb1acd5ea2cb081fc60a79c2e1ab6d51287cedf050a673ddb5433143",
+    "benchmarks/baselines/rank1-40-kissat-12cpu-v1/manifest.json": "45259e1acbc93472b923517f75fd6b8697669b3ad74970d27b565b6b7f1aa686",
+    "benchmarks/runs/20260908-5712-assignment-level-ranks1-40/manifest.json": "80211109441ac7e1483082a767c755ffc03c029381398c71017593e2ff29a8ae",
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/pins/runtime_task.py": "ccef4f23bac433c4c205949c0296f2cdef0e98d0d56fff5d306abb6e6209297f",
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/pins/modelcheck.py": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/manifest.json": "d09c9f2a030d0d29974fa881ee247c7900704e4be0e204b28c0b16beaf443d16",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/array.sbatch": "82b47f14fc76c4d5ca14484035b1033d013c1a36c2bbe44c531a1a6a56c87efb",
+    "benchmarks/runs/20260908-6114-substitute-publication-BC-gate/manifest.json": "27c57c3c896ab15daa9d51ff87f9a977472d28b2b43b849be7322b96eb598bb1",
+    "benchmarks/runs/20260908-6114-substitute-publication-BC-gate/array.sbatch": "2b6afd38eb7dcc8fc39f6fa294f5786d20d9238a4facb7cb64bc6c35a0320b4a",
+    "benchmarks/runs/20260908-6115-substitute-publication-ranks1-50/manifest.json": "e739603e6d4ec9024beebfa7a049def7c3ea01eb6b5287e542f05a651e646cd7",
+    "benchmarks/runs/20260908-6115-substitute-publication-ranks1-50/array.sbatch": "ab074cdcf7e9691f7031fd9aa198cef18fe83bb9edc5aa73f0c5b033d2d380f5",
+    "benchmarks/baselines/rank1-50-kissat-12cpu-v1/manifest.json": "5f7865e46af2b9ed0d1899ce6e450bfb9b3575801c50183e059d0e4326f5a1e0",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/manifest.json": "224b3b5d80c3087b3c3c709a78dcf934d175823bd2232f68a2475e6d11bd3d1a",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/launch.json": "ee6eea617d6fef64349ed0096c9dd06f1ffb9ba03467dd6901ab92b833bfb7a1",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/array.sbatch": "37e88d1e5998092127067b1ac0fedc388f29ddf45179057a508fb53dabaa24be"
+  },
+  "campaigns": {
+    "20260908-6108-rank41-50-matched": {
+      "checked_clean": 20,
+      "verdicts": {
+        "SAT": 6,
+        "UNSAT": 14
+      }
+    },
+    "20260909-6372-rank32-release-profile": {
+      "checked_clean": 2,
+      "verdicts": {
+        "SAT": 0,
+        "UNSAT": 2
+      }
+    },
+    "20260909-6439-activation-ranks1-50": {
+      "checked_clean": 50,
+      "verdicts": {
+        "SAT": 25,
+        "UNSAT": 25
+      }
+    }
+  },
+  "accounting": {
+    "6464-activation-adverse-three-wave-runtime/wave0-submission.json": {
+      "command": [
+        "sacct",
+        "-n",
+        "-X",
+        "--array",
+        "-j",
+        "1678054",
+        "-S",
+        "2026-09-09T09:00:56",
+        "-o",
+        "JobID,State%40,ExitCode,Submit",
+        "-P"
+      ],
+      "stdout": "1678054_0|COMPLETED|0:0|2026-09-09T09:00:56\n1678054_1|COMPLETED|0:0|2026-09-09T09:00:56\n1678054_2|COMPLETED|0:0|2026-09-09T09:00:56\n1678054_3|COMPLETED|0:0|2026-09-09T09:00:56\n1678054_4|COMPLETED|0:0|2026-09-09T09:00:56\n1678054_5|RUNNING|0:0|2026-09-09T09:00:56\n",
+      "launch": {
+        "job_id": "1678054",
+        "tasks": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "command": [
+          "sbatch",
+          "--parsable",
+          "--array=0-5",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/array.sbatch"
+        ],
+        "accounting_since": "2026-09-09T09:00:56",
+        "manifest_sha256": "24f833fc10ae5599356328963a1deaceb414637f45a8c53daa12ffaabbbf6e93",
+        "preceding_records": {}
+      }
+    },
+    "6464-activation-adverse-three-wave-runtime/wave1-submission.json": {
+      "command": [
+        "sacct",
+        "-n",
+        "-X",
+        "--array",
+        "-j",
+        "1678069",
+        "-S",
+        "2026-09-09T09:10:30",
+        "-o",
+        "JobID,State%40,ExitCode,Submit",
+        "-P"
+      ],
+      "stdout": "1678069_6|COMPLETED|0:0|2026-09-09T09:10:30\n1678069_7|COMPLETED|0:0|2026-09-09T09:10:30\n1678069_8|COMPLETED|0:0|2026-09-09T09:10:30\n1678069_9|COMPLETED|0:0|2026-09-09T09:10:30\n1678069_10|RUNNING|0:0|2026-09-09T09:10:30\n1678069_11|RUNNING|0:0|2026-09-09T09:10:30\n",
+      "launch": {
+        "job_id": "1678069",
+        "tasks": [
+          6,
+          7,
+          8,
+          9,
+          10,
+          11
+        ],
+        "command": [
+          "sbatch",
+          "--parsable",
+          "--array=6-11",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/array.sbatch"
+        ],
+        "accounting_since": "2026-09-09T09:10:30",
+        "manifest_sha256": "24f833fc10ae5599356328963a1deaceb414637f45a8c53daa12ffaabbbf6e93",
+        "preceding_records": {
+          "benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/provisional/004.json": "f59232eb85296740c5d4127cf709a5bc32d10fac6dc48b665ffce17908f532a7",
+          "benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/results/000.json": "83f176ea39b63538c3ae1779c9fbe5e24b661643c8710ef959f486268ecd9511",
+          "benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/provisional/005.json": "08c1d97a4c3886a77583cb84b103274bfefa0a4462d2fa9b75c5f976effa9707",
+          "benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/results/001.json": "66488724aacb5a89357d61280e55ca36241821c0ae857b9788a4f80b1fa5aa07",
+          "benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/provisional/003.json": "7be17e0726db8159348a06999b5c363657d7a6a846c060ccbd5347eddfb39794",
+          "benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/provisional/002.json": "9a813294202ef392df30787551745e1be833ef0d819cb92f0931747759c8cb77"
+        }
+      }
+    },
+    "6464-activation-adverse-three-wave-runtime/wave2-submission.json": {
+      "command": [
+        "sacct",
+        "-n",
+        "-X",
+        "--array",
+        "-j",
+        "1678082",
+        "-S",
+        "2026-09-09T09:32:14",
+        "-o",
+        "JobID,State%40,ExitCode,Submit",
+        "-P"
+      ],
+      "stdout": "1678082_12|COMPLETED|0:0|2026-09-09T09:32:14\n1678082_13|COMPLETED|0:0|2026-09-09T09:32:14\n1678082_14|COMPLETED|0:0|2026-09-09T09:32:14\n1678082_15|COMPLETED|0:0|2026-09-09T09:32:14\n1678082_16|RUNNING|0:0|2026-09-09T09:32:14\n1678082_17|RUNNING|0:0|2026-09-09T09:32:14\n",
+      "launch": {
+        "job_id": "1678082",
+        "tasks": [
+          12,
+          13,
+          14,
+          15,
+          16,
+          17
+        ],
+        "command": [
+          "sbatch",
+          "--parsable",
+          "--array=12-17",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/array.sbatch"
+        ],
+        "accounting_since": "2026-09-09T09:32:14",
+        "manifest_sha256": "24f833fc10ae5599356328963a1deaceb414637f45a8c53daa12ffaabbbf6e93",
+        "preceding_records": {
+          "benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/provisional/010.json": "f4c92f267b2cfa42a2f9a09a5b99379cfa4e90280dcc82361fee112923024811",
+          "benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/provisional/008.json": "ac597dfd7eb1bb7100f10bd434bdda7388aa0a7bd18d6acdfff888b6d0e1c05e",
+          "benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/provisional/004.json": "f59232eb85296740c5d4127cf709a5bc32d10fac6dc48b665ffce17908f532a7",
+          "benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/results/000.json": "83f176ea39b63538c3ae1779c9fbe5e24b661643c8710ef959f486268ecd9511",
+          "benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/provisional/005.json": "08c1d97a4c3886a77583cb84b103274bfefa0a4462d2fa9b75c5f976effa9707",
+          "benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/results/001.json": "66488724aacb5a89357d61280e55ca36241821c0ae857b9788a4f80b1fa5aa07",
+          "benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/provisional/011.json": "12ad6aab0f73b83f23daee50d30f06ff817cf8ab269f54b29fbda46c9f890e60",
+          "benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/provisional/009.json": "f1cd74f56e3fdfb8765797fe6b0eebeb154188c5e2f2e5f8f85542c8a627d55e",
+          "benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/results/007.json": "a5947355cbd9883cbc13a8d939d34e7435216cda9183a6ce9994392a3ce29480",
+          "benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/provisional/003.json": "7be17e0726db8159348a06999b5c363657d7a6a846c060ccbd5347eddfb39794",
+          "benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/results/006.json": "cea005c08ba7875ee6d9b7ef56da0c17356410625fb132fe85e97f1e4145b36c",
+          "benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/provisional/002.json": "9a813294202ef392df30787551745e1be833ef0d819cb92f0931747759c8cb77"
+        }
+      }
+    }
+  },
+  "checks": {
+    "bench": {
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tools/bench",
+        "-p",
+        "test_*.py"
+      ],
+      "stdout": "",
+      "stderr": ".................................................................................................................................\n----------------------------------------------------------------------\nRan 129 tests in 0.078s\n\nOK\n"
+    },
+    "slurm": {
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tools/slurm",
+        "-p",
+        "test_*.py"
+      ],
+      "stdout": "SLURM job 123: observation failed (1); retrying same job\n",
+      "stderr": ".............\n----------------------------------------------------------------------\nRan 13 tests in 0.004s\n\nOK\n"
+    },
+    "check-doc-size": {
+      "command": [
+        "python3",
+        "tools/docs/check-doc-size.py"
+      ],
+      "stdout": "  warn  DEVELOPMENT_PLAN.md: 747 of 750 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\n  warn  PROGRESS.md: 350 of 350 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\n  warn  docs/calculus.md: 671 of 680 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\n  warn  docs/implementation-notes.md: 560 of 560 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\n  warn  docs/scheduling-parity-ledger.md: 600 of 600 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\ncheck-doc-size: 0 error(s), 5 warning(s), 30 file budget(s) checked\n",
+      "stderr": ""
+    },
+    "check-progress": {
+      "command": [
+        "python3",
+        "tools/docs/check-progress.py"
+      ],
+      "stdout": "  note  build dirs newer than newest source: pin-5316-core-capture(Release), pin-5317-core-capture(Release), pin-5318-core-release(Release), pin-5321-core-roots(Release), pin-5322-core-repose(Release), pin-5322-repose-trace(Release), pin-5323-binary-watch(Release), pin-5325-sequential(Release), pin-5325-sequential-trace(Release), pin-5326-composed(Release), pin-5326-composed-trace(Release), pin-5327-bridge-pose(Release), pin-5327-bridge-trace(Release), pin-5331-core-trace(Release), pin-5337-rewrite-source(Release), pin-5342-deact-trace(Release), pin-5343-round-retirement(Release), pin-5344-round-only(Release), pin-5344-round-release(Release), pin-5347-decision-stream(Release), pin-5348-choice-state(Release), pin-5352-queue-stamps(Release), pin-5353-factor-stamps(Release), pin-5354-empty-factor(Release), pin-5356-empty-factor-release(Release), pin-5357-empty-factor-C(Release), pin-5359-focused-choice(Release), pin-5361-queue-bumps(Release), pin-5369-congruence-prefix(Release), pin-5371-congruence-prefix-release(Release), pin-5372-congruence-prefix-bc(Release), pin-5377-retry-producers(Release), pin-5378-vivify-retry(Release), pin-5379-vivify-retry-release(Release), pin-5380-vivify-retry-bc(Release), pin-5382-prefix-cost(Release), pin-5387-dense-publication(Release), pin-5388-dense-publication-release(Release), pin-5389-dense-publication-bc(Release), pin-5391-eliminate-dense-entry(Release), pin-5392-eliminate-dense-release(Release), pin-5393-eliminate-dense-bc(Release), pin-5399-window-observer(Release), pin-5402-direct-heap(Release), pin-5412-imply-observer(Release), pin-5414-imply-fast(Release), pin-5417-rephase-root-trace(Release), pin-5419-rephase-root-release(Release), pin-5420-rephase-root-bc(Release), pin-5426-watch-truncate-release(Release), pin-5427-watch-truncate-bc(Release), pin-5430-inprocess-root-release(Release), pin-5431-inprocess-root-trace(Release), pin-5432-inprocess-root-bc(Release), pin-5438-vivify-max-release(Release), pin-5439-vivify-max-bc(Release), pin-5445-replacement-cursor-release(Release), pin-5446-replacement-cursor-bc(Release), pin-5450-eliminate-limit-release(Release), pin-5451-eliminate-limit-trace(Release), pin-5452-eliminate-limit-bc(Release), pin-5456-factor-observer-trace(Release), pin-5459-bound-advance-release(Release), pin-5460-bound-advance-trace(Release), pin-5461-bound-advance-bc(Release), pin-5466-watch-pair-release(Release), pin-5467-watch-pair-bc(Release), pin-5473-sweep-cursor-release(Release), pin-5474-sweep-cursor-bc(Release), pin-5510-sweep-retained-release(Release), pin-5511-sweep-retained-trace(Release), pin-5512-sweep-retained-bc(Release), pin-5522-sweep-small-release(Release), pin-5523-sweep-small-trace(Release), pin-5524-sweep-small-bc(Release), pin-5546-vivify-census-release(Release), pin-5547-vivify-census-bc(Release), pin-5592-factor-root-support-release(Release), pin-5593-factor-root-support-trace(Release), pin-5594-factor-root-support-bc(Release), pin-5619-congruence-index-release(Release), pin-5620-congruence-index-trace(Release), pin-5621-congruence-index-bc(Release), pin-5641-propagation-cursor-release(Release), pin-5642-propagation-cursor-trace(Release), pin-5643-propagation-cursor-bc(Release), pin-5672-assignment-level-release(Release), pin-5673-assignment-level-trace(Release), pin-5674-assignment-level-bc(Release), pin-5696-score-bump-observer-trace(Release), pin-5718-root-conflict-reuse-release(Release), pin-5719-root-conflict-reuse-trace(Release), pin-5720-root-conflict-reuse-bc(Release), pin-5741-reuse-target-release(Release), pin-5742-reuse-target-trace(Release), pin-5743-reuse-target-bc(Release), pin-5760-forward-exit-trace(Release), pin-5798-forward-unit-release(Release), pin-5799-forward-unit-bc(Release), pin-5800-forward-unit-trace(Release), pin-5817-forward-mark-trace(Release), pin-5830-forward-admission-release(Release), pin-5831-forward-admission-bc(Release), pin-5832-forward-admission-trace(Release), pin-5849-forward-caller-release(Release), pin-5850-forward-caller-bc(Release), pin-5851-forward-caller-trace(Release), pin-5854-forward-caller-journal(Release), pin-5870-forward-preclean-release(Release), pin-5871-forward-preclean-bc(Release), pin-5872-forward-preclean-trace(Release), pin-5873-forward-preclean-journal(Release), pin-5900-reduce-root-release(Release), pin-5901-reduce-root-bc(Release), pin-5902-reduce-root-trace(Release), pin-5903-reduce-root-journal(Release), pin-5920-reduce-preclean-release(Release), pin-5921-reduce-preclean-bc(Release), pin-5922-reduce-preclean-trace(Release), pin-5923-reduce-preclean-journal(Release), pin-5956-bve-full-heap-trace(Release), pin-5962-bve-active-pop-release(Release), pin-5963-bve-active-pop-bc(Release), pin-5964-bve-active-pop-trace(Release), pin-5965-bve-active-pop-journal(Release), pin-5985-bve-repeat-heap-trace(Release), pin-6004-clause-pose-series-trace(Release), pin-6016-vivify-pose-trace(Release), pin-6030-learned-stage-trace(Release), pin-6049-reduce-root-lock-release(Release), pin-6050-reduce-root-lock-bc(Release), pin-6051-reduce-root-lock-trace(Release), pin-6052-reduce-root-lock-journal(Release), pin-6054-reduce-root-lock-trace(Release), pin-6090-macro-heap-trace(Release), pin-6107-substitute-publication-release(Release), pin-6108-substitute-publication-bc(Release), pin-6127-publication-trace(Release), pin-6128-publication-journal(Release), pin-6136-substitute-journal-release(Release), pin-6137-substitute-journal-journal(Release), pin-6146-collect-memory-release(Release), pin-6147-collect-memory-trace(Release), pin-6150-collect-memory-release(Release), pin-6151-collect-memory-trace(Release), pin-6154-bve-capacity-release(Release), pin-6155-bve-capacity-trace(Release), pin-6169-learned-sort-release(Release), pin-6170-learned-sort-bc(Release), pin-6206-schedule-continue-release(Release), pin-6206-schedule-continue-trace(Release), pin-6231-substitute-retry-bc(Release), pin-6231-substitute-retry-release(Release), pin-6231-substitute-retry-trace(Release), pin-6269-vivify-binary-retry-bc(Release), pin-6269-vivify-binary-retry-release(Release), pin-6269-vivify-binary-retry-trace(Release), pin-6283-admission-release(Release), pin-6283-admission-trace(Release), pin-6305-substitute-collapse-bc(Release), pin-6305-substitute-collapse-release(Release), pin-6305-substitute-collapse-trace(Release), pin-6327-collapse-schedule-release(Release), pin-6327-collapse-schedule-trace(Release), pin-6350-transitive-schedule-release(Release), pin-6350-transitive-schedule-trace(Release), pin-6357-compact-stamp-bc(Release), pin-6357-compact-stamp-release(Release), pin-6357-compact-stamp-trace(Release), pin-6383-vivify-count-cache-bc(Release), pin-6383-vivify-count-cache-release(Release), pin-6383-vivify-count-cache-trace(Release), pin-6413-rank45-schedule-release(Release), pin-6413-rank45-schedule-trace(Release), pin-6424-activation-stamp-bc(Release), pin-6424-activation-stamp-release(Release), pin-6424-activation-stamp-trace(Release), pin-6448-shared-blocker-bc(Release), pin-6448-shared-blocker-release(Release), pin-6448-shared-blocker-trace(Release), pin-6475-position-key-bc(Release), pin-6475-position-key-release(Release), pin-6475-position-key-trace(Release), pin-6508-congruence-stages-release(Release), pin-6508-congruence-stages-trace(Release), pin-congruence-index-repair-5623-bc(Release), pin-congruence-index-repair-5623-release(Release), pin-congruence-index-repair-5623-trace(Release), pin-periodic-fuzz-5442-debug(Debug), pin-periodic-fuzz-5442-release(Release), pin-periodic-fuzz-5442-shadow(Debug), pin-periodic-fuzz-5492-debug(Debug), pin-periodic-fuzz-5492-release(Release), pin-periodic-fuzz-5492-shadow(Debug), pin-periodic-fuzz-5539-debug(Debug), pin-periodic-fuzz-5539-release(Release), pin-periodic-fuzz-5539-shadow(Debug), pin-periodic-fuzz-5610-debug(Debug), pin-periodic-fuzz-5610-release(Release), pin-periodic-fuzz-5657-debug(Debug), pin-periodic-fuzz-5657-release(Release), pin-periodic-fuzz-5657-shadow(Debug), pin-periodic-fuzz-5715-debug(Debug), pin-periodic-fuzz-5715-release(Release), pin-periodic-fuzz-5715-witness(Debug), pin-periodic-fuzz-5765-asan(Debug), pin-periodic-fuzz-5765-release(Release), pin-periodic-fuzz-5765-witness(Debug), pin-propagation-cursor-repair-5647-bc(Release), pin-propagation-cursor-repair-5647-release(Release), pin-propagation-cursor-repair-5647-trace(Release), pin-sweep-pose-fuzz-r2-dbg(Debug), pin-sweep-pose-fuzz-r2-rel(Release), pin-sweep-pose-fuzz-r2-shadow(Debug)  (total pin-* dirs: 402)\n  note  newest completed tier run: 20260813-111513-C-cleanup-b2b8362\n  WARN  3 lesson citations remain in living docs (DEVELOPMENT_PLAN.md:3) \u2014 policy is to state the finding + evidence, not the number. Run the de-citation sweep.\n  WARN  newest tier run 20260813-111513-C-cleanup-b2b8362 is not cited anywhere in PROGRESS \u2014 a completed window nobody recorded\ncheck-progress: 0 error(s), 2 warning(s)\n",
+      "stderr": ""
+    },
+    "check-rule-policy-boundary": {
+      "command": [
+        "python3",
+        "tools/docs/check-rule-policy-boundary.py"
+      ],
+      "stdout": "check-rule-policy-boundary: rule/policy imports and data flows are clean\n",
+      "stderr": ""
+    },
+    "check-proof-rule-sync": {
+      "command": [
+        "python3",
+        "tools/docs/check-proof-rule-sync.py"
+      ],
+      "stdout": "check-proof-rule-sync: 0 error(s), 23 calculus rule(s), 24 guide card(s)\n",
+      "stderr": ""
+    },
+    "check-section-refs": {
+      "command": [
+        "python3",
+        "tools/docs/check-section-refs.py"
+      ],
+      "stdout": "  ok    43/43 section references resolve\ncheck-section-refs: 0 error(s)\n",
+      "stderr": ""
+    },
+    "check-citations": {
+      "command": [
+        "python3",
+        "tools/docs/check-citations.py"
+      ],
+      "stdout": "  ok    59 citation(s) resolved and in range\n  note  186 skipped (186 ambiguous basename, 0 not in our tree, 0 resolve to a reference clone, 0 unjudged: no reference clone on disk)\ncheck-citations: 0 error(s)\n",
+      "stderr": ""
+    }
+  },
+  "attribution": {
+    "drop_samples": 105,
+    "drop_period": 1987225509,
+    "three_site_period": 7599993882,
+    "three_site_percent_program": 0.6198682977437362,
+    "temporary_expansions_deleted_bytes": 1560523560
+  },
+  "rank32": {
+    "exact_profile_current_non_timing_stats_and_proof": true,
+    "profile_wall_seconds": 327.634,
+    "native_wall_seconds": 274.23
+  },
+  "full50": {
+    "solver_seconds": 8731.652999999997,
+    "fixed_seconds": 7239.01,
+    "ratio": 1.2061943553054901
+  },
+  "andrew_report": {
+    "report-to-andrew/20260909-1215-retention-attribution/report.tex": "0e12411efa5f00a7f6f4f92960b493fc102ccd179e89df10fd442a862ce049a2",
+    "report-to-andrew/20260909-1215-retention-attribution/report.pdf": "69340ca3ff99836d54561df171ce41d8a16c55d6a987c533873d7c276bc2f840"
+  },
+  "cleanup": "Only1560523560 bytes of owned temporary profile expansions removed by annotation helpers; original compressed profiles and new annotations retained. No solver job, proof/input generation, certificate/live-scratch or fuzz inspection. Prior audit owns unchanged evidence.",
+  "failure_classification": "Initial PDF had38.5pt overflow, preserved then reflowed with two clean compiles. No unit, sanitizer, solver, proof or model failure. No excluded measurement or successful snapshot rerun. No production edit or denied transfer/push retry.",
+  "next": "Three retention sites total0.619868% of sampled candidate periods: deprioritize as primary Rank32 fix. Inspect source-aligned Factor/Congruence work and costs before selecting a repair. No new implementation is authorized by a pending proposal; all50/memory goal unmet."
+}
