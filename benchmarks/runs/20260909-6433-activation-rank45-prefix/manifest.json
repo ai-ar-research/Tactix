@@ -1,0 +1,53 @@
+{
+  "rank": 45,
+  "input": "benchmarks/cache/tierD24-26/efc1b7cc3861df8c2b68ca10399b794e-oddball_19_4_ttf.normalised.cnf.xz",
+  "input_sha256_compressed": "edc765a801c6301189c0cf74bca741f9fb3841690a7ebdea20610b72c31c67d3",
+  "stop_conflict": 100000,
+  "stream_from": 0,
+  "common_decisions": 1,
+  "authorities": {
+    "candidate": {
+      "path": "benchmarks/runs/20260909-6424-activation-stamp-build/manifest.json",
+      "sha256": "25c8fc8b5623ef24ad7690cb3cb7098c47ebac1e85aba4dc56f3e6684453eb06"
+    }
+  },
+  "resource_contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "cpus_per_task": 12,
+    "memory_mib": 48000,
+    "array": "0",
+    "throttle": null,
+    "node_constraint": null,
+    "solver_timeout": 1200,
+    "allocation_minutes": 25
+  },
+  "selection": {
+    "path": "benchmarks/reports/2026-09-09-compact-stamp-full50-6371/summary.json",
+    "sha256": "2bdaac1afed528fd1ccb679b30daf766a21590ea6ae74978e988bd8bf60dfbf0"
+  },
+  "purpose": "Test whether native activation stamp1 closes prior Rank45 divergence83117 and restores second76464 reductions. Candidate-only against validated cached native; no new timing/reference run.",
+  "validation": "Check complete100K stream accounting/cleanup and compare every row with cached6402 native. Record first difference or full closure, never inherit equality from scalar counts.",
+  "test_consideration": "Actual native6423 parser/compaction exposes16 fixed-key mismatches in6357. New tests cover both attachment paths, header-only identities, import direction, root signs, repeated compaction, inactive numeric keys, score/queue cursor consistency and public Decide surface. No calculus/guard change; broadBC and causal replay required, source fuzz unavailable, no promotion.",
+  "limitation": "Changed scheduling work is allowed. No exact predecessor proof claim, final-proof acceptance or full Rank32/50 closure.",
+  "hashes": {
+    "pins/candidate": "c5ca763ce93f48507648c32cb55027274a79332ef56147814bb917d6dddc9e8c",
+    "run.py": "a54c8d33496b2c5b9642ca8ab0588d38a0b90d956f3855c3e4af44d7584f1247",
+    "array.sbatch": "9c1a3a59701fda17d0204bdc6c41d0944e78da7c1013b52e37a307a292b642eb"
+  },
+  "parent_summary": {
+    "path": "benchmarks/runs/20260909-6402-rank45-stamp-prefix/summary.json",
+    "sha256": "164b75b31e139a12db2d17bc00227354a42264efbf2ffe466022a15ce84af3c3"
+  },
+  "gate": {
+    "path": "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/solver-checkpoint-6429.json",
+    "sha256": "11e2a712bd45b4b6f0778622890499962cd65a2d00a9dc0de298301c9fb0e22f"
+  },
+  "schedule_control": {
+    "path": "benchmarks/runs/20260909-6415-rank45-transitive-schedule/summary.json",
+    "sha256": "0c3231dff100dc1ff286eea0447170cf23ee78fc581cb4c00811b217cdfbbc8b"
+  },
+  "cached_native": {
+    "path": "benchmarks/runs/20260909-6402-rank45-stamp-prefix/results/kissat.json",
+    "sha256": "aea49e4cf240f7129157c1dab22851bd774a2274abb25845cf4b263544eb777d"
+  }
+}
