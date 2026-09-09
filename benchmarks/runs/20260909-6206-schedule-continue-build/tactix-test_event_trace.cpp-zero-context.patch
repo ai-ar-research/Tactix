@@ -1,0 +1,20 @@
+--- a/tests/test_event_trace.cpp
++++ b/tests/test_event_trace.cpp
+@@ -1088,0 +1089 @@
++  for (const bool continue_schedule : {false, true}) {
+@@ -1100,0 +1102,4 @@
++    if (continue_schedule)
++      setenv("SAT_BVE_SCHEDULE_CONTINUE", "1", 1);
++    else
++      unsetenv("SAT_BVE_SCHEDULE_CONTINUE");
+@@ -1117,0 +1123,5 @@
++    // Only continuation reaches here. The selected ordinal must not be
++    // overwritten by a subsequent empty schedule at the same conflict.
++    event_trace_bve_schedule(watch_kernel, members, scores, 0, 0, 0);
++    assert(occurrence_counts[make_lit(0, false)] == 7);
++    assert(occurrence_counts[make_lit(2, true)] == 17);
+@@ -1124 +1134 @@
+-  assert(WEXITSTATUS(bve_schedule_status) == 0);
++  assert(WEXITSTATUS(bve_schedule_status) == (continue_schedule ? 99 : 0));
+@@ -1148,0 +1159 @@
++  }

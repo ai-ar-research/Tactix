@@ -1,0 +1,9 @@
+--- a/src/diagnostics/event_trace.cpp
++++ b/src/diagnostics/event_trace.cpp
+@@ -5068 +5068,5 @@
+-      std::exit(0);
++      // Opt-in nonterminating snapshot for complete parent-prefix replay.
++      // The ordinal selector keeps later schedules from replacing this file.
++      if (!std::getenv("SAT_BVE_SCHEDULE_CONTINUE"))
++        std::exit(0);
++      return;
