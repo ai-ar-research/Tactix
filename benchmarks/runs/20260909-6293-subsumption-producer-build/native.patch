@@ -1,0 +1,41 @@
+--- a/src/eventtrace.c
++++ b/src/eventtrace.c
+@@ -13,0 +14,27 @@
++
++void kissat_event_trace_subsumption_producer (kissat *solver, unsigned lit,
++                                             const char *source) {
++  static bool initialized;
++  static FILE *out;
++  static uint64_t low, high = UINT64_MAX;
++  if (!initialized) {
++    initialized = true;
++    const char *path = getenv ("KISSAT_SUBSUMPTION_PRODUCER_TRACE");
++    if (path) {
++      out = fopen (path, "w");
++      if (!out) exit (2);
++      setvbuf (out, 0, _IOLBF, 0);
++      const char *value;
++      if ((value = getenv ("SAT_SUBSUMPTION_PRODUCER_LOW")))
++        low = strtoull (value, 0, 10);
++      if ((value = getenv ("SAT_SUBSUMPTION_PRODUCER_HIGH")))
++        high = strtoull (value, 0, 10);
++    }
++  }
++  const uint64_t count = solver->statistics.variables_subsume;
++  if (!out || count <= low || count > high) return;
++  fprintf (out, "kissat\tconflicts=%" PRIu64 "\tdecisions=%" PRIu64
++                "\tcount=%" PRIu64 "\tliteral=%d\tsource=%s\n",
++           solver->statistics.conflicts, solver->statistics.decisions,
++           count, kissat_export_literal (solver, lit), source);
++}
+--- a/src/eventtrace.h
++++ b/src/eventtrace.h
+@@ -7 +6,0 @@
+-
+@@ -8,0 +8,2 @@
++void kissat_event_trace_subsumption_producer (struct kissat *, unsigned,
++                                             const char *);
+--- a/src/inline.h
++++ b/src/inline.h
+@@ -64,0 +65 @@
++    kissat_event_trace_subsumption_producer (solver, lit, source);
