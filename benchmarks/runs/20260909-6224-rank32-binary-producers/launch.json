@@ -1,0 +1,10 @@
+{
+  "job_id": "1677189",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6224-rank32-binary-producers/array.sbatch"
+  ],
+  "accounting_since": "2026-09-09T02:24:10",
+  "manifest_sha256": "3ce3c20eebaa978e61661178ae5094defaad0fec7d192989f0bf3dc4448851b9"
+}

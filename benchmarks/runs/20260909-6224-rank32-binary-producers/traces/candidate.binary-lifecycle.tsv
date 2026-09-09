@@ -1,0 +1,4 @@
+# tactix-binary-lifecycle	3
+# solver	seq	event	rule	conflicts	search_ticks	probing_ticks	a	b	value_a	value_b	id	copies	payload
+tactix	0	add-new	Strengthen	271079	1644121685	0	337674	468072	0	0	5351040	1	-
+tactix	1	add-new	Strengthen	271079	1644121685	0	-468072	-337674	0	0	5351041	1	-

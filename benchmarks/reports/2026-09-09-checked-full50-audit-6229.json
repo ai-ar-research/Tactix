@@ -1,0 +1,860 @@
+{
+  "owned_hashes": {
+    "PROGRESS.md": "22d1b1bf493cf4da1185feaf325a365501496da5565d9d7f45b27bd2485d94e9",
+    "benchmarks/probes/scratch/audit-checked-full50-6229.py": "feba4c69bfb967b8bdb26720cbed86bc2c59c6842e400db363cf3a566e84d1f0",
+    "benchmarks/probes/scratch/prepare-rank32-binary-producers-6224.py": "13ce97b06c24b83dc7684b0d24065b8e07d62f16f275ad3cdfbbe858f3e924d8",
+    "benchmarks/probes/scratch/seal-fresh-rank50-6227.py": "fea0361f5de3f218bb3487dd3bf03168d7cf235acdfc3ab9bb9495334964d2a5",
+    "benchmarks/probes/scratch/snapshot-fresh-rank50-6226.py": "11165e96e9b9999d19a815f09a0f54aa4ed33213c146011d535496a4b3400ac2",
+    "benchmarks/probes/scratch/submit-rank32-binary-producers-6225.py": "1edb8d70a3c5cb626b4d1f1fb7d5b116c059d01f50e0ed2827dcf555fd4779f3",
+    "benchmarks/probes/scratch/validate-rank32-binary-producers-6228.py": "df715f1a134e1c1d6f65e61e01ccdc5a68a429beccbf27a76374875a413e6578",
+    "benchmarks/probes/scratch/validate-rank32-retry-members-6219.py": "1017787ad4025e43f3d8c232e3884b51fbb0bc7585315b9c9234c2c45e00e763",
+    "benchmarks/reports/2026-09-09-checked-full50-and-retry-producers.md": "970e902c01df6efcdfa79d2bebf588706056b529c0c943099e56440280f85b2e",
+    "benchmarks/reports/2026-09-09-fresh-rank50-6226/comparison.md": "ea27d5609afebc228da5167613e5852e0f3db19458ff0e7dcf27e116586e10ba",
+    "benchmarks/reports/2026-09-09-fresh-rank50-6226/comparison.tsv": "10706d6766b1e4e2109f4d3a2ed3f5cbb91ac0ba5390bbdeaca8c23e2854cc08",
+    "benchmarks/reports/2026-09-09-fresh-rank50-6226/states.json": "94e85bf820804bc179b8ef8bb6ccf3f0d12f1ae50b6dd66638cbd0cc8e7707a9",
+    "benchmarks/reports/2026-09-09-fresh-rank50-6226/summary.json": "4c855177fb5ab9ee207504611e95af9c9291a992cd09f6c89bd571f0b1cddd8c",
+    "benchmarks/reports/2026-09-09-fresh-rank50-final-6227/comparison.md": "7dc7a151ddf52c50446247b7e1a187d01ff42d353180e0fe4df431db0169010d",
+    "benchmarks/reports/2026-09-09-fresh-rank50-final-6227/comparison.tsv": "10706d6766b1e4e2109f4d3a2ed3f5cbb91ac0ba5390bbdeaca8c23e2854cc08",
+    "benchmarks/reports/2026-09-09-fresh-rank50-final-6227/states.json": "94e85bf820804bc179b8ef8bb6ccf3f0d12f1ae50b6dd66638cbd0cc8e7707a9",
+    "benchmarks/reports/2026-09-09-fresh-rank50-final-6227/summary.json": "96f6fda059d0c5050d31a14967c6b528b2143d1e2f7c4b1e3118629a0abc4449",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/000.json": "ea5d19c54676e40cd6e865564ac70203052156fc28fba00399cf39764bd16763",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/001.json": "09b67a12184e15aa437cd8c29ac5659a0894dfa11c068e80263ea0dbbb8022a1",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/002.json": "50a6e082415bf9f427d7dafb836eecc210c91cf4ef26e6dac75b283b90fa18bf",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/003.json": "6faafd2143c698cf4fbb79c232d3b2d9d606396fc4448ef03db01e3d014a2946",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/004.json": "9bf9b676475674cfc8d9afd1e531e543889b64a0f1f9ca81870e14bd5fd1387b",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/005.json": "24057f9078d4ea032c3173de01583742059a7dab86017d6d8db86fe4d00708b4",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/006.json": "1e20f8548ec58731818f51da20b3623172ce6c335745a152cbe2b750f91a7d16",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/007.json": "4e910c36e1d3c7645e8e37534503f1e918224172bd1ea5c5d88becde0c380819",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/008.json": "bd450b7976b26ceb1043743b3cbb83a85502c2bb89d084ac4240c3704532eea2",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/009.json": "d4f870449b140e97872f11f940b922e1d001d9463830832f37c9b16f84a614b8",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/010.json": "953ffde8fc4ffd40c063b11e84028ebfd6a63962751289da877a7c7aa9583742",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/011.json": "0ee02625ee0745d43d3e33b1c535029144821ce2140f85a82117fae0121d17b5",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/012.json": "a41bb396a3c86b2b906614d4812c09ca98985403b2b02fe57bc4fad2572134ef",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/013.json": "c629a48a619b932dd4dc9235ccd1e9cfb640cf2fd2e8eb2925ed5e5494c354a1",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/014.json": "8924d00542fdadc9537a22a608ce84e8efb07c3892a372f1468b58d942225b03",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/015.json": "933dc4b9083b8d0b89c172e38127208e1f8841d6ee1df9a040a69a0b20fa5aac",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/016.json": "2bb2d0c37c86f89a504bfb6cf90792e0e22265758a21597ea9d331d30aa28e3d",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/017.json": "fb9e7abb0044f43f69b30f0e43b07550894d51c38d224940344dbffacaa813c2",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/018.json": "44ca6c4bac0d72c5299b80e462fa2abc3d3e8d427667005e5aa1b0a193da634d",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/019.json": "47372698741412e19a298efd2948858251deb43022761f4be4260ad3817aa827",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/020.json": "c8cfc4c103b5c11a4c20ba02d74ddb6108a9a92e97e774217e727779f4a72fcf",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/021.json": "4d198defec31975e0cbc3bbb16f6be5e09cc8d81cd187452f9e84a4d641cf7b1",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/022.json": "04bdf5b9d99e071e5f64bb7814ccf451fd48eb7fcb79917ae5919efe92b81dad",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/023.json": "8186a68b5642a8a562c1b2e1370b3de753d00434b747cc37da11ebb093436eff",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/024.json": "97efb44737d58a78c0f29a9922164fe4de3da049dbec6240951e98da2c44f6b0",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/025.json": "beef57a5e83a38d67425829b0d322b966da0025e1bccd239f210cbdee10659a6",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/026.json": "5d748d8595efe099363f3fbb278a2edf92690e15fa4300b706f02ef2dce51410",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/027.json": "09dcb974e825758c22e0af95cd9fccecb6a7d39b44b3ec926d3e2c6501302fa5",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/028.json": "28ec1f7f2ea532b61c3fbe25bed04364f9937aac2da02bc810497504aaa4d25e",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/029.json": "b4a17887c2722c817e711570348a77bec04e892a0a87a8b0f850e295bb0bac33",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/030.json": "b96028fe8180fe1089afc9cc8c329c696051528c1f83ed1551d25580cdb9db8f",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/031.json": "7d65539910f6aa51be2dddf8ff760d64d5eecf4160f2aaca9790cd0274ca8b40",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/032.json": "d6b244479a30eba95d2838faaa63f7eea7d4da0daeedbc6aab71cad85df1c1eb",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/033.json": "35244a07a0574fd3813342c837814847a72856e73f54e9b5df712882d6c8ca04",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/034.json": "a7c2c879cdf5749cf511b939fb7a47a2509bb309f752f1f8ae53133179c02907",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/035.json": "e8a459b5611faf5e2386cae58db5b45bf6ab466d11f85ad29f34d5dce4c56430",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/036.json": "3a4d9eb42083c8f0fdc1d43fbcefb54ea6d56886ceb1dd2486b4f38dfc974077",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/037.json": "f8c6424c34e84285cc59b926181c4fbbb1e6503b593e9a91ded50ba5d3ebad3b",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/038.json": "2a0836bf0d78738d119b6457d430bef03c438c537f5ace30310a79cb243cdf10",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/039.json": "922d07e0b8ac69c0465e01f546d07ddef41dda421a8f7e122033497b4baca769",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/040.json": "03f9ab3d0f5680bf6b60a88f79ca37b71034917d7ace26ab6d3ced3c3569e196",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/041.json": "1225a5ef7accc8c164106c9009f77c67608f7e4291b8b4568b8051732eaf3fe7",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/042.json": "f6d263b2f6d50b31034579d30051a61192f606c30077e54708ef4458337dffe4",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/043.json": "e8a6a6039967a7d8404e5079f5b48250cf16439c205b1d8df940050bd4f2592c",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/044.json": "6d9118a4ad085103ec97f68bf8f55c4d50800773a9c0d20549ac342d0701bc1d",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/045.json": "98ce2db494d6e1e5066ab012eacc611eaf5e7de060c6ffee94e7f567d8bcc531",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/046.json": "9828a28e2696a56cb7696586e3df7174910dc0301c13f11033a5cf1a605b28a9",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/047.json": "763f96b8d0181c4c1bb664448f5e674919162f11f8994b9dba66c1c65c7bc4ec",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/048.json": "0352ee0b746d081b8d833a080bb4d4c0cef9441bbe627d07f69c9baeacc6b861",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/049.json": "ddbe1da09bea86329148718cc9ed3eb7a99f42bba05c29da1b95a196a3f6dd6b",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/050.json": "03fb79b9f83e709d49fa7512f9020a369cf6816affe6f25a70f1cfea393d6328",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/051.json": "ccc0b41b957e78a909bbc9a692c44654f792bf195fe8dcd7295ef67aba5cad36",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/052.json": "65d1d32de2f4142d7e1828e8b73d2ded3093c4ceed007a62059bc2d2bcfcf4f8",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/053.json": "4dc2a0ceec65be05e8c75c2fe8ea0850528517f1b2a66612c3296fc59be589d8",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/054.json": "87008b02a416da8fc791d6ea7f1d3abb4ebc1f6f4324096ec1aada484a7349b4",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/055.json": "e2cc4ca21ccdc8f6adfbbcb808192d8f6ff1193c1661a8df222ff6152003f40c",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/056.json": "883c353776b6e4d1432fcaa0f4f596ac24a5c1800ed49e920c7a807b0632e7d3",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/057.json": "52536b8d243883a90ab88d6784e4f75b47e93bfbd53b7f0ab191f9900b1a42c2",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/058.json": "3638f4fef7a19a8bd9e2f9c6f11275d9dc4a6c6f93f2964091caa8c20c752c32",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/059.json": "b833aad68a420184ac760aae94430429e2b45e11b8dc5139e10423fdc093e9fb",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/060.json": "45c9c34529699ff75779ce65e41a9d747abd6c807a8dc1f2d0ee88c254466b4a",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/061.json": "4139d35b1d14bd0db098e9378b50f021becec2859fe8a6ffa8adb717db140fbf",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/062.json": "00e9da413f49c2b8bcc5541c5c0ed6055ba03c09f85c7f360be8d21616ac4b00",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/063.json": "7092d220dfd37ce81b201e6b80036480e0488af790ded90d8c00a676c68910d5",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/064.json": "a2a90f184f10120948374578ed9d7c37504b8cd46acc5738a5d71626e1ac7277",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/065.json": "ebcb204bf63e2550a63b374344f0c614b984c10d52be9d28eaf5c73e6c2e6d60",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/066.json": "162f89f5085d6b53dc5a8f1690e082bdc111842c37bc0d985360c33a1ad310c5",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/067.json": "7b800a1e920fc241be775d6229516195ad9ce5142928bba6ef42cee402645a52",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/068.json": "faee66f8a97ca9e0263f058184b6faf7ff1cf354b0820a6e8631515488f25281",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/069.json": "a96ce087120486c00ab8674c009af10a57740035983fdf2d7d458a2bca50fa5f",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/070.json": "176e0baf094e1820cd58c91851abb23abea541e0da1c00679134071e9191ed75",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/071.json": "a0da600a0b122dc89b1361c212938f713a311c4480258b0e90c34b8af64dfba2",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/072.json": "7def160c1ba6d85a556ef333b8657bc2de16c086ded7fab6ca4afd18ab43c18b",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/073.json": "fe99767996400047eb00c50acd93746ea16b4f4779ba1a4691eec7c3369c1537",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/074.json": "40f8c0d283cfddc6ce8f1e89eedab4df2d6e6a856c365baff05dda3519671881",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/075.json": "e9df0b5f0b99c11a22aaddcb08aa87aba2d61c1a812c528fd2ba029a0cb2f365",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/076.json": "df2ba9b920b005cbc001b7041765570a0921b35e252ebf30a5c79724699f759d",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/077.json": "ffa611ff65caa7bdabf3c9853a1b6878b469a7fe1751674475a9ead1e6ad307e",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/078.json": "cdf82f485997664df158286de811dcf472d8641cb82b66b1b3de3d89d2266bb9",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/079.json": "dafcf6c0a7b527edeb4e8ae08f2a25c6c0bbdd346fd752fcf084e82dd8ed75e7",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/080.json": "b94f8d120e2bab0eb319c44681fe7de8601935d66c29971f6c4bc157871baec4",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/081.json": "3aa83df4eb1dc32de56ce7126ebc700c515c25e167e4f5439ecd6d86ece52938",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/082.json": "2cc8f351afaf2ef522cf1511a082286d0f71505d8d1b1d11be9e552ab4e6c9f0",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/083.json": "4ba10435c99997ff4bb547b1ecabec7f6980874ab2072232bc41a0168600dd96",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/084.json": "3cba163fbcde0234d165eeed8d5fd81cd17c0d238e4f1dc5b46ea9ae3fe00576",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/085.json": "9b26b06fe511cc0514a68e711576ddd4d76e286bca829dbd6f1a7750b925ab72",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/086.json": "a345f3a79ec9d3dea8e07d647204967dea0f6abe9f544747c839971beb761bfe",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/087.json": "5b00a2d58717a73080db03edca05314728fc815e89968af5a5a9c8b27671e42c",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/088.json": "1651d46d95cffd8907525098ea8e0fb6204ef7d3762c11980ca082e04c168fcd",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/089.json": "466c4f37743825bab73050df9e6eff5a34e6f6ac80904d56e9a3b54d19065696",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/090.json": "2afe3055382425c2312fd042d3c2977700757358ceb73dac53d916406b544070",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/091.json": "1b7d4eb06879523af1222f3e316c6de0d839e4e52006c97b3275dfee1f467b69",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/092.json": "2459800e1c0d585eea2475eb5c44750744394e03d6cce7a10d8bb979bd133b29",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/093.json": "1f48c34b1f26702c3debcf1cf5d17878afef5ca4cde02297515776c344565226",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/094.json": "f6e357f7771676fa6da070092a5a979eb2907cd770cf8115c53187a71022982d",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/095.json": "92ae14b38157feb73279421c5a0ac3a20e6570bdc5add68bd336b31ded06ca99",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/096.json": "240f82dca1f974a0fbba0f00b293b80f90f94307fb42d06279786fa97624fa5c",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/097.json": "9e342f186b59ebd430d6a5ad26fae88adafd057ffadafa5499b83f7ec00343a1",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/098.json": "92208ea8b897df98e0a0e4e4b5c9b30a0d0f2bc04792b8827cb262d70dc951b1",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/provisional/099.json": "d1445b75098e67d716d1873eeab6f95753cce9c34b770a48b618746b6b3b108a",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/000.json": "9293513889cc71066b450393a35d1641cd4b8a2bc7e962952449ed65d193f06a",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/001.json": "87c20dcbd3651d2a3d82eef775dc3bca42c21b7eee473bd1d09327c4d788380d",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/002.json": "bd1cdf6d4b82e68a21d61d4cef8f206990528c79bc5cd32866325b6dd528be60",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/003.json": "32e08c908890085c9d809fcbc175a71467926a833fbd9c1717ccb911f5cbc55c",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/004.json": "aac4b9a59090dbc582cc38f9c86d5f5f15d624e4304113e7a85cd4329fcd7be6",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/005.json": "45a092842972c2dec3e8f95ff69168f5f372c3f2ed926122b873282539922c36",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/006.json": "e66f02b3a91ba4651e94305649633e5862af92c775b3df3b3fb256775b4e461f",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/007.json": "63a959fe08f0c31a6717274a895d57f03ec17d8c61cf39db51aba6a5d00abede",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/008.json": "1e77cedc41beaa6f75fdc77094eb5f30b36eb3d73a1b001241e3e941c79b1250",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/009.json": "f99648b8fdb868b35c36f1ae1894cea952df720cb4e8b54c766c340675244b42",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/010.json": "51c4429ca5be6a6ba5d5ba51be204167bbc770d301dcb8fb400e83ebebc2c374",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/011.json": "700e5a32ffe9cc59021f7d40a1ce87628baff05c5cd3937e73d0625d615a89f8",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/012.json": "30472ded7afe7d8d1c63b61a2b24677f380f8c19c23a2ef5b89b2df58b570f5e",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/013.json": "66ad60ef7c78090826673f3409c8cae67d93732476143a74f6c9d0dd28c2c834",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/014.json": "34c44f037cd0fff2fc2d3011f806bac1ade7baa89d742c828534206fe97b780c",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/015.json": "3bbe7078e504c7cb160eb774fc7a3613d1fc1b3e403d7a73aa677061c2e7113b",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/016.json": "25058eefe654a82a7c68fedabc75f237e32917c30cb1af5ed57bba84230c00c7",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/017.json": "d70d6419fb29899ae8209c21f49f32aca4cac510a5e5269a576198cc18860882",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/018.json": "773895e9d509d9e398b318cd1094c93fd45dad8b7e99f336e39076d72124d360",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/019.json": "4bfc5294a65f9659716c35a86500398a82a1dce8610b77e50e8cea6f1834f066",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/020.json": "e2469675d5ac11204bbf451ec85a15f5f73d7335973e66ae96156ba3f1a2c565",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/021.json": "14c4f1109858c6576c7b2d9d7c0bc5fc114203633f1f4b1f44c54da01f9d4ea7",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/022.json": "fec0be130deccfb9130fccc9cda0a4d6b0ff84af879dc8aa85f9a3deaa5480b3",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/023.json": "2f36175c3f37b1ea39b9c740f3ea7f7122c27e112ccfb4b08583f30b11e94941",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/024.json": "25e93540ac5d290e0c668188314dc6a15d8229178b499990a0e05de67f03d5a4",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/025.json": "6ffb0e82ddbeef4eeba2a30fb6d1df7b33aacb5929c2f103c3d85717663bbea4",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/026.json": "cb05a2337d51a8babec4d7e607fbc06c6df842e27bf017500f98abe7e6dad287",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/027.json": "704c78c8dd03f7acf5e79c036ff700b48fe8e13f9e51ddf0731eb5b9d0e8af20",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/028.json": "e6845cb27082f162757f052960efad5e4b80d21f6e03875e2bf807d215cc79ed",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/029.json": "f78e41cb6c3e7066c3a87c3ac86d3a98dd551412d1eb0e664d9b773db144700e",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/030.json": "dd270ea4e4844b639e46fa91575257f14094e913a8202bf781dea1a8f46e4842",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/031.json": "60adb5bcc88e829f89d0f6785d76e188415bd199bbe829879b0e85bbf8d60b9b",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/032.json": "a6e05053b7a112cea3fc5613df6dca96f5a1a56d73553e496c507090523428e0",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/033.json": "dd30b68f8dd22699d5b0c048ebbadbf7615c1aacb27d6529bca1b75511a6248c",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/034.json": "0a4b15c5bdb85c4080ec8e663e654491b76dca871f68206daca565fbfd8bb853",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/035.json": "90c27cf8b62e2496e89bddf82c862fbaa7308898b938da12d393cf1ae50c7577",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/036.json": "f04ff4a7de78045dc7cff68e1043bb50338cf1bf18a341c5f1f2b24e1a046957",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/037.json": "70d48b90fd156733e65ab8398aefb92858d955443214eb46c6f1852a17bea57f",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/038.json": "4bd5c0fb4900b75b858762a85012dd8bc2860deafd7b90e54ea99711803560b2",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/039.json": "6e80fd4e18f58c00cc1f10684982c3e112545dca3e81dcc1ef2554f687b141d5",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/040.json": "e8eab43d5f25892058d2a8df4af14bf4a1c0cd1da1e6636cc654149bdb9fb3b7",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/041.json": "8f1e8d745691b4748052f2338ac1942dbfc7d98a4481a3257466201c16e44d17",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/042.json": "2d6031709df18a4b826910cbbb67ffeefdc46e31353baff309a04f0ff051aa54",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/043.json": "231dcc90d2984622e694a3afcaaf71c21d5f59ea83ff59f845e5736359ec481d",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/044.json": "352c15bbf6785484904e9be4868cc309e81ce6b4afa16b0d856910389646ec43",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/045.json": "2716f9d3638047472eddbff54aa48c1cce013bd5e181c68418c3c69dfac4adcf",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/046.json": "737b8d75caf164eaebcbd1cbd6ba32dc556b82084afb318c96831674973b19fb",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/047.json": "4acfa32171ab416a80b4ea9956618d35d2930aaab3b97b1158abdff2f51e26a5",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/048.json": "1fd638b7c4d7894c91aa3cb78a5334c2b0b16c3f8e595b2fd03a19aaade77c89",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/049.json": "12035ae69ff785eac34bc6bcde11e14d323fcc3d80de8a8428ad98169c0d5454",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/050.json": "58ac6113a43088462c33a717b0d20833d57c5a0e709460f0fa6506617f9d5073",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/051.json": "bed318733dc3e9f107783b0a0449b779b416bfbf52e736284e33d87f0b5dc767",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/052.json": "069f59bbd6e29e9f4ee0cecd4301422c0487beba39115cd8232719faa1fe888e",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/053.json": "0cb627bf93647e4c2d3ade56a387e3f01b646c9450847416d34df208a6c8c878",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/054.json": "c219a072c0c2fdfb08451d06eefae98dba12c12541a337e01318c6e2c4b53a32",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/055.json": "6fda765191d41b99d47996f95ccb3f1fee5344707b728b784dc65258854475df",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/056.json": "2855fb990fcdfde50d55ccdc3db5cac7e6cc2a59bd2c0cff96f418a6cfe07aec",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/057.json": "31536f9f97ec1f0a19de7fadeb2c15d8f223a093c7cba317d35b9150efbbb986",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/058.json": "1d0033302ac2231a4b5d3d18d0fdb46534ffcf63a3a6df65e3a950688a4e3c76",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/059.json": "8f8ab9a7b4b383b7b267e57d29dbba21382d236284e345248284d0f5bbf8e8cc",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/060.json": "369fc5dc5dfcbeef254e50fdcbf7dcb3609f0cef3cbfda93046785e6406500c2",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/061.json": "45503f7de6304ea290c0e497706299983b3621d67fd825e46fa27d9f02499a10",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/062.json": "801910934e0dfb61e16012c10954c89d17c9cee5e40de01e096b66a890aaa992",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/063.json": "c617f2ebbff71d9d48bc63636647b60bb54a18fdcaaed81e0ca58783e1530921",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/064.json": "4d4a69b6411fc364befc44626a542143bffd3dda19635e6b9cf094a26bf713ce",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/065.json": "fe5ed6864f5a7d0b8f9c0c08714c92f29301f65d10c2cd30de3e6e3b26b382e0",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/066.json": "1b30bcd20a00c58d337067abb3f1bb751dcd8620724313e3ccaffa51b4fa60ac",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/067.json": "7158e4b6282bc40e89d6d1ed3b205fd881d78ec226c4a3fb078ae0fb4209418c",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/068.json": "7684815b80511a54ee4f1ce58a07dd0b693c1fecec1200008952f6dccea68363",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/069.json": "be7f0cc63267cb627318b9442ec2f42fcf14b7bf61f353b5869c7410c9e08e14",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/070.json": "56e717ba5e1f3bfa61175cdfdf962f7770fe6d3d81f3ed4a08a975c63daf7f57",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/071.json": "efc3cf20d099671dbb7dec42196d140259234a4898a3453db73cd0a6b7ed748e",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/072.json": "dfe8663d64dbd2c8ed56c9a62e9a1af40d964388ef0846df9322806c92a0964f",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/073.json": "9b36ca70a97afadc02cd917e2b5ea0fc91306bb54909d44568696f17324f5159",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/074.json": "f2222fa1ae5aa072cc66d7e2e85a43caffdc42a60b142cae30f541f99e8eaf17",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/075.json": "afe030818e5d9baa5c2c35bc0ae9775002dcee5d1043b159fe5fb61c5e53705b",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/076.json": "4702494f90f9fe121e9fc631df08596c0822b61951b0ea099d479878809cbf94",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/077.json": "c428ae52cfab86d7b5c2e4e5310ebcc4d40469bec376a0a71593da0a7ed62855",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/078.json": "a4d3e58bc924492b26d8606e13aa2e90a81069bdcedbf62043a8a618735cf408",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/079.json": "eaf2022905de12393e7c6bdde8d7f9976061beedc2d81901f7146a545e60ef2e",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/080.json": "8326b8a0ea94b537562f2f337dc250ef7d5cb8679329930ab9c664def517d982",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/081.json": "892832e5a8f5ec2e17d9386181b0b2f8fa8dac020477d7618d086d0a5440cce3",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/082.json": "6b7371cf6bf9fe0c2c5092a90d782f2d488169d133e45ad95745e8246b223110",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/083.json": "2a8c2b27bece01eb6f469149c180bb11f04c5d4d62c3a20c9085fc1bdf34efe7",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/084.json": "366155a13d52101d4fc874d4b0c5802968dafce8fb490cac25cb090cdc4c08ec",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/085.json": "79c58cb9f90387f86d3aad47954698378c9b11c1dc15ebd82c3ca5c6db78c45c",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/086.json": "2b46d0c32f7e49443f6f873d44d42e815f06340cb9c9711cba06f58207e24cd2",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/087.json": "6d18f62526a3ba2e33285fe05f1de900a98ac530647ae3516f954ed51a97b0cb",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/088.json": "595d94e67f45ca51849357e8989b13b9e54c171c550e0b67a48724c26c43e898",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/089.json": "39a5865f6fb3f5eff82640bf5de8b9ffb94e20eb330c844d60cd2d7f3b49d29d",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/090.json": "7fec0345b1ab297ec2216104a1b926266939edd76df51b364ba6b7fa9d044782",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/091.json": "7350380d0543355336407a976ca5938baf33077fd05ec4377d0297b5b585a355",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/092.json": "63292a0d00f8ab0d60f56f5d615c524bddd78123c100cd83bc226c97fa8b5773",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/093.json": "7dd372874d5ddcbd07bb20d49a39f93d63e6681e96ab879ec949ef43665a54c1",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/094.json": "15650b353f2e7f0e64794b68af992771fc730fbb1e43e7e923706292e722ea1a",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/095.json": "c1613c006d1cfb074788964067cb66d2dc85926822d487cbfb371a871306f7cf",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/096.json": "1ed60c9cd4bf81d1e0ed4c1fa9a7c6e33a1009572467bd6caa5e6b661d482d79",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/097.json": "5b34ece23e4fc1473e1481911a7d5b29c411d8b29ec278f7233d3f55ba832c1c",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/098.json": "ba76ed5547c63fd0d753b224e07aa028bf21889121654de5095af8126ce924f3",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/099.json": "169021c0897ac66d19ce9d8a963d0995e0f4cfc24654b9c631f3937449836569",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/000.json": "c3a49bc8376c339ef76004220def9359c4b02e8e17230d69c53843bafc0a2a37",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/001.json": "97d826b982e4fce064e6e5acf8881fe3bda07d02e3c4330924a67690614f06cc",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/002.json": "b6722c250eb04b1058c3e5da21a6c9f6c34c353d351fa6a47a5c6439d2d377ee",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/003.json": "857107e84266a3edec0cfd104a05d53cafde6a8460f78bc56e553b78db138ba8",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/004.json": "2e7835a1de8fa272703a2953abb7ee734cfc0d55926ecc408336b27ae795f4da",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/005.json": "ebaaad959ff2e37d3e92be451fad31979549a3940b0cd7d7de3b6e8b2691dee8",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/006.json": "3b3544a0a9fd278bdb01247acbfdbe80ca8351ab59a2a9061452166e4e0ddfe2",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/007.json": "17888bd1a9c58c5379c1b2596c1b5e0176c17304d9472075bab42e1933abb11e",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/008.json": "a1c15a7ab9dda1ac88b30044a6727ba398ade22f6dace60d42eed98a1abf50e3",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/009.json": "648851ee2efd35c4551d1167a5827cc7c2273ed6ef122ab061df5130af55f82b",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/010.json": "c9aeb8442df9dca93b6deee1f386aa67911728a1741c96a9cc88fd4c8a7123c4",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/011.json": "2b02933c4bad8327ac66984c6bc1a87b1873f65a4dcaf9c809639a88f0f9d9af",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/012.json": "6d15796a3c8f57acf8b6a2078d18b5adbb1714bb47a376f3fec04ebc9afe60af",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/013.json": "ac922ea47af2bcd66e11173f76588799613f6d1f90eedfdadc681a9ddb99c5df",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/014.json": "019d620154039ea203a8553f97e150f5df08fb23516b9af9688b95aefa644f05",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/015.json": "f3bfd56e21246a5497c9efef90f1565ad780d5589e05752fd005ca12d8ba608d",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/016.json": "246fa0b1f768fbcfbf5bba23c7fe1e516b266c1a1bba705fdf2cd8cc938eb151",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/017.json": "1a4e24a3fbe914401b02741bd5296a8a4950c0177f92b6050737b5f9ddaa25d4",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/018.json": "d318b3dacad91a38e8e6e8888ae9d0a30fa9ca2a234a79f9dfb2b41fcba49fb7",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/019.json": "90bfc66708df3ca0ae12954a27bd1009a04d44d57d77383df16b18c7526c400c",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/020.json": "440f95e64c144a04a5c7e7a56e0c19fd4b7c1cbdcaf8ee4a26bf8fb9f0e25195",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/021.json": "1c2d9bc7b1f643c7a2931e8cde2f7b8f6c7d708e947307a13083499ffe67fbf7",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/022.json": "ead56e63617f1beeba3eeae2efc5611251c93b8f2bb62cb53d8ac55d6be36bba",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/023.json": "4283fe2e0af0fa34da1d283c037a8342a964404b3855d93af26e4d616ab143b6",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/024.json": "9f063b9b5f455ce1e5a400eb62cf5dcbcd53a6f2808939c3582f327a1d66920f",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/025.json": "2e687e50e27252378d3f6aeaf90e3e72a91fcad8c88312ed1fd54bdac60a7c92",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/026.json": "be55c9fcb4d906f408ab2813c15129a30d9e9f6adf663725018d36e937e3e2e9",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/027.json": "0dc25ebab4eaa5748eede3343e0dc66f7e130cc3d016aa1223278c018c04c459",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/028.json": "d68f2b6041902883f3662e958906d814fe8fe9e4e9a6f064c7748f2a2654c43d",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/029.json": "a9d5608ee6ad044b84f47b9b5078e527f18c56bb1733bd6f5039f6f685433d9a",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/030.json": "372210c758da63e79094fc3a41ec1844e7d5c506ca0ca1880a94edf3d3488439",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/031.json": "477ce30be50475649f57ddcd22b7593208a0188dc861680cc29c0dbb9d041cdc",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/032.json": "4482c7ba5940b135bbc1fb2826db1378be0ddabe1e4c86079399062f7e2885ac",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/033.json": "e466e92f380672e1c2a3cc0fd3cbf8bb584b0857c81ef19bf3deffbf65ad729a",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/034.json": "3b2aad15af3fdc0ac82d57072ee4bb404f1f3695ce8411ca3006dd506b05a78e",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/035.json": "c902b52be6250b8c3916e981e27a60ce81a1b3ee0b088a7d539f6f3b7bb898f1",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/036.json": "7720eeff3bee3ca2e56b744171b4f434eb951ac0dbd8ef6d3065afc5889ff9c1",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/037.json": "b560a1ecbf1807df942f9fbcfe99af11f4cdc3cf54f16d748013a2666f606291",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/038.json": "dd4ee95fddf26803c536a958ce7ce166138c6b52070fe5a2d54da386443fc91a",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/039.json": "873d847911fbd4f85317f0a59b52528ec912b140ea33c02e9d259742c5d12673",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/040.json": "491f1c4aa301bf449c9797b7ef11fe1fb5ba916aecaaf52fe0ae3dc26893c54f",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/041.json": "fde840ce2d026ae1074adcbb58c70d35e2cbac013a90083cc8d1cf8405017fc0",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/042.json": "7c5debbd072f3daece022e57c6dd8f47b62775a7cf477298b70ae80fccc2282e",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/043.json": "d8dc6f7fd2ac9188137c293cae14965e94fa4642f85b0342e6fd33b76a6e3040",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/044.json": "38a5baec2734a912c2fffe463bd656c189b033e80e5ac7a517b055d82c1d5dfe",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/045.json": "55c1449c7ae269345da1687083f822965e9e1fccbe20974964b586ee4b934b8f",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/046.json": "f980c0d0b1da7f49d359232f1c57dab93fa27bd286f6bab7b34052db7f749662",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/047.json": "4c29cf388dc0130c15e60c79af96141340cddba26c6aff7eace924fae4854912",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/048.json": "cb7ea15cb52c09397da39e08a9e13bb06ec9359f2e089d4e7aa77f1755190031",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/049.json": "b4f2d7c1aec8fc92d76b9f8bacd6f5ea28f946fb91eabb3e485a99ef2c488581",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/000.json": "69c360811d22596e65b7d56ba7f3ed4b935bdfa172e12996ed643133fd2ab48f",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/001.json": "5fb435b3eb1b640efd7c2c94b1c295665e70a7a86de397fb1b8d4cecac106b88",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/002.json": "9d4a8d964473d75b29fad375f30ebba74fa14afa63ff2a89c15575ea4bd01542",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/003.json": "f2e17377bac3da04bdcf2ff2a8aa0ce4af6fbece6a9a43c5c6603355fa193138",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/004.json": "6f3e1dfd1247514f42fbffe90ca478446bef16819dd33a6f7cf194811c7eea94",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/005.json": "c861b1e13f3f80bd927c7127f725bce0a3cdbf94213e06ceac704605e9165e2c",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/006.json": "ec4340c8936b0883dce2a343fd97aab2920bef4d72791ead9bdd289f6172a320",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/007.json": "0d2107ce18d16273f6b44c75ce2b48cd959220d4a820aff9e95a58780101e0fa",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/008.json": "e7ef8ac44f99b1d3248648f429dae0460c2892ad207d1b694d06714b73bf4a83",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/009.json": "b4bb8bafa79401bb094a57dabe8138f8fed3f065e29b3da486ac2a61ccf0ccde",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/010.json": "4914d1ff42aeceee14e29964cad43b78502f97bc97edca725db5425e7cea7b3b",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/011.json": "c74b3bec6c37adf5e950a9cabaf348f41c81ad6dc87bfe876f610caaae2e173f",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/012.json": "6c4fc81a9f8634dba8e0d5a843eb1242798da2d13249e17444e976320a7ac52d",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/013.json": "7be0baf70a1e494121cf87b14444a01daeb6daaff3b4b4b4920135d8c91bea01",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/014.json": "c058936e56d3c79e3f71cc461218bfd02db97639ab324e5f68e8c8189f6f4b0d",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/015.json": "2fabd653710042da73317065388be848c1a7e759dcd455d21817fbf586adbbe0",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/016.json": "b863c4ba804a0da182e3aeea95e7ffb4046a4de176925c4fc06c4b3b4a15f175",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/017.json": "6390cbfe3b7625b7d64650c06673ea411826fcdd7d35df5eafdaa94710ae96a0",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/018.json": "3b2f7e6ec34bbc953be266738a2769a184966008ec1a260134537085143c2358",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/019.json": "b25873a6c3c2ffedfa80a8aa40556a4719b1040918d84246ad3d75ad64d89761",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/020.json": "a6d3561d503f74dbf845d6b4565682f274ea0a39718cfa5377e6218142cbd8d4",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/022.json": "b362f4a301ab19c0d5763ac61208a172d6bc9ff9661239b0a6a1be7ca8cfc624",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/023.json": "76ac07d34e310217f1bc7c277ff7e6a24adaf658d180730e9b3ca1927fe40a10",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/024.json": "5407b44edb277e62ff1771b7d7fc55f8b38b45ecb9e4034c0f72285e71770ec0",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/025.json": "aa9e14e47f80f17b1e04bb34d309652ac38d539ec1522897358be3dda2d245c2",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/026.json": "eb957b458d347591de5b3da00ba767f8db67f644e7bacd9b813aa5775eefc33f",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/027.json": "b0e90b3df977be39ae845d5930551dd5861406523062f6a24265e325ecc94ace",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/028.json": "5e804c5cd8d3d29de5d87c24b19389705440c2bbce88542cb66f3f134c2d7acb",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/029.json": "d34b336897e36bdfe04f979e766469a1775f44f638f5a68afda06ed0b13934ed",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/030.json": "aca9d55e4f9e068b1fc387766c15ee0144b80310908fdff8cfff14c2b366df03",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/031.json": "cea6f3fa9e215ef4e14f13fa284c8445fa83432b65cab520b259ef750de4ccc3",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/032.json": "06edfd17cc4dddd1ee45c284795e8a2985a47c33c822b1398a8bb878bedf421b",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/033.json": "f37860b735c73eddf460a15cef4ce855b1f66a92a2c8409c0479a1f4e2dbf59a",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/034.json": "05365d0e7e3380f12468e14cca0a71d04efd1b204bd9a08248a2d24bafd927d2",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/035.json": "3c7bbe3195f782931042299ca589088bd2798355626373ba51f2a6daa23962e6",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/036.json": "98c8789fcacb72a44fb627913bcc9052a101daf1e8474f283853576436b6a52c",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/037.json": "0746b13e15429d37762cc35d378ad5c20d788d69c51b544aca1f6587e356ac85",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/038.json": "b99bd3039b61c3eca362e50e11c401ff1d090181422a3b28ea648748c00eafe4",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/039.json": "0e8c505b3a0cd2cb2cbca766aff39c41577c1ba3d5d5c6884b55303fd92d380b",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/040.json": "1ae30e7fff7ceb432cc7e4f5fe92c84dbada3dd59cb35eb56607649e0ec8d5ec",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/041.json": "14f5f67f655c741bcdbdefe33767ad81670bf5998e805985a2402240f7659dde",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/043.json": "90e9814813f8c9a69f3a56af8fa7396abee1da573cbf38c7b6a97dd2508bc9ec",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/044.json": "26441683fe9d5c30929bff99cd346cc600299ed79fb4a8bac81eba4e454c845d",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/045.json": "c1bec4ad0a3b08afb06d9af0b2ee40b0d3cb09749f43b39b009ed7a406057cc0",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/046.json": "83d4771be94fcb538001761c2af201ca0dccb488819010b5bc4dfd0db67f1503",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/047.json": "b2fb599baf3c60a2cb83e52af28898f6167d4eea0808913ec9a2b8e1313ad3eb",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/048.json": "ab7b60b4ac21ac30687af0d8361adbe9b33c8b651faa532c0001e85eb6e03dd9",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/049.json": "8776b485ac0b14c6fe1ecb688ec9cf07b1084a1f871b023a1f1d0b84487931c9",
+    "benchmarks/runs/20260909-6217-rank32-retry-members/array.sbatch": "66ad01a2211090d1eaa98fdbf8477ba8c69742f2638fa60fa78315cdd2831cdb",
+    "benchmarks/runs/20260909-6217-rank32-retry-members/launch.json": "483296dde2f3ecce2cf4e46451c0f03d32e9931d35e72a2ed2459636730d7047",
+    "benchmarks/runs/20260909-6217-rank32-retry-members/manifest.json": "5e84cab5243b56df075e7591f0df449a2f72c5588a81246374d2be78a841c8f6",
+    "benchmarks/runs/20260909-6217-rank32-retry-members/results/candidate.json": "dec0401ed7c470b429eee7e46e39bcc034fcd26aae1f9122803c8930ba5e7bbd",
+    "benchmarks/runs/20260909-6217-rank32-retry-members/results/kissat.json": "3fee4143f863d7906a127e761f181a1bdc1311b7f97a217a1e978484759592a5",
+    "benchmarks/runs/20260909-6217-rank32-retry-members/run.py": "5c3f306c6e6cc8ca447eb6bfcb10bb40b87cf4b5d909526f4d6509c20b282128",
+    "benchmarks/runs/20260909-6217-rank32-retry-members/summary.json": "ed919e05f5b568bb2c4cc2da391fe0ce8194961a2640cd1ad0f29cfb24b70bf5",
+    "benchmarks/runs/20260909-6217-rank32-retry-members/traces/candidate.boundaries.tsv": "37b6ac2889768575e2e9c3c5c96a23bd771e5290b20e0440c242f4e7ee86cca3",
+    "benchmarks/runs/20260909-6217-rank32-retry-members/traces/candidate.bve-heap.tsv": "ec562cb0600c7a67fd57e7ae85080275243c5d63e2781adcae5d6d05261c5dda",
+    "benchmarks/runs/20260909-6217-rank32-retry-members/traces/candidate.macro.tsv": "d5b4c09d4b426d71d553e78f5aecea0364b6e31a1022855e7034e02586b052cd",
+    "benchmarks/runs/20260909-6217-rank32-retry-members/traces/candidate.prefix.tsv": "0c8b0e8080f8ae73f5ab7cd8195cd3269f991e2950bcc6ea4f602a2a25ab1d2d",
+    "benchmarks/runs/20260909-6217-rank32-retry-members/traces/candidate.retry-producer.tsv": "c9ee13bcbf59812c24393a8c2b61088851d4f6094c70c4065f15f6608bab3fb6",
+    "benchmarks/runs/20260909-6217-rank32-retry-members/traces/candidate.schedule.tsv": "2b541ec3a35583835fba4239686b241db01c927e5041dac5e85de9d79a158f8d",
+    "benchmarks/runs/20260909-6217-rank32-retry-members/traces/kissat.boundaries.tsv": "f5a3e7685ba3d3c2a59addf262d585582171d9b9504965a03194fad599626f2d",
+    "benchmarks/runs/20260909-6217-rank32-retry-members/traces/kissat.bve-heap.tsv": "5fed8291741bddf77bc3f40567419d029070b618da80e9f4746b6972145aa62d",
+    "benchmarks/runs/20260909-6217-rank32-retry-members/traces/kissat.prefix.tsv": "1ea5f414036d92c03bb91e1dca557e1f616f6f78c323a16ea2137ab2ca59cdc7",
+    "benchmarks/runs/20260909-6217-rank32-retry-members/traces/kissat.retry-producer.tsv": "ee01f769a504c384fd8182c02b161760cbbc5380a7f1be6ebf9b0632296c8645",
+    "benchmarks/runs/20260909-6217-rank32-retry-members/traces/kissat.schedule.tsv": "d82d3517500568474e68ef7653e9acc4bfdff49093b8b132aa4f7c675ce1fb64",
+    "benchmarks/runs/20260909-6224-rank32-binary-producers/array.sbatch": "68e6384a3fb942638b4939b544aaf8a60d97f1097a88e245d00786e86b23749d",
+    "benchmarks/runs/20260909-6224-rank32-binary-producers/launch.json": "9659e57e7060f0df1ccf970aedb5e587684fead24cf981d09e89d6cade0d4482",
+    "benchmarks/runs/20260909-6224-rank32-binary-producers/manifest.json": "3ce3c20eebaa978e61661178ae5094defaad0fec7d192989f0bf3dc4448851b9",
+    "benchmarks/runs/20260909-6224-rank32-binary-producers/results/candidate.json": "6a04b4ed4e3c4e28314075641e6908b8dd7f6e5056f5ab1b4f394795656bc483",
+    "benchmarks/runs/20260909-6224-rank32-binary-producers/results/kissat.json": "224288e28873617ac85a682f0ef8a8aa1d01b04eb948f99c40304fb6138551d6",
+    "benchmarks/runs/20260909-6224-rank32-binary-producers/run.py": "ecd42f0b6ef9631c203be4e6970c5295cc9ce92d5292fa95eca614be2162ed18",
+    "benchmarks/runs/20260909-6224-rank32-binary-producers/summary.json": "70ca5e099ed0600c8d24988d5fffd9fc70ae0f97781780b4450755c05ba5819f",
+    "benchmarks/runs/20260909-6224-rank32-binary-producers/traces/candidate.binary-lifecycle.tsv": "6d30501d51e61930612870c0b4f50e49164ffe5a07cea05bd8527f5bad4014fb",
+    "benchmarks/runs/20260909-6224-rank32-binary-producers/traces/candidate.binary-sets.tsv": "b5eaaf33cdfeccde50cbb13da6681089580089fc218161a92c23c34ecd4ea669",
+    "benchmarks/runs/20260909-6224-rank32-binary-producers/traces/candidate.boundaries.tsv": "37b6ac2889768575e2e9c3c5c96a23bd771e5290b20e0440c242f4e7ee86cca3",
+    "benchmarks/runs/20260909-6224-rank32-binary-producers/traces/candidate.bve-heap.tsv": "ec562cb0600c7a67fd57e7ae85080275243c5d63e2781adcae5d6d05261c5dda",
+    "benchmarks/runs/20260909-6224-rank32-binary-producers/traces/candidate.macro.tsv": "d5b4c09d4b426d71d553e78f5aecea0364b6e31a1022855e7034e02586b052cd",
+    "benchmarks/runs/20260909-6224-rank32-binary-producers/traces/candidate.prefix.tsv": "0c8b0e8080f8ae73f5ab7cd8195cd3269f991e2950bcc6ea4f602a2a25ab1d2d",
+    "benchmarks/runs/20260909-6224-rank32-binary-producers/traces/candidate.retry-producer.tsv": "c9ee13bcbf59812c24393a8c2b61088851d4f6094c70c4065f15f6608bab3fb6",
+    "benchmarks/runs/20260909-6224-rank32-binary-producers/traces/candidate.schedule.tsv": "2b541ec3a35583835fba4239686b241db01c927e5041dac5e85de9d79a158f8d",
+    "benchmarks/runs/20260909-6224-rank32-binary-producers/traces/kissat.binary-lifecycle.tsv": "be831c030ef3d14ab7b311629dde1ba7146bc3ec624076abc453e5317904db4d",
+    "benchmarks/runs/20260909-6224-rank32-binary-producers/traces/kissat.boundaries.tsv": "f5a3e7685ba3d3c2a59addf262d585582171d9b9504965a03194fad599626f2d",
+    "benchmarks/runs/20260909-6224-rank32-binary-producers/traces/kissat.bve-heap.tsv": "5fed8291741bddf77bc3f40567419d029070b618da80e9f4746b6972145aa62d",
+    "benchmarks/runs/20260909-6224-rank32-binary-producers/traces/kissat.prefix.tsv": "1ea5f414036d92c03bb91e1dca557e1f616f6f78c323a16ea2137ab2ca59cdc7",
+    "benchmarks/runs/20260909-6224-rank32-binary-producers/traces/kissat.retry-producer.tsv": "ee01f769a504c384fd8182c02b161760cbbc5380a7f1be6ebf9b0632296c8645",
+    "benchmarks/runs/20260909-6224-rank32-binary-producers/traces/kissat.schedule.tsv": "d82d3517500568474e68ef7653e9acc4bfdff49093b8b132aa4f7c675ce1fb64"
+  },
+  "local_hash_bound": {
+    "benchmarks/runs/20260909-6217-rank32-retry-members/traces/candidate.bve-candidates.tsv": {
+      "bytes": 22856092,
+      "sha256": "65f67d542b7f7cde4fff013b63d442a05ee7b5fec65a06c9c4080eaebbf7b740"
+    },
+    "benchmarks/runs/20260909-6217-rank32-retry-members/traces/candidate.decisions.tsv": {
+      "bytes": 876438177,
+      "sha256": "1939038fa6c7380c8ba4363bb34fbfb04ddd3e916df9997fe661823ea3ef62db"
+    },
+    "benchmarks/runs/20260909-6217-rank32-retry-members/traces/kissat.decisions.tsv": {
+      "bytes": 790093368,
+      "sha256": "d32fe95d3ed218bf5f852c4405599de068876b0d55c07b8ff15e9f0933f9df73"
+    },
+    "benchmarks/runs/20260909-6217-rank32-retry-members/traces/kissat.bve-candidates.tsv": {
+      "bytes": 37795341,
+      "sha256": "c569d1373fcf4be01b7058d900def9130491b2f29beaac04ef759cae3668ad8f"
+    },
+    "benchmarks/runs/20260909-6224-rank32-binary-producers/traces/candidate.decisions.tsv": {
+      "bytes": 876438177,
+      "sha256": "1939038fa6c7380c8ba4363bb34fbfb04ddd3e916df9997fe661823ea3ef62db"
+    },
+    "benchmarks/runs/20260909-6224-rank32-binary-producers/traces/candidate.bve-candidates.tsv": {
+      "bytes": 22856092,
+      "sha256": "65f67d542b7f7cde4fff013b63d442a05ee7b5fec65a06c9c4080eaebbf7b740"
+    },
+    "benchmarks/runs/20260909-6224-rank32-binary-producers/traces/kissat.bve-candidates.tsv": {
+      "bytes": 37795341,
+      "sha256": "c569d1373fcf4be01b7058d900def9130491b2f29beaac04ef759cae3668ad8f"
+    },
+    "benchmarks/runs/20260909-6224-rank32-binary-producers/traces/kissat.decisions.tsv": {
+      "bytes": 790093368,
+      "sha256": "d32fe95d3ed218bf5f852c4405599de068876b0d55c07b8ff15e9f0933f9df73"
+    }
+  },
+  "protected_campaign_hashes": {
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/manifest.json": "b2f9e98291c56c415e4cb9439a77378c55cc78593d632c1fc84a6d5ee194acf6",
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/array.sbatch": "b90503efeb1acd5ea2cb081fc60a79c2e1ab6d51287cedf050a673ddb5433143",
+    "benchmarks/baselines/rank1-40-kissat-12cpu-v1/manifest.json": "45259e1acbc93472b923517f75fd6b8697669b3ad74970d27b565b6b7f1aa686",
+    "benchmarks/runs/20260908-5712-assignment-level-ranks1-40/manifest.json": "80211109441ac7e1483082a767c755ffc03c029381398c71017593e2ff29a8ae",
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/pins/runtime_task.py": "ccef4f23bac433c4c205949c0296f2cdef0e98d0d56fff5d306abb6e6209297f",
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/pins/modelcheck.py": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/manifest.json": "d09c9f2a030d0d29974fa881ee247c7900704e4be0e204b28c0b16beaf443d16",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/array.sbatch": "82b47f14fc76c4d5ca14484035b1033d013c1a36c2bbe44c531a1a6a56c87efb",
+    "benchmarks/runs/20260908-6114-substitute-publication-BC-gate/manifest.json": "27c57c3c896ab15daa9d51ff87f9a977472d28b2b43b849be7322b96eb598bb1",
+    "benchmarks/runs/20260908-6114-substitute-publication-BC-gate/array.sbatch": "2b6afd38eb7dcc8fc39f6fa294f5786d20d9238a4facb7cb64bc6c35a0320b4a",
+    "benchmarks/runs/20260908-6115-substitute-publication-ranks1-50/manifest.json": "e739603e6d4ec9024beebfa7a049def7c3ea01eb6b5287e542f05a651e646cd7",
+    "benchmarks/runs/20260908-6115-substitute-publication-ranks1-50/array.sbatch": "ab074cdcf7e9691f7031fd9aa198cef18fe83bb9edc5aa73f0c5b033d2d380f5",
+    "benchmarks/baselines/rank1-50-kissat-12cpu-v1/manifest.json": "5f7865e46af2b9ed0d1899ce6e450bfb9b3575801c50183e059d0e4326f5a1e0",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/manifest.json": "224b3b5d80c3087b3c3c709a78dcf934d175823bd2232f68a2475e6d11bd3d1a",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/launch.json": "ee6eea617d6fef64349ed0096c9dd06f1ffb9ba03467dd6901ab92b833bfb7a1",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/array.sbatch": "37e88d1e5998092127067b1ac0fedc388f29ddf45179057a508fb53dabaa24be"
+  },
+  "accounting": {
+    "20260909-6217-rank32-retry-members": {
+      "command": [
+        "sacct",
+        "-n",
+        "-X",
+        "--array",
+        "-j",
+        "1677187",
+        "-S",
+        "2026-09-09T02:08:48",
+        "-o",
+        "JobID,State%40,ExitCode,Submit",
+        "-P"
+      ],
+      "stdout": "1677187_0|COMPLETED|0:0|2026-09-09T02:08:48\n1677187_1|COMPLETED|0:0|2026-09-09T02:08:48\n"
+    },
+    "20260909-6224-rank32-binary-producers": {
+      "command": [
+        "sacct",
+        "-n",
+        "-X",
+        "--array",
+        "-j",
+        "1677189",
+        "-S",
+        "2026-09-09T02:24:10",
+        "-o",
+        "JobID,State%40,ExitCode,Submit",
+        "-P"
+      ],
+      "stdout": "1677189_0|COMPLETED|0:0|2026-09-09T02:24:10\n1677189_1|COMPLETED|0:0|2026-09-09T02:24:10\n"
+    }
+  },
+  "live_queue": {
+    "command": [
+      "squeue",
+      "-h",
+      "-j",
+      "1677122",
+      "-o",
+      "%i|%T|%M|%N"
+    ],
+    "stdout": "1677122_42|RUNNING|1:25:23|node017\n1677122_21|RUNNING|1:28:29|node018\n"
+  },
+  "full50_classes": {
+    "18": {
+      "status": "checked_SAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "29": {
+      "status": "checked_SAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "0": {
+      "status": "checked_UNSAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "31": {
+      "status": "checked_UNSAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "35": {
+      "status": "checked_SAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "4": {
+      "status": "checked_SAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "8": {
+      "status": "checked_SAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "43": {
+      "status": "checked_UNSAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "39": {
+      "status": "checked_UNSAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "10": {
+      "status": "checked_UNSAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "21": {
+      "status": "pending_validation",
+      "clean": false,
+      "checked": false,
+      "scorable": false
+    },
+    "47": {
+      "status": "checked_SAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "25": {
+      "status": "checked_SAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "14": {
+      "status": "checked_SAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "42": {
+      "status": "pending_validation",
+      "clean": false,
+      "checked": false,
+      "scorable": false
+    },
+    "9": {
+      "status": "checked_SAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "38": {
+      "status": "checked_UNSAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "11": {
+      "status": "checked_UNSAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "20": {
+      "status": "checked_SAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "46": {
+      "status": "checked_UNSAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "24": {
+      "status": "checked_SAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "15": {
+      "status": "checked_SAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "19": {
+      "status": "checked_SAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "28": {
+      "status": "checked_SAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "1": {
+      "status": "checked_UNSAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "30": {
+      "status": "checked_UNSAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "34": {
+      "status": "checked_UNSAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "5": {
+      "status": "checked_SAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "40": {
+      "status": "checked_UNSAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "13": {
+      "status": "checked_SAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "22": {
+      "status": "checked_SAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "44": {
+      "status": "checked_UNSAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "26": {
+      "status": "checked_UNSAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "17": {
+      "status": "checked_UNSAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "3": {
+      "status": "checked_UNSAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "48": {
+      "status": "checked_SAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "32": {
+      "status": "checked_UNSAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "36": {
+      "status": "checked_UNSAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "7": {
+      "status": "checked_SAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "49": {
+      "status": "checked_SAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "2": {
+      "status": "checked_UNSAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "33": {
+      "status": "checked_SAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "37": {
+      "status": "checked_UNSAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "6": {
+      "status": "checked_SAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "41": {
+      "status": "checked_UNSAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "12": {
+      "status": "checked_SAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "23": {
+      "status": "checked_UNSAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "45": {
+      "status": "checked_UNSAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "27": {
+      "status": "checked_SAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "16": {
+      "status": "checked_SAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    }
+  },
+  "checks": {
+    "6219": {
+      "command": [
+        "python3",
+        "benchmarks/probes/scratch/validate-rank32-retry-members-6219.py",
+        "--self-test"
+      ],
+      "stdout": "PASS: selected-state and retry-producer schema with seven negative controls\n",
+      "stderr": ""
+    },
+    "6228": {
+      "command": [
+        "python3",
+        "benchmarks/probes/scratch/validate-rank32-binary-producers-6228.py",
+        "--self-test"
+      ],
+      "stdout": "PASS: snapshot duplicate preservation and eight negative controls\n",
+      "stderr": ""
+    },
+    "bench": {
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tools/bench",
+        "-p",
+        "test_*.py"
+      ],
+      "stdout": "",
+      "stderr": ".......................................\n----------------------------------------------------------------------\nRan 39 tests in 0.063s\n\nOK\n"
+    },
+    "slurm": {
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tools/slurm",
+        "-p",
+        "test_*.py"
+      ],
+      "stdout": "SLURM job 123: observation failed (1); retrying same job\n",
+      "stderr": ".............\n----------------------------------------------------------------------\nRan 13 tests in 0.004s\n\nOK\n"
+    },
+    "check-doc-size": {
+      "command": [
+        "python3",
+        "tools/docs/check-doc-size.py"
+      ],
+      "stdout": "  warn  DEVELOPMENT_PLAN.md: 747 of 750 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\n  warn  PROGRESS.md: 350 of 350 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\n  warn  docs/calculus.md: 671 of 680 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\n  warn  docs/implementation-notes.md: 560 of 560 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\n  warn  docs/scheduling-parity-ledger.md: 600 of 600 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\ncheck-doc-size: 0 error(s), 5 warning(s), 30 file budget(s) checked\n",
+      "stderr": ""
+    },
+    "check-progress": {
+      "command": [
+        "python3",
+        "tools/docs/check-progress.py"
+      ],
+      "stdout": "  note  build dirs newer than newest source: pin-5316-core-capture(Release), pin-5317-core-capture(Release), pin-5318-core-release(Release), pin-5321-core-roots(Release), pin-5322-core-repose(Release), pin-5322-repose-trace(Release), pin-5323-binary-watch(Release), pin-5325-sequential(Release), pin-5325-sequential-trace(Release), pin-5326-composed(Release), pin-5326-composed-trace(Release), pin-5327-bridge-pose(Release), pin-5327-bridge-trace(Release), pin-5331-core-trace(Release), pin-5337-rewrite-source(Release), pin-5342-deact-trace(Release), pin-5343-round-retirement(Release), pin-5344-round-only(Release), pin-5344-round-release(Release), pin-5347-decision-stream(Release), pin-5348-choice-state(Release), pin-5352-queue-stamps(Release), pin-5353-factor-stamps(Release), pin-5354-empty-factor(Release), pin-5356-empty-factor-release(Release), pin-5357-empty-factor-C(Release), pin-5359-focused-choice(Release), pin-5361-queue-bumps(Release), pin-5369-congruence-prefix(Release), pin-5371-congruence-prefix-release(Release), pin-5372-congruence-prefix-bc(Release), pin-5377-retry-producers(Release), pin-5378-vivify-retry(Release), pin-5379-vivify-retry-release(Release), pin-5380-vivify-retry-bc(Release), pin-5382-prefix-cost(Release), pin-5387-dense-publication(Release), pin-5388-dense-publication-release(Release), pin-5389-dense-publication-bc(Release), pin-5391-eliminate-dense-entry(Release), pin-5392-eliminate-dense-release(Release), pin-5393-eliminate-dense-bc(Release), pin-5399-window-observer(Release), pin-5402-direct-heap(Release), pin-5412-imply-observer(Release), pin-5414-imply-fast(Release), pin-5417-rephase-root-trace(Release), pin-5419-rephase-root-release(Release), pin-5420-rephase-root-bc(Release), pin-5426-watch-truncate-release(Release), pin-5427-watch-truncate-bc(Release), pin-5430-inprocess-root-release(Release), pin-5431-inprocess-root-trace(Release), pin-5432-inprocess-root-bc(Release), pin-5438-vivify-max-release(Release), pin-5439-vivify-max-bc(Release), pin-5445-replacement-cursor-release(Release), pin-5446-replacement-cursor-bc(Release), pin-5450-eliminate-limit-release(Release), pin-5451-eliminate-limit-trace(Release), pin-5452-eliminate-limit-bc(Release), pin-5456-factor-observer-trace(Release), pin-5459-bound-advance-release(Release), pin-5460-bound-advance-trace(Release), pin-5461-bound-advance-bc(Release), pin-5466-watch-pair-release(Release), pin-5467-watch-pair-bc(Release), pin-5473-sweep-cursor-release(Release), pin-5474-sweep-cursor-bc(Release), pin-5510-sweep-retained-release(Release), pin-5511-sweep-retained-trace(Release), pin-5512-sweep-retained-bc(Release), pin-5522-sweep-small-release(Release), pin-5523-sweep-small-trace(Release), pin-5524-sweep-small-bc(Release), pin-5546-vivify-census-release(Release), pin-5547-vivify-census-bc(Release), pin-5592-factor-root-support-release(Release), pin-5593-factor-root-support-trace(Release), pin-5594-factor-root-support-bc(Release), pin-5619-congruence-index-release(Release), pin-5620-congruence-index-trace(Release), pin-5621-congruence-index-bc(Release), pin-5641-propagation-cursor-release(Release), pin-5642-propagation-cursor-trace(Release), pin-5643-propagation-cursor-bc(Release), pin-5672-assignment-level-release(Release), pin-5673-assignment-level-trace(Release), pin-5674-assignment-level-bc(Release), pin-5696-score-bump-observer-trace(Release), pin-5718-root-conflict-reuse-release(Release), pin-5719-root-conflict-reuse-trace(Release), pin-5720-root-conflict-reuse-bc(Release), pin-5741-reuse-target-release(Release), pin-5742-reuse-target-trace(Release), pin-5743-reuse-target-bc(Release), pin-5760-forward-exit-trace(Release), pin-5798-forward-unit-release(Release), pin-5799-forward-unit-bc(Release), pin-5800-forward-unit-trace(Release), pin-5817-forward-mark-trace(Release), pin-5830-forward-admission-release(Release), pin-5831-forward-admission-bc(Release), pin-5832-forward-admission-trace(Release), pin-5849-forward-caller-release(Release), pin-5850-forward-caller-bc(Release), pin-5851-forward-caller-trace(Release), pin-5854-forward-caller-journal(Release), pin-5870-forward-preclean-release(Release), pin-5871-forward-preclean-bc(Release), pin-5872-forward-preclean-trace(Release), pin-5873-forward-preclean-journal(Release), pin-5900-reduce-root-release(Release), pin-5901-reduce-root-bc(Release), pin-5902-reduce-root-trace(Release), pin-5903-reduce-root-journal(Release), pin-5920-reduce-preclean-release(Release), pin-5921-reduce-preclean-bc(Release), pin-5922-reduce-preclean-trace(Release), pin-5923-reduce-preclean-journal(Release), pin-5956-bve-full-heap-trace(Release), pin-5962-bve-active-pop-release(Release), pin-5963-bve-active-pop-bc(Release), pin-5964-bve-active-pop-trace(Release), pin-5965-bve-active-pop-journal(Release), pin-5985-bve-repeat-heap-trace(Release), pin-6004-clause-pose-series-trace(Release), pin-6016-vivify-pose-trace(Release), pin-6030-learned-stage-trace(Release), pin-6049-reduce-root-lock-release(Release), pin-6050-reduce-root-lock-bc(Release), pin-6051-reduce-root-lock-trace(Release), pin-6052-reduce-root-lock-journal(Release), pin-6054-reduce-root-lock-trace(Release), pin-6090-macro-heap-trace(Release), pin-6107-substitute-publication-release(Release), pin-6108-substitute-publication-bc(Release), pin-6127-publication-trace(Release), pin-6128-publication-journal(Release), pin-6136-substitute-journal-release(Release), pin-6137-substitute-journal-journal(Release), pin-6146-collect-memory-release(Release), pin-6147-collect-memory-trace(Release), pin-6150-collect-memory-release(Release), pin-6151-collect-memory-trace(Release), pin-6154-bve-capacity-release(Release), pin-6155-bve-capacity-trace(Release), pin-6169-learned-sort-release(Release), pin-6170-learned-sort-bc(Release), pin-6206-schedule-continue-release(Release), pin-6206-schedule-continue-trace(Release), pin-congruence-index-repair-5623-bc(Release), pin-congruence-index-repair-5623-release(Release), pin-congruence-index-repair-5623-trace(Release), pin-periodic-fuzz-5442-debug(Debug), pin-periodic-fuzz-5442-release(Release), pin-periodic-fuzz-5442-shadow(Debug), pin-periodic-fuzz-5492-debug(Debug), pin-periodic-fuzz-5492-release(Release), pin-periodic-fuzz-5492-shadow(Debug), pin-periodic-fuzz-5539-debug(Debug), pin-periodic-fuzz-5539-release(Release), pin-periodic-fuzz-5539-shadow(Debug), pin-periodic-fuzz-5610-debug(Debug), pin-periodic-fuzz-5610-release(Release), pin-periodic-fuzz-5657-debug(Debug), pin-periodic-fuzz-5657-release(Release), pin-periodic-fuzz-5657-shadow(Debug), pin-periodic-fuzz-5715-debug(Debug), pin-periodic-fuzz-5715-release(Release), pin-periodic-fuzz-5715-witness(Debug), pin-periodic-fuzz-5765-asan(Debug), pin-periodic-fuzz-5765-release(Release), pin-periodic-fuzz-5765-witness(Debug), pin-propagation-cursor-repair-5647-bc(Release), pin-propagation-cursor-repair-5647-release(Release), pin-propagation-cursor-repair-5647-trace(Release), pin-sweep-pose-fuzz-r2-dbg(Debug), pin-sweep-pose-fuzz-r2-rel(Release), pin-sweep-pose-fuzz-r2-shadow(Debug)  (total pin-* dirs: 368)\n  note  newest completed tier run: 20260813-111513-C-cleanup-b2b8362\n  WARN  3 lesson citations remain in living docs (DEVELOPMENT_PLAN.md:3) \u2014 policy is to state the finding + evidence, not the number. Run the de-citation sweep.\n  WARN  newest tier run 20260813-111513-C-cleanup-b2b8362 is not cited anywhere in PROGRESS \u2014 a completed window nobody recorded\ncheck-progress: 0 error(s), 2 warning(s)\n",
+      "stderr": ""
+    },
+    "check-rule-policy-boundary": {
+      "command": [
+        "python3",
+        "tools/docs/check-rule-policy-boundary.py"
+      ],
+      "stdout": "check-rule-policy-boundary: rule/policy imports and data flows are clean\n",
+      "stderr": ""
+    },
+    "check-proof-rule-sync": {
+      "command": [
+        "python3",
+        "tools/docs/check-proof-rule-sync.py"
+      ],
+      "stdout": "check-proof-rule-sync: 0 error(s), 23 calculus rule(s), 24 guide card(s)\n",
+      "stderr": ""
+    },
+    "check-section-refs": {
+      "command": [
+        "python3",
+        "tools/docs/check-section-refs.py"
+      ],
+      "stdout": "  ok    43/43 section references resolve\ncheck-section-refs: 0 error(s)\n",
+      "stderr": ""
+    },
+    "check-citations": {
+      "command": [
+        "python3",
+        "tools/docs/check-citations.py"
+      ],
+      "stdout": "  ok    59 citation(s) resolved and in range\n  note  186 skipped (186 ambiguous basename, 0 not in our tree, 0 resolve to a reference clone, 0 unjudged: no reference clone on disk)\ncheck-citations: 0 error(s)\n",
+      "stderr": ""
+    }
+  },
+  "andrew_report": {
+    "report-to-andrew/20260909-0230-checked-full50/report.tex": "68b9748bfa281292164dabba90af2b84c2c2074707edc67119aed1508853605b",
+    "report-to-andrew/20260909-0230-checked-full50/report.pdf": "90070e238cebe90da35f0a4ae812fead98170421b33452c59a79ece4881bac42"
+  },
+  "cleanup": "No manual campaign deletion; both terminal diagnostics assert deleted scratch/partial proofs. Large traces/pins retained locally. No frozen runner/source/baseline modifications.",
+  "failures": "Initial report compilation guessed unavailable texlive module; corrected to existing amh-tex/2023 and compiled twice. Initial PROGRESS patch had reverse-ordered hunks and failed before edit; applied ordered separate hunks. Native snapshot selector coverage limitation preserved explicitly.",
+  "next": "Add actual fixed regression for canonical Substitute deleted-binary retry publication; repair general path, prove prefix closure and required gates. Rank50 actual admission inputs still open. No promotion or denied push/transfer retry."
+}
