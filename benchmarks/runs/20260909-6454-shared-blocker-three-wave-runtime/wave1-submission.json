@@ -1,0 +1,27 @@
+{
+  "job_id": "1678074",
+  "tasks": [
+    6,
+    7,
+    8,
+    9,
+    10,
+    11
+  ],
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--array=6-11",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6454-shared-blocker-three-wave-runtime/array.sbatch"
+  ],
+  "accounting_since": "2026-09-09T09:16:25",
+  "manifest_sha256": "1f12678325c929cfac0b1cc9679517429338a2a4e1e45c634faf25f62643c860",
+  "preceding_records": {
+    "benchmarks/runs/20260909-6454-shared-blocker-three-wave-runtime/results/005.json": "53f1d5d1b09db35ebeb8f7324f3da8b3f1dd18ce849e9576a4c34a9664e83859",
+    "benchmarks/runs/20260909-6454-shared-blocker-three-wave-runtime/provisional/001.json": "d993beb92f45e785b2c5fdeaf8dc1239c6a9fb5234fd7e16728c70e6ba2c39ad",
+    "benchmarks/runs/20260909-6454-shared-blocker-three-wave-runtime/results/004.json": "ff93c87910cb770b4e1af82a29a9630e4b4e5380d065754b988311ea0e3ef4d8",
+    "benchmarks/runs/20260909-6454-shared-blocker-three-wave-runtime/provisional/000.json": "8206bde1bf888bb729e95589d6066797a3fd0ed8f1e357be1b72c889ee645427",
+    "benchmarks/runs/20260909-6454-shared-blocker-three-wave-runtime/provisional/002.json": "04feba77ef4d36015629e405c6d08ff2b08d6e59be3735b042fb44bee935efbd",
+    "benchmarks/runs/20260909-6454-shared-blocker-three-wave-runtime/provisional/003.json": "67a5e6a7107ab6b7117c044c1c4317e8ecb22835e417035013dd43f8287a956c"
+  }
+}

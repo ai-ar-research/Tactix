@@ -1,0 +1,27 @@
+{
+  "job_id": "1678066",
+  "tasks": [
+    6,
+    7,
+    8,
+    9,
+    10,
+    11
+  ],
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--array=6-11",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6443-activation-three-wave-runtime/array.sbatch"
+  ],
+  "accounting_since": "2026-09-09T09:10:29",
+  "manifest_sha256": "245f5350d6d3885cb256c863bfaa0d27cff8cbdf6ab5a5da281be7ef0e88280a",
+  "preceding_records": {
+    "benchmarks/runs/20260909-6443-activation-three-wave-runtime/provisional/003.json": "acddbb91bdee6b00a1cd686289850626f3f4545af96338b2a09579ae9762c36d",
+    "benchmarks/runs/20260909-6443-activation-three-wave-runtime/provisional/002.json": "d4494135e5087ebd5ad16d8dd14c2bc101eb3e64e9ad48d9bc4cf7f39d3ffa5d",
+    "benchmarks/runs/20260909-6443-activation-three-wave-runtime/provisional/000.json": "449f1b4a2afa93f6c398d622f542c429e7c43b3c6c3c8cefda982563f6faaea8",
+    "benchmarks/runs/20260909-6443-activation-three-wave-runtime/results/004.json": "dda15eb0d41c1d9687a02ec60dcd4b086aebc35d90fc579aff4db6f110fc86d4",
+    "benchmarks/runs/20260909-6443-activation-three-wave-runtime/provisional/001.json": "727008ef11f80a846c83f34e07ae6a3719187c51be46938183d3cdec2bef03cb",
+    "benchmarks/runs/20260909-6443-activation-three-wave-runtime/results/005.json": "7600e200459e170ae66b52835ebeb80af9fbff0045aae644dc2fd0c09c4d98c4"
+  }
+}
