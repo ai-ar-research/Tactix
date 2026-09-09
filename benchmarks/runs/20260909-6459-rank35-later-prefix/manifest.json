@@ -1,0 +1,54 @@
+{
+  "rank": 35,
+  "input": "benchmarks/cache/tierD24-26/5c47810953b22baa5f6f45585430fc77-oski15a01b20s_opt.cnf.xz",
+  "input_sha256_compressed": "ddc5401e59d155512cf289cea0844387ee2a0ebcb487b223f983f5e84673da8f",
+  "stop_conflict": 3000000,
+  "stream_from": 1000000,
+  "common_decisions": 99197378,
+  "prior_common_hash": "140843d3c85c31da",
+  "authorities": {
+    "candidate": {
+      "path": "benchmarks/runs/20260909-6424-activation-stamp-build/manifest.json",
+      "sha256": "25c8fc8b5623ef24ad7690cb3cb7098c47ebac1e85aba4dc56f3e6684453eb06"
+    },
+    "previous": {
+      "path": "benchmarks/runs/20260909-6305-substitute-collapse-build/manifest.json",
+      "sha256": "dd933514aa66316ba138b2a3e7ad44964f7811f0af0c7bbf5ade30091901ab12"
+    }
+  },
+  "resource_contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "cpus_per_task": 12,
+    "memory_mib": 48000,
+    "array": "0-1",
+    "throttle": null,
+    "node_constraint": null,
+    "solver_timeout": 1200,
+    "allocation_minutes": 25
+  },
+  "prior_closure": {
+    "path": "benchmarks/runs/20260909-6389-rank35-stamp-extension/summary.json",
+    "sha256": "2f162675490dec7c6d0e11ec54ee27c9dbf80ec55cd0c7e114f023b94e82436c"
+  },
+  "selection": {
+    "path": "benchmarks/reports/2026-09-09-compact-stamp-full50-6371/summary.json",
+    "sha256": "2bdaac1afed528fd1ccb679b30daf766a21590ea6ae74978e988bd8bf60dfbf0"
+  },
+  "purpose": "Locate the later Rank35 adverse decision split of current6424 versus6305. Current full8942669 conflicts versus prior4434673, while old6357/6305 agreed through1M.",
+  "validation": "Revalidate the inherited99197378-row hash for BOTH current arms before claiming the earlier1M closure. Validate complete threshold overlap and every suffix row through3M. Changed earlier hash requires earlier localization, not solver-failure classification. Partial proof cleanup is not acceptance.",
+  "test_consideration": "No solver/observer/parser behavior edit. Reuse maintained complete-row/boundary/overlap negative controls and65benchmark13watcher tests; exact manifest/source/input identities required. Native not rerun; semantic repair6424 may alter earlier assumptions.",
+  "limitation": "Bounded current/earlier-candidate diagnostic, not a native full reference refresh, final proof or acceptance timing.",
+  "hashes": {
+    "pins/candidate": "c5ca763ce93f48507648c32cb55027274a79332ef56147814bb917d6dddc9e8c",
+    "pins/previous": "63c13075d4159c6fed7b0f101ac87de8afa88361051e5b36bfba708e725850ad",
+    "run.py": "74364ba8354c74bdf20f08e511c7344511c087d5f6db26d3658596476f8ef17a",
+    "array.sbatch": "b4b86376ad67d665e689acf2cad185bf44d7395c1a5c5668ee181e780913de3e"
+  },
+  "earlier_closure": {
+    "benchmarks/runs/20260909-6389-rank35-stamp-extension/summary.json": "2f162675490dec7c6d0e11ec54ee27c9dbf80ec55cd0c7e114f023b94e82436c"
+  },
+  "provisional_gate": {
+    "path": "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/solver-checkpoint-6429.json",
+    "sha256": "11e2a712bd45b4b6f0778622890499962cd65a2d00a9dc0de298301c9fb0e22f"
+  }
+}
