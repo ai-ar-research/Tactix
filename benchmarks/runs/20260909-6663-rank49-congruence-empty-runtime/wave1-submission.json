@@ -1,0 +1,21 @@
+{
+  "job_id": "1678535",
+  "tasks": [
+    2,
+    3
+  ],
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--array=2-3",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6663-rank49-congruence-empty-runtime/array.sbatch"
+  ],
+  "accounting_since": "2026-09-09T19:06:31",
+  "manifest_sha256": "382e6d6091413a409c90756634ea80ea85a1ace0b57d2ee68ed3a7ba1825245a",
+  "preceding_records": {
+    "benchmarks/runs/20260909-6663-rank49-congruence-empty-runtime/provisional/000.json": "c5022abe3bad179e0a8d96b62b194c29c60ec49c70bd5e21e57575643ba0e019",
+    "benchmarks/runs/20260909-6663-rank49-congruence-empty-runtime/provisional/001.json": "6335cf8a5fbc2bcac137d5dccd6f0a1d74f814d081e374384b105522934747d5",
+    "benchmarks/runs/20260909-6663-rank49-congruence-empty-runtime/results/000.json": "b17c8599ad9defd0529f86f5559ce84eba6c9cf8a89188a637238079076435ad",
+    "benchmarks/runs/20260909-6663-rank49-congruence-empty-runtime/results/001.json": "0ea97b023ff7de1ae8095a7fe6235ea218303246fb05cb062d1c027054155c8d"
+  }
+}

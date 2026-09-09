@@ -1,0 +1,11 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6657-congruence-empty-proof-control/1-0-1-2-1-0.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6657-congruence-empty-proof-control/1-0-1-2-1-0.proof"
+  ],
+  "sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+  "exit_code": 0,
+  "stdout": "c parsed a formula with 7 variables and 13 clauses\nc VERIFIED\nc allocated 1024 87 70\nc Added clauses = 24.  Deleted clauses = 9.  Max live clauses = 15\nc verification time = 0.00 secs\n",
+  "stderr": ""
+}
