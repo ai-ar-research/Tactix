@@ -1,0 +1,10 @@
+{
+  "job_id": "1678417",
+  "accounting_since": "2026-09-09T17:27:06",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6619-material-rank35-choice/array.sbatch"
+  ],
+  "manifest_sha256": "18de8e590104c61cd1fcd89211ea2981f324164d01c7a7b7ce71b1320ac66985"
+}
