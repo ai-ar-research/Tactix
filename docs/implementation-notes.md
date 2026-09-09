@@ -177,9 +177,9 @@ pending half-analysis or schedules Backjump independently.
   canonical Substitute does not. Large Vivify publishes its new prefix plus
   the old-size stale tail before shrinking. Unit/binary collapses retire the
   record; packed replacements inherit a source position cleared at collection.
-  Native learned-large Vivify also retries surviving old variables. Production
-  lacks this advice; isolated 5378 repairs it without occurrence notifications
-  or changing instantiation. Ledger `SP-VIVIFY-RETRY-1` owns the open deviation.
+  Native learned-large and binary Vivify retry surviving old free variables.
+  Isolated5378 covers learned-large;6269 adds binary terminals, including
+  instantiation, without occurrence changes. `SP-VIVIFY-RETRY-1` remains open.
 - Large OTFS shrinks the reason in its own record (kissat `strengthen.c`):
   same reference and arena position, the root-false first watch retained with
   its watch entry, only the resolved literal marked removed and only the

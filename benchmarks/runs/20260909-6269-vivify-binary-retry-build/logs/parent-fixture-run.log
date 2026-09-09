@@ -1,0 +1,25 @@
+missing: redundant=0 instantiate=0 reuse=0 preset=0 mode=0 events=1
+missing: redundant=0 instantiate=0 reuse=0 preset=0 mode=1 events=1
+missing: redundant=0 instantiate=0 reuse=0 preset=0 mode=2 events=1
+missing: redundant=0 instantiate=0 reuse=0 preset=1 mode=0 events=1
+missing: redundant=0 instantiate=0 reuse=0 preset=1 mode=1 events=1
+missing: redundant=0 instantiate=0 reuse=0 preset=1 mode=2 events=1
+missing: redundant=0 instantiate=0 reuse=1 preset=0 mode=0 events=1
+missing: redundant=0 instantiate=0 reuse=1 preset=0 mode=1 events=1
+missing: redundant=0 instantiate=0 reuse=1 preset=0 mode=2 events=1
+missing: redundant=0 instantiate=0 reuse=1 preset=1 mode=0 events=1
+missing: redundant=0 instantiate=0 reuse=1 preset=1 mode=1 events=1
+missing: redundant=0 instantiate=0 reuse=1 preset=1 mode=2 events=1
+missing: redundant=0 instantiate=1 reuse=0 preset=0 mode=0 events=1
+missing: redundant=0 instantiate=1 reuse=0 preset=0 mode=1 events=1
+missing: redundant=0 instantiate=1 reuse=0 preset=0 mode=2 events=1
+missing: redundant=0 instantiate=1 reuse=0 preset=1 mode=0 events=1
+missing: redundant=0 instantiate=1 reuse=0 preset=1 mode=1 events=1
+missing: redundant=0 instantiate=1 reuse=0 preset=1 mode=2 events=1
+missing: redundant=0 instantiate=1 reuse=1 preset=0 mode=0 events=1
+missing: redundant=0 instantiate=1 reuse=1 preset=0 mode=1 events=1
+missing: redundant=0 instantiate=1 reuse=1 preset=0 mode=2 events=1
+missing: redundant=0 instantiate=1 reuse=1 preset=1 mode=0 events=1
+missing: redundant=0 instantiate=1 reuse=1 preset=1 mode=1 events=1
+missing: redundant=0 instantiate=1 reuse=1 preset=1 mode=2 events=1
+PASS: actual parent misses advice in all24 irredundant cases

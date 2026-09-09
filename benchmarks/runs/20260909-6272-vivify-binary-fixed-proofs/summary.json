@@ -1,0 +1,121 @@
+{
+  "checked": 8,
+  "records": [
+    {
+      "name": "0-0-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6272-vivify-binary-fixed-proofs/0-0-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6272-vivify-binary-fixed-proofs/0-0-0.proof"
+      ],
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 16 variables and 24 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 22 of 24 clauses in core                            \n\nc 7 of 11 lemmas in core using 64 resolution steps\n\nc 0 RAT lemmas in core; 0 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.043 seconds\n",
+      "stderr": "",
+      "input_sha256": "7931e6d7a780d9274bfaae243003d2ad398283d7d57131510be9294dc38f0995",
+      "proof_sha256": "4608ff60d013cef511197ac7bf688cfd9b05481bc7ad3dbf5cab22cc908a076d",
+      "proof_bytes": 70
+    },
+    {
+      "name": "0-0-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6272-vivify-binary-fixed-proofs/0-0-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6272-vivify-binary-fixed-proofs/0-0-1.proof"
+      ],
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 16 variables and 24 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 22 of 24 clauses in core                            \n\nc 7 of 11 lemmas in core using 64 resolution steps\n\nc 0 RAT lemmas in core; 0 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.043 seconds\n",
+      "stderr": "",
+      "input_sha256": "7931e6d7a780d9274bfaae243003d2ad398283d7d57131510be9294dc38f0995",
+      "proof_sha256": "4608ff60d013cef511197ac7bf688cfd9b05481bc7ad3dbf5cab22cc908a076d",
+      "proof_bytes": 70
+    },
+    {
+      "name": "0-1-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6272-vivify-binary-fixed-proofs/0-1-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6272-vivify-binary-fixed-proofs/0-1-0.proof"
+      ],
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 16 variables and 24 clauses\nc VERIFIED\nc allocated 1024 162 160\nc Added clauses = 40.  Deleted clauses = 1.  Max live clauses = 39\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "input_sha256": "7931e6d7a780d9274bfaae243003d2ad398283d7d57131510be9294dc38f0995",
+      "proof_sha256": "7bb80309e2f88ef1fc84850684c063af614ed9cd7114ae234a94b25f5f8c45f5",
+      "proof_bytes": 408
+    },
+    {
+      "name": "0-1-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6272-vivify-binary-fixed-proofs/0-1-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6272-vivify-binary-fixed-proofs/0-1-1.proof"
+      ],
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 16 variables and 24 clauses\nc VERIFIED\nc allocated 1024 162 160\nc Added clauses = 40.  Deleted clauses = 1.  Max live clauses = 39\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "input_sha256": "7931e6d7a780d9274bfaae243003d2ad398283d7d57131510be9294dc38f0995",
+      "proof_sha256": "7bb80309e2f88ef1fc84850684c063af614ed9cd7114ae234a94b25f5f8c45f5",
+      "proof_bytes": 408
+    },
+    {
+      "name": "1-0-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6272-vivify-binary-fixed-proofs/1-0-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6272-vivify-binary-fixed-proofs/1-0-0.proof"
+      ],
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 16 variables and 25 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 22 of 25 clauses in core                            \n\nc 7 of 12 lemmas in core using 64 resolution steps\n\nc 0 RAT lemmas in core; 0 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.043 seconds\n",
+      "stderr": "",
+      "input_sha256": "f36c6bb0d1716fc44bd320e7af0dc4a53bc84b042b737217e1439515ea496ca3",
+      "proof_sha256": "69e65d185fe032ea9b0b9954c9b54a0ed479dbe832b819af9e05bb702eea4248",
+      "proof_bytes": 75
+    },
+    {
+      "name": "1-0-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6272-vivify-binary-fixed-proofs/1-0-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6272-vivify-binary-fixed-proofs/1-0-1.proof"
+      ],
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 16 variables and 25 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 22 of 25 clauses in core                            \n\nc 7 of 12 lemmas in core using 64 resolution steps\n\nc 0 RAT lemmas in core; 0 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.044 seconds\n",
+      "stderr": "",
+      "input_sha256": "f36c6bb0d1716fc44bd320e7af0dc4a53bc84b042b737217e1439515ea496ca3",
+      "proof_sha256": "69e65d185fe032ea9b0b9954c9b54a0ed479dbe832b819af9e05bb702eea4248",
+      "proof_bytes": 75
+    },
+    {
+      "name": "1-1-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6272-vivify-binary-fixed-proofs/1-1-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6272-vivify-binary-fixed-proofs/1-1-0.proof"
+      ],
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 16 variables and 25 clauses\nc VERIFIED\nc allocated 1024 168 160\nc Added clauses = 42.  Deleted clauses = 1.  Max live clauses = 41\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "input_sha256": "f36c6bb0d1716fc44bd320e7af0dc4a53bc84b042b737217e1439515ea496ca3",
+      "proof_sha256": "c3178530a3c0259be29feadc6f591c0aa8765540534cc00d8095d9f81e30bfef",
+      "proof_bytes": 426
+    },
+    {
+      "name": "1-1-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6272-vivify-binary-fixed-proofs/1-1-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6272-vivify-binary-fixed-proofs/1-1-1.proof"
+      ],
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 16 variables and 25 clauses\nc VERIFIED\nc allocated 1024 168 160\nc Added clauses = 42.  Deleted clauses = 1.  Max live clauses = 41\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "input_sha256": "f36c6bb0d1716fc44bd320e7af0dc4a53bc84b042b737217e1439515ea496ca3",
+      "proof_sha256": "c3178530a3c0259be29feadc6f591c0aa8765540534cc00d8095d9f81e30bfef",
+      "proof_bytes": 426
+    }
+  ],
+  "fixture_sha256": "f0347f21e153b05f18f82a24f31c7f2bc40f117f63a8edfa9e8be62d88d0b1de",
+  "binary_sha256": "9a11729a03cd23b07bdd9a57d34917cc1d72fda20a25152d6cded529ee1ed503",
+  "removed_bytes": 3838,
+  "cleanup": "Eight generated fixed inputs and checked proofs deleted; exact outputs, hashes and sources retained for reproduction."
+}

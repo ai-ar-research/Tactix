@@ -1,0 +1,254 @@
+{
+  "parent_replay": true,
+  "prefixes": {
+    "candidate": {
+      "solver": "tactix",
+      "conflict": 300000,
+      "start_decisions": 18446744073709414830,
+      "end_decisions": 69692146,
+      "count": 69828932,
+      "hash": "10d4b4ca139060f5",
+      "common": 69828932,
+      "common_reached": 1,
+      "common_hash": "10d4b4ca139060f5",
+      "first": 489816,
+      "common_last": -50710,
+      "last": -50710,
+      "max_level": 45166
+    },
+    "kissat": {
+      "solver": "kissat",
+      "conflict": 300000,
+      "start_decisions": 18446744073709414830,
+      "end_decisions": 69692146,
+      "count": 69828932,
+      "hash": "10d4b4ca139060f5",
+      "common": 69828932,
+      "common_reached": 1,
+      "common_hash": "10d4b4ca139060f5",
+      "first": 489816,
+      "common_last": -50710,
+      "last": -50710,
+      "max_level": 45166
+    }
+  },
+  "selected": {
+    "kissat": {
+      "337674": {
+        "external": 337674,
+        "position": 1342,
+        "positive": 2,
+        "negative": 2,
+        "value": 0,
+        "active": 1,
+        "fixed": 0,
+        "eliminated": 0
+      },
+      "390671": {
+        "external": 390671,
+        "position": 23274,
+        "positive": 12,
+        "negative": 9,
+        "value": 0,
+        "active": 1,
+        "fixed": 0,
+        "eliminated": 0
+      },
+      "399915": {
+        "external": 399915,
+        "position": 5933,
+        "positive": 3,
+        "negative": 2,
+        "value": 0,
+        "active": 1,
+        "fixed": 0,
+        "eliminated": 0
+      },
+      "409823": {
+        "external": 409823,
+        "position": 24412,
+        "positive": 28,
+        "negative": 12,
+        "value": 0,
+        "active": 1,
+        "fixed": 0,
+        "eliminated": 0
+      },
+      "444046": {
+        "external": 444046,
+        "position": 13044,
+        "positive": 16,
+        "negative": 8,
+        "value": 0,
+        "active": 1,
+        "fixed": 0,
+        "eliminated": 0
+      }
+    }
+  },
+  "producer_history": {
+    "candidate": [
+      {
+        "conflicts": 0,
+        "decisions": 0,
+        "external": 399915,
+        "source": "unspecified",
+        "before": 0,
+        "after": 0,
+        "value": 0,
+        "retired": 0,
+        "clause": []
+      },
+      {
+        "conflicts": 15353,
+        "decisions": 18100166,
+        "external": 399915,
+        "source": "delete-clause",
+        "before": 0,
+        "after": 1,
+        "value": 0,
+        "retired": 0,
+        "clause": [
+          -128147,
+          390667,
+          -399915
+        ]
+      },
+      {
+        "conflicts": 15353,
+        "decisions": 18100166,
+        "external": 399915,
+        "source": "delete-binary",
+        "before": 1,
+        "after": 1,
+        "value": 0,
+        "retired": 0,
+        "clause": []
+      },
+      {
+        "conflicts": 19375,
+        "decisions": 18522616,
+        "external": 399915,
+        "source": "delete-binary",
+        "before": 1,
+        "after": 1,
+        "value": 0,
+        "retired": 0,
+        "clause": []
+      },
+      {
+        "conflicts": 19375,
+        "decisions": 18522616,
+        "external": 399915,
+        "source": "delete-binary",
+        "before": 1,
+        "after": 1,
+        "value": 0,
+        "retired": 0,
+        "clause": []
+      },
+      {
+        "conflicts": 179463,
+        "decisions": 55033606,
+        "external": 399915,
+        "source": "delete-binary",
+        "before": 0,
+        "after": 1,
+        "value": 0,
+        "retired": 0,
+        "clause": []
+      }
+    ],
+    "kissat": [
+      {
+        "conflicts": 0,
+        "decisions": 0,
+        "external": 399915,
+        "source": "activate_literal",
+        "before": 0,
+        "after": 1,
+        "value": 0,
+        "probing": 0
+      },
+      {
+        "conflicts": 15353,
+        "decisions": 18100166,
+        "external": 399915,
+        "source": "kissat_mark_removed_literals",
+        "before": 0,
+        "after": 1,
+        "value": 0,
+        "probing": 0
+      },
+      {
+        "conflicts": 15353,
+        "decisions": 18100166,
+        "external": 399915,
+        "source": "kissat_delete_binary",
+        "before": 1,
+        "after": 1,
+        "value": 0,
+        "probing": 0
+      },
+      {
+        "conflicts": 19375,
+        "decisions": 18522616,
+        "external": 399915,
+        "source": "kissat_delete_binary",
+        "before": 1,
+        "after": 1,
+        "value": 0,
+        "probing": 1
+      },
+      {
+        "conflicts": 19375,
+        "decisions": 18522616,
+        "external": 399915,
+        "source": "kissat_delete_binary",
+        "before": 1,
+        "after": 1,
+        "value": 0,
+        "probing": 1
+      },
+      {
+        "conflicts": 179463,
+        "decisions": 55033606,
+        "external": 399915,
+        "source": "kissat_delete_binary",
+        "before": 0,
+        "after": 1,
+        "value": 0,
+        "probing": 0
+      },
+      {
+        "conflicts": 372473,
+        "decisions": 77569158,
+        "external": 399915,
+        "source": "kissat_mark_removed_literals",
+        "before": 0,
+        "after": 1,
+        "value": 0,
+        "probing": 1
+      }
+    ]
+  },
+  "hashes": {
+    "benchmarks/runs/20260909-6248-repaired-rank32-membership/summary.json": "ad0b70a3612f8932f2bc6e0f12b4ed07e63ae3f8e4fb02f3165aac36f9deda6a",
+    "benchmarks/runs/20260909-6256-rank32-remaining-retry/traces/candidate.boundaries.tsv": "9488fcc98431ab61b7e6780899848eff49fe4a5ed4ed87debe5e95afc554424e",
+    "benchmarks/runs/20260909-6256-rank32-remaining-retry/traces/candidate.decisions.tsv": "e732689f61e8db7c0086ffa2f252347cfd2a3d6577eb154370f048953f8b99f8",
+    "benchmarks/runs/20260909-6256-rank32-remaining-retry/traces/candidate.schedule.tsv": "89b2473732b4ab4403b5a08d75c03be71b7c2a8f9fe4c0a5e6bdc07eec6e7fa7",
+    "benchmarks/runs/20260909-6256-rank32-remaining-retry/traces/candidate.retry-producer.tsv": "83da51893f7b0506be43bc38e35be70b9398ffda553880ea5c30f791480ffb53",
+    "benchmarks/runs/20260909-6256-rank32-remaining-retry/traces/candidate.macro.tsv": "0222557b1c61cdad30c83f2339c7ca653cc3ec04bb94c4cfe9e33af5ec09ced8",
+    "benchmarks/runs/20260909-6256-rank32-remaining-retry/traces/candidate.prefix.tsv": "14667fdc91fd71142ce7796cf02c4cb5a0b633036c01e466b63a23aa9b179e84",
+    "benchmarks/runs/20260909-6256-rank32-remaining-retry/results/candidate.json": "601706c6eee3520556c8663fee7002fd39370bdc81d5efa62095180dd52aaf93",
+    "benchmarks/runs/20260909-6208-rank32-schedule-membership/summary.json": "dd2b71a6cc7a268d3f2558e2995e7a904f6f7deecb801792b0cef59526479030",
+    "benchmarks/runs/20260909-6256-rank32-remaining-retry/traces/kissat.schedule.tsv": "d82d3517500568474e68ef7653e9acc4bfdff49093b8b132aa4f7c675ce1fb64",
+    "benchmarks/runs/20260909-6256-rank32-remaining-retry/traces/kissat.retry-producer.tsv": "5b21396343fa749140a1064991db0304e6d1d6106a50a299b4ff045c0a0c62e1",
+    "benchmarks/runs/20260909-6256-rank32-remaining-retry/traces/kissat.decisions.tsv": "e732689f61e8db7c0086ffa2f252347cfd2a3d6577eb154370f048953f8b99f8",
+    "benchmarks/runs/20260909-6256-rank32-remaining-retry/traces/kissat.boundaries.tsv": "d6d9e19599b6d92ec98b3a395d7b5095078649d1ded047605db4e8fb9fa919fc",
+    "benchmarks/runs/20260909-6256-rank32-remaining-retry/traces/kissat.prefix.tsv": "c36905c6a3022c5705a90e37872e4c17e28cac2e8e5e738abbb7ed00aafcf177",
+    "benchmarks/runs/20260909-6256-rank32-remaining-retry/results/kissat.json": "15252f94f8eaaa337e6814dce8779291178acf111c98a2dd6c085e78153ba86a"
+  },
+  "manifest_sha256": "a86f885b23ac6042ce0fa92cc1eaeb6c5bbb874b4ed3fb2d22606f702ea920d7",
+  "limitation": "Candidate complete parent trace/proof identity; native shorter decision/boundary prefixes and full schedule plus selected tail. Native different stops prohibit proof identity. Producer strings do not identify the containing phase; mark clears are not journaled. No timing or final correctness claim."
+}
