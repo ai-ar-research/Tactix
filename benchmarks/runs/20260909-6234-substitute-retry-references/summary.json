@@ -1,0 +1,25 @@
+{
+  "command": [
+    "g++",
+    "-O2",
+    "-I/home/hwu/SAT-solving/tools/solvers/variants/cadical-extdiag/src",
+    "-I/home/hwu/SAT-solving/tools/solvers/variants/cadical-extdiag/build",
+    "/home/hwu/SAT-solving/benchmarks/probes/scratch/test-cadical-substitute-retry-6235.cpp",
+    "/home/hwu/SAT-solving/tools/solvers/variants/cadical-extdiag/build/libcadical.a",
+    "-lm",
+    "-o",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6234-substitute-retry-references/cadical-declared"
+  ],
+  "stdout": "PASS: actual CaDiCaL decomposition publishes disappeared binary removals (3 duplicate cases)\n",
+  "native_stdout": "PASS: actual Kissat Substitute re-arms disappeared binary endpoints only (3 duplicate cases)\n",
+  "hashes": {
+    "benchmarks/probes/scratch/test-cadical-substitute-retry-6235.cpp": "06dd198466985a47e1a1047f7447cc3c73a9fdddaac6a230f798c20f1122e689",
+    "tools/solvers/variants/cadical-extdiag/build/libcadical.a": "69e03edb19a9aa9436d3faedc89372b28f74c1f231a85818ae3c352879b26971",
+    "benchmarks/runs/20260909-6234-substitute-retry-references/cadical-declared": "6a7f26950779a8a351ec240c90dc7dc5497f9b9a9327615cd648b0078c10b57e",
+    "benchmarks/runs/20260909-6234-substitute-retry-references/cadical-run.log": "b04a6d8f30c88eb4cfece73c48b12196a8a4838126766141dc4d8db6b1489154",
+    "benchmarks/runs/20260909-6234-substitute-retry-references/native-run.log": "17caf1e97f3fe922cde59945000c776d36c36bc0eeb42cdef84a904b428c6ff3",
+    "benchmarks/runs/20260909-6234-substitute-retry-references/native": "ad1dcfdda40b8041119d7e044198ba0f8530371cad83a5aa10d3096b733b707a",
+    "tools/solvers/variants/kissat-schedule-continue-6206/build/libkissat.a": "77564b1787dfbb951c69aa6410b7632efd2bba74f97e16eb71ed20e502b8ed10"
+  },
+  "correction": "6234 omitted declare_more_variables, violating the pinned CaDiCaL factorcheck API contract before decomposition. 6235 fixes only fixture setup; original fatal-error output and source retained. No solver defect or repair."
+}

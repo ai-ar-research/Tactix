@@ -1,0 +1,1 @@
+cadical: fatal error: invalid API usage of 'void CaDiCaL::Solver::add(int)' in '../src/solver.cpp': adding literal '-1' with undeclared variable '1' (checking that user variables are declared explicitly failed as both 'factor' and 'factorcheck' are enabled)
