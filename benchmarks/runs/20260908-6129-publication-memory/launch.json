@@ -1,0 +1,10 @@
+{
+  "job_id": "1676999",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260908-6129-publication-memory/array.sbatch"
+  ],
+  "manifest_sha256": "183261995250a10ee3407261fd71e45a30f2b82e980b7ea2202a08f4ac3d099d",
+  "continuation": "ThreeTactix-only memory diagnostics,12CPU48000MiB1200solver16000checker5h;no othercampaign changed."
+}
