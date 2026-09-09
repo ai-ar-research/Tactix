@@ -1,0 +1,32 @@
+{
+  "release": {
+    "command": [
+      "env",
+      "TACTIX_SUBSTITUTE_IMAGE_PATH=1",
+      "/home/hwu/SAT-solving/build/pin-6305-substitute-collapse-release/tests/test_substitute_collapse"
+    ],
+    "binary_sha256": "12f946ec5f12a0dcd40f93de4cb07d828079cced8df4720eb0d53cac8a1e0405",
+    "stdout": "PASS: 72 collapse/large/redundancy/public/proof/model fixtures; missing=0\n",
+    "stderr": ""
+  },
+  "bc": {
+    "command": [
+      "env",
+      "TACTIX_SUBSTITUTE_IMAGE_PATH=1",
+      "/home/hwu/SAT-solving/build/pin-6305-substitute-collapse-bc/tests/test_substitute_collapse"
+    ],
+    "binary_sha256": "12f946ec5f12a0dcd40f93de4cb07d828079cced8df4720eb0d53cac8a1e0405",
+    "stdout": "PASS: 72 collapse/large/redundancy/public/proof/model fixtures; missing=0\n",
+    "stderr": ""
+  },
+  "trace": {
+    "command": [
+      "env",
+      "TACTIX_SUBSTITUTE_IMAGE_PATH=1",
+      "/home/hwu/SAT-solving/build/pin-6305-substitute-collapse-trace/tests/test_substitute_collapse"
+    ],
+    "binary_sha256": "ec71c424601771bc3c01c1be61d7df31a053766a52574b117c028309334c7ee8",
+    "stdout": "PASS: 72 collapse/large/redundancy/public/proof/model fixtures; missing=0\n",
+    "stderr": ""
+  }
+}

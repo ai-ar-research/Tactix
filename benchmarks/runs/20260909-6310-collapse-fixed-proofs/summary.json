@@ -1,0 +1,121 @@
+{
+  "checked": 8,
+  "records": [
+    {
+      "name": "1-0-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6310-collapse-fixed-proofs/1-0-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6310-collapse-fixed-proofs/1-0-0.proof"
+      ],
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 15 variables and 25 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 22 of 25 clauses in core                            \n\nc 7 of 13 lemmas in core using 64 resolution steps\n\nc 0 RAT lemmas in core; 0 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.045 seconds\n",
+      "stderr": "",
+      "input_sha256": "1e5c48ac98c18dfd70c140c0ef66e03290416455bc4a869fb2d06544c114dc3a",
+      "proof_sha256": "5491d534098a6dd1e61f3642256082ba6ba9f0b866e48279a99debaa83356832",
+      "proof_bytes": 102
+    },
+    {
+      "name": "1-0-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6310-collapse-fixed-proofs/1-0-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6310-collapse-fixed-proofs/1-0-1.proof"
+      ],
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 15 variables and 25 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 22 of 25 clauses in core                            \n\nc 7 of 13 lemmas in core using 64 resolution steps\n\nc 0 RAT lemmas in core; 0 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.044 seconds\n",
+      "stderr": "",
+      "input_sha256": "1e5c48ac98c18dfd70c140c0ef66e03290416455bc4a869fb2d06544c114dc3a",
+      "proof_sha256": "5491d534098a6dd1e61f3642256082ba6ba9f0b866e48279a99debaa83356832",
+      "proof_bytes": 102
+    },
+    {
+      "name": "1-1-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6310-collapse-fixed-proofs/1-1-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6310-collapse-fixed-proofs/1-1-0.proof"
+      ],
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 15 variables and 25 clauses\nc VERIFIED\nc allocated 1024 168 150\nc Added clauses = 43.  Deleted clauses = 5.  Max live clauses = 38\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "input_sha256": "1e5c48ac98c18dfd70c140c0ef66e03290416455bc4a869fb2d06544c114dc3a",
+      "proof_sha256": "5678a100ead7f8dd6cb81463162785aecca1762e77b9eb3f4717f825b32c59d6",
+      "proof_bytes": 476
+    },
+    {
+      "name": "1-1-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6310-collapse-fixed-proofs/1-1-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6310-collapse-fixed-proofs/1-1-1.proof"
+      ],
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 15 variables and 25 clauses\nc VERIFIED\nc allocated 1024 168 150\nc Added clauses = 43.  Deleted clauses = 5.  Max live clauses = 38\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "input_sha256": "1e5c48ac98c18dfd70c140c0ef66e03290416455bc4a869fb2d06544c114dc3a",
+      "proof_sha256": "5678a100ead7f8dd6cb81463162785aecca1762e77b9eb3f4717f825b32c59d6",
+      "proof_bytes": 476
+    },
+    {
+      "name": "3-0-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6310-collapse-fixed-proofs/3-0-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6310-collapse-fixed-proofs/3-0-0.proof"
+      ],
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 15 variables and 27 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 22 of 27 clauses in core                            \n\nc 7 of 15 lemmas in core using 64 resolution steps\n\nc 0 RAT lemmas in core; 0 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.043 seconds\n",
+      "stderr": "",
+      "input_sha256": "c409cf313f737965be10ffef62b8c29a7683a4659686fd3f32a5978319703826",
+      "proof_sha256": "77c3c55b320e5dcbc83ea39270ece0954aa28ee0a5298846e5b96cfc33f75d1e",
+      "proof_bytes": 150
+    },
+    {
+      "name": "3-0-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6310-collapse-fixed-proofs/3-0-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6310-collapse-fixed-proofs/3-0-1.proof"
+      ],
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 15 variables and 27 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 22 of 27 clauses in core                            \n\nc 7 of 15 lemmas in core using 64 resolution steps\n\nc 0 RAT lemmas in core; 0 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.043 seconds\n",
+      "stderr": "",
+      "input_sha256": "c409cf313f737965be10ffef62b8c29a7683a4659686fd3f32a5978319703826",
+      "proof_sha256": "77c3c55b320e5dcbc83ea39270ece0954aa28ee0a5298846e5b96cfc33f75d1e",
+      "proof_bytes": 150
+    },
+    {
+      "name": "3-1-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6310-collapse-fixed-proofs/3-1-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6310-collapse-fixed-proofs/3-1-0.proof"
+      ],
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 15 variables and 27 clauses\nc VERIFIED\nc allocated 1024 181 150\nc Added clauses = 47.  Deleted clauses = 7.  Max live clauses = 40\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "input_sha256": "c409cf313f737965be10ffef62b8c29a7683a4659686fd3f32a5978319703826",
+      "proof_sha256": "057d282751e853b26f940bc99f0ddd407e942b0e182c501c47842d4096128b32",
+      "proof_bytes": 531
+    },
+    {
+      "name": "3-1-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6310-collapse-fixed-proofs/3-1-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6310-collapse-fixed-proofs/3-1-1.proof"
+      ],
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 15 variables and 27 clauses\nc VERIFIED\nc allocated 1024 181 150\nc Added clauses = 47.  Deleted clauses = 7.  Max live clauses = 40\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "input_sha256": "c409cf313f737965be10ffef62b8c29a7683a4659686fd3f32a5978319703826",
+      "proof_sha256": "057d282751e853b26f940bc99f0ddd407e942b0e182c501c47842d4096128b32",
+      "proof_bytes": 531
+    }
+  ],
+  "fixture_sha256": "5f14ed44c5efb99246bd0f5d8657c6813c4cfd5fb0a7fc91724eb1b3f2071e17",
+  "binary_sha256": "e2a1b693dd7fda01b64f47d8cae10e0e65a13d12c895f2999ab942b8df6971d5",
+  "removed_bytes": 4454,
+  "cleanup": "Eight generated fixed inputs and checked proofs deleted; exact outputs, hashes and sources retained for reproduction."
+}

@@ -1,0 +1,2139 @@
+{
+  "campaigns": {
+    "20260909-6311-substitute-collapse-BC-gate": {
+      "solver_records": 54,
+      "checked": 45,
+      "states": {
+        "0": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "1": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "2": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "3": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "4": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "5": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "6": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "7": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "8": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "9": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "10": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "11": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "12": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "13": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "14": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "15": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "16": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "17": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "18": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "19": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "20": {
+          "status": "pending_validation",
+          "clean": false,
+          "checked": false,
+          "scorable": false
+        },
+        "21": {
+          "status": "pending_validation",
+          "clean": false,
+          "checked": false,
+          "scorable": false
+        },
+        "22": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "23": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "24": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "25": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "26": {
+          "status": "pending_validation",
+          "clean": false,
+          "checked": false,
+          "scorable": false
+        },
+        "27": {
+          "status": "pending_validation",
+          "clean": false,
+          "checked": false,
+          "scorable": false
+        },
+        "28": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "29": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "30": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "31": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "32": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "33": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "34": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "35": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "36": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "37": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "38": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "39": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "40": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "41": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "42": {
+          "status": "pending_validation",
+          "clean": false,
+          "checked": false,
+          "scorable": false
+        },
+        "43": {
+          "status": "pending_validation",
+          "clean": false,
+          "checked": false,
+          "scorable": false
+        },
+        "44": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "45": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "46": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "47": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "48": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "49": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "50": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "51": {
+          "status": "pending_validation",
+          "clean": false,
+          "checked": false,
+          "scorable": false
+        },
+        "52": {
+          "status": "pending_validation",
+          "clean": false,
+          "checked": false,
+          "scorable": false
+        },
+        "53": {
+          "status": "pending_validation",
+          "clean": false,
+          "checked": false,
+          "scorable": false
+        }
+      },
+      "launch": {
+        "job_id": "1677436",
+        "command": [
+          "sbatch",
+          "--parsable",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/array.sbatch"
+        ],
+        "accounting_since": "2026-09-09T04:20:56",
+        "manifest_sha256": "42b9c4a2650180527b92fcc78f1aa782b370c810fc86cee44731dc65fd5866bd"
+      },
+      "manifest_sha256": "42b9c4a2650180527b92fcc78f1aa782b370c810fc86cee44731dc65fd5866bd"
+    },
+    "20260909-6278-vivify-binary-ranks1-50": {
+      "solver_records": 50,
+      "checked": 42,
+      "states": {
+        "0": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "1": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "2": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "3": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "4": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "5": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "6": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "7": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "8": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "9": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "10": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "11": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "12": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "13": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "14": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "15": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "16": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "17": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "18": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "19": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "20": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "21": {
+          "status": "pending_validation",
+          "clean": false,
+          "checked": false,
+          "scorable": false
+        },
+        "22": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "23": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "24": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "25": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "26": {
+          "status": "pending_validation",
+          "clean": false,
+          "checked": false,
+          "scorable": false
+        },
+        "27": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "28": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "29": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "30": {
+          "status": "pending_validation",
+          "clean": false,
+          "checked": false,
+          "scorable": false
+        },
+        "31": {
+          "status": "pending_validation",
+          "clean": false,
+          "checked": false,
+          "scorable": false
+        },
+        "32": {
+          "status": "pending_validation",
+          "clean": false,
+          "checked": false,
+          "scorable": false
+        },
+        "33": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "34": {
+          "status": "pending_validation",
+          "clean": false,
+          "checked": false,
+          "scorable": false
+        },
+        "35": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "36": {
+          "status": "pending_validation",
+          "clean": false,
+          "checked": false,
+          "scorable": false
+        },
+        "37": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "38": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "39": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "40": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "41": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "42": {
+          "status": "pending_validation",
+          "clean": false,
+          "checked": false,
+          "scorable": false
+        },
+        "43": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "44": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "45": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "46": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "47": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "48": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "49": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "launch": {
+        "job_id": "1677315",
+        "command": [
+          "sbatch",
+          "--parsable",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/array.sbatch"
+        ],
+        "accounting_since": "2026-09-09T03:37:17",
+        "manifest_sha256": "d5a2de1770d0337ac36c288eda09dde531a644dd734a97f2557f626b61daafef",
+        "protected_campaign_hashes": {
+          "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/manifest.json": "b2f9e98291c56c415e4cb9439a77378c55cc78593d632c1fc84a6d5ee194acf6",
+          "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/array.sbatch": "b90503efeb1acd5ea2cb081fc60a79c2e1ab6d51287cedf050a673ddb5433143",
+          "benchmarks/baselines/rank1-40-kissat-12cpu-v1/manifest.json": "45259e1acbc93472b923517f75fd6b8697669b3ad74970d27b565b6b7f1aa686",
+          "benchmarks/runs/20260908-5712-assignment-level-ranks1-40/manifest.json": "80211109441ac7e1483082a767c755ffc03c029381398c71017593e2ff29a8ae",
+          "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/pins/runtime_task.py": "ccef4f23bac433c4c205949c0296f2cdef0e98d0d56fff5d306abb6e6209297f",
+          "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/pins/modelcheck.py": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+          "benchmarks/runs/20260908-6108-rank41-50-matched/manifest.json": "d09c9f2a030d0d29974fa881ee247c7900704e4be0e204b28c0b16beaf443d16",
+          "benchmarks/runs/20260908-6108-rank41-50-matched/array.sbatch": "82b47f14fc76c4d5ca14484035b1033d013c1a36c2bbe44c531a1a6a56c87efb",
+          "benchmarks/runs/20260908-6114-substitute-publication-BC-gate/manifest.json": "27c57c3c896ab15daa9d51ff87f9a977472d28b2b43b849be7322b96eb598bb1",
+          "benchmarks/runs/20260908-6114-substitute-publication-BC-gate/array.sbatch": "2b6afd38eb7dcc8fc39f6fa294f5786d20d9238a4facb7cb64bc6c35a0320b4a",
+          "benchmarks/runs/20260908-6115-substitute-publication-ranks1-50/manifest.json": "e739603e6d4ec9024beebfa7a049def7c3ea01eb6b5287e542f05a651e646cd7",
+          "benchmarks/runs/20260908-6115-substitute-publication-ranks1-50/array.sbatch": "ab074cdcf7e9691f7031fd9aa198cef18fe83bb9edc5aa73f0c5b033d2d380f5",
+          "benchmarks/baselines/rank1-50-kissat-12cpu-v1/manifest.json": "5f7865e46af2b9ed0d1899ce6e450bfb9b3575801c50183e059d0e4326f5a1e0",
+          "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/manifest.json": "224b3b5d80c3087b3c3c709a78dcf934d175823bd2232f68a2475e6d11bd3d1a",
+          "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/launch.json": "ee6eea617d6fef64349ed0096c9dd06f1ffb9ba03467dd6901ab92b833bfb7a1",
+          "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/array.sbatch": "37e88d1e5998092127067b1ac0fedc388f29ddf45179057a508fb53dabaa24be"
+        }
+      },
+      "manifest_sha256": "d5a2de1770d0337ac36c288eda09dde531a644dd734a97f2557f626b61daafef",
+      "score": {
+        "records": 50,
+        "expected_solves": 50,
+        "checked_clean": 42,
+        "complete": true,
+        "candidate_par2": 9070.883000000002,
+        "fixed_kissat_seconds": 7239.01,
+        "ratio": 1.2530557355218463,
+        "runtime_target_met": false,
+        "per_rank": [
+          {
+            "rank": 1,
+            "solved": true,
+            "candidate_par2_seconds": 0.216,
+            "kissat_seconds": 0.218,
+            "candidate_peak_rss_kb": 83936,
+            "kissat_peak_rss_kb": 49564
+          },
+          {
+            "rank": 2,
+            "solved": true,
+            "candidate_par2_seconds": 0.216,
+            "kissat_seconds": 0.217,
+            "candidate_peak_rss_kb": 83956,
+            "kissat_peak_rss_kb": 49568
+          },
+          {
+            "rank": 3,
+            "solved": true,
+            "candidate_par2_seconds": 0.567,
+            "kissat_seconds": 0.467,
+            "candidate_peak_rss_kb": 153740,
+            "kissat_peak_rss_kb": 103612
+          },
+          {
+            "rank": 4,
+            "solved": true,
+            "candidate_par2_seconds": 7.579,
+            "kissat_seconds": 7.681,
+            "candidate_peak_rss_kb": 28040,
+            "kissat_peak_rss_kb": 13008
+          },
+          {
+            "rank": 5,
+            "solved": true,
+            "candidate_par2_seconds": 29.565,
+            "kissat_seconds": 30.214,
+            "candidate_peak_rss_kb": 10682156,
+            "kissat_peak_rss_kb": 10402844
+          },
+          {
+            "rank": 6,
+            "solved": true,
+            "candidate_par2_seconds": 68.531,
+            "kissat_seconds": 52.599,
+            "candidate_peak_rss_kb": 756988,
+            "kissat_peak_rss_kb": 349612
+          },
+          {
+            "rank": 7,
+            "solved": true,
+            "candidate_par2_seconds": 54.355,
+            "kissat_seconds": 48.242,
+            "candidate_peak_rss_kb": 9713568,
+            "kissat_peak_rss_kb": 9109728
+          },
+          {
+            "rank": 8,
+            "solved": true,
+            "candidate_par2_seconds": 66.001,
+            "kissat_seconds": 58.159,
+            "candidate_peak_rss_kb": 11862680,
+            "kissat_peak_rss_kb": 11118752
+          },
+          {
+            "rank": 9,
+            "solved": true,
+            "candidate_par2_seconds": 95.469,
+            "kissat_seconds": 68.928,
+            "candidate_peak_rss_kb": 3217812,
+            "kissat_peak_rss_kb": 1326232
+          },
+          {
+            "rank": 10,
+            "solved": true,
+            "candidate_par2_seconds": 91.03,
+            "kissat_seconds": 81.797,
+            "candidate_peak_rss_kb": 15967668,
+            "kissat_peak_rss_kb": 15348304
+          },
+          {
+            "rank": 11,
+            "solved": true,
+            "candidate_par2_seconds": 0.267,
+            "kissat_seconds": 0.217,
+            "candidate_peak_rss_kb": 95304,
+            "kissat_peak_rss_kb": 60692
+          },
+          {
+            "rank": 12,
+            "solved": true,
+            "candidate_par2_seconds": 7.278,
+            "kissat_seconds": 5.127,
+            "candidate_peak_rss_kb": 1843608,
+            "kissat_peak_rss_kb": 1234908
+          },
+          {
+            "rank": 13,
+            "solved": true,
+            "candidate_par2_seconds": 73.039,
+            "kissat_seconds": 65.334,
+            "candidate_peak_rss_kb": 12752784,
+            "kissat_peak_rss_kb": 11928200
+          },
+          {
+            "rank": 14,
+            "solved": true,
+            "candidate_par2_seconds": 72.338,
+            "kissat_seconds": 63.368,
+            "candidate_peak_rss_kb": 12854700,
+            "kissat_peak_rss_kb": 12018708
+          },
+          {
+            "rank": 15,
+            "solved": true,
+            "candidate_par2_seconds": 74.793,
+            "kissat_seconds": 80.291,
+            "candidate_peak_rss_kb": 46436,
+            "kissat_peak_rss_kb": 29704
+          },
+          {
+            "rank": 16,
+            "solved": true,
+            "candidate_par2_seconds": 116.9,
+            "kissat_seconds": 122.015,
+            "candidate_peak_rss_kb": 113668,
+            "kissat_peak_rss_kb": 65168
+          },
+          {
+            "rank": 17,
+            "solved": true,
+            "candidate_par2_seconds": 77.242,
+            "kissat_seconds": 113.158,
+            "candidate_peak_rss_kb": 1170984,
+            "kissat_peak_rss_kb": 598308
+          },
+          {
+            "rank": 18,
+            "solved": true,
+            "candidate_par2_seconds": 61.864,
+            "kissat_seconds": 126.552,
+            "candidate_peak_rss_kb": 2986600,
+            "kissat_peak_rss_kb": 2083228
+          },
+          {
+            "rank": 19,
+            "solved": true,
+            "candidate_par2_seconds": 131.977,
+            "kissat_seconds": 119.042,
+            "candidate_peak_rss_kb": 401112,
+            "kissat_peak_rss_kb": 143804
+          },
+          {
+            "rank": 20,
+            "solved": true,
+            "candidate_par2_seconds": 120.267,
+            "kissat_seconds": 165.883,
+            "candidate_peak_rss_kb": 1788728,
+            "kissat_peak_rss_kb": 943992
+          },
+          {
+            "rank": 21,
+            "solved": true,
+            "candidate_par2_seconds": 250.014,
+            "kissat_seconds": 96.821,
+            "candidate_peak_rss_kb": 3034308,
+            "kissat_peak_rss_kb": 1436392
+          },
+          {
+            "rank": 22,
+            "solved": true,
+            "candidate_par2_seconds": 225.745,
+            "kissat_seconds": 189.477,
+            "candidate_peak_rss_kb": 2714828,
+            "kissat_peak_rss_kb": 1919272
+          },
+          {
+            "rank": 23,
+            "solved": true,
+            "candidate_par2_seconds": 196.883,
+            "kissat_seconds": 202.406,
+            "candidate_peak_rss_kb": 100628,
+            "kissat_peak_rss_kb": 42608
+          },
+          {
+            "rank": 24,
+            "solved": true,
+            "candidate_par2_seconds": 230.647,
+            "kissat_seconds": 207.984,
+            "candidate_peak_rss_kb": 243172,
+            "kissat_peak_rss_kb": 101500
+          },
+          {
+            "rank": 25,
+            "solved": true,
+            "candidate_par2_seconds": 245.967,
+            "kissat_seconds": 246.184,
+            "candidate_peak_rss_kb": 3409688,
+            "kissat_peak_rss_kb": 888820
+          },
+          {
+            "rank": 26,
+            "solved": true,
+            "candidate_par2_seconds": 250.522,
+            "kissat_seconds": 260.932,
+            "candidate_peak_rss_kb": 142168,
+            "kissat_peak_rss_kb": 87904
+          },
+          {
+            "rank": 27,
+            "solved": true,
+            "candidate_par2_seconds": 322.008,
+            "kissat_seconds": 245.726,
+            "candidate_peak_rss_kb": 618072,
+            "kissat_peak_rss_kb": 298192
+          },
+          {
+            "rank": 28,
+            "solved": true,
+            "candidate_par2_seconds": 216.363,
+            "kissat_seconds": 242.505,
+            "candidate_peak_rss_kb": 1372040,
+            "kissat_peak_rss_kb": 807884
+          },
+          {
+            "rank": 29,
+            "solved": true,
+            "candidate_par2_seconds": 279.761,
+            "kissat_seconds": 295.641,
+            "candidate_peak_rss_kb": 139776,
+            "kissat_peak_rss_kb": 66076
+          },
+          {
+            "rank": 30,
+            "solved": true,
+            "candidate_par2_seconds": 258.607,
+            "kissat_seconds": 284.168,
+            "candidate_peak_rss_kb": 158180,
+            "kissat_peak_rss_kb": 93572
+          },
+          {
+            "rank": 31,
+            "solved": true,
+            "candidate_par2_seconds": 529.814,
+            "kissat_seconds": 264.532,
+            "candidate_peak_rss_kb": 571564,
+            "kissat_peak_rss_kb": 265752
+          },
+          {
+            "rank": 32,
+            "solved": true,
+            "candidate_par2_seconds": 565.639,
+            "kissat_seconds": 274.456,
+            "candidate_peak_rss_kb": 621924,
+            "kissat_peak_rss_kb": 299980
+          },
+          {
+            "rank": 33,
+            "solved": true,
+            "candidate_par2_seconds": 678.528,
+            "kissat_seconds": 311.385,
+            "candidate_peak_rss_kb": 567476,
+            "kissat_peak_rss_kb": 265332
+          },
+          {
+            "rank": 34,
+            "solved": true,
+            "candidate_par2_seconds": 330.021,
+            "kissat_seconds": 330.932,
+            "candidate_peak_rss_kb": 112288,
+            "kissat_peak_rss_kb": 40848
+          },
+          {
+            "rank": 35,
+            "solved": true,
+            "candidate_par2_seconds": 335.527,
+            "kissat_seconds": 306.699,
+            "candidate_peak_rss_kb": 604036,
+            "kissat_peak_rss_kb": 269360
+          },
+          {
+            "rank": 36,
+            "solved": true,
+            "candidate_par2_seconds": 355.225,
+            "kissat_seconds": 363.801,
+            "candidate_peak_rss_kb": 94544,
+            "kissat_peak_rss_kb": 50160
+          },
+          {
+            "rank": 37,
+            "solved": true,
+            "candidate_par2_seconds": 334.637,
+            "kissat_seconds": 346.372,
+            "candidate_peak_rss_kb": 621148,
+            "kissat_peak_rss_kb": 269236
+          },
+          {
+            "rank": 38,
+            "solved": true,
+            "candidate_par2_seconds": 337.354,
+            "kissat_seconds": 362.395,
+            "candidate_peak_rss_kb": 88912,
+            "kissat_peak_rss_kb": 44336
+          },
+          {
+            "rank": 39,
+            "solved": true,
+            "candidate_par2_seconds": 423.39,
+            "kissat_seconds": 366.837,
+            "candidate_peak_rss_kb": 425152,
+            "kissat_peak_rss_kb": 170616
+          },
+          {
+            "rank": 40,
+            "solved": true,
+            "candidate_par2_seconds": 354.93,
+            "kissat_seconds": 401.304,
+            "candidate_peak_rss_kb": 379184,
+            "kissat_peak_rss_kb": 187552
+          },
+          {
+            "rank": 41,
+            "solved": true,
+            "candidate_par2_seconds": 14.99,
+            "kissat_seconds": 11.585,
+            "candidate_peak_rss_kb": 192340,
+            "kissat_peak_rss_kb": 62856
+          },
+          {
+            "rank": 42,
+            "solved": true,
+            "candidate_par2_seconds": 66.072,
+            "kissat_seconds": 22.752,
+            "candidate_peak_rss_kb": 1609988,
+            "kissat_peak_rss_kb": 1145252
+          },
+          {
+            "rank": 43,
+            "solved": true,
+            "candidate_par2_seconds": 125.472,
+            "kissat_seconds": 46.089,
+            "candidate_peak_rss_kb": 2678576,
+            "kissat_peak_rss_kb": 1719156
+          },
+          {
+            "rank": 44,
+            "solved": true,
+            "candidate_par2_seconds": 58.11,
+            "kissat_seconds": 38.827,
+            "candidate_peak_rss_kb": 162064,
+            "kissat_peak_rss_kb": 95428
+          },
+          {
+            "rank": 45,
+            "solved": true,
+            "candidate_par2_seconds": 44.138,
+            "kissat_seconds": 45.187,
+            "candidate_peak_rss_kb": 73472,
+            "kissat_peak_rss_kb": 31976
+          },
+          {
+            "rank": 46,
+            "solved": true,
+            "candidate_par2_seconds": 147.655,
+            "kissat_seconds": 80.043,
+            "candidate_peak_rss_kb": 104612,
+            "kissat_peak_rss_kb": 43484
+          },
+          {
+            "rank": 47,
+            "solved": true,
+            "candidate_par2_seconds": 141.5,
+            "kissat_seconds": 98.418,
+            "candidate_peak_rss_kb": 4828000,
+            "kissat_peak_rss_kb": 3517460
+          },
+          {
+            "rank": 48,
+            "solved": true,
+            "candidate_par2_seconds": 15.742,
+            "kissat_seconds": 14.441,
+            "candidate_peak_rss_kb": 982192,
+            "kissat_peak_rss_kb": 592128
+          },
+          {
+            "rank": 49,
+            "solved": true,
+            "candidate_par2_seconds": 158.72,
+            "kissat_seconds": 22.555,
+            "candidate_peak_rss_kb": 41512,
+            "kissat_peak_rss_kb": 12288
+          },
+          {
+            "rank": 50,
+            "solved": true,
+            "candidate_par2_seconds": 427.408,
+            "kissat_seconds": 49.047,
+            "candidate_peak_rss_kb": 72188,
+            "kissat_peak_rss_kb": 18740
+          }
+        ],
+        "reference_checked": 50,
+        "all_certificates_checked": false,
+        "limitation": "Fixed-reference cross-window score; runtime_target_met alone is not acceptance. B28+C5,current-source fuzz and memory gates remain separate."
+      }
+    },
+    "20260909-6181-learned-sort-ranks1-50": {
+      "solver_records": 50,
+      "checked": 50,
+      "states": {
+        "0": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "1": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "2": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "3": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "4": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "5": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "6": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "7": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "8": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "9": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "10": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "11": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "12": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "13": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "14": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "15": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "16": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "17": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "18": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "19": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "20": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "21": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "22": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "23": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "24": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "25": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "26": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "27": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "28": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "29": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "30": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "31": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "32": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "33": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "34": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "35": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "36": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "37": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "38": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "39": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "40": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "41": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "42": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "43": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "44": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "45": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "46": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "47": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "48": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "49": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "launch": {
+        "job_id": "1677122",
+        "command": [
+          "sbatch",
+          "--parsable",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6181-learned-sort-ranks1-50/array.sbatch"
+        ],
+        "accounting_since": "2026-09-09T01:06:33",
+        "manifest_sha256": "35146669211b8895bd6547d658f9bc0deb1f8eb6b852b042ccb32ce47264ae62",
+        "protected_campaign_hashes": {
+          "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/manifest.json": "b2f9e98291c56c415e4cb9439a77378c55cc78593d632c1fc84a6d5ee194acf6",
+          "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/array.sbatch": "b90503efeb1acd5ea2cb081fc60a79c2e1ab6d51287cedf050a673ddb5433143",
+          "benchmarks/baselines/rank1-40-kissat-12cpu-v1/manifest.json": "45259e1acbc93472b923517f75fd6b8697669b3ad74970d27b565b6b7f1aa686",
+          "benchmarks/runs/20260908-5712-assignment-level-ranks1-40/manifest.json": "80211109441ac7e1483082a767c755ffc03c029381398c71017593e2ff29a8ae",
+          "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/pins/runtime_task.py": "ccef4f23bac433c4c205949c0296f2cdef0e98d0d56fff5d306abb6e6209297f",
+          "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/pins/modelcheck.py": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+          "benchmarks/runs/20260908-6108-rank41-50-matched/manifest.json": "d09c9f2a030d0d29974fa881ee247c7900704e4be0e204b28c0b16beaf443d16",
+          "benchmarks/runs/20260908-6108-rank41-50-matched/array.sbatch": "82b47f14fc76c4d5ca14484035b1033d013c1a36c2bbe44c531a1a6a56c87efb",
+          "benchmarks/runs/20260908-6114-substitute-publication-BC-gate/manifest.json": "27c57c3c896ab15daa9d51ff87f9a977472d28b2b43b849be7322b96eb598bb1",
+          "benchmarks/runs/20260908-6114-substitute-publication-BC-gate/array.sbatch": "2b6afd38eb7dcc8fc39f6fa294f5786d20d9238a4facb7cb64bc6c35a0320b4a",
+          "benchmarks/runs/20260908-6115-substitute-publication-ranks1-50/manifest.json": "e739603e6d4ec9024beebfa7a049def7c3ea01eb6b5287e542f05a651e646cd7",
+          "benchmarks/runs/20260908-6115-substitute-publication-ranks1-50/array.sbatch": "ab074cdcf7e9691f7031fd9aa198cef18fe83bb9edc5aa73f0c5b033d2d380f5",
+          "benchmarks/baselines/rank1-50-kissat-12cpu-v1/manifest.json": "5f7865e46af2b9ed0d1899ce6e450bfb9b3575801c50183e059d0e4326f5a1e0",
+          "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/manifest.json": "224b3b5d80c3087b3c3c709a78dcf934d175823bd2232f68a2475e6d11bd3d1a",
+          "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/launch.json": "ee6eea617d6fef64349ed0096c9dd06f1ffb9ba03467dd6901ab92b833bfb7a1",
+          "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/array.sbatch": "37e88d1e5998092127067b1ac0fedc388f29ddf45179057a508fb53dabaa24be"
+        }
+      },
+      "manifest_sha256": "35146669211b8895bd6547d658f9bc0deb1f8eb6b852b042ccb32ce47264ae62",
+      "score": {
+        "records": 50,
+        "expected_solves": 50,
+        "checked_clean": 50,
+        "complete": true,
+        "candidate_par2": 8403.998,
+        "fixed_kissat_seconds": 7239.01,
+        "ratio": 1.1609319506396591,
+        "runtime_target_met": false,
+        "per_rank": [
+          {
+            "rank": 1,
+            "solved": true,
+            "candidate_par2_seconds": 0.216,
+            "kissat_seconds": 0.218,
+            "candidate_peak_rss_kb": 83952,
+            "kissat_peak_rss_kb": 49564
+          },
+          {
+            "rank": 2,
+            "solved": true,
+            "candidate_par2_seconds": 0.267,
+            "kissat_seconds": 0.217,
+            "candidate_peak_rss_kb": 83972,
+            "kissat_peak_rss_kb": 49568
+          },
+          {
+            "rank": 3,
+            "solved": true,
+            "candidate_par2_seconds": 0.567,
+            "kissat_seconds": 0.467,
+            "candidate_peak_rss_kb": 153756,
+            "kissat_peak_rss_kb": 103612
+          },
+          {
+            "rank": 4,
+            "solved": true,
+            "candidate_par2_seconds": 7.579,
+            "kissat_seconds": 7.681,
+            "candidate_peak_rss_kb": 28036,
+            "kissat_peak_rss_kb": 13008
+          },
+          {
+            "rank": 5,
+            "solved": true,
+            "candidate_par2_seconds": 29.715,
+            "kissat_seconds": 30.214,
+            "candidate_peak_rss_kb": 10682156,
+            "kissat_peak_rss_kb": 10402844
+          },
+          {
+            "rank": 6,
+            "solved": true,
+            "candidate_par2_seconds": 68.432,
+            "kissat_seconds": 52.599,
+            "candidate_peak_rss_kb": 756988,
+            "kissat_peak_rss_kb": 349612
+          },
+          {
+            "rank": 7,
+            "solved": true,
+            "candidate_par2_seconds": 54.007,
+            "kissat_seconds": 48.242,
+            "candidate_peak_rss_kb": 9713576,
+            "kissat_peak_rss_kb": 9109728
+          },
+          {
+            "rank": 8,
+            "solved": true,
+            "candidate_par2_seconds": 65.676,
+            "kissat_seconds": 58.159,
+            "candidate_peak_rss_kb": 11862680,
+            "kissat_peak_rss_kb": 11118752
+          },
+          {
+            "rank": 9,
+            "solved": true,
+            "candidate_par2_seconds": 95.276,
+            "kissat_seconds": 68.928,
+            "candidate_peak_rss_kb": 3226172,
+            "kissat_peak_rss_kb": 1326232
+          },
+          {
+            "rank": 10,
+            "solved": true,
+            "candidate_par2_seconds": 90.872,
+            "kissat_seconds": 81.797,
+            "candidate_peak_rss_kb": 15967668,
+            "kissat_peak_rss_kb": 15348304
+          },
+          {
+            "rank": 11,
+            "solved": true,
+            "candidate_par2_seconds": 0.267,
+            "kissat_seconds": 0.217,
+            "candidate_peak_rss_kb": 95324,
+            "kissat_peak_rss_kb": 60692
+          },
+          {
+            "rank": 12,
+            "solved": true,
+            "candidate_par2_seconds": 7.278,
+            "kissat_seconds": 5.127,
+            "candidate_peak_rss_kb": 1843652,
+            "kissat_peak_rss_kb": 1234908
+          },
+          {
+            "rank": 13,
+            "solved": true,
+            "candidate_par2_seconds": 72.99,
+            "kissat_seconds": 65.334,
+            "candidate_peak_rss_kb": 12752784,
+            "kissat_peak_rss_kb": 11928200
+          },
+          {
+            "rank": 14,
+            "solved": true,
+            "candidate_par2_seconds": 72.58,
+            "kissat_seconds": 63.368,
+            "candidate_peak_rss_kb": 12854700,
+            "kissat_peak_rss_kb": 12018708
+          },
+          {
+            "rank": 15,
+            "solved": true,
+            "candidate_par2_seconds": 75.337,
+            "kissat_seconds": 80.291,
+            "candidate_peak_rss_kb": 61956,
+            "kissat_peak_rss_kb": 29704
+          },
+          {
+            "rank": 16,
+            "solved": true,
+            "candidate_par2_seconds": 117.705,
+            "kissat_seconds": 122.015,
+            "candidate_peak_rss_kb": 113668,
+            "kissat_peak_rss_kb": 65168
+          },
+          {
+            "rank": 17,
+            "solved": true,
+            "candidate_par2_seconds": 76.789,
+            "kissat_seconds": 113.158,
+            "candidate_peak_rss_kb": 1131616,
+            "kissat_peak_rss_kb": 598308
+          },
+          {
+            "rank": 18,
+            "solved": true,
+            "candidate_par2_seconds": 62.417,
+            "kissat_seconds": 126.552,
+            "candidate_peak_rss_kb": 2986628,
+            "kissat_peak_rss_kb": 2083228
+          },
+          {
+            "rank": 19,
+            "solved": true,
+            "candidate_par2_seconds": 131.876,
+            "kissat_seconds": 119.042,
+            "candidate_peak_rss_kb": 401984,
+            "kissat_peak_rss_kb": 143804
+          },
+          {
+            "rank": 20,
+            "solved": true,
+            "candidate_par2_seconds": 120.26,
+            "kissat_seconds": 165.883,
+            "candidate_peak_rss_kb": 1788772,
+            "kissat_peak_rss_kb": 943992
+          },
+          {
+            "rank": 21,
+            "solved": true,
+            "candidate_par2_seconds": 249.216,
+            "kissat_seconds": 96.821,
+            "candidate_peak_rss_kb": 3034340,
+            "kissat_peak_rss_kb": 1436392
+          },
+          {
+            "rank": 22,
+            "solved": true,
+            "candidate_par2_seconds": 225.181,
+            "kissat_seconds": 189.477,
+            "candidate_peak_rss_kb": 2714840,
+            "kissat_peak_rss_kb": 1919272
+          },
+          {
+            "rank": 23,
+            "solved": true,
+            "candidate_par2_seconds": 196.277,
+            "kissat_seconds": 202.406,
+            "candidate_peak_rss_kb": 100628,
+            "kissat_peak_rss_kb": 42608
+          },
+          {
+            "rank": 24,
+            "solved": true,
+            "candidate_par2_seconds": 224.83,
+            "kissat_seconds": 207.984,
+            "candidate_peak_rss_kb": 228036,
+            "kissat_peak_rss_kb": 101500
+          },
+          {
+            "rank": 25,
+            "solved": true,
+            "candidate_par2_seconds": 247.618,
+            "kissat_seconds": 246.184,
+            "candidate_peak_rss_kb": 3409704,
+            "kissat_peak_rss_kb": 888820
+          },
+          {
+            "rank": 26,
+            "solved": true,
+            "candidate_par2_seconds": 250.268,
+            "kissat_seconds": 260.932,
+            "candidate_peak_rss_kb": 142168,
+            "kissat_peak_rss_kb": 87904
+          },
+          {
+            "rank": 27,
+            "solved": true,
+            "candidate_par2_seconds": 333.802,
+            "kissat_seconds": 245.726,
+            "candidate_peak_rss_kb": 618204,
+            "kissat_peak_rss_kb": 298192
+          },
+          {
+            "rank": 28,
+            "solved": true,
+            "candidate_par2_seconds": 217.841,
+            "kissat_seconds": 242.505,
+            "candidate_peak_rss_kb": 1372144,
+            "kissat_peak_rss_kb": 807884
+          },
+          {
+            "rank": 29,
+            "solved": true,
+            "candidate_par2_seconds": 280.759,
+            "kissat_seconds": 295.641,
+            "candidate_peak_rss_kb": 139780,
+            "kissat_peak_rss_kb": 66076
+          },
+          {
+            "rank": 30,
+            "solved": true,
+            "candidate_par2_seconds": 259.239,
+            "kissat_seconds": 284.168,
+            "candidate_peak_rss_kb": 158184,
+            "kissat_peak_rss_kb": 93572
+          },
+          {
+            "rank": 31,
+            "solved": true,
+            "candidate_par2_seconds": 326.76,
+            "kissat_seconds": 264.532,
+            "candidate_peak_rss_kb": 567800,
+            "kissat_peak_rss_kb": 265752
+          },
+          {
+            "rank": 32,
+            "solved": true,
+            "candidate_par2_seconds": 363.599,
+            "kissat_seconds": 274.456,
+            "candidate_peak_rss_kb": 643988,
+            "kissat_peak_rss_kb": 299980
+          },
+          {
+            "rank": 33,
+            "solved": true,
+            "candidate_par2_seconds": 325.568,
+            "kissat_seconds": 311.385,
+            "candidate_peak_rss_kb": 584356,
+            "kissat_peak_rss_kb": 265332
+          },
+          {
+            "rank": 34,
+            "solved": true,
+            "candidate_par2_seconds": 330.893,
+            "kissat_seconds": 330.932,
+            "candidate_peak_rss_kb": 111360,
+            "kissat_peak_rss_kb": 40848
+          },
+          {
+            "rank": 35,
+            "solved": true,
+            "candidate_par2_seconds": 347.918,
+            "kissat_seconds": 306.699,
+            "candidate_peak_rss_kb": 588120,
+            "kissat_peak_rss_kb": 269360
+          },
+          {
+            "rank": 36,
+            "solved": true,
+            "candidate_par2_seconds": 356.715,
+            "kissat_seconds": 363.801,
+            "candidate_peak_rss_kb": 94556,
+            "kissat_peak_rss_kb": 50160
+          },
+          {
+            "rank": 37,
+            "solved": true,
+            "candidate_par2_seconds": 411.548,
+            "kissat_seconds": 346.372,
+            "candidate_peak_rss_kb": 631884,
+            "kissat_peak_rss_kb": 269236
+          },
+          {
+            "rank": 38,
+            "solved": true,
+            "candidate_par2_seconds": 337.325,
+            "kissat_seconds": 362.395,
+            "candidate_peak_rss_kb": 88920,
+            "kissat_peak_rss_kb": 44336
+          },
+          {
+            "rank": 39,
+            "solved": true,
+            "candidate_par2_seconds": 418.001,
+            "kissat_seconds": 366.837,
+            "candidate_peak_rss_kb": 423480,
+            "kissat_peak_rss_kb": 170616
+          },
+          {
+            "rank": 40,
+            "solved": true,
+            "candidate_par2_seconds": 353.604,
+            "kissat_seconds": 401.304,
+            "candidate_peak_rss_kb": 379184,
+            "kissat_peak_rss_kb": 187552
+          },
+          {
+            "rank": 41,
+            "solved": true,
+            "candidate_par2_seconds": 14.942,
+            "kissat_seconds": 11.585,
+            "candidate_peak_rss_kb": 184112,
+            "kissat_peak_rss_kb": 62856
+          },
+          {
+            "rank": 42,
+            "solved": true,
+            "candidate_par2_seconds": 65.921,
+            "kissat_seconds": 22.752,
+            "candidate_peak_rss_kb": 1610016,
+            "kissat_peak_rss_kb": 1145252
+          },
+          {
+            "rank": 43,
+            "solved": true,
+            "candidate_par2_seconds": 125.828,
+            "kissat_seconds": 46.089,
+            "candidate_peak_rss_kb": 2678600,
+            "kissat_peak_rss_kb": 1719156
+          },
+          {
+            "rank": 44,
+            "solved": true,
+            "candidate_par2_seconds": 57.914,
+            "kissat_seconds": 38.827,
+            "candidate_peak_rss_kb": 162072,
+            "kissat_peak_rss_kb": 95428
+          },
+          {
+            "rank": 45,
+            "solved": true,
+            "candidate_par2_seconds": 44.287,
+            "kissat_seconds": 45.187,
+            "candidate_peak_rss_kb": 73476,
+            "kissat_peak_rss_kb": 31976
+          },
+          {
+            "rank": 46,
+            "solved": true,
+            "candidate_par2_seconds": 143.961,
+            "kissat_seconds": 80.043,
+            "candidate_peak_rss_kb": 100516,
+            "kissat_peak_rss_kb": 43484
+          },
+          {
+            "rank": 47,
+            "solved": true,
+            "candidate_par2_seconds": 141.81,
+            "kissat_seconds": 98.418,
+            "candidate_peak_rss_kb": 4828004,
+            "kissat_peak_rss_kb": 3517460
+          },
+          {
+            "rank": 48,
+            "solved": true,
+            "candidate_par2_seconds": 15.743,
+            "kissat_seconds": 14.441,
+            "candidate_peak_rss_kb": 982200,
+            "kissat_peak_rss_kb": 592128
+          },
+          {
+            "rank": 49,
+            "solved": true,
+            "candidate_par2_seconds": 158.573,
+            "kissat_seconds": 22.555,
+            "candidate_peak_rss_kb": 41012,
+            "kissat_peak_rss_kb": 12288
+          },
+          {
+            "rank": 50,
+            "solved": true,
+            "candidate_par2_seconds": 427.951,
+            "kissat_seconds": 49.047,
+            "candidate_peak_rss_kb": 72040,
+            "kissat_peak_rss_kb": 18740
+          }
+        ],
+        "reference_checked": 50,
+        "all_certificates_checked": true,
+        "limitation": "Fixed-reference cross-window score; runtime_target_met alone is not acceptance. B28+C5,current-source fuzz and memory gates remain separate."
+      }
+    }
+  },
+  "hashes": {
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/000.json": "4a90b5f125e72e45a93819a57eb679e64cbf57bb8d500c6dad3a94c7b9affd20",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/001.json": "142c9d3151292a1b2a5d6148912bddf7b3f7baf0931bb143667c2ee3018e5c61",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/002.json": "ba0255b6d391bee0df08de902ad893aefd9ed56d14b5eaef42e14e918c76fb6d",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/003.json": "28c93f3a2c8624870409f7f80e5ecc931e7e378a1247d356fbcef6e7e5546bb5",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/004.json": "20e8658758ce4994f9d2e83eb917fb86e6dfa808b545d5e265e71ae40b813cd6",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/005.json": "c06322c8d778cb5c0fbbcc13bed2e86cfc6fc073630085a1b196267efdf0d11d",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/006.json": "080fa48826e3a6d69f23059206c6774c53a8e1fb44f42dfea4df4c5a7c086a7d",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/007.json": "9b5ed165a01b33bd7e1aab7571f9da8de8424a0a4705b704184c3fc5e19bfa93",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/008.json": "98f69d89d56d8f01f89f1bfada27ac54a267944892649f03b7579632d6eabc2b",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/009.json": "1fc857f78bdef8940924d079b66446097460b483292c5e7071b89d5c0619a1ff",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/010.json": "7819a5bc73eb3d583843cd0dec8889edba009adad919db88079a404cbb89e2a0",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/011.json": "794639bf9fd5125543671b4a93bb241acb974d3d0e691f300d044df2ed4bd20d",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/012.json": "0ee895346d0e86f2f89538797b79e1e5c13296d7f7887a667fb74d0e7880a462",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/013.json": "bf65f61ae4f24c4bf20180ed545df27d826beecbf285e8e0c63d5f8d4724565d",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/014.json": "fc8f4227fdddfeaf709edd78c30a613bcf37ed7b3964433741d8cb897e28a3d9",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/015.json": "289513171f477da96b95e5594e871307b117a9be1bed2d290845ffab9f798834",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/016.json": "928258038931e488c374417f0137f8e07cbfca396807d42c5083183fefdfdd21",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/017.json": "b63205ef1b7db623d6161ff1161b0aea81fa4c48c2f476f5c62a6433fbb52485",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/018.json": "ac2987cd7d6c34d3fb1be6eac148829d3f81f1c0daf63c2c6c293cb50bb1430f",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/019.json": "10858ef9ef315ec655328901442212ac4fc5ed20842405271d3e68990f001c38",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/020.json": "84cdc86807969499764be98af7cec0a7755e18d8275c98e4ccdc9c49d3eecf55",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/021.json": "2774443a429ce12d8eeff8b352424f9cab9c9c79906bf2e287014c91ed0c4598",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/022.json": "bc5fd1f60895d552de2818088a7ff2683fa826e79b270efe9541511f8e1851be",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/023.json": "1cae2514c5c2741cc9da2ff56a6e18190bb52bb761c87d7b073b63d629e8915d",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/024.json": "acd31eb82cd96be24e9695402dc5fa2287908f9a1bdedd065488bf491b7763b3",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/025.json": "6e25bea722af990d7c142cdd0fc3589ab572888bca3cd6c325b566c9e151af94",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/026.json": "8f1f1863405d3e3a7bcd60384214cba67b07c5fdf52fffd3f975f6ff71274eca",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/027.json": "4bd0749c42293c13311336b77e4a20a02c6a9ba12c242a6bbf282079cadbdadc",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/028.json": "8a78988746a6d82d25920b2d25626c7e9f3a363356cfa02507b880e3e599d072",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/029.json": "821e6a114af48ff8ff9060ca2b67e7dfff1dc0010472783c8e4d96e09fef9598",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/030.json": "1cc1d564f79c6ee01aa679bcd8d258659efb87952e66b4663aeef26b27cc6f48",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/031.json": "e69d7937a28371ceba4e9f37494c063fb13fcc9ce919935f1f980071b64c661b",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/032.json": "8f0098904dade16e7396cc607bbae433502fd8016969273f88fcea4366ce1b06",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/033.json": "feab115961eead7d46b16579c0de844e4d44026901a3006c5d81259e66d114bb",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/034.json": "0c01f051b69cee98112457eab364d7217cbc287b1b810f2b6f181d088b4783a1",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/035.json": "1a77d86ff83eb2aca0e66dd4327632341d285968d5bf05c24ae9b3ec8344960b",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/036.json": "5b5ebf63a86f5c0fd1915456e89ecbd44d0c7295cde5ca2513d40d04cf65a696",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/037.json": "a7a00e124ca02b4cfdda8cf9a112fb51174f8d7d549ee4817b7c5dd6cf4f5c1f",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/038.json": "de2f9f9521088932bc530b3c34080cb4a3f3541e1423f6ba06f5fd491a64fc0e",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/039.json": "d83a52a39d48560d437f44f3b99cc66ed5cbf061cb79102b6361e8fad6f03700",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/040.json": "dc0925ffa419cdb9774c4af72e52a9e9417be9f6e4dd5cea367563a6efc7dc55",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/041.json": "299c2ac8328428d24ac6a3ef386badf7709935c113e70910a22d0e78f877a460",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/042.json": "16874effd377c10f1e733c307181c9a387a92f8dcc5d78852f899ac43ca6fdcf",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/043.json": "cc10dbd5f5b6195b79d5fa6dd2e4adcdfa63d9fa1e661de9b878e3704145793a",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/044.json": "7c1b94fde4c7fc7f9470cc5b5be95b4ceb0679516197bd52f5dfbe2a7e8b3529",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/045.json": "4c166630a82930bb498b78c50d24709accf9ff4f11f605f2dc78282a2db9073f",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/046.json": "0cab4c984fb77fc4a7e0d82bfd784910c887c7567ec8a92934cb45302a47512c",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/047.json": "b1e52cae9e32343e6abc24f87950a3ee7255181aaa7c1244d954484612740c94",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/048.json": "faabd8f47d229279d9f29318d4bc110a8d544f838a666f4724536babcf766ac0",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/049.json": "51aa4e314b28a544ec8fe02ce090311bfe8fd4d5f1a748cf14f02cce1866007b",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/050.json": "2618fc87e4ddae57230e8e0355e338c7cadc19cd174a7547eed27070430a0450",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/051.json": "918a82bba141cb3fbe6ef88e58ea986468230dda32dbf79497c40290638bcba6",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/052.json": "e5e7fac603c9df26c03506d69bebe41c586d18bc4098f675d4f6bb0c9bf00366",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/provisional/053.json": "9e78f98ee80a1365ebfc40b4a19754911754f7e1c88054ddd39dc0df95ab95f3",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/results/000.json": "7dfc2ede80cd7f1626119d9e9dc11518a1a3f5cd16f2d69842871df85ccce8e4",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/results/001.json": "c45f1f5caa744c1ab6a49eb5107f44ada4dd6c701342ff4316eccafef9048b0a",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/results/002.json": "5e1f2b3b2f6c0a0707a82aec628fbfdd953e87d7e1fd70090d3a2122ac110c34",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/results/003.json": "bf6f116febef6b65bf7be9e27418f64d54f570528e30e922dfb8685762111da2",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/results/004.json": "e59da9c210fd4222838a8f492a82cdeb6724f99b7bf1e6b4bcebfcc46341d954",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/results/005.json": "d30946210380d400747edc931d1497098840e936d16abb86651506e0598bf8f3",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/results/006.json": "9dcd5df1b91e9f30ad6d077dc397d0412d8e86384e256bdd9a1e59a167de34ac",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/results/007.json": "d0481f6cc08a5f7001c256dc94100e265457bb126c3ce1eb7fc8a811421dc932",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/results/008.json": "77e677a079c3de2cfdee09668e02fd71836cdb7edb338b4ec2c29f797c360a13",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/results/009.json": "44fed9c3caf42571044cbed3fe7e1939c8e0c7cbdccf1008bc9f8937f79eb16c",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/results/010.json": "d370a0f4dddcc9717d2d65461da293c8cdfb0bae9145ea2c3dc37811ef4780b3",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/results/011.json": "ee3b4b874ce8e9049a4dcbe2b2a0afeb64dd358608fbe2fd09c089bba5a48411",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/results/012.json": "c6be7ac0eafcc02fb5b9825c1e6e174efb5787d8eabfe5b4bd49ef79dfa0c096",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/results/013.json": "8e9298a6776f6c3756817dcd56063426effe7c14853cd72d5226a5ccf4d02267",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/results/014.json": "30b950e5a5f3200180c5b900c79b64feab83878a4bf04a99454e05db6b5a83ce",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/results/015.json": "1870630fd8de050012efc2310ed36cd05cb1f98bb58769498387bf619569b467",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/results/016.json": "7b2bc73dec4f741a28cd5c597b6c5a8d8fcfdca40ceb1806d36349179d96d3be",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/results/017.json": "2506601de9d50341cc515f7d8280b36d28c0f8805a7e29dea264f723c10a268f",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/results/018.json": "89b83bc0bf69b0e1564c26a99eb3b04ddc078d53f318f214b402bdb32ca16a77",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/results/019.json": "57f9ee87eb97066b3cd258c00d3490fc7394cecd4ca65f7602334fe64c0d81c1",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/results/022.json": "42be6f90b03424c61787d4a0fc6b413c7aede1fd0cf5cf7e6b2aae7221ae8c99",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/results/023.json": "70b6ee6df195d38e5bc57b5470d90b365385435c47811c07fbb3edfbab2e0354",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/results/024.json": "40730f9cf59eb73e59899d59670eb869728779ff5fa68e65c102970466b87730",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/results/025.json": "45acdda81b33ae126ef9f8924dd9c958f6f38a75edb461adb6644079e32feb2d",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/results/028.json": "4bc6910f2d6a5648d368e6ef5e9710a985b2a3d89ce118f5ac32308c63765551",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/results/029.json": "bf638af2f64bac6bfa5a189dcf356639b82895267dd7033fd48806bfc8420ac1",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/results/030.json": "3f8a65bd9b1ba57acd5157bd1ad300e587ede69f4790a6ebf30505d55eb42d5f",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/results/031.json": "022ad114e8155c62385e7eabecedbe073eaf5b51d0b3aef2a6743e9d834cd9aa",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/results/032.json": "c0cc1ce2d3e67f712ed7f4ab2490edbc950dd527532ffaaf57f31058f442f09c",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/results/033.json": "2d770365e9a50ddc99b44f1f47ca403916638d7ea1c82f61360d4972962bce25",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/results/034.json": "64834e05219d02799b6617543b1e9187b8a38ced78b7cb42cf3e6c621127a96f",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/results/035.json": "00ec71cf7547a6099e4b8c12f6431e4c23d0bee1cbd9a1008a97dbda9852c0fb",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/results/036.json": "a0853e62d63226f37cdd13742a3a61c987d234b1c520147dd2277ea359c30698",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/results/037.json": "61ab2132619319eb8e3cb91073e02540323f8c9701bc00e561105ea7d1a8b2ea",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/results/038.json": "6e0712d8ea54712a989a3260fce8e47ea320308636a1d18bc1988d0e4bcaf36c",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/results/039.json": "66072db1eea7a865bd521f3ee0035ff8fd1d40e5aa011a7bc0037788f098289f",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/results/040.json": "60b94badfe86435869e95d7864a85a4662f277f8772db8de36b1d1c37b98436f",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/results/041.json": "5daedd7934c9189fdbe336a623a5c7df28dd075bad9f5da8c9eec21243ffdef3",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/results/044.json": "672e504c2c32ac7ea01f5a1be7a02e6370016ffe01205124805bfa485254f7c4",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/results/045.json": "957ce9c0384872c2c14710a8ff0ba2a9346cc08d4836e925fd1f40de181da60f",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/results/046.json": "0d93af9424090589b5cbca64a025b87cf895ff28252b98f47317412e743a8657",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/results/047.json": "de36d86ea81d79db2f6af160e570f3a2e422c075e3a2232940b9635de103abbd",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/results/048.json": "b9ab88a773793a1f4e9a81da21761b0e3d2d912e96e4c42169c0fe0753406452",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/results/049.json": "ccba847a725437ab008b361d05c828079b9384531c8b7655c93a68388a0c863f",
+    "benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/results/050.json": "3325040bcf80df94d60c6c7d2c42a1b298d97f27fe58064dfde2911341139a9a",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/provisional/000.json": "8fb3f703aa5144176a86223b802624a5f7bb524fafd012ce057ae6a0317eab3e",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/provisional/001.json": "be01a247c0b7c6d8fce81a81ea00d2fe65bce4c3463e0e7c3d4d4c61d8c9dcda",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/provisional/002.json": "f4a0fb5f65942e183c4b7570b650361ae9e920df6811a103ca6e2dc6d4c61d47",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/provisional/003.json": "855e083b6616f9080db420615965b6782366eb9b7985a6596cb202e723ef2bc7",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/provisional/004.json": "42e7c1b1e6762a07156e055d64f3c4d139bc7cc2b5a13cd3fdf695d6f0b08b9f",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/provisional/005.json": "b699e2f27ffe43ced4a1b26964056dd8adfc9dbae6a6acb2827e82a440803d1b",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/provisional/006.json": "eb3d249db886ec682801ff4ca2a56efb2369191b250cf9626fd9f11f9c82366c",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/provisional/007.json": "e037a74ff2007592fe0eb54dc92e7104615b10aecb0160a77dc1a9b26abf4e72",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/provisional/008.json": "4434fc39771c19ff7e90aa14cc1f89f50cb1415d8a9c4e536bbb11c0187ddbca",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/provisional/009.json": "43873c2d22ec8144817572461da486eb6b425c980fa4ecc5baf52f8b5082bec2",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/provisional/010.json": "5512a8ca1085e1782039989f5107eda7b81828fde7820edf27c23a8c9fb6bec7",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/provisional/011.json": "bd4f17e5e15b2f7838314b76fee8094baf81960ee8e702c9a4a27b0fd25ac2be",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/provisional/012.json": "35a0a6e51669c721b22521e2d84efc0bd01541c6a5b949cd75729c80f922f4b4",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/provisional/013.json": "1dffd02298014ca361986d7c00ed44aae022432fa94bba2189de2fe4074a2480",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/provisional/014.json": "df04a3a9ffcd8ffbc89cfc735376f0b77b0d0fb304aad451d7b6e1cefb51cbf9",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/provisional/015.json": "1a3e2d385f5a4f16fcb608d2ff7dd35b387621cd3c46f457454d3c4e65f1251d",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/provisional/016.json": "613606384d858e93a1dcf17d8dbda639ec98cf972820c163b86e09cc3bfa7d39",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/provisional/017.json": "417d4a99e8ed0de8023ef04fa126f29b477b3f4927879fcfc6b2da073fbc740b",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/provisional/018.json": "a5379b36af48fab7a49b8cc31229a2c509d368f08086b68e3896a71c3cce3a8b",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/provisional/019.json": "34f95262e2116c68e9d711a7db6000b1d061ae08ac647151ff1d205f63d5d2d9",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/provisional/020.json": "40f55bec468306b01b084f25e2a4bc1dc0066955d839bc40743cb0ff049a47f5",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/provisional/021.json": "2ec181b463522dd1a3d62cb7de8ec3d995e0d3e63b2986d1c25dcfd464702019",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/provisional/022.json": "98b66483ff4743c28dc0ca1fb05da7a0e678ebd06fc96c59027a1b7f575ce1c2",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/provisional/023.json": "e0b658cac34e7defcc63c870e7be513829de9e7d50ad566b31ae7d9cdf73885b",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/provisional/024.json": "21de127dbba04ac6a1b35611b964174f672b907018b29cd8aed15dad8bf74a9a",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/provisional/025.json": "73045c23247ad6a6a32d230337ca213dbd84d3dcf6517b7fd862b4700e318872",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/provisional/026.json": "d92a0dc1a0b39729ae43de1af17cc6623bd602149d3fa98df91b14ab7615e856",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/provisional/027.json": "0f62a0039b9df547c31913c65e658c978a353814da4a861a755db7c9c2ddc104",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/provisional/028.json": "5952ce8d82e569565bdec5bcd8cd1aeb4f348374222fbd55c704cf3421177e55",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/provisional/029.json": "24dd5d5e5ba41f0e03a1bf3bb4c2fa7d02db8145632094c865dffe1352ac08c1",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/provisional/030.json": "d73b882e79c343ec490a6a8cb31c81533947bce19a90b09e81641016029a1f80",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/provisional/031.json": "37078d9d0fb05f64b0231d23b5d151778bf569110ad8d9748d2903bf624ec10d",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/provisional/032.json": "e76d51229df73757f93090dd9c9c77096f70a3923c72400b476c733f4a2b0790",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/provisional/033.json": "6728cba26c90e639d54427dbeeea0bd86d0144dbfbe38056490be995dc960d68",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/provisional/034.json": "95689fbfd0c7379c0477c499c97a96e1e1e7fa4297004630bf611dd432481438",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/provisional/035.json": "b97e44782dd127d1ab70f06b037af07d9df156bfaf6b87bfb2cec375f734f44a",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/provisional/036.json": "4b48cdc967f5102906827238c728ea27b18edf6dbca2aec18a26293938348ce6",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/provisional/037.json": "93e99a6d8b14cf0bb39ad0ab8ece31090e95d564f52c52293698c03913af1b04",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/provisional/038.json": "7e0be60bb39bf4690514c663204bf181c46cf894a3440d556ad52356e6d9b8f4",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/provisional/039.json": "00d37ce879fc885f937d926a2d61edf1ce25eb72f1090e3c5e544295f94e2405",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/provisional/040.json": "9f94c1b0368ae4d9d27f42f8cbc0d9a1c28461d3011b2ddb6916f57c0fbe0539",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/provisional/041.json": "41f40d3a5b05f1f8564255d3860fde55014f481c77d0c3a2c6368a60b0aa5fed",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/provisional/042.json": "2fd9ca0b89ad12a0998d9dc859f6405cff832cd223cdba406a75781a57f197db",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/provisional/043.json": "1b75fc122bda764fec9c2b1d1443b312d6192c4d4907fb86c2e75d2aada02685",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/provisional/044.json": "b0591b954033591708408c8caf822caa244a9bb050bfc5047288b451352debb6",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/provisional/045.json": "c82a6540fb3d47a5d0ce073ac1a33fd132f5d3bcbd517a1cc15e6593acad3241",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/provisional/046.json": "980d8308f72a40a10a537b3f08b3eb39a1edbdd5e7fe33cdb54759ed4b02ae74",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/provisional/047.json": "b45a04aa31e048ae684811ac8d96a00b56cd402a4e33866356baf0cd5193108b",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/provisional/048.json": "2463ccc1d870665d1f33b69acaa8b70dc411703e0cd79d19d87edd9a244e95ba",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/provisional/049.json": "e73483db5068febb54c81e9696f4ba344bef23f9473dc208e7c2f86019b599e0",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/results/000.json": "cc8f1214206e8c8d6a52f8d246be526c725bc8c992049729768a863369dfb97e",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/results/001.json": "19951b37eaa83a6b17afd02d4a2b4caec59dbec77853d9d625d988e9eddefbd1",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/results/002.json": "dc1558d445e8f2a406701eab7acaeeabd38e064b1fc95d719c5cef91156aa60b",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/results/003.json": "a03b415277fde79f794542218dc631d514db4a12204899e7782a27c7a48b4a64",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/results/004.json": "129cee4798d6e9337686c76b461ebdf39b4396e05417ce8643638f60cd568246",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/results/005.json": "a828b97cf30a839edff5ff7cb734d5b555b86bc8b9a3458c06314ab5ad72bab9",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/results/006.json": "bce841ba3a83e0774c985e32d9cf8f72e0f7084108145a9ceeaf7206d1ee4e3a",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/results/007.json": "a3c899eabe67567e19ed8674c317b61cdaa27a66daf0374fac3699c6faf29d50",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/results/008.json": "c5cfbc4c9ae7b074bca8e77a5a45ea2567e9269379d95b58c0eef4a83b7bbf44",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/results/009.json": "0ee1873a2049f4ebc895436859761277c7bce3d4ddaa288a01308dea4c51f30d",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/results/010.json": "3959a28183bba42ca39833c7ddbb7f165f8bdba617e05e998bd763ab8d15ae9a",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/results/011.json": "46b4cf77725d089560efe0fbce9cbae281261a1e81c35c3a977305a0c8f65986",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/results/012.json": "837fe50a36cb01a503c2997dab18b99011a5a29adf450cc3e695bd224cfa768d",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/results/013.json": "450cec19371038a96f1588d5766a8ce4e49982f695feec4dcf41c9feea4bb341",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/results/014.json": "a5a4b9f70b7ef2897213a8585cb28e0ed4d8d8dbef3988b9ccd6c0bee33ccf0e",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/results/015.json": "9949759ccd49ae57d2a40335b2495b9da2b23caf8cecd9caadfd0b788ce8811c",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/results/016.json": "1433b135e3493a6bf99ffe9812b3447404945771528bb11e44f11a56094a20c9",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/results/017.json": "ee02e7768efea4f1a234765e1b6f62ee16c47751f352d376973a544325408e95",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/results/018.json": "4a45db9eaaef4629b669aaeac2c5b88cf70862d20c01f352976a7162f7fd9c11",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/results/019.json": "fe6231d064e85c12c1953e7358dc5cca22f9d80b0a15fa58d120dadc8749bcea",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/results/020.json": "d848959efc5628bd1ca9f0ea7feb356d51ef5222def107432b624852e67d04ff",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/results/022.json": "ded0be8fd9f1be3147efaca0cf6908be69f33094c1667cf7aa5808668614de5c",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/results/023.json": "e46bef0736a8de0141fdedd005d0922b321b72ca331e083bb259acb363760e20",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/results/024.json": "aa4f8fd2656dbba2293af59f410d9e6d5922014ef753016da2a93d2233924fc4",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/results/025.json": "2be72eeb4b48358c54d9450f6a8d27f92a14cf35ae4ccce418dd45e5b60dc756",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/results/027.json": "254c4a875d453fd68c0eafdadeaba714cc215bbfa182ae3a6813af8066ba8f3d",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/results/028.json": "49ea52084ee9e61f5e212c7fd305bcfce273440c8a560097916f5da2d3411892",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/results/029.json": "be76b5b9230d4431d1e7263866fdce1c7452baf985f7c4b3ffe864ae72a2fb80",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/results/033.json": "dd9e906fd1369cc08044b875e7c73d4e695483a333f4ca4d2ceed183d8c42c04",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/results/035.json": "492307b640efedd9c3819ba1d64fbb79b6c222c5e905fca32c051310659d29a1",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/results/037.json": "5a5ac72d8f8df8077e4bc114eb14d580f75ca6a86e191dc1ea68b88439fe8eb9",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/results/038.json": "1a57af4f293e9a211c85ea38737447573151451a8b5afab68b88addb4abb75ea",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/results/039.json": "e19ada06f256157e771dc02899876534059fd559bf66ac4f8eb80c5ad7685138",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/results/040.json": "03b2db31b7b1ddb369ec7d304933e18b39b5771f53ed34f9ecda112f3c706a50",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/results/041.json": "04278f6b7322ef438b7825cba82895eb73dbbc8c4d3bc2157b05801bf3b957a4",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/results/043.json": "ca51f05ac34814597b06af97b8ec7dad60888430afdf2adeb901f9ee311f7115",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/results/044.json": "f7fa6e69c8c41bebdfaac4a6b961435aff65ebc705549c647e566816e1ee8eb5",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/results/045.json": "a60093bcaab101210c3eb9e9b250f34b2ef84baa562a62200eadf1da8644c207",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/results/046.json": "eb33d1ee3bc3a05bd21de90f0f17918131a291f2d4e4b3ef0c9779a1fe48464d",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/results/047.json": "44fe9c7baf1f052d7b100e1f1e18e46d9fcb0cf64340288264d1d55ba467a3ff",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/results/048.json": "fda016b72b3edfe0744496103ed5180ef2e45cf013e0da70a3d9b51e13c642c6",
+    "benchmarks/runs/20260909-6278-vivify-binary-ranks1-50/results/049.json": "8ef6f238438d0e44ef397e8bc8bda86a136162cddc4555880ad2d55f15876545",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/000.json": "c3a49bc8376c339ef76004220def9359c4b02e8e17230d69c53843bafc0a2a37",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/001.json": "97d826b982e4fce064e6e5acf8881fe3bda07d02e3c4330924a67690614f06cc",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/002.json": "b6722c250eb04b1058c3e5da21a6c9f6c34c353d351fa6a47a5c6439d2d377ee",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/003.json": "857107e84266a3edec0cfd104a05d53cafde6a8460f78bc56e553b78db138ba8",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/004.json": "2e7835a1de8fa272703a2953abb7ee734cfc0d55926ecc408336b27ae795f4da",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/005.json": "ebaaad959ff2e37d3e92be451fad31979549a3940b0cd7d7de3b6e8b2691dee8",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/006.json": "3b3544a0a9fd278bdb01247acbfdbe80ca8351ab59a2a9061452166e4e0ddfe2",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/007.json": "17888bd1a9c58c5379c1b2596c1b5e0176c17304d9472075bab42e1933abb11e",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/008.json": "a1c15a7ab9dda1ac88b30044a6727ba398ade22f6dace60d42eed98a1abf50e3",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/009.json": "648851ee2efd35c4551d1167a5827cc7c2273ed6ef122ab061df5130af55f82b",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/010.json": "c9aeb8442df9dca93b6deee1f386aa67911728a1741c96a9cc88fd4c8a7123c4",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/011.json": "2b02933c4bad8327ac66984c6bc1a87b1873f65a4dcaf9c809639a88f0f9d9af",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/012.json": "6d15796a3c8f57acf8b6a2078d18b5adbb1714bb47a376f3fec04ebc9afe60af",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/013.json": "ac922ea47af2bcd66e11173f76588799613f6d1f90eedfdadc681a9ddb99c5df",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/014.json": "019d620154039ea203a8553f97e150f5df08fb23516b9af9688b95aefa644f05",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/015.json": "f3bfd56e21246a5497c9efef90f1565ad780d5589e05752fd005ca12d8ba608d",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/016.json": "246fa0b1f768fbcfbf5bba23c7fe1e516b266c1a1bba705fdf2cd8cc938eb151",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/017.json": "1a4e24a3fbe914401b02741bd5296a8a4950c0177f92b6050737b5f9ddaa25d4",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/018.json": "d318b3dacad91a38e8e6e8888ae9d0a30fa9ca2a234a79f9dfb2b41fcba49fb7",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/019.json": "90bfc66708df3ca0ae12954a27bd1009a04d44d57d77383df16b18c7526c400c",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/020.json": "440f95e64c144a04a5c7e7a56e0c19fd4b7c1cbdcaf8ee4a26bf8fb9f0e25195",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/021.json": "1c2d9bc7b1f643c7a2931e8cde2f7b8f6c7d708e947307a13083499ffe67fbf7",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/022.json": "ead56e63617f1beeba3eeae2efc5611251c93b8f2bb62cb53d8ac55d6be36bba",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/023.json": "4283fe2e0af0fa34da1d283c037a8342a964404b3855d93af26e4d616ab143b6",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/024.json": "9f063b9b5f455ce1e5a400eb62cf5dcbcd53a6f2808939c3582f327a1d66920f",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/025.json": "2e687e50e27252378d3f6aeaf90e3e72a91fcad8c88312ed1fd54bdac60a7c92",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/026.json": "be55c9fcb4d906f408ab2813c15129a30d9e9f6adf663725018d36e937e3e2e9",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/027.json": "0dc25ebab4eaa5748eede3343e0dc66f7e130cc3d016aa1223278c018c04c459",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/028.json": "d68f2b6041902883f3662e958906d814fe8fe9e4e9a6f064c7748f2a2654c43d",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/029.json": "a9d5608ee6ad044b84f47b9b5078e527f18c56bb1733bd6f5039f6f685433d9a",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/030.json": "372210c758da63e79094fc3a41ec1844e7d5c506ca0ca1880a94edf3d3488439",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/031.json": "477ce30be50475649f57ddcd22b7593208a0188dc861680cc29c0dbb9d041cdc",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/032.json": "4482c7ba5940b135bbc1fb2826db1378be0ddabe1e4c86079399062f7e2885ac",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/033.json": "e466e92f380672e1c2a3cc0fd3cbf8bb584b0857c81ef19bf3deffbf65ad729a",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/034.json": "3b2aad15af3fdc0ac82d57072ee4bb404f1f3695ce8411ca3006dd506b05a78e",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/035.json": "c902b52be6250b8c3916e981e27a60ce81a1b3ee0b088a7d539f6f3b7bb898f1",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/036.json": "7720eeff3bee3ca2e56b744171b4f434eb951ac0dbd8ef6d3065afc5889ff9c1",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/037.json": "b560a1ecbf1807df942f9fbcfe99af11f4cdc3cf54f16d748013a2666f606291",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/038.json": "dd4ee95fddf26803c536a958ce7ce166138c6b52070fe5a2d54da386443fc91a",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/039.json": "873d847911fbd4f85317f0a59b52528ec912b140ea33c02e9d259742c5d12673",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/040.json": "491f1c4aa301bf449c9797b7ef11fe1fb5ba916aecaaf52fe0ae3dc26893c54f",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/041.json": "fde840ce2d026ae1074adcbb58c70d35e2cbac013a90083cc8d1cf8405017fc0",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/042.json": "7c5debbd072f3daece022e57c6dd8f47b62775a7cf477298b70ae80fccc2282e",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/043.json": "d8dc6f7fd2ac9188137c293cae14965e94fa4642f85b0342e6fd33b76a6e3040",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/044.json": "38a5baec2734a912c2fffe463bd656c189b033e80e5ac7a517b055d82c1d5dfe",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/045.json": "55c1449c7ae269345da1687083f822965e9e1fccbe20974964b586ee4b934b8f",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/046.json": "f980c0d0b1da7f49d359232f1c57dab93fa27bd286f6bab7b34052db7f749662",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/047.json": "4c29cf388dc0130c15e60c79af96141340cddba26c6aff7eace924fae4854912",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/048.json": "cb7ea15cb52c09397da39e08a9e13bb06ec9359f2e089d4e7aa77f1755190031",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/provisional/049.json": "b4f2d7c1aec8fc92d76b9f8bacd6f5ea28f946fb91eabb3e485a99ef2c488581",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/000.json": "69c360811d22596e65b7d56ba7f3ed4b935bdfa172e12996ed643133fd2ab48f",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/001.json": "5fb435b3eb1b640efd7c2c94b1c295665e70a7a86de397fb1b8d4cecac106b88",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/002.json": "9d4a8d964473d75b29fad375f30ebba74fa14afa63ff2a89c15575ea4bd01542",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/003.json": "f2e17377bac3da04bdcf2ff2a8aa0ce4af6fbece6a9a43c5c6603355fa193138",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/004.json": "6f3e1dfd1247514f42fbffe90ca478446bef16819dd33a6f7cf194811c7eea94",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/005.json": "c861b1e13f3f80bd927c7127f725bce0a3cdbf94213e06ceac704605e9165e2c",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/006.json": "ec4340c8936b0883dce2a343fd97aab2920bef4d72791ead9bdd289f6172a320",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/007.json": "0d2107ce18d16273f6b44c75ce2b48cd959220d4a820aff9e95a58780101e0fa",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/008.json": "e7ef8ac44f99b1d3248648f429dae0460c2892ad207d1b694d06714b73bf4a83",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/009.json": "b4bb8bafa79401bb094a57dabe8138f8fed3f065e29b3da486ac2a61ccf0ccde",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/010.json": "4914d1ff42aeceee14e29964cad43b78502f97bc97edca725db5425e7cea7b3b",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/011.json": "c74b3bec6c37adf5e950a9cabaf348f41c81ad6dc87bfe876f610caaae2e173f",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/012.json": "6c4fc81a9f8634dba8e0d5a843eb1242798da2d13249e17444e976320a7ac52d",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/013.json": "7be0baf70a1e494121cf87b14444a01daeb6daaff3b4b4b4920135d8c91bea01",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/014.json": "c058936e56d3c79e3f71cc461218bfd02db97639ab324e5f68e8c8189f6f4b0d",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/015.json": "2fabd653710042da73317065388be848c1a7e759dcd455d21817fbf586adbbe0",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/016.json": "b863c4ba804a0da182e3aeea95e7ffb4046a4de176925c4fc06c4b3b4a15f175",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/017.json": "6390cbfe3b7625b7d64650c06673ea411826fcdd7d35df5eafdaa94710ae96a0",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/018.json": "3b2f7e6ec34bbc953be266738a2769a184966008ec1a260134537085143c2358",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/019.json": "b25873a6c3c2ffedfa80a8aa40556a4719b1040918d84246ad3d75ad64d89761",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/020.json": "a6d3561d503f74dbf845d6b4565682f274ea0a39718cfa5377e6218142cbd8d4",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/021.json": "2f3f03b3fcac346636589ccec88bbd8e6559289846806c993af043d8b10ea608",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/022.json": "b362f4a301ab19c0d5763ac61208a172d6bc9ff9661239b0a6a1be7ca8cfc624",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/023.json": "76ac07d34e310217f1bc7c277ff7e6a24adaf658d180730e9b3ca1927fe40a10",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/024.json": "5407b44edb277e62ff1771b7d7fc55f8b38b45ecb9e4034c0f72285e71770ec0",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/025.json": "aa9e14e47f80f17b1e04bb34d309652ac38d539ec1522897358be3dda2d245c2",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/026.json": "eb957b458d347591de5b3da00ba767f8db67f644e7bacd9b813aa5775eefc33f",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/027.json": "b0e90b3df977be39ae845d5930551dd5861406523062f6a24265e325ecc94ace",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/028.json": "5e804c5cd8d3d29de5d87c24b19389705440c2bbce88542cb66f3f134c2d7acb",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/029.json": "d34b336897e36bdfe04f979e766469a1775f44f638f5a68afda06ed0b13934ed",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/030.json": "aca9d55e4f9e068b1fc387766c15ee0144b80310908fdff8cfff14c2b366df03",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/031.json": "cea6f3fa9e215ef4e14f13fa284c8445fa83432b65cab520b259ef750de4ccc3",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/032.json": "06edfd17cc4dddd1ee45c284795e8a2985a47c33c822b1398a8bb878bedf421b",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/033.json": "f37860b735c73eddf460a15cef4ce855b1f66a92a2c8409c0479a1f4e2dbf59a",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/034.json": "05365d0e7e3380f12468e14cca0a71d04efd1b204bd9a08248a2d24bafd927d2",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/035.json": "3c7bbe3195f782931042299ca589088bd2798355626373ba51f2a6daa23962e6",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/036.json": "98c8789fcacb72a44fb627913bcc9052a101daf1e8474f283853576436b6a52c",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/037.json": "0746b13e15429d37762cc35d378ad5c20d788d69c51b544aca1f6587e356ac85",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/038.json": "b99bd3039b61c3eca362e50e11c401ff1d090181422a3b28ea648748c00eafe4",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/039.json": "0e8c505b3a0cd2cb2cbca766aff39c41577c1ba3d5d5c6884b55303fd92d380b",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/040.json": "1ae30e7fff7ceb432cc7e4f5fe92c84dbada3dd59cb35eb56607649e0ec8d5ec",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/041.json": "14f5f67f655c741bcdbdefe33767ad81670bf5998e805985a2402240f7659dde",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/042.json": "054bdc527345089c8f518b23a2145b038f37fbdc31d99511d3428e9df43a8261",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/043.json": "90e9814813f8c9a69f3a56af8fa7396abee1da573cbf38c7b6a97dd2508bc9ec",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/044.json": "26441683fe9d5c30929bff99cd346cc600299ed79fb4a8bac81eba4e454c845d",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/045.json": "c1bec4ad0a3b08afb06d9af0b2ee40b0d3cb09749f43b39b009ed7a406057cc0",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/046.json": "83d4771be94fcb538001761c2af201ca0dccb488819010b5bc4dfd0db67f1503",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/047.json": "b2fb599baf3c60a2cb83e52af28898f6167d4eea0808913ec9a2b8e1313ad3eb",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/048.json": "ab7b60b4ac21ac30687af0d8361adbe9b33c8b651faa532c0001e85eb6e03dd9",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/049.json": "8776b485ac0b14c6fe1ecb688ec9cf07b1084a1f871b023a1f1d0b84487931c9"
+  },
+  "limitation": "Pending certificates permit development only. Fixed reference is cross-window, not causal repair attribution or promotion."
+}
