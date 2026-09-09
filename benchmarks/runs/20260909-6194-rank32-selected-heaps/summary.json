@@ -1,0 +1,1311 @@
+{
+  "parent_replay": true,
+  "subjects": [
+    349460,
+    132302,
+    349446
+  ],
+  "observed": {
+    "candidate": {
+      "rounds": 2,
+      "rows": [
+        54,
+        28
+      ],
+      "initial": [
+        [
+          {
+            "stage": "initial",
+            "trigger": 0,
+            "subject": 349460,
+            "score": 4000001.0,
+            "positive": 27,
+            "negative": 1,
+            "pos": 5630,
+            "root": 177516,
+            "size": 30834
+          },
+          {
+            "stage": "initial",
+            "trigger": 0,
+            "subject": 132302,
+            "score": 4000001.0,
+            "positive": 1,
+            "negative": 1,
+            "pos": 43,
+            "root": 177516,
+            "size": 30834
+          },
+          {
+            "stage": "initial",
+            "trigger": 0,
+            "subject": 349446,
+            "score": 4000001.0,
+            "positive": 27,
+            "negative": 1,
+            "pos": 2814,
+            "root": 177516,
+            "size": 30834
+          }
+        ],
+        [
+          {
+            "stage": "initial",
+            "trigger": 0,
+            "subject": 349460,
+            "score": 4000001.0,
+            "positive": 15,
+            "negative": 1,
+            "pos": 6394,
+            "root": 87230,
+            "size": 17065
+          },
+          {
+            "stage": "initial",
+            "trigger": 0,
+            "subject": 132302,
+            "score": 0.0,
+            "positive": 0,
+            "negative": 0,
+            "pos": -1,
+            "root": 87230,
+            "size": 17065
+          },
+          {
+            "stage": "initial",
+            "trigger": 0,
+            "subject": 349446,
+            "score": 4000001.0,
+            "positive": 15,
+            "negative": 1,
+            "pos": 3196,
+            "root": 87230,
+            "size": 17065
+          }
+        ]
+      ],
+      "first_round": [
+        {
+          "stage": "initial",
+          "trigger": 0,
+          "subject": 349460,
+          "score": 4000001.0,
+          "positive": 27,
+          "negative": 1,
+          "pos": 5630,
+          "root": 177516,
+          "size": 30834
+        },
+        {
+          "stage": "initial",
+          "trigger": 0,
+          "subject": 132302,
+          "score": 4000001.0,
+          "positive": 1,
+          "negative": 1,
+          "pos": 43,
+          "root": 177516,
+          "size": 30834
+        },
+        {
+          "stage": "initial",
+          "trigger": 0,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 27,
+          "negative": 1,
+          "pos": 2814,
+          "root": 177516,
+          "size": 30834
+        },
+        {
+          "stage": "pop",
+          "trigger": 165501,
+          "subject": 132302,
+          "score": 4000001.0,
+          "positive": 1,
+          "negative": 1,
+          "pos": 21,
+          "root": 132908,
+          "size": 30839
+        },
+        {
+          "stage": "pop",
+          "trigger": 132908,
+          "subject": 132302,
+          "score": 4000001.0,
+          "positive": 1,
+          "negative": 1,
+          "pos": 10,
+          "root": 138009,
+          "size": 30838
+        },
+        {
+          "stage": "pop",
+          "trigger": 348145,
+          "subject": 349460,
+          "score": 4000001.0,
+          "positive": 27,
+          "negative": 1,
+          "pos": 2814,
+          "root": 348151,
+          "size": 30201
+        },
+        {
+          "stage": "pop",
+          "trigger": 348145,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 27,
+          "negative": 1,
+          "pos": 1406,
+          "root": 348151,
+          "size": 30201
+        },
+        {
+          "stage": "pop",
+          "trigger": 348151,
+          "subject": 349460,
+          "score": 4000001.0,
+          "positive": 27,
+          "negative": 1,
+          "pos": 1406,
+          "root": 348157,
+          "size": 30200
+        },
+        {
+          "stage": "pop",
+          "trigger": 348151,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 27,
+          "negative": 1,
+          "pos": 702,
+          "root": 348157,
+          "size": 30200
+        },
+        {
+          "stage": "pop",
+          "trigger": 348157,
+          "subject": 349460,
+          "score": 4000001.0,
+          "positive": 27,
+          "negative": 1,
+          "pos": 702,
+          "root": 348163,
+          "size": 30199
+        },
+        {
+          "stage": "pop",
+          "trigger": 348157,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 27,
+          "negative": 1,
+          "pos": 350,
+          "root": 348163,
+          "size": 30199
+        },
+        {
+          "stage": "pop",
+          "trigger": 348163,
+          "subject": 349460,
+          "score": 4000001.0,
+          "positive": 27,
+          "negative": 1,
+          "pos": 350,
+          "root": 348169,
+          "size": 30198
+        },
+        {
+          "stage": "pop",
+          "trigger": 348163,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 27,
+          "negative": 1,
+          "pos": 174,
+          "root": 348169,
+          "size": 30198
+        },
+        {
+          "stage": "pop",
+          "trigger": 348169,
+          "subject": 349460,
+          "score": 4000001.0,
+          "positive": 27,
+          "negative": 1,
+          "pos": 174,
+          "root": 348175,
+          "size": 30197
+        },
+        {
+          "stage": "pop",
+          "trigger": 348169,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 27,
+          "negative": 1,
+          "pos": 86,
+          "root": 348175,
+          "size": 30197
+        },
+        {
+          "stage": "pop",
+          "trigger": 348175,
+          "subject": 349460,
+          "score": 4000001.0,
+          "positive": 27,
+          "negative": 1,
+          "pos": 86,
+          "root": 348181,
+          "size": 30196
+        },
+        {
+          "stage": "pop",
+          "trigger": 348175,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 27,
+          "negative": 1,
+          "pos": 42,
+          "root": 348181,
+          "size": 30196
+        },
+        {
+          "stage": "pop",
+          "trigger": 348181,
+          "subject": 349460,
+          "score": 4000001.0,
+          "positive": 27,
+          "negative": 1,
+          "pos": 42,
+          "root": 348187,
+          "size": 30195
+        },
+        {
+          "stage": "pop",
+          "trigger": 348181,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 27,
+          "negative": 1,
+          "pos": 20,
+          "root": 348187,
+          "size": 30195
+        },
+        {
+          "stage": "pop",
+          "trigger": 348187,
+          "subject": 349460,
+          "score": 4000001.0,
+          "positive": 27,
+          "negative": 1,
+          "pos": 20,
+          "root": 349416,
+          "size": 30194
+        },
+        {
+          "stage": "pop",
+          "trigger": 348187,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 27,
+          "negative": 1,
+          "pos": 9,
+          "root": 349416,
+          "size": 30194
+        },
+        {
+          "stage": "pop",
+          "trigger": 349416,
+          "subject": 349460,
+          "score": 4000001.0,
+          "positive": 27,
+          "negative": 1,
+          "pos": 9,
+          "root": 349422,
+          "size": 30193
+        },
+        {
+          "stage": "pop",
+          "trigger": 349416,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 27,
+          "negative": 1,
+          "pos": 4,
+          "root": 349422,
+          "size": 30193
+        },
+        {
+          "stage": "pop",
+          "trigger": 349422,
+          "subject": 349460,
+          "score": 4000001.0,
+          "positive": 27,
+          "negative": 1,
+          "pos": 4,
+          "root": 349428,
+          "size": 30192
+        },
+        {
+          "stage": "pop",
+          "trigger": 349422,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 27,
+          "negative": 1,
+          "pos": 1,
+          "root": 349428,
+          "size": 30192
+        },
+        {
+          "stage": "pop",
+          "trigger": 349428,
+          "subject": 349460,
+          "score": 4000001.0,
+          "positive": 27,
+          "negative": 1,
+          "pos": 1,
+          "root": 349446,
+          "size": 30191
+        },
+        {
+          "stage": "pop",
+          "trigger": 349428,
+          "subject": 132302,
+          "score": 4000001.0,
+          "positive": 1,
+          "negative": 1,
+          "pos": 4,
+          "root": 349446,
+          "size": 30191
+        },
+        {
+          "stage": "pop",
+          "trigger": 349428,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 27,
+          "negative": 1,
+          "pos": 0,
+          "root": 349446,
+          "size": 30191
+        },
+        {
+          "stage": "pop",
+          "trigger": 349446,
+          "subject": 349460,
+          "score": 4000001.0,
+          "positive": 27,
+          "negative": 1,
+          "pos": 0,
+          "root": 349460,
+          "size": 30190
+        },
+        {
+          "stage": "pop",
+          "trigger": 349446,
+          "subject": 132302,
+          "score": 4000001.0,
+          "positive": 1,
+          "negative": 1,
+          "pos": 1,
+          "root": 349460,
+          "size": 30190
+        },
+        {
+          "stage": "pop",
+          "trigger": 349446,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 27,
+          "negative": 1,
+          "pos": -1,
+          "root": 349460,
+          "size": 30190
+        },
+        {
+          "stage": "pop",
+          "trigger": 349460,
+          "subject": 349460,
+          "score": 4000001.0,
+          "positive": 27,
+          "negative": 1,
+          "pos": -1,
+          "root": 132302,
+          "size": 30189
+        },
+        {
+          "stage": "pop",
+          "trigger": 349460,
+          "subject": 132302,
+          "score": 4000001.0,
+          "positive": 1,
+          "negative": 1,
+          "pos": 0,
+          "root": 132302,
+          "size": 30189
+        },
+        {
+          "stage": "pop",
+          "trigger": 132302,
+          "subject": 132302,
+          "score": 4000001.0,
+          "positive": 1,
+          "negative": 1,
+          "pos": -1,
+          "root": 133492,
+          "size": 30188
+        },
+        {
+          "stage": "update-reinsert",
+          "trigger": 349460,
+          "subject": 349460,
+          "score": 4000001.0,
+          "positive": 53,
+          "negative": 1,
+          "pos": 7,
+          "root": 349816,
+          "size": 17891
+        },
+        {
+          "stage": "update-reinsert",
+          "trigger": 349446,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 53,
+          "negative": 1,
+          "pos": 8952,
+          "root": 349816,
+          "size": 17907
+        },
+        {
+          "stage": "pop",
+          "trigger": 349816,
+          "subject": 349460,
+          "score": 4000001.0,
+          "positive": 53,
+          "negative": 1,
+          "pos": 3,
+          "root": 349422,
+          "size": 17977
+        },
+        {
+          "stage": "pop",
+          "trigger": 349422,
+          "subject": 349460,
+          "score": 4000001.0,
+          "positive": 53,
+          "negative": 1,
+          "pos": 1,
+          "root": 349428,
+          "size": 17976
+        },
+        {
+          "stage": "pop",
+          "trigger": 349428,
+          "subject": 349460,
+          "score": 4000001.0,
+          "positive": 53,
+          "negative": 1,
+          "pos": 0,
+          "root": 349460,
+          "size": 17975
+        },
+        {
+          "stage": "pop",
+          "trigger": 349460,
+          "subject": 349460,
+          "score": 4000001.0,
+          "positive": 53,
+          "negative": 1,
+          "pos": -1,
+          "root": 349466,
+          "size": 17974
+        },
+        {
+          "stage": "pop",
+          "trigger": 349466,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 53,
+          "negative": 1,
+          "pos": 4475,
+          "root": 349472,
+          "size": 17973
+        },
+        {
+          "stage": "pop",
+          "trigger": 349472,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 53,
+          "negative": 1,
+          "pos": 2237,
+          "root": 349490,
+          "size": 17972
+        },
+        {
+          "stage": "pop",
+          "trigger": 349490,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 53,
+          "negative": 1,
+          "pos": 1118,
+          "root": 349496,
+          "size": 17971
+        },
+        {
+          "stage": "pop",
+          "trigger": 349496,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 53,
+          "negative": 1,
+          "pos": 558,
+          "root": 349502,
+          "size": 17970
+        },
+        {
+          "stage": "pop",
+          "trigger": 349502,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 53,
+          "negative": 1,
+          "pos": 278,
+          "root": 349654,
+          "size": 17969
+        },
+        {
+          "stage": "pop",
+          "trigger": 349654,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 53,
+          "negative": 1,
+          "pos": 138,
+          "root": 349516,
+          "size": 17968
+        },
+        {
+          "stage": "pop",
+          "trigger": 349516,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 53,
+          "negative": 1,
+          "pos": 68,
+          "root": 349510,
+          "size": 17967
+        },
+        {
+          "stage": "pop",
+          "trigger": 349510,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 53,
+          "negative": 1,
+          "pos": 33,
+          "root": 349534,
+          "size": 17966
+        },
+        {
+          "stage": "pop",
+          "trigger": 349534,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 53,
+          "negative": 1,
+          "pos": 16,
+          "root": 349540,
+          "size": 17965
+        },
+        {
+          "stage": "pop",
+          "trigger": 349540,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 53,
+          "negative": 1,
+          "pos": 7,
+          "root": 349552,
+          "size": 17964
+        },
+        {
+          "stage": "pop",
+          "trigger": 349552,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 53,
+          "negative": 1,
+          "pos": 3,
+          "root": 349560,
+          "size": 17963
+        },
+        {
+          "stage": "pop",
+          "trigger": 456472,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 53,
+          "negative": 1,
+          "pos": 1,
+          "root": 349566,
+          "size": 17961
+        },
+        {
+          "stage": "pop",
+          "trigger": 349566,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 53,
+          "negative": 1,
+          "pos": 0,
+          "root": 349446,
+          "size": 17960
+        },
+        {
+          "stage": "pop",
+          "trigger": 349446,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 53,
+          "negative": 1,
+          "pos": -1,
+          "root": 349584,
+          "size": 17959
+        }
+      ]
+    },
+    "kissat": {
+      "rounds": 2,
+      "rows": [
+        48,
+        27
+      ],
+      "initial": [
+        [
+          {
+            "stage": "initial",
+            "trigger": 0,
+            "subject": 349460,
+            "score": 4000001.0,
+            "positive": 27,
+            "negative": 1,
+            "pos": 175,
+            "root": 177516,
+            "size": 30839
+          },
+          {
+            "stage": "initial",
+            "trigger": 0,
+            "subject": 132302,
+            "score": 4000001.0,
+            "positive": 1,
+            "negative": 1,
+            "pos": 43,
+            "root": 177516,
+            "size": 30839
+          },
+          {
+            "stage": "initial",
+            "trigger": 0,
+            "subject": 349446,
+            "score": 4000001.0,
+            "positive": 27,
+            "negative": 1,
+            "pos": 2814,
+            "root": 177516,
+            "size": 30839
+          }
+        ],
+        [
+          {
+            "stage": "initial",
+            "trigger": 0,
+            "subject": 349460,
+            "score": 4000001.0,
+            "positive": 15,
+            "negative": 1,
+            "pos": 3196,
+            "root": 87230,
+            "size": 17056
+          },
+          {
+            "stage": "initial",
+            "trigger": 0,
+            "subject": 132302,
+            "score": 0.0,
+            "positive": 0,
+            "negative": 0,
+            "pos": -1,
+            "root": 87230,
+            "size": 17056
+          },
+          {
+            "stage": "initial",
+            "trigger": 0,
+            "subject": 349446,
+            "score": 4000001.0,
+            "positive": 15,
+            "negative": 1,
+            "pos": 3195,
+            "root": 87230,
+            "size": 17056
+          }
+        ]
+      ],
+      "first_round": [
+        {
+          "stage": "initial",
+          "trigger": 0,
+          "subject": 349460,
+          "score": 4000001.0,
+          "positive": 27,
+          "negative": 1,
+          "pos": 175,
+          "root": 177516,
+          "size": 30839
+        },
+        {
+          "stage": "initial",
+          "trigger": 0,
+          "subject": 132302,
+          "score": 4000001.0,
+          "positive": 1,
+          "negative": 1,
+          "pos": 43,
+          "root": 177516,
+          "size": 30839
+        },
+        {
+          "stage": "initial",
+          "trigger": 0,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 27,
+          "negative": 1,
+          "pos": 2814,
+          "root": 177516,
+          "size": 30839
+        },
+        {
+          "stage": "pop",
+          "trigger": 165501,
+          "subject": 349460,
+          "score": 4000001.0,
+          "positive": 27,
+          "negative": 1,
+          "pos": 87,
+          "root": 132908,
+          "size": 30844
+        },
+        {
+          "stage": "pop",
+          "trigger": 165501,
+          "subject": 132302,
+          "score": 4000001.0,
+          "positive": 1,
+          "negative": 1,
+          "pos": 21,
+          "root": 132908,
+          "size": 30844
+        },
+        {
+          "stage": "pop",
+          "trigger": 132908,
+          "subject": 349460,
+          "score": 4000001.0,
+          "positive": 27,
+          "negative": 1,
+          "pos": 43,
+          "root": 138009,
+          "size": 30843
+        },
+        {
+          "stage": "pop",
+          "trigger": 132908,
+          "subject": 132302,
+          "score": 4000001.0,
+          "positive": 1,
+          "negative": 1,
+          "pos": 10,
+          "root": 138009,
+          "size": 30843
+        },
+        {
+          "stage": "pop",
+          "trigger": 348145,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 27,
+          "negative": 1,
+          "pos": 1406,
+          "root": 348151,
+          "size": 30206
+        },
+        {
+          "stage": "pop",
+          "trigger": 348151,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 27,
+          "negative": 1,
+          "pos": 702,
+          "root": 348157,
+          "size": 30205
+        },
+        {
+          "stage": "pop",
+          "trigger": 348157,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 27,
+          "negative": 1,
+          "pos": 350,
+          "root": 348163,
+          "size": 30204
+        },
+        {
+          "stage": "pop",
+          "trigger": 348163,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 27,
+          "negative": 1,
+          "pos": 174,
+          "root": 348169,
+          "size": 30203
+        },
+        {
+          "stage": "pop",
+          "trigger": 348169,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 27,
+          "negative": 1,
+          "pos": 86,
+          "root": 348175,
+          "size": 30202
+        },
+        {
+          "stage": "pop",
+          "trigger": 348175,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 27,
+          "negative": 1,
+          "pos": 42,
+          "root": 348181,
+          "size": 30201
+        },
+        {
+          "stage": "pop",
+          "trigger": 348181,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 27,
+          "negative": 1,
+          "pos": 20,
+          "root": 348187,
+          "size": 30200
+        },
+        {
+          "stage": "pop",
+          "trigger": 348187,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 27,
+          "negative": 1,
+          "pos": 9,
+          "root": 349416,
+          "size": 30199
+        },
+        {
+          "stage": "pop",
+          "trigger": 349416,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 27,
+          "negative": 1,
+          "pos": 4,
+          "root": 349422,
+          "size": 30198
+        },
+        {
+          "stage": "pop",
+          "trigger": 349422,
+          "subject": 349460,
+          "score": 4000001.0,
+          "positive": 27,
+          "negative": 1,
+          "pos": 21,
+          "root": 349428,
+          "size": 30197
+        },
+        {
+          "stage": "pop",
+          "trigger": 349422,
+          "subject": 132302,
+          "score": 4000001.0,
+          "positive": 1,
+          "negative": 1,
+          "pos": 4,
+          "root": 349428,
+          "size": 30197
+        },
+        {
+          "stage": "pop",
+          "trigger": 349422,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 27,
+          "negative": 1,
+          "pos": 1,
+          "root": 349428,
+          "size": 30197
+        },
+        {
+          "stage": "pop",
+          "trigger": 349428,
+          "subject": 349460,
+          "score": 4000001.0,
+          "positive": 27,
+          "negative": 1,
+          "pos": 10,
+          "root": 349446,
+          "size": 30196
+        },
+        {
+          "stage": "pop",
+          "trigger": 349428,
+          "subject": 132302,
+          "score": 4000001.0,
+          "positive": 1,
+          "negative": 1,
+          "pos": 1,
+          "root": 349446,
+          "size": 30196
+        },
+        {
+          "stage": "pop",
+          "trigger": 349428,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 27,
+          "negative": 1,
+          "pos": 0,
+          "root": 349446,
+          "size": 30196
+        },
+        {
+          "stage": "pop",
+          "trigger": 349446,
+          "subject": 349460,
+          "score": 4000001.0,
+          "positive": 27,
+          "negative": 1,
+          "pos": 4,
+          "root": 132302,
+          "size": 30195
+        },
+        {
+          "stage": "pop",
+          "trigger": 349446,
+          "subject": 132302,
+          "score": 4000001.0,
+          "positive": 1,
+          "negative": 1,
+          "pos": 0,
+          "root": 132302,
+          "size": 30195
+        },
+        {
+          "stage": "pop",
+          "trigger": 349446,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 27,
+          "negative": 1,
+          "pos": -1,
+          "root": 132302,
+          "size": 30195
+        },
+        {
+          "stage": "pop",
+          "trigger": 132302,
+          "subject": 349460,
+          "score": 4000001.0,
+          "positive": 27,
+          "negative": 1,
+          "pos": 1,
+          "root": 133492,
+          "size": 30194
+        },
+        {
+          "stage": "pop",
+          "trigger": 132302,
+          "subject": 132302,
+          "score": 4000001.0,
+          "positive": 1,
+          "negative": 1,
+          "pos": -1,
+          "root": 133492,
+          "size": 30194
+        },
+        {
+          "stage": "pop",
+          "trigger": 133492,
+          "subject": 349460,
+          "score": 4000001.0,
+          "positive": 27,
+          "negative": 1,
+          "pos": 0,
+          "root": 349460,
+          "size": 30194
+        },
+        {
+          "stage": "pop",
+          "trigger": 349460,
+          "subject": 349460,
+          "score": 4000001.0,
+          "positive": 27,
+          "negative": 1,
+          "pos": -1,
+          "root": 349466,
+          "size": 30195
+        },
+        {
+          "stage": "push",
+          "trigger": 349460,
+          "subject": 349460,
+          "score": 4000001.0,
+          "positive": 53,
+          "negative": 1,
+          "pos": 7,
+          "root": 349816,
+          "size": 17875
+        },
+        {
+          "stage": "push",
+          "trigger": 349446,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 53,
+          "negative": 1,
+          "pos": 4471,
+          "root": 349816,
+          "size": 17891
+        },
+        {
+          "stage": "pop",
+          "trigger": 349816,
+          "subject": 349460,
+          "score": 4000001.0,
+          "positive": 53,
+          "negative": 1,
+          "pos": 3,
+          "root": 349422,
+          "size": 17961
+        },
+        {
+          "stage": "pop",
+          "trigger": 349422,
+          "subject": 349460,
+          "score": 4000001.0,
+          "positive": 53,
+          "negative": 1,
+          "pos": 1,
+          "root": 349428,
+          "size": 17960
+        },
+        {
+          "stage": "pop",
+          "trigger": 349428,
+          "subject": 349460,
+          "score": 4000001.0,
+          "positive": 53,
+          "negative": 1,
+          "pos": 0,
+          "root": 349460,
+          "size": 17959
+        },
+        {
+          "stage": "pop",
+          "trigger": 349460,
+          "subject": 349460,
+          "score": 4000001.0,
+          "positive": 53,
+          "negative": 1,
+          "pos": -1,
+          "root": 349466,
+          "size": 17958
+        },
+        {
+          "stage": "pop",
+          "trigger": 349472,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 53,
+          "negative": 1,
+          "pos": 2235,
+          "root": 349490,
+          "size": 17956
+        },
+        {
+          "stage": "pop",
+          "trigger": 349490,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 53,
+          "negative": 1,
+          "pos": 1117,
+          "root": 349496,
+          "size": 17955
+        },
+        {
+          "stage": "pop",
+          "trigger": 349496,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 53,
+          "negative": 1,
+          "pos": 558,
+          "root": 349502,
+          "size": 17954
+        },
+        {
+          "stage": "pop",
+          "trigger": 349502,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 53,
+          "negative": 1,
+          "pos": 278,
+          "root": 349654,
+          "size": 17953
+        },
+        {
+          "stage": "pop",
+          "trigger": 349654,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 53,
+          "negative": 1,
+          "pos": 138,
+          "root": 349516,
+          "size": 17952
+        },
+        {
+          "stage": "pop",
+          "trigger": 349516,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 53,
+          "negative": 1,
+          "pos": 68,
+          "root": 349510,
+          "size": 17951
+        },
+        {
+          "stage": "pop",
+          "trigger": 349510,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 53,
+          "negative": 1,
+          "pos": 33,
+          "root": 349534,
+          "size": 17950
+        },
+        {
+          "stage": "pop",
+          "trigger": 349534,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 53,
+          "negative": 1,
+          "pos": 16,
+          "root": 349540,
+          "size": 17949
+        },
+        {
+          "stage": "pop",
+          "trigger": 349540,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 53,
+          "negative": 1,
+          "pos": 7,
+          "root": 349552,
+          "size": 17948
+        },
+        {
+          "stage": "pop",
+          "trigger": 349552,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 53,
+          "negative": 1,
+          "pos": 3,
+          "root": 349560,
+          "size": 17947
+        },
+        {
+          "stage": "pop",
+          "trigger": 456472,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 53,
+          "negative": 1,
+          "pos": 1,
+          "root": 349566,
+          "size": 17945
+        },
+        {
+          "stage": "pop",
+          "trigger": 349566,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 53,
+          "negative": 1,
+          "pos": 0,
+          "root": 349446,
+          "size": 17944
+        },
+        {
+          "stage": "pop",
+          "trigger": 349446,
+          "subject": 349446,
+          "score": 4000001.0,
+          "positive": 53,
+          "negative": 1,
+          "pos": -1,
+          "root": 349584,
+          "size": 17943
+        }
+      ]
+    }
+  },
+  "hashes": {
+    "benchmarks/runs/20260909-6194-rank32-selected-heaps/results/candidate.json": "acaedbb8f027472b7bd690425d07d9cd8597147035ea8608cbb031d939dc456d",
+    "benchmarks/runs/20260909-6194-rank32-selected-heaps/traces/candidate.bve-heap.tsv": "ec562cb0600c7a67fd57e7ae85080275243c5d63e2781adcae5d6d05261c5dda",
+    "benchmarks/runs/20260909-6194-rank32-selected-heaps/traces/candidate.bve-candidates.tsv": "65f67d542b7f7cde4fff013b63d442a05ee7b5fec65a06c9c4080eaebbf7b740",
+    "benchmarks/runs/20260909-6194-rank32-selected-heaps/traces/candidate.decisions.tsv": "1939038fa6c7380c8ba4363bb34fbfb04ddd3e916df9997fe661823ea3ef62db",
+    "benchmarks/runs/20260909-6194-rank32-selected-heaps/traces/candidate.boundaries.tsv": "37b6ac2889768575e2e9c3c5c96a23bd771e5290b20e0440c242f4e7ee86cca3",
+    "benchmarks/runs/20260909-6194-rank32-selected-heaps/traces/candidate.prefix.tsv": "0c8b0e8080f8ae73f5ab7cd8195cd3269f991e2950bcc6ea4f602a2a25ab1d2d",
+    "benchmarks/runs/20260909-6194-rank32-selected-heaps/traces/candidate.macro.tsv": "d5b4c09d4b426d71d553e78f5aecea0364b6e31a1022855e7034e02586b052cd",
+    "benchmarks/runs/20260909-6194-rank32-selected-heaps/results/kissat.json": "01d468e405f587826fc6e27be6c3c56843017b3da3c5d72055c872b5f98eb48b",
+    "benchmarks/runs/20260909-6194-rank32-selected-heaps/traces/kissat.decisions.tsv": "d32fe95d3ed218bf5f852c4405599de068876b0d55c07b8ff15e9f0933f9df73",
+    "benchmarks/runs/20260909-6194-rank32-selected-heaps/traces/kissat.boundaries.tsv": "f5a3e7685ba3d3c2a59addf262d585582171d9b9504965a03194fad599626f2d",
+    "benchmarks/runs/20260909-6194-rank32-selected-heaps/traces/kissat.bve-candidates.tsv": "c569d1373fcf4be01b7058d900def9130491b2f29beaac04ef759cae3668ad8f",
+    "benchmarks/runs/20260909-6194-rank32-selected-heaps/traces/kissat.bve-heap.tsv": "5fed8291741bddf77bc3f40567419d029070b618da80e9f4746b6972145aa62d",
+    "benchmarks/runs/20260909-6194-rank32-selected-heaps/traces/kissat.prefix.tsv": "1ea5f414036d92c03bb91e1dca557e1f616f6f78c323a16ea2137ab2ca59cdc7"
+  },
+  "manifest_sha256": "a1c2322d0578bb9b0b082a98fe308e37dfd063200b4c69def26cbe840e332226",
+  "limitation": "Complete per-arm parent trace/proof identity is required. Selected snapshots do not prove full formula or heap identity; update callbacks have different granularity and stages across solvers."
+}
