@@ -1,0 +1,61 @@
+{
+  "rank": 33,
+  "input": "benchmarks/cache/tierD24-26/5314fd6ccb53b6f6af49a594ea68a273-oski15a01b15s_opt.cnf.xz",
+  "input_sha256_compressed": "51907671051cdecfab72b2c27d8cfc767b926a6203e58771251fc0fe06d22c6a",
+  "stop_conflict": 1000000,
+  "stream_from": 100000,
+  "common_decisions": 31494584,
+  "authorities": {
+    "candidate": {
+      "path": "benchmarks/runs/20260909-6424-activation-stamp-build/manifest.json",
+      "sha256": "25c8fc8b5623ef24ad7690cb3cb7098c47ebac1e85aba4dc56f3e6684453eb06"
+    },
+    "previous": {
+      "path": "benchmarks/runs/20260909-6383-vivify-count-cache-build/manifest.json",
+      "sha256": "321ffb5e88dc907897d862ce580ddaec77f281daf6ef26db9f6279260c0a43a6"
+    },
+    "kissat": {
+      "path": "benchmarks/runs/20260909-6303-rank32-later-prefix/manifest.json",
+      "sha256": "153d22ce3b6df2b75a5186dc599803c61955db780e4e5ec46b3d011741ef935a"
+    }
+  },
+  "resource_contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "cpus_per_task": 12,
+    "memory_mib": 48000,
+    "array": "0-2",
+    "throttle": null,
+    "node_constraint": null,
+    "solver_timeout": 1200,
+    "allocation_minutes": 25
+  },
+  "selection": {
+    "path": "benchmarks/reports/2026-09-09-activation-full50-6441/summary.json",
+    "sha256": "daf90af1c8262b7d0844e21c0911b8e69271522f45d9c400f0216dcdaf4ccd57"
+  },
+  "purpose": "Current6424, parent6383 and native match all31494584 Rank33 decisions through100K. Extend all three through1M without presuming continued equality.",
+  "validation": "Validate all own common-prefix hashes, complete100K overlap and cumulative row/counter accounting, then compare every suffix row in all three pairs. No timing reference refresh or final-proof acceptance.",
+  "test_consideration": "Same immutable pins and three-arm runner. Maintained complete-row, overlap and derived-counter tests apply; new validator binds all three cached prefixes and their actual threshold overlaps. No solver/observer/parser change.",
+  "limitation": "Bounded first decision localization or equality only, not cause, full formula/solve identity, final proof or runtime acceptance.",
+  "hashes": {
+    "pins/previous": "a4e9ce3730e6878a1b696f6ab1de442c44dc727d8a7cc35ebc8c136c9e1d6e73",
+    "pins/kissat": "a902fccbe9e63c2eedc1aa4332a7d912d0859088aaa98740b90facc6373f1add",
+    "pins/candidate": "c5ca763ce93f48507648c32cb55027274a79332ef56147814bb917d6dddc9e8c",
+    "run.py": "ac1c3b25452ef64c708fcaf87df5c45e782f25b29263b2092132552f8827bcc0",
+    "array.sbatch": "be0afd1f3e3c2f377f553f86ec3e5af73853f16d4c09e1385fd2b0dd6884751f"
+  },
+  "provisional_gate": {
+    "path": "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/solver-checkpoint-6429.json",
+    "sha256": "11e2a712bd45b4b6f0778622890499962cd65a2d00a9dc0de298301c9fb0e22f"
+  },
+  "prior_common_hash": "5c263e00aa882466",
+  "prior_closure": {
+    "path": "benchmarks/runs/20260909-6470-rank33-activation-prefix/summary.json",
+    "sha256": "0300b8a3558b99918e61dee4c8475bb81c2a8105edc24d4d6f458db588a4389e"
+  },
+  "parent_runs": {
+    "candidate": "benchmarks/runs/20260909-6470-rank33-activation-prefix",
+    "previous": "benchmarks/runs/20260909-6470-rank33-activation-prefix",
+    "kissat": "benchmarks/runs/20260909-6470-rank33-activation-prefix"
+  }
+}

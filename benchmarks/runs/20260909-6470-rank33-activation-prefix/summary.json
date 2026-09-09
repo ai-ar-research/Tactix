@@ -1,0 +1,90 @@
+{
+  "rank": 33,
+  "stop": 100000,
+  "prefixes": {
+    "candidate": {
+      "solver": "tactix",
+      "conflict": 100000,
+      "start_decisions": 18446744073709440308,
+      "end_decisions": 31383276,
+      "count": 31494584,
+      "hash": "5c263e00aa882466",
+      "common": 1,
+      "common_reached": 1,
+      "common_hash": "422fb1d46f76914b",
+      "first": 488842,
+      "common_last": 488842,
+      "last": -277711,
+      "max_level": 38760
+    },
+    "previous": {
+      "solver": "tactix",
+      "conflict": 100000,
+      "start_decisions": 18446744073709440308,
+      "end_decisions": 31383276,
+      "count": 31494584,
+      "hash": "5c263e00aa882466",
+      "common": 1,
+      "common_reached": 1,
+      "common_hash": "422fb1d46f76914b",
+      "first": 488842,
+      "common_last": 488842,
+      "last": -277711,
+      "max_level": 38760
+    },
+    "kissat": {
+      "solver": "kissat",
+      "conflict": 100000,
+      "start_decisions": 18446744073709440308,
+      "end_decisions": 31383276,
+      "count": 31494584,
+      "hash": "5c263e00aa882466",
+      "common": 1,
+      "common_reached": 1,
+      "common_hash": "422fb1d46f76914b",
+      "first": 488842,
+      "common_last": 488842,
+      "last": -277711,
+      "max_level": 38760
+    }
+  },
+  "pairs": {
+    "candidate_previous": {
+      "matching_rows": 31494584,
+      "left": null,
+      "right": null,
+      "complete_equal": true
+    },
+    "candidate_kissat": {
+      "matching_rows": 31494584,
+      "left": null,
+      "right": null,
+      "complete_equal": true
+    },
+    "previous_kissat": {
+      "matching_rows": 31494584,
+      "left": null,
+      "right": null,
+      "complete_equal": true
+    }
+  },
+  "hashes": {
+    "benchmarks/runs/20260909-6470-rank33-activation-prefix/manifest.json": "5bba497a51ef2b14b94afb279d825042a751af18e48745810494a8e3f915e1ab",
+    "benchmarks/runs/20260909-6470-rank33-activation-prefix/launch.json": "e209862cdf7e83e40e4827c888b58695b3510d02fcf6ef6858c166585cc01124",
+    "benchmarks/runs/20260909-6470-rank33-activation-prefix/results/candidate.json": "7869d058eb720efb5e6a2ca1ff4d02e31c7a1988a0eb6cad1b313f4497ba3717",
+    "benchmarks/runs/20260909-6470-rank33-activation-prefix/traces/candidate.decisions.tsv": "e5f098fb2bd52b5e850068af8a9576477226383b8597efae04923678fd6e88f6",
+    "benchmarks/runs/20260909-6470-rank33-activation-prefix/traces/candidate.prefix.tsv": "8254b770d71b9b76caef956cf2f9dad6c3b7c96f1975a426703c8ebc41d93c58",
+    "benchmarks/runs/20260909-6470-rank33-activation-prefix/traces/candidate.macro.tsv": "c24b832427f1e088e141be3452f6690bdca2f448ba9fd137ccf16e7f41ba9b7a",
+    "benchmarks/runs/20260909-6470-rank33-activation-prefix/traces/candidate.boundaries.tsv": "054aa9b9ce28a6c4e4e74d61d9236bf951006a83e3028e27977dd66c7a275f57",
+    "benchmarks/runs/20260909-6470-rank33-activation-prefix/results/previous.json": "ffbf2a549f50516151708f2017919d80156fb3c9734f8e06b2e4e0eea342e4e2",
+    "benchmarks/runs/20260909-6470-rank33-activation-prefix/traces/previous.boundaries.tsv": "054aa9b9ce28a6c4e4e74d61d9236bf951006a83e3028e27977dd66c7a275f57",
+    "benchmarks/runs/20260909-6470-rank33-activation-prefix/traces/previous.macro.tsv": "cf9e085d68b6033cd8a28f88a5d542780694fe601eb31b2999d6e49c998bddb9",
+    "benchmarks/runs/20260909-6470-rank33-activation-prefix/traces/previous.decisions.tsv": "e5f098fb2bd52b5e850068af8a9576477226383b8597efae04923678fd6e88f6",
+    "benchmarks/runs/20260909-6470-rank33-activation-prefix/traces/previous.prefix.tsv": "8254b770d71b9b76caef956cf2f9dad6c3b7c96f1975a426703c8ebc41d93c58",
+    "benchmarks/runs/20260909-6470-rank33-activation-prefix/results/kissat.json": "87b4596aa43dd7fa60f0e03b921120305627d33237071c3748b52b6ee5cf184c",
+    "benchmarks/runs/20260909-6470-rank33-activation-prefix/traces/kissat.boundaries.tsv": "18b5f3ee6edd44de5defc58357af8ea23fa120ba756f9e63021fa748c48d81ab",
+    "benchmarks/runs/20260909-6470-rank33-activation-prefix/traces/kissat.prefix.tsv": "9312863e5dceb871d092fed01d57ace7976cc411f28985aa5e51e11469dff47b",
+    "benchmarks/runs/20260909-6470-rank33-activation-prefix/traces/kissat.decisions.tsv": "e5f098fb2bd52b5e850068af8a9576477226383b8597efae04923678fd6e88f6"
+  },
+  "limitation": "First selected split or bounded equality only; not full-state/proof/cost identity, causal attribution or fixed-reference refresh. Partial proofs were hashed/deleted, not accepted final certificates."
+}

@@ -1,0 +1,10 @@
+{
+  "job_id": "1678093",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6483-rank35-vivify-replay/array.sbatch"
+  ],
+  "accounting_since": "2026-09-09T09:51:28",
+  "manifest_sha256": "04141fbaa087584dd29d7635be657c52a1f09a68f5fdfb7765bb162b69a3ec43"
+}
