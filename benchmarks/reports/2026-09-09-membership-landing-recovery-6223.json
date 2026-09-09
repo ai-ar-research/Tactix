@@ -1,0 +1,15 @@
+{
+  "original_fixture": {
+    "path": "benchmarks/probes/scratch/test-native-schedule-continue-6214.c",
+    "sha256": "9169a1478d775fd57e5f679e84c53fa88729b57715a5fc2f3823b8eeb87e7f5d",
+    "kept_local": true
+  },
+  "successor": {
+    "path": "benchmarks/probes/scratch/test-native-schedule-continue-6222.c",
+    "sha256": "aec29db8338a8c863d1e15e2e9905e4292cf455e163a7e4d40cf678b66c59b27"
+  },
+  "test_stdout": "PASS: native stopped/continued empty snapshots, conflict/ordinal filters and no overwrite\n",
+  "reason": "Initial landing failed only Git whitespace check:6214 has an extra blank EOF line. Original tested/hash-bound bytes retained locally unchanged.6222 removes only trailing blank whitespace,then recompiles and passes the same actual native snapshot fixture. No solver source, run, report or manifest was changed.",
+  "previous_landing_sha256": "783e79ca786839c3132131d8f25d1f9932a3834f99592025acef9a8305659437",
+  "cleanup": "No files deleted in recovery; original fixture remains local/hash-bound. No push or promotion."
+}

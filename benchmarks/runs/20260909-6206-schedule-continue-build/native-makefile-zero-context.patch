@@ -1,0 +1,29 @@
+--- a/src/makefile
++++ b/src/makefile
+@@ -2 +2 @@
+-	$(MAKE) -C "/home/hwu/SAT-solving/tools/solvers/variants/kissat-macro-heap-6090/build"
++	$(MAKE) -C "/home/hwu/SAT-solving/tools/solvers/variants/kissat-schedule-continue-6206/build"
+@@ -4 +4 @@
+-	$(MAKE) -C "/home/hwu/SAT-solving/tools/solvers/variants/kissat-macro-heap-6090/build" kissat
++	$(MAKE) -C "/home/hwu/SAT-solving/tools/solvers/variants/kissat-schedule-continue-6206/build" kissat
+@@ -6 +6 @@
+-	$(MAKE) -C "/home/hwu/SAT-solving/tools/solvers/variants/kissat-macro-heap-6090/build" tissat
++	$(MAKE) -C "/home/hwu/SAT-solving/tools/solvers/variants/kissat-schedule-continue-6206/build" tissat
+@@ -8,4 +8,4 @@
+-	rm -f "/home/hwu/SAT-solving/tools/solvers/variants/kissat-macro-heap-6090"/makefile
+-	rm -f "/home/hwu/SAT-solving/tools/solvers/variants/kissat-macro-heap-6090"/src/makefile
+-	-$(MAKE) -C "/home/hwu/SAT-solving/tools/solvers/variants/kissat-macro-heap-6090/build" clean
+-	rm -rf "/home/hwu/SAT-solving/tools/solvers/variants/kissat-macro-heap-6090/build"
++	rm -f "/home/hwu/SAT-solving/tools/solvers/variants/kissat-schedule-continue-6206"/makefile
++	rm -f "/home/hwu/SAT-solving/tools/solvers/variants/kissat-schedule-continue-6206"/src/makefile
++	-$(MAKE) -C "/home/hwu/SAT-solving/tools/solvers/variants/kissat-schedule-continue-6206/build" clean
++	rm -rf "/home/hwu/SAT-solving/tools/solvers/variants/kissat-schedule-continue-6206/build"
+@@ -13 +13 @@
+-	$(MAKE) -C "/home/hwu/SAT-solving/tools/solvers/variants/kissat-macro-heap-6090/build" coverage
++	$(MAKE) -C "/home/hwu/SAT-solving/tools/solvers/variants/kissat-schedule-continue-6206/build" coverage
+@@ -15 +15 @@
+-	$(MAKE) -C "/home/hwu/SAT-solving/tools/solvers/variants/kissat-macro-heap-6090/build" format
++	$(MAKE) -C "/home/hwu/SAT-solving/tools/solvers/variants/kissat-schedule-continue-6206/build" format
+@@ -17 +17 @@
+-	$(MAKE) -C "/home/hwu/SAT-solving/tools/solvers/variants/kissat-macro-heap-6090/build" test
++	$(MAKE) -C "/home/hwu/SAT-solving/tools/solvers/variants/kissat-schedule-continue-6206/build" test
