@@ -1,0 +1,3 @@
+task	rank	arm	tier	instance	expected
+0	4	candidate	D	tierD24-26/15456f0d13b26f0b4b21525ef7d0d711-clique_n5_k10.sanitized.cnf.xz	UNSAT
+1	4	kissat	D	tierD24-26/15456f0d13b26f0b4b21525ef7d0d711-clique_n5_k10.sanitized.cnf.xz	UNSAT

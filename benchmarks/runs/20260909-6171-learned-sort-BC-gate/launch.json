@@ -1,0 +1,10 @@
+{
+  "job_id": "1677050",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6171-learned-sort-BC-gate/array.sbatch"
+  ],
+  "manifest_sha256": "8a3a5be91afbd834d17d66050ff2e867e4ec55d6e739aa73d550e3854a531c3a",
+  "accounting_since": "2026-09-09T00:51:22"
+}
