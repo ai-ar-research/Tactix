@@ -1,0 +1,3078 @@
+{
+  "full_parent_replay": true,
+  "hashes": {
+    "benchmarks/runs/20260908-6092-rank37-macro-heaps/manifest.json": "39668f289367568f0effdaaddc0a587ae10257095d8234893a1610cd581b92a9",
+    "benchmarks/runs/20260908-6092-rank37-macro-heaps/results/candidate.json": "f52ec5f47d96bcf3964b8d25c6938651521bf4999709c93949758facea8daf64",
+    "benchmarks/runs/20260908-6092-rank37-macro-heaps/traces/candidate.macro-heaps.tsv": "76c814ff0c8a45abf2a49cb379dfcc270a5ad7ae8505dece5c8bdcd3ef348b9f",
+    "benchmarks/runs/20260908-6092-rank37-macro-heaps/results/kissat.json": "677c8a241e59747565648a58165df69c2c5f0f77961d69b08c6475558ef00328",
+    "benchmarks/runs/20260908-6092-rank37-macro-heaps/traces/kissat.macro-heaps.tsv": "f7b5424849a8ec96407447d267d071339029c1529125dcb69f57a9684766fc97"
+  },
+  "common_boundaries": [
+    {
+      "key": [
+        272979,
+        76952961,
+        "probe_begin",
+        0
+      ],
+      "candidate": {
+        "label": "probe_begin",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 77698
+      },
+      "kissat": {
+        "label": "probe_begin",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 77698
+      },
+      "counts": {
+        "candidate_only": 0,
+        "kissat_only": 0,
+        "score": 0,
+        "assigned": 0,
+        "active": 0,
+        "position": 0
+      }
+    },
+    {
+      "key": [
+        272979,
+        76952961,
+        "Congruence_begin",
+        0
+      ],
+      "candidate": {
+        "label": "Congruence_begin",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92675
+      },
+      "kissat": {
+        "label": "congruence_begin",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92675
+      },
+      "counts": {
+        "candidate_only": 0,
+        "kissat_only": 0,
+        "score": 0,
+        "assigned": 0,
+        "active": 0,
+        "position": 0
+      }
+    },
+    {
+      "key": [
+        272979,
+        76952961,
+        "Congruence_end",
+        0
+      ],
+      "candidate": {
+        "label": "Congruence_end",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92658
+      },
+      "kissat": {
+        "label": "congruence_end",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92658
+      },
+      "counts": {
+        "candidate_only": 0,
+        "kissat_only": 0,
+        "score": 0,
+        "assigned": 0,
+        "active": 0,
+        "position": 0
+      }
+    },
+    {
+      "key": [
+        272979,
+        76952961,
+        "Substitute_begin",
+        0
+      ],
+      "candidate": {
+        "label": "Substitute_begin",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92658
+      },
+      "kissat": {
+        "label": "substitute_early_begin",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92658
+      },
+      "counts": {
+        "candidate_only": 0,
+        "kissat_only": 0,
+        "score": 0,
+        "assigned": 0,
+        "active": 0,
+        "position": 0
+      }
+    },
+    {
+      "key": [
+        272979,
+        76952961,
+        "Substitute_end",
+        0
+      ],
+      "candidate": {
+        "label": "Substitute_end",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92541
+      },
+      "kissat": {
+        "label": "substitute_early_end",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92541
+      },
+      "counts": {
+        "candidate_only": 0,
+        "kissat_only": 0,
+        "score": 0,
+        "assigned": 0,
+        "active": 0,
+        "position": 296
+      }
+    },
+    {
+      "key": [
+        272979,
+        76952961,
+        "Backbone_begin",
+        0
+      ],
+      "candidate": {
+        "label": "Backbone_begin",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92541
+      },
+      "kissat": {
+        "label": "backbone_early_begin",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92541
+      },
+      "counts": {
+        "candidate_only": 0,
+        "kissat_only": 0,
+        "score": 0,
+        "assigned": 0,
+        "active": 0,
+        "position": 296
+      }
+    },
+    {
+      "key": [
+        272979,
+        76952961,
+        "Backbone_end",
+        0
+      ],
+      "candidate": {
+        "label": "Backbone_end",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92531
+      },
+      "kissat": {
+        "label": "backbone_early_end",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92531
+      },
+      "counts": {
+        "candidate_only": 0,
+        "kissat_only": 0,
+        "score": 0,
+        "assigned": 0,
+        "active": 0,
+        "position": 295
+      }
+    },
+    {
+      "key": [
+        272979,
+        76952961,
+        "Vivify_begin",
+        0
+      ],
+      "candidate": {
+        "label": "Vivify_begin",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92531
+      },
+      "kissat": {
+        "label": "vivify_begin",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92531
+      },
+      "counts": {
+        "candidate_only": 0,
+        "kissat_only": 0,
+        "score": 0,
+        "assigned": 0,
+        "active": 0,
+        "position": 295
+      }
+    },
+    {
+      "key": [
+        272979,
+        76952961,
+        "Vivify_end",
+        0
+      ],
+      "candidate": {
+        "label": "Vivify_end",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92528
+      },
+      "kissat": {
+        "label": "vivify_end",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92528
+      },
+      "counts": {
+        "candidate_only": 0,
+        "kissat_only": 0,
+        "score": 0,
+        "assigned": 0,
+        "active": 0,
+        "position": 297
+      }
+    },
+    {
+      "key": [
+        272979,
+        76952961,
+        "Sweep_begin",
+        0
+      ],
+      "candidate": {
+        "label": "Sweep_begin",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92528
+      },
+      "kissat": {
+        "label": "sweep_begin",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92528
+      },
+      "counts": {
+        "candidate_only": 0,
+        "kissat_only": 0,
+        "score": 0,
+        "assigned": 0,
+        "active": 0,
+        "position": 297
+      }
+    },
+    {
+      "key": [
+        272979,
+        76952961,
+        "Sweep_end",
+        0
+      ],
+      "candidate": {
+        "label": "Sweep_end",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92528
+      },
+      "kissat": {
+        "label": "sweep_end",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92528
+      },
+      "counts": {
+        "candidate_only": 0,
+        "kissat_only": 0,
+        "score": 0,
+        "assigned": 0,
+        "active": 0,
+        "position": 297
+      }
+    },
+    {
+      "key": [
+        272979,
+        76952961,
+        "Substitute_begin",
+        1
+      ],
+      "candidate": {
+        "label": "Substitute_begin",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92528
+      },
+      "kissat": {
+        "label": "substitute_late_begin",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92528
+      },
+      "counts": {
+        "candidate_only": 0,
+        "kissat_only": 0,
+        "score": 0,
+        "assigned": 0,
+        "active": 0,
+        "position": 297
+      }
+    },
+    {
+      "key": [
+        272979,
+        76952961,
+        "Substitute_end",
+        1
+      ],
+      "candidate": {
+        "label": "Substitute_end",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92472
+      },
+      "kissat": {
+        "label": "substitute_late_end",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92472
+      },
+      "counts": {
+        "candidate_only": 0,
+        "kissat_only": 0,
+        "score": 0,
+        "assigned": 0,
+        "active": 0,
+        "position": 297
+      }
+    },
+    {
+      "key": [
+        272979,
+        76952961,
+        "TransitiveReduce_begin",
+        0
+      ],
+      "candidate": {
+        "label": "TransitiveReduce_begin",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92472
+      },
+      "kissat": {
+        "label": "transitive_begin",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92472
+      },
+      "counts": {
+        "candidate_only": 0,
+        "kissat_only": 0,
+        "score": 0,
+        "assigned": 0,
+        "active": 0,
+        "position": 297
+      }
+    },
+    {
+      "key": [
+        272979,
+        76952961,
+        "TransitiveReduce_end",
+        0
+      ],
+      "candidate": {
+        "label": "TransitiveReduce_end",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92467
+      },
+      "kissat": {
+        "label": "transitive_end",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92467
+      },
+      "counts": {
+        "candidate_only": 0,
+        "kissat_only": 0,
+        "score": 0,
+        "assigned": 0,
+        "active": 0,
+        "position": 297
+      }
+    },
+    {
+      "key": [
+        272979,
+        76952961,
+        "Backbone_begin",
+        1
+      ],
+      "candidate": {
+        "label": "Backbone_begin",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92467
+      },
+      "kissat": {
+        "label": "backbone_late_begin",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92467
+      },
+      "counts": {
+        "candidate_only": 0,
+        "kissat_only": 0,
+        "score": 0,
+        "assigned": 0,
+        "active": 0,
+        "position": 297
+      }
+    },
+    {
+      "key": [
+        272979,
+        76952961,
+        "Backbone_end",
+        1
+      ],
+      "candidate": {
+        "label": "Backbone_end",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92462
+      },
+      "kissat": {
+        "label": "backbone_late_end",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92462
+      },
+      "counts": {
+        "candidate_only": 0,
+        "kissat_only": 0,
+        "score": 0,
+        "assigned": 0,
+        "active": 0,
+        "position": 297
+      }
+    },
+    {
+      "key": [
+        272979,
+        76952961,
+        "Factor_begin",
+        0
+      ],
+      "candidate": {
+        "label": "Factor_begin",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92462
+      },
+      "kissat": {
+        "label": "factor_begin",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92462
+      },
+      "counts": {
+        "candidate_only": 0,
+        "kissat_only": 0,
+        "score": 0,
+        "assigned": 0,
+        "active": 0,
+        "position": 297
+      }
+    },
+    {
+      "key": [
+        272979,
+        76952961,
+        "Factor_end",
+        0
+      ],
+      "candidate": {
+        "label": "Factor_end",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92476
+      },
+      "kissat": {
+        "label": "factor_end",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92476
+      },
+      "counts": {
+        "candidate_only": 0,
+        "kissat_only": 0,
+        "score": 0,
+        "assigned": 0,
+        "active": 0,
+        "position": 297
+      }
+    },
+    {
+      "key": [
+        272979,
+        76952961,
+        "Congruence_begin",
+        1
+      ],
+      "candidate": {
+        "label": "Congruence_begin",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92476
+      },
+      "kissat": {
+        "label": "congruence_begin",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92476
+      },
+      "counts": {
+        "candidate_only": 0,
+        "kissat_only": 0,
+        "score": 0,
+        "assigned": 0,
+        "active": 0,
+        "position": 297
+      }
+    },
+    {
+      "key": [
+        272979,
+        76952961,
+        "Congruence_end",
+        1
+      ],
+      "candidate": {
+        "label": "Congruence_end",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92470
+      },
+      "kissat": {
+        "label": "congruence_end",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92470
+      },
+      "counts": {
+        "candidate_only": 0,
+        "kissat_only": 0,
+        "score": 0,
+        "assigned": 0,
+        "active": 0,
+        "position": 297
+      }
+    },
+    {
+      "key": [
+        272979,
+        76952961,
+        "Substitute_begin",
+        2
+      ],
+      "candidate": {
+        "label": "Substitute_begin",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92470
+      },
+      "kissat": {
+        "label": "substitute_early_begin",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92470
+      },
+      "counts": {
+        "candidate_only": 0,
+        "kissat_only": 0,
+        "score": 0,
+        "assigned": 0,
+        "active": 0,
+        "position": 297
+      }
+    },
+    {
+      "key": [
+        272979,
+        76952961,
+        "Substitute_end",
+        2
+      ],
+      "candidate": {
+        "label": "Substitute_end",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92449
+      },
+      "kissat": {
+        "label": "substitute_early_end",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92449
+      },
+      "counts": {
+        "candidate_only": 0,
+        "kissat_only": 0,
+        "score": 0,
+        "assigned": 0,
+        "active": 0,
+        "position": 297
+      }
+    },
+    {
+      "key": [
+        272979,
+        76952961,
+        "Backbone_begin",
+        2
+      ],
+      "candidate": {
+        "label": "Backbone_begin",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92449
+      },
+      "kissat": {
+        "label": "backbone_early_begin",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92449
+      },
+      "counts": {
+        "candidate_only": 0,
+        "kissat_only": 0,
+        "score": 0,
+        "assigned": 0,
+        "active": 0,
+        "position": 297
+      }
+    },
+    {
+      "key": [
+        272979,
+        76952961,
+        "Backbone_end",
+        2
+      ],
+      "candidate": {
+        "label": "Backbone_end",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92449
+      },
+      "kissat": {
+        "label": "backbone_early_end",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92449
+      },
+      "counts": {
+        "candidate_only": 0,
+        "kissat_only": 0,
+        "score": 0,
+        "assigned": 0,
+        "active": 0,
+        "position": 297
+      }
+    },
+    {
+      "key": [
+        272979,
+        76952961,
+        "Vivify_begin",
+        1
+      ],
+      "candidate": {
+        "label": "Vivify_begin",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92449
+      },
+      "kissat": {
+        "label": "vivify_begin",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92449
+      },
+      "counts": {
+        "candidate_only": 0,
+        "kissat_only": 0,
+        "score": 0,
+        "assigned": 0,
+        "active": 0,
+        "position": 297
+      }
+    },
+    {
+      "key": [
+        272979,
+        76952961,
+        "Vivify_end",
+        1
+      ],
+      "candidate": {
+        "label": "Vivify_end",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92445
+      },
+      "kissat": {
+        "label": "vivify_end",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92445
+      },
+      "counts": {
+        "candidate_only": 0,
+        "kissat_only": 0,
+        "score": 0,
+        "assigned": 0,
+        "active": 0,
+        "position": 297
+      }
+    },
+    {
+      "key": [
+        272979,
+        76952961,
+        "Sweep_begin",
+        1
+      ],
+      "candidate": {
+        "label": "Sweep_begin",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92445
+      },
+      "kissat": {
+        "label": "sweep_begin",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92445
+      },
+      "counts": {
+        "candidate_only": 0,
+        "kissat_only": 0,
+        "score": 0,
+        "assigned": 0,
+        "active": 0,
+        "position": 297
+      }
+    },
+    {
+      "key": [
+        272979,
+        76952961,
+        "Sweep_end",
+        1
+      ],
+      "candidate": {
+        "label": "Sweep_end",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92444
+      },
+      "kissat": {
+        "label": "sweep_end",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92444
+      },
+      "counts": {
+        "candidate_only": 0,
+        "kissat_only": 0,
+        "score": 0,
+        "assigned": 0,
+        "active": 0,
+        "position": 297
+      }
+    },
+    {
+      "key": [
+        272979,
+        76952961,
+        "Substitute_begin",
+        3
+      ],
+      "candidate": {
+        "label": "Substitute_begin",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92444
+      },
+      "kissat": {
+        "label": "substitute_late_begin",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92444
+      },
+      "counts": {
+        "candidate_only": 0,
+        "kissat_only": 0,
+        "score": 0,
+        "assigned": 0,
+        "active": 0,
+        "position": 297
+      }
+    },
+    {
+      "key": [
+        272979,
+        76952961,
+        "Substitute_end",
+        3
+      ],
+      "candidate": {
+        "label": "Substitute_end",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92363
+      },
+      "kissat": {
+        "label": "substitute_late_end",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92363
+      },
+      "counts": {
+        "candidate_only": 0,
+        "kissat_only": 0,
+        "score": 0,
+        "assigned": 0,
+        "active": 0,
+        "position": 298
+      }
+    },
+    {
+      "key": [
+        272979,
+        76952961,
+        "TransitiveReduce_begin",
+        1
+      ],
+      "candidate": {
+        "label": "TransitiveReduce_begin",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92363
+      },
+      "kissat": {
+        "label": "transitive_begin",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92363
+      },
+      "counts": {
+        "candidate_only": 0,
+        "kissat_only": 0,
+        "score": 0,
+        "assigned": 0,
+        "active": 0,
+        "position": 298
+      }
+    },
+    {
+      "key": [
+        272979,
+        76952961,
+        "TransitiveReduce_end",
+        1
+      ],
+      "candidate": {
+        "label": "TransitiveReduce_end",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92352
+      },
+      "kissat": {
+        "label": "transitive_end",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92352
+      },
+      "counts": {
+        "candidate_only": 0,
+        "kissat_only": 0,
+        "score": 0,
+        "assigned": 0,
+        "active": 0,
+        "position": 298
+      }
+    },
+    {
+      "key": [
+        272979,
+        76952961,
+        "Backbone_begin",
+        3
+      ],
+      "candidate": {
+        "label": "Backbone_begin",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92352
+      },
+      "kissat": {
+        "label": "backbone_late_begin",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92352
+      },
+      "counts": {
+        "candidate_only": 0,
+        "kissat_only": 0,
+        "score": 0,
+        "assigned": 0,
+        "active": 0,
+        "position": 298
+      }
+    },
+    {
+      "key": [
+        272979,
+        76952961,
+        "Backbone_end",
+        3
+      ],
+      "candidate": {
+        "label": "Backbone_end",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92343
+      },
+      "kissat": {
+        "label": "backbone_late_end",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92343
+      },
+      "counts": {
+        "candidate_only": 0,
+        "kissat_only": 0,
+        "score": 0,
+        "assigned": 0,
+        "active": 0,
+        "position": 298
+      }
+    },
+    {
+      "key": [
+        272979,
+        76952961,
+        "Factor_begin",
+        1
+      ],
+      "candidate": {
+        "label": "Factor_begin",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92343
+      },
+      "kissat": {
+        "label": "factor_begin",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92343
+      },
+      "counts": {
+        "candidate_only": 0,
+        "kissat_only": 0,
+        "score": 0,
+        "assigned": 0,
+        "active": 0,
+        "position": 298
+      }
+    },
+    {
+      "key": [
+        272979,
+        76952961,
+        "Factor_end",
+        1
+      ],
+      "candidate": {
+        "label": "Factor_end",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92344
+      },
+      "kissat": {
+        "label": "factor_end",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92344
+      },
+      "counts": {
+        "candidate_only": 0,
+        "kissat_only": 0,
+        "score": 0,
+        "assigned": 0,
+        "active": 0,
+        "position": 298
+      }
+    },
+    {
+      "key": [
+        272979,
+        76952961,
+        "probe_end",
+        0
+      ],
+      "candidate": {
+        "label": "probe_end",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92344
+      },
+      "kissat": {
+        "label": "probe_end",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92344
+      },
+      "counts": {
+        "candidate_only": 0,
+        "kissat_only": 0,
+        "score": 0,
+        "assigned": 0,
+        "active": 0,
+        "position": 298
+      }
+    }
+  ],
+  "first_difference": {
+    "boundary": {
+      "key": [
+        272979,
+        76952961,
+        "Substitute_end",
+        0
+      ],
+      "candidate": {
+        "label": "Substitute_end",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92541
+      },
+      "kissat": {
+        "label": "substitute_early_end",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92541
+      },
+      "counts": {
+        "candidate_only": 0,
+        "kissat_only": 0,
+        "score": 0,
+        "assigned": 0,
+        "active": 0,
+        "position": 296
+      }
+    },
+    "changes": {
+      "candidate_only": [],
+      "kissat_only": [],
+      "score": [],
+      "assigned": [],
+      "active": [],
+      "position": [
+        {
+          "variable": 17,
+          "candidate": 2817,
+          "kissat": 5636
+        },
+        {
+          "variable": 19,
+          "candidate": 703,
+          "kissat": 1408
+        },
+        {
+          "variable": 74,
+          "candidate": 668,
+          "kissat": 333
+        },
+        {
+          "variable": 3680,
+          "candidate": 351,
+          "kissat": 703
+        },
+        {
+          "variable": 3728,
+          "candidate": 1408,
+          "kissat": 2817
+        },
+        {
+          "variable": 5864,
+          "candidate": 2675,
+          "kissat": 1337
+        },
+        {
+          "variable": 7908,
+          "candidate": 64230,
+          "kissat": 36213
+        },
+        {
+          "variable": 9029,
+          "candidate": 11274,
+          "kissat": 22550
+        },
+        {
+          "variable": 9075,
+          "candidate": 5636,
+          "kissat": 11274
+        },
+        {
+          "variable": 10303,
+          "candidate": 500,
+          "kissat": 1002
+        },
+        {
+          "variable": 13157,
+          "candidate": 77419,
+          "kissat": 77142
+        },
+        {
+          "variable": 14265,
+          "candidate": 18919,
+          "kissat": 63980
+        },
+        {
+          "variable": 15714,
+          "candidate": 90203,
+          "kissat": 86454
+        },
+        {
+          "variable": 18947,
+          "candidate": 21629,
+          "kissat": 85742
+        },
+        {
+          "variable": 21791,
+          "candidate": 86191,
+          "kissat": 84830
+        },
+        {
+          "variable": 23308,
+          "candidate": 35968,
+          "kissat": 71938
+        },
+        {
+          "variable": 23817,
+          "candidate": 86454,
+          "kissat": 43218
+        },
+        {
+          "variable": 26231,
+          "candidate": 86480,
+          "kissat": 43239
+        },
+        {
+          "variable": 28166,
+          "candidate": 33729,
+          "kissat": 38130
+        },
+        {
+          "variable": 28251,
+          "candidate": 85742,
+          "kissat": 59632
+        },
+        {
+          "variable": 29043,
+          "candidate": 9215,
+          "kissat": 82226
+        },
+        {
+          "variable": 30323,
+          "candidate": 52326,
+          "kissat": 43679
+        },
+        {
+          "variable": 31099,
+          "candidate": 77145,
+          "kissat": 77379
+        },
+        {
+          "variable": 32859,
+          "candidate": 36213,
+          "kissat": 31493
+        },
+        {
+          "variable": 33247,
+          "candidate": 14193,
+          "kissat": 3547
+        },
+        {
+          "variable": 36074,
+          "candidate": 77129,
+          "kissat": 77134
+        },
+        {
+          "variable": 36484,
+          "candidate": 71938,
+          "kissat": 92510
+        },
+        {
+          "variable": 38564,
+          "candidate": 77445,
+          "kissat": 77146
+        },
+        {
+          "variable": 38575,
+          "candidate": 76915,
+          "kissat": 76921
+        },
+        {
+          "variable": 50678,
+          "candidate": 77382,
+          "kissat": 77137
+        },
+        {
+          "variable": 51041,
+          "candidate": 269,
+          "kissat": 291
+        },
+        {
+          "variable": 51042,
+          "candidate": 2416,
+          "kissat": 602
+        },
+        {
+          "variable": 51190,
+          "candidate": 1209,
+          "kissat": 1204
+        },
+        {
+          "variable": 51267,
+          "candidate": 2123,
+          "kissat": 280
+        },
+        {
+          "variable": 51274,
+          "candidate": 392,
+          "kissat": 290
+        },
+        {
+          "variable": 55136,
+          "candidate": 1204,
+          "kissat": 2409
+        },
+        {
+          "variable": 55321,
+          "candidate": 77136,
+          "kissat": 77419
+        },
+        {
+          "variable": 55579,
+          "candidate": 2383,
+          "kissat": 77502
+        },
+        {
+          "variable": 55816,
+          "candidate": 76896,
+          "kissat": 77118
+        },
+        {
+          "variable": 55851,
+          "candidate": 77302,
+          "kissat": 77531
+        },
+        {
+          "variable": 55888,
+          "candidate": 77325,
+          "kissat": 77302
+        },
+        {
+          "variable": 55962,
+          "candidate": 77133,
+          "kissat": 76896
+        },
+        {
+          "variable": 55999,
+          "candidate": 76726,
+          "kissat": 77131
+        },
+        {
+          "variable": 56036,
+          "candidate": 77139,
+          "kissat": 77418
+        },
+        {
+          "variable": 56094,
+          "candidate": 77132,
+          "kissat": 77481
+        },
+        {
+          "variable": 56149,
+          "candidate": 77140,
+          "kissat": 77454
+        },
+        {
+          "variable": 56186,
+          "candidate": 76906,
+          "kissat": 77328
+        },
+        {
+          "variable": 56223,
+          "candidate": 77126,
+          "kissat": 77150
+        },
+        {
+          "variable": 56297,
+          "candidate": 76922,
+          "kissat": 76902
+        },
+        {
+          "variable": 58372,
+          "candidate": 13781,
+          "kissat": 6890
+        },
+        {
+          "variable": 58814,
+          "candidate": 13991,
+          "kissat": 13891
+        },
+        {
+          "variable": 60820,
+          "candidate": 6539,
+          "kissat": 13080
+        },
+        {
+          "variable": 61716,
+          "candidate": 149,
+          "kissat": 603
+        },
+        {
+          "variable": 61975,
+          "candidate": 301,
+          "kissat": 149
+        },
+        {
+          "variable": 64655,
+          "candidate": 299,
+          "kissat": 604
+        },
+        {
+          "variable": 65000,
+          "candidate": 329,
+          "kissat": 87
+        },
+        {
+          "variable": 65030,
+          "candidate": 604,
+          "kissat": 299
+        },
+        {
+          "variable": 65041,
+          "candidate": 586,
+          "kissat": 500
+        },
+        {
+          "variable": 65301,
+          "candidate": 84830,
+          "kissat": 42324
+        },
+        {
+          "variable": 66098,
+          "candidate": 7953,
+          "kissat": 85654
+        },
+        {
+          "variable": 66352,
+          "candidate": 14189,
+          "kissat": 37576
+        },
+        {
+          "variable": 73162,
+          "candidate": 18688,
+          "kissat": 33729
+        },
+        {
+          "variable": 75278,
+          "candidate": 92470,
+          "kissat": 2383
+        },
+        {
+          "variable": 77558,
+          "candidate": 26162,
+          "kissat": 52326
+        },
+        {
+          "variable": 77863,
+          "candidate": 12599,
+          "kissat": 6299
+        },
+        {
+          "variable": 86949,
+          "candidate": 77142,
+          "kissat": 76922
+        },
+        {
+          "variable": 86957,
+          "candidate": 77418,
+          "kissat": 77141
+        },
+        {
+          "variable": 92258,
+          "candidate": 19324,
+          "kissat": 38650
+        },
+        {
+          "variable": 92560,
+          "candidate": 1337,
+          "kissat": 668
+        },
+        {
+          "variable": 92732,
+          "candidate": 2701,
+          "kissat": 2702
+        },
+        {
+          "variable": 92734,
+          "candidate": 5404,
+          "kissat": 2701
+        },
+        {
+          "variable": 93315,
+          "candidate": 10705,
+          "kissat": 5352
+        },
+        {
+          "variable": 93460,
+          "candidate": 21412,
+          "kissat": 10705
+        },
+        {
+          "variable": 93624,
+          "candidate": 85654,
+          "kissat": 42826
+        },
+        {
+          "variable": 93900,
+          "candidate": 42826,
+          "kissat": 21412
+        },
+        {
+          "variable": 94909,
+          "candidate": 82226,
+          "kissat": 92470
+        },
+        {
+          "variable": 94910,
+          "candidate": 38130,
+          "kissat": 9215
+        },
+        {
+          "variable": 95366,
+          "candidate": 77422,
+          "kissat": 77344
+        },
+        {
+          "variable": 115832,
+          "candidate": 77502,
+          "kissat": 38750
+        },
+        {
+          "variable": 115856,
+          "candidate": 38750,
+          "kissat": 19374
+        },
+        {
+          "variable": 115872,
+          "candidate": 77482,
+          "kissat": 19369
+        },
+        {
+          "variable": 115880,
+          "candidate": 19369,
+          "kissat": 4841
+        },
+        {
+          "variable": 116016,
+          "candidate": 19344,
+          "kissat": 38690
+        },
+        {
+          "variable": 116040,
+          "candidate": 9684,
+          "kissat": 1209
+        },
+        {
+          "variable": 116064,
+          "candidate": 4831,
+          "kissat": 19329
+        },
+        {
+          "variable": 116088,
+          "candidate": 4845,
+          "kissat": 2422
+        },
+        {
+          "variable": 116106,
+          "candidate": 4805,
+          "kissat": 4806
+        },
+        {
+          "variable": 116160,
+          "candidate": 4832,
+          "kissat": 9664
+        },
+        {
+          "variable": 116176,
+          "candidate": 9692,
+          "kissat": 4845
+        },
+        {
+          "variable": 116184,
+          "candidate": 19386,
+          "kissat": 9692
+        },
+        {
+          "variable": 116192,
+          "candidate": 38773,
+          "kissat": 19386
+        },
+        {
+          "variable": 116242,
+          "candidate": 9611,
+          "kissat": 4805
+        },
+        {
+          "variable": 116304,
+          "candidate": 38450,
+          "kissat": 19224
+        },
+        {
+          "variable": 116306,
+          "candidate": 19224,
+          "kissat": 9611
+        },
+        {
+          "variable": 116307,
+          "candidate": 74746,
+          "kissat": 18919
+        },
+        {
+          "variable": 116330,
+          "candidate": 4806,
+          "kissat": 9613
+        },
+        {
+          "variable": 116336,
+          "candidate": 76902,
+          "kissat": 38450
+        },
+        {
+          "variable": 116344,
+          "candidate": 19228,
+          "kissat": 38457
+        },
+        {
+          "variable": 116360,
+          "candidate": 9613,
+          "kissat": 19228
+        },
+        {
+          "variable": 116521,
+          "candidate": 2422,
+          "kissat": 2421
+        },
+        {
+          "variable": 117001,
+          "candidate": 4820,
+          "kissat": 9642
+        },
+        {
+          "variable": 117129,
+          "candidate": 19280,
+          "kissat": 38561
+        },
+        {
+          "variable": 117452,
+          "candidate": 4842,
+          "kissat": 2420
+        },
+        {
+          "variable": 117470,
+          "candidate": 4843,
+          "kissat": 9687
+        },
+        {
+          "variable": 117474,
+          "candidate": 38573,
+          "kissat": 19286
+        },
+        {
+          "variable": 117480,
+          "candidate": 9686,
+          "kissat": 4842
+        },
+        {
+          "variable": 117515,
+          "candidate": 19376,
+          "kissat": 38753
+        },
+        {
+          "variable": 117567,
+          "candidate": 38740,
+          "kissat": 9684
+        },
+        {
+          "variable": 117587,
+          "candidate": 2421,
+          "kissat": 4843
+        },
+        {
+          "variable": 117792,
+          "candidate": 19374,
+          "kissat": 9686
+        },
+        {
+          "variable": 117940,
+          "candidate": 9671,
+          "kissat": 19344
+        },
+        {
+          "variable": 117997,
+          "candidate": 1206,
+          "kissat": 2414
+        },
+        {
+          "variable": 118025,
+          "candidate": 38660,
+          "kissat": 77322
+        },
+        {
+          "variable": 118061,
+          "candidate": 9665,
+          "kissat": 4832
+        },
+        {
+          "variable": 118105,
+          "candidate": 2415,
+          "kissat": 4831
+        },
+        {
+          "variable": 118121,
+          "candidate": 2417,
+          "kissat": 4835
+        },
+        {
+          "variable": 118138,
+          "candidate": 1208,
+          "kissat": 2415
+        },
+        {
+          "variable": 118193,
+          "candidate": 2418,
+          "kissat": 2417
+        },
+        {
+          "variable": 118201,
+          "candidate": 9667,
+          "kissat": 4833
+        },
+        {
+          "variable": 118259,
+          "candidate": 19331,
+          "kissat": 9665
+        },
+        {
+          "variable": 118304,
+          "candidate": 19330,
+          "kissat": 38662
+        },
+        {
+          "variable": 118336,
+          "candidate": 19329,
+          "kissat": 38660
+        },
+        {
+          "variable": 118340,
+          "candidate": 19335,
+          "kissat": 9667
+        },
+        {
+          "variable": 118525,
+          "candidate": 602,
+          "kissat": 1206
+        },
+        {
+          "variable": 118536,
+          "candidate": 2414,
+          "kissat": 4830
+        },
+        {
+          "variable": 118537,
+          "candidate": 2409,
+          "kissat": 4820
+        },
+        {
+          "variable": 118572,
+          "candidate": 4841,
+          "kissat": 1210
+        },
+        {
+          "variable": 118668,
+          "candidate": 1210,
+          "kissat": 2418
+        },
+        {
+          "variable": 118783,
+          "candidate": 19281,
+          "kissat": 38564
+        },
+        {
+          "variable": 118848,
+          "candidate": 19286,
+          "kissat": 9639
+        },
+        {
+          "variable": 118872,
+          "candidate": 4819,
+          "kissat": 9640
+        },
+        {
+          "variable": 118920,
+          "candidate": 9639,
+          "kissat": 19280
+        },
+        {
+          "variable": 119864,
+          "candidate": 2334,
+          "kissat": 4670
+        },
+        {
+          "variable": 121798,
+          "candidate": 407,
+          "kissat": 816
+        },
+        {
+          "variable": 126557,
+          "candidate": 77322,
+          "kissat": 77417
+        },
+        {
+          "variable": 133636,
+          "candidate": 7101,
+          "kissat": 14204
+        },
+        {
+          "variable": 133640,
+          "candidate": 14204,
+          "kissat": 28410
+        },
+        {
+          "variable": 134232,
+          "candidate": 7100,
+          "kissat": 3549
+        },
+        {
+          "variable": 134428,
+          "candidate": 3549,
+          "kissat": 3550
+        },
+        {
+          "variable": 146148,
+          "candidate": 5352,
+          "kissat": 2675
+        },
+        {
+          "variable": 147970,
+          "candidate": 21619,
+          "kissat": 10809
+        },
+        {
+          "variable": 148358,
+          "candidate": 10814,
+          "kissat": 21629
+        },
+        {
+          "variable": 148847,
+          "candidate": 2702,
+          "kissat": 5406
+        },
+        {
+          "variable": 150934,
+          "candidate": 6299,
+          "kissat": 3149
+        },
+        {
+          "variable": 161642,
+          "candidate": 77379,
+          "kissat": 77145
+        },
+        {
+          "variable": 162448,
+          "candidate": 175,
+          "kissat": 351
+        },
+        {
+          "variable": 162722,
+          "candidate": 9393,
+          "kissat": 4696
+        },
+        {
+          "variable": 162749,
+          "candidate": 18787,
+          "kissat": 9393
+        },
+        {
+          "variable": 164458,
+          "candidate": 203,
+          "kissat": 407
+        },
+        {
+          "variable": 164738,
+          "candidate": 860,
+          "kissat": 429
+        },
+        {
+          "variable": 164744,
+          "candidate": 1721,
+          "kissat": 860
+        },
+        {
+          "variable": 167730,
+          "candidate": 77446,
+          "kissat": 77139
+        },
+        {
+          "variable": 168346,
+          "candidate": 77417,
+          "kissat": 77422
+        },
+        {
+          "variable": 168973,
+          "candidate": 77531,
+          "kissat": 76721
+        },
+        {
+          "variable": 170978,
+          "candidate": 77131,
+          "kissat": 77133
+        },
+        {
+          "variable": 171935,
+          "candidate": 77150,
+          "kissat": 77147
+        },
+        {
+          "variable": 172925,
+          "candidate": 3149,
+          "kissat": 1574
+        },
+        {
+          "variable": 175465,
+          "candidate": 9687,
+          "kissat": 19376
+        },
+        {
+          "variable": 175480,
+          "candidate": 9642,
+          "kissat": 4819
+        },
+        {
+          "variable": 175706,
+          "candidate": 9640,
+          "kissat": 19281
+        },
+        {
+          "variable": 175744,
+          "candidate": 4833,
+          "kissat": 2416
+        },
+        {
+          "variable": 175787,
+          "candidate": 9664,
+          "kissat": 19330
+        },
+        {
+          "variable": 175843,
+          "candidate": 4835,
+          "kissat": 9671
+        },
+        {
+          "variable": 177633,
+          "candidate": 3444,
+          "kissat": 1721
+        },
+        {
+          "variable": 180411,
+          "candidate": 77301,
+          "kissat": 77149
+        },
+        {
+          "variable": 190537,
+          "candidate": 79107,
+          "kissat": 14201
+        },
+        {
+          "variable": 196779,
+          "candidate": 77146,
+          "kissat": 77126
+        },
+        {
+          "variable": 202777,
+          "candidate": 583,
+          "kissat": 1167
+        },
+        {
+          "variable": 202781,
+          "candidate": 9342,
+          "kissat": 18685
+        },
+        {
+          "variable": 202798,
+          "candidate": 2335,
+          "kissat": 4671
+        },
+        {
+          "variable": 202804,
+          "candidate": 4670,
+          "kissat": 9342
+        },
+        {
+          "variable": 202825,
+          "candidate": 1173,
+          "kissat": 586
+        },
+        {
+          "variable": 204088,
+          "candidate": 582,
+          "kissat": 1166
+        },
+        {
+          "variable": 204206,
+          "candidate": 45101,
+          "kissat": 90203
+        },
+        {
+          "variable": 205287,
+          "candidate": 3547,
+          "kissat": 25277
+        },
+        {
+          "variable": 206097,
+          "candidate": 4830,
+          "kissat": 9661
+        },
+        {
+          "variable": 210882,
+          "candidate": 20586,
+          "kissat": 41173
+        },
+        {
+          "variable": 210915,
+          "candidate": 41173,
+          "kissat": 82348
+        },
+        {
+          "variable": 211333,
+          "candidate": 10292,
+          "kissat": 20586
+        },
+        {
+          "variable": 212224,
+          "candidate": 5145,
+          "kissat": 10292
+        },
+        {
+          "variable": 212235,
+          "candidate": 2572,
+          "kissat": 5145
+        },
+        {
+          "variable": 212766,
+          "candidate": 660,
+          "kissat": 329
+        },
+        {
+          "variable": 212779,
+          "candidate": 1321,
+          "kissat": 660
+        },
+        {
+          "variable": 212790,
+          "candidate": 2644,
+          "kissat": 1321
+        },
+        {
+          "variable": 214223,
+          "candidate": 77130,
+          "kissat": 77326
+        },
+        {
+          "variable": 215618,
+          "candidate": 14201,
+          "kissat": 7100
+        },
+        {
+          "variable": 215709,
+          "candidate": 3550,
+          "kissat": 7101
+        },
+        {
+          "variable": 228167,
+          "candidate": 87,
+          "kissat": 175
+        },
+        {
+          "variable": 230990,
+          "candidate": 38561,
+          "kissat": 77123
+        },
+        {
+          "variable": 231003,
+          "candidate": 38564,
+          "kissat": 77129
+        },
+        {
+          "variable": 231050,
+          "candidate": 77147,
+          "kissat": 38573
+        },
+        {
+          "variable": 231553,
+          "candidate": 38650,
+          "kissat": 77301
+        },
+        {
+          "variable": 231612,
+          "candidate": 38662,
+          "kissat": 77325
+        },
+        {
+          "variable": 231618,
+          "candidate": 38663,
+          "kissat": 19331
+        },
+        {
+          "variable": 231620,
+          "candidate": 77328,
+          "kissat": 38663
+        },
+        {
+          "variable": 231693,
+          "candidate": 38671,
+          "kissat": 19335
+        },
+        {
+          "variable": 231695,
+          "candidate": 77344,
+          "kissat": 38671
+        },
+        {
+          "variable": 231776,
+          "candidate": 38690,
+          "kissat": 77381
+        },
+        {
+          "variable": 231939,
+          "candidate": 290,
+          "kissat": 582
+        },
+        {
+          "variable": 232095,
+          "candidate": 38457,
+          "kissat": 76915
+        },
+        {
+          "variable": 232121,
+          "candidate": 77481,
+          "kissat": 38740
+        },
+        {
+          "variable": 232187,
+          "candidate": 38753,
+          "kissat": 77507
+        },
+        {
+          "variable": 232349,
+          "candidate": 77547,
+          "kissat": 38773
+        },
+        {
+          "variable": 232890,
+          "candidate": 333,
+          "kissat": 166
+        },
+        {
+          "variable": 233959,
+          "candidate": 9661,
+          "kissat": 19324
+        },
+        {
+          "variable": 234174,
+          "candidate": 21161,
+          "kissat": 10580
+        },
+        {
+          "variable": 234185,
+          "candidate": 10580,
+          "kissat": 5289
+        },
+        {
+          "variable": 235458,
+          "candidate": 42324,
+          "kissat": 21161
+        },
+        {
+          "variable": 235731,
+          "candidate": 43239,
+          "kissat": 21619
+        },
+        {
+          "variable": 237885,
+          "candidate": 4013,
+          "kissat": 8027
+        },
+        {
+          "variable": 238129,
+          "candidate": 2006,
+          "kissat": 4013
+        },
+        {
+          "variable": 244334,
+          "candidate": 26277,
+          "kissat": 12599
+        },
+        {
+          "variable": 245979,
+          "candidate": 16056,
+          "kissat": 32114
+        },
+        {
+          "variable": 246774,
+          "candidate": 32114,
+          "kissat": 64230
+        },
+        {
+          "variable": 247964,
+          "candidate": 77386,
+          "kissat": 77382
+        },
+        {
+          "variable": 248741,
+          "candidate": 77338,
+          "kissat": 77329
+        },
+        {
+          "variable": 253599,
+          "candidate": 63150,
+          "kissat": 77140
+        },
+        {
+          "variable": 267681,
+          "candidate": 1634,
+          "kissat": 3269
+        },
+        {
+          "variable": 269461,
+          "candidate": 77381,
+          "kissat": 31656
+        },
+        {
+          "variable": 273052,
+          "candidate": 2347,
+          "kissat": 1173
+        },
+        {
+          "variable": 277968,
+          "candidate": 816,
+          "kissat": 1634
+        },
+        {
+          "variable": 279699,
+          "candidate": 77414,
+          "kissat": 77132
+        },
+        {
+          "variable": 279703,
+          "candidate": 77123,
+          "kissat": 77414
+        },
+        {
+          "variable": 286109,
+          "candidate": 786,
+          "kissat": 392
+        },
+        {
+          "variable": 292666,
+          "candidate": 76721,
+          "kissat": 77547
+        },
+        {
+          "variable": 294132,
+          "candidate": 6890,
+          "kissat": 3444
+        },
+        {
+          "variable": 303073,
+          "candidate": 59632,
+          "kissat": 69295
+        },
+        {
+          "variable": 320821,
+          "candidate": 18685,
+          "kissat": 37372
+        },
+        {
+          "variable": 320853,
+          "candidate": 4671,
+          "kissat": 9343
+        },
+        {
+          "variable": 325772,
+          "candidate": 4696,
+          "kissat": 2347
+        },
+        {
+          "variable": 336139,
+          "candidate": 85674,
+          "kissat": 86191
+        },
+        {
+          "variable": 336812,
+          "candidate": 291,
+          "kissat": 583
+        },
+        {
+          "variable": 337224,
+          "candidate": 13080,
+          "kissat": 26162
+        },
+        {
+          "variable": 338858,
+          "candidate": 4495,
+          "kissat": 8991
+        },
+        {
+          "variable": 341456,
+          "candidate": 77149,
+          "kissat": 77350
+        },
+        {
+          "variable": 342090,
+          "candidate": 55128,
+          "kissat": 27563
+        },
+        {
+          "variable": 343212,
+          "candidate": 8991,
+          "kissat": 17983
+        },
+        {
+          "variable": 343278,
+          "candidate": 3542,
+          "kissat": 56758
+        },
+        {
+          "variable": 352085,
+          "candidate": 1123,
+          "kissat": 2247
+        },
+        {
+          "variable": 356210,
+          "candidate": 25277,
+          "kissat": 3542
+        },
+        {
+          "variable": 359079,
+          "candidate": 1574,
+          "kissat": 786
+        },
+        {
+          "variable": 359760,
+          "candidate": 280,
+          "kissat": 561
+        },
+        {
+          "variable": 363647,
+          "candidate": 77454,
+          "kissat": 77445
+        },
+        {
+          "variable": 363648,
+          "candidate": 77329,
+          "kissat": 77136
+        },
+        {
+          "variable": 369556,
+          "candidate": 28410,
+          "kissat": 14193
+        },
+        {
+          "variable": 385219,
+          "candidate": 43218,
+          "kissat": 86480
+        },
+        {
+          "variable": 398749,
+          "candidate": 1166,
+          "kissat": 2334
+        },
+        {
+          "variable": 400051,
+          "candidate": 37372,
+          "kissat": 74746
+        },
+        {
+          "variable": 403825,
+          "candidate": 77350,
+          "kissat": 77386
+        },
+        {
+          "variable": 403858,
+          "candidate": 56758,
+          "kissat": 14189
+        },
+        {
+          "variable": 403868,
+          "candidate": 13891,
+          "kissat": 55128
+        },
+        {
+          "variable": 407234,
+          "candidate": 77134,
+          "kissat": 76726
+        },
+        {
+          "variable": 407617,
+          "candidate": 77046,
+          "kissat": 77338
+        },
+        {
+          "variable": 408038,
+          "candidate": 1167,
+          "kissat": 2335
+        },
+        {
+          "variable": 412210,
+          "candidate": 63980,
+          "kissat": 85674
+        },
+        {
+          "variable": 413523,
+          "candidate": 77507,
+          "kissat": 77046
+        },
+        {
+          "variable": 420233,
+          "candidate": 77137,
+          "kissat": 77446
+        },
+        {
+          "variable": 420283,
+          "candidate": 77141,
+          "kissat": 63150
+        },
+        {
+          "variable": 422033,
+          "candidate": 3269,
+          "kissat": 6539
+        },
+        {
+          "variable": 423423,
+          "candidate": 31493,
+          "kissat": 67981
+        },
+        {
+          "variable": 423871,
+          "candidate": 37576,
+          "kissat": 18787
+        },
+        {
+          "variable": 427518,
+          "candidate": 1081,
+          "kissat": 540
+        },
+        {
+          "variable": 428875,
+          "candidate": 8661,
+          "kissat": 4330
+        },
+        {
+          "variable": 430603,
+          "candidate": 69295,
+          "kissat": 34647
+        },
+        {
+          "variable": 447697,
+          "candidate": 33990,
+          "kissat": 16994
+        },
+        {
+          "variable": 448020,
+          "candidate": 4247,
+          "kissat": 2123
+        },
+        {
+          "variable": 449344,
+          "candidate": 67981,
+          "kissat": 33990
+        },
+        {
+          "variable": 450764,
+          "candidate": 4330,
+          "kissat": 2164
+        },
+        {
+          "variable": 454206,
+          "candidate": 8496,
+          "kissat": 4247
+        },
+        {
+          "variable": 455464,
+          "candidate": 34647,
+          "kissat": 17323
+        },
+        {
+          "variable": 456042,
+          "candidate": 16994,
+          "kissat": 8496
+        },
+        {
+          "variable": 456923,
+          "candidate": 17323,
+          "kissat": 8661
+        },
+        {
+          "variable": 457144,
+          "candidate": 10809,
+          "kissat": 5404
+        },
+        {
+          "variable": 461961,
+          "candidate": 5406,
+          "kissat": 10814
+        },
+        {
+          "variable": 464461,
+          "candidate": 561,
+          "kissat": 1123
+        },
+        {
+          "variable": 465548,
+          "candidate": 77118,
+          "kissat": 77482
+        },
+        {
+          "variable": 467388,
+          "candidate": 1002,
+          "kissat": 2006
+        },
+        {
+          "variable": 469053,
+          "candidate": 540,
+          "kissat": 269
+        },
+        {
+          "variable": 471007,
+          "candidate": 2247,
+          "kissat": 4495
+        },
+        {
+          "variable": 471900,
+          "candidate": 2164,
+          "kissat": 1081
+        },
+        {
+          "variable": 474377,
+          "candidate": 8027,
+          "kissat": 16056
+        },
+        {
+          "variable": 482437,
+          "candidate": 43679,
+          "kissat": 79107
+        },
+        {
+          "variable": 485002,
+          "candidate": 31656,
+          "kissat": 7953
+        },
+        {
+          "variable": 485057,
+          "candidate": 27563,
+          "kissat": 13781
+        },
+        {
+          "variable": 486105,
+          "candidate": 92510,
+          "kissat": 26277
+        },
+        {
+          "variable": 486115,
+          "candidate": 82348,
+          "kissat": 13991
+        },
+        {
+          "variable": 486987,
+          "candidate": 77326,
+          "kissat": 77130
+        },
+        {
+          "variable": 488185,
+          "candidate": 22550,
+          "kissat": 45101
+        },
+        {
+          "variable": 488194,
+          "candidate": 5289,
+          "kissat": 2644
+        },
+        {
+          "variable": 488944,
+          "candidate": 17983,
+          "kissat": 35968
+        },
+        {
+          "variable": 489067,
+          "candidate": 429,
+          "kissat": 203
+        },
+        {
+          "variable": 493521,
+          "candidate": 603,
+          "kissat": 301
+        },
+        {
+          "variable": 493643,
+          "candidate": 166,
+          "kissat": 2572
+        },
+        {
+          "variable": 493939,
+          "candidate": 2420,
+          "kissat": 1208
+        },
+        {
+          "variable": 494080,
+          "candidate": 76921,
+          "kissat": 76906
+        },
+        {
+          "variable": 494200,
+          "candidate": 9343,
+          "kissat": 18688
+        }
+      ]
+    },
+    "preceding": {
+      "key": [
+        272979,
+        76952961,
+        "Substitute_begin",
+        0
+      ],
+      "candidate": {
+        "label": "Substitute_begin",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92658
+      },
+      "kissat": {
+        "label": "substitute_early_begin",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92658
+      },
+      "counts": {
+        "candidate_only": 0,
+        "kissat_only": 0,
+        "score": 0,
+        "assigned": 0,
+        "active": 0,
+        "position": 0
+      }
+    }
+  },
+  "unmatched": {
+    "candidate": [
+      {
+        "label": "congruence-dense-resume_entry",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92675,
+        "offset": 4010779,
+        "ordinal": 2
+      },
+      {
+        "label": "congruence-dense-resume_first",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92675,
+        "offset": 6230121,
+        "ordinal": 3
+      },
+      {
+        "label": "congruence-dense-resume_second-entry",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92675,
+        "offset": 8449463,
+        "ordinal": 4
+      },
+      {
+        "label": "congruence-dense-resume_second",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92675,
+        "offset": 10668812,
+        "ordinal": 5
+      },
+      {
+        "label": "vivify-dense-resume_entry",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92531,
+        "offset": 26185813,
+        "ordinal": 12
+      },
+      {
+        "label": "vivify-dense-resume_resume",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92531,
+        "offset": 28400592,
+        "ordinal": 13
+      },
+      {
+        "label": "vivify-dense-resume_entry",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92531,
+        "offset": 30615372,
+        "ordinal": 14
+      },
+      {
+        "label": "vivify-dense-resume_resume",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92531,
+        "offset": 32830151,
+        "ordinal": 15
+      },
+      {
+        "label": "vivify-dense-resume_entry",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92531,
+        "offset": 35044931,
+        "ordinal": 16
+      },
+      {
+        "label": "vivify-dense-resume_resume",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92531,
+        "offset": 37259710,
+        "ordinal": 17
+      },
+      {
+        "label": "vivify-dense-resume_entry",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92531,
+        "offset": 39474490,
+        "ordinal": 18
+      },
+      {
+        "label": "vivify-dense-resume_resume",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92531,
+        "offset": 41689269,
+        "ordinal": 19
+      },
+      {
+        "label": "Factor_admitted",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92462,
+        "offset": 66041653,
+        "ordinal": 30
+      },
+      {
+        "label": "Factor_applied",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92476,
+        "offset": 68254666,
+        "ordinal": 31
+      },
+      {
+        "label": "congruence-dense-resume_entry",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92476,
+        "offset": 74894498,
+        "ordinal": 34
+      },
+      {
+        "label": "congruence-dense-resume_first",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92476,
+        "offset": 77107791,
+        "ordinal": 35
+      },
+      {
+        "label": "congruence-dense-resume_second-entry",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92476,
+        "offset": 79321084,
+        "ordinal": 36
+      },
+      {
+        "label": "congruence-dense-resume_second",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92476,
+        "offset": 81534384,
+        "ordinal": 37
+      },
+      {
+        "label": "vivify-dense-resume_entry",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92449,
+        "offset": 97023146,
+        "ordinal": 44
+      },
+      {
+        "label": "vivify-dense-resume_resume",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92449,
+        "offset": 99235472,
+        "ordinal": 45
+      },
+      {
+        "label": "vivify-dense-resume_entry",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92449,
+        "offset": 101447799,
+        "ordinal": 46
+      },
+      {
+        "label": "vivify-dense-resume_resume",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92449,
+        "offset": 103660125,
+        "ordinal": 47
+      },
+      {
+        "label": "vivify-dense-resume_entry",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92449,
+        "offset": 105872452,
+        "ordinal": 48
+      },
+      {
+        "label": "vivify-dense-resume_resume",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92449,
+        "offset": 108084778,
+        "ordinal": 49
+      },
+      {
+        "label": "vivify-dense-resume_entry",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92449,
+        "offset": 110297105,
+        "ordinal": 50
+      },
+      {
+        "label": "vivify-dense-resume_resume",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92449,
+        "offset": 112509431,
+        "ordinal": 51
+      },
+      {
+        "label": "Factor_admitted",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92343,
+        "offset": 136831586,
+        "ordinal": 62
+      },
+      {
+        "label": "Factor_applied",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92344,
+        "offset": 139041528,
+        "ordinal": 63
+      }
+    ],
+    "kissat": [
+      {
+        "label": "congruence_dense_entry",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92675,
+        "offset": 4010779,
+        "ordinal": 2
+      },
+      {
+        "label": "congruence_dense_first",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92675,
+        "offset": 6230114,
+        "ordinal": 3
+      },
+      {
+        "label": "congruence_dense_second_entry",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92658,
+        "offset": 8449449,
+        "ordinal": 4
+      },
+      {
+        "label": "congruence_dense_second",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92658,
+        "offset": 10668448,
+        "ordinal": 5
+      },
+      {
+        "label": "vivify_dense_entry",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92531,
+        "offset": 26185123,
+        "ordinal": 12
+      },
+      {
+        "label": "vivify_dense_resume",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92531,
+        "offset": 28399895,
+        "ordinal": 13
+      },
+      {
+        "label": "vivify_dense_entry",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92531,
+        "offset": 30614668,
+        "ordinal": 14
+      },
+      {
+        "label": "vivify_dense_resume",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92531,
+        "offset": 32829440,
+        "ordinal": 15
+      },
+      {
+        "label": "vivify_dense_entry",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92528,
+        "offset": 35044213,
+        "ordinal": 16
+      },
+      {
+        "label": "vivify_dense_resume",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92528,
+        "offset": 37258864,
+        "ordinal": 17
+      },
+      {
+        "label": "vivify_dense_entry",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92528,
+        "offset": 39473516,
+        "ordinal": 18
+      },
+      {
+        "label": "vivify_dense_resume",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92528,
+        "offset": 41688167,
+        "ordinal": 19
+      },
+      {
+        "label": "factor_admitted",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92462,
+        "offset": 66040431,
+        "ordinal": 30
+      },
+      {
+        "label": "factor_applied",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92476,
+        "offset": 68253444,
+        "ordinal": 31
+      },
+      {
+        "label": "congruence_dense_entry",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92476,
+        "offset": 74893276,
+        "ordinal": 34
+      },
+      {
+        "label": "congruence_dense_first",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92476,
+        "offset": 77106562,
+        "ordinal": 35
+      },
+      {
+        "label": "congruence_dense_second_entry",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92470,
+        "offset": 79319848,
+        "ordinal": 36
+      },
+      {
+        "label": "congruence_dense_second",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92470,
+        "offset": 81532968,
+        "ordinal": 37
+      },
+      {
+        "label": "vivify_dense_entry",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92449,
+        "offset": 97021574,
+        "ordinal": 44
+      },
+      {
+        "label": "vivify_dense_resume",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92449,
+        "offset": 99233893,
+        "ordinal": 45
+      },
+      {
+        "label": "vivify_dense_entry",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92447,
+        "offset": 101446213,
+        "ordinal": 46
+      },
+      {
+        "label": "vivify_dense_resume",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92447,
+        "offset": 103658473,
+        "ordinal": 47
+      },
+      {
+        "label": "vivify_dense_entry",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92447,
+        "offset": 105870734,
+        "ordinal": 48
+      },
+      {
+        "label": "vivify_dense_resume",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92447,
+        "offset": 108082994,
+        "ordinal": 49
+      },
+      {
+        "label": "vivify_dense_entry",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92447,
+        "offset": 110295255,
+        "ordinal": 50
+      },
+      {
+        "label": "vivify_dense_resume",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92447,
+        "offset": 112507515,
+        "ordinal": 51
+      },
+      {
+        "label": "factor_admitted",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92343,
+        "offset": 136829612,
+        "ordinal": 62
+      },
+      {
+        "label": "factor_applied",
+        "conflicts": 272979,
+        "decisions": 76952961,
+        "size": 92344,
+        "offset": 139039554,
+        "ordinal": 63
+      }
+    ]
+  },
+  "limitation": "Only explicit known names normalized; unmatched sites retained. First differing shared snapshot brackets a transition,not its exact update. Complete heap equality does not imply other formula/assignment/reason state equality."
+}
