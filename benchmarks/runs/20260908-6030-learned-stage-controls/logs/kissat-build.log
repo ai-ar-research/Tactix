@@ -1,0 +1,116 @@
+make -C "/home/hwu/SAT-solving/tools/solvers/variants/kissat-learned-stage-6030/build"
+make[1]: Entering directory '/home/hwu/SAT-solving/tools/solvers/variants/kissat-learned-stage-6030/build'
+gcc -W -Wall -O3 -DNDEBUG -c ../src/allocate.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/analyze.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/ands.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/arena.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/assign.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/averages.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/backbone.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/backtrack.c
+../scripts/generate-build-header.sh > build.h
+gcc -W -Wall -O3 -DNDEBUG -c ../src/bump.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/check.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/classify.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/clause.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/collect.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/colors.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/compact.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/config.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/congruence.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/decide.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/deduce.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/definition.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/dense.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/dump.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/eliminate.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/equivalences.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/error.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/eventtrace.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/extend.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/factor.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/fastel.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/file.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/flags.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/format.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/forward.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/gates.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/heap.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/ifthenelse.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/import.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/internal.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/kimits.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/kitten.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/krite.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/learn.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/logging.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/lucky.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/minimize.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/mode.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/options.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/phases.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/preprocess.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/print.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/probe.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/profile.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/promote.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/proof.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/propbeyond.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/propdense.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/propinitially.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/proprobe.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/propsearch.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/queue.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/reduce.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/reluctant.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/reorder.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/rephase.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/report.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/resize.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/resolve.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/resources.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/restart.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/rulejournal.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/search.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/shrink.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/smooth.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/sort.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/statistics.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/strengthen.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/substitute.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/sweep.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/terminate.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/tiers.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/trail.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/transitive.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/utilities.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/vector.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/vivify.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/walk.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/warmup.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/watch.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/weaken.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/main.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/application.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/handle.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/parse.c
+gcc -W -Wall -O3 -DNDEBUG -c ../src/witness.c
+../src/eventtrace.c: In function ‘kissat_event_trace_factor_fresh’:
+../src/eventtrace.c:163:44: warning: ‘%s’ directive output may be truncated writing up to 4095 bytes into a region of size 499 [-Wformat-truncation=]
+  163 |   snprintf (selector, sizeof selector, "%s|%s", event,
+      |                                            ^~
+......
+ 4679 |       !exit_selector_matches ("factor_fresh", payload, trace_exit_match))
+      |        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+In function ‘exit_selector_matches’,
+    inlined from ‘exit_selector_matches’ at ../src/eventtrace.c:151:13,
+    inlined from ‘kissat_event_trace_factor_fresh’ at ../src/eventtrace.c:4679:8:
+../src/eventtrace.c:163:3: note: ‘snprintf’ output between 14 and 4109 bytes into a destination of size 512
+  163 |   snprintf (selector, sizeof selector, "%s|%s", event,
+      |   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  164 |             payload ? payload : "-");
+      |             ~~~~~~~~~~~~~~~~~~~~~~~~
+gcc -W -Wall -O3 -DNDEBUG -I../build -c ../src/build.c
+ar rc libkissat.a allocate.o analyze.o ands.o arena.o assign.o averages.o backbone.o backtrack.o build.o bump.o check.o classify.o clause.o collect.o colors.o compact.o config.o congruence.o decide.o deduce.o definition.o dense.o dump.o eliminate.o equivalences.o error.o eventtrace.o extend.o factor.o fastel.o file.o flags.o format.o forward.o gates.o heap.o ifthenelse.o import.o internal.o kimits.o kitten.o krite.o learn.o logging.o lucky.o minimize.o mode.o options.o phases.o preprocess.o print.o probe.o profile.o promote.o proof.o propbeyond.o propdense.o propinitially.o proprobe.o propsearch.o queue.o reduce.o reluctant.o reorder.o rephase.o report.o resize.o resolve.o resources.o restart.o rulejournal.o search.o shrink.o smooth.o sort.o statistics.o strengthen.o substitute.o sweep.o terminate.o tiers.o trail.o transitive.o utilities.o vector.o vivify.o walk.o warmup.o watch.o weaken.o
+gcc -o kissat main.o application.o handle.o parse.o witness.o libkissat.a -lm
+make[1]: Leaving directory '/home/hwu/SAT-solving/tools/solvers/variants/kissat-learned-stage-6030/build'
