@@ -1,0 +1,466 @@
+{
+  "rank": 32,
+  "stop": 3000000,
+  "prefixes": {
+    "candidate": {
+      "solver": "tactix",
+      "conflict": 3000000,
+      "start_decisions": 18446744073709306145,
+      "end_decisions": 155945334,
+      "count": 156190805,
+      "hash": "f88af7573bb3b477",
+      "common": 96083379,
+      "common_reached": 1,
+      "common_hash": "33974c0cb2f02138",
+      "first": 489816,
+      "common_last": -409107,
+      "last": -120113,
+      "max_level": 45166
+    },
+    "kissat": {
+      "solver": "kissat",
+      "conflict": 3000000,
+      "start_decisions": 18446744073709309354,
+      "end_decisions": 152934709,
+      "count": 153176971,
+      "hash": "04c83d406b3efa94",
+      "common": 96083379,
+      "common_reached": 1,
+      "common_hash": "33974c0cb2f02138",
+      "first": 489816,
+      "common_last": -409107,
+      "last": -22489,
+      "max_level": 45166
+    }
+  },
+  "suffix_rows": {
+    "candidate": 60107427,
+    "kissat": 57093593
+  },
+  "validated_overlap_rows": 1,
+  "decisions": {
+    "matching_rows": 9484607,
+    "left": [
+      1368117,
+      105360626,
+      5795,
+      444866,
+      0
+    ],
+    "right": [
+      1368117,
+      105360626,
+      5795,
+      -438418,
+      0
+    ],
+    "complete_equal": false
+  },
+  "matching_decisions_from_start": 105567985,
+  "boundaries_all": {
+    "equal": false,
+    "candidate_rows": 1470,
+    "kissat_rows": 1470,
+    "first": {
+      "index": 0,
+      "candidate": {
+        "name": "Congruence",
+        "stage": "begin",
+        "conflicts": 0,
+        "decisions": 0,
+        "active": 489816,
+        "irred": 650774,
+        "red": 0,
+        "binary": 906098
+      },
+      "kissat": {
+        "name": "Congruence",
+        "stage": "begin",
+        "conflicts": 0,
+        "decisions": 0,
+        "active": 489816,
+        "irred": 650774,
+        "red": 0,
+        "binary": 906170
+      },
+      "preceding_candidate": [],
+      "preceding_kissat": []
+    }
+  },
+  "boundaries_search": {
+    "equal": false,
+    "candidate_rows": 1460,
+    "kissat_rows": 1460,
+    "first": {
+      "index": 89,
+      "candidate": {
+        "name": "Sweep",
+        "stage": "end",
+        "conflicts": 19375,
+        "decisions": 18522616,
+        "active": 158994,
+        "irred": 586151,
+        "red": 2576,
+        "binary": 213757
+      },
+      "kissat": {
+        "name": "Sweep",
+        "stage": "end",
+        "conflicts": 19375,
+        "decisions": 18522616,
+        "active": 158994,
+        "irred": 586151,
+        "red": 2576,
+        "binary": 213761
+      },
+      "preceding_candidate": [
+        {
+          "name": "Vivify",
+          "stage": "begin",
+          "conflicts": 19375,
+          "decisions": 18522616,
+          "active": 159050,
+          "irred": 594731,
+          "red": 3937,
+          "binary": 213469
+        },
+        {
+          "name": "Vivify",
+          "stage": "end",
+          "conflicts": 19375,
+          "decisions": 18522616,
+          "active": 159001,
+          "irred": 586474,
+          "red": 2576,
+          "binary": 213599
+        },
+        {
+          "name": "Sweep",
+          "stage": "begin",
+          "conflicts": 19375,
+          "decisions": 18522616,
+          "active": 159001,
+          "irred": 586474,
+          "red": 2576,
+          "binary": 213599
+        }
+      ],
+      "preceding_kissat": [
+        {
+          "name": "Vivify",
+          "stage": "begin",
+          "conflicts": 19375,
+          "decisions": 18522616,
+          "active": 159050,
+          "irred": 594731,
+          "red": 3937,
+          "binary": 213469
+        },
+        {
+          "name": "Vivify",
+          "stage": "end",
+          "conflicts": 19375,
+          "decisions": 18522616,
+          "active": 159001,
+          "irred": 586474,
+          "red": 2576,
+          "binary": 213599
+        },
+        {
+          "name": "Sweep",
+          "stage": "begin",
+          "conflicts": 19375,
+          "decisions": 18522616,
+          "active": 159001,
+          "irred": 586474,
+          "red": 2576,
+          "binary": 213599
+        }
+      ]
+    }
+  },
+  "last_boundaries_before_first_decision_difference": {
+    "candidate": [
+      {
+        "name": "Backbone",
+        "stage": "begin",
+        "conflicts": 1258787,
+        "decisions": 103238213,
+        "active": 65588,
+        "irred": 420723,
+        "red": 76791,
+        "binary": 96732
+      },
+      {
+        "name": "Backbone",
+        "stage": "end",
+        "conflicts": 1258787,
+        "decisions": 103238213,
+        "active": 65588,
+        "irred": 420723,
+        "red": 76791,
+        "binary": 96732
+      },
+      {
+        "name": "Factor",
+        "stage": "begin",
+        "conflicts": 1258787,
+        "decisions": 103238213,
+        "active": 65588,
+        "irred": 420723,
+        "red": 76791,
+        "binary": 96732
+      },
+      {
+        "name": "Factor",
+        "stage": "end",
+        "conflicts": 1258787,
+        "decisions": 103238213,
+        "active": 65588,
+        "irred": 420723,
+        "red": 76791,
+        "binary": 96732
+      },
+      {
+        "name": "Strengthen",
+        "stage": "begin",
+        "conflicts": 1366932,
+        "decisions": 105211555,
+        "active": 65588,
+        "irred": 420715,
+        "red": 94609,
+        "binary": 97088
+      },
+      {
+        "name": "Strengthen",
+        "stage": "end",
+        "conflicts": 1366932,
+        "decisions": 105211555,
+        "active": 65588,
+        "irred": 418089,
+        "red": 94609,
+        "binary": 97103
+      },
+      {
+        "name": "BVE",
+        "stage": "begin",
+        "conflicts": 1366932,
+        "decisions": 105211555,
+        "active": 65588,
+        "irred": 418089,
+        "red": 94609,
+        "binary": 97103
+      },
+      {
+        "name": "BVE",
+        "stage": "end",
+        "conflicts": 1366932,
+        "decisions": 105211555,
+        "active": 65018,
+        "irred": 422208,
+        "red": 94609,
+        "binary": 96293
+      },
+      {
+        "name": "Strengthen",
+        "stage": "begin",
+        "conflicts": 1366932,
+        "decisions": 105211555,
+        "active": 65018,
+        "irred": 422208,
+        "red": 94609,
+        "binary": 96293
+      },
+      {
+        "name": "Strengthen",
+        "stage": "end",
+        "conflicts": 1366932,
+        "decisions": 105211555,
+        "active": 65018,
+        "irred": 418809,
+        "red": 94609,
+        "binary": 96271
+      },
+      {
+        "name": "BVE",
+        "stage": "begin",
+        "conflicts": 1366932,
+        "decisions": 105211555,
+        "active": 65018,
+        "irred": 418809,
+        "red": 94609,
+        "binary": 96271
+      },
+      {
+        "name": "BVE",
+        "stage": "end",
+        "conflicts": 1366932,
+        "decisions": 105211555,
+        "active": 64862,
+        "irred": 418786,
+        "red": 94609,
+        "binary": 96075
+      }
+    ],
+    "kissat": [
+      {
+        "name": "Backbone",
+        "stage": "begin",
+        "conflicts": 1258787,
+        "decisions": 103238213,
+        "active": 65588,
+        "irred": 420723,
+        "red": 76791,
+        "binary": 96732
+      },
+      {
+        "name": "Backbone",
+        "stage": "end",
+        "conflicts": 1258787,
+        "decisions": 103238213,
+        "active": 65588,
+        "irred": 420723,
+        "red": 76791,
+        "binary": 96732
+      },
+      {
+        "name": "Factor",
+        "stage": "begin",
+        "conflicts": 1258787,
+        "decisions": 103238213,
+        "active": 65588,
+        "irred": 420723,
+        "red": 76791,
+        "binary": 96732
+      },
+      {
+        "name": "Factor",
+        "stage": "end",
+        "conflicts": 1258787,
+        "decisions": 103238213,
+        "active": 65588,
+        "irred": 420723,
+        "red": 76791,
+        "binary": 96732
+      },
+      {
+        "name": "Strengthen",
+        "stage": "begin",
+        "conflicts": 1366932,
+        "decisions": 105211555,
+        "active": 65588,
+        "irred": 420715,
+        "red": 94609,
+        "binary": 97088
+      },
+      {
+        "name": "Strengthen",
+        "stage": "end",
+        "conflicts": 1366932,
+        "decisions": 105211555,
+        "active": 65588,
+        "irred": 418089,
+        "red": 94609,
+        "binary": 97103
+      },
+      {
+        "name": "BVE",
+        "stage": "begin",
+        "conflicts": 1366932,
+        "decisions": 105211555,
+        "active": 65588,
+        "irred": 418089,
+        "red": 94609,
+        "binary": 97103
+      },
+      {
+        "name": "BVE",
+        "stage": "end",
+        "conflicts": 1366932,
+        "decisions": 105211555,
+        "active": 65019,
+        "irred": 422193,
+        "red": 94609,
+        "binary": 96295
+      },
+      {
+        "name": "Strengthen",
+        "stage": "begin",
+        "conflicts": 1366932,
+        "decisions": 105211555,
+        "active": 65019,
+        "irred": 422193,
+        "red": 94609,
+        "binary": 96295
+      },
+      {
+        "name": "Strengthen",
+        "stage": "end",
+        "conflicts": 1366932,
+        "decisions": 105211555,
+        "active": 65019,
+        "irred": 418798,
+        "red": 94609,
+        "binary": 96273
+      },
+      {
+        "name": "BVE",
+        "stage": "begin",
+        "conflicts": 1366932,
+        "decisions": 105211555,
+        "active": 65019,
+        "irred": 418798,
+        "red": 94609,
+        "binary": 96273
+      },
+      {
+        "name": "BVE",
+        "stage": "end",
+        "conflicts": 1366932,
+        "decisions": 105211555,
+        "active": 64863,
+        "irred": 418775,
+        "red": 94609,
+        "binary": 96077
+      }
+    ]
+  },
+  "ignored_boundary_names": {
+    "candidate": {
+      "SparseCollect": 2
+    },
+    "kissat": {
+      "trace": 1,
+      "startup": 1,
+      "lucky_early": 2,
+      "preprocess": 2,
+      "lucky_late": 2,
+      "restart": 73170,
+      "reduce": 546,
+      "switch": 74,
+      "rephase": 80,
+      "probe": 74,
+      "reorder": 48,
+      "eliminate": 32
+    }
+  },
+  "hashes": {
+    "benchmarks/runs/20260909-6303-rank32-later-prefix/manifest.json": "153d22ce3b6df2b75a5186dc599803c61955db780e4e5ec46b3d011741ef935a",
+    "benchmarks/runs/20260909-6303-rank32-later-prefix/launch.json": "23de78130751d0dd0e35ef397f8c141fc3731eacd5b692bdf6b4f23fcaa015d0",
+    "benchmarks/runs/20260909-6303-rank32-later-prefix/results/candidate.json": "79f22624c6f6ee12087f10edbe92614da9a48b1073b3514e34c156d67c39ada3",
+    "benchmarks/runs/20260909-6303-rank32-later-prefix/traces/candidate.macro.tsv": "b4eca4f9b561a6b424842842294945ee113ecb9c23788a8e4a004ee8d2b2dd58",
+    "benchmarks/runs/20260909-6303-rank32-later-prefix/traces/candidate.boundaries.tsv": "f41fd640b0f996c4d94bbbf8c925ae933dbaa0088f55e25db76e312c78b54b6c",
+    "benchmarks/runs/20260909-6303-rank32-later-prefix/traces/candidate.retry-producer.tsv": "67b9ca0ac1b5c7f8cf7cb64f34e4df939b680c26a896870903643c25874d773d",
+    "benchmarks/runs/20260909-6303-rank32-later-prefix/traces/candidate.decisions.tsv": "fca6d18a80d74a002a749d8169e7b424aa69b43162d9cf0a0b7d413350d2d9e2",
+    "benchmarks/runs/20260909-6303-rank32-later-prefix/traces/candidate.prefix.tsv": "8874d40e7939d6947b03555bb3f1cccc041df109742df185831007d184d74eef",
+    "benchmarks/runs/20260909-6303-rank32-later-prefix/results/kissat.json": "4e6b7d27473cdee93d27474c19295e1dc88f4bd0c00cd44b774431890b5ae837",
+    "benchmarks/runs/20260909-6303-rank32-later-prefix/traces/kissat.boundaries.tsv": "cc64740cf6273acbc550da27839bc3ce243cf824b2ab29d1edf0d09b84d289d6",
+    "benchmarks/runs/20260909-6303-rank32-later-prefix/traces/kissat.prefix.tsv": "134f9976f40cfb334c7619646c031d8c3fb67ace3d442990481880ccdcfe26b3",
+    "benchmarks/runs/20260909-6303-rank32-later-prefix/traces/kissat.decisions.tsv": "62e0940d953c2c7ebd615377683439289b2fce942d0eeba0c6d34c9ac7b21341",
+    "benchmarks/runs/20260909-6276-vivify-binary-rank32-prefix/traces/candidate.retry-producer.tsv": "67b9ca0ac1b5c7f8cf7cb64f34e4df939b680c26a896870903643c25874d773d",
+    "benchmarks/runs/20260909-6276-vivify-binary-rank32-prefix/traces/candidate.macro.tsv": "5e954330811eabdbf54ae7ea37386ff2028b105d8fd024a9d1d1209dd5e69c43",
+    "benchmarks/runs/20260909-6276-vivify-binary-rank32-prefix/traces/candidate.boundaries.tsv": "9e4271a3cd76444bc7e700a34f58ba51a2bb274d7a725783f56bd76d61eec426",
+    "benchmarks/runs/20260909-6183-rank32-current-prefix/traces/kissat.boundaries.tsv": "f5a3e7685ba3d3c2a59addf262d585582171d9b9504965a03194fad599626f2d"
+  },
+  "limitation": "First selected decision split after a validated cached prefix,not its causal explanation or full-solve identity. Portable count boundaries do not prove formula,heap,effort parity. Both partial certificates were deleted; no final proof or timing claim."
+}
