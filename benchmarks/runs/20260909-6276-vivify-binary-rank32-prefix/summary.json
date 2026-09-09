@@ -1,0 +1,205 @@
+{
+  "rank": 32,
+  "stop": 1000000,
+  "prefixes": {
+    "candidate": {
+      "solver": "tactix",
+      "conflict": 1000000,
+      "start_decisions": 18446744073709354942,
+      "end_decisions": 95886705,
+      "count": 96083379,
+      "hash": "33974c0cb2f02138",
+      "common": 69828932,
+      "common_reached": 1,
+      "common_hash": "10d4b4ca139060f5",
+      "first": 489816,
+      "common_last": -50710,
+      "last": -409107,
+      "max_level": 45166
+    },
+    "kissat": {
+      "solver": "kissat",
+      "conflict": 1000000,
+      "start_decisions": 18446744073709354942,
+      "end_decisions": 95886705,
+      "count": 96083379,
+      "hash": "33974c0cb2f02138",
+      "common": 69828932,
+      "common_reached": 1,
+      "common_hash": "10d4b4ca139060f5",
+      "first": 489816,
+      "common_last": -50710,
+      "last": -409107,
+      "max_level": 45166
+    }
+  },
+  "suffix_rows": {
+    "candidate": 26254700,
+    "kissat": 26254700
+  },
+  "validated_overlap_rows": 253,
+  "decisions": {
+    "matching_rows": 26254700,
+    "left": null,
+    "right": null,
+    "complete_equal": true
+  },
+  "matching_decisions_from_start": 96083379,
+  "boundaries_all": {
+    "equal": false,
+    "candidate_rows": 882,
+    "kissat_rows": 882,
+    "first": {
+      "index": 0,
+      "candidate": {
+        "name": "Congruence",
+        "stage": "begin",
+        "conflicts": 0,
+        "decisions": 0,
+        "active": 489816,
+        "irred": 650774,
+        "red": 0,
+        "binary": 906098
+      },
+      "kissat": {
+        "name": "Congruence",
+        "stage": "begin",
+        "conflicts": 0,
+        "decisions": 0,
+        "active": 489816,
+        "irred": 650774,
+        "red": 0,
+        "binary": 906170
+      },
+      "preceding_candidate": [],
+      "preceding_kissat": []
+    }
+  },
+  "boundaries_search": {
+    "equal": false,
+    "candidate_rows": 872,
+    "kissat_rows": 872,
+    "first": {
+      "index": 89,
+      "candidate": {
+        "name": "Sweep",
+        "stage": "end",
+        "conflicts": 19375,
+        "decisions": 18522616,
+        "active": 158994,
+        "irred": 586151,
+        "red": 2576,
+        "binary": 213757
+      },
+      "kissat": {
+        "name": "Sweep",
+        "stage": "end",
+        "conflicts": 19375,
+        "decisions": 18522616,
+        "active": 158994,
+        "irred": 586151,
+        "red": 2576,
+        "binary": 213761
+      },
+      "preceding_candidate": [
+        {
+          "name": "Vivify",
+          "stage": "begin",
+          "conflicts": 19375,
+          "decisions": 18522616,
+          "active": 159050,
+          "irred": 594731,
+          "red": 3937,
+          "binary": 213469
+        },
+        {
+          "name": "Vivify",
+          "stage": "end",
+          "conflicts": 19375,
+          "decisions": 18522616,
+          "active": 159001,
+          "irred": 586474,
+          "red": 2576,
+          "binary": 213599
+        },
+        {
+          "name": "Sweep",
+          "stage": "begin",
+          "conflicts": 19375,
+          "decisions": 18522616,
+          "active": 159001,
+          "irred": 586474,
+          "red": 2576,
+          "binary": 213599
+        }
+      ],
+      "preceding_kissat": [
+        {
+          "name": "Vivify",
+          "stage": "begin",
+          "conflicts": 19375,
+          "decisions": 18522616,
+          "active": 159050,
+          "irred": 594731,
+          "red": 3937,
+          "binary": 213469
+        },
+        {
+          "name": "Vivify",
+          "stage": "end",
+          "conflicts": 19375,
+          "decisions": 18522616,
+          "active": 159001,
+          "irred": 586474,
+          "red": 2576,
+          "binary": 213599
+        },
+        {
+          "name": "Sweep",
+          "stage": "begin",
+          "conflicts": 19375,
+          "decisions": 18522616,
+          "active": 159001,
+          "irred": 586474,
+          "red": 2576,
+          "binary": 213599
+        }
+      ]
+    }
+  },
+  "last_boundaries_before_first_decision_difference": {},
+  "ignored_boundary_names": {
+    "candidate": {
+      "SparseCollect": 2
+    },
+    "kissat": {
+      "trace": 1,
+      "startup": 1,
+      "lucky_early": 2,
+      "preprocess": 2,
+      "lucky_late": 2,
+      "restart": 29610,
+      "reduce": 262,
+      "switch": 46,
+      "rephase": 52,
+      "probe": 44,
+      "reorder": 28,
+      "eliminate": 20
+    }
+  },
+  "hashes": {
+    "benchmarks/runs/20260909-6276-vivify-binary-rank32-prefix/manifest.json": "2de852101059a5c4f390251dc99bb27da7bd959b9607487e724ed6719af0f535",
+    "benchmarks/runs/20260909-6276-vivify-binary-rank32-prefix/launch.json": "817501d0a30c8378593e9304a854c7b897159c4ce22da52303e26937d246491d",
+    "benchmarks/runs/20260909-6276-vivify-binary-rank32-prefix/results/candidate.json": "05eb209b7278a9b2cf0a9d6145e9f8a7b875a3e872165d88c41ae5345de0abae",
+    "benchmarks/runs/20260909-6276-vivify-binary-rank32-prefix/traces/candidate.prefix.tsv": "3b1bc8a8d138ba30f528e91931241c82bcca295ce8ee788603805b0f30144487",
+    "benchmarks/runs/20260909-6276-vivify-binary-rank32-prefix/traces/candidate.retry-producer.tsv": "67b9ca0ac1b5c7f8cf7cb64f34e4df939b680c26a896870903643c25874d773d",
+    "benchmarks/runs/20260909-6276-vivify-binary-rank32-prefix/traces/candidate.macro.tsv": "5e954330811eabdbf54ae7ea37386ff2028b105d8fd024a9d1d1209dd5e69c43",
+    "benchmarks/runs/20260909-6276-vivify-binary-rank32-prefix/traces/candidate.boundaries.tsv": "9e4271a3cd76444bc7e700a34f58ba51a2bb274d7a725783f56bd76d61eec426",
+    "benchmarks/runs/20260909-6276-vivify-binary-rank32-prefix/traces/candidate.decisions.tsv": "d32fe95d3ed218bf5f852c4405599de068876b0d55c07b8ff15e9f0933f9df73",
+    "benchmarks/runs/20260909-6183-rank32-current-prefix/results/kissat.json": "73c99c8e8f472f00d1c9c4bd819be642d44cb8cb757810fd435243fbf5a8ba7e",
+    "benchmarks/runs/20260909-6183-rank32-current-prefix/traces/kissat.decisions.tsv": "d32fe95d3ed218bf5f852c4405599de068876b0d55c07b8ff15e9f0933f9df73",
+    "benchmarks/runs/20260909-6183-rank32-current-prefix/traces/kissat.prefix.tsv": "1ea5f414036d92c03bb91e1dca557e1f616f6f78c323a16ea2137ab2ca59cdc7",
+    "benchmarks/runs/20260909-6183-rank32-current-prefix/traces/kissat.boundaries.tsv": "f5a3e7685ba3d3c2a59addf262d585582171d9b9504965a03194fad599626f2d"
+  },
+  "limitation": "First selected decision split after a validated cached prefix,not its causal explanation or full-solve identity. Portable count boundaries do not prove formula,heap,effort parity. Both partial certificates were deleted; no final proof or timing claim."
+}

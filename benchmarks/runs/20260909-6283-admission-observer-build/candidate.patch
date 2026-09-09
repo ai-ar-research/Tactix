@@ -1,0 +1,92 @@
+--- a/src/policies/default_policy.cpp
++++ b/src/policies/default_policy.cpp
+@@ -1686,0 +1687,36 @@
++#ifdef TACTIX_ENABLE_EVENT_TRACE
++  // Observe the real return path and its inputs, including early refusals.
++  // The diagnostic owns no solver state and is absent from Release builds.
++  struct AdmissionObserver {
++    const Kernel &k;
++    const SlotClock &clock;
++    SlotGroup group;
++    bool initialized, preprocess, watermarks, answer = false;
++    ~AdmissionObserver() {
++      static bool configured = false;
++      static FILE *out = nullptr;
++      static uint64_t selected = 0;
++      if (!configured) {
++        configured = true;
++        const char *path = std::getenv("TACTIX_ELIMINATE_ADMISSION_TRACE");
++        const char *at = std::getenv("SAT_ELIMINATE_ADMISSION_CONFLICT");
++        if (path && at) {
++          selected = std::strtoull(at, nullptr, 10);
++          out = std::fopen(path, "w");
++          if (!out) std::exit(2);
++          std::setvbuf(out, nullptr, _IOLBF, 0);
++        }
++      }
++      if (!out || group != SlotGroup::Eliminate || k.stats.conflicts != selected)
++        return;
++      std::fprintf(out, "tactix\tconflicts=%llu\tdecisions=%llu\tanswer=%u\tinitialized=%u\tpreprocess=%u\twatermarks=%u\trounds=%llu\tdeadline=%llu\tmarks=%llu\tmarks_limit=%llu\tfixed=%llu\tfixed_limit=%llu\tblocked=%u\tepisodes=%llu\n",
++          (unsigned long long)k.stats.conflicts, (unsigned long long)k.stats.decisions,
++          answer, initialized, preprocess, watermarks,
++          (unsigned long long)clock.rounds, (unsigned long long)clock.next_conflicts,
++          (unsigned long long)k.stats.bve_marks, (unsigned long long)clock.marks_mark,
++          (unsigned long long)kernel_root_fixed(k), (unsigned long long)clock.fixed_mark,
++          clock.blocked, (unsigned long long)clock.blocked_episodes);
++    }
++  } observer{k, g == SlotGroup::Probe ? probe_clock : elim_clock,
++             g, initialized_, preprocess_only_, slot_watermark_};
++#endif
+@@ -1719,0 +1756,3 @@
++#ifdef TACTIX_ENABLE_EVENT_TRACE
++  observer.answer = true;
++#endif
+--- /dev/null
++++ b/tests/test_eliminate_admission_trace.cpp
+@@ -0,0 +1,46 @@
++#undef NDEBUG
++#include "policies/default_policy.hpp"
++#include <cassert>
++#include <cstdio>
++#include <cstdlib>
++#include <fstream>
++#include <string>
++#include <unistd.h>
++using namespace tactix;
++int main() {
++#ifdef TACTIX_ENABLE_EVENT_TRACE
++  char path[] = "admission-trace-XXXXXX";
++  const int fd = mkstemp(path); assert(fd >= 0); close(fd);
++  setenv("TACTIX_ELIMINATE_ADMISSION_TRACE", path, 1);
++  setenv("SAT_ELIMINATE_ADMISSION_CONFLICT", "9", 1);
++  Kernel k; kernel_reserve_vars(k, 2); k.stats.conflicts = 9;
++  DefaultPolicy p;
++  assert(!p.inprocess().want_phase(k, SlotGroup::Eliminate));
++  p.inprocess().pose_initialized();
++  auto &clock = p.inprocess().elim_clock;
++  clock.rounds = 1; clock.next_conflicts = 10;
++  clock.marks_mark = k.stats.bve_marks; clock.fixed_mark = kernel_root_fixed(k);
++  assert(!p.inprocess().want_phase(k, SlotGroup::Eliminate));
++  assert(!clock.blocked && !clock.blocked_episodes);
++  clock.next_conflicts = 9;
++  assert(!p.inprocess().want_phase(k, SlotGroup::Eliminate));
++  assert(clock.blocked && clock.blocked_episodes == 1);
++  ++k.stats.bve_marks;
++  assert(p.inprocess().want_phase(k, SlotGroup::Eliminate));
++  assert(clock.blocked_episodes == 1);
++  k.stats.conflicts = 10;
++  assert(p.inprocess().want_phase(k, SlotGroup::Eliminate));
++  k.stats.conflicts = 9;
++  (void)p.inprocess().want_phase(k, SlotGroup::Probe);
++  std::ifstream in(path); std::string line; unsigned count = 0;
++  while (std::getline(in, line)) {
++    assert(line.find("tactix\tconflicts=9\t") == 0);
++    assert(line.find(count == 3 ? "\tanswer=1\t" : "\tanswer=0\t") != std::string::npos);
++    assert(line.find(count == 0 ? "\tinitialized=0\t" : "\tinitialized=1\t") != std::string::npos);
++    if (count == 1) assert(line.find("\tdeadline=10\t") != std::string::npos);
++    ++count;
++  }
++  assert(count == 4); in.close(); assert(std::remove(path) == 0);
++  std::puts("PASS: actual admission answers, early exits, equality gate, state and conflict/group filters");
++#endif
++}
