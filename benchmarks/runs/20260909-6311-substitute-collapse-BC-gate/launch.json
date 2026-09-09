@@ -1,0 +1,10 @@
+{
+  "job_id": "1677436",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6311-substitute-collapse-BC-gate/array.sbatch"
+  ],
+  "accounting_since": "2026-09-09T04:20:56",
+  "manifest_sha256": "42b9c4a2650180527b92fcc78f1aa782b370c810fc86cee44731dc65fd5866bd"
+}

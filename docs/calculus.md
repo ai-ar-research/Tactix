@@ -252,7 +252,7 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
   deleted), push the reconstruction witness pair onto `ρ` per eliminated variable, and assert any
   size-collapsed root units un-propagated (M1 owns the cascade). If the rewrite derives **two
   contradictory root units** in one round, resolve `{l}` and `{¬l}` to ∅ → `Unsat`. A round with no
-  non-trivial SCC is a `NoOp`. Removed irredundant material re-arms `H` retry advice, never an applicability restriction.
+  non-trivial SCC is a `NoOp`. Removed irredundant material re-arms `H` retry advice; a canonical binary collapse retires the whole source, including retained free endpoints. This advice never restricts applicability.
 - **Fresh-equivalence bridge:** after Sweep emits both binaries of exact pairs, V3 may union them directly before final whole-BIG cleanup; rewrite/proof/`ρ` semantics are identical to SCC discovery.
 - **Proof δ:** write `μ(l)=repr[l]` for a substituted literal and
   `λ_l={¬l,μ(l)}`. First emit `add_rup(λ_l, big_path_chain(l,μ(l)))` for every substituted polarity.
