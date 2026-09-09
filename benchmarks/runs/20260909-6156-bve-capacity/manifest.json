@@ -1,0 +1,79 @@
+{
+  "schema": "tactix-slot-memory-diagnostic-v1",
+  "created_at": "2026-09-09T04:09:51.293984+00:00",
+  "arms": {
+    "tactix": {
+      "path": "pins/tactix",
+      "sha256": "0c81e8da84ab54965a968e851d27dad79973111ef312924d4121b9d60124a4bf",
+      "source_commit": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+      "source_build": "build/pin-6155-bve-capacity-trace",
+      "arguments": [],
+      "source_patch": "pins/candidate-source.patch",
+      "source_patch_sha256": "d1e008a152a98667afdb0d4807f58d0f0124e522a906683cdb0fa6ce73785991"
+    }
+  },
+  "input_sha256": {
+    "tierD24-26/ac3887576c2ce781202b9fe0fdc31420-pj2008_k80.cnf.xz": "07b881ae5d1057ccbfdd564ddebf1a8f6e45582542b96aee21974ccdcd446450",
+    "tierD24-26/180e6d8b61fe6bab26126b78591e324e-baseballcover11with22_and2positions.cnf.xz": "32011f483030197306b88c9cc705630a2f1ab47a02263ae87af132f5ed40d528",
+    "tierD24-26/5ceb95f5960efe1f23c3014847dea118-pj2009_k80.cnf.xz": "d47ddb22e94d30541e13fa6e61c21da3e9b458919f6158a1cfc326aaaa41c5b2"
+  },
+  "resource_contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "cpus_per_task": 12,
+    "memory_mib": 48000,
+    "array": "0-2",
+    "throttle": null,
+    "node_constraint": null,
+    "proof_mode": "DRAT",
+    "one_solver_per_task": true,
+    "solve_timeout": 1200,
+    "checker_timeout": 16000
+  },
+  "collect_runtime_context": true,
+  "parent_campaign": "benchmarks/runs/20260908-6148-collect-memory",
+  "release_records": {
+    "benchmarks/runs/20260908-6115-substitute-publication-ranks1-50/results/020.json": "84fe562fd5e217b7ccd329d5a55e5ba985921ff591ffc965f94d0d13d2a7e45d",
+    "benchmarks/runs/20260908-6115-substitute-publication-ranks1-50/results/024.json": "54d54be58169c4fba2e51c3e27261fef72887d2852d1a434983b04da381c2d57",
+    "benchmarks/runs/20260908-6115-substitute-publication-ranks1-50/results/008.json": "7ba3b1696e5a0e9f6bfff17e387683bbbe03906b86becd77e0efd2f572ac15f5"
+  },
+  "build_authority": {
+    "path": "benchmarks/runs/20260909-6154-bve-capacity-build/manifest.json",
+    "sha256": "055a31704bed18103b57622e6cd7486d0720187186cca9092d00b84b13e75d89"
+  },
+  "protected_campaign_hashes": {
+    "benchmarks/runs/20260908-6108-rank41-50-matched/manifest.json": "d09c9f2a030d0d29974fa881ee247c7900704e4be0e204b28c0b16beaf443d16",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/array.sbatch": "82b47f14fc76c4d5ca14484035b1033d013c1a36c2bbe44c531a1a6a56c87efb",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/launch.json": "13dd494a3d5b85ee73d85e3fbd0db5616e002cdf5cbade9e53741450b4700c19",
+    "benchmarks/runs/20260908-6114-substitute-publication-BC-gate/manifest.json": "27c57c3c896ab15daa9d51ff87f9a977472d28b2b43b849be7322b96eb598bb1",
+    "benchmarks/runs/20260908-6114-substitute-publication-BC-gate/array.sbatch": "2b6afd38eb7dcc8fc39f6fa294f5786d20d9238a4facb7cb64bc6c35a0320b4a",
+    "benchmarks/runs/20260908-6114-substitute-publication-BC-gate/launch.json": "e5385a4cbe0a4ec57b6ce8b8e72ed77dfee7f4a075b14c616fded7cd9cc9fd45",
+    "benchmarks/runs/20260908-6115-substitute-publication-ranks1-50/manifest.json": "e739603e6d4ec9024beebfa7a049def7c3ea01eb6b5287e542f05a651e646cd7",
+    "benchmarks/runs/20260908-6115-substitute-publication-ranks1-50/array.sbatch": "ab074cdcf7e9691f7031fd9aa198cef18fe83bb9edc5aa73f0c5b033d2d380f5",
+    "benchmarks/runs/20260908-6115-substitute-publication-ranks1-50/launch.json": "fa5db78778524b83a8ef168eca3f62a28b338f09459fccd81f74acd545f32c69",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/manifest.json": "224b3b5d80c3087b3c3c709a78dcf934d175823bd2232f68a2475e6d11bd3d1a",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/array.sbatch": "37e88d1e5998092127067b1ac0fedc388f29ddf45179057a508fb53dabaa24be",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/launch.json": "ee6eea617d6fef64349ed0096c9dd06f1ffb9ba03467dd6901ab92b833bfb7a1",
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/manifest.json": "b2f9e98291c56c415e4cb9439a77378c55cc78593d632c1fc84a6d5ee194acf6",
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/array.sbatch": "b90503efeb1acd5ea2cb081fc60a79c2e1ab6d51287cedf050a673ddb5433143",
+    "benchmarks/baselines/rank1-40-kissat-12cpu-v1/manifest.json": "45259e1acbc93472b923517f75fd6b8697669b3ad74970d27b565b6b7f1aa686",
+    "benchmarks/runs/20260908-5712-assignment-level-ranks1-40/manifest.json": "80211109441ac7e1483082a767c755ffc03c029381398c71017593e2ff29a8ae",
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/pins/runtime_task.py": "ccef4f23bac433c4c205949c0296f2cdef0e98d0d56fff5d306abb6e6209297f",
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/pins/modelcheck.py": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+    "benchmarks/baselines/rank1-50-kissat-12cpu-v1/manifest.json": "5f7865e46af2b9ed0d1899ce6e450bfb9b3575801c50183e059d0e4326f5a1e0"
+  },
+  "hypothesis": "Checked rank9 first peak precedes GC; identify capacity-growing BVE candidate intervals and distinguish clause,reconstruction,watch anddense arenas without per-candidate output.",
+  "decision": "Require checked original models,cleanup,full non-timing stats and emitted proof bytes equal6115; old6148 slot/collector capacity sequence must replay. Attribute capacity-transition intervals without claiming single-allocation causality.",
+  "test_consideration": "Old actual trace objects fail required3 capacity-transition rows. New fixture requires exact begin/end subject labels and suppresses unchanged callbacks; collector fixture remains. Complete Release/trace suites and exact Release identity required.",
+  "limitations": "Diagnostic only,no runtime ormemory gain. Capacity transitions bracket intervals,not single allocations; temporary candidate buffers may grow andfree without a sampled pool changing. Full-work/proof and old-slot/collector capacity replay required.",
+  "pin_sha256": {
+    "pins/candidate-source.patch": "d1e008a152a98667afdb0d4807f58d0f0124e522a906683cdb0fa6ce73785991",
+    "pins/tactix": "0c81e8da84ab54965a968e851d27dad79973111ef312924d4121b9d60124a4bf",
+    "pins/run.py": "9967d20847b91d9d93cb4a66a2f419b0cd88bdba04837caedd2843bcefe412c9",
+    "pins/checkmodel": "5fde6bbc7be305f6b6166ef75dc4788e2cf40180317ab1ec9a38a3d6071676cf",
+    "pins/drat-trim": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+    "pins/modelcheck.py": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+    "pins/runtime_task.py": "9c2e2fc471a3a4b55e4673517107dd5d9bad209020d80bd6f77e37d14827c8e8",
+    "matrix.tsv": "793b4b8a1c72b86bc43dc4de275dec1c5759260feff6f279bd09d94dcfc263b2",
+    "array.sbatch": "68eefb0ba6cd0dd0fdc5a9b64eab77336a9c8c7153a44e7016f8660803ed5fe7"
+  }
+}

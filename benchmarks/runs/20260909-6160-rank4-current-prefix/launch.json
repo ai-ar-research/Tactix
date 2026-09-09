@@ -1,0 +1,10 @@
+{
+  "job_id": "1677046",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6160-rank4-current-prefix/array.sbatch"
+  ],
+  "manifest_sha256": "7642789438c286000ff24fa0f7a731475f63165be750aa43e450ac30bc83baa4",
+  "continuation": "Shortpriorityprefix;allpriorjobs,pins andfixedreferenceunchanged."
+}

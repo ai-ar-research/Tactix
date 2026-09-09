@@ -1,0 +1,26 @@
+{
+  "parent": ".claude/worktrees/runtime-substitute-journal-6136",
+  "source": ".claude/worktrees/runtime-collect-memory-6146",
+  "build_summary_sha256": "a0140d77e616735710880c55d628e3debbd28d194236db1015c0f8fc7eef5c28",
+  "parent_authority": "benchmarks/runs/20260908-6136-substitute-journal/manifest.json",
+  "parent_authority_sha256": "4fcc25433aa819511cd240834a85bcf2166e97cfa80ac5a7530acf25591d0a93",
+  "files": {
+    "src/diagnostics/event_trace.cpp": "5b6e31481be55afe492127cfbb226e1ef34b3da5d3b939d9a430ca0878d3c7ab",
+    "src/diagnostics/event_trace.hpp": "1515e9c02ea2d382f7e853e6fa792d0e2f9e370853e8cf24d9173c0fc8c12eab",
+    "src/kernel/kernel.cpp": "a1a7b65339bca339fa8f7794a8fbb444f7d77d613d9c76b48ff4fb65228c454d",
+    "tests/test_collect_memory.cpp": "40dbce8f38ee6f1e2b5eb371d69ccfc96f3c8f25a37d081a9a903d6d10b69222"
+  },
+  "binaries": {
+    "build/pin-6150-collect-memory-release": "86a251c9fec53cdd54c338a5b6cbc32aafe7f117b4ee06ea8e10c22d50bee235",
+    "build/pin-6151-collect-memory-trace": "eab4913303c03882a21e5807067900136eb37a7489b1b2b3b9fb22640a51f9bc"
+  },
+  "patch_sha256": "dd6f5ec517aa66b1e3daf1fde77391f60d5e0ce036877097233c76abb45d287b",
+  "patch_format": "zero-context unified; apply --unidiff-zero",
+  "cleanup": {
+    "path": "benchmarks/runs/20260908-6146-collect-memory-build/collect-memory-test-PIyw2q",
+    "bytes": 0,
+    "reason": "empty test-owned file after intentional old-object assertion"
+  },
+  "production_change": false,
+  "test_consideration": "Old actual trace objects lack required24 checkpoint rows. New fixed sparse,dense,empty collection cases verify8 stages, exact scratch ownership before/after swap, final arena identity and dense refs. Complete Release/trace suites; byte-identical Release is required before inheriting6107 gates."
+}

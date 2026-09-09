@@ -1,0 +1,1 @@
+old-fixture: /home/hwu/SAT-solving/.claude/worktrees/runtime-bve-capacity-6154/tests/test_bve_memory.cpp:31: int main(): Assertion `rows.size() == 3' failed.
