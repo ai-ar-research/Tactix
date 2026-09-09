@@ -1,0 +1,3 @@
+# tactix-decision-prefix	1
+# solver	conflict	start_decisions	end_decisions	count	hash	common	common_reached	common_hash	first	common_last	last	max_level
+tactix	100000	18446744073709551514	139531	139633	236dcfa1a362af4d	1	1	44bb0cd473c95cec	743	743	22	102

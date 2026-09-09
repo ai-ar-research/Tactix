@@ -1,0 +1,87 @@
+{
+  "rank": 50,
+  "stop": 100000,
+  "prefixes": {
+    "candidate": {
+      "solver": "tactix",
+      "conflict": 100000,
+      "start_decisions": 18446744073709551514,
+      "end_decisions": 139531,
+      "count": 139633,
+      "hash": "236dcfa1a362af4d",
+      "common": 1,
+      "common_reached": 1,
+      "common_hash": "44bb0cd473c95cec",
+      "first": 743,
+      "common_last": 743,
+      "last": 22,
+      "max_level": 102
+    },
+    "kissat": {
+      "solver": "kissat",
+      "conflict": 100000,
+      "start_decisions": 18446744073709551514,
+      "end_decisions": 139531,
+      "count": 139633,
+      "hash": "236dcfa1a362af4d",
+      "common": 1,
+      "common_reached": 1,
+      "common_hash": "44bb0cd473c95cec",
+      "first": 743,
+      "common_last": 743,
+      "last": 22,
+      "max_level": 102
+    }
+  },
+  "decisions": {
+    "matching_rows": 139633,
+    "left": null,
+    "right": null,
+    "complete_equal": true
+  },
+  "boundaries_all": {
+    "equal": true,
+    "candidate_rows": 196,
+    "kissat_rows": 196,
+    "first": null
+  },
+  "boundaries_search": {
+    "equal": true,
+    "candidate_rows": 186,
+    "kissat_rows": 186,
+    "first": null
+  },
+  "ignored_boundary_names": {
+    "candidate": {
+      "SparseCollect": 2
+    },
+    "kissat": {
+      "trace": 1,
+      "startup": 1,
+      "lucky_early": 2,
+      "preprocess": 2,
+      "lucky_late": 2,
+      "restart": 8394,
+      "reduce": 56,
+      "switch": 30,
+      "rephase": 20,
+      "probe": 12,
+      "reorder": 8,
+      "eliminate": 6
+    }
+  },
+  "hashes": {
+    "benchmarks/runs/20260909-6200-rank50-current-prefix/manifest.json": "63b63f9ffb275256ad0543874d2a36e1d27a1824f6d7b42910a116c42ad70505",
+    "benchmarks/runs/20260909-6200-rank50-current-prefix/launch.json": "2da6ceee742cc43bbf7921d8864c93286933e38ed16f9a839dfafb587d68bbbb",
+    "benchmarks/runs/20260909-6200-rank50-current-prefix/results/candidate.json": "eabaec8eedb0633ced8cbdc754e6d4d02ad710a47e6a5279778ea2214da94aa4",
+    "benchmarks/runs/20260909-6200-rank50-current-prefix/traces/candidate.boundaries.tsv": "1cb83b81cebf4e5ec8e75cbe3cef6b2dbb8ce4b084bf08ac198a15afb9a8779d",
+    "benchmarks/runs/20260909-6200-rank50-current-prefix/traces/candidate.decisions.tsv": "bb3961887de1202663dd6acedf6b3b76173e3de3f05b8d8bac02678d99299d68",
+    "benchmarks/runs/20260909-6200-rank50-current-prefix/traces/candidate.prefix.tsv": "ff4ddbb19e7f9e16b1561e6e3d2ddc375885a30c1f4d82bf10d391c0b3f5b3bc",
+    "benchmarks/runs/20260909-6200-rank50-current-prefix/traces/candidate.macro.tsv": "154681895753ba6ba78bd6946529161f00d85e44b6091bf11116dd6053b0729a",
+    "benchmarks/runs/20260909-6200-rank50-current-prefix/results/kissat.json": "5c99d8c5b173aa69c6b59fe9b9567742a2a1711862b948693271aa2f40979901",
+    "benchmarks/runs/20260909-6200-rank50-current-prefix/traces/kissat.prefix.tsv": "0bdbc135e4dd025a4a0b72d658a98f351ab66c9a9c1b1fe99c2c38362490143d",
+    "benchmarks/runs/20260909-6200-rank50-current-prefix/traces/kissat.boundaries.tsv": "f4fbc7638cfc214815065633a99fa8d4a5d9853247825039f90e443bf08e172e",
+    "benchmarks/runs/20260909-6200-rank50-current-prefix/traces/kissat.decisions.tsv": "bb3961887de1202663dd6acedf6b3b76173e3de3f05b8d8bac02678d99299d68"
+  },
+  "limitation": "Exact selected decision stream comparison,not full-solve trajectory,unit-cost acceptance or checked final proof. Coarse boundary ordinals/counts do notproveformula/pose/effort parity. Startup resets explain unsigned start_decisions wrap; useactualrowcount,notthatfieldasanabsoluteordinal. Additionalobserver payloads mustreplaytheseordinarytraces beforecausalinterpretation."
+}

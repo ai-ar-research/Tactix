@@ -1,0 +1,10 @@
+{
+  "job_id": "1677177",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6194-rank32-selected-heaps/array.sbatch"
+  ],
+  "accounting_since": "2026-09-09T01:36:36",
+  "manifest_sha256": "a1c2322d0578bb9b0b082a98fe308e37dfd063200b4c69def26cbe840e332226"
+}
