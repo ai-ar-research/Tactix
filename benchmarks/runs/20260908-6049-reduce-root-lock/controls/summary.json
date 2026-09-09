@@ -1,0 +1,114 @@
+{
+  "checked_proofs": 8,
+  "records": [
+    {
+      "cnf": "benchmarks/runs/20260908-6049-reduce-root-lock/fixed-proofs/root-0-0-1-drat.cnf",
+      "cnf_sha256": "932e82bed19e31aa4c0202b8c020c63107b1784d853e0e07962b94fc888dfd4d",
+      "proof_sha256": "4af05ab47bac52fc6a5ab2f00b4ae2b190b67d4f7ee24878f9a1d88fba4d53a7",
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-6049-reduce-root-lock/fixed-proofs/root-0-0-1-drat.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-6049-reduce-root-lock/fixed-proofs/root-0-0-1-drat.proof"
+      ]
+    },
+    {
+      "cnf": "benchmarks/runs/20260908-6049-reduce-root-lock/fixed-proofs/root-0-0-1-lrat.cnf",
+      "cnf_sha256": "932e82bed19e31aa4c0202b8c020c63107b1784d853e0e07962b94fc888dfd4d",
+      "proof_sha256": "b59599c804fc51422bfd6fc636daaad0e4badca6b07a6ee6ab1412ce9e155aa8",
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-6049-reduce-root-lock/fixed-proofs/root-0-0-1-lrat.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-6049-reduce-root-lock/fixed-proofs/root-0-0-1-lrat.proof"
+      ]
+    },
+    {
+      "cnf": "benchmarks/runs/20260908-6049-reduce-root-lock/fixed-proofs/root-0-1-1-drat.cnf",
+      "cnf_sha256": "932e82bed19e31aa4c0202b8c020c63107b1784d853e0e07962b94fc888dfd4d",
+      "proof_sha256": "4af05ab47bac52fc6a5ab2f00b4ae2b190b67d4f7ee24878f9a1d88fba4d53a7",
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-6049-reduce-root-lock/fixed-proofs/root-0-1-1-drat.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-6049-reduce-root-lock/fixed-proofs/root-0-1-1-drat.proof"
+      ]
+    },
+    {
+      "cnf": "benchmarks/runs/20260908-6049-reduce-root-lock/fixed-proofs/root-0-1-1-lrat.cnf",
+      "cnf_sha256": "932e82bed19e31aa4c0202b8c020c63107b1784d853e0e07962b94fc888dfd4d",
+      "proof_sha256": "b59599c804fc51422bfd6fc636daaad0e4badca6b07a6ee6ab1412ce9e155aa8",
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-6049-reduce-root-lock/fixed-proofs/root-0-1-1-lrat.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-6049-reduce-root-lock/fixed-proofs/root-0-1-1-lrat.proof"
+      ]
+    },
+    {
+      "cnf": "benchmarks/runs/20260908-6049-reduce-root-lock/fixed-proofs/root-1-0-1-drat.cnf",
+      "cnf_sha256": "932e82bed19e31aa4c0202b8c020c63107b1784d853e0e07962b94fc888dfd4d",
+      "proof_sha256": "4af05ab47bac52fc6a5ab2f00b4ae2b190b67d4f7ee24878f9a1d88fba4d53a7",
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-6049-reduce-root-lock/fixed-proofs/root-1-0-1-drat.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-6049-reduce-root-lock/fixed-proofs/root-1-0-1-drat.proof"
+      ]
+    },
+    {
+      "cnf": "benchmarks/runs/20260908-6049-reduce-root-lock/fixed-proofs/root-1-0-1-lrat.cnf",
+      "cnf_sha256": "932e82bed19e31aa4c0202b8c020c63107b1784d853e0e07962b94fc888dfd4d",
+      "proof_sha256": "b59599c804fc51422bfd6fc636daaad0e4badca6b07a6ee6ab1412ce9e155aa8",
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-6049-reduce-root-lock/fixed-proofs/root-1-0-1-lrat.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-6049-reduce-root-lock/fixed-proofs/root-1-0-1-lrat.proof"
+      ]
+    },
+    {
+      "cnf": "benchmarks/runs/20260908-6049-reduce-root-lock/fixed-proofs/root-1-1-1-drat.cnf",
+      "cnf_sha256": "932e82bed19e31aa4c0202b8c020c63107b1784d853e0e07962b94fc888dfd4d",
+      "proof_sha256": "4af05ab47bac52fc6a5ab2f00b4ae2b190b67d4f7ee24878f9a1d88fba4d53a7",
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-6049-reduce-root-lock/fixed-proofs/root-1-1-1-drat.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-6049-reduce-root-lock/fixed-proofs/root-1-1-1-drat.proof"
+      ]
+    },
+    {
+      "cnf": "benchmarks/runs/20260908-6049-reduce-root-lock/fixed-proofs/root-1-1-1-lrat.cnf",
+      "cnf_sha256": "932e82bed19e31aa4c0202b8c020c63107b1784d853e0e07962b94fc888dfd4d",
+      "proof_sha256": "b59599c804fc51422bfd6fc636daaad0e4badca6b07a6ee6ab1412ce9e155aa8",
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-6049-reduce-root-lock/fixed-proofs/root-1-1-1-lrat.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-6049-reduce-root-lock/fixed-proofs/root-1-1-1-lrat.proof"
+      ]
+    }
+  ],
+  "outputs": {
+    "native": "native mode=0 candidates=1 root=1 reason=0 PASS\nnative mode=1 candidates=1 root=1 reason=0 PASS\nnative mode=2 candidates=0 root=0 reason=1 PASS\n",
+    "new": "protected pending=0 stale payload PASS\nprotected pending=1 stale payload PASS\nroot elevated=0 compact=0 unsat=0 lrat=0 candidates=1 deleted=1 PASS\nroot elevated=0 compact=0 unsat=0 lrat=1 candidates=1 deleted=1 PASS\nroot elevated=0 compact=0 unsat=1 lrat=0 candidates=1 deleted=1 PASS\nroot elevated=0 compact=0 unsat=1 lrat=1 candidates=1 deleted=1 PASS\nroot elevated=0 compact=1 unsat=0 lrat=0 candidates=1 deleted=1 PASS\nroot elevated=0 compact=1 unsat=0 lrat=1 candidates=1 deleted=1 PASS\nroot elevated=0 compact=1 unsat=1 lrat=0 candidates=1 deleted=1 PASS\nroot elevated=0 compact=1 unsat=1 lrat=1 candidates=1 deleted=1 PASS\nroot elevated=1 compact=0 unsat=0 lrat=0 candidates=1 deleted=1 PASS\nroot elevated=1 compact=0 unsat=0 lrat=1 candidates=1 deleted=1 PASS\nroot elevated=1 compact=0 unsat=1 lrat=0 candidates=1 deleted=1 PASS\nroot elevated=1 compact=0 unsat=1 lrat=1 candidates=1 deleted=1 PASS\nroot elevated=1 compact=1 unsat=0 lrat=0 candidates=1 deleted=1 PASS\nroot elevated=1 compact=1 unsat=0 lrat=1 candidates=1 deleted=1 PASS\nroot elevated=1 compact=1 unsat=1 lrat=0 candidates=1 deleted=1 PASS\nroot elevated=1 compact=1 unsat=1 lrat=1 candidates=1 deleted=1 PASS\nPASS: root admission, pure public surface, protected/stale reasons, models and proofs\n"
+  },
+  "hashes": {
+    "benchmarks/probes/scratch/reduce-root-lock-native-6052.c": "b44de9a42cf3e75a8ca1b64ef234db3038e6dab2546783fd62b39acf5dac3ad7",
+    "build/pin-6049-reduce-root-lock-release/tests/test_reduce_root_lock": "478334b5997236e981ec6c8f3d72915d3663547eb5e99d4aed9f9d8014fc0c4f",
+    "benchmarks/runs/20260908-6049-reduce-root-lock/controls/native": "9a7d96d9cc0a22323fef248525c9fe9bf914bd5d70e26954047746f0e2c94999",
+    "benchmarks/runs/20260908-6049-reduce-root-lock/controls/check-root-0-1-1-lrat.log": "e83e8d61d3ab2a7f358eef1525a3a79a6a8bb41c04ec7914e7628b9941d7ca51",
+    "benchmarks/runs/20260908-6049-reduce-root-lock/controls/check-root-1-1-1-lrat.log": "e83e8d61d3ab2a7f358eef1525a3a79a6a8bb41c04ec7914e7628b9941d7ca51",
+    "benchmarks/runs/20260908-6049-reduce-root-lock/controls/check-root-0-0-1-drat.log": "9245ee40c332fcb10d5028239a5e3278547280343274b5a0c5f1ef882cac8f66",
+    "benchmarks/runs/20260908-6049-reduce-root-lock/controls/check-root-1-0-1-drat.log": "b5c12085958bacd909c1ad0d013cfb8591dbb0756ca121eebc94264ec55af51c",
+    "benchmarks/runs/20260908-6049-reduce-root-lock/controls/check-root-1-1-1-drat.log": "1c7c3900a6ee311e29bd578df586effa3a538f6e1cc986c16f9c5f3732f95999",
+    "benchmarks/runs/20260908-6049-reduce-root-lock/controls/native.log": "34ee90ce61aa24c8997477dc04b6793f3b07ab5e1c35a3206c7ebe4e82eb6dc0",
+    "benchmarks/runs/20260908-6049-reduce-root-lock/controls/new.log": "5bd0c90899b9c6e9a40aa98c2a88dbae252cb9b432fc7cb77f7b0aa2b517c350",
+    "benchmarks/runs/20260908-6049-reduce-root-lock/controls/check-root-0-1-1-drat.log": "1c7c3900a6ee311e29bd578df586effa3a538f6e1cc986c16f9c5f3732f95999",
+    "benchmarks/runs/20260908-6049-reduce-root-lock/controls/native-build.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "benchmarks/runs/20260908-6049-reduce-root-lock/controls/check-root-1-0-1-lrat.log": "e83e8d61d3ab2a7f358eef1525a3a79a6a8bb41c04ec7914e7628b9941d7ca51",
+    "benchmarks/runs/20260908-6049-reduce-root-lock/controls/check-root-0-0-1-lrat.log": "e83e8d61d3ab2a7f358eef1525a3a79a6a8bb41c04ec7914e7628b9941d7ca51"
+  },
+  "scope": "Sixteen current root reason cases cover root/elevated state, compact/tail collection, SAT/UNSAT and DRAT/LRAT. Two non-root/pending stale-lock controls. Native actual flush/collect confirms root admission and non-root protection. No fuzz or performance claim."
+}

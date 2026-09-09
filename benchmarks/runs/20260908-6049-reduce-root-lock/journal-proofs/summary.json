@@ -1,0 +1,86 @@
+{
+  "state_model_cases": 3,
+  "checked_micro_proofs": 6,
+  "binary_sha256": "7743114e7272ee353ffc55cfb48f77cc320f7fea0c6859a8b2c08ec72956f145",
+  "records": [
+    {
+      "case": "caller-0-drat",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-6049-reduce-root-lock/journal-proofs/caller-0-drat.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-6049-reduce-root-lock/journal-proofs/caller-0-drat.proof"
+      ],
+      "exit_code": 0,
+      "cnf_sha256": "1e13d0e8a1cfb9f9af23143a75635edc441703168f1990361e3be60e2f4d8b0c",
+      "proof_sha256": "430354bbbc44cef5c264edb46905689e4ca3cb725f4b4eb74cea3f8e1a32c67e",
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "log_sha256": "1b300fbb2e47a76852266f743e67a92176f806aacec082f75bc6c38ad5e76ed1"
+    },
+    {
+      "case": "caller-0-lrat",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-6049-reduce-root-lock/journal-proofs/caller-0-lrat.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-6049-reduce-root-lock/journal-proofs/caller-0-lrat.proof"
+      ],
+      "exit_code": 0,
+      "cnf_sha256": "1e13d0e8a1cfb9f9af23143a75635edc441703168f1990361e3be60e2f4d8b0c",
+      "proof_sha256": "e97b400d55eb0958cabd5282aceb5df69424c6bc3a2af12124c8f6655beae91f",
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "log_sha256": "28969450e38c154eb20661f29ef127526f2b992074efa75b0565561c5134f2af"
+    },
+    {
+      "case": "caller-1-drat",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-6049-reduce-root-lock/journal-proofs/caller-1-drat.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-6049-reduce-root-lock/journal-proofs/caller-1-drat.proof"
+      ],
+      "exit_code": 0,
+      "cnf_sha256": "0f55e2327d896981d32e662d27b7ddb3dc9c29b2b267e96112269f876c17669d",
+      "proof_sha256": "deb1d7c13cca436207b8677fdbec79b8266988bc143bf9578ca834697ad1bdcd",
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "log_sha256": "417f791748795f8d73cbf6188c8d22a6d7cf61b1a795cb7d59aafe42d286f483"
+    },
+    {
+      "case": "caller-1-lrat",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-6049-reduce-root-lock/journal-proofs/caller-1-lrat.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-6049-reduce-root-lock/journal-proofs/caller-1-lrat.proof"
+      ],
+      "exit_code": 0,
+      "cnf_sha256": "0f55e2327d896981d32e662d27b7ddb3dc9c29b2b267e96112269f876c17669d",
+      "proof_sha256": "c5d47bf81b9b653b85d3878df488813cab03c3d8e1c7ae786722f2f802eea17d",
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "log_sha256": "6e03db2c73193819b68d712675961c6ad8a12ca1c7db5419cb72a5dca707a426"
+    },
+    {
+      "case": "caller-2-drat",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-6049-reduce-root-lock/journal-proofs/caller-2-drat.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-6049-reduce-root-lock/journal-proofs/caller-2-drat.proof"
+      ],
+      "exit_code": 0,
+      "cnf_sha256": "9a1907cc85679a4722fbdc07c9decf67cbf162466e74d8acb39b7857fd81344e",
+      "proof_sha256": "8dd82b07ac168afbaec51cc47b2132328e653048886756963aff7863347ef224",
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "log_sha256": "a32b3a2e720121388176a727f922f8dac6cab5789206d7c64a6cc937c6b2357d"
+    },
+    {
+      "case": "caller-2-lrat",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-6049-reduce-root-lock/journal-proofs/caller-2-lrat.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-6049-reduce-root-lock/journal-proofs/caller-2-lrat.proof"
+      ],
+      "exit_code": 0,
+      "cnf_sha256": "9a1907cc85679a4722fbdc07c9decf67cbf162466e74d8acb39b7857fd81344e",
+      "proof_sha256": "fa4bee805d349414f83f0ad8e51633a47a4bfd9232b4f11374b6df49e49e6555",
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "log_sha256": "a470d8d13017f0a914bbac8cef8bfd7a9bb9938313693b1c99a29ba6a7d07909"
+    }
+  ],
+  "limitation": "Fixed actual-code regressions only; not fuzz or real-instance proof/performance gates."
+}

@@ -1,0 +1,10 @@
+{
+  "job_id": "1676661",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260908-6060-root-lock-rank32-prefix/array.sbatch"
+  ],
+  "manifest_sha256": "c3045f0399bbdb6bdb5caa1616868c8d11468011c6bd45f1c2393735909d8c6c",
+  "continuation": "Independent6049 root-lock repair;existing campaigns unchanged. Pending expected verdicts permit development,not promotion."
+}

@@ -16,7 +16,7 @@ abstract `!conflict_valid` condition. Policy S3/S4/S6/S7 are H-only.
 | M2 Decide | `!conflict_valid && !inconsistent && unassigned > 0` | pure; every unassigned literal/phase remains N1-reachable |
 | M3 ConflictAnalysis | `conflict_valid && !inconsistent` | pure; Analyze+Backjump is atomic |
 | S1 Restart | `!inconsistent && !conflict_valid && level > 0` | D-NOOP |
-| S2 Reduce | `!inconsistent && !conflict_valid` | D-NOOP; isolated5900/5920 DefaultPolicy consumes new preparation roots into queue/heap using the post-truncation suffix; raw S2 remains policy-neutral |
+| S2 Reduce | `!inconsistent && !conflict_valid` | D-NOOP; isolated6049 excludes retained root assignments from reason locks; M1 names LRAT units before deletion and GC retires root reasons. Pending/non-root locks remain. Isolated5900 consumes new preparation roots into guidance by post-truncation suffix; raw S2 stays policy-neutral |
 | S5 Lucky | `root && !conflict_valid` | D-ROOT; conflict condition is abstract |
 | C1 SubsumeForward, C2 Strengthen, C3 Vivify | `root` | D-ROOT |
 | V1 Probe, V2 Backbone | `root && !conflict_valid` | D-ROOT; conflict condition is abstract |

@@ -1,0 +1,11 @@
+In file included from /cm/local/apps/gcc/13.1.0/include/c++/13.1.0/cassert:44,
+                 from /home/hwu/SAT-solving/.claude/worktrees/runtime-reduce-root-lock-6049/tests/test_reduce_root_lock.cpp:10:
+/home/hwu/SAT-solving/.claude/worktrees/runtime-reduce-root-lock-6049/tests/test_reduce_root_lock.cpp: In function ‘void pure_candidates(tactix::Kernel&, std::vector<unsigned int>&)’:
+/home/hwu/SAT-solving/.claude/worktrees/runtime-reduce-root-lock-6049/tests/test_reduce_root_lock.cpp:37:41: warning: C++20 says that these are ambiguous, even though the second is reversed:
+   37 |   assert(k.arena == arena && k.trail == trail && k.next_clause_id == id);
+      |                                         ^~~~~
+In file included from /home/hwu/SAT-solving/.claude/worktrees/runtime-reduce-root-lock-6049/tests/test_reduce_root_lock.cpp:3:
+/home/hwu/SAT-solving/.claude/worktrees/runtime-bve-active-pop-5962/src/kernel/kernel.hpp:870:8: note: candidate 1: ‘bool tactix::ReservedTrail::operator==(const std::vector<unsigned int>&) const’
+  870 |   bool operator==(const std::vector<Lit> &other) const {
+      |        ^~~~~~~~
+/home/hwu/SAT-solving/.claude/worktrees/runtime-bve-active-pop-5962/src/kernel/kernel.hpp:870:8: note: candidate 2: ‘bool tactix::ReservedTrail::operator==(const std::vector<unsigned int>&) const’ (reversed)

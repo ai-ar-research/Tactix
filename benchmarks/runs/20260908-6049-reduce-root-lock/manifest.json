@@ -1,0 +1,43 @@
+{
+  "source": ".claude/worktrees/runtime-reduce-root-lock-6049",
+  "parent": ".claude/worktrees/runtime-bve-active-pop-5962",
+  "parent_authority": {
+    "path": "benchmarks/runs/20260908-5962-bve-active-pop/manifest.json",
+    "sha256": "552fdee95837d4b700d77a0a1b8471a196061b463745cb7a621d45ada8099d81"
+  },
+  "production": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+  "purpose": "Exclude root assignments from transient Reduce reason locks, matching native flushed trail and CaDiCaL active-only reasons. Preserve pending/non-root locks, pure public enumeration, stale payload revalidation, proof units and GC retirement. No parameter, primitive, cutoff or benchmark-specific logic.",
+  "test_consideration": "98/98 Release twice,97/97 trace,98/98 journal.16 root/SAT/UNSAT/proof-mode cases and2 protected/stale reason cases;actual native caller3 cases;62 independently checked DRAT/LRAT proofs.6055 aggregation-only path failure closed6057, no rejected oracle.",
+  "files": {
+    "src/rules/reduce/reduce.cpp": "6eacc7d88235c7740db546634384e88c806a761dc4ebb5c3dea397007ef6be2f",
+    "tests/test_reduce_root_lock.cpp": "77ce1c2de4112086cae4face33e7b87fb5aeeca14052f93f823e474b5c74647a"
+  },
+  "binaries": {
+    "build/pin-6049-reduce-root-lock-release/tactix": "8d0f17118dd505faeaa558728bbc36b0451ce2974381e7bf77dd71b45b3d9ed2",
+    "build/pin-6050-reduce-root-lock-bc/tactix": "8d0f17118dd505faeaa558728bbc36b0451ce2974381e7bf77dd71b45b3d9ed2",
+    "build/pin-6051-reduce-root-lock-trace/tactix": "54cc09f861ec6ba0949c8ecbba832915b771f326b460aea2fc997dedb5be5f1d",
+    "build/pin-6052-reduce-root-lock-journal/tactix": "63d01b75c9b8f30a5a9782bb53025c2c431997bd33e33fcf634d72a464d8d7fd"
+  },
+  "patches": {
+    "repair.patch": "02ee67f7437d2a28cc96719f6044582b81f17c536f5a8abace71dce525f38e93",
+    "cumulative.patch": "9d494760b7f39192557ac024b745820d211efb74314e587ca925edd802da6d09"
+  },
+  "validation": {
+    "benchmarks/runs/20260908-6049-reduce-root-lock/complete-proof-validation.json": "53c299be62ddda4c71ed03472e07f75619e03110485cbe4024e3893161ea01ae"
+  },
+  "logs": {
+    "journal-build.log": "6056bfa6dbe5f4972e95fb1adc0cca02fe2c150768a14cf5f2da4bd709f0ec3a",
+    "trace-build.log": "9b93d4189232c8dcab1cca215d2e50ba814de40ca7dbef8afb43eb90a0ad6940",
+    "release-build.log": "9294e7cdc8ca1a25f63916df108911fb34fc432d66b2bf145ce540f25414d853",
+    "journal-configure.log": "81437053801753b1c0f592604bfd65e0b8dc17a41416f893f4d643c8f6331eff",
+    "release-configure.log": "d4f9d8a311cdb35bb7267fb31096b69d1a586f4316376dddccbe16d85e1033d3",
+    "bc-ctest.log": "826503e7027326b89c5f0c7df2ce55365c04d613707a8dc8b94b0b47614aa53c",
+    "trace-configure.log": "7a9c1db08123c64efd251ec8d4be8e60303f5eeb9d6fc26cd9da05ed89ac042c",
+    "bc-configure.log": "0c20d92c8cb74d1ca48941e3f73e3add6a73196ac2436f7c4ecdb843d3579d0e",
+    "bc-build.log": "315ee3779accd220dbaec10f4f59ea38a3472eab438bed94a01ac1ed7c57416f",
+    "release-ctest.log": "cf4da94bc548051b73e5d26abc7b082974b6acd903fbf1d83fded6bd5d950931",
+    "journal-ctest.log": "eef6ae8ce9b059aa4d22d231b8c4d576084393235290ee81815484b89263b0f0",
+    "trace-ctest.log": "90211c82d995735903236b917c7de14d405759050334b8703fb0111d8fc4d3f7"
+  },
+  "limitation": "Isolated/unfuzzed,not promoted. Fuzz transfer remains denied/no retry. Runtime not yet measured.6051 retains old diagnostic reason annotations;use corrected6054 diagnostic clone for full Reduce census comparisons."
+}

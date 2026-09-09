@@ -1,0 +1,53 @@
+// The standalone Reduce census must report the actual root-lock eligibility.
+#undef NDEBUG
+#include "diagnostics/event_trace.hpp"
+#include "kernel/kernel.hpp"
+#include "policies/heuristics.hpp"
+#include "rules/propagate/propagate.hpp"
+#include "rules/reduce/reduce.hpp"
+#include <cassert>
+#include <cstdio>
+#include <cstdlib>
+#include <fstream>
+#include <sstream>
+#include <string>
+#include <unistd.h>
+using namespace tactix;
+int main() {
+  for (unsigned mode=0;mode<3;++mode) {
+    Kernel k; kernel_reserve_vars(k,4); ScopedHeuristics h(k);
+    const Lit lits[]={internalize(1),internalize(2),internalize(3)};
+    const Ref ref=kernel_add_large_clause(k,lits,3,true,9);
+    if (mode==0) {
+      kernel_assign_unit(k,internalize(-1));kernel_assign_unit(k,internalize(-2));
+      assert(propagate_apply(k)==ApplyResult::Ok);
+      assert(k.assigned[2].level==0 && k.assigned[2].reason==ref);
+    } else if (mode==1) {
+      k.pending.valid=true;k.pending.ref=ref;k.pending.lits.assign(lits,lits+3);
+    } else {
+      kernel_assign_decision(k,internalize(-1));assert(propagate_apply(k)==ApplyResult::Ok);
+      kernel_assign_decision(k,internalize(-2));assert(propagate_apply(k)==ApplyResult::Ok);
+      assert(k.assigned[2].level==2 && k.assigned[2].reason==ref);
+    }
+    std::vector<Ref> candidates;reduce_candidates(k,candidates);
+    const std::string path="/tmp/tactix-root-trace-"+std::to_string(getpid())+"-"+std::to_string(mode)+".tsv";
+    assert(setenv("TACTIX_REDUCE_TRACE",path.c_str(),1)==0);
+    unsetenv("TACTIX_REDUCE_TRACE_CONFLICT_FROM");unsetenv("TACTIX_REDUCE_TRACE_CONFLICT_TO");
+    EventTrace trace;trace.reduction(k,candidates,candidates.size());
+    std::ifstream input(path);std::string line;unsigned clauses=0;
+    while(std::getline(input,line)) {
+      if(line.starts_with('#'))continue;
+      std::istringstream row(line);std::vector<std::string> fields;std::string field;
+      while(std::getline(row,field,'\t'))fields.push_back(field);
+      assert(fields.size()==19);
+      if(fields[1]!="clause")continue;
+      ++clauses;
+      assert(fields[14]==(mode==0?"0":"1"));
+      assert(fields[15]==(mode==0?"candidate":"reason"));
+      assert(fields[16]==(mode==0?"0":"-"));
+    }
+    assert(clauses==1);std::remove(path.c_str());
+  }
+  unsetenv("TACTIX_REDUCE_TRACE");
+  puts("PASS: actual root/pending/non-root Reduce trace metadata");
+}

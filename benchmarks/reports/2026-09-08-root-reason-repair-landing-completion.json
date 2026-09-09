@@ -1,0 +1,36 @@
+{
+  "landing_sha256": "e122d6c535285eb24ccbf32f93eaeb4df7cb176120a9f2100662f7a3795a06ce",
+  "raw_checker_whitespace": [
+    "benchmarks/runs/20260908-6049-reduce-root-lock/bve-proofs/bve-0-0-drat.log",
+    "benchmarks/runs/20260908-6049-reduce-root-lock/bve-proofs/bve-0-1-drat.log",
+    "benchmarks/runs/20260908-6049-reduce-root-lock/bve-proofs/bve-1-0-drat.log",
+    "benchmarks/runs/20260908-6049-reduce-root-lock/bve-proofs/bve-1-1-drat.log",
+    "benchmarks/runs/20260908-6049-reduce-root-lock/caller-proofs/caller-0-drat.log",
+    "benchmarks/runs/20260908-6049-reduce-root-lock/caller-proofs/caller-1-drat.log",
+    "benchmarks/runs/20260908-6049-reduce-root-lock/caller-proofs/caller-2-drat.log",
+    "benchmarks/runs/20260908-6049-reduce-root-lock/continuation-proofs/forward-0-0-drat.log",
+    "benchmarks/runs/20260908-6049-reduce-root-lock/continuation-proofs/forward-0-1-drat.log",
+    "benchmarks/runs/20260908-6049-reduce-root-lock/continuation-proofs/forward-0-2-drat.log",
+    "benchmarks/runs/20260908-6049-reduce-root-lock/continuation-proofs/forward-0-3-drat.log",
+    "benchmarks/runs/20260908-6049-reduce-root-lock/continuation-proofs/forward-1-0-drat.log",
+    "benchmarks/runs/20260908-6049-reduce-root-lock/continuation-proofs/forward-1-1-drat.log",
+    "benchmarks/runs/20260908-6049-reduce-root-lock/continuation-proofs/forward-1-2-drat.log",
+    "benchmarks/runs/20260908-6049-reduce-root-lock/continuation-proofs/forward-1-3-drat.log",
+    "benchmarks/runs/20260908-6049-reduce-root-lock/controls/check-root-0-0-1-drat.log",
+    "benchmarks/runs/20260908-6049-reduce-root-lock/controls/check-root-0-1-1-drat.log",
+    "benchmarks/runs/20260908-6049-reduce-root-lock/controls/check-root-1-0-1-drat.log",
+    "benchmarks/runs/20260908-6049-reduce-root-lock/controls/check-root-1-1-1-drat.log",
+    "benchmarks/runs/20260908-6049-reduce-root-lock/journal-proofs/caller-0-drat.log",
+    "benchmarks/runs/20260908-6049-reduce-root-lock/journal-proofs/caller-1-drat.log",
+    "benchmarks/runs/20260908-6049-reduce-root-lock/journal-proofs/caller-2-drat.log",
+    "benchmarks/runs/20260908-6049-reduce-root-lock/reduce-proofs/reduce-root-0-drat.log",
+    "benchmarks/runs/20260908-6049-reduce-root-lock/reduce-proofs/reduce-root-1-drat.log",
+    "benchmarks/runs/20260908-6049-reduce-root-lock/reduce-proofs/reduce-root-2-drat.log"
+  ],
+  "disposition": "6068 stopped before commit solely on25 verbatim DRAT checker logs with padded core-count lines. All frozen hashes verified; no logs edited or deleted. Exact25 files exempt only from whitespace lint, all other staged files pass unchanged check.",
+  "test_consideration": "Require exact file scope,line8,core-count syntax,count25 and bound hashes before exemption; no solver,proof,documentation or semantic validator relaxed.",
+  "checks": {
+    "non_checker_log_whitespace": "PASS"
+  },
+  "no_push": true
+}

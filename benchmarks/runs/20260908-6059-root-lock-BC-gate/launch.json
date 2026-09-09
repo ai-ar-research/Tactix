@@ -1,0 +1,10 @@
+{
+  "job_id": "1676660",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260908-6059-root-lock-BC-gate/array.sbatch"
+  ],
+  "manifest_sha256": "7408d7c609905b7396d213e73d832568c10aee0df08c72497cdb8670ebbbf6bc",
+  "continuation": "Independent6049 root-lock repair;existing campaigns unchanged. Pending expected verdicts permit development,not promotion."
+}
