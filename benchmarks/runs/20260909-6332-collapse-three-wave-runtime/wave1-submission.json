@@ -1,0 +1,27 @@
+{
+  "job_id": "1677560",
+  "tasks": [
+    6,
+    7,
+    8,
+    9,
+    10,
+    11
+  ],
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--array=6-11",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6332-collapse-three-wave-runtime/array.sbatch"
+  ],
+  "accounting_since": "2026-09-09T05:02:38",
+  "manifest_sha256": "9ce739b19a0225945d579a7fa4676f3afc32ab8c48e41f3b0f47974bbf5bf500",
+  "preceding_records": {
+    "benchmarks/runs/20260909-6332-collapse-three-wave-runtime/provisional/003.json": "de98929c4daf1a998b12ed2d888da5e8d1c346609e76caa5dd781bc37928bc69",
+    "benchmarks/runs/20260909-6332-collapse-three-wave-runtime/provisional/002.json": "0f88456b22707e9b5230e5a6dc935ffdc8ce7c9dac282765f13855bfd8a762f6",
+    "benchmarks/runs/20260909-6332-collapse-three-wave-runtime/provisional/000.json": "8b509cccfa956e6c6c13a46b3ace53325c1e8abb23113ef106dd76d5e653475b",
+    "benchmarks/runs/20260909-6332-collapse-three-wave-runtime/provisional/004.json": "d5619a0e55355400824c3dfd96a2ca5e75a469e6daf2c22315f46491edec6ced",
+    "benchmarks/runs/20260909-6332-collapse-three-wave-runtime/provisional/001.json": "3183a50a3c7647ecb7e87995d8df8d57f1e1b546fc03a55923506ab033ae9518",
+    "benchmarks/runs/20260909-6332-collapse-three-wave-runtime/provisional/005.json": "091df58b52baefcbaba54078665162d34a3afd8a5a8a590b73ad2ca1a62e3873"
+  }
+}

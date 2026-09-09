@@ -1,0 +1,57 @@
+{
+  "rank": 32,
+  "input": "benchmarks/cache/tierD24-26/753ca299a6ab46e28ece1aefa38f4947-oski15a01b01s_opt.cnf.xz",
+  "input_sha256_compressed": "038955b162df4caa3a11b24eb039a6775b3774ed3e7a32886cd81c462755e7f3",
+  "stop_conflict": 3000000,
+  "stream_from": 1000000,
+  "common_decisions": 96083379,
+  "resource_contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "cpus_per_task": 12,
+    "memory_mib": 48000,
+    "array": "0-1",
+    "throttle": null,
+    "node_constraint": null,
+    "solver_timeout": 1200,
+    "allocation_minutes": 25
+  },
+  "candidate_authority": {
+    "path": "benchmarks/runs/20260909-6305-substitute-collapse-build/manifest.json",
+    "sha256": "dd933514aa66316ba138b2a3e7ad44964f7811f0af0c7bbf5ade30091901ab12"
+  },
+  "native_authority": {
+    "path": "benchmarks/runs/20260908-6092-rank37-macro-heaps/manifest.json",
+    "sha256": "39668f289367568f0effdaaddc0a587ae10257095d8234893a1610cd581b92a9"
+  },
+  "selection_sha256": "727420ea950f42bfc6e7c4e36b5ac5aaa521bb326e17bfa841685b79a8c4d59b",
+  "purpose": "Test whether current Substitute collapse repair preserves the1M closure and changes the later Rank32 split.",
+  "hypothesis": "The first current post-1M count discrepancy in TransitiveReduce reflects source/candidate order, traversal outcome, or effort cut-off; identify exact differing candidate before a repair.",
+  "validation": "Require exact every recorded ordinary current-parent trace and per-arm partialproof through3M; the only added trace is transitive.tsv. Then strictly parse source/candidate framing and compare phase1368343. No full-formula equivalence or timing claim.",
+  "test_consideration": "Existing actual observer implementations and immutable binaries reused. Add malformed/framing/parser controls before reading the new census;39benchmark13SLURM tests already pass. All-source logging avoids guessing the missing binary.",
+  "limitation": "Partial certificates are hash-bound/deleted, not final-proof acceptance. Native diagnostic invocation does not refresh fixed timing reference. All-phase trace may add overhead;1200solver cap unchanged.",
+  "earlier_closure": {
+    "benchmarks/runs/20260908-6060-root-lock-rank32-prefix/summary.json": "640e4bc6a6e4b78c843a167ef8c3d27baaa0d6f528932454e274f01c06f367d1",
+    "benchmarks/runs/20260908-6061-root-lock-ranks1-40/results/031.json": "4e5b988dab8183c4a33b76d9b1de013140b21f862c46e7723d4ab309b2899f13",
+    "benchmarks/runs/20260908-6115-substitute-publication-ranks1-50/results/031.json": "54f7798a1c5da66733a873db02d943bce52c091ea7580bd704b021da01db89a2"
+  },
+  "scope": "Unchanged6305/6090 trace pins; new run configuration only, no production or old campaign mutation.",
+  "hashes": {
+    "pins/candidate": "63c13075d4159c6fed7b0f101ac87de8afa88361051e5b36bfba708e725850ad",
+    "pins/kissat": "a902fccbe9e63c2eedc1aa4332a7d912d0859088aaa98740b90facc6373f1add",
+    "run.py": "577ade4ddac5e3152d15aeeb31d3b6a0fa959f60009f66c24d2b0ca91a5caef5",
+    "array.sbatch": "9ac6267eb741bb83ae7a942c7d6c8a886332497ffe04509ea792b39e2f3da138"
+  },
+  "cached_native": {
+    "path": "benchmarks/runs/20260909-6303-rank32-later-prefix/results/kissat.json",
+    "sha256": "4e6b7d27473cdee93d27474c19295e1dc88f4bd0c00cd44b774431890b5ae837"
+  },
+  "parent_summary": {
+    "path": "benchmarks/runs/20260909-6321-collapse-rank32-prefix/summary.json",
+    "sha256": "020b17c2ccf0df08735906e6dc0a1ec3011c8cbf091f8696b88a722b8679d7f1"
+  },
+  "parent_runs": {
+    "candidate": "benchmarks/runs/20260909-6321-collapse-rank32-prefix",
+    "kissat": "benchmarks/runs/20260909-6303-rank32-later-prefix"
+  },
+  "diagnostic_conflict": 1368343
+}
