@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from decision_prefix import FIELDS, first_stream_difference, read_prefix, validate_common
+from decision_prefix import FIELDS, first_stream_difference, read_prefix, validate_common, validate_stream_accounting
 
 
 class DecisionPrefixTests(unittest.TestCase):
@@ -85,6 +85,27 @@ class DecisionPrefixTests(unittest.TestCase):
         for text in ['0\t1\t1\t3\t0', '0\t1\n', '# wrong header\n']:
             with self.subTest(text=text), self.assertRaises(AssertionError):
                 self.compare_streams(text, text, 2)
+
+
+    def test_cumulative_rows_survive_solver_counter_reset(self):
+        # Actual Rank45 shape:386 more cumulative rows than the final counter.
+        record = dict(conflict=100000, count=182035, end_decisions=181649,
+                      start_decisions=(181649-182035) % (1 << 64), first=5322, last=5735)
+        first, last = [0,1,1,5322,0], [100000,181649,6,5735,0]
+        self.assertNotEqual(first[1], (record['start_decisions']+1) % (1 << 64))
+        validate_stream_accounting(record, first, last, 182035)
+
+    def test_full_stream_accounting_rejects_wrong_edges_and_counts(self):
+        record = dict(conflict=2, count=3, end_decisions=3,
+                      start_decisions=0, first=7, last=-9)
+        first, last = [0,1,1,7,0], [2,3,2,-9,0]
+        validate_stream_accounting(record, first, last, 3)
+        for field, value in [('start_decisions',1), ('end_decisions',4),
+                             ('first',-7), ('last',9), ('conflict',1), ('count',4)]:
+            with self.subTest(field=field), self.assertRaises(AssertionError):
+                validate_stream_accounting(dict(record, **{field:value}), first, last, 3)
+        with self.assertRaises(AssertionError):
+            validate_stream_accounting(record, first[:4], last, 3)
 
 
 if __name__ == '__main__':

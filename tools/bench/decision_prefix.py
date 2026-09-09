@@ -27,6 +27,22 @@ def validate_common(record, *, stop, common, digest):
     assert record['common_hash'] == digest, 'earlier common prefix changed'
 
 
+def validate_stream_accounting(record, first, last, count):
+    """Check full-stream edges without equating cumulative rows to counters.
+
+    The observer emits end_decisions-count as start_decisions modulo2**64.
+    Preprocessing may reset the solver counter while the observer keeps rows;
+    this derived field therefore need not precede the first row's counter.
+    """
+    assert count == record['count'] and count > 0, 'wrong full-stream row count'
+    assert len(first) == len(last) == 5, 'decision stream must have five columns'
+    assert first[3] == record['first'], 'first literal does not match prefix'
+    assert last[3] == record['last'], 'last literal does not match prefix'
+    assert last[1] == record['end_decisions'], 'last counter does not match prefix'
+    assert 0 <= first[0] <= last[0] <= record['conflict'], 'stream outside prefix boundary'
+    assert record['start_decisions'] == (record['end_decisions'] - count) % (1 << 64), 'wrong derived start counter'
+
+
 def first_stream_difference(left, right, *, chunk_bytes=1 << 20):
     """Compare bound, headerless decision streams without parsing equal rows.
 

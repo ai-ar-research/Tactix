@@ -1,0 +1,11 @@
+# transitive-schedule	1
+# snapshot	before	7	9	1	11	2
+# ordinal	compact	external	active	value	key_compact	key_external	score_bits	stamp	priority
+0	4	936	1	0	2	99	3ff0000000000000	17	0
+1	5	937	1	0	2	99	3ff0000000000000	17	0
+# end
+# snapshot	after	7	9	1	11	2
+# ordinal	compact	external	active	value	key_compact	key_external	score_bits	stamp	priority
+0	5	937	1	0	2	99	3ff0000000000000	17	0
+1	4	936	1	0	2	99	3ff0000000000000	17	0
+# end
