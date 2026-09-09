@@ -1,0 +1,176 @@
+{
+  "observed_at": "2026-09-09T05:05:26.787122+00:00",
+  "manifest_sha256": "08d47653961aec7ed028a85ce8422405b56adf85a7c05121ce06a4a7d60aba20",
+  "solver_results": 6,
+  "checked_clean": 6,
+  "exact_predecessor_work_and_proof": true,
+  "waves": [
+    {
+      "wave": 0,
+      "candidate_seconds": 7.579,
+      "previous_seconds": 7.829,
+      "ratio": 0.9680674415634181,
+      "placement": {
+        "candidate": {
+          "node": "node018",
+          "affinity": [
+            48,
+            49,
+            50,
+            51,
+            52,
+            53,
+            144,
+            145,
+            146,
+            147,
+            148,
+            149
+          ],
+          "peak_rss_kib": 28036
+        },
+        "previous": {
+          "node": "node018",
+          "affinity": [
+            60,
+            61,
+            62,
+            63,
+            64,
+            65,
+            156,
+            157,
+            158,
+            159,
+            160,
+            161
+          ],
+          "peak_rss_kib": 28036
+        }
+      }
+    },
+    {
+      "wave": 1,
+      "candidate_seconds": 7.579,
+      "previous_seconds": 7.93,
+      "ratio": 0.9557377049180328,
+      "placement": {
+        "previous": {
+          "node": "node018",
+          "affinity": [
+            48,
+            49,
+            50,
+            51,
+            52,
+            53,
+            144,
+            145,
+            146,
+            147,
+            148,
+            149
+          ],
+          "peak_rss_kib": 28036
+        },
+        "candidate": {
+          "node": "node018",
+          "affinity": [
+            60,
+            61,
+            62,
+            63,
+            64,
+            65,
+            156,
+            157,
+            158,
+            159,
+            160,
+            161
+          ],
+          "peak_rss_kib": 28036
+        }
+      }
+    },
+    {
+      "wave": 2,
+      "candidate_seconds": 7.529,
+      "previous_seconds": 7.829,
+      "ratio": 0.9616809298761017,
+      "placement": {
+        "candidate": {
+          "node": "node018",
+          "affinity": [
+            48,
+            49,
+            50,
+            51,
+            52,
+            53,
+            144,
+            145,
+            146,
+            147,
+            148,
+            149
+          ],
+          "peak_rss_kib": 28036
+        },
+        "previous": {
+          "node": "node018",
+          "affinity": [
+            54,
+            55,
+            56,
+            57,
+            58,
+            59,
+            150,
+            151,
+            152,
+            153,
+            154,
+            155
+          ],
+          "peak_rss_kib": 28036
+        }
+      }
+    }
+  ],
+  "paired": {
+    "median": 0.9616809298761017,
+    "min": 0.9557377049180328,
+    "max": 0.9680674415634181
+  },
+  "spread": {
+    "candidate": {
+      "median": 7.579,
+      "min": 7.529,
+      "max": 7.579,
+      "range_over_median": 0.00659717640849714
+    },
+    "previous": {
+      "median": 7.829,
+      "min": 7.829,
+      "max": 7.93,
+      "range_over_median": 0.012900753608379101
+    }
+  },
+  "absolute_range_within_two_percent": true,
+  "hashes": {
+    "benchmarks/runs/20260909-6176-learned-sort-rank4-runtime/provisional/000.json": "c3b8bac9e377f1b77354af23ae14f653fc89774ccdc74ca3568fc9d233c2ed54",
+    "benchmarks/runs/20260909-6176-learned-sort-rank4-runtime/provisional/001.json": "b600eb3e3b462b519a5a8a7075ecb6c17919194a6d5ff4f8e677089a5ffc2447",
+    "benchmarks/runs/20260909-6176-learned-sort-rank4-runtime/provisional/002.json": "4e80b6c098687cfa10e9ace2c3f34ec6b314bd28a3468612e234dbfd9c87e6cf",
+    "benchmarks/runs/20260909-6176-learned-sort-rank4-runtime/provisional/003.json": "c4d91e0a6db93928eeea3be5ac8578ca0bf5afdfc63d491bf37d446de59c48d9",
+    "benchmarks/runs/20260909-6176-learned-sort-rank4-runtime/provisional/004.json": "f199a3dd5c34d5268a42a594f621e116bdabde5028c49655e62036634a249cd2",
+    "benchmarks/runs/20260909-6176-learned-sort-rank4-runtime/provisional/005.json": "5c58aef0fea74331678d5e4684014d525d3dc6d9ae767dafd3f6dfabc79e5fd6",
+    "benchmarks/runs/20260909-6176-learned-sort-rank4-runtime/results/000.json": "1686b6ce031d23126b3f1fa1b930c7741f2bc57c071d1867e5a8215ff74149b1",
+    "benchmarks/runs/20260909-6176-learned-sort-rank4-runtime/results/001.json": "7d4ee4afcc70487ae8be0411d33db651a00909de5561f625cd9bb735e5b76fb3",
+    "benchmarks/runs/20260909-6176-learned-sort-rank4-runtime/results/002.json": "5ead84c03eb2ad5c453382556942334bec807b376f0dc36bbba6f9a53cc66741",
+    "benchmarks/runs/20260909-6176-learned-sort-rank4-runtime/results/003.json": "6a65e602835188f31cc5c4ceebbcbf05f05dd2fa8ea6d98bf9258ac22604ffcf",
+    "benchmarks/runs/20260909-6176-learned-sort-rank4-runtime/results/004.json": "8eee31c101b22516175a62591a0f8eb47961cd78bac916176769e502fd792540",
+    "benchmarks/runs/20260909-6176-learned-sort-rank4-runtime/results/005.json": "b51972fd463b09b4a1237ba192369d8dc2affa89fd20892d142854ca1f7ad90d"
+  },
+  "limitation": "Matched exact-work local unit-cost evidence, not global competitiveness. Pending checks do not establish a checked gate; full50, memory and source-fuzz gates remain open."
+}

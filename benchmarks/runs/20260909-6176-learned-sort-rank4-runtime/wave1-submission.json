@@ -1,0 +1,19 @@
+{
+  "job_id": "1677118",
+  "tasks": [
+    2,
+    3
+  ],
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--array=2-3",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6176-learned-sort-rank4-runtime/array.sbatch"
+  ],
+  "accounting_since": "2026-09-09T01:02:49",
+  "manifest_sha256": "08d47653961aec7ed028a85ce8422405b56adf85a7c05121ce06a4a7d60aba20",
+  "predecessor_solver_records": {
+    "benchmarks/runs/20260909-6176-learned-sort-rank4-runtime/results/001.json": "7d4ee4afcc70487ae8be0411d33db651a00909de5561f625cd9bb735e5b76fb3",
+    "benchmarks/runs/20260909-6176-learned-sort-rank4-runtime/results/000.json": "1686b6ce031d23126b3f1fa1b930c7741f2bc57c071d1867e5a8215ff74149b1"
+  }
+}

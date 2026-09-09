@@ -1,0 +1,10 @@
+{
+  "job_id": "1677174",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6188-rank32-bve-candidates/array.sbatch"
+  ],
+  "accounting_since": "2026-09-09T01:21:14",
+  "manifest_sha256": "ca1a776d6864c987a94c5dde11fab403bfdf33b0b1dde13708ef3309c3b63ca3"
+}
