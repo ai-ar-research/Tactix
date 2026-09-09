@@ -1,0 +1,8 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6448-shared-blocker-build/control6450-candidate-test_shared_blocker"
+  ],
+  "exit_code": 0,
+  "stdout": "shared-blocker: 180 fixed cases digest=4396a8e9f5c97c5f\n",
+  "stderr": ""
+}

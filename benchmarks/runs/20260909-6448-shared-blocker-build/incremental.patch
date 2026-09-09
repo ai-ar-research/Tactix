@@ -1,0 +1,114 @@
+--- a/src/kernel/kernel.cpp
++++ b/src/kernel/kernel.cpp
+@@ -1610,3 +1610,10 @@
+-    if (head.binary()) {
+-      if (blocking_value > 0)
+-        continue;
++    // Consume the complete variable-width entry before the shared satisfied
++    // blocker exit (Kissat proplit.h; CaDiCaL checks the blocker before type).
++    // The reference word is not a clause dereference and carries no tick.
++    const bool binary = head.binary();
++    Ref ref = INVALID_REF;
++    if (!binary)
++      ref = *q++ = *p++;
++    if (blocking_value > 0)
++      continue;
++    if (binary) {
+@@ -1628,3 +1634,0 @@
+-      const Ref ref = *q++ = *p++;
+-      if (blocking_value > 0)
+-        continue;
+--- /dev/null
++++ b/tests/test_shared_blocker.cpp
+@@ -0,0 +1,91 @@
++#undef NDEBUG
++#include "kernel/kernel.hpp"
++#include <cassert>
++#include <cstdio>
++#include <vector>
++using namespace tactix;
++
++static uint64_t digest=1469598103934665603ull;
++static void add(uint64_t v) { digest=(digest^v)*1099511628211ull; }
++static Lit l(int v) { return internalize(v); }
++static Ref clause(Kernel &k, std::initializer_list<int> input) {
++  std::vector<Lit> v; for(int n:input) v.push_back(l(n));
++  if(v.size()==2) {
++    kernel_add_binary_clause(k,v[0],v[1],++k.next_clause_id);
++    return INVALID_REF;
++  }
++  return kernel_add_large_clause(k,v.data(),v.size(),false,0,++k.next_clause_id);
++}
++static void state(const Kernel &k) {
++  add(k.level); add(k.propagate_head); add(k.binary_only_head);
++  add(k.conflict_valid); add(k.conflict_ref);
++  if(k.conflict_valid && k.conflict_ref==INVALID_REF)
++    for(Lit v:k.conflict_bin) add(v);
++  add(k.stats.ticks); add(k.stats.propagations); add(k.stats.warming_conflicts);
++  add(k.unassigned); add(k.unassigned_active); add(k.delayed_used);
++  for(Lit v:k.trail) {
++    add(v); const Assigned &a=k.assigned[var_of(v)];
++    add(a.reason); add(a.level); add(a.trail); add(a.binary); add(a.jumped);
++  }
++  for(auto v:k.values) add(v);
++  for(auto v:k.arena) add(v);
++  for(auto v:k.watches.arena) add(v);
++  for(const auto &h:k.watches.heads) {
++    add(h.offset); add(h.size); add(h.capacity); add(h.binary_count_and_order);
++  }
++  add(k.watches.holes);
++}
++
++static void fixture(unsigned mode, unsigned drop, unsigned tail,
++                    bool reverse, bool ignore) {
++  Kernel k; kernel_reserve_vars(k,12);
++  // A preceding relocation or garbage drop makes q<p when the satisfied
++  // one-word and two-word entries are copied. With no drop, q==p instead.
++  if(drop) {
++    Ref first=clause(k,{-1,3,4});
++    if(drop==2) kernel_delete_clause(k,clause_at(k.arena,first));
++  }
++  if(reverse) { clause(k,{-1,2,5}); clause(k,{-1,2}); }
++  else { clause(k,{-1,2}); clause(k,{-1,2,5}); }
++  clause(k,{-1,6});
++  clause(k,{-1,-8,7});
++  Ref target=INVALID_REF;
++  if(tail==1) clause(k,{-1,-2});
++  if(tail==2) target=clause(k,{-1,-2,10});
++  clause(k,{-1,9}); // must remain unconsumed after a search conflict
++  if(mode==2 || mode==3) kernel_probing_begin(k,mode==2);
++  kernel_assign_decision(k,l(2));
++  kernel_assign_decision(k,l(8));
++  kernel_assign_decision(k,l(-10));
++  kernel_assign_decision(k,l(1));
++  // The fixture isolates the -1 list first, with its blocker values fixed.
++  k.propagate_head=3;
++  const Ref excluded=ignore?target:INVALID_REF;
++  bool conflict=false;
++  if(mode==4) { k.warming=true; kernel_propagate_beyond_conflicts(k); }
++  else if(mode==2 || mode==3) conflict=kernel_propagate_probing(k,excluded);
++  else conflict=kernel_propagate(k,mode==1?excluded:INVALID_REF);
++  const bool expected=tail==1 || (tail==2 && !(ignore && mode>=1 && mode<=3));
++  assert(conflict==(mode!=4 && expected));
++  assert(k.value(l(6))>0 && !k.delayed_used);
++  assert(k.value(l(9))==(expected && mode!=4 ? 0 : 1));
++  assert(k.conflict_valid==(mode!=4 && expected));
++  if(mode==4) assert((k.stats.warming_conflicts>0)==expected);
++  state(k);
++  if(mode==2 || mode==3) {
++    kernel_backtrack(k,0,false); kernel_probing_end(k); state(k);
++  }
++}
++int main() {
++  unsigned cases=0;
++  for(unsigned mode=0;mode<5;++mode)
++    for(unsigned drop=0;drop<3;++drop)
++      for(unsigned tail=0;tail<3;++tail)
++        for(bool reverse:{false,true})
++          for(bool ignore:{false,true}) {
++            fixture(mode,drop,tail,reverse,ignore); ++cases;
++          }
++  assert(cases==180);
++  std::printf("shared-blocker: %u fixed cases digest=%016llx\n",cases,
++              static_cast<unsigned long long>(digest));
++}
