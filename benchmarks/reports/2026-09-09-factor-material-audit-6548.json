@@ -1,0 +1,523 @@
+{
+  "observed_at": "2026-09-09T16:53:21.569524+00:00",
+  "prior_audit": {
+    "path": "benchmarks/reports/2026-09-09-early-congruence-audit-6542.json",
+    "sha256": "d9c52f520ed46215e127c0a8119c2958061223034385407ea94b8e55813fe0f5"
+  },
+  "owned_hashes": {
+    "PROGRESS.md": "f1d0b5ada53d25b3f90625ce09f1f0ec8d73792bedb93de1cf2b001260260bd7",
+    "benchmarks/probes/scratch/annotate-factor-6544.py": "e6e5e3bfd0bf77fa2d5ae5538c0228fb07b252ce7831270f87369900a755119b",
+    "benchmarks/probes/scratch/audit-factor-material-6548.py": "77541f55e0ee1e000fdaf191a151ce675c151ef5695ce31f2bd31c9667bedd5f",
+    "benchmarks/probes/scratch/check-native-material-6547.py": "e9386d775ab666b4bfeacc629a9a2c0e51042bfe6af2b4c6b7c6e0d940b0b2cf",
+    "benchmarks/probes/scratch/land-factor-material-6549.py": "750f0ff3a9919b52595dd8938381ce5a415eb72dad0806b5f42af34d76abdfde",
+    "benchmarks/probes/scratch/summarize-factor-6545.py": "a787c2902652460c3dcf7de7d7ff8e9a0cc6a99da1ff8036cb7f9130203b37e9",
+    "benchmarks/probes/scratch/test-native-material-6546.c": "92d93e15329093b925a651e4e880e0fbfc334f85d62990a95664833957df742c",
+    "benchmarks/reports/2026-09-09-factor-cost-and-material-contract.md": "6ae404852dfc20992ea4e6496a7ce1d77d39b8336cee9a24e22583ec69f9deb4",
+    "benchmarks/runs/20260909-6535-rank32-congruence-time/array.sbatch": "d916a3d861f3e920ba4903d0f6d6a0303e6fcb2c5095712834a90aac2b228a3c",
+    "benchmarks/runs/20260909-6535-rank32-congruence-time/launch.json": "b162cf157a12ba9a764fb3a8a67e855ed18556fe914403fc17845aed1885dc98",
+    "benchmarks/runs/20260909-6535-rank32-congruence-time/manifest.json": "02f6e8d7976da58082a0b91898eff433d83ad82aad52a8ba657ca156f0f011f0",
+    "benchmarks/runs/20260909-6535-rank32-congruence-time/matrix.tsv": "8149dd2219c3354d5e0001ebddd9f65d0ba2a96d1f7d80ec92c3f0f23604208b",
+    "benchmarks/runs/20260909-6535-rank32-congruence-time/pins/modelcheck.py": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+    "benchmarks/runs/20260909-6535-rank32-congruence-time/pins/runtime_task.py": "756a994b27b16091fa5bfe3334c811a19cade2b2ea33cb81613648095af20ab2",
+    "benchmarks/runs/20260909-6535-rank32-congruence-time/provisional/000.json": "a578754faecc83ea3c40fe3f0d2aaa4a3b4d477efdd98f79cc398691dc4bfe94",
+    "benchmarks/runs/20260909-6538-wide-padded-xor-control/0-0-0.json": "e27c1ed03f903a9b3ca13d974f7151688fa7c3533b920c026c4b777b023e563f",
+    "benchmarks/runs/20260909-6538-wide-padded-xor-control/0-0-1.json": "c3811b5a7d83fdea827adbb38c11b231d8b487ebe16a50dcf1369a9ad8dc4cad",
+    "benchmarks/runs/20260909-6538-wide-padded-xor-control/0-1-0.json": "a72352d2b2ceba8c54b001c0bd700b89a2b12d53ff2868433f63607eba9b0c79",
+    "benchmarks/runs/20260909-6538-wide-padded-xor-control/0-1-1.json": "0e75dbb1a89984f112709aaeba2bc37cf36868aee8a0d046c962bf48608e00ee",
+    "benchmarks/runs/20260909-6538-wide-padded-xor-control/0-2-0.json": "cdf4f2e948c61fc4f98b38c53631689c2fcd3bfa90ce695d1cb8cc5fb839fbb6",
+    "benchmarks/runs/20260909-6538-wide-padded-xor-control/0-2-1.json": "c9e8731076f03ee23470c41388b48ee7d58a6819e2b02b6ebc00302dcfedfeed",
+    "benchmarks/runs/20260909-6538-wide-padded-xor-control/0-3-0.json": "e375332ac13ac94960813cccd2a8d153bc175095c1a57fe5b4292aa349f7e3a9",
+    "benchmarks/runs/20260909-6538-wide-padded-xor-control/0-3-1.json": "230117671be051af4448a637ffccd8d140a83a7f07cde22fae63e4047c103715",
+    "benchmarks/runs/20260909-6538-wide-padded-xor-control/1-0-0.json": "8843139b0a865fce14c9b3434d379f2bfb9d0c0fe76a58acb1951f63231989eb",
+    "benchmarks/runs/20260909-6538-wide-padded-xor-control/1-0-1.json": "e66ce7a676b175beaa322928d606a7f13732c0e0a8925b06c6c827dbd4a74adc",
+    "benchmarks/runs/20260909-6538-wide-padded-xor-control/1-1-0.json": "76dbfd61cb9e87dd0fb327148e0ec46ee6df12ade0dcead54c7a02f49fe1e41c",
+    "benchmarks/runs/20260909-6538-wide-padded-xor-control/1-1-1.json": "5ec1e8145d64d4fb9c53d539cfe89299c44c4614d055bd6866271a7d858d32d5",
+    "benchmarks/runs/20260909-6538-wide-padded-xor-control/1-2-0.json": "155efc306fc731fb4901c0d59ba7af69bb22af350170a88203411f57ec456b0a",
+    "benchmarks/runs/20260909-6538-wide-padded-xor-control/1-2-1.json": "759ca860ad8c07c906139dd24f694fe054ebad86bbc21d89b904d075857059fe",
+    "benchmarks/runs/20260909-6538-wide-padded-xor-control/1-3-0.json": "27099d2a9252cef7a580c2e55e566521a1f15043d97c80be23b3fc6a7a962099",
+    "benchmarks/runs/20260909-6538-wide-padded-xor-control/1-3-1.json": "1ccf20a39d7c0a44f9c89d99beca30866d4ee0b98dc718930186272815b2ecb9",
+    "benchmarks/runs/20260909-6538-wide-padded-xor-control/build-2.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "benchmarks/runs/20260909-6538-wide-padded-xor-control/build.log": "1cd1b097183810559fd36d73b563999f4d264921cd7849763fe0f692cb68ca53",
+    "benchmarks/runs/20260909-6538-wide-padded-xor-control/summary.json": "2384a78486e4c7f7ddc7cc06358f121869833454085c849206cf66da6e7b0d97",
+    "benchmarks/runs/20260909-6539-rank32-early-congruence-time/array.sbatch": "0c93e699b778905ce1401314299ed40d21aa970419e39f0d8890900071dfbb84",
+    "benchmarks/runs/20260909-6539-rank32-early-congruence-time/launch.json": "522649f458b9a0b25cf185a7ac047cb790762e97bd9b1fc368f2ef596437463c",
+    "benchmarks/runs/20260909-6539-rank32-early-congruence-time/manifest.json": "7bf463ff91b1869bcb08dc8291062d31e4a5695c208344fa0ded24c8c97bbf81",
+    "benchmarks/runs/20260909-6539-rank32-early-congruence-time/matrix.tsv": "8149dd2219c3354d5e0001ebddd9f65d0ba2a96d1f7d80ec92c3f0f23604208b",
+    "benchmarks/runs/20260909-6539-rank32-early-congruence-time/pins/modelcheck.py": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+    "benchmarks/runs/20260909-6539-rank32-early-congruence-time/pins/runtime_task.py": "6bdff8f3b862e0c16b7f794d002c2fb6404340a05b610ad9c4baee93a3685203",
+    "benchmarks/runs/20260909-6539-rank32-early-congruence-time/provisional/000.json": "5300417967e795954b56b9eaf6a15b1189032933fb41e78e5341b1670ac11a1c",
+    "benchmarks/runs/20260909-6539-rank32-early-congruence-time/summary-6541.json": "da794fc478d9e708bb9396dcfa2a41ae706762e85a91b9f0606d9f68f8a7309a",
+    "benchmarks/runs/20260909-6544-rank32-factor-annotation/manifest.json": "4535b17425383d8f06c9cb3973f8dba49cb421463f38bdc410804620f1f88517",
+    "benchmarks/runs/20260909-6544-rank32-factor-annotation/summary-6545.json": "84af04ea54546a575bdbb8447d96f864eebeeb8d0af6d8f32a316fe616eae229",
+    "benchmarks/runs/20260909-6547-native-material-control/optimized-build.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "benchmarks/runs/20260909-6547-native-material-control/summary.json": "f016de6a59b7ec49f611df38c3a6532292bc41f269c76c477fe9f41d026e44e8",
+    "benchmarks/runs/20260909-6547-native-material-control/ubsan-build.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "local_hash_bound": {
+    "benchmarks/runs/20260909-6424-activation-stamp-build/manifest.json": "25c8fc8b5623ef24ad7690cb3cb7098c47ebac1e85aba4dc56f3e6684453eb06",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/results/000.json": "c20f6347fdab7633c96868399a6d412d7a6ebd033a69e29422f577730cc78f2d",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/results/001.json": "8fa2cf247fe7184fab2fca5c495b768769052e7cd20a9fc378d69fca169cced4",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/results/002.json": "222e23391576c9baf09fb269653b1afbf62ffea44352f2db083d023689b05c91",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/results/003.json": "4d1fc7de57850942b2314f06fcfa45863bb0d1625bc37cac0c99f4569ec4894c",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/results/004.json": "eddf34a484d28ca96b8859e362377686692d61ad07dad39a49904727c32ebf86",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/results/005.json": "979c908a341256a77d130546da7935c5c9d400a0de2df97c09bbf4d44c10ca34",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/results/006.json": "e990af3c4c7addc265ff80c96e439874bdcc8bd997f92e0ebf6bee4796b7b591",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/results/007.json": "9be73cd26d20217808f603052059eb5f2d1d9ceaaccaebd6a467dcc466743bf3",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/results/008.json": "bac7696d3226b7978334f41984debec9f6dbb10aeb38767670ba2e15e684572f",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/results/009.json": "651247485b5532bcb7311d318926e622efb63442d545e0ae00689e6d859aaff2",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/results/010.json": "6925c1079657d25f8b663489b72c031dd95e98c20ea952014d0c68ad5d5c85a2",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/results/011.json": "04967450638ec67d70d1f3a99d4df657857c35c59da114e135e3a28d1d1d1bdc",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/results/012.json": "b2941a355a7456e262f5c973266511d5b469644f74ba3175d82e44a191e9f456",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/results/013.json": "623b0b71bf6a92a1a300326c545276d0bf89d8651e5d9ab7babaf0e4fe5e807a",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/results/014.json": "3c87e70e57ba53021b3386d05314fba790ce8be2ec1a311598544f16016d6a78",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/results/015.json": "260b0fbf3b019d0bb1b67e328ba70b32698da0fa9366ad09563f6fa12ccd06b6",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/results/016.json": "935dbd00c402e428850ead2369d3b24d2727bcd7f34807c3673e983255453787",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/results/017.json": "7ad91a54f9b872a6fed9d8e4c86f41edcfbd83bca25039bbcc8157c989726c47",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/results/018.json": "f71d18b5b0138c897c07ce7d806b16e6c887ac991187fd3c21c41f07473b6baf",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/results/019.json": "4f117540f6f6c7c509e13bc7c11a4bc71d9d02cec72a571043bbc74a8f6493ca",
+    "benchmarks/runs/20260909-6372-rank32-release-profile/results/000.json": "ceb00ad92064308d05b73146040c38cdd723be1eb087b10f00c2b3f78310e42f",
+    "benchmarks/runs/20260909-6372-rank32-release-profile/results/001.json": "76f36bba26fcffda034b6dbdee2e1c4107dd3d910d4f750bf6fe520def2ff741",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/000.json": "17a2c82567b0d3ddf3f38b5c7063aa5170fd09edf7666b1de6286b70996ae1bb",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/001.json": "9f48fb30e54c95b466019a51caaff0f1a732ae5dc4cef333e532fd7cf08de9b2",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/002.json": "d6e6faa3356b3487820a7d3ad4f74d43e92b7a308dc9f50013b82f557aff7b30",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/003.json": "515aa5320b86341a0b599805324cb15781c378f48db4a7fe180f745998ca4ae8",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/004.json": "727177cfc0075487c7f66a99e1595499220f77c665dda5fd9bff9cb03e6fc0a9",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/005.json": "1a5e9097aa2ebc571ccbceb680fac391a8bf7408511f55b100c717f615be0540",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/006.json": "a7360ca0469087ee919847ee745eb19102656452debcf2b8a00fb362228e27b1",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/007.json": "455e3d17bce45a9aef197aac7c979d68ff27e28168eccbe7f16ca74007d9d61d",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/008.json": "20b8c85db7d6d19c2635542d9165cc2414c45198d94957b5c14e06ac3a243723",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/009.json": "79d92a855a80309824f1f0569c93b5d543bf39f681eae99d11947dea85b939ed",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/010.json": "f26d75c3f581e3ae52743754c0f63a8d367942da9c2f54ddf07315aa5d7038c4",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/011.json": "554e1773cf3308c01a3937b1751c013b06cbfaf169cbbb81afaafd441825600d",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/012.json": "c0487ae707f74544b0fba3fdbbebc63cf68fc60ced80c54e032ad64d60a208f1",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/013.json": "5df7d03efd682580ee5dc78942c50e94377d71737d1572091164244dc3ee9cf4",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/014.json": "cd31ebf348970a590098bf174b8bde977ea9d4f51ac65160720646901e734a47",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/015.json": "211286bdec1331bbbe7bb1ff0f6c1e0ec3dda5994a282d1d42dc849bd59a8d9a",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/016.json": "33d7cf541d7b9e635b95b7429e2ad30fde8cc6b6120396607a9c28d836334864",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/017.json": "0241bbf01c2f4c1b50ada1186811be63c239f0a033cf6fb25df0a062bd0e1111",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/018.json": "8228e614a88815948b60096eb8ef8a966707919a1f46e59ad13dfc443ede7e1b",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/019.json": "74e001ac44fa115eb8fc83a3c6152267fcb61820f7939f7868d7b29d17a50e99",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/020.json": "5640ff32392d161a43c680048103f41ffd26b9da6e4b3d135486e43f4a897b0d",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/021.json": "3e80570b36f7aa4cecf92ff36c46089835a7da9be133e4c46a58129f5702a1b3",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/022.json": "b22fca8ae694e544ae648d4a8f8b36ddd3190be12bc21b500c64eb28a28828d8",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/023.json": "538f87af9b7870556ee768cf9eb5f9418bf28360a0b143a18028742c143d24ef",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/024.json": "c1fc16f8c2b91d54990acf4febacee97dbd498117c6a44b9aa4ef7c39fe93b53",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/025.json": "ae8c68cb39d6d7818f48abeeaa134567d333996477319c0b254cb43b8f97e763",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/026.json": "2f738900234144bd2a9c9ecb19b64ec82d69135eb05c34803278d513233f2932",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/027.json": "fcc33c5364e97320a3e41503b621b5ff91c9dc098f1b8e528939821ec0602ced",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/028.json": "1ebbc21c3a90c172843fb76e18a4ded6b0b2cd595f801e31074f1bb830cf1d4c",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/029.json": "41c21c1ff3a958cff294300cc6ae55c52648af51160fa1a4d701acff3d376e1b",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/030.json": "698da96c57f88aa7060cfb3fe6c82507eb709f31dcea90cba96fa58469c5466a",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/031.json": "d2f10a04cd19e5eb21926e6034d4a1a93c566589505a466d1528a9c7aa685e62",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/032.json": "8f497ef0524063a15935e9bac1e708a399f0418de95af27bec7c60d78bb3eca3",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/033.json": "f4a479c25fec8689e9962c47573dc895c7308ddc837c2109b60692f5a5845a1d",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/034.json": "8a4150c594f829182176ae6c25d494ff6a8ef5c5296e87906964d17c1017c965",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/035.json": "27db90a4eb866a78ba948eca360dd71c4be5ee4a02001877ec091f1bedbe0ad0",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/036.json": "fd7c21b4c5a8405eb3aabc34229a379f0816c625dce7f957a053c7968ec4584d",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/037.json": "7ab37cce63da4cc905bda2ca9e876cddc22f39b92e9b48d9ab6e540339c8492c",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/038.json": "0c81624713b48eea0f5cad8d559646aea111c6aae620d45cf03bf612a4708ed5",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/039.json": "606787f9b04b7995f3c79660d76954e415d73bc837ac1a0749567ae3a07cf9ea",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/040.json": "bbd9402394d8adfbc2aee69e5a57bd18174f3e1887bf04820d0d27919099bbd5",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/041.json": "be30e87bf585e7b9a265a1b514bb612acbcebc6ba462df198034c8d35b3dc4ca",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/042.json": "9fa38b5f795cfbc75bd353e73441508fae5f7dc9cf89058b77e1cd0cbc1ec641",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/043.json": "a42dab9b159e7860910650f55bf70f53119a0e7ece482cb1b33915c6300f70d1",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/044.json": "4b95131de7e45febde09073201016269a3198af0b2abf8d34f5172bde4d07f8e",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/045.json": "4c73515e2e34af158fb9213c52f5fa1f74ce87ae47bd906f7bb945023cbec632",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/046.json": "62c53289458b1f0efe8d811a08fe8f89962d443474093b8647cbe0e75eb51326",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/047.json": "6886e6c02c7fbfad6c52bc05c3aeb5baa61a1326ce554c5ebdd1ed692937224b",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/048.json": "36eac351cfc6003c566c17a4a47fb281675032692398a98e312a5e8898137b39",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/results/049.json": "e1f2dac6bc04aed24e81643ec1767e5994852644d7de6ac2bf8d30283fbabe21",
+    "benchmarks/baselines/rank1-50-kissat-12cpu-v1/manifest.json": "5f7865e46af2b9ed0d1899ce6e450bfb9b3575801c50183e059d0e4326f5a1e0",
+    "benchmarks/runs/20260909-6539-rank32-early-congruence-time/summary-6541.json": "da794fc478d9e708bb9396dcfa2a41ae706762e85a91b9f0606d9f68f8a7309a",
+    "benchmarks/runs/20260909-6539-rank32-early-congruence-time/manifest.json": "7bf463ff91b1869bcb08dc8291062d31e4a5695c208344fa0ded24c8c97bbf81",
+    "benchmarks/runs/20260909-6439-activation-ranks1-50/manifest.json": "a8475e85b27ee5cbc45adaa572090ca7162402d1eb0c89bb4292ab6c5634df3e",
+    "benchmarks/runs/20260909-6372-rank32-release-profile/solver-summary-6378.json": "5f88080bacba0ef1e7d6927c2edc069dbff5aa23e435fdc8deae8f5ae9268031",
+    "benchmarks/reports/2026-09-09-retention-attribution-audit-6533.json": "3c5e2a09c07384778831beba9ea3e7f2900574d44c0b3e2995bca56b5478db82",
+    "tools/bench/runtime_task.py": "9a010d276a883c9289ad6a620e39c1ed761c2ba3b62f3d878e37cca5de228206",
+    "benchmarks/runs/20260909-6535-rank32-congruence-time/manifest.json": "02f6e8d7976da58082a0b91898eff433d83ad82aad52a8ba657ca156f0f011f0",
+    "benchmarks/runs/20260909-6539-rank32-early-congruence-time/pins/tactix": "5946f59800adbf1bbbb20c64ac4bcbcd00ff8dc980ebfdc04edd844db2cd7eb4",
+    "benchmarks/runs/20260909-6539-rank32-early-congruence-time/pins/drat-trim": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+    "benchmarks/runs/20260909-6539-rank32-early-congruence-time/pins/modelcheck.py": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+    "benchmarks/runs/20260909-6539-rank32-early-congruence-time/pins/runtime_task.py": "6bdff8f3b862e0c16b7f794d002c2fb6404340a05b610ad9c4baee93a3685203",
+    "benchmarks/runs/20260909-6539-rank32-early-congruence-time/pins/checkmodel": "5fde6bbc7be305f6b6166ef75dc4788e2cf40180317ab1ec9a38a3d6071676cf",
+    "benchmarks/runs/20260909-6539-rank32-early-congruence-time/matrix.tsv": "8149dd2219c3354d5e0001ebddd9f65d0ba2a96d1f7d80ec92c3f0f23604208b",
+    "benchmarks/runs/20260909-6539-rank32-early-congruence-time/array.sbatch": "0c93e699b778905ce1401314299ed40d21aa970419e39f0d8890900071dfbb84",
+    "benchmarks/runs/20260909-6535-rank32-congruence-time/provisional/000.json": "a578754faecc83ea3c40fe3f0d2aaa4a3b4d477efdd98f79cc398691dc4bfe94",
+    "benchmarks/runs/20260909-6539-rank32-early-congruence-time/provisional/000.json": "5300417967e795954b56b9eaf6a15b1189032933fb41e78e5341b1670ac11a1c",
+    "tools/bench/congruence_timing.py": "a534ef2b2deae4c4704c3608db67d957a8d99c18792ca26a39d825df8bfbb70d",
+    ".claude/worktrees/runtime-activation-stamp-6424/src/rules/congruence/congruence.cpp": "01004745a067bc0f4eb88bd0b2455324c1d2039870dc65e16b56957a17170398",
+    ".claude/worktrees/runtime-activation-stamp-6424/src/rules/factor/factor.cpp": "c7679ff8e17ff5ae46703768a465e26fe4ff8d533e93dc60a7e10a5315a77ac4",
+    "tools/solvers/variants/kissat-macro-heap-6090/src/congruence.c": "afc5f1236596a0484463408cebc5953b4e6a2b76f47e708dcad94560844a8aba",
+    "tools/solvers/variants/kissat-macro-heap-6090/src/factor.c": "c6c05495799196b7f3169f93fc6b11a2e2b488195504f5543e1008fc46cc3a44",
+    "tools/solvers/variants/cadical-extdiag/src/congruence.cpp": "a654b5c9554fd90657a4f9d09f4e7083c40338f124102f6adb71b6b87597c88c",
+    "benchmarks/runs/20260909-6535-rank32-congruence-time/launch.json": "b162cf157a12ba9a764fb3a8a67e855ed18556fe914403fc17845aed1885dc98",
+    "benchmarks/runs/20260909-6535-rank32-congruence-time/pins/checkmodel": "5fde6bbc7be305f6b6166ef75dc4788e2cf40180317ab1ec9a38a3d6071676cf",
+    "benchmarks/runs/20260909-6535-rank32-congruence-time/pins/runtime_task.py": "756a994b27b16091fa5bfe3334c811a19cade2b2ea33cb81613648095af20ab2",
+    "benchmarks/runs/20260909-6535-rank32-congruence-time/pins/drat-trim": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+    "benchmarks/runs/20260909-6535-rank32-congruence-time/pins/tactix": "5946f59800adbf1bbbb20c64ac4bcbcd00ff8dc980ebfdc04edd844db2cd7eb4",
+    "benchmarks/runs/20260909-6535-rank32-congruence-time/pins/modelcheck.py": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+    "benchmarks/runs/20260909-6535-rank32-congruence-time/matrix.tsv": "8149dd2219c3354d5e0001ebddd9f65d0ba2a96d1f7d80ec92c3f0f23604208b",
+    "benchmarks/runs/20260909-6535-rank32-congruence-time/array.sbatch": "d916a3d861f3e920ba4903d0f6d6a0303e6fcb2c5095712834a90aac2b228a3c",
+    "benchmarks/runs/20260909-6539-rank32-early-congruence-time/launch.json": "522649f458b9a0b25cf185a7ac047cb790762e97bd9b1fc368f2ef596437463c",
+    "benchmarks/runs/20260909-6538-wide-padded-xor-control/summary.json": "2384a78486e4c7f7ddc7cc06358f121869833454085c849206cf66da6e7b0d97",
+    "benchmarks/runs/20260909-6538-wide-padded-xor-control/1-1-0.json": "76dbfd61cb9e87dd0fb327148e0ec46ee6df12ade0dcead54c7a02f49fe1e41c",
+    "benchmarks/runs/20260909-6538-wide-padded-xor-control/0-3-1.json": "230117671be051af4448a637ffccd8d140a83a7f07cde22fae63e4047c103715",
+    "benchmarks/runs/20260909-6538-wide-padded-xor-control/1-3-0.json": "27099d2a9252cef7a580c2e55e566521a1f15043d97c80be23b3fc6a7a962099",
+    "benchmarks/runs/20260909-6538-wide-padded-xor-control/0-1-1.json": "0e75dbb1a89984f112709aaeba2bc37cf36868aee8a0d046c962bf48608e00ee",
+    "benchmarks/runs/20260909-6538-wide-padded-xor-control/1-3-1.json": "1ccf20a39d7c0a44f9c89d99beca30866d4ee0b98dc718930186272815b2ecb9",
+    "benchmarks/runs/20260909-6538-wide-padded-xor-control/build.log": "1cd1b097183810559fd36d73b563999f4d264921cd7849763fe0f692cb68ca53",
+    "benchmarks/runs/20260909-6538-wide-padded-xor-control/0-1-0.json": "a72352d2b2ceba8c54b001c0bd700b89a2b12d53ff2868433f63607eba9b0c79",
+    "benchmarks/runs/20260909-6538-wide-padded-xor-control/1-1-1.json": "5ec1e8145d64d4fb9c53d539cfe89299c44c4614d055bd6866271a7d858d32d5",
+    "benchmarks/runs/20260909-6538-wide-padded-xor-control/0-3-0.json": "e375332ac13ac94960813cccd2a8d153bc175095c1a57fe5b4292aa349f7e3a9",
+    "benchmarks/runs/20260909-6538-wide-padded-xor-control/build-2.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "benchmarks/runs/20260909-6538-wide-padded-xor-control/0-0-0.json": "e27c1ed03f903a9b3ca13d974f7151688fa7c3533b920c026c4b777b023e563f",
+    "benchmarks/runs/20260909-6538-wide-padded-xor-control/1-2-1.json": "759ca860ad8c07c906139dd24f694fe054ebad86bbc21d89b904d075857059fe",
+    "benchmarks/runs/20260909-6538-wide-padded-xor-control/0-2-0.json": "cdf4f2e948c61fc4f98b38c53631689c2fcd3bfa90ce695d1cb8cc5fb839fbb6",
+    "benchmarks/runs/20260909-6538-wide-padded-xor-control/1-0-1.json": "e66ce7a676b175beaa322928d606a7f13732c0e0a8925b06c6c827dbd4a74adc",
+    "benchmarks/runs/20260909-6538-wide-padded-xor-control/0-2-1.json": "c9e8731076f03ee23470c41388b48ee7d58a6819e2b02b6ebc00302dcfedfeed",
+    "benchmarks/runs/20260909-6538-wide-padded-xor-control/fixture": "d9b78822253f86a1cd618983e829eba9753ad6eb6609c591b1e25570fbfb17d0",
+    "benchmarks/runs/20260909-6538-wide-padded-xor-control/1-0-0.json": "8843139b0a865fce14c9b3434d379f2bfb9d0c0fe76a58acb1951f63231989eb",
+    "benchmarks/runs/20260909-6538-wide-padded-xor-control/0-0-1.json": "c3811b5a7d83fdea827adbb38c11b231d8b487ebe16a50dcf1369a9ad8dc4cad",
+    "benchmarks/runs/20260909-6538-wide-padded-xor-control/1-2-0.json": "155efc306fc731fb4901c0d59ba7af69bb22af350170a88203411f57ec456b0a",
+    "benchmarks/runs/20260909-6544-rank32-factor-annotation/manifest.json": "4535b17425383d8f06c9cb3973f8dba49cb421463f38bdc410804620f1f88517",
+    "benchmarks/runs/20260909-6544-rank32-factor-annotation/summary-6545.json": "84af04ea54546a575bdbb8447d96f864eebeeb8d0af6d8f32a316fe616eae229",
+    "benchmarks/runs/20260909-6544-rank32-factor-annotation/candidate-apply-periods.txt": "77a52d3ef76537c6ca4f8d8851274fe6d6156038f833953ac6b4978bfc36f1a1",
+    "benchmarks/runs/20260909-6544-rank32-factor-annotation/candidate-apply-periods.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "benchmarks/runs/20260909-6544-rank32-factor-annotation/candidate-apply-percent.txt": "b3d9b1662c1fb727ff89e61f2269a303b492b8ee96346a5163b09dfcf7a3fc74",
+    "benchmarks/runs/20260909-6544-rank32-factor-annotation/candidate-apply-percent.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "benchmarks/runs/20260909-6544-rank32-factor-annotation/candidate-index-periods.txt": "0551c740971dd9f98342c95c0aa5f465105578f3cc53598f1b3c9b4349248647",
+    "benchmarks/runs/20260909-6544-rank32-factor-annotation/candidate-index-periods.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "benchmarks/runs/20260909-6544-rank32-factor-annotation/candidate-index-percent.txt": "9897dc6abc01da3cdba2e65ce6c62c416e355e24ddd14fbcea474b1968761637",
+    "benchmarks/runs/20260909-6544-rank32-factor-annotation/candidate-index-percent.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "benchmarks/runs/20260909-6544-rank32-factor-annotation/callpaths.txt": "ca03a283243a75436dd2cd71641b72a9cfc0131516f012158bd2d99f95051332",
+    "benchmarks/runs/20260909-6544-rank32-factor-annotation/callpaths.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "tools/bench/perf_annotation.py": "f0cb9bf96822ef1ed3cc46639e72ef56922de6dad57115e39bd681d5f1e7cf7e",
+    "tools/bench/test_perf_annotation.py": "694967e78651e6aaeaa78b97a1b00235a34a9b6692fcaba8d85132240efa697a",
+    "benchmarks/probes/scratch/summarize-factor-6545.py": "a787c2902652460c3dcf7de7d7ff8e9a0cc6a99da1ff8036cb7f9130203b37e9",
+    "benchmarks/runs/20260909-6547-native-material-control/summary.json": "f016de6a59b7ec49f611df38c3a6532292bc41f269c76c477fe9f41d026e44e8",
+    "benchmarks/runs/20260909-6547-native-material-control/optimized": "06a6304bcba9a2343f1116b754c6ade6db323450eee8aa8662b9a2ed1b79e10c",
+    "benchmarks/runs/20260909-6547-native-material-control/ubsan": "68eb37bbb057c17f6ed6c42d2a779d7eb135d042cdad02170bd6a90cbe9d0e78",
+    "tools/solvers/variants/kissat-macro-heap-6090/src/forward.c": "df9df518505c932e2dfe039bc90496cd071650dcbe98314af59d059f9ffaaed9",
+    "tools/solvers/variants/kissat-macro-heap-6090/src/eliminate.c": "d546d74aed21e969e3325b87c9a1df8f91e0eb48cf8ab7a10e41ccc2c4d64676",
+    ".claude/worktrees/runtime-activation-stamp-6424/src/rules/strengthen/strengthen.cpp": "e0f7dae84d58ddefa96905544153d12ae027bf4a42a48b304a695bdf9b007e68",
+    ".claude/worktrees/runtime-activation-stamp-6424/src/kernel/kernel.hpp": "b917fbcb1284e604a5377d202eda32ea95fee2e498a05d5640a6f459016842ec",
+    ".claude/worktrees/runtime-activation-stamp-6424/src/policies/default_policy.cpp": "8b4bdd0258b7221cf0c9a9f45ede68877f7be5a8e901f006c8688e30f022349f"
+  },
+  "protected_campaign_hashes": {
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/manifest.json": "b2f9e98291c56c415e4cb9439a77378c55cc78593d632c1fc84a6d5ee194acf6",
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/array.sbatch": "b90503efeb1acd5ea2cb081fc60a79c2e1ab6d51287cedf050a673ddb5433143",
+    "benchmarks/baselines/rank1-40-kissat-12cpu-v1/manifest.json": "45259e1acbc93472b923517f75fd6b8697669b3ad74970d27b565b6b7f1aa686",
+    "benchmarks/runs/20260908-5712-assignment-level-ranks1-40/manifest.json": "80211109441ac7e1483082a767c755ffc03c029381398c71017593e2ff29a8ae",
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/pins/runtime_task.py": "ccef4f23bac433c4c205949c0296f2cdef0e98d0d56fff5d306abb6e6209297f",
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/pins/modelcheck.py": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/manifest.json": "d09c9f2a030d0d29974fa881ee247c7900704e4be0e204b28c0b16beaf443d16",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/array.sbatch": "82b47f14fc76c4d5ca14484035b1033d013c1a36c2bbe44c531a1a6a56c87efb",
+    "benchmarks/runs/20260908-6114-substitute-publication-BC-gate/manifest.json": "27c57c3c896ab15daa9d51ff87f9a977472d28b2b43b849be7322b96eb598bb1",
+    "benchmarks/runs/20260908-6114-substitute-publication-BC-gate/array.sbatch": "2b6afd38eb7dcc8fc39f6fa294f5786d20d9238a4facb7cb64bc6c35a0320b4a",
+    "benchmarks/runs/20260908-6115-substitute-publication-ranks1-50/manifest.json": "e739603e6d4ec9024beebfa7a049def7c3ea01eb6b5287e542f05a651e646cd7",
+    "benchmarks/runs/20260908-6115-substitute-publication-ranks1-50/array.sbatch": "ab074cdcf7e9691f7031fd9aa198cef18fe83bb9edc5aa73f0c5b033d2d380f5",
+    "benchmarks/baselines/rank1-50-kissat-12cpu-v1/manifest.json": "5f7865e46af2b9ed0d1899ce6e450bfb9b3575801c50183e059d0e4326f5a1e0",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/manifest.json": "224b3b5d80c3087b3c3c709a78dcf934d175823bd2232f68a2475e6d11bd3d1a",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/launch.json": "ee6eea617d6fef64349ed0096c9dd06f1ffb9ba03467dd6901ab92b833bfb7a1",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/array.sbatch": "37e88d1e5998092127067b1ac0fedc388f29ddf45179057a508fb53dabaa24be"
+  },
+  "campaigns": {
+    "20260908-6108-rank41-50-matched": {
+      "checked_clean": 20
+    },
+    "20260909-6372-rank32-release-profile": {
+      "checked_clean": 2
+    },
+    "20260909-6439-activation-ranks1-50": {
+      "checked_clean": 50
+    },
+    "20260909-6535-rank32-congruence-time": {
+      "solver_complete": true,
+      "checked_clean": 0,
+      "independent_validation_pending": true
+    },
+    "20260909-6539-rank32-early-congruence-time": {
+      "solver_complete": true,
+      "checked_clean": 0,
+      "independent_validation_pending": true
+    }
+  },
+  "accounting": {
+    "6464-activation-adverse-three-wave-runtime/wave0-submission.json": {
+      "command": [
+        "sacct",
+        "-n",
+        "-X",
+        "--array",
+        "-j",
+        "1678054",
+        "-S",
+        "2026-09-09T09:00:56",
+        "-o",
+        "JobID,State%40,ExitCode,Submit",
+        "-P"
+      ],
+      "stdout": "1678054_0|COMPLETED|0:0|2026-09-09T09:00:56\n1678054_1|COMPLETED|0:0|2026-09-09T09:00:56\n1678054_2|COMPLETED|0:0|2026-09-09T09:00:56\n1678054_3|COMPLETED|0:0|2026-09-09T09:00:56\n1678054_4|COMPLETED|0:0|2026-09-09T09:00:56\n1678054_5|COMPLETED|0:0|2026-09-09T09:00:56\n",
+      "launch": {
+        "job_id": "1678054",
+        "tasks": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "command": [
+          "sbatch",
+          "--parsable",
+          "--array=0-5",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/array.sbatch"
+        ],
+        "accounting_since": "2026-09-09T09:00:56",
+        "manifest_sha256": "24f833fc10ae5599356328963a1deaceb414637f45a8c53daa12ffaabbbf6e93",
+        "preceding_records": {}
+      }
+    },
+    "6464-activation-adverse-three-wave-runtime/wave1-submission.json": {
+      "command": [
+        "sacct",
+        "-n",
+        "-X",
+        "--array",
+        "-j",
+        "1678069",
+        "-S",
+        "2026-09-09T09:10:30",
+        "-o",
+        "JobID,State%40,ExitCode,Submit",
+        "-P"
+      ],
+      "stdout": "1678069_6|COMPLETED|0:0|2026-09-09T09:10:30\n1678069_7|COMPLETED|0:0|2026-09-09T09:10:30\n1678069_8|COMPLETED|0:0|2026-09-09T09:10:30\n1678069_9|COMPLETED|0:0|2026-09-09T09:10:30\n1678069_10|COMPLETED|0:0|2026-09-09T09:10:30\n1678069_11|COMPLETED|0:0|2026-09-09T09:10:30\n",
+      "launch": {
+        "job_id": "1678069",
+        "tasks": [
+          6,
+          7,
+          8,
+          9,
+          10,
+          11
+        ],
+        "command": [
+          "sbatch",
+          "--parsable",
+          "--array=6-11",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/array.sbatch"
+        ],
+        "accounting_since": "2026-09-09T09:10:30",
+        "manifest_sha256": "24f833fc10ae5599356328963a1deaceb414637f45a8c53daa12ffaabbbf6e93",
+        "preceding_records": {
+          "benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/provisional/004.json": "f59232eb85296740c5d4127cf709a5bc32d10fac6dc48b665ffce17908f532a7",
+          "benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/results/000.json": "83f176ea39b63538c3ae1779c9fbe5e24b661643c8710ef959f486268ecd9511",
+          "benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/provisional/005.json": "08c1d97a4c3886a77583cb84b103274bfefa0a4462d2fa9b75c5f976effa9707",
+          "benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/results/001.json": "66488724aacb5a89357d61280e55ca36241821c0ae857b9788a4f80b1fa5aa07",
+          "benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/provisional/003.json": "7be17e0726db8159348a06999b5c363657d7a6a846c060ccbd5347eddfb39794",
+          "benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/provisional/002.json": "9a813294202ef392df30787551745e1be833ef0d819cb92f0931747759c8cb77"
+        }
+      }
+    },
+    "6464-activation-adverse-three-wave-runtime/wave2-submission.json": {
+      "command": [
+        "sacct",
+        "-n",
+        "-X",
+        "--array",
+        "-j",
+        "1678082",
+        "-S",
+        "2026-09-09T09:32:14",
+        "-o",
+        "JobID,State%40,ExitCode,Submit",
+        "-P"
+      ],
+      "stdout": "1678082_12|COMPLETED|0:0|2026-09-09T09:32:14\n1678082_13|COMPLETED|0:0|2026-09-09T09:32:14\n1678082_14|COMPLETED|0:0|2026-09-09T09:32:14\n1678082_15|COMPLETED|0:0|2026-09-09T09:32:14\n1678082_16|RUNNING|0:0|2026-09-09T09:32:14\n1678082_17|RUNNING|0:0|2026-09-09T09:32:14\n",
+      "launch": {
+        "job_id": "1678082",
+        "tasks": [
+          12,
+          13,
+          14,
+          15,
+          16,
+          17
+        ],
+        "command": [
+          "sbatch",
+          "--parsable",
+          "--array=12-17",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/array.sbatch"
+        ],
+        "accounting_since": "2026-09-09T09:32:14",
+        "manifest_sha256": "24f833fc10ae5599356328963a1deaceb414637f45a8c53daa12ffaabbbf6e93",
+        "preceding_records": {
+          "benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/provisional/010.json": "f4c92f267b2cfa42a2f9a09a5b99379cfa4e90280dcc82361fee112923024811",
+          "benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/provisional/008.json": "ac597dfd7eb1bb7100f10bd434bdda7388aa0a7bd18d6acdfff888b6d0e1c05e",
+          "benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/provisional/004.json": "f59232eb85296740c5d4127cf709a5bc32d10fac6dc48b665ffce17908f532a7",
+          "benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/results/000.json": "83f176ea39b63538c3ae1779c9fbe5e24b661643c8710ef959f486268ecd9511",
+          "benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/provisional/005.json": "08c1d97a4c3886a77583cb84b103274bfefa0a4462d2fa9b75c5f976effa9707",
+          "benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/results/001.json": "66488724aacb5a89357d61280e55ca36241821c0ae857b9788a4f80b1fa5aa07",
+          "benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/provisional/011.json": "12ad6aab0f73b83f23daee50d30f06ff817cf8ab269f54b29fbda46c9f890e60",
+          "benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/provisional/009.json": "f1cd74f56e3fdfb8765797fe6b0eebeb154188c5e2f2e5f8f85542c8a627d55e",
+          "benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/results/007.json": "a5947355cbd9883cbc13a8d939d34e7435216cda9183a6ce9994392a3ce29480",
+          "benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/provisional/003.json": "7be17e0726db8159348a06999b5c363657d7a6a846c060ccbd5347eddfb39794",
+          "benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/results/006.json": "cea005c08ba7875ee6d9b7ef56da0c17356410625fb132fe85e97f1e4145b36c",
+          "benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/provisional/002.json": "9a813294202ef392df30787551745e1be833ef0d819cb92f0931747759c8cb77"
+        }
+      }
+    },
+    "20260909-6535-rank32-congruence-time": {
+      "command": [
+        "sacct",
+        "-n",
+        "-X",
+        "--array",
+        "-j",
+        "1678209",
+        "-S",
+        "2026-09-09T12:19:08",
+        "-o",
+        "JobID,State%40,ExitCode,Submit",
+        "-P"
+      ],
+      "stdout": "1678209_0|RUNNING|0:0|2026-09-09T12:19:08\n",
+      "launch": {
+        "job_id": "1678209",
+        "command": [
+          "sbatch",
+          "--parsable",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6535-rank32-congruence-time/array.sbatch"
+        ],
+        "accounting_since": "2026-09-09T12:19:08",
+        "manifest_sha256": "02f6e8d7976da58082a0b91898eff433d83ad82aad52a8ba657ca156f0f011f0"
+      }
+    },
+    "20260909-6539-rank32-early-congruence-time": {
+      "command": [
+        "sacct",
+        "-n",
+        "-X",
+        "--array",
+        "-j",
+        "1678210",
+        "-S",
+        "2026-09-09T12:29:09",
+        "-o",
+        "JobID,State%40,ExitCode,Submit",
+        "-P"
+      ],
+      "stdout": "1678210_0|RUNNING|0:0|2026-09-09T12:29:09\n",
+      "launch": {
+        "job_id": "1678210",
+        "command": [
+          "sbatch",
+          "--parsable",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6539-rank32-early-congruence-time/array.sbatch"
+        ],
+        "accounting_since": "2026-09-09T12:29:09",
+        "manifest_sha256": "7bf463ff91b1869bcb08dc8291062d31e4a5695c208344fa0ded24c8c97bbf81"
+      }
+    }
+  },
+  "checks": {
+    "bench": {
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tools/bench",
+        "-p",
+        "test_*.py"
+      ],
+      "stdout": "",
+      "stderr": "............................................................................................................................................\n----------------------------------------------------------------------\nRan 140 tests in 0.081s\n\nOK\n"
+    },
+    "slurm": {
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tools/slurm",
+        "-p",
+        "test_*.py"
+      ],
+      "stdout": "SLURM job 123: observation failed (1); retrying same job\n",
+      "stderr": ".............\n----------------------------------------------------------------------\nRan 13 tests in 0.004s\n\nOK\n"
+    },
+    "check-doc-size": {
+      "command": [
+        "python3",
+        "tools/docs/check-doc-size.py"
+      ],
+      "stdout": "  warn  DEVELOPMENT_PLAN.md: 747 of 750 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\n  warn  PROGRESS.md: 350 of 350 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\n  warn  docs/calculus.md: 671 of 680 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\n  warn  docs/implementation-notes.md: 560 of 560 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\n  warn  docs/scheduling-parity-ledger.md: 600 of 600 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\ncheck-doc-size: 0 error(s), 5 warning(s), 30 file budget(s) checked\n",
+      "stderr": ""
+    },
+    "check-progress": {
+      "command": [
+        "python3",
+        "tools/docs/check-progress.py"
+      ],
+      "stdout": "  note  build dirs newer than newest source: pin-5316-core-capture(Release), pin-5317-core-capture(Release), pin-5318-core-release(Release), pin-5321-core-roots(Release), pin-5322-core-repose(Release), pin-5322-repose-trace(Release), pin-5323-binary-watch(Release), pin-5325-sequential(Release), pin-5325-sequential-trace(Release), pin-5326-composed(Release), pin-5326-composed-trace(Release), pin-5327-bridge-pose(Release), pin-5327-bridge-trace(Release), pin-5331-core-trace(Release), pin-5337-rewrite-source(Release), pin-5342-deact-trace(Release), pin-5343-round-retirement(Release), pin-5344-round-only(Release), pin-5344-round-release(Release), pin-5347-decision-stream(Release), pin-5348-choice-state(Release), pin-5352-queue-stamps(Release), pin-5353-factor-stamps(Release), pin-5354-empty-factor(Release), pin-5356-empty-factor-release(Release), pin-5357-empty-factor-C(Release), pin-5359-focused-choice(Release), pin-5361-queue-bumps(Release), pin-5369-congruence-prefix(Release), pin-5371-congruence-prefix-release(Release), pin-5372-congruence-prefix-bc(Release), pin-5377-retry-producers(Release), pin-5378-vivify-retry(Release), pin-5379-vivify-retry-release(Release), pin-5380-vivify-retry-bc(Release), pin-5382-prefix-cost(Release), pin-5387-dense-publication(Release), pin-5388-dense-publication-release(Release), pin-5389-dense-publication-bc(Release), pin-5391-eliminate-dense-entry(Release), pin-5392-eliminate-dense-release(Release), pin-5393-eliminate-dense-bc(Release), pin-5399-window-observer(Release), pin-5402-direct-heap(Release), pin-5412-imply-observer(Release), pin-5414-imply-fast(Release), pin-5417-rephase-root-trace(Release), pin-5419-rephase-root-release(Release), pin-5420-rephase-root-bc(Release), pin-5426-watch-truncate-release(Release), pin-5427-watch-truncate-bc(Release), pin-5430-inprocess-root-release(Release), pin-5431-inprocess-root-trace(Release), pin-5432-inprocess-root-bc(Release), pin-5438-vivify-max-release(Release), pin-5439-vivify-max-bc(Release), pin-5445-replacement-cursor-release(Release), pin-5446-replacement-cursor-bc(Release), pin-5450-eliminate-limit-release(Release), pin-5451-eliminate-limit-trace(Release), pin-5452-eliminate-limit-bc(Release), pin-5456-factor-observer-trace(Release), pin-5459-bound-advance-release(Release), pin-5460-bound-advance-trace(Release), pin-5461-bound-advance-bc(Release), pin-5466-watch-pair-release(Release), pin-5467-watch-pair-bc(Release), pin-5473-sweep-cursor-release(Release), pin-5474-sweep-cursor-bc(Release), pin-5510-sweep-retained-release(Release), pin-5511-sweep-retained-trace(Release), pin-5512-sweep-retained-bc(Release), pin-5522-sweep-small-release(Release), pin-5523-sweep-small-trace(Release), pin-5524-sweep-small-bc(Release), pin-5546-vivify-census-release(Release), pin-5547-vivify-census-bc(Release), pin-5592-factor-root-support-release(Release), pin-5593-factor-root-support-trace(Release), pin-5594-factor-root-support-bc(Release), pin-5619-congruence-index-release(Release), pin-5620-congruence-index-trace(Release), pin-5621-congruence-index-bc(Release), pin-5641-propagation-cursor-release(Release), pin-5642-propagation-cursor-trace(Release), pin-5643-propagation-cursor-bc(Release), pin-5672-assignment-level-release(Release), pin-5673-assignment-level-trace(Release), pin-5674-assignment-level-bc(Release), pin-5696-score-bump-observer-trace(Release), pin-5718-root-conflict-reuse-release(Release), pin-5719-root-conflict-reuse-trace(Release), pin-5720-root-conflict-reuse-bc(Release), pin-5741-reuse-target-release(Release), pin-5742-reuse-target-trace(Release), pin-5743-reuse-target-bc(Release), pin-5760-forward-exit-trace(Release), pin-5798-forward-unit-release(Release), pin-5799-forward-unit-bc(Release), pin-5800-forward-unit-trace(Release), pin-5817-forward-mark-trace(Release), pin-5830-forward-admission-release(Release), pin-5831-forward-admission-bc(Release), pin-5832-forward-admission-trace(Release), pin-5849-forward-caller-release(Release), pin-5850-forward-caller-bc(Release), pin-5851-forward-caller-trace(Release), pin-5854-forward-caller-journal(Release), pin-5870-forward-preclean-release(Release), pin-5871-forward-preclean-bc(Release), pin-5872-forward-preclean-trace(Release), pin-5873-forward-preclean-journal(Release), pin-5900-reduce-root-release(Release), pin-5901-reduce-root-bc(Release), pin-5902-reduce-root-trace(Release), pin-5903-reduce-root-journal(Release), pin-5920-reduce-preclean-release(Release), pin-5921-reduce-preclean-bc(Release), pin-5922-reduce-preclean-trace(Release), pin-5923-reduce-preclean-journal(Release), pin-5956-bve-full-heap-trace(Release), pin-5962-bve-active-pop-release(Release), pin-5963-bve-active-pop-bc(Release), pin-5964-bve-active-pop-trace(Release), pin-5965-bve-active-pop-journal(Release), pin-5985-bve-repeat-heap-trace(Release), pin-6004-clause-pose-series-trace(Release), pin-6016-vivify-pose-trace(Release), pin-6030-learned-stage-trace(Release), pin-6049-reduce-root-lock-release(Release), pin-6050-reduce-root-lock-bc(Release), pin-6051-reduce-root-lock-trace(Release), pin-6052-reduce-root-lock-journal(Release), pin-6054-reduce-root-lock-trace(Release), pin-6090-macro-heap-trace(Release), pin-6107-substitute-publication-release(Release), pin-6108-substitute-publication-bc(Release), pin-6127-publication-trace(Release), pin-6128-publication-journal(Release), pin-6136-substitute-journal-release(Release), pin-6137-substitute-journal-journal(Release), pin-6146-collect-memory-release(Release), pin-6147-collect-memory-trace(Release), pin-6150-collect-memory-release(Release), pin-6151-collect-memory-trace(Release), pin-6154-bve-capacity-release(Release), pin-6155-bve-capacity-trace(Release), pin-6169-learned-sort-release(Release), pin-6170-learned-sort-bc(Release), pin-6206-schedule-continue-release(Release), pin-6206-schedule-continue-trace(Release), pin-6231-substitute-retry-bc(Release), pin-6231-substitute-retry-release(Release), pin-6231-substitute-retry-trace(Release), pin-6269-vivify-binary-retry-bc(Release), pin-6269-vivify-binary-retry-release(Release), pin-6269-vivify-binary-retry-trace(Release), pin-6283-admission-release(Release), pin-6283-admission-trace(Release), pin-6305-substitute-collapse-bc(Release), pin-6305-substitute-collapse-release(Release), pin-6305-substitute-collapse-trace(Release), pin-6327-collapse-schedule-release(Release), pin-6327-collapse-schedule-trace(Release), pin-6350-transitive-schedule-release(Release), pin-6350-transitive-schedule-trace(Release), pin-6357-compact-stamp-bc(Release), pin-6357-compact-stamp-release(Release), pin-6357-compact-stamp-trace(Release), pin-6383-vivify-count-cache-bc(Release), pin-6383-vivify-count-cache-release(Release), pin-6383-vivify-count-cache-trace(Release), pin-6413-rank45-schedule-release(Release), pin-6413-rank45-schedule-trace(Release), pin-6424-activation-stamp-bc(Release), pin-6424-activation-stamp-release(Release), pin-6424-activation-stamp-trace(Release), pin-6448-shared-blocker-bc(Release), pin-6448-shared-blocker-release(Release), pin-6448-shared-blocker-trace(Release), pin-6475-position-key-bc(Release), pin-6475-position-key-release(Release), pin-6475-position-key-trace(Release), pin-6508-congruence-stages-release(Release), pin-6508-congruence-stages-trace(Release), pin-congruence-index-repair-5623-bc(Release), pin-congruence-index-repair-5623-release(Release), pin-congruence-index-repair-5623-trace(Release), pin-periodic-fuzz-5442-debug(Debug), pin-periodic-fuzz-5442-release(Release), pin-periodic-fuzz-5442-shadow(Debug), pin-periodic-fuzz-5492-debug(Debug), pin-periodic-fuzz-5492-release(Release), pin-periodic-fuzz-5492-shadow(Debug), pin-periodic-fuzz-5539-debug(Debug), pin-periodic-fuzz-5539-release(Release), pin-periodic-fuzz-5539-shadow(Debug), pin-periodic-fuzz-5610-debug(Debug), pin-periodic-fuzz-5610-release(Release), pin-periodic-fuzz-5657-debug(Debug), pin-periodic-fuzz-5657-release(Release), pin-periodic-fuzz-5657-shadow(Debug), pin-periodic-fuzz-5715-debug(Debug), pin-periodic-fuzz-5715-release(Release), pin-periodic-fuzz-5715-witness(Debug), pin-periodic-fuzz-5765-asan(Debug), pin-periodic-fuzz-5765-release(Release), pin-periodic-fuzz-5765-witness(Debug), pin-propagation-cursor-repair-5647-bc(Release), pin-propagation-cursor-repair-5647-release(Release), pin-propagation-cursor-repair-5647-trace(Release), pin-sweep-pose-fuzz-r2-dbg(Debug), pin-sweep-pose-fuzz-r2-rel(Release), pin-sweep-pose-fuzz-r2-shadow(Debug)  (total pin-* dirs: 402)\n  note  newest completed tier run: 20260813-111513-C-cleanup-b2b8362\n  WARN  3 lesson citations remain in living docs (DEVELOPMENT_PLAN.md:3) \u2014 policy is to state the finding + evidence, not the number. Run the de-citation sweep.\n  WARN  newest tier run 20260813-111513-C-cleanup-b2b8362 is not cited anywhere in PROGRESS \u2014 a completed window nobody recorded\ncheck-progress: 0 error(s), 2 warning(s)\n",
+      "stderr": ""
+    },
+    "check-rule-policy-boundary": {
+      "command": [
+        "python3",
+        "tools/docs/check-rule-policy-boundary.py"
+      ],
+      "stdout": "check-rule-policy-boundary: rule/policy imports and data flows are clean\n",
+      "stderr": ""
+    },
+    "check-proof-rule-sync": {
+      "command": [
+        "python3",
+        "tools/docs/check-proof-rule-sync.py"
+      ],
+      "stdout": "check-proof-rule-sync: 0 error(s), 23 calculus rule(s), 24 guide card(s)\n",
+      "stderr": ""
+    },
+    "check-section-refs": {
+      "command": [
+        "python3",
+        "tools/docs/check-section-refs.py"
+      ],
+      "stdout": "  ok    43/43 section references resolve\ncheck-section-refs: 0 error(s)\n",
+      "stderr": ""
+    },
+    "check-citations": {
+      "command": [
+        "python3",
+        "tools/docs/check-citations.py"
+      ],
+      "stdout": "  ok    59 citation(s) resolved and in range\n  note  186 skipped (186 ambiguous basename, 0 not in our tree, 0 resolve to a reference clone, 0 unjudged: no reference clone on disk)\ncheck-citations: 0 error(s)\n",
+      "stderr": ""
+    }
+  },
+  "factor_material": {
+    "summary": "benchmarks/runs/20260909-6544-rank32-factor-annotation/summary-6545.json",
+    "native_control": "benchmarks/runs/20260909-6547-native-material-control/summary.json",
+    "solver_source_unchanged": true,
+    "new_solver_jobs": 0
+  },
+  "full50": {
+    "solver_seconds": 8731.652999999997,
+    "fixed_seconds": 7239.01,
+    "ratio": 1.2061943553054901
+  },
+  "andrew_report": {
+    "report-to-andrew/20260909-1255-factor-material-contract/report.tex": "a55b9fcb90658e590a61dd0952047c92b2a88eeb0f57af93b87371ad35de63d6",
+    "report-to-andrew/20260909-1255-factor-material-contract/report.pdf": "0dc010a3986169b549bc50a32e7d741550e3d613461c6549540caa3729bc704d"
+  },
+  "cleanup": "550070760 bytes of owned temporary profile expansion removed; compressed original and annotations retained. No new certificates/solver jobs or live scratch/fuzz access. Prior fixture cleanup remains prior-owned.",
+  "failure_classification": "No new build, fixture, sanitizer, solver, proof or model failure. Source-only addr2line resolves symbols but not lines; instruction mapping was reviewed directly. No successful writer rerun or denied push/transfer retry.",
+  "next": "Localize the actual native added-material producers behind Rank50 counter2508-to2510 before conflict823562 using a bounded source-tagged observer and exact cached-control stream/proof replay. No tracker implementation or inferred approval; all50/memory goal unmet."
+}

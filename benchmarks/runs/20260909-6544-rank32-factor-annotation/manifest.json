@@ -1,0 +1,111 @@
+{
+  "parent": "benchmarks/runs/20260909-6372-rank32-release-profile",
+  "authorities": {
+    "manifest.json": "fe3be2666d547e91e32a362906754015c1f82e1469231afa7554e891f63ff05e",
+    "solver-summary-6378.json": "5f88080bacba0ef1e7d6927c2edc069dbff5aa23e435fdc8deae8f5ae9268031",
+    "results/000.json": "ceb00ad92064308d05b73146040c38cdd723be1eb087b10f00c2b3f78310e42f",
+    "profiles/000.perf.data.xz": "65ec69af4c9cd31c85dd6f7699ad7b7f4f54d23d0f9773f8402e709f0edebfc8",
+    "pins/candidate": "00a23b9c8f5ec050cb0a1eb05a903c44496b8fd40c650e62eae7ae182a78a695"
+  },
+  "source_factor_exact_current": {
+    "src/rules/factor/factor.cpp": "c7679ff8e17ff5ae46703768a465e26fe4ff8d533e93dc60a7e10a5315a77ac4"
+  },
+  "outputs": {
+    "candidate-apply-periods": {
+      "command": [
+        "perf",
+        "annotate",
+        "--stdio",
+        "--stdio-color",
+        "never",
+        "--no-source",
+        "-i",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6544-rank32-factor-annotation/candidate-9ol3e22t/profile.data",
+        "--symbol",
+        "tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)",
+        "--show-total-period"
+      ],
+      "exit": 0,
+      "stdout_sha256": "77a52d3ef76537c6ca4f8d8851274fe6d6156038f833953ac6b4978bfc36f1a1",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "candidate-apply-percent": {
+      "command": [
+        "perf",
+        "annotate",
+        "--stdio",
+        "--stdio-color",
+        "never",
+        "--no-source",
+        "-i",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6544-rank32-factor-annotation/candidate-9ol3e22t/profile.data",
+        "--symbol",
+        "tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)",
+        "--percent-type",
+        "local-period"
+      ],
+      "exit": 0,
+      "stdout_sha256": "b3d9b1662c1fb727ff89e61f2269a303b492b8ee96346a5163b09dfcf7a3fc74",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "candidate-index-periods": {
+      "command": [
+        "perf",
+        "annotate",
+        "--stdio",
+        "--stdio-color",
+        "never",
+        "--no-source",
+        "-i",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6544-rank32-factor-annotation/candidate-9ol3e22t/profile.data",
+        "--symbol",
+        "tactix::(anonymous namespace)::build_factor_index(tactix::Kernel const&, tactix::(anonymous namespace)::FactorIndex&, unsigned int)",
+        "--show-total-period"
+      ],
+      "exit": 0,
+      "stdout_sha256": "0551c740971dd9f98342c95c0aa5f465105578f3cc53598f1b3c9b4349248647",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "candidate-index-percent": {
+      "command": [
+        "perf",
+        "annotate",
+        "--stdio",
+        "--stdio-color",
+        "never",
+        "--no-source",
+        "-i",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6544-rank32-factor-annotation/candidate-9ol3e22t/profile.data",
+        "--symbol",
+        "tactix::(anonymous namespace)::build_factor_index(tactix::Kernel const&, tactix::(anonymous namespace)::FactorIndex&, unsigned int)",
+        "--percent-type",
+        "local-period"
+      ],
+      "exit": 0,
+      "stdout_sha256": "9897dc6abc01da3cdba2e65ce6c62c416e355e24ddd14fbcea474b1968761637",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "callpaths": {
+      "command": [
+        "perf",
+        "report",
+        "--stdio",
+        "--stdio-color",
+        "never",
+        "-i",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6544-rank32-factor-annotation/candidate-9ol3e22t/profile.data",
+        "--children",
+        "--percent-limit",
+        "0",
+        "--call-graph",
+        "graph,0.05,caller"
+      ],
+      "exit": 0,
+      "stdout_sha256": "ca03a283243a75436dd2cd71641b72a9cfc0131516f012158bd2d99f95051332",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "temporary_expansions_deleted_bytes": 550070760,
+  "scope": "Offline attribution of already checked profiles; no new solver/profile/correctness or runtime-gain claim.",
+  "test_consideration": "Existing annotate helper pattern, exact pin/profile/source hashes and nonempty successful symbol outputs. No solver/parser implementation changed; new attribution parser will need focused tests if introduced."
+}
