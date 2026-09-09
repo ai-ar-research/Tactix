@@ -1,0 +1,51 @@
+{
+  "rank": 33,
+  "input": "benchmarks/cache/tierD24-26/5314fd6ccb53b6f6af49a594ea68a273-oski15a01b15s_opt.cnf.xz",
+  "input_sha256_compressed": "51907671051cdecfab72b2c27d8cfc767b926a6203e58771251fc0fe06d22c6a",
+  "stop_conflict": 100000,
+  "stream_from": 0,
+  "common_decisions": 1,
+  "authorities": {
+    "candidate": {
+      "path": "benchmarks/runs/20260909-6424-activation-stamp-build/manifest.json",
+      "sha256": "25c8fc8b5623ef24ad7690cb3cb7098c47ebac1e85aba4dc56f3e6684453eb06"
+    },
+    "previous": {
+      "path": "benchmarks/runs/20260909-6383-vivify-count-cache-build/manifest.json",
+      "sha256": "321ffb5e88dc907897d862ce580ddaec77f281daf6ef26db9f6279260c0a43a6"
+    },
+    "kissat": {
+      "path": "benchmarks/runs/20260909-6303-rank32-later-prefix/manifest.json",
+      "sha256": "153d22ce3b6df2b75a5186dc599803c61955db780e4e5ec46b3d011741ef935a"
+    }
+  },
+  "resource_contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "cpus_per_task": 12,
+    "memory_mib": 48000,
+    "array": "0-2",
+    "throttle": null,
+    "node_constraint": null,
+    "solver_timeout": 1200,
+    "allocation_minutes": 25
+  },
+  "selection": {
+    "path": "benchmarks/reports/2026-09-09-activation-full50-6441/summary.json",
+    "sha256": "daf90af1c8262b7d0844e21c0911b8e69271522f45d9c400f0216dcdaf4ccd57"
+  },
+  "purpose": "Rank33 is the largest new activation parent runtime loss in complete6441. Compare current6424, parent6383 and cached clean native diagnostic pin through100K; do not assume which trajectory agrees with native.",
+  "validation": "Exact pins/input, complete full-file trace hashes, prefix framing/row accounting, then all three complete decision-row comparisons. Diagnostic native run does not refresh frozen timings. Own partial-proof deletion is not final acceptance.",
+  "test_consideration": "Unchanged three-arm runner and observer. Reuse65benchmark13watcher tests plus maintained derived-counter and complete-row controls. Selection asserts the actual maximum full-table parent loss. No parser/source/checker edit.",
+  "limitation": "Bounded first-choice localization, not formula identity, a cause, full-solve proof or timing acceptance; native reference vector unchanged.",
+  "hashes": {
+    "pins/previous": "a4e9ce3730e6878a1b696f6ab1de442c44dc727d8a7cc35ebc8c136c9e1d6e73",
+    "pins/candidate": "c5ca763ce93f48507648c32cb55027274a79332ef56147814bb917d6dddc9e8c",
+    "pins/kissat": "a902fccbe9e63c2eedc1aa4332a7d912d0859088aaa98740b90facc6373f1add",
+    "run.py": "566cced349f0c4e27e2e46db6e28b6aca9654fae5913fa1f5d05562345a09db3",
+    "array.sbatch": "74881c6cd6e48513be016f41429421d98b55076751d8415465baa097c5dfaa6a"
+  },
+  "provisional_gate": {
+    "path": "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/solver-checkpoint-6429.json",
+    "sha256": "11e2a712bd45b4b6f0778622890499962cd65a2d00a9dc0de298301c9fb0e22f"
+  }
+}

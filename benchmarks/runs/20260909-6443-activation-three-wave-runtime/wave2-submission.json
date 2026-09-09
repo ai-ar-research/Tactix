@@ -1,0 +1,33 @@
+{
+  "job_id": "1678080",
+  "tasks": [
+    12,
+    13,
+    14,
+    15,
+    16,
+    17
+  ],
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--array=12-17",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6443-activation-three-wave-runtime/array.sbatch"
+  ],
+  "accounting_since": "2026-09-09T09:23:28",
+  "manifest_sha256": "245f5350d6d3885cb256c863bfaa0d27cff8cbdf6ab5a5da281be7ef0e88280a",
+  "preceding_records": {
+    "benchmarks/runs/20260909-6443-activation-three-wave-runtime/provisional/003.json": "acddbb91bdee6b00a1cd686289850626f3f4545af96338b2a09579ae9762c36d",
+    "benchmarks/runs/20260909-6443-activation-three-wave-runtime/provisional/007.json": "9827976c841e9b34e00302479bdba179493d60849ff18c346bda9373344ce0cd",
+    "benchmarks/runs/20260909-6443-activation-three-wave-runtime/provisional/002.json": "d4494135e5087ebd5ad16d8dd14c2bc101eb3e64e9ad48d9bc4cf7f39d3ffa5d",
+    "benchmarks/runs/20260909-6443-activation-three-wave-runtime/provisional/006.json": "7741f1d4d7a3bdebdedec399beeda4823c611c83f83e3863941a9b670615ac4c",
+    "benchmarks/runs/20260909-6443-activation-three-wave-runtime/results/010.json": "f68028dafd25284a577c3ccc0e9d1387c012254eab5388efbae0edc1d032a5bf",
+    "benchmarks/runs/20260909-6443-activation-three-wave-runtime/provisional/008.json": "e7fbab2c4f238ddc258f2356fbca7e4c60c30f6bbd56fa621b3e5db2e13f8a39",
+    "benchmarks/runs/20260909-6443-activation-three-wave-runtime/provisional/000.json": "449f1b4a2afa93f6c398d622f542c429e7c43b3c6c3c8cefda982563f6faaea8",
+    "benchmarks/runs/20260909-6443-activation-three-wave-runtime/results/004.json": "dda15eb0d41c1d9687a02ec60dcd4b086aebc35d90fc579aff4db6f110fc86d4",
+    "benchmarks/runs/20260909-6443-activation-three-wave-runtime/provisional/001.json": "727008ef11f80a846c83f34e07ae6a3719187c51be46938183d3cdec2bef03cb",
+    "benchmarks/runs/20260909-6443-activation-three-wave-runtime/results/005.json": "7600e200459e170ae66b52835ebeb80af9fbff0045aae644dc2fd0c09c4d98c4",
+    "benchmarks/runs/20260909-6443-activation-three-wave-runtime/results/011.json": "cfc34172e2c936dc3d1a10eee64658070aab0223676eb1c7c1fd319f8d0fe940",
+    "benchmarks/runs/20260909-6443-activation-three-wave-runtime/provisional/009.json": "931fb361c637891469b54af980cea32a6302872396a71b1418dbe033a7c1b4e9"
+  }
+}
