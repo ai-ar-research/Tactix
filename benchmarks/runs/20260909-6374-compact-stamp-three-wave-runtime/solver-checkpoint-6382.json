@@ -1,0 +1,413 @@
+{
+  "observed_at": "2026-09-09T11:04:25.696088+00:00",
+  "solver_outcomes": 18,
+  "checked_clean": 0,
+  "statuses": {
+    "0": {
+      "status": "pending_validation",
+      "clean": false,
+      "checked": false,
+      "scorable": false
+    },
+    "1": {
+      "status": "pending_validation",
+      "clean": false,
+      "checked": false,
+      "scorable": false
+    },
+    "2": {
+      "status": "pending_validation",
+      "clean": false,
+      "checked": false,
+      "scorable": false
+    },
+    "3": {
+      "status": "pending_validation",
+      "clean": false,
+      "checked": false,
+      "scorable": false
+    },
+    "4": {
+      "status": "pending_validation",
+      "clean": false,
+      "checked": false,
+      "scorable": false
+    },
+    "5": {
+      "status": "pending_validation",
+      "clean": false,
+      "checked": false,
+      "scorable": false
+    },
+    "6": {
+      "status": "pending_validation",
+      "clean": false,
+      "checked": false,
+      "scorable": false
+    },
+    "7": {
+      "status": "pending_validation",
+      "clean": false,
+      "checked": false,
+      "scorable": false
+    },
+    "8": {
+      "status": "pending_validation",
+      "clean": false,
+      "checked": false,
+      "scorable": false
+    },
+    "9": {
+      "status": "pending_validation",
+      "clean": false,
+      "checked": false,
+      "scorable": false
+    },
+    "10": {
+      "status": "pending_validation",
+      "clean": false,
+      "checked": false,
+      "scorable": false
+    },
+    "11": {
+      "status": "pending_validation",
+      "clean": false,
+      "checked": false,
+      "scorable": false
+    },
+    "12": {
+      "status": "pending_validation",
+      "clean": false,
+      "checked": false,
+      "scorable": false
+    },
+    "13": {
+      "status": "pending_validation",
+      "clean": false,
+      "checked": false,
+      "scorable": false
+    },
+    "14": {
+      "status": "pending_validation",
+      "clean": false,
+      "checked": false,
+      "scorable": false
+    },
+    "15": {
+      "status": "pending_validation",
+      "clean": false,
+      "checked": false,
+      "scorable": false
+    },
+    "16": {
+      "status": "pending_validation",
+      "clean": false,
+      "checked": false,
+      "scorable": false
+    },
+    "17": {
+      "status": "pending_validation",
+      "clean": false,
+      "checked": false,
+      "scorable": false
+    }
+  },
+  "exact_per_arm_work_and_proof": true,
+  "ranks": {
+    "32": {
+      "waves": [
+        {
+          "wave": 0,
+          "seconds": {
+            "candidate": 325.986,
+            "previous": 359.813
+          },
+          "ratio": 0.9059872767242985,
+          "placement": {
+            "candidate": {
+              "node": "node017",
+              "affinity": null,
+              "peak_rss_kib": 590456,
+              "runtime_context": null
+            },
+            "previous": {
+              "node": "node017",
+              "affinity": null,
+              "peak_rss_kib": 621924,
+              "runtime_context": null
+            }
+          }
+        },
+        {
+          "wave": 1,
+          "seconds": {
+            "previous": 354.687,
+            "candidate": 323.934
+          },
+          "ratio": 0.9132953843811586,
+          "placement": {
+            "previous": {
+              "node": "node018",
+              "affinity": null,
+              "peak_rss_kib": 621924,
+              "runtime_context": null
+            },
+            "candidate": {
+              "node": "node018",
+              "affinity": null,
+              "peak_rss_kib": 590456,
+              "runtime_context": null
+            }
+          }
+        },
+        {
+          "wave": 2,
+          "seconds": {
+            "candidate": 324.831,
+            "previous": 354.028
+          },
+          "ratio": 0.9175291219903511,
+          "placement": {
+            "candidate": {
+              "node": "node017",
+              "affinity": null,
+              "peak_rss_kib": 590456,
+              "runtime_context": null
+            },
+            "previous": {
+              "node": "node018",
+              "affinity": null,
+              "peak_rss_kib": 621924,
+              "runtime_context": null
+            }
+          }
+        }
+      ],
+      "spread": {
+        "candidate": {
+          "median": 324.831,
+          "min": 323.934,
+          "max": 325.986,
+          "range_over_median": 0.0063171310619982825
+        },
+        "previous": {
+          "median": 354.687,
+          "min": 354.028,
+          "max": 359.813,
+          "range_over_median": 0.016310155150879416
+        }
+      },
+      "paired": {
+        "median": 0.9132953843811586,
+        "min": 0.9059872767242985,
+        "max": 0.9175291219903511
+      },
+      "absolute_range_within_two_percent": true
+    },
+    "33": {
+      "waves": [
+        {
+          "wave": 0,
+          "seconds": {
+            "candidate": 300.521,
+            "previous": 480.634
+          },
+          "ratio": 0.6252595530070698,
+          "placement": {
+            "candidate": {
+              "node": "node017",
+              "affinity": null,
+              "peak_rss_kib": 588608,
+              "runtime_context": null
+            },
+            "previous": {
+              "node": "node018",
+              "affinity": null,
+              "peak_rss_kib": 567476,
+              "runtime_context": null
+            }
+          }
+        },
+        {
+          "wave": 1,
+          "seconds": {
+            "previous": 477.482,
+            "candidate": 298.761
+          },
+          "ratio": 0.6257010735483223,
+          "placement": {
+            "previous": {
+              "node": "node018",
+              "affinity": null,
+              "peak_rss_kib": 567476,
+              "runtime_context": null
+            },
+            "candidate": {
+              "node": "node017",
+              "affinity": null,
+              "peak_rss_kib": 588608,
+              "runtime_context": null
+            }
+          }
+        },
+        {
+          "wave": 2,
+          "seconds": {
+            "candidate": 297.985,
+            "previous": 478.707
+          },
+          "ratio": 0.6224788858320435,
+          "placement": {
+            "candidate": {
+              "node": "node017",
+              "affinity": null,
+              "peak_rss_kib": 588608,
+              "runtime_context": null
+            },
+            "previous": {
+              "node": "node018",
+              "affinity": null,
+              "peak_rss_kib": 567476,
+              "runtime_context": null
+            }
+          }
+        }
+      ],
+      "spread": {
+        "candidate": {
+          "median": 298.761,
+          "min": 297.985,
+          "max": 300.521,
+          "range_over_median": 0.008488390385625972
+        },
+        "previous": {
+          "median": 478.707,
+          "min": 477.482,
+          "max": 480.634,
+          "range_over_median": 0.006584403403334371
+        }
+      },
+      "paired": {
+        "median": 0.6252595530070698,
+        "min": 0.6224788858320435,
+        "max": 0.6257010735483223
+      },
+      "absolute_range_within_two_percent": true
+    },
+    "35": {
+      "waves": [
+        {
+          "wave": 0,
+          "seconds": {
+            "candidate": 505.819,
+            "previous": 333.053
+          },
+          "ratio": 1.518734255508883,
+          "placement": {
+            "candidate": {
+              "node": "node017",
+              "affinity": null,
+              "peak_rss_kib": 588108,
+              "runtime_context": null
+            },
+            "previous": {
+              "node": "node018",
+              "affinity": null,
+              "peak_rss_kib": 604036,
+              "runtime_context": null
+            }
+          }
+        },
+        {
+          "wave": 1,
+          "seconds": {
+            "previous": 333.122,
+            "candidate": 505.9
+          },
+          "ratio": 1.5186628322356373,
+          "placement": {
+            "previous": {
+              "node": "node018",
+              "affinity": null,
+              "peak_rss_kib": 604036,
+              "runtime_context": null
+            },
+            "candidate": {
+              "node": "node017",
+              "affinity": null,
+              "peak_rss_kib": 588108,
+              "runtime_context": null
+            }
+          }
+        },
+        {
+          "wave": 2,
+          "seconds": {
+            "candidate": 500.34,
+            "previous": 331.551
+          },
+          "ratio": 1.5090890994145696,
+          "placement": {
+            "candidate": {
+              "node": "node017",
+              "affinity": null,
+              "peak_rss_kib": 588108,
+              "runtime_context": null
+            },
+            "previous": {
+              "node": "node018",
+              "affinity": null,
+              "peak_rss_kib": 604036,
+              "runtime_context": null
+            }
+          }
+        }
+      ],
+      "spread": {
+        "candidate": {
+          "median": 505.819,
+          "min": 500.34,
+          "max": 505.9,
+          "range_over_median": 0.010992074239994943
+        },
+        "previous": {
+          "median": 333.053,
+          "min": 331.551,
+          "max": 333.122,
+          "range_over_median": 0.004716966969221194
+        }
+      },
+      "paired": {
+        "median": 1.5186628322356373,
+        "min": 1.5090890994145696,
+        "max": 1.518734255508883
+      },
+      "absolute_range_within_two_percent": true
+    }
+  },
+  "hashes": {
+    "benchmarks/runs/20260909-6374-compact-stamp-three-wave-runtime/manifest.json": "dfe3a9a80b86d04ce9a5c14dfab1fa86100cf20df4ae31f8f467a543361222ba",
+    "benchmarks/runs/20260909-6374-compact-stamp-three-wave-runtime/wave0-submission.json": "aa83e42c3877fdbccde8ff2661df04fa5df8820ebfcf4f3ee7a79ab5360f9dc7",
+    "benchmarks/runs/20260909-6374-compact-stamp-three-wave-runtime/wave1-submission.json": "07b4a64a3acad842fbacf904b4b0e822c5cf35a8c54a6b36c25392e4cc0aec59",
+    "benchmarks/runs/20260909-6374-compact-stamp-three-wave-runtime/wave2-submission.json": "786bc2aee0bc2122271b7970903dacf265de5b847b77c860fa65950c48bc8de2",
+    "benchmarks/runs/20260909-6374-compact-stamp-three-wave-runtime/provisional/000.json": "5432dafb0aad5aa68f3e169b64e6753dd771694854f7167db9f053668892894d",
+    "benchmarks/runs/20260909-6374-compact-stamp-three-wave-runtime/provisional/001.json": "420ee05c167090fb142ea4a57f8c595ee1a57480d37f288ca906397c00025fd9",
+    "benchmarks/runs/20260909-6374-compact-stamp-three-wave-runtime/provisional/002.json": "265980dd690d41288b66db6dcd2c347f267ac7928ba38a5c76017ddaa4283a08",
+    "benchmarks/runs/20260909-6374-compact-stamp-three-wave-runtime/provisional/003.json": "18d28d730ea163ff9522ba0b91d4f4cefd524a182f10106cec8519473941b542",
+    "benchmarks/runs/20260909-6374-compact-stamp-three-wave-runtime/provisional/004.json": "e1b3eb8ec33a04e9e35aa1d7a8d00043cdd0c8710537b90c4bb7c7f069e2c30b",
+    "benchmarks/runs/20260909-6374-compact-stamp-three-wave-runtime/provisional/005.json": "7dc52376f241162b5b1c8b8ae8b34f1669e812ff5443cdec0b1e44beaf18b25d",
+    "benchmarks/runs/20260909-6374-compact-stamp-three-wave-runtime/provisional/006.json": "6c5b44f28d7d3c6bf4e24f941577340059f487712af336e15f5b67af965d71f0",
+    "benchmarks/runs/20260909-6374-compact-stamp-three-wave-runtime/provisional/007.json": "e785d92dedd558fa4a49fe08e1eaba5d36dab706d21949085f32112e1e1c7244",
+    "benchmarks/runs/20260909-6374-compact-stamp-three-wave-runtime/provisional/008.json": "763ea8c9576305e87e1afae9018b3ec84976daecd4853c3b49ff1b300c7adb55",
+    "benchmarks/runs/20260909-6374-compact-stamp-three-wave-runtime/provisional/009.json": "bb48306c962c4faa1e8c00965116c0c67fb6975136242b53c5ce8c5e9140d6df",
+    "benchmarks/runs/20260909-6374-compact-stamp-three-wave-runtime/provisional/010.json": "0646d558c8840b87406f526ce360426f03614b32e213777f5ce31b159bb4eb0d",
+    "benchmarks/runs/20260909-6374-compact-stamp-three-wave-runtime/provisional/011.json": "4242bc208f7ae59ab9e9bfcb4569ae415f910636a463948d07a7aa56f4e9cfd1",
+    "benchmarks/runs/20260909-6374-compact-stamp-three-wave-runtime/provisional/012.json": "2a8e85ca41030e2b0d22540731d104dd35858dd08a11be615bd659ab762146aa",
+    "benchmarks/runs/20260909-6374-compact-stamp-three-wave-runtime/provisional/013.json": "4b3f13539abb3712e02ad1e3f9236d0f566f7f94d4dddee9a793e3b12e93c26f",
+    "benchmarks/runs/20260909-6374-compact-stamp-three-wave-runtime/provisional/014.json": "f4dc40fdf5dbae0f2be8a27185be49de7b7f775750f836208fb9c9460218597b",
+    "benchmarks/runs/20260909-6374-compact-stamp-three-wave-runtime/provisional/015.json": "dcec4369357840667496e370f86c612b2ba0d758d0d77275f274c89ff34433e7",
+    "benchmarks/runs/20260909-6374-compact-stamp-three-wave-runtime/provisional/016.json": "70913484b9762b55656410aba1f055a9061731b06de1d7c85e94624ecbd9a950",
+    "benchmarks/runs/20260909-6374-compact-stamp-three-wave-runtime/provisional/017.json": "fbe7264874328859e215cc1e9aed9eef238c4bdb667297ce378271ad3d3b2d18"
+  },
+  "limitation": "Changed-work candidate6357 versus6305, not isolated unit cost or fixed50 competitiveness. Pending proofs do not close a checked gate; source fuzz and memory remain open. Missing affinity/context in provisional v1 is unknown, not inferred."
+}
