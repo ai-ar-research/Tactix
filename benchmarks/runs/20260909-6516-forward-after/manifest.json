@@ -1,0 +1,97 @@
+{
+  "rank": 33,
+  "input": "benchmarks/cache/tierD24-26/5314fd6ccb53b6f6af49a594ea68a273-oski15a01b15s_opt.cnf.xz",
+  "input_sha256_compressed": "51907671051cdecfab72b2c27d8cfc767b926a6203e58771251fc0fe06d22c6a",
+  "stop_conflict": 1000000,
+  "stream_from": 100000,
+  "common_decisions": 31494584,
+  "authorities": {
+    "candidate": {
+      "path": "benchmarks/runs/20260909-6508-congruence-stages-build/manifest.json",
+      "sha256": "4164c8753183248c48c8221f24748a8a4b2bb1b45d680a29e6cf041cda373485"
+    },
+    "kissat": {
+      "path": "benchmarks/runs/20260909-6303-rank32-later-prefix/manifest.json",
+      "sha256": "153d22ce3b6df2b75a5186dc599803c61955db780e4e5ec46b3d011741ef935a"
+    }
+  },
+  "resource_contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "cpus_per_task": 12,
+    "memory_mib": 48000,
+    "array": "0-1",
+    "throttle": null,
+    "node_constraint": null,
+    "solver_timeout": 1200,
+    "allocation_minutes": 25
+  },
+  "selection": {
+    "path": "benchmarks/reports/2026-09-09-activation-full50-6441/summary.json",
+    "sha256": "daf90af1c8262b7d0844e21c0911b8e69271522f45d9c400f0216dcdaf4ccd57"
+  },
+  "purpose": "Observe first-call227617 immediately before/after forward cleanup using unchanged6510 pins. Four sparse binary snapshots cover before/after of both calls; formula ordinal0/1 selects first-call boundary.",
+  "validation": "Full own6510 ordinary1M/census/partial-proof replay. Compare strict four-frame pre/post binaries and first-call large identity/pose/root-value multisets; compare snapshots across the two campaigns. No broad event trace or early stop.",
+  "test_consideration": "No solver/observer source changes; exact immutable tested pins. Reuse nine formula/stage reader fixtures, add strict sparse binary snapshot positive/negative tests. Require whole own replay for selector-only runner changes.",
+  "limitation": "Bounded diagnostic not final proof or runtime claim. Sparse sites both surround forward pass, but differing closure output may precede cleanup; do not infer matching representatives or units from counts.",
+  "hashes": {
+    "pins/candidate": "715b7f70812d0bba4ee01a8b8cd6820165874baacfb2c16108e353aa50401cbb",
+    "pins/kissat": "a902fccbe9e63c2eedc1aa4332a7d912d0859088aaa98740b90facc6373f1add",
+    "run.py": "20e835f1cd2966fb3702d38a32e30260bab7ebb86f9e10326ab5cb221c3d0bf1",
+    "array.sbatch": "1e4366db6bedaa2beb9fba46a8b50fbad570c51356c54807937fa57ffeee1f9e"
+  },
+  "provisional_gate": {
+    "path": "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/solver-checkpoint-6429.json",
+    "sha256": "11e2a712bd45b4b6f0778622890499962cd65a2d00a9dc0de298301c9fb0e22f"
+  },
+  "prior_common_hash": "5c263e00aa882466",
+  "prior_closure": {
+    "path": "benchmarks/runs/20260909-6470-rank33-activation-prefix/summary.json",
+    "sha256": "0300b8a3558b99918e61dee4c8475bb81c2a8105edc24d4d6f458db588a4389e"
+  },
+  "parent_runs": {
+    "candidate": "benchmarks/runs/20260909-6510-rank33-congruence-stages",
+    "kissat": "benchmarks/runs/20260909-6510-rank33-congruence-stages"
+  },
+  "parent_summary": {
+    "path": "benchmarks/runs/20260909-6510-rank33-congruence-stages/summary.json",
+    "sha256": "d30c6f3f2ef43aeb1d2a0505c6983d32cc3d63c6d27121e553206f1b6157c938"
+  },
+  "diagnostic_conflict": 227617,
+  "first_nonbinary_boundary": {
+    "index": 401,
+    "candidate": {
+      "name": "Congruence",
+      "stage": "end",
+      "conflicts": 227617,
+      "decisions": 54966496,
+      "active": 89261,
+      "irred": 497732,
+      "red": 20305,
+      "binary": 127294
+    },
+    "kissat": {
+      "name": "Congruence",
+      "stage": "end",
+      "conflicts": 227617,
+      "decisions": 54966496,
+      "active": 89261,
+      "irred": 497744,
+      "red": 20305,
+      "binary": 127292
+    }
+  },
+  "boundary_localization": {
+    "path": "benchmarks/runs/20260909-6486-rank33-later-prefix/boundary-localization-6500.json",
+    "sha256": "844909a024f3c99dc4a39bbf20c94801426f260c65ebd00759e6a7a58846e6c3"
+  },
+  "stage_qualification": {
+    "path": "benchmarks/runs/20260909-6501-rank33-congruence-replay/stage-qualification-6507.json",
+    "sha256": "d060b016708e5203d4e7e3e585cf060a72958829a6306b819e8d4b09528d3f1c"
+  },
+  "formula_selectors": {
+    "candidate": "name=congruence-dense-resume|stage=second",
+    "kissat": "congruence_dense_second"
+  },
+  "phase": "after",
+  "formula_ordinal": 1
+}

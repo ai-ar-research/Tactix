@@ -1,0 +1,13 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6526-padded-xor-control/fixture",
+    "0",
+    "0",
+    "0",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6526-padded-xor-control/0-0-0",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6526-padded-xor-control/0-0-0.proof"
+  ],
+  "exit_code": 0,
+  "stdout": "PASS mode=0 position=0 missing=0 models=0\n",
+  "stderr": ""
+}
