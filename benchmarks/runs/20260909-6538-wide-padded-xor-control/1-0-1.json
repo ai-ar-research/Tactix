@@ -1,0 +1,13 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6538-wide-padded-xor-control/fixture",
+    "1",
+    "0",
+    "1",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6538-wide-padded-xor-control/1-0-1",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6538-wide-padded-xor-control/1-0-1.proof"
+  ],
+  "exit_code": 0,
+  "stdout": "PASS mode=1 position=0 missing=1 models=1 padded_gate=0 assignments=4096\n",
+  "stderr": ""
+}

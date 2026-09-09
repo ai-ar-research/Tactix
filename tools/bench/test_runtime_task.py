@@ -1,9 +1,46 @@
 """Non-solving acceptance tests: UNKNOWN is a dataset label, not an oracle."""
 import unittest
-from runtime_task import checked_verdict_valid, expected_matches
+from runtime_task import checked_verdict_valid, expected_matches, provisional_result
 
 
 class RuntimeTaskTests(unittest.TestCase):
+    def sample_result(self):
+        return dict(task=0, rank=32, arm='tactix', tier='D', instance='fixed.cnf',
+                    expected='UNSAT', verdict='UNSAT', expected_match=True,
+                    solve=dict(exit_code=20, timed_out=False), node='test',
+                    certificate_bytes=12, certificate_sha256='hash',
+                    solver_statistics=['c conflicts 1'],
+                    solver_stderr_tail=['[cong-time] stage output'],
+                    valid=False, cleanup_pending=True, proof_check=None)
+
+    def test_provisional_publishes_diagnostics_without_changing_work(self):
+        original = self.sample_result()
+        projected = provisional_result(original, 'fixed timestamp')
+        for key in ('solver_stderr_tail', 'solver_statistics', 'solve',
+                    'certificate_bytes', 'certificate_sha256', 'expected_match'):
+            self.assertEqual(projected[key], original[key])
+        self.assertEqual(projected['recorded_at'], 'fixed timestamp')
+        self.assertTrue(projected['validation_pending'])
+        self.assertNotIn('validation_pending', original)
+
+    def test_provisional_never_inherits_final_acceptance(self):
+        original = self.sample_result()
+        original.update(valid=True, proof_check={'result': 'verified'}, model_check={'valid': True},
+                        artifact_deleted=True, cleanup_pending=False)
+        original['solver_stderr_tail'] = ['s VERIFIED']
+        projected = provisional_result(original, 'fixed')
+        self.assertTrue(projected['validation_pending'])
+        for key in ('valid', 'proof_check', 'model_check', 'artifact_deleted', 'cleanup_pending'):
+            self.assertNotIn(key, projected)
+
+    def test_empty_diagnostics_and_nonmatching_verdict_are_preserved(self):
+        original = self.sample_result()
+        original.update(solver_stderr_tail=[], verdict='UNKNOWN', expected_match=False)
+        projected = provisional_result(original, 'fixed')
+        self.assertEqual(projected['solver_stderr_tail'], [])
+        self.assertEqual(projected['verdict'], 'UNKNOWN')
+        self.assertFalse(projected['expected_match'])
+
     def test_known_label_requires_matching_verdict(self):
         for expected in ('SAT', 'UNSAT'):
             for verdict in ('SAT', 'UNSAT', 'UNKNOWN', 'INFRA_ERROR'):

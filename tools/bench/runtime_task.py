@@ -174,6 +174,21 @@ def checked_verdict_valid(expected, verdict, solve, certificate_valid):
                 solve["exit_code"] == (10 if verdict == "SAT" else 20))
 
 
+def provisional_result(result, recorded_at):
+    """Publish bounded solver diagnostics now, without inheriting validity.
+
+    Proof checking can take much longer than solving. Keeping stderr only in
+    the final record unnecessarily hides stage timers during that interval.
+    The bounded tail has already been read from the completed solver output.
+    """
+    fields = ("task", "rank", "arm", "tier", "instance", "expected", "verdict",
+              "expected_match", "solve", "node", "certificate_bytes",
+              "certificate_sha256", "solver_statistics", "solver_stderr_tail")
+    return dict({key: result[key] for key in fields},
+                schema="tactix-matched-slurm-provisional-result-v1",
+                validation_pending=True, recorded_at=recorded_at)
+
+
 def main():
     global CAMPAIGN, ROOT
     if len(sys.argv) != 3 or not os.environ.get("SLURM_JOB_ID"):
@@ -275,24 +290,8 @@ def main():
         # Publish solver timing and verdict before potentially long proof
         # checking.  This is deliberately separate from the final validity
         # result and never satisfies the cumulative correctness gate.
-        atomic_json(provisional_path, {
-            "schema": "tactix-matched-slurm-provisional-result-v1",
-            "task": task,
-            "rank": int(row["rank"]),
-            "arm": row["arm"],
-            "tier": row["tier"],
-            "instance": row["instance"],
-            "expected": row["expected"],
-            "verdict": verdict,
-            "expected_match": expected_matches(row["expected"], verdict),
-            "solve": solve,
-            "node": result["node"],
-            "certificate_bytes": result["certificate_bytes"],
-            "certificate_sha256": result["certificate_sha256"],
-            "solver_statistics": statistics,
-            "validation_pending": True,
-            "recorded_at": dt.datetime.now(dt.timezone.utc).isoformat(),
-        })
+        atomic_json(provisional_path, provisional_result(
+            result, dt.datetime.now(dt.timezone.utc).isoformat()))
         if verdict == "UNSAT" and proof.is_file():
             checker_out = scratch / "checker.stdout"
             checker_err = scratch / "checker.stderr"
