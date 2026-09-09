@@ -1,0 +1,8 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6475-position-key-build/control6477-previous-test_position_keys"
+  ],
+  "exit_code": 0,
+  "stdout": "position-key cases=480 sorted=213 refs=52714 digest=8aa3bddc2f6c1ed7 bytes=1054280\n",
+  "stderr": ""
+}

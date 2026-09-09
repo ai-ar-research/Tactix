@@ -1,0 +1,33 @@
+{
+  "job_id": "1678082",
+  "tasks": [
+    12,
+    13,
+    14,
+    15,
+    16,
+    17
+  ],
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--array=12-17",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/array.sbatch"
+  ],
+  "accounting_since": "2026-09-09T09:32:14",
+  "manifest_sha256": "24f833fc10ae5599356328963a1deaceb414637f45a8c53daa12ffaabbbf6e93",
+  "preceding_records": {
+    "benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/provisional/010.json": "f4c92f267b2cfa42a2f9a09a5b99379cfa4e90280dcc82361fee112923024811",
+    "benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/provisional/008.json": "ac597dfd7eb1bb7100f10bd434bdda7388aa0a7bd18d6acdfff888b6d0e1c05e",
+    "benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/provisional/004.json": "f59232eb85296740c5d4127cf709a5bc32d10fac6dc48b665ffce17908f532a7",
+    "benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/results/000.json": "83f176ea39b63538c3ae1779c9fbe5e24b661643c8710ef959f486268ecd9511",
+    "benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/provisional/005.json": "08c1d97a4c3886a77583cb84b103274bfefa0a4462d2fa9b75c5f976effa9707",
+    "benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/results/001.json": "66488724aacb5a89357d61280e55ca36241821c0ae857b9788a4f80b1fa5aa07",
+    "benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/provisional/011.json": "12ad6aab0f73b83f23daee50d30f06ff817cf8ab269f54b29fbda46c9f890e60",
+    "benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/provisional/009.json": "f1cd74f56e3fdfb8765797fe6b0eebeb154188c5e2f2e5f8f85542c8a627d55e",
+    "benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/results/007.json": "a5947355cbd9883cbc13a8d939d34e7435216cda9183a6ce9994392a3ce29480",
+    "benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/provisional/003.json": "7be17e0726db8159348a06999b5c363657d7a6a846c060ccbd5347eddfb39794",
+    "benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/results/006.json": "cea005c08ba7875ee6d9b7ef56da0c17356410625fb132fe85e97f1e4145b36c",
+    "benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/provisional/002.json": "9a813294202ef392df30787551745e1be833ef0d819cb92f0931747759c8cb77"
+  }
+}

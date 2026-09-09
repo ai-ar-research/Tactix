@@ -1,0 +1,133 @@
+--- a/src/kernel/kernel.cpp
++++ b/src/kernel/kernel.cpp
+@@ -2450 +2450,4 @@
+-  std::vector<uint64_t> keys;
++  // The four radix passes below consume only the low 32 bits. Keep that
++  // temporary key image at Ref width, not at the width of proof-id aliases.
++  // The full-width ordered-input check above and alias storage are unchanged.
++  std::vector<Ref> keys;
+@@ -2453 +2456 @@
+-    keys.push_back(kernel_clause_position(k, ref));
++    keys.push_back(static_cast<Ref>(kernel_clause_position(k, ref)));
+@@ -2455 +2458 @@
+-  std::vector<uint64_t> key_scratch(keys.size());
++  std::vector<Ref> key_scratch(keys.size());
+@@ -2460 +2463 @@
+-    for (const uint64_t key : keys)
++    for (const Ref key : keys)
+--- /dev/null
++++ b/tests/test_position_keys.cpp
+@@ -0,0 +1,113 @@
++// Exact stable radix order and temporary allocation footprint, not a solve.
++#undef NDEBUG
++#include "kernel/kernel.hpp"
++#include <algorithm>
++#include <array>
++#include <cassert>
++#include <cstdio>
++#include <cstdlib>
++#include <new>
++#include <vector>
++
++using namespace tactix;
++static bool measure;
++static size_t allocation_bytes, allocation_calls;
++
++void *operator new(size_t bytes) {
++  if (void *p = std::malloc(bytes ? bytes : 1)) {
++    if (measure) {
++      allocation_bytes += bytes;
++      ++allocation_calls;
++    }
++    return p;
++  }
++  std::abort();
++}
++void operator delete(void *p) noexcept { std::free(p); }
++void operator delete(void *p, size_t) noexcept { std::free(p); }
++
++static uint64_t digest = UINT64_C(1469598103934665603);
++static void mix(uint64_t x) { digest = (digest ^ x) * UINT64_C(1099511628211); }
++
++int main() {
++  static_assert(sizeof(Ref) == 4);
++  const std::array<size_t, 8> sizes{{0, 1, 2, 7, 32, 65, 257, 1025}};
++  const std::array<uint64_t, 12> edges{{0, 1, 255, 256, 65535, 65536,
++      16777215, 16777216, UINT32_MAX - 1, UINT32_MAX,
++      UINT64_C(0x100000001), UINT64_C(0x2000000ff)}};
++  unsigned cases = 0, sorted_cases = 0;
++  uint64_t total_bytes = 0, total_sorted_refs = 0;
++  for (size_t n : sizes)
++    for (unsigned mode = 0; mode != 5; ++mode)
++      for (unsigned ids = 0; ids != 3; ++ids)
++        for (unsigned permutation = 0; permutation != 4; ++permutation) {
++          Kernel k;
++          kernel_reserve_vars(k, 3);
++          const Lit clause[] = {internalize(1), internalize(2), internalize(3)};
++          std::vector<Ref> refs;
++          for (size_t i = 0; i != n; ++i) {
++            const uint64_t id = ids == 2 && i % 3 == 0 ? 0 :
++                (ids == 1 ? (UINT64_C(1) << 20) : 0) + i + 1;
++            const Ref ref = kernel_add_large_clause(k, clause, 3, false, 0, id);
++            refs.push_back(ref);
++            if (mode && id) {
++              uint64_t key = mode == 1 ? i : mode == 2 ? 7 :
++                  edges[(i * 7 + 3) % (mode == 3 ? 10 : edges.size())];
++              k.clause_position_alias.set(id, key + 1);
++            }
++          }
++          if (permutation == 1) std::reverse(refs.begin(), refs.end());
++          if (permutation == 2 && n) std::rotate(refs.begin(), refs.begin() + n / 2, refs.end());
++          if (permutation == 3)
++            for (size_t i = 1; i < n; i += 2) std::swap(refs[i - 1], refs[i]);
++          auto expected = refs;
++          bool ordered = true;
++          for (size_t i = 1; i < n; ++i)
++            ordered &= kernel_clause_position(k, refs[i - 1]) <= kernel_clause_position(k, refs[i]);
++          const bool sorts = n > 1 && !k.clause_position_alias.empty() && !ordered;
++          // Independent comparison-sort oracle for the existing four passes.
++          // Artificial wider aliases exercise preservation of the old low-word
++          // behavior; valid arena positions themselves fit in Ref.
++          if (sorts)
++            std::stable_sort(expected.begin(), expected.end(), [&](Ref a, Ref b) {
++              return static_cast<Ref>(kernel_clause_position(k, a)) <
++                     static_cast<Ref>(kernel_clause_position(k, b));
++            });
++          const auto arena = k.arena;
++          allocation_calls = allocation_bytes = 0;
++          measure = true;
++          kernel_sort_refs_by_logical_clause_position(k, refs);
++          measure = false;
++          assert(refs == expected);
++          assert(k.arena == arena);
++          assert(allocation_calls == (sorts ? 3u : 0u));
++#ifdef TACTIX_POSITION_KEY_LEGACY_CONTROL
++          const size_t bytes_per_ref = 2 * sizeof(uint64_t) + sizeof(Ref);
++#else
++          const size_t bytes_per_ref = 3 * sizeof(Ref);
++#endif
++          assert(allocation_bytes == (sorts ? n * bytes_per_ref : 0));
++          total_bytes += allocation_bytes;
++          sorted_cases += sorts;
++          total_sorted_refs += sorts ? n : 0;
++          mix(n); mix(mode); mix(ids); mix(permutation);
++          for (Ref ref : refs) {
++            mix(ref);
++            mix(kernel_clause_position(k, ref));
++          }
++          // Sort must leave all alias values intact, including high proof ids.
++          std::sort(refs.begin(), refs.end());
++          for (size_t i = 0; i < n; ++i) {
++            const uint64_t id = clause_at(k.arena, refs[i])->id();
++            if (id && mode) {
++              const uint64_t key = mode == 1 ? i : mode == 2 ? 7 :
++                  edges[(i * 7 + 3) % (mode == 3 ? 10 : edges.size())];
++              assert(k.clause_position_alias.get(id) == key + 1);
++            }
++          }
++          ++cases;
++        }
++  std::printf("position-key cases=%u sorted=%u refs=%llu digest=%016llx bytes=%llu\n",
++      cases, sorted_cases, static_cast<unsigned long long>(total_sorted_refs),
++      static_cast<unsigned long long>(digest), static_cast<unsigned long long>(total_bytes));
++}
