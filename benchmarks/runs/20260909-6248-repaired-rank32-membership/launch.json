@@ -1,0 +1,10 @@
+{
+  "job_id": "1677308",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6248-repaired-rank32-membership/array.sbatch"
+  ],
+  "accounting_since": "2026-09-09T02:56:08",
+  "manifest_sha256": "d2fe7e272fa4b6118ac3e230c89121004f850681c538c411045c43277f213a74"
+}

@@ -1,0 +1,1 @@
+fixture: /home/hwu/SAT-solving/benchmarks/probes/scratch/test-substitute-retry-proof-model-6243.cpp:73: int main(int, char**): Assertion `k.stats.bve_marks-before==4*copies' failed.

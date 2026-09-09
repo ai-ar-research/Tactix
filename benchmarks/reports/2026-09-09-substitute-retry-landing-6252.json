@@ -1,0 +1,46 @@
+{
+  "audit_sha256": "7f6ccf716688ec7a59269351cb905e5b6498aae4f0e2d3b8fae55909f9b3d07f",
+  "local_original_logs": {
+    "benchmarks/runs/20260909-6241-substitute-retry-fixed-proofs/1-0-0-check.log": {
+      "sha256": "445d1907eaa75087b60cb0bea42d06ff30b7a45eb72583258b25cb0cbbb37a02",
+      "raw_text": "\nc parsing input formula with 16 variables and 26 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 22 of 26 clauses in core                            \n\nc 7 of 13 lemmas in core using 64 resolution steps\n\nc 0 RAT lemmas in core; 0 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.044 seconds\n"
+    },
+    "benchmarks/runs/20260909-6241-substitute-retry-fixed-proofs/1-0-1-check.log": {
+      "sha256": "71e9407a2cfe44a8324e91374c12fb9b25c3ab00bc22f5e4e03cc247318296e0",
+      "raw_text": "\nc parsing input formula with 16 variables and 26 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 22 of 26 clauses in core                            \n\nc 7 of 13 lemmas in core using 64 resolution steps\n\nc 0 RAT lemmas in core; 0 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.043 seconds\n"
+    },
+    "benchmarks/runs/20260909-6243-substitute-retry-fixed-proofs/1-0-0-check.log": {
+      "sha256": "445d1907eaa75087b60cb0bea42d06ff30b7a45eb72583258b25cb0cbbb37a02",
+      "raw_text": "\nc parsing input formula with 16 variables and 26 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 22 of 26 clauses in core                            \n\nc 7 of 13 lemmas in core using 64 resolution steps\n\nc 0 RAT lemmas in core; 0 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.044 seconds\n"
+    },
+    "benchmarks/runs/20260909-6243-substitute-retry-fixed-proofs/1-0-1-check.log": {
+      "sha256": "445d1907eaa75087b60cb0bea42d06ff30b7a45eb72583258b25cb0cbbb37a02",
+      "raw_text": "\nc parsing input formula with 16 variables and 26 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 22 of 26 clauses in core                            \n\nc 7 of 13 lemmas in core using 64 resolution steps\n\nc 0 RAT lemmas in core; 0 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.044 seconds\n"
+    },
+    "benchmarks/runs/20260909-6244-substitute-retry-fixed-proofs/1-0-0-check.log": {
+      "sha256": "445d1907eaa75087b60cb0bea42d06ff30b7a45eb72583258b25cb0cbbb37a02",
+      "raw_text": "\nc parsing input formula with 16 variables and 26 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 22 of 26 clauses in core                            \n\nc 7 of 13 lemmas in core using 64 resolution steps\n\nc 0 RAT lemmas in core; 0 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.044 seconds\n"
+    },
+    "benchmarks/runs/20260909-6244-substitute-retry-fixed-proofs/1-0-1-check.log": {
+      "sha256": "28b8b3fe7f4652c76b84cd653c123a947e39639c0cfb17e643072a6d1c1f995c",
+      "raw_text": "\nc parsing input formula with 16 variables and 26 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 22 of 26 clauses in core                            \n\nc 7 of 13 lemmas in core using 64 resolution steps\n\nc 0 RAT lemmas in core; 0 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.042 seconds\n"
+    },
+    "benchmarks/runs/20260909-6244-substitute-retry-fixed-proofs/2-0-0-check.log": {
+      "sha256": "4537fb42c026e3af8b034444d691661810adeb343e1cbb288262c0daf3a31464",
+      "raw_text": "\nc parsing input formula with 16 variables and 28 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 22 of 28 clauses in core                            \n\nc 7 of 13 lemmas in core using 64 resolution steps\n\nc 0 RAT lemmas in core; 0 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.044 seconds\n"
+    },
+    "benchmarks/runs/20260909-6244-substitute-retry-fixed-proofs/2-0-1-check.log": {
+      "sha256": "4537fb42c026e3af8b034444d691661810adeb343e1cbb288262c0daf3a31464",
+      "raw_text": "\nc parsing input formula with 16 variables and 28 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 22 of 28 clauses in core                            \n\nc 7 of 13 lemmas in core using 64 resolution steps\n\nc 0 RAT lemmas in core; 0 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.044 seconds\n"
+    },
+    "benchmarks/runs/20260909-6244-substitute-retry-fixed-proofs/5-0-0-check.log": {
+      "sha256": "7eca85a175ff8a89d1c7224cf32d8d21956df72105236a9f3cf13ca02b771eb8",
+      "raw_text": "\nc parsing input formula with 16 variables and 34 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 22 of 34 clauses in core                            \n\nc 7 of 13 lemmas in core using 64 resolution steps\n\nc 0 RAT lemmas in core; 0 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.043 seconds\n"
+    },
+    "benchmarks/runs/20260909-6244-substitute-retry-fixed-proofs/5-0-1-check.log": {
+      "sha256": "08bd869d5d43f5da4c32afaace35425e21442091a14b8656c35542aa70be5ffb",
+      "raw_text": "\nc parsing input formula with 16 variables and 34 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 22 of 34 clauses in core                            \n\nc 7 of 13 lemmas in core using 64 resolution steps\n\nc 0 RAT lemmas in core; 0 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.044 seconds\n"
+    }
+  },
+  "correction": "6251 staged raw drat-trim logs containing trailing spaces. Git whitespace validation rejected landing before commit. Preserve original bytes locally/hash-bound; this JSON encodes them exactly. No solver/checker/source/certificate change."
+}
