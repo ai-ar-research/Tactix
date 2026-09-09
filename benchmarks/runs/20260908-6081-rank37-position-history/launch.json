@@ -1,0 +1,10 @@
+{
+  "job_id": "1676773",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260908-6081-rank37-position-history/array.sbatch"
+  ],
+  "manifest_sha256": "2618363f7ff5cb395d58ffb58e206ef6918201c26edd27f86e5d8476d56223fe",
+  "continuation": "Current6049 diagnostic only;full6061 checks and cpu-q campaign untouched. Native rerun only for missing macro-position history;fixed runtime unchanged."
+}

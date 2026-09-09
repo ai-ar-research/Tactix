@@ -1,0 +1,10 @@
+{
+  "job_id": "1676775",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260908-6084-rank37-prephase-heap/array.sbatch"
+  ],
+  "manifest_sha256": "857c2448d6a5a033c146f1d58a596b638e039df0cb2eaed25887abd1e857cbd5",
+  "continuation": "Current6049 diagnostic only;full6061 checks and cpu-q campaign untouched. Native rerun for missing before/after phase heap states only;fixed timing unchanged."
+}
