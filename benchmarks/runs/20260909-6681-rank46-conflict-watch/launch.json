@@ -1,0 +1,10 @@
+{
+  "job_id": "1678562",
+  "accounting_since": "2026-09-09T19:33:12",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6681-rank46-conflict-watch/array.sbatch"
+  ],
+  "manifest_sha256": "2ad0f90cad4589bfcc8209328d75d57acb1c443deb4e51e22a3a01c5689179f6"
+}

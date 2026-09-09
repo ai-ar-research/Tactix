@@ -1,0 +1,10 @@
+{
+  "job_id": "1678558",
+  "accounting_since": "2026-09-09T19:22:35",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6673-rank46-long-prefix/array.sbatch"
+  ],
+  "manifest_sha256": "8543bf11bf688f0a45580528e6cb88e701a8e3a16f3ce52f247238bbb4b9e05c"
+}

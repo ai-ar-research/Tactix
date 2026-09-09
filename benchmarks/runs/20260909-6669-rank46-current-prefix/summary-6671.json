@@ -1,0 +1,121 @@
+{
+  "rank": 46,
+  "stop": 100000,
+  "bounded_stops_clean": true,
+  "prefixes": {
+    "candidate": {
+      "solver": "tactix",
+      "conflict": 100000,
+      "start_decisions": 18446744073709544925,
+      "end_decisions": 355748,
+      "count": 362439,
+      "hash": "fbb3540ef27c1fde",
+      "common": 1,
+      "common_reached": 1,
+      "common_hash": "44eccfd4741deb45",
+      "first": 12452,
+      "common_last": 12452,
+      "last": 18921,
+      "max_level": 2772
+    },
+    "kissat": {
+      "solver": "kissat",
+      "conflict": 100000,
+      "start_decisions": 18446744073709544925,
+      "end_decisions": 355748,
+      "count": 362439,
+      "hash": "d576422615cfd51e",
+      "common": 1,
+      "common_reached": 1,
+      "common_hash": "44eccfd4741deb45",
+      "first": 12452,
+      "common_last": 12452,
+      "last": 18921,
+      "max_level": 2772
+    }
+  },
+  "first_difference": {
+    "matching_rows": 303273,
+    "left": [
+      78797,
+      296583,
+      63,
+      -18626,
+      0
+    ],
+    "right": [
+      78797,
+      296583,
+      63,
+      -18594,
+      0
+    ],
+    "complete_equal": false
+  },
+  "all_differences": [
+    {
+      "index": 303273,
+      "candidate": [
+        78797,
+        296583,
+        63,
+        -18626,
+        0
+      ],
+      "kissat": [
+        78797,
+        296583,
+        63,
+        -18594,
+        0
+      ]
+    },
+    {
+      "index": 303274,
+      "candidate": [
+        78797,
+        296584,
+        64,
+        -18594,
+        0
+      ],
+      "kissat": [
+        78797,
+        296584,
+        64,
+        -18626,
+        0
+      ]
+    }
+  ],
+  "hashes": {
+    "benchmarks/runs/20260909-6669-rank46-current-prefix/pins/candidate": "e0ca5264f28afbacd51c09ff2f5a692f7dcf44a1a369e9dbbdc13baf545ba664",
+    "benchmarks/runs/20260909-6669-rank46-current-prefix/pins/kissat": "a902fccbe9e63c2eedc1aa4332a7d912d0859088aaa98740b90facc6373f1add",
+    "benchmarks/runs/20260909-6669-rank46-current-prefix/run.py": "8423586d4383b98c5ebfa737f02186dcc57d4eebd593c053bcf25ee4a2735d01",
+    "benchmarks/runs/20260909-6669-rank46-current-prefix/array.sbatch": "bb541a0004c66b38f0eabb343ce4aeff91d4db2427bdeff84f527355a9b36aa5",
+    "benchmarks/runs/20260909-6654-congruence-empty-gates-build/manifest.json": "02b12ad11ea17caf2626c2be23dd181edcaa806e2f8c0c2df3fef2082623ae03",
+    "benchmarks/runs/20260909-6201-rank49-current-prefix/manifest.json": "9cea0854ce5d64e5e047e54c2f750d5a9eb0b5cac05a63af196b53f9ce4b5596",
+    "benchmarks/reports/2026-09-09-congruence-empty-full50-6668/summary.json": "96088cccadb6527d8228b366b26daff0b21386efc2b9c654c62dceb2fadff9e4",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/results/045.json": "b811b363ad92bb97a123b174694a4c0b6660035cf3385a437393dffaa5697ef1",
+    "benchmarks/baselines/rank1-50-kissat-12cpu-v1/manifest.json": "5f7865e46af2b9ed0d1899ce6e450bfb9b3575801c50183e059d0e4326f5a1e0",
+    "benchmarks/runs/20260909-6657-congruence-empty-proof-control/summary.json": "6eaa01238e81f8e1e4fcb46d57a54cd4fba2b126058ebf2c66fa23616cea56fd",
+    "benchmarks/runs/20260909-6201-rank49-current-prefix/pins/kissat": "a902fccbe9e63c2eedc1aa4332a7d912d0859088aaa98740b90facc6373f1add",
+    "benchmarks/runs/20260909-6201-rank49-current-prefix/run.py": "2782c9750a238c885ef0bb7e97c57122e67442a66a7ff1faf1b38d5bf6f76b51",
+    "benchmarks/runs/20260909-6201-rank49-current-prefix/array.sbatch": "4416edc394c05eeca9ee65ac21d9d024b9b6bdc6a65d90e2de5ef9d738bc6d19",
+    "benchmarks/runs/20260909-6669-rank46-current-prefix/manifest.json": "591bf9c16e884ed4dd1ff1d70fe050e6da414e59a22bd33180fdb3fdce60498d",
+    "benchmarks/runs/20260909-6669-rank46-current-prefix/launch.json": "f8276c25f38f0de5c86bca062b5947900ba2ba74d2977bb66daac8b473c53bfb",
+    "benchmarks/runs/20260909-6669-rank46-current-prefix/results/candidate.json": "a043103d22984b50567a1436bdd23cca03401b103e0f6840d8b3a7f4298f90ff",
+    "benchmarks/runs/20260909-6669-rank46-current-prefix/traces/candidate.prefix.tsv": "461eb161c331de9db49e3d3a9f946feef4dadb636d725892086ca6516c98f1f8",
+    "benchmarks/runs/20260909-6669-rank46-current-prefix/traces/candidate.macro.tsv": "86419cd1086ac7fa1f26706cf0c376aca876b4d4ce3b091cf4bc7dd3dfcf6740",
+    "benchmarks/runs/20260909-6669-rank46-current-prefix/traces/candidate.boundaries.tsv": "a9bd04d188f04fb6b636a1472448f025f138a177854937215827fe680ca1a787",
+    "benchmarks/runs/20260909-6669-rank46-current-prefix/traces/candidate.decisions.tsv": "ee0f1956996e306ac49ce5b2122c4ac4d3c7ca1eb0c6ccc17de124ceef53a934",
+    "benchmarks/runs/20260909-6669-rank46-current-prefix/results/kissat.json": "593397b40bf19177210d69c34e9210bf51d365dda4b87e9c5126f060ebd3c82e",
+    "benchmarks/runs/20260909-6669-rank46-current-prefix/traces/kissat.boundaries.tsv": "ac908cf9dc76712ee621f1e796099dfd3e33c53bcb9c84160b61f14a21c9df08",
+    "benchmarks/runs/20260909-6669-rank46-current-prefix/traces/kissat.decisions.tsv": "f4ee0543c06c41ce38997cb5642032eb9c243a7f59a904837a8192c61f6f990b",
+    "benchmarks/runs/20260909-6669-rank46-current-prefix/traces/kissat.prefix.tsv": "91252b6c3f6cde7309c2b49b87c0f09b16c9a67f82063dfa29bef6533582cb77",
+    "benchmarks/probes/scratch/validate-rank46-current-prefix-6671.py": "3f6882c8bdceea547eabab5fa0b01ecf91b9a1e7865662a867618f5a8e41a601",
+    "tools/bench/decision_prefix.py": "028bfd1e4aaf53109621f9d05d0e6ed061156576efada6a5df0291b795f1f215"
+  },
+  "conclusion": "Only two adjacent focused decision literals swap at78797/296583-296584; every other row through100K agrees, including all following counters/levels/literals. This is not evidence that the swap causes the eventual1.823x conflict gap. Extend the bound to locate a sustained later divergence before choosing a repair.",
+  "limitation": "Partial proofs hashed and removed, not final UNSAT certificates. Diagnostic observer neutrality requires exact own replay in a successor. No source change, runtime refresh, full-formula equality or search-gap causality claim."
+}
