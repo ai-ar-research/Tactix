@@ -1,0 +1,49 @@
+{
+  "parent_summary_sha256": "6f4bb8ada1377897f3d9d0d43e9a21e749373437bffc609286e7e491a44e32c5",
+  "source_sha256": {
+    ".claude/worktrees/runtime-activation-stamp-6424/src/rules/congruence/congruence.cpp": "01004745a067bc0f4eb88bd0b2455324c1d2039870dc65e16b56957a17170398"
+  },
+  "first_call_candidate_rows": 108890,
+  "normalized_candidate_first_differences": [
+    null,
+    {
+      "index": 1803,
+      "candidate": {
+        "pose": [
+          10715,
+          -9842,
+          -18907
+        ],
+        "key": [
+          -18907,
+          -9842,
+          10715
+        ],
+        "pair": null,
+        "disposition": "no-antecedent"
+      },
+      "kissat": {
+        "pose": [
+          10715,
+          -18907,
+          -9842
+        ],
+        "key": [
+          -18907,
+          -9842,
+          10715
+        ],
+        "pair": null,
+        "disposition": "no-antecedent"
+      }
+    }
+  ],
+  "clean_entry_multiset_equal": true,
+  "clean_entry_count": 127419,
+  "candidate_derivations": 85,
+  "unique_derivations": 84,
+  "predicted_installed_count": 127503,
+  "predicted_installed_multiset_equals_native": true,
+  "correction": "Raw6504 post-binary-extraction labels are not equivalent observation points: Tactix is pre-install and native post-install. Preserve6504 counts, but supersede its suggestion that those sites align. Tactix pre-install and native dense entry match exactly. All108890 first-call candidate records match after unordered binary-pair normalization;84 distinct planned pairs reconstruct native127503 post-install multiset.",
+  "limitation": "Reconstructed Tactix post-install population is a source-backed prediction, not observed solver state. No missing-inference claim or repair follows. Capture actual post-install and post-gate populations with a neutral observer before causal attribution; full large-clause identity and ordered closure remain unproved."
+}

@@ -1,0 +1,463 @@
+{
+  "pairs": {
+    "candidate_previous": {
+      "first": {
+        "index": 333,
+        "left": {
+          "name": "TransitiveReduce",
+          "stage": "end",
+          "conflicts": 151943,
+          "decisions": 44276404,
+          "active": 108235,
+          "irred": 503929,
+          "red": 16163,
+          "binary": 147516
+        },
+        "right": {
+          "name": "TransitiveReduce",
+          "stage": "end",
+          "conflicts": 151943,
+          "decisions": 44276404,
+          "active": 108235,
+          "irred": 503929,
+          "red": 16163,
+          "binary": 147513
+        }
+      },
+      "context": {
+        "candidate": [
+          {
+            "name": "Substitute",
+            "stage": "end",
+            "conflicts": 151943,
+            "decisions": 44276404,
+            "active": 108236,
+            "irred": 503929,
+            "red": 16163,
+            "binary": 147851
+          },
+          {
+            "name": "TransitiveReduce",
+            "stage": "begin",
+            "conflicts": 151943,
+            "decisions": 44276404,
+            "active": 108236,
+            "irred": 503929,
+            "red": 16163,
+            "binary": 147851
+          },
+          {
+            "name": "TransitiveReduce",
+            "stage": "end",
+            "conflicts": 151943,
+            "decisions": 44276404,
+            "active": 108235,
+            "irred": 503929,
+            "red": 16163,
+            "binary": 147516
+          },
+          {
+            "name": "Backbone",
+            "stage": "begin",
+            "conflicts": 151943,
+            "decisions": 44276404,
+            "active": 108235,
+            "irred": 503929,
+            "red": 16163,
+            "binary": 147516
+          },
+          {
+            "name": "Backbone",
+            "stage": "end",
+            "conflicts": 151943,
+            "decisions": 44276404,
+            "active": 108234,
+            "irred": 503929,
+            "red": 16163,
+            "binary": 147516
+          }
+        ],
+        "previous": [
+          {
+            "name": "Substitute",
+            "stage": "end",
+            "conflicts": 151943,
+            "decisions": 44276404,
+            "active": 108236,
+            "irred": 503929,
+            "red": 16163,
+            "binary": 147851
+          },
+          {
+            "name": "TransitiveReduce",
+            "stage": "begin",
+            "conflicts": 151943,
+            "decisions": 44276404,
+            "active": 108236,
+            "irred": 503929,
+            "red": 16163,
+            "binary": 147851
+          },
+          {
+            "name": "TransitiveReduce",
+            "stage": "end",
+            "conflicts": 151943,
+            "decisions": 44276404,
+            "active": 108235,
+            "irred": 503929,
+            "red": 16163,
+            "binary": 147513
+          },
+          {
+            "name": "Backbone",
+            "stage": "begin",
+            "conflicts": 151943,
+            "decisions": 44276404,
+            "active": 108235,
+            "irred": 503929,
+            "red": 16163,
+            "binary": 147513
+          },
+          {
+            "name": "Backbone",
+            "stage": "end",
+            "conflicts": 151943,
+            "decisions": 44276404,
+            "active": 108234,
+            "irred": 503929,
+            "red": 16163,
+            "binary": 147513
+          }
+        ]
+      }
+    },
+    "candidate_kissat": {
+      "first": {
+        "index": 293,
+        "left": {
+          "name": "Sweep",
+          "stage": "end",
+          "conflicts": 120330,
+          "decisions": 39477051,
+          "active": 109347,
+          "irred": 514977,
+          "red": 11212,
+          "binary": 151018
+        },
+        "right": {
+          "name": "Sweep",
+          "stage": "end",
+          "conflicts": 120330,
+          "decisions": 39477051,
+          "active": 109347,
+          "irred": 514977,
+          "red": 11212,
+          "binary": 151020
+        }
+      },
+      "context": {
+        "candidate": [
+          {
+            "name": "Vivify",
+            "stage": "end",
+            "conflicts": 120330,
+            "decisions": 39477051,
+            "active": 109520,
+            "irred": 515789,
+            "red": 11212,
+            "binary": 150715
+          },
+          {
+            "name": "Sweep",
+            "stage": "begin",
+            "conflicts": 120330,
+            "decisions": 39477051,
+            "active": 109520,
+            "irred": 515789,
+            "red": 11212,
+            "binary": 150715
+          },
+          {
+            "name": "Sweep",
+            "stage": "end",
+            "conflicts": 120330,
+            "decisions": 39477051,
+            "active": 109347,
+            "irred": 514977,
+            "red": 11212,
+            "binary": 151018
+          },
+          {
+            "name": "Substitute",
+            "stage": "begin",
+            "conflicts": 120330,
+            "decisions": 39477051,
+            "active": 109347,
+            "irred": 514977,
+            "red": 11212,
+            "binary": 151018
+          },
+          {
+            "name": "Substitute",
+            "stage": "end",
+            "conflicts": 120330,
+            "decisions": 39477051,
+            "active": 109192,
+            "irred": 514452,
+            "red": 11075,
+            "binary": 150698
+          }
+        ],
+        "kissat": [
+          {
+            "name": "Vivify",
+            "stage": "end",
+            "conflicts": 120330,
+            "decisions": 39477051,
+            "active": 109520,
+            "irred": 515789,
+            "red": 11212,
+            "binary": 150715
+          },
+          {
+            "name": "Sweep",
+            "stage": "begin",
+            "conflicts": 120330,
+            "decisions": 39477051,
+            "active": 109520,
+            "irred": 515789,
+            "red": 11212,
+            "binary": 150715
+          },
+          {
+            "name": "Sweep",
+            "stage": "end",
+            "conflicts": 120330,
+            "decisions": 39477051,
+            "active": 109347,
+            "irred": 514977,
+            "red": 11212,
+            "binary": 151020
+          },
+          {
+            "name": "Substitute",
+            "stage": "begin",
+            "conflicts": 120330,
+            "decisions": 39477051,
+            "active": 109347,
+            "irred": 514977,
+            "red": 11212,
+            "binary": 151020
+          },
+          {
+            "name": "Substitute",
+            "stage": "end",
+            "conflicts": 120330,
+            "decisions": 39477051,
+            "active": 109192,
+            "irred": 514452,
+            "red": 11075,
+            "binary": 150700
+          }
+        ]
+      }
+    },
+    "previous_kissat": {
+      "first": {
+        "index": 293,
+        "left": {
+          "name": "Sweep",
+          "stage": "end",
+          "conflicts": 120330,
+          "decisions": 39477051,
+          "active": 109347,
+          "irred": 514977,
+          "red": 11212,
+          "binary": 151018
+        },
+        "right": {
+          "name": "Sweep",
+          "stage": "end",
+          "conflicts": 120330,
+          "decisions": 39477051,
+          "active": 109347,
+          "irred": 514977,
+          "red": 11212,
+          "binary": 151020
+        }
+      },
+      "context": {
+        "previous": [
+          {
+            "name": "Vivify",
+            "stage": "end",
+            "conflicts": 120330,
+            "decisions": 39477051,
+            "active": 109520,
+            "irred": 515789,
+            "red": 11212,
+            "binary": 150715
+          },
+          {
+            "name": "Sweep",
+            "stage": "begin",
+            "conflicts": 120330,
+            "decisions": 39477051,
+            "active": 109520,
+            "irred": 515789,
+            "red": 11212,
+            "binary": 150715
+          },
+          {
+            "name": "Sweep",
+            "stage": "end",
+            "conflicts": 120330,
+            "decisions": 39477051,
+            "active": 109347,
+            "irred": 514977,
+            "red": 11212,
+            "binary": 151018
+          },
+          {
+            "name": "Substitute",
+            "stage": "begin",
+            "conflicts": 120330,
+            "decisions": 39477051,
+            "active": 109347,
+            "irred": 514977,
+            "red": 11212,
+            "binary": 151018
+          },
+          {
+            "name": "Substitute",
+            "stage": "end",
+            "conflicts": 120330,
+            "decisions": 39477051,
+            "active": 109192,
+            "irred": 514452,
+            "red": 11075,
+            "binary": 150698
+          }
+        ],
+        "kissat": [
+          {
+            "name": "Vivify",
+            "stage": "end",
+            "conflicts": 120330,
+            "decisions": 39477051,
+            "active": 109520,
+            "irred": 515789,
+            "red": 11212,
+            "binary": 150715
+          },
+          {
+            "name": "Sweep",
+            "stage": "begin",
+            "conflicts": 120330,
+            "decisions": 39477051,
+            "active": 109520,
+            "irred": 515789,
+            "red": 11212,
+            "binary": 150715
+          },
+          {
+            "name": "Sweep",
+            "stage": "end",
+            "conflicts": 120330,
+            "decisions": 39477051,
+            "active": 109347,
+            "irred": 514977,
+            "red": 11212,
+            "binary": 151020
+          },
+          {
+            "name": "Substitute",
+            "stage": "begin",
+            "conflicts": 120330,
+            "decisions": 39477051,
+            "active": 109347,
+            "irred": 514977,
+            "red": 11212,
+            "binary": 151020
+          },
+          {
+            "name": "Substitute",
+            "stage": "end",
+            "conflicts": 120330,
+            "decisions": 39477051,
+            "active": 109192,
+            "irred": 514452,
+            "red": 11075,
+            "binary": 150700
+          }
+        ]
+      }
+    }
+  },
+  "hashes": {
+    "benchmarks/runs/20260909-6486-rank33-later-prefix/summary.json": "966e6bb7b126eb950c7aee98246cb7a06241c84a833a03d9141d037a1d521aa9",
+    "benchmarks/runs/20260909-6486-rank33-later-prefix/traces/candidate.boundaries.tsv": "dba284766620bc5bf057b775839ec15362cd486836bf9c82497b689cf36cfd0f",
+    "benchmarks/runs/20260909-6486-rank33-later-prefix/traces/previous.boundaries.tsv": "e1ccdd46aff4c46ee90082960da5d7633944c42edf1c387bb1ebdee2701005a2",
+    "benchmarks/runs/20260909-6486-rank33-later-prefix/traces/kissat.boundaries.tsv": "673ec73c6b8d181681ced1c6c038dea71a078ba238046d15b9dadc693d549526"
+  },
+  "decision_pairs": {
+    "candidate_previous": {
+      "matching_rows": 13884568,
+      "left": [
+        154940,
+        45267845,
+        7,
+        -29791,
+        0
+      ],
+      "right": [
+        154940,
+        45267845,
+        7,
+        -29798,
+        0
+      ],
+      "complete_equal": false,
+      "matching_decisions_from_start": 45379152
+    },
+    "candidate_kissat": {
+      "matching_rows": 23612137,
+      "left": [
+        227618,
+        54966705,
+        204,
+        -233254,
+        0
+      ],
+      "right": [
+        227618,
+        54966705,
+        204,
+        -232900,
+        0
+      ],
+      "complete_equal": false,
+      "matching_decisions_from_start": 55106721
+    },
+    "previous_kissat": {
+      "matching_rows": 13884568,
+      "left": [
+        154940,
+        45267845,
+        7,
+        -29798,
+        0
+      ],
+      "right": [
+        154940,
+        45267845,
+        7,
+        -29791,
+        0
+      ],
+      "complete_equal": false,
+      "matching_decisions_from_start": 45379152
+    }
+  },
+  "limitation": "Projected nonzero-conflict rule boundaries only. Counts and matching decisions do not prove formula or ordering identity; first difference is a causal lead, not repair acceptance."
+}
