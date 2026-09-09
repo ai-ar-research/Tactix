@@ -1,0 +1,200 @@
+--- a/src/policies/default_policy.cpp
++++ b/src/policies/default_policy.cpp
+@@ -629,6 +629,46 @@
+   // cannot reconstruct it after compaction and also miss Factor's fresh
+   // activation, which is precisely what makes `proberounds` enter round two.
+   return kernel_active_variables(k);
++}
++
++// Formula rules publish events without depending on decision heuristics.
++// Consume each Substitute round before a later round or watch reconnection
++// derives more roots: native substitute_round retires its representatives at
++// that boundary. Call-wide root-first batching changes arbitrary heap removals.
++static ApplyResult default_substitute_round(Kernel &k) {
++  const size_t trail_begin = k.trail.size();
++  const ApplyResult result =
++      substitute_apply_round(k, /*reconnect_large_watches=*/false);
++  heuristics_consume_root_assignments(k, trail_begin);
++  heuristics_consume_retirements(k);
++  return result;
++}
++
++static ApplyResult default_substitute_complete(Kernel &k, uint32_t max_rounds) {
++  // Keep the unbudgeted public complete helper's productivity/cap contract;
++  // only DefaultPolicy's publication points differ from the rule-only API.
++  const auto active = [&] {
++    const uint64_t retired = static_cast<uint64_t>(kernel_root_fixed(k)) +
++                            k.stats.bve_eliminated + k.stats.substitute_vars;
++    return uint64_t{k.nvars} > retired ? uint64_t{k.nvars} - retired : 0;
++  };
++  const bool connected_at_entry = k.large_watches_connected;
++  const uint32_t trail_at_entry = static_cast<uint32_t>(k.trail.size());
++  ApplyResult result = ApplyResult::NoOp;
++  for (uint32_t round = 0; round < max_rounds; ++round) {
++    const uint64_t active_before = active();
++    const ApplyResult current = default_substitute_round(k);
++    if (current == ApplyResult::Unsat)
++      return current;
++    if (current == ApplyResult::Ok)
++      result = current;
++    if (active() == active_before)
++      break;
++  }
++  if (connected_at_entry && !k.large_watches_connected &&
++      substitute_reconnect_large_watches(k, trail_at_entry) == ApplyResult::Unsat)
++    return ApplyResult::Unsat;
++  return result;
+ }
+ 
+ static uint64_t scale_inprocessing_delta(
+@@ -3335,8 +3375,7 @@
+       for (uint32_t round = 0; round < config().substitute_rounds; round++) {
+         const uint64_t active_before = active_variables(k);
+         const uint64_t round_entry = e.meter(k);
+-        const ApplyResult current =
+-            substitute_apply_round(k, /*reconnect_large_watches=*/false);
++        const ApplyResult current = default_substitute_round(k);
+         const uint64_t round_spent = e.meter(k) - round_entry;
+ #ifdef TACTIX_ENABLE_RULE_JOURNAL
+         substitute_rounds_run++;
+@@ -3454,10 +3493,11 @@
+     // Kissat's two preprocessing follow-ups call substitute with
+     // `complete=true`: a productive rewrite can expose another binary SCC,
+     // and the shipped `substituterounds=2` consumes that closure immediately.
+-    // Search-time calls retain the ordinary one-round, effort-ledger path.
+-    if (k.stats.conflicts == 0 && !std::strcmp(r.name, "Substitute")) {
++    // Unbudgeted search-time calls retain the ordinary one-round contract.
++    // Publish every round's roots/retirements before reconnecting watches.
++    if (substitute) {
+       const uint64_t t0 = now_nanos();
+-      ar = substitute_apply_complete(k);
++      ar = default_substitute_complete(k, k.stats.conflicts == 0 ? 2 : 1);
+       if (r.id < Stats::MAX_TIMED_RULES) {
+         k.stats.rule_nanos[r.id] += now_nanos() - t0;
+         k.stats.rule_calls[r.id]++;
+@@ -3702,9 +3742,9 @@
+       // it from both decision rankings immediately.  Formula rules remain
+       // policy-agnostic in Tactix, so publish that same lifecycle at the rule
+       // boundary, before consuming the rule's eliminated/substituted events.
+-      // This ordering is observable for equal-score heaps: Substitute can
+-      // derive roots while rewriting and only then deactivates its class
+-      // members (substitute.c remove_representative_equivalences).
++      // Substitute has already consumed roots/retirements per SCC round;
++      // this boundary also consumes roots from its final watch reconnection,
++      // after those retirements (substitute.c substitute_rounds).
+       // Dosed entries consume direct and propagated roots at each candidate
+       // boundary inside run_dosed_entry.  Do not rescan the whole rule-local
+       // trail here; batch entries still publish their roots at this boundary.
+--- /dev/null
++++ b/tests/test_substitute_publication.cpp
+@@ -0,0 +1,110 @@
++// Regression: root closure in a later round/reconnection must not move before
++// the preceding round's retirement events. Exercise the actual policy and
++// rule primitives, not a model of the heap algorithm.
++#undef NDEBUG
++#include "kernel/kernel.hpp"
++#include "policies/default_policy.hpp"
++#include "policies/heuristics.hpp"
++#include "rules/registry.hpp"
++#include "rules/substitute/substitute.hpp"
++#include <algorithm>
++#include <cassert>
++#include <cstdio>
++#include <cstring>
++#include <vector>
++using namespace tactix;
++
++static void fixture(Kernel &k) {
++  kernel_reserve_vars(k, 16);
++  for (Var v = 0; v < k.nvars; ++v)
++    kernel_record_import(k, v);
++  const auto large = [&](int a, int b, int c) {
++    const Lit lits[] = {internalize(a), internalize(b), internalize(c)};
++    kernel_add_large_clause(k, lits, 3, false, 0);
++  };
++  const auto binary = [&](int a, int b) {
++    kernel_add_binary_clause(k, internalize(a), internalize(b));
++  };
++  // Arena order matters: x1 becomes a root only after the clauses producing
++  // roots x3,x8 have been rewritten and x4,x5,x9,x10 have retired.
++  large(-3, -8, 1);
++  large(3, 4, 5);
++  large(8, 9, 10);
++  binary(-3, 4); binary(3, -4); binary(-3, 5); binary(3, -5);
++  binary(-8, 9); binary(8, -9); binary(-8, 10); binary(8, -10);
++  k.stats.search_ticks = 1000000000;
++}
++
++static void test_order(bool budgeted, bool preprocessing, uint32_t rounds) {
++  Kernel expected, actual;
++  fixture(expected); fixture(actual);
++  expected.stats.conflicts = actual.stats.conflicts = preprocessing ? 0 : 1;
++  ScopedHeuristics eh(expected), ah(actual);
++  for (Kernel *k : {&expected, &actual}) {
++    std::fill(k->h->scores.score.begin(), k->h->scores.score.end(), 0);
++    heuristics_update_scores(*k);
++  }
++  // The unbudgeted preprocessing surface has the existing complete cap of
++  // two; an unbudgeted search call is one canonical round.
++  const uint32_t effective = budgeted ? rounds : (preprocessing ? 2 : 1);
++  OccIndex occ;
++  kernel_dense_connect(expected, occ);
++  const uint32_t entry = static_cast<uint32_t>(expected.trail.size());
++  for (uint32_t round = 0; round < effective; ++round) {
++    const size_t begin = expected.trail.size();
++    const auto result = substitute_apply_round(expected, false);
++    assert(result != ApplyResult::Unsat);
++    heuristics_consume_root_assignments(expected, begin);
++    heuristics_consume_retirements(expected);
++    if (round == 0) {
++      assert(expected.values[internalize(1)] == 0);
++      assert(expected.stats.substitute_vars == 4);
++      assert(!heuristics_var_active(expected, 3));
++    }
++    if (result == ApplyResult::NoOp) break;
++  }
++  const size_t before_reconnect = expected.trail.size();
++  assert(substitute_reconnect_large_watches(expected, entry) != ApplyResult::Unsat);
++  heuristics_consume_root_assignments(expected, before_reconnect);
++  kernel_dense_disconnect(expected);
++  assert(expected.values[internalize(1)] > 0);
++  assert(expected.h->scores.stack == std::vector<Var>({10, 1, 14, 13, 12, 5, 6, 15, 11}));
++
++  DefaultStrategyConfig cfg;
++  cfg.inprocess.phase_rounds = 1;
++  cfg.inprocess.substitute_rounds = rounds;
++  DefaultPolicy policy(cfg);
++  policy.inprocess().build(actual);
++  bool enabled = false;
++  for (auto &e : policy.inprocess().entries) {
++    const bool first = !enabled && !std::strcmp(tactix_rules()[e.rule].name, "Substitute");
++    e.enabled = first;
++    if (first) {
++      e.budget_aware = budgeted;
++      e.preprocess = true;
++      e.followup = decltype(e.followup)::None;
++    }
++    enabled |= first;
++  }
++  assert(enabled);
++  assert(policy.inprocess().run_phase(actual, SlotGroup::Probe, nullptr) == 0);
++  assert(actual.stats.substitute_vars == expected.stats.substitute_vars);
++  assert(actual.stats.substitute_rounds == expected.stats.substitute_rounds);
++  assert(actual.values == expected.values);
++  assert(actual.h->scores.stack == expected.h->scores.stack);
++  assert(actual.h->scores.pos == expected.h->scores.pos);
++  assert(actual.h->scores.score == expected.h->scores.score);
++  assert(actual.retired_events.empty());
++  for (Var v = 0; v < actual.nvars; ++v)
++    assert(heuristics_var_active(actual, v) == heuristics_var_active(expected, v));
++  std::printf("PASS: budgeted=%d preprocessing=%d cap=%u actual_rounds=%llu\n",
++              budgeted, preprocessing, rounds,
++              static_cast<unsigned long long>(actual.stats.substitute_rounds));
++}
++
++int main() {
++  for (bool budgeted : {true, false})
++    for (bool preprocessing : {false, true})
++      for (uint32_t rounds : {1u, 2u})
++        test_order(budgeted, preprocessing, rounds);
++}

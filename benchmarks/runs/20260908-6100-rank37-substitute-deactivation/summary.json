@@ -1,0 +1,7698 @@
+{
+  "full_parent_replay": true,
+  "hashes": {
+    "benchmarks/runs/20260908-6100-rank37-substitute-deactivation/manifest.json": "26686fad27b5f15a7e7b16fd39a1c510f4a87c7a716f44d5c74ab42b19262b6a",
+    "benchmarks/runs/20260908-6100-rank37-substitute-deactivation/results/candidate.json": "2ab84b5167944add26d848df427a1b73e810f741fe3b8b9e78305d8f2b9bbc88",
+    "benchmarks/runs/20260908-6100-rank37-substitute-deactivation/candidate.substitute-begin.tsv": "4fe161bbb41260d946ac392b701fa91ca74ff988cac5896ee371f25b61b7d2ca",
+    "benchmarks/runs/20260908-6100-rank37-substitute-deactivation/candidate.substitute-end.tsv": "6b81daab6da08b1c73cc3ab861a1c86c5c26b8f78e61141a2b02ccdfb2e8d69d",
+    "benchmarks/runs/20260908-6100-rank37-substitute-deactivation/traces/candidate.deact.log": "78a19ad9180ebc2cfee4860ab1d7edb9f3fb4b072b80debca5ffb69bfef01300",
+    "benchmarks/runs/20260908-6100-rank37-substitute-deactivation/candidate.removal-order.txt": "fb42f57e58b5a3888afc653ca861f0c6e4cbbbe7f05ef2d59299962e2c8d4196",
+    "benchmarks/runs/20260908-6100-rank37-substitute-deactivation/results/kissat.json": "862314e7ec1d2ebf57d0886b9c87c3a1af6b1cf60a00ea24ce5432fd81757b63",
+    "benchmarks/runs/20260908-6100-rank37-substitute-deactivation/kissat.substitute-begin.tsv": "4fe161bbb41260d946ac392b701fa91ca74ff988cac5896ee371f25b61b7d2ca",
+    "benchmarks/runs/20260908-6100-rank37-substitute-deactivation/kissat.substitute-end.tsv": "45c5b747cbe5beab3bc1af99cbac6a2d42b0b95fab323ac15d3e8212e2a8e332",
+    "benchmarks/runs/20260908-6100-rank37-substitute-deactivation/traces/kissat.deact.log": "53fb53f273f2c88477cbec714dc3c8679d95c924526c053653e536e7e6d89325",
+    "benchmarks/runs/20260908-6100-rank37-substitute-deactivation/kissat.removal-order.txt": "53025deb195580363b44f72e288a38a9287eed2b7cbbb406c3a275188a6da755"
+  },
+  "events": {
+    "candidate": {
+      "removed": [
+        31675,
+        35139,
+        83971,
+        85390,
+        85394,
+        85462,
+        88724,
+        88732,
+        91252,
+        92899,
+        92998,
+        93016,
+        93055,
+        93116,
+        95106,
+        97481,
+        116572,
+        116623,
+        116665,
+        116703,
+        116858,
+        116871,
+        116957,
+        116979,
+        116982,
+        116983,
+        116986,
+        116993,
+        116997,
+        117008,
+        117012,
+        117020,
+        117021,
+        117025,
+        117030,
+        117031,
+        117035,
+        117051,
+        117067,
+        117075,
+        117079,
+        117082,
+        117083,
+        117086,
+        117108,
+        117109,
+        117112,
+        117113,
+        117118,
+        117126,
+        117132,
+        117147,
+        117148,
+        117153,
+        117154,
+        117157,
+        117172,
+        117173,
+        117187,
+        117194,
+        117198,
+        117205,
+        117209,
+        117215,
+        117216,
+        117246,
+        117247,
+        117256,
+        117259,
+        117260,
+        117263,
+        117267,
+        117270,
+        117282,
+        117286,
+        117293,
+        117294,
+        117297,
+        117298,
+        117308,
+        117313,
+        117314,
+        117333,
+        117343,
+        117347,
+        120236,
+        122416,
+        146152,
+        146163,
+        147177,
+        163344,
+        163367,
+        163588,
+        164661,
+        173929,
+        213371,
+        213788,
+        215627,
+        215996,
+        216070,
+        217663,
+        218191,
+        219370,
+        221995,
+        222093,
+        423886,
+        467292,
+        474229,
+        493526,
+        493621,
+        493740,
+        493851,
+        493866,
+        494117,
+        494124,
+        494143,
+        494189
+      ],
+      "heap_mutations": [
+        {
+          "conflict": 272979,
+          "variable": 91252,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4453
+        },
+        {
+          "conflict": 272979,
+          "variable": 31675,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 83971,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 85462,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 88724,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 92899,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 92998,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 93016,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 93055,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 93116,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 95106,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 97481,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 116572,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 116623,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 116665,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 116703,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 116858,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 116871,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 116957,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 116979,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 116982,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 116983,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 116986,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 116993,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 116997,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117008,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117012,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117020,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117021,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117025,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117030,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117031,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117035,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117051,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117067,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117075,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117079,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117082,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117083,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117086,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117108,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117109,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117112,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117113,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117118,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117126,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117132,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117147,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117148,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117153,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117154,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117157,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117172,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117173,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117187,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117194,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117198,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117205,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117209,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117215,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117216,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117246,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117247,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117256,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117259,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117260,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117263,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117267,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117270,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117282,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117286,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117293,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117294,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117297,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117298,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117308,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117313,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117314,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117333,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117343,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117347,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 120236,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 122416,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 146152,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 147177,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 163344,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 163367,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 163588,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 164661,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 213371,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 213788,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 215627,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 215996,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 216070,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 217663,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 218191,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 219370,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 221995,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 222093,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 423886,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 467292,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 474229,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 493526,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 493621,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 493740,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 493851,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 493866,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 494117,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 494124,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 494143,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 494189,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 35139,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 85390,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 85394,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 88732,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 146163,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 173929,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        }
+      ],
+      "whole_conflict": [
+        {
+          "conflict": 272979,
+          "variable": 45447,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4436
+        },
+        {
+          "conflict": 272979,
+          "variable": 179103,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4437
+        },
+        {
+          "conflict": 272979,
+          "variable": 179335,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4438
+        },
+        {
+          "conflict": 272979,
+          "variable": 213043,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4439
+        },
+        {
+          "conflict": 272979,
+          "variable": 213080,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4440
+        },
+        {
+          "conflict": 272979,
+          "variable": 213096,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4441
+        },
+        {
+          "conflict": 272979,
+          "variable": 213937,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4442
+        },
+        {
+          "conflict": 272979,
+          "variable": 215206,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4443
+        },
+        {
+          "conflict": 272979,
+          "variable": 216248,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4444
+        },
+        {
+          "conflict": 272979,
+          "variable": 218308,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4445
+        },
+        {
+          "conflict": 272979,
+          "variable": 221170,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4446
+        },
+        {
+          "conflict": 272979,
+          "variable": 221997,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4447
+        },
+        {
+          "conflict": 272979,
+          "variable": 222014,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4448
+        },
+        {
+          "conflict": 272979,
+          "variable": 222032,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4449
+        },
+        {
+          "conflict": 272979,
+          "variable": 227560,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4450
+        },
+        {
+          "conflict": 272979,
+          "variable": 228064,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4451
+        },
+        {
+          "conflict": 272979,
+          "variable": 146154,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4452
+        },
+        {
+          "conflict": 272979,
+          "variable": 91252,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4453
+        },
+        {
+          "conflict": 272979,
+          "variable": 31675,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 83971,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 85462,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 88724,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 92899,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 92998,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 93016,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 93055,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 93116,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 95106,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 97481,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 116572,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 116623,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 116665,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 116703,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 116858,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 116871,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 116957,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 116979,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 116982,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 116983,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 116986,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 116993,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 116997,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117008,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117012,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117020,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117021,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117025,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117030,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117031,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117035,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117051,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117067,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117075,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117079,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117082,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117083,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117086,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117108,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117109,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117112,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117113,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117118,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117126,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117132,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117147,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117148,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117153,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117154,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117157,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117172,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117173,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117187,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117194,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117198,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117205,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117209,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117215,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117216,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117246,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117247,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117256,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117259,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117260,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117263,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117267,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117270,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117282,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117286,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117293,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117294,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117297,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117298,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117308,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117313,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117314,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117333,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117343,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 117347,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 120236,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 122416,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 146152,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 147177,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 163344,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 163367,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 163588,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 164661,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 213371,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 213788,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 215627,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 215996,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 216070,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 217663,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 218191,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 219370,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 221995,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 222093,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 423886,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 467292,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 474229,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 493526,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 493621,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 493740,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 493851,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 493866,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 494117,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 494124,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 494143,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 494189,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 35139,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 85390,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 85394,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 88732,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 146163,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 173929,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 146162,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4454
+        },
+        {
+          "conflict": 272979,
+          "variable": 227415,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4455
+        },
+        {
+          "conflict": 272979,
+          "variable": 228154,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4456
+        },
+        {
+          "conflict": 272979,
+          "variable": 493137,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4457
+        },
+        {
+          "conflict": 272979,
+          "variable": 5852,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4458
+        },
+        {
+          "conflict": 272979,
+          "variable": 5862,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4459
+        },
+        {
+          "conflict": 272979,
+          "variable": 212779,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4460
+        },
+        {
+          "conflict": 272979,
+          "variable": 235458,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4461
+        },
+        {
+          "conflict": 272979,
+          "variable": 91860,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4462
+        },
+        {
+          "conflict": 272979,
+          "variable": 91882,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4463
+        },
+        {
+          "conflict": 272979,
+          "variable": 235467,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4464
+        },
+        {
+          "conflict": 272979,
+          "variable": 212766,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4465
+        },
+        {
+          "conflict": 272979,
+          "variable": 212790,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4466
+        },
+        {
+          "conflict": 272979,
+          "variable": 1232,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 74677,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 95996,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 97567,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 119595,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 120904,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 162756,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 175329,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 200631,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 201066,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 396802,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 396814,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 396841,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 396890,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 397383,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 397395,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 397479,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 397493,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 397505,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 398612,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 398665,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 399433,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 399459,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 399891,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 399904,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 400024,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 400157,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 400183,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 400572,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 402125,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 405035,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 405110,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 407107,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 407144,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 407171,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 407347,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 407479,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 407930,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 407943,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 408058,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 410827,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 410917,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 411002,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 411025,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 411038,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 411053,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 411065,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 411236,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 412966,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 413028,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 417404,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 418361,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 418376,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 449077,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 449404,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 449426,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 130061,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4467
+        },
+        {
+          "conflict": 272979,
+          "variable": 146179,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4468
+        },
+        {
+          "conflict": 272979,
+          "variable": 176125,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4469
+        },
+        {
+          "conflict": 272979,
+          "variable": 204688,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4470
+        },
+        {
+          "conflict": 272979,
+          "variable": 176041,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4471
+        },
+        {
+          "conflict": 272979,
+          "variable": 175331,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4472
+        },
+        {
+          "conflict": 272979,
+          "variable": 90641,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4473
+        },
+        {
+          "conflict": 272979,
+          "variable": 128661,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4474
+        },
+        {
+          "conflict": 272979,
+          "variable": 129939,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4475
+        },
+        {
+          "conflict": 272979,
+          "variable": 129957,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4476
+        },
+        {
+          "conflict": 272979,
+          "variable": 105084,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4477
+        },
+        {
+          "conflict": 272979,
+          "variable": 144299,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4478
+        },
+        {
+          "conflict": 272979,
+          "variable": 88869,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4479
+        },
+        {
+          "conflict": 272979,
+          "variable": 88894,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4480
+        },
+        {
+          "conflict": 272979,
+          "variable": 88784,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4481
+        },
+        {
+          "conflict": 272979,
+          "variable": 88772,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4482
+        },
+        {
+          "conflict": 272979,
+          "variable": 88727,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 88729,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 144303,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 220634,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 449408,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 451136,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 451411,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 451602,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 451651,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 452445,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 452471,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 457475,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 457869,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 461717,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 467291,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 472579,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 477182,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 477315,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 478135,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 478961,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 90733,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 111134,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4483
+        },
+        {
+          "conflict": 272979,
+          "variable": 117374,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4484
+        },
+        {
+          "conflict": 272979,
+          "variable": 103807,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4485
+        },
+        {
+          "conflict": 272979,
+          "variable": 104064,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4486
+        },
+        {
+          "conflict": 272979,
+          "variable": 201459,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4487
+        },
+        {
+          "conflict": 272979,
+          "variable": 96435,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 96598,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 110524,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 120562,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 120875,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 120891,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 121213,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 121604,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 165142,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 178978,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 202857,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 203469,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 220056,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 223316,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 418349,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 418388,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 418407,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 418444,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 418486,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 418861,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 418873,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 418887,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 418899,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 419013,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 419078,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 420219,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 420314,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 420328,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 420340,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 420421,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 420445,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 420457,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 420484,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 420654,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 420667,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 420681,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 420709,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 420792,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 421490,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 421502,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 421538,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 421617,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 422937,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 422985,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 422997,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 423011,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 423023,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 423072,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 423206,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 423348,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 423369,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 423408,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 423858,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 423871,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 423898,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 424961,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 424998,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 425012,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 425024,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 431032,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 431045,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 431059,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 431071,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 435627,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 435640,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 435722,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 435737,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 435749,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 436610,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 436622,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 436684,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 436711,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 437500,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 437512,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 437526,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 437550,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 437596,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 457311,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 464034,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 464796,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 471864,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": 4294967295
+        },
+        {
+          "conflict": 272979,
+          "variable": 130051,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4488
+        },
+        {
+          "conflict": 272979,
+          "variable": 176110,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4489
+        },
+        {
+          "conflict": 272979,
+          "variable": 175582,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4490
+        },
+        {
+          "conflict": 272979,
+          "variable": 176300,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4491
+        },
+        {
+          "conflict": 272979,
+          "variable": 221786,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4492
+        },
+        {
+          "conflict": 272979,
+          "variable": 214396,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4493
+        },
+        {
+          "conflict": 272979,
+          "variable": 176071,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4494
+        },
+        {
+          "conflict": 272979,
+          "variable": 176056,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4495
+        },
+        {
+          "conflict": 272979,
+          "variable": 175366,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4496
+        },
+        {
+          "conflict": 272979,
+          "variable": 175353,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4497
+        },
+        {
+          "conflict": 272979,
+          "variable": 173047,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4498
+        },
+        {
+          "conflict": 272979,
+          "variable": 88760,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4499
+        },
+        {
+          "conflict": 272979,
+          "variable": 106633,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4500
+        },
+        {
+          "conflict": 272979,
+          "variable": 109997,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4501
+        },
+        {
+          "conflict": 272979,
+          "variable": 113177,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4502
+        },
+        {
+          "conflict": 272979,
+          "variable": 217909,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4503
+        },
+        {
+          "conflict": 272979,
+          "variable": 223382,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4504
+        },
+        {
+          "conflict": 272979,
+          "variable": 214205,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4505
+        },
+        {
+          "conflict": 272979,
+          "variable": 214245,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4506
+        },
+        {
+          "conflict": 272979,
+          "variable": 214262,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": 4507
+        }
+      ],
+      "total_rows": 432319
+    },
+    "kissat": {
+      "removed": [
+        31675,
+        35139,
+        83971,
+        85390,
+        85394,
+        85462,
+        88724,
+        88732,
+        91252,
+        92899,
+        92998,
+        93016,
+        93055,
+        93116,
+        95106,
+        97481,
+        116572,
+        116623,
+        116665,
+        116703,
+        116858,
+        116871,
+        116957,
+        116979,
+        116982,
+        116983,
+        116986,
+        116993,
+        116997,
+        117008,
+        117012,
+        117020,
+        117021,
+        117025,
+        117030,
+        117031,
+        117035,
+        117051,
+        117067,
+        117075,
+        117079,
+        117082,
+        117083,
+        117086,
+        117108,
+        117109,
+        117112,
+        117113,
+        117118,
+        117126,
+        117132,
+        117147,
+        117148,
+        117153,
+        117154,
+        117157,
+        117172,
+        117173,
+        117187,
+        117194,
+        117198,
+        117205,
+        117209,
+        117215,
+        117216,
+        117246,
+        117247,
+        117256,
+        117259,
+        117260,
+        117263,
+        117267,
+        117270,
+        117282,
+        117286,
+        117293,
+        117294,
+        117297,
+        117298,
+        117308,
+        117313,
+        117314,
+        117333,
+        117343,
+        117347,
+        120236,
+        122416,
+        146152,
+        146163,
+        147177,
+        163344,
+        163367,
+        163588,
+        164661,
+        173929,
+        213371,
+        213788,
+        215627,
+        215996,
+        216070,
+        217663,
+        218191,
+        219370,
+        221995,
+        222093,
+        423886,
+        467292,
+        474229,
+        493526,
+        493621,
+        493740,
+        493851,
+        493866,
+        494117,
+        494124,
+        494143,
+        494189
+      ],
+      "heap_mutations": [
+        {
+          "conflict": 272979,
+          "variable": 31675,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 83971,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 85462,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 88724,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 92899,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 92998,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 93016,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 93055,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 93116,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 95106,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 97481,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 116572,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 116623,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 116665,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 116703,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 116858,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 116871,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 116957,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 116979,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 116982,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 116983,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 116986,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 116993,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 116997,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117008,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117012,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117020,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117021,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117025,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117030,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117031,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117035,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117051,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117067,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117075,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117079,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117082,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117083,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117086,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117108,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117109,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117112,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117113,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117118,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117126,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117132,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117147,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117148,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117153,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117154,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117157,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117172,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117173,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117187,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117194,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117198,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117205,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117209,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117215,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117216,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117246,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117247,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117256,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117259,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117260,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117263,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117267,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117270,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117282,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117286,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117293,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117294,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117297,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117298,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117308,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117313,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117314,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117333,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117343,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117347,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 120236,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 122416,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 146152,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 147177,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 163344,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 163367,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 163588,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 164661,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 213371,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 213788,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 215627,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 215996,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 216070,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 217663,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 218191,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 219370,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 221995,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 222093,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 423886,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 467292,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 474229,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 493526,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 493621,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 493740,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 493851,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 493866,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 494117,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 494124,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 494143,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 494189,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 91252,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 35139,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 85390,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 85394,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 88732,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 146163,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 173929,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        }
+      ],
+      "whole_conflict": [
+        {
+          "conflict": 272979,
+          "variable": 45447,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 179103,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 179335,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 213043,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 213080,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 213096,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 213937,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 215206,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 216248,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 218308,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 221170,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 221997,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 222014,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 222032,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 227560,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 228064,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 146154,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 31675,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 83971,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 85462,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 88724,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 92899,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 92998,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 93016,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 93055,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 93116,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 95106,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 97481,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 116572,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 116623,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 116665,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 116703,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 116858,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 116871,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 116957,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 116979,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 116982,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 116983,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 116986,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 116993,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 116997,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117008,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117012,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117020,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117021,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117025,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117030,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117031,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117035,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117051,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117067,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117075,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117079,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117082,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117083,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117086,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117108,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117109,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117112,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117113,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117118,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117126,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117132,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117147,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117148,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117153,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117154,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117157,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117172,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117173,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117187,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117194,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117198,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117205,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117209,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117215,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117216,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117246,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117247,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117256,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117259,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117260,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117263,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117267,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117270,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117282,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117286,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117293,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117294,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117297,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117298,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117308,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117313,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117314,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117333,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117343,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117347,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 120236,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 122416,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 146152,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 147177,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 163344,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 163367,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 163588,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 164661,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 213371,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 213788,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 215627,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 215996,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 216070,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 217663,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 218191,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 219370,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 221995,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 222093,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 423886,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 467292,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 474229,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 493526,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 493621,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 493740,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 493851,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 493866,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 494117,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 494124,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 494143,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 494189,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 91252,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 35139,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 85390,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 85394,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 88732,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 146163,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 173929,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 146162,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 227415,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 228154,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 493137,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 5852,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 5862,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 212779,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 235458,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 91860,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 91882,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 235467,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 212766,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 212790,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 1232,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 74677,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 95996,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 97567,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 119595,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 120904,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 162756,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 175329,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 200631,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 201066,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 396802,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 396814,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 396841,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 396890,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 397383,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 397395,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 397479,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 397493,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 397505,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 398612,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 398665,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 399433,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 399459,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 399891,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 399904,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 400024,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 400157,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 400183,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 400572,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 402125,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 405035,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 405110,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 407107,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 407144,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 407171,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 407347,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 407479,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 407930,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 407943,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 408058,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 410827,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 410917,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 411002,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 411025,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 411038,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 411053,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 411065,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 411236,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 412966,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 413028,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 417404,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 418361,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 418376,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 449077,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 449404,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 449426,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 130061,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 146179,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 176125,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 204688,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 176041,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 175331,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 90641,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 128661,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 129939,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 129957,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 105084,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 144299,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 88869,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 88894,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 88784,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 88772,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 88727,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 88729,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 144303,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 220634,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 449408,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 451136,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 451411,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 451602,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 451651,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 452445,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 452471,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 457475,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 457869,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 461717,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 467291,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 472579,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 477182,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 477315,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 478135,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 478961,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 90733,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 111134,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 117374,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 103807,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 104064,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 201459,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 96435,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 96598,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 110524,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 120562,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 120875,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 120891,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 121213,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 121604,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 165142,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 178978,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 202857,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 203469,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 220056,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 223316,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 418349,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 418388,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 418407,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 418444,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 418486,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 418861,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 418873,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 418887,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 418899,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 419013,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 419078,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 420219,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 420314,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 420328,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 420340,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 420421,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 420445,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 420457,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 420484,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 420654,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 420667,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 420681,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 420709,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 420792,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 421490,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 421502,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 421538,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 421617,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 422937,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 422985,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 422997,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 423011,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 423023,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 423072,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 423206,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 423348,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 423369,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 423408,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 423858,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 423871,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 423898,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 424961,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 424998,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 425012,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 425024,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 431032,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 431045,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 431059,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 431071,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 435627,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 435640,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 435722,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 435737,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 435749,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 436610,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 436622,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 436684,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 436711,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 437500,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 437512,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 437526,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 437550,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 437596,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 457311,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 464034,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 464796,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 471864,
+          "elim": 1,
+          "fixed": 0,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 130051,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 176110,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 175582,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 176300,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 221786,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 214396,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 176071,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 176056,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 175366,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 175353,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 173047,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 88760,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 106633,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 109997,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 113177,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 217909,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 223382,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 214205,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 214245,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        },
+        {
+          "conflict": 272979,
+          "variable": 214262,
+          "elim": 0,
+          "fixed": 1,
+          "inheap": 1,
+          "trail": null
+        }
+      ],
+      "total_rows": 432518
+    }
+  },
+  "first_difference": {
+    "index": 0,
+    "candidate": {
+      "conflict": 272979,
+      "variable": 91252,
+      "elim": 0,
+      "fixed": 1,
+      "inheap": 1,
+      "trail": 4453
+    },
+    "kissat": {
+      "conflict": 272979,
+      "variable": 31675,
+      "elim": 1,
+      "fixed": 0,
+      "inheap": 1,
+      "trail": null
+    }
+  },
+  "limitation": "Filter exact removed set of first Substitute call from inheap events at same conflict. Nonmutating/other-phase rows retained separately. Replay these orders through actual heap implementation before claiming the operation order explains the entire topology difference."
+}

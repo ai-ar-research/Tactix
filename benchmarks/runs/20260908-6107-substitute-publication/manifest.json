@@ -1,0 +1,44 @@
+{
+  "source": ".claude/worktrees/runtime-substitute-publication-6107",
+  "parent": ".claude/worktrees/runtime-reduce-root-lock-6049",
+  "parent_authority": {
+    "path": "benchmarks/runs/20260908-6049-reduce-root-lock/manifest.json",
+    "sha256": "948dea2cea1174341e4caf9d882b709fcf4eaeca53ad47d35a330608688c5bd3"
+  },
+  "production": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+  "purpose": "Publish each Substitute round root/retirement lifecycle before later rounds and watch reconnection. Policy-only; no public rule, guard, proof delta, budget/cap, score comparator or benchmark selector changed.",
+  "test_consideration": "99/99 Release twice with identical independent pins. Eight actual policy cases cover initial/search,budgeted/unbudgeted,one/two-round caps;old6049 fails exact heap assertion. Existing Substitute/public API/reconstruction/proof/invariant and slot-budget tests retained. Full checked B28+C5 andRank1-50 follow;newsource fuzz still required.",
+  "files": {
+    "src/policies/default_policy.cpp": "8cce596ddc4658f9f12bfdf41261cf7bcaf6db3fdd737f31996570cacea1d3f7",
+    "tests/test_substitute_publication.cpp": "7e13cd876db9bab3524a4c42ddef2b093a08dd238aeb4f4bf57a9eb8915b3586"
+  },
+  "binaries": {
+    "build/pin-6107-substitute-publication-release/tactix": "86a251c9fec53cdd54c338a5b6cbc32aafe7f117b4ee06ea8e10c22d50bee235",
+    "build/pin-6108-substitute-publication-bc/tactix": "86a251c9fec53cdd54c338a5b6cbc32aafe7f117b4ee06ea8e10c22d50bee235"
+  },
+  "patches": {
+    "cumulative.patch": "d1e008a152a98667afdb0d4807f58d0f0124e522a906683cdb0fa6ce73785991",
+    "repair.patch": "5ebfdba10540b97547bcecad6e56df255217c37beaab87f9e0e03758ab86d7b6"
+  },
+  "validation": {
+    "benchmarks/runs/20260908-6107-substitute-publication/causal-replay.json": "d1e75934d9a351096fda052d9c8ab35f5b9f3eb7665b94d2d0db4c3aa43c9c0d",
+    "benchmarks/runs/20260908-6107-substitute-publication/build-summary.json": "db08317a9be2c69dc5d894a1afdb8a18293f48d16a1d53598d41fa55dcdb4d39"
+  },
+  "logs": {
+    "6111-bc-build.log": "804b2bfe2e0fdd3e56e38b946665c85cb76b41aa0d5aaa1fc4a45c8ccb7941ff",
+    "release-build.log": "1fad607c42c6baec76b22e9992a3d0436ff3a08abd9634db08001c528c3e94e5",
+    "bc-build.log": "0d63528a5d4963892b94198c894aab93da6b4e5d2b89da00e7b60566ec875c4d",
+    "6111-release-build.log": "25ebae97009bd53497a778aa06efe5870381541bbb738eb4fd5bff354b3d95bc",
+    "6111-release-ctest.log": "5a17eebfc536142d4a4bd90e9989eee41e3373765bf5692c7f2cde67a2d243de",
+    "old-build.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bc-ctest.log": "733fb98662345def021966610f4dec3cb8c778be8bb43a896667584c6b3f82e2",
+    "old-negative.log": "eb308df1ba9ea0e385fe89a9d6caffabccce172bdaa48fe24a7b8d9e425c3f5c",
+    "6111-old-build.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bc-configure.log": "a16d853ad708c6451b1de9b0b5a2fb4d84b8e9339104255db1eebfb669bbecb5",
+    "6111-old-negative.log": "2b2a7e28637bb3ad6cbcb8c60620a02b23773f812474c81d1628b127b2c8b3aa",
+    "6111-bc-ctest.log": "0c08d80ed87150e5b25b659d98fb1132afb57f92d33eaac9e1a1d51f9ae3c198",
+    "release-configure.log": "1cc0d87fbf131d9737333062cf0feae36b1858005a3026210da3a217b4e54e45",
+    "release-ctest.log": "3230c22debdf60ac95fd4678d1b70b6bb4f4807ed8e6289efbdd18d1c251c4b0"
+  },
+  "limitation": "Isolated/unfuzzed,not promoted. First expanded fixture missed preprocessing admission;6111 corrects fixture only and retains first failed logs. Runtime gain and real prefix closure unproven."
+}

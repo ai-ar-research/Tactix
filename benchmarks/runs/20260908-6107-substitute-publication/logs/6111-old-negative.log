@@ -1,0 +1,1 @@
+old-fixture-6111: /home/hwu/SAT-solving/.claude/worktrees/runtime-substitute-publication-6107/tests/test_substitute_publication.cpp:94: void test_order(bool, bool, uint32_t): Assertion `actual.h->scores.stack == expected.h->scores.stack' failed.

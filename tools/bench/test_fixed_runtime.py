@@ -108,6 +108,52 @@ class FixedRuntimeTests(unittest.TestCase):
                 with self.subTest(key=key), patch.object(f,'ROOT',root), patch.object(f,'reference',return_value=ref), self.assertRaises(ValueError):
                     f.score(campaign)
 
+    def test_fifty_requires_all_fifty(self):
+        ref = copy.deepcopy(self.ref)
+        records = copy.deepcopy(self.records)
+        for i in range(41,51):
+            ref['records'].append(dict(rank=i,instance=f'{i}.cnf',expected='SAT',
+                measurement=dict(solve=dict(wall_seconds=1.0))))
+            records.append(dict(rank=i,task=i-1,instance=f'{i}.cnf',expected='SAT',arm='tactix',
+                expected_match=True,solve=dict(wall_seconds=1.0,timed_out=False,exit_code=10)))
+        ref['solver_seconds'] = 50.0
+        self.assertFalse(f.score_records(ref, records[:40])['complete'])
+        self.assertFalse(f.score_records(ref, records[:-1])['runtime_target_met'])
+        result = f.score_records(ref, records)
+        self.assertEqual(result['ratio'], 1.0)
+        self.assertTrue(result['runtime_target_met'])
+        self.assertEqual([r['rank'] for r in f.candidate_rows(ref)], list(range(1,51)))
+        records[-1]['valid'] = False
+        with self.assertRaisesRegex(ValueError, 'certificate'):
+            f.score_records(ref, records)
+
+    def test_extended_reference_preserves_original_forty(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            original = dict(self.ref, schema='tactix-fixed-rank1-40-kissat-reference-v1')
+            original['resource_contract'].update(partition='cpu-dense-hwulab-q',cpus_per_task=12,
+                memory_mib=48000,checker_timeout=16000,one_solver_per_task=True)
+            op = root/'old.json'; op.write_text(json.dumps(original))
+            ref = copy.deepcopy(original)
+            ref.update(schema='tactix-fixed-rank1-50-kissat-reference-v1',solver_seconds=50.0,
+                       original_reference=dict(path='old.json',sha256=f.sha(op)))
+            for i in range(41,51):
+                ref['records'].append(dict(rank=i,instance=f'{i}.cnf',expected='SAT',
+                    measurement=dict(solve=dict(wall_seconds=1.0))))
+            rp = root/'new.json'; rp.write_text(json.dumps(ref))
+            with patch.object(f,'ROOT',root):
+                self.assertEqual(len(f.reference(rp)['records']),50)
+                bad = copy.deepcopy(ref)
+                bad['records'][0]['measurement']['solve']['wall_seconds'] = 2.0
+                bad['solver_seconds'] += 1.0
+                rp.write_text(json.dumps(bad))
+                with self.assertRaisesRegex(ValueError,'original forty'):
+                    f.reference(rp)
+                bad = copy.deepcopy(ref); bad['resource_contract']['cpus_per_task'] = 4
+                rp.write_text(json.dumps(bad))
+                with self.assertRaisesRegex(ValueError,'resource mismatch'):
+                    f.reference(rp)
+
 
 if __name__ == '__main__':
     unittest.main()

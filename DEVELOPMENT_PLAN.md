@@ -508,16 +508,16 @@ Full-width tier arrays retain their no-throttle, no-node-constraint allocation
 contract and are interpreted through aggregate evidence rather than this
 targeted timing protocol.
 
-**Fixed Rank 1–40 reference.** Reuse one frozen complete Kissat measurement
-vector at 12 logical CPUs and 48,000 MiB; the current authority is in PROGRESS.
-Future full-view arrays run Tactix only against those same inputs, options,
-proof mode and resource limits. Do not refresh Kissat routinely or select a
-best-of denominator. Label these cross-window fixed-reference scores; they do
-not establish isolated unit-cost gains. Targeted Tactix/predecessor waves remain
-available for attribution. Reuse matching native diagnostic traces; rerun Kissat
-only for missing diagnostic information or an explicitly approved replacement
-reference. Pending certificate checks allow provisional work, not acceptance;
-all correctness, B28+C5, memory and the ≤1.01× runtime goal remain unchanged.
+**Fixed Rank 1–50 reference.** The runtime target is aggregate ≤1.01× Kissat
+over the approved fifty: preserve the original forty and append the seven UNSAT
+and three SAT selections in `benchmarks/baselines/rank1-50-selection-v1/`.
+Keep the frozen Rank 1–40 Kissat vector; measure ranks 41–50 once on the same
+12-logical-CPU/48,000-MiB contract and append those values, never cpu-q timings.
+Future full-view arrays run Tactix only with matching inputs, options, proof
+mode and limits. No routine reference refresh or best-of denominator. These
+cross-window scores do not isolate unit cost; targeted predecessor waves and
+missing native diagnostics remain allowed. Pending checks permit provisional
+work, not acceptance. Correctness, B28+C5 and memory gates remain unchanged.
 
 **Causal convergence.** For every coverage or runtime gap, localize the earliest
 portable semantic divergence with the structured rule journal. Repair it unless

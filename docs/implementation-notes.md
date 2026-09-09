@@ -269,9 +269,9 @@ pending half-analysis or schedules Backjump independently.
   on exhaustion toward 8192/32768/3. Retained-entry eligibility is the open
   `SP-SWEEP-3` restriction; it must not become a public guard or per-pop filter.
 - The small-environment solve shortcut is tracked by `SP-SWEEP-SMALL-1`.
-- Substitute still globally sorts post-Sweep SCC retirement across rounds;
-  this known `SP-SUBSTITUTE-ROUND-1` deviation changes equal-score heap pose.
-  Root-fixed variables publish first. Per-round repair remains isolated.
+- Substitute's isolated policy repair publishes each round's roots, then its
+  import-ordered retirements, before later rounds or watch reconnection;
+  production's call-wide publication remains `SP-SUBSTITUTE-ROUND-1` debt.
 - Reduce begins at conflict 1,000, then uses `1000*sqrt(reductions)` and the
   dynamic tier/compaction lifecycle. Formula profiles may dose independently
   measured work but may not dose Vivify or replace cadence, tiers, or collection

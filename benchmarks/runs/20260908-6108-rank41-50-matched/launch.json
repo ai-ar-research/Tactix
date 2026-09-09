@@ -1,0 +1,10 @@
+{
+  "job_id": "1676783",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260908-6108-rank41-50-matched/array.sbatch"
+  ],
+  "manifest_sha256": "d09c9f2a030d0d29974fa881ee247c7900704e4be0e204b28c0b16beaf443d16",
+  "continuation": "Only20 new tasks oncpu-dense-hwulab-q,12CPU48000MiB1200solver16000checker5h. Rank1-40 fixed vector andcpu-q5784 runner/pins unchanged. Proceed while proof checks run."
+}
