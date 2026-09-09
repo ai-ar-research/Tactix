@@ -1,0 +1,113 @@
+{
+  "hashes": {
+    "benchmarks/runs/20260909-6604-rank32-propagation-annotation/manifest.json": "f537e7e03da255caddb2d570b982eb1c6c199fc8accb482dea686f0f2079dbd5",
+    "benchmarks/runs/20260909-6604-rank32-propagation-annotation/candidate-search-periods.txt": "a9c3c457071b50ba1b7037097044460e1216fe02d2b1adbeffabd5d648c89502",
+    "benchmarks/runs/20260909-6604-rank32-propagation-annotation/candidate-search-periods.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "benchmarks/runs/20260909-6604-rank32-propagation-annotation/candidate-search-percent.txt": "476af6991b44aa082d0e93be250b8679485242df074163971589f4da7b08a262",
+    "benchmarks/runs/20260909-6604-rank32-propagation-annotation/candidate-search-percent.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "benchmarks/runs/20260909-6604-rank32-propagation-annotation/candidate-probing-periods.txt": "a1452070a641504e1079ef125e3b0bba9e7eb1bd78acf0652eabd30fe4d07a0d",
+    "benchmarks/runs/20260909-6604-rank32-propagation-annotation/candidate-probing-periods.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "benchmarks/runs/20260909-6604-rank32-propagation-annotation/candidate-probing-percent.txt": "1bfb05057520e15c58f5c8209de7ecec97268e5eb9a6b05ea87f354f78f67ce4",
+    "benchmarks/runs/20260909-6604-rank32-propagation-annotation/candidate-probing-percent.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "benchmarks/runs/20260909-6604-rank32-propagation-annotation/kissat-search-periods.txt": "77ffbbcdb9ef403463027d1007dbd240a4c70ef95e6be69f62cd015ff9968479",
+    "benchmarks/runs/20260909-6604-rank32-propagation-annotation/kissat-search-periods.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "benchmarks/runs/20260909-6604-rank32-propagation-annotation/kissat-search-percent.txt": "79229486d4015a0b39ebfc2485d79329410ef209c005cdb615e03536d841e50e",
+    "benchmarks/runs/20260909-6604-rank32-propagation-annotation/kissat-search-percent.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "benchmarks/runs/20260909-6604-rank32-propagation-annotation/kissat-probing-periods.txt": "690eada48ce3128fbe2b78901b7282327d9f23cdfca6be3aa39249aef31edfc3",
+    "benchmarks/runs/20260909-6604-rank32-propagation-annotation/kissat-probing-periods.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "benchmarks/runs/20260909-6604-rank32-propagation-annotation/kissat-probing-percent.txt": "a5f5052116b31ad8cd416fe98b9e9b8f3057edaf523f06b8466b25930a48c4f4",
+    "benchmarks/runs/20260909-6604-rank32-propagation-annotation/kissat-probing-percent.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "benchmarks/runs/20260909-6372-rank32-release-profile/profiles/000-self.txt": "7b38957dc43c048d9f2fc68c95bf483230487b74a47d052bfb5427e1c968cbce",
+    "benchmarks/runs/20260909-6372-rank32-release-profile/profiles/001-self.txt": "7cd1502c64a1d547e33e0aae52828b7a1e6ad62bdc3afe02abfc9a1ff3c91b14",
+    "tools/bench/perf_annotation.py": "f0cb9bf96822ef1ed3cc46639e72ef56922de6dad57115e39bd681d5f1e7cf7e",
+    "tools/bench/test_perf_annotation.py": "694967e78651e6aaeaa78b97a1b00235a34a9b6692fcaba8d85132240efa697a",
+    "benchmarks/probes/scratch/summarize-propagation-6608.py": "937a507640b1cd0e778fbdd0cc256b7e3f0789064e15aa5ab535313344b1410f"
+  },
+  "global_event_periods": {
+    "candidate": 1226065909430,
+    "kissat": 1027207264918
+  },
+  "functions": {
+    "candidate-search": {
+      "symbol": "tactix::kernel_propagate(tactix::Kernel&, unsigned int)",
+      "instruction_rows": 933,
+      "samples": 22378,
+      "period": 421489892971,
+      "percent_program": 34.37742536752786
+    },
+    "candidate-probing": {
+      "symbol": "tactix::kernel_propagate_probing(tactix::Kernel&, unsigned int)",
+      "instruction_rows": 849,
+      "samples": 99,
+      "period": 1858285894,
+      "percent_program": 0.15156492646173647
+    },
+    "kissat-search": {
+      "symbol": "kissat_search_propagate",
+      "instruction_rows": 798,
+      "samples": 23989,
+      "period": 453108192545,
+      "percent_program": 44.11068807824006
+    },
+    "kissat-probing": {
+      "symbol": "kissat_probing_propagate",
+      "instruction_rows": 771,
+      "samples": 3188,
+      "period": 60182931553,
+      "percent_program": 5.858888815180283
+    }
+  },
+  "regions": {
+    "binary_phase_save": {
+      "function": "candidate-search",
+      "ranges": [
+        [
+          "0x413997",
+          "0x4139cb"
+        ]
+      ],
+      "period": 2191969373,
+      "percent_function": 0.520052653587785,
+      "percent_program": 0.17878071285898897
+    },
+    "large_phase_save": {
+      "function": "candidate-search",
+      "ranges": [
+        [
+          "0x4142ef",
+          "0x414330"
+        ]
+      ],
+      "period": 2282140560,
+      "percent_function": 0.5414460935026547,
+      "percent_program": 0.18613522669927024
+    },
+    "watch_decode_and_blocker": {
+      "function": "candidate-search",
+      "ranges": [
+        [
+          "0x413a09",
+          "0x413a39"
+        ]
+      ],
+      "period": 86128442959,
+      "percent_function": 20.43428428423216,
+      "percent_program": 7.0247808292003855
+    },
+    "large_clause_load_and_garbage_branch": {
+      "function": "candidate-search",
+      "ranges": [
+        [
+          "0x413a39",
+          "0x413a58"
+        ]
+      ],
+      "period": 57323437968,
+      "percent_function": 13.600192774241458,
+      "percent_program": 4.675396120804774
+    }
+  },
+  "combined_search_phase_save_sites_percent_program": 0.3649159395582592,
+  "decision": "Do not select an assignment phase-saving specialization as the main gap-closing step from this small sampled share. Keep search/probing/public contracts. The aggregate search symbol is not slower per operation merely because it leads candidate samples; continue inprocessing/search-quality localization, including largest UNSAT rank31.",
+  "limitations": "One cached sampled pair; instruction skid and event-period weighting apply. Regions include useful phase saving and are not removable overhead or predicted savings. Other assignment work is not covered by these two sites. Candidate probing annotation is the wrapper, not its 4.61%-self propagate_literal callee; no probing-cost ceiling. Native function/work scopes differ. Source-section equality to6579 does not establish identical current machine code or per-operation cost. Full measured inprocessing time122957ms motivates continued owner-level diagnosis."
+}

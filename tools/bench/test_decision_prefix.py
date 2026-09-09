@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from decision_prefix import FIELDS, first_stream_difference, read_prefix, validate_common, validate_stream_accounting
+from decision_prefix import FIELDS, first_stream_difference, read_prefix, validate_common, validate_stream_accounting, validate_suffix_accounting
 
 
 class DecisionPrefixTests(unittest.TestCase):
@@ -106,6 +106,43 @@ class DecisionPrefixTests(unittest.TestCase):
                 validate_stream_accounting(dict(record, **{field:value}), first, last, 3)
         with self.assertRaises(AssertionError):
             validate_stream_accounting(record, first[:4], last, 3)
+
+
+class DecisionSuffixTests(unittest.TestCase):
+    def setUp(self):
+        self.record = dict(conflict=10, count=8, end_decisions=6,
+                           start_decisions=(6-8) % (1 << 64), last=-9)
+        self.first, self.last = [5, 4, 2, 7, 0], [10, 6, 3, -9, 0]
+
+    def validate(self, record=None, first=None, last=None, count=3,
+                 common_count=5, overlap_count=0, stream_from=4):
+        validate_suffix_accounting(self.record if record is None else record,
+            self.first if first is None else first, self.last if last is None else last,
+            count, common_count=common_count, overlap_count=overlap_count, stream_from=stream_from)
+
+    def test_zero_threshold_overlap_and_reset_counter(self):
+        self.validate()
+
+    def test_multiple_actual_threshold_rows(self):
+        self.validate(first=[4, 2, 1, 3, 0], count=5, overlap_count=2)
+
+    def test_rejects_missing_extra_and_impossible_counts(self):
+        for changes in (dict(count=2), dict(count=4), dict(overlap_count=-1),
+                        dict(common_count=9), dict(overlap_count=6)):
+            with self.subTest(changes=changes), self.assertRaises(AssertionError):
+                self.validate(**changes)
+
+    def test_rejects_invented_or_missing_threshold_overlap(self):
+        for changes in (dict(first=[4, 4, 2, 7, 0]), dict(count=4, overlap_count=1)):
+            with self.subTest(changes=changes), self.assertRaises(AssertionError):
+                self.validate(**changes)
+
+    def test_rejects_wrong_edges_and_derived_counter(self):
+        for changes in (dict(first=[3, 4, 2, 7, 0]), dict(last=[11, 6, 3, -9, 0]),
+                        dict(last=[10, 7, 3, -9, 0]), dict(last=[10, 6, 3, 9, 0]),
+                        dict(first=[5, 4, 2, 7]), dict(record=dict(self.record, start_decisions=0))):
+            with self.subTest(changes=changes), self.assertRaises(AssertionError):
+                self.validate(**changes)
 
 
 if __name__ == '__main__':
