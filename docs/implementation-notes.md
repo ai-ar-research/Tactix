@@ -243,8 +243,8 @@ pending half-analysis or schedules Backjump independently.
   isolated6357 also preserves detached stamps/links that production resets (SP-COMPACT-1).
 - `ReservedTrail` owns pre-reserved storage plus a logical end. Variable growth
   reserves before assignment; backtrack shrinks only the logical end.
-- BVE reuses touched-only indexes, flat pools, and persistent Kitten stacks;
-  each entry owns scratch lifetime without changing candidate/proof/tick order.
+- BVE reuses touched-only indexes, flat pools and persistent Kitten stacks. Isolated7087 borrows root-free antecedent arena offsets, retaining filtered snapshots otherwise.
+  Each entry owns scratch lifetime; views end before backward rewriting/collection. Candidate/proof/tick order is unchanged; validation is pending in the [stage1 checkpoint](../benchmarks/reports/2026-09-10-bve-view-stage1-checkpoint.md).
 - Eliminate's mixed occurrence is one Kissat-shaped 31-bit payload plus tag.
   Binary deletion compacts stably; inspected/rebuilt lists retire stale refs.
 - Each completed consistent BVE round collects the whole arena, even at zero

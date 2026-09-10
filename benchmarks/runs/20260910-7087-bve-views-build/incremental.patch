@@ -1,0 +1,272 @@
+--- /dev/null
++++ b/src/rules/bve/antecedent.hpp
+@@ -0,0 +1,82 @@
++// Private BVE preparation storage, not a public rule or kernel primitive.
++#pragma once
++#include "kernel/kernel.hpp"
++
++namespace tactix::bve_detail {
++
++// Offsets refer to a stable vector object, never its reallocatable buffer.
++// The same representation serves owned snapshots and read-only arena views.
++template <typename T> struct PoolSlice {
++  const std::vector<T> *pool = nullptr;
++  uint32_t offset = 0;
++  uint32_t length = 0;
++  using const_iterator = typename std::vector<T>::const_iterator;
++  const_iterator begin() const {
++    assert(pool && offset <= pool->size());
++    assert(length <= pool->size() - offset);
++    return pool->cbegin() + offset;
++  }
++  const_iterator end() const { return begin() + length; }
++  size_t size() const { return length; }
++  bool empty() const { return !length; }
++  const T *data() const { return length ? pool->data() + offset : nullptr; }
++  const T &operator[](size_t i) const {
++    assert(i < length);
++    return (*pool)[offset + i];
++  }
++};
++
++template <typename T>
++PoolSlice<T> pool_slice(const std::vector<T> &pool, size_t begin) {
++  assert(begin <= pool.size());
++  assert(begin <= UINT32_MAX && pool.size() - begin <= UINT32_MAX);
++  return {&pool, static_cast<uint32_t>(begin),
++          static_cast<uint32_t>(pool.size() - begin)};
++}
++
++// A BVE attempt does not collect or rewrite antecedent literals until after
++// its last witness consumer. It may grow the arena, mark clauses garbage or
++// assign immediate units. Offsets survive growth; root assignments do not
++// change this gathered image. No iterator may span an arena-mutating call.
++// Root-false clauses instead require a snapshot: definition import still sees
++// the physical literals, while resolution/witnesses see their filtered image.
++// Return false for a satisfied clause, restoring both pools to their entry size.
++inline bool gather_antecedent(const Kernel &k, Ref ref, bool lrat,
++                              std::vector<Lit> &lits,
++                              std::vector<uint64_t> &units,
++                              PoolSlice<Lit> &active,
++                              PoolSlice<uint64_t> &absorbed) {
++  const Clause *c = clause_at(k.arena, ref);
++  const size_t lits_begin = lits.size(), units_begin = units.size();
++  bool snapshot = false;
++  for (const Lit *p = c->begin(); p != c->end(); ++p) {
++    const Lit l = *p;
++    const int8_t value = k.value(l);
++    if (value > 0) {
++      lits.resize(lits_begin);
++      units.resize(units_begin);
++      return false;
++    }
++    if (value < 0) {
++      if (!snapshot) {
++        // Everything before the first false root was unassigned. Copy that
++        // prefix once, and retain the old order of subsequent literals/hints.
++        lits.insert(lits.end(), c->begin(), p);
++        snapshot = true;
++      }
++      if (lrat)
++        units.push_back(k.unit_ids[var_of(l)]);
++    } else if (snapshot) {
++      lits.push_back(l);
++    }
++  }
++  if (snapshot) {
++    active = pool_slice(lits, lits_begin);
++  } else {
++    active = {&k.arena, ref + CLAUSE_HEADER_WORDS, c->size};
++  }
++  absorbed = pool_slice(units, units_begin);
++  return true;
++}
++
++} // namespace tactix::bve_detail
+--- a/src/rules/bve/bve.cpp
++++ b/src/rules/bve/bve.cpp
+@@ -6,0 +7 @@
++#include "rules/bve/antecedent.hpp"
+@@ -208,32 +209,2 @@
+-// A slice into one candidate's reusable flat storage.  Kissat keeps pivot
+-// clauses and resolvents in raw stacks; giving every small clause its own
+-// std::vector instead made allocator ownership part of BVE's hot path.  The
+-// vector object is stable while its backing store grows, so slices retain
+-// offsets rather than pointers.  Logical order is unchanged.
+-template <typename T> struct PoolSlice {
+-  const std::vector<T> *pool = nullptr;
+-  uint32_t offset = 0;
+-  uint32_t length = 0;
+-
+-  using const_iterator = typename std::vector<T>::const_iterator;
+-  const_iterator begin() const {
+-    assert(pool && offset <= pool->size());
+-    return pool->cbegin() + offset;
+-  }
+-  const_iterator end() const { return begin() + length; }
+-  size_t size() const { return length; }
+-  bool empty() const { return !length; }
+-  const T *data() const { return length ? pool->data() + offset : nullptr; }
+-  const T &operator[](size_t i) const {
+-    assert(i < length);
+-    return (*pool)[offset + i];
+-  }
+-};
+-
+-template <typename T>
+-PoolSlice<T> pool_slice(const std::vector<T> &pool, size_t begin) {
+-  assert(begin <= pool.size());
+-  assert(begin <= UINT32_MAX && pool.size() - begin <= UINT32_MAX);
+-  return PoolSlice<T>{&pool, static_cast<uint32_t>(begin),
+-                      static_cast<uint32_t>(pool.size() - begin)};
+-}
++using bve_detail::PoolSlice;
++using bve_detail::pool_slice;
+@@ -1564,19 +1535,3 @@
+-    const size_t active_begin = def->clause_lits.size();
+-    const size_t absorbed_begin = def->clause_absorbed.size();
+-    bool satisfied = false;
+-    for (const Lit l : *c) {
+-      const int8_t v = k.value(l);
+-      if (v > 0) { // root-true → clause satisfied → delete-only, no witness
+-        satisfied = true;
+-        break;
+-      }
+-      if (v < 0) { // root-false → drop (cite its unit)
+-        if (lrat)
+-          def->clause_absorbed.push_back(k.unit_ids[var_of(l)]);
+-        continue;
+-      }
+-      def->clause_lits.push_back(l);
+-    }
+-    if (satisfied) {
+-      def->clause_lits.resize(active_begin);
+-      def->clause_absorbed.resize(absorbed_begin);
++    if (!bve_detail::gather_antecedent(k, ref, lrat, def->clause_lits,
++                                      def->clause_absorbed, m.active,
++                                      m.absorbed)) {
+@@ -1585,2 +1539,0 @@
+-      m.active = pool_slice(def->clause_lits, active_begin);
+-      m.absorbed = pool_slice(def->clause_absorbed, absorbed_begin);
+--- /dev/null
++++ b/tests/test_bve_antecedent_view.cpp
+@@ -0,0 +1,119 @@
++// Actual preparation helper: borrowed offsets, filtered snapshots and rollback.
++#undef NDEBUG
++#include "rules/bve/antecedent.hpp"
++#include "rules/bve/bve.hpp"
++#include <algorithm>
++#include <cassert>
++#include <cstdio>
++using namespace tactix;
++using namespace tactix::bve_detail;
++
++static void matrix() {
++  unsigned cases = 0;
++  // Each literal independently unassigned, false or true, in both proof modes.
++  for (bool lrat : {false, true}) for (unsigned pose = 0; pose < 81; ++pose) {
++    Kernel k;
++    kernel_reserve_vars(k, 4);
++    const Lit input[] = {internalize(3), internalize(-1), internalize(4), internalize(-2)};
++    const Ref ref = kernel_add_large_clause(k, input, 4, false, 0);
++    unsigned digits = pose;
++    bool satisfied = false, filtered = false;
++    std::vector<Lit> expected;
++    std::vector<uint64_t> expected_units;
++    for (Lit lit : input) {
++      const unsigned value = digits % 3;
++      digits /= 3;
++      if (value) {
++        kernel_assign_unit(k, value == 1 ? negate(lit) : lit);
++        k.unit_ids[var_of(lit)] = 100 + var_of(lit);
++      }
++      if (value == 2) satisfied = true;
++      else if (value == 1) {
++        filtered = true;
++        if (lrat) expected_units.push_back(k.unit_ids[var_of(lit)]);
++      } else expected.push_back(lit);
++    }
++    std::vector<Lit> pool{INVALID_LIT};
++    std::vector<uint64_t> units{999};
++    PoolSlice<Lit> active;
++    PoolSlice<uint64_t> absorbed;
++    assert(gather_antecedent(k, ref, lrat, pool, units, active, absorbed) == !satisfied);
++    if (satisfied) {
++      assert(pool == std::vector<Lit>{INVALID_LIT});
++      assert(units == std::vector<uint64_t>{999});
++    } else {
++      assert(active.pool == (filtered ? &pool : &k.arena));
++      assert(std::vector<Lit>(active.begin(), active.end()) == expected);
++      assert(std::vector<uint64_t>(absorbed.begin(), absorbed.end()) == expected_units);
++      assert(pool.size() == 1 + (filtered ? expected.size() : 0));
++      // Both owners relocate while their vector objects and offsets stay valid.
++      k.arena.reserve(k.arena.capacity() + 100);
++      pool.reserve(pool.capacity() + 100);
++      units.reserve(units.capacity() + 100);
++      assert(std::vector<Lit>(active.begin(), active.end()) == expected);
++      assert(std::vector<uint64_t>(absorbed.begin(), absorbed.end()) == expected_units);
++      if (!active.empty()) assert(active.data()[0] == active[0]);
++    }
++    ++cases;
++  }
++  assert(cases == 162);
++}
++
++static void late_roots_and_garbage() {
++  Kernel k; kernel_reserve_vars(k, 4);
++  const Lit input[] = {internalize(1), internalize(2), internalize(3)};
++  const Ref first = kernel_add_large_clause(k, input, 3, false, 0);
++  const Ref duplicate = kernel_add_large_clause(k, input, 3, false, 0);
++  std::vector<Lit> pool;
++  std::vector<uint64_t> units;
++  PoolSlice<Lit> a, b; PoolSlice<uint64_t> ah, bh;
++  assert(gather_antecedent(k, first, true, pool, units, a, ah));
++  assert(gather_antecedent(k, duplicate, true, pool, units, b, bh));
++  assert(a.offset != b.offset && pool.empty());
++  kernel_assign_unit(k, internalize(-2));
++  k.unit_ids[1] = 100;
++  kernel_delete_clause(k, clause_at(k.arena, first));
++  assert(clause_at(k.arena, first)->garbage());
++  assert(!clause_at(k.arena, duplicate)->garbage());
++  // Gather-time image remains unchanged; late unit hints are resolution's job.
++  assert(a.size() == 3 && b.size() == 3 && ah.empty() && bh.empty());
++  assert(a[1] == internalize(2) && b[1] == internalize(2));
++}
++
++static void actual_bve_grows_arena() {
++  for (bool dense : {false, true}) {
++    Kernel k; kernel_reserve_vars(k, 5);
++    k.bve_gate_mask = 0; k.bve_backward = false;
++    const Lit pos[] = {internalize(1), internalize(2), internalize(3)};
++    const Lit neg[] = {internalize(-1), internalize(4), internalize(5)};
++    kernel_add_large_clause(k, pos, 3, false, 0);
++    kernel_add_large_clause(k, neg, 3, false, 0);
++    k.arena.shrink_to_fit();
++    const size_t capacity = k.arena.capacity();
++    OccIndex occ;
++    if (dense) kernel_dense_connect(k, occ, true);
++    const RuleVTable &rule = tactix_rules()[tactix_rule_id("BVE")];
++    assert(rule.guard(k));
++    assert(rule.apply_instance(k, lit_instance(internalize(1))) == ApplyResult::Ok);
++    assert(k.arena.capacity() > capacity);
++    assert(k.stats.bve_eliminated == 1 && k.stats.bve_resolutions == 1);
++    assert(!k.reconstruction.empty());
++    if (dense) kernel_dense_disconnect(k);
++    kernel_assign_unit(k, internalize(-2));
++    kernel_assign_unit(k, internalize(-3));
++    kernel_assign_unit(k, internalize(4));
++    kernel_assign_unit(k, internalize(-5));
++    kernel_extend_model(k);
++    for (const auto *clause : {pos, neg}) {
++      bool sat = false;
++      for (unsigned i = 0; i < 3; ++i) sat |= k.value(clause[i]) > 0;
++      assert(sat);
++    }
++    kernel_check_invariants(k);
++  }
++}
++
++int main() {
++  matrix(); late_roots_and_garbage(); actual_bve_grows_arena();
++  std::puts("PASS162 preparation poses, late roots/duplicates/garbage, sparse+dense BVE arena growth/model");
++}
