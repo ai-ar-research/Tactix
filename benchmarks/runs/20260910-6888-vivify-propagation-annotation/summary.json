@@ -1,0 +1,5443 @@
+{
+  "hashes": {
+    "benchmarks/probes/scratch/annotate-vivify-propagation-6888.py": "0493b75f2fa2ca5575e59e9508fa1897d471dec6e1ac1b647eec344affaa59c3",
+    "benchmarks/runs/20260910-6815-inprocessing-release-profiles/solver-summary-6817.json": "cb38217647f98e23df91be1fec9be23e6231dc74184f3bfe19cccf3402d45079",
+    "benchmarks/runs/20260910-6815-inprocessing-release-profiles/profiles/000.perf.data.xz": "b8f2e132ae73d3391c3b883397ce590a8f1cf05147360138ca7a7e9e0e5a12d1",
+    "benchmarks/runs/20260910-6815-inprocessing-release-profiles/pins/candidate": "7b0a7666b28644422d6cc4b3a648a677b6745bd8a7ffb9c27c6d3e5660725132",
+    ".claude/worktrees/runtime-reduce-watermark-6730/src/kernel/kernel.cpp": "41702b7c4d0063aa83e32a8a4099c86f11175d5cf714c40e2acafe61915c96e8",
+    "tools/bench/perf_annotation.py": "f0cb9bf96822ef1ed3cc46639e72ef56922de6dad57115e39bd681d5f1e7cf7e",
+    "tools/bench/test_perf_annotation.py": "694967e78651e6aaeaa78b97a1b00235a34a9b6692fcaba8d85132240efa697a",
+    "benchmarks/runs/20260910-6888-vivify-propagation-annotation/objdump.txt": "591f6b9dccb3aa3a1e8d7b73951b01a958e5a8e2e2553bed56a70b60fd2420a5",
+    "benchmarks/runs/20260910-6888-vivify-propagation-annotation/annotation.txt": "1a7e7690da6571ffd5140ebfc01ec68b3536b64b3b7e732b26c74015a08e2a04",
+    "benchmarks/runs/20260910-6888-vivify-propagation-annotation/annotation.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "command": [
+    "perf",
+    "annotate",
+    "--stdio",
+    "--stdio-color",
+    "never",
+    "--no-source",
+    "-i",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6888-vivify-propagation-annotation/annotation-t702t1vu/profile.data",
+    "--symbol",
+    "bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)",
+    "--show-total-period"
+  ],
+  "symbol": "bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)",
+  "samples": 3020,
+  "total_period": 57032576476,
+  "rows": [
+    {
+      "address": "0x412810",
+      "offset": 0,
+      "period": 187710372,
+      "assembly": "push   %r15"
+    },
+    {
+      "address": "0x412812",
+      "offset": 2,
+      "period": 75831864,
+      "assembly": "mov    %esi,%eax"
+    },
+    {
+      "address": "0x412814",
+      "offset": 4,
+      "period": 208586672,
+      "assembly": "mov    %rcx,%r10"
+    },
+    {
+      "address": "0x412817",
+      "offset": 7,
+      "period": 18967599,
+      "assembly": "shr    %esi"
+    },
+    {
+      "address": "0x412819",
+      "offset": 9,
+      "period": 0,
+      "assembly": "push   %r14"
+    },
+    {
+      "address": "0x41281b",
+      "offset": 11,
+      "period": 18979581,
+      "assembly": "xor    $0x1,%eax"
+    },
+    {
+      "address": "0x41281e",
+      "offset": 14,
+      "period": 0,
+      "assembly": "shl    $0x4,%rsi"
+    },
+    {
+      "address": "0x412822",
+      "offset": 18,
+      "period": 322351974,
+      "assembly": "push   %r13"
+    },
+    {
+      "address": "0x412824",
+      "offset": 20,
+      "period": 0,
+      "assembly": "push   %r12"
+    },
+    {
+      "address": "0x412826",
+      "offset": 22,
+      "period": 0,
+      "assembly": "push   %rbp"
+    },
+    {
+      "address": "0x412827",
+      "offset": 23,
+      "period": 132636028,
+      "assembly": "push   %rbx"
+    },
+    {
+      "address": "0x412828",
+      "offset": 24,
+      "period": 56920319,
+      "assembly": "mov    %rdi,%rbx"
+    },
+    {
+      "address": "0x41282b",
+      "offset": 27,
+      "period": 0,
+      "assembly": "sub    $0x68,%rsp"
+    },
+    {
+      "address": "0x41282f",
+      "offset": 31,
+      "period": 56918875,
+      "assembly": "mov    0x180(%rbx),%r15"
+    },
+    {
+      "address": "0x412836",
+      "offset": 38,
+      "period": 264808427,
+      "assembly": "mov    0x88(%rdi),%r11"
+    },
+    {
+      "address": "0x41283d",
+      "offset": 45,
+      "period": 0,
+      "assembly": "mov    %eax,0x58(%rsp)"
+    },
+    {
+      "address": "0x412841",
+      "offset": 49,
+      "period": 75858150,
+      "assembly": "shl    $0x4,%rax"
+    },
+    {
+      "address": "0x412845",
+      "offset": 53,
+      "period": 151094138,
+      "assembly": "mov    0x130(%rdi),%rdi"
+    },
+    {
+      "address": "0x41284c",
+      "offset": 60,
+      "period": 0,
+      "assembly": "mov    %rax,%r14"
+    },
+    {
+      "address": "0x41284f",
+      "offset": 63,
+      "period": 0,
+      "assembly": "add    %r15,%rax"
+    },
+    {
+      "address": "0x412852",
+      "offset": 66,
+      "period": 113697091,
+      "assembly": "mov    %edx,0x5c(%rsp)"
+    },
+    {
+      "address": "0x412856",
+      "offset": 70,
+      "period": 0,
+      "assembly": "mov    0x168(%rbx),%r8"
+    },
+    {
+      "address": "0x41285d",
+      "offset": 77,
+      "period": 283808701,
+      "assembly": "mov    (%rax),%ecx"
+    },
+    {
+      "address": "0x41285f",
+      "offset": 79,
+      "period": 1946290937,
+      "assembly": "mov    0x4(%rax),%edx"
+    },
+    {
+      "address": "0x412862",
+      "offset": 82,
+      "period": 94840449,
+      "assembly": "mov    %rdi,0x8(%rsp)"
+    },
+    {
+      "address": "0x412867",
+      "offset": 87,
+      "period": 37903747,
+      "assembly": "add    0xa0(%rbx),%rsi"
+    },
+    {
+      "address": "0x41286e",
+      "offset": 94,
+      "period": 18969528,
+      "assembly": "lea    0x0(,%rcx,4),%rdi"
+    },
+    {
+      "address": "0x412876",
+      "offset": 102,
+      "period": 245116130,
+      "assembly": "add    %rdx,%rcx"
+    },
+    {
+      "address": "0x412879",
+      "offset": 105,
+      "period": 94615774,
+      "assembly": "mov    %rsi,0x10(%rsp)"
+    },
+    {
+      "address": "0x41287e",
+      "offset": 110,
+      "period": 37945795,
+      "assembly": "shl    $0x2,%rcx"
+    },
+    {
+      "address": "0x412882",
+      "offset": 114,
+      "period": 394964913,
+      "assembly": "lea    (%r8,%rdi,1),%r12"
+    },
+    {
+      "address": "0x412886",
+      "offset": 118,
+      "period": 0,
+      "assembly": "lea    (%r8,%rcx,1),%r9"
+    },
+    {
+      "address": "0x41288a",
+      "offset": 122,
+      "period": 245320028,
+      "assembly": "sub    %rdi,%rcx"
+    },
+    {
+      "address": "0x41288d",
+      "offset": 125,
+      "period": 56906677,
+      "assembly": "sar    $0x2,%rcx"
+    },
+    {
+      "address": "0x412891",
+      "offset": 129,
+      "period": 303175414,
+      "assembly": "add    $0x1f,%rcx"
+    },
+    {
+      "address": "0x412895",
+      "offset": 133,
+      "period": 75762215,
+      "assembly": "shr    $0x5,%rcx"
+    },
+    {
+      "address": "0x412899",
+      "offset": 137,
+      "period": 94858905,
+      "assembly": "lea    0x1(%rcx),%rdi"
+    },
+    {
+      "address": "0x41289d",
+      "offset": 141,
+      "period": 358938861,
+      "assembly": "cmp    %r12,%r9"
+    },
+    {
+      "address": "0x4128a0",
+      "offset": 144,
+      "period": 0,
+      "assembly": "je     4136eb <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0xedb>"
+    },
+    {
+      "address": "0x4128a6",
+      "offset": 150,
+      "period": 0,
+      "assembly": "mov    %r14,0x30(%rsp)"
+    },
+    {
+      "address": "0x4128ab",
+      "offset": 155,
+      "period": 416436593,
+      "assembly": "mov    %r12,%rdx"
+    },
+    {
+      "address": "0x4128ae",
+      "offset": 158,
+      "period": 0,
+      "assembly": "mov    %r12,%rbp"
+    },
+    {
+      "address": "0x4128b1",
+      "offset": 161,
+      "period": 18976444,
+      "assembly": "mov    %rdi,%r14"
+    },
+    {
+      "address": "0x4128b4",
+      "offset": 164,
+      "period": 18975649,
+      "assembly": "mov    %r12,0x38(%rsp)"
+    },
+    {
+      "address": "0x4128b9",
+      "offset": 169,
+      "period": 37748878,
+      "assembly": "mov    %r11,%r12"
+    },
+    {
+      "address": "0x4128bc",
+      "offset": 172,
+      "period": 0,
+      "assembly": "mov    %r9,%r11"
+    },
+    {
+      "address": "0x4128bf",
+      "offset": 175,
+      "period": 18973779,
+      "assembly": "mov    %r10,0x40(%rsp)"
+    },
+    {
+      "address": "0x4128c4",
+      "offset": 180,
+      "period": 189341909,
+      "assembly": "jmpq   412a17 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x207>"
+    },
+    {
+      "address": "0x4128c9",
+      "offset": 185,
+      "period": 0,
+      "assembly": "nopl   0x0(%rax)"
+    },
+    {
+      "address": "0x4128d0",
+      "offset": 192,
+      "period": 0,
+      "assembly": "add    $0x4,%rdx"
+    },
+    {
+      "address": "0x4128d4",
+      "offset": 196,
+      "period": 245636770,
+      "assembly": "add    $0x4,%rbp"
+    },
+    {
+      "address": "0x4128d8",
+      "offset": 200,
+      "period": 18974668,
+      "assembly": "test   %dil,%dil"
+    },
+    {
+      "address": "0x4128db",
+      "offset": 203,
+      "period": 93432779,
+      "assembly": "jg     412a0e <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x1fe>"
+    },
+    {
+      "address": "0x4128e1",
+      "offset": 209,
+      "period": 0,
+      "assembly": "mov    0x180(%rbx),%r10"
+    },
+    {
+      "address": "0x4128e8",
+      "offset": 216,
+      "period": 407313966,
+      "assembly": "jne    413570 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0xd60>"
+    },
+    {
+      "address": "0x4128ee",
+      "offset": 222,
+      "period": 37865121,
+      "assembly": "mov    %ecx,%r8d"
+    },
+    {
+      "address": "0x4128f1",
+      "offset": 225,
+      "period": 18975474,
+      "assembly": "mov    0x10(%rsp),%r15"
+    },
+    {
+      "address": "0x4128f6",
+      "offset": 230,
+      "period": 112707294,
+      "assembly": "shr    $0x2,%eax"
+    },
+    {
+      "address": "0x4128f9",
+      "offset": 233,
+      "period": 113817395,
+      "assembly": "xor    $0x1,%r8d"
+    },
+    {
+      "address": "0x4128fd",
+      "offset": 237,
+      "period": 0,
+      "assembly": "mov    %r8,%rdi"
+    },
+    {
+      "address": "0x412900",
+      "offset": 240,
+      "period": 18977456,
+      "assembly": "mov    (%r15),%r9d"
+    },
+    {
+      "address": "0x412903",
+      "offset": 243,
+      "period": 300296380,
+      "assembly": "shl    $0x4,%rdi"
+    },
+    {
+      "address": "0x412907",
+      "offset": 247,
+      "period": 167392760,
+      "assembly": "add    %rdi,%r10"
+    },
+    {
+      "address": "0x41290a",
+      "offset": 250,
+      "period": 0,
+      "assembly": "cmpb   $0x0,0x1e95(%rbx)"
+    },
+    {
+      "address": "0x412911",
+      "offset": 257,
+      "period": 18972861,
+      "assembly": "je     412925 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x115>"
+    },
+    {
+      "address": "0x412913",
+      "offset": 259,
+      "period": 75865482,
+      "assembly": "cmpb   $0x0,0x1e96(%rbx)"
+    },
+    {
+      "address": "0x41291a",
+      "offset": 266,
+      "period": 151556692,
+      "assembly": "je     412925 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x115>"
+    },
+    {
+      "address": "0x41291c",
+      "offset": 268,
+      "period": 0,
+      "assembly": "test   %r9d,%r9d"
+    },
+    {
+      "address": "0x41291f",
+      "offset": 271,
+      "period": 37934803,
+      "assembly": "jne    412dd8 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x5c8>"
+    },
+    {
+      "address": "0x412925",
+      "offset": 277,
+      "period": 0,
+      "assembly": "mov    0x4(%r10),%r13d"
+    },
+    {
+      "address": "0x412929",
+      "offset": 281,
+      "period": 303295822,
+      "assembly": "test   %r13d,%r13d"
+    },
+    {
+      "address": "0x41292c",
+      "offset": 284,
+      "period": 37926470,
+      "assembly": "jne    412ca8 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x498>"
+    },
+    {
+      "address": "0x412932",
+      "offset": 290,
+      "period": 0,
+      "assembly": "mov    0x88(%rbx),%rdi"
+    },
+    {
+      "address": "0x412939",
+      "offset": 297,
+      "period": 112708119,
+      "assembly": "mov    0x58(%rsp),%r10d"
+    },
+    {
+      "address": "0x41293e",
+      "offset": 302,
+      "period": 37882561,
+      "assembly": "movd   %r9d,%xmm0"
+    },
+    {
+      "address": "0x412943",
+      "offset": 307,
+      "period": 56801057,
+      "assembly": "movzwl 0x104a95(%rip),%r15d        # 5173e0 <tactix::BinaryIdMap::EMPTY+0x18>"
+    },
+    {
+      "address": "0x41294b",
+      "offset": 315,
+      "period": 18977397,
+      "assembly": "movb   $0x1,(%rdi,%rsi,1)"
+    },
+    {
+      "address": "0x41294f",
+      "offset": 319,
+      "period": 37936080,
+      "assembly": "mov    0x88(%rbx),%rsi"
+    },
+    {
+      "address": "0x412956",
+      "offset": 326,
+      "period": 0,
+      "assembly": "movb   $0xff,(%rsi,%r8,1)"
+    },
+    {
+      "address": "0x41295b",
+      "offset": 331,
+      "period": 37960544,
+      "assembly": "mov    0xe8(%rbx),%rdi"
+    },
+    {
+      "address": "0x412962",
+      "offset": 338,
+      "period": 37938193,
+      "assembly": "mov    %rax,%rsi"
+    },
+    {
+      "address": "0x412965",
+      "offset": 341,
+      "period": 0,
+      "assembly": "shl    $0x4,%rsi"
+    },
+    {
+      "address": "0x412969",
+      "offset": 345,
+      "period": 0,
+      "assembly": "add    0xa0(%rbx),%rsi"
+    },
+    {
+      "address": "0x412970",
+      "offset": 352,
+      "period": 0,
+      "assembly": "movd   %edi,%xmm2"
+    },
+    {
+      "address": "0x412974",
+      "offset": 356,
+      "period": 75748135,
+      "assembly": "mov    %r10d,0x8(%rsi)"
+    },
+    {
+      "address": "0x412978",
+      "offset": 360,
+      "period": 131942545,
+      "assembly": "punpckldq %xmm2,%xmm0"
+    },
+    {
+      "address": "0x41297c",
+      "offset": 364,
+      "period": 0,
+      "assembly": "mov    %r15w,0xc(%rsi)"
+    },
+    {
+      "address": "0x412981",
+      "offset": 369,
+      "period": 37950554,
+      "assembly": "movq   %xmm0,(%rsi)"
+    },
+    {
+      "address": "0x412985",
+      "offset": 373,
+      "period": 18301564,
+      "assembly": "lea    0x1(%rdi),%rsi"
+    },
+    {
+      "address": "0x412989",
+      "offset": 377,
+      "period": 18974295,
+      "assembly": "mov    %rsi,0xe8(%rbx)"
+    },
+    {
+      "address": "0x412990",
+      "offset": 384,
+      "period": 0,
+      "assembly": "mov    0xd0(%rbx),%rsi"
+    },
+    {
+      "address": "0x412997",
+      "offset": 391,
+      "period": 0,
+      "assembly": "mov    %ecx,(%rsi,%rdi,4)"
+    },
+    {
+      "address": "0x41299a",
+      "offset": 394,
+      "period": 18972516,
+      "assembly": "test   %r9d,%r9d"
+    },
+    {
+      "address": "0x41299d",
+      "offset": 397,
+      "period": 18979807,
+      "assembly": "jne    4129ae <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x19e>"
+    },
+    {
+      "address": "0x41299f",
+      "offset": 399,
+      "period": 0,
+      "assembly": "addq   $0x1,0x6a0(%rbx)"
+    },
+    {
+      "address": "0x4129a7",
+      "offset": 407,
+      "period": 0,
+      "assembly": "addl   $0x1,0x1c7c(%rbx)"
+    },
+    {
+      "address": "0x4129ae",
+      "offset": 414,
+      "period": 0,
+      "assembly": "mov    0x1e08(%rbx),%rsi"
+    },
+    {
+      "address": "0x4129b5",
+      "offset": 421,
+      "period": 18938276,
+      "assembly": "test   %rsi,%rsi"
+    },
+    {
+      "address": "0x4129b8",
+      "offset": 424,
+      "period": 0,
+      "assembly": "je     4129e0 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x1d0>"
+    },
+    {
+      "address": "0x4129ba",
+      "offset": 426,
+      "period": 0,
+      "assembly": "cmpb   $0x0,0x1e10(%rbx)"
+    },
+    {
+      "address": "0x4129c1",
+      "offset": 433,
+      "period": 37955867,
+      "assembly": "jne    4129e0 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x1d0>"
+    },
+    {
+      "address": "0x4129c3",
+      "offset": 435,
+      "period": 0,
+      "assembly": "cmpb   $0x0,0x228(%rbx)"
+    },
+    {
+      "address": "0x4129ca",
+      "offset": 442,
+      "period": 0,
+      "assembly": "jne    4129e0 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x1d0>"
+    },
+    {
+      "address": "0x4129cc",
+      "offset": 444,
+      "period": 0,
+      "assembly": "and    $0x1,%ecx"
+    },
+    {
+      "address": "0x4129cf",
+      "offset": 447,
+      "period": 0,
+      "assembly": "mov    (%rsi),%rsi"
+    },
+    {
+      "address": "0x4129d2",
+      "offset": 450,
+      "period": 0,
+      "assembly": "cmp    $0x1,%cl"
+    },
+    {
+      "address": "0x4129d5",
+      "offset": 453,
+      "period": 0,
+      "assembly": "sbb    %ecx,%ecx"
+    },
+    {
+      "address": "0x4129d7",
+      "offset": 455,
+      "period": 0,
+      "assembly": "and    $0x2,%ecx"
+    },
+    {
+      "address": "0x4129da",
+      "offset": 458,
+      "period": 0,
+      "assembly": "sub    $0x1,%ecx"
+    },
+    {
+      "address": "0x4129dd",
+      "offset": 461,
+      "period": 0,
+      "assembly": "mov    %cl,(%rsi,%rax,1)"
+    },
+    {
+      "address": "0x4129e0",
+      "offset": 464,
+      "period": 37816890,
+      "assembly": "mov    0x1d70(%rbx),%rsi"
+    },
+    {
+      "address": "0x4129e7",
+      "offset": 471,
+      "period": 37943658,
+      "assembly": "mov    0x1d78(%rbx),%rcx"
+    },
+    {
+      "address": "0x4129ee",
+      "offset": 478,
+      "period": 94803505,
+      "assembly": "subl   $0x1,0x11c(%rbx)"
+    },
+    {
+      "address": "0x4129f5",
+      "offset": 485,
+      "period": 189222093,
+      "assembly": "sub    %rsi,%rcx"
+    },
+    {
+      "address": "0x4129f8",
+      "offset": 488,
+      "period": 0,
+      "assembly": "cmp    %rcx,%rax"
+    },
+    {
+      "address": "0x4129fb",
+      "offset": 491,
+      "period": 71613171,
+      "assembly": "jae    412a03 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x1f3>"
+    },
+    {
+      "address": "0x4129fd",
+      "offset": 493,
+      "period": 0,
+      "assembly": "cmpb   $0x0,(%rsi,%rax,1)"
+    },
+    {
+      "address": "0x412a01",
+      "offset": 497,
+      "period": 111304387,
+      "assembly": "jne    412a0a <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x1fa>"
+    },
+    {
+      "address": "0x412a03",
+      "offset": 499,
+      "period": 0,
+      "assembly": "subl   $0x1,0x120(%rbx)"
+    },
+    {
+      "address": "0x412a0a",
+      "offset": 506,
+      "period": 246006275,
+      "assembly": "add    $0x1,%r14"
+    },
+    {
+      "address": "0x412a0e",
+      "offset": 510,
+      "period": 17730460,
+      "assembly": "cmp    %r11,%rdx"
+    },
+    {
+      "address": "0x412a11",
+      "offset": 513,
+      "period": 755919643,
+      "assembly": "je     412ab0 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x2a0>"
+    },
+    {
+      "address": "0x412a17",
+      "offset": 519,
+      "period": 37938171,
+      "assembly": "mov    (%rdx),%eax"
+    },
+    {
+      "address": "0x412a19",
+      "offset": 521,
+      "period": 2761746018,
+      "assembly": "mov    %eax,%ecx"
+    },
+    {
+      "address": "0x412a1b",
+      "offset": 523,
+      "period": 113831102,
+      "assembly": "mov    %eax,0x0(%rbp)"
+    },
+    {
+      "address": "0x412a1e",
+      "offset": 526,
+      "period": 411952311,
+      "assembly": "shr    %ecx"
+    },
+    {
+      "address": "0x412a20",
+      "offset": 528,
+      "period": 246633835,
+      "assembly": "mov    %ecx,%esi"
+    },
+    {
+      "address": "0x412a22",
+      "offset": 530,
+      "period": 492789580,
+      "assembly": "movzbl (%r12,%rsi,1),%edi"
+    },
+    {
+      "address": "0x412a27",
+      "offset": 535,
+      "period": 3100785360,
+      "assembly": "test   $0x1,%al"
+    },
+    {
+      "address": "0x412a29",
+      "offset": 537,
+      "period": 0,
+      "assembly": "jne    4128d0 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0xc0>"
+    },
+    {
+      "address": "0x412a2f",
+      "offset": 543,
+      "period": 0,
+      "assembly": "mov    0x4(%rdx),%r15d"
+    },
+    {
+      "address": "0x412a33",
+      "offset": 547,
+      "period": 811350999,
+      "assembly": "lea    0x8(%rdx),%r10"
+    },
+    {
+      "address": "0x412a37",
+      "offset": 551,
+      "period": 37916901,
+      "assembly": "lea    0x8(%rbp),%rcx"
+    },
+    {
+      "address": "0x412a3b",
+      "offset": 555,
+      "period": 37945946,
+      "assembly": "mov    %r15d,0x4(%rbp)"
+    },
+    {
+      "address": "0x412a3f",
+      "offset": 559,
+      "period": 132744095,
+      "assembly": "test   %dil,%dil"
+    },
+    {
+      "address": "0x412a42",
+      "offset": 562,
+      "period": 548374030,
+      "assembly": "jg     412c88 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x478>"
+    },
+    {
+      "address": "0x412a48",
+      "offset": 568,
+      "period": 18949850,
+      "assembly": "mov    0x8(%rsp),%rax"
+    },
+    {
+      "address": "0x412a4d",
+      "offset": 573,
+      "period": 1362995769,
+      "assembly": "mov    %r15d,%edi"
+    },
+    {
+      "address": "0x412a50",
+      "offset": 576,
+      "period": 132763558,
+      "assembly": "lea    0x1(%r14),%r9"
+    },
+    {
+      "address": "0x412a54",
+      "offset": 580,
+      "period": 75708570,
+      "assembly": "shl    $0x2,%rdi"
+    },
+    {
+      "address": "0x412a58",
+      "offset": 584,
+      "period": 17032242,
+      "assembly": "lea    (%rax,%rdi,1),%rdx"
+    },
+    {
+      "address": "0x412a5c",
+      "offset": 588,
+      "period": 75831884,
+      "assembly": "testb  $0x1,0x4(%rdx)"
+    },
+    {
+      "address": "0x412a60",
+      "offset": 592,
+      "period": 4770242039,
+      "assembly": "jne    412c98 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x488>"
+    },
+    {
+      "address": "0x412a66",
+      "offset": 598,
+      "period": 246518363,
+      "assembly": "mov    0x58(%rsp),%esi"
+    },
+    {
+      "address": "0x412a6a",
+      "offset": 602,
+      "period": 56894446,
+      "assembly": "mov    0x14(%rdx),%eax"
+    },
+    {
+      "address": "0x412a6d",
+      "offset": 605,
+      "period": 282769007,
+      "assembly": "xor    0x18(%rdx),%eax"
+    },
+    {
+      "address": "0x412a70",
+      "offset": 608,
+      "period": 416638375,
+      "assembly": "xor    %eax,%esi"
+    },
+    {
+      "address": "0x412a72",
+      "offset": 610,
+      "period": 0,
+      "assembly": "mov    %esi,0x18(%rsp)"
+    },
+    {
+      "address": "0x412a76",
+      "offset": 614,
+      "period": 0,
+      "assembly": "mov    %esi,%eax"
+    },
+    {
+      "address": "0x412a78",
+      "offset": 616,
+      "period": 0,
+      "assembly": "mov    %rsi,0x28(%rsp)"
+    },
+    {
+      "address": "0x412a7d",
+      "offset": 621,
+      "period": 18974966,
+      "assembly": "movzbl (%r12,%rsi,1),%esi"
+    },
+    {
+      "address": "0x412a82",
+      "offset": 626,
+      "period": 1341243747,
+      "assembly": "mov    %sil,0x20(%rsp)"
+    },
+    {
+      "address": "0x412a87",
+      "offset": 631,
+      "period": 56862930,
+      "assembly": "test   %sil,%sil"
+    },
+    {
+      "address": "0x412a8a",
+      "offset": 634,
+      "period": 354358727,
+      "assembly": "jle    412cc0 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x4b0>"
+    },
+    {
+      "address": "0x412a90",
+      "offset": 640,
+      "period": 0,
+      "assembly": "add    %eax,%eax"
+    },
+    {
+      "address": "0x412a92",
+      "offset": 642,
+      "period": 113721889,
+      "assembly": "mov    %r10,%rdx"
+    },
+    {
+      "address": "0x412a95",
+      "offset": 645,
+      "period": 0,
+      "assembly": "mov    %r9,%r14"
+    },
+    {
+      "address": "0x412a98",
+      "offset": 648,
+      "period": 0,
+      "assembly": "mov    %eax,0x0(%rbp)"
+    },
+    {
+      "address": "0x412a9b",
+      "offset": 651,
+      "period": 37928029,
+      "assembly": "mov    %rcx,%rbp"
+    },
+    {
+      "address": "0x412a9e",
+      "offset": 654,
+      "period": 0,
+      "assembly": "cmp    %r11,%rdx"
+    },
+    {
+      "address": "0x412aa1",
+      "offset": 657,
+      "period": 0,
+      "assembly": "jne    412a17 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x207>"
+    },
+    {
+      "address": "0x412aa7",
+      "offset": 663,
+      "period": 0,
+      "assembly": "nopw   0x0(%rax,%rax,1)"
+    },
+    {
+      "address": "0x412ab0",
+      "offset": 672,
+      "period": 37323023,
+      "assembly": "mov    0x180(%rbx),%r15"
+    },
+    {
+      "address": "0x412ab7",
+      "offset": 679,
+      "period": 680471032,
+      "assembly": "mov    %r14,%rsi"
+    },
+    {
+      "address": "0x412aba",
+      "offset": 682,
+      "period": 37950966,
+      "assembly": "mov    0x30(%rsp),%r14"
+    },
+    {
+      "address": "0x412abf",
+      "offset": 687,
+      "period": 75889378,
+      "assembly": "mov    0x38(%rsp),%r12"
+    },
+    {
+      "address": "0x412ac4",
+      "offset": 692,
+      "period": 18975594,
+      "assembly": "mov    0x40(%rsp),%r10"
+    },
+    {
+      "address": "0x412ac9",
+      "offset": 697,
+      "period": 37937338,
+      "assembly": "lea    (%r15,%r14,1),%rax"
+    },
+    {
+      "address": "0x412acd",
+      "offset": 701,
+      "period": 75850664,
+      "assembly": "xor    %r14d,%r14d"
+    },
+    {
+      "address": "0x412ad0",
+      "offset": 704,
+      "period": 0,
+      "assembly": "mov    0x4(%rax),%edx"
+    },
+    {
+      "address": "0x412ad3",
+      "offset": 707,
+      "period": 433978754,
+      "assembly": "sub    %r12,%rbp"
+    },
+    {
+      "address": "0x412ad6",
+      "offset": 710,
+      "period": 0,
+      "assembly": "mov    %rsi,0x10(%rsp)"
+    },
+    {
+      "address": "0x412adb",
+      "offset": 715,
+      "period": 0,
+      "assembly": "sar    $0x2,%rbp"
+    },
+    {
+      "address": "0x412adf",
+      "offset": 719,
+      "period": 0,
+      "assembly": "mov    %ebp,%edi"
+    },
+    {
+      "address": "0x412ae1",
+      "offset": 721,
+      "period": 0,
+      "assembly": "sub    %ebp,%edx"
+    },
+    {
+      "address": "0x412ae3",
+      "offset": 723,
+      "period": 56879184,
+      "assembly": "nopl   0x0(%rax,%rax,1)"
+    },
+    {
+      "address": "0x412ae8",
+      "offset": 728,
+      "period": 18964588,
+      "assembly": "mov    0xc(%rax),%ecx"
+    },
+    {
+      "address": "0x412aeb",
+      "offset": 731,
+      "period": 94839504,
+      "assembly": "mov    0x220(%rbx),%rbp"
+    },
+    {
+      "address": "0x412af2",
+      "offset": 738,
+      "period": 75610904,
+      "assembly": "add    %rdx,0x198(%rbx)"
+    },
+    {
+      "address": "0x412af9",
+      "offset": 745,
+      "period": 265393089,
+      "assembly": "mov    %edi,0x4(%rax)"
+    },
+    {
+      "address": "0x412afc",
+      "offset": 748,
+      "period": 113847804,
+      "assembly": "mov    %ecx,0xc(%rax)"
+    },
+    {
+      "address": "0x412aff",
+      "offset": 751,
+      "period": 37715053,
+      "assembly": "test   %rbp,%rbp"
+    },
+    {
+      "address": "0x412b02",
+      "offset": 754,
+      "period": 37891683,
+      "assembly": "je     412c2e <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x41e>"
+    },
+    {
+      "address": "0x412b08",
+      "offset": 760,
+      "period": 0,
+      "assembly": "mov    %r14b,0x58(%rsp)"
+    },
+    {
+      "address": "0x412b0d",
+      "offset": 765,
+      "period": 56913188,
+      "assembly": "mov    0x168(%rbx),%r11"
+    },
+    {
+      "address": "0x412b14",
+      "offset": 772,
+      "period": 0,
+      "assembly": "xor    %ecx,%ecx"
+    },
+    {
+      "address": "0x412b16",
+      "offset": 774,
+      "period": 18963876,
+      "assembly": "mov    %r15,%rsi"
+    },
+    {
+      "address": "0x412b19",
+      "offset": 777,
+      "period": 18973932,
+      "assembly": "mov    %r10,0x8(%rsp)"
+    },
+    {
+      "address": "0x412b1e",
+      "offset": 782,
+      "period": 37918265,
+      "assembly": "jmp    412b51 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x341>"
+    },
+    {
+      "address": "0x412b20",
+      "offset": 784,
+      "period": 0,
+      "assembly": "mov    (%r12),%eax"
+    },
+    {
+      "address": "0x412b24",
+      "offset": 788,
+      "period": 94848477,
+      "assembly": "movd   %r14d,%xmm1"
+    },
+    {
+      "address": "0x412b29",
+      "offset": 793,
+      "period": 151573984,
+      "assembly": "add    $0x3,%rcx"
+    },
+    {
+      "address": "0x412b2d",
+      "offset": 797,
+      "period": 0,
+      "assembly": "punpckldq %xmm0,%xmm1"
+    },
+    {
+      "address": "0x412b31",
+      "offset": 801,
+      "period": 0,
+      "assembly": "add    %rax,%rdx"
+    },
+    {
+      "address": "0x412b34",
+      "offset": 804,
+      "period": 18980511,
+      "assembly": "movq   %xmm1,(%r11,%rdx,4)"
+    },
+    {
+      "address": "0x412b3a",
+      "offset": 810,
+      "period": 1642242426,
+      "assembly": "addl   $0x2,0x4(%r12)"
+    },
+    {
+      "address": "0x412b40",
+      "offset": 816,
+      "period": 113667273,
+      "assembly": "subq   $0x2,0x198(%rbx)"
+    },
+    {
+      "address": "0x412b48",
+      "offset": 824,
+      "period": 75697267,
+      "assembly": "cmp    %rbp,%rcx"
+    },
+    {
+      "address": "0x412b4b",
+      "offset": 827,
+      "period": 0,
+      "assembly": "jae    412c23 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x413>"
+    },
+    {
+      "address": "0x412b51",
+      "offset": 833,
+      "period": 0,
+      "assembly": "mov    0x208(%rbx),%rax"
+    },
+    {
+      "address": "0x412b58",
+      "offset": 840,
+      "period": 18974901,
+      "assembly": "lea    0x0(,%rcx,4),%rdi"
+    },
+    {
+      "address": "0x412b60",
+      "offset": 848,
+      "period": 56878629,
+      "assembly": "mov    (%rax,%rcx,4),%r8d"
+    },
+    {
+      "address": "0x412b64",
+      "offset": 852,
+      "period": 132416471,
+      "assembly": "mov    0x4(%rax,%rdi,1),%r14d"
+    },
+    {
+      "address": "0x412b69",
+      "offset": 857,
+      "period": 0,
+      "assembly": "movd   0x8(%rax,%rdi,1),%xmm0"
+    },
+    {
+      "address": "0x412b6f",
+      "offset": 863,
+      "period": 208595096,
+      "assembly": "shl    $0x4,%r8"
+    },
+    {
+      "address": "0x412b73",
+      "offset": 867,
+      "period": 0,
+      "assembly": "add    %r14d,%r14d"
+    },
+    {
+      "address": "0x412b76",
+      "offset": 870,
+      "period": 18971501,
+      "assembly": "lea    (%rsi,%r8,1),%r12"
+    },
+    {
+      "address": "0x412b7a",
+      "offset": 874,
+      "period": 75436412,
+      "assembly": "mov    0x8(%r12),%r9d"
+    },
+    {
+      "address": "0x412b7f",
+      "offset": 879,
+      "period": 719445330,
+      "assembly": "mov    0x4(%r12),%edx"
+    },
+    {
+      "address": "0x412b84",
+      "offset": 884,
+      "period": 227486637,
+      "assembly": "mov    %r9d,%eax"
+    },
+    {
+      "address": "0x412b87",
+      "offset": 887,
+      "period": 132833874,
+      "assembly": "sub    %edx,%eax"
+    },
+    {
+      "address": "0x412b89",
+      "offset": 889,
+      "period": 37866655,
+      "assembly": "cmp    $0x1,%eax"
+    },
+    {
+      "address": "0x412b8c",
+      "offset": 892,
+      "period": 0,
+      "assembly": "ja     412b20 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x310>"
+    },
+    {
+      "address": "0x412b8e",
+      "offset": 894,
+      "period": 0,
+      "assembly": "mov    0xc(%r12),%ebp"
+    },
+    {
+      "address": "0x412b93",
+      "offset": 899,
+      "period": 113752125,
+      "assembly": "mov    %edx,%eax"
+    },
+    {
+      "address": "0x412b95",
+      "offset": 901,
+      "period": 0,
+      "assembly": "and    $0x1,%eax"
+    },
+    {
+      "address": "0x412b98",
+      "offset": 904,
+      "period": 0,
+      "assembly": "mov    %ebp,%r13d"
+    },
+    {
+      "address": "0x412b9b",
+      "offset": 907,
+      "period": 0,
+      "assembly": "not    %ebp"
+    },
+    {
+      "address": "0x412b9d",
+      "offset": 909,
+      "period": 0,
+      "assembly": "and    $0xfffffffe,%r13d"
+    },
+    {
+      "address": "0x412ba1",
+      "offset": 913,
+      "period": 0,
+      "assembly": "and    $0x1,%ebp"
+    },
+    {
+      "address": "0x412ba4",
+      "offset": 916,
+      "period": 0,
+      "assembly": "or     %eax,%r13d"
+    },
+    {
+      "address": "0x412ba7",
+      "offset": 919,
+      "period": 0,
+      "assembly": "cmp    %edx,%r9d"
+    },
+    {
+      "address": "0x412baa",
+      "offset": 922,
+      "period": 0,
+      "assembly": "je     413018 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x808>"
+    },
+    {
+      "address": "0x412bb0",
+      "offset": 928,
+      "period": 0,
+      "assembly": "mov    0x198(%rbx),%rax"
+    },
+    {
+      "address": "0x412bb7",
+      "offset": 935,
+      "period": 0,
+      "assembly": "lea    -0x1(%rax),%rdi"
+    },
+    {
+      "address": "0x412bbb",
+      "offset": 939,
+      "period": 18972012,
+      "assembly": "mov    %r12,%rax"
+    },
+    {
+      "address": "0x412bbe",
+      "offset": 942,
+      "period": 0,
+      "assembly": "lea    0x1(%rdx),%r9d"
+    },
+    {
+      "address": "0x412bc2",
+      "offset": 946,
+      "period": 0,
+      "assembly": "add    (%rax),%edx"
+    },
+    {
+      "address": "0x412bc4",
+      "offset": 948,
+      "period": 18972307,
+      "assembly": "mov    %rdi,0x198(%rbx)"
+    },
+    {
+      "address": "0x412bcb",
+      "offset": 955,
+      "period": 0,
+      "assembly": "mov    %r9d,0x4(%rax)"
+    },
+    {
+      "address": "0x412bcf",
+      "offset": 959,
+      "period": 0,
+      "assembly": "mov    %r14d,(%r11,%rdx,4)"
+    },
+    {
+      "address": "0x412bd3",
+      "offset": 963,
+      "period": 37599737,
+      "assembly": "mov    0x4(%rax),%r9d"
+    },
+    {
+      "address": "0x412bd7",
+      "offset": 967,
+      "period": 56907632,
+      "assembly": "cmp    0x8(%rax),%r9d"
+    },
+    {
+      "address": "0x412bdb",
+      "offset": 971,
+      "period": 0,
+      "assembly": "je     412e90 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x680>"
+    },
+    {
+      "address": "0x412be1",
+      "offset": 977,
+      "period": 0,
+      "assembly": "sub    $0x1,%rdi"
+    },
+    {
+      "address": "0x412be5",
+      "offset": 981,
+      "period": 0,
+      "assembly": "xor    $0x1,%ebp"
+    },
+    {
+      "address": "0x412be8",
+      "offset": 984,
+      "period": 0,
+      "assembly": "and    $0xfffffffe,%r13d"
+    },
+    {
+      "address": "0x412bec",
+      "offset": 988,
+      "period": 0,
+      "assembly": "lea    0x1(%r9),%edx"
+    },
+    {
+      "address": "0x412bf0",
+      "offset": 992,
+      "period": 0,
+      "assembly": "add    $0x3,%rcx"
+    },
+    {
+      "address": "0x412bf4",
+      "offset": 996,
+      "period": 0,
+      "assembly": "movzbl %bpl,%ebp"
+    },
+    {
+      "address": "0x412bf8",
+      "offset": 1000,
+      "period": 0,
+      "assembly": "add    (%rax),%r9d"
+    },
+    {
+      "address": "0x412bfb",
+      "offset": 1003,
+      "period": 0,
+      "assembly": "mov    %rdi,0x198(%rbx)"
+    },
+    {
+      "address": "0x412c02",
+      "offset": 1010,
+      "period": 0,
+      "assembly": "or     %ebp,%r13d"
+    },
+    {
+      "address": "0x412c05",
+      "offset": 1013,
+      "period": 0,
+      "assembly": "mov    0x220(%rbx),%rbp"
+    },
+    {
+      "address": "0x412c0c",
+      "offset": 1020,
+      "period": 0,
+      "assembly": "mov    %edx,0x4(%rax)"
+    },
+    {
+      "address": "0x412c0f",
+      "offset": 1023,
+      "period": 0,
+      "assembly": "movd   %xmm0,(%r11,%r9,4)"
+    },
+    {
+      "address": "0x412c15",
+      "offset": 1029,
+      "period": 0,
+      "assembly": "mov    %r13d,0xc(%r12)"
+    },
+    {
+      "address": "0x412c1a",
+      "offset": 1034,
+      "period": 0,
+      "assembly": "cmp    %rbp,%rcx"
+    },
+    {
+      "address": "0x412c1d",
+      "offset": 1037,
+      "period": 0,
+      "assembly": "jb     412b51 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x341>"
+    },
+    {
+      "address": "0x412c23",
+      "offset": 1043,
+      "period": 0,
+      "assembly": "movzbl 0x58(%rsp),%r14d"
+    },
+    {
+      "address": "0x412c29",
+      "offset": 1049,
+      "period": 75755502,
+      "assembly": "mov    0x8(%rsp),%r10"
+    },
+    {
+      "address": "0x412c2e",
+      "offset": 1054,
+      "period": 0,
+      "assembly": "movq   $0x0,0x220(%rbx)"
+    },
+    {
+      "address": "0x412c39",
+      "offset": 1065,
+      "period": 257336942,
+      "assembly": "mov    0x10(%rsp),%rax"
+    },
+    {
+      "address": "0x412c3e",
+      "offset": 1070,
+      "period": 472662824,
+      "assembly": "add    %rax,(%r10)"
+    },
+    {
+      "address": "0x412c41",
+      "offset": 1073,
+      "period": 170322275,
+      "assembly": "add    $0x68,%rsp"
+    },
+    {
+      "address": "0x412c45",
+      "offset": 1077,
+      "period": 0,
+      "assembly": "mov    %r14d,%eax"
+    },
+    {
+      "address": "0x412c48",
+      "offset": 1080,
+      "period": 37669650,
+      "assembly": "pop    %rbx"
+    },
+    {
+      "address": "0x412c49",
+      "offset": 1081,
+      "period": 94713211,
+      "assembly": "pop    %rbp"
+    },
+    {
+      "address": "0x412c4a",
+      "offset": 1082,
+      "period": 18968142,
+      "assembly": "pop    %r12"
+    },
+    {
+      "address": "0x412c4c",
+      "offset": 1084,
+      "period": 0,
+      "assembly": "pop    %r13"
+    },
+    {
+      "address": "0x412c4e",
+      "offset": 1086,
+      "period": 75774914,
+      "assembly": "pop    %r14"
+    },
+    {
+      "address": "0x412c50",
+      "offset": 1088,
+      "period": 129609815,
+      "assembly": "pop    %r15"
+    },
+    {
+      "address": "0x412c52",
+      "offset": 1090,
+      "period": 379301950,
+      "assembly": "retq"
+    },
+    {
+      "address": "0x412c53",
+      "offset": 1091,
+      "period": 0,
+      "assembly": "nopl   0x0(%rax,%rax,1)"
+    },
+    {
+      "address": "0x412c58",
+      "offset": 1096,
+      "period": 0,
+      "assembly": "mov    0x50(%rsp),%r8"
+    },
+    {
+      "address": "0x412c5d",
+      "offset": 1101,
+      "period": 379103445,
+      "assembly": "lea    0x1c(%rdx),%rax"
+    },
+    {
+      "address": "0x412c61",
+      "offset": 1105,
+      "period": 18976847,
+      "assembly": "cmp    %rax,%r8"
+    },
+    {
+      "address": "0x412c64",
+      "offset": 1108,
+      "period": 0,
+      "assembly": "jne    4131c5 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x9b5>"
+    },
+    {
+      "address": "0x412c6a",
+      "offset": 1114,
+      "period": 0,
+      "assembly": "cmpb   $0x0,0x20(%rsp)"
+    },
+    {
+      "address": "0x412c6f",
+      "offset": 1119,
+      "period": 640941548,
+      "assembly": "mov    0x5c(%rsp),%eax"
+    },
+    {
+      "address": "0x412c73",
+      "offset": 1123,
+      "period": 56889802,
+      "assembly": "je     4132d0 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0xac0>"
+    },
+    {
+      "address": "0x412c79",
+      "offset": 1129,
+      "period": 0,
+      "assembly": "cmp    %eax,%r15d"
+    },
+    {
+      "address": "0x412c7c",
+      "offset": 1132,
+      "period": 0,
+      "assembly": "jne    413430 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0xc20>"
+    },
+    {
+      "address": "0x412c82",
+      "offset": 1138,
+      "period": 0,
+      "assembly": "mov    %r9,%r14"
+    },
+    {
+      "address": "0x412c85",
+      "offset": 1141,
+      "period": 18976914,
+      "assembly": "nopl   (%rax)"
+    },
+    {
+      "address": "0x412c88",
+      "offset": 1144,
+      "period": 0,
+      "assembly": "mov    %r10,%rdx"
+    },
+    {
+      "address": "0x412c8b",
+      "offset": 1147,
+      "period": 623939573,
+      "assembly": "mov    %rcx,%rbp"
+    },
+    {
+      "address": "0x412c8e",
+      "offset": 1150,
+      "period": 56919029,
+      "assembly": "jmpq   412a0e <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x1fe>"
+    },
+    {
+      "address": "0x412c93",
+      "offset": 1155,
+      "period": 0,
+      "assembly": "nopl   0x0(%rax,%rax,1)"
+    },
+    {
+      "address": "0x412c98",
+      "offset": 1160,
+      "period": 0,
+      "assembly": "mov    %r9,%r14"
+    },
+    {
+      "address": "0x412c9b",
+      "offset": 1163,
+      "period": 0,
+      "assembly": "mov    %r10,%rdx"
+    },
+    {
+      "address": "0x412c9e",
+      "offset": 1166,
+      "period": 0,
+      "assembly": "jmpq   412a0e <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x1fe>"
+    },
+    {
+      "address": "0x412ca3",
+      "offset": 1171,
+      "period": 0,
+      "assembly": "nopl   0x0(%rax,%rax,1)"
+    },
+    {
+      "address": "0x412ca8",
+      "offset": 1176,
+      "period": 0,
+      "assembly": "mov    (%r10),%r10d"
+    },
+    {
+      "address": "0x412cab",
+      "offset": 1179,
+      "period": 56715675,
+      "assembly": "mov    0x168(%rbx),%rdi"
+    },
+    {
+      "address": "0x412cb2",
+      "offset": 1186,
+      "period": 0,
+      "assembly": "prefetcht2 (%rdi,%r10,4)"
+    },
+    {
+      "address": "0x412cb7",
+      "offset": 1191,
+      "period": 94838433,
+      "assembly": "jmpq   412932 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x122>"
+    },
+    {
+      "address": "0x412cbc",
+      "offset": 1196,
+      "period": 0,
+      "assembly": "nopl   0x0(%rax)"
+    },
+    {
+      "address": "0x412cc0",
+      "offset": 1200,
+      "period": 0,
+      "assembly": "mov    (%rdx),%esi"
+    },
+    {
+      "address": "0x412cc2",
+      "offset": 1202,
+      "period": 189606365,
+      "assembly": "mov    0x8(%rdx),%eax"
+    },
+    {
+      "address": "0x412cc5",
+      "offset": 1205,
+      "period": 18925266,
+      "assembly": "lea    0x14(%rdx),%r13"
+    },
+    {
+      "address": "0x412cc9",
+      "offset": 1209,
+      "period": 0,
+      "assembly": "mov    %r13,0x48(%rsp)"
+    },
+    {
+      "address": "0x412cce",
+      "offset": 1214,
+      "period": 0,
+      "assembly": "shl    $0x2,%rsi"
+    },
+    {
+      "address": "0x412cd2",
+      "offset": 1218,
+      "period": 0,
+      "assembly": "shl    $0x2,%rax"
+    },
+    {
+      "address": "0x412cd6",
+      "offset": 1222,
+      "period": 75851811,
+      "assembly": "lea    0x0(%r13,%rsi,1),%r8"
+    },
+    {
+      "address": "0x412cdb",
+      "offset": 1227,
+      "period": 264863973,
+      "assembly": "add    %rax,%r13"
+    },
+    {
+      "address": "0x412cde",
+      "offset": 1230,
+      "period": 113727412,
+      "assembly": "mov    %r13,0x50(%rsp)"
+    },
+    {
+      "address": "0x412ce3",
+      "offset": 1235,
+      "period": 37943212,
+      "assembly": "cmp    %rax,%rsi"
+    },
+    {
+      "address": "0x412ce6",
+      "offset": 1238,
+      "period": 0,
+      "assembly": "je     41365a <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0xe4a>"
+    },
+    {
+      "address": "0x412cec",
+      "offset": 1244,
+      "period": 0,
+      "assembly": "mov    %r13,%rax"
+    },
+    {
+      "address": "0x412cef",
+      "offset": 1247,
+      "period": 0,
+      "assembly": "jmp    412d05 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x4f5>"
+    },
+    {
+      "address": "0x412cf1",
+      "offset": 1249,
+      "period": 0,
+      "assembly": "nopl   0x0(%rax)"
+    },
+    {
+      "address": "0x412cf8",
+      "offset": 1256,
+      "period": 18977611,
+      "assembly": "add    $0x4,%rax"
+    },
+    {
+      "address": "0x412cfc",
+      "offset": 1260,
+      "period": 661726381,
+      "assembly": "cmp    %rax,%r8"
+    },
+    {
+      "address": "0x412cff",
+      "offset": 1263,
+      "period": 56908369,
+      "assembly": "je     412c58 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x448>"
+    },
+    {
+      "address": "0x412d05",
+      "offset": 1269,
+      "period": 0,
+      "assembly": "mov    (%rax),%esi"
+    },
+    {
+      "address": "0x412d07",
+      "offset": 1271,
+      "period": 1036463388,
+      "assembly": "cmpb   $0x0,(%r12,%rsi,1)"
+    },
+    {
+      "address": "0x412d0c",
+      "offset": 1276,
+      "period": 2568487058,
+      "assembly": "mov    %rsi,%r13"
+    },
+    {
+      "address": "0x412d0f",
+      "offset": 1279,
+      "period": 415997123,
+      "assembly": "js     412cf8 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x4e8>"
+    },
+    {
+      "address": "0x412d11",
+      "offset": 1281,
+      "period": 128431608,
+      "assembly": "mov    0x48(%rsp),%rdi"
+    },
+    {
+      "address": "0x412d16",
+      "offset": 1286,
+      "period": 1041351600,
+      "assembly": "mov    %rax,%rcx"
+    },
+    {
+      "address": "0x412d19",
+      "offset": 1289,
+      "period": 37930966,
+      "assembly": "mov    0x210(%rbx),%rsi"
+    },
+    {
+      "address": "0x412d20",
+      "offset": 1296,
+      "period": 0,
+      "assembly": "mov    %r13d,0x18(%rdx)"
+    },
+    {
+      "address": "0x412d24",
+      "offset": 1300,
+      "period": 18328590,
+      "assembly": "sub    %rdi,%rcx"
+    },
+    {
+      "address": "0x412d27",
+      "offset": 1303,
+      "period": 56915070,
+      "assembly": "mov    0x18(%rsp),%edi"
+    },
+    {
+      "address": "0x412d2b",
+      "offset": 1307,
+      "period": 0,
+      "assembly": "sar    $0x2,%rcx"
+    },
+    {
+      "address": "0x412d2f",
+      "offset": 1311,
+      "period": 109848309,
+      "assembly": "mov    %edi,0x14(%rdx)"
+    },
+    {
+      "address": "0x412d32",
+      "offset": 1314,
+      "period": 146641532,
+      "assembly": "mov    0x58(%rsp),%edi"
+    },
+    {
+      "address": "0x412d36",
+      "offset": 1318,
+      "period": 37896182,
+      "assembly": "mov    %ecx,0x8(%rdx)"
+    },
+    {
+      "address": "0x412d39",
+      "offset": 1321,
+      "period": 18968312,
+      "assembly": "mov    0x208(%rbx),%rdx"
+    },
+    {
+      "address": "0x412d40",
+      "offset": 1328,
+      "period": 37945737,
+      "assembly": "mov    %edi,(%rax)"
+    },
+    {
+      "address": "0x412d42",
+      "offset": 1330,
+      "period": 56915364,
+      "assembly": "mov    0x220(%rbx),%rcx"
+    },
+    {
+      "address": "0x412d49",
+      "offset": 1337,
+      "period": 56800534,
+      "assembly": "mov    %rsi,%rax"
+    },
+    {
+      "address": "0x412d4c",
+      "offset": 1340,
+      "period": 18977255,
+      "assembly": "sub    %rdx,%rax"
+    },
+    {
+      "address": "0x412d4f",
+      "offset": 1343,
+      "period": 0,
+      "assembly": "lea    0x3(%rcx),%rdi"
+    },
+    {
+      "address": "0x412d53",
+      "offset": 1347,
+      "period": 54739423,
+      "assembly": "sar    $0x2,%rax"
+    },
+    {
+      "address": "0x412d57",
+      "offset": 1351,
+      "period": 167914505,
+      "assembly": "cmp    %rdi,%rax"
+    },
+    {
+      "address": "0x412d5a",
+      "offset": 1354,
+      "period": 18976180,
+      "assembly": "jae    412da7 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x597>"
+    },
+    {
+      "address": "0x412d5c",
+      "offset": 1356,
+      "period": 0,
+      "assembly": "add    %rax,%rax"
+    },
+    {
+      "address": "0x412d5f",
+      "offset": 1359,
+      "period": 0,
+      "assembly": "cmp    %rdx,%rsi"
+    },
+    {
+      "address": "0x412d62",
+      "offset": 1362,
+      "period": 0,
+      "assembly": "mov    $0x3,%edx"
+    },
+    {
+      "address": "0x412d67",
+      "offset": 1367,
+      "period": 0,
+      "assembly": "mov    %r10,0x28(%rsp)"
+    },
+    {
+      "address": "0x412d6c",
+      "offset": 1372,
+      "period": 0,
+      "assembly": "cmove  %rdx,%rax"
+    },
+    {
+      "address": "0x412d70",
+      "offset": 1376,
+      "period": 0,
+      "assembly": "mov    %r11,0x20(%rsp)"
+    },
+    {
+      "address": "0x412d75",
+      "offset": 1381,
+      "period": 0,
+      "assembly": "cmp    %rax,%rdi"
+    },
+    {
+      "address": "0x412d78",
+      "offset": 1384,
+      "period": 0,
+      "assembly": "cmovae %rdi,%rax"
+    },
+    {
+      "address": "0x412d7c",
+      "offset": 1388,
+      "period": 0,
+      "assembly": "lea    0x208(%rbx),%rdi"
+    },
+    {
+      "address": "0x412d83",
+      "offset": 1395,
+      "period": 0,
+      "assembly": "mov    %rax,%rsi"
+    },
+    {
+      "address": "0x412d86",
+      "offset": 1398,
+      "period": 0,
+      "assembly": "callq  425150 <std::vector<unsigned int, std::allocator<unsigned int> >::resize(unsigned long)>"
+    },
+    {
+      "address": "0x412d8b",
+      "offset": 1403,
+      "period": 0,
+      "assembly": "mov    0x28(%rsp),%r10"
+    },
+    {
+      "address": "0x412d90",
+      "offset": 1408,
+      "period": 0,
+      "assembly": "mov    0x20(%rsp),%r11"
+    },
+    {
+      "address": "0x412d95",
+      "offset": 1413,
+      "period": 0,
+      "assembly": "mov    0x220(%rbx),%rcx"
+    },
+    {
+      "address": "0x412d9c",
+      "offset": 1420,
+      "period": 0,
+      "assembly": "mov    0x208(%rbx),%rdx"
+    },
+    {
+      "address": "0x412da3",
+      "offset": 1427,
+      "period": 0,
+      "assembly": "lea    0x3(%rcx),%rdi"
+    },
+    {
+      "address": "0x412da7",
+      "offset": 1431,
+      "period": 0,
+      "assembly": "mov    %r13d,(%rdx,%rcx,4)"
+    },
+    {
+      "address": "0x412dab",
+      "offset": 1435,
+      "period": 189519411,
+      "assembly": "lea    0x0(,%rcx,4),%rax"
+    },
+    {
+      "address": "0x412db3",
+      "offset": 1443,
+      "period": 37945755,
+      "assembly": "mov    0x18(%rsp),%ecx"
+    },
+    {
+      "address": "0x412db7",
+      "offset": 1447,
+      "period": 18962365,
+      "assembly": "add    $0x2,%r14"
+    },
+    {
+      "address": "0x412dbb",
+      "offset": 1451,
+      "period": 0,
+      "assembly": "mov    %ecx,0x4(%rdx,%rax,1)"
+    },
+    {
+      "address": "0x412dbf",
+      "offset": 1455,
+      "period": 226906190,
+      "assembly": "mov    %rdi,0x220(%rbx)"
+    },
+    {
+      "address": "0x412dc6",
+      "offset": 1462,
+      "period": 132767368,
+      "assembly": "mov    %r15d,0x8(%rdx,%rax,1)"
+    },
+    {
+      "address": "0x412dcb",
+      "offset": 1467,
+      "period": 149532572,
+      "assembly": "mov    %r10,%rdx"
+    },
+    {
+      "address": "0x412dce",
+      "offset": 1470,
+      "period": 0,
+      "assembly": "jmpq   412a0e <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x1fe>"
+    },
+    {
+      "address": "0x412dd3",
+      "offset": 1475,
+      "period": 0,
+      "assembly": "nopl   0x0(%rax,%rax,1)"
+    },
+    {
+      "address": "0x412dd8",
+      "offset": 1480,
+      "period": 0,
+      "assembly": "cmpb   $0x0,0xc(%r15)"
+    },
+    {
+      "address": "0x412ddd",
+      "offset": 1485,
+      "period": 56859903,
+      "assembly": "je     412925 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x115>"
+    },
+    {
+      "address": "0x412de3",
+      "offset": 1491,
+      "period": 113675121,
+      "assembly": "mov    0xb8(%rbx),%rdi"
+    },
+    {
+      "address": "0x412dea",
+      "offset": 1498,
+      "period": 0,
+      "assembly": "mov    0x58(%rsp),%r15d"
+    },
+    {
+      "address": "0x412def",
+      "offset": 1503,
+      "period": 0,
+      "assembly": "mov    %r15d,(%rdi,%rax,4)"
+    },
+    {
+      "address": "0x412df3",
+      "offset": 1507,
+      "period": 549606762,
+      "assembly": "mov    0x10(%rsp),%rdi"
+    },
+    {
+      "address": "0x412df8",
+      "offset": 1512,
+      "period": 132792563,
+      "assembly": "mov    0x4(%r10),%r13d"
+    },
+    {
+      "address": "0x412dfc",
+      "offset": 1516,
+      "period": 1106858221,
+      "assembly": "addq   $0x1,0x18f0(%rbx)"
+    },
+    {
+      "address": "0x412e04",
+      "offset": 1524,
+      "period": 18702218,
+      "assembly": "mov    0x8(%rdi),%edi"
+    },
+    {
+      "address": "0x412e07",
+      "offset": 1527,
+      "period": 151133340,
+      "assembly": "test   %r13d,%r13d"
+    },
+    {
+      "address": "0x412e0a",
+      "offset": 1530,
+      "period": 0,
+      "assembly": "jne    4136b8 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0xea8>"
+    },
+    {
+      "address": "0x412e10",
+      "offset": 1536,
+      "period": 0,
+      "assembly": "mov    0x88(%rbx),%r10"
+    },
+    {
+      "address": "0x412e17",
+      "offset": 1543,
+      "period": 435935388,
+      "assembly": "movd   %r9d,%xmm0"
+    },
+    {
+      "address": "0x412e1c",
+      "offset": 1548,
+      "period": 0,
+      "assembly": "mov    $0x101,%r15d"
+    },
+    {
+      "address": "0x412e22",
+      "offset": 1554,
+      "period": 0,
+      "assembly": "movb   $0x1,(%r10,%rsi,1)"
+    },
+    {
+      "address": "0x412e27",
+      "offset": 1559,
+      "period": 151605502,
+      "assembly": "mov    0x88(%rbx),%rsi"
+    },
+    {
+      "address": "0x412e2e",
+      "offset": 1566,
+      "period": 18971067,
+      "assembly": "movb   $0xff,(%rsi,%r8,1)"
+    },
+    {
+      "address": "0x412e33",
+      "offset": 1571,
+      "period": 0,
+      "assembly": "mov    0xe8(%rbx),%r8"
+    },
+    {
+      "address": "0x412e3a",
+      "offset": 1578,
+      "period": 75856836,
+      "assembly": "mov    %rax,%rsi"
+    },
+    {
+      "address": "0x412e3d",
+      "offset": 1581,
+      "period": 74877687,
+      "assembly": "shl    $0x4,%rsi"
+    },
+    {
+      "address": "0x412e41",
+      "offset": 1585,
+      "period": 0,
+      "assembly": "add    0xa0(%rbx),%rsi"
+    },
+    {
+      "address": "0x412e48",
+      "offset": 1592,
+      "period": 37928150,
+      "assembly": "movd   %r8d,%xmm4"
+    },
+    {
+      "address": "0x412e4d",
+      "offset": 1597,
+      "period": 75909257,
+      "assembly": "mov    %edi,0x8(%rsi)"
+    },
+    {
+      "address": "0x412e50",
+      "offset": 1600,
+      "period": 360382878,
+      "assembly": "punpckldq %xmm4,%xmm0"
+    },
+    {
+      "address": "0x412e54",
+      "offset": 1604,
+      "period": 56922483,
+      "assembly": "mov    %r15w,0xc(%rsi)"
+    },
+    {
+      "address": "0x412e59",
+      "offset": 1609,
+      "period": 113509544,
+      "assembly": "movq   %xmm0,(%rsi)"
+    },
+    {
+      "address": "0x412e5d",
+      "offset": 1613,
+      "period": 110572667,
+      "assembly": "lea    0x1(%r8),%rsi"
+    },
+    {
+      "address": "0x412e61",
+      "offset": 1617,
+      "period": 113786239,
+      "assembly": "mov    %rsi,0xe8(%rbx)"
+    },
+    {
+      "address": "0x412e68",
+      "offset": 1624,
+      "period": 0,
+      "assembly": "mov    0xd0(%rbx),%rsi"
+    },
+    {
+      "address": "0x412e6f",
+      "offset": 1631,
+      "period": 56924630,
+      "assembly": "mov    %ecx,(%rsi,%r8,4)"
+    },
+    {
+      "address": "0x412e73",
+      "offset": 1635,
+      "period": 132149798,
+      "assembly": "mov    0x1e08(%rbx),%rsi"
+    },
+    {
+      "address": "0x412e7a",
+      "offset": 1642,
+      "period": 113794395,
+      "assembly": "test   %rsi,%rsi"
+    },
+    {
+      "address": "0x412e7d",
+      "offset": 1645,
+      "period": 0,
+      "assembly": "jne    4129ba <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x1aa>"
+    },
+    {
+      "address": "0x412e83",
+      "offset": 1651,
+      "period": 0,
+      "assembly": "jmpq   4129e0 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x1d0>"
+    },
+    {
+      "address": "0x412e88",
+      "offset": 1656,
+      "period": 0,
+      "assembly": "nopl   0x0(%rax,%rax,1)"
+    },
+    {
+      "address": "0x412e90",
+      "offset": 1664,
+      "period": 0,
+      "assembly": "mov    0x178(%rbx),%r10"
+    },
+    {
+      "address": "0x412e97",
+      "offset": 1671,
+      "period": 0,
+      "assembly": "lea    0x168(%rbx),%rdi"
+    },
+    {
+      "address": "0x412e9e",
+      "offset": 1678,
+      "period": 0,
+      "assembly": "cmp    %r11,%r10"
+    },
+    {
+      "address": "0x412ea1",
+      "offset": 1681,
+      "period": 0,
+      "assembly": "je     413605 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0xdf5>"
+    },
+    {
+      "address": "0x412ea7",
+      "offset": 1687,
+      "period": 0,
+      "assembly": "mov    0x170(%rbx),%r14"
+    },
+    {
+      "address": "0x412eae",
+      "offset": 1694,
+      "period": 0,
+      "assembly": "sub    %r11,%r10"
+    },
+    {
+      "address": "0x412eb1",
+      "offset": 1697,
+      "period": 0,
+      "assembly": "mov    %r9d,%r15d"
+    },
+    {
+      "address": "0x412eb4",
+      "offset": 1700,
+      "period": 0,
+      "assembly": "sub    %r11,%r14"
+    },
+    {
+      "address": "0x412eb7",
+      "offset": 1703,
+      "period": 0,
+      "assembly": "mov    (%rax),%r11d"
+    },
+    {
+      "address": "0x412eba",
+      "offset": 1706,
+      "period": 0,
+      "assembly": "mov    %r14,%rsi"
+    },
+    {
+      "address": "0x412ebd",
+      "offset": 1709,
+      "period": 0,
+      "assembly": "sar    $0x2,%rsi"
+    },
+    {
+      "address": "0x412ec1",
+      "offset": 1713,
+      "period": 0,
+      "assembly": "add    %r15,%r11"
+    },
+    {
+      "address": "0x412ec4",
+      "offset": 1716,
+      "period": 0,
+      "assembly": "mov    %rsi,%rdx"
+    },
+    {
+      "address": "0x412ec7",
+      "offset": 1719,
+      "period": 0,
+      "assembly": "cmp    %rsi,%r11"
+    },
+    {
+      "address": "0x412eca",
+      "offset": 1722,
+      "period": 0,
+      "assembly": "je     413268 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0xa58>"
+    },
+    {
+      "address": "0x412ed0",
+      "offset": 1728,
+      "period": 0,
+      "assembly": "test   %r9d,%r9d"
+    },
+    {
+      "address": "0x412ed3",
+      "offset": 1731,
+      "period": 0,
+      "assembly": "je     4131f0 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x9e0>"
+    },
+    {
+      "address": "0x412ed9",
+      "offset": 1737,
+      "period": 0,
+      "assembly": "lea    (%r9,%r9,1),%r14d"
+    },
+    {
+      "address": "0x412edd",
+      "offset": 1741,
+      "period": 0,
+      "assembly": "mov    %r14d,0x40(%rsp)"
+    },
+    {
+      "address": "0x412ee2",
+      "offset": 1746,
+      "period": 0,
+      "assembly": "add    %r14,%rsi"
+    },
+    {
+      "address": "0x412ee5",
+      "offset": 1749,
+      "period": 0,
+      "assembly": "sar    $0x2,%r10"
+    },
+    {
+      "address": "0x412ee9",
+      "offset": 1753,
+      "period": 0,
+      "assembly": "cmp    %rsi,%r10"
+    },
+    {
+      "address": "0x412eec",
+      "offset": 1756,
+      "period": 0,
+      "assembly": "jae    412f54 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x744>"
+    },
+    {
+      "address": "0x412eee",
+      "offset": 1758,
+      "period": 0,
+      "assembly": "cmp    $0x3,%rsi"
+    },
+    {
+      "address": "0x412ef2",
+      "offset": 1762,
+      "period": 0,
+      "assembly": "jbe    413704 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0xef4>"
+    },
+    {
+      "address": "0x412ef8",
+      "offset": 1768,
+      "period": 0,
+      "assembly": "mov    $0x4,%eax"
+    },
+    {
+      "address": "0x412efd",
+      "offset": 1773,
+      "period": 0,
+      "assembly": "nopl   (%rax)"
+    },
+    {
+      "address": "0x412f00",
+      "offset": 1776,
+      "period": 0,
+      "assembly": "add    %rax,%rax"
+    },
+    {
+      "address": "0x412f03",
+      "offset": 1779,
+      "period": 0,
+      "assembly": "lea    -0x1(%rax),%rdx"
+    },
+    {
+      "address": "0x412f07",
+      "offset": 1783,
+      "period": 0,
+      "assembly": "cmp    %rsi,%rdx"
+    },
+    {
+      "address": "0x412f0a",
+      "offset": 1786,
+      "period": 0,
+      "assembly": "jb     412f00 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x6f0>"
+    },
+    {
+      "address": "0x412f0c",
+      "offset": 1788,
+      "period": 0,
+      "assembly": "mov    %rdx,%rsi"
+    },
+    {
+      "address": "0x412f0f",
+      "offset": 1791,
+      "period": 0,
+      "assembly": "mov    %rcx,0x30(%rsp)"
+    },
+    {
+      "address": "0x412f14",
+      "offset": 1796,
+      "period": 0,
+      "assembly": "mov    %r8,0x28(%rsp)"
+    },
+    {
+      "address": "0x412f19",
+      "offset": 1801,
+      "period": 0,
+      "assembly": "mov    %rdi,0x18(%rsp)"
+    },
+    {
+      "address": "0x412f1e",
+      "offset": 1806,
+      "period": 0,
+      "assembly": "movd   %xmm0,0x20(%rsp)"
+    },
+    {
+      "address": "0x412f24",
+      "offset": 1812,
+      "period": 0,
+      "assembly": "callq  425090 <std::vector<unsigned int, std::allocator<unsigned int> >::reserve(unsigned long)>"
+    },
+    {
+      "address": "0x412f29",
+      "offset": 1817,
+      "period": 0,
+      "assembly": "mov    0x30(%rsp),%rcx"
+    },
+    {
+      "address": "0x412f2e",
+      "offset": 1822,
+      "period": 0,
+      "assembly": "mov    0x28(%rsp),%r8"
+    },
+    {
+      "address": "0x412f33",
+      "offset": 1827,
+      "period": 0,
+      "assembly": "mov    0x170(%rbx),%rdx"
+    },
+    {
+      "address": "0x412f3a",
+      "offset": 1834,
+      "period": 0,
+      "assembly": "sub    0x168(%rbx),%rdx"
+    },
+    {
+      "address": "0x412f41",
+      "offset": 1841,
+      "period": 0,
+      "assembly": "sar    $0x2,%rdx"
+    },
+    {
+      "address": "0x412f45",
+      "offset": 1845,
+      "period": 0,
+      "assembly": "movd   0x20(%rsp),%xmm0"
+    },
+    {
+      "address": "0x412f4b",
+      "offset": 1851,
+      "period": 0,
+      "assembly": "mov    0x18(%rsp),%rdi"
+    },
+    {
+      "address": "0x412f50",
+      "offset": 1856,
+      "period": 0,
+      "assembly": "lea    (%rdx,%r14,1),%rsi"
+    },
+    {
+      "address": "0x412f54",
+      "offset": 1860,
+      "period": 0,
+      "assembly": "mov    %rcx,0x38(%rsp)"
+    },
+    {
+      "address": "0x412f59",
+      "offset": 1865,
+      "period": 0,
+      "assembly": "mov    %r8,0x30(%rsp)"
+    },
+    {
+      "address": "0x412f5e",
+      "offset": 1870,
+      "period": 0,
+      "assembly": "mov    %edx,0x18(%rsp)"
+    },
+    {
+      "address": "0x412f62",
+      "offset": 1874,
+      "period": 0,
+      "assembly": "mov    %rdx,0x20(%rsp)"
+    },
+    {
+      "address": "0x412f67",
+      "offset": 1879,
+      "period": 0,
+      "assembly": "movd   %xmm0,0x28(%rsp)"
+    },
+    {
+      "address": "0x412f6d",
+      "offset": 1885,
+      "period": 0,
+      "assembly": "callq  425150 <std::vector<unsigned int, std::allocator<unsigned int> >::resize(unsigned long)>"
+    },
+    {
+      "address": "0x412f72",
+      "offset": 1890,
+      "period": 0,
+      "assembly": "mov    0x30(%rsp),%r8"
+    },
+    {
+      "address": "0x412f77",
+      "offset": 1895,
+      "period": 0,
+      "assembly": "mov    0x180(%rbx),%rsi"
+    },
+    {
+      "address": "0x412f7e",
+      "offset": 1902,
+      "period": 0,
+      "assembly": "mov    0x20(%rsp),%rdx"
+    },
+    {
+      "address": "0x412f83",
+      "offset": 1907,
+      "period": 0,
+      "assembly": "mov    0x168(%rbx),%r11"
+    },
+    {
+      "address": "0x412f8a",
+      "offset": 1914,
+      "period": 0,
+      "assembly": "lea    (%rsi,%r8,1),%r15"
+    },
+    {
+      "address": "0x412f8e",
+      "offset": 1918,
+      "period": 0,
+      "assembly": "movd   0x28(%rsp),%xmm0"
+    },
+    {
+      "address": "0x412f94",
+      "offset": 1924,
+      "period": 0,
+      "assembly": "mov    0x38(%rsp),%rcx"
+    },
+    {
+      "address": "0x412f99",
+      "offset": 1929,
+      "period": 0,
+      "assembly": "mov    %edx,%edx"
+    },
+    {
+      "address": "0x412f9b",
+      "offset": 1931,
+      "period": 0,
+      "assembly": "mov    (%r15),%eax"
+    },
+    {
+      "address": "0x412f9e",
+      "offset": 1934,
+      "period": 0,
+      "assembly": "lea    (%r11,%rdx,4),%rdi"
+    },
+    {
+      "address": "0x412fa2",
+      "offset": 1938,
+      "period": 0,
+      "assembly": "mov    0x4(%r15),%edx"
+    },
+    {
+      "address": "0x412fa6",
+      "offset": 1942,
+      "period": 0,
+      "assembly": "lea    (%r11,%rax,4),%r10"
+    },
+    {
+      "address": "0x412faa",
+      "offset": 1946,
+      "period": 0,
+      "assembly": "mov    %rdx,%r9"
+    },
+    {
+      "address": "0x412fad",
+      "offset": 1949,
+      "period": 0,
+      "assembly": "shl    $0x2,%rdx"
+    },
+    {
+      "address": "0x412fb1",
+      "offset": 1953,
+      "period": 0,
+      "assembly": "cmp    $0x4,%rdx"
+    },
+    {
+      "address": "0x412fb5",
+      "offset": 1957,
+      "period": 0,
+      "assembly": "jbe    41368a <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0xe7a>"
+    },
+    {
+      "address": "0x412fbb",
+      "offset": 1963,
+      "period": 0,
+      "assembly": "mov    %r10,%rsi"
+    },
+    {
+      "address": "0x412fbe",
+      "offset": 1966,
+      "period": 0,
+      "assembly": "mov    %rcx,0x28(%rsp)"
+    },
+    {
+      "address": "0x412fc3",
+      "offset": 1971,
+      "period": 0,
+      "assembly": "movd   %xmm0,0x20(%rsp)"
+    },
+    {
+      "address": "0x412fc9",
+      "offset": 1977,
+      "period": 0,
+      "assembly": "callq  4023b0 <memmove@plt>"
+    },
+    {
+      "address": "0x412fce",
+      "offset": 1982,
+      "period": 0,
+      "assembly": "mov    0x30(%rsp),%r8"
+    },
+    {
+      "address": "0x412fd3",
+      "offset": 1987,
+      "period": 0,
+      "assembly": "mov    0x28(%rsp),%rcx"
+    },
+    {
+      "address": "0x412fd8",
+      "offset": 1992,
+      "period": 0,
+      "assembly": "mov    0x180(%rbx),%rsi"
+    },
+    {
+      "address": "0x412fdf",
+      "offset": 1999,
+      "period": 0,
+      "assembly": "mov    0x168(%rbx),%r11"
+    },
+    {
+      "address": "0x412fe6",
+      "offset": 2006,
+      "period": 0,
+      "assembly": "movd   0x20(%rsp),%xmm0"
+    },
+    {
+      "address": "0x412fec",
+      "offset": 2012,
+      "period": 0,
+      "assembly": "lea    (%rsi,%r8,1),%rax"
+    },
+    {
+      "address": "0x412ff0",
+      "offset": 2016,
+      "period": 0,
+      "assembly": "mov    0x4(%rax),%r9d"
+    },
+    {
+      "address": "0x412ff4",
+      "offset": 2020,
+      "period": 0,
+      "assembly": "mov    0x18(%rsp),%edi"
+    },
+    {
+      "address": "0x412ff8",
+      "offset": 2024,
+      "period": 0,
+      "assembly": "mov    0x198(%rbx),%rdx"
+    },
+    {
+      "address": "0x412fff",
+      "offset": 2031,
+      "period": 0,
+      "assembly": "mov    %edi,(%r15)"
+    },
+    {
+      "address": "0x413002",
+      "offset": 2034,
+      "period": 0,
+      "assembly": "mov    0x40(%rsp),%edi"
+    },
+    {
+      "address": "0x413006",
+      "offset": 2038,
+      "period": 0,
+      "assembly": "mov    %edi,0x8(%r15)"
+    },
+    {
+      "address": "0x41300a",
+      "offset": 2042,
+      "period": 0,
+      "assembly": "lea    -0x1(%r14,%rdx,1),%rdi"
+    },
+    {
+      "address": "0x41300f",
+      "offset": 2047,
+      "period": 0,
+      "assembly": "jmpq   412be5 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x3d5>"
+    },
+    {
+      "address": "0x413014",
+      "offset": 2052,
+      "period": 0,
+      "assembly": "nopl   0x0(%rax)"
+    },
+    {
+      "address": "0x413018",
+      "offset": 2056,
+      "period": 0,
+      "assembly": "mov    0x178(%rbx),%r9"
+    },
+    {
+      "address": "0x41301f",
+      "offset": 2063,
+      "period": 18931000,
+      "assembly": "lea    0x168(%rbx),%rdi"
+    },
+    {
+      "address": "0x413026",
+      "offset": 2070,
+      "period": 0,
+      "assembly": "cmp    %r11,%r9"
+    },
+    {
+      "address": "0x413029",
+      "offset": 2073,
+      "period": 0,
+      "assembly": "je     4135b9 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0xda9>"
+    },
+    {
+      "address": "0x41302f",
+      "offset": 2079,
+      "period": 0,
+      "assembly": "mov    0x170(%rbx),%r10"
+    },
+    {
+      "address": "0x413036",
+      "offset": 2086,
+      "period": 0,
+      "assembly": "sub    %r11,%r9"
+    },
+    {
+      "address": "0x413039",
+      "offset": 2089,
+      "period": 0,
+      "assembly": "mov    %edx,%r15d"
+    },
+    {
+      "address": "0x41303c",
+      "offset": 2092,
+      "period": 0,
+      "assembly": "sub    %r11,%r10"
+    },
+    {
+      "address": "0x41303f",
+      "offset": 2095,
+      "period": 0,
+      "assembly": "mov    (%r12),%r11d"
+    },
+    {
+      "address": "0x413043",
+      "offset": 2099,
+      "period": 0,
+      "assembly": "mov    %r10,%rsi"
+    },
+    {
+      "address": "0x413046",
+      "offset": 2102,
+      "period": 0,
+      "assembly": "sar    $0x2,%rsi"
+    },
+    {
+      "address": "0x41304a",
+      "offset": 2106,
+      "period": 0,
+      "assembly": "add    %r15,%r11"
+    },
+    {
+      "address": "0x41304d",
+      "offset": 2109,
+      "period": 0,
+      "assembly": "mov    %rsi,%rax"
+    },
+    {
+      "address": "0x413050",
+      "offset": 2112,
+      "period": 0,
+      "assembly": "cmp    %rsi,%r11"
+    },
+    {
+      "address": "0x413053",
+      "offset": 2115,
+      "period": 0,
+      "assembly": "je     413208 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x9f8>"
+    },
+    {
+      "address": "0x413059",
+      "offset": 2121,
+      "period": 0,
+      "assembly": "test   %edx,%edx"
+    },
+    {
+      "address": "0x41305b",
+      "offset": 2123,
+      "period": 18973280,
+      "assembly": "jne    4131e0 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x9d0>"
+    },
+    {
+      "address": "0x413061",
+      "offset": 2129,
+      "period": 0,
+      "assembly": "movl   $0x1,0x40(%rsp)"
+    },
+    {
+      "address": "0x413069",
+      "offset": 2137,
+      "period": 0,
+      "assembly": "mov    $0x1,%r15d"
+    },
+    {
+      "address": "0x41306f",
+      "offset": 2143,
+      "period": 0,
+      "assembly": "add    %r15,%rsi"
+    },
+    {
+      "address": "0x413072",
+      "offset": 2146,
+      "period": 0,
+      "assembly": "sar    $0x2,%r9"
+    },
+    {
+      "address": "0x413076",
+      "offset": 2150,
+      "period": 18836245,
+      "assembly": "cmp    %rsi,%r9"
+    },
+    {
+      "address": "0x413079",
+      "offset": 2153,
+      "period": 0,
+      "assembly": "jae    4130e4 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x8d4>"
+    },
+    {
+      "address": "0x41307b",
+      "offset": 2155,
+      "period": 0,
+      "assembly": "cmp    $0x3,%rsi"
+    },
+    {
+      "address": "0x41307f",
+      "offset": 2159,
+      "period": 0,
+      "assembly": "jbe    4136fa <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0xeea>"
+    },
+    {
+      "address": "0x413085",
+      "offset": 2165,
+      "period": 0,
+      "assembly": "mov    $0x4,%eax"
+    },
+    {
+      "address": "0x41308a",
+      "offset": 2170,
+      "period": 0,
+      "assembly": "nopw   0x0(%rax,%rax,1)"
+    },
+    {
+      "address": "0x413090",
+      "offset": 2176,
+      "period": 0,
+      "assembly": "add    %rax,%rax"
+    },
+    {
+      "address": "0x413093",
+      "offset": 2179,
+      "period": 0,
+      "assembly": "lea    -0x1(%rax),%rdx"
+    },
+    {
+      "address": "0x413097",
+      "offset": 2183,
+      "period": 0,
+      "assembly": "cmp    %rsi,%rdx"
+    },
+    {
+      "address": "0x41309a",
+      "offset": 2186,
+      "period": 0,
+      "assembly": "jb     413090 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x880>"
+    },
+    {
+      "address": "0x41309c",
+      "offset": 2188,
+      "period": 0,
+      "assembly": "mov    %rdx,%rsi"
+    },
+    {
+      "address": "0x41309f",
+      "offset": 2191,
+      "period": 0,
+      "assembly": "mov    %rcx,0x30(%rsp)"
+    },
+    {
+      "address": "0x4130a4",
+      "offset": 2196,
+      "period": 0,
+      "assembly": "mov    %r8,0x28(%rsp)"
+    },
+    {
+      "address": "0x4130a9",
+      "offset": 2201,
+      "period": 0,
+      "assembly": "mov    %rdi,0x18(%rsp)"
+    },
+    {
+      "address": "0x4130ae",
+      "offset": 2206,
+      "period": 0,
+      "assembly": "movd   %xmm0,0x20(%rsp)"
+    },
+    {
+      "address": "0x4130b4",
+      "offset": 2212,
+      "period": 0,
+      "assembly": "callq  425090 <std::vector<unsigned int, std::allocator<unsigned int> >::reserve(unsigned long)>"
+    },
+    {
+      "address": "0x4130b9",
+      "offset": 2217,
+      "period": 0,
+      "assembly": "mov    0x30(%rsp),%rcx"
+    },
+    {
+      "address": "0x4130be",
+      "offset": 2222,
+      "period": 0,
+      "assembly": "mov    0x28(%rsp),%r8"
+    },
+    {
+      "address": "0x4130c3",
+      "offset": 2227,
+      "period": 0,
+      "assembly": "mov    0x170(%rbx),%rax"
+    },
+    {
+      "address": "0x4130ca",
+      "offset": 2234,
+      "period": 0,
+      "assembly": "sub    0x168(%rbx),%rax"
+    },
+    {
+      "address": "0x4130d1",
+      "offset": 2241,
+      "period": 0,
+      "assembly": "sar    $0x2,%rax"
+    },
+    {
+      "address": "0x4130d5",
+      "offset": 2245,
+      "period": 0,
+      "assembly": "movd   0x20(%rsp),%xmm0"
+    },
+    {
+      "address": "0x4130db",
+      "offset": 2251,
+      "period": 0,
+      "assembly": "mov    0x18(%rsp),%rdi"
+    },
+    {
+      "address": "0x4130e0",
+      "offset": 2256,
+      "period": 0,
+      "assembly": "lea    (%rax,%r15,1),%rsi"
+    },
+    {
+      "address": "0x4130e4",
+      "offset": 2260,
+      "period": 0,
+      "assembly": "mov    %rcx,0x38(%rsp)"
+    },
+    {
+      "address": "0x4130e9",
+      "offset": 2265,
+      "period": 0,
+      "assembly": "mov    %r8,0x30(%rsp)"
+    },
+    {
+      "address": "0x4130ee",
+      "offset": 2270,
+      "period": 0,
+      "assembly": "mov    %eax,0x18(%rsp)"
+    },
+    {
+      "address": "0x4130f2",
+      "offset": 2274,
+      "period": 0,
+      "assembly": "mov    %rax,0x20(%rsp)"
+    },
+    {
+      "address": "0x4130f7",
+      "offset": 2279,
+      "period": 0,
+      "assembly": "movd   %xmm0,0x28(%rsp)"
+    },
+    {
+      "address": "0x4130fd",
+      "offset": 2285,
+      "period": 18977830,
+      "assembly": "callq  425150 <std::vector<unsigned int, std::allocator<unsigned int> >::resize(unsigned long)>"
+    },
+    {
+      "address": "0x413102",
+      "offset": 2290,
+      "period": 0,
+      "assembly": "mov    0x30(%rsp),%r8"
+    },
+    {
+      "address": "0x413107",
+      "offset": 2295,
+      "period": 0,
+      "assembly": "mov    0x180(%rbx),%rsi"
+    },
+    {
+      "address": "0x41310e",
+      "offset": 2302,
+      "period": 0,
+      "assembly": "mov    0x20(%rsp),%rax"
+    },
+    {
+      "address": "0x413113",
+      "offset": 2307,
+      "period": 0,
+      "assembly": "mov    0x168(%rbx),%r11"
+    },
+    {
+      "address": "0x41311a",
+      "offset": 2314,
+      "period": 0,
+      "assembly": "lea    (%rsi,%r8,1),%r9"
+    },
+    {
+      "address": "0x41311e",
+      "offset": 2318,
+      "period": 0,
+      "assembly": "movd   0x28(%rsp),%xmm0"
+    },
+    {
+      "address": "0x413124",
+      "offset": 2324,
+      "period": 0,
+      "assembly": "mov    0x38(%rsp),%rcx"
+    },
+    {
+      "address": "0x413129",
+      "offset": 2329,
+      "period": 18972353,
+      "assembly": "mov    %eax,%eax"
+    },
+    {
+      "address": "0x41312b",
+      "offset": 2331,
+      "period": 0,
+      "assembly": "mov    0x4(%r9),%edx"
+    },
+    {
+      "address": "0x41312f",
+      "offset": 2335,
+      "period": 0,
+      "assembly": "lea    (%r11,%rax,4),%rdi"
+    },
+    {
+      "address": "0x413133",
+      "offset": 2339,
+      "period": 0,
+      "assembly": "mov    (%r9),%eax"
+    },
+    {
+      "address": "0x413136",
+      "offset": 2342,
+      "period": 0,
+      "assembly": "lea    (%r11,%rax,4),%r10"
+    },
+    {
+      "address": "0x41313a",
+      "offset": 2346,
+      "period": 0,
+      "assembly": "mov    %edx,%eax"
+    },
+    {
+      "address": "0x41313c",
+      "offset": 2348,
+      "period": 0,
+      "assembly": "shl    $0x2,%rax"
+    },
+    {
+      "address": "0x413140",
+      "offset": 2352,
+      "period": 0,
+      "assembly": "cmp    $0x4,%rax"
+    },
+    {
+      "address": "0x413144",
+      "offset": 2356,
+      "period": 0,
+      "assembly": "jbe    4136a1 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0xe91>"
+    },
+    {
+      "address": "0x41314a",
+      "offset": 2362,
+      "period": 0,
+      "assembly": "mov    %rax,%rdx"
+    },
+    {
+      "address": "0x41314d",
+      "offset": 2365,
+      "period": 0,
+      "assembly": "mov    %r10,%rsi"
+    },
+    {
+      "address": "0x413150",
+      "offset": 2368,
+      "period": 0,
+      "assembly": "mov    %r9,0x30(%rsp)"
+    },
+    {
+      "address": "0x413155",
+      "offset": 2373,
+      "period": 0,
+      "assembly": "mov    %r8,0x28(%rsp)"
+    },
+    {
+      "address": "0x41315a",
+      "offset": 2378,
+      "period": 0,
+      "assembly": "movd   %xmm0,0x20(%rsp)"
+    },
+    {
+      "address": "0x413160",
+      "offset": 2384,
+      "period": 0,
+      "assembly": "callq  4023b0 <memmove@plt>"
+    },
+    {
+      "address": "0x413165",
+      "offset": 2389,
+      "period": 0,
+      "assembly": "mov    0x28(%rsp),%r8"
+    },
+    {
+      "address": "0x41316a",
+      "offset": 2394,
+      "period": 0,
+      "assembly": "mov    0x30(%rsp),%r9"
+    },
+    {
+      "address": "0x41316f",
+      "offset": 2399,
+      "period": 0,
+      "assembly": "mov    0x180(%rbx),%rsi"
+    },
+    {
+      "address": "0x413176",
+      "offset": 2406,
+      "period": 0,
+      "assembly": "mov    0x168(%rbx),%r11"
+    },
+    {
+      "address": "0x41317d",
+      "offset": 2413,
+      "period": 0,
+      "assembly": "movd   0x20(%rsp),%xmm0"
+    },
+    {
+      "address": "0x413183",
+      "offset": 2419,
+      "period": 0,
+      "assembly": "mov    0x38(%rsp),%rcx"
+    },
+    {
+      "address": "0x413188",
+      "offset": 2424,
+      "period": 0,
+      "assembly": "lea    (%rsi,%r8,1),%rax"
+    },
+    {
+      "address": "0x41318c",
+      "offset": 2428,
+      "period": 0,
+      "assembly": "mov    0x4(%rax),%edx"
+    },
+    {
+      "address": "0x41318f",
+      "offset": 2431,
+      "period": 0,
+      "assembly": "mov    0x18(%rsp),%r10d"
+    },
+    {
+      "address": "0x413194",
+      "offset": 2436,
+      "period": 0,
+      "assembly": "mov    0x198(%rbx),%rdi"
+    },
+    {
+      "address": "0x41319b",
+      "offset": 2443,
+      "period": 0,
+      "assembly": "mov    %r10d,(%r9)"
+    },
+    {
+      "address": "0x41319e",
+      "offset": 2446,
+      "period": 0,
+      "assembly": "mov    0x40(%rsp),%r10d"
+    },
+    {
+      "address": "0x4131a3",
+      "offset": 2451,
+      "period": 0,
+      "assembly": "lea    -0x1(%r15,%rdi,1),%rdi"
+    },
+    {
+      "address": "0x4131a8",
+      "offset": 2456,
+      "period": 0,
+      "assembly": "mov    %r10d,0x8(%r9)"
+    },
+    {
+      "address": "0x4131ac",
+      "offset": 2460,
+      "period": 0,
+      "assembly": "jmpq   412bbe <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x3ae>"
+    },
+    {
+      "address": "0x4131b1",
+      "offset": 2465,
+      "period": 0,
+      "assembly": "nopl   0x0(%rax)"
+    },
+    {
+      "address": "0x4131b8",
+      "offset": 2472,
+      "period": 0,
+      "assembly": "add    $0x4,%rax"
+    },
+    {
+      "address": "0x4131bc",
+      "offset": 2476,
+      "period": 113795677,
+      "assembly": "cmp    %rax,%r8"
+    },
+    {
+      "address": "0x4131bf",
+      "offset": 2479,
+      "period": 0,
+      "assembly": "je     412c6a <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x45a>"
+    },
+    {
+      "address": "0x4131c5",
+      "offset": 2485,
+      "period": 0,
+      "assembly": "mov    (%rax),%esi"
+    },
+    {
+      "address": "0x4131c7",
+      "offset": 2487,
+      "period": 208594304,
+      "assembly": "cmpb   $0x0,(%r12,%rsi,1)"
+    },
+    {
+      "address": "0x4131cc",
+      "offset": 2492,
+      "period": 227536289,
+      "assembly": "mov    %rsi,%r13"
+    },
+    {
+      "address": "0x4131cf",
+      "offset": 2495,
+      "period": 56808446,
+      "assembly": "js     4131b8 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x9a8>"
+    },
+    {
+      "address": "0x4131d1",
+      "offset": 2497,
+      "period": 0,
+      "assembly": "jmpq   412d11 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x501>"
+    },
+    {
+      "address": "0x4131d6",
+      "offset": 2502,
+      "period": 0,
+      "assembly": "nopw   %cs:0x0(%rax,%rax,1)"
+    },
+    {
+      "address": "0x4131e0",
+      "offset": 2512,
+      "period": 0,
+      "assembly": "lea    (%rdx,%rdx,1),%r15d"
+    },
+    {
+      "address": "0x4131e4",
+      "offset": 2516,
+      "period": 0,
+      "assembly": "mov    %r15d,0x40(%rsp)"
+    },
+    {
+      "address": "0x4131e9",
+      "offset": 2521,
+      "period": 0,
+      "assembly": "jmpq   41306f <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x85f>"
+    },
+    {
+      "address": "0x4131ee",
+      "offset": 2526,
+      "period": 0,
+      "assembly": "xchg   %ax,%ax"
+    },
+    {
+      "address": "0x4131f0",
+      "offset": 2528,
+      "period": 0,
+      "assembly": "movl   $0x1,0x40(%rsp)"
+    },
+    {
+      "address": "0x4131f8",
+      "offset": 2536,
+      "period": 0,
+      "assembly": "mov    $0x1,%r14d"
+    },
+    {
+      "address": "0x4131fe",
+      "offset": 2542,
+      "period": 0,
+      "assembly": "jmpq   412ee2 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x6d2>"
+    },
+    {
+      "address": "0x413203",
+      "offset": 2547,
+      "period": 0,
+      "assembly": "nopl   0x0(%rax,%rax,1)"
+    },
+    {
+      "address": "0x413208",
+      "offset": 2552,
+      "period": 0,
+      "assembly": "cmp    %r9,%r10"
+    },
+    {
+      "address": "0x41320b",
+      "offset": 2555,
+      "period": 18972579,
+      "assembly": "jae    413059 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x849>"
+    },
+    {
+      "address": "0x413211",
+      "offset": 2561,
+      "period": 0,
+      "assembly": "lea    0x1(%r11),%rsi"
+    },
+    {
+      "address": "0x413215",
+      "offset": 2565,
+      "period": 0,
+      "assembly": "mov    %rcx,0x28(%rsp)"
+    },
+    {
+      "address": "0x41321a",
+      "offset": 2570,
+      "period": 18915591,
+      "assembly": "mov    %r8,0x20(%rsp)"
+    },
+    {
+      "address": "0x41321f",
+      "offset": 2575,
+      "period": 0,
+      "assembly": "movd   %xmm0,0x18(%rsp)"
+    },
+    {
+      "address": "0x413225",
+      "offset": 2581,
+      "period": 0,
+      "assembly": "callq  425150 <std::vector<unsigned int, std::allocator<unsigned int> >::resize(unsigned long)>"
+    },
+    {
+      "address": "0x41322a",
+      "offset": 2586,
+      "period": 0,
+      "assembly": "mov    0x20(%rsp),%r8"
+    },
+    {
+      "address": "0x41322f",
+      "offset": 2591,
+      "period": 0,
+      "assembly": "mov    0x180(%rbx),%rsi"
+    },
+    {
+      "address": "0x413236",
+      "offset": 2598,
+      "period": 0,
+      "assembly": "addl   $0x1,0x8(%r12)"
+    },
+    {
+      "address": "0x41323c",
+      "offset": 2604,
+      "period": 0,
+      "assembly": "mov    0x198(%rbx),%rdi"
+    },
+    {
+      "address": "0x413243",
+      "offset": 2611,
+      "period": 0,
+      "assembly": "lea    (%rsi,%r8,1),%rax"
+    },
+    {
+      "address": "0x413247",
+      "offset": 2615,
+      "period": 0,
+      "assembly": "movd   0x18(%rsp),%xmm0"
+    },
+    {
+      "address": "0x41324d",
+      "offset": 2621,
+      "period": 0,
+      "assembly": "mov    0x28(%rsp),%rcx"
+    },
+    {
+      "address": "0x413252",
+      "offset": 2626,
+      "period": 0,
+      "assembly": "mov    0x4(%rax),%edx"
+    },
+    {
+      "address": "0x413255",
+      "offset": 2629,
+      "period": 0,
+      "assembly": "mov    0x168(%rbx),%r11"
+    },
+    {
+      "address": "0x41325c",
+      "offset": 2636,
+      "period": 0,
+      "assembly": "jmpq   412bbe <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x3ae>"
+    },
+    {
+      "address": "0x413261",
+      "offset": 2641,
+      "period": 0,
+      "assembly": "nopl   0x0(%rax)"
+    },
+    {
+      "address": "0x413268",
+      "offset": 2648,
+      "period": 0,
+      "assembly": "cmp    %r10,%r14"
+    },
+    {
+      "address": "0x41326b",
+      "offset": 2651,
+      "period": 0,
+      "assembly": "jae    412ed0 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x6c0>"
+    },
+    {
+      "address": "0x413271",
+      "offset": 2657,
+      "period": 0,
+      "assembly": "lea    0x1(%r11),%rsi"
+    },
+    {
+      "address": "0x413275",
+      "offset": 2661,
+      "period": 0,
+      "assembly": "mov    %rcx,0x30(%rsp)"
+    },
+    {
+      "address": "0x41327a",
+      "offset": 2666,
+      "period": 0,
+      "assembly": "mov    %rax,0x28(%rsp)"
+    },
+    {
+      "address": "0x41327f",
+      "offset": 2671,
+      "period": 0,
+      "assembly": "mov    %r8,0x20(%rsp)"
+    },
+    {
+      "address": "0x413284",
+      "offset": 2676,
+      "period": 0,
+      "assembly": "movd   %xmm0,0x18(%rsp)"
+    },
+    {
+      "address": "0x41328a",
+      "offset": 2682,
+      "period": 0,
+      "assembly": "callq  425150 <std::vector<unsigned int, std::allocator<unsigned int> >::resize(unsigned long)>"
+    },
+    {
+      "address": "0x41328f",
+      "offset": 2687,
+      "period": 0,
+      "assembly": "mov    0x28(%rsp),%rax"
+    },
+    {
+      "address": "0x413294",
+      "offset": 2692,
+      "period": 0,
+      "assembly": "mov    0x180(%rbx),%rsi"
+    },
+    {
+      "address": "0x41329b",
+      "offset": 2699,
+      "period": 0,
+      "assembly": "mov    0x20(%rsp),%r8"
+    },
+    {
+      "address": "0x4132a0",
+      "offset": 2704,
+      "period": 0,
+      "assembly": "mov    0x198(%rbx),%rdi"
+    },
+    {
+      "address": "0x4132a7",
+      "offset": 2711,
+      "period": 0,
+      "assembly": "addl   $0x1,0x8(%rax)"
+    },
+    {
+      "address": "0x4132ab",
+      "offset": 2715,
+      "period": 0,
+      "assembly": "mov    0x168(%rbx),%r11"
+    },
+    {
+      "address": "0x4132b2",
+      "offset": 2722,
+      "period": 0,
+      "assembly": "lea    (%rsi,%r8,1),%rax"
+    },
+    {
+      "address": "0x4132b6",
+      "offset": 2726,
+      "period": 0,
+      "assembly": "movd   0x18(%rsp),%xmm0"
+    },
+    {
+      "address": "0x4132bc",
+      "offset": 2732,
+      "period": 0,
+      "assembly": "mov    0x30(%rsp),%rcx"
+    },
+    {
+      "address": "0x4132c1",
+      "offset": 2737,
+      "period": 0,
+      "assembly": "mov    0x4(%rax),%r9d"
+    },
+    {
+      "address": "0x4132c5",
+      "offset": 2741,
+      "period": 0,
+      "assembly": "jmpq   412be5 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x3d5>"
+    },
+    {
+      "address": "0x4132ca",
+      "offset": 2746,
+      "period": 0,
+      "assembly": "nopw   0x0(%rax,%rax,1)"
+    },
+    {
+      "address": "0x4132d0",
+      "offset": 2752,
+      "period": 18701037,
+      "assembly": "cmp    %eax,%r15d"
+    },
+    {
+      "address": "0x4132d3",
+      "offset": 2755,
+      "period": 37950752,
+      "assembly": "je     412c82 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x472>"
+    },
+    {
+      "address": "0x4132d9",
+      "offset": 2761,
+      "period": 0,
+      "assembly": "mov    0x18(%rsp),%esi"
+    },
+    {
+      "address": "0x4132dd",
+      "offset": 2765,
+      "period": 75892817,
+      "assembly": "mov    0x118(%rbx),%r9d"
+    },
+    {
+      "address": "0x4132e4",
+      "offset": 2772,
+      "period": 55815717,
+      "assembly": "mov    0x130(%rbx),%rax"
+    },
+    {
+      "address": "0x4132eb",
+      "offset": 2779,
+      "period": 15468806,
+      "assembly": "shr    %esi"
+    },
+    {
+      "address": "0x4132ed",
+      "offset": 2781,
+      "period": 0,
+      "assembly": "test   %r9d,%r9d"
+    },
+    {
+      "address": "0x4132f0",
+      "offset": 2784,
+      "period": 0,
+      "assembly": "je     41333e <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0xb2e>"
+    },
+    {
+      "address": "0x4132f2",
+      "offset": 2786,
+      "period": 0,
+      "assembly": "add    %rdi,%rax"
+    },
+    {
+      "address": "0x4132f5",
+      "offset": 2789,
+      "period": 0,
+      "assembly": "lea    0x14(%rax),%rdx"
+    },
+    {
+      "address": "0x4132f9",
+      "offset": 2793,
+      "period": 56825518,
+      "assembly": "mov    (%rax),%eax"
+    },
+    {
+      "address": "0x4132fb",
+      "offset": 2795,
+      "period": 132794239,
+      "assembly": "shl    $0x2,%rax"
+    },
+    {
+      "address": "0x4132ff",
+      "offset": 2799,
+      "period": 18969518,
+      "assembly": "lea    (%rdx,%rax,1),%rdi"
+    },
+    {
+      "address": "0x413303",
+      "offset": 2803,
+      "period": 75782725,
+      "assembly": "je     41370e <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0xefe>"
+    },
+    {
+      "address": "0x413309",
+      "offset": 2809,
+      "period": 0,
+      "assembly": "xor    %r8d,%r8d"
+    },
+    {
+      "address": "0x41330c",
+      "offset": 2812,
+      "period": 0,
+      "assembly": "nopl   0x0(%rax)"
+    },
+    {
+      "address": "0x413310",
+      "offset": 2816,
+      "period": 0,
+      "assembly": "mov    (%rdx),%eax"
+    },
+    {
+      "address": "0x413312",
+      "offset": 2818,
+      "period": 37934741,
+      "assembly": "shr    %eax"
+    },
+    {
+      "address": "0x413314",
+      "offset": 2820,
+      "period": 18969826,
+      "assembly": "cmp    %eax,%esi"
+    },
+    {
+      "address": "0x413316",
+      "offset": 2822,
+      "period": 0,
+      "assembly": "je     413332 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0xb22>"
+    },
+    {
+      "address": "0x413318",
+      "offset": 2824,
+      "period": 0,
+      "assembly": "shl    $0x4,%rax"
+    },
+    {
+      "address": "0x41331c",
+      "offset": 2828,
+      "period": 75811633,
+      "assembly": "add    0xa0(%rbx),%rax"
+    },
+    {
+      "address": "0x413323",
+      "offset": 2835,
+      "period": 0,
+      "assembly": "mov    (%rax),%eax"
+    },
+    {
+      "address": "0x413325",
+      "offset": 2837,
+      "period": 530976356,
+      "assembly": "cmp    %eax,%r8d"
+    },
+    {
+      "address": "0x413328",
+      "offset": 2840,
+      "period": 37582900,
+      "assembly": "jae    413332 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0xb22>"
+    },
+    {
+      "address": "0x41332a",
+      "offset": 2842,
+      "period": 0,
+      "assembly": "cmp    %eax,%r9d"
+    },
+    {
+      "address": "0x41332d",
+      "offset": 2845,
+      "period": 18067577,
+      "assembly": "je     41333e <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0xb2e>"
+    },
+    {
+      "address": "0x41332f",
+      "offset": 2847,
+      "period": 0,
+      "assembly": "mov    %eax,%r8d"
+    },
+    {
+      "address": "0x413332",
+      "offset": 2850,
+      "period": 0,
+      "assembly": "add    $0x4,%rdx"
+    },
+    {
+      "address": "0x413336",
+      "offset": 2854,
+      "period": 132448884,
+      "assembly": "cmp    %rdx,%rdi"
+    },
+    {
+      "address": "0x413339",
+      "offset": 2857,
+      "period": 18980975,
+      "assembly": "jne    413310 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0xb00>"
+    },
+    {
+      "address": "0x41333b",
+      "offset": 2859,
+      "period": 0,
+      "assembly": "mov    %r8d,%r9d"
+    },
+    {
+      "address": "0x41333e",
+      "offset": 2862,
+      "period": 0,
+      "assembly": "mov    0x18(%rsp),%eax"
+    },
+    {
+      "address": "0x413342",
+      "offset": 2866,
+      "period": 37903186,
+      "assembly": "xor    $0x1,%eax"
+    },
+    {
+      "address": "0x413345",
+      "offset": 2869,
+      "period": 18976208,
+      "assembly": "mov    %rax,%rdx"
+    },
+    {
+      "address": "0x413348",
+      "offset": 2872,
+      "period": 18974847,
+      "assembly": "shl    $0x4,%rdx"
+    },
+    {
+      "address": "0x41334c",
+      "offset": 2876,
+      "period": 0,
+      "assembly": "add    0x180(%rbx),%rdx"
+    },
+    {
+      "address": "0x413353",
+      "offset": 2883,
+      "period": 0,
+      "assembly": "mov    0x4(%rdx),%r8d"
+    },
+    {
+      "address": "0x413357",
+      "offset": 2887,
+      "period": 794664372,
+      "assembly": "test   %r8d,%r8d"
+    },
+    {
+      "address": "0x41335a",
+      "offset": 2890,
+      "period": 56912516,
+      "assembly": "jne    413678 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0xe68>"
+    },
+    {
+      "address": "0x413360",
+      "offset": 2896,
+      "period": 0,
+      "assembly": "mov    0x88(%rbx),%rdx"
+    },
+    {
+      "address": "0x413367",
+      "offset": 2903,
+      "period": 208537625,
+      "assembly": "mov    0x28(%rsp),%rdi"
+    },
+    {
+      "address": "0x41336c",
+      "offset": 2908,
+      "period": 0,
+      "assembly": "movb   $0x1,(%rdx,%rdi,1)"
+    },
+    {
+      "address": "0x413370",
+      "offset": 2912,
+      "period": 75879831,
+      "assembly": "mov    0x88(%rbx),%rdx"
+    },
+    {
+      "address": "0x413377",
+      "offset": 2919,
+      "period": 18966060,
+      "assembly": "xor    %edi,%edi"
+    },
+    {
+      "address": "0x413379",
+      "offset": 2921,
+      "period": 0,
+      "assembly": "movb   $0xff,(%rdx,%rax,1)"
+    },
+    {
+      "address": "0x41337d",
+      "offset": 2925,
+      "period": 0,
+      "assembly": "mov    %rsi,%rax"
+    },
+    {
+      "address": "0x413380",
+      "offset": 2928,
+      "period": 0,
+      "assembly": "mov    0xe8(%rbx),%rdx"
+    },
+    {
+      "address": "0x413387",
+      "offset": 2935,
+      "period": 129921647,
+      "assembly": "shl    $0x4,%rax"
+    },
+    {
+      "address": "0x41338b",
+      "offset": 2939,
+      "period": 0,
+      "assembly": "add    0xa0(%rbx),%rax"
+    },
+    {
+      "address": "0x413392",
+      "offset": 2946,
+      "period": 0,
+      "assembly": "mov    %di,0xc(%rax)"
+    },
+    {
+      "address": "0x413396",
+      "offset": 2950,
+      "period": 132563308,
+      "assembly": "mov    0x18(%rsp),%edi"
+    },
+    {
+      "address": "0x41339a",
+      "offset": 2954,
+      "period": 0,
+      "assembly": "mov    %r9d,(%rax)"
+    },
+    {
+      "address": "0x41339d",
+      "offset": 2957,
+      "period": 37939419,
+      "assembly": "mov    %edx,0x4(%rax)"
+    },
+    {
+      "address": "0x4133a0",
+      "offset": 2960,
+      "period": 56932326,
+      "assembly": "mov    %r15d,0x8(%rax)"
+    },
+    {
+      "address": "0x4133a4",
+      "offset": 2964,
+      "period": 18978876,
+      "assembly": "lea    0x1(%rdx),%rax"
+    },
+    {
+      "address": "0x4133a8",
+      "offset": 2968,
+      "period": 75841050,
+      "assembly": "mov    %rax,0xe8(%rbx)"
+    },
+    {
+      "address": "0x4133af",
+      "offset": 2975,
+      "period": 0,
+      "assembly": "mov    0xd0(%rbx),%rax"
+    },
+    {
+      "address": "0x4133b6",
+      "offset": 2982,
+      "period": 0,
+      "assembly": "mov    %edi,(%rax,%rdx,4)"
+    },
+    {
+      "address": "0x4133b9",
+      "offset": 2985,
+      "period": 0,
+      "assembly": "test   %r9d,%r9d"
+    },
+    {
+      "address": "0x4133bc",
+      "offset": 2988,
+      "period": 0,
+      "assembly": "jne    4133cd <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0xbbd>"
+    },
+    {
+      "address": "0x4133be",
+      "offset": 2990,
+      "period": 0,
+      "assembly": "addq   $0x1,0x6a0(%rbx)"
+    },
+    {
+      "address": "0x4133c6",
+      "offset": 2998,
+      "period": 0,
+      "assembly": "addl   $0x1,0x1c7c(%rbx)"
+    },
+    {
+      "address": "0x4133cd",
+      "offset": 3005,
+      "period": 0,
+      "assembly": "mov    0x1e08(%rbx),%rax"
+    },
+    {
+      "address": "0x4133d4",
+      "offset": 3012,
+      "period": 37932595,
+      "assembly": "test   %rax,%rax"
+    },
+    {
+      "address": "0x4133d7",
+      "offset": 3015,
+      "period": 0,
+      "assembly": "je     4133f0 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0xbe0>"
+    },
+    {
+      "address": "0x4133d9",
+      "offset": 3017,
+      "period": 0,
+      "assembly": "cmpb   $0x0,0x1e10(%rbx)"
+    },
+    {
+      "address": "0x4133e0",
+      "offset": 3024,
+      "period": 0,
+      "assembly": "jne    4133f0 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0xbe0>"
+    },
+    {
+      "address": "0x4133e2",
+      "offset": 3026,
+      "period": 0,
+      "assembly": "cmpb   $0x0,0x228(%rbx)"
+    },
+    {
+      "address": "0x4133e9",
+      "offset": 3033,
+      "period": 0,
+      "assembly": "je     4136cd <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0xebd>"
+    },
+    {
+      "address": "0x4133ef",
+      "offset": 3039,
+      "period": 0,
+      "assembly": "nop"
+    },
+    {
+      "address": "0x4133f0",
+      "offset": 3040,
+      "period": 56891716,
+      "assembly": "mov    0x1d70(%rbx),%rdx"
+    },
+    {
+      "address": "0x4133f7",
+      "offset": 3047,
+      "period": 0,
+      "assembly": "mov    0x1d78(%rbx),%rax"
+    },
+    {
+      "address": "0x4133fe",
+      "offset": 3054,
+      "period": 0,
+      "assembly": "subl   $0x1,0x11c(%rbx)"
+    },
+    {
+      "address": "0x413405",
+      "offset": 3061,
+      "period": 75798572,
+      "assembly": "sub    %rdx,%rax"
+    },
+    {
+      "address": "0x413408",
+      "offset": 3064,
+      "period": 0,
+      "assembly": "cmp    %rax,%rsi"
+    },
+    {
+      "address": "0x41340b",
+      "offset": 3067,
+      "period": 18947863,
+      "assembly": "jae    4134c5 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0xcb5>"
+    },
+    {
+      "address": "0x413411",
+      "offset": 3073,
+      "period": 0,
+      "assembly": "cmpb   $0x0,(%rdx,%rsi,1)"
+    },
+    {
+      "address": "0x413415",
+      "offset": 3077,
+      "period": 94832738,
+      "assembly": "je     4134c5 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0xcb5>"
+    },
+    {
+      "address": "0x41341b",
+      "offset": 3083,
+      "period": 0,
+      "assembly": "add    $0x2,%r14"
+    },
+    {
+      "address": "0x41341f",
+      "offset": 3087,
+      "period": 0,
+      "assembly": "mov    %r10,%rdx"
+    },
+    {
+      "address": "0x413422",
+      "offset": 3090,
+      "period": 0,
+      "assembly": "mov    %rcx,%rbp"
+    },
+    {
+      "address": "0x413425",
+      "offset": 3093,
+      "period": 0,
+      "assembly": "jmpq   412a0e <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x1fe>"
+    },
+    {
+      "address": "0x41342a",
+      "offset": 3098,
+      "period": 0,
+      "assembly": "nopw   0x0(%rax,%rax,1)"
+    },
+    {
+      "address": "0x413430",
+      "offset": 3104,
+      "period": 0,
+      "assembly": "movb   $0x1,0x2d9(%rbx)"
+    },
+    {
+      "address": "0x413437",
+      "offset": 3111,
+      "period": 0,
+      "assembly": "mov    %r10,%r13"
+    },
+    {
+      "address": "0x41343a",
+      "offset": 3114,
+      "period": 0,
+      "assembly": "mov    0x30(%rsp),%r14"
+    },
+    {
+      "address": "0x41343f",
+      "offset": 3119,
+      "period": 0,
+      "assembly": "mov    0x38(%rsp),%r12"
+    },
+    {
+      "address": "0x413444",
+      "offset": 3124,
+      "period": 0,
+      "assembly": "mov    %r15d,0x2dc(%rbx)"
+    },
+    {
+      "address": "0x41344b",
+      "offset": 3131,
+      "period": 0,
+      "assembly": "mov    0x40(%rsp),%r10"
+    },
+    {
+      "address": "0x413450",
+      "offset": 3136,
+      "period": 0,
+      "assembly": "mov    0x180(%rbx),%rdi"
+    },
+    {
+      "address": "0x413457",
+      "offset": 3143,
+      "period": 0,
+      "assembly": "mov    %r9,0x10(%rsp)"
+    },
+    {
+      "address": "0x41345c",
+      "offset": 3148,
+      "period": 0,
+      "assembly": "mov    %r11,%r9"
+    },
+    {
+      "address": "0x41345f",
+      "offset": 3151,
+      "period": 0,
+      "assembly": "mov    %rdi,%r15"
+    },
+    {
+      "address": "0x413462",
+      "offset": 3154,
+      "period": 0,
+      "assembly": "lea    (%rdi,%r14,1),%rax"
+    },
+    {
+      "address": "0x413466",
+      "offset": 3158,
+      "period": 0,
+      "assembly": "cmp    %r9,%r13"
+    },
+    {
+      "address": "0x413469",
+      "offset": 3161,
+      "period": 0,
+      "assembly": "je     413716 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0xf06>"
+    },
+    {
+      "address": "0x41346f",
+      "offset": 3167,
+      "period": 0,
+      "assembly": "mov    %r9,%rsi"
+    },
+    {
+      "address": "0x413472",
+      "offset": 3170,
+      "period": 0,
+      "assembly": "sub    %r13,%rsi"
+    },
+    {
+      "address": "0x413475",
+      "offset": 3173,
+      "period": 0,
+      "assembly": "lea    -0x4(%rsi),%rdi"
+    },
+    {
+      "address": "0x413479",
+      "offset": 3177,
+      "period": 0,
+      "assembly": "cmp    $0x8,%rdi"
+    },
+    {
+      "address": "0x41347d",
+      "offset": 3181,
+      "period": 0,
+      "assembly": "jbe    413560 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0xd50>"
+    },
+    {
+      "address": "0x413483",
+      "offset": 3187,
+      "period": 0,
+      "assembly": "lea    0x4(%r13),%rdx"
+    },
+    {
+      "address": "0x413487",
+      "offset": 3191,
+      "period": 0,
+      "assembly": "mov    %rcx,%r8"
+    },
+    {
+      "address": "0x41348a",
+      "offset": 3194,
+      "period": 0,
+      "assembly": "sub    %rdx,%r8"
+    },
+    {
+      "address": "0x41348d",
+      "offset": 3197,
+      "period": 0,
+      "assembly": "xor    %edx,%edx"
+    },
+    {
+      "address": "0x41348f",
+      "offset": 3199,
+      "period": 0,
+      "assembly": "cmp    $0x8,%r8"
+    },
+    {
+      "address": "0x413493",
+      "offset": 3203,
+      "period": 0,
+      "assembly": "ja     4134e0 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0xcd0>"
+    },
+    {
+      "address": "0x413495",
+      "offset": 3205,
+      "period": 0,
+      "assembly": "nopl   (%rax)"
+    },
+    {
+      "address": "0x413498",
+      "offset": 3208,
+      "period": 0,
+      "assembly": "mov    0x0(%r13,%rdx,1),%edi"
+    },
+    {
+      "address": "0x41349d",
+      "offset": 3213,
+      "period": 18765805,
+      "assembly": "mov    %edi,(%rcx,%rdx,1)"
+    },
+    {
+      "address": "0x4134a0",
+      "offset": 3216,
+      "period": 0,
+      "assembly": "add    $0x4,%rdx"
+    },
+    {
+      "address": "0x4134a4",
+      "offset": 3220,
+      "period": 0,
+      "assembly": "cmp    %rsi,%rdx"
+    },
+    {
+      "address": "0x4134a7",
+      "offset": 3223,
+      "period": 0,
+      "assembly": "jne    413498 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0xc88>"
+    },
+    {
+      "address": "0x4134a9",
+      "offset": 3225,
+      "period": 0,
+      "assembly": "add    %rcx,%rsi"
+    },
+    {
+      "address": "0x4134ac",
+      "offset": 3228,
+      "period": 0,
+      "assembly": "mov    0x4(%rax),%edx"
+    },
+    {
+      "address": "0x4134af",
+      "offset": 3231,
+      "period": 0,
+      "assembly": "mov    $0x1,%r14d"
+    },
+    {
+      "address": "0x4134b5",
+      "offset": 3237,
+      "period": 0,
+      "assembly": "sub    %r12,%rsi"
+    },
+    {
+      "address": "0x4134b8",
+      "offset": 3240,
+      "period": 0,
+      "assembly": "sar    $0x2,%rsi"
+    },
+    {
+      "address": "0x4134bc",
+      "offset": 3244,
+      "period": 0,
+      "assembly": "mov    %esi,%edi"
+    },
+    {
+      "address": "0x4134be",
+      "offset": 3246,
+      "period": 0,
+      "assembly": "sub    %esi,%edx"
+    },
+    {
+      "address": "0x4134c0",
+      "offset": 3248,
+      "period": 0,
+      "assembly": "jmpq   412ae8 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x2d8>"
+    },
+    {
+      "address": "0x4134c5",
+      "offset": 3253,
+      "period": 0,
+      "assembly": "subl   $0x1,0x120(%rbx)"
+    },
+    {
+      "address": "0x4134cc",
+      "offset": 3260,
+      "period": 74963802,
+      "assembly": "add    $0x2,%r14"
+    },
+    {
+      "address": "0x4134d0",
+      "offset": 3264,
+      "period": 0,
+      "assembly": "mov    %r10,%rdx"
+    },
+    {
+      "address": "0x4134d3",
+      "offset": 3267,
+      "period": 0,
+      "assembly": "mov    %rcx,%rbp"
+    },
+    {
+      "address": "0x4134d6",
+      "offset": 3270,
+      "period": 0,
+      "assembly": "jmpq   412a0e <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x1fe>"
+    },
+    {
+      "address": "0x4134db",
+      "offset": 3275,
+      "period": 0,
+      "assembly": "nopl   0x0(%rax,%rax,1)"
+    },
+    {
+      "address": "0x4134e0",
+      "offset": 3280,
+      "period": 0,
+      "assembly": "shr    $0x2,%rdi"
+    },
+    {
+      "address": "0x4134e4",
+      "offset": 3284,
+      "period": 0,
+      "assembly": "lea    0x1(%rdi),%r8"
+    },
+    {
+      "address": "0x4134e8",
+      "offset": 3288,
+      "period": 0,
+      "assembly": "mov    %r8,%rdi"
+    },
+    {
+      "address": "0x4134eb",
+      "offset": 3291,
+      "period": 0,
+      "assembly": "shr    $0x2,%rdi"
+    },
+    {
+      "address": "0x4134ef",
+      "offset": 3295,
+      "period": 0,
+      "assembly": "shl    $0x4,%rdi"
+    },
+    {
+      "address": "0x4134f3",
+      "offset": 3299,
+      "period": 0,
+      "assembly": "nopl   0x0(%rax,%rax,1)"
+    },
+    {
+      "address": "0x4134f8",
+      "offset": 3304,
+      "period": 0,
+      "assembly": "movdqu 0x0(%r13,%rdx,1),%xmm3"
+    },
+    {
+      "address": "0x4134ff",
+      "offset": 3311,
+      "period": 0,
+      "assembly": "movups %xmm3,(%rcx,%rdx,1)"
+    },
+    {
+      "address": "0x413503",
+      "offset": 3315,
+      "period": 0,
+      "assembly": "add    $0x10,%rdx"
+    },
+    {
+      "address": "0x413507",
+      "offset": 3319,
+      "period": 0,
+      "assembly": "cmp    %rdi,%rdx"
+    },
+    {
+      "address": "0x41350a",
+      "offset": 3322,
+      "period": 0,
+      "assembly": "jne    4134f8 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0xce8>"
+    },
+    {
+      "address": "0x41350c",
+      "offset": 3324,
+      "period": 0,
+      "assembly": "mov    %r8,%rdx"
+    },
+    {
+      "address": "0x41350f",
+      "offset": 3327,
+      "period": 0,
+      "assembly": "and    $0xfffffffffffffffc,%rdx"
+    },
+    {
+      "address": "0x413513",
+      "offset": 3331,
+      "period": 0,
+      "assembly": "shl    $0x2,%rdx"
+    },
+    {
+      "address": "0x413517",
+      "offset": 3335,
+      "period": 0,
+      "assembly": "lea    (%rcx,%rdx,1),%rdi"
+    },
+    {
+      "address": "0x41351b",
+      "offset": 3339,
+      "period": 0,
+      "assembly": "add    %r13,%rdx"
+    },
+    {
+      "address": "0x41351e",
+      "offset": 3342,
+      "period": 0,
+      "assembly": "and    $0x3,%r8d"
+    },
+    {
+      "address": "0x413522",
+      "offset": 3346,
+      "period": 0,
+      "assembly": "je     4134a9 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0xc99>"
+    },
+    {
+      "address": "0x413524",
+      "offset": 3348,
+      "period": 0,
+      "assembly": "mov    (%rdx),%r8d"
+    },
+    {
+      "address": "0x413527",
+      "offset": 3351,
+      "period": 18971639,
+      "assembly": "mov    %r8d,(%rdi)"
+    },
+    {
+      "address": "0x41352a",
+      "offset": 3354,
+      "period": 0,
+      "assembly": "lea    0x4(%rdx),%r8"
+    },
+    {
+      "address": "0x41352e",
+      "offset": 3358,
+      "period": 0,
+      "assembly": "cmp    %r8,%r9"
+    },
+    {
+      "address": "0x413531",
+      "offset": 3361,
+      "period": 0,
+      "assembly": "je     4134a9 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0xc99>"
+    },
+    {
+      "address": "0x413537",
+      "offset": 3367,
+      "period": 0,
+      "assembly": "mov    0x4(%rdx),%r8d"
+    },
+    {
+      "address": "0x41353b",
+      "offset": 3371,
+      "period": 0,
+      "assembly": "mov    %r8d,0x4(%rdi)"
+    },
+    {
+      "address": "0x41353f",
+      "offset": 3375,
+      "period": 0,
+      "assembly": "lea    0x8(%rdx),%r8"
+    },
+    {
+      "address": "0x413543",
+      "offset": 3379,
+      "period": 0,
+      "assembly": "cmp    %r8,%r9"
+    },
+    {
+      "address": "0x413546",
+      "offset": 3382,
+      "period": 0,
+      "assembly": "je     4134a9 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0xc99>"
+    },
+    {
+      "address": "0x41354c",
+      "offset": 3388,
+      "period": 0,
+      "assembly": "mov    0x8(%rdx),%edx"
+    },
+    {
+      "address": "0x41354f",
+      "offset": 3391,
+      "period": 0,
+      "assembly": "mov    %edx,0x8(%rdi)"
+    },
+    {
+      "address": "0x413552",
+      "offset": 3394,
+      "period": 0,
+      "assembly": "jmpq   4134a9 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0xc99>"
+    },
+    {
+      "address": "0x413557",
+      "offset": 3399,
+      "period": 0,
+      "assembly": "nopw   0x0(%rax,%rax,1)"
+    },
+    {
+      "address": "0x413560",
+      "offset": 3408,
+      "period": 0,
+      "assembly": "xor    %edx,%edx"
+    },
+    {
+      "address": "0x413562",
+      "offset": 3410,
+      "period": 0,
+      "assembly": "jmpq   413498 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0xc88>"
+    },
+    {
+      "address": "0x413567",
+      "offset": 3415,
+      "period": 0,
+      "assembly": "nopw   0x0(%rax,%rax,1)"
+    },
+    {
+      "address": "0x413570",
+      "offset": 3424,
+      "period": 0,
+      "assembly": "mov    0x58(%rsp),%eax"
+    },
+    {
+      "address": "0x413574",
+      "offset": 3428,
+      "period": 0,
+      "assembly": "mov    %r14,%rsi"
+    },
+    {
+      "address": "0x413577",
+      "offset": 3431,
+      "period": 0,
+      "assembly": "mov    %ecx,0x2e4(%rbx)"
+    },
+    {
+      "address": "0x41357d",
+      "offset": 3437,
+      "period": 0,
+      "assembly": "mov    %r10,%rdi"
+    },
+    {
+      "address": "0x413580",
+      "offset": 3440,
+      "period": 0,
+      "assembly": "movb   $0x1,0x2d9(%rbx)"
+    },
+    {
+      "address": "0x413587",
+      "offset": 3447,
+      "period": 0,
+      "assembly": "mov    %r11,%r9"
+    },
+    {
+      "address": "0x41358a",
+      "offset": 3450,
+      "period": 0,
+      "assembly": "mov    %rdx,%r13"
+    },
+    {
+      "address": "0x41358d",
+      "offset": 3453,
+      "period": 0,
+      "assembly": "mov    %rbp,%rcx"
+    },
+    {
+      "address": "0x413590",
+      "offset": 3456,
+      "period": 0,
+      "assembly": "mov    0x30(%rsp),%r14"
+    },
+    {
+      "address": "0x413595",
+      "offset": 3461,
+      "period": 0,
+      "assembly": "mov    0x38(%rsp),%r12"
+    },
+    {
+      "address": "0x41359a",
+      "offset": 3466,
+      "period": 0,
+      "assembly": "mov    %eax,0x2e0(%rbx)"
+    },
+    {
+      "address": "0x4135a0",
+      "offset": 3472,
+      "period": 0,
+      "assembly": "movl   $0xffffffff,0x2dc(%rbx)"
+    },
+    {
+      "address": "0x4135aa",
+      "offset": 3482,
+      "period": 0,
+      "assembly": "mov    0x40(%rsp),%r10"
+    },
+    {
+      "address": "0x4135af",
+      "offset": 3487,
+      "period": 0,
+      "assembly": "mov    %rsi,0x10(%rsp)"
+    },
+    {
+      "address": "0x4135b4",
+      "offset": 3492,
+      "period": 0,
+      "assembly": "jmpq   41345f <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0xc4f>"
+    },
+    {
+      "address": "0x4135b9",
+      "offset": 3497,
+      "period": 0,
+      "assembly": "mov    $0x3,%esi"
+    },
+    {
+      "address": "0x4135be",
+      "offset": 3502,
+      "period": 0,
+      "assembly": "mov    %rcx,0x30(%rsp)"
+    },
+    {
+      "address": "0x4135c3",
+      "offset": 3507,
+      "period": 0,
+      "assembly": "mov    %r8,0x28(%rsp)"
+    },
+    {
+      "address": "0x4135c8",
+      "offset": 3512,
+      "period": 0,
+      "assembly": "mov    %rdi,0x18(%rsp)"
+    },
+    {
+      "address": "0x4135cd",
+      "offset": 3517,
+      "period": 0,
+      "assembly": "movd   %xmm0,0x20(%rsp)"
+    },
+    {
+      "address": "0x4135d3",
+      "offset": 3523,
+      "period": 0,
+      "assembly": "callq  425090 <std::vector<unsigned int, std::allocator<unsigned int> >::reserve(unsigned long)>"
+    },
+    {
+      "address": "0x4135d8",
+      "offset": 3528,
+      "period": 0,
+      "assembly": "mov    0x4(%r12),%edx"
+    },
+    {
+      "address": "0x4135dd",
+      "offset": 3533,
+      "period": 0,
+      "assembly": "mov    0x30(%rsp),%rcx"
+    },
+    {
+      "address": "0x4135e2",
+      "offset": 3538,
+      "period": 0,
+      "assembly": "mov    0x168(%rbx),%r11"
+    },
+    {
+      "address": "0x4135e9",
+      "offset": 3545,
+      "period": 0,
+      "assembly": "mov    0x178(%rbx),%r9"
+    },
+    {
+      "address": "0x4135f0",
+      "offset": 3552,
+      "period": 0,
+      "assembly": "mov    0x28(%rsp),%r8"
+    },
+    {
+      "address": "0x4135f5",
+      "offset": 3557,
+      "period": 0,
+      "assembly": "movd   0x20(%rsp),%xmm0"
+    },
+    {
+      "address": "0x4135fb",
+      "offset": 3563,
+      "period": 0,
+      "assembly": "mov    0x18(%rsp),%rdi"
+    },
+    {
+      "address": "0x413600",
+      "offset": 3568,
+      "period": 0,
+      "assembly": "jmpq   41302f <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x81f>"
+    },
+    {
+      "address": "0x413605",
+      "offset": 3573,
+      "period": 0,
+      "assembly": "mov    $0x3,%esi"
+    },
+    {
+      "address": "0x41360a",
+      "offset": 3578,
+      "period": 0,
+      "assembly": "mov    %rcx,0x38(%rsp)"
+    },
+    {
+      "address": "0x41360f",
+      "offset": 3583,
+      "period": 0,
+      "assembly": "mov    %rax,0x30(%rsp)"
+    },
+    {
+      "address": "0x413614",
+      "offset": 3588,
+      "period": 0,
+      "assembly": "mov    %r8,0x28(%rsp)"
+    },
+    {
+      "address": "0x413619",
+      "offset": 3593,
+      "period": 0,
+      "assembly": "mov    %rdi,0x18(%rsp)"
+    },
+    {
+      "address": "0x41361e",
+      "offset": 3598,
+      "period": 0,
+      "assembly": "movd   %xmm0,0x20(%rsp)"
+    },
+    {
+      "address": "0x413624",
+      "offset": 3604,
+      "period": 0,
+      "assembly": "callq  425090 <std::vector<unsigned int, std::allocator<unsigned int> >::reserve(unsigned long)>"
+    },
+    {
+      "address": "0x413629",
+      "offset": 3609,
+      "period": 0,
+      "assembly": "mov    0x30(%rsp),%rax"
+    },
+    {
+      "address": "0x41362e",
+      "offset": 3614,
+      "period": 0,
+      "assembly": "mov    0x38(%rsp),%rcx"
+    },
+    {
+      "address": "0x413633",
+      "offset": 3619,
+      "period": 0,
+      "assembly": "mov    0x168(%rbx),%r11"
+    },
+    {
+      "address": "0x41363a",
+      "offset": 3626,
+      "period": 0,
+      "assembly": "mov    0x178(%rbx),%r10"
+    },
+    {
+      "address": "0x413641",
+      "offset": 3633,
+      "period": 0,
+      "assembly": "mov    0x4(%rax),%r9d"
+    },
+    {
+      "address": "0x413645",
+      "offset": 3637,
+      "period": 0,
+      "assembly": "mov    0x28(%rsp),%r8"
+    },
+    {
+      "address": "0x41364a",
+      "offset": 3642,
+      "period": 0,
+      "assembly": "movd   0x20(%rsp),%xmm0"
+    },
+    {
+      "address": "0x413650",
+      "offset": 3648,
+      "period": 0,
+      "assembly": "mov    0x18(%rsp),%rdi"
+    },
+    {
+      "address": "0x413655",
+      "offset": 3653,
+      "period": 0,
+      "assembly": "jmpq   412ea7 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x697>"
+    },
+    {
+      "address": "0x41365a",
+      "offset": 3658,
+      "period": 0,
+      "assembly": "lea    0x1c(%rdx),%rax"
+    },
+    {
+      "address": "0x41365e",
+      "offset": 3662,
+      "period": 0,
+      "assembly": "mov    %r13,%r8"
+    },
+    {
+      "address": "0x413661",
+      "offset": 3665,
+      "period": 0,
+      "assembly": "cmp    %rax,0x50(%rsp)"
+    },
+    {
+      "address": "0x413666",
+      "offset": 3670,
+      "period": 0,
+      "assembly": "jne    4131c5 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x9b5>"
+    },
+    {
+      "address": "0x41366c",
+      "offset": 3676,
+      "period": 0,
+      "assembly": "jmpq   412c6a <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x45a>"
+    },
+    {
+      "address": "0x413671",
+      "offset": 3681,
+      "period": 0,
+      "assembly": "nopl   0x0(%rax)"
+    },
+    {
+      "address": "0x413678",
+      "offset": 3688,
+      "period": 0,
+      "assembly": "mov    (%rdx),%edi"
+    },
+    {
+      "address": "0x41367a",
+      "offset": 3690,
+      "period": 170698632,
+      "assembly": "mov    0x168(%rbx),%rdx"
+    },
+    {
+      "address": "0x413681",
+      "offset": 3697,
+      "period": 0,
+      "assembly": "prefetcht2 (%rdx,%rdi,4)"
+    },
+    {
+      "address": "0x413685",
+      "offset": 3701,
+      "period": 170647777,
+      "assembly": "jmpq   413360 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0xb50>"
+    },
+    {
+      "address": "0x41368a",
+      "offset": 3706,
+      "period": 0,
+      "assembly": "mov    %r15,%rax"
+    },
+    {
+      "address": "0x41368d",
+      "offset": 3709,
+      "period": 0,
+      "assembly": "jne    412ff4 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x7e4>"
+    },
+    {
+      "address": "0x413693",
+      "offset": 3715,
+      "period": 0,
+      "assembly": "mov    (%r10),%edx"
+    },
+    {
+      "address": "0x413696",
+      "offset": 3718,
+      "period": 0,
+      "assembly": "mov    %edx,(%rdi)"
+    },
+    {
+      "address": "0x413698",
+      "offset": 3720,
+      "period": 0,
+      "assembly": "mov    0x4(%r15),%r9d"
+    },
+    {
+      "address": "0x41369c",
+      "offset": 3724,
+      "period": 0,
+      "assembly": "jmpq   412ff4 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x7e4>"
+    },
+    {
+      "address": "0x4136a1",
+      "offset": 3729,
+      "period": 0,
+      "assembly": "mov    %r9,%rax"
+    },
+    {
+      "address": "0x4136a4",
+      "offset": 3732,
+      "period": 0,
+      "assembly": "jne    41318f <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x97f>"
+    },
+    {
+      "address": "0x4136aa",
+      "offset": 3738,
+      "period": 0,
+      "assembly": "mov    (%r10),%edx"
+    },
+    {
+      "address": "0x4136ad",
+      "offset": 3741,
+      "period": 0,
+      "assembly": "mov    %edx,(%rdi)"
+    },
+    {
+      "address": "0x4136af",
+      "offset": 3743,
+      "period": 0,
+      "assembly": "mov    0x4(%r9),%edx"
+    },
+    {
+      "address": "0x4136b3",
+      "offset": 3747,
+      "period": 0,
+      "assembly": "jmpq   41318f <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x97f>"
+    },
+    {
+      "address": "0x4136b8",
+      "offset": 3752,
+      "period": 0,
+      "assembly": "mov    (%r10),%r10d"
+    },
+    {
+      "address": "0x4136bb",
+      "offset": 3755,
+      "period": 189615039,
+      "assembly": "mov    0x168(%rbx),%r13"
+    },
+    {
+      "address": "0x4136c2",
+      "offset": 3762,
+      "period": 56879162,
+      "assembly": "prefetcht2 0x0(%r13,%r10,4)"
+    },
+    {
+      "address": "0x4136c8",
+      "offset": 3768,
+      "period": 341214783,
+      "assembly": "jmpq   412e10 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x600>"
+    },
+    {
+      "address": "0x4136cd",
+      "offset": 3773,
+      "period": 0,
+      "assembly": "movzbl 0x18(%rsp),%edx"
+    },
+    {
+      "address": "0x4136d2",
+      "offset": 3778,
+      "period": 0,
+      "assembly": "mov    (%rax),%rax"
+    },
+    {
+      "address": "0x4136d5",
+      "offset": 3781,
+      "period": 0,
+      "assembly": "and    $0x1,%edx"
+    },
+    {
+      "address": "0x4136d8",
+      "offset": 3784,
+      "period": 0,
+      "assembly": "cmp    $0x1,%dl"
+    },
+    {
+      "address": "0x4136db",
+      "offset": 3787,
+      "period": 0,
+      "assembly": "sbb    %edx,%edx"
+    },
+    {
+      "address": "0x4136dd",
+      "offset": 3789,
+      "period": 0,
+      "assembly": "and    $0x2,%edx"
+    },
+    {
+      "address": "0x4136e0",
+      "offset": 3792,
+      "period": 0,
+      "assembly": "sub    $0x1,%edx"
+    },
+    {
+      "address": "0x4136e3",
+      "offset": 3795,
+      "period": 0,
+      "assembly": "mov    %dl,(%rax,%rsi,1)"
+    },
+    {
+      "address": "0x4136e6",
+      "offset": 3798,
+      "period": 0,
+      "assembly": "jmpq   4133f0 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0xbe0>"
+    },
+    {
+      "address": "0x4136eb",
+      "offset": 3803,
+      "period": 0,
+      "assembly": "mov    %rdi,0x10(%rsp)"
+    },
+    {
+      "address": "0x4136f0",
+      "offset": 3808,
+      "period": 549921514,
+      "assembly": "xor    %r14d,%r14d"
+    },
+    {
+      "address": "0x4136f3",
+      "offset": 3811,
+      "period": 0,
+      "assembly": "xor    %edi,%edi"
+    },
+    {
+      "address": "0x4136f5",
+      "offset": 3813,
+      "period": 0,
+      "assembly": "jmpq   412ae8 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x2d8>"
+    },
+    {
+      "address": "0x4136fa",
+      "offset": 3818,
+      "period": 0,
+      "assembly": "mov    $0x3,%edx"
+    },
+    {
+      "address": "0x4136ff",
+      "offset": 3823,
+      "period": 0,
+      "assembly": "jmpq   41309c <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x88c>"
+    },
+    {
+      "address": "0x413704",
+      "offset": 3828,
+      "period": 0,
+      "assembly": "mov    $0x3,%edx"
+    },
+    {
+      "address": "0x413709",
+      "offset": 3833,
+      "period": 0,
+      "assembly": "jmpq   412f0c <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x6fc>"
+    },
+    {
+      "address": "0x41370e",
+      "offset": 3838,
+      "period": 0,
+      "assembly": "xor    %r9d,%r9d"
+    },
+    {
+      "address": "0x413711",
+      "offset": 3841,
+      "period": 0,
+      "assembly": "jmpq   41333e <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0xb2e>"
+    },
+    {
+      "address": "0x413716",
+      "offset": 3846,
+      "period": 0,
+      "assembly": "mov    0x10(%rsp),%rsi"
+    },
+    {
+      "address": "0x41371b",
+      "offset": 3851,
+      "period": 0,
+      "assembly": "mov    %rcx,%rbp"
+    },
+    {
+      "address": "0x41371e",
+      "offset": 3854,
+      "period": 0,
+      "assembly": "mov    $0x1,%r14d"
+    },
+    {
+      "address": "0x413724",
+      "offset": 3860,
+      "period": 0,
+      "assembly": "jmpq   412ad0 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x2c0>"
+    }
+  ],
+  "highest_sampled_instructions": [
+    {
+      "address": "0x412a60",
+      "offset": 592,
+      "period": 4770242039,
+      "assembly": "jne    412c98 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x488>"
+    },
+    {
+      "address": "0x412a27",
+      "offset": 535,
+      "period": 3100785360,
+      "assembly": "test   $0x1,%al"
+    },
+    {
+      "address": "0x412a19",
+      "offset": 521,
+      "period": 2761746018,
+      "assembly": "mov    %eax,%ecx"
+    },
+    {
+      "address": "0x412d0c",
+      "offset": 1276,
+      "period": 2568487058,
+      "assembly": "mov    %rsi,%r13"
+    },
+    {
+      "address": "0x41285f",
+      "offset": 79,
+      "period": 1946290937,
+      "assembly": "mov    0x4(%rax),%edx"
+    },
+    {
+      "address": "0x412b3a",
+      "offset": 810,
+      "period": 1642242426,
+      "assembly": "addl   $0x2,0x4(%r12)"
+    },
+    {
+      "address": "0x412a4d",
+      "offset": 573,
+      "period": 1362995769,
+      "assembly": "mov    %r15d,%edi"
+    },
+    {
+      "address": "0x412a82",
+      "offset": 626,
+      "period": 1341243747,
+      "assembly": "mov    %sil,0x20(%rsp)"
+    },
+    {
+      "address": "0x412dfc",
+      "offset": 1516,
+      "period": 1106858221,
+      "assembly": "addq   $0x1,0x18f0(%rbx)"
+    },
+    {
+      "address": "0x412d16",
+      "offset": 1286,
+      "period": 1041351600,
+      "assembly": "mov    %rax,%rcx"
+    },
+    {
+      "address": "0x412d07",
+      "offset": 1271,
+      "period": 1036463388,
+      "assembly": "cmpb   $0x0,(%r12,%rsi,1)"
+    },
+    {
+      "address": "0x412a33",
+      "offset": 547,
+      "period": 811350999,
+      "assembly": "lea    0x8(%rdx),%r10"
+    },
+    {
+      "address": "0x413357",
+      "offset": 2887,
+      "period": 794664372,
+      "assembly": "test   %r8d,%r8d"
+    },
+    {
+      "address": "0x412a11",
+      "offset": 513,
+      "period": 755919643,
+      "assembly": "je     412ab0 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x2a0>"
+    },
+    {
+      "address": "0x412b7f",
+      "offset": 879,
+      "period": 719445330,
+      "assembly": "mov    0x4(%r12),%edx"
+    },
+    {
+      "address": "0x412ab7",
+      "offset": 679,
+      "period": 680471032,
+      "assembly": "mov    %r14,%rsi"
+    },
+    {
+      "address": "0x412cfc",
+      "offset": 1260,
+      "period": 661726381,
+      "assembly": "cmp    %rax,%r8"
+    },
+    {
+      "address": "0x412c6f",
+      "offset": 1119,
+      "period": 640941548,
+      "assembly": "mov    0x5c(%rsp),%eax"
+    },
+    {
+      "address": "0x412c8b",
+      "offset": 1147,
+      "period": 623939573,
+      "assembly": "mov    %rcx,%rbp"
+    },
+    {
+      "address": "0x4136f0",
+      "offset": 3808,
+      "period": 549921514,
+      "assembly": "xor    %r14d,%r14d"
+    },
+    {
+      "address": "0x412df3",
+      "offset": 1507,
+      "period": 549606762,
+      "assembly": "mov    0x10(%rsp),%rdi"
+    },
+    {
+      "address": "0x412a42",
+      "offset": 562,
+      "period": 548374030,
+      "assembly": "jg     412c88 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)+0x478>"
+    },
+    {
+      "address": "0x413325",
+      "offset": 2837,
+      "period": 530976356,
+      "assembly": "cmp    %eax,%r8d"
+    },
+    {
+      "address": "0x412a22",
+      "offset": 530,
+      "period": 492789580,
+      "assembly": "movzbl (%r12,%rsi,1),%edi"
+    },
+    {
+      "address": "0x412c3e",
+      "offset": 1070,
+      "period": 472662824,
+      "assembly": "add    %rax,(%r10)"
+    }
+  ],
+  "temporary_expansions_deleted_bytes": 557169956,
+  "test_consideration": "Existing strict perf_annotation tests cover sampled-period framing/order and exact range boundaries. Every actual instruction address equals the independent objdump inventory. No parser or solver edit.",
+  "limitation": "Existing checked current6730 Rank32 samples only, private propagation under Vivify. No source change or speedup claim. Instruction skid/sampling apply; samples select source regions, not removable-cost ceilings, native unit prices or predicted gains. Raw annotations retained locally/hash-bound, never rewritten to satisfy whitespace checks."
+}
