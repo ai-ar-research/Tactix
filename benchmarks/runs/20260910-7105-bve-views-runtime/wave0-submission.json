@@ -1,0 +1,21 @@
+{
+  "job_id": "1679910",
+  "tasks": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--array=0-5",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-7105-bve-views-runtime/array.sbatch"
+  ],
+  "accounting_since": "2026-09-10T14:15:53",
+  "manifest_sha256": "b356d1a4677199e80b776fd10178b39363e29a09f257ef8e502ff9f8205ae6d9",
+  "helper_sha256": "4acdd33a6e276f7716c61d269ecd27e774752436b9c73d0ccc9b6031065f2d98",
+  "preceding_records": {}
+}

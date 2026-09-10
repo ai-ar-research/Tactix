@@ -63,6 +63,26 @@ class PairedCostTests(unittest.TestCase):
         self.assertEqual(result[39]['paired']['Vivify_ms']['median'],1)
         self.assertEqual(result[39]['waves'][1]['applications'],{'Vivify':4})
 
+    def test_three_rank_bve_matrix(self):
+        rows = []
+        for wave in range(3):
+            for rank in (31, 35, 38):
+                arms = ('previous', 'candidate') if wave == 1 else ('candidate', 'previous')
+                for arm in arms:
+                    row = copy.deepcopy(self.rows()[0])
+                    row.update(task=len(rows), rank=rank, arm=arm)
+                    row['solver_statistics'] = [s.replace('Vivify', 'BVE')
+                                                for s in row['solver_statistics']]
+                    row['solve']['wall_seconds'] = 10 + wave + (arm == 'candidate')
+                    rows.append(row)
+        result = paired_costs(rows, (31, 35, 38), 3, ('BVE',))
+        self.assertEqual(len(rows), 18)
+        self.assertEqual(set(result), {31, 35, 38})
+        for rank in result:
+            self.assertEqual(result[rank]['paired']['wall_seconds']['median'], 12/11)
+            self.assertEqual(result[rank]['paired']['BVE_ms']['median'], 1)
+            self.assertEqual(result[rank]['waves'][1]['applications'], {'BVE': 4})
+
     def test_missing_duplicate_and_out_of_range_task(self):
         rows = self.rows()
         for bad in (rows[:-1],rows+[rows[0]]):
