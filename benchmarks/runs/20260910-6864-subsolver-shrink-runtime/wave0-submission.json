@@ -1,0 +1,20 @@
+{
+  "job_id": "1679108",
+  "tasks": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--array=0-5",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6864-subsolver-shrink-runtime/array.sbatch"
+  ],
+  "accounting_since": "2026-09-10T01:56:58",
+  "manifest_sha256": "88a93911c50647710ef121ff56bd5f1ff75306bed8cf9c6ba28af7b12717faf2",
+  "preceding_records": {}
+}

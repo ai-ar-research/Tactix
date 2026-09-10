@@ -53,6 +53,32 @@ class AccountingTests(unittest.TestCase):
         with patch.object(wait, 'output', side_effect=['', '', '', row(0, 'RUNNING'), '', row(0)]), patch.object(wait.time, 'sleep') as sleep:
             self.assertEqual(wait.wait_for_job('123', 30), 'COMPLETED')
         self.assertEqual(sleep.call_count, 2)
+    def test_purged_queue_job_requires_terminal_accounting(self):
+        error = subprocess.CalledProcessError(1, ['squeue'], output='',
+            stderr='slurm_load_jobs error: Invalid job id specified\n')
+        with patch.object(wait, 'output', side_effect=[error, row(0, 'FAILED', exit_code='2:0')]) as output, patch.object(wait.time, 'sleep') as sleep:
+            self.assertEqual(wait.wait_for_job('123', 30, NOW), 'FAILED')
+        self.assertEqual(output.call_args_list[1].args[0], 'sacct')
+        self.assertIn(NOW, output.call_args_list[1].args)
+        sleep.assert_not_called()
+    def test_purged_queue_job_with_missing_accounting_keeps_waiting(self):
+        error = subprocess.CalledProcessError(1, ['squeue'], output='',
+            stderr='slurm_load_jobs error: Invalid job id specified')
+        with patch.object(wait, 'output', side_effect=[error, '', error, row(0)]), patch.object(wait.time, 'sleep') as sleep:
+            self.assertEqual(wait.wait_for_job('123', 30, NOW), 'COMPLETED')
+        sleep.assert_called_once_with(30)
+    def test_other_queue_errors_do_not_fall_through(self):
+        for code, stdout, stderr in (
+            (2, '', 'slurm_load_jobs error: Invalid job id specified'),
+            (1, '123_0', 'slurm_load_jobs error: Invalid job id specified'),
+            (1, '', 'Socket timed out'),
+            (1, '', 'slurm_load_jobs error: Invalid job id specified\nSocket timed out'),
+        ):
+            error = subprocess.CalledProcessError(code, ['squeue'], output=stdout, stderr=stderr)
+            with self.subTest(code=code, stdout=stdout, stderr=stderr), patch.object(wait, 'output', side_effect=[error, '', row(0)]) as output, patch.object(wait.time, 'sleep') as sleep:
+                self.assertEqual(wait.wait_for_job('123', 30, NOW), 'COMPLETED')
+                self.assertEqual(output.call_args_list[0], output.call_args_list[1])
+                sleep.assert_called_once_with(30)
 
 if __name__ == '__main__':
     unittest.main()

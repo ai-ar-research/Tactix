@@ -1,0 +1,19 @@
+{
+  "command": [
+    "/cm/local/apps/gcc/13.1.0/bin/c++",
+    "-std=c++20",
+    "-O3",
+    "-DNDEBUG",
+    "-fno-exceptions",
+    "-fno-rtti",
+    "-I/home/hwu/SAT-solving/.claude/worktrees/runtime-subsolver-binary-6869/src",
+    "-I/home/hwu/SAT-solving/.claude/worktrees/runtime-subsolver-binary-6869/include",
+    "-c",
+    "/home/hwu/SAT-solving/.claude/worktrees/runtime-subsolver-binary-6869/src/engine/subsolver.cpp",
+    "-o",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6869-subsolver-binary-build/candidate-subsolver.o"
+  ],
+  "exit_code": 0,
+  "stdout": "",
+  "stderr": ""
+}

@@ -1,0 +1,8 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6869-subsolver-binary-build/previous-test_subsolver"
+  ],
+  "exit_code": 0,
+  "stdout": "  brute force: 100000 iterations, 34428 SAT / 65572 UNSAT, 33300 with assumptions\n  fixed derivations: 20688 refutations checked (5683 over assumptions, 15005 empty), 2.7 steps / 11.1 core clauses each, 11913 multi-step (max 44)\n  Kitten derivations: 8281 refutations checked (2287 over assumptions, 5994 empty), 5.1 steps / 10.9 core clauses each, 5863 multi-step (max 45)\ntest_subsolver: all passed\n",
+  "stderr": ""
+}

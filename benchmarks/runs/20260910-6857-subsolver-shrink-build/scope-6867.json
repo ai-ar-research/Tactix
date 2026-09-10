@@ -1,0 +1,40 @@
+{
+  "hashes": {
+    "benchmarks/probes/scratch/verify-subsolver-shrink-scope-6867.py": "28cc5fe194658d184ea527711b2d21517154984ba89a0333f79879b0bf26d440",
+    "benchmarks/runs/20260910-6857-subsolver-shrink-build/manifest.json": "7a6ad4826a471d5d3774cd26a12e91e6954b27b3a7a05587b5c330d44fc50605",
+    "benchmarks/runs/20260910-6857-subsolver-shrink-build/control-6858.json": "55ce873c2b0052118174700677e703e091283fce27398e6c4f5e3e4ed48d77de",
+    "benchmarks/runs/20260910-6856-subsolver-propagation-annotation/summary.json": "965fd8eab381cdc7b8f1e4b6bbd8a98140c84a72aebfe77a97b164cba6403277",
+    "benchmarks/runs/20260910-6815-inprocessing-release-profiles/profiles/002-self.txt": "7945df088bd6c4cebe66b95c655c5b36a0b8fd6b9e291d66e9b7dfcf5a8bd504",
+    ".claude/worktrees/runtime-subsolver-shrink-6857/src/engine/subsolver.cpp": "3c45c5667cea4f41e64fa633fd9149a244ec9b3a86aafe1343999f4299e0a889",
+    ".claude/worktrees/runtime-reduce-watermark-6730/src/engine/subsolver.cpp": "e01292af168a60b558ea85850e1f02a335a22bc12f560e92b4c511374ca3f791",
+    ".claude/worktrees/runtime-subsolver-shrink-6857/src/engine/subsolver.hpp": "8418dd6a8e98b4dbe40c02aca5b69abfe625c221efd377b6b66bdd5edf3e472c",
+    "tools/solvers/variants/kissat-macro-heap-6090/src/kitten.c": "ae87a727211e37569ac42b61d8cc8b699d3eefe8092695a30004bc21f0dc4e73",
+    "tools/solvers/variants/cadical-extdiag/src/kitten.c": "bc9b841dbc14d2bf321a7da677a245b83934af7c8fbbe811876966cb9c9e1be0"
+  },
+  "changed": [
+    "src/engine/subsolver.cpp",
+    "tests/test_subsolver_shrink.cpp"
+  ],
+  "compiled": {
+    "previous": {
+      "address": "0x00000000004e8c80",
+      "bytes": 2130,
+      "binary_sha256": "7b0a7666b28644422d6cc4b3a648a677b6745bd8a7ffb9c27c6d3e5660725132"
+    },
+    "candidate": {
+      "address": "0x00000000004e8d60",
+      "bytes": 1224,
+      "binary_sha256": "c23fd78ccfb7d5658889be263cabd910e6d1e29ac2b4b16d6c111f028d12adb8"
+    }
+  },
+  "sampled_success_exit": {
+    "begin": "0x4e8e02",
+    "end": "0x4e8e38",
+    "period": 5763565748,
+    "percent_function": 4.777581848422421,
+    "percent_program": 0.35536142972872237
+  },
+  "scope": "j never exceeds n: each visited watch contributes at most one survivor; conflict copies only the remaining suffix. Erasing[j,end) preserves capacity/order and is empty when nothing moved. SubWatch is trivial. Both exits change; all assignment/proof/counter/budget/propagation order and source outside these statements remains exact. No private representation/API/header change.",
+  "reference": "Kissat and CaDiCaL compact with read/write pointers and publish the final watch end directly. Both retain unread suffix on conflict. This matches that shrink-only operation with the existing std::vector representation; no change to embedded binary tagging or reference width.",
+  "limitation": "Sampled exit region includes useful list bookkeeping and is only about0.355% of program periods; not removable-cost ceiling or predicted savings. Code-size reduction is not measured speedup. Native work differs on39. Keep exact-work B/C and three paired timing waves;current-source fuzz/memory/full50 acceptance open."
+}

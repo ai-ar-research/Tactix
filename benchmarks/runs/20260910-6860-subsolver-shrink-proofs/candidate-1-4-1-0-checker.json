@@ -1,0 +1,16 @@
+{
+  "name": "candidate-1-4-1-0",
+  "command": [
+    "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6860-subsolver-shrink-proofs/candidate-1-4-1-0.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6860-subsolver-shrink-proofs/candidate-1-4-1-0.proof"
+  ],
+  "returncode": 0,
+  "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+  "stdout": "\nc parsing input formula with 5 variables and 11 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 7 of 11 clauses in core                            \n\nc 2 of 10 lemmas in core using 11 resolution steps\n\nc 0 RAT lemmas in core; 2 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.044 seconds\n",
+  "stderr": "",
+  "fixture_stdout": "roots=1 position=4 strip=1 lrat=0 general=1 false=32 stripped=32 bridge=17\n",
+  "input_sha256": "04b4e009546f6bf9df7002ca6e6dd500ce5e27766319d7adcf83338b17632bb8",
+  "proof_sha256": "bcbc25c52bd0f704af264a8516b675a5afe601d7d0745ea5325ff46378deca1e",
+  "proof_bytes": 191
+}
