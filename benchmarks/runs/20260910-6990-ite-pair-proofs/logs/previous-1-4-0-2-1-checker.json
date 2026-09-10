@@ -1,0 +1,10 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/tools/checkers/bin/cake_lpr",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6990-ite-pair-proofs/previous-1-4-0-2-1.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6990-ite-pair-proofs/previous-1-4-0-2-1.proof"
+  ],
+  "returncode": 0,
+  "stdout": "s VERIFIED UNSAT\n",
+  "stderr": ""
+}

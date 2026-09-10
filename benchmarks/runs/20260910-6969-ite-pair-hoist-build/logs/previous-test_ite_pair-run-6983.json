@@ -1,0 +1,8 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6969-ite-pair-hoist-build/previous-test_ite_pair-6983"
+  ],
+  "exit_code": -6,
+  "stdout": "",
+  "stderr": "previous-test_ite_pair-6983: /home/hwu/SAT-solving/.claude/worktrees/runtime-ite-pair-hoist-6969/tests/test_ite_pair.cpp:75: void exercise(unsigned int, unsigned int, unsigned int, bool, unsigned int): Assertion `found == (mask == 15 && count <= 64 ? count : 0)' failed.\n"
+}

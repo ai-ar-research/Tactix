@@ -1,0 +1,8 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6969-ite-pair-hoist-build/candidate-budget-6988"
+  ],
+  "exit_code": 0,
+  "stdout": "PASS 448 ITE budget/index cases digest=3b02f64fd29a9493\n",
+  "stderr": ""
+}
