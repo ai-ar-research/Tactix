@@ -1,0 +1,2544 @@
+{
+  "hashes": {
+    "benchmarks/runs/20260910-7125-bve-import-runtime/solver-checkpoint-7127.json": "f137041693c5227fb9c9ccf4dbc74543374238acf8040b4ac657526f50b5d63c",
+    "benchmarks/runs/20260910-7128-bve-lifecycle-profiles/solver-summary-7130.json": "6620c42e71fde0fef19fa206407a51bb790e6c92761c69e78627db101fca11c8",
+    "benchmarks/runs/20260910-7132-bve-lifecycle-samples/three-wave-summary-7133.json": "e1341467582ca561db2185d2160af6ff1da981384dda33621f1ffce321776927",
+    "benchmarks/runs/20260910-7132-bve-lifecycle-samples/wave0/summary.json": "88e1ab97f212539fa493a8887a9e0c5237d0920703d09ea31b3f113bc3dd05f6",
+    "benchmarks/runs/20260910-7132-bve-lifecycle-samples/wave1/summary.json": "be6a545af095c9a1b7da45b1ea4e5d7889b80db4eb7f53fab2b7c3fdc7419ccb",
+    "benchmarks/runs/20260910-7132-bve-lifecycle-samples/wave2/summary.json": "bbe7b2d780c317322b83a41988d387910f7d78bf13b396c272556c2ff9d74178",
+    "benchmarks/reports/2026-09-10-bve-lifecycle-reader-replay-7131.json": "c5c7469be12eae2dbda59a81dbd3dfa937df3e91ba59bf11c6bd10d938d61ead",
+    "benchmarks/runs/20260910-7081-rank35-callstack-cost/lifecycle-summary-7082.json": "671220a1468f22aefb40b06004ba74f02c29dee67b2498429792d253b728dfc2",
+    "benchmarks/reports/2026-09-10-collect-retry-checked50-7098/summary.json": "a3c9bd418750032ac44b0503c75b18d512dfdbf38b021afa9c8fb962ee50928e",
+    "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/000.json": "8a6d032ab8975c534f6556982064b5864625cdfdd4f3a75d98d259481962c899",
+    "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/001.json": "efcc237078daed671bb4bde2d47602291e028fe8ce21e9f7a672541dc5e0208c",
+    "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/002.json": "b99ad432b5e2d6e4e1e78c7a6f29d6d0ec09671cd22f6ae737814429ed91f0f4",
+    "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/003.json": "8f1339e85e9279fcbff3fbded510048e8f116ba4d58f5ce6f91556f7c198da68",
+    "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/004.json": "6d297f3b0e911a665b831aaaa1b6e1c0378df2e000166681b8c484ef9ba2b02e",
+    "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/005.json": "a8d1ca882915dfbd481b6c26f545c8dccc535fbfd04e6d317a3163ffdf3d8e0c",
+    "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/006.json": "9e4c5ecb574b7734769c0c381f6797e56328cb833b79198b6e663bd65968f1db",
+    "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/007.json": "fa9f2c0d1433661f299432ea74c68b55e65c8bac9c61c69e9bd2c91ae94c5da7",
+    "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/008.json": "79451e2651b98b5d00c80d7d86ce985f29d39e0b09ec4352cf57b29bd85f5dbd",
+    "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/009.json": "fa85d9b2a72e04d8b28a11b049cf369c8a9014b7a78bd60bd9785a7088d555f3",
+    "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/010.json": "1c9296d6b352e7f4bc1abd1214b3978c3e799f8eb298d79f50d3cc0eaaf638bc",
+    "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/011.json": "ffe40ee48843798580fd2fb8b2da64d021767b71caeee0e47d0f255b75c913fc",
+    "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/012.json": "f0f7ecbb3414093711747c59ff68e70600544396c01c3613115cf260a3b1fb7e",
+    "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/013.json": "810a02c77cedcf180077e199f8881bd87fc54e62def38e35ff4ea17df03c2d7c",
+    "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/014.json": "d3bbcf0607ddea3f04cd2af2463d86d0bc30d0e09d8b131782802ad8d5aa4a7e",
+    "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/015.json": "1ac4b5ed27545671b255cf61a1f58a6ad8d6aecafa4fc2b0bec55c07b24deba9",
+    "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/016.json": "2985ef7bbb4d7f985c3f1ff3b814fc2f27ba64320a261b9e7d7fee419adbc37a",
+    "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/017.json": "8251d3e47f23b7086f280167e7e394e1fa4ca295365f1e9efcf124445b104196",
+    "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/018.json": "9928c8ceb4625566d8b370cd0630889d9546372d5ae4efa781647d6282b446f0",
+    "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/019.json": "2c9427e22e6d7c95c9d38cfd3c55153fba3297fefd44166c0ddf9605628a2ec8",
+    "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/020.json": "a4c3867ca4a814c2f55f527a071366c16a5964fc62811e0f59d17bcba465d370",
+    "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/021.json": "537e81da2d4e43760b7a0fb45a3825e30997e87e9f7f137e16ff6641826dcb34",
+    "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/022.json": "04ce32d18b75a2448b90e725d77bccba8a282d5087532384a13b4d5c9155289a",
+    "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/023.json": "e472c2e13f73f9079fd1d3a7d2311fcf08024a50522a8e9702cda0a7dbcef347",
+    "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/024.json": "eba31038e9835340bed699fee0bb77533023f347d994f80e43506ed9e625b3fb",
+    "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/025.json": "de8a645511840a61de3665f761abbed7b8fe09cbb899193d3e009b6cd63f81ee",
+    "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/026.json": "6670f6c6ad02a74602110bbfa0b824dbe057d05a24f2d374a58f641d2ed93eb2",
+    "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/027.json": "ae26f1dea2a99fe71c8011b0f0bc7ab06996e1c51640da83c0eee25fa7a54998",
+    "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/028.json": "03d2f1f4a4f9e6509b269b7ae0f3cd5269d2fe557e5d845262f7072dd9c85ded",
+    "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/029.json": "83ea79bc7e84303417a5dcbdaa82d36c98644260565380f97e7c7ba2913fa692",
+    "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/030.json": "0c187f81a354360b4dddc39f83475112aae9bc9863549670e62467609605b45f",
+    "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/031.json": "b4dcb57c8ca3165f6668ad292955c2a8220ba66439c4ed92621cc80875a79243",
+    "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/032.json": "0ab551fcde786ca4b9d0540d06e6175453fe92f9c0e524d2580276cbab6ec05f",
+    "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/033.json": "50646012b0db2677ac777b397bdd6ac92efa6a28941656d61aa09b0dc8c74e9c",
+    "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/034.json": "311c6befbd0cd60e3a9647d36fddb7462175979f3e7a0c3cc2af73170061a7e1",
+    "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/035.json": "d00755ffedd94a6f096bca44cab5bf4b9c01d8f63b887e7b6d6574497a014f0e",
+    "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/036.json": "00c573193a93ea6c0d83be0ba2f7204f2d46f9d05263cbd8782d3d2b552df8da",
+    "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/037.json": "08067c80ddd217bd0fb2240bd99aeacb9be92079a90541f047ef6edb0f94c2a6",
+    "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/038.json": "106931948ad6d3ad778a9f85f30b5f85c8c9f20905c602bb817dcda97169bb33",
+    "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/039.json": "7cba38c320e2802165635d5807ed344576bf962d83190fcb6fe4682bd69e7b23",
+    "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/040.json": "0f4ea1fbe50e2ca2a52a02285b3957e214144f175649f5657e3e45c1a752493d",
+    "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/041.json": "155ab0bd645dc42c4556840d1c25f36a8d39ec3a32bf2a8ea678b828f4d903fc",
+    "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/042.json": "0ea985ff0ef2524f3c7562f21f76cec4ab26ae509f48ab6e83170572cfae403d",
+    "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/043.json": "434ce29fd35bab7f68f956ff2616621f83e45f803d151b3061f03e16a55d2516",
+    "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/044.json": "5e86f996e69faca3520276c944e1d79d2f79dc9de5ad8b54911794a15f2006a1",
+    "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/045.json": "6fd960d278d57e91be3402d672f9cad740e9272f3dd8640755f9c0d171263a4a",
+    "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/046.json": "07b27238533d75d0b7f631c1a790d797fd67cbe62dbee94875ca9fa3b67868bd",
+    "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/047.json": "5a8a8dda1543d57bcd3d115ec124317cc08a27968f7c036ddf9b80ed6a758b7b",
+    "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/048.json": "5520e151f017f6c7fd2305b0d018bb2618500a94c8c881e351e402de240c75f8",
+    "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/049.json": "bcbe01335201a0617a9845bbfecad64eb284593914dd56f499bca278ed4c9ed7",
+    "benchmarks/probes/scratch/assess-bve-prototype-7135.py": "0f5cb3a447fa48bf877b38d2edeab95a51055c38b2d1808981f540bcf4d75ac5",
+    "tools/bench/inprocessing_cost.py": "725744226d429f28d9093079a6022a43cd77450069642faae6f1cabf1ae71a4a",
+    ".claude/worktrees/runtime-bve-import-bounds-7116/src/rules/vivify/vivify.cpp": "2aff5d1f177f3e6d7abf7ff2375ab2169c65aa3c29d90f6b8d6a5a9c29df1097",
+    ".claude/worktrees/runtime-collect-retry-7030/src/rules/vivify/vivify.cpp": "2aff5d1f177f3e6d7abf7ff2375ab2169c65aa3c29d90f6b8d6a5a9c29df1097",
+    "kissat/src/vivify.c": "b3ec15600e5167644082c441bae9e8c641f3aeb066a547ade4f60721ef6f7c43",
+    "cadical/src/vivify.cpp": "9a55d3ae0a5a02066fd771ed90cdcdc4ccdff9f2736f66bad661c7c7e44430f3"
+  },
+  "outcome": "STOP_AND_REASSESS_UNPROMOTED_PROTOTYPE",
+  "original_gates": {
+    "eliminate_twenty_percent": false,
+    "no_peak_rss_regression": false
+  },
+  "runtime": {
+    "31": {
+      "paired": {
+        "median": 0.9977222460012031,
+        "min": 0.9936372461926556,
+        "max": 1.0043376855092954
+      },
+      "spread": {
+        "candidate": {
+          "median": 530.179,
+          "min": 529.139,
+          "max": 531.379,
+          "range_over_median": 0.004224988164374691
+        },
+        "previous": {
+          "median": 530.347,
+          "min": 529.084,
+          "max": 533.574,
+          "range_over_median": 0.00846615517764786
+        }
+      },
+      "costs": {
+        "wall_seconds": {
+          "priced_waves": 3,
+          "median": 0.9977222460012031,
+          "min": 0.9936372461926556,
+          "max": 1.0043376855092954
+        },
+        "peak_rss_kib": {
+          "priced_waves": 3,
+          "median": 1.0111586489964868,
+          "min": 1.0111586489964868,
+          "max": 1.0111586489964868
+        },
+        "slot_ms": {
+          "priced_waves": 3,
+          "median": 0.9884747254783858,
+          "min": 0.979436299802261,
+          "max": 0.9895685791905635
+        },
+        "outside_ms": {
+          "priced_waves": 3,
+          "median": 1.0021905590541709,
+          "min": 1.0003473090494845,
+          "max": 1.0114135083217657
+        },
+        "BVE_ms": {
+          "priced_waves": 3,
+          "median": 0.8805957518828806,
+          "min": 0.8781239446133063,
+          "max": 0.8872336813513284
+        }
+      }
+    },
+    "35": {
+      "paired": {
+        "median": 0.9948895666865546,
+        "min": 0.9927231569793923,
+        "max": 0.9994662516539176
+      },
+      "spread": {
+        "candidate": {
+          "median": 356.845,
+          "min": 355.783,
+          "max": 359.609,
+          "range_over_median": 0.010721741932771834
+        },
+        "previous": {
+          "median": 358.678,
+          "min": 355.973,
+          "max": 362.245,
+          "range_over_median": 0.017486436302198604
+        }
+      },
+      "costs": {
+        "wall_seconds": {
+          "priced_waves": 3,
+          "median": 0.9948895666865546,
+          "min": 0.9927231569793923,
+          "max": 0.9994662516539176
+        },
+        "peak_rss_kib": {
+          "priced_waves": 3,
+          "median": 1.0016035373351257,
+          "min": 1.0016035373351257,
+          "max": 1.0016035373351257
+        },
+        "slot_ms": {
+          "priced_waves": 3,
+          "median": 0.9805897227772228,
+          "min": 0.9804810173813003,
+          "max": 0.9831603374204271
+        },
+        "outside_ms": {
+          "priced_waves": 3,
+          "median": 1.002761447415268,
+          "min": 0.9996014741172438,
+          "max": 1.008598964793331
+        },
+        "BVE_ms": {
+          "priced_waves": 3,
+          "median": 0.8805634953042057,
+          "min": 0.8747597369752149,
+          "max": 0.8823886947272451
+        }
+      }
+    },
+    "38": {
+      "paired": {
+        "median": 0.9918360069217098,
+        "min": 0.9909185125331552,
+        "max": 0.9920926524620739
+      },
+      "spread": {
+        "candidate": {
+          "median": 338.472,
+          "min": 337.249,
+          "max": 339.319,
+          "range_over_median": 0.0061157200595617755
+        },
+        "previous": {
+          "median": 341.574,
+          "min": 339.937,
+          "max": 342.112,
+          "range_over_median": 0.0063675806706599775
+        }
+      },
+      "costs": {
+        "wall_seconds": {
+          "priced_waves": 3,
+          "median": 0.9918360069217098,
+          "min": 0.9909185125331552,
+          "max": 0.9920926524620739
+        },
+        "peak_rss_kib": {
+          "priced_waves": 3,
+          "median": 0.9515025427646787,
+          "min": 0.9515025427646787,
+          "max": 0.9515025427646787
+        },
+        "slot_ms": {
+          "priced_waves": 3,
+          "median": 0.9853630993745657,
+          "min": 0.9851231783483692,
+          "max": 0.9869800768961902
+        },
+        "outside_ms": {
+          "priced_waves": 3,
+          "median": 0.992329201697795,
+          "min": 0.9913812321227288,
+          "max": 0.9924854725445288
+        },
+        "BVE_ms": {
+          "priced_waves": 3,
+          "median": 0.9487179487179487,
+          "min": 0.9487179487179487,
+          "max": 0.9487179487179487
+        }
+      }
+    }
+  },
+  "lifecycle": {
+    "initial_probe": {
+      "paired": {
+        "median": 0.9980376561156294,
+        "min": 0.9903668088707307,
+        "max": 0.998050499455343,
+        "range_over_median": 0.007698798274322889
+      },
+      "ratios": [
+        0.9903668088707307,
+        0.998050499455343,
+        0.9980376561156294
+      ],
+      "arms": {
+        "candidate": {
+          "median": 3700825349,
+          "min": 3691075385,
+          "max": 3727041815,
+          "range_over_median": 0.009718488879708546
+        },
+        "previous": {
+          "median": 3734369933,
+          "min": 3698285194,
+          "max": 3736822878,
+          "range_over_median": 0.010319728546293434
+        }
+      }
+    },
+    "probe": {
+      "paired": {
+        "median": 1.0013909699885875,
+        "min": 1.0000459709304197,
+        "max": 1.002881174933903,
+        "range_over_median": 0.002831265797729005
+      },
+      "ratios": [
+        1.002881174933903,
+        1.0013909699885875,
+        1.0000459709304197
+      ],
+      "arms": {
+        "candidate": {
+          "median": 357125245933,
+          "min": 357071314931,
+          "max": 359462198449,
+          "range_over_median": 0.006694803980473987
+        },
+        "previous": {
+          "median": 357054900785,
+          "min": 356629185439,
+          "max": 358429500357,
+          "range_over_median": 0.005042123533501243
+        }
+      }
+    },
+    "eliminate": {
+      "paired": {
+        "median": 0.9247985607000998,
+        "min": 0.9208289801060975,
+        "max": 0.9251526943331358,
+        "range_over_median": 0.004675303802122256
+      },
+      "ratios": [
+        0.9208289801060975,
+        0.9251526943331358,
+        0.9247985607000998
+      ],
+      "arms": {
+        "candidate": {
+          "median": 109916023707,
+          "min": 109915079841,
+          "max": 110059298299,
+          "range_over_median": 0.0013120785590319298
+        },
+        "previous": {
+          "median": 118852996222,
+          "min": 118808521426,
+          "max": 119521974956,
+          "range_over_median": 0.006002823257962914
+        }
+      }
+    },
+    "no_phase_frame": {
+      "paired": {
+        "median": 1.0013056200209383,
+        "min": 0.9974326683166993,
+        "max": 1.0033700429104955,
+        "range_over_median": 0.005929632746565447
+      },
+      "ratios": [
+        0.9974326683166993,
+        1.0033700429104955,
+        1.0013056200209383
+      ],
+      "arms": {
+        "candidate": {
+          "median": 862472392418,
+          "min": 860021170967,
+          "max": 871504952685,
+          "range_over_median": 0.013314955723747211
+        },
+        "previous": {
+          "median": 861347799486,
+          "min": 857132597334,
+          "max": 873748154004,
+          "range_over_median": 0.019290182989862115
+        }
+      }
+    }
+  },
+  "remaining_phase_envelopes": {
+    "probe": {
+      "candidate_median_period": 357125245933,
+      "frozen_native_period": 245488977440,
+      "cross_window_difference": 111636268493
+    },
+    "eliminate": {
+      "candidate_median_period": 109916023707,
+      "frozen_native_period": 55642748308,
+      "cross_window_difference": 54273275399
+    }
+  },
+  "probe_components": {
+    "backbone": {
+      "candidate": {
+        "values": [
+          15400928365,
+          15009281811,
+          14877844220
+        ],
+        "median": 15009281811,
+        "min": 14877844220,
+        "max": 15400928365
+      },
+      "frozen_native": 9007786784
+    },
+    "congruence": {
+      "candidate": {
+        "values": [
+          41216561793,
+          41130222330,
+          41131885041
+        ],
+        "median": 41131885041,
+        "min": 41130222330,
+        "max": 41216561793
+      },
+      "frozen_native": 18591376046
+    },
+    "factor": {
+      "candidate": {
+        "values": [
+          53503538667,
+          53322952122,
+          53503661005
+        ],
+        "median": 53503538667,
+        "min": 53322952122,
+        "max": 53503661005
+      },
+      "frozen_native": 32619375500
+    },
+    "phase_scaffolding_or_inlined_work": {
+      "candidate": {
+        "values": [
+          20898451275,
+          21106982299,
+          20849917003
+        ],
+        "median": 20898451275,
+        "min": 20849917003,
+        "max": 21106982299
+      },
+      "frozen_native": 18958329
+    },
+    "substitute": {
+      "candidate": {
+        "values": [
+          35221031406,
+          35422798918,
+          35442971161
+        ],
+        "median": 35422798918,
+        "min": 35221031406,
+        "max": 35442971161
+      },
+      "frozen_native": 34603424997
+    },
+    "sweep": {
+      "candidate": {
+        "values": [
+          38058240628,
+          38174043136,
+          37962672877
+        ],
+        "median": 38058240628,
+        "min": 37962672877,
+        "max": 38174043136
+      },
+      "frozen_native": 26510211934
+    },
+    "transitive_reduce": {
+      "candidate": {
+        "values": [
+          12782634470,
+          12347227430,
+          12551155470
+        ],
+        "median": 12551155470,
+        "min": 12347227430,
+        "max": 12782634470
+      },
+      "frozen_native": 8447358457
+    },
+    "vivify": {
+      "candidate": {
+        "values": [
+          142380811845,
+          140611737887,
+          140751208154
+        ],
+        "median": 140751208154,
+        "min": 140611737887,
+        "max": 142380811845
+      },
+      "frozen_native": 115690485393
+    }
+  },
+  "vivify_schedule_exclusive": {
+    "values": [
+      33885529720,
+      33956885925,
+      33966426861
+    ],
+    "median": 33956885925,
+    "min": 33885529720,
+    "max": 33966426861
+  },
+  "vivify_schedule_symbol_evidence": [
+    {
+      "wave": 0,
+      "symbols": {
+        "tactix::vivify_schedule(tactix::Kernel const&, std::vector<unsigned int, std::allocator<unsigned int> >&, tactix::VivifySchedule*) [candidate]": 21727164457,
+        "void std::__introsort_loop<__gnu_cxx::__normal_iterator<tactix::VivifyCand*, std::vector<tactix::VivifyCand, std::allocator<tactix::VivifyCand> > >, long, __gnu_cxx::__ops::_Iter_comp_iter<tactix::vivify_schedule(tactix::Kernel const&, std::vector<unsigned int, std::allocator<unsigned int> >&, tactix::VivifySchedule*)::{lambda(tactix::VivifyCand const&, tactix::VivifyCand const&)#3}> >(__gnu_cxx::__normal_iterator<tactix::VivifyCand*, std::vector<tactix::VivifyCand, std::allocator<tactix::VivifyCand> > >, __gnu_cxx::__normal_iterator<tactix::VivifyCand*, std::vector<tactix::VivifyCand, std::allocator<tactix::VivifyCand> > >, long, __gnu_cxx::__ops::_Iter_comp_iter<tactix::vivify_schedule(tactix::Kernel const&, std::vector<unsigned int, std::allocator<unsigned int> >&, tactix::VivifySchedule*)::{lambda(tactix::VivifyCand const&, tactix::VivifyCand const&)#3}>) [clone .constprop.0] [candidate]": 9816756570,
+        "tactix::vivify_schedule(tactix::Kernel const&, std::vector<unsigned int, std::allocator<unsigned int> >&, tactix::VivifySchedule*)::{lambda(unsigned int, bool)#1}::operator()(unsigned int, bool) const [candidate]": 2246985876,
+        "tactix::vivify_schedule(tactix::Kernel const&, std::vector<unsigned int, std::allocator<unsigned int> >&, tactix::VivifySchedule*)::{lambda(tactix::VivifyCand const&, tactix::VivifyCand const&)#3}::operator()(tactix::VivifyCand const&, tactix::VivifyCand const&) const [candidate]": 94622817
+      },
+      "total": 33885529720
+    },
+    {
+      "wave": 1,
+      "symbols": {
+        "tactix::vivify_schedule(tactix::Kernel const&, std::vector<unsigned int, std::allocator<unsigned int> >&, tactix::VivifySchedule*) [candidate]": 21424859663,
+        "void std::__introsort_loop<__gnu_cxx::__normal_iterator<tactix::VivifyCand*, std::vector<tactix::VivifyCand, std::allocator<tactix::VivifyCand> > >, long, __gnu_cxx::__ops::_Iter_comp_iter<tactix::vivify_schedule(tactix::Kernel const&, std::vector<unsigned int, std::allocator<unsigned int> >&, tactix::VivifySchedule*)::{lambda(tactix::VivifyCand const&, tactix::VivifyCand const&)#3}> >(__gnu_cxx::__normal_iterator<tactix::VivifyCand*, std::vector<tactix::VivifyCand, std::allocator<tactix::VivifyCand> > >, __gnu_cxx::__normal_iterator<tactix::VivifyCand*, std::vector<tactix::VivifyCand, std::allocator<tactix::VivifyCand> > >, long, __gnu_cxx::__ops::_Iter_comp_iter<tactix::vivify_schedule(tactix::Kernel const&, std::vector<unsigned int, std::allocator<unsigned int> >&, tactix::VivifySchedule*)::{lambda(tactix::VivifyCand const&, tactix::VivifyCand const&)#3}>) [clone .constprop.0] [candidate]": 10188327696,
+        "tactix::vivify_schedule(tactix::Kernel const&, std::vector<unsigned int, std::allocator<unsigned int> >&, tactix::VivifySchedule*)::{lambda(unsigned int, bool)#1}::operator()(unsigned int, bool) const [candidate]": 2210885854,
+        "tactix::vivify_schedule(tactix::Kernel const&, std::vector<unsigned int, std::allocator<unsigned int> >&, tactix::VivifySchedule*)::{lambda(tactix::VivifyCand const&, tactix::VivifyCand const&)#3}::operator()(tactix::VivifyCand const&, tactix::VivifyCand const&) const [candidate]": 132812712
+      },
+      "total": 33956885925
+    },
+    {
+      "wave": 2,
+      "symbols": {
+        "tactix::vivify_schedule(tactix::Kernel const&, std::vector<unsigned int, std::allocator<unsigned int> >&, tactix::VivifySchedule*) [candidate]": 21644974050,
+        "void std::__introsort_loop<__gnu_cxx::__normal_iterator<tactix::VivifyCand*, std::vector<tactix::VivifyCand, std::allocator<tactix::VivifyCand> > >, long, __gnu_cxx::__ops::_Iter_comp_iter<tactix::vivify_schedule(tactix::Kernel const&, std::vector<unsigned int, std::allocator<unsigned int> >&, tactix::VivifySchedule*)::{lambda(tactix::VivifyCand const&, tactix::VivifyCand const&)#3}> >(__gnu_cxx::__normal_iterator<tactix::VivifyCand*, std::vector<tactix::VivifyCand, std::allocator<tactix::VivifyCand> > >, __gnu_cxx::__normal_iterator<tactix::VivifyCand*, std::vector<tactix::VivifyCand, std::allocator<tactix::VivifyCand> > >, long, __gnu_cxx::__ops::_Iter_comp_iter<tactix::vivify_schedule(tactix::Kernel const&, std::vector<unsigned int, std::allocator<unsigned int> >&, tactix::VivifySchedule*)::{lambda(tactix::VivifyCand const&, tactix::VivifyCand const&)#3}>) [clone .constprop.0] [candidate]": 9807955005,
+        "tactix::vivify_schedule(tactix::Kernel const&, std::vector<unsigned int, std::allocator<unsigned int> >&, tactix::VivifySchedule*)::{lambda(unsigned int, bool)#1}::operator()(unsigned int, bool) const [candidate]": 2323785090,
+        "tactix::vivify_schedule(tactix::Kernel const&, std::vector<unsigned int, std::allocator<unsigned int> >&, tactix::VivifySchedule*)::{lambda(tactix::VivifyCand const&, tactix::VivifyCand const&)#3}::operator()(tactix::VivifyCand const&, tactix::VivifyCand const&) const [candidate]": 189712716
+      },
+      "total": 33966426861
+    }
+  ],
+  "checked7030_full50_named_rule_ms": {
+    "Vivify": 621193,
+    "Congruence": 423926,
+    "Sweep": 416374,
+    "BVE": 300365,
+    "Substitute": 264682,
+    "Factor": 216708,
+    "Strengthen": 96549,
+    "Backbone": 78488,
+    "TransitiveReduce": 52896
+  },
+  "checked7030_per_rank_timers": [
+    {
+      "rank": 1,
+      "timers": {
+        "solve_ms": 155,
+        "slot_ms": 133,
+        "outside_ms": 22,
+        "unattributed_ms": 4,
+        "rules": {
+          "Congruence": {
+            "ms": 129,
+            "applications": 1
+          }
+        }
+      }
+    },
+    {
+      "rank": 2,
+      "timers": {
+        "solve_ms": 155,
+        "slot_ms": 133,
+        "outside_ms": 22,
+        "unattributed_ms": 4,
+        "rules": {
+          "Congruence": {
+            "ms": 129,
+            "applications": 1
+          }
+        }
+      }
+    },
+    {
+      "rank": 3,
+      "timers": {
+        "solve_ms": 462,
+        "slot_ms": 424,
+        "outside_ms": 38,
+        "unattributed_ms": 13,
+        "rules": {
+          "Congruence": {
+            "ms": 374,
+            "applications": 1
+          },
+          "Substitute": {
+            "ms": 37,
+            "applications": 1
+          }
+        }
+      }
+    },
+    {
+      "rank": 4,
+      "timers": {
+        "solve_ms": 7513,
+        "slot_ms": 770,
+        "outside_ms": 6743,
+        "unattributed_ms": 18,
+        "rules": {
+          "Vivify": {
+            "ms": 427,
+            "applications": 71
+          },
+          "Sweep": {
+            "ms": 197,
+            "applications": 5
+          },
+          "Substitute": {
+            "ms": 32,
+            "applications": 37
+          },
+          "BVE": {
+            "ms": 29,
+            "applications": 6172
+          },
+          "TransitiveReduce": {
+            "ms": 27,
+            "applications": 10642
+          },
+          "Factor": {
+            "ms": 18,
+            "applications": 16
+          },
+          "Strengthen": {
+            "ms": 12,
+            "applications": 14
+          },
+          "Backbone": {
+            "ms": 6,
+            "applications": 37
+          },
+          "Congruence": {
+            "ms": 5,
+            "applications": 5
+          }
+        }
+      }
+    },
+    {
+      "rank": 5,
+      "timers": {
+        "solve_ms": 4582,
+        "slot_ms": 0,
+        "outside_ms": 4582,
+        "unattributed_ms": 0,
+        "rules": {}
+      }
+    },
+    {
+      "rank": 6,
+      "timers": {
+        "solve_ms": 66156,
+        "slot_ms": 47502,
+        "outside_ms": 18654,
+        "unattributed_ms": 1754,
+        "rules": {
+          "Factor": {
+            "ms": 30299,
+            "applications": 23
+          },
+          "Congruence": {
+            "ms": 5667,
+            "applications": 6
+          },
+          "Substitute": {
+            "ms": 3435,
+            "applications": 45
+          },
+          "Vivify": {
+            "ms": 3239,
+            "applications": 72
+          },
+          "Strengthen": {
+            "ms": 1283,
+            "applications": 7
+          },
+          "Sweep": {
+            "ms": 955,
+            "applications": 6
+          },
+          "Backbone": {
+            "ms": 633,
+            "applications": 45
+          },
+          "BVE": {
+            "ms": 142,
+            "applications": 34706
+          },
+          "TransitiveReduce": {
+            "ms": 95,
+            "applications": 37
+          }
+        }
+      }
+    },
+    {
+      "rank": 7,
+      "timers": {
+        "solve_ms": 47580,
+        "slot_ms": 40092,
+        "outside_ms": 7488,
+        "unattributed_ms": 658,
+        "rules": {
+          "Congruence": {
+            "ms": 26253,
+            "applications": 1
+          },
+          "Substitute": {
+            "ms": 10508,
+            "applications": 1
+          },
+          "Sweep": {
+            "ms": 2433,
+            "applications": 1
+          },
+          "Backbone": {
+            "ms": 240,
+            "applications": 1
+          }
+        }
+      }
+    },
+    {
+      "rank": 8,
+      "timers": {
+        "solve_ms": 50476,
+        "slot_ms": 41769,
+        "outside_ms": 8708,
+        "unattributed_ms": 764,
+        "rules": {
+          "Congruence": {
+            "ms": 26322,
+            "applications": 1
+          },
+          "Substitute": {
+            "ms": 11332,
+            "applications": 1
+          },
+          "Sweep": {
+            "ms": 3052,
+            "applications": 1
+          },
+          "Backbone": {
+            "ms": 298,
+            "applications": 1
+          }
+        }
+      }
+    },
+    {
+      "rank": 9,
+      "timers": {
+        "solve_ms": 99538,
+        "slot_ms": 62949,
+        "outside_ms": 36589,
+        "unattributed_ms": 3882,
+        "rules": {
+          "BVE": {
+            "ms": 25146,
+            "applications": 2875165
+          },
+          "Sweep": {
+            "ms": 7121,
+            "applications": 8
+          },
+          "Congruence": {
+            "ms": 6862,
+            "applications": 4
+          },
+          "Substitute": {
+            "ms": 5432,
+            "applications": 18
+          },
+          "Vivify": {
+            "ms": 4364,
+            "applications": 28
+          },
+          "Factor": {
+            "ms": 4349,
+            "applications": 4
+          },
+          "Strengthen": {
+            "ms": 2802,
+            "applications": 3
+          },
+          "Backbone": {
+            "ms": 2698,
+            "applications": 17
+          },
+          "TransitiveReduce": {
+            "ms": 294,
+            "applications": 111879
+          }
+        }
+      }
+    },
+    {
+      "rank": 10,
+      "timers": {
+        "solve_ms": 69338,
+        "slot_ms": 57485,
+        "outside_ms": 11853,
+        "unattributed_ms": 1082,
+        "rules": {
+          "Congruence": {
+            "ms": 35205,
+            "applications": 1
+          },
+          "Substitute": {
+            "ms": 16684,
+            "applications": 1
+          },
+          "Sweep": {
+            "ms": 4114,
+            "applications": 1
+          },
+          "Backbone": {
+            "ms": 399,
+            "applications": 1
+          }
+        }
+      }
+    },
+    {
+      "rank": 11,
+      "timers": {
+        "solve_ms": 170,
+        "slot_ms": 143,
+        "outside_ms": 26,
+        "unattributed_ms": 5,
+        "rules": {
+          "Congruence": {
+            "ms": 138,
+            "applications": 1
+          }
+        }
+      }
+    },
+    {
+      "rank": 12,
+      "timers": {
+        "solve_ms": 6436,
+        "slot_ms": 5506,
+        "outside_ms": 930,
+        "unattributed_ms": 118,
+        "rules": {
+          "Congruence": {
+            "ms": 5388,
+            "applications": 1
+          }
+        }
+      }
+    },
+    {
+      "rank": 13,
+      "timers": {
+        "solve_ms": 69780,
+        "slot_ms": 54537,
+        "outside_ms": 15243,
+        "unattributed_ms": 1144,
+        "rules": {
+          "Congruence": {
+            "ms": 36409,
+            "applications": 1
+          },
+          "Substitute": {
+            "ms": 13391,
+            "applications": 1
+          },
+          "Sweep": {
+            "ms": 3274,
+            "applications": 1
+          },
+          "Backbone": {
+            "ms": 319,
+            "applications": 1
+          }
+        }
+      }
+    },
+    {
+      "rank": 14,
+      "timers": {
+        "solve_ms": 55441,
+        "slot_ms": 45727,
+        "outside_ms": 9714,
+        "unattributed_ms": 838,
+        "rules": {
+          "Congruence": {
+            "ms": 28643,
+            "applications": 1
+          },
+          "Substitute": {
+            "ms": 12571,
+            "applications": 1
+          },
+          "Sweep": {
+            "ms": 3353,
+            "applications": 1
+          },
+          "Backbone": {
+            "ms": 323,
+            "applications": 1
+          }
+        }
+      }
+    },
+    {
+      "rank": 15,
+      "timers": {
+        "solve_ms": 75287,
+        "slot_ms": 6299,
+        "outside_ms": 68988,
+        "unattributed_ms": 66,
+        "rules": {
+          "Vivify": {
+            "ms": 4772,
+            "applications": 116
+          },
+          "Sweep": {
+            "ms": 1156,
+            "applications": 8
+          },
+          "Substitute": {
+            "ms": 113,
+            "applications": 71
+          },
+          "BVE": {
+            "ms": 77,
+            "applications": 6048
+          },
+          "Strengthen": {
+            "ms": 39,
+            "applications": 24
+          },
+          "Factor": {
+            "ms": 37,
+            "applications": 25
+          },
+          "Congruence": {
+            "ms": 24,
+            "applications": 8
+          },
+          "TransitiveReduce": {
+            "ms": 13,
+            "applications": 39720
+          },
+          "Backbone": {
+            "ms": 3,
+            "applications": 71
+          }
+        }
+      }
+    },
+    {
+      "rank": 16,
+      "timers": {
+        "solve_ms": 117566,
+        "slot_ms": 8832,
+        "outside_ms": 108735,
+        "unattributed_ms": 64,
+        "rules": {
+          "Vivify": {
+            "ms": 5826,
+            "applications": 140
+          },
+          "Sweep": {
+            "ms": 2562,
+            "applications": 9
+          },
+          "Substitute": {
+            "ms": 256,
+            "applications": 89
+          },
+          "BVE": {
+            "ms": 49,
+            "applications": 4966
+          },
+          "Congruence": {
+            "ms": 39,
+            "applications": 9
+          },
+          "TransitiveReduce": {
+            "ms": 12,
+            "applications": 63834
+          },
+          "Factor": {
+            "ms": 11,
+            "applications": 3
+          },
+          "Strengthen": {
+            "ms": 8,
+            "applications": 8
+          },
+          "Backbone": {
+            "ms": 3,
+            "applications": 89
+          }
+        }
+      }
+    },
+    {
+      "rank": 17,
+      "timers": {
+        "solve_ms": 81370,
+        "slot_ms": 40511,
+        "outside_ms": 40858,
+        "unattributed_ms": 1959,
+        "rules": {
+          "Congruence": {
+            "ms": 8623,
+            "applications": 7
+          },
+          "Vivify": {
+            "ms": 6712,
+            "applications": 36
+          },
+          "Sweep": {
+            "ms": 6040,
+            "applications": 8
+          },
+          "Substitute": {
+            "ms": 5116,
+            "applications": 22
+          },
+          "BVE": {
+            "ms": 4383,
+            "applications": 977229
+          },
+          "Factor": {
+            "ms": 3977,
+            "applications": 6
+          },
+          "Strengthen": {
+            "ms": 2199,
+            "applications": 6
+          },
+          "Backbone": {
+            "ms": 1048,
+            "applications": 21
+          },
+          "TransitiveReduce": {
+            "ms": 453,
+            "applications": 659711
+          }
+        }
+      }
+    },
+    {
+      "rank": 18,
+      "timers": {
+        "solve_ms": 57386,
+        "slot_ms": 28585,
+        "outside_ms": 28801,
+        "unattributed_ms": 462,
+        "rules": {
+          "Congruence": {
+            "ms": 15926,
+            "applications": 3
+          },
+          "Substitute": {
+            "ms": 5019,
+            "applications": 5
+          },
+          "Sweep": {
+            "ms": 4094,
+            "applications": 2
+          },
+          "Vivify": {
+            "ms": 2424,
+            "applications": 7
+          },
+          "Backbone": {
+            "ms": 591,
+            "applications": 5
+          },
+          "TransitiveReduce": {
+            "ms": 69,
+            "applications": 62
+          }
+        }
+      }
+    },
+    {
+      "rank": 19,
+      "timers": {
+        "solve_ms": 135187,
+        "slot_ms": 48627,
+        "outside_ms": 86560,
+        "unattributed_ms": 3548,
+        "rules": {
+          "Vivify": {
+            "ms": 15881,
+            "applications": 102
+          },
+          "Backbone": {
+            "ms": 6696,
+            "applications": 63
+          },
+          "Factor": {
+            "ms": 5269,
+            "applications": 27
+          },
+          "Substitute": {
+            "ms": 5038,
+            "applications": 64
+          },
+          "Sweep": {
+            "ms": 3775,
+            "applications": 11
+          },
+          "Strengthen": {
+            "ms": 2554,
+            "applications": 16
+          },
+          "Congruence": {
+            "ms": 2369,
+            "applications": 7
+          },
+          "BVE": {
+            "ms": 2229,
+            "applications": 1005773
+          },
+          "TransitiveReduce": {
+            "ms": 1268,
+            "applications": 184957
+          }
+        }
+      }
+    },
+    {
+      "rank": 20,
+      "timers": {
+        "solve_ms": 117294,
+        "slot_ms": 45880,
+        "outside_ms": 71414,
+        "unattributed_ms": 4171,
+        "rules": {
+          "Factor": {
+            "ms": 13437,
+            "applications": 2
+          },
+          "Vivify": {
+            "ms": 6375,
+            "applications": 24
+          },
+          "Substitute": {
+            "ms": 6113,
+            "applications": 15
+          },
+          "Congruence": {
+            "ms": 5473,
+            "applications": 3
+          },
+          "Backbone": {
+            "ms": 3615,
+            "applications": 15
+          },
+          "BVE": {
+            "ms": 2567,
+            "applications": 3165117
+          },
+          "Strengthen": {
+            "ms": 2351,
+            "applications": 4
+          },
+          "Sweep": {
+            "ms": 1274,
+            "applications": 3
+          },
+          "TransitiveReduce": {
+            "ms": 505,
+            "applications": 4412
+          }
+        }
+      }
+    },
+    {
+      "rank": 21,
+      "timers": {
+        "solve_ms": 247619,
+        "slot_ms": 114961,
+        "outside_ms": 132658,
+        "unattributed_ms": 6453,
+        "rules": {
+          "BVE": {
+            "ms": 49128,
+            "applications": 11093354
+          },
+          "Sweep": {
+            "ms": 14284,
+            "applications": 6
+          },
+          "Substitute": {
+            "ms": 9193,
+            "applications": 26
+          },
+          "Congruence": {
+            "ms": 9121,
+            "applications": 5
+          },
+          "Backbone": {
+            "ms": 8639,
+            "applications": 25
+          },
+          "Factor": {
+            "ms": 7017,
+            "applications": 6
+          },
+          "Vivify": {
+            "ms": 6768,
+            "applications": 34
+          },
+          "Strengthen": {
+            "ms": 3264,
+            "applications": 4
+          },
+          "TransitiveReduce": {
+            "ms": 1095,
+            "applications": 228707
+          }
+        }
+      }
+    },
+    {
+      "rank": 22,
+      "timers": {
+        "solve_ms": 224298,
+        "slot_ms": 132581,
+        "outside_ms": 91717,
+        "unattributed_ms": 3232,
+        "rules": {
+          "Sweep": {
+            "ms": 40888,
+            "applications": 10
+          },
+          "Factor": {
+            "ms": 17971,
+            "applications": 4
+          },
+          "Congruence": {
+            "ms": 17347,
+            "applications": 6
+          },
+          "Vivify": {
+            "ms": 16969,
+            "applications": 39
+          },
+          "Substitute": {
+            "ms": 12572,
+            "applications": 21
+          },
+          "Strengthen": {
+            "ms": 9978,
+            "applications": 4
+          },
+          "BVE": {
+            "ms": 9215,
+            "applications": 965768
+          },
+          "Backbone": {
+            "ms": 3383,
+            "applications": 21
+          },
+          "TransitiveReduce": {
+            "ms": 1026,
+            "applications": 247362
+          }
+        }
+      }
+    },
+    {
+      "rank": 23,
+      "timers": {
+        "solve_ms": 195504,
+        "slot_ms": 12475,
+        "outside_ms": 183029,
+        "unattributed_ms": 77,
+        "rules": {
+          "Vivify": {
+            "ms": 9360,
+            "applications": 165
+          },
+          "Sweep": {
+            "ms": 2610,
+            "applications": 9
+          },
+          "Substitute": {
+            "ms": 294,
+            "applications": 105
+          },
+          "BVE": {
+            "ms": 58,
+            "applications": 6072
+          },
+          "Congruence": {
+            "ms": 35,
+            "applications": 9
+          },
+          "TransitiveReduce": {
+            "ms": 15,
+            "applications": 74256
+          },
+          "Factor": {
+            "ms": 13,
+            "applications": 4
+          },
+          "Strengthen": {
+            "ms": 9,
+            "applications": 9
+          },
+          "Backbone": {
+            "ms": 4,
+            "applications": 105
+          }
+        }
+      }
+    },
+    {
+      "rank": 24,
+      "timers": {
+        "solve_ms": 273054,
+        "slot_ms": 100465,
+        "outside_ms": 172588,
+        "unattributed_ms": 1914,
+        "rules": {
+          "Sweep": {
+            "ms": 47370,
+            "applications": 95
+          },
+          "Vivify": {
+            "ms": 25634,
+            "applications": 398
+          },
+          "BVE": {
+            "ms": 7612,
+            "applications": 658429
+          },
+          "Factor": {
+            "ms": 4993,
+            "applications": 99
+          },
+          "Substitute": {
+            "ms": 4688,
+            "applications": 205
+          },
+          "Congruence": {
+            "ms": 2686,
+            "applications": 28
+          },
+          "Strengthen": {
+            "ms": 2571,
+            "applications": 44
+          },
+          "TransitiveReduce": {
+            "ms": 2143,
+            "applications": 2425489
+          },
+          "Backbone": {
+            "ms": 855,
+            "applications": 205
+          }
+        }
+      }
+    },
+    {
+      "rank": 25,
+      "timers": {
+        "solve_ms": 219284,
+        "slot_ms": 39984,
+        "outside_ms": 179300,
+        "unattributed_ms": 2475,
+        "rules": {
+          "BVE": {
+            "ms": 18881,
+            "applications": 4282099
+          },
+          "Vivify": {
+            "ms": 4410,
+            "applications": 52
+          },
+          "Substitute": {
+            "ms": 3791,
+            "applications": 29
+          },
+          "Congruence": {
+            "ms": 2999,
+            "applications": 5
+          },
+          "Sweep": {
+            "ms": 2857,
+            "applications": 5
+          },
+          "Factor": {
+            "ms": 2507,
+            "applications": 11
+          },
+          "Strengthen": {
+            "ms": 959,
+            "applications": 8
+          },
+          "Backbone": {
+            "ms": 715,
+            "applications": 29
+          },
+          "TransitiveReduce": {
+            "ms": 388,
+            "applications": 120437
+          }
+        }
+      }
+    },
+    {
+      "rank": 26,
+      "timers": {
+        "solve_ms": 250698,
+        "slot_ms": 16489,
+        "outside_ms": 234209,
+        "unattributed_ms": 101,
+        "rules": {
+          "Vivify": {
+            "ms": 11960,
+            "applications": 190
+          },
+          "Sweep": {
+            "ms": 3860,
+            "applications": 10
+          },
+          "Substitute": {
+            "ms": 432,
+            "applications": 121
+          },
+          "BVE": {
+            "ms": 50,
+            "applications": 5082
+          },
+          "Congruence": {
+            "ms": 43,
+            "applications": 10
+          },
+          "TransitiveReduce": {
+            "ms": 19,
+            "applications": 86984
+          },
+          "Factor": {
+            "ms": 12,
+            "applications": 4
+          },
+          "Strengthen": {
+            "ms": 9,
+            "applications": 8
+          },
+          "Backbone": {
+            "ms": 4,
+            "applications": 121
+          }
+        }
+      }
+    },
+    {
+      "rank": 27,
+      "timers": {
+        "solve_ms": 323881,
+        "slot_ms": 123242,
+        "outside_ms": 200639,
+        "unattributed_ms": 6693,
+        "rules": {
+          "Vivify": {
+            "ms": 35558,
+            "applications": 355
+          },
+          "BVE": {
+            "ms": 20222,
+            "applications": 2018747
+          },
+          "Factor": {
+            "ms": 14447,
+            "applications": 90
+          },
+          "Substitute": {
+            "ms": 13814,
+            "applications": 189
+          },
+          "Sweep": {
+            "ms": 9115,
+            "applications": 23
+          },
+          "Congruence": {
+            "ms": 8823,
+            "applications": 31
+          },
+          "Strengthen": {
+            "ms": 7447,
+            "applications": 40
+          },
+          "Backbone": {
+            "ms": 3890,
+            "applications": 189
+          },
+          "TransitiveReduce": {
+            "ms": 3233,
+            "applications": 4441881
+          }
+        }
+      }
+    },
+    {
+      "rank": 28,
+      "timers": {
+        "solve_ms": 215323,
+        "slot_ms": 58677,
+        "outside_ms": 156646,
+        "unattributed_ms": 3669,
+        "rules": {
+          "Vivify": {
+            "ms": 17336,
+            "applications": 27
+          },
+          "Backbone": {
+            "ms": 12425,
+            "applications": 17
+          },
+          "Factor": {
+            "ms": 7293,
+            "applications": 4
+          },
+          "Substitute": {
+            "ms": 5750,
+            "applications": 17
+          },
+          "Congruence": {
+            "ms": 4444,
+            "applications": 3
+          },
+          "BVE": {
+            "ms": 2274,
+            "applications": 3163008
+          },
+          "TransitiveReduce": {
+            "ms": 2079,
+            "applications": 15548
+          },
+          "Strengthen": {
+            "ms": 1858,
+            "applications": 4
+          },
+          "Sweep": {
+            "ms": 1547,
+            "applications": 3
+          }
+        }
+      }
+    },
+    {
+      "rank": 29,
+      "timers": {
+        "solve_ms": 281662,
+        "slot_ms": 25638,
+        "outside_ms": 256024,
+        "unattributed_ms": 128,
+        "rules": {
+          "Vivify": {
+            "ms": 17311,
+            "applications": 215
+          },
+          "Sweep": {
+            "ms": 3808,
+            "applications": 11
+          },
+          "TransitiveReduce": {
+            "ms": 3490,
+            "applications": 49220
+          },
+          "Substitute": {
+            "ms": 599,
+            "applications": 137
+          },
+          "BVE": {
+            "ms": 101,
+            "applications": 7677
+          },
+          "Factor": {
+            "ms": 70,
+            "applications": 8
+          },
+          "Congruence": {
+            "ms": 59,
+            "applications": 12
+          },
+          "Backbone": {
+            "ms": 48,
+            "applications": 137
+          },
+          "Strengthen": {
+            "ms": 25,
+            "applications": 15
+          }
+        }
+      }
+    },
+    {
+      "rank": 30,
+      "timers": {
+        "solve_ms": 257067,
+        "slot_ms": 24005,
+        "outside_ms": 233062,
+        "unattributed_ms": 57,
+        "rules": {
+          "Vivify": {
+            "ms": 18121,
+            "applications": 159
+          },
+          "Sweep": {
+            "ms": 5081,
+            "applications": 9
+          },
+          "Substitute": {
+            "ms": 529,
+            "applications": 101
+          },
+          "BVE": {
+            "ms": 99,
+            "applications": 1500
+          },
+          "Strengthen": {
+            "ms": 57,
+            "applications": 8
+          },
+          "Congruence": {
+            "ms": 42,
+            "applications": 9
+          },
+          "TransitiveReduce": {
+            "ms": 18,
+            "applications": 25000
+          },
+          "Backbone": {
+            "ms": 1,
+            "applications": 101
+          },
+          "Factor": {
+            "ms": 0,
+            "applications": 1
+          }
+        }
+      }
+    },
+    {
+      "rank": 31,
+      "timers": {
+        "solve_ms": 534041,
+        "slot_ms": 173197,
+        "outside_ms": 360844,
+        "unattributed_ms": 8448,
+        "rules": {
+          "Vivify": {
+            "ms": 58311,
+            "applications": 529
+          },
+          "BVE": {
+            "ms": 23655,
+            "applications": 2223703
+          },
+          "Substitute": {
+            "ms": 18031,
+            "applications": 273
+          },
+          "Factor": {
+            "ms": 17602,
+            "applications": 132
+          },
+          "Sweep": {
+            "ms": 12981,
+            "applications": 28
+          },
+          "Congruence": {
+            "ms": 12736,
+            "applications": 51
+          },
+          "Strengthen": {
+            "ms": 9277,
+            "applications": 56
+          },
+          "TransitiveReduce": {
+            "ms": 6112,
+            "applications": 5701778
+          },
+          "Backbone": {
+            "ms": 6043,
+            "applications": 273
+          }
+        }
+      }
+    },
+    {
+      "rank": 32,
+      "timers": {
+        "solve_ms": 326523,
+        "slot_ms": 121739,
+        "outside_ms": 204784,
+        "unattributed_ms": 6730,
+        "rules": {
+          "Vivify": {
+            "ms": 35175,
+            "applications": 359
+          },
+          "BVE": {
+            "ms": 19163,
+            "applications": 1980421
+          },
+          "Factor": {
+            "ms": 14527,
+            "applications": 86
+          },
+          "Substitute": {
+            "ms": 13099,
+            "applications": 181
+          },
+          "Congruence": {
+            "ms": 10549,
+            "applications": 38
+          },
+          "Sweep": {
+            "ms": 8157,
+            "applications": 22
+          },
+          "Strengthen": {
+            "ms": 7560,
+            "applications": 40
+          },
+          "Backbone": {
+            "ms": 3588,
+            "applications": 181
+          },
+          "TransitiveReduce": {
+            "ms": 3192,
+            "applications": 3934305
+          }
+        }
+      }
+    },
+    {
+      "rank": 33,
+      "timers": {
+        "solve_ms": 347426,
+        "slot_ms": 130941,
+        "outside_ms": 216485,
+        "unattributed_ms": 6787,
+        "rules": {
+          "Vivify": {
+            "ms": 36800,
+            "applications": 350
+          },
+          "BVE": {
+            "ms": 19727,
+            "applications": 2022738
+          },
+          "Factor": {
+            "ms": 14690,
+            "applications": 90
+          },
+          "Substitute": {
+            "ms": 13952,
+            "applications": 189
+          },
+          "Sweep": {
+            "ms": 12698,
+            "applications": 30
+          },
+          "Congruence": {
+            "ms": 11634,
+            "applications": 44
+          },
+          "Strengthen": {
+            "ms": 7483,
+            "applications": 40
+          },
+          "Backbone": {
+            "ms": 3657,
+            "applications": 189
+          },
+          "TransitiveReduce": {
+            "ms": 3514,
+            "applications": 3851366
+          }
+        }
+      }
+    },
+    {
+      "rank": 34,
+      "timers": {
+        "solve_ms": 329615,
+        "slot_ms": 58823,
+        "outside_ms": 270791,
+        "unattributed_ms": 671,
+        "rules": {
+          "Vivify": {
+            "ms": 29200,
+            "applications": 252
+          },
+          "Sweep": {
+            "ms": 24058,
+            "applications": 34
+          },
+          "Factor": {
+            "ms": 1207,
+            "applications": 69
+          },
+          "BVE": {
+            "ms": 1186,
+            "applications": 103514
+          },
+          "Substitute": {
+            "ms": 1127,
+            "applications": 142
+          },
+          "Congruence": {
+            "ms": 601,
+            "applications": 16
+          },
+          "Strengthen": {
+            "ms": 558,
+            "applications": 40
+          },
+          "TransitiveReduce": {
+            "ms": 140,
+            "applications": 1321554
+          },
+          "Backbone": {
+            "ms": 76,
+            "applications": 141
+          }
+        }
+      }
+    },
+    {
+      "rank": 35,
+      "timers": {
+        "solve_ms": 361248,
+        "slot_ms": 128570,
+        "outside_ms": 232678,
+        "unattributed_ms": 6672,
+        "rules": {
+          "Vivify": {
+            "ms": 37589,
+            "applications": 365
+          },
+          "BVE": {
+            "ms": 19759,
+            "applications": 2021962
+          },
+          "Factor": {
+            "ms": 14385,
+            "applications": 88
+          },
+          "Substitute": {
+            "ms": 13337,
+            "applications": 185
+          },
+          "Congruence": {
+            "ms": 11717,
+            "applications": 45
+          },
+          "Sweep": {
+            "ms": 10185,
+            "applications": 25
+          },
+          "Strengthen": {
+            "ms": 7422,
+            "applications": 40
+          },
+          "Backbone": {
+            "ms": 3996,
+            "applications": 185
+          },
+          "TransitiveReduce": {
+            "ms": 3507,
+            "applications": 3976462
+          }
+        }
+      }
+    },
+    {
+      "rank": 36,
+      "timers": {
+        "solve_ms": 356018,
+        "slot_ms": 34147,
+        "outside_ms": 321871,
+        "unattributed_ms": 334,
+        "rules": {
+          "Vivify": {
+            "ms": 22423,
+            "applications": 236
+          },
+          "Sweep": {
+            "ms": 4399,
+            "applications": 10
+          },
+          "TransitiveReduce": {
+            "ms": 3813,
+            "applications": 69076
+          },
+          "BVE": {
+            "ms": 997,
+            "applications": 59725
+          },
+          "Factor": {
+            "ms": 867,
+            "applications": 60
+          },
+          "Substitute": {
+            "ms": 503,
+            "applications": 123
+          },
+          "Strengthen": {
+            "ms": 434,
+            "applications": 40
+          },
+          "Backbone": {
+            "ms": 294,
+            "applications": 123
+          },
+          "Congruence": {
+            "ms": 83,
+            "applications": 10
+          }
+        }
+      }
+    },
+    {
+      "rank": 37,
+      "timers": {
+        "solve_ms": 421131,
+        "slot_ms": 160678,
+        "outside_ms": 260453,
+        "unattributed_ms": 7194,
+        "rules": {
+          "Vivify": {
+            "ms": 44800,
+            "applications": 423
+          },
+          "Sweep": {
+            "ms": 27747,
+            "applications": 40
+          },
+          "BVE": {
+            "ms": 21995,
+            "applications": 2138593
+          },
+          "Factor": {
+            "ms": 16064,
+            "applications": 106
+          },
+          "Substitute": {
+            "ms": 15590,
+            "applications": 221
+          },
+          "Congruence": {
+            "ms": 10231,
+            "applications": 41
+          },
+          "Strengthen": {
+            "ms": 8364,
+            "applications": 45
+          },
+          "TransitiveReduce": {
+            "ms": 4541,
+            "applications": 5877824
+          },
+          "Backbone": {
+            "ms": 4151,
+            "applications": 221
+          }
+        }
+      }
+    },
+    {
+      "rank": 38,
+      "timers": {
+        "solve_ms": 340562,
+        "slot_ms": 22943,
+        "outside_ms": 317620,
+        "unattributed_ms": 165,
+        "rules": {
+          "Vivify": {
+            "ms": 18194,
+            "applications": 266
+          },
+          "Sweep": {
+            "ms": 3586,
+            "applications": 11
+          },
+          "Substitute": {
+            "ms": 452,
+            "applications": 153
+          },
+          "TransitiveReduce": {
+            "ms": 368,
+            "applications": 42022
+          },
+          "Strengthen": {
+            "ms": 58,
+            "applications": 40
+          },
+          "Factor": {
+            "ms": 41,
+            "applications": 43
+          },
+          "BVE": {
+            "ms": 39,
+            "applications": 6521
+          },
+          "Congruence": {
+            "ms": 24,
+            "applications": 11
+          },
+          "Backbone": {
+            "ms": 17,
+            "applications": 153
+          }
+        }
+      }
+    },
+    {
+      "rank": 39,
+      "timers": {
+        "solve_ms": 408817,
+        "slot_ms": 165922,
+        "outside_ms": 242896,
+        "unattributed_ms": 4499,
+        "rules": {
+          "Sweep": {
+            "ms": 66066,
+            "applications": 100
+          },
+          "Vivify": {
+            "ms": 40985,
+            "applications": 402
+          },
+          "BVE": {
+            "ms": 15433,
+            "applications": 1311352
+          },
+          "Factor": {
+            "ms": 11717,
+            "applications": 100
+          },
+          "Substitute": {
+            "ms": 10625,
+            "applications": 209
+          },
+          "Strengthen": {
+            "ms": 5692,
+            "applications": 44
+          },
+          "Congruence": {
+            "ms": 5463,
+            "applications": 28
+          },
+          "TransitiveReduce": {
+            "ms": 3555,
+            "applications": 5034170
+          },
+          "Backbone": {
+            "ms": 1887,
+            "applications": 209
+          }
+        }
+      }
+    },
+    {
+      "rank": 40,
+      "timers": {
+        "solve_ms": 406660,
+        "slot_ms": 121660,
+        "outside_ms": 285000,
+        "unattributed_ms": 2378,
+        "rules": {
+          "Sweep": {
+            "ms": 45727,
+            "applications": 60
+          },
+          "Vivify": {
+            "ms": 38049,
+            "applications": 340
+          },
+          "BVE": {
+            "ms": 11611,
+            "applications": 747494
+          },
+          "Factor": {
+            "ms": 8616,
+            "applications": 88
+          },
+          "Substitute": {
+            "ms": 5164,
+            "applications": 188
+          },
+          "TransitiveReduce": {
+            "ms": 4782,
+            "applications": 4390418
+          },
+          "Strengthen": {
+            "ms": 2859,
+            "applications": 39
+          },
+          "Congruence": {
+            "ms": 1764,
+            "applications": 13
+          },
+          "Backbone": {
+            "ms": 710,
+            "applications": 187
+          }
+        }
+      }
+    },
+    {
+      "rank": 41,
+      "timers": {
+        "solve_ms": 14787,
+        "slot_ms": 7794,
+        "outside_ms": 6993,
+        "unattributed_ms": 451,
+        "rules": {
+          "BVE": {
+            "ms": 1905,
+            "applications": 253434
+          },
+          "Vivify": {
+            "ms": 1416,
+            "applications": 81
+          },
+          "Factor": {
+            "ms": 1094,
+            "applications": 25
+          },
+          "Substitute": {
+            "ms": 811,
+            "applications": 49
+          },
+          "Congruence": {
+            "ms": 698,
+            "applications": 9
+          },
+          "Sweep": {
+            "ms": 680,
+            "applications": 9
+          },
+          "Strengthen": {
+            "ms": 472,
+            "applications": 10
+          },
+          "Backbone": {
+            "ms": 153,
+            "applications": 49
+          },
+          "TransitiveReduce": {
+            "ms": 115,
+            "applications": 121615
+          }
+        }
+      }
+    },
+    {
+      "rank": 42,
+      "timers": {
+        "solve_ms": 63469,
+        "slot_ms": 33195,
+        "outside_ms": 30274,
+        "unattributed_ms": 1364,
+        "rules": {
+          "Congruence": {
+            "ms": 10123,
+            "applications": 4
+          },
+          "BVE": {
+            "ms": 7284,
+            "applications": 987453
+          },
+          "Vivify": {
+            "ms": 4238,
+            "applications": 15
+          },
+          "Substitute": {
+            "ms": 3696,
+            "applications": 9
+          },
+          "Sweep": {
+            "ms": 2385,
+            "applications": 2
+          },
+          "Strengthen": {
+            "ms": 2213,
+            "applications": 2
+          },
+          "Backbone": {
+            "ms": 1654,
+            "applications": 9
+          },
+          "TransitiveReduce": {
+            "ms": 239,
+            "applications": 13921
+          }
+        }
+      }
+    },
+    {
+      "rank": 43,
+      "timers": {
+        "solve_ms": 121156,
+        "slot_ms": 65303,
+        "outside_ms": 55853,
+        "unattributed_ms": 2166,
+        "rules": {
+          "Congruence": {
+            "ms": 15853,
+            "applications": 5
+          },
+          "BVE": {
+            "ms": 13445,
+            "applications": 1550156
+          },
+          "Vivify": {
+            "ms": 10185,
+            "applications": 21
+          },
+          "Substitute": {
+            "ms": 7170,
+            "applications": 13
+          },
+          "Sweep": {
+            "ms": 5797,
+            "applications": 3
+          },
+          "Strengthen": {
+            "ms": 3876,
+            "applications": 2
+          },
+          "Factor": {
+            "ms": 3310,
+            "applications": 2
+          },
+          "Backbone": {
+            "ms": 2892,
+            "applications": 13
+          },
+          "TransitiveReduce": {
+            "ms": 609,
+            "applications": 343800
+          }
+        }
+      }
+    },
+    {
+      "rank": 44,
+      "timers": {
+        "solve_ms": 58835,
+        "slot_ms": 30981,
+        "outside_ms": 27855,
+        "unattributed_ms": 568,
+        "rules": {
+          "Congruence": {
+            "ms": 18742,
+            "applications": 11
+          },
+          "Vivify": {
+            "ms": 4286,
+            "applications": 103
+          },
+          "Sweep": {
+            "ms": 2609,
+            "applications": 7
+          },
+          "Strengthen": {
+            "ms": 2505,
+            "applications": 12
+          },
+          "Substitute": {
+            "ms": 1857,
+            "applications": 53
+          },
+          "Factor": {
+            "ms": 264,
+            "applications": 27
+          },
+          "TransitiveReduce": {
+            "ms": 120,
+            "applications": 54714
+          },
+          "BVE": {
+            "ms": 23,
+            "applications": 10052
+          },
+          "Backbone": {
+            "ms": 7,
+            "applications": 53
+          }
+        }
+      }
+    },
+    {
+      "rank": 45,
+      "timers": {
+        "solve_ms": 44398,
+        "slot_ms": 5014,
+        "outside_ms": 39384,
+        "unattributed_ms": 95,
+        "rules": {
+          "Vivify": {
+            "ms": 2682,
+            "applications": 155
+          },
+          "Sweep": {
+            "ms": 1329,
+            "applications": 16
+          },
+          "TransitiveReduce": {
+            "ms": 389,
+            "applications": 55144
+          },
+          "Substitute": {
+            "ms": 196,
+            "applications": 80
+          },
+          "BVE": {
+            "ms": 105,
+            "applications": 15038
+          },
+          "Backbone": {
+            "ms": 79,
+            "applications": 79
+          },
+          "Factor": {
+            "ms": 57,
+            "applications": 40
+          },
+          "Strengthen": {
+            "ms": 57,
+            "applications": 29
+          },
+          "Congruence": {
+            "ms": 26,
+            "applications": 9
+          }
+        }
+      }
+    },
+    {
+      "rank": 46,
+      "timers": {
+        "solve_ms": 81478,
+        "slot_ms": 16812,
+        "outside_ms": 64667,
+        "unattributed_ms": 315,
+        "rules": {
+          "Vivify": {
+            "ms": 8541,
+            "applications": 250
+          },
+          "Sweep": {
+            "ms": 3249,
+            "applications": 11
+          },
+          "BVE": {
+            "ms": 1645,
+            "applications": 179128
+          },
+          "TransitiveReduce": {
+            "ms": 1335,
+            "applications": 637961
+          },
+          "Substitute": {
+            "ms": 471,
+            "applications": 133
+          },
+          "Factor": {
+            "ms": 464,
+            "applications": 61
+          },
+          "Backbone": {
+            "ms": 454,
+            "applications": 133
+          },
+          "Strengthen": {
+            "ms": 237,
+            "applications": 34
+          },
+          "Congruence": {
+            "ms": 103,
+            "applications": 11
+          }
+        }
+      }
+    },
+    {
+      "rank": 47,
+      "timers": {
+        "solve_ms": 137655,
+        "slot_ms": 89809,
+        "outside_ms": 47845,
+        "unattributed_ms": 1728,
+        "rules": {
+          "Congruence": {
+            "ms": 58832,
+            "applications": 5
+          },
+          "Substitute": {
+            "ms": 9881,
+            "applications": 9
+          },
+          "Vivify": {
+            "ms": 9650,
+            "applications": 15
+          },
+          "Sweep": {
+            "ms": 7593,
+            "applications": 4
+          },
+          "Backbone": {
+            "ms": 1832,
+            "applications": 9
+          },
+          "TransitiveReduce": {
+            "ms": 293,
+            "applications": 40784
+          }
+        }
+      }
+    },
+    {
+      "rank": 48,
+      "timers": {
+        "solve_ms": 15007,
+        "slot_ms": 8826,
+        "outside_ms": 6181,
+        "unattributed_ms": 229,
+        "rules": {
+          "Congruence": {
+            "ms": 5126,
+            "applications": 3
+          },
+          "Substitute": {
+            "ms": 1839,
+            "applications": 6
+          },
+          "Vivify": {
+            "ms": 965,
+            "applications": 7
+          },
+          "Sweep": {
+            "ms": 504,
+            "applications": 3
+          },
+          "Backbone": {
+            "ms": 154,
+            "applications": 5
+          },
+          "TransitiveReduce": {
+            "ms": 9,
+            "applications": 56387
+          }
+        }
+      }
+    },
+    {
+      "rank": 49,
+      "timers": {
+        "solve_ms": 22607,
+        "slot_ms": 2943,
+        "outside_ms": 19664,
+        "unattributed_ms": 43,
+        "rules": {
+          "Vivify": {
+            "ms": 1506,
+            "applications": 84
+          },
+          "Sweep": {
+            "ms": 1122,
+            "applications": 12
+          },
+          "BVE": {
+            "ms": 77,
+            "applications": 16275
+          },
+          "Substitute": {
+            "ms": 63,
+            "applications": 45
+          },
+          "Factor": {
+            "ms": 60,
+            "applications": 23
+          },
+          "Strengthen": {
+            "ms": 29,
+            "applications": 16
+          },
+          "Congruence": {
+            "ms": 24,
+            "applications": 6
+          },
+          "TransitiveReduce": {
+            "ms": 12,
+            "applications": 78450
+          },
+          "Backbone": {
+            "ms": 6,
+            "applications": 45
+          }
+        }
+      }
+    },
+    {
+      "rank": 50,
+      "timers": {
+        "solve_ms": 45588,
+        "slot_ms": 3692,
+        "outside_ms": 41896,
+        "unattributed_ms": 45,
+        "rules": {
+          "Vivify": {
+            "ms": 2751,
+            "applications": 103
+          },
+          "Sweep": {
+            "ms": 682,
+            "applications": 7
+          },
+          "Substitute": {
+            "ms": 79,
+            "applications": 63
+          },
+          "BVE": {
+            "ms": 54,
+            "applications": 4498
+          },
+          "Strengthen": {
+            "ms": 28,
+            "applications": 23
+          },
+          "Factor": {
+            "ms": 23,
+            "applications": 20
+          },
+          "Congruence": {
+            "ms": 20,
+            "applications": 8
+          },
+          "TransitiveReduce": {
+            "ms": 9,
+            "applications": 28608
+          },
+          "Backbone": {
+            "ms": 2,
+            "applications": 63
+          }
+        }
+      }
+    }
+  ],
+  "limitations": [
+    "Pending runtime/profile proofs remain unverified. Later published status belongs to the successor audit.",
+    "Native7082 is one frozen cross-window diagnostic, not a refreshed timing denominator or exact operation price.",
+    "Component wrappers differ across solvers; component differences are leads, not independently removable costs.",
+    "No-phase ancestry is not equivalent to CDCL. Inclusive symbol maps are not additive.",
+    "Vivify schedule self includes necessary work. Its complete removal is impossible; no speedup is forecast from this envelope.",
+    "The checked full50 named-rule timers rank current workload, not excess cost versus native or projected rewrite savings."
+  ],
+  "next": "Retain7116 and all evidence without promotion; seek a bounded new representation design rather than lowering the original BVE target. Preserve direct debugging, pending-proof follow-up and current-source fuzz obligation."
+}
