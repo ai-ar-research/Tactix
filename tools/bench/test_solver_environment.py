@@ -64,6 +64,45 @@ class SolverEnvironmentTests(unittest.TestCase):
             with self.subTest(variables=variables), self.assertRaises(ValueError):
                 with_solver_environment(lambda c: {}, '/pin/solver', variables)
 
+    def test_selected_bve_conflict_is_solver_only(self):
+        key = 'SAT_BVE_CANDIDATE_CONFLICT'
+        with patch.dict(os.environ, {key: '17'}, clear=True):
+            seen = []
+            def measured(command):
+                seen.append(os.environ.get(key))
+                return {}
+            wrapped = with_solver_environment(measured, '/pin/solver', {key: '5187498'})
+            wrapped(['/pin/checker'])
+            result = wrapped(['/pin/solver'])
+            wrapped(['/pin/checker'])
+            self.assertEqual(seen, ['17', '5187498', '17'])
+            self.assertEqual(result['solver_environment'], {key: '5187498'})
+
+    def test_selected_bve_conflict_cleanup_on_exception(self):
+        key = 'SAT_BVE_CANDIDATE_CONFLICT'
+        with patch.dict(os.environ, {}, clear=True):
+            def fail(command):
+                self.assertEqual(os.environ[key], '0')
+                raise RuntimeError('observer failure')
+            wrapped = with_solver_environment(fail, '/pin/solver', {key: '0'})
+            with self.assertRaises(RuntimeError):
+                wrapped(['/pin/solver'])
+            self.assertNotIn(key, os.environ)
+
+    def test_selected_bve_conflict_rejects_invalid_values(self):
+        for value in ('', '-1', '01', '1.0', ' 1', '1\n', str(2**64), 1):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                with_solver_environment(lambda c: {}, '/pin/solver',
+                                        {'SAT_BVE_CANDIDATE_CONFLICT': value})
+        with_solver_environment(lambda c: {}, '/pin/solver',
+                                {'SAT_BVE_CANDIDATE_CONFLICT': str(2**64 - 1)})
+
+    def test_selected_bve_does_not_enable_other_sat_controls(self):
+        for key in ('SAT_BVE_CANDIDATE_EXIT_AFTER_END', 'SAT_BVE_CANDIDATE_EXTERNAL',
+                    'SAT_EVENT_TRACE_EXIT', 'SAT_BVE_HEAP_CONFLICT'):
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                with_solver_environment(lambda c: {}, '/pin/solver', {key: '1'})
+
 
 if __name__ == '__main__':
     unittest.main()
