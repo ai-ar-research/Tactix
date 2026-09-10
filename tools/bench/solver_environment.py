@@ -12,10 +12,16 @@ def with_solver_environment(measured, binary, variables):
     binary = str(binary)
     variables = dict(variables)
     for key, value in variables.items():
+        selected_bve = key == 'SAT_BVE_CANDIDATE_CONFLICT'
         if (not isinstance(key, str) or
-                not re.fullmatch(r'(TACTIX|KISSAT)_[A-Z0-9_]+', key) or
+                not (selected_bve or re.fullmatch(r'(TACTIX|KISSAT)_[A-Z0-9_]+', key)) or
                 not isinstance(value, str) or '\0' in value):
             raise ValueError('invalid declared solver environment')
+        # This read-only observer selector is deliberately not permission for
+        # SAT_* stop controls or arbitrary process environment variables.
+        if selected_bve and (not re.fullmatch(r'0|[1-9][0-9]*', value) or
+                             int(value) > 2**64 - 1):
+            raise ValueError('invalid selected BVE conflict')
 
     def invoke(command, *args, **kwargs):
         if binary not in map(str, command):
