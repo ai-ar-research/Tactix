@@ -1,0 +1,8 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6841-sweep-rootfree-control/previous-test_sweep_rootfree"
+  ],
+  "exit_code": -6,
+  "stdout": "",
+  "stderr": "previous-test_sweep_rootfree: /home/hwu/SAT-solving/.claude/worktrees/runtime-sweep-rootfree-6838/tests/test_sweep_rootfree.cpp:72: void run(unsigned int, unsigned int, bool, unsigned int, bool): Assertion `!original_models.empty()' failed.\n"
+}

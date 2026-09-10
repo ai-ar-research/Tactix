@@ -1,0 +1,16 @@
+{
+  "name": "candidate-1-2-0-0",
+  "command": [
+    "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-1-2-0-0.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-1-2-0-0.proof"
+  ],
+  "returncode": 0,
+  "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+  "stdout": "\nc parsing input formula with 5 variables and 11 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 7 of 11 clauses in core                            \n\nc 2 of 10 lemmas in core using 11 resolution steps\n\nc 0 RAT lemmas in core; 3 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.044 seconds\n",
+  "stderr": "",
+  "fixture_stdout": "roots=1 position=2 strip=0 lrat=0 general=1 false=16 stripped=0 bridge=17\n",
+  "input_sha256": "44953264db3256684fa88f078783f7768d39d309bceb2fcee40c11bcf848ca26",
+  "proof_sha256": "16c0d3c2e2017a36e817192b237e02bca01ce0fa33153ea576e2b0f89f7f8fad",
+  "proof_bytes": 198
+}

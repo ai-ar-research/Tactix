@@ -1,0 +1,14 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-fixture",
+    "1",
+    "0",
+    "0",
+    "1",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-1-0-0-1.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-1-0-0-1.proof"
+  ],
+  "returncode": 0,
+  "stdout": "roots=1 position=0 strip=0 lrat=1 general=1 false=16 stripped=0 bridge=17\n",
+  "stderr": ""
+}

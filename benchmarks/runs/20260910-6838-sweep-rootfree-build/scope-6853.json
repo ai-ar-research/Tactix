@@ -1,0 +1,24 @@
+{
+  "hashes": {
+    "benchmarks/probes/scratch/verify-sweep-rootfree-scope-6853.py": "fc64f114d7af4b96acac7cc709edd33fdc56d8b697e748718f62640cde6f8159",
+    "benchmarks/runs/20260910-6838-sweep-rootfree-build/manifest.json": "46e795fae74a068745cc0aff3f79f21f4a858231c9bfcc36cf4efdd29fe77f58",
+    ".claude/worktrees/runtime-sweep-rootfree-6838/src/rules/sweep/sweep.cpp": "0c2bdddb318766f8c845e3a33f92106a626c7b5a068be0e6c7e09fca8471de29",
+    ".claude/worktrees/runtime-reduce-watermark-6730/src/rules/sweep/sweep.cpp": "b67d0033a9555b0a2f7adf86109025e81b05b37847ffa18d8e7bf812a2d19b59",
+    ".claude/worktrees/runtime-sweep-rootfree-6838/src/rules/sweep/sweep.hpp": "01af54f4488715e4998e621f3ad7965385656e2c45c3331233d1862f97cea47a",
+    "docs/calculus.md": "667250f31f9576cfc6640bcd81501591cca488045db63a32b1b2470775c7e810",
+    "docs/implementation-notes.md": "cd70f380a81b9c1c40815632a7b7fec6fb11c8ebe1c907a9f66b5c8f3a5692d7",
+    "tools/solvers/variants/kissat-macro-heap-6090/src/sweep.c": "44defef6475090782a6558333e77f2cc2182fb98b1f62913d54bc55da8a9e740",
+    "tools/solvers/variants/cadical-extdiag/src/sweep.cpp": "41249c81dd5dabc060e99fcf8e7c36a476fbb2f6ef82a7fdbc4ad9d5c13ebdab",
+    "benchmarks/runs/20260910-6843-sweep-rootfree-control/control-6843.json": "b49d6b3393a171110bc5b4fc95d0e683c6a9b19c2ad20784b4ea64567366b843",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/summary.json": "384d514f98f4a626fe87a4044e805a438f37b95893e16599ea97900953d743cb"
+  },
+  "changed": [
+    "src/rules/sweep/sweep.cpp",
+    "tests/test_sweep_rootfree.cpp"
+  ],
+  "scope": "Only env_add_clause implementation changes. All guard/instances/apply, emitters, budgets, scheduler, CDCL, Kernel and public headers are byte-identical to6730. Scratch contents/capacity may differ; encoded semantic state, order and meters may not.",
+  "safety": "All callers supply main-arena clause or stack binary pair. env_add modifies only SweepEnv and stats, never Kernel arena or its input pair. Root-free clauses need no filtering/root-unit ledger. First false literal switches to the original proof-aware filter; strip-off unit insertion stays unchanged. No FlatLists/layout/compact-mapping change.",
+  "reference": "Kissat and CaDiCaL both filter main clauses into a temporary clause stack and import into their embedded solver, with BFS order and structural caps. Tactix has an additional environment copy for its proof mapping. This patch removes that extra temporary copy on root-free inputs, not a claimed identical native fast path.",
+  "documentation": "V5 calculus and implemented guards reviewed unchanged: no semantic rule, proof delta or policy contract revision required. Existing plan already requires scheduling/CDCL parity and unit-test consideration for every change.",
+  "limitation": "Tests establish preservation against6730, not global reference parity or a performance gain.120 fixed proofs checked;B/C and repeated timing remain separate. Current-source fuzz and memory acceptance remain open."
+}

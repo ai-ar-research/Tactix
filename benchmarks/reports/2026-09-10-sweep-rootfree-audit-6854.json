@@ -1,0 +1,2519 @@
+{
+  "observed_at": "2026-09-10T05:30:52.098608+00:00",
+  "prior_audit": {
+    "path": "benchmarks/reports/2026-09-10-vivify-snapshot-audit-6836.json",
+    "sha256": "894b3512885a00a862ca449dcdf3317241a3de01a5f361eb5590a5790d4d00cd"
+  },
+  "owned_hashes": {
+    "PROGRESS.md": "cc3703befb0b3fe1f585077d22746da3959a7b0afa04b96822878725777037a8",
+    "benchmarks/probes/scratch/audit-sweep-rootfree-6854.py": "4fe874530d8e4617d96a61ff2793f4decf708d389bc68953b166372837dd08cf",
+    "benchmarks/probes/scratch/build-sweep-rootfree-6844.py": "0711d3905d050097de327f7e30784b616c93b3b32933b4060979472075042a58",
+    "benchmarks/probes/scratch/check-sweep-rootfree-proofs-6845.py": "0a5dbe8c997459c29565de9e4f6dfb5bab6dc51b7574626eb709a6bd04306245",
+    "benchmarks/probes/scratch/classify-sweep-fixture-6840.py": "eaa9af15a6bac070bf0939a54669669228343737770607c4cf88bb2a1e198e65",
+    "benchmarks/probes/scratch/classify-sweep-fixture-6842.py": "dfb86e94cae7e619a193f6df88c06a3105dcff722d5d17896ca73229e89fc690",
+    "benchmarks/probes/scratch/control-sweep-rootfree-6839.py": "1ba4dc9393d5355ed88b53949a85b2638eb67103e97890df6e39a297aa1cd032",
+    "benchmarks/probes/scratch/control-sweep-rootfree-6841.py": "cc73858a2a21dbf0cf8980e9e515ea001f05544df840698e1cac4336659f8173",
+    "benchmarks/probes/scratch/control-sweep-rootfree-6843.py": "b3b5c5a8a5ae8c8f9e6071e3c16d2f23bb146c6d3978f4bca08a6c030c8b9252",
+    "benchmarks/probes/scratch/land-sweep-rootfree-6855.py": "0f93f2171c222d21d16fee8df6838cb7fb083623338248e74945c0c0118e2383",
+    "benchmarks/probes/scratch/prepare-sweep-rootfree-6838.py": "93b7959b18b0b5baf6c01651f9fb79d4f68bd6705d5522195d1f7173730c3b64",
+    "benchmarks/probes/scratch/prepare-sweep-rootfree-BC-6846.py": "131abcb46765e211f5b5aee8686c7413d00932b9de1687c7e7bfe27563d368fd",
+    "benchmarks/probes/scratch/prepare-sweep-rootfree-runtime-6850.py": "e0a19ba6c76bae5695bc82fb2456f9ea78d89e0fab735f9ce2af62bdfc65ba35",
+    "benchmarks/probes/scratch/submit-sweep-rootfree-BC-6847.py": "d168df56051a07eb529d6a22c392f561f345cf9461ad99be2091001efb3df613",
+    "benchmarks/probes/scratch/submit-sweep-rootfree-wave-6851.py": "18a1973cfe1abc85a75f6c6fb8388d326b34fdc8111a19a667fa5b798f7d3016",
+    "benchmarks/probes/scratch/summarize-sweep-rootfree-waves-6852.py": "f6f619e745e83404a72b43b1911676d4f1eb0b2ebdf7100037cf0b42982b8553",
+    "benchmarks/probes/scratch/summarize-vivify-cost-6849.py": "01e4a54aeb8695d4bc0070497c6472adaacb01af233b5da0f6e81dc5068018b1",
+    "benchmarks/probes/scratch/test-sweep-rootfree-proof-6845.cpp": "3303f2fabab5eb9c1aeb52f08e25cd5830ec91529f043e9f0261f171b72cd48f",
+    "benchmarks/probes/scratch/validate-sweep-rootfree-BC-6848.py": "6d72771876d2b3b5f2c4ba9f65ddef4bdcd1c889373f2e2e27182c275c039c2c",
+    "benchmarks/probes/scratch/verify-sweep-rootfree-scope-6853.py": "fc64f114d7af4b96acac7cc709edd33fdc56d8b697e748718f62640cde6f8159",
+    "benchmarks/reports/2026-09-10-sweep-rootfree-cost.md": "89f444d462d1640f81148800722367d55b0908c24050b5ef62c7b181611a77d8",
+    "benchmarks/runs/20260910-6815-inprocessing-release-profiles/array.sbatch": "1a75fe5c87a88f76c9d67d8178dc7abf26d03b57c7c234d2445f436cb5e2f6cf",
+    "benchmarks/runs/20260910-6815-inprocessing-release-profiles/launch.json": "69bde1365a60c924925a21d1681fce19bb8fc0faece6488db0d5dfc5e46a2f97",
+    "benchmarks/runs/20260910-6815-inprocessing-release-profiles/manifest.json": "17b7a1734d3d184fa488cc2bf1068923c038895b9bb0195766d7d571f28c07a3",
+    "benchmarks/runs/20260910-6815-inprocessing-release-profiles/matrix.tsv": "21974fc66354419c9c3be82c6b192b19c6e87ded798c9f0cbe7092d0dcdc1468",
+    "benchmarks/runs/20260910-6815-inprocessing-release-profiles/pins/modelcheck.py": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+    "benchmarks/runs/20260910-6815-inprocessing-release-profiles/pins/run.py": "68a1e6d653a15b6eaee0d0862345d523f69f7e357dd0051bc9438ec791223daa",
+    "benchmarks/runs/20260910-6815-inprocessing-release-profiles/pins/runtime_task.py": "9c2e2fc471a3a4b55e4673517107dd5d9bad209020d80bd6f77e37d14827c8e8",
+    "benchmarks/runs/20260910-6815-inprocessing-release-profiles/provisional/000.json": "8a0e14045e86a09ee41c41cf22e00231ee785f86f2171901c2f1858f098c6c27",
+    "benchmarks/runs/20260910-6815-inprocessing-release-profiles/provisional/001.json": "07e07fee536f9af5eb9d167663be0069936f32d5e811f2d11f5e5c8ddc7f72e3",
+    "benchmarks/runs/20260910-6815-inprocessing-release-profiles/provisional/002.json": "6907c68c1a5aa570ccdc1c7046a7108eb284785f03336c3b12a04b42fdafab6d",
+    "benchmarks/runs/20260910-6815-inprocessing-release-profiles/provisional/003.json": "35a8e92df867be5623f1ba073eb89944407d18ade6f0fb2129ce4f51faf77c67",
+    "benchmarks/runs/20260910-6815-inprocessing-release-profiles/results/000.json": "3f0cea01715900d067febd06256ec44ff7270cc5f429462607a961f92b9d737a",
+    "benchmarks/runs/20260910-6815-inprocessing-release-profiles/results/001.json": "724c6ec3860625628542ad1f74447293c0d13711a6f1bf1b3bee3cfc6d26f380",
+    "benchmarks/runs/20260910-6815-inprocessing-release-profiles/results/002.json": "788406aa072717edad95f5a03d1080a54a0a0587a848d25dd1336f2ec2d66b55",
+    "benchmarks/runs/20260910-6815-inprocessing-release-profiles/results/003.json": "52a801635573b0a0458fde13c51128b7100612a4721616a5c35a738647649ed7",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/array.sbatch": "345d59f7d0062ad786187abcd50aacb837471c4923a4fa4d31519de15f980f16",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/launch.json": "9a4ed25a624bb5a2a65c58a65c6d6d447e7ad69d51c9c499442d287d5b09375f",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/manifest.json": "36efec2fe82c45df8c5b847ccf9ab2016ab9261f6d6312999b063132acd687f3",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/matrix.tsv": "da2d234473fc551eb67bf3c7e1e9d7cbd5f3fe09df5e4e5363b13a28fe17e064",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/pins/candidate.patch": "2debc3ce0136d70e4923fbecc2029f919590fe45ac318bcf0ee12b95ef074ef3",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/pins/current.patch": "7ddc1e054cd47181766c7c3d5612e9015059160adf3eb9aaa19881eb1265c952",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/pins/modelcheck.py": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/pins/runtime_task.py": "9a010d276a883c9289ad6a620e39c1ed761c2ba3b62f3d878e37cca5de228206",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/000.json": "9c96814bfe138ac579e6d9cb9ae3414ab6a23cfd78d987144443f71f6118f11f",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/001.json": "8aa30625fc4572ea547dcadfadf639a0fae9b6d9ce05ff04231aeaa3f40908ec",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/002.json": "3027f6f89d628940a6ab31f06eb72b4cf9950028218cb624eb916cc044ee607f",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/003.json": "d4d326c16ac9705df89a78367780db71ac9be43cf48c925432a1899d92cf1aff",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/004.json": "cb53c5f160abc6573a586856b8a87c7a1cbed953a53371e5c401cfbd886ac288",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/005.json": "1edc483d638dc42537a4bb4e302fdafbd5c21badd53e70c6b72a3da4207b28e6",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/006.json": "c7fa370452d5c82baaacb7780c0722a370879135ced6d4cc6c03c8bdbcca9db2",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/007.json": "e83209f111f99fc9a20aa46961ad33abf61c9cb403d7e48bdbf38ec495b04388",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/008.json": "d1fa253d9c0c865f946db9a561bbc2a06455ba58dd49a0e90bf074820fb96af1",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/009.json": "ca02dd41b59a46fa7713be7ca0127625b61e7838bab6753ba7be552021f47eaa",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/010.json": "55790e81ee71b5856701f4531629a781c9e49acd475fdbd21792d02ba0b1c6a1",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/011.json": "c0b6e466118d31333ded7ff53ca61b16e7056557dcf1fce7d053e4562b0d9b95",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/012.json": "5ab9ba3c71eb46535a0f0e74b8dd482a56f6b07e8a5e309cad51c7b8c0ad3791",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/013.json": "3e0ea1a8f71676e3564bf2f4d884d3b25a72f2b531a86460dd6c6298cf84002e",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/014.json": "0f65d8edf9bef623e1d79724fb78e34faa6536f53218c55f31b085c24d1f9afa",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/015.json": "a28a4b8a58e73052c94faacd75793f6047f0bcaebeaecf82183dd8d79eeaf143",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/016.json": "d94477ee678fc372d5a4bd04a2cab2262906e393dae742ceed6ac7c5237d4a88",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/017.json": "5dfe82c4228b7f3537399242aafd7edca7c263c2a0805db963129e148b659052",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/018.json": "6dc403608ade4293b93dc111a963d12e74bf2629ebf7ccef6c80bb641ccd4144",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/019.json": "e3d36c3398bb58f82456b4aa759309e48a230deb603013f48a47b1aea0703338",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/020.json": "cd128800692827a2af566c0921f0669597777f373ebb2bd5ce076e00ba6f2e0d",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/021.json": "8bf6ffd521297c14041ae2761126d18daa51b1ff4311d5f5b4294658b26a792c",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/022.json": "307769978c650509b3b6a56a2f747c8c3ebba0ded2e423b54fd2fa927e57ca54",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/023.json": "3b523d1f9da23b4543fa32d0d21bb225b1e9769ef86221b30dab1d5bfa5ac24d",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/024.json": "932761be89e08082b17019ab3afd24db2c104db2e3c42f2e0093d6f3fcd6d60c",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/025.json": "d2620e293540d984ba0f649d9f13fd885350caff68ed1cc47aa9339fcac12a55",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/026.json": "cb1b28beb70f975af41edde80831a4d46030e782851b5e9d7160d285ec21122c",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/027.json": "1271f5f4d336846f90334bff693d4f69acdb698e4e90ae7eaf9d23f38e6f3550",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/028.json": "38cf08b9b792e45606a3f0c8b3c59a8bbb46d2d4ab2a50e5b98cff45aeffa43b",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/029.json": "8c4c36e5906a08585fdba610ac9f773db8210832c15bcc6bca5c786cd3be7a84",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/030.json": "0153d4e6c42c16ae7c8c363bc831a891d6f02fcfa92e03f45df847c1ad48eda5",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/031.json": "447eae3487d270358838819d1ce983be4eeb17ff68cdd1e3d2e556080690bceb",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/032.json": "5bdd569b052ca4ca01b9899b76da329ce0eeb26b47e5e8617a1653489549234f",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/033.json": "fd462cab628df102cc6775ff99245f74a8401d5ba58ed3c5653f216e8b2527e5",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/034.json": "5a827ee61058e64007801d58824cc0d7ddcff2cecf28651ca55dc28880b774f0",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/035.json": "17eb42e7cd0c4cfb885411ceeb7617cbe9dfdef978981202d94242aba489064a",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/036.json": "991a3cb83dfa882a9646579c806ce574891dd01eeae6813505e8fd5042d9559d",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/037.json": "286050a0eb8d2a6254f44974a0c0ab30020efb202de0413b6a8378c984cb4b6c",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/038.json": "27fa6955d300ee1da4456808641911d231d36d1c8094c1e48644b041929617ab",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/039.json": "063b5a5027a90c61cf0b592636119dafbb4a90bfc903e3fcb7ec271c6be8ed01",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/040.json": "e8932f5c2c0e432fa8da7a5056bccc3f40e5b0ffdc4b88eeea38b61bd38fc463",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/041.json": "19c1fb76bf1be30ad18efd6b1342ebc558b85f98789604ca3d89efa16b55e160",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/042.json": "29cbec822f64649ee21f7bb4a18f029f30db08fdebe68c42ce1e8fa9179ae7e8",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/043.json": "abeab75294e5343bda9c9a44efeabe0c4e6d40420fe373faa4b01229c656cb5e",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/044.json": "f200316ef8090b1f7ee24660289a8a72eee6c206def5f4d3e18e5b5a3b1e5088",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/045.json": "1eb3bb66101c8fc68da715214106e6c7ec3157ff7c539f7713586c6246d360be",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/046.json": "6f2b0f6345e2f52b94b282f5b9bbbebcfacd57b1b6d2dae6778c0768905bee2e",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/047.json": "8c2b5376f23a9d77b84b49d9878fcbd06892644dec14dd86b4dba528d46354a2",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/048.json": "a87bfd9a41a4692a3c9cbbe6f9dd6f26f6fb396c4806f19bbdbce02538e4e329",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/049.json": "aa2774bd9a1ba4b2193d4880349e9a6fec8888eb3aadff2d01593a6880f4d892",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/050.json": "5a6758fe3bd49c486e58f8f92b4219cbd67b6ef80d9cfb5bf166ec26e099f64f",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/051.json": "b30f9ad93e6f9eb7c867ef7e9c2c82e115d821a838111ae92b6dc3d696c2e7db",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/052.json": "f870e9127afec7986a612447a69e198cbd6fe5f57671838fa62a683b6c1cddf9",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/053.json": "508f4b5a62a283d2efc38e56e49aa7d7c22d1200ac72cf9aa32353cfb817103d",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/054.json": "ffa2e81d1e3fb266ab11906794c4035c84644eed16112f1a1a674b1fa3b6eb31",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/055.json": "9593fedbe67b124deab551222816a902a3fd6cba2554f8d5eb0c537e1693e459",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/056.json": "d2ab3ff5d18f5f2347cf0527d0a45bee39260241da819c95e27782e384b46686",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/057.json": "4272624412708d1bfd72992f0bdee41b98a437507d682ec03be90387c5d6f136",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/058.json": "7a9bde7f08c6ec6b11ecd961db1783b5fdbf5c1831c9fdcc93bebf2b9c2a79cb",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/059.json": "17aa7894f480bb063d82f235ec6149615e7bbaa5c1df5f86b094a1caee759411",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/060.json": "9060e05138899e0da048ab01a2b14b180fd4bf471a140b786881e61d7211cc47",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/061.json": "a4c8c18fef7c43d76c60a10adb4c4ca89693f1fbf513f5b6d0c963877608b9b2",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/062.json": "03a90d1dbad15daf8ecfe1bab4013367f6b81ff2843707c9a29960db16a10d87",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/063.json": "031651b5e7b8156a021114d35cf8b6debfa0926550d5d298cf7a3ae5003e3af8",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/064.json": "ffba49231a8c0aa9d22117c92b852ea407aa86de04fb1107553b42ce4ceb9115",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/provisional/065.json": "28d2ad64c54214f78cb4874b526df84b4e6a444de7f4119920ab23a05d8b908d",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/000.json": "bd4e6bab1f36d3508e525755c1b098c1889084db580c3cd68bbc396ca894f6c9",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/001.json": "3307d74d63020eb9faf71bbe86beb02734597630f8c406fb166c4210e8f7069f",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/002.json": "0571c2108af6e623c3ce7cd711cb08e9dae50c9086814a9852b1d7f8515102c2",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/003.json": "b84791e9b756a2d3970fa0fdc97b5238c0abb30d552f392260fc1d0b8a934d22",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/004.json": "19e430297f01720afb72b1d4b71da7f25a404dc86cce32c6bf3e469d91676dad",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/005.json": "60ace9311505c2fb165dcf2522c6bb6572a7e2729103666bb65184c8c242a3f3",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/006.json": "5a6cffde6c4f1f8df9d75347009f1d689fe2b553db5b54bb0a870ed1b103c0f7",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/007.json": "f8e00978240dd06cdf4809a9bb4f8f5e742e8b4db928c5f18da8b0cc9253ab31",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/008.json": "4ba50c6ae298d1f676bebded0e82593723db6f4188886e3ae2dfb57cec492c7c",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/009.json": "18f85837b55216be2be0cb5b09f95f203dd6628b05b89172fe51d1bbccdb3ab2",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/010.json": "d9f9a1fca854f63bdf6978f00f5e0c77b90543fd74a043e828bdd6b2158f4645",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/011.json": "74a970e5903f2df5de4fb3f9690420664ba092e518f59c076daf15e84045fa00",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/012.json": "80d8c27adbec56ce63bb0c60f4e1cecb223bb52280c51c37a2caa82fde82e191",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/013.json": "b8f80fc9f283ff3519c2707da78e1a268382412195d5770678a1e85fda84a7f2",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/014.json": "5a10d9500c3da4fb5dea0db1c413e9e839afa016db765af7d0aac25e5797b811",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/015.json": "5a1dd0c9c3289375a6df6d18cb838603e3619f0563a0b3498239e0b9c4c65352",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/016.json": "c453f0a41811a261c0731d30cf2f74b14a902a75ee3b5717d9b26f26cd76b393",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/017.json": "c64cd2c35da3a34f5ac584efcaa57dbc694607d35c0546047bf29e0f171d8909",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/018.json": "65543d59e6bf04ed98795f75012972f4e08dd3bd1e8ae7f7429ca64c03081547",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/019.json": "470f77a885a274c903794842fb6ce955830b8806e2df1acf56c68e09466db1c9",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/020.json": "e6e6ae571008e133c2971190a0f577e2fe1957aa4a8e06f4a0d8cb90f3ac74dd",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/021.json": "263067c9a669207dbff5c4b2b6beb3c835eaa440515a82fe59ac983d476fe145",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/022.json": "19f0ba6b1f379da6fd655adf6da98a14c3bfabaa46bc6a588a7566a328ea048f",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/023.json": "654d21b2969bc518a3146a00912d5926e23b2b3ff5be0d8f268a90d449d27abb",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/024.json": "0540c1eb5352f9624bd45227aa0414bc11d5bdcb63fe720956173e13629df173",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/025.json": "31792fb36654d46ea4f7ca6489236061788c20211d1a547fa0cff8fba9eaba76",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/026.json": "253b2935c6fa83e33e230e09491ddb93d9f8728be43da8533e5c94818991df13",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/027.json": "26cf91d43bb8c76326195a03cefcb8e7d947eeacbd805bdce22d16751b91daf5",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/028.json": "7948c097f3e5d2da3d786e2295b110a795bae05b3b22e6b0e20e39b714d10c65",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/029.json": "f09bb223fe917f5928b65b2260ce4f907ed7ab5a452fe72adeb4cfcbf98f3dd1",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/030.json": "502d245125538a7c8edfc99e949ff55fc44cd0803cca781e27bbdef19d9608c4",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/031.json": "3c85a5eb533cf9eb4c6b262d813396134651a4aca4e325bcae341ba9db4583d1",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/032.json": "a29a0ce11a3ccc65a175e02141363922683be1784c8c8f24ed2f5f564e6df25d",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/033.json": "10bbd37379671d89acd2da24d96d7cd09689b552e282e1b01a556d8757f1ced9",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/034.json": "4f33584e7cf67bfc8ef496cf3fa27e5a369d540509195a816e76d1eb85766799",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/035.json": "cb8d036345015a032be5cd52295551625e965bf6c30b0072d30318330e8b8588",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/036.json": "e15d6367b0748f975abf480e27519f09b40e8d4d37a68d5feb084a3e3f94d845",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/037.json": "5a903ce8a1bedf8e25fe98c828af6fa0309b7274be8d7af0fdd783f53bd58f5a",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/038.json": "38d4c7e14d3f250b12f195816950e03241f60121a5ae964166894058aaa295ae",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/039.json": "d367588f125ace9fb8192935398e25ccad6683f9f3de00ccb28974116003420d",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/040.json": "227e3aa5b7f186a302deedfb7063bda28260c8f0f1df366d9fed19dc4fcebf79",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/041.json": "cf6c3e13723864fe89181a5ca55ebbe405546c0c32cbe4563fe858c39470eefe",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/042.json": "11ee57428697414378130c3d96a10b6aa331000f3e6c36c452b90bf7bc139cca",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/043.json": "deb21a046f405cde2722a133b54c4e5e2fa48fbfde2d2dc1d15f3300967f6201",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/044.json": "deef74b182ef1356a2ba43b8775aa0275a262d10570b2f1d76e8baa224b54c6b",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/045.json": "3efa83719106ab3b319f70547c2c8879e4ae871123590fc7cb8f7ed20122c38d",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/046.json": "13749242391857cab00a2e28be9603f3154ea340aa18e90d9d12be52adf8334a",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/047.json": "a559ada2140f2a700883c7fe1fc964940b752c83151b2bba7de7fab1f4a14639",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/048.json": "0b32df2cc4b8f05df947255d6c921fb256b1e6a51c1f1ee376c71b5f2703751a",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/049.json": "bb40f739b4a080273c79b1f8a1b66c5f45343c19a2391cb78bbec6bc126a0745",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/050.json": "41da3537ad4a9964fec8aa8a077ee77cd6e0b6b0d3f68d6fcfbb4d2f3b2a4cff",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/051.json": "3ccfc02ad3cade23ffe4d2b2cc4468de3d93282b9a72c36faf92d02d968362ed",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/052.json": "f30d8b299024f6e411eb27ad11086e0853e3776f921ff8bbd51b7781b8782bd9",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/053.json": "278b84edfb72cfb0338ea96673dc9fbb48163060a20a264b1566a67ae3ad189c",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/054.json": "4578d35cf767e286a953d2adf199dafaefe13715b9f42b0be45a1263af25a091",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/055.json": "7002e3091d9f7fcd6c04dd35231e1116a54e9e19548339b9817d5d916f608e5f",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/056.json": "ebfab55ca15ff785dbc786701b12882666eff2b2f804a1a30236eafa5be09e23",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/057.json": "dac2542350e41cd1b6ab5bdf0eab9c0326044039d2158507fb4b183b374d7162",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/058.json": "f6364dc14d874cfc1b26bf49801d2ed9b8f395b3e6b00aa3b556b953a984676d",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/059.json": "094399e34e454c1e505d97ff74746ebdf9160d5ebdf485f3e8ba700e867d2144",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/060.json": "69857d19acc442a6307e69f87a9d8f4876b9131d01c33a517772be89ed860b59",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/061.json": "3af48daab4514d6640e73c1fa8a0133a92c7d0170f5625a1d18e558c61b5540e",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/062.json": "c63d957218e2f9a4f339b494d1818e26c070b4bf433ff8566d8bfe750c9369f0",
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate/results/063.json": "aac224fcca7388983ea802e0d6ac8df916a45d38412fb463a586e3e4a046e8ba",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/array.sbatch": "4be709cca0fb6f63d1f0b9b7b445ed214afbf6dab7a8349745f8d1194272ac04",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/manifest.json": "84c54edc0d901669b956769075c34508a149097b75f7eb8e7782b32f94b5b060",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/matrix.tsv": "3e9b1a73efa706a76ff3e761899c80ace309d211c53dda5c7000d659ab0162ef",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/pins/modelcheck.py": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/pins/runtime_task.py": "9a010d276a883c9289ad6a620e39c1ed761c2ba3b62f3d878e37cca5de228206",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/provisional/000.json": "d8b3df3f617bdef771c335215e1c5f04e7bd10f6cd2a07a386cb3a211a95cc28",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/provisional/001.json": "d2f593edead207de6a0dbb93fd320032f11424fa115391d84cbf10ec952c8055",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/provisional/002.json": "a1543d77175523fd8d9c1e8e914c97c71ae3ce3756c763e614a435a246df5bdc",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/provisional/003.json": "7ac272eb4fbe6e337a70ff9757aa7ee6c43ed0f1642e78812d2008244409e34d",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/provisional/004.json": "9876ab61e4188a958e4b87cdaf8eb71e884817274051a32955687141d537f1c5",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/provisional/005.json": "119e1771756718f7db8767e3ab415378f3a22f55905e7c21d7933267535427c3",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/provisional/006.json": "02d760b01100e09dbc491cf1561d0c038cca87328a4d080b229371e7889ce3f1",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/provisional/007.json": "7048d229e68bfdf2ac9847878abd556f21bed50fd5f4785702212cdf20552919",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/provisional/008.json": "5be5ec6858070005751f9d373fce8c5589f4171f335c020ed5e088f2786ed45b",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/provisional/009.json": "c2d59bfdaa933a70453c742943368197251e6aaf9f430f774d3565446fe241a8",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/provisional/010.json": "1846d381e5b75bdf29559294ed74b4c5a165c4f3e484ab3112a94223a300356e",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/provisional/011.json": "2e7a1096021a93072dd66f8b41317f4fbe3ba1560ed87bbb9acf141dd261cd09",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/provisional/012.json": "fa3e92351ee5fd7ac2541b248dbff5295df3c7b0734d1c5c9c941d9c23615f4c",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/provisional/013.json": "1047e2e392c1d82cf896d5a4a29c0192bca354288338235c5564e0b464566807",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/provisional/014.json": "fb05fd3bd3b9fc7340ca56e70987f7f126c26dc3bee991245dacc7f9bb2022b2",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/provisional/015.json": "111533f9851193254f5842afa0db2a08c43c9f1607e9d66f9fd8a493898f70bb",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/provisional/016.json": "4f1cc161f38507054d18d89e8ad1866407138d8bce160e0ac5bdcff2be4701c7",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/provisional/017.json": "763dd0f2d094e3548ebc82c709aa00b63f4bd5a944d151006abc312390083520",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/results/002.json": "1aa3f337be929c59bfcc3d91acfb8f93d84328a7a8232908befbfcbbd65d9f21",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/results/003.json": "6ee6c30c9dad8e83783a4e76dbccd5dfdd3f6d8b44fc893e3682a5682934ceca",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/results/004.json": "56c27eb5f5727f2c3e782dc86a2f4545af55067f14312338af091db381487865",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/results/005.json": "96bedd78b92aa5415b4fa499920b5eb8d4928ce48d5a4cd28c83f8b80603efde",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/results/008.json": "6288f8684f1a2bb4725c2487e928b2d384d0d25e0853837f8dace50f9e8b6a23",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/results/009.json": "1bb60c2f1b55fa1d3dc9973edccdb161c4f18ed9926fedaab33954d1570e4d5c",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/results/010.json": "452ee0cda6d5d7de945ba99df6e8201709d1be30ce065ec3f8f1b583ad91bc13",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/results/011.json": "7532cb931885ddd0369d7f9d620c1da803e06398bbfdcea76c978051ecbe9efa",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/solver-checkpoint-6833.json": "d6703ab9c6e4c46a1947140dee0d6cbd3ae1a3dddfbe33a5c04dcacf97a7cd33",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/timer-cost-6849.json": "7d7d83686e688007b7fcea22c681caac61548727b13291dda37a5d1d2887f259",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/wave0-submission.json": "43271e67b6725fc4cc2498975e9830c5b5bc2c2068004ed05cd0bb31dec39b78",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/wave1-submission.json": "c4f9be59ae75ffdb208372f54bd9e6062ff9ff0724fc8bb007b5931b41cb8962",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/wave2-submission.json": "9bfb9464a9584bcb46cab2111223e279372b5778bf9ada2bbacffca1e59f1f58",
+    "benchmarks/runs/20260910-6838-sweep-rootfree-build/cumulative.patch": "edf0c0530175f30539ee10b9b61e7fc461a5ab623301890ee4ab6049f30aeef1",
+    "benchmarks/runs/20260910-6838-sweep-rootfree-build/failed-test_sweep_rootfree.cpp": "dd6238de885320f6a610875d6c6931d8a363271a9757667dbba888e00fe50450",
+    "benchmarks/runs/20260910-6838-sweep-rootfree-build/fixture-failure-6840.json": "c691fa58d52473e7a486102a4a38f85a586650b906e46367b609e98390ddb47d",
+    "benchmarks/runs/20260910-6838-sweep-rootfree-build/incremental.patch": "a787e06e18c4446e8609ab30abf172465a5ab39fc41023085bd9f00a70a03c72",
+    "benchmarks/runs/20260910-6838-sweep-rootfree-build/logs/previous-compile.json": "37d4f1bb5e092d44547ec59a9711a0d5b39e963637c0e2351c31dcae3bf3675e",
+    "benchmarks/runs/20260910-6838-sweep-rootfree-build/logs/previous-test_sweep_rootfree-link.json": "7e82893085b21a26aecdc48b691d8e919ed7afee5ae11d29841ae2ca80020848",
+    "benchmarks/runs/20260910-6838-sweep-rootfree-build/manifest.json": "46e795fae74a068745cc0aff3f79f21f4a858231c9bfcc36cf4efdd29fe77f58",
+    "benchmarks/runs/20260910-6838-sweep-rootfree-build/parent.json": "e299f00e8dfaaa50777ed7e834c8e3600c8084564a5e2794c8cd43aee035b48d",
+    "benchmarks/runs/20260910-6838-sweep-rootfree-build/scope-6853.json": "871828d2fa6a725e740db5c2a8f064972d7d30ccd0d57d11e366c32ffd00f3eb",
+    "benchmarks/runs/20260910-6841-sweep-rootfree-control/failed-test_sweep_rootfree.cpp": "7ddba80b735fe1abb2177185bc2ebdef50720ec98c34db5fd93076888e6f1027",
+    "benchmarks/runs/20260910-6841-sweep-rootfree-control/fixture-failure-6842.json": "e585d59cb631d119c469f8b5a6102cdeef88de3ae5616d9eb2db4c0e895e2927",
+    "benchmarks/runs/20260910-6841-sweep-rootfree-control/logs/previous-compile.json": "052a3f9685903d655d0fbcd4d255183044924d43e43e9869ae7d76c4e0db3ad8",
+    "benchmarks/runs/20260910-6841-sweep-rootfree-control/logs/previous-test_sweep_rootfree-link.json": "708d198a9ed64c8195f410b409ebaf6b5304802f9a3cd302567d69eaadcc2283",
+    "benchmarks/runs/20260910-6841-sweep-rootfree-control/logs/previous-test_sweep_rootfree-run.json": "27e3029c28e5b1c3c1fdc65eb01e0775cd23b2d2e556feca5b99cd859f147218",
+    "benchmarks/runs/20260910-6843-sweep-rootfree-control/control-6843.json": "b49d6b3393a171110bc5b4fc95d0e683c6a9b19c2ad20784b4ea64567366b843",
+    "benchmarks/runs/20260910-6843-sweep-rootfree-control/logs/candidate-compile.json": "45890b5be7191042fddbde574b0492603703346b860782f2a43ddc513c5fc718",
+    "benchmarks/runs/20260910-6843-sweep-rootfree-control/logs/candidate-test_sweep-link.json": "c3ca593934a856006f4906e1bc2165336ba283259dc522377acc7900016e5db7",
+    "benchmarks/runs/20260910-6843-sweep-rootfree-control/logs/candidate-test_sweep-run.json": "6ed8232f861baa09624e0d485c185c08fde0127c233a876c2c2863cb1414faed",
+    "benchmarks/runs/20260910-6843-sweep-rootfree-control/logs/candidate-test_sweep_rootfree-link.json": "9401cd4153a29f3751d9acf75913ab5a0d241b3de3caa94e44c7f520e1b0f072",
+    "benchmarks/runs/20260910-6843-sweep-rootfree-control/logs/candidate-test_sweep_rootfree-run.json": "d3b83f7205ec5f47ad052d431217697574934be88b7ea59c99833d641ece0a4c",
+    "benchmarks/runs/20260910-6843-sweep-rootfree-control/logs/previous-compile.json": "1ffeede478163621f5cc0f47ce6ae32b96ffdb68b2ba6cbc2accdfbde8792747",
+    "benchmarks/runs/20260910-6843-sweep-rootfree-control/logs/previous-test_sweep-link.json": "0cccfb4d1013965991420af6ff301a1e1cb1481cb21cc8a7aece89609c7c6eb7",
+    "benchmarks/runs/20260910-6843-sweep-rootfree-control/logs/previous-test_sweep-run.json": "f9dcc2b13f2f7e20d32c87d33ef034b7f4d7669f915034cfdad03414aafaf3db",
+    "benchmarks/runs/20260910-6843-sweep-rootfree-control/logs/previous-test_sweep_rootfree-link.json": "4f0d825b16813ae7ac943d7a2f53dd8a16f41e210823f8087543b743c346baec",
+    "benchmarks/runs/20260910-6843-sweep-rootfree-control/logs/previous-test_sweep_rootfree-run.json": "43e6abdf8d8ffb21b40b3df021a30dc042046b18678e96dfa3310e1a72b7c469",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-0-0-0-0-checker.json": "71d8ab89efa45d90ae8d7cff384d37c13ddc88f87962afc53d6144207489db23",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-0-0-0-0-fixture.json": "cde2147772b69d76ec257c9c4658043e0c58e23c7baa9a10b2f13fa5c53f8173",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-0-0-0-1-checker.json": "a63b8142876159ecc093cfbe6dfcb140ff4f5cf0bcb4b884d52dc233657b7489",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-0-0-0-1-fixture.json": "7ba4ee2e044470b56bd15cd2659a9fc59d5c4e48066d1208bb36ea8bafcc47d6",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-0-0-1-0-checker.json": "5315602b57436415a0f2099990ff0dfcc892da8b31b3e42ceb721e36fd9ce4c7",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-0-0-1-0-fixture.json": "ed4d6ce1404247917631977fa9fee07c63bb01e83ee320db51e17c44158063e3",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-0-0-1-1-checker.json": "bd55bc8fc2c3e01ae89fc4c7a9a71593f1734fcdbdf653c72539aeffadbb7776",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-0-0-1-1-fixture.json": "b91b57bc123fbdaec92ca31945acafdd5fddb3071a30ec1ce485d0cbaf20cf95",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-0-1-0-0-checker.json": "6fd062b8141ec87626964764859e98b0432e5b3095eb7889159e12e78e166815",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-0-1-0-0-fixture.json": "0ccef5121852f65d84f616a52981a6e936e87a8ffd22747c4169762fb52d2312",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-0-1-0-1-checker.json": "711f6f4435fc45e0e336fa5343a55a91abe26ce212bde8db5d62c19df0a170c1",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-0-1-0-1-fixture.json": "dd2c8af20007c705afe98c0b14ecb78214e160dfea62ee3b0dcbe8fa63167027",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-0-1-1-0-checker.json": "30f366d4103d3f47496a328cc5e71c7ac2004e90374e08ff73821294c63d9c8a",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-0-1-1-0-fixture.json": "f059f686458a2d324b8fc756009e8137146f275671f5f59755ef69206d64d713",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-0-1-1-1-checker.json": "6fdc9927d415d084271e3fbb9594968550867be36de01e46a1fbf8fdfcf65023",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-0-1-1-1-fixture.json": "caecb3aa75ef942cc719251a6fd321e5b5c53fc50e864c5f9f8eaac02304d677",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-0-2-0-0-checker.json": "38f91beb4a6b6100da331e5ac5c15d89369492c120dc42fc896453e388dab14d",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-0-2-0-0-fixture.json": "cc940dee39b9a40049a4abdd5dfea19534cfbf02e154ace8c2161b6cacefb8e9",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-0-2-0-1-checker.json": "e9371de82f6769c84fdb702d48fa5eba98654b28d694c4d5c7d247a3db90d8ce",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-0-2-0-1-fixture.json": "4514e0e4da5d058187dc3ae2f31bd8833e95cd584a84dca52f2e992b0c7e20d2",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-0-2-1-0-checker.json": "75b9cdd7812a1eeb0e66443ddba6998e6ad652968120d029297b8a5893cf7f7f",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-0-2-1-0-fixture.json": "432394d2fff28a928a7a74f80ea6c13f8718b9f52337814465e306b32c7dec53",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-0-2-1-1-checker.json": "ddaddc6ba0338d674286eb2b2baf3f192543197e9524f62eba0e4573eb6e85bc",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-0-2-1-1-fixture.json": "f05db46176652e5078515a2218f46bfc7cf10abfc38aebbf9cb8646bc6c2cf4c",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-0-3-0-0-checker.json": "09d404b7284b2da5b3fb78cab9212cf376eb22b0b1437d1bf037be5b12e2fb3a",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-0-3-0-0-fixture.json": "42a2bbe9a2b76cb57941a914e7fe2ae3f409fad907524d68c421869f38d85af9",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-0-3-0-1-checker.json": "71b453b62d8806d7a2c8fc4366315f403b74ee4d7f2a3c7b41c3032703cb7877",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-0-3-0-1-fixture.json": "39ff976c913f7a3085b3514df95d14968dd8bdf22b447d42a1dc0f7547e39a78",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-0-3-1-0-checker.json": "6625eda7f16fd417dac4f0b3ee4d49fafa658cbe60691d3983d88cc370beeb02",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-0-3-1-0-fixture.json": "e73a7c589471319e8ac7825b5dfaeb7c0b29d7a1899e9d6edd873177f088bcdc",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-0-3-1-1-checker.json": "7fe8c9b519112260f7b6725019d732177d9020e3d05dae896be941084bf82bc7",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-0-3-1-1-fixture.json": "bf54a7ebf203826fd866a11153b880473d10c09faac744870c289d2f9a96fa74",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-0-4-0-0-checker.json": "e1a518bfdfd80c98afd8d6ca0cf400787a979a62c4d8aad40019cdde04f9c224",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-0-4-0-0-fixture.json": "58e93c6ce26289395470debf38d7fdd2d45ef899c021d96fc4cc2913e8c6ddfa",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-0-4-0-1-checker.json": "89e9a55c836122ae33beee7c2deadb0764c182518da50d531eb225fb58b876ff",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-0-4-0-1-fixture.json": "27c450eee239f4df9930ef2d12446ba0c672d30c700600b23e8b4100c04a2276",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-0-4-1-0-checker.json": "2d5db6f392084a384f1b6ea858a18ba611c48392465e20a0c0b483f1faee9212",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-0-4-1-0-fixture.json": "5667dcbbca6138f860cab3188e21390b61b2987d3f96f606fcc9f8cf3c58b4b4",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-0-4-1-1-checker.json": "233308f1337f62635b729611b22e84e1bb498e73151b6993dc634939769aed85",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-0-4-1-1-fixture.json": "d11e2b0e8a1967f18bcac1c291ff7ce7c55923341d278f1c024e4265dcd83c2c",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-1-0-0-0-checker.json": "60ecc63d7a6d8cf1a6dfff298abf4b0826817064666d3705d9a4744aa985c44e",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-1-0-0-0-fixture.json": "7b3f3b95b891efa57c7a495983b6b76457d446435d7dfd7d3b96fa2517197228",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-1-0-0-1-checker.json": "3ef55b30ccbdceff4fba876356447384a3abf758a04e527bebb438403afb2d46",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-1-0-0-1-fixture.json": "3719ae2541ceb788aa014cc42ef6e38f436742d6696d897d4fed435734c0ac30",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-1-0-1-0-checker.json": "aa8576cc39913a1fab5084bbbb9ae98a3577417c4c5933e74e0efc0524923c84",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-1-0-1-0-fixture.json": "c506f27cd29d2e9bcd41130e8820f1f63902d16491691777fb93e3866bd1bb8a",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-1-0-1-1-checker.json": "bd75807f99015c85329c7d0d5099963b8f5b0e21ea45d87b23b13bd4be992579",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-1-0-1-1-fixture.json": "753bc8d3d09453f304158269b15444010aa68281ddcb1172fcccf0f62782969c",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-1-1-0-0-checker.json": "1a3b89644528121eb1634a48c926f9fa97219108bf2162da129849c31999311e",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-1-1-0-0-fixture.json": "310c656215118ba172f0660688a4dcaa21667b4c14a472b77a560981cccc7b4c",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-1-1-0-1-checker.json": "fa36634ca00419cf05260ee49c9803142d9acb63cfff3ad2ac9b7cb1d76c1851",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-1-1-0-1-fixture.json": "22855e7abbe63bccfaeebae6573a27d3a79a475a6098a241dc9206b36f598b0f",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-1-1-1-0-checker.json": "81364801bfd094f6ffe18a1026beb1038640e1946bd7659b11457b9bfa170b9d",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-1-1-1-0-fixture.json": "0e467ea525ac2f2d8eb32b684c37e018981ba5a547e16ac934de03ff8fe72b38",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-1-1-1-1-checker.json": "e7ea17ae87bad1f7cbf1c7e26135374b83deb0d2e81f09d1b7714c1d3ed5f768",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-1-1-1-1-fixture.json": "2d3abcdc308b8d3d794204c9ab10c505b9794bd9c153f0c4a656d1c2d262f796",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-1-2-0-0-checker.json": "590494c05b43ef071a3d57946b8a000dbb5e8556355a43639abb70c0379d8fc2",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-1-2-0-0-fixture.json": "f30b35d0e25c4e4320e1e22f292c21a492d11ca9f0ec1f21a088d66bf903a239",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-1-2-0-1-checker.json": "d23ce185c7ed7662db2603035e9519d1b091ff4d852c65ffc29d07d6a5af9f29",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-1-2-0-1-fixture.json": "f2d145174c98a709e06d089669c86550a6d95e56afa2160e5dc9156cfe3ddd55",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-1-2-1-0-checker.json": "4dab1f856bc3bd279e1e5ff339e127a2d9aa13940251521d01fa1842fcdf955f",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-1-2-1-0-fixture.json": "d3b5925b7f0c11359dbb0230341c44974b50477f7102314a13777c6632733394",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-1-2-1-1-checker.json": "78a7418a122650649787f3ba4fee070d1b67f544aa5d6fb6a1fa9566c21d5f3d",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-1-2-1-1-fixture.json": "1f1538545010b2cd32df13bc47acf67ebd6e2aaf7dbdbcdee7e969c1fe19d614",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-1-3-0-0-checker.json": "06a64f3b73598312646e427b8da444ed5afad228d005c801435d4abaa75904f7",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-1-3-0-0-fixture.json": "2969f6de0093de6ee590491ccc711b55cb7405b4ff13906f5063aea87d77e68a",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-1-3-0-1-checker.json": "24c7b369cfc550174d2f5dbfad4f32138e27257a7dbfc0fc0de2b938996108cc",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-1-3-0-1-fixture.json": "718df24cc13a6283841982428cd825e23524f41c16e8f747e66dc770f5803455",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-1-3-1-0-checker.json": "43068cec82510ffddd6f74bee563d3e552fb7892352090fd8f0866fb4c9ed346",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-1-3-1-0-fixture.json": "203726342cb6d35ebc720ddc90fe7555fad5a47c3465473f083402b704a5c2ab",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-1-3-1-1-checker.json": "f92e1845dd2d35b0c5e8d893e24174944bdd65c4a9a7a0a34acf4dd34e987d5e",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-1-3-1-1-fixture.json": "1c5565fea90e3d5e2949fd5a91e6eb64942c09da4ecde919dfaa5621faab983f",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-1-4-0-0-checker.json": "ad9b5867b90224210f9dc3aa6c552479b78facd23130168610a0370025087ab8",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-1-4-0-0-fixture.json": "38ea8ed9d88e8d7f999c8b7f1ff2920e99ac2adca49d81fd7118c24e3ee11b4d",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-1-4-0-1-checker.json": "c0b49eac8b3d8bbed73d606156af951f9afabe89f222346f1f8691d9235ed3b3",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-1-4-0-1-fixture.json": "c6931acc0c8eed7c863276e6f5a56f260acb995bef7d9fc862b335539c2da0a5",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-1-4-1-0-checker.json": "2040f5ae929cd546affc6765d58e41705065d6bf3751cce40865bd60ca4593c6",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-1-4-1-0-fixture.json": "56472b9374effd10a48a8bf09b7349f81974aaaf2d0305acc6609caeef67bf33",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-1-4-1-1-checker.json": "c673831b5de69a0d89d68ced413a60f8fc5d5717eb85571f6e7d86cf6e3e6e81",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-1-4-1-1-fixture.json": "07591a069763820ce3e13ee985533994c0f9963c25f481c7574567b7c373dbce",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-2-0-0-0-checker.json": "281b01212cc98712cf3ad2c52b7a4013c9b305c83cb9309baa909c65f3108c93",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-2-0-0-0-fixture.json": "c889dc30c605cb656d448fa2ce010898128429a9c896b21cceb9537b55dff5bd",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-2-0-0-1-checker.json": "c93fe4629d912e051533418872fb0360884b1d69a6fc31ddd85cd123e3221b93",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-2-0-0-1-fixture.json": "8dfaae29d994611a13d59360dc196efde4478c45197be2f0e6bbc9a7fcee81ef",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-2-0-1-0-checker.json": "a7421610a3feaa46892f559ba1ece80b8cc6797ed7e8dede6c1eb7af6219acb2",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-2-0-1-0-fixture.json": "a28724601068b6006d044f02624c2c7ae4a09408b46a64ed793023278beece2d",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-2-0-1-1-checker.json": "dd763d392f07f1cd21edf44b3032ebe2ad9305a6340ac180a229f4f3ac297bd7",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-2-0-1-1-fixture.json": "58d7e7e0845fd99be14cf42fb286108614422fdc55917eaab0576ab54ff5f96b",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-2-1-0-0-checker.json": "7299db3b0de09b0b3d8712403fe5bbfd45d11bc9dace74e159cf13ddc81e52bf",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-2-1-0-0-fixture.json": "b8a083ee7627f9ca71975160b844f362dbab3019635de1fa55674bf71e1d2f88",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-2-1-0-1-checker.json": "37df7876fd0a69ba40479788ca4af11e9c178a2b2c3a79af34b4ecc5b94890dd",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-2-1-0-1-fixture.json": "fdca05261612ca597babecbae0f1674f75c7c59d90057855ca0f481935666e02",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-2-1-1-0-checker.json": "5e5eb58be20ddfff45370f8ae5e0e1365c055b80f9946a57078f7b89e60fb15a",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-2-1-1-0-fixture.json": "2b308219cfce86ff46c6383a0a8ce9f1d9b431e53b62484fd6dbecf366f44964",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-2-1-1-1-checker.json": "e4e7daf205d8d6e9e7c9791f8bc76fbc6de795a160d5faf8c2efebef788795be",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-2-1-1-1-fixture.json": "22a0a87f4fd34aad2de09d01f5540a581506ced46577b206458278ab8b2ae129",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-2-2-0-0-checker.json": "9a268ae6364f3ff24ae1e213b3e4ee397aa63e90748e7c162a66b7152fc50538",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-2-2-0-0-fixture.json": "a5181f46a01a3d845b808b54a372b93655890c0fcdaf092622cd7edb7b4c6b1f",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-2-2-0-1-checker.json": "03d090ec856fa398cf44c777f33f7612ba982bbc30f8468e06d55febadfe3905",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-2-2-0-1-fixture.json": "074250bbfb0aea209950215a475f28c268236fb21f1224f1ceb29ea03aea1f22",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-2-2-1-0-checker.json": "a71d6ac3d6b0b7f96258121234a58c0faa21adba296bcae0762aaaaa928a246f",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-2-2-1-0-fixture.json": "f563d0bf7133e8e86317e5bded7be49803a37d7aa091cb6594e1b084a71f14dc",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-2-2-1-1-checker.json": "529bdd38b6e3219cdb9472eb2e4a34a26f94e1cacd425719656a5e93a5b2f840",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-2-2-1-1-fixture.json": "cd05c0f8da0ab4bab049f0bf03c1e1e9fd2eff48683b612515b213ff14014741",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-2-3-0-0-checker.json": "4b28b9cc36c2789f45ef78f533b7ceffc5a6c14d60acf50f7ea8856d3b17f0d0",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-2-3-0-0-fixture.json": "538f9b00c402a57720afc7e1f4b1dc9c3979bcd3aabbb5939f06bf6483ce25fd",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-2-3-0-1-checker.json": "8ba39cae646ad717bc0b017407faf122cbec7363896a473e6ec508f97f8d11d3",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-2-3-0-1-fixture.json": "022ed8b336a09760f7a0ab3fcb70eb44770dad830054de3771749309c639edff",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-2-3-1-0-checker.json": "5e16779990b06411225991e32282c1f0998b026a2800c3211c19c899084cbf19",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-2-3-1-0-fixture.json": "2dbec9280036f49d2c0d79678ea1043c040683d48310764bcb2c0b9738a2009f",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-2-3-1-1-checker.json": "0c69fe64b968de26e4e8de18aeb909fb4d57a5b95e971735917a7b160f978002",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-2-3-1-1-fixture.json": "3843aa092d4d97914a4183b233967fff98360767f11af04c1ef481e0c634238d",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-2-4-0-0-checker.json": "140d39a56bc3e20c4abc5d16e2d71bfc46075c9d7a2b0fa38a35627ff8fd7cea",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-2-4-0-0-fixture.json": "7700f5a6dca358873a117976c3f5d982329a2f7d547c98b9f057c2bbbd4724fc",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-2-4-0-1-checker.json": "8d90a01b26f940ed276cc6f0ef97e3628e80d5161ce872ea9ada149e53c1dfbd",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-2-4-0-1-fixture.json": "822dd17c33e245160dddf048a7fa7ec71c648d3093de28861be9e297d6f7d5a6",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-2-4-1-0-checker.json": "a3f5409a6af606c6046baf53ff25b31e7cc4b6d41b854b67010ccb99dbf8d6a1",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-2-4-1-0-fixture.json": "2f402bdbf0d863da55f334657949ec5a491763c2aa1db2f7deea092556cf91c1",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-2-4-1-1-checker.json": "25e9e18bfc6547162d72514b08248d61380c83a71596a82f8f5f69bfb0e29d36",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-2-4-1-1-fixture.json": "ad400b99176d74aa611ff4ae58ed287bc2cfb3b38b945eed39113278e7c062f1",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-0-0-0-0-checker.json": "21dd28f84476e4aa2c2473ca7da38c7d4e9ea151d7f100cb13487613529fdc28",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-0-0-0-0-fixture.json": "ffc368e21abd05c2d02e7af5f67e604ba1a274817bc02a0318784f0bf7c728f7",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-0-0-0-1-checker.json": "71d55873a64c56ce9e5adf436a9f1f1f297a44cb2286a41a8a54b72ff3e245a5",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-0-0-0-1-fixture.json": "2072e83dc9bf783ddb428c5ad17990cd039e1da2a6b319673337ce0ca45a6bac",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-0-0-1-0-checker.json": "2bbac221d689cf61bed6078bbd09ad987aacc90dc224d25da5e0698517bb010a",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-0-0-1-0-fixture.json": "180a9fc0d3618b0b7416233b63d16f70ecf6de2ea3814fa11f55ca4019635fda",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-0-0-1-1-checker.json": "8eb49c2dafe6b3e11a9c4da0c483255f9dca7fa94511531cd63076df760c4dd6",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-0-0-1-1-fixture.json": "c09b5c1db4d985201f9cde2f7dc7ce36eb26555a5f684a93ffeb8a9466bca6a4",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-0-1-0-0-checker.json": "09dbf82e0aedee82b96dac6c2ee54c9c2437f998bf1073a097b2b560cc88dbe5",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-0-1-0-0-fixture.json": "750b2df513c2684b39bde48e0675c6b6cc7e3705267d2f5f947053bd4f6bcba7",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-0-1-0-1-checker.json": "d2254413a24411e2075933c36a87dc65577aa695c5b3a1c374cb3b9849d07513",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-0-1-0-1-fixture.json": "70e589e10a224aec2ebf58d19837f51a3ea6d416877f11c2d6bc4d10d8f17785",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-0-1-1-0-checker.json": "ca7b0b15c0444c2f70c52efc6ee6235be7c4d3c8e957a2d5eb3610f9d0c41b81",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-0-1-1-0-fixture.json": "37671af7fd10e66b9a0b1542b35be4c7ba94840f0e58fb0ad2afbc7ce813626d",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-0-1-1-1-checker.json": "3bfdce3039ce9f53135d06d2038e60b08ed3a4c30f377a5c5923cbd7ac1d93b0",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-0-1-1-1-fixture.json": "e70cdc4617d939e182208972c429b3ba98bf914e5284fdc86725f4e3c7469397",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-0-2-0-0-checker.json": "d6c6bc4142ed2a82fc67ce655af118958db629b09d4d0466a96ba754cc691c1e",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-0-2-0-0-fixture.json": "1f797bd0e82b5ceb9052eb88ae1e83ae2c145c3df0703b351f2943669ac23672",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-0-2-0-1-checker.json": "9a727fabfa695f7618d6064c0b1a36d0aeccfb4f572ad937d0b5f8f477d30d42",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-0-2-0-1-fixture.json": "1d9a32a160539c30386082dddeabde8a37e394c8873b0b7307dcb37b8e1f5676",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-0-2-1-0-checker.json": "982250220df98ba57d69b4adee3fda7e1a311139c91e47a8ebfb8fa875baafaa",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-0-2-1-0-fixture.json": "f9d800cda6586015f1f7b004deb2bfefe6a9473632a8b1d66c9dc91712bf7564",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-0-2-1-1-checker.json": "d18aea27bfd226b749f9376ad253674e2f86f40042f44a70b11db4f35fbb9a7f",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-0-2-1-1-fixture.json": "464e2a57989114bcf64a9dd6279d9f4ea412ea3848c638e52e73bf5cedafdec3",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-0-3-0-0-checker.json": "df375821b6c795ce25d4dd70054065ec2c77167a295f154cd6d13c3a8cbf58a6",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-0-3-0-0-fixture.json": "752383365e55864054acfa27341f13c133547ca1197fa8ceaf62d6de6dca1f5e",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-0-3-0-1-checker.json": "28bfc8208e77b2cbece6f37d1d3cc2eeb8fdf13b8e80cb965ec12284f34209b6",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-0-3-0-1-fixture.json": "49c46bc6dcf60579272cc007023c8d2c38f32747d300f86ada9b5f2139940897",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-0-3-1-0-checker.json": "76c84656c2df2682b9bdf6180563edbbdb4c2da648701880cbba4c18263d9dda",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-0-3-1-0-fixture.json": "2ddb4d05ebbf4d7eec9735d36571b85c54ae4b104baafd07a66c1fbcfabb60e7",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-0-3-1-1-checker.json": "3b9d17282a2760971e92f91c82fa10d86f47186240a4f97fc0f294c8374f41c1",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-0-3-1-1-fixture.json": "304d09f100805023e4a8c997838eeb865421211429104e116998404a22a724aa",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-0-4-0-0-checker.json": "37cd557563622319f552755fe816dc6dd09361f4f1bbb0521d417fc904e48fda",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-0-4-0-0-fixture.json": "67b63ceefd6035d0b288d74149a7eea4ff45b46e6febb556ee39c4f8a60422de",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-0-4-0-1-checker.json": "64449b0af88e8f321bbc1bdf4174fb1ef06f04c5c0cac9d4f8a36e0e0bbf1330",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-0-4-0-1-fixture.json": "6c392590b9c3400e66505209a5632b138ba2ff01ce5c1f579c7e1268f37acd77",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-0-4-1-0-checker.json": "ac68e6b35b7ce12c4954ec33603b0de7bc5efdd46dddb60043b130a41e2b33c1",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-0-4-1-0-fixture.json": "5a0448efcd7ca3a2f0463b04e92969c11c7187eaa235a1b1c15340c2df805e3d",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-0-4-1-1-checker.json": "86e0eed05a3f04fbef99ffc3fb64bc375b1e31b7d41618dd6aad4ffc43d6955a",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-0-4-1-1-fixture.json": "1849987e766e2813660fb941d2c9b18bf1db0f59579ec2271ed43d0a7dc81a55",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-1-0-0-0-checker.json": "297b634dc8c8aab0ac1acf43a711a986c6e645ebc0544ee21bf30d5fcb9f1907",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-1-0-0-0-fixture.json": "aee6aa1a10f280afa3ddd1a076a7e83d0bca2e1de8ba7e6b4298fc46aab97cdc",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-1-0-0-1-checker.json": "7cbb1f20a9e8d3c5830b77af1aae1232bfa50986a9333b9e78da6bc6e68991c1",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-1-0-0-1-fixture.json": "2b5d6f6c915c1f25535e2f9badba4d03fd2696535c71deb85e0dad35b5ad20ef",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-1-0-1-0-checker.json": "64129a7fde99224bac107f05af7d3a9027d70891cd0c5780c80a338820a0be09",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-1-0-1-0-fixture.json": "0c5c044ab7a771c89550eb447817ead188374b5e3fbd319334a009e69f9b78e7",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-1-0-1-1-checker.json": "594ef2ee4aece33b36f74613be71d1b32cb90fc1c068dae0b0ba4ad863306687",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-1-0-1-1-fixture.json": "4a579a953d9bf584c5b8b7409f231626a4c993a32b052ca05f0accf7869abbef",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-1-1-0-0-checker.json": "23a320adf17cd84945741aaec0fbf2b9b81302258b50c23d581e757eef276df1",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-1-1-0-0-fixture.json": "8290315ee9fec947f083b835e606835c71d3da0df77325f13816f40a66ce3f0d",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-1-1-0-1-checker.json": "b566fcde1d3a806e9672ad8aa11e71254f20ba2e03b77a723d508e8bc77b5d85",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-1-1-0-1-fixture.json": "7a63428038ef7e7b1ed2bcbffdde6ede090db09be8e5f1b68c7bdaecaa0c5b76",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-1-1-1-0-checker.json": "5c1c88e9da23df85adae56387bad97d2618138f4f0ea249762f972828dcdbc94",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-1-1-1-0-fixture.json": "aa5da82185d31c9c73c7528b4997f066c8b9a1f716e267f10454c65472983ab8",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-1-1-1-1-checker.json": "b2bfc1c72f6f7af8f6214c002c559f2eea336fdfa7bafc85b24d435b03a35fc2",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-1-1-1-1-fixture.json": "9820fc890400cce51ed7138cce769cad8eb2046a2b89d0cb12b9d5460188ac51",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-1-2-0-0-checker.json": "45018a0a5a24b7a5e84e11e49c3ae6e2f8194e3bf4a413bc9d0c0400334ccb3b",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-1-2-0-0-fixture.json": "84676332da6b0245ecc0c9067b0e6bf4bd6d02617ff4e76441906188a9451f72",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-1-2-0-1-checker.json": "4f038838fc415737212f66049b911d50bf7574800937fc31975cf78b49d44470",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-1-2-0-1-fixture.json": "7ab61e8c63043d5290f06aa37f0047fecb21f489c11394a1222d383194990af3",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-1-2-1-0-checker.json": "fd63d8645a5bd581c7ee564b6f8cb618d1d8e31818bd69a83a8defa78d180285",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-1-2-1-0-fixture.json": "56717929fda5b4872ef0e94b45bcd2046338a5a2f7edcec9173fb24ccf48d7e0",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-1-2-1-1-checker.json": "f3b838fcb8d9c8195667a08b7cd985a7dbd77e4b7fa26b5a13c54bbd746f5d7d",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-1-2-1-1-fixture.json": "a995f87daf253f03df158756972636e6f1ba74d7731c08116c90b5e6a96935e4",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-1-3-0-0-checker.json": "9321d37e033f6c726594ac3bd24e1625ce59e190fc6bb41714f6f76929568c59",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-1-3-0-0-fixture.json": "7cbe9ce7ca6745c71ffe76f2127c2cc8ef27583d5f3a180c132331476042f3a3",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-1-3-0-1-checker.json": "b288e37cb263902c0561d81d7cd66a78fb7cd1d996e6119cf7e789f5dfaeaa98",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-1-3-0-1-fixture.json": "9b893d4a5672853d63791f706b045b25b5bd6912b65cedd5615511f3efbd4f07",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-1-3-1-0-checker.json": "ee42fb0d7608de1b10a3645d36738c0bf476418a95ee564b181cd7772e2a01b9",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-1-3-1-0-fixture.json": "be05eec6bf633c089149d65d5d8a5c05e5693dbe909fb55dc350c6117aff6af1",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-1-3-1-1-checker.json": "3dcd2540c49d9b991d31b063a2f4c5d1e112d84c3164e921c99604ed6ae92db6",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-1-3-1-1-fixture.json": "658bf0548326e1586ff800e63b8b357db910e5357423986965377bead9f75a56",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-1-4-0-0-checker.json": "3b40a0d2d867889c9c1a836ecbd7e80cf3eccf4acee4665880c4e3c677b95de9",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-1-4-0-0-fixture.json": "ba6ef521b1d5bbb6c86999d697b2622c0ea80aeee70973ae6c7878291396d2ee",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-1-4-0-1-checker.json": "c5d79b256f3ca1add369d379ae5b9ea828191d833a81cd978e0ea7222d21e220",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-1-4-0-1-fixture.json": "d33a23f31ea775671ad1e864124dd9eee446f4841e0fce46a37b49843650b074",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-1-4-1-0-checker.json": "4f4403db6a1925a1ae30d89eb2f991a488f1d6ec8a254af75014daa60f689ae9",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-1-4-1-0-fixture.json": "75d546a9977f6abfdcc0b964b8281adab0fd0893086e83dd06c8a13c828ffdb2",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-1-4-1-1-checker.json": "ed7a3c448c99fe5d97a944edcc838c1f1db15e964ca1428365c3b945070a3002",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-1-4-1-1-fixture.json": "51643913641ef5d960676df49aa77bcb4878a56cd63de71eab0d93bc8f6caace",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-2-0-0-0-checker.json": "5e4c3d3e92c53a9b3152665bb8dc3010aee2d2f1361c2e72a93b7eaa9047e704",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-2-0-0-0-fixture.json": "578167f784d671eee9b4f74af2345bc0fdcf20a097abf946644b1859d4071bee",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-2-0-0-1-checker.json": "bb81b12454aabba8ed8edd6b75dbcc1236326747624423e359e685e934ac1694",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-2-0-0-1-fixture.json": "0925a2e341688e879f40d18deb46c0a7d2dad4e1d7d9accd1ed939d787ee68fa",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-2-0-1-0-checker.json": "55a28c9fc04fed169368cc45597871502ae8310e2152fddc5b9ceb95e15f0a87",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-2-0-1-0-fixture.json": "07993901b246c5108a8567b2b992ebd64b8f60ce8253ec78a8d5954b309055d3",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-2-0-1-1-checker.json": "f716fee12c4b576753558ee2248898eecb79519acaa184fcf79ce2b9dbfe7a29",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-2-0-1-1-fixture.json": "7c99dc5a656622427c48a89937745603db96a72f42502ebf4568c2d662f13c1a",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-2-1-0-0-checker.json": "f63eb0212542251ae8bbb5c94b3562f1fabc6ed44035655506c4cfac3e01a357",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-2-1-0-0-fixture.json": "764c449d5cb6530f9140c9696bb893df122371d7941aa8a056b3d7ad464242c2",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-2-1-0-1-checker.json": "7f3de7865e3100b6c3beca65232b3ad2eaa202c32889aa349e1e7c0e73bbd25b",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-2-1-0-1-fixture.json": "92a4a09984828b0169cc9ffc6cf5349dd6f769fb4bc65936f850fb232bc297fa",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-2-1-1-0-checker.json": "5f99bba370908dba381e196aace76cb097c0b1edc00a96089b2c21ef6b6195e7",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-2-1-1-0-fixture.json": "0120c819000a5db54c600162820905723be427e07b6d4d3bd5d6501acb47a49a",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-2-1-1-1-checker.json": "a697901d51276ee98a158e94d9d21163a621907dd4e67bf44dc9ceea9e2bb2af",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-2-1-1-1-fixture.json": "d8771c2b1030f02bf70e9709d0c953c68f9e3c8a32049d900da29596b4b2c41e",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-2-2-0-0-checker.json": "c6165f27f93e49b8c457da15665afa10e1aac6c2be9cf6dd37eba8a527383353",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-2-2-0-0-fixture.json": "eee80438b3663ed8c1c24ed74c93d8627dc2ef1f36cb5ed51cfa53815def85fb",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-2-2-0-1-checker.json": "f5c6368cdd8567da8b3642ffa048576239774060bfa9e66b8984f8ba5ef2390a",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-2-2-0-1-fixture.json": "b3c953042af057c403e58a5d2f1cd0ee9878b2d5172b9f8df2766e26d7d3b153",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-2-2-1-0-checker.json": "7919eec77ff0c7409e0177374030021db9f763e53633fd7c7ab8a3114297efa5",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-2-2-1-0-fixture.json": "a826c446c6679caae459f415bb46bc93668ce90a75ca5227fe9026125d0b3864",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-2-2-1-1-checker.json": "6fdb89151b9d4633b43598bbc4d81e030feb3a1430108b1742a7c42988f95a3c",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-2-2-1-1-fixture.json": "d785c7a2d22dfdbaa2fa608be371ac442e77bd3d38c7095fe997ce8199701e39",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-2-3-0-0-checker.json": "540a7dca28d0a4105cf8231b6d2bb859f77d9ad768f5476f525faeef6b36d8dd",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-2-3-0-0-fixture.json": "0c48358ddcecc342dbf4580a7b7e1fc2b6a4fa0752b56bb198de8896d2aa64d8",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-2-3-0-1-checker.json": "d4d0709c5f33c9d5bf47b4045a930bdb69c57d7055452709006dd14d3fce8680",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-2-3-0-1-fixture.json": "1b4dcef80b700e1d9b54c0271f5cd8122578210e712861e062f3794c4f9c6f33",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-2-3-1-0-checker.json": "e60a2452aad6fc95b1ea4eb0e84403834cad322e1ff3ebe69ccb254005066574",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-2-3-1-0-fixture.json": "ea428892d7b9ad9d2f74b19fa61aae4d2b6f7a0599bd718b79690ae802aaac27",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-2-3-1-1-checker.json": "3327a4a990439ebf36fbf9ed8292a3c8b877548901c4c2aa4d9d62637c907e0d",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-2-3-1-1-fixture.json": "17a0b7f9fbd9eb6f61dfa6795fb4ecab7e524c93e11c809d527e32107f25ea56",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-2-4-0-0-checker.json": "dc019aa6883fc3dbb17f65819e30c7a98d45fc94a005900bdf0a99ed6bbb0909",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-2-4-0-0-fixture.json": "ad2ace0cdb77dafa5a48117be7e242effa822a4e7dba46b3220892a1295dda2b",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-2-4-0-1-checker.json": "1ba3380982d5067416199f6044f3300431ac51a582542e6c4e99997da2e51596",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-2-4-0-1-fixture.json": "8019685cd56fb346d7767317256614beebd2dc2701d2bd5c2881d8d8068045f5",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-2-4-1-0-checker.json": "4c2e0a706c5c2886195fe343777a97d09e0126f0f936c2cbd4a6a6cdbdcce6a9",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-2-4-1-0-fixture.json": "a0f5c247960ef34fed61190f7b34b417a254b48ed721d53c187220bb6bbbc749",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-2-4-1-1-checker.json": "3a18aed29bf6b6f7bcceb1e8c230031e9d1ed0f4ab5926e6f49bf470b5228437",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/previous-2-4-1-1-fixture.json": "1bc72aa5d3418fbeec00957db5816d9a492727bb9c2283cd1d4a518647512469",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/summary.json": "384d514f98f4a626fe87a4044e805a438f37b95893e16599ea97900953d743cb",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/array.sbatch": "426732ce57a8eaea39c04e3a989cc7bc2b82b894c70cd4d327392e0f38058b19",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/launch.json": "2fe72942c1f36755cd254579929a2d2274dd0b4b97a0654796287433b3879b8c",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/manifest.json": "0aa6eef0a1ba01779c38c1cb9fd6780967fd6a6ac2bb52062bb26cb513278825",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/matrix.tsv": "da2d234473fc551eb67bf3c7e1e9d7cbd5f3fe09df5e4e5363b13a28fe17e064",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/pins/candidate.patch": "edf0c0530175f30539ee10b9b61e7fc461a5ab623301890ee4ab6049f30aeef1",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/pins/current.patch": "7ddc1e054cd47181766c7c3d5612e9015059160adf3eb9aaa19881eb1265c952",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/pins/modelcheck.py": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/pins/runtime_task.py": "9a010d276a883c9289ad6a620e39c1ed761c2ba3b62f3d878e37cca5de228206",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/000.json": "c498892cfcdfd05864fbe84bdf98ac53332a5e9dc8c7f41101ba0f27b15a8daa",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/001.json": "814660d37f8c02d222d8eb5a7d0748a01c962ab9cd0e31bbd22a4f1122f5a256",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/002.json": "c6d30b5fa79d8a0dd7fcab310f61f3a6bc887106bb53ea2eaa6ba99b12a68838",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/003.json": "5a869d3989a7e3564e736adb1552977ef9517c5a6df2458d65c87a9e9ef64d65",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/004.json": "17430c392fa17a6337409c95adf7edc842bf9d09f6cfda70fa4c7cbbb60a47c9",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/005.json": "de13d92ea3569ba85df12d71c625c4c90468f100245fd48750a9fd8157e82716",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/006.json": "5907cba924825388461ee2912f4dd7f4fd364cb84045b99e9246757af1fa62ed",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/007.json": "43f8b07e611a71e41de0638174c21ee50e1ee09f4b0043c7a24da47665022c6c",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/008.json": "835e2ce90ff395c1a7d7d52ee7072ccc724c629320973dbf5bf3f7774d8c5c58",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/009.json": "29caec5cba065d5cc787e0e28200cc892dde1a32a71168cac5a264888e979c06",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/010.json": "edba39191aa5ef7f861570e01dc76ff669977cc623494a68276710582b5318b4",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/011.json": "cb428bc80195600051e25fbba4064d841246ad294ea94f7da061a0cf8f0b1c70",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/012.json": "4c0beb453c4100bbd8040fd638c45098d102fc756c9b7c84af96ae51acd907fb",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/013.json": "55ac89c77e18fb9247548d4345e3912cb750ed02182bef247efa0e9cc4183f3e",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/014.json": "87c4eec6bd4855047c5b3b6586dab8148553379df0d0bbc399b57190e568e091",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/015.json": "ba1949189b7bf905a2d54227eda55ae27c4d8f1b7d121d6da19948d57f156688",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/016.json": "e48475a6b57a92f671e70f143237a3ec62622b2a1782f5c54fd9ff569ce97520",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/017.json": "dab9e14bf3ee938f919ceb80db8222dae8114c11fc44762a47d6e01afdb9740d",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/018.json": "b49af969eb839a2266fcce40e492e2b6355ead9d2ac100dc247dd4ea5ed28ec6",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/019.json": "4f730ead922457ce52daf5449df307f7297c3fd33f7d343260cf1d7524002ffd",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/020.json": "73ffb306973807181098586550d96e0936c95c4e639b63331d04d51e8b699f49",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/021.json": "f3558e0d116ea678c80dd88e409978888c2f7ef1189fffa731ab2195c047bbf8",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/022.json": "b738f91c9f00ff34aa12aa5aa75db909185a533bac71ab8aadc3daefa4e69f83",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/023.json": "5ae09f9d9ade885f9959b22b5906925a97ee25e72c166f76325cd969c161b898",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/024.json": "0a71f4d5cfab148ce29e843d2efbc4231cc68548d5f08280094eae063352fcad",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/025.json": "2e4a6ea1e75f939b5847ed782675a9c4921f9d239e2107116b2a459fbdfaa3f6",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/026.json": "5f228884f66919efc8ddbed095040c709e9d733d9a1770d9798c00adbb482104",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/027.json": "4fc1399f4fdb31b313103ef95a4ae54847011c3ebecea93f6a45d9c2b1250362",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/028.json": "7266ed57edf3e6eee144037642d4e971648e0c729f1acb321dd8dffb2b27fa1d",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/029.json": "9850148d1c21c45e435315264008a7d8dbde76eabc356f7dbc63589cb8424427",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/030.json": "a71f4e678b6ea7fb7e3809c495422e5eda0ddb159178649d9fc8edcc8658e38c",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/031.json": "b1019ab8467b1316ef1bd509124b64ce0ed32f12e11afb02203a808c5d6890bc",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/032.json": "abe4bae4dca557c8d2ee43897e4fd1a1bdca01a03043edec9ed80e72679aee6e",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/033.json": "d32e1804dde1b6175817ed1fc705ca7f25cb5b2c383ee6e47bf4cba443afe043",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/034.json": "25e290298a6a9b13b52a20fa4a16c294162855af9e517bf27641b843467de732",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/035.json": "9e7ae3cb220fc7b0c814ca5050041ca4d825023478a92b750801270a3aa9e0e3",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/036.json": "54e11535e78e2de15e26327f28d7c73b1172b47c8f99249701104f110c5f1379",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/037.json": "e388ad36311afee14f6b324cbc1227423319dc7d4da37ec3aae2cc6b71c5d08a",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/038.json": "056433734e18c27b822875fcebbe28e82f634df96e10b048187c5e56b1959c41",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/039.json": "f18fb8776519bfc95d45787cf0513859ec6aec89fbf1a4001ea65d6ced3719ea",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/040.json": "a172799da55a0668aa3c35b0d10dcca56157a4d9a9f7bd97e171b3726feb7455",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/041.json": "b7035ad251a5feecf531235e1d4f6e2530c5e5743a5a9a3065fe465cdf094acf",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/042.json": "e4857094dfaf1187cd730605d1f24e122c200489359645e532d6c49cd8ff8e08",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/043.json": "68d870e5246ff66fe509e0e574b90bbd90b15ed1e588a18283147b8e336c84ea",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/044.json": "8926a357eaaba1c289b968abcf7866d3322cba3ee65c216759fc00be46fc8025",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/045.json": "b845878ac68463e1e881608b4adb22c15e0c63111c070c611a35006e80fb3c12",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/046.json": "1a41f559afa7fd52da5e0df53a2409070565897f01fd1a92e8d5c681a0980d30",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/047.json": "feb6ac23c244d4adf16edaa06eaecec5cd688f475ec5fba0148b1bbb6ea12981",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/048.json": "25405a65eec21f8be8cbe01a6cf899ff42fa28aa97fcb7da77011ba00e7823c2",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/049.json": "bbbb53ec7d97857a1ce3595d8c67c7792ccd196af64ea68930be4642eaad28c4",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/050.json": "fb05848e3c6ecb7eb166f6c2803fb6464d34c4cfb792afc830a041ad9278b1ae",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/051.json": "0e774b9d3f2b46e39fe08e21f8068f433958a715652dbcc2f8cbcaa37dad639f",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/052.json": "9aafd413059f133af720490d1a0f31aacba3eaa03080fab7b04a996edbd59818",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/053.json": "57f709f1602f7eff815eb368df246f3fc6bc60a946de2f2336cd4aa64cc62209",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/054.json": "6f24fbeb74f2f2dd94136a6e102fd81c9422d8a266f028f286c7ed946c85e13f",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/055.json": "ad4293393cf460c4baf7529f9cbd91a13ca87834a041e01ec036da3b21ba5054",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/056.json": "acbe266f2d53e9bc87c2e8ff3c2fc3b1f1e6b7a924e7cf5429ba8fc11262b09d",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/057.json": "32b133169d627591e15ebc5e801d0a8d8b488c7493a9b79a198a4d6529c28c25",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/058.json": "94f288d599da76a6418aa972de425003c8baa88771af4974f1b0b564aed3682d",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/059.json": "e33a2303ed472bb2704efc2c9d6f557af85a3eb3b17b73e69406e5421bfbff68",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/060.json": "e45d09676b5dc6fba28a22e6d970e92599bc3c5fa1b2191f407e88f774e55b95",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/061.json": "01df7e01da4de4a88cb4a541ea7aad57a6555c716e3d4d694697c3b2ea4b3e8a",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/062.json": "6596ba939cd58a5a82bad3b58cbdcd57a4da97ed5ccaa2a888c7edbbcc288bea",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/063.json": "834ef1b87e4df100d7a762b1ff2a74eec6e3eb9b82f627217fd3b6637f0327b0",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/064.json": "6c88c1bfdb6d5931e2d411efc12122cb8f495c2e180298f1affff92be3ff575c",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/provisional/065.json": "d398044e50ccce37f7f288749df3ba72f5bebe450197493676851ac37928faae",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/000.json": "a60c4e3bed01ca82f1cf10221f022e6b5892bf34508aa51a745abf87e3c15014",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/001.json": "76dea56f7543009dba60d93819cb1cc8c2605ffba8687e569799bd5b89ecc1f6",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/002.json": "17a795bdb8fea9d7f08e9a47020580a8e857ead383d79b40f38513b6648e934a",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/003.json": "f384d7e8e47341b7171bb09f1da81b5fa0567ff85ef6d14b9bcdc7ec5a5f0413",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/004.json": "0d7de9c003f331c1375aa5cc2104ee3db40b0043fea3d2c6183d0104cb877d74",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/005.json": "c1d6a78131d1186b38b023cedccff15c2a6fed5b6d18fe1f461ce89e8044dbca",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/006.json": "3210f10db1e452afbf4650681298deca6132e3f3479d44a6fdedd7a2026b20fa",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/007.json": "7b6abfdb249d22b090726a1d737e1d6a333dddbdabe25870ebad2189dfda7a5a",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/008.json": "c8f237a95a8fc28d5807a572bb9c4a8e4a305bd40b2ed7a9f2ca9ab5a51b69b0",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/009.json": "56f72cc48775d10255ab93c145362eaa44aa1d370cc3a304a4f2bea2d7638256",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/010.json": "abdeb605ca2895b3f141348e041ae5a2754270e624b9e239414c7d96d3e5351a",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/011.json": "b475c9baaac0ddfd11e81643e5beecf75f96010906aaa83bf1a3b55e1c886b8a",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/012.json": "ba37db65cab38de6712f9079651424196bc0da356ed00eb7f75ad281ea903919",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/013.json": "8e8a104f8b4076ba58915179e729a9cbd8b66fd12d874ccab21c7a43b4c9daee",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/014.json": "9e213eb512f8ad0d3e40ea78860b7a01a14f28950f4f736be4962ccad306d511",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/015.json": "74213e37aedda616858e7b7a72d46bf2ac97205797f8133a8d091be058557c38",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/016.json": "0650a301ee4d6cef59be22711103a802d6c339f3420b5f02a5e41b77105bb833",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/017.json": "faf0784673e6c96f060ff3bd1e7301d58cc50e824162100fc12c06b3ef5e32ef",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/018.json": "32306ad3bdceb6fa1d9db15f13386f08ea5ff483d1c78763d6e93f56af5676cd",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/019.json": "746f59a7fa2ef326115b850b4f8bcf51eb35805f4523016e0182c05469989237",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/020.json": "c6cc1aee28fc17c2c72dc6d6ec7a5798a53f4dea4612d43bdfc167b96070c5ce",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/021.json": "40eb8c398825d3abf501dd8390e4c492f148f84c15788018198a94c53cce3b66",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/022.json": "780ec52a0891206224ecbe2c10dd6eed55365e9d9d65ebd0f90e275a516f1312",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/023.json": "910142342831e999e4382c86cd87d841862b7a3cebda66b584493afd30ca7478",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/024.json": "edb96a50aed9e8da6d022b84423dca37569b7b50ac5107dd21eabbe685a41742",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/025.json": "3eed0cadced5743b39bcf9e429b2d26e108c50ac48dec92dd894b6d3998e90a7",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/026.json": "6ce6c40a07c81f9c759b0afd1452a7d968441f01d59ce4813a010a9572bc5fdd",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/027.json": "39ff70be8e78e1eb3fde5a50d65aea26651f845a8cbe968654cd45947fdb3184",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/028.json": "414d6df244926e71203472055b5be8b1d0fb02513bf270d57c31ebd9a40728dc",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/029.json": "1179af3d62190e4c733dc97e674c9aa1fd07f5eedd733e35af9b53c3189fe76c",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/030.json": "07c90d36a28c51dbe3b023fa1c98049a0f987cd0e768fa8a51a18827a622f471",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/031.json": "9705732313e733b900164b53c5009db4b777cda13986c104f9d441a82d1b5fa9",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/032.json": "a3613efdafda87b3036693b181cd02676a8ef1c3b37ad317cd6d42c896fa328e",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/033.json": "0064e79ce7acc9604fce8d9bb44e415c4d90a0113430189b57070ff1c21705e3",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/034.json": "04fb7d834549855923952ba31dfad3aa56d6c7cdb527d34b57525d52edb9d6cc",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/035.json": "590207c13acf9df9f18cff5d4fa28bb0f9d57a8850f45e2aeae14243b402dceb",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/036.json": "cde4e4583923e61c3f9e1e674117787777f2460ff35cfaf65f1fd8f5bad93310",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/037.json": "07fc89fdbd1585a423387ab7f638e9ec12e3c94eade284581488631affa6ce1d",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/038.json": "41801d1dd963c895d5e769738c146ad5f104e9aec133c5eb776057cf6e05c44b",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/039.json": "507900c4abb334b1b871f867ae00e82869c4caee8d6032a9e68f37ac6650b7a5",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/040.json": "3e51b0602d02d90da52b33c27654c84efb3f674c5d768f9f595f4de6235762e6",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/041.json": "95276b288c9d35118b74b79626acd9b66db84c6f18084deab7809d4bbb9cab82",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/042.json": "8c93eb4af85f5b3686309726c325c471cf74a986420564a89435e87d586f04fb",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/043.json": "bba261ffa3950aa9c2a87c4b054a3c02c523378c3c7abeffc66a2d0a2499f77f",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/044.json": "b25260fe54ab5c10fee6f2f3865b54ef38b288bff5864de9fe5ff9e867e4d335",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/045.json": "8809823d109df192bdbb159b6458cf43dfbeec0d04ae550980d5daef04ba2c40",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/046.json": "c5964eddfdd6570b94abfd0efa077794b2cc7b2fae61f6a0c755ac3688de6fb7",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/047.json": "ded86db1d4a7291c83904adb3a5129c5804409350e0fea3dbca5d1ca9a89e757",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/048.json": "e6b7dfe5e2509a597c4b22fec817cc28a20886f26c56606a379549c2fdba0df8",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/049.json": "3c8cad9085620d016a428ebdded3709645e743b9a4bbe1fe5a08b8895aaa3d62",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/050.json": "5e3016b8955c614564d915ebb121ca53c649f8d159da69a7db79733f9701b2ca",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/051.json": "c117f5f6e03be780de4b8de8ecdb383bfae53bfe7e90e00ca0ddcbe82b2c9de6",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/052.json": "8de27ecae62f89057554416913429ed564bffcf04398b2bfdf7f64eac2b8af34",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/053.json": "020fc60fae098fef29a5e4a20024802ef2596f08a1bca09480678fce64e74356",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/054.json": "6b798b8b25c910371392bc4567a9f618af79b7c20d21013037856a472dbf53df",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/055.json": "874139e14faa4956b3abe7594d95a96e213d0f3a14e8d513083d38056cdeb00f",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/056.json": "58411b8cc0b2c99adf621c58ab6cf2da51c220aaf119ed4ddf2bfb95b6106274",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/057.json": "33412db36d0a7ac09d80a0cbb17d34123949cac14b64ba62ee19ee804454b832",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/058.json": "8f02ecc5ed1df019f17f00df05a69b714e8074dfc6567bbfe40eee617fb96105",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/059.json": "e18036a8c74aea7e383c4b1b0e75a0b4dd561c731ae594d49db10d700983dd26",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/060.json": "eef14904c1c9327f38816d2ea2f81da40a37c8e310210fd285e762ad52c3c2e7",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/061.json": "6874a7b0737a1666a507744a7cd6e0da879e6b1476c0d6d7c13b8fba3e064c75",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/062.json": "a88ee3b99822c971855f9c3c372772bdb28d12ce7daaa2b3deddc93e762f66e6",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/results/063.json": "911581d4d01ea975215d37340aad2bc2bbd112f39543853c139939cc744b7b09",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/summary-6848.json": "7b75d2d08de6764b9d9c8eb44703edf32cce91adf2a7724c1c32da5de63f844c",
+    "benchmarks/runs/20260910-6850-sweep-rootfree-runtime/array.sbatch": "342549da18aaf7870404a8e22d6becb228022ba397876bcb0d78d6eacfafc8f4",
+    "benchmarks/runs/20260910-6850-sweep-rootfree-runtime/manifest.json": "1f73dc1d1e80881129ad4454fa65d0c7e2d5d91c45ae33a462b10cdbb048f646",
+    "benchmarks/runs/20260910-6850-sweep-rootfree-runtime/matrix.tsv": "3e9b1a73efa706a76ff3e761899c80ace309d211c53dda5c7000d659ab0162ef",
+    "benchmarks/runs/20260910-6850-sweep-rootfree-runtime/pins/modelcheck.py": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+    "benchmarks/runs/20260910-6850-sweep-rootfree-runtime/pins/runtime_task.py": "9a010d276a883c9289ad6a620e39c1ed761c2ba3b62f3d878e37cca5de228206",
+    "benchmarks/runs/20260910-6850-sweep-rootfree-runtime/wave0-submission.json": "020daa1b316808692d728d3a971d47f01d345875913ef70d899dc1fc1d1fe62c"
+  },
+  "protected_campaign_hashes": {
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/manifest.json": "b2f9e98291c56c415e4cb9439a77378c55cc78593d632c1fc84a6d5ee194acf6",
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/array.sbatch": "b90503efeb1acd5ea2cb081fc60a79c2e1ab6d51287cedf050a673ddb5433143",
+    "benchmarks/baselines/rank1-40-kissat-12cpu-v1/manifest.json": "45259e1acbc93472b923517f75fd6b8697669b3ad74970d27b565b6b7f1aa686",
+    "benchmarks/runs/20260908-5712-assignment-level-ranks1-40/manifest.json": "80211109441ac7e1483082a767c755ffc03c029381398c71017593e2ff29a8ae",
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/pins/runtime_task.py": "ccef4f23bac433c4c205949c0296f2cdef0e98d0d56fff5d306abb6e6209297f",
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/pins/modelcheck.py": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/manifest.json": "d09c9f2a030d0d29974fa881ee247c7900704e4be0e204b28c0b16beaf443d16",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/array.sbatch": "82b47f14fc76c4d5ca14484035b1033d013c1a36c2bbe44c531a1a6a56c87efb",
+    "benchmarks/runs/20260908-6114-substitute-publication-BC-gate/manifest.json": "27c57c3c896ab15daa9d51ff87f9a977472d28b2b43b849be7322b96eb598bb1",
+    "benchmarks/runs/20260908-6114-substitute-publication-BC-gate/array.sbatch": "2b6afd38eb7dcc8fc39f6fa294f5786d20d9238a4facb7cb64bc6c35a0320b4a",
+    "benchmarks/runs/20260908-6115-substitute-publication-ranks1-50/manifest.json": "e739603e6d4ec9024beebfa7a049def7c3ea01eb6b5287e542f05a651e646cd7",
+    "benchmarks/runs/20260908-6115-substitute-publication-ranks1-50/array.sbatch": "ab074cdcf7e9691f7031fd9aa198cef18fe83bb9edc5aa73f0c5b033d2d380f5",
+    "benchmarks/baselines/rank1-50-kissat-12cpu-v1/manifest.json": "5f7865e46af2b9ed0d1899ce6e450bfb9b3575801c50183e059d0e4326f5a1e0",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/manifest.json": "224b3b5d80c3087b3c3c709a78dcf934d175823bd2232f68a2475e6d11bd3d1a",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/launch.json": "ee6eea617d6fef64349ed0096c9dd06f1ffb9ba03467dd6901ab92b833bfb7a1",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/array.sbatch": "37e88d1e5998092127067b1ac0fedc388f29ddf45179057a508fb53dabaa24be"
+  },
+  "accounting": {
+    "1678866": {
+      "campaign": "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate",
+      "command": [
+        "sacct",
+        "-n",
+        "-X",
+        "--array",
+        "-j",
+        "1678866",
+        "-S",
+        "2026-09-10T00:50:58",
+        "-o",
+        "JobID,State%40,ExitCode,Submit",
+        "-P"
+      ],
+      "stdout": "1678866_0|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_1|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_2|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_3|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_4|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_5|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_6|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_7|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_8|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_9|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_10|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_11|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_12|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_13|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_14|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_15|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_16|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_17|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_18|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_19|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_20|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_21|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_22|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_23|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_24|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_25|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_26|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_27|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_28|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_29|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_30|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_31|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_32|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_33|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_34|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_35|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_36|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_37|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_38|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_39|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_40|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_41|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_42|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_43|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_44|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_45|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_46|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_47|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_48|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_49|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_50|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_51|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_52|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_53|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_54|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_55|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_56|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_57|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_58|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_59|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_60|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_61|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_62|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_63|COMPLETED|0:0|2026-09-10T00:50:58\n1678866_64|RUNNING|0:0|2026-09-10T00:50:58\n1678866_65|RUNNING|0:0|2026-09-10T00:50:58\n"
+    },
+    "1678859": {
+      "campaign": "benchmarks/runs/20260910-6815-inprocessing-release-profiles",
+      "command": [
+        "sacct",
+        "-n",
+        "-X",
+        "--array",
+        "-j",
+        "1678859",
+        "-S",
+        "2026-09-10T00:28:43",
+        "-o",
+        "JobID,State%40,ExitCode,Submit",
+        "-P"
+      ],
+      "stdout": "1678859_0|COMPLETED|0:0|2026-09-10T00:28:43\n1678859_1|COMPLETED|0:0|2026-09-10T00:28:43\n1678859_2|COMPLETED|0:0|2026-09-10T00:28:43\n1678859_3|COMPLETED|0:0|2026-09-10T00:28:43\n"
+    },
+    "1678932": {
+      "campaign": "benchmarks/runs/20260910-6831-vivify-snapshot-runtime",
+      "command": [
+        "sacct",
+        "-n",
+        "-X",
+        "--array",
+        "-j",
+        "1678932",
+        "-S",
+        "2026-09-10T00:57:11",
+        "-o",
+        "JobID,State%40,ExitCode,Submit",
+        "-P"
+      ],
+      "stdout": "1678932_0|RUNNING|0:0|2026-09-10T00:57:11\n1678932_1|RUNNING|0:0|2026-09-10T00:57:11\n1678932_2|COMPLETED|0:0|2026-09-10T00:57:11\n1678932_3|COMPLETED|0:0|2026-09-10T00:57:11\n1678932_4|COMPLETED|0:0|2026-09-10T00:57:11\n1678932_5|COMPLETED|0:0|2026-09-10T00:57:11\n"
+    },
+    "1678938": {
+      "campaign": "benchmarks/runs/20260910-6831-vivify-snapshot-runtime",
+      "command": [
+        "sacct",
+        "-n",
+        "-X",
+        "--array",
+        "-j",
+        "1678938",
+        "-S",
+        "2026-09-10T01:05:01",
+        "-o",
+        "JobID,State%40,ExitCode,Submit",
+        "-P"
+      ],
+      "stdout": "1678938_6|RUNNING|0:0|2026-09-10T01:05:01\n1678938_7|RUNNING|0:0|2026-09-10T01:05:01\n1678938_8|COMPLETED|0:0|2026-09-10T01:05:01\n1678938_9|COMPLETED|0:0|2026-09-10T01:05:01\n1678938_10|COMPLETED|0:0|2026-09-10T01:05:01\n1678938_11|COMPLETED|0:0|2026-09-10T01:05:01\n"
+    },
+    "1678944": {
+      "campaign": "benchmarks/runs/20260910-6831-vivify-snapshot-runtime",
+      "command": [
+        "sacct",
+        "-n",
+        "-X",
+        "--array",
+        "-j",
+        "1678944",
+        "-S",
+        "2026-09-10T01:14:40",
+        "-o",
+        "JobID,State%40,ExitCode,Submit",
+        "-P"
+      ],
+      "stdout": "1678944_12|RUNNING|0:0|2026-09-10T01:14:40\n1678944_13|RUNNING|0:0|2026-09-10T01:14:40\n1678944_14|RUNNING|0:0|2026-09-10T01:14:40\n1678944_15|RUNNING|0:0|2026-09-10T01:14:40\n1678944_16|RUNNING|0:0|2026-09-10T01:14:40\n1678944_17|RUNNING|0:0|2026-09-10T01:14:40\n"
+    },
+    "1678952": {
+      "campaign": "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate",
+      "command": [
+        "sacct",
+        "-n",
+        "-X",
+        "--array",
+        "-j",
+        "1678952",
+        "-S",
+        "2026-09-10T01:20:56",
+        "-o",
+        "JobID,State%40,ExitCode,Submit",
+        "-P"
+      ],
+      "stdout": "1678952_0|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_1|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_2|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_3|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_4|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_5|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_6|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_7|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_8|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_9|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_10|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_11|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_12|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_13|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_14|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_15|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_16|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_17|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_18|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_19|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_20|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_21|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_22|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_23|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_24|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_25|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_26|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_27|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_28|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_29|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_30|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_31|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_32|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_33|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_34|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_35|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_36|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_37|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_38|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_39|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_40|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_41|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_42|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_43|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_44|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_45|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_46|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_47|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_48|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_49|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_50|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_51|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_52|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_53|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_54|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_55|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_56|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_57|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_58|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_59|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_60|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_61|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_62|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_63|COMPLETED|0:0|2026-09-10T01:20:56\n1678952_64|RUNNING|0:0|2026-09-10T01:20:56\n1678952_65|RUNNING|0:0|2026-09-10T01:20:56\n"
+    },
+    "1679018": {
+      "campaign": "benchmarks/runs/20260910-6850-sweep-rootfree-runtime",
+      "command": [
+        "sacct",
+        "-n",
+        "-X",
+        "--array",
+        "-j",
+        "1679018",
+        "-S",
+        "2026-09-10T01:29:10",
+        "-o",
+        "JobID,State%40,ExitCode,Submit",
+        "-P"
+      ],
+      "stdout": "1679018_0|RUNNING|0:0|2026-09-10T01:29:10\n1679018_1|RUNNING|0:0|2026-09-10T01:29:10\n1679018_2|RUNNING|0:0|2026-09-10T01:29:10\n1679018_3|RUNNING|0:0|2026-09-10T01:29:10\n1679018_4|RUNNING|0:0|2026-09-10T01:29:10\n1679018_5|RUNNING|0:0|2026-09-10T01:29:10\n"
+    },
+    "active_queue": {
+      "command": [
+        "squeue",
+        "-h",
+        "-u",
+        "hwu",
+        "-o",
+        "%i|%j|%T|%P|%C|%m"
+      ],
+      "stdout": "1679018_1|6850-sweep-rootfree-runtime|RUNNING|cpu-dense-hwulab-q|12|48000M\n1679018_2|6850-sweep-rootfree-runtime|RUNNING|cpu-dense-hwulab-q|12|48000M\n1679018_3|6850-sweep-rootfree-runtime|RUNNING|cpu-dense-hwulab-q|12|48000M\n1679018_4|6850-sweep-rootfree-runtime|RUNNING|cpu-dense-hwulab-q|12|48000M\n1679018_5|6850-sweep-rootfree-runtime|RUNNING|cpu-dense-hwulab-q|12|48000M\n1679018_0|6850-sweep-rootfree-runtime|RUNNING|cpu-dense-hwulab-q|12|48000M\n1678952_65|6846-sweep-rootfree-BC|RUNNING|cpu-dense-hwulab-q|12|48000M\n1678952_64|6846-sweep-rootfree-BC|RUNNING|cpu-dense-hwulab-q|12|48000M\n1678944_13|6831-vivify-snapshot-runtime|RUNNING|cpu-dense-hwulab-q|12|48000M\n1678944_14|6831-vivify-snapshot-runtime|RUNNING|cpu-dense-hwulab-q|12|48000M\n1678944_15|6831-vivify-snapshot-runtime|RUNNING|cpu-dense-hwulab-q|12|48000M\n1678944_16|6831-vivify-snapshot-runtime|RUNNING|cpu-dense-hwulab-q|12|48000M\n1678944_17|6831-vivify-snapshot-runtime|RUNNING|cpu-dense-hwulab-q|12|48000M\n1678944_12|6831-vivify-snapshot-runtime|RUNNING|cpu-dense-hwulab-q|12|48000M\n1678938_6|6831-vivify-snapshot-runtime|RUNNING|cpu-dense-hwulab-q|12|48000M\n1678938_7|6831-vivify-snapshot-runtime|RUNNING|cpu-dense-hwulab-q|12|48000M\n1678932_1|6831-vivify-snapshot-runtime|RUNNING|cpu-dense-hwulab-q|12|48000M\n1678932_0|6831-vivify-snapshot-runtime|RUNNING|cpu-dense-hwulab-q|12|48000M\n1678866_64|6828-vivify-snapshot-BC|RUNNING|cpu-dense-hwulab-q|12|48000M\n1678866_65|6828-vivify-snapshot-BC|RUNNING|cpu-dense-hwulab-q|12|48000M\n1668242|bash|RUNNING|cpu-q|8|128G\n",
+      "mapping": {
+        "1679018_1": {
+          "row": "1679018_1|6850-sweep-rootfree-runtime|RUNNING|cpu-dense-hwulab-q|12|48000M",
+          "owner": "benchmarks/runs/20260910-6850-sweep-rootfree-runtime"
+        },
+        "1679018_2": {
+          "row": "1679018_2|6850-sweep-rootfree-runtime|RUNNING|cpu-dense-hwulab-q|12|48000M",
+          "owner": "benchmarks/runs/20260910-6850-sweep-rootfree-runtime"
+        },
+        "1679018_3": {
+          "row": "1679018_3|6850-sweep-rootfree-runtime|RUNNING|cpu-dense-hwulab-q|12|48000M",
+          "owner": "benchmarks/runs/20260910-6850-sweep-rootfree-runtime"
+        },
+        "1679018_4": {
+          "row": "1679018_4|6850-sweep-rootfree-runtime|RUNNING|cpu-dense-hwulab-q|12|48000M",
+          "owner": "benchmarks/runs/20260910-6850-sweep-rootfree-runtime"
+        },
+        "1679018_5": {
+          "row": "1679018_5|6850-sweep-rootfree-runtime|RUNNING|cpu-dense-hwulab-q|12|48000M",
+          "owner": "benchmarks/runs/20260910-6850-sweep-rootfree-runtime"
+        },
+        "1679018_0": {
+          "row": "1679018_0|6850-sweep-rootfree-runtime|RUNNING|cpu-dense-hwulab-q|12|48000M",
+          "owner": "benchmarks/runs/20260910-6850-sweep-rootfree-runtime"
+        },
+        "1678952_65": {
+          "row": "1678952_65|6846-sweep-rootfree-BC|RUNNING|cpu-dense-hwulab-q|12|48000M",
+          "owner": "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate"
+        },
+        "1678952_64": {
+          "row": "1678952_64|6846-sweep-rootfree-BC|RUNNING|cpu-dense-hwulab-q|12|48000M",
+          "owner": "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate"
+        },
+        "1678944_13": {
+          "row": "1678944_13|6831-vivify-snapshot-runtime|RUNNING|cpu-dense-hwulab-q|12|48000M",
+          "owner": "benchmarks/runs/20260910-6831-vivify-snapshot-runtime"
+        },
+        "1678944_14": {
+          "row": "1678944_14|6831-vivify-snapshot-runtime|RUNNING|cpu-dense-hwulab-q|12|48000M",
+          "owner": "benchmarks/runs/20260910-6831-vivify-snapshot-runtime"
+        },
+        "1678944_15": {
+          "row": "1678944_15|6831-vivify-snapshot-runtime|RUNNING|cpu-dense-hwulab-q|12|48000M",
+          "owner": "benchmarks/runs/20260910-6831-vivify-snapshot-runtime"
+        },
+        "1678944_16": {
+          "row": "1678944_16|6831-vivify-snapshot-runtime|RUNNING|cpu-dense-hwulab-q|12|48000M",
+          "owner": "benchmarks/runs/20260910-6831-vivify-snapshot-runtime"
+        },
+        "1678944_17": {
+          "row": "1678944_17|6831-vivify-snapshot-runtime|RUNNING|cpu-dense-hwulab-q|12|48000M",
+          "owner": "benchmarks/runs/20260910-6831-vivify-snapshot-runtime"
+        },
+        "1678944_12": {
+          "row": "1678944_12|6831-vivify-snapshot-runtime|RUNNING|cpu-dense-hwulab-q|12|48000M",
+          "owner": "benchmarks/runs/20260910-6831-vivify-snapshot-runtime"
+        },
+        "1678938_6": {
+          "row": "1678938_6|6831-vivify-snapshot-runtime|RUNNING|cpu-dense-hwulab-q|12|48000M",
+          "owner": "benchmarks/runs/20260910-6831-vivify-snapshot-runtime"
+        },
+        "1678938_7": {
+          "row": "1678938_7|6831-vivify-snapshot-runtime|RUNNING|cpu-dense-hwulab-q|12|48000M",
+          "owner": "benchmarks/runs/20260910-6831-vivify-snapshot-runtime"
+        },
+        "1678932_1": {
+          "row": "1678932_1|6831-vivify-snapshot-runtime|RUNNING|cpu-dense-hwulab-q|12|48000M",
+          "owner": "benchmarks/runs/20260910-6831-vivify-snapshot-runtime"
+        },
+        "1678932_0": {
+          "row": "1678932_0|6831-vivify-snapshot-runtime|RUNNING|cpu-dense-hwulab-q|12|48000M",
+          "owner": "benchmarks/runs/20260910-6831-vivify-snapshot-runtime"
+        },
+        "1678866_64": {
+          "row": "1678866_64|6828-vivify-snapshot-BC|RUNNING|cpu-dense-hwulab-q|12|48000M",
+          "owner": "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate"
+        },
+        "1678866_65": {
+          "row": "1678866_65|6828-vivify-snapshot-BC|RUNNING|cpu-dense-hwulab-q|12|48000M",
+          "owner": "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate"
+        },
+        "1668242": {
+          "row": "1668242|bash|RUNNING|cpu-q|8|128G",
+          "owner": "user allocation; untouched"
+        }
+      }
+    }
+  },
+  "campaign_states": {
+    "benchmarks/runs/20260910-6828-vivify-snapshot-BC-gate": {
+      "0": {
+        "rank": 1,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "1": {
+        "rank": 1,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "2": {
+        "rank": 2,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "3": {
+        "rank": 2,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "4": {
+        "rank": 3,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "5": {
+        "rank": 3,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "6": {
+        "rank": 4,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "7": {
+        "rank": 4,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "8": {
+        "rank": 5,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "9": {
+        "rank": 5,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "10": {
+        "rank": 6,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "11": {
+        "rank": 6,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "12": {
+        "rank": 7,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "13": {
+        "rank": 7,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "14": {
+        "rank": 8,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "15": {
+        "rank": 8,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "16": {
+        "rank": 9,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "17": {
+        "rank": 9,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "18": {
+        "rank": 10,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "19": {
+        "rank": 10,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "20": {
+        "rank": 11,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "21": {
+        "rank": 11,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "22": {
+        "rank": 12,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "23": {
+        "rank": 12,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "24": {
+        "rank": 13,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "25": {
+        "rank": 13,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "26": {
+        "rank": 14,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "27": {
+        "rank": 14,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "28": {
+        "rank": 15,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "29": {
+        "rank": 15,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "30": {
+        "rank": 16,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "31": {
+        "rank": 16,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "32": {
+        "rank": 17,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "33": {
+        "rank": 17,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "34": {
+        "rank": 18,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "35": {
+        "rank": 18,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "36": {
+        "rank": 19,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "37": {
+        "rank": 19,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "38": {
+        "rank": 20,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "39": {
+        "rank": 20,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "40": {
+        "rank": 21,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "41": {
+        "rank": 21,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "42": {
+        "rank": 22,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "43": {
+        "rank": 22,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "44": {
+        "rank": 23,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "45": {
+        "rank": 23,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "46": {
+        "rank": 24,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "47": {
+        "rank": 24,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "48": {
+        "rank": 25,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "49": {
+        "rank": 25,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "50": {
+        "rank": 26,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "51": {
+        "rank": 26,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "52": {
+        "rank": 27,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "53": {
+        "rank": 27,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "54": {
+        "rank": 28,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "55": {
+        "rank": 28,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "56": {
+        "rank": 29,
+        "arm": "current_C",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "57": {
+        "rank": 29,
+        "arm": "candidate_C",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "58": {
+        "rank": 30,
+        "arm": "current_C",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "59": {
+        "rank": 30,
+        "arm": "candidate_C",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "60": {
+        "rank": 31,
+        "arm": "current_C",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "61": {
+        "rank": 31,
+        "arm": "candidate_C",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "62": {
+        "rank": 32,
+        "arm": "current_C",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "63": {
+        "rank": 32,
+        "arm": "candidate_C",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "64": {
+        "rank": 33,
+        "arm": "current_C",
+        "state": {
+          "status": "pending_validation",
+          "clean": false,
+          "checked": false,
+          "scorable": false
+        }
+      },
+      "65": {
+        "rank": 33,
+        "arm": "candidate_C",
+        "state": {
+          "status": "pending_validation",
+          "clean": false,
+          "checked": false,
+          "scorable": false
+        }
+      }
+    },
+    "benchmarks/runs/20260910-6815-inprocessing-release-profiles": {
+      "0": {
+        "rank": 32,
+        "arm": "candidate",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "1": {
+        "rank": 32,
+        "arm": "kissat",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "2": {
+        "rank": 39,
+        "arm": "candidate",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "3": {
+        "rank": 39,
+        "arm": "kissat",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      }
+    },
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime": {
+      "0": {
+        "rank": 32,
+        "arm": "candidate",
+        "state": {
+          "status": "pending_validation",
+          "clean": false,
+          "checked": false,
+          "scorable": false
+        }
+      },
+      "1": {
+        "rank": 32,
+        "arm": "previous",
+        "state": {
+          "status": "pending_validation",
+          "clean": false,
+          "checked": false,
+          "scorable": false
+        }
+      },
+      "2": {
+        "rank": 39,
+        "arm": "candidate",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "3": {
+        "rank": 39,
+        "arm": "previous",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "4": {
+        "rank": 38,
+        "arm": "candidate",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "5": {
+        "rank": 38,
+        "arm": "previous",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "6": {
+        "rank": 32,
+        "arm": "previous",
+        "state": {
+          "status": "pending_validation",
+          "clean": false,
+          "checked": false,
+          "scorable": false
+        }
+      },
+      "7": {
+        "rank": 32,
+        "arm": "candidate",
+        "state": {
+          "status": "pending_validation",
+          "clean": false,
+          "checked": false,
+          "scorable": false
+        }
+      },
+      "8": {
+        "rank": 39,
+        "arm": "previous",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "9": {
+        "rank": 39,
+        "arm": "candidate",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "10": {
+        "rank": 38,
+        "arm": "previous",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "11": {
+        "rank": 38,
+        "arm": "candidate",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "12": {
+        "rank": 32,
+        "arm": "candidate",
+        "state": {
+          "status": "pending_validation",
+          "clean": false,
+          "checked": false,
+          "scorable": false
+        }
+      },
+      "13": {
+        "rank": 32,
+        "arm": "previous",
+        "state": {
+          "status": "pending_validation",
+          "clean": false,
+          "checked": false,
+          "scorable": false
+        }
+      },
+      "14": {
+        "rank": 39,
+        "arm": "candidate",
+        "state": {
+          "status": "pending_validation",
+          "clean": false,
+          "checked": false,
+          "scorable": false
+        }
+      },
+      "15": {
+        "rank": 39,
+        "arm": "previous",
+        "state": {
+          "status": "pending_validation",
+          "clean": false,
+          "checked": false,
+          "scorable": false
+        }
+      },
+      "16": {
+        "rank": 38,
+        "arm": "candidate",
+        "state": {
+          "status": "pending_validation",
+          "clean": false,
+          "checked": false,
+          "scorable": false
+        }
+      },
+      "17": {
+        "rank": 38,
+        "arm": "previous",
+        "state": {
+          "status": "pending_validation",
+          "clean": false,
+          "checked": false,
+          "scorable": false
+        }
+      }
+    },
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate": {
+      "0": {
+        "rank": 1,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "1": {
+        "rank": 1,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "2": {
+        "rank": 2,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "3": {
+        "rank": 2,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "4": {
+        "rank": 3,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "5": {
+        "rank": 3,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "6": {
+        "rank": 4,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "7": {
+        "rank": 4,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "8": {
+        "rank": 5,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "9": {
+        "rank": 5,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "10": {
+        "rank": 6,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "11": {
+        "rank": 6,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "12": {
+        "rank": 7,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "13": {
+        "rank": 7,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "14": {
+        "rank": 8,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "15": {
+        "rank": 8,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "16": {
+        "rank": 9,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "17": {
+        "rank": 9,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "18": {
+        "rank": 10,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "19": {
+        "rank": 10,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "20": {
+        "rank": 11,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "21": {
+        "rank": 11,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "22": {
+        "rank": 12,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "23": {
+        "rank": 12,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "24": {
+        "rank": 13,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "25": {
+        "rank": 13,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "26": {
+        "rank": 14,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "27": {
+        "rank": 14,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "28": {
+        "rank": 15,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "29": {
+        "rank": 15,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "30": {
+        "rank": 16,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "31": {
+        "rank": 16,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "32": {
+        "rank": 17,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "33": {
+        "rank": 17,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "34": {
+        "rank": 18,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "35": {
+        "rank": 18,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "36": {
+        "rank": 19,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "37": {
+        "rank": 19,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "38": {
+        "rank": 20,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "39": {
+        "rank": 20,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "40": {
+        "rank": 21,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "41": {
+        "rank": 21,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "42": {
+        "rank": 22,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "43": {
+        "rank": 22,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "44": {
+        "rank": 23,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "45": {
+        "rank": 23,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "46": {
+        "rank": 24,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "47": {
+        "rank": 24,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "48": {
+        "rank": 25,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "49": {
+        "rank": 25,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "50": {
+        "rank": 26,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "51": {
+        "rank": 26,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "52": {
+        "rank": 27,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "53": {
+        "rank": 27,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "54": {
+        "rank": 28,
+        "arm": "current_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "55": {
+        "rank": 28,
+        "arm": "candidate_B",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "56": {
+        "rank": 29,
+        "arm": "current_C",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "57": {
+        "rank": 29,
+        "arm": "candidate_C",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "58": {
+        "rank": 30,
+        "arm": "current_C",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "59": {
+        "rank": 30,
+        "arm": "candidate_C",
+        "state": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "60": {
+        "rank": 31,
+        "arm": "current_C",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "61": {
+        "rank": 31,
+        "arm": "candidate_C",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "62": {
+        "rank": 32,
+        "arm": "current_C",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "63": {
+        "rank": 32,
+        "arm": "candidate_C",
+        "state": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        }
+      },
+      "64": {
+        "rank": 33,
+        "arm": "current_C",
+        "state": {
+          "status": "pending_validation",
+          "clean": false,
+          "checked": false,
+          "scorable": false
+        }
+      },
+      "65": {
+        "rank": 33,
+        "arm": "candidate_C",
+        "state": {
+          "status": "pending_validation",
+          "clean": false,
+          "checked": false,
+          "scorable": false
+        }
+      }
+    },
+    "benchmarks/runs/20260910-6850-sweep-rootfree-runtime": {}
+  },
+  "evidence": {
+    "benchmarks/runs/20260910-6838-sweep-rootfree-build/fixture-failure-6840.json": "c691fa58d52473e7a486102a4a38f85a586650b906e46367b609e98390ddb47d",
+    "benchmarks/runs/20260910-6838-sweep-rootfree-build/scope-6853.json": "871828d2fa6a725e740db5c2a8f064972d7d30ccd0d57d11e366c32ffd00f3eb",
+    "benchmarks/runs/20260910-6841-sweep-rootfree-control/fixture-failure-6842.json": "e585d59cb631d119c469f8b5a6102cdeef88de3ae5616d9eb2db4c0e895e2927",
+    "benchmarks/runs/20260910-6843-sweep-rootfree-control/control-6843.json": "b49d6b3393a171110bc5b4fc95d0e683c6a9b19c2ad20784b4ea64567366b843",
+    "benchmarks/runs/20260910-6845-sweep-rootfree-proofs/summary.json": "384d514f98f4a626fe87a4044e805a438f37b95893e16599ea97900953d743cb",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/solver-checkpoint-6833.json": "d6703ab9c6e4c46a1947140dee0d6cbd3ae1a3dddfbe33a5c04dcacf97a7cd33",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/timer-cost-6849.json": "7d7d83686e688007b7fcea22c681caac61548727b13291dda37a5d1d2887f259",
+    "benchmarks/runs/20260910-6846-sweep-rootfree-BC-gate/summary-6848.json": "7b75d2d08de6764b9d9c8eb44703edf32cce91adf2a7724c1c32da5de63f844c"
+  },
+  "checks": {
+    "bench": {
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tools/bench",
+        "-p",
+        "test_*.py"
+      ],
+      "stdout": "",
+      "stderr": "....................................................................................................................................................................................................................................................\n----------------------------------------------------------------------\nRan 244 tests in 0.093s\n\nOK\n"
+    },
+    "slurm": {
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tools/slurm",
+        "-p",
+        "test_*.py"
+      ],
+      "stdout": "SLURM job 123: observation failed (1); retrying same job\n",
+      "stderr": "...................\n----------------------------------------------------------------------\nRan 19 tests in 0.004s\n\nOK\n"
+    },
+    "check-doc-size": {
+      "command": [
+        "python3",
+        "tools/docs/check-doc-size.py"
+      ],
+      "stdout": "  warn  DEVELOPMENT_PLAN.md: 747 of 750 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\n  warn  PROGRESS.md: 350 of 350 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\n  warn  docs/calculus.md: 671 of 680 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\n  warn  docs/implementation-notes.md: 560 of 560 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\n  warn  docs/scheduling-parity-ledger.md: 600 of 600 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\ncheck-doc-size: 0 error(s), 5 warning(s), 30 file budget(s) checked\n",
+      "stderr": ""
+    },
+    "check-progress": {
+      "command": [
+        "python3",
+        "tools/docs/check-progress.py"
+      ],
+      "stdout": "  note  build dirs newer than newest source: pin-5316-core-capture(Release), pin-5317-core-capture(Release), pin-5318-core-release(Release), pin-5321-core-roots(Release), pin-5322-core-repose(Release), pin-5322-repose-trace(Release), pin-5323-binary-watch(Release), pin-5325-sequential(Release), pin-5325-sequential-trace(Release), pin-5326-composed(Release), pin-5326-composed-trace(Release), pin-5327-bridge-pose(Release), pin-5327-bridge-trace(Release), pin-5331-core-trace(Release), pin-5337-rewrite-source(Release), pin-5342-deact-trace(Release), pin-5343-round-retirement(Release), pin-5344-round-only(Release), pin-5344-round-release(Release), pin-5347-decision-stream(Release), pin-5348-choice-state(Release), pin-5352-queue-stamps(Release), pin-5353-factor-stamps(Release), pin-5354-empty-factor(Release), pin-5356-empty-factor-release(Release), pin-5357-empty-factor-C(Release), pin-5359-focused-choice(Release), pin-5361-queue-bumps(Release), pin-5369-congruence-prefix(Release), pin-5371-congruence-prefix-release(Release), pin-5372-congruence-prefix-bc(Release), pin-5377-retry-producers(Release), pin-5378-vivify-retry(Release), pin-5379-vivify-retry-release(Release), pin-5380-vivify-retry-bc(Release), pin-5382-prefix-cost(Release), pin-5387-dense-publication(Release), pin-5388-dense-publication-release(Release), pin-5389-dense-publication-bc(Release), pin-5391-eliminate-dense-entry(Release), pin-5392-eliminate-dense-release(Release), pin-5393-eliminate-dense-bc(Release), pin-5399-window-observer(Release), pin-5402-direct-heap(Release), pin-5412-imply-observer(Release), pin-5414-imply-fast(Release), pin-5417-rephase-root-trace(Release), pin-5419-rephase-root-release(Release), pin-5420-rephase-root-bc(Release), pin-5426-watch-truncate-release(Release), pin-5427-watch-truncate-bc(Release), pin-5430-inprocess-root-release(Release), pin-5431-inprocess-root-trace(Release), pin-5432-inprocess-root-bc(Release), pin-5438-vivify-max-release(Release), pin-5439-vivify-max-bc(Release), pin-5445-replacement-cursor-release(Release), pin-5446-replacement-cursor-bc(Release), pin-5450-eliminate-limit-release(Release), pin-5451-eliminate-limit-trace(Release), pin-5452-eliminate-limit-bc(Release), pin-5456-factor-observer-trace(Release), pin-5459-bound-advance-release(Release), pin-5460-bound-advance-trace(Release), pin-5461-bound-advance-bc(Release), pin-5466-watch-pair-release(Release), pin-5467-watch-pair-bc(Release), pin-5473-sweep-cursor-release(Release), pin-5474-sweep-cursor-bc(Release), pin-5510-sweep-retained-release(Release), pin-5511-sweep-retained-trace(Release), pin-5512-sweep-retained-bc(Release), pin-5522-sweep-small-release(Release), pin-5523-sweep-small-trace(Release), pin-5524-sweep-small-bc(Release), pin-5546-vivify-census-release(Release), pin-5547-vivify-census-bc(Release), pin-5592-factor-root-support-release(Release), pin-5593-factor-root-support-trace(Release), pin-5594-factor-root-support-bc(Release), pin-5619-congruence-index-release(Release), pin-5620-congruence-index-trace(Release), pin-5621-congruence-index-bc(Release), pin-5641-propagation-cursor-release(Release), pin-5642-propagation-cursor-trace(Release), pin-5643-propagation-cursor-bc(Release), pin-5672-assignment-level-release(Release), pin-5673-assignment-level-trace(Release), pin-5674-assignment-level-bc(Release), pin-5696-score-bump-observer-trace(Release), pin-5718-root-conflict-reuse-release(Release), pin-5719-root-conflict-reuse-trace(Release), pin-5720-root-conflict-reuse-bc(Release), pin-5741-reuse-target-release(Release), pin-5742-reuse-target-trace(Release), pin-5743-reuse-target-bc(Release), pin-5760-forward-exit-trace(Release), pin-5798-forward-unit-release(Release), pin-5799-forward-unit-bc(Release), pin-5800-forward-unit-trace(Release), pin-5817-forward-mark-trace(Release), pin-5830-forward-admission-release(Release), pin-5831-forward-admission-bc(Release), pin-5832-forward-admission-trace(Release), pin-5849-forward-caller-release(Release), pin-5850-forward-caller-bc(Release), pin-5851-forward-caller-trace(Release), pin-5854-forward-caller-journal(Release), pin-5870-forward-preclean-release(Release), pin-5871-forward-preclean-bc(Release), pin-5872-forward-preclean-trace(Release), pin-5873-forward-preclean-journal(Release), pin-5900-reduce-root-release(Release), pin-5901-reduce-root-bc(Release), pin-5902-reduce-root-trace(Release), pin-5903-reduce-root-journal(Release), pin-5920-reduce-preclean-release(Release), pin-5921-reduce-preclean-bc(Release), pin-5922-reduce-preclean-trace(Release), pin-5923-reduce-preclean-journal(Release), pin-5956-bve-full-heap-trace(Release), pin-5962-bve-active-pop-release(Release), pin-5963-bve-active-pop-bc(Release), pin-5964-bve-active-pop-trace(Release), pin-5965-bve-active-pop-journal(Release), pin-5985-bve-repeat-heap-trace(Release), pin-6004-clause-pose-series-trace(Release), pin-6016-vivify-pose-trace(Release), pin-6030-learned-stage-trace(Release), pin-6049-reduce-root-lock-release(Release), pin-6050-reduce-root-lock-bc(Release), pin-6051-reduce-root-lock-trace(Release), pin-6052-reduce-root-lock-journal(Release), pin-6054-reduce-root-lock-trace(Release), pin-6090-macro-heap-trace(Release), pin-6107-substitute-publication-release(Release), pin-6108-substitute-publication-bc(Release), pin-6127-publication-trace(Release), pin-6128-publication-journal(Release), pin-6136-substitute-journal-release(Release), pin-6137-substitute-journal-journal(Release), pin-6146-collect-memory-release(Release), pin-6147-collect-memory-trace(Release), pin-6150-collect-memory-release(Release), pin-6151-collect-memory-trace(Release), pin-6154-bve-capacity-release(Release), pin-6155-bve-capacity-trace(Release), pin-6169-learned-sort-release(Release), pin-6170-learned-sort-bc(Release), pin-6206-schedule-continue-release(Release), pin-6206-schedule-continue-trace(Release), pin-6231-substitute-retry-bc(Release), pin-6231-substitute-retry-release(Release), pin-6231-substitute-retry-trace(Release), pin-6269-vivify-binary-retry-bc(Release), pin-6269-vivify-binary-retry-release(Release), pin-6269-vivify-binary-retry-trace(Release), pin-6283-admission-release(Release), pin-6283-admission-trace(Release), pin-6305-substitute-collapse-bc(Release), pin-6305-substitute-collapse-release(Release), pin-6305-substitute-collapse-trace(Release), pin-6327-collapse-schedule-release(Release), pin-6327-collapse-schedule-trace(Release), pin-6350-transitive-schedule-release(Release), pin-6350-transitive-schedule-trace(Release), pin-6357-compact-stamp-bc(Release), pin-6357-compact-stamp-release(Release), pin-6357-compact-stamp-trace(Release), pin-6383-vivify-count-cache-bc(Release), pin-6383-vivify-count-cache-release(Release), pin-6383-vivify-count-cache-trace(Release), pin-6413-rank45-schedule-release(Release), pin-6413-rank45-schedule-trace(Release), pin-6424-activation-stamp-bc(Release), pin-6424-activation-stamp-release(Release), pin-6424-activation-stamp-trace(Release), pin-6448-shared-blocker-bc(Release), pin-6448-shared-blocker-release(Release), pin-6448-shared-blocker-trace(Release), pin-6475-position-key-bc(Release), pin-6475-position-key-release(Release), pin-6475-position-key-trace(Release), pin-6508-congruence-stages-release(Release), pin-6508-congruence-stages-trace(Release), pin-6571-material-state-bc(Release), pin-6571-material-state-release(Release), pin-6571-material-state-trace(Release), pin-6579-material-schedule-bc(Release), pin-6579-material-schedule-release(Release), pin-6579-material-schedule-trace(Release), pin-6654-congruence-empty-gates-bc(Release), pin-6654-congruence-empty-gates-release(Release), pin-6654-congruence-empty-gates-trace(Release), pin-6730-reduce-watermark-bc(Release), pin-6730-reduce-watermark-release(Release), pin-6730-reduce-watermark-trace(Release), pin-6763-watermark-layout-bc(Release), pin-6763-watermark-layout-release(Release), pin-6763-watermark-layout-trace(Release), pin-6822-vivify-snapshot-bc(Release), pin-6822-vivify-snapshot-release(Release), pin-6822-vivify-snapshot-trace(Release), pin-6838-sweep-rootfree-bc(Release), pin-6838-sweep-rootfree-release(Release), pin-6838-sweep-rootfree-trace(Release), pin-congruence-index-repair-5623-bc(Release), pin-congruence-index-repair-5623-release(Release), pin-congruence-index-repair-5623-trace(Release), pin-periodic-fuzz-5442-debug(Debug), pin-periodic-fuzz-5442-release(Release), pin-periodic-fuzz-5442-shadow(Debug), pin-periodic-fuzz-5492-debug(Debug), pin-periodic-fuzz-5492-release(Release), pin-periodic-fuzz-5492-shadow(Debug), pin-periodic-fuzz-5539-debug(Debug), pin-periodic-fuzz-5539-release(Release), pin-periodic-fuzz-5539-shadow(Debug), pin-periodic-fuzz-5610-debug(Debug), pin-periodic-fuzz-5610-release(Release), pin-periodic-fuzz-5657-debug(Debug), pin-periodic-fuzz-5657-release(Release), pin-periodic-fuzz-5657-shadow(Debug), pin-periodic-fuzz-5715-debug(Debug), pin-periodic-fuzz-5715-release(Release), pin-periodic-fuzz-5715-witness(Debug), pin-periodic-fuzz-5765-asan(Debug), pin-periodic-fuzz-5765-release(Release), pin-periodic-fuzz-5765-witness(Debug), pin-propagation-cursor-repair-5647-bc(Release), pin-propagation-cursor-repair-5647-release(Release), pin-propagation-cursor-repair-5647-trace(Release), pin-sweep-pose-fuzz-r2-dbg(Debug), pin-sweep-pose-fuzz-r2-rel(Release), pin-sweep-pose-fuzz-r2-shadow(Debug)  (total pin-* dirs: 423)\n  note  newest completed tier run: 20260813-111513-C-cleanup-b2b8362\n  WARN  6 lesson citations remain in living docs (DEVELOPMENT_PLAN.md:3, PROGRESS.md:3) \u2014 policy is to state the finding + evidence, not the number. Run the de-citation sweep.\n  WARN  newest tier run 20260813-111513-C-cleanup-b2b8362 is not cited anywhere in PROGRESS \u2014 a completed window nobody recorded\ncheck-progress: 0 error(s), 2 warning(s)\n",
+      "stderr": ""
+    },
+    "check-rule-policy-boundary": {
+      "command": [
+        "python3",
+        "tools/docs/check-rule-policy-boundary.py"
+      ],
+      "stdout": "check-rule-policy-boundary: rule/policy imports and data flows are clean\n",
+      "stderr": ""
+    },
+    "check-proof-rule-sync": {
+      "command": [
+        "python3",
+        "tools/docs/check-proof-rule-sync.py"
+      ],
+      "stdout": "check-proof-rule-sync: 0 error(s), 23 calculus rule(s), 24 guide card(s)\n",
+      "stderr": ""
+    },
+    "check-section-refs": {
+      "command": [
+        "python3",
+        "tools/docs/check-section-refs.py"
+      ],
+      "stdout": "  ok    43/43 section references resolve\ncheck-section-refs: 0 error(s)\n",
+      "stderr": ""
+    },
+    "check-citations": {
+      "command": [
+        "python3",
+        "tools/docs/check-citations.py"
+      ],
+      "stdout": "  ok    59 citation(s) resolved and in range\n  note  186 skipped (186 ambiguous basename, 0 not in our tree, 0 resolve to a reference clone, 0 unjudged: no reference clone on disk)\ncheck-citations: 0 error(s)\n",
+      "stderr": ""
+    },
+    "check-option-coverage": {
+      "command": [
+        "python3",
+        "tools/docs/check-option-coverage.py"
+      ],
+      "stdout": "  ok    kissat  161 options  \u00b7  cadical 257\n  ok    dismissed  83 (roster, parsed from \u00a713.6)\n  ok    carried   125 (23 roster entries, anchors re-checked)\n  ok    cited     208 (named in the ledger corpus)\n  ok    exempt      2 (named in EXEMPT, with a reason)\ncheck-option-coverage: 418 reference options, 0 unaccounted, 0 failure(s)\n",
+      "stderr": ""
+    }
+  },
+  "andrew_report": {
+    "report-to-andrew/20260910-0128-sweep-rootfree/report.tex": "02daed51c1bb7ba4da4e470bf2a2d90e0f842533e70ea8e7f2b16f099533a73a",
+    "report-to-andrew/20260910-0128-sweep-rootfree/report.pdf": "449e783c3d9b49316b6533ef0a9dba6b0e05aa6ab6b2507b0b9452ac395670c7"
+  },
+  "cleanup": "41208 bytes of regenerable fixed inputs/proofs removed only by owning6845 checker helper. Failed fixtures/logs and profiles retained; live checker scratch untouched. Published checked outcomes clean. No fuzz artifact access.",
+  "limitation": "6730 remains current;6838 isolated/unfuzzed/NOT adopted,6822 timing neutral/adverse NOT adopted. No global scheduling/CDCL parity, speedup, memory parity or full50 closure. Continue predeclared6850 waves after exact solver records; proofs async. No Rank21, FlatLists, promotion, denied transfer/push retry. Report local/unsent; winddown05:45/cutoff06:00EDT September10."
+}

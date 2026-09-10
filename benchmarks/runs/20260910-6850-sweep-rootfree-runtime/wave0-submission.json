@@ -1,0 +1,20 @@
+{
+  "job_id": "1679018",
+  "tasks": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--array=0-5",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6850-sweep-rootfree-runtime/array.sbatch"
+  ],
+  "accounting_since": "2026-09-10T01:29:10",
+  "manifest_sha256": "1f73dc1d1e80881129ad4454fa65d0c7e2d5d91c45ae33a462b10cdbb048f646",
+  "preceding_records": {}
+}
