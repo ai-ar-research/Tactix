@@ -1,0 +1,14 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6919-strong-inprocessing-proofs/candidate-vivify-fixture",
+    "5",
+    "1",
+    "0",
+    "0",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6919-strong-inprocessing-proofs/candidate-vivify-5-1-0-0.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6919-strong-inprocessing-proofs/candidate-vivify-5-1-0-0.proof"
+  ],
+  "returncode": 0,
+  "stdout": "PASS: canonical scope=5 reuse=1 flush=0 scheduled=14 final UNSAT\n",
+  "stderr": ""
+}

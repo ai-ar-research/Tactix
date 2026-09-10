@@ -1,0 +1,14 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6919-strong-inprocessing-proofs/previous-sweep-fixture",
+    "0",
+    "1",
+    "0",
+    "1",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6919-strong-inprocessing-proofs/previous-sweep-0-1-0-1.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6919-strong-inprocessing-proofs/previous-sweep-0-1-0-1.proof"
+  ],
+  "returncode": 0,
+  "stdout": "roots=0 position=1 strip=0 lrat=1 general=1 false=0 stripped=0 bridge=16\n",
+  "stderr": ""
+}
