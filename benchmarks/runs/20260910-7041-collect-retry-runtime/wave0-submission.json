@@ -1,0 +1,19 @@
+{
+  "job_id": "1679735",
+  "tasks": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--array=0-3",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-7041-collect-retry-runtime/array.sbatch"
+  ],
+  "accounting_since": "2026-09-10T09:10:07",
+  "manifest_sha256": "a1db5523a50b26470fafbb3083d55ac94676e9fd855b9b11418814e724d2581c",
+  "helper_sha256": "2adc87c8b91eac8b46708e2c4d90c0585d4c5a30bf179443886f2b3aa7355b03",
+  "preceding_records": {}
+}

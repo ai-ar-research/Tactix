@@ -1,0 +1,11 @@
+{
+  "job_id": "1679752",
+  "accounting_since": "2026-09-10T09:33:24",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-7050-collect-retry-rank31-late/array.sbatch"
+  ],
+  "manifest_sha256": "b7da329c953803cbe9ad5d018444f20079e63e416cb3afe74076f6a0c7d0570a",
+  "submit_helper_sha256": "b233296120f6d7643b0659a0f83d9a2550febba077440eb228efde6dc22f3408"
+}
