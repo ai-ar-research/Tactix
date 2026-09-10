@@ -1,0 +1,2412 @@
+{
+  "checked": 96,
+  "negative_controls": 98,
+  "exact_parent_certificates": true,
+  "records": [
+    {
+      "arm": "previous",
+      "case": [
+        0,
+        1,
+        0,
+        0,
+        0
+      ],
+      "status": "verified",
+      "checker": "drat-trim",
+      "fingerprint": [
+        "BVE views pad=0 copies=1 reverse=0 dense=0 lrat=0 resolutions=1 eliminated=1\n",
+        "c96cc74f5a1e59229c73b46d9b50f505368e3143c65b4e3fd393c5f1104c4573",
+        "1d5c29062de614a88dcbe46919495e048bab3df535a32586241afece6ad15a47",
+        53
+      ]
+    },
+    {
+      "arm": "previous",
+      "case": [
+        0,
+        1,
+        0,
+        0,
+        1
+      ],
+      "status": "verified",
+      "checker": "cake_lpr",
+      "fingerprint": [
+        "BVE views pad=0 copies=1 reverse=0 dense=0 lrat=1 resolutions=1 eliminated=1\n",
+        "c96cc74f5a1e59229c73b46d9b50f505368e3143c65b4e3fd393c5f1104c4573",
+        "3816713e97328c7b1a1604ec813f5d0ddb22008909f9bb5721f06275e95dc5bd",
+        116
+      ]
+    },
+    {
+      "arm": "previous",
+      "case": [
+        0,
+        1,
+        0,
+        1,
+        0
+      ],
+      "status": "verified",
+      "checker": "drat-trim",
+      "fingerprint": [
+        "BVE views pad=0 copies=1 reverse=0 dense=1 lrat=0 resolutions=1 eliminated=1\n",
+        "c96cc74f5a1e59229c73b46d9b50f505368e3143c65b4e3fd393c5f1104c4573",
+        "1d5c29062de614a88dcbe46919495e048bab3df535a32586241afece6ad15a47",
+        53
+      ]
+    },
+    {
+      "arm": "previous",
+      "case": [
+        0,
+        1,
+        0,
+        1,
+        1
+      ],
+      "status": "verified",
+      "checker": "cake_lpr",
+      "fingerprint": [
+        "BVE views pad=0 copies=1 reverse=0 dense=1 lrat=1 resolutions=1 eliminated=1\n",
+        "c96cc74f5a1e59229c73b46d9b50f505368e3143c65b4e3fd393c5f1104c4573",
+        "3816713e97328c7b1a1604ec813f5d0ddb22008909f9bb5721f06275e95dc5bd",
+        116
+      ]
+    },
+    {
+      "arm": "previous",
+      "case": [
+        0,
+        1,
+        1,
+        0,
+        0
+      ],
+      "status": "verified",
+      "checker": "drat-trim",
+      "fingerprint": [
+        "BVE views pad=0 copies=1 reverse=1 dense=0 lrat=0 resolutions=1 eliminated=1\n",
+        "6e0ca182ddf6647fffb84ed4bc5bfbcd798d3aae757c1d28493a682a1b7f1290",
+        "eb7d50ecb67e8fa9720d983f6cbc9ec43bcd64016e00ed608db272a3cc507a6f",
+        53
+      ]
+    },
+    {
+      "arm": "previous",
+      "case": [
+        0,
+        1,
+        1,
+        0,
+        1
+      ],
+      "status": "verified",
+      "checker": "cake_lpr",
+      "fingerprint": [
+        "BVE views pad=0 copies=1 reverse=1 dense=0 lrat=1 resolutions=1 eliminated=1\n",
+        "6e0ca182ddf6647fffb84ed4bc5bfbcd798d3aae757c1d28493a682a1b7f1290",
+        "bbcb30d0942752e6bd5f026bcb2cfb23c394935c8d0ad227ae9ed290408d946e",
+        116
+      ]
+    },
+    {
+      "arm": "previous",
+      "case": [
+        0,
+        1,
+        1,
+        1,
+        0
+      ],
+      "status": "verified",
+      "checker": "drat-trim",
+      "fingerprint": [
+        "BVE views pad=0 copies=1 reverse=1 dense=1 lrat=0 resolutions=1 eliminated=1\n",
+        "6e0ca182ddf6647fffb84ed4bc5bfbcd798d3aae757c1d28493a682a1b7f1290",
+        "eb7d50ecb67e8fa9720d983f6cbc9ec43bcd64016e00ed608db272a3cc507a6f",
+        53
+      ]
+    },
+    {
+      "arm": "previous",
+      "case": [
+        0,
+        1,
+        1,
+        1,
+        1
+      ],
+      "status": "verified",
+      "checker": "cake_lpr",
+      "fingerprint": [
+        "BVE views pad=0 copies=1 reverse=1 dense=1 lrat=1 resolutions=1 eliminated=1\n",
+        "6e0ca182ddf6647fffb84ed4bc5bfbcd798d3aae757c1d28493a682a1b7f1290",
+        "bbcb30d0942752e6bd5f026bcb2cfb23c394935c8d0ad227ae9ed290408d946e",
+        116
+      ]
+    },
+    {
+      "arm": "previous",
+      "case": [
+        0,
+        2,
+        0,
+        0,
+        0
+      ],
+      "status": "verified",
+      "checker": "drat-trim",
+      "fingerprint": [
+        "BVE views pad=0 copies=2 reverse=0 dense=0 lrat=0 resolutions=4 eliminated=1\n",
+        "0322782dd87b717d1201907ff2db211ecf8276a387e4f74d591f961a40296b26",
+        "71cd8427298c9e8033f6e8146292b83f4d49f2e48205d9d070064c0befbfcd8d",
+        104
+      ]
+    },
+    {
+      "arm": "previous",
+      "case": [
+        0,
+        2,
+        0,
+        0,
+        1
+      ],
+      "status": "verified",
+      "checker": "cake_lpr",
+      "fingerprint": [
+        "BVE views pad=0 copies=2 reverse=0 dense=0 lrat=1 resolutions=4 eliminated=1\n",
+        "0322782dd87b717d1201907ff2db211ecf8276a387e4f74d591f961a40296b26",
+        "8452e60029ed98b6055914b1d9f3b988e37d0383ffb62f1ed78fa6161ee16523",
+        193
+      ]
+    },
+    {
+      "arm": "previous",
+      "case": [
+        0,
+        2,
+        0,
+        1,
+        0
+      ],
+      "status": "verified",
+      "checker": "drat-trim",
+      "fingerprint": [
+        "BVE views pad=0 copies=2 reverse=0 dense=1 lrat=0 resolutions=4 eliminated=1\n",
+        "0322782dd87b717d1201907ff2db211ecf8276a387e4f74d591f961a40296b26",
+        "71cd8427298c9e8033f6e8146292b83f4d49f2e48205d9d070064c0befbfcd8d",
+        104
+      ]
+    },
+    {
+      "arm": "previous",
+      "case": [
+        0,
+        2,
+        0,
+        1,
+        1
+      ],
+      "status": "verified",
+      "checker": "cake_lpr",
+      "fingerprint": [
+        "BVE views pad=0 copies=2 reverse=0 dense=1 lrat=1 resolutions=4 eliminated=1\n",
+        "0322782dd87b717d1201907ff2db211ecf8276a387e4f74d591f961a40296b26",
+        "8452e60029ed98b6055914b1d9f3b988e37d0383ffb62f1ed78fa6161ee16523",
+        193
+      ]
+    },
+    {
+      "arm": "previous",
+      "case": [
+        0,
+        2,
+        1,
+        0,
+        0
+      ],
+      "status": "verified",
+      "checker": "drat-trim",
+      "fingerprint": [
+        "BVE views pad=0 copies=2 reverse=1 dense=0 lrat=0 resolutions=4 eliminated=1\n",
+        "f0f74b93a9de6594c315ab11308b2b83417f08a0a3971fc91934433123733e73",
+        "5d2b78c3f2237568ccb14c6578f8d0959f3ef074fc530f763e3c842d3931f8f6",
+        104
+      ]
+    },
+    {
+      "arm": "previous",
+      "case": [
+        0,
+        2,
+        1,
+        0,
+        1
+      ],
+      "status": "verified",
+      "checker": "cake_lpr",
+      "fingerprint": [
+        "BVE views pad=0 copies=2 reverse=1 dense=0 lrat=1 resolutions=4 eliminated=1\n",
+        "f0f74b93a9de6594c315ab11308b2b83417f08a0a3971fc91934433123733e73",
+        "18e119b97d455f875f8ebbe40d037eaab340cddc3ba166dd0a895a0c8f8e3ed6",
+        193
+      ]
+    },
+    {
+      "arm": "previous",
+      "case": [
+        0,
+        2,
+        1,
+        1,
+        0
+      ],
+      "status": "verified",
+      "checker": "drat-trim",
+      "fingerprint": [
+        "BVE views pad=0 copies=2 reverse=1 dense=1 lrat=0 resolutions=4 eliminated=1\n",
+        "f0f74b93a9de6594c315ab11308b2b83417f08a0a3971fc91934433123733e73",
+        "5d2b78c3f2237568ccb14c6578f8d0959f3ef074fc530f763e3c842d3931f8f6",
+        104
+      ]
+    },
+    {
+      "arm": "previous",
+      "case": [
+        0,
+        2,
+        1,
+        1,
+        1
+      ],
+      "status": "verified",
+      "checker": "cake_lpr",
+      "fingerprint": [
+        "BVE views pad=0 copies=2 reverse=1 dense=1 lrat=1 resolutions=4 eliminated=1\n",
+        "f0f74b93a9de6594c315ab11308b2b83417f08a0a3971fc91934433123733e73",
+        "18e119b97d455f875f8ebbe40d037eaab340cddc3ba166dd0a895a0c8f8e3ed6",
+        193
+      ]
+    },
+    {
+      "arm": "previous",
+      "case": [
+        1,
+        1,
+        0,
+        0,
+        0
+      ],
+      "status": "verified",
+      "checker": "drat-trim",
+      "fingerprint": [
+        "BVE views pad=1 copies=1 reverse=0 dense=0 lrat=0 resolutions=1 eliminated=1\n",
+        "363b50f236e4fb8d6e989f62990adec50f5be170c9f0281cfd24f4b6a3586a62",
+        "43410832ed18cadf15595780ad459e86f01d902cc5927b7fb2d6cf26f46a25f8",
+        57
+      ]
+    },
+    {
+      "arm": "previous",
+      "case": [
+        1,
+        1,
+        0,
+        0,
+        1
+      ],
+      "status": "verified",
+      "checker": "cake_lpr",
+      "fingerprint": [
+        "BVE views pad=1 copies=1 reverse=0 dense=0 lrat=1 resolutions=1 eliminated=1\n",
+        "363b50f236e4fb8d6e989f62990adec50f5be170c9f0281cfd24f4b6a3586a62",
+        "c515f0026697e8458aa9e77ce5517f157bf476d1bf25ae5d78365bb52909df7a",
+        121
+      ]
+    },
+    {
+      "arm": "previous",
+      "case": [
+        1,
+        1,
+        0,
+        1,
+        0
+      ],
+      "status": "verified",
+      "checker": "drat-trim",
+      "fingerprint": [
+        "BVE views pad=1 copies=1 reverse=0 dense=1 lrat=0 resolutions=1 eliminated=1\n",
+        "363b50f236e4fb8d6e989f62990adec50f5be170c9f0281cfd24f4b6a3586a62",
+        "43410832ed18cadf15595780ad459e86f01d902cc5927b7fb2d6cf26f46a25f8",
+        57
+      ]
+    },
+    {
+      "arm": "previous",
+      "case": [
+        1,
+        1,
+        0,
+        1,
+        1
+      ],
+      "status": "verified",
+      "checker": "cake_lpr",
+      "fingerprint": [
+        "BVE views pad=1 copies=1 reverse=0 dense=1 lrat=1 resolutions=1 eliminated=1\n",
+        "363b50f236e4fb8d6e989f62990adec50f5be170c9f0281cfd24f4b6a3586a62",
+        "c515f0026697e8458aa9e77ce5517f157bf476d1bf25ae5d78365bb52909df7a",
+        121
+      ]
+    },
+    {
+      "arm": "previous",
+      "case": [
+        1,
+        1,
+        1,
+        0,
+        0
+      ],
+      "status": "verified",
+      "checker": "drat-trim",
+      "fingerprint": [
+        "BVE views pad=1 copies=1 reverse=1 dense=0 lrat=0 resolutions=1 eliminated=1\n",
+        "79cb12dee5ba35d6308865d49dee64397cf7ad8d365ac550a2e89b956d286cbc",
+        "cf152e132905a04f6ca54001eeb97e4df11e63d24743d3be889db9172ce06fac",
+        57
+      ]
+    },
+    {
+      "arm": "previous",
+      "case": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "status": "verified",
+      "checker": "cake_lpr",
+      "fingerprint": [
+        "BVE views pad=1 copies=1 reverse=1 dense=0 lrat=1 resolutions=1 eliminated=1\n",
+        "79cb12dee5ba35d6308865d49dee64397cf7ad8d365ac550a2e89b956d286cbc",
+        "0154d26546cb23b9a1f08fbd661654e974531da1789c94c32aebc970d564ad3e",
+        121
+      ]
+    },
+    {
+      "arm": "previous",
+      "case": [
+        1,
+        1,
+        1,
+        1,
+        0
+      ],
+      "status": "verified",
+      "checker": "drat-trim",
+      "fingerprint": [
+        "BVE views pad=1 copies=1 reverse=1 dense=1 lrat=0 resolutions=1 eliminated=1\n",
+        "79cb12dee5ba35d6308865d49dee64397cf7ad8d365ac550a2e89b956d286cbc",
+        "cf152e132905a04f6ca54001eeb97e4df11e63d24743d3be889db9172ce06fac",
+        57
+      ]
+    },
+    {
+      "arm": "previous",
+      "case": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "status": "verified",
+      "checker": "cake_lpr",
+      "fingerprint": [
+        "BVE views pad=1 copies=1 reverse=1 dense=1 lrat=1 resolutions=1 eliminated=1\n",
+        "79cb12dee5ba35d6308865d49dee64397cf7ad8d365ac550a2e89b956d286cbc",
+        "0154d26546cb23b9a1f08fbd661654e974531da1789c94c32aebc970d564ad3e",
+        121
+      ]
+    },
+    {
+      "arm": "previous",
+      "case": [
+        1,
+        2,
+        0,
+        0,
+        0
+      ],
+      "status": "verified",
+      "checker": "drat-trim",
+      "fingerprint": [
+        "BVE views pad=1 copies=2 reverse=0 dense=0 lrat=0 resolutions=4 eliminated=1\n",
+        "b526529c5b83f973ddfb9fe9832b82875b71c92fd42b79f4ce9880e987c1a9cd",
+        "ec5a031cac417751983bee73457ba4ced2cc52116d13eb7405768aa184084277",
+        112
+      ]
+    },
+    {
+      "arm": "previous",
+      "case": [
+        1,
+        2,
+        0,
+        0,
+        1
+      ],
+      "status": "verified",
+      "checker": "cake_lpr",
+      "fingerprint": [
+        "BVE views pad=1 copies=2 reverse=0 dense=0 lrat=1 resolutions=4 eliminated=1\n",
+        "b526529c5b83f973ddfb9fe9832b82875b71c92fd42b79f4ce9880e987c1a9cd",
+        "f71c140a65353f8ee58418cd28bca1cc9fc4bf3aea15c665ac97cfbc98fe7bf3",
+        210
+      ]
+    },
+    {
+      "arm": "previous",
+      "case": [
+        1,
+        2,
+        0,
+        1,
+        0
+      ],
+      "status": "verified",
+      "checker": "drat-trim",
+      "fingerprint": [
+        "BVE views pad=1 copies=2 reverse=0 dense=1 lrat=0 resolutions=4 eliminated=1\n",
+        "b526529c5b83f973ddfb9fe9832b82875b71c92fd42b79f4ce9880e987c1a9cd",
+        "ec5a031cac417751983bee73457ba4ced2cc52116d13eb7405768aa184084277",
+        112
+      ]
+    },
+    {
+      "arm": "previous",
+      "case": [
+        1,
+        2,
+        0,
+        1,
+        1
+      ],
+      "status": "verified",
+      "checker": "cake_lpr",
+      "fingerprint": [
+        "BVE views pad=1 copies=2 reverse=0 dense=1 lrat=1 resolutions=4 eliminated=1\n",
+        "b526529c5b83f973ddfb9fe9832b82875b71c92fd42b79f4ce9880e987c1a9cd",
+        "f71c140a65353f8ee58418cd28bca1cc9fc4bf3aea15c665ac97cfbc98fe7bf3",
+        210
+      ]
+    },
+    {
+      "arm": "previous",
+      "case": [
+        1,
+        2,
+        1,
+        0,
+        0
+      ],
+      "status": "verified",
+      "checker": "drat-trim",
+      "fingerprint": [
+        "BVE views pad=1 copies=2 reverse=1 dense=0 lrat=0 resolutions=4 eliminated=1\n",
+        "28a6a3c1293a05568e185d02b2c94a7f5c21d3af6ebde8dcb8e87fd317bab86f",
+        "2b5086889e7bd48bb0ff1ad701bcf352d74f01a4203f2c01a2f92449ad574bc2",
+        112
+      ]
+    },
+    {
+      "arm": "previous",
+      "case": [
+        1,
+        2,
+        1,
+        0,
+        1
+      ],
+      "status": "verified",
+      "checker": "cake_lpr",
+      "fingerprint": [
+        "BVE views pad=1 copies=2 reverse=1 dense=0 lrat=1 resolutions=4 eliminated=1\n",
+        "28a6a3c1293a05568e185d02b2c94a7f5c21d3af6ebde8dcb8e87fd317bab86f",
+        "8a4f4afcd1ab7b206a78e6d81a09a98a506be3cf38608c507730923f4765dd06",
+        210
+      ]
+    },
+    {
+      "arm": "previous",
+      "case": [
+        1,
+        2,
+        1,
+        1,
+        0
+      ],
+      "status": "verified",
+      "checker": "drat-trim",
+      "fingerprint": [
+        "BVE views pad=1 copies=2 reverse=1 dense=1 lrat=0 resolutions=4 eliminated=1\n",
+        "28a6a3c1293a05568e185d02b2c94a7f5c21d3af6ebde8dcb8e87fd317bab86f",
+        "2b5086889e7bd48bb0ff1ad701bcf352d74f01a4203f2c01a2f92449ad574bc2",
+        112
+      ]
+    },
+    {
+      "arm": "previous",
+      "case": [
+        1,
+        2,
+        1,
+        1,
+        1
+      ],
+      "status": "verified",
+      "checker": "cake_lpr",
+      "fingerprint": [
+        "BVE views pad=1 copies=2 reverse=1 dense=1 lrat=1 resolutions=4 eliminated=1\n",
+        "28a6a3c1293a05568e185d02b2c94a7f5c21d3af6ebde8dcb8e87fd317bab86f",
+        "8a4f4afcd1ab7b206a78e6d81a09a98a506be3cf38608c507730923f4765dd06",
+        210
+      ]
+    },
+    {
+      "arm": "previous",
+      "case": [
+        2,
+        1,
+        0,
+        0,
+        0
+      ],
+      "status": "verified",
+      "checker": "drat-trim",
+      "fingerprint": [
+        "BVE views pad=2 copies=1 reverse=0 dense=0 lrat=0 resolutions=1 eliminated=1\n",
+        "da2cefe71d22256375e495e389dbc6165b3f4b8cb723054d8babc0e3c766d8f1",
+        "7ba1a9e9db986da2449c191810fc37efa5df8ce1848adda023e6db12f06a1e56",
+        61
+      ]
+    },
+    {
+      "arm": "previous",
+      "case": [
+        2,
+        1,
+        0,
+        0,
+        1
+      ],
+      "status": "verified",
+      "checker": "cake_lpr",
+      "fingerprint": [
+        "BVE views pad=2 copies=1 reverse=0 dense=0 lrat=1 resolutions=1 eliminated=1\n",
+        "da2cefe71d22256375e495e389dbc6165b3f4b8cb723054d8babc0e3c766d8f1",
+        "0d644662b66df381a6372ac668be0747af75d4a46c49c87fc47cccb6571bcd93",
+        126
+      ]
+    },
+    {
+      "arm": "previous",
+      "case": [
+        2,
+        1,
+        0,
+        1,
+        0
+      ],
+      "status": "verified",
+      "checker": "drat-trim",
+      "fingerprint": [
+        "BVE views pad=2 copies=1 reverse=0 dense=1 lrat=0 resolutions=1 eliminated=1\n",
+        "da2cefe71d22256375e495e389dbc6165b3f4b8cb723054d8babc0e3c766d8f1",
+        "7ba1a9e9db986da2449c191810fc37efa5df8ce1848adda023e6db12f06a1e56",
+        61
+      ]
+    },
+    {
+      "arm": "previous",
+      "case": [
+        2,
+        1,
+        0,
+        1,
+        1
+      ],
+      "status": "verified",
+      "checker": "cake_lpr",
+      "fingerprint": [
+        "BVE views pad=2 copies=1 reverse=0 dense=1 lrat=1 resolutions=1 eliminated=1\n",
+        "da2cefe71d22256375e495e389dbc6165b3f4b8cb723054d8babc0e3c766d8f1",
+        "0d644662b66df381a6372ac668be0747af75d4a46c49c87fc47cccb6571bcd93",
+        126
+      ]
+    },
+    {
+      "arm": "previous",
+      "case": [
+        2,
+        1,
+        1,
+        0,
+        0
+      ],
+      "status": "verified",
+      "checker": "drat-trim",
+      "fingerprint": [
+        "BVE views pad=2 copies=1 reverse=1 dense=0 lrat=0 resolutions=1 eliminated=1\n",
+        "bab650d7e3984932c7a606843ea3c91a568fe05496d7d372e4d88683a7dbce1c",
+        "2dae87adcc64388e952bc1736a1c2649f1dceaac6e35ff73fe1ed6adf2296210",
+        61
+      ]
+    },
+    {
+      "arm": "previous",
+      "case": [
+        2,
+        1,
+        1,
+        0,
+        1
+      ],
+      "status": "verified",
+      "checker": "cake_lpr",
+      "fingerprint": [
+        "BVE views pad=2 copies=1 reverse=1 dense=0 lrat=1 resolutions=1 eliminated=1\n",
+        "bab650d7e3984932c7a606843ea3c91a568fe05496d7d372e4d88683a7dbce1c",
+        "463894549d9dc0a8a2e77d442eb762671df3effbbce00c7d49ad0bbb0fc67c2d",
+        126
+      ]
+    },
+    {
+      "arm": "previous",
+      "case": [
+        2,
+        1,
+        1,
+        1,
+        0
+      ],
+      "status": "verified",
+      "checker": "drat-trim",
+      "fingerprint": [
+        "BVE views pad=2 copies=1 reverse=1 dense=1 lrat=0 resolutions=1 eliminated=1\n",
+        "bab650d7e3984932c7a606843ea3c91a568fe05496d7d372e4d88683a7dbce1c",
+        "2dae87adcc64388e952bc1736a1c2649f1dceaac6e35ff73fe1ed6adf2296210",
+        61
+      ]
+    },
+    {
+      "arm": "previous",
+      "case": [
+        2,
+        1,
+        1,
+        1,
+        1
+      ],
+      "status": "verified",
+      "checker": "cake_lpr",
+      "fingerprint": [
+        "BVE views pad=2 copies=1 reverse=1 dense=1 lrat=1 resolutions=1 eliminated=1\n",
+        "bab650d7e3984932c7a606843ea3c91a568fe05496d7d372e4d88683a7dbce1c",
+        "463894549d9dc0a8a2e77d442eb762671df3effbbce00c7d49ad0bbb0fc67c2d",
+        126
+      ]
+    },
+    {
+      "arm": "previous",
+      "case": [
+        2,
+        2,
+        0,
+        0,
+        0
+      ],
+      "status": "verified",
+      "checker": "drat-trim",
+      "fingerprint": [
+        "BVE views pad=2 copies=2 reverse=0 dense=0 lrat=0 resolutions=4 eliminated=1\n",
+        "b13810551f0b1dc126dbd173b6894c53fee875ed73551b86d0d5ca4a96058beb",
+        "8fb0342a511a7c9c5ca97298e8cc0f800237c71fc389773f1466291af3018716",
+        120
+      ]
+    },
+    {
+      "arm": "previous",
+      "case": [
+        2,
+        2,
+        0,
+        0,
+        1
+      ],
+      "status": "verified",
+      "checker": "cake_lpr",
+      "fingerprint": [
+        "BVE views pad=2 copies=2 reverse=0 dense=0 lrat=1 resolutions=4 eliminated=1\n",
+        "b13810551f0b1dc126dbd173b6894c53fee875ed73551b86d0d5ca4a96058beb",
+        "d245e0b2fb69f29d35db0f8af7ae28c2c8837f0ef93d5b2d98709c46ee345452",
+        227
+      ]
+    },
+    {
+      "arm": "previous",
+      "case": [
+        2,
+        2,
+        0,
+        1,
+        0
+      ],
+      "status": "verified",
+      "checker": "drat-trim",
+      "fingerprint": [
+        "BVE views pad=2 copies=2 reverse=0 dense=1 lrat=0 resolutions=4 eliminated=1\n",
+        "b13810551f0b1dc126dbd173b6894c53fee875ed73551b86d0d5ca4a96058beb",
+        "8fb0342a511a7c9c5ca97298e8cc0f800237c71fc389773f1466291af3018716",
+        120
+      ]
+    },
+    {
+      "arm": "previous",
+      "case": [
+        2,
+        2,
+        0,
+        1,
+        1
+      ],
+      "status": "verified",
+      "checker": "cake_lpr",
+      "fingerprint": [
+        "BVE views pad=2 copies=2 reverse=0 dense=1 lrat=1 resolutions=4 eliminated=1\n",
+        "b13810551f0b1dc126dbd173b6894c53fee875ed73551b86d0d5ca4a96058beb",
+        "d245e0b2fb69f29d35db0f8af7ae28c2c8837f0ef93d5b2d98709c46ee345452",
+        227
+      ]
+    },
+    {
+      "arm": "previous",
+      "case": [
+        2,
+        2,
+        1,
+        0,
+        0
+      ],
+      "status": "verified",
+      "checker": "drat-trim",
+      "fingerprint": [
+        "BVE views pad=2 copies=2 reverse=1 dense=0 lrat=0 resolutions=4 eliminated=1\n",
+        "ab13ee8d8839f19d334089060ece23a3183d84300f382d4be98d61a7c3ede813",
+        "83e030e60e487bf80e1886613c7b644bac3300799cc845b64af337b98707484d",
+        120
+      ]
+    },
+    {
+      "arm": "previous",
+      "case": [
+        2,
+        2,
+        1,
+        0,
+        1
+      ],
+      "status": "verified",
+      "checker": "cake_lpr",
+      "fingerprint": [
+        "BVE views pad=2 copies=2 reverse=1 dense=0 lrat=1 resolutions=4 eliminated=1\n",
+        "ab13ee8d8839f19d334089060ece23a3183d84300f382d4be98d61a7c3ede813",
+        "20a34ab5d5501b1e565ea023d349578b98f86f5ca4a851e3cd221fab06e6b1dc",
+        227
+      ]
+    },
+    {
+      "arm": "previous",
+      "case": [
+        2,
+        2,
+        1,
+        1,
+        0
+      ],
+      "status": "verified",
+      "checker": "drat-trim",
+      "fingerprint": [
+        "BVE views pad=2 copies=2 reverse=1 dense=1 lrat=0 resolutions=4 eliminated=1\n",
+        "ab13ee8d8839f19d334089060ece23a3183d84300f382d4be98d61a7c3ede813",
+        "83e030e60e487bf80e1886613c7b644bac3300799cc845b64af337b98707484d",
+        120
+      ]
+    },
+    {
+      "arm": "previous",
+      "case": [
+        2,
+        2,
+        1,
+        1,
+        1
+      ],
+      "status": "verified",
+      "checker": "cake_lpr",
+      "fingerprint": [
+        "BVE views pad=2 copies=2 reverse=1 dense=1 lrat=1 resolutions=4 eliminated=1\n",
+        "ab13ee8d8839f19d334089060ece23a3183d84300f382d4be98d61a7c3ede813",
+        "20a34ab5d5501b1e565ea023d349578b98f86f5ca4a851e3cd221fab06e6b1dc",
+        227
+      ]
+    },
+    {
+      "arm": "candidate",
+      "case": [
+        0,
+        1,
+        0,
+        0,
+        0
+      ],
+      "status": "verified",
+      "checker": "drat-trim",
+      "fingerprint": [
+        "BVE views pad=0 copies=1 reverse=0 dense=0 lrat=0 resolutions=1 eliminated=1\n",
+        "c96cc74f5a1e59229c73b46d9b50f505368e3143c65b4e3fd393c5f1104c4573",
+        "1d5c29062de614a88dcbe46919495e048bab3df535a32586241afece6ad15a47",
+        53
+      ]
+    },
+    {
+      "arm": "candidate",
+      "case": [
+        0,
+        1,
+        0,
+        0,
+        1
+      ],
+      "status": "verified",
+      "checker": "cake_lpr",
+      "fingerprint": [
+        "BVE views pad=0 copies=1 reverse=0 dense=0 lrat=1 resolutions=1 eliminated=1\n",
+        "c96cc74f5a1e59229c73b46d9b50f505368e3143c65b4e3fd393c5f1104c4573",
+        "3816713e97328c7b1a1604ec813f5d0ddb22008909f9bb5721f06275e95dc5bd",
+        116
+      ]
+    },
+    {
+      "arm": "candidate",
+      "case": [
+        0,
+        1,
+        0,
+        1,
+        0
+      ],
+      "status": "verified",
+      "checker": "drat-trim",
+      "fingerprint": [
+        "BVE views pad=0 copies=1 reverse=0 dense=1 lrat=0 resolutions=1 eliminated=1\n",
+        "c96cc74f5a1e59229c73b46d9b50f505368e3143c65b4e3fd393c5f1104c4573",
+        "1d5c29062de614a88dcbe46919495e048bab3df535a32586241afece6ad15a47",
+        53
+      ]
+    },
+    {
+      "arm": "candidate",
+      "case": [
+        0,
+        1,
+        0,
+        1,
+        1
+      ],
+      "status": "verified",
+      "checker": "cake_lpr",
+      "fingerprint": [
+        "BVE views pad=0 copies=1 reverse=0 dense=1 lrat=1 resolutions=1 eliminated=1\n",
+        "c96cc74f5a1e59229c73b46d9b50f505368e3143c65b4e3fd393c5f1104c4573",
+        "3816713e97328c7b1a1604ec813f5d0ddb22008909f9bb5721f06275e95dc5bd",
+        116
+      ]
+    },
+    {
+      "arm": "candidate",
+      "case": [
+        0,
+        1,
+        1,
+        0,
+        0
+      ],
+      "status": "verified",
+      "checker": "drat-trim",
+      "fingerprint": [
+        "BVE views pad=0 copies=1 reverse=1 dense=0 lrat=0 resolutions=1 eliminated=1\n",
+        "6e0ca182ddf6647fffb84ed4bc5bfbcd798d3aae757c1d28493a682a1b7f1290",
+        "eb7d50ecb67e8fa9720d983f6cbc9ec43bcd64016e00ed608db272a3cc507a6f",
+        53
+      ]
+    },
+    {
+      "arm": "candidate",
+      "case": [
+        0,
+        1,
+        1,
+        0,
+        1
+      ],
+      "status": "verified",
+      "checker": "cake_lpr",
+      "fingerprint": [
+        "BVE views pad=0 copies=1 reverse=1 dense=0 lrat=1 resolutions=1 eliminated=1\n",
+        "6e0ca182ddf6647fffb84ed4bc5bfbcd798d3aae757c1d28493a682a1b7f1290",
+        "bbcb30d0942752e6bd5f026bcb2cfb23c394935c8d0ad227ae9ed290408d946e",
+        116
+      ]
+    },
+    {
+      "arm": "candidate",
+      "case": [
+        0,
+        1,
+        1,
+        1,
+        0
+      ],
+      "status": "verified",
+      "checker": "drat-trim",
+      "fingerprint": [
+        "BVE views pad=0 copies=1 reverse=1 dense=1 lrat=0 resolutions=1 eliminated=1\n",
+        "6e0ca182ddf6647fffb84ed4bc5bfbcd798d3aae757c1d28493a682a1b7f1290",
+        "eb7d50ecb67e8fa9720d983f6cbc9ec43bcd64016e00ed608db272a3cc507a6f",
+        53
+      ]
+    },
+    {
+      "arm": "candidate",
+      "case": [
+        0,
+        1,
+        1,
+        1,
+        1
+      ],
+      "status": "verified",
+      "checker": "cake_lpr",
+      "fingerprint": [
+        "BVE views pad=0 copies=1 reverse=1 dense=1 lrat=1 resolutions=1 eliminated=1\n",
+        "6e0ca182ddf6647fffb84ed4bc5bfbcd798d3aae757c1d28493a682a1b7f1290",
+        "bbcb30d0942752e6bd5f026bcb2cfb23c394935c8d0ad227ae9ed290408d946e",
+        116
+      ]
+    },
+    {
+      "arm": "candidate",
+      "case": [
+        0,
+        2,
+        0,
+        0,
+        0
+      ],
+      "status": "verified",
+      "checker": "drat-trim",
+      "fingerprint": [
+        "BVE views pad=0 copies=2 reverse=0 dense=0 lrat=0 resolutions=4 eliminated=1\n",
+        "0322782dd87b717d1201907ff2db211ecf8276a387e4f74d591f961a40296b26",
+        "71cd8427298c9e8033f6e8146292b83f4d49f2e48205d9d070064c0befbfcd8d",
+        104
+      ]
+    },
+    {
+      "arm": "candidate",
+      "case": [
+        0,
+        2,
+        0,
+        0,
+        1
+      ],
+      "status": "verified",
+      "checker": "cake_lpr",
+      "fingerprint": [
+        "BVE views pad=0 copies=2 reverse=0 dense=0 lrat=1 resolutions=4 eliminated=1\n",
+        "0322782dd87b717d1201907ff2db211ecf8276a387e4f74d591f961a40296b26",
+        "8452e60029ed98b6055914b1d9f3b988e37d0383ffb62f1ed78fa6161ee16523",
+        193
+      ]
+    },
+    {
+      "arm": "candidate",
+      "case": [
+        0,
+        2,
+        0,
+        1,
+        0
+      ],
+      "status": "verified",
+      "checker": "drat-trim",
+      "fingerprint": [
+        "BVE views pad=0 copies=2 reverse=0 dense=1 lrat=0 resolutions=4 eliminated=1\n",
+        "0322782dd87b717d1201907ff2db211ecf8276a387e4f74d591f961a40296b26",
+        "71cd8427298c9e8033f6e8146292b83f4d49f2e48205d9d070064c0befbfcd8d",
+        104
+      ]
+    },
+    {
+      "arm": "candidate",
+      "case": [
+        0,
+        2,
+        0,
+        1,
+        1
+      ],
+      "status": "verified",
+      "checker": "cake_lpr",
+      "fingerprint": [
+        "BVE views pad=0 copies=2 reverse=0 dense=1 lrat=1 resolutions=4 eliminated=1\n",
+        "0322782dd87b717d1201907ff2db211ecf8276a387e4f74d591f961a40296b26",
+        "8452e60029ed98b6055914b1d9f3b988e37d0383ffb62f1ed78fa6161ee16523",
+        193
+      ]
+    },
+    {
+      "arm": "candidate",
+      "case": [
+        0,
+        2,
+        1,
+        0,
+        0
+      ],
+      "status": "verified",
+      "checker": "drat-trim",
+      "fingerprint": [
+        "BVE views pad=0 copies=2 reverse=1 dense=0 lrat=0 resolutions=4 eliminated=1\n",
+        "f0f74b93a9de6594c315ab11308b2b83417f08a0a3971fc91934433123733e73",
+        "5d2b78c3f2237568ccb14c6578f8d0959f3ef074fc530f763e3c842d3931f8f6",
+        104
+      ]
+    },
+    {
+      "arm": "candidate",
+      "case": [
+        0,
+        2,
+        1,
+        0,
+        1
+      ],
+      "status": "verified",
+      "checker": "cake_lpr",
+      "fingerprint": [
+        "BVE views pad=0 copies=2 reverse=1 dense=0 lrat=1 resolutions=4 eliminated=1\n",
+        "f0f74b93a9de6594c315ab11308b2b83417f08a0a3971fc91934433123733e73",
+        "18e119b97d455f875f8ebbe40d037eaab340cddc3ba166dd0a895a0c8f8e3ed6",
+        193
+      ]
+    },
+    {
+      "arm": "candidate",
+      "case": [
+        0,
+        2,
+        1,
+        1,
+        0
+      ],
+      "status": "verified",
+      "checker": "drat-trim",
+      "fingerprint": [
+        "BVE views pad=0 copies=2 reverse=1 dense=1 lrat=0 resolutions=4 eliminated=1\n",
+        "f0f74b93a9de6594c315ab11308b2b83417f08a0a3971fc91934433123733e73",
+        "5d2b78c3f2237568ccb14c6578f8d0959f3ef074fc530f763e3c842d3931f8f6",
+        104
+      ]
+    },
+    {
+      "arm": "candidate",
+      "case": [
+        0,
+        2,
+        1,
+        1,
+        1
+      ],
+      "status": "verified",
+      "checker": "cake_lpr",
+      "fingerprint": [
+        "BVE views pad=0 copies=2 reverse=1 dense=1 lrat=1 resolutions=4 eliminated=1\n",
+        "f0f74b93a9de6594c315ab11308b2b83417f08a0a3971fc91934433123733e73",
+        "18e119b97d455f875f8ebbe40d037eaab340cddc3ba166dd0a895a0c8f8e3ed6",
+        193
+      ]
+    },
+    {
+      "arm": "candidate",
+      "case": [
+        1,
+        1,
+        0,
+        0,
+        0
+      ],
+      "status": "verified",
+      "checker": "drat-trim",
+      "fingerprint": [
+        "BVE views pad=1 copies=1 reverse=0 dense=0 lrat=0 resolutions=1 eliminated=1\n",
+        "363b50f236e4fb8d6e989f62990adec50f5be170c9f0281cfd24f4b6a3586a62",
+        "43410832ed18cadf15595780ad459e86f01d902cc5927b7fb2d6cf26f46a25f8",
+        57
+      ]
+    },
+    {
+      "arm": "candidate",
+      "case": [
+        1,
+        1,
+        0,
+        0,
+        1
+      ],
+      "status": "verified",
+      "checker": "cake_lpr",
+      "fingerprint": [
+        "BVE views pad=1 copies=1 reverse=0 dense=0 lrat=1 resolutions=1 eliminated=1\n",
+        "363b50f236e4fb8d6e989f62990adec50f5be170c9f0281cfd24f4b6a3586a62",
+        "c515f0026697e8458aa9e77ce5517f157bf476d1bf25ae5d78365bb52909df7a",
+        121
+      ]
+    },
+    {
+      "arm": "candidate",
+      "case": [
+        1,
+        1,
+        0,
+        1,
+        0
+      ],
+      "status": "verified",
+      "checker": "drat-trim",
+      "fingerprint": [
+        "BVE views pad=1 copies=1 reverse=0 dense=1 lrat=0 resolutions=1 eliminated=1\n",
+        "363b50f236e4fb8d6e989f62990adec50f5be170c9f0281cfd24f4b6a3586a62",
+        "43410832ed18cadf15595780ad459e86f01d902cc5927b7fb2d6cf26f46a25f8",
+        57
+      ]
+    },
+    {
+      "arm": "candidate",
+      "case": [
+        1,
+        1,
+        0,
+        1,
+        1
+      ],
+      "status": "verified",
+      "checker": "cake_lpr",
+      "fingerprint": [
+        "BVE views pad=1 copies=1 reverse=0 dense=1 lrat=1 resolutions=1 eliminated=1\n",
+        "363b50f236e4fb8d6e989f62990adec50f5be170c9f0281cfd24f4b6a3586a62",
+        "c515f0026697e8458aa9e77ce5517f157bf476d1bf25ae5d78365bb52909df7a",
+        121
+      ]
+    },
+    {
+      "arm": "candidate",
+      "case": [
+        1,
+        1,
+        1,
+        0,
+        0
+      ],
+      "status": "verified",
+      "checker": "drat-trim",
+      "fingerprint": [
+        "BVE views pad=1 copies=1 reverse=1 dense=0 lrat=0 resolutions=1 eliminated=1\n",
+        "79cb12dee5ba35d6308865d49dee64397cf7ad8d365ac550a2e89b956d286cbc",
+        "cf152e132905a04f6ca54001eeb97e4df11e63d24743d3be889db9172ce06fac",
+        57
+      ]
+    },
+    {
+      "arm": "candidate",
+      "case": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "status": "verified",
+      "checker": "cake_lpr",
+      "fingerprint": [
+        "BVE views pad=1 copies=1 reverse=1 dense=0 lrat=1 resolutions=1 eliminated=1\n",
+        "79cb12dee5ba35d6308865d49dee64397cf7ad8d365ac550a2e89b956d286cbc",
+        "0154d26546cb23b9a1f08fbd661654e974531da1789c94c32aebc970d564ad3e",
+        121
+      ]
+    },
+    {
+      "arm": "candidate",
+      "case": [
+        1,
+        1,
+        1,
+        1,
+        0
+      ],
+      "status": "verified",
+      "checker": "drat-trim",
+      "fingerprint": [
+        "BVE views pad=1 copies=1 reverse=1 dense=1 lrat=0 resolutions=1 eliminated=1\n",
+        "79cb12dee5ba35d6308865d49dee64397cf7ad8d365ac550a2e89b956d286cbc",
+        "cf152e132905a04f6ca54001eeb97e4df11e63d24743d3be889db9172ce06fac",
+        57
+      ]
+    },
+    {
+      "arm": "candidate",
+      "case": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "status": "verified",
+      "checker": "cake_lpr",
+      "fingerprint": [
+        "BVE views pad=1 copies=1 reverse=1 dense=1 lrat=1 resolutions=1 eliminated=1\n",
+        "79cb12dee5ba35d6308865d49dee64397cf7ad8d365ac550a2e89b956d286cbc",
+        "0154d26546cb23b9a1f08fbd661654e974531da1789c94c32aebc970d564ad3e",
+        121
+      ]
+    },
+    {
+      "arm": "candidate",
+      "case": [
+        1,
+        2,
+        0,
+        0,
+        0
+      ],
+      "status": "verified",
+      "checker": "drat-trim",
+      "fingerprint": [
+        "BVE views pad=1 copies=2 reverse=0 dense=0 lrat=0 resolutions=4 eliminated=1\n",
+        "b526529c5b83f973ddfb9fe9832b82875b71c92fd42b79f4ce9880e987c1a9cd",
+        "ec5a031cac417751983bee73457ba4ced2cc52116d13eb7405768aa184084277",
+        112
+      ]
+    },
+    {
+      "arm": "candidate",
+      "case": [
+        1,
+        2,
+        0,
+        0,
+        1
+      ],
+      "status": "verified",
+      "checker": "cake_lpr",
+      "fingerprint": [
+        "BVE views pad=1 copies=2 reverse=0 dense=0 lrat=1 resolutions=4 eliminated=1\n",
+        "b526529c5b83f973ddfb9fe9832b82875b71c92fd42b79f4ce9880e987c1a9cd",
+        "f71c140a65353f8ee58418cd28bca1cc9fc4bf3aea15c665ac97cfbc98fe7bf3",
+        210
+      ]
+    },
+    {
+      "arm": "candidate",
+      "case": [
+        1,
+        2,
+        0,
+        1,
+        0
+      ],
+      "status": "verified",
+      "checker": "drat-trim",
+      "fingerprint": [
+        "BVE views pad=1 copies=2 reverse=0 dense=1 lrat=0 resolutions=4 eliminated=1\n",
+        "b526529c5b83f973ddfb9fe9832b82875b71c92fd42b79f4ce9880e987c1a9cd",
+        "ec5a031cac417751983bee73457ba4ced2cc52116d13eb7405768aa184084277",
+        112
+      ]
+    },
+    {
+      "arm": "candidate",
+      "case": [
+        1,
+        2,
+        0,
+        1,
+        1
+      ],
+      "status": "verified",
+      "checker": "cake_lpr",
+      "fingerprint": [
+        "BVE views pad=1 copies=2 reverse=0 dense=1 lrat=1 resolutions=4 eliminated=1\n",
+        "b526529c5b83f973ddfb9fe9832b82875b71c92fd42b79f4ce9880e987c1a9cd",
+        "f71c140a65353f8ee58418cd28bca1cc9fc4bf3aea15c665ac97cfbc98fe7bf3",
+        210
+      ]
+    },
+    {
+      "arm": "candidate",
+      "case": [
+        1,
+        2,
+        1,
+        0,
+        0
+      ],
+      "status": "verified",
+      "checker": "drat-trim",
+      "fingerprint": [
+        "BVE views pad=1 copies=2 reverse=1 dense=0 lrat=0 resolutions=4 eliminated=1\n",
+        "28a6a3c1293a05568e185d02b2c94a7f5c21d3af6ebde8dcb8e87fd317bab86f",
+        "2b5086889e7bd48bb0ff1ad701bcf352d74f01a4203f2c01a2f92449ad574bc2",
+        112
+      ]
+    },
+    {
+      "arm": "candidate",
+      "case": [
+        1,
+        2,
+        1,
+        0,
+        1
+      ],
+      "status": "verified",
+      "checker": "cake_lpr",
+      "fingerprint": [
+        "BVE views pad=1 copies=2 reverse=1 dense=0 lrat=1 resolutions=4 eliminated=1\n",
+        "28a6a3c1293a05568e185d02b2c94a7f5c21d3af6ebde8dcb8e87fd317bab86f",
+        "8a4f4afcd1ab7b206a78e6d81a09a98a506be3cf38608c507730923f4765dd06",
+        210
+      ]
+    },
+    {
+      "arm": "candidate",
+      "case": [
+        1,
+        2,
+        1,
+        1,
+        0
+      ],
+      "status": "verified",
+      "checker": "drat-trim",
+      "fingerprint": [
+        "BVE views pad=1 copies=2 reverse=1 dense=1 lrat=0 resolutions=4 eliminated=1\n",
+        "28a6a3c1293a05568e185d02b2c94a7f5c21d3af6ebde8dcb8e87fd317bab86f",
+        "2b5086889e7bd48bb0ff1ad701bcf352d74f01a4203f2c01a2f92449ad574bc2",
+        112
+      ]
+    },
+    {
+      "arm": "candidate",
+      "case": [
+        1,
+        2,
+        1,
+        1,
+        1
+      ],
+      "status": "verified",
+      "checker": "cake_lpr",
+      "fingerprint": [
+        "BVE views pad=1 copies=2 reverse=1 dense=1 lrat=1 resolutions=4 eliminated=1\n",
+        "28a6a3c1293a05568e185d02b2c94a7f5c21d3af6ebde8dcb8e87fd317bab86f",
+        "8a4f4afcd1ab7b206a78e6d81a09a98a506be3cf38608c507730923f4765dd06",
+        210
+      ]
+    },
+    {
+      "arm": "candidate",
+      "case": [
+        2,
+        1,
+        0,
+        0,
+        0
+      ],
+      "status": "verified",
+      "checker": "drat-trim",
+      "fingerprint": [
+        "BVE views pad=2 copies=1 reverse=0 dense=0 lrat=0 resolutions=1 eliminated=1\n",
+        "da2cefe71d22256375e495e389dbc6165b3f4b8cb723054d8babc0e3c766d8f1",
+        "7ba1a9e9db986da2449c191810fc37efa5df8ce1848adda023e6db12f06a1e56",
+        61
+      ]
+    },
+    {
+      "arm": "candidate",
+      "case": [
+        2,
+        1,
+        0,
+        0,
+        1
+      ],
+      "status": "verified",
+      "checker": "cake_lpr",
+      "fingerprint": [
+        "BVE views pad=2 copies=1 reverse=0 dense=0 lrat=1 resolutions=1 eliminated=1\n",
+        "da2cefe71d22256375e495e389dbc6165b3f4b8cb723054d8babc0e3c766d8f1",
+        "0d644662b66df381a6372ac668be0747af75d4a46c49c87fc47cccb6571bcd93",
+        126
+      ]
+    },
+    {
+      "arm": "candidate",
+      "case": [
+        2,
+        1,
+        0,
+        1,
+        0
+      ],
+      "status": "verified",
+      "checker": "drat-trim",
+      "fingerprint": [
+        "BVE views pad=2 copies=1 reverse=0 dense=1 lrat=0 resolutions=1 eliminated=1\n",
+        "da2cefe71d22256375e495e389dbc6165b3f4b8cb723054d8babc0e3c766d8f1",
+        "7ba1a9e9db986da2449c191810fc37efa5df8ce1848adda023e6db12f06a1e56",
+        61
+      ]
+    },
+    {
+      "arm": "candidate",
+      "case": [
+        2,
+        1,
+        0,
+        1,
+        1
+      ],
+      "status": "verified",
+      "checker": "cake_lpr",
+      "fingerprint": [
+        "BVE views pad=2 copies=1 reverse=0 dense=1 lrat=1 resolutions=1 eliminated=1\n",
+        "da2cefe71d22256375e495e389dbc6165b3f4b8cb723054d8babc0e3c766d8f1",
+        "0d644662b66df381a6372ac668be0747af75d4a46c49c87fc47cccb6571bcd93",
+        126
+      ]
+    },
+    {
+      "arm": "candidate",
+      "case": [
+        2,
+        1,
+        1,
+        0,
+        0
+      ],
+      "status": "verified",
+      "checker": "drat-trim",
+      "fingerprint": [
+        "BVE views pad=2 copies=1 reverse=1 dense=0 lrat=0 resolutions=1 eliminated=1\n",
+        "bab650d7e3984932c7a606843ea3c91a568fe05496d7d372e4d88683a7dbce1c",
+        "2dae87adcc64388e952bc1736a1c2649f1dceaac6e35ff73fe1ed6adf2296210",
+        61
+      ]
+    },
+    {
+      "arm": "candidate",
+      "case": [
+        2,
+        1,
+        1,
+        0,
+        1
+      ],
+      "status": "verified",
+      "checker": "cake_lpr",
+      "fingerprint": [
+        "BVE views pad=2 copies=1 reverse=1 dense=0 lrat=1 resolutions=1 eliminated=1\n",
+        "bab650d7e3984932c7a606843ea3c91a568fe05496d7d372e4d88683a7dbce1c",
+        "463894549d9dc0a8a2e77d442eb762671df3effbbce00c7d49ad0bbb0fc67c2d",
+        126
+      ]
+    },
+    {
+      "arm": "candidate",
+      "case": [
+        2,
+        1,
+        1,
+        1,
+        0
+      ],
+      "status": "verified",
+      "checker": "drat-trim",
+      "fingerprint": [
+        "BVE views pad=2 copies=1 reverse=1 dense=1 lrat=0 resolutions=1 eliminated=1\n",
+        "bab650d7e3984932c7a606843ea3c91a568fe05496d7d372e4d88683a7dbce1c",
+        "2dae87adcc64388e952bc1736a1c2649f1dceaac6e35ff73fe1ed6adf2296210",
+        61
+      ]
+    },
+    {
+      "arm": "candidate",
+      "case": [
+        2,
+        1,
+        1,
+        1,
+        1
+      ],
+      "status": "verified",
+      "checker": "cake_lpr",
+      "fingerprint": [
+        "BVE views pad=2 copies=1 reverse=1 dense=1 lrat=1 resolutions=1 eliminated=1\n",
+        "bab650d7e3984932c7a606843ea3c91a568fe05496d7d372e4d88683a7dbce1c",
+        "463894549d9dc0a8a2e77d442eb762671df3effbbce00c7d49ad0bbb0fc67c2d",
+        126
+      ]
+    },
+    {
+      "arm": "candidate",
+      "case": [
+        2,
+        2,
+        0,
+        0,
+        0
+      ],
+      "status": "verified",
+      "checker": "drat-trim",
+      "fingerprint": [
+        "BVE views pad=2 copies=2 reverse=0 dense=0 lrat=0 resolutions=4 eliminated=1\n",
+        "b13810551f0b1dc126dbd173b6894c53fee875ed73551b86d0d5ca4a96058beb",
+        "8fb0342a511a7c9c5ca97298e8cc0f800237c71fc389773f1466291af3018716",
+        120
+      ]
+    },
+    {
+      "arm": "candidate",
+      "case": [
+        2,
+        2,
+        0,
+        0,
+        1
+      ],
+      "status": "verified",
+      "checker": "cake_lpr",
+      "fingerprint": [
+        "BVE views pad=2 copies=2 reverse=0 dense=0 lrat=1 resolutions=4 eliminated=1\n",
+        "b13810551f0b1dc126dbd173b6894c53fee875ed73551b86d0d5ca4a96058beb",
+        "d245e0b2fb69f29d35db0f8af7ae28c2c8837f0ef93d5b2d98709c46ee345452",
+        227
+      ]
+    },
+    {
+      "arm": "candidate",
+      "case": [
+        2,
+        2,
+        0,
+        1,
+        0
+      ],
+      "status": "verified",
+      "checker": "drat-trim",
+      "fingerprint": [
+        "BVE views pad=2 copies=2 reverse=0 dense=1 lrat=0 resolutions=4 eliminated=1\n",
+        "b13810551f0b1dc126dbd173b6894c53fee875ed73551b86d0d5ca4a96058beb",
+        "8fb0342a511a7c9c5ca97298e8cc0f800237c71fc389773f1466291af3018716",
+        120
+      ]
+    },
+    {
+      "arm": "candidate",
+      "case": [
+        2,
+        2,
+        0,
+        1,
+        1
+      ],
+      "status": "verified",
+      "checker": "cake_lpr",
+      "fingerprint": [
+        "BVE views pad=2 copies=2 reverse=0 dense=1 lrat=1 resolutions=4 eliminated=1\n",
+        "b13810551f0b1dc126dbd173b6894c53fee875ed73551b86d0d5ca4a96058beb",
+        "d245e0b2fb69f29d35db0f8af7ae28c2c8837f0ef93d5b2d98709c46ee345452",
+        227
+      ]
+    },
+    {
+      "arm": "candidate",
+      "case": [
+        2,
+        2,
+        1,
+        0,
+        0
+      ],
+      "status": "verified",
+      "checker": "drat-trim",
+      "fingerprint": [
+        "BVE views pad=2 copies=2 reverse=1 dense=0 lrat=0 resolutions=4 eliminated=1\n",
+        "ab13ee8d8839f19d334089060ece23a3183d84300f382d4be98d61a7c3ede813",
+        "83e030e60e487bf80e1886613c7b644bac3300799cc845b64af337b98707484d",
+        120
+      ]
+    },
+    {
+      "arm": "candidate",
+      "case": [
+        2,
+        2,
+        1,
+        0,
+        1
+      ],
+      "status": "verified",
+      "checker": "cake_lpr",
+      "fingerprint": [
+        "BVE views pad=2 copies=2 reverse=1 dense=0 lrat=1 resolutions=4 eliminated=1\n",
+        "ab13ee8d8839f19d334089060ece23a3183d84300f382d4be98d61a7c3ede813",
+        "20a34ab5d5501b1e565ea023d349578b98f86f5ca4a851e3cd221fab06e6b1dc",
+        227
+      ]
+    },
+    {
+      "arm": "candidate",
+      "case": [
+        2,
+        2,
+        1,
+        1,
+        0
+      ],
+      "status": "verified",
+      "checker": "drat-trim",
+      "fingerprint": [
+        "BVE views pad=2 copies=2 reverse=1 dense=1 lrat=0 resolutions=4 eliminated=1\n",
+        "ab13ee8d8839f19d334089060ece23a3183d84300f382d4be98d61a7c3ede813",
+        "83e030e60e487bf80e1886613c7b644bac3300799cc845b64af337b98707484d",
+        120
+      ]
+    },
+    {
+      "arm": "candidate",
+      "case": [
+        2,
+        2,
+        1,
+        1,
+        1
+      ],
+      "status": "verified",
+      "checker": "cake_lpr",
+      "fingerprint": [
+        "BVE views pad=2 copies=2 reverse=1 dense=1 lrat=1 resolutions=4 eliminated=1\n",
+        "ab13ee8d8839f19d334089060ece23a3183d84300f382d4be98d61a7c3ede813",
+        "20a34ab5d5501b1e565ea023d349578b98f86f5ca4a851e3cd221fab06e6b1dc",
+        227
+      ]
+    }
+  ],
+  "hashes": {
+    "benchmarks/probes/scratch/test-bve-view-proofs-7101.cpp": "636f08a46aa192d4eda8f0493e3fbdea0aa60f4fc28bba8ad25234f4b7363f45",
+    "tools/checkers/bin/drat-trim": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/negative-0.json": "d07ebb9029b81a12cbc50e1b046bf41e05fe5a799eae527fe5d2484f1b294785",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/negative-0.cnf": "6642f3ff4fae6f869a53f303bc768802cec0a16af731686c6bf03f342cf0489e",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/negative-0.proof": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "tools/checkers/bin/cake_lpr": "ab9dc6c43ad0f55bbaf336c5d898919ddb03d0bdb75e88dff48237fb06ba1f57",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/negative-1.json": "9622b0499860ac78361a2caaa0e8e637cd4a5a1581dd39e0e054d0f029e5fc45",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/negative-1.cnf": "6642f3ff4fae6f869a53f303bc768802cec0a16af731686c6bf03f342cf0489e",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/negative-1.proof": "c691fcc163ea87984efb492e1e16b69e31c4afb07c47284924aabd3371113d7e",
+    "benchmarks/runs/20260910-7030-collect-retry-build/manifest.json": "4f81e436a3b7aa611906717fa2d65f42170b00cd3594e788962db6d7b1d92c1e",
+    "build/pin-7030-collect-retry-release/CMakeFiles/tactix_lib.dir/src/api/api.cpp.o": "2fc4c03646503432f66dae748fb6fa1edef05295abd87a9e81e1515a097b767f",
+    "build/pin-7030-collect-retry-release/CMakeFiles/tactix_lib.dir/src/engine/subsolver.cpp.o": "69292de2029165e3a89afa44616f61c59d828b32b8d216356a95adc08bf1cf70",
+    "build/pin-7030-collect-retry-release/CMakeFiles/tactix_lib.dir/src/frontend/parse.cpp.o": "803394178462e495e71be7269482654795dca92b948a4a5ec93d91b1461938a8",
+    "build/pin-7030-collect-retry-release/CMakeFiles/tactix_lib.dir/src/kernel/kernel.cpp.o": "a366cc9186eb3bf4fcfe96999068241ac39259ee32cf2db703731cab7cc7f541",
+    "build/pin-7030-collect-retry-release/CMakeFiles/tactix_lib.dir/src/policies/default_policy.cpp.o": "3b27aff94096884825cc9133623fa351c308a398dfe108e603ef64aabf0ab893",
+    "build/pin-7030-collect-retry-release/CMakeFiles/tactix_lib.dir/src/policies/heuristics.cpp.o": "a79220d97f7abdebe76822a6b849f1be99d08d2cf74e067d3fb17de72c72da37",
+    "build/pin-7030-collect-retry-release/CMakeFiles/tactix_lib.dir/src/policies/ops/reorder/reorder.cpp.o": "6c225ab3de6c7187236c70d81e064ccc053b986c1e10623c459555b06ba80a0a",
+    "build/pin-7030-collect-retry-release/CMakeFiles/tactix_lib.dir/src/policies/ops/rephase/rephase.cpp.o": "1ee13886e249610f0ed9f016a784af58fbb2bc95427e5a2e44ec153d8eb46b9a",
+    "build/pin-7030-collect-retry-release/CMakeFiles/tactix_lib.dir/src/policies/ops/switchmode/switchmode.cpp.o": "b0f4fdc1e626eeb014d0eccb62216cb342da644f6faeed72c08928ee3087b663",
+    "build/pin-7030-collect-retry-release/CMakeFiles/tactix_lib.dir/src/policies/ops/walk/walk.cpp.o": "b8223b99f93e5ea1aa4e0d4fd79eb7b5817291afe066fd57320aaee65ba96ab7",
+    "build/pin-7030-collect-retry-release/CMakeFiles/tactix_lib.dir/src/policies/random_policy.cpp.o": "b8b94d0550a6de52dedece423831c7b4cf23bd2590a0a8ad31820e12da256c05",
+    "build/pin-7030-collect-retry-release/CMakeFiles/tactix_lib.dir/src/policies/stress_registry.cpp.o": "f1d115beeccfea75b6bc9ed4e1cbbb59c65709573bce3a8cbbaca1e72ccaac5e",
+    "build/pin-7030-collect-retry-release/CMakeFiles/tactix_lib.dir/src/policies/trace.cpp.o": "82ee60d0ada0747fdd59d80009b2fa8e4f31d64682e98d396f5374ded42d98b1",
+    "build/pin-7030-collect-retry-release/CMakeFiles/tactix_lib.dir/src/proof/proof.cpp.o": "f6de1158068fd832101794caf35b371f32acb77c08b2152ced6990e9901e81cf",
+    "build/pin-7030-collect-retry-release/CMakeFiles/tactix_lib.dir/src/rules/analyze/analyze.cpp.o": "84eca92dbf48ec638ad3570331283d5f9cbaa2635b237e6084587b1a658194f1",
+    "build/pin-7030-collect-retry-release/CMakeFiles/tactix_lib.dir/src/rules/backbone/backbone.cpp.o": "aad7e70bf8750450e06409e4ed8fa19918bbd6a5251f3c667fbe1b02d1e9c001",
+    "build/pin-7030-collect-retry-release/CMakeFiles/tactix_lib.dir/src/rules/backjump/backjump.cpp.o": "e5648b9e0d8c7e58d74ca1913cadf2c8987e587708c09d2702377e82788867c0",
+    "build/pin-7030-collect-retry-release/CMakeFiles/tactix_lib.dir/src/rules/bce/bce.cpp.o": "e1068b3a8c372cffe4a7a685d6d68a9c09d48c2dfec59b9fda23dfda3fab23c9",
+    "build/pin-7030-collect-retry-release/CMakeFiles/tactix_lib.dir/src/rules/bve/bve.cpp.o": "901ed3765239b9da8d59a452181a3247602099f17c0ac0bafa87701d98a62668",
+    "build/pin-7030-collect-retry-release/CMakeFiles/tactix_lib.dir/src/rules/cce/cce.cpp.o": "8d77b3d5de4c7a21a68be8263deff0ba716d71279143e5398d6268f49a9165e7",
+    "build/pin-7030-collect-retry-release/CMakeFiles/tactix_lib.dir/src/rules/congruence/congruence.cpp.o": "bb4e645b7f422229ddb7de7360d04690369b8a8809da06ec85a1d88e91c0ba34",
+    "build/pin-7030-collect-retry-release/CMakeFiles/tactix_lib.dir/src/rules/decide/decide.cpp.o": "e15a82960d069fa7425b481b7233082d875da16ae608747655769ffbe9beb6d0",
+    "build/pin-7030-collect-retry-release/CMakeFiles/tactix_lib.dir/src/rules/factor/factor.cpp.o": "bc7f87ca3143ca8932f91f6c24a00da996ecc3b070ae656029ce2d3da068c444",
+    "build/pin-7030-collect-retry-release/CMakeFiles/tactix_lib.dir/src/rules/hyperbinary/hyperbinary.cpp.o": "19d7c71a2d92f659533a60f48692cd79576318acc3c2917d4ee076a35fb12754",
+    "build/pin-7030-collect-retry-release/CMakeFiles/tactix_lib.dir/src/rules/instantiate/instantiate.cpp.o": "1be23b735a934917be55a91286ab9c86a3de3511d0db5e37eb6e98cc95e6d077",
+    "build/pin-7030-collect-retry-release/CMakeFiles/tactix_lib.dir/src/rules/lucky/lucky.cpp.o": "6610502d0511ffc659e119ff63610a0e355702930ab6260957a842d89201dd40",
+    "build/pin-7030-collect-retry-release/CMakeFiles/tactix_lib.dir/src/rules/probe/probe.cpp.o": "5f0affa030440b4b57ff7d150b02f42979cb06554cfc3a64d4e4a28bfb5e19ee",
+    "build/pin-7030-collect-retry-release/CMakeFiles/tactix_lib.dir/src/rules/propagate/propagate.cpp.o": "5579cd608f5e31efd4a98b42a8eccec21e86a01bab8cb3d10deb3aa49c9b59bb",
+    "build/pin-7030-collect-retry-release/CMakeFiles/tactix_lib.dir/src/rules/reduce/reduce.cpp.o": "8bb67248db95da0289ed31096ef50d030abd33f14b030cd037ee8c733923f494",
+    "build/pin-7030-collect-retry-release/CMakeFiles/tactix_lib.dir/src/rules/registry.cpp.o": "123fb9628ff065a8391c88e9de3600ced142f24d593cd9804563ea035988db4d",
+    "build/pin-7030-collect-retry-release/CMakeFiles/tactix_lib.dir/src/rules/restart/restart.cpp.o": "497e0cdd09bda3d3f74440cda57ddcdeeb2b19472467cdbb04faa57147a07fbc",
+    "build/pin-7030-collect-retry-release/CMakeFiles/tactix_lib.dir/src/rules/strengthen/strengthen.cpp.o": "59b170b894ad4b2f7dde2e149172a453fff3d9c5e95f510e4a7c7713d103315d",
+    "build/pin-7030-collect-retry-release/CMakeFiles/tactix_lib.dir/src/rules/substitute/substitute.cpp.o": "8e9c838ef4781ae4ad21f9f3450f2493bd8d17bb74322c37477bbc8aa6b94acb",
+    "build/pin-7030-collect-retry-release/CMakeFiles/tactix_lib.dir/src/rules/subsume_forward/subsume_forward.cpp.o": "31e16caca4348d6fd9b9e276be4d03046654928ff1c66bafc867e400b60e18af",
+    "build/pin-7030-collect-retry-release/CMakeFiles/tactix_lib.dir/src/rules/support/failed_literal.cpp.o": "428c5a26c5303763eb01c8d04a3edcb53cce4695da8c604609cb0d1d71e7bbf0",
+    "build/pin-7030-collect-retry-release/CMakeFiles/tactix_lib.dir/src/rules/support/flat_occurrence.cpp.o": "dfa78b5db79b5c023412e564ca3b952806733524a6f18553fe6d76a1c004ae33",
+    "build/pin-7030-collect-retry-release/CMakeFiles/tactix_lib.dir/src/rules/sweep/sweep.cpp.o": "5eefff6472e2adb6ab784225624f97186399f9e5630409ea1c9dbfff3814d4de",
+    "build/pin-7030-collect-retry-release/CMakeFiles/tactix_lib.dir/src/rules/ternary/ternary.cpp.o": "b400cc17afbd2663be0e5a83d0dc85d0fb5252115b0893d0ec09a93a4f19842e",
+    "build/pin-7030-collect-retry-release/CMakeFiles/tactix_lib.dir/src/rules/transitive_reduce/transitive_reduce.cpp.o": "f0792b8c35a58f8bcc6508588d0ccfe22e0856ed2de60d0f02213b26e70c1164",
+    "build/pin-7030-collect-retry-release/CMakeFiles/tactix_lib.dir/src/rules/vivify/vivify.cpp.o": "7bd7994d15a1c270732f6bd2a1c05b2f09b259fa8a167100e09d781e0cc52bfb",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-compile.json": "976e97aa1dc8ace33495d95473e0929183989a0d2d7c5ea80725badee1ab74a5",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-fixture": "65cf4d09c3a81dffc2c9fd65f70f9d9ec62c4b0f516a4511d2fb3e43d09d5cc5",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-0-1-0-0-0.json": "8e60f8954f060b377dc3a5c6903b8d583a07cea851e6dacd48ab978d8f509a13",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-0-1-0-0-0-check.json": "aea3c45e629ca38466af237c6809a193cb5ccc4702bd7c63dc545e1197dbf9c7",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-0-1-0-0-0-corrupted-first-lemma.json": "ed7fcdd284e2152359add2a8276f34d2bd35bc7276937470612502e867b8a345",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-0-1-0-0-0.bad-proof": "208e550cac6d246fc8c463d01c4e6b6d213273a1ed57f25c9a136917806f2a3f",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-0-1-0-0-0.cnf": "c96cc74f5a1e59229c73b46d9b50f505368e3143c65b4e3fd393c5f1104c4573",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-0-1-0-0-0.proof": "1d5c29062de614a88dcbe46919495e048bab3df535a32586241afece6ad15a47",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-0-1-0-0-1.json": "19c23216561f654d71a38a34b1545be489b30388e02bb693b8ece5ce25209438",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-0-1-0-0-1-check.json": "82dccd34aa648338f12446d323968611ea1d0307d3b67fe034a501519d0025c3",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-0-1-0-0-1-corrupted-first-lemma.json": "9beafb33e77b9b8e2a707b46d00fd43a5574e4ceae73ec8347e34547855f77b4",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-0-1-0-0-1.bad-proof": "03fbf90c183e783d483886daef95a54b683a4c399d48acaf724d3cfc70476778",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-0-1-0-0-1.cnf": "c96cc74f5a1e59229c73b46d9b50f505368e3143c65b4e3fd393c5f1104c4573",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-0-1-0-0-1.proof": "3816713e97328c7b1a1604ec813f5d0ddb22008909f9bb5721f06275e95dc5bd",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-0-1-0-1-0.json": "1a6a92b34510909c1fc61aa2fd5cd83fdc877c88c900a7e7b32b2241354d6843",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-0-1-0-1-0-check.json": "c0b80be3d01f261fdfb6a39c431eb42eb23ea3b274d9a1b4e1faa23a96320e8b",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-0-1-0-1-0-corrupted-first-lemma.json": "c975c07a8192a3a568141eb1e32d748fbba2ec0f0d2ed707a622db46c6e238b9",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-0-1-0-1-0.bad-proof": "208e550cac6d246fc8c463d01c4e6b6d213273a1ed57f25c9a136917806f2a3f",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-0-1-0-1-0.cnf": "c96cc74f5a1e59229c73b46d9b50f505368e3143c65b4e3fd393c5f1104c4573",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-0-1-0-1-0.proof": "1d5c29062de614a88dcbe46919495e048bab3df535a32586241afece6ad15a47",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-0-1-0-1-1.json": "d996195f090aeb58ad2c0f1de15d0bf347377e071db0bb35072909816abef06c",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-0-1-0-1-1-check.json": "6cb435fd76f3b83aba2007c64a6d20b68ea55398365100994a50ef1d989a5365",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-0-1-0-1-1-corrupted-first-lemma.json": "4949559f0823a8785c2c57f6b96beed3f1d11bef76e892fd9f2e2fca7273108f",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-0-1-0-1-1.bad-proof": "03fbf90c183e783d483886daef95a54b683a4c399d48acaf724d3cfc70476778",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-0-1-0-1-1.cnf": "c96cc74f5a1e59229c73b46d9b50f505368e3143c65b4e3fd393c5f1104c4573",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-0-1-0-1-1.proof": "3816713e97328c7b1a1604ec813f5d0ddb22008909f9bb5721f06275e95dc5bd",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-0-1-1-0-0.json": "dafee62a5d3878d2a3d73d8fa95ab70918f20407444bca404fca3205c4b313e9",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-0-1-1-0-0-check.json": "5cedff9ede19d15b6070af606f33e1742af4f2fc608d82a9bbf35dd85f209965",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-0-1-1-0-0-corrupted-first-lemma.json": "1336a8bf44270f495027e4bd57b02b9bc8f7160d5d8cfcd0210055a6f893906e",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-0-1-1-0-0.bad-proof": "6b9ab2f40f35aabb4242b3abee4fd0789be96fdad2da68db263315a1d5cb4ee1",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-0-1-1-0-0.cnf": "6e0ca182ddf6647fffb84ed4bc5bfbcd798d3aae757c1d28493a682a1b7f1290",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-0-1-1-0-0.proof": "eb7d50ecb67e8fa9720d983f6cbc9ec43bcd64016e00ed608db272a3cc507a6f",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-0-1-1-0-1.json": "1caad7875eb9e945526e958b3f50a696793f41c801d28359992f87ea40108073",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-0-1-1-0-1-check.json": "e1ab1d89b025c538ab935cfd3f6304fced6380194cc367a847b252f540d95427",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-0-1-1-0-1-corrupted-first-lemma.json": "3781e3d6e91a40bd0216c7e2ff699cf39475026e4b1e555798db0ee8d9fb0c18",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-0-1-1-0-1.bad-proof": "03fbf90c183e783d483886daef95a54b683a4c399d48acaf724d3cfc70476778",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-0-1-1-0-1.cnf": "6e0ca182ddf6647fffb84ed4bc5bfbcd798d3aae757c1d28493a682a1b7f1290",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-0-1-1-0-1.proof": "bbcb30d0942752e6bd5f026bcb2cfb23c394935c8d0ad227ae9ed290408d946e",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-0-1-1-1-0.json": "8c0ea36626b479833ef9cedc81524cc04804b69ac187947bcc7acc3a61c5533f",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-0-1-1-1-0-check.json": "1008c90a6213633311e993dac8ea43e2a62d30a609ae8f4c656664af4c0f3bc8",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-0-1-1-1-0-corrupted-first-lemma.json": "148d22aa3175273f18c0c31ccd66e83d638c6e1fd466408b4d5c632a46fe1911",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-0-1-1-1-0.bad-proof": "6b9ab2f40f35aabb4242b3abee4fd0789be96fdad2da68db263315a1d5cb4ee1",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-0-1-1-1-0.cnf": "6e0ca182ddf6647fffb84ed4bc5bfbcd798d3aae757c1d28493a682a1b7f1290",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-0-1-1-1-0.proof": "eb7d50ecb67e8fa9720d983f6cbc9ec43bcd64016e00ed608db272a3cc507a6f",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-0-1-1-1-1.json": "8e317986c7dc8a94f5e5a36b6ad984f25f4e4a328b0b89d7fcea427a29512a08",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-0-1-1-1-1-check.json": "f205a6f66e0f4cc934bc2a83e9649ae9008c6c4f8d91a186d30f97219599f783",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-0-1-1-1-1-corrupted-first-lemma.json": "fbc7f6ec6912485bca802a11ea4852d14ef2db05f0fdd66c16279ddbc0b1618d",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-0-1-1-1-1.bad-proof": "03fbf90c183e783d483886daef95a54b683a4c399d48acaf724d3cfc70476778",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-0-1-1-1-1.cnf": "6e0ca182ddf6647fffb84ed4bc5bfbcd798d3aae757c1d28493a682a1b7f1290",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-0-1-1-1-1.proof": "bbcb30d0942752e6bd5f026bcb2cfb23c394935c8d0ad227ae9ed290408d946e",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-0-2-0-0-0.json": "95a4b7ff40f910548cc47b1936629ed5edf64e3e379c9365769a8199948c16fa",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-0-2-0-0-0-check.json": "8755f207b9fd09eb08c647cb819cdb6e66b84096c7b34351dd89f708fa39f820",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-0-2-0-0-0-corrupted-first-lemma.json": "a3e6d2809a9b9b825bdca2ad73f2aeffc71a43632dd8d90b5a954acf96ef4eaa",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-0-2-0-0-0.bad-proof": "46e37d4adcd12d2fb49512cb15898e20ec8e3d31503dbdc16303b3b5a610ed6a",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-0-2-0-0-0.cnf": "0322782dd87b717d1201907ff2db211ecf8276a387e4f74d591f961a40296b26",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-0-2-0-0-0.proof": "71cd8427298c9e8033f6e8146292b83f4d49f2e48205d9d070064c0befbfcd8d",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-0-2-0-0-1.json": "cbe4ad0e1c65012fb7a33dc301d5e6967f69845cd774c1305c1d3e4a07c44bdc",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-0-2-0-0-1-check.json": "d66660a9a068d84c45b4341f61b230566cd74bfc7929b90c086dbe46d8697a03",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-0-2-0-0-1-corrupted-first-lemma.json": "070f1d82f84158fdf051cef6fa2142b00189f2f0737d09f76b82c2cf7ea33c99",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-0-2-0-0-1.bad-proof": "770be725dd6b156dff68781241b7d3c39b43c906b839b1f9f095b4c29ccea382",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-0-2-0-0-1.cnf": "0322782dd87b717d1201907ff2db211ecf8276a387e4f74d591f961a40296b26",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-0-2-0-0-1.proof": "8452e60029ed98b6055914b1d9f3b988e37d0383ffb62f1ed78fa6161ee16523",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-0-2-0-1-0.json": "b8c080922927d568b4ed146f6ad19c89e60834f37d3938bbbe9e2ef50fab8075",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-0-2-0-1-0-check.json": "9ef9ac99e41210963dc87d4f2c6ce0b5ed6f078b2417b8528dd954c6be28233a",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-0-2-0-1-0-corrupted-first-lemma.json": "826c91f2a610feca45c36b8852135b31535be9259eb3b9937ab5e8167dc30e43",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-0-2-0-1-0.bad-proof": "46e37d4adcd12d2fb49512cb15898e20ec8e3d31503dbdc16303b3b5a610ed6a",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-0-2-0-1-0.cnf": "0322782dd87b717d1201907ff2db211ecf8276a387e4f74d591f961a40296b26",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-0-2-0-1-0.proof": "71cd8427298c9e8033f6e8146292b83f4d49f2e48205d9d070064c0befbfcd8d",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-0-2-0-1-1.json": "87f00b0833d34bcb7d54f696269eaf8b922121a0616301c8aca36ee3d21e997c",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-0-2-0-1-1-check.json": "2c0b721b54e3ee53e39f007afa7a80600a53c2b8e29ce1b1b0ab11cf4add408f",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-0-2-0-1-1-corrupted-first-lemma.json": "3a71a07cc51530955a0839fbb027792bc015af206b45de564d9f23840222eb24",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-0-2-0-1-1.bad-proof": "770be725dd6b156dff68781241b7d3c39b43c906b839b1f9f095b4c29ccea382",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-0-2-0-1-1.cnf": "0322782dd87b717d1201907ff2db211ecf8276a387e4f74d591f961a40296b26",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-0-2-0-1-1.proof": "8452e60029ed98b6055914b1d9f3b988e37d0383ffb62f1ed78fa6161ee16523",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-0-2-1-0-0.json": "3e1644ac29efc4f51aa59150722622d6130062a1f13f3c5f429f70c5381291d1",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-0-2-1-0-0-check.json": "ea9ebacf544f475f48424bc9f0001d78b1334fba3f6f3ed3829815c8936c7a02",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-0-2-1-0-0-corrupted-first-lemma.json": "d4ddda4bf09bd98a113e337d0e7f9daaad800d26a37043d19d6376c891742af0",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-0-2-1-0-0.bad-proof": "8d5a2a11404e7cf3d022a725cb4ac3c522f38851d78bb2a0e461377bffad366c",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-0-2-1-0-0.cnf": "f0f74b93a9de6594c315ab11308b2b83417f08a0a3971fc91934433123733e73",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-0-2-1-0-0.proof": "5d2b78c3f2237568ccb14c6578f8d0959f3ef074fc530f763e3c842d3931f8f6",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-0-2-1-0-1.json": "dae288dea14347348e59b48a042922f90e4f0240cc2bea8bb2b707c1e77bf17b",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-0-2-1-0-1-check.json": "19791137e88b72ce4c98194a827b1a46eea8a9eb5e315806d9a6bae915636186",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-0-2-1-0-1-corrupted-first-lemma.json": "0e3c922a9caf36cce7e9eddd589fb87c639934b1070b04b0227f99e2c22803ed",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-0-2-1-0-1.bad-proof": "e55bfdac7d6741ec81808c6a33bdc2d409e88ac7e6ca0b992de6e5bea9c0df0e",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-0-2-1-0-1.cnf": "f0f74b93a9de6594c315ab11308b2b83417f08a0a3971fc91934433123733e73",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-0-2-1-0-1.proof": "18e119b97d455f875f8ebbe40d037eaab340cddc3ba166dd0a895a0c8f8e3ed6",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-0-2-1-1-0.json": "752c91c20796ffce3746e04f5429a763eed1a18ad6c171305815739564b45ffd",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-0-2-1-1-0-check.json": "5b36188fe6496fb6ca85a0c8299745e3a084ef89cab304574e6411fd4d60c874",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-0-2-1-1-0-corrupted-first-lemma.json": "a60b688022b783dca1f57b367be48284597b956131ade85bc32178ba98fda01c",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-0-2-1-1-0.bad-proof": "8d5a2a11404e7cf3d022a725cb4ac3c522f38851d78bb2a0e461377bffad366c",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-0-2-1-1-0.cnf": "f0f74b93a9de6594c315ab11308b2b83417f08a0a3971fc91934433123733e73",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-0-2-1-1-0.proof": "5d2b78c3f2237568ccb14c6578f8d0959f3ef074fc530f763e3c842d3931f8f6",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-0-2-1-1-1.json": "53e1a5d487a9977e33f6147fea3fb7c434b5477947028bd12b51511b86aad817",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-0-2-1-1-1-check.json": "6860b1fbb78bad5d2a4674a00656b62862df2485dcb518112a32172b8e945d41",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-0-2-1-1-1-corrupted-first-lemma.json": "b07aea6fc16666278b59ca189d312cc37d06dbb364f593c0b2e39cbcb8173362",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-0-2-1-1-1.bad-proof": "e55bfdac7d6741ec81808c6a33bdc2d409e88ac7e6ca0b992de6e5bea9c0df0e",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-0-2-1-1-1.cnf": "f0f74b93a9de6594c315ab11308b2b83417f08a0a3971fc91934433123733e73",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-0-2-1-1-1.proof": "18e119b97d455f875f8ebbe40d037eaab340cddc3ba166dd0a895a0c8f8e3ed6",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-1-1-0-0-0.json": "8e3cb03186f9462186c44ff0dd852ab5ee727eff85f4f28e09e8f7dc7a617874",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-1-1-0-0-0-check.json": "5f43f1e7aa58be4bb8c08d8542408333dbbe3121f9de41678236634a5d39a89b",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-1-1-0-0-0-corrupted-first-lemma.json": "41c9749d682d245586b7c59871bf97c0be0ea84eef251793691f8288ebd4b5ed",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-1-1-0-0-0.bad-proof": "4930f06a0ed58a47562cf1d8c08d39166d73fa604c79f302269d08611ef78a76",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-1-1-0-0-0.cnf": "363b50f236e4fb8d6e989f62990adec50f5be170c9f0281cfd24f4b6a3586a62",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-1-1-0-0-0.proof": "43410832ed18cadf15595780ad459e86f01d902cc5927b7fb2d6cf26f46a25f8",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-1-1-0-0-1.json": "7457532e44d698017c159447eb718a4fcbade71e6364881eb5d1cde001a10164",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-1-1-0-0-1-check.json": "5ba0c541f94c2d6a6bc06ca0539fcf683b7761ead1f63cd08b0635a1138fadb2",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-1-1-0-0-1-corrupted-first-lemma.json": "fff690159949ec6b70ffd181939cbf5db52cae9596b902d4b60a3f8e92e87979",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-1-1-0-0-1.bad-proof": "ddf1dc5652827e456b5aabd7f6569ad1e60a5f0776aa739e130c7e3d957f0aa1",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-1-1-0-0-1.cnf": "363b50f236e4fb8d6e989f62990adec50f5be170c9f0281cfd24f4b6a3586a62",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-1-1-0-0-1.proof": "c515f0026697e8458aa9e77ce5517f157bf476d1bf25ae5d78365bb52909df7a",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-1-1-0-1-0.json": "5b9140805dd254f782dcc859bb02cf8f94415a41308eaed5e93978f0495b16be",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-1-1-0-1-0-check.json": "39d3703499ed9fde94d86263c81ea81010b26ab0bd2b4d3e6c72a6180031fb64",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-1-1-0-1-0-corrupted-first-lemma.json": "64e722cca9cdccdbd47db8ab0f84e32f63209304ad1601df2bdf6ebd681e3ca5",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-1-1-0-1-0.bad-proof": "4930f06a0ed58a47562cf1d8c08d39166d73fa604c79f302269d08611ef78a76",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-1-1-0-1-0.cnf": "363b50f236e4fb8d6e989f62990adec50f5be170c9f0281cfd24f4b6a3586a62",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-1-1-0-1-0.proof": "43410832ed18cadf15595780ad459e86f01d902cc5927b7fb2d6cf26f46a25f8",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-1-1-0-1-1.json": "f35e1e699b51c11c966b0873da198209c2b80e31632903971971aa7e07f9e11e",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-1-1-0-1-1-check.json": "4d42b7dbc5393497a219a1e56c667d55e4e0b2dc38dc8143c8de9494e38c3394",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-1-1-0-1-1-corrupted-first-lemma.json": "25387a970659a2c770a4858158c497b9274a0ae89ae739e209e467ce7a781089",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-1-1-0-1-1.bad-proof": "ddf1dc5652827e456b5aabd7f6569ad1e60a5f0776aa739e130c7e3d957f0aa1",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-1-1-0-1-1.cnf": "363b50f236e4fb8d6e989f62990adec50f5be170c9f0281cfd24f4b6a3586a62",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-1-1-0-1-1.proof": "c515f0026697e8458aa9e77ce5517f157bf476d1bf25ae5d78365bb52909df7a",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-1-1-1-0-0.json": "29c4b8d8627f67c44cc349dd60db0823c9e6f49b0f6c145bf479d6e064f9df08",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-1-1-1-0-0-check.json": "e7895f4ef186de98a6782e3b081032ac4112e672b343f0aec27df21d636a5334",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-1-1-1-0-0-corrupted-first-lemma.json": "27b813b5ead852882338aef35d0afe63faaa945818873c699acad3daa51859c3",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-1-1-1-0-0.bad-proof": "41ff0963c733614e1f41abd067221e2448415cb588a16bd5ff7a5b8fca199c62",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-1-1-1-0-0.cnf": "79cb12dee5ba35d6308865d49dee64397cf7ad8d365ac550a2e89b956d286cbc",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-1-1-1-0-0.proof": "cf152e132905a04f6ca54001eeb97e4df11e63d24743d3be889db9172ce06fac",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-1-1-1-0-1.json": "64d5988ff14ec2587bd380d4edfee8e6029b4fed423088fd3e6eac8ce7b46698",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-1-1-1-0-1-check.json": "869c96e591ebe5f095db127d79d7b99a53261b220eb770f1d0785ee35f9a0539",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-1-1-1-0-1-corrupted-first-lemma.json": "b55894acced945468570b827a182e427ce1e9ea17c09a1411e09a378ed0cf359",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-1-1-1-0-1.bad-proof": "ddf1dc5652827e456b5aabd7f6569ad1e60a5f0776aa739e130c7e3d957f0aa1",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-1-1-1-0-1.cnf": "79cb12dee5ba35d6308865d49dee64397cf7ad8d365ac550a2e89b956d286cbc",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-1-1-1-0-1.proof": "0154d26546cb23b9a1f08fbd661654e974531da1789c94c32aebc970d564ad3e",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-1-1-1-1-0.json": "4c5b4e8f2fd1a04459b43598a1fa8d4194c300127bff8724105508eb869da2f7",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-1-1-1-1-0-check.json": "43eb05ff3ebef4e8377252887b42a17a245b1b697960df7acba7e49c1232f658",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-1-1-1-1-0-corrupted-first-lemma.json": "80ef152951238c4e8a558974d5b614bd9bb94fc4bcb9e59f6b0f338ed3075808",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-1-1-1-1-0.bad-proof": "41ff0963c733614e1f41abd067221e2448415cb588a16bd5ff7a5b8fca199c62",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-1-1-1-1-0.cnf": "79cb12dee5ba35d6308865d49dee64397cf7ad8d365ac550a2e89b956d286cbc",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-1-1-1-1-0.proof": "cf152e132905a04f6ca54001eeb97e4df11e63d24743d3be889db9172ce06fac",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-1-1-1-1-1.json": "80858d5a6750d6d6b801dbfdbdbb2ab6d7481a681d14dc22e911b680d7f9752b",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-1-1-1-1-1-check.json": "09bee038a2e849acd566d9f8ff55dcd4b950cf23ac62567dde5ce61096cc1973",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-1-1-1-1-1-corrupted-first-lemma.json": "058c70bf4ab77461defb711c3005f5be72724b75c0dfe60adfbc79788fbb8eee",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-1-1-1-1-1.bad-proof": "ddf1dc5652827e456b5aabd7f6569ad1e60a5f0776aa739e130c7e3d957f0aa1",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-1-1-1-1-1.cnf": "79cb12dee5ba35d6308865d49dee64397cf7ad8d365ac550a2e89b956d286cbc",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-1-1-1-1-1.proof": "0154d26546cb23b9a1f08fbd661654e974531da1789c94c32aebc970d564ad3e",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-1-2-0-0-0.json": "5563342431d264f2a26dc07785026acb52d073f731fc51bced7bcc70814613e5",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-1-2-0-0-0-check.json": "34922f86c3dda89b8ec0a2b8c9aa5cb980fac0158598a0418fbc396855f64b53",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-1-2-0-0-0-corrupted-first-lemma.json": "e789571eb5e70960189a03dce83bc7fa97d0dbc67e262dc56256cca063514138",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-1-2-0-0-0.bad-proof": "7b84b57525d6e111e2e412dce14b99989ecdd697158f74bd61b5b294dcb7beb2",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-1-2-0-0-0.cnf": "b526529c5b83f973ddfb9fe9832b82875b71c92fd42b79f4ce9880e987c1a9cd",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-1-2-0-0-0.proof": "ec5a031cac417751983bee73457ba4ced2cc52116d13eb7405768aa184084277",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-1-2-0-0-1.json": "58ebf5302466a3f34842b3dadff6016236ac52d3823b02675225593c47a129de",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-1-2-0-0-1-check.json": "51bd1f0452673c5a739691b7f4f7085448c3fdcb112308bc7196fba8ba10d759",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-1-2-0-0-1-corrupted-first-lemma.json": "aae1fc45879c0d76eaa69591cab3f8b08baa46733cde9238531a2ce8a526711d",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-1-2-0-0-1.bad-proof": "3ef0abdc7e817f78656bcee322900319f988a0242b822e51d26f1004e60afaeb",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-1-2-0-0-1.cnf": "b526529c5b83f973ddfb9fe9832b82875b71c92fd42b79f4ce9880e987c1a9cd",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-1-2-0-0-1.proof": "f71c140a65353f8ee58418cd28bca1cc9fc4bf3aea15c665ac97cfbc98fe7bf3",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-1-2-0-1-0.json": "f996cda5dbfba613a720be59bc338097e3053055f739bfb04655183196ba3095",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-1-2-0-1-0-check.json": "aa88844f334eb2b9bcf8b28f2d7b76e1fd641031af92015d683d63bb33a455d0",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-1-2-0-1-0-corrupted-first-lemma.json": "b17e391699d922b2291b4c9a87a910ebf12a70e4b5dcb5dc4d5fc44547878c80",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-1-2-0-1-0.bad-proof": "7b84b57525d6e111e2e412dce14b99989ecdd697158f74bd61b5b294dcb7beb2",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-1-2-0-1-0.cnf": "b526529c5b83f973ddfb9fe9832b82875b71c92fd42b79f4ce9880e987c1a9cd",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-1-2-0-1-0.proof": "ec5a031cac417751983bee73457ba4ced2cc52116d13eb7405768aa184084277",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-1-2-0-1-1.json": "24dcd9c437c310a84ee3701103c5069eabb1cc5376772bacfd16201f7222ca21",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-1-2-0-1-1-check.json": "9b91340c6308ae0478fa4b22dc45c2ca79ecea153045000641b49f426d11ff99",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-1-2-0-1-1-corrupted-first-lemma.json": "15f0a8226755a8e38b27c230e9f1fb0b507a5f522079e8de66365b2571a75ace",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-1-2-0-1-1.bad-proof": "3ef0abdc7e817f78656bcee322900319f988a0242b822e51d26f1004e60afaeb",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-1-2-0-1-1.cnf": "b526529c5b83f973ddfb9fe9832b82875b71c92fd42b79f4ce9880e987c1a9cd",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-1-2-0-1-1.proof": "f71c140a65353f8ee58418cd28bca1cc9fc4bf3aea15c665ac97cfbc98fe7bf3",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-1-2-1-0-0.json": "7b4acdd764421cb35f67204ed172043f140c547f8be321ace7af44fc577abb43",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-1-2-1-0-0-check.json": "b92f0248acebbc097c49c0f0a3b7b0f45062a2ca278817c8b75ff32469228beb",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-1-2-1-0-0-corrupted-first-lemma.json": "8bb012cd1f8876331fa5082a16613d57dcafeac9cbe5032e740b61fc3dc71d3f",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-1-2-1-0-0.bad-proof": "4934e5cfc97e6ae35bc12e52650cc6052726b8ddea55883243404e4066298e5f",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-1-2-1-0-0.cnf": "28a6a3c1293a05568e185d02b2c94a7f5c21d3af6ebde8dcb8e87fd317bab86f",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-1-2-1-0-0.proof": "2b5086889e7bd48bb0ff1ad701bcf352d74f01a4203f2c01a2f92449ad574bc2",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-1-2-1-0-1.json": "b88e7174059c86aa11b92b4cb1b507f17a3208fd77e10bcbb7f6a107ff505f6a",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-1-2-1-0-1-check.json": "03624c222adbf0f4094fbefa097a5014756bb4956ceb811495b845cf4c1a6724",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-1-2-1-0-1-corrupted-first-lemma.json": "f46102c190e9b4ee01e7da1768b52ecb84a336a9a6ae9a634d76afe534068601",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-1-2-1-0-1.bad-proof": "f1303d29e88c0c96e94365c40e63bdaedf335f4edd00b994a3d7773992ce1339",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-1-2-1-0-1.cnf": "28a6a3c1293a05568e185d02b2c94a7f5c21d3af6ebde8dcb8e87fd317bab86f",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-1-2-1-0-1.proof": "8a4f4afcd1ab7b206a78e6d81a09a98a506be3cf38608c507730923f4765dd06",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-1-2-1-1-0.json": "40b8fa1a32539c5c126092e20d27a44f57a38bb67b75ef7b51a893d587bd7683",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-1-2-1-1-0-check.json": "038b2aa0e1de556002c1f8dc8cf2c7211852eaf3fb839b27d71bf9f0d93f5ac2",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-1-2-1-1-0-corrupted-first-lemma.json": "1de5aaed8d75ab6f9bf8dfa8f2b995df650e8b3a17d5d6ce5d0ef4dbf96e18f5",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-1-2-1-1-0.bad-proof": "4934e5cfc97e6ae35bc12e52650cc6052726b8ddea55883243404e4066298e5f",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-1-2-1-1-0.cnf": "28a6a3c1293a05568e185d02b2c94a7f5c21d3af6ebde8dcb8e87fd317bab86f",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-1-2-1-1-0.proof": "2b5086889e7bd48bb0ff1ad701bcf352d74f01a4203f2c01a2f92449ad574bc2",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-1-2-1-1-1.json": "a2b0e810e9fb9c9fc7025f0141f0df0f3dcd07759f80a47aea284e9a6c041798",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-1-2-1-1-1-check.json": "6ef1cb4d29b9d94c650d2dbae7e0d67df82d1e1db8878ac533be5e2bb339bdc5",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-1-2-1-1-1-corrupted-first-lemma.json": "9012cf635e8f34caea0486d3182d8b0bc63909a6e7075b92a387d1f27e84bd5c",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-1-2-1-1-1.bad-proof": "f1303d29e88c0c96e94365c40e63bdaedf335f4edd00b994a3d7773992ce1339",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-1-2-1-1-1.cnf": "28a6a3c1293a05568e185d02b2c94a7f5c21d3af6ebde8dcb8e87fd317bab86f",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-1-2-1-1-1.proof": "8a4f4afcd1ab7b206a78e6d81a09a98a506be3cf38608c507730923f4765dd06",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-2-1-0-0-0.json": "bba9bbf075005dec69f828cd2a3795e5718fdd74af2a19ad5dde15c19e924713",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-2-1-0-0-0-check.json": "0313c11337882b69d479d2048fc19c09d40444c82cd285e104277cc267d50a25",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-2-1-0-0-0-corrupted-first-lemma.json": "be668941f1d2fab6adb16262f5a32a344ec55897f5df2a8856b2847c742fc58d",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-2-1-0-0-0.bad-proof": "a027a15bd209f59058257f8e6efcca31c47283f2d831d441742fb8519ad79809",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-2-1-0-0-0.cnf": "da2cefe71d22256375e495e389dbc6165b3f4b8cb723054d8babc0e3c766d8f1",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-2-1-0-0-0.proof": "7ba1a9e9db986da2449c191810fc37efa5df8ce1848adda023e6db12f06a1e56",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-2-1-0-0-1.json": "73c7ad5429582144373b25ef8315690539fd59772ed1508b57583af228c31a2a",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-2-1-0-0-1-check.json": "8327902d050e2eb447018275073691784e34138f963a053b8a42d23eef179f4f",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-2-1-0-0-1-corrupted-first-lemma.json": "cd7b6455e4a288170bf30b59175aaaf70d2a3da69aaf3a2bdb0bb77a1bce2ce7",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-2-1-0-0-1.bad-proof": "c52ae3e4d09ca8b4a4c381315a54fb8549b7e0650a156d3e7fdaefbdd4922f2b",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-2-1-0-0-1.cnf": "da2cefe71d22256375e495e389dbc6165b3f4b8cb723054d8babc0e3c766d8f1",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-2-1-0-0-1.proof": "0d644662b66df381a6372ac668be0747af75d4a46c49c87fc47cccb6571bcd93",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-2-1-0-1-0.json": "fa8a3a267e49c3b556a8c9d4697f4a98f6c604fd9fbdf6d56578473b7baeef95",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-2-1-0-1-0-check.json": "bed53057945eac9eacb4d64872123731bd44b9aff62612433c8ec616e62529e8",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-2-1-0-1-0-corrupted-first-lemma.json": "9f9e1a85f10e424d6f537fe5adda1132af7b2414a0f282d7f36b944d6f830b2b",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-2-1-0-1-0.bad-proof": "a027a15bd209f59058257f8e6efcca31c47283f2d831d441742fb8519ad79809",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-2-1-0-1-0.cnf": "da2cefe71d22256375e495e389dbc6165b3f4b8cb723054d8babc0e3c766d8f1",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-2-1-0-1-0.proof": "7ba1a9e9db986da2449c191810fc37efa5df8ce1848adda023e6db12f06a1e56",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-2-1-0-1-1.json": "39e96494e58cb679c0b9833a3795b73114214b07a0b73758ba11667c80793531",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-2-1-0-1-1-check.json": "ab9f4dc6324aa905ee9239f93cdab3dc311951212e2d9d266cd0991fc7848dda",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-2-1-0-1-1-corrupted-first-lemma.json": "1852ca46abf265df206a82f4e1e8562e4330ac9d08be3142644453ae04aa58ec",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-2-1-0-1-1.bad-proof": "c52ae3e4d09ca8b4a4c381315a54fb8549b7e0650a156d3e7fdaefbdd4922f2b",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-2-1-0-1-1.cnf": "da2cefe71d22256375e495e389dbc6165b3f4b8cb723054d8babc0e3c766d8f1",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-2-1-0-1-1.proof": "0d644662b66df381a6372ac668be0747af75d4a46c49c87fc47cccb6571bcd93",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-2-1-1-0-0.json": "1857319808e46ea7667796940414aaf10957b5f48444e7a11e54ebe901ecbbe3",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-2-1-1-0-0-check.json": "7ba27a40f4427014ccbee4932c73952e332ccaabb0bea52ec602f1db301aa100",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-2-1-1-0-0-corrupted-first-lemma.json": "25195cf62d599980c1a597b3dc497576992f117c4a06f0a6136ed5d33f7fb122",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-2-1-1-0-0.bad-proof": "3000a9eca81dd4450e6837528f523575cbcdb513481e3d0c49601b0f016d342e",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-2-1-1-0-0.cnf": "bab650d7e3984932c7a606843ea3c91a568fe05496d7d372e4d88683a7dbce1c",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-2-1-1-0-0.proof": "2dae87adcc64388e952bc1736a1c2649f1dceaac6e35ff73fe1ed6adf2296210",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-2-1-1-0-1.json": "213fe67620114bbd470838d36c90dadeea635960a95b4df817a52005854c0660",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-2-1-1-0-1-check.json": "25ee347d5c3b5552a5da283eae70f08a663be1fe1395e9e8559f057a802208cb",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-2-1-1-0-1-corrupted-first-lemma.json": "8405561fab5a250b68bc13a0c0ea2d761ce1112a62b3c4bf19137ec773086664",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-2-1-1-0-1.bad-proof": "c52ae3e4d09ca8b4a4c381315a54fb8549b7e0650a156d3e7fdaefbdd4922f2b",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-2-1-1-0-1.cnf": "bab650d7e3984932c7a606843ea3c91a568fe05496d7d372e4d88683a7dbce1c",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-2-1-1-0-1.proof": "463894549d9dc0a8a2e77d442eb762671df3effbbce00c7d49ad0bbb0fc67c2d",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-2-1-1-1-0.json": "4b7a656274c62da521e2621ad70494e7e051835b952f2c44e214955f59021da5",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-2-1-1-1-0-check.json": "93a498b9ab1d8bb9e053929ccc5220f599954c63fd8e4c566ebcee32c7921666",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-2-1-1-1-0-corrupted-first-lemma.json": "875c5a0871b559feb5dd3884eb7d3511c011872907152ad49a022dc5b792b0ee",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-2-1-1-1-0.bad-proof": "3000a9eca81dd4450e6837528f523575cbcdb513481e3d0c49601b0f016d342e",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-2-1-1-1-0.cnf": "bab650d7e3984932c7a606843ea3c91a568fe05496d7d372e4d88683a7dbce1c",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-2-1-1-1-0.proof": "2dae87adcc64388e952bc1736a1c2649f1dceaac6e35ff73fe1ed6adf2296210",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-2-1-1-1-1.json": "a138bc7f67a0fd847839de26bd9fbaa4b25932082ac48dcac68711b2f0126317",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-2-1-1-1-1-check.json": "4cedf768e1690f327d9a924d0fd62df36777475e8c7b0c7d8e236c44284f67bb",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-2-1-1-1-1-corrupted-first-lemma.json": "131aaf4d67c57fcc8d2136adad7cc53e926781ce53efe8de8fc3ded46b3a9f33",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-2-1-1-1-1.bad-proof": "c52ae3e4d09ca8b4a4c381315a54fb8549b7e0650a156d3e7fdaefbdd4922f2b",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-2-1-1-1-1.cnf": "bab650d7e3984932c7a606843ea3c91a568fe05496d7d372e4d88683a7dbce1c",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-2-1-1-1-1.proof": "463894549d9dc0a8a2e77d442eb762671df3effbbce00c7d49ad0bbb0fc67c2d",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-2-2-0-0-0.json": "b64a36c529555e03ce121fefd55472bf39a50ee934305165a27475b2b330afc4",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-2-2-0-0-0-check.json": "a2c8a86080a63f400d48d8810f259b23c89abe85eacae3866b07e31bcb4517b8",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-2-2-0-0-0-corrupted-first-lemma.json": "3050e188a0a71eeadcf3426f7d1755bf3ec80dcacbbbcbbabef50922418f5da9",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-2-2-0-0-0.bad-proof": "d1131b8570a5b6d4058fecb6267b7d2c36249064c846128ba36e46345b5abe71",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-2-2-0-0-0.cnf": "b13810551f0b1dc126dbd173b6894c53fee875ed73551b86d0d5ca4a96058beb",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-2-2-0-0-0.proof": "8fb0342a511a7c9c5ca97298e8cc0f800237c71fc389773f1466291af3018716",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-2-2-0-0-1.json": "eb7bfbdcef8563d0f58770eb072a3661fd6d9de2fd5b9cd6a6aaf62d117bdd43",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-2-2-0-0-1-check.json": "3e62aff2537abb0fa5d96c99fb32c32f9975fdec907ed3c807e7d38ecdc23a0d",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-2-2-0-0-1-corrupted-first-lemma.json": "9eef6daefdf1a03a1286d9b7790dcc0d31629926d9302f280d9f1999197ae15b",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-2-2-0-0-1.bad-proof": "6ccdf67bf905ee0298c71636039a9648735fdcc7dea96b6e946892b7f029b9c1",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-2-2-0-0-1.cnf": "b13810551f0b1dc126dbd173b6894c53fee875ed73551b86d0d5ca4a96058beb",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-2-2-0-0-1.proof": "d245e0b2fb69f29d35db0f8af7ae28c2c8837f0ef93d5b2d98709c46ee345452",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-2-2-0-1-0.json": "d5ee923d3fd1ff37b76dd66e64fcf65c1bc596c654583c469b826003ff04b220",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-2-2-0-1-0-check.json": "09a896b25822307d7ee75f131437dbc2a1b7ca0f241111686595caead024cb65",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-2-2-0-1-0-corrupted-first-lemma.json": "14859656f1bdb893b17aa57ebf89f7491b61b433ee1037c92c3338497cc035ae",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-2-2-0-1-0.bad-proof": "d1131b8570a5b6d4058fecb6267b7d2c36249064c846128ba36e46345b5abe71",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-2-2-0-1-0.cnf": "b13810551f0b1dc126dbd173b6894c53fee875ed73551b86d0d5ca4a96058beb",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-2-2-0-1-0.proof": "8fb0342a511a7c9c5ca97298e8cc0f800237c71fc389773f1466291af3018716",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-2-2-0-1-1.json": "ed17b828a598988077fda8f8bdaa64c730d43a9df24fd13cd5ad7a6fe8a294af",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-2-2-0-1-1-check.json": "ad26363f777846a9378d8bf7762fc69f24828b98380a5ed1cf59fef57c488ae3",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-2-2-0-1-1-corrupted-first-lemma.json": "16e373c4dd364bdba15a583c2654eef0902192e9410337cfe5732fdbf6a5b5f9",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-2-2-0-1-1.bad-proof": "6ccdf67bf905ee0298c71636039a9648735fdcc7dea96b6e946892b7f029b9c1",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-2-2-0-1-1.cnf": "b13810551f0b1dc126dbd173b6894c53fee875ed73551b86d0d5ca4a96058beb",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-2-2-0-1-1.proof": "d245e0b2fb69f29d35db0f8af7ae28c2c8837f0ef93d5b2d98709c46ee345452",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-2-2-1-0-0.json": "817006fad88f3079d899f91f23182da246eb8b400dd69b4f0456f282f4a7359b",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-2-2-1-0-0-check.json": "4ef1d75e502d11d7bc5fd0b09cda9d2d538faeba165d433ea298a203a2f8e3e7",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-2-2-1-0-0-corrupted-first-lemma.json": "6c0352f47c33aec20cb81d98e8cb821349f6a7076f96b825bf54a064e75322e0",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-2-2-1-0-0.bad-proof": "c52f4c1e49540c55e691e3afebc6ae7262888fae59d33f2bb053d12e8a6a157c",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-2-2-1-0-0.cnf": "ab13ee8d8839f19d334089060ece23a3183d84300f382d4be98d61a7c3ede813",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-2-2-1-0-0.proof": "83e030e60e487bf80e1886613c7b644bac3300799cc845b64af337b98707484d",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-2-2-1-0-1.json": "95c63509827a780ed45eec7ab424614bfacdec9104d379bfe6d122786426498a",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-2-2-1-0-1-check.json": "17b0bde5e7640ec85fb190af69d7092d3f2776e33fb4f0752952e791b16f0ee9",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-2-2-1-0-1-corrupted-first-lemma.json": "069111a451e79369644557ce1f9b84e8bb0e81675dd01f42aea776de65c29020",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-2-2-1-0-1.bad-proof": "9976a63cece3e4d7561ed902e92d9bc6427914cfb9d36a55c23cb47b702ba9c9",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-2-2-1-0-1.cnf": "ab13ee8d8839f19d334089060ece23a3183d84300f382d4be98d61a7c3ede813",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-2-2-1-0-1.proof": "20a34ab5d5501b1e565ea023d349578b98f86f5ca4a851e3cd221fab06e6b1dc",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-2-2-1-1-0.json": "29932bff698783059c264aaa683cda77eea6460fec67029ea13018368b923a09",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-2-2-1-1-0-check.json": "90bf156c75baf10bb6c3a0df0ae165f77f40e9ae277e175bb47968fdb434e69c",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-2-2-1-1-0-corrupted-first-lemma.json": "fa2bf45161fe7989a4cb2bb7413c38dab10a5209688cbe37292519369d02ff52",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-2-2-1-1-0.bad-proof": "c52f4c1e49540c55e691e3afebc6ae7262888fae59d33f2bb053d12e8a6a157c",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-2-2-1-1-0.cnf": "ab13ee8d8839f19d334089060ece23a3183d84300f382d4be98d61a7c3ede813",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-2-2-1-1-0.proof": "83e030e60e487bf80e1886613c7b644bac3300799cc845b64af337b98707484d",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-2-2-1-1-1.json": "9404a7202b5569142c947876a158c6d73e02701c16b00ba6330b676f15429115",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-2-2-1-1-1-check.json": "ebf610ab2a182b8ab4f73d0d4b6ddc9cf8becbe22a291c3cc9c633e1924db4f4",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/previous-2-2-1-1-1-corrupted-first-lemma.json": "5dd3f77c128e5a6dd7e3eedafcfb0fce1307123e4d4191a7ae5078433ec0f65e",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-2-2-1-1-1.bad-proof": "9976a63cece3e4d7561ed902e92d9bc6427914cfb9d36a55c23cb47b702ba9c9",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-2-2-1-1-1.cnf": "ab13ee8d8839f19d334089060ece23a3183d84300f382d4be98d61a7c3ede813",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/previous-2-2-1-1-1.proof": "20a34ab5d5501b1e565ea023d349578b98f86f5ca4a851e3cd221fab06e6b1dc",
+    "benchmarks/runs/20260910-7087-bve-views-build/manifest.json": "e52aeb4714238a7e9dee5d8521bca307ec7e01b4145b10b3dcc0c48014b29958",
+    "build/pin-7087-bve-views-release/CMakeFiles/tactix_lib.dir/src/api/api.cpp.o": "2fc4c03646503432f66dae748fb6fa1edef05295abd87a9e81e1515a097b767f",
+    "build/pin-7087-bve-views-release/CMakeFiles/tactix_lib.dir/src/engine/subsolver.cpp.o": "69292de2029165e3a89afa44616f61c59d828b32b8d216356a95adc08bf1cf70",
+    "build/pin-7087-bve-views-release/CMakeFiles/tactix_lib.dir/src/frontend/parse.cpp.o": "803394178462e495e71be7269482654795dca92b948a4a5ec93d91b1461938a8",
+    "build/pin-7087-bve-views-release/CMakeFiles/tactix_lib.dir/src/kernel/kernel.cpp.o": "a366cc9186eb3bf4fcfe96999068241ac39259ee32cf2db703731cab7cc7f541",
+    "build/pin-7087-bve-views-release/CMakeFiles/tactix_lib.dir/src/policies/default_policy.cpp.o": "3b27aff94096884825cc9133623fa351c308a398dfe108e603ef64aabf0ab893",
+    "build/pin-7087-bve-views-release/CMakeFiles/tactix_lib.dir/src/policies/heuristics.cpp.o": "a79220d97f7abdebe76822a6b849f1be99d08d2cf74e067d3fb17de72c72da37",
+    "build/pin-7087-bve-views-release/CMakeFiles/tactix_lib.dir/src/policies/ops/reorder/reorder.cpp.o": "6c225ab3de6c7187236c70d81e064ccc053b986c1e10623c459555b06ba80a0a",
+    "build/pin-7087-bve-views-release/CMakeFiles/tactix_lib.dir/src/policies/ops/rephase/rephase.cpp.o": "1ee13886e249610f0ed9f016a784af58fbb2bc95427e5a2e44ec153d8eb46b9a",
+    "build/pin-7087-bve-views-release/CMakeFiles/tactix_lib.dir/src/policies/ops/switchmode/switchmode.cpp.o": "b0f4fdc1e626eeb014d0eccb62216cb342da644f6faeed72c08928ee3087b663",
+    "build/pin-7087-bve-views-release/CMakeFiles/tactix_lib.dir/src/policies/ops/walk/walk.cpp.o": "b8223b99f93e5ea1aa4e0d4fd79eb7b5817291afe066fd57320aaee65ba96ab7",
+    "build/pin-7087-bve-views-release/CMakeFiles/tactix_lib.dir/src/policies/random_policy.cpp.o": "b8b94d0550a6de52dedece423831c7b4cf23bd2590a0a8ad31820e12da256c05",
+    "build/pin-7087-bve-views-release/CMakeFiles/tactix_lib.dir/src/policies/stress_registry.cpp.o": "f1d115beeccfea75b6bc9ed4e1cbbb59c65709573bce3a8cbbaca1e72ccaac5e",
+    "build/pin-7087-bve-views-release/CMakeFiles/tactix_lib.dir/src/policies/trace.cpp.o": "82ee60d0ada0747fdd59d80009b2fa8e4f31d64682e98d396f5374ded42d98b1",
+    "build/pin-7087-bve-views-release/CMakeFiles/tactix_lib.dir/src/proof/proof.cpp.o": "f6de1158068fd832101794caf35b371f32acb77c08b2152ced6990e9901e81cf",
+    "build/pin-7087-bve-views-release/CMakeFiles/tactix_lib.dir/src/rules/analyze/analyze.cpp.o": "84eca92dbf48ec638ad3570331283d5f9cbaa2635b237e6084587b1a658194f1",
+    "build/pin-7087-bve-views-release/CMakeFiles/tactix_lib.dir/src/rules/backbone/backbone.cpp.o": "aad7e70bf8750450e06409e4ed8fa19918bbd6a5251f3c667fbe1b02d1e9c001",
+    "build/pin-7087-bve-views-release/CMakeFiles/tactix_lib.dir/src/rules/backjump/backjump.cpp.o": "e5648b9e0d8c7e58d74ca1913cadf2c8987e587708c09d2702377e82788867c0",
+    "build/pin-7087-bve-views-release/CMakeFiles/tactix_lib.dir/src/rules/bce/bce.cpp.o": "e1068b3a8c372cffe4a7a685d6d68a9c09d48c2dfec59b9fda23dfda3fab23c9",
+    "build/pin-7087-bve-views-release/CMakeFiles/tactix_lib.dir/src/rules/bve/bve.cpp.o": "d192bae5efcddaf8870bc77a6e77e217eb58db9766f34a8b4a3cce406b709f85",
+    "build/pin-7087-bve-views-release/CMakeFiles/tactix_lib.dir/src/rules/cce/cce.cpp.o": "8d77b3d5de4c7a21a68be8263deff0ba716d71279143e5398d6268f49a9165e7",
+    "build/pin-7087-bve-views-release/CMakeFiles/tactix_lib.dir/src/rules/congruence/congruence.cpp.o": "bb4e645b7f422229ddb7de7360d04690369b8a8809da06ec85a1d88e91c0ba34",
+    "build/pin-7087-bve-views-release/CMakeFiles/tactix_lib.dir/src/rules/decide/decide.cpp.o": "e15a82960d069fa7425b481b7233082d875da16ae608747655769ffbe9beb6d0",
+    "build/pin-7087-bve-views-release/CMakeFiles/tactix_lib.dir/src/rules/factor/factor.cpp.o": "bc7f87ca3143ca8932f91f6c24a00da996ecc3b070ae656029ce2d3da068c444",
+    "build/pin-7087-bve-views-release/CMakeFiles/tactix_lib.dir/src/rules/hyperbinary/hyperbinary.cpp.o": "19d7c71a2d92f659533a60f48692cd79576318acc3c2917d4ee076a35fb12754",
+    "build/pin-7087-bve-views-release/CMakeFiles/tactix_lib.dir/src/rules/instantiate/instantiate.cpp.o": "1be23b735a934917be55a91286ab9c86a3de3511d0db5e37eb6e98cc95e6d077",
+    "build/pin-7087-bve-views-release/CMakeFiles/tactix_lib.dir/src/rules/lucky/lucky.cpp.o": "6610502d0511ffc659e119ff63610a0e355702930ab6260957a842d89201dd40",
+    "build/pin-7087-bve-views-release/CMakeFiles/tactix_lib.dir/src/rules/probe/probe.cpp.o": "5f0affa030440b4b57ff7d150b02f42979cb06554cfc3a64d4e4a28bfb5e19ee",
+    "build/pin-7087-bve-views-release/CMakeFiles/tactix_lib.dir/src/rules/propagate/propagate.cpp.o": "5579cd608f5e31efd4a98b42a8eccec21e86a01bab8cb3d10deb3aa49c9b59bb",
+    "build/pin-7087-bve-views-release/CMakeFiles/tactix_lib.dir/src/rules/reduce/reduce.cpp.o": "8bb67248db95da0289ed31096ef50d030abd33f14b030cd037ee8c733923f494",
+    "build/pin-7087-bve-views-release/CMakeFiles/tactix_lib.dir/src/rules/registry.cpp.o": "123fb9628ff065a8391c88e9de3600ced142f24d593cd9804563ea035988db4d",
+    "build/pin-7087-bve-views-release/CMakeFiles/tactix_lib.dir/src/rules/restart/restart.cpp.o": "497e0cdd09bda3d3f74440cda57ddcdeeb2b19472467cdbb04faa57147a07fbc",
+    "build/pin-7087-bve-views-release/CMakeFiles/tactix_lib.dir/src/rules/strengthen/strengthen.cpp.o": "59b170b894ad4b2f7dde2e149172a453fff3d9c5e95f510e4a7c7713d103315d",
+    "build/pin-7087-bve-views-release/CMakeFiles/tactix_lib.dir/src/rules/substitute/substitute.cpp.o": "8e9c838ef4781ae4ad21f9f3450f2493bd8d17bb74322c37477bbc8aa6b94acb",
+    "build/pin-7087-bve-views-release/CMakeFiles/tactix_lib.dir/src/rules/subsume_forward/subsume_forward.cpp.o": "31e16caca4348d6fd9b9e276be4d03046654928ff1c66bafc867e400b60e18af",
+    "build/pin-7087-bve-views-release/CMakeFiles/tactix_lib.dir/src/rules/support/failed_literal.cpp.o": "428c5a26c5303763eb01c8d04a3edcb53cce4695da8c604609cb0d1d71e7bbf0",
+    "build/pin-7087-bve-views-release/CMakeFiles/tactix_lib.dir/src/rules/support/flat_occurrence.cpp.o": "dfa78b5db79b5c023412e564ca3b952806733524a6f18553fe6d76a1c004ae33",
+    "build/pin-7087-bve-views-release/CMakeFiles/tactix_lib.dir/src/rules/sweep/sweep.cpp.o": "5eefff6472e2adb6ab784225624f97186399f9e5630409ea1c9dbfff3814d4de",
+    "build/pin-7087-bve-views-release/CMakeFiles/tactix_lib.dir/src/rules/ternary/ternary.cpp.o": "b400cc17afbd2663be0e5a83d0dc85d0fb5252115b0893d0ec09a93a4f19842e",
+    "build/pin-7087-bve-views-release/CMakeFiles/tactix_lib.dir/src/rules/transitive_reduce/transitive_reduce.cpp.o": "f0792b8c35a58f8bcc6508588d0ccfe22e0856ed2de60d0f02213b26e70c1164",
+    "build/pin-7087-bve-views-release/CMakeFiles/tactix_lib.dir/src/rules/vivify/vivify.cpp.o": "7bd7994d15a1c270732f6bd2a1c05b2f09b259fa8a167100e09d781e0cc52bfb",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-compile.json": "16bf2f8cafdf732b49f4da21b302746acb2ebe3c91f7090807510c5194f2fa8f",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-fixture": "816b3b1fe3a169f76da592ea10d773c00b2796523e97b5ef007d8191cb73ca34",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-0-1-0-0-0.json": "adcefb11c31316d657f90279cc4f351b35f00758a556a6d2208f91ea80c9e1e2",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-0-1-0-0-0-check.json": "56124553d4a7ca1b020b9b52ab905709d4ee0ec087eee4d42925ce0b0e426c9c",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-0-1-0-0-0-corrupted-first-lemma.json": "3d3ead9653536acaec7607513f8992cc0a0664d2c34ea54844d48d5c0634351c",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-0-1-0-0-0.bad-proof": "208e550cac6d246fc8c463d01c4e6b6d213273a1ed57f25c9a136917806f2a3f",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-0-1-0-0-0.cnf": "c96cc74f5a1e59229c73b46d9b50f505368e3143c65b4e3fd393c5f1104c4573",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-0-1-0-0-0.proof": "1d5c29062de614a88dcbe46919495e048bab3df535a32586241afece6ad15a47",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-0-1-0-0-1.json": "49c5ed28c8cbaddedebc9e3a8bdc4d713d42fa79d5ebce3eda55d4a00aa135e1",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-0-1-0-0-1-check.json": "0b5d09ab1b682cce0d53800b90d3f21149401fe8350cf67b085fa0b749654b7d",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-0-1-0-0-1-corrupted-first-lemma.json": "c7f4e80ec19a5c096c84a2e7ca132cbf6780a02d2d0aed935dc703445d57099a",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-0-1-0-0-1.bad-proof": "03fbf90c183e783d483886daef95a54b683a4c399d48acaf724d3cfc70476778",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-0-1-0-0-1.cnf": "c96cc74f5a1e59229c73b46d9b50f505368e3143c65b4e3fd393c5f1104c4573",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-0-1-0-0-1.proof": "3816713e97328c7b1a1604ec813f5d0ddb22008909f9bb5721f06275e95dc5bd",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-0-1-0-1-0.json": "8fd14d8cce0a9d9275709b4e96f8e542329c8e2bb0ef965785e10bdc8b94a56c",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-0-1-0-1-0-check.json": "3bde689641d46f43351f906568b6a47a0565510272b1f83df9b868c6be583cbd",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-0-1-0-1-0-corrupted-first-lemma.json": "6db9ac9dee54d33bcd7101f7020f960753faf03c613133f1ee9a9e243d333a76",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-0-1-0-1-0.bad-proof": "208e550cac6d246fc8c463d01c4e6b6d213273a1ed57f25c9a136917806f2a3f",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-0-1-0-1-0.cnf": "c96cc74f5a1e59229c73b46d9b50f505368e3143c65b4e3fd393c5f1104c4573",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-0-1-0-1-0.proof": "1d5c29062de614a88dcbe46919495e048bab3df535a32586241afece6ad15a47",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-0-1-0-1-1.json": "e7d03bdcbeb98f9873490f6f644c78f455df23e2b56ba5a02bfd61be97b7924e",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-0-1-0-1-1-check.json": "12172643b1b0455a666f6ccea368e5f053595ea82dd9920220c536ab8c8878bd",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-0-1-0-1-1-corrupted-first-lemma.json": "0d30e5e08c36f2015dcef5c0438e7d7272ea47ef2fff00318934e6366153f164",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-0-1-0-1-1.bad-proof": "03fbf90c183e783d483886daef95a54b683a4c399d48acaf724d3cfc70476778",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-0-1-0-1-1.cnf": "c96cc74f5a1e59229c73b46d9b50f505368e3143c65b4e3fd393c5f1104c4573",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-0-1-0-1-1.proof": "3816713e97328c7b1a1604ec813f5d0ddb22008909f9bb5721f06275e95dc5bd",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-0-1-1-0-0.json": "cfa402fed2416ae193c09ca338abe5f19e9607ceac3ec1e9e7073ff35a67134d",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-0-1-1-0-0-check.json": "137628cb3569f353a48e408c549ffc28f21d11cf6a1951da5b9fe3e5b913d5f2",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-0-1-1-0-0-corrupted-first-lemma.json": "1a489e6ffcb68c282bb91d2bf163446f862632c15aca2953aef4a9cc2a3f3ef1",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-0-1-1-0-0.bad-proof": "6b9ab2f40f35aabb4242b3abee4fd0789be96fdad2da68db263315a1d5cb4ee1",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-0-1-1-0-0.cnf": "6e0ca182ddf6647fffb84ed4bc5bfbcd798d3aae757c1d28493a682a1b7f1290",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-0-1-1-0-0.proof": "eb7d50ecb67e8fa9720d983f6cbc9ec43bcd64016e00ed608db272a3cc507a6f",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-0-1-1-0-1.json": "a001f087e64e0382fae894e34c000c8e97cf420bfc0227a42befdeff64e99c42",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-0-1-1-0-1-check.json": "0e5044dfa41052c3b427acce6a4951b754731acabd619894794da53b63060a00",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-0-1-1-0-1-corrupted-first-lemma.json": "84fd1f70182338a6fa3012f3ee73cfc397027de464cd2023f51494e07f89a88f",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-0-1-1-0-1.bad-proof": "03fbf90c183e783d483886daef95a54b683a4c399d48acaf724d3cfc70476778",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-0-1-1-0-1.cnf": "6e0ca182ddf6647fffb84ed4bc5bfbcd798d3aae757c1d28493a682a1b7f1290",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-0-1-1-0-1.proof": "bbcb30d0942752e6bd5f026bcb2cfb23c394935c8d0ad227ae9ed290408d946e",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-0-1-1-1-0.json": "762e2e4074939b12eee58cf82e3eab51d01fccd64316950fb95370b76c3e657e",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-0-1-1-1-0-check.json": "4efa7f78e5d35733b5c4c7d39484f400e968e28e4adc0044f591140340fc0fd9",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-0-1-1-1-0-corrupted-first-lemma.json": "d4145228e147b0a6e80fff83ce86afc57e94d161f35505ec1437d6f494d0d21d",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-0-1-1-1-0.bad-proof": "6b9ab2f40f35aabb4242b3abee4fd0789be96fdad2da68db263315a1d5cb4ee1",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-0-1-1-1-0.cnf": "6e0ca182ddf6647fffb84ed4bc5bfbcd798d3aae757c1d28493a682a1b7f1290",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-0-1-1-1-0.proof": "eb7d50ecb67e8fa9720d983f6cbc9ec43bcd64016e00ed608db272a3cc507a6f",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-0-1-1-1-1.json": "01048cecfe7473927beb91640e74dadd217acb2ad796417b5a931d773a1cb401",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-0-1-1-1-1-check.json": "bff23bf660d257ff42be321683e99da90fd0b743504bcc100259c977af338613",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-0-1-1-1-1-corrupted-first-lemma.json": "828b8c49ef8bfa930e3326dde208ce84fed5b052138e860a78c08d5e7c29e992",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-0-1-1-1-1.bad-proof": "03fbf90c183e783d483886daef95a54b683a4c399d48acaf724d3cfc70476778",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-0-1-1-1-1.cnf": "6e0ca182ddf6647fffb84ed4bc5bfbcd798d3aae757c1d28493a682a1b7f1290",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-0-1-1-1-1.proof": "bbcb30d0942752e6bd5f026bcb2cfb23c394935c8d0ad227ae9ed290408d946e",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-0-2-0-0-0.json": "1c606784ff70554eb1b58a22086af80694437df2dfb8630602b348800ff68df5",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-0-2-0-0-0-check.json": "d7f4aaa05b1c647a592a87f536dea3c26b79c9c4db78073a343dae0ecb8d50c2",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-0-2-0-0-0-corrupted-first-lemma.json": "85cf54ea872fbbdb07834806a097781c78939305139641c4b4462615177b86f8",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-0-2-0-0-0.bad-proof": "46e37d4adcd12d2fb49512cb15898e20ec8e3d31503dbdc16303b3b5a610ed6a",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-0-2-0-0-0.cnf": "0322782dd87b717d1201907ff2db211ecf8276a387e4f74d591f961a40296b26",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-0-2-0-0-0.proof": "71cd8427298c9e8033f6e8146292b83f4d49f2e48205d9d070064c0befbfcd8d",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-0-2-0-0-1.json": "03e0fac7256ca2a319a27205c82c247f439a2b1ecfb673102c451babb3410581",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-0-2-0-0-1-check.json": "5480b1d105c14a0d758d73a295fbdbd8ffdbe5f8e8ddff4687bf2992f5f38966",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-0-2-0-0-1-corrupted-first-lemma.json": "86ef2afdae726ff216fa7a120eb988d685f3300c31ffa5894c158c97a0c6051a",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-0-2-0-0-1.bad-proof": "770be725dd6b156dff68781241b7d3c39b43c906b839b1f9f095b4c29ccea382",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-0-2-0-0-1.cnf": "0322782dd87b717d1201907ff2db211ecf8276a387e4f74d591f961a40296b26",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-0-2-0-0-1.proof": "8452e60029ed98b6055914b1d9f3b988e37d0383ffb62f1ed78fa6161ee16523",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-0-2-0-1-0.json": "f7407efb200a5438e45b5609db4ab5d7e1623c0afea83403671967a8bc797c7b",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-0-2-0-1-0-check.json": "0cc7c623fd1c367bbeb42e70ba5748fddf8046e6d576064f5688b702496ef4fe",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-0-2-0-1-0-corrupted-first-lemma.json": "66e8594f964fc43c598235beab2d4a7031ea6f6ad9d37e8655809f35b6a5861a",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-0-2-0-1-0.bad-proof": "46e37d4adcd12d2fb49512cb15898e20ec8e3d31503dbdc16303b3b5a610ed6a",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-0-2-0-1-0.cnf": "0322782dd87b717d1201907ff2db211ecf8276a387e4f74d591f961a40296b26",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-0-2-0-1-0.proof": "71cd8427298c9e8033f6e8146292b83f4d49f2e48205d9d070064c0befbfcd8d",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-0-2-0-1-1.json": "f31f4359690dd5420debed75b3770ae56b458abf0e401876fdefd8e4d339817b",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-0-2-0-1-1-check.json": "0fc658a51aa4d1a3c63649ae5ef40336d229e995a7ca715df57ad105064dfa52",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-0-2-0-1-1-corrupted-first-lemma.json": "8ab923323de9b53b592e6b0a04956542a1f80e3d3fc75f111f6de92862aa560a",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-0-2-0-1-1.bad-proof": "770be725dd6b156dff68781241b7d3c39b43c906b839b1f9f095b4c29ccea382",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-0-2-0-1-1.cnf": "0322782dd87b717d1201907ff2db211ecf8276a387e4f74d591f961a40296b26",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-0-2-0-1-1.proof": "8452e60029ed98b6055914b1d9f3b988e37d0383ffb62f1ed78fa6161ee16523",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-0-2-1-0-0.json": "b999f657195892168136977635bfc036f925e3a6065d5b2e62cc1a38ef1b7fd1",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-0-2-1-0-0-check.json": "f0e6866676db2aae4e2b67c2c215c07d4fc34e20c8c0d74aadaf27fc0224fd05",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-0-2-1-0-0-corrupted-first-lemma.json": "4429cc45a663f62e0f424e54b92b8f0fd32e6b16a017404a334bc42e86982e1e",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-0-2-1-0-0.bad-proof": "8d5a2a11404e7cf3d022a725cb4ac3c522f38851d78bb2a0e461377bffad366c",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-0-2-1-0-0.cnf": "f0f74b93a9de6594c315ab11308b2b83417f08a0a3971fc91934433123733e73",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-0-2-1-0-0.proof": "5d2b78c3f2237568ccb14c6578f8d0959f3ef074fc530f763e3c842d3931f8f6",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-0-2-1-0-1.json": "0857bff9ede6092a4c2353e6ce3a14f57e9e00d6e1e0bc4aa058c97cc6a5e7a8",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-0-2-1-0-1-check.json": "7395eef5146fed5a850b03f2598fc4b3d27df90545b95a8407e86c4849a2d742",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-0-2-1-0-1-corrupted-first-lemma.json": "3987da847ec1d9e5dfe26af646e8ef725c3ea90242a9ad6eb58233c372a412c1",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-0-2-1-0-1.bad-proof": "e55bfdac7d6741ec81808c6a33bdc2d409e88ac7e6ca0b992de6e5bea9c0df0e",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-0-2-1-0-1.cnf": "f0f74b93a9de6594c315ab11308b2b83417f08a0a3971fc91934433123733e73",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-0-2-1-0-1.proof": "18e119b97d455f875f8ebbe40d037eaab340cddc3ba166dd0a895a0c8f8e3ed6",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-0-2-1-1-0.json": "3b3a86cf7b44c3432154ad84dc818779122977ac96d331ea40cdf8d36a460252",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-0-2-1-1-0-check.json": "2d08d0246a77ec384b26862c89dd62244f1e62b9a6c6bb4e3c9b9801f0ec2c55",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-0-2-1-1-0-corrupted-first-lemma.json": "741872339ab5add3cdbb397a56b8e238edb594c2d7ca2f56e8f72bb8d5c9f5df",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-0-2-1-1-0.bad-proof": "8d5a2a11404e7cf3d022a725cb4ac3c522f38851d78bb2a0e461377bffad366c",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-0-2-1-1-0.cnf": "f0f74b93a9de6594c315ab11308b2b83417f08a0a3971fc91934433123733e73",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-0-2-1-1-0.proof": "5d2b78c3f2237568ccb14c6578f8d0959f3ef074fc530f763e3c842d3931f8f6",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-0-2-1-1-1.json": "d6873d757b270115acf3e4a194936aed3d4e68f752287a0ea657ab7d3a141fda",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-0-2-1-1-1-check.json": "b5c4b406e1d40662b5a88ae6c160b81b153896db0780e44dc97451bd929441b4",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-0-2-1-1-1-corrupted-first-lemma.json": "f59ba01ea7fa119601239ca4ce5d883302e15919ec875a43e89215c692344b0d",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-0-2-1-1-1.bad-proof": "e55bfdac7d6741ec81808c6a33bdc2d409e88ac7e6ca0b992de6e5bea9c0df0e",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-0-2-1-1-1.cnf": "f0f74b93a9de6594c315ab11308b2b83417f08a0a3971fc91934433123733e73",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-0-2-1-1-1.proof": "18e119b97d455f875f8ebbe40d037eaab340cddc3ba166dd0a895a0c8f8e3ed6",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-1-1-0-0-0.json": "9e0cca1fa59b92f150d4fe21a7bcadcc2172443988fbff8dc10075c11e52c370",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-1-1-0-0-0-check.json": "2b69a367b116788f35459abaecac4f765a12845d3bf7ebdec5c7790dce67e5aa",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-1-1-0-0-0-corrupted-first-lemma.json": "019e0cd409577a7b01e586e7de9011e23fcee9a579e8a3b368cba2b237a54ae6",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-1-1-0-0-0.bad-proof": "4930f06a0ed58a47562cf1d8c08d39166d73fa604c79f302269d08611ef78a76",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-1-1-0-0-0.cnf": "363b50f236e4fb8d6e989f62990adec50f5be170c9f0281cfd24f4b6a3586a62",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-1-1-0-0-0.proof": "43410832ed18cadf15595780ad459e86f01d902cc5927b7fb2d6cf26f46a25f8",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-1-1-0-0-1.json": "7d956cc242ae904c968f55f94f9d570d712937cde0f59bb13021f0d6328b2cb8",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-1-1-0-0-1-check.json": "2cd53bc77173b39159a5a03a4da877479668cfc701465d3cc2f3a2cc35a8eba3",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-1-1-0-0-1-corrupted-first-lemma.json": "c55c7b03c0216fe3360b8a742f855c3e07c2daec65dc98e39380256fa587dda1",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-1-1-0-0-1.bad-proof": "ddf1dc5652827e456b5aabd7f6569ad1e60a5f0776aa739e130c7e3d957f0aa1",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-1-1-0-0-1.cnf": "363b50f236e4fb8d6e989f62990adec50f5be170c9f0281cfd24f4b6a3586a62",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-1-1-0-0-1.proof": "c515f0026697e8458aa9e77ce5517f157bf476d1bf25ae5d78365bb52909df7a",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-1-1-0-1-0.json": "ddd2de5674f8b77f365f53b1699d87f7aa1d3de439e627f479eb2646beff0200",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-1-1-0-1-0-check.json": "20c6e68334d468091ece0657f2dc053088390710c44aebbda8996214fb6d4f2b",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-1-1-0-1-0-corrupted-first-lemma.json": "7bfe6ab8293ab2a614d5e24664b9188e90914c26fb6900b0eaf4c1fcc65c874c",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-1-1-0-1-0.bad-proof": "4930f06a0ed58a47562cf1d8c08d39166d73fa604c79f302269d08611ef78a76",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-1-1-0-1-0.cnf": "363b50f236e4fb8d6e989f62990adec50f5be170c9f0281cfd24f4b6a3586a62",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-1-1-0-1-0.proof": "43410832ed18cadf15595780ad459e86f01d902cc5927b7fb2d6cf26f46a25f8",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-1-1-0-1-1.json": "6cf62bea22ffbd12740fac627ca76964652d08b6addc7cdd48f7d2fafc817cc3",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-1-1-0-1-1-check.json": "dd31e23ec923e1d518344bf4121a411a4f51ce4122418e90f49615b8782382cf",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-1-1-0-1-1-corrupted-first-lemma.json": "9b8428e3b42aa4cdeaa855cc69e353ad4b7492c20b8e51793d079b9144ea27f8",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-1-1-0-1-1.bad-proof": "ddf1dc5652827e456b5aabd7f6569ad1e60a5f0776aa739e130c7e3d957f0aa1",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-1-1-0-1-1.cnf": "363b50f236e4fb8d6e989f62990adec50f5be170c9f0281cfd24f4b6a3586a62",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-1-1-0-1-1.proof": "c515f0026697e8458aa9e77ce5517f157bf476d1bf25ae5d78365bb52909df7a",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-1-1-1-0-0.json": "e1ac69f9e7b4ec1827f3a59da3d0595c4f0d713f7ee8c781f0beaf34fff48635",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-1-1-1-0-0-check.json": "87f36aceaecd9f61945d803306f61ad35d971822c333f62334477d9dd1dac6e5",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-1-1-1-0-0-corrupted-first-lemma.json": "ec4d6297a39bccaba070c71312cd0b67e0e7ec9ad0f6a051d9705a5c76ee0e75",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-1-1-1-0-0.bad-proof": "41ff0963c733614e1f41abd067221e2448415cb588a16bd5ff7a5b8fca199c62",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-1-1-1-0-0.cnf": "79cb12dee5ba35d6308865d49dee64397cf7ad8d365ac550a2e89b956d286cbc",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-1-1-1-0-0.proof": "cf152e132905a04f6ca54001eeb97e4df11e63d24743d3be889db9172ce06fac",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-1-1-1-0-1.json": "9f2404b4c5cd616b9f63a6f50ce676787489c247621785dd8a1b7876816af252",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-1-1-1-0-1-check.json": "5c803adee309e537cf385cc54caedb8beea27b785dfcb1c886dedb52300ee216",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-1-1-1-0-1-corrupted-first-lemma.json": "d14fd985b5a2baa74165de60e616977575c2449d4f48657cc180f190525b2406",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-1-1-1-0-1.bad-proof": "ddf1dc5652827e456b5aabd7f6569ad1e60a5f0776aa739e130c7e3d957f0aa1",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-1-1-1-0-1.cnf": "79cb12dee5ba35d6308865d49dee64397cf7ad8d365ac550a2e89b956d286cbc",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-1-1-1-0-1.proof": "0154d26546cb23b9a1f08fbd661654e974531da1789c94c32aebc970d564ad3e",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-1-1-1-1-0.json": "be712935be6cf34f91cd3f58adfe9d2630124e9a507403aa0a4b1a9215f153cb",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-1-1-1-1-0-check.json": "eebe7cfc9de3811e7eca051308acc4ed0b5e09e7de0d2e671c469df32daae116",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-1-1-1-1-0-corrupted-first-lemma.json": "781ef52a284f6b7cf00cb7927a5928cd2fda59a8d3ad047ea74813e2cdb94b67",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-1-1-1-1-0.bad-proof": "41ff0963c733614e1f41abd067221e2448415cb588a16bd5ff7a5b8fca199c62",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-1-1-1-1-0.cnf": "79cb12dee5ba35d6308865d49dee64397cf7ad8d365ac550a2e89b956d286cbc",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-1-1-1-1-0.proof": "cf152e132905a04f6ca54001eeb97e4df11e63d24743d3be889db9172ce06fac",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-1-1-1-1-1.json": "778ef30a5c2ea2659774be3171d3558b3c233e6ee9b42b8b9392688011fead68",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-1-1-1-1-1-check.json": "17da547be04e83e73e0bf864a3fc725ecbfd16f6be689b1444acfa7b6f2519a5",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-1-1-1-1-1-corrupted-first-lemma.json": "327240607cfc9ab11cf5410b1ada9dfff9ca6edef7c83dee3d6a47099e304580",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-1-1-1-1-1.bad-proof": "ddf1dc5652827e456b5aabd7f6569ad1e60a5f0776aa739e130c7e3d957f0aa1",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-1-1-1-1-1.cnf": "79cb12dee5ba35d6308865d49dee64397cf7ad8d365ac550a2e89b956d286cbc",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-1-1-1-1-1.proof": "0154d26546cb23b9a1f08fbd661654e974531da1789c94c32aebc970d564ad3e",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-1-2-0-0-0.json": "e47188ecdf5c5553614ab73987d4d34720672d584bc272446257b215b653a94c",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-1-2-0-0-0-check.json": "986bedb60dce28bbf7cc93c01e6d86a7ae7aaaaaa272b73dc0d30abaf478dec4",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-1-2-0-0-0-corrupted-first-lemma.json": "9e1d44b82b1bbc6a81b0cc3ba97d49535f1646193ca0814d452facdc2e4be0f8",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-1-2-0-0-0.bad-proof": "7b84b57525d6e111e2e412dce14b99989ecdd697158f74bd61b5b294dcb7beb2",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-1-2-0-0-0.cnf": "b526529c5b83f973ddfb9fe9832b82875b71c92fd42b79f4ce9880e987c1a9cd",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-1-2-0-0-0.proof": "ec5a031cac417751983bee73457ba4ced2cc52116d13eb7405768aa184084277",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-1-2-0-0-1.json": "53b6f94c256f22469064da440a25601336e4f8947836d05b73081c0ce227db5d",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-1-2-0-0-1-check.json": "92fae702cd5df31579cab19ba64c93df5e46180b3ab849948dfcc4dc28fcf666",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-1-2-0-0-1-corrupted-first-lemma.json": "fbc9d0289e3bed27f12d467c288168bbf57444eb4c93bd14e82c0e6ffcbbe401",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-1-2-0-0-1.bad-proof": "3ef0abdc7e817f78656bcee322900319f988a0242b822e51d26f1004e60afaeb",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-1-2-0-0-1.cnf": "b526529c5b83f973ddfb9fe9832b82875b71c92fd42b79f4ce9880e987c1a9cd",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-1-2-0-0-1.proof": "f71c140a65353f8ee58418cd28bca1cc9fc4bf3aea15c665ac97cfbc98fe7bf3",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-1-2-0-1-0.json": "1819f994c06c77767a25b99cdaa60f4ce831ebb6ff2e49456794db1776df843a",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-1-2-0-1-0-check.json": "b263166323915b117b239cff6441b2749c8f09540426bd0d5d11421f1bc4ca8d",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-1-2-0-1-0-corrupted-first-lemma.json": "d5cd9d3a71c03403c714ba5dca9ace98d585c8a8c94c09d28716fe7e8f2a5bf8",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-1-2-0-1-0.bad-proof": "7b84b57525d6e111e2e412dce14b99989ecdd697158f74bd61b5b294dcb7beb2",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-1-2-0-1-0.cnf": "b526529c5b83f973ddfb9fe9832b82875b71c92fd42b79f4ce9880e987c1a9cd",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-1-2-0-1-0.proof": "ec5a031cac417751983bee73457ba4ced2cc52116d13eb7405768aa184084277",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-1-2-0-1-1.json": "64d25dbe05368f4330d32f77e4310d1ef3ccfd402b299ccac48e199cf150327f",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-1-2-0-1-1-check.json": "e598f3e5db7b76c9e16109c91d223915bf2c44912d7edaf13bde8ce8c6e5153c",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-1-2-0-1-1-corrupted-first-lemma.json": "4c63add1683fd21e4ba97779bdc5ebc022459fe245cf8eccae4a9996babc64d4",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-1-2-0-1-1.bad-proof": "3ef0abdc7e817f78656bcee322900319f988a0242b822e51d26f1004e60afaeb",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-1-2-0-1-1.cnf": "b526529c5b83f973ddfb9fe9832b82875b71c92fd42b79f4ce9880e987c1a9cd",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-1-2-0-1-1.proof": "f71c140a65353f8ee58418cd28bca1cc9fc4bf3aea15c665ac97cfbc98fe7bf3",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-1-2-1-0-0.json": "86893255f7631d6bd5b02e9f244f432d15962bd580210ffdcdd0bd412b5aac51",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-1-2-1-0-0-check.json": "3afc1deb1c74382aface785449b0449c45cfb54795316d54cba6d5b8079bb639",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-1-2-1-0-0-corrupted-first-lemma.json": "43090cb6f70eab5726ef8e692ecb025dd3183b2dcdb1c3858ec83ae3c4c422f0",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-1-2-1-0-0.bad-proof": "4934e5cfc97e6ae35bc12e52650cc6052726b8ddea55883243404e4066298e5f",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-1-2-1-0-0.cnf": "28a6a3c1293a05568e185d02b2c94a7f5c21d3af6ebde8dcb8e87fd317bab86f",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-1-2-1-0-0.proof": "2b5086889e7bd48bb0ff1ad701bcf352d74f01a4203f2c01a2f92449ad574bc2",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-1-2-1-0-1.json": "3b44ebc69ae65e1499e58f63718ebde5e0476c209b0284a112e7967fec9d36e4",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-1-2-1-0-1-check.json": "1204a4c9d637f7ecf5a7b37542d2ff670253aae0a5666fe3271930bef7a5cd06",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-1-2-1-0-1-corrupted-first-lemma.json": "3f5b7e22907df6a99ee7398b82651d00197dd9b71d274bb4e5d3b3cc510554a3",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-1-2-1-0-1.bad-proof": "f1303d29e88c0c96e94365c40e63bdaedf335f4edd00b994a3d7773992ce1339",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-1-2-1-0-1.cnf": "28a6a3c1293a05568e185d02b2c94a7f5c21d3af6ebde8dcb8e87fd317bab86f",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-1-2-1-0-1.proof": "8a4f4afcd1ab7b206a78e6d81a09a98a506be3cf38608c507730923f4765dd06",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-1-2-1-1-0.json": "a7afadc6b34cf029042860e95093d52a6295fdce8160d7cabe4744ec04abedd5",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-1-2-1-1-0-check.json": "4bd2f258bb8d539a925abbfff95957a69c85a01b2bed2776e15d2d0449759bb5",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-1-2-1-1-0-corrupted-first-lemma.json": "b42f5e1346ebe07daf0f6922bbb17fc86ff8c74892aa897830573289c92af6bb",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-1-2-1-1-0.bad-proof": "4934e5cfc97e6ae35bc12e52650cc6052726b8ddea55883243404e4066298e5f",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-1-2-1-1-0.cnf": "28a6a3c1293a05568e185d02b2c94a7f5c21d3af6ebde8dcb8e87fd317bab86f",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-1-2-1-1-0.proof": "2b5086889e7bd48bb0ff1ad701bcf352d74f01a4203f2c01a2f92449ad574bc2",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-1-2-1-1-1.json": "91494a84833c2ffde04230e32cfd5c693e24600290237a342e794b16f6f13129",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-1-2-1-1-1-check.json": "33c0b2a2f12445497b21a4ae1390ccf73206193154cbfe4e2af8192a0218cec0",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-1-2-1-1-1-corrupted-first-lemma.json": "7bbb8bee5228d500654daee06a5062cba7a541cd0115c1df0fa38daf3d0a1b22",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-1-2-1-1-1.bad-proof": "f1303d29e88c0c96e94365c40e63bdaedf335f4edd00b994a3d7773992ce1339",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-1-2-1-1-1.cnf": "28a6a3c1293a05568e185d02b2c94a7f5c21d3af6ebde8dcb8e87fd317bab86f",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-1-2-1-1-1.proof": "8a4f4afcd1ab7b206a78e6d81a09a98a506be3cf38608c507730923f4765dd06",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-2-1-0-0-0.json": "6f5494b80d876e7b719e0b5102de6ab7e2e95dfc5e879825aa3482d924bf7f7b",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-2-1-0-0-0-check.json": "c0d5e280bccfaaf5983882fc690dcded7ea1042c57c258411e9b1345014f647d",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-2-1-0-0-0-corrupted-first-lemma.json": "dacda1ab69b689288245e902a6531e7892013370649795eba5c1fd0220f544bc",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-2-1-0-0-0.bad-proof": "a027a15bd209f59058257f8e6efcca31c47283f2d831d441742fb8519ad79809",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-2-1-0-0-0.cnf": "da2cefe71d22256375e495e389dbc6165b3f4b8cb723054d8babc0e3c766d8f1",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-2-1-0-0-0.proof": "7ba1a9e9db986da2449c191810fc37efa5df8ce1848adda023e6db12f06a1e56",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-2-1-0-0-1.json": "14b90ac754d1d9991dfb515d232393f0399f84720a1173f6a1f2c59e7ea111bb",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-2-1-0-0-1-check.json": "efb29984946fc76e7c02ddf9b4e6387c8fc21a20479952e45c8f6836c2ce58cd",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-2-1-0-0-1-corrupted-first-lemma.json": "d9c6c0f25dcd21f33189f9f0f6f675a0b55c81215a708a1b86246ec958e32f1a",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-2-1-0-0-1.bad-proof": "c52ae3e4d09ca8b4a4c381315a54fb8549b7e0650a156d3e7fdaefbdd4922f2b",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-2-1-0-0-1.cnf": "da2cefe71d22256375e495e389dbc6165b3f4b8cb723054d8babc0e3c766d8f1",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-2-1-0-0-1.proof": "0d644662b66df381a6372ac668be0747af75d4a46c49c87fc47cccb6571bcd93",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-2-1-0-1-0.json": "12f5f6dbd539212f07657078f8a86eadc3a07a6dba782d0c1f39692efd222e39",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-2-1-0-1-0-check.json": "129903e7d9aaf780b304a5d847215efe613c6a3052d3c21e727ea53ce79ee3d8",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-2-1-0-1-0-corrupted-first-lemma.json": "4262d8b548884d78a9f4d8cbe7af1ef278b2577e5c5eb2212196ea9f9e284a82",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-2-1-0-1-0.bad-proof": "a027a15bd209f59058257f8e6efcca31c47283f2d831d441742fb8519ad79809",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-2-1-0-1-0.cnf": "da2cefe71d22256375e495e389dbc6165b3f4b8cb723054d8babc0e3c766d8f1",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-2-1-0-1-0.proof": "7ba1a9e9db986da2449c191810fc37efa5df8ce1848adda023e6db12f06a1e56",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-2-1-0-1-1.json": "469d8310110f570c0666ff931ca5d7d69bc70687d507ab39d4b32849b3587078",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-2-1-0-1-1-check.json": "db88334b9d8e3d560c6148885c0b2f91e5d5e191fa960b25d90efa9bde05f1a3",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-2-1-0-1-1-corrupted-first-lemma.json": "28db2fd30c55bc29d5e19f0155c516b4b845b78b7f39cc97b0f5dde9b25fe05a",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-2-1-0-1-1.bad-proof": "c52ae3e4d09ca8b4a4c381315a54fb8549b7e0650a156d3e7fdaefbdd4922f2b",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-2-1-0-1-1.cnf": "da2cefe71d22256375e495e389dbc6165b3f4b8cb723054d8babc0e3c766d8f1",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-2-1-0-1-1.proof": "0d644662b66df381a6372ac668be0747af75d4a46c49c87fc47cccb6571bcd93",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-2-1-1-0-0.json": "14df12644a4e6b3181990679423b1726e12a2b928d51fd3900197842eac439ec",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-2-1-1-0-0-check.json": "34841aa8fb6925cde1cc31fe928a0ae21cd74de78fa28f40ceb6f0ccdcd08aa3",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-2-1-1-0-0-corrupted-first-lemma.json": "f898590f036c1f0e344676dc7d11803709ace06dc56f2717e701a385b5469c8a",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-2-1-1-0-0.bad-proof": "3000a9eca81dd4450e6837528f523575cbcdb513481e3d0c49601b0f016d342e",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-2-1-1-0-0.cnf": "bab650d7e3984932c7a606843ea3c91a568fe05496d7d372e4d88683a7dbce1c",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-2-1-1-0-0.proof": "2dae87adcc64388e952bc1736a1c2649f1dceaac6e35ff73fe1ed6adf2296210",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-2-1-1-0-1.json": "fced91295d18640bec2f542747b8832ec9999445a85f8f26b2edc3f20f5107bb",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-2-1-1-0-1-check.json": "824bfc9091b4797cc2df2e318ff62727146c03596eec6ee5763e364000fac8aa",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-2-1-1-0-1-corrupted-first-lemma.json": "87d494c1a61b6d538e6bef8e1debfd4a7a35390e395e67872f0a773e3a069041",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-2-1-1-0-1.bad-proof": "c52ae3e4d09ca8b4a4c381315a54fb8549b7e0650a156d3e7fdaefbdd4922f2b",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-2-1-1-0-1.cnf": "bab650d7e3984932c7a606843ea3c91a568fe05496d7d372e4d88683a7dbce1c",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-2-1-1-0-1.proof": "463894549d9dc0a8a2e77d442eb762671df3effbbce00c7d49ad0bbb0fc67c2d",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-2-1-1-1-0.json": "5f0d9a1b163e0400ce871a83d0ffca7d248c9acf08990c38372fb08b5e3cadd5",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-2-1-1-1-0-check.json": "bc47b6b9ade0c1ae9de21497936628bf96ca4009c32d1fa9df1d3749fbc3a48f",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-2-1-1-1-0-corrupted-first-lemma.json": "2e115d326c0bd5626fa0d97f83419c1857c2db0c859c2a2eca6f7fead26221e1",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-2-1-1-1-0.bad-proof": "3000a9eca81dd4450e6837528f523575cbcdb513481e3d0c49601b0f016d342e",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-2-1-1-1-0.cnf": "bab650d7e3984932c7a606843ea3c91a568fe05496d7d372e4d88683a7dbce1c",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-2-1-1-1-0.proof": "2dae87adcc64388e952bc1736a1c2649f1dceaac6e35ff73fe1ed6adf2296210",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-2-1-1-1-1.json": "4f500ab82958a8164fdb9fbbbbfacb370f72a0243bf7c4a201b118b1770f3624",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-2-1-1-1-1-check.json": "982613e45bf424c34b4da5b15bf21792b95cf407e0aa6dd08e2c6effee8f4e90",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-2-1-1-1-1-corrupted-first-lemma.json": "98dc8ed897f5a431b496ee300597733292c8866da8497e7948a22bc79eae2979",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-2-1-1-1-1.bad-proof": "c52ae3e4d09ca8b4a4c381315a54fb8549b7e0650a156d3e7fdaefbdd4922f2b",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-2-1-1-1-1.cnf": "bab650d7e3984932c7a606843ea3c91a568fe05496d7d372e4d88683a7dbce1c",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-2-1-1-1-1.proof": "463894549d9dc0a8a2e77d442eb762671df3effbbce00c7d49ad0bbb0fc67c2d",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-2-2-0-0-0.json": "a79bb4c6e6b0fcb06411e9eaf96b31e367ea6f52b3c938953ac7f61d8f9fea8b",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-2-2-0-0-0-check.json": "0322612f5df2ca21736af566b3b35dbbaaf20a52bf9e31a8b65f974e3e8848cc",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-2-2-0-0-0-corrupted-first-lemma.json": "0caa855008349613519264b4d3d35cc72559bc19c9b03145bc5380b93502e257",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-2-2-0-0-0.bad-proof": "d1131b8570a5b6d4058fecb6267b7d2c36249064c846128ba36e46345b5abe71",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-2-2-0-0-0.cnf": "b13810551f0b1dc126dbd173b6894c53fee875ed73551b86d0d5ca4a96058beb",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-2-2-0-0-0.proof": "8fb0342a511a7c9c5ca97298e8cc0f800237c71fc389773f1466291af3018716",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-2-2-0-0-1.json": "8940657be6f95b990e7105e1e23c32badb9132b964a11c335ecb2be181bfb1b0",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-2-2-0-0-1-check.json": "df38eb1416f054da350467ca5fb7f2819e4fedaca9900068edbdb63df3ec8c91",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-2-2-0-0-1-corrupted-first-lemma.json": "a0e8642b6452dc3986fa70eeb55deb367ac903b4baf9e1393459fef438efb689",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-2-2-0-0-1.bad-proof": "6ccdf67bf905ee0298c71636039a9648735fdcc7dea96b6e946892b7f029b9c1",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-2-2-0-0-1.cnf": "b13810551f0b1dc126dbd173b6894c53fee875ed73551b86d0d5ca4a96058beb",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-2-2-0-0-1.proof": "d245e0b2fb69f29d35db0f8af7ae28c2c8837f0ef93d5b2d98709c46ee345452",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-2-2-0-1-0.json": "5fa6543293b7df49a6f68d1aafc5139827253da941ad16b41253109a7d080435",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-2-2-0-1-0-check.json": "dfbf16f50e10065acf4704c3472f8ce8518bb20a8f51222a41ca1ed118ee8a79",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-2-2-0-1-0-corrupted-first-lemma.json": "ea6d4ca6c629e9e04cbf47e20b97a1c445b1e9699e0383797c711f856ef09ea2",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-2-2-0-1-0.bad-proof": "d1131b8570a5b6d4058fecb6267b7d2c36249064c846128ba36e46345b5abe71",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-2-2-0-1-0.cnf": "b13810551f0b1dc126dbd173b6894c53fee875ed73551b86d0d5ca4a96058beb",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-2-2-0-1-0.proof": "8fb0342a511a7c9c5ca97298e8cc0f800237c71fc389773f1466291af3018716",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-2-2-0-1-1.json": "7773e5bdfbb9870eac826967519534b47cdbfbf78c08e60215c615ea84430188",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-2-2-0-1-1-check.json": "de129d552cb474a059813e654f66a51ac0203510c76cd9f47f70f73aec689a62",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-2-2-0-1-1-corrupted-first-lemma.json": "de4283a99ff952a253fd588d1dab0250191d9abac1e0bfd683bd27658ac81ba6",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-2-2-0-1-1.bad-proof": "6ccdf67bf905ee0298c71636039a9648735fdcc7dea96b6e946892b7f029b9c1",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-2-2-0-1-1.cnf": "b13810551f0b1dc126dbd173b6894c53fee875ed73551b86d0d5ca4a96058beb",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-2-2-0-1-1.proof": "d245e0b2fb69f29d35db0f8af7ae28c2c8837f0ef93d5b2d98709c46ee345452",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-2-2-1-0-0.json": "2d632753876acb7ef7a1ac29f4ea03011d10d084e7b491ba22b0ffae9dbe35f2",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-2-2-1-0-0-check.json": "19dbcfb24849f0d6916b7676781e98553c5f8255c8ab2a62512c53c8310b3d35",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-2-2-1-0-0-corrupted-first-lemma.json": "fda53554c192c1c4d8b3b4525bb2ce771e011977c0978970ea360f7f4e18659f",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-2-2-1-0-0.bad-proof": "c52f4c1e49540c55e691e3afebc6ae7262888fae59d33f2bb053d12e8a6a157c",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-2-2-1-0-0.cnf": "ab13ee8d8839f19d334089060ece23a3183d84300f382d4be98d61a7c3ede813",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-2-2-1-0-0.proof": "83e030e60e487bf80e1886613c7b644bac3300799cc845b64af337b98707484d",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-2-2-1-0-1.json": "5cf25d8db107130378d40755e16aa561030c6e42501b391481ecd411bac2bb5b",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-2-2-1-0-1-check.json": "7a022bdefea11434c46ae27656b3d9431a137d386d572a006e2a5a5d192cab7b",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-2-2-1-0-1-corrupted-first-lemma.json": "fae9f341ba5d250ba5004ed1e03d34d26f05107a24da9506ba26ecf5db0dc138",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-2-2-1-0-1.bad-proof": "9976a63cece3e4d7561ed902e92d9bc6427914cfb9d36a55c23cb47b702ba9c9",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-2-2-1-0-1.cnf": "ab13ee8d8839f19d334089060ece23a3183d84300f382d4be98d61a7c3ede813",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-2-2-1-0-1.proof": "20a34ab5d5501b1e565ea023d349578b98f86f5ca4a851e3cd221fab06e6b1dc",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-2-2-1-1-0.json": "f6f8e7b1fe6d779dbf8ea4009f27d6dbdf89c0e74ae3e5e4592a515adb3c330b",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-2-2-1-1-0-check.json": "51face6f8f13b41cd7ddb2ff01e399cf1c69b0aa6b8610b3b6f0ce0a3858d7ca",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-2-2-1-1-0-corrupted-first-lemma.json": "e9e3061be96343aad5da74c92655af511c28ab1acd677340d845b7fd6e066187",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-2-2-1-1-0.bad-proof": "c52f4c1e49540c55e691e3afebc6ae7262888fae59d33f2bb053d12e8a6a157c",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-2-2-1-1-0.cnf": "ab13ee8d8839f19d334089060ece23a3183d84300f382d4be98d61a7c3ede813",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-2-2-1-1-0.proof": "83e030e60e487bf80e1886613c7b644bac3300799cc845b64af337b98707484d",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-2-2-1-1-1.json": "49b47b9b260f44eabfb254b5a2f0c4d0a7ae621d48e8bf704342ccc336bb1fef",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-2-2-1-1-1-check.json": "1b3f88b60cec2248b5b1cf3fce167e19b453425b0daf23ba2b5f2ef59e8e5c1d",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/logs/candidate-2-2-1-1-1-corrupted-first-lemma.json": "7f68580cdb102e802027762ed4e2b442ee6eb65400b4389f0dda006773bab86a",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-2-2-1-1-1.bad-proof": "9976a63cece3e4d7561ed902e92d9bc6427914cfb9d36a55c23cb47b702ba9c9",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-2-2-1-1-1.cnf": "ab13ee8d8839f19d334089060ece23a3183d84300f382d4be98d61a7c3ede813",
+    "benchmarks/runs/20260910-7101-bve-view-proofs/candidate-2-2-1-1-1.proof": "20a34ab5d5501b1e565ea023d349578b98f86f5ca4a851e3cd221fab06e6b1dc",
+    "benchmarks/probes/scratch/check-bve-view-proofs-7101.py": "b2cac08cb352146e60a7891e85c27b80eb8f8f557e46491f0bcc549a01d7b641",
+    "tools/bench/proof_oracle.py": "e070e42c7cfc4cb1035a0318b63c0afb6df84cbe951d3d9b9270ac6da69a236b"
+  },
+  "retained_fixed_artifacts": true,
+  "scope": "Root-free and filtered large BVE antecedents, reversed literal order, physical duplicates, dense/sparse N1 calls, forced arena growth before witnesses; final UNSAT depends on BVE resolvents. Not fuzz or runtime acceptance."
+}

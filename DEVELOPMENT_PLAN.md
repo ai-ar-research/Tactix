@@ -416,8 +416,8 @@ development while Claude runs the campaign in the background. Codex does not
 probe the fuzz job, logs, retained cases, or intermediate/final artifacts, or
 independently recompute or reinterpret the report. Claude's
 terminal report is authoritative: `pass` closes the fuzz gate; `failure`
-immediately invokes or continues the bounded Claude repair workflow on the
-reported reproducer and failure class. Codex does not rerun a passing fuzz
+pauses dependent work and hands a bounded reproducer and failure class to
+Codex for direct repair under §8.2. Codex does not rerun a passing fuzz
 campaign for confirmation. This ownership rule is specific to fuzzing; normal
 unit tests, benchmark guards, proof witnesses, and performance diagnostics keep
 their existing independent-validation contracts. Run periodic checkpoints after
@@ -442,22 +442,20 @@ job log records the snapshot's aggregate SHA-256.  A batch job must never
 execute a live repository script: editing a script while Bash is waiting for a
 child can otherwise shift the interpreter's saved file offset and turn a clean
 oracle result into a post-oracle shell failure.  Remove the snapshot only after
-a successful terminal exit; retain a failed job's snapshot for Claude-owned
-diagnosis and cleanup.
+a successful terminal exit; retain a failed job's snapshot for the fuzz owner's
+failure handoff and cleanup audit.
 
-**External debugging escalation.** Invoke Claude when fuzzing or unit testing
-discovers a soundness defect or a crash. The primary agent owns performance
-divergence, runtime regression, mechanism-fidelity work, and ordinary
-implementation debugging without delegating the fix to Claude. If an ordinary
-investigation later produces a fuzz/unit-test reproducer that demonstrates
-unsoundness or a crash, escalate at that point; the trigger is the reproduced
-failure class, not the difficulty of the repair.
-For every such escalation, the Codex agent must launch Claude with permission
-to edit the workspace, provide the reproducer and bounded repair scope, and
-wait until the Claude agent finishes. Codex should not check on Claude's
-intermediate progress and should trust Claude's terminal outcome; the
-Claude-owned fuzzing rule above additionally forbids Codex from probing or
-independently auditing fuzz artifacts and reports.
+**Direct debugging ownership.** Codex diagnoses and repairs implementation,
+performance, unit-test, crash, sanitizer, proof/model, and soundness failures
+directly; Claude debugging or repair review is not required. Preserve the
+original failure, establish a causal reproducer, add a regression, and validate
+the fix with the affected invariants and independent proof/model oracles before
+resuming dependent work. Do not weaken correctness or promotion gates.
+Claude still owns fuzz execution, monitoring, interpretation, and cleanup as
+specified above. For a fuzz failure, Claude supplies a bounded repair handoff
+with the reproducer, command, and failure class; Codex may inspect and repair
+that handoff, but does not independently inspect the campaign or reinterpret
+its report. A repair does not itself close the required fuzz gate.
 
 ### 8.3 Performance gates
 
@@ -538,7 +536,7 @@ report, commit, and push. That fuzz/wrap-up checkpoint does not terminate
 convergence: immediately resume the next demonstrated current-Tactix/current-
 Kissat gap from the newly accepted pin. A soundness defect, crash, sanitizer failure,
 rejected SAT model, or rejected UNSAT proof discovered at any earlier stage
-immediately interrupts this batching and triggers the mandatory bounded Claude
+immediately interrupts this batching and triggers Codex's direct debugging and
 repair workflow in §8.2.
 
 **Proof-rule/strategy boundary during convergence.** A repair may enlarge a

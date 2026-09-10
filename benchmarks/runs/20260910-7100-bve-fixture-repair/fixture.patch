@@ -1,0 +1,30 @@
+--- a/tests/test_bve_antecedent_view.cpp
++++ b/tests/test_bve_antecedent_view.cpp
+@@ -103,13 +103,27 @@
+     kernel_assign_unit(k, internalize(-3));
+     kernel_assign_unit(k, internalize(4));
+     kernel_assign_unit(k, internalize(-5));
++    // Search invariants apply before model completion. Reconstruction fills
++    // retired variables without extending the search trail or its counters.
++    kernel_check_invariants(k);
++    const auto trail = k.trail;
++    const auto unassigned = k.unassigned;
+     kernel_extend_model(k);
++    assert(k.model_extended && k.trail == trail && k.unassigned == unassigned);
++    for (Var v = 0; v < k.nvars; ++v) {
++      const Lit pos_lit = make_lit(v, false);
++      assert(k.value(pos_lit) != 0);
++      assert(k.value(pos_lit) == -k.value(negate(pos_lit)));
++      assert(k.model_values[kernel_external_lit(k, pos_lit)] == k.value(pos_lit));
++    }
+     for (const auto *clause : {pos, neg}) {
+       bool sat = false;
+       for (unsigned i = 0; i < 3; ++i) sat |= k.value(clause[i]) > 0;
+       assert(sat);
+     }
+-    kernel_check_invariants(k);
++    const auto model = k.model_values;
++    kernel_extend_model(k);
++    assert(k.model_values == model); // Completion is idempotent.
+   }
+ }

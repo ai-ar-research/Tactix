@@ -1,0 +1,15 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-7101-bve-view-proofs/candidate-fixture",
+    "2",
+    "2",
+    "0",
+    "0",
+    "1",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-7101-bve-view-proofs/candidate-2-2-0-0-1.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-7101-bve-view-proofs/candidate-2-2-0-0-1.proof"
+  ],
+  "exit_code": 0,
+  "stdout": "BVE views pad=2 copies=2 reverse=0 dense=0 lrat=1 resolutions=4 eliminated=1\n",
+  "stderr": ""
+}
