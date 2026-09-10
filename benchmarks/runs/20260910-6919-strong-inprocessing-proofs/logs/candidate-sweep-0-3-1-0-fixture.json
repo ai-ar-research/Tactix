@@ -1,0 +1,14 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6919-strong-inprocessing-proofs/candidate-sweep-fixture",
+    "0",
+    "3",
+    "1",
+    "0",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6919-strong-inprocessing-proofs/candidate-sweep-0-3-1-0.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6919-strong-inprocessing-proofs/candidate-sweep-0-3-1-0.proof"
+  ],
+  "returncode": 0,
+  "stdout": "roots=0 position=3 strip=1 lrat=0 general=1 false=0 stripped=0 bridge=16\n",
+  "stderr": ""
+}

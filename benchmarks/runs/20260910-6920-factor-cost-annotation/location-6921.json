@@ -1,0 +1,50 @@
+{
+  "hashes": {
+    "benchmarks/probes/scratch/locate-factor-cost-6921.py": "cf82a431c5bbca61c82deb702868edbd68006a33abcabb62cbcde2a0cede62cc",
+    "benchmarks/runs/20260910-6920-factor-cost-annotation/summary.json": "ddd7fd71c2263cdcada17f919abf8cbe68f45f902929ac9ed5285aa50d194a35",
+    "benchmarks/runs/20260910-6815-inprocessing-release-profiles/profiles/000-self.txt": "708bd52ff9591142c905d9df39dd342cc38d3dd96894e7bcf5e6cfeaabb2856c",
+    "benchmarks/runs/20260910-6815-inprocessing-release-profiles/results/000.json": "3f0cea01715900d067febd06256ec44ff7270cc5f429462607a961f92b9d737a",
+    "benchmarks/runs/20260910-6815-inprocessing-release-profiles/results/001.json": "724c6ec3860625628542ad1f74447293c0d13711a6f1bf1b3bee3cfc6d26f380",
+    ".claude/worktrees/runtime-reduce-watermark-6730/src/rules/factor/factor.cpp": "c7679ff8e17ff5ae46703768a465e26fe4ff8d533e93dc60a7e10a5315a77ac4",
+    ".claude/worktrees/runtime-reduce-watermark-6730/src/rules/registry.cpp": "eab16c0d28c519988f9cffb8561d381214bd458e5d02430674a3748b9bb2ac47",
+    ".claude/worktrees/runtime-reduce-watermark-6730/src/policies/default_policy.cpp": "121df7ea1a49628e291bd0eb13c87bcd57bfeb0b66b337d4ec95a33d051e02f1",
+    "tools/solvers/variants/kissat-macro-heap-6090/src/factor.c": "c6c05495799196b7f3169f93fc6b11a2e2b488195504f5543e1008fc46cc3a44",
+    "tools/solvers/variants/kissat-macro-heap-6090/src/profile.c": "01338511fea19e4386b948439167a0305b1da7a8da864c1bfa2802eaa01b368b"
+  },
+  "regions": {
+    "large_candidate_scan": {
+      "begin": "0x47fef0",
+      "end": "0x480046",
+      "period": 6369355109,
+      "percent_function": 30.525330892197164,
+      "percent_program": 0.5123900312485248,
+      "interpretation": "Factor index iteration, reserved/size rejection, quotient membership, unique candidate and marks. Mirrors useful native next_factor large-clause work; includes counter/touched calls and their return sites."
+    },
+    "binary_candidate_count": {
+      "begin": "0x480198",
+      "end": "0x4801f9",
+      "period": 1439647970,
+      "percent_function": 6.899557317888261,
+      "percent_program": 0.11581412179277745,
+      "interpretation": "Packed binary traversal, boundary/FACTOR/active checks and cofactor count. The zero-count path branches to the separately listed touched-vector call."
+    },
+    "first_touch_return": {
+      "begin": "0x4814bd",
+      "end": "0x4814e9",
+      "period": 2651925761,
+      "percent_function": 12.709436037202863,
+      "percent_program": 0.213337190389577,
+      "interpretation": "First-discovery touched.push_back call and cofactor pointer/count reload before increment. A candidate for compile-only same-state dataflow inspection, not proof that push_back or allocation causes every sample."
+    }
+  },
+  "exact_reported_factor_work": {
+    "applications": 86,
+    "accepted": 7357,
+    "ticks": 428217051
+  },
+  "clock_limitation": "Tactix Factor14406ms is steady-clock rule time; native Factor8.80s is nested process-CPU time. Equal reported counts do not prove full internal-work identity or a precise 1.637x unit-cost ratio. Do not sum nested native timers or subtract them from wall time.",
+  "preserved": "Already optimized: open-addressed remainder intern table, lazy per-watch remainder cache, byte FACTOR/QUOTIENT/NOUNTED marks, cached byte activity, reserved clause-header marks, borrowed initial binary watches and packed binary scan. FactorIndex remains full-reference8B entries in per-literal vectors. No FlatLists or reference narrowing authority.",
+  "next_action": "After closing6902, inspect generated dataflow around first-touch count and clause rejection in a compile-only isolated6730 control. First compare reference mechanisms and establish redundant physical work; keep predicate order, discovery/tie order, counters, API and budget boundaries exact. Do not implement a representation redesign or reopen shelved Rank21.",
+  "test_consideration": "No solver or maintained parser changed. Existing perf_annotation tests own range accounting, strict published-result classification owns checker status; this helper verifies exact pinned counts and source hashes. Any subsequent code change needs an explicit unit-test decision and full-state old/new controls.",
+  "limitation": "Existing1101 self samples only; sampled return sites may carry skid/callee effects. Noncontiguous regions do not cover all Factor work. Useful work is not a removable-cost ceiling or predicted speedup. No new solver run, source change, adoption, fuzz or reference refresh."
+}
