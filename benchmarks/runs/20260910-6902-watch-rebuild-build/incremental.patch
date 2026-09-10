@@ -1,0 +1,146 @@
+--- a/src/kernel/kernel.cpp
++++ b/src/kernel/kernel.cpp
+@@ -2952,2 +2952,10 @@
+-  for (Lit lit = 0; lit < 2 * k.nvars; lit++)
+-    k.watches.compact(lit, [](WatchEntry w) { return w.binary(); });
++  for (Lit lit = 0; lit < 2 * k.nvars; lit++) {
++    WatchHead &head = k.watches.heads[lit];
++    if (head.has_large())
++      k.watches.compact(lit, [](WatchEntry w) { return w.binary(); });
++    else
++      // Dense entry already removed large watches. The exact binary count
++      // proves this list needs no word scan, but compact also normalizes the
++      // conservative order bit, including on empty lists. Preserve that effect.
++      head.set_layout(head.size, true);
++  }
+--- /dev/null
++++ b/tests/test_watch_rebuild.cpp
+@@ -0,0 +1,128 @@
++// Reconnect must preserve the old complete watch image, not just clause sets.
++#undef NDEBUG
++#include "kernel/kernel.hpp"
++#include <cassert>
++#include <cstdio>
++#include <vector>
++
++using namespace tactix;
++
++static uint64_t digest = 1469598103934665603ULL;
++static void mix(uint64_t word) {
++  digest ^= word;
++  digest *= 1099511628211ULL;
++}
++
++static std::vector<uint64_t> image(const Kernel &k) {
++  std::vector<uint64_t> out{k.large_watches_connected, k.watches.holes,
++                            k.watches.arena.size(), k.watches.arena.capacity()};
++  for (const uint32_t word : k.watches.arena)
++    out.push_back(word); // retain dead words as well as all live lists
++  for (const WatchHead &h : k.watches.heads) {
++    out.push_back(h.offset);
++    out.push_back(h.size);
++    out.push_back(h.capacity);
++    out.push_back(h.binary_count_and_order);
++  }
++  out.push_back(k.arena.size());
++  for (const uint32_t word : k.arena)
++    out.push_back(word);
++  out.push_back(k.stats.ticks);
++  out.push_back(k.propagate_head);
++  out.push_back(k.trail.size());
++  for (const Lit lit : k.trail)
++    out.push_back(lit);
++  if (k.dense) {
++    for (Lit lit = 0; lit < 2 * k.nvars; ++lit) {
++      out.push_back(k.dense->large[lit].size());
++      for (const Ref ref : k.dense->large[lit])
++        out.push_back(ref);
++      out.push_back(k.dense->ordered[lit].size());
++      for (const OccIndex::Entry e : k.dense->ordered[lit]) {
++        out.push_back(e.binary);
++        out.push_back(e.payload);
++      }
++    }
++  }
++  return out;
++}
++
++static void prepare(Kernel &k, OccIndex &dense, unsigned pattern,
++                    unsigned mode, bool attached, unsigned roots) {
++  kernel_reserve_vars(k, 12);
++  kernel_materialize_cold_state(k);
++  if (pattern) {
++    kernel_add_binary_clause(k, internalize(1), internalize(2));
++    kernel_add_binary_clause(k, internalize(-2), internalize(8));
++  }
++  if (pattern >= 2) {
++    const Lit a[] = {internalize(1), internalize(3), internalize(4), internalize(5)};
++    const Lit b[] = {internalize(1), internalize(6), internalize(7)};
++    kernel_add_large_clause(k, a, 4, false, 0, 101);
++    kernel_add_large_clause(k, b, 3, true, 3, 102);
++    kernel_add_binary_clause(k, internalize(1), internalize(8));
++  }
++  if (pattern == 3) {
++    const Lit dead[] = {internalize(-1), internalize(9), internalize(10)};
++    const Ref r = kernel_add_large_clause(k, dead, 3, false, 0, 103);
++    kernel_delete_clause(k, clause_at(k.arena, r));
++    kernel_add_binary_clause(k, internalize(1), internalize(2));
++  }
++  if (roots)
++    kernel_assign_unit(k, internalize(roots == 1 ? -3 : 6));
++  if (attached)
++    kernel_dense_connect(k, dense, true);
++  if (mode == 1)
++    kernel_drop_large_watches(k);
++  else if (mode == 2)
++    kernel_flush_large_watches(k);
++  if (mode && pattern >= 2) {
++    const Lit added[] = {internalize(9), internalize(10), internalize(11)};
++    kernel_add_large_clause(k, added, 3, false, 0, 104);
++  }
++  // This conservative metadata is valid even with no large entries. Empty
++  // lists and odd/even binary populations must be normalized by reconnect.
++  for (WatchHead &h : k.watches.heads)
++    if (!h.has_large())
++      h.set_binaries_first(false);
++}
++
++int main() {
++  unsigned cases = 0;
++  for (unsigned pattern = 0; pattern != 4; ++pattern)
++    for (unsigned mode = 0; mode != 3; ++mode)
++      for (unsigned attached = 0; attached != 2; ++attached)
++        for (unsigned roots = 0; roots != 3; ++roots)
++          for (unsigned flush = 0; flush != 2; ++flush) {
++            Kernel actual, oracle;
++            OccIndex dense_actual, dense_oracle;
++            prepare(actual, dense_actual, pattern, mode, attached, roots);
++            prepare(oracle, dense_oracle, pattern, mode, attached, roots);
++            assert(image(actual) == image(oracle));
++            // Perform the original unconditional prepass on the oracle. A
++            // second binary-only prepass is idempotent; the unchanged rebuild
++            // suffix must therefore produce the same complete physical image.
++            for (Lit lit = 0; lit < 2 * oracle.nvars; ++lit)
++              oracle.watches.compact(lit, [](WatchEntry w) { return w.binary(); });
++            kernel_rebuild_large_watches(oracle, flush);
++            kernel_rebuild_large_watches(actual, flush);
++            assert(image(actual) == image(oracle));
++            for (const WatchHead &h : actual.watches.heads)
++              assert(h.binaries_first());
++            const auto once = image(actual);
++            for (uint64_t word : once)
++              mix(word);
++            // Connected re-entry must not accumulate duplicate large watches.
++            kernel_rebuild_large_watches(actual, flush);
++            assert(image(actual) == once);
++            if (attached) {
++              kernel_dense_disconnect(actual);
++              kernel_dense_disconnect(oracle);
++            }
++            ++cases;
++          }
++  assert(cases == 144);
++  std::printf("watch-rebuild: %u complete-image cases; digest %016llx\n",
++              cases, static_cast<unsigned long long>(digest));
++  return 0;
++}

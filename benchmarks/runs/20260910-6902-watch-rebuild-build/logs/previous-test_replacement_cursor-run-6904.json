@@ -1,0 +1,8 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6902-watch-rebuild-build/previous-test_replacement_cursor-6904"
+  ],
+  "exit_code": 0,
+  "stdout": "replacement-cursor cases=840 state=f86da0be45055db3\n",
+  "stderr": ""
+}
