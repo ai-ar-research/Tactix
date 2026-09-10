@@ -1,0 +1,13 @@
+{
+  "path": "benchmarks/runs/20260909-6730-reduce-watermark-build/manifest.json",
+  "sha256": "e21167816ac5c86fe3b82db5d3cb0401d3a0b34a79ef7578ea5251d84cdb605f",
+  "evidence": {
+    "benchmarks/runs/20260909-6754-rank38-watermark-cost-runtime/solver-checkpoint-6756.json": "ae53f8208dc2aaf359dc41178da189eb579aebc8aba0d591d3c25d227383003a",
+    "benchmarks/runs/20260909-6760-watermark-layout/summary.json": "fd18007879411d76270b05ac79531791db2d52613f8f4eb329cf2b2038b9d099",
+    "benchmarks/reports/2026-09-09-watermark-followup-audit-6761.json": "589ff38db7448199c2aacca7338e98910f62f4bb02c2448eaf960f703b56648a"
+  },
+  "scope": "Move the unchanged four-byte historical Reduce marker into existing padding after the watch-connection flag. Restore old watched-search member offsets; no initializer, field use, guard, instance, proof, collector, scheduling or production change.",
+  "hypothesis": "Three exact-work pairs show a5.89% Rank38 cost increase with nearly identical instructions and6.06% more cycles. Compiled offsets show an8-byte watch-and-later shift. Restore offsets without removing marker behavior, then require exact trajectory/proof and matched timing to discriminate layout cost from other code-generation effects.",
+  "test_consideration": "No new semantic behavior. Existing288 watermark states and all source suites cover constructor, promotion/retirement, aliasing, genuine versus implementation-only packing, public surface and repeated Reduce. Add an independently compiled member-offset regression requiring every old field restored and the new4-byte marker wholly inside the former flag-to-pointer padding. Keep trace-tail ABI test in full suites.",
+  "acceptance": "Independent Release/BC/trace suites and matching release hashes, fixed layout regression, B28+C5 against6730 with exact work/proofs, then Rank38 and Rank46 exact-work/proof timing. Require three matched waves and retain all adverse outcomes. No promotion without required fuzz; failed cost hypothesis means no layout-causality claim."
+}

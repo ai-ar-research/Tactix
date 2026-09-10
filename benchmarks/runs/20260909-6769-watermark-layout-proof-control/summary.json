@@ -1,0 +1,85 @@
+{
+  "checked_proofs": 8,
+  "records": [
+    {
+      "input": "benchmarks/runs/20260909-6769-watermark-layout-proof-control/fixed-proofs/root-0-0-1-drat.cnf",
+      "input_sha256": "932e82bed19e31aa4c0202b8c020c63107b1784d853e0e07962b94fc888dfd4d",
+      "certificate_sha256": "4af05ab47bac52fc6a5ab2f00b4ae2b190b67d4f7ee24878f9a1d88fba4d53a7",
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a"
+    },
+    {
+      "input": "benchmarks/runs/20260909-6769-watermark-layout-proof-control/fixed-proofs/root-0-0-1-lrat.cnf",
+      "input_sha256": "932e82bed19e31aa4c0202b8c020c63107b1784d853e0e07962b94fc888dfd4d",
+      "certificate_sha256": "b59599c804fc51422bfd6fc636daaad0e4badca6b07a6ee6ab1412ce9e155aa8",
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7"
+    },
+    {
+      "input": "benchmarks/runs/20260909-6769-watermark-layout-proof-control/fixed-proofs/root-0-1-1-drat.cnf",
+      "input_sha256": "932e82bed19e31aa4c0202b8c020c63107b1784d853e0e07962b94fc888dfd4d",
+      "certificate_sha256": "4af05ab47bac52fc6a5ab2f00b4ae2b190b67d4f7ee24878f9a1d88fba4d53a7",
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a"
+    },
+    {
+      "input": "benchmarks/runs/20260909-6769-watermark-layout-proof-control/fixed-proofs/root-0-1-1-lrat.cnf",
+      "input_sha256": "932e82bed19e31aa4c0202b8c020c63107b1784d853e0e07962b94fc888dfd4d",
+      "certificate_sha256": "b59599c804fc51422bfd6fc636daaad0e4badca6b07a6ee6ab1412ce9e155aa8",
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7"
+    },
+    {
+      "input": "benchmarks/runs/20260909-6769-watermark-layout-proof-control/fixed-proofs/root-1-0-1-drat.cnf",
+      "input_sha256": "932e82bed19e31aa4c0202b8c020c63107b1784d853e0e07962b94fc888dfd4d",
+      "certificate_sha256": "4af05ab47bac52fc6a5ab2f00b4ae2b190b67d4f7ee24878f9a1d88fba4d53a7",
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a"
+    },
+    {
+      "input": "benchmarks/runs/20260909-6769-watermark-layout-proof-control/fixed-proofs/root-1-0-1-lrat.cnf",
+      "input_sha256": "932e82bed19e31aa4c0202b8c020c63107b1784d853e0e07962b94fc888dfd4d",
+      "certificate_sha256": "b59599c804fc51422bfd6fc636daaad0e4badca6b07a6ee6ab1412ce9e155aa8",
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7"
+    },
+    {
+      "input": "benchmarks/runs/20260909-6769-watermark-layout-proof-control/fixed-proofs/root-1-1-1-drat.cnf",
+      "input_sha256": "932e82bed19e31aa4c0202b8c020c63107b1784d853e0e07962b94fc888dfd4d",
+      "certificate_sha256": "4af05ab47bac52fc6a5ab2f00b4ae2b190b67d4f7ee24878f9a1d88fba4d53a7",
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a"
+    },
+    {
+      "input": "benchmarks/runs/20260909-6769-watermark-layout-proof-control/fixed-proofs/root-1-1-1-lrat.cnf",
+      "input_sha256": "932e82bed19e31aa4c0202b8c020c63107b1784d853e0e07962b94fc888dfd4d",
+      "certificate_sha256": "b59599c804fc51422bfd6fc636daaad0e4badca6b07a6ee6ab1412ce9e155aa8",
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7"
+    }
+  ],
+  "hashes": {
+    "build/pin-6763-watermark-layout-release/tests/test_reduce_root_lock": "2f223bad01762735c63281cc562ffe1ab9ede60f0037517a5b5387a61066d802",
+    "benchmarks/probes/scratch/check-reduce-watermark-proofs-6734.py": "1f47c1bb6f41d104481726164883503c44cd53fa831f7e575679875656be4719",
+    "benchmarks/runs/20260909-6763-watermark-layout-build/manifest.json": "41b2c7a97103d81ea5afe2513abc94bd930c0866724996c353cc71ba61d730c4",
+    "benchmarks/runs/20260909-6733-reduce-watermark-native/summary.json": "3a01c2f49f0848614629487e7c51cc6bccae337b3b723d5c49d52700fd55bac7",
+    "benchmarks/runs/20260909-6769-watermark-layout-proof-control/logs/check-root-0-0-1-drat.log": "9245ee40c332fcb10d5028239a5e3278547280343274b5a0c5f1ef882cac8f66",
+    "benchmarks/runs/20260909-6769-watermark-layout-proof-control/logs/check-root-1-0-1-drat.log": "1c7c3900a6ee311e29bd578df586effa3a538f6e1cc986c16f9c5f3732f95999",
+    "benchmarks/runs/20260909-6769-watermark-layout-proof-control/logs/check-root-0-1-1-lrat.log": "e83e8d61d3ab2a7f358eef1525a3a79a6a8bb41c04ec7914e7628b9941d7ca51",
+    "benchmarks/runs/20260909-6769-watermark-layout-proof-control/logs/check-root-1-1-1-lrat.log": "e83e8d61d3ab2a7f358eef1525a3a79a6a8bb41c04ec7914e7628b9941d7ca51",
+    "benchmarks/runs/20260909-6769-watermark-layout-proof-control/logs/root-lock.log": "5bd0c90899b9c6e9a40aa98c2a88dbae252cb9b432fc7cb77f7b0aa2b517c350",
+    "benchmarks/runs/20260909-6769-watermark-layout-proof-control/logs/check-root-1-0-1-lrat.log": "e83e8d61d3ab2a7f358eef1525a3a79a6a8bb41c04ec7914e7628b9941d7ca51",
+    "benchmarks/runs/20260909-6769-watermark-layout-proof-control/logs/check-root-0-0-1-lrat.log": "e83e8d61d3ab2a7f358eef1525a3a79a6a8bb41c04ec7914e7628b9941d7ca51",
+    "benchmarks/runs/20260909-6769-watermark-layout-proof-control/logs/check-root-1-1-1-drat.log": "1c7c3900a6ee311e29bd578df586effa3a538f6e1cc986c16f9c5f3732f95999",
+    "benchmarks/runs/20260909-6769-watermark-layout-proof-control/logs/check-root-0-1-1-drat.log": "9245ee40c332fcb10d5028239a5e3278547280343274b5a0c5f1ef882cac8f66",
+    "benchmarks/runs/20260909-6769-watermark-layout-proof-control/fixed-proofs/root-1-0-1-drat.cnf": "932e82bed19e31aa4c0202b8c020c63107b1784d853e0e07962b94fc888dfd4d",
+    "benchmarks/runs/20260909-6769-watermark-layout-proof-control/fixed-proofs/root-0-0-1-drat.cnf": "932e82bed19e31aa4c0202b8c020c63107b1784d853e0e07962b94fc888dfd4d",
+    "benchmarks/runs/20260909-6769-watermark-layout-proof-control/fixed-proofs/root-0-0-1-lrat.proof": "b59599c804fc51422bfd6fc636daaad0e4badca6b07a6ee6ab1412ce9e155aa8",
+    "benchmarks/runs/20260909-6769-watermark-layout-proof-control/fixed-proofs/root-1-1-1-lrat.cnf": "932e82bed19e31aa4c0202b8c020c63107b1784d853e0e07962b94fc888dfd4d",
+    "benchmarks/runs/20260909-6769-watermark-layout-proof-control/fixed-proofs/root-0-1-1-lrat.cnf": "932e82bed19e31aa4c0202b8c020c63107b1784d853e0e07962b94fc888dfd4d",
+    "benchmarks/runs/20260909-6769-watermark-layout-proof-control/fixed-proofs/root-0-1-1-lrat.proof": "b59599c804fc51422bfd6fc636daaad0e4badca6b07a6ee6ab1412ce9e155aa8",
+    "benchmarks/runs/20260909-6769-watermark-layout-proof-control/fixed-proofs/root-0-1-1-drat.proof": "4af05ab47bac52fc6a5ab2f00b4ae2b190b67d4f7ee24878f9a1d88fba4d53a7",
+    "benchmarks/runs/20260909-6769-watermark-layout-proof-control/fixed-proofs/root-0-0-1-drat.proof": "4af05ab47bac52fc6a5ab2f00b4ae2b190b67d4f7ee24878f9a1d88fba4d53a7",
+    "benchmarks/runs/20260909-6769-watermark-layout-proof-control/fixed-proofs/root-1-1-1-drat.proof": "4af05ab47bac52fc6a5ab2f00b4ae2b190b67d4f7ee24878f9a1d88fba4d53a7",
+    "benchmarks/runs/20260909-6769-watermark-layout-proof-control/fixed-proofs/root-1-0-1-drat.proof": "4af05ab47bac52fc6a5ab2f00b4ae2b190b67d4f7ee24878f9a1d88fba4d53a7",
+    "benchmarks/runs/20260909-6769-watermark-layout-proof-control/fixed-proofs/root-1-0-1-lrat.proof": "b59599c804fc51422bfd6fc636daaad0e4badca6b07a6ee6ab1412ce9e155aa8",
+    "benchmarks/runs/20260909-6769-watermark-layout-proof-control/fixed-proofs/root-0-0-1-lrat.cnf": "932e82bed19e31aa4c0202b8c020c63107b1784d853e0e07962b94fc888dfd4d",
+    "benchmarks/runs/20260909-6769-watermark-layout-proof-control/fixed-proofs/root-1-0-1-lrat.cnf": "932e82bed19e31aa4c0202b8c020c63107b1784d853e0e07962b94fc888dfd4d",
+    "benchmarks/runs/20260909-6769-watermark-layout-proof-control/fixed-proofs/root-1-1-1-lrat.proof": "b59599c804fc51422bfd6fc636daaad0e4badca6b07a6ee6ab1412ce9e155aa8",
+    "benchmarks/runs/20260909-6769-watermark-layout-proof-control/fixed-proofs/root-0-1-1-drat.cnf": "932e82bed19e31aa4c0202b8c020c63107b1784d853e0e07962b94fc888dfd4d",
+    "benchmarks/runs/20260909-6769-watermark-layout-proof-control/fixed-proofs/root-1-1-1-drat.cnf": "932e82bed19e31aa4c0202b8c020c63107b1784d853e0e07962b94fc888dfd4d"
+  },
+  "scope": "Inherited fixed collector controls on layout6763, all input/proof bytes exact6730:16 root/elevated compact/tail SAT/UNSAT DRAT/LRAT cases, direct model checks and8 independent proof checks, plus protected nonroot/pending reasons. New288 watermark fixtures and native3 cases are structural controls, not proof certificates. No fuzz or performance claim."
+}
