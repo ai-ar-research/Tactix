@@ -1,0 +1,15 @@
+/home/hwu/SAT-solving/benchmarks/probes/scratch/reduce-watermark-native-6732.c: In function ‘main’:
+/home/hwu/SAT-solving/benchmarks/probes/scratch/reduce-watermark-native-6732.c:38:45: warning: passing argument 2 of ‘kissat_update_last_irredundant’ makes pointer from integer without a cast [-Wint-conversion]
+   38 |       kissat_update_last_irredundant(solver,origin);
+      |                                             ^~~~~~
+      |                                             |
+      |                                             reference {aka unsigned int}
+In file included from /home/hwu/SAT-solving/tools/solvers/variants/kissat-macro-heap-6090/src/reduce.c:3,
+                 from /home/hwu/SAT-solving/benchmarks/probes/scratch/reduce-watermark-native-6732.c:2:
+/home/hwu/SAT-solving/tools/solvers/variants/kissat-macro-heap-6090/src/collect.h:30:56: note: expected ‘clause *’ but argument is of type ‘reference’ {aka ‘unsigned int’}
+   30 | void kissat_update_last_irredundant (kissat *, clause *last_irredundant);
+      |                                                ~~~~~~~~^~~~~~~~~~~~~~~~
+/home/hwu/SAT-solving/benchmarks/probes/scratch/reduce-watermark-native-6732.c:46:27: error: ‘statistics’ has no member named ‘clauses_reduced’; did you mean ‘clauses_added’?
+   46 |     if(solver->statistics.clauses_reduced!=1) return 4;
+      |                           ^~~~~~~~~~~~~~~
+      |                           clauses_added

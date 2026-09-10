@@ -1,0 +1,7 @@
+{
+  "deadline": "2026-09-10T06:00:00-04:00",
+  "wind_down_minutes": 15,
+  "pid": 2,
+  "started_at": "2026-09-10T01:40:46.640461+00:00",
+  "action": "Wind down; at cutoff start no new tasks. Finish safe handoff only. No automatic cancellation."
+}

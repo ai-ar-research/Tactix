@@ -1,0 +1,10 @@
+{
+  "job_id": "1678586",
+  "accounting_since": "2026-09-09T21:06:41",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6726-rank46-collect-boundary/array.sbatch"
+  ],
+  "manifest_sha256": "aae0b3f3d90dc4e51fbabb5a5162dfbfbf63038194f37d1938d65c5a67ed9abb"
+}

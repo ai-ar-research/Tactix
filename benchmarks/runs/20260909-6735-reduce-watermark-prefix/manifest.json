@@ -1,0 +1,87 @@
+{
+  "rank": 46,
+  "input": "benchmarks/cache/tierD24-26/9aa85c5c114245c182ed6afbe3d8daed-schooltt-5-3-8-2-4-5-10-0.1-0.2-seed4.sanitized.cnf.xz",
+  "input_sha256_compressed": "820c58fe12edc807f98013f05a30b51283c50e4eaa02761534c83d478e15ac99",
+  "stop_conflict": 1000000,
+  "stream_from": 0,
+  "common_decisions": 1,
+  "resource_contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "cpus_per_task": 12,
+    "memory_mib": 48000,
+    "array": "0-0",
+    "throttle": null,
+    "node_constraint": null,
+    "solver_timeout": 1200,
+    "allocation_minutes": 25
+  },
+  "candidate_authority": {
+    "path": "benchmarks/runs/20260909-6730-reduce-watermark-build/manifest.json",
+    "sha256": "e21167816ac5c86fe3b82db5d3cb0401d3a0b34a79ef7578ea5251d84cdb605f"
+  },
+  "native_authority": {
+    "path": "benchmarks/runs/20260908-6092-rank37-macro-heaps/manifest.json",
+    "sha256": "39668f289367568f0effdaaddc0a587ae10257095d8234893a1610cd581b92a9"
+  },
+  "dependencies": {
+    "benchmarks/runs/20260909-6730-reduce-watermark-build/manifest.json": "e21167816ac5c86fe3b82db5d3cb0401d3a0b34a79ef7578ea5251d84cdb605f",
+    "benchmarks/runs/20260909-6721-rank46-earlier-allscan/manifest.json": "2a569cc458c276f2b38f7041ed15f58a25b1ceac55cb1b061d247782add33158",
+    "benchmarks/runs/20260909-6721-rank46-earlier-allscan/summary-6723.json": "2127ee99a15e129e8c963e44da9cc06ab033100a80cb53700fad8b10b0e2e799",
+    "benchmarks/runs/20260909-6734-reduce-watermark-proof-control/summary.json": "d5764f98004efeb0bd442a7236ffe267a0015ac09d533494b667d227dd4b9f0c",
+    "benchmarks/runs/20260909-6726-rank46-collect-boundary/summary-6729.json": "28e5018afcc0a3be78759b6e6fb01b5c494da26f04be94908b99c1e64850a23d",
+    "benchmarks/runs/20260909-6673-rank46-long-prefix/summary-6675.json": "00012bcdbbc788a421fde7d5f2ea7d7c3e26721be91d5b617cee040b2472ee5b",
+    "benchmarks/runs/20260909-6721-rank46-earlier-allscan/results/candidate.json": "cbd661ef2ba142754f36f476c7bde282e3224a5740358f3ad54631af895ccca4",
+    "benchmarks/runs/20260909-6721-rank46-earlier-allscan/traces/candidate.boundaries.tsv": "064def245711e560a2a8bc68bb7b30d02294704f58e18b5b35fee7e39974c102",
+    "benchmarks/runs/20260909-6721-rank46-earlier-allscan/traces/candidate.decisions.tsv": "8c8342f0bd69acfe2306ec3e2757f03f144ec568da203fc84bfe394a5b78890d",
+    "benchmarks/runs/20260909-6721-rank46-earlier-allscan/traces/candidate.prefix.tsv": "1e24c618795cd6ee1ae159f3cf05e2bc51dcc89ec8b9576205a75028744108b0",
+    "benchmarks/runs/20260909-6721-rank46-earlier-allscan/traces/candidate.macro.tsv": "b714c57571afadb99d1fe9f9bdbdf58f5ad97a529b5ce38e1ecf5f5c164304cd",
+    "benchmarks/runs/20260909-6721-rank46-earlier-allscan/traces/candidate.search.tsv": "ade242962d3d3559d41d560d3e193b25b34134113e7012bb2599ad0dea21fc0e",
+    "benchmarks/runs/20260909-6721-rank46-earlier-allscan/results/kissat.json": "3c5f25c0e2714a980744cb822a7ea7038e48b77216c30f324e05b7aa392de25a",
+    "benchmarks/runs/20260909-6721-rank46-earlier-allscan/traces/kissat.decisions.tsv": "32f518248f8c960176db6829fcbbb7c253f991a8a9263184bb2b89372e43d4ec",
+    "benchmarks/runs/20260909-6721-rank46-earlier-allscan/traces/kissat.prefix.tsv": "2b7e438bdbea841299b147cbefb065b44e93f804f6efb50efae5eb090ab365fe",
+    "benchmarks/runs/20260909-6721-rank46-earlier-allscan/traces/kissat.search.tsv": "60f3e9d3df59cf7bcb4af528e73b2fff6bbb8dbc3f2e14aeaea84ccabea8c9e9",
+    "benchmarks/runs/20260909-6721-rank46-earlier-allscan/traces/kissat.boundaries.tsv": "698eb1a1ea1ccd0758d9db7dc708e1df3f2fe42959f5adb91e05c7f38df997a1"
+  },
+  "protected_campaign_hashes": {
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/manifest.json": "b2f9e98291c56c415e4cb9439a77378c55cc78593d632c1fc84a6d5ee194acf6",
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/array.sbatch": "b90503efeb1acd5ea2cb081fc60a79c2e1ab6d51287cedf050a673ddb5433143",
+    "benchmarks/baselines/rank1-40-kissat-12cpu-v1/manifest.json": "45259e1acbc93472b923517f75fd6b8697669b3ad74970d27b565b6b7f1aa686",
+    "benchmarks/runs/20260908-5712-assignment-level-ranks1-40/manifest.json": "80211109441ac7e1483082a767c755ffc03c029381398c71017593e2ff29a8ae",
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/pins/runtime_task.py": "ccef4f23bac433c4c205949c0296f2cdef0e98d0d56fff5d306abb6e6209297f",
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/pins/modelcheck.py": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/manifest.json": "d09c9f2a030d0d29974fa881ee247c7900704e4be0e204b28c0b16beaf443d16",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/array.sbatch": "82b47f14fc76c4d5ca14484035b1033d013c1a36c2bbe44c531a1a6a56c87efb",
+    "benchmarks/runs/20260908-6114-substitute-publication-BC-gate/manifest.json": "27c57c3c896ab15daa9d51ff87f9a977472d28b2b43b849be7322b96eb598bb1",
+    "benchmarks/runs/20260908-6114-substitute-publication-BC-gate/array.sbatch": "2b6afd38eb7dcc8fc39f6fa294f5786d20d9238a4facb7cb64bc6c35a0320b4a",
+    "benchmarks/runs/20260908-6115-substitute-publication-ranks1-50/manifest.json": "e739603e6d4ec9024beebfa7a049def7c3ea01eb6b5287e542f05a651e646cd7",
+    "benchmarks/runs/20260908-6115-substitute-publication-ranks1-50/array.sbatch": "ab074cdcf7e9691f7031fd9aa198cef18fe83bb9edc5aa73f0c5b033d2d380f5",
+    "benchmarks/baselines/rank1-50-kissat-12cpu-v1/manifest.json": "5f7865e46af2b9ed0d1899ce6e450bfb9b3575801c50183e059d0e4326f5a1e0",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/manifest.json": "224b3b5d80c3087b3c3c709a78dcf934d175823bd2232f68a2475e6d11bd3d1a",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/launch.json": "ee6eea617d6fef64349ed0096c9dd06f1ffb9ba03467dd6901ab92b833bfb7a1",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/array.sbatch": "37e88d1e5998092127067b1ac0fedc388f29ddf45179057a508fb53dabaa24be"
+  },
+  "created_at": "2026-09-10T01:26:42.283313+00:00",
+  "purpose": "Test historical Reduce watermark repair: promoted clause cursor must reset at62677; compare full1M decisions against frozen native and predecessor. No native run or timing refresh.",
+  "validation": "Require clean requested1M stop, complete decision accounting, unchanged decisions before62677, selected-clause watch states matching native in62676..62682; measure later first divergence without assuming full closure. Partial proof hash retained but no final certificate claim.",
+  "test_consideration": "288 fixed old/new states cover promotion, retired boundary, irredundant control, real versus implementation-only packing, aliases and id zero, root/nonroot, zero-victim and compact reductions, pure public enumeration and repeated collection. Parent exposes32 expected cursor failures. Native/certificate/B/C/Rank46 causal and runtime gates follow. No fuzz or promotion authority.",
+  "limitation": "All prior runs and pins retained. This bounded native diagnostic does not rerun or overwrite the fixed Kissat timing vector; no source promotion, fuzz access or FlatLists work.",
+  "hashes": {
+    "pins/candidate": "54e5811f5a2d51f562f2d7eee54f8b309c3fa3ecaca970a8f308a46b0dab94ea",
+    "run.py": "0a42490ccc342f78acf864480dfa3763870199db00c9e67515d783fd1ac05bce",
+    "array.sbatch": "a13c97fcea30d05b1fc4666897167a828fa1223847605772b103155df2ec5ef8"
+  },
+  "cached_controls": "benchmarks/runs/20260909-6721-rank46-earlier-allscan",
+  "search_window": [
+    62676,
+    62682
+  ],
+  "trace_row_cap": 2000000,
+  "selected_conflict": 107104,
+  "selected_decision": 393591,
+  "selected_level": 1267,
+  "reason_keys": {
+    "candidate": "18608,18610,18612,18614,18615,18617,18619,18620,18623,18626,18628,18630,18636,18659",
+    "kissat": "18608,18609,18610,18612,18614,18615,18617,18619,18620,18626,18628,18630,18636,18659"
+  },
+  "selected_watch_literal": 18623
+}
