@@ -1,0 +1,27 @@
+{
+  "job_id": "1679202",
+  "tasks": [
+    6,
+    7,
+    8,
+    9,
+    10,
+    11
+  ],
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--array=6-11",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6882-subsolver-binary-runtime/array.sbatch"
+  ],
+  "accounting_since": "2026-09-10T02:19:05",
+  "manifest_sha256": "168992f84d4ea994069260cea88061fe887915cf470b6ef085c35e3b9ceda28a",
+  "preceding_records": {
+    "benchmarks/runs/20260910-6882-subsolver-binary-runtime/provisional/001.json": "fabb6c177773fa26ef72ad791aa1edb41fce9fe770f2330296d788d82d8fe9e4",
+    "benchmarks/runs/20260910-6882-subsolver-binary-runtime/provisional/005.json": "4241706d93eb8722d4bb38631be06fccf63a4eff6b925f60ef2b6411da48e44e",
+    "benchmarks/runs/20260910-6882-subsolver-binary-runtime/provisional/000.json": "c3c03bb372f2e23c92e943eb6d608a455171bc1309d24dbcc9bfda1b5f0ea5c9",
+    "benchmarks/runs/20260910-6882-subsolver-binary-runtime/provisional/004.json": "dfccb93b4f3e159338d56e706f6f099666ff61282b5eed36fb0128c7a0e21acd",
+    "benchmarks/runs/20260910-6882-subsolver-binary-runtime/provisional/002.json": "cfab11fe99b3565bca907153bba809d31a3f9ddba0af66f286bd723fc1fac4f5",
+    "benchmarks/runs/20260910-6882-subsolver-binary-runtime/provisional/003.json": "156f4a48d6879f85c07cff2812acb6f9b84038eee803534e015955b1deaf11e9"
+  }
+}
