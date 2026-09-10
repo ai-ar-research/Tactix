@@ -1,0 +1,6 @@
+{
+  "failed_attempt": "validate-xor-presence-BC-6959.py --seal",
+  "published": 64,
+  "required": 66,
+  "classification": "Premature seal request hit unchanged cardinality assertion before opening summary-6959.json. No gate weakened, no solver failure or retry, no accepted artifact changed. Lasttwo tasks actually started08:21:44UTC, later than array submission08:19:22UTC; claim timestamps explain pending state. Fresh6968 seals only after all66 exact expected outcomes."
+}

@@ -1,0 +1,8 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6925-factor-count-build/previous-test_factor-6928"
+  ],
+  "exit_code": 0,
+  "stdout": "test_factor: all passed\n",
+  "stderr": ""
+}

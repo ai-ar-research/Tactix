@@ -1,0 +1,297 @@
+{
+  "hashes": {
+    "benchmarks/probes/scratch/select-congruence-cost-6944.py": "13af6da995cca7b633e1faec82af33f9d6fe7e23b5ce40bfbc3d01f6746fd0ca",
+    "tools/bench/inprocessing_cost.py": "725744226d429f28d9093079a6022a43cd77450069642faae6f1cabf1ae71a4a",
+    "tools/bench/runtime_summary.py": "ef8a13bc4e94dec335bb4981ccd678a5dd480e47c27de9edc73a7f45e47cd0be",
+    "tools/bench/checked_comparison.py": "da7ebdabe538ca1ec920692594c076eb0fbb6a4a73e14393b26a98dccb7bfe3e",
+    "benchmarks/baselines/rank1-50-kissat-12cpu-v1/manifest.json": "5f7865e46af2b9ed0d1899ce6e450bfb9b3575801c50183e059d0e4326f5a1e0",
+    "benchmarks/runs/20260909-6743-reduce-watermark-ranks1-50/results/041.json": "9833ffa2db9bc9d5e12371fb09b42c2d7c4d360379c79f514fdd9667ce0ffc67",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/083.json": "2a8c2b27bece01eb6f469149c180bb11f04c5d4d62c3a20c9085fc1bdf34efe7",
+    "benchmarks/runs/20260909-6743-reduce-watermark-ranks1-50/results/042.json": "b431ea7ffde891260b55d7f7aec925b7828479f730748fb448338a8845540866",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/085.json": "79c58cb9f90387f86d3aad47954698378c9b11c1dc15ebd82c3ca5c6db78c45c",
+    "benchmarks/runs/20260909-6743-reduce-watermark-ranks1-50/results/046.json": "c7c21ce1ddfe6d053112cd36ed6c613eabdfa0d4619cd9ef37e508055515e84e",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/093.json": "7dd372874d5ddcbd07bb20d49a39f93d63e6681e96ab879ec949ef43665a54c1"
+  },
+  "rows": {
+    "42": {
+      "current": {
+        "path": "benchmarks/runs/20260909-6743-reduce-watermark-ranks1-50/results/041.json",
+        "work": {
+          "conflicts": 19007,
+          "decisions": 324432,
+          "propagations": 907947650
+        },
+        "solve": {
+          "exit_code": 20,
+          "peak_rss_kb": 1611748,
+          "sampled_process_vm_peak_kb": 1966432,
+          "timed_out": false,
+          "wall_seconds": 66.009
+        },
+        "timers": {
+          "solve_ms": 63972,
+          "slot_ms": 33446,
+          "outside_ms": 30526,
+          "unattributed_ms": 1370,
+          "rules": {
+            "Congruence": {
+              "ms": 10159,
+              "applications": 4
+            },
+            "BVE": {
+              "ms": 7292,
+              "applications": 987453
+            },
+            "Vivify": {
+              "ms": 4265,
+              "applications": 15
+            },
+            "Substitute": {
+              "ms": 3803,
+              "applications": 9
+            },
+            "Sweep": {
+              "ms": 2412,
+              "applications": 2
+            },
+            "Strengthen": {
+              "ms": 2235,
+              "applications": 2
+            },
+            "Backbone": {
+              "ms": 1664,
+              "applications": 9
+            },
+            "TransitiveReduce": {
+              "ms": 245,
+              "applications": 13921
+            }
+          }
+        },
+        "congruence_statistics": [
+          "c congruence  4 rounds, 4 binary rebuilds, 4507411 gates, 736704 merges, 481 units, 0 unjustified, 1689205545 ticks, 0 budget stops"
+        ]
+      },
+      "native": {
+        "path": "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/083.json",
+        "work": {
+          "conflicts": 9393,
+          "decisions": 254310,
+          "propagations": 387997314
+        },
+        "solve": {
+          "exit_code": 20,
+          "peak_rss_kb": 1145252,
+          "sampled_process_vm_peak_kb": 1414572,
+          "timed_out": false,
+          "wall_seconds": 22.901
+        },
+        "congruence_statistics": [
+          "c           5.45   23.95 %  congruence",
+          "c congruent:                           737459               43 %  variables",
+          "c congruent_gates:                    3332173          1110724.33 per closure",
+          "c congruent_gates_ands:               1065454               32 %  gates",
+          "c congruent_gates_ites:                170703                5 %  gates",
+          "c congruent_gates_xors:               2096016               63 %  gates",
+          "c congruent_matched:                   925783              126 %  congruent",
+          "c congruent_matched_ands:              625237               68 %  matched",
+          "c congruent_matched_ites:               33000                4 %  matched",
+          "c congruent_matched_xors:              267546               29 %  matched"
+        ]
+      },
+      "fixed_native_seconds": 22.752
+    },
+    "43": {
+      "current": {
+        "path": "benchmarks/runs/20260909-6743-reduce-watermark-ranks1-50/results/042.json",
+        "work": {
+          "conflicts": 34848,
+          "decisions": 640443,
+          "propagations": 1258932190
+        },
+        "solve": {
+          "exit_code": 20,
+          "peak_rss_kb": 2688836,
+          "sampled_process_vm_peak_kb": 3340472,
+          "timed_out": false,
+          "wall_seconds": 126.032
+        },
+        "timers": {
+          "solve_ms": 122482,
+          "slot_ms": 65828,
+          "outside_ms": 56654,
+          "unattributed_ms": 2199,
+          "rules": {
+            "Congruence": {
+              "ms": 15915,
+              "applications": 5
+            },
+            "BVE": {
+              "ms": 13502,
+              "applications": 1550156
+            },
+            "Vivify": {
+              "ms": 10241,
+              "applications": 21
+            },
+            "Substitute": {
+              "ms": 7353,
+              "applications": 13
+            },
+            "Sweep": {
+              "ms": 5836,
+              "applications": 3
+            },
+            "Strengthen": {
+              "ms": 3895,
+              "applications": 2
+            },
+            "Factor": {
+              "ms": 3344,
+              "applications": 2
+            },
+            "Backbone": {
+              "ms": 2919,
+              "applications": 13
+            },
+            "TransitiveReduce": {
+              "ms": 622,
+              "applications": 343800
+            }
+          }
+        },
+        "congruence_statistics": [
+          "c congruence  5 rounds, 5 binary rebuilds, 6489816 gates, 1074724 merges, 592 units, 0 unjustified, 3008345009 ticks, 0 budget stops"
+        ]
+      },
+      "native": {
+        "path": "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/085.json",
+        "work": {
+          "conflicts": 10588,
+          "decisions": 366921,
+          "propagations": 569130074
+        },
+        "solve": {
+          "exit_code": 20,
+          "peak_rss_kb": 1719156,
+          "sampled_process_vm_peak_kb": 2268604,
+          "timed_out": false,
+          "wall_seconds": 45.939
+        },
+        "congruence_statistics": [
+          "c [congruence-3] found 321137 AND gates (317507 extracted 99% + 3630 matched 1%)",
+          "c [congruence-3] found 758820 XOR gates (758812 extracted 100% + 8 matched 0%)",
+          "c [congruence-3] found 60765 ITE gates (60765 extracted 100% + 0 matched 0%)",
+          "c [congruence-3] found 1140722 gates (120.23% variables)",
+          "c [congruence-3] found 6681 matchable variables 1%",
+          "c [congruence-3] subsumed 90 clauses out of 16116 tried 1%",
+          "c [congruence-3] merged 5264 equivalent variables 0.56%",
+          "c           7.97   17.46 %  congruence",
+          "c congruent:                          1075145               44 %  variables",
+          "c congruent_gates:                    4443385          1481128.33 per closure",
+          "c congruent_gates_ands:               1483871               33 %  gates",
+          "c congruent_gates_ites:                234690                5 %  gates",
+          "c congruent_gates_xors:               2724824               61 %  gates",
+          "c congruent_matched:                  1319543              123 %  congruent",
+          "c congruent_matched_ands:              930135               70 %  matched",
+          "c congruent_matched_ites:               42937                3 %  matched",
+          "c congruent_matched_xors:              346471               26 %  matched"
+        ]
+      },
+      "fixed_native_seconds": 46.089
+    },
+    "47": {
+      "current": {
+        "path": "benchmarks/runs/20260909-6743-reduce-watermark-ranks1-50/results/046.json",
+        "work": {
+          "conflicts": 21770,
+          "decisions": 1128087,
+          "propagations": 543337296
+        },
+        "solve": {
+          "exit_code": 20,
+          "peak_rss_kb": 4823660,
+          "sampled_process_vm_peak_kb": 5554384,
+          "timed_out": false,
+          "wall_seconds": 141.145
+        },
+        "timers": {
+          "solve_ms": 137952,
+          "slot_ms": 89664,
+          "outside_ms": 48288,
+          "unattributed_ms": 1729,
+          "rules": {
+            "Congruence": {
+              "ms": 58730,
+              "applications": 5
+            },
+            "Substitute": {
+              "ms": 9816,
+              "applications": 9
+            },
+            "Vivify": {
+              "ms": 9688,
+              "applications": 15
+            },
+            "Sweep": {
+              "ms": 7562,
+              "applications": 4
+            },
+            "Backbone": {
+              "ms": 1842,
+              "applications": 9
+            },
+            "TransitiveReduce": {
+              "ms": 296,
+              "applications": 40784
+            }
+          }
+        },
+        "congruence_statistics": [
+          "c congruence  5 rounds, 5 binary rebuilds, 35374938 gates, 2009250 merges, 111426 units, 0 unjustified, 4188458627 ticks, 0 budget stops"
+        ]
+      },
+      "native": {
+        "path": "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/093.json",
+        "work": {
+          "conflicts": 18160,
+          "decisions": 2601858,
+          "propagations": 629115179
+        },
+        "solve": {
+          "exit_code": 20,
+          "peak_rss_kb": 3517460,
+          "sampled_process_vm_peak_kb": 4352972,
+          "timed_out": false,
+          "wall_seconds": 100.184
+        },
+        "congruence_statistics": [
+          "c [congruence-5] found 4215381 XOR gates (4209232 extracted 100% + 6149 matched 0%)",
+          "c [congruence-5] found 384735 ITE gates (384619 extracted 100% + 116 matched 0%)",
+          "c [congruence-5] found 4895445 gates (234.03% variables)",
+          "c [congruence-5] found 24473 matchable variables 1%",
+          "c [congruence-5] subsumed 39496 clauses out of 387913 tried 10%",
+          "c [congruence-5] merged 17724 equivalent variables 0.85%",
+          "c          41.35   41.56 %  congruence",
+          "c congruent:                          2090302               38 %  variables",
+          "c congruent_gates:                   38194759          7638951.80 per closure",
+          "c congruent_gates_ands:               1882987                5 %  gates",
+          "c congruent_gates_ites:               2354412                6 %  gates",
+          "c congruent_gates_xors:              33957360               89 %  gates",
+          "c congruent_matched:                   741314               35 %  congruent",
+          "c congruent_matched_ands:              140480               19 %  matched",
+          "c congruent_matched_ites:               80976               11 %  matched",
+          "c congruent_matched_xors:              519858               70 %  matched"
+        ]
+      },
+      "fixed_native_seconds": 98.418
+    }
+  },
+  "selected_ranks": [
+    47
+  ],
+  "hypothesis": "Rank47 current spends58.730 steady-clock seconds in Congruence, five calls; fixed native reports40.98 nestedCPU seconds andfive closures. Current35.37M versusnative38.19M reported gates and different merge/unit/search work prevent a precise unit-price claim. Profile same immutable current/native binaries to identify physical scanning/allocation work; require exact own unprofiled counters/certificate replay and zero lost samples.",
+  "nonselection": "42/43 have four/five currentCongruence calls versus three fixed-native closures and roughly2x/3x conflicts, so their large runtime ratios do not isolate unit cost. Keep these scheduling/CDCL gaps open; do not narrow the Rank1-50 goal or resume shelvedRank21.",
+  "contract": "One two-task Rank47 diagnostic with unchanged199Hz cycles:u/DWARF8192 wrapper,12CPU/48000MiB/1200solver/16000checker/5h,fullwidth/no hardnode. Diagnostic native run allowed; fixed7239.010 denominator immutable. No source change, promotion, fuzz access or FlatLists redesign.",
+  "test_consideration": "No new parser behavior: reuse maintained timer/counter/checked-result readers and existing immutable sampling wrapper. Selection is exact pinned-record assertions, not a new acceptance threshold. Any later implementation change needs new unit-coverage consideration."
+}

@@ -1,0 +1,16 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6932-factor-count-proofs/candidate-fixture",
+    "33",
+    "3",
+    "4",
+    "0",
+    "1",
+    "1",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6932-factor-count-proofs/candidate-33-3-4-0-1-1.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6932-factor-count-proofs/candidate-33-3-4-0-1-1.proof"
+  ],
+  "returncode": 0,
+  "stdout": "factor-proof 33 3 4 0 1 1: factors=0 ticks=41 P=1 nvars=45\n",
+  "stderr": ""
+}

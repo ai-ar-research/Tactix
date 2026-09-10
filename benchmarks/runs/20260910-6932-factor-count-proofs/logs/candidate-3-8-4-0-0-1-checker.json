@@ -1,0 +1,10 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/tools/checkers/bin/cake_lpr",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6932-factor-count-proofs/candidate-3-8-4-0-0-1.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6932-factor-count-proofs/candidate-3-8-4-0-0-1.proof"
+  ],
+  "returncode": 0,
+  "stdout": "s VERIFIED UNSAT\n",
+  "stderr": ""
+}

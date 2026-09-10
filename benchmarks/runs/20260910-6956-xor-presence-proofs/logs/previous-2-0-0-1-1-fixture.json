@@ -1,0 +1,15 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6956-xor-presence-proofs/previous-fixture",
+    "2",
+    "0",
+    "0",
+    "1",
+    "1",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6956-xor-presence-proofs/previous-2-0-0-1-1.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6956-xor-presence-proofs/previous-2-0-0-1-1.proof"
+  ],
+  "returncode": 0,
+  "stdout": "xor-proof 2 0 0 1 1: gates=6 merges=1 ticks=456 P=23\n",
+  "stderr": ""
+}

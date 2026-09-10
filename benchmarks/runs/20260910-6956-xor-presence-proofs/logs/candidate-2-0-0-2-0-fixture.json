@@ -1,0 +1,15 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6956-xor-presence-proofs/candidate-fixture",
+    "2",
+    "0",
+    "0",
+    "2",
+    "0",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6956-xor-presence-proofs/candidate-2-0-0-2-0.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6956-xor-presence-proofs/candidate-2-0-0-2-0.proof"
+  ],
+  "returncode": 0,
+  "stdout": "xor-proof 2 0 0 2 0: gates=6 merges=1 ticks=552 P=3\n",
+  "stderr": ""
+}

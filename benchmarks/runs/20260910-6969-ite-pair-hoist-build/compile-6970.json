@@ -1,0 +1,32 @@
+{
+  "objects": {
+    "previous": {
+      "path": "benchmarks/runs/20260910-6969-ite-pair-hoist-build/previous-congruence.o",
+      "sha256": "bb4e645b7f422229ddb7de7360d04690369b8a8809da06ec85a1d88e91c0ba34"
+    },
+    "candidate": {
+      "path": "benchmarks/runs/20260910-6969-ite-pair-hoist-build/candidate-congruence.o",
+      "sha256": "c0e7f2d05cf61d016cd980de597da5aecdddb021c932d6524dda2a661ec6f0c0"
+    }
+  },
+  "symbols": {
+    "previous": {
+      "_ZN6tactix24congruence_extract_gatesERKNS_6KernelERSt6vectorINS_8CongGateESaIS4_EEb": 10,
+      "_ZN6tactixL13extract_gatesERKNS_6KernelERSt6vectorINS_8CongGateESaIS4_EEbPS0_": 16014,
+      "_ZZN6tactix12_GLOBAL__N_122congruence_extract_iteERKNS_6KernelERKNS0_11ClauseIndexES6_RSt6vectorINS_8CongGateESaIS8_EEENKUljjjE_clEjjj.isra.0": 379
+    },
+    "candidate": {
+      "_ZN6tactix24congruence_extract_gatesERKNS_6KernelERSt6vectorINS_8CongGateESaIS4_EEb": 10,
+      "_ZN6tactixL13extract_gatesERKNS_6KernelERSt6vectorINS_8CongGateESaIS4_EEbPS0_": 16095,
+      "_ZZN6tactix12_GLOBAL__N_122congruence_extract_iteERKNS_6KernelERKNS0_11ClauseIndexES6_RSt6vectorINS_8CongGateESaIS8_EEENKUljjjE_clEjjj.isra.0": 379
+    }
+  },
+  "hashes": {
+    "benchmarks/probes/scratch/compile-ite-pair-hoist-6970.py": "f8e96475c2de73ca79ca1b420318cbe0c3e951da19a713a5c729dd2ba5d0ae6b",
+    ".claude/worktrees/runtime-ite-pair-hoist-6969/src/rules/congruence/congruence.cpp": "40fe81e2dfb6112c4db70b6f8602aecf4a5411bcb1a4f62f920ed837746b9bdd",
+    ".claude/worktrees/runtime-reduce-watermark-6730/src/rules/congruence/congruence.cpp": "7fa9ffd03bd915677e305ee22e926abd7ca5bfc9fa95110f196c659b41ca974f",
+    "benchmarks/runs/20260910-6969-ite-pair-hoist-build/compile-scope.patch": "8a843d5fa6f34f8d767141f7c4a224679e581890d075834c04530d9dbcdbeab6",
+    "benchmarks/runs/20260910-6969-ite-pair-hoist-build/parent.json": "e299f00e8dfaaa50777ed7e834c8e3600c8084564a5e2794c8cd43aee035b48d"
+  },
+  "limitation": "Compile-only shape check, no runtime or correctness acceptance. Move immutable lst[i] pair reads outside the inner j loop. Local list storage never changes during pairing; encounter/verification/seen/gate order and all guards/ticks remain unchanged. No index/layout/sort redesign or composition with pending6950. Compile-only: exact actualold/new gate-vector, budget/stop, fullbuild, strongproof and B/C controls required before solvers. Existing tests alone are not claimed sufficient; add targeted repeated inner-loop/pair-order cases if compiled premise holds."
+}

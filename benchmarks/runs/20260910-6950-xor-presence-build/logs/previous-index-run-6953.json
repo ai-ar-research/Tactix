@@ -1,0 +1,8 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6950-xor-presence-build/previous-index-6953"
+  ],
+  "exit_code": 0,
+  "stdout": "PASS 1026 actual index cases digest=941d9b9c2d472746\n",
+  "stderr": ""
+}

@@ -1,0 +1,8 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6925-factor-count-build/previous-test_factor_count-6927"
+  ],
+  "exit_code": 0,
+  "stdout": "factor-count: 270 cases, digest fd9ab4194fd8cb35\n",
+  "stderr": ""
+}
