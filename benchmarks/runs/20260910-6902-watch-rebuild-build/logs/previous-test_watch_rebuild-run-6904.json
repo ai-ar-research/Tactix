@@ -1,0 +1,8 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6902-watch-rebuild-build/previous-test_watch_rebuild-6904"
+  ],
+  "exit_code": 0,
+  "stdout": "watch-rebuild: 144 complete-image cases; digest 6d4a6f3bd2f702ef\n",
+  "stderr": ""
+}

@@ -1,0 +1,20 @@
+{
+  "job_id": "1679284",
+  "tasks": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--array=0-5",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6912-watch-rebuild-runtime/array.sbatch"
+  ],
+  "accounting_since": "2026-09-10T03:14:53",
+  "manifest_sha256": "2c45821f821053e14245dcc7ab6db9fb83f526b1db5261d5a5655a87f2448253",
+  "preceding_records": {}
+}

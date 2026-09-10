@@ -1,0 +1,15 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6910-watch-rebuild-proofs/previous-fixture",
+    "3",
+    "0",
+    "0",
+    "1",
+    "1",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6910-watch-rebuild-proofs/previous-3-0-0-1-1.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6910-watch-rebuild-proofs/previous-3-0-0-1-1.proof"
+  ],
+  "returncode": 0,
+  "stdout": "rebuild mode=3 before=0 flush=0 lrat=1 reversed=1 C=1 P=2 ticks=4\n",
+  "stderr": ""
+}
