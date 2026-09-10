@@ -1,0 +1,53 @@
+Bounded fixture-failure review under DEVELOPMENT_PLAN.md section8.2.
+Do not execute this task until the user approves the bounded external transfer.
+Read CLAUDE.md and relevant project skills. Primary dependent development is
+paused until your terminal report. No fuzz campaign or fuzz artifact access.
+
+Frozen candidate: .claude/worktrees/runtime-bve-views-7087, authority
+benchmarks/runs/20260910-7087-bve-views-build/manifest.json. Parent7030 is
+.claude/worktrees/runtime-collect-retry-7030. Neither tree/pin/manifest may be
+edited or rebuilt. No real-instance campaign has used7087 yet. User explicitly
+approved the BVE data-path prototype; stage1 changes only large antecedent
+preparation to use stable arena-offset slices when root-free, with pooled
+root-filtered snapshots. No scheduling, primitive, kernel-layout or N1 change.
+
+Failure1: fully ASan/UBSan Debug tests in build/pin-7087-bve-views-sanitizers.
+benchmarks/runs/20260910-7090-bve-view-sanitizers/2.log records the new test
+test_bve_antecedent_view aborting in kernel_check_invariants at kernel.cpp3992:
+assigned_count + k.unassigned == k.nvars. Its actual_bve_grows_arena test calls
+kernel_extend_model then kernel_check_invariants. Source suggests a fixture
+lifecycle mistake: extend_model writes completed model values but does not
+update search trail/unassigned accounting. Establish causality, preferably on
+unchanged parent too; do not weaken kernel invariants or solver semantics.
+The other two tests (bve, bve_memory) report LeakSanitizer fatal ptrace errors,
+an environment issue rather than a reported heap defect. Select a supported
+local execution context and explicitly distinguish leak-check limitations.
+
+Failure2: benchmarks/probes/scratch/test-bve-view-proofs-7095.cpp and
+check-bve-view-proofs-7095.py stopped at the very first unchanged-parent DRAT
+case. Artifacts/logs are in benchmarks/runs/20260910-7095-bve-view-proofs.
+The proof has the BVE resolvent and parent deletions, then empty, but omits the
+four units the fixture derives from binary pairs. Source suggests fixture
+misuse of Proof::add_derived_unit, which intentionally writes only LRAT;
+these are not ordinary unit-propagation implications and need actual DRAT RUP
+emission. Establish and correct the fixture, not the proof serializer contract.
+The prior7089 matrix passed96 proofs/exact parent bytes, but DRAT could certify
+from input unit propagation, so it does not discharge this stronger obligation.
+7095 must retain both positive validation and a corrupted first-BVE-lemma
+negative on every case, both formats, root padding/order/copies/dense variants.
+
+You may create only new distinct7096 review-copy/helpers/logs beneath this
+repository. If necessary copy7087 to
+.claude/worktrees/runtime-bve-view-review-7096 and change only
+tests/test_bve_antecedent_view.cpp there. Preserve all original failed fixtures,
+logs, pins and successful/frozen manifests. Create corrected proof fixtures as
+new7096 files, never overwrite7089/7095. No solver-source edit, main docs/plan,
+production/default/API changes, jobs, fuzz, commits/pushes or permission-bypass
+flags. Fixed micro-tests/builds may run locally; no real-instance solving.
+
+Return terminal PASS/FAILURE/BLOCKED with causal classification, exact new
+paths, actual commands/results, sanitizer limitations, positive/negative
+proof checks, and whether any real solver defect remains. If the issue is a
+genuine solver defect, preserve its reproducer and return FAILURE requesting
+the precise additional repair scope. Do not convert a fixture-only repair
+into a fuzz pass, benchmark acceptance or permission to promote7087.

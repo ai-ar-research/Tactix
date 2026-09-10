@@ -1,0 +1,15 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-7089-bve-view-proofs/previous-fixture",
+    "1",
+    "2",
+    "1",
+    "0",
+    "1",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-7089-bve-view-proofs/previous-1-2-1-0-1.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-7089-bve-view-proofs/previous-1-2-1-0-1.proof"
+  ],
+  "exit_code": 0,
+  "stdout": "BVE views pad=1 copies=2 reverse=1 dense=0 lrat=1 resolutions=4 eliminated=1\n",
+  "stderr": ""
+}

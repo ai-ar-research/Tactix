@@ -1,0 +1,8 @@
+{
+  "authority": "benchmarks/runs/20260910-7030-collect-retry-build/manifest.json",
+  "sha256": "4f81e436a3b7aa611906717fa2d65f42170b00cd3594e788962db6d7b1d92c1e",
+  "approval": "User explicitly answered Yes to the BVE data-path prototype after73a78fd8.",
+  "design": "benchmarks/reports/2026-09-10-eliminate-lifecycle-cost.md",
+  "scope": "Stage1 stable arena-offset antecedent slices with pooled root-filtered fallback. Preserve ordering/ticks/proofs/core/generator/N1. No kernel layout, FlatLists or scheduling change.",
+  "gate": "Prove lifetime and snapshots in fixed tests; full suites and exact-work/certificate controls before runtime.20% complete-Eliminate target applies to the complete prototype, not a claimed stage1 gain."
+}

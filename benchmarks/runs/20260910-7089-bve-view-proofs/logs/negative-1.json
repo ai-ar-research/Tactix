@@ -1,0 +1,10 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/tools/checkers/bin/cake_lpr",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-7089-bve-view-proofs/negative-1.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-7089-bve-view-proofs/negative-1.proof"
+  ],
+  "exit_code": 0,
+  "stdout": "",
+  "stderr": "c Checking failed at line: 0. Reason: pivot must be non-zero\n"
+}
