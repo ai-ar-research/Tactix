@@ -1,0 +1,23 @@
+{
+  "job_id": "1678793",
+  "tasks": [
+    4,
+    5,
+    6,
+    7
+  ],
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--array=4-7",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6770-watermark-layout-runtime/array.sbatch"
+  ],
+  "accounting_since": "2026-09-09T22:39:21",
+  "manifest_sha256": "785012b3887b9b7c6ccc7a7a6f96af7c449e7dcae8be9aa8fe1342bf5e2cde23",
+  "preceding_records": {
+    "benchmarks/runs/20260909-6770-watermark-layout-runtime/results/003.json": "b8fe8706f041bba212136fb50afa84cc91655af84f0aca7e6de88b35bfc5091d",
+    "benchmarks/runs/20260909-6770-watermark-layout-runtime/results/002.json": "9aa7d414201bd510200d5b40558f160a0876a4af322d4aae2945533944189acb",
+    "benchmarks/runs/20260909-6770-watermark-layout-runtime/provisional/000.json": "4ce67a9d0568aaf34295958c41341af3c4a9988402a5fb32abc4338b7b38cf76",
+    "benchmarks/runs/20260909-6770-watermark-layout-runtime/provisional/001.json": "813e0d22060248a82c723efc057db6dcd861d758112a5fb7efe3f19cc463c722"
+  }
+}

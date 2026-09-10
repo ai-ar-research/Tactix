@@ -1,0 +1,18 @@
+{
+  "job_id": "1678787",
+  "tasks": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--array=0-3",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6770-watermark-layout-runtime/array.sbatch"
+  ],
+  "accounting_since": "2026-09-09T22:32:29",
+  "manifest_sha256": "785012b3887b9b7c6ccc7a7a6f96af7c449e7dcae8be9aa8fe1342bf5e2cde23",
+  "preceding_records": {}
+}

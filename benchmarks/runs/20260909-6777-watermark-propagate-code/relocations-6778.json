@@ -1,0 +1,143 @@
+{
+  "equal_instruction_offsets_and_nonrelocated_operands": true,
+  "instruction_rows": 933,
+  "function_size": 4129,
+  "before_address": "0x413790",
+  "layout_address": "0x413730",
+  "relocations": [
+    {
+      "index": 26,
+      "offset": 103,
+      "kind": "direct_call",
+      "target": "<_ZN6tactixL17propagate_literalILb0ELb0ELb1EEEbRNS_6KernelEjjRm>"
+    },
+    {
+      "index": 149,
+      "offset": 648,
+      "kind": "readonly_word",
+      "target": "<_ZN6tactix11BinaryIdMap5EMPTYE+0x18>",
+      "word_bytes": "0100"
+    },
+    {
+      "index": 413,
+      "offset": 1765,
+      "kind": "direct_call",
+      "target": "<_ZNSt6vectorIjSaIjEE6resizeEm>"
+    },
+    {
+      "index": 444,
+      "offset": 1927,
+      "kind": "readonly_word",
+      "target": "<_IO_stdin_used+0x223a>",
+      "word_bytes": "0101"
+    },
+    {
+      "index": 499,
+      "offset": 2175,
+      "kind": "direct_call",
+      "target": "<_ZNSt6vectorIjSaIjEE7reserveEm>"
+    },
+    {
+      "index": 511,
+      "offset": 2238,
+      "kind": "direct_call",
+      "target": "<_ZNSt6vectorIjSaIjEE6resizeEm>"
+    },
+    {
+      "index": 580,
+      "offset": 2543,
+      "kind": "direct_call",
+      "target": "<_ZNSt6vectorIjSaIjEE7reserveEm>"
+    },
+    {
+      "index": 592,
+      "offset": 2606,
+      "kind": "direct_call",
+      "target": "<_ZNSt6vectorIjSaIjEE6resizeEm>"
+    },
+    {
+      "index": 752,
+      "offset": 3304,
+      "kind": "direct_call",
+      "target": "<_ZNSt6vectorIjSaIjEE6resizeEm>"
+    },
+    {
+      "index": 769,
+      "offset": 3389,
+      "kind": "direct_call",
+      "target": "<_ZNSt6vectorIjSaIjEE6resizeEm>"
+    },
+    {
+      "index": 859,
+      "offset": 3774,
+      "kind": "direct_call",
+      "target": "<_ZNSt6vectorIjSaIjEE7reserveEm>"
+    },
+    {
+      "index": 872,
+      "offset": 3843,
+      "kind": "direct_call",
+      "target": "<_ZNSt6vectorIjSaIjEE7reserveEm>"
+    }
+  ],
+  "constant_reads": [
+    {
+      "arm": "before",
+      "address": 5342176,
+      "command": [
+        "objdump",
+        "-s",
+        "--start-address=0x5183e0",
+        "--stop-address=0x5183e2",
+        "/home/hwu/SAT-solving/build/pin-6654-congruence-empty-gates-release/tactix"
+      ],
+      "stdout": "\n/home/hwu/SAT-solving/build/pin-6654-congruence-empty-gates-release/tactix:     file format elf64-x86-64\n\nContents of section .rodata:\n 5183e0 0100                                 ..              \n",
+      "word_bytes": "0100"
+    },
+    {
+      "arm": "layout",
+      "address": 5338080,
+      "command": [
+        "objdump",
+        "-s",
+        "--start-address=0x5173e0",
+        "--stop-address=0x5173e2",
+        "/home/hwu/SAT-solving/build/pin-6763-watermark-layout-release/tactix"
+      ],
+      "stdout": "\n/home/hwu/SAT-solving/build/pin-6763-watermark-layout-release/tactix:     file format elf64-x86-64\n\nContents of section .rodata:\n 5173e0 0100                                 ..              \n",
+      "word_bytes": "0100"
+    },
+    {
+      "arm": "before",
+      "address": 5341754,
+      "command": [
+        "objdump",
+        "-s",
+        "--start-address=0x51823a",
+        "--stop-address=0x51823c",
+        "/home/hwu/SAT-solving/build/pin-6654-congruence-empty-gates-release/tactix"
+      ],
+      "stdout": "\n/home/hwu/SAT-solving/build/pin-6654-congruence-empty-gates-release/tactix:     file format elf64-x86-64\n\nContents of section .rodata:\n 51823a 0101                                 ..              \n",
+      "word_bytes": "0101"
+    },
+    {
+      "arm": "layout",
+      "address": 5337658,
+      "command": [
+        "objdump",
+        "-s",
+        "--start-address=0x51723a",
+        "--stop-address=0x51723c",
+        "/home/hwu/SAT-solving/build/pin-6763-watermark-layout-release/tactix"
+      ],
+      "stdout": "\n/home/hwu/SAT-solving/build/pin-6763-watermark-layout-release/tactix:     file format elf64-x86-64\n\nContents of section .rodata:\n 51723a 0101                                 ..              \n",
+      "word_bytes": "0101"
+    }
+  ],
+  "hashes": {
+    "benchmarks/runs/20260909-6777-watermark-propagate-code/summary.json": "e0ab659e1a63ede5249c82191798162fb4c4943b05af03b820800a696ce07c8e",
+    "benchmarks/probes/scratch/validate-propagate-relocations-6778.py": "f30b39b9bb498d9553ed24cf8f14434b7203cd118a19e65ae1f9bef70674e1d9"
+  },
+  "test_consideration": "Four fixed direct-call recognition controls; every differing actual instruction must be one of10 same-symbol direct calls or2 same-symbol/destination read-only word loads with independently extracted equal bytes. All PCs and other operands exact, so no member-offset or instruction-shape difference is hidden.",
+  "limitation": "Static equivalence of this one function after explicitly proved relocations, not whole-program equivalence or proof that code placement causes the runtime gap.6777 retained callq spellings and RIP operands as differences; this successor accounts them without rewriting the earlier snapshot."
+}

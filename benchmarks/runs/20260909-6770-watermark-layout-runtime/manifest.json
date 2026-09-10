@@ -1,0 +1,179 @@
+{
+  "schema": "tactix-collapse-changed-work-three-waves-v1",
+  "created_at": "2026-09-10T02:32:07.299452+00:00",
+  "arms": {
+    "candidate": {
+      "path": "pins/candidate",
+      "sha256": "ec37ee524ea287ef8b7e530dfdd5202514d416ddc407c336e83b2e92e4fccbdf",
+      "arguments": [],
+      "source_commit": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+      "source_build": "build/pin-6763-watermark-layout-release"
+    },
+    "previous": {
+      "path": "pins/previous",
+      "sha256": "7b0a7666b28644422d6cc4b3a648a677b6745bd8a7ffb9c27c6d3e5660725132",
+      "arguments": [],
+      "source_commit": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+      "source_build": "build/pin-6730-reduce-watermark-release"
+    }
+  },
+  "authorities": {
+    "candidate": {
+      "path": "benchmarks/runs/20260909-6763-watermark-layout-build/manifest.json",
+      "sha256": "41b2c7a97103d81ea5afe2513abc94bd930c0866724996c353cc71ba61d730c4"
+    },
+    "previous": {
+      "path": "benchmarks/runs/20260909-6730-reduce-watermark-build/manifest.json",
+      "sha256": "e21167816ac5c86fe3b82db5d3cb0401d3a0b34a79ef7578ea5251d84cdb605f"
+    }
+  },
+  "input_sha256": {
+    "tierD24-26/266e890b706cf336378bf148bbda1aff-mexam_15_12_2.sanitized.cnf.xz": "ff8adaab784f0655ac2e249bf18d36bfb80fa1c812f48d690ac5c27208c65fcc",
+    "tierD24-26/9aa85c5c114245c182ed6afbe3d8daed-schooltt-5-3-8-2-4-5-10-0.1-0.2-seed4.sanitized.cnf.xz": "820c58fe12edc807f98013f05a30b51283c50e4eaa02761534c83d478e15ac99"
+  },
+  "collect_runtime_context": true,
+  "resource_contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "cpus_per_task": 12,
+    "memory_mib": 48000,
+    "array": "0-11",
+    "throttle": null,
+    "node_constraint": null,
+    "proof_mode": "DRAT on both arms",
+    "one_solver_per_task": true,
+    "solve_timeout": 1200,
+    "checker_timeout": 16000
+  },
+  "protected_campaign_hashes": {
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/manifest.json": "b2f9e98291c56c415e4cb9439a77378c55cc78593d632c1fc84a6d5ee194acf6",
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/array.sbatch": "b90503efeb1acd5ea2cb081fc60a79c2e1ab6d51287cedf050a673ddb5433143",
+    "benchmarks/baselines/rank1-40-kissat-12cpu-v1/manifest.json": "45259e1acbc93472b923517f75fd6b8697669b3ad74970d27b565b6b7f1aa686",
+    "benchmarks/runs/20260908-5712-assignment-level-ranks1-40/manifest.json": "80211109441ac7e1483082a767c755ffc03c029381398c71017593e2ff29a8ae",
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/pins/runtime_task.py": "ccef4f23bac433c4c205949c0296f2cdef0e98d0d56fff5d306abb6e6209297f",
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/pins/modelcheck.py": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/manifest.json": "d09c9f2a030d0d29974fa881ee247c7900704e4be0e204b28c0b16beaf443d16",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/array.sbatch": "82b47f14fc76c4d5ca14484035b1033d013c1a36c2bbe44c531a1a6a56c87efb",
+    "benchmarks/runs/20260908-6114-substitute-publication-BC-gate/manifest.json": "27c57c3c896ab15daa9d51ff87f9a977472d28b2b43b849be7322b96eb598bb1",
+    "benchmarks/runs/20260908-6114-substitute-publication-BC-gate/array.sbatch": "2b6afd38eb7dcc8fc39f6fa294f5786d20d9238a4facb7cb64bc6c35a0320b4a",
+    "benchmarks/runs/20260908-6115-substitute-publication-ranks1-50/manifest.json": "e739603e6d4ec9024beebfa7a049def7c3ea01eb6b5287e542f05a651e646cd7",
+    "benchmarks/runs/20260908-6115-substitute-publication-ranks1-50/array.sbatch": "ab074cdcf7e9691f7031fd9aa198cef18fe83bb9edc5aa73f0c5b033d2d380f5",
+    "benchmarks/baselines/rank1-50-kissat-12cpu-v1/manifest.json": "5f7865e46af2b9ed0d1899ce6e450bfb9b3575801c50183e059d0e4326f5a1e0",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/manifest.json": "224b3b5d80c3087b3c3c709a78dcf934d175823bd2232f68a2475e6d11bd3d1a",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/launch.json": "ee6eea617d6fef64349ed0096c9dd06f1ffb9ba03467dd6901ab92b833bfb7a1",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/array.sbatch": "37e88d1e5998092127067b1ac0fedc388f29ddf45179057a508fb53dabaa24be"
+  },
+  "work_oracles": {
+    "candidate": {
+      "38": {
+        "path": "benchmarks/runs/20260909-6743-reduce-watermark-ranks1-50/results/037.json",
+        "sha256": "ae944f8dbcce3ae5321c1870c6a7dec44268f0ffb81be5c2da74d2d3d018c224"
+      },
+      "46": {
+        "path": "benchmarks/runs/20260909-6743-reduce-watermark-ranks1-50/results/045.json",
+        "sha256": "49ddd13c03d79c5b3cec88c6441e1b2e7ecbe447cc688b54d2865298a4a4600e"
+      }
+    },
+    "previous": {
+      "38": {
+        "path": "benchmarks/runs/20260909-6743-reduce-watermark-ranks1-50/results/037.json",
+        "sha256": "ae944f8dbcce3ae5321c1870c6a7dec44268f0ffb81be5c2da74d2d3d018c224"
+      },
+      "46": {
+        "path": "benchmarks/runs/20260909-6743-reduce-watermark-ranks1-50/results/045.json",
+        "sha256": "49ddd13c03d79c5b3cec88c6441e1b2e7ecbe447cc688b54d2865298a4a4600e"
+      }
+    }
+  },
+  "bc_solver_records": {
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/030.json": "cae20580ecc8696d03cb4b68226b6eb04b70cbfcd9a78fe8e3c7f993519a4879",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/001.json": "a56aae3ca55e346e3810c6262258eb3f31cb2c94d154eae13f018cbcb9397069",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/028.json": "03b907f5cae1ab420bf3996e1e7456e5bf189ab1381a2c0d2a6b4ff1521c4dc8",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/063.json": "7d5c82d583bb76e29321fa9ea4649e10dfac9713fa665a3a67fe9332256fb4f6",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/052.json": "0fdf5314a1ec246086a0f2bbffe750d5fca2806d2494a8a579d292e58f455df8",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/019.json": "5112b480f57bbd286ae5d5da048dbfb2c2fe40884a2f5c338d57f78e517016cc",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/005.json": "582af5d5dd5b1b7c58a2cb4227b34715c5f935f5329f62ce1fa8d2c476628860",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/034.json": "f4505ad36eda105eb5458109e198c76c871730d18474a684658198ab28cc9487",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/056.json": "b714743093eaab98433884c1e2d4b58c986c5ae7a8c62a91677466d5dae21916",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/020.json": "78e76e31d4b17034fb64751f5370c68775ed194a44a6d25ae2f57a108312e3d3",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/011.json": "9b1c4ac0c10fd117eaec974d83bac13acee19a96229dcc9ae71310e08b1b088a",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/038.json": "ccdaa643b504671084086699f12e45521697d67dec804024448d427fa126f2d1",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/009.json": "7871277fec75b5d2d306169cbf7badded834df5010dcf1542786b8023519bc96",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/042.json": "596a06ef732c1449374b85e0e2083849061d0f79b79b11c2c24d0e08688d5c92",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/015.json": "e6979e6b9c63222a6787eeecf1b97033fb3abcd548e1238f41fa46c5bc9a5023",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/024.json": "cd8b9a6616e46884e0db03567a2330ad54e52de25704edb40ad12ba8df7a929c",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/046.json": "11d2f4b4f5cfe551bdd80ba296462ee3064d8095f40797790c6d64b3910b71d3",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/021.json": "833b06101fa385f12545bac4ea9a0ac01c339074e368eae9793a9dcebe1724a0",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/010.json": "5f523592f4c3847bad131141cf5b18d8e93641a43164a1e346ab2befadec9f27",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/039.json": "b8f4a6c075ae9f3413e2502cb6f20b2ff5c69011ad7db607a5a513d2f30d9652",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/043.json": "97b784c63af6edc2420e9a2204fe8cd849d5b2c2ad8bf1e7e47b51d34e8f9ba1",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/008.json": "a2e9b1a009f95126a2e9e60886c6bf53e7168d6f1ae60e55d747eb66ba6a5c0f",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/014.json": "aeedec62508bd21792785176f6245978e87d85565169e31f6a0db93e94ec8cfb",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/025.json": "38e00de944aa5313121dbb3a7ade87d529525060cc787b20d95c832ba0b66205",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/047.json": "200129b5e0d80b2e66112d996029d33bc63d456cb0ecd7f6e0130860c239459c",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/031.json": "ef73cbb6c073d8a9dc2652d1f087cdf1b747c7f2b465c521baf37f9aafb315dd",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/000.json": "750ef90b17b59662cd26a8e44928c27034cecc20e36ca10a0fbc7c2fc35bb114",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/062.json": "8a89ab66564d104c29692d5ebc665deebace8b394e51688803046a91df9d2f65",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/029.json": "9179e449763f393ed7d169b2481e453f81bd2f7b3e682dd193fb9505131ddd74",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/018.json": "a8432a310690f78642e88ba026e49c21ac55acad65dfaa5687e4c5c8255556ce",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/053.json": "fc26625999d0bf920386b92437860b17dabc5b1e333d6ba33eca4191bfdc5061",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/004.json": "42bd8b53572b11ea7daba1085ab3f1c0f2f772a06c7feeed42398bee5659e47a",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/035.json": "5ded79a1822e3751c3af7e2d97b355ee8ad0acf232a2c08f14c4bad5cd4f6b94",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/057.json": "5f44ab94c81f78a76ab2ac566a328260ff3b770c3ec65be8873a8fc3e429eafe",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/023.json": "96d2e3865474c86ef825ebde261895c669c127b47c7c55a687a442d8fca1b049",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/059.json": "6013fe514b48a560eeb5ca3f2b22c735ab586a7c734ab18e5ea7b450acdd34a1",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/012.json": "c852179b6f139b6800dd7d248deb5cbb9ff28b270b8725029b233e1d10de7e00",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/041.json": "d23306dfeaba4ce045c00aacc184f6270fdac75753fa3fb245d1b682b53a92fa",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/016.json": "1c67849f4443bb6692483174e4d2db9333dc6bc71851654f6c7017d6b40ce53a",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/027.json": "644ace9980cebd3f3d8ff2af86e30467a404f9fb8604da49cae9626b85d7dfe9",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/045.json": "1b0550fe7cedcab9322d3c73c05313920be182be106ab23afb5e721a457efcf8",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/033.json": "7f2a4c47ef1367644a2cdf6202df996b71b2e4f76b89e5560e1a21a8bf6acb21",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/002.json": "35fd579777e0af284bc1a58150cdf78a0e7daed8e6d3eec5dabadbf339769256",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/049.json": "6e17543a8a6a7742cf5b1b599cdc26ed6ba13a8ff4660ce0c0c9aa14b0774ced",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/060.json": "336f94f5cc0c8292bbb0c24221adfc0635efcbc052f8a27023a4951e7bcc4adb",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/051.json": "d43b4c89f9cbbf280c8ab3bb66eb5f7c28f014461dea8e764bc3598617e20be1",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/006.json": "e06f05d69d45ff586aad8601d7db6ce4dfc908654d9faaee69eca1dc0355483d",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/037.json": "1646334dd55ebfd68d0f851aebce1b10a50a1273b1b1878d68378771879b1920",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/055.json": "23a337a4d04e9c4bf90c21fff1b81693b8b277535e07c7388aa3baa2c73e04a9",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/provisional/064.json": "b1fc2c1af8c6c455510d5a65732f3dea776d65340637ca0c60cf04da3d55ebda",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/032.json": "f885caabe6eee52c92745aeac03324b5689049d8c6545b7dbf9b7f8f9c983393",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/048.json": "82ebeef3dae6bc5114d11515261bf925348761c22236f2a080e12c9c305c81d9",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/003.json": "e4ae5d69b8f327d707a76314b94ef3dbf4ebbf75bc87de14c0f299fd954bcdb6",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/061.json": "05a842551522f104f29d444f66bf87fe1987e300bb88cea083c6651f90a30b8a",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/050.json": "f43a58d084574e125a8d56247c48d07720da73eaf191607d893241f72a07d16f",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/007.json": "44e0592506a8e0cc5abf4e6bb79bf48ed5474fbfae6c10d0129bdaa5e3759bd8",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/036.json": "2973ee5815e64c55a7c2825ad193632252dedbf74b9b26cb89bc84bb1855fc33",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/054.json": "ae21f02cfb8aa99e85fbcd1466bb53015278a60677e6e0c2d7c9a8abbb4e76e6",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/provisional/065.json": "1d86cc4699a4c5c536342dd3445085763ac6b254df49b45bf0ec5a3ce344727b",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/022.json": "944d96b87be328586717f6dde46149e43a4f5a124ae50f01572371d7415ee7cf",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/013.json": "62b873ed07cb515e445c7ec8f42f66c5ec9643b848d7eb809efaa4403b3521d3",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/058.json": "18e918fd140adcca8d5b8408b682229dea8a5b96391f94c845fc93fbb770b1bc",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/040.json": "a90c050b69965d952e05094eafaa0c4f3c95c667cff54da155498ff160e54ccb",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/017.json": "26b20b2a1e58767d827680aa5b919e62cf05747572192939d8a6d7932342b3e5",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/026.json": "dcdbe0642642995678bee5faf30cb96d21020a50ce3f1c3f005f91aad3b8d353",
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/results/044.json": "8057d85de94abb47361ed964cb01434e3064eee8b405a7255dd0ce7bdf50b6eb"
+  },
+  "witnesses": {
+    "38": "repeatable5.89% unchanged-work cost regression",
+    "46": "preserve historical-watermark work repair and price its unchanged work"
+  },
+  "dependencies": {
+    "benchmarks/runs/20260909-6766-watermark-layout-BC-gate/summary-6768.json": "c230415237823cba38b86f5c361b493533614c95e386b38c116ec04225903a18",
+    "benchmarks/runs/20260909-6765-watermark-layout-control/summary.json": "11230e843528a3e8021b7884c7b7142dd96dac664a2bc794560057adeb081a45",
+    "benchmarks/runs/20260909-6769-watermark-layout-proof-control/summary.json": "a0ee09fa0f4fe296e4e0d985327b37a0a52136b6d88a790897be40dff41cdf9c"
+  },
+  "submission_contract": "Three sequential full-width four-task waves0-3,4-7,8-11; each rank owns a separate concurrent pair. Expected solver outcomes permit the next wave while proofs run. Middle wave reverses arm order; no throttle or node constraint.",
+  "hypothesis": "Moving the unchanged marker into existing padding restores old member offsets. Does this remove repeatable Rank38 cost while preserving Rank46 work and speed? Both arms must match the same6730 per-rank certificate/work; no speedup assumed.",
+  "acceptance": "All12 expected independently checked clean outcomes; both arms exact to the same6730 per-rank work/proof oracle. Report each three-pair median/range and complete arm spreads; absolute claim requires <=2% spread. Preserve Rank46 closure. No full50 or promotion claim from this subset.",
+  "test_consideration": "Layout-only6763 passes112/112/111 full suites with288 watermark cases;6765 proves restored offsets,6769 eight independent proofs exact6730,6768 all33 B/C pairs exact work/certificates.218 benchmark and19 watcher fixtures cover the reused timing readers;12-task paired matrix asserted.",
+  "limitation": "Source fuzz,memory and full50 gates remain separate. No new Kissat run or fixed-reference change.",
+  "pin_sha256": {
+    "pins/candidate": "ec37ee524ea287ef8b7e530dfdd5202514d416ddc407c336e83b2e92e4fccbdf",
+    "pins/checkmodel": "5fde6bbc7be305f6b6166ef75dc4788e2cf40180317ab1ec9a38a3d6071676cf",
+    "pins/runtime_task.py": "9a010d276a883c9289ad6a620e39c1ed761c2ba3b62f3d878e37cca5de228206",
+    "pins/modelcheck.py": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+    "pins/previous": "7b0a7666b28644422d6cc4b3a648a677b6745bd8a7ffb9c27c6d3e5660725132",
+    "pins/drat-trim": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+    "matrix.tsv": "50bf0cfc8beb5f5b735511a138899ee603d2db7cd46d00f03cbef977d8f038fb",
+    "array.sbatch": "1ba46ee89d167ce7a9416c5c6082893e9512621caeddaebdca0896e66285c6ef"
+  }
+}
