@@ -1,0 +1,20 @@
+{
+  "job_id": "1679374",
+  "tasks": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--array=0-5",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6936-factor-count-runtime/array.sbatch"
+  ],
+  "accounting_since": "2026-09-10T03:59:47",
+  "manifest_sha256": "71b0ced2a8b8fc8fc8de6bdf463319930624ee6927eb486926a6a7967399612a",
+  "preceding_records": {}
+}

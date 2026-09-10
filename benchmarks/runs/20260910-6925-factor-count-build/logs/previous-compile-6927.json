@@ -1,0 +1,19 @@
+{
+  "command": [
+    "/cm/local/apps/gcc/13.1.0/bin/c++",
+    "-std=c++20",
+    "-O3",
+    "-DNDEBUG",
+    "-fno-exceptions",
+    "-fno-rtti",
+    "-I/home/hwu/SAT-solving/.claude/worktrees/runtime-reduce-watermark-6730/src",
+    "-I/home/hwu/SAT-solving/.claude/worktrees/runtime-reduce-watermark-6730/include",
+    "-c",
+    "/home/hwu/SAT-solving/.claude/worktrees/runtime-reduce-watermark-6730/src/rules/factor/factor.cpp",
+    "-o",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6925-factor-count-build/previous-factor-6927.o"
+  ],
+  "exit_code": 0,
+  "stdout": "",
+  "stderr": ""
+}

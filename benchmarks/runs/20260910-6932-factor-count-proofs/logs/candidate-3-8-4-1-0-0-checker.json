@@ -1,0 +1,10 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6932-factor-count-proofs/candidate-3-8-4-1-0-0.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6932-factor-count-proofs/candidate-3-8-4-1-0-0.proof"
+  ],
+  "returncode": 0,
+  "stdout": "\nc parsing input formula with 35 variables and 31 clauses\n\nc finished parsing\n\nc UNSAT via unit propagation on the input instance\n\nc 6 of 31 clauses in core                            \n\nc 1 of 13 lemmas in core using 6 resolution steps\n\nc 0 RAT lemmas in core; 0 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.042 seconds\n",
+  "stderr": ""
+}

@@ -1,0 +1,10 @@
+{
+  "job_id": "1679463",
+  "accounting_since": "2026-09-10T04:28:09",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6965-xor-stage-time/array.sbatch"
+  ],
+  "manifest_sha256": "ba4a602fe665469321dec296318280d313d7b8bea552e9a6de6fc02ae9064c37"
+}

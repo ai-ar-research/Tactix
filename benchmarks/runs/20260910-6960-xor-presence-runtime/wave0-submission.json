@@ -1,0 +1,20 @@
+{
+  "job_id": "1679462",
+  "tasks": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--array=0-5",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6960-xor-presence-runtime/array.sbatch"
+  ],
+  "accounting_since": "2026-09-10T04:28:09",
+  "manifest_sha256": "25423c84b06c9952c4476cfca1997c62da0e7c50d078d0c43fcc02d79422d2c1",
+  "preceding_records": {}
+}

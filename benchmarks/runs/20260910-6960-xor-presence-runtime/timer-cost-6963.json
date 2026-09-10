@@ -1,0 +1,557 @@
+{
+  "observed_at": "2026-09-10T08:49:14.457515+00:00",
+  "experiment": "xor-presence",
+  "hashes": {
+    "benchmarks/probes/scratch/price-xor-presence-waves-6963.py": "2925dd8f0d5c4c2726cf2178f320e36131d5ed85254cd6a08d70fa795cbbd374",
+    "benchmarks/runs/20260910-6960-xor-presence-runtime/solver-checkpoint-6962.json": "9da36af6109d7acf81911c2c453df6db522f419bdce515301462dd227decc8bb",
+    "tools/bench/inprocessing_cost.py": "725744226d429f28d9093079a6022a43cd77450069642faae6f1cabf1ae71a4a",
+    "tools/bench/test_inprocessing_cost.py": "a28ab25ab0ca075f5d88c34ee17f2ee608841f27802b999deca1041d39d1a08b"
+  },
+  "ranks": {
+    "47": {
+      "waves": [
+        {
+          "wave": 0,
+          "values": {
+            "candidate": {
+              "wall_seconds": 139.342,
+              "peak_rss_kib": 4823660,
+              "slot_ms": 88144,
+              "outside_ms": 47963,
+              "Congruence_ms": 57220,
+              "Sweep_ms": 7543,
+              "Vivify_ms": 9677,
+              "Substitute_ms": 9831
+            },
+            "previous": {
+              "wall_seconds": 141.373,
+              "peak_rss_kib": 4823660,
+              "slot_ms": 89601,
+              "outside_ms": 48570,
+              "Congruence_ms": 58660,
+              "Sweep_ms": 7551,
+              "Vivify_ms": 9713,
+              "Substitute_ms": 9802
+            }
+          },
+          "ratios": {
+            "wall_seconds": 0.9856337490185539,
+            "peak_rss_kib": 1.0,
+            "slot_ms": 0.9837390207698575,
+            "outside_ms": 0.9875025736051061,
+            "Congruence_ms": 0.9754517558813501,
+            "Sweep_ms": 0.9989405376771289,
+            "Vivify_ms": 0.9962936270977041,
+            "Substitute_ms": 1.0029585798816567
+          },
+          "applications": {
+            "Congruence": 5,
+            "Sweep": 4,
+            "Vivify": 15,
+            "Substitute": 9
+          }
+        },
+        {
+          "wave": 1,
+          "values": {
+            "candidate": {
+              "wall_seconds": 140.206,
+              "peak_rss_kib": 4823660,
+              "slot_ms": 88510,
+              "outside_ms": 48454,
+              "Congruence_ms": 57475,
+              "Sweep_ms": 7595,
+              "Vivify_ms": 9713,
+              "Substitute_ms": 9829
+            },
+            "previous": {
+              "wall_seconds": 141.796,
+              "peak_rss_kib": 4823660,
+              "slot_ms": 89705,
+              "outside_ms": 48904,
+              "Congruence_ms": 58739,
+              "Sweep_ms": 7545,
+              "Vivify_ms": 9746,
+              "Substitute_ms": 9804
+            }
+          },
+          "ratios": {
+            "wall_seconds": 0.9887867076645321,
+            "peak_rss_kib": 1.0,
+            "slot_ms": 0.9866785574940081,
+            "outside_ms": 0.9907982987076722,
+            "Congruence_ms": 0.9784810773080918,
+            "Sweep_ms": 1.0066269052352552,
+            "Vivify_ms": 0.9966139954853274,
+            "Substitute_ms": 1.0025499796001631
+          },
+          "applications": {
+            "Congruence": 5,
+            "Sweep": 4,
+            "Vivify": 15,
+            "Substitute": 9
+          }
+        },
+        {
+          "wave": 2,
+          "values": {
+            "candidate": {
+              "wall_seconds": 140.006,
+              "peak_rss_kib": 4823660,
+              "slot_ms": 88436,
+              "outside_ms": 48364,
+              "Congruence_ms": 57423,
+              "Sweep_ms": 7589,
+              "Vivify_ms": 9697,
+              "Substitute_ms": 9833
+            },
+            "previous": {
+              "wall_seconds": 141.425,
+              "peak_rss_kib": 4823660,
+              "slot_ms": 89780,
+              "outside_ms": 48271,
+              "Congruence_ms": 58802,
+              "Sweep_ms": 7573,
+              "Vivify_ms": 9701,
+              "Substitute_ms": 9814
+            }
+          },
+          "ratios": {
+            "wall_seconds": 0.989966413293265,
+            "peak_rss_kib": 1.0,
+            "slot_ms": 0.9850300735130318,
+            "outside_ms": 1.0019266226098487,
+            "Congruence_ms": 0.9765484167205197,
+            "Sweep_ms": 1.0021127690479334,
+            "Vivify_ms": 0.9995876713740851,
+            "Substitute_ms": 1.001936009781944
+          },
+          "applications": {
+            "Congruence": 5,
+            "Sweep": 4,
+            "Vivify": 15,
+            "Substitute": 9
+          }
+        }
+      ],
+      "paired": {
+        "wall_seconds": {
+          "priced_waves": 3,
+          "median": 0.9887867076645321,
+          "min": 0.9856337490185539,
+          "max": 0.989966413293265
+        },
+        "peak_rss_kib": {
+          "priced_waves": 3,
+          "median": 1.0,
+          "min": 1.0,
+          "max": 1.0
+        },
+        "slot_ms": {
+          "priced_waves": 3,
+          "median": 0.9850300735130318,
+          "min": 0.9837390207698575,
+          "max": 0.9866785574940081
+        },
+        "outside_ms": {
+          "priced_waves": 3,
+          "median": 0.9907982987076722,
+          "min": 0.9875025736051061,
+          "max": 1.0019266226098487
+        },
+        "Congruence_ms": {
+          "priced_waves": 3,
+          "median": 0.9765484167205197,
+          "min": 0.9754517558813501,
+          "max": 0.9784810773080918
+        },
+        "Sweep_ms": {
+          "priced_waves": 3,
+          "median": 1.0021127690479334,
+          "min": 0.9989405376771289,
+          "max": 1.0066269052352552
+        },
+        "Vivify_ms": {
+          "priced_waves": 3,
+          "median": 0.9966139954853274,
+          "min": 0.9962936270977041,
+          "max": 0.9995876713740851
+        },
+        "Substitute_ms": {
+          "priced_waves": 3,
+          "median": 1.0025499796001631,
+          "min": 1.001936009781944,
+          "max": 1.0029585798816567
+        }
+      }
+    },
+    "42": {
+      "waves": [
+        {
+          "wave": 0,
+          "values": {
+            "candidate": {
+              "wall_seconds": 65.452,
+              "peak_rss_kib": 1611748,
+              "slot_ms": 33010,
+              "outside_ms": 30438,
+              "Congruence_ms": 9902,
+              "Sweep_ms": 2390,
+              "Vivify_ms": 4223,
+              "Substitute_ms": 3754
+            },
+            "previous": {
+              "wall_seconds": 65.82,
+              "peak_rss_kib": 1611748,
+              "slot_ms": 33177,
+              "outside_ms": 30643,
+              "Congruence_ms": 10031,
+              "Sweep_ms": 2390,
+              "Vivify_ms": 4259,
+              "Substitute_ms": 3763
+            }
+          },
+          "ratios": {
+            "wall_seconds": 0.9944089942266789,
+            "peak_rss_kib": 1.0,
+            "slot_ms": 0.9949663923802634,
+            "outside_ms": 0.9933100544985805,
+            "Congruence_ms": 0.9871398664141162,
+            "Sweep_ms": 1.0,
+            "Vivify_ms": 0.9915473115754873,
+            "Substitute_ms": 0.9976082912569758
+          },
+          "applications": {
+            "Congruence": 4,
+            "Sweep": 2,
+            "Vivify": 15,
+            "Substitute": 9
+          }
+        },
+        {
+          "wave": 1,
+          "values": {
+            "candidate": {
+              "wall_seconds": 65.828,
+              "peak_rss_kib": 1611748,
+              "slot_ms": 33122,
+              "outside_ms": 30678,
+              "Congruence_ms": 9928,
+              "Sweep_ms": 2393,
+              "Vivify_ms": 4229,
+              "Substitute_ms": 3789
+            },
+            "previous": {
+              "wall_seconds": 66.004,
+              "peak_rss_kib": 1611748,
+              "slot_ms": 33232,
+              "outside_ms": 30762,
+              "Congruence_ms": 10051,
+              "Sweep_ms": 2385,
+              "Vivify_ms": 4282,
+              "Substitute_ms": 3762
+            }
+          },
+          "ratios": {
+            "wall_seconds": 0.9973334949397006,
+            "peak_rss_kib": 1.0,
+            "slot_ms": 0.9966899374097256,
+            "outside_ms": 0.9972693582992003,
+            "Congruence_ms": 0.9877624117003283,
+            "Sweep_ms": 1.0033542976939203,
+            "Vivify_ms": 0.9876226062587576,
+            "Substitute_ms": 1.007177033492823
+          },
+          "applications": {
+            "Congruence": 4,
+            "Sweep": 2,
+            "Vivify": 15,
+            "Substitute": 9
+          }
+        },
+        {
+          "wave": 2,
+          "values": {
+            "candidate": {
+              "wall_seconds": 65.924,
+              "peak_rss_kib": 1611748,
+              "slot_ms": 33123,
+              "outside_ms": 30801,
+              "Congruence_ms": 9928,
+              "Sweep_ms": 2386,
+              "Vivify_ms": 4259,
+              "Substitute_ms": 3785
+            },
+            "previous": {
+              "wall_seconds": 66.128,
+              "peak_rss_kib": 1611748,
+              "slot_ms": 33295,
+              "outside_ms": 30798,
+              "Congruence_ms": 10074,
+              "Sweep_ms": 2397,
+              "Vivify_ms": 4235,
+              "Substitute_ms": 3791
+            }
+          },
+          "ratios": {
+            "wall_seconds": 0.996915073796274,
+            "peak_rss_kib": 1.0,
+            "slot_ms": 0.9948340591680432,
+            "outside_ms": 1.0000974089226573,
+            "Congruence_ms": 0.9855072463768116,
+            "Sweep_ms": 0.9954109303295786,
+            "Vivify_ms": 1.0056670602125148,
+            "Substitute_ms": 0.9984173041413875
+          },
+          "applications": {
+            "Congruence": 4,
+            "Sweep": 2,
+            "Vivify": 15,
+            "Substitute": 9
+          }
+        }
+      ],
+      "paired": {
+        "wall_seconds": {
+          "priced_waves": 3,
+          "median": 0.996915073796274,
+          "min": 0.9944089942266789,
+          "max": 0.9973334949397006
+        },
+        "peak_rss_kib": {
+          "priced_waves": 3,
+          "median": 1.0,
+          "min": 1.0,
+          "max": 1.0
+        },
+        "slot_ms": {
+          "priced_waves": 3,
+          "median": 0.9949663923802634,
+          "min": 0.9948340591680432,
+          "max": 0.9966899374097256
+        },
+        "outside_ms": {
+          "priced_waves": 3,
+          "median": 0.9972693582992003,
+          "min": 0.9933100544985805,
+          "max": 1.0000974089226573
+        },
+        "Congruence_ms": {
+          "priced_waves": 3,
+          "median": 0.9871398664141162,
+          "min": 0.9855072463768116,
+          "max": 0.9877624117003283
+        },
+        "Sweep_ms": {
+          "priced_waves": 3,
+          "median": 1.0,
+          "min": 0.9954109303295786,
+          "max": 1.0033542976939203
+        },
+        "Vivify_ms": {
+          "priced_waves": 3,
+          "median": 0.9915473115754873,
+          "min": 0.9876226062587576,
+          "max": 1.0056670602125148
+        },
+        "Substitute_ms": {
+          "priced_waves": 3,
+          "median": 0.9984173041413875,
+          "min": 0.9976082912569758,
+          "max": 1.007177033492823
+        }
+      }
+    },
+    "38": {
+      "waves": [
+        {
+          "wave": 0,
+          "values": {
+            "candidate": {
+              "wall_seconds": 361.619,
+              "peak_rss_kib": 86520,
+              "slot_ms": 23200,
+              "outside_ms": 338353,
+              "Congruence_ms": 23,
+              "Sweep_ms": 3518,
+              "Vivify_ms": 18524,
+              "Substitute_ms": 453
+            },
+            "previous": {
+              "wall_seconds": 361.561,
+              "peak_rss_kib": 86520,
+              "slot_ms": 23209,
+              "outside_ms": 338323,
+              "Congruence_ms": 23,
+              "Sweep_ms": 3518,
+              "Vivify_ms": 18532,
+              "Substitute_ms": 454
+            }
+          },
+          "ratios": {
+            "wall_seconds": 1.0001604155315424,
+            "peak_rss_kib": 1.0,
+            "slot_ms": 0.9996122193976474,
+            "outside_ms": 1.000088672658968,
+            "Congruence_ms": 1.0,
+            "Sweep_ms": 1.0,
+            "Vivify_ms": 0.9995683142672135,
+            "Substitute_ms": 0.9977973568281938
+          },
+          "applications": {
+            "Congruence": 11,
+            "Sweep": 11,
+            "Vivify": 266,
+            "Substitute": 153
+          }
+        },
+        {
+          "wave": 1,
+          "values": {
+            "candidate": {
+              "wall_seconds": 361.372,
+              "peak_rss_kib": 86520,
+              "slot_ms": 23184,
+              "outside_ms": 338153,
+              "Congruence_ms": 23,
+              "Sweep_ms": 3511,
+              "Vivify_ms": 18514,
+              "Substitute_ms": 453
+            },
+            "previous": {
+              "wall_seconds": 361.325,
+              "peak_rss_kib": 86520,
+              "slot_ms": 23268,
+              "outside_ms": 338000,
+              "Congruence_ms": 23,
+              "Sweep_ms": 3516,
+              "Vivify_ms": 18593,
+              "Substitute_ms": 453
+            }
+          },
+          "ratios": {
+            "wall_seconds": 1.0001300768006642,
+            "peak_rss_kib": 1.0,
+            "slot_ms": 0.9963898916967509,
+            "outside_ms": 1.0004526627218935,
+            "Congruence_ms": 1.0,
+            "Sweep_ms": 0.9985779294653014,
+            "Vivify_ms": 0.9957510891195611,
+            "Substitute_ms": 1.0
+          },
+          "applications": {
+            "Congruence": 11,
+            "Sweep": 11,
+            "Vivify": 266,
+            "Substitute": 153
+          }
+        },
+        {
+          "wave": 2,
+          "values": {
+            "candidate": {
+              "wall_seconds": 361.341,
+              "peak_rss_kib": 86520,
+              "slot_ms": 23273,
+              "outside_ms": 337996,
+              "Congruence_ms": 23,
+              "Sweep_ms": 3520,
+              "Vivify_ms": 18596,
+              "Substitute_ms": 452
+            },
+            "previous": {
+              "wall_seconds": 362.393,
+              "peak_rss_kib": 86520,
+              "slot_ms": 23239,
+              "outside_ms": 339115,
+              "Congruence_ms": 23,
+              "Sweep_ms": 3526,
+              "Vivify_ms": 18553,
+              "Substitute_ms": 454
+            }
+          },
+          "ratios": {
+            "wall_seconds": 0.9970970741708588,
+            "peak_rss_kib": 1.0,
+            "slot_ms": 1.0014630577907828,
+            "outside_ms": 0.9967002344337467,
+            "Congruence_ms": 1.0,
+            "Sweep_ms": 0.998298355076574,
+            "Vivify_ms": 1.002317684471514,
+            "Substitute_ms": 0.9955947136563876
+          },
+          "applications": {
+            "Congruence": 11,
+            "Sweep": 11,
+            "Vivify": 266,
+            "Substitute": 153
+          }
+        }
+      ],
+      "paired": {
+        "wall_seconds": {
+          "priced_waves": 3,
+          "median": 1.0001300768006642,
+          "min": 0.9970970741708588,
+          "max": 1.0001604155315424
+        },
+        "peak_rss_kib": {
+          "priced_waves": 3,
+          "median": 1.0,
+          "min": 1.0,
+          "max": 1.0
+        },
+        "slot_ms": {
+          "priced_waves": 3,
+          "median": 0.9996122193976474,
+          "min": 0.9963898916967509,
+          "max": 1.0014630577907828
+        },
+        "outside_ms": {
+          "priced_waves": 3,
+          "median": 1.000088672658968,
+          "min": 0.9967002344337467,
+          "max": 1.0004526627218935
+        },
+        "Congruence_ms": {
+          "priced_waves": 3,
+          "median": 1.0,
+          "min": 1.0,
+          "max": 1.0
+        },
+        "Sweep_ms": {
+          "priced_waves": 3,
+          "median": 0.9985779294653014,
+          "min": 0.998298355076574,
+          "max": 1.0
+        },
+        "Vivify_ms": {
+          "priced_waves": 3,
+          "median": 0.9995683142672135,
+          "min": 0.9957510891195611,
+          "max": 1.002317684471514
+        },
+        "Substitute_ms": {
+          "priced_waves": 3,
+          "median": 0.9977973568281938,
+          "min": 0.9955947136563876,
+          "max": 1.0
+        }
+      }
+    }
+  },
+  "solved": {
+    "candidate": 9,
+    "previous": 9,
+    "SAT": 0,
+    "UNSAT": 18,
+    "timeouts": 0,
+    "solve_losses": 0
+  },
+  "paired_par2_seconds": {
+    "candidate": 1701.0900000000001,
+    "previous": 1707.8249999999998
+  },
+  "test_consideration": "Eight new maintained paired-matrix tests cover exact reversed-order ratios, complete cardinality, wrong/duplicate pairs, application changes, missing rules, zero denominator, invalid numeric costs and declarations; five timer-parser tests retained. Upstream strict checkpoint requires exact complete work/certificates. This helper independently matches every runtime ratio.",
+  "limitation": "Same-work current6730 comparison on three selected ranks, not native work equality or fixed50 competitiveness. Pending proofs remain pending. RSS is process peak, not watch-only memory; differing allocator/code layout may affect it. Price all waves and adverse controls; no best-of repeats or composition. Source fuzz, full50 and memory acceptance remain open."
+}

@@ -1,0 +1,68 @@
+{
+  "hashes": {
+    "benchmarks/probes/scratch/compare-xor-kernel-code-6964.py": "cb7e9cd5ec26aea86b4ce5451c5c98d270385bfe47adcb3f8d6c0b22ffb70142",
+    "benchmarks/runs/20260909-6730-reduce-watermark-build/manifest.json": "e21167816ac5c86fe3b82db5d3cb0401d3a0b34a79ef7578ea5251d84cdb605f",
+    "build/pin-6730-reduce-watermark-release/tactix": "7b0a7666b28644422d6cc4b3a648a677b6745bd8a7ffb9c27c6d3e5660725132",
+    "benchmarks/runs/20260910-6950-xor-presence-build/manifest.json": "6c8965d273af2226a089ab1ce933dfd04b9852dbaa55fbf1457eef1f43b9fb5b",
+    "build/pin-6950-xor-presence-release/tactix": "c15622bdc328b7dc02786eb3443a288d11326c2dc01ad92dfb6d00589f5681bd"
+  },
+  "records": {
+    "previous": {
+      "_ZN6tactix16kernel_propagateERNS_6KernelEj": {
+        "address": "0x413730",
+        "bytes": 4129,
+        "disassembly_sha256": "c6ed2adb1e2e91f6442eeca0dd0bf5f39cef299f46040604be2f5da3bf2c16fc"
+      },
+      "_ZN6tactix23kernel_propagate_binaryERNS_6KernelEb": {
+        "address": "0x40e300",
+        "bytes": 2654,
+        "disassembly_sha256": "5211395b3fab886c73bef8d41a2ee1679d90d458c88af79e370676d2fc81eaa3"
+      },
+      "_ZN6tactix24kernel_propagate_probingERNS_6KernelEj": {
+        "address": "0x414760",
+        "bytes": 4321,
+        "disassembly_sha256": "77e3545811ed929fdda11775e322789a6706917fde3854fc0b0311e51c8757a2"
+      },
+      "_ZN6tactix28kernel_rebuild_large_watchesERNS_6KernelEb": {
+        "address": "0x410c60",
+        "bytes": 3419,
+        "disassembly_sha256": "fb4fd39c737b029d2e59905dd69b6a611d1e927523107c87c10cf87dac5f5553"
+      },
+      "_ZN6tactix33kernel_propagate_beyond_conflictsERNS_6KernelE": {
+        "address": "0x4119c0",
+        "bytes": 3662,
+        "disassembly_sha256": "221e54a3413a378cc3831f770fc036d2f5c3fdeb5b91e8298ba15bb25e2143a5"
+      }
+    },
+    "candidate": {
+      "_ZN6tactix16kernel_propagateERNS_6KernelEj": {
+        "address": "0x413730",
+        "bytes": 4129,
+        "disassembly_sha256": "c6ed2adb1e2e91f6442eeca0dd0bf5f39cef299f46040604be2f5da3bf2c16fc"
+      },
+      "_ZN6tactix23kernel_propagate_binaryERNS_6KernelEb": {
+        "address": "0x40e300",
+        "bytes": 2654,
+        "disassembly_sha256": "5211395b3fab886c73bef8d41a2ee1679d90d458c88af79e370676d2fc81eaa3"
+      },
+      "_ZN6tactix24kernel_propagate_probingERNS_6KernelEj": {
+        "address": "0x414760",
+        "bytes": 4321,
+        "disassembly_sha256": "77e3545811ed929fdda11775e322789a6706917fde3854fc0b0311e51c8757a2"
+      },
+      "_ZN6tactix28kernel_rebuild_large_watchesERNS_6KernelEb": {
+        "address": "0x410c60",
+        "bytes": 3419,
+        "disassembly_sha256": "fb4fd39c737b029d2e59905dd69b6a611d1e927523107c87c10cf87dac5f5553"
+      },
+      "_ZN6tactix33kernel_propagate_beyond_conflictsERNS_6KernelE": {
+        "address": "0x4119c0",
+        "bytes": 3662,
+        "disassembly_sha256": "221e54a3413a378cc3831f770fc036d2f5c3fdeb5b91e8298ba15bb25e2143a5"
+      }
+    }
+  },
+  "selected_bodies_identical": true,
+  "finding": "Selected linked propagation/reconnect addresses, sizes, instruction bytes and operands compared directly. See identity result; no code placement adjustment or alignment rescue.",
+  "limitation": "These selected linked bodies only, not all CDCL code, runtime parity, instruction-cache equivalence or native work equality. No solver run or object mutation. Existing binary pins remain immutable."
+}

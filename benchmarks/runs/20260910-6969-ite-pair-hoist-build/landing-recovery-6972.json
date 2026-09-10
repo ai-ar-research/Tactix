@@ -1,0 +1,22 @@
+{
+  "hashes": {
+    "benchmarks/probes/scratch/recover-factor-xor-landing-6972.py": "297434e92d318a274c0e558eba31d52bceafaacb5f2105f1cbf00a40e333e563",
+    "benchmarks/reports/2026-09-10-factor-xor-cost-audit-6940.json": "2cc3df3d725ec96b544166590348a5440bfa901715dbf77ba8a025fd0795388e",
+    "benchmarks/runs/20260910-6969-ite-pair-hoist-build/compile-scope.patch": "8a843d5fa6f34f8d767141f7c4a224679e581890d075834c04530d9dbcdbeab6",
+    "benchmarks/runs/20260910-6969-ite-pair-hoist-build/compile-scope-6972.patch": "38b31da5bb9ada6775449aaa30521a6db49c5c9876ce4c626a5999ee98fff22d",
+    ".claude/worktrees/runtime-reduce-watermark-6730/src/rules/congruence/congruence.cpp": "7fa9ffd03bd915677e305ee22e926abd7ca5bfc9fa95110f196c659b41ca974f",
+    ".claude/worktrees/runtime-ite-pair-hoist-6969/src/rules/congruence/congruence.cpp": "40fe81e2dfb6112c4db70b6f8602aecf4a5411bcb1a4f62f920ed837746b9bdd"
+  },
+  "command": [
+    "git",
+    "apply",
+    "--check",
+    "--unidiff-zero",
+    "--directory=.claude/worktrees/runtime-reduce-watermark-6730",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6969-ite-pair-hoist-build/compile-scope-6972.patch"
+  ],
+  "stdout": "",
+  "stderr": "",
+  "exit_code": 0,
+  "classification": "Landing6941 staged audited paths, then unchanged git diff --cached --check refused raw6969 compile-scope.patch line24: a single context space at EOF. No commit, source change or measurement invalidity. Raw frozen file is retained unchanged/hash-bound locally and omitted from the fresh staged set. New6972 zero-context patch replays the identical source edit and passes git apply --check; no whitespace gate is weakened. Only the raw path is unstaged; already staged session-owned paths are preserved for fresh audited landing."
+}

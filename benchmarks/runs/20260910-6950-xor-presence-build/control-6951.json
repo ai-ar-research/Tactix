@@ -1,0 +1,89 @@
+{
+  "outputs": {
+    "previous": {
+      "test_xor_presence": "PASS 3176 XOR presence cases digest=cb9ff4553209f52b\n",
+      "test_congruence": "test_congruence: all passed\n",
+      "test_congruence_index_cleanup": "3 0 -1 0\n3 0 0 0\n3 0 1 1\n3 1 -1 0\n3 1 0 0\n3 1 1 1\n3 2 -1 0\n3 2 0 0\n3 2 1 1\n4 0 -1 0\n4 0 0 0\n4 0 1 1\n4 1 -1 0\n4 1 0 0\n4 1 1 1\n4 2 -1 0\n4 2 0 0\n4 2 1 1\n4 3 -1 0\n4 3 0 0\n4 3 1 1\n5 0 -1 0\n5 0 0 0\n5 0 1 1\n5 1 -1 0\n5 1 0 0\n5 1 1 1\n5 2 -1 0\n5 2 0 0\n5 2 1 1\n5 3 -1 0\n5 3 0 0\n5 3 1 1\n5 4 -1 0\n5 4 0 0\n5 4 1 1\n6 0 -1 0\n6 0 0 0\n6 0 1 1\n6 1 -1 0\n6 1 0 0\n6 1 1 1\n6 2 -1 0\n6 2 0 0\n6 2 1 1\n6 3 -1 0\n6 3 0 0\n6 3 1 1\n6 4 -1 0\n6 4 0 0\n6 4 1 1\n6 5 -1 0\n6 5 0 0\n6 5 1 1\n7 0 -1 0\n7 0 0 0\n7 0 1 1\n7 1 -1 0\n7 1 0 0\n7 1 1 1\n7 2 -1 0\n7 2 0 0\n7 2 1 1\n7 3 -1 0\n7 3 0 0\n7 3 1 1\n7 4 -1 0\n7 4 0 0\n7 4 1 1\n7 5 -1 0\n7 5 0 0\n7 5 1 1\n7 6 -1 0\n7 6 0 0\n7 6 1 0\nPASS:1200 actual Congruence cleanup cases, pure extraction and exact proof deletions\n"
+    },
+    "candidate": {
+      "test_xor_presence": "PASS 3176 XOR presence cases digest=cb9ff4553209f52b\n",
+      "test_congruence": "test_congruence: all passed\n",
+      "test_congruence_index_cleanup": "3 0 -1 0\n3 0 0 0\n3 0 1 1\n3 1 -1 0\n3 1 0 0\n3 1 1 1\n3 2 -1 0\n3 2 0 0\n3 2 1 1\n4 0 -1 0\n4 0 0 0\n4 0 1 1\n4 1 -1 0\n4 1 0 0\n4 1 1 1\n4 2 -1 0\n4 2 0 0\n4 2 1 1\n4 3 -1 0\n4 3 0 0\n4 3 1 1\n5 0 -1 0\n5 0 0 0\n5 0 1 1\n5 1 -1 0\n5 1 0 0\n5 1 1 1\n5 2 -1 0\n5 2 0 0\n5 2 1 1\n5 3 -1 0\n5 3 0 0\n5 3 1 1\n5 4 -1 0\n5 4 0 0\n5 4 1 1\n6 0 -1 0\n6 0 0 0\n6 0 1 1\n6 1 -1 0\n6 1 0 0\n6 1 1 1\n6 2 -1 0\n6 2 0 0\n6 2 1 1\n6 3 -1 0\n6 3 0 0\n6 3 1 1\n6 4 -1 0\n6 4 0 0\n6 4 1 1\n6 5 -1 0\n6 5 0 0\n6 5 1 1\n7 0 -1 0\n7 0 0 0\n7 0 1 1\n7 1 -1 0\n7 1 0 0\n7 1 1 1\n7 2 -1 0\n7 2 0 0\n7 2 1 1\n7 3 -1 0\n7 3 0 0\n7 3 1 1\n7 4 -1 0\n7 4 0 0\n7 4 1 1\n7 5 -1 0\n7 5 0 0\n7 5 1 1\n7 6 -1 0\n7 6 0 0\n7 6 1 0\nPASS:1200 actual Congruence cleanup cases, pure extraction and exact proof deletions\n"
+    }
+  },
+  "hashes": {
+    "benchmarks/probes/scratch/control-xor-presence-6951.py": "317c4f5b4b94748414d09f664c8a5473aaf4caf55c33db9910971e15658002aa",
+    "benchmarks/runs/20260909-6730-reduce-watermark-build/manifest.json": "e21167816ac5c86fe3b82db5d3cb0401d3a0b34a79ef7578ea5251d84cdb605f",
+    ".claude/worktrees/runtime-xor-presence-6950/src/rules/congruence/congruence.cpp": "e46a3b4cea86e0db72b4132258595b4460a83c3932598749c3c3682242812e77",
+    ".claude/worktrees/runtime-xor-presence-6950/tests/test_xor_presence.cpp": "097fa0b1f3e1eefdb5adc5f31253a83d772fc0dcf8e180e4b51f9d0f1b074498"
+  },
+  "logs": {
+    "benchmarks/runs/20260910-6950-xor-presence-build/logs/previous-compile-6951.json": "b2b5eb983f1a7b7c0f125e866523088c190dbc6ff8b4c484ece1ac0e906d3ac8",
+    "benchmarks/runs/20260910-6950-xor-presence-build/logs/previous-test_xor_presence-link-6951.json": "2a1b7541642c28b97b968d90a9a480ee1b89b63eb4ece4899e0194d1f380275a",
+    "benchmarks/runs/20260910-6950-xor-presence-build/logs/previous-test_xor_presence-run-6951.json": "db8d48e6757afbf01352fb0edb5f346e4d0279c1907ada97ba8413eb7cd3b5fc",
+    "benchmarks/runs/20260910-6950-xor-presence-build/logs/previous-test_congruence-link-6951.json": "37bbdb8469f8b342186e627920857305b799c87205904aefa736b70a01f0f335",
+    "benchmarks/runs/20260910-6950-xor-presence-build/logs/previous-test_congruence-run-6951.json": "30547647bee0f7f07a32694f9b9e93162ef7993c020812a06326090eb7253db3",
+    "benchmarks/runs/20260910-6950-xor-presence-build/logs/previous-test_congruence_index_cleanup-link-6951.json": "68bc739fb3e3c40c4690baf1a00e28359b767ef928698d85fdf0a2f056443a6f",
+    "benchmarks/runs/20260910-6950-xor-presence-build/logs/previous-test_congruence_index_cleanup-run-6951.json": "726dbe86b9ef047ce91fcf17946706ecfac51daa75da237f424a76ed94f4a09a",
+    "benchmarks/runs/20260910-6950-xor-presence-build/logs/candidate-compile-6951.json": "62b0cab74f4c0bf57f5eb7515a011b1b9b42a0c67781f845fbfcea2e58727cd8",
+    "benchmarks/runs/20260910-6950-xor-presence-build/logs/candidate-test_xor_presence-link-6951.json": "c33ef56e95a5abb2c273eb079cad449237ac7e392667b5aa047b58d415a4652c",
+    "benchmarks/runs/20260910-6950-xor-presence-build/logs/candidate-test_xor_presence-run-6951.json": "8c56868d5bc78ee07e8dfc7b93f7ce7c9d2e1f700829e2e00e6e792590b38187",
+    "benchmarks/runs/20260910-6950-xor-presence-build/logs/candidate-test_congruence-link-6951.json": "efa9e31d4c099e408fef90e23ce7878f6c334b5acf9b774a67b8c0c69db48097",
+    "benchmarks/runs/20260910-6950-xor-presence-build/logs/candidate-test_congruence-run-6951.json": "35a89c1157b4e2a4fa5d09e0344dc51553a5018ac8d8467ee216c6262e479f39",
+    "benchmarks/runs/20260910-6950-xor-presence-build/logs/candidate-test_congruence_index_cleanup-link-6951.json": "bf51eea370a96452508f29cb9c51fd0d29508e1ec51bb81230b933cbc0347f63",
+    "benchmarks/runs/20260910-6950-xor-presence-build/logs/candidate-test_congruence_index_cleanup-run-6951.json": "d95d1424a0893a8a94f326c0e0b26e0fbf1a59e630de72f969f44c75e2f36f4b"
+  },
+  "parent_objects": {
+    "build/pin-6730-reduce-watermark-release/CMakeFiles/tactix_lib.dir/src/api/api.cpp.o": "2fc4c03646503432f66dae748fb6fa1edef05295abd87a9e81e1515a097b767f",
+    "build/pin-6730-reduce-watermark-release/CMakeFiles/tactix_lib.dir/src/engine/subsolver.cpp.o": "69292de2029165e3a89afa44616f61c59d828b32b8d216356a95adc08bf1cf70",
+    "build/pin-6730-reduce-watermark-release/CMakeFiles/tactix_lib.dir/src/frontend/parse.cpp.o": "803394178462e495e71be7269482654795dca92b948a4a5ec93d91b1461938a8",
+    "build/pin-6730-reduce-watermark-release/CMakeFiles/tactix_lib.dir/src/kernel/kernel.cpp.o": "782ea3a58a7c604fd7fa53ce0a59c3cf151a818e0c1d5bc7bc5db34831ef4b16",
+    "build/pin-6730-reduce-watermark-release/CMakeFiles/tactix_lib.dir/src/policies/default_policy.cpp.o": "3b27aff94096884825cc9133623fa351c308a398dfe108e603ef64aabf0ab893",
+    "build/pin-6730-reduce-watermark-release/CMakeFiles/tactix_lib.dir/src/policies/heuristics.cpp.o": "a79220d97f7abdebe76822a6b849f1be99d08d2cf74e067d3fb17de72c72da37",
+    "build/pin-6730-reduce-watermark-release/CMakeFiles/tactix_lib.dir/src/policies/ops/reorder/reorder.cpp.o": "6c225ab3de6c7187236c70d81e064ccc053b986c1e10623c459555b06ba80a0a",
+    "build/pin-6730-reduce-watermark-release/CMakeFiles/tactix_lib.dir/src/policies/ops/rephase/rephase.cpp.o": "1ee13886e249610f0ed9f016a784af58fbb2bc95427e5a2e44ec153d8eb46b9a",
+    "build/pin-6730-reduce-watermark-release/CMakeFiles/tactix_lib.dir/src/policies/ops/switchmode/switchmode.cpp.o": "b0f4fdc1e626eeb014d0eccb62216cb342da644f6faeed72c08928ee3087b663",
+    "build/pin-6730-reduce-watermark-release/CMakeFiles/tactix_lib.dir/src/policies/ops/walk/walk.cpp.o": "b8223b99f93e5ea1aa4e0d4fd79eb7b5817291afe066fd57320aaee65ba96ab7",
+    "build/pin-6730-reduce-watermark-release/CMakeFiles/tactix_lib.dir/src/policies/random_policy.cpp.o": "b8b94d0550a6de52dedece423831c7b4cf23bd2590a0a8ad31820e12da256c05",
+    "build/pin-6730-reduce-watermark-release/CMakeFiles/tactix_lib.dir/src/policies/stress_registry.cpp.o": "f1d115beeccfea75b6bc9ed4e1cbbb59c65709573bce3a8cbbaca1e72ccaac5e",
+    "build/pin-6730-reduce-watermark-release/CMakeFiles/tactix_lib.dir/src/policies/trace.cpp.o": "82ee60d0ada0747fdd59d80009b2fa8e4f31d64682e98d396f5374ded42d98b1",
+    "build/pin-6730-reduce-watermark-release/CMakeFiles/tactix_lib.dir/src/proof/proof.cpp.o": "f6de1158068fd832101794caf35b371f32acb77c08b2152ced6990e9901e81cf",
+    "build/pin-6730-reduce-watermark-release/CMakeFiles/tactix_lib.dir/src/rules/analyze/analyze.cpp.o": "84eca92dbf48ec638ad3570331283d5f9cbaa2635b237e6084587b1a658194f1",
+    "build/pin-6730-reduce-watermark-release/CMakeFiles/tactix_lib.dir/src/rules/backbone/backbone.cpp.o": "aad7e70bf8750450e06409e4ed8fa19918bbd6a5251f3c667fbe1b02d1e9c001",
+    "build/pin-6730-reduce-watermark-release/CMakeFiles/tactix_lib.dir/src/rules/backjump/backjump.cpp.o": "e5648b9e0d8c7e58d74ca1913cadf2c8987e587708c09d2702377e82788867c0",
+    "build/pin-6730-reduce-watermark-release/CMakeFiles/tactix_lib.dir/src/rules/bce/bce.cpp.o": "e1068b3a8c372cffe4a7a685d6d68a9c09d48c2dfec59b9fda23dfda3fab23c9",
+    "build/pin-6730-reduce-watermark-release/CMakeFiles/tactix_lib.dir/src/rules/bve/bve.cpp.o": "901ed3765239b9da8d59a452181a3247602099f17c0ac0bafa87701d98a62668",
+    "build/pin-6730-reduce-watermark-release/CMakeFiles/tactix_lib.dir/src/rules/cce/cce.cpp.o": "8d77b3d5de4c7a21a68be8263deff0ba716d71279143e5398d6268f49a9165e7",
+    "build/pin-6730-reduce-watermark-release/CMakeFiles/tactix_lib.dir/src/rules/congruence/congruence.cpp.o": "bb4e645b7f422229ddb7de7360d04690369b8a8809da06ec85a1d88e91c0ba34",
+    "build/pin-6730-reduce-watermark-release/CMakeFiles/tactix_lib.dir/src/rules/decide/decide.cpp.o": "e15a82960d069fa7425b481b7233082d875da16ae608747655769ffbe9beb6d0",
+    "build/pin-6730-reduce-watermark-release/CMakeFiles/tactix_lib.dir/src/rules/factor/factor.cpp.o": "bc7f87ca3143ca8932f91f6c24a00da996ecc3b070ae656029ce2d3da068c444",
+    "build/pin-6730-reduce-watermark-release/CMakeFiles/tactix_lib.dir/src/rules/hyperbinary/hyperbinary.cpp.o": "19d7c71a2d92f659533a60f48692cd79576318acc3c2917d4ee076a35fb12754",
+    "build/pin-6730-reduce-watermark-release/CMakeFiles/tactix_lib.dir/src/rules/instantiate/instantiate.cpp.o": "1be23b735a934917be55a91286ab9c86a3de3511d0db5e37eb6e98cc95e6d077",
+    "build/pin-6730-reduce-watermark-release/CMakeFiles/tactix_lib.dir/src/rules/lucky/lucky.cpp.o": "6610502d0511ffc659e119ff63610a0e355702930ab6260957a842d89201dd40",
+    "build/pin-6730-reduce-watermark-release/CMakeFiles/tactix_lib.dir/src/rules/probe/probe.cpp.o": "5f0affa030440b4b57ff7d150b02f42979cb06554cfc3a64d4e4a28bfb5e19ee",
+    "build/pin-6730-reduce-watermark-release/CMakeFiles/tactix_lib.dir/src/rules/propagate/propagate.cpp.o": "5579cd608f5e31efd4a98b42a8eccec21e86a01bab8cb3d10deb3aa49c9b59bb",
+    "build/pin-6730-reduce-watermark-release/CMakeFiles/tactix_lib.dir/src/rules/reduce/reduce.cpp.o": "8bb67248db95da0289ed31096ef50d030abd33f14b030cd037ee8c733923f494",
+    "build/pin-6730-reduce-watermark-release/CMakeFiles/tactix_lib.dir/src/rules/registry.cpp.o": "123fb9628ff065a8391c88e9de3600ced142f24d593cd9804563ea035988db4d",
+    "build/pin-6730-reduce-watermark-release/CMakeFiles/tactix_lib.dir/src/rules/restart/restart.cpp.o": "497e0cdd09bda3d3f74440cda57ddcdeeb2b19472467cdbb04faa57147a07fbc",
+    "build/pin-6730-reduce-watermark-release/CMakeFiles/tactix_lib.dir/src/rules/strengthen/strengthen.cpp.o": "59b170b894ad4b2f7dde2e149172a453fff3d9c5e95f510e4a7c7713d103315d",
+    "build/pin-6730-reduce-watermark-release/CMakeFiles/tactix_lib.dir/src/rules/substitute/substitute.cpp.o": "8e9c838ef4781ae4ad21f9f3450f2493bd8d17bb74322c37477bbc8aa6b94acb",
+    "build/pin-6730-reduce-watermark-release/CMakeFiles/tactix_lib.dir/src/rules/subsume_forward/subsume_forward.cpp.o": "31e16caca4348d6fd9b9e276be4d03046654928ff1c66bafc867e400b60e18af",
+    "build/pin-6730-reduce-watermark-release/CMakeFiles/tactix_lib.dir/src/rules/support/failed_literal.cpp.o": "428c5a26c5303763eb01c8d04a3edcb53cce4695da8c604609cb0d1d71e7bbf0",
+    "build/pin-6730-reduce-watermark-release/CMakeFiles/tactix_lib.dir/src/rules/support/flat_occurrence.cpp.o": "dfa78b5db79b5c023412e564ca3b952806733524a6f18553fe6d76a1c004ae33",
+    "build/pin-6730-reduce-watermark-release/CMakeFiles/tactix_lib.dir/src/rules/sweep/sweep.cpp.o": "5eefff6472e2adb6ab784225624f97186399f9e5630409ea1c9dbfff3814d4de",
+    "build/pin-6730-reduce-watermark-release/CMakeFiles/tactix_lib.dir/src/rules/ternary/ternary.cpp.o": "b400cc17afbd2663be0e5a83d0dc85d0fb5252115b0893d0ec09a93a4f19842e",
+    "build/pin-6730-reduce-watermark-release/CMakeFiles/tactix_lib.dir/src/rules/transitive_reduce/transitive_reduce.cpp.o": "f0792b8c35a58f8bcc6508588d0ccfe22e0856ed2de60d0f02213b26e70c1164",
+    "build/pin-6730-reduce-watermark-release/CMakeFiles/tactix_lib.dir/src/rules/vivify/vivify.cpp.o": "765d1548e43ad3bbfa2bc49d7cbf69267f84a60d930536d02a2fcf0788f0ab50"
+  },
+  "artifacts": {
+    "benchmarks/runs/20260910-6950-xor-presence-build/previous-congruence-6951.o": "bb4e645b7f422229ddb7de7360d04690369b8a8809da06ec85a1d88e91c0ba34",
+    "benchmarks/runs/20260910-6950-xor-presence-build/previous-test_xor_presence-6951": "ad1156fdaf1d5e3a510a3a56b646dcba7f7c0bfd364aa42f81837d163e09cefb",
+    "benchmarks/runs/20260910-6950-xor-presence-build/previous-test_congruence-6951": "179a6e3f7382f04027c4362062a3100a0b6ab7c87c56f25b4eafd946cd03310b",
+    "benchmarks/runs/20260910-6950-xor-presence-build/previous-test_congruence_index_cleanup-6951": "1767382fd542ef6dac032c048aeebad7c7e3e7f164ba38a3da06695465f0d0f2",
+    "benchmarks/runs/20260910-6950-xor-presence-build/candidate-congruence-6951.o": "a4cf1fefa13b05b59e4f8b3d246c3e9045e951c4d3f0f7449d35964fa86e31a0",
+    "benchmarks/runs/20260910-6950-xor-presence-build/candidate-test_xor_presence-6951": "923362690388021fe6dadd1e93fbc09fe195f91a76bb28ae9806a5c7f7ec6de6",
+    "benchmarks/runs/20260910-6950-xor-presence-build/candidate-test_congruence-6951": "90a0b2007e93670e5c0545df43981fd4d8a896e407d6a0980b8b105f04248a44",
+    "benchmarks/runs/20260910-6950-xor-presence-build/candidate-test_congruence_index_cleanup-6951": "94d3125477ede244349d4908620b6c10c473c5f11df715b8b7e1ccc15174d0bd"
+  },
+  "conclusion": "Exhaustive256 ternary sign subsets across root-effective size3/4/5, duplicates, reverse encounters, repeated-variable prefixes and larger interfering records; all full/missing parity groups of sizes4/5. Complete ordered gate payload and charged-tick digests agree, pure extraction preserves arena/watch arena/trail. Existing Congruence and1200 index-cleanup cases agree. Shared6730 source/headers hash-identical outside congruence.cpp; no ABI change. Further unfinished-index, full-build, proof and B/C/runtime gates required; no fuzz or promotion."
+}
