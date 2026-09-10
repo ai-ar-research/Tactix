@@ -1,0 +1,10 @@
+{
+  "job_id": "1678836",
+  "accounting_since": "2026-09-09T23:58:50",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6804-rank21-analysis-admission/array.sbatch"
+  ],
+  "manifest_sha256": "64e23d042db6e620e2c9467478b3b27f474695f0de4cf6da61e970e3fed77b25"
+}
