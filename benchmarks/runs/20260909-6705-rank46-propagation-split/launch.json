@@ -1,0 +1,10 @@
+{
+  "job_id": "1678574",
+  "accounting_since": "2026-09-09T20:32:04",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6705-rank46-propagation-split/array.sbatch"
+  ],
+  "manifest_sha256": "a06b383cc53934b7ac28c1606cd10cf5e704c6e1662ed30475cbd283af55f1e4"
+}

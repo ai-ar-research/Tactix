@@ -1,0 +1,1946 @@
+{
+  "observed_at": "2026-09-10T00:33:30.996713+00:00",
+  "prior_audit": {
+    "path": "benchmarks/reports/2026-09-09-rank46-watch-history-audit-6691.json",
+    "sha256": "15cb25a5563d0139d1d80e21ae56cc47c70bbd5480775b613a0531c117e3dbc2"
+  },
+  "owned_hashes": {
+    "PROGRESS.md": "a974c0bc45e2330b8ecbbe2419f7f7d616c7de677c6e13d5a44aaf9834c15c65",
+    "benchmarks/probes/scratch/analyze-rank46-reason-history-6699.py": "fc69095e256c6ad49aec80958d5b28d48e55e97412b7e14a54ba8f6ff0223dab",
+    "benchmarks/probes/scratch/audit-rank46-reason-history-6700.py": "9de252dc795f9389b781fbb26c40021ad57b54bdfb79f8194fd94df8d3c68db9",
+    "benchmarks/probes/scratch/land-rank46-reason-history-6701.py": "158ad5dc68108298aa2701ae92582ad267c880fb81de3da90ad723d7801ab849",
+    "benchmarks/probes/scratch/prepare-rank46-allscan-reason-6702.py": "34c6732a4d3464022149c5f7c4440f4a7d883d871ed972dcddb7f64b45bd6177",
+    "benchmarks/probes/scratch/prepare-rank46-propagation-split-6705.py": "41eb0243f35c5313a011c9bcd01e7bf1000ee3e44e087754d769989489d87bd4",
+    "benchmarks/probes/scratch/prepare-rank46-reason-history-6696.py": "d679430fb07d9ba3137aa4f4bc5647f6e119b6b687c8d294b92e46509c3bab94",
+    "benchmarks/probes/scratch/submit-rank46-allscan-reason-6703.py": "255ed2b2f71182ca8eee6087650c40ce28a3ba152118e9d853a3435a99c3a686",
+    "benchmarks/probes/scratch/submit-rank46-propagation-split-6706.py": "8712ca327432c423f9bbc5ed7e5c8369167e63cbfe5b507a1ce902bf1a767f2a",
+    "benchmarks/probes/scratch/submit-rank46-reason-history-6697.py": "3589ee80aab316b0f5d1ae9fa886f9d6bf49a366742372346ff033b09c8da633",
+    "benchmarks/probes/scratch/validate-rank46-allscan-reason-6704.py": "7ca5dadb708b538b7e77357e2e08c016bc7521a86880dcd3555849d1be6d2c6b",
+    "benchmarks/probes/scratch/validate-rank46-propagation-split-6707.py": "2411d895a938e16e51e6b6855ee8295e732a574476f89b0bdc8228b27c07c5b5",
+    "benchmarks/probes/scratch/validate-rank46-reason-history-6698.py": "0a6a3653705f2f16e0d43bf808f8e4ab887fd73a903e9aa017ce326221b1e6af",
+    "benchmarks/reports/2026-09-09-congruence-empty-full50-6668/comparison.tsv": "2f1208a83307ac3835cc9c2750057293cb1787f5c177caafe373ac57ad036b61",
+    "benchmarks/reports/2026-09-09-congruence-empty-full50-6668/summary.json": "96088cccadb6527d8228b366b26daff0b21386efc2b9c654c62dceb2fadff9e4",
+    "benchmarks/reports/2026-09-09-rank46-reason-history.md": "e12cacab5d6a9c1e9e56deed7f86f5e4d2adb3e2e046aa3de568ac921a203a6d",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/array.sbatch": "3e83f7748201041b9272926ec4acbd0af501b65349fd6ccdca8001e5c9038b03",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/launch.json": "7046da8c6af209995b9ffbb29f03804658e3ceff69272d0f6c1542dcab674be2",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/manifest.json": "a7742c2c1a2d06d733f9ec77dc9c629e288bd7e7116910cb4ebf3478f68642ba",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/matrix.tsv": "da2d234473fc551eb67bf3c7e1e9d7cbd5f3fe09df5e4e5363b13a28fe17e064",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/000.json": "0d067af8818a9095058f8d73f3790814b8f05a24c687c7e25f7dd9ac51508adb",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/001.json": "3497e7b462e52ffe8a05f1b86d3502fdcf2ffe740b81a91ec5b14923dea0e3e0",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/002.json": "368537ce260221b9b6e77ea8b4195f7416904e4f7e5ca6dee22a681dced7cd1d",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/003.json": "70e6d405c98a12044fd18ac1d77288c7cfeb6089740ae2aec6bd489c3074aab8",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/004.json": "febe126ebf07787ed37c812dbcb5611776ca1a61fde850f541fae32b222a9caa",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/005.json": "c70af519a0e92aa7ad835470e9c0df87ddae0de1661f1960659c7328beb16c26",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/006.json": "fc3344c5ce4b4f1f2fdec0260557792e9bef2082faf8384b12c1210f9d3d7131",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/007.json": "71282c14a3c4423998c55c24c1ca61e886ec9d32417932f3cd50f7260324237d",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/008.json": "0fcc019e171bc068b1e3fc6f2c181e5eab48599ed62cc02b5555dd038ae0bbcb",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/009.json": "496f21768f5bca5398053b5e9a9e24e69af94127b45e64acc50bb054e0430119",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/010.json": "a12e396c78fb4cfc77f711b649075e29061305e9fb7c89ad5740f43c8b60e5fc",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/011.json": "8a38a08fbf1e21cfc0c2ff0355a1f49ce6b488e0ca1a8f2a360ce4c8041a8f38",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/012.json": "35c89f12544e267937944a9d875a7daa2f46cfcc52a597ce2f3fad9fe6b6ace1",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/013.json": "db1e9ace23e0c90f223e30eda2a4730776c62ba18a7cbf25f2ae867ff0bce500",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/014.json": "c26f65d12183cd6bc9ffd74f91a5d8d30635add9406ed21e259393e7fceff48e",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/015.json": "73089d6009723996364a15cb4f9afbd6de4a7927e3d53be4ab75fc0357fedfc1",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/016.json": "604b7bb33b9fbf2b2024181f682f1baa69e796280ebcca00df623f9fac3d5b7b",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/017.json": "e74621852eb0e87300a8083951c4878595c60b5d0c03c77c460f3dcd881c0bf6",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/018.json": "fb3b6c9cd2844eb65680b91538166e1205f92c9d176107b6c8cf8f9e52ba065b",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/019.json": "d629cdcdc62de05cbbcf90bd8889a229b113721e93f50c0ca6aa2109e07a39fe",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/020.json": "eb54af15574d99361be7a201c8cdbdcbd45615c083672c7a360fe11c92779557",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/021.json": "2574cb3e1375422b20c8c2c3b71d61cd4c98a3ad47e708d184c2ee3eb29a9f69",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/022.json": "18851415e75052f6606eb1e2bbcd1c2aed2451749d9ae81341302ed081c80b34",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/023.json": "24bbb5959894a3fdb8364073f21b721a61fecbae6054da2fd903f10fd6da1ce2",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/024.json": "e067779facb509ecc05d47b8558bd8dc0be7fbed025b450a5fdafc44eda68e5d",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/025.json": "30bf1f0d741f8fc7527be4c87778d71f0c7033e3bbebe040dcbe0e69f4dd94dc",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/026.json": "1736e8ade84ea0016851ce52654d040826a1090939865d7bd8d6988d5155cb23",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/027.json": "542d48d6e9ed3eee2c32ec91249cfed4a95f942302b1698af5e85b6a46e3efaa",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/028.json": "01a58e6e583c6e2c87210ed8e00a8b2982f4797c0b3bfa69808c730198f45a02",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/029.json": "1ed6b5bc225f78812ea276f7ea890df31fe0c0c442fbcb64113a07519e501177",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/030.json": "b4a135c58307148b1c5ff771f317506c73058bbfe0460f4842ca0a5f31862f94",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/031.json": "6e7a00ab7e8f66c45c62210c43aae6ce1642061c2c19f23949d706724f57127c",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/032.json": "29f911bbd001f7cdffe20602feff74de77f263ad51560ce3fea5da2172a38188",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/033.json": "d3727de78dd5e2180a3c65470c0488cd790fed30c17f8bb698993cad1d896f1d",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/034.json": "59e1ce60a2d2ca4615708d33baac7eacb0768de3b0f026baa9e0dc9d6b2f327a",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/035.json": "16461f0b1f0ab0dc13d4a9b8c3aee680d51e2d4f559134bbb6afc735a20276e2",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/036.json": "1f40e5e5ff2ad982fc7e32c5f9c8d653b926a0e430b08d3e112a4119f658f51c",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/037.json": "7a9b513c9b885eb7946721fb13595d6af381b09ca1bc9b30addbb047bf37a646",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/038.json": "f69ec9292f232a81dde4b291a6cea66dc5d510902510baa20fffe25d6f339fc4",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/039.json": "2ce7951e9df34e8a6090debfc3d006e07db10fc60568bbe0977efe94bfdec0d1",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/040.json": "4c5b66b03ed94eccb4fddc68a4fbde3836f5288317478040ec34ba3daede2378",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/041.json": "2a9575138430d0bf688d7af333de5c32d071137ec08857e58e6bbfaf797a4677",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/042.json": "f5aac59b841bd9d4abe6da0c315ea647d73d7154bbfd57688f08294055558845",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/043.json": "6cbb15755ffdeeb2c4b2ba4726b36bca3e81d8be7eaf444369569fa4548283d8",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/044.json": "92a78c447bd5927c4cf97fcf7bafb2abb141ee23fd9fae3f8919d5d959f26c48",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/045.json": "3bb5507878e288073f75dd06df7fbee59ca68caf14b227cad9f5183910d6c8b7",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/046.json": "092a338249fa56865e21d23e1179a6668a3b7f4721e1cc79e4aecaf88382b0ee",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/047.json": "1f0602dcb298ca04668359b3dcf63ed4ddd29933b0256cecb3658592ab7ab497",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/048.json": "4e19298658add0656b048ec02b84139ac150576db2a1920027c3a723208b4e7d",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/049.json": "e389bf3f2894f63e85bafa9faa4a7adf9d7081a1124830b3917859d7178b3a5a",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/050.json": "575ec97db3c4ad0e5f381cd8fd303a17fcc531cb278e26621ed23645dac6ec07",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/051.json": "fb3943e7a8d23725f0ea1dbbf8dbbf466e9c8d2043ab2a771198c1700decb838",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/052.json": "726b867c867f00641ccc74baa1466ef57ffa2d5ac50cf7520f82e8e11299c4dc",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/053.json": "3871a45df083babd624769d153341103debb09dd50933ae5c0630ab8ca95ce84",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/054.json": "5fbde11d2ae527a4f72e39ea30d013ae9a526f9a27f2f6cd0cf0abec0201ed82",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/055.json": "d2b3b3e78bc9292602e9676f5fb914525f3478a11765a975351d5db60db9fc43",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/056.json": "ca1b27637079df23ac11a94638a7ad69db582cbc777985a0d490d2847326dda7",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/057.json": "24fe56eaf6ecfb298bacd28158b224808aabba741ffff6b3d7015c2b88cce3bf",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/058.json": "dc9c0495933df7a68c5ba238b84c9fdd8a0a2777283d6fe50708e4e0b521d7f4",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/059.json": "d5326f995f3244050da0a8521fa9175a7f87941c8d1c66408f18b46db76aa32f",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/060.json": "d5c4e3d21f7d637e9b23df7266f66f6475be8b4ffdecfd282d2fa05b5f44701c",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/061.json": "622dfd26b1bd21da201e585f265971fefa9b060cfad07c6ab46f5b757e9b329b",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/062.json": "449c54f3f27de5a2c5ee692d3bb7033396ee25d8ddf700214e87339069f46c8b",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/063.json": "0db70da4a543b07682f77f020bcb29732032f98a5fe54bca04a77c48f38af471",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/064.json": "9a0c0cfd6b47ffc9418c3d4c956dcde3e3b4294b5b7923fcb19385cb7b3df1f6",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/provisional/065.json": "66f9b06b0eec4ea46ebf6ed7808075b537c389e6167135026af2531d4f051692",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/000.json": "1cf0cc142788f05a4e9b27017a0300b889f1c6f9e96072811575d37aa0f01c6d",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/001.json": "af52ff408c05443696853ef97debfaeed0a942c2135379194fc994b299f94317",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/002.json": "08f7f307272cac7015013fe8aa6471135dee23af53cc97d8150ea8557a876b63",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/003.json": "8134fbe4f6c407114576645a8ce88852abb5d26441e64164c94d1fb915e02fbe",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/004.json": "775f2f62f2bcfc8e13ca675d82ce2cd15694cd149a953e1a9f1ad3c8bc93a683",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/005.json": "5de0db77d4442704d4f24c693b6dabbb78d58723c15ea16559785e67b7abe08e",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/006.json": "b3d0f49967df574f1fea967f45e1e9270f1d6ec4516ea382c4ca9e7dc15918fd",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/007.json": "4e103f8495d18cabbb9ed0f9e4ebd477f524ac43581fd7c83b687f0e13f58f15",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/008.json": "6ba271e8057df5fab741049784bd670c0861746bd59d5f8a02d876b593567584",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/009.json": "7c73ce9e628c7efd0b14908b94bb43caf7623eb3f48c4329204fdd4fa4696433",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/010.json": "4bd32efc89fe448deafe61f94c989bb02f88dc6ed61d2a435013b182c7c3e972",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/011.json": "f852a9a84455b5637cb6d7cff924b6f5cc26f4d678b1e456a42f81ba0ce02eb6",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/012.json": "66735b1c203e8fd23e0b03fe85a6bbf7cf3eda2308532734f569a67bf940c5f9",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/013.json": "9e24b7fc9598ba2d0ca4c22524ad6d2bca602e43245c2aef29a89a9d70e53dc2",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/014.json": "46f584d59610b103937ca9fac942a3ae842e4f1ce70844f92dd114e6a6f76d06",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/015.json": "63761539ba7a367bf43ee28c8fa8b4eed0e65a9daf40c2978ea5d847f0a940a6",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/016.json": "d978872033bb823ffded993e3ef37f4c77dd1feef86a39a0eaf1d6eafe82e29c",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/017.json": "1f5cf0232c0c2fee9a6b4612bc469fa591522ed4f361ca22495a2148350dad33",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/018.json": "a45fc8f2f32defea7b0c788f8ca1409b06a2d14624f8276d002738703c5f79d2",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/019.json": "047608ed74e7f7f24c8c1ab2b76c4ef55b5223a16fedddb9bf9eaf577bc88937",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/020.json": "09b50994a7a1ec5d512c35ac5797fe0d719f9dc4d37f9bcce623945080c4cfd1",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/021.json": "b3641ce2978b747fc415c75cadee290176d775e34d321aab31b27f02f551dc2e",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/022.json": "3aafedd308d6f396f3e2f00be10bb298e514e0cdc9f08c8eed2dc298192edea5",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/023.json": "2f34e4199194c31e55b7ff263de5debb2b815dc7b6d52da8a3dd3bf4c0f71bf7",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/024.json": "98e81febf89554d3bbcc0e4f76764622db30d71361677088c3d445ccf65d7a16",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/025.json": "8e3bea80f9e9b3381c5703333855658a14da5ed81234a1bae71bf2665eae25c2",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/026.json": "7163f824c243de2784799a83ec316b9d7b4e78aa15ad4ef114224d5b56ddefe5",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/027.json": "256561c924f75cc1459c47bcfe566a3d598b71693fc5ddf3f618119f9ee2b68a",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/028.json": "5bb1516382123588f4445a2e5c16a9375fe17f221e83ac45ecbbce38e2661282",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/029.json": "407fc1281aa07a0b1f53432987b99cc363bf8522ccf1333b22b00a1552d5f863",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/030.json": "c84ef2dfe982e54428e8a45088437d18dce0124af709b56bf367581d22aeae11",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/031.json": "aad2fe55e30ca31b3c943c409d963f8c5a638e92d212663d6e265e5786f46320",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/032.json": "f2e26a3cbdaa3bf66acd25b2f3b3f6d2df7d3e0de4aa8eabb9c635ff96d57ae2",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/033.json": "6c3471425acfb630cd9e58fd93f501be4255bec58c20a6c188741a54889bce2a",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/034.json": "acf6b93f90838b5af3ddd775a967528ef1cc5bdae227c39f8f17b70581610a38",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/035.json": "2dce3452f4074282420f9efb32fc6dfde99b1a2b382aaab07dd9fded7d2d4ab9",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/036.json": "7708fa4535929d61d699421740ec87e66f240d11b4024e1fdefddd797da9e000",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/037.json": "ebd31469401634604a847edd8242638657d623cda7a3a17b9ca0acfa494b5929",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/038.json": "aa328fc39e003458fd289aae3981098a78c7e221c98cd2424c17598e585c06f1",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/039.json": "7ae35f30a5287caa6d85031deb9e29c9af1d467adaff0dc0b8c390d05220c141",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/040.json": "716cca7f55de3da86128450e8e057e62dc4dfa005e517077ea86ada266eade0e",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/041.json": "7a910880a0d6b4109431a67ee1abde57b86e025ae1a1592c93b3832fd1dcb1f6",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/042.json": "73fc7f7076677eaa4155da99ea5fe6f6cbfc17f1e8e0485114eef33654777b21",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/043.json": "e7c6ba867199b144ea7f96e11c6b1b638989af68448ae73d3a3847b2dcc2e2b1",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/044.json": "6b340e3f86daaf600864528ba7ef31d07bac2cba3b5202f4b378dfb862e6b61f",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/045.json": "3862cec35adf8de47a17de8b5eb3f196cc5d0eeebb19e222e2168e84ce404f6c",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/046.json": "c0855745a25be516488ff809aa1d56b2f8d95bd60999131496a32f699b0c764b",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/047.json": "5d4971bf13355e49069229bf8c4913e9f61d96a521cb804649da980fd5ee44b8",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/048.json": "44fe0c20168265e97aa3539d4d459271d79e44c73fefd7bc563fe7cb49c9f866",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/049.json": "f77c4b8652959183092fcb6783bfd7cb48d87c1c8400f17a1683a22b11644e65",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/050.json": "a1b86d026635de4a37d8eb39a0c3cdbc072d8be0953af4766f2f6cd5b8171368",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/051.json": "4f2de1548806f8cc838253eb9edca51ff0d0db04ab8b308bcf21c6c3ae63065e",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/052.json": "1f05812c1cf25e162a4863633f9e2bcfe6e9c3d1a7a83e68739b7fd6ccf22fdc",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/053.json": "a084c6ab4977b42282d7d432e91b0befc63b2234dc32a3b6f405c3de81ea290e",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/054.json": "863ffcbb048406e5c3b0cebb7ea755a124a01e0e271e112d0c8bc704006cd86c",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/055.json": "c4d7a1115d4deea4d8314abc988abfa5cbfb3c9f3bb4a498947204ae6433701d",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/056.json": "29d3e22801113a210fd1cf6132d8c415f6bda5ffd34159b2c66fe5e601d96d2b",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/057.json": "188b7eb26340ed1599ee6193d4282f9547cf7d1d0d0f517b5c4bda47b7eb47d2",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/058.json": "d4d4b3353e0efd130e90faae3441e4263a0e5775d0eea66da5dfa969357bdfd3",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/059.json": "40c4c253d61aa05036f68df648deed6796889a6cee82cc92c2be282b0022c520",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/060.json": "48a352c262d8a99fb6050b3cc22df577d2f5b83abced0d19c3849dbb2f20d7cd",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/061.json": "1894e55e257b18566f1880532506a6d89d6231e8c979c78bdab0125a0217a895",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/062.json": "ee151a2ab8300948fdb9ed1e1a03ed0fd982a367499af34eccee76eb6bd24e20",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/063.json": "720b412dd9e53cef551abbcbc42b2ca399189230b43a8540138474b53baae4ce",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/064.json": "3db2583c942db73dded2c93ad110f4c8b159815de16aa0e1d4fedbbfea6ce329",
+    "benchmarks/runs/20260909-6661-congruence-empty-BC-gate/results/065.json": "0e65541f9502f1bfa7c482b442334d397fcfeb342361df15bb27d702ce3ff037",
+    "benchmarks/runs/20260909-6663-rank49-congruence-empty-runtime/array.sbatch": "e447115c57a166ab0f0c3cde4b1597b80da683f685e00a5f901f909ed19ebd94",
+    "benchmarks/runs/20260909-6663-rank49-congruence-empty-runtime/manifest.json": "382e6d6091413a409c90756634ea80ea85a1ace0b57d2ee68ed3a7ba1825245a",
+    "benchmarks/runs/20260909-6663-rank49-congruence-empty-runtime/matrix.tsv": "f8085d2df2d09cfc5288b7aabceb7386125e75d8c8ae5708e0d59b0b9e75752e",
+    "benchmarks/runs/20260909-6663-rank49-congruence-empty-runtime/provisional/000.json": "c5022abe3bad179e0a8d96b62b194c29c60ec49c70bd5e21e57575643ba0e019",
+    "benchmarks/runs/20260909-6663-rank49-congruence-empty-runtime/provisional/001.json": "6335cf8a5fbc2bcac137d5dccd6f0a1d74f814d081e374384b105522934747d5",
+    "benchmarks/runs/20260909-6663-rank49-congruence-empty-runtime/provisional/002.json": "25c7d90658f80478452257b716832ed7e4b9cfe012a9c07145df00f179dc9b18",
+    "benchmarks/runs/20260909-6663-rank49-congruence-empty-runtime/provisional/003.json": "50c7943e427785b54f38aca5a379adad63dd0c1c4bd638e9dcd85d5573f79498",
+    "benchmarks/runs/20260909-6663-rank49-congruence-empty-runtime/provisional/004.json": "3560817b3b102fcb8cc349cc1daa2e9417961728e716d543e3ea81c4dfab29da",
+    "benchmarks/runs/20260909-6663-rank49-congruence-empty-runtime/provisional/005.json": "4d3cd4c78dda416961c1c785f4411aa87b46c90f82d737ed448bda610cc2fb4d",
+    "benchmarks/runs/20260909-6663-rank49-congruence-empty-runtime/results/000.json": "b17c8599ad9defd0529f86f5559ce84eba6c9cf8a89188a637238079076435ad",
+    "benchmarks/runs/20260909-6663-rank49-congruence-empty-runtime/results/001.json": "0ea97b023ff7de1ae8095a7fe6235ea218303246fb05cb062d1c027054155c8d",
+    "benchmarks/runs/20260909-6663-rank49-congruence-empty-runtime/results/002.json": "a94b26500394b8b80975be5fd67ded5ce6bb6ea50e154b06b438c7666abd4cc0",
+    "benchmarks/runs/20260909-6663-rank49-congruence-empty-runtime/results/003.json": "ad3f93d54e27a851f31be581cb13d4daa510a8c5e34bfa362adb2b72f21bfe6c",
+    "benchmarks/runs/20260909-6663-rank49-congruence-empty-runtime/results/004.json": "0a83e3b51eb86aaceec7fd8e38da7ec69ddfaf1fe322ea412e69a693da1aa358",
+    "benchmarks/runs/20260909-6663-rank49-congruence-empty-runtime/results/005.json": "135dbc5f03d05391269fdd7f202e9c16b4c4cda7e63e640b48c30d6da1b807cb",
+    "benchmarks/runs/20260909-6663-rank49-congruence-empty-runtime/solver-checkpoint-6672.json": "e5ca8a09e6a2432ebba2bc3f3e3acaae181c78bfce74d9c543517dc6242cda7b",
+    "benchmarks/runs/20260909-6663-rank49-congruence-empty-runtime/wave0-submission.json": "b7937d4de4db23e5096d8a0b42353e4100010def9380163091ea7077307789b4",
+    "benchmarks/runs/20260909-6663-rank49-congruence-empty-runtime/wave1-submission.json": "ba9ed831f1439516db47810b6dc515b7e89a2b6fcc219545c092cc0596960bae",
+    "benchmarks/runs/20260909-6663-rank49-congruence-empty-runtime/wave2-submission.json": "b9a234d52ef56affca5e1b899f2f93193cc5ad8399e0c10caa13bb0995856e0b",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/array.sbatch": "f00464745efc0017cc33dd8cba22d2d23cfd81b5da75d06ee8e70bfc32713b98",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/launch.json": "f501b6a6493c2e1cd3439d76b22e7e9a9a2d2a7d4d084049043769e6e605f500",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/manifest.json": "aac0a690107e4a033162583d9c721a551dc4909a513e886c2c43f1f59a5cce37",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/matrix.tsv": "22b9151fe579dd71ab08ccc6f2d78901c7e5e773d520c6951c363eae0d6ac004",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/provisional/000.json": "c51641da53abb57ec27141b413ab19ddb354cfbc8783abffd79b7892c8e250ee",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/provisional/001.json": "6768358a578e539ffb7a5bc13ed6df586bb3c56b00cbaaf9adf27229d2725c11",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/provisional/002.json": "72c5f9b826d5e5eeb44cdcb349f2b051dbd6bfba89bff265545764cb8e543dbf",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/provisional/003.json": "b0ac09f1166649421a2ff52ccb3490f0405dd907065205a4d75ce08eba8b2674",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/provisional/004.json": "c35253708d8a86e163b436f33dd0d4e1616e130a38e58c6259136b94d2fc072d",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/provisional/005.json": "76bcf418fbab5478ec4ac157bc1384838ceba6322df6d380a5ca526a9689aa78",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/provisional/006.json": "361efe178aa4b29af231844a42dc2f6c433799d3e387106c275ac8e27098f8d5",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/provisional/007.json": "3f2aeddeffb70149c8de0d12119367c46ac570b7128f32bee7460fa187de0319",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/provisional/008.json": "cd5b17613e10037d98e13074b9c09af59b075b0157926900026bf1e747d06844",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/provisional/009.json": "f0d469800844853d958d7b63b9cfcbfd08478c4d95d0bcf925ac2d8892dc8bed",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/provisional/010.json": "6b96484f8ff0db800ede2bdbeb8d0bc099ab5c22f43cef0222c510335a3d35e5",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/provisional/011.json": "0de12ac2058ba7fd2a0abb25cb011ffd478bf1d9b6e88d377c014ea6a93cca6b",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/provisional/012.json": "2fb7f5a52165c4e0bc575791790b4c1780b133b8d51876d5b3577fce355221bc",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/provisional/013.json": "1125d68df09c29a9eb00165d31068cac881f253ba46476889cc0624d2bea8a81",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/provisional/014.json": "aacdc2870223591d73fa5048ca827d4d4b03b0a1a83795f1b7142eb60ce852d8",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/provisional/015.json": "a9d6e6f996a0528f1a20a0952c8f082ef47a092beec26ba713d508f241b929dd",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/provisional/016.json": "dc15cb46ec989637f06ebb261c5c8744c90ba09508ae0abd8d3ab3a2e0e6db31",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/provisional/017.json": "2a4524d444120c7a6276a6923032413f0f0c577fad71c1898c4861a152d7b2da",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/provisional/018.json": "83480da23bfaa47db59b2519d696379a737518d66fb4b2f62f51707047f24df4",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/provisional/019.json": "a18ab984a034b802f187bb1dc1dab7f7b0a771a1b5d704177be75bf183d6eda1",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/provisional/020.json": "1cd5ac86e58cffa3dcd341de8c42da23bd02400e097f423d6653c60a93a93edb",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/provisional/021.json": "fa32669eabe5d0130bf5daa2ba394754a59cfa8f35bcb8b798b1c6a57b98c9b2",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/provisional/022.json": "e4040d4ef25ddfa9fc565c9fcc3e8b4432eb648ed2de4522048c6841b2d6aaa5",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/provisional/023.json": "fd4a6df03ca54dfa9ce0ced2458e824d7b332b91bd91ac219349a45669dc9851",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/provisional/024.json": "a7c97f76948992a708deee739da5a3489f3c655db1a96d3115625a855940f326",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/provisional/025.json": "71a5d3fefccc0a08db65b7a8c207bfda14e6a5738e55450315083ef9783860c6",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/provisional/026.json": "2ccf72a975ab1fda9c16bcd4e727d64aee62cb049191ffefccce8bef2734dcc4",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/provisional/027.json": "cec5aacd7b2a63824540122dda507d9aae066a044077e7f03c978473f0050727",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/provisional/028.json": "b2fe56c7f801c701e14e0db2026639468c22fb2813222b0d30e445a885168567",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/provisional/029.json": "e2799a4eebf7b88cbb1203e4abb674272106c90c56f15b92466a23ae701f0e79",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/provisional/030.json": "fb43682fa70e993a446ffe767b300ad2751e6cf97d6df109f826a8565c9e72e3",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/provisional/031.json": "a680d704f9951605657157d7852ace641b56e39636d1e749cf5a1ef06e5746ab",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/provisional/032.json": "c11e4c5c89b9a4eb4d02b59a3798fc62f917099e97c61d2ca7799694546127b2",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/provisional/033.json": "33f9255db59b24ea4c67b734cb2795dd0eb9103790750f4235a5825943a9137e",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/provisional/034.json": "19b2ff57df656ac9458fddf8a26a809877fae4a8166ada1b8492d36fdab079da",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/provisional/035.json": "08faa6190e364e6829fd5cc77aba1595e25ec4ce85935bb4a8ed2010b6029e8e",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/provisional/036.json": "a52fd2b248fd4104bf0080a6f05393e55aa22e2ac1020a58a681ba1c3ded101b",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/provisional/037.json": "32c71528ce8d3b07cdfdc2cb41c32a6e9e0d7729e6f043d4202e36246fa9e0a1",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/provisional/038.json": "21b09e350fe1c7e1ebbd04063eba6b7e8e6ba080d5b5ef7de15f8d5d3c8ab258",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/provisional/039.json": "370208af493da1e4ada9664b45eb5f5039df86cad24e06f68f4ff0f4e1512e75",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/provisional/040.json": "3c77c286061890072308a4069a95ac51ad610c20d21c1dd5f8ede9811b9e3c1f",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/provisional/041.json": "41796586ae5c6caf2760e5a57812bd2e62fd35b4fb8a53084e512033ca593889",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/provisional/042.json": "a08f1d1227ac05566a43d9c97cf3a81c08436cc56a4919cc8b27fcba6a4f3c98",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/provisional/043.json": "37f13be0b2979f66533feb764effcd703cc10bb45dabdfca070a19e5bd6ee5f1",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/provisional/044.json": "1a2515b4fed54bb9f70a499bc8a2ddfb2ef3ec04075984cf6d17f8c8faa65082",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/provisional/045.json": "3c460c44033a8ef1fe51bbbb36c207cd027810171b540dbf575b9dfc6abb565d",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/provisional/046.json": "aeb2e310d67ed13ae66b588400e3d0e943b587eb594398bf641afc70253a2844",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/provisional/047.json": "7ad7b37dc0d6cf2f0d1094993283c9c69e006be7b31bcff73afe9da5f69a2f82",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/provisional/048.json": "79093e41c459ef9fbec3338c6f2c0e9f1a1ec8152549d9e4dc49a2dd388a6b9d",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/provisional/049.json": "05b7a035e10fdcbf371611cacddec9e862a45840d2f789ff304599fdb801aee6",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/results/000.json": "fbd3df35c2f61747bb0987b20ea03f23d0845b3572ebc0ea56dbbdae01ddb5be",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/results/001.json": "80ea9c620a36bf75f5a0706f52b81acf2080ca6e213876a5603ebe61612dc28f",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/results/002.json": "f6c430ceccfc525833eda48d3f874aea7890ad302ec37d7e26af3c9c4f09fc9a",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/results/003.json": "e42b2e0e2972a503b6002e9f54e66658c65e6962d2d4b16e1492b60521aab8f6",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/results/004.json": "83d519a3e2bf7382370e5ba2d5b5c086edc8a97a1c0f542229654cefb9769b99",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/results/005.json": "2b6319df676884a8695d53bab58229caec520564cb43d529c8916e2dc1c42040",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/results/006.json": "a468af7826a5fad794c8e77454c18359aaf2b33ae760a63c552c8ea8b9b3c616",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/results/007.json": "95c63b95144727b1b714b606a80a0a5b4132ec7e1de0ddd36dc42ec0a23551a8",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/results/008.json": "d313e5945d54662ead1b006d8c00bd5f55427536164d4906070056586a5d4b8f",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/results/009.json": "5c00ec80965666a93b0774c024f36b73f756ef21acc3a9cdb72549cf1aa04ff8",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/results/010.json": "f0fa32b2121a570d0784b04cf5df5d6605f585ff06db800e94f02308f7960d5b",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/results/011.json": "6ec3051250dd8695328c6e4a2feb96242d62e590756d41e71feabb35ecb28ae5",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/results/012.json": "9f61f3b927e26bb7b6699cf82a08eb3c78fe8187e3d84dc5c5a68ce7ad6dbed8",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/results/013.json": "8116c0f23697b2c340ec001a3d7ba0e907d27d62947ba468b740e0d2512013dc",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/results/014.json": "c9d8c48d8857a9dd750067fa46fa07987bd2de33e8a775b83187ceb9c6922140",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/results/015.json": "868e3203e6638d56d52800bdb331d48dbc5b66874d89444d65ca9e3ed0f9deef",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/results/016.json": "b71685a47c149134110baca499da9587320cb0cd9784afb59e2942d479566d06",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/results/017.json": "3483a4f59644e16bb88d182c4a839af599c3c60773fc307fdfb9125c5d66b37a",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/results/018.json": "a01d0d2e72a3355dedeba9c14bf616320893bc45edbbde0310b47229fb4abd54",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/results/019.json": "b69157ffe22e67804c3b9dde1d0bc58b63bd767ae5b234eef5aaae03130c10e6",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/results/020.json": "bd69266fa9cb450666fdf4679a68aecf1d1a6f2f6a4938e51a74d337344cd767",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/results/022.json": "625fe7f7543a23ac4f73c35c88ad8965b05967a911d8da10a5131c8dcbf9b3a9",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/results/023.json": "179166d8bb2a1e147b836035a8f210e84194697ed72188948cc6791ad3a3ffcc",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/results/024.json": "7ddddc33b4e4c95ed791f47412fc03614725cb05fee13db89d14f52c2a48aedc",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/results/025.json": "eb15e5e5b0547dc895da2678831852390784f8bab772d79166ab0d404eafb8d0",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/results/026.json": "df84b81a643f2df30d312dc6e441086d0074f0cfa41907b5cb137a9e40ccda5a",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/results/027.json": "5bbbd35724b384af17b4f70e1309217d09e11f5a71ba85864c5e5c688cae50f9",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/results/028.json": "18b586a4e59c01f954c0dde670d1ed8bfed1c28c2756529c8d3b228329844927",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/results/029.json": "c705f61ccffb5ec7e8c99417b47527938b976f770ebe7b36ff98867b1b5b2c05",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/results/030.json": "fe57eb89ce2a6dabd3da4ac0a24538d7c18fba477732ffd1131742324e79789f",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/results/031.json": "3f97b92b2d82fa6c5e9c20c9c327b5b13c7a2310136983e896e3e842d95021f6",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/results/032.json": "d4540ae4f467176926c76485e1559d0453d7d6f19b88d8b38f7c321f4fb21c68",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/results/033.json": "233c26d1874d496938aa59f9fd9145e335b095633e5b59b6e226df3a1bdf6ae9",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/results/034.json": "bc82bb740a78ed4331a7e8be41e5d37c0ea11572cbd8560d283c98666a7cde31",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/results/035.json": "2b586046170c558c133e22461935c36c06ce2dede3f6f70fbcc3c2b6940f8331",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/results/036.json": "58689db621351f7d0a59eeaeda4ae5246f247b4977b05b8691aaa57d087af40e",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/results/037.json": "01ff6ea76133a5f37b5acf012fbf324ce0ccc328ee1ee280b282c43b75e104b3",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/results/038.json": "85f9f040ad4862f3add18bdae6ae94556cfd805300ed7f19c908fed15eaa44f1",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/results/039.json": "433ec5702ba245e971b0b9ba52622fd1e0feb8ae9d97f412d8fa596a015b8ba2",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/results/040.json": "0c2617e14f465ade87e5208cf2a05fac843038978bb457470000e4a6e9b4cdc6",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/results/041.json": "90914c527bb77b1f1bcb42c0bbde79f7fc08630916be3139957c4931f44f76ff",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/results/043.json": "2448fb9ca5245bcc582a04b7af8abbf282319d9fc30d4a81d4226ecbbc4ac8fe",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/results/044.json": "06dcfbf0c367d43e92809a10f735097ffc0c826372112b8fea552d0239cd3b3d",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/results/045.json": "b811b363ad92bb97a123b174694a4c0b6660035cf3385a437393dffaa5697ef1",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/results/046.json": "e6fc0d45bf5497e50469c026dd2a94464d9181c27816f3c612043d53871e38f3",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/results/047.json": "e3e161549e0853f92994e6aba3357fcae46cdf9acd2df54667fe9b5675531982",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/results/048.json": "491d12c3e4f8913affe4d0d022e77550128db75670fdc6cdeec40e57806ae915",
+    "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50/results/049.json": "321c60603b435dbe8f936f423f983f681ac2c8bf72bd1f415a206ebe1c88c8fb",
+    "benchmarks/runs/20260909-6693-rank46-reason-watch/array.sbatch": "9ecdd6527aa866d0192ee9b690f88e5bd585a3fd19a66217d31c97ff56915c43",
+    "benchmarks/runs/20260909-6693-rank46-reason-watch/launch.json": "f68bd8812b5bf8a3b9351f8961d07ff06183349d5cf7749d396c86ecc2af6443",
+    "benchmarks/runs/20260909-6693-rank46-reason-watch/manifest.json": "2ed9d9a1333ea4064cd356aecd2112bf5c5a827554197b1d940180330bccc423",
+    "benchmarks/runs/20260909-6693-rank46-reason-watch/results/candidate.json": "0b83990953ce472d787e9b270fc52bf2a16664f1d98af489bcbd93e956425162",
+    "benchmarks/runs/20260909-6693-rank46-reason-watch/results/kissat.json": "38a9c563fc97abf60e7e513cbc7640dc1fc1460f9dbf848c4b8ede5175822c33",
+    "benchmarks/runs/20260909-6693-rank46-reason-watch/run.py": "6d94d5a1750de480c79e78d783fd23f6d395d331b8a0c71b6c300330311913bd",
+    "benchmarks/runs/20260909-6693-rank46-reason-watch/summary-6695.json": "50d583d84b62b42c4aed2ede0adc575116c7f7d1a15af6029228eb2dc3a57e6f",
+    "benchmarks/runs/20260909-6696-rank46-reason-history/array.sbatch": "f63ecb54858030b5fe2be128c06b68a45a302d8e0ce7c4e29e00d3ca0d525d2e",
+    "benchmarks/runs/20260909-6696-rank46-reason-history/launch.json": "5ed68c2e66a80d1655d6088b964c27750175ac3471466a17fb0f8772ea1c9b6b",
+    "benchmarks/runs/20260909-6696-rank46-reason-history/localization-6699.json": "f468d43d864a3d56b9a9fd313561837b48bb1495125acd7404f608fe7b60c9a6",
+    "benchmarks/runs/20260909-6696-rank46-reason-history/manifest.json": "f8600b6dbf15018468ac0046baac669a74ad652b11be53df1750ee0ecea9d34d",
+    "benchmarks/runs/20260909-6696-rank46-reason-history/results/candidate.json": "1926897cbf290a130d5d0de555dfa4bd59a8188fc4bd36de8f0fe0595695a09c",
+    "benchmarks/runs/20260909-6696-rank46-reason-history/results/kissat.json": "603e9fcc7628ebef0ea6fdcfea434991d71cd2605888a96a233dafb81fe36ab4",
+    "benchmarks/runs/20260909-6696-rank46-reason-history/run.py": "be072dd00f50b3594463a8ed12a35802a991c383e4b09fbbc4dd4b15fdd94924",
+    "benchmarks/runs/20260909-6696-rank46-reason-history/summary-6698.json": "c4e33446433695452728bdc5c95b94a5f4169d5d14d35d289408330fae9afa54",
+    "benchmarks/runs/20260909-6702-rank46-allscan-reason/array.sbatch": "c22f215c6a3f8cc06db629347d332d739859f80a32dfa222a85ebcb7c2ae7f85",
+    "benchmarks/runs/20260909-6702-rank46-allscan-reason/launch.json": "adc17279ab253c45d5c97f82e485a814982b1d0f3d2ef7f7ffdb04bb0b9adc83",
+    "benchmarks/runs/20260909-6702-rank46-allscan-reason/manifest.json": "24456b193c5813f52809d62c6ec8b01a9d8de1e237905f0ba2b11729c17d06fb",
+    "benchmarks/runs/20260909-6702-rank46-allscan-reason/results/candidate.json": "29b741a241dbc4dcab8e55a26fc01e0f77048bc545899fd324c7c1939828d7ab",
+    "benchmarks/runs/20260909-6702-rank46-allscan-reason/results/kissat.json": "274214d13d97af87cd4c23f151e196d7a5a866b7d6ce7b8c6095011fedb65cff",
+    "benchmarks/runs/20260909-6702-rank46-allscan-reason/run.py": "0519e2db714924f6fe7b9715858ef9758b4d9b6387d2701c971c113dccefba7a",
+    "benchmarks/runs/20260909-6702-rank46-allscan-reason/summary-6704.json": "dd3d88f995adc4d05f1aac7258515d5680b4d3b77db6c9b47e7c4334239e21e3",
+    "benchmarks/runs/20260909-6705-rank46-propagation-split/array.sbatch": "8b10c5dce662d34b108e80ee86975319b58595822c88867a8a2cc300d17571ab",
+    "benchmarks/runs/20260909-6705-rank46-propagation-split/launch.json": "7e0f6144b71dec995451ce65ad80eeb41ad255048964751321ba491903443997",
+    "benchmarks/runs/20260909-6705-rank46-propagation-split/manifest.json": "a06b383cc53934b7ac28c1606cd10cf5e704c6e1662ed30475cbd283af55f1e4",
+    "benchmarks/runs/20260909-6705-rank46-propagation-split/run.py": "432adfd6eed8f049bea53a8ba460d496f16c890f35373ad8dbf7dc8564769f1d",
+    "tools/bench/multi_scan_watch.py": "561285afcdca803938643d6dfe0b1f409c7a7e639d8d44f6dbe4a7e9e9248c6e",
+    "tools/bench/test_multi_scan_watch.py": "935fc42c99f367b8208d0819102b6b71fcbe82e5c5f4afc165c50707fce61e38"
+  },
+  "protected_campaign_hashes": {
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/manifest.json": "b2f9e98291c56c415e4cb9439a77378c55cc78593d632c1fc84a6d5ee194acf6",
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/array.sbatch": "b90503efeb1acd5ea2cb081fc60a79c2e1ab6d51287cedf050a673ddb5433143",
+    "benchmarks/baselines/rank1-40-kissat-12cpu-v1/manifest.json": "45259e1acbc93472b923517f75fd6b8697669b3ad74970d27b565b6b7f1aa686",
+    "benchmarks/runs/20260908-5712-assignment-level-ranks1-40/manifest.json": "80211109441ac7e1483082a767c755ffc03c029381398c71017593e2ff29a8ae",
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/pins/runtime_task.py": "ccef4f23bac433c4c205949c0296f2cdef0e98d0d56fff5d306abb6e6209297f",
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/pins/modelcheck.py": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/manifest.json": "d09c9f2a030d0d29974fa881ee247c7900704e4be0e204b28c0b16beaf443d16",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/array.sbatch": "82b47f14fc76c4d5ca14484035b1033d013c1a36c2bbe44c531a1a6a56c87efb",
+    "benchmarks/runs/20260908-6114-substitute-publication-BC-gate/manifest.json": "27c57c3c896ab15daa9d51ff87f9a977472d28b2b43b849be7322b96eb598bb1",
+    "benchmarks/runs/20260908-6114-substitute-publication-BC-gate/array.sbatch": "2b6afd38eb7dcc8fc39f6fa294f5786d20d9238a4facb7cb64bc6c35a0320b4a",
+    "benchmarks/runs/20260908-6115-substitute-publication-ranks1-50/manifest.json": "e739603e6d4ec9024beebfa7a049def7c3ea01eb6b5287e542f05a651e646cd7",
+    "benchmarks/runs/20260908-6115-substitute-publication-ranks1-50/array.sbatch": "ab074cdcf7e9691f7031fd9aa198cef18fe83bb9edc5aa73f0c5b033d2d380f5",
+    "benchmarks/baselines/rank1-50-kissat-12cpu-v1/manifest.json": "5f7865e46af2b9ed0d1899ce6e450bfb9b3575801c50183e059d0e4326f5a1e0",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/manifest.json": "224b3b5d80c3087b3c3c709a78dcf934d175823bd2232f68a2475e6d11bd3d1a",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/launch.json": "ee6eea617d6fef64349ed0096c9dd06f1ffb9ba03467dd6901ab92b833bfb7a1",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/array.sbatch": "37e88d1e5998092127067b1ac0fedc388f29ddf45179057a508fb53dabaa24be"
+  },
+  "evidence": {
+    "benchmarks/runs/20260909-6693-rank46-reason-watch/summary-6695.json": "50d583d84b62b42c4aed2ede0adc575116c7f7d1a15af6029228eb2dc3a57e6f",
+    "benchmarks/runs/20260909-6696-rank46-reason-history/summary-6698.json": "c4e33446433695452728bdc5c95b94a5f4169d5d14d35d289408330fae9afa54",
+    "benchmarks/runs/20260909-6696-rank46-reason-history/localization-6699.json": "f468d43d864a3d56b9a9fd313561837b48bb1495125acd7404f608fe7b60c9a6",
+    "benchmarks/runs/20260909-6663-rank49-congruence-empty-runtime/solver-checkpoint-6672.json": "e5ca8a09e6a2432ebba2bc3f3e3acaae181c78bfce74d9c543517dc6242cda7b",
+    "benchmarks/reports/2026-09-09-congruence-empty-full50-6668/summary.json": "96088cccadb6527d8228b366b26daff0b21386efc2b9c654c62dceb2fadff9e4",
+    "benchmarks/runs/20260909-6702-rank46-allscan-reason/summary-6704.json": "dd3d88f995adc4d05f1aac7258515d5680b4d3b77db6c9b47e7c4334239e21e3",
+    "20260909-6702-rank46-allscan-reason_checkpoint": {
+      "results": {
+        "candidate": {
+          "exit_code": 0,
+          "scratch_deleted": true
+        },
+        "kissat": {
+          "exit_code": 0,
+          "scratch_deleted": true
+        }
+      },
+      "replay_validated": true
+    },
+    "20260909-6705-rank46-propagation-split_checkpoint": {
+      "results": {},
+      "replay_validated": false
+    }
+  },
+  "build_evidence": {
+    "benchmarks/runs/20260909-6579-material-schedule-build/manifest.json": "2f5b717cdc2dd0ecf99e8daf122a10e01a725572af52b064dba96252605989ce",
+    "benchmarks/runs/20260909-6654-congruence-empty-gates-build/manifest.json": "02b12ad11ea17caf2626c2be23dd181edcaa806e2f8c0c2df3fef2082623ae03"
+  },
+  "accounting": {
+    "1678568": {
+      "campaign": "benchmarks/runs/20260909-6693-rank46-reason-watch",
+      "command": [
+        "sacct",
+        "-n",
+        "-X",
+        "--array",
+        "-j",
+        "1678568",
+        "-S",
+        "2026-09-09T20:06:55",
+        "-o",
+        "JobID,State%40,ExitCode,Submit",
+        "-P"
+      ],
+      "stdout": "1678568_0|COMPLETED|0:0|2026-09-09T20:06:55\n1678568_1|COMPLETED|0:0|2026-09-09T20:06:55\n"
+    },
+    "1678570": {
+      "campaign": "benchmarks/runs/20260909-6696-rank46-reason-history",
+      "command": [
+        "sacct",
+        "-n",
+        "-X",
+        "--array",
+        "-j",
+        "1678570",
+        "-S",
+        "2026-09-09T20:12:18",
+        "-o",
+        "JobID,State%40,ExitCode,Submit",
+        "-P"
+      ],
+      "stdout": "1678570_0|COMPLETED|0:0|2026-09-09T20:12:18\n1678570_1|COMPLETED|0:0|2026-09-09T20:12:18\n"
+    },
+    "1678434": {
+      "campaign": "benchmarks/runs/20260909-6661-congruence-empty-BC-gate",
+      "command": [
+        "sacct",
+        "-n",
+        "-X",
+        "--array",
+        "-j",
+        "1678434",
+        "-S",
+        "2026-09-09T18:57:58",
+        "-o",
+        "JobID,State%40,ExitCode,Submit",
+        "-P"
+      ],
+      "stdout": "1678434_0|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_1|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_2|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_3|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_4|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_5|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_6|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_7|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_8|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_9|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_10|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_11|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_12|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_13|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_14|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_15|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_16|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_17|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_18|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_19|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_20|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_21|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_22|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_23|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_24|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_25|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_26|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_27|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_28|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_29|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_30|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_31|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_32|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_33|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_34|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_35|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_36|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_37|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_38|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_39|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_40|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_41|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_42|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_43|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_44|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_45|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_46|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_47|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_48|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_49|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_50|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_51|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_52|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_53|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_54|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_55|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_56|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_57|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_58|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_59|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_60|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_61|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_62|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_63|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_64|COMPLETED|0:0|2026-09-09T18:57:58\n1678434_65|COMPLETED|0:0|2026-09-09T18:57:58\n"
+    },
+    "1678500": {
+      "campaign": "benchmarks/runs/20260909-6663-rank49-congruence-empty-runtime",
+      "command": [
+        "sacct",
+        "-n",
+        "-X",
+        "--array",
+        "-j",
+        "1678500",
+        "-S",
+        "2026-09-09T19:03:24",
+        "-o",
+        "JobID,State%40,ExitCode,Submit",
+        "-P"
+      ],
+      "stdout": "1678500_0|COMPLETED|0:0|2026-09-09T19:03:24\n1678500_1|COMPLETED|0:0|2026-09-09T19:03:24\n"
+    },
+    "1678535": {
+      "campaign": "benchmarks/runs/20260909-6663-rank49-congruence-empty-runtime",
+      "command": [
+        "sacct",
+        "-n",
+        "-X",
+        "--array",
+        "-j",
+        "1678535",
+        "-S",
+        "2026-09-09T19:06:31",
+        "-o",
+        "JobID,State%40,ExitCode,Submit",
+        "-P"
+      ],
+      "stdout": "1678535_2|COMPLETED|0:0|2026-09-09T19:06:31\n1678535_3|COMPLETED|0:0|2026-09-09T19:06:31\n"
+    },
+    "1678554": {
+      "campaign": "benchmarks/runs/20260909-6663-rank49-congruence-empty-runtime",
+      "command": [
+        "sacct",
+        "-n",
+        "-X",
+        "--array",
+        "-j",
+        "1678554",
+        "-S",
+        "2026-09-09T19:15:27",
+        "-o",
+        "JobID,State%40,ExitCode,Submit",
+        "-P"
+      ],
+      "stdout": "1678554_4|COMPLETED|0:0|2026-09-09T19:15:27\n1678554_5|COMPLETED|0:0|2026-09-09T19:15:27\n"
+    },
+    "1678502": {
+      "campaign": "benchmarks/runs/20260909-6666-congruence-empty-ranks1-50",
+      "command": [
+        "sacct",
+        "-n",
+        "-X",
+        "--array",
+        "-j",
+        "1678502",
+        "-S",
+        "2026-09-09T19:06:00",
+        "-o",
+        "JobID,State%40,ExitCode,Submit",
+        "-P"
+      ],
+      "stdout": "1678502_0|COMPLETED|0:0|2026-09-09T19:06:00\n1678502_1|COMPLETED|0:0|2026-09-09T19:06:00\n1678502_2|COMPLETED|0:0|2026-09-09T19:06:00\n1678502_3|COMPLETED|0:0|2026-09-09T19:06:00\n1678502_4|COMPLETED|0:0|2026-09-09T19:06:00\n1678502_5|COMPLETED|0:0|2026-09-09T19:06:00\n1678502_6|COMPLETED|0:0|2026-09-09T19:06:00\n1678502_7|COMPLETED|0:0|2026-09-09T19:06:00\n1678502_8|COMPLETED|0:0|2026-09-09T19:06:00\n1678502_9|COMPLETED|0:0|2026-09-09T19:06:00\n1678502_10|COMPLETED|0:0|2026-09-09T19:06:00\n1678502_11|COMPLETED|0:0|2026-09-09T19:06:00\n1678502_12|COMPLETED|0:0|2026-09-09T19:06:00\n1678502_13|COMPLETED|0:0|2026-09-09T19:06:00\n1678502_14|COMPLETED|0:0|2026-09-09T19:06:00\n1678502_15|COMPLETED|0:0|2026-09-09T19:06:00\n1678502_16|COMPLETED|0:0|2026-09-09T19:06:00\n1678502_17|COMPLETED|0:0|2026-09-09T19:06:00\n1678502_18|COMPLETED|0:0|2026-09-09T19:06:00\n1678502_19|COMPLETED|0:0|2026-09-09T19:06:00\n1678502_20|COMPLETED|0:0|2026-09-09T19:06:00\n1678502_21|RUNNING|0:0|2026-09-09T19:06:00\n1678502_22|COMPLETED|0:0|2026-09-09T19:06:00\n1678502_23|COMPLETED|0:0|2026-09-09T19:06:00\n1678502_24|COMPLETED|0:0|2026-09-09T19:06:00\n1678502_25|COMPLETED|0:0|2026-09-09T19:06:00\n1678502_26|COMPLETED|0:0|2026-09-09T19:06:00\n1678502_27|COMPLETED|0:0|2026-09-09T19:06:00\n1678502_28|COMPLETED|0:0|2026-09-09T19:06:00\n1678502_29|COMPLETED|0:0|2026-09-09T19:06:00\n1678502_30|COMPLETED|0:0|2026-09-09T19:06:00\n1678502_31|COMPLETED|0:0|2026-09-09T19:06:00\n1678502_32|COMPLETED|0:0|2026-09-09T19:06:00\n1678502_33|COMPLETED|0:0|2026-09-09T19:06:00\n1678502_34|COMPLETED|0:0|2026-09-09T19:06:00\n1678502_35|COMPLETED|0:0|2026-09-09T19:06:00\n1678502_36|COMPLETED|0:0|2026-09-09T19:06:00\n1678502_37|COMPLETED|0:0|2026-09-09T19:06:00\n1678502_38|COMPLETED|0:0|2026-09-09T19:06:00\n1678502_39|COMPLETED|0:0|2026-09-09T19:06:00\n1678502_40|COMPLETED|0:0|2026-09-09T19:06:00\n1678502_41|COMPLETED|0:0|2026-09-09T19:06:00\n1678502_42|RUNNING|0:0|2026-09-09T19:06:00\n1678502_43|COMPLETED|0:0|2026-09-09T19:06:00\n1678502_44|COMPLETED|0:0|2026-09-09T19:06:00\n1678502_45|COMPLETED|0:0|2026-09-09T19:06:00\n1678502_46|COMPLETED|0:0|2026-09-09T19:06:00\n1678502_47|COMPLETED|0:0|2026-09-09T19:06:00\n1678502_48|COMPLETED|0:0|2026-09-09T19:06:00\n1678502_49|COMPLETED|0:0|2026-09-09T19:06:00\n"
+    },
+    "1678572": {
+      "campaign": "benchmarks/runs/20260909-6702-rank46-allscan-reason",
+      "command": [
+        "sacct",
+        "-n",
+        "-X",
+        "--array",
+        "-j",
+        "1678572",
+        "-S",
+        "2026-09-09T20:25:29",
+        "-o",
+        "JobID,State%40,ExitCode,Submit",
+        "-P"
+      ],
+      "stdout": "1678572_0|COMPLETED|0:0|2026-09-09T20:25:29\n1678572_1|COMPLETED|0:0|2026-09-09T20:25:29\n"
+    },
+    "1678574": {
+      "campaign": "benchmarks/runs/20260909-6705-rank46-propagation-split",
+      "command": [
+        "sacct",
+        "-n",
+        "-X",
+        "--array",
+        "-j",
+        "1678574",
+        "-S",
+        "2026-09-09T20:32:04",
+        "-o",
+        "JobID,State%40,ExitCode,Submit",
+        "-P"
+      ],
+      "stdout": "1678574_0|RUNNING|0:0|2026-09-09T20:32:04\n1678574_1|RUNNING|0:0|2026-09-09T20:32:04\n"
+    }
+  },
+  "campaign_states": {
+    "20260909-6661-congruence-empty-BC-gate": {
+      "0": {
+        "rank": 1,
+        "arm": "current_B",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 4.324
+      },
+      "1": {
+        "rank": 1,
+        "arm": "candidate_B",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 4.323
+      },
+      "2": {
+        "rank": 2,
+        "arm": "current_B",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 5.927
+      },
+      "3": {
+        "rank": 2,
+        "arm": "candidate_B",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 5.926
+      },
+      "4": {
+        "rank": 3,
+        "arm": "current_B",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 6.678
+      },
+      "5": {
+        "rank": 3,
+        "arm": "candidate_B",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 6.677
+      },
+      "6": {
+        "rank": 4,
+        "arm": "current_B",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 7.478
+      },
+      "7": {
+        "rank": 4,
+        "arm": "candidate_B",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 7.479
+      },
+      "8": {
+        "rank": 5,
+        "arm": "current_B",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 8.43
+      },
+      "9": {
+        "rank": 5,
+        "arm": "candidate_B",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 8.43
+      },
+      "10": {
+        "rank": 6,
+        "arm": "current_B",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 11.436
+      },
+      "11": {
+        "rank": 6,
+        "arm": "candidate_B",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 11.435
+      },
+      "12": {
+        "rank": 7,
+        "arm": "current_B",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 19.65
+      },
+      "13": {
+        "rank": 7,
+        "arm": "candidate_B",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 19.649
+      },
+      "14": {
+        "rank": 8,
+        "arm": "current_B",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 2.62
+      },
+      "15": {
+        "rank": 8,
+        "arm": "candidate_B",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 2.621
+      },
+      "16": {
+        "rank": 9,
+        "arm": "current_B",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 4.423
+      },
+      "17": {
+        "rank": 9,
+        "arm": "candidate_B",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 4.424
+      },
+      "18": {
+        "rank": 10,
+        "arm": "current_B",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 6.076
+      },
+      "19": {
+        "rank": 10,
+        "arm": "candidate_B",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 6.027
+      },
+      "20": {
+        "rank": 11,
+        "arm": "current_B",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 9.832
+      },
+      "21": {
+        "rank": 11,
+        "arm": "candidate_B",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 9.833
+      },
+      "22": {
+        "rank": 12,
+        "arm": "current_B",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 9.482
+      },
+      "23": {
+        "rank": 12,
+        "arm": "candidate_B",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 9.483
+      },
+      "24": {
+        "rank": 13,
+        "arm": "current_B",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 10.684
+      },
+      "25": {
+        "rank": 13,
+        "arm": "candidate_B",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 10.684
+      },
+      "26": {
+        "rank": 14,
+        "arm": "current_B",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 14.941
+      },
+      "27": {
+        "rank": 14,
+        "arm": "candidate_B",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 14.892
+      },
+      "28": {
+        "rank": 15,
+        "arm": "current_B",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 4.373
+      },
+      "29": {
+        "rank": 15,
+        "arm": "candidate_B",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 4.373
+      },
+      "30": {
+        "rank": 16,
+        "arm": "current_B",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 17.946
+      },
+      "31": {
+        "rank": 16,
+        "arm": "candidate_B",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 17.895
+      },
+      "32": {
+        "rank": 17,
+        "arm": "current_B",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 8.731
+      },
+      "33": {
+        "rank": 17,
+        "arm": "candidate_B",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 8.68
+      },
+      "34": {
+        "rank": 18,
+        "arm": "current_B",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 13.189
+      },
+      "35": {
+        "rank": 18,
+        "arm": "candidate_B",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 13.138
+      },
+      "36": {
+        "rank": 19,
+        "arm": "current_B",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 13.038
+      },
+      "37": {
+        "rank": 19,
+        "arm": "candidate_B",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 13.037
+      },
+      "38": {
+        "rank": 20,
+        "arm": "current_B",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 9.932
+      },
+      "39": {
+        "rank": 20,
+        "arm": "candidate_B",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 9.982
+      },
+      "40": {
+        "rank": 21,
+        "arm": "current_B",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 28.815
+      },
+      "41": {
+        "rank": 21,
+        "arm": "candidate_B",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 28.664
+      },
+      "42": {
+        "rank": 22,
+        "arm": "current_B",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 3.572
+      },
+      "43": {
+        "rank": 22,
+        "arm": "candidate_B",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 3.572
+      },
+      "44": {
+        "rank": 23,
+        "arm": "current_B",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 6.427
+      },
+      "45": {
+        "rank": 23,
+        "arm": "candidate_B",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 6.476
+      },
+      "46": {
+        "rank": 24,
+        "arm": "current_B",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 10.384
+      },
+      "47": {
+        "rank": 24,
+        "arm": "candidate_B",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 10.332
+      },
+      "48": {
+        "rank": 25,
+        "arm": "current_B",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 11.436
+      },
+      "49": {
+        "rank": 25,
+        "arm": "candidate_B",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 11.485
+      },
+      "50": {
+        "rank": 26,
+        "arm": "current_B",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 12.337
+      },
+      "51": {
+        "rank": 26,
+        "arm": "candidate_B",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 12.337
+      },
+      "52": {
+        "rank": 27,
+        "arm": "current_B",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 16.392
+      },
+      "53": {
+        "rank": 27,
+        "arm": "candidate_B",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 16.392
+      },
+      "54": {
+        "rank": 28,
+        "arm": "current_B",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 19.548
+      },
+      "55": {
+        "rank": 28,
+        "arm": "candidate_B",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 19.598
+      },
+      "56": {
+        "rank": 29,
+        "arm": "current_C",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 52.001
+      },
+      "57": {
+        "rank": 29,
+        "arm": "candidate_C",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 52.405
+      },
+      "58": {
+        "rank": 30,
+        "arm": "current_C",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 97.975
+      },
+      "59": {
+        "rank": 30,
+        "arm": "candidate_C",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 98.625
+      },
+      "60": {
+        "rank": 31,
+        "arm": "current_C",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 123.522
+      },
+      "61": {
+        "rank": 31,
+        "arm": "candidate_C",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 123.778
+      },
+      "62": {
+        "rank": 32,
+        "arm": "current_C",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 70.78
+      },
+      "63": {
+        "rank": 32,
+        "arm": "candidate_C",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 71.081
+      },
+      "64": {
+        "rank": 33,
+        "arm": "current_C",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 312.099
+      },
+      "65": {
+        "rank": 33,
+        "arm": "candidate_C",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 312.853
+      }
+    },
+    "20260909-6663-rank49-congruence-empty-runtime": {
+      "0": {
+        "rank": 49,
+        "arm": "candidate",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 22.559
+      },
+      "1": {
+        "rank": 49,
+        "arm": "previous",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 158.285
+      },
+      "2": {
+        "rank": 49,
+        "arm": "previous",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 158.73
+      },
+      "3": {
+        "rank": 49,
+        "arm": "candidate",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 22.754
+      },
+      "4": {
+        "rank": 49,
+        "arm": "candidate",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 22.652
+      },
+      "5": {
+        "rank": 49,
+        "arm": "previous",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 158.72
+      }
+    },
+    "20260909-6666-congruence-empty-ranks1-50": {
+      "0": {
+        "rank": 1,
+        "arm": "tactix",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 0.217
+      },
+      "1": {
+        "rank": 2,
+        "arm": "tactix",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 0.217
+      },
+      "2": {
+        "rank": 3,
+        "arm": "tactix",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 0.567
+      },
+      "3": {
+        "rank": 4,
+        "arm": "tactix",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 7.579
+      },
+      "4": {
+        "rank": 5,
+        "arm": "tactix",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 33.572
+      },
+      "5": {
+        "rank": 6,
+        "arm": "tactix",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 67.582
+      },
+      "6": {
+        "rank": 7,
+        "arm": "tactix",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 55.611
+      },
+      "7": {
+        "rank": 8,
+        "arm": "tactix",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 65.698
+      },
+      "8": {
+        "rank": 9,
+        "arm": "tactix",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 98.933
+      },
+      "9": {
+        "rank": 10,
+        "arm": "tactix",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 90.772
+      },
+      "10": {
+        "rank": 11,
+        "arm": "tactix",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 0.267
+      },
+      "11": {
+        "rank": 12,
+        "arm": "tactix",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 7.228
+      },
+      "12": {
+        "rank": 13,
+        "arm": "tactix",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 73.23
+      },
+      "13": {
+        "rank": 14,
+        "arm": "tactix",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 72.43
+      },
+      "14": {
+        "rank": 15,
+        "arm": "tactix",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 75.337
+      },
+      "15": {
+        "rank": 16,
+        "arm": "tactix",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 118.003
+      },
+      "16": {
+        "rank": 17,
+        "arm": "tactix",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 76.74
+      },
+      "17": {
+        "rank": 18,
+        "arm": "tactix",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 61.587
+      },
+      "18": {
+        "rank": 19,
+        "arm": "tactix",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 131.275
+      },
+      "19": {
+        "rank": 20,
+        "arm": "tactix",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 119.708
+      },
+      "20": {
+        "rank": 21,
+        "arm": "tactix",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 249.867
+      },
+      "21": {
+        "rank": 22,
+        "arm": "tactix",
+        "status": {
+          "status": "pending_validation",
+          "clean": false,
+          "checked": false,
+          "scorable": false
+        },
+        "seconds": 224.876
+      },
+      "22": {
+        "rank": 23,
+        "arm": "tactix",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 196.228
+      },
+      "23": {
+        "rank": 24,
+        "arm": "tactix",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 263.088
+      },
+      "24": {
+        "rank": 25,
+        "arm": "tactix",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 221.974
+      },
+      "25": {
+        "rank": 26,
+        "arm": "tactix",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 250.972
+      },
+      "26": {
+        "rank": 27,
+        "arm": "tactix",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 303.9
+      },
+      "27": {
+        "rank": 28,
+        "arm": "tactix",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 218.135
+      },
+      "28": {
+        "rank": 29,
+        "arm": "tactix",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 280.866
+      },
+      "29": {
+        "rank": 30,
+        "arm": "tactix",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 260.31
+      },
+      "30": {
+        "rank": 31,
+        "arm": "tactix",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 481.325
+      },
+      "31": {
+        "rank": 32,
+        "arm": "tactix",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 326.406
+      },
+      "32": {
+        "rank": 33,
+        "arm": "tactix",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 356.185
+      },
+      "33": {
+        "rank": 34,
+        "arm": "tactix",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 329.922
+      },
+      "34": {
+        "rank": 35,
+        "arm": "tactix",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 502.126
+      },
+      "35": {
+        "rank": 36,
+        "arm": "tactix",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 355.88
+      },
+      "36": {
+        "rank": 37,
+        "arm": "tactix",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 403.206
+      },
+      "37": {
+        "rank": 38,
+        "arm": "tactix",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 341.762
+      },
+      "38": {
+        "rank": 39,
+        "arm": "tactix",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 427.406
+      },
+      "39": {
+        "rank": 40,
+        "arm": "tactix",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 408.224
+      },
+      "40": {
+        "rank": 41,
+        "arm": "tactix",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 14.941
+      },
+      "41": {
+        "rank": 42,
+        "arm": "tactix",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 65.478
+      },
+      "42": {
+        "rank": 43,
+        "arm": "tactix",
+        "status": {
+          "status": "pending_validation",
+          "clean": false,
+          "checked": false,
+          "scorable": false
+        },
+        "seconds": 124.517
+      },
+      "43": {
+        "rank": 44,
+        "arm": "tactix",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 58.207
+      },
+      "44": {
+        "rank": 45,
+        "arm": "tactix",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 44.488
+      },
+      "45": {
+        "rank": 46,
+        "arm": "tactix",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 147.865
+      },
+      "46": {
+        "rank": 47,
+        "arm": "tactix",
+        "status": {
+          "status": "checked_UNSAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 141.76
+      },
+      "47": {
+        "rank": 48,
+        "arm": "tactix",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 15.696
+      },
+      "48": {
+        "rank": 49,
+        "arm": "tactix",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 22.703
+      },
+      "49": {
+        "rank": 50,
+        "arm": "tactix",
+        "status": {
+          "status": "checked_SAT",
+          "clean": true,
+          "checked": true,
+          "scorable": true
+        },
+        "seconds": 45.694
+      }
+    }
+  },
+  "checks": {
+    "bench": {
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tools/bench",
+        "-p",
+        "test_*.py"
+      ],
+      "stdout": "",
+      "stderr": ".....................................................................................................................................................................................................................\n----------------------------------------------------------------------\nRan 213 tests in 0.087s\n\nOK\n"
+    },
+    "slurm": {
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tools/slurm",
+        "-p",
+        "test_*.py"
+      ],
+      "stdout": "SLURM job 123: observation failed (1); retrying same job\n",
+      "stderr": ".............\n----------------------------------------------------------------------\nRan 13 tests in 0.004s\n\nOK\n"
+    },
+    "check-doc-size": {
+      "command": [
+        "python3",
+        "tools/docs/check-doc-size.py"
+      ],
+      "stdout": "  warn  DEVELOPMENT_PLAN.md: 747 of 750 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\n  warn  PROGRESS.md: 350 of 350 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\n  warn  docs/calculus.md: 671 of 680 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\n  warn  docs/implementation-notes.md: 560 of 560 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\n  warn  docs/scheduling-parity-ledger.md: 600 of 600 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\ncheck-doc-size: 0 error(s), 5 warning(s), 30 file budget(s) checked\n",
+      "stderr": ""
+    },
+    "check-progress": {
+      "command": [
+        "python3",
+        "tools/docs/check-progress.py"
+      ],
+      "stdout": "  note  build dirs newer than newest source: pin-5316-core-capture(Release), pin-5317-core-capture(Release), pin-5318-core-release(Release), pin-5321-core-roots(Release), pin-5322-core-repose(Release), pin-5322-repose-trace(Release), pin-5323-binary-watch(Release), pin-5325-sequential(Release), pin-5325-sequential-trace(Release), pin-5326-composed(Release), pin-5326-composed-trace(Release), pin-5327-bridge-pose(Release), pin-5327-bridge-trace(Release), pin-5331-core-trace(Release), pin-5337-rewrite-source(Release), pin-5342-deact-trace(Release), pin-5343-round-retirement(Release), pin-5344-round-only(Release), pin-5344-round-release(Release), pin-5347-decision-stream(Release), pin-5348-choice-state(Release), pin-5352-queue-stamps(Release), pin-5353-factor-stamps(Release), pin-5354-empty-factor(Release), pin-5356-empty-factor-release(Release), pin-5357-empty-factor-C(Release), pin-5359-focused-choice(Release), pin-5361-queue-bumps(Release), pin-5369-congruence-prefix(Release), pin-5371-congruence-prefix-release(Release), pin-5372-congruence-prefix-bc(Release), pin-5377-retry-producers(Release), pin-5378-vivify-retry(Release), pin-5379-vivify-retry-release(Release), pin-5380-vivify-retry-bc(Release), pin-5382-prefix-cost(Release), pin-5387-dense-publication(Release), pin-5388-dense-publication-release(Release), pin-5389-dense-publication-bc(Release), pin-5391-eliminate-dense-entry(Release), pin-5392-eliminate-dense-release(Release), pin-5393-eliminate-dense-bc(Release), pin-5399-window-observer(Release), pin-5402-direct-heap(Release), pin-5412-imply-observer(Release), pin-5414-imply-fast(Release), pin-5417-rephase-root-trace(Release), pin-5419-rephase-root-release(Release), pin-5420-rephase-root-bc(Release), pin-5426-watch-truncate-release(Release), pin-5427-watch-truncate-bc(Release), pin-5430-inprocess-root-release(Release), pin-5431-inprocess-root-trace(Release), pin-5432-inprocess-root-bc(Release), pin-5438-vivify-max-release(Release), pin-5439-vivify-max-bc(Release), pin-5445-replacement-cursor-release(Release), pin-5446-replacement-cursor-bc(Release), pin-5450-eliminate-limit-release(Release), pin-5451-eliminate-limit-trace(Release), pin-5452-eliminate-limit-bc(Release), pin-5456-factor-observer-trace(Release), pin-5459-bound-advance-release(Release), pin-5460-bound-advance-trace(Release), pin-5461-bound-advance-bc(Release), pin-5466-watch-pair-release(Release), pin-5467-watch-pair-bc(Release), pin-5473-sweep-cursor-release(Release), pin-5474-sweep-cursor-bc(Release), pin-5510-sweep-retained-release(Release), pin-5511-sweep-retained-trace(Release), pin-5512-sweep-retained-bc(Release), pin-5522-sweep-small-release(Release), pin-5523-sweep-small-trace(Release), pin-5524-sweep-small-bc(Release), pin-5546-vivify-census-release(Release), pin-5547-vivify-census-bc(Release), pin-5592-factor-root-support-release(Release), pin-5593-factor-root-support-trace(Release), pin-5594-factor-root-support-bc(Release), pin-5619-congruence-index-release(Release), pin-5620-congruence-index-trace(Release), pin-5621-congruence-index-bc(Release), pin-5641-propagation-cursor-release(Release), pin-5642-propagation-cursor-trace(Release), pin-5643-propagation-cursor-bc(Release), pin-5672-assignment-level-release(Release), pin-5673-assignment-level-trace(Release), pin-5674-assignment-level-bc(Release), pin-5696-score-bump-observer-trace(Release), pin-5718-root-conflict-reuse-release(Release), pin-5719-root-conflict-reuse-trace(Release), pin-5720-root-conflict-reuse-bc(Release), pin-5741-reuse-target-release(Release), pin-5742-reuse-target-trace(Release), pin-5743-reuse-target-bc(Release), pin-5760-forward-exit-trace(Release), pin-5798-forward-unit-release(Release), pin-5799-forward-unit-bc(Release), pin-5800-forward-unit-trace(Release), pin-5817-forward-mark-trace(Release), pin-5830-forward-admission-release(Release), pin-5831-forward-admission-bc(Release), pin-5832-forward-admission-trace(Release), pin-5849-forward-caller-release(Release), pin-5850-forward-caller-bc(Release), pin-5851-forward-caller-trace(Release), pin-5854-forward-caller-journal(Release), pin-5870-forward-preclean-release(Release), pin-5871-forward-preclean-bc(Release), pin-5872-forward-preclean-trace(Release), pin-5873-forward-preclean-journal(Release), pin-5900-reduce-root-release(Release), pin-5901-reduce-root-bc(Release), pin-5902-reduce-root-trace(Release), pin-5903-reduce-root-journal(Release), pin-5920-reduce-preclean-release(Release), pin-5921-reduce-preclean-bc(Release), pin-5922-reduce-preclean-trace(Release), pin-5923-reduce-preclean-journal(Release), pin-5956-bve-full-heap-trace(Release), pin-5962-bve-active-pop-release(Release), pin-5963-bve-active-pop-bc(Release), pin-5964-bve-active-pop-trace(Release), pin-5965-bve-active-pop-journal(Release), pin-5985-bve-repeat-heap-trace(Release), pin-6004-clause-pose-series-trace(Release), pin-6016-vivify-pose-trace(Release), pin-6030-learned-stage-trace(Release), pin-6049-reduce-root-lock-release(Release), pin-6050-reduce-root-lock-bc(Release), pin-6051-reduce-root-lock-trace(Release), pin-6052-reduce-root-lock-journal(Release), pin-6054-reduce-root-lock-trace(Release), pin-6090-macro-heap-trace(Release), pin-6107-substitute-publication-release(Release), pin-6108-substitute-publication-bc(Release), pin-6127-publication-trace(Release), pin-6128-publication-journal(Release), pin-6136-substitute-journal-release(Release), pin-6137-substitute-journal-journal(Release), pin-6146-collect-memory-release(Release), pin-6147-collect-memory-trace(Release), pin-6150-collect-memory-release(Release), pin-6151-collect-memory-trace(Release), pin-6154-bve-capacity-release(Release), pin-6155-bve-capacity-trace(Release), pin-6169-learned-sort-release(Release), pin-6170-learned-sort-bc(Release), pin-6206-schedule-continue-release(Release), pin-6206-schedule-continue-trace(Release), pin-6231-substitute-retry-bc(Release), pin-6231-substitute-retry-release(Release), pin-6231-substitute-retry-trace(Release), pin-6269-vivify-binary-retry-bc(Release), pin-6269-vivify-binary-retry-release(Release), pin-6269-vivify-binary-retry-trace(Release), pin-6283-admission-release(Release), pin-6283-admission-trace(Release), pin-6305-substitute-collapse-bc(Release), pin-6305-substitute-collapse-release(Release), pin-6305-substitute-collapse-trace(Release), pin-6327-collapse-schedule-release(Release), pin-6327-collapse-schedule-trace(Release), pin-6350-transitive-schedule-release(Release), pin-6350-transitive-schedule-trace(Release), pin-6357-compact-stamp-bc(Release), pin-6357-compact-stamp-release(Release), pin-6357-compact-stamp-trace(Release), pin-6383-vivify-count-cache-bc(Release), pin-6383-vivify-count-cache-release(Release), pin-6383-vivify-count-cache-trace(Release), pin-6413-rank45-schedule-release(Release), pin-6413-rank45-schedule-trace(Release), pin-6424-activation-stamp-bc(Release), pin-6424-activation-stamp-release(Release), pin-6424-activation-stamp-trace(Release), pin-6448-shared-blocker-bc(Release), pin-6448-shared-blocker-release(Release), pin-6448-shared-blocker-trace(Release), pin-6475-position-key-bc(Release), pin-6475-position-key-release(Release), pin-6475-position-key-trace(Release), pin-6508-congruence-stages-release(Release), pin-6508-congruence-stages-trace(Release), pin-6571-material-state-bc(Release), pin-6571-material-state-release(Release), pin-6571-material-state-trace(Release), pin-6579-material-schedule-bc(Release), pin-6579-material-schedule-release(Release), pin-6579-material-schedule-trace(Release), pin-6654-congruence-empty-gates-bc(Release), pin-6654-congruence-empty-gates-release(Release), pin-6654-congruence-empty-gates-trace(Release), pin-congruence-index-repair-5623-bc(Release), pin-congruence-index-repair-5623-release(Release), pin-congruence-index-repair-5623-trace(Release), pin-periodic-fuzz-5442-debug(Debug), pin-periodic-fuzz-5442-release(Release), pin-periodic-fuzz-5442-shadow(Debug), pin-periodic-fuzz-5492-debug(Debug), pin-periodic-fuzz-5492-release(Release), pin-periodic-fuzz-5492-shadow(Debug), pin-periodic-fuzz-5539-debug(Debug), pin-periodic-fuzz-5539-release(Release), pin-periodic-fuzz-5539-shadow(Debug), pin-periodic-fuzz-5610-debug(Debug), pin-periodic-fuzz-5610-release(Release), pin-periodic-fuzz-5657-debug(Debug), pin-periodic-fuzz-5657-release(Release), pin-periodic-fuzz-5657-shadow(Debug), pin-periodic-fuzz-5715-debug(Debug), pin-periodic-fuzz-5715-release(Release), pin-periodic-fuzz-5715-witness(Debug), pin-periodic-fuzz-5765-asan(Debug), pin-periodic-fuzz-5765-release(Release), pin-periodic-fuzz-5765-witness(Debug), pin-propagation-cursor-repair-5647-bc(Release), pin-propagation-cursor-repair-5647-release(Release), pin-propagation-cursor-repair-5647-trace(Release), pin-sweep-pose-fuzz-r2-dbg(Debug), pin-sweep-pose-fuzz-r2-rel(Release), pin-sweep-pose-fuzz-r2-shadow(Debug)  (total pin-* dirs: 411)\n  note  newest completed tier run: 20260813-111513-C-cleanup-b2b8362\n  WARN  3 lesson citations remain in living docs (DEVELOPMENT_PLAN.md:3) \u2014 policy is to state the finding + evidence, not the number. Run the de-citation sweep.\n  WARN  newest tier run 20260813-111513-C-cleanup-b2b8362 is not cited anywhere in PROGRESS \u2014 a completed window nobody recorded\ncheck-progress: 0 error(s), 2 warning(s)\n",
+      "stderr": ""
+    },
+    "check-rule-policy-boundary": {
+      "command": [
+        "python3",
+        "tools/docs/check-rule-policy-boundary.py"
+      ],
+      "stdout": "check-rule-policy-boundary: rule/policy imports and data flows are clean\n",
+      "stderr": ""
+    },
+    "check-proof-rule-sync": {
+      "command": [
+        "python3",
+        "tools/docs/check-proof-rule-sync.py"
+      ],
+      "stdout": "check-proof-rule-sync: 0 error(s), 23 calculus rule(s), 24 guide card(s)\n",
+      "stderr": ""
+    },
+    "check-section-refs": {
+      "command": [
+        "python3",
+        "tools/docs/check-section-refs.py"
+      ],
+      "stdout": "  ok    43/43 section references resolve\ncheck-section-refs: 0 error(s)\n",
+      "stderr": ""
+    },
+    "check-citations": {
+      "command": [
+        "python3",
+        "tools/docs/check-citations.py"
+      ],
+      "stdout": "  ok    59 citation(s) resolved and in range\n  note  186 skipped (186 ambiguous basename, 0 not in our tree, 0 resolve to a reference clone, 0 unjudged: no reference clone on disk)\ncheck-citations: 0 error(s)\n",
+      "stderr": ""
+    }
+  },
+  "andrew_report": {
+    "report-to-andrew/20260909-2025-rank46-reason-history/report.tex": "02ee33bd42765c809f19c738bc7dd0c20eec25abfc7d93aa8626bdaccb967ba0",
+    "report-to-andrew/20260909-2025-rank46-reason-history/report.pdf": "a4bd646434feb319144c1fa36850f57bd112e65bdd13820afd4d629569f8ddfe"
+  },
+  "cleanup": "No manual deletion. Terminal diagnostic runners removed only their own hashed partial certificates and scratch. All live checker scratch, fuzz artifacts, pins, histories and ongoing campaigns left untouched.",
+  "limitations": "Diagnostic-only follow-up with unchanged6654/native pins. Both competing reasons are unit for16358 and reversed in physical order at108084; exact-replay history localizes earlier state. No semantic source repair or new runtime claim. Rank49 timing closed, full50 goal/memory/fuzz unmet. No FlatLists change, fixed-reference refresh, denied transfer, fuzz inspection, promotion or push retry."
+}
