@@ -1,0 +1,10 @@
+{
+  "path": "benchmarks/runs/20260909-6730-reduce-watermark-build/manifest.json",
+  "sha256": "e21167816ac5c86fe3b82db5d3cb0401d3a0b34a79ef7578ea5251d84cdb605f",
+  "evidence": {
+    "path": "benchmarks/runs/20260910-7024-rank35-retry-producer/replay-summary-7026.json",
+    "sha256": "802ed813496032d25dd6e2e790e03c26bc92d48fec8a3dfb8c9a404cdf72aace"
+  },
+  "scope": "Suppress removal advice only for satisfied large clauses retired by sparse root collection. Preserve binary, Vivify, root-false rewrite, watermark and semantic deletion contracts. Existing semantic_removal primitive; no layout, guard, legal-instance, proof or reconstruction change.",
+  "test_consideration": "Fixed parent-negative retry/BCE/score-notification matrix, both redundancy classes, roots in every clause position, preexisting marks, binary and Vivify controls, repeated collection. Full independent suites and certificate/B/C/causal/runtime gates follow. Unpromoted/unfuzzed."
+}

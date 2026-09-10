@@ -290,7 +290,7 @@ pending half-analysis or schedules Backjump independently.
 
 `bve_retry[v]` is policy advice, not a guard: activation initializes it, attempts clear it,
 and irredundant semantic removal re-arms it; creation/promotion arms only forward/Factor.
-Replacement marks disappearing literals; bound growth rearms all; redundant traffic/collection do not. Isolated6231 queues canonical Substitute's disappearing physical binaries through binary-unit closure, then marks nonfixed source endpoints for BVE/BCE. Isolated6305 complements canonical irredundant large-to-binary collapse with retained-free-endpoint BVE advice; surviving large images, units and connected Sweep keep their distinct contracts.
+Replacement marks disappearing literals; bound growth rearms all; redundant traffic does not. Isolated7030 suppresses satisfied-large sparse-collection removal advice (Kissat collect.c); binary retirement and Vivify still mark removals. Isolated6231 queues canonical Substitute's disappearing physical binaries through binary-unit closure, then marks nonfixed source endpoints for BVE/BCE. Isolated6305 complements canonical irredundant large-to-binary collapse with retained-free-endpoint BVE advice; surviving large images, units and connected Sweep keep their distinct contracts.
 Private pop eligibility skips assigned/retired payloads before effort checks (isolated5962); physical reinsertion remains intact, and public BVE instances/guard stay unchanged. See SP-BVE-HEAP-1.
 
 ## 7. Probing scopes
