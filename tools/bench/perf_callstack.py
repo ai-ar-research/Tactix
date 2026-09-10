@@ -1,5 +1,6 @@
 """Strict streaming reader and caller-site attribution for saved perf samples."""
 from dataclasses import dataclass
+from collections import Counter, defaultdict
 import re
 
 
@@ -95,3 +96,52 @@ Require the declared x86 group argument setup immediately before each call.
     if len(found) != len(expected) or len(set(found.values())) != len(found):
         raise ValueError('missing or duplicate phase call')
     return found, evidence
+
+
+def summarize_phases(stream, binary, entries, caller, sites, component_prefixes):
+    """Conserve sampled periods, partitioning by whole phase and outermost child.
+
+    Inclusive symbols overlap; only phase/component/self partitions may be
+    summed. Unknown ancestry is retained, never silently priced as CDCL.
+    """
+    counts, periods, callers, unresolved = Counter(), Counter(), Counter(), Counter()
+    components, own, inclusive = (defaultdict(Counter) for _ in range(3))
+    total = count = 0
+    for sample in stream:
+        count += 1
+        total += sample.period
+        name, index = phase(sample, binary, entries, caller, sites)
+        counts[name] += 1
+        periods[name] += sample.period
+        if index is None:
+            continue
+        pc = hex(sample.frames[index + 1].pc) if index + 1 < len(sample.frames) else 'missing'
+        callers[pc] += sample.period
+        if name == 'unresolved_phase_caller':
+            unresolved[' | '.join(f.symbol for f in sample.frames[index:])] += sample.period
+        component = 'phase_scaffolding_or_inlined_work'
+        for frame in reversed(sample.frames[:index]):
+            if frame.dso != binary:
+                continue
+            matches = [value for prefix, value in component_prefixes.items()
+                       if frame.symbol.startswith(prefix)]
+            if len(matches) > 1:
+                raise ValueError('ambiguous component prefix: ' + frame.symbol)
+            if matches:
+                component = matches[0]
+                break
+        components[name][component] += sample.period
+        leaf = sample.frames[0]
+        own[name][leaf.symbol + ' [' + leaf.dso.rsplit('/', 1)[-1] + ']'] += sample.period
+        for symbol in {f.symbol for f in sample.frames[:index + 1] if f.dso == binary}:
+            inclusive[name][symbol] += sample.period
+    assert sum(periods.values()) == total and sum(counts.values()) == count
+    for name in components:
+        assert sum(components[name].values()) == periods[name]
+        assert sum(own[name].values()) == periods[name]
+    return dict(samples=count, total_period=total, phase_samples=dict(counts),
+        phase_periods=dict(periods), caller_periods=dict(callers),
+        components={k: dict(v) for k, v in components.items()},
+        self_by_phase={k: dict(v.most_common()) for k, v in own.items()},
+        inclusive_by_phase={k: dict(v.most_common()) for k, v in inclusive.items()},
+        unresolved_callers=dict(unresolved))
