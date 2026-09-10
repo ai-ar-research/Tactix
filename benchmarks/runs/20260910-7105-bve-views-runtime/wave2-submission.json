@@ -1,0 +1,34 @@
+{
+  "job_id": "1679926",
+  "tasks": [
+    12,
+    13,
+    14,
+    15,
+    16,
+    17
+  ],
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--array=12-17",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-7105-bve-views-runtime/array.sbatch"
+  ],
+  "accounting_since": "2026-09-10T14:38:41",
+  "manifest_sha256": "b356d1a4677199e80b776fd10178b39363e29a09f257ef8e502ff9f8205ae6d9",
+  "helper_sha256": "4acdd33a6e276f7716c61d269ecd27e774752436b9c73d0ccc9b6031065f2d98",
+  "preceding_records": {
+    "benchmarks/runs/20260910-7105-bve-views-runtime/provisional/000.json": "909d49dbbc51cad697574d564fc19a72784bd00a77a52ecba32650f81aec336e",
+    "benchmarks/runs/20260910-7105-bve-views-runtime/provisional/001.json": "a39175f23e3e6f890e3057c1b1139db98a29fbe28171dd2641026ce0247511e6",
+    "benchmarks/runs/20260910-7105-bve-views-runtime/provisional/002.json": "0f6d2f31b70e08de034331dfdd9cd955c118bbae10dac85fbf70834efc683677",
+    "benchmarks/runs/20260910-7105-bve-views-runtime/provisional/003.json": "fc9e24a1a071f95bdeaee2f8efba2f1e9feb68a8920a82f037248fc65a883403",
+    "benchmarks/runs/20260910-7105-bve-views-runtime/results/004.json": "27f246bd1ded5356f5fc13835eb856b40e06c0b6b3f8d3331d49948b5057ec91",
+    "benchmarks/runs/20260910-7105-bve-views-runtime/results/005.json": "12fd2ed822bbfca532320fc953fbe5a9a030a5cac4486e3d7b09ee110ebf4542",
+    "benchmarks/runs/20260910-7105-bve-views-runtime/provisional/006.json": "02832b9622fd618872337ff52083f8754db47bbc4eb37a7627080e09352acbce",
+    "benchmarks/runs/20260910-7105-bve-views-runtime/provisional/007.json": "fca95c0e32011779b34324ca0e1f160eb3e165efa09c53d06b8e6fd1ef085059",
+    "benchmarks/runs/20260910-7105-bve-views-runtime/provisional/008.json": "db36c6f3544c9acd17e33017aa14d9664475d0ced76f64be0e30bc6d5471b446",
+    "benchmarks/runs/20260910-7105-bve-views-runtime/provisional/009.json": "c3cc350f8da3f5a3b70073e9fb2bfb6c1071ee4c4cf1d029acef1cff6a4bb978",
+    "benchmarks/runs/20260910-7105-bve-views-runtime/provisional/010.json": "bbc3aba287c7d24f81bfab9d303750cd835e49c04bbd90035d01eaa5e8e60919",
+    "benchmarks/runs/20260910-7105-bve-views-runtime/provisional/011.json": "8ad44a90ee05916c7538befa4f3c0168f5f3a1d01945312d4722e5a2bab71d6e"
+  }
+}

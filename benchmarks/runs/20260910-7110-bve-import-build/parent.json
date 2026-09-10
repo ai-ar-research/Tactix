@@ -1,0 +1,9 @@
+{
+  "authority": "benchmarks/runs/20260910-7087-bve-views-build/manifest.json",
+  "sha256": "e52aeb4714238a7e9dee5d8521bca307ec7e01b4145b10b3dcc0c48014b29958",
+  "gate": "benchmarks/runs/20260910-7103-bve-views-BC-gate/neutrality-7104.json",
+  "gate_sha256": "37f54a1ed25e5d617bc2c8c56b61c24ae2865e62c4d804ce5bafb471190f748e",
+  "approval": "Approved BVE data-path prototype after73a78fd8: mapping/preparation fusion and consumer-local indexes; direct Codex debugging per user and plan \u00a78.2.",
+  "scope": "Map physical BVE clauses directly into SubSolver import, retain old add_clause control; reuse first-occurrence map, defer XOR-only indexes. No new kernel primitive, strategy, proof vocabulary or public SAT API.",
+  "invariants": "Keep physical root-false inputs, order, ids, dedup/tautology handling, reset/generator, ticks, core lineage and proofs. Views live only for the synchronous import; SubSolver owns its copied clauses."
+}
