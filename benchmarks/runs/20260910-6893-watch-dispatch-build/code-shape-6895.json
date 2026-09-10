@@ -1,0 +1,47 @@
+{
+  "hashes": {
+    "benchmarks/probes/scratch/compare-watch-dispatch-code-6895.py": "281cef9f38f7c5b7df77318878c2c78883937ee5713252592d70a9c932936eec",
+    "benchmarks/runs/20260910-6893-watch-dispatch-build/compile-6894.json": "e133f3194c712b96e5eb795707f9589fe308fe53a88b1bcc01127ce2ad0a9f6b",
+    "benchmarks/runs/20260910-6888-vivify-propagation-annotation/location-6889.json": "d84229db668631b9a15efceb00ab58a0cb954f49272757817f50c6d4fc3777e1"
+  },
+  "regions": {
+    "watch_decode_blocker": {
+      "begin": "0x207",
+      "end": "0x238",
+      "bytes": 49,
+      "sha256": {
+        "previous": "677c799bc6beee0143d0f6032bae40658e296181d4c7e3dabdd3428b72ad2796",
+        "candidate": "677c799bc6beee0143d0f6032bae40658e296181d4c7e3dabdd3428b72ad2796"
+      },
+      "byte_identical": true
+    },
+    "large_arena_garbage": {
+      "begin": "0x238",
+      "end": "0x256",
+      "bytes": 30,
+      "sha256": {
+        "previous": "442f270ce44293ebe24bc3974e17bae7b9900c1ebf84e0910a857898166c62c9",
+        "candidate": "442f270ce44293ebe24bc3974e17bae7b9900c1ebf84e0910a857898166c62c9"
+      },
+      "byte_identical": true
+    },
+    "large_other_literal": {
+      "begin": "0x256",
+      "end": "0x280",
+      "bytes": 42,
+      "sha256": {
+        "previous": "5340bc366ac05956b11e55d753d4a1bd56d7f6311f1b45612f4e5223e96318b4",
+        "candidate": "5340bc366ac05956b11e55d753d4a1bd56d7f6311f1b45612f4e5223e96318b4"
+      },
+      "byte_identical": true
+    }
+  },
+  "body_bytes": {
+    "previous": 3865,
+    "candidate": 3865
+  },
+  "differing_body_bytes": 0,
+  "temporary_section_bytes_removed": 239942,
+  "decision": "Stop this compile-only experiment: the compiler emits byte-identical intended hot blocks; source single-blocker spelling does not change the sampled private scan. No runtime candidate, full build, new tests or promotion warranted for this failed premise.",
+  "limitation": "Object-code basic blocks only. Whole body may differ in relocation-dependent bytes; not a claim of whole-object identity or correctness. Public/main/probing outer function footprints are not performance evidence. Do not force compiler shape with tuning or attributes. No solver run from this source."
+}

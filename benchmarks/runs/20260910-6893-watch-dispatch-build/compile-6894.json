@@ -1,0 +1,36 @@
+{
+  "objects": {
+    "previous": {
+      "path": "benchmarks/runs/20260910-6893-watch-dispatch-build/previous-kernel.o",
+      "sha256": "782ea3a58a7c604fd7fa53ce0a59c3cf151a818e0c1d5bc7bc5db34831ef4b16"
+    },
+    "candidate": {
+      "path": "benchmarks/runs/20260910-6893-watch-dispatch-build/candidate-kernel.o",
+      "sha256": "73b9aba27fb50ccab4193cecbe370372144d5c8898beb8f35ffd8399a38409de"
+    }
+  },
+  "symbols": {
+    "previous": {
+      "_ZN6tactix16kernel_propagateERNS_6KernelEj": 4129,
+      "_ZN6tactix23kernel_propagate_binaryERNS_6KernelEb": 2654,
+      "_ZN6tactix24kernel_propagate_probingERNS_6KernelEj": 4321,
+      "_ZN6tactix33kernel_propagate_beyond_conflictsERNS_6KernelE": 3662,
+      "_ZN6tactixL17propagate_literalILb0ELb0ELb1EEEbRNS_6KernelEjjRm": 3865
+    },
+    "candidate": {
+      "_ZN6tactix16kernel_propagateERNS_6KernelEj": 4105,
+      "_ZN6tactix23kernel_propagate_binaryERNS_6KernelEb": 2654,
+      "_ZN6tactix24kernel_propagate_probingERNS_6KernelEj": 3847,
+      "_ZN6tactix33kernel_propagate_beyond_conflictsERNS_6KernelE": 3662,
+      "_ZN6tactixL17propagate_literalILb0ELb0ELb1EEEbRNS_6KernelEjjRm": 3865
+    }
+  },
+  "hashes": {
+    "benchmarks/probes/scratch/compile-watch-dispatch-6894.py": "160864923df7e8c2972698e5065995d261f23a66915d32548c25933f2b1e658d",
+    ".claude/worktrees/runtime-watch-dispatch-6893/src/kernel/kernel.cpp": "44ebda483562030088d8956f91575c35d66efef63f544978ebfe89ba28d5a8d3",
+    ".claude/worktrees/runtime-reduce-watermark-6730/src/kernel/kernel.cpp": "41702b7c4d0063aa83e32a8a4099c86f11175d5cf714c40e2acafe61915c96e8",
+    "benchmarks/runs/20260910-6893-watch-dispatch-build/compile-scope.patch": "4cdfe81d3ff5ef31f66bc02aae625bcbbefcb189b8f1abab7cacf4c03c2cc628",
+    "benchmarks/runs/20260910-6893-watch-dispatch-build/parent.json": "e299f00e8dfaaa50777ed7e834c8e3600c8084564a5e2794c8cd43aee035b48d"
+  },
+  "limitation": "Compile-only shape check, no runtime or correctness acceptance. Same-layout source change restricted to full watch consumption and one shared blocker test; no budget, scheduling, reason or layout change intended. Actual old/new fixed watch-state/counter controls and full suites/proofs/B/C required before timing."
+}

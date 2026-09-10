@@ -1,0 +1,503 @@
+{
+  "observed_at": "2026-09-10T06:45:32.383259+00:00",
+  "experiment": "binary",
+  "hashes": {
+    "benchmarks/probes/scratch/price-subsolver-waves-6887.py": "f4263b50200d796bb0cb5b6f4f6f225560edcc1d0ee5bdfefc53084031ab0633",
+    "benchmarks/runs/20260910-6882-subsolver-binary-runtime/solver-checkpoint-6884.json": "6e0f57ce37cd4c13c7c0747f92ce4137a4a3a61efdc2c780206524d9d3fe3420",
+    "tools/bench/inprocessing_cost.py": "725744226d429f28d9093079a6022a43cd77450069642faae6f1cabf1ae71a4a",
+    "tools/bench/test_inprocessing_cost.py": "a28ab25ab0ca075f5d88c34ee17f2ee608841f27802b999deca1041d39d1a08b"
+  },
+  "ranks": {
+    "32": {
+      "waves": [
+        {
+          "wave": 0,
+          "values": {
+            "candidate": {
+              "wall_seconds": 330.114,
+              "peak_rss_kib": 651592,
+              "slot_ms": 122044,
+              "outside_ms": 207854,
+              "Sweep_ms": 8289,
+              "BVE_ms": 19294,
+              "Vivify_ms": 35290
+            },
+            "previous": {
+              "wall_seconds": 328.094,
+              "peak_rss_kib": 587236,
+              "slot_ms": 121277,
+              "outside_ms": 206573,
+              "Sweep_ms": 8211,
+              "BVE_ms": 19069,
+              "Vivify_ms": 35009
+            }
+          },
+          "ratios": {
+            "wall_seconds": 1.0061567721445683,
+            "peak_rss_kib": 1.1095913738258554,
+            "slot_ms": 1.006324364883696,
+            "outside_ms": 1.0062011976395753,
+            "Sweep_ms": 1.009499451954695,
+            "BVE_ms": 1.0117992553358854,
+            "Vivify_ms": 1.0080265074695078
+          },
+          "applications": {
+            "Sweep": 22,
+            "BVE": 1980421,
+            "Vivify": 359
+          }
+        },
+        {
+          "wave": 1,
+          "values": {
+            "candidate": {
+              "wall_seconds": 331.003,
+              "peak_rss_kib": 651592,
+              "slot_ms": 122095,
+              "outside_ms": 208655,
+              "Sweep_ms": 8301,
+              "BVE_ms": 19221,
+              "Vivify_ms": 35361
+            },
+            "previous": {
+              "wall_seconds": 328.236,
+              "peak_rss_kib": 587236,
+              "slot_ms": 121238,
+              "outside_ms": 206740,
+              "Sweep_ms": 8184,
+              "BVE_ms": 19008,
+              "Vivify_ms": 35229
+            }
+          },
+          "ratios": {
+            "wall_seconds": 1.008429910186573,
+            "peak_rss_kib": 1.1095913738258554,
+            "slot_ms": 1.0070687408238341,
+            "outside_ms": 1.0092628422172778,
+            "Sweep_ms": 1.0142961876832846,
+            "BVE_ms": 1.0112058080808082,
+            "Vivify_ms": 1.0037469130545857
+          },
+          "applications": {
+            "Sweep": 22,
+            "BVE": 1980421,
+            "Vivify": 359
+          }
+        },
+        {
+          "wave": 2,
+          "values": {
+            "candidate": {
+              "wall_seconds": 332.019,
+              "peak_rss_kib": 651592,
+              "slot_ms": 122120,
+              "outside_ms": 209652,
+              "Sweep_ms": 8261,
+              "BVE_ms": 19327,
+              "Vivify_ms": 35250
+            },
+            "previous": {
+              "wall_seconds": 327.786,
+              "peak_rss_kib": 587236,
+              "slot_ms": 121307,
+              "outside_ms": 206229,
+              "Sweep_ms": 8191,
+              "BVE_ms": 19057,
+              "Vivify_ms": 35072
+            }
+          },
+          "ratios": {
+            "wall_seconds": 1.0129139133459024,
+            "peak_rss_kib": 1.1095913738258554,
+            "slot_ms": 1.0067020040063641,
+            "outside_ms": 1.016598053620005,
+            "Sweep_ms": 1.0085459650836284,
+            "BVE_ms": 1.0141680222490423,
+            "Vivify_ms": 1.0050752737226278
+          },
+          "applications": {
+            "Sweep": 22,
+            "BVE": 1980421,
+            "Vivify": 359
+          }
+        }
+      ],
+      "paired": {
+        "wall_seconds": {
+          "priced_waves": 3,
+          "median": 1.008429910186573,
+          "min": 1.0061567721445683,
+          "max": 1.0129139133459024
+        },
+        "peak_rss_kib": {
+          "priced_waves": 3,
+          "median": 1.1095913738258554,
+          "min": 1.1095913738258554,
+          "max": 1.1095913738258554
+        },
+        "slot_ms": {
+          "priced_waves": 3,
+          "median": 1.0067020040063641,
+          "min": 1.006324364883696,
+          "max": 1.0070687408238341
+        },
+        "outside_ms": {
+          "priced_waves": 3,
+          "median": 1.0092628422172778,
+          "min": 1.0062011976395753,
+          "max": 1.016598053620005
+        },
+        "Sweep_ms": {
+          "priced_waves": 3,
+          "median": 1.009499451954695,
+          "min": 1.0085459650836284,
+          "max": 1.0142961876832846
+        },
+        "BVE_ms": {
+          "priced_waves": 3,
+          "median": 1.0117992553358854,
+          "min": 1.0112058080808082,
+          "max": 1.0141680222490423
+        },
+        "Vivify_ms": {
+          "priced_waves": 3,
+          "median": 1.0050752737226278,
+          "min": 1.0037469130545857,
+          "max": 1.0080265074695078
+        }
+      }
+    },
+    "39": {
+      "waves": [
+        {
+          "wave": 0,
+          "values": {
+            "candidate": {
+              "wall_seconds": 433.949,
+              "peak_rss_kib": 432188,
+              "slot_ms": 174859,
+              "outside_ms": 258935,
+              "Sweep_ms": 73743,
+              "BVE_ms": 15488,
+              "Vivify_ms": 42229
+            },
+            "previous": {
+              "wall_seconds": 426.378,
+              "peak_rss_kib": 435116,
+              "slot_ms": 168917,
+              "outside_ms": 257289,
+              "Sweep_ms": 68447,
+              "BVE_ms": 15350,
+              "Vivify_ms": 41924
+            }
+          },
+          "ratios": {
+            "wall_seconds": 1.017756544662248,
+            "peak_rss_kib": 0.9932707599812464,
+            "slot_ms": 1.03517703961117,
+            "outside_ms": 1.0063974752126985,
+            "Sweep_ms": 1.0773737344222538,
+            "BVE_ms": 1.0089902280130294,
+            "Vivify_ms": 1.0072750691727888
+          },
+          "applications": {
+            "Sweep": 102,
+            "BVE": 1307701,
+            "Vivify": 406
+          }
+        },
+        {
+          "wave": 1,
+          "values": {
+            "candidate": {
+              "wall_seconds": 431.924,
+              "peak_rss_kib": 432188,
+              "slot_ms": 174169,
+              "outside_ms": 257614,
+              "Sweep_ms": 73539,
+              "BVE_ms": 15491,
+              "Vivify_ms": 41889
+            },
+            "previous": {
+              "wall_seconds": 426.45,
+              "peak_rss_kib": 435116,
+              "slot_ms": 169109,
+              "outside_ms": 257194,
+              "Sweep_ms": 68559,
+              "BVE_ms": 15305,
+              "Vivify_ms": 42022
+            }
+          },
+          "ratios": {
+            "wall_seconds": 1.0128362058858014,
+            "peak_rss_kib": 0.9932707599812464,
+            "slot_ms": 1.0299215299008333,
+            "outside_ms": 1.001633008546078,
+            "Sweep_ms": 1.0726381656675272,
+            "BVE_ms": 1.0121528912120221,
+            "Vivify_ms": 0.9968349911950883
+          },
+          "applications": {
+            "Sweep": 102,
+            "BVE": 1307701,
+            "Vivify": 406
+          }
+        },
+        {
+          "wave": 2,
+          "values": {
+            "candidate": {
+              "wall_seconds": 436.301,
+              "peak_rss_kib": 432188,
+              "slot_ms": 175640,
+              "outside_ms": 260498,
+              "Sweep_ms": 73850,
+              "BVE_ms": 15495,
+              "Vivify_ms": 42644
+            },
+            "previous": {
+              "wall_seconds": 426.788,
+              "peak_rss_kib": 435116,
+              "slot_ms": 169239,
+              "outside_ms": 257398,
+              "Sweep_ms": 68586,
+              "BVE_ms": 15385,
+              "Vivify_ms": 42038
+            }
+          },
+          "ratios": {
+            "wall_seconds": 1.0222897551008931,
+            "peak_rss_kib": 0.9932707599812464,
+            "slot_ms": 1.0378222513723196,
+            "outside_ms": 1.0120436056224213,
+            "Sweep_ms": 1.0767503572157584,
+            "BVE_ms": 1.0071498212544687,
+            "Vivify_ms": 1.0144155288072696
+          },
+          "applications": {
+            "Sweep": 102,
+            "BVE": 1307701,
+            "Vivify": 406
+          }
+        }
+      ],
+      "paired": {
+        "wall_seconds": {
+          "priced_waves": 3,
+          "median": 1.017756544662248,
+          "min": 1.0128362058858014,
+          "max": 1.0222897551008931
+        },
+        "peak_rss_kib": {
+          "priced_waves": 3,
+          "median": 0.9932707599812464,
+          "min": 0.9932707599812464,
+          "max": 0.9932707599812464
+        },
+        "slot_ms": {
+          "priced_waves": 3,
+          "median": 1.03517703961117,
+          "min": 1.0299215299008333,
+          "max": 1.0378222513723196
+        },
+        "outside_ms": {
+          "priced_waves": 3,
+          "median": 1.0063974752126985,
+          "min": 1.001633008546078,
+          "max": 1.0120436056224213
+        },
+        "Sweep_ms": {
+          "priced_waves": 3,
+          "median": 1.0767503572157584,
+          "min": 1.0726381656675272,
+          "max": 1.0773737344222538
+        },
+        "BVE_ms": {
+          "priced_waves": 3,
+          "median": 1.0089902280130294,
+          "min": 1.0071498212544687,
+          "max": 1.0121528912120221
+        },
+        "Vivify_ms": {
+          "priced_waves": 3,
+          "median": 1.0072750691727888,
+          "min": 0.9968349911950883,
+          "max": 1.0144155288072696
+        }
+      }
+    },
+    "38": {
+      "waves": [
+        {
+          "wave": 0,
+          "values": {
+            "candidate": {
+              "wall_seconds": 360.629,
+              "peak_rss_kib": 85216,
+              "slot_ms": 23455,
+              "outside_ms": 337136,
+              "Sweep_ms": 3965,
+              "BVE_ms": 40,
+              "Vivify_ms": 18330
+            },
+            "previous": {
+              "wall_seconds": 360.59,
+              "peak_rss_kib": 86520,
+              "slot_ms": 23174,
+              "outside_ms": 337377,
+              "Sweep_ms": 3560,
+              "BVE_ms": 38,
+              "Vivify_ms": 18457
+            }
+          },
+          "ratios": {
+            "wall_seconds": 1.0001081560775398,
+            "peak_rss_kib": 0.9849283402681461,
+            "slot_ms": 1.0121256580650728,
+            "outside_ms": 0.999285665590719,
+            "Sweep_ms": 1.1137640449438202,
+            "BVE_ms": 1.0526315789473684,
+            "Vivify_ms": 0.9931191417890232
+          },
+          "applications": {
+            "Sweep": 11,
+            "BVE": 6521,
+            "Vivify": 266
+          }
+        },
+        {
+          "wave": 1,
+          "values": {
+            "candidate": {
+              "wall_seconds": 359.423,
+              "peak_rss_kib": 85216,
+              "slot_ms": 23392,
+              "outside_ms": 335977,
+              "Sweep_ms": 3951,
+              "BVE_ms": 40,
+              "Vivify_ms": 18281
+            },
+            "previous": {
+              "wall_seconds": 361.046,
+              "peak_rss_kib": 86520,
+              "slot_ms": 23183,
+              "outside_ms": 337797,
+              "Sweep_ms": 3509,
+              "BVE_ms": 38,
+              "Vivify_ms": 18516
+            }
+          },
+          "ratios": {
+            "wall_seconds": 0.9955047279294051,
+            "peak_rss_kib": 0.9849283402681461,
+            "slot_ms": 1.0090152266747185,
+            "outside_ms": 0.9946121487165368,
+            "Sweep_ms": 1.1259618124821886,
+            "BVE_ms": 1.0526315789473684,
+            "Vivify_ms": 0.9873082739252539
+          },
+          "applications": {
+            "Sweep": 11,
+            "BVE": 6521,
+            "Vivify": 266
+          }
+        },
+        {
+          "wave": 2,
+          "values": {
+            "candidate": {
+              "wall_seconds": 360.134,
+              "peak_rss_kib": 85216,
+              "slot_ms": 23446,
+              "outside_ms": 336636,
+              "Sweep_ms": 3958,
+              "BVE_ms": 40,
+              "Vivify_ms": 18330
+            },
+            "previous": {
+              "wall_seconds": 360.821,
+              "peak_rss_kib": 86520,
+              "slot_ms": 23137,
+              "outside_ms": 337610,
+              "Sweep_ms": 3509,
+              "BVE_ms": 38,
+              "Vivify_ms": 18470
+            }
+          },
+          "ratios": {
+            "wall_seconds": 0.99809600882432,
+            "peak_rss_kib": 0.9849283402681461,
+            "slot_ms": 1.0133552318796732,
+            "outside_ms": 0.9971150143656882,
+            "Sweep_ms": 1.127956682815617,
+            "BVE_ms": 1.0526315789473684,
+            "Vivify_ms": 0.9924201407688142
+          },
+          "applications": {
+            "Sweep": 11,
+            "BVE": 6521,
+            "Vivify": 266
+          }
+        }
+      ],
+      "paired": {
+        "wall_seconds": {
+          "priced_waves": 3,
+          "median": 0.99809600882432,
+          "min": 0.9955047279294051,
+          "max": 1.0001081560775398
+        },
+        "peak_rss_kib": {
+          "priced_waves": 3,
+          "median": 0.9849283402681461,
+          "min": 0.9849283402681461,
+          "max": 0.9849283402681461
+        },
+        "slot_ms": {
+          "priced_waves": 3,
+          "median": 1.0121256580650728,
+          "min": 1.0090152266747185,
+          "max": 1.0133552318796732
+        },
+        "outside_ms": {
+          "priced_waves": 3,
+          "median": 0.9971150143656882,
+          "min": 0.9946121487165368,
+          "max": 0.999285665590719
+        },
+        "Sweep_ms": {
+          "priced_waves": 3,
+          "median": 1.1259618124821886,
+          "min": 1.1137640449438202,
+          "max": 1.127956682815617
+        },
+        "BVE_ms": {
+          "priced_waves": 3,
+          "median": 1.0526315789473684,
+          "min": 1.0526315789473684,
+          "max": 1.0526315789473684
+        },
+        "Vivify_ms": {
+          "priced_waves": 3,
+          "median": 0.9924201407688142,
+          "min": 0.9873082739252539,
+          "max": 0.9931191417890232
+        }
+      }
+    }
+  },
+  "solved": {
+    "candidate": 9,
+    "previous": 9,
+    "SAT": 0,
+    "UNSAT": 18,
+    "timeouts": 0,
+    "solve_losses": 0
+  },
+  "paired_par2_seconds": {
+    "candidate": 3375.4959999999996,
+    "previous": 3346.189
+  },
+  "test_consideration": "Eight new maintained paired-matrix tests cover exact reversed-order ratios, complete cardinality, wrong/duplicate pairs, application changes, missing rules, zero denominator, invalid numeric costs and declarations; five timer-parser tests retained. Upstream strict checkpoint requires exact complete work/certificates. This helper independently matches every runtime ratio.",
+  "limitation": "Same-work current6730 comparison on three selected ranks, not native work equality or fixed50 competitiveness. Pending proofs remain pending. RSS is process peak, not watch-only memory; differing allocator/code layout may affect it. Price all waves and adverse controls; no best-of repeats or composition. Source fuzz, full50 and memory acceptance remain open."
+}
