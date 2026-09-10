@@ -1,0 +1,8 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6969-ite-pair-hoist-build/candidate-test_ite_pair-6985"
+  ],
+  "exit_code": 0,
+  "stdout": "PASS 560 ITE pair cases digest=551691671817ff7b\n",
+  "stderr": ""
+}

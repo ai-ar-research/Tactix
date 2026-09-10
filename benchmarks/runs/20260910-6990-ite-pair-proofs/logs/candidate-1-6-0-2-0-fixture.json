@@ -1,0 +1,15 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6990-ite-pair-proofs/candidate-fixture",
+    "1",
+    "6",
+    "0",
+    "2",
+    "0",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6990-ite-pair-proofs/candidate-1-6-0-2-0.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6990-ite-pair-proofs/candidate-1-6-0-2-0.proof"
+  ],
+  "returncode": 0,
+  "stdout": "ite-proof 1 6 0 2 0: gates=16 merges=1 ticks=3108 P=2\n",
+  "stderr": ""
+}

@@ -1,0 +1,18 @@
+{
+  "outputs": {
+    "previous": "PASS 448 ITE budget/index cases digest=3b02f64fd29a9493\n",
+    "candidate": "PASS 448 ITE budget/index cases digest=3b02f64fd29a9493\n"
+  },
+  "hashes": {
+    "benchmarks/probes/scratch/control-ite-budget-6988.py": "8fed820ca8473d80ac86766cb0e3a1d468108a9feaba7a83f3ebdeda104f9d09",
+    "benchmarks/probes/scratch/test-ite-budget-6987.cpp": "a40167f280c0888f913b22bf64d582d1f158245e5e89095483048161a4cbd3d4",
+    "benchmarks/runs/20260910-6969-ite-pair-hoist-build/control-6985.json": "e5038313825f5cf76e286a3f4f5f733b6b27eda410cc1b4cff3c13c17e542eb4",
+    "benchmarks/runs/20260910-6969-ite-pair-hoist-build/logs/previous-budget-build-6988.json": "e31db5fa3aa125954aa30e294b08cc1debabd93271843e587bba84fbd76ea73e",
+    "benchmarks/runs/20260910-6969-ite-pair-hoist-build/logs/previous-budget-run-6988.json": "c1fab893d77227070cb62d865e3a7ea300efc02285dbe7e6c66c98101e1bbb9e",
+    "benchmarks/runs/20260910-6969-ite-pair-hoist-build/previous-budget-6988": "cab032570fa40b9a6910a38f1a5e24f1a3c0606506f8967475b5e81dfce6872c",
+    "benchmarks/runs/20260910-6969-ite-pair-hoist-build/logs/candidate-budget-build-6988.json": "6d07706b5c82c2e274c38fd3a6652b7d51763b8deaa33416b7f1d93df4eb8513",
+    "benchmarks/runs/20260910-6969-ite-pair-hoist-build/logs/candidate-budget-run-6988.json": "4ee878033543e16fbb0cec61dd9245aa58ff7a4a12e056a50eb289f2f7385717",
+    "benchmarks/runs/20260910-6969-ite-pair-hoist-build/candidate-budget-6988": "e8e54292a1c2ceea3c2ec7acf2513558b4cf366710ef4a991431ab9e480f1833"
+  },
+  "scope": "448 actual ITE meter/termination/unfinished-index cases, both orders, collection/pairing effort boundaries, exactly256/over256 conditional lists and same-index resumption. Exact full gate payload/tick/interruption/cut digest. No new solver semantics or public API."
+}

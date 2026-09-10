@@ -1,0 +1,15 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6990-ite-pair-proofs/previous-fixture",
+    "1",
+    "2",
+    "0",
+    "2",
+    "1",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6990-ite-pair-proofs/previous-1-2-0-2-1.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6990-ite-pair-proofs/previous-1-2-0-2-1.proof"
+  ],
+  "returncode": 0,
+  "stdout": "ite-proof 1 2 0 2 1: gates=16 merges=1 ticks=3108 P=18\n",
+  "stderr": ""
+}

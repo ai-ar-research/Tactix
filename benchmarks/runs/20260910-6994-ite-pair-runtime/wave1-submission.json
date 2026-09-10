@@ -1,0 +1,27 @@
+{
+  "job_id": "1679612",
+  "tasks": [
+    6,
+    7,
+    8,
+    9,
+    10,
+    11
+  ],
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--array=6-11",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6994-ite-pair-runtime/array.sbatch"
+  ],
+  "accounting_since": "2026-09-10T05:36:18",
+  "manifest_sha256": "b59a8d2aca1549c7d3bc64ea3c1084db0c2a6411e2379aa978e977a8a09d9663",
+  "preceding_records": {
+    "benchmarks/runs/20260910-6994-ite-pair-runtime/provisional/002.json": "f319e4ea469a1b3ee9142db60e0412b0323db3ac8a83ac3eccc6d8d59681505b",
+    "benchmarks/runs/20260910-6994-ite-pair-runtime/provisional/003.json": "54f49a883a2c68228ad4305ad5aea06a736af3f13f66d0fa711a49bd8de84716",
+    "benchmarks/runs/20260910-6994-ite-pair-runtime/provisional/005.json": "0b60a5bb5f1f7d3d27422b2ebd5b6ae80e0ac92ec21fc785557734ff627f67ab",
+    "benchmarks/runs/20260910-6994-ite-pair-runtime/provisional/001.json": "3791fd53dff5fc2ef3f9c5ed1833f71c3171b952780df7802a0bd50d8fb7d5ea",
+    "benchmarks/runs/20260910-6994-ite-pair-runtime/provisional/004.json": "332f4ce9dbe73530d53dad10f0a48f050d4695f1121b392dab591f11ede3b78a",
+    "benchmarks/runs/20260910-6994-ite-pair-runtime/provisional/000.json": "b46ccadb3ec87ed986b24661c40ab6c7ca3664192294591c7bd5259cb8c95247"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6969-ite-pair-hoist-build/previous-test_ite_pair-6984"
+  ],
+  "exit_code": -6,
+  "stdout": "",
+  "stderr": "count=65 signs=0 mask=15 reverse=0 copies=1 found=65\nprevious-test_ite_pair-6984: /home/hwu/SAT-solving/.claude/worktrees/runtime-ite-pair-hoist-6969/tests/test_ite_pair.cpp:78: void exercise(unsigned int, unsigned int, unsigned int, bool, unsigned int): Assertion `false' failed.\n"
+}
