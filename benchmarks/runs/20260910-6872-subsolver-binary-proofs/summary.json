@@ -1,0 +1,1933 @@
+{
+  "checked": 120,
+  "records": [
+    {
+      "name": "previous-0-0-0-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-0-0-0-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-0-0-0-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 10 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 6 of 10 clauses in core                            \n\nc 2 of 10 lemmas in core using 9 resolution steps\n\nc 0 RAT lemmas in core; 2 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.046 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=0 position=0 strip=0 lrat=0 general=1 false=0 stripped=0 bridge=16\n",
+      "input_sha256": "aaf7d6ae7c620412e3bc0c0fcf24eabb5fc0d616ede82997223f87e4d6a66573",
+      "proof_sha256": "4d5b966762defe5cd477fc02e45e0d91e397121bc3f44c1a434a99e2b7952f5a",
+      "proof_bytes": 175
+    },
+    {
+      "name": "previous-0-0-0-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-0-0-0-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-0-0-0-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 10 clauses\nc VERIFIED\nc allocated 1024 100 50\nc Added clauses = 19.  Deleted clauses = 10.  Max live clauses = 18\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=0 position=0 strip=0 lrat=1 general=1 false=0 stripped=0 bridge=16\n",
+      "input_sha256": "aaf7d6ae7c620412e3bc0c0fcf24eabb5fc0d616ede82997223f87e4d6a66573",
+      "proof_sha256": "f20587ed0daac8d82368501ff364df01d0a49de9ddc7f561640e976b8aadfd0a",
+      "proof_bytes": 242
+    },
+    {
+      "name": "previous-0-0-1-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-0-0-1-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-0-0-1-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 10 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 6 of 10 clauses in core                            \n\nc 2 of 10 lemmas in core using 9 resolution steps\n\nc 0 RAT lemmas in core; 2 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.043 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=0 position=0 strip=1 lrat=0 general=1 false=0 stripped=0 bridge=16\n",
+      "input_sha256": "aaf7d6ae7c620412e3bc0c0fcf24eabb5fc0d616ede82997223f87e4d6a66573",
+      "proof_sha256": "4d5b966762defe5cd477fc02e45e0d91e397121bc3f44c1a434a99e2b7952f5a",
+      "proof_bytes": 175
+    },
+    {
+      "name": "previous-0-0-1-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-0-0-1-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-0-0-1-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 10 clauses\nc VERIFIED\nc allocated 1024 100 50\nc Added clauses = 19.  Deleted clauses = 10.  Max live clauses = 18\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=0 position=0 strip=1 lrat=1 general=1 false=0 stripped=0 bridge=16\n",
+      "input_sha256": "aaf7d6ae7c620412e3bc0c0fcf24eabb5fc0d616ede82997223f87e4d6a66573",
+      "proof_sha256": "f20587ed0daac8d82368501ff364df01d0a49de9ddc7f561640e976b8aadfd0a",
+      "proof_bytes": 242
+    },
+    {
+      "name": "previous-0-1-0-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-0-1-0-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-0-1-0-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 10 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 6 of 10 clauses in core                            \n\nc 2 of 10 lemmas in core using 9 resolution steps\n\nc 0 RAT lemmas in core; 2 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.044 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=0 position=1 strip=0 lrat=0 general=1 false=0 stripped=0 bridge=16\n",
+      "input_sha256": "aaf7d6ae7c620412e3bc0c0fcf24eabb5fc0d616ede82997223f87e4d6a66573",
+      "proof_sha256": "4d5b966762defe5cd477fc02e45e0d91e397121bc3f44c1a434a99e2b7952f5a",
+      "proof_bytes": 175
+    },
+    {
+      "name": "previous-0-1-0-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-0-1-0-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-0-1-0-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 10 clauses\nc VERIFIED\nc allocated 1024 100 50\nc Added clauses = 19.  Deleted clauses = 10.  Max live clauses = 18\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=0 position=1 strip=0 lrat=1 general=1 false=0 stripped=0 bridge=16\n",
+      "input_sha256": "aaf7d6ae7c620412e3bc0c0fcf24eabb5fc0d616ede82997223f87e4d6a66573",
+      "proof_sha256": "f20587ed0daac8d82368501ff364df01d0a49de9ddc7f561640e976b8aadfd0a",
+      "proof_bytes": 242
+    },
+    {
+      "name": "previous-0-1-1-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-0-1-1-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-0-1-1-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 10 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 6 of 10 clauses in core                            \n\nc 2 of 10 lemmas in core using 9 resolution steps\n\nc 0 RAT lemmas in core; 2 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.043 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=0 position=1 strip=1 lrat=0 general=1 false=0 stripped=0 bridge=16\n",
+      "input_sha256": "aaf7d6ae7c620412e3bc0c0fcf24eabb5fc0d616ede82997223f87e4d6a66573",
+      "proof_sha256": "4d5b966762defe5cd477fc02e45e0d91e397121bc3f44c1a434a99e2b7952f5a",
+      "proof_bytes": 175
+    },
+    {
+      "name": "previous-0-1-1-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-0-1-1-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-0-1-1-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 10 clauses\nc VERIFIED\nc allocated 1024 100 50\nc Added clauses = 19.  Deleted clauses = 10.  Max live clauses = 18\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=0 position=1 strip=1 lrat=1 general=1 false=0 stripped=0 bridge=16\n",
+      "input_sha256": "aaf7d6ae7c620412e3bc0c0fcf24eabb5fc0d616ede82997223f87e4d6a66573",
+      "proof_sha256": "f20587ed0daac8d82368501ff364df01d0a49de9ddc7f561640e976b8aadfd0a",
+      "proof_bytes": 242
+    },
+    {
+      "name": "previous-0-2-0-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-0-2-0-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-0-2-0-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 10 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 6 of 10 clauses in core                            \n\nc 2 of 10 lemmas in core using 9 resolution steps\n\nc 0 RAT lemmas in core; 2 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.043 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=0 position=2 strip=0 lrat=0 general=1 false=0 stripped=0 bridge=16\n",
+      "input_sha256": "aaf7d6ae7c620412e3bc0c0fcf24eabb5fc0d616ede82997223f87e4d6a66573",
+      "proof_sha256": "4d5b966762defe5cd477fc02e45e0d91e397121bc3f44c1a434a99e2b7952f5a",
+      "proof_bytes": 175
+    },
+    {
+      "name": "previous-0-2-0-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-0-2-0-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-0-2-0-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 10 clauses\nc VERIFIED\nc allocated 1024 100 50\nc Added clauses = 19.  Deleted clauses = 10.  Max live clauses = 18\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=0 position=2 strip=0 lrat=1 general=1 false=0 stripped=0 bridge=16\n",
+      "input_sha256": "aaf7d6ae7c620412e3bc0c0fcf24eabb5fc0d616ede82997223f87e4d6a66573",
+      "proof_sha256": "f20587ed0daac8d82368501ff364df01d0a49de9ddc7f561640e976b8aadfd0a",
+      "proof_bytes": 242
+    },
+    {
+      "name": "previous-0-2-1-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-0-2-1-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-0-2-1-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 10 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 6 of 10 clauses in core                            \n\nc 2 of 10 lemmas in core using 9 resolution steps\n\nc 0 RAT lemmas in core; 2 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.043 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=0 position=2 strip=1 lrat=0 general=1 false=0 stripped=0 bridge=16\n",
+      "input_sha256": "aaf7d6ae7c620412e3bc0c0fcf24eabb5fc0d616ede82997223f87e4d6a66573",
+      "proof_sha256": "4d5b966762defe5cd477fc02e45e0d91e397121bc3f44c1a434a99e2b7952f5a",
+      "proof_bytes": 175
+    },
+    {
+      "name": "previous-0-2-1-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-0-2-1-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-0-2-1-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 10 clauses\nc VERIFIED\nc allocated 1024 100 50\nc Added clauses = 19.  Deleted clauses = 10.  Max live clauses = 18\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=0 position=2 strip=1 lrat=1 general=1 false=0 stripped=0 bridge=16\n",
+      "input_sha256": "aaf7d6ae7c620412e3bc0c0fcf24eabb5fc0d616ede82997223f87e4d6a66573",
+      "proof_sha256": "f20587ed0daac8d82368501ff364df01d0a49de9ddc7f561640e976b8aadfd0a",
+      "proof_bytes": 242
+    },
+    {
+      "name": "previous-0-3-0-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-0-3-0-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-0-3-0-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 10 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 6 of 10 clauses in core                            \n\nc 2 of 10 lemmas in core using 9 resolution steps\n\nc 0 RAT lemmas in core; 2 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.044 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=0 position=3 strip=0 lrat=0 general=1 false=0 stripped=0 bridge=16\n",
+      "input_sha256": "aaf7d6ae7c620412e3bc0c0fcf24eabb5fc0d616ede82997223f87e4d6a66573",
+      "proof_sha256": "4d5b966762defe5cd477fc02e45e0d91e397121bc3f44c1a434a99e2b7952f5a",
+      "proof_bytes": 175
+    },
+    {
+      "name": "previous-0-3-0-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-0-3-0-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-0-3-0-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 10 clauses\nc VERIFIED\nc allocated 1024 100 50\nc Added clauses = 19.  Deleted clauses = 10.  Max live clauses = 18\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=0 position=3 strip=0 lrat=1 general=1 false=0 stripped=0 bridge=16\n",
+      "input_sha256": "aaf7d6ae7c620412e3bc0c0fcf24eabb5fc0d616ede82997223f87e4d6a66573",
+      "proof_sha256": "f20587ed0daac8d82368501ff364df01d0a49de9ddc7f561640e976b8aadfd0a",
+      "proof_bytes": 242
+    },
+    {
+      "name": "previous-0-3-1-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-0-3-1-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-0-3-1-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 10 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 6 of 10 clauses in core                            \n\nc 2 of 10 lemmas in core using 9 resolution steps\n\nc 0 RAT lemmas in core; 2 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.044 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=0 position=3 strip=1 lrat=0 general=1 false=0 stripped=0 bridge=16\n",
+      "input_sha256": "aaf7d6ae7c620412e3bc0c0fcf24eabb5fc0d616ede82997223f87e4d6a66573",
+      "proof_sha256": "4d5b966762defe5cd477fc02e45e0d91e397121bc3f44c1a434a99e2b7952f5a",
+      "proof_bytes": 175
+    },
+    {
+      "name": "previous-0-3-1-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-0-3-1-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-0-3-1-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 10 clauses\nc VERIFIED\nc allocated 1024 100 50\nc Added clauses = 19.  Deleted clauses = 10.  Max live clauses = 18\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=0 position=3 strip=1 lrat=1 general=1 false=0 stripped=0 bridge=16\n",
+      "input_sha256": "aaf7d6ae7c620412e3bc0c0fcf24eabb5fc0d616ede82997223f87e4d6a66573",
+      "proof_sha256": "f20587ed0daac8d82368501ff364df01d0a49de9ddc7f561640e976b8aadfd0a",
+      "proof_bytes": 242
+    },
+    {
+      "name": "previous-0-4-0-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-0-4-0-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-0-4-0-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 10 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 6 of 10 clauses in core                            \n\nc 2 of 10 lemmas in core using 9 resolution steps\n\nc 0 RAT lemmas in core; 2 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.045 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=0 position=4 strip=0 lrat=0 general=1 false=0 stripped=0 bridge=16\n",
+      "input_sha256": "aaf7d6ae7c620412e3bc0c0fcf24eabb5fc0d616ede82997223f87e4d6a66573",
+      "proof_sha256": "4d5b966762defe5cd477fc02e45e0d91e397121bc3f44c1a434a99e2b7952f5a",
+      "proof_bytes": 175
+    },
+    {
+      "name": "previous-0-4-0-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-0-4-0-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-0-4-0-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 10 clauses\nc VERIFIED\nc allocated 1024 100 50\nc Added clauses = 19.  Deleted clauses = 10.  Max live clauses = 18\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=0 position=4 strip=0 lrat=1 general=1 false=0 stripped=0 bridge=16\n",
+      "input_sha256": "aaf7d6ae7c620412e3bc0c0fcf24eabb5fc0d616ede82997223f87e4d6a66573",
+      "proof_sha256": "f20587ed0daac8d82368501ff364df01d0a49de9ddc7f561640e976b8aadfd0a",
+      "proof_bytes": 242
+    },
+    {
+      "name": "previous-0-4-1-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-0-4-1-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-0-4-1-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 10 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 6 of 10 clauses in core                            \n\nc 2 of 10 lemmas in core using 9 resolution steps\n\nc 0 RAT lemmas in core; 2 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.045 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=0 position=4 strip=1 lrat=0 general=1 false=0 stripped=0 bridge=16\n",
+      "input_sha256": "aaf7d6ae7c620412e3bc0c0fcf24eabb5fc0d616ede82997223f87e4d6a66573",
+      "proof_sha256": "4d5b966762defe5cd477fc02e45e0d91e397121bc3f44c1a434a99e2b7952f5a",
+      "proof_bytes": 175
+    },
+    {
+      "name": "previous-0-4-1-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-0-4-1-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-0-4-1-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 10 clauses\nc VERIFIED\nc allocated 1024 100 50\nc Added clauses = 19.  Deleted clauses = 10.  Max live clauses = 18\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=0 position=4 strip=1 lrat=1 general=1 false=0 stripped=0 bridge=16\n",
+      "input_sha256": "aaf7d6ae7c620412e3bc0c0fcf24eabb5fc0d616ede82997223f87e4d6a66573",
+      "proof_sha256": "f20587ed0daac8d82368501ff364df01d0a49de9ddc7f561640e976b8aadfd0a",
+      "proof_bytes": 242
+    },
+    {
+      "name": "previous-1-0-0-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-1-0-0-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-1-0-0-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 11 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 7 of 11 clauses in core                            \n\nc 2 of 10 lemmas in core using 11 resolution steps\n\nc 0 RAT lemmas in core; 3 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.044 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=1 position=0 strip=0 lrat=0 general=1 false=16 stripped=0 bridge=17\n",
+      "input_sha256": "7ab5a67a5748a051a8db03a01f70630b340a958460aec869a6aca26e7e6a78e4",
+      "proof_sha256": "16c0d3c2e2017a36e817192b237e02bca01ce0fa33153ea576e2b0f89f7f8fad",
+      "proof_bytes": 198
+    },
+    {
+      "name": "previous-1-0-0-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-1-0-0-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-1-0-0-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 11 clauses\nc VERIFIED\nc allocated 1024 109 50\nc Added clauses = 20.  Deleted clauses = 10.  Max live clauses = 19\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=1 position=0 strip=0 lrat=1 general=1 false=16 stripped=0 bridge=17\n",
+      "input_sha256": "7ab5a67a5748a051a8db03a01f70630b340a958460aec869a6aca26e7e6a78e4",
+      "proof_sha256": "f17baaa078a208fd2c3408e2a18d632a7f3437333b5ce203edcad71dcbf29424",
+      "proof_bytes": 254
+    },
+    {
+      "name": "previous-1-0-1-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-1-0-1-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-1-0-1-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 11 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 7 of 11 clauses in core                            \n\nc 2 of 10 lemmas in core using 11 resolution steps\n\nc 0 RAT lemmas in core; 2 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.045 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=1 position=0 strip=1 lrat=0 general=1 false=32 stripped=32 bridge=17\n",
+      "input_sha256": "7ab5a67a5748a051a8db03a01f70630b340a958460aec869a6aca26e7e6a78e4",
+      "proof_sha256": "d8655f165b2ebfa1f95d4918d04d973df4be86e1a99a79d92d841deb228754b2",
+      "proof_bytes": 191
+    },
+    {
+      "name": "previous-1-0-1-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-1-0-1-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-1-0-1-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 11 clauses\nc VERIFIED\nc allocated 1024 109 50\nc Added clauses = 20.  Deleted clauses = 10.  Max live clauses = 19\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=1 position=0 strip=1 lrat=1 general=1 false=32 stripped=32 bridge=17\n",
+      "input_sha256": "7ab5a67a5748a051a8db03a01f70630b340a958460aec869a6aca26e7e6a78e4",
+      "proof_sha256": "b07bdba435fa77daf2bd8468e7b9c767742bcdf9cde91fcd72e996806cb7548f",
+      "proof_bytes": 251
+    },
+    {
+      "name": "previous-1-1-0-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-1-1-0-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-1-1-0-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 11 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 7 of 11 clauses in core                            \n\nc 2 of 10 lemmas in core using 11 resolution steps\n\nc 0 RAT lemmas in core; 3 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.044 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=1 position=1 strip=0 lrat=0 general=1 false=16 stripped=0 bridge=17\n",
+      "input_sha256": "d271fa076ffda273da87594c5550e0bcc556e86eb5a9c03329e7124bf23984a3",
+      "proof_sha256": "16c0d3c2e2017a36e817192b237e02bca01ce0fa33153ea576e2b0f89f7f8fad",
+      "proof_bytes": 198
+    },
+    {
+      "name": "previous-1-1-0-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-1-1-0-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-1-1-0-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 11 clauses\nc VERIFIED\nc allocated 1024 109 50\nc Added clauses = 20.  Deleted clauses = 10.  Max live clauses = 19\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=1 position=1 strip=0 lrat=1 general=1 false=16 stripped=0 bridge=17\n",
+      "input_sha256": "d271fa076ffda273da87594c5550e0bcc556e86eb5a9c03329e7124bf23984a3",
+      "proof_sha256": "f17baaa078a208fd2c3408e2a18d632a7f3437333b5ce203edcad71dcbf29424",
+      "proof_bytes": 254
+    },
+    {
+      "name": "previous-1-1-1-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-1-1-1-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-1-1-1-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 11 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 7 of 11 clauses in core                            \n\nc 2 of 10 lemmas in core using 11 resolution steps\n\nc 0 RAT lemmas in core; 2 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.043 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=1 position=1 strip=1 lrat=0 general=1 false=32 stripped=32 bridge=17\n",
+      "input_sha256": "d271fa076ffda273da87594c5550e0bcc556e86eb5a9c03329e7124bf23984a3",
+      "proof_sha256": "d8655f165b2ebfa1f95d4918d04d973df4be86e1a99a79d92d841deb228754b2",
+      "proof_bytes": 191
+    },
+    {
+      "name": "previous-1-1-1-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-1-1-1-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-1-1-1-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 11 clauses\nc VERIFIED\nc allocated 1024 109 50\nc Added clauses = 20.  Deleted clauses = 10.  Max live clauses = 19\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=1 position=1 strip=1 lrat=1 general=1 false=32 stripped=32 bridge=17\n",
+      "input_sha256": "d271fa076ffda273da87594c5550e0bcc556e86eb5a9c03329e7124bf23984a3",
+      "proof_sha256": "b07bdba435fa77daf2bd8468e7b9c767742bcdf9cde91fcd72e996806cb7548f",
+      "proof_bytes": 251
+    },
+    {
+      "name": "previous-1-2-0-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-1-2-0-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-1-2-0-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 11 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 7 of 11 clauses in core                            \n\nc 2 of 10 lemmas in core using 11 resolution steps\n\nc 0 RAT lemmas in core; 3 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.045 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=1 position=2 strip=0 lrat=0 general=1 false=16 stripped=0 bridge=17\n",
+      "input_sha256": "44953264db3256684fa88f078783f7768d39d309bceb2fcee40c11bcf848ca26",
+      "proof_sha256": "16c0d3c2e2017a36e817192b237e02bca01ce0fa33153ea576e2b0f89f7f8fad",
+      "proof_bytes": 198
+    },
+    {
+      "name": "previous-1-2-0-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-1-2-0-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-1-2-0-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 11 clauses\nc VERIFIED\nc allocated 1024 109 50\nc Added clauses = 20.  Deleted clauses = 10.  Max live clauses = 19\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=1 position=2 strip=0 lrat=1 general=1 false=16 stripped=0 bridge=17\n",
+      "input_sha256": "44953264db3256684fa88f078783f7768d39d309bceb2fcee40c11bcf848ca26",
+      "proof_sha256": "f17baaa078a208fd2c3408e2a18d632a7f3437333b5ce203edcad71dcbf29424",
+      "proof_bytes": 254
+    },
+    {
+      "name": "previous-1-2-1-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-1-2-1-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-1-2-1-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 11 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 7 of 11 clauses in core                            \n\nc 2 of 10 lemmas in core using 11 resolution steps\n\nc 0 RAT lemmas in core; 2 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.044 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=1 position=2 strip=1 lrat=0 general=1 false=32 stripped=32 bridge=17\n",
+      "input_sha256": "44953264db3256684fa88f078783f7768d39d309bceb2fcee40c11bcf848ca26",
+      "proof_sha256": "d8655f165b2ebfa1f95d4918d04d973df4be86e1a99a79d92d841deb228754b2",
+      "proof_bytes": 191
+    },
+    {
+      "name": "previous-1-2-1-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-1-2-1-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-1-2-1-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 11 clauses\nc VERIFIED\nc allocated 1024 109 50\nc Added clauses = 20.  Deleted clauses = 10.  Max live clauses = 19\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=1 position=2 strip=1 lrat=1 general=1 false=32 stripped=32 bridge=17\n",
+      "input_sha256": "44953264db3256684fa88f078783f7768d39d309bceb2fcee40c11bcf848ca26",
+      "proof_sha256": "b07bdba435fa77daf2bd8468e7b9c767742bcdf9cde91fcd72e996806cb7548f",
+      "proof_bytes": 251
+    },
+    {
+      "name": "previous-1-3-0-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-1-3-0-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-1-3-0-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 11 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 7 of 11 clauses in core                            \n\nc 2 of 10 lemmas in core using 11 resolution steps\n\nc 0 RAT lemmas in core; 3 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.045 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=1 position=3 strip=0 lrat=0 general=1 false=24 stripped=0 bridge=17\n",
+      "input_sha256": "9ec9ae98e2ce8ecdd3e8e027837327dddfdaf751fc993b07230a574eb87c5a36",
+      "proof_sha256": "acb09d9fe95365c2a0d093b895752e55e13c9827e41411199b9f1e1da30bbe61",
+      "proof_bytes": 198
+    },
+    {
+      "name": "previous-1-3-0-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-1-3-0-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-1-3-0-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 11 clauses\nc VERIFIED\nc allocated 1024 109 50\nc Added clauses = 20.  Deleted clauses = 10.  Max live clauses = 19\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=1 position=3 strip=0 lrat=1 general=1 false=24 stripped=0 bridge=17\n",
+      "input_sha256": "9ec9ae98e2ce8ecdd3e8e027837327dddfdaf751fc993b07230a574eb87c5a36",
+      "proof_sha256": "f17baaa078a208fd2c3408e2a18d632a7f3437333b5ce203edcad71dcbf29424",
+      "proof_bytes": 254
+    },
+    {
+      "name": "previous-1-3-1-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-1-3-1-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-1-3-1-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 11 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 7 of 11 clauses in core                            \n\nc 2 of 10 lemmas in core using 11 resolution steps\n\nc 0 RAT lemmas in core; 2 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.045 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=1 position=3 strip=1 lrat=0 general=1 false=32 stripped=32 bridge=17\n",
+      "input_sha256": "9ec9ae98e2ce8ecdd3e8e027837327dddfdaf751fc993b07230a574eb87c5a36",
+      "proof_sha256": "f9c8c69b54103f6a7e51dcd05cd0d4cb5eecc8f79c4386441764b4c34299f27d",
+      "proof_bytes": 191
+    },
+    {
+      "name": "previous-1-3-1-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-1-3-1-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-1-3-1-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 11 clauses\nc VERIFIED\nc allocated 1024 109 50\nc Added clauses = 20.  Deleted clauses = 10.  Max live clauses = 19\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=1 position=3 strip=1 lrat=1 general=1 false=32 stripped=32 bridge=17\n",
+      "input_sha256": "9ec9ae98e2ce8ecdd3e8e027837327dddfdaf751fc993b07230a574eb87c5a36",
+      "proof_sha256": "b07bdba435fa77daf2bd8468e7b9c767742bcdf9cde91fcd72e996806cb7548f",
+      "proof_bytes": 251
+    },
+    {
+      "name": "previous-1-4-0-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-1-4-0-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-1-4-0-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 11 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 7 of 11 clauses in core                            \n\nc 2 of 10 lemmas in core using 11 resolution steps\n\nc 0 RAT lemmas in core; 3 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.044 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=1 position=4 strip=0 lrat=0 general=1 false=32 stripped=0 bridge=17\n",
+      "input_sha256": "04b4e009546f6bf9df7002ca6e6dd500ce5e27766319d7adcf83338b17632bb8",
+      "proof_sha256": "63005787f237a0bfbe48edd07540e2952ad86337785c5a9b69ab6b5a1f3549f2",
+      "proof_bytes": 199
+    },
+    {
+      "name": "previous-1-4-0-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-1-4-0-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-1-4-0-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 11 clauses\nc VERIFIED\nc allocated 1024 109 50\nc Added clauses = 20.  Deleted clauses = 10.  Max live clauses = 19\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=1 position=4 strip=0 lrat=1 general=1 false=32 stripped=0 bridge=17\n",
+      "input_sha256": "04b4e009546f6bf9df7002ca6e6dd500ce5e27766319d7adcf83338b17632bb8",
+      "proof_sha256": "b717bf7d40cd11eca802b5e7a8d50f1e78d5050cf7bb86fce1df5380f2010711",
+      "proof_bytes": 255
+    },
+    {
+      "name": "previous-1-4-1-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-1-4-1-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-1-4-1-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 11 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 7 of 11 clauses in core                            \n\nc 2 of 10 lemmas in core using 11 resolution steps\n\nc 0 RAT lemmas in core; 2 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.044 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=1 position=4 strip=1 lrat=0 general=1 false=32 stripped=32 bridge=17\n",
+      "input_sha256": "04b4e009546f6bf9df7002ca6e6dd500ce5e27766319d7adcf83338b17632bb8",
+      "proof_sha256": "bcbc25c52bd0f704af264a8516b675a5afe601d7d0745ea5325ff46378deca1e",
+      "proof_bytes": 191
+    },
+    {
+      "name": "previous-1-4-1-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-1-4-1-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-1-4-1-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 11 clauses\nc VERIFIED\nc allocated 1024 109 50\nc Added clauses = 20.  Deleted clauses = 10.  Max live clauses = 19\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=1 position=4 strip=1 lrat=1 general=1 false=32 stripped=32 bridge=17\n",
+      "input_sha256": "04b4e009546f6bf9df7002ca6e6dd500ce5e27766319d7adcf83338b17632bb8",
+      "proof_sha256": "b07bdba435fa77daf2bd8468e7b9c767742bcdf9cde91fcd72e996806cb7548f",
+      "proof_bytes": 251
+    },
+    {
+      "name": "previous-2-0-0-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-2-0-0-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-2-0-0-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 11 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 6 of 11 clauses in core                            \n\nc 2 of 10 lemmas in core using 9 resolution steps\n\nc 0 RAT lemmas in core; 2 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.044 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=2 position=0 strip=0 lrat=0 general=1 false=8 stripped=0 bridge=17\n",
+      "input_sha256": "5b15ed5ce254aa091b89673b8a78439c0f3f19b9c60fa1e96800e5edf6fef124",
+      "proof_sha256": "ad4bfac003b67fc23496b48b73f9ae8ed4c2bc7fb911024591c839a085534153",
+      "proof_bytes": 186
+    },
+    {
+      "name": "previous-2-0-0-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-2-0-0-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-2-0-0-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 11 clauses\nc VERIFIED\nc allocated 1024 109 50\nc Added clauses = 20.  Deleted clauses = 10.  Max live clauses = 19\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=2 position=0 strip=0 lrat=1 general=1 false=8 stripped=0 bridge=17\n",
+      "input_sha256": "5b15ed5ce254aa091b89673b8a78439c0f3f19b9c60fa1e96800e5edf6fef124",
+      "proof_sha256": "8e7f539809f4c1021c115af78557554ed94e0da9b9edf98fc306815b5a384fd5",
+      "proof_bytes": 248
+    },
+    {
+      "name": "previous-2-0-1-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-2-0-1-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-2-0-1-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 11 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 6 of 11 clauses in core                            \n\nc 2 of 10 lemmas in core using 9 resolution steps\n\nc 0 RAT lemmas in core; 2 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.044 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=2 position=0 strip=1 lrat=0 general=1 false=16 stripped=16 bridge=17\n",
+      "input_sha256": "5b15ed5ce254aa091b89673b8a78439c0f3f19b9c60fa1e96800e5edf6fef124",
+      "proof_sha256": "c2d161a240b45935d93192d6c964b7d5002a4b3046ac78236bd1cd177ba60560",
+      "proof_bytes": 183
+    },
+    {
+      "name": "previous-2-0-1-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-2-0-1-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-2-0-1-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 11 clauses\nc VERIFIED\nc allocated 1024 109 50\nc Added clauses = 20.  Deleted clauses = 10.  Max live clauses = 19\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=2 position=0 strip=1 lrat=1 general=1 false=16 stripped=16 bridge=17\n",
+      "input_sha256": "5b15ed5ce254aa091b89673b8a78439c0f3f19b9c60fa1e96800e5edf6fef124",
+      "proof_sha256": "3497f4fda83bf9cc50a08541da590137ddcd8bf624fcf811bcea3f9ef9d5d34b",
+      "proof_bytes": 247
+    },
+    {
+      "name": "previous-2-1-0-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-2-1-0-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-2-1-0-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 11 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 6 of 11 clauses in core                            \n\nc 2 of 10 lemmas in core using 9 resolution steps\n\nc 0 RAT lemmas in core; 2 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.043 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=2 position=1 strip=0 lrat=0 general=1 false=8 stripped=0 bridge=17\n",
+      "input_sha256": "ebe9bc22b3a5c19c465b4299fc93c8ca45aa6adfbd3fa60a562f632111110c23",
+      "proof_sha256": "ad4bfac003b67fc23496b48b73f9ae8ed4c2bc7fb911024591c839a085534153",
+      "proof_bytes": 186
+    },
+    {
+      "name": "previous-2-1-0-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-2-1-0-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-2-1-0-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 11 clauses\nc VERIFIED\nc allocated 1024 109 50\nc Added clauses = 20.  Deleted clauses = 10.  Max live clauses = 19\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=2 position=1 strip=0 lrat=1 general=1 false=8 stripped=0 bridge=17\n",
+      "input_sha256": "ebe9bc22b3a5c19c465b4299fc93c8ca45aa6adfbd3fa60a562f632111110c23",
+      "proof_sha256": "8e7f539809f4c1021c115af78557554ed94e0da9b9edf98fc306815b5a384fd5",
+      "proof_bytes": 248
+    },
+    {
+      "name": "previous-2-1-1-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-2-1-1-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-2-1-1-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 11 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 6 of 11 clauses in core                            \n\nc 2 of 10 lemmas in core using 9 resolution steps\n\nc 0 RAT lemmas in core; 2 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.044 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=2 position=1 strip=1 lrat=0 general=1 false=16 stripped=16 bridge=17\n",
+      "input_sha256": "ebe9bc22b3a5c19c465b4299fc93c8ca45aa6adfbd3fa60a562f632111110c23",
+      "proof_sha256": "c2d161a240b45935d93192d6c964b7d5002a4b3046ac78236bd1cd177ba60560",
+      "proof_bytes": 183
+    },
+    {
+      "name": "previous-2-1-1-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-2-1-1-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-2-1-1-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 11 clauses\nc VERIFIED\nc allocated 1024 109 50\nc Added clauses = 20.  Deleted clauses = 10.  Max live clauses = 19\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=2 position=1 strip=1 lrat=1 general=1 false=16 stripped=16 bridge=17\n",
+      "input_sha256": "ebe9bc22b3a5c19c465b4299fc93c8ca45aa6adfbd3fa60a562f632111110c23",
+      "proof_sha256": "3497f4fda83bf9cc50a08541da590137ddcd8bf624fcf811bcea3f9ef9d5d34b",
+      "proof_bytes": 247
+    },
+    {
+      "name": "previous-2-2-0-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-2-2-0-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-2-2-0-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 11 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 6 of 11 clauses in core                            \n\nc 2 of 10 lemmas in core using 9 resolution steps\n\nc 0 RAT lemmas in core; 2 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.043 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=2 position=2 strip=0 lrat=0 general=1 false=8 stripped=0 bridge=17\n",
+      "input_sha256": "2b2222725d71c2070fd5b39c3bfa3fd7b067fa3b843c473136c2683eedccf18f",
+      "proof_sha256": "ad4bfac003b67fc23496b48b73f9ae8ed4c2bc7fb911024591c839a085534153",
+      "proof_bytes": 186
+    },
+    {
+      "name": "previous-2-2-0-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-2-2-0-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-2-2-0-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 11 clauses\nc VERIFIED\nc allocated 1024 109 50\nc Added clauses = 20.  Deleted clauses = 10.  Max live clauses = 19\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=2 position=2 strip=0 lrat=1 general=1 false=8 stripped=0 bridge=17\n",
+      "input_sha256": "2b2222725d71c2070fd5b39c3bfa3fd7b067fa3b843c473136c2683eedccf18f",
+      "proof_sha256": "8e7f539809f4c1021c115af78557554ed94e0da9b9edf98fc306815b5a384fd5",
+      "proof_bytes": 248
+    },
+    {
+      "name": "previous-2-2-1-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-2-2-1-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-2-2-1-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 11 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 6 of 11 clauses in core                            \n\nc 2 of 10 lemmas in core using 9 resolution steps\n\nc 0 RAT lemmas in core; 2 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.043 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=2 position=2 strip=1 lrat=0 general=1 false=16 stripped=16 bridge=17\n",
+      "input_sha256": "2b2222725d71c2070fd5b39c3bfa3fd7b067fa3b843c473136c2683eedccf18f",
+      "proof_sha256": "c2d161a240b45935d93192d6c964b7d5002a4b3046ac78236bd1cd177ba60560",
+      "proof_bytes": 183
+    },
+    {
+      "name": "previous-2-2-1-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-2-2-1-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-2-2-1-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 11 clauses\nc VERIFIED\nc allocated 1024 109 50\nc Added clauses = 20.  Deleted clauses = 10.  Max live clauses = 19\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=2 position=2 strip=1 lrat=1 general=1 false=16 stripped=16 bridge=17\n",
+      "input_sha256": "2b2222725d71c2070fd5b39c3bfa3fd7b067fa3b843c473136c2683eedccf18f",
+      "proof_sha256": "3497f4fda83bf9cc50a08541da590137ddcd8bf624fcf811bcea3f9ef9d5d34b",
+      "proof_bytes": 247
+    },
+    {
+      "name": "previous-2-3-0-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-2-3-0-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-2-3-0-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 11 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 6 of 11 clauses in core                            \n\nc 2 of 10 lemmas in core using 9 resolution steps\n\nc 0 RAT lemmas in core; 2 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.044 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=2 position=3 strip=0 lrat=0 general=1 false=12 stripped=0 bridge=17\n",
+      "input_sha256": "94e57d917dd233a0f2276586587ac3689b7b265a3f9492df4a0c192b5fc2b964",
+      "proof_sha256": "d1f596edf1c87c9cd4afbf9217f55d96f61a83d4d2f74120598fd193072759a5",
+      "proof_bytes": 186
+    },
+    {
+      "name": "previous-2-3-0-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-2-3-0-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-2-3-0-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 11 clauses\nc VERIFIED\nc allocated 1024 109 50\nc Added clauses = 20.  Deleted clauses = 10.  Max live clauses = 19\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=2 position=3 strip=0 lrat=1 general=1 false=12 stripped=0 bridge=17\n",
+      "input_sha256": "94e57d917dd233a0f2276586587ac3689b7b265a3f9492df4a0c192b5fc2b964",
+      "proof_sha256": "8e7f539809f4c1021c115af78557554ed94e0da9b9edf98fc306815b5a384fd5",
+      "proof_bytes": 248
+    },
+    {
+      "name": "previous-2-3-1-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-2-3-1-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-2-3-1-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 11 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 6 of 11 clauses in core                            \n\nc 2 of 10 lemmas in core using 9 resolution steps\n\nc 0 RAT lemmas in core; 2 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.043 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=2 position=3 strip=1 lrat=0 general=1 false=16 stripped=16 bridge=17\n",
+      "input_sha256": "94e57d917dd233a0f2276586587ac3689b7b265a3f9492df4a0c192b5fc2b964",
+      "proof_sha256": "5fcf76b34bbfb6747b1212b059cfeed3501cf84abef347c31a38c2742a8c249c",
+      "proof_bytes": 183
+    },
+    {
+      "name": "previous-2-3-1-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-2-3-1-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-2-3-1-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 11 clauses\nc VERIFIED\nc allocated 1024 109 50\nc Added clauses = 20.  Deleted clauses = 10.  Max live clauses = 19\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=2 position=3 strip=1 lrat=1 general=1 false=16 stripped=16 bridge=17\n",
+      "input_sha256": "94e57d917dd233a0f2276586587ac3689b7b265a3f9492df4a0c192b5fc2b964",
+      "proof_sha256": "3497f4fda83bf9cc50a08541da590137ddcd8bf624fcf811bcea3f9ef9d5d34b",
+      "proof_bytes": 247
+    },
+    {
+      "name": "previous-2-4-0-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-2-4-0-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-2-4-0-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 11 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 6 of 11 clauses in core                            \n\nc 2 of 10 lemmas in core using 9 resolution steps\n\nc 0 RAT lemmas in core; 2 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.045 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=2 position=4 strip=0 lrat=0 general=1 false=16 stripped=0 bridge=17\n",
+      "input_sha256": "bf7e238a7d4fbac149954347c1f2074ecb176c833542e680025fe0314ab0f333",
+      "proof_sha256": "c53e9590ae778b3f6e8f465e9365b392b749e68e87988088738d5f877979c3d1",
+      "proof_bytes": 187
+    },
+    {
+      "name": "previous-2-4-0-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-2-4-0-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-2-4-0-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 11 clauses\nc VERIFIED\nc allocated 1024 109 50\nc Added clauses = 20.  Deleted clauses = 10.  Max live clauses = 19\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=2 position=4 strip=0 lrat=1 general=1 false=16 stripped=0 bridge=17\n",
+      "input_sha256": "bf7e238a7d4fbac149954347c1f2074ecb176c833542e680025fe0314ab0f333",
+      "proof_sha256": "abb3be6c1bc74b9bb312f87e0f306a52c8a0792afe0fe6cb98e2463fc4116d4a",
+      "proof_bytes": 249
+    },
+    {
+      "name": "previous-2-4-1-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-2-4-1-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-2-4-1-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 11 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 6 of 11 clauses in core                            \n\nc 2 of 10 lemmas in core using 9 resolution steps\n\nc 0 RAT lemmas in core; 2 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.043 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=2 position=4 strip=1 lrat=0 general=1 false=16 stripped=16 bridge=17\n",
+      "input_sha256": "bf7e238a7d4fbac149954347c1f2074ecb176c833542e680025fe0314ab0f333",
+      "proof_sha256": "3c647214847d1110dfbde8808021ca46c7c2af2752442ea50e4a5a4528da0dab",
+      "proof_bytes": 183
+    },
+    {
+      "name": "previous-2-4-1-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-2-4-1-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-2-4-1-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 11 clauses\nc VERIFIED\nc allocated 1024 109 50\nc Added clauses = 20.  Deleted clauses = 10.  Max live clauses = 19\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=2 position=4 strip=1 lrat=1 general=1 false=16 stripped=16 bridge=17\n",
+      "input_sha256": "bf7e238a7d4fbac149954347c1f2074ecb176c833542e680025fe0314ab0f333",
+      "proof_sha256": "3497f4fda83bf9cc50a08541da590137ddcd8bf624fcf811bcea3f9ef9d5d34b",
+      "proof_bytes": 247
+    },
+    {
+      "name": "candidate-0-0-0-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-0-0-0-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-0-0-0-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 10 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 6 of 10 clauses in core                            \n\nc 2 of 10 lemmas in core using 9 resolution steps\n\nc 0 RAT lemmas in core; 2 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.045 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=0 position=0 strip=0 lrat=0 general=1 false=0 stripped=0 bridge=16\n",
+      "input_sha256": "aaf7d6ae7c620412e3bc0c0fcf24eabb5fc0d616ede82997223f87e4d6a66573",
+      "proof_sha256": "4d5b966762defe5cd477fc02e45e0d91e397121bc3f44c1a434a99e2b7952f5a",
+      "proof_bytes": 175
+    },
+    {
+      "name": "candidate-0-0-0-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-0-0-0-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-0-0-0-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 10 clauses\nc VERIFIED\nc allocated 1024 100 50\nc Added clauses = 19.  Deleted clauses = 10.  Max live clauses = 18\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=0 position=0 strip=0 lrat=1 general=1 false=0 stripped=0 bridge=16\n",
+      "input_sha256": "aaf7d6ae7c620412e3bc0c0fcf24eabb5fc0d616ede82997223f87e4d6a66573",
+      "proof_sha256": "f20587ed0daac8d82368501ff364df01d0a49de9ddc7f561640e976b8aadfd0a",
+      "proof_bytes": 242
+    },
+    {
+      "name": "candidate-0-0-1-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-0-0-1-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-0-0-1-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 10 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 6 of 10 clauses in core                            \n\nc 2 of 10 lemmas in core using 9 resolution steps\n\nc 0 RAT lemmas in core; 2 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.043 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=0 position=0 strip=1 lrat=0 general=1 false=0 stripped=0 bridge=16\n",
+      "input_sha256": "aaf7d6ae7c620412e3bc0c0fcf24eabb5fc0d616ede82997223f87e4d6a66573",
+      "proof_sha256": "4d5b966762defe5cd477fc02e45e0d91e397121bc3f44c1a434a99e2b7952f5a",
+      "proof_bytes": 175
+    },
+    {
+      "name": "candidate-0-0-1-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-0-0-1-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-0-0-1-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 10 clauses\nc VERIFIED\nc allocated 1024 100 50\nc Added clauses = 19.  Deleted clauses = 10.  Max live clauses = 18\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=0 position=0 strip=1 lrat=1 general=1 false=0 stripped=0 bridge=16\n",
+      "input_sha256": "aaf7d6ae7c620412e3bc0c0fcf24eabb5fc0d616ede82997223f87e4d6a66573",
+      "proof_sha256": "f20587ed0daac8d82368501ff364df01d0a49de9ddc7f561640e976b8aadfd0a",
+      "proof_bytes": 242
+    },
+    {
+      "name": "candidate-0-1-0-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-0-1-0-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-0-1-0-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 10 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 6 of 10 clauses in core                            \n\nc 2 of 10 lemmas in core using 9 resolution steps\n\nc 0 RAT lemmas in core; 2 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.043 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=0 position=1 strip=0 lrat=0 general=1 false=0 stripped=0 bridge=16\n",
+      "input_sha256": "aaf7d6ae7c620412e3bc0c0fcf24eabb5fc0d616ede82997223f87e4d6a66573",
+      "proof_sha256": "4d5b966762defe5cd477fc02e45e0d91e397121bc3f44c1a434a99e2b7952f5a",
+      "proof_bytes": 175
+    },
+    {
+      "name": "candidate-0-1-0-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-0-1-0-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-0-1-0-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 10 clauses\nc VERIFIED\nc allocated 1024 100 50\nc Added clauses = 19.  Deleted clauses = 10.  Max live clauses = 18\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=0 position=1 strip=0 lrat=1 general=1 false=0 stripped=0 bridge=16\n",
+      "input_sha256": "aaf7d6ae7c620412e3bc0c0fcf24eabb5fc0d616ede82997223f87e4d6a66573",
+      "proof_sha256": "f20587ed0daac8d82368501ff364df01d0a49de9ddc7f561640e976b8aadfd0a",
+      "proof_bytes": 242
+    },
+    {
+      "name": "candidate-0-1-1-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-0-1-1-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-0-1-1-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 10 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 6 of 10 clauses in core                            \n\nc 2 of 10 lemmas in core using 9 resolution steps\n\nc 0 RAT lemmas in core; 2 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.043 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=0 position=1 strip=1 lrat=0 general=1 false=0 stripped=0 bridge=16\n",
+      "input_sha256": "aaf7d6ae7c620412e3bc0c0fcf24eabb5fc0d616ede82997223f87e4d6a66573",
+      "proof_sha256": "4d5b966762defe5cd477fc02e45e0d91e397121bc3f44c1a434a99e2b7952f5a",
+      "proof_bytes": 175
+    },
+    {
+      "name": "candidate-0-1-1-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-0-1-1-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-0-1-1-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 10 clauses\nc VERIFIED\nc allocated 1024 100 50\nc Added clauses = 19.  Deleted clauses = 10.  Max live clauses = 18\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=0 position=1 strip=1 lrat=1 general=1 false=0 stripped=0 bridge=16\n",
+      "input_sha256": "aaf7d6ae7c620412e3bc0c0fcf24eabb5fc0d616ede82997223f87e4d6a66573",
+      "proof_sha256": "f20587ed0daac8d82368501ff364df01d0a49de9ddc7f561640e976b8aadfd0a",
+      "proof_bytes": 242
+    },
+    {
+      "name": "candidate-0-2-0-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-0-2-0-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-0-2-0-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 10 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 6 of 10 clauses in core                            \n\nc 2 of 10 lemmas in core using 9 resolution steps\n\nc 0 RAT lemmas in core; 2 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.044 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=0 position=2 strip=0 lrat=0 general=1 false=0 stripped=0 bridge=16\n",
+      "input_sha256": "aaf7d6ae7c620412e3bc0c0fcf24eabb5fc0d616ede82997223f87e4d6a66573",
+      "proof_sha256": "4d5b966762defe5cd477fc02e45e0d91e397121bc3f44c1a434a99e2b7952f5a",
+      "proof_bytes": 175
+    },
+    {
+      "name": "candidate-0-2-0-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-0-2-0-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-0-2-0-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 10 clauses\nc VERIFIED\nc allocated 1024 100 50\nc Added clauses = 19.  Deleted clauses = 10.  Max live clauses = 18\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=0 position=2 strip=0 lrat=1 general=1 false=0 stripped=0 bridge=16\n",
+      "input_sha256": "aaf7d6ae7c620412e3bc0c0fcf24eabb5fc0d616ede82997223f87e4d6a66573",
+      "proof_sha256": "f20587ed0daac8d82368501ff364df01d0a49de9ddc7f561640e976b8aadfd0a",
+      "proof_bytes": 242
+    },
+    {
+      "name": "candidate-0-2-1-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-0-2-1-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-0-2-1-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 10 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 6 of 10 clauses in core                            \n\nc 2 of 10 lemmas in core using 9 resolution steps\n\nc 0 RAT lemmas in core; 2 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.044 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=0 position=2 strip=1 lrat=0 general=1 false=0 stripped=0 bridge=16\n",
+      "input_sha256": "aaf7d6ae7c620412e3bc0c0fcf24eabb5fc0d616ede82997223f87e4d6a66573",
+      "proof_sha256": "4d5b966762defe5cd477fc02e45e0d91e397121bc3f44c1a434a99e2b7952f5a",
+      "proof_bytes": 175
+    },
+    {
+      "name": "candidate-0-2-1-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-0-2-1-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-0-2-1-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 10 clauses\nc VERIFIED\nc allocated 1024 100 50\nc Added clauses = 19.  Deleted clauses = 10.  Max live clauses = 18\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=0 position=2 strip=1 lrat=1 general=1 false=0 stripped=0 bridge=16\n",
+      "input_sha256": "aaf7d6ae7c620412e3bc0c0fcf24eabb5fc0d616ede82997223f87e4d6a66573",
+      "proof_sha256": "f20587ed0daac8d82368501ff364df01d0a49de9ddc7f561640e976b8aadfd0a",
+      "proof_bytes": 242
+    },
+    {
+      "name": "candidate-0-3-0-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-0-3-0-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-0-3-0-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 10 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 6 of 10 clauses in core                            \n\nc 2 of 10 lemmas in core using 9 resolution steps\n\nc 0 RAT lemmas in core; 2 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.043 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=0 position=3 strip=0 lrat=0 general=1 false=0 stripped=0 bridge=16\n",
+      "input_sha256": "aaf7d6ae7c620412e3bc0c0fcf24eabb5fc0d616ede82997223f87e4d6a66573",
+      "proof_sha256": "4d5b966762defe5cd477fc02e45e0d91e397121bc3f44c1a434a99e2b7952f5a",
+      "proof_bytes": 175
+    },
+    {
+      "name": "candidate-0-3-0-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-0-3-0-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-0-3-0-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 10 clauses\nc VERIFIED\nc allocated 1024 100 50\nc Added clauses = 19.  Deleted clauses = 10.  Max live clauses = 18\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=0 position=3 strip=0 lrat=1 general=1 false=0 stripped=0 bridge=16\n",
+      "input_sha256": "aaf7d6ae7c620412e3bc0c0fcf24eabb5fc0d616ede82997223f87e4d6a66573",
+      "proof_sha256": "f20587ed0daac8d82368501ff364df01d0a49de9ddc7f561640e976b8aadfd0a",
+      "proof_bytes": 242
+    },
+    {
+      "name": "candidate-0-3-1-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-0-3-1-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-0-3-1-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 10 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 6 of 10 clauses in core                            \n\nc 2 of 10 lemmas in core using 9 resolution steps\n\nc 0 RAT lemmas in core; 2 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.043 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=0 position=3 strip=1 lrat=0 general=1 false=0 stripped=0 bridge=16\n",
+      "input_sha256": "aaf7d6ae7c620412e3bc0c0fcf24eabb5fc0d616ede82997223f87e4d6a66573",
+      "proof_sha256": "4d5b966762defe5cd477fc02e45e0d91e397121bc3f44c1a434a99e2b7952f5a",
+      "proof_bytes": 175
+    },
+    {
+      "name": "candidate-0-3-1-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-0-3-1-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-0-3-1-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 10 clauses\nc VERIFIED\nc allocated 1024 100 50\nc Added clauses = 19.  Deleted clauses = 10.  Max live clauses = 18\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=0 position=3 strip=1 lrat=1 general=1 false=0 stripped=0 bridge=16\n",
+      "input_sha256": "aaf7d6ae7c620412e3bc0c0fcf24eabb5fc0d616ede82997223f87e4d6a66573",
+      "proof_sha256": "f20587ed0daac8d82368501ff364df01d0a49de9ddc7f561640e976b8aadfd0a",
+      "proof_bytes": 242
+    },
+    {
+      "name": "candidate-0-4-0-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-0-4-0-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-0-4-0-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 10 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 6 of 10 clauses in core                            \n\nc 2 of 10 lemmas in core using 9 resolution steps\n\nc 0 RAT lemmas in core; 2 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.044 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=0 position=4 strip=0 lrat=0 general=1 false=0 stripped=0 bridge=16\n",
+      "input_sha256": "aaf7d6ae7c620412e3bc0c0fcf24eabb5fc0d616ede82997223f87e4d6a66573",
+      "proof_sha256": "4d5b966762defe5cd477fc02e45e0d91e397121bc3f44c1a434a99e2b7952f5a",
+      "proof_bytes": 175
+    },
+    {
+      "name": "candidate-0-4-0-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-0-4-0-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-0-4-0-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 10 clauses\nc VERIFIED\nc allocated 1024 100 50\nc Added clauses = 19.  Deleted clauses = 10.  Max live clauses = 18\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=0 position=4 strip=0 lrat=1 general=1 false=0 stripped=0 bridge=16\n",
+      "input_sha256": "aaf7d6ae7c620412e3bc0c0fcf24eabb5fc0d616ede82997223f87e4d6a66573",
+      "proof_sha256": "f20587ed0daac8d82368501ff364df01d0a49de9ddc7f561640e976b8aadfd0a",
+      "proof_bytes": 242
+    },
+    {
+      "name": "candidate-0-4-1-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-0-4-1-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-0-4-1-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 10 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 6 of 10 clauses in core                            \n\nc 2 of 10 lemmas in core using 9 resolution steps\n\nc 0 RAT lemmas in core; 2 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.043 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=0 position=4 strip=1 lrat=0 general=1 false=0 stripped=0 bridge=16\n",
+      "input_sha256": "aaf7d6ae7c620412e3bc0c0fcf24eabb5fc0d616ede82997223f87e4d6a66573",
+      "proof_sha256": "4d5b966762defe5cd477fc02e45e0d91e397121bc3f44c1a434a99e2b7952f5a",
+      "proof_bytes": 175
+    },
+    {
+      "name": "candidate-0-4-1-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-0-4-1-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-0-4-1-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 10 clauses\nc VERIFIED\nc allocated 1024 100 50\nc Added clauses = 19.  Deleted clauses = 10.  Max live clauses = 18\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=0 position=4 strip=1 lrat=1 general=1 false=0 stripped=0 bridge=16\n",
+      "input_sha256": "aaf7d6ae7c620412e3bc0c0fcf24eabb5fc0d616ede82997223f87e4d6a66573",
+      "proof_sha256": "f20587ed0daac8d82368501ff364df01d0a49de9ddc7f561640e976b8aadfd0a",
+      "proof_bytes": 242
+    },
+    {
+      "name": "candidate-1-0-0-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-1-0-0-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-1-0-0-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 11 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 7 of 11 clauses in core                            \n\nc 2 of 10 lemmas in core using 11 resolution steps\n\nc 0 RAT lemmas in core; 3 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.044 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=1 position=0 strip=0 lrat=0 general=1 false=16 stripped=0 bridge=17\n",
+      "input_sha256": "7ab5a67a5748a051a8db03a01f70630b340a958460aec869a6aca26e7e6a78e4",
+      "proof_sha256": "16c0d3c2e2017a36e817192b237e02bca01ce0fa33153ea576e2b0f89f7f8fad",
+      "proof_bytes": 198
+    },
+    {
+      "name": "candidate-1-0-0-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-1-0-0-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-1-0-0-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 11 clauses\nc VERIFIED\nc allocated 1024 109 50\nc Added clauses = 20.  Deleted clauses = 10.  Max live clauses = 19\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=1 position=0 strip=0 lrat=1 general=1 false=16 stripped=0 bridge=17\n",
+      "input_sha256": "7ab5a67a5748a051a8db03a01f70630b340a958460aec869a6aca26e7e6a78e4",
+      "proof_sha256": "f17baaa078a208fd2c3408e2a18d632a7f3437333b5ce203edcad71dcbf29424",
+      "proof_bytes": 254
+    },
+    {
+      "name": "candidate-1-0-1-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-1-0-1-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-1-0-1-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 11 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 7 of 11 clauses in core                            \n\nc 2 of 10 lemmas in core using 11 resolution steps\n\nc 0 RAT lemmas in core; 2 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.043 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=1 position=0 strip=1 lrat=0 general=1 false=32 stripped=32 bridge=17\n",
+      "input_sha256": "7ab5a67a5748a051a8db03a01f70630b340a958460aec869a6aca26e7e6a78e4",
+      "proof_sha256": "d8655f165b2ebfa1f95d4918d04d973df4be86e1a99a79d92d841deb228754b2",
+      "proof_bytes": 191
+    },
+    {
+      "name": "candidate-1-0-1-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-1-0-1-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-1-0-1-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 11 clauses\nc VERIFIED\nc allocated 1024 109 50\nc Added clauses = 20.  Deleted clauses = 10.  Max live clauses = 19\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=1 position=0 strip=1 lrat=1 general=1 false=32 stripped=32 bridge=17\n",
+      "input_sha256": "7ab5a67a5748a051a8db03a01f70630b340a958460aec869a6aca26e7e6a78e4",
+      "proof_sha256": "b07bdba435fa77daf2bd8468e7b9c767742bcdf9cde91fcd72e996806cb7548f",
+      "proof_bytes": 251
+    },
+    {
+      "name": "candidate-1-1-0-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-1-1-0-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-1-1-0-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 11 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 7 of 11 clauses in core                            \n\nc 2 of 10 lemmas in core using 11 resolution steps\n\nc 0 RAT lemmas in core; 3 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.043 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=1 position=1 strip=0 lrat=0 general=1 false=16 stripped=0 bridge=17\n",
+      "input_sha256": "d271fa076ffda273da87594c5550e0bcc556e86eb5a9c03329e7124bf23984a3",
+      "proof_sha256": "16c0d3c2e2017a36e817192b237e02bca01ce0fa33153ea576e2b0f89f7f8fad",
+      "proof_bytes": 198
+    },
+    {
+      "name": "candidate-1-1-0-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-1-1-0-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-1-1-0-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 11 clauses\nc VERIFIED\nc allocated 1024 109 50\nc Added clauses = 20.  Deleted clauses = 10.  Max live clauses = 19\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=1 position=1 strip=0 lrat=1 general=1 false=16 stripped=0 bridge=17\n",
+      "input_sha256": "d271fa076ffda273da87594c5550e0bcc556e86eb5a9c03329e7124bf23984a3",
+      "proof_sha256": "f17baaa078a208fd2c3408e2a18d632a7f3437333b5ce203edcad71dcbf29424",
+      "proof_bytes": 254
+    },
+    {
+      "name": "candidate-1-1-1-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-1-1-1-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-1-1-1-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 11 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 7 of 11 clauses in core                            \n\nc 2 of 10 lemmas in core using 11 resolution steps\n\nc 0 RAT lemmas in core; 2 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.043 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=1 position=1 strip=1 lrat=0 general=1 false=32 stripped=32 bridge=17\n",
+      "input_sha256": "d271fa076ffda273da87594c5550e0bcc556e86eb5a9c03329e7124bf23984a3",
+      "proof_sha256": "d8655f165b2ebfa1f95d4918d04d973df4be86e1a99a79d92d841deb228754b2",
+      "proof_bytes": 191
+    },
+    {
+      "name": "candidate-1-1-1-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-1-1-1-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-1-1-1-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 11 clauses\nc VERIFIED\nc allocated 1024 109 50\nc Added clauses = 20.  Deleted clauses = 10.  Max live clauses = 19\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=1 position=1 strip=1 lrat=1 general=1 false=32 stripped=32 bridge=17\n",
+      "input_sha256": "d271fa076ffda273da87594c5550e0bcc556e86eb5a9c03329e7124bf23984a3",
+      "proof_sha256": "b07bdba435fa77daf2bd8468e7b9c767742bcdf9cde91fcd72e996806cb7548f",
+      "proof_bytes": 251
+    },
+    {
+      "name": "candidate-1-2-0-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-1-2-0-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-1-2-0-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 11 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 7 of 11 clauses in core                            \n\nc 2 of 10 lemmas in core using 11 resolution steps\n\nc 0 RAT lemmas in core; 3 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.043 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=1 position=2 strip=0 lrat=0 general=1 false=16 stripped=0 bridge=17\n",
+      "input_sha256": "44953264db3256684fa88f078783f7768d39d309bceb2fcee40c11bcf848ca26",
+      "proof_sha256": "16c0d3c2e2017a36e817192b237e02bca01ce0fa33153ea576e2b0f89f7f8fad",
+      "proof_bytes": 198
+    },
+    {
+      "name": "candidate-1-2-0-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-1-2-0-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-1-2-0-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 11 clauses\nc VERIFIED\nc allocated 1024 109 50\nc Added clauses = 20.  Deleted clauses = 10.  Max live clauses = 19\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=1 position=2 strip=0 lrat=1 general=1 false=16 stripped=0 bridge=17\n",
+      "input_sha256": "44953264db3256684fa88f078783f7768d39d309bceb2fcee40c11bcf848ca26",
+      "proof_sha256": "f17baaa078a208fd2c3408e2a18d632a7f3437333b5ce203edcad71dcbf29424",
+      "proof_bytes": 254
+    },
+    {
+      "name": "candidate-1-2-1-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-1-2-1-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-1-2-1-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 11 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 7 of 11 clauses in core                            \n\nc 2 of 10 lemmas in core using 11 resolution steps\n\nc 0 RAT lemmas in core; 2 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.044 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=1 position=2 strip=1 lrat=0 general=1 false=32 stripped=32 bridge=17\n",
+      "input_sha256": "44953264db3256684fa88f078783f7768d39d309bceb2fcee40c11bcf848ca26",
+      "proof_sha256": "d8655f165b2ebfa1f95d4918d04d973df4be86e1a99a79d92d841deb228754b2",
+      "proof_bytes": 191
+    },
+    {
+      "name": "candidate-1-2-1-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-1-2-1-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-1-2-1-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 11 clauses\nc VERIFIED\nc allocated 1024 109 50\nc Added clauses = 20.  Deleted clauses = 10.  Max live clauses = 19\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=1 position=2 strip=1 lrat=1 general=1 false=32 stripped=32 bridge=17\n",
+      "input_sha256": "44953264db3256684fa88f078783f7768d39d309bceb2fcee40c11bcf848ca26",
+      "proof_sha256": "b07bdba435fa77daf2bd8468e7b9c767742bcdf9cde91fcd72e996806cb7548f",
+      "proof_bytes": 251
+    },
+    {
+      "name": "candidate-1-3-0-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-1-3-0-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-1-3-0-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 11 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 7 of 11 clauses in core                            \n\nc 2 of 10 lemmas in core using 11 resolution steps\n\nc 0 RAT lemmas in core; 3 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.043 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=1 position=3 strip=0 lrat=0 general=1 false=24 stripped=0 bridge=17\n",
+      "input_sha256": "9ec9ae98e2ce8ecdd3e8e027837327dddfdaf751fc993b07230a574eb87c5a36",
+      "proof_sha256": "acb09d9fe95365c2a0d093b895752e55e13c9827e41411199b9f1e1da30bbe61",
+      "proof_bytes": 198
+    },
+    {
+      "name": "candidate-1-3-0-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-1-3-0-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-1-3-0-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 11 clauses\nc VERIFIED\nc allocated 1024 109 50\nc Added clauses = 20.  Deleted clauses = 10.  Max live clauses = 19\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=1 position=3 strip=0 lrat=1 general=1 false=24 stripped=0 bridge=17\n",
+      "input_sha256": "9ec9ae98e2ce8ecdd3e8e027837327dddfdaf751fc993b07230a574eb87c5a36",
+      "proof_sha256": "f17baaa078a208fd2c3408e2a18d632a7f3437333b5ce203edcad71dcbf29424",
+      "proof_bytes": 254
+    },
+    {
+      "name": "candidate-1-3-1-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-1-3-1-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-1-3-1-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 11 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 7 of 11 clauses in core                            \n\nc 2 of 10 lemmas in core using 11 resolution steps\n\nc 0 RAT lemmas in core; 2 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.044 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=1 position=3 strip=1 lrat=0 general=1 false=32 stripped=32 bridge=17\n",
+      "input_sha256": "9ec9ae98e2ce8ecdd3e8e027837327dddfdaf751fc993b07230a574eb87c5a36",
+      "proof_sha256": "f9c8c69b54103f6a7e51dcd05cd0d4cb5eecc8f79c4386441764b4c34299f27d",
+      "proof_bytes": 191
+    },
+    {
+      "name": "candidate-1-3-1-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-1-3-1-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-1-3-1-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 11 clauses\nc VERIFIED\nc allocated 1024 109 50\nc Added clauses = 20.  Deleted clauses = 10.  Max live clauses = 19\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=1 position=3 strip=1 lrat=1 general=1 false=32 stripped=32 bridge=17\n",
+      "input_sha256": "9ec9ae98e2ce8ecdd3e8e027837327dddfdaf751fc993b07230a574eb87c5a36",
+      "proof_sha256": "b07bdba435fa77daf2bd8468e7b9c767742bcdf9cde91fcd72e996806cb7548f",
+      "proof_bytes": 251
+    },
+    {
+      "name": "candidate-1-4-0-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-1-4-0-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-1-4-0-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 11 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 7 of 11 clauses in core                            \n\nc 2 of 10 lemmas in core using 11 resolution steps\n\nc 0 RAT lemmas in core; 3 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.043 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=1 position=4 strip=0 lrat=0 general=1 false=32 stripped=0 bridge=17\n",
+      "input_sha256": "04b4e009546f6bf9df7002ca6e6dd500ce5e27766319d7adcf83338b17632bb8",
+      "proof_sha256": "63005787f237a0bfbe48edd07540e2952ad86337785c5a9b69ab6b5a1f3549f2",
+      "proof_bytes": 199
+    },
+    {
+      "name": "candidate-1-4-0-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-1-4-0-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-1-4-0-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 11 clauses\nc VERIFIED\nc allocated 1024 109 50\nc Added clauses = 20.  Deleted clauses = 10.  Max live clauses = 19\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=1 position=4 strip=0 lrat=1 general=1 false=32 stripped=0 bridge=17\n",
+      "input_sha256": "04b4e009546f6bf9df7002ca6e6dd500ce5e27766319d7adcf83338b17632bb8",
+      "proof_sha256": "b717bf7d40cd11eca802b5e7a8d50f1e78d5050cf7bb86fce1df5380f2010711",
+      "proof_bytes": 255
+    },
+    {
+      "name": "candidate-1-4-1-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-1-4-1-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-1-4-1-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 11 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 7 of 11 clauses in core                            \n\nc 2 of 10 lemmas in core using 11 resolution steps\n\nc 0 RAT lemmas in core; 2 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.044 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=1 position=4 strip=1 lrat=0 general=1 false=32 stripped=32 bridge=17\n",
+      "input_sha256": "04b4e009546f6bf9df7002ca6e6dd500ce5e27766319d7adcf83338b17632bb8",
+      "proof_sha256": "bcbc25c52bd0f704af264a8516b675a5afe601d7d0745ea5325ff46378deca1e",
+      "proof_bytes": 191
+    },
+    {
+      "name": "candidate-1-4-1-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-1-4-1-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-1-4-1-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 11 clauses\nc VERIFIED\nc allocated 1024 109 50\nc Added clauses = 20.  Deleted clauses = 10.  Max live clauses = 19\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=1 position=4 strip=1 lrat=1 general=1 false=32 stripped=32 bridge=17\n",
+      "input_sha256": "04b4e009546f6bf9df7002ca6e6dd500ce5e27766319d7adcf83338b17632bb8",
+      "proof_sha256": "b07bdba435fa77daf2bd8468e7b9c767742bcdf9cde91fcd72e996806cb7548f",
+      "proof_bytes": 251
+    },
+    {
+      "name": "candidate-2-0-0-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-2-0-0-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-2-0-0-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 11 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 6 of 11 clauses in core                            \n\nc 2 of 10 lemmas in core using 9 resolution steps\n\nc 0 RAT lemmas in core; 2 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.043 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=2 position=0 strip=0 lrat=0 general=1 false=8 stripped=0 bridge=17\n",
+      "input_sha256": "5b15ed5ce254aa091b89673b8a78439c0f3f19b9c60fa1e96800e5edf6fef124",
+      "proof_sha256": "ad4bfac003b67fc23496b48b73f9ae8ed4c2bc7fb911024591c839a085534153",
+      "proof_bytes": 186
+    },
+    {
+      "name": "candidate-2-0-0-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-2-0-0-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-2-0-0-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 11 clauses\nc VERIFIED\nc allocated 1024 109 50\nc Added clauses = 20.  Deleted clauses = 10.  Max live clauses = 19\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=2 position=0 strip=0 lrat=1 general=1 false=8 stripped=0 bridge=17\n",
+      "input_sha256": "5b15ed5ce254aa091b89673b8a78439c0f3f19b9c60fa1e96800e5edf6fef124",
+      "proof_sha256": "8e7f539809f4c1021c115af78557554ed94e0da9b9edf98fc306815b5a384fd5",
+      "proof_bytes": 248
+    },
+    {
+      "name": "candidate-2-0-1-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-2-0-1-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-2-0-1-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 11 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 6 of 11 clauses in core                            \n\nc 2 of 10 lemmas in core using 9 resolution steps\n\nc 0 RAT lemmas in core; 2 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.043 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=2 position=0 strip=1 lrat=0 general=1 false=16 stripped=16 bridge=17\n",
+      "input_sha256": "5b15ed5ce254aa091b89673b8a78439c0f3f19b9c60fa1e96800e5edf6fef124",
+      "proof_sha256": "c2d161a240b45935d93192d6c964b7d5002a4b3046ac78236bd1cd177ba60560",
+      "proof_bytes": 183
+    },
+    {
+      "name": "candidate-2-0-1-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-2-0-1-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-2-0-1-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 11 clauses\nc VERIFIED\nc allocated 1024 109 50\nc Added clauses = 20.  Deleted clauses = 10.  Max live clauses = 19\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=2 position=0 strip=1 lrat=1 general=1 false=16 stripped=16 bridge=17\n",
+      "input_sha256": "5b15ed5ce254aa091b89673b8a78439c0f3f19b9c60fa1e96800e5edf6fef124",
+      "proof_sha256": "3497f4fda83bf9cc50a08541da590137ddcd8bf624fcf811bcea3f9ef9d5d34b",
+      "proof_bytes": 247
+    },
+    {
+      "name": "candidate-2-1-0-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-2-1-0-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-2-1-0-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 11 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 6 of 11 clauses in core                            \n\nc 2 of 10 lemmas in core using 9 resolution steps\n\nc 0 RAT lemmas in core; 2 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.043 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=2 position=1 strip=0 lrat=0 general=1 false=8 stripped=0 bridge=17\n",
+      "input_sha256": "ebe9bc22b3a5c19c465b4299fc93c8ca45aa6adfbd3fa60a562f632111110c23",
+      "proof_sha256": "ad4bfac003b67fc23496b48b73f9ae8ed4c2bc7fb911024591c839a085534153",
+      "proof_bytes": 186
+    },
+    {
+      "name": "candidate-2-1-0-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-2-1-0-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-2-1-0-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 11 clauses\nc VERIFIED\nc allocated 1024 109 50\nc Added clauses = 20.  Deleted clauses = 10.  Max live clauses = 19\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=2 position=1 strip=0 lrat=1 general=1 false=8 stripped=0 bridge=17\n",
+      "input_sha256": "ebe9bc22b3a5c19c465b4299fc93c8ca45aa6adfbd3fa60a562f632111110c23",
+      "proof_sha256": "8e7f539809f4c1021c115af78557554ed94e0da9b9edf98fc306815b5a384fd5",
+      "proof_bytes": 248
+    },
+    {
+      "name": "candidate-2-1-1-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-2-1-1-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-2-1-1-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 11 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 6 of 11 clauses in core                            \n\nc 2 of 10 lemmas in core using 9 resolution steps\n\nc 0 RAT lemmas in core; 2 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.043 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=2 position=1 strip=1 lrat=0 general=1 false=16 stripped=16 bridge=17\n",
+      "input_sha256": "ebe9bc22b3a5c19c465b4299fc93c8ca45aa6adfbd3fa60a562f632111110c23",
+      "proof_sha256": "c2d161a240b45935d93192d6c964b7d5002a4b3046ac78236bd1cd177ba60560",
+      "proof_bytes": 183
+    },
+    {
+      "name": "candidate-2-1-1-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-2-1-1-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-2-1-1-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 11 clauses\nc VERIFIED\nc allocated 1024 109 50\nc Added clauses = 20.  Deleted clauses = 10.  Max live clauses = 19\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=2 position=1 strip=1 lrat=1 general=1 false=16 stripped=16 bridge=17\n",
+      "input_sha256": "ebe9bc22b3a5c19c465b4299fc93c8ca45aa6adfbd3fa60a562f632111110c23",
+      "proof_sha256": "3497f4fda83bf9cc50a08541da590137ddcd8bf624fcf811bcea3f9ef9d5d34b",
+      "proof_bytes": 247
+    },
+    {
+      "name": "candidate-2-2-0-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-2-2-0-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-2-2-0-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 11 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 6 of 11 clauses in core                            \n\nc 2 of 10 lemmas in core using 9 resolution steps\n\nc 0 RAT lemmas in core; 2 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.043 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=2 position=2 strip=0 lrat=0 general=1 false=8 stripped=0 bridge=17\n",
+      "input_sha256": "2b2222725d71c2070fd5b39c3bfa3fd7b067fa3b843c473136c2683eedccf18f",
+      "proof_sha256": "ad4bfac003b67fc23496b48b73f9ae8ed4c2bc7fb911024591c839a085534153",
+      "proof_bytes": 186
+    },
+    {
+      "name": "candidate-2-2-0-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-2-2-0-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-2-2-0-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 11 clauses\nc VERIFIED\nc allocated 1024 109 50\nc Added clauses = 20.  Deleted clauses = 10.  Max live clauses = 19\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=2 position=2 strip=0 lrat=1 general=1 false=8 stripped=0 bridge=17\n",
+      "input_sha256": "2b2222725d71c2070fd5b39c3bfa3fd7b067fa3b843c473136c2683eedccf18f",
+      "proof_sha256": "8e7f539809f4c1021c115af78557554ed94e0da9b9edf98fc306815b5a384fd5",
+      "proof_bytes": 248
+    },
+    {
+      "name": "candidate-2-2-1-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-2-2-1-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-2-2-1-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 11 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 6 of 11 clauses in core                            \n\nc 2 of 10 lemmas in core using 9 resolution steps\n\nc 0 RAT lemmas in core; 2 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.043 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=2 position=2 strip=1 lrat=0 general=1 false=16 stripped=16 bridge=17\n",
+      "input_sha256": "2b2222725d71c2070fd5b39c3bfa3fd7b067fa3b843c473136c2683eedccf18f",
+      "proof_sha256": "c2d161a240b45935d93192d6c964b7d5002a4b3046ac78236bd1cd177ba60560",
+      "proof_bytes": 183
+    },
+    {
+      "name": "candidate-2-2-1-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-2-2-1-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-2-2-1-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 11 clauses\nc VERIFIED\nc allocated 1024 109 50\nc Added clauses = 20.  Deleted clauses = 10.  Max live clauses = 19\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=2 position=2 strip=1 lrat=1 general=1 false=16 stripped=16 bridge=17\n",
+      "input_sha256": "2b2222725d71c2070fd5b39c3bfa3fd7b067fa3b843c473136c2683eedccf18f",
+      "proof_sha256": "3497f4fda83bf9cc50a08541da590137ddcd8bf624fcf811bcea3f9ef9d5d34b",
+      "proof_bytes": 247
+    },
+    {
+      "name": "candidate-2-3-0-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-2-3-0-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-2-3-0-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 11 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 6 of 11 clauses in core                            \n\nc 2 of 10 lemmas in core using 9 resolution steps\n\nc 0 RAT lemmas in core; 2 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.043 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=2 position=3 strip=0 lrat=0 general=1 false=12 stripped=0 bridge=17\n",
+      "input_sha256": "94e57d917dd233a0f2276586587ac3689b7b265a3f9492df4a0c192b5fc2b964",
+      "proof_sha256": "d1f596edf1c87c9cd4afbf9217f55d96f61a83d4d2f74120598fd193072759a5",
+      "proof_bytes": 186
+    },
+    {
+      "name": "candidate-2-3-0-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-2-3-0-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-2-3-0-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 11 clauses\nc VERIFIED\nc allocated 1024 109 50\nc Added clauses = 20.  Deleted clauses = 10.  Max live clauses = 19\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=2 position=3 strip=0 lrat=1 general=1 false=12 stripped=0 bridge=17\n",
+      "input_sha256": "94e57d917dd233a0f2276586587ac3689b7b265a3f9492df4a0c192b5fc2b964",
+      "proof_sha256": "8e7f539809f4c1021c115af78557554ed94e0da9b9edf98fc306815b5a384fd5",
+      "proof_bytes": 248
+    },
+    {
+      "name": "candidate-2-3-1-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-2-3-1-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-2-3-1-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 11 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 6 of 11 clauses in core                            \n\nc 2 of 10 lemmas in core using 9 resolution steps\n\nc 0 RAT lemmas in core; 2 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.043 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=2 position=3 strip=1 lrat=0 general=1 false=16 stripped=16 bridge=17\n",
+      "input_sha256": "94e57d917dd233a0f2276586587ac3689b7b265a3f9492df4a0c192b5fc2b964",
+      "proof_sha256": "5fcf76b34bbfb6747b1212b059cfeed3501cf84abef347c31a38c2742a8c249c",
+      "proof_bytes": 183
+    },
+    {
+      "name": "candidate-2-3-1-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-2-3-1-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-2-3-1-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 11 clauses\nc VERIFIED\nc allocated 1024 109 50\nc Added clauses = 20.  Deleted clauses = 10.  Max live clauses = 19\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=2 position=3 strip=1 lrat=1 general=1 false=16 stripped=16 bridge=17\n",
+      "input_sha256": "94e57d917dd233a0f2276586587ac3689b7b265a3f9492df4a0c192b5fc2b964",
+      "proof_sha256": "3497f4fda83bf9cc50a08541da590137ddcd8bf624fcf811bcea3f9ef9d5d34b",
+      "proof_bytes": 247
+    },
+    {
+      "name": "candidate-2-4-0-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-2-4-0-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-2-4-0-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 11 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 6 of 11 clauses in core                            \n\nc 2 of 10 lemmas in core using 9 resolution steps\n\nc 0 RAT lemmas in core; 2 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.043 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=2 position=4 strip=0 lrat=0 general=1 false=16 stripped=0 bridge=17\n",
+      "input_sha256": "bf7e238a7d4fbac149954347c1f2074ecb176c833542e680025fe0314ab0f333",
+      "proof_sha256": "c53e9590ae778b3f6e8f465e9365b392b749e68e87988088738d5f877979c3d1",
+      "proof_bytes": 187
+    },
+    {
+      "name": "candidate-2-4-0-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-2-4-0-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-2-4-0-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 11 clauses\nc VERIFIED\nc allocated 1024 109 50\nc Added clauses = 20.  Deleted clauses = 10.  Max live clauses = 19\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=2 position=4 strip=0 lrat=1 general=1 false=16 stripped=0 bridge=17\n",
+      "input_sha256": "bf7e238a7d4fbac149954347c1f2074ecb176c833542e680025fe0314ab0f333",
+      "proof_sha256": "abb3be6c1bc74b9bb312f87e0f306a52c8a0792afe0fe6cb98e2463fc4116d4a",
+      "proof_bytes": 249
+    },
+    {
+      "name": "candidate-2-4-1-0",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-2-4-1-0.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-2-4-1-0.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "stdout": "\nc parsing input formula with 5 variables and 11 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 6 of 11 clauses in core                            \n\nc 2 of 10 lemmas in core using 9 resolution steps\n\nc 0 RAT lemmas in core; 2 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.043 seconds\n",
+      "stderr": "",
+      "fixture_stdout": "roots=2 position=4 strip=1 lrat=0 general=1 false=16 stripped=16 bridge=17\n",
+      "input_sha256": "bf7e238a7d4fbac149954347c1f2074ecb176c833542e680025fe0314ab0f333",
+      "proof_sha256": "3c647214847d1110dfbde8808021ca46c7c2af2752442ea50e4a5a4528da0dab",
+      "proof_bytes": 183
+    },
+    {
+      "name": "candidate-2-4-1-1",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-2-4-1-1.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/candidate-2-4-1-1.proof"
+      ],
+      "returncode": 0,
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "stdout": "c parsed a formula with 5 variables and 11 clauses\nc VERIFIED\nc allocated 1024 109 50\nc Added clauses = 20.  Deleted clauses = 10.  Max live clauses = 19\nc verification time = 0.00 secs\n",
+      "stderr": "",
+      "fixture_stdout": "roots=2 position=4 strip=1 lrat=1 general=1 false=16 stripped=16 bridge=17\n",
+      "input_sha256": "bf7e238a7d4fbac149954347c1f2074ecb176c833542e680025fe0314ab0f333",
+      "proof_sha256": "3497f4fda83bf9cc50a08541da590137ddcd8bf624fcf811bcea3f9ef9d5d34b",
+      "proof_bytes": 247
+    }
+  ],
+  "removed_bytes": 41208,
+  "binaries": {
+    "previous": "3e79603c584c251ba35afd212d867c17c7ff1017538c9c9f7908ab8bcb7b7b76",
+    "candidate": "b2db97db56a466475261a8c95be897e7373564958d97f5fd28537c92a3c58b6c"
+  },
+  "fixture_sha256": "3303f2fabab5eb9c1aeb52f08e25cd5830ec91529f043e9f0261f171b72cd48f",
+  "source_manifest_sha256": "58ef2a304abef6fb6ae625a020333e83f80e0b66575ddec81971ca8ebe1a2446",
+  "limitation": "60 independent fixed proofs per arm, exact source-control outputs/certificate bytes. Root-free, all/mixed root-false clauses, five literal positions, strip on/off, general emitter. Final empty chain needs the emitted equivalence; no checker-only contradictory units. Not broad B/C or current-source fuzz acceptance."
+}

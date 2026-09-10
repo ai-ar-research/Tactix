@@ -1,0 +1,14 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6860-subsolver-shrink-proofs/previous-fixture",
+    "0",
+    "4",
+    "0",
+    "0",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6860-subsolver-shrink-proofs/previous-0-4-0-0.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6860-subsolver-shrink-proofs/previous-0-4-0-0.proof"
+  ],
+  "returncode": 0,
+  "stdout": "roots=0 position=4 strip=0 lrat=0 general=1 false=0 stripped=0 bridge=16\n",
+  "stderr": ""
+}

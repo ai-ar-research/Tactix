@@ -1,0 +1,33 @@
+{
+  "job_id": "1679196",
+  "tasks": [
+    12,
+    13,
+    14,
+    15,
+    16,
+    17
+  ],
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--array=12-17",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6864-subsolver-shrink-runtime/array.sbatch"
+  ],
+  "accounting_since": "2026-09-10T02:13:25",
+  "manifest_sha256": "88a93911c50647710ef121ff56bd5f1ff75306bed8cf9c6ba28af7b12717faf2",
+  "preceding_records": {
+    "benchmarks/runs/20260910-6864-subsolver-shrink-runtime/provisional/003.json": "13c860da3847da108888e01a49c5a63c4b2c30437431095cd168518e70d4ca3b",
+    "benchmarks/runs/20260910-6864-subsolver-shrink-runtime/provisional/007.json": "9b1de2f6f7b32720c08e0e1b8ff8d5f7926a9df4a832f45ba706200b84f3be0f",
+    "benchmarks/runs/20260910-6864-subsolver-shrink-runtime/provisional/002.json": "2e072b590a60d6db6927c86ff60b99e8b6f763aef400efba30fbd8345bf580be",
+    "benchmarks/runs/20260910-6864-subsolver-shrink-runtime/provisional/006.json": "722281a0d473f69a531aef57a634148d60c749662edbdd6dd1033ce9fe3b36f1",
+    "benchmarks/runs/20260910-6864-subsolver-shrink-runtime/provisional/008.json": "bfb3562463808152c1d0189042f6a0cef6f31fe4baf5643fd1405629c4edbec4",
+    "benchmarks/runs/20260910-6864-subsolver-shrink-runtime/provisional/010.json": "8394d1d8f79602ef30b65337d58a0971f23f9da05a9759a866f9de07b65063fe",
+    "benchmarks/runs/20260910-6864-subsolver-shrink-runtime/provisional/000.json": "c7813817b6cbbce920d4f7525ffd1b067dc232a916b4b86e0cf7c0a2542a03f0",
+    "benchmarks/runs/20260910-6864-subsolver-shrink-runtime/provisional/004.json": "09d6033a98f97554dd4af2afab36fd192f5975b08965269a942216e63fa7ab42",
+    "benchmarks/runs/20260910-6864-subsolver-shrink-runtime/provisional/001.json": "79637d6f717cb54108a369b00cdbc600cead9b7ab28965e487c8438df2d80ac2",
+    "benchmarks/runs/20260910-6864-subsolver-shrink-runtime/provisional/005.json": "afd28b28ea624fb2c237fb14a1b3ebcd71458efa482115eb21aed23f46e86345",
+    "benchmarks/runs/20260910-6864-subsolver-shrink-runtime/provisional/009.json": "486dd5aa960c93711b414a530f72cf409a27b2738d7189ecd420e10fe096474d",
+    "benchmarks/runs/20260910-6864-subsolver-shrink-runtime/provisional/011.json": "f38052416de5c4a0ede7bca88b4430046e90b89645ae56c227a1cb2a277e6ac9"
+  }
+}

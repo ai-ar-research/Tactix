@@ -1,0 +1,16 @@
+{
+  "name": "previous-0-4-1-0",
+  "command": [
+    "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-0-4-1-0.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6872-subsolver-binary-proofs/previous-0-4-1-0.proof"
+  ],
+  "returncode": 0,
+  "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+  "stdout": "\nc parsing input formula with 5 variables and 10 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 6 of 10 clauses in core                            \n\nc 2 of 10 lemmas in core using 9 resolution steps\n\nc 0 RAT lemmas in core; 2 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.045 seconds\n",
+  "stderr": "",
+  "fixture_stdout": "roots=0 position=4 strip=1 lrat=0 general=1 false=0 stripped=0 bridge=16\n",
+  "input_sha256": "aaf7d6ae7c620412e3bc0c0fcf24eabb5fc0d616ede82997223f87e4d6a66573",
+  "proof_sha256": "4d5b966762defe5cd477fc02e45e0d91e397121bc3f44c1a434a99e2b7952f5a",
+  "proof_bytes": 175
+}

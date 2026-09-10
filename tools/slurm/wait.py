@@ -48,7 +48,18 @@ def accounting_state(text, job, since=None):
 def wait_for_job(job, poll, since=None):
     while True:
         try:
-            if output('squeue', '-h', '-j', job, '-o', '%i'):
+            try:
+                queued = output('squeue', '-h', '-j', job, '-o', '%i')
+            except subprocess.CalledProcessError as error:
+                # Purged jobs can make squeue fail instead of returning empty.
+                # Only this exact response permits falling through to sacct;
+                # disappearance alone is never evidence of solver success.
+                if (error.returncode != 1 or (error.stdout or '').strip() or
+                        (error.stderr or '').strip() !=
+                        'slurm_load_jobs error: Invalid job id specified'):
+                    raise
+                queued = ''
+            if queued:
                 time.sleep(max(1, poll))
                 continue
             command = ['sacct', '-n', '-X', '--array', '-j', job,

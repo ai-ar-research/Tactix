@@ -1,0 +1,27 @@
+{
+  "job_id": "1679030",
+  "tasks": [
+    6,
+    7,
+    8,
+    9,
+    10,
+    11
+  ],
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--array=6-11",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6850-sweep-rootfree-runtime/array.sbatch"
+  ],
+  "accounting_since": "2026-09-10T01:37:11",
+  "manifest_sha256": "1f73dc1d1e80881129ad4454fa65d0c7e2d5d91c45ae33a462b10cdbb048f646",
+  "preceding_records": {
+    "benchmarks/runs/20260910-6850-sweep-rootfree-runtime/provisional/002.json": "6ae11004a1b9e8a427925f8e7fb9818a3c9c355f7ec3d1517d6ad92da25f7dd3",
+    "benchmarks/runs/20260910-6850-sweep-rootfree-runtime/provisional/003.json": "4ef35778bb02189a97b505297f8ac38884af97ef6c8cfb531409199100cfa4c7",
+    "benchmarks/runs/20260910-6850-sweep-rootfree-runtime/provisional/001.json": "b11da1ad6f76742ad9f98a61e1b7199cced430c49e2958a6eb98e185ac1f9658",
+    "benchmarks/runs/20260910-6850-sweep-rootfree-runtime/provisional/005.json": "add075629487557d13a944aa07ef4ef4c74f19a469f80dcd9e8c43d6db1c088b",
+    "benchmarks/runs/20260910-6850-sweep-rootfree-runtime/provisional/000.json": "df4660db5fdf118dcdcf7df97ba2f60c6471ee135b33e33bd0cab784da2626b3",
+    "benchmarks/runs/20260910-6850-sweep-rootfree-runtime/provisional/004.json": "c00cc787739cbf2d192b20ffe55709c7ce61f88c6741ff189711a29b92f20605"
+  }
+}

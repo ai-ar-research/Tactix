@@ -1,0 +1,36 @@
+{
+  "hashes": {
+    "benchmarks/probes/scratch/verify-subsolver-binary-scope-6875.py": "aa920fa33c019e1eac25f264a82901f16fe958a48c82de493ef16899165f10ce",
+    "benchmarks/runs/20260910-6869-subsolver-binary-build/manifest.json": "58ef2a304abef6fb6ae625a020333e83f80e0b66575ddec81971ca8ebe1a2446",
+    "benchmarks/runs/20260910-6869-subsolver-binary-build/control-6870.json": "9d273d3ef224b758af89b568bd20bf2684517bd20ad8db00a6230fbbd11a44a9",
+    "benchmarks/runs/20260910-6869-subsolver-binary-build/control-6874.json": "722c1fa73feeb4e97be3fd9d4fa3ebaf95066f5fa9fc664c9ec3eee4bf8438d2",
+    "benchmarks/runs/20260910-6869-subsolver-binary-build/control-6881.json": "7389565ce5577b0ed0c3f470e51e7b94654c79e291e2046f67262ccbf197f7c6",
+    "benchmarks/runs/20260910-6869-subsolver-binary-build/logs/core-own-arm-previous-link.json": "e1ac03b3ee2e160f42fd613d974ce94b0549590c5fb540f3e9e1379f0520157b",
+    "benchmarks/reports/2026-09-10-subsolver-binary-design.md": "7cda05d21cb91130ceff79f93ba2924ae7d5f1ad3de10f156f4c4acae301181e",
+    "benchmarks/runs/20260910-6872-subsolver-binary-proofs/summary.json": "347ef240ab2647108c002a6b656684049d74f3344cf351366e11f958d33fe9c8",
+    "benchmarks/probes/scratch/test-subsolver-core-binary-6878.cpp": "215d704af9383d6d35dffd0cffe9a3f969b3cf74ce0851085e097d77d16a852d",
+    "benchmarks/probes/scratch/test-subsolver-core-binary-6880.cpp": "a124e383ac5faebf5980ffff9d89681b71cc10b76e3e58804048c5b1d88d3d4b",
+    "tools/solvers/variants/kissat-macro-heap-6090/src/kitten.c": "ae87a727211e37569ac42b61d8cc8b699d3eefe8092695a30004bc21f0dc4e73",
+    "tools/solvers/variants/cadical-extdiag/src/kitten.c": "bc9b841dbc14d2bf321a7da677a245b83934af7c8fbbe811876966cb9c9e1be0"
+  },
+  "changed": [
+    "src/engine/subsolver.cpp",
+    "src/engine/subsolver.hpp",
+    "tests/test_subsolver_binary.cpp"
+  ],
+  "approval": "User Approve applies to isolated12-byte full-width binary-watch prototype, not adoption, packing, FlatLists, policy changes or promotion.",
+  "layout": "Blocking literal and reference stay uint32_t; bool gives12-byte watch (+50% storage per watch). Native8-byte katch remains logical effort currency at propagation and flip. Runtime and RSS are independent measured acceptance dimensions.",
+  "metadata_lifetime": "Attach derives size==2 for original/learned clauses and rebuilt cores. Binary watches never move and blocker is always the other literal. Generic survivors retain tags, actual large moves set false, vector shuffles copy full records. Fixed-mode orientation and model-flip dereference behavior preserved; fast path Kitten-only. Root assign/proof reason and unread conflict suffix preserved.",
+  "controls": "113/113/112 complete own-source suites.6874 complete own-arm headers/objects match720 configurations/12960 incremental solves and existing SubSolver/Sweep suites.6881 adds direct clausal-core rebuild/shuffle/LRAT checks after initial6879 compile failure.120 fixed external DRAT/LRAT checks pass. No fuzz acceptance.",
+  "failed_or_limited_controls": [
+    {
+      "id": 6870,
+      "classification": "Passing mixed-header link is not layout-safe acceptance; logs preserved.6874 replaces the correctness control with complete own-arm objects."
+    },
+    {
+      "id": 6879,
+      "classification": "Nested fixture main macro was undefined by its include, causing compile-time duplicate main before any solver. Failed fixture6878/log preserved.6880 includes existing base test directly and copies shared fixed oracles;6881 is fresh successful control."
+    }
+  ],
+  "limitation": "Unadopted/unfuzzed. Exact B/C work and certificates, three matched timing waves, host memory and full50 gates remain separate. No global CDCL/scheduling parity claimed. Production and all older pins unchanged."
+}

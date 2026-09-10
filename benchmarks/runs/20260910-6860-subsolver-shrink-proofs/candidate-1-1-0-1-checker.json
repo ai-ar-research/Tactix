@@ -1,0 +1,16 @@
+{
+  "name": "candidate-1-1-0-1",
+  "command": [
+    "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6860-subsolver-shrink-proofs/candidate-1-1-0-1.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6860-subsolver-shrink-proofs/candidate-1-1-0-1.proof"
+  ],
+  "returncode": 0,
+  "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+  "stdout": "c parsed a formula with 5 variables and 11 clauses\nc VERIFIED\nc allocated 1024 109 50\nc Added clauses = 20.  Deleted clauses = 10.  Max live clauses = 19\nc verification time = 0.00 secs\n",
+  "stderr": "",
+  "fixture_stdout": "roots=1 position=1 strip=0 lrat=1 general=1 false=16 stripped=0 bridge=17\n",
+  "input_sha256": "d271fa076ffda273da87594c5550e0bcc556e86eb5a9c03329e7124bf23984a3",
+  "proof_sha256": "f17baaa078a208fd2c3408e2a18d632a7f3437333b5ce203edcad71dcbf29424",
+  "proof_bytes": 254
+}
