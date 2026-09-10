@@ -1,0 +1,109 @@
+{
+  "rank": 21,
+  "input": "benchmarks/cache/tierD24-26/ac3887576c2ce781202b9fe0fdc31420-pj2008_k80.cnf.xz",
+  "input_sha256_compressed": "07b881ae5d1057ccbfdd564ddebf1a8f6e45582542b96aee21974ccdcd446450",
+  "stop_conflict": 50000,
+  "stream_from": 0,
+  "common_decisions": 18484618,
+  "resource_contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "cpus_per_task": 12,
+    "memory_mib": 48000,
+    "array": "0-1",
+    "throttle": null,
+    "node_constraint": null,
+    "solver_timeout": 1200,
+    "allocation_minutes": 25
+  },
+  "candidate_authority": {
+    "path": "benchmarks/runs/20260909-6730-reduce-watermark-build/manifest.json",
+    "sha256": "e21167816ac5c86fe3b82db5d3cb0401d3a0b34a79ef7578ea5251d84cdb605f"
+  },
+  "native_authority": {
+    "path": "benchmarks/runs/20260908-6092-rank37-macro-heaps/manifest.json",
+    "sha256": "39668f289367568f0effdaaddc0a587ae10257095d8234893a1610cd581b92a9"
+  },
+  "selection_sha256": "727420ea950f42bfc6e7c4e36b5ac5aaa521bb326e17bfa841685b79a8c4d59b",
+  "purpose": "Distinguish assignment/implication from focused queue displacement at the validated Rank21 first differing choice.",
+  "hypothesis": "Same selected external402380 aroundD25451309/310 will distinguish already-assigned native-first variable from a displaced queue/cursor. Do not assume the42-binary earlier residual caused this.",
+  "validation": "Both exit0/clean and every original6751 decision/prefix/boundary/macro trace plus partial proof exactly match; native old10K proof prefix exact. Only additional18-column state file allowed, validated by choice_state parser and against every decision at conflict25102.",
+  "test_consideration": "No solver/observer source change. Existing selected-variable hook records assignment/reason and focused queue columns. Seven new strict parser tests cover valid assigned/unassigned rows, framing, selection, numeric fields, reasons, ordering and arguments; full original50K replay is mandatory integration coverage.",
+  "limitation": "No global event trace, additional endpoint, missing-prefix acceptance, solver-budget increase, native timing refresh, source promotion, fuzz access or FlatLists.",
+  "hashes": {
+    "pins/candidate": "54e5811f5a2d51f562f2d7eee54f8b309c3fa3ecaca970a8f308a46b0dab94ea",
+    "pins/kissat": "a902fccbe9e63c2eedc1aa4332a7d912d0859088aaa98740b90facc6373f1add",
+    "pins/certificate_prefix.py": "fdb6f51c6d52b0bf8707048720ec897426238736dcf70170c5497a4d4e9c7b70",
+    "run.py": "eecd58164f80e4c9fdf9b89673c5db7f53aa6f0881d464ec25d5312aa56c06e7",
+    "array.sbatch": "486ab3682c1ca53ff1f81d48a25722a06c7a29c9b594f0a7953c8982c5446224"
+  },
+  "native_control": {
+    "prefix": {
+      "solver": "kissat",
+      "conflict": 10000,
+      "start_decisions": 18446744073709294501,
+      "end_decisions": 18227503,
+      "count": 18484618,
+      "hash": "85c714a49134b263",
+      "common": 1,
+      "common_reached": 1,
+      "common_hash": "50ed5cd48882dadc",
+      "first": 3420215,
+      "common_last": 3420215,
+      "last": -2029700,
+      "max_level": 257115
+    },
+    "certificate": {
+      "bytes": 202375168,
+      "sha256": "00e005e5136c4cde9cdc1893e9d0bc946b0fa31ad7c6f2419bfa6b2b23201b47"
+    }
+  },
+  "cached_controls": {
+    "candidate": "benchmarks/runs/20260909-6751-rank21-long-prefix",
+    "kissat": "benchmarks/runs/20260909-6751-rank21-long-prefix"
+  },
+  "dependencies": {
+    "benchmarks/runs/20260909-6730-reduce-watermark-build/manifest.json": "e21167816ac5c86fe3b82db5d3cb0401d3a0b34a79ef7578ea5251d84cdb605f",
+    "benchmarks/runs/20260908-6139-rank21-current-prefix/manifest.json": "93ed28bcd39a0d5e3b33dc866103ac19488217588d203346747baa56ea16b056",
+    "benchmarks/runs/20260908-6139-rank21-current-prefix/summary.json": "41a80f96b141debf106b81ac852507a2cb74bee02516603ad68ca25365790bd8",
+    "benchmarks/reports/2026-09-09-reduce-watermark-full50-6750/summary.json": "aba3a01d14439ee3c45ab16ef201505ff61ac86bf629acab0915f52d2851db5e",
+    "benchmarks/runs/20260909-6734-reduce-watermark-proof-control/summary.json": "d5764f98004efeb0bd442a7236ffe267a0015ac09d533494b667d227dd4b9f0c",
+    "benchmarks/runs/20260909-6735-reduce-watermark-prefix/summary-6739.json": "4b165a3f678510a668cc5d9df6dcf9156a59f2e3d13e04e7d37e6004a7497a79",
+    "benchmarks/runs/20260908-6139-rank21-current-prefix/results/candidate.json": "42a5d76d3673b3b0b40fccc3d39d97e2d32c041bb0ea9b83471b9e2b6ca283d2",
+    "benchmarks/runs/20260908-6139-rank21-current-prefix/traces/candidate.macro.tsv": "b7815d59018916009404e5c75326b81f85909bd50255eca18179b4eee7f72013",
+    "benchmarks/runs/20260908-6139-rank21-current-prefix/traces/candidate.boundaries.tsv": "11b8da8f1e6f6534cd0b17a71810ef18e6971f6ac46efa5563bb187186176496",
+    "benchmarks/runs/20260908-6139-rank21-current-prefix/traces/candidate.decisions.tsv": "3d42797c9b3c920904e8bc7a5d692d7501c6dcd336dd6f2328901b1d3e2400b1",
+    "benchmarks/runs/20260908-6139-rank21-current-prefix/traces/candidate.prefix.tsv": "19869a54769dc71e6569b15af452e4b27d4871e4f8446efc078358f9b3ff212c",
+    "benchmarks/runs/20260908-6139-rank21-current-prefix/results/kissat.json": "8260f62a5e4543421f301084634a94fffc0fbe2dc5f49ef07cbfbb369eca5885",
+    "benchmarks/runs/20260908-6139-rank21-current-prefix/traces/kissat.decisions.tsv": "3d42797c9b3c920904e8bc7a5d692d7501c6dcd336dd6f2328901b1d3e2400b1",
+    "benchmarks/runs/20260908-6139-rank21-current-prefix/traces/kissat.boundaries.tsv": "c71d84f5e2290a6a5135692e63615efd0002cc3770ae26207034f52d7bc808be",
+    "benchmarks/runs/20260908-6139-rank21-current-prefix/traces/kissat.prefix.tsv": "2ce02ab8e33ccc53ead8aef6928a7bc9473a0c08877534497446964f0c8f6931",
+    "benchmarks/runs/20260909-6782-rank21-trajectory-stop/summary-6784.json": "812af2db6017d89aeb71de7f97a82190c868e7785f3292c0173fb836491e64f2",
+    "benchmarks/probes/scratch/compare-rank21-trajectory-6793.py": "ad4edb9b99243eb168cc0108077fbeeb2732cfddda00770567d0ffc38a4c508e",
+    "tools/bench/compare_event_trace.py": "7ee0edc00b0bb4edbd9ccc093aac8d21631e5793f25d8d986d99bafbc075c13e",
+    "tools/bench/search_window.py": "bba4012be5ea9a14bd9852cbb57d687d32deb01dd6ae089c75de4d1339794ce7",
+    "benchmarks/runs/20260909-6782-rank21-trajectory-stop/comparison-6793.json": "11f1f58a64014db74db72cc363e2560fe40bb47e5ffd0376b3046508ec12da66",
+    "tools/bench/choice_state.py": "4912f2d35a5c688ec98794c73e6d90ea780547ee0038163f0f60938ef66eed25",
+    "tools/bench/test_choice_state.py": "5246afe5d5aebd0deb106d8493a68818312d9814d1ce3214cd6e7328a2b511e2"
+  },
+  "protected_campaign_hashes": {
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/manifest.json": "b2f9e98291c56c415e4cb9439a77378c55cc78593d632c1fc84a6d5ee194acf6",
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/array.sbatch": "b90503efeb1acd5ea2cb081fc60a79c2e1ab6d51287cedf050a673ddb5433143",
+    "benchmarks/baselines/rank1-40-kissat-12cpu-v1/manifest.json": "45259e1acbc93472b923517f75fd6b8697669b3ad74970d27b565b6b7f1aa686",
+    "benchmarks/runs/20260908-5712-assignment-level-ranks1-40/manifest.json": "80211109441ac7e1483082a767c755ffc03c029381398c71017593e2ff29a8ae",
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/pins/runtime_task.py": "ccef4f23bac433c4c205949c0296f2cdef0e98d0d56fff5d306abb6e6209297f",
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/pins/modelcheck.py": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/manifest.json": "d09c9f2a030d0d29974fa881ee247c7900704e4be0e204b28c0b16beaf443d16",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/array.sbatch": "82b47f14fc76c4d5ca14484035b1033d013c1a36c2bbe44c531a1a6a56c87efb",
+    "benchmarks/runs/20260908-6114-substitute-publication-BC-gate/manifest.json": "27c57c3c896ab15daa9d51ff87f9a977472d28b2b43b849be7322b96eb598bb1",
+    "benchmarks/runs/20260908-6114-substitute-publication-BC-gate/array.sbatch": "2b6afd38eb7dcc8fc39f6fa294f5786d20d9238a4facb7cb64bc6c35a0320b4a",
+    "benchmarks/runs/20260908-6115-substitute-publication-ranks1-50/manifest.json": "e739603e6d4ec9024beebfa7a049def7c3ea01eb6b5287e542f05a651e646cd7",
+    "benchmarks/runs/20260908-6115-substitute-publication-ranks1-50/array.sbatch": "ab074cdcf7e9691f7031fd9aa198cef18fe83bb9edc5aa73f0c5b033d2d380f5",
+    "benchmarks/baselines/rank1-50-kissat-12cpu-v1/manifest.json": "5f7865e46af2b9ed0d1899ce6e450bfb9b3575801c50183e059d0e4326f5a1e0",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/manifest.json": "224b3b5d80c3087b3c3c709a78dcf934d175823bd2232f68a2475e6d11bd3d1a",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/launch.json": "ee6eea617d6fef64349ed0096c9dd06f1ffb9ba03467dd6901ab92b833bfb7a1",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/array.sbatch": "37e88d1e5998092127067b1ac0fedc388f29ddf45179057a508fb53dabaa24be"
+  },
+  "created_at": "2026-09-10T03:29:00.081840+00:00",
+  "observed_variable": 402380,
+  "observed_conflict": 25102
+}

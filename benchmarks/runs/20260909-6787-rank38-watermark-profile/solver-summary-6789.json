@@ -1,0 +1,538 @@
+{
+  "observed_at": "2026-09-10T03:23:14.117661+00:00",
+  "hashes": {
+    "benchmarks/runs/20260909-6787-rank38-watermark-profile/pins/checkmodel": "5fde6bbc7be305f6b6166ef75dc4788e2cf40180317ab1ec9a38a3d6071676cf",
+    "benchmarks/runs/20260909-6787-rank38-watermark-profile/pins/candidate.patch": "7ddc1e054cd47181766c7c3d5612e9015059160adf3eb9aaa19881eb1265c952",
+    "benchmarks/runs/20260909-6787-rank38-watermark-profile/pins/candidate": "7b0a7666b28644422d6cc4b3a648a677b6745bd8a7ffb9c27c6d3e5660725132",
+    "benchmarks/runs/20260909-6787-rank38-watermark-profile/pins/previous": "20ba34e8f02ba5dc9f3a52a739443afa119ee96dc9958c98d65ad092d5dad57b",
+    "benchmarks/runs/20260909-6787-rank38-watermark-profile/pins/previous.patch": "2c42f1dbab332ca353707bed9705c9e5fa4cde169fc8e0ad22feddecaec7a9eb",
+    "benchmarks/runs/20260909-6787-rank38-watermark-profile/pins/runtime_task.py": "9a010d276a883c9289ad6a620e39c1ed761c2ba3b62f3d878e37cca5de228206",
+    "benchmarks/runs/20260909-6787-rank38-watermark-profile/pins/modelcheck.py": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+    "benchmarks/runs/20260909-6787-rank38-watermark-profile/pins/drat-trim": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+    "benchmarks/runs/20260909-6787-rank38-watermark-profile/pins/run.py": "6b25d132ba59bf4a6e75518b4c74a19faf0053c60e6c4d3afab6eb0922051faf",
+    "benchmarks/runs/20260909-6787-rank38-watermark-profile/matrix.tsv": "8c72358ed3a339a51c3afb383b00014aa2421a678b7721690b54fd403a17be31",
+    "benchmarks/runs/20260909-6787-rank38-watermark-profile/array.sbatch": "57ecf3fe150a65734364a569b2d5cdcf801baeb1000f80ec5c89a712eb16cc7d",
+    "benchmarks/runs/20260909-6737-reduce-watermark-BC-gate/summary-6740.json": "02a3c7db3eba2ca0949f6de01fc2d9706300cc3013c3755e8b60f54cba3cc131",
+    "benchmarks/reports/2026-09-09-reduce-watermark-full50-6750/summary.json": "aba3a01d14439ee3c45ab16ef201505ff61ac86bf629acab0915f52d2851db5e",
+    "benchmarks/reports/2026-09-09-watermark-layout-ablation.md": "c72e0d11bac7271520a68a861c3376e21c6014c89e36d1ff189ce5f2abb5a5f6",
+    "benchmarks/reports/2026-09-09-watermark-layout-landing-audit-6785.json": "d0b6e663547e75365274b35c9e47a4c657bc40b9237655e93d57c6bd77be9dfc",
+    "benchmarks/runs/20260909-6777-watermark-propagate-code/relocations-6778.json": "d23dbe4a791e8d600a2dc3f4999c8b9902f2b38d712c1225d27fd18092498f2a",
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/manifest.json": "b2f9e98291c56c415e4cb9439a77378c55cc78593d632c1fc84a6d5ee194acf6",
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/array.sbatch": "b90503efeb1acd5ea2cb081fc60a79c2e1ab6d51287cedf050a673ddb5433143",
+    "benchmarks/baselines/rank1-40-kissat-12cpu-v1/manifest.json": "45259e1acbc93472b923517f75fd6b8697669b3ad74970d27b565b6b7f1aa686",
+    "benchmarks/runs/20260908-5712-assignment-level-ranks1-40/manifest.json": "80211109441ac7e1483082a767c755ffc03c029381398c71017593e2ff29a8ae",
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/pins/runtime_task.py": "ccef4f23bac433c4c205949c0296f2cdef0e98d0d56fff5d306abb6e6209297f",
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/pins/modelcheck.py": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/manifest.json": "d09c9f2a030d0d29974fa881ee247c7900704e4be0e204b28c0b16beaf443d16",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/array.sbatch": "82b47f14fc76c4d5ca14484035b1033d013c1a36c2bbe44c531a1a6a56c87efb",
+    "benchmarks/runs/20260908-6114-substitute-publication-BC-gate/manifest.json": "27c57c3c896ab15daa9d51ff87f9a977472d28b2b43b849be7322b96eb598bb1",
+    "benchmarks/runs/20260908-6114-substitute-publication-BC-gate/array.sbatch": "2b6afd38eb7dcc8fc39f6fa294f5786d20d9238a4facb7cb64bc6c35a0320b4a",
+    "benchmarks/runs/20260908-6115-substitute-publication-ranks1-50/manifest.json": "e739603e6d4ec9024beebfa7a049def7c3ea01eb6b5287e542f05a651e646cd7",
+    "benchmarks/runs/20260908-6115-substitute-publication-ranks1-50/array.sbatch": "ab074cdcf7e9691f7031fd9aa198cef18fe83bb9edc5aa73f0c5b033d2d380f5",
+    "benchmarks/baselines/rank1-50-kissat-12cpu-v1/manifest.json": "5f7865e46af2b9ed0d1899ce6e450bfb9b3575801c50183e059d0e4326f5a1e0",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/manifest.json": "224b3b5d80c3087b3c3c709a78dcf934d175823bd2232f68a2475e6d11bd3d1a",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/launch.json": "ee6eea617d6fef64349ed0096c9dd06f1ffb9ba03467dd6901ab92b833bfb7a1",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/array.sbatch": "37e88d1e5998092127067b1ac0fedc388f29ddf45179057a508fb53dabaa24be",
+    "benchmarks/runs/20260909-6787-rank38-watermark-profile/manifest.json": "4b86514c718e52369e18d1ab4d488f9f02bf62277d27bda142a54f6464ed3d26",
+    "benchmarks/runs/20260909-6787-rank38-watermark-profile/launch.json": "ba254a733bb0c957f57b4f60060394aa5fbb7a85563ef3df4c03828164a2036d",
+    "benchmarks/runs/20260909-6787-rank38-watermark-profile/provisional/000.json": "8180e32c64a033d6361825c905d29d887249d45a499339cb84e51be55624f576",
+    "benchmarks/runs/20260909-6754-rank38-watermark-cost-runtime/results/000.json": "386578382514fa38f9ea5908221c8b0efcd9616bc4d27d2dc706f85b74612cc0",
+    "benchmarks/runs/20260909-6787-rank38-watermark-profile/profiles/000-callpaths.txt": "dfa73b1cd15fadd253b2d6b578592b252e9f15b6afbdab817d61b8cc332dce8f",
+    "benchmarks/runs/20260909-6787-rank38-watermark-profile/profiles/000-self.txt": "40d338e69ed0e010307042cb2ef90280fb6cd362da3b7680fd7fafab621efbc8",
+    "benchmarks/runs/20260909-6787-rank38-watermark-profile/profiles/000.perf.data.xz": "f9257b36c2f5a58410e6d0a32600efd5b292b58414b4730247c6690f29b18606",
+    "benchmarks/runs/20260909-6787-rank38-watermark-profile/provisional/001.json": "4e5fa463b6c01166fc5d94271736726b8add42ad000e02a9f4f376ccff3dcfb4",
+    "benchmarks/runs/20260909-6754-rank38-watermark-cost-runtime/results/001.json": "d2a19aa33520e20ef555dd206595e22a441e1b566618878c57d78fba6f715ff5",
+    "benchmarks/runs/20260909-6787-rank38-watermark-profile/profiles/001-callpaths.txt": "bc11b5faae19cd6a463567ac039492af7b32b6928408771be7ca23770375143a",
+    "benchmarks/runs/20260909-6787-rank38-watermark-profile/profiles/001-self.txt": "6c1e47dec931c420ed0c495ea4b4d9d2344b9c3d85e4d166ca057c39f5ee0d8c",
+    "benchmarks/runs/20260909-6787-rank38-watermark-profile/profiles/001.perf.data.xz": "96243d2007c74c0e2061a5ddf2058a81e3ea852fe02272cf98e4b52054d3c8a8",
+    "benchmarks/probes/scratch/validate-rank38-watermark-profile-6789.py": "746f7b0c1997e834fd85820f7fc27d4d6b2dbe215e2877f3a3ba7b7add153e36",
+    "tools/bench/runtime_summary.py": "ef8a13bc4e94dec335bb4981ccd678a5dd480e47c27de9edc73a7f45e47cd0be",
+    "tools/bench/checked_comparison.py": "da7ebdabe538ca1ec920692594c076eb0fbb6a4a73e14393b26a98dccb7bfe3e"
+  },
+  "arms": {
+    "candidate": {
+      "record": "benchmarks/runs/20260909-6787-rank38-watermark-profile/provisional/000.json",
+      "state": {
+        "status": "pending_validation",
+        "clean": false,
+        "checked": false,
+        "scorable": false
+      },
+      "work": {
+        "conflicts": 18430710,
+        "decisions": 24657248,
+        "propagations": 492269199
+      },
+      "all_non_timing_statistics_exact": true,
+      "certificate_sha256": "d047ff68dbba4f5f290925599b96c61a441ea1509195f5e2853bacf2e945da18",
+      "certificate_bytes": 1334342040,
+      "self_samples": [
+        {
+          "percent": 68.0,
+          "dso": "candidate",
+          "symbol": "tactix::kernel_propagate(tactix::Kernel&, unsigned int)"
+        },
+        {
+          "percent": 4.39,
+          "dso": "candidate",
+          "symbol": "tactix::ApplyResult tactix::analyze_apply_internal<false>(tactix::Kernel&, unsigned int) [clone .constprop.0]"
+        },
+        {
+          "percent": 4.26,
+          "dso": "candidate",
+          "symbol": "bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)"
+        },
+        {
+          "percent": 3.57,
+          "dso": "candidate",
+          "symbol": "tactix::shrink_block(tactix::Kernel&, std::vector<unsigned int, std::allocator<unsigned int> >&, unsigned long, unsigned long, unsigned int)"
+        },
+        {
+          "percent": 2.3,
+          "dso": "candidate",
+          "symbol": "tactix::radix_sort_learned_by_level(tactix::Kernel&, std::vector<unsigned int, std::allocator<unsigned int> >&)"
+        },
+        {
+          "percent": 1.79,
+          "dso": "candidate",
+          "symbol": "tactix::bump_and_reset_analyzed(tactix::Kernel&)"
+        },
+        {
+          "percent": 1.78,
+          "dso": "candidate",
+          "symbol": "tactix::radix_sort_bumps_by_stamp(tactix::Kernel&, std::vector<unsigned int, std::allocator<unsigned int> >&)"
+        },
+        {
+          "percent": 1.64,
+          "dso": "candidate",
+          "symbol": "tactix::count_glue(tactix::Kernel&, unsigned int const*, unsigned int, unsigned int)"
+        },
+        {
+          "percent": 1.37,
+          "dso": "candidate",
+          "symbol": "tactix::literal_redundant(tactix::Kernel&, unsigned int, unsigned int)"
+        },
+        {
+          "percent": 1.25,
+          "dso": "candidate",
+          "symbol": "tactix::mark_reason_tree(tactix::Kernel&, unsigned int, unsigned int, unsigned long)"
+        },
+        {
+          "percent": 0.86,
+          "dso": "candidate",
+          "symbol": "tactix::heuristics_score_bump(tactix::Kernel&, unsigned int)"
+        },
+        {
+          "percent": 0.82,
+          "dso": "candidate",
+          "symbol": "tactix::SubSolver::propagate()"
+        },
+        {
+          "percent": 0.68,
+          "dso": "candidate",
+          "symbol": "tactix::analyze_eager_subsume(tactix::Kernel&)"
+        },
+        {
+          "percent": 0.52,
+          "dso": "candidate",
+          "symbol": "tactix::kernel_backtrack(tactix::Kernel&, unsigned int, bool)"
+        },
+        {
+          "percent": 0.52,
+          "dso": "candidate",
+          "symbol": "tactix::heuristics_queue_bump(tactix::Kernel&, unsigned int)"
+        },
+        {
+          "percent": 0.52,
+          "dso": "libc.so.6",
+          "symbol": "__memmove_avx512_unaligned_erms"
+        },
+        {
+          "percent": 0.4,
+          "dso": "candidate",
+          "symbol": "tactix::Proof::add_rup(unsigned long, unsigned int const*, unsigned int, unsigned long const*, unsigned int)"
+        },
+        {
+          "percent": 0.37,
+          "dso": "candidate",
+          "symbol": "tactix::vivify_schedule(tactix::Kernel const&, std::vector<unsigned int, std::allocator<unsigned int> >&, tactix::VivifySchedule*)"
+        },
+        {
+          "percent": 0.33,
+          "dso": "candidate",
+          "symbol": "tactix::Proof::del(unsigned long, unsigned long, unsigned int const*, unsigned int)"
+        },
+        {
+          "percent": 0.27,
+          "dso": "candidate",
+          "symbol": "tactix::mark_used(tactix::Kernel&, tactix::Clause*)"
+        },
+        {
+          "percent": 0.26,
+          "dso": "candidate",
+          "symbol": "void std::__introsort_loop<__gnu_cxx::__normal_iterator<tactix::reduce_candidates(tactix::Kernel&, std::vector<unsigned int, std::allocator<unsigned int> >&, bool)::Victim*, std::vector<tactix::reduce_candidates(tactix::Kernel&, std::vector<unsigned int, std::allocator<unsigned int> >&, bool)::Victim, std::allocator<tactix::reduce_candidates(tactix::Kernel&, std::vector<unsigned int, std::allocator<unsigned int> >&, bool)::Victim> > >, long, __gnu_cxx::__ops::_Iter_comp_iter<tactix::reduce_candidates(tactix::Kernel&, std::vector<unsigned int, std::allocator<unsigned int> >&, bool)::{lambda(tactix::reduce_candidates(tactix::Kernel&, std::vector<unsigned int, std::allocator<unsigned int> >&, bool)::Victim const&, tactix::reduce_candidates(tactix::Kernel&, std::vector<unsigned int, std::allocator<unsigned int> >&, bool)::Victim const&)#1}> >(__gnu_cxx::__normal_iterator<tactix::reduce_candidates(tactix::Kernel&, std::vector<unsigned int, std::allocator<unsigned int> >&, bool)::Victim*, std::vector<tactix::reduce_candidates(tactix::Kernel&, std::vector<unsigned int, std::allocator<unsigned int> >&, bool)::Victim, std::allocator<tactix::reduce_candidates(tactix::Kernel&, std::vector<unsigned int, std::allocator<unsigned int> >&, bool)::Victim> > >, __gnu_cxx::__normal_iterator<tactix::reduce_candidates(tactix::Kernel&, std::vector<unsigned int, std::allocator<unsigned int> >&, bool)::Victim*, std::vector<tactix::reduce_candidates(tactix::Kernel&, std::vector<unsigned int, std::allocator<unsigned int> >&, bool)::Victim, std::allocator<tactix::reduce_candidates(tactix::Kernel&, std::vector<unsigned int, std::allocator<unsigned int> >&, bool)::Victim> > >, long, __gnu_cxx::__ops::_Iter_comp_iter<tactix::reduce_candidates(tactix::Kernel&, std::vector<unsigned int, std::allocator<unsigned int> >&, bool)::{lambda(tactix::reduce_candidates(tactix::Kernel&, std::vector<unsigned int, std::allocator<unsigned int> >&, bool)::Victim const&, tactix::reduce_candidates(tactix::Kernel&, std::vector<unsigned int, std::allocator<unsigned int> >&, bool)::Victim const&)#1}>)"
+        },
+        {
+          "percent": 0.25,
+          "dso": "candidate",
+          "symbol": "tactix::sort_clause_watches_like_kissat(tactix::Kernel&, tactix::Clause*)"
+        },
+        {
+          "percent": 0.22,
+          "dso": "candidate",
+          "symbol": "tactix::WatchLists::push_large(unsigned int, unsigned int, unsigned int)"
+        },
+        {
+          "percent": 0.2,
+          "dso": "candidate",
+          "symbol": "tactix::heap_bubble_down(tactix::Kernel&, unsigned int) [clone .isra.0]"
+        },
+        {
+          "percent": 0.19,
+          "dso": "candidate",
+          "symbol": "tactix::kernel_collect_garbage(tactix::Kernel&, unsigned int, bool, bool)"
+        },
+        {
+          "percent": 0.18,
+          "dso": "candidate",
+          "symbol": "tactix::DefaultPolicy::solve(tactix::Kernel&, int volatile*)"
+        },
+        {
+          "percent": 0.18,
+          "dso": "libc.so.6",
+          "symbol": "__memset_avx512_unaligned_erms"
+        },
+        {
+          "percent": 0.17,
+          "dso": "candidate",
+          "symbol": "tactix::backjump_apply_to(tactix::Kernel&, unsigned int)"
+        },
+        {
+          "percent": 0.16,
+          "dso": "candidate",
+          "symbol": "void std::__introsort_loop<__gnu_cxx::__normal_iterator<tactix::VivifyCand*, std::vector<tactix::VivifyCand, std::allocator<tactix::VivifyCand> > >, long, __gnu_cxx::__ops::_Iter_comp_iter<tactix::vivify_schedule(tactix::Kernel const&, std::vector<unsigned int, std::allocator<unsigned int> >&, tactix::VivifySchedule*)::{lambda(tactix::VivifyCand const&, tactix::VivifyCand const&)#3}> >(__gnu_cxx::__normal_iterator<tactix::VivifyCand*, std::vector<tactix::VivifyCand, std::allocator<tactix::VivifyCand> > >, __gnu_cxx::__normal_iterator<tactix::VivifyCand*, std::vector<tactix::VivifyCand, std::allocator<tactix::VivifyCand> > >, long, __gnu_cxx::__ops::_Iter_comp_iter<tactix::vivify_schedule(tactix::Kernel const&, std::vector<unsigned int, std::allocator<unsigned int> >&, tactix::VivifySchedule*)::{lambda(tactix::VivifyCand const&, tactix::VivifyCand const&)#3}>) [clone .constprop.0]"
+        },
+        {
+          "percent": 0.16,
+          "dso": "candidate",
+          "symbol": "tactix::reduce_apply_refs(tactix::Kernel&, unsigned int const*, unsigned long, bool)"
+        },
+        {
+          "percent": 0.14,
+          "dso": "candidate",
+          "symbol": "tactix::reduce_candidates(tactix::Kernel&, std::vector<unsigned int, std::allocator<unsigned int> >&, bool)"
+        },
+        {
+          "percent": 0.13,
+          "dso": "candidate",
+          "symbol": "tactix::repair_conflict_watches(tactix::Kernel&, unsigned int, unsigned int)"
+        },
+        {
+          "percent": 0.13,
+          "dso": "candidate",
+          "symbol": "tactix::bump_reason_side(tactix::Kernel&, std::vector<unsigned int, std::allocator<unsigned int> > const&)"
+        },
+        {
+          "percent": 0.11,
+          "dso": "candidate",
+          "symbol": "tactix::walk_apply_steps(tactix::Kernel&, unsigned long)"
+        },
+        {
+          "percent": 0.11,
+          "dso": "candidate",
+          "symbol": "tactix::kernel_flush_root_clause(tactix::Kernel&, unsigned int*, unsigned long*, bool, bool)"
+        },
+        {
+          "percent": 0.1,
+          "dso": "candidate",
+          "symbol": "tactix::(anonymous namespace)::reduce_source(tactix::Kernel&, unsigned int, tactix::(anonymous namespace)::Walk&)"
+        }
+      ],
+      "profile": {
+        "bytes": 609245568,
+        "command": [
+          "perf",
+          "record",
+          "--no-buildid-cache",
+          "-o",
+          "/tmp/tactix-runtime-000-03vaws51/profile.data",
+          "-e",
+          "cycles:u",
+          "-F",
+          "199",
+          "--call-graph",
+          "dwarf,8192",
+          "--",
+          "taskset",
+          "-c",
+          "60",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6787-rank38-watermark-profile/pins/candidate",
+          "/tmp/tactix-runtime-000-03vaws51/input.cnf",
+          "/tmp/tactix-runtime-000-03vaws51/proof.drat"
+        ],
+        "compressed_bytes": 11959576,
+        "compressed_sha256": "f9257b36c2f5a58410e6d0a32600efd5b292b58414b4730247c6690f29b18606",
+        "reports": {
+          "callpaths": {
+            "exit": 0,
+            "sha256": "dfa73b1cd15fadd253b2d6b578592b252e9f15b6afbdab817d61b8cc332dce8f",
+            "stderr": ""
+          },
+          "self": {
+            "exit": 0,
+            "sha256": "40d338e69ed0e010307042cb2ef90280fb6cd362da3b7680fd7fafab621efbc8",
+            "stderr": ""
+          }
+        },
+        "sha256": "a00185021a1905c20b418bfd07f6a6505cf84e16393074e1ae9b24bf7ea63dbe"
+      },
+      "diagnostic_seconds": 362.912
+    },
+    "previous": {
+      "record": "benchmarks/runs/20260909-6787-rank38-watermark-profile/provisional/001.json",
+      "state": {
+        "status": "pending_validation",
+        "clean": false,
+        "checked": false,
+        "scorable": false
+      },
+      "work": {
+        "conflicts": 18430710,
+        "decisions": 24657248,
+        "propagations": 492269199
+      },
+      "all_non_timing_statistics_exact": true,
+      "certificate_sha256": "d047ff68dbba4f5f290925599b96c61a441ea1509195f5e2853bacf2e945da18",
+      "certificate_bytes": 1334342040,
+      "self_samples": [
+        {
+          "percent": 65.87,
+          "dso": "previous",
+          "symbol": "tactix::kernel_propagate(tactix::Kernel&, unsigned int)"
+        },
+        {
+          "percent": 4.83,
+          "dso": "previous",
+          "symbol": "tactix::ApplyResult tactix::analyze_apply_internal<false>(tactix::Kernel&, unsigned int) [clone .constprop.0]"
+        },
+        {
+          "percent": 4.37,
+          "dso": "previous",
+          "symbol": "bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)"
+        },
+        {
+          "percent": 3.71,
+          "dso": "previous",
+          "symbol": "tactix::shrink_block(tactix::Kernel&, std::vector<unsigned int, std::allocator<unsigned int> >&, unsigned long, unsigned long, unsigned int)"
+        },
+        {
+          "percent": 2.36,
+          "dso": "previous",
+          "symbol": "tactix::radix_sort_learned_by_level(tactix::Kernel&, std::vector<unsigned int, std::allocator<unsigned int> >&)"
+        },
+        {
+          "percent": 1.95,
+          "dso": "previous",
+          "symbol": "tactix::bump_and_reset_analyzed(tactix::Kernel&)"
+        },
+        {
+          "percent": 1.92,
+          "dso": "previous",
+          "symbol": "tactix::radix_sort_bumps_by_stamp(tactix::Kernel&, std::vector<unsigned int, std::allocator<unsigned int> >&)"
+        },
+        {
+          "percent": 1.75,
+          "dso": "previous",
+          "symbol": "tactix::count_glue(tactix::Kernel&, unsigned int const*, unsigned int, unsigned int)"
+        },
+        {
+          "percent": 1.43,
+          "dso": "previous",
+          "symbol": "tactix::mark_reason_tree(tactix::Kernel&, unsigned int, unsigned int, unsigned long)"
+        },
+        {
+          "percent": 1.41,
+          "dso": "previous",
+          "symbol": "tactix::literal_redundant(tactix::Kernel&, unsigned int, unsigned int)"
+        },
+        {
+          "percent": 1.0,
+          "dso": "previous",
+          "symbol": "tactix::heuristics_score_bump(tactix::Kernel&, unsigned int)"
+        },
+        {
+          "percent": 0.88,
+          "dso": "previous",
+          "symbol": "tactix::SubSolver::propagate()"
+        },
+        {
+          "percent": 0.74,
+          "dso": "previous",
+          "symbol": "tactix::analyze_eager_subsume(tactix::Kernel&)"
+        },
+        {
+          "percent": 0.56,
+          "dso": "libc.so.6",
+          "symbol": "__memmove_avx512_unaligned_erms"
+        },
+        {
+          "percent": 0.55,
+          "dso": "previous",
+          "symbol": "tactix::kernel_backtrack(tactix::Kernel&, unsigned int, bool)"
+        },
+        {
+          "percent": 0.48,
+          "dso": "previous",
+          "symbol": "tactix::heuristics_queue_bump(tactix::Kernel&, unsigned int)"
+        },
+        {
+          "percent": 0.47,
+          "dso": "previous",
+          "symbol": "tactix::Proof::add_rup(unsigned long, unsigned int const*, unsigned int, unsigned long const*, unsigned int)"
+        },
+        {
+          "percent": 0.4,
+          "dso": "previous",
+          "symbol": "tactix::vivify_schedule(tactix::Kernel const&, std::vector<unsigned int, std::allocator<unsigned int> >&, tactix::VivifySchedule*)"
+        },
+        {
+          "percent": 0.38,
+          "dso": "previous",
+          "symbol": "tactix::Proof::del(unsigned long, unsigned long, unsigned int const*, unsigned int)"
+        },
+        {
+          "percent": 0.29,
+          "dso": "previous",
+          "symbol": "tactix::mark_used(tactix::Kernel&, tactix::Clause*)"
+        },
+        {
+          "percent": 0.25,
+          "dso": "previous",
+          "symbol": "void std::__introsort_loop<__gnu_cxx::__normal_iterator<tactix::reduce_candidates(tactix::Kernel&, std::vector<unsigned int, std::allocator<unsigned int> >&, bool)::Victim*, std::vector<tactix::reduce_candidates(tactix::Kernel&, std::vector<unsigned int, std::allocator<unsigned int> >&, bool)::Victim, std::allocator<tactix::reduce_candidates(tactix::Kernel&, std::vector<unsigned int, std::allocator<unsigned int> >&, bool)::Victim> > >, long, __gnu_cxx::__ops::_Iter_comp_iter<tactix::reduce_candidates(tactix::Kernel&, std::vector<unsigned int, std::allocator<unsigned int> >&, bool)::{lambda(tactix::reduce_candidates(tactix::Kernel&, std::vector<unsigned int, std::allocator<unsigned int> >&, bool)::Victim const&, tactix::reduce_candidates(tactix::Kernel&, std::vector<unsigned int, std::allocator<unsigned int> >&, bool)::Victim const&)#1}> >(__gnu_cxx::__normal_iterator<tactix::reduce_candidates(tactix::Kernel&, std::vector<unsigned int, std::allocator<unsigned int> >&, bool)::Victim*, std::vector<tactix::reduce_candidates(tactix::Kernel&, std::vector<unsigned int, std::allocator<unsigned int> >&, bool)::Victim, std::allocator<tactix::reduce_candidates(tactix::Kernel&, std::vector<unsigned int, std::allocator<unsigned int> >&, bool)::Victim> > >, __gnu_cxx::__normal_iterator<tactix::reduce_candidates(tactix::Kernel&, std::vector<unsigned int, std::allocator<unsigned int> >&, bool)::Victim*, std::vector<tactix::reduce_candidates(tactix::Kernel&, std::vector<unsigned int, std::allocator<unsigned int> >&, bool)::Victim, std::allocator<tactix::reduce_candidates(tactix::Kernel&, std::vector<unsigned int, std::allocator<unsigned int> >&, bool)::Victim> > >, long, __gnu_cxx::__ops::_Iter_comp_iter<tactix::reduce_candidates(tactix::Kernel&, std::vector<unsigned int, std::allocator<unsigned int> >&, bool)::{lambda(tactix::reduce_candidates(tactix::Kernel&, std::vector<unsigned int, std::allocator<unsigned int> >&, bool)::Victim const&, tactix::reduce_candidates(tactix::Kernel&, std::vector<unsigned int, std::allocator<unsigned int> >&, bool)::Victim const&)#1}>)"
+        },
+        {
+          "percent": 0.23,
+          "dso": "previous",
+          "symbol": "tactix::sort_clause_watches_like_kissat(tactix::Kernel&, tactix::Clause*)"
+        },
+        {
+          "percent": 0.22,
+          "dso": "previous",
+          "symbol": "tactix::WatchLists::push_large(unsigned int, unsigned int, unsigned int)"
+        },
+        {
+          "percent": 0.22,
+          "dso": "previous",
+          "symbol": "tactix::kernel_collect_garbage(tactix::Kernel&, unsigned int, bool, bool)"
+        },
+        {
+          "percent": 0.2,
+          "dso": "libc.so.6",
+          "symbol": "__memset_avx512_unaligned_erms"
+        },
+        {
+          "percent": 0.2,
+          "dso": "previous",
+          "symbol": "tactix::repair_conflict_watches(tactix::Kernel&, unsigned int, unsigned int)"
+        },
+        {
+          "percent": 0.2,
+          "dso": "previous",
+          "symbol": "tactix::reduce_apply_refs(tactix::Kernel&, unsigned int const*, unsigned long, bool) [clone .part.0]"
+        },
+        {
+          "percent": 0.19,
+          "dso": "previous",
+          "symbol": "tactix::heap_bubble_down(tactix::Kernel&, unsigned int) [clone .isra.0]"
+        },
+        {
+          "percent": 0.18,
+          "dso": "previous",
+          "symbol": "tactix::backjump_apply_to(tactix::Kernel&, unsigned int)"
+        },
+        {
+          "percent": 0.18,
+          "dso": "previous",
+          "symbol": "tactix::DefaultPolicy::solve(tactix::Kernel&, int volatile*)"
+        },
+        {
+          "percent": 0.17,
+          "dso": "previous",
+          "symbol": "void std::__introsort_loop<__gnu_cxx::__normal_iterator<tactix::VivifyCand*, std::vector<tactix::VivifyCand, std::allocator<tactix::VivifyCand> > >, long, __gnu_cxx::__ops::_Iter_comp_iter<tactix::vivify_schedule(tactix::Kernel const&, std::vector<unsigned int, std::allocator<unsigned int> >&, tactix::VivifySchedule*)::{lambda(tactix::VivifyCand const&, tactix::VivifyCand const&)#3}> >(__gnu_cxx::__normal_iterator<tactix::VivifyCand*, std::vector<tactix::VivifyCand, std::allocator<tactix::VivifyCand> > >, __gnu_cxx::__normal_iterator<tactix::VivifyCand*, std::vector<tactix::VivifyCand, std::allocator<tactix::VivifyCand> > >, long, __gnu_cxx::__ops::_Iter_comp_iter<tactix::vivify_schedule(tactix::Kernel const&, std::vector<unsigned int, std::allocator<unsigned int> >&, tactix::VivifySchedule*)::{lambda(tactix::VivifyCand const&, tactix::VivifyCand const&)#3}>) [clone .constprop.0]"
+        },
+        {
+          "percent": 0.14,
+          "dso": "previous",
+          "symbol": "tactix::reduce_candidates(tactix::Kernel&, std::vector<unsigned int, std::allocator<unsigned int> >&, bool)"
+        },
+        {
+          "percent": 0.14,
+          "dso": "previous",
+          "symbol": "tactix::bump_reason_side(tactix::Kernel&, std::vector<unsigned int, std::allocator<unsigned int> > const&)"
+        },
+        {
+          "percent": 0.13,
+          "dso": "previous",
+          "symbol": "tactix::walk_apply_steps(tactix::Kernel&, unsigned long)"
+        },
+        {
+          "percent": 0.11,
+          "dso": "previous",
+          "symbol": "tactix::(anonymous namespace)::reduce_source(tactix::Kernel&, unsigned int, tactix::(anonymous namespace)::Walk&)"
+        },
+        {
+          "percent": 0.11,
+          "dso": "previous",
+          "symbol": "tactix::vivify_one(tactix::Kernel&, unsigned int, bool, unsigned long) [clone .isra.0]"
+        },
+        {
+          "percent": 0.1,
+          "dso": "previous",
+          "symbol": "tactix::kernel_flush_root_clause(tactix::Kernel&, unsigned int*, unsigned long*, bool, bool)"
+        }
+      ],
+      "profile": {
+        "bytes": 574074872,
+        "command": [
+          "perf",
+          "record",
+          "--no-buildid-cache",
+          "-o",
+          "/tmp/tactix-runtime-001-rpay0r7n/profile.data",
+          "-e",
+          "cycles:u",
+          "-F",
+          "199",
+          "--call-graph",
+          "dwarf,8192",
+          "--",
+          "taskset",
+          "-c",
+          "6",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6787-rank38-watermark-profile/pins/previous",
+          "/tmp/tactix-runtime-001-rpay0r7n/input.cnf",
+          "/tmp/tactix-runtime-001-rpay0r7n/proof.drat"
+        ],
+        "compressed_bytes": 11360496,
+        "compressed_sha256": "96243d2007c74c0e2061a5ddf2058a81e3ea852fe02272cf98e4b52054d3c8a8",
+        "reports": {
+          "callpaths": {
+            "exit": 0,
+            "sha256": "bc11b5faae19cd6a463567ac039492af7b32b6928408771be7ca23770375143a",
+            "stderr": ""
+          },
+          "self": {
+            "exit": 0,
+            "sha256": "6c1e47dec931c420ed0c495ea4b4d9d2344b9c3d85e4d166ca057c39f5ee0d8c",
+            "stderr": ""
+          }
+        },
+        "sha256": "135287eb1852cc9e20b1cbcaa07eb53cd4412735eb3d03b9bb66bd5efd0956ac"
+      },
+      "diagnostic_seconds": 341.963
+    }
+  },
+  "checked_clean": 0,
+  "conclusion": "Both sampled arms exactly replay their unprofiled logical statistics and certificates. Use self/callpath samples to localize execution-efficiency cost, not to accept a speedup.",
+  "limitation": "One199Hz cycles:u sampled pair, not repeated timing acceptance. Percentages are relative sampled periods, not operation prices. No causal code-placement or memory diagnosis established; pending checks remain unverified."
+}
