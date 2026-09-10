@@ -1,0 +1,8 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6824-vivify-snapshot-control/previous-test_vivify_snapshot"
+  ],
+  "exit_code": 0,
+  "stdout": "vivify-count-cache cases=432 digest=fb0f8be6d21838ed proof-bytes=9804 subsumed=432\nvivify-snapshot population-cases=216 digest=e18cfc4654c98b42 proof-bytes=135594\n",
+  "stderr": ""
+}

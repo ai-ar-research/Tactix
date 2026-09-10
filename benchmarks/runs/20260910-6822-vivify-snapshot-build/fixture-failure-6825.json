@@ -1,0 +1,15 @@
+{
+  "hashes": {
+    ".claude/worktrees/runtime-vivify-snapshot-6822/tests/test_vivify_snapshot.cpp": "88cd373ccdf04f59bcb3391334e8602a911060484a41dbbd8178a2509f921322",
+    ".claude/worktrees/runtime-vivify-snapshot-6822/tests/test_vivify_count_cache.cpp": "3fda011b310d729b0c5df50c44cdbe469b23f95ab54e8caa397378067a9c0e21",
+    "benchmarks/runs/20260910-6822-vivify-snapshot-build/previous-test_vivify_snapshot": "af8a1da35a642656f9c78bc3da3efb80f0254bc0d730a91af220906ad0832580",
+    "benchmarks/runs/20260910-6822-vivify-snapshot-build/previous-vivify.o": "765d1548e43ad3bbfa2bc49d7cbf69267f84a60d930536d02a2fcf0788f0ab50",
+    "benchmarks/runs/20260910-6822-vivify-snapshot-build/logs/previous-compile.json": "142d5fc050906ad6dacf046ade8fbd2cb3de9529425446b5154c84545576cfec",
+    "benchmarks/runs/20260910-6822-vivify-snapshot-build/logs/previous-test_vivify_snapshot-link.json": "133a238a38d9d4c7045a335a9047f65adf6107d799af5adad487fa2b1e409dec",
+    "benchmarks/runs/20260910-6822-vivify-snapshot-build/logs/previous-test_vivify_snapshot-run.json": "11d79bbc911797860c108f77fa550499cb9b4947a02ae2701dabf33f0c2a1893",
+    "benchmarks/runs/20260910-6822-vivify-snapshot-build/failed-test_vivify_snapshot.cpp": "88cd373ccdf04f59bcb3391334e8602a911060484a41dbbd8178a2509f921322",
+    "benchmarks/runs/20260910-6822-vivify-snapshot-build/failed-test_vivify_count_cache.cpp": "3fda011b310d729b0c5df50c44cdbe469b23f95ab54e8caa397378067a9c0e21"
+  },
+  "diagnosis": "Fixture renamed a C++ main without adding an explicit return. Only main has implicit return0. Compiler warns and unchanged parent-linked fixture exitsSIGSEGV after that UB. Candidate object was not compiled or run; this is not solver soundness evidence. Retain logs/source, add explicit return in the private test helper and rerun separate6824 actual old/new controls.",
+  "no_solver_input": "Fixed unit fixture only; no SLURM benchmark or fuzz campaign involved."
+}
