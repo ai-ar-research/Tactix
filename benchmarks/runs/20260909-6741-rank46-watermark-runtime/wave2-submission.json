@@ -1,0 +1,24 @@
+{
+  "job_id": "1678696",
+  "tasks": [
+    4,
+    5
+  ],
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--array=4-5",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6741-rank46-watermark-runtime/array.sbatch"
+  ],
+  "accounting_since": "2026-09-09T21:36:58",
+  "manifest_sha256": "760ea5245d4170cb7837f4af7c6594a318a69ed72a6c493414fbf035a56a583d",
+  "preceding_records": {
+    "benchmarks/runs/20260909-6741-rank46-watermark-runtime/provisional/000.json": "71284e125f4a32e62687aa06c808c78bb9cec1344cc0354b4fd597629af45c40",
+    "benchmarks/runs/20260909-6741-rank46-watermark-runtime/provisional/001.json": "216ff4531eca0d007463a4919464e7b971918690cfba0524471615e9b96b46a9",
+    "benchmarks/runs/20260909-6741-rank46-watermark-runtime/provisional/002.json": "c06eccc2b83830dd8200e52af7e46e8b1a20592d614747ad19fcae717ee4eafc",
+    "benchmarks/runs/20260909-6741-rank46-watermark-runtime/provisional/003.json": "acb7990976decb1ad0e8bb67d7e8e10d9d546ebe821c901264bfcf6e62a2a141",
+    "benchmarks/runs/20260909-6741-rank46-watermark-runtime/results/000.json": "eb9db0622e61aa557491cffd886815d0d47d6b765151020fc9d94d8cb52c6e98",
+    "benchmarks/runs/20260909-6741-rank46-watermark-runtime/results/001.json": "9e40f0415bbce0b468dc7cdb2cfcabf26bf933d2b511fa41f182e7a0c68cf840",
+    "benchmarks/runs/20260909-6741-rank46-watermark-runtime/results/003.json": "4194d2aa5e25a373e8042bafeef86e80b30de951e23d1c3f1f6a9ff0d6c8b2ed"
+  }
+}

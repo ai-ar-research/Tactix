@@ -190,12 +190,12 @@ pending half-analysis or schedules Backjump independently.
   never positions, and Reduce's sparse partition remains authoritative.
 - Walk's sparse resume uses the same current source position for its
   large-clause reconnect when packed replacements are still pending.
-- Reduce sparse collection follows Kissat's physical `first_reducible`
-  watermark in the reference arena. Tactix maps that watermark through the
-  same generation-local positions because a pending replacement can reside at
-  its allocation tail while Kissat shortened it in the prefix. Only that
-  current prefix retains watch blockers and replacement cursors; the tail is
-  stably partitioned and rewatched, including compact collection from zero.
+- Reduce captures Kissat's historical `first_reducible` watermark before
+  advancing its next-call marker; promotion or retirement cannot erase this cut.
+  Generation-local positions map appended replacements back to their sources.
+  Genuine collection recomputes the marker; implementation-only packing forwards it.
+  Only the current prefix retains blockers and replacement cursors; the tail
+  is stably partitioned and rewatched, including compact collection from zero.
   CaDiCaL-style VMTF/phase ordering is available only as the explicit diagnostic arm
   `TACTIX_ARENA_ORDER=1`; formula classification and benchmark/rank identity
   never select it, and Reduce never consumes it.

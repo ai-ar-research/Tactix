@@ -1,0 +1,45 @@
+{
+  "audit": {
+    "path": "benchmarks/reports/2026-09-09-reduce-watermark-audit-6747.json",
+    "sha256": "cab1ed38cc3338597f8bb941232758563e1abfc19986c754bfbfd09524bc0ade"
+  },
+  "successor": {
+    "path": "benchmarks/probes/scratch/land-reduce-watermark-raw-6749.py",
+    "sha256": "12e98759c5dd87a75a244897511d50a6ccef5968319f0f0ef551819b1333965e"
+  },
+  "raw_log_hashes": {
+    "benchmarks/runs/20260909-6734-reduce-watermark-proof-control/logs/check-root-0-0-1-drat.log": "9245ee40c332fcb10d5028239a5e3278547280343274b5a0c5f1ef882cac8f66",
+    "benchmarks/runs/20260909-6734-reduce-watermark-proof-control/logs/check-root-0-1-1-drat.log": "b5c12085958bacd909c1ad0d013cfb8591dbb0756ca121eebc94264ec55af51c",
+    "benchmarks/runs/20260909-6734-reduce-watermark-proof-control/logs/check-root-1-0-1-drat.log": "9245ee40c332fcb10d5028239a5e3278547280343274b5a0c5f1ef882cac8f66",
+    "benchmarks/runs/20260909-6734-reduce-watermark-proof-control/logs/check-root-1-1-1-drat.log": "b5c12085958bacd909c1ad0d013cfb8591dbb0756ca121eebc94264ec55af51c"
+  },
+  "checks": [
+    [
+      "git",
+      "diff",
+      "--cached",
+      "--check",
+      "--",
+      ".",
+      ":(exclude)benchmarks/runs/20260909-6734-reduce-watermark-proof-control/logs/check-root-0-0-1-drat.log",
+      ":(exclude)benchmarks/runs/20260909-6734-reduce-watermark-proof-control/logs/check-root-0-1-1-drat.log",
+      ":(exclude)benchmarks/runs/20260909-6734-reduce-watermark-proof-control/logs/check-root-1-0-1-drat.log",
+      ":(exclude)benchmarks/runs/20260909-6734-reduce-watermark-proof-control/logs/check-root-1-1-1-drat.log"
+    ],
+    [
+      "git",
+      "-c",
+      "core.whitespace=-blank-at-eol",
+      "diff",
+      "--cached",
+      "--check",
+      "--",
+      "benchmarks/runs/20260909-6734-reduce-watermark-proof-control/logs/check-root-0-0-1-drat.log",
+      "benchmarks/runs/20260909-6734-reduce-watermark-proof-control/logs/check-root-0-1-1-drat.log",
+      "benchmarks/runs/20260909-6734-reduce-watermark-proof-control/logs/check-root-1-0-1-drat.log",
+      "benchmarks/runs/20260909-6734-reduce-watermark-proof-control/logs/check-root-1-1-1-drat.log"
+    ]
+  ],
+  "reason": "Initial6748 stopped at git whitespace check before commit: four independently verified drat-trim raw logs contain trailing spaces in their core-count line. Preserve all frozen bytes. All non-exempt files retain the full whitespace gate; only these four hash-bound logs permit blank-at-eol. No solver/test/checker result is relaxed.",
+  "push": "Not attempted; existing denial remains."
+}
