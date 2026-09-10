@@ -1,0 +1,90 @@
+{
+  "records": {
+    "previous": {
+      "command": [
+        "/cm/local/apps/gcc/13.1.0/bin/c++",
+        "-std=c++20",
+        "-O3",
+        "-DNDEBUG",
+        "-Wall",
+        "-Wextra",
+        "-Wno-invalid-offset",
+        "-fno-exceptions",
+        "-fno-rtti",
+        "-I/home/hwu/SAT-solving/.claude/worktrees/runtime-congruence-empty-gates-6654/src",
+        "-I/home/hwu/SAT-solving/.claude/worktrees/runtime-congruence-empty-gates-6654/include",
+        "/home/hwu/SAT-solving/benchmarks/probes/scratch/watermark-layout-6760.cpp",
+        "-o",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6760-watermark-layout/previous"
+      ],
+      "offsets": {
+        "sizeof_Kernel": 7864,
+        "alignof_Kernel": 8,
+        "values": 136,
+        "assigned": 160,
+        "trail": 208,
+        "arena": 304,
+        "clause_position_alias": 328,
+        "watches": 352,
+        "large_watches_connected": 408,
+        "arena_ordering": 416,
+        "dense": 424,
+        "delayed": 512,
+        "h": 664,
+        "stats": 1640,
+        "tumble": 7861
+      }
+    },
+    "candidate": {
+      "command": [
+        "/cm/local/apps/gcc/13.1.0/bin/c++",
+        "-DWATERMARK_CURRENT",
+        "-std=c++20",
+        "-O3",
+        "-DNDEBUG",
+        "-Wall",
+        "-Wextra",
+        "-Wno-invalid-offset",
+        "-fno-exceptions",
+        "-fno-rtti",
+        "-I/home/hwu/SAT-solving/.claude/worktrees/runtime-reduce-watermark-6730/src",
+        "-I/home/hwu/SAT-solving/.claude/worktrees/runtime-reduce-watermark-6730/include",
+        "/home/hwu/SAT-solving/benchmarks/probes/scratch/watermark-layout-6760.cpp",
+        "-o",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6760-watermark-layout/candidate"
+      ],
+      "offsets": {
+        "sizeof_Kernel": 7872,
+        "alignof_Kernel": 8,
+        "values": 136,
+        "assigned": 160,
+        "trail": 208,
+        "arena": 304,
+        "clause_position_alias": 328,
+        "first_reducible": 352,
+        "watches": 360,
+        "large_watches_connected": 416,
+        "arena_ordering": 424,
+        "dense": 432,
+        "delayed": 520,
+        "h": 672,
+        "stats": 1648,
+        "tumble": 7869
+      }
+    }
+  },
+  "hashes": {
+    "benchmarks/probes/scratch/watermark-layout-6760.cpp": "553f99b8b0af61a88ea101ba29154fec6c641b06a3f63344a83d863dfe9d1014",
+    "benchmarks/probes/scratch/inspect-watermark-layout-6760.py": "2dbd117305e41187ce8e82442b70e7f3e78eb7f7288a19d8020c0af1b72cd442",
+    "benchmarks/runs/20260909-6654-congruence-empty-gates-build/manifest.json": "02b12ad11ea17caf2626c2be23dd181edcaa806e2f8c0c2df3fef2082623ae03",
+    "benchmarks/runs/20260909-6760-watermark-layout/previous": "cdd20fdeb97d1d08f963360b829881a787326db2ea053f321b3d72f806e4c9f7",
+    "benchmarks/runs/20260909-6760-watermark-layout/previous.out": "2664fad35fe6c0f5c8ef7ab6154de0ecb02afc57140cebce96f5ef072ff03892",
+    "benchmarks/runs/20260909-6760-watermark-layout/previous.compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "benchmarks/runs/20260909-6730-reduce-watermark-build/manifest.json": "e21167816ac5c86fe3b82db5d3cb0401d3a0b34a79ef7578ea5251d84cdb605f",
+    "benchmarks/runs/20260909-6760-watermark-layout/candidate": "c04979c8fd2542c89dd155b472ecaeaaa2ef8bf10f90655e02b6ff49763d0fc8",
+    "benchmarks/runs/20260909-6760-watermark-layout/candidate.out": "0a494a337e174a1531e4e83d0ed726607194983e96f7d3aebf9ff81a52d78519",
+    "benchmarks/runs/20260909-6760-watermark-layout/candidate.compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "limitation": "Compiled sizeof/offsetof evidence only, not runtime attribution. No solver or submitted source changed. C++ offsetof extension on this compiler; native solver not needed to measure a Tactix-only layout change.",
+  "test_consideration": "Read-only fixed representation probe; compile and exact current/parent offsets are its oracle. No production test change needed. Any chosen layout ablation must preserve all288 watermark regressions and full work/proof replay."
+}

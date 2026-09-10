@@ -1,0 +1,16 @@
+sizeof_Kernel=7872
+alignof_Kernel=8
+values=136
+assigned=160
+trail=208
+arena=304
+clause_position_alias=328
+first_reducible=352
+watches=360
+large_watches_connected=416
+arena_ordering=424
+dense=432
+delayed=520
+h=672
+stats=1648
+tumble=7869
