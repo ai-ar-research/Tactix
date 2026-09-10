@@ -1,0 +1,14 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6827-vivify-snapshot-proofs/fixture",
+    "0",
+    "1",
+    "1",
+    "1",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6827-vivify-snapshot-proofs/0-1-1-1.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6827-vivify-snapshot-proofs/0-1-1-1.proof"
+  ],
+  "returncode": 0,
+  "stdout": "PASS: canonical scope=0 reuse=1 flush=1 scheduled=56 final UNSAT\n",
+  "stderr": ""
+}

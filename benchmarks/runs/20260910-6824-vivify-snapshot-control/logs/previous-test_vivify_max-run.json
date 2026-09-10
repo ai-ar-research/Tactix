@@ -1,0 +1,8 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6824-vivify-snapshot-control/previous-test_vivify_max"
+  ],
+  "exit_code": 0,
+  "stdout": "vivify-max cases=144 order-and-pose=a223a06d79fb69dd\n",
+  "stderr": ""
+}
