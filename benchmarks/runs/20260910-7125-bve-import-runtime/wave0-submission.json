@@ -1,0 +1,21 @@
+{
+  "job_id": "1680000",
+  "tasks": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--array=0-5",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-7125-bve-import-runtime/array.sbatch"
+  ],
+  "accounting_since": "2026-09-10T14:57:48",
+  "manifest_sha256": "a1a4c6ef69f6451edaa2f4a7230f2f7eec53e0c0ab08acf346972d39c7e0b78e",
+  "helper_sha256": "3ce688ebef7ff01fb13f93c800e6a8c15da406606806748a7c81b57b3c972d4a",
+  "preceding_records": {}
+}

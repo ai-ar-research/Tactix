@@ -1,6 +1,6 @@
 import io
 import unittest
-from perf_callstack import Frame, Sample, samples, phase, call_sites
+from perf_callstack import Frame, Sample, samples, phase, call_sites, summarize_phases
 
 
 TEXT = ' 7\n\t100 inner(int) (/pin/bin)\n\t200 phase() (/pin/bin)\n\t304 caller() (/pin/bin)\n\n'
@@ -61,6 +61,56 @@ class PerfCallstackTests(unittest.TestCase):
             with self.subTest(asm=asm), self.assertRaises(ValueError):
                 call_sites(asm,'phase()',{0x108:('probe','xor %edx,%edx')})
         with self.assertRaises(ValueError): call_sites(ASM,'phase()',{})
+
+    def summarize(self, stream, components=None):
+        return summarize_phases(stream, '/pin/bin', {'phase()': None},
+                                'caller()', {0x304: 'eliminate'}, components or {})
+
+    def test_summary_conserves_unknown_and_huge_period(self):
+        r = self.summarize(self.sample(TEXT + ' 9007199254740993\n\tffff [unknown] ([unknown])\n\n'))
+        self.assertEqual(r['samples'], 2)
+        self.assertEqual(r['total_period'], 9007199254741000)
+        self.assertEqual(r['phase_periods'], {'eliminate': 7, 'no_phase_frame': 9007199254740993})
+        self.assertEqual(r['components']['eliminate'], {'phase_scaffolding_or_inlined_work': 7})
+        self.assertEqual(r['self_by_phase']['eliminate'], {'inner(int) [bin]': 7})
+
+    def test_summary_uses_outermost_component(self):
+        s = Sample(11, (Frame(1, 'inner()', '/pin/bin'), Frame(2, 'outer()', '/pin/bin'),
+                        Frame(3, 'phase()', '/pin/bin'), Frame(0x304, 'caller()', '/pin/bin')))
+        r = self.summarize([s], {'inner(': 'inner', 'outer(': 'outer'})
+        self.assertEqual(r['components']['eliminate'], {'outer': 11})
+        self.assertEqual(sum(r['inclusive_by_phase']['eliminate'].values()), 33)
+        self.assertEqual(r['total_period'], 11)  # Never sum inclusive cost.
+
+    def test_summary_external_component_not_misattributed(self):
+        s = Sample(3, (Frame(1, 'outer()', '/lib/libc.so'), Frame(2, 'phase()', '/pin/bin'),
+                       Frame(0x304, 'caller()', '/pin/bin')))
+        r = self.summarize([s], {'outer(': 'outer'})
+        self.assertEqual(r['components']['eliminate'], {'phase_scaffolding_or_inlined_work': 3})
+        self.assertEqual(r['self_by_phase']['eliminate'], {'outer() [libc.so]': 3})
+
+    def test_summary_unresolved_caller_retained(self):
+        s = Sample(9, (Frame(2, 'phase()', '/pin/bin'),))
+        r = self.summarize([s])
+        self.assertEqual(r['phase_periods'], {'unresolved_phase_caller': 9})
+        self.assertEqual(r['caller_periods'], {'missing': 9})
+        self.assertEqual(r['unresolved_callers'], {'phase()': 9})
+
+    def test_summary_duplicate_inclusive_symbol_counted_once(self):
+        s = Sample(5, (Frame(1, 'inner()', '/pin/bin'), Frame(2, 'inner()', '/pin/bin'),
+                       Frame(3, 'phase()', '/pin/bin'), Frame(0x304, 'caller()', '/pin/bin')))
+        r = self.summarize([s])
+        self.assertEqual(r['inclusive_by_phase']['eliminate']['inner()'], 5)
+
+    def test_summary_ambiguous_prefix_rejected(self):
+        with self.assertRaises(ValueError):
+            self.summarize(self.sample(), {'inner': 'a', 'inner(': 'b'})
+
+    def test_summary_empty_is_not_a_valid_profile_by_itself(self):
+        r = self.summarize([])
+        self.assertEqual(r['samples'], 0)
+        self.assertEqual(r['total_period'], 0)
+        self.assertEqual(r['phase_periods'], {})
 
 
 if __name__ == '__main__': unittest.main()
