@@ -1,0 +1,248 @@
+{
+  "hashes": {
+    "benchmarks/runs/20260910-7041-collect-retry-runtime/provisional/002.json": "223cf60a12012cb06cf686054775927079193589879bc17a5623c15d7d21bd7b",
+    "benchmarks/runs/20260910-7002-largest-gap-release-profiles/results/003.json": "d086ba76f7506a84953a66ff784d629da8c154d01670e0bb52bb7b60895743d7",
+    "benchmarks/probes/scratch/compare-rank35-matched-work-7059.py": "c13a2becc5b02868d24895bac3d13c8cb0f41e617974ef754c883e17ba13323d",
+    ".claude/worktrees/runtime-collect-retry-7030/src/main.cpp": "ce4cacd79b189010f96ed99964780ee4d9ced4373a058065386090e87d8ee57e",
+    ".claude/worktrees/runtime-collect-retry-7030/src/policies/default_policy.cpp": "121df7ea1a49628e291bd0eb13c87bcd57bfeb0b66b337d4ec95a33d051e02f1",
+    ".claude/worktrees/runtime-collect-retry-7030/src/rules/registry.cpp": "eab16c0d28c519988f9cffb8561d381214bd458e5d02430674a3748b9bb2ac47",
+    "kissat/src/profile.c": "01338511fea19e4386b948439167a0305b1da7a8da864c1bfa2802eaa01b368b",
+    "kissat/src/probe.c": "8569c5df8bf39f71bc45823a7ea6b1d411b9e7e98df49629ebc703eb7e4b13fb",
+    "kissat/src/eliminate.c": "ab50083c5c15965ef0955a3c72016147b66949048e8d34735e3f550683626794",
+    "tools/bench/inprocessing_cost.py": "725744226d429f28d9093079a6022a43cd77450069642faae6f1cabf1ae71a4a"
+  },
+  "matched_counter_correspondences": [
+    {
+      "native_counter": "conflicts",
+      "value": 4751990,
+      "candidate_row": "c conflicts   4751990",
+      "native_row": "c conflicts:                          4751990            15885.41 per second"
+    },
+    {
+      "native_counter": "decisions",
+      "value": 210767815,
+      "candidate_row": "c decisions   210767815 (0 via API)",
+      "native_row": "c decisions:                        210767815               44.35 per conflict"
+    },
+    {
+      "native_counter": "clauses_learned",
+      "value": 4484240,
+      "candidate_row": "c learned     4484240 (1883 units)",
+      "native_row": "c clauses_learned:                    4484240               94 %  conflicts"
+    },
+    {
+      "native_counter": "chronological",
+      "value": 326498,
+      "candidate_row": "c chrono      326498 chronological, 0 stale backjumps, 0 propagation re-arms",
+      "native_row": "c chronological:                       326498                7 %  conflicts"
+    },
+    {
+      "native_counter": "restarts",
+      "value": 60073,
+      "candidate_row": "c restarts    60073 (14279 reused a trail prefix)",
+      "native_row": "c restarts:                             60073               79    interval"
+    },
+    {
+      "native_counter": "reductions",
+      "value": 370,
+      "candidate_row": "c reductions  370 (3492722 clauses deleted, 1568952 promoted)",
+      "native_row": "c reductions:                             370            12843    interval"
+    },
+    {
+      "native_counter": "rephased",
+      "value": 47,
+      "candidate_row": "c rephased    47 (933 best phases saved)",
+      "native_row": "c rephased:                                47           101106    interval"
+    },
+    {
+      "native_counter": "reordered",
+      "value": 31,
+      "candidate_row": "c reordered   31 eligible, 31 decision re-rankings",
+      "native_row": "c reordered:                               31           153290    interval"
+    },
+    {
+      "native_counter": "warmups",
+      "value": 16,
+      "candidate_row": "c warmup      16 warmups, 298244 decisions, 1924010 propagations",
+      "native_row": "c warmups:                                 16              100 %  walks"
+    },
+    {
+      "native_counter": "warming_decisions",
+      "value": 298244,
+      "candidate_row": "c warmup      16 warmups, 298244 decisions, 1924010 propagations",
+      "native_row": "c warming_decisions:                   298244            18640.25 per walk"
+    },
+    {
+      "native_counter": "warming_propagations",
+      "value": 1924010,
+      "candidate_row": "c warmup      16 warmups, 298244 decisions, 1924010 propagations",
+      "native_row": "c warming_propagations:               1924010                0 %  propagations"
+    },
+    {
+      "native_counter": "walk_steps",
+      "value": 238053506,
+      "candidate_row": "c walk        16 walks (8 improved, 252808 flips, 238053506 steps)",
+      "native_row": "c walk_steps:                       238053506 "
+    },
+    {
+      "native_counter": "eliminated",
+      "value": 363770,
+      "candidate_row": "c bve         0 rounds, 363770 eliminated, 91791141 resolutions",
+      "native_row": "c eliminated:                          363770               74 %  variables"
+    },
+    {
+      "native_counter": "eliminate_resolutions",
+      "value": 91791141,
+      "candidate_row": "c bve         0 rounds, 363770 eliminated, 91791141 resolutions",
+      "native_row": "c eliminate_resolutions:             91791141           306848.23 per second"
+    },
+    {
+      "native_counter": "factored",
+      "value": 7746,
+      "candidate_row": "c factor      7746 factorings, 20807786 large remainders offered, 439193338 ticks",
+      "native_row": "c factored:                              7746                2 %  variables"
+    },
+    {
+      "native_counter": "factor_ticks",
+      "value": 439193338,
+      "candidate_row": "c factor      7746 factorings, 20807786 large remainders offered, 439193338 ticks",
+      "native_row": "c factor_ticks:                     439193338 "
+    },
+    {
+      "native_counter": "transitive_ticks",
+      "value": 417598530,
+      "candidate_row": "c transitive  0 rounds, 2546556 checked, 17248 deleted, 90 units, 417598530 ticks, 2546556 polls, 0 terminated",
+      "native_row": "c transitive_ticks:                 417598530 "
+    },
+    {
+      "native_counter": "substituted",
+      "value": 71487,
+      "candidate_row": "c substitute  790 rounds, 190461156 ticks, 83170 non-trivial SCCs (143964 lits), 71487 vars substituted, 0 rounds skipped / 0 partial (0 lits poisoned) on the hazard check",
+      "native_row": "c substituted:                          71487               15 %  variables"
+    },
+    {
+      "native_counter": "sweep",
+      "value": 25,
+      "candidate_row": "c sweep       25 rounds, 42815 swept, 42806 environments (6716907 clauses), 379501 solves, 181191 candidates, 495 equivalences, 36 units (1 already binary), 0 env-unsat, 26 budget, 666684093 ticks",
+      "native_row": "c sweep:                                   25           190080    interval"
+    },
+    {
+      "native_counter": "sweep_solved",
+      "value": 379501,
+      "candidate_row": "c sweep       25 rounds, 42815 swept, 42806 environments (6716907 clauses), 379501 solves, 181191 candidates, 495 equivalences, 36 units (1 already binary), 0 env-unsat, 26 budget, 666684093 ticks",
+      "native_row": "c sweep_solved:                        379501               18 %  kitten_solved"
+    },
+    {
+      "native_counter": "sweep_equivalences",
+      "value": 495,
+      "candidate_row": "c sweep       25 rounds, 42815 swept, 42806 environments (6716907 clauses), 379501 solves, 181191 candidates, 495 equivalences, 36 units (1 already binary), 0 env-unsat, 26 budget, 666684093 ticks",
+      "native_row": "c sweep_equivalences:                     495                0 %  variables"
+    },
+    {
+      "native_counter": "sweep_units",
+      "value": 36,
+      "candidate_row": "c sweep       25 rounds, 42815 swept, 42806 environments (6716907 clauses), 379501 solves, 181191 candidates, 495 equivalences, 36 units (1 already binary), 0 env-unsat, 26 budget, 666684093 ticks",
+      "native_row": "c sweep_units:                             36                0 %  variables"
+    },
+    {
+      "native_counter": "closures",
+      "value": 45,
+      "candidate_row": "c congruence  45 rounds, 45 binary rebuilds, 2536818 gates, 66980 merges, 186 units, 0 unjustified, 6626029378 ticks, 0 budget stops",
+      "native_row": "c closures:                                45           105600    interval"
+    },
+    {
+      "native_counter": "congruent",
+      "value": 66980,
+      "candidate_row": "c congruence  45 rounds, 45 binary rebuilds, 2536818 gates, 66980 merges, 186 units, 0 unjustified, 6626029378 ticks, 0 budget stops",
+      "native_row": "c congruent:                            66980               14 %  variables"
+    },
+    {
+      "native_counter": "forward_steps",
+      "value": 313268771,
+      "candidate_row": "c strengthen  40 rounds (10599915 checked, 313268771 visits, 364546 strengthened, 447552 subsumed)",
+      "native_row": "c forward_steps:                    313268771                2.92 per check"
+    },
+    {
+      "native_counter": "strengthened",
+      "value": 364546,
+      "candidate_row": "c strengthen  40 rounds (10599915 checked, 313268771 visits, 364546 strengthened, 447552 subsumed)",
+      "native_row": "c strengthened:                        364546                0 %  checks"
+    },
+    {
+      "native_counter": "subsumed",
+      "value": 447552,
+      "candidate_row": "c strengthen  40 rounds (10599915 checked, 313268771 visits, 364546 strengthened, 447552 subsumed)",
+      "native_row": "c subsumed:                            447552                0 %  checks"
+    }
+  ],
+  "candidate_timers": {
+    "solve_ms": 359347,
+    "slot_ms": 128236,
+    "outside_ms": 231111,
+    "unattributed_ms": 6663,
+    "rules": {
+      "Vivify": {
+        "ms": 37455,
+        "applications": 365
+      },
+      "BVE": {
+        "ms": 19805,
+        "applications": 2021962
+      },
+      "Factor": {
+        "ms": 14326,
+        "applications": 88
+      },
+      "Substitute": {
+        "ms": 13289,
+        "applications": 185
+      },
+      "Congruence": {
+        "ms": 11700,
+        "applications": 45
+      },
+      "Sweep": {
+        "ms": 10145,
+        "applications": 25
+      },
+      "Strengthen": {
+        "ms": 7402,
+        "applications": 40
+      },
+      "Backbone": {
+        "ms": 3960,
+        "applications": 185
+      },
+      "TransitiveReduce": {
+        "ms": 3492,
+        "applications": 3976462
+      }
+    }
+  },
+  "native_profile_rows": [
+    "c         216.84   72.49 %  search",
+    "c         131.30   43.89 %  stable",
+    "c          85.54   28.60 %  focused",
+    "c          81.04   27.09 %  simplify",
+    "c          66.07   22.09 %  probe",
+    "c          30.62   10.24 %  vivify",
+    "c          14.76    4.93 %  eliminate",
+    "c           9.35    3.12 %  substitute",
+    "c           8.64    2.89 %  factor",
+    "c           7.45    2.49 %  reduce",
+    "c           7.09    2.37 %  sweep",
+    "c           5.75    1.92 %  congruence",
+    "c           3.30    1.10 %  subsume",
+    "c           2.37    0.79 %  backbone",
+    "c           2.26    0.75 %  transitive",
+    "c           1.08    0.36 %  walking",
+    "c           0.92    0.31 %  preprocess",
+    "c           0.19    0.06 %  parse",
+    "c           0.15    0.05 %  lucky",
+    "c         299.14  100.00 %  total"
+  ],
+  "decision": "27 exact major work correspondences strengthen Rank35 as a residual implementation-cost control. Profile unchanged7030 before selecting a material optimization; reuse checked native7002 samples. Continue Rank31 later adverse-transfer localization independently.",
+  "timer_scope": "Tactix registry uses steady-clock wall nanoseconds; run_phase timer starts before root backtrack/propagation and includes initial Probe. Native profile.c uses process CPU time with overlapping nested profiles; search-time simplify starts after root backtrack/propagation, and initial Probe is separately timed. Do not subtract slot-simplify, BVE-eliminate, or sum nested native profiles to price the gap.",
+  "limitation": "Major counters and1M decision prefix match, not every candidate, physical state, budget or full trajectory. Congruence gate counts and Substitute ticks still differ; propagation and Vivify counts have different scopes. Different timing windows and sampled native run are not a matched-clock unit price. Pending candidate proofs remain unverified.",
+  "test_consideration": "Six fixed correspondence controls plus existing timer tests cover explicit integer-field projection and native rows remain unparsed raw evidence. No solver behavior change."
+}
