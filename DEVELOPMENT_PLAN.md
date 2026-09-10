@@ -447,8 +447,9 @@ failure handoff and cleanup audit.
 
 **Direct debugging ownership.** Codex diagnoses and repairs implementation,
 performance, unit-test, crash, sanitizer, proof/model, and soundness failures
-directly; Claude debugging or repair review is not required. Preserve the
-original failure, establish a causal reproducer, add a regression, and validate
+directly. Do not delegate debugging or repair review to Claude unless the user
+explicitly requests it. Preserve the original failure, establish a causal
+reproducer, add a regression, and validate
 the fix with the affected invariants and independent proof/model oracles before
 resuming dependent work. Do not weaken correctness or promotion gates.
 Claude still owns fuzz execution, monitoring, interpretation, and cleanup as
