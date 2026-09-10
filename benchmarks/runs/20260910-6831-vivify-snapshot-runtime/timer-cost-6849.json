@@ -1,0 +1,313 @@
+{
+  "checkpoint": {
+    "path": "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/solver-checkpoint-6833.json",
+    "sha256": "d6703ab9c6e4c46a1947140dee0d6cbd3ae1a3dddfbe33a5c04dcacf97a7cd33"
+  },
+  "ranks": {
+    "32": {
+      "waves": [
+        {
+          "wave": 0,
+          "values": {
+            "candidate": {
+              "vivify_ms": 34827,
+              "slot_ms": 121348,
+              "outside_ms": 208901,
+              "vivify_applications": 359,
+              "peak_rss_kib": 572336
+            },
+            "previous": {
+              "vivify_ms": 35127,
+              "slot_ms": 121368,
+              "outside_ms": 207923,
+              "vivify_applications": 359,
+              "peak_rss_kib": 587236
+            }
+          },
+          "ratios": {
+            "vivify_ms": 0.9914595610214365,
+            "slot_ms": 0.9998352119174742,
+            "outside_ms": 1.0047036643372786,
+            "peak_rss_kib": 0.9746268961712157
+          }
+        },
+        {
+          "wave": 1,
+          "values": {
+            "previous": {
+              "vivify_ms": 35223,
+              "slot_ms": 121283,
+              "outside_ms": 206348,
+              "vivify_applications": 359,
+              "peak_rss_kib": 587236
+            },
+            "candidate": {
+              "vivify_ms": 34763,
+              "slot_ms": 121108,
+              "outside_ms": 207032,
+              "vivify_applications": 359,
+              "peak_rss_kib": 572336
+            }
+          },
+          "ratios": {
+            "vivify_ms": 0.9869403514748886,
+            "slot_ms": 0.9985570937394359,
+            "outside_ms": 1.0033147886095335,
+            "peak_rss_kib": 0.9746268961712157
+          }
+        },
+        {
+          "wave": 2,
+          "values": {
+            "candidate": {
+              "vivify_ms": 35125,
+              "slot_ms": 122026,
+              "outside_ms": 210830,
+              "vivify_applications": 359,
+              "peak_rss_kib": 572336
+            },
+            "previous": {
+              "vivify_ms": 35077,
+              "slot_ms": 121482,
+              "outside_ms": 208381,
+              "vivify_applications": 359,
+              "peak_rss_kib": 587236
+            }
+          },
+          "ratios": {
+            "vivify_ms": 1.0013684180517148,
+            "slot_ms": 1.0044780296669464,
+            "outside_ms": 1.0117525110254775,
+            "peak_rss_kib": 0.9746268961712157
+          }
+        }
+      ],
+      "paired": {
+        "vivify_ms": {
+          "median": 0.9914595610214365,
+          "min": 0.9869403514748886,
+          "max": 1.0013684180517148
+        },
+        "slot_ms": {
+          "median": 0.9998352119174742,
+          "min": 0.9985570937394359,
+          "max": 1.0044780296669464
+        },
+        "outside_ms": {
+          "median": 1.0047036643372786,
+          "min": 1.0033147886095335,
+          "max": 1.0117525110254775
+        },
+        "peak_rss_kib": {
+          "median": 0.9746268961712157,
+          "min": 0.9746268961712157,
+          "max": 0.9746268961712157
+        }
+      }
+    },
+    "39": {
+      "waves": [
+        {
+          "wave": 0,
+          "values": {
+            "candidate": {
+              "vivify_ms": 41891,
+              "slot_ms": 169104,
+              "outside_ms": 259340,
+              "vivify_applications": 406,
+              "peak_rss_kib": 422952
+            },
+            "previous": {
+              "vivify_ms": 42096,
+              "slot_ms": 169500,
+              "outside_ms": 259076,
+              "vivify_applications": 406,
+              "peak_rss_kib": 435116
+            }
+          },
+          "ratios": {
+            "vivify_ms": 0.9951301786393006,
+            "slot_ms": 0.9976637168141593,
+            "outside_ms": 1.0010190060059596,
+            "peak_rss_kib": 0.9720442364794676
+          }
+        },
+        {
+          "wave": 1,
+          "values": {
+            "previous": {
+              "vivify_ms": 42372,
+              "slot_ms": 169572,
+              "outside_ms": 258022,
+              "vivify_applications": 406,
+              "peak_rss_kib": 435116
+            },
+            "candidate": {
+              "vivify_ms": 41718,
+              "slot_ms": 168657,
+              "outside_ms": 257530,
+              "vivify_applications": 406,
+              "peak_rss_kib": 422952
+            }
+          },
+          "ratios": {
+            "vivify_ms": 0.9845652789578023,
+            "slot_ms": 0.9946040619913665,
+            "outside_ms": 0.9980931858523692,
+            "peak_rss_kib": 0.9720442364794676
+          }
+        },
+        {
+          "wave": 2,
+          "values": {
+            "candidate": {
+              "vivify_ms": 42275,
+              "slot_ms": 169849,
+              "outside_ms": 260421,
+              "vivify_applications": 406,
+              "peak_rss_kib": 422952
+            },
+            "previous": {
+              "vivify_ms": 42266,
+              "slot_ms": 170058,
+              "outside_ms": 260176,
+              "vivify_applications": 406,
+              "peak_rss_kib": 435116
+            }
+          },
+          "ratios": {
+            "vivify_ms": 1.0002129371125728,
+            "slot_ms": 0.9987710075386045,
+            "outside_ms": 1.000941670253982,
+            "peak_rss_kib": 0.9720442364794676
+          }
+        }
+      ],
+      "paired": {
+        "vivify_ms": {
+          "median": 0.9951301786393006,
+          "min": 0.9845652789578023,
+          "max": 1.0002129371125728
+        },
+        "slot_ms": {
+          "median": 0.9976637168141593,
+          "min": 0.9946040619913665,
+          "max": 0.9987710075386045
+        },
+        "outside_ms": {
+          "median": 1.000941670253982,
+          "min": 0.9980931858523692,
+          "max": 1.0010190060059596
+        },
+        "peak_rss_kib": {
+          "median": 0.9720442364794676,
+          "min": 0.9720442364794676,
+          "max": 0.9720442364794676
+        }
+      }
+    },
+    "38": {
+      "waves": [
+        {
+          "wave": 0,
+          "values": {
+            "candidate": {
+              "vivify_ms": 18624,
+              "slot_ms": 23289,
+              "outside_ms": 338333,
+              "vivify_applications": 266,
+              "peak_rss_kib": 86520
+            },
+            "previous": {
+              "vivify_ms": 18478,
+              "slot_ms": 23138,
+              "outside_ms": 338029,
+              "vivify_applications": 266,
+              "peak_rss_kib": 86520
+            }
+          },
+          "ratios": {
+            "vivify_ms": 1.0079012880181837,
+            "slot_ms": 1.0065260610251534,
+            "outside_ms": 1.0008993311224776,
+            "peak_rss_kib": 1.0
+          }
+        },
+        {
+          "wave": 1,
+          "values": {
+            "previous": {
+              "vivify_ms": 18487,
+              "slot_ms": 23154,
+              "outside_ms": 337577,
+              "vivify_applications": 266,
+              "peak_rss_kib": 86520
+            },
+            "candidate": {
+              "vivify_ms": 18493,
+              "slot_ms": 23154,
+              "outside_ms": 336966,
+              "vivify_applications": 266,
+              "peak_rss_kib": 86520
+            }
+          },
+          "ratios": {
+            "vivify_ms": 1.0003245523881648,
+            "slot_ms": 1.0,
+            "outside_ms": 0.998190042568066,
+            "peak_rss_kib": 1.0
+          }
+        },
+        {
+          "wave": 2,
+          "values": {
+            "candidate": {
+              "vivify_ms": 18686,
+              "slot_ms": 23358,
+              "outside_ms": 340123,
+              "vivify_applications": 266,
+              "peak_rss_kib": 86520
+            },
+            "previous": {
+              "vivify_ms": 18535,
+              "slot_ms": 23209,
+              "outside_ms": 338401,
+              "vivify_applications": 266,
+              "peak_rss_kib": 86520
+            }
+          },
+          "ratios": {
+            "vivify_ms": 1.0081467493930403,
+            "slot_ms": 1.0064199233056141,
+            "outside_ms": 1.0050886374449248,
+            "peak_rss_kib": 1.0
+          }
+        }
+      ],
+      "paired": {
+        "vivify_ms": {
+          "median": 1.0079012880181837,
+          "min": 1.0003245523881648,
+          "max": 1.0081467493930403
+        },
+        "slot_ms": {
+          "median": 1.0064199233056141,
+          "min": 1.0,
+          "max": 1.0065260610251534
+        },
+        "outside_ms": {
+          "median": 1.0008993311224776,
+          "min": 0.998190042568066,
+          "max": 1.0050886374449248
+        },
+        "peak_rss_kib": {
+          "median": 1.0,
+          "min": 1.0,
+          "max": 1.0
+        }
+      }
+    }
+  },
+  "conclusion": "No reliable total-runtime gain: Rank32 is slower in all three pairs,39 is near neutral and38 mixed. Do not adopt6822 or repeat this campaign to select favorable noise. The local RSS decrease is recorded, not a general memory-parity claim. Pending independent certificates remain open;6730 stays current.",
+  "test_consideration": "Unchanged maintained read_timers parser has five boundary/malformed/rounding tests. Strict6833 already verifies all18 exact work/certificates and matrix; helper asserts full cardinality and equal application counts."
+}

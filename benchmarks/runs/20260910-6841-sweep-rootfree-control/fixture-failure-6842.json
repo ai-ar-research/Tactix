@@ -1,0 +1,10 @@
+{
+  "classification": "Parent fixture asserts before environment construction: root mode4 assigns -5,-6; binary (5 or 1) forces1 while clause(6 or 5 or -1) forces-1. Contradictory test setup, not candidate solver failure. Replace the last sign with+1 so the exhaustive nonempty-model oracle applies.",
+  "original_fixture_sha256": "7ddba80b735fe1abb2177185bc2ebdef50720ec98c34db5fd93076888e6f1027",
+  "hashes": {
+    "benchmarks/runs/20260910-6841-sweep-rootfree-control/logs/previous-test_sweep_rootfree-run.json": "27e3029c28e5b1c3c1fdc65eb01e0775cd23b2d2e556feca5b99cd859f147218",
+    "benchmarks/runs/20260910-6841-sweep-rootfree-control/failed-test_sweep_rootfree.cpp": "7ddba80b735fe1abb2177185bc2ebdef50720ec98c34db5fd93076888e6f1027",
+    "benchmarks/probes/scratch/classify-sweep-fixture-6842.py": "dfb86e94cae7e619a193f6df88c06a3105dcff722d5d17896ca73229e89fc690",
+    "benchmarks/probes/scratch/control-sweep-rootfree-6841.py": "cc73858a2a21dbf0cf8980e9e515ea001f05544df840698e1cac4336659f8173"
+  }
+}

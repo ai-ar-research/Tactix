@@ -1,0 +1,1225 @@
+{
+  "observed_at": "2026-09-10T05:22:18.992823+00:00",
+  "solver_outcomes": 18,
+  "checked_clean": 4,
+  "statuses": {
+    "0": {
+      "status": "pending_validation",
+      "clean": false,
+      "checked": false,
+      "scorable": false
+    },
+    "1": {
+      "status": "pending_validation",
+      "clean": false,
+      "checked": false,
+      "scorable": false
+    },
+    "2": {
+      "status": "checked_UNSAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "3": {
+      "status": "checked_UNSAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "4": {
+      "status": "checked_UNSAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "5": {
+      "status": "checked_UNSAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "6": {
+      "status": "pending_validation",
+      "clean": false,
+      "checked": false,
+      "scorable": false
+    },
+    "7": {
+      "status": "pending_validation",
+      "clean": false,
+      "checked": false,
+      "scorable": false
+    },
+    "8": {
+      "status": "pending_validation",
+      "clean": false,
+      "checked": false,
+      "scorable": false
+    },
+    "9": {
+      "status": "pending_validation",
+      "clean": false,
+      "checked": false,
+      "scorable": false
+    },
+    "10": {
+      "status": "pending_validation",
+      "clean": false,
+      "checked": false,
+      "scorable": false
+    },
+    "11": {
+      "status": "pending_validation",
+      "clean": false,
+      "checked": false,
+      "scorable": false
+    },
+    "12": {
+      "status": "pending_validation",
+      "clean": false,
+      "checked": false,
+      "scorable": false
+    },
+    "13": {
+      "status": "pending_validation",
+      "clean": false,
+      "checked": false,
+      "scorable": false
+    },
+    "14": {
+      "status": "pending_validation",
+      "clean": false,
+      "checked": false,
+      "scorable": false
+    },
+    "15": {
+      "status": "pending_validation",
+      "clean": false,
+      "checked": false,
+      "scorable": false
+    },
+    "16": {
+      "status": "pending_validation",
+      "clean": false,
+      "checked": false,
+      "scorable": false
+    },
+    "17": {
+      "status": "pending_validation",
+      "clean": false,
+      "checked": false,
+      "scorable": false
+    }
+  },
+  "exact_per_arm_work_and_proof": true,
+  "ranks": {
+    "32": {
+      "waves": [
+        {
+          "wave": 0,
+          "seconds": {
+            "candidate": 330.457,
+            "previous": 329.511
+          },
+          "ratio": 1.0028709208493798,
+          "placement": {
+            "candidate": {
+              "node": "node017",
+              "affinity": null,
+              "peak_rss_kib": 572336,
+              "runtime_context": null
+            },
+            "previous": {
+              "node": "node018",
+              "affinity": null,
+              "peak_rss_kib": 587236,
+              "runtime_context": null
+            }
+          }
+        },
+        {
+          "wave": 1,
+          "seconds": {
+            "previous": 327.848,
+            "candidate": 328.388
+          },
+          "ratio": 1.0016471047558624,
+          "placement": {
+            "previous": {
+              "node": "node017",
+              "affinity": null,
+              "peak_rss_kib": 587236,
+              "runtime_context": null
+            },
+            "candidate": {
+              "node": "node018",
+              "affinity": null,
+              "peak_rss_kib": 572336,
+              "runtime_context": null
+            }
+          }
+        },
+        {
+          "wave": 2,
+          "seconds": {
+            "candidate": 333.098,
+            "previous": 330.102
+          },
+          "ratio": 1.009075982575083,
+          "placement": {
+            "candidate": {
+              "node": "node017",
+              "affinity": null,
+              "peak_rss_kib": 572336,
+              "runtime_context": null
+            },
+            "previous": {
+              "node": "node018",
+              "affinity": null,
+              "peak_rss_kib": 587236,
+              "runtime_context": null
+            }
+          }
+        }
+      ],
+      "spread": {
+        "candidate": {
+          "median": 330.457,
+          "min": 328.388,
+          "max": 333.098,
+          "range_over_median": 0.014252989042447388
+        },
+        "previous": {
+          "median": 329.511,
+          "min": 327.848,
+          "max": 330.102,
+          "range_over_median": 0.006840439317655441
+        }
+      },
+      "paired": {
+        "median": 1.0028709208493798,
+        "min": 1.0016471047558624,
+        "max": 1.009075982575083
+      },
+      "absolute_range_within_two_percent": true
+    },
+    "39": {
+      "waves": [
+        {
+          "wave": 0,
+          "seconds": {
+            "candidate": 428.606,
+            "previous": 428.757
+          },
+          "ratio": 0.9996478191609699,
+          "placement": {
+            "candidate": {
+              "node": "node017",
+              "affinity": [
+                12,
+                13,
+                14,
+                15,
+                16,
+                17,
+                108,
+                109,
+                110,
+                111,
+                112,
+                113
+              ],
+              "peak_rss_kib": 422952,
+              "runtime_context": {
+                "end": {
+                  "observed_at": "2026-09-10T05:04:22.020449+00:00",
+                  "occupancy": {
+                    "exit_code": 0,
+                    "rows": [
+                      "cpu-dense-hwulab-q|RUNNING|12",
+                      "cpu-dense-hwulab-q|RUNNING|12",
+                      "cpu-dense-hwulab-q|RUNNING|12",
+                      "cpu-dense-hwulab-q|RUNNING|12",
+                      "cpu-dense-hwulab-q|RUNNING|12"
+                    ],
+                    "stderr": ""
+                  },
+                  "topology": [
+                    {
+                      "core": "16",
+                      "cpu": 12,
+                      "l3_shared_cpus": "12-17,108-113",
+                      "socket": "0"
+                    },
+                    {
+                      "core": "17",
+                      "cpu": 13,
+                      "l3_shared_cpus": "12-17,108-113",
+                      "socket": "0"
+                    },
+                    {
+                      "core": "18",
+                      "cpu": 14,
+                      "l3_shared_cpus": "12-17,108-113",
+                      "socket": "0"
+                    },
+                    {
+                      "core": "19",
+                      "cpu": 15,
+                      "l3_shared_cpus": "12-17,108-113",
+                      "socket": "0"
+                    },
+                    {
+                      "core": "20",
+                      "cpu": 16,
+                      "l3_shared_cpus": "12-17,108-113",
+                      "socket": "0"
+                    },
+                    {
+                      "core": "21",
+                      "cpu": 17,
+                      "l3_shared_cpus": "12-17,108-113",
+                      "socket": "0"
+                    },
+                    {
+                      "core": "16",
+                      "cpu": 108,
+                      "l3_shared_cpus": "12-17,108-113",
+                      "socket": "0"
+                    },
+                    {
+                      "core": "17",
+                      "cpu": 109,
+                      "l3_shared_cpus": "12-17,108-113",
+                      "socket": "0"
+                    },
+                    {
+                      "core": "18",
+                      "cpu": 110,
+                      "l3_shared_cpus": "12-17,108-113",
+                      "socket": "0"
+                    },
+                    {
+                      "core": "19",
+                      "cpu": 111,
+                      "l3_shared_cpus": "12-17,108-113",
+                      "socket": "0"
+                    },
+                    {
+                      "core": "20",
+                      "cpu": 112,
+                      "l3_shared_cpus": "12-17,108-113",
+                      "socket": "0"
+                    },
+                    {
+                      "core": "21",
+                      "cpu": 113,
+                      "l3_shared_cpus": "12-17,108-113",
+                      "socket": "0"
+                    }
+                  ]
+                },
+                "observed_at": "2026-09-10T04:57:13.384357+00:00",
+                "occupancy": {
+                  "exit_code": 0,
+                  "rows": [
+                    "cpu-dense-hwulab-q|RUNNING|12",
+                    "cpu-dense-hwulab-q|RUNNING|12",
+                    "cpu-dense-hwulab-q|RUNNING|12",
+                    "cpu-dense-hwulab-q|RUNNING|12",
+                    "cpu-dense-hwulab-q|RUNNING|12"
+                  ],
+                  "stderr": ""
+                },
+                "perf_probe": {
+                  "exit_code": 0,
+                  "stderr": "\n Performance counter stats for 'true':\n\n           3127173      cycles                                                                \n\n       0.002494391 seconds time elapsed\n\n       0.000000000 seconds user\n       0.002537000 seconds sys\n\n\n"
+                },
+                "perf_statistics": [
+                  "# started on Thu Sep 10 00:57:13 2026",
+                  "",
+                  "428517.85\tmsec\ttask-clock\t428517847411\t100.00\t1.000\tCPUs utilized",
+                  "1628347436941\t\tcycles\t428517847411\t100.00\t3.800\tGHz",
+                  "2986540110020\t\tinstructions\t428517847411\t100.00\t1.83\tinsn per cycle",
+                  "1240\t\tcontext-switches\t428517847411\t100.00\t2.894\t/sec",
+                  "1\t\tcpu-migrations\t428517847411\t100.00\t0.002\t/sec",
+                  "143735\t\tpage-faults\t428517847411\t100.00\t335.424\t/sec"
+                ],
+                "topology": [
+                  {
+                    "core": "16",
+                    "cpu": 12,
+                    "l3_shared_cpus": "12-17,108-113",
+                    "socket": "0"
+                  },
+                  {
+                    "core": "17",
+                    "cpu": 13,
+                    "l3_shared_cpus": "12-17,108-113",
+                    "socket": "0"
+                  },
+                  {
+                    "core": "18",
+                    "cpu": 14,
+                    "l3_shared_cpus": "12-17,108-113",
+                    "socket": "0"
+                  },
+                  {
+                    "core": "19",
+                    "cpu": 15,
+                    "l3_shared_cpus": "12-17,108-113",
+                    "socket": "0"
+                  },
+                  {
+                    "core": "20",
+                    "cpu": 16,
+                    "l3_shared_cpus": "12-17,108-113",
+                    "socket": "0"
+                  },
+                  {
+                    "core": "21",
+                    "cpu": 17,
+                    "l3_shared_cpus": "12-17,108-113",
+                    "socket": "0"
+                  },
+                  {
+                    "core": "16",
+                    "cpu": 108,
+                    "l3_shared_cpus": "12-17,108-113",
+                    "socket": "0"
+                  },
+                  {
+                    "core": "17",
+                    "cpu": 109,
+                    "l3_shared_cpus": "12-17,108-113",
+                    "socket": "0"
+                  },
+                  {
+                    "core": "18",
+                    "cpu": 110,
+                    "l3_shared_cpus": "12-17,108-113",
+                    "socket": "0"
+                  },
+                  {
+                    "core": "19",
+                    "cpu": 111,
+                    "l3_shared_cpus": "12-17,108-113",
+                    "socket": "0"
+                  },
+                  {
+                    "core": "20",
+                    "cpu": 112,
+                    "l3_shared_cpus": "12-17,108-113",
+                    "socket": "0"
+                  },
+                  {
+                    "core": "21",
+                    "cpu": 113,
+                    "l3_shared_cpus": "12-17,108-113",
+                    "socket": "0"
+                  }
+                ]
+              }
+            },
+            "previous": {
+              "node": "node018",
+              "affinity": [
+                12,
+                13,
+                14,
+                15,
+                16,
+                17,
+                108,
+                109,
+                110,
+                111,
+                112,
+                113
+              ],
+              "peak_rss_kib": 435116,
+              "runtime_context": {
+                "end": {
+                  "observed_at": "2026-09-10T05:04:22.035090+00:00",
+                  "occupancy": {
+                    "exit_code": 0,
+                    "rows": [
+                      "cpu-dense-hwulab-q|RUNNING|12",
+                      "cpu-dense-hwulab-q|RUNNING|12",
+                      "cpu-dense-hwulab-q|RUNNING|12",
+                      "cpu-dense-hwulab-q|RUNNING|12",
+                      "cpu-dense-hwulab-q|RUNNING|12"
+                    ],
+                    "stderr": ""
+                  },
+                  "topology": [
+                    {
+                      "core": "16",
+                      "cpu": 12,
+                      "l3_shared_cpus": "12-17,108-113",
+                      "socket": "0"
+                    },
+                    {
+                      "core": "17",
+                      "cpu": 13,
+                      "l3_shared_cpus": "12-17,108-113",
+                      "socket": "0"
+                    },
+                    {
+                      "core": "18",
+                      "cpu": 14,
+                      "l3_shared_cpus": "12-17,108-113",
+                      "socket": "0"
+                    },
+                    {
+                      "core": "19",
+                      "cpu": 15,
+                      "l3_shared_cpus": "12-17,108-113",
+                      "socket": "0"
+                    },
+                    {
+                      "core": "20",
+                      "cpu": 16,
+                      "l3_shared_cpus": "12-17,108-113",
+                      "socket": "0"
+                    },
+                    {
+                      "core": "21",
+                      "cpu": 17,
+                      "l3_shared_cpus": "12-17,108-113",
+                      "socket": "0"
+                    },
+                    {
+                      "core": "16",
+                      "cpu": 108,
+                      "l3_shared_cpus": "12-17,108-113",
+                      "socket": "0"
+                    },
+                    {
+                      "core": "17",
+                      "cpu": 109,
+                      "l3_shared_cpus": "12-17,108-113",
+                      "socket": "0"
+                    },
+                    {
+                      "core": "18",
+                      "cpu": 110,
+                      "l3_shared_cpus": "12-17,108-113",
+                      "socket": "0"
+                    },
+                    {
+                      "core": "19",
+                      "cpu": 111,
+                      "l3_shared_cpus": "12-17,108-113",
+                      "socket": "0"
+                    },
+                    {
+                      "core": "20",
+                      "cpu": 112,
+                      "l3_shared_cpus": "12-17,108-113",
+                      "socket": "0"
+                    },
+                    {
+                      "core": "21",
+                      "cpu": 113,
+                      "l3_shared_cpus": "12-17,108-113",
+                      "socket": "0"
+                    }
+                  ]
+                },
+                "observed_at": "2026-09-10T04:57:13.248751+00:00",
+                "occupancy": {
+                  "exit_code": 0,
+                  "rows": [
+                    "cpu-dense-hwulab-q|RUNNING|12",
+                    "cpu-dense-hwulab-q|RUNNING|12",
+                    "cpu-dense-hwulab-q|RUNNING|12",
+                    "cpu-dense-hwulab-q|RUNNING|12",
+                    "cpu-dense-hwulab-q|RUNNING|12"
+                  ],
+                  "stderr": ""
+                },
+                "perf_probe": {
+                  "exit_code": 0,
+                  "stderr": "\n Performance counter stats for 'true':\n\n           3050496      cycles                                                                \n\n       0.002443993 seconds time elapsed\n\n       0.000000000 seconds user\n       0.002490000 seconds sys\n\n\n"
+                },
+                "perf_statistics": [
+                  "# started on Thu Sep 10 00:57:13 2026",
+                  "",
+                  "428656.42\tmsec\ttask-clock\t428656416955\t100.00\t1.000\tCPUs utilized",
+                  "1628882587598\t\tcycles\t428656416955\t100.00\t3.800\tGHz",
+                  "2988344555615\t\tinstructions\t428656416955\t100.00\t1.83\tinsn per cycle",
+                  "1052\t\tcontext-switches\t428656416955\t100.00\t2.454\t/sec",
+                  "1\t\tcpu-migrations\t428656416955\t100.00\t0.002\t/sec",
+                  "122504\t\tpage-faults\t428656416955\t100.00\t285.786\t/sec"
+                ],
+                "topology": [
+                  {
+                    "core": "16",
+                    "cpu": 12,
+                    "l3_shared_cpus": "12-17,108-113",
+                    "socket": "0"
+                  },
+                  {
+                    "core": "17",
+                    "cpu": 13,
+                    "l3_shared_cpus": "12-17,108-113",
+                    "socket": "0"
+                  },
+                  {
+                    "core": "18",
+                    "cpu": 14,
+                    "l3_shared_cpus": "12-17,108-113",
+                    "socket": "0"
+                  },
+                  {
+                    "core": "19",
+                    "cpu": 15,
+                    "l3_shared_cpus": "12-17,108-113",
+                    "socket": "0"
+                  },
+                  {
+                    "core": "20",
+                    "cpu": 16,
+                    "l3_shared_cpus": "12-17,108-113",
+                    "socket": "0"
+                  },
+                  {
+                    "core": "21",
+                    "cpu": 17,
+                    "l3_shared_cpus": "12-17,108-113",
+                    "socket": "0"
+                  },
+                  {
+                    "core": "16",
+                    "cpu": 108,
+                    "l3_shared_cpus": "12-17,108-113",
+                    "socket": "0"
+                  },
+                  {
+                    "core": "17",
+                    "cpu": 109,
+                    "l3_shared_cpus": "12-17,108-113",
+                    "socket": "0"
+                  },
+                  {
+                    "core": "18",
+                    "cpu": 110,
+                    "l3_shared_cpus": "12-17,108-113",
+                    "socket": "0"
+                  },
+                  {
+                    "core": "19",
+                    "cpu": 111,
+                    "l3_shared_cpus": "12-17,108-113",
+                    "socket": "0"
+                  },
+                  {
+                    "core": "20",
+                    "cpu": 112,
+                    "l3_shared_cpus": "12-17,108-113",
+                    "socket": "0"
+                  },
+                  {
+                    "core": "21",
+                    "cpu": 113,
+                    "l3_shared_cpus": "12-17,108-113",
+                    "socket": "0"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "wave": 1,
+          "seconds": {
+            "previous": 427.75,
+            "candidate": 426.354
+          },
+          "ratio": 0.9967364114552892,
+          "placement": {
+            "previous": {
+              "node": "node017",
+              "affinity": null,
+              "peak_rss_kib": 435116,
+              "runtime_context": null
+            },
+            "candidate": {
+              "node": "node018",
+              "affinity": null,
+              "peak_rss_kib": 422952,
+              "runtime_context": null
+            }
+          }
+        },
+        {
+          "wave": 2,
+          "seconds": {
+            "candidate": 430.416,
+            "previous": 430.379
+          },
+          "ratio": 1.0000859707374197,
+          "placement": {
+            "candidate": {
+              "node": "node017",
+              "affinity": null,
+              "peak_rss_kib": 422952,
+              "runtime_context": null
+            },
+            "previous": {
+              "node": "node018",
+              "affinity": null,
+              "peak_rss_kib": 435116,
+              "runtime_context": null
+            }
+          }
+        }
+      ],
+      "spread": {
+        "candidate": {
+          "median": 428.606,
+          "min": 426.354,
+          "max": 430.416,
+          "range_over_median": 0.009477235503002786
+        },
+        "previous": {
+          "median": 428.757,
+          "min": 427.75,
+          "max": 430.379,
+          "range_over_median": 0.00613167831662228
+        }
+      },
+      "paired": {
+        "median": 0.9996478191609699,
+        "min": 0.9967364114552892,
+        "max": 1.0000859707374197
+      },
+      "absolute_range_within_two_percent": true
+    },
+    "38": {
+      "waves": [
+        {
+          "wave": 0,
+          "seconds": {
+            "candidate": 361.691,
+            "previous": 361.204
+          },
+          "ratio": 1.0013482685684543,
+          "placement": {
+            "candidate": {
+              "node": "node017",
+              "affinity": [
+                24,
+                25,
+                26,
+                27,
+                28,
+                29,
+                120,
+                121,
+                122,
+                123,
+                124,
+                125
+              ],
+              "peak_rss_kib": 86520,
+              "runtime_context": {
+                "end": {
+                  "observed_at": "2026-09-10T05:03:14.970680+00:00",
+                  "occupancy": {
+                    "exit_code": 0,
+                    "rows": [
+                      "cpu-dense-hwulab-q|RUNNING|12",
+                      "cpu-dense-hwulab-q|RUNNING|12",
+                      "cpu-dense-hwulab-q|RUNNING|12",
+                      "cpu-dense-hwulab-q|RUNNING|12",
+                      "cpu-dense-hwulab-q|RUNNING|12"
+                    ],
+                    "stderr": ""
+                  },
+                  "topology": [
+                    {
+                      "core": "24",
+                      "cpu": 24,
+                      "l3_shared_cpus": "24-29,120-125",
+                      "socket": "0"
+                    },
+                    {
+                      "core": "25",
+                      "cpu": 25,
+                      "l3_shared_cpus": "24-29,120-125",
+                      "socket": "0"
+                    },
+                    {
+                      "core": "26",
+                      "cpu": 26,
+                      "l3_shared_cpus": "24-29,120-125",
+                      "socket": "0"
+                    },
+                    {
+                      "core": "27",
+                      "cpu": 27,
+                      "l3_shared_cpus": "24-29,120-125",
+                      "socket": "0"
+                    },
+                    {
+                      "core": "28",
+                      "cpu": 28,
+                      "l3_shared_cpus": "24-29,120-125",
+                      "socket": "0"
+                    },
+                    {
+                      "core": "29",
+                      "cpu": 29,
+                      "l3_shared_cpus": "24-29,120-125",
+                      "socket": "0"
+                    },
+                    {
+                      "core": "24",
+                      "cpu": 120,
+                      "l3_shared_cpus": "24-29,120-125",
+                      "socket": "0"
+                    },
+                    {
+                      "core": "25",
+                      "cpu": 121,
+                      "l3_shared_cpus": "24-29,120-125",
+                      "socket": "0"
+                    },
+                    {
+                      "core": "26",
+                      "cpu": 122,
+                      "l3_shared_cpus": "24-29,120-125",
+                      "socket": "0"
+                    },
+                    {
+                      "core": "27",
+                      "cpu": 123,
+                      "l3_shared_cpus": "24-29,120-125",
+                      "socket": "0"
+                    },
+                    {
+                      "core": "28",
+                      "cpu": 124,
+                      "l3_shared_cpus": "24-29,120-125",
+                      "socket": "0"
+                    },
+                    {
+                      "core": "29",
+                      "cpu": 125,
+                      "l3_shared_cpus": "24-29,120-125",
+                      "socket": "0"
+                    }
+                  ]
+                },
+                "observed_at": "2026-09-10T04:57:13.235854+00:00",
+                "occupancy": {
+                  "exit_code": 0,
+                  "rows": [
+                    "cpu-dense-hwulab-q|RUNNING|12",
+                    "cpu-dense-hwulab-q|RUNNING|12",
+                    "cpu-dense-hwulab-q|RUNNING|12",
+                    "cpu-dense-hwulab-q|RUNNING|12",
+                    "cpu-dense-hwulab-q|RUNNING|12"
+                  ],
+                  "stderr": ""
+                },
+                "perf_probe": {
+                  "exit_code": 0,
+                  "stderr": "\n Performance counter stats for 'true':\n\n           3283282      cycles                                                                \n\n       0.002595834 seconds time elapsed\n\n       0.000000000 seconds user\n       0.002639000 seconds sys\n\n\n"
+                },
+                "perf_statistics": [
+                  "# started on Thu Sep 10 00:57:13 2026",
+                  "",
+                  "361599.12\tmsec\ttask-clock\t361599118541\t100.00\t1.000\tCPUs utilized",
+                  "1374055677083\t\tcycles\t361599118541\t100.00\t3.800\tGHz",
+                  "3421811928493\t\tinstructions\t361599118541\t100.00\t2.49\tinsn per cycle",
+                  "1167\t\tcontext-switches\t361599118541\t100.00\t3.227\t/sec",
+                  "0\t\tcpu-migrations\t361599118541\t100.00\t0.000\t/sec",
+                  "50448\t\tpage-faults\t361599118541\t100.00\t139.514\t/sec"
+                ],
+                "topology": [
+                  {
+                    "core": "24",
+                    "cpu": 24,
+                    "l3_shared_cpus": "24-29,120-125",
+                    "socket": "0"
+                  },
+                  {
+                    "core": "25",
+                    "cpu": 25,
+                    "l3_shared_cpus": "24-29,120-125",
+                    "socket": "0"
+                  },
+                  {
+                    "core": "26",
+                    "cpu": 26,
+                    "l3_shared_cpus": "24-29,120-125",
+                    "socket": "0"
+                  },
+                  {
+                    "core": "27",
+                    "cpu": 27,
+                    "l3_shared_cpus": "24-29,120-125",
+                    "socket": "0"
+                  },
+                  {
+                    "core": "28",
+                    "cpu": 28,
+                    "l3_shared_cpus": "24-29,120-125",
+                    "socket": "0"
+                  },
+                  {
+                    "core": "29",
+                    "cpu": 29,
+                    "l3_shared_cpus": "24-29,120-125",
+                    "socket": "0"
+                  },
+                  {
+                    "core": "24",
+                    "cpu": 120,
+                    "l3_shared_cpus": "24-29,120-125",
+                    "socket": "0"
+                  },
+                  {
+                    "core": "25",
+                    "cpu": 121,
+                    "l3_shared_cpus": "24-29,120-125",
+                    "socket": "0"
+                  },
+                  {
+                    "core": "26",
+                    "cpu": 122,
+                    "l3_shared_cpus": "24-29,120-125",
+                    "socket": "0"
+                  },
+                  {
+                    "core": "27",
+                    "cpu": 123,
+                    "l3_shared_cpus": "24-29,120-125",
+                    "socket": "0"
+                  },
+                  {
+                    "core": "28",
+                    "cpu": 124,
+                    "l3_shared_cpus": "24-29,120-125",
+                    "socket": "0"
+                  },
+                  {
+                    "core": "29",
+                    "cpu": 125,
+                    "l3_shared_cpus": "24-29,120-125",
+                    "socket": "0"
+                  }
+                ]
+              }
+            },
+            "previous": {
+              "node": "node018",
+              "affinity": [
+                24,
+                25,
+                26,
+                27,
+                28,
+                29,
+                120,
+                121,
+                122,
+                123,
+                124,
+                125
+              ],
+              "peak_rss_kib": 86520,
+              "runtime_context": {
+                "end": {
+                  "observed_at": "2026-09-10T05:03:14.347554+00:00",
+                  "occupancy": {
+                    "exit_code": 0,
+                    "rows": [
+                      "cpu-dense-hwulab-q|RUNNING|12",
+                      "cpu-dense-hwulab-q|RUNNING|12",
+                      "cpu-dense-hwulab-q|RUNNING|12",
+                      "cpu-dense-hwulab-q|RUNNING|12",
+                      "cpu-dense-hwulab-q|RUNNING|12"
+                    ],
+                    "stderr": ""
+                  },
+                  "topology": [
+                    {
+                      "core": "24",
+                      "cpu": 24,
+                      "l3_shared_cpus": "24-29,120-125",
+                      "socket": "0"
+                    },
+                    {
+                      "core": "25",
+                      "cpu": 25,
+                      "l3_shared_cpus": "24-29,120-125",
+                      "socket": "0"
+                    },
+                    {
+                      "core": "26",
+                      "cpu": 26,
+                      "l3_shared_cpus": "24-29,120-125",
+                      "socket": "0"
+                    },
+                    {
+                      "core": "27",
+                      "cpu": 27,
+                      "l3_shared_cpus": "24-29,120-125",
+                      "socket": "0"
+                    },
+                    {
+                      "core": "28",
+                      "cpu": 28,
+                      "l3_shared_cpus": "24-29,120-125",
+                      "socket": "0"
+                    },
+                    {
+                      "core": "29",
+                      "cpu": 29,
+                      "l3_shared_cpus": "24-29,120-125",
+                      "socket": "0"
+                    },
+                    {
+                      "core": "24",
+                      "cpu": 120,
+                      "l3_shared_cpus": "24-29,120-125",
+                      "socket": "0"
+                    },
+                    {
+                      "core": "25",
+                      "cpu": 121,
+                      "l3_shared_cpus": "24-29,120-125",
+                      "socket": "0"
+                    },
+                    {
+                      "core": "26",
+                      "cpu": 122,
+                      "l3_shared_cpus": "24-29,120-125",
+                      "socket": "0"
+                    },
+                    {
+                      "core": "27",
+                      "cpu": 123,
+                      "l3_shared_cpus": "24-29,120-125",
+                      "socket": "0"
+                    },
+                    {
+                      "core": "28",
+                      "cpu": 124,
+                      "l3_shared_cpus": "24-29,120-125",
+                      "socket": "0"
+                    },
+                    {
+                      "core": "29",
+                      "cpu": 125,
+                      "l3_shared_cpus": "24-29,120-125",
+                      "socket": "0"
+                    }
+                  ]
+                },
+                "observed_at": "2026-09-10T04:57:13.101042+00:00",
+                "occupancy": {
+                  "exit_code": 0,
+                  "rows": [
+                    "cpu-dense-hwulab-q|RUNNING|12",
+                    "cpu-dense-hwulab-q|RUNNING|12",
+                    "cpu-dense-hwulab-q|RUNNING|12",
+                    "cpu-dense-hwulab-q|RUNNING|12",
+                    "cpu-dense-hwulab-q|RUNNING|12"
+                  ],
+                  "stderr": ""
+                },
+                "perf_probe": {
+                  "exit_code": 0,
+                  "stderr": "\n Performance counter stats for 'true':\n\n           3243454      cycles                                                                \n\n       0.002533494 seconds time elapsed\n\n       0.000000000 seconds user\n       0.002573000 seconds sys\n\n\n"
+                },
+                "perf_statistics": [
+                  "# started on Thu Sep 10 00:57:13 2026",
+                  "",
+                  "361154.59\tmsec\ttask-clock\t361154588301\t100.00\t1.000\tCPUs utilized",
+                  "1372379840537\t\tcycles\t361154588301\t100.00\t3.800\tGHz",
+                  "3421802713903\t\tinstructions\t361154588301\t100.00\t2.49\tinsn per cycle",
+                  "770\t\tcontext-switches\t361154588301\t100.00\t2.132\t/sec",
+                  "1\t\tcpu-migrations\t361154588301\t100.00\t0.003\t/sec",
+                  "50448\t\tpage-faults\t361154588301\t100.00\t139.685\t/sec"
+                ],
+                "topology": [
+                  {
+                    "core": "24",
+                    "cpu": 24,
+                    "l3_shared_cpus": "24-29,120-125",
+                    "socket": "0"
+                  },
+                  {
+                    "core": "25",
+                    "cpu": 25,
+                    "l3_shared_cpus": "24-29,120-125",
+                    "socket": "0"
+                  },
+                  {
+                    "core": "26",
+                    "cpu": 26,
+                    "l3_shared_cpus": "24-29,120-125",
+                    "socket": "0"
+                  },
+                  {
+                    "core": "27",
+                    "cpu": 27,
+                    "l3_shared_cpus": "24-29,120-125",
+                    "socket": "0"
+                  },
+                  {
+                    "core": "28",
+                    "cpu": 28,
+                    "l3_shared_cpus": "24-29,120-125",
+                    "socket": "0"
+                  },
+                  {
+                    "core": "29",
+                    "cpu": 29,
+                    "l3_shared_cpus": "24-29,120-125",
+                    "socket": "0"
+                  },
+                  {
+                    "core": "24",
+                    "cpu": 120,
+                    "l3_shared_cpus": "24-29,120-125",
+                    "socket": "0"
+                  },
+                  {
+                    "core": "25",
+                    "cpu": 121,
+                    "l3_shared_cpus": "24-29,120-125",
+                    "socket": "0"
+                  },
+                  {
+                    "core": "26",
+                    "cpu": 122,
+                    "l3_shared_cpus": "24-29,120-125",
+                    "socket": "0"
+                  },
+                  {
+                    "core": "27",
+                    "cpu": 123,
+                    "l3_shared_cpus": "24-29,120-125",
+                    "socket": "0"
+                  },
+                  {
+                    "core": "28",
+                    "cpu": 124,
+                    "l3_shared_cpus": "24-29,120-125",
+                    "socket": "0"
+                  },
+                  {
+                    "core": "29",
+                    "cpu": 125,
+                    "l3_shared_cpus": "24-29,120-125",
+                    "socket": "0"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "wave": 1,
+          "seconds": {
+            "previous": 360.765,
+            "candidate": 360.146
+          },
+          "ratio": 0.9982842016270981,
+          "placement": {
+            "previous": {
+              "node": "node017",
+              "affinity": null,
+              "peak_rss_kib": 86520,
+              "runtime_context": null
+            },
+            "candidate": {
+              "node": "node018",
+              "affinity": null,
+              "peak_rss_kib": 86520,
+              "runtime_context": null
+            }
+          }
+        },
+        {
+          "wave": 2,
+          "seconds": {
+            "candidate": 363.516,
+            "previous": 361.656
+          },
+          "ratio": 1.0051430088260669,
+          "placement": {
+            "candidate": {
+              "node": "node017",
+              "affinity": null,
+              "peak_rss_kib": 86520,
+              "runtime_context": null
+            },
+            "previous": {
+              "node": "node018",
+              "affinity": null,
+              "peak_rss_kib": 86520,
+              "runtime_context": null
+            }
+          }
+        }
+      ],
+      "spread": {
+        "candidate": {
+          "median": 361.691,
+          "min": 360.146,
+          "max": 363.516,
+          "range_over_median": 0.009317345468922381
+        },
+        "previous": {
+          "median": 361.204,
+          "min": 360.765,
+          "max": 361.656,
+          "range_over_median": 0.0024667500913611684
+        }
+      },
+      "paired": {
+        "median": 1.0013482685684543,
+        "min": 0.9982842016270981,
+        "max": 1.0051430088260669
+      },
+      "absolute_range_within_two_percent": true
+    }
+  },
+  "hashes": {
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/manifest.json": "84c54edc0d901669b956769075c34508a149097b75f7eb8e7782b32f94b5b060",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/wave0-submission.json": "43271e67b6725fc4cc2498975e9830c5b5bc2c2068004ed05cd0bb31dec39b78",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/wave1-submission.json": "c4f9be59ae75ffdb208372f54bd9e6062ff9ff0724fc8bb007b5931b41cb8962",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/wave2-submission.json": "9bfb9464a9584bcb46cab2111223e279372b5778bf9ada2bbacffca1e59f1f58",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/provisional/000.json": "d8b3df3f617bdef771c335215e1c5f04e7bd10f6cd2a07a386cb3a211a95cc28",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/provisional/001.json": "d2f593edead207de6a0dbb93fd320032f11424fa115391d84cbf10ec952c8055",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/provisional/002.json": "a1543d77175523fd8d9c1e8e914c97c71ae3ce3756c763e614a435a246df5bdc",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/provisional/003.json": "7ac272eb4fbe6e337a70ff9757aa7ee6c43ed0f1642e78812d2008244409e34d",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/provisional/004.json": "9876ab61e4188a958e4b87cdaf8eb71e884817274051a32955687141d537f1c5",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/provisional/005.json": "119e1771756718f7db8767e3ab415378f3a22f55905e7c21d7933267535427c3",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/provisional/006.json": "02d760b01100e09dbc491cf1561d0c038cca87328a4d080b229371e7889ce3f1",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/provisional/007.json": "7048d229e68bfdf2ac9847878abd556f21bed50fd5f4785702212cdf20552919",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/provisional/008.json": "5be5ec6858070005751f9d373fce8c5589f4171f335c020ed5e088f2786ed45b",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/provisional/009.json": "c2d59bfdaa933a70453c742943368197251e6aaf9f430f774d3565446fe241a8",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/provisional/010.json": "1846d381e5b75bdf29559294ed74b4c5a165c4f3e484ab3112a94223a300356e",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/provisional/011.json": "2e7a1096021a93072dd66f8b41317f4fbe3ba1560ed87bbb9acf141dd261cd09",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/provisional/012.json": "fa3e92351ee5fd7ac2541b248dbff5295df3c7b0734d1c5c9c941d9c23615f4c",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/provisional/013.json": "1047e2e392c1d82cf896d5a4a29c0192bca354288338235c5564e0b464566807",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/provisional/014.json": "fb05fd3bd3b9fc7340ca56e70987f7f126c26dc3bee991245dacc7f9bb2022b2",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/provisional/015.json": "111533f9851193254f5842afa0db2a08c43c9f1607e9d66f9fd8a493898f70bb",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/provisional/016.json": "4f1cc161f38507054d18d89e8ad1866407138d8bce160e0ac5bdcff2be4701c7",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/provisional/017.json": "763dd0f2d094e3548ebc82c709aa00b63f4bd5a944d151006abc312390083520",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/results/002.json": "1aa3f337be929c59bfcc3d91acfb8f93d84328a7a8232908befbfcbbd65d9f21",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/results/003.json": "6ee6c30c9dad8e83783a4e76dbccd5dfdd3f6d8b44fc893e3682a5682934ceca",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/results/004.json": "56c27eb5f5727f2c3e782dc86a2f4545af55067f14312338af091db381487865",
+    "benchmarks/runs/20260910-6831-vivify-snapshot-runtime/results/005.json": "96bedd78b92aa5415b4fa499920b5eb8d4928ce48d5a4cd28c83f8b80603efde"
+  },
+  "limitation": "Same-work snapshot omission6822 versus6730 on Ranks32/39/38. Both arms match same per-rank6730 work/proof. No global scheduling/CDCL parity or fixed50 competitiveness claim. Report adverse controls; no repeated campaign to select favorable noise. Pending proofs do not close a checked gate; source fuzz and memory remain open. Missing affinity/context in provisional v1 is unknown, not inferred."
+}

@@ -1,0 +1,14 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-fixture",
+    "1",
+    "3",
+    "1",
+    "1",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-1-3-1-1.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6845-sweep-rootfree-proofs/candidate-1-3-1-1.proof"
+  ],
+  "returncode": 0,
+  "stdout": "roots=1 position=3 strip=1 lrat=1 general=1 false=32 stripped=32 bridge=17\n",
+  "stderr": ""
+}
