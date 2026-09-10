@@ -1,0 +1,225 @@
+{
+  "hashes": {
+    "benchmarks/runs/20260910-7060-rank35-residual-profile/results/000.json": "1ab8cce34d2c2a7e9c99a3be067de73203c02a7e5af6487b362cafe24e878094",
+    "benchmarks/runs/20260910-7060-rank35-residual-profile/profiles/000-self.txt": "4758163758690a22133b36a20a3803813fc9bc423f2a24ef0a4ce5f32463bf79",
+    "benchmarks/runs/20260910-7060-rank35-residual-profile/profiles/000-callpaths.txt": "6cc27de545dd25ff0c3803d5c20f9540ea6784b79a114e0022a69bbdc91f7cfd",
+    "benchmarks/runs/20260910-7060-rank35-residual-profile/pins/run.py": "68a1e6d653a15b6eaee0d0862345d523f69f7e357dd0051bc9438ec791223daa",
+    "benchmarks/runs/20260910-7002-largest-gap-release-profiles/results/003.json": "d086ba76f7506a84953a66ff784d629da8c154d01670e0bb52bb7b60895743d7",
+    "benchmarks/runs/20260910-7002-largest-gap-release-profiles/profiles/003-self.txt": "8147259bd6719214b8afc0c5e2dc2711d5994e7b5c814f5e4c830936c6797a36",
+    "benchmarks/runs/20260910-7002-largest-gap-release-profiles/profiles/003-callpaths.txt": "afb020fd69f53620db2b309d50787c59059533cba12cf06b84047f29db2ebb3e",
+    "benchmarks/runs/20260910-7002-largest-gap-release-profiles/pins/run.py": "68a1e6d653a15b6eaee0d0862345d523f69f7e357dd0051bc9438ec791223daa",
+    "benchmarks/probes/scratch/summarize-rank35-cost-scopes-7079.py": "48ab6507c35f2e3648c0c158ce5de950888812d45d7f6e536e32eea45b14bdb2",
+    "tools/bench/perf_symbol_cost.py": "56867c7289ec6cb34356b49c07ce3b55747a4c45e42668c2e15d99a6cfaa8af0",
+    "tools/bench/test_perf_symbol_cost.py": "d4b9634dd2016ef6f4425657ddd17d3488056d80a30208d4e58a6dc311b406df",
+    "benchmarks/runs/20260910-7060-rank35-residual-profile/solver-summary-7063.json": "694fe53a015a9f01efbfebde77ca060632f434e61a2b6d1f27c5090481c0b662",
+    "benchmarks/runs/20260910-7041-collect-retry-runtime/matched-native-work-7059.json": "ac486baef9f76c605e431830340d3492cbbbac8356ab7edfd701fd08e5aa33a3",
+    "benchmarks/runs/20260910-7073-rank31-bve-priority/solver-summary-7075.json": "866eea7c52cfed5097e6c1d8dd799c69545cee3855ebd77e790c78bf94cad35a",
+    ".claude/worktrees/runtime-collect-retry-7030/src/policies/default_policy.cpp": "121df7ea1a49628e291bd0eb13c87bcd57bfeb0b66b337d4ec95a33d051e02f1",
+    ".claude/worktrees/runtime-collect-retry-7030/src/kernel/kernel.cpp": "339984a44fce5f480bbe40dd01b85806467ba1a92dd5eb96e08f95fcc9dc7bfe",
+    ".claude/worktrees/runtime-collect-retry-7030/src/rules/vivify/vivify.cpp": "2aff5d1f177f3e6d7abf7ff2375ab2169c65aa3c29d90f6b8d6a5a9c29df1097",
+    "kissat/src/probe.c": "8569c5df8bf39f71bc45823a7ea6b1d411b9e7e98df49629ebc703eb7e4b13fb",
+    "kissat/src/eliminate.c": "ab50083c5c15965ef0955a3c72016147b66949048e8d34735e3f550683626794",
+    "kissat/src/vivify.c": "b3ec15600e5167644082c441bae9e8c641f3aeb066a547ade4f60721ef6f7c43",
+    "cadical/src/vivify.cpp": "9a55d3ae0a5a02066fd771ed90cdcdc4ccdff9f2736f66bad661c7c7e44430f3"
+  },
+  "states": {
+    "candidate": {
+      "path": "benchmarks/runs/20260910-7060-rank35-residual-profile/results/000.json",
+      "state": {
+        "status": "checked_UNSAT",
+        "clean": true,
+        "checked": true,
+        "scorable": true
+      }
+    },
+    "kissat": {
+      "path": "benchmarks/runs/20260910-7002-largest-gap-release-profiles/results/003.json",
+      "state": {
+        "status": "checked_UNSAT",
+        "clean": true,
+        "checked": true,
+        "scorable": true
+      }
+    }
+  },
+  "total_cycles": {
+    "candidate": 1352635635361,
+    "kissat": 1127747657253
+  },
+  "total_excess_cycles": 224887978108,
+  "scopes": {
+    "inprocessing_envelope": {
+      "candidate": {
+        "symbols": [
+          "tactix::DefaultInprocessScheduler::run_phase(tactix::Kernel&, tactix::SlotGroup, int volatile*)"
+        ],
+        "percent": 35.64,
+        "estimated_cycles": 482079340442.6604,
+        "rounding_cycles": 67631781.76805
+      },
+      "kissat": {
+        "symbols": [
+          "kissat_probe",
+          "kissat_probe_initially",
+          "kissat_eliminate"
+        ],
+        "percent": 26.97,
+        "estimated_cycles": 304153543161.1341,
+        "rounding_cycles": 169162148.58795002
+      },
+      "estimated_excess_cycles": 177925797281.5263,
+      "rounding_cycles": 236793930.356,
+      "scope": "Whole function call scopes include root preparation on both sides, unlike their printed timers. Native initial Probe is included explicitly. Not proof of identical semantic work."
+    },
+    "main_propagation": {
+      "candidate": {
+        "symbols": [
+          "tactix::kernel_propagate(tactix::Kernel&, unsigned int)"
+        ],
+        "percent": 35.32,
+        "estimated_cycles": 477750906409.50525,
+        "rounding_cycles": 67631781.76805
+      },
+      "kissat": {
+        "symbols": [
+          "kissat_search_propagate"
+        ],
+        "percent": 44.52,
+        "estimated_cycles": 502073257009.03564,
+        "rounding_cycles": 56387382.86265001
+      },
+      "estimated_excess_cycles": -24322350599.530396,
+      "rounding_cycles": 124019164.6307,
+      "scope": "All calls to ordinary propagation, including phase-entry/resume calls. Overlaps the inprocessing envelope; do not sum."
+    },
+    "reduce": {
+      "candidate": {
+        "symbols": [
+          "tactix::reduce_apply_refs(tactix::Kernel&, unsigned int const*, unsigned long, bool)"
+        ],
+        "percent": 4.29,
+        "estimated_cycles": 58028068756.98691,
+        "rounding_cycles": 67631781.76805
+      },
+      "kissat": {
+        "symbols": [
+          "kissat_reduce"
+        ],
+        "percent": 2.37,
+        "estimated_cycles": 26727619476.896103,
+        "rounding_cycles": 56387382.86265001
+      },
+      "estimated_excess_cycles": 31300449280.090805,
+      "rounding_cycles": 124019164.6307,
+      "scope": "Reduction and its collection children. General API versus native wrapper scopes, not exact instruction or memory-work equality."
+    },
+    "vivify": {
+      "candidate": {
+        "symbols": [
+          "tactix::vivify_apply(tactix::Kernel&)"
+        ],
+        "percent": 10.47,
+        "estimated_cycles": 141620951022.2967,
+        "rounding_cycles": 67631781.76805
+      },
+      "kissat": {
+        "symbols": [
+          "kissat_vivify"
+        ],
+        "percent": 10.26,
+        "estimated_cycles": 115706909634.15779,
+        "rounding_cycles": 56387382.86265001
+      },
+      "estimated_excess_cycles": 25914041388.1389,
+      "rounding_cycles": 124019164.6307,
+      "scope": "Scheduling, private propagation and watch transitions; nested within the inprocessing envelope."
+    },
+    "factor": {
+      "candidate": {
+        "symbols": [
+          "tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)"
+        ],
+        "percent": 3.99,
+        "estimated_cycles": 53970161850.90391,
+        "rounding_cycles": 67631781.76805
+      },
+      "kissat": {
+        "symbols": [
+          "kissat_factor"
+        ],
+        "percent": 2.89,
+        "estimated_cycles": 32591907294.6117,
+        "rounding_cycles": 56387382.86265001
+      },
+      "estimated_excess_cycles": 21378254556.29221,
+      "rounding_cycles": 124019164.6307,
+      "scope": "Factor entry through return; native may include guard-only calls; nested within inprocessing."
+    },
+    "congruence": {
+      "candidate": {
+        "symbols": [
+          "tactix::congruence_apply(tactix::Kernel&)"
+        ],
+        "percent": 3.23,
+        "estimated_cycles": 43690131022.1603,
+        "rounding_cycles": 67631781.76805
+      },
+      "kissat": {
+        "symbols": [
+          "kissat_congruence"
+        ],
+        "percent": 1.84,
+        "estimated_cycles": 20750556893.4552,
+        "rounding_cycles": 56387382.86265001
+      },
+      "estimated_excess_cycles": 22939574128.7051,
+      "rounding_cycles": 124019164.6307,
+      "scope": "Congruence entry through return, including initial native calls; gate extraction counts differ, so not a unit-cost claim."
+    },
+    "bve_attempts": {
+      "candidate": {
+        "symbols": [
+          "tactix::(anonymous namespace)::bve_eliminate(tactix::Kernel&, unsigned int, tactix::(anonymous namespace)::BveDefScratch*)"
+        ],
+        "percent": 5.45,
+        "estimated_cycles": 73718642127.1745,
+        "rounding_cycles": 67631781.76805
+      },
+      "kissat": {
+        "symbols": [
+          "kissat_generate_resolvents"
+        ],
+        "percent": 2.86,
+        "estimated_cycles": 32253582997.435802,
+        "rounding_cycles": 56387382.86265001
+      },
+      "estimated_excess_cycles": 41465059129.73869,
+      "rounding_cycles": 124019164.6307,
+      "scope": "Diagnostic attempt-function envelopes only: different mutation/guard responsibilities; NOT equivalent BVE prices."
+    },
+    "forward": {
+      "candidate": {
+        "symbols": [
+          "tactix::strengthen_apply(tactix::Kernel&)"
+        ],
+        "percent": 2.04,
+        "estimated_cycles": 27593766961.3644,
+        "rounding_cycles": 67631781.76805
+      },
+      "kissat": {
+        "symbols": [
+          "kissat_forward_subsume_during_elimination"
+        ],
+        "percent": 1.11,
+        "estimated_cycles": 12517998995.5083,
+        "rounding_cycles": 56387382.86265001
+      },
+      "estimated_excess_cycles": 15075767965.856098,
+      "rounding_cycles": 124019164.6307,
+      "scope": "Forward subsumption/strengthening wrapper scopes; not every dispatch/admission cost is shared."
+    }
+  },
+  "inprocessing_share_of_sampled_excess": 0.7911752276774856,
+  "decision": "Prioritize broad inprocessing implementation cost, including schedule construction and maintenance, while auditing trigger/effort/retry strength. Do not optimize main BCP merely because it is hottest. Rank31 initial-admission witness is now localized; no additional raw heap-tie probe selected.",
+  "limitations": "Two already-frozen profile windows, not replicated cost acceptance. Rounded sample-period estimates, not exact hardware event counts or per-operation prices. Rounding bounds exclude sampling, unwinding and hardware uncertainty. Major work agreement is not full-state/effort identity. Nested scope rows must not be added. No solver change, job submission, proof gate change or promotion."
+}
