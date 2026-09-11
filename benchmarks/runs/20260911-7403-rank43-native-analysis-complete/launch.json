@@ -1,0 +1,11 @@
+{
+  "job_id": "1681557",
+  "accounting_since": "2026-09-11T13:40:46",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7403-rank43-native-analysis-complete/array.sbatch"
+  ],
+  "manifest_sha256": "e5c5128aae993b94f4171d684ffc4f401b3e72ae3d0f30b2408141059b430b5c",
+  "submit_helper_sha256": "31c297a40817b2e9482ab3a011aae7d78580e15a77569109d5a69793ced08af8"
+}
