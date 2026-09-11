@@ -1,0 +1,8 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7364-lucky-root-parent/test_lucky_root_consumer"
+  ],
+  "returncode": -6,
+  "stdout": "",
+  "stderr": "test_lucky_root_consumer: /home/hwu/SAT-solving/benchmarks/probes/scratch/lucky-root-consumer-7364.cpp:75: int main(int, char**): Assertion `negative ? stale==expected : stale==0' failed.\n"
+}

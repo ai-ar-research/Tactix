@@ -1,0 +1,8 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/build/pin-7366-lucky-roots-sanitizers/tests/test_root_fold"
+  ],
+  "returncode": 0,
+  "stdout": "root-fold: physical shrink, values/units, live ordering/actions, repeated compaction, extensions and model PASS\n",
+  "stderr": ""
+}

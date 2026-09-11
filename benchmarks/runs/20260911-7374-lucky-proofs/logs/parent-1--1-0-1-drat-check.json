@@ -1,0 +1,10 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7327-rank25-root-gdb/pins/checkmodel",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7374-lucky-proofs/parent-1--1-0-1-drat.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7374-lucky-proofs/parent-1--1-0-1-drat.out"
+  ],
+  "returncode": 0,
+  "stdout": "checkmodel: OK \u2014 18 clauses satisfied, 18 vars assigned\n",
+  "stderr": ""
+}

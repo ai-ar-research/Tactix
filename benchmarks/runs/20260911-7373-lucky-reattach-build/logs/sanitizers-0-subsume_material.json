@@ -1,0 +1,8 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/build/pin-7373-lucky-reattach-sanitizers/tests/test_subsume_material"
+  ],
+  "returncode": 0,
+  "stdout": "PASS separate subsumption material state and producer isolation\n",
+  "stderr": ""
+}

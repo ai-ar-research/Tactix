@@ -1,0 +1,10 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/tools/checkers/bin/cake_lpr",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7368-lucky-root-proofs/candidate-5-1-1-0-lrat.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7368-lucky-root-proofs/candidate-5-1-1-0-lrat.proof"
+  ],
+  "returncode": 0,
+  "stdout": "s VERIFIED UNSAT\n",
+  "stderr": ""
+}

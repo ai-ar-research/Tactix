@@ -1,0 +1,192 @@
+--- a/src/policies/default_policy.cpp
++++ b/src/policies/default_policy.cpp
+@@ -100,0 +101,16 @@
++    heuristics_consume_root_assignments(k, trail_begin);
++  return result;
++}
++
++ApplyResult default_lucky(Kernel &k, const char *candidate) {
++  const size_t trail_begin = k.trail.size();
++  const uint64_t roots_before = k.stats.root_assignments;
++  const ApplyResult result = default_direct_rule(
++      k, "Lucky", candidate, [&] { return lucky_apply(k); });
++  // Lucky can prove failed-literal units even when every model probe fails.
++  // Its root entry prefix survives speculative backtracking, so consume the
++  // appended roots in assignment order before any later policy consumer.
++  // Kissat deactivates these identities in assignment; raw Lucky stays
++  // independent of guidance here. The deferred early call still has no H:
++  // its subsequent attachment reconstructs the same fixed-variable image.
++  if (k.stats.root_assignments != roots_before)
+@@ -2379,3 +2395 @@
+-    if (default_direct_rule(k, "Lucky", "early",
+-                            [&] { return lucky_apply(k); }) ==
+-        ApplyResult::Sat) {
++    if (default_lucky(k, "early") == ApplyResult::Sat) {
+@@ -2448,3 +2462 @@
+-    if (default_direct_rule(k, "Lucky", "late",
+-                            [&] { return lucky_apply(k); }) ==
+-        ApplyResult::Sat) {
++    if (default_lucky(k, "late") == ApplyResult::Sat) {
+--- a/src/policies/heuristics.cpp
++++ b/src/policies/heuristics.cpp
+@@ -93,6 +93,11 @@
+-  for (Var v = old; v < nvars; ++v) {
+-    const Var position = static_cast<Var>(k.compact_import_order.size());
+-    k.compact_import_order.push_back(v);
+-    assert(k.compact_import_position[v] == INVALID_VAR);
+-    k.compact_import_position[v] = position;
+-  }
++  // A fresh H can attach after a stopped solve or explicit detachment. The
++  // kernel's compact index image survives that owner; rebuilding H must not
++  // append its existing identities again (or restore compacted fixed slots).
++  // Ordinary variable growth still appends every newly allocated identity.
++  if (old || k.compact_import_order.empty())
++    for (Var v = old; v < nvars; ++v) {
++      const Var position = static_cast<Var>(k.compact_import_order.size());
++      k.compact_import_order.push_back(v);
++      assert(k.compact_import_position[v] == INVALID_VAR);
++      k.compact_import_position[v] = position;
++    }
+--- /dev/null
++++ b/tests/test_heuristics_reattach.cpp
+@@ -0,0 +1,61 @@
++#undef NDEBUG
++#include "kernel/kernel.hpp"
++#include "policies/heuristics.hpp"
++#include <algorithm>
++#include <cassert>
++#include <cstdio>
++#include <cstring>
++#include <vector>
++using namespace tactix;
++
++static unsigned fixture(bool reverse,bool fixed,bool fold) {
++  Kernel k;
++  kernel_reserve_vars(k,8);
++  std::vector<Var> activation={0,1,2,3,4,5,6,7};
++  if(reverse)std::reverse(activation.begin(),activation.end());
++  for(Var v:activation)kernel_record_import(k,v);
++  {
++    ScopedHeuristics h(k);
++    heuristics_seed_activation_order(k,activation);
++    if(fixed) {
++      for(Var v:{1u,3u,5u})kernel_assign_unit(k,make_lit(v,false));
++      heuristics_consume_root_assignments(k,0);
++      assert(kernel_compact_variables(k,fold));
++      heuristics_compact_random_order_fixed(k);
++    }
++  }
++  const auto order=k.compact_import_order;
++  const auto positions=k.compact_import_position;
++  unsigned missing=0;
++  for(unsigned repeat=0;repeat<3;repeat++) {
++    ScopedHeuristics h(k);
++    missing+=k.compact_import_order!=order;
++    missing+=k.compact_import_position!=positions;
++    // A new guidance owner rebuilds its rankings, but fixed identities must
++    // remain inactive and the kernel's compact index image is not H-owned.
++    for(Var v=0;v<k.nvars;v++)
++      if(kernel_root_value(k,make_lit(v,false)))assert(!heuristics_queue_contains(k,v));
++    if(!missing)kernel_check_invariants(k);
++  }
++  if(!missing) {
++    ScopedHeuristics h(k);
++    const Var extension=kernel_new_extension_vars(k,2);
++    assert(k.compact_import_order.size()==order.size()+2);
++    assert(k.compact_import_order[order.size()]==extension);
++    assert(k.compact_import_order[order.size()+1]==extension+1);
++    assert(k.compact_import_position[extension]==order.size());
++    assert(k.compact_import_position[extension+1]==order.size()+1);
++    kernel_check_invariants(k);
++  }
++  return missing;
++}
++int main(int argc,char **argv) {
++  const bool negative=argc==2&&!std::strcmp(argv[1],"--expect-missing");
++  assert(argc==1||negative);
++  unsigned missing=0,cases=0;
++  for(bool reverse:{false,true})for(bool fixed:{false,true})for(bool fold:{false,true}) {
++    missing+=fixture(reverse,fixed,fold);++cases;
++  }
++  std::printf("guidance reattach: cases=%u changed-images=%u\n",cases,missing);
++  assert(negative?missing==48:missing==0);
++}
+--- /dev/null
++++ b/tests/test_lucky_roots.cpp
+@@ -0,0 +1,76 @@
++#undef NDEBUG
++#include "kernel/kernel.hpp"
++#include "policies/default_policy.hpp"
++#include "policies/heuristics.hpp"
++#include <algorithm>
++#include <cassert>
++#include <cstdio>
++#include <cstring>
++#include <vector>
++using namespace tactix;
++
++static void core(Kernel &k, int guard, int a, int b, int c) {
++  for (const std::vector<int> row : {std::vector<int>{guard,a,b},
++                                   {guard,a,-b}, {guard,-a,c}, {guard,-a,-c}}) {
++    Lit lits[3];
++    for (unsigned i=0;i<3;i++) lits[i]=internalize(row[i]);
++    kernel_add_large_clause(k,lits,3,false,0);
++  }
++}
++
++static unsigned fixture(unsigned roots, bool reverse, bool fold) {
++  Kernel k;
++  ScopedHeuristics owner(k);
++  const unsigned n=roots+1+16;
++  kernel_reserve_vars(k,n);
++  std::vector<Var> order;
++  for (Var v=0;v<n;v++) order.push_back(v);
++  if(reverse) std::reverse(order.begin(),order.end());
++  for(Var v:order) kernel_record_import(k,v);
++  heuristics_seed_activation_order(k,order);
++  kernel_add_binary_clause(k,internalize(1),internalize(2));
++  kernel_add_binary_clause(k,internalize(1),internalize(-2));
++  for(unsigned ev=3;ev<=roots+1;ev++)
++    kernel_add_binary_clause(k,internalize(-1),internalize(static_cast<int>(ev)));
++  const int base=roots+2;
++  core(k,base,base+1,base+2,base+3);
++  core(k,-(base+4),base+5,base+6,base+7);
++  core(k,base+11,base+8,base+9,base+10);
++  core(k,-(base+15),base+12,base+13,base+14);
++  // The real startup path executes Lucky before observing the search stop.
++  // Inprocessing respects the stop, so it cannot accidentally remove the
++  // motivating roots on behalf of the missing Lucky lifecycle consumer.
++  volatile sig_atomic_t stop=1;
++  assert(default_solve(k,&stop)==0);
++  assert(k.stats.lucky_early_calls==1 && k.stats.lucky_late_calls==1);
++  assert(k.level==0 && kernel_root_fixed(k)==roots);
++  unsigned stale=0;
++  for(Var v=0;v<k.nvars;v++)
++    if(kernel_root_value(k,make_lit(v,false))) stale+=heuristics_queue_contains(k,v);
++  assert(k.unassigned_active==17);
++  assert(kernel_compact_variables(k,fold));
++  heuristics_compact_random_order_fixed(k);
++  // A repaired policy's inactive roots do not consume rank positions even
++  // when their proof/model identities remain physically hot.
++  unsigned live_rank=0;
++  for(Var v=owner.h.queue_first;v!=INVALID_VAR;v=owner.h.links[v].next) {
++    if(!kernel_root_value(k,make_lit(v,false))) {
++      ++live_rank;
++      if(!stale) assert(owner.h.links[v].stamp==live_rank);
++    }
++  }
++  assert(live_rank==17);
++  kernel_check_invariants(k);
++  return stale;
++}
++
++int main(int argc,char **argv) {
++  const bool negative=argc==2 && !std::strcmp(argv[1],"--expect-missing");
++  assert(argc==1 || negative);
++  unsigned stale=0, expected=0, cases=0;
++  for(unsigned roots:{1u,5u,29u}) for(bool reverse:{false,true}) for(bool fold:{false,true}) {
++    stale+=fixture(roots,reverse,fold); expected+=roots; ++cases;
++  }
++  std::printf("Lucky root consumer: cases=%u stale=%u expected-old=%u\n",cases,stale,expected);
++  assert(negative ? stale==expected : stale==0);
++}

@@ -1,0 +1,14 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7374-lucky-proofs/parent-driver",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7374-lucky-proofs/parent-1-1-0-1-drat.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7374-lucky-proofs/parent-1-1-0-1-drat.proof",
+    "drat",
+    "eager",
+    "parent",
+    "1"
+  ],
+  "returncode": 10,
+  "stdout": "c Lucky reached fixed=1 stale=1 eager=1\ns SATISFIABLE\nv 1 2 3 4 5 6 -7 8 9 10 11 12 13 14 15 16 17 -18 0\n",
+  "stderr": ""
+}

@@ -1,0 +1,14 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7368-lucky-root-proofs/candidate-driver",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7368-lucky-root-proofs/candidate-29-1-1-0-drat.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7368-lucky-root-proofs/candidate-29-1-1-0-drat.proof",
+    "drat",
+    "deferred",
+    "candidate",
+    "29"
+  ],
+  "returncode": 20,
+  "stdout": "c Lucky reached fixed=34 stale=0 eager=0\ns UNSATISFIABLE\n",
+  "stderr": ""
+}
