@@ -1,0 +1,10 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/tools/checkers/bin/cake_lpr",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7198-congruence-fused-proofs/previous-2-1-1-1-1-1.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7198-congruence-fused-proofs/previous-2-1-1-1-1-1.proof"
+  ],
+  "returncode": 0,
+  "stdout": "s VERIFIED UNSAT\n",
+  "stderr": ""
+}

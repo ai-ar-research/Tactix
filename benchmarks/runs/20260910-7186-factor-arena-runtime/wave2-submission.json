@@ -1,0 +1,34 @@
+{
+  "job_id": "1680519",
+  "accounting_since": "2026-09-11T00:02:33",
+  "tasks": [
+    12,
+    13,
+    14,
+    15,
+    16,
+    17
+  ],
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--array=12-17",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-7186-factor-arena-runtime/array.sbatch"
+  ],
+  "manifest_sha256": "d6c85ec928cb877fc8e0d059ed571dbef54ec47245b33124bc13166120c2f7d0",
+  "helper_sha256": "13b8ff3a7dbd51debffd489be575e71e8d3148e16b13af2a04d62bd7a0c2ffe6",
+  "preceding_records": {
+    "benchmarks/runs/20260910-7186-factor-arena-runtime/provisional/000.json": "9a2da2ed4470e0efee8dfd9a7b8d1ae1350d7693822e4453d85439950c0c26fe",
+    "benchmarks/runs/20260910-7186-factor-arena-runtime/provisional/001.json": "61e2a012645b18996dbc7b3f7077e8ae1ee692c9b74242a9b0cc4bcf910c7d8a",
+    "benchmarks/runs/20260910-7186-factor-arena-runtime/provisional/002.json": "f13ba00eb92f6294a9477b81749e067c5e2d72194ef7745eb58c79ac2f8c6237",
+    "benchmarks/runs/20260910-7186-factor-arena-runtime/provisional/003.json": "03a8f8d06d46b99c45c4b533cc73d66f34d05173ef34e6eb9bdaec8d4c5d7bc3",
+    "benchmarks/runs/20260910-7186-factor-arena-runtime/provisional/004.json": "ad9402eaba2f62e346fdeb9a707ea15ec9f2e3f01e0ec4bab9ae3f36d9439543",
+    "benchmarks/runs/20260910-7186-factor-arena-runtime/results/005.json": "f18daa41d28513c9f8eee4401746b018812e36c37769441ff68252bea1131ff0",
+    "benchmarks/runs/20260910-7186-factor-arena-runtime/provisional/006.json": "6c705b0ee07c3d777c12efaa44855a96c2cf0685cb375d80bab1becbff5fa9b8",
+    "benchmarks/runs/20260910-7186-factor-arena-runtime/provisional/007.json": "13154f2396c943a78b3e2a5d70454bfc23c222ff1f0e250e189ea310524d9a20",
+    "benchmarks/runs/20260910-7186-factor-arena-runtime/provisional/008.json": "245cd5b05e5a9a73efb19b3f4d04ffb8cae52c0c5178394efc7ec0d29b252976",
+    "benchmarks/runs/20260910-7186-factor-arena-runtime/provisional/009.json": "5bb1dfa2865c781e7d6ffc717646c2768dbf35e471fc71413fba3288110e5782",
+    "benchmarks/runs/20260910-7186-factor-arena-runtime/provisional/010.json": "48c0afe3bfab88acce8df6141886e9ff50256160dca41c84064552e5dde7c6a7",
+    "benchmarks/runs/20260910-7186-factor-arena-runtime/provisional/011.json": "4b8acbba000e8874bf8b4360a643726b1164cf7acf7c7555496a9f9bcd3b4c78"
+  }
+}

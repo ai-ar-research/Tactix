@@ -1,0 +1,8 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7200-congruence-sanitizer-control/candidate-index-repaired"
+  ],
+  "exit_code": 0,
+  "stdout": "3 0 -1 0\n3 0 0 0\n3 0 1 1\n3 1 -1 0\n3 1 0 0\n3 1 1 1\n3 2 -1 0\n3 2 0 0\n3 2 1 1\n4 0 -1 0\n4 0 0 0\n4 0 1 1\n4 1 -1 0\n4 1 0 0\n4 1 1 1\n4 2 -1 0\n4 2 0 0\n4 2 1 1\n4 3 -1 0\n4 3 0 0\n4 3 1 1\n5 0 -1 0\n5 0 0 0\n5 0 1 1\n5 1 -1 0\n5 1 0 0\n5 1 1 1\n5 2 -1 0\n5 2 0 0\n5 2 1 1\n5 3 -1 0\n5 3 0 0\n5 3 1 1\n5 4 -1 0\n5 4 0 0\n5 4 1 1\n6 0 -1 0\n6 0 0 0\n6 0 1 1\n6 1 -1 0\n6 1 0 0\n6 1 1 1\n6 2 -1 0\n6 2 0 0\n6 2 1 1\n6 3 -1 0\n6 3 0 0\n6 3 1 1\n6 4 -1 0\n6 4 0 0\n6 4 1 1\n6 5 -1 0\n6 5 0 0\n6 5 1 1\n7 0 -1 0\n7 0 0 0\n7 0 1 1\n7 1 -1 0\n7 1 0 0\n7 1 1 1\n7 2 -1 0\n7 2 0 0\n7 2 1 1\n7 3 -1 0\n7 3 0 0\n7 3 1 1\n7 4 -1 0\n7 4 0 0\n7 4 1 1\n7 5 -1 0\n7 5 0 0\n7 5 1 1\n7 6 -1 0\n7 6 0 0\n7 6 1 0\nPASS:1200 actual Congruence cleanup cases, pure extraction and exact proof deletions\n",
+  "stderr": ""
+}
