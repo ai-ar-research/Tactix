@@ -1,0 +1,66 @@
+[  1%] Building CXX object CMakeFiles/tactix_lib.dir/src/kernel/kernel.cpp.o
+[  1%] Building CXX object CMakeFiles/tactix_lib.dir/src/proof/proof.cpp.o
+[  1%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/registry.cpp.o
+[  2%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/analyze/analyze.cpp.o
+[  2%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/backbone/backbone.cpp.o
+[  3%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/backjump/backjump.cpp.o
+[  3%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/bce/bce.cpp.o
+[  4%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/bve/bve.cpp.o
+[  4%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/cce/cce.cpp.o
+[  5%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/congruence/congruence.cpp.o
+[  5%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/decide/decide.cpp.o
+[  5%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/factor/factor.cpp.o
+[  6%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/hyperbinary/hyperbinary.cpp.o
+[  6%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/instantiate/instantiate.cpp.o
+[  7%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/lucky/lucky.cpp.o
+[  7%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/probe/probe.cpp.o
+[  8%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/propagate/propagate.cpp.o
+[  8%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/reduce/reduce.cpp.o
+[  9%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/restart/restart.cpp.o
+[  9%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/strengthen/strengthen.cpp.o
+[  9%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/substitute/substitute.cpp.o
+[ 10%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/subsume_forward/subsume_forward.cpp.o
+[ 10%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/support/failed_literal.cpp.o
+[ 11%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/support/flat_occurrence.cpp.o
+[ 11%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/sweep/sweep.cpp.o
+[ 12%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/ternary/ternary.cpp.o
+[ 12%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/transitive_reduce/transitive_reduce.cpp.o
+[ 13%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/vivify/vivify.cpp.o
+[ 13%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/ops/reorder/reorder.cpp.o
+[ 13%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/ops/rephase/rephase.cpp.o
+[ 14%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/ops/switchmode/switchmode.cpp.o
+[ 14%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/ops/walk/walk.cpp.o
+[ 15%] Building CXX object CMakeFiles/tactix_lib.dir/src/engine/subsolver.cpp.o
+[ 15%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/heuristics.cpp.o
+[ 16%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/default_policy.cpp.o
+[ 16%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/random_policy.cpp.o
+[ 17%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/trace.cpp.o
+[ 17%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/stress_registry.cpp.o
+[ 17%] Building CXX object CMakeFiles/tactix_lib.dir/src/frontend/parse.cpp.o
+[ 18%] Building CXX object CMakeFiles/tactix_lib.dir/src/api/api.cpp.o
+[ 18%] Building CXX object CMakeFiles/tactix_lib.dir/src/diagnostics/memory_only.cpp.o
+/home/hwu/SAT-solving/.claude/worktrees/runtime-realloc-memory-only-7289/src/rules/vivify/vivify.cpp: In function ‘tactix::ApplyResult tactix::rewrite(Kernel&, Ref, const std::vector<unsigned int>&, std::vector<std::pair<unsigned int, long unsigned int> >&, uint64_t, uint64_t, bool)’:
+/home/hwu/SAT-solving/.claude/worktrees/runtime-realloc-memory-only-7289/src/rules/vivify/vivify.cpp:1039:52: warning: unused parameter ‘candidate_ordinal’ [-Wunused-parameter]
+ 1039 |                            uint64_t last, uint64_t candidate_ordinal,
+      |                                           ~~~~~~~~~^~~~~~~~~~~~~~~~~
+/home/hwu/SAT-solving/.claude/worktrees/runtime-realloc-memory-only-7289/src/engine/subsolver.cpp: In member function ‘void tactix::SubSolver::fail_assumptions(const std::vector<unsigned int>&)’:
+/home/hwu/SAT-solving/.claude/worktrees/runtime-realloc-memory-only-7289/src/engine/subsolver.cpp:823:35: warning: missing initializer for member ‘tactix::SubStep::antecedents’ [-Wmissing-field-initializers]
+  823 |                {clause_id(reason)}};
+      |                                   ^
+/home/hwu/SAT-solving/.claude/worktrees/runtime-realloc-memory-only-7289/src/engine/subsolver.cpp: In member function ‘tactix::SubResult tactix::SubSolver::solve(const std::vector<unsigned int>&, uint64_t, tactix::SubTickMode)’:
+/home/hwu/SAT-solving/.claude/worktrees/runtime-realloc-memory-only-7289/src/engine/subsolver.cpp:1034:61: warning: missing initializer for member ‘tactix::SubStep::antecedents’ [-Wmissing-field-initializers]
+ 1034 |           target_ = {target_id, export_literals(lits), chain};
+      |                                                             ^
+/home/hwu/SAT-solving/.claude/worktrees/runtime-realloc-memory-only-7289/src/diagnostics/memory_only.cpp: In function ‘void tactix::{anonymous}::trace_slot_memory(const tactix::Kernel&, const char*, const char*, size_t, uint32_t)’:
+/home/hwu/SAT-solving/.claude/worktrees/runtime-realloc-memory-only-7289/src/diagnostics/memory_only.cpp:113:49: error: ‘const class tactix::BinaryIdMap’ has no member named ‘diagnostic_storage_bytes’
+  113 |       capacity_bytes(k.unit_ids) + k.binary_ids.diagnostic_storage_bytes() +
+      |                                                 ^~~~~~~~~~~~~~~~~~~~~~~~
+/home/hwu/SAT-solving/.claude/worktrees/runtime-realloc-memory-only-7289/src/diagnostics/memory_only.cpp:124:31: error: ‘const class tactix::ClausePositionAliases’ has no member named ‘diagnostic_storage_bytes’
+  124 |       k.clause_position_alias.diagnostic_storage_bytes();
+      |                               ^~~~~~~~~~~~~~~~~~~~~~~~
+/home/hwu/SAT-solving/.claude/worktrees/runtime-realloc-memory-only-7289/src/diagnostics/memory_only.cpp:126:46: error: ‘class tactix::BinaryLivenessIndex’ has no member named ‘diagnostic_storage_bytes’
+  126 |       k.binary_liveness ? k.binary_liveness->diagnostic_storage_bytes() : 0;
+      |                                              ^~~~~~~~~~~~~~~~~~~~~~~~
+gmake[2]: *** [CMakeFiles/tactix_lib.dir/build.make:639: CMakeFiles/tactix_lib.dir/src/diagnostics/memory_only.cpp.o] Error 1
+gmake[1]: *** [CMakeFiles/Makefile2:399: CMakeFiles/tactix_lib.dir/all] Error 2
+gmake: *** [Makefile:101: all] Error 2
