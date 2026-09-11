@@ -1,0 +1,46 @@
+{
+  "job_id": "1681103",
+  "accounting_since": "2026-09-11T05:26:55",
+  "tasks": [
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29
+  ],
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--array=20-29",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7273-dense-realloc-runtime/array.sbatch"
+  ],
+  "manifest_sha256": "fdc2e22d725cdee0ec2e3469fbffa3fb5165fb138104102be7a917534bc00bd6",
+  "helper_sha256": "50b36401969f206c5f6a5b777a18236dc910d8925389a355357336b16ac3090f",
+  "preceding_records": {
+    "benchmarks/runs/20260911-7273-dense-realloc-runtime/results/000.json": "706e547ded2e166278ae84581c781be55b798a60fd8b9ef4f54649e5f374315e",
+    "benchmarks/runs/20260911-7273-dense-realloc-runtime/results/001.json": "894fe4e60922cb11d4ed8ae50d04a8d4f60bf60a6d224270b5c393b6678e6da9",
+    "benchmarks/runs/20260911-7273-dense-realloc-runtime/results/002.json": "af26491fcdba10d500db43c31364601c3c6f45b872d092981f2a61396d93210e",
+    "benchmarks/runs/20260911-7273-dense-realloc-runtime/results/003.json": "4478d17e37a68f6a9308f980cad0c496789760d72e5362f005d1f15a9e9ad5c6",
+    "benchmarks/runs/20260911-7273-dense-realloc-runtime/provisional/004.json": "59f3faa566fcf33e3c9fa15a82e5f277268c0f5f2aebb3fdc82fbff91959708c",
+    "benchmarks/runs/20260911-7273-dense-realloc-runtime/provisional/005.json": "b7df2c879119bc052c80cc30b7b88ccac52332c2630e0da916c2102b7737a6e9",
+    "benchmarks/runs/20260911-7273-dense-realloc-runtime/provisional/006.json": "ca90baba04fdd8a4ff3ee80cff217018461ca4f66157a184a8b0f3a26dd9d9dd",
+    "benchmarks/runs/20260911-7273-dense-realloc-runtime/provisional/007.json": "b6f71d4c8806943534821bbd9dddfb50ac6193f4a4b00cacbe7396cdab981cfe",
+    "benchmarks/runs/20260911-7273-dense-realloc-runtime/results/008.json": "35c589c85bb1649159edc67ff2892fa67b188979f18d3ca586c3e83773c53883",
+    "benchmarks/runs/20260911-7273-dense-realloc-runtime/results/009.json": "c5e43fcf785667fb4e53d1760bf3860ddacb42e40830873e188178a933dcf679",
+    "benchmarks/runs/20260911-7273-dense-realloc-runtime/results/010.json": "de6d5de5b1143196e35c914edc575e5676a7b2089290b58094fb944687b63a68",
+    "benchmarks/runs/20260911-7273-dense-realloc-runtime/results/011.json": "59a983326ee69364c1500e2c8e1c3eb2cbc710adeac182fc68790ba2d758140f",
+    "benchmarks/runs/20260911-7273-dense-realloc-runtime/results/012.json": "9a82b0eb4dcb50e83dc2f2e09d112959c5ce02d1abc751ecd8ac3066783b8316",
+    "benchmarks/runs/20260911-7273-dense-realloc-runtime/results/013.json": "3b78b7f3bd70a925ba13f93480ad742802760c1409388f0702ebbe93358a3655",
+    "benchmarks/runs/20260911-7273-dense-realloc-runtime/provisional/014.json": "65d0c753db87d9510d12c8e8290294e6ee4e7014a049f0409c390a26439927ba",
+    "benchmarks/runs/20260911-7273-dense-realloc-runtime/provisional/015.json": "af38c160a37a47e25202cefb108577b1c7bf39daf7858be2d8782722324ed373",
+    "benchmarks/runs/20260911-7273-dense-realloc-runtime/provisional/016.json": "9e0afe0182bb6a91303c2041bc2a57eeb9a9580746cbcd0c3a0d6aa8c501e6dc",
+    "benchmarks/runs/20260911-7273-dense-realloc-runtime/provisional/017.json": "feff32b0de0722eca2a6f0a9730bb898945c2dbd164925cffbc7ba1ec7346b8f",
+    "benchmarks/runs/20260911-7273-dense-realloc-runtime/provisional/018.json": "88ad0dd0c36c1b89a95ee851cf1d03999f23013b6c8f16ab161c12008738fc7f",
+    "benchmarks/runs/20260911-7273-dense-realloc-runtime/provisional/019.json": "e420f76e82d35d6d801e1eec43b92c7d44aad6c506afa05fef956ba2e15a163b"
+  }
+}
