@@ -1,0 +1,181 @@
+{
+  "status": "WHOLE_REPLAY_AND_QUEUE_SNAPSHOTS_VALIDATED",
+  "hashes": {
+    "benchmarks/runs/20260911-7358-root-queue/results/000.json": "65cf61241c1eef50f306f5ac4531d2ceee0cdc939eeac06b480e1a91370e85e9",
+    "benchmarks/runs/20260911-7356-bve-heap/results/000.json": "661192ec8867053276aff39f7e5e083f22f52e7bbe2a251357bc5e18bc324746",
+    "benchmarks/runs/20260911-7358-root-queue/traces/000-decisions.tsv.gz": "64829e44476442e2eade7f1408178b1ab0ccd25e50f00d9cd30fbb9272827bdf",
+    "benchmarks/runs/20260911-7356-bve-heap/traces/000-decisions.tsv.gz": "64829e44476442e2eade7f1408178b1ab0ccd25e50f00d9cd30fbb9272827bdf",
+    "benchmarks/runs/20260911-7358-root-queue/traces/000-macro.tsv.gz": "21e84346b1d8bd1688f893a6d11035dc4b968fd705312a68ece8df47fa5b7f16",
+    "benchmarks/runs/20260911-7356-bve-heap/traces/000-macro.tsv.gz": "21e84346b1d8bd1688f893a6d11035dc4b968fd705312a68ece8df47fa5b7f16",
+    "benchmarks/runs/20260911-7358-root-queue/traces/000-active.tsv.gz": "0d0aba889087c355df623fe07667e2d31b380ebaaf07f95b08c85bf7797bb948",
+    "benchmarks/runs/20260911-7356-bve-heap/traces/000-active.tsv.gz": "0d0aba889087c355df623fe07667e2d31b380ebaaf07f95b08c85bf7797bb948",
+    "benchmarks/runs/20260911-7358-root-queue/traces/000-inprocess.tsv.gz": "6b2bc08fbf84e7e8c50a761dae12afc3bcda9d829675562ef759fdf22a1973d4",
+    "benchmarks/runs/20260911-7356-bve-heap/traces/000-inprocess.tsv.gz": "6b2bc08fbf84e7e8c50a761dae12afc3bcda9d829675562ef759fdf22a1973d4",
+    "benchmarks/runs/20260911-7358-root-queue/traces/000-heap.tsv.gz": "da3c1192c2ad6ddef10cbccb2e9f26a27290d86b56f6ae24218c06f35894829d",
+    "benchmarks/runs/20260911-7356-bve-heap/traces/000-heap.tsv.gz": "da3c1192c2ad6ddef10cbccb2e9f26a27290d86b56f6ae24218c06f35894829d",
+    "benchmarks/runs/20260911-7358-root-queue/traces/000-queue.tsv.gz": "fb2fb612b63ddbb66a3e5eb80b750f85510beed91cd53c9ad5f425c5b822ee37",
+    "benchmarks/runs/20260911-7358-root-queue/provisional/001.json": "d0e4bb89773cf3d4030d1bb6d20e302a0ff611f9bc63fec821973ea95acc4d8c",
+    "benchmarks/runs/20260911-7356-bve-heap/results/001.json": "0cb270ea735819f0dffb353f6547a273f3b055998a5d1ae94062f86628db7b47",
+    "benchmarks/runs/20260911-7358-root-queue/traces/001-decisions.tsv.gz": "45a85cd3375ab148854d1f1f1bd6dea8fbd75f420950d94a01117bdcdce816f2",
+    "benchmarks/runs/20260911-7356-bve-heap/traces/001-decisions.tsv.gz": "45a85cd3375ab148854d1f1f1bd6dea8fbd75f420950d94a01117bdcdce816f2",
+    "benchmarks/runs/20260911-7358-root-queue/traces/001-macro.tsv.gz": "13b60a99ce10d3fff6de52c27cd1273fb234e0b4c477a54788fdab345f99368e",
+    "benchmarks/runs/20260911-7356-bve-heap/traces/001-macro.tsv.gz": "13b60a99ce10d3fff6de52c27cd1273fb234e0b4c477a54788fdab345f99368e",
+    "benchmarks/runs/20260911-7358-root-queue/traces/001-active.tsv.gz": "b0505b298d2e3a74a4d47146e923a0a0322cb0db8b238a965c4c2b6145a6450b",
+    "benchmarks/runs/20260911-7356-bve-heap/traces/001-active.tsv.gz": "b0505b298d2e3a74a4d47146e923a0a0322cb0db8b238a965c4c2b6145a6450b",
+    "benchmarks/runs/20260911-7358-root-queue/traces/001-inprocess.tsv.gz": "8ee5e44ccbd5cb94535b6b15cba402ec09278ba5db5d9b5fb6fadfba6302d58e",
+    "benchmarks/runs/20260911-7356-bve-heap/traces/001-inprocess.tsv.gz": "8ee5e44ccbd5cb94535b6b15cba402ec09278ba5db5d9b5fb6fadfba6302d58e",
+    "benchmarks/runs/20260911-7358-root-queue/traces/001-heap.tsv.gz": "a7b2f119dfbe88d7b880b064e86dd7be25a1517095f3eff7047c0748c45cd85c",
+    "benchmarks/runs/20260911-7356-bve-heap/traces/001-heap.tsv.gz": "a7b2f119dfbe88d7b880b064e86dd7be25a1517095f3eff7047c0748c45cd85c",
+    "benchmarks/runs/20260911-7358-root-queue/traces/001-queue.tsv.gz": "8909d908223e80d8ce789ee3f570d996bec51063de67426618f70db130516b5f",
+    "benchmarks/probes/scratch/analyze-root-queue-7359.py": "b30760f1d6fb44796354e569e344af9dd29ecdb2add2a98b7381cf8370035d6a",
+    "benchmarks/probes/scratch/check-submit-root-queue-7358.py": "92f358445fe27b6989b83dd89301efd91be3a93b4372b79da58925df47f39327",
+    "benchmarks/runs/20260911-7358-root-queue/manifest.json": "86efecdb22297adefffe0e0e6d9e3eb630b38168421a36bc4312b9b932b2a57f",
+    "benchmarks/runs/20260911-7358-root-queue/launch.json": "24b4e2cdee0bf76cac20372d64c68cdcd87d8603c176af50c95d12c7107d3b5c"
+  },
+  "states": [
+    {
+      "status": "checked_UNSAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    {
+      "status": "pending_validation",
+      "clean": false,
+      "checked": false,
+      "scorable": false
+    }
+  ],
+  "whole_7356_five_archive_replay": true,
+  "snapshot_counts": [
+    58,
+    92
+  ],
+  "first_raw_snapshot_difference": {
+    "ordinal": 14,
+    "parent": {
+      "stage": "reduce-compact-post",
+      "conflicts": 14492,
+      "decisions": 1037401,
+      "stable": 0,
+      "stamp": 41753,
+      "search": 17839,
+      "search_stamp": 41753,
+      "assigned": 1
+    },
+    "candidate": {
+      "stage": "reduce-compact-post",
+      "conflicts": 14492,
+      "decisions": 1037401,
+      "stable": 0,
+      "stamp": 41724,
+      "search": 17839,
+      "search_stamp": 41724,
+      "assigned": 1
+    }
+  },
+  "pre_snapshot_exact": true,
+  "selected_headers": [
+    [
+      {
+        "stage": "reduce-compact-pre",
+        "conflicts": 14492,
+        "decisions": 1037401,
+        "stable": 0,
+        "stamp": 77818,
+        "search": 17839,
+        "search_stamp": 77818,
+        "assigned": 24635
+      },
+      {
+        "stage": "reduce-compact-post",
+        "conflicts": 14492,
+        "decisions": 1037401,
+        "stable": 0,
+        "stamp": 41753,
+        "search": 17839,
+        "search_stamp": 41753,
+        "assigned": 1
+      }
+    ],
+    [
+      {
+        "stage": "reduce-compact-pre",
+        "conflicts": 14492,
+        "decisions": 1037401,
+        "stable": 0,
+        "stamp": 77818,
+        "search": 17839,
+        "search_stamp": 77818,
+        "assigned": 24635
+      },
+      {
+        "stage": "reduce-compact-post",
+        "conflicts": 14492,
+        "decisions": 1037401,
+        "stable": 0,
+        "stamp": 41724,
+        "search": 17839,
+        "search_stamp": 41724,
+        "assigned": 1
+      }
+    ]
+  ],
+  "selected_member_counts": [
+    [
+      41753,
+      41753
+    ],
+    [
+      41753,
+      41724
+    ]
+  ],
+  "post_parent_only": [
+    1333,
+    1334,
+    1335,
+    1337,
+    1338,
+    1340,
+    1343,
+    1344,
+    1345,
+    1346,
+    1347,
+    1349,
+    1350,
+    1351,
+    1352,
+    1353,
+    1354,
+    1356,
+    1357,
+    1358,
+    1359,
+    1360,
+    1361,
+    1362,
+    1363,
+    1364,
+    1365,
+    1366,
+    1367
+  ],
+  "post_candidate_only": [],
+  "post_retained_order_exact": true,
+  "post_retained_stamp_delta_counts": {
+    "-29": 24285,
+    "0": 17439
+  },
+  "selected_22861_pre_stamps": [
+    74944,
+    74944
+  ],
+  "selected_22861_post_stamps": [
+    40384,
+    40355
+  ],
+  "reader_output": "occurrence fingerprint: narrow physical counters; exact own repeats; six semantic changes; ten invalid schemas PASS\n{\n  \"records\": 2,\n  \"checked\": 1,\n  \"own_release_replay\": true,\n  \"states\": {\n    \"0\": {\n      \"status\": \"checked_UNSAT\",\n      \"clean\": true,\n      \"checked\": true,\n      \"scorable\": true\n    },\n    \"1\": {\n      \"status\": \"pending_validation\",\n      \"clean\": false,\n      \"checked\": false,\n      \"scorable\": false\n    }\n  }\n}\n",
+  "limitation": "Queue snapshots identify ordered members and stamps, not root values or the first missed deactivation. No native run, unit-cost timing, memory-saving or promotion claim. Complete source archives retained and hash-bound; no raw exclusions used to claim whole-state parity."
+}
