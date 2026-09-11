@@ -1,0 +1,46 @@
+{
+  "job_id": "1681257",
+  "accounting_since": "2026-09-11T07:27:03",
+  "tasks": [
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29
+  ],
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--array=20-29",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7306-clause-realloc-runtime/array.sbatch"
+  ],
+  "manifest_sha256": "078f15517e586f133d5f1f32763bff61a9fef0225a7480809c158ec803668beb",
+  "helper_sha256": "d4ce1bb8c6202aeec39df0745145ff4f2dffedda2093f195e42929a6c9097c60",
+  "preceding_records": {
+    "benchmarks/runs/20260911-7306-clause-realloc-runtime/results/000.json": "fe958f9de12ab6b03111d03f5639c4cbbc47200f1d4954532d6f002375b89731",
+    "benchmarks/runs/20260911-7306-clause-realloc-runtime/results/001.json": "90327f48ac5f2dadc5d0dc0dbde82166fcb80866c1409a39a55f8779230964fc",
+    "benchmarks/runs/20260911-7306-clause-realloc-runtime/results/002.json": "3f6f51ff306c7711195b1d00a90d59244d09d836142561fbc10c52ce58e84ca1",
+    "benchmarks/runs/20260911-7306-clause-realloc-runtime/results/003.json": "89a12cd2286f5e01f39711e4b0f604d31a20bfc966028e112d5affe698d75a93",
+    "benchmarks/runs/20260911-7306-clause-realloc-runtime/provisional/004.json": "a1b20bc7ea8ce857ad3d08c736cc5572eb6b5754d41cb79bea26677acad2d0f1",
+    "benchmarks/runs/20260911-7306-clause-realloc-runtime/provisional/005.json": "7aae671e1a102d4af1ca23e51b171fcfe5066b3fc60730b2246557f36f778ab2",
+    "benchmarks/runs/20260911-7306-clause-realloc-runtime/provisional/006.json": "57d7f4f96dae4e7733f9eee23da051844754702c4f70e1e82fe7562255d1c831",
+    "benchmarks/runs/20260911-7306-clause-realloc-runtime/provisional/007.json": "f4ee8cc1f97e16c5b8f014a6782fee6dbbe8556d9b571dc6a2d1d01d5cc2ff4d",
+    "benchmarks/runs/20260911-7306-clause-realloc-runtime/results/008.json": "48883ba1793428d4ef0d62104826967052f851a257373f4fad95726f25e9b3b0",
+    "benchmarks/runs/20260911-7306-clause-realloc-runtime/results/009.json": "1cadc14d03416011a9258adbeadf1793e4f1c418da8ef063554f6256105818be",
+    "benchmarks/runs/20260911-7306-clause-realloc-runtime/results/010.json": "1ee066367b8ddc8645ad462979f3d7191e1250d628925a60a1a3a29c60739dc2",
+    "benchmarks/runs/20260911-7306-clause-realloc-runtime/results/011.json": "ab5a60c70dec9338ff94964566e3932bd67e02f11ddcad2177d4a02af8d91ac7",
+    "benchmarks/runs/20260911-7306-clause-realloc-runtime/results/012.json": "1b5a36f2efc73a542158d19ae7e647eb46ffddb793cdb37835946dacd3b09f2c",
+    "benchmarks/runs/20260911-7306-clause-realloc-runtime/results/013.json": "95ed7deff34dadfa0a6c35917475fe9f4b35fdf26c833926e5dbc74f2242136a",
+    "benchmarks/runs/20260911-7306-clause-realloc-runtime/provisional/014.json": "897198098015e8cd49d156e0aa458f4b1bcf7ad3de88b5f0335814e821a247a4",
+    "benchmarks/runs/20260911-7306-clause-realloc-runtime/provisional/015.json": "f66f47381cb33b493ab6929721aa378ab9abaeabc88745e22a2df45fc13a80ca",
+    "benchmarks/runs/20260911-7306-clause-realloc-runtime/provisional/016.json": "2e5caa65189f97aefb0167068ce3c8915cc983aadc47ffd8f9a7c261007a178b",
+    "benchmarks/runs/20260911-7306-clause-realloc-runtime/provisional/017.json": "8e377326dce0b852c878b077dd7e99b8bbb683ff2a6e2eed136ab7a92f4d0faf",
+    "benchmarks/runs/20260911-7306-clause-realloc-runtime/provisional/018.json": "6815f1ee956b11794067ff95fb872392ac842634981c3f61adea94846af1ad61",
+    "benchmarks/runs/20260911-7306-clause-realloc-runtime/provisional/019.json": "ceb7a9fe04202b86a190d5ee46f1db4fbf471373e39e820c482841a714b847d9"
+  }
+}
