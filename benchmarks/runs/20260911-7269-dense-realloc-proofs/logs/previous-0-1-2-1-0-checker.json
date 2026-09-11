@@ -1,0 +1,10 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/tools/checkers/bin/cake_lpr",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7269-dense-realloc-proofs/previous-0-1-2-1-0.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7269-dense-realloc-proofs/previous-0-1-2-1-0.proof"
+  ],
+  "returncode": 0,
+  "stdout": "s VERIFIED UNSAT\n",
+  "stderr": ""
+}
