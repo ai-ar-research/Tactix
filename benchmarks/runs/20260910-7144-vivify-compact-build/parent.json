@@ -1,0 +1,17 @@
+{
+  "parent": ".claude/worktrees/runtime-collect-retry-7030",
+  "source": ".claude/worktrees/runtime-vivify-compact-7144",
+  "inputs": {
+    "benchmarks/runs/20260910-7030-collect-retry-build/manifest.json": "4f81e436a3b7aa611906717fa2d65f42170b00cd3594e788962db6d7b1d92c1e",
+    "benchmarks/runs/20260910-7141-vivify-order-contract/summary.json": "417efc459a9dc8936b4deeb1ef7fc67bf278284953ccae8294dd04944894880d",
+    "tests/test_vivify_order_contract.cpp": "103831bfd0f013392974d35acbd5b92b346f057b571a4d7c17abde9425f2e93e",
+    "benchmarks/reports/2026-09-10-bve-prototype-assessment-7135.md": "c49158358cd44d6a9da8c6827b31ae46648400684c1377c20183c7b9cb979735",
+    "benchmarks/reports/2026-09-10-vivify-schedule-localization-7140.md": "07c24a80ea8dd6d6c025c6aac70115eee476955dbebd064e17b5934d7c881766",
+    "benchmarks/reports/2026-09-10-vivify-order-contract-7143.md": "7aa3616ff7c808e0c70f543858b49cbb2404e7ea3486bfd0a6c1db2879807b33"
+  },
+  "approval": "User approved7135/7140 pilot;52460400 removes routine in-scope revamp approval pauses.",
+  "scope": "Compact canonical homogeneous schedules: ordinary irredundant radix ranks, redundant arena poses and ref sorting. Generic const/mixed/nonreuse/prefix-flush paths retained.",
+  "invariants": "Unchanged two-pass root/count timing, pass-time glue membership, priorities, logical ties, pose, work, proofs, public API and policy. No arena pointer survives mutation.",
+  "gates": "At least15% lower complete Vivify Rank35 cycles and1% lower paired whole-runtime medians31/35; no runtime/RSS regression31/35/38; three paired waves; exact work/proofs, full suites, sanitizer/model/proof controls, B28+C5; full50/current-source fuzz/consolidation before promotion.",
+  "status": "Isolated source, not built or promoted"
+}

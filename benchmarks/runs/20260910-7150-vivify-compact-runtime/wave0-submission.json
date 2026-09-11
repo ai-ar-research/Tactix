@@ -1,0 +1,21 @@
+{
+  "job_id": "1680200",
+  "tasks": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--array=0-5",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-7150-vivify-compact-runtime/array.sbatch"
+  ],
+  "accounting_since": "2026-09-10T21:26:12",
+  "manifest_sha256": "f51485a030bbabed036df873d95ade84972e9427d692c4914855cfdb8b057367",
+  "helper_sha256": "ab19b2a6ed9a4808d455faab15b397dd05683361d8df0e8d737dd0bc2cf7cd7f",
+  "preceding_records": {}
+}

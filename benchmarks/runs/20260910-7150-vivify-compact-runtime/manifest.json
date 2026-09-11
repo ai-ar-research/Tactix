@@ -1,0 +1,107 @@
+{
+  "schema": "tactix-vivify-compact-three-wave-runtime-v1",
+  "created_at": "2026-09-11T01:26:01.081246+00:00",
+  "arms": {
+    "candidate": {
+      "path": "pins/candidate",
+      "sha256": "cdcb735715d4eb2c23d43bbff14cb9d5ccedaa41592aab693cdc779b531dbdcf",
+      "arguments": [],
+      "source_commit": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+      "source_build": "build/pin-7144-vivify-compact-release"
+    },
+    "previous": {
+      "path": "pins/previous",
+      "sha256": "4029d621784c7ca12ce8ee575fe7fc6f0bd68d990b9290fd36866297c16fc00b",
+      "arguments": [],
+      "source_commit": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+      "source_build": "build/pin-7030-collect-retry-release"
+    }
+  },
+  "authorities": {
+    "candidate": {
+      "path": "benchmarks/runs/20260910-7144-vivify-compact-build/manifest.json",
+      "sha256": "5a52962096b70be84d63d2f730c9eeaf33a512726e030ef22e143ffb52723257"
+    },
+    "previous": {
+      "path": "benchmarks/runs/20260910-7030-collect-retry-build/manifest.json",
+      "sha256": "4f81e436a3b7aa611906717fa2d65f42170b00cd3594e788962db6d7b1d92c1e"
+    }
+  },
+  "input_sha256": {
+    "tierD24-26/28eeb2beac7005a9afa98e4d3aaca621-oski15a01b40s_opt.cnf.xz": "b593364c559acab10fed9546371efe2f96683fd2c21021439dc340d6fa1ea85c",
+    "tierD24-26/5c47810953b22baa5f6f45585430fc77-oski15a01b20s_opt.cnf.xz": "ddc5401e59d155512cf289cea0844387ee2a0ebcb487b223f983f5e84673da8f",
+    "tierD24-26/266e890b706cf336378bf148bbda1aff-mexam_15_12_2.sanitized.cnf.xz": "ff8adaab784f0655ac2e249bf18d36bfb80fa1c812f48d690ac5c27208c65fcc"
+  },
+  "collect_runtime_context": true,
+  "resource_contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "cpus_per_task": 12,
+    "memory_mib": 48000,
+    "array": "0-17",
+    "throttle": null,
+    "node_constraint": null,
+    "proof_mode": "DRAT on both arms",
+    "one_solver_per_task": true,
+    "solve_timeout": 1200,
+    "checker_timeout": 16000
+  },
+  "protected_campaign_hashes": {
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/manifest.json": "b2f9e98291c56c415e4cb9439a77378c55cc78593d632c1fc84a6d5ee194acf6",
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/array.sbatch": "b90503efeb1acd5ea2cb081fc60a79c2e1ab6d51287cedf050a673ddb5433143",
+    "benchmarks/baselines/rank1-40-kissat-12cpu-v1/manifest.json": "45259e1acbc93472b923517f75fd6b8697669b3ad74970d27b565b6b7f1aa686",
+    "benchmarks/runs/20260908-5712-assignment-level-ranks1-40/manifest.json": "80211109441ac7e1483082a767c755ffc03c029381398c71017593e2ff29a8ae",
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/pins/runtime_task.py": "ccef4f23bac433c4c205949c0296f2cdef0e98d0d56fff5d306abb6e6209297f",
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/pins/modelcheck.py": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/manifest.json": "d09c9f2a030d0d29974fa881ee247c7900704e4be0e204b28c0b16beaf443d16",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/array.sbatch": "82b47f14fc76c4d5ca14484035b1033d013c1a36c2bbe44c531a1a6a56c87efb",
+    "benchmarks/runs/20260908-6114-substitute-publication-BC-gate/manifest.json": "27c57c3c896ab15daa9d51ff87f9a977472d28b2b43b849be7322b96eb598bb1",
+    "benchmarks/runs/20260908-6114-substitute-publication-BC-gate/array.sbatch": "2b6afd38eb7dcc8fc39f6fa294f5786d20d9238a4facb7cb64bc6c35a0320b4a",
+    "benchmarks/runs/20260908-6115-substitute-publication-ranks1-50/manifest.json": "e739603e6d4ec9024beebfa7a049def7c3ea01eb6b5287e542f05a651e646cd7",
+    "benchmarks/runs/20260908-6115-substitute-publication-ranks1-50/array.sbatch": "ab074cdcf7e9691f7031fd9aa198cef18fe83bb9edc5aa73f0c5b033d2d380f5",
+    "benchmarks/baselines/rank1-50-kissat-12cpu-v1/manifest.json": "5f7865e46af2b9ed0d1899ce6e450bfb9b3575801c50183e059d0e4326f5a1e0",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/manifest.json": "224b3b5d80c3087b3c3c709a78dcf934d175823bd2232f68a2475e6d11bd3d1a",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/launch.json": "ee6eea617d6fef64349ed0096c9dd06f1ffb9ba03467dd6901ab92b833bfb7a1",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/array.sbatch": "37e88d1e5998092127067b1ac0fedc388f29ddf45179057a508fb53dabaa24be"
+  },
+  "previous_work_oracles": {
+    "31": {
+      "path": "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/030.json",
+      "sha256": "0c187f81a354360b4dddc39f83475112aae9bc9863549670e62467609605b45f"
+    },
+    "35": {
+      "path": "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/034.json",
+      "sha256": "311c6befbd0cd60e3a9647d36fddb7462175979f3e7a0c3cc2af73170061a7e1"
+    },
+    "38": {
+      "path": "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/results/037.json",
+      "sha256": "08067c80ddd217bd0fb2240bd99aeacb9be92079a90541f047ef6edb0f94c2a6"
+    }
+  },
+  "dependencies": {
+    "benchmarks/runs/20260910-7149-vivify-compact-BC-gate/neutrality-7149.json": "0da646abf5c20a002e5347efe8308bccfaf92743c66dd432e45b05dba792a9e3",
+    "benchmarks/runs/20260910-7053-collect-retry-ranks1-50/manifest.json": "8afe8b4674524ed901ca665b56010d171470f737692c37f5ad7854414d250368",
+    "benchmarks/probes/scratch/prepare-vivify-compact-runtime-7150.py": "7ecbe7982a355106d6119612b47ee2a7266baf157b1b6e36600fcd9ff4a8109c",
+    "benchmarks/runs/20260910-7148-vivify-compact-proofs/summary.json": "92bd1f9c4fdddff21670671b8e6e4022ed9d1e9ce2e76449bb09713c2e22f03c",
+    "benchmarks/runs/20260910-7147-vivify-compact-sanitizers/summary.json": "100b541bfbc7d879f351fe0e1b4cb53b0ec4a2f9b9514c9d94030e274e396f95"
+  },
+  "witnesses": {
+    "31": "largest unshelved absolute gap; adverse and transfer control",
+    "35": "primary complete Vivify unit-cost witness",
+    "38": "long-run ordinary CDCL throughput transfer control"
+  },
+  "submission_contract": "Three sequential full-width six-task waves0-5,6-11,12-17. Advance after expected solver outcomes and exact own/cross-arm work/certificates, never wait for proof checking. Middle wave reverses arms; no node constraint/throttle.",
+  "hypothesis": "Compact canonical homogeneous Vivify: redundant arena poses and reference sorting; ordinary irredundant stable count radix, logical ties preserved. No rule or strategy changes. Require at least15% lower complete Vivify Rank35 sampled cycles, at least1% lower whole-runtime paired medians31 and35, and no runtime/RSS regression31/35/38. Separate exact-work profiles own complete-Vivify attribution. Preserve all three waves and stop/reassess if premise fails.",
+  "acceptance": "All18 expected independently checked/clean outcomes. Both arms must match frozen7030 non-timing stats/certificate and repeat own wave0 fingerprints. Report all paired ratios, median/range and within-arm spread; absolute claim requires<=2%. No repeat-to-select or fixed50 refresh.",
+  "test_consideration": "115/115/114 full suites;96 ordering and1728 transaction/model cases exact7030; six DebugASan/UBSan/LSan fixtures twice;96 independent DRAT/LRAT positives and192 negatives; B28+C5 exact-work solver gate. Runtime runner unchanged; existing fingerprint/timer checks retain18 tasks, reversed middle wave, repeated own/cross-arm work and malformed-input rejection.",
+  "limitation": "Isolated/unfuzzed; no promotion. Full50/memory/consolidation gates remain. Explicit user resumed after old Sep10 06:00 cutoff.",
+  "pin_sha256": {
+    "pins/previous": "4029d621784c7ca12ce8ee575fe7fc6f0bd68d990b9290fd36866297c16fc00b",
+    "pins/checkmodel": "5fde6bbc7be305f6b6166ef75dc4788e2cf40180317ab1ec9a38a3d6071676cf",
+    "pins/candidate": "cdcb735715d4eb2c23d43bbff14cb9d5ccedaa41592aab693cdc779b531dbdcf",
+    "pins/drat-trim": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+    "pins/modelcheck.py": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+    "pins/runtime_task.py": "9a010d276a883c9289ad6a620e39c1ed761c2ba3b62f3d878e37cca5de228206",
+    "matrix.tsv": "5939835a4c79bc993d9e3e5f4aefdbd0cea1b07f49fc7542aef5812dc9bbfd3e",
+    "array.sbatch": "603f7e72c84e13ca372cc97749de18e4296084ab46e5a6bd61aa77b35d9c4c1d"
+  }
+}
