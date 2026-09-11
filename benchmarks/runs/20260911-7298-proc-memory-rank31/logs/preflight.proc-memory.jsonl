@@ -1,0 +1,2 @@
+{"kind": "gap", "observed_ns": 1789123580531910125, "pid": null, "starttime_ticks": null, "error": "FileNotFoundError(2, 'No such file or directory')"}
+{"kind": "observer_stop", "observed_ns": 1789123580540425039, "pid": null, "starttime_ticks": null, "maximum_sampled_hwm_kib": null}

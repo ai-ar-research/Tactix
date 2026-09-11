@@ -1,0 +1,11 @@
+{
+  "job_id": "1681169",
+  "accounting_since": "2026-09-11T07:00:12",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7305-clause-realloc-BC/array.sbatch"
+  ],
+  "manifest_sha256": "640b2b9eca155ee76d9f0660f4db6c24fecd69b7dadea5fa7266a94c8299bc08",
+  "helper_sha256": "50d6470ce14a712efd0fa737a223946af79a1f4055bd707185132cefe94b7c22"
+}
