@@ -1,0 +1,11 @@
+{
+  "seed": 739111315,
+  "index": 1315,
+  "generator": "mut-n71-m1524",
+  "solver": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7391-direct-root-fuzz/pins/release",
+    "--lrat"
+  ],
+  "verdict": "TIMEOUT",
+  "timeout": 10.0
+}

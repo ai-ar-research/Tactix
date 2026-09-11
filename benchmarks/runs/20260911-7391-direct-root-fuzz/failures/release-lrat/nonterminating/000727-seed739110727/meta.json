@@ -1,0 +1,11 @@
+{
+  "seed": 739110727,
+  "index": 727,
+  "generator": "ksat-k5-n94-m2415",
+  "solver": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7391-direct-root-fuzz/pins/release",
+    "--lrat"
+  ],
+  "verdict": "TIMEOUT",
+  "timeout": 10.0
+}

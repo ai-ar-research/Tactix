@@ -1,0 +1,10 @@
+{
+  "job_id": "1681543",
+  "accounting_since": "2026-09-11T12:54:54",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7393-root-fold-fuzz/array.sbatch"
+  ],
+  "manifest_sha256": "1081cddf7eedfeae228969745428d0f753c016f5328ad43e652b9068b0e4baf7"
+}

@@ -1,0 +1,1334 @@
+{
+  "solver": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7391-direct-root-fuzz/pins/release",
+    "--lrat"
+  ],
+  "timeout": 10.0,
+  "cases_run": 10000,
+  "nonterminating": 147,
+  "detail": [
+    {
+      "index": 46,
+      "seed": 739110046,
+      "generator": "mut-n78-m2129",
+      "nvars": 78,
+      "nclauses": 2129,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 122,
+      "seed": 739110122,
+      "generator": "ksat-k5-n82-m1869",
+      "nvars": 82,
+      "nclauses": 1869,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 206,
+      "seed": 739110206,
+      "generator": "ksat-k5-n97-m2149",
+      "nvars": 97,
+      "nclauses": 2149,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 223,
+      "seed": 739110223,
+      "generator": "mut-n83-m2242",
+      "nvars": 83,
+      "nclauses": 2242,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 238,
+      "seed": 739110238,
+      "generator": "mut-n86-m2099",
+      "nvars": 86,
+      "nclauses": 2099,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 241,
+      "seed": 739110241,
+      "generator": "ksat-k5-n80-m1942",
+      "nvars": 80,
+      "nclauses": 1942,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 271,
+      "seed": 739110271,
+      "generator": "mut-n90-m2533",
+      "nvars": 90,
+      "nclauses": 2533,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 317,
+      "seed": 739110317,
+      "generator": "mut-n63-m1435",
+      "nvars": 63,
+      "nclauses": 1435,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 422,
+      "seed": 739110422,
+      "generator": "ksat-k5-n98-m2261",
+      "nvars": 98,
+      "nclauses": 2261,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 493,
+      "seed": 739110493,
+      "generator": "mut-n99-m2840",
+      "nvars": 99,
+      "nclauses": 2840,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 525,
+      "seed": 739110525,
+      "generator": "ksat-k5-n95-m2402",
+      "nvars": 95,
+      "nclauses": 2402,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 538,
+      "seed": 739110538,
+      "generator": "ksat-k5-n87-m2349",
+      "nvars": 87,
+      "nclauses": 2349,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 544,
+      "seed": 739110544,
+      "generator": "mut-n90-m2533",
+      "nvars": 90,
+      "nclauses": 2533,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 727,
+      "seed": 739110727,
+      "generator": "ksat-k5-n94-m2415",
+      "nvars": 94,
+      "nclauses": 2415,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 779,
+      "seed": 739110779,
+      "generator": "ksat-k5-n96-m2260",
+      "nvars": 96,
+      "nclauses": 2260,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 798,
+      "seed": 739110798,
+      "generator": "ksat-k5-n85-m1759",
+      "nvars": 85,
+      "nclauses": 1759,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 819,
+      "seed": 739110819,
+      "generator": "mut-n74-m2061",
+      "nvars": 74,
+      "nclauses": 2061,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 1014,
+      "seed": 739111014,
+      "generator": "mut-n82-m1953",
+      "nvars": 82,
+      "nclauses": 1953,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 1112,
+      "seed": 739111112,
+      "generator": "mut-n95-m2191",
+      "nvars": 95,
+      "nclauses": 2191,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 1121,
+      "seed": 739111121,
+      "generator": "ksat-k5-n75-m1597",
+      "nvars": 75,
+      "nclauses": 1597,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 1315,
+      "seed": 739111315,
+      "generator": "mut-n71-m1524",
+      "nvars": 71,
+      "nclauses": 1524,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 1359,
+      "seed": 739111359,
+      "generator": "ksat-k5-n77-m1740",
+      "nvars": 77,
+      "nclauses": 1740,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 1630,
+      "seed": 739111630,
+      "generator": "mut-n80-m1772",
+      "nvars": 80,
+      "nclauses": 1772,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 1660,
+      "seed": 739111660,
+      "generator": "mut-n70-m1856",
+      "nvars": 70,
+      "nclauses": 1856,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 1718,
+      "seed": 739111718,
+      "generator": "ksat-k5-n78-m1979",
+      "nvars": 78,
+      "nclauses": 1979,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 1870,
+      "seed": 739111870,
+      "generator": "ksat-k5-n98-m2722",
+      "nvars": 98,
+      "nclauses": 2722,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 1975,
+      "seed": 739111975,
+      "generator": "ksat-k5-n96-m2493",
+      "nvars": 96,
+      "nclauses": 2493,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 1982,
+      "seed": 739111982,
+      "generator": "mut-n98-m2038",
+      "nvars": 98,
+      "nclauses": 2038,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 2024,
+      "seed": 739112024,
+      "generator": "ksat-k5-n85-m2188",
+      "nvars": 85,
+      "nclauses": 2188,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 2074,
+      "seed": 739112074,
+      "generator": "ksat-k5-n86-m2235",
+      "nvars": 86,
+      "nclauses": 2235,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 2188,
+      "seed": 739112188,
+      "generator": "mut-n97-m2148",
+      "nvars": 97,
+      "nclauses": 2148,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 2271,
+      "seed": 739112271,
+      "generator": "mut-n89-m1849",
+      "nvars": 89,
+      "nclauses": 1849,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 2332,
+      "seed": 739112332,
+      "generator": "mut-n93-m2671",
+      "nvars": 93,
+      "nclauses": 2671,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 2355,
+      "seed": 739112355,
+      "generator": "mut-n79-m1609",
+      "nvars": 79,
+      "nclauses": 1609,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 2360,
+      "seed": 739112360,
+      "generator": "mut-n88-m2333",
+      "nvars": 88,
+      "nclauses": 2333,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 2435,
+      "seed": 739112435,
+      "generator": "ksat-k5-n90-m2062",
+      "nvars": 90,
+      "nclauses": 2062,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 2476,
+      "seed": 739112476,
+      "generator": "mut-n73-m1760",
+      "nvars": 73,
+      "nclauses": 1760,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 2483,
+      "seed": 739112483,
+      "generator": "mut-n91-m2428",
+      "nvars": 91,
+      "nclauses": 2428,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 2530,
+      "seed": 739112530,
+      "generator": "ksat-k5-n63-m1449",
+      "nvars": 63,
+      "nclauses": 1449,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 2550,
+      "seed": 739112550,
+      "generator": "mut-n69-m1538",
+      "nvars": 69,
+      "nclauses": 1538,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 2637,
+      "seed": 739112637,
+      "generator": "ksat-k5-n75-m1751",
+      "nvars": 75,
+      "nclauses": 1751,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 2712,
+      "seed": 739112712,
+      "generator": "ksat-k5-n93-m2150",
+      "nvars": 93,
+      "nclauses": 2150,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 2723,
+      "seed": 739112723,
+      "generator": "mut-n82-m1941",
+      "nvars": 82,
+      "nclauses": 1941,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 2801,
+      "seed": 739112801,
+      "generator": "mut-n92-m2257",
+      "nvars": 92,
+      "nclauses": 2257,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 2821,
+      "seed": 739112821,
+      "generator": "mut-n85-m2262",
+      "nvars": 85,
+      "nclauses": 2262,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 2856,
+      "seed": 739112856,
+      "generator": "ksat-k5-n78-m1976",
+      "nvars": 78,
+      "nclauses": 1976,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 2929,
+      "seed": 739112929,
+      "generator": "mut-n81-m1747",
+      "nvars": 81,
+      "nclauses": 1747,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 2942,
+      "seed": 739112942,
+      "generator": "ksat-k5-n86-m2041",
+      "nvars": 86,
+      "nclauses": 2041,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 2972,
+      "seed": 739112972,
+      "generator": "mut-n93-m2237",
+      "nvars": 93,
+      "nclauses": 2237,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 2993,
+      "seed": 739112993,
+      "generator": "mut-n81-m2179",
+      "nvars": 81,
+      "nclauses": 2179,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 2995,
+      "seed": 739112995,
+      "generator": "mut-n76-m2177",
+      "nvars": 76,
+      "nclauses": 2177,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 3036,
+      "seed": 739113036,
+      "generator": "ksat-k5-n63-m1340",
+      "nvars": 63,
+      "nclauses": 1340,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 3044,
+      "seed": 739113044,
+      "generator": "mut-n79-m2265",
+      "nvars": 79,
+      "nclauses": 2265,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 3112,
+      "seed": 739113112,
+      "generator": "ksat-k4-n99-m1009",
+      "nvars": 99,
+      "nclauses": 1009,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 3120,
+      "seed": 739113120,
+      "generator": "ksat-k5-n79-m1780",
+      "nvars": 79,
+      "nclauses": 1780,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 3213,
+      "seed": 739113213,
+      "generator": "ksat-k5-n75-m1887",
+      "nvars": 75,
+      "nclauses": 1887,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 3236,
+      "seed": 739113236,
+      "generator": "mut-n77-m1675",
+      "nvars": 77,
+      "nclauses": 1675,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 3457,
+      "seed": 739113457,
+      "generator": "mut-n87-m2108",
+      "nvars": 87,
+      "nclauses": 2108,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 3458,
+      "seed": 739113458,
+      "generator": "ksat-k5-n93-m2619",
+      "nvars": 93,
+      "nclauses": 2619,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 3590,
+      "seed": 739113590,
+      "generator": "mut-n81-m1796",
+      "nvars": 81,
+      "nclauses": 1796,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 3645,
+      "seed": 739113645,
+      "generator": "mut-n92-m2133",
+      "nvars": 92,
+      "nclauses": 2133,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 3711,
+      "seed": 739113711,
+      "generator": "mut-n70-m1871",
+      "nvars": 70,
+      "nclauses": 1871,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 3894,
+      "seed": 739113894,
+      "generator": "mut-n89-m2420",
+      "nvars": 89,
+      "nclauses": 2420,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 3900,
+      "seed": 739113900,
+      "generator": "ksat-k5-n99-m2844",
+      "nvars": 99,
+      "nclauses": 2844,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 4018,
+      "seed": 739114018,
+      "generator": "ksat-k5-n69-m1853",
+      "nvars": 69,
+      "nclauses": 1853,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 4429,
+      "seed": 739114429,
+      "generator": "mut-n86-m2101",
+      "nvars": 86,
+      "nclauses": 2101,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 4450,
+      "seed": 739114450,
+      "generator": "mut-n64-m1487",
+      "nvars": 64,
+      "nclauses": 1487,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 4469,
+      "seed": 739114469,
+      "generator": "mut-n86-m2436",
+      "nvars": 86,
+      "nclauses": 2436,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 4602,
+      "seed": 739114602,
+      "generator": "ksat-k5-n80-m1890",
+      "nvars": 80,
+      "nclauses": 1890,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 4604,
+      "seed": 739114604,
+      "generator": "ksat-k5-n95-m2539",
+      "nvars": 95,
+      "nclauses": 2539,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 4704,
+      "seed": 739114704,
+      "generator": "mut-n79-m1801",
+      "nvars": 79,
+      "nclauses": 1801,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 4787,
+      "seed": 739114787,
+      "generator": "ksat-k5-n100-m2638",
+      "nvars": 100,
+      "nclauses": 2638,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 4807,
+      "seed": 739114807,
+      "generator": "mut-n83-m2216",
+      "nvars": 83,
+      "nclauses": 2216,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 4905,
+      "seed": 739114905,
+      "generator": "mut-n65-m1585",
+      "nvars": 65,
+      "nclauses": 1585,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 4919,
+      "seed": 739114919,
+      "generator": "mut-n74-m1896",
+      "nvars": 74,
+      "nclauses": 1896,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 5238,
+      "seed": 739115238,
+      "generator": "ksat-k5-n75-m1807",
+      "nvars": 75,
+      "nclauses": 1807,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 5271,
+      "seed": 739115271,
+      "generator": "ksat-k5-n93-m2215",
+      "nvars": 93,
+      "nclauses": 2215,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 5371,
+      "seed": 739115371,
+      "generator": "mut-n98-m2479",
+      "nvars": 98,
+      "nclauses": 2479,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 5391,
+      "seed": 739115391,
+      "generator": "mut-n87-m2222",
+      "nvars": 87,
+      "nclauses": 2222,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 5409,
+      "seed": 739115409,
+      "generator": "mut-n85-m2336",
+      "nvars": 85,
+      "nclauses": 2336,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 5837,
+      "seed": 739115837,
+      "generator": "ksat-k5-n90-m2290",
+      "nvars": 90,
+      "nclauses": 2290,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 5842,
+      "seed": 739115842,
+      "generator": "ksat-k5-n91-m2603",
+      "nvars": 91,
+      "nclauses": 2603,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 5929,
+      "seed": 739115929,
+      "generator": "ksat-k5-n67-m1735",
+      "nvars": 67,
+      "nclauses": 1735,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 5981,
+      "seed": 739115981,
+      "generator": "mut-n98-m2469",
+      "nvars": 98,
+      "nclauses": 2469,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 6004,
+      "seed": 739116004,
+      "generator": "mut-n69-m1495",
+      "nvars": 69,
+      "nclauses": 1495,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 6045,
+      "seed": 739116045,
+      "generator": "mut-n91-m2415",
+      "nvars": 91,
+      "nclauses": 2415,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 6186,
+      "seed": 739116186,
+      "generator": "mut-n92-m2209",
+      "nvars": 92,
+      "nclauses": 2209,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 6217,
+      "seed": 739116217,
+      "generator": "ksat-k5-n99-m2195",
+      "nvars": 99,
+      "nclauses": 2195,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 6222,
+      "seed": 739116222,
+      "generator": "ksat-k5-n72-m1678",
+      "nvars": 72,
+      "nclauses": 1678,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 6250,
+      "seed": 739116250,
+      "generator": "mut-n72-m1682",
+      "nvars": 72,
+      "nclauses": 1682,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 6308,
+      "seed": 739116308,
+      "generator": "mut-n92-m2061",
+      "nvars": 92,
+      "nclauses": 2061,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 6410,
+      "seed": 739116410,
+      "generator": "ksat-k5-n85-m2026",
+      "nvars": 85,
+      "nclauses": 2026,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 6518,
+      "seed": 739116518,
+      "generator": "mut-n94-m2686",
+      "nvars": 94,
+      "nclauses": 2686,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 6525,
+      "seed": 739116525,
+      "generator": "mut-n88-m2149",
+      "nvars": 88,
+      "nclauses": 2149,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 6684,
+      "seed": 739116684,
+      "generator": "mut-n93-m1950",
+      "nvars": 93,
+      "nclauses": 1950,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 6686,
+      "seed": 739116686,
+      "generator": "ksat-k5-n80-m2155",
+      "nvars": 80,
+      "nclauses": 2155,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 6755,
+      "seed": 739116755,
+      "generator": "mut-n100-m2818",
+      "nvars": 100,
+      "nclauses": 2818,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 6774,
+      "seed": 739116774,
+      "generator": "ksat-k5-n94-m2665",
+      "nvars": 94,
+      "nclauses": 2665,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 6912,
+      "seed": 739116912,
+      "generator": "ksat-k5-n76-m2172",
+      "nvars": 76,
+      "nclauses": 2172,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 7051,
+      "seed": 739117051,
+      "generator": "mut-n85-m2098",
+      "nvars": 85,
+      "nclauses": 2098,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 7201,
+      "seed": 739117201,
+      "generator": "mut-n83-m1754",
+      "nvars": 83,
+      "nclauses": 1754,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 7227,
+      "seed": 739117227,
+      "generator": "ksat-k5-n92-m2422",
+      "nvars": 92,
+      "nclauses": 2422,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 7234,
+      "seed": 739117234,
+      "generator": "mut-n89-m2118",
+      "nvars": 89,
+      "nclauses": 2118,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 7265,
+      "seed": 739117265,
+      "generator": "mut-n94-m2133",
+      "nvars": 94,
+      "nclauses": 2133,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 7285,
+      "seed": 739117285,
+      "generator": "mut-n85-m2365",
+      "nvars": 85,
+      "nclauses": 2365,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 7306,
+      "seed": 739117306,
+      "generator": "mut-n90-m2158",
+      "nvars": 90,
+      "nclauses": 2158,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 7384,
+      "seed": 739117384,
+      "generator": "mut-n95-m2430",
+      "nvars": 95,
+      "nclauses": 2430,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 7431,
+      "seed": 739117431,
+      "generator": "mut-n82-m2139",
+      "nvars": 82,
+      "nclauses": 2139,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 7609,
+      "seed": 739117609,
+      "generator": "ksat-k5-n90-m2188",
+      "nvars": 90,
+      "nclauses": 2188,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 7636,
+      "seed": 739117636,
+      "generator": "mut-n77-m1665",
+      "nvars": 77,
+      "nclauses": 1665,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 7837,
+      "seed": 739117837,
+      "generator": "ksat-k5-n82-m1845",
+      "nvars": 82,
+      "nclauses": 1845,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 7884,
+      "seed": 739117884,
+      "generator": "ksat-k5-n75-m1583",
+      "nvars": 75,
+      "nclauses": 1583,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 8006,
+      "seed": 739118006,
+      "generator": "mut-n95-m1992",
+      "nvars": 95,
+      "nclauses": 1992,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 8070,
+      "seed": 739118070,
+      "generator": "mut-n64-m1318",
+      "nvars": 64,
+      "nclauses": 1318,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 8087,
+      "seed": 739118087,
+      "generator": "ksat-k5-n77-m1914",
+      "nvars": 77,
+      "nclauses": 1914,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 8150,
+      "seed": 739118150,
+      "generator": "ksat-k5-n70-m1886",
+      "nvars": 70,
+      "nclauses": 1886,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 8160,
+      "seed": 739118160,
+      "generator": "mut-n94-m2024",
+      "nvars": 94,
+      "nclauses": 2024,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 8340,
+      "seed": 739118340,
+      "generator": "mut-n75-m1898",
+      "nvars": 75,
+      "nclauses": 1898,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 8469,
+      "seed": 739118469,
+      "generator": "ksat-k5-n95-m2225",
+      "nvars": 95,
+      "nclauses": 2225,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 8485,
+      "seed": 739118485,
+      "generator": "mut-n100-m2702",
+      "nvars": 100,
+      "nclauses": 2702,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 8580,
+      "seed": 739118580,
+      "generator": "mut-n70-m1525",
+      "nvars": 70,
+      "nclauses": 1525,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 8648,
+      "seed": 739118648,
+      "generator": "ksat-k5-n77-m1952",
+      "nvars": 77,
+      "nclauses": 1952,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 8650,
+      "seed": 739118650,
+      "generator": "mut-n85-m1994",
+      "nvars": 85,
+      "nclauses": 1994,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 8734,
+      "seed": 739118734,
+      "generator": "ksat-k5-n86-m2115",
+      "nvars": 86,
+      "nclauses": 2115,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 8838,
+      "seed": 739118838,
+      "generator": "mut-n64-m1365",
+      "nvars": 64,
+      "nclauses": 1365,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 8889,
+      "seed": 739118889,
+      "generator": "mut-n72-m1767",
+      "nvars": 72,
+      "nclauses": 1767,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 8979,
+      "seed": 739118979,
+      "generator": "mut-n71-m1650",
+      "nvars": 71,
+      "nclauses": 1650,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 8992,
+      "seed": 739118992,
+      "generator": "ksat-k5-n94-m2530",
+      "nvars": 94,
+      "nclauses": 2530,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 9044,
+      "seed": 739119044,
+      "generator": "mut-n89-m2100",
+      "nvars": 89,
+      "nclauses": 2100,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 9062,
+      "seed": 739119062,
+      "generator": "ksat-k5-n97-m2221",
+      "nvars": 97,
+      "nclauses": 2221,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 9080,
+      "seed": 739119080,
+      "generator": "ksat-k5-n92-m2124",
+      "nvars": 92,
+      "nclauses": 2124,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 9177,
+      "seed": 739119177,
+      "generator": "ksat-k5-n82-m1948",
+      "nvars": 82,
+      "nclauses": 1948,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 9178,
+      "seed": 739119178,
+      "generator": "mut-n80-m1975",
+      "nvars": 80,
+      "nclauses": 1975,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 9191,
+      "seed": 739119191,
+      "generator": "mut-n80-m2254",
+      "nvars": 80,
+      "nclauses": 2254,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 9291,
+      "seed": 739119291,
+      "generator": "ksat-k5-n88-m2290",
+      "nvars": 88,
+      "nclauses": 2290,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 9363,
+      "seed": 739119363,
+      "generator": "ksat-k5-n88-m1893",
+      "nvars": 88,
+      "nclauses": 1893,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 9475,
+      "seed": 739119475,
+      "generator": "ksat-k5-n90-m1949",
+      "nvars": 90,
+      "nclauses": 1949,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 9526,
+      "seed": 739119526,
+      "generator": "mut-n72-m1924",
+      "nvars": 72,
+      "nclauses": 1924,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 9582,
+      "seed": 739119582,
+      "generator": "mut-n90-m1946",
+      "nvars": 90,
+      "nclauses": 1946,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 9695,
+      "seed": 739119695,
+      "generator": "mut-n91-m2510",
+      "nvars": 91,
+      "nclauses": 2510,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 9698,
+      "seed": 739119698,
+      "generator": "mut-n89-m2433",
+      "nvars": 89,
+      "nclauses": 2433,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 9736,
+      "seed": 739119736,
+      "generator": "mut-n94-m2130",
+      "nvars": 94,
+      "nclauses": 2130,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 9783,
+      "seed": 739119783,
+      "generator": "ksat-k5-n83-m2012",
+      "nvars": 83,
+      "nclauses": 2012,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 9803,
+      "seed": 739119803,
+      "generator": "mut-n84-m1741",
+      "nvars": 84,
+      "nclauses": 1741,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 9815,
+      "seed": 739119815,
+      "generator": "mut-n99-m2061",
+      "nvars": 99,
+      "nclauses": 2061,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 9842,
+      "seed": 739119842,
+      "generator": "mut-n96-m2264",
+      "nvars": 96,
+      "nclauses": 2264,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    },
+    {
+      "index": 9864,
+      "seed": 739119864,
+      "generator": "mut-n82-m1805",
+      "nvars": 82,
+      "nclauses": 1805,
+      "verdict": "TIMEOUT",
+      "timeout": 10.0
+    }
+  ]
+}
