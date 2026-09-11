@@ -156,7 +156,7 @@ pending half-analysis or schedules Backjump independently.
   exact final length. A later push relocates by doubling and adds the abandoned
   image to the same `holes` accounting. A slice reference is therefore valid
   only until the next push to that index — the precondition Kissat states for
-  `BEGIN_WATCHES`. Isolated7249's [single-image scaffold](../benchmarks/reports/2026-09-11-single-occurrence-checkpoint-7252.md) owns one mixed stream plus exact large counts and a filtered view; it is not yet connected to Kernel, and full consumer/order/lifetime migration remains required.
+  `BEGIN_WATCHES`. Isolated7253's [single-image cutover](../benchmarks/reports/2026-09-11-occurrence-cutover-checkpoint-7258.md) migrates Kernel and rule consumers to one mixed owner plus exact large counts and filtered views; Probe stays direct-large and forward stays partial. Fixed actual-parent order/proof/model/sanitizer gates pass; runtime/RSS and consolidation remain open.
 - Attached dense views change together: large promotion/removal uses paired
   kernel primitives, including Sweep's eager session erases. Canonical
   Substitute republishes an attached mixed stream at its boundary after bulk

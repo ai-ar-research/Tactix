@@ -1,0 +1,21 @@
+{
+  "job_id": "1680937",
+  "accounting_since": "2026-09-11T03:52:10",
+  "tasks": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--array=0-5",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7257-occurrence-runtime/array.sbatch"
+  ],
+  "manifest_sha256": "0663d7a32f33f8173c2e1cee564cdc5d45260e0b029db9db7af569fcb77bf1ed",
+  "helper_sha256": "1db1a71a3d910f4239a3010233dc6368485659a8f41a2e1ed2f470f8f977885b",
+  "preceding_records": {}
+}
