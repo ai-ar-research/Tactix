@@ -1,0 +1,8 @@
+#!/usr/bin/env python3
+"""Once-only full-width submission, retaining existing protected-campaign checks."""
+from pathlib import Path
+base=Path(__file__).with_name('submit-vivify-revalidation-full50-7167.py')
+code=base.read_text();before='20260910-7167-vivify-revalidation-ranks1-50'
+assert code.count(before)==1
+code=code.replace(before,'20260911-7385-corrected-root-ranks1-50')
+exec(compile(code,str(base),'exec'),dict(__file__=str(Path(__file__)),__name__='__main__'))
