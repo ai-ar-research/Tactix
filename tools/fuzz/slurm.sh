@@ -58,7 +58,7 @@ ARGS=$(printf '%q ' "$@")
 
 # Pin only the inputs used by run.sh.  In particular, do not copy mutable logs,
 # failure output, or Python caches.  A failed job retains this exact read-only
-# snapshot for Claude's diagnosis; a successful job removes it.
+# snapshot for direct diagnosis; a successful job removes it.
 mkdir -p "$ROOT/build"
 PIN_ROOT=$(mktemp -d "$ROOT/build/pin-fuzz-harness-XXXXXX")
 case "$PIN_ROOT" in

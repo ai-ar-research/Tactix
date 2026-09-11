@@ -407,21 +407,20 @@ legs exercise legal schedules; validate every oracle with known-bad artifacts.
 Shrink failures and retain minimal regressions. Cadence and commands live in the
 `fuzz`, `proof-check`, and `stress-policy` skills.
 
-**Claude-owned fuzzing.** Every time a solver fuzz job is needed, the Codex
-agent must invoke Claude Code to prepare and submit that job and to own its
-monitoring, artifact inspection, oracle interpretation, cleanup audit, and
-terminal report. Codex supplies the bounded candidate, immutable pins, stress
-scope, resource contract, and acceptance criteria, then may continue independent
-development while Claude runs the campaign in the background. Codex does not
-probe the fuzz job, logs, retained cases, or intermediate/final artifacts, or
-independently recompute or reinterpret the report. Claude's
-terminal report is authoritative: `pass` closes the fuzz gate; `failure`
-pauses dependent work and hands a bounded reproducer and failure class to
-Codex for direct repair under §8.2. Codex does not rerun a passing fuzz
-campaign for confirmation. This ownership rule is specific to fuzzing; normal
-unit tests, benchmark guards, proof witnesses, and performance diagnostics keep
-their existing independent-validation contracts. Run periodic checkpoints after
-meaningful solver-change batches during extended runtime work, not only at final
+**Direct fuzzing ownership.** Codex may prepare and submit solver fuzz jobs
+directly, and owns monitoring, artifact inspection, oracle interpretation,
+cleanup audit, and the terminal report. Invoking Claude Code is not required;
+do not delegate fuzzing to it unless the user explicitly requests that.
+Record the bounded candidate, immutable pins, stress scope, resource contract,
+and acceptance criteria. Run the campaign in the background while continuing
+independent development, then inspect its actual outputs at checkpoints.
+A verified terminal `pass` closes the fuzz gate; a `failure` pauses dependent
+work and triggers Codex's direct diagnosis and repair under §8.2. Pending or
+interim output is not a pass. Do not rerun a passing campaign merely for
+confirmation. Unit tests, benchmark guards, proof witnesses, and performance
+diagnostics retain their existing independent-validation contracts. Run periodic
+checkpoints after meaningful solver-change batches during extended runtime work,
+not only at final
 consolidation; unchanged rebuilds and diagnostic-only work need no duplicate
 campaign. Pending fuzz results do not pass a gate or authorize promotion. A
 reported correctness failure pauses dependent work and triggers the repair path.
@@ -429,7 +428,7 @@ reported correctness failure pauses dependent work and triggers the repair path.
 Each generated fuzz leg uses 50 physical cores when cluster capacity permits,
 not 50 SMT threads: on the current SMT-2 nodes this is 100 logical CPUs,
 400,000 MiB of scheduler memory, and 50 harness workers (one per physical
-core). Claude records the requested allocation, worker count, and achieved
+core). Codex records the requested allocation, worker count, and achieved
 concurrency in its terminal report. Preparation, small fixed-corpus checks, and
 intrinsically narrower reachability probes may use less with a recorded reason;
 a generated fuzz leg may not silently fall back to one or two workers. This is
@@ -452,11 +451,10 @@ explicitly requests it. Preserve the original failure, establish a causal
 reproducer, add a regression, and validate
 the fix with the affected invariants and independent proof/model oracles before
 resuming dependent work. Do not weaken correctness or promotion gates.
-Claude still owns fuzz execution, monitoring, interpretation, and cleanup as
-specified above. For a fuzz failure, Claude supplies a bounded repair handoff
-with the reproducer, command, and failure class; Codex may inspect and repair
-that handoff, but does not independently inspect the campaign or reinterpret
-its report. A repair does not itself close the required fuzz gate.
+For a fuzz failure, Codex inspects the campaign directly and records the
+reproducer, command, and failure class before repair. A repair does not itself
+close the required fuzz gate: rerun the affected correctness checks and the
+required changed-source fuzz checkpoint with the original failure preserved.
 
 ### 8.3 Performance gates
 
@@ -501,7 +499,7 @@ exclusivity or all-memory reservation for timing or diagnosis.
 
 This three-wave rule applies only to decision-grade performance evidence. It
 does not repeat or multiply fuzzing: each required fuzz checkpoint remains one
-Claude-owned campaign under §8.2. It likewise does not multiply correctness
+fuzz campaign under §8.2. It likewise does not multiply correctness
 gates or ordinary diagnostic probes; those retain their predeclared contracts.
 Full-width tier arrays retain their no-throttle, no-node-constraint allocation
 contract and are interpreted through aggregate evidence rather than this
@@ -532,7 +530,7 @@ pins, manifest, focused tests, and performance evidence. Such a repair is
 explicitly *unfuzzed investigation material*: it is neither promoted nor final.
 At the consolidation point, compose only the independently supported repairs,
 run the complete B28 plus predeclared C5 checked gate on that combined
-candidate, and then invoke one Claude-owned fuzz campaign before the required
+candidate, and then run one Codex-owned fuzz campaign before the required
 report, commit, and push. That fuzz/wrap-up checkpoint does not terminate
 convergence: immediately resume the next demonstrated current-Tactix/current-
 Kissat gap from the newly accepted pin. A soundness defect, crash, sanitizer failure,

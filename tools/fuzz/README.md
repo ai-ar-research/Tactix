@@ -1,6 +1,7 @@
 # Fuzz harness
 
 Soundness pipeline per DEVELOPMENT_PLAN.md §8.2 (workflow: the `fuzz` skill).
+Codex operates and inspects campaigns directly; Claude Code is not required.
 
 - `run.sh --quick --solver CMD` — per-commit gate: regression corpus + 10,000
   seeded cases; `--nightly` = 200,000 cases + LRAT chain. These counts are
@@ -12,7 +13,7 @@ Soundness pipeline per DEVELOPMENT_PLAN.md §8.2 (workflow: the `fuzz` skill).
   read-only `build/pin-fuzz-harness-*` snapshot of `run.sh`, the Python harness,
   stress scenarios, and the regression corpus.  The batch job executes only
   that snapshot and logs its aggregate SHA-256; it removes the snapshot after
-  success and retains it after failure for Claude-owned diagnosis.  Never make
+  success and retains it after failure for direct diagnosis.  Never make
   a fuzz job execute a live repository script.
 - **Read a leg by its `coverage:` and `reached:` fields, not by `--n`.**
   `coverage:` counts cases that reached a verdict — a case that times out runs
