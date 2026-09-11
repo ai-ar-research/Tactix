@@ -1,0 +1,44 @@
+{
+  "schema": "random-root-fold-supplement-7393-v1",
+  "dependencies": {
+    "benchmarks/runs/20260911-7391-direct-root-fuzz/manifest.json": "fb961d374619485734d56ce3905887161ae412bb85d02655883f36eb10eccddc",
+    "benchmarks/runs/20260911-7391-direct-root-fuzz/outcomes/debug-build.json": "2aa0b152fc27ede44c3bde8aee42344fc5090273871f03f8c29f92b594a78399",
+    "benchmarks/runs/20260911-7391-direct-root-fuzz/outcomes/selftest.json": "f378bdc6a5fa3d1cca14bbcacc59007ef304e077ca25b38e74e8ba222559b6e7",
+    "build/pin-7392-direct-root-fuzz-debug/tests/test_root_fold": "0e0aa1d66e6677f6be99534743a17329a01263f2df17ee623a72afb1770ec1b2",
+    "benchmarks/probes/scratch/prepare-root-fold-fuzz-7393.py": "897b0aaa7627ee90608b929cc7129d62028e55ea4e99d344fd8dce71bbf7f41d",
+    "benchmarks/runs/20260911-7391-direct-root-fuzz/pins/kissat": "3aa8e41f976e213d3c4627150e9cd4e5fce0ce9508d67ab469a7696e26a8d49c",
+    "benchmarks/probes/scratch/root-fold-fuzz-7393.py": "45d45da9aef9a059d94ba6f990f84038ec8fa5ca1bc8b4136df367ca50324f20",
+    "benchmarks/probes/scratch/root-fold-fuzz-solver-7393.py": "cce8b57e08c815f9504fa6dc6a41cf6513a0a21222ea98955b37abd0f881149e",
+    "tools/fuzz/fuzz.py": "e9639c5206a9f56bad0bffddf343665ab11604e9b7375462fee7fc433328d7c2",
+    "tools/fuzz/generators.py": "489bfdabebb05f9498dc1dbcd3350e2acddbe48d373fec40bda329986cdc21ba",
+    "tools/fuzz/modelcheck.py": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+    "tools/fuzz/shrink.py": "8dad31d70ac34b9aaaa37300152f45bc364d6422d3af13213643ec673e532e23",
+    "tools/checkers/bin/drat-trim": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+    "tools/checkers/bin/lrat-check": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7"
+  },
+  "cases": 10000,
+  "seed": 739140000,
+  "risk": "Force actual physical root folding on every generated input with isolated root units, randomized external-ID permutation/signs/root counts and live clauses. Half planted SAT, half a six-variable pigeonhole UNSAT core; alternating DRAT/native-LRAT.",
+  "validation": "Debug invariants and compiled proof shadow through unchanged test_root_fold; exact original-CNF model/proof checks, required reference verdict and archived-root counter >=2 on every case. 2500 cases in each SAT/UNSAT x DRAT/LRAT stratum. Any failure or missing verdict/reach stops acceptance and preserves a bundle.",
+  "limitation": "Structured lifecycle fuzz supplements broad7391; it is not a general-formula or every-API-schedule gate. This adapter is not a new policy or production change.",
+  "resources": {
+    "partition": "cpu-dense-hwulab-q",
+    "logical_cpus": 100,
+    "memory_mib": 400000,
+    "physical_workers": 50
+  },
+  "test_consideration": "200 deterministic generator invariant/SAT witness/UNSAT core checks and four negative reachability controls; existing five current Debug lifecycle fixtures and harness negative model/proof selftests PASS.",
+  "pin_sha256": {
+    "pins/fuzz.py": "e9639c5206a9f56bad0bffddf343665ab11604e9b7375462fee7fc433328d7c2",
+    "pins/solver.py": "cce8b57e08c815f9504fa6dc6a41cf6513a0a21222ea98955b37abd0f881149e",
+    "pins/root-fixture": "0e0aa1d66e6677f6be99534743a17329a01263f2df17ee623a72afb1770ec1b2",
+    "pins/modelcheck.py": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+    "pins/kissat": "3aa8e41f976e213d3c4627150e9cd4e5fce0ce9508d67ab469a7696e26a8d49c",
+    "pins/generators.py": "489bfdabebb05f9498dc1dbcd3350e2acddbe48d373fec40bda329986cdc21ba",
+    "pins/shrink.py": "8dad31d70ac34b9aaaa37300152f45bc364d6422d3af13213643ec673e532e23",
+    "pins/run.py": "45d45da9aef9a059d94ba6f990f84038ec8fa5ca1bc8b4136df367ca50324f20",
+    "pins/tools/checkers/bin/lrat-check": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+    "pins/tools/checkers/bin/drat-trim": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+    "array.sbatch": "0c525ab3021fd4c30db5a22d107c4ba2b3a1455090e506a10c784bd1fa5a2fb6"
+  }
+}

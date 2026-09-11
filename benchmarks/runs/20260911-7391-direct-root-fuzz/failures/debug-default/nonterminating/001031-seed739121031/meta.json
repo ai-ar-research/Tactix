@@ -1,0 +1,10 @@
+{
+  "seed": 739121031,
+  "index": 1031,
+  "generator": "mut-n70-m1517",
+  "solver": [
+    "/home/hwu/SAT-solving/build/pin-7392-direct-root-fuzz-debug/tactix"
+  ],
+  "verdict": "TIMEOUT",
+  "timeout": 20.0
+}

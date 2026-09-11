@@ -1,0 +1,184 @@
+{
+  "observed_at": "2026-09-11T17:16:53.174314+00:00",
+  "hashes": {
+    "benchmarks/runs/20260911-7389-current-gap-profiles/solver-summary-7390.json": "f98123fe5f33b58c936c1cb2067af8259322446a9d28e36a129ccfa6804d9ed0",
+    "benchmarks/runs/20260911-7389-current-gap-profiles/provisional/000.json": "5acf0a930ec4e8e1fc38fbe54bb89b9e76f4c912908393afbd9205f6c7e8813a",
+    "benchmarks/runs/20260911-7385-corrected-root-ranks1-50/provisional/030.json": "5a5d0e0c581b224bffc79e7a09d37e4f39c71d8559d0b4ba0542dd94eb9e17c3",
+    "benchmarks/runs/20260911-7389-current-gap-profiles/profiles/000-callpaths.txt": "3a031c2726bab1cef3a620a9f7bcdc7684d8039565fb8deb2307cbf0eaa46c7e",
+    "benchmarks/runs/20260911-7389-current-gap-profiles/profiles/000-self.txt": "8de43e6cc9cfd7ca94a482af33be24a86218ac45d436b742124b19e8a0b0efe5",
+    "benchmarks/runs/20260911-7389-current-gap-profiles/profiles/000.perf.data.xz": "b58f12a835b24351516b52e072970157b1783e6a6421dd80b5505c5669f67b67",
+    "benchmarks/runs/20260911-7389-current-gap-profiles/provisional/001.json": "28209af8bec9bf51c56f856b6d6ef06a5879cecfb7617a6a9215b9bac782dfa5",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/061.json": "45503f7de6304ea290c0e497706299983b3621d67fd825e46fa27d9f02499a10",
+    "benchmarks/runs/20260911-7389-current-gap-profiles/profiles/001-callpaths.txt": "6e0c110e772ec9f0b593b557889ac835aca51c00717da39cde3c0fc0a15ef93f",
+    "benchmarks/runs/20260911-7389-current-gap-profiles/profiles/001-self.txt": "5bf45717a3667e9bed8d8b258e7f81a941be530d206aa166bfe4b1dd6c88044d",
+    "benchmarks/runs/20260911-7389-current-gap-profiles/profiles/001.perf.data.xz": "33da3f20b87241fec95e8b2dfe8d448374e1a2e539e7ffb55213366773ae76f1",
+    "benchmarks/runs/20260911-7389-current-gap-profiles/provisional/002.json": "b12c59e665f1b2638e663094c35fcef30d6ffd74af9ef8b84818accb096b421b",
+    "benchmarks/runs/20260911-7385-corrected-root-ranks1-50/provisional/042.json": "9c60450036d9c7f586c42cb456f9c257d60f8d15b827d8a5d535c93b4379d7de",
+    "benchmarks/runs/20260911-7389-current-gap-profiles/profiles/002-callpaths.txt": "347f0900ab0b210ddaf0727b1ef96710022ee7386cdaf02fb5520469646396d2",
+    "benchmarks/runs/20260911-7389-current-gap-profiles/profiles/002-self.txt": "d699fda93b233128bfb6b4c53140898a5ac1dbd8a928043e4b71250eeeeb0964",
+    "benchmarks/runs/20260911-7389-current-gap-profiles/profiles/002.perf.data.xz": "70cfd8a655a531d19aa9dedcf708fdd2e526025b702fc4e4fd44947220454910",
+    "benchmarks/runs/20260911-7389-current-gap-profiles/provisional/003.json": "c9ec0005b34a103935d217c7d7018f3c7687ea882d4949a0e3168e5445b351ab",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/results/085.json": "79c58cb9f90387f86d3aad47954698378c9b11c1dc15ebd82c3ca5c6db78c45c",
+    "benchmarks/runs/20260911-7389-current-gap-profiles/profiles/003-callpaths.txt": "2b13c80ea3b6dcf764e092844281f655c0e0f0f9ccde5ad44e6c2d813432eaf6",
+    "benchmarks/runs/20260911-7389-current-gap-profiles/profiles/003-self.txt": "fafcb7c66962483fffaee16f76e491b66010529a4258e2e0606016cce17c7d18",
+    "benchmarks/runs/20260911-7389-current-gap-profiles/profiles/003.perf.data.xz": "25d554eea60eeb8db14a012c07d5f1e4716f4cbb7bd2aeb9d8b6ea71bfd562ef",
+    "benchmarks/runs/20260911-7389-current-gap-profiles/manifest.json": "38eb692446debff8bf8959fff4a4deb110beb479925f102a67a7d2bb8aa9109a",
+    "benchmarks/runs/20260911-7389-current-gap-profiles/launch.json": "3528eea7526b3e0711efd73ea5e084c4d589fe8593dc3017a871951d6f5fcc80",
+    "benchmarks/probes/scratch/current-gap-profiles-7389.py": "7a588ecf699a5b04c288434108a45ef6d526b4f2359d288fb3d122ef55539068",
+    "benchmarks/probes/scratch/current-rank31-cost-7396.py": "113c923be8482cef644253425b3d9bdce0d3083ba3f9236942e98f85d2c7ee32",
+    "tools/bench/perf_symbol_cost.py": "56867c7289ec6cb34356b49c07ce3b55747a4c45e42668c2e15d99a6cfaa8af0",
+    "tools/bench/test_perf_symbol_cost.py": "d4b9634dd2016ef6f4425657ddd17d3488056d80a30208d4e58a6dc311b406df"
+  },
+  "states": {
+    "candidate": {
+      "status": "pending_validation",
+      "clean": false,
+      "checked": false,
+      "scorable": false
+    },
+    "kissat": {
+      "status": "pending_validation",
+      "clean": false,
+      "checked": false,
+      "scorable": false
+    }
+  },
+  "work": {
+    "candidate": {
+      "conflicts": 10993050,
+      "decisions": 236596608,
+      "propagations": 3926801518
+    },
+    "kissat": {
+      "conflicts": 4540757,
+      "decisions": 198706607,
+      "propagations": 2864694340
+    }
+  },
+  "total_sampled_cycles": {
+    "candidate": 2049622398287,
+    "kissat": 994198041891
+  },
+  "scopes": {
+    "inprocessing": {
+      "candidate": {
+        "symbols": [
+          "tactix::DefaultInprocessScheduler::run_phase(tactix::Kernel&, tactix::SlotGroup, int volatile*)"
+        ],
+        "percent": 30.99,
+        "estimated_cycles": 635177981229.1412,
+        "rounding_cycles": 102481119.91434999
+      },
+      "kissat": {
+        "symbols": [
+          "kissat_probe",
+          "kissat_probe_initially",
+          "kissat_eliminate"
+        ],
+        "percent": 28.75,
+        "estimated_cycles": 285831937043.6625,
+        "rounding_cycles": 149129706.28365
+      },
+      "sampled_excess_cycles": 349346044185.47876
+    },
+    "ordinary_propagation": {
+      "candidate": {
+        "symbols": [
+          "tactix::kernel_propagate(tactix::Kernel&, unsigned int)"
+        ],
+        "percent": 41.97,
+        "estimated_cycles": 860226520561.054,
+        "rounding_cycles": 102481119.91434999
+      },
+      "kissat": {
+        "symbols": [
+          "kissat_search_propagate"
+        ],
+        "percent": 44.27,
+        "estimated_cycles": 440131473145.1457,
+        "rounding_cycles": 49709902.09455
+      },
+      "sampled_excess_cycles": 420095047415.90826
+    },
+    "reduce": {
+      "candidate": {
+        "symbols": [
+          "tactix::reduce_apply_refs(tactix::Kernel&, unsigned int const*, unsigned long, bool)"
+        ],
+        "percent": 4.3,
+        "estimated_cycles": 88133763126.341,
+        "rounding_cycles": 102481119.91434999
+      },
+      "kissat": {
+        "symbols": [
+          "kissat_reduce"
+        ],
+        "percent": 2.58,
+        "estimated_cycles": 25650309480.787804,
+        "rounding_cycles": 49709902.09455
+      },
+      "sampled_excess_cycles": 62483453645.5532
+    },
+    "vivify": {
+      "candidate": {
+        "symbols": [
+          "tactix::vivify_apply(tactix::Kernel&)"
+        ],
+        "percent": 10.14,
+        "estimated_cycles": 207831711186.3018,
+        "rounding_cycles": 102481119.91434999
+      },
+      "kissat": {
+        "symbols": [
+          "kissat_vivify"
+        ],
+        "percent": 10.42,
+        "estimated_cycles": 103595435965.0422,
+        "rounding_cycles": 49709902.09455
+      },
+      "sampled_excess_cycles": 104236275221.25958
+    },
+    "factor": {
+      "candidate": {
+        "symbols": [
+          "tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)"
+        ],
+        "percent": 3.31,
+        "estimated_cycles": 67842501383.2997,
+        "rounding_cycles": 102481119.91434999
+      },
+      "kissat": {
+        "symbols": [
+          "kissat_factor"
+        ],
+        "percent": 3.32,
+        "estimated_cycles": 33007374990.781197,
+        "rounding_cycles": 49709902.09455
+      },
+      "sampled_excess_cycles": 34835126392.5185
+    },
+    "congruence": {
+      "candidate": {
+        "symbols": [
+          "tactix::congruence_apply(tactix::Kernel&)"
+        ],
+        "percent": 2.34,
+        "estimated_cycles": 47961164119.9158,
+        "rounding_cycles": 102481119.91434999
+      },
+      "kissat": {
+        "symbols": [
+          "kissat_congruence"
+        ],
+        "percent": 1.91,
+        "estimated_cycles": 18989182600.1181,
+        "rounding_cycles": 49709902.09455
+      },
+      "sampled_excess_cycles": 28971981519.797703
+    }
+  },
+  "inprocessing_fraction_of_sampled_excess": 0.3310005516438949,
+  "decision": "Current Rank31 excess is not confined to inprocessing. Keep substantial inprocessing cost work, but also investigate excess search work; scope totals do not prove intrinsic CDCL unit-cost inferiority. The shorter Rank43 native/current full decision diagnostic distinguishes earlier divergence from later extra BVE/Factor work.",
+  "limitations": "Rounded sample-period estimates from one concurrent diagnostic window, not replicated acceptance timings, exact event counts, or equal-operation prices. Ordinary propagation overlaps inprocessing; Vivify/Factor/Congruence are nested within it. Never add these envelopes. Rank43 name-only tables contain duplicate clone names and are not accepted by the strict symbol parser; no duplicate rows are dropped or merged. All four solver replays remain valid, independently of this narrower cost interpretation.",
+  "test_consideration": "Existing seven strict perf-symbol parser tests and eight current replay rejection controls cover this reuse. No parser, solver, observer or acceptance predicate changed; no new solver test or duplicate fuzz required."
+}

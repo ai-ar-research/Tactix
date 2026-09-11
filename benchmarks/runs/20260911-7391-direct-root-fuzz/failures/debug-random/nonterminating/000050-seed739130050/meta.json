@@ -1,0 +1,11 @@
+{
+  "seed": 739130050,
+  "index": 50,
+  "generator": "ksat-k5-n85-m1842",
+  "solver": [
+    "/home/hwu/SAT-solving/build/pin-7392-direct-root-fuzz-debug/tactix",
+    "--random-policy=739130050"
+  ],
+  "verdict": "TIMEOUT",
+  "timeout": 10.0
+}

@@ -1,0 +1,10 @@
+{
+  "seed": 739100072,
+  "index": 72,
+  "generator": "mut-n95-m2365",
+  "solver": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7391-direct-root-fuzz/pins/release"
+  ],
+  "verdict": "TIMEOUT",
+  "timeout": 10.0
+}
