@@ -1,0 +1,269 @@
+{
+  "wave": 2,
+  "hashes": {
+    "benchmarks/runs/20260911-7241-gc-forward-profiles/manifest.json": "e5bf89ee9b1a75362dc98e449d46f9fe20087ef126897a5bc84a294282ad669f",
+    "benchmarks/runs/20260911-7242-gc-forward-samples/wave2/summary.json": "9e4b5208ad225cd0d95379791f6760179aff79effd1ef87069aa0161408b814f",
+    "benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate": "59b3d57e0edec7667e07d4ba392710640b60a294db89b9663d8ad375d70913bb",
+    "benchmarks/runs/20260911-7242-gc-forward-samples/wave2/candidate.samples.txt.xz": "590f6f263808e203135cc8877e4a61f5ce3ae2a806d0d5a17cb58ac7cce00bd8",
+    "benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous": "cdcb735715d4eb2c23d43bbff14cb9d5ccedaa41592aab693cdc779b531dbdcf",
+    "benchmarks/runs/20260911-7242-gc-forward-samples/wave2/previous.samples.txt.xz": "0b8e4980ea20a6fc8f69c3026a00568cbb4a4574f9a520f4b77b8e90c39916b1",
+    "benchmarks/probes/scratch/localize-gc-forward-collection-7243.py": "6f0bba9f67cdbfee0a2cd6d7540967b44f81a853cb051485881b9d549ccc50e1",
+    "benchmarks/probes/scratch/localize-factor-envelope-7171.py": "f511058755d76a18cad6b2ae7552424f4abe99f1e8228da9c063f41653ecda45",
+    "tools/bench/perf_callstack.py": "35d9d19e81105a2aa53f8e93733985fe6f00db514371e6a26dc148120b53f413"
+  },
+  "arms": {
+    "candidate": {
+      "reduce": {
+        "samples": 72687,
+        "total_period": 1365844268082,
+        "selected_period": 53278521905,
+        "by_phase": {
+          "no_phase_frame": 53278521905
+        },
+        "branches": {
+          "no_phase_frame": {
+            "<entry self>": 3556337108,
+            "tactix::kernel_sparse_collect_root(tactix::Kernel&, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 45908957662,
+            "tactix::lock_reasons(tactix::Kernel&, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 377260300,
+            "tactix::Proof::del(unsigned long, unsigned long, unsigned int const*, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 3360193937,
+            "tactix::kernel_clause_position(tactix::Kernel const&, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 75772898
+          }
+        },
+        "leaves": {
+          "no_phase_frame": {
+            "tactix::reduce_apply_refs(tactix::Kernel&, unsigned int const*, unsigned long, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 3556337108,
+            "tactix::kernel_sparse_collect_root(tactix::Kernel&, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 14204184388,
+            "tactix::kernel_flush_root_clause(tactix::Kernel&, unsigned int*, unsigned long*, bool, bool, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 2534197118,
+            "__memmove_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 875301973,
+            "tactix::kernel_collect_garbage(tactix::Kernel&, unsigned int, bool, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 20227219928,
+            "tactix::WatchLists::push_large(unsigned int, unsigned int, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 3169976239,
+            "tactix::sort_clause_watches_like_kissat(tactix::Kernel&, tactix::Clause*) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 1825815164,
+            "void std::vector<unsigned int, std::allocator<unsigned int> >::_M_range_insert<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > > >(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, std::forward_iterator_tag) [clone .isra.0] [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 1230365409,
+            "tactix::lock_reasons(tactix::Kernel&, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 377260300,
+            "tactix::Proof::del(unsigned long, unsigned long, unsigned int const*, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 3360193937,
+            "tactix::kernel_clause_position(tactix::Kernel const&, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 464156421,
+            "tactix::move_best_watch_to_front(tactix::Kernel&, tactix::Clause*, unsigned int, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 1013831304,
+            "tactix::delete_binary_all_copies(tactix::Kernel&, unsigned int, unsigned int, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 37046796,
+            "tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 17879573,
+            "tactix::Proof::add_rup(unsigned long, unsigned int const*, unsigned int, unsigned long const*, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 17438432,
+            "__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > > std::__stable_partition_adaptive<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, unsigned int*, __gnu_cxx::__ops::_Iter_pred<tactix::kernel_collect_garbage(tactix::Kernel&, unsigned int, bool, bool)::{lambda(unsigned int)#1}>, long>(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__ops::_Iter_pred<tactix::kernel_collect_garbage(tactix::Kernel&, unsigned int, bool, bool)::{lambda(unsigned int)#1}>, long, unsigned int*, long) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 182776763,
+            "[unknown] [[unknown]]": 37005305,
+            "__memset_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 37922483,
+            "_int_malloc [/usr/lib64/libc.so.6]": 18581840,
+            "memmove@plt [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 36457039,
+            "tactix::WatchLists::grow(unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 18883447,
+            "void tactix::WatchLists::compact<tactix::kernel_unwatch_large(tactix::Kernel&, unsigned int, unsigned int)::{lambda(tactix::WatchEntry)#1}>(unsigned int, tactix::kernel_unwatch_large(tactix::Kernel&, unsigned int, unsigned int)::{lambda(tactix::WatchEntry)#1}) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 35690938
+          }
+        }
+      },
+      "sparse": {
+        "samples": 2899,
+        "total_period": 53278521905,
+        "selected_period": 45908957662,
+        "by_phase": {
+          "no_phase_frame": 45908957662
+        },
+        "branches": {
+          "no_phase_frame": {
+            "<entry self>": 14204184388,
+            "tactix::kernel_flush_root_clause(tactix::Kernel&, unsigned int*, unsigned long*, bool, bool, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 2605206061,
+            "tactix::kernel_collect_garbage(tactix::Kernel&, unsigned int, bool, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 28878189768,
+            "tactix::kernel_clause_position(tactix::Kernel const&, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 146408166,
+            "tactix::delete_binary_all_copies(tactix::Kernel&, unsigned int, unsigned int, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 37046796,
+            "__memset_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 37922483
+          }
+        },
+        "leaves": {
+          "no_phase_frame": {
+            "tactix::kernel_sparse_collect_root(tactix::Kernel&, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 14204184388,
+            "tactix::kernel_flush_root_clause(tactix::Kernel&, unsigned int*, unsigned long*, bool, bool, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 2534197118,
+            "__memmove_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 875301973,
+            "tactix::kernel_collect_garbage(tactix::Kernel&, unsigned int, bool, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 20227219928,
+            "tactix::WatchLists::push_large(unsigned int, unsigned int, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 3169976239,
+            "tactix::sort_clause_watches_like_kissat(tactix::Kernel&, tactix::Clause*) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 1825815164,
+            "void std::vector<unsigned int, std::allocator<unsigned int> >::_M_range_insert<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > > >(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, std::forward_iterator_tag) [clone .isra.0] [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 1230365409,
+            "tactix::kernel_clause_position(tactix::Kernel const&, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 388383523,
+            "tactix::move_best_watch_to_front(tactix::Kernel&, tactix::Clause*, unsigned int, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 1013831304,
+            "tactix::delete_binary_all_copies(tactix::Kernel&, unsigned int, unsigned int, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 37046796,
+            "tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 17879573,
+            "tactix::Proof::add_rup(unsigned long, unsigned int const*, unsigned int, unsigned long const*, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 17438432,
+            "__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > > std::__stable_partition_adaptive<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, unsigned int*, __gnu_cxx::__ops::_Iter_pred<tactix::kernel_collect_garbage(tactix::Kernel&, unsigned int, bool, bool)::{lambda(unsigned int)#1}>, long>(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__ops::_Iter_pred<tactix::kernel_collect_garbage(tactix::Kernel&, unsigned int, bool, bool)::{lambda(unsigned int)#1}>, long, unsigned int*, long) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 182776763,
+            "[unknown] [[unknown]]": 37005305,
+            "__memset_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 37922483,
+            "_int_malloc [/usr/lib64/libc.so.6]": 18581840,
+            "memmove@plt [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 36457039,
+            "tactix::WatchLists::grow(unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 18883447,
+            "void tactix::WatchLists::compact<tactix::kernel_unwatch_large(tactix::Kernel&, unsigned int, unsigned int)::{lambda(tactix::WatchEntry)#1}>(unsigned int, tactix::kernel_unwatch_large(tactix::Kernel&, unsigned int, unsigned int)::{lambda(tactix::WatchEntry)#1}) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 35690938
+          }
+        }
+      },
+      "gc": {
+        "samples": 2499,
+        "total_period": 45908957662,
+        "selected_period": 28878189768,
+        "by_phase": {
+          "no_phase_frame": 28878189768
+        },
+        "branches": {
+          "no_phase_frame": {
+            "void std::vector<unsigned int, std::allocator<unsigned int> >::_M_range_insert<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > > >(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, std::forward_iterator_tag) [clone .isra.0] [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 2104078709,
+            "<entry self>": 20227219928,
+            "tactix::WatchLists::push_large(unsigned int, unsigned int, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 3226508859,
+            "tactix::sort_clause_watches_like_kissat(tactix::Kernel&, tactix::Clause*) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 1844720600,
+            "tactix::kernel_clause_position(tactix::Kernel const&, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 241975357,
+            "tactix::move_best_watch_to_front(tactix::Kernel&, tactix::Clause*, unsigned int, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 1013831304,
+            "__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > > std::__stable_partition_adaptive<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, unsigned int*, __gnu_cxx::__ops::_Iter_pred<tactix::kernel_collect_garbage(tactix::Kernel&, unsigned int, bool, bool)::{lambda(unsigned int)#1}>, long>(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__ops::_Iter_pred<tactix::kernel_collect_garbage(tactix::Kernel&, unsigned int, bool, bool)::{lambda(unsigned int)#1}>, long, unsigned int*, long) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 201273171,
+            "std::vector<unsigned int, std::allocator<unsigned int> >::reserve(unsigned long) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 18581840
+          }
+        },
+        "leaves": {
+          "no_phase_frame": {
+            "__memmove_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 875301973,
+            "tactix::kernel_collect_garbage(tactix::Kernel&, unsigned int, bool, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 20227219928,
+            "tactix::WatchLists::push_large(unsigned int, unsigned int, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 3169976239,
+            "tactix::sort_clause_watches_like_kissat(tactix::Kernel&, tactix::Clause*) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 1825815164,
+            "void std::vector<unsigned int, std::allocator<unsigned int> >::_M_range_insert<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > > >(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, std::forward_iterator_tag) [clone .isra.0] [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 1230365409,
+            "tactix::kernel_clause_position(tactix::Kernel const&, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 241975357,
+            "tactix::move_best_watch_to_front(tactix::Kernel&, tactix::Clause*, unsigned int, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 1013831304,
+            "__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > > std::__stable_partition_adaptive<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, unsigned int*, __gnu_cxx::__ops::_Iter_pred<tactix::kernel_collect_garbage(tactix::Kernel&, unsigned int, bool, bool)::{lambda(unsigned int)#1}>, long>(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__ops::_Iter_pred<tactix::kernel_collect_garbage(tactix::Kernel&, unsigned int, bool, bool)::{lambda(unsigned int)#1}>, long, unsigned int*, long) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 182776763,
+            "[unknown] [[unknown]]": 37005305,
+            "_int_malloc [/usr/lib64/libc.so.6]": 18581840,
+            "memmove@plt [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 36457039,
+            "tactix::WatchLists::grow(unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/candidate]": 18883447
+          }
+        }
+      }
+    },
+    "previous": {
+      "reduce": {
+        "samples": 70888,
+        "total_period": 1333685211063,
+        "selected_period": 57331231643,
+        "by_phase": {
+          "no_phase_frame": 57331231643
+        },
+        "branches": {
+          "no_phase_frame": {
+            "tactix::kernel_sparse_collect_root(tactix::Kernel&, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 49819104318,
+            "tactix::lock_reasons(tactix::Kernel&, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 414185767,
+            "<entry self>": 3640386121,
+            "tactix::Proof::del(unsigned long, unsigned long, unsigned int const*, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 3438577922,
+            "tactix::kernel_clause_position(tactix::Kernel const&, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 18977515
+          }
+        },
+        "leaves": {
+          "no_phase_frame": {
+            "tactix::kernel_sparse_collect_root(tactix::Kernel&, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 14124641840,
+            "tactix::kernel_flush_root_clause(tactix::Kernel&, unsigned int*, unsigned long*, bool, bool, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 2373829458,
+            "tactix::kernel_collect_garbage(tactix::Kernel&, unsigned int, bool, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 24291793985,
+            "tactix::sort_clause_watches_like_kissat(tactix::Kernel&, tactix::Clause*) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 1941984686,
+            "tactix::WatchLists::push_large(unsigned int, unsigned int, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 2768431166,
+            "tactix::lock_reasons(tactix::Kernel&, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 414185767,
+            "tactix::reduce_apply_refs(tactix::Kernel&, unsigned int const*, unsigned long, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 3640386121,
+            "__memmove_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 989421505,
+            "void std::vector<unsigned int, std::allocator<unsigned int> >::_M_range_insert<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > > >(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, std::forward_iterator_tag) [clone .isra.0] [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 1343841050,
+            "tactix::kernel_clause_position(tactix::Kernel const&, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 838625151,
+            "tactix::WatchLists::grow(unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 18975002,
+            "void tactix::WatchLists::compact<tactix::kernel_unwatch_large(tactix::Kernel&, unsigned int, unsigned int)::{lambda(tactix::WatchEntry)#1}>(unsigned int, tactix::kernel_unwatch_large(tactix::Kernel&, unsigned int, unsigned int)::{lambda(tactix::WatchEntry)#1}) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 94329074,
+            "tactix::move_best_watch_to_front(tactix::Kernel&, tactix::Clause*, unsigned int, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 754151977,
+            "tactix::Proof::del(unsigned long, unsigned long, unsigned int const*, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 3494757340,
+            "tactix::delete_binary_all_copies(tactix::Kernel&, unsigned int, unsigned int, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 37929102,
+            "malloc [/usr/lib64/libc.so.6]": 18258206,
+            "[unknown] [[unknown]]": 37183111,
+            "malloc@plt [/cm/local/apps/gcc/13.1.0/lib64/libstdc++.so.6.0.31]": 18218427,
+            "memmove@plt [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 18960059,
+            "__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > > std::__stable_partition_adaptive<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, unsigned int*, __gnu_cxx::__ops::_Iter_pred<tactix::kernel_collect_garbage(tactix::Kernel&, unsigned int, bool, bool)::{lambda(unsigned int)#1}>, long>(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__ops::_Iter_pred<tactix::kernel_collect_garbage(tactix::Kernel&, unsigned int, bool, bool)::{lambda(unsigned int)#1}>, long, unsigned int*, long) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 74071697,
+            "_int_malloc [/usr/lib64/libc.so.6]": 18286076,
+            "__memset_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 18970843
+          }
+        }
+      },
+      "sparse": {
+        "samples": 3106,
+        "total_period": 57331231643,
+        "selected_period": 49819104318,
+        "by_phase": {
+          "no_phase_frame": 49819104318
+        },
+        "branches": {
+          "no_phase_frame": {
+            "<entry self>": 14124641840,
+            "tactix::kernel_flush_root_clause(tactix::Kernel&, unsigned int*, unsigned long*, bool, bool, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 2542596156,
+            "tactix::kernel_collect_garbage(tactix::Kernel&, unsigned int, bool, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 33023281841,
+            "tactix::delete_binary_all_copies(tactix::Kernel&, unsigned int, unsigned int, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 37929102,
+            "[unknown] [[unknown]]": 18322858,
+            "tactix::kernel_clause_position(tactix::Kernel const&, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 53361678,
+            "__memset_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 18970843
+          }
+        },
+        "leaves": {
+          "no_phase_frame": {
+            "tactix::kernel_sparse_collect_root(tactix::Kernel&, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 14124641840,
+            "tactix::kernel_flush_root_clause(tactix::Kernel&, unsigned int*, unsigned long*, bool, bool, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 2373829458,
+            "tactix::kernel_collect_garbage(tactix::Kernel&, unsigned int, bool, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 24291793985,
+            "tactix::sort_clause_watches_like_kissat(tactix::Kernel&, tactix::Clause*) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 1941984686,
+            "tactix::WatchLists::push_large(unsigned int, unsigned int, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 2768431166,
+            "__memmove_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 989421505,
+            "void std::vector<unsigned int, std::allocator<unsigned int> >::_M_range_insert<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > > >(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, std::forward_iterator_tag) [clone .isra.0] [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 1343841050,
+            "tactix::kernel_clause_position(tactix::Kernel const&, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 819647636,
+            "tactix::WatchLists::grow(unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 18975002,
+            "void tactix::WatchLists::compact<tactix::kernel_unwatch_large(tactix::Kernel&, unsigned int, unsigned int)::{lambda(tactix::WatchEntry)#1}>(unsigned int, tactix::kernel_unwatch_large(tactix::Kernel&, unsigned int, unsigned int)::{lambda(tactix::WatchEntry)#1}) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 94329074,
+            "tactix::move_best_watch_to_front(tactix::Kernel&, tactix::Clause*, unsigned int, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 754151977,
+            "tactix::delete_binary_all_copies(tactix::Kernel&, unsigned int, unsigned int, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 37929102,
+            "malloc [/usr/lib64/libc.so.6]": 18258206,
+            "tactix::Proof::del(unsigned long, unsigned long, unsigned int const*, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 56179418,
+            "[unknown] [[unknown]]": 37183111,
+            "malloc@plt [/cm/local/apps/gcc/13.1.0/lib64/libstdc++.so.6.0.31]": 18218427,
+            "memmove@plt [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 18960059,
+            "__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > > std::__stable_partition_adaptive<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, unsigned int*, __gnu_cxx::__ops::_Iter_pred<tactix::kernel_collect_garbage(tactix::Kernel&, unsigned int, bool, bool)::{lambda(unsigned int)#1}>, long>(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__ops::_Iter_pred<tactix::kernel_collect_garbage(tactix::Kernel&, unsigned int, bool, bool)::{lambda(unsigned int)#1}>, long, unsigned int*, long) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 74071697,
+            "_int_malloc [/usr/lib64/libc.so.6]": 18286076,
+            "__memset_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 18970843
+          }
+        }
+      },
+      "gc": {
+        "samples": 2700,
+        "total_period": 49819104318,
+        "selected_period": 33023281841,
+        "by_phase": {
+          "no_phase_frame": 33023281841
+        },
+        "branches": {
+          "no_phase_frame": {
+            "<entry self>": 24291793985,
+            "tactix::sort_clause_watches_like_kissat(tactix::Kernel&, tactix::Clause*) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 1960844939,
+            "tactix::WatchLists::push_large(unsigned int, unsigned int, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 2825224063,
+            "void std::vector<unsigned int, std::allocator<unsigned int> >::_M_range_insert<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > > >(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, std::forward_iterator_tag) [clone .isra.0] [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 2277044327,
+            "tactix::kernel_clause_position(tactix::Kernel const&, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 766285958,
+            "tactix::move_best_watch_to_front(tactix::Kernel&, tactix::Clause*, unsigned int, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 754151977,
+            "operator new(unsigned long, std::nothrow_t const&) [/cm/local/apps/gcc/13.1.0/lib64/libstdc++.so.6.0.31]": 36504503,
+            "__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > > std::__stable_partition_adaptive<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, unsigned int*, __gnu_cxx::__ops::_Iter_pred<tactix::kernel_collect_garbage(tactix::Kernel&, unsigned int, bool, bool)::{lambda(unsigned int)#1}>, long>(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__ops::_Iter_pred<tactix::kernel_collect_garbage(tactix::Kernel&, unsigned int, bool, bool)::{lambda(unsigned int)#1}>, long, unsigned int*, long) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 111432089
+          }
+        },
+        "leaves": {
+          "no_phase_frame": {
+            "tactix::kernel_collect_garbage(tactix::Kernel&, unsigned int, bool, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 24291793985,
+            "tactix::sort_clause_watches_like_kissat(tactix::Kernel&, tactix::Clause*) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 1941984686,
+            "tactix::WatchLists::push_large(unsigned int, unsigned int, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 2768431166,
+            "__memmove_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 989421505,
+            "void std::vector<unsigned int, std::allocator<unsigned int> >::_M_range_insert<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > > >(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, std::forward_iterator_tag) [clone .isra.0] [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 1343841050,
+            "tactix::kernel_clause_position(tactix::Kernel const&, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 766285958,
+            "tactix::WatchLists::grow(unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 18975002,
+            "tactix::move_best_watch_to_front(tactix::Kernel&, tactix::Clause*, unsigned int, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 754151977,
+            "malloc@plt [/cm/local/apps/gcc/13.1.0/lib64/libstdc++.so.6.0.31]": 18218427,
+            "[unknown] [[unknown]]": 18860253,
+            "memmove@plt [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 18960059,
+            "__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > > std::__stable_partition_adaptive<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, unsigned int*, __gnu_cxx::__ops::_Iter_pred<tactix::kernel_collect_garbage(tactix::Kernel&, unsigned int, bool, bool)::{lambda(unsigned int)#1}>, long>(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__ops::_Iter_pred<tactix::kernel_collect_garbage(tactix::Kernel&, unsigned int, bool, bool)::{lambda(unsigned int)#1}>, long, unsigned int*, long) [/home/hwu/SAT-solving/benchmarks/runs/20260911-7241-gc-forward-profiles/pins/previous]": 74071697,
+            "_int_malloc [/usr/lib64/libc.so.6]": 18286076
+          }
+        }
+      }
+    }
+  },
+  "ratios": {
+    "reduce": 0.9293106109557159,
+    "sparse": 0.9215131080831729,
+    "gc": 0.8744797051680773
+  },
+  "limitation": "One matched profile pair; inclusive scopes overlap. Exact parent/child conservation, not instruction prices, a repetition median, total runtime/RSS improvement or proof acceptance."
+}
