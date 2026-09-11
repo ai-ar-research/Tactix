@@ -1,0 +1,11 @@
+{
+  "job_id": "1681013",
+  "accounting_since": "2026-09-11T04:58:57",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7272-dense-realloc-BC/array.sbatch"
+  ],
+  "manifest_sha256": "bb8015d1b01de79ff32e50cfc80fd1933df8e9e5f768097974a70e214ac97282",
+  "helper_sha256": "8756414fbc6daaebafc8f2d075be8bed8a0412de360ca24d1a549409b805a0aa"
+}

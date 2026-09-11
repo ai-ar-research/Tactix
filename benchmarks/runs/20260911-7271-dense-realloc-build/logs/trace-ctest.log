@@ -1,0 +1,241 @@
+Test project /home/hwu/SAT-solving/build/pin-7267-dense-realloc-trace
+        Start   1: kernel
+  1/118 Test   #1: kernel ...........................   Passed    0.01 sec
+        Start   2: parse
+  2/118 Test   #2: parse ............................   Passed    0.02 sec
+        Start   3: proof
+  3/118 Test   #3: proof ............................   Passed    0.01 sec
+        Start   4: analyze
+  4/118 Test   #4: analyze ..........................   Passed    0.33 sec
+        Start   5: restart_reduce
+  5/118 Test   #5: restart_reduce ...................   Passed    0.00 sec
+        Start   6: switchmode
+  6/118 Test   #6: switchmode .......................   Passed    0.00 sec
+        Start   7: rephase
+  7/118 Test   #7: rephase ..........................   Passed    0.00 sec
+        Start   8: subsolver
+  8/118 Test   #8: subsolver ........................   Passed    1.19 sec
+        Start   9: sweep
+  9/118 Test   #9: sweep ............................   Passed    0.30 sec
+        Start  10: scheduling
+ 10/118 Test  #10: scheduling .......................   Passed    0.01 sec
+        Start  11: strategy_config
+ 11/118 Test  #11: strategy_config ..................   Passed    0.00 sec
+        Start  12: event_trace
+ 12/118 Test  #12: event_trace ......................   Passed    0.02 sec
+        Start  13: event_trace_compare
+ 13/118 Test  #13: event_trace_compare ..............   Passed    0.70 sec
+        Start  14: reduce_trace_compare
+ 14/118 Test  #14: reduce_trace_compare .............   Passed    0.07 sec
+        Start  15: modelcheck
+ 15/118 Test  #15: modelcheck .......................   Passed    0.06 sec
+        Start  16: runtime_task
+ 16/118 Test  #16: runtime_task .....................   Passed    0.19 sec
+        Start  17: kissat_journal_overlay_static
+ 17/118 Test  #17: kissat_journal_overlay_static ....   Passed    0.07 sec
+        Start  18: rule_journal
+ 18/118 Test  #18: rule_journal .....................   Passed    0.17 sec
+        Start  19: p4_fixtures
+ 19/118 Test  #19: p4_fixtures ......................   Passed    0.37 sec
+        Start  20: campaign_certificate_cleanup
+ 20/118 Test  #20: campaign_certificate_cleanup .....   Passed    0.77 sec
+        Start  21: tierd_campaign_pinning
+ 21/118 Test  #21: tierd_campaign_pinning ...........   Passed    0.08 sec
+        Start  22: slurm_memory_enforcement
+ 22/118 Test  #22: slurm_memory_enforcement .........   Passed    0.10 sec
+        Start  23: fuzz_slurm_snapshot
+ 23/118 Test  #23: fuzz_slurm_snapshot ..............   Passed    0.32 sec
+        Start  24: slot_pose
+ 24/118 Test  #24: slot_pose ........................   Passed    0.01 sec
+        Start  25: reorder
+ 25/118 Test  #25: reorder ..........................   Passed    0.00 sec
+        Start  26: walk
+ 26/118 Test  #26: walk .............................   Passed    0.00 sec
+        Start  27: subsume
+ 27/118 Test  #27: subsume ..........................   Passed    0.00 sec
+        Start  28: strengthen
+ 28/118 Test  #28: strengthen .......................   Passed    0.01 sec
+        Start  29: instantiate
+ 29/118 Test  #29: instantiate ......................   Passed    0.00 sec
+        Start  30: vivify
+ 30/118 Test  #30: vivify ...........................   Passed    0.00 sec
+        Start  31: vivify_n1
+ 31/118 Test  #31: vivify_n1 ........................   Passed    0.00 sec
+        Start  32: probe
+ 32/118 Test  #32: probe ............................   Passed    0.00 sec
+        Start  33: backbone
+ 33/118 Test  #33: backbone .........................   Passed    0.00 sec
+        Start  34: bce
+ 34/118 Test  #34: bce ..............................   Passed    0.00 sec
+        Start  35: cce
+ 35/118 Test  #35: cce ..............................   Passed    0.02 sec
+        Start  36: ternary
+ 36/118 Test  #36: ternary ..........................   Passed    0.00 sec
+        Start  37: hyperbinary
+ 37/118 Test  #37: hyperbinary ......................   Passed    0.00 sec
+        Start  38: decide
+ 38/118 Test  #38: decide ...........................   Passed    0.00 sec
+        Start  39: reconstruct
+ 39/118 Test  #39: reconstruct ......................   Passed    0.00 sec
+        Start  40: substitute
+ 40/118 Test  #40: substitute .......................   Passed    0.00 sec
+        Start  41: congruence
+ 41/118 Test  #41: congruence .......................   Passed    0.01 sec
+        Start  42: binary_deletion
+ 42/118 Test  #42: binary_deletion ..................   Passed    0.00 sec
+        Start  43: transitive_reduce
+ 43/118 Test  #43: transitive_reduce ................   Passed    0.00 sec
+        Start  44: bve
+ 44/118 Test  #44: bve ..............................   Passed    0.02 sec
+        Start  45: lucky
+ 45/118 Test  #45: lucky ............................   Passed    0.01 sec
+        Start  46: api_n1
+ 46/118 Test  #46: api_n1 ...........................   Passed    0.00 sec
+        Start  47: api_instances
+ 47/118 Test  #47: api_instances ....................   Passed    0.01 sec
+        Start  48: random_policy
+ 48/118 Test  #48: random_policy ....................   Passed    0.10 sec
+        Start  49: trace_replay
+ 49/118 Test  #49: trace_replay .....................   Passed    0.17 sec
+        Start  50: micro_proofs
+ 50/118 Test  #50: micro_proofs .....................   Passed    3.16 sec
+        Start  51: sweep_proofs
+ 51/118 Test  #51: sweep_proofs .....................   Passed    2.85 sec
+        Start  52: tr_bruteforce_0
+ 52/118 Test  #52: tr_bruteforce_0 ..................   Passed    0.21 sec
+        Start  53: tr_bruteforce_1
+ 53/118 Test  #53: tr_bruteforce_1 ..................   Passed    0.19 sec
+        Start  54: tr_bruteforce_2
+ 54/118 Test  #54: tr_bruteforce_2 ..................   Passed    0.18 sec
+        Start  55: tr_bruteforce_3
+ 55/118 Test  #55: tr_bruteforce_3 ..................   Passed    0.20 sec
+        Start  56: factor
+ 56/118 Test  #56: factor ...........................   Passed    0.03 sec
+        Start  57: factor_n1
+ 57/118 Test  #57: factor_n1 ........................   Passed    0.00 sec
+        Start  58: subsume_n1
+ 58/118 Test  #58: subsume_n1 .......................   Passed    0.00 sec
+        Start  59: config_wiring
+ 59/118 Test  #59: config_wiring ....................   Passed    0.14 sec
+        Start  60: effort_specs
+ 60/118 Test  #60: effort_specs .....................   Passed    0.08 sec
+        Start  61: option_coverage
+ 61/118 Test  #61: option_coverage ..................   Passed    0.56 sec
+        Start  62: stat_ids
+ 62/118 Test  #62: stat_ids .........................   Passed    0.06 sec
+        Start  63: citations
+ 63/118 Test  #63: citations ........................   Passed    7.10 sec
+        Start  64: section_refs
+ 64/118 Test  #64: section_refs .....................   Passed    0.09 sec
+        Start  65: inventory
+ 65/118 Test  #65: inventory ........................   Passed    0.06 sec
+        Start  66: comment_hygiene
+ 66/118 Test  #66: comment_hygiene ..................   Passed    1.74 sec
+        Start  67: doc_size
+ 67/118 Test  #67: doc_size .........................   Passed    0.06 sec
+        Start  68: proof_rule_sync
+ 68/118 Test  #68: proof_rule_sync ..................   Passed    0.05 sec
+        Start  69: default_strategy_config_check
+ 69/118 Test  #69: default_strategy_config_check ....   Passed    0.07 sec
+        Start  70: no_heuristics
+ 70/118 Test  #70: no_heuristics ....................   Passed    0.00 sec
+        Start  71: kernel_h_boundary
+ 71/118 Test  #71: kernel_h_boundary ................   Passed    0.01 sec
+        Start  72: rule_policy_boundary
+ 72/118 Test  #72: rule_policy_boundary .............   Passed    0.14 sec
+        Start  73: solve_reset
+ 73/118 Test  #73: solve_reset ......................   Passed    0.63 sec
+        Start  74: activation_stamp
+ 74/118 Test  #74: activation_stamp .................   Passed    0.01 sec
+        Start  75: assignment_level_bound
+ 75/118 Test  #75: assignment_level_bound ...........   Passed    0.03 sec
+        Start  76: bve_active_pop
+ 76/118 Test  #76: bve_active_pop ...................   Passed    0.01 sec
+        Start  77: bve_bound_cut
+ 77/118 Test  #77: bve_bound_cut ....................   Passed    0.00 sec
+        Start  78: bve_memory
+ 78/118 Test  #78: bve_memory .......................   Passed    0.00 sec
+        Start  79: collect_memory
+ 79/118 Test  #79: collect_memory ...................   Passed    0.01 sec
+        Start  80: collect_retry
+ 80/118 Test  #80: collect_retry ....................   Passed    0.00 sec
+        Start  81: compact_stamp
+ 81/118 Test  #81: compact_stamp ....................   Passed    0.00 sec
+        Start  82: conflict_reuse_targets
+ 82/118 Test  #82: conflict_reuse_targets ...........   Passed    0.48 sec
+        Start  83: congruence_empty_gates
+ 83/118 Test  #83: congruence_empty_gates ...........   Passed    0.02 sec
+        Start  84: congruence_index_cleanup
+ 84/118 Test  #84: congruence_index_cleanup .........   Passed    0.23 sec
+        Start  85: connected_occurrence
+ 85/118 Test  #85: connected_occurrence .............   Passed    0.31 sec
+        Start  86: eliminate_limit
+ 86/118 Test  #86: eliminate_limit ..................   Passed    0.00 sec
+        Start  87: factor_root_support
+ 87/118 Test  #87: factor_root_support ..............   Passed    0.00 sec
+        Start  88: flat_payload_replay
+ 88/118 Test  #88: flat_payload_replay ..............   Passed    0.02 sec
+        Start  89: forward_caller
+ 89/118 Test  #89: forward_caller ...................   Passed    0.01 sec
+        Start  90: forward_marks
+ 90/118 Test  #90: forward_marks ....................   Passed    0.00 sec
+        Start  91: forward_unit
+ 91/118 Test  #91: forward_unit .....................   Passed    0.01 sec
+        Start  92: inprocess_root
+ 92/118 Test  #92: inprocess_root ...................   Passed    0.00 sec
+        Start  93: learned_sort
+ 93/118 Test  #93: learned_sort .....................   Passed    0.00 sec
+        Start  94: material_schedule
+ 94/118 Test  #94: material_schedule ................   Passed    0.00 sec
+        Start  95: occurrence_cutover
+ 95/118 Test  #95: occurrence_cutover ...............   Passed    0.00 sec
+        Start  96: propagation_cursor
+ 96/118 Test  #96: propagation_cursor ...............   Passed    0.00 sec
+        Start  97: realloc_words
+ 97/118 Test  #97: realloc_words ....................   Passed    0.01 sec
+        Start  98: reduce_root_guidance
+ 98/118 Test  #98: reduce_root_guidance .............   Passed    0.00 sec
+        Start  99: reduce_root_lock
+ 99/118 Test  #99: reduce_root_lock .................   Passed    0.01 sec
+        Start 100: reduce_watermark
+100/118 Test #100: reduce_watermark .................   Passed    0.00 sec
+        Start 101: replacement_cursor
+101/118 Test #101: replacement_cursor ...............   Passed    0.02 sec
+        Start 102: root_conflict_reuse
+102/118 Test #102: root_conflict_reuse ..............   Passed    0.05 sec
+        Start 103: substitute_collapse
+103/118 Test #103: substitute_collapse ..............   Passed    0.05 sec
+        Start 104: substitute_publication
+104/118 Test #104: substitute_publication ...........   Passed    0.00 sec
+        Start 105: substitute_retry
+105/118 Test #105: substitute_retry .................   Passed    0.02 sec
+        Start 106: subsume_material
+106/118 Test #106: subsume_material .................   Passed    0.00 sec
+        Start 107: sweep_cursor
+107/118 Test #107: sweep_cursor .....................   Passed    0.01 sec
+        Start 108: sweep_retained
+108/118 Test #108: sweep_retained ...................   Passed    0.00 sec
+        Start 109: sweep_small_env
+109/118 Test #109: sweep_small_env ..................   Passed    0.00 sec
+        Start 110: vivify_binary_retry
+110/118 Test #110: vivify_binary_retry ..............   Passed    0.03 sec
+        Start 111: vivify_compact_contract
+111/118 Test #111: vivify_compact_contract ..........   Passed    1.91 sec
+        Start 112: vivify_count_cache
+112/118 Test #112: vivify_count_cache ...............   Passed    0.46 sec
+        Start 113: vivify_max
+113/118 Test #113: vivify_max .......................   Passed    0.01 sec
+        Start 114: vivify_order_contract
+114/118 Test #114: vivify_order_contract ............   Passed    0.06 sec
+        Start 115: watch_pair
+115/118 Test #115: watch_pair .......................   Passed    0.00 sec
+        Start 116: demo1_dpll
+116/118 Test #116: demo1_dpll .......................   Passed    0.00 sec
+        Start 117: demo2_no_restarts
+117/118 Test #117: demo2_no_restarts ................   Passed    0.00 sec
+        Start 118: demo3_scripted_default
+118/118 Test #118: demo3_scripted_default ...........   Passed    1.14 sec
+
+100% tests passed out of 118
+
+Total Test time (real) =  27.87 sec

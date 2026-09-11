@@ -1,0 +1,15 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7269-dense-realloc-proofs/candidate-fixture",
+    "6",
+    "1",
+    "1",
+    "1",
+    "0",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7269-dense-realloc-proofs/candidate-6-1-1-1-0.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7269-dense-realloc-proofs/candidate-6-1-1-1-0.proof"
+  ],
+  "returncode": 0,
+  "stdout": "family=BVE mixed=1 mode=1 unsat=1 variant=0 apply=0 PASS\n",
+  "stderr": ""
+}
