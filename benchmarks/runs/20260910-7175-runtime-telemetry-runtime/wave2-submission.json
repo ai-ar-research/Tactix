@@ -1,0 +1,34 @@
+{
+  "job_id": "1680429",
+  "accounting_since": "2026-09-10T23:20:23",
+  "tasks": [
+    12,
+    13,
+    14,
+    15,
+    16,
+    17
+  ],
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--array=12-17",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-7175-runtime-telemetry-runtime/array.sbatch"
+  ],
+  "manifest_sha256": "1bb1cd5acd2fd1b1e97c9ed768f78ab5ab5fa6a2faeae255029638b1afe9538a",
+  "helper_sha256": "d81895afac664f5ff4f5b0103ec178154cb87abc5e8edb0c37885f1eee124268",
+  "preceding_records": {
+    "benchmarks/runs/20260910-7175-runtime-telemetry-runtime/provisional/000.json": "88541a0da9d67bc64b6c1341cac4fa7c5b03d53de5f260b84207539d5b73100e",
+    "benchmarks/runs/20260910-7175-runtime-telemetry-runtime/provisional/001.json": "118316e1650cc3b871e00107c9d13425bbd08924b8d234e7fc394bcbbb6a1ffe",
+    "benchmarks/runs/20260910-7175-runtime-telemetry-runtime/provisional/002.json": "50750b3f570c4650bf4d9ed20c392c472597ff51bc7b6827b4fc34e077c9807d",
+    "benchmarks/runs/20260910-7175-runtime-telemetry-runtime/provisional/003.json": "abd41ad0c205e69dd9669c75e479b0ea54b52649b8a1f5634dd73b428307e858",
+    "benchmarks/runs/20260910-7175-runtime-telemetry-runtime/results/004.json": "d13c5c2a91f4999d41a644cb4aa35f8c77b4b09ffd68bbad333a6fb3caa37931",
+    "benchmarks/runs/20260910-7175-runtime-telemetry-runtime/results/005.json": "5e1832d059c23e67972875f14b932c90ff7146d24c3786d2858e4a1e96779930",
+    "benchmarks/runs/20260910-7175-runtime-telemetry-runtime/provisional/006.json": "4548bd1012fc34d9e6b6d751ffaf0a869ded4e122cac0a115067465941e61265",
+    "benchmarks/runs/20260910-7175-runtime-telemetry-runtime/provisional/007.json": "94b1482a2b87e873e98d72de78e8f35478ba921a0de33730cc66a6a16dc63183",
+    "benchmarks/runs/20260910-7175-runtime-telemetry-runtime/provisional/008.json": "491baa0ea0c4b84ea932a146d8b0df85b4e65b36b1298a997cd03d6185e0de2a",
+    "benchmarks/runs/20260910-7175-runtime-telemetry-runtime/provisional/009.json": "293b042e191adae95ee6be9266858eacc80cae94414f5945477de610f3ab9e43",
+    "benchmarks/runs/20260910-7175-runtime-telemetry-runtime/provisional/010.json": "4df2b2fc46181c69e6301913916aa26b7cbaad56c9af704619a8612c25db5d67",
+    "benchmarks/runs/20260910-7175-runtime-telemetry-runtime/provisional/011.json": "74efddfff1cd0c994d2aaf5604175a5fe074c5b5d789ee5fc9c7fe22be4368e2"
+  }
+}

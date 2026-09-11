@@ -1,0 +1,16 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-7181-factor-arena-proofs/previous-fixture",
+    "33",
+    "3",
+    "2",
+    "0",
+    "0",
+    "0",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-7181-factor-arena-proofs/previous-33-3-2-0-0-0.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-7181-factor-arena-proofs/previous-33-3-2-0-0-0.proof"
+  ],
+  "returncode": 0,
+  "stdout": "factor-proof 33 3 2 0 0 0: factors=1 ticks=5665 P=34 nvars=40\n",
+  "stderr": ""
+}

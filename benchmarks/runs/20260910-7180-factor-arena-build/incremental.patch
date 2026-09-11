@@ -1,0 +1,219 @@
+--- a/src/rules/factor/factor.cpp
++++ b/src/rules/factor/factor.cpp
+@@ -1,0 +2 @@
++#include "rules/factor/occurrence_arena.hpp"
+@@ -203,2 +204,3 @@
+-  // that prefix and this vector are Kissat's one mixed dense stream.
+-  std::vector<std::vector<FactorWatch>> order;
++  // that prefix and this slice are Kissat's one mixed dense stream. All slices
++  // share one apply-local arena; no iterator survives an append to any slice.
++  FactorOccurrenceArena<FactorWatch> order;
+@@ -469 +471 @@
+-  idx.order.assign(2 * k.nvars, {});
++  idx.order.reset(2 * k.nvars);
+@@ -482,0 +485,4 @@
++  }
++  if (max_size < 3) {
++    idx.built = true;
++    return;
+@@ -533,0 +540 @@
++    idx.order.layout(largecount);
+@@ -560,0 +568,8 @@
++  std::vector<uint32_t> capacity(2 * k.nvars, 0);
++  for (Ref ref = 0; ref < k.arena.size();) {
++    const Clause *c = clause_at(k.arena, ref);
++    if (!c->garbage() && !c->redundant() && c->size >= 3 && c->size <= max_size)
++      for (const Lit l : *c) capacity[l]++;
++    ref += clause_actual_words(c);
++  }
++  idx.order.layout(capacity);
+@@ -847 +862 @@
+-      const auto retire_dynamic = [](std::vector<FactorWatch> &entries,
++      const auto retire_dynamic = [](auto entries,
+@@ -896 +911 @@
+-          std::vector<FactorWatch> &entries = idx.order[l];
++          auto entries = idx.order[l];
+--- /dev/null
++++ b/src/rules/factor/occurrence_arena.hpp
+@@ -0,0 +1,95 @@
++#pragma once
++
++#include <algorithm>
++#include <cassert>
++#include <cstddef>
++#include <vector>
++
++namespace tactix {
++
++// Apply-local Factor occurrence storage. Each literal owns a stable-order
++// slice; appending can relocate that slice or the whole arena. As with kernel
++// watches, raw iterators may not survive a push. Offsets use size_t so this
++// replacement introduces no aggregate 32-bit capacity limit.
++template <class T> class FactorOccurrenceArena {
++  struct Head { size_t offset = 0, size = 0, capacity = 0; };
++  std::vector<Head> heads_;
++  std::vector<T> arena_;
++
++  void push(size_t lit, T value) {
++    Head &h = heads_[lit];
++    if (h.size == h.capacity) {
++      const size_t capacity = h.capacity ? 2 * h.capacity : 1;
++      assert(capacity > h.capacity);
++      if (h.offset + h.capacity == arena_.size()) {
++        arena_.resize(h.offset + capacity);
++      } else {
++        const size_t next = arena_.size();
++        assert(next + capacity >= next);
++        arena_.resize(next + capacity);
++        std::copy_n(arena_.data() + h.offset, h.size,
++                    arena_.data() + next);
++        h.offset = next;
++      }
++      h.capacity = capacity;
++    }
++    arena_[h.offset + h.size++] = value;
++  }
++
++public:
++  class List {
++    FactorOccurrenceArena &owner_;
++    size_t lit_;
++  public:
++    List(FactorOccurrenceArena &owner, size_t lit) : owner_(owner), lit_(lit) {}
++    T *begin() const {
++      return owner_.arena_.empty() ? nullptr :
++          owner_.arena_.data() + owner_.heads_[lit_].offset;
++    }
++    T *end() const { return empty() ? begin() : begin() + size(); }
++    size_t size() const { return owner_.heads_[lit_].size; }
++    bool empty() const { return size() == 0; }
++    T &operator[](size_t i) const { assert(i < size()); return begin()[i]; }
++    void push_back(T value) { owner_.push(lit_, value); }
++    // The matcher compacts survivors in place, then erases only their tail.
++    void erase(T *first, T *last) {
++      assert(last == end());
++      if (empty()) { assert(first == last); return; }
++      assert(first >= begin() && first <= last);
++      owner_.heads_[lit_].size = static_cast<size_t>(first - begin());
++    }
++  };
++  struct ConstList {
++    const T *first;
++    size_t count;
++    const T *begin() const { return first; }
++    const T *end() const { return count ? first + count : first; }
++    size_t size() const { return count; }
++    bool empty() const { return !count; }
++  };
++
++  size_t size() const { return heads_.size(); }
++  void reset(size_t n) { heads_.assign(n, {}); arena_.clear(); }
++  void resize(size_t n) { assert(n >= size()); heads_.resize(n); }
++  List operator[](size_t lit) { assert(lit < size()); return {*this, lit}; }
++  ConstList operator[](size_t lit) const {
++    assert(lit < size());
++    const Head &h = heads_[lit];
++    return {arena_.empty() ? nullptr : arena_.data() + h.offset, h.size};
++  }
++  // Peeling already supplies an upper bound for the final connection pass.
++  // Batch placement avoids per-literal allocations and initial slice moves.
++  template <class Count> void layout(const std::vector<Count> &counts) {
++    assert(counts.size() == size());
++    size_t total = 0;
++    for (size_t lit = 0; lit < size(); ++lit) {
++      const size_t n = counts[lit];
++      assert(total + n >= total);
++      heads_[lit] = {total, 0, n};
++      total += n;
++    }
++    arena_.resize(total);
++  }
++};
++
++} // namespace tactix
+--- /dev/null
++++ b/tests/test_factor_occurrence_arena.cpp
+@@ -0,0 +1,83 @@
++#undef NDEBUG
++#include "rules/factor/occurrence_arena.hpp"
++#include <algorithm>
++#include <cassert>
++#include <cstdint>
++#include <cstdio>
++#include <vector>
++using namespace tactix;
++
++struct Record {
++  uint32_t ref = UINT32_MAX, cache = UINT32_MAX;
++  bool operator==(const Record &) const = default;
++};
++static_assert(sizeof(Record) == 8);
++
++static void compare(const FactorOccurrenceArena<Record> &arena,
++                    const std::vector<std::vector<Record>> &expected) {
++  assert(arena.size() == expected.size());
++  for (size_t lit = 0; lit < expected.size(); ++lit) {
++    const auto view = arena[lit];
++    assert(view.size() == expected[lit].size());
++    assert(std::equal(view.begin(), view.end(), expected[lit].begin()));
++  }
++}
++
++static void layout_and_growth(unsigned shift, unsigned reserve_extra) {
++  FactorOccurrenceArena<Record> arena;
++  std::vector<std::vector<Record>> expected(17);
++  std::vector<uint32_t> capacities(17);
++  for (size_t lit = 0; lit < 17; ++lit)
++    capacities[lit] = (lit + shift) % 5 + reserve_extra;
++  arena.reset(17);
++  arena.layout(capacities);
++  compare(arena, expected);
++  // Interleaved literal order forces both non-tail moves and tail growth.
++  for (unsigned round = 0; round < 12; ++round) {
++    for (size_t i = 0; i < 17; ++i) {
++      const size_t lit = (i * 7 + shift) % 17;
++      const Record value{round % 3, static_cast<uint32_t>(lit)};
++      arena[lit].push_back(value);
++      expected[lit].push_back(value);
++      compare(arena, expected);
++    }
++  }
++  // Cache mutation must survive later moves of unrelated and own slices.
++  for (size_t lit = 0; lit < 17; ++lit) {
++    arena[lit][2].cache = expected[lit][2].cache = 91;
++    auto list = arena[lit];
++    const auto remove = [](const Record &r) { return r.ref == 1; };
++    list.erase(std::remove_if(list.begin(), list.end(), remove), list.end());
++    auto &ref = expected[lit];
++    ref.erase(std::remove_if(ref.begin(), ref.end(), remove), ref.end());
++    compare(arena, expected);
++  }
++  arena.resize(21);
++  expected.resize(21);
++  for (size_t lit = 0; lit < 21; ++lit) {
++    auto list = arena[lit];
++    list.erase(list.begin(), list.end());
++    expected[lit].clear();
++    list.push_back({static_cast<uint32_t>(lit), 42});
++    expected[lit].push_back({static_cast<uint32_t>(lit), 42});
++    compare(arena, expected);
++  }
++  // Reset and relayout discard every old live entry, including cached IDs.
++  arena.reset(3);
++  arena.layout(std::vector<uint32_t>{0, 0, 0});
++  expected.assign(3, {});
++  auto empty = arena[0];
++  empty.erase(empty.begin(), empty.end());
++  compare(arena, expected);
++  for (size_t lit : {2u, 0u, 1u, 2u}) {
++    arena[lit].push_back({7, 8});
++    expected[lit].push_back({7, 8});
++    compare(arena, expected);
++  }
++}
++
++int main() {
++  for (unsigned shift = 0; shift < 17; ++shift)
++    for (unsigned extra : {0u, 2u}) layout_and_growth(shift, extra);
++  std::puts("factor-occurrence-arena: 34 layouts, growth/cache/stable deletion/empty/reset/fresh literals PASS");
++}
