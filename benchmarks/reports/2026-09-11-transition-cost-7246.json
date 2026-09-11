@@ -1,0 +1,334 @@
+{
+  "hashes": {
+    "benchmarks/runs/20260910-7152-vivify-compact-profiles/manifest.json": "14d517977606f2dca0c3638c911453ea4dc1865a35823ddd5bc5ae22436f3158",
+    "benchmarks/runs/20260910-7153-vivify-compact-samples/wave0/summary.json": "41449d78750079555b11064e83f71ddf1a532778e6fa089656b8502af4c5d47a",
+    "benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate": "cdcb735715d4eb2c23d43bbff14cb9d5ccedaa41592aab693cdc779b531dbdcf",
+    "benchmarks/runs/20260910-7153-vivify-compact-samples/wave0/candidate.samples.txt.xz": "c6e62f8de7894758f10b84c3dfe8ff0048b5486a1c229db53f5e7113931dadb3",
+    "benchmarks/runs/20260910-7153-vivify-compact-samples/wave1/summary.json": "dc1140b0b7db5b2f00e84870615653e09c1c4807e898212ec787cea24dc6fd4a",
+    "benchmarks/runs/20260910-7153-vivify-compact-samples/wave1/candidate.samples.txt.xz": "9d65718242bcaa4ec7e4df7af530c111507a1b713456503df0fce1b039a2c79c",
+    "benchmarks/runs/20260910-7153-vivify-compact-samples/wave2/summary.json": "caed6dfbf5a1c860ebdf358f0504187d71564caec922d900334b238f10b2a652",
+    "benchmarks/runs/20260910-7153-vivify-compact-samples/wave2/candidate.samples.txt.xz": "dd9d713ab69aa1432fadb30e064fb4d464293158b2879bed5536969581a858b4",
+    "benchmarks/runs/20260910-7081-rank35-callstack-cost/lifecycle-summary-7082.json": "671220a1468f22aefb40b06004ba74f02c29dee67b2498429792d253b728dfc2",
+    "benchmarks/runs/20260910-7002-largest-gap-release-profiles/pins/kissat": "3aa8e41f976e213d3c4627150e9cd4e5fce0ce9508d67ab469a7696e26a8d49c",
+    "benchmarks/runs/20260910-7081-rank35-callstack-cost/kissat.samples.txt.xz": "dfac0e35f032a21065f9d070f4c174e4a178517ca30d0916b18c8c0032ee8231",
+    "benchmarks/probes/scratch/census-transition-cost-7246.py": "c91e024b2acbadbeb26d520f7c747311c0ff8ed60ca9d07c52372081d429ea49",
+    "tools/bench/perf_callstack.py": "35d9d19e81105a2aa53f8e93733985fe6f00db514371e6a26dc148120b53f413",
+    ".claude/worktrees/runtime-vivify-compact-7144/src/kernel/kernel.cpp": "339984a44fce5f480bbe40dd01b85806467ba1a92dd5eb96e08f95fcc9dc7bfe",
+    ".claude/worktrees/runtime-vivify-compact-7144/src/rules/sweep/sweep.cpp": "b67d0033a9555b0a2f7adf86109025e81b05b37847ffa18d8e7bf812a2d19b59",
+    "kissat/src/dense.c": "d391211d0fbf78e13bbd9f6c17fb34afc0320469107e1a18e91225edbcdd8b12",
+    "kissat/src/watch.c": "876f76c9b7f8cbe551d80d8bd3c0e6138e36ddf34b1dcff4201fda0d72b1ab24"
+  },
+  "selected_prefixes": {
+    "current": [
+      "tactix::kernel_rebuild_large_watches(",
+      "tactix::kernel_drop_large_watches(",
+      "tactix::kernel_flush_large_watches(",
+      "tactix::kernel_compact_dense_entry_watches(",
+      "tactix::kernel_deduplicate_binary_watches(",
+      "tactix::kernel_dense_connect(",
+      "tactix::kernel_rebuild_dense_occurrences(",
+      "tactix::rebuild_dense_large_occurrences("
+    ],
+    "native": [
+      "kissat_enter_dense_mode",
+      "kissat_resume_sparse_mode",
+      "kissat_watch_large_clauses",
+      "kissat_flush_large_watches",
+      "kissat_flush_large_connected",
+      "kissat_connect_irredundant_large_clauses"
+    ]
+  },
+  "native_propagation_prefixes": [
+    "kissat_probing_propagate",
+    "kissat_search_propagate"
+  ],
+  "arms": {
+    "retained7144-wave0": {
+      "samples": 71232,
+      "total_period": 1340257338884,
+      "totals": {
+        "outside_selected_transitions": 1266742792247,
+        "selected_transition": 73514546637
+      },
+      "by_phase": {
+        "no_phase_frame": {
+          "outside_selected_transitions": 868077344798,
+          "selected_transition": 469533546
+        },
+        "initial_probe": {
+          "selected_transition": 446183436,
+          "outside_selected_transitions": 3264357465
+        },
+        "probe": {
+          "outside_selected_transitions": 291893916618,
+          "selected_transition": 56612492956
+        },
+        "eliminate": {
+          "outside_selected_transitions": 103507173366,
+          "selected_transition": 15986336699
+        }
+      },
+      "by_entry": {
+        "selected_transition": {
+          "tactix::kernel_dense_connect(tactix::Kernel&, tactix::OccIndex&, bool)": 4455807426,
+          "tactix::kernel_compact_dense_entry_watches(tactix::Kernel&, bool)": 3124868516,
+          "tactix::rebuild_dense_large_occurrences(tactix::Kernel&, tactix::OccIndex&)": 14173831074,
+          "tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)": 42002330970,
+          "tactix::kernel_drop_large_watches(tactix::Kernel&)": 1914843322,
+          "tactix::kernel_flush_large_watches(tactix::Kernel&)": 7842865329
+        }
+      },
+      "by_caller": {
+        "selected_transition": {
+          "tactix::DefaultInprocessScheduler::run_phase(tactix::Kernel&, tactix::SlotGroup, int volatile*) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 6738754016,
+          "tactix::congruence_apply(tactix::Kernel&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 926498083,
+          "tactix::kernel_canonicalize_binary_watches(tactix::Kernel&, bool, std::vector<std::pair<unsigned int, unsigned int>, std::allocator<std::pair<unsigned int, unsigned int> > > const*) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 2454270721,
+          "unsigned long tactix::(anonymous namespace)::forward_subsume_congruent_clauses<tactix::congruence_apply(tactix::Kernel&)::{lambda(unsigned int)#1}>(tactix::Kernel&, tactix::congruence_apply(tactix::Kernel&)::{lambda(unsigned int)#1}&) [clone .isra.0] [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 2412110708,
+          "tactix::substitute_apply_round(tactix::Kernel&, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 1914843322,
+          "tactix::substitute_reconnect_large_watches(tactix::Kernel&, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 13307203745,
+          "tactix::sweep_round_begin(tactix::Kernel&, tactix::SweepRound&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 1001980347,
+          "tactix::walk_apply_steps(tactix::Kernel&, unsigned long) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 469533546,
+          "tactix::vivify_apply(tactix::Kernel&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 25575591285,
+          "tactix::kernel_collect_garbage(tactix::Kernel&, unsigned int, bool, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 7793600469,
+          "tactix::strengthen_reconnect_and_flush(tactix::Kernel&, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 3925959884,
+          "tactix::factor_apply_seeded(tactix::Kernel&, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 6994200511
+        }
+      },
+      "leaves": {
+        "selected_transition": {
+          "tactix::rebuild_dense_large_occurrences(tactix::Kernel&, tactix::OccIndex&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 18050091274,
+          "tactix::kernel_compact_dense_entry_watches(tactix::Kernel&, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 10818075141,
+          "tactix::kernel_remove_duplicate_binary_copies(tactix::Kernel&, unsigned int, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 130675699,
+          "tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 27043487613,
+          "tactix::kernel_drop_large_watches(tactix::Kernel&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 1914843322,
+          "__memmove_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 2929585719,
+          "tactix::move_best_watch_to_front(tactix::Kernel&, tactix::Clause*, unsigned int, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 9490970372,
+          "std::vector<unsigned int, std::allocator<unsigned int> >::resize(unsigned long) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 1044724789,
+          "memmove@plt [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 73189389,
+          "std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 560610038,
+          "__memset_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 896765797,
+          "tactix::WatchLists::grow(unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 356460623,
+          "memset@plt [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 53925350,
+          "tactix::Proof::del(unsigned long, unsigned long, unsigned int const*, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 56419236,
+          "[unknown] [[unknown]]": 94722275
+        }
+      }
+    },
+    "retained7144-wave1": {
+      "samples": 71477,
+      "total_period": 1343878645289,
+      "totals": {
+        "outside_selected_transitions": 1271182361135,
+        "selected_transition": 72696284154
+      },
+      "by_phase": {
+        "no_phase_frame": {
+          "outside_selected_transitions": 871522405887,
+          "selected_transition": 451078548
+        },
+        "initial_probe": {
+          "selected_transition": 484514022,
+          "outside_selected_transitions": 3228261089
+        },
+        "probe": {
+          "outside_selected_transitions": 292833838176,
+          "selected_transition": 55735085263
+        },
+        "eliminate": {
+          "outside_selected_transitions": 103597855983,
+          "selected_transition": 16025606321
+        }
+      },
+      "by_entry": {
+        "selected_transition": {
+          "tactix::kernel_dense_connect(tactix::Kernel&, tactix::OccIndex&, bool)": 4546938978,
+          "tactix::kernel_compact_dense_entry_watches(tactix::Kernel&, bool)": 2950834666,
+          "tactix::rebuild_dense_large_occurrences(tactix::Kernel&, tactix::OccIndex&)": 14049474892,
+          "tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)": 41911919231,
+          "tactix::kernel_flush_large_watches(tactix::Kernel&)": 7436852997,
+          "tactix::kernel_drop_large_watches(tactix::Kernel&)": 1800263390
+        }
+      },
+      "by_caller": {
+        "selected_transition": {
+          "tactix::DefaultInprocessScheduler::run_phase(tactix::Kernel&, tactix::SlotGroup, int volatile*) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 6878872832,
+          "tactix::congruence_apply(tactix::Kernel&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 962407861,
+          "tactix::kernel_canonicalize_binary_watches(tactix::Kernel&, bool, std::vector<std::pair<unsigned int, unsigned int>, std::allocator<std::pair<unsigned int, unsigned int> > > const*) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 2319977439,
+          "unsigned long tactix::(anonymous namespace)::forward_subsume_congruent_clauses<tactix::congruence_apply(tactix::Kernel&)::{lambda(unsigned int)#1}>(tactix::Kernel&, tactix::congruence_apply(tactix::Kernel&)::{lambda(unsigned int)#1}&) [clone .isra.0] [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 2410189558,
+          "tactix::substitute_reconnect_large_watches(tactix::Kernel&, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 13246644194,
+          "tactix::sweep_round_begin(tactix::Kernel&, tactix::SweepRound&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 944398849,
+          "tactix::walk_apply_steps(tactix::Kernel&, unsigned long) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 451078548,
+          "tactix::vivify_apply(tactix::Kernel&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 24894760202,
+          "tactix::substitute_apply_round(tactix::Kernel&, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 1800263390,
+          "tactix::kernel_collect_garbage(tactix::Kernel&, unsigned int, bool, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 7883064635,
+          "tactix::strengthen_reconnect_and_flush(tactix::Kernel&, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 3827475855,
+          "tactix::factor_apply_seeded(tactix::Kernel&, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 7058193828,
+          "tactix::(anonymous namespace)::default_propagate(tactix::Kernel&, char const*) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 18956963
+        }
+      },
+      "leaves": {
+        "selected_transition": {
+          "tactix::rebuild_dense_large_occurrences(tactix::Kernel&, tactix::OccIndex&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 17806127958,
+          "tactix::kernel_compact_dense_entry_watches(tactix::Kernel&, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 10221576192,
+          "std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 714506157,
+          "tactix::kernel_remove_duplicate_binary_copies(tactix::Kernel&, unsigned int, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 111009619,
+          "tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 26745202233,
+          "tactix::move_best_watch_to_front(tactix::Kernel&, tactix::Clause*, unsigned int, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 9472056226,
+          "std::vector<unsigned int, std::allocator<unsigned int> >::resize(unsigned long) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 1245808713,
+          "tactix::Proof::del(unsigned long, unsigned long, unsigned int const*, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 72414152,
+          "__memset_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 1061960236,
+          "tactix::kernel_drop_large_watches(tactix::Kernel&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 1800263390,
+          "[unknown] [[unknown]]": 93169032,
+          "__memmove_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 3013636558,
+          "tactix::WatchLists::grow(unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 224845290,
+          "std::vector<unsigned int, std::allocator<unsigned int> >::_M_fill_assign(unsigned long, unsigned int const&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 18944965,
+          "memmove@plt [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 56823590,
+          "_int_malloc [/usr/lib64/libc.so.6]": 18978252,
+          "unlink_chunk.constprop.0 [/usr/lib64/libc.so.6]": 18961591
+        }
+      }
+    },
+    "retained7144-wave2": {
+      "samples": 71555,
+      "total_period": 1345234048498,
+      "totals": {
+        "outside_selected_transitions": 1271643461416,
+        "selected_transition": 73590587082
+      },
+      "by_phase": {
+        "no_phase_frame": {
+          "outside_selected_transitions": 871667564335,
+          "selected_transition": 525248124
+        },
+        "initial_probe": {
+          "selected_transition": 442644015,
+          "outside_selected_transitions": 3273564630
+        },
+        "probe": {
+          "selected_transition": 56538070157,
+          "outside_selected_transitions": 293314073175
+        },
+        "eliminate": {
+          "outside_selected_transitions": 103388259276,
+          "selected_transition": 16084624786
+        }
+      },
+      "by_entry": {
+        "selected_transition": {
+          "tactix::kernel_dense_connect(tactix::Kernel&, tactix::OccIndex&, bool)": 4469651768,
+          "tactix::kernel_compact_dense_entry_watches(tactix::Kernel&, bool)": 3156864141,
+          "tactix::rebuild_dense_large_occurrences(tactix::Kernel&, tactix::OccIndex&)": 14176238986,
+          "tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)": 42004402100,
+          "tactix::kernel_drop_large_watches(tactix::Kernel&)": 1913551752,
+          "tactix::kernel_flush_large_watches(tactix::Kernel&)": 7869878335
+        }
+      },
+      "by_caller": {
+        "selected_transition": {
+          "tactix::DefaultInprocessScheduler::run_phase(tactix::Kernel&, tactix::SlotGroup, int volatile*) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 6846896722,
+          "tactix::congruence_apply(tactix::Kernel&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 961950404,
+          "tactix::kernel_canonicalize_binary_watches(tactix::Kernel&, bool, std::vector<std::pair<unsigned int, unsigned int>, std::allocator<std::pair<unsigned int, unsigned int> > > const*) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 2396210162,
+          "unsigned long tactix::(anonymous namespace)::forward_subsume_congruent_clauses<tactix::congruence_apply(tactix::Kernel&)::{lambda(unsigned int)#1}>(tactix::Kernel&, tactix::congruence_apply(tactix::Kernel&)::{lambda(unsigned int)#1}&) [clone .isra.0] [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 2428002762,
+          "tactix::substitute_reconnect_large_watches(tactix::Kernel&, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 13177566817,
+          "tactix::sweep_round_begin(tactix::Kernel&, tactix::SweepRound&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 1001609364,
+          "tactix::walk_apply_steps(tactix::Kernel&, unsigned long) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 525248124,
+          "tactix::substitute_apply_round(tactix::Kernel&, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 1913551752,
+          "tactix::vivify_apply(tactix::Kernel&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 25448968947,
+          "tactix::kernel_collect_garbage(tactix::Kernel&, unsigned int, bool, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 7894092708,
+          "tactix::strengthen_reconnect_and_flush(tactix::Kernel&, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 3885936116,
+          "tactix::factor_apply_seeded(tactix::Kernel&, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 7110553204
+        }
+      },
+      "leaves": {
+        "selected_transition": {
+          "tactix::rebuild_dense_large_occurrences(tactix::Kernel&, tactix::OccIndex&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 17670157911,
+          "tactix::kernel_compact_dense_entry_watches(tactix::Kernel&, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 10878665368,
+          "tactix::kernel_remove_duplicate_binary_copies(tactix::Kernel&, unsigned int, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 74139130,
+          "tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 27614927292,
+          "tactix::move_best_watch_to_front(tactix::Kernel&, tactix::Clause*, unsigned int, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 8754492835,
+          "std::vector<unsigned int, std::allocator<unsigned int> >::resize(unsigned long) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 1239431662,
+          "__memset_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 1162251348,
+          "tactix::Proof::del(unsigned long, unsigned long, unsigned int const*, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 91581555,
+          "tactix::kernel_drop_large_watches(tactix::Kernel&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 1913551752,
+          "__memmove_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 2820582335,
+          "[unknown] [[unknown]]": 56653788,
+          "memset@plt [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 16128392,
+          "std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 862510425,
+          "tactix::WatchLists::grow(unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 321805859,
+          "memmove@plt [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 56856815,
+          "std::vector<unsigned int, std::allocator<unsigned int> >::_M_fill_assign(unsigned long, unsigned int const&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 37930123,
+          "_int_malloc [/usr/lib64/libc.so.6]": 18920492
+        }
+      }
+    },
+    "native": {
+      "samples": 59870,
+      "total_period": 1127747657253,
+      "totals": {
+        "outside_selected_transitions": 1080701766388,
+        "selected_transition": 47045890865
+      },
+      "by_phase": {
+        "no_phase_frame": {
+          "outside_selected_transitions": 822415132664,
+          "selected_transition": 1159990253
+        },
+        "initial_probe": {
+          "selected_transition": 570549479,
+          "outside_selected_transitions": 2470259109
+        },
+        "probe": {
+          "selected_transition": 40312174915,
+          "outside_selected_transitions": 205176802525
+        },
+        "eliminate": {
+          "outside_selected_transitions": 50639572090,
+          "selected_transition": 5003176218
+        }
+      },
+      "by_entry": {
+        "selected_transition": {
+          "kissat_enter_dense_mode": 4047102929,
+          "kissat_resume_sparse_mode": 12237786196,
+          "kissat_watch_large_clauses": 19541514626,
+          "kissat_connect_irredundant_large_clauses": 3283240438,
+          "kissat_flush_large_watches": 6499527959,
+          "kissat_flush_large_connected": 1436718717
+        }
+      },
+      "by_caller": {
+        "selected_transition": {
+          "kissat_congruence [/home/hwu/SAT-solving/benchmarks/runs/20260910-7002-largest-gap-release-profiles/pins/kissat]": 2943622357,
+          "forward_subsume_matching_clauses [/home/hwu/SAT-solving/benchmarks/runs/20260910-7002-largest-gap-release-profiles/pins/kissat]": 3116913188,
+          "kissat_substitute [/home/hwu/SAT-solving/benchmarks/runs/20260910-7002-largest-gap-release-profiles/pins/kissat]": 6110153908,
+          "kissat_sweep [/home/hwu/SAT-solving/benchmarks/runs/20260910-7002-largest-gap-release-profiles/pins/kissat]": 3582886114,
+          "kissat_walk [/home/hwu/SAT-solving/benchmarks/runs/20260910-7002-largest-gap-release-profiles/pins/kissat]": 1159990253,
+          "vivify_round [/home/hwu/SAT-solving/benchmarks/runs/20260910-7002-largest-gap-release-profiles/pins/kissat]": 19930888677,
+          "kissat_eliminate [/home/hwu/SAT-solving/benchmarks/runs/20260910-7002-largest-gap-release-profiles/pins/kissat]": 5003176218,
+          "kissat_factor [/home/hwu/SAT-solving/benchmarks/runs/20260910-7002-largest-gap-release-profiles/pins/kissat]": 5198260150
+        }
+      },
+      "leaves": {
+        "selected_transition": {
+          "kissat_enter_dense_mode [/home/hwu/SAT-solving/benchmarks/runs/20260910-7002-largest-gap-release-profiles/pins/kissat]": 1653360272,
+          "kissat_resize_vector [/home/hwu/SAT-solving/benchmarks/runs/20260910-7002-largest-gap-release-profiles/pins/kissat]": 1133146554,
+          "kissat_resume_sparse_mode [/home/hwu/SAT-solving/benchmarks/runs/20260910-7002-largest-gap-release-profiles/pins/kissat]": 1547443394,
+          "__memmove_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 704481005,
+          "kissat_watch_large_clauses [/home/hwu/SAT-solving/benchmarks/runs/20260910-7002-largest-gap-release-profiles/pins/kissat]": 25625234430,
+          "kissat_enlarge_vector [/home/hwu/SAT-solving/benchmarks/runs/20260910-7002-largest-gap-release-profiles/pins/kissat]": 846359909,
+          "kissat_flush_large_watches [/home/hwu/SAT-solving/benchmarks/runs/20260910-7002-largest-gap-release-profiles/pins/kissat]": 7249550270,
+          "print_proof_line [/home/hwu/SAT-solving/benchmarks/runs/20260910-7002-largest-gap-release-profiles/pins/kissat]": 18862772,
+          "kissat_connect_irredundant_large_clauses [/home/hwu/SAT-solving/benchmarks/runs/20260910-7002-largest-gap-release-profiles/pins/kissat]": 3171053774,
+          "kissat_flush_large_connected [/home/hwu/SAT-solving/benchmarks/runs/20260910-7002-largest-gap-release-profiles/pins/kissat]": 3422574230,
+          "_int_malloc [/usr/lib64/libc.so.6]": 18926986,
+          "__memset_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 1522509680,
+          "memcpy@plt [/home/hwu/SAT-solving/benchmarks/runs/20260910-7002-largest-gap-release-profiles/pins/kissat]": 18885148,
+          "[unknown] [[unknown]]": 56841000,
+          "memset@plt [/home/hwu/SAT-solving/benchmarks/runs/20260910-7002-largest-gap-release-profiles/pins/kissat]": 18900624,
+          "kissat_delete_clause_from_proof [/home/hwu/SAT-solving/benchmarks/runs/20260910-7002-largest-gap-release-profiles/pins/kissat]": 37760817
+        }
+      }
+    }
+  },
+  "limitations": "A disjoint sample census, not a complete equivalent-operation denominator or removable-time estimate. Current separate occurrence images and native shared vectors have different responsibilities. Inlined operations outside selected ancestry are missing; absent phase frames remain explicit. Native sparse resume includes propagation, split separately only when its frame is observed. Three retained7144 profiles versus one historical native observation; no native rerun, exact invocation counts, new solver execution, performance acceptance or source change."
+}
