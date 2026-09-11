@@ -1,0 +1,11 @@
+{
+  "job_id": "1680435",
+  "accounting_since": "2026-09-10T23:27:09",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-7183-factor-arena-BC/array.sbatch"
+  ],
+  "manifest_sha256": "cdb392216323be8319a7b429cd922b5c9ab2c5507eb03e0479b37d11a04995f9",
+  "helper_sha256": "a1df930cd9140fac02b15b84f31023f7a660110686b17490ef6eabf5ff7fe814"
+}

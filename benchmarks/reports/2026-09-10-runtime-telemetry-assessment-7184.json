@@ -1,0 +1,259 @@
+{
+  "observed_at": "2026-09-11T03:29:33.918498+00:00",
+  "hashes": {
+    "benchmarks/probes/scratch/assess-runtime-telemetry-7184.py": "976025937d39806a785fd99e4bf0f6804d8b55d330e2b1d39c0485fd9e3eec3b",
+    "benchmarks/probes/scratch/check-submit-runtime-telemetry-7175.py": "d81895afac664f5ff4f5b0103ec178154cb87abc5e8edb0c37885f1eee124268",
+    "benchmarks/runs/20260910-7175-runtime-telemetry-runtime/manifest.json": "1bb1cd5acd2fd1b1e97c9ed768f78ab5ab5fa6a2faeae255029638b1afe9538a",
+    "benchmarks/runs/20260910-7175-runtime-telemetry-runtime/matrix.tsv": "3c772f37bc007a6733fc7c7db1e0e32007f3f8c7c25b956002a1ead6e6b32c23",
+    "benchmarks/runs/20260910-7175-runtime-telemetry-runtime/wave0-submission.json": "950f9ccead10368cd8c1387b6063cb2e03c31008a1aa6a7dc039c9400be1b0ae",
+    "benchmarks/runs/20260910-7175-runtime-telemetry-runtime/wave1-submission.json": "ca8d2a5dde69389ae86f73f8085c42dbb7e2265895cdb3c0237071d575c35018",
+    "benchmarks/runs/20260910-7175-runtime-telemetry-runtime/wave2-submission.json": "f412f0ebb3be31cb7118783c95b52ea59b00f4834f80ac324a49ecdc26629d6e",
+    "benchmarks/runs/20260910-7175-runtime-telemetry-runtime/provisional/000.json": "88541a0da9d67bc64b6c1341cac4fa7c5b03d53de5f260b84207539d5b73100e",
+    "benchmarks/runs/20260910-7175-runtime-telemetry-runtime/provisional/001.json": "118316e1650cc3b871e00107c9d13425bbd08924b8d234e7fc394bcbbb6a1ffe",
+    "benchmarks/runs/20260910-7175-runtime-telemetry-runtime/provisional/002.json": "50750b3f570c4650bf4d9ed20c392c472597ff51bc7b6827b4fc34e077c9807d",
+    "benchmarks/runs/20260910-7175-runtime-telemetry-runtime/provisional/003.json": "abd41ad0c205e69dd9669c75e479b0ea54b52649b8a1f5634dd73b428307e858",
+    "benchmarks/runs/20260910-7175-runtime-telemetry-runtime/results/004.json": "d13c5c2a91f4999d41a644cb4aa35f8c77b4b09ffd68bbad333a6fb3caa37931",
+    "benchmarks/runs/20260910-7175-runtime-telemetry-runtime/results/005.json": "5e1832d059c23e67972875f14b932c90ff7146d24c3786d2858e4a1e96779930",
+    "benchmarks/runs/20260910-7175-runtime-telemetry-runtime/provisional/006.json": "4548bd1012fc34d9e6b6d751ffaf0a869ded4e122cac0a115067465941e61265",
+    "benchmarks/runs/20260910-7175-runtime-telemetry-runtime/provisional/007.json": "94b1482a2b87e873e98d72de78e8f35478ba921a0de33730cc66a6a16dc63183",
+    "benchmarks/runs/20260910-7175-runtime-telemetry-runtime/provisional/008.json": "491baa0ea0c4b84ea932a146d8b0df85b4e65b36b1298a997cd03d6185e0de2a",
+    "benchmarks/runs/20260910-7175-runtime-telemetry-runtime/provisional/009.json": "293b042e191adae95ee6be9266858eacc80cae94414f5945477de610f3ab9e43",
+    "benchmarks/runs/20260910-7175-runtime-telemetry-runtime/results/010.json": "77f5bd070b57fe8aab9bb95d91a67280d3fd11757aa5da48230fc3c920b48226",
+    "benchmarks/runs/20260910-7175-runtime-telemetry-runtime/results/011.json": "aec6e8b1153f7dd82c0813897f38ebc0c98e44f09191f72876881d54c38643c7",
+    "benchmarks/runs/20260910-7175-runtime-telemetry-runtime/provisional/012.json": "31c7793c66599fca1b2eb67b5f4924cb3cabb41b627dc215c984a35ed0f286ae",
+    "benchmarks/runs/20260910-7175-runtime-telemetry-runtime/provisional/013.json": "8a7079f4310e922bd463aed7a5b6094775760ce197c07ada5516584a3ac0dae4",
+    "benchmarks/runs/20260910-7175-runtime-telemetry-runtime/provisional/014.json": "9a71af603bdfbb73516a5abbca017906972e16569e518a788998ca2671f06093",
+    "benchmarks/runs/20260910-7175-runtime-telemetry-runtime/provisional/015.json": "1512423e530b65d457a308d1c94269526208fa2ef8be7677fa6c03a7a5395495",
+    "benchmarks/runs/20260910-7175-runtime-telemetry-runtime/provisional/016.json": "de8d61ce67f8bf41b3ee1007d2083c4664c827a8489ee5415beb878fb8f0ad9e",
+    "benchmarks/runs/20260910-7175-runtime-telemetry-runtime/provisional/017.json": "811a37e58a37270241f3e60537883c867507afcb3b89aa58ce21a142cfad5921"
+  },
+  "exact_work_and_proofs": true,
+  "outcomes": 18,
+  "checked_clean": 4,
+  "rows": {
+    "31": {
+      "ratios": [
+        1.0068408997830933,
+        1.0095526680704638,
+        1.0100566547846601
+      ],
+      "median": 1.0095526680704638,
+      "range": [
+        1.0068408997830933,
+        1.0100566547846601
+      ],
+      "previous_seconds": [
+        527.416,
+        525.717,
+        522.639
+      ],
+      "candidate_seconds": [
+        531.024,
+        530.739,
+        527.895
+      ],
+      "within_arm_spreads": [
+        0.009140152189178519,
+        0.005927315091069252
+      ],
+      "absolute_headline_stable": true,
+      "rss_ratios": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "phase_ms": {
+        "previous": [
+          [
+            168453,
+            358736
+          ],
+          [
+            168148,
+            357331
+          ],
+          [
+            167684,
+            354735
+          ]
+        ],
+        "candidate": [
+          [
+            168050,
+            362766
+          ],
+          [
+            167873,
+            362635
+          ],
+          [
+            167679,
+            359977
+          ]
+        ]
+      },
+      "nodes": {
+        "previous": [
+          "node017",
+          "node018",
+          "node018"
+        ],
+        "candidate": [
+          "node018",
+          "node018",
+          "node017"
+        ]
+      }
+    },
+    "35": {
+      "ratios": [
+        1.0097016301644695,
+        1.0226625066174069,
+        1.0140677757653005
+      ],
+      "median": 1.0140677757653005,
+      "range": [
+        1.0097016301644695,
+        1.0226625066174069
+      ],
+      "previous_seconds": [
+        357.878,
+        355.124,
+        357.768
+      ],
+      "candidate_seconds": [
+        361.35,
+        363.172,
+        362.801
+      ],
+      "within_arm_spreads": [
+        0.007755037676980381,
+        0.005042202850422006
+      ],
+      "absolute_headline_stable": true,
+      "rss_ratios": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "phase_ms": {
+        "previous": [
+          [
+            125501,
+            232159
+          ],
+          [
+            124980,
+            229911
+          ],
+          [
+            125440,
+            232096
+          ]
+        ],
+        "candidate": [
+          [
+            124735,
+            236404
+          ],
+          [
+            125148,
+            237784
+          ],
+          [
+            125425,
+            237137
+          ]
+        ]
+      },
+      "nodes": {
+        "previous": [
+          "node017",
+          "node017",
+          "node018"
+        ],
+        "candidate": [
+          "node018",
+          "node018",
+          "node017"
+        ]
+      }
+    },
+    "38": {
+      "ratios": [
+        0.9989666523966284,
+        0.9992872374265147,
+        0.9977864253713332
+      ],
+      "median": 0.9989666523966284,
+      "range": [
+        0.9977864253713332,
+        0.9992872374265147
+      ],
+      "previous_seconds": [
+        338.705,
+        339.524,
+        339.722
+      ],
+      "candidate_seconds": [
+        338.355,
+        339.282,
+        338.97
+      ],
+      "within_arm_spreads": [
+        0.0030026128932256757,
+        0.002739726027397138
+      ],
+      "absolute_headline_stable": true,
+      "rss_ratios": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "phase_ms": {
+        "previous": [
+          [
+            22669,
+            316009
+          ],
+          [
+            22711,
+            316740
+          ],
+          [
+            22664,
+            316994
+          ]
+        ],
+        "candidate": [
+          [
+            22985,
+            315321
+          ],
+          [
+            23065,
+            316150
+          ],
+          [
+            23164,
+            315745
+          ]
+        ]
+      },
+      "nodes": {
+        "previous": [
+          "node017",
+          "node017",
+          "node018"
+        ],
+        "candidate": [
+          "node018",
+          "node018",
+          "node017"
+        ]
+      }
+    }
+  },
+  "interpretation": "Joint binary-telemetry/per-rule-clock ablation. Inspect all paired medians/ranges, RSS and coarse phase decomposition before changing defaults. Removed instrumentation exists but a net runtime gain is not guaranteed. Code displacement and observed placement are confounds, not established causes. No individual counter pricing, proof-completion claim or promotion.",
+  "next": "Keep the larger Factor occurrence-arena investigation7180 independent of this ablation. Final proof/cleanup, memory and current-source fuzz/consolidation gates remain open."
+}

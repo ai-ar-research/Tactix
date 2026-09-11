@@ -1,0 +1,16 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-7181-factor-arena-proofs/candidate-fixture",
+    "33",
+    "8",
+    "1",
+    "0",
+    "0",
+    "0",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-7181-factor-arena-proofs/candidate-33-8-1-0-0-0.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-7181-factor-arena-proofs/candidate-33-8-1-0-0-0.proof"
+  ],
+  "returncode": 0,
+  "stdout": "factor-proof 33 8 1 0 0 0: factors=1 ticks=1698 P=34 nvars=42\n",
+  "stderr": ""
+}

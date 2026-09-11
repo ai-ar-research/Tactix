@@ -1,0 +1,10 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/tools/checkers/bin/cake_lpr",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-7181-factor-arena-proofs/previous-3-3-4-0-0-1.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-7181-factor-arena-proofs/previous-3-3-4-0-0-1.proof"
+  ],
+  "returncode": 0,
+  "stdout": "s VERIFIED UNSAT\n",
+  "stderr": ""
+}

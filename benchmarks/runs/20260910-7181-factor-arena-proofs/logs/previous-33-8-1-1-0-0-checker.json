@@ -1,0 +1,10 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-7181-factor-arena-proofs/previous-33-8-1-1-0-0.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-7181-factor-arena-proofs/previous-33-8-1-1-0-0.proof"
+  ],
+  "returncode": 0,
+  "stdout": "\nc parsing input formula with 41 variables and 298 clauses\n\nc finished parsing\n\nc UNSAT via unit propagation on the input instance\n\nc 3 of 298 clauses in core                            \n\nc 1 of 43 lemmas in core using 3 resolution steps\n\nc 0 RAT lemmas in core; 0 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.048 seconds\n",
+  "stderr": ""
+}
