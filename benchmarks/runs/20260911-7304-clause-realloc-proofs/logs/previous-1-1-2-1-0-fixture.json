@@ -1,0 +1,15 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7304-clause-realloc-proofs/previous-fixture",
+    "1",
+    "1",
+    "2",
+    "1",
+    "0",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7304-clause-realloc-proofs/previous-1-1-2-1-0.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7304-clause-realloc-proofs/previous-1-1-2-1-0.proof"
+  ],
+  "returncode": 0,
+  "stdout": "family=Substitute mixed=1 mode=2 unsat=1 variant=0 apply=4 PASS\n",
+  "stderr": ""
+}

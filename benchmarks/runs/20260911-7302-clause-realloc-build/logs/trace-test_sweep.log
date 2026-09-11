@@ -1,0 +1,9 @@
+  S-d: emitted 6 binaries via the RUP fast path
+  S-d: non-RUP pairs declined, F unchanged
+  admission: no-proof agrees (non-RUP declined, RUP admitted)
+  admission: DRAT agrees (non-RUP declined, RUP admitted)
+  admission: LRAT agrees (non-RUP declined, RUP admitted)
+  S-e: general path emitted 2 binaries for a non-RUP equivalence
+  substitution without a dense session kept 10 binary watches whole
+  oracle: 86501 environments, 5344 claims (17 not RUP)
+test_sweep: all tests passed
