@@ -1,0 +1,16 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7224-root-binary-proof-control/candidate-fixture",
+    "2",
+    "0",
+    "1",
+    "1",
+    "0",
+    "2",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7224-root-binary-proof-control/candidate-2-0-1-1-0-2.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7224-root-binary-proof-control/candidate-2-0-1-1-0-2.proof"
+  ],
+  "returncode": 0,
+  "stdout": "roots=2 order=0 copies=1 elevated=1 unsat=0 mode=2 deleted=1 PASS\n",
+  "stderr": ""
+}

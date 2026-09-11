@@ -1,0 +1,34 @@
+{
+  "job_id": "1680683",
+  "accounting_since": "2026-09-11T01:25:33",
+  "tasks": [
+    12,
+    13,
+    14,
+    15,
+    16,
+    17
+  ],
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--array=12-17",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7205-congruence-fused-runtime/array.sbatch"
+  ],
+  "manifest_sha256": "0dfd92b3b9a75a916ec2c4bb23beb0cbb794dcc55b9c8138b8b5be7e8ae678d1",
+  "helper_sha256": "981052580a95ed2ee0c3de958094770972904d453c6c61f04640782f3b0bf642",
+  "preceding_records": {
+    "benchmarks/runs/20260911-7205-congruence-fused-runtime/provisional/000.json": "e9fc46f42b1606fc4e911890d480c3eff8382c829a1dad2fd617792e29b6d13d",
+    "benchmarks/runs/20260911-7205-congruence-fused-runtime/provisional/001.json": "0013b466a51d97f953c122e1162f87cd9a0878a5702fe5c8a392b525e26c2b6c",
+    "benchmarks/runs/20260911-7205-congruence-fused-runtime/provisional/002.json": "b0bf2722a6a7ec9b52e7ea927af5b35b0c1f33237c110d619822c18bc07fa250",
+    "benchmarks/runs/20260911-7205-congruence-fused-runtime/provisional/003.json": "8e070cdc87af7aa78c149fbc741dcf3d21eb6dacf975e14fce4787afb2d2db63",
+    "benchmarks/runs/20260911-7205-congruence-fused-runtime/results/004.json": "e999c2a5a864c97388f9376ee46a2b3ed7733808bc230d520231601138af448f",
+    "benchmarks/runs/20260911-7205-congruence-fused-runtime/results/005.json": "2743cb577c295027e53a2f6ec0d6c8811eb174d2d7204332ac448d4cdef53204",
+    "benchmarks/runs/20260911-7205-congruence-fused-runtime/provisional/006.json": "47b267cf23a10a0275532b4ede27b61eb99dc5f6c23b8500f10cb8c395e03279",
+    "benchmarks/runs/20260911-7205-congruence-fused-runtime/provisional/007.json": "3a9b6248311c793fc609ce811f279ab11df58dbf3b58f7a18d61e63004eebc58",
+    "benchmarks/runs/20260911-7205-congruence-fused-runtime/provisional/008.json": "6da4e432ae4be296f2ada8a711c4862e9ea1ce69bc7f291db3506fa2ab9f3e1f",
+    "benchmarks/runs/20260911-7205-congruence-fused-runtime/provisional/009.json": "c9c47d4d78d82feed799c97e48e21ecdd68e37b95a0a1c105bd72d2067f7f75e",
+    "benchmarks/runs/20260911-7205-congruence-fused-runtime/provisional/010.json": "8f24fb240fece15f0dc0201b1b6c63628105dd5844181429d39c4b53022142c2",
+    "benchmarks/runs/20260911-7205-congruence-fused-runtime/provisional/011.json": "3e7651f2d6c20e9cafce6fc1553893525046e2cdafaa274fb4953aeb8d2832c3"
+  }
+}

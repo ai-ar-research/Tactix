@@ -1,0 +1,268 @@
+--- a/src/kernel/kernel.cpp
++++ b/src/kernel/kernel.cpp
+@@ -1455,6 +1455,10 @@
+-  // The rank is two lookups and a branch per call; the pair test needs it for
+-  // every watch entry, so read it once per literal.
+-  std::vector<uint64_t> lit_rank(2 * static_cast<size_t>(k.nvars));
+-  for (Lit l = 0; l < static_cast<Lit>(2 * k.nvars); l++)
+-    lit_rank[l] = kernel_import_lit_order(k, l);
+-  for (Lit lit = 0; lit < static_cast<Lit>(2 * k.nvars); lit++)
++  // Every satisfied pair has a root-true endpoint. Visit only those lists,
++  // but retain the original import-rank orientation and copy multiplicity.
++  // With two true endpoints only the lower-ranked one emits the pair; with
++  // one true endpoint it emits even when the other endpoint ranks first.
++  // Sorting below therefore sees exactly the old multiset, without scanning
++  // all non-root watch lists or allocating a rank for every literal.
++  for (Lit lit = 0; lit < static_cast<Lit>(2 * k.nvars); lit++) {
++    if (kernel_root_value(k, lit) <= 0)
++      continue;
++    const uint64_t rank = kernel_import_lit_order(k, lit);
+@@ -1465 +1469,2 @@
+-      if (lit_rank[lit] >= lit_rank[other])
++      const bool first = rank < kernel_import_lit_order(k, other);
++      if (!first && kernel_root_value(k, other) > 0)
+@@ -1467,4 +1472,4 @@
+-      if (kernel_root_value(k, lit) > 0 ||
+-          kernel_root_value(k, other) > 0)
+-        satisfied_binaries.emplace_back(lit, other);
+-    }
++      satisfied_binaries.emplace_back(first ? lit : other,
++                                      first ? other : lit);
++    }
++  }
+--- /dev/null
++++ b/tests/test_root_binary_collect.cpp
+@@ -0,0 +1,233 @@
++// Exact old-primitive oracle for root-true sparse binary retirement.
++#undef NDEBUG
++#include "kernel/kernel.hpp"
++#include "proof/proof.hpp"
++#include <algorithm>
++#include <cassert>
++#include <cstdio>
++#include <string>
++#include <tuple>
++#include <unistd.h>
++using namespace tactix;
++
++RootCollectOutcome reference_collect(Kernel &k, Ref start) {
++  k.stats.sparse_collections++;
++  if (!kernel_has_root_assignment(k))
++    return RootCollectOutcome::NoChange;
++  uint64_t changed = 0;
++  bool has_garbage = false;
++  RootCollectOutcome outcome = RootCollectOutcome::NoChange;
++  const uint64_t sparse_cut = start ? kernel_clause_position(k, start) : 0;
++
++  // Kissat's sparse collector flushes watched binaries before sweeping the
++  // large-clause arena (collect.c:flush_watched_clauses_by_literal).  In
++  // particular it drops binaries satisfied by any root literal.  Keeping
++  // those pairs made initial collection create 216 shortened binaries on
++  // FmlaEquivChain without retiring the 216 already-satisfied pairs, shifting
++  // every later Factor score even though the root assignment was identical.
++  // Snapshot unique pairs first because deletion compacts both watch lists.
++  std::vector<std::pair<Lit, Lit>> satisfied_binaries;
++  // The rank is two lookups and a branch per call; the pair test needs it for
++  // every watch entry, so read it once per literal.
++  std::vector<uint64_t> lit_rank(2 * static_cast<size_t>(k.nvars));
++  for (Lit l = 0; l < static_cast<Lit>(2 * k.nvars); l++)
++    lit_rank[l] = kernel_import_lit_order(k, l);
++  for (Lit lit = 0; lit < static_cast<Lit>(2 * k.nvars); lit++)
++    for (const WatchEntry watch : k.watches.entries(lit)) {
++      if (!watch.binary())
++        continue;
++      const Lit other = watch.other();
++      if (lit_rank[lit] >= lit_rank[other])
++        continue;
++      if (kernel_root_value(k, lit) > 0 ||
++          kernel_root_value(k, other) > 0)
++        satisfied_binaries.emplace_back(lit, other);
++    }
++  std::sort(satisfied_binaries.begin(), satisfied_binaries.end());
++  // The scan above already met every copy of every pair, and each pair is
++  // deleted whole, so recounting through the watch list would rescan a
++  // root-satisfied literal's still-intact prefix once per pair it owns.
++  for (size_t at = 0; at < satisfied_binaries.size();) {
++    const auto [a, b] = satisfied_binaries[at];
++    size_t end = at;
++    while (end < satisfied_binaries.size() && satisfied_binaries[end].first == a &&
++           satisfied_binaries[end].second == b)
++      end++;
++    const uint32_t copies = static_cast<uint32_t>(end - at);
++    at = end;
++    const bool deleted = kernel_delete_binary_all_copies_known(k, a, b, copies);
++    assert(deleted);
++    (void)deleted;
++    changed += copies;
++    outcome = RootCollectOutcome::Changed;
++  }
++
++  // A Reduce collection starts at the historical reducible boundary in Kissat's
++  // current arena. Tactix can have an appended packed replacement whose
++  // generation-local position lies before that cut. Classify every original
++  // record by that position: the logical prefix remains byte-for-byte
++  // untouched, while every logical-tail record is root-flushed.
++  const Ref original_end = static_cast<Ref>(k.arena.size());
++  for (Ref ref = 0; ref < original_end;) {
++    Clause *const source = clause_at(k.arena, ref);
++    const uint32_t words = clause_actual_words(source);
++    if (source->garbage()) {
++      has_garbage = true;
++    } else if (kernel_clause_position(k, ref) >= sparse_cut) {
++      Ref current = ref;
++      const RootFlushOutcome flushed =
++          kernel_flush_root_clause(k, &current, &changed,
++                                   /*mark_binary_added_material=*/false,
++                                   /*clamp_glue=*/false,
++                                   /*mark_satisfied_removal=*/false);
++      if (flushed == RootFlushOutcome::Refuted) {
++        outcome = RootCollectOutcome::Refuted;
++        break;
++      }
++      if (flushed == RootFlushOutcome::Unit)
++        outcome = RootCollectOutcome::Unit;
++      else if (flushed != RootFlushOutcome::None &&
++               outcome == RootCollectOutcome::NoChange)
++        outcome = RootCollectOutcome::Changed;
++    }
++    ref += words;
++  }
++  k.stats.sparse_collected += changed;
++  // Reduce marks its selected victims before entering the root-aware sparse
++  // collector.  Those records still require the same sweep and rewatch even
++  // when no root-fixed literal happens to shorten another clause in this
++  // collection.  `changed` only describes root simplification, so it cannot
++  // by itself be the collection admission predicate.
++  if ((changed || has_garbage) && outcome != RootCollectOutcome::Refuted) {
++    kernel_collect_garbage(k, start, /*sparse_collection=*/true);
++  }
++  return outcome;
++}
++
++static void setup(Kernel &k, unsigned a, unsigned b, unsigned order,
++                  unsigned copies, unsigned large, bool late_root) {
++  kernel_reserve_vars(k, 8);
++  kernel_materialize_cold_state(k);
++  if (order != 2) {
++    k.next_import_rank = 8;
++    for (Var v = 0; v < 8; ++v) {
++      const unsigned rank = order ? 7-v : v;
++      k.internal_import_rank[v] = rank;
++      k.external_import_rank[v] = rank;
++    }
++  }
++  if (large) {
++    const Lit lits[] = {make_lit(2,false), make_lit(3,false), make_lit(4,false)};
++    const Ref ref = kernel_add_large_clause(k, lits, 3, false, 0, ++k.next_clause_id);
++    if (large == 2) kernel_delete_clause(k, clause_at(k.arena, ref));
++  }
++  const Var vars[] = {0, 1, 2, 6, 7};
++  for (unsigned i = 0; i < 5; ++i)
++    for (unsigned j = i+1; j < 5; ++j)
++      for (unsigned signs = 0; signs < 4; ++signs)
++        for (unsigned copy = 0; copy < copies; ++copy)
++          kernel_add_binary_clause(k, make_lit(vars[i], signs & 1),
++                                   make_lit(vars[j], signs & 2), ++k.next_clause_id);
++  const unsigned state[] = {a,b};
++  for (Var v = 0; v < 2; ++v)
++    if (state[v] == 1 || state[v] == 2)
++      kernel_assign_unit(k, make_lit(v, state[v] == 2));
++  for (Var v = 0; v < 2; ++v)
++    if (state[v] == 3 || state[v] == 4)
++      kernel_assign_decision(k, make_lit(v, state[v] == 4));
++  // A real root may be appended after non-root assignments.
++  if (late_root) kernel_assign_unit(k, make_lit(7, order & 1));
++}
++
++static void same(const Kernel &a, const Kernel &b) {
++  assert(a.arena == b.arena && a.values == b.values);
++  assert(a.trail.size() == b.trail.size() &&
++         std::equal(a.trail.begin(),a.trail.end(),b.trail.begin()));
++  assert(a.level == b.level && a.frames == b.frames);
++  assert(a.next_clause_id == b.next_clause_id && a.binary_ids.size() == b.binary_ids.size());
++  std::vector<std::pair<uint64_t,uint64_t>> a_ids, b_ids;
++  a.binary_ids.for_each([&](uint64_t key, uint64_t id) { a_ids.emplace_back(key,id); });
++  b.binary_ids.for_each([&](uint64_t key, uint64_t id) { b_ids.emplace_back(key,id); });
++  std::sort(a_ids.begin(),a_ids.end()); std::sort(b_ids.begin(),b_ids.end());
++  assert(a_ids == b_ids);
++  assert(a.bve_retry == b.bve_retry && a.removed == b.removed);
++  assert(a.live_irredundant_large == b.live_irredundant_large);
++  assert(a.first_reducible == b.first_reducible);
++  assert(a.stats.sparse_collections == b.stats.sparse_collections);
++  assert(a.stats.sparse_collected == b.stats.sparse_collected);
++  assert(a.stats.binaries_deleted == b.stats.binaries_deleted);
++  assert(a.stats.bve_marks == b.stats.bve_marks && a.stats.flushed == b.stats.flushed);
++  for (Lit lit = 0; lit < 2*a.nvars; ++lit) {
++    const auto &x = a.watches.heads[lit], &y = b.watches.heads[lit];
++    assert(x.size == y.size && x.binary_count() == y.binary_count());
++    assert(x.binaries_first() == y.binaries_first() && x.has_large() == y.has_large());
++    assert(std::equal(a.watches.arena.begin()+x.offset,
++                      a.watches.arena.begin()+x.offset+x.size,
++                      b.watches.arena.begin()+y.offset));
++  }
++  for (Var v = 0; v < a.nvars; ++v) {
++    const auto &x = a.assigned[v], &y = b.assigned[v];
++    assert(std::tie(x.reason,x.level,x.trail) == std::tie(y.reason,y.level,y.trail));
++    assert(x.binary == y.binary && x.jumped == y.jumped);
++  }
++}
++
++static std::string read_file(const char *path) {
++  FILE *f = std::fopen(path,"rb"); assert(f);
++  assert(!std::fseek(f,0,SEEK_END));
++  const long size = std::ftell(f); assert(size >= 0);
++  std::rewind(f);
++  std::string bytes(static_cast<size_t>(size),'\0');
++  assert(std::fread(bytes.data(),1,bytes.size(),f) == bytes.size());
++  assert(!std::fclose(f));
++  return bytes;
++}
++
++static void scenario(unsigned a, unsigned b, unsigned order, unsigned copies,
++                     unsigned large, bool late_root, unsigned mode) {
++  Kernel actual, expected;
++  setup(actual,a,b,order,copies,large,late_root);
++  setup(expected,a,b,order,copies,large,late_root);
++  char actual_path[] = "/tmp/tactix-root-binary-7218-a-XXXXXX";
++  char expected_path[] = "/tmp/tactix-root-binary-7218-b-XXXXXX";
++  if (mode) {
++    const int a_fd = mkstemp(actual_path), b_fd = mkstemp(expected_path);
++    assert(a_fd >= 0 && b_fd >= 0); close(a_fd); close(b_fd);
++  }
++  {
++    Proof a_proof, b_proof;
++    if (mode) {
++      const ProofFormat formats[] = {ProofFormat::DratAscii, ProofFormat::DratBinary, ProofFormat::Lrat};
++      assert(a_proof.open(actual_path,formats[mode-1]));
++      assert(b_proof.open(expected_path,formats[mode-1]));
++      a_proof.bind_variable_map(&actual.internal_to_external);
++      b_proof.bind_variable_map(&expected.internal_to_external);
++      actual.proof = &a_proof; expected.proof = &b_proof;
++    }
++    const auto x = kernel_sparse_collect_root(actual);
++    const auto y = reference_collect(expected,0);
++    assert(x == y); same(actual,expected);
++    assert(kernel_sparse_collect_root(actual) == reference_collect(expected,0));
++    same(actual,expected);
++    actual.proof = expected.proof = nullptr;
++  }
++  if (mode) {
++    assert(read_file(actual_path) == read_file(expected_path));
++    assert(!unlink(actual_path) && !unlink(expected_path));
++  }
++}
++
++int main() {
++  unsigned cases = 0;
++  for (unsigned a = 0; a < 5; ++a) for (unsigned b = 0; b < 5; ++b)
++    for (unsigned order = 0; order < 3; ++order)
++      for (unsigned copies = 1; copies <= 3; ++copies)
++        for (unsigned large = 0; large < 3; ++large)
++          for (bool late_root : {false,true})
++            for (unsigned mode = 0; mode < 4; ++mode) {
++              scenario(a,b,order,copies,large,late_root,mode);
++              ++cases;
++            }
++  assert(cases == 5400);
++  std::printf("root-binary exact old/new cases=%u (twice each), three proof formats PASS\n",cases);
++}
