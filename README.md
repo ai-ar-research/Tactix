@@ -27,5 +27,5 @@ src/            kernel, rule families, policies, proof backend
 tools/fuzz/     fuzzing harness: generators, oracles, shrinker, regression corpus
 tools/bench/    benchmark tier runner, PAR-2 scoring, reports
 benchmarks/     tier instance lists (tracked) + local cache (untracked)
-.claude/skills/ project workflows for Claude Code (benchmarks, fuzz, proof-check, ...)
+.claude/skills/ project workflows for Codex and Claude Code (benchmarks, fuzz, proof-check, ...)
 ```
