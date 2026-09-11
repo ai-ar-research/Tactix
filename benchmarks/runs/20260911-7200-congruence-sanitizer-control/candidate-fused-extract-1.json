@@ -1,0 +1,8 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7200-congruence-sanitizer-control/candidate-fused-extract"
+  ],
+  "exit_code": 0,
+  "stdout": "PASS:648 dense AND cases twice: order, stale/duplicate entries, missing support, roots, polarity, proof IDs and exact ticks\n",
+  "stderr": ""
+}

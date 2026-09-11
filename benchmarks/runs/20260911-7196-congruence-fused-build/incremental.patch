@@ -1,0 +1,172 @@
+--- a/src/rules/congruence/congruence.cpp
++++ b/src/rules/congruence/congruence.cpp
+@@ -368,10 +367,0 @@
+-        // locate outp in the (still logically valid) original clause
+-        uint32_t idx = UINT32_MAX;
+-        for (uint32_t j = 0; j < c->size; j++) {
+-          if (c->lits[j] == outp) {
+-            idx = j;
+-            break;
+-          }
+-        }
+-        if (idx == UINT32_MAX)
+-          continue; // stale occurrence entry
+@@ -381,0 +372,5 @@
++        // Locate the output while checking support: a failed candidate can
++        // stop before reaching it. Keep its first position for the tag sort,
++        // skip every duplicate output as before, and reject stale occurrences
++        // even when all remaining literals have binary support.
++        uint32_t idx = UINT32_MAX;
+@@ -383,2 +378,5 @@
+-        for (const Lit l : *c) {
+-          if (l == outp)
++        for (uint32_t j = 0; j < c->size; j++) {
++          const Lit l = c->lits[j];
++          if (l == outp) {
++            if (idx == UINT32_MAX)
++              idx = j;
+@@ -385,0 +384 @@
++          }
+@@ -391 +390 @@
+-        if (!all)
++        if (!all || idx == UINT32_MAX)
+--- /dev/null
++++ b/tests/test_congruence_fused_extract.cpp
+@@ -0,0 +1,137 @@
++// Dense AND extraction: exact ordered gates, ticks and proof IDs against an
++// independent direct-watch membership oracle, including stale occurrences.
++#undef NDEBUG
++#include "kernel/kernel.hpp"
++#include "rules/congruence/congruence.hpp"
++#include <algorithm>
++#include <cassert>
++#include <cstdio>
++#include <tuple>
++#include <unistd.h>
++using namespace tactix;
++
++static bool supported(const Kernel &k, Lit output, Lit literal) {
++  for (const WatchEntry w : k.watches.entries(negate(output)))
++    if (w.binary() && w.other() == negate(literal)) return true;
++  return false;
++}
++
++static void compare(Kernel &k, bool lrat) {
++  std::vector<std::tuple<Ref, uint32_t, Lit>> expected;
++  uint64_t ticks = 0;
++  for (Lit output = 0; output < 2 * k.nvars; output++) {
++    const auto refs = k.dense->large[output];
++    ticks += refs.size();
++    for (Ref ref : refs) {
++      const Clause *c = clause_at(k.arena, ref);
++      if (c->garbage() || c->redundant() || c->size < 3) continue;
++      ticks += c->size;
++      const auto position = std::find(c->lits, c->lits + c->size, output);
++      if (position == c->lits + c->size) continue;
++      const bool all = std::all_of(c->lits, c->lits + c->size, [&](Lit lit) {
++        return lit == output || supported(k, output, lit);
++      });
++      if (all) expected.emplace_back(ref, position - c->lits, output);
++    }
++  }
++  std::sort(expected.begin(), expected.end());
++  const auto arena = k.arena;
++  const auto trail = k.trail;
++  const auto watches = k.watches.arena;
++  const auto first_tick = k.stats.congruence_ticks;
++  const auto next_id = k.next_clause_id;
++  std::vector<CongGate> actual(1); // extraction appends, never clears the prefix
++  actual[0].output = INVALID_LIT;
++  congruence_extract(k, actual);
++  assert(actual.size() == expected.size() + 1);
++  assert(actual[0].output == INVALID_LIT);
++  assert(k.stats.congruence_ticks - first_tick == ticks);
++  assert(k.arena == arena && k.trail == trail && k.watches.arena == watches);
++  assert(k.next_clause_id == next_id);
++  for (size_t i = 0; i < expected.size(); i++) {
++    const auto [ref, position, output] = expected[i];
++    const Clause *c = clause_at(k.arena, ref);
++    assert(c->lits[position] == output);
++    const CongGate &g = actual[i + 1];
++    assert(g.kind == GateKind::And && g.output == output);
++    std::vector<std::pair<Lit, uint64_t>> inputs;
++    for (Lit lit : *c)
++      if (lit != output)
++        inputs.emplace_back(negate(lit), lrat ? kernel_binary_id(k, negate(output), negate(lit)) : 0);
++    std::sort(inputs.begin(), inputs.end());
++    assert(g.inputs.size() == inputs.size());
++    assert(g.base_id() == (lrat ? c->id() : 0));
++    for (size_t j = 0; j < inputs.size(); j++) {
++      assert(g.inputs[j] == inputs[j].first);
++      if (lrat) assert(g.input_bin_ids()[j] == inputs[j].second);
++    }
++  }
++}
++
++static void fixture(unsigned width, unsigned position, int missing,
++                    bool negative, bool duplicate, bool root, int mode) {
++  Kernel k;
++  kernel_reserve_vars(k, width + 4);
++  const Lit output = make_lit(width, negative);
++  const Lit stale_output = make_lit(width + 1, !negative);
++  std::vector<Lit> lits;
++  for (unsigned i = 0; i < width; i++) lits.push_back(make_lit(i, !negative));
++  lits[position] = output;
++  if (duplicate) lits[(position + 1) % width] = output;
++  const Ref base = kernel_add_large_clause(k, lits.data(), width, false, 0, ++k.next_clause_id);
++  const Ref redundant = kernel_add_large_clause(k, lits.data(), width, true, 1, ++k.next_clause_id);
++  const Ref dead = kernel_add_large_clause(k, lits.data(), width, false, 0, ++k.next_clause_id);
++  clause_at(k.arena, dead)->flags |= Clause::GARBAGE;
++  for (unsigned i = 0; i < width; i++) {
++    if (lits[i] != output && static_cast<int>(i) != missing)
++      kernel_add_binary_clause(k, negate(output), negate(lits[i]), ++k.next_clause_id);
++    // This output does not occur, despite having ALL supporting binaries.
++    kernel_add_binary_clause(k, negate(stale_output), negate(lits[i]), ++k.next_clause_id);
++  }
++  if (root) kernel_assign_unit(k, output);
++  OccIndex occ;
++  occ.large.resize_lits(2 * k.nvars);
++  occ.large.push(stale_output, base); // fully supported but stale
++  occ.large.push(output, redundant);
++  occ.large.push(output, dead);
++  occ.large.push(output, base);
++  occ.large.push(output, base); // preserve duplicate occurrence multiplicity
++  k.dense = &occ;
++  char path[] = "/tmp/tactix-congruence-fused-XXXXXX";
++  const int fd = mkstemp(path);
++  assert(fd >= 0);
++  close(fd);
++  {
++    Proof proof;
++    if (mode) {
++      assert(proof.open(path, mode == 2 ? ProofFormat::Lrat : ProofFormat::DratAscii));
++      proof.bind_variable_map(&k.internal_to_external);
++      k.proof = &proof;
++    }
++    compare(k, mode == 2);
++    compare(k, mode == 2); // no leaked partner marks or state
++    proof.flush();
++    k.proof = nullptr;
++  }
++  FILE *stream = std::fopen(path, "rb");
++  assert(stream && std::fgetc(stream) == EOF); // extraction has no proof delta
++  std::fclose(stream);
++  assert(!std::remove(path));
++  k.dense = nullptr;
++}
++
++int main() {
++  unsigned cases = 0;
++  for (unsigned width : {3u, 8u, 65u})
++    for (unsigned position : {0u, width / 2, width - 1})
++      for (int missing : {-1, 0, static_cast<int>(width - 1)})
++        for (bool negative : {false, true})
++          for (bool duplicate : {false, true})
++            for (bool root : {false, true})
++              for (int mode : {0, 1, 2}) {
++                fixture(width, position, missing, negative, duplicate, root, mode);
++                cases++;
++              }
++  assert(cases == 648);
++  std::puts("PASS:648 dense AND cases twice: order, stale/duplicate entries, missing support, roots, polarity, proof IDs and exact ticks");
++}

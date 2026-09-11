@@ -1,0 +1,16 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7198-congruence-fused-proofs/candidate-fixture",
+    "65",
+    "2",
+    "0",
+    "1",
+    "0",
+    "1",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7198-congruence-fused-proofs/candidate-65-2-0-1-0-1.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7198-congruence-fused-proofs/candidate-65-2-0-1-0-1.proof"
+  ],
+  "returncode": 0,
+  "stdout": "gate-proof 65 2 0 1 0 1: gates=2 merges=1 ticks=18152 models=0\n",
+  "stderr": ""
+}
