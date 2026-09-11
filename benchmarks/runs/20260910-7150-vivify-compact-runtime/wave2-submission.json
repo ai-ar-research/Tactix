@@ -1,0 +1,34 @@
+{
+  "job_id": "1680216",
+  "tasks": [
+    12,
+    13,
+    14,
+    15,
+    16,
+    17
+  ],
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--array=12-17",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-7150-vivify-compact-runtime/array.sbatch"
+  ],
+  "accounting_since": "2026-09-10T21:45:07",
+  "manifest_sha256": "f51485a030bbabed036df873d95ade84972e9427d692c4914855cfdb8b057367",
+  "helper_sha256": "ab19b2a6ed9a4808d455faab15b397dd05683361d8df0e8d737dd0bc2cf7cd7f",
+  "preceding_records": {
+    "benchmarks/runs/20260910-7150-vivify-compact-runtime/provisional/000.json": "c007a9c143fc585d3f14414da819e1f6e6baec8f01b67e8e23b03578c64d25a4",
+    "benchmarks/runs/20260910-7150-vivify-compact-runtime/provisional/001.json": "3e101a736932ae7a022367677383d136429252c9c2c857223e5acb78064ef9be",
+    "benchmarks/runs/20260910-7150-vivify-compact-runtime/provisional/002.json": "473fb1c7c4e81144c06bcc823a90e4d67af06795c7d2ddce4ad58fe982c97cef",
+    "benchmarks/runs/20260910-7150-vivify-compact-runtime/provisional/003.json": "e2e1c9b0b6f1537d3d016380f098d8ac28e23b9dcc19672b84e35098b988c367",
+    "benchmarks/runs/20260910-7150-vivify-compact-runtime/results/004.json": "863a0b894da91c51ac74c7134419cae5eb6a2f93ffd86023827fa8fa18ff3159",
+    "benchmarks/runs/20260910-7150-vivify-compact-runtime/results/005.json": "971cf730ac5c8789f4b3895d1602527b0dbb3e096fb1205c86d33a954960a661",
+    "benchmarks/runs/20260910-7150-vivify-compact-runtime/provisional/006.json": "d3b3360bf0b811942499f97db01ff7da8568c9f8f845f2613b00c1fc84a70069",
+    "benchmarks/runs/20260910-7150-vivify-compact-runtime/provisional/007.json": "12ff4d1cfaf9f5e3704f239c70d49b8b60a169ef30d334ca833da51486bf5fa4",
+    "benchmarks/runs/20260910-7150-vivify-compact-runtime/provisional/008.json": "fc55ef37e1aa63cff32216349e5f8d990440564f05815c13d3fae8663eb2917a",
+    "benchmarks/runs/20260910-7150-vivify-compact-runtime/provisional/009.json": "d1f1b511ac19192de19301d6d48115ee1d619fe6e145ad05db962c6bd1c928a9",
+    "benchmarks/runs/20260910-7150-vivify-compact-runtime/provisional/010.json": "ee888599dbdc59bb8ba0b118df2a2982add9e233f04ce3f9327fb73df19ba423",
+    "benchmarks/runs/20260910-7150-vivify-compact-runtime/provisional/011.json": "b2f949ffdc92fee2aced299372aaab91a45bdbb227bdcc65bea2025829486ac5"
+  }
+}

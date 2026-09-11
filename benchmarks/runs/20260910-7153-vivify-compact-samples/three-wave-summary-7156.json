@@ -1,0 +1,128 @@
+{
+  "hashes": {
+    "benchmarks/runs/20260910-7153-vivify-compact-samples/wave0/summary.json": "41449d78750079555b11064e83f71ddf1a532778e6fa089656b8502af4c5d47a",
+    "benchmarks/runs/20260910-7153-vivify-compact-samples/wave1/summary.json": "dc1140b0b7db5b2f00e84870615653e09c1c4807e898212ec787cea24dc6fd4a",
+    "benchmarks/runs/20260910-7153-vivify-compact-samples/wave2/summary.json": "caed6dfbf5a1c860ebdf358f0504187d71564caec922d900334b238f10b2a652",
+    "benchmarks/probes/scratch/summarize-vivify-compact-profiles-7156.py": "a99edd8df3928ad0bccec1b8adc84ec69db4a6752b7835172f028d67bc627a7e"
+  },
+  "complete_vivify": {
+    "ratios": [
+      0.9268302116140027,
+      0.9272251929296979,
+      0.9277893284066169
+    ],
+    "paired": {
+      "median": 0.9272251929296979,
+      "min": 0.9268302116140027,
+      "max": 0.9277893284066169,
+      "range_over_median": 0.0010343946647779433
+    },
+    "arms": {
+      "candidate": {
+        "median": 130776553622,
+        "min": 130744222446,
+        "max": 131432938588,
+        "range_over_median": 0.005266357943570553
+      },
+      "previous": {
+        "median": 141100874770,
+        "min": 141005899584,
+        "max": 141662481518,
+        "range_over_median": 0.004653280392983066
+      }
+    }
+  },
+  "phases": {
+    "initial_probe": {
+      "paired": {
+        "median": 0.9947333021765905,
+        "min": 0.9932175336376254,
+        "max": 1.0050902322285538,
+        "range_over_median": 0.011935559576571424
+      },
+      "arms": {
+        "candidate": {
+          "median": 3712775111,
+          "min": 3710540901,
+          "max": 3716208645,
+          "range_over_median": 0.0015265519269421757
+        },
+        "previous": {
+          "median": 3730186667,
+          "min": 3693971936,
+          "max": 3741585825,
+          "range_over_median": 0.012764478898932272
+        }
+      }
+    },
+    "probe": {
+      "paired": {
+        "median": 0.9738920201264873,
+        "min": 0.9737692413591942,
+        "max": 0.9763737273476294,
+        "range_over_median": 0.002674306734844122
+      },
+      "arms": {
+        "candidate": {
+          "median": 348568923439,
+          "min": 348506409574,
+          "max": 349852143332,
+          "range_over_median": 0.0038607393473948206
+        },
+        "previous": {
+          "median": 357894247191,
+          "min": 357003587536,
+          "max": 359230937416,
+          "range_over_median": 0.006223486120500043
+        }
+      }
+    },
+    "eliminate": {
+      "paired": {
+        "median": 1.0016322614672346,
+        "min": 0.9996400343723689,
+        "max": 1.005928928286582,
+        "range_over_median": 0.006278645523059342
+      },
+      "arms": {
+        "candidate": {
+          "median": 119493510065,
+          "min": 119472884062,
+          "max": 119623462304,
+          "range_over_median": 0.0012601374076139456
+        },
+        "previous": {
+          "median": 119298783258,
+          "min": 118918403617,
+          "max": 119515905680,
+          "range_over_median": 0.00500845060345519
+        }
+      }
+    },
+    "no_phase_frame": {
+      "paired": {
+        "median": 1.0018152373288933,
+        "min": 1.0002554153135816,
+        "max": 1.0101280283565013,
+        "range_over_median": 0.009854724379360273
+      },
+      "arms": {
+        "candidate": {
+          "median": 871973484435,
+          "min": 868546878344,
+          "max": 872192812459,
+          "range_over_median": 0.0041812442466211035
+        },
+        "previous": {
+          "median": 866973116380,
+          "min": 863230659834,
+          "max": 871970097943,
+          "range_over_median": 0.010080402660570443
+        }
+      }
+    }
+  },
+  "vivify_fifteen_percent_sampled_target": false,
+  "target": "At least15% lower complete vivify_apply sampled cycles including initial/search phases and all descendants; all three independent pairs retained.",
+  "limitation": "Not exact invocation time or solver RSS. Unprofiled7150/7155 owns whole-runtime and RSS gates; full proofs/cleanup, current-source fuzz, transfer and consolidation remain required before promotion."
+}
