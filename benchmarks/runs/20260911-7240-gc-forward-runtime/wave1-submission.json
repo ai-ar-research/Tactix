@@ -1,0 +1,28 @@
+{
+  "job_id": "1680855",
+  "accounting_since": "2026-09-11T02:36:06",
+  "tasks": [
+    6,
+    7,
+    8,
+    9,
+    10,
+    11
+  ],
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--array=6-11",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7240-gc-forward-runtime/array.sbatch"
+  ],
+  "manifest_sha256": "14ad3af73eee8378bc25020af49d70bf0120d535915696897df358623206a5b8",
+  "helper_sha256": "67445f68c67201d0fb1f39e0d14ba08793d5bba6af042848feae84f970ccaf1a",
+  "preceding_records": {
+    "benchmarks/runs/20260911-7240-gc-forward-runtime/provisional/000.json": "db0386eeaeaca4b094616efaca0ff50f50136ed3c0e6f8c3b457f86c44f92228",
+    "benchmarks/runs/20260911-7240-gc-forward-runtime/provisional/001.json": "40396e9d89dc4bfdad370a6635d1ba8f10b9f32d648b8db59392bf4bb8f5841f",
+    "benchmarks/runs/20260911-7240-gc-forward-runtime/provisional/002.json": "ae678f484c70654397b85ed7a7e776ed8aa974a4fed1a7113f95ab7010e9a52e",
+    "benchmarks/runs/20260911-7240-gc-forward-runtime/provisional/003.json": "22a36f098f5e8e12a6cee58685e49bf70ed7dd3b2d54b9dbc359378fbaab93f3",
+    "benchmarks/runs/20260911-7240-gc-forward-runtime/provisional/004.json": "ea8344bcb377e85e1edd95f1beb4494df9c530793dfbc2ca6b71c3c4612594a2",
+    "benchmarks/runs/20260911-7240-gc-forward-runtime/provisional/005.json": "43491744d30054b9f547ffccf2aa6174d174d6e40b9a841fb6d143982c4aa210"
+  }
+}
