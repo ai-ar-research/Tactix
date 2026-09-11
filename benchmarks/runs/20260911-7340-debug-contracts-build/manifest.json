@@ -1,0 +1,825 @@
+{
+  "status": "PASS",
+  "source": ".claude/worktrees/runtime-debug-contracts-7339",
+  "files": {
+    "src/api/api.cpp": "f90c5cab0cfe2c91b418dfb82b8a2feb45f35a04c7b0d82d8cb2cc0a83f7c20a",
+    "src/diagnostics/event_trace.cpp": "c707415d4df95d21accc76d100aa6cac15a1d85501784b026dd0d7c9c2460112",
+    "src/diagnostics/event_trace.hpp": "1515e9c02ea2d382f7e853e6fa792d0e2f9e370853e8cf24d9173c0fc8c12eab",
+    "src/diagnostics/rule_journal.cpp": "23ef3ba2c2abf99fcce4ca3bbd2c842734f9f4177bea9349275d74e5d0e0c3e7",
+    "src/diagnostics/rule_journal.hpp": "8297fa6b2a1553b9054bae7af38578cfb40952271dbef857aad75ad2e6827aa8",
+    "src/engine/subsolver.cpp": "e01292af168a60b558ea85850e1f02a335a22bc12f560e92b4c511374ca3f791",
+    "src/engine/subsolver.hpp": "8418dd6a8e98b4dbe40c02aca5b69abfe625c221efd377b6b66bdd5edf3e472c",
+    "src/frontend/parse.cpp": "16597594dee3612dc8a1d818e63edb1fd9857c6421a17e74348c700bd178b883",
+    "src/frontend/parse.hpp": "b84761ed06a726a02267f233d13467476fd9ab601c41d9fcdfb19aa588f7a0a5",
+    "src/kernel/clause.hpp": "2eb096bece6b85a5e8e78dbc12c330834459b1066b9c1656260f64399a937ec1",
+    "src/kernel/connected_occurrence.hpp": "cfca938906b4ee91465113125f12bd8f9580e5ec76bc211862cf12269fa5a738",
+    "src/kernel/kernel.cpp": "34ac9ee43dbaded102ea42e8c5ee4978dfa95785caf9d1eeddf882e6bf7fa977",
+    "src/kernel/kernel.hpp": "945d36479a4ac819592ec9ff4a92ec4e65f03efab0e0c99f8e35c60abd30a5ed",
+    "src/kernel/occ.hpp": "a032ec2224486c8c05963e1d6a0e473108e4817762db28db749b6dfe306dd69f",
+    "src/kernel/realloc_words.hpp": "1a50a30488a9e82babb7075d0cf97afbc702a114b1b67c50de7648d0569a0dbc",
+    "src/kernel/types.hpp": "7b689f61a0b8c5b19f49e69972686050043e2dc8add8889debf97a35d8d0f683",
+    "src/kernel/watch.hpp": "0287bd266961a1d0b7d0b4180a8669b2b878a377949c7c747be71e58fdad7f8b",
+    "src/main.cpp": "ce4cacd79b189010f96ed99964780ee4d9ced4373a058065386090e87d8ee57e",
+    "src/policies/default_inprocess.hpp": "fbba78191826be996d584d7e502d3dfdf4d253ec71e3918d8ddbf1a260e24a34",
+    "src/policies/default_policy.cpp": "bb83a3ba4f634bca8abf18c61e6cd55e301cc2110b5d92c3d3862103da11d189",
+    "src/policies/default_policy.hpp": "4da331fc986d71110041cb383ef74255ad157fc5ed6ac5326db47e0c677c08f7",
+    "src/policies/default_strategy_config.hpp": "2ed0a66d86d7b4ef39a06996ee775008a54510f80c6a0d3a06c62a3274df32ec",
+    "src/policies/heuristics.cpp": "ba64e8b892ec632e6104a12a74fc5e664f294d71a0f87bb7610d461b905becf7",
+    "src/policies/heuristics.hpp": "b76e63e42f12912077134369487c813e2bde90256f570fed318d6ee95f84af0a",
+    "src/policies/ops/reorder/reorder.cpp": "a01c46d0a344dea37979cf151ffab5fa37ebf12e2413a1f9eb61a11fda313923",
+    "src/policies/ops/reorder/reorder.hpp": "b40448c1c7033b93af2f0e0a67190fdad419d57ce570047f648274568a9f9d65",
+    "src/policies/ops/rephase/rephase.cpp": "4d2ce14c22b35e4a2799463438ba06178dd348d17a9476731765638164b72211",
+    "src/policies/ops/rephase/rephase.hpp": "b4d7e7b2c1413e5b80d4dbdb1f2f6adcd024ee5af4d60180db2008f180386965",
+    "src/policies/ops/switchmode/switchmode.cpp": "461dd9ef67b43b0d1f51d421e277c1215df26e989f01073828a2793803b64648",
+    "src/policies/ops/switchmode/switchmode.hpp": "e9029cb55143b5a2af43781ef383b83166db96ca795d2ef97bc633eb359ae810",
+    "src/policies/ops/walk/walk.cpp": "f29eed9b749df965b320f3abad80ae9c50d98ca927fcc164fcb4b2a8001e4a59",
+    "src/policies/ops/walk/walk.hpp": "01118ebd3fa604d8ee108f3911d3b889d2bd7a08fc6ac8285585abe5b4323a0d",
+    "src/policies/policy.hpp": "7e7552e71b9c4982e32da467cd6314b62e579ddc8bcfc3119b7efd1f37574844",
+    "src/policies/random_policy.cpp": "0ff620b57b3d646749d0f004f84696aaefad6e6c2a0c7fe8ef828cc68895efce",
+    "src/policies/random_policy.hpp": "0323e63b24a304f3d2c675851b641a75194e415cc5ab130d3ab4d753b69622ec",
+    "src/policies/stress_common.hpp": "a7c338175356b599666b41ee9cbd95ea506447a1ef386e375d2b57a6b4ee8b24",
+    "src/policies/stress_registry.cpp": "6bb60ea363276c1d2c100f53f53ebc2f89181ede2cde8c79dadb20b4217c0504",
+    "src/policies/stress_registry.hpp": "f7343a1c13659255c811864d033f84a7e32d306702ac0ae4bed0b965844bc2b0",
+    "src/policies/subpolicy.hpp": "881e7eaee2a8b5fa4ed2c7d2b11ff27aad2a73770077b569022ad4a34e83dcb0",
+    "src/policies/trace.cpp": "91dde6dd76738438e9acc6f35e80ffc804ece2af54d9a077723a620f875b57d7",
+    "src/policies/trace.hpp": "66244d3051c38c1e4f0ba28d46ddf9ec6099dc79f54949078f819ca5138ade8a",
+    "src/proof/proof.cpp": "ea017f3c71f2b2511d6cce4c1e8e402b89c90ad400fbf35c41936b887f28d6fd",
+    "src/proof/proof.hpp": "5d42dbc242f2fe49e39e481961a2cc37ecdbf623705cee43c95f56a4e381b5e2",
+    "src/rules/analyze/analyze.cpp": "ecc010895971238a3ea9e0ded326d40ae4a9a29617b272822483e61db1d04528",
+    "src/rules/analyze/analyze.hpp": "d4c55d5f3aa30bee1a88de38da67e317c1129b67b1f8369a6475edac715faea2",
+    "src/rules/analyze/learned_sort.hpp": "ee4c2494b5172558c792032bbcd468a2a66506aac134c5f2896aed903cae08ab",
+    "src/rules/backbone/backbone.cpp": "e2adb9799d62d516d07fc9ffc6cbd37e7aefb75eba0c367c4080d84261547e4a",
+    "src/rules/backbone/backbone.hpp": "277bc70ef8187f3e7b27573fc5ded54d9a5ae4a1e72f8a834c066553e1ef1cf6",
+    "src/rules/backjump/backjump.cpp": "e43a3f68d659c20ef0ddcd14a752feac9d07df2d769d25025c1bca8f71e03e99",
+    "src/rules/backjump/backjump.hpp": "00883d649e96c661d09817c49840497c2e695e3cc446e2a517e1f9af8e164140",
+    "src/rules/bce/bce.cpp": "bade48a4a80c4f8747c385b1ef00b73154599ce1daecec35edab6c3961a3d1ac",
+    "src/rules/bce/bce.hpp": "e9648f72512feb89b6bf624e58c283f132c8f70299fa556e4f9acbff901eb2b5",
+    "src/rules/bve/bve.cpp": "8725b96ff6eb3689d3ca2a4421b72951ab8d80308e03facc27b45a52e6365d67",
+    "src/rules/bve/bve.hpp": "56370653fe9000034e68c19c16d30d7b9b972cba2d51f5a923e0c430cf4ff295",
+    "src/rules/cce/cce.cpp": "7327a86d1f03b8ff72972b64011082de7026a1c08dfbeb018c7786c9fe7abb35",
+    "src/rules/cce/cce.hpp": "c05708c5331c671b6521d245a9beb964ab49fc70f8388a73660ca1d716fd4a11",
+    "src/rules/congruence/congruence.cpp": "6984a5eaac091411d4794958687c86dcc9fcf8513fd2485c9917b4806e705f4e",
+    "src/rules/congruence/congruence.hpp": "ab0855177184aa0b6d594e3397f06ef2ea178c45aa423eeea2a6d5b76fc03621",
+    "src/rules/decide/decide.cpp": "e097fc13eafd76ebc35d1dfcd38a41f4d79e703644a1254122ca5f2f74025cb0",
+    "src/rules/decide/decide.hpp": "2a8d98296420f8346db48545bfa552cc21708786fe0e7ffe381a903d23b0d526",
+    "src/rules/factor/factor.cpp": "c7679ff8e17ff5ae46703768a465e26fe4ff8d533e93dc60a7e10a5315a77ac4",
+    "src/rules/factor/factor.hpp": "8a7daa4e1884062fdd53fd3989e6f89bbc34d5d7f2cd1f4f5f560fc8e2eb4dad",
+    "src/rules/hyperbinary/hyperbinary.cpp": "d0a095a6f4b21df11af49e385b08d4239a51f88a8f9639fa013d63ac0b23ef58",
+    "src/rules/hyperbinary/hyperbinary.hpp": "8a1b9726f5b8745486b09042346a12e9c48dd66daa9485a1d0ed208b00abefe6",
+    "src/rules/instantiate/instantiate.cpp": "5e27531b01f0800fc01a9c1c2794e860a8664f1499427b6feff2ec4aea471a42",
+    "src/rules/instantiate/instantiate.hpp": "1e2f8154fd730805606bf306ead5628fa2016b2f94386d14656cf62822001d12",
+    "src/rules/lucky/lucky.cpp": "7e255ab48cf8605948dfd99946882c6a068d2e3f6caee82668955d8b32b1ff51",
+    "src/rules/lucky/lucky.hpp": "19a189c4d8efff4dce70e04321df97f6f198b739486e4ef5782557f027abbb14",
+    "src/rules/probe/probe.cpp": "bb95c39c40897c621eabef2bb3dcdd5b982ebdf3c16adad1d6efa5dc19fd6b55",
+    "src/rules/probe/probe.hpp": "8a035d3e7c30c2bad8bfe3cb732f5217d948ab3562db674381a7eab316879258",
+    "src/rules/propagate/propagate.cpp": "29c8ff909e956cb989cf838102208bc4245f0e06ebdda88d269fe11d7edc39ca",
+    "src/rules/propagate/propagate.hpp": "aab61f51ae88c3c5c5dcb8e3d04c3a40f586e0e0e24487eb32a4b9b04ac01159",
+    "src/rules/reduce/reduce.cpp": "84a21d087b15e8ef51c1ebf43722cd2cf6b3481d06522ff2b70ac1878f90c8e2",
+    "src/rules/reduce/reduce.hpp": "22e9f2cb8c1a77fe765c7129ce516288a0dfbac7c907adaf9a319f633a7eeaff",
+    "src/rules/registry.cpp": "eab16c0d28c519988f9cffb8561d381214bd458e5d02430674a3748b9bb2ac47",
+    "src/rules/registry.hpp": "7e04f94a4769c6ed0568ec80a508488b6ab27d2dcb9b27e632a6c49cc4494b69",
+    "src/rules/restart/restart.cpp": "c151393ef5ee8eabac3c1125f35334670229ab9c7fb11f6f2638d61cd1a6c621",
+    "src/rules/restart/restart.hpp": "4de0dcf226948efad58144c5d880cbcf58aae78e0870afca9b8ee7369a41a47e",
+    "src/rules/strengthen/strengthen.cpp": "2428a2083f894227f4f7260ffcd611d1aba7500da469710b7a11b69d5ca2eea2",
+    "src/rules/strengthen/strengthen.hpp": "81f448f279d1a6564526eb58c63ddefc8dc5cca130d618ac19042da76f01986b",
+    "src/rules/substitute/substitute.cpp": "98802131ddb9aa550cc253a36c1b92e071046f7c7c2cd6b2b0d85a54a4d3faa2",
+    "src/rules/substitute/substitute.hpp": "a2b794e0d9deafebcbed5e8391a5b346750f1af8b3011f9aec47f6b1b65474d4",
+    "src/rules/subsume_forward/subsume_forward.cpp": "e333d74ec1f58605b78ddc1448eff87aa772b44827a3a5d53deef161bdeeb537",
+    "src/rules/subsume_forward/subsume_forward.hpp": "73c15ae8e24d790211fd98f7d0971da8f1b930a704468f805284475b6dbaca52",
+    "src/rules/support/failed_literal.cpp": "2c46974559c4684071781c6e8b2add237030b8f728b0459949afeee051df65ac",
+    "src/rules/support/failed_literal.hpp": "61cf5df6338985e2bd262883adb19004a125d9885f236292426e8148fdb26747",
+    "src/rules/support/flat_occurrence.cpp": "5fa3bc8783e7a654f73c0440d083e622f2dd50566096c4518f3f89df3688a9ea",
+    "src/rules/support/flat_occurrence.hpp": "1b196bb22f93b326dcbab4f0aa64104dd2b638d196921e49c9d6e1696e5b1857",
+    "src/rules/sweep/sweep.cpp": "5cba584f4daec476761379c7a8f2d5a641699cbd3f43c15a591a7bb615d13614",
+    "src/rules/sweep/sweep.hpp": "98e2bd88e2ac72da54bea07d5dc9c9d9354581fc58942495310bca77cecb0f96",
+    "src/rules/sweep/sweep_defaults.hpp": "e8770b06f849f3030603407ab543f73aa0b742649f040eb504f76b9a5a681b22",
+    "src/rules/ternary/ternary.cpp": "e9faf345e9f23a9b5e15272ed122ad1d847a916508a1774294d33ae1f7d630f8",
+    "src/rules/ternary/ternary.hpp": "2b5aed0b2cb94709ecc628591f6e916cc7ba0df3502400bb2d864d7de3bc34a7",
+    "src/rules/transitive_reduce/transitive_reduce.cpp": "1823c43836f584b7ed2df9ccdcf1a1fa6e96296b8d7b72dc3d95f10d697d1131",
+    "src/rules/transitive_reduce/transitive_reduce.hpp": "f453f354cb5f2f3343bef4c097473b2ece92394cbdc876c9f33fcb68f763bcd8",
+    "src/rules/vivify/vivify.cpp": "b8642d0fc22d90e863920175b20be8c0e2487fd5d5d35a284ebaec6498e2e66f",
+    "src/rules/vivify/vivify.hpp": "c1147c3f2162f0764642221fecc40dfb7a41528147941f39ec7097ee1caf8dd4",
+    "include/tactix.h": "fe373d1ddf9a5c9413c1233b78e5120816996ca995a3bacf8548f2bcd1746eb1",
+    "tests/CMakeLists.txt": "97ac105754ca141a70a9c1dff42b51ffe9670e455f13819fe192f14d027f3f7b",
+    "tests/micro_proofs.sh": "a11a4b23883124d8a6f536c00f0adc1fdd4d34598001347bce2518c9fc39af0d",
+    "tests/occurrence_test_utils.hpp": "f32a7b97561023175108b05bb5fcdbce4c7f834eb8c71e77897c01513dd80456",
+    "tests/sweep_proofs.sh": "8eda6509d64e88f80eee6636ac613c608a13725a254c5678dc6843aacf94b178",
+    "tests/test_activation_stamp.cpp": "c6a1b6d8fd8719cee8c37b0f3b633af8e057147b32989b8cb3fb856967f594ce",
+    "tests/test_analyze.cpp": "955fa18be43b9f8cbd15ececb8973458bae54f85516571221faedd36055efa8f",
+    "tests/test_api_c.c": "a00d78944c43ef62c6fc902e4a3a32d223228c1ef00dcf6dbe4d14e42c7a9436",
+    "tests/test_api_instances.c": "423d6b299547331939493eb35cf0ca5fdd333858c16415f9744d088804d17ba3",
+    "tests/test_assignment_level_bound.cpp": "8a165d3f9c7dc7243ebe1199af8b1ba0b283ed58db6691afd9bf4146cfaa823e",
+    "tests/test_backbone.cpp": "10cbc2310d91bdcbd55616a517720f9607232bfab55f9b23cb8800291bac5148",
+    "tests/test_bce.cpp": "40a51eec4d6ce60ba5da9d6af1db85678d568a36441588545d3de0df305f8d20",
+    "tests/test_binary_deletion.cpp": "4f1650e6461717b3b17c9aeb985b83963ec61fe5f889f95a145ede85138254d5",
+    "tests/test_bve.cpp": "0c370074034541d5e1f2deea916750ecf327998c97de787388e4a1770a93cb94",
+    "tests/test_bve_active_pop.cpp": "345a83768738870b2b9cd46e85f51adcdd33a55f91c8ea0bb2de306a4ec89cc3",
+    "tests/test_bve_bound_cut.cpp": "0c9e4337385e34a63f611475073b42f38014206b50855702ac7e827064277cd1",
+    "tests/test_bve_memory.cpp": "4c27a22377677490df5c3357b74f26b821060a44043b4fa201c82811242d4aee",
+    "tests/test_campaign_certificate_cleanup.py": "ab8c67e41a7f024d84e72237fea9453c911899d9a8facecbdac886d12aef7bdf",
+    "tests/test_cce.cpp": "190a6e24ed3fb632c3622bd72e7106cc42cedcc8498a4afe84e89ba5745bd9b6",
+    "tests/test_clause_arena_replay.cpp": "21610ae921733cbc1408950167c373acc4277752052139720360403b8b546a00",
+    "tests/test_collect_connection.cpp": "e5db256c90d9e9cb0136fde848916329db3070a41a9fb1e133b8c606c8ce2732",
+    "tests/test_collect_memory.cpp": "7238d6104246463fd371383d5d8b988bafc1a43f44a013f480c4eab8a67bf264",
+    "tests/test_collect_retry.cpp": "071472ffdc2ef7263d84da67f8af7cc64a24c6db5d9a29e69b466f130fe3240e",
+    "tests/test_compact_stamp.cpp": "032ffedb147ee84fc0f58342901a9f351ce7d2d7cc86bea61ad7dc7caf00ea47",
+    "tests/test_compare_event_trace.py": "8f0daea9b39189f81f75488d2eb823ecd177f0a5e10efdf553db43488ebabb9f",
+    "tests/test_compare_reduce_trace.py": "fca93c799bd3943043f6636470d8538bedc2ad795812380be16e499592c40d31",
+    "tests/test_conflict_reuse_targets.cpp": "4deae7a47981191d22089ea15cba70103c23bc2bdc3dfa0d5985e522b2852101",
+    "tests/test_congruence.cpp": "d5048c2d2842c3e2e21047abffe39ba79cba08a2e103625b45b59250222de1a3",
+    "tests/test_congruence_empty_gates.cpp": "74a5a1894c95f27ed029a9379c6228d61bda07828f7fcb28eaddd9b42551286b",
+    "tests/test_congruence_index_cleanup.cpp": "e2004d074334e22fed8d590c741abdbfedcf2bf0affc4cd99b2df02c337746b3",
+    "tests/test_connected_occurrence.cpp": "17edcd856e3206f269b98006765bfdf7704071e0967447eff3af5a2b2562b6de",
+    "tests/test_decide.cpp": "5a5445acbb4d0ca596002a71f4c04c5f7d08997b3b47ad7583e8215fb614e5ad",
+    "tests/test_eliminate_limit.cpp": "abe2b090a4ac1254703c5f62026130d993db0986ba41f3d1171dc6eb1254bd2d",
+    "tests/test_event_trace.cpp": "365c8303a248edbd195c11cfad5ba43552774d741f2329f9925db1c2a8b92721",
+    "tests/test_factor.cpp": "f8793b66b45de09c96db60eba073717f69a851cf43cb7f8a23ae53d619d3745a",
+    "tests/test_factor_n1.cpp": "980f8506589666fb86f18193968d8d2ae35859afbc57f395f89ad67dc7569306",
+    "tests/test_factor_root_support.cpp": "6086da30582a469e368d7dcbaf3932a7a632dd36206886ebfa309be23c1e4734",
+    "tests/test_flat_payload_replay.cpp": "2cf6bf90fe45ee7ca65dc33cca7667a41383749ebb8cf2f4fbdfddf49bc88ba9",
+    "tests/test_forward_caller.cpp": "c5edd1fc72c4082718068abc1d6ee8ac90ffba56415c2bd54e476a7e0a6bb40c",
+    "tests/test_forward_marks.cpp": "e9f94378c849d6ecc31786e87b605277f2c808f7990cf8de13369b052afab55d",
+    "tests/test_forward_unit.cpp": "3fe20d1c50556216628efe6f628f31c7a0946c336440e34a4a9877cfd5d7677c",
+    "tests/test_fuzz_slurm_snapshot.py": "3b305d946f2c8fa75fa632299b188c77343878b6017adecb13bc0bc550b75e95",
+    "tests/test_hyperbinary.cpp": "ffe5471b82a9d44eb79c6bc2bf3afdcb7c5119552a5116366568b02f1e17d799",
+    "tests/test_inprocess_root.cpp": "d803e2fd63c0c176f66af3882395b7b0faea1cb5ae46bb20c12c1b466d3b9a52",
+    "tests/test_instantiate.cpp": "e45f8612b6be789d43a048f8af9c32579ab052a12434459bc087241e41a95720",
+    "tests/test_kernel.cpp": "88cf49c9a508a087fccea872090ee44361135312fe599c4e0b390da32ffee2fe",
+    "tests/test_kissat_journal_overlay_static.py": "4610ae16c287add64f94e692d9ca9b3ed4e5ce029e5bc5fd0fde3601cbfd082d",
+    "tests/test_kissat_rule_journal.py": "d747af57a6809b493f1626bbf47b2925c22a4c76c8f83184fafed7ef4b21649f",
+    "tests/test_learned_sort.cpp": "4dcb31b8a3cc1ad756cf47691c5a5df8593bbac46bff87be9d44b098e1d7850b",
+    "tests/test_lucky.cpp": "bc723bc0b5ecc5d0bbb2c10ce5185bab17ee04269e1273fac5e63ffa64475b88",
+    "tests/test_material_schedule.cpp": "360d84e211b178b6d80ee34656a8674e540a101135b3aaea2b40effda1b483f5",
+    "tests/test_modelcheck.py": "22f61fa060748f33aee0a209a01f8c69dd3414e114cd59410b3d3ecc386240b5",
+    "tests/test_no_event_trace_symbols.py": "898f784cb55a9c3dab5e91d96150edae71f47691ab9e5abfd8a60af3130dc046",
+    "tests/test_no_heuristics.cpp": "4cb196fcac0c90a69a04c5eb84dc28c8ac0d0056a260b67cf34661088c63ff05",
+    "tests/test_occurrence_cutover.cpp": "62599b502f0388001816c11c840cf445905ffdb8e83fee12d5090728a74d138c",
+    "tests/test_p4_fixtures.py": "ecee6434ca846fc59f10fa55ae70594cf2009c2973d00f8069e84afaf4be866e",
+    "tests/test_parse.cpp": "584efc1d3a4315ad368840a2c226788210945e2085b35d88670d037b90175d3d",
+    "tests/test_probe.cpp": "95ee57abc7f7d7d3572a5d76dc67f051e35ba4e8b4b845930aa096c239afcd74",
+    "tests/test_proof.cpp": "dd8e1a4acd5461eb3d6796977ea6ad1892a9b859a661a7c718240df1dc00de2f",
+    "tests/test_propagation_cursor.cpp": "099e6d59f46ec2c9469b764435c42fff99fb4dbfabe88e567e60f7c1f2732338",
+    "tests/test_random_policy.c": "1f1ba65cd80f1afc7b21a21c7be9bbabba0ca65ab8d08616d5b277a89d064296",
+    "tests/test_realloc_words.cpp": "8b8e7381c6b0a61a00a7efe3525cd3a9e5a7bb00fe7dbe9115773f1e05ad0edc",
+    "tests/test_reconstruct.cpp": "4668464b5c0db407f6d6bbc210870b8a1e065fe0497c65aa7701386c1abf5d62",
+    "tests/test_reduce_root_guidance.cpp": "5cf41721bd93fe4e05d8e4180bf94aa7c1a6e0b7eaee7c365f4a79ae45be1fbb",
+    "tests/test_reduce_root_lock.cpp": "77ce1c2de4112086cae4face33e7b87fb5aeeca14052f93f823e474b5c74647a",
+    "tests/test_reduce_watermark.cpp": "6eaf709229176ffb6c228e058142ae95869550699329bf0ada678f21d3000d4b",
+    "tests/test_reorder.cpp": "a302d471943a9d45bd54131299608a17aa2b9c539c5f034dc417c20f105c5d29",
+    "tests/test_rephase.cpp": "e8ecbb939c0ac4cf28358f7bba4ab9ac2239f9ea787ffa6003f5594c3477dc19",
+    "tests/test_replacement_cursor.cpp": "1b8b44d98a18821a8c3b2d73ade7ae5103a2e03366878bc16c5ae507a857897f",
+    "tests/test_restart_reduce.cpp": "f5ed87b972161ed72db62c2a60a5f22fd7ab7cbde1681419f1b30cd1e6f98f4e",
+    "tests/test_root_conflict_reuse.cpp": "bef9153dd85d5b165c37c4d300ea2dc152aa6d915c1b247a75546adb8ebee519",
+    "tests/test_root_fold.cpp": "d2c91d954eb2180123eb7719d38a710f86a3d9638c2267ac4a2c15d00b93fc37",
+    "tests/test_root_watermark.cpp": "de39c86ab2e97b0735617cc0ad277f5f2a66fbd23926cd7bcdd6c5560af9c02c",
+    "tests/test_rule_journal.cpp": "430e83dc653e1e0d5af524de4d6d9d2a52080f93c7a7b1a9174ecc6b79edff5f",
+    "tests/test_rule_journal.py": "4cf3c8f7476c6621f1fe5fc7ec4dcf35f00ad9a4788475cbbc87be2263881f7e",
+    "tests/test_runtime_task.py": "c5106190747e38d253b84654ee04512900a5421b582fdbfaa4353c1e0cf35099",
+    "tests/test_scheduling.cpp": "0fdfa3c000fe75ef9e10ac76bd09e6d97ac15d0b9b80bef1bf1a381e74cbc3c5",
+    "tests/test_slot_pose.cpp": "cc960eeda26768d0d716651a06ce29a85fdfbc7fc6697057ed2beb1a8a47aae8",
+    "tests/test_slurm_memory_enforcement.py": "e414ba68a3a1e887161dace5c42ef8a5bd517e0bda3d14081a596f5d2a8d8e0f",
+    "tests/test_solve_reset.cpp": "0c53deb9880a3b3f84723495537db053977e6320ff97589f039f463eeca9def5",
+    "tests/test_strategy_config.cpp": "121f4206d2fc0ac8661e8f1eedfd5759c5a676a216020bb6a9e645acbbe1ab9b",
+    "tests/test_strengthen.cpp": "312a9312664214ddf230c773ee2a54cff93c9f52ba387d73b6bbb4ead9aa528e",
+    "tests/test_subsolver.cpp": "101b2197d6f0e5e809a104134e568e93fc75af9ed4b5b03240e259c8d85dc9d6",
+    "tests/test_substitute.cpp": "60f907ae951e217cd70a55b2fbc40cb645bfef748a3be4c996457ab007182301",
+    "tests/test_substitute_collapse.cpp": "93e5a6988129fd338a944b1e66fa912d852ed431d202be3f66dea1c43e9c4ee1",
+    "tests/test_substitute_publication.cpp": "dde5124cae2cb4a0318ab3f9351f8a674d48ef14ceb8ca23707b1e25e96d1ea7",
+    "tests/test_substitute_retry.cpp": "2e38fd51253559b1ae96930b81543053c57d173727677905bf4e42696860d041",
+    "tests/test_subsume.cpp": "bf8973604558e8802056fec0c514ec784d939c8c5a57698024217b76bb0cc77a",
+    "tests/test_subsume_material.cpp": "cd1a9ed51f39c2983c6500fb027d793a28665932f0cabbcbd42824867d3e59a6",
+    "tests/test_subsume_n1.cpp": "254691e1676bc9fc5a9eecf199296c569dcfe3cee006ef812065d331947de3a3",
+    "tests/test_sweep.cpp": "668fd3e9dba350d9e813c27006db157356fd0f899aaa361f0fa82213925e74c0",
+    "tests/test_sweep_cursor.cpp": "67a6ce2d07bab020c3c49bca23d803b7b78565cb88a287d7365456177e88606d",
+    "tests/test_sweep_retained.cpp": "14e4db8f715fcaa922d80a32e4297c9e4b50d13ab2c4dcc21ced9725199d4cf6",
+    "tests/test_sweep_small_env.cpp": "9836f64ec928a16d492237ec270f93fffee3ae838384439e1737a440994f54aa",
+    "tests/test_switchmode.cpp": "79053d446572382723b99ca59c6611f90650d5d2388fd24b819bbf6fd0a63c3b",
+    "tests/test_tactix_default_journal.py": "db83f5e232a35528671bc817f7e3dde77e4421b1f478743a7e65e1f211b574c0",
+    "tests/test_ternary.cpp": "58ee3ac5f059c28864beb10b75d97d17f8e7ce50eb16f4774de614805e036ff0",
+    "tests/test_tierd_campaign_pinning.py": "3d337736c1b3af6d23e789643c4f2f65cab5dd10eee0000eb906fb808f4ab090",
+    "tests/test_tr_bruteforce.cpp": "a044ca7e57c8624cc3e27a18925b8c136bcdf6f3e14f6d9ba9b7415dc19ee77a",
+    "tests/test_transitive_reduce.cpp": "de9ac94326d7fbc2d112b8f1f05d24591fbb2d75783fa2a047956e5c67ce53a9",
+    "tests/test_vivify.cpp": "fd04d8e15aea143ed9b984c75538c3a0362c32aa96891cfda1703f13f564bb3c",
+    "tests/test_vivify_binary_retry.cpp": "49eab247e90a93771f665c8f03c2755907466a129193ec5d750e35ad3ab84e4f",
+    "tests/test_vivify_compact_contract.cpp": "673b5dbbc8eede5e2f6c58d146efde40a137c9b22e4f40dc9508d73f21246c2c",
+    "tests/test_vivify_count_cache.cpp": "3fda011b310d729b0c5df50c44cdbe469b23f95ab54e8caa397378067a9c0e21",
+    "tests/test_vivify_max.cpp": "22f863024d967ca408454663723fab96e502b9137fed05663e74a3b72ccd0b0e",
+    "tests/test_vivify_n1.cpp": "a539d744665514a0180c0dad7935cebfe137ffa5df29118fbcd25a85ff6a8f9e",
+    "tests/test_vivify_order_contract.cpp": "103831bfd0f013392974d35acbd5b92b346f057b571a4d7c17abde9425f2e93e",
+    "tests/test_walk.cpp": "a5a3a745b8b0bd760aefcd50314c9c5ee912bf169dc3d52f2d95b3eb8d7c6529",
+    "tests/test_watch_pair.cpp": "a72ff4b8d45601abde734d98dfb05117db9005e46e08c67856286ed68d2eab0e",
+    "tests/trace_replay.sh": "ba5f2bdc4c98eed1427d7f58ce0753b993fc1ae31aef8446b71344a450e275d5",
+    "examples/CMakeLists.txt": "ac110aaa9170c0df38bb8d9302d988c13c40ac5df9a04fd7bfc5ae8e7da59c66",
+    "examples/demo1_dpll.c": "d9e89ddd205c5c5ba65d2b377e8ac2ee5508850822c8c69243f3d2d4bca82706",
+    "examples/demo2_no_restarts.c": "4f7e8c8a97c6b1f9f65bab1213f549abbf4113b4ccf772bb446c23132b21ba5d",
+    "examples/demo3_scripted_default.c": "a66b5160e13a4c0e4df27686cf77840bb01ccd48d35a14e045f7909300e95bc8",
+    "CMakeLists.txt": "510b186ae2b048ac49050e67bbfbe192526e8002a6dd94d10d091a3baab2d6f4"
+  },
+  "binaries": {
+    "release": {
+      "build/pin-7340-debug-contracts-release/tactix": "516544703800837325f47221db9d940674ebdf7cd2f642bd9039f74799887ce4"
+    },
+    "bc": {
+      "build/pin-7340-debug-contracts-bc/tactix": "516544703800837325f47221db9d940674ebdf7cd2f642bd9039f74799887ce4"
+    },
+    "trace": {
+      "build/pin-7340-debug-contracts-trace/tactix": "aaa3e32e8848cd8e04246a3da134a682be921a3da6643e6543263dff79f6fd02"
+    },
+    "sanitizers": {
+      "build/pin-7340-debug-contracts-sanitizers/tests/test_root_fold": "c0045d6cdf478b6be9b6129bfb7efc1cc7f7544b65116a7350eba82a565e68a2",
+      "build/pin-7340-debug-contracts-sanitizers/tests/test_root_watermark": "fde7ec14173ab3eb615e83b198242b1a8e7e5f5ea7cfc94dbdb9317821de67fe",
+      "build/pin-7340-debug-contracts-sanitizers/tests/test_collect_connection": "bd8557a1ec7f1ed154dc23f19b7062965c0342c5cf579a62bd537accca065648",
+      "build/pin-7340-debug-contracts-sanitizers/tests/test_forward_unit": "c4b8a393c51950cfed0b68c67c8ba0f10fac4d787d2646422270b8fef6694796",
+      "build/pin-7340-debug-contracts-sanitizers/tests/test_substitute_collapse": "b62018f464bb30f0bb4dd59921f59b9d9a88ea2367575cb868e55b3ae6ec777a",
+      "build/pin-7340-debug-contracts-sanitizers/tests/test_substitute_retry": "50b47a5207f64054a6e7675482f169b13a06329ae514017acb6f8b07ebf24588",
+      "build/pin-7340-debug-contracts-sanitizers/tests/test_subsume_material": "3909d37caec8d05e50de24a43d9b17db50d2abdb0515382f030111c6a209ed9f",
+      "build/pin-7340-debug-contracts-sanitizers/tests/test_compact_stamp": "e096e29494e77347e90a6f4d647cf864d30a54ddcfa5c0043a2ebcb2f3ee1238",
+      "build/pin-7340-debug-contracts-sanitizers/tests/test_kernel": "3d11921034fe933133f1d652f7c72db89c1f80e19f43e4e8e4208676194cefdd",
+      "build/pin-7340-debug-contracts-sanitizers/tests/test_reconstruct": "38d61999514a812d3744cf05c3e83063f07eecc88a699dc911059f261198fb6e",
+      "build/pin-7340-debug-contracts-sanitizers/tests/test_propagation_cursor": "8bb137ed4faf0ff803e8ad48370a568ad1b0bcbcf042ee117f3dd264981a868f",
+      "build/pin-7340-debug-contracts-sanitizers/tests/test_api_c": "03a738043337ad9b10091bb1ecacca914e065786d04d0228a958c801930c7767",
+      "build/pin-7340-debug-contracts-sanitizers/tests/test_api_instances": "496639013a52c72709b43cb5e821df9974d2af9c3f67d646cd5e74547271a11d",
+      "build/pin-7340-debug-contracts-sanitizers/tests/test_bve": "cac660ef7065afb22250273c8a65f8ddd23384f0a50334082c2f20f9f7b0b819"
+    }
+  },
+  "hashes": {
+    ".claude/worktrees/runtime-debug-contracts-7339/src/api/api.cpp": "f90c5cab0cfe2c91b418dfb82b8a2feb45f35a04c7b0d82d8cb2cc0a83f7c20a",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/diagnostics/event_trace.cpp": "c707415d4df95d21accc76d100aa6cac15a1d85501784b026dd0d7c9c2460112",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/diagnostics/event_trace.hpp": "1515e9c02ea2d382f7e853e6fa792d0e2f9e370853e8cf24d9173c0fc8c12eab",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/diagnostics/rule_journal.cpp": "23ef3ba2c2abf99fcce4ca3bbd2c842734f9f4177bea9349275d74e5d0e0c3e7",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/diagnostics/rule_journal.hpp": "8297fa6b2a1553b9054bae7af38578cfb40952271dbef857aad75ad2e6827aa8",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/engine/subsolver.cpp": "e01292af168a60b558ea85850e1f02a335a22bc12f560e92b4c511374ca3f791",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/engine/subsolver.hpp": "8418dd6a8e98b4dbe40c02aca5b69abfe625c221efd377b6b66bdd5edf3e472c",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/frontend/parse.cpp": "16597594dee3612dc8a1d818e63edb1fd9857c6421a17e74348c700bd178b883",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/frontend/parse.hpp": "b84761ed06a726a02267f233d13467476fd9ab601c41d9fcdfb19aa588f7a0a5",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/kernel/clause.hpp": "2eb096bece6b85a5e8e78dbc12c330834459b1066b9c1656260f64399a937ec1",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/kernel/connected_occurrence.hpp": "cfca938906b4ee91465113125f12bd8f9580e5ec76bc211862cf12269fa5a738",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/kernel/kernel.cpp": "34ac9ee43dbaded102ea42e8c5ee4978dfa95785caf9d1eeddf882e6bf7fa977",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/kernel/kernel.hpp": "945d36479a4ac819592ec9ff4a92ec4e65f03efab0e0c99f8e35c60abd30a5ed",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/kernel/occ.hpp": "a032ec2224486c8c05963e1d6a0e473108e4817762db28db749b6dfe306dd69f",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/kernel/realloc_words.hpp": "1a50a30488a9e82babb7075d0cf97afbc702a114b1b67c50de7648d0569a0dbc",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/kernel/types.hpp": "7b689f61a0b8c5b19f49e69972686050043e2dc8add8889debf97a35d8d0f683",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/kernel/watch.hpp": "0287bd266961a1d0b7d0b4180a8669b2b878a377949c7c747be71e58fdad7f8b",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/main.cpp": "ce4cacd79b189010f96ed99964780ee4d9ced4373a058065386090e87d8ee57e",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/policies/default_inprocess.hpp": "fbba78191826be996d584d7e502d3dfdf4d253ec71e3918d8ddbf1a260e24a34",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/policies/default_policy.cpp": "bb83a3ba4f634bca8abf18c61e6cd55e301cc2110b5d92c3d3862103da11d189",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/policies/default_policy.hpp": "4da331fc986d71110041cb383ef74255ad157fc5ed6ac5326db47e0c677c08f7",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/policies/default_strategy_config.hpp": "2ed0a66d86d7b4ef39a06996ee775008a54510f80c6a0d3a06c62a3274df32ec",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/policies/heuristics.cpp": "ba64e8b892ec632e6104a12a74fc5e664f294d71a0f87bb7610d461b905becf7",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/policies/heuristics.hpp": "b76e63e42f12912077134369487c813e2bde90256f570fed318d6ee95f84af0a",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/policies/ops/reorder/reorder.cpp": "a01c46d0a344dea37979cf151ffab5fa37ebf12e2413a1f9eb61a11fda313923",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/policies/ops/reorder/reorder.hpp": "b40448c1c7033b93af2f0e0a67190fdad419d57ce570047f648274568a9f9d65",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/policies/ops/rephase/rephase.cpp": "4d2ce14c22b35e4a2799463438ba06178dd348d17a9476731765638164b72211",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/policies/ops/rephase/rephase.hpp": "b4d7e7b2c1413e5b80d4dbdb1f2f6adcd024ee5af4d60180db2008f180386965",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/policies/ops/switchmode/switchmode.cpp": "461dd9ef67b43b0d1f51d421e277c1215df26e989f01073828a2793803b64648",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/policies/ops/switchmode/switchmode.hpp": "e9029cb55143b5a2af43781ef383b83166db96ca795d2ef97bc633eb359ae810",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/policies/ops/walk/walk.cpp": "f29eed9b749df965b320f3abad80ae9c50d98ca927fcc164fcb4b2a8001e4a59",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/policies/ops/walk/walk.hpp": "01118ebd3fa604d8ee108f3911d3b889d2bd7a08fc6ac8285585abe5b4323a0d",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/policies/policy.hpp": "7e7552e71b9c4982e32da467cd6314b62e579ddc8bcfc3119b7efd1f37574844",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/policies/random_policy.cpp": "0ff620b57b3d646749d0f004f84696aaefad6e6c2a0c7fe8ef828cc68895efce",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/policies/random_policy.hpp": "0323e63b24a304f3d2c675851b641a75194e415cc5ab130d3ab4d753b69622ec",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/policies/stress_common.hpp": "a7c338175356b599666b41ee9cbd95ea506447a1ef386e375d2b57a6b4ee8b24",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/policies/stress_registry.cpp": "6bb60ea363276c1d2c100f53f53ebc2f89181ede2cde8c79dadb20b4217c0504",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/policies/stress_registry.hpp": "f7343a1c13659255c811864d033f84a7e32d306702ac0ae4bed0b965844bc2b0",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/policies/subpolicy.hpp": "881e7eaee2a8b5fa4ed2c7d2b11ff27aad2a73770077b569022ad4a34e83dcb0",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/policies/trace.cpp": "91dde6dd76738438e9acc6f35e80ffc804ece2af54d9a077723a620f875b57d7",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/policies/trace.hpp": "66244d3051c38c1e4f0ba28d46ddf9ec6099dc79f54949078f819ca5138ade8a",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/proof/proof.cpp": "ea017f3c71f2b2511d6cce4c1e8e402b89c90ad400fbf35c41936b887f28d6fd",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/proof/proof.hpp": "5d42dbc242f2fe49e39e481961a2cc37ecdbf623705cee43c95f56a4e381b5e2",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/analyze/analyze.cpp": "ecc010895971238a3ea9e0ded326d40ae4a9a29617b272822483e61db1d04528",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/analyze/analyze.hpp": "d4c55d5f3aa30bee1a88de38da67e317c1129b67b1f8369a6475edac715faea2",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/analyze/learned_sort.hpp": "ee4c2494b5172558c792032bbcd468a2a66506aac134c5f2896aed903cae08ab",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/backbone/backbone.cpp": "e2adb9799d62d516d07fc9ffc6cbd37e7aefb75eba0c367c4080d84261547e4a",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/backbone/backbone.hpp": "277bc70ef8187f3e7b27573fc5ded54d9a5ae4a1e72f8a834c066553e1ef1cf6",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/backjump/backjump.cpp": "e43a3f68d659c20ef0ddcd14a752feac9d07df2d769d25025c1bca8f71e03e99",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/backjump/backjump.hpp": "00883d649e96c661d09817c49840497c2e695e3cc446e2a517e1f9af8e164140",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/bce/bce.cpp": "bade48a4a80c4f8747c385b1ef00b73154599ce1daecec35edab6c3961a3d1ac",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/bce/bce.hpp": "e9648f72512feb89b6bf624e58c283f132c8f70299fa556e4f9acbff901eb2b5",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/bve/bve.cpp": "8725b96ff6eb3689d3ca2a4421b72951ab8d80308e03facc27b45a52e6365d67",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/bve/bve.hpp": "56370653fe9000034e68c19c16d30d7b9b972cba2d51f5a923e0c430cf4ff295",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/cce/cce.cpp": "7327a86d1f03b8ff72972b64011082de7026a1c08dfbeb018c7786c9fe7abb35",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/cce/cce.hpp": "c05708c5331c671b6521d245a9beb964ab49fc70f8388a73660ca1d716fd4a11",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/congruence/congruence.cpp": "6984a5eaac091411d4794958687c86dcc9fcf8513fd2485c9917b4806e705f4e",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/congruence/congruence.hpp": "ab0855177184aa0b6d594e3397f06ef2ea178c45aa423eeea2a6d5b76fc03621",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/decide/decide.cpp": "e097fc13eafd76ebc35d1dfcd38a41f4d79e703644a1254122ca5f2f74025cb0",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/decide/decide.hpp": "2a8d98296420f8346db48545bfa552cc21708786fe0e7ffe381a903d23b0d526",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/factor/factor.cpp": "c7679ff8e17ff5ae46703768a465e26fe4ff8d533e93dc60a7e10a5315a77ac4",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/factor/factor.hpp": "8a7daa4e1884062fdd53fd3989e6f89bbc34d5d7f2cd1f4f5f560fc8e2eb4dad",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/hyperbinary/hyperbinary.cpp": "d0a095a6f4b21df11af49e385b08d4239a51f88a8f9639fa013d63ac0b23ef58",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/hyperbinary/hyperbinary.hpp": "8a1b9726f5b8745486b09042346a12e9c48dd66daa9485a1d0ed208b00abefe6",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/instantiate/instantiate.cpp": "5e27531b01f0800fc01a9c1c2794e860a8664f1499427b6feff2ec4aea471a42",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/instantiate/instantiate.hpp": "1e2f8154fd730805606bf306ead5628fa2016b2f94386d14656cf62822001d12",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/lucky/lucky.cpp": "7e255ab48cf8605948dfd99946882c6a068d2e3f6caee82668955d8b32b1ff51",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/lucky/lucky.hpp": "19a189c4d8efff4dce70e04321df97f6f198b739486e4ef5782557f027abbb14",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/probe/probe.cpp": "bb95c39c40897c621eabef2bb3dcdd5b982ebdf3c16adad1d6efa5dc19fd6b55",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/probe/probe.hpp": "8a035d3e7c30c2bad8bfe3cb732f5217d948ab3562db674381a7eab316879258",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/propagate/propagate.cpp": "29c8ff909e956cb989cf838102208bc4245f0e06ebdda88d269fe11d7edc39ca",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/propagate/propagate.hpp": "aab61f51ae88c3c5c5dcb8e3d04c3a40f586e0e0e24487eb32a4b9b04ac01159",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/reduce/reduce.cpp": "84a21d087b15e8ef51c1ebf43722cd2cf6b3481d06522ff2b70ac1878f90c8e2",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/reduce/reduce.hpp": "22e9f2cb8c1a77fe765c7129ce516288a0dfbac7c907adaf9a319f633a7eeaff",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/registry.cpp": "eab16c0d28c519988f9cffb8561d381214bd458e5d02430674a3748b9bb2ac47",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/registry.hpp": "7e04f94a4769c6ed0568ec80a508488b6ab27d2dcb9b27e632a6c49cc4494b69",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/restart/restart.cpp": "c151393ef5ee8eabac3c1125f35334670229ab9c7fb11f6f2638d61cd1a6c621",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/restart/restart.hpp": "4de0dcf226948efad58144c5d880cbcf58aae78e0870afca9b8ee7369a41a47e",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/strengthen/strengthen.cpp": "2428a2083f894227f4f7260ffcd611d1aba7500da469710b7a11b69d5ca2eea2",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/strengthen/strengthen.hpp": "81f448f279d1a6564526eb58c63ddefc8dc5cca130d618ac19042da76f01986b",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/substitute/substitute.cpp": "98802131ddb9aa550cc253a36c1b92e071046f7c7c2cd6b2b0d85a54a4d3faa2",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/substitute/substitute.hpp": "a2b794e0d9deafebcbed5e8391a5b346750f1af8b3011f9aec47f6b1b65474d4",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/subsume_forward/subsume_forward.cpp": "e333d74ec1f58605b78ddc1448eff87aa772b44827a3a5d53deef161bdeeb537",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/subsume_forward/subsume_forward.hpp": "73c15ae8e24d790211fd98f7d0971da8f1b930a704468f805284475b6dbaca52",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/support/failed_literal.cpp": "2c46974559c4684071781c6e8b2add237030b8f728b0459949afeee051df65ac",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/support/failed_literal.hpp": "61cf5df6338985e2bd262883adb19004a125d9885f236292426e8148fdb26747",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/support/flat_occurrence.cpp": "5fa3bc8783e7a654f73c0440d083e622f2dd50566096c4518f3f89df3688a9ea",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/support/flat_occurrence.hpp": "1b196bb22f93b326dcbab4f0aa64104dd2b638d196921e49c9d6e1696e5b1857",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/sweep/sweep.cpp": "5cba584f4daec476761379c7a8f2d5a641699cbd3f43c15a591a7bb615d13614",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/sweep/sweep.hpp": "98e2bd88e2ac72da54bea07d5dc9c9d9354581fc58942495310bca77cecb0f96",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/sweep/sweep_defaults.hpp": "e8770b06f849f3030603407ab543f73aa0b742649f040eb504f76b9a5a681b22",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/ternary/ternary.cpp": "e9faf345e9f23a9b5e15272ed122ad1d847a916508a1774294d33ae1f7d630f8",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/ternary/ternary.hpp": "2b5aed0b2cb94709ecc628591f6e916cc7ba0df3502400bb2d864d7de3bc34a7",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/transitive_reduce/transitive_reduce.cpp": "1823c43836f584b7ed2df9ccdcf1a1fa6e96296b8d7b72dc3d95f10d697d1131",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/transitive_reduce/transitive_reduce.hpp": "f453f354cb5f2f3343bef4c097473b2ece92394cbdc876c9f33fcb68f763bcd8",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/vivify/vivify.cpp": "b8642d0fc22d90e863920175b20be8c0e2487fd5d5d35a284ebaec6498e2e66f",
+    ".claude/worktrees/runtime-debug-contracts-7339/src/rules/vivify/vivify.hpp": "c1147c3f2162f0764642221fecc40dfb7a41528147941f39ec7097ee1caf8dd4",
+    ".claude/worktrees/runtime-debug-contracts-7339/include/tactix.h": "fe373d1ddf9a5c9413c1233b78e5120816996ca995a3bacf8548f2bcd1746eb1",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/CMakeLists.txt": "97ac105754ca141a70a9c1dff42b51ffe9670e455f13819fe192f14d027f3f7b",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/micro_proofs.sh": "a11a4b23883124d8a6f536c00f0adc1fdd4d34598001347bce2518c9fc39af0d",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/occurrence_test_utils.hpp": "f32a7b97561023175108b05bb5fcdbce4c7f834eb8c71e77897c01513dd80456",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/sweep_proofs.sh": "8eda6509d64e88f80eee6636ac613c608a13725a254c5678dc6843aacf94b178",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_activation_stamp.cpp": "c6a1b6d8fd8719cee8c37b0f3b633af8e057147b32989b8cb3fb856967f594ce",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_analyze.cpp": "955fa18be43b9f8cbd15ececb8973458bae54f85516571221faedd36055efa8f",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_api_c.c": "a00d78944c43ef62c6fc902e4a3a32d223228c1ef00dcf6dbe4d14e42c7a9436",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_api_instances.c": "423d6b299547331939493eb35cf0ca5fdd333858c16415f9744d088804d17ba3",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_assignment_level_bound.cpp": "8a165d3f9c7dc7243ebe1199af8b1ba0b283ed58db6691afd9bf4146cfaa823e",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_backbone.cpp": "10cbc2310d91bdcbd55616a517720f9607232bfab55f9b23cb8800291bac5148",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_bce.cpp": "40a51eec4d6ce60ba5da9d6af1db85678d568a36441588545d3de0df305f8d20",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_binary_deletion.cpp": "4f1650e6461717b3b17c9aeb985b83963ec61fe5f889f95a145ede85138254d5",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_bve.cpp": "0c370074034541d5e1f2deea916750ecf327998c97de787388e4a1770a93cb94",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_bve_active_pop.cpp": "345a83768738870b2b9cd46e85f51adcdd33a55f91c8ea0bb2de306a4ec89cc3",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_bve_bound_cut.cpp": "0c9e4337385e34a63f611475073b42f38014206b50855702ac7e827064277cd1",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_bve_memory.cpp": "4c27a22377677490df5c3357b74f26b821060a44043b4fa201c82811242d4aee",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_campaign_certificate_cleanup.py": "ab8c67e41a7f024d84e72237fea9453c911899d9a8facecbdac886d12aef7bdf",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_cce.cpp": "190a6e24ed3fb632c3622bd72e7106cc42cedcc8498a4afe84e89ba5745bd9b6",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_clause_arena_replay.cpp": "21610ae921733cbc1408950167c373acc4277752052139720360403b8b546a00",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_collect_connection.cpp": "e5db256c90d9e9cb0136fde848916329db3070a41a9fb1e133b8c606c8ce2732",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_collect_memory.cpp": "7238d6104246463fd371383d5d8b988bafc1a43f44a013f480c4eab8a67bf264",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_collect_retry.cpp": "071472ffdc2ef7263d84da67f8af7cc64a24c6db5d9a29e69b466f130fe3240e",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_compact_stamp.cpp": "032ffedb147ee84fc0f58342901a9f351ce7d2d7cc86bea61ad7dc7caf00ea47",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_compare_event_trace.py": "8f0daea9b39189f81f75488d2eb823ecd177f0a5e10efdf553db43488ebabb9f",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_compare_reduce_trace.py": "fca93c799bd3943043f6636470d8538bedc2ad795812380be16e499592c40d31",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_conflict_reuse_targets.cpp": "4deae7a47981191d22089ea15cba70103c23bc2bdc3dfa0d5985e522b2852101",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_congruence.cpp": "d5048c2d2842c3e2e21047abffe39ba79cba08a2e103625b45b59250222de1a3",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_congruence_empty_gates.cpp": "74a5a1894c95f27ed029a9379c6228d61bda07828f7fcb28eaddd9b42551286b",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_congruence_index_cleanup.cpp": "e2004d074334e22fed8d590c741abdbfedcf2bf0affc4cd99b2df02c337746b3",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_connected_occurrence.cpp": "17edcd856e3206f269b98006765bfdf7704071e0967447eff3af5a2b2562b6de",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_decide.cpp": "5a5445acbb4d0ca596002a71f4c04c5f7d08997b3b47ad7583e8215fb614e5ad",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_eliminate_limit.cpp": "abe2b090a4ac1254703c5f62026130d993db0986ba41f3d1171dc6eb1254bd2d",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_event_trace.cpp": "365c8303a248edbd195c11cfad5ba43552774d741f2329f9925db1c2a8b92721",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_factor.cpp": "f8793b66b45de09c96db60eba073717f69a851cf43cb7f8a23ae53d619d3745a",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_factor_n1.cpp": "980f8506589666fb86f18193968d8d2ae35859afbc57f395f89ad67dc7569306",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_factor_root_support.cpp": "6086da30582a469e368d7dcbaf3932a7a632dd36206886ebfa309be23c1e4734",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_flat_payload_replay.cpp": "2cf6bf90fe45ee7ca65dc33cca7667a41383749ebb8cf2f4fbdfddf49bc88ba9",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_forward_caller.cpp": "c5edd1fc72c4082718068abc1d6ee8ac90ffba56415c2bd54e476a7e0a6bb40c",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_forward_marks.cpp": "e9f94378c849d6ecc31786e87b605277f2c808f7990cf8de13369b052afab55d",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_forward_unit.cpp": "3fe20d1c50556216628efe6f628f31c7a0946c336440e34a4a9877cfd5d7677c",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_fuzz_slurm_snapshot.py": "3b305d946f2c8fa75fa632299b188c77343878b6017adecb13bc0bc550b75e95",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_hyperbinary.cpp": "ffe5471b82a9d44eb79c6bc2bf3afdcb7c5119552a5116366568b02f1e17d799",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_inprocess_root.cpp": "d803e2fd63c0c176f66af3882395b7b0faea1cb5ae46bb20c12c1b466d3b9a52",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_instantiate.cpp": "e45f8612b6be789d43a048f8af9c32579ab052a12434459bc087241e41a95720",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_kernel.cpp": "88cf49c9a508a087fccea872090ee44361135312fe599c4e0b390da32ffee2fe",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_kissat_journal_overlay_static.py": "4610ae16c287add64f94e692d9ca9b3ed4e5ce029e5bc5fd0fde3601cbfd082d",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_kissat_rule_journal.py": "d747af57a6809b493f1626bbf47b2925c22a4c76c8f83184fafed7ef4b21649f",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_learned_sort.cpp": "4dcb31b8a3cc1ad756cf47691c5a5df8593bbac46bff87be9d44b098e1d7850b",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_lucky.cpp": "bc723bc0b5ecc5d0bbb2c10ce5185bab17ee04269e1273fac5e63ffa64475b88",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_material_schedule.cpp": "360d84e211b178b6d80ee34656a8674e540a101135b3aaea2b40effda1b483f5",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_modelcheck.py": "22f61fa060748f33aee0a209a01f8c69dd3414e114cd59410b3d3ecc386240b5",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_no_event_trace_symbols.py": "898f784cb55a9c3dab5e91d96150edae71f47691ab9e5abfd8a60af3130dc046",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_no_heuristics.cpp": "4cb196fcac0c90a69a04c5eb84dc28c8ac0d0056a260b67cf34661088c63ff05",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_occurrence_cutover.cpp": "62599b502f0388001816c11c840cf445905ffdb8e83fee12d5090728a74d138c",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_p4_fixtures.py": "ecee6434ca846fc59f10fa55ae70594cf2009c2973d00f8069e84afaf4be866e",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_parse.cpp": "584efc1d3a4315ad368840a2c226788210945e2085b35d88670d037b90175d3d",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_probe.cpp": "95ee57abc7f7d7d3572a5d76dc67f051e35ba4e8b4b845930aa096c239afcd74",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_proof.cpp": "dd8e1a4acd5461eb3d6796977ea6ad1892a9b859a661a7c718240df1dc00de2f",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_propagation_cursor.cpp": "099e6d59f46ec2c9469b764435c42fff99fb4dbfabe88e567e60f7c1f2732338",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_random_policy.c": "1f1ba65cd80f1afc7b21a21c7be9bbabba0ca65ab8d08616d5b277a89d064296",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_realloc_words.cpp": "8b8e7381c6b0a61a00a7efe3525cd3a9e5a7bb00fe7dbe9115773f1e05ad0edc",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_reconstruct.cpp": "4668464b5c0db407f6d6bbc210870b8a1e065fe0497c65aa7701386c1abf5d62",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_reduce_root_guidance.cpp": "5cf41721bd93fe4e05d8e4180bf94aa7c1a6e0b7eaee7c365f4a79ae45be1fbb",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_reduce_root_lock.cpp": "77ce1c2de4112086cae4face33e7b87fb5aeeca14052f93f823e474b5c74647a",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_reduce_watermark.cpp": "6eaf709229176ffb6c228e058142ae95869550699329bf0ada678f21d3000d4b",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_reorder.cpp": "a302d471943a9d45bd54131299608a17aa2b9c539c5f034dc417c20f105c5d29",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_rephase.cpp": "e8ecbb939c0ac4cf28358f7bba4ab9ac2239f9ea787ffa6003f5594c3477dc19",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_replacement_cursor.cpp": "1b8b44d98a18821a8c3b2d73ade7ae5103a2e03366878bc16c5ae507a857897f",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_restart_reduce.cpp": "f5ed87b972161ed72db62c2a60a5f22fd7ab7cbde1681419f1b30cd1e6f98f4e",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_root_conflict_reuse.cpp": "bef9153dd85d5b165c37c4d300ea2dc152aa6d915c1b247a75546adb8ebee519",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_root_fold.cpp": "d2c91d954eb2180123eb7719d38a710f86a3d9638c2267ac4a2c15d00b93fc37",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_root_watermark.cpp": "de39c86ab2e97b0735617cc0ad277f5f2a66fbd23926cd7bcdd6c5560af9c02c",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_rule_journal.cpp": "430e83dc653e1e0d5af524de4d6d9d2a52080f93c7a7b1a9174ecc6b79edff5f",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_rule_journal.py": "4cf3c8f7476c6621f1fe5fc7ec4dcf35f00ad9a4788475cbbc87be2263881f7e",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_runtime_task.py": "c5106190747e38d253b84654ee04512900a5421b582fdbfaa4353c1e0cf35099",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_scheduling.cpp": "0fdfa3c000fe75ef9e10ac76bd09e6d97ac15d0b9b80bef1bf1a381e74cbc3c5",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_slot_pose.cpp": "cc960eeda26768d0d716651a06ce29a85fdfbc7fc6697057ed2beb1a8a47aae8",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_slurm_memory_enforcement.py": "e414ba68a3a1e887161dace5c42ef8a5bd517e0bda3d14081a596f5d2a8d8e0f",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_solve_reset.cpp": "0c53deb9880a3b3f84723495537db053977e6320ff97589f039f463eeca9def5",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_strategy_config.cpp": "121f4206d2fc0ac8661e8f1eedfd5759c5a676a216020bb6a9e645acbbe1ab9b",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_strengthen.cpp": "312a9312664214ddf230c773ee2a54cff93c9f52ba387d73b6bbb4ead9aa528e",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_subsolver.cpp": "101b2197d6f0e5e809a104134e568e93fc75af9ed4b5b03240e259c8d85dc9d6",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_substitute.cpp": "60f907ae951e217cd70a55b2fbc40cb645bfef748a3be4c996457ab007182301",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_substitute_collapse.cpp": "93e5a6988129fd338a944b1e66fa912d852ed431d202be3f66dea1c43e9c4ee1",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_substitute_publication.cpp": "dde5124cae2cb4a0318ab3f9351f8a674d48ef14ceb8ca23707b1e25e96d1ea7",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_substitute_retry.cpp": "2e38fd51253559b1ae96930b81543053c57d173727677905bf4e42696860d041",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_subsume.cpp": "bf8973604558e8802056fec0c514ec784d939c8c5a57698024217b76bb0cc77a",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_subsume_material.cpp": "cd1a9ed51f39c2983c6500fb027d793a28665932f0cabbcbd42824867d3e59a6",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_subsume_n1.cpp": "254691e1676bc9fc5a9eecf199296c569dcfe3cee006ef812065d331947de3a3",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_sweep.cpp": "668fd3e9dba350d9e813c27006db157356fd0f899aaa361f0fa82213925e74c0",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_sweep_cursor.cpp": "67a6ce2d07bab020c3c49bca23d803b7b78565cb88a287d7365456177e88606d",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_sweep_retained.cpp": "14e4db8f715fcaa922d80a32e4297c9e4b50d13ab2c4dcc21ced9725199d4cf6",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_sweep_small_env.cpp": "9836f64ec928a16d492237ec270f93fffee3ae838384439e1737a440994f54aa",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_switchmode.cpp": "79053d446572382723b99ca59c6611f90650d5d2388fd24b819bbf6fd0a63c3b",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_tactix_default_journal.py": "db83f5e232a35528671bc817f7e3dde77e4421b1f478743a7e65e1f211b574c0",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_ternary.cpp": "58ee3ac5f059c28864beb10b75d97d17f8e7ce50eb16f4774de614805e036ff0",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_tierd_campaign_pinning.py": "3d337736c1b3af6d23e789643c4f2f65cab5dd10eee0000eb906fb808f4ab090",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_tr_bruteforce.cpp": "a044ca7e57c8624cc3e27a18925b8c136bcdf6f3e14f6d9ba9b7415dc19ee77a",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_transitive_reduce.cpp": "de9ac94326d7fbc2d112b8f1f05d24591fbb2d75783fa2a047956e5c67ce53a9",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_vivify.cpp": "fd04d8e15aea143ed9b984c75538c3a0362c32aa96891cfda1703f13f564bb3c",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_vivify_binary_retry.cpp": "49eab247e90a93771f665c8f03c2755907466a129193ec5d750e35ad3ab84e4f",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_vivify_compact_contract.cpp": "673b5dbbc8eede5e2f6c58d146efde40a137c9b22e4f40dc9508d73f21246c2c",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_vivify_count_cache.cpp": "3fda011b310d729b0c5df50c44cdbe469b23f95ab54e8caa397378067a9c0e21",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_vivify_max.cpp": "22f863024d967ca408454663723fab96e502b9137fed05663e74a3b72ccd0b0e",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_vivify_n1.cpp": "a539d744665514a0180c0dad7935cebfe137ffa5df29118fbcd25a85ff6a8f9e",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_vivify_order_contract.cpp": "103831bfd0f013392974d35acbd5b92b346f057b571a4d7c17abde9425f2e93e",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_walk.cpp": "a5a3a745b8b0bd760aefcd50314c9c5ee912bf169dc3d52f2d95b3eb8d7c6529",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/test_watch_pair.cpp": "a72ff4b8d45601abde734d98dfb05117db9005e46e08c67856286ed68d2eab0e",
+    ".claude/worktrees/runtime-debug-contracts-7339/tests/trace_replay.sh": "ba5f2bdc4c98eed1427d7f58ce0753b993fc1ae31aef8446b71344a450e275d5",
+    ".claude/worktrees/runtime-debug-contracts-7339/examples/CMakeLists.txt": "ac110aaa9170c0df38bb8d9302d988c13c40ac5df9a04fd7bfc5ae8e7da59c66",
+    ".claude/worktrees/runtime-debug-contracts-7339/examples/demo1_dpll.c": "d9e89ddd205c5c5ba65d2b377e8ac2ee5508850822c8c69243f3d2d4bca82706",
+    ".claude/worktrees/runtime-debug-contracts-7339/examples/demo2_no_restarts.c": "4f7e8c8a97c6b1f9f65bab1213f549abbf4113b4ccf772bb446c23132b21ba5d",
+    ".claude/worktrees/runtime-debug-contracts-7339/examples/demo3_scripted_default.c": "a66b5160e13a4c0e4df27686cf77840bb01ccd48d35a14e045f7909300e95bc8",
+    ".claude/worktrees/runtime-debug-contracts-7339/CMakeLists.txt": "510b186ae2b048ac49050e67bbfbe192526e8002a6dd94d10d091a3baab2d6f4",
+    "benchmarks/probes/scratch/build-debug-contracts-7340.py": "400195a0501875277e24813f70f70563b40e3282800446d20b9500b4a68fb8fc",
+    "benchmarks/probes/scratch/build-root-fold-7332.py": "d26467ec71e96a8a3df20c130bd53e454ebfeb430a0fb4cbb5fb77aca70bed7a",
+    "build/pin-7340-debug-contracts-release/tactix": "516544703800837325f47221db9d940674ebdf7cd2f642bd9039f74799887ce4",
+    "benchmarks/runs/20260911-7340-debug-contracts-build/logs/sanitizers-0-substitute_retry.json": "31cfe9a5405cf073bc769090935a95632c7cb783312116704c3417e4a39cb521",
+    "benchmarks/runs/20260911-7340-debug-contracts-build/logs/sanitizers-1-collect_connection.json": "2c36e806cbdda48bc325a21f56010fa6983b1f40c1c839c65518e3f6b48e8c48",
+    "benchmarks/runs/20260911-7340-debug-contracts-build/logs/release-configure.json": "c043771247c654544f41ed92ff9ad00e0138b9c1ffd5c71e96dc6c9fa2065969",
+    "benchmarks/runs/20260911-7340-debug-contracts-build/logs/sanitizers-1-bve.json": "83f982077f48086fa2cfcf6e9230eb9b03e472db8d0497f81e787bda17cd9e23",
+    "benchmarks/runs/20260911-7340-debug-contracts-build/logs/release-ctest.json": "cf79c8ba010867e0f452306501495845f5860935c17c711b760749ab114f2cf9",
+    "benchmarks/runs/20260911-7340-debug-contracts-build/logs/sanitizers-0-kernel.json": "5e9bcb3ef32e4b25b028648f3f10d40da659c43b2e064d89bed4e402cde59948",
+    "benchmarks/runs/20260911-7340-debug-contracts-build/logs/sanitizers-1-api_instances.json": "5ed0fcbb8e833f685a79640b270290205b36e4c388b1517230938393565ae8db",
+    "benchmarks/runs/20260911-7340-debug-contracts-build/logs/sanitizers-build.json": "c5d244a9b7133d627a56742c87f90606cb36ef48a5fcbed65296dc4a28e1caf7",
+    "benchmarks/runs/20260911-7340-debug-contracts-build/logs/sanitizers-1-forward_unit.json": "cc945a1d150f7adcbbc1a8564fdc4f1802a24cff76e976269ab6bdc0c070b963",
+    "benchmarks/runs/20260911-7340-debug-contracts-build/logs/trace-ctest.json": "cfb2f7859ec3681b40f8b56008f90f13e52685d80e771e5376c0583fcfb4df52",
+    "benchmarks/runs/20260911-7340-debug-contracts-build/logs/sanitizers-1-reconstruct.json": "36c2daacdfbd3c7966f5934d54922f9ed01b463c1d2cb0371438693147cf398b",
+    "benchmarks/runs/20260911-7340-debug-contracts-build/logs/sanitizers-1-api_c.json": "dd8ff556b0ce76a008e3855bbbb8515bdc6fc9f5c6e9c922fe2cc0c46d8cf956",
+    "benchmarks/runs/20260911-7340-debug-contracts-build/logs/sanitizers-1-substitute_retry.json": "31cfe9a5405cf073bc769090935a95632c7cb783312116704c3417e4a39cb521",
+    "benchmarks/runs/20260911-7340-debug-contracts-build/logs/sanitizers-1-root_watermark.json": "22b6bd46478f5b47e0d813bbf2ed80ba30efd87f29e2b91bbeeed89fffc2b8f7",
+    "benchmarks/runs/20260911-7340-debug-contracts-build/logs/sanitizers-0-reconstruct.json": "36c2daacdfbd3c7966f5934d54922f9ed01b463c1d2cb0371438693147cf398b",
+    "benchmarks/runs/20260911-7340-debug-contracts-build/logs/sanitizers-configure.json": "f5178634241324bb9bbd4cc9fe9d6c16a0450b473a536971935bcf836fbe2187",
+    "benchmarks/runs/20260911-7340-debug-contracts-build/logs/sanitizers-1-substitute_collapse.json": "675f54180f7aa4adac7fee1f1f064de414706b6fd6e87541bfabfe753294804c",
+    "benchmarks/runs/20260911-7340-debug-contracts-build/logs/bc-configure.json": "bf6dfb9ddcf8ebae6e63434623b688407484823157693bbaec8b6908f8d35395",
+    "benchmarks/runs/20260911-7340-debug-contracts-build/logs/sanitizers-0-compact_stamp.json": "fbb01f8f2dc69794ac9499d509ba9bcf57ca8113872d9f5ec40ffa87288710fb",
+    "benchmarks/runs/20260911-7340-debug-contracts-build/logs/sanitizers-1-root_fold.json": "bafc9451e0ed6332faf6251051bb19da21d786413ca92515a7dd477d80af3d56",
+    "benchmarks/runs/20260911-7340-debug-contracts-build/logs/sanitizers-0-substitute_collapse.json": "675f54180f7aa4adac7fee1f1f064de414706b6fd6e87541bfabfe753294804c",
+    "benchmarks/runs/20260911-7340-debug-contracts-build/logs/sanitizers-1-propagation_cursor.json": "311f15b0fd9e87fff812deeaadcb414ee713a5f946f83ab0bdd3074fbcaea4c7",
+    "benchmarks/runs/20260911-7340-debug-contracts-build/logs/trace-configure.json": "b71564b6e2a40fe790a7c506b50954b2f7f4adcbbeb982ccaf0c617965529af5",
+    "benchmarks/runs/20260911-7340-debug-contracts-build/logs/release-build.json": "9753287648d7d81bb769532c5758673b10c9e087404728d0ca4e5c3643b2d35f",
+    "benchmarks/runs/20260911-7340-debug-contracts-build/logs/sanitizers-0-bve.json": "83f982077f48086fa2cfcf6e9230eb9b03e472db8d0497f81e787bda17cd9e23",
+    "benchmarks/runs/20260911-7340-debug-contracts-build/logs/sanitizers-0-forward_unit.json": "cc945a1d150f7adcbbc1a8564fdc4f1802a24cff76e976269ab6bdc0c070b963",
+    "benchmarks/runs/20260911-7340-debug-contracts-build/logs/trace-build.json": "5f60e717546e3bc0cb8214c79f0dd65f96843a9bf42249e5703b2402cd49a1a3",
+    "benchmarks/runs/20260911-7340-debug-contracts-build/logs/sanitizers-1-compact_stamp.json": "fbb01f8f2dc69794ac9499d509ba9bcf57ca8113872d9f5ec40ffa87288710fb",
+    "benchmarks/runs/20260911-7340-debug-contracts-build/logs/sanitizers-0-root_fold.json": "bafc9451e0ed6332faf6251051bb19da21d786413ca92515a7dd477d80af3d56",
+    "benchmarks/runs/20260911-7340-debug-contracts-build/logs/bc-build.json": "f73a3100f6d48e3b62f49bf48fc11af05bb57d8b19588fe5c2e6fc4e9a95a804",
+    "benchmarks/runs/20260911-7340-debug-contracts-build/logs/sanitizers-0-collect_connection.json": "2c36e806cbdda48bc325a21f56010fa6983b1f40c1c839c65518e3f6b48e8c48",
+    "benchmarks/runs/20260911-7340-debug-contracts-build/logs/sanitizers-0-api_c.json": "dd8ff556b0ce76a008e3855bbbb8515bdc6fc9f5c6e9c922fe2cc0c46d8cf956",
+    "benchmarks/runs/20260911-7340-debug-contracts-build/logs/sanitizers-1-subsume_material.json": "6bebbb7718326e25e3120779562f6352dacb1d6d7ebea8d05fba6e76db525bd2",
+    "benchmarks/runs/20260911-7340-debug-contracts-build/logs/sanitizers-0-propagation_cursor.json": "311f15b0fd9e87fff812deeaadcb414ee713a5f946f83ab0bdd3074fbcaea4c7",
+    "benchmarks/runs/20260911-7340-debug-contracts-build/logs/sanitizers-0-api_instances.json": "5ed0fcbb8e833f685a79640b270290205b36e4c388b1517230938393565ae8db",
+    "benchmarks/runs/20260911-7340-debug-contracts-build/logs/bc-ctest.json": "f5f2a1eb515c4cfb444d510324ea51a43a562d251d4d8726495e857472581077",
+    "benchmarks/runs/20260911-7340-debug-contracts-build/logs/sanitizers-1-kernel.json": "5e9bcb3ef32e4b25b028648f3f10d40da659c43b2e064d89bed4e402cde59948",
+    "benchmarks/runs/20260911-7340-debug-contracts-build/logs/sanitizers-0-subsume_material.json": "6bebbb7718326e25e3120779562f6352dacb1d6d7ebea8d05fba6e76db525bd2",
+    "benchmarks/runs/20260911-7340-debug-contracts-build/logs/sanitizers-0-root_watermark.json": "22b6bd46478f5b47e0d813bbf2ed80ba30efd87f29e2b91bbeeed89fffc2b8f7"
+  },
+  "commands": {
+    "release-configure": {
+      "command": [
+        "cmake",
+        "-S",
+        "/home/hwu/SAT-solving/.claude/worktrees/runtime-debug-contracts-7339",
+        "-B",
+        "/home/hwu/SAT-solving/build/pin-7340-debug-contracts-release",
+        "-DCMAKE_BUILD_TYPE=Release",
+        "-DTACTIX_ENABLE_EVENT_TRACE=OFF",
+        "-DTACTIX_ENABLE_RULE_JOURNAL=OFF",
+        "-DTACTIX_ENABLE_PROOF_SHADOW=OFF",
+        "-DTACTIX_ENABLE_CONFLICT_STOP=OFF",
+        "-DCMAKE_C_COMPILER=/cm/local/apps/gcc/13.1.0/bin/gcc",
+        "-DCMAKE_CXX_COMPILER=/cm/local/apps/gcc/13.1.0/bin/g++"
+      ],
+      "exit_code": 0
+    },
+    "bc-configure": {
+      "command": [
+        "cmake",
+        "-S",
+        "/home/hwu/SAT-solving/.claude/worktrees/runtime-debug-contracts-7339",
+        "-B",
+        "/home/hwu/SAT-solving/build/pin-7340-debug-contracts-bc",
+        "-DCMAKE_BUILD_TYPE=Release",
+        "-DTACTIX_ENABLE_EVENT_TRACE=OFF",
+        "-DTACTIX_ENABLE_RULE_JOURNAL=OFF",
+        "-DTACTIX_ENABLE_PROOF_SHADOW=OFF",
+        "-DTACTIX_ENABLE_CONFLICT_STOP=OFF",
+        "-DCMAKE_C_COMPILER=/cm/local/apps/gcc/13.1.0/bin/gcc",
+        "-DCMAKE_CXX_COMPILER=/cm/local/apps/gcc/13.1.0/bin/g++"
+      ],
+      "exit_code": 0
+    },
+    "trace-configure": {
+      "command": [
+        "cmake",
+        "-S",
+        "/home/hwu/SAT-solving/.claude/worktrees/runtime-debug-contracts-7339",
+        "-B",
+        "/home/hwu/SAT-solving/build/pin-7340-debug-contracts-trace",
+        "-DCMAKE_BUILD_TYPE=Release",
+        "-DTACTIX_ENABLE_EVENT_TRACE=ON",
+        "-DTACTIX_ENABLE_RULE_JOURNAL=OFF",
+        "-DTACTIX_ENABLE_PROOF_SHADOW=OFF",
+        "-DTACTIX_ENABLE_CONFLICT_STOP=OFF",
+        "-DCMAKE_C_COMPILER=/cm/local/apps/gcc/13.1.0/bin/gcc",
+        "-DCMAKE_CXX_COMPILER=/cm/local/apps/gcc/13.1.0/bin/g++"
+      ],
+      "exit_code": 0
+    },
+    "sanitizers-configure": {
+      "command": [
+        "cmake",
+        "-S",
+        "/home/hwu/SAT-solving/.claude/worktrees/runtime-debug-contracts-7339",
+        "-B",
+        "/home/hwu/SAT-solving/build/pin-7340-debug-contracts-sanitizers",
+        "-DCMAKE_BUILD_TYPE=Debug",
+        "-DTACTIX_ENABLE_EVENT_TRACE=OFF",
+        "-DTACTIX_ENABLE_RULE_JOURNAL=OFF",
+        "-DTACTIX_ENABLE_PROOF_SHADOW=OFF",
+        "-DTACTIX_ENABLE_CONFLICT_STOP=OFF",
+        "-DCMAKE_C_COMPILER=/cm/local/apps/gcc/13.1.0/bin/gcc",
+        "-DCMAKE_CXX_COMPILER=/cm/local/apps/gcc/13.1.0/bin/g++",
+        "-DCMAKE_C_FLAGS=-fsanitize=address,undefined -fno-omit-frame-pointer",
+        "-DCMAKE_CXX_FLAGS=-fsanitize=address,undefined -fno-omit-frame-pointer",
+        "-DCMAKE_EXE_LINKER_FLAGS=-fsanitize=address,undefined"
+      ],
+      "exit_code": 0
+    },
+    "sanitizers-build": {
+      "command": [
+        "cmake",
+        "--build",
+        "/home/hwu/SAT-solving/build/pin-7340-debug-contracts-sanitizers",
+        "-j2",
+        "--target",
+        "test_root_fold",
+        "test_root_watermark",
+        "test_collect_connection",
+        "test_forward_unit",
+        "test_substitute_collapse",
+        "test_substitute_retry",
+        "test_subsume_material",
+        "test_compact_stamp",
+        "test_kernel",
+        "test_reconstruct",
+        "test_propagation_cursor",
+        "test_api_c",
+        "test_api_instances",
+        "test_bve"
+      ],
+      "exit_code": 0
+    },
+    "sanitizers-0-root_fold": {
+      "command": [
+        "/home/hwu/SAT-solving/build/pin-7340-debug-contracts-sanitizers/tests/test_root_fold"
+      ],
+      "exit_code": 0
+    },
+    "sanitizers-0-root_watermark": {
+      "command": [
+        "/home/hwu/SAT-solving/build/pin-7340-debug-contracts-sanitizers/tests/test_root_watermark"
+      ],
+      "exit_code": 0
+    },
+    "sanitizers-0-collect_connection": {
+      "command": [
+        "/home/hwu/SAT-solving/build/pin-7340-debug-contracts-sanitizers/tests/test_collect_connection"
+      ],
+      "exit_code": 0
+    },
+    "sanitizers-0-forward_unit": {
+      "command": [
+        "/home/hwu/SAT-solving/build/pin-7340-debug-contracts-sanitizers/tests/test_forward_unit"
+      ],
+      "exit_code": 0
+    },
+    "sanitizers-0-substitute_collapse": {
+      "command": [
+        "/home/hwu/SAT-solving/build/pin-7340-debug-contracts-sanitizers/tests/test_substitute_collapse"
+      ],
+      "exit_code": 0
+    },
+    "sanitizers-0-substitute_retry": {
+      "command": [
+        "/home/hwu/SAT-solving/build/pin-7340-debug-contracts-sanitizers/tests/test_substitute_retry"
+      ],
+      "exit_code": 0
+    },
+    "sanitizers-0-subsume_material": {
+      "command": [
+        "/home/hwu/SAT-solving/build/pin-7340-debug-contracts-sanitizers/tests/test_subsume_material"
+      ],
+      "exit_code": 0
+    },
+    "sanitizers-0-compact_stamp": {
+      "command": [
+        "/home/hwu/SAT-solving/build/pin-7340-debug-contracts-sanitizers/tests/test_compact_stamp"
+      ],
+      "exit_code": 0
+    },
+    "sanitizers-0-kernel": {
+      "command": [
+        "/home/hwu/SAT-solving/build/pin-7340-debug-contracts-sanitizers/tests/test_kernel"
+      ],
+      "exit_code": 0
+    },
+    "sanitizers-0-reconstruct": {
+      "command": [
+        "/home/hwu/SAT-solving/build/pin-7340-debug-contracts-sanitizers/tests/test_reconstruct"
+      ],
+      "exit_code": 0
+    },
+    "sanitizers-0-propagation_cursor": {
+      "command": [
+        "/home/hwu/SAT-solving/build/pin-7340-debug-contracts-sanitizers/tests/test_propagation_cursor"
+      ],
+      "exit_code": 0
+    },
+    "sanitizers-0-api_c": {
+      "command": [
+        "/home/hwu/SAT-solving/build/pin-7340-debug-contracts-sanitizers/tests/test_api_c"
+      ],
+      "exit_code": 0
+    },
+    "sanitizers-0-api_instances": {
+      "command": [
+        "/home/hwu/SAT-solving/build/pin-7340-debug-contracts-sanitizers/tests/test_api_instances"
+      ],
+      "exit_code": 0
+    },
+    "sanitizers-0-bve": {
+      "command": [
+        "/home/hwu/SAT-solving/build/pin-7340-debug-contracts-sanitizers/tests/test_bve"
+      ],
+      "exit_code": 0
+    },
+    "sanitizers-1-root_fold": {
+      "command": [
+        "/home/hwu/SAT-solving/build/pin-7340-debug-contracts-sanitizers/tests/test_root_fold"
+      ],
+      "exit_code": 0
+    },
+    "sanitizers-1-root_watermark": {
+      "command": [
+        "/home/hwu/SAT-solving/build/pin-7340-debug-contracts-sanitizers/tests/test_root_watermark"
+      ],
+      "exit_code": 0
+    },
+    "sanitizers-1-collect_connection": {
+      "command": [
+        "/home/hwu/SAT-solving/build/pin-7340-debug-contracts-sanitizers/tests/test_collect_connection"
+      ],
+      "exit_code": 0
+    },
+    "sanitizers-1-forward_unit": {
+      "command": [
+        "/home/hwu/SAT-solving/build/pin-7340-debug-contracts-sanitizers/tests/test_forward_unit"
+      ],
+      "exit_code": 0
+    },
+    "sanitizers-1-substitute_collapse": {
+      "command": [
+        "/home/hwu/SAT-solving/build/pin-7340-debug-contracts-sanitizers/tests/test_substitute_collapse"
+      ],
+      "exit_code": 0
+    },
+    "sanitizers-1-substitute_retry": {
+      "command": [
+        "/home/hwu/SAT-solving/build/pin-7340-debug-contracts-sanitizers/tests/test_substitute_retry"
+      ],
+      "exit_code": 0
+    },
+    "sanitizers-1-subsume_material": {
+      "command": [
+        "/home/hwu/SAT-solving/build/pin-7340-debug-contracts-sanitizers/tests/test_subsume_material"
+      ],
+      "exit_code": 0
+    },
+    "sanitizers-1-compact_stamp": {
+      "command": [
+        "/home/hwu/SAT-solving/build/pin-7340-debug-contracts-sanitizers/tests/test_compact_stamp"
+      ],
+      "exit_code": 0
+    },
+    "sanitizers-1-kernel": {
+      "command": [
+        "/home/hwu/SAT-solving/build/pin-7340-debug-contracts-sanitizers/tests/test_kernel"
+      ],
+      "exit_code": 0
+    },
+    "sanitizers-1-reconstruct": {
+      "command": [
+        "/home/hwu/SAT-solving/build/pin-7340-debug-contracts-sanitizers/tests/test_reconstruct"
+      ],
+      "exit_code": 0
+    },
+    "sanitizers-1-propagation_cursor": {
+      "command": [
+        "/home/hwu/SAT-solving/build/pin-7340-debug-contracts-sanitizers/tests/test_propagation_cursor"
+      ],
+      "exit_code": 0
+    },
+    "sanitizers-1-api_c": {
+      "command": [
+        "/home/hwu/SAT-solving/build/pin-7340-debug-contracts-sanitizers/tests/test_api_c"
+      ],
+      "exit_code": 0
+    },
+    "sanitizers-1-api_instances": {
+      "command": [
+        "/home/hwu/SAT-solving/build/pin-7340-debug-contracts-sanitizers/tests/test_api_instances"
+      ],
+      "exit_code": 0
+    },
+    "sanitizers-1-bve": {
+      "command": [
+        "/home/hwu/SAT-solving/build/pin-7340-debug-contracts-sanitizers/tests/test_bve"
+      ],
+      "exit_code": 0
+    },
+    "bc-build": {
+      "command": [
+        "cmake",
+        "--build",
+        "/home/hwu/SAT-solving/build/pin-7340-debug-contracts-bc",
+        "-j2"
+      ],
+      "exit_code": 0
+    },
+    "release-build": {
+      "command": [
+        "cmake",
+        "--build",
+        "/home/hwu/SAT-solving/build/pin-7340-debug-contracts-release",
+        "-j2"
+      ],
+      "exit_code": 0
+    },
+    "trace-build": {
+      "command": [
+        "cmake",
+        "--build",
+        "/home/hwu/SAT-solving/build/pin-7340-debug-contracts-trace",
+        "-j2"
+      ],
+      "exit_code": 0
+    },
+    "bc-ctest": {
+      "command": [
+        "ctest",
+        "--test-dir",
+        "/home/hwu/SAT-solving/build/pin-7340-debug-contracts-bc",
+        "--output-on-failure",
+        "-j1"
+      ],
+      "exit_code": 0
+    },
+    "release-ctest": {
+      "command": [
+        "ctest",
+        "--test-dir",
+        "/home/hwu/SAT-solving/build/pin-7340-debug-contracts-release",
+        "--output-on-failure",
+        "-j1"
+      ],
+      "exit_code": 0
+    },
+    "trace-ctest": {
+      "command": [
+        "ctest",
+        "--test-dir",
+        "/home/hwu/SAT-solving/build/pin-7340-debug-contracts-trace",
+        "--output-on-failure",
+        "-j1"
+      ],
+      "exit_code": 0
+    }
+  },
+  "test_consideration": "Independent full Release/trace suites and fourteen fixed root/compaction/reason/API/model fixtures twice under unsuppressed ASan/UBSan/LSan. No source fuzz or real-instance execution.",
+  "limitation": "Isolated prototype; original-CNF successor microchecks, checked B28+C5, repeated memory/runtime and current-source fuzz remain separate gates."
+}

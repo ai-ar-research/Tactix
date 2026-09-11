@@ -1,0 +1,10 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7327-rank25-root-gdb/pins/checkmodel",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7345-debug-contract-proofs/release-10-0-lrat.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7345-debug-contract-proofs/release-10-0-lrat.out"
+  ],
+  "returncode": 0,
+  "stdout": "checkmodel: OK \u2014 10 clauses satisfied, 10 vars assigned\n",
+  "stderr": ""
+}

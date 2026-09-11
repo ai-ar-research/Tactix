@@ -1,0 +1,10 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/tools/checkers/bin/cake_lpr",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7345-debug-contract-proofs/release-1-1-lrat.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7345-debug-contract-proofs/release-1-1-lrat.proof"
+  ],
+  "returncode": 0,
+  "stdout": "s VERIFIED UNSAT\n",
+  "stderr": ""
+}
