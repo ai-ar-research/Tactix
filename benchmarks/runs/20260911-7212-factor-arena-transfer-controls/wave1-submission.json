@@ -1,0 +1,28 @@
+{
+  "job_id": "1680655",
+  "accounting_since": "2026-09-11T00:58:49",
+  "tasks": [
+    6,
+    7,
+    8,
+    9,
+    10,
+    11
+  ],
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--array=6-11",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7212-factor-arena-transfer-controls/array.sbatch"
+  ],
+  "manifest_sha256": "bd74bbc940a8a1de43e01b3696e24b6c248722e0cd5caa6705f104aaac9808da",
+  "helper_sha256": "874149806625855af45aa4c498dedbf7ecf2c073111099771ab855c4af8edbd0",
+  "preceding_records": {
+    "benchmarks/runs/20260911-7212-factor-arena-transfer-controls/results/000.json": "f0d5c9869a07b3efcb779fe57270468238535dc45310c10dd7e7a9f242c08e30",
+    "benchmarks/runs/20260911-7212-factor-arena-transfer-controls/results/001.json": "ce9a675569a9af9e7a248b95de65035a076860046ffa572b50affbdbcd59c8b2",
+    "benchmarks/runs/20260911-7212-factor-arena-transfer-controls/provisional/002.json": "b4b7adc4077181fc126e485129be448d70b38f09b2c1568930f86380f569a7d1",
+    "benchmarks/runs/20260911-7212-factor-arena-transfer-controls/provisional/003.json": "c31171b512f9628e264067348cbed137b4c26b028b7e1636407c9a753469d2cf",
+    "benchmarks/runs/20260911-7212-factor-arena-transfer-controls/results/004.json": "2840abb3fcbb563762960a1ea8d61100a732d4bd865425b2dc7e2da15c777e8c",
+    "benchmarks/runs/20260911-7212-factor-arena-transfer-controls/results/005.json": "6519e4c760ebcf4fd9b08950a358997782b0839594b229b403230ec3fa5afdc0"
+  }
+}

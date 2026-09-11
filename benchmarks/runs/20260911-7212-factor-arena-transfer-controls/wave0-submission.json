@@ -1,0 +1,21 @@
+{
+  "job_id": "1680648",
+  "accounting_since": "2026-09-11T00:54:30",
+  "tasks": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--array=0-5",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7212-factor-arena-transfer-controls/array.sbatch"
+  ],
+  "manifest_sha256": "bd74bbc940a8a1de43e01b3696e24b6c248722e0cd5caa6705f104aaac9808da",
+  "helper_sha256": "874149806625855af45aa4c498dedbf7ecf2c073111099771ab855c4af8edbd0",
+  "preceding_records": {}
+}
