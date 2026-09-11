@@ -1,0 +1,1090 @@
+{
+  "hashes": {
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/manifest.json": "abf90a47ef1670273c7ee09f953d8d8415e0be5a5e61adb38f0e030b9adc2c4f",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/launch.json": "59e074eea11d913a8438c52c63504d4a5fb215e8a575066dcb167ea891e3a5cc",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/manifest.json": "0a2e94f615b549453bd4e679c53db77f3bd9847f2371d34689e2f5bafc848f6a",
+    "benchmarks/probes/scratch/submit-vivify-compact-wave-7150.py": "ab19b2a6ed9a4808d455faab15b397dd05683361d8df0e8d737dd0bc2cf7cd7f",
+    "benchmarks/probes/scratch/validate-factor-arena-full50-7201.py": "e66ec2ae20c958ad34e94eb728a247b09d01b5f6caacec2e6eae1c5f8d3a9a6c",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/pins/runtime_task.py": "9c2e2fc471a3a4b55e4673517107dd5d9bad209020d80bd6f77e37d14827c8e8",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/pins/candidate-source.patch": "fcf1d6c7f1182ce82aa3b37380b1045e6f390831ed1b61e0d8aac66ad9b62a1d",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/pins/modelcheck.py": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/pins/drat-trim": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/pins/tactix": "b5533639b1b32ee5861e90e3abc8d25e2da9ff0cf11c9db1c32b36002c6274ff",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/pins/checkmodel": "5fde6bbc7be305f6b6166ef75dc4788e2cf40180317ab1ec9a38a3d6071676cf",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/matrix.tsv": "22b9151fe579dd71ab08ccc6f2d78901c7e5e773d520c6951c363eae0d6ac004",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/array.sbatch": "ab74cb1238564d0d0e846ee2deb334f1d5417cf01b084f00e746e8744279ef17",
+    "benchmarks/baselines/rank1-50-kissat-12cpu-v1/manifest.json": "5f7865e46af2b9ed0d1899ce6e450bfb9b3575801c50183e059d0e4326f5a1e0",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/provisional/000.json": "33e1ff9c1e29a6ddeb7f95b9a012d70a717920dadd244cf9f7b30a8a000ed78f",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/provisional/001.json": "6a3636faf78a7b181bcddb0706776813b2238d1fe4d5f707ff00745e3cda9e4a",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/provisional/002.json": "68e3b56e5b2e05d42a3fc9bfef5196cd6d619f99b705fa6272615e5ff0222d5c",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/provisional/003.json": "f85daa6d6e0772546951556583f54e312acc91de921d67c6a325a5d920c808b8",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/provisional/004.json": "85e86cb7844e897c9850b79bb44fd291bd0b340b12b2d2b39ba2d527ec3624a9",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/provisional/005.json": "dac9ed7d2c2901f1a673560e5158c867ef5cbb2324560e14658652b72c5fe335",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/provisional/006.json": "9b6e3ebd2d9b3f6803ccabd58f9e1569c7b943c09472bde9bc3f50fb651d5d57",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/provisional/007.json": "11726a64ea7aa2735e8b0d9d65a068b658fb6a708fd6252c222f5c2794e2312d",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/provisional/008.json": "049eec4faf4e9527b09f40cf665a783e9a856533daad9802a3810454ec25a353",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/provisional/009.json": "eb0a6f7b88f5725298099f131b6e4d71cd963b55e96e1d893669db16c13becb0",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/provisional/010.json": "6b1d31afbedb545991e3113f5e9c77dd626d429326b7e85327fea89c51735b80",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/provisional/011.json": "9709ef1ed07156a78468de5e3d1fa4794c3b5b324408e185c9098a17650e50bc",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/provisional/012.json": "82e6adcbb2f2108c18cf97061d062cc02c7e3bc8462989f9e10760377347fef5",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/provisional/013.json": "52f6fcd0ac489ae60ea27402a876c486b0db7a82ce34989ae457875bbe05c24a",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/provisional/014.json": "adb2806af9d673e52b94fbddc50edf7e5b8fcec4adb8817fb95cb59edde889f3",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/provisional/015.json": "6d122d49dab4c4b974ab14aef99634fb2b117f241385ac1264d162f9ef8228bd",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/provisional/016.json": "07bb5d6fdc699454e89de58789abbea4302cfe72bda11428639903ea0c17c6f4",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/provisional/017.json": "97d07a6d3f7f45838437f5b67264ea53e0b4606bce35b4dfe5b6a28105e9c7b4",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/provisional/018.json": "d1c832c48fc97e9c4444fd26f783d35967bdd60b55af19f73e547d5943725fce",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/provisional/019.json": "5a8179cf6a8edb1fddeb6d0438c412043b39f9002666b0849625377b1ceac92e",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/provisional/020.json": "26df009bd891d5d0307aeccb766fa55c9b6d82d276088c594130ad5de503d1ca",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/provisional/021.json": "bc4df644fc03f4d558b6fa9808c321d7bd31f35154367145424d45e873fa24c6",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/provisional/022.json": "eef672882212c6f230ec2fb76e215045c7deb3885454dcd6fadaaeb1ce21ddda",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/provisional/023.json": "31822c7ec6e3e25888c98764f1beac0cd017d0d2028ef84c2e1e768da741df42",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/provisional/024.json": "da02c5bb8a8bcaca187e22a61d41ebfd324b36acc938a7c3d57f724b595a6b1c",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/provisional/025.json": "a10f3425fa1d9010db2fcf6a6c3cc5418a37c7a9ed01576281e2e5633e918937",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/provisional/026.json": "2f2102bcb23ced13958519141d5d9a040627118ebc4d40772bd1e71ca2975975",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/provisional/027.json": "121a11db7261394f4e748c5029e0d6f94d33811e18f71cfa216e8b0cc218f190",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/provisional/028.json": "2c0d835226d8e6f7b832b4483b36e226595f1232d261baf9d0d6c647975f2af7",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/provisional/029.json": "b83024054a0974db5169384a6b7284b2387faf887939c8935c4ddc81d36b927c",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/provisional/030.json": "b3500fed985d2f9300b487660e7d3834ba60dbe3b7ef5c970b648005d100c35f",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/provisional/031.json": "75571c76adb91e8fdee17bc2bbbe6d7dec63101cb8f778092c45bd8e5737db14",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/provisional/032.json": "91f3e00447a0a50ef6729209d16c66d0d439994be95c3b1f1be67228573270e3",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/provisional/033.json": "20614f649f02f73a04a0bf1fa193583241182a629e3417626ef3990f618c346c",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/provisional/034.json": "65e894d498f81263043530128feeb4c0f1624ca838f2e64dc5e174351ebff516",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/provisional/035.json": "18b7e7a5120f95c5c3ecceaacb290d264d8ea88a5ea584ef04d69162f6893f8e",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/provisional/036.json": "a2a1df5b89e9c249f2e6fe7bf193823fe59a0155561b4545eb88a494c8a9d94c",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/provisional/037.json": "159b1d90bc8aef5810c5f032897b7bad934659fbd19179d0b9b8425df22a8d61",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/provisional/038.json": "4a117caadbbca54472aa88966ca136e139e1362b6c6a87517e687705ac08611d",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/provisional/039.json": "0d3a44c94b2ae2ce50a8dbeadc0a9166383e7702ff67478a50d2b21be09603df",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/provisional/040.json": "2693eb7e5f15f02c93c024e7fcd7ee3655e011dc4eb310ee8ab05b4eafd95438",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/provisional/041.json": "cb2c2512186855faacf9ef5ae88e1d0964650f1d6f238f41d2f8211923f27273",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/provisional/042.json": "0a3d29fe0af486fc20fde2f3923fd97b74f1257d2daaf532d55d2810e5e48327",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/provisional/043.json": "94b5ecd369bf49862392da703b978c46d26c4d4e70691d9d9edd3d4fb53c987b",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/provisional/044.json": "03c16fc2b426d13441edeb81caaa778a63aae4690d5ef1bc40f659aa7c3ca3c9",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/provisional/045.json": "fe29d8fb0d432fd0d69189da14c84556b40b1ee4398cf466699ba30e9fb84587",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/provisional/046.json": "9da6094c439147bdf8312f54b6a4c739b04db2ac311465999e022ccd30393204",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/provisional/047.json": "ad1d346dbf23fb5f15186dc0e8c7a79baa6686747f7eb6c760245efc5734ec16",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/provisional/048.json": "c07beaa0deebc942fa19c54559398f08bc856e8a5e92ffadaea0b604e02c6354",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/provisional/049.json": "3270f2902ab0094a1aed8e26a1f4716f351fa7398f7162a24ae1f1bc56a5dd0d",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/results/000.json": "801b0b634334cfbcea914deb3d89260f2c261256c82f446e0f147e76e2b1c04f",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/results/001.json": "7847a2fb7cc291c685a2aafd7cbd9c48c101def0ba74a6f5576a5a0994577e95",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/results/002.json": "36f8cb4c7f98eed517e32ce3d34070b806b0dec553cddfafe82d7d085e38c811",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/results/003.json": "3a3652d1c074a7b68d7b3118dead18a455487899aa00020288ae52082466f7a5",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/results/004.json": "f50982818e911fa674c06d64ef4c958ffe3bcbff2e53ab050111f6a9a4de4e57",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/results/005.json": "ad2c417a344ba52bc60105ef67f7f8b58323ddcdd4bda152aaca1d6a76baf11d",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/results/006.json": "02f979ada5c6882228d068bc9e188df715e6f88f972acbc0b2d1497efeaa1580",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/results/007.json": "57bedb65fad656c618b7ee76b788bc2d840cefb7ea9f3bb8470f6b3a57b2da09",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/results/008.json": "3afbb43fb5b2c4d9416d10c7ec60ead8f504048ac0b8e9ab7040294439ab07d1",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/results/009.json": "beb66796cb75df2aec33a3ffdd16a28b78e10bb00ee54e11ea5c96c65088975a",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/results/010.json": "3e058bad3b9b4af5884c814bd07ad31c8c662a156d4364441bcb3161a6a4f78a",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/results/011.json": "c2c7562a114d79c946929b925b90f05d177f53b0ed800c7690f1932808c92774",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/results/012.json": "63898bc7f3834851f530c7583f4d03f77c800acdc52db21d01f3aeb1da987ed7",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/results/013.json": "4f974a07ff07a664402b8beb70b55fb25ff00fa6bad01f1d91b4e57908ac9b49",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/results/014.json": "fab2b5ecac0c15ad27650c116476b4e60b8c618a9fa064a8e5215aa86c6499d8",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/results/015.json": "1ce3020a131d4c82d6617ce2c5fabe472cdf187dcd0aff095439971571f34998",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/results/016.json": "e9c55f123fc1ae3d1d51f0c91de9cd86b22abb8ee6d72852ff869528abf88a5a",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/results/018.json": "696ca2d529078b34641293f41565072e7d17e8454e927e50c590a83a1bd99dd0",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/results/019.json": "2478d4b5dddd7b9c20d00e708c2133d1f8be35bb0c592d26d31e013fedcf88d3",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/results/020.json": "b97f91e1d5fd8b9d3348c15538c66f9ac8e66fae9b4fdd949ca5840fcc286a7e",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/results/022.json": "def511255623cebf102391168b78335015d45ea63bfc880f0144a6317013b7b7",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/results/023.json": "5557544aa0b05b774590c1f54a306524cfd677973617b79a4e0c7ced233a34dd",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/results/024.json": "5660949345d899b00c14ccc92a634da657ce0a30a4cfc000584fe113371b648c",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/results/025.json": "8731297a9d28c5af82fca5823721e123c90338df082b94b0834e06d77ca1e034",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/results/027.json": "490c53c71b7af038b807fc28027a4a3d634a0e08e83fcbab308f82eb4ade42ab",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/results/028.json": "93b0b80073c108642dcc140124bf15dacadde0123332a7737b5b4a5d5845d523",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/results/029.json": "9b31979e5927ba633a308e33e05f8c8e82266f6cbbfbd2d80c53bb028dad886a",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/results/033.json": "08c91387d9ffd7907b8a451dbf1da5a57d06f09f608111406efd6217a87d7420",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/results/035.json": "21e869ab4ef900c965f00d81e8226c76800237d8516fe381f1032378ad8403f9",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/results/040.json": "fd47956f440f96ab813f103b6b5b7107a6b83037b6cf8c3546e077e3554028d1",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/results/043.json": "c5d46586e3eeaefb54ef69e61659619956d98acd98174f90525bcf3dd2260d13",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/results/044.json": "9ccdd74fccf0b4fc9ce81561c3d123e59007f4cc3f7e35ce17ec2f58bf19b06d",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/results/045.json": "2c549d7c18c87b88f7108907432ef2ba07f4157bdac3a9f92eb06e2f09011585",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/results/047.json": "adc9afc8d22c66f33ae2fc28d1f5425ba04039cf36dc48922af8a368fba1202f",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/results/048.json": "ca205025e6c8419aabe783d4d1fc5ba1693ae3e44552602911ad4b6f1947a139",
+    "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/results/049.json": "ba475aaaf1cb933edd793393784a625c6f4c56ebf43780faa12c0b8eb7ead05f",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/000.json": "939ac78d473dcd7cb5ae56dd193150c5a2738fe4529ef2c7c8a088ab50eb74f5",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/001.json": "15a5325a3f48fb7f3afbced78a3d7641957bf8f97459da4077bf376e28ee3a6c",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/002.json": "2f002d2ba29d88f67890950217f213dd25aa8b54364e147c514c9ca2a4e37cc8",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/003.json": "867aa8f0b1d920cee40e5e572f6e6fd91c47ad34522b3dad3df5e0d4fd157020",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/004.json": "1348a7b058b65b0c8e4ac9130f8df03f1ec4a18ec95c6d41d22a473448d6db69",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/005.json": "d99befa8298272d0165f23945f204e1ee5a80d185807ac7dae1f02166bd0c9ad",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/006.json": "989d2a2af2f40b4f989bf76ba4cc23dcf96653e8235b689b6f70d426ea07f51c",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/007.json": "4a29e138cbc2c75125aaad9c19cc4a101e2a077f886b4b09c33236afd9fc7cc5",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/008.json": "cfa606e9065b63c855fada31f9bb70efdddff548c9206863ee64c4e2750c656f",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/009.json": "c89aaf92de34f5276a2190ca5f84bde35ac2f8b947cc0d2f955b3a1a937c3422",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/010.json": "646042da8bc8c99ec75b3aba3d5023d8bacefee4fe0febf951b578922e3c23ff",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/011.json": "a188a5fd4bf8a2cddd858d8a9df50085d9652d38c83ae3335b3d75abd11974e0",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/012.json": "0e58eabcc184e6edb941950c75bb20a69945fd16cbb0576ce61881e435e9f47e",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/013.json": "fb0f9b5e8c9fa283e2a51bb648f1b354b6d5403649902c4dfbaba6cbf44e97f7",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/014.json": "d63b305476f29e7f83bd5ca552bb45ac567d52eb7d440c878018c9d4b61ea5ce",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/015.json": "f192670cbca0fbad59c9ce31098514124a5a7f1748a372715655de409bcfa12e",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/016.json": "9ec3bd3edbb69fdb26a3983a8342c51db80d2fe4f59f822d9e89f4bf251f7862",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/017.json": "6a74f4180a7199b61ccdaea5d38322be2e166333ee421c2b0f958f7d30a23b21",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/018.json": "274bcfc77523b4af72e86888f3902a4f200d5d5115e735eff2d041bf5d753161",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/019.json": "338fe7fd382d3b4ed2e53f08b433185f3dcf3674a68f861c65f6ced12280f3b1",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/020.json": "a56d1b53a794749d9c240f146f8a26958f22e218068058586e49b185d9ae8893",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/021.json": "b428efcc7b2e047e029723bcbd6b4bb57617b3620e984eaee206fb93bd92e0f6",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/022.json": "327b543972ea42f0a492368af93e4421a2dcba280d9d0cbbb22f43f3c37b17d1",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/023.json": "bb6853bc38e7b10848d3ccdbadd46ffe8c3e86c634db7c38cd9f36f62e4997c3",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/024.json": "7584cbd08d5385df8766af84ff1f30bbe5389ada21821517e19ef5acfe0c1db1",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/025.json": "12ad09fd6bf1e3b1c888cb5924c3021bb87b647fe711b75cb9986fcf4a2090a8",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/026.json": "03fb4d84ba432591bc100cda3d3f0bc91391f92adf77cfcda145992d47b70def",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/027.json": "799cd3223c0dbf16342ec852ebfc94f6e8e61a6ef2825621d758992a02c52a52",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/028.json": "ca9b1e1ba811ae308b7467b4d7e1b0218aa52de8481f8fd5d7deaa6708b7fd1a",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/029.json": "ddbcf27176a73da32fbc8da27f494b1f2b80ef3e88d85c06432143140f7efdd6",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/030.json": "e0a3e67417519fe05badda2f6e5c8dc036fc31aafb3de89f7d9f45a511d83cc9",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/031.json": "596d1f8fcc38c2a494acea411ad68e5e4c4d841cbb6ff2b6910faa0daf614e24",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/032.json": "d18be43d1913f61abff398e7715c56865edbd654b4085f482ecd763f7e14d00b",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/033.json": "8076ed9f7f7b8a27da5e98f3e5cd82e040b4404b1d92142fb5a431d62973dfa7",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/034.json": "6e18f0441ad77698bfdc521bfcb7c1b269734c9f2c7ad3a8556282ddc94d42ba",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/035.json": "eff230e227664694add3cf727900190a1bc78ea1553fa7511cd663730b40b46f",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/036.json": "75aa6121614eea82a700c92fcc035090a82495ac402aa4da8957d1f5f322a0f3",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/037.json": "c10052d79d181644497598e56f6dcb910fb21772e9ca799d24ab1d18d1244770",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/038.json": "96455abb6cda8e6a022afd52de8dc30665c7a44e2742fbe89c469cd45f94c379",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/039.json": "649949e7c7035edc23710805c8b0a0c54c281091883af3bf2e27b14f0b95e296",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/040.json": "c58973fb973575a0d301a2ce8be2ef7aaf0db6f218dadf7248ce99939cd2128a",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/041.json": "ef3a8cadec9bbd527154c0f83809c4cd0716acf8b7314becf269f36281a4a56e",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/provisional/042.json": "de69cef224552c765ff58e5882e319a36e0282688a34aa6be9d4c356b818c232",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/043.json": "a487189c935374d169134a1dd43c632eb201d983ce243be8326e3780796963e0",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/044.json": "e7579a7c9a9dd13753dd529beb936a86c3ee01614156a98d98aceef212928c6e",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/045.json": "1ffda095bfdbf8c61dd27ba1b7c7c79aeb6d1d727e42e6283705bf435ea7d8a2",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/046.json": "9d890a3f05d226d33418662e6cc9d3e8ebbfd3f5b658c902c85a0098d5949ebe",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/047.json": "26c69d99fb161e0535c05dd2ba0c7bf524a141e506822b9784718accca90c4a7",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/048.json": "06b2549a6a8d4451cd738bc2ab3f999bb1506f15c3ecf2c356b22048695c7eb5",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/049.json": "e1bbd9e4a119f71d540900ec942b9c0d4e9c68eb86dd34652b780275aa6c92fb",
+    "benchmarks/reports/2026-09-11-factor-arena-full50-7201/summary.json": "05670bd20f3ab5347696bea267d642469786925efd7039e3cb2fdeac4f397fb8",
+    "benchmarks/probes/scratch/summarize-factor-transfer-7213.py": "71207a1a907eb91962bcd6ba16d0af3387d11845cabf134ee922bf551fa03794"
+  },
+  "score": {
+    "records": 50,
+    "expected_solves": 50,
+    "checked_clean": 36,
+    "complete": true,
+    "candidate_par2": 8103.859,
+    "fixed_kissat_seconds": 7239.01,
+    "ratio": 1.1194706182198948,
+    "runtime_target_met": false,
+    "per_rank": [
+      {
+        "rank": 1,
+        "solved": true,
+        "candidate_par2_seconds": 0.217,
+        "kissat_seconds": 0.218,
+        "candidate_peak_rss_kb": 83668,
+        "kissat_peak_rss_kb": 49564
+      },
+      {
+        "rank": 2,
+        "solved": true,
+        "candidate_par2_seconds": 0.217,
+        "kissat_seconds": 0.217,
+        "candidate_peak_rss_kb": 83664,
+        "kissat_peak_rss_kb": 49568
+      },
+      {
+        "rank": 3,
+        "solved": true,
+        "candidate_par2_seconds": 0.567,
+        "kissat_seconds": 0.467,
+        "candidate_peak_rss_kb": 153204,
+        "kissat_peak_rss_kb": 103612
+      },
+      {
+        "rank": 4,
+        "solved": true,
+        "candidate_par2_seconds": 7.528,
+        "kissat_seconds": 7.681,
+        "candidate_peak_rss_kb": 29368,
+        "kissat_peak_rss_kb": 13008
+      },
+      {
+        "rank": 5,
+        "solved": true,
+        "candidate_par2_seconds": 29.362,
+        "kissat_seconds": 30.214,
+        "candidate_peak_rss_kb": 10682156,
+        "kissat_peak_rss_kb": 10402844
+      },
+      {
+        "rank": 6,
+        "solved": true,
+        "candidate_par2_seconds": 73.037,
+        "kissat_seconds": 52.599,
+        "candidate_peak_rss_kb": 752016,
+        "kissat_peak_rss_kb": 349612
+      },
+      {
+        "rank": 7,
+        "solved": true,
+        "candidate_par2_seconds": 54.254,
+        "kissat_seconds": 48.242,
+        "candidate_peak_rss_kb": 9741656,
+        "kissat_peak_rss_kb": 9109728
+      },
+      {
+        "rank": 8,
+        "solved": true,
+        "candidate_par2_seconds": 86.762,
+        "kissat_seconds": 58.159,
+        "candidate_peak_rss_kb": 11888456,
+        "kissat_peak_rss_kb": 11118752
+      },
+      {
+        "rank": 9,
+        "solved": true,
+        "candidate_par2_seconds": 94.77,
+        "kissat_seconds": 68.928,
+        "candidate_peak_rss_kb": 3232040,
+        "kissat_peak_rss_kb": 1326232
+      },
+      {
+        "rank": 10,
+        "solved": true,
+        "candidate_par2_seconds": 123.524,
+        "kissat_seconds": 81.797,
+        "candidate_peak_rss_kb": 16007872,
+        "kissat_peak_rss_kb": 15348304
+      },
+      {
+        "rank": 11,
+        "solved": true,
+        "candidate_par2_seconds": 0.267,
+        "kissat_seconds": 0.217,
+        "candidate_peak_rss_kb": 97080,
+        "kissat_peak_rss_kb": 60692
+      },
+      {
+        "rank": 12,
+        "solved": true,
+        "candidate_par2_seconds": 7.228,
+        "kissat_seconds": 5.127,
+        "candidate_peak_rss_kb": 1845248,
+        "kissat_peak_rss_kb": 1234908
+      },
+      {
+        "rank": 13,
+        "solved": true,
+        "candidate_par2_seconds": 101.33,
+        "kissat_seconds": 65.334,
+        "candidate_peak_rss_kb": 12784316,
+        "kissat_peak_rss_kb": 11928200
+      },
+      {
+        "rank": 14,
+        "solved": true,
+        "candidate_par2_seconds": 72.983,
+        "kissat_seconds": 63.368,
+        "candidate_peak_rss_kb": 12894488,
+        "kissat_peak_rss_kb": 12018708
+      },
+      {
+        "rank": 15,
+        "solved": true,
+        "candidate_par2_seconds": 74.832,
+        "kissat_seconds": 80.291,
+        "candidate_peak_rss_kb": 49648,
+        "kissat_peak_rss_kb": 29704
+      },
+      {
+        "rank": 16,
+        "solved": true,
+        "candidate_par2_seconds": 118.351,
+        "kissat_seconds": 122.015,
+        "candidate_peak_rss_kb": 112724,
+        "kissat_peak_rss_kb": 65168
+      },
+      {
+        "rank": 17,
+        "solved": true,
+        "candidate_par2_seconds": 75.482,
+        "kissat_seconds": 113.158,
+        "candidate_peak_rss_kb": 1211764,
+        "kissat_peak_rss_kb": 598308
+      },
+      {
+        "rank": 18,
+        "solved": true,
+        "candidate_par2_seconds": 61.689,
+        "kissat_seconds": 126.552,
+        "candidate_peak_rss_kb": 2986252,
+        "kissat_peak_rss_kb": 2083228
+      },
+      {
+        "rank": 19,
+        "solved": true,
+        "candidate_par2_seconds": 129.723,
+        "kissat_seconds": 119.042,
+        "candidate_peak_rss_kb": 397364,
+        "kissat_peak_rss_kb": 143804
+      },
+      {
+        "rank": 20,
+        "solved": true,
+        "candidate_par2_seconds": 118.608,
+        "kissat_seconds": 165.883,
+        "candidate_peak_rss_kb": 1985848,
+        "kissat_peak_rss_kb": 943992
+      },
+      {
+        "rank": 21,
+        "solved": true,
+        "candidate_par2_seconds": 247.914,
+        "kissat_seconds": 96.821,
+        "candidate_peak_rss_kb": 3110844,
+        "kissat_peak_rss_kb": 1436392
+      },
+      {
+        "rank": 22,
+        "solved": true,
+        "candidate_par2_seconds": 220.294,
+        "kissat_seconds": 189.477,
+        "candidate_peak_rss_kb": 2618388,
+        "kissat_peak_rss_kb": 1919272
+      },
+      {
+        "rank": 23,
+        "solved": true,
+        "candidate_par2_seconds": 195.421,
+        "kissat_seconds": 202.406,
+        "candidate_peak_rss_kb": 94712,
+        "kissat_peak_rss_kb": 42608
+      },
+      {
+        "rank": 24,
+        "solved": true,
+        "candidate_par2_seconds": 268.529,
+        "kissat_seconds": 207.984,
+        "candidate_peak_rss_kb": 218456,
+        "kissat_peak_rss_kb": 101500
+      },
+      {
+        "rank": 25,
+        "solved": true,
+        "candidate_par2_seconds": 221.837,
+        "kissat_seconds": 246.184,
+        "candidate_peak_rss_kb": 3420992,
+        "kissat_peak_rss_kb": 888820
+      },
+      {
+        "rank": 26,
+        "solved": true,
+        "candidate_par2_seconds": 247.803,
+        "kissat_seconds": 260.932,
+        "candidate_peak_rss_kb": 129552,
+        "kissat_peak_rss_kb": 87904
+      },
+      {
+        "rank": 27,
+        "solved": true,
+        "candidate_par2_seconds": 318.246,
+        "kissat_seconds": 245.726,
+        "candidate_peak_rss_kb": 567988,
+        "kissat_peak_rss_kb": 298192
+      },
+      {
+        "rank": 28,
+        "solved": true,
+        "candidate_par2_seconds": 217.216,
+        "kissat_seconds": 242.505,
+        "candidate_peak_rss_kb": 1470056,
+        "kissat_peak_rss_kb": 807884
+      },
+      {
+        "rank": 29,
+        "solved": true,
+        "candidate_par2_seconds": 280.578,
+        "kissat_seconds": 295.641,
+        "candidate_peak_rss_kb": 127476,
+        "kissat_peak_rss_kb": 66076
+      },
+      {
+        "rank": 30,
+        "solved": true,
+        "candidate_par2_seconds": 258.426,
+        "kissat_seconds": 284.168,
+        "candidate_peak_rss_kb": 152028,
+        "kissat_peak_rss_kb": 93572
+      },
+      {
+        "rank": 31,
+        "solved": true,
+        "candidate_par2_seconds": 523.831,
+        "kissat_seconds": 264.532,
+        "candidate_peak_rss_kb": 563464,
+        "kissat_peak_rss_kb": 265752
+      },
+      {
+        "rank": 32,
+        "solved": true,
+        "candidate_par2_seconds": 320.428,
+        "kissat_seconds": 274.456,
+        "candidate_peak_rss_kb": 596932,
+        "kissat_peak_rss_kb": 299980
+      },
+      {
+        "rank": 33,
+        "solved": true,
+        "candidate_par2_seconds": 342.088,
+        "kissat_seconds": 311.385,
+        "candidate_peak_rss_kb": 598748,
+        "kissat_peak_rss_kb": 265332
+      },
+      {
+        "rank": 34,
+        "solved": true,
+        "candidate_par2_seconds": 329.676,
+        "kissat_seconds": 330.932,
+        "candidate_peak_rss_kb": 119788,
+        "kissat_peak_rss_kb": 40848
+      },
+      {
+        "rank": 35,
+        "solved": true,
+        "candidate_par2_seconds": 353.484,
+        "kissat_seconds": 306.699,
+        "candidate_peak_rss_kb": 600660,
+        "kissat_peak_rss_kb": 269360
+      },
+      {
+        "rank": 36,
+        "solved": true,
+        "candidate_par2_seconds": 352.78,
+        "kissat_seconds": 363.801,
+        "candidate_peak_rss_kb": 90256,
+        "kissat_peak_rss_kb": 50160
+      },
+      {
+        "rank": 37,
+        "solved": true,
+        "candidate_par2_seconds": 415.955,
+        "kissat_seconds": 346.372,
+        "candidate_peak_rss_kb": 603296,
+        "kissat_peak_rss_kb": 269236
+      },
+      {
+        "rank": 38,
+        "solved": true,
+        "candidate_par2_seconds": 338.635,
+        "kissat_seconds": 362.395,
+        "candidate_peak_rss_kb": 78312,
+        "kissat_peak_rss_kb": 44336
+      },
+      {
+        "rank": 39,
+        "solved": true,
+        "candidate_par2_seconds": 402.736,
+        "kissat_seconds": 366.837,
+        "candidate_peak_rss_kb": 400720,
+        "kissat_peak_rss_kb": 170616
+      },
+      {
+        "rank": 40,
+        "solved": true,
+        "candidate_par2_seconds": 406.157,
+        "kissat_seconds": 401.304,
+        "candidate_peak_rss_kb": 375572,
+        "kissat_peak_rss_kb": 187552
+      },
+      {
+        "rank": 41,
+        "solved": true,
+        "candidate_par2_seconds": 14.64,
+        "kissat_seconds": 11.585,
+        "candidate_peak_rss_kb": 178316,
+        "kissat_peak_rss_kb": 62856
+      },
+      {
+        "rank": 42,
+        "solved": true,
+        "candidate_par2_seconds": 65.52,
+        "kissat_seconds": 22.752,
+        "candidate_peak_rss_kb": 1611692,
+        "kissat_peak_rss_kb": 1145252
+      },
+      {
+        "rank": 43,
+        "solved": true,
+        "candidate_par2_seconds": 123.867,
+        "kissat_seconds": 46.089,
+        "candidate_peak_rss_kb": 2688796,
+        "kissat_peak_rss_kb": 1719156
+      },
+      {
+        "rank": 44,
+        "solved": true,
+        "candidate_par2_seconds": 57.453,
+        "kissat_seconds": 38.827,
+        "candidate_peak_rss_kb": 139068,
+        "kissat_peak_rss_kb": 95428
+      },
+      {
+        "rank": 45,
+        "solved": true,
+        "candidate_par2_seconds": 44.289,
+        "kissat_seconds": 45.187,
+        "candidate_peak_rss_kb": 63768,
+        "kissat_peak_rss_kb": 31976
+      },
+      {
+        "rank": 46,
+        "solved": true,
+        "candidate_par2_seconds": 81.543,
+        "kissat_seconds": 80.043,
+        "candidate_peak_rss_kb": 84808,
+        "kissat_peak_rss_kb": 43484
+      },
+      {
+        "rank": 47,
+        "solved": true,
+        "candidate_par2_seconds": 140.346,
+        "kissat_seconds": 98.418,
+        "candidate_peak_rss_kb": 4444232,
+        "kissat_peak_rss_kb": 3517460
+      },
+      {
+        "rank": 48,
+        "solved": true,
+        "candidate_par2_seconds": 15.596,
+        "kissat_seconds": 14.441,
+        "candidate_peak_rss_kb": 974500,
+        "kissat_peak_rss_kb": 592128
+      },
+      {
+        "rank": 49,
+        "solved": true,
+        "candidate_par2_seconds": 22.601,
+        "kissat_seconds": 22.555,
+        "candidate_peak_rss_kb": 26552,
+        "kissat_peak_rss_kb": 12288
+      },
+      {
+        "rank": 50,
+        "solved": true,
+        "candidate_par2_seconds": 45.239,
+        "kissat_seconds": 49.047,
+        "candidate_peak_rss_kb": 43172,
+        "kissat_peak_rss_kb": 18740
+      }
+    ],
+    "reference_checked": 50,
+    "all_certificates_checked": false,
+    "limitation": "Fixed-reference cross-window score; runtime_target_met alone is not acceptance. B28+C5,current-source fuzz and memory gates remain separate."
+  },
+  "delta_seconds": 31.799999999999947,
+  "largest_three_delta_seconds": 78.33099999999999,
+  "other47_delta_seconds": -46.53100000000004,
+  "selected_context": {
+    "10": {
+      "candidate": {
+        "record": "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/results/009.json",
+        "node": "node017",
+        "solve": {
+          "exit_code": 10,
+          "peak_rss_kb": 16007872,
+          "sampled_process_vm_peak_kb": 17725732,
+          "timed_out": false,
+          "wall_seconds": 123.524
+        },
+        "counters": {
+          "task-clock": 123291.26,
+          "cycles": 468493612309.0,
+          "instructions": 860078242467.0,
+          "context-switches": 846.0,
+          "cpu-migrations": 1.0,
+          "page-faults": 9242547.0
+        },
+        "factor_statistics": [
+          "c factor      0 factorings, 0 large remainders offered, 0 ticks",
+          "c factor-rem  0 materialized, 0 reused",
+          "c factor-bnd  0 grids rejected by the coupled bound",
+          "c factor-dem  0 demotions, 0 fresh vars demoted"
+        ],
+        "timing": [
+          "c timing      82965 ms solve",
+          "c timing      64966 ms (78.3%) inprocessing slot, 17998 ms (21.7%) search+scaffolding outside it",
+          "c timing        Congruence           39324 ms ( 47.4%) in 1 applications",
+          "c timing        Substitute           18975 ms ( 22.9%) in 1 applications",
+          "c timing        Sweep                 4514 ms (  5.4%) in 1 applications",
+          "c timing        Backbone               405 ms (  0.5%) in 1 applications",
+          "c timing        (unattributed)        1748 ms (  2.1%)"
+        ]
+      },
+      "parent": {
+        "record": "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/009.json",
+        "node": "node018",
+        "solve": {
+          "exit_code": 10,
+          "peak_rss_kb": 16014884,
+          "sampled_process_vm_peak_kb": 17725732,
+          "timed_out": false,
+          "wall_seconds": 91.513
+        },
+        "counters": {
+          "task-clock": 91418.44,
+          "cycles": 347378810743.0,
+          "instructions": 819224059862.0,
+          "context-switches": 712.0,
+          "cpu-migrations": 1.0,
+          "page-faults": 234957.0
+        },
+        "factor_statistics": [
+          "c factor      0 factorings, 0 large remainders offered, 0 ticks",
+          "c factor-rem  0 materialized, 0 reused",
+          "c factor-bnd  0 grids rejected by the coupled bound",
+          "c factor-dem  0 demotions, 0 fresh vars demoted"
+        ],
+        "timing": [
+          "c timing      69391 ms solve",
+          "c timing      57542 ms (82.9%) inprocessing slot, 11849 ms (17.1%) search+scaffolding outside it",
+          "c timing        Congruence           35239 ms ( 50.8%) in 1 applications",
+          "c timing        Substitute           16690 ms ( 24.1%) in 1 applications",
+          "c timing        Sweep                 4127 ms (  5.9%) in 1 applications",
+          "c timing        Backbone               398 ms (  0.6%) in 1 applications",
+          "c timing        (unattributed)        1087 ms (  1.6%)"
+        ]
+      }
+    },
+    "13": {
+      "candidate": {
+        "record": "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/results/012.json",
+        "node": "node017",
+        "solve": {
+          "exit_code": 10,
+          "peak_rss_kb": 12784316,
+          "sampled_process_vm_peak_kb": 15274788,
+          "timed_out": false,
+          "wall_seconds": 101.33
+        },
+        "counters": {
+          "task-clock": 101090.69,
+          "cycles": 384116416854.0,
+          "instructions": 703864975394.0,
+          "context-switches": 1063.0,
+          "cpu-migrations": 1.0,
+          "page-faults": 10019407.0
+        },
+        "factor_statistics": [
+          "c factor      0 factorings, 0 large remainders offered, 0 ticks",
+          "c factor-rem  0 materialized, 0 reused",
+          "c factor-bnd  0 grids rejected by the coupled bound",
+          "c factor-dem  0 demotions, 0 fresh vars demoted"
+        ],
+        "timing": [
+          "c timing      76471 ms solve",
+          "c timing      57926 ms (75.7%) inprocessing slot, 18545 ms (24.3%) search+scaffolding outside it",
+          "c timing        Congruence           36481 ms ( 47.7%) in 1 applications",
+          "c timing        Substitute           15704 ms ( 20.5%) in 1 applications",
+          "c timing        Sweep                 3583 ms (  4.7%) in 1 applications",
+          "c timing        Backbone               367 ms (  0.5%) in 1 applications",
+          "c timing        (unattributed)        1791 ms (  2.3%)"
+        ]
+      },
+      "parent": {
+        "record": "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/012.json",
+        "node": "node017",
+        "solve": {
+          "exit_code": 10,
+          "peak_rss_kb": 12791160,
+          "sampled_process_vm_peak_kb": 15274788,
+          "timed_out": false,
+          "wall_seconds": 75.239
+        },
+        "counters": {
+          "task-clock": 75199.67,
+          "cycles": 285746401735.0,
+          "instructions": 663385492651.0,
+          "context-switches": 656.0,
+          "cpu-migrations": 1.0,
+          "page-faults": 968341.0
+        },
+        "factor_statistics": [
+          "c factor      0 factorings, 0 large remainders offered, 0 ticks",
+          "c factor-rem  0 materialized, 0 reused",
+          "c factor-bnd  0 grids rejected by the coupled bound",
+          "c factor-dem  0 demotions, 0 fresh vars demoted"
+        ],
+        "timing": [
+          "c timing      57900 ms solve",
+          "c timing      47973 ms (82.9%) inprocessing slot, 9927 ms (17.1%) search+scaffolding outside it",
+          "c timing        Congruence           29715 ms ( 51.3%) in 1 applications",
+          "c timing        Substitute           13757 ms ( 23.8%) in 1 applications",
+          "c timing        Sweep                 3304 ms (  5.7%) in 1 applications",
+          "c timing        Backbone               319 ms (  0.6%) in 1 applications",
+          "c timing        (unattributed)         877 ms (  1.5%)"
+        ]
+      }
+    },
+    "8": {
+      "candidate": {
+        "record": "benchmarks/runs/20260911-7201-factor-arena-ranks1-50/results/007.json",
+        "node": "node017",
+        "solve": {
+          "exit_code": 10,
+          "peak_rss_kb": 11888456,
+          "sampled_process_vm_peak_kb": 14785132,
+          "timed_out": false,
+          "wall_seconds": 86.762
+        },
+        "counters": {
+          "task-clock": 86686.28,
+          "cycles": 329399092636.0,
+          "instructions": 634952918286.0,
+          "context-switches": 580.0,
+          "cpu-migrations": 1.0,
+          "page-faults": 6928524.0
+        },
+        "factor_statistics": [
+          "c factor      0 factorings, 0 large remainders offered, 0 ticks",
+          "c factor-rem  0 materialized, 0 reused",
+          "c factor-bnd  0 grids rejected by the coupled bound",
+          "c factor-dem  0 demotions, 0 fresh vars demoted"
+        ],
+        "timing": [
+          "c timing      68216 ms solve",
+          "c timing      52969 ms (77.6%) inprocessing slot, 15247 ms (22.4%) search+scaffolding outside it",
+          "c timing        Congruence           34615 ms ( 50.7%) in 1 applications",
+          "c timing        Substitute           13578 ms ( 19.9%) in 1 applications",
+          "c timing        Sweep                 3170 ms (  4.6%) in 1 applications",
+          "c timing        Backbone               402 ms (  0.6%) in 1 applications",
+          "c timing        (unattributed)        1204 ms (  1.8%)"
+        ]
+      },
+      "parent": {
+        "record": "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/007.json",
+        "node": "node018",
+        "solve": {
+          "exit_code": 10,
+          "peak_rss_kb": 11897780,
+          "sampled_process_vm_peak_kb": 14785132,
+          "timed_out": false,
+          "wall_seconds": 66.533
+        },
+        "counters": {
+          "task-clock": 66481.22,
+          "cycles": 252609842891.0,
+          "instructions": 600633786257.0,
+          "context-switches": 764.0,
+          "cpu-migrations": 1.0,
+          "page-faults": 211111.0
+        },
+        "factor_statistics": [
+          "c factor      0 factorings, 0 large remainders offered, 0 ticks",
+          "c factor-rem  0 materialized, 0 reused",
+          "c factor-bnd  0 grids rejected by the coupled bound",
+          "c factor-dem  0 demotions, 0 fresh vars demoted"
+        ],
+        "timing": [
+          "c timing      50598 ms solve",
+          "c timing      41814 ms (82.6%) inprocessing slot, 8784 ms (17.4%) search+scaffolding outside it",
+          "c timing        Congruence           26523 ms ( 52.4%) in 1 applications",
+          "c timing        Substitute           11148 ms ( 22.0%) in 1 applications",
+          "c timing        Sweep                 3074 ms (  6.1%) in 1 applications",
+          "c timing        Backbone               299 ms (  0.6%) in 1 applications",
+          "c timing        (unattributed)         768 ms (  1.5%)"
+        ]
+      }
+    }
+  },
+  "all50_memory": [
+    {
+      "rank": 1,
+      "candidate_kib": 83668,
+      "parent_kib": 83668,
+      "ratio": 1.0
+    },
+    {
+      "rank": 2,
+      "candidate_kib": 83664,
+      "parent_kib": 83664,
+      "ratio": 1.0
+    },
+    {
+      "rank": 3,
+      "candidate_kib": 153204,
+      "parent_kib": 153204,
+      "ratio": 1.0
+    },
+    {
+      "rank": 4,
+      "candidate_kib": 29368,
+      "parent_kib": 28144,
+      "ratio": 1.0434906196702671
+    },
+    {
+      "rank": 5,
+      "candidate_kib": 10682156,
+      "parent_kib": 10682156,
+      "ratio": 1.0
+    },
+    {
+      "rank": 6,
+      "candidate_kib": 752016,
+      "parent_kib": 756996,
+      "ratio": 0.9934213655025919
+    },
+    {
+      "rank": 7,
+      "candidate_kib": 9741656,
+      "parent_kib": 9741656,
+      "ratio": 1.0
+    },
+    {
+      "rank": 8,
+      "candidate_kib": 11888456,
+      "parent_kib": 11897780,
+      "ratio": 0.9992163243899282
+    },
+    {
+      "rank": 9,
+      "candidate_kib": 3232040,
+      "parent_kib": 3231528,
+      "ratio": 1.00015843897995
+    },
+    {
+      "rank": 10,
+      "candidate_kib": 16007872,
+      "parent_kib": 16014884,
+      "ratio": 0.9995621573031688
+    },
+    {
+      "rank": 11,
+      "candidate_kib": 97080,
+      "parent_kib": 97080,
+      "ratio": 1.0
+    },
+    {
+      "rank": 12,
+      "candidate_kib": 1845248,
+      "parent_kib": 1845248,
+      "ratio": 1.0
+    },
+    {
+      "rank": 13,
+      "candidate_kib": 12784316,
+      "parent_kib": 12791160,
+      "ratio": 0.999464942976243
+    },
+    {
+      "rank": 14,
+      "candidate_kib": 12894488,
+      "parent_kib": 12894488,
+      "ratio": 1.0
+    },
+    {
+      "rank": 15,
+      "candidate_kib": 49648,
+      "parent_kib": 47532,
+      "ratio": 1.0445173777665573
+    },
+    {
+      "rank": 16,
+      "candidate_kib": 112724,
+      "parent_kib": 115184,
+      "ratio": 0.9786428670648701
+    },
+    {
+      "rank": 17,
+      "candidate_kib": 1211764,
+      "parent_kib": 1220768,
+      "ratio": 0.9926243151851949
+    },
+    {
+      "rank": 18,
+      "candidate_kib": 2986252,
+      "parent_kib": 2986252,
+      "ratio": 1.0
+    },
+    {
+      "rank": 19,
+      "candidate_kib": 397364,
+      "parent_kib": 395476,
+      "ratio": 1.0047739938706775
+    },
+    {
+      "rank": 20,
+      "candidate_kib": 1985848,
+      "parent_kib": 1793232,
+      "ratio": 1.1074127608697593
+    },
+    {
+      "rank": 21,
+      "candidate_kib": 3110844,
+      "parent_kib": 3179060,
+      "ratio": 0.9785420847671953
+    },
+    {
+      "rank": 22,
+      "candidate_kib": 2618388,
+      "parent_kib": 2618388,
+      "ratio": 1.0
+    },
+    {
+      "rank": 23,
+      "candidate_kib": 94712,
+      "parent_kib": 96760,
+      "ratio": 0.9788342290202563
+    },
+    {
+      "rank": 24,
+      "candidate_kib": 218456,
+      "parent_kib": 228828,
+      "ratio": 0.9546733791319244
+    },
+    {
+      "rank": 25,
+      "candidate_kib": 3420992,
+      "parent_kib": 3420992,
+      "ratio": 1.0
+    },
+    {
+      "rank": 26,
+      "candidate_kib": 129552,
+      "parent_kib": 129472,
+      "ratio": 1.00061789421651
+    },
+    {
+      "rank": 27,
+      "candidate_kib": 567988,
+      "parent_kib": 565056,
+      "ratio": 1.005188866236267
+    },
+    {
+      "rank": 28,
+      "candidate_kib": 1470056,
+      "parent_kib": 1444452,
+      "ratio": 1.0177257534345205
+    },
+    {
+      "rank": 29,
+      "candidate_kib": 127476,
+      "parent_kib": 127480,
+      "ratio": 0.9999686225290242
+    },
+    {
+      "rank": 30,
+      "candidate_kib": 152028,
+      "parent_kib": 152028,
+      "ratio": 1.0
+    },
+    {
+      "rank": 31,
+      "candidate_kib": 563464,
+      "parent_kib": 563464,
+      "ratio": 1.0
+    },
+    {
+      "rank": 32,
+      "candidate_kib": 596932,
+      "parent_kib": 596932,
+      "ratio": 1.0
+    },
+    {
+      "rank": 33,
+      "candidate_kib": 598748,
+      "parent_kib": 599316,
+      "ratio": 0.9990522529016412
+    },
+    {
+      "rank": 34,
+      "candidate_kib": 119788,
+      "parent_kib": 112416,
+      "ratio": 1.065577853686308
+    },
+    {
+      "rank": 35,
+      "candidate_kib": 600660,
+      "parent_kib": 600660,
+      "ratio": 1.0
+    },
+    {
+      "rank": 36,
+      "candidate_kib": 90256,
+      "parent_kib": 84220,
+      "ratio": 1.0716694371883164
+    },
+    {
+      "rank": 37,
+      "candidate_kib": 603296,
+      "parent_kib": 603296,
+      "ratio": 1.0
+    },
+    {
+      "rank": 38,
+      "candidate_kib": 78312,
+      "parent_kib": 72092,
+      "ratio": 1.0862786439549466
+    },
+    {
+      "rank": 39,
+      "candidate_kib": 400720,
+      "parent_kib": 402720,
+      "ratio": 0.9950337703615415
+    },
+    {
+      "rank": 40,
+      "candidate_kib": 375572,
+      "parent_kib": 375572,
+      "ratio": 1.0
+    },
+    {
+      "rank": 41,
+      "candidate_kib": 178316,
+      "parent_kib": 175948,
+      "ratio": 1.013458521835997
+    },
+    {
+      "rank": 42,
+      "candidate_kib": 1611692,
+      "parent_kib": 1611692,
+      "ratio": 1.0
+    },
+    {
+      "rank": 43,
+      "candidate_kib": 2688796,
+      "parent_kib": 2688796,
+      "ratio": 1.0
+    },
+    {
+      "rank": 44,
+      "candidate_kib": 139068,
+      "parent_kib": 137996,
+      "ratio": 1.0077683411113365
+    },
+    {
+      "rank": 45,
+      "candidate_kib": 63768,
+      "parent_kib": 64016,
+      "ratio": 0.996125968507873
+    },
+    {
+      "rank": 46,
+      "candidate_kib": 84808,
+      "parent_kib": 90500,
+      "ratio": 0.9371049723756906
+    },
+    {
+      "rank": 47,
+      "candidate_kib": 4444232,
+      "parent_kib": 4444232,
+      "ratio": 1.0
+    },
+    {
+      "rank": 48,
+      "candidate_kib": 974500,
+      "parent_kib": 974500,
+      "ratio": 1.0
+    },
+    {
+      "rank": 49,
+      "candidate_kib": 26552,
+      "parent_kib": 23740,
+      "ratio": 1.1184498736310025
+    },
+    {
+      "rank": 50,
+      "candidate_kib": 43172,
+      "parent_kib": 43000,
+      "ratio": 1.004
+    }
+  ],
+  "decision": "Retain isolated arena evidence, not aggregate-gain acceptance. Three repeated matched8/10/13 pairs in7212 distinguish repeatable binary effects from cross-window context. No rank excluded from score; no native refresh.",
+  "limitation": "Page-fault increases correlate with three slowdowns; they do not identify allocation, THP, NUMA, system pressure or source as cause. perf counters include kernel execution. One full-set transfer is not causal attribution. Several RSS increases remain real reported tradeoffs; final checks/fuzz/consolidation/target open."
+}

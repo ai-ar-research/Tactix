@@ -1,0 +1,11 @@
+{
+  "job_id": "1680640",
+  "accounting_since": "2026-09-11T00:52:56",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7210-rank31-retry-producer/array.sbatch"
+  ],
+  "manifest_sha256": "ea7c04b917cda64bbddfb37ea5e650f4dafe65da8f6a5b1bee5fa90197045ef9",
+  "submit_helper_sha256": "432229a02cd4368439e753cf3222dbe22f4fd5327111c79a44f6bc1fc784ea1c"
+}
