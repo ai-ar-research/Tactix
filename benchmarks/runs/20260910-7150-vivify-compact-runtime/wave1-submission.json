@@ -1,0 +1,28 @@
+{
+  "job_id": "1680208",
+  "tasks": [
+    6,
+    7,
+    8,
+    9,
+    10,
+    11
+  ],
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--array=6-11",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260910-7150-vivify-compact-runtime/array.sbatch"
+  ],
+  "accounting_since": "2026-09-10T21:35:29",
+  "manifest_sha256": "f51485a030bbabed036df873d95ade84972e9427d692c4914855cfdb8b057367",
+  "helper_sha256": "ab19b2a6ed9a4808d455faab15b397dd05683361d8df0e8d737dd0bc2cf7cd7f",
+  "preceding_records": {
+    "benchmarks/runs/20260910-7150-vivify-compact-runtime/provisional/000.json": "c007a9c143fc585d3f14414da819e1f6e6baec8f01b67e8e23b03578c64d25a4",
+    "benchmarks/runs/20260910-7150-vivify-compact-runtime/provisional/001.json": "3e101a736932ae7a022367677383d136429252c9c2c857223e5acb78064ef9be",
+    "benchmarks/runs/20260910-7150-vivify-compact-runtime/provisional/002.json": "473fb1c7c4e81144c06bcc823a90e4d67af06795c7d2ddce4ad58fe982c97cef",
+    "benchmarks/runs/20260910-7150-vivify-compact-runtime/provisional/003.json": "e2e1c9b0b6f1537d3d016380f098d8ac28e23b9dcc19672b84e35098b988c367",
+    "benchmarks/runs/20260910-7150-vivify-compact-runtime/provisional/004.json": "0a7513f7f5d7742b88cdc0baffcae022627c4f73d970b60b82fe9911002ef509",
+    "benchmarks/runs/20260910-7150-vivify-compact-runtime/provisional/005.json": "b82bb4d65d9d4b4974dee72265b3a5a04a75672eee70bc56d1dfd93b46d08345"
+  }
+}
