@@ -1,0 +1,1287 @@
+{
+  "hashes": {
+    "benchmarks/runs/20260910-7170-factor-pc-localization/summary.json": "bcb98e80e712b036a838c5dbcea826c9930b0f20fa94d8d37d3364cb1486d748",
+    "benchmarks/reports/2026-09-10-factor-envelope-7171.json": "f5236a332a2bb6ecd5ac63f89489624b0a3a5d8c49f0ae9a36b20e32294bcb5b",
+    "benchmarks/probes/scratch/localize-factor-children-7178.py": "30d60edccf4a3eb9aa8259547ccdc86c206e0ae1ed472dfc5944548b543397c6",
+    "benchmarks/runs/20260910-7153-vivify-compact-samples/wave0/candidate.samples.txt.xz": "c6e62f8de7894758f10b84c3dfe8ff0048b5486a1c229db53f5e7113931dadb3",
+    "benchmarks/runs/20260910-7153-vivify-compact-samples/wave1/candidate.samples.txt.xz": "9d65718242bcaa4ec7e4df7af530c111507a1b713456503df0fce1b039a2c79c",
+    "benchmarks/runs/20260910-7153-vivify-compact-samples/wave2/candidate.samples.txt.xz": "dd9d713ab69aa1432fadb30e064fb4d464293158b2879bed5536969581a858b4"
+  },
+  "arms": {
+    "candidate-wave0": {
+      "total_period": 1340257338884,
+      "selected_period": 53880322120,
+      "children": {
+        "tactix::kernel_flush_large_watches(tactix::Kernel&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": {
+          "period": 1156976347,
+          "sites": {
+            "0x47f334": 1156976347
+          },
+          "leaves": {
+            "tactix::kernel_compact_dense_entry_watches(tactix::Kernel&, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 1156976347
+          }
+        },
+        "tactix::(anonymous namespace)::build_factor_index(tactix::Kernel const&, tactix::(anonymous namespace)::FactorIndex&, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": {
+          "period": 10336497198,
+          "sites": {
+            "0x47e261": 10336497198
+          },
+          "leaves": {
+            "tactix::(anonymous namespace)::build_factor_index(tactix::Kernel const&, tactix::(anonymous namespace)::FactorIndex&, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 6353755407,
+            "_int_malloc [/usr/lib64/libc.so.6]": 948279608,
+            "_int_free [/usr/lib64/libc.so.6]": 455167401,
+            "cfree@GLIBC_2.2.5 [/usr/lib64/libc.so.6]": 379267210,
+            "malloc [/usr/lib64/libc.so.6]": 1612155051,
+            "malloc_consolidate [/usr/lib64/libc.so.6]": 113735460,
+            "alloc_perturb [/usr/lib64/libc.so.6]": 18960869,
+            "operator delete(void*) [/cm/local/apps/gcc/13.1.0/lib64/libstdc++.so.6.0.31]": 37915795,
+            "unlink_chunk.constprop.0 [/usr/lib64/libc.so.6]": 18975590,
+            "std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 246566298,
+            "operator new(unsigned long) [/cm/local/apps/gcc/13.1.0/lib64/libstdc++.so.6.0.31]": 75857767,
+            "operator delete(void*, unsigned long) [/cm/local/apps/gcc/13.1.0/lib64/libstdc++.so.6.0.31]": 18949267,
+            "operator new(unsigned long)@plt [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 18971719,
+            "__memmove_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 37939756
+          }
+        },
+        "void std::__merge_sort_with_buffer<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, unsigned int*, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}> >(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, unsigned int*, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}>) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": {
+          "period": 701678731,
+          "sites": {
+            "0x47e7ec": 303395069,
+            "0x47e7fe": 398283662
+          },
+          "leaves": {
+            "unsigned int* std::__move_merge<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, unsigned int*, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}> >(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, unsigned int*, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}>) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 265488280,
+            "void std::__merge_sort_with_buffer<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, unsigned int*, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}> >(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, unsigned int*, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}>) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 436190451
+          }
+        },
+        "tactix::(anonymous namespace)::FactorHeap::update(unsigned int, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": {
+          "period": 379282407,
+          "sites": {
+            "0x47f5a3": 379282407
+          },
+          "leaves": {
+            "tactix::(anonymous namespace)::FactorHeap::update(unsigned int, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 341331744,
+            "__memset_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 18970702,
+            "__memmove_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 18979961
+          }
+        },
+        "tactix::(anonymous namespace)::remainder_occurrences_of(tactix::Kernel&, tactix::(anonymous namespace)::FactorIndex&, tactix::(anonymous namespace)::RemPool&, unsigned int, unsigned int, std::vector<unsigned int, std::allocator<unsigned int> >&, std::vector<tactix::(anonymous namespace)::RemOccurrence, std::allocator<tactix::(anonymous namespace)::RemOccurrence> >&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": {
+          "period": 4620623213,
+          "sites": {
+            "0x47f5e7": 4620623213
+          },
+          "leaves": {
+            "tactix::(anonymous namespace)::remainder_occurrences_of(tactix::Kernel&, tactix::(anonymous namespace)::FactorIndex&, tactix::(anonymous namespace)::RemPool&, unsigned int, unsigned int, std::vector<unsigned int, std::allocator<unsigned int> >&, std::vector<tactix::(anonymous namespace)::RemOccurrence, std::allocator<tactix::(anonymous namespace)::RemOccurrence> >&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 3824806221,
+            "tactix::(anonymous namespace)::RemPool::intern_unit(unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 151771582,
+            "__memmove_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 492641968,
+            "__memcmp_evex_movbe [/usr/lib64/libc.so.6]": 75640899,
+            "std::vector<unsigned int, std::allocator<unsigned int> >::_M_fill_assign(unsigned long, unsigned int const&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 18973707,
+            "std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 18856528,
+            "memmove@plt [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 18974049,
+            "void std::__introsort_loop<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, long, __gnu_cxx::__ops::_Iter_less_iter) [clone .isra.0] [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 18958259
+          }
+        },
+        "<entry self>": {
+          "period": 21054103075,
+          "sites": {
+            "<self>": 21054103075
+          },
+          "leaves": {
+            "tactix::factor_apply_seeded(tactix::Kernel&, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 21054103075
+          }
+        },
+        "tactix::(anonymous namespace)::apply_factoring(tactix::Kernel&, tactix::(anonymous namespace)::FactorIndex&, std::vector<unsigned int, std::allocator<unsigned int> > const&, std::vector<unsigned int, std::allocator<unsigned int> > const&, tactix::(anonymous namespace)::RemPool const&, std::vector<std::vector<unsigned int, std::allocator<unsigned int> >, std::allocator<std::vector<unsigned int, std::allocator<unsigned int> > > > const&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": {
+          "period": 2105503312,
+          "sites": {
+            "0x4803dd": 2105503312
+          },
+          "leaves": {
+            "tactix::(anonymous namespace)::apply_factoring(tactix::Kernel&, tactix::(anonymous namespace)::FactorIndex&, std::vector<unsigned int, std::allocator<unsigned int> > const&, std::vector<unsigned int, std::allocator<unsigned int> > const&, tactix::(anonymous namespace)::RemPool const&, std::vector<std::vector<unsigned int, std::allocator<unsigned int> >, std::allocator<std::vector<unsigned int, std::allocator<unsigned int> > > > const&)::{lambda(unsigned int, unsigned int, unsigned long)#1}::operator()(unsigned int, unsigned int, unsigned long) const [clone .isra.0] [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 94842016,
+            "tactix::(anonymous namespace)::apply_factoring(tactix::Kernel&, tactix::(anonymous namespace)::FactorIndex&, std::vector<unsigned int, std::allocator<unsigned int> > const&, std::vector<unsigned int, std::allocator<unsigned int> > const&, tactix::(anonymous namespace)::RemPool const&, std::vector<std::vector<unsigned int, std::allocator<unsigned int> >, std::allocator<std::vector<unsigned int, std::allocator<unsigned int> > > > const&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 682830317,
+            "tactix::delete_binary_all_copies(tactix::Kernel&, unsigned int, unsigned int, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 151807769,
+            "void std::__introsort_loop<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, long, __gnu_cxx::__ops::_Iter_comp_iter<tactix::WatchLists::defrag()::{lambda(unsigned int, unsigned int)#1}> >(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, long, __gnu_cxx::__ops::_Iter_comp_iter<tactix::WatchLists::defrag()::{lambda(unsigned int, unsigned int)#1}>) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 644947664,
+            "tactix::Proof::del(unsigned long, unsigned long, unsigned int const*, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 18970019,
+            "tactix::WatchLists::defrag() [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 379339658,
+            "tactix::Proof::add_rat(unsigned long, unsigned int const*, unsigned int, long const*, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 37926060,
+            "__memmove_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 94839809
+          }
+        },
+        "tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int const*, unsigned int, unsigned int)#1}::operator()(unsigned int const*, unsigned int, unsigned int) const [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": {
+          "period": 891078107,
+          "sites": {
+            "0x480c83": 891078107
+          },
+          "leaves": {
+            "tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int const*, unsigned int, unsigned int)#1}::operator()(unsigned int const*, unsigned int, unsigned int) const [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 891078107
+          }
+        },
+        "std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": {
+          "period": 4244933384,
+          "sites": {
+            "0x480087": 37943129,
+            "0x47f6b3": 360334211,
+            "0x47f6c3": 322460758,
+            "0x481536": 3202330446,
+            "0x480e20": 227023839,
+            "0x48006a": 75873447,
+            "0x480dbf": 18967554
+          },
+          "leaves": {
+            "std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 4093775968,
+            "malloc@plt [/cm/local/apps/gcc/13.1.0/lib64/libstdc++.so.6.0.31]": 18321508,
+            "_int_malloc [/usr/lib64/libc.so.6]": 37949708,
+            "malloc [/usr/lib64/libc.so.6]": 75929232,
+            "operator new(unsigned long) [/cm/local/apps/gcc/13.1.0/lib64/libstdc++.so.6.0.31]": 18956968
+          }
+        },
+        "tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int)#4}::operator()(unsigned int) const [clone .isra.0] [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": {
+          "period": 151648922,
+          "sites": {
+            "0x480097": 151648922
+          },
+          "leaves": {
+            "tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int)#4}::operator()(unsigned int) const [clone .isra.0] [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 151648922
+          }
+        },
+        "tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int)#7}::operator()(unsigned int) const [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": {
+          "period": 18969689,
+          "sites": {
+            "0x480647": 18969689
+          },
+          "leaves": {
+            "tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int)#7}::operator()(unsigned int) const [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 18969689
+          }
+        },
+        "std::vector<std::vector<unsigned int, std::allocator<unsigned int> >, std::allocator<std::vector<unsigned int, std::allocator<unsigned int> > > >::_M_fill_assign(unsigned long, std::vector<unsigned int, std::allocator<unsigned int> > const&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": {
+          "period": 94857903,
+          "sites": {
+            "0x47f637": 94857903
+          },
+          "leaves": {
+            "std::vector<std::vector<unsigned int, std::allocator<unsigned int> >, std::allocator<std::vector<unsigned int, std::allocator<unsigned int> > > >::_M_fill_assign(unsigned long, std::vector<unsigned int, std::allocator<unsigned int> > const&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 18963942,
+            "cfree@GLIBC_2.2.5 [/usr/lib64/libc.so.6]": 56901584,
+            "_int_free [/usr/lib64/libc.so.6]": 18992377
+          }
+        },
+        "tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": {
+          "period": 5837224164,
+          "sites": {
+            "0x47e9e2": 5837224164
+          },
+          "leaves": {
+            "__memmove_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 699943318,
+            "tactix::move_best_watch_to_front(tactix::Kernel&, tactix::Clause*, unsigned int, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 1148883718,
+            "tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 3417426076,
+            "tactix::WatchLists::grow(unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 92902774,
+            "std::vector<unsigned int, std::allocator<unsigned int> >::resize(unsigned long) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 218670820,
+            "memset@plt [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 34963615,
+            "memmove@plt [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 37896612,
+            "__memset_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 186537231
+          }
+        },
+        "operator delete(void*, unsigned long)@plt [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": {
+          "period": 32626098,
+          "sites": {
+            "0x47ee73": 32626098
+          },
+          "leaves": {
+            "operator delete(void*, unsigned long)@plt [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 32626098
+          }
+        },
+        "cfree@GLIBC_2.2.5 [/usr/lib64/libc.so.6]": {
+          "period": 1876229173,
+          "sites": {
+            "0x47ee73": 1838273499,
+            "0x481a32": 37955674
+          },
+          "leaves": {
+            "_int_free [/usr/lib64/libc.so.6]": 766347972,
+            "unlink_chunk.constprop.0 [/usr/lib64/libc.so.6]": 351909443,
+            "cfree@GLIBC_2.2.5 [/usr/lib64/libc.so.6]": 502024050,
+            "malloc_consolidate [/usr/lib64/libc.so.6]": 255947708
+          }
+        },
+        "getenv [/usr/lib64/libc.so.6]": {
+          "period": 37641133,
+          "sites": {
+            "0x480319": 37641133
+          },
+          "leaves": {
+            "getenv [/usr/lib64/libc.so.6]": 37641133
+          }
+        },
+        "operator delete(void*)@plt [/cm/local/apps/gcc/13.1.0/lib64/libstdc++.so.6.0.31]": {
+          "period": 18127798,
+          "sites": {
+            "0x47ee73": 18127798
+          },
+          "leaves": {
+            "operator delete(void*)@plt [/cm/local/apps/gcc/13.1.0/lib64/libstdc++.so.6.0.31]": 18127798
+          }
+        },
+        "non-virtual thunk to tactix::DefaultFactorMatch::seed_score(tactix::Kernel const&, unsigned int, double) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": {
+          "period": 37857353,
+          "sites": {
+            "0x47f58f": 37857353
+          },
+          "leaves": {
+            "non-virtual thunk to tactix::DefaultFactorMatch::seed_score(tactix::Kernel const&, unsigned int, double) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 37857353
+          }
+        },
+        "operator delete(void*) [/cm/local/apps/gcc/13.1.0/lib64/libstdc++.so.6.0.31]": {
+          "period": 75880602,
+          "sites": {
+            "0x47ee73": 37933570,
+            "0x481a32": 37947032
+          },
+          "leaves": {
+            "operator delete(void*) [/cm/local/apps/gcc/13.1.0/lib64/libstdc++.so.6.0.31]": 75880602
+          }
+        },
+        "__memset_avx512_unaligned_erms [/usr/lib64/libc.so.6]": {
+          "period": 37936634,
+          "sites": {
+            "0x47e2d2": 18968385,
+            "0x47e3a8": 18968249
+          },
+          "leaves": {
+            "__memset_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 37936634
+          }
+        },
+        "operator new(unsigned long) [/cm/local/apps/gcc/13.1.0/lib64/libstdc++.so.6.0.31]": {
+          "period": 94822719,
+          "sites": {
+            "0x481a62": 56894946,
+            "0x4813ba": 18969903,
+            "0x4818b6": 18957870
+          },
+          "leaves": {
+            "malloc [/usr/lib64/libc.so.6]": 75864849,
+            "_int_malloc [/usr/lib64/libc.so.6]": 18957870
+          }
+        },
+        "void std::__merge_adaptive<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, long, unsigned int*, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}> >(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, long, long, unsigned int*, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}>) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": {
+          "period": 18921870,
+          "sites": {
+            "0x47e82f": 18921870
+          },
+          "leaves": {
+            "void std::__merge_adaptive<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, long, unsigned int*, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}> >(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, long, long, unsigned int*, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}>) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 18921870
+          }
+        },
+        "std::vector<unsigned int, std::allocator<unsigned int> >::reserve(unsigned long) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": {
+          "period": 18965162,
+          "sites": {
+            "0x47f670": 18965162
+          },
+          "leaves": {
+            "std::vector<unsigned int, std::allocator<unsigned int> >::reserve(unsigned long) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 18965162
+          }
+        },
+        "std::vector<unsigned int, std::allocator<unsigned int> >::operator=(std::vector<unsigned int, std::allocator<unsigned int> > const&) [clone .isra.0] [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": {
+          "period": 37937126,
+          "sites": {
+            "0x48183f": 37937126
+          },
+          "leaves": {
+            "std::vector<unsigned int, std::allocator<unsigned int> >::operator=(std::vector<unsigned int, std::allocator<unsigned int> > const&) [clone .isra.0] [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 37937126
+          }
+        }
+      },
+      "callsites": {
+        "0x47e1cb": "callq  4869c0 <tactix::propagate_service(tactix::Kernel&)>",
+        "0x47e261": "callq  47aed0 <tactix::(anonymous namespace)::build_factor_index(tactix::Kernel const&, tactix::(anonymous namespace)::FactorIndex&, unsigned int)>",
+        "0x47e2b1": "callq  402200 <operator new(unsigned long)@plt>",
+        "0x47e2d2": "callq  402120 <memset@plt>",
+        "0x47e302": "callq  402200 <operator new(unsigned long)@plt>",
+        "0x47e323": "callq  402120 <memset@plt>",
+        "0x47e387": "callq  402200 <operator new(unsigned long)@plt>",
+        "0x47e3a8": "callq  402120 <memset@plt>",
+        "0x47e40c": "callq  402200 <operator new(unsigned long)@plt>",
+        "0x47e42d": "callq  402120 <memset@plt>",
+        "0x47e665": "callq  402200 <operator new(unsigned long)@plt>",
+        "0x47e689": "callq  402120 <memset@plt>",
+        "0x47e6c9": "callq  402200 <operator new(unsigned long)@plt>",
+        "0x47e6fa": "callq  402120 <memset@plt>",
+        "0x47e7b7": "callq  402430 <operator new(unsigned long, std::nothrow_t const&)@plt>",
+        "0x47e7ec": "callq  474c90 <void std::__merge_sort_with_buffer<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, unsigned int*, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}> >(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}>, unsigned int*, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}>)>",
+        "0x47e7fe": "callq  474c90 <void std::__merge_sort_with_buffer<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, unsigned int*, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}> >(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}>, unsigned int*, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}>)>",
+        "0x47e82f": "callq  476550 <void std::__merge_adaptive<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, long, unsigned int*, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}> >(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}>, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}>, long, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, unsigned int*, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}>)>",
+        "0x47e83e": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47e9e2": "callq  410c60 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)>",
+        "0x47e9ec": "callq  402280 <getenv@plt>",
+        "0x47ea41": "callq  402350 <fprintf@plt>",
+        "0x47ea4d": "callq  402280 <getenv@plt>",
+        "0x47ea75": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ea92": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47eaaf": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47eacc": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47eae9": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47eb23": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47eb40": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47eb7b": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47eb98": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ebd3": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ebf0": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ec0d": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ec2a": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ec37": "callq  4250c0 <std::vector<unsigned int, std::allocator<unsigned int> >::~vector()>",
+        "0x47ec54": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ec71": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ec8e": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ecab": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ed3f": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ed5c": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ed79": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ed96": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47edae": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47edbb": "callq  4250c0 <std::vector<unsigned int, std::allocator<unsigned int> >::~vector()>",
+        "0x47edd8": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47edf5": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ee02": "callq  4250c0 <std::vector<unsigned int, std::allocator<unsigned int> >::~vector()>",
+        "0x47ee1f": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ee3c": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ee73": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ee98": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47eeb5": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47eed2": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47eeef": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ef0c": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ef19": "callq  4250c0 <std::vector<unsigned int, std::allocator<unsigned int> >::~vector()>",
+        "0x47ef36": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47f2de": "callq  *0x28(%rax)",
+        "0x47f334": "callq  415ea0 <tactix::kernel_flush_large_watches(tactix::Kernel&)>",
+        "0x47f3df": "callq  4739e0 <tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int)#2}::operator()(unsigned int) const>",
+        "0x47f3f0": "callq  477d60 <tactix::(anonymous namespace)::FactorHeap::update(unsigned int, unsigned int)>",
+        "0x47f459": "callq  *0x28(%rax)",
+        "0x47f46f": "callq  477d60 <tactix::(anonymous namespace)::FactorHeap::update(unsigned int, unsigned int)>",
+        "0x47f58f": "callq  *0x28(%rax)",
+        "0x47f5a3": "callq  477d60 <tactix::(anonymous namespace)::FactorHeap::update(unsigned int, unsigned int)>",
+        "0x47f5e7": "callq  479980 <tactix::(anonymous namespace)::remainder_occurrences_of(tactix::Kernel&, tactix::(anonymous namespace)::FactorIndex&, tactix::(anonymous namespace)::RemPool&, unsigned int, unsigned int, std::vector<unsigned int, std::allocator<unsigned int> >&, std::vector<tactix::(anonymous namespace)::RemOccurrence, std::allocator<tactix::(anonymous namespace)::RemOccurrence> >&)>",
+        "0x47f637": "callq  481f10 <std::vector<std::vector<unsigned int, std::allocator<unsigned int> >, std::allocator<std::vector<unsigned int, std::allocator<unsigned int> > > >::_M_fill_assign(unsigned long, std::vector<unsigned int, std::allocator<unsigned int> > const&)>",
+        "0x47f644": "callq  4250c0 <std::vector<unsigned int, std::allocator<unsigned int> >::~vector()>",
+        "0x47f670": "callq  4250f0 <std::vector<unsigned int, std::allocator<unsigned int> >::reserve(unsigned long)>",
+        "0x47f685": "callq  4250f0 <std::vector<unsigned int, std::allocator<unsigned int> >::reserve(unsigned long)>",
+        "0x47f6b3": "callq  425c30 <std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&)>",
+        "0x47f6c3": "callq  425c30 <std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&)>",
+        "0x47f714": "callq  426c70 <std::vector<unsigned int, std::allocator<unsigned int> >::_M_fill_assign(unsigned long, unsigned int const&)>",
+        "0x47f78b": "callq  4250c0 <std::vector<unsigned int, std::allocator<unsigned int> >::~vector()>",
+        "0x47fbcb": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47fbf5": "callq  *%rax",
+        "0x47fc01": "callq  *%rax",
+        "0x47fc1e": "callq  402200 <operator new(unsigned long)@plt>",
+        "0x47fd71": "callq  *0x30(%rax)",
+        "0x47fdaa": "callq  4023b0 <memmove@plt>",
+        "0x47fdd5": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47fe22": "callq  402200 <operator new(unsigned long)@plt>",
+        "0x48006a": "callq  425c30 <std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&)>",
+        "0x480087": "callq  425c30 <std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&)>",
+        "0x480097": "callq  477440 <tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int)#4}::operator()(unsigned int) const [clone .isra.0]>",
+        "0x480307": "callq  *0x38(%r8)",
+        "0x480319": "callq  402280 <getenv@plt>",
+        "0x4803a3": "callq  402350 <fprintf@plt>",
+        "0x4803dd": "callq  47c4d0 <tactix::(anonymous namespace)::apply_factoring(tactix::Kernel&, tactix::(anonymous namespace)::FactorIndex&, std::vector<unsigned int, std::allocator<unsigned int> > const&, std::vector<unsigned int, std::allocator<unsigned int> > const&, tactix::(anonymous namespace)::RemPool const&, std::vector<std::vector<unsigned int, std::allocator<unsigned int> >, std::allocator<std::vector<unsigned int, std::allocator<unsigned int> > > > const&)>",
+        "0x48043f": "callq  426010 <std::vector<unsigned int, std::allocator<unsigned int> >::resize(unsigned long, unsigned int const&)>",
+        "0x48046d": "callq  4262b0 <std::vector<unsigned char, std::allocator<unsigned char> >::resize(unsigned long, unsigned char const&)>",
+        "0x48049c": "callq  426010 <std::vector<unsigned int, std::allocator<unsigned int> >::resize(unsigned long, unsigned int const&)>",
+        "0x4804ca": "callq  4262b0 <std::vector<unsigned char, std::allocator<unsigned char> >::resize(unsigned long, unsigned char const&)>",
+        "0x480647": "callq  478590 <tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int)#7}::operator()(unsigned int) const>",
+        "0x480659": "callq  478590 <tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int)#7}::operator()(unsigned int) const>",
+        "0x480771": "callq  *0x28(%r8)",
+        "0x48078e": "callq  477d60 <tactix::(anonymous namespace)::FactorHeap::update(unsigned int, unsigned int)>",
+        "0x480853": "callq  477330 <void std::__stable_sort_adaptive_resize<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, unsigned int*, long, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}> >(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}>, unsigned int*, long, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}>)>",
+        "0x4808cb": "callq  402120 <memset@plt>",
+        "0x480c83": "callq  4757c0 <tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int const*, unsigned int, unsigned int)#1}::operator()(unsigned int const*, unsigned int, unsigned int) const>",
+        "0x480dbf": "callq  425c30 <std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&)>",
+        "0x480e0b": "callq  425c30 <std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&)>",
+        "0x480e20": "callq  425c30 <std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&)>",
+        "0x480ebc": "callq  481f10 <std::vector<std::vector<unsigned int, std::allocator<unsigned int> >, std::allocator<std::vector<unsigned int, std::allocator<unsigned int> > > >::_M_fill_assign(unsigned long, std::vector<unsigned int, std::allocator<unsigned int> > const&)>",
+        "0x480ec9": "callq  4250c0 <std::vector<unsigned int, std::allocator<unsigned int> >::~vector()>",
+        "0x4810ef": "callq  4250c0 <std::vector<unsigned int, std::allocator<unsigned int> >::~vector()>",
+        "0x48116b": "callq  425c30 <std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&)>",
+        "0x481200": "callq  4250c0 <std::vector<unsigned int, std::allocator<unsigned int> >::~vector()>",
+        "0x48122b": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x4812fb": "callq  4023b0 <memmove@plt>",
+        "0x481327": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x481386": "callq  402200 <operator new(unsigned long)@plt>",
+        "0x4813ba": "callq  402200 <operator new(unsigned long)@plt>",
+        "0x4813d7": "callq  4023b0 <memmove@plt>",
+        "0x4813eb": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x48145d": "callq  425c30 <std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&)>",
+        "0x481536": "callq  425c30 <std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&)>",
+        "0x4815f3": "callq  402120 <memset@plt>",
+        "0x481650": "callq  402200 <operator new(unsigned long)@plt>",
+        "0x48166b": "callq  402120 <memset@plt>",
+        "0x4816a9": "callq  4023b0 <memmove@plt>",
+        "0x4816f1": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x48175c": "callq  4749c0 <std::vector<unsigned int, std::allocator<unsigned int> >::operator=(std::vector<unsigned int, std::allocator<unsigned int> > const&) [clone .isra.0]>",
+        "0x481771": "callq  425c30 <std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&)>",
+        "0x481786": "callq  4749c0 <std::vector<unsigned int, std::allocator<unsigned int> >::operator=(std::vector<unsigned int, std::allocator<unsigned int> > const&) [clone .isra.0]>",
+        "0x48183f": "callq  4749c0 <std::vector<unsigned int, std::allocator<unsigned int> >::operator=(std::vector<unsigned int, std::allocator<unsigned int> > const&) [clone .isra.0]>",
+        "0x4818b6": "callq  402200 <operator new(unsigned long)@plt>",
+        "0x4818ed": "callq  4023b0 <memmove@plt>",
+        "0x481968": "callq  402200 <operator new(unsigned long)@plt>",
+        "0x481980": "callq  402120 <memset@plt>",
+        "0x4819f4": "callq  478590 <tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int)#7}::operator()(unsigned int) const>",
+        "0x481a13": "callq  4023b0 <memmove@plt>",
+        "0x481a32": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x481a62": "callq  402200 <operator new(unsigned long)@plt>",
+        "0x481ab9": "callq  4749c0 <std::vector<unsigned int, std::allocator<unsigned int> >::operator=(std::vector<unsigned int, std::allocator<unsigned int> > const&) [clone .isra.0]>",
+        "0x481afb": "callq  4250c0 <std::vector<unsigned int, std::allocator<unsigned int> >::~vector()>",
+        "0x481c4b": "callq  4020c0 <std::__throw_bad_alloc()@plt>",
+        "0x481c73": "callq  402200 <operator new(unsigned long)@plt>",
+        "0x481cc8": "callq  402200 <operator new(unsigned long)@plt>",
+        "0x481d0b": "callq  4023b0 <memmove@plt>",
+        "0x481d82": "callq  4250c0 <std::vector<unsigned int, std::allocator<unsigned int> >::~vector()>",
+        "0x481dac": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x481df1": "callq  4021a0 <std::__throw_bad_array_new_length()@plt>",
+        "0x481dfb": "callq  402110 <std::__throw_length_error(char const*)@plt>",
+        "0x481e05": "callq  402110 <std::__throw_length_error(char const*)@plt>",
+        "0x481e3f": "callq  402110 <std::__throw_length_error(char const*)@plt>",
+        "0x481e4b": "callq  473b30 <tactix::(anonymous namespace)::dump_factored_and_exit(tactix::Kernel const&, char const*)>",
+        "0x481e73": "callq  476360 <void std::__inplace_stable_sort<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}> >(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}>, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}>)>"
+      }
+    },
+    "candidate-wave1": {
+      "total_period": 1343878645289,
+      "selected_period": 54041854851,
+      "children": {
+        "tactix::kernel_flush_large_watches(tactix::Kernel&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": {
+          "period": 1194613324,
+          "sites": {
+            "0x47f334": 1194613324
+          },
+          "leaves": {
+            "tactix::kernel_compact_dense_entry_watches(tactix::Kernel&, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 1194613324
+          }
+        },
+        "tactix::(anonymous namespace)::build_factor_index(tactix::Kernel const&, tactix::(anonymous namespace)::FactorIndex&, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": {
+          "period": 10295766246,
+          "sites": {
+            "0x47e261": 10295766246
+          },
+          "leaves": {
+            "tactix::(anonymous namespace)::build_factor_index(tactix::Kernel const&, tactix::(anonymous namespace)::FactorIndex&, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 6769202117,
+            "_int_free [/usr/lib64/libc.so.6]": 606744148,
+            "unlink_chunk.constprop.0 [/usr/lib64/libc.so.6]": 75837431,
+            "_int_malloc [/usr/lib64/libc.so.6]": 625492023,
+            "malloc [/usr/lib64/libc.so.6]": 1213585968,
+            "malloc_consolidate [/usr/lib64/libc.so.6]": 151653796,
+            "cfree@GLIBC_2.2.5 [/usr/lib64/libc.so.6]": 322331789,
+            "operator delete(void*) [/cm/local/apps/gcc/13.1.0/lib64/libstdc++.so.6.0.31]": 94842380,
+            "operator new(unsigned long)@plt [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 37916463,
+            "operator new(unsigned long) [/cm/local/apps/gcc/13.1.0/lib64/libstdc++.so.6.0.31]": 132716640,
+            "std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 132686168,
+            "malloc@plt [/cm/local/apps/gcc/13.1.0/lib64/libstdc++.so.6.0.31]": 37938182,
+            "operator delete(void*, unsigned long) [/cm/local/apps/gcc/13.1.0/lib64/libstdc++.so.6.0.31]": 37941874,
+            "operator delete(void*)@plt [/cm/local/apps/gcc/13.1.0/lib64/libstdc++.so.6.0.31]": 37928066,
+            "operator delete(void*, unsigned long)@plt [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 18949201
+          }
+        },
+        "void std::__merge_sort_with_buffer<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, unsigned int*, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}> >(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, unsigned int*, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}>) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": {
+          "period": 720580360,
+          "sites": {
+            "0x47e7fe": 360277222,
+            "0x47e7ec": 360303138
+          },
+          "leaves": {
+            "void std::__merge_sort_with_buffer<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, unsigned int*, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}> >(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, unsigned int*, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}>) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 455107511,
+            "unsigned int* std::__move_merge<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, unsigned int*, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}> >(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, unsigned int*, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}>) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 246521893,
+            "__memmove_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 18950956
+          }
+        },
+        "tactix::(anonymous namespace)::FactorHeap::update(unsigned int, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": {
+          "period": 303289710,
+          "sites": {
+            "0x47f5a3": 284328405,
+            "0x48078e": 18961305
+          },
+          "leaves": {
+            "memset@plt [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 18961782,
+            "tactix::(anonymous namespace)::FactorHeap::update(unsigned int, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 265349282,
+            "__memmove_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 18978646
+          }
+        },
+        "std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": {
+          "period": 2768516126,
+          "sites": {
+            "0x47f6b3": 132682185,
+            "0x48006a": 75484394,
+            "0x47f6c3": 227452715,
+            "0x481536": 2219092642,
+            "0x480e20": 94826719,
+            "0x480e0b": 18977471
+          },
+          "leaves": {
+            "std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 2692635424,
+            "memmove@plt [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 18968008,
+            "malloc [/usr/lib64/libc.so.6]": 56912694
+          }
+        },
+        "<entry self>": {
+          "period": 23129850818,
+          "sites": {
+            "<self>": 23129850818
+          },
+          "leaves": {
+            "tactix::factor_apply_seeded(tactix::Kernel&, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 23129850818
+          }
+        },
+        "tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int const*, unsigned int, unsigned int)#1}::operator()(unsigned int const*, unsigned int, unsigned int) const [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": {
+          "period": 738708543,
+          "sites": {
+            "0x480c83": 738708543
+          },
+          "leaves": {
+            "tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int const*, unsigned int, unsigned int)#1}::operator()(unsigned int const*, unsigned int, unsigned int) const [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 738708543
+          }
+        },
+        "tactix::(anonymous namespace)::apply_factoring(tactix::Kernel&, tactix::(anonymous namespace)::FactorIndex&, std::vector<unsigned int, std::allocator<unsigned int> > const&, std::vector<unsigned int, std::allocator<unsigned int> > const&, tactix::(anonymous namespace)::RemPool const&, std::vector<std::vector<unsigned int, std::allocator<unsigned int> >, std::allocator<std::vector<unsigned int, std::allocator<unsigned int> > > > const&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": {
+          "period": 2255125089,
+          "sites": {
+            "0x4803dd": 2255125089
+          },
+          "leaves": {
+            "tactix::(anonymous namespace)::apply_factoring(tactix::Kernel&, tactix::(anonymous namespace)::FactorIndex&, std::vector<unsigned int, std::allocator<unsigned int> > const&, std::vector<unsigned int, std::allocator<unsigned int> > const&, tactix::(anonymous namespace)::RemPool const&, std::vector<std::vector<unsigned int, std::allocator<unsigned int> >, std::allocator<std::vector<unsigned int, std::allocator<unsigned int> > > > const&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 796515223,
+            "tactix::WatchLists::defrag() [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 492903143,
+            "void std::__introsort_loop<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, long, __gnu_cxx::__ops::_Iter_comp_iter<tactix::WatchLists::defrag()::{lambda(unsigned int, unsigned int)#1}> >(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, long, __gnu_cxx::__ops::_Iter_comp_iter<tactix::WatchLists::defrag()::{lambda(unsigned int, unsigned int)#1}>) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 586710905,
+            "tactix::kernel_reserve_vars(tactix::Kernel&, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 18963435,
+            "tactix::kernel_add_binary_clause(tactix::Kernel&, unsigned int, unsigned int, unsigned long, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 18963366,
+            "std::vector<unsigned int, std::allocator<unsigned int> >::resize(unsigned long) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 37820470,
+            "__memmove_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 94826447,
+            "tactix::(anonymous namespace)::apply_factoring(tactix::Kernel&, tactix::(anonymous namespace)::FactorIndex&, std::vector<unsigned int, std::allocator<unsigned int> > const&, std::vector<unsigned int, std::allocator<unsigned int> > const&, tactix::(anonymous namespace)::RemPool const&, std::vector<std::vector<unsigned int, std::allocator<unsigned int> >, std::allocator<std::vector<unsigned int, std::allocator<unsigned int> > > > const&)::{lambda(unsigned int, unsigned int, unsigned long)#1}::operator()(unsigned int, unsigned int, unsigned long) const [clone .isra.0] [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 56825347,
+            "_int_free [/usr/lib64/libc.so.6]": 18954289,
+            "tactix::delete_binary_all_copies(tactix::Kernel&, unsigned int, unsigned int, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 75868592,
+            "tactix::heuristics_reserve_vars(tactix::Kernel&, unsigned int, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 18924862,
+            "malloc [/usr/lib64/libc.so.6]": 18925421,
+            "tactix::Proof::add_rat(unsigned long, unsigned int const*, unsigned int, long const*, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 18923589
+          }
+        },
+        "tactix::(anonymous namespace)::remainder_occurrences_of(tactix::Kernel&, tactix::(anonymous namespace)::FactorIndex&, tactix::(anonymous namespace)::RemPool&, unsigned int, unsigned int, std::vector<unsigned int, std::allocator<unsigned int> >&, std::vector<tactix::(anonymous namespace)::RemOccurrence, std::allocator<tactix::(anonymous namespace)::RemOccurrence> >&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": {
+          "period": 4390760969,
+          "sites": {
+            "0x47f5e7": 4390760969
+          },
+          "leaves": {
+            "tactix::(anonymous namespace)::remainder_occurrences_of(tactix::Kernel&, tactix::(anonymous namespace)::FactorIndex&, tactix::(anonymous namespace)::RemPool&, unsigned int, unsigned int, std::vector<unsigned int, std::allocator<unsigned int> >&, std::vector<tactix::(anonymous namespace)::RemOccurrence, std::allocator<tactix::(anonymous namespace)::RemOccurrence> >&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 3690379944,
+            "tactix::(anonymous namespace)::RemPool::intern_unit(unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 245482945,
+            "__memmove_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 341150927,
+            "__memcmp_evex_movbe [/usr/lib64/libc.so.6]": 75849662,
+            "void std::__introsort_loop<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, long, __gnu_cxx::__ops::_Iter_less_iter) [clone .isra.0] [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 18978103,
+            "std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 18919388
+          }
+        },
+        "tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int)#7}::operator()(unsigned int) const [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": {
+          "period": 18972233,
+          "sites": {
+            "0x480659": 18972233
+          },
+          "leaves": {
+            "non-virtual thunk to tactix::DefaultFactorMatch::seed_score(tactix::Kernel const&, unsigned int, double) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 18972233
+          }
+        },
+        "tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int)#4}::operator()(unsigned int) const [clone .isra.0] [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": {
+          "period": 94820638,
+          "sites": {
+            "0x480097": 94820638
+          },
+          "leaves": {
+            "tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int)#4}::operator()(unsigned int) const [clone .isra.0] [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 94820638
+          }
+        },
+        "std::vector<std::vector<unsigned int, std::allocator<unsigned int> >, std::allocator<std::vector<unsigned int, std::allocator<unsigned int> > > >::_M_fill_assign(unsigned long, std::vector<unsigned int, std::allocator<unsigned int> > const&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": {
+          "period": 132673480,
+          "sites": {
+            "0x47f637": 75763388,
+            "0x480ebc": 56910092
+          },
+          "leaves": {
+            "std::vector<std::vector<unsigned int, std::allocator<unsigned int> >, std::allocator<std::vector<unsigned int, std::allocator<unsigned int> > > >::_M_fill_assign(unsigned long, std::vector<unsigned int, std::allocator<unsigned int> > const&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 75781076,
+            "_int_free [/usr/lib64/libc.so.6]": 56892404
+          }
+        },
+        "tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": {
+          "period": 5863580504,
+          "sites": {
+            "0x47e9e2": 5863580504
+          },
+          "leaves": {
+            "tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 3569651041,
+            "__memmove_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 641471816,
+            "std::vector<unsigned int, std::allocator<unsigned int> >::resize(unsigned long) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 322288557,
+            "__memset_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 242100886,
+            "[unknown] [[unknown]]": 17284738,
+            "tactix::move_best_watch_to_front(tactix::Kernel&, tactix::Clause*, unsigned int, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 1032847458,
+            "memmove@plt [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 18946636,
+            "tactix::WatchLists::grow(unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 18989372
+          }
+        },
+        "cfree@GLIBC_2.2.5 [/usr/lib64/libc.so.6]": {
+          "period": 1831771094,
+          "sites": {
+            "0x47ee73": 1739826816,
+            "0x47edf5": 16102692,
+            "0x48122b": 37931173,
+            "0x481a32": 37910413
+          },
+          "leaves": {
+            "_int_free [/usr/lib64/libc.so.6]": 782097408,
+            "malloc_consolidate [/usr/lib64/libc.so.6]": 388017069,
+            "unlink_chunk.constprop.0 [/usr/lib64/libc.so.6]": 365101084,
+            "cfree@GLIBC_2.2.5 [/usr/lib64/libc.so.6]": 296555533
+          }
+        },
+        "std::vector<unsigned int, std::allocator<unsigned int> >::resize(unsigned long, unsigned int const&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": {
+          "period": 75856527,
+          "sites": {
+            "0x48043f": 75856527
+          },
+          "leaves": {
+            "__memmove_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 75856527
+          }
+        },
+        "void std::__merge_adaptive<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, long, unsigned int*, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}> >(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, long, long, unsigned int*, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}>) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": {
+          "period": 94802016,
+          "sites": {
+            "0x47e82f": 94802016
+          },
+          "leaves": {
+            "void std::__merge_adaptive<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, long, unsigned int*, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}> >(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, long, long, unsigned int*, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}>) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 94802016
+          }
+        },
+        "std::vector<unsigned int, std::allocator<unsigned int> >::operator=(std::vector<unsigned int, std::allocator<unsigned int> > const&) [clone .isra.0] [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": {
+          "period": 18966261,
+          "sites": {
+            "0x481786": 18966261
+          },
+          "leaves": {
+            "__memmove_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 18966261
+          }
+        },
+        "operator new(unsigned long) [/cm/local/apps/gcc/13.1.0/lib64/libstdc++.so.6.0.31]": {
+          "period": 18964293,
+          "sites": {
+            "0x481a62": 18964293
+          },
+          "leaves": {
+            "malloc [/usr/lib64/libc.so.6]": 18964293
+          }
+        },
+        "operator delete(void*) [/cm/local/apps/gcc/13.1.0/lib64/libstdc++.so.6.0.31]": {
+          "period": 37898834,
+          "sites": {
+            "0x47ee73": 37898834
+          },
+          "leaves": {
+            "operator delete(void*) [/cm/local/apps/gcc/13.1.0/lib64/libstdc++.so.6.0.31]": 37898834
+          }
+        },
+        "std::vector<unsigned int, std::allocator<unsigned int> >::reserve(unsigned long) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": {
+          "period": 18970818,
+          "sites": {
+            "0x47f685": 18970818
+          },
+          "leaves": {
+            "std::vector<unsigned int, std::allocator<unsigned int> >::reserve(unsigned long) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 18970818
+          }
+        },
+        "[unknown] [[unknown]]": {
+          "period": 18419127,
+          "sites": {
+            "unresolved-frame@0x47ffc2": 18419127
+          },
+          "leaves": {
+            "[unknown] [[unknown]]": 18419127
+          }
+        },
+        "__memset_avx512_unaligned_erms [/usr/lib64/libc.so.6]": {
+          "period": 18947841,
+          "sites": {
+            "0x47e6fa": 18947841
+          },
+          "leaves": {
+            "__memset_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 18947841
+          }
+        }
+      },
+      "callsites": {
+        "0x47e1cb": "callq  4869c0 <tactix::propagate_service(tactix::Kernel&)>",
+        "0x47e261": "callq  47aed0 <tactix::(anonymous namespace)::build_factor_index(tactix::Kernel const&, tactix::(anonymous namespace)::FactorIndex&, unsigned int)>",
+        "0x47e2b1": "callq  402200 <operator new(unsigned long)@plt>",
+        "0x47e2d2": "callq  402120 <memset@plt>",
+        "0x47e302": "callq  402200 <operator new(unsigned long)@plt>",
+        "0x47e323": "callq  402120 <memset@plt>",
+        "0x47e387": "callq  402200 <operator new(unsigned long)@plt>",
+        "0x47e3a8": "callq  402120 <memset@plt>",
+        "0x47e40c": "callq  402200 <operator new(unsigned long)@plt>",
+        "0x47e42d": "callq  402120 <memset@plt>",
+        "0x47e665": "callq  402200 <operator new(unsigned long)@plt>",
+        "0x47e689": "callq  402120 <memset@plt>",
+        "0x47e6c9": "callq  402200 <operator new(unsigned long)@plt>",
+        "0x47e6fa": "callq  402120 <memset@plt>",
+        "0x47e7b7": "callq  402430 <operator new(unsigned long, std::nothrow_t const&)@plt>",
+        "0x47e7ec": "callq  474c90 <void std::__merge_sort_with_buffer<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, unsigned int*, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}> >(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}>, unsigned int*, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}>)>",
+        "0x47e7fe": "callq  474c90 <void std::__merge_sort_with_buffer<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, unsigned int*, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}> >(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}>, unsigned int*, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}>)>",
+        "0x47e82f": "callq  476550 <void std::__merge_adaptive<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, long, unsigned int*, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}> >(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}>, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}>, long, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, unsigned int*, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}>)>",
+        "0x47e83e": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47e9e2": "callq  410c60 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)>",
+        "0x47e9ec": "callq  402280 <getenv@plt>",
+        "0x47ea41": "callq  402350 <fprintf@plt>",
+        "0x47ea4d": "callq  402280 <getenv@plt>",
+        "0x47ea75": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ea92": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47eaaf": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47eacc": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47eae9": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47eb23": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47eb40": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47eb7b": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47eb98": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ebd3": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ebf0": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ec0d": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ec2a": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ec37": "callq  4250c0 <std::vector<unsigned int, std::allocator<unsigned int> >::~vector()>",
+        "0x47ec54": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ec71": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ec8e": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ecab": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ed3f": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ed5c": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ed79": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ed96": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47edae": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47edbb": "callq  4250c0 <std::vector<unsigned int, std::allocator<unsigned int> >::~vector()>",
+        "0x47edd8": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47edf5": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ee02": "callq  4250c0 <std::vector<unsigned int, std::allocator<unsigned int> >::~vector()>",
+        "0x47ee1f": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ee3c": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ee73": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ee98": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47eeb5": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47eed2": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47eeef": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ef0c": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ef19": "callq  4250c0 <std::vector<unsigned int, std::allocator<unsigned int> >::~vector()>",
+        "0x47ef36": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47f2de": "callq  *0x28(%rax)",
+        "0x47f334": "callq  415ea0 <tactix::kernel_flush_large_watches(tactix::Kernel&)>",
+        "0x47f3df": "callq  4739e0 <tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int)#2}::operator()(unsigned int) const>",
+        "0x47f3f0": "callq  477d60 <tactix::(anonymous namespace)::FactorHeap::update(unsigned int, unsigned int)>",
+        "0x47f459": "callq  *0x28(%rax)",
+        "0x47f46f": "callq  477d60 <tactix::(anonymous namespace)::FactorHeap::update(unsigned int, unsigned int)>",
+        "0x47f58f": "callq  *0x28(%rax)",
+        "0x47f5a3": "callq  477d60 <tactix::(anonymous namespace)::FactorHeap::update(unsigned int, unsigned int)>",
+        "0x47f5e7": "callq  479980 <tactix::(anonymous namespace)::remainder_occurrences_of(tactix::Kernel&, tactix::(anonymous namespace)::FactorIndex&, tactix::(anonymous namespace)::RemPool&, unsigned int, unsigned int, std::vector<unsigned int, std::allocator<unsigned int> >&, std::vector<tactix::(anonymous namespace)::RemOccurrence, std::allocator<tactix::(anonymous namespace)::RemOccurrence> >&)>",
+        "0x47f637": "callq  481f10 <std::vector<std::vector<unsigned int, std::allocator<unsigned int> >, std::allocator<std::vector<unsigned int, std::allocator<unsigned int> > > >::_M_fill_assign(unsigned long, std::vector<unsigned int, std::allocator<unsigned int> > const&)>",
+        "0x47f644": "callq  4250c0 <std::vector<unsigned int, std::allocator<unsigned int> >::~vector()>",
+        "0x47f670": "callq  4250f0 <std::vector<unsigned int, std::allocator<unsigned int> >::reserve(unsigned long)>",
+        "0x47f685": "callq  4250f0 <std::vector<unsigned int, std::allocator<unsigned int> >::reserve(unsigned long)>",
+        "0x47f6b3": "callq  425c30 <std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&)>",
+        "0x47f6c3": "callq  425c30 <std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&)>",
+        "0x47f714": "callq  426c70 <std::vector<unsigned int, std::allocator<unsigned int> >::_M_fill_assign(unsigned long, unsigned int const&)>",
+        "0x47f78b": "callq  4250c0 <std::vector<unsigned int, std::allocator<unsigned int> >::~vector()>",
+        "0x47fbcb": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47fbf5": "callq  *%rax",
+        "0x47fc01": "callq  *%rax",
+        "0x47fc1e": "callq  402200 <operator new(unsigned long)@plt>",
+        "0x47fd71": "callq  *0x30(%rax)",
+        "0x47fdaa": "callq  4023b0 <memmove@plt>",
+        "0x47fdd5": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47fe22": "callq  402200 <operator new(unsigned long)@plt>",
+        "0x48006a": "callq  425c30 <std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&)>",
+        "0x480087": "callq  425c30 <std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&)>",
+        "0x480097": "callq  477440 <tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int)#4}::operator()(unsigned int) const [clone .isra.0]>",
+        "0x480307": "callq  *0x38(%r8)",
+        "0x480319": "callq  402280 <getenv@plt>",
+        "0x4803a3": "callq  402350 <fprintf@plt>",
+        "0x4803dd": "callq  47c4d0 <tactix::(anonymous namespace)::apply_factoring(tactix::Kernel&, tactix::(anonymous namespace)::FactorIndex&, std::vector<unsigned int, std::allocator<unsigned int> > const&, std::vector<unsigned int, std::allocator<unsigned int> > const&, tactix::(anonymous namespace)::RemPool const&, std::vector<std::vector<unsigned int, std::allocator<unsigned int> >, std::allocator<std::vector<unsigned int, std::allocator<unsigned int> > > > const&)>",
+        "0x48043f": "callq  426010 <std::vector<unsigned int, std::allocator<unsigned int> >::resize(unsigned long, unsigned int const&)>",
+        "0x48046d": "callq  4262b0 <std::vector<unsigned char, std::allocator<unsigned char> >::resize(unsigned long, unsigned char const&)>",
+        "0x48049c": "callq  426010 <std::vector<unsigned int, std::allocator<unsigned int> >::resize(unsigned long, unsigned int const&)>",
+        "0x4804ca": "callq  4262b0 <std::vector<unsigned char, std::allocator<unsigned char> >::resize(unsigned long, unsigned char const&)>",
+        "0x480647": "callq  478590 <tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int)#7}::operator()(unsigned int) const>",
+        "0x480659": "callq  478590 <tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int)#7}::operator()(unsigned int) const>",
+        "0x480771": "callq  *0x28(%r8)",
+        "0x48078e": "callq  477d60 <tactix::(anonymous namespace)::FactorHeap::update(unsigned int, unsigned int)>",
+        "0x480853": "callq  477330 <void std::__stable_sort_adaptive_resize<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, unsigned int*, long, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}> >(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}>, unsigned int*, long, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}>)>",
+        "0x4808cb": "callq  402120 <memset@plt>",
+        "0x480c83": "callq  4757c0 <tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int const*, unsigned int, unsigned int)#1}::operator()(unsigned int const*, unsigned int, unsigned int) const>",
+        "0x480dbf": "callq  425c30 <std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&)>",
+        "0x480e0b": "callq  425c30 <std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&)>",
+        "0x480e20": "callq  425c30 <std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&)>",
+        "0x480ebc": "callq  481f10 <std::vector<std::vector<unsigned int, std::allocator<unsigned int> >, std::allocator<std::vector<unsigned int, std::allocator<unsigned int> > > >::_M_fill_assign(unsigned long, std::vector<unsigned int, std::allocator<unsigned int> > const&)>",
+        "0x480ec9": "callq  4250c0 <std::vector<unsigned int, std::allocator<unsigned int> >::~vector()>",
+        "0x4810ef": "callq  4250c0 <std::vector<unsigned int, std::allocator<unsigned int> >::~vector()>",
+        "0x48116b": "callq  425c30 <std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&)>",
+        "0x481200": "callq  4250c0 <std::vector<unsigned int, std::allocator<unsigned int> >::~vector()>",
+        "0x48122b": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x4812fb": "callq  4023b0 <memmove@plt>",
+        "0x481327": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x481386": "callq  402200 <operator new(unsigned long)@plt>",
+        "0x4813ba": "callq  402200 <operator new(unsigned long)@plt>",
+        "0x4813d7": "callq  4023b0 <memmove@plt>",
+        "0x4813eb": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x48145d": "callq  425c30 <std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&)>",
+        "0x481536": "callq  425c30 <std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&)>",
+        "0x4815f3": "callq  402120 <memset@plt>",
+        "0x481650": "callq  402200 <operator new(unsigned long)@plt>",
+        "0x48166b": "callq  402120 <memset@plt>",
+        "0x4816a9": "callq  4023b0 <memmove@plt>",
+        "0x4816f1": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x48175c": "callq  4749c0 <std::vector<unsigned int, std::allocator<unsigned int> >::operator=(std::vector<unsigned int, std::allocator<unsigned int> > const&) [clone .isra.0]>",
+        "0x481771": "callq  425c30 <std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&)>",
+        "0x481786": "callq  4749c0 <std::vector<unsigned int, std::allocator<unsigned int> >::operator=(std::vector<unsigned int, std::allocator<unsigned int> > const&) [clone .isra.0]>",
+        "0x48183f": "callq  4749c0 <std::vector<unsigned int, std::allocator<unsigned int> >::operator=(std::vector<unsigned int, std::allocator<unsigned int> > const&) [clone .isra.0]>",
+        "0x4818b6": "callq  402200 <operator new(unsigned long)@plt>",
+        "0x4818ed": "callq  4023b0 <memmove@plt>",
+        "0x481968": "callq  402200 <operator new(unsigned long)@plt>",
+        "0x481980": "callq  402120 <memset@plt>",
+        "0x4819f4": "callq  478590 <tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int)#7}::operator()(unsigned int) const>",
+        "0x481a13": "callq  4023b0 <memmove@plt>",
+        "0x481a32": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x481a62": "callq  402200 <operator new(unsigned long)@plt>",
+        "0x481ab9": "callq  4749c0 <std::vector<unsigned int, std::allocator<unsigned int> >::operator=(std::vector<unsigned int, std::allocator<unsigned int> > const&) [clone .isra.0]>",
+        "0x481afb": "callq  4250c0 <std::vector<unsigned int, std::allocator<unsigned int> >::~vector()>",
+        "0x481c4b": "callq  4020c0 <std::__throw_bad_alloc()@plt>",
+        "0x481c73": "callq  402200 <operator new(unsigned long)@plt>",
+        "0x481cc8": "callq  402200 <operator new(unsigned long)@plt>",
+        "0x481d0b": "callq  4023b0 <memmove@plt>",
+        "0x481d82": "callq  4250c0 <std::vector<unsigned int, std::allocator<unsigned int> >::~vector()>",
+        "0x481dac": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x481df1": "callq  4021a0 <std::__throw_bad_array_new_length()@plt>",
+        "0x481dfb": "callq  402110 <std::__throw_length_error(char const*)@plt>",
+        "0x481e05": "callq  402110 <std::__throw_length_error(char const*)@plt>",
+        "0x481e3f": "callq  402110 <std::__throw_length_error(char const*)@plt>",
+        "0x481e4b": "callq  473b30 <tactix::(anonymous namespace)::dump_factored_and_exit(tactix::Kernel const&, char const*)>",
+        "0x481e73": "callq  476360 <void std::__inplace_stable_sort<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}> >(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}>, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}>)>"
+      }
+    },
+    "candidate-wave2": {
+      "total_period": 1345234048498,
+      "selected_period": 53902742855,
+      "children": {
+        "tactix::kernel_flush_large_watches(tactix::Kernel&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": {
+          "period": 1194098095,
+          "sites": {
+            "0x47f334": 1194098095
+          },
+          "leaves": {
+            "tactix::kernel_compact_dense_entry_watches(tactix::Kernel&, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 1194098095
+          }
+        },
+        "tactix::(anonymous namespace)::build_factor_index(tactix::Kernel const&, tactix::(anonymous namespace)::FactorIndex&, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": {
+          "period": 10385093878,
+          "sites": {
+            "0x47e261": 10385093878
+          },
+          "leaves": {
+            "tactix::(anonymous namespace)::build_factor_index(tactix::Kernel const&, tactix::(anonymous namespace)::FactorIndex&, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 6595140997,
+            "std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 151604205,
+            "_int_malloc [/usr/lib64/libc.so.6]": 985294455,
+            "_int_free [/usr/lib64/libc.so.6]": 644216437,
+            "operator delete(void*) [/cm/local/apps/gcc/13.1.0/lib64/libstdc++.so.6.0.31]": 56846240,
+            "malloc [/usr/lib64/libc.so.6]": 1137049472,
+            "cfree@GLIBC_2.2.5 [/usr/lib64/libc.so.6]": 360129476,
+            "__memset_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 37927273,
+            "unlink_chunk.constprop.0 [/usr/lib64/libc.so.6]": 151581304,
+            "__memmove_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 18958359,
+            "std::vector<unsigned int, std::allocator<unsigned int> >::_M_fill_assign(unsigned long, unsigned int const&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 18947867,
+            "malloc_consolidate [/usr/lib64/libc.so.6]": 37869697,
+            "operator delete(void*)@plt [/cm/local/apps/gcc/13.1.0/lib64/libstdc++.so.6.0.31]": 18958171,
+            "alloc_perturb [/usr/lib64/libc.so.6]": 18948477,
+            "operator new(unsigned long) [/cm/local/apps/gcc/13.1.0/lib64/libstdc++.so.6.0.31]": 132667298,
+            "malloc@plt [/cm/local/apps/gcc/13.1.0/lib64/libstdc++.so.6.0.31]": 18954150
+          }
+        },
+        "void std::__merge_sort_with_buffer<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, unsigned int*, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}> >(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, unsigned int*, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}>) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": {
+          "period": 758089496,
+          "sites": {
+            "0x47e7fe": 416925362,
+            "0x47e7ec": 341164134
+          },
+          "leaves": {
+            "void std::__merge_sort_with_buffer<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, unsigned int*, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}> >(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, unsigned int*, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}>) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 397990805,
+            "unsigned int* std::__move_merge<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, unsigned int*, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}> >(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, unsigned int*, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}>) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 360098691
+          }
+        },
+        "tactix::(anonymous namespace)::FactorHeap::update(unsigned int, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": {
+          "period": 341096844,
+          "sites": {
+            "0x47f5a3": 341096844
+          },
+          "leaves": {
+            "tactix::(anonymous namespace)::FactorHeap::update(unsigned int, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 341096844
+          }
+        },
+        "<entry self>": {
+          "period": 21072572084,
+          "sites": {
+            "<self>": 21072572084
+          },
+          "leaves": {
+            "tactix::factor_apply_seeded(tactix::Kernel&, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 21072572084
+          }
+        },
+        "tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int const*, unsigned int, unsigned int)#1}::operator()(unsigned int const*, unsigned int, unsigned int) const [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": {
+          "period": 739047041,
+          "sites": {
+            "0x480c83": 739047041
+          },
+          "leaves": {
+            "tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int const*, unsigned int, unsigned int)#1}::operator()(unsigned int const*, unsigned int, unsigned int) const [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 739047041
+          }
+        },
+        "tactix::(anonymous namespace)::apply_factoring(tactix::Kernel&, tactix::(anonymous namespace)::FactorIndex&, std::vector<unsigned int, std::allocator<unsigned int> > const&, std::vector<unsigned int, std::allocator<unsigned int> > const&, tactix::(anonymous namespace)::RemPool const&, std::vector<std::vector<unsigned int, std::allocator<unsigned int> >, std::allocator<std::vector<unsigned int, std::allocator<unsigned int> > > > const&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": {
+          "period": 1952447880,
+          "sites": {
+            "0x4803dd": 1952447880
+          },
+          "leaves": {
+            "tactix::delete_binary_all_copies(tactix::Kernel&, unsigned int, unsigned int, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 56602726,
+            "tactix::(anonymous namespace)::apply_factoring(tactix::Kernel&, tactix::(anonymous namespace)::FactorIndex&, std::vector<unsigned int, std::allocator<unsigned int> > const&, std::vector<unsigned int, std::allocator<unsigned int> > const&, tactix::(anonymous namespace)::RemPool const&, std::vector<std::vector<unsigned int, std::allocator<unsigned int> >, std::allocator<std::vector<unsigned int, std::allocator<unsigned int> > > > const&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 702911168,
+            "tactix::kernel_add_binary_clause(tactix::Kernel&, unsigned int, unsigned int, unsigned long, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 18977361,
+            "void std::__introsort_loop<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, long, __gnu_cxx::__ops::_Iter_comp_iter<tactix::WatchLists::defrag()::{lambda(unsigned int, unsigned int)#1}> >(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, long, __gnu_cxx::__ops::_Iter_comp_iter<tactix::WatchLists::defrag()::{lambda(unsigned int, unsigned int)#1}>) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 643316923,
+            "tactix::WatchLists::defrag() [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 322130748,
+            "std::vector<unsigned int, std::allocator<unsigned int> >::resize(unsigned long) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 18959040,
+            "__memmove_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 56864908,
+            "tactix::kernel_dense_add_large_occurrence(tactix::Kernel&, unsigned int, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 18955596,
+            "tactix::kernel_add_large_clause(tactix::Kernel&, unsigned int const*, unsigned int, bool, unsigned int, unsigned long, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 18956354,
+            "__memset_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 18944731,
+            "tactix::Proof::del(unsigned long, unsigned long, unsigned int const*, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 18956906,
+            "cfree@GLIBC_2.2.5 [/usr/lib64/libc.so.6]": 18964220,
+            "tactix::kernel_reserve_vars(tactix::Kernel&, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 18953133,
+            "tactix::(anonymous namespace)::apply_factoring(tactix::Kernel&, tactix::(anonymous namespace)::FactorIndex&, std::vector<unsigned int, std::allocator<unsigned int> > const&, std::vector<unsigned int, std::allocator<unsigned int> > const&, tactix::(anonymous namespace)::RemPool const&, std::vector<std::vector<unsigned int, std::allocator<unsigned int> >, std::allocator<std::vector<unsigned int, std::allocator<unsigned int> > > > const&)::{lambda(unsigned int, unsigned int, unsigned long)#1}::operator()(unsigned int, unsigned int, unsigned long) const [clone .isra.0] [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 18954066
+          }
+        },
+        "std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": {
+          "period": 4317780747,
+          "sites": {
+            "0x47f6c3": 246392653,
+            "0x47f6b3": 358499160,
+            "0x480087": 18884740,
+            "0x48006a": 113893188,
+            "0x480e20": 94799972,
+            "0x481536": 3428453045,
+            "0x480dbf": 37900266,
+            "0x48116b": 18957723
+          },
+          "leaves": {
+            "std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 4204042386,
+            "malloc [/usr/lib64/libc.so.6]": 18965896,
+            "_int_free [/usr/lib64/libc.so.6]": 37897363,
+            "malloc@plt [/cm/local/apps/gcc/13.1.0/lib64/libstdc++.so.6.0.31]": 18951134,
+            "cfree@GLIBC_2.2.5 [/usr/lib64/libc.so.6]": 37923968
+          }
+        },
+        "tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int)#4}::operator()(unsigned int) const [clone .isra.0] [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": {
+          "period": 189491906,
+          "sites": {
+            "0x480097": 189491906
+          },
+          "leaves": {
+            "tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int)#4}::operator()(unsigned int) const [clone .isra.0] [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 189491906
+          }
+        },
+        "tactix::(anonymous namespace)::remainder_occurrences_of(tactix::Kernel&, tactix::(anonymous namespace)::FactorIndex&, tactix::(anonymous namespace)::RemPool&, unsigned int, unsigned int, std::vector<unsigned int, std::allocator<unsigned int> >&, std::vector<tactix::(anonymous namespace)::RemOccurrence, std::allocator<tactix::(anonymous namespace)::RemOccurrence> >&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": {
+          "period": 4637865409,
+          "sites": {
+            "0x47f5e7": 4637865409
+          },
+          "leaves": {
+            "tactix::(anonymous namespace)::remainder_occurrences_of(tactix::Kernel&, tactix::(anonymous namespace)::FactorIndex&, tactix::(anonymous namespace)::RemPool&, unsigned int, unsigned int, std::vector<unsigned int, std::allocator<unsigned int> >&, std::vector<tactix::(anonymous namespace)::RemOccurrence, std::allocator<tactix::(anonymous namespace)::RemOccurrence> >&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 4032126263,
+            "__memmove_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 378499176,
+            "__memcmp_evex_movbe [/usr/lib64/libc.so.6]": 37745694,
+            "tactix::(anonymous namespace)::RemPool::intern_unit(unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 75775752,
+            "std::vector<unsigned int, std::allocator<unsigned int> >::_M_fill_assign(unsigned long, unsigned int const&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 37923957,
+            "unlink_chunk.constprop.0 [/usr/lib64/libc.so.6]": 18938045,
+            "std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 18962350,
+            "memmove@plt [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 18951408,
+            "void std::__introsort_loop<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, long, __gnu_cxx::__ops::_Iter_less_iter) [clone .isra.0] [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 18942764
+          }
+        },
+        "tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int)#7}::operator()(unsigned int) const [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": {
+          "period": 18948844,
+          "sites": {
+            "0x480647": 18948844
+          },
+          "leaves": {
+            "tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int)#7}::operator()(unsigned int) const [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 18948844
+          }
+        },
+        "operator new(unsigned long) [/cm/local/apps/gcc/13.1.0/lib64/libstdc++.so.6.0.31]": {
+          "period": 113760679,
+          "sites": {
+            "0x481a62": 94801079,
+            "0x4818b6": 18959600
+          },
+          "leaves": {
+            "malloc [/usr/lib64/libc.so.6]": 75852550,
+            "_int_malloc [/usr/lib64/libc.so.6]": 18964422,
+            "operator new(unsigned long) [/cm/local/apps/gcc/13.1.0/lib64/libstdc++.so.6.0.31]": 18943707
+          }
+        },
+        "std::vector<std::vector<unsigned int, std::allocator<unsigned int> >, std::allocator<std::vector<unsigned int, std::allocator<unsigned int> > > >::_M_fill_assign(unsigned long, std::vector<unsigned int, std::allocator<unsigned int> > const&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": {
+          "period": 113733061,
+          "sites": {
+            "0x47f637": 94767167,
+            "0x480ebc": 18965894
+          },
+          "leaves": {
+            "std::vector<std::vector<unsigned int, std::allocator<unsigned int> >, std::allocator<std::vector<unsigned int, std::allocator<unsigned int> > > >::_M_fill_assign(unsigned long, std::vector<unsigned int, std::allocator<unsigned int> > const&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 75807981,
+            "cfree@GLIBC_2.2.5 [/usr/lib64/libc.so.6]": 18965894,
+            "_int_free [/usr/lib64/libc.so.6]": 18959186
+          }
+        },
+        "operator delete(void*) [/cm/local/apps/gcc/13.1.0/lib64/libstdc++.so.6.0.31]": {
+          "period": 72737341,
+          "sites": {
+            "0x481a32": 18896746,
+            "0x47ee73": 53840595
+          },
+          "leaves": {
+            "operator delete(void*) [/cm/local/apps/gcc/13.1.0/lib64/libstdc++.so.6.0.31]": 72737341
+          }
+        },
+        "tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": {
+          "period": 5916455109,
+          "sites": {
+            "0x47e9e2": 5916455109
+          },
+          "leaves": {
+            "tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 3915382548,
+            "__memmove_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 640712176,
+            "std::vector<unsigned int, std::allocator<unsigned int> >::resize(unsigned long) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 245506048,
+            "tactix::move_best_watch_to_front(tactix::Kernel&, tactix::Clause*, unsigned int, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 849572504,
+            "__memset_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 170548186,
+            "tactix::WatchLists::grow(unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 94733647
+          }
+        },
+        "cfree@GLIBC_2.2.5 [/usr/lib64/libc.so.6]": {
+          "period": 1927847365,
+          "sites": {
+            "0x47ee73": 1889931050,
+            "0x47f78b": 18954929,
+            "0x481a32": 18961386
+          },
+          "leaves": {
+            "_int_free [/usr/lib64/libc.so.6]": 1001179647,
+            "malloc_consolidate [/usr/lib64/libc.so.6]": 345014843,
+            "cfree@GLIBC_2.2.5 [/usr/lib64/libc.so.6]": 357139857,
+            "unlink_chunk.constprop.0 [/usr/lib64/libc.so.6]": 224513018
+          }
+        },
+        "non-virtual thunk to tactix::DefaultFactorMatch::seed_score(tactix::Kernel const&, unsigned int, double) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": {
+          "period": 18948493,
+          "sites": {
+            "0x47f58f": 18948493
+          },
+          "leaves": {
+            "non-virtual thunk to tactix::DefaultFactorMatch::seed_score(tactix::Kernel const&, unsigned int, double) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 18948493
+          }
+        },
+        "[unknown] [[unknown]]": {
+          "period": 18961773,
+          "sites": {
+            "unresolved-frame@0x47ff42": 18961773
+          },
+          "leaves": {
+            "[unknown] [[unknown]]": 18961773
+          }
+        },
+        "non-virtual thunk to tactix::DefaultFactorMatch::next_factor_score(tactix::Kernel const&, unsigned int, unsigned int, unsigned int, double) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": {
+          "period": 18955834,
+          "sites": {
+            "0x47fd71": 18955834
+          },
+          "leaves": {
+            "non-virtual thunk to tactix::DefaultFactorMatch::next_factor_score(tactix::Kernel const&, unsigned int, unsigned int, unsigned int, double) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 18955834
+          }
+        },
+        "__memmove_avx512_unaligned_erms [/usr/lib64/libc.so.6]": {
+          "period": 18960143,
+          "sites": {
+            "0x481a13": 18960143
+          },
+          "leaves": {
+            "__memmove_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 18960143
+          }
+        },
+        "std::vector<unsigned int, std::allocator<unsigned int> >::resize(unsigned long, unsigned int const&) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": {
+          "period": 37920061,
+          "sites": {
+            "0x48043f": 37920061
+          },
+          "leaves": {
+            "__memmove_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 37920061
+          }
+        },
+        "std::vector<unsigned int, std::allocator<unsigned int> >::reserve(unsigned long) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": {
+          "period": 37930772,
+          "sites": {
+            "0x47f685": 18965933,
+            "0x47f670": 18964839
+          },
+          "leaves": {
+            "std::vector<unsigned int, std::allocator<unsigned int> >::reserve(unsigned long) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 37930772
+          }
+        }
+      },
+      "callsites": {
+        "0x47e1cb": "callq  4869c0 <tactix::propagate_service(tactix::Kernel&)>",
+        "0x47e261": "callq  47aed0 <tactix::(anonymous namespace)::build_factor_index(tactix::Kernel const&, tactix::(anonymous namespace)::FactorIndex&, unsigned int)>",
+        "0x47e2b1": "callq  402200 <operator new(unsigned long)@plt>",
+        "0x47e2d2": "callq  402120 <memset@plt>",
+        "0x47e302": "callq  402200 <operator new(unsigned long)@plt>",
+        "0x47e323": "callq  402120 <memset@plt>",
+        "0x47e387": "callq  402200 <operator new(unsigned long)@plt>",
+        "0x47e3a8": "callq  402120 <memset@plt>",
+        "0x47e40c": "callq  402200 <operator new(unsigned long)@plt>",
+        "0x47e42d": "callq  402120 <memset@plt>",
+        "0x47e665": "callq  402200 <operator new(unsigned long)@plt>",
+        "0x47e689": "callq  402120 <memset@plt>",
+        "0x47e6c9": "callq  402200 <operator new(unsigned long)@plt>",
+        "0x47e6fa": "callq  402120 <memset@plt>",
+        "0x47e7b7": "callq  402430 <operator new(unsigned long, std::nothrow_t const&)@plt>",
+        "0x47e7ec": "callq  474c90 <void std::__merge_sort_with_buffer<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, unsigned int*, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}> >(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}>, unsigned int*, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}>)>",
+        "0x47e7fe": "callq  474c90 <void std::__merge_sort_with_buffer<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, unsigned int*, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}> >(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}>, unsigned int*, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}>)>",
+        "0x47e82f": "callq  476550 <void std::__merge_adaptive<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, long, unsigned int*, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}> >(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}>, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}>, long, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, unsigned int*, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}>)>",
+        "0x47e83e": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47e9e2": "callq  410c60 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)>",
+        "0x47e9ec": "callq  402280 <getenv@plt>",
+        "0x47ea41": "callq  402350 <fprintf@plt>",
+        "0x47ea4d": "callq  402280 <getenv@plt>",
+        "0x47ea75": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ea92": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47eaaf": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47eacc": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47eae9": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47eb23": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47eb40": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47eb7b": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47eb98": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ebd3": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ebf0": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ec0d": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ec2a": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ec37": "callq  4250c0 <std::vector<unsigned int, std::allocator<unsigned int> >::~vector()>",
+        "0x47ec54": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ec71": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ec8e": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ecab": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ed3f": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ed5c": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ed79": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ed96": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47edae": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47edbb": "callq  4250c0 <std::vector<unsigned int, std::allocator<unsigned int> >::~vector()>",
+        "0x47edd8": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47edf5": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ee02": "callq  4250c0 <std::vector<unsigned int, std::allocator<unsigned int> >::~vector()>",
+        "0x47ee1f": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ee3c": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ee73": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ee98": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47eeb5": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47eed2": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47eeef": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ef0c": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47ef19": "callq  4250c0 <std::vector<unsigned int, std::allocator<unsigned int> >::~vector()>",
+        "0x47ef36": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47f2de": "callq  *0x28(%rax)",
+        "0x47f334": "callq  415ea0 <tactix::kernel_flush_large_watches(tactix::Kernel&)>",
+        "0x47f3df": "callq  4739e0 <tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int)#2}::operator()(unsigned int) const>",
+        "0x47f3f0": "callq  477d60 <tactix::(anonymous namespace)::FactorHeap::update(unsigned int, unsigned int)>",
+        "0x47f459": "callq  *0x28(%rax)",
+        "0x47f46f": "callq  477d60 <tactix::(anonymous namespace)::FactorHeap::update(unsigned int, unsigned int)>",
+        "0x47f58f": "callq  *0x28(%rax)",
+        "0x47f5a3": "callq  477d60 <tactix::(anonymous namespace)::FactorHeap::update(unsigned int, unsigned int)>",
+        "0x47f5e7": "callq  479980 <tactix::(anonymous namespace)::remainder_occurrences_of(tactix::Kernel&, tactix::(anonymous namespace)::FactorIndex&, tactix::(anonymous namespace)::RemPool&, unsigned int, unsigned int, std::vector<unsigned int, std::allocator<unsigned int> >&, std::vector<tactix::(anonymous namespace)::RemOccurrence, std::allocator<tactix::(anonymous namespace)::RemOccurrence> >&)>",
+        "0x47f637": "callq  481f10 <std::vector<std::vector<unsigned int, std::allocator<unsigned int> >, std::allocator<std::vector<unsigned int, std::allocator<unsigned int> > > >::_M_fill_assign(unsigned long, std::vector<unsigned int, std::allocator<unsigned int> > const&)>",
+        "0x47f644": "callq  4250c0 <std::vector<unsigned int, std::allocator<unsigned int> >::~vector()>",
+        "0x47f670": "callq  4250f0 <std::vector<unsigned int, std::allocator<unsigned int> >::reserve(unsigned long)>",
+        "0x47f685": "callq  4250f0 <std::vector<unsigned int, std::allocator<unsigned int> >::reserve(unsigned long)>",
+        "0x47f6b3": "callq  425c30 <std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&)>",
+        "0x47f6c3": "callq  425c30 <std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&)>",
+        "0x47f714": "callq  426c70 <std::vector<unsigned int, std::allocator<unsigned int> >::_M_fill_assign(unsigned long, unsigned int const&)>",
+        "0x47f78b": "callq  4250c0 <std::vector<unsigned int, std::allocator<unsigned int> >::~vector()>",
+        "0x47fbcb": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47fbf5": "callq  *%rax",
+        "0x47fc01": "callq  *%rax",
+        "0x47fc1e": "callq  402200 <operator new(unsigned long)@plt>",
+        "0x47fd71": "callq  *0x30(%rax)",
+        "0x47fdaa": "callq  4023b0 <memmove@plt>",
+        "0x47fdd5": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x47fe22": "callq  402200 <operator new(unsigned long)@plt>",
+        "0x48006a": "callq  425c30 <std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&)>",
+        "0x480087": "callq  425c30 <std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&)>",
+        "0x480097": "callq  477440 <tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int)#4}::operator()(unsigned int) const [clone .isra.0]>",
+        "0x480307": "callq  *0x38(%r8)",
+        "0x480319": "callq  402280 <getenv@plt>",
+        "0x4803a3": "callq  402350 <fprintf@plt>",
+        "0x4803dd": "callq  47c4d0 <tactix::(anonymous namespace)::apply_factoring(tactix::Kernel&, tactix::(anonymous namespace)::FactorIndex&, std::vector<unsigned int, std::allocator<unsigned int> > const&, std::vector<unsigned int, std::allocator<unsigned int> > const&, tactix::(anonymous namespace)::RemPool const&, std::vector<std::vector<unsigned int, std::allocator<unsigned int> >, std::allocator<std::vector<unsigned int, std::allocator<unsigned int> > > > const&)>",
+        "0x48043f": "callq  426010 <std::vector<unsigned int, std::allocator<unsigned int> >::resize(unsigned long, unsigned int const&)>",
+        "0x48046d": "callq  4262b0 <std::vector<unsigned char, std::allocator<unsigned char> >::resize(unsigned long, unsigned char const&)>",
+        "0x48049c": "callq  426010 <std::vector<unsigned int, std::allocator<unsigned int> >::resize(unsigned long, unsigned int const&)>",
+        "0x4804ca": "callq  4262b0 <std::vector<unsigned char, std::allocator<unsigned char> >::resize(unsigned long, unsigned char const&)>",
+        "0x480647": "callq  478590 <tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int)#7}::operator()(unsigned int) const>",
+        "0x480659": "callq  478590 <tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int)#7}::operator()(unsigned int) const>",
+        "0x480771": "callq  *0x28(%r8)",
+        "0x48078e": "callq  477d60 <tactix::(anonymous namespace)::FactorHeap::update(unsigned int, unsigned int)>",
+        "0x480853": "callq  477330 <void std::__stable_sort_adaptive_resize<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, unsigned int*, long, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}> >(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}>, unsigned int*, long, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}>)>",
+        "0x4808cb": "callq  402120 <memset@plt>",
+        "0x480c83": "callq  4757c0 <tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int const*, unsigned int, unsigned int)#1}::operator()(unsigned int const*, unsigned int, unsigned int) const>",
+        "0x480dbf": "callq  425c30 <std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&)>",
+        "0x480e0b": "callq  425c30 <std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&)>",
+        "0x480e20": "callq  425c30 <std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&)>",
+        "0x480ebc": "callq  481f10 <std::vector<std::vector<unsigned int, std::allocator<unsigned int> >, std::allocator<std::vector<unsigned int, std::allocator<unsigned int> > > >::_M_fill_assign(unsigned long, std::vector<unsigned int, std::allocator<unsigned int> > const&)>",
+        "0x480ec9": "callq  4250c0 <std::vector<unsigned int, std::allocator<unsigned int> >::~vector()>",
+        "0x4810ef": "callq  4250c0 <std::vector<unsigned int, std::allocator<unsigned int> >::~vector()>",
+        "0x48116b": "callq  425c30 <std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&)>",
+        "0x481200": "callq  4250c0 <std::vector<unsigned int, std::allocator<unsigned int> >::~vector()>",
+        "0x48122b": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x4812fb": "callq  4023b0 <memmove@plt>",
+        "0x481327": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x481386": "callq  402200 <operator new(unsigned long)@plt>",
+        "0x4813ba": "callq  402200 <operator new(unsigned long)@plt>",
+        "0x4813d7": "callq  4023b0 <memmove@plt>",
+        "0x4813eb": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x48145d": "callq  425c30 <std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&)>",
+        "0x481536": "callq  425c30 <std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&)>",
+        "0x4815f3": "callq  402120 <memset@plt>",
+        "0x481650": "callq  402200 <operator new(unsigned long)@plt>",
+        "0x48166b": "callq  402120 <memset@plt>",
+        "0x4816a9": "callq  4023b0 <memmove@plt>",
+        "0x4816f1": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x48175c": "callq  4749c0 <std::vector<unsigned int, std::allocator<unsigned int> >::operator=(std::vector<unsigned int, std::allocator<unsigned int> > const&) [clone .isra.0]>",
+        "0x481771": "callq  425c30 <std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&)>",
+        "0x481786": "callq  4749c0 <std::vector<unsigned int, std::allocator<unsigned int> >::operator=(std::vector<unsigned int, std::allocator<unsigned int> > const&) [clone .isra.0]>",
+        "0x48183f": "callq  4749c0 <std::vector<unsigned int, std::allocator<unsigned int> >::operator=(std::vector<unsigned int, std::allocator<unsigned int> > const&) [clone .isra.0]>",
+        "0x4818b6": "callq  402200 <operator new(unsigned long)@plt>",
+        "0x4818ed": "callq  4023b0 <memmove@plt>",
+        "0x481968": "callq  402200 <operator new(unsigned long)@plt>",
+        "0x481980": "callq  402120 <memset@plt>",
+        "0x4819f4": "callq  478590 <tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int)#7}::operator()(unsigned int) const>",
+        "0x481a13": "callq  4023b0 <memmove@plt>",
+        "0x481a32": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x481a62": "callq  402200 <operator new(unsigned long)@plt>",
+        "0x481ab9": "callq  4749c0 <std::vector<unsigned int, std::allocator<unsigned int> >::operator=(std::vector<unsigned int, std::allocator<unsigned int> > const&) [clone .isra.0]>",
+        "0x481afb": "callq  4250c0 <std::vector<unsigned int, std::allocator<unsigned int> >::~vector()>",
+        "0x481c4b": "callq  4020c0 <std::__throw_bad_alloc()@plt>",
+        "0x481c73": "callq  402200 <operator new(unsigned long)@plt>",
+        "0x481cc8": "callq  402200 <operator new(unsigned long)@plt>",
+        "0x481d0b": "callq  4023b0 <memmove@plt>",
+        "0x481d82": "callq  4250c0 <std::vector<unsigned int, std::allocator<unsigned int> >::~vector()>",
+        "0x481dac": "callq  402210 <operator delete(void*, unsigned long)@plt>",
+        "0x481df1": "callq  4021a0 <std::__throw_bad_array_new_length()@plt>",
+        "0x481dfb": "callq  402110 <std::__throw_length_error(char const*)@plt>",
+        "0x481e05": "callq  402110 <std::__throw_length_error(char const*)@plt>",
+        "0x481e3f": "callq  402110 <std::__throw_length_error(char const*)@plt>",
+        "0x481e4b": "callq  473b30 <tactix::(anonymous namespace)::dump_factored_and_exit(tactix::Kernel const&, char const*)>",
+        "0x481e73": "callq  476360 <void std::__inplace_stable_sort<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}> >(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}>, __gnu_cxx::__ops::_Iter_comp_iter<tactix::factor_apply_seeded(tactix::Kernel&, unsigned int)::{lambda(unsigned int, unsigned int)#1}>)>"
+      }
+    }
+  },
+  "limitation": "Saved callstack attribution: direct child groups are disjoint; leaves inside a child are not additional cost. Initial strict call-site reader stopped on wave1 unknown unwinder frame at0x47ffc2 (a verified non-call instruction); now explicitly retain/quarantine unknown frames instead of assigning them to a call. Other invalid caller PCs still fail. Source mapping requires reviewed assembly; inlining/allocation and code-placement confounds remain."
+}
