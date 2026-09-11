@@ -240,7 +240,7 @@ pending half-analysis or schedules Backjump independently.
   dense high-water copy.
 - Variable compaction remaps target/best phase arrays and recomputes assigned
   high-water counts. VMTF cursor, random permutation and import ranks are mapped;
-  isolated6357 also preserves detached stamps/links that production resets (SP-COMPACT-1).
+  isolated6357 preserves detached stamps/links (SP-COMPACT-1). Isolated [7333](../benchmarks/reports/2026-09-11-root-fold-checkpoint-7338.md) archives unreferenced root-prefix values/unit IDs, retaining one representative and referenced/late roots; logical material counts include archived facts, physical bounds do not. No admission/cadence change; no promotion.
 - `ReservedTrail` owns pre-reserved storage plus a logical end. Variable growth
   reserves before assignment; backtrack shrinks only the logical end.
 - BVE reuses touched-only indexes, flat pools and persistent Kitten stacks. Isolated7116 combines7087 root-free antecedent offsets with direct mapped physical-clause SubSolver import and XOR-consumer-local indexes.

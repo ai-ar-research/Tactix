@@ -24,6 +24,8 @@ H          heuristic/policy state (scores, phases, limits, MAB), outside σ
 
 `dl` is the decision count on `τ`; `M` is its partial assignment; `U ⊆ M` is the root part;
 `F ∧ M ⊢₁ ⊥` denotes a unit-propagation conflict.
+Formula-neutral storage compaction may keep fixed facts outside hot arrays: their external values,
+distinct proof-unit identities and reconstruction effects remain in the abstract state; no proof delta.
 
 Invariants: `F₀ ≡SAT (F ∪ ρ)`; `F ⊨ R` is proof-justified; every transition emits a checker-accepted
 delta. Rules may change `H` without proof. Only operations changing `σ` belong here; Rephase, SwitchMode,

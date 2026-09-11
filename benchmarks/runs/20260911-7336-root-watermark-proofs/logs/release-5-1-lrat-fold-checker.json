@@ -1,0 +1,10 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/tools/checkers/bin/cake_lpr",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7336-root-watermark-proofs/release-5-1-lrat-fold.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7336-root-watermark-proofs/release-5-1-lrat-fold.proof"
+  ],
+  "returncode": 0,
+  "stdout": "s VERIFIED UNSAT\n",
+  "stderr": ""
+}

@@ -1,0 +1,504 @@
+--- a/src/api/api.cpp
++++ b/src/api/api.cpp
+@@ -126,4 +126 @@
+-                       : (kernel_internalize(s->kernel, elit) == INVALID_LIT
+-                              ? 0
+-                              : s->kernel.values[kernel_internalize(s->kernel,
+-                                                                    elit)]);
++                       : kernel_external_value(s->kernel, external);
+@@ -269 +266 @@
+-    return kernel_root_fixed(k);
++    return kernel_logical_root_fixed(k);
+--- a/src/kernel/kernel.cpp
++++ b/src/kernel/kernel.cpp
+@@ -3409 +3409 @@
+-bool kernel_compact_variables(Kernel &k) {
++bool kernel_compact_variables(Kernel &k, bool fold_fixed) {
+@@ -3414,0 +3415,63 @@
++  std::vector<uint8_t> archive;
++  if (fold_fixed) {
++    // LRAT roots must already have been named by their inference owner. Do not
++    // manufacture proof units or change a rule's preparation from compaction.
++    if (k.proof && k.proof->lrat())
++      for (Var v = 0; v < old_nvars; v++)
++        if (kernel_root_value(k, make_lit(v, false)) && !k.unit_ids[v]) {
++          fold_fixed = false;
++          break;
++        }
++  }
++  if (fold_fixed) {
++    archive.assign(old_nvars, 0);
++    Var representative = INVALID_VAR;
++    for (Var v : k.compact_import_order)
++      if (!kernel_var_retired(k, v) && kernel_root_value(k, make_lit(v, false))) {
++        representative = v;
++        break;
++      }
++    if (representative == INVALID_VAR)
++      for (Var v = 0; v < old_nvars; v++)
++        if (!kernel_var_retired(k, v) && kernel_root_value(k, make_lit(v, false))) {
++          representative = v;
++          break;
++        }
++    const uint32_t root_prefix = kernel_root_fixed(k);
++    for (Var v = 0; v < old_nvars; v++)
++      archive[v] = v != representative && !kernel_var_retired(k, v) &&
++                   kernel_root_value(k, make_lit(v, false)) &&
++                   k.assigned[v].trail < root_prefix;
++    // True-level roots may follow decisions on the physical trail. Keep that
++    // suffix hot until backtracking brings it into the root prefix: archiving
++    // it now would change prefix-based public/material counts without an
++    // inference. This restricts storage folding, never a public proof rule.
++    // Representation-only: fixed literals can remain in an explicit caller's
++    // unsimplified clauses. Keep those identities, never flush their clauses
++    // or narrow the public rule surface to make folding convenient.
++    for (Ref ref = 0; ref < k.arena.size();) {
++      const Clause *c = clause_at(k.arena, ref);
++      if (!c->garbage())
++        for (Lit l : *c)
++          archive[var_of(l)] = 0;
++      ref += clause_actual_words(c);
++    }
++    for (Lit l = 0; l < 2 * old_nvars; l++)
++      for (WatchEntry w : k.watches.entries(l))
++        if (w.binary()) {
++          archive[var_of(l)] = 0;
++          archive[var_of(w.other())] = 0;
++        }
++    for (Var v = 0; v < old_nvars; v++) {
++      if (!k.values[make_lit(v, false)] || !k.assigned[v].level ||
++          kernel_var_retired(k, v))
++        continue;
++      const Assigned &a = k.assigned[v];
++      if (a.binary && a.reason < 2 * old_nvars)
++        archive[var_of(a.reason)] = 0;
++      if (a.jumped && k.jumped_over[v] < 2 * old_nvars)
++        archive[var_of(k.jumped_over[v])] = 0;
++    }
++  }
++  const uint32_t archived = static_cast<uint32_t>(
++      std::count(archive.begin(), archive.end(), uint8_t{1}));
+@@ -3418 +3481,2 @@
+-    if (k.var_status.empty() || k.var_status[old] == VarStatus::Active)
++    if ((k.var_status.empty() || k.var_status[old] == VarStatus::Active) &&
++        (!archived || !archive[old]))
+@@ -3455,0 +3520,4 @@
++    // A kept fixed assignment may have a stale binary antecedent in the cold
++    // set. Its already-proved unit becomes the canonical root reason below.
++    if (archived && a.level == 0)
++      continue;
+@@ -3593,0 +3662,5 @@
++      if (archived && assigned[now].level == 0) {
++        assigned[now].reason = UNIT_REASON;
++        assigned[now].binary = false;
++        assigned[now].jumped = false;
++      }
+@@ -3643,0 +3717,13 @@
++  if (archived) {
++    k.fixed_external_values.resize(k.external_to_internal.size(), 0);
++    k.fixed_external_units.resize(k.external_to_internal.size(), 0);
++    for (Var old = 0; old < old_nvars; old++) {
++      if (!archive[old])
++        continue;
++      const Var external = k.internal_to_external[old];
++      assert(!k.fixed_external_values[external]);
++      k.fixed_external_values[external] = k.values[make_lit(old, false)];
++      k.fixed_external_units[external] = k.unit_ids[old];
++    }
++    k.fixed_external_count += archived;
++  }
+@@ -3687,0 +3774,7 @@
++  if (archived) {
++    // assign/clear alone retain the old root-sized backing allocations.
++    k.seen.shrink_to_fit();
++    k.eager_marks.shrink_to_fit();
++    k.marked_levels.shrink_to_fit();
++    k.probing.stamp.shrink_to_fit();
++  }
+@@ -3688,0 +3782,2 @@
++  if (archived)
++    k.var_status.shrink_to_fit();
+@@ -3956,2 +4051,15 @@
+-            k.internal_to_external[internal] == external));
+-  }
++           k.internal_to_external[internal] == external));
++  }
++  assert(k.fixed_external_values.size() == k.fixed_external_units.size());
++  assert(k.fixed_external_values.size() <= k.external_to_internal.size());
++  uint32_t fixed_external_count = 0;
++  for (Var external = 0; external < k.fixed_external_values.size(); external++) {
++    const int8_t value = k.fixed_external_values[external];
++    assert(value >= -1 && value <= 1);
++    if (value) {
++      assert(k.external_to_internal[external] == INVALID_VAR);
++      assert(!k.proof || !k.proof->lrat() || k.fixed_external_units[external]);
++      fixed_external_count++;
++    }
++  }
++  assert(fixed_external_count == k.fixed_external_count);
+@@ -4223,2 +4331,4 @@
+-    k.model_values[pos] = -1;
+-    k.model_values[negate(pos)] = 1;
++    const int8_t fixed = ev < k.fixed_external_values.size()
++                             ? k.fixed_external_values[ev] : 0;
++    k.model_values[pos] = fixed ? fixed : -1;
++    k.model_values[negate(pos)] = -k.model_values[pos];
+--- a/src/kernel/kernel.hpp
++++ b/src/kernel/kernel.hpp
+@@ -1244,0 +1245,8 @@
++  // Fixed identities no longer occupying a hot internal slot. These remain
++  // distinct external facts, not aliases of the retained root representative.
++  // Only representation compaction fills these arrays; inference still owns
++  // every root assignment and its proof unit.
++  std::vector<int8_t> fixed_external_values;
++  std::vector<uint64_t> fixed_external_units;
++  uint32_t fixed_external_count = 0;
++
+@@ -1357,0 +1366,20 @@
++inline int8_t kernel_external_value(const Kernel &k, Lit external) {
++  const Var ev = var_of(external);
++  if (ev < k.fixed_external_values.size() && k.fixed_external_values[ev])
++    return negated(external) ? -k.fixed_external_values[ev]
++                            : k.fixed_external_values[ev];
++  if (ev >= k.external_to_internal.size())
++    return 0;
++  const Var iv = k.external_to_internal[ev];
++  return iv == INVALID_VAR ? 0 : k.values[make_lit(iv, negated(external))];
++}
++
++inline uint64_t kernel_external_unit_id(const Kernel &k, Var external) {
++  if (external < k.fixed_external_values.size() && k.fixed_external_values[external])
++    return k.fixed_external_units[external];
++  if (external >= k.external_to_internal.size())
++    return 0;
++  const Var iv = k.external_to_internal[external];
++  return iv == INVALID_VAR ? 0 : k.unit_ids[iv];
++}
++
+@@ -1365 +1393,4 @@
+-bool kernel_compact_variables(Kernel &);
++// fold_fixed additionally archives unreferenced, proved fixed identities while
++// retaining one representative in the existing compact/import image. A fixed
++// variable still named by a live clause or non-root reason keeps its hot slot.
++bool kernel_compact_variables(Kernel &, bool fold_fixed = false);
+@@ -1939,0 +1971,7 @@
++// Material watermarks and public root counts retain permanent fixed facts.
++// Array bounds, trail cursors and active-population subtraction still use the
++// physical prefix above. Compaction alone must not consume a new-root signal.
++inline uint32_t kernel_logical_root_fixed(const Kernel &k) {
++  return kernel_root_fixed(k) + k.fixed_external_count;
++}
++
+--- a/src/policies/default_policy.cpp
++++ b/src/policies/default_policy.cpp
+@@ -1712 +1712 @@
+-              kernel_root_fixed(k) <= c.fixed_mark &&
++              kernel_logical_root_fixed(k) <= c.fixed_mark &&
+@@ -2653 +2653 @@
+-      if (compact_due && kernel_compact_variables(k))
++      if (compact_due && kernel_compact_variables(k, true))
+@@ -3431 +3431 @@
+-    e.root_fixed_mark = kernel_root_fixed(k);
++    e.root_fixed_mark = kernel_logical_root_fixed(k);
+@@ -3464 +3464 @@
+-      kernel_root_fixed(k) <= e.root_fixed_mark) {
++      kernel_logical_root_fixed(k) <= e.root_fixed_mark) {
+@@ -3542 +3542 @@
+-    e.root_fixed_mark = kernel_root_fixed(k);
++    e.root_fixed_mark = kernel_logical_root_fixed(k);
+@@ -3606 +3606 @@
+-  clock.fixed_mark = kernel_root_fixed(k);
++  clock.fixed_mark = kernel_logical_root_fixed(k);
+@@ -3955 +3955 @@
+-      clock.fixed_mark = kernel_root_fixed(k);
++      clock.fixed_mark = kernel_logical_root_fixed(k);
+--- a/src/policies/heuristics.cpp
++++ b/src/policies/heuristics.cpp
+@@ -214,0 +215,2 @@
++  if (k.fixed_external_count)
++    h.scores.pos.shrink_to_fit();
+--- /dev/null
++++ b/tests/test_root_fold.cpp
+@@ -0,0 +1,192 @@
++#undef NDEBUG
++#include "kernel/kernel.hpp"
++#include "frontend/parse.hpp"
++#include "policies/default_policy.hpp"
++#include "policies/heuristics.hpp"
++#include "proof/proof.hpp"
++#include "rules/propagate/propagate.hpp"
++#include "rules/registry.hpp"
++#include <algorithm>
++#include <cassert>
++#include <cstdio>
++#include <cstring>
++#include <vector>
++
++using namespace tactix;
++
++static std::vector<uint64_t> fixture(bool fold, bool reverse, bool stable) {
++  Kernel k;
++  ScopedHeuristics owner(k);
++  owner.h.stable = stable;
++  constexpr Var roots = 1024, live = 8;
++  kernel_reserve_vars(k, roots + live);
++  std::vector<Var> order;
++  for (Var v = 0; v < k.nvars; v++) order.push_back(v);
++  if (reverse) std::reverse(order.begin(), order.end());
++  for (Var v : order) kernel_record_import(k, v);
++  heuristics_seed_activation_order(k, order);
++  for (Var v = 0; v < roots; v++) {
++    kernel_assign_unit(k, make_lit(v, v & 1));
++    k.unit_ids[v] = 100 + v;
++  }
++  assert(propagate_apply(k) == ApplyResult::Ok);
++  heuristics_deactivate_inactive_vars(k);
++  heuristics_compact_random_order_fixed(k);
++  const Var representative = owner.h.fixed_representative;
++  owner.h.links[representative].stamp = 31337;
++  for (unsigned repeat = 0; repeat < 3; repeat++) {
++    assert(kernel_compact_variables(k, fold));
++    heuristics_compact_random_order_fixed(k);
++    assert(k.nvars == (fold ? live + 1 : roots + live));
++    assert(k.fixed_external_count == (fold ? roots - 1 : 0));
++    assert(kernel_root_fixed(k) + k.fixed_external_count == roots);
++    assert(owner.h.links[owner.h.fixed_representative].stamp == 31337);
++    for (Var ev = 0; ev < roots; ev++) {
++      assert(kernel_external_value(k, make_lit(ev, ev & 1)) == 1);
++      assert(kernel_external_value(k, make_lit(ev, !(ev & 1))) == -1);
++      assert(kernel_external_unit_id(k, ev) == 100 + ev);
++    }
++    kernel_check_invariants(k);
++  }
++  std::vector<uint64_t> semantic;
++  for (Var v : k.compact_import_order)
++    semantic.push_back(k.internal_to_external[v]);
++  semantic.push_back(UINT64_MAX);
++  for (Var v = owner.h.queue_first; v != INVALID_VAR; v = owner.h.links[v].next) {
++    semantic.push_back(k.internal_to_external[v]);
++    semantic.push_back(owner.h.links[v].stamp);
++  }
++  for (const RuleVTable &rule : tactix_rules()) {
++    if (std::strcmp(rule.name, "Decide")) continue;
++    uint64_t actions[2 * live];
++    assert(rule.instances(k, actions, 2 * live) == 2 * live);
++    std::sort(actions, actions + 2 * live);
++    semantic.insert(semantic.end(), actions, actions + 2 * live);
++  }
++  // New extension identities must never recycle a compacted external root.
++  const Var extension = kernel_new_extension_vars(k, 1);
++  assert(k.internal_to_external[extension] == roots + live);
++  const Var newly_fixed = var_of(kernel_internalize(k, roots + 1));
++  kernel_assign_unit(k, make_lit(newly_fixed, false));
++  k.unit_ids[newly_fixed] = 9001;
++  assert(propagate_apply(k) == ApplyResult::Ok);
++  heuristics_deactivate_inactive_vars(k);
++  assert(kernel_compact_variables(k, fold));
++  heuristics_compact_random_order_fixed(k);
++  assert(kernel_external_unit_id(k, roots) == 9001);
++  assert(kernel_root_fixed(k) + k.fixed_external_count == roots + 1);
++  kernel_check_invariants(k);
++  kernel_extend_model(k);
++  for (Var ev = 0; ev < roots; ev++)
++    assert(k.model_values[make_lit(ev, ev & 1)] == 1);
++  assert(k.model_values[make_lit(roots, false)] == 1);
++  return semantic;
++}
++
++static void referenced_roots_stay_hot() {
++  Kernel k;
++  kernel_reserve_vars(k, 6);
++  for (Var v = 0; v < 3; v++) kernel_assign_unit(k, make_lit(v, false));
++  // x2 is still a literal in a stored clause; x1 is the representative, and
++  // only x3 can leave the hot arrays. No clause/proof mutation is requested.
++  kernel_add_binary_clause(k, internalize(-2), internalize(4), 10);
++  assert(propagate_apply(k) == ApplyResult::Ok);
++  assert(kernel_compact_variables(k, true));
++  assert(kernel_internalize(k, 2) != INVALID_LIT);
++  assert(kernel_internalize(k, 3) == INVALID_LIT);
++  assert(kernel_external_value(k, internalize(3)) == 1);
++  assert(kernel_binary_live(k, kernel_internalize(k, -2), kernel_internalize(k, 4)));
++  kernel_check_invariants(k);
++}
++
++static int proof_fixture(const char *input, const char *output, const char *format, bool fold) {
++  Kernel k;
++  ScopedHeuristics owner(k);
++  Proof proof;
++  assert(proof.open(output, !std::strcmp(format, "lrat") ? ProofFormat::Lrat : ProofFormat::DratAscii));
++  k.proof = &proof;
++  proof.bind_variable_map(&k.internal_to_external);
++  FILE *file = std::fopen(input, "r");
++  assert(file && !parse_dimacs(file, k));
++  std::fclose(file);
++  assert(propagate_apply(k) == ApplyResult::Ok);
++  heuristics_deactivate_inactive_vars(k);
++  heuristics_compact_random_order_fixed(k);
++  const uint32_t roots = kernel_root_fixed(k);
++  assert(roots >= 3);
++  assert(kernel_compact_variables(k, fold));
++  heuristics_compact_random_order_fixed(k);
++  assert(fold ? k.fixed_external_count >= 2 : k.fixed_external_count == 0);
++  assert(kernel_root_fixed(k) + k.fixed_external_count == roots);
++  const int result = default_solve(k);
++  proof.flush();
++  if (result == 10) {
++    kernel_extend_model(k);
++    std::puts("s SATISFIABLE");
++    std::printf("v");
++    for (Var ev = 0; ev < kernel_num_output_vars(k); ev++)
++      std::printf(" %d", k.model_values[make_lit(ev, false)] > 0 ? int(ev+1) : -int(ev+1));
++    std::puts(" 0");
++  } else {
++    assert(result == 20);
++    std::puts("s UNSATISFIABLE");
++  }
++  std::printf("c fixed-root fixture archived %u\n", k.fixed_external_count);
++  return result;
++}
++
++static void reconstruction_and_nonroot_reason() {
++  {
++    Kernel k;
++    kernel_reserve_vars(k, 5);
++    kernel_assign_unit(k, internalize(1));
++    kernel_assign_unit(k, internalize(-2));
++    kernel_assign_unit(k, internalize(3));
++    const Lit true_rest = internalize(3), false_rest = internalize(2);
++    kernel_push_witness(k, internalize(4), &true_rest, 1);
++    kernel_push_witness(k, internalize(5), &false_rest, 1);
++    k.var_status.assign(5, VarStatus::Active);
++    k.var_status[3] = k.var_status[4] = VarStatus::Eliminated;
++    k.unassigned_active -= 2;
++    assert(propagate_apply(k) == ApplyResult::Ok);
++    assert(kernel_compact_variables(k, true));
++    assert(k.nvars == 1 && k.fixed_external_count == 2);
++    kernel_extend_model(k);
++    assert(k.model_values[internalize(-2)] > 0);
++    assert(k.model_values[internalize(3)] > 0);
++    assert(k.model_values[internalize(-4)] > 0);
++    assert(k.model_values[internalize(5)] > 0);
++  }
++  {
++    Kernel k;
++    kernel_reserve_vars(k, 6);
++    for (int v : {1, 2, 3}) kernel_assign_unit(k, internalize(v));
++    const Lit clause[] = {internalize(-2), internalize(-4), internalize(5)};
++    kernel_add_large_clause(k, clause, 3, false, 0, 10);
++    assert(propagate_apply(k) == ApplyResult::Ok);
++    kernel_assign_decision(k, internalize(4));
++    assert(propagate_apply(k) == ApplyResult::Ok);
++    assert(k.value(internalize(5)) > 0 && k.var_level(4) == 1);
++    assert(kernel_compact_variables(k, true));
++    assert(k.nvars == 5 && k.fixed_external_count == 1);
++    assert(kernel_internalize(k, 2) != INVALID_LIT);
++    assert(kernel_internalize(k, 3) == INVALID_LIT);
++    const Var forced = var_of(kernel_internalize(k, 5));
++    assert(k.assigned[forced].level == 1 && !k.assigned[forced].binary);
++    const Clause *reason = clause_at(k.arena, k.assigned[forced].reason);
++    assert(!reason->garbage());
++    assert(k.frames[1] == 2 && k.propagate_head == k.trail.size());
++    kernel_check_invariants(k);
++  }
++}
++
++int main(int argc, char **argv) {
++  if (argc == 5) return proof_fixture(argv[1], argv[2], argv[3], !std::strcmp(argv[4], "fold"));
++  assert(argc == 1);
++  for (bool reverse : {false, true})
++    for (bool stable : {false, true})
++      assert(fixture(false, reverse, stable) == fixture(true, reverse, stable));
++  referenced_roots_stay_hot();
++  reconstruction_and_nonroot_reason();
++  std::puts("root-fold: physical shrink, values/units, live ordering/actions, repeated compaction, extensions and model PASS");
++}
+--- /dev/null
++++ b/tests/test_root_watermark.cpp
+@@ -0,0 +1,87 @@
++// Actual scheduler admission and trail-prefix consumers across root folding.
++#undef NDEBUG
++#include "kernel/kernel.hpp"
++#include "policies/default_policy.hpp"
++#include "policies/heuristics.hpp"
++#include "rules/propagate/propagate.hpp"
++#include <cassert>
++#include <cstdio>
++#include <cstring>
++
++using namespace tactix;
++
++static void scheduling_watermark() {
++  for (bool fold : {false, true}) {
++    Kernel k;
++    ScopedHeuristics owner(k);
++    kernel_reserve_vars(k, 12);
++    for (Var v = 0; v < 8; v++)
++      kernel_assign_unit(k, make_lit(v, v & 1));
++    assert(propagate_apply(k) == ApplyResult::Ok);
++    heuristics_deactivate_inactive_vars(k);
++    heuristics_compact_random_order_fixed(k);
++    DefaultPolicy policy;
++    auto &scheduler = policy.inprocess();
++    scheduler.pose_initialized();
++    auto &clock = scheduler.elim_clock;
++    clock.rounds = 1;
++    clock.next_conflicts = 100;
++    clock.fixed_mark = kernel_root_fixed(k);
++    clock.marks_mark = k.stats.bve_marks;
++    clock.material_mark = k.subsume_material_count;
++    k.stats.conflicts = 100;
++    assert(!scheduler.want_phase(k, SlotGroup::Eliminate));
++    for (unsigned repeat = 0; repeat < 3; repeat++) {
++      assert(kernel_compact_variables(k, fold));
++      heuristics_compact_random_order_fixed(k);
++      assert(kernel_root_fixed(k) + k.fixed_external_count == 8);
++      assert(!scheduler.want_phase(k, SlotGroup::Eliminate));
++    }
++    kernel_assign_unit(k, kernel_internalize(k, -9));
++    assert(propagate_apply(k) == ApplyResult::Ok);
++    // No other material source changes: this invitation is solely the new
++    // proved root. A smaller physical trail must not hide it from Eliminate.
++    assert(clock.marks_mark == k.stats.bve_marks);
++    assert(clock.material_mark == k.subsume_material_count);
++    assert(kernel_root_fixed(k) + k.fixed_external_count == 9);
++    assert(scheduler.want_phase(k, SlotGroup::Eliminate));
++    clock.fixed_mark = 9;
++    assert(!scheduler.want_phase(k, SlotGroup::Eliminate));
++    kernel_check_invariants(k);
++  }
++}
++
++static void late_true_level_root() {
++  Kernel k;
++  kernel_reserve_vars(k, 6);
++  kernel_assign_unit(k, internalize(1));
++  kernel_assign_unit(k, internalize(-2));
++  assert(propagate_apply(k) == ApplyResult::Ok);
++  kernel_assign_decision(k, internalize(4));
++  // The public stepping surface permits a true-level-zero assignment after
++  // higher-level literals. The physical prefix count does not include it yet.
++  kernel_assign_unit(k, internalize(3));
++  assert(propagate_apply(k) == ApplyResult::Ok);
++  const uint32_t before = kernel_root_fixed(k);
++  assert(before == 2);
++  assert(kernel_compact_variables(k, true));
++  assert(kernel_root_fixed(k) + k.fixed_external_count == before);
++  assert(kernel_internalize(k, 3) != INVALID_LIT);
++  assert(kernel_external_value(k, internalize(3)) == 1);
++  assert(k.frames[1] == 1 && k.level == 1);
++  kernel_check_invariants(k);
++  kernel_backtrack(k, 0);
++  assert(kernel_root_fixed(k) + k.fixed_external_count == 3);
++  assert(kernel_compact_variables(k, true));
++  assert(k.nvars == 4 && k.fixed_external_count == 2);
++  assert(kernel_internalize(k, 3) == INVALID_LIT);
++  assert(kernel_root_fixed(k) + k.fixed_external_count == 3);
++  kernel_check_invariants(k);
++}
++
++int main(int argc, char **argv) {
++  assert(argc == 1 || argc == 2);
++  if (argc == 1 || !std::strcmp(argv[1], "watermark")) scheduling_watermark();
++  if (argc == 1 || !std::strcmp(argv[1], "late")) late_true_level_root();
++  std::puts("root-watermark: actual Eliminate admission and late-root compaction PASS");
++}

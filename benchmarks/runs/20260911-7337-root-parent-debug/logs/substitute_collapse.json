@@ -1,0 +1,9 @@
+{
+  "label": "substitute_collapse",
+  "command": [
+    "/home/hwu/SAT-solving/build/pin-7337-root-parent-debug/tests/test_substitute_collapse"
+  ],
+  "returncode": -6,
+  "stdout": "",
+  "stderr": "test_substitute_collapse: /home/hwu/SAT-solving/.claude/worktrees/runtime-clause-realloc-7301/src/proof/proof.cpp:109: void tactix::Proof::add_rup(uint64_t, const tactix::Lit*, uint32_t, const uint64_t*, uint32_t): Assertion `chain[i] != 0 && \"LRAT RUP chain contains the line terminator\"' failed.\n"
+}

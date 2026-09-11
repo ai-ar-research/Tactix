@@ -1,0 +1,109 @@
+{
+  "status": "REPRODUCED_ON_UNCHANGED_PARENT",
+  "hashes": {
+    "benchmarks/runs/20260911-7302-clause-realloc-build/manifest.json": "2e7689b4ff5dcc3cefa4c4b3d44c77fbdc18d2de4ed735ac38fd72f834b27358",
+    "benchmarks/runs/20260911-7337-root-parent-debug/logs/configure.json": "4f311af17132dee8bf326c74882c16d464fe1c8100e8c081fe3da3f09c3fac64",
+    "benchmarks/runs/20260911-7337-root-parent-debug/logs/build.json": "9e551c74ce25128b2b752bb40ad0d9c378c0739a89c5e1ad63a07a5404fc5003",
+    "benchmarks/runs/20260911-7337-root-parent-debug/logs/forward_unit.json": "989f7468a3400c17aa8c94493c28937f77c44eaae7c89b0c027b6d5a77a8e55a",
+    "build/pin-7337-root-parent-debug/tests/test_forward_unit": "373ebd25c34f19f66113cc80b8408b5e614b96b6828f75b44458f131b51816c8",
+    "benchmarks/runs/20260911-7337-root-parent-debug/logs/substitute_collapse.json": "6ac37043f54eee8b33659b5b7a7a6a5c616826e8c31e38c75a891603fa236c00",
+    "build/pin-7337-root-parent-debug/tests/test_substitute_collapse": "b7a21185c2a553c5a7384fcee244a6b811538fe3b68420a28ab9199d88f0d93b",
+    "benchmarks/runs/20260911-7337-root-parent-debug/logs/substitute_retry.json": "10fd773ab2301cf080cdb76ca24aabfc77bf313c88fb8e20effcbbf2edf7158e",
+    "build/pin-7337-root-parent-debug/tests/test_substitute_retry": "ad5acb3409e3c90683c76d7373ae4d4cea34757f3c615e59378c444f463ed703",
+    "benchmarks/runs/20260911-7337-root-parent-debug/logs/subsume_material.json": "dc249d5536b2454cb9120db1e0d0f4c0af3dfd092a0955132f31f773bc0aac4e",
+    "build/pin-7337-root-parent-debug/tests/test_subsume_material": "bcf4228fdaacfc17cce1220bc7e4227c5b557ea2e7c2d9c5aad663f1ba6e5c9e",
+    "benchmarks/runs/20260911-7337-root-parent-debug/logs/event_trace_zero_overhead.json": "ba776ece6f00025e9b4ed6fa6a343aafee02e4de9e90ad9514e5f6432416c2ba",
+    "benchmarks/probes/scratch/check-root-parent-debug-7337.py": "e573078db02394f576f65cf9054861fe560ded3560bf6c8ebba65426f870588a",
+    ".claude/worktrees/runtime-clause-realloc-7301/tests/test_no_event_trace_symbols.py": "cbb094aa147ef633d3af708e9eb32e59e8574378eaa70c8d435a732eb371a005",
+    "build/pin-7337-root-parent-debug/tactix": "44945518451ccac3da6b4b20f8ec081a894f1e7f1a63561276aeac2e18d514e9"
+  },
+  "records": [
+    {
+      "label": "configure",
+      "command": [
+        "cmake",
+        "-S",
+        "/home/hwu/SAT-solving/.claude/worktrees/runtime-clause-realloc-7301",
+        "-B",
+        "/home/hwu/SAT-solving/build/pin-7337-root-parent-debug",
+        "-DCMAKE_BUILD_TYPE=Debug",
+        "-DTACTIX_ENABLE_EVENT_TRACE=OFF",
+        "-DTACTIX_ENABLE_RULE_JOURNAL=OFF",
+        "-DTACTIX_ENABLE_PROOF_SHADOW=OFF",
+        "-DTACTIX_ENABLE_CONFLICT_STOP=OFF",
+        "-DCMAKE_C_COMPILER=/cm/local/apps/gcc/13.1.0/bin/gcc",
+        "-DCMAKE_CXX_COMPILER=/cm/local/apps/gcc/13.1.0/bin/g++"
+      ],
+      "returncode": 0,
+      "stdout": "-- The CXX compiler identification is GNU 13.1.0\n-- The C compiler identification is GNU 13.1.0\n-- Detecting CXX compiler ABI info\n-- Detecting CXX compiler ABI info - done\n-- Check for working CXX compiler: /cm/local/apps/gcc/13.1.0/bin/g++ - skipped\n-- Detecting CXX compile features\n-- Detecting CXX compile features - done\n-- Detecting C compiler ABI info\n-- Detecting C compiler ABI info - done\n-- Check for working C compiler: /cm/local/apps/gcc/13.1.0/bin/gcc - skipped\n-- Detecting C compile features\n-- Detecting C compile features - done\n-- Configuring done (0.5s)\n-- Generating done (0.9s)\n-- Build files have been written to: /home/hwu/SAT-solving/build/pin-7337-root-parent-debug\n",
+      "stderr": ""
+    },
+    {
+      "label": "build",
+      "command": [
+        "cmake",
+        "--build",
+        "/home/hwu/SAT-solving/build/pin-7337-root-parent-debug",
+        "-j4",
+        "--target",
+        "tactix",
+        "test_forward_unit",
+        "test_substitute_collapse",
+        "test_substitute_retry",
+        "test_subsume_material"
+      ],
+      "returncode": 0,
+      "stdout": "[  5%] Building CXX object CMakeFiles/tactix_lib.dir/src/kernel/kernel.cpp.o\n[  5%] Building CXX object CMakeFiles/tactix_lib.dir/src/proof/proof.cpp.o\n[  5%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/registry.cpp.o\n[ 10%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/analyze/analyze.cpp.o\n[ 10%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/backbone/backbone.cpp.o\n[ 15%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/backjump/backjump.cpp.o\n[ 15%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/bce/bce.cpp.o\n[ 21%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/bve/bve.cpp.o\n[ 21%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/cce/cce.cpp.o\n[ 26%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/congruence/congruence.cpp.o\n[ 26%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/decide/decide.cpp.o\n[ 26%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/factor/factor.cpp.o\n[ 31%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/instantiate/instantiate.cpp.o\n[ 31%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/hyperbinary/hyperbinary.cpp.o\n[ 36%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/lucky/lucky.cpp.o\n[ 36%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/probe/probe.cpp.o\n[ 42%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/propagate/propagate.cpp.o\n[ 42%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/reduce/reduce.cpp.o\n[ 47%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/restart/restart.cpp.o\n[ 47%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/strengthen/strengthen.cpp.o\n[ 47%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/substitute/substitute.cpp.o\n[ 52%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/subsume_forward/subsume_forward.cpp.o\n[ 52%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/support/failed_literal.cpp.o\n[ 57%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/support/flat_occurrence.cpp.o\n[ 57%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/sweep/sweep.cpp.o\n[ 63%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/ternary/ternary.cpp.o\n[ 63%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/transitive_reduce/transitive_reduce.cpp.o\n[ 68%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/vivify/vivify.cpp.o\n[ 68%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/ops/reorder/reorder.cpp.o\n[ 68%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/ops/rephase/rephase.cpp.o\n[ 73%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/ops/switchmode/switchmode.cpp.o\n[ 73%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/ops/walk/walk.cpp.o\n[ 78%] Building CXX object CMakeFiles/tactix_lib.dir/src/engine/subsolver.cpp.o\n[ 78%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/heuristics.cpp.o\n[ 84%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/default_policy.cpp.o\n[ 84%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/random_policy.cpp.o\n[ 89%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/trace.cpp.o\n[ 89%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/stress_registry.cpp.o\n[ 89%] Building CXX object CMakeFiles/tactix_lib.dir/src/frontend/parse.cpp.o\n[ 94%] Building CXX object CMakeFiles/tactix_lib.dir/src/api/api.cpp.o\n[ 94%] Built target tactix_lib\n[100%] Building CXX object CMakeFiles/tactix.dir/src/main.cpp.o\n[100%] Linking CXX executable tactix\n[100%] Built target tactix\n[ 94%] Built target tactix_lib\n[100%] Building CXX object tests/CMakeFiles/test_forward_unit.dir/test_forward_unit.cpp.o\n[100%] Linking CXX executable test_forward_unit\n[100%] Built target test_forward_unit\n[ 94%] Built target tactix_lib\n[ 94%] Building CXX object tests/CMakeFiles/test_substitute_collapse.dir/test_substitute_collapse.cpp.o\n[100%] Linking CXX executable test_substitute_collapse\n[100%] Built target test_substitute_collapse\n[ 94%] Built target tactix_lib\n[ 94%] Building CXX object tests/CMakeFiles/test_substitute_retry.dir/test_substitute_retry.cpp.o\n[100%] Linking CXX executable test_substitute_retry\n[100%] Built target test_substitute_retry\n[100%] Built target tactix_lib\n[100%] Building CXX object tests/CMakeFiles/test_subsume_material.dir/test_subsume_material.cpp.o\n[100%] Linking CXX executable test_subsume_material\n[100%] Built target test_subsume_material\n",
+      "stderr": "/home/hwu/SAT-solving/.claude/worktrees/runtime-clause-realloc-7301/src/rules/vivify/vivify.cpp: In function \u2018tactix::ApplyResult tactix::rewrite(Kernel&, Ref, const std::vector<unsigned int>&, std::vector<std::pair<unsigned int, long unsigned int> >&, uint64_t, uint64_t, bool)\u2019:\n/home/hwu/SAT-solving/.claude/worktrees/runtime-clause-realloc-7301/src/rules/vivify/vivify.cpp:1039:52: warning: unused parameter \u2018candidate_ordinal\u2019 [-Wunused-parameter]\n 1039 |                            uint64_t last, uint64_t candidate_ordinal,\n      |                                           ~~~~~~~~~^~~~~~~~~~~~~~~~~\n/home/hwu/SAT-solving/.claude/worktrees/runtime-clause-realloc-7301/src/engine/subsolver.cpp: In member function \u2018void tactix::SubSolver::fail_assumptions(const std::vector<unsigned int>&)\u2019:\n/home/hwu/SAT-solving/.claude/worktrees/runtime-clause-realloc-7301/src/engine/subsolver.cpp:823:35: warning: missing initializer for member \u2018tactix::SubStep::antecedents\u2019 [-Wmissing-field-initializers]\n  823 |                {clause_id(reason)}};\n      |                                   ^\n/home/hwu/SAT-solving/.claude/worktrees/runtime-clause-realloc-7301/src/engine/subsolver.cpp: In member function \u2018tactix::SubResult tactix::SubSolver::solve(const std::vector<unsigned int>&, uint64_t, tactix::SubTickMode)\u2019:\n/home/hwu/SAT-solving/.claude/worktrees/runtime-clause-realloc-7301/src/engine/subsolver.cpp:1034:61: warning: missing initializer for member \u2018tactix::SubStep::antecedents\u2019 [-Wmissing-field-initializers]\n 1034 |           target_ = {target_id, export_literals(lits), chain};\n      |                                                             ^\n"
+    },
+    {
+      "label": "forward_unit",
+      "command": [
+        "/home/hwu/SAT-solving/build/pin-7337-root-parent-debug/tests/test_forward_unit"
+      ],
+      "returncode": -6,
+      "stdout": "",
+      "stderr": "test_forward_unit: /home/hwu/SAT-solving/.claude/worktrees/runtime-clause-realloc-7301/src/kernel/kernel.cpp:4084: void tactix::kernel_check_invariants(const Kernel&): Assertion `!k.watches.heads[lit].has_large() && \"large watch retained while globally disconnected\"' failed.\n"
+    },
+    {
+      "label": "substitute_collapse",
+      "command": [
+        "/home/hwu/SAT-solving/build/pin-7337-root-parent-debug/tests/test_substitute_collapse"
+      ],
+      "returncode": -6,
+      "stdout": "",
+      "stderr": "test_substitute_collapse: /home/hwu/SAT-solving/.claude/worktrees/runtime-clause-realloc-7301/src/proof/proof.cpp:109: void tactix::Proof::add_rup(uint64_t, const tactix::Lit*, uint32_t, const uint64_t*, uint32_t): Assertion `chain[i] != 0 && \"LRAT RUP chain contains the line terminator\"' failed.\n"
+    },
+    {
+      "label": "substitute_retry",
+      "command": [
+        "/home/hwu/SAT-solving/build/pin-7337-root-parent-debug/tests/test_substitute_retry"
+      ],
+      "returncode": -6,
+      "stdout": "",
+      "stderr": "test_substitute_retry: /home/hwu/SAT-solving/.claude/worktrees/runtime-clause-realloc-7301/src/proof/proof.cpp:109: void tactix::Proof::add_rup(uint64_t, const tactix::Lit*, uint32_t, const uint64_t*, uint32_t): Assertion `chain[i] != 0 && \"LRAT RUP chain contains the line terminator\"' failed.\n"
+    },
+    {
+      "label": "subsume_material",
+      "command": [
+        "/home/hwu/SAT-solving/build/pin-7337-root-parent-debug/tests/test_subsume_material"
+      ],
+      "returncode": -6,
+      "stdout": "",
+      "stderr": "test_subsume_material: /home/hwu/SAT-solving/.claude/worktrees/runtime-clause-realloc-7301/src/kernel/kernel.cpp:1104: void tactix::kernel_replace_large_clause_in_place(Kernel&, Ref, uint64_t, const Lit*, uint32_t, uint32_t, const char*, bool, Lit): Assertion `id == k.next_clause_id' failed.\n"
+    },
+    {
+      "label": "event_trace_zero_overhead",
+      "command": [
+        "python3",
+        "/home/hwu/SAT-solving/.claude/worktrees/runtime-clause-realloc-7301/tests/test_no_event_trace_symbols.py",
+        "/home/hwu/SAT-solving/build/pin-7337-root-parent-debug/tactix"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "Traceback (most recent call last):\n  File \"/home/hwu/SAT-solving/.claude/worktrees/runtime-clause-realloc-7301/tests/test_no_event_trace_symbols.py\", line 25, in <module>\n    assert \"tactix::EventTrace\" not in symbols, \"production trace symbols linked\"\nAssertionError: production trace symbols linked\n"
+    }
+  ],
+  "source": ".claude/worktrees/runtime-clause-realloc-7301",
+  "scope": "Five fixed Debug failures also occur on unchanged7302. They remain failures, not waived correctness or a passing full Debug suite. The intentionally stopped old demo is separate."
+}

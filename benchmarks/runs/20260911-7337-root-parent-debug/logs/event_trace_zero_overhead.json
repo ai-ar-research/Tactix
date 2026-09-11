@@ -1,0 +1,11 @@
+{
+  "label": "event_trace_zero_overhead",
+  "command": [
+    "python3",
+    "/home/hwu/SAT-solving/.claude/worktrees/runtime-clause-realloc-7301/tests/test_no_event_trace_symbols.py",
+    "/home/hwu/SAT-solving/build/pin-7337-root-parent-debug/tactix"
+  ],
+  "returncode": 1,
+  "stdout": "",
+  "stderr": "Traceback (most recent call last):\n  File \"/home/hwu/SAT-solving/.claude/worktrees/runtime-clause-realloc-7301/tests/test_no_event_trace_symbols.py\", line 25, in <module>\n    assert \"tactix::EventTrace\" not in symbols, \"production trace symbols linked\"\nAssertionError: production trace symbols linked\n"
+}
