@@ -1,0 +1,9 @@
+{
+  "label": "subsume_material",
+  "command": [
+    "/home/hwu/SAT-solving/build/pin-7337-root-parent-debug/tests/test_subsume_material"
+  ],
+  "returncode": -6,
+  "stdout": "",
+  "stderr": "test_subsume_material: /home/hwu/SAT-solving/.claude/worktrees/runtime-clause-realloc-7301/src/kernel/kernel.cpp:1104: void tactix::kernel_replace_large_clause_in_place(Kernel&, Ref, uint64_t, const Lit*, uint32_t, uint32_t, const char*, bool, Lit): Assertion `id == k.next_clause_id' failed.\n"
+}

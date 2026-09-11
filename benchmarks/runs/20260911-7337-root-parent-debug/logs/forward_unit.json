@@ -1,0 +1,9 @@
+{
+  "label": "forward_unit",
+  "command": [
+    "/home/hwu/SAT-solving/build/pin-7337-root-parent-debug/tests/test_forward_unit"
+  ],
+  "returncode": -6,
+  "stdout": "",
+  "stderr": "test_forward_unit: /home/hwu/SAT-solving/.claude/worktrees/runtime-clause-realloc-7301/src/kernel/kernel.cpp:4084: void tactix::kernel_check_invariants(const Kernel&): Assertion `!k.watches.heads[lit].has_large() && \"large watch retained while globally disconnected\"' failed.\n"
+}
