@@ -1,0 +1,8 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/build/pin-7373-lucky-reattach-sanitizers/tests/test_compact_stamp"
+  ],
+  "returncode": 0,
+  "stdout": "compact-stamp cases=24 observations=144 missing=0\n",
+  "stderr": ""
+}

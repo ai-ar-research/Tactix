@@ -1,0 +1,8 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/build/pin-7366-lucky-roots-sanitizers/tests/test_api_c"
+  ],
+  "returncode": 0,
+  "stdout": "test_api_c OK\n",
+  "stderr": ""
+}

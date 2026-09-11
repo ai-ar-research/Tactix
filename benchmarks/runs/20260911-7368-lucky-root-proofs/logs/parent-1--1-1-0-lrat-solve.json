@@ -1,0 +1,14 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7368-lucky-root-proofs/parent-driver",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7368-lucky-root-proofs/parent-1--1-1-0-lrat.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7368-lucky-root-proofs/parent-1--1-1-0-lrat.proof",
+    "lrat",
+    "deferred",
+    "parent",
+    "1"
+  ],
+  "returncode": 20,
+  "stdout": "c Lucky reached fixed=7 stale=0 eager=0\ns UNSATISFIABLE\n",
+  "stderr": ""
+}

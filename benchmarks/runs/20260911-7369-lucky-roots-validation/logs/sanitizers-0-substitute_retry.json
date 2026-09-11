@@ -1,0 +1,8 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/build/pin-7366-lucky-roots-sanitizers/tests/test_substitute_retry"
+  ],
+  "returncode": 0,
+  "stdout": "PASS: 36 canonical/public DRAT/LRAT retry fixtures\n",
+  "stderr": ""
+}

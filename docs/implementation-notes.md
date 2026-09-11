@@ -235,9 +235,9 @@ pending half-analysis or schedules Backjump independently.
   extensions receive the normal cumulative activation score on stable-heap
   insertion, then Factor demotes that score to zero exactly as Kissat does.
   Bare kernels, API clients, random/replay, stress, and supplied `H` stay eager.
-- Late-Lucky failure uses the normal inactive-percent variable-compaction
-  threshold. Lucky walks permanent maps directly and does not construct a
-  dense high-water copy.
+- Isolated7371 consumes either DefaultPolicy Lucky call's new roots before later
+  guidance; raw Lucky remains guidance-independent and walks permanent maps.
+  Fresh H preserves existing compact-order maps; ordinary variable growth appends.
 - Variable compaction remaps target/best phase arrays and recomputes assigned
   high-water counts. VMTF cursor, random permutation and import ranks are mapped;
   isolated6357 preserves detached stamps/links (SP-COMPACT-1). Isolated [7339](../benchmarks/reports/2026-09-11-root-storage-regression-7355.md) archives unreferenced root-prefix values/unit IDs, retaining one representative and referenced/late roots; logical material counts include archived facts, physical bounds do not. No admission/cadence change; migration can still alter scheduling state, so no parity/promotion claim.

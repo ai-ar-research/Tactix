@@ -1,0 +1,14 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7374-lucky-proofs/sanitized-driver",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7374-lucky-proofs/sanitized-5--1-1-0-lrat.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7374-lucky-proofs/sanitized-5--1-1-0-lrat.proof",
+    "lrat",
+    "deferred",
+    "candidate",
+    "5"
+  ],
+  "returncode": 20,
+  "stdout": "c Lucky reached fixed=11 stale=0 eager=0\ns UNSATISFIABLE\n",
+  "stderr": ""
+}

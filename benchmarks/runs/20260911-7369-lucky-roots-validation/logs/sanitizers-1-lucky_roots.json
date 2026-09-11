@@ -1,0 +1,8 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/build/pin-7366-lucky-roots-sanitizers/tests/test_lucky_roots"
+  ],
+  "returncode": 0,
+  "stdout": "Lucky root consumer: cases=12 stale=0 expected-old=140\n",
+  "stderr": ""
+}

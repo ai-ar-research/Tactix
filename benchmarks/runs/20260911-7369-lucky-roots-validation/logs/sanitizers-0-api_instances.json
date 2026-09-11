@@ -1,0 +1,8 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/build/pin-7366-lucky-roots-sanitizers/tests/test_api_instances"
+  ],
+  "returncode": 0,
+  "stdout": "  BCE                PAYLOAD\n  BVE                PAYLOAD\n  Backbone           PAYLOAD\n  CCE                PAYLOAD\n  ConflictAnalysis   PAYLOAD\n  Congruence         CANON  \n  Decide             PAYLOAD\n  Factor             PAYLOAD\n  HyperBinaryRes     PAYLOAD\n  HyperTernaryRes    PAYLOAD\n  Instantiate        PAYLOAD\n  Lucky              PAYLOAD\n  Probe              PAYLOAD\n  Propagate          CANON  \n  Reduce             PAYLOAD\n  Reorder            PAYLOAD\n  Rephase            PAYLOAD\n  Restart            PAYLOAD\n  Strengthen         PAYLOAD\n  Substitute         CANON    (enumeration empty here)\n  SubsumeForward     PAYLOAD\n  Sweep              PAYLOAD\n  SwitchMode         CANON  \n  TransitiveReduce   PAYLOAD\n  Vivify             PAYLOAD\n  Walk               CANON  \ntest_api_instances: 26/26 entries applied via tactix_apply_instance (21 through a chosen payload), 11 made progress\n",
+  "stderr": ""
+}

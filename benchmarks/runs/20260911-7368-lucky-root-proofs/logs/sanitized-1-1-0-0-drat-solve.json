@@ -1,0 +1,14 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7368-lucky-root-proofs/sanitized-driver",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7368-lucky-root-proofs/sanitized-1-1-0-0-drat.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7368-lucky-root-proofs/sanitized-1-1-0-0-drat.proof",
+    "drat",
+    "deferred",
+    "candidate",
+    "1"
+  ],
+  "returncode": -6,
+  "stdout": "",
+  "stderr": "sanitized-driver: /home/hwu/SAT-solving/.claude/worktrees/runtime-lucky-roots-7365/src/policies/heuristics.cpp:96: void tactix::heuristics_reserve_vars(Kernel&, uint32_t, uint32_t): Assertion `k.compact_import_position[v] == INVALID_VAR' failed.\n"
+}
