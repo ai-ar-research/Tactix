@@ -1,0 +1,2758 @@
+{
+  "observed_at": "2026-09-11T03:48:07.296120+00:00",
+  "hashes": {
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/000.json": "939ac78d473dcd7cb5ae56dd193150c5a2738fe4529ef2c7c8a088ab50eb74f5",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/001.json": "15a5325a3f48fb7f3afbced78a3d7641957bf8f97459da4077bf376e28ee3a6c",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/002.json": "2f002d2ba29d88f67890950217f213dd25aa8b54364e147c514c9ca2a4e37cc8",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/003.json": "867aa8f0b1d920cee40e5e572f6e6fd91c47ad34522b3dad3df5e0d4fd157020",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/004.json": "1348a7b058b65b0c8e4ac9130f8df03f1ec4a18ec95c6d41d22a473448d6db69",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/005.json": "d99befa8298272d0165f23945f204e1ee5a80d185807ac7dae1f02166bd0c9ad",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/006.json": "989d2a2af2f40b4f989bf76ba4cc23dcf96653e8235b689b6f70d426ea07f51c",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/007.json": "4a29e138cbc2c75125aaad9c19cc4a101e2a077f886b4b09c33236afd9fc7cc5",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/008.json": "cfa606e9065b63c855fada31f9bb70efdddff548c9206863ee64c4e2750c656f",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/009.json": "c89aaf92de34f5276a2190ca5f84bde35ac2f8b947cc0d2f955b3a1a937c3422",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/010.json": "646042da8bc8c99ec75b3aba3d5023d8bacefee4fe0febf951b578922e3c23ff",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/011.json": "a188a5fd4bf8a2cddd858d8a9df50085d9652d38c83ae3335b3d75abd11974e0",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/012.json": "0e58eabcc184e6edb941950c75bb20a69945fd16cbb0576ce61881e435e9f47e",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/013.json": "fb0f9b5e8c9fa283e2a51bb648f1b354b6d5403649902c4dfbaba6cbf44e97f7",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/014.json": "d63b305476f29e7f83bd5ca552bb45ac567d52eb7d440c878018c9d4b61ea5ce",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/015.json": "f192670cbca0fbad59c9ce31098514124a5a7f1748a372715655de409bcfa12e",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/016.json": "9ec3bd3edbb69fdb26a3983a8342c51db80d2fe4f59f822d9e89f4bf251f7862",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/017.json": "6a74f4180a7199b61ccdaea5d38322be2e166333ee421c2b0f958f7d30a23b21",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/018.json": "274bcfc77523b4af72e86888f3902a4f200d5d5115e735eff2d041bf5d753161",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/019.json": "338fe7fd382d3b4ed2e53f08b433185f3dcf3674a68f861c65f6ced12280f3b1",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/020.json": "a56d1b53a794749d9c240f146f8a26958f22e218068058586e49b185d9ae8893",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/provisional/021.json": "1b937cae473c9952fb49b3cd044e936996214b1fa933f04e834ceb11a538c422",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/022.json": "327b543972ea42f0a492368af93e4421a2dcba280d9d0cbbb22f43f3c37b17d1",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/023.json": "bb6853bc38e7b10848d3ccdbadd46ffe8c3e86c634db7c38cd9f36f62e4997c3",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/024.json": "7584cbd08d5385df8766af84ff1f30bbe5389ada21821517e19ef5acfe0c1db1",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/025.json": "12ad09fd6bf1e3b1c888cb5924c3021bb87b647fe711b75cb9986fcf4a2090a8",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/026.json": "03fb4d84ba432591bc100cda3d3f0bc91391f92adf77cfcda145992d47b70def",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/027.json": "799cd3223c0dbf16342ec852ebfc94f6e8e61a6ef2825621d758992a02c52a52",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/028.json": "ca9b1e1ba811ae308b7467b4d7e1b0218aa52de8481f8fd5d7deaa6708b7fd1a",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/029.json": "ddbcf27176a73da32fbc8da27f494b1f2b80ef3e88d85c06432143140f7efdd6",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/030.json": "e0a3e67417519fe05badda2f6e5c8dc036fc31aafb3de89f7d9f45a511d83cc9",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/031.json": "596d1f8fcc38c2a494acea411ad68e5e4c4d841cbb6ff2b6910faa0daf614e24",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/032.json": "d18be43d1913f61abff398e7715c56865edbd654b4085f482ecd763f7e14d00b",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/033.json": "8076ed9f7f7b8a27da5e98f3e5cd82e040b4404b1d92142fb5a431d62973dfa7",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/034.json": "6e18f0441ad77698bfdc521bfcb7c1b269734c9f2c7ad3a8556282ddc94d42ba",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/035.json": "eff230e227664694add3cf727900190a1bc78ea1553fa7511cd663730b40b46f",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/036.json": "75aa6121614eea82a700c92fcc035090a82495ac402aa4da8957d1f5f322a0f3",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/037.json": "c10052d79d181644497598e56f6dcb910fb21772e9ca799d24ab1d18d1244770",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/038.json": "96455abb6cda8e6a022afd52de8dc30665c7a44e2742fbe89c469cd45f94c379",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/039.json": "649949e7c7035edc23710805c8b0a0c54c281091883af3bf2e27b14f0b95e296",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/040.json": "c58973fb973575a0d301a2ce8be2ef7aaf0db6f218dadf7248ce99939cd2128a",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/041.json": "ef3a8cadec9bbd527154c0f83809c4cd0716acf8b7314becf269f36281a4a56e",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/provisional/042.json": "de69cef224552c765ff58e5882e319a36e0282688a34aa6be9d4c356b818c232",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/043.json": "a487189c935374d169134a1dd43c632eb201d983ce243be8326e3780796963e0",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/044.json": "e7579a7c9a9dd13753dd529beb936a86c3ee01614156a98d98aceef212928c6e",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/045.json": "1ffda095bfdbf8c61dd27ba1b7c7c79aeb6d1d727e42e6283705bf435ea7d8a2",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/046.json": "9d890a3f05d226d33418662e6cc9d3e8ebbfd3f5b658c902c85a0098d5949ebe",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/047.json": "26c69d99fb161e0535c05dd2ba0c7bf524a141e506822b9784718accca90c4a7",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/048.json": "06b2549a6a8d4451cd738bc2ab3f999bb1506f15c3ecf2c356b22048695c7eb5",
+    "benchmarks/runs/20260910-7167-vivify-revalidation-ranks1-50/results/049.json": "e1bbd9e4a119f71d540900ec942b9c0d4e9c68eb86dd34652b780275aa6c92fb",
+    "benchmarks/probes/scratch/census-current-inprocessing-7189.py": "b3e1c79e98045a5c9225a25ccd6edb58b0c3204974c779ab645917ae248371aa"
+  },
+  "rows": {
+    "1": {
+      "instance": "tierD24-26/1545660e72158c7e90da5ad4c877a124-hwmcc20miters-iso-rast-p06.sanitized.cnf.xz",
+      "wall_seconds": 0.217,
+      "rules": {
+        "Congruence": {
+          "ms": 127,
+          "applications": 1
+        }
+      },
+      "classification": {
+        "status": "checked_UNSAT",
+        "clean": true,
+        "checked": true,
+        "scorable": true
+      },
+      "timing_rows": [
+        "c timing      155 ms solve",
+        "c timing      132 ms (84.9%) inprocessing slot, 23 ms (15.1%) search+scaffolding outside it",
+        "c timing        Congruence             127 ms ( 82.1%) in 1 applications",
+        "c timing        (unattributed)           4 ms (  2.8%)"
+      ]
+    },
+    "2": {
+      "instance": "tierD24-26/1a20d903db74ab566efc68a35e6b0ec5-hwmcc20miters-iso-rast-p11.sanitized.cnf.xz",
+      "wall_seconds": 0.216,
+      "rules": {
+        "Congruence": {
+          "ms": 124,
+          "applications": 1
+        }
+      },
+      "classification": {
+        "status": "checked_UNSAT",
+        "clean": true,
+        "checked": true,
+        "scorable": true
+      },
+      "timing_rows": [
+        "c timing      150 ms solve",
+        "c timing      128 ms (85.4%) inprocessing slot, 22 ms (14.6%) search+scaffolding outside it",
+        "c timing        Congruence             124 ms ( 82.7%) in 1 applications",
+        "c timing        (unattributed)           4 ms (  2.8%)"
+      ]
+    },
+    "3": {
+      "instance": "tierD24-26/3b5d7ec347010e177bfa04b298fc75cf-nla-digbench-scaling_dijkstra-u_valuebound1_transition.cnf.xz",
+      "wall_seconds": 0.567,
+      "rules": {
+        "Congruence": {
+          "ms": 378,
+          "applications": 1
+        },
+        "Substitute": {
+          "ms": 36,
+          "applications": 1
+        }
+      },
+      "classification": {
+        "status": "checked_UNSAT",
+        "clean": true,
+        "checked": true,
+        "scorable": true
+      },
+      "timing_rows": [
+        "c timing      466 ms solve",
+        "c timing      427 ms (91.6%) inprocessing slot, 39 ms (8.4%) search+scaffolding outside it",
+        "c timing        Congruence             378 ms ( 81.1%) in 1 applications",
+        "c timing        Substitute              36 ms (  7.7%) in 1 applications",
+        "c timing        (unattributed)          13 ms (  2.8%)"
+      ]
+    },
+    "4": {
+      "instance": "tierD24-26/15456f0d13b26f0b4b21525ef7d0d711-clique_n5_k10.sanitized.cnf.xz",
+      "wall_seconds": 7.529,
+      "rules": {
+        "Vivify": {
+          "ms": 422,
+          "applications": 71
+        },
+        "Sweep": {
+          "ms": 197,
+          "applications": 5
+        },
+        "Substitute": {
+          "ms": 32,
+          "applications": 37
+        },
+        "BVE": {
+          "ms": 29,
+          "applications": 6172
+        },
+        "TransitiveReduce": {
+          "ms": 27,
+          "applications": 10642
+        },
+        "Factor": {
+          "ms": 18,
+          "applications": 16
+        },
+        "Strengthen": {
+          "ms": 12,
+          "applications": 14
+        },
+        "Backbone": {
+          "ms": 6,
+          "applications": 37
+        },
+        "Congruence": {
+          "ms": 5,
+          "applications": 5
+        }
+      },
+      "classification": {
+        "status": "checked_UNSAT",
+        "clean": true,
+        "checked": true,
+        "scorable": true
+      },
+      "timing_rows": [
+        "c timing      7496 ms solve",
+        "c timing      766 ms (10.2%) inprocessing slot, 6730 ms (89.8%) search+scaffolding outside it",
+        "c timing        Vivify                 422 ms (  5.6%) in 71 applications",
+        "c timing        Sweep                  197 ms (  2.6%) in 5 applications",
+        "c timing        Substitute              32 ms (  0.4%) in 37 applications",
+        "c timing        BVE                     29 ms (  0.4%) in 6172 applications",
+        "c timing        TransitiveReduce        27 ms (  0.4%) in 10642 applications",
+        "c timing        Factor                  18 ms (  0.2%) in 16 applications",
+        "c timing        Strengthen              12 ms (  0.2%) in 14 applications",
+        "c timing        Backbone                 6 ms (  0.1%) in 37 applications",
+        "c timing        Congruence               5 ms (  0.1%) in 5 applications",
+        "c timing        (unattributed)          18 ms (  0.2%)"
+      ]
+    },
+    "5": {
+      "instance": "tierD24-26/1c21a43aa1ad437e4a7e4eb5b9cd45a1-9.normalised.cnf.xz",
+      "wall_seconds": 29.714,
+      "rules": {},
+      "classification": {
+        "status": "checked_SAT",
+        "clean": true,
+        "checked": true,
+        "scorable": true
+      },
+      "timing_rows": [
+        "c timing      3218 ms solve",
+        "c timing      0 ms (0.0%) inprocessing slot, 3218 ms (100.0%) search+scaffolding outside it",
+        "c timing        (unattributed)           0 ms (  0.0%)"
+      ]
+    },
+    "6": {
+      "instance": "tierD24-26/7a5e9bdbf9b8c025b1f986d6098b6206-cfi-rigid-t2-0048-04-or_3_shuffle_all.cnf.xz",
+      "wall_seconds": 68.08,
+      "rules": {
+        "Factor": {
+          "ms": 30297,
+          "applications": 23
+        },
+        "Congruence": {
+          "ms": 5658,
+          "applications": 6
+        },
+        "Substitute": {
+          "ms": 3428,
+          "applications": 45
+        },
+        "Vivify": {
+          "ms": 3189,
+          "applications": 72
+        },
+        "Strengthen": {
+          "ms": 1286,
+          "applications": 7
+        },
+        "Sweep": {
+          "ms": 959,
+          "applications": 6
+        },
+        "Backbone": {
+          "ms": 634,
+          "applications": 45
+        },
+        "BVE": {
+          "ms": 142,
+          "applications": 34706
+        },
+        "TransitiveReduce": {
+          "ms": 95,
+          "applications": 37
+        }
+      },
+      "classification": {
+        "status": "checked_SAT",
+        "clean": true,
+        "checked": true,
+        "scorable": true
+      },
+      "timing_rows": [
+        "c timing      66064 ms solve",
+        "c timing      47444 ms (71.8%) inprocessing slot, 18620 ms (28.2%) search+scaffolding outside it",
+        "c timing        Factor               30297 ms ( 45.9%) in 23 applications",
+        "c timing        Congruence            5658 ms (  8.6%) in 6 applications",
+        "c timing        Substitute            3428 ms (  5.2%) in 45 applications",
+        "c timing        Vivify                3189 ms (  4.8%) in 72 applications",
+        "c timing        Strengthen            1286 ms (  1.9%) in 7 applications",
+        "c timing        Sweep                  959 ms (  1.5%) in 6 applications",
+        "c timing        Backbone               634 ms (  1.0%) in 45 applications",
+        "c timing        BVE                    142 ms (  0.2%) in 34706 applications",
+        "c timing        TransitiveReduce        95 ms (  0.1%) in 37 applications",
+        "c timing        (unattributed)        1757 ms (  2.7%)"
+      ]
+    },
+    "7": {
+      "instance": "tierD24-26/26b648475cfd06695a17ac95f4469744-128_75.sanitized.cnf.xz",
+      "wall_seconds": 54.403,
+      "rules": {
+        "Congruence": {
+          "ms": 21502,
+          "applications": 1
+        },
+        "Substitute": {
+          "ms": 9967,
+          "applications": 1
+        },
+        "Sweep": {
+          "ms": 2451,
+          "applications": 1
+        },
+        "Backbone": {
+          "ms": 239,
+          "applications": 1
+        }
+      },
+      "classification": {
+        "status": "checked_SAT",
+        "clean": true,
+        "checked": true,
+        "scorable": true
+      },
+      "timing_rows": [
+        "c timing      41886 ms solve",
+        "c timing      34810 ms (83.1%) inprocessing slot, 7076 ms (16.9%) search+scaffolding outside it",
+        "c timing        Congruence           21502 ms ( 51.3%) in 1 applications",
+        "c timing        Substitute            9967 ms ( 23.8%) in 1 applications",
+        "c timing        Sweep                 2451 ms (  5.9%) in 1 applications",
+        "c timing        Backbone               239 ms (  0.6%) in 1 applications",
+        "c timing        (unattributed)         650 ms (  1.6%)"
+      ]
+    },
+    "8": {
+      "instance": "tierD24-26/210fe1c0ffefde5bcd03d59b1efa6984-32_325.sanitized.cnf.xz",
+      "wall_seconds": 66.533,
+      "rules": {
+        "Congruence": {
+          "ms": 26523,
+          "applications": 1
+        },
+        "Substitute": {
+          "ms": 11148,
+          "applications": 1
+        },
+        "Sweep": {
+          "ms": 3074,
+          "applications": 1
+        },
+        "Backbone": {
+          "ms": 299,
+          "applications": 1
+        }
+      },
+      "classification": {
+        "status": "checked_SAT",
+        "clean": true,
+        "checked": true,
+        "scorable": true
+      },
+      "timing_rows": [
+        "c timing      50598 ms solve",
+        "c timing      41814 ms (82.6%) inprocessing slot, 8784 ms (17.4%) search+scaffolding outside it",
+        "c timing        Congruence           26523 ms ( 52.4%) in 1 applications",
+        "c timing        Substitute           11148 ms ( 22.0%) in 1 applications",
+        "c timing        Sweep                 3074 ms (  6.1%) in 1 applications",
+        "c timing        Backbone               299 ms (  0.6%) in 1 applications",
+        "c timing        (unattributed)         768 ms (  1.5%)"
+      ]
+    },
+    "9": {
+      "instance": "tierD24-26/5ceb95f5960efe1f23c3014847dea118-pj2009_k80.cnf.xz",
+      "wall_seconds": 96.874,
+      "rules": {
+        "BVE": {
+          "ms": 24841,
+          "applications": 2875165
+        },
+        "Sweep": {
+          "ms": 7022,
+          "applications": 8
+        },
+        "Congruence": {
+          "ms": 6673,
+          "applications": 4
+        },
+        "Substitute": {
+          "ms": 4899,
+          "applications": 18
+        },
+        "Factor": {
+          "ms": 4027,
+          "applications": 4
+        },
+        "Vivify": {
+          "ms": 3910,
+          "applications": 28
+        },
+        "Strengthen": {
+          "ms": 2487,
+          "applications": 3
+        },
+        "Backbone": {
+          "ms": 2392,
+          "applications": 17
+        },
+        "TransitiveReduce": {
+          "ms": 283,
+          "applications": 111879
+        }
+      },
+      "classification": {
+        "status": "checked_SAT",
+        "clean": true,
+        "checked": true,
+        "scorable": true
+      },
+      "timing_rows": [
+        "c timing      95764 ms solve",
+        "c timing      60156 ms (62.8%) inprocessing slot, 35608 ms (37.2%) search+scaffolding outside it",
+        "c timing        BVE                  24841 ms ( 25.9%) in 2875165 applications",
+        "c timing        Sweep                 7022 ms (  7.3%) in 8 applications",
+        "c timing        Congruence            6673 ms (  7.0%) in 4 applications",
+        "c timing        Substitute            4899 ms (  5.1%) in 18 applications",
+        "c timing        Factor                4027 ms (  4.2%) in 4 applications",
+        "c timing        Vivify                3910 ms (  4.1%) in 28 applications",
+        "c timing        Strengthen            2487 ms (  2.6%) in 3 applications",
+        "c timing        Backbone              2392 ms (  2.5%) in 17 applications",
+        "c timing        TransitiveReduce       283 ms (  0.3%) in 111879 applications",
+        "c timing        (unattributed)        3620 ms (  3.8%)"
+      ]
+    },
+    "10": {
+      "instance": "tierD24-26/093fa3ff9f7bc9979c43f9d2310ac21d-128_125.sanitized.cnf.xz",
+      "wall_seconds": 91.513,
+      "rules": {
+        "Congruence": {
+          "ms": 35239,
+          "applications": 1
+        },
+        "Substitute": {
+          "ms": 16690,
+          "applications": 1
+        },
+        "Sweep": {
+          "ms": 4127,
+          "applications": 1
+        },
+        "Backbone": {
+          "ms": 398,
+          "applications": 1
+        }
+      },
+      "classification": {
+        "status": "checked_SAT",
+        "clean": true,
+        "checked": true,
+        "scorable": true
+      },
+      "timing_rows": [
+        "c timing      69391 ms solve",
+        "c timing      57542 ms (82.9%) inprocessing slot, 11849 ms (17.1%) search+scaffolding outside it",
+        "c timing        Congruence           35239 ms ( 50.8%) in 1 applications",
+        "c timing        Substitute           16690 ms ( 24.1%) in 1 applications",
+        "c timing        Sweep                 4127 ms (  5.9%) in 1 applications",
+        "c timing        Backbone               398 ms (  0.6%) in 1 applications",
+        "c timing        (unattributed)        1087 ms (  1.6%)"
+      ]
+    },
+    "11": {
+      "instance": "tierD24-26/912ce8c21d8fb8abc491cb205ec23e9f-hwmcc20miters-iso-mul2.sanitized.cnf.xz",
+      "wall_seconds": 0.267,
+      "rules": {
+        "Congruence": {
+          "ms": 137,
+          "applications": 1
+        }
+      },
+      "classification": {
+        "status": "checked_UNSAT",
+        "clean": true,
+        "checked": true,
+        "scorable": true
+      },
+      "timing_rows": [
+        "c timing      168 ms solve",
+        "c timing      142 ms (84.6%) inprocessing slot, 26 ms (15.4%) search+scaffolding outside it",
+        "c timing        Congruence             137 ms ( 81.6%) in 1 applications",
+        "c timing        (unattributed)           5 ms (  3.0%)"
+      ]
+    },
+    "12": {
+      "instance": "tierD24-26/8d4b50ec0cf99097e9ab0835937afee5-hwmcc17miters-xits-iso-6s281b35.sanitized.cnf.xz",
+      "wall_seconds": 7.228,
+      "rules": {
+        "Congruence": {
+          "ms": 5369,
+          "applications": 1
+        }
+      },
+      "classification": {
+        "status": "checked_UNSAT",
+        "clean": true,
+        "checked": true,
+        "scorable": true
+      },
+      "timing_rows": [
+        "c timing      6417 ms solve",
+        "c timing      5486 ms (85.5%) inprocessing slot, 931 ms (14.5%) search+scaffolding outside it",
+        "c timing        Congruence            5369 ms ( 83.7%) in 1 applications",
+        "c timing        (unattributed)         118 ms (  1.8%)"
+      ]
+    },
+    "13": {
+      "instance": "tierD24-26/84c6d7e4a18aacf166105aaa3cd6e3de-128_100.sanitized.cnf.xz",
+      "wall_seconds": 75.239,
+      "rules": {
+        "Congruence": {
+          "ms": 29715,
+          "applications": 1
+        },
+        "Substitute": {
+          "ms": 13757,
+          "applications": 1
+        },
+        "Sweep": {
+          "ms": 3304,
+          "applications": 1
+        },
+        "Backbone": {
+          "ms": 319,
+          "applications": 1
+        }
+      },
+      "classification": {
+        "status": "checked_SAT",
+        "clean": true,
+        "checked": true,
+        "scorable": true
+      },
+      "timing_rows": [
+        "c timing      57900 ms solve",
+        "c timing      47973 ms (82.9%) inprocessing slot, 9927 ms (17.1%) search+scaffolding outside it",
+        "c timing        Congruence           29715 ms ( 51.3%) in 1 applications",
+        "c timing        Substitute           13757 ms ( 23.8%) in 1 applications",
+        "c timing        Sweep                 3304 ms (  5.7%) in 1 applications",
+        "c timing        Backbone               319 ms (  0.6%) in 1 applications",
+        "c timing        (unattributed)         877 ms (  1.5%)"
+      ]
+    },
+    "14": {
+      "instance": "tierD24-26/a14d9ee17051ec08a4334ba43089502c-64_200.sanitized.cnf.xz",
+      "wall_seconds": 72.684,
+      "rules": {
+        "Congruence": {
+          "ms": 28644,
+          "applications": 1
+        },
+        "Substitute": {
+          "ms": 12459,
+          "applications": 1
+        },
+        "Sweep": {
+          "ms": 3378,
+          "applications": 1
+        },
+        "Backbone": {
+          "ms": 323,
+          "applications": 1
+        }
+      },
+      "classification": {
+        "status": "checked_SAT",
+        "clean": true,
+        "checked": true,
+        "scorable": true
+      },
+      "timing_rows": [
+        "c timing      55333 ms solve",
+        "c timing      45644 ms (82.5%) inprocessing slot, 9690 ms (17.5%) search+scaffolding outside it",
+        "c timing        Congruence           28644 ms ( 51.8%) in 1 applications",
+        "c timing        Substitute           12459 ms ( 22.5%) in 1 applications",
+        "c timing        Sweep                 3378 ms (  6.1%) in 1 applications",
+        "c timing        Backbone               323 ms (  0.6%) in 1 applications",
+        "c timing        (unattributed)         839 ms (  1.5%)"
+      ]
+    },
+    "15": {
+      "instance": "tierD24-26/8ffd718f763ed7a3f691cf46e57f8d98-mdp-32-10-sat.cnf.xz",
+      "wall_seconds": 75.189,
+      "rules": {
+        "Vivify": {
+          "ms": 4682,
+          "applications": 116
+        },
+        "Sweep": {
+          "ms": 1157,
+          "applications": 8
+        },
+        "Substitute": {
+          "ms": 112,
+          "applications": 71
+        },
+        "BVE": {
+          "ms": 77,
+          "applications": 6048
+        },
+        "Strengthen": {
+          "ms": 39,
+          "applications": 24
+        },
+        "Factor": {
+          "ms": 36,
+          "applications": 25
+        },
+        "Congruence": {
+          "ms": 23,
+          "applications": 8
+        },
+        "TransitiveReduce": {
+          "ms": 13,
+          "applications": 39720
+        },
+        "Backbone": {
+          "ms": 3,
+          "applications": 71
+        }
+      },
+      "classification": {
+        "status": "checked_SAT",
+        "clean": true,
+        "checked": true,
+        "scorable": true
+      },
+      "timing_rows": [
+        "c timing      75116 ms solve",
+        "c timing      6208 ms (8.3%) inprocessing slot, 68908 ms (91.7%) search+scaffolding outside it",
+        "c timing        Vivify                4682 ms (  6.2%) in 116 applications",
+        "c timing        Sweep                 1157 ms (  1.5%) in 8 applications",
+        "c timing        Substitute             112 ms (  0.1%) in 71 applications",
+        "c timing        BVE                     77 ms (  0.1%) in 6048 applications",
+        "c timing        Strengthen              39 ms (  0.1%) in 24 applications",
+        "c timing        Factor                  36 ms (  0.0%) in 25 applications",
+        "c timing        Congruence              23 ms (  0.0%) in 8 applications",
+        "c timing        TransitiveReduce        13 ms (  0.0%) in 39720 applications",
+        "c timing        Backbone                 3 ms (  0.0%) in 71 applications",
+        "c timing        (unattributed)          66 ms (  0.1%)"
+      ]
+    },
+    "16": {
+      "instance": "tierD24-26/05c8e94aaee86390eaf6e68dd3ec3570-noL-11-2.sanitized.cnf.xz",
+      "wall_seconds": 119.154,
+      "rules": {
+        "Vivify": {
+          "ms": 5808,
+          "applications": 140
+        },
+        "Sweep": {
+          "ms": 2566,
+          "applications": 9
+        },
+        "Substitute": {
+          "ms": 256,
+          "applications": 89
+        },
+        "BVE": {
+          "ms": 49,
+          "applications": 4966
+        },
+        "Congruence": {
+          "ms": 39,
+          "applications": 9
+        },
+        "TransitiveReduce": {
+          "ms": 12,
+          "applications": 63834
+        },
+        "Factor": {
+          "ms": 11,
+          "applications": 3
+        },
+        "Strengthen": {
+          "ms": 9,
+          "applications": 8
+        },
+        "Backbone": {
+          "ms": 3,
+          "applications": 89
+        }
+      },
+      "classification": {
+        "status": "checked_SAT",
+        "clean": true,
+        "checked": true,
+        "scorable": true
+      },
+      "timing_rows": [
+        "c timing      119102 ms solve",
+        "c timing      8820 ms (7.4%) inprocessing slot, 110282 ms (92.6%) search+scaffolding outside it",
+        "c timing        Vivify                5808 ms (  4.9%) in 140 applications",
+        "c timing        Sweep                 2566 ms (  2.2%) in 9 applications",
+        "c timing        Substitute             256 ms (  0.2%) in 89 applications",
+        "c timing        BVE                     49 ms (  0.0%) in 4966 applications",
+        "c timing        Congruence              39 ms (  0.0%) in 9 applications",
+        "c timing        TransitiveReduce        12 ms (  0.0%) in 63834 applications",
+        "c timing        Factor                  11 ms (  0.0%) in 3 applications",
+        "c timing        Strengthen               9 ms (  0.0%) in 8 applications",
+        "c timing        Backbone                 3 ms (  0.0%) in 89 applications",
+        "c timing        (unattributed)          66 ms (  0.1%)"
+      ]
+    },
+    "17": {
+      "instance": "tierD24-26/0a8a4c28d27228e954354ea0a6e7f16c-sum_of_three_cubes_42_known_representation.cnf.xz",
+      "wall_seconds": 76.793,
+      "rules": {
+        "Congruence": {
+          "ms": 8550,
+          "applications": 7
+        },
+        "Vivify": {
+          "ms": 6200,
+          "applications": 36
+        },
+        "Sweep": {
+          "ms": 6093,
+          "applications": 8
+        },
+        "Substitute": {
+          "ms": 4883,
+          "applications": 22
+        },
+        "BVE": {
+          "ms": 4280,
+          "applications": 977229
+        },
+        "Factor": {
+          "ms": 3314,
+          "applications": 6
+        },
+        "Strengthen": {
+          "ms": 2075,
+          "applications": 6
+        },
+        "Backbone": {
+          "ms": 969,
+          "applications": 21
+        },
+        "TransitiveReduce": {
+          "ms": 435,
+          "applications": 659711
+        }
+      },
+      "classification": {
+        "status": "checked_SAT",
+        "clean": true,
+        "checked": true,
+        "scorable": true
+      },
+      "timing_rows": [
+        "c timing      76094 ms solve",
+        "c timing      38626 ms (50.8%) inprocessing slot, 37468 ms (49.2%) search+scaffolding outside it",
+        "c timing        Congruence            8550 ms ( 11.2%) in 7 applications",
+        "c timing        Vivify                6200 ms (  8.1%) in 36 applications",
+        "c timing        Sweep                 6093 ms (  8.0%) in 8 applications",
+        "c timing        Substitute            4883 ms (  6.4%) in 22 applications",
+        "c timing        BVE                   4280 ms (  5.6%) in 977229 applications",
+        "c timing        Factor                3314 ms (  4.4%) in 6 applications",
+        "c timing        Strengthen            2075 ms (  2.7%) in 6 applications",
+        "c timing        Backbone               969 ms (  1.3%) in 21 applications",
+        "c timing        TransitiveReduce       435 ms (  0.6%) in 659711 applications",
+        "c timing        (unattributed)        1828 ms (  2.4%)"
+      ]
+    },
+    "18": {
+      "instance": "tierD24-26/0f262afd5b117000f8b4734d175aadab-linked_list_swap_contents_safety_unwind73.cnf.xz",
+      "wall_seconds": 61.389,
+      "rules": {
+        "Congruence": {
+          "ms": 15862,
+          "applications": 3
+        },
+        "Substitute": {
+          "ms": 4992,
+          "applications": 5
+        },
+        "Sweep": {
+          "ms": 4076,
+          "applications": 2
+        },
+        "Vivify": {
+          "ms": 2312,
+          "applications": 7
+        },
+        "Backbone": {
+          "ms": 589,
+          "applications": 5
+        },
+        "TransitiveReduce": {
+          "ms": 68,
+          "applications": 62
+        }
+      },
+      "classification": {
+        "status": "checked_UNSAT",
+        "clean": true,
+        "checked": true,
+        "scorable": true
+      },
+      "timing_rows": [
+        "c timing      57064 ms solve",
+        "c timing      28360 ms (49.7%) inprocessing slot, 28705 ms (50.3%) search+scaffolding outside it",
+        "c timing        Congruence           15862 ms ( 27.8%) in 3 applications",
+        "c timing        Substitute            4992 ms (  8.7%) in 5 applications",
+        "c timing        Sweep                 4076 ms (  7.1%) in 2 applications",
+        "c timing        Vivify                2312 ms (  4.1%) in 7 applications",
+        "c timing        Backbone               589 ms (  1.0%) in 5 applications",
+        "c timing        TransitiveReduce        68 ms (  0.1%) in 62 applications",
+        "c timing        (unattributed)         461 ms (  0.8%)"
+      ]
+    },
+    "19": {
+      "instance": "tierD24-26/4551c996fc6f5fbe62b43076abb25077-knight_18.cnf.xz",
+      "wall_seconds": 132.97,
+      "rules": {
+        "Vivify": {
+          "ms": 14996,
+          "applications": 102
+        },
+        "Backbone": {
+          "ms": 6735,
+          "applications": 63
+        },
+        "Factor": {
+          "ms": 5119,
+          "applications": 27
+        },
+        "Substitute": {
+          "ms": 4780,
+          "applications": 64
+        },
+        "Sweep": {
+          "ms": 3744,
+          "applications": 11
+        },
+        "Strengthen": {
+          "ms": 2526,
+          "applications": 16
+        },
+        "Congruence": {
+          "ms": 2372,
+          "applications": 7
+        },
+        "BVE": {
+          "ms": 2173,
+          "applications": 1005773
+        },
+        "TransitiveReduce": {
+          "ms": 1287,
+          "applications": 184957
+        }
+      },
+      "classification": {
+        "status": "checked_SAT",
+        "clean": true,
+        "checked": true,
+        "scorable": true
+      },
+      "timing_rows": [
+        "c timing      132753 ms solve",
+        "c timing      47239 ms (35.6%) inprocessing slot, 85514 ms (64.4%) search+scaffolding outside it",
+        "c timing        Vivify               14996 ms ( 11.3%) in 102 applications",
+        "c timing        Backbone              6735 ms (  5.1%) in 63 applications",
+        "c timing        Factor                5119 ms (  3.9%) in 27 applications",
+        "c timing        Substitute            4780 ms (  3.6%) in 64 applications",
+        "c timing        Sweep                 3744 ms (  2.8%) in 11 applications",
+        "c timing        Strengthen            2526 ms (  1.9%) in 16 applications",
+        "c timing        Congruence            2372 ms (  1.8%) in 7 applications",
+        "c timing        BVE                   2173 ms (  1.6%) in 1005773 applications",
+        "c timing        TransitiveReduce      1287 ms (  1.0%) in 184957 applications",
+        "c timing        (unattributed)        3507 ms (  2.6%)"
+      ]
+    },
+    "20": {
+      "instance": "tierD24-26/9376a4be372c14aa68235831712ff3f9-cabp-X-can__715.mtx.rnd-k102.sanitized.cnf.xz",
+      "wall_seconds": 119.456,
+      "rules": {
+        "Factor": {
+          "ms": 13399,
+          "applications": 2
+        },
+        "Vivify": {
+          "ms": 6436,
+          "applications": 24
+        },
+        "Substitute": {
+          "ms": 6131,
+          "applications": 15
+        },
+        "Congruence": {
+          "ms": 5510,
+          "applications": 3
+        },
+        "Backbone": {
+          "ms": 3642,
+          "applications": 15
+        },
+        "BVE": {
+          "ms": 2647,
+          "applications": 3165117
+        },
+        "Strengthen": {
+          "ms": 2346,
+          "applications": 4
+        },
+        "Sweep": {
+          "ms": 1292,
+          "applications": 3
+        },
+        "TransitiveReduce": {
+          "ms": 505,
+          "applications": 4412
+        }
+      },
+      "classification": {
+        "status": "checked_SAT",
+        "clean": true,
+        "checked": true,
+        "scorable": true
+      },
+      "timing_rows": [
+        "c timing      117966 ms solve",
+        "c timing      46097 ms (39.1%) inprocessing slot, 71869 ms (60.9%) search+scaffolding outside it",
+        "c timing        Factor               13399 ms ( 11.4%) in 2 applications",
+        "c timing        Vivify                6436 ms (  5.5%) in 24 applications",
+        "c timing        Substitute            6131 ms (  5.2%) in 15 applications",
+        "c timing        Congruence            5510 ms (  4.7%) in 3 applications",
+        "c timing        Backbone              3642 ms (  3.1%) in 15 applications",
+        "c timing        BVE                   2647 ms (  2.2%) in 3165117 applications",
+        "c timing        Strengthen            2346 ms (  2.0%) in 4 applications",
+        "c timing        Sweep                 1292 ms (  1.1%) in 3 applications",
+        "c timing        TransitiveReduce       505 ms (  0.4%) in 4412 applications",
+        "c timing        (unattributed)        4189 ms (  3.6%)"
+      ]
+    },
+    "21": {
+      "instance": "tierD24-26/ac3887576c2ce781202b9fe0fdc31420-pj2008_k80.cnf.xz",
+      "wall_seconds": 248.297,
+      "rules": {
+        "BVE": {
+          "ms": 49105,
+          "applications": 11093354
+        },
+        "Sweep": {
+          "ms": 14162,
+          "applications": 6
+        },
+        "Substitute": {
+          "ms": 9191,
+          "applications": 26
+        },
+        "Congruence": {
+          "ms": 8995,
+          "applications": 5
+        },
+        "Backbone": {
+          "ms": 8648,
+          "applications": 25
+        },
+        "Factor": {
+          "ms": 7026,
+          "applications": 6
+        },
+        "Vivify": {
+          "ms": 6679,
+          "applications": 34
+        },
+        "Strengthen": {
+          "ms": 3252,
+          "applications": 4
+        },
+        "TransitiveReduce": {
+          "ms": 1092,
+          "applications": 228707
+        }
+      },
+      "classification": {
+        "status": "checked_SAT",
+        "clean": true,
+        "checked": true,
+        "scorable": true
+      },
+      "timing_rows": [
+        "c timing      247156 ms solve",
+        "c timing      114603 ms (46.4%) inprocessing slot, 132553 ms (53.6%) search+scaffolding outside it",
+        "c timing        BVE                  49105 ms ( 19.9%) in 11093354 applications",
+        "c timing        Sweep                14162 ms (  5.7%) in 6 applications",
+        "c timing        Substitute            9191 ms (  3.7%) in 26 applications",
+        "c timing        Congruence            8995 ms (  3.6%) in 5 applications",
+        "c timing        Backbone              8648 ms (  3.5%) in 25 applications",
+        "c timing        Factor                7026 ms (  2.8%) in 6 applications",
+        "c timing        Vivify                6679 ms (  2.7%) in 34 applications",
+        "c timing        Strengthen            3252 ms (  1.3%) in 4 applications",
+        "c timing        TransitiveReduce      1092 ms (  0.4%) in 228707 applications",
+        "c timing        (unattributed)        6453 ms (  2.6%)"
+      ]
+    },
+    "22": {
+      "instance": "tierD24-26/113e692e379518bc3277855277dcc1b8-oisc-subrv-sll-nested-8.cnf.xz",
+      "wall_seconds": 224.824,
+      "rules": {
+        "Sweep": {
+          "ms": 40829,
+          "applications": 10
+        },
+        "Factor": {
+          "ms": 17801,
+          "applications": 4
+        },
+        "Congruence": {
+          "ms": 17334,
+          "applications": 6
+        },
+        "Vivify": {
+          "ms": 16385,
+          "applications": 39
+        },
+        "Substitute": {
+          "ms": 12439,
+          "applications": 21
+        },
+        "Strengthen": {
+          "ms": 9955,
+          "applications": 4
+        },
+        "BVE": {
+          "ms": 9061,
+          "applications": 965768
+        },
+        "Backbone": {
+          "ms": 3386,
+          "applications": 21
+        },
+        "TransitiveReduce": {
+          "ms": 1020,
+          "applications": 247362
+        }
+      },
+      "classification": {
+        "status": "pending_validation",
+        "clean": false,
+        "checked": false,
+        "scorable": false
+      },
+      "timing_rows": [
+        "c timing      223372 ms solve",
+        "c timing      131420 ms (58.8%) inprocessing slot, 91952 ms (41.2%) search+scaffolding outside it",
+        "c timing        Sweep                40829 ms ( 18.3%) in 10 applications",
+        "c timing        Factor               17801 ms (  8.0%) in 4 applications",
+        "c timing        Congruence           17334 ms (  7.8%) in 6 applications",
+        "c timing        Vivify               16385 ms (  7.3%) in 39 applications",
+        "c timing        Substitute           12439 ms (  5.6%) in 21 applications",
+        "c timing        Strengthen            9955 ms (  4.5%) in 4 applications",
+        "c timing        BVE                   9061 ms (  4.1%) in 965768 applications",
+        "c timing        Backbone              3386 ms (  1.5%) in 21 applications",
+        "c timing        TransitiveReduce      1020 ms (  0.5%) in 247362 applications",
+        "c timing        (unattributed)        3211 ms (  1.4%)"
+      ]
+    },
+    "23": {
+      "instance": "tierD24-26/994783ef4ed3a0366842e1b6f9128a6f-noL-11-6.sanitized.cnf.xz",
+      "wall_seconds": 196.026,
+      "rules": {
+        "Vivify": {
+          "ms": 9365,
+          "applications": 165
+        },
+        "Sweep": {
+          "ms": 2621,
+          "applications": 9
+        },
+        "Substitute": {
+          "ms": 294,
+          "applications": 105
+        },
+        "BVE": {
+          "ms": 58,
+          "applications": 6072
+        },
+        "Congruence": {
+          "ms": 35,
+          "applications": 9
+        },
+        "TransitiveReduce": {
+          "ms": 15,
+          "applications": 74256
+        },
+        "Factor": {
+          "ms": 13,
+          "applications": 4
+        },
+        "Strengthen": {
+          "ms": 9,
+          "applications": 9
+        },
+        "Backbone": {
+          "ms": 4,
+          "applications": 105
+        }
+      },
+      "classification": {
+        "status": "checked_SAT",
+        "clean": true,
+        "checked": true,
+        "scorable": true
+      },
+      "timing_rows": [
+        "c timing      195982 ms solve",
+        "c timing      12492 ms (6.4%) inprocessing slot, 183490 ms (93.6%) search+scaffolding outside it",
+        "c timing        Vivify                9365 ms (  4.8%) in 165 applications",
+        "c timing        Sweep                 2621 ms (  1.3%) in 9 applications",
+        "c timing        Substitute             294 ms (  0.1%) in 105 applications",
+        "c timing        BVE                     58 ms (  0.0%) in 6072 applications",
+        "c timing        Congruence              35 ms (  0.0%) in 9 applications",
+        "c timing        TransitiveReduce        15 ms (  0.0%) in 74256 applications",
+        "c timing        Factor                  13 ms (  0.0%) in 4 applications",
+        "c timing        Strengthen               9 ms (  0.0%) in 9 applications",
+        "c timing        Backbone                 4 ms (  0.0%) in 105 applications",
+        "c timing        (unattributed)          78 ms (  0.0%)"
+      ]
+    },
+    "24": {
+      "instance": "tierD24-26/29b573e0f7b922c4bd0a675db005265f-b18.cnf.xz",
+      "wall_seconds": 270.56,
+      "rules": {
+        "Sweep": {
+          "ms": 47014,
+          "applications": 95
+        },
+        "Vivify": {
+          "ms": 24220,
+          "applications": 398
+        },
+        "BVE": {
+          "ms": 7604,
+          "applications": 658429
+        },
+        "Factor": {
+          "ms": 4926,
+          "applications": 99
+        },
+        "Substitute": {
+          "ms": 4642,
+          "applications": 205
+        },
+        "Congruence": {
+          "ms": 2674,
+          "applications": 28
+        },
+        "Strengthen": {
+          "ms": 2560,
+          "applications": 44
+        },
+        "TransitiveReduce": {
+          "ms": 2136,
+          "applications": 2425489
+        },
+        "Backbone": {
+          "ms": 830,
+          "applications": 205
+        }
+      },
+      "classification": {
+        "status": "checked_UNSAT",
+        "clean": true,
+        "checked": true,
+        "scorable": true
+      },
+      "timing_rows": [
+        "c timing      270456 ms solve",
+        "c timing      98518 ms (36.4%) inprocessing slot, 171937 ms (63.6%) search+scaffolding outside it",
+        "c timing        Sweep                47014 ms ( 17.4%) in 95 applications",
+        "c timing        Vivify               24220 ms (  9.0%) in 398 applications",
+        "c timing        BVE                   7604 ms (  2.8%) in 658429 applications",
+        "c timing        Factor                4926 ms (  1.8%) in 99 applications",
+        "c timing        Substitute            4642 ms (  1.7%) in 205 applications",
+        "c timing        Congruence            2674 ms (  1.0%) in 28 applications",
+        "c timing        Strengthen            2560 ms (  0.9%) in 44 applications",
+        "c timing        TransitiveReduce      2136 ms (  0.8%) in 2425489 applications",
+        "c timing        Backbone               830 ms (  0.3%) in 205 applications",
+        "c timing        (unattributed)        1911 ms (  0.7%)"
+      ]
+    },
+    "25": {
+      "instance": "tierD24-26/180e6d8b61fe6bab26126b78591e324e-baseballcover11with22_and2positions.cnf.xz",
+      "wall_seconds": 219.033,
+      "rules": {
+        "BVE": {
+          "ms": 18775,
+          "applications": 4282099
+        },
+        "Vivify": {
+          "ms": 4338,
+          "applications": 52
+        },
+        "Substitute": {
+          "ms": 3758,
+          "applications": 29
+        },
+        "Congruence": {
+          "ms": 2994,
+          "applications": 5
+        },
+        "Sweep": {
+          "ms": 2850,
+          "applications": 5
+        },
+        "Factor": {
+          "ms": 2481,
+          "applications": 11
+        },
+        "Strengthen": {
+          "ms": 946,
+          "applications": 8
+        },
+        "Backbone": {
+          "ms": 712,
+          "applications": 29
+        },
+        "TransitiveReduce": {
+          "ms": 390,
+          "applications": 120437
+        }
+      },
+      "classification": {
+        "status": "checked_SAT",
+        "clean": true,
+        "checked": true,
+        "scorable": true
+      },
+      "timing_rows": [
+        "c timing      218068 ms solve",
+        "c timing      39687 ms (18.2%) inprocessing slot, 178381 ms (81.8%) search+scaffolding outside it",
+        "c timing        BVE                  18775 ms (  8.6%) in 4282099 applications",
+        "c timing        Vivify                4338 ms (  2.0%) in 52 applications",
+        "c timing        Substitute            3758 ms (  1.7%) in 29 applications",
+        "c timing        Congruence            2994 ms (  1.4%) in 5 applications",
+        "c timing        Sweep                 2850 ms (  1.3%) in 5 applications",
+        "c timing        Factor                2481 ms (  1.1%) in 11 applications",
+        "c timing        Strengthen             946 ms (  0.4%) in 8 applications",
+        "c timing        Backbone               712 ms (  0.3%) in 29 applications",
+        "c timing        TransitiveReduce       390 ms (  0.2%) in 120437 applications",
+        "c timing        (unattributed)        2443 ms (  1.1%)"
+      ]
+    },
+    "26": {
+      "instance": "tierD24-26/0a27eb7c16c1e69ff4d087d217ac89cb-noL-11-0.sanitized.cnf.xz",
+      "wall_seconds": 250.078,
+      "rules": {
+        "Vivify": {
+          "ms": 11823,
+          "applications": 190
+        },
+        "Sweep": {
+          "ms": 3843,
+          "applications": 10
+        },
+        "Substitute": {
+          "ms": 432,
+          "applications": 121
+        },
+        "BVE": {
+          "ms": 51,
+          "applications": 5082
+        },
+        "Congruence": {
+          "ms": 44,
+          "applications": 10
+        },
+        "TransitiveReduce": {
+          "ms": 19,
+          "applications": 86984
+        },
+        "Factor": {
+          "ms": 12,
+          "applications": 4
+        },
+        "Strengthen": {
+          "ms": 9,
+          "applications": 8
+        },
+        "Backbone": {
+          "ms": 4,
+          "applications": 121
+        }
+      },
+      "classification": {
+        "status": "checked_SAT",
+        "clean": true,
+        "checked": true,
+        "scorable": true
+      },
+      "timing_rows": [
+        "c timing      250014 ms solve",
+        "c timing      16336 ms (6.5%) inprocessing slot, 233679 ms (93.5%) search+scaffolding outside it",
+        "c timing        Vivify               11823 ms (  4.7%) in 190 applications",
+        "c timing        Sweep                 3843 ms (  1.5%) in 10 applications",
+        "c timing        Substitute             432 ms (  0.2%) in 121 applications",
+        "c timing        BVE                     51 ms (  0.0%) in 5082 applications",
+        "c timing        Congruence              44 ms (  0.0%) in 10 applications",
+        "c timing        TransitiveReduce        19 ms (  0.0%) in 86984 applications",
+        "c timing        Factor                  12 ms (  0.0%) in 4 applications",
+        "c timing        Strengthen               9 ms (  0.0%) in 8 applications",
+        "c timing        Backbone                 4 ms (  0.0%) in 121 applications",
+        "c timing        (unattributed)         100 ms (  0.0%)"
+      ]
+    },
+    "27": {
+      "instance": "tierD24-26/5911653e4edadec391654c8f06353f9a-oski15a01b06s_opt.cnf.xz",
+      "wall_seconds": 321.896,
+      "rules": {
+        "Vivify": {
+          "ms": 32693,
+          "applications": 355
+        },
+        "BVE": {
+          "ms": 20172,
+          "applications": 2018747
+        },
+        "Factor": {
+          "ms": 14431,
+          "applications": 90
+        },
+        "Substitute": {
+          "ms": 13842,
+          "applications": 189
+        },
+        "Sweep": {
+          "ms": 9116,
+          "applications": 23
+        },
+        "Congruence": {
+          "ms": 8831,
+          "applications": 31
+        },
+        "Strengthen": {
+          "ms": 7433,
+          "applications": 40
+        },
+        "Backbone": {
+          "ms": 3826,
+          "applications": 189
+        },
+        "TransitiveReduce": {
+          "ms": 3255,
+          "applications": 4441881
+        }
+      },
+      "classification": {
+        "status": "checked_UNSAT",
+        "clean": true,
+        "checked": true,
+        "scorable": true
+      },
+      "timing_rows": [
+        "c timing      321677 ms solve",
+        "c timing      120297 ms (37.4%) inprocessing slot, 201380 ms (62.6%) search+scaffolding outside it",
+        "c timing        Vivify               32693 ms ( 10.2%) in 355 applications",
+        "c timing        BVE                  20172 ms (  6.3%) in 2018747 applications",
+        "c timing        Factor               14431 ms (  4.5%) in 90 applications",
+        "c timing        Substitute           13842 ms (  4.3%) in 189 applications",
+        "c timing        Sweep                 9116 ms (  2.8%) in 23 applications",
+        "c timing        Congruence            8831 ms (  2.7%) in 31 applications",
+        "c timing        Strengthen            7433 ms (  2.3%) in 40 applications",
+        "c timing        Backbone              3826 ms (  1.2%) in 189 applications",
+        "c timing        TransitiveReduce      3255 ms (  1.0%) in 4441881 applications",
+        "c timing        (unattributed)        6699 ms (  2.1%)"
+      ]
+    },
+    "28": {
+      "instance": "tierD24-26/9541d12f3e3d9201085c13f25145d2f7-cabp-V-nos6.mtx.rnd-k275.sanitized.cnf.xz",
+      "wall_seconds": 215.825,
+      "rules": {
+        "Vivify": {
+          "ms": 17391,
+          "applications": 27
+        },
+        "Backbone": {
+          "ms": 12440,
+          "applications": 17
+        },
+        "Factor": {
+          "ms": 7341,
+          "applications": 4
+        },
+        "Substitute": {
+          "ms": 5765,
+          "applications": 17
+        },
+        "Congruence": {
+          "ms": 4419,
+          "applications": 3
+        },
+        "BVE": {
+          "ms": 2254,
+          "applications": 3163008
+        },
+        "TransitiveReduce": {
+          "ms": 2091,
+          "applications": 15548
+        },
+        "Strengthen": {
+          "ms": 1849,
+          "applications": 4
+        },
+        "Sweep": {
+          "ms": 1689,
+          "applications": 3
+        }
+      },
+      "classification": {
+        "status": "checked_SAT",
+        "clean": true,
+        "checked": true,
+        "scorable": true
+      },
+      "timing_rows": [
+        "c timing      214903 ms solve",
+        "c timing      58891 ms (27.4%) inprocessing slot, 156012 ms (72.6%) search+scaffolding outside it",
+        "c timing        Vivify               17391 ms (  8.1%) in 27 applications",
+        "c timing        Backbone             12440 ms (  5.8%) in 17 applications",
+        "c timing        Factor                7341 ms (  3.4%) in 4 applications",
+        "c timing        Substitute            5765 ms (  2.7%) in 17 applications",
+        "c timing        Congruence            4419 ms (  2.1%) in 3 applications",
+        "c timing        BVE                   2254 ms (  1.0%) in 3163008 applications",
+        "c timing        TransitiveReduce      2091 ms (  1.0%) in 15548 applications",
+        "c timing        Strengthen            1849 ms (  0.9%) in 4 applications",
+        "c timing        Sweep                 1689 ms (  0.8%) in 3 applications",
+        "c timing        (unattributed)        3653 ms (  1.7%)"
+      ]
+    },
+    "29": {
+      "instance": "tierD24-26/16564a6acba6b9fc887c447d4e507767-ER_400_20_7.apx_2_DS-ST.cnf.xz",
+      "wall_seconds": 280.96,
+      "rules": {
+        "Vivify": {
+          "ms": 17001,
+          "applications": 215
+        },
+        "Sweep": {
+          "ms": 3826,
+          "applications": 11
+        },
+        "TransitiveReduce": {
+          "ms": 3483,
+          "applications": 49220
+        },
+        "Substitute": {
+          "ms": 600,
+          "applications": 137
+        },
+        "BVE": {
+          "ms": 100,
+          "applications": 7677
+        },
+        "Factor": {
+          "ms": 70,
+          "applications": 8
+        },
+        "Congruence": {
+          "ms": 58,
+          "applications": 12
+        },
+        "Backbone": {
+          "ms": 48,
+          "applications": 137
+        },
+        "Strengthen": {
+          "ms": 25,
+          "applications": 15
+        }
+      },
+      "classification": {
+        "status": "checked_SAT",
+        "clean": true,
+        "checked": true,
+        "scorable": true
+      },
+      "timing_rows": [
+        "c timing      280887 ms solve",
+        "c timing      25339 ms (9.0%) inprocessing slot, 255548 ms (91.0%) search+scaffolding outside it",
+        "c timing        Vivify               17001 ms (  6.1%) in 215 applications",
+        "c timing        Sweep                 3826 ms (  1.4%) in 11 applications",
+        "c timing        TransitiveReduce      3483 ms (  1.2%) in 49220 applications",
+        "c timing        Substitute             600 ms (  0.2%) in 137 applications",
+        "c timing        BVE                    100 ms (  0.0%) in 7677 applications",
+        "c timing        Factor                  70 ms (  0.0%) in 8 applications",
+        "c timing        Congruence              58 ms (  0.0%) in 12 applications",
+        "c timing        Backbone                48 ms (  0.0%) in 137 applications",
+        "c timing        Strengthen              25 ms (  0.0%) in 15 applications",
+        "c timing        (unattributed)         129 ms (  0.0%)"
+      ]
+    },
+    "30": {
+      "instance": "tierD24-26/ab17eed90e4da47767f72f518e3b4a26-vdwb_k6_n250.sanitized.cnf.xz",
+      "wall_seconds": 259.106,
+      "rules": {
+        "Vivify": {
+          "ms": 18024,
+          "applications": 159
+        },
+        "Sweep": {
+          "ms": 5071,
+          "applications": 9
+        },
+        "Substitute": {
+          "ms": 532,
+          "applications": 101
+        },
+        "BVE": {
+          "ms": 99,
+          "applications": 1500
+        },
+        "Strengthen": {
+          "ms": 57,
+          "applications": 8
+        },
+        "Congruence": {
+          "ms": 42,
+          "applications": 9
+        },
+        "TransitiveReduce": {
+          "ms": 18,
+          "applications": 25000
+        },
+        "Backbone": {
+          "ms": 1,
+          "applications": 101
+        },
+        "Factor": {
+          "ms": 0,
+          "applications": 1
+        }
+      },
+      "classification": {
+        "status": "checked_SAT",
+        "clean": true,
+        "checked": true,
+        "scorable": true
+      },
+      "timing_rows": [
+        "c timing      259049 ms solve",
+        "c timing      23901 ms (9.2%) inprocessing slot, 235148 ms (90.8%) search+scaffolding outside it",
+        "c timing        Vivify               18024 ms (  7.0%) in 159 applications",
+        "c timing        Sweep                 5071 ms (  2.0%) in 9 applications",
+        "c timing        Substitute             532 ms (  0.2%) in 101 applications",
+        "c timing        BVE                     99 ms (  0.0%) in 1500 applications",
+        "c timing        Strengthen              57 ms (  0.0%) in 8 applications",
+        "c timing        Congruence              42 ms (  0.0%) in 9 applications",
+        "c timing        TransitiveReduce        18 ms (  0.0%) in 25000 applications",
+        "c timing        Backbone                 1 ms (  0.0%) in 101 applications",
+        "c timing        Factor                   0 ms (  0.0%) in 1 applications",
+        "c timing        (unattributed)          57 ms (  0.0%)"
+      ]
+    },
+    "31": {
+      "instance": "tierD24-26/28eeb2beac7005a9afa98e4d3aaca621-oski15a01b40s_opt.cnf.xz",
+      "wall_seconds": 530.145,
+      "rules": {
+        "Vivify": {
+          "ms": 54024,
+          "applications": 529
+        },
+        "BVE": {
+          "ms": 23650,
+          "applications": 2223703
+        },
+        "Substitute": {
+          "ms": 18249,
+          "applications": 273
+        },
+        "Factor": {
+          "ms": 17580,
+          "applications": 132
+        },
+        "Sweep": {
+          "ms": 12860,
+          "applications": 28
+        },
+        "Congruence": {
+          "ms": 12774,
+          "applications": 51
+        },
+        "Strengthen": {
+          "ms": 9272,
+          "applications": 56
+        },
+        "TransitiveReduce": {
+          "ms": 6080,
+          "applications": 5701778
+        },
+        "Backbone": {
+          "ms": 6011,
+          "applications": 273
+        }
+      },
+      "classification": {
+        "status": "checked_UNSAT",
+        "clean": true,
+        "checked": true,
+        "scorable": true
+      },
+      "timing_rows": [
+        "c timing      529904 ms solve",
+        "c timing      168976 ms (31.9%) inprocessing slot, 360928 ms (68.1%) search+scaffolding outside it",
+        "c timing        Vivify               54024 ms ( 10.2%) in 529 applications",
+        "c timing        BVE                  23650 ms (  4.5%) in 2223703 applications",
+        "c timing        Substitute           18249 ms (  3.4%) in 273 applications",
+        "c timing        Factor               17580 ms (  3.3%) in 132 applications",
+        "c timing        Sweep                12860 ms (  2.4%) in 28 applications",
+        "c timing        Congruence           12774 ms (  2.4%) in 51 applications",
+        "c timing        Strengthen            9272 ms (  1.7%) in 56 applications",
+        "c timing        TransitiveReduce      6080 ms (  1.1%) in 5701778 applications",
+        "c timing        Backbone              6011 ms (  1.1%) in 273 applications",
+        "c timing        (unattributed)        8474 ms (  1.6%)"
+      ]
+    },
+    "32": {
+      "instance": "tierD24-26/753ca299a6ab46e28ece1aefa38f4947-oski15a01b01s_opt.cnf.xz",
+      "wall_seconds": 323.434,
+      "rules": {
+        "Vivify": {
+          "ms": 32306,
+          "applications": 359
+        },
+        "BVE": {
+          "ms": 19129,
+          "applications": 1980421
+        },
+        "Factor": {
+          "ms": 14556,
+          "applications": 86
+        },
+        "Substitute": {
+          "ms": 13189,
+          "applications": 181
+        },
+        "Congruence": {
+          "ms": 10546,
+          "applications": 38
+        },
+        "Sweep": {
+          "ms": 8186,
+          "applications": 22
+        },
+        "Strengthen": {
+          "ms": 7561,
+          "applications": 40
+        },
+        "Backbone": {
+          "ms": 3581,
+          "applications": 181
+        },
+        "TransitiveReduce": {
+          "ms": 3178,
+          "applications": 3934305
+        }
+      },
+      "classification": {
+        "status": "checked_UNSAT",
+        "clean": true,
+        "checked": true,
+        "scorable": true
+      },
+      "timing_rows": [
+        "c timing      323206 ms solve",
+        "c timing      118994 ms (36.8%) inprocessing slot, 204212 ms (63.2%) search+scaffolding outside it",
+        "c timing        Vivify               32306 ms ( 10.0%) in 359 applications",
+        "c timing        BVE                  19129 ms (  5.9%) in 1980421 applications",
+        "c timing        Factor               14556 ms (  4.5%) in 86 applications",
+        "c timing        Substitute           13189 ms (  4.1%) in 181 applications",
+        "c timing        Congruence           10546 ms (  3.3%) in 38 applications",
+        "c timing        Sweep                 8186 ms (  2.5%) in 22 applications",
+        "c timing        Strengthen            7561 ms (  2.3%) in 40 applications",
+        "c timing        Backbone              3581 ms (  1.1%) in 181 applications",
+        "c timing        TransitiveReduce      3178 ms (  1.0%) in 3934305 applications",
+        "c timing        (unattributed)        6762 ms (  2.1%)"
+      ]
+    },
+    "33": {
+      "instance": "tierD24-26/5314fd6ccb53b6f6af49a594ea68a273-oski15a01b15s_opt.cnf.xz",
+      "wall_seconds": 342.14,
+      "rules": {
+        "Vivify": {
+          "ms": 34093,
+          "applications": 350
+        },
+        "BVE": {
+          "ms": 19677,
+          "applications": 2022738
+        },
+        "Factor": {
+          "ms": 14621,
+          "applications": 90
+        },
+        "Substitute": {
+          "ms": 13895,
+          "applications": 189
+        },
+        "Sweep": {
+          "ms": 12688,
+          "applications": 30
+        },
+        "Congruence": {
+          "ms": 11569,
+          "applications": 44
+        },
+        "Strengthen": {
+          "ms": 7516,
+          "applications": 40
+        },
+        "Backbone": {
+          "ms": 3585,
+          "applications": 189
+        },
+        "TransitiveReduce": {
+          "ms": 3438,
+          "applications": 3851366
+        }
+      },
+      "classification": {
+        "status": "checked_UNSAT",
+        "clean": true,
+        "checked": true,
+        "scorable": true
+      },
+      "timing_rows": [
+        "c timing      341890 ms solve",
+        "c timing      127918 ms (37.4%) inprocessing slot, 213972 ms (62.6%) search+scaffolding outside it",
+        "c timing        Vivify               34093 ms ( 10.0%) in 350 applications",
+        "c timing        BVE                  19677 ms (  5.8%) in 2022738 applications",
+        "c timing        Factor               14621 ms (  4.3%) in 90 applications",
+        "c timing        Substitute           13895 ms (  4.1%) in 189 applications",
+        "c timing        Sweep                12688 ms (  3.7%) in 30 applications",
+        "c timing        Congruence           11569 ms (  3.4%) in 44 applications",
+        "c timing        Strengthen            7516 ms (  2.2%) in 40 applications",
+        "c timing        Backbone              3585 ms (  1.0%) in 189 applications",
+        "c timing        TransitiveReduce      3438 ms (  1.0%) in 3851366 applications",
+        "c timing        (unattributed)        6837 ms (  2.0%)"
+      ]
+    },
+    "34": {
+      "instance": "tierD24-26/0ae917c2e0c1d39cbe411c29b2f5ff08-dislog_a14_x14_n24.cnf.xz",
+      "wall_seconds": 333.68,
+      "rules": {
+        "Vivify": {
+          "ms": 29195,
+          "applications": 252
+        },
+        "Sweep": {
+          "ms": 24148,
+          "applications": 34
+        },
+        "Factor": {
+          "ms": 1214,
+          "applications": 69
+        },
+        "BVE": {
+          "ms": 1188,
+          "applications": 103514
+        },
+        "Substitute": {
+          "ms": 1132,
+          "applications": 142
+        },
+        "Congruence": {
+          "ms": 602,
+          "applications": 16
+        },
+        "Strengthen": {
+          "ms": 559,
+          "applications": 40
+        },
+        "TransitiveReduce": {
+          "ms": 140,
+          "applications": 1321554
+        },
+        "Backbone": {
+          "ms": 78,
+          "applications": 141
+        }
+      },
+      "classification": {
+        "status": "checked_SAT",
+        "clean": true,
+        "checked": true,
+        "scorable": true
+      },
+      "timing_rows": [
+        "c timing      333619 ms solve",
+        "c timing      58937 ms (17.7%) inprocessing slot, 274682 ms (82.3%) search+scaffolding outside it",
+        "c timing        Vivify               29195 ms (  8.8%) in 252 applications",
+        "c timing        Sweep                24148 ms (  7.2%) in 34 applications",
+        "c timing        Factor                1214 ms (  0.4%) in 69 applications",
+        "c timing        BVE                   1188 ms (  0.4%) in 103514 applications",
+        "c timing        Substitute            1132 ms (  0.3%) in 142 applications",
+        "c timing        Congruence             602 ms (  0.2%) in 16 applications",
+        "c timing        Strengthen             559 ms (  0.2%) in 40 applications",
+        "c timing        TransitiveReduce       140 ms (  0.0%) in 1321554 applications",
+        "c timing        Backbone                78 ms (  0.0%) in 141 applications",
+        "c timing        (unattributed)         682 ms (  0.2%)"
+      ]
+    },
+    "35": {
+      "instance": "tierD24-26/5c47810953b22baa5f6f45585430fc77-oski15a01b20s_opt.cnf.xz",
+      "wall_seconds": 357.438,
+      "rules": {
+        "Vivify": {
+          "ms": 34613,
+          "applications": 365
+        },
+        "BVE": {
+          "ms": 19745,
+          "applications": 2021962
+        },
+        "Factor": {
+          "ms": 14359,
+          "applications": 88
+        },
+        "Substitute": {
+          "ms": 13239,
+          "applications": 185
+        },
+        "Congruence": {
+          "ms": 11733,
+          "applications": 45
+        },
+        "Sweep": {
+          "ms": 10190,
+          "applications": 25
+        },
+        "Strengthen": {
+          "ms": 7393,
+          "applications": 40
+        },
+        "Backbone": {
+          "ms": 4040,
+          "applications": 185
+        },
+        "TransitiveReduce": {
+          "ms": 3543,
+          "applications": 3976462
+        }
+      },
+      "classification": {
+        "status": "checked_UNSAT",
+        "clean": true,
+        "checked": true,
+        "scorable": true
+      },
+      "timing_rows": [
+        "c timing      357231 ms solve",
+        "c timing      125538 ms (35.1%) inprocessing slot, 231693 ms (64.9%) search+scaffolding outside it",
+        "c timing        Vivify               34613 ms (  9.7%) in 365 applications",
+        "c timing        BVE                  19745 ms (  5.5%) in 2021962 applications",
+        "c timing        Factor               14359 ms (  4.0%) in 88 applications",
+        "c timing        Substitute           13239 ms (  3.7%) in 185 applications",
+        "c timing        Congruence           11733 ms (  3.3%) in 45 applications",
+        "c timing        Sweep                10190 ms (  2.9%) in 25 applications",
+        "c timing        Strengthen            7393 ms (  2.1%) in 40 applications",
+        "c timing        Backbone              4040 ms (  1.1%) in 185 applications",
+        "c timing        TransitiveReduce      3543 ms (  1.0%) in 3976462 applications",
+        "c timing        (unattributed)        6682 ms (  1.9%)"
+      ]
+    },
+    "36": {
+      "instance": "tierD24-26/780b0c9b5aed38a127f61c6aae7287aa-rbsat-v1375c111739gyes10.cnf.xz",
+      "wall_seconds": 355.221,
+      "rules": {
+        "Vivify": {
+          "ms": 22274,
+          "applications": 236
+        },
+        "Sweep": {
+          "ms": 4373,
+          "applications": 10
+        },
+        "TransitiveReduce": {
+          "ms": 3877,
+          "applications": 69076
+        },
+        "BVE": {
+          "ms": 1003,
+          "applications": 59725
+        },
+        "Factor": {
+          "ms": 862,
+          "applications": 60
+        },
+        "Substitute": {
+          "ms": 500,
+          "applications": 123
+        },
+        "Strengthen": {
+          "ms": 434,
+          "applications": 40
+        },
+        "Backbone": {
+          "ms": 289,
+          "applications": 123
+        },
+        "Congruence": {
+          "ms": 84,
+          "applications": 10
+        }
+      },
+      "classification": {
+        "status": "checked_SAT",
+        "clean": true,
+        "checked": true,
+        "scorable": true
+      },
+      "timing_rows": [
+        "c timing      355146 ms solve",
+        "c timing      34030 ms (9.6%) inprocessing slot, 321116 ms (90.4%) search+scaffolding outside it",
+        "c timing        Vivify               22274 ms (  6.3%) in 236 applications",
+        "c timing        Sweep                 4373 ms (  1.2%) in 10 applications",
+        "c timing        TransitiveReduce      3877 ms (  1.1%) in 69076 applications",
+        "c timing        BVE                   1003 ms (  0.3%) in 59725 applications",
+        "c timing        Factor                 862 ms (  0.2%) in 60 applications",
+        "c timing        Substitute             500 ms (  0.1%) in 123 applications",
+        "c timing        Strengthen             434 ms (  0.1%) in 40 applications",
+        "c timing        Backbone               289 ms (  0.1%) in 123 applications",
+        "c timing        Congruence              84 ms (  0.0%) in 10 applications",
+        "c timing        (unattributed)         334 ms (  0.1%)"
+      ]
+    },
+    "37": {
+      "instance": "tierD24-26/35748015c5f16c9ee7e4d1894af497a0-oski15a01b39s_opt.cnf.xz",
+      "wall_seconds": 421.123,
+      "rules": {
+        "Vivify": {
+          "ms": 41627,
+          "applications": 423
+        },
+        "Sweep": {
+          "ms": 27784,
+          "applications": 40
+        },
+        "BVE": {
+          "ms": 22201,
+          "applications": 2138593
+        },
+        "Factor": {
+          "ms": 16098,
+          "applications": 106
+        },
+        "Substitute": {
+          "ms": 15651,
+          "applications": 221
+        },
+        "Congruence": {
+          "ms": 10231,
+          "applications": 41
+        },
+        "Strengthen": {
+          "ms": 8416,
+          "applications": 45
+        },
+        "TransitiveReduce": {
+          "ms": 4564,
+          "applications": 5877824
+        },
+        "Backbone": {
+          "ms": 4182,
+          "applications": 221
+        }
+      },
+      "classification": {
+        "status": "checked_UNSAT",
+        "clean": true,
+        "checked": true,
+        "scorable": true
+      },
+      "timing_rows": [
+        "c timing      420882 ms solve",
+        "c timing      158138 ms (37.6%) inprocessing slot, 262745 ms (62.4%) search+scaffolding outside it",
+        "c timing        Vivify               41627 ms (  9.9%) in 423 applications",
+        "c timing        Sweep                27784 ms (  6.6%) in 40 applications",
+        "c timing        BVE                  22201 ms (  5.3%) in 2138593 applications",
+        "c timing        Factor               16098 ms (  3.8%) in 106 applications",
+        "c timing        Substitute           15651 ms (  3.7%) in 221 applications",
+        "c timing        Congruence           10231 ms (  2.4%) in 41 applications",
+        "c timing        Strengthen            8416 ms (  2.0%) in 45 applications",
+        "c timing        TransitiveReduce      4564 ms (  1.1%) in 5877824 applications",
+        "c timing        Backbone              4182 ms (  1.0%) in 221 applications",
+        "c timing        (unattributed)        7383 ms (  1.8%)"
+      ]
+    },
+    "38": {
+      "instance": "tierD24-26/266e890b706cf336378bf148bbda1aff-mexam_15_12_2.sanitized.cnf.xz",
+      "wall_seconds": 339.976,
+      "rules": {
+        "Vivify": {
+          "ms": 17922,
+          "applications": 266
+        },
+        "Sweep": {
+          "ms": 3555,
+          "applications": 11
+        },
+        "Substitute": {
+          "ms": 451,
+          "applications": 153
+        },
+        "TransitiveReduce": {
+          "ms": 368,
+          "applications": 42022
+        },
+        "Strengthen": {
+          "ms": 59,
+          "applications": 40
+        },
+        "Factor": {
+          "ms": 41,
+          "applications": 43
+        },
+        "BVE": {
+          "ms": 38,
+          "applications": 6521
+        },
+        "Congruence": {
+          "ms": 24,
+          "applications": 11
+        },
+        "Backbone": {
+          "ms": 17,
+          "applications": 153
+        }
+      },
+      "classification": {
+        "status": "checked_UNSAT",
+        "clean": true,
+        "checked": true,
+        "scorable": true
+      },
+      "timing_rows": [
+        "c timing      339916 ms solve",
+        "c timing      22639 ms (6.7%) inprocessing slot, 317278 ms (93.3%) search+scaffolding outside it",
+        "c timing        Vivify               17922 ms (  5.3%) in 266 applications",
+        "c timing        Sweep                 3555 ms (  1.0%) in 11 applications",
+        "c timing        Substitute             451 ms (  0.1%) in 153 applications",
+        "c timing        TransitiveReduce       368 ms (  0.1%) in 42022 applications",
+        "c timing        Strengthen              59 ms (  0.0%) in 40 applications",
+        "c timing        Factor                  41 ms (  0.0%) in 43 applications",
+        "c timing        BVE                     38 ms (  0.0%) in 6521 applications",
+        "c timing        Congruence              24 ms (  0.0%) in 11 applications",
+        "c timing        Backbone                17 ms (  0.0%) in 153 applications",
+        "c timing        (unattributed)         165 ms (  0.0%)"
+      ]
+    },
+    "39": {
+      "instance": "tierD24-26/0a4880c0e882e6a4a31943522573c394-b19_1.cnf.xz",
+      "wall_seconds": 405.563,
+      "rules": {
+        "Sweep": {
+          "ms": 66401,
+          "applications": 100
+        },
+        "Vivify": {
+          "ms": 38692,
+          "applications": 402
+        },
+        "BVE": {
+          "ms": 15426,
+          "applications": 1311352
+        },
+        "Factor": {
+          "ms": 11675,
+          "applications": 100
+        },
+        "Substitute": {
+          "ms": 10670,
+          "applications": 209
+        },
+        "Strengthen": {
+          "ms": 5688,
+          "applications": 44
+        },
+        "Congruence": {
+          "ms": 5461,
+          "applications": 28
+        },
+        "TransitiveReduce": {
+          "ms": 3534,
+          "applications": 5034170
+        },
+        "Backbone": {
+          "ms": 1877,
+          "applications": 209
+        }
+      },
+      "classification": {
+        "status": "checked_UNSAT",
+        "clean": true,
+        "checked": true,
+        "scorable": true
+      },
+      "timing_rows": [
+        "c timing      405423 ms solve",
+        "c timing      163940 ms (40.4%) inprocessing slot, 241483 ms (59.6%) search+scaffolding outside it",
+        "c timing        Sweep                66401 ms ( 16.4%) in 100 applications",
+        "c timing        Vivify               38692 ms (  9.5%) in 402 applications",
+        "c timing        BVE                  15426 ms (  3.8%) in 1311352 applications",
+        "c timing        Factor               11675 ms (  2.9%) in 100 applications",
+        "c timing        Substitute           10670 ms (  2.6%) in 209 applications",
+        "c timing        Strengthen            5688 ms (  1.4%) in 44 applications",
+        "c timing        Congruence            5461 ms (  1.3%) in 28 applications",
+        "c timing        TransitiveReduce      3534 ms (  0.9%) in 5034170 applications",
+        "c timing        Backbone              1877 ms (  0.5%) in 209 applications",
+        "c timing        (unattributed)        4517 ms (  1.1%)"
+      ]
+    },
+    "40": {
+      "instance": "tierD24-26/a49ec44c8d9972cda278d48b6dbef09e-grs-32-128.cnf.xz",
+      "wall_seconds": 405.756,
+      "rules": {
+        "Sweep": {
+          "ms": 46051,
+          "applications": 60
+        },
+        "Vivify": {
+          "ms": 36591,
+          "applications": 340
+        },
+        "BVE": {
+          "ms": 11560,
+          "applications": 747494
+        },
+        "Factor": {
+          "ms": 8635,
+          "applications": 88
+        },
+        "Substitute": {
+          "ms": 5162,
+          "applications": 188
+        },
+        "TransitiveReduce": {
+          "ms": 4770,
+          "applications": 4390418
+        },
+        "Strengthen": {
+          "ms": 2848,
+          "applications": 39
+        },
+        "Congruence": {
+          "ms": 1775,
+          "applications": 13
+        },
+        "Backbone": {
+          "ms": 702,
+          "applications": 187
+        }
+      },
+      "classification": {
+        "status": "checked_UNSAT",
+        "clean": true,
+        "checked": true,
+        "scorable": true
+      },
+      "timing_rows": [
+        "c timing      405621 ms solve",
+        "c timing      120474 ms (29.7%) inprocessing slot, 285147 ms (70.3%) search+scaffolding outside it",
+        "c timing        Sweep                46051 ms ( 11.4%) in 60 applications",
+        "c timing        Vivify               36591 ms (  9.0%) in 340 applications",
+        "c timing        BVE                  11560 ms (  2.9%) in 747494 applications",
+        "c timing        Factor                8635 ms (  2.1%) in 88 applications",
+        "c timing        Substitute            5162 ms (  1.3%) in 188 applications",
+        "c timing        TransitiveReduce      4770 ms (  1.2%) in 4390418 applications",
+        "c timing        Strengthen            2848 ms (  0.7%) in 39 applications",
+        "c timing        Congruence            1775 ms (  0.4%) in 13 applications",
+        "c timing        Backbone               702 ms (  0.2%) in 187 applications",
+        "c timing        (unattributed)        2379 ms (  0.6%)"
+      ]
+    },
+    "41": {
+      "instance": "tierD24-26/9cd3acdb765c15163bc239ae3a57f880-FmlaEquivChain_4_6_6.sanitized.cnf.xz",
+      "wall_seconds": 14.891,
+      "rules": {
+        "BVE": {
+          "ms": 1913,
+          "applications": 253434
+        },
+        "Vivify": {
+          "ms": 1347,
+          "applications": 81
+        },
+        "Factor": {
+          "ms": 1081,
+          "applications": 25
+        },
+        "Substitute": {
+          "ms": 816,
+          "applications": 49
+        },
+        "Congruence": {
+          "ms": 698,
+          "applications": 9
+        },
+        "Sweep": {
+          "ms": 680,
+          "applications": 9
+        },
+        "Strengthen": {
+          "ms": 482,
+          "applications": 10
+        },
+        "Backbone": {
+          "ms": 156,
+          "applications": 49
+        },
+        "TransitiveReduce": {
+          "ms": 115,
+          "applications": 121615
+        }
+      },
+      "classification": {
+        "status": "checked_UNSAT",
+        "clean": true,
+        "checked": true,
+        "scorable": true
+      },
+      "timing_rows": [
+        "c timing      14792 ms solve",
+        "c timing      7737 ms (52.3%) inprocessing slot, 7055 ms (47.7%) search+scaffolding outside it",
+        "c timing        BVE                   1913 ms ( 12.9%) in 253434 applications",
+        "c timing        Vivify                1347 ms (  9.1%) in 81 applications",
+        "c timing        Factor                1081 ms (  7.3%) in 25 applications",
+        "c timing        Substitute             816 ms (  5.5%) in 49 applications",
+        "c timing        Congruence             698 ms (  4.7%) in 9 applications",
+        "c timing        Sweep                  680 ms (  4.6%) in 9 applications",
+        "c timing        Strengthen             482 ms (  3.3%) in 10 applications",
+        "c timing        Backbone               156 ms (  1.1%) in 49 applications",
+        "c timing        TransitiveReduce       115 ms (  0.8%) in 121615 applications",
+        "c timing        (unattributed)         449 ms (  3.0%)"
+      ]
+    },
+    "42": {
+      "instance": "tierD24-26/1a9512580b2d946ebd41de4e8c08c42d-linked_list_swap_contents_safety_unwind50.cnf.xz",
+      "wall_seconds": 65.521,
+      "rules": {
+        "Congruence": {
+          "ms": 10091,
+          "applications": 4
+        },
+        "BVE": {
+          "ms": 7321,
+          "applications": 987453
+        },
+        "Vivify": {
+          "ms": 4139,
+          "applications": 15
+        },
+        "Substitute": {
+          "ms": 3706,
+          "applications": 9
+        },
+        "Sweep": {
+          "ms": 2399,
+          "applications": 2
+        },
+        "Strengthen": {
+          "ms": 2215,
+          "applications": 2
+        },
+        "Backbone": {
+          "ms": 1655,
+          "applications": 9
+        },
+        "TransitiveReduce": {
+          "ms": 241,
+          "applications": 13921
+        }
+      },
+      "classification": {
+        "status": "checked_UNSAT",
+        "clean": true,
+        "checked": true,
+        "scorable": true
+      },
+      "timing_rows": [
+        "c timing      63522 ms solve",
+        "c timing      33136 ms (52.2%) inprocessing slot, 30386 ms (47.8%) search+scaffolding outside it",
+        "c timing        Congruence           10091 ms ( 15.9%) in 4 applications",
+        "c timing        BVE                   7321 ms ( 11.5%) in 987453 applications",
+        "c timing        Vivify                4139 ms (  6.5%) in 15 applications",
+        "c timing        Substitute            3706 ms (  5.8%) in 9 applications",
+        "c timing        Sweep                 2399 ms (  3.8%) in 2 applications",
+        "c timing        Strengthen            2215 ms (  3.5%) in 2 applications",
+        "c timing        Backbone              1655 ms (  2.6%) in 9 applications",
+        "c timing        TransitiveReduce       241 ms (  0.4%) in 13921 applications",
+        "c timing        (unattributed)        1368 ms (  2.2%)"
+      ]
+    },
+    "43": {
+      "instance": "tierD24-26/0d3160b80aa406bfc718c007265b9e73-linked_list_swap_contents_safety_unwind65.cnf.xz",
+      "wall_seconds": 124.517,
+      "rules": {
+        "Congruence": {
+          "ms": 15854,
+          "applications": 5
+        },
+        "BVE": {
+          "ms": 13632,
+          "applications": 1550156
+        },
+        "Vivify": {
+          "ms": 9906,
+          "applications": 21
+        },
+        "Substitute": {
+          "ms": 7174,
+          "applications": 13
+        },
+        "Sweep": {
+          "ms": 5809,
+          "applications": 3
+        },
+        "Strengthen": {
+          "ms": 3858,
+          "applications": 2
+        },
+        "Factor": {
+          "ms": 3287,
+          "applications": 2
+        },
+        "Backbone": {
+          "ms": 2895,
+          "applications": 13
+        },
+        "TransitiveReduce": {
+          "ms": 606,
+          "applications": 343800
+        }
+      },
+      "classification": {
+        "status": "pending_validation",
+        "clean": false,
+        "checked": false,
+        "scorable": false
+      },
+      "timing_rows": [
+        "c timing      121046 ms solve",
+        "c timing      65163 ms (53.8%) inprocessing slot, 55883 ms (46.2%) search+scaffolding outside it",
+        "c timing        Congruence           15854 ms ( 13.1%) in 5 applications",
+        "c timing        BVE                  13632 ms ( 11.3%) in 1550156 applications",
+        "c timing        Vivify                9906 ms (  8.2%) in 21 applications",
+        "c timing        Substitute            7174 ms (  5.9%) in 13 applications",
+        "c timing        Sweep                 5809 ms (  4.8%) in 3 applications",
+        "c timing        Strengthen            3858 ms (  3.2%) in 2 applications",
+        "c timing        Factor                3287 ms (  2.7%) in 2 applications",
+        "c timing        Backbone              2895 ms (  2.4%) in 13 applications",
+        "c timing        TransitiveReduce       606 ms (  0.5%) in 343800 applications",
+        "c timing        (unattributed)        2141 ms (  1.8%)"
+      ]
+    },
+    "44": {
+      "instance": "tierD24-26/fb0e505b8bd19a34f1f80b8e020e7856-constraints_17_0.4_2.sanitized.cnf.xz",
+      "wall_seconds": 58.663,
+      "rules": {
+        "Congruence": {
+          "ms": 18436,
+          "applications": 11
+        },
+        "Vivify": {
+          "ms": 4120,
+          "applications": 103
+        },
+        "Sweep": {
+          "ms": 2596,
+          "applications": 7
+        },
+        "Strengthen": {
+          "ms": 2538,
+          "applications": 12
+        },
+        "Substitute": {
+          "ms": 1861,
+          "applications": 53
+        },
+        "Factor": {
+          "ms": 264,
+          "applications": 27
+        },
+        "TransitiveReduce": {
+          "ms": 120,
+          "applications": 54714
+        },
+        "BVE": {
+          "ms": 22,
+          "applications": 10052
+        },
+        "Backbone": {
+          "ms": 7,
+          "applications": 53
+        }
+      },
+      "classification": {
+        "status": "checked_UNSAT",
+        "clean": true,
+        "checked": true,
+        "scorable": true
+      },
+      "timing_rows": [
+        "c timing      58497 ms solve",
+        "c timing      30524 ms (52.2%) inprocessing slot, 27972 ms (47.8%) search+scaffolding outside it",
+        "c timing        Congruence           18436 ms ( 31.5%) in 11 applications",
+        "c timing        Vivify                4120 ms (  7.0%) in 103 applications",
+        "c timing        Sweep                 2596 ms (  4.4%) in 7 applications",
+        "c timing        Strengthen            2538 ms (  4.3%) in 12 applications",
+        "c timing        Substitute            1861 ms (  3.2%) in 53 applications",
+        "c timing        Factor                 264 ms (  0.5%) in 27 applications",
+        "c timing        TransitiveReduce       120 ms (  0.2%) in 54714 applications",
+        "c timing        BVE                     22 ms (  0.0%) in 10052 applications",
+        "c timing        Backbone                 7 ms (  0.0%) in 53 applications",
+        "c timing        (unattributed)         561 ms (  1.0%)"
+      ]
+    },
+    "45": {
+      "instance": "tierD24-26/efc1b7cc3861df8c2b68ca10399b794e-oddball_19_4_ttf.normalised.cnf.xz",
+      "wall_seconds": 44.386,
+      "rules": {
+        "Vivify": {
+          "ms": 2631,
+          "applications": 155
+        },
+        "Sweep": {
+          "ms": 1331,
+          "applications": 16
+        },
+        "TransitiveReduce": {
+          "ms": 390,
+          "applications": 55144
+        },
+        "Substitute": {
+          "ms": 195,
+          "applications": 80
+        },
+        "BVE": {
+          "ms": 104,
+          "applications": 15038
+        },
+        "Backbone": {
+          "ms": 78,
+          "applications": 79
+        },
+        "Strengthen": {
+          "ms": 58,
+          "applications": 29
+        },
+        "Factor": {
+          "ms": 57,
+          "applications": 40
+        },
+        "Congruence": {
+          "ms": 27,
+          "applications": 9
+        }
+      },
+      "classification": {
+        "status": "checked_UNSAT",
+        "clean": true,
+        "checked": true,
+        "scorable": true
+      },
+      "timing_rows": [
+        "c timing      44326 ms solve",
+        "c timing      4967 ms (11.2%) inprocessing slot, 39358 ms (88.8%) search+scaffolding outside it",
+        "c timing        Vivify                2631 ms (  5.9%) in 155 applications",
+        "c timing        Sweep                 1331 ms (  3.0%) in 16 applications",
+        "c timing        TransitiveReduce       390 ms (  0.9%) in 55144 applications",
+        "c timing        Substitute             195 ms (  0.4%) in 80 applications",
+        "c timing        BVE                    104 ms (  0.2%) in 15038 applications",
+        "c timing        Backbone                78 ms (  0.2%) in 79 applications",
+        "c timing        Strengthen              58 ms (  0.1%) in 29 applications",
+        "c timing        Factor                  57 ms (  0.1%) in 40 applications",
+        "c timing        Congruence              27 ms (  0.1%) in 9 applications",
+        "c timing        (unattributed)          95 ms (  0.2%)"
+      ]
+    },
+    "46": {
+      "instance": "tierD24-26/9aa85c5c114245c182ed6afbe3d8daed-schooltt-5-3-8-2-4-5-10-0.1-0.2-seed4.sanitized.cnf.xz",
+      "wall_seconds": 81.898,
+      "rules": {
+        "Vivify": {
+          "ms": 8491,
+          "applications": 250
+        },
+        "Sweep": {
+          "ms": 3249,
+          "applications": 11
+        },
+        "BVE": {
+          "ms": 1647,
+          "applications": 179128
+        },
+        "TransitiveReduce": {
+          "ms": 1336,
+          "applications": 637961
+        },
+        "Substitute": {
+          "ms": 470,
+          "applications": 133
+        },
+        "Factor": {
+          "ms": 460,
+          "applications": 61
+        },
+        "Backbone": {
+          "ms": 453,
+          "applications": 133
+        },
+        "Strengthen": {
+          "ms": 238,
+          "applications": 34
+        },
+        "Congruence": {
+          "ms": 103,
+          "applications": 11
+        }
+      },
+      "classification": {
+        "status": "checked_UNSAT",
+        "clean": true,
+        "checked": true,
+        "scorable": true
+      },
+      "timing_rows": [
+        "c timing      81823 ms solve",
+        "c timing      16761 ms (20.5%) inprocessing slot, 65062 ms (79.5%) search+scaffolding outside it",
+        "c timing        Vivify                8491 ms ( 10.4%) in 250 applications",
+        "c timing        Sweep                 3249 ms (  4.0%) in 11 applications",
+        "c timing        BVE                   1647 ms (  2.0%) in 179128 applications",
+        "c timing        TransitiveReduce      1336 ms (  1.6%) in 637961 applications",
+        "c timing        Substitute             470 ms (  0.6%) in 133 applications",
+        "c timing        Factor                 460 ms (  0.6%) in 61 applications",
+        "c timing        Backbone               453 ms (  0.6%) in 133 applications",
+        "c timing        Strengthen             238 ms (  0.3%) in 34 applications",
+        "c timing        Congruence             103 ms (  0.1%) in 11 applications",
+        "c timing        (unattributed)         314 ms (  0.4%)"
+      ]
+    },
+    "47": {
+      "instance": "tierD24-26/5220b0e01fb49440531004bebbafbc44-coreMQTT:MQTT_ProcessLoop.dimacs.cnf.xz",
+      "wall_seconds": 141.303,
+      "rules": {
+        "Congruence": {
+          "ms": 58846,
+          "applications": 5
+        },
+        "Substitute": {
+          "ms": 9917,
+          "applications": 9
+        },
+        "Vivify": {
+          "ms": 9177,
+          "applications": 15
+        },
+        "Sweep": {
+          "ms": 7592,
+          "applications": 4
+        },
+        "Backbone": {
+          "ms": 1860,
+          "applications": 9
+        },
+        "TransitiveReduce": {
+          "ms": 292,
+          "applications": 40784
+        }
+      },
+      "classification": {
+        "status": "checked_UNSAT",
+        "clean": true,
+        "checked": true,
+        "scorable": true
+      },
+      "timing_rows": [
+        "c timing      138126 ms solve",
+        "c timing      89418 ms (64.7%) inprocessing slot, 48708 ms (35.3%) search+scaffolding outside it",
+        "c timing        Congruence           58846 ms ( 42.6%) in 5 applications",
+        "c timing        Substitute            9917 ms (  7.2%) in 9 applications",
+        "c timing        Vivify                9177 ms (  6.6%) in 15 applications",
+        "c timing        Sweep                 7592 ms (  5.5%) in 4 applications",
+        "c timing        Backbone              1860 ms (  1.3%) in 9 applications",
+        "c timing        TransitiveReduce       292 ms (  0.2%) in 40784 applications",
+        "c timing        (unattributed)        1734 ms (  1.3%)"
+      ]
+    },
+    "48": {
+      "instance": "tierD24-26/ab02c7ef78bda1f427d5e3f1f26b1ae5-sum_of_three_cubes_906_known_representation.cnf.xz",
+      "wall_seconds": 15.593,
+      "rules": {
+        "Congruence": {
+          "ms": 5128,
+          "applications": 3
+        },
+        "Substitute": {
+          "ms": 1829,
+          "applications": 6
+        },
+        "Vivify": {
+          "ms": 848,
+          "applications": 7
+        },
+        "Sweep": {
+          "ms": 506,
+          "applications": 3
+        },
+        "Backbone": {
+          "ms": 162,
+          "applications": 5
+        },
+        "TransitiveReduce": {
+          "ms": 9,
+          "applications": 56387
+        }
+      },
+      "classification": {
+        "status": "checked_SAT",
+        "clean": true,
+        "checked": true,
+        "scorable": true
+      },
+      "timing_rows": [
+        "c timing      14936 ms solve",
+        "c timing      8713 ms (58.3%) inprocessing slot, 6223 ms (41.7%) search+scaffolding outside it",
+        "c timing        Congruence            5128 ms ( 34.3%) in 3 applications",
+        "c timing        Substitute            1829 ms ( 12.2%) in 6 applications",
+        "c timing        Vivify                 848 ms (  5.7%) in 7 applications",
+        "c timing        Sweep                  506 ms (  3.4%) in 3 applications",
+        "c timing        Backbone               162 ms (  1.1%) in 5 applications",
+        "c timing        TransitiveReduce         9 ms (  0.1%) in 56387 applications",
+        "c timing        (unattributed)         230 ms (  1.5%)"
+      ]
+    },
+    "49": {
+      "instance": "tierD24-26/59fc779feee4390b57502814d424e0d6-jgiraldezlevy.2200.9086.08.40.149-sr2015.cnf.xz",
+      "wall_seconds": 22.552,
+      "rules": {
+        "Vivify": {
+          "ms": 1480,
+          "applications": 84
+        },
+        "Sweep": {
+          "ms": 1119,
+          "applications": 12
+        },
+        "BVE": {
+          "ms": 77,
+          "applications": 16275
+        },
+        "Substitute": {
+          "ms": 63,
+          "applications": 45
+        },
+        "Factor": {
+          "ms": 60,
+          "applications": 23
+        },
+        "Strengthen": {
+          "ms": 29,
+          "applications": 16
+        },
+        "Congruence": {
+          "ms": 24,
+          "applications": 6
+        },
+        "TransitiveReduce": {
+          "ms": 12,
+          "applications": 78450
+        },
+        "Backbone": {
+          "ms": 6,
+          "applications": 45
+        }
+      },
+      "classification": {
+        "status": "checked_SAT",
+        "clean": true,
+        "checked": true,
+        "scorable": true
+      },
+      "timing_rows": [
+        "c timing      22484 ms solve",
+        "c timing      2912 ms (13.0%) inprocessing slot, 19572 ms (87.0%) search+scaffolding outside it",
+        "c timing        Vivify                1480 ms (  6.6%) in 84 applications",
+        "c timing        Sweep                 1119 ms (  5.0%) in 12 applications",
+        "c timing        BVE                     77 ms (  0.3%) in 16275 applications",
+        "c timing        Substitute              63 ms (  0.3%) in 45 applications",
+        "c timing        Factor                  60 ms (  0.3%) in 23 applications",
+        "c timing        Strengthen              29 ms (  0.1%) in 16 applications",
+        "c timing        Congruence              24 ms (  0.1%) in 6 applications",
+        "c timing        TransitiveReduce        12 ms (  0.1%) in 78450 applications",
+        "c timing        Backbone                 6 ms (  0.0%) in 45 applications",
+        "c timing        (unattributed)          43 ms (  0.2%)"
+      ]
+    },
+    "50": {
+      "instance": "tierD24-26/04ded94454830d4ea960327e8b91f5a3-mdp-28-14-sat.cnf.xz",
+      "wall_seconds": 45.639,
+      "rules": {
+        "Vivify": {
+          "ms": 2722,
+          "applications": 103
+        },
+        "Sweep": {
+          "ms": 681,
+          "applications": 7
+        },
+        "Substitute": {
+          "ms": 79,
+          "applications": 63
+        },
+        "BVE": {
+          "ms": 54,
+          "applications": 4498
+        },
+        "Strengthen": {
+          "ms": 28,
+          "applications": 23
+        },
+        "Factor": {
+          "ms": 23,
+          "applications": 20
+        },
+        "Congruence": {
+          "ms": 19,
+          "applications": 8
+        },
+        "TransitiveReduce": {
+          "ms": 9,
+          "applications": 28608
+        },
+        "Backbone": {
+          "ms": 2,
+          "applications": 63
+        }
+      },
+      "classification": {
+        "status": "checked_SAT",
+        "clean": true,
+        "checked": true,
+        "scorable": true
+      },
+      "timing_rows": [
+        "c timing      45603 ms solve",
+        "c timing      3662 ms (8.0%) inprocessing slot, 41941 ms (92.0%) search+scaffolding outside it",
+        "c timing        Vivify                2722 ms (  6.0%) in 103 applications",
+        "c timing        Sweep                  681 ms (  1.5%) in 7 applications",
+        "c timing        Substitute              79 ms (  0.2%) in 63 applications",
+        "c timing        BVE                     54 ms (  0.1%) in 4498 applications",
+        "c timing        Strengthen              28 ms (  0.1%) in 23 applications",
+        "c timing        Factor                  23 ms (  0.1%) in 20 applications",
+        "c timing        Congruence              19 ms (  0.0%) in 8 applications",
+        "c timing        TransitiveReduce         9 ms (  0.0%) in 28608 applications",
+        "c timing        Backbone                 2 ms (  0.0%) in 63 applications",
+        "c timing        (unattributed)          46 ms (  0.1%)"
+      ]
+    }
+  },
+  "all50_wall_seconds": 8072.058999999998,
+  "total_reported_rule_ms": {
+    "Vivify": 592072,
+    "Sweep": 416659,
+    "Congruence": 411901,
+    "BVE": 299904,
+    "Substitute": 263313,
+    "Factor": 215195,
+    "Strengthen": 96067,
+    "Backbone": 78086,
+    "TransitiveReduce": 52866
+  },
+  "factor_reported_seconds": 215.195,
+  "factor_reported_fraction": 0.026659245181433887,
+  "interpretation": "Printed individual-rule wall timers, not complete lifecycle profiles or causal removable cost. Missing timer rows remain absent, not asserted zero. All50 retained, including shelved21; no scoring exclusions. Rank35 exact-work control can test engineering cost, while Rank31 still has changed native search work. Even all215.195 reported Factor seconds are far less than760.6589 seconds still needed for the aggregate target.",
+  "next": "Finish the already bounded arena experiment, report whole-runtime/RSS and complete Factor effect. Do not mistake it for the main convergence solution. Prioritize larger Vivify/Sweep/Congruence lifecycle costs and demonstrated Rank31/43 search-work gaps after this measurement; preserve prior rejected experiments and closures."
+}
