@@ -1,0 +1,12 @@
+{
+  "name": "reject-real-trace",
+  "command": [
+    "python3",
+    "/home/hwu/SAT-solving/.claude/worktrees/runtime-debug-contracts-7339/tests/test_no_event_trace_symbols.py",
+    "/home/hwu/SAT-solving/build/pin-7335-root-watermark-trace/tactix",
+    "--debug-stubs"
+  ],
+  "returncode": 1,
+  "stdout": "",
+  "stderr": "Traceback (most recent call last):\n  File \"/home/hwu/SAT-solving/.claude/worktrees/runtime-debug-contracts-7339/tests/test_no_event_trace_symbols.py\", line 18, in <module>\n    assert marker not in data, f\"production binary contains {marker!r}\"\nAssertionError: production binary contains b'TACTIX_EVENT_TRACE'\n"
+}

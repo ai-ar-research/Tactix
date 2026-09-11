@@ -1,0 +1,8 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/build/pin-7340-debug-contracts-sanitizers/tests/test_bve"
+  ],
+  "returncode": 0,
+  "stdout": "  definition reconstruction: 391 trials, 420 gates, 2772 eliminated, 70754 models (63349 needed repair)\ntest_bve OK\n",
+  "stderr": ""
+}

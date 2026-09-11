@@ -1,0 +1,11 @@
+{
+  "job_id": "1681397",
+  "accounting_since": "2026-09-11T10:26:23",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7349-root-decision-trace/array.sbatch"
+  ],
+  "manifest_sha256": "438855814515133fc2645c5d285a2889ba04ce9ebc764096384ff6af937332e5",
+  "helper_sha256": "cce4fa4126d5f10d645f9ac227d6f20858e94e7057b18e42eda629a57706e839"
+}

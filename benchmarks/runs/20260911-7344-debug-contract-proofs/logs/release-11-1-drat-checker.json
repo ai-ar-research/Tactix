@@ -1,0 +1,10 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7344-debug-contract-proofs/release-11-1-drat.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7344-debug-contract-proofs/release-11-1-drat.proof"
+  ],
+  "returncode": 0,
+  "stdout": "\nc parsing input formula with 10 variables and 11 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 4 of 11 clauses in core                            \n\nc 2 of 4 lemmas in core using 5 resolution steps\n\nc 0 RAT lemmas in core; 0 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.044 seconds\n",
+  "stderr": ""
+}

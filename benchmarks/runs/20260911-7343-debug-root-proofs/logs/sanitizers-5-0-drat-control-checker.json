@@ -1,0 +1,10 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7327-rank25-root-gdb/pins/checkmodel",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7343-debug-root-proofs/sanitizers-5-0-drat-control.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7343-debug-root-proofs/sanitizers-5-0-drat-control.out"
+  ],
+  "returncode": 0,
+  "stdout": "checkmodel: OK \u2014 6 clauses satisfied, 5 vars assigned\n",
+  "stderr": ""
+}

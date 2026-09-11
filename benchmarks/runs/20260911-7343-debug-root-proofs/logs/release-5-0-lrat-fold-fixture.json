@@ -1,0 +1,12 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/build/pin-7340-debug-contracts-release/tests/test_root_fold",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7343-debug-root-proofs/release-5-0-lrat-fold.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7343-debug-root-proofs/release-5-0-lrat-fold.proof",
+    "lrat",
+    "fold"
+  ],
+  "returncode": 10,
+  "stdout": "s SATISFIABLE\nv -1 2 -3 4 5 0\nc fixed-root fixture archived 2\n",
+  "stderr": ""
+}

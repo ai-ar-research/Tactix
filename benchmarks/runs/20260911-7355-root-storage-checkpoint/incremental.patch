@@ -1,0 +1,190 @@
+--- a/src/kernel/kernel.cpp
++++ b/src/kernel/kernel.cpp
+@@ -2613,2 +2613,4 @@
+-  const bool dense_collection =
+-      k.dense != nullptr && !k.large_watches_connected;
++  // The converse is independent too: an explicit caller can disconnect large
++  // watches without installing an occurrence cache. Do not silently reconnect
++  // them while leaving the connection flag false.
++  const bool dense_collection = !k.large_watches_connected;
+--- a/tests/CMakeLists.txt
++++ b/tests/CMakeLists.txt
+@@ -120,0 +121,4 @@
++  set(trace_symbol_test_args)
++  if(CMAKE_BUILD_TYPE STREQUAL "Debug")
++    list(APPEND trace_symbol_test_args --debug-stubs)
++  endif()
+@@ -124 +128 @@
+-                   $<TARGET_FILE:tactix>)
++                   $<TARGET_FILE:tactix> ${trace_symbol_test_args})
+--- /dev/null
++++ b/tests/test_collect_connection.cpp
+@@ -0,0 +1,54 @@
++#undef NDEBUG
++#include "kernel/kernel.hpp"
++#include "policies/default_policy.hpp"
++#include "rules/propagate/propagate.hpp"
++#include <cassert>
++#include <cstdio>
++using namespace tactix;
++
++static void collect(bool disconnected, bool indexed, bool sparse) {
++  Kernel k;
++  kernel_reserve_vars(k, 8);
++  const Lit dead[] = {internalize(1), internalize(2), internalize(3)};
++  const Lit live[] = {internalize(4), internalize(5), internalize(6)};
++  const Ref removed = kernel_add_large_clause(k, dead, 3, false, 0, ++k.next_clause_id);
++  kernel_add_large_clause(k, live, 3, false, 0, ++k.next_clause_id);
++  kernel_add_binary_clause(k, internalize(-4), internalize(7), ++k.next_clause_id);
++  kernel_assign_unit(k, internalize(1));
++  assert(propagate_apply(k) == ApplyResult::Ok);
++  if (disconnected) kernel_flush_large_watches(k);
++  OccIndex occurrences;
++  if (indexed) kernel_dense_connect(k, occurrences, true);
++  kernel_delete_clause(k, clause_at(k.arena, removed));
++  for (unsigned repeat = 0; repeat < 3; repeat++) {
++    kernel_collect_garbage(k, 0, sparse);
++    assert(k.large_watches_connected == !disconnected);
++    unsigned large = 0, binary = 0;
++    for (Lit lit = 0; lit < 2 * k.nvars; lit++)
++      for (const WatchEntry entry : k.watches.entries(lit)) {
++        if (entry.binary()) ++binary;
++        else {
++          ++large;
++          assert(!disconnected);
++          assert(!clause_at(k.arena, entry.ref())->garbage());
++        }
++      }
++    assert(binary == 2 && large == (disconnected ? 0 : 2));
++    kernel_check_invariants(k);
++  }
++  if (indexed) kernel_dense_disconnect(k);
++  if (disconnected) kernel_rebuild_large_watches(k);
++  assert(default_solve(k) == 10);
++  kernel_extend_model(k);
++  assert(k.model_values[internalize(1)] > 0);
++  assert(k.model_values[internalize(4)] > 0 || k.model_values[internalize(5)] > 0 ||
++         k.model_values[internalize(6)] > 0);
++  assert(k.model_values[internalize(-4)] > 0 || k.model_values[internalize(7)] > 0);
++}
++
++int main() {
++  for (bool disconnected : {false, true})
++    for (bool indexed : {false, true})
++      for (bool sparse : {false, true}) collect(disconnected, indexed, sparse);
++  std::puts("collect-connection: 8 connection/cache/cut combinations, repeated GC and models PASS");
++}
+--- a/tests/test_no_event_trace_symbols.py
++++ b/tests/test_no_event_trace_symbols.py
+@@ -3,0 +4 @@
++import re
+@@ -8,0 +10,2 @@
++assert sys.argv[2:] in ([], ["--debug-stubs"])
++debug_stubs = bool(sys.argv[2:])
+@@ -25,2 +28,40 @@
+-assert "tactix::EventTrace" not in symbols, "production trace symbols linked"
+-assert "rule_journal" not in symbols, "production journal symbols linked"
++# Optimized runtime builds retain the original zero-symbol requirement.
++# At -O0 the disabled header's empty inline methods have weak out-of-line
++# definitions. Permit only that explicit inventory, never arbitrary weak
++# diagnostics or a real implementation. Protocol/candidate strings above
++# remain forbidden in both modes.
++stub_methods = {
++    "checkpoint", "mode_clock", "heap_scores", "reorder_end", "implications",
++    "open_from_env", "reorder_begin", "restart_clock", "heap_after_decision",
++    "close", "macro", "detail", "learned", "conflict", "reduction",
++}
++def check_symbols(text, allow_stubs):
++    for line in text.splitlines():
++        if "tactix::EventTrace" not in line and "rule_journal" not in line:
++            continue
++        match = re.fullmatch(r"\S+\s+([A-Za-z])\s+(.*)", line.strip())
++        assert allow_stubs and match and match[1] == "W", "diagnostic implementation linked"
++        symbol = match[2]
++        method = re.match(r"tactix::EventTrace::([a-z_]+)\(", symbol)
++        assert (method and method[1] in stub_methods) or symbol == "tactix::rule_journal_close()", \
++            "unrecognized diagnostic symbol"
++
++for allowed in (False, True):
++    check_symbols("0000 T main", allowed)
++    for rejected in ("0000 T tactix::EventTrace::macro(tactix::Kernel const&)",
++                     "0000 W tactix::EventTrace::emit_record()",
++                     "0000 W tactix::rule_journal_emit()"):
++        try:
++            check_symbols(rejected, allowed)
++        except AssertionError:
++            pass
++        else:
++            raise AssertionError("negative symbol control accepted")
++check_symbols("0000 W tactix::EventTrace::close()", True)
++try:
++    check_symbols("0000 W tactix::EventTrace::close()", False)
++except AssertionError:
++    pass
++else:
++    raise AssertionError("optimized zero-symbol gate weakened")
++check_symbols(symbols, debug_stubs)
+--- a/tests/test_substitute_collapse.cpp
++++ b/tests/test_substitute_collapse.cpp
+@@ -17,7 +16,0 @@
+-  kernel_add_binary_clause(k, internalize(-1), internalize(2));
+-  kernel_add_binary_clause(k, internalize(1), internalize(-2));
+-  const Lit source[] = {internalize(1), internalize(2), internalize(3), internalize(4)};
+-  for (unsigned i=0;i<copies;++i)
+-    kernel_add_large_clause(k, source, large ? 4 : 3, redundant, redundant ? 2 : 0);
+-  std::fill(k.bve_retry.begin(), k.bve_retry.end(), 0);
+-  const auto before=k.stats.bve_marks;
+@@ -27 +20,13 @@
+-  if (mode) { assert(proof.open(path,mode==1 ? ProofFormat::DratAscii : ProofFormat::Lrat)); k.proof=&proof; }
++  if (mode) {
++    assert(proof.open(path,mode==1 ? ProofFormat::DratAscii : ProofFormat::Lrat));
++    k.proof=&proof;
++    proof.bind_variable_map(&k.internal_to_external);
++  }
++  kernel_add_binary_clause(k, internalize(-1), internalize(2), ++k.next_clause_id);
++  kernel_add_binary_clause(k, internalize(1), internalize(-2), ++k.next_clause_id);
++  const Lit source[] = {internalize(1), internalize(2), internalize(3), internalize(4)};
++  for (unsigned i=0;i<copies;++i)
++    kernel_add_large_clause(k, source, large ? 4 : 3, redundant,
++                            redundant ? 2 : 0, ++k.next_clause_id);
++  std::fill(k.bve_retry.begin(), k.bve_retry.end(), 0);
++  const auto before=k.stats.bve_marks;
+--- a/tests/test_substitute_retry.cpp
++++ b/tests/test_substitute_retry.cpp
+@@ -19,13 +18,0 @@
+-  for (Var v : reverse ? std::vector<Var>{1, 0, 2, 3}
+-                       : std::vector<Var>{0, 1, 2, 3})
+-    kernel_record_import(k, v);
+-  for (unsigned i = 0; i < copies; ++i) {
+-    kernel_add_binary_clause(k, internalize(-1), internalize(2));
+-    kernel_add_binary_clause(k, internalize(1), internalize(-2));
+-  }
+-  // A surviving rewrite is not a disappearance and must not re-arm x3/x4.
+-  kernel_add_binary_clause(k, internalize(2), internalize(3));
+-  kernel_add_binary_clause(k, internalize(3), internalize(4));
+-  std::fill(k.bve_retry.begin(), k.bve_retry.end(), 0);
+-  const auto removed = k.removed;
+-  const uint64_t before = k.stats.bve_marks;
+@@ -37,0 +25 @@
++    proof.bind_variable_map(&k.internal_to_external);
+@@ -38,0 +27,13 @@
++  for (Var v : reverse ? std::vector<Var>{1, 0, 2, 3}
++                       : std::vector<Var>{0, 1, 2, 3})
++    kernel_record_import(k, v);
++  for (unsigned i = 0; i < copies; ++i) {
++    kernel_add_binary_clause(k, internalize(-1), internalize(2), ++k.next_clause_id);
++    kernel_add_binary_clause(k, internalize(1), internalize(-2), ++k.next_clause_id);
++  }
++  // A surviving rewrite is not a disappearance and must not re-arm x3/x4.
++  kernel_add_binary_clause(k, internalize(2), internalize(3), ++k.next_clause_id);
++  kernel_add_binary_clause(k, internalize(3), internalize(4), ++k.next_clause_id);
++  std::fill(k.bve_retry.begin(), k.bve_retry.end(), 0);
++  const auto removed = k.removed;
++  const uint64_t before = k.stats.bve_marks;
+--- a/tests/test_subsume_material.cpp
++++ b/tests/test_subsume_material.cpp
+@@ -95 +95,3 @@
+-  kernel_replace_large_clause_in_place(k, ref, 3, original, 3, 0, "material-test");
++  k.next_clause_id = 2; // the fixture's two existing input identities
++  kernel_replace_large_clause_in_place(k, ref, ++k.next_clause_id, original,
++                                        3, 0, "material-test");

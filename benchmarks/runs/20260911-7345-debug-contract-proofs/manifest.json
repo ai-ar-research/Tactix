@@ -1,0 +1,1742 @@
+{
+  "status": "PASS",
+  "hashes": {
+    "benchmarks/runs/20260911-7340-debug-contracts-build/manifest.json": "9fc63ef94adb01b90c591b3c4cf8ede4d6575c94a37fc301972e23f664c4000e",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-build.json": "f4e295a3e00c5d1eb484d8b14d974e3ae70650de42fd0670dc454f1d9ef48175",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/release-proof-driver": "6b7ccb0017cbc672b79e1314985c61593b137c751be7ea3c7424cbb92993189b",
+    "build/pin-7340-debug-contracts-release/CMakeFiles/tactix_lib.dir/src/api/api.cpp.o": "e6fc4ba85c2c9dc8ae2c559ce9ba14b357cde4966e6fd20ee3e1f3bfa09580d5",
+    "build/pin-7340-debug-contracts-release/CMakeFiles/tactix_lib.dir/src/engine/subsolver.cpp.o": "69292de2029165e3a89afa44616f61c59d828b32b8d216356a95adc08bf1cf70",
+    "build/pin-7340-debug-contracts-release/CMakeFiles/tactix_lib.dir/src/frontend/parse.cpp.o": "c00a162dda42c1a2cfa594905d343f499145ea0d1877c07ed01616e84a247c7b",
+    "build/pin-7340-debug-contracts-release/CMakeFiles/tactix_lib.dir/src/kernel/kernel.cpp.o": "a5801394c2fe9879621570e4c84e26364787120185d3d92980d2286d170559a7",
+    "build/pin-7340-debug-contracts-release/CMakeFiles/tactix_lib.dir/src/policies/default_policy.cpp.o": "9829f23c7911a8a7a6eac37cf3be71565564c46b8ba9509ac17010ab7ce1bf4c",
+    "build/pin-7340-debug-contracts-release/CMakeFiles/tactix_lib.dir/src/policies/heuristics.cpp.o": "a79220d97f7abdebe76822a6b849f1be99d08d2cf74e067d3fb17de72c72da37",
+    "build/pin-7340-debug-contracts-release/CMakeFiles/tactix_lib.dir/src/policies/ops/reorder/reorder.cpp.o": "82fbe49171f0cd965df5e8b35c94be73cef5583f2adb0f655f5c8e1697daaea0",
+    "build/pin-7340-debug-contracts-release/CMakeFiles/tactix_lib.dir/src/policies/ops/rephase/rephase.cpp.o": "1ee13886e249610f0ed9f016a784af58fbb2bc95427e5a2e44ec153d8eb46b9a",
+    "build/pin-7340-debug-contracts-release/CMakeFiles/tactix_lib.dir/src/policies/ops/switchmode/switchmode.cpp.o": "b0f4fdc1e626eeb014d0eccb62216cb342da644f6faeed72c08928ee3087b663",
+    "build/pin-7340-debug-contracts-release/CMakeFiles/tactix_lib.dir/src/policies/ops/walk/walk.cpp.o": "4eeb3d59f31679fa3fff2c12691a5fabb6062154ddb2fd0e96aa6b5f3b5e03a4",
+    "build/pin-7340-debug-contracts-release/CMakeFiles/tactix_lib.dir/src/policies/random_policy.cpp.o": "5188d4a4d427e7adafd386b07bb50788c82a303da50eb41977b0c5686db04f6c",
+    "build/pin-7340-debug-contracts-release/CMakeFiles/tactix_lib.dir/src/policies/stress_registry.cpp.o": "f1d115beeccfea75b6bc9ed4e1cbbb59c65709573bce3a8cbbaca1e72ccaac5e",
+    "build/pin-7340-debug-contracts-release/CMakeFiles/tactix_lib.dir/src/policies/trace.cpp.o": "182d57e0b48f869f4307ed921a749af3450f7595460ff6f3f2a6f2e3f33c6159",
+    "build/pin-7340-debug-contracts-release/CMakeFiles/tactix_lib.dir/src/proof/proof.cpp.o": "f6de1158068fd832101794caf35b371f32acb77c08b2152ced6990e9901e81cf",
+    "build/pin-7340-debug-contracts-release/CMakeFiles/tactix_lib.dir/src/rules/analyze/analyze.cpp.o": "84eca92dbf48ec638ad3570331283d5f9cbaa2635b237e6084587b1a658194f1",
+    "build/pin-7340-debug-contracts-release/CMakeFiles/tactix_lib.dir/src/rules/backbone/backbone.cpp.o": "aad7e70bf8750450e06409e4ed8fa19918bbd6a5251f3c667fbe1b02d1e9c001",
+    "build/pin-7340-debug-contracts-release/CMakeFiles/tactix_lib.dir/src/rules/backjump/backjump.cpp.o": "9141697f162a8eb1941e0afa5830811bd526ed077a84eccc44831ab3d23e4b65",
+    "build/pin-7340-debug-contracts-release/CMakeFiles/tactix_lib.dir/src/rules/bce/bce.cpp.o": "a2cd0b63d7bf07857a0b5c2c982363c394ac64aa4b8cbabdd29aaa14f6af6924",
+    "build/pin-7340-debug-contracts-release/CMakeFiles/tactix_lib.dir/src/rules/bve/bve.cpp.o": "4712e140a3796e559e5150457478d0645ff83d93153bf31c774c541bb87d261a",
+    "build/pin-7340-debug-contracts-release/CMakeFiles/tactix_lib.dir/src/rules/cce/cce.cpp.o": "01637d6c1609b28cf860d575a6c9d0bb44fa54dd98073fff3e93b4142a8eaaf8",
+    "build/pin-7340-debug-contracts-release/CMakeFiles/tactix_lib.dir/src/rules/congruence/congruence.cpp.o": "286c7eca87ebb624c499369878ebebfc3343e529e9247559a162de590b9b52a0",
+    "build/pin-7340-debug-contracts-release/CMakeFiles/tactix_lib.dir/src/rules/decide/decide.cpp.o": "e15a82960d069fa7425b481b7233082d875da16ae608747655769ffbe9beb6d0",
+    "build/pin-7340-debug-contracts-release/CMakeFiles/tactix_lib.dir/src/rules/factor/factor.cpp.o": "4506830e6098765c01abeafbaaffd5b0076e2db480e7139fb03654b079d9886d",
+    "build/pin-7340-debug-contracts-release/CMakeFiles/tactix_lib.dir/src/rules/hyperbinary/hyperbinary.cpp.o": "19d7c71a2d92f659533a60f48692cd79576318acc3c2917d4ee076a35fb12754",
+    "build/pin-7340-debug-contracts-release/CMakeFiles/tactix_lib.dir/src/rules/instantiate/instantiate.cpp.o": "03b7e7ac692506435030e7a7b2d1a686f6a08a3baf682eea3ec9b2bbe64b5632",
+    "build/pin-7340-debug-contracts-release/CMakeFiles/tactix_lib.dir/src/rules/lucky/lucky.cpp.o": "1b12412a7056c1d7b670b90b7bff21eae9b9b8fa981e9eb7ce99bfc8136a7567",
+    "build/pin-7340-debug-contracts-release/CMakeFiles/tactix_lib.dir/src/rules/probe/probe.cpp.o": "5f0affa030440b4b57ff7d150b02f42979cb06554cfc3a64d4e4a28bfb5e19ee",
+    "build/pin-7340-debug-contracts-release/CMakeFiles/tactix_lib.dir/src/rules/propagate/propagate.cpp.o": "5579cd608f5e31efd4a98b42a8eccec21e86a01bab8cb3d10deb3aa49c9b59bb",
+    "build/pin-7340-debug-contracts-release/CMakeFiles/tactix_lib.dir/src/rules/reduce/reduce.cpp.o": "20fa0f20eb876a0108d9fe402a585c746b673dac79145a9644bfbee930d9ce4d",
+    "build/pin-7340-debug-contracts-release/CMakeFiles/tactix_lib.dir/src/rules/registry.cpp.o": "123fb9628ff065a8391c88e9de3600ced142f24d593cd9804563ea035988db4d",
+    "build/pin-7340-debug-contracts-release/CMakeFiles/tactix_lib.dir/src/rules/restart/restart.cpp.o": "497e0cdd09bda3d3f74440cda57ddcdeeb2b19472467cdbb04faa57147a07fbc",
+    "build/pin-7340-debug-contracts-release/CMakeFiles/tactix_lib.dir/src/rules/strengthen/strengthen.cpp.o": "fb1d102dadc29b92a4c611a7e2d672c91eec7f1da120d92890f1e076b93730bb",
+    "build/pin-7340-debug-contracts-release/CMakeFiles/tactix_lib.dir/src/rules/substitute/substitute.cpp.o": "cd5a6526f46b7cfcb7c7d4a55e217a177f755fa47fc3a0bf660fca24c219d449",
+    "build/pin-7340-debug-contracts-release/CMakeFiles/tactix_lib.dir/src/rules/subsume_forward/subsume_forward.cpp.o": "b293581e2330f906de056461acde243ffa90cd4e20ede5063e142232ded347d6",
+    "build/pin-7340-debug-contracts-release/CMakeFiles/tactix_lib.dir/src/rules/support/failed_literal.cpp.o": "428c5a26c5303763eb01c8d04a3edcb53cce4695da8c604609cb0d1d71e7bbf0",
+    "build/pin-7340-debug-contracts-release/CMakeFiles/tactix_lib.dir/src/rules/support/flat_occurrence.cpp.o": "dfa78b5db79b5c023412e564ca3b952806733524a6f18553fe6d76a1c004ae33",
+    "build/pin-7340-debug-contracts-release/CMakeFiles/tactix_lib.dir/src/rules/sweep/sweep.cpp.o": "e7ea33ab433e37521d4d016737283ecc097512ac6609320de41a1aaee980dabe",
+    "build/pin-7340-debug-contracts-release/CMakeFiles/tactix_lib.dir/src/rules/ternary/ternary.cpp.o": "7921f39b32be73a07406ed737244fae66654928a35ec76a74e7bbc3e864c670a",
+    "build/pin-7340-debug-contracts-release/CMakeFiles/tactix_lib.dir/src/rules/transitive_reduce/transitive_reduce.cpp.o": "f0792b8c35a58f8bcc6508588d0ccfe22e0856ed2de60d0f02213b26e70c1164",
+    "build/pin-7340-debug-contracts-release/CMakeFiles/tactix_lib.dir/src/rules/vivify/vivify.cpp.o": "5e1a4aef06a25fb881559499cd4b7b575b9f80c7ac45982ad0b6665d9f516733",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-0-0-drat-fixture.json": "c53bb766a63ff67d26b2cce4bc2829a901550c0c4a1d9fa905cf2a9c994ec438",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-0-0-drat-checker.json": "0259d4d297e81c78943b8a775f9614999794434fb93bf4a172201f44bb167f18",
+    "benchmarks/runs/20260911-7327-rank25-root-gdb/pins/checkmodel": "5fde6bbc7be305f6b6166ef75dc4788e2cf40180317ab1ec9a38a3d6071676cf",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-0-0-lrat-fixture.json": "cd632c5616acd0a044d7af2c06421018a521f069e6fb6d5dfc7777fc645a8991",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-0-0-lrat-checker.json": "dca095405d2323b5497bfac17bd828ce10a3798e8f0a266df9473b7516f67026",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-0-1-drat-fixture.json": "958b46477f2b1968c1aabcf8de501bee2dea2b42871838f760a0aa4421f6a1bd",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-0-1-drat-checker.json": "934251b13eb89d8fc5ea73d6d38dcf2db734c23a5bb4a5034852069c717e8953",
+    "tools/checkers/bin/drat-trim": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-0-1-lrat-fixture.json": "97eaa87f01604d908b60b29acaa8055794e5d8e7246b464bf3fec9e4c322026e",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-0-1-lrat-checker.json": "c49c91be6497d33fda5674e8623fabd80891db19d9245c3b09aff7bfeaa2b0c4",
+    "tools/checkers/bin/cake_lpr": "ab9dc6c43ad0f55bbaf336c5d898919ddb03d0bdb75e88dff48237fb06ba1f57",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-1-0-drat-fixture.json": "0aeabe52ae3a2cb55f4cd46b4a13f0c7299786cc30dacd65d594dd99c650d3b6",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-1-0-drat-checker.json": "6bbb952752fcb74f64b578a42923641ee1ddcba813ac0b94032e0b3ff47277c1",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-1-0-lrat-fixture.json": "a6e0493bbc7cc9c3bd7e4e3fd5c40acdb7ac56612df689981e01f754d316f28b",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-1-0-lrat-checker.json": "4ef60afec3ae680758eb66af7bb2b1cfdcf96ce91680bd18d7527536db6496f0",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-1-1-drat-fixture.json": "26b5c95affa426db2d936b9bb2006432799be18aa8f2a2d324fff4161db5dfd9",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-1-1-drat-checker.json": "3a515a8d100c47149fb8bdda68525b0f383038b669c74ac74741f58f8bac5700",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-1-1-lrat-fixture.json": "dbea3330381cc56a4d784b1bbb0376a50d3682d2d6e5cc16195bfa1bf9fed67a",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-1-1-lrat-checker.json": "9fb6d93202455f393f2ca848994f349c4c667a7ea66adc1d96408950041a1d25",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-2-0-drat-fixture.json": "1c0f1ac76bd86a465566db7062368a9731f3c2a7b072927e9c9a1355fc43e15a",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-2-0-drat-checker.json": "3ba5b0caf8af847a16e9986bf4396a4f03cc7804e4cb93215f1516c139171a8b",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-2-0-lrat-fixture.json": "c39b27fa4f1d963300a5863c3cd4cf28d054d2c89788cd7e47f8da06153ac140",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-2-0-lrat-checker.json": "5d755adcf6fdbeeb3af9ac833f51dcf48125a7064da518370e18ac30d7e37449",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-2-1-drat-fixture.json": "7ac4567f298078cfe4e40d8fa17c4ab2e447c65cef6210f98a5e00d1206ccfd2",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-2-1-drat-checker.json": "d998776edbc08f7d5da8de7d2cabc9242ddc4bc3e29209a29ec2f10c44321411",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-2-1-lrat-fixture.json": "71236ae888770d77107d66b1c38c501c93b619fad57f312be4d24e24951dabf7",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-2-1-lrat-checker.json": "33638d151c413cb3558f230b6376206e28e5d32a5df6e2a8ddb1554b70921b4f",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-3-0-drat-fixture.json": "d2431b1a3a20fc385a7b1984713d64dcf0ea52d3acb857f1438456207f2bb6e5",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-3-0-drat-checker.json": "8fd31bae2ca9c6e2fd56194a72f44baca78cb62bfaf5dbdadcc22e2ac8a5314d",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-3-0-lrat-fixture.json": "b49218822af1c74dd535727985452f26cfab7e2828cfcd4710aef7b9a303d127",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-3-0-lrat-checker.json": "ab6cecc663b343372cd8e2b53a13f0180365439ef3ff9796ee2f6cb88fb49031",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-3-1-drat-fixture.json": "9d1cdb62bce6f065486dab836d1d18c9611c7ae87d5a62fad802c4edc2575d87",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-3-1-drat-checker.json": "9f811792e7fb5875e53a8170d8a54b6531568cf4b51c72e507046e03820e5b7c",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-3-1-lrat-fixture.json": "a90a715771172d05d88c4292cc556ea65e94239fdfb2fcbdc0a44d0a07850942",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-3-1-lrat-checker.json": "2f79a5e221432d23935da1ee50c353ccec443ff2e47683039e3fbfc53c0d1b5f",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-4-0-drat-fixture.json": "2a4ba9f13bbb617883a4a1a191e42e0596f9d0c13849a54fe7300060a4a86df5",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-4-0-drat-checker.json": "6f95968e1f1986f8526745ece601ff2ac7cfe7b5b7adb037d35570d1b0c73efc",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-4-0-lrat-fixture.json": "26a27d376db00291d58b702b8df257b07e554531c276652498c0213abcef7ca6",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-4-0-lrat-checker.json": "71c11caa54ec4c6b67661c0ab66609a87a685cc9dc5ec3d09a2f1ef7b7ef50fc",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-4-1-drat-fixture.json": "71ac19948c95bd4b5acb9041b99e76601d6fe5427e9742017082144f925bb5ad",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-4-1-drat-checker.json": "eca73273197fc2ff58f529b5fea5b699401c1ec34fee72c793eeb06d26a2ab87",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-4-1-lrat-fixture.json": "87122bc1d1c5ea7f0d58be6ba20c6d2a8ba5fbb011a6bdc043dd814206f684ab",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-4-1-lrat-checker.json": "69de19ef8aea98fe2d573def38ad85ee3ed6637b415e95b4ea2f5485a52ef037",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-5-0-drat-fixture.json": "7e75eb0353aa8b98c3b2ee5be9efe3427e2c4703dda2aff9ca47b45957c94201",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-5-0-drat-checker.json": "6b0532626f3ad10da785fd6a14cb9d54d361873b017385dd1148ae10d6b14594",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-5-0-lrat-fixture.json": "9fdf293e6b16d7db6fc8f7c6ccd7e9de21fb5ac39f5620dad00fb23aede1ec13",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-5-0-lrat-checker.json": "38968d1d382e1115a030bd15d40d55f8eab25cbad9caa05080467cd811922393",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-5-1-drat-fixture.json": "d0200f0c8b810bcf5094df38b2fd2cd4ed61ca52194b1423095c7eb351240acb",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-5-1-drat-checker.json": "5259e66984fbdffaf75a25e13f6fddc3d2f193f0de85a1e4320b44601ab4ce12",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-5-1-lrat-fixture.json": "5c2e2ac69088b3fb78a611aaf29de480eb51b60a259fccb6ec8e5fd455137bd8",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-5-1-lrat-checker.json": "fb78429f2ee0a65b9cf892c9203236ae959fffeb61f77a130534686d48282a23",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-6-0-drat-fixture.json": "c1fdade6c29089ecd954afc1773c8b02555dc397c4d6367ecfde10deb8d4e97e",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-6-0-drat-checker.json": "9f30874a8aece0c251e237168317227ff0334c915bf6b78e9212f97525f306d4",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-6-0-lrat-fixture.json": "93f3aa5c19fe52512de0da48d1e4f1fe238f633d6eef49a431f65422a2a4279b",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-6-0-lrat-checker.json": "11a90b755cf0f31229bad1ac87abc7325ce3804d00b9a742799dc6681f75f40d",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-6-1-drat-fixture.json": "0aded22ff91ad133cc2feb548055837c44a1404dc28c5322332dcbb7dfe7375b",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-6-1-drat-checker.json": "cbf6a4d6229b0cb1d345bd03c9d60721022b05edaa18ab59ef6785654457f56e",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-6-1-lrat-fixture.json": "11cb7bebb3eebb81040d710698869b4b747eefb5407947c185dc8bd3f9dad054",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-6-1-lrat-checker.json": "36c5d466f3500590783e2ecad058453aa46924793111ba2689ed17d134a4e431",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-7-0-drat-fixture.json": "03b879b1fb929822ce1495cd9c82290bc3a5c829b830d63d1f3ea93964c06ccf",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-7-0-drat-checker.json": "91f51f2909e83222fa62f1bfc3e5643f49f93ea6563cf46a117e80c77dcb1103",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-7-0-lrat-fixture.json": "10fa3c94e04cb6b91182fc4a123ad43ce5ea044f673a45dd1cc8a7a2af8143dd",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-7-0-lrat-checker.json": "0706ac6f646f3fcbd1b8f4d6cd4231e7919779462a2a219aebeb6413174df12e",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-7-1-drat-fixture.json": "586647092915a5c75c629a71ac3e5288a88e9c9f1fceadeb7ae5e5f4dab372c2",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-7-1-drat-checker.json": "0d38174f4382438b17a6ed65c571bcdc251aa0204f8f1df9643cbe62eb5b6514",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-7-1-lrat-fixture.json": "29e4edf089851fb62d832c4d3314311957e4bb30f43c5628c1fb8877848c6512",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-7-1-lrat-checker.json": "030b4364fb831115517219c5a3cbe9978a45b454458d43c1a2dfaec794023e17",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-8-0-drat-fixture.json": "6157c84cf7a44ce1cdafe70b776895332b4186fe571a3f295355d62b0ad34fe0",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-8-0-drat-checker.json": "6824ab83caa70e2183eff6d0c8adf97fbf4f7249c6acf18718d2b83ca6760d0c",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-8-0-lrat-fixture.json": "45b15da1523b257285351feb9d409d752aa88fa3b03dd4236e6745ae6d978dc7",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-8-0-lrat-checker.json": "2a86938ea3300a39b9f66fc2e4e3e671f5f161938f36ed7ed7c1f08ca952a630",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-8-1-drat-fixture.json": "a2de3e266f13d694c946c99654f7b3506eed476de99c43a1b1e5404c0066c091",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-8-1-drat-checker.json": "72fe39cd17b6ba23d55309e44a4a57af004307dfccab833cb2fee4b99818ba7d",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-8-1-lrat-fixture.json": "48f04a8fb711db3404fe291428859a1d1814390541f23029bdc14e4c8c967f59",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-8-1-lrat-checker.json": "280bcf91e6939565d4af76a28620365c867e66e34bdb9e993f47eaba17c635fc",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-9-0-drat-fixture.json": "021fea8f22243ea33ce543a3aa3e99671cfac56249a6f33b252192d874ab27d1",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-9-0-drat-checker.json": "45fcd474f707aaf9328af371c5e1cef21fcc916d04cb5ce3a71e13299f91494c",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-9-0-lrat-fixture.json": "6c3c897da676024244aff2042384277b8c3731634ea7a92d696c368fa449ddb5",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-9-0-lrat-checker.json": "d428eb2b630a78357a170265ad98bf85c96aeb419a947839e95a69b4e7d25e34",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-9-1-drat-fixture.json": "bfe2318724f40e9e98b145b100abd6fe73b7f3d5271b20f385741ec4cb9bb64b",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-9-1-drat-checker.json": "a3835426872fdac81d6244a533c1ea2b9fc99fa7069e0346a29971a78614f0ee",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-9-1-lrat-fixture.json": "6aad575d1727037b8a35b17e155dd10f213d06ebb5b7dbf1ccd46965e10daa0b",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-9-1-lrat-checker.json": "abaffbbb429cd73c01bdf076609c8bfa2e6ee5897868c48116158d91521bf331",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-10-0-drat-fixture.json": "387ff2be5ad78da123812dd25b4405fb8483528a3be9025edda03d114ac67678",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-10-0-drat-checker.json": "10079b4bb93728aa2775d23391553ab9cc412c3f8ecd99a32a58215cc5984db2",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-10-0-lrat-fixture.json": "b2d76ac9bb2086960929d44755b1268115349970ad3b60e4bb9f71066cff74e6",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-10-0-lrat-checker.json": "e6556bb882aafeb1842f94403d896af9b2e86b5e127259ef9956b53f736dec78",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-10-1-drat-fixture.json": "4d395122d199cb4163898f7557211373b341e4145c43a928a3ca319a665e8566",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-10-1-drat-checker.json": "00ac47d95aaad13333fe22c2dd83923e18e4ac09fa775c041e6af73c82f06de9",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-10-1-lrat-fixture.json": "71e5b031e2c5c7d876a63f25a0e0cb6030901b1cfbb6cc5fb3bd2ae48a0c1e32",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-10-1-lrat-checker.json": "6d9af3ddcae543dc950ff4dd6b65de425cdf3caf0a2933d9918cc56ece6615c7",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-11-0-drat-fixture.json": "a42c11498ebf5314154dd7186f997e804a950de38f483b3aac5f75fab9d0ce73",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-11-0-drat-checker.json": "bc4ccce8d83e397bbd3d9c4c65b66d759c213ac61b9514fd30bd0a7204dc370c",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-11-0-lrat-fixture.json": "b6fa3af153f6da8b8531ab8b2abf98cb22cf66654633f858aab015dcbf77b655",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-11-0-lrat-checker.json": "15408d44ba643c9099cbae5cac3ca2b4043b06b5b0907ba436da56bc70f3b4de",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-11-1-drat-fixture.json": "914a12663fa8416d0e0caf32588ff030c0be464aae610bd0521d32c80c3c910e",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-11-1-drat-checker.json": "53eddb1a06f6fad96ba78d2e6e485921c8c20404e96ca52e969a8f311c45b9e0",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-11-1-lrat-fixture.json": "903c385b43ab080e584b7c4993d7b75a1e4c2c55cb710820f2e5cf0692fd40a1",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-11-1-lrat-checker.json": "03d5eb96752b25ddd7142247cb5037dfb2a5ff3ad750352238faecf6d3a400b5",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-12-0-drat-fixture.json": "8a7d341958c7d285990dbbd166f3dc3a1b7c3abfab4003585178a2a81424acd8",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-12-0-drat-checker.json": "c22fd651a1ac86fd6f13b0c3cc1d54ef1bd2a426f3eddd76247c1b523ee46218",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-12-0-lrat-fixture.json": "35e443b5ecd623c3740e5e01044b96251d1efe5a96e8f3616fca1cd66d5a7c71",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-12-0-lrat-checker.json": "b74bdc35769d6c28c67db556ce965000ecaa9e1ffa049ba0064ee7aede28d2da",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-12-1-drat-fixture.json": "9ed173f903b545de6331929805611e4af18747f0b89b45bb7dffe1ff720db81b",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-12-1-drat-checker.json": "e1f0e9daee8315620e43f9395b7195fa501eca21fd12b001bcbb31de6c759b33",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-12-1-lrat-fixture.json": "53be64f1a9f7de4247a013e45f9d844d34e4b076e726d1081ba119a4b6789406",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-12-1-lrat-checker.json": "bce77ebb5e6449ee70f8468571bc103f48b4d569dc9444870c16429707ab4ce5",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-13-0-drat-fixture.json": "78990d5a06aac50f282276ca539fcb9336c43420b16cb5e91572717b720761fa",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-13-0-drat-checker.json": "11b9e4ecdf815cbd8cc4d9e6ea78965405f572ce286e8a7760603b6cd95f34cd",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-13-0-lrat-fixture.json": "faede57d246a2d48eaf9d9ea90d3ef0020c983ca0e7d1b3413f0e4c64748e0c4",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-13-0-lrat-checker.json": "141073cf2a44ae02adaff766705389e2eeb67e89c2d2fd4e8779ebf5b0a44a87",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-13-1-drat-fixture.json": "1b4045d534ff00826da703bbcdb90dfb055537ffb2d010a37338c64986a6301d",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-13-1-drat-checker.json": "240b742f41e34c576e5b7c4b2ac84c0ffcb38ed32a36ff349deb8eacf007d85a",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-13-1-lrat-fixture.json": "7c98e9db4fba2a364b2c6baaa8a7e5e66a241fd8f8b25abb3115fddead142f63",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-13-1-lrat-checker.json": "fe2538c35e99e77957dd2fd1cfbe036cbedc85dcc98988f6dde485a8002d085f",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-14-0-drat-fixture.json": "4c36d652fdc3afdf6bf02e1add7118cc812af689d96c29118414c6b228bcdbe8",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-14-0-drat-checker.json": "db74f36a8b0097dbd8a01f432d235a5cbd87af6f77900eca184d5cb75f9f5f8c",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-14-0-lrat-fixture.json": "2192cae31e6dbe6447db43c0ac0a9cfdc5fe48f165157de30143d127aa383ed9",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-14-0-lrat-checker.json": "ef7884c8d10fd0d7b73b04e73ad7bf0c614c0a17327741bdc6c786783ab4b53a",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-14-1-drat-fixture.json": "a513d38f959fead54d3f011c7e39c08bcba40432956c91865e8d9254cc399c24",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-14-1-drat-checker.json": "9980d0082a38aa48023b93aa015c31a24c0b523464230faa36fba26ddb257d1b",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-14-1-lrat-fixture.json": "1f596631b9f96783771104b4dba2dc4581d87a3f310e20d05004a5cef33beba6",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-14-1-lrat-checker.json": "469530c6fbd4c653d8e2cb35750955cc54f8bc1aa8f564300f23acadd4e6f2ab",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-15-0-drat-fixture.json": "8d0a7fab48e15a4afd30bc88a4a86800958682e7a266490920bacdd1bab56253",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-15-0-drat-checker.json": "b24c5613c7c8dc0193de86011408a26afe1a518af227b6a26da0f087a8b3581a",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-15-0-lrat-fixture.json": "59b419ed19b48b5b40fb9338a36b8b8fe9ce879ba695d91694dd922b5591c67a",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-15-0-lrat-checker.json": "4cd41bda42526b48dd6c5f96183218f3d8d1defb68cc0295856236a85ec9e70d",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-15-1-drat-fixture.json": "b142a31896be4e6e71c6dd9a59cc46a1304404bdd24251ad96484951dc63b42c",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-15-1-drat-checker.json": "ac1a15fbce5f1fc12f252b09f491be250bb8932c68f1d5f28af350fb3ccf2519",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-15-1-lrat-fixture.json": "77c50ad48fafbcdc29b25877d5603fea6d2a016e49eab5c23c86e5f63a2705cf",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-15-1-lrat-checker.json": "9df819f42cd637c5da1bfe3c64be8a0fe4d3edf8c182622f8e2833d1654b6f80",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-16-0-drat-fixture.json": "f142e31bbcb749cdd786cbc8e0dc1ab12a0b3abc317ba61467ec31f711cc2be4",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-16-0-drat-checker.json": "35eac855aea24b965f90aa15c734fadaebced0bf0ea15f0dbd17f6b454be32c7",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-16-0-lrat-fixture.json": "e68fb73410a0ab5130b0a69135d250467145f506e8542422d17e69e353d8f4a3",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-16-0-lrat-checker.json": "d0b32d8de5e6b9808eaf7d2fab9383dd635188a46600dd21ecd1bb31d51e8cf0",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-16-1-drat-fixture.json": "0eb17b4466942a16d21451caec9f9eda9e6242fd21dceef597ee464b1aac87fb",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-16-1-drat-checker.json": "27e5633889d8747d48c55760f39a5bb7ed4818eb65fbd6596adb1e595907f4fa",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-16-1-lrat-fixture.json": "923028cf56ce183e7bc549a664243acf7fdd4c9f54e0592e939d1f7b5cefc890",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-16-1-lrat-checker.json": "15c525ae00b12d32099931d7943332bc1c9d40fa5c4140401bfb00d8a179c892",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-17-0-drat-fixture.json": "fc5d0ff13223115d3b7cfb6b7412ccbc375d07da85d78d580e174ec084d20979",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-17-0-drat-checker.json": "9e771ae52cf14fc3b7bd7c187541c629658fbf426e6f07ed97a7ff75f0bac7be",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-17-0-lrat-fixture.json": "d3930729694b427dc15e64522744dd285a20c09139e3eaf70cd49921801422ba",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-17-0-lrat-checker.json": "a2cb6871e9e85401e240ba4743db5cf3643d7553dce359358a23bd7c96107971",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-17-1-drat-fixture.json": "9fcb2b0d71f0af03b3e1a20fea7a5b9a08ae2e1255fa55dcfdcc03469398c38e",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-17-1-drat-checker.json": "41fce7ce621d957fb03d8a9207032567b033b226e308bbe05477b218241b8a1e",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-17-1-lrat-fixture.json": "a6760b7a20f07196d53c64b1f0db0ecd310681e9ad368929e2dd195f32c38e30",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-17-1-lrat-checker.json": "1b0064a7c9910b888a4b6db0f310078160cc0bfde86fd80f688f90c74e0dd16a",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-18-0-drat-fixture.json": "faa71cddc3d3849fc4fefd43bb72cb8ecd1443b3be37caec479803e3cc248bea",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-18-0-drat-checker.json": "fa9334f72318d2e329a61d507a5d20be3f47998b1d2ba66929d737039aaccc71",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-18-0-lrat-fixture.json": "7c96b8989832f12ed36437464d4b78635ff7b7607bd5f78e58c84019c1d02427",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-18-0-lrat-checker.json": "66989acd367ff4e001e91c726c5b73a007f74c1197d2527515798d9536247f8a",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-18-1-drat-fixture.json": "15fa31f75b6eea433e499b09acea545fe8590761a14306fbff5ce6aacb19cf81",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-18-1-drat-checker.json": "f55f7e948f45547482de54af388584731900743b6517b4d4bb0a7c86c15986f4",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-18-1-lrat-fixture.json": "0008316b3dbc4c8be697efd9e1f5d89ed0286ca5b2a493fd59a3f42fb31aeab2",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-18-1-lrat-checker.json": "693c2a68aa6ef922c02212f806eb47ee1f2b5ea41f1e9acc8afd5a2936f8a7d7",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-19-0-drat-fixture.json": "a15c42c1cf0554cb82f7b322d9f775c7eb48d3c7dfb9e14ff2c77e108d1b8f91",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-19-0-drat-checker.json": "52b3ea5bb6d483b04ee049f1a7904232109001c2b228bdd1f0b0ffbccb1bbb50",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-19-0-lrat-fixture.json": "06d0da874bb568feaf5d769d383ba12a06ff58d75e28328ea46bffa66b050efe",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-19-0-lrat-checker.json": "954ae0c527923bb4b4ecfe5e51b67cfcc6dd0f29effcd3f1675db63a1ddcb8d8",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-19-1-drat-fixture.json": "dcf9ab8bdd31f69edcf8ad330b1527e48ff6ed454d242984871a4577f8f81c8d",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-19-1-drat-checker.json": "f9c6bb3e163399d8da9a0d0c59c98f076db07ff635105c95c92630de8209bee6",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-19-1-lrat-fixture.json": "2f33b9dc3b7f3f7632f72939dfb8051618ef01e3886b3f944a289f756d26e04a",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-19-1-lrat-checker.json": "9d627d3d5845084c813d74f8b2f19acac1d8c57fed7b37a5cb8aa2523c9045fc",
+    "build/pin-7340-debug-contracts-release/tests/test_forward_unit": "a63371c26d755b07a8f3afb9db79cace441de2bcb9ada6e8377ff4e124d27ca2",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-forward-fixture.json": "ded8df7fcd5eef41b79bf7c7651f4e6fc82a457ba4c63827aae6302c48cde104",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-forward-0-0-drat-checker.json": "96e65ae5b5e4482a07255a896af2dde54751490754b701f97ba3198e9b1951f0",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-forward-0-0-lrat-checker.json": "cb5ebe197f916197cb0ddb47a697d3782b257eed75e5dc518517b9bcc6c3e7f1",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-forward-0-1-drat-checker.json": "9f762c266faa10bdd9a09f0d6ff25c309b8e7172871beb0bc5f4e0c5dec1aa82",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-forward-0-1-lrat-checker.json": "eb92ec9eb98163a152fb9a2673fd3f685f231b7f511d65b1959877c0e5e6e724",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-forward-0-2-drat-checker.json": "75bab37f5728ff3ee6eac4e5989de4b90ed69f57ad66e82c8c6220432b31c6a1",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-forward-0-2-lrat-checker.json": "4179e48b4b6880877f488f08b89cfa90eedb5547c164a2c1a4252f017e1a381b",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-forward-0-3-drat-checker.json": "6f761eebdafbd099811a7d1f2264d76c2d57c7cdb28a3d3324d58558987e9d21",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-forward-0-3-lrat-checker.json": "ffa4d4ebee479865873d83e8f792ab4d991dc42b371f20d4fb5ac04fad4d1cbb",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-forward-1-0-drat-checker.json": "62546bf28680f89f857eef9558cc183810108118732990a273a9dfd76bb925c2",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-forward-1-0-lrat-checker.json": "3c5791a1e03523cf38592bcb932bc04a96e055f67d272d10431500840fdf1cb8",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-forward-1-1-drat-checker.json": "63cc460520a849dc98f39c3015e6e43335952f5aaa1b16e6e557e40e0ebe1c68",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-forward-1-1-lrat-checker.json": "dcd3b55d4db6483c79b96985a68a0df9980994cf8e895edc82d8f75d1eabd897",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-forward-1-2-drat-checker.json": "fe80f9b5fbc184f8a7473c3955bc34d5cb21bc0cb9e018244f66e6c4448e6445",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-forward-1-2-lrat-checker.json": "7a842215b5a0d236f71390ed4b9fa5bea7268140a0532112259d17dd174ba7b4",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-forward-1-3-drat-checker.json": "c0b6b87b164f86e41adf2cda91f6f041f7f80888d7934f7eef2a9a7d983e8f44",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/release-forward-1-3-lrat-checker.json": "6b2880af79fddcc910c0f95d43f25595c4c5bb44b9ae88e5a04009e928586134",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-build.json": "611499fca0024c6ad9f25f991313ac1695780454c9d6ca1c28b084276b871232",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/sanitizers-proof-driver": "dd7529b7cd5c01d2b3ce09700ab8d3aab1e66efa3732753ec0eda62200bf1640",
+    "build/pin-7340-debug-contracts-sanitizers/CMakeFiles/tactix_lib.dir/src/api/api.cpp.o": "4f53776d187e5e7b1037effb90ec7ee977c55a2717a2b737c13a39f685d84b5d",
+    "build/pin-7340-debug-contracts-sanitizers/CMakeFiles/tactix_lib.dir/src/engine/subsolver.cpp.o": "a435d8e9ce9af2cc448b0d340cbe1f6f0f66d92bc4aad3f12726e9c2e4ca95b1",
+    "build/pin-7340-debug-contracts-sanitizers/CMakeFiles/tactix_lib.dir/src/frontend/parse.cpp.o": "57bc4d1ddb106ca7e310a5bb4c8a7cdfaf1bfd5307d29bd97e8e45f57313d98b",
+    "build/pin-7340-debug-contracts-sanitizers/CMakeFiles/tactix_lib.dir/src/kernel/kernel.cpp.o": "4f521148712b6edb019aa8f705b965f81272b705d8b404decbb8c9873e53d944",
+    "build/pin-7340-debug-contracts-sanitizers/CMakeFiles/tactix_lib.dir/src/policies/default_policy.cpp.o": "ff3a6d611aa53834d64c93b2c88d98873c931ce9917d938e7085cdff42ba3ce7",
+    "build/pin-7340-debug-contracts-sanitizers/CMakeFiles/tactix_lib.dir/src/policies/heuristics.cpp.o": "6142f0412441e23ebd4ca6157a18fe538981dfde5c760f862260ad5a5a196057",
+    "build/pin-7340-debug-contracts-sanitizers/CMakeFiles/tactix_lib.dir/src/policies/ops/reorder/reorder.cpp.o": "45fa49a64fd54c69dda39e5e1d53849bef22561338ddb0c262f55e4780fbe9aa",
+    "build/pin-7340-debug-contracts-sanitizers/CMakeFiles/tactix_lib.dir/src/policies/ops/rephase/rephase.cpp.o": "3cf4676d2a828d5cfa026f1c95d93c3c62ca30b65f124fe0447151fe65dd5c39",
+    "build/pin-7340-debug-contracts-sanitizers/CMakeFiles/tactix_lib.dir/src/policies/ops/switchmode/switchmode.cpp.o": "2157d1a6bba3c0b290bfcba855b89db1afa37c4c0d96dc6484c8ed8d265d9ff2",
+    "build/pin-7340-debug-contracts-sanitizers/CMakeFiles/tactix_lib.dir/src/policies/ops/walk/walk.cpp.o": "5c3e73bd7fd3c380841980aa09924fca8532a69fd3217595a54e1c92fcfa89d8",
+    "build/pin-7340-debug-contracts-sanitizers/CMakeFiles/tactix_lib.dir/src/policies/random_policy.cpp.o": "47e44f97ffe0957c180ec48e6deb44fc7d17cad00d925b96db012ff103f68086",
+    "build/pin-7340-debug-contracts-sanitizers/CMakeFiles/tactix_lib.dir/src/policies/stress_registry.cpp.o": "5953eea604c4d4c7defb51842758304dc315ba9df5477ba4fd0a31d31b9d926b",
+    "build/pin-7340-debug-contracts-sanitizers/CMakeFiles/tactix_lib.dir/src/policies/trace.cpp.o": "468037ac77733fe0f32f3c8ce5904465752fa60af1c23f75b45beb7c13f316a9",
+    "build/pin-7340-debug-contracts-sanitizers/CMakeFiles/tactix_lib.dir/src/proof/proof.cpp.o": "56262a1152944a56eafa43818ae12d54a5201df00321e6561035229c9776974a",
+    "build/pin-7340-debug-contracts-sanitizers/CMakeFiles/tactix_lib.dir/src/rules/analyze/analyze.cpp.o": "5df2f4d8edce47c0ca2687438a1a06cc3721dd09a6bfc5bfb1b367d5bf825b0a",
+    "build/pin-7340-debug-contracts-sanitizers/CMakeFiles/tactix_lib.dir/src/rules/backbone/backbone.cpp.o": "5ea5fcbd486bf5de87af9655aab1a431a1e916e0b1e5160918007b24f120816e",
+    "build/pin-7340-debug-contracts-sanitizers/CMakeFiles/tactix_lib.dir/src/rules/backjump/backjump.cpp.o": "550772261a9387a6705117aa7f42f09711fc21d9ed766c33e479306b833048a3",
+    "build/pin-7340-debug-contracts-sanitizers/CMakeFiles/tactix_lib.dir/src/rules/bce/bce.cpp.o": "c4c113631aa9ff595722d720a874e4029703a11408e04899972a8f6d281d4621",
+    "build/pin-7340-debug-contracts-sanitizers/CMakeFiles/tactix_lib.dir/src/rules/bve/bve.cpp.o": "770d45a613354cdfc4da0922499d9ad746e42471675de2bbd2a7c6ed4f7cc7dc",
+    "build/pin-7340-debug-contracts-sanitizers/CMakeFiles/tactix_lib.dir/src/rules/cce/cce.cpp.o": "b962e306d0e56d88f75d423990afcf21a09459936789f4a63fdfbbcbe32a2980",
+    "build/pin-7340-debug-contracts-sanitizers/CMakeFiles/tactix_lib.dir/src/rules/congruence/congruence.cpp.o": "4f32c0bb958098d5d3626cf601f419afb57d11717b0467340f02900a7bdfc6ad",
+    "build/pin-7340-debug-contracts-sanitizers/CMakeFiles/tactix_lib.dir/src/rules/decide/decide.cpp.o": "f7eeb00f1742dad1dcc1aaa31e6f8ae86bed1543d548482b7362c691ac0fbd24",
+    "build/pin-7340-debug-contracts-sanitizers/CMakeFiles/tactix_lib.dir/src/rules/factor/factor.cpp.o": "5f47dd191d539bff5ec25cddd711f99a00af999c6c6a17db2ebe542c45068563",
+    "build/pin-7340-debug-contracts-sanitizers/CMakeFiles/tactix_lib.dir/src/rules/hyperbinary/hyperbinary.cpp.o": "302af0069272abb5f6ca15848d1aad3df75d0ae557ff6dc81c83687140a2fedf",
+    "build/pin-7340-debug-contracts-sanitizers/CMakeFiles/tactix_lib.dir/src/rules/instantiate/instantiate.cpp.o": "ad367835d6499b8606129073eab9b25cddda96bf14a243e8ed7115155ce3fdb7",
+    "build/pin-7340-debug-contracts-sanitizers/CMakeFiles/tactix_lib.dir/src/rules/lucky/lucky.cpp.o": "59299422892b45ff1ad1450079b33b477549aba5c582529098842f508c8f9a03",
+    "build/pin-7340-debug-contracts-sanitizers/CMakeFiles/tactix_lib.dir/src/rules/probe/probe.cpp.o": "807dcfcdd04aa0050081f180f8099a21290df6d0592014b94e1397d189d53f36",
+    "build/pin-7340-debug-contracts-sanitizers/CMakeFiles/tactix_lib.dir/src/rules/propagate/propagate.cpp.o": "4c32340e05b49b0e21e7eaab600bf704dc1c92e3ead407a1612208394d68c222",
+    "build/pin-7340-debug-contracts-sanitizers/CMakeFiles/tactix_lib.dir/src/rules/reduce/reduce.cpp.o": "b4861af766848c6d4c15a9e45739166f04a726550432c00b05558570cfd50cf0",
+    "build/pin-7340-debug-contracts-sanitizers/CMakeFiles/tactix_lib.dir/src/rules/registry.cpp.o": "ec49422e2a90a3ab4ab20189e6a3620721d92c80d571c218ec74bde0ebcd9632",
+    "build/pin-7340-debug-contracts-sanitizers/CMakeFiles/tactix_lib.dir/src/rules/restart/restart.cpp.o": "8d34a90286cf0894e4ab290cd01ba8392b6dc4cae2966bf84e797d599080d32c",
+    "build/pin-7340-debug-contracts-sanitizers/CMakeFiles/tactix_lib.dir/src/rules/strengthen/strengthen.cpp.o": "6408790ac7ffe4c1c0c2980a38649a0b55be843557674140b7ed02161629cdff",
+    "build/pin-7340-debug-contracts-sanitizers/CMakeFiles/tactix_lib.dir/src/rules/substitute/substitute.cpp.o": "ad185bfcb3b679e4b7bc099a5d76ea2b6fe6d1b2b6158cc05623f154b9fc78d0",
+    "build/pin-7340-debug-contracts-sanitizers/CMakeFiles/tactix_lib.dir/src/rules/subsume_forward/subsume_forward.cpp.o": "0d53e235a8d97109c8da259870d27239cd99d120f6a31d0b068f349fcdd7728c",
+    "build/pin-7340-debug-contracts-sanitizers/CMakeFiles/tactix_lib.dir/src/rules/support/failed_literal.cpp.o": "53d79c229d5efd71218af4927e83c2ca582b357cbc8bd37a37f1225ba23dc50a",
+    "build/pin-7340-debug-contracts-sanitizers/CMakeFiles/tactix_lib.dir/src/rules/support/flat_occurrence.cpp.o": "bf5297d69daca173fbb46fe6a06359a6ef919db55aaac2cf24956abca0877ed6",
+    "build/pin-7340-debug-contracts-sanitizers/CMakeFiles/tactix_lib.dir/src/rules/sweep/sweep.cpp.o": "d6bac735d31d944f7d924d837695195142ed40c30b0d023988482d719850547d",
+    "build/pin-7340-debug-contracts-sanitizers/CMakeFiles/tactix_lib.dir/src/rules/ternary/ternary.cpp.o": "f9ad72b24d595f11982d346c43a7cdaba915c0e3f187b3cf89a738b214dd9a64",
+    "build/pin-7340-debug-contracts-sanitizers/CMakeFiles/tactix_lib.dir/src/rules/transitive_reduce/transitive_reduce.cpp.o": "d297f313c54416a39fb1abea327f4b4e72873850b59c7df11129e4d6e2abdbd2",
+    "build/pin-7340-debug-contracts-sanitizers/CMakeFiles/tactix_lib.dir/src/rules/vivify/vivify.cpp.o": "1b09967ad11fa2a1b928f78e8e33ef3c6bd03cdef3eb40775a6c4cca2fb78759",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-0-0-drat-fixture.json": "f6e10d6dcca5b2d5effdb62d319c4af5a3ee2153379ec62872ee95f42efb910b",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-0-0-drat-checker.json": "1c8cdaf2a8846eb6d0404f0e944a073430bc9b6dec26cdfd47473bd92fb5c76f",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-0-0-lrat-fixture.json": "61ff369e74998e4564d351bd1fd8eb2454a5446e9e336a255e8397cf598cf5c4",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-0-0-lrat-checker.json": "3958bda6cd04b7f5b1fb55c2cb9a39d3cd7c4308e28acd61dacd95918318e973",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-0-1-drat-fixture.json": "b4aabe34217dc738edec1201883fdb63142b962a36ea778430dc7b9290290e7d",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-0-1-drat-checker.json": "6b480b5bb50fc50a7291c62bbca9120f08e7a288545741061c5aba84677cdec8",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-0-1-lrat-fixture.json": "bb42dfc0a765993e0669e67cd70dcbf0b963741fc9a1da36cee1d8b78386843b",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-0-1-lrat-checker.json": "4205db99c7bee539030807a0efa8248363449a2e92a6287788a914a8095e30f2",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-1-0-drat-fixture.json": "5baaa3eac61c1195947a72f5080736c8b34242b0d42a5e36fa19efe042f981da",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-1-0-drat-checker.json": "09d146dccf40502d377143b503c948efe685360edd28e9dbd008b61af3665476",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-1-0-lrat-fixture.json": "0ee74b81349487e2b3d2f5fc1cc78cef143e13f33135e75e9cb3e9762c147a79",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-1-0-lrat-checker.json": "b3ac8189ab53dd4c215d18d21be0c34d8f7d1c3f2622ea99ed0d23c28db275a4",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-1-1-drat-fixture.json": "64df766e568aae21aa95c3d97a110bd10f66fa0271e530a73f3a5b305b32194d",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-1-1-drat-checker.json": "6e5abd34e1e3e72545b93d352fc5ebc7f39806527beddde450654df621363229",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-1-1-lrat-fixture.json": "be612d03ff01f6b333b036ea25926f7007709bf1a6961d9b8c03c455dfb71c3a",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-1-1-lrat-checker.json": "4795d4153cb5222f32891c9ee0a71f136b8636791a2706a858a4394987a0714d",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-2-0-drat-fixture.json": "e703d44328151a58918db1b01a13395143246bdc02f296c2ae057b800343f94f",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-2-0-drat-checker.json": "4eec0c47826c03beadb7c8c0db5ccf7b10366756039e219733dbe52c3e67c65c",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-2-0-lrat-fixture.json": "865e176fc9ddd10d74273de1134168c469ef3255aca11a5060f8f3113327a3b8",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-2-0-lrat-checker.json": "44e98c4036ae1c4a39ddbc1483c762cbd71a1a9078c32798ef02a05c3107bc91",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-2-1-drat-fixture.json": "b2e9a246f4f07f9142e4753695cddddd67e4eac30fffde788365f726f6ba6083",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-2-1-drat-checker.json": "9fad118d1322630d64caa187453433b63881c22fac9423f9eceb248d3f24fa18",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-2-1-lrat-fixture.json": "8a1f7369709885977c854a3e15798723dc894ad6ba9cd6a2c92019a1b8e63677",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-2-1-lrat-checker.json": "e961751f436068187a6149232da9193fc7321d6803ca85e13379bc2f07817568",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-3-0-drat-fixture.json": "405c64bdbeb9be98e3051efe691d594f469bc537d2e2a4f9fe413ef8f3f54081",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-3-0-drat-checker.json": "d3bffd0f6ff5243c49003148ab095f5a8976f21ece3e02e6bfe493e2ff26e592",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-3-0-lrat-fixture.json": "a854cf4f361541cb6dc64e4589087a24c0599ade54cf26a27d72b04d4ec82345",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-3-0-lrat-checker.json": "73643bf83a3a725aa0a6fe824f2beda90a98be77cecfca46727355172e0c5d27",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-3-1-drat-fixture.json": "c0b3bd529c3eaad86bea637c5ed55fb006c85c7044147586373cfdeac8bfdb76",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-3-1-drat-checker.json": "3626f647098e2ffc8e0aa876fb7f397c748b1a45f6e1bcd67027dcf2302922ea",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-3-1-lrat-fixture.json": "ee5ca9b6ef562892424406b26d9de8d002e147ea96491bb7d4a2e168726f6b7e",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-3-1-lrat-checker.json": "3b5ca05d8c68449d90edcc68933c9b3ddc3eee625bfcdbfe9da74d8960a8b8ea",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-4-0-drat-fixture.json": "6ae98981f69f237064eeba21ebec1f6116db6a079a7c23996d3b9d9db65a78f8",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-4-0-drat-checker.json": "bb5f05ef5f60708d9f28eec7a7b295771bfcf6cc95c5bd27c8f8951d8329e917",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-4-0-lrat-fixture.json": "14b3864dfe7dd0c8d4359003ee937146c1746cccc82f579616dc340755761c11",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-4-0-lrat-checker.json": "35b5bd009a7d128fa1fb4d868fcbafe2bdac77e97ff3c8bd9c3669268902abe8",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-4-1-drat-fixture.json": "e54efaf4f513efb0cb237b1954ee4eccb65ac62b529d68604f41fa03675dd2d0",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-4-1-drat-checker.json": "0d0da11eb6dbb252a76c8ec6737ebcae376b831c389153da9e9b5235473d6fa5",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-4-1-lrat-fixture.json": "135aa64fced28e0b5462a7409deb3081af98ffb303161f6dfa9bbea11f305770",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-4-1-lrat-checker.json": "8aa423c8945d0b1afd1d48274495ad272709509bf9b4c4943283b08762d6cc6b",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-5-0-drat-fixture.json": "c39603caeda019b0c94edbf4f82d0972a0a58a5e6df3ee44c8b3c9b3da45aab1",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-5-0-drat-checker.json": "7357bdc7acf6d06998ff9a5d5c0456bd4d15f3b481bf862af011de0e5fe2a79d",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-5-0-lrat-fixture.json": "7ce78e0c32aeb4e6d436d83e8f3db4a81bf137d305d24674997fccd5f9ae74db",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-5-0-lrat-checker.json": "d870ce9bbc44655f882d34952d54efa6a6b0bbe5adfeaca698cb0d9e9428256b",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-5-1-drat-fixture.json": "f911895b8060b80643944c203e0d528e81cfa43a8a07ead96b3289e29271b7fd",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-5-1-drat-checker.json": "f57161e79b525f729cc48babd55479c06ce1b97b57d1471daf95c1a310ea2a1b",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-5-1-lrat-fixture.json": "4cb30291b6ccf33a13e36d7784758ea2827ff3577942c16a9a36d0fe59aeeb31",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-5-1-lrat-checker.json": "129d893fa07f13193754904b21a1d4aa585d55aead714fe891119190e2d76eba",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-6-0-drat-fixture.json": "1d006bebea9e3a1f92fece483508fa4baed4de2d7710b19002d49dd07689c78d",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-6-0-drat-checker.json": "8ef5ff024d70198fd754d1cd84b18da21de2da654b377d448e42e47d05d94417",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-6-0-lrat-fixture.json": "2b6de09a1ec08808871180abfe07c3fb1d0a390210f6f31e50a55bfe20c247a1",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-6-0-lrat-checker.json": "1e708725b475d5835d6a55c8011ef15c1835c4260362031dbb343cd202dc279b",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-6-1-drat-fixture.json": "05c8284e0cb6ac77eee1629529a363ba37d18562008ff809554d3186847498c0",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-6-1-drat-checker.json": "3c5c64158d506863881f316f2bfddf7be9b9a21bb421bda50bf62da7455db1a1",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-6-1-lrat-fixture.json": "eccd074c34f7d9b9b59dc96b0ee293349646490017977a61122bfeed7c862bcb",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-6-1-lrat-checker.json": "c2617adc32c1b97fc0bbfdc2136f40ed2c816420af1f1a5dcbea5fef8f851bc2",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-7-0-drat-fixture.json": "6d84f98e78556b05dd12be1e77339f6c062cf8bcc5bfa096ad3196af0014db7d",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-7-0-drat-checker.json": "1ab4d07636cf497ab04791af471f18c4cf499480fe293bc0994ce77d027eb189",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-7-0-lrat-fixture.json": "ffe348dfacb488dc2b625d14aa5a0b1199b9a312b3ab23b452a14df53225d391",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-7-0-lrat-checker.json": "30db0672ec5a1d7fb35a3b6712aa2243a3a53489cec595075d9037838e545e12",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-7-1-drat-fixture.json": "9029a6523dbdf3cd993be8b34497ae493637df6b8e5b706cfef244d34437d0c2",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-7-1-drat-checker.json": "9a3ad36f05bc79a632d35d22c775e75a66275b79272fb23806493a0dd2779a6f",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-7-1-lrat-fixture.json": "bce516fb335aa4173aa06403701f78d5549e1ffc96502ed4f5cbad7c6f4e9dcb",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-7-1-lrat-checker.json": "0b76781b14fd710a4e276fe4e131b77bcc87022244f24c364ee2ee8381030929",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-8-0-drat-fixture.json": "315f82f833f0301bbd347326872219238c61e776c42a6f2e435bce3f4059f5c3",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-8-0-drat-checker.json": "778d532c4a90900ce1a09aee7a0f2ff5bf381ca812be8fdc4d6c6a719a28eb1b",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-8-0-lrat-fixture.json": "f05e72886f77d372d66f4bf8a6391fd70408bd0fa7338e019a26bd7314286e57",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-8-0-lrat-checker.json": "1f51c5635d82b2e5893f0877b705f4694c2444d1c2305700c0f0697779127860",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-8-1-drat-fixture.json": "aaa08a735b2e69775a25f6a44f067030675b09b4f7d6988bbe81575a778861e0",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-8-1-drat-checker.json": "c8a2c63ef704059e1686dfff03a5154161e1c04c97f9de9599c1e055f59e8d1c",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-8-1-lrat-fixture.json": "766a5368f5e460add61f9b2ff2c3399d86f4d1fd7e2b1cbbf9003ebc11fe6760",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-8-1-lrat-checker.json": "568fd01d58dc23687bfb1879d7e0d03e92498f325916e389fb3a9fe1a7b61a5d",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-9-0-drat-fixture.json": "c6c8b1e53b1209cf75fc549c1e8c5a911cd1ef06c99afd2e02331a310541ae58",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-9-0-drat-checker.json": "933d40ecb09da3f5dc9bdb92a04886f2780a1ec29ed3a11d890177d4c4aeee34",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-9-0-lrat-fixture.json": "15c43fdbe9a9358188844a2714050c94d28ba9a1718ed0b19c40f8240a3fb401",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-9-0-lrat-checker.json": "51ea8e2a6ee5af10ac08ce7f7a662e96ef62006c3cafd486ea72bcf4ef964f1f",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-9-1-drat-fixture.json": "d756ba4dac5103d4da678f01b2e92ff679e19aacc7118cdd9034f13b278a6f46",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-9-1-drat-checker.json": "38ab62be5e882c76cadc2dd77ef9c22ede94d2fe6a07710d8e3f2741aacc5720",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-9-1-lrat-fixture.json": "7cc805ec801c5f20664dbb28f17bc6ad9ac2844983881141c330e3424bfc01e2",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-9-1-lrat-checker.json": "a188a4b98b8b0cd36ad69b696ef8b71ea3cbebf78dae88304f89dd2b1d43fdb2",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-10-0-drat-fixture.json": "5eac872465c95b9cee6d427f651f0e03c370b97306f5177af38e8f63dc729128",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-10-0-drat-checker.json": "9401c582e112da4c63895a75802b6746ceb52acc35c09ac63e9ee759cb63c316",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-10-0-lrat-fixture.json": "cdda4fafdfa713e2f12713c66b5bf518472c0b4016e6bdfdd556bbf044ccbd49",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-10-0-lrat-checker.json": "99bfa46be1005c69a1c5a6d5b7d7b9ca53c388463842e5b4f5e9756264082f9d",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-10-1-drat-fixture.json": "4c1980e80368853963f1d4a4fdeec54d6946b0b2d065ade760d3d7f5ab0890a4",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-10-1-drat-checker.json": "5bbc28511eb3e625444f2e6a21b3379320674130a9491b265d380b913d652b9c",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-10-1-lrat-fixture.json": "12821adea72d7d330dbfef89957cc8511761e6829a9570fe7621f06586d0c608",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-10-1-lrat-checker.json": "598220def166a2a0a7c1660fc7c90260fcb698327bdd9e8c22e10c74104d8d60",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-11-0-drat-fixture.json": "31eae2f6399508047c5b2e0a6a6a64566ee0b295f7e1b78a79c2f05808843461",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-11-0-drat-checker.json": "6230f846d1118953fc3b572ec9aae33952dfcb4763a80f417d3b627272d787cc",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-11-0-lrat-fixture.json": "a463b9af1478430034694c7d3e3bad78d77bcfcc070e9b3434b6651bad4f886b",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-11-0-lrat-checker.json": "d4b3271900118bb8074fdc6dabad6f8279909e72068f1cc93eceede795d4845a",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-11-1-drat-fixture.json": "8665426509b1270a0ea57f04833445606ff2db105e53ec91121656860cfedea2",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-11-1-drat-checker.json": "2acc2a36a7652f52c906a7ac227a3ca596e5d6727c19c79369280acc9d857605",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-11-1-lrat-fixture.json": "fa894287b9f1df82c8198321e3f1aa720b7c9553fd6169ea15a817e87b437e96",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-11-1-lrat-checker.json": "ff252ce054238babb77a0804a979772d7ee3031fd5e20b9fbd1ef5a42c0868f7",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-12-0-drat-fixture.json": "f7e58242ccc52942f02df9eebe4431a07901b3c04f1ce3816cb38da39b010fdc",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-12-0-drat-checker.json": "281e559bc8e2591163a739331e34463afa5882e8f197d2cc8fa8caee17b1b0f8",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-12-0-lrat-fixture.json": "c7931da13f949978e4ecb13e542a5af85e2208d45612290b9a8206bb9ad6c6a4",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-12-0-lrat-checker.json": "8a3753b7d84c9f503120e9f1cc5b5103755bdb726459508b6a49d3b0591c5fff",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-12-1-drat-fixture.json": "db676fed17b62382f1954d87ec4b22e371ff8c3a9991ff3f96b3a2122cfaefad",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-12-1-drat-checker.json": "1e0e73b17ad2afe58031a00f4c730ab70c1bcc59a7ea459c50b0f816e94787f4",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-12-1-lrat-fixture.json": "e6db712fc75ba02d95da00aaee52efd4dfd97b83a9af11e4e059c12b65883bd7",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-12-1-lrat-checker.json": "5115fb1354b9d8371114a7dddf01085dc315d9be4642416bd4610433e5b6d3be",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-13-0-drat-fixture.json": "7ddfe18e5cc3b3f38e3da94dc52d790d7c6d02899ddd1128632fd5fd4d81f41b",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-13-0-drat-checker.json": "8b5a75430c544e26d27a5460162073525fd8aea4797fef237bbc88f6d4c61446",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-13-0-lrat-fixture.json": "42f00ba4f47f725ad192c59788ea41651c386bb66b9978173954fd3ebf11d4ee",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-13-0-lrat-checker.json": "b582e8fb33d52d1b72fb53666f998d0654a933cc7eb41ace837d99f8f0db8a79",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-13-1-drat-fixture.json": "f0ddce968dce7662d1e82a3d5f9fcc9b86f0bf7553f5eac90ae9bc9fa4013a37",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-13-1-drat-checker.json": "d6fe63f1b798e62102a60f49ca592d7b3e30ddcb72a2f4c2e40143941dbdd2ce",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-13-1-lrat-fixture.json": "0ed25b71d0b58fcc457109291229dd2f458446824564306106e84a493dd6c519",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-13-1-lrat-checker.json": "18ccb048ab61072663a9d28b4abc7f4c9d89b88e6bf428b3075594fda0ff4283",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-14-0-drat-fixture.json": "393f03f8f9d5189e0041c0dca66206cf39d7376616176158b4843e4adcafcac0",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-14-0-drat-checker.json": "06d9f68aa256d68aa4c21fb5b0566e148c96a2dda3c1ef1a4c9e6165d4bc3d2d",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-14-0-lrat-fixture.json": "7a435e06294f6c9dd8b8e146196328cac4abec0be9327d04f071970e69e83300",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-14-0-lrat-checker.json": "6e9e02c933c4552a081584584a90158120903a2cc8148a8c5b4826ccf6d178bb",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-14-1-drat-fixture.json": "c667838652c8a98fb495669182f61ffb94a0ffce0458cae0b1ff75d22319da43",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-14-1-drat-checker.json": "b5471dbedcfefdc7c16b11104bd8ff2040ba4d97be2e19cbacab5ec4b983387b",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-14-1-lrat-fixture.json": "62ec131aee25852a3b5b4b171af62e11fed71233b5d7895514b9ac44845a0501",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-14-1-lrat-checker.json": "e3f30783f4df8d64fb3b2bb10fe4f133a384209a74b5db7da6ccbf5245054416",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-15-0-drat-fixture.json": "169c95e4388ef4907b8b179766ef7c8b972a4d6935c35c6cd8a942409b8ae52b",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-15-0-drat-checker.json": "69f3c7e0e6fac5ac2a3415324a74b452566495982918ad06ee187f85ae5611cd",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-15-0-lrat-fixture.json": "9ce460df4537dbfc7966c4a77e85a929280b8d3ca08a25741298431616dae3c8",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-15-0-lrat-checker.json": "61d29e7f2ce9cc813964eee084019f5fe35f2e6485a85c9375c80483f6f6f5b3",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-15-1-drat-fixture.json": "d7000120d9721ac2c971c5e7cb6b2d57a3e284811ba6a1fbbf3885cc33a041bf",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-15-1-drat-checker.json": "2a661ff8d072a41cb8a97649d25dcb676feb15218c7c96789445dcc59d793420",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-15-1-lrat-fixture.json": "80c146800369fa560ecdb443614d1bd72e5dc24de1d716c1f47868b4f2b1b96a",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-15-1-lrat-checker.json": "d13e041c491be9d48492627d32e73114c89635cf39d79b4c0e481d90d973b5da",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-16-0-drat-fixture.json": "839f3c8b5dff0113016fedbd9c0bc1f8662603c473985a9a846312dc42012e4a",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-16-0-drat-checker.json": "49f950fd4214463501f750c7a127149da27c27f86e8bf540fd16090578b8d7b9",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-16-0-lrat-fixture.json": "ae6672e02d70f9877d50d96e64f8376c55c846786989ac62bcc010e62cdac144",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-16-0-lrat-checker.json": "08c3923d8a416f33df1badd63bd812675370e9133838a51696da9f58526cde19",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-16-1-drat-fixture.json": "1143401f7726b2cca61e153e14639b4461e9034b3a361c22f3c202ecbea483cc",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-16-1-drat-checker.json": "b8ea8990f3e836c33953decac73c53f7e18780610de815ab5828d9a17a4e17f4",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-16-1-lrat-fixture.json": "aac9bc6ccacdb3f4f7ec64fdb66a94db49f2dd2c8d9c287e5e40b802ed7b6867",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-16-1-lrat-checker.json": "0b21812a6d9433b21a6ec222d66400220f9245f1931fece28dfc00796b366f61",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-17-0-drat-fixture.json": "4f9c2e16d227f99ab19f768883d435dad1373cf6f8841fd5998567a6d5e15c8f",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-17-0-drat-checker.json": "48027d3d13b7362c21c20dc3b255ab7582d4814b9cc18e044107fd021c2bd1ac",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-17-0-lrat-fixture.json": "60d1c055464671315f5375c9851d4f7da197be0a15c95bc8a8c6a51f9fddc861",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-17-0-lrat-checker.json": "91bf0b4d4fe25a2a3a307cc9d8ab7521679b314f280339fd44884509a9c7aedc",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-17-1-drat-fixture.json": "d071fdcb5939ec2ec3373c3c7d8bd92b07316a511c3fd1200df1ff7cc526cc27",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-17-1-drat-checker.json": "ac5f888f6d1e1c04d7796ade26045c97f2a3e78a74756efecc710263ef8c2a0e",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-17-1-lrat-fixture.json": "ddf9e7cae5b42da6154cd8f42916dc5d7228ff2932069e8e86085134c9812d3c",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-17-1-lrat-checker.json": "635ecdabda03551e0e6ac2466f3b43b5469000fd0714605a032b68b8d30c6e04",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-18-0-drat-fixture.json": "a21a2519aebe15fccd4ce42c487e946603e11f0300aca9b6baafe07585af444c",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-18-0-drat-checker.json": "866e4898af35198aebec8b12af3c102ed76dba02b1fa170ce9632f40ed0a0184",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-18-0-lrat-fixture.json": "5454cf30abd6d7be1d80227e9b77e489d171c7e0038620f5f93d7572a9999aca",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-18-0-lrat-checker.json": "597689c696162a7130c947fd330208ae8cd02748b249650166beb026b3f1806f",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-18-1-drat-fixture.json": "e72cb5c416a240039b5e49d826f08fc31b7995eccc1a778cd5e3a9ab6195707d",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-18-1-drat-checker.json": "ce1bb6d17af01501622da71d83b02860235a8286ca8d85f67c86ec349934e878",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-18-1-lrat-fixture.json": "276d8b6db540eb87c1bdbacf111a3fca031aa07e713ec958f9d96a0b5bdac16d",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-18-1-lrat-checker.json": "b09e28b55d57902d64a6ad077e3da468fb034b9ebde1f6f585bc7c7d35cd0111",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-19-0-drat-fixture.json": "c64d47e8b0036fad5a61f5403a3df71229097b11563458b3c44e1dd58c1388e6",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-19-0-drat-checker.json": "bc9844de12336b9bef91ac99fae5d3eda41d4dc712efc286bc1c06891ca0ec56",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-19-0-lrat-fixture.json": "a8ad361325daca6265f6b27dc2c86574e19e8fb3696f41448e9470ae6b118010",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-19-0-lrat-checker.json": "7a2d8fbe19ec90fb7b93bc521bfd378be11952759a7f7939b35c2b713146e723",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-19-1-drat-fixture.json": "907716b6899ff0ab1acfd156cbca625db652eed86a43eca9b6cc30724f503a36",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-19-1-drat-checker.json": "8911e6e82f527b07d7ced64c4ce6d20df63fbd4a9f7925e736c2540e07cd21ca",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-19-1-lrat-fixture.json": "d9b8991c0486eb1071101846a374a5a46ea68e30d106bc96bedcd31d75fb4e5c",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-19-1-lrat-checker.json": "9879c7fde66607dbae7a6f64ba399bd875af438b56dbe57a0358611d9f32758f",
+    "build/pin-7340-debug-contracts-sanitizers/tests/test_forward_unit": "c4b8a393c51950cfed0b68c67c8ba0f10fac4d787d2646422270b8fef6694796",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-forward-fixture.json": "0639a80eed11c5f7e4f4f20d2b2c17369d77e4a7a5e0dfec947fc20e5f89f424",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-forward-0-0-drat-checker.json": "09b90e99fcfc0578bc27ef43ce5c3aba3395de6489b7c64e30dfa93e4a3b7a18",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-forward-0-0-lrat-checker.json": "ddcc6a2bed3ab55053dccb6550371cdbc9afd043c0d8040bb4c61d6660b29f34",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-forward-0-1-drat-checker.json": "cedf513983cab616feb56301cea9d2c9ec6a83b07425d354e9718ce086e97c88",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-forward-0-1-lrat-checker.json": "cde38b91fed75411a48704717b0c356ad0a54feb5839d981d612e016b0b78600",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-forward-0-2-drat-checker.json": "0f1a76045c3cce7608028858217d9dc0a34232a5b32de3ee6ba6598006cb735b",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-forward-0-2-lrat-checker.json": "45abecf55935720d53c2ad347f23cb93b2822646c62a15bcc08ca8ea0649ccc0",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-forward-0-3-drat-checker.json": "965a5d44a61c42cb9bfdd0dcb4a13559b18d8f106d6b0370e16bf2dbeb0607dc",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-forward-0-3-lrat-checker.json": "1c947122c815f3c7108d1b411ce610632b885106638704fcc8131a3ee4e613e8",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-forward-1-0-drat-checker.json": "fb7e5eb938d8af9a0ba5a3355f145a63cf2b88fd4d130219eff5f124b2ca29db",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-forward-1-0-lrat-checker.json": "361b392db53b5a5a401d4c42d893d6eacefc4cb207682a35cf1f37830faa430b",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-forward-1-1-drat-checker.json": "990b0ad3062075167bd168fb36efeaf7db39dc3169472fc157ae6bf200a06468",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-forward-1-1-lrat-checker.json": "2c403de50e539c036465dfb83c3cda7f9b944119ac8bf7017793af3ac3d76c73",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-forward-1-2-drat-checker.json": "e15d457040a8cdd170d7629d9a0ade089b14f5dcedd7ac89731559a743a1d48a",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-forward-1-2-lrat-checker.json": "8be21c8694b01b59781ec99465de07153a93a3964fd62d6a7b5e9ea4a79908ad",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-forward-1-3-drat-checker.json": "931ef70cc3183ffa0eced5b055eb5ca414c1c8a77ab32227d475e0adea7ea23f",
+    "benchmarks/runs/20260911-7345-debug-contract-proofs/logs/sanitizers-forward-1-3-lrat-checker.json": "a7397a7940df934f4b2db06bc085ddb8a875079c728eb93fa79192d603d246a6",
+    "benchmarks/probes/scratch/check-debug-contract-proofs-7345.py": "28b4d36d7fa6f222d59ed0e3dea4bbed02aa7ca201bdc9feff5bad183761adb8",
+    "benchmarks/probes/scratch/check-debug-contract-proofs-7344.py": "0fb387e98f0af8891a852b4a657e9ab49b04560198024d6bce860ce54bd7e1c6",
+    "benchmarks/probes/scratch/debug-contract-proofs-7343.cpp": "2c8c760ed8157ece7ae9f360377487591b0fae460cd15ce4f04feeb5f2f8471b",
+    "tools/bench/proof_oracle.py": "e070e42c7cfc4cb1035a0318b63c0afb6df84cbe951d3d9b9270ac6da69a236b",
+    "benchmarks/runs/20260911-7327-rank25-root-gdb/pins/modelcheck.py": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98"
+  },
+  "records": [
+    {
+      "name": "release-0-0-drat",
+      "unsat": false,
+      "cnf_sha256": "23a4e33dd7ed3451959d3c0f2485fd01d249c9e9342cb87f1fcbd43abb2f0be8",
+      "proof_sha256": "b7d848e2217de56c9d388f55816744535d8f2b5ca1fbe534cd664c67857ddd10",
+      "proof_bytes": 97
+    },
+    {
+      "name": "release-0-0-lrat",
+      "unsat": false,
+      "cnf_sha256": "23a4e33dd7ed3451959d3c0f2485fd01d249c9e9342cb87f1fcbd43abb2f0be8",
+      "proof_sha256": "f9f0861b1d47ddbfae65a50dd667a6b4d7a27efd5f81e41760a0e7467aa3c461",
+      "proof_bytes": 174
+    },
+    {
+      "name": "release-0-1-drat",
+      "unsat": true,
+      "cnf_sha256": "df8ce3d0f26fdd182aa157d98887a1299e8c8732d22d928a42de79b0c4c11260",
+      "proof_sha256": "1bd518336077c38a6f65db667ebdafc6700ecb23427354b72bd06a418c0a8910",
+      "proof_bytes": 11
+    },
+    {
+      "name": "release-0-1-lrat",
+      "unsat": true,
+      "cnf_sha256": "df8ce3d0f26fdd182aa157d98887a1299e8c8732d22d928a42de79b0c4c11260",
+      "proof_sha256": "740f539e3ce768f12922608c31c8c8e96725ad13040b59c630b6275d9ccbdbde",
+      "proof_bytes": 36
+    },
+    {
+      "name": "release-1-0-drat",
+      "unsat": false,
+      "cnf_sha256": "23a4e33dd7ed3451959d3c0f2485fd01d249c9e9342cb87f1fcbd43abb2f0be8",
+      "proof_sha256": "002a2579764b52756493c56cdadd582078c1d13f57db931e93ed0de799410599",
+      "proof_bytes": 48
+    },
+    {
+      "name": "release-1-0-lrat",
+      "unsat": false,
+      "cnf_sha256": "23a4e33dd7ed3451959d3c0f2485fd01d249c9e9342cb87f1fcbd43abb2f0be8",
+      "proof_sha256": "9ab8675ffb7f723f2606217fee12aa3616ff5b6a93e39d1c4be244d819e4dfbd",
+      "proof_bytes": 80
+    },
+    {
+      "name": "release-1-1-drat",
+      "unsat": true,
+      "cnf_sha256": "df8ce3d0f26fdd182aa157d98887a1299e8c8732d22d928a42de79b0c4c11260",
+      "proof_sha256": "1bd518336077c38a6f65db667ebdafc6700ecb23427354b72bd06a418c0a8910",
+      "proof_bytes": 11
+    },
+    {
+      "name": "release-1-1-lrat",
+      "unsat": true,
+      "cnf_sha256": "df8ce3d0f26fdd182aa157d98887a1299e8c8732d22d928a42de79b0c4c11260",
+      "proof_sha256": "740f539e3ce768f12922608c31c8c8e96725ad13040b59c630b6275d9ccbdbde",
+      "proof_bytes": 36
+    },
+    {
+      "name": "release-2-0-drat",
+      "unsat": false,
+      "cnf_sha256": "9a42b24c0e4b84b4a2799635cbc688bd1aa24df632615a9118aa29a6579767a6",
+      "proof_sha256": "9f48e719b946859edd083ceb1910335290d3439f2e8a7292e0cc1cceb215d5de",
+      "proof_bytes": 101
+    },
+    {
+      "name": "release-2-0-lrat",
+      "unsat": false,
+      "cnf_sha256": "9a42b24c0e4b84b4a2799635cbc688bd1aa24df632615a9118aa29a6579767a6",
+      "proof_sha256": "90cf2ff7b7bec99c88be4d836d9a9a890ccccb14c4c2c0f220d242fe7565023c",
+      "proof_bytes": 176
+    },
+    {
+      "name": "release-2-1-drat",
+      "unsat": true,
+      "cnf_sha256": "6dcc70b098b3dc3bd71370c903d73219eb4bcf4689a08677aeb2500b6c993587",
+      "proof_sha256": "1bd518336077c38a6f65db667ebdafc6700ecb23427354b72bd06a418c0a8910",
+      "proof_bytes": 11
+    },
+    {
+      "name": "release-2-1-lrat",
+      "unsat": true,
+      "cnf_sha256": "6dcc70b098b3dc3bd71370c903d73219eb4bcf4689a08677aeb2500b6c993587",
+      "proof_sha256": "740f539e3ce768f12922608c31c8c8e96725ad13040b59c630b6275d9ccbdbde",
+      "proof_bytes": 36
+    },
+    {
+      "name": "release-3-0-drat",
+      "unsat": false,
+      "cnf_sha256": "9a42b24c0e4b84b4a2799635cbc688bd1aa24df632615a9118aa29a6579767a6",
+      "proof_sha256": "b49e0bf445dc894d266cdd786ab3cfcfb5928336ad0a2b338bc7343922aee616",
+      "proof_bytes": 52
+    },
+    {
+      "name": "release-3-0-lrat",
+      "unsat": false,
+      "cnf_sha256": "9a42b24c0e4b84b4a2799635cbc688bd1aa24df632615a9118aa29a6579767a6",
+      "proof_sha256": "6846322b454ff26df7e596a7f4f769e8e895753801c454aef49f0acce2aeafab",
+      "proof_bytes": 82
+    },
+    {
+      "name": "release-3-1-drat",
+      "unsat": true,
+      "cnf_sha256": "6dcc70b098b3dc3bd71370c903d73219eb4bcf4689a08677aeb2500b6c993587",
+      "proof_sha256": "1bd518336077c38a6f65db667ebdafc6700ecb23427354b72bd06a418c0a8910",
+      "proof_bytes": 11
+    },
+    {
+      "name": "release-3-1-lrat",
+      "unsat": true,
+      "cnf_sha256": "6dcc70b098b3dc3bd71370c903d73219eb4bcf4689a08677aeb2500b6c993587",
+      "proof_sha256": "740f539e3ce768f12922608c31c8c8e96725ad13040b59c630b6275d9ccbdbde",
+      "proof_bytes": 36
+    },
+    {
+      "name": "release-4-0-drat",
+      "unsat": false,
+      "cnf_sha256": "a0096c393b638baf99d9c3a751f539bb76ed165b895b040b85d5a4d0dcdb8d11",
+      "proof_sha256": "2d014280851613e75acb34cfb45dcb7292044e48a5f68a45569631e56019281a",
+      "proof_bytes": 99
+    },
+    {
+      "name": "release-4-0-lrat",
+      "unsat": false,
+      "cnf_sha256": "a0096c393b638baf99d9c3a751f539bb76ed165b895b040b85d5a4d0dcdb8d11",
+      "proof_sha256": "584d25ceb796e613d3165f73fa5fead17dc4e9282c83b804be123a26590fef86",
+      "proof_bytes": 175
+    },
+    {
+      "name": "release-4-1-drat",
+      "unsat": true,
+      "cnf_sha256": "95b53a1169b28513b451bdcce31bfff5e5e678476ae07ead179baa505e52eb34",
+      "proof_sha256": "1bd518336077c38a6f65db667ebdafc6700ecb23427354b72bd06a418c0a8910",
+      "proof_bytes": 11
+    },
+    {
+      "name": "release-4-1-lrat",
+      "unsat": true,
+      "cnf_sha256": "95b53a1169b28513b451bdcce31bfff5e5e678476ae07ead179baa505e52eb34",
+      "proof_sha256": "740f539e3ce768f12922608c31c8c8e96725ad13040b59c630b6275d9ccbdbde",
+      "proof_bytes": 36
+    },
+    {
+      "name": "release-5-0-drat",
+      "unsat": false,
+      "cnf_sha256": "a0096c393b638baf99d9c3a751f539bb76ed165b895b040b85d5a4d0dcdb8d11",
+      "proof_sha256": "799236229dd510e8050427a254e820e46b276444a578547171224bac0b307c7f",
+      "proof_bytes": 50
+    },
+    {
+      "name": "release-5-0-lrat",
+      "unsat": false,
+      "cnf_sha256": "a0096c393b638baf99d9c3a751f539bb76ed165b895b040b85d5a4d0dcdb8d11",
+      "proof_sha256": "3887ff800f11a361d348876ae8d520ccd1f0610f821285c8c040b6746de8b760",
+      "proof_bytes": 81
+    },
+    {
+      "name": "release-5-1-drat",
+      "unsat": true,
+      "cnf_sha256": "95b53a1169b28513b451bdcce31bfff5e5e678476ae07ead179baa505e52eb34",
+      "proof_sha256": "1bd518336077c38a6f65db667ebdafc6700ecb23427354b72bd06a418c0a8910",
+      "proof_bytes": 11
+    },
+    {
+      "name": "release-5-1-lrat",
+      "unsat": true,
+      "cnf_sha256": "95b53a1169b28513b451bdcce31bfff5e5e678476ae07ead179baa505e52eb34",
+      "proof_sha256": "740f539e3ce768f12922608c31c8c8e96725ad13040b59c630b6275d9ccbdbde",
+      "proof_bytes": 36
+    },
+    {
+      "name": "release-6-0-drat",
+      "unsat": false,
+      "cnf_sha256": "8f0fe392999a70e2470aa272a1b53f6d339a657fb59590c8dc75815f6a565844",
+      "proof_sha256": "269c72ef40770056c9f605ad9f47bc86ee6e8b533079a1d1b5dbffe58abcf72e",
+      "proof_bytes": 103
+    },
+    {
+      "name": "release-6-0-lrat",
+      "unsat": false,
+      "cnf_sha256": "8f0fe392999a70e2470aa272a1b53f6d339a657fb59590c8dc75815f6a565844",
+      "proof_sha256": "3132b0c73d72225981ca6d500b6e656757a9980ba803c9705e8f5cabf29a4728",
+      "proof_bytes": 177
+    },
+    {
+      "name": "release-6-1-drat",
+      "unsat": true,
+      "cnf_sha256": "95a37da49e8b98ac30394bd357e1d9acf376179bc171369079b19292b4ee5997",
+      "proof_sha256": "1bd518336077c38a6f65db667ebdafc6700ecb23427354b72bd06a418c0a8910",
+      "proof_bytes": 11
+    },
+    {
+      "name": "release-6-1-lrat",
+      "unsat": true,
+      "cnf_sha256": "95a37da49e8b98ac30394bd357e1d9acf376179bc171369079b19292b4ee5997",
+      "proof_sha256": "740f539e3ce768f12922608c31c8c8e96725ad13040b59c630b6275d9ccbdbde",
+      "proof_bytes": 36
+    },
+    {
+      "name": "release-7-0-drat",
+      "unsat": false,
+      "cnf_sha256": "8f0fe392999a70e2470aa272a1b53f6d339a657fb59590c8dc75815f6a565844",
+      "proof_sha256": "317fc77db95e917c04571a7ae548db37feae620a71d250e71784b3178f142c47",
+      "proof_bytes": 54
+    },
+    {
+      "name": "release-7-0-lrat",
+      "unsat": false,
+      "cnf_sha256": "8f0fe392999a70e2470aa272a1b53f6d339a657fb59590c8dc75815f6a565844",
+      "proof_sha256": "5c72ab2964eaf424f853b7e8e8074617b8052065f9dd45613a4d60648e4cffec",
+      "proof_bytes": 83
+    },
+    {
+      "name": "release-7-1-drat",
+      "unsat": true,
+      "cnf_sha256": "95a37da49e8b98ac30394bd357e1d9acf376179bc171369079b19292b4ee5997",
+      "proof_sha256": "1bd518336077c38a6f65db667ebdafc6700ecb23427354b72bd06a418c0a8910",
+      "proof_bytes": 11
+    },
+    {
+      "name": "release-7-1-lrat",
+      "unsat": true,
+      "cnf_sha256": "95a37da49e8b98ac30394bd357e1d9acf376179bc171369079b19292b4ee5997",
+      "proof_sha256": "740f539e3ce768f12922608c31c8c8e96725ad13040b59c630b6275d9ccbdbde",
+      "proof_bytes": 36
+    },
+    {
+      "name": "release-8-0-drat",
+      "unsat": false,
+      "cnf_sha256": "678ed837ed90523b8720582089661393917c3b5bbeb651adae75d26a47d58676",
+      "proof_sha256": "b7d848e2217de56c9d388f55816744535d8f2b5ca1fbe534cd664c67857ddd10",
+      "proof_bytes": 97
+    },
+    {
+      "name": "release-8-0-lrat",
+      "unsat": false,
+      "cnf_sha256": "678ed837ed90523b8720582089661393917c3b5bbeb651adae75d26a47d58676",
+      "proof_sha256": "1da7fbbada2789db7652e3a9dd1c6142eef0e252167e46a8467e9b04ca840c73",
+      "proof_bytes": 184
+    },
+    {
+      "name": "release-8-1-drat",
+      "unsat": true,
+      "cnf_sha256": "f1cdd982fc8a56b675f85734b20400f1f05f877f8e5d9a3edeae53ccd1bc1dfa",
+      "proof_sha256": "1bd518336077c38a6f65db667ebdafc6700ecb23427354b72bd06a418c0a8910",
+      "proof_bytes": 11
+    },
+    {
+      "name": "release-8-1-lrat",
+      "unsat": true,
+      "cnf_sha256": "f1cdd982fc8a56b675f85734b20400f1f05f877f8e5d9a3edeae53ccd1bc1dfa",
+      "proof_sha256": "5d888c8b49e66c057b231106e30e6bc76d72fc01842ec89f239ab47f878c05bb",
+      "proof_bytes": 42
+    },
+    {
+      "name": "release-9-0-drat",
+      "unsat": false,
+      "cnf_sha256": "678ed837ed90523b8720582089661393917c3b5bbeb651adae75d26a47d58676",
+      "proof_sha256": "002a2579764b52756493c56cdadd582078c1d13f57db931e93ed0de799410599",
+      "proof_bytes": 48
+    },
+    {
+      "name": "release-9-0-lrat",
+      "unsat": false,
+      "cnf_sha256": "678ed837ed90523b8720582089661393917c3b5bbeb651adae75d26a47d58676",
+      "proof_sha256": "397b9faa8aa0d579ac2f0741277b45d2793fafb47245bfe6435da3e90ba4c86f",
+      "proof_bytes": 91
+    },
+    {
+      "name": "release-9-1-drat",
+      "unsat": true,
+      "cnf_sha256": "f1cdd982fc8a56b675f85734b20400f1f05f877f8e5d9a3edeae53ccd1bc1dfa",
+      "proof_sha256": "1bd518336077c38a6f65db667ebdafc6700ecb23427354b72bd06a418c0a8910",
+      "proof_bytes": 11
+    },
+    {
+      "name": "release-9-1-lrat",
+      "unsat": true,
+      "cnf_sha256": "f1cdd982fc8a56b675f85734b20400f1f05f877f8e5d9a3edeae53ccd1bc1dfa",
+      "proof_sha256": "5d888c8b49e66c057b231106e30e6bc76d72fc01842ec89f239ab47f878c05bb",
+      "proof_bytes": 42
+    },
+    {
+      "name": "release-10-0-drat",
+      "unsat": false,
+      "cnf_sha256": "b0f659507942ee2d69362e439203db108fa5cae19ae5782c997674fd9218a6d7",
+      "proof_sha256": "9f48e719b946859edd083ceb1910335290d3439f2e8a7292e0cc1cceb215d5de",
+      "proof_bytes": 101
+    },
+    {
+      "name": "release-10-0-lrat",
+      "unsat": false,
+      "cnf_sha256": "b0f659507942ee2d69362e439203db108fa5cae19ae5782c997674fd9218a6d7",
+      "proof_sha256": "11c7f760802f432b61d4b4dbfd86ef7e2f77eac9727c3795d057250f7d31a830",
+      "proof_bytes": 186
+    },
+    {
+      "name": "release-10-1-drat",
+      "unsat": true,
+      "cnf_sha256": "292631bb105121d1851609abb4125d96bcc00e26a907b466ff091adf7766a91e",
+      "proof_sha256": "1bd518336077c38a6f65db667ebdafc6700ecb23427354b72bd06a418c0a8910",
+      "proof_bytes": 11
+    },
+    {
+      "name": "release-10-1-lrat",
+      "unsat": true,
+      "cnf_sha256": "292631bb105121d1851609abb4125d96bcc00e26a907b466ff091adf7766a91e",
+      "proof_sha256": "5d888c8b49e66c057b231106e30e6bc76d72fc01842ec89f239ab47f878c05bb",
+      "proof_bytes": 42
+    },
+    {
+      "name": "release-11-0-drat",
+      "unsat": false,
+      "cnf_sha256": "b0f659507942ee2d69362e439203db108fa5cae19ae5782c997674fd9218a6d7",
+      "proof_sha256": "b49e0bf445dc894d266cdd786ab3cfcfb5928336ad0a2b338bc7343922aee616",
+      "proof_bytes": 52
+    },
+    {
+      "name": "release-11-0-lrat",
+      "unsat": false,
+      "cnf_sha256": "b0f659507942ee2d69362e439203db108fa5cae19ae5782c997674fd9218a6d7",
+      "proof_sha256": "41703df9905797597fe2ddb174755ac091e91430b0db58896f9489d4bd230534",
+      "proof_bytes": 93
+    },
+    {
+      "name": "release-11-1-drat",
+      "unsat": true,
+      "cnf_sha256": "292631bb105121d1851609abb4125d96bcc00e26a907b466ff091adf7766a91e",
+      "proof_sha256": "1bd518336077c38a6f65db667ebdafc6700ecb23427354b72bd06a418c0a8910",
+      "proof_bytes": 11
+    },
+    {
+      "name": "release-11-1-lrat",
+      "unsat": true,
+      "cnf_sha256": "292631bb105121d1851609abb4125d96bcc00e26a907b466ff091adf7766a91e",
+      "proof_sha256": "5d888c8b49e66c057b231106e30e6bc76d72fc01842ec89f239ab47f878c05bb",
+      "proof_bytes": 42
+    },
+    {
+      "name": "release-12-0-drat",
+      "unsat": false,
+      "cnf_sha256": "80e6fcadafcf5884e69d5c0b242232dd193576b863e96435bf2336d815f555cf",
+      "proof_sha256": "2d014280851613e75acb34cfb45dcb7292044e48a5f68a45569631e56019281a",
+      "proof_bytes": 99
+    },
+    {
+      "name": "release-12-0-lrat",
+      "unsat": false,
+      "cnf_sha256": "80e6fcadafcf5884e69d5c0b242232dd193576b863e96435bf2336d815f555cf",
+      "proof_sha256": "55cc3c21a1f810d184639885775307dedb2c83330344e35a628ae8e0bf68a581",
+      "proof_bytes": 185
+    },
+    {
+      "name": "release-12-1-drat",
+      "unsat": true,
+      "cnf_sha256": "e3f45c869abc47f480dd798d4a8b87f1ffe6e9a3dd7ccaef7cc6f53d58ce63b3",
+      "proof_sha256": "1bd518336077c38a6f65db667ebdafc6700ecb23427354b72bd06a418c0a8910",
+      "proof_bytes": 11
+    },
+    {
+      "name": "release-12-1-lrat",
+      "unsat": true,
+      "cnf_sha256": "e3f45c869abc47f480dd798d4a8b87f1ffe6e9a3dd7ccaef7cc6f53d58ce63b3",
+      "proof_sha256": "5d888c8b49e66c057b231106e30e6bc76d72fc01842ec89f239ab47f878c05bb",
+      "proof_bytes": 42
+    },
+    {
+      "name": "release-13-0-drat",
+      "unsat": false,
+      "cnf_sha256": "80e6fcadafcf5884e69d5c0b242232dd193576b863e96435bf2336d815f555cf",
+      "proof_sha256": "799236229dd510e8050427a254e820e46b276444a578547171224bac0b307c7f",
+      "proof_bytes": 50
+    },
+    {
+      "name": "release-13-0-lrat",
+      "unsat": false,
+      "cnf_sha256": "80e6fcadafcf5884e69d5c0b242232dd193576b863e96435bf2336d815f555cf",
+      "proof_sha256": "5f22ae9e4cf48b2b947e4598512670a1e7195b467e8221e9478f216a214f29a1",
+      "proof_bytes": 92
+    },
+    {
+      "name": "release-13-1-drat",
+      "unsat": true,
+      "cnf_sha256": "e3f45c869abc47f480dd798d4a8b87f1ffe6e9a3dd7ccaef7cc6f53d58ce63b3",
+      "proof_sha256": "1bd518336077c38a6f65db667ebdafc6700ecb23427354b72bd06a418c0a8910",
+      "proof_bytes": 11
+    },
+    {
+      "name": "release-13-1-lrat",
+      "unsat": true,
+      "cnf_sha256": "e3f45c869abc47f480dd798d4a8b87f1ffe6e9a3dd7ccaef7cc6f53d58ce63b3",
+      "proof_sha256": "5d888c8b49e66c057b231106e30e6bc76d72fc01842ec89f239ab47f878c05bb",
+      "proof_bytes": 42
+    },
+    {
+      "name": "release-14-0-drat",
+      "unsat": false,
+      "cnf_sha256": "4e29386060daa2476a112a3b2464da6f193f9586f717c0b4dafeff65675cd73e",
+      "proof_sha256": "269c72ef40770056c9f605ad9f47bc86ee6e8b533079a1d1b5dbffe58abcf72e",
+      "proof_bytes": 103
+    },
+    {
+      "name": "release-14-0-lrat",
+      "unsat": false,
+      "cnf_sha256": "4e29386060daa2476a112a3b2464da6f193f9586f717c0b4dafeff65675cd73e",
+      "proof_sha256": "7ae0b102bd98f458896aa6149ad6960ebc076b04d514f084f677ab74fb426c93",
+      "proof_bytes": 187
+    },
+    {
+      "name": "release-14-1-drat",
+      "unsat": true,
+      "cnf_sha256": "8729a5e654cd5df978bf0bc13f075e6435d53faf13443ace0b5f79b75f9b7b95",
+      "proof_sha256": "1bd518336077c38a6f65db667ebdafc6700ecb23427354b72bd06a418c0a8910",
+      "proof_bytes": 11
+    },
+    {
+      "name": "release-14-1-lrat",
+      "unsat": true,
+      "cnf_sha256": "8729a5e654cd5df978bf0bc13f075e6435d53faf13443ace0b5f79b75f9b7b95",
+      "proof_sha256": "5d888c8b49e66c057b231106e30e6bc76d72fc01842ec89f239ab47f878c05bb",
+      "proof_bytes": 42
+    },
+    {
+      "name": "release-15-0-drat",
+      "unsat": false,
+      "cnf_sha256": "4e29386060daa2476a112a3b2464da6f193f9586f717c0b4dafeff65675cd73e",
+      "proof_sha256": "317fc77db95e917c04571a7ae548db37feae620a71d250e71784b3178f142c47",
+      "proof_bytes": 54
+    },
+    {
+      "name": "release-15-0-lrat",
+      "unsat": false,
+      "cnf_sha256": "4e29386060daa2476a112a3b2464da6f193f9586f717c0b4dafeff65675cd73e",
+      "proof_sha256": "2e091a39651f633313fdb29d57e520f7d893de6a027c9a42a82f8e56ba282fbd",
+      "proof_bytes": 94
+    },
+    {
+      "name": "release-15-1-drat",
+      "unsat": true,
+      "cnf_sha256": "8729a5e654cd5df978bf0bc13f075e6435d53faf13443ace0b5f79b75f9b7b95",
+      "proof_sha256": "1bd518336077c38a6f65db667ebdafc6700ecb23427354b72bd06a418c0a8910",
+      "proof_bytes": 11
+    },
+    {
+      "name": "release-15-1-lrat",
+      "unsat": true,
+      "cnf_sha256": "8729a5e654cd5df978bf0bc13f075e6435d53faf13443ace0b5f79b75f9b7b95",
+      "proof_sha256": "5d888c8b49e66c057b231106e30e6bc76d72fc01842ec89f239ab47f878c05bb",
+      "proof_bytes": 42
+    },
+    {
+      "name": "release-16-0-drat",
+      "unsat": false,
+      "cnf_sha256": "a0c5132314bc061b28631ee8ad293df0c76f0dcffd697593f79ba7c8cebc563b",
+      "proof_sha256": "b2c943502eb7027d20b26e85b43e1fd385376885e0939e9bbf5f31343395eeac",
+      "proof_bytes": 10
+    },
+    {
+      "name": "release-16-0-lrat",
+      "unsat": false,
+      "cnf_sha256": "a0c5132314bc061b28631ee8ad293df0c76f0dcffd697593f79ba7c8cebc563b",
+      "proof_sha256": "2bf2d58b7cd1cd7364a14856f0956afa58b702a9441640dfc8d622e70f74b735",
+      "proof_bytes": 8
+    },
+    {
+      "name": "release-16-1-drat",
+      "unsat": true,
+      "cnf_sha256": "d33179a84faf6f5755953d0798d195b60d209bda270b455a8a7c4c393b7d3bc0",
+      "proof_sha256": "b8bd384597bc7328dc4fddb610425b3ad8a4823bf51a0c1652d17a1e4c455ff8",
+      "proof_bytes": 46
+    },
+    {
+      "name": "release-16-1-lrat",
+      "unsat": true,
+      "cnf_sha256": "d33179a84faf6f5755953d0798d195b60d209bda270b455a8a7c4c393b7d3bc0",
+      "proof_sha256": "febc040a78a177b13e97feb2964b6d63e080fa9251e2fbf111523c58f64fc635",
+      "proof_bytes": 75
+    },
+    {
+      "name": "release-17-0-drat",
+      "unsat": false,
+      "cnf_sha256": "a0c5132314bc061b28631ee8ad293df0c76f0dcffd697593f79ba7c8cebc563b",
+      "proof_sha256": "b2c943502eb7027d20b26e85b43e1fd385376885e0939e9bbf5f31343395eeac",
+      "proof_bytes": 10
+    },
+    {
+      "name": "release-17-0-lrat",
+      "unsat": false,
+      "cnf_sha256": "a0c5132314bc061b28631ee8ad293df0c76f0dcffd697593f79ba7c8cebc563b",
+      "proof_sha256": "2bf2d58b7cd1cd7364a14856f0956afa58b702a9441640dfc8d622e70f74b735",
+      "proof_bytes": 8
+    },
+    {
+      "name": "release-17-1-drat",
+      "unsat": true,
+      "cnf_sha256": "d33179a84faf6f5755953d0798d195b60d209bda270b455a8a7c4c393b7d3bc0",
+      "proof_sha256": "b8bd384597bc7328dc4fddb610425b3ad8a4823bf51a0c1652d17a1e4c455ff8",
+      "proof_bytes": 46
+    },
+    {
+      "name": "release-17-1-lrat",
+      "unsat": true,
+      "cnf_sha256": "d33179a84faf6f5755953d0798d195b60d209bda270b455a8a7c4c393b7d3bc0",
+      "proof_sha256": "febc040a78a177b13e97feb2964b6d63e080fa9251e2fbf111523c58f64fc635",
+      "proof_bytes": 75
+    },
+    {
+      "name": "release-18-0-drat",
+      "unsat": false,
+      "cnf_sha256": "905efb6a352a2372267c01492d415a132f1d239414e07f05fce90a6d0a47ca29",
+      "proof_sha256": "94a42abc76a4c6ec52b65108b5009f2bf03ecbbcfcf7a4ab34c471e0266ea336",
+      "proof_bytes": 11
+    },
+    {
+      "name": "release-18-0-lrat",
+      "unsat": false,
+      "cnf_sha256": "905efb6a352a2372267c01492d415a132f1d239414e07f05fce90a6d0a47ca29",
+      "proof_sha256": "2bf2d58b7cd1cd7364a14856f0956afa58b702a9441640dfc8d622e70f74b735",
+      "proof_bytes": 8
+    },
+    {
+      "name": "release-18-1-drat",
+      "unsat": true,
+      "cnf_sha256": "f91a039159793ce72d808fe5fda993ee0ae36193936f99f7936b2fe49e58257f",
+      "proof_sha256": "e0366f9782c01b87b977abd7a777466deade4dc21f63f906d200b904014dad96",
+      "proof_bytes": 47
+    },
+    {
+      "name": "release-18-1-lrat",
+      "unsat": true,
+      "cnf_sha256": "f91a039159793ce72d808fe5fda993ee0ae36193936f99f7936b2fe49e58257f",
+      "proof_sha256": "febc040a78a177b13e97feb2964b6d63e080fa9251e2fbf111523c58f64fc635",
+      "proof_bytes": 75
+    },
+    {
+      "name": "release-19-0-drat",
+      "unsat": false,
+      "cnf_sha256": "905efb6a352a2372267c01492d415a132f1d239414e07f05fce90a6d0a47ca29",
+      "proof_sha256": "94a42abc76a4c6ec52b65108b5009f2bf03ecbbcfcf7a4ab34c471e0266ea336",
+      "proof_bytes": 11
+    },
+    {
+      "name": "release-19-0-lrat",
+      "unsat": false,
+      "cnf_sha256": "905efb6a352a2372267c01492d415a132f1d239414e07f05fce90a6d0a47ca29",
+      "proof_sha256": "2bf2d58b7cd1cd7364a14856f0956afa58b702a9441640dfc8d622e70f74b735",
+      "proof_bytes": 8
+    },
+    {
+      "name": "release-19-1-drat",
+      "unsat": true,
+      "cnf_sha256": "f91a039159793ce72d808fe5fda993ee0ae36193936f99f7936b2fe49e58257f",
+      "proof_sha256": "e0366f9782c01b87b977abd7a777466deade4dc21f63f906d200b904014dad96",
+      "proof_bytes": 47
+    },
+    {
+      "name": "release-19-1-lrat",
+      "unsat": true,
+      "cnf_sha256": "f91a039159793ce72d808fe5fda993ee0ae36193936f99f7936b2fe49e58257f",
+      "proof_sha256": "febc040a78a177b13e97feb2964b6d63e080fa9251e2fbf111523c58f64fc635",
+      "proof_bytes": 75
+    },
+    {
+      "name": "sanitizers-0-0-drat",
+      "unsat": false,
+      "cnf_sha256": "23a4e33dd7ed3451959d3c0f2485fd01d249c9e9342cb87f1fcbd43abb2f0be8",
+      "proof_sha256": "b7d848e2217de56c9d388f55816744535d8f2b5ca1fbe534cd664c67857ddd10",
+      "proof_bytes": 97
+    },
+    {
+      "name": "sanitizers-0-0-lrat",
+      "unsat": false,
+      "cnf_sha256": "23a4e33dd7ed3451959d3c0f2485fd01d249c9e9342cb87f1fcbd43abb2f0be8",
+      "proof_sha256": "f9f0861b1d47ddbfae65a50dd667a6b4d7a27efd5f81e41760a0e7467aa3c461",
+      "proof_bytes": 174
+    },
+    {
+      "name": "sanitizers-0-1-drat",
+      "unsat": true,
+      "cnf_sha256": "df8ce3d0f26fdd182aa157d98887a1299e8c8732d22d928a42de79b0c4c11260",
+      "proof_sha256": "1bd518336077c38a6f65db667ebdafc6700ecb23427354b72bd06a418c0a8910",
+      "proof_bytes": 11
+    },
+    {
+      "name": "sanitizers-0-1-lrat",
+      "unsat": true,
+      "cnf_sha256": "df8ce3d0f26fdd182aa157d98887a1299e8c8732d22d928a42de79b0c4c11260",
+      "proof_sha256": "740f539e3ce768f12922608c31c8c8e96725ad13040b59c630b6275d9ccbdbde",
+      "proof_bytes": 36
+    },
+    {
+      "name": "sanitizers-1-0-drat",
+      "unsat": false,
+      "cnf_sha256": "23a4e33dd7ed3451959d3c0f2485fd01d249c9e9342cb87f1fcbd43abb2f0be8",
+      "proof_sha256": "002a2579764b52756493c56cdadd582078c1d13f57db931e93ed0de799410599",
+      "proof_bytes": 48
+    },
+    {
+      "name": "sanitizers-1-0-lrat",
+      "unsat": false,
+      "cnf_sha256": "23a4e33dd7ed3451959d3c0f2485fd01d249c9e9342cb87f1fcbd43abb2f0be8",
+      "proof_sha256": "9ab8675ffb7f723f2606217fee12aa3616ff5b6a93e39d1c4be244d819e4dfbd",
+      "proof_bytes": 80
+    },
+    {
+      "name": "sanitizers-1-1-drat",
+      "unsat": true,
+      "cnf_sha256": "df8ce3d0f26fdd182aa157d98887a1299e8c8732d22d928a42de79b0c4c11260",
+      "proof_sha256": "1bd518336077c38a6f65db667ebdafc6700ecb23427354b72bd06a418c0a8910",
+      "proof_bytes": 11
+    },
+    {
+      "name": "sanitizers-1-1-lrat",
+      "unsat": true,
+      "cnf_sha256": "df8ce3d0f26fdd182aa157d98887a1299e8c8732d22d928a42de79b0c4c11260",
+      "proof_sha256": "740f539e3ce768f12922608c31c8c8e96725ad13040b59c630b6275d9ccbdbde",
+      "proof_bytes": 36
+    },
+    {
+      "name": "sanitizers-2-0-drat",
+      "unsat": false,
+      "cnf_sha256": "9a42b24c0e4b84b4a2799635cbc688bd1aa24df632615a9118aa29a6579767a6",
+      "proof_sha256": "9f48e719b946859edd083ceb1910335290d3439f2e8a7292e0cc1cceb215d5de",
+      "proof_bytes": 101
+    },
+    {
+      "name": "sanitizers-2-0-lrat",
+      "unsat": false,
+      "cnf_sha256": "9a42b24c0e4b84b4a2799635cbc688bd1aa24df632615a9118aa29a6579767a6",
+      "proof_sha256": "90cf2ff7b7bec99c88be4d836d9a9a890ccccb14c4c2c0f220d242fe7565023c",
+      "proof_bytes": 176
+    },
+    {
+      "name": "sanitizers-2-1-drat",
+      "unsat": true,
+      "cnf_sha256": "6dcc70b098b3dc3bd71370c903d73219eb4bcf4689a08677aeb2500b6c993587",
+      "proof_sha256": "1bd518336077c38a6f65db667ebdafc6700ecb23427354b72bd06a418c0a8910",
+      "proof_bytes": 11
+    },
+    {
+      "name": "sanitizers-2-1-lrat",
+      "unsat": true,
+      "cnf_sha256": "6dcc70b098b3dc3bd71370c903d73219eb4bcf4689a08677aeb2500b6c993587",
+      "proof_sha256": "740f539e3ce768f12922608c31c8c8e96725ad13040b59c630b6275d9ccbdbde",
+      "proof_bytes": 36
+    },
+    {
+      "name": "sanitizers-3-0-drat",
+      "unsat": false,
+      "cnf_sha256": "9a42b24c0e4b84b4a2799635cbc688bd1aa24df632615a9118aa29a6579767a6",
+      "proof_sha256": "b49e0bf445dc894d266cdd786ab3cfcfb5928336ad0a2b338bc7343922aee616",
+      "proof_bytes": 52
+    },
+    {
+      "name": "sanitizers-3-0-lrat",
+      "unsat": false,
+      "cnf_sha256": "9a42b24c0e4b84b4a2799635cbc688bd1aa24df632615a9118aa29a6579767a6",
+      "proof_sha256": "6846322b454ff26df7e596a7f4f769e8e895753801c454aef49f0acce2aeafab",
+      "proof_bytes": 82
+    },
+    {
+      "name": "sanitizers-3-1-drat",
+      "unsat": true,
+      "cnf_sha256": "6dcc70b098b3dc3bd71370c903d73219eb4bcf4689a08677aeb2500b6c993587",
+      "proof_sha256": "1bd518336077c38a6f65db667ebdafc6700ecb23427354b72bd06a418c0a8910",
+      "proof_bytes": 11
+    },
+    {
+      "name": "sanitizers-3-1-lrat",
+      "unsat": true,
+      "cnf_sha256": "6dcc70b098b3dc3bd71370c903d73219eb4bcf4689a08677aeb2500b6c993587",
+      "proof_sha256": "740f539e3ce768f12922608c31c8c8e96725ad13040b59c630b6275d9ccbdbde",
+      "proof_bytes": 36
+    },
+    {
+      "name": "sanitizers-4-0-drat",
+      "unsat": false,
+      "cnf_sha256": "a0096c393b638baf99d9c3a751f539bb76ed165b895b040b85d5a4d0dcdb8d11",
+      "proof_sha256": "2d014280851613e75acb34cfb45dcb7292044e48a5f68a45569631e56019281a",
+      "proof_bytes": 99
+    },
+    {
+      "name": "sanitizers-4-0-lrat",
+      "unsat": false,
+      "cnf_sha256": "a0096c393b638baf99d9c3a751f539bb76ed165b895b040b85d5a4d0dcdb8d11",
+      "proof_sha256": "584d25ceb796e613d3165f73fa5fead17dc4e9282c83b804be123a26590fef86",
+      "proof_bytes": 175
+    },
+    {
+      "name": "sanitizers-4-1-drat",
+      "unsat": true,
+      "cnf_sha256": "95b53a1169b28513b451bdcce31bfff5e5e678476ae07ead179baa505e52eb34",
+      "proof_sha256": "1bd518336077c38a6f65db667ebdafc6700ecb23427354b72bd06a418c0a8910",
+      "proof_bytes": 11
+    },
+    {
+      "name": "sanitizers-4-1-lrat",
+      "unsat": true,
+      "cnf_sha256": "95b53a1169b28513b451bdcce31bfff5e5e678476ae07ead179baa505e52eb34",
+      "proof_sha256": "740f539e3ce768f12922608c31c8c8e96725ad13040b59c630b6275d9ccbdbde",
+      "proof_bytes": 36
+    },
+    {
+      "name": "sanitizers-5-0-drat",
+      "unsat": false,
+      "cnf_sha256": "a0096c393b638baf99d9c3a751f539bb76ed165b895b040b85d5a4d0dcdb8d11",
+      "proof_sha256": "799236229dd510e8050427a254e820e46b276444a578547171224bac0b307c7f",
+      "proof_bytes": 50
+    },
+    {
+      "name": "sanitizers-5-0-lrat",
+      "unsat": false,
+      "cnf_sha256": "a0096c393b638baf99d9c3a751f539bb76ed165b895b040b85d5a4d0dcdb8d11",
+      "proof_sha256": "3887ff800f11a361d348876ae8d520ccd1f0610f821285c8c040b6746de8b760",
+      "proof_bytes": 81
+    },
+    {
+      "name": "sanitizers-5-1-drat",
+      "unsat": true,
+      "cnf_sha256": "95b53a1169b28513b451bdcce31bfff5e5e678476ae07ead179baa505e52eb34",
+      "proof_sha256": "1bd518336077c38a6f65db667ebdafc6700ecb23427354b72bd06a418c0a8910",
+      "proof_bytes": 11
+    },
+    {
+      "name": "sanitizers-5-1-lrat",
+      "unsat": true,
+      "cnf_sha256": "95b53a1169b28513b451bdcce31bfff5e5e678476ae07ead179baa505e52eb34",
+      "proof_sha256": "740f539e3ce768f12922608c31c8c8e96725ad13040b59c630b6275d9ccbdbde",
+      "proof_bytes": 36
+    },
+    {
+      "name": "sanitizers-6-0-drat",
+      "unsat": false,
+      "cnf_sha256": "8f0fe392999a70e2470aa272a1b53f6d339a657fb59590c8dc75815f6a565844",
+      "proof_sha256": "269c72ef40770056c9f605ad9f47bc86ee6e8b533079a1d1b5dbffe58abcf72e",
+      "proof_bytes": 103
+    },
+    {
+      "name": "sanitizers-6-0-lrat",
+      "unsat": false,
+      "cnf_sha256": "8f0fe392999a70e2470aa272a1b53f6d339a657fb59590c8dc75815f6a565844",
+      "proof_sha256": "3132b0c73d72225981ca6d500b6e656757a9980ba803c9705e8f5cabf29a4728",
+      "proof_bytes": 177
+    },
+    {
+      "name": "sanitizers-6-1-drat",
+      "unsat": true,
+      "cnf_sha256": "95a37da49e8b98ac30394bd357e1d9acf376179bc171369079b19292b4ee5997",
+      "proof_sha256": "1bd518336077c38a6f65db667ebdafc6700ecb23427354b72bd06a418c0a8910",
+      "proof_bytes": 11
+    },
+    {
+      "name": "sanitizers-6-1-lrat",
+      "unsat": true,
+      "cnf_sha256": "95a37da49e8b98ac30394bd357e1d9acf376179bc171369079b19292b4ee5997",
+      "proof_sha256": "740f539e3ce768f12922608c31c8c8e96725ad13040b59c630b6275d9ccbdbde",
+      "proof_bytes": 36
+    },
+    {
+      "name": "sanitizers-7-0-drat",
+      "unsat": false,
+      "cnf_sha256": "8f0fe392999a70e2470aa272a1b53f6d339a657fb59590c8dc75815f6a565844",
+      "proof_sha256": "317fc77db95e917c04571a7ae548db37feae620a71d250e71784b3178f142c47",
+      "proof_bytes": 54
+    },
+    {
+      "name": "sanitizers-7-0-lrat",
+      "unsat": false,
+      "cnf_sha256": "8f0fe392999a70e2470aa272a1b53f6d339a657fb59590c8dc75815f6a565844",
+      "proof_sha256": "5c72ab2964eaf424f853b7e8e8074617b8052065f9dd45613a4d60648e4cffec",
+      "proof_bytes": 83
+    },
+    {
+      "name": "sanitizers-7-1-drat",
+      "unsat": true,
+      "cnf_sha256": "95a37da49e8b98ac30394bd357e1d9acf376179bc171369079b19292b4ee5997",
+      "proof_sha256": "1bd518336077c38a6f65db667ebdafc6700ecb23427354b72bd06a418c0a8910",
+      "proof_bytes": 11
+    },
+    {
+      "name": "sanitizers-7-1-lrat",
+      "unsat": true,
+      "cnf_sha256": "95a37da49e8b98ac30394bd357e1d9acf376179bc171369079b19292b4ee5997",
+      "proof_sha256": "740f539e3ce768f12922608c31c8c8e96725ad13040b59c630b6275d9ccbdbde",
+      "proof_bytes": 36
+    },
+    {
+      "name": "sanitizers-8-0-drat",
+      "unsat": false,
+      "cnf_sha256": "678ed837ed90523b8720582089661393917c3b5bbeb651adae75d26a47d58676",
+      "proof_sha256": "b7d848e2217de56c9d388f55816744535d8f2b5ca1fbe534cd664c67857ddd10",
+      "proof_bytes": 97
+    },
+    {
+      "name": "sanitizers-8-0-lrat",
+      "unsat": false,
+      "cnf_sha256": "678ed837ed90523b8720582089661393917c3b5bbeb651adae75d26a47d58676",
+      "proof_sha256": "1da7fbbada2789db7652e3a9dd1c6142eef0e252167e46a8467e9b04ca840c73",
+      "proof_bytes": 184
+    },
+    {
+      "name": "sanitizers-8-1-drat",
+      "unsat": true,
+      "cnf_sha256": "f1cdd982fc8a56b675f85734b20400f1f05f877f8e5d9a3edeae53ccd1bc1dfa",
+      "proof_sha256": "1bd518336077c38a6f65db667ebdafc6700ecb23427354b72bd06a418c0a8910",
+      "proof_bytes": 11
+    },
+    {
+      "name": "sanitizers-8-1-lrat",
+      "unsat": true,
+      "cnf_sha256": "f1cdd982fc8a56b675f85734b20400f1f05f877f8e5d9a3edeae53ccd1bc1dfa",
+      "proof_sha256": "5d888c8b49e66c057b231106e30e6bc76d72fc01842ec89f239ab47f878c05bb",
+      "proof_bytes": 42
+    },
+    {
+      "name": "sanitizers-9-0-drat",
+      "unsat": false,
+      "cnf_sha256": "678ed837ed90523b8720582089661393917c3b5bbeb651adae75d26a47d58676",
+      "proof_sha256": "002a2579764b52756493c56cdadd582078c1d13f57db931e93ed0de799410599",
+      "proof_bytes": 48
+    },
+    {
+      "name": "sanitizers-9-0-lrat",
+      "unsat": false,
+      "cnf_sha256": "678ed837ed90523b8720582089661393917c3b5bbeb651adae75d26a47d58676",
+      "proof_sha256": "397b9faa8aa0d579ac2f0741277b45d2793fafb47245bfe6435da3e90ba4c86f",
+      "proof_bytes": 91
+    },
+    {
+      "name": "sanitizers-9-1-drat",
+      "unsat": true,
+      "cnf_sha256": "f1cdd982fc8a56b675f85734b20400f1f05f877f8e5d9a3edeae53ccd1bc1dfa",
+      "proof_sha256": "1bd518336077c38a6f65db667ebdafc6700ecb23427354b72bd06a418c0a8910",
+      "proof_bytes": 11
+    },
+    {
+      "name": "sanitizers-9-1-lrat",
+      "unsat": true,
+      "cnf_sha256": "f1cdd982fc8a56b675f85734b20400f1f05f877f8e5d9a3edeae53ccd1bc1dfa",
+      "proof_sha256": "5d888c8b49e66c057b231106e30e6bc76d72fc01842ec89f239ab47f878c05bb",
+      "proof_bytes": 42
+    },
+    {
+      "name": "sanitizers-10-0-drat",
+      "unsat": false,
+      "cnf_sha256": "b0f659507942ee2d69362e439203db108fa5cae19ae5782c997674fd9218a6d7",
+      "proof_sha256": "9f48e719b946859edd083ceb1910335290d3439f2e8a7292e0cc1cceb215d5de",
+      "proof_bytes": 101
+    },
+    {
+      "name": "sanitizers-10-0-lrat",
+      "unsat": false,
+      "cnf_sha256": "b0f659507942ee2d69362e439203db108fa5cae19ae5782c997674fd9218a6d7",
+      "proof_sha256": "11c7f760802f432b61d4b4dbfd86ef7e2f77eac9727c3795d057250f7d31a830",
+      "proof_bytes": 186
+    },
+    {
+      "name": "sanitizers-10-1-drat",
+      "unsat": true,
+      "cnf_sha256": "292631bb105121d1851609abb4125d96bcc00e26a907b466ff091adf7766a91e",
+      "proof_sha256": "1bd518336077c38a6f65db667ebdafc6700ecb23427354b72bd06a418c0a8910",
+      "proof_bytes": 11
+    },
+    {
+      "name": "sanitizers-10-1-lrat",
+      "unsat": true,
+      "cnf_sha256": "292631bb105121d1851609abb4125d96bcc00e26a907b466ff091adf7766a91e",
+      "proof_sha256": "5d888c8b49e66c057b231106e30e6bc76d72fc01842ec89f239ab47f878c05bb",
+      "proof_bytes": 42
+    },
+    {
+      "name": "sanitizers-11-0-drat",
+      "unsat": false,
+      "cnf_sha256": "b0f659507942ee2d69362e439203db108fa5cae19ae5782c997674fd9218a6d7",
+      "proof_sha256": "b49e0bf445dc894d266cdd786ab3cfcfb5928336ad0a2b338bc7343922aee616",
+      "proof_bytes": 52
+    },
+    {
+      "name": "sanitizers-11-0-lrat",
+      "unsat": false,
+      "cnf_sha256": "b0f659507942ee2d69362e439203db108fa5cae19ae5782c997674fd9218a6d7",
+      "proof_sha256": "41703df9905797597fe2ddb174755ac091e91430b0db58896f9489d4bd230534",
+      "proof_bytes": 93
+    },
+    {
+      "name": "sanitizers-11-1-drat",
+      "unsat": true,
+      "cnf_sha256": "292631bb105121d1851609abb4125d96bcc00e26a907b466ff091adf7766a91e",
+      "proof_sha256": "1bd518336077c38a6f65db667ebdafc6700ecb23427354b72bd06a418c0a8910",
+      "proof_bytes": 11
+    },
+    {
+      "name": "sanitizers-11-1-lrat",
+      "unsat": true,
+      "cnf_sha256": "292631bb105121d1851609abb4125d96bcc00e26a907b466ff091adf7766a91e",
+      "proof_sha256": "5d888c8b49e66c057b231106e30e6bc76d72fc01842ec89f239ab47f878c05bb",
+      "proof_bytes": 42
+    },
+    {
+      "name": "sanitizers-12-0-drat",
+      "unsat": false,
+      "cnf_sha256": "80e6fcadafcf5884e69d5c0b242232dd193576b863e96435bf2336d815f555cf",
+      "proof_sha256": "2d014280851613e75acb34cfb45dcb7292044e48a5f68a45569631e56019281a",
+      "proof_bytes": 99
+    },
+    {
+      "name": "sanitizers-12-0-lrat",
+      "unsat": false,
+      "cnf_sha256": "80e6fcadafcf5884e69d5c0b242232dd193576b863e96435bf2336d815f555cf",
+      "proof_sha256": "55cc3c21a1f810d184639885775307dedb2c83330344e35a628ae8e0bf68a581",
+      "proof_bytes": 185
+    },
+    {
+      "name": "sanitizers-12-1-drat",
+      "unsat": true,
+      "cnf_sha256": "e3f45c869abc47f480dd798d4a8b87f1ffe6e9a3dd7ccaef7cc6f53d58ce63b3",
+      "proof_sha256": "1bd518336077c38a6f65db667ebdafc6700ecb23427354b72bd06a418c0a8910",
+      "proof_bytes": 11
+    },
+    {
+      "name": "sanitizers-12-1-lrat",
+      "unsat": true,
+      "cnf_sha256": "e3f45c869abc47f480dd798d4a8b87f1ffe6e9a3dd7ccaef7cc6f53d58ce63b3",
+      "proof_sha256": "5d888c8b49e66c057b231106e30e6bc76d72fc01842ec89f239ab47f878c05bb",
+      "proof_bytes": 42
+    },
+    {
+      "name": "sanitizers-13-0-drat",
+      "unsat": false,
+      "cnf_sha256": "80e6fcadafcf5884e69d5c0b242232dd193576b863e96435bf2336d815f555cf",
+      "proof_sha256": "799236229dd510e8050427a254e820e46b276444a578547171224bac0b307c7f",
+      "proof_bytes": 50
+    },
+    {
+      "name": "sanitizers-13-0-lrat",
+      "unsat": false,
+      "cnf_sha256": "80e6fcadafcf5884e69d5c0b242232dd193576b863e96435bf2336d815f555cf",
+      "proof_sha256": "5f22ae9e4cf48b2b947e4598512670a1e7195b467e8221e9478f216a214f29a1",
+      "proof_bytes": 92
+    },
+    {
+      "name": "sanitizers-13-1-drat",
+      "unsat": true,
+      "cnf_sha256": "e3f45c869abc47f480dd798d4a8b87f1ffe6e9a3dd7ccaef7cc6f53d58ce63b3",
+      "proof_sha256": "1bd518336077c38a6f65db667ebdafc6700ecb23427354b72bd06a418c0a8910",
+      "proof_bytes": 11
+    },
+    {
+      "name": "sanitizers-13-1-lrat",
+      "unsat": true,
+      "cnf_sha256": "e3f45c869abc47f480dd798d4a8b87f1ffe6e9a3dd7ccaef7cc6f53d58ce63b3",
+      "proof_sha256": "5d888c8b49e66c057b231106e30e6bc76d72fc01842ec89f239ab47f878c05bb",
+      "proof_bytes": 42
+    },
+    {
+      "name": "sanitizers-14-0-drat",
+      "unsat": false,
+      "cnf_sha256": "4e29386060daa2476a112a3b2464da6f193f9586f717c0b4dafeff65675cd73e",
+      "proof_sha256": "269c72ef40770056c9f605ad9f47bc86ee6e8b533079a1d1b5dbffe58abcf72e",
+      "proof_bytes": 103
+    },
+    {
+      "name": "sanitizers-14-0-lrat",
+      "unsat": false,
+      "cnf_sha256": "4e29386060daa2476a112a3b2464da6f193f9586f717c0b4dafeff65675cd73e",
+      "proof_sha256": "7ae0b102bd98f458896aa6149ad6960ebc076b04d514f084f677ab74fb426c93",
+      "proof_bytes": 187
+    },
+    {
+      "name": "sanitizers-14-1-drat",
+      "unsat": true,
+      "cnf_sha256": "8729a5e654cd5df978bf0bc13f075e6435d53faf13443ace0b5f79b75f9b7b95",
+      "proof_sha256": "1bd518336077c38a6f65db667ebdafc6700ecb23427354b72bd06a418c0a8910",
+      "proof_bytes": 11
+    },
+    {
+      "name": "sanitizers-14-1-lrat",
+      "unsat": true,
+      "cnf_sha256": "8729a5e654cd5df978bf0bc13f075e6435d53faf13443ace0b5f79b75f9b7b95",
+      "proof_sha256": "5d888c8b49e66c057b231106e30e6bc76d72fc01842ec89f239ab47f878c05bb",
+      "proof_bytes": 42
+    },
+    {
+      "name": "sanitizers-15-0-drat",
+      "unsat": false,
+      "cnf_sha256": "4e29386060daa2476a112a3b2464da6f193f9586f717c0b4dafeff65675cd73e",
+      "proof_sha256": "317fc77db95e917c04571a7ae548db37feae620a71d250e71784b3178f142c47",
+      "proof_bytes": 54
+    },
+    {
+      "name": "sanitizers-15-0-lrat",
+      "unsat": false,
+      "cnf_sha256": "4e29386060daa2476a112a3b2464da6f193f9586f717c0b4dafeff65675cd73e",
+      "proof_sha256": "2e091a39651f633313fdb29d57e520f7d893de6a027c9a42a82f8e56ba282fbd",
+      "proof_bytes": 94
+    },
+    {
+      "name": "sanitizers-15-1-drat",
+      "unsat": true,
+      "cnf_sha256": "8729a5e654cd5df978bf0bc13f075e6435d53faf13443ace0b5f79b75f9b7b95",
+      "proof_sha256": "1bd518336077c38a6f65db667ebdafc6700ecb23427354b72bd06a418c0a8910",
+      "proof_bytes": 11
+    },
+    {
+      "name": "sanitizers-15-1-lrat",
+      "unsat": true,
+      "cnf_sha256": "8729a5e654cd5df978bf0bc13f075e6435d53faf13443ace0b5f79b75f9b7b95",
+      "proof_sha256": "5d888c8b49e66c057b231106e30e6bc76d72fc01842ec89f239ab47f878c05bb",
+      "proof_bytes": 42
+    },
+    {
+      "name": "sanitizers-16-0-drat",
+      "unsat": false,
+      "cnf_sha256": "a0c5132314bc061b28631ee8ad293df0c76f0dcffd697593f79ba7c8cebc563b",
+      "proof_sha256": "b2c943502eb7027d20b26e85b43e1fd385376885e0939e9bbf5f31343395eeac",
+      "proof_bytes": 10
+    },
+    {
+      "name": "sanitizers-16-0-lrat",
+      "unsat": false,
+      "cnf_sha256": "a0c5132314bc061b28631ee8ad293df0c76f0dcffd697593f79ba7c8cebc563b",
+      "proof_sha256": "2bf2d58b7cd1cd7364a14856f0956afa58b702a9441640dfc8d622e70f74b735",
+      "proof_bytes": 8
+    },
+    {
+      "name": "sanitizers-16-1-drat",
+      "unsat": true,
+      "cnf_sha256": "d33179a84faf6f5755953d0798d195b60d209bda270b455a8a7c4c393b7d3bc0",
+      "proof_sha256": "b8bd384597bc7328dc4fddb610425b3ad8a4823bf51a0c1652d17a1e4c455ff8",
+      "proof_bytes": 46
+    },
+    {
+      "name": "sanitizers-16-1-lrat",
+      "unsat": true,
+      "cnf_sha256": "d33179a84faf6f5755953d0798d195b60d209bda270b455a8a7c4c393b7d3bc0",
+      "proof_sha256": "febc040a78a177b13e97feb2964b6d63e080fa9251e2fbf111523c58f64fc635",
+      "proof_bytes": 75
+    },
+    {
+      "name": "sanitizers-17-0-drat",
+      "unsat": false,
+      "cnf_sha256": "a0c5132314bc061b28631ee8ad293df0c76f0dcffd697593f79ba7c8cebc563b",
+      "proof_sha256": "b2c943502eb7027d20b26e85b43e1fd385376885e0939e9bbf5f31343395eeac",
+      "proof_bytes": 10
+    },
+    {
+      "name": "sanitizers-17-0-lrat",
+      "unsat": false,
+      "cnf_sha256": "a0c5132314bc061b28631ee8ad293df0c76f0dcffd697593f79ba7c8cebc563b",
+      "proof_sha256": "2bf2d58b7cd1cd7364a14856f0956afa58b702a9441640dfc8d622e70f74b735",
+      "proof_bytes": 8
+    },
+    {
+      "name": "sanitizers-17-1-drat",
+      "unsat": true,
+      "cnf_sha256": "d33179a84faf6f5755953d0798d195b60d209bda270b455a8a7c4c393b7d3bc0",
+      "proof_sha256": "b8bd384597bc7328dc4fddb610425b3ad8a4823bf51a0c1652d17a1e4c455ff8",
+      "proof_bytes": 46
+    },
+    {
+      "name": "sanitizers-17-1-lrat",
+      "unsat": true,
+      "cnf_sha256": "d33179a84faf6f5755953d0798d195b60d209bda270b455a8a7c4c393b7d3bc0",
+      "proof_sha256": "febc040a78a177b13e97feb2964b6d63e080fa9251e2fbf111523c58f64fc635",
+      "proof_bytes": 75
+    },
+    {
+      "name": "sanitizers-18-0-drat",
+      "unsat": false,
+      "cnf_sha256": "905efb6a352a2372267c01492d415a132f1d239414e07f05fce90a6d0a47ca29",
+      "proof_sha256": "94a42abc76a4c6ec52b65108b5009f2bf03ecbbcfcf7a4ab34c471e0266ea336",
+      "proof_bytes": 11
+    },
+    {
+      "name": "sanitizers-18-0-lrat",
+      "unsat": false,
+      "cnf_sha256": "905efb6a352a2372267c01492d415a132f1d239414e07f05fce90a6d0a47ca29",
+      "proof_sha256": "2bf2d58b7cd1cd7364a14856f0956afa58b702a9441640dfc8d622e70f74b735",
+      "proof_bytes": 8
+    },
+    {
+      "name": "sanitizers-18-1-drat",
+      "unsat": true,
+      "cnf_sha256": "f91a039159793ce72d808fe5fda993ee0ae36193936f99f7936b2fe49e58257f",
+      "proof_sha256": "e0366f9782c01b87b977abd7a777466deade4dc21f63f906d200b904014dad96",
+      "proof_bytes": 47
+    },
+    {
+      "name": "sanitizers-18-1-lrat",
+      "unsat": true,
+      "cnf_sha256": "f91a039159793ce72d808fe5fda993ee0ae36193936f99f7936b2fe49e58257f",
+      "proof_sha256": "febc040a78a177b13e97feb2964b6d63e080fa9251e2fbf111523c58f64fc635",
+      "proof_bytes": 75
+    },
+    {
+      "name": "sanitizers-19-0-drat",
+      "unsat": false,
+      "cnf_sha256": "905efb6a352a2372267c01492d415a132f1d239414e07f05fce90a6d0a47ca29",
+      "proof_sha256": "94a42abc76a4c6ec52b65108b5009f2bf03ecbbcfcf7a4ab34c471e0266ea336",
+      "proof_bytes": 11
+    },
+    {
+      "name": "sanitizers-19-0-lrat",
+      "unsat": false,
+      "cnf_sha256": "905efb6a352a2372267c01492d415a132f1d239414e07f05fce90a6d0a47ca29",
+      "proof_sha256": "2bf2d58b7cd1cd7364a14856f0956afa58b702a9441640dfc8d622e70f74b735",
+      "proof_bytes": 8
+    },
+    {
+      "name": "sanitizers-19-1-drat",
+      "unsat": true,
+      "cnf_sha256": "f91a039159793ce72d808fe5fda993ee0ae36193936f99f7936b2fe49e58257f",
+      "proof_sha256": "e0366f9782c01b87b977abd7a777466deade4dc21f63f906d200b904014dad96",
+      "proof_bytes": 47
+    },
+    {
+      "name": "sanitizers-19-1-lrat",
+      "unsat": true,
+      "cnf_sha256": "f91a039159793ce72d808fe5fda993ee0ae36193936f99f7936b2fe49e58257f",
+      "proof_sha256": "febc040a78a177b13e97feb2964b6d63e080fa9251e2fbf111523c58f64fc635",
+      "proof_bytes": 75
+    }
+  ],
+  "forward": [
+    {
+      "name": "release-forward-0-0-drat",
+      "cnf_sha256": "295de9efd5cc0bf00e2885d48752b90e260eeeb2da2ff5c67b60ff7fce67dc00",
+      "proof_sha256": "c524abc79a472c4446e3263915cf618d481583b1c132a98c5f5daf40bf217da6"
+    },
+    {
+      "name": "release-forward-0-0-lrat",
+      "cnf_sha256": "295de9efd5cc0bf00e2885d48752b90e260eeeb2da2ff5c67b60ff7fce67dc00",
+      "proof_sha256": "08918cc1476bc5240a8235473dbdfdf0a3275ed46e93f7a8ffe1dcc76d7f5710"
+    },
+    {
+      "name": "release-forward-0-1-drat",
+      "cnf_sha256": "dfba3db74ebd10617db17a5253494077b11493416c3fd1070ee0604befe13f97",
+      "proof_sha256": "24f9f750b46a43fdef6b661be8fcd23d99a86afeaad1edf2a867ccc9696bc6ee"
+    },
+    {
+      "name": "release-forward-0-1-lrat",
+      "cnf_sha256": "dfba3db74ebd10617db17a5253494077b11493416c3fd1070ee0604befe13f97",
+      "proof_sha256": "27f03c7209381f29f151e9d76f4f3bd722fdd032ad8653a96a2d51fa9d95dce7"
+    },
+    {
+      "name": "release-forward-0-2-drat",
+      "cnf_sha256": "378743f2fdbf3710e85a6a0f8d0bc2941b42db3ee936c9be35db50380bd05352",
+      "proof_sha256": "dcfb04c87bfc85b002520d6387e4f007ae0b69f0aa9fa36264b26959a6fcc8a3"
+    },
+    {
+      "name": "release-forward-0-2-lrat",
+      "cnf_sha256": "378743f2fdbf3710e85a6a0f8d0bc2941b42db3ee936c9be35db50380bd05352",
+      "proof_sha256": "2bfca181ee1f41c87978e506a7fe00585bd97974fe6b8d31d18a41f47914dee0"
+    },
+    {
+      "name": "release-forward-0-3-drat",
+      "cnf_sha256": "b4eae063627faaba6a1687a1ce5a7fd79a64d8084dd5e9f07de4544ed5fdcc01",
+      "proof_sha256": "15e2f182a38e47d8f7aa6feb9528eec945a1bef308fd79c403e766c77e24e14f"
+    },
+    {
+      "name": "release-forward-0-3-lrat",
+      "cnf_sha256": "b4eae063627faaba6a1687a1ce5a7fd79a64d8084dd5e9f07de4544ed5fdcc01",
+      "proof_sha256": "4f8680189f7877e63c1459793d096150d4ed1acfe2d0e9445e5c2d6f030f71bf"
+    },
+    {
+      "name": "release-forward-1-0-drat",
+      "cnf_sha256": "295de9efd5cc0bf00e2885d48752b90e260eeeb2da2ff5c67b60ff7fce67dc00",
+      "proof_sha256": "c524abc79a472c4446e3263915cf618d481583b1c132a98c5f5daf40bf217da6"
+    },
+    {
+      "name": "release-forward-1-0-lrat",
+      "cnf_sha256": "295de9efd5cc0bf00e2885d48752b90e260eeeb2da2ff5c67b60ff7fce67dc00",
+      "proof_sha256": "08918cc1476bc5240a8235473dbdfdf0a3275ed46e93f7a8ffe1dcc76d7f5710"
+    },
+    {
+      "name": "release-forward-1-1-drat",
+      "cnf_sha256": "dfba3db74ebd10617db17a5253494077b11493416c3fd1070ee0604befe13f97",
+      "proof_sha256": "24f9f750b46a43fdef6b661be8fcd23d99a86afeaad1edf2a867ccc9696bc6ee"
+    },
+    {
+      "name": "release-forward-1-1-lrat",
+      "cnf_sha256": "dfba3db74ebd10617db17a5253494077b11493416c3fd1070ee0604befe13f97",
+      "proof_sha256": "27f03c7209381f29f151e9d76f4f3bd722fdd032ad8653a96a2d51fa9d95dce7"
+    },
+    {
+      "name": "release-forward-1-2-drat",
+      "cnf_sha256": "378743f2fdbf3710e85a6a0f8d0bc2941b42db3ee936c9be35db50380bd05352",
+      "proof_sha256": "dcfb04c87bfc85b002520d6387e4f007ae0b69f0aa9fa36264b26959a6fcc8a3"
+    },
+    {
+      "name": "release-forward-1-2-lrat",
+      "cnf_sha256": "378743f2fdbf3710e85a6a0f8d0bc2941b42db3ee936c9be35db50380bd05352",
+      "proof_sha256": "2bfca181ee1f41c87978e506a7fe00585bd97974fe6b8d31d18a41f47914dee0"
+    },
+    {
+      "name": "release-forward-1-3-drat",
+      "cnf_sha256": "b4eae063627faaba6a1687a1ce5a7fd79a64d8084dd5e9f07de4544ed5fdcc01",
+      "proof_sha256": "15e2f182a38e47d8f7aa6feb9528eec945a1bef308fd79c403e766c77e24e14f"
+    },
+    {
+      "name": "release-forward-1-3-lrat",
+      "cnf_sha256": "b4eae063627faaba6a1687a1ce5a7fd79a64d8084dd5e9f07de4544ed5fdcc01",
+      "proof_sha256": "4f8680189f7877e63c1459793d096150d4ed1acfe2d0e9445e5c2d6f030f71bf"
+    },
+    {
+      "name": "sanitizers-forward-0-0-drat",
+      "cnf_sha256": "295de9efd5cc0bf00e2885d48752b90e260eeeb2da2ff5c67b60ff7fce67dc00",
+      "proof_sha256": "c524abc79a472c4446e3263915cf618d481583b1c132a98c5f5daf40bf217da6"
+    },
+    {
+      "name": "sanitizers-forward-0-0-lrat",
+      "cnf_sha256": "295de9efd5cc0bf00e2885d48752b90e260eeeb2da2ff5c67b60ff7fce67dc00",
+      "proof_sha256": "08918cc1476bc5240a8235473dbdfdf0a3275ed46e93f7a8ffe1dcc76d7f5710"
+    },
+    {
+      "name": "sanitizers-forward-0-1-drat",
+      "cnf_sha256": "dfba3db74ebd10617db17a5253494077b11493416c3fd1070ee0604befe13f97",
+      "proof_sha256": "24f9f750b46a43fdef6b661be8fcd23d99a86afeaad1edf2a867ccc9696bc6ee"
+    },
+    {
+      "name": "sanitizers-forward-0-1-lrat",
+      "cnf_sha256": "dfba3db74ebd10617db17a5253494077b11493416c3fd1070ee0604befe13f97",
+      "proof_sha256": "27f03c7209381f29f151e9d76f4f3bd722fdd032ad8653a96a2d51fa9d95dce7"
+    },
+    {
+      "name": "sanitizers-forward-0-2-drat",
+      "cnf_sha256": "378743f2fdbf3710e85a6a0f8d0bc2941b42db3ee936c9be35db50380bd05352",
+      "proof_sha256": "dcfb04c87bfc85b002520d6387e4f007ae0b69f0aa9fa36264b26959a6fcc8a3"
+    },
+    {
+      "name": "sanitizers-forward-0-2-lrat",
+      "cnf_sha256": "378743f2fdbf3710e85a6a0f8d0bc2941b42db3ee936c9be35db50380bd05352",
+      "proof_sha256": "2bfca181ee1f41c87978e506a7fe00585bd97974fe6b8d31d18a41f47914dee0"
+    },
+    {
+      "name": "sanitizers-forward-0-3-drat",
+      "cnf_sha256": "b4eae063627faaba6a1687a1ce5a7fd79a64d8084dd5e9f07de4544ed5fdcc01",
+      "proof_sha256": "15e2f182a38e47d8f7aa6feb9528eec945a1bef308fd79c403e766c77e24e14f"
+    },
+    {
+      "name": "sanitizers-forward-0-3-lrat",
+      "cnf_sha256": "b4eae063627faaba6a1687a1ce5a7fd79a64d8084dd5e9f07de4544ed5fdcc01",
+      "proof_sha256": "4f8680189f7877e63c1459793d096150d4ed1acfe2d0e9445e5c2d6f030f71bf"
+    },
+    {
+      "name": "sanitizers-forward-1-0-drat",
+      "cnf_sha256": "295de9efd5cc0bf00e2885d48752b90e260eeeb2da2ff5c67b60ff7fce67dc00",
+      "proof_sha256": "c524abc79a472c4446e3263915cf618d481583b1c132a98c5f5daf40bf217da6"
+    },
+    {
+      "name": "sanitizers-forward-1-0-lrat",
+      "cnf_sha256": "295de9efd5cc0bf00e2885d48752b90e260eeeb2da2ff5c67b60ff7fce67dc00",
+      "proof_sha256": "08918cc1476bc5240a8235473dbdfdf0a3275ed46e93f7a8ffe1dcc76d7f5710"
+    },
+    {
+      "name": "sanitizers-forward-1-1-drat",
+      "cnf_sha256": "dfba3db74ebd10617db17a5253494077b11493416c3fd1070ee0604befe13f97",
+      "proof_sha256": "24f9f750b46a43fdef6b661be8fcd23d99a86afeaad1edf2a867ccc9696bc6ee"
+    },
+    {
+      "name": "sanitizers-forward-1-1-lrat",
+      "cnf_sha256": "dfba3db74ebd10617db17a5253494077b11493416c3fd1070ee0604befe13f97",
+      "proof_sha256": "27f03c7209381f29f151e9d76f4f3bd722fdd032ad8653a96a2d51fa9d95dce7"
+    },
+    {
+      "name": "sanitizers-forward-1-2-drat",
+      "cnf_sha256": "378743f2fdbf3710e85a6a0f8d0bc2941b42db3ee936c9be35db50380bd05352",
+      "proof_sha256": "dcfb04c87bfc85b002520d6387e4f007ae0b69f0aa9fa36264b26959a6fcc8a3"
+    },
+    {
+      "name": "sanitizers-forward-1-2-lrat",
+      "cnf_sha256": "378743f2fdbf3710e85a6a0f8d0bc2941b42db3ee936c9be35db50380bd05352",
+      "proof_sha256": "2bfca181ee1f41c87978e506a7fe00585bd97974fe6b8d31d18a41f47914dee0"
+    },
+    {
+      "name": "sanitizers-forward-1-3-drat",
+      "cnf_sha256": "b4eae063627faaba6a1687a1ce5a7fd79a64d8084dd5e9f07de4544ed5fdcc01",
+      "proof_sha256": "15e2f182a38e47d8f7aa6feb9528eec945a1bef308fd79c403e766c77e24e14f"
+    },
+    {
+      "name": "sanitizers-forward-1-3-lrat",
+      "cnf_sha256": "b4eae063627faaba6a1687a1ce5a7fd79a64d8084dd5e9f07de4544ed5fdcc01",
+      "proof_sha256": "4f8680189f7877e63c1459793d096150d4ed1acfe2d0e9445e5c2d6f030f71bf"
+    }
+  ],
+  "checked_UNSAT": 112,
+  "checked_SAT": 80,
+  "removed_bytes": 32348,
+  "scope": "Actual properly named canonical/explicit Substitute, disconnected GC with/without occurrence cache, both root signs and clause widths/multiplicity, and every retained C2 full-proof fixture; Release and unsuppressed Debug sanitizers. Original CNFs and unchanged independent checkers."
+}

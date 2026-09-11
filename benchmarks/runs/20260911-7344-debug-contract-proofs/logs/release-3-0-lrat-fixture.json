@@ -1,0 +1,13 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7344-debug-contract-proofs/release-proof-driver",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7344-debug-contract-proofs/release-3-0-lrat.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7344-debug-contract-proofs/release-3-0-lrat.proof",
+    "lrat",
+    "substitute",
+    "explicit"
+  ],
+  "returncode": 10,
+  "stdout": "s SATISFIABLE\nv 1 2 3 4 -5 -6 -7 -8 9 10 0\nc reached substitute 1\n",
+  "stderr": ""
+}
