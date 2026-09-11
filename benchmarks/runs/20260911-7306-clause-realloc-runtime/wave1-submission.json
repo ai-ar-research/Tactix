@@ -1,0 +1,36 @@
+{
+  "job_id": "1681245",
+  "accounting_since": "2026-09-11T07:17:01",
+  "tasks": [
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19
+  ],
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--array=10-19",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7306-clause-realloc-runtime/array.sbatch"
+  ],
+  "manifest_sha256": "078f15517e586f133d5f1f32763bff61a9fef0225a7480809c158ec803668beb",
+  "helper_sha256": "d4ce1bb8c6202aeec39df0745145ff4f2dffedda2093f195e42929a6c9097c60",
+  "preceding_records": {
+    "benchmarks/runs/20260911-7306-clause-realloc-runtime/results/000.json": "fe958f9de12ab6b03111d03f5639c4cbbc47200f1d4954532d6f002375b89731",
+    "benchmarks/runs/20260911-7306-clause-realloc-runtime/results/001.json": "90327f48ac5f2dadc5d0dc0dbde82166fcb80866c1409a39a55f8779230964fc",
+    "benchmarks/runs/20260911-7306-clause-realloc-runtime/results/002.json": "3f6f51ff306c7711195b1d00a90d59244d09d836142561fbc10c52ce58e84ca1",
+    "benchmarks/runs/20260911-7306-clause-realloc-runtime/results/003.json": "89a12cd2286f5e01f39711e4b0f604d31a20bfc966028e112d5affe698d75a93",
+    "benchmarks/runs/20260911-7306-clause-realloc-runtime/provisional/004.json": "a1b20bc7ea8ce857ad3d08c736cc5572eb6b5754d41cb79bea26677acad2d0f1",
+    "benchmarks/runs/20260911-7306-clause-realloc-runtime/provisional/005.json": "7aae671e1a102d4af1ca23e51b171fcfe5066b3fc60730b2246557f36f778ab2",
+    "benchmarks/runs/20260911-7306-clause-realloc-runtime/provisional/006.json": "57d7f4f96dae4e7733f9eee23da051844754702c4f70e1e82fe7562255d1c831",
+    "benchmarks/runs/20260911-7306-clause-realloc-runtime/provisional/007.json": "f4ee8cc1f97e16c5b8f014a6782fee6dbbe8556d9b571dc6a2d1d01d5cc2ff4d",
+    "benchmarks/runs/20260911-7306-clause-realloc-runtime/provisional/008.json": "4b954ee77f00f1b62a1cf00b0278310020deb9dd05b31b4136765157f0ed8c64",
+    "benchmarks/runs/20260911-7306-clause-realloc-runtime/provisional/009.json": "473ba8c0ae347d71f30f36180104f10301dc360b2811ddec51979d1f1361461b"
+  }
+}
