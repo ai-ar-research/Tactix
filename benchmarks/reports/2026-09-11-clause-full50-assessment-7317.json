@@ -1,0 +1,826 @@
+{
+  "totals": {
+    "candidate_seconds": 8124.477,
+    "parent_seconds": 8096.416,
+    "kissat_seconds": 7239.01
+  },
+  "native_ratio": 1.1223187977361544,
+  "aggregate_delta_seconds": 28.060999999999694,
+  "target_remaining_seconds": 813.0769,
+  "memory_changes": {
+    "lower": 32,
+    "equal": 0,
+    "higher": 18
+  },
+  "maximum_rss": {
+    "rank": 10,
+    "kib": 16016620,
+    "gib": 15.274639129638672
+  },
+  "above_16gib": [],
+  "per_rank_deltas": [
+    {
+      "rank": 1,
+      "shelved": false,
+      "rss_delta_kib": -220,
+      "native_rss_excess_kib": 33884,
+      "runtime_delta_seconds": 0.0,
+      "native_runtime_excess_seconds": -0.0020000000000000018
+    },
+    {
+      "rank": 2,
+      "shelved": false,
+      "rss_delta_kib": -212,
+      "native_rss_excess_kib": 33884,
+      "runtime_delta_seconds": 0.0,
+      "native_runtime_excess_seconds": -0.0010000000000000009
+    },
+    {
+      "rank": 3,
+      "shelved": false,
+      "rss_delta_kib": 1192,
+      "native_rss_excess_kib": 50784,
+      "runtime_delta_seconds": 0.0,
+      "native_runtime_excess_seconds": 0.09999999999999992
+    },
+    {
+      "rank": 4,
+      "shelved": false,
+      "rss_delta_kib": -1668,
+      "native_rss_excess_kib": 10744,
+      "runtime_delta_seconds": 0.04999999999999982,
+      "native_runtime_excess_seconds": 0.1479999999999997
+    },
+    {
+      "rank": 5,
+      "shelved": false,
+      "rss_delta_kib": -22616,
+      "native_rss_excess_kib": 256696,
+      "runtime_delta_seconds": -1.3939999999999984,
+      "native_runtime_excess_seconds": -0.7939999999999969
+    },
+    {
+      "rank": 6,
+      "shelved": false,
+      "rss_delta_kib": -1540,
+      "native_rss_excess_kib": 406836,
+      "runtime_delta_seconds": -1.0030000000000001,
+      "native_runtime_excess_seconds": 14.527999999999999
+    },
+    {
+      "rank": 7,
+      "shelved": false,
+      "rss_delta_kib": -1652,
+      "native_rss_excess_kib": 630276,
+      "runtime_delta_seconds": -1.0459999999999994,
+      "native_runtime_excess_seconds": 5.764000000000003
+    },
+    {
+      "rank": 8,
+      "shelved": false,
+      "rss_delta_kib": 772,
+      "native_rss_excess_kib": 779800,
+      "runtime_delta_seconds": -0.7069999999999936,
+      "native_runtime_excess_seconds": 7.461000000000006
+    },
+    {
+      "rank": 9,
+      "shelved": false,
+      "rss_delta_kib": -68904,
+      "native_rss_excess_kib": 1041088,
+      "runtime_delta_seconds": 0.12399999999999523,
+      "native_runtime_excess_seconds": 24.11
+    },
+    {
+      "rank": 10,
+      "shelved": false,
+      "rss_delta_kib": 3284,
+      "native_rss_excess_kib": 668316,
+      "runtime_delta_seconds": -2.9029999999999916,
+      "native_runtime_excess_seconds": 8.814000000000007
+    },
+    {
+      "rank": 11,
+      "shelved": false,
+      "rss_delta_kib": -608,
+      "native_rss_excess_kib": 35780,
+      "runtime_delta_seconds": 0.0010000000000000009,
+      "native_runtime_excess_seconds": 0.05000000000000002
+    },
+    {
+      "rank": 12,
+      "shelved": false,
+      "rss_delta_kib": 6512,
+      "native_rss_excess_kib": 616852,
+      "runtime_delta_seconds": -0.10300000000000065,
+      "native_runtime_excess_seconds": 2.05
+    },
+    {
+      "rank": 13,
+      "shelved": false,
+      "rss_delta_kib": 40528,
+      "native_rss_excess_kib": 902976,
+      "runtime_delta_seconds": -0.9040000000000106,
+      "native_runtime_excess_seconds": 7.3019999999999925
+    },
+    {
+      "rank": 14,
+      "shelved": false,
+      "rss_delta_kib": 19104,
+      "native_rss_excess_kib": 894884,
+      "runtime_delta_seconds": -0.6009999999999991,
+      "native_runtime_excess_seconds": 8.615000000000002
+    },
+    {
+      "rank": 15,
+      "shelved": false,
+      "rss_delta_kib": 4240,
+      "native_rss_excess_kib": 19988,
+      "runtime_delta_seconds": 0.20400000000000773,
+      "native_runtime_excess_seconds": -2.9949999999999903
+    },
+    {
+      "rank": 16,
+      "shelved": false,
+      "rss_delta_kib": -1144,
+      "native_rss_excess_kib": 34888,
+      "runtime_delta_seconds": -0.3229999999999933,
+      "native_runtime_excess_seconds": -2.1299999999999955
+    },
+    {
+      "rank": 17,
+      "shelved": false,
+      "rss_delta_kib": -3484,
+      "native_rss_excess_kib": 629084,
+      "runtime_delta_seconds": 0.1939999999999884,
+      "native_runtime_excess_seconds": -37.17100000000001
+    },
+    {
+      "rank": 18,
+      "shelved": false,
+      "rss_delta_kib": 10144,
+      "native_rss_excess_kib": 913168,
+      "runtime_delta_seconds": 1.0859999999999985,
+      "native_runtime_excess_seconds": -64.052
+    },
+    {
+      "rank": 19,
+      "shelved": false,
+      "rss_delta_kib": 4064,
+      "native_rss_excess_kib": 227580,
+      "runtime_delta_seconds": 1.6589999999999918,
+      "native_runtime_excess_seconds": 12.34299999999999
+    },
+    {
+      "rank": 20,
+      "shelved": false,
+      "rss_delta_kib": -11272,
+      "native_rss_excess_kib": 831540,
+      "runtime_delta_seconds": 0.09799999999999898,
+      "native_runtime_excess_seconds": -46.31700000000001
+    },
+    {
+      "rank": 21,
+      "shelved": true,
+      "rss_delta_kib": -134240,
+      "native_rss_excess_kib": 1128996,
+      "runtime_delta_seconds": 0.20400000000000773,
+      "native_runtime_excess_seconds": 149.847
+    },
+    {
+      "rank": 22,
+      "shelved": false,
+      "rss_delta_kib": 3536,
+      "native_rss_excess_kib": 702652,
+      "runtime_delta_seconds": 1.134999999999991,
+      "native_runtime_excess_seconds": 34.948999999999984
+    },
+    {
+      "rank": 23,
+      "shelved": false,
+      "rss_delta_kib": 884,
+      "native_rss_excess_kib": 52532,
+      "runtime_delta_seconds": 0.9020000000000152,
+      "native_runtime_excess_seconds": -2.975999999999999
+    },
+    {
+      "rank": 24,
+      "shelved": false,
+      "rss_delta_kib": 3812,
+      "native_rss_excess_kib": 114796,
+      "runtime_delta_seconds": 2.334000000000003,
+      "native_runtime_excess_seconds": 65.232
+    },
+    {
+      "rank": 25,
+      "shelved": false,
+      "rss_delta_kib": -16,
+      "native_rss_excess_kib": 1596060,
+      "runtime_delta_seconds": 6.390999999999991,
+      "native_runtime_excess_seconds": -21.959000000000003
+    },
+    {
+      "rank": 26,
+      "shelved": false,
+      "rss_delta_kib": 2856,
+      "native_rss_excess_kib": 43592,
+      "runtime_delta_seconds": -3.1210000000000093,
+      "native_runtime_excess_seconds": -9.268000000000029
+    },
+    {
+      "rank": 27,
+      "shelved": false,
+      "rss_delta_kib": -27204,
+      "native_rss_excess_kib": 223828,
+      "runtime_delta_seconds": 4.0849999999999795,
+      "native_runtime_excess_seconds": 76.50999999999999
+    },
+    {
+      "rank": 28,
+      "shelved": false,
+      "rss_delta_kib": -12416,
+      "native_rss_excess_kib": 612320,
+      "runtime_delta_seconds": -0.953000000000003,
+      "native_runtime_excess_seconds": -28.195999999999998
+    },
+    {
+      "rank": 29,
+      "shelved": false,
+      "rss_delta_kib": -4604,
+      "native_rss_excess_kib": 42972,
+      "runtime_delta_seconds": 2.822999999999979,
+      "native_runtime_excess_seconds": -0.46500000000003183
+    },
+    {
+      "rank": 30,
+      "shelved": false,
+      "rss_delta_kib": -10272,
+      "native_rss_excess_kib": 48184,
+      "runtime_delta_seconds": -1.5879999999999654,
+      "native_runtime_excess_seconds": -14.156999999999982
+    },
+    {
+      "rank": 31,
+      "shelved": false,
+      "rss_delta_kib": -78928,
+      "native_rss_excess_kib": 218240,
+      "runtime_delta_seconds": 3.2089999999999463,
+      "native_runtime_excess_seconds": 264.665
+    },
+    {
+      "rank": 32,
+      "shelved": false,
+      "rss_delta_kib": -27104,
+      "native_rss_excess_kib": 231540,
+      "runtime_delta_seconds": 0.8330000000000268,
+      "native_runtime_excess_seconds": 49.40199999999999
+    },
+    {
+      "rank": 33,
+      "shelved": false,
+      "rss_delta_kib": -10412,
+      "native_rss_excess_kib": 306080,
+      "runtime_delta_seconds": -1.2019999999999982,
+      "native_runtime_excess_seconds": 28.821000000000026
+    },
+    {
+      "rank": 34,
+      "shelved": false,
+      "rss_delta_kib": -4996,
+      "native_rss_excess_kib": 62992,
+      "runtime_delta_seconds": 0.7320000000000277,
+      "native_runtime_excess_seconds": 2.8940000000000055
+    },
+    {
+      "rank": 35,
+      "shelved": false,
+      "rss_delta_kib": -9704,
+      "native_rss_excess_kib": 234040,
+      "runtime_delta_seconds": 4.187999999999988,
+      "native_runtime_excess_seconds": 52.44999999999999
+    },
+    {
+      "rank": 36,
+      "shelved": false,
+      "rss_delta_kib": -428,
+      "native_rss_excess_kib": 33632,
+      "runtime_delta_seconds": 1.9720000000000368,
+      "native_runtime_excess_seconds": -4.94399999999996
+    },
+    {
+      "rank": 37,
+      "shelved": false,
+      "rss_delta_kib": 40256,
+      "native_rss_excess_kib": 304076,
+      "runtime_delta_seconds": 2.586999999999989,
+      "native_runtime_excess_seconds": 72.59899999999999
+    },
+    {
+      "rank": 38,
+      "shelved": false,
+      "rss_delta_kib": 1436,
+      "native_rss_excess_kib": 29284,
+      "runtime_delta_seconds": 1.0989999999999895,
+      "native_runtime_excess_seconds": -1.336999999999989
+    },
+    {
+      "rank": 39,
+      "shelved": false,
+      "rss_delta_kib": -912,
+      "native_rss_excess_kib": 178536,
+      "runtime_delta_seconds": 2.4750000000000227,
+      "native_runtime_excess_seconds": 40.198000000000036
+    },
+    {
+      "rank": 40,
+      "shelved": false,
+      "rss_delta_kib": 29656,
+      "native_rss_excess_kib": 161824,
+      "runtime_delta_seconds": 2.312000000000012,
+      "native_runtime_excess_seconds": 3.4490000000000123
+    },
+    {
+      "rank": 41,
+      "shelved": false,
+      "rss_delta_kib": -3688,
+      "native_rss_excess_kib": 92388,
+      "runtime_delta_seconds": 0.0009999999999994458,
+      "native_runtime_excess_seconds": 3.1549999999999994
+    },
+    {
+      "rank": 42,
+      "shelved": false,
+      "rss_delta_kib": 2408,
+      "native_rss_excess_kib": 468848,
+      "runtime_delta_seconds": 0.7560000000000002,
+      "native_runtime_excess_seconds": 43.123000000000005
+    },
+    {
+      "rank": 43,
+      "shelved": false,
+      "rss_delta_kib": -844,
+      "native_rss_excess_kib": 968796,
+      "runtime_delta_seconds": 0.7909999999999968,
+      "native_runtime_excess_seconds": 79.142
+    },
+    {
+      "rank": 44,
+      "shelved": false,
+      "rss_delta_kib": -2088,
+      "native_rss_excess_kib": 31576,
+      "runtime_delta_seconds": 0.4540000000000006,
+      "native_runtime_excess_seconds": 18.485
+    },
+    {
+      "rank": 45,
+      "shelved": false,
+      "rss_delta_kib": -1696,
+      "native_rss_excess_kib": 28640,
+      "runtime_delta_seconds": 0.25200000000000244,
+      "native_runtime_excess_seconds": 1.2540000000000049
+    },
+    {
+      "rank": 46,
+      "shelved": false,
+      "rss_delta_kib": -2408,
+      "native_rss_excess_kib": 43244,
+      "runtime_delta_seconds": 0.10699999999999932,
+      "native_runtime_excess_seconds": 3.310999999999993
+    },
+    {
+      "rank": 47,
+      "shelved": false,
+      "rss_delta_kib": -23596,
+      "native_rss_excess_kib": 903976,
+      "runtime_delta_seconds": 0.18700000000001182,
+      "native_runtime_excess_seconds": 42.30799999999999
+    },
+    {
+      "rank": 48,
+      "shelved": false,
+      "rss_delta_kib": -2260,
+      "native_rss_excess_kib": 380112,
+      "runtime_delta_seconds": 0.0009999999999994458,
+      "native_runtime_excess_seconds": 1.2009999999999987
+    },
+    {
+      "rank": 49,
+      "shelved": false,
+      "rss_delta_kib": -1284,
+      "native_rss_excess_kib": 11292,
+      "runtime_delta_seconds": 0.25099999999999767,
+      "native_runtime_excess_seconds": 0.09799999999999898
+    },
+    {
+      "rank": 50,
+      "shelved": false,
+      "rss_delta_kib": 8296,
+      "native_rss_excess_kib": 32556,
+      "runtime_delta_seconds": 0.41199999999999903,
+      "native_runtime_excess_seconds": -2.1469999999999985
+    }
+  ],
+  "memory_debug_priority": [
+    {
+      "rank": 25,
+      "shelved": false,
+      "rss_delta_kib": -16,
+      "native_rss_excess_kib": 1596060,
+      "runtime_delta_seconds": 6.390999999999991,
+      "native_runtime_excess_seconds": -21.959000000000003
+    },
+    {
+      "rank": 9,
+      "shelved": false,
+      "rss_delta_kib": -68904,
+      "native_rss_excess_kib": 1041088,
+      "runtime_delta_seconds": 0.12399999999999523,
+      "native_runtime_excess_seconds": 24.11
+    },
+    {
+      "rank": 43,
+      "shelved": false,
+      "rss_delta_kib": -844,
+      "native_rss_excess_kib": 968796,
+      "runtime_delta_seconds": 0.7909999999999968,
+      "native_runtime_excess_seconds": 79.142
+    },
+    {
+      "rank": 18,
+      "shelved": false,
+      "rss_delta_kib": 10144,
+      "native_rss_excess_kib": 913168,
+      "runtime_delta_seconds": 1.0859999999999985,
+      "native_runtime_excess_seconds": -64.052
+    },
+    {
+      "rank": 47,
+      "shelved": false,
+      "rss_delta_kib": -23596,
+      "native_rss_excess_kib": 903976,
+      "runtime_delta_seconds": 0.18700000000001182,
+      "native_runtime_excess_seconds": 42.30799999999999
+    },
+    {
+      "rank": 13,
+      "shelved": false,
+      "rss_delta_kib": 40528,
+      "native_rss_excess_kib": 902976,
+      "runtime_delta_seconds": -0.9040000000000106,
+      "native_runtime_excess_seconds": 7.3019999999999925
+    },
+    {
+      "rank": 14,
+      "shelved": false,
+      "rss_delta_kib": 19104,
+      "native_rss_excess_kib": 894884,
+      "runtime_delta_seconds": -0.6009999999999991,
+      "native_runtime_excess_seconds": 8.615000000000002
+    },
+    {
+      "rank": 20,
+      "shelved": false,
+      "rss_delta_kib": -11272,
+      "native_rss_excess_kib": 831540,
+      "runtime_delta_seconds": 0.09799999999999898,
+      "native_runtime_excess_seconds": -46.31700000000001
+    },
+    {
+      "rank": 8,
+      "shelved": false,
+      "rss_delta_kib": 772,
+      "native_rss_excess_kib": 779800,
+      "runtime_delta_seconds": -0.7069999999999936,
+      "native_runtime_excess_seconds": 7.461000000000006
+    },
+    {
+      "rank": 22,
+      "shelved": false,
+      "rss_delta_kib": 3536,
+      "native_rss_excess_kib": 702652,
+      "runtime_delta_seconds": 1.134999999999991,
+      "native_runtime_excess_seconds": 34.948999999999984
+    }
+  ],
+  "runtime_debug_priority": [
+    {
+      "rank": 31,
+      "shelved": false,
+      "rss_delta_kib": -78928,
+      "native_rss_excess_kib": 218240,
+      "runtime_delta_seconds": 3.2089999999999463,
+      "native_runtime_excess_seconds": 264.665
+    },
+    {
+      "rank": 43,
+      "shelved": false,
+      "rss_delta_kib": -844,
+      "native_rss_excess_kib": 968796,
+      "runtime_delta_seconds": 0.7909999999999968,
+      "native_runtime_excess_seconds": 79.142
+    },
+    {
+      "rank": 27,
+      "shelved": false,
+      "rss_delta_kib": -27204,
+      "native_rss_excess_kib": 223828,
+      "runtime_delta_seconds": 4.0849999999999795,
+      "native_runtime_excess_seconds": 76.50999999999999
+    },
+    {
+      "rank": 37,
+      "shelved": false,
+      "rss_delta_kib": 40256,
+      "native_rss_excess_kib": 304076,
+      "runtime_delta_seconds": 2.586999999999989,
+      "native_runtime_excess_seconds": 72.59899999999999
+    },
+    {
+      "rank": 24,
+      "shelved": false,
+      "rss_delta_kib": 3812,
+      "native_rss_excess_kib": 114796,
+      "runtime_delta_seconds": 2.334000000000003,
+      "native_runtime_excess_seconds": 65.232
+    },
+    {
+      "rank": 35,
+      "shelved": false,
+      "rss_delta_kib": -9704,
+      "native_rss_excess_kib": 234040,
+      "runtime_delta_seconds": 4.187999999999988,
+      "native_runtime_excess_seconds": 52.44999999999999
+    },
+    {
+      "rank": 32,
+      "shelved": false,
+      "rss_delta_kib": -27104,
+      "native_rss_excess_kib": 231540,
+      "runtime_delta_seconds": 0.8330000000000268,
+      "native_runtime_excess_seconds": 49.40199999999999
+    },
+    {
+      "rank": 42,
+      "shelved": false,
+      "rss_delta_kib": 2408,
+      "native_rss_excess_kib": 468848,
+      "runtime_delta_seconds": 0.7560000000000002,
+      "native_runtime_excess_seconds": 43.123000000000005
+    },
+    {
+      "rank": 47,
+      "shelved": false,
+      "rss_delta_kib": -23596,
+      "native_rss_excess_kib": 903976,
+      "runtime_delta_seconds": 0.18700000000001182,
+      "native_runtime_excess_seconds": 42.30799999999999
+    },
+    {
+      "rank": 39,
+      "shelved": false,
+      "rss_delta_kib": -912,
+      "native_rss_excess_kib": 178536,
+      "runtime_delta_seconds": 2.4750000000000227,
+      "native_runtime_excess_seconds": 40.198000000000036
+    }
+  ],
+  "largest_memory_regressions": [
+    {
+      "rank": 13,
+      "shelved": false,
+      "rss_delta_kib": 40528,
+      "native_rss_excess_kib": 902976,
+      "runtime_delta_seconds": -0.9040000000000106,
+      "native_runtime_excess_seconds": 7.3019999999999925
+    },
+    {
+      "rank": 37,
+      "shelved": false,
+      "rss_delta_kib": 40256,
+      "native_rss_excess_kib": 304076,
+      "runtime_delta_seconds": 2.586999999999989,
+      "native_runtime_excess_seconds": 72.59899999999999
+    },
+    {
+      "rank": 40,
+      "shelved": false,
+      "rss_delta_kib": 29656,
+      "native_rss_excess_kib": 161824,
+      "runtime_delta_seconds": 2.312000000000012,
+      "native_runtime_excess_seconds": 3.4490000000000123
+    },
+    {
+      "rank": 14,
+      "shelved": false,
+      "rss_delta_kib": 19104,
+      "native_rss_excess_kib": 894884,
+      "runtime_delta_seconds": -0.6009999999999991,
+      "native_runtime_excess_seconds": 8.615000000000002
+    },
+    {
+      "rank": 18,
+      "shelved": false,
+      "rss_delta_kib": 10144,
+      "native_rss_excess_kib": 913168,
+      "runtime_delta_seconds": 1.0859999999999985,
+      "native_runtime_excess_seconds": -64.052
+    },
+    {
+      "rank": 50,
+      "shelved": false,
+      "rss_delta_kib": 8296,
+      "native_rss_excess_kib": 32556,
+      "runtime_delta_seconds": 0.41199999999999903,
+      "native_runtime_excess_seconds": -2.1469999999999985
+    },
+    {
+      "rank": 12,
+      "shelved": false,
+      "rss_delta_kib": 6512,
+      "native_rss_excess_kib": 616852,
+      "runtime_delta_seconds": -0.10300000000000065,
+      "native_runtime_excess_seconds": 2.05
+    },
+    {
+      "rank": 15,
+      "shelved": false,
+      "rss_delta_kib": 4240,
+      "native_rss_excess_kib": 19988,
+      "runtime_delta_seconds": 0.20400000000000773,
+      "native_runtime_excess_seconds": -2.9949999999999903
+    },
+    {
+      "rank": 19,
+      "shelved": false,
+      "rss_delta_kib": 4064,
+      "native_rss_excess_kib": 227580,
+      "runtime_delta_seconds": 1.6589999999999918,
+      "native_runtime_excess_seconds": 12.34299999999999
+    },
+    {
+      "rank": 24,
+      "shelved": false,
+      "rss_delta_kib": 3812,
+      "native_rss_excess_kib": 114796,
+      "runtime_delta_seconds": 2.334000000000003,
+      "native_runtime_excess_seconds": 65.232
+    }
+  ],
+  "hashes": {
+    "benchmarks/reports/2026-09-11-clause-realloc-full50-7312/summary.json": "8b3d5eb7909e2580851db60098f8c960eb2817d27dc1e5e231437987ebe76f58",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/manifest.json": "a8d8b6e3e9a9f3f3978e5419554704ca1bda8bb38bb8747032f54efbf6dd6a5b",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/launch.json": "7b996391a2e1e220c60608376084db38da8cb42cac609ec73a63acd6118c1587",
+    "benchmarks/runs/20260911-7283-realloc-ranks1-50/manifest.json": "2f730cfab8d58dcc266eed41c1c609f1f0fdfaf567ca81326320c7a8c65e66ac",
+    "benchmarks/probes/scratch/occurrence-fingerprint-7256.py": "4991496dc7860e0890504a68a5dff2078036790f3a88c3ed9c51fc24a10f8bea",
+    "benchmarks/probes/scratch/validate-clause-full50-7312.py": "58e9943de83e508cab069fff690ed32e63bf7559c5bd958b3b78a406f0077e05",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/pins/modelcheck.py": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/pins/drat-trim": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/pins/runtime_task.py": "9c2e2fc471a3a4b55e4673517107dd5d9bad209020d80bd6f77e37d14827c8e8",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/pins/tactix": "fc1a4ca2634c4312b22dc844a1fd7ce5897bae34481f74b362a1220fa1519c54",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/pins/checkmodel": "5fde6bbc7be305f6b6166ef75dc4788e2cf40180317ab1ec9a38a3d6071676cf",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/pins/candidate-source.patch": "863a1789507f8442b2e5ed8129fdc98a7889ff7c2d6f4e8a63345bb1252a5ac0",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/matrix.tsv": "22b9151fe579dd71ab08ccc6f2d78901c7e5e773d520c6951c363eae0d6ac004",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/array.sbatch": "64f900d11f1169e742588293da5bc391a7d36bb08951dcf452ec71f0ab5b06ea",
+    "benchmarks/baselines/rank1-50-kissat-12cpu-v1/manifest.json": "5f7865e46af2b9ed0d1899ce6e450bfb9b3575801c50183e059d0e4326f5a1e0",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/provisional/000.json": "885524cde5750ea125da9cad4fb1d39a4e22554d55f8b0fa7c107f2bb99e7231",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/provisional/001.json": "18e438237f8c884684fdbbe0a8f963dabf295ba161ba07c49007bf0b54a96135",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/provisional/002.json": "f17e72cff62bbbe05c6bdb41e6d4a07300b0350911e928f1f9eeaaaebf379d91",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/provisional/003.json": "2459fd8e546d0ccfc68223902de419792f5f1818c44051d5c90481518e51a7fc",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/provisional/004.json": "dfee229db2f4b4643fab8ffe2c13124d94669bb754c188cee4cd660de3096deb",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/provisional/005.json": "aa922c4ffd45764dba727ffdd45d00052ac2fcc9302bb450559480c95c7f4ac1",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/provisional/006.json": "d781e9a5bd2390bf8773ef1fbe3b5c6136842eb23246cfdfd3f6844fc2d2dcc8",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/provisional/007.json": "bc9a1df09918219ccec39cc3fadabbe9de2cf30792845e0186861edac7557c26",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/provisional/008.json": "7bbeed764cbdec9e029d0090256710a27ad3ec8ba03037aca52d7238736b211d",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/provisional/009.json": "c577320f6446dd3c29c4b1cc914cc62273dfa0accffc13cd2a72dd0f13e59c5d",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/provisional/010.json": "a6fd9e8ad2f9c9255603f584a2083e871659b0232530d077c202fd70afedfc50",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/provisional/011.json": "0d105a9e6074fc3919b76f96ede9a1c36ecaffaa07d328a8cca3cca212e5c3cb",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/provisional/012.json": "86307aa6fcb3622887987791309ae7b8e20b20e7dcca35bb4bcfceaeb13d3a39",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/provisional/013.json": "8114f2750e0adc22907e169dc9dde1f29cf91339760cdadfa2b47dbde19acdce",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/provisional/014.json": "f97ae1550d60c4dbeb7d2ca8f88d594cecb4821d0b112a242856a405f5194613",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/provisional/015.json": "3c4e2745164965013fc2924a88d876efc795892593c272afd9fd879190324336",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/provisional/016.json": "2eac63a13cc58fdaaf023f6fd45f93eeb8618f59b7bda36c90ed1657ab1a0dc7",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/provisional/017.json": "11726df2730ef802a1621a9486f11cbb5ca0440b377c7eea6b9eea26977ad09f",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/provisional/018.json": "bb7e55167837d2cd76251b6fda20a5b0c79831a5b7bc78e0d435798e6d0ac925",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/provisional/019.json": "e707784791038e15c2643393ba0c0bf0379925b0a46350f740713e102556f0bb",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/provisional/020.json": "786fb5df07d529fd2929116d6f1bf15c6549aad776f193ed04a914b6f2b474bd",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/provisional/021.json": "dd0273ef938ac77fc328687455ffa1a5d393c98c0214c003734f0721c32cc087",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/provisional/022.json": "a3c5700c1148d5fa038290bd18be5f328597fe31ff558f276ede9e24788a1362",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/provisional/023.json": "462d9a48358a446513a20394b808176a27169b1952f5f692af956491c6a37371",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/provisional/024.json": "7f045590a895834a9e67eb5e951fae470be23d98371c7e6b58aa26e8ce7a52f3",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/provisional/025.json": "bb602129e920bb6ea5b868ac9593be4419b34ee49a55789307eb4c758b430886",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/provisional/026.json": "4d5e7d4cb1015c170d527b753544e8b732ffd462007513eff732a312aaeec5d2",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/provisional/027.json": "736aaf2d8d07245959bc212a1e4d80a859ad844e603284a35a4e0c32ecedc53a",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/provisional/028.json": "a24f0f17f7ce71120fc0851f86b1188eee08e2c17164a0dd48ddcb1490efab48",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/provisional/029.json": "05ec3412bbdd5d7bbd3a209feee0945dbad5fc9b84e056d54981420fe499c89d",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/provisional/030.json": "1ae0b7c170d102f99c4618f72b6e2808c5194701fc5c27edfb4bcc5429777e75",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/provisional/031.json": "4ddb37d32ba8322feb43468d9ade0ac53b0bd8756c4f0d083cffdb2d8c6b4efb",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/provisional/032.json": "a9caf2c558a9e92795d7458efbffab713461457fcc08cc200f7657f6da267ca3",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/provisional/033.json": "4b5786457b6b30ef4f46f759bed3ec0fd6b11c656b0f7f886ed6c689cb86df9a",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/provisional/034.json": "f64995236120d4dcb871995cc1021ec61df37919b69fa707cfe14fbe4d53078d",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/provisional/035.json": "6c25f2ad8ae3cc584690482963930d95d658e813a615ebc4c75412b76f01bf9a",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/provisional/036.json": "cf056afa17ce58086fd115bfc3bede11f4521401116f89a0670df5e41e10e662",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/provisional/037.json": "21ed4699255dede8baf9b45c8119147058704fc48bf305a1248eeb32d155f572",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/provisional/038.json": "658586e5121d1c858c97bb4145b3cbc710f4ff9252d2964050ff11aa000da4fc",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/provisional/039.json": "c370c4059e2f85c918a0191025d3e6396a0bd35b4b82d19585540833ec1acfd3",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/provisional/040.json": "5866f8bc742fd079e5fca13d0d89e0699ac35ae1060e5fb7a7bf7c2738c6564a",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/provisional/041.json": "a488b7a01d708e311cf3fb98c530848f1f432456e56d85a8b2b4702ca7d456e8",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/provisional/042.json": "82ef89862df45893bd097fa3a168acf584bce5f7ff90653238658c7381c86055",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/provisional/043.json": "aeb83146842a0feb6fb796734c4617f3b51de31ae6f6e10411c20f921b29f527",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/provisional/044.json": "155ab3aead5e2b7bd3f6871feb5d852f8c152265f7c05806e7c29bc33751e4fb",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/provisional/045.json": "f7dd34b4b8c18c92e6497829b7ac06b12310d060aa7f1f484152f4f0a43436aa",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/provisional/046.json": "b43cd5ab68a622d8c3354f13c058ca3ed9a68c4ebb589c8a0bf948dc3beb11fe",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/provisional/047.json": "e553ce71ba996c408e70959aef37dfb009e21c434e55cbe5bc563b3d191e470e",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/provisional/048.json": "3bdbc735237e70400668a858f1c62be3cafe85824d5b337ff59c4499a86c30fd",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/provisional/049.json": "a46dc0dd6430e2f6e0a036caabe9a6f1765813d09c26b7c66aae7c3f6b3de048",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/results/000.json": "2afb9027a7ac4215cfb0988cb5d77052aee587950c70d26affcc3c49b406ab84",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/results/001.json": "c6eef24092c5224bb9726d6ef7c86796223de9dd998da1329957485549495884",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/results/002.json": "84cb8fa01c675c49c2454a31aac8542d3413bc7238a4c38d856b0876c4c60072",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/results/003.json": "4270a1bc5e86107c2e6997a777fe8ac545e0c9f9d652decc544bd50e14762148",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/results/004.json": "d6177095a8722728772fd0d7014d8421590ffd3dfe103f28bccddbb6313b6b85",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/results/005.json": "2673213dbe955d4bd15d07bdf555c13de9633492eabf583f83c3ce9910f4357e",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/results/006.json": "d983622ab4809d9a812c2e8d9576ca2ca952c89a83907e1bc13d446c0780d1c3",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/results/007.json": "6492e9e1409fc35bf2b4040605d806e1f21766d4482c383f9fa59990be4e5c05",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/results/008.json": "4321502f8e06484294bdbd5a5a7e40ca2fc51b7d40b433e2ac442cfe9fd39e31",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/results/009.json": "c378640b5f684edcd6ea752d6878a84e0ae97bdd0a96d5c44204424f9b561a2e",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/results/010.json": "eef3444c97782565e1ea7b96defebfea4912137ad6d99276e5cc8ab8609e1fba",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/results/011.json": "b01a8c64d1af5f87fee7cd3431eb6d5858bc4d9bbb7239b92ab2d09f913875c9",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/results/012.json": "381fd3717cc9bb9ae0a6459d7c852fe3f06b0b69197a996bf3619f25ed0571f7",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/results/013.json": "568db82765deba37bc909620d43b1d9be697d6912b876dff1323d9316435b281",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/results/014.json": "941b422187a3024b7bc88a26587b74c4be654323ccc75c8f6136ebe9d1d3741a",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/results/015.json": "8963dc3964bb14dedf805083fa86c916fc4360cb3eca9c7e243933d8f083e050",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/results/016.json": "09d0348ad738442d4f371a41855a05a378a2112818523feb0f8e35c67282f4d9",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/results/018.json": "264a038b5535185ff221c6d96a793b80c3e851d15a2e872b5f54498bd4268225",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/results/019.json": "281d7906058b7120d99e847b1f229c48c96558110a7ea7ed772c3085a7989d07",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/results/020.json": "91131571a46b2b5cd85b8f51c483c0a6233242d520b676eb097304ce626fe758",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/results/022.json": "fb3b4d009c704e9d1e4176fe256ad464ce43cbe3c524708fcb8c9ea1c95193c0",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/results/023.json": "0ce93e56074427a64133a5cb28d60a77865661ec9d31e5f6bc3b0681ea75d22e",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/results/024.json": "c90d7325d05e7fc4e782718568e932fc51be8c46dc6d47686b3d6923fdade4a4",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/results/025.json": "01a00300533f52fc06ba160f229cb607081e369ff1791e92f46a0aa44890490e",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/results/027.json": "21c6d70d5ad271688dc37795b31521ea0140aa280f041f29a8650583d73bd013",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/results/028.json": "75aa40ab7be517b0c2cd2d0ce9de759fd61a2cfe74ba540921530e1115324610",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/results/029.json": "93f9462d4a78c07981cd1b93ed00d1d4791ce57190a836eb2e5730073f310181",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/results/033.json": "b2e9f6607367be3372194a2ea5439a6a75d0f2f879c1338df1bde7596316ff90",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/results/035.json": "3343773a435f4b620a872fe228e9c1566486ed81bf77b520d56289141fb90a4e",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/results/040.json": "5f1021bec85904ba4b7a1e85f886b130ce57f0ab848831e0c362cac4b448abd2",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/results/043.json": "bc65aa00fd8b58d90ad1702fef441fb43ec6468f6b5f6a44ab4d7b7eadc633f4",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/results/044.json": "93dcb712c210320b19974e7f7866ddd3cedd4a266ea58f516dbb4889c7ab6808",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/results/045.json": "85536d6fb8da9f528fa24c99a867d3a912f03fe125e5fa4c96e876017312edc8",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/results/047.json": "d0be216403006c2690d260559093abead267290391f201a652f0f467b42ebf5b",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/results/048.json": "ef46527af05b6035943847eceb5d1af45c3781f632862f22157846b80423d3b8",
+    "benchmarks/runs/20260911-7312-clause-realloc-ranks1-50/results/049.json": "be46785b3d8754fc9378686344677d78ffe582d9821851fde3850e43d1495894",
+    "benchmarks/runs/20260911-7283-realloc-ranks1-50/results/000.json": "3f6ffdd51646273cdd5ecff6762b05d835d11dad8d28b3cbc870ae1b90b6a245",
+    "benchmarks/runs/20260911-7283-realloc-ranks1-50/results/001.json": "f528e353b0cae8268fa18bb3ca15dcccb59858070e11a035be311b165a49c3df",
+    "benchmarks/runs/20260911-7283-realloc-ranks1-50/results/002.json": "b1de42aba0c84a94589c49bcebecac5bec95af0d8d0c26bdf5713c86e0ed9966",
+    "benchmarks/runs/20260911-7283-realloc-ranks1-50/results/003.json": "f1d693f4d563b527044bf779101f372351e8d4eac0abee419464a16aa30f5494",
+    "benchmarks/runs/20260911-7283-realloc-ranks1-50/results/004.json": "e971521ba28f6a814fa68f2380113946135f3f0b5c4e479f16937d9e24ed8d7e",
+    "benchmarks/runs/20260911-7283-realloc-ranks1-50/results/005.json": "28a490ae82dde227a675a913d2be091439c1345560aca7bb4c4ebcf56eff47cc",
+    "benchmarks/runs/20260911-7283-realloc-ranks1-50/results/006.json": "eb30cf8ca8f5542e0485987cb9699d2120edef9b4dfb4db15d0e984052a898ac",
+    "benchmarks/runs/20260911-7283-realloc-ranks1-50/results/007.json": "7e2e83465c98c10b609c0218ae513b699520a650f7352de8400028268c106c35",
+    "benchmarks/runs/20260911-7283-realloc-ranks1-50/results/008.json": "78de637214467cf21e955c8f565dba0717c134365bbe55729b598e2dd64ac1d4",
+    "benchmarks/runs/20260911-7283-realloc-ranks1-50/results/009.json": "f2bd7352570c7c6fbf93a0f617582714c11bc35607d0c0c815b57e3b3425bfaf",
+    "benchmarks/runs/20260911-7283-realloc-ranks1-50/results/010.json": "a94f62a9c19483ab080dd7813961c40ea4ed8a5eba2cb3a5855376f074b42042",
+    "benchmarks/runs/20260911-7283-realloc-ranks1-50/results/011.json": "efa0f095eb895adf969881bd7ac6951aea1f25ca6c6b51acd1c0e0a089e72315",
+    "benchmarks/runs/20260911-7283-realloc-ranks1-50/results/012.json": "31836138fb38960f8e4a98f5d916fbdd2d8637fa56afcb795cc4d111f1b8444b",
+    "benchmarks/runs/20260911-7283-realloc-ranks1-50/results/013.json": "7320abfb772d20b4b42d642f410b9c3852543ba46d23a258fc3e04b762f21445",
+    "benchmarks/runs/20260911-7283-realloc-ranks1-50/results/014.json": "8b60d37ceb7550382bc6919e3dde100c0f43681cb629b203ec748f8e66b1532f",
+    "benchmarks/runs/20260911-7283-realloc-ranks1-50/results/015.json": "3035bc76d2e8d673a7eeb023de81973cc3046226d79617a08a7b453e41b09742",
+    "benchmarks/runs/20260911-7283-realloc-ranks1-50/results/016.json": "4b29d481bb843d111d131ae95b1a928066b55142b98543101cd4aad8ed574030",
+    "benchmarks/runs/20260911-7283-realloc-ranks1-50/results/017.json": "b036da794bb10ad6417142755f67f834889494b04fac949b15b6bf46224539a7",
+    "benchmarks/runs/20260911-7283-realloc-ranks1-50/results/018.json": "c4bd07e8386571584e8a9fc090468b17f4bd6fffce0d07b70bc9cdad8d0c76c8",
+    "benchmarks/runs/20260911-7283-realloc-ranks1-50/results/019.json": "2bc25007c859e69181228279facf662756a8eab9c3b28717b33c39179da67fc5",
+    "benchmarks/runs/20260911-7283-realloc-ranks1-50/results/020.json": "dfeb4fa6b2a0210efc2510b743557344f549a130bbfcf96a10c9bdbf761a2ec3",
+    "benchmarks/runs/20260911-7283-realloc-ranks1-50/results/021.json": "41080376252c3e35461c83da59f9852a3cb5ec51fe6b5787a60190cd8fb496ee",
+    "benchmarks/runs/20260911-7283-realloc-ranks1-50/results/022.json": "ac1110f5a863712999961234c61dec6f41022995868e6c10b19426b436996f35",
+    "benchmarks/runs/20260911-7283-realloc-ranks1-50/results/023.json": "597be8f39a42d510815e18d01ca9d6907ba4fdaf7b530607f9a7104f3bede689",
+    "benchmarks/runs/20260911-7283-realloc-ranks1-50/results/024.json": "bfd9521aeca30685700aa20a2d0bdf8171dfdb198ee660a4d9428357a5826f5c",
+    "benchmarks/runs/20260911-7283-realloc-ranks1-50/results/025.json": "ef2754c35e9618f6b52bd2b74e44de413ef2d8be188e1013a4f1540dc6d93f6c",
+    "benchmarks/runs/20260911-7283-realloc-ranks1-50/results/026.json": "5753707cd33abcc0894f15416e5c59e732c6a7977eb2374630de365c7caaca7a",
+    "benchmarks/runs/20260911-7283-realloc-ranks1-50/results/027.json": "eb472227efa8d54df473b84cd2156603fdef05917bc36c16ba61b2ec1d9f48c5",
+    "benchmarks/runs/20260911-7283-realloc-ranks1-50/results/028.json": "d841c22f0e4fa0bc3c3ece662940cb02e34177730bb400ca155ebffde94fb38a",
+    "benchmarks/runs/20260911-7283-realloc-ranks1-50/results/029.json": "a8a1cabe09df36dbdc28733cd354d1590221f3a61468b09c724888732a434346",
+    "benchmarks/runs/20260911-7283-realloc-ranks1-50/results/030.json": "19cf30589156df5fa713c9d6d19ec4d2792342b4b6a53c356e65ba76d117b4f8",
+    "benchmarks/runs/20260911-7283-realloc-ranks1-50/results/031.json": "653c1d946fbabb8f113dfe35678e7e10c002f4991ba487e9f982d83c0b1fd3e7",
+    "benchmarks/runs/20260911-7283-realloc-ranks1-50/results/032.json": "c019a5ede8394437d969251b26b044555aac74d7e9505832267534fa1599dd71",
+    "benchmarks/runs/20260911-7283-realloc-ranks1-50/results/033.json": "0afdcd6868dfa69dfb37dbf5013e5370ebddaa13740130bea07cb4ce66cf7f08",
+    "benchmarks/runs/20260911-7283-realloc-ranks1-50/results/034.json": "380320f32ffa2ac286c87560bf95b8b56e6e711d04323cd7fce489ab41193ee5",
+    "benchmarks/runs/20260911-7283-realloc-ranks1-50/results/035.json": "899df2fa5928681b919a07b4736d0ddd539441b6f2e798d5f401bdfaba45e4ff",
+    "benchmarks/runs/20260911-7283-realloc-ranks1-50/results/036.json": "cd59f7ab8a4a21d567bed3394bea6f4abd2dc8c51bb81e56968f27f6caaebb32",
+    "benchmarks/runs/20260911-7283-realloc-ranks1-50/results/037.json": "5a7c6fcf53c04448a9eb6b68c49489e388bdedd8b42eac24888dcfbf897cd881",
+    "benchmarks/runs/20260911-7283-realloc-ranks1-50/results/038.json": "044b2fa3378d6aa0f062cd31e3d9ba48253ab463ca3c2f3756dbb79284c30470",
+    "benchmarks/runs/20260911-7283-realloc-ranks1-50/results/039.json": "d45ac81713b43dd26c38441bd0c94c60858304730f02acb8ef125644dda78dc1",
+    "benchmarks/runs/20260911-7283-realloc-ranks1-50/results/040.json": "72b23a254064cf766912ca8c043d425acb5236288078f070b6f66ce8a4836d24",
+    "benchmarks/runs/20260911-7283-realloc-ranks1-50/results/041.json": "fc9d2ceda9d3787385bb13a28cd0f0f641542694b589697f50adede670423a5d",
+    "benchmarks/runs/20260911-7283-realloc-ranks1-50/provisional/042.json": "3517f94a8083225008688d3f2ba61f946b95fe800bc1aa373307854487f7ad40",
+    "benchmarks/runs/20260911-7283-realloc-ranks1-50/results/043.json": "3f2c663eb8c295dfd2edc9665e5b4ec354ebfbafcccc22ac15b13b18f89573b9",
+    "benchmarks/runs/20260911-7283-realloc-ranks1-50/results/044.json": "7cdd60a97db9de520429ec91e1fd3929c0207c9e56713e164411e8f6ce9158a6",
+    "benchmarks/runs/20260911-7283-realloc-ranks1-50/results/045.json": "e1edb2b1530b5fa1e1978d7d7df0bd8d9b4dbb4ddac689c11f890724ce466a1c",
+    "benchmarks/runs/20260911-7283-realloc-ranks1-50/results/046.json": "329293286ac94b74ca48904c9e2d2121d87eab2287a3810cb54a9846124e88bd",
+    "benchmarks/runs/20260911-7283-realloc-ranks1-50/results/047.json": "2909b7c0b3c986740550d418970a92ce27c2ee0993d313ce718f45e50593141e",
+    "benchmarks/runs/20260911-7283-realloc-ranks1-50/results/048.json": "7f5ebe6a437408299a94c6d8ce0c5701387c77adf74d17586c1eed75c0092ec5",
+    "benchmarks/runs/20260911-7283-realloc-ranks1-50/results/049.json": "0b7cbcf0d1b9750e1804ce6a44cf757f4312dc16e09712ec6069c5ddab5e6249",
+    "benchmarks/probes/scratch/assess-clause-full50-7317.py": "825d79cb66c73f7373c25ee1d17ebb99cc4303ef0f2e2d1db595e134f41cb5b8",
+    "benchmarks/reports/2026-09-11-clause-realloc-full50-7312/comparison.tsv": "29fc13d411ba88babfd3fba1c9261a7cb32925d553acd610da5b3373f9303f4d"
+  },
+  "decision": "Mixed memory result, no runtime gain: preserve all50 and every regression. Rank25 remains the largest unshelved absolute memory excess;7315 compares exact current/native memory externally. Rank31 remains the largest unshelved runtime gap; phase-aligned work decomposition is required before unit-cost attribution. No production promotion or tiny-peak-chasing change.",
+  "limitation": "One cross-window full-set transfer, not causal speedup attribution.7309 owns repeated paired timing and Rank25 absolute-spread failure. Independent checks/zero residue, current-source fuzz and consolidation remain open. Rank21 remains scored; only debugging priority shelves it."
+}
