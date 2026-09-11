@@ -1,0 +1,13 @@
+{
+  "audit": "benchmarks/reports/2026-09-11-memory-only-audit-7290.json",
+  "commit": "4b987356",
+  "job": "1681163",
+  "excluded_live_paths": [
+    "benchmarks/runs/20260911-7286-memory-only-rank31/logs/000.slot-memory.tsv",
+    "benchmarks/runs/20260911-7286-memory-only-rank31/logs/001.slot-memory.tsv"
+  ],
+  "issue": "The audit's generic new-campaign memory-log loop included two actively growing logs before either7286 solver outcome had published. Their audit hashes and initial Git snapshots are partial observations, not immutable final trace evidence. They must not be required to retain those hashes or used for memory attribution.",
+  "correction": "Remove only these two paths from Git tracking while preserving their files and the running jobs. Future audits skip these historical live-log hashes and own completed logs only after a published solver record binds the final path, byte count and SHA256. The strict7286 reader already enforces this final-record binding. Historical audit and commit remain unchanged.",
+  "impact": "No7290 conclusion depends on these partial logs:7286 had zero published solver outcomes and no RSS attribution was claimed. All full50 tables, other immutable evidence, source/binary validation and job resources remain unchanged.",
+  "removed_file_bytes": 0
+}
