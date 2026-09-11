@@ -1,0 +1,11 @@
+{
+  "job_id": "1681555",
+  "accounting_since": "2026-09-11T13:31:48",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7401-rank43-analysis-window/array.sbatch"
+  ],
+  "manifest_sha256": "1614223f691a88151cb9d86ee712d8b9be9e3338fe5e7c3b45e60d88b02c4bd1",
+  "submit_helper_sha256": "2da132de5711df0b230d19cc200a2b5e654b789a2295599a58d150477077485f"
+}

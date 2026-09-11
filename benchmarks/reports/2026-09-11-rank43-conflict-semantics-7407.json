@@ -1,0 +1,355 @@
+{
+  "observed_at": "2026-09-11T17:56:20.817831+00:00",
+  "hashes": {
+    "benchmarks/runs/20260911-7403-rank43-native-analysis-complete/core-summary-7406.json": "1dd2f6aec49dfd54e305efb54ce8b945aa0f516efc2e3a2e726c3bcf30c3e10a",
+    "benchmarks/probes/scratch/rank43-conflict-semantics-7407.py": "3d0134b863dd6c32a641b726c9e28f769e2f575f8c35fd03b4b26988243be060",
+    "benchmarks/probes/scratch/rank43-complete-core-7406.py": "ef227fea4e578c3f4a56ca23d0dfb494c211e638329ac17cb8ec694f0cb475a3"
+  },
+  "first_conflict_differences": {
+    "order": {
+      "conflict": 48,
+      "candidate": {
+        "order": [
+          4025,
+          4026,
+          4071,
+          -4027,
+          -4024,
+          4028,
+          -4029,
+          4030,
+          -4023
+        ],
+        "literals": [
+          -4029,
+          -4027,
+          -4024,
+          -4023,
+          4025,
+          4026,
+          4028,
+          4030,
+          4071
+        ],
+        "levels_by_literal": [
+          [
+            -4029,
+            1754
+          ],
+          [
+            -4027,
+            1755
+          ],
+          [
+            -4024,
+            1753
+          ],
+          [
+            -4023,
+            1753
+          ],
+          [
+            4025,
+            1756
+          ],
+          [
+            4026,
+            1756
+          ],
+          [
+            4028,
+            1754
+          ],
+          [
+            4030,
+            1753
+          ],
+          [
+            4071,
+            1751
+          ]
+        ],
+        "levels": [
+          1756,
+          1756,
+          1751,
+          1755,
+          1753,
+          1754,
+          1754,
+          1753,
+          1753
+        ]
+      },
+      "kissat": {
+        "order": [
+          4025,
+          4026,
+          4071,
+          -4027,
+          -4029,
+          4028,
+          -4024,
+          4030,
+          -4023
+        ],
+        "literals": [
+          -4029,
+          -4027,
+          -4024,
+          -4023,
+          4025,
+          4026,
+          4028,
+          4030,
+          4071
+        ],
+        "levels_by_literal": [
+          [
+            -4029,
+            1754
+          ],
+          [
+            -4027,
+            1755
+          ],
+          [
+            -4024,
+            1753
+          ],
+          [
+            -4023,
+            1753
+          ],
+          [
+            4025,
+            1756
+          ],
+          [
+            4026,
+            1756
+          ],
+          [
+            4028,
+            1754
+          ],
+          [
+            4030,
+            1753
+          ],
+          [
+            4071,
+            1751
+          ]
+        ],
+        "levels": [
+          1756,
+          1756,
+          1751,
+          1755,
+          1754,
+          1754,
+          1753,
+          1753,
+          1753
+        ]
+      }
+    },
+    "literals": {
+      "conflict": 82,
+      "candidate": {
+        "order": [
+          1038,
+          -49957
+        ],
+        "literals": [
+          -49957,
+          1038
+        ],
+        "levels_by_literal": [
+          [
+            -49957,
+            115
+          ],
+          [
+            1038,
+            115
+          ]
+        ],
+        "levels": [
+          115,
+          115
+        ]
+      },
+      "kissat": {
+        "order": [
+          1038,
+          49959
+        ],
+        "literals": [
+          1038,
+          49959
+        ],
+        "levels_by_literal": [
+          [
+            1038,
+            115
+          ],
+          [
+            49959,
+            115
+          ]
+        ],
+        "levels": [
+          115,
+          115
+        ]
+      }
+    },
+    "levels_by_literal": {
+      "conflict": 82,
+      "candidate": {
+        "order": [
+          1038,
+          -49957
+        ],
+        "literals": [
+          -49957,
+          1038
+        ],
+        "levels_by_literal": [
+          [
+            -49957,
+            115
+          ],
+          [
+            1038,
+            115
+          ]
+        ],
+        "levels": [
+          115,
+          115
+        ]
+      },
+      "kissat": {
+        "order": [
+          1038,
+          49959
+        ],
+        "literals": [
+          1038,
+          49959
+        ],
+        "levels_by_literal": [
+          [
+            1038,
+            115
+          ],
+          [
+            49959,
+            115
+          ]
+        ],
+        "levels": [
+          115,
+          115
+        ]
+      }
+    }
+  },
+  "conflict82": {
+    "candidate": {
+      "clause": {
+        "order": [
+          551069,
+          -50235
+        ],
+        "literals": [
+          -50235,
+          551069
+        ],
+        "levels_by_literal": [
+          [
+            -50235,
+            102
+          ],
+          [
+            551069,
+            115
+          ]
+        ],
+        "levels": [
+          115,
+          102
+        ]
+      },
+      "unchanged_stages": [
+        "learned_raw",
+        "learned_sorted",
+        "learned_shrunk",
+        "learned"
+      ],
+      "begin_level": 115,
+      "end_level": 102
+    },
+    "kissat": {
+      "clause": {
+        "order": [
+          551069,
+          50237
+        ],
+        "literals": [
+          50237,
+          551069
+        ],
+        "levels_by_literal": [
+          [
+            50237,
+            105
+          ],
+          [
+            551069,
+            115
+          ]
+        ],
+        "levels": [
+          115,
+          105
+        ]
+      },
+      "unchanged_stages": [
+        "learned_raw",
+        "learned_sorted",
+        "learned_shrunk",
+        "learned"
+      ],
+      "begin_level": 115,
+      "end_level": 105
+    }
+  },
+  "native_formatter_hole_example": {
+    "candidate": [
+      {
+        "event": "learned_raw",
+        "payload_bytes": 179020
+      },
+      {
+        "event": "learned_sorted",
+        "payload_bytes": 179020
+      },
+      {
+        "event": "learned_shrunk",
+        "payload_bytes": 57483
+      },
+      {
+        "event": "learned",
+        "payload_bytes": 57483
+      }
+    ],
+    "kissat": []
+  },
+  "conclusion": "First conflict literal-set and literal-level-map difference is C82, before minimization. Both arms preserve their distinct raw binary learned clauses through all four stages. Backjump102/105 follows actual nonasserting levels; no evidence for changing shrink or chrono thresholds. C48 earlier clause order differs with equal literal levels and remains an upstream physical-state question.",
+  "next_action": "Inspect incoming propagation and ordered watches for propagated -1038 before conflict82 (pre-conflict counter81). Determine clause membership, assignment and scan-order differences before selecting a repair.",
+  "limitations": "Core1..82 only; native1..85 traces remain capped at250000/500000. All analysis transactions close but native4096-byte clause formatter omits oversized payloads (e.g.C14); no all-learned-clause equality claim. Binary physical metadata is not portable. Whole solver replay is exact; independent proof acceptance is separate. No runtime improvement or unique root cause established."
+}
