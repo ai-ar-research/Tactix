@@ -1,0 +1,76 @@
+[  5%] Building CXX object CMakeFiles/tactix_lib.dir/src/kernel/kernel.cpp.o
+[  5%] Building CXX object CMakeFiles/tactix_lib.dir/src/proof/proof.cpp.o
+[ 10%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/registry.cpp.o
+[ 10%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/analyze/analyze.cpp.o
+[ 10%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/backbone/backbone.cpp.o
+[ 15%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/backjump/backjump.cpp.o
+[ 15%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/bce/bce.cpp.o
+[ 20%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/bve/bve.cpp.o
+[ 20%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/cce/cce.cpp.o
+[ 25%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/congruence/congruence.cpp.o
+[ 25%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/decide/decide.cpp.o
+[ 30%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/factor/factor.cpp.o
+[ 30%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/hyperbinary/hyperbinary.cpp.o
+[ 35%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/instantiate/instantiate.cpp.o
+[ 35%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/lucky/lucky.cpp.o
+[ 40%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/probe/probe.cpp.o
+[ 40%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/propagate/propagate.cpp.o
+[ 40%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/reduce/reduce.cpp.o
+[ 45%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/restart/restart.cpp.o
+[ 45%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/strengthen/strengthen.cpp.o
+[ 50%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/substitute/substitute.cpp.o
+[ 50%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/subsume_forward/subsume_forward.cpp.o
+[ 55%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/support/failed_literal.cpp.o
+[ 55%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/support/flat_occurrence.cpp.o
+[ 60%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/sweep/sweep.cpp.o
+[ 60%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/ternary/ternary.cpp.o
+[ 65%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/transitive_reduce/transitive_reduce.cpp.o
+[ 65%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/vivify/vivify.cpp.o
+[ 65%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/ops/reorder/reorder.cpp.o
+[ 70%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/ops/rephase/rephase.cpp.o
+[ 70%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/ops/switchmode/switchmode.cpp.o
+[ 75%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/ops/walk/walk.cpp.o
+[ 75%] Building CXX object CMakeFiles/tactix_lib.dir/src/engine/subsolver.cpp.o
+[ 80%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/heuristics.cpp.o
+[ 80%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/default_policy.cpp.o
+[ 85%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/random_policy.cpp.o
+[ 85%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/trace.cpp.o
+[ 90%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/stress_registry.cpp.o
+[ 90%] Building CXX object CMakeFiles/tactix_lib.dir/src/frontend/parse.cpp.o
+[ 95%] Building CXX object CMakeFiles/tactix_lib.dir/src/api/api.cpp.o
+[ 95%] Built target tactix_lib
+[ 95%] Building CXX object tests/CMakeFiles/test_watch_compact_map.dir/test_watch_compact_map.cpp.o
+[100%] Linking CXX executable test_watch_compact_map
+[100%] Built target test_watch_compact_map
+[ 95%] Built target tactix_lib
+[ 95%] Building CXX object tests/CMakeFiles/test_gc_forward.dir/test_gc_forward.cpp.o
+[100%] Linking CXX executable test_gc_forward
+[100%] Built target test_gc_forward
+[ 95%] Built target tactix_lib
+[100%] Building CXX object tests/CMakeFiles/test_collect_retry.dir/test_collect_retry.cpp.o
+[100%] Linking CXX executable test_collect_retry
+[100%] Built target test_collect_retry
+[ 95%] Built target tactix_lib
+[100%] Building CXX object tests/CMakeFiles/test_kernel.dir/test_kernel.cpp.o
+[100%] Linking CXX executable test_kernel
+[100%] Built target test_kernel
+[ 95%] Built target tactix_lib
+[ 95%] Building CXX object tests/CMakeFiles/test_restart_reduce.dir/test_restart_reduce.cpp.o
+[100%] Linking CXX executable test_restart_reduce
+[100%] Built target test_restart_reduce
+[ 95%] Built target tactix_lib
+[100%] Building CXX object tests/CMakeFiles/test_reduce_root_lock.dir/test_reduce_root_lock.cpp.o
+[100%] Linking CXX executable test_reduce_root_lock
+[100%] Built target test_reduce_root_lock
+/home/hwu/SAT-solving/.claude/worktrees/runtime-gc-forward-7233/src/rules/vivify/vivify.cpp: In function ‘tactix::ApplyResult tactix::rewrite(Kernel&, Ref, const std::vector<unsigned int>&, std::vector<std::pair<unsigned int, long unsigned int> >&, uint64_t, uint64_t, bool)’:
+/home/hwu/SAT-solving/.claude/worktrees/runtime-gc-forward-7233/src/rules/vivify/vivify.cpp:1039:52: warning: unused parameter ‘candidate_ordinal’ [-Wunused-parameter]
+ 1039 |                            uint64_t last, uint64_t candidate_ordinal,
+      |                                           ~~~~~~~~~^~~~~~~~~~~~~~~~~
+/home/hwu/SAT-solving/.claude/worktrees/runtime-gc-forward-7233/src/engine/subsolver.cpp: In member function ‘void tactix::SubSolver::fail_assumptions(const std::vector<unsigned int>&)’:
+/home/hwu/SAT-solving/.claude/worktrees/runtime-gc-forward-7233/src/engine/subsolver.cpp:823:35: warning: missing initializer for member ‘tactix::SubStep::antecedents’ [-Wmissing-field-initializers]
+  823 |                {clause_id(reason)}};
+      |                                   ^
+/home/hwu/SAT-solving/.claude/worktrees/runtime-gc-forward-7233/src/engine/subsolver.cpp: In member function ‘tactix::SubResult tactix::SubSolver::solve(const std::vector<unsigned int>&, uint64_t, tactix::SubTickMode)’:
+/home/hwu/SAT-solving/.claude/worktrees/runtime-gc-forward-7233/src/engine/subsolver.cpp:1034:61: warning: missing initializer for member ‘tactix::SubStep::antecedents’ [-Wmissing-field-initializers]
+ 1034 |           target_ = {target_id, export_literals(lits), chain};
+      |                                                             ^

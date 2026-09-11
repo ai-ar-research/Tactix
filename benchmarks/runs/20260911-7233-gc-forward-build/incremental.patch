@@ -1,0 +1,226 @@
+--- a/src/kernel/kernel.cpp
++++ b/src/kernel/kernel.cpp
+@@ -2670,0 +2671 @@
++  const bool forward_sparse_watches = sparse_collection && !dense_collection;
+@@ -2720,0 +2722,9 @@
++    } else if (forward_sparse_watches) {
++      // Only an unretained garbage record can reach here. A rejected prefix
++      // alias already has an invalid source marker; a rejected tail position
++      // cannot become eligible through this write. Thus the remaining
++      // retention predicates and the debug re-scan see the same decisions.
++      // This old-arena scratch dies at the swap. Every retained record gets
++      // its actual packed forwarding Ref below, including prefix garbage.
++      assert(c->garbage());
++      clause_at(k.arena, ref)->searched = INVALID_REF;
+@@ -2876,0 +2887,14 @@
++    if (forward_sparse_watches) {
++      if (kernel_root_value(k, lit) == 0) {
++        k.watches.compact_map_large(lit, [&k, packed_watch_start](Ref ref) {
++          const Ref forwarded = clause_at(k.arena, ref)->searched;
++          // The logical prefix is packed contiguously before the partitioned
++          // tail. INVALID_REF compares outside that prefix. This also drops
++          // dead alias sources while retaining their forwarded replacements.
++          return forwarded < packed_watch_start ? forwarded : INVALID_REF;
++        });
++      } else {
++        k.watches.compact_map_large(lit, [](Ref) { return INVALID_REF; });
++      }
++      continue;
++    }
+--- a/src/kernel/watch.hpp
++++ b/src/kernel/watch.hpp
+@@ -205,0 +206,34 @@
++  }
++
++  // Collector-only filter/forward transaction. All binaries survive; `map`
++  // returns the new Ref of a retained large entry, or INVALID_REF to drop it.
++  // One entry-aware stable pass preserves blockers and mixed-list ordering.
++  // The callback must not mutate/reallocate watch storage.
++  template <class Map> void compact_map_large(Lit l, Map map) {
++    uint32_t *const b = begin(l);
++    uint32_t *q = b;
++    const uint32_t *p = b;
++    const uint32_t *const e = end(l);
++    uint32_t binaries = 0;
++    bool has_large = false, binaries_first = true;
++    while (p != e) {
++      const uint32_t word = *p++;
++      if (Watch{word}.binary()) {
++        ++binaries;
++        binaries_first = binaries_first && !has_large;
++        *q++ = word;
++      } else {
++        const Ref forwarded = map(*p++);
++        if (forwarded != INVALID_REF) {
++          has_large = true;
++          *q++ = word;
++          *q++ = forwarded;
++        }
++      }
++    }
++    WatchHead &head = heads[l];
++    const uint32_t old_size = head.size;
++    head.size = static_cast<uint32_t>(q - b);
++    holes += old_size - head.size;
++    head.set_layout(binaries, binaries_first);
++    assert(head.has_large() == has_large);
+--- /dev/null
++++ b/tests/test_gc_forward.cpp
+@@ -0,0 +1,89 @@
++// Actual collector states; the build gate also runs this against retained7144.
++#undef NDEBUG
++#include "kernel/kernel.hpp"
++#include <cassert>
++#include <cstdio>
++#include <vector>
++using namespace tactix;
++
++static uint64_t digest = 14695981039346656037ull;
++static void word(uint64_t x) {
++  for (unsigned i = 0; i < 8; ++i, x >>= 8) {
++    digest ^= x & 255;
++    digest *= 1099511628211ull;
++  }
++}
++
++static void scenario(unsigned cut, unsigned mask, bool alias, bool dense,
++                     bool preserve) {
++  Kernel k;
++  kernel_reserve_vars(k, 12);
++  const Lit shared = internalize(1);
++  std::vector<Ref> refs;
++  for (unsigned i = 0; i < 6; ++i) {
++    const Lit lits[] = {shared, internalize(2+i), internalize(8),
++                        internalize(9)};
++    refs.push_back(kernel_add_large_clause(k, lits, 3+(i&1), i&1, 6, 100+i));
++    // Interleave binaries and large entries, retaining mirrored identities.
++    kernel_add_binary_clause(k, shared, internalize(2+i), 200+i);
++    clause_at(k.arena, refs.back())->searched = 2+(i&1);
++  }
++  const Ref end = static_cast<Ref>(k.arena.size());
++  const Ref start = cut == 6 ? end : refs[cut];
++  if (alias) {
++    const Lit replacement[] = {shared, internalize(2), internalize(10)};
++    const Ref r = kernel_add_large_clause(k, replacement, 3, false, 0, 300);
++    kernel_inherit_clause_position(k, 300, refs[0]);
++    kernel_swap_large_watch_refs(k, shared, refs[0], r,
++                                internalize(2), internalize(2));
++    kernel_delete_clause(k, clause_at(k.arena, refs[0]));
++  }
++  for (unsigned i = 0; i < 4; ++i)
++    if (mask & (1u << i)) kernel_delete_clause(k, clause_at(k.arena, refs[i]));
++  // Small old search cursors must never be mistaken for live prefix Refs.
++  // Include both live and garbage eager/OTFS register entries.
++  k.eager_recent[0] = refs[5];
++  k.eager_recent[1] = refs[0];
++  k.otfs_retired.push_back(refs[4]);
++  k.otfs_retired.push_back(refs[0]);
++  OccIndex occurrences;
++  if (dense) {
++    kernel_dense_connect(k, occurrences, false);
++    kernel_flush_large_watches(k);
++  }
++  kernel_collect_garbage(k, start, true, preserve);
++  kernel_check_invariants(k);
++  word(cut); word(mask); word(alias); word(dense); word(preserve);
++  word(k.arena.size());
++  for (const auto x : k.arena) word(x);
++  word(k.watches.holes); word(k.watches.arena.size());
++  for (Lit lit = 0; lit < 2*k.nvars; ++lit) {
++    const auto &h = k.watches.heads[lit];
++    word(h.offset); word(h.size); word(h.capacity); word(h.binary_count_and_order);
++    for (unsigned i = 0; i < h.size; ++i) word(k.watches.arena[h.offset+i]);
++    if (dense) {
++      word(occurrences.large[lit].size());
++      for (const Ref ref : occurrences.large[lit]) word(ref);
++    }
++  }
++  for (const Ref ref : k.eager_recent) word(ref);
++  word(k.otfs_retired.size());
++  for (const Ref ref : k.otfs_retired) word(ref);
++  word(k.first_reducible); word(k.arena_generation); word(k.stats.deleted);
++  if (dense) kernel_dense_disconnect(k);
++}
++
++int main() {
++  unsigned count = 0;
++  for (unsigned cut = 0; cut <= 6; ++cut)
++    for (unsigned mask = 0; mask < 16; ++mask)
++      for (bool alias : {false, true})
++        for (bool dense : {false, true})
++          for (bool preserve : {false, true}) {
++            scenario(cut, mask, alias, dense, preserve);
++            ++count;
++          }
++  assert(count == 896);
++  std::printf("gc-forward states=%u digest=%016llx PASS\n", count,
++              static_cast<unsigned long long>(digest));
++}
+--- /dev/null
++++ b/tests/test_watch_compact_map.cpp
+@@ -0,0 +1,65 @@
++// Compare fused watch maintenance with the retained two-pass operation.
++#undef NDEBUG
++#include "kernel/watch.hpp"
++#include <cassert>
++#include <cstdio>
++#include <vector>
++using namespace tactix;
++
++static void equal_live(const WatchLists &a, const WatchLists &b) {
++  assert(a.holes == b.holes && a.heads.size() == b.heads.size());
++  assert(a.arena.size() == b.arena.size());
++  for (Lit l = 0; l < a.heads.size(); ++l) {
++    const auto &x = a.heads[l], &y = b.heads[l];
++    assert(x.offset == y.offset && x.size == y.size && x.capacity == y.capacity);
++    assert(x.binary_count_and_order == y.binary_count_and_order);
++    for (uint32_t i = 0; i < x.size; ++i)
++      assert(a.arena[x.offset+i] == b.arena[y.offset+i]);
++  }
++}
++
++int main() {
++  unsigned cases = 0;
++  // Base3 entry streams cover empty, binary-only, large-only and every mixed
++  // order through length7. Repeated references test duplicate retention.
++  for (unsigned n = 0, limit = 1; n <= 7; ++n, limit *= 3) {
++    for (unsigned encoding = 0; encoding < limit; ++encoding) {
++      WatchLists seed;
++      seed.resize_lits(6);
++      seed.push_binary(1,3); // unrelated lists must not move or change
++      unsigned code = encoding;
++      for (unsigned i = 0; i < n; ++i, code /= 3) {
++        const unsigned type = code % 3;
++        if (!type) seed.push_binary(0,2+(i&1));
++        else seed.push_large(0,2+(i&1),type == 1 ? 0 : 8);
++      }
++      seed.push_large(4,5,24);
++      for (unsigned mask = 0; mask < 4; ++mask) {
++        for (unsigned identity = 0; identity < 2; ++identity) {
++          WatchLists actual = seed, expected = seed;
++          const auto map = [=](Ref ref) {
++            assert(ref == 0 || ref == 8);
++            if (!(mask & (ref == 0 ? 1u : 2u))) return INVALID_REF;
++            return identity ? ref : (ref == 0 ? Ref{16} : Ref{0});
++          };
++          // Empty and unaffected lists included, not just the target list.
++          actual.compact_map_large(2,[](Ref) { assert(false); return INVALID_REF; });
++          expected.compact(2,[](WatchEntry) { assert(false); return false; });
++          expected.map_large_refs(2,[](Ref) { assert(false); return INVALID_REF; });
++          actual.compact_map_large(0,map);
++          expected.compact(0,[&](WatchEntry w) { return w.binary() || map(w.ref()) != INVALID_REF; });
++          expected.map_large_refs(0,map);
++          equal_live(actual,expected);
++          // A later append consumes spare words; old dead-tail bytes must not
++          // affect the resulting live representation or hole accounting.
++          actual.push_large(0,5,32); expected.push_large(0,5,32);
++          actual.push_binary(0,4); expected.push_binary(0,4);
++          equal_live(actual,expected);
++          ++cases;
++        }
++      }
++    }
++  }
++  assert(cases == 26240);
++  std::printf("watch compact-map cases=%u exact live words/layout/holes PASS\n",cases);
++}

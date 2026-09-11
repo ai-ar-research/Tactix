@@ -1,0 +1,16 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7235-gc-forward-proofs/previous-fixture",
+    "1",
+    "2",
+    "3",
+    "0",
+    "0",
+    "0",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7235-gc-forward-proofs/previous-1-2-3-0-0-0.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7235-gc-forward-proofs/previous-1-2-3-0-0-0.proof"
+  ],
+  "returncode": 0,
+  "stdout": "roots=1 order=2 copies=3 elevated=0 unsat=0 mode=0 deleted=3 PASS\n",
+  "stderr": ""
+}

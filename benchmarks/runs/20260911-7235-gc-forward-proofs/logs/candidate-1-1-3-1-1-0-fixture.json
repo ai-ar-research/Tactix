@@ -1,0 +1,16 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7235-gc-forward-proofs/candidate-fixture",
+    "1",
+    "1",
+    "3",
+    "1",
+    "1",
+    "0",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7235-gc-forward-proofs/candidate-1-1-3-1-1-0.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7235-gc-forward-proofs/candidate-1-1-3-1-1-0.proof"
+  ],
+  "returncode": 0,
+  "stdout": "roots=1 order=1 copies=3 elevated=1 unsat=1 mode=0 deleted=3 PASS\n",
+  "stderr": ""
+}

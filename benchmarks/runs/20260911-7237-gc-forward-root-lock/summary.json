@@ -1,0 +1,169 @@
+{
+  "status": "PASS",
+  "checked": 16,
+  "negative_controls": 2,
+  "exact_parent_certificates": true,
+  "records": [
+    {
+      "arm": "current",
+      "name": "root-0-0-1-drat.cnf",
+      "checker": "drat-trim",
+      "input_sha256": "932e82bed19e31aa4c0202b8c020c63107b1784d853e0e07962b94fc888dfd4d",
+      "proof_sha256": "4af05ab47bac52fc6a5ab2f00b4ae2b190b67d4f7ee24878f9a1d88fba4d53a7",
+      "proof_bytes": 125
+    },
+    {
+      "arm": "current",
+      "name": "root-0-0-1-lrat.cnf",
+      "checker": "cake_lpr",
+      "input_sha256": "932e82bed19e31aa4c0202b8c020c63107b1784d853e0e07962b94fc888dfd4d",
+      "proof_sha256": "b59599c804fc51422bfd6fc636daaad0e4badca6b07a6ee6ab1412ce9e155aa8",
+      "proof_bytes": 208
+    },
+    {
+      "arm": "current",
+      "name": "root-0-1-1-drat.cnf",
+      "checker": "drat-trim",
+      "input_sha256": "932e82bed19e31aa4c0202b8c020c63107b1784d853e0e07962b94fc888dfd4d",
+      "proof_sha256": "4af05ab47bac52fc6a5ab2f00b4ae2b190b67d4f7ee24878f9a1d88fba4d53a7",
+      "proof_bytes": 125
+    },
+    {
+      "arm": "current",
+      "name": "root-0-1-1-lrat.cnf",
+      "checker": "cake_lpr",
+      "input_sha256": "932e82bed19e31aa4c0202b8c020c63107b1784d853e0e07962b94fc888dfd4d",
+      "proof_sha256": "b59599c804fc51422bfd6fc636daaad0e4badca6b07a6ee6ab1412ce9e155aa8",
+      "proof_bytes": 208
+    },
+    {
+      "arm": "current",
+      "name": "root-1-0-1-drat.cnf",
+      "checker": "drat-trim",
+      "input_sha256": "932e82bed19e31aa4c0202b8c020c63107b1784d853e0e07962b94fc888dfd4d",
+      "proof_sha256": "4af05ab47bac52fc6a5ab2f00b4ae2b190b67d4f7ee24878f9a1d88fba4d53a7",
+      "proof_bytes": 125
+    },
+    {
+      "arm": "current",
+      "name": "root-1-0-1-lrat.cnf",
+      "checker": "cake_lpr",
+      "input_sha256": "932e82bed19e31aa4c0202b8c020c63107b1784d853e0e07962b94fc888dfd4d",
+      "proof_sha256": "b59599c804fc51422bfd6fc636daaad0e4badca6b07a6ee6ab1412ce9e155aa8",
+      "proof_bytes": 208
+    },
+    {
+      "arm": "current",
+      "name": "root-1-1-1-drat.cnf",
+      "checker": "drat-trim",
+      "input_sha256": "932e82bed19e31aa4c0202b8c020c63107b1784d853e0e07962b94fc888dfd4d",
+      "proof_sha256": "4af05ab47bac52fc6a5ab2f00b4ae2b190b67d4f7ee24878f9a1d88fba4d53a7",
+      "proof_bytes": 125
+    },
+    {
+      "arm": "current",
+      "name": "root-1-1-1-lrat.cnf",
+      "checker": "cake_lpr",
+      "input_sha256": "932e82bed19e31aa4c0202b8c020c63107b1784d853e0e07962b94fc888dfd4d",
+      "proof_sha256": "b59599c804fc51422bfd6fc636daaad0e4badca6b07a6ee6ab1412ce9e155aa8",
+      "proof_bytes": 208
+    },
+    {
+      "arm": "candidate",
+      "name": "root-0-0-1-drat.cnf",
+      "checker": "drat-trim",
+      "input_sha256": "932e82bed19e31aa4c0202b8c020c63107b1784d853e0e07962b94fc888dfd4d",
+      "proof_sha256": "4af05ab47bac52fc6a5ab2f00b4ae2b190b67d4f7ee24878f9a1d88fba4d53a7",
+      "proof_bytes": 125
+    },
+    {
+      "arm": "candidate",
+      "name": "root-0-0-1-lrat.cnf",
+      "checker": "cake_lpr",
+      "input_sha256": "932e82bed19e31aa4c0202b8c020c63107b1784d853e0e07962b94fc888dfd4d",
+      "proof_sha256": "b59599c804fc51422bfd6fc636daaad0e4badca6b07a6ee6ab1412ce9e155aa8",
+      "proof_bytes": 208
+    },
+    {
+      "arm": "candidate",
+      "name": "root-0-1-1-drat.cnf",
+      "checker": "drat-trim",
+      "input_sha256": "932e82bed19e31aa4c0202b8c020c63107b1784d853e0e07962b94fc888dfd4d",
+      "proof_sha256": "4af05ab47bac52fc6a5ab2f00b4ae2b190b67d4f7ee24878f9a1d88fba4d53a7",
+      "proof_bytes": 125
+    },
+    {
+      "arm": "candidate",
+      "name": "root-0-1-1-lrat.cnf",
+      "checker": "cake_lpr",
+      "input_sha256": "932e82bed19e31aa4c0202b8c020c63107b1784d853e0e07962b94fc888dfd4d",
+      "proof_sha256": "b59599c804fc51422bfd6fc636daaad0e4badca6b07a6ee6ab1412ce9e155aa8",
+      "proof_bytes": 208
+    },
+    {
+      "arm": "candidate",
+      "name": "root-1-0-1-drat.cnf",
+      "checker": "drat-trim",
+      "input_sha256": "932e82bed19e31aa4c0202b8c020c63107b1784d853e0e07962b94fc888dfd4d",
+      "proof_sha256": "4af05ab47bac52fc6a5ab2f00b4ae2b190b67d4f7ee24878f9a1d88fba4d53a7",
+      "proof_bytes": 125
+    },
+    {
+      "arm": "candidate",
+      "name": "root-1-0-1-lrat.cnf",
+      "checker": "cake_lpr",
+      "input_sha256": "932e82bed19e31aa4c0202b8c020c63107b1784d853e0e07962b94fc888dfd4d",
+      "proof_sha256": "b59599c804fc51422bfd6fc636daaad0e4badca6b07a6ee6ab1412ce9e155aa8",
+      "proof_bytes": 208
+    },
+    {
+      "arm": "candidate",
+      "name": "root-1-1-1-drat.cnf",
+      "checker": "drat-trim",
+      "input_sha256": "932e82bed19e31aa4c0202b8c020c63107b1784d853e0e07962b94fc888dfd4d",
+      "proof_sha256": "4af05ab47bac52fc6a5ab2f00b4ae2b190b67d4f7ee24878f9a1d88fba4d53a7",
+      "proof_bytes": 125
+    },
+    {
+      "arm": "candidate",
+      "name": "root-1-1-1-lrat.cnf",
+      "checker": "cake_lpr",
+      "input_sha256": "932e82bed19e31aa4c0202b8c020c63107b1784d853e0e07962b94fc888dfd4d",
+      "proof_sha256": "b59599c804fc51422bfd6fc636daaad0e4badca6b07a6ee6ab1412ce9e155aa8",
+      "proof_bytes": 208
+    }
+  ],
+  "hashes": {
+    "tools/checkers/bin/drat-trim": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+    "benchmarks/runs/20260911-7237-gc-forward-root-lock/logs/negative-drat-trim.json": "ad21e8854dccc8f3ae740224f6bba03e772feec2c143e5c7d19e4d940c9698f6",
+    "tools/checkers/bin/cake_lpr": "ab9dc6c43ad0f55bbaf336c5d898919ddb03d0bdb75e88dff48237fb06ba1f57",
+    "benchmarks/runs/20260911-7237-gc-forward-root-lock/logs/negative-cake_lpr.json": "481f35979abe84398705f941a4d6e1326702764ce0a34dada74cd30dc18fc08b",
+    "benchmarks/runs/20260910-7162-vivify-revalidation-build/manifest.json": "c17da5e040034985f7f9752d6b1ecfc63b55b4749962dcfaf59f36cb4082d7e9",
+    "build/pin-7162-vivify-revalidation-release/tests/test_reduce_root_lock": "47b4024f7736c28f6be706d9d2329f31e57f38413b0688802a2150f60c9f2257",
+    "benchmarks/runs/20260911-7237-gc-forward-root-lock/logs/current-fixture.json": "4eaf42d4454d28f7666d721640cda5de1b9e388874072ed09e261b849d279599",
+    "benchmarks/runs/20260911-7237-gc-forward-root-lock/logs/current-root-0-0-1-drat.json": "eedf8ceaf8e88b080d8ed2ab45aab9f835d96fd4bbab51709fa9c7c2ee1def6c",
+    "benchmarks/runs/20260911-7237-gc-forward-root-lock/logs/current-root-0-0-1-lrat.json": "a4a21e132db67aa77aeb5fd8ccd5eadc783b41937e3beacd72928949882ee335",
+    "benchmarks/runs/20260911-7237-gc-forward-root-lock/logs/current-root-0-1-1-drat.json": "58df4852865ae7dc275930fc3035cf1dee6c78528015d6c6c261f3540360cb05",
+    "benchmarks/runs/20260911-7237-gc-forward-root-lock/logs/current-root-0-1-1-lrat.json": "aeec9a6f4d4da0f409d4afa15c618911599d58e357b0679023bec7f64f67f914",
+    "benchmarks/runs/20260911-7237-gc-forward-root-lock/logs/current-root-1-0-1-drat.json": "60ee5a3cb7ad57b6160d9e3be41dc35823edf71cdffa90c7266c2e2d5b865d40",
+    "benchmarks/runs/20260911-7237-gc-forward-root-lock/logs/current-root-1-0-1-lrat.json": "6818c68a509d05deb8173acf257fcb09957df064fef98fb97140ee9484c239c6",
+    "benchmarks/runs/20260911-7237-gc-forward-root-lock/logs/current-root-1-1-1-drat.json": "f992d49f190e0a54c8c2527b114750872a033d587726f9aace9a1c35433ecc35",
+    "benchmarks/runs/20260911-7237-gc-forward-root-lock/logs/current-root-1-1-1-lrat.json": "9f34f06134cd8b09005913e05ae604df110ddfae4a76d5bb84eecaccd05b0afd",
+    "benchmarks/runs/20260911-7233-gc-forward-build/manifest.json": "da90ba7e3128a1a05f3484eb4e593b6f0f2b37ca3c45931118a40b8ad1960fb3",
+    "build/pin-7233-gc-forward-release/tests/test_reduce_root_lock": "5cac7c8fb7ee410e8853548784742db2a905f27a689198bbae115890354b7b53",
+    "benchmarks/runs/20260911-7237-gc-forward-root-lock/logs/candidate-fixture.json": "94893be0fad9d96fba1ae7b11fa7b41654d9642c031be2d952955fdbd87005ee",
+    "benchmarks/runs/20260911-7237-gc-forward-root-lock/logs/candidate-root-0-0-1-drat.json": "f725fb5f822927e45666ffd1247837247594b0ae831512d87e3c8029f94027e9",
+    "benchmarks/runs/20260911-7237-gc-forward-root-lock/logs/candidate-root-0-0-1-lrat.json": "b7efef18868be02d53333fc56b6826fe122c855c5e5468968314d693e34fdf05",
+    "benchmarks/runs/20260911-7237-gc-forward-root-lock/logs/candidate-root-0-1-1-drat.json": "4159bd465c7110edd0858f36d071b64957778560b765246ee2323a20c6de36cd",
+    "benchmarks/runs/20260911-7237-gc-forward-root-lock/logs/candidate-root-0-1-1-lrat.json": "19dc3642d128f01188f0e1186cb54b2ece38463ff147f48deb06ff92c8c2f1d5",
+    "benchmarks/runs/20260911-7237-gc-forward-root-lock/logs/candidate-root-1-0-1-drat.json": "e801fbe8f6409b5d7fbcb09607ba4a30e324daf5427be9625f915d659096f608",
+    "benchmarks/runs/20260911-7237-gc-forward-root-lock/logs/candidate-root-1-0-1-lrat.json": "ba2610b0edb8ec782a9570863792c03f8b94c8db785f9e73eb0ee4a64020a373",
+    "benchmarks/runs/20260911-7237-gc-forward-root-lock/logs/candidate-root-1-1-1-drat.json": "c411cba750a6b23e9f1701720a351df1d878bd947cc6e28e8fb1e3973c8e7d2c",
+    "benchmarks/runs/20260911-7237-gc-forward-root-lock/logs/candidate-root-1-1-1-lrat.json": "e8da0889541cd5511e769de06b7b826331c2821cf6ea136942f986c17745b21f",
+    "benchmarks/probes/scratch/check-gc-forward-root-lock-7237.py": "2e4a7a1500a0b9cbeb515d5d0fd6429d095dbe96ea2f633ab617a8840ab1882c",
+    "tools/bench/proof_oracle.py": "e070e42c7cfc4cb1035a0318b63c0afb6df84cbe951d3d9b9270ac6da69a236b"
+  },
+  "removed_bytes": 3998,
+  "scope": "Existing root/elevated compact/tail collector SAT-model and UNSAT DRAT/LRAT fixed fixtures, protected nonroot/pending reasons, both actual arms. New26240-state watch equivalence and896-state actual parent collector comparisons are owned by7233; this gate verifies certificates through real solve completion. Strong cake_lpr replaces historically unsound legacy lrat-check.",
+  "limitation": "Fixed micro-tests, not fuzz or a runtime acceptance gate."
+}
