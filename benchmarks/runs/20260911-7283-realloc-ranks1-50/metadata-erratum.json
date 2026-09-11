@@ -1,0 +1,8 @@
+{
+  "field": "manifest.json decision prose: complete propagation ratio",
+  "recorded": 1.087223941,
+  "correct": 1.0872234735943753,
+  "authority": "benchmarks/reports/2026-09-11-realloc-propagation-cost-7280.json",
+  "derivation": "931495926342 / 856765834224",
+  "scope": "Correct a transcribed prose decimal without editing the frozen prepared manifest. No solver, resource, pin, gate, measurement or acceptance criterion changes. The hash-bound7280 numerical authority was already correct."
+}
