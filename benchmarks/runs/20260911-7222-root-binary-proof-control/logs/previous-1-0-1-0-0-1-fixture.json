@@ -1,0 +1,16 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7222-root-binary-proof-control/previous-fixture",
+    "1",
+    "0",
+    "1",
+    "0",
+    "0",
+    "1",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7222-root-binary-proof-control/previous-1-0-1-0-0-1.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7222-root-binary-proof-control/previous-1-0-1-0-0-1.proof"
+  ],
+  "returncode": 0,
+  "stdout": "roots=1 order=0 copies=1 elevated=0 unsat=0 mode=1 deleted=1 PASS\n",
+  "stderr": "diagnostic result=10 nvars=8 unassigned=0 active=0 binary=4 roots=8\n"
+}

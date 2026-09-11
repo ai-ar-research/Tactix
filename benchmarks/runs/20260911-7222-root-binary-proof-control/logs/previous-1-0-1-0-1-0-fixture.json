@@ -1,0 +1,16 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7222-root-binary-proof-control/previous-fixture",
+    "1",
+    "0",
+    "1",
+    "0",
+    "1",
+    "0",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7222-root-binary-proof-control/previous-1-0-1-0-1-0.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7222-root-binary-proof-control/previous-1-0-1-0-1-0.proof"
+  ],
+  "returncode": -6,
+  "stdout": "",
+  "stderr": "diagnostic result=10 nvars=8 unassigned=0 active=0 binary=0 roots=8\nprevious-fixture: /home/hwu/SAT-solving/benchmarks/probes/scratch/test-root-binary-proof-7222.cpp:72: int main(int, char**): Assertion `result == (unsat ? 20 : 10)' failed.\n"
+}

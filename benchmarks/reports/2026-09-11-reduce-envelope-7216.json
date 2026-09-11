@@ -1,0 +1,181 @@
+{
+  "hashes": {
+    "benchmarks/runs/20260910-7152-vivify-compact-profiles/manifest.json": "14d517977606f2dca0c3638c911453ea4dc1865a35823ddd5bc5ae22436f3158",
+    "benchmarks/runs/20260910-7153-vivify-compact-samples/wave0/summary.json": "41449d78750079555b11064e83f71ddf1a532778e6fa089656b8502af4c5d47a",
+    "benchmarks/runs/20260910-7153-vivify-compact-samples/wave1/summary.json": "dc1140b0b7db5b2f00e84870615653e09c1c4807e898212ec787cea24dc6fd4a",
+    "benchmarks/runs/20260910-7153-vivify-compact-samples/wave2/summary.json": "caed6dfbf5a1c860ebdf358f0504187d71564caec922d900334b238f10b2a652",
+    "benchmarks/runs/20260910-7081-rank35-callstack-cost/lifecycle-summary-7082.json": "671220a1468f22aefb40b06004ba74f02c29dee67b2498429792d253b728dfc2",
+    "benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate": "cdcb735715d4eb2c23d43bbff14cb9d5ccedaa41592aab693cdc779b531dbdcf",
+    "benchmarks/runs/20260910-7153-vivify-compact-samples/wave0/candidate.samples.txt.xz": "c6e62f8de7894758f10b84c3dfe8ff0048b5486a1c229db53f5e7113931dadb3",
+    "benchmarks/runs/20260910-7153-vivify-compact-samples/wave1/candidate.samples.txt.xz": "9d65718242bcaa4ec7e4df7af530c111507a1b713456503df0fce1b039a2c79c",
+    "benchmarks/runs/20260910-7153-vivify-compact-samples/wave2/candidate.samples.txt.xz": "dd9d713ab69aa1432fadb30e064fb4d464293158b2879bed5536969581a858b4",
+    "benchmarks/runs/20260910-7002-largest-gap-release-profiles/pins/kissat": "3aa8e41f976e213d3c4627150e9cd4e5fce0ce9508d67ab469a7696e26a8d49c",
+    "benchmarks/runs/20260910-7081-rank35-callstack-cost/kissat.samples.txt.xz": "dfac0e35f032a21065f9d070f4c174e4a178517ca30d0916b18c8c0032ee8231",
+    "benchmarks/probes/scratch/localize-reduce-envelope-7216.py": "155e1b844c0ebf7fee81d0cbec7c2ad136f5323fbdca64386aef356abe2e3aa6",
+    "tools/bench/perf_callstack.py": "35d9d19e81105a2aa53f8e93733985fe6f00db514371e6a26dc148120b53f413",
+    ".claude/worktrees/runtime-vivify-compact-7144/src/rules/reduce/reduce.cpp": "84a21d087b15e8ef51c1ebf43722cd2cf6b3481d06522ff2b70ac1878f90c8e2",
+    "kissat/src/reduce.c": "4a0c961511cb1894e99ac0685b72754666fda78622d2f8832c64685e1b8c7e0a"
+  },
+  "arms": {
+    "candidate-wave0": {
+      "samples": 71232,
+      "total_period": 1340257338884,
+      "selected_period": 57035854424,
+      "by_phase": {
+        "no_phase_frame": 57035854424
+      },
+      "branches": {
+        "no_phase_frame": {
+          "<entry self>": 3674313107,
+          "tactix::kernel_sparse_collect_root(tactix::Kernel&, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 49600136092,
+          "tactix::lock_reasons(tactix::Kernel&, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 429449663,
+          "tactix::Proof::del(unsigned long, unsigned long, unsigned int const*, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 3275121880,
+          "tactix::kernel_clause_position(tactix::Kernel const&, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 56833682
+        }
+      },
+      "leaves": {
+        "no_phase_frame": {
+          "tactix::reduce_apply_refs(tactix::Kernel&, unsigned int const*, unsigned long, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 3674313107,
+          "tactix::kernel_sparse_collect_root(tactix::Kernel&, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 14039075587,
+          "tactix::kernel_flush_root_clause(tactix::Kernel&, unsigned int*, unsigned long*, bool, bool, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 2418810538,
+          "memmove@plt [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 18981514,
+          "tactix::kernel_collect_garbage(tactix::Kernel&, unsigned int, bool, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 23755881714,
+          "tactix::kernel_clause_position(tactix::Kernel const&, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 1167208209,
+          "tactix::move_best_watch_to_front(tactix::Kernel&, tactix::Clause*, unsigned int, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 942159799,
+          "tactix::WatchLists::push_large(unsigned int, unsigned int, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 3086323310,
+          "tactix::sort_clause_watches_like_kissat(tactix::Kernel&, tactix::Clause*) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 1785722967,
+          "tactix::lock_reasons(tactix::Kernel&, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 429449663,
+          "void std::vector<unsigned int, std::allocator<unsigned int> >::_M_range_insert<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > > >(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, std::forward_iterator_tag) [clone .isra.0] [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 1173118443,
+          "__memmove_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 971416218,
+          "__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > > std::__stable_partition_adaptive<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, unsigned int*, __gnu_cxx::__ops::_Iter_pred<tactix::kernel_collect_garbage(tactix::Kernel&, unsigned int, bool, bool)::{lambda(unsigned int)#1}>, long>(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__ops::_Iter_pred<tactix::kernel_collect_garbage(tactix::Kernel&, unsigned int, bool, bool)::{lambda(unsigned int)#1}>, long, unsigned int*, long) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 148243457,
+          "tactix::Proof::del(unsigned long, unsigned long, unsigned int const*, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 3294084350,
+          "tactix::delete_binary_all_copies(tactix::Kernel&, unsigned int, unsigned int, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 56379629,
+          "tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 18641783,
+          "void tactix::WatchLists::compact<tactix::kernel_unwatch_large(tactix::Kernel&, unsigned int, unsigned int)::{lambda(tactix::WatchEntry)#1}>(unsigned int, tactix::kernel_unwatch_large(tactix::Kernel&, unsigned int, unsigned int)::{lambda(tactix::WatchEntry)#1}) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 18184385,
+          "__memset_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 37859751
+        }
+      }
+    },
+    "candidate-wave1": {
+      "samples": 71477,
+      "total_period": 1343878645289,
+      "selected_period": 56922590280,
+      "by_phase": {
+        "no_phase_frame": 56922590280
+      },
+      "branches": {
+        "no_phase_frame": {
+          "tactix::kernel_sparse_collect_root(tactix::Kernel&, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 49408553015,
+          "<entry self>": 3887428797,
+          "tactix::lock_reasons(tactix::Kernel&, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 358105930,
+          "tactix::Proof::del(unsigned long, unsigned long, unsigned int const*, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 3268502538
+        }
+      },
+      "leaves": {
+        "no_phase_frame": {
+          "tactix::kernel_sparse_collect_root(tactix::Kernel&, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 13950171304,
+          "tactix::kernel_clause_position(tactix::Kernel const&, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 1084133188,
+          "tactix::kernel_collect_garbage(tactix::Kernel&, unsigned int, bool, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 24002734911,
+          "tactix::sort_clause_watches_like_kissat(tactix::Kernel&, tactix::Clause*) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 1692303554,
+          "tactix::WatchLists::push_large(unsigned int, unsigned int, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 3140948884,
+          "[unknown] [[unknown]]": 37920569,
+          "tactix::reduce_apply_refs(tactix::Kernel&, unsigned int const*, unsigned long, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 3887428797,
+          "tactix::lock_reasons(tactix::Kernel&, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 358105930,
+          "__memmove_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 932887655,
+          "tactix::delete_binary_all_copies(tactix::Kernel&, unsigned int, unsigned int, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 56201834,
+          "tactix::kernel_flush_root_clause(tactix::Kernel&, unsigned int*, unsigned long*, bool, bool, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 2325932383,
+          "memmove@plt [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 56450422,
+          "void std::vector<unsigned int, std::allocator<unsigned int> >::_M_range_insert<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > > >(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, std::forward_iterator_tag) [clone .isra.0] [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 1002470192,
+          "tactix::move_best_watch_to_front(tactix::Kernel&, tactix::Clause*, unsigned int, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 885715512,
+          "__memset_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 56732095,
+          "tactix::Proof::del(unsigned long, unsigned long, unsigned int const*, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 3249541579,
+          "tactix::Proof::add_rup(unsigned long, unsigned int const*, unsigned int, unsigned long const*, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 36644521,
+          "malloc [/usr/lib64/libc.so.6]": 18581305,
+          "__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > > std::__stable_partition_adaptive<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, unsigned int*, __gnu_cxx::__ops::_Iter_pred<tactix::kernel_collect_garbage(tactix::Kernel&, unsigned int, bool, bool)::{lambda(unsigned int)#1}>, long>(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__ops::_Iter_pred<tactix::kernel_collect_garbage(tactix::Kernel&, unsigned int, bool, bool)::{lambda(unsigned int)#1}>, long, unsigned int*, long) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 110952491,
+          "void tactix::WatchLists::compact<tactix::kernel_unwatch_large(tactix::Kernel&, unsigned int, unsigned int)::{lambda(tactix::WatchEntry)#1}>(unsigned int, tactix::kernel_unwatch_large(tactix::Kernel&, unsigned int, unsigned int)::{lambda(tactix::WatchEntry)#1}) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 36733154
+        }
+      }
+    },
+    "candidate-wave2": {
+      "samples": 71555,
+      "total_period": 1345234048498,
+      "selected_period": 56986698319,
+      "by_phase": {
+        "no_phase_frame": 56986698319
+      },
+      "branches": {
+        "no_phase_frame": {
+          "tactix::kernel_sparse_collect_root(tactix::Kernel&, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 49523917340,
+          "<entry self>": 3812553025,
+          "tactix::lock_reasons(tactix::Kernel&, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 413023223,
+          "tactix::Proof::del(unsigned long, unsigned long, unsigned int const*, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 3123712647,
+          "tactix::kernel_clause_position(tactix::Kernel const&, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 113492084
+        }
+      },
+      "leaves": {
+        "no_phase_frame": {
+          "__memset_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 111878765,
+          "tactix::kernel_sparse_collect_root(tactix::Kernel&, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 13994407368,
+          "tactix::kernel_collect_garbage(tactix::Kernel&, unsigned int, bool, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 23871784589,
+          "void std::vector<unsigned int, std::allocator<unsigned int> >::_M_range_insert<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > > >(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, std::forward_iterator_tag) [clone .isra.0] [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 1343005805,
+          "tactix::WatchLists::push_large(unsigned int, unsigned int, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 2948922386,
+          "tactix::sort_clause_watches_like_kissat(tactix::Kernel&, tactix::Clause*) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 1899721209,
+          "tactix::reduce_apply_refs(tactix::Kernel&, unsigned int const*, unsigned long, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 3812553025,
+          "tactix::lock_reasons(tactix::Kernel&, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 413023223,
+          "tactix::kernel_clause_position(tactix::Kernel const&, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 1244508362,
+          "tactix::kernel_flush_root_clause(tactix::Kernel&, unsigned int*, unsigned long*, bool, bool, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 2332600919,
+          "__memmove_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 744368609,
+          "tactix::Proof::del(unsigned long, unsigned long, unsigned int const*, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 3178942333,
+          "tactix::move_best_watch_to_front(tactix::Kernel&, tactix::Clause*, unsigned int, bool) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 735236382,
+          "tactix::Proof::add_rup(unsigned long, unsigned int const*, unsigned int, unsigned long const*, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 18949865,
+          "__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > > std::__stable_partition_adaptive<__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, unsigned int*, __gnu_cxx::__ops::_Iter_pred<tactix::kernel_collect_garbage(tactix::Kernel&, unsigned int, bool, bool)::{lambda(unsigned int)#1}>, long>(__gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__normal_iterator<unsigned int*, std::vector<unsigned int, std::allocator<unsigned int> > >, __gnu_cxx::__ops::_Iter_pred<tactix::kernel_collect_garbage(tactix::Kernel&, unsigned int, bool, bool)::{lambda(unsigned int)#1}>, long, unsigned int*, long) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 148430745,
+          "tactix::delete_binary_all_copies(tactix::Kernel&, unsigned int, unsigned int, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 75101698,
+          "tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 18955849,
+          "memmove@plt [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 37546535,
+          "[unknown] [[unknown]]": 18945453,
+          "cfree@GLIBC_2.2.5 [/usr/lib64/libc.so.6]": 18855180,
+          "void tactix::WatchLists::compact<tactix::kernel_unwatch_large(tactix::Kernel&, unsigned int, unsigned int)::{lambda(tactix::WatchEntry)#1}>(unsigned int, tactix::kernel_unwatch_large(tactix::Kernel&, unsigned int, unsigned int)::{lambda(tactix::WatchEntry)#1}) [/home/hwu/SAT-solving/benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/candidate]": 18960019
+        }
+      }
+    },
+    "native": {
+      "samples": 59870,
+      "total_period": 1127747657253,
+      "selected_period": 26695511200,
+      "by_phase": {
+        "no_phase_frame": 26695511200
+      },
+      "branches": {
+        "no_phase_frame": {
+          "<entry self>": 1169131107,
+          "kissat_sparse_collect [/home/hwu/SAT-solving/benchmarks/runs/20260910-7002-largest-gap-release-profiles/pins/kissat]": 21604298572,
+          "kissat_flush_and_mark_reason_clauses [/home/hwu/SAT-solving/benchmarks/runs/20260910-7002-largest-gap-release-profiles/pins/kissat]": 113110091,
+          "kissat_mark_clause_as_garbage [/home/hwu/SAT-solving/benchmarks/runs/20260910-7002-largest-gap-release-profiles/pins/kissat]": 3771035243,
+          "kissat_format_bytes [/home/hwu/SAT-solving/benchmarks/runs/20260910-7002-largest-gap-release-profiles/pins/kissat]": 18984749,
+          "kissat_realloc [/home/hwu/SAT-solving/benchmarks/runs/20260910-7002-largest-gap-release-profiles/pins/kissat]": 18951438
+        }
+      },
+      "leaves": {
+        "no_phase_frame": {
+          "kissat_reduce [/home/hwu/SAT-solving/benchmarks/runs/20260910-7002-largest-gap-release-profiles/pins/kissat]": 1169131107,
+          "flush_watched_clauses_by_literal [/home/hwu/SAT-solving/benchmarks/runs/20260910-7002-largest-gap-release-profiles/pins/kissat]": 10775723091,
+          "kissat_sparse_collect [/home/hwu/SAT-solving/benchmarks/runs/20260910-7002-largest-gap-release-profiles/pins/kissat]": 9864091212,
+          "kissat_finalize_compacting [/home/hwu/SAT-solving/benchmarks/runs/20260910-7002-largest-gap-release-profiles/pins/kissat]": 226452872,
+          "kissat_resize_vector [/home/hwu/SAT-solving/benchmarks/runs/20260910-7002-largest-gap-release-profiles/pins/kissat]": 263669861,
+          "__memset_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 219008432,
+          "kissat_flush_and_mark_reason_clauses [/home/hwu/SAT-solving/benchmarks/runs/20260910-7002-largest-gap-release-profiles/pins/kissat]": 94142354,
+          "__memmove_avx512_unaligned_erms [/usr/lib64/libc.so.6]": 127673406,
+          "print_proof_line [/home/hwu/SAT-solving/benchmarks/runs/20260910-7002-largest-gap-release-profiles/pins/kissat]": 2238782860,
+          "kissat_delete_clause_from_proof [/home/hwu/SAT-solving/benchmarks/runs/20260910-7002-largest-gap-release-profiles/pins/kissat]": 1437856102,
+          "kissat_backtrack_without_updating_phases [/home/hwu/SAT-solving/benchmarks/runs/20260910-7002-largest-gap-release-profiles/pins/kissat]": 18967737,
+          "__vfprintf_internal [/usr/lib64/libc.so.6]": 55324984,
+          "kissat_mark_clause_as_garbage [/home/hwu/SAT-solving/benchmarks/runs/20260910-7002-largest-gap-release-profiles/pins/kissat]": 113278730,
+          "kissat_delete_clause [/home/hwu/SAT-solving/benchmarks/runs/20260910-7002-largest-gap-release-profiles/pins/kissat]": 54296109,
+          "[unknown] [[unknown]]": 18160905,
+          "_int_malloc [/usr/lib64/libc.so.6]": 18951438
+        }
+      }
+    }
+  },
+  "limitation": "Disjoint immediate-child partition within each complete Reduce-apply envelope. Child scopes include all their descendants and cannot be added to nested leaves. Compiler inlining and different algorithm responsibilities preclude calling cross-window differences exact operation prices. Missing phase ancestry is retained. No new solver execution or source edit."
+}
