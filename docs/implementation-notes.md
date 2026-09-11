@@ -192,10 +192,10 @@ pending half-analysis or schedules Backjump independently.
   large-clause reconnect when packed replacements are still pending.
 - Reduce captures Kissat's historical `first_reducible` watermark before
   advancing its next-call marker; promotion or retirement cannot erase this cut.
-  Generation-local positions map appended replacements back to their sources.
-  Genuine collection recomputes the marker; implementation-only packing forwards it.
-  Only the current prefix retains blockers and replacement cursors; the tail
-  is stably partitioned and rewatched, including compact collection from zero.
+  Generation-local positions map replacements to sources; genuine collection
+  recomputes the marker, while implementation-only packing forwards it.
+  Only the prefix retains blockers/cursors; the tail is stably partitioned and rewatched, even from zero.
+  Isolated [7233](../benchmarks/reports/2026-09-11-gc-forward-checkpoint-7239.md) fuses sparse watch filtering/forwarding: excluded old records get an invalid sentinel; packed prefix references retain stable live entries. Dense/whole paths stay unchanged.
   CaDiCaL-style VMTF/phase ordering is available only as the explicit diagnostic arm
   `TACTIX_ARENA_ORDER=1`; formula classification and benchmark/rank identity
   never select it, and Reduce never consumes it.
