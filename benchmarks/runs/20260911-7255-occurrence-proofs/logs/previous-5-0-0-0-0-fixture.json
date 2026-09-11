@@ -1,0 +1,15 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7255-occurrence-proofs/previous-fixture",
+    "5",
+    "0",
+    "0",
+    "0",
+    "0",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7255-occurrence-proofs/previous-5-0-0-0-0.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7255-occurrence-proofs/previous-5-0-0-0-0.proof"
+  ],
+  "returncode": 0,
+  "stdout": "family=Strengthen mixed=0 mode=0 unsat=0 variant=0 apply=0 PASS\n",
+  "stderr": ""
+}
