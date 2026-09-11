@@ -1,0 +1,137 @@
+{
+  "hashes": {
+    "benchmarks/runs/20260910-7152-vivify-compact-profiles/manifest.json": "14d517977606f2dca0c3638c911453ea4dc1865a35823ddd5bc5ae22436f3158",
+    "benchmarks/runs/20260910-7152-vivify-compact-profiles/pins/previous": "4029d621784c7ca12ce8ee575fe7fc6f0bd68d990b9290fd36866297c16fc00b",
+    "benchmarks/runs/20260910-7153-vivify-compact-samples/wave0/summary.json": "41449d78750079555b11064e83f71ddf1a532778e6fa089656b8502af4c5d47a",
+    "benchmarks/runs/20260910-7153-vivify-compact-samples/wave0/previous.samples.txt.xz": "0bf725af429baca98be2eeee89cc2e8a259b8dfa389574b581efba9818a6b039",
+    "benchmarks/runs/20260910-7153-vivify-compact-samples/wave1/summary.json": "dc1140b0b7db5b2f00e84870615653e09c1c4807e898212ec787cea24dc6fd4a",
+    "benchmarks/runs/20260910-7153-vivify-compact-samples/wave1/previous.samples.txt.xz": "3ddd3f2edea3059021355c01552cd02be1208d912b7e6b3261fe831573e0cfaf",
+    "benchmarks/runs/20260910-7153-vivify-compact-samples/wave2/summary.json": "caed6dfbf5a1c860ebdf358f0504187d71564caec922d900334b238f10b2a652",
+    "benchmarks/runs/20260910-7153-vivify-compact-samples/wave2/previous.samples.txt.xz": "ae05a952dc2ad672ffa8bc971beb9afb97dde94d68b07c92001e93ba8212a7b0",
+    ".claude/worktrees/runtime-collect-retry-7030/src/kernel/kernel.cpp": "339984a44fce5f480bbe40dd01b85806467ba1a92dd5eb96e08f95fcc9dc7bfe",
+    ".claude/worktrees/runtime-collect-retry-7030/src/kernel/kernel.hpp": "9e23ce51c87ea53d172463797e8d22ee61e3e801aa41aa110abbf97a5206bff9",
+    ".claude/worktrees/runtime-collect-retry-7030/src/rules/strengthen/strengthen.cpp": "2428a2083f894227f4f7260ffcd611d1aba7500da469710b7a11b69d5ca2eea2",
+    ".claude/worktrees/runtime-collect-retry-7030/src/policies/default_policy.cpp": "121df7ea1a49628e291bd0eb13c87bcd57bfeb0b66b337d4ec95a33d051e02f1",
+    "benchmarks/probes/scratch/localize-dense-rebuild-7160.py": "98ecd84d570e7d9de372aa3004256c30254e8e68fff7cde22a8bf56872c2f11b",
+    "tools/bench/perf_callstack.py": "35d9d19e81105a2aa53f8e93733985fe6f00db514371e6a26dc148120b53f413",
+    "kissat/src/eliminate.c": "ab50083c5c15965ef0955a3c72016147b66949048e8d34735e3f550683626794"
+  },
+  "waves": [
+    {
+      "total_period": 1347896333496,
+      "samples": 71745,
+      "selected_period": 18942449364,
+      "by_phase": {
+        "initial_probe": 87135628,
+        "probe": 4891379779,
+        "eliminate": 13963933957
+      },
+      "by_parent": {
+        "initial_probe | tactix::kernel_dense_connect(tactix::Kernel&, tactix::OccIndex&, bool)": 51584807,
+        "initial_probe | tactix::kernel_canonicalize_binary_watches(tactix::Kernel&, bool, std::vector<std::pair<unsigned int, unsigned int>, std::allocator<std::pair<unsigned int, unsigned int> > > const*)": 35550821,
+        "probe | tactix::kernel_dense_connect(tactix::Kernel&, tactix::OccIndex&, bool)": 2555284176,
+        "probe | tactix::kernel_canonicalize_binary_watches(tactix::Kernel&, bool, std::vector<std::pair<unsigned int, unsigned int>, std::allocator<std::pair<unsigned int, unsigned int> > > const*)": 2336095603,
+        "eliminate | tactix::kernel_dense_connect(tactix::Kernel&, tactix::OccIndex&, bool)": 2077496919,
+        "eliminate | tactix::kernel_collect_garbage(tactix::Kernel&, unsigned int, bool, bool)": 7980113528,
+        "eliminate | tactix::strengthen_reconnect_and_flush(tactix::Kernel&, unsigned int)": 3906323510
+      },
+      "by_path": {
+        "initial_probe | tactix::kernel_dense_connect(tactix::Kernel&, tactix::OccIndex&, bool) -> tactix::DefaultInprocessScheduler::run_phase(tactix::Kernel&, tactix::SlotGroup, int volatile*) -> tactix::DefaultPolicy::solve(tactix::Kernel&, int volatile*) -> tactix::default_solve(tactix::Kernel&, int volatile*) -> main": 51584807,
+        "initial_probe | tactix::kernel_canonicalize_binary_watches(tactix::Kernel&, bool, std::vector<std::pair<unsigned int, unsigned int>, std::allocator<std::pair<unsigned int, unsigned int> > > const*) -> tactix::congruence_apply(tactix::Kernel&) -> tactix::apply_rule(tactix::RuleVTable const&, tactix::Kernel&) -> tactix::DefaultInprocessScheduler::run_batch_entry(tactix::Kernel&, tactix::DefaultInprocessScheduler::SlotEntry&, tactix::RuleVTable const&, tactix::DefaultInprocessScheduler::SlotPhaseCtx&) -> tactix::DefaultInprocessScheduler::run_phase(tactix::Kernel&, tactix::SlotGroup, int volatile*) -> tactix::DefaultPolicy::solve(tactix::Kernel&, int volatile*)": 35550821,
+        "probe | tactix::kernel_dense_connect(tactix::Kernel&, tactix::OccIndex&, bool) -> tactix::DefaultInprocessScheduler::run_phase(tactix::Kernel&, tactix::SlotGroup, int volatile*) -> tactix::DefaultPolicy::solve(tactix::Kernel&, int volatile*) -> tactix::default_solve(tactix::Kernel&, int volatile*) -> main": 2555284176,
+        "probe | tactix::kernel_canonicalize_binary_watches(tactix::Kernel&, bool, std::vector<std::pair<unsigned int, unsigned int>, std::allocator<std::pair<unsigned int, unsigned int> > > const*) -> tactix::congruence_apply(tactix::Kernel&) -> tactix::apply_rule(tactix::RuleVTable const&, tactix::Kernel&) -> tactix::DefaultInprocessScheduler::run_batch_entry(tactix::Kernel&, tactix::DefaultInprocessScheduler::SlotEntry&, tactix::RuleVTable const&, tactix::DefaultInprocessScheduler::SlotPhaseCtx&) -> tactix::DefaultInprocessScheduler::run_phase(tactix::Kernel&, tactix::SlotGroup, int volatile*) -> tactix::DefaultPolicy::solve(tactix::Kernel&, int volatile*)": 2336095603,
+        "eliminate | tactix::kernel_dense_connect(tactix::Kernel&, tactix::OccIndex&, bool) -> tactix::DefaultInprocessScheduler::run_phase(tactix::Kernel&, tactix::SlotGroup, int volatile*) -> tactix::DefaultPolicy::solve(tactix::Kernel&, int volatile*) -> tactix::default_solve(tactix::Kernel&, int volatile*) -> main": 2077496919,
+        "eliminate | tactix::kernel_collect_garbage(tactix::Kernel&, unsigned int, bool, bool) -> tactix::strengthen_apply(tactix::Kernel&) -> tactix::apply_rule(tactix::RuleVTable const&, tactix::Kernel&) -> tactix::DefaultInprocessScheduler::run_budgeted_batch(tactix::Kernel&, tactix::DefaultInprocessScheduler::SlotEntry&, tactix::RuleVTable const&, unsigned long, bool) -> tactix::DefaultInprocessScheduler::run_batch_entry(tactix::Kernel&, tactix::DefaultInprocessScheduler::SlotEntry&, tactix::RuleVTable const&, tactix::DefaultInprocessScheduler::SlotPhaseCtx&) -> tactix::DefaultInprocessScheduler::run_phase(tactix::Kernel&, tactix::SlotGroup, int volatile*)": 3921623856,
+        "eliminate | tactix::strengthen_reconnect_and_flush(tactix::Kernel&, unsigned int) -> tactix::DefaultInprocessScheduler::run_batch_entry(tactix::Kernel&, tactix::DefaultInprocessScheduler::SlotEntry&, tactix::RuleVTable const&, tactix::DefaultInprocessScheduler::SlotPhaseCtx&) -> tactix::DefaultInprocessScheduler::run_phase(tactix::Kernel&, tactix::SlotGroup, int volatile*) -> tactix::DefaultPolicy::solve(tactix::Kernel&, int volatile*) -> tactix::default_solve(tactix::Kernel&, int volatile*) -> main": 3906323510,
+        "eliminate | tactix::kernel_collect_garbage(tactix::Kernel&, unsigned int, bool, bool) -> tactix::DefaultInprocessScheduler::run_dosed_entry(tactix::Kernel&, tactix::DefaultInprocessScheduler::SlotEntry&, tactix::RuleVTable const&, tactix::DefaultInprocessScheduler::SlotPhaseCtx&) -> tactix::DefaultInprocessScheduler::run_phase(tactix::Kernel&, tactix::SlotGroup, int volatile*) -> tactix::DefaultPolicy::solve(tactix::Kernel&, int volatile*) -> tactix::default_solve(tactix::Kernel&, int volatile*) -> main": 4058489672
+      },
+      "by_leaf": {
+        "initial_probe | std::vector<unsigned int, std::allocator<unsigned int> >::_M_fill_assign(unsigned long, unsigned int const&)": 18910526,
+        "initial_probe | tactix::rebuild_dense_large_occurrences(tactix::Kernel&, tactix::OccIndex&)": 68225102,
+        "probe | tactix::rebuild_dense_large_occurrences(tactix::Kernel&, tactix::OccIndex&)": 4646173811,
+        "probe | std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&)": 245205968,
+        "eliminate | tactix::rebuild_dense_large_occurrences(tactix::Kernel&, tactix::OccIndex&)": 13448561430,
+        "eliminate | std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&)": 496392307,
+        "eliminate | std::vector<unsigned int, std::allocator<unsigned int> >::_M_fill_assign(unsigned long, unsigned int const&)": 18980220
+      }
+    },
+    {
+      "total_period": 1342846622923,
+      "samples": 71483,
+      "selected_period": 18464526989,
+      "by_phase": {
+        "initial_probe": 70230123,
+        "probe": 4794343709,
+        "eliminate": 13599953157
+      },
+      "by_parent": {
+        "initial_probe | tactix::kernel_dense_connect(tactix::Kernel&, tactix::OccIndex&, bool)": 34561757,
+        "initial_probe | tactix::kernel_canonicalize_binary_watches(tactix::Kernel&, bool, std::vector<std::pair<unsigned int, unsigned int>, std::allocator<std::pair<unsigned int, unsigned int> > > const*)": 35668366,
+        "probe | tactix::kernel_dense_connect(tactix::Kernel&, tactix::OccIndex&, bool)": 2552295176,
+        "probe | tactix::kernel_canonicalize_binary_watches(tactix::Kernel&, bool, std::vector<std::pair<unsigned int, unsigned int>, std::allocator<std::pair<unsigned int, unsigned int> > > const*)": 2242048533,
+        "eliminate | tactix::kernel_dense_connect(tactix::Kernel&, tactix::OccIndex&, bool)": 1925720173,
+        "eliminate | tactix::kernel_collect_garbage(tactix::Kernel&, unsigned int, bool, bool)": 7842163401,
+        "eliminate | tactix::strengthen_reconnect_and_flush(tactix::Kernel&, unsigned int)": 3832069583
+      },
+      "by_path": {
+        "initial_probe | tactix::kernel_dense_connect(tactix::Kernel&, tactix::OccIndex&, bool) -> tactix::DefaultInprocessScheduler::run_phase(tactix::Kernel&, tactix::SlotGroup, int volatile*) -> tactix::DefaultPolicy::solve(tactix::Kernel&, int volatile*) -> tactix::default_solve(tactix::Kernel&, int volatile*) -> main": 34561757,
+        "initial_probe | tactix::kernel_canonicalize_binary_watches(tactix::Kernel&, bool, std::vector<std::pair<unsigned int, unsigned int>, std::allocator<std::pair<unsigned int, unsigned int> > > const*) -> tactix::congruence_apply(tactix::Kernel&) -> tactix::apply_rule(tactix::RuleVTable const&, tactix::Kernel&) -> tactix::DefaultInprocessScheduler::run_batch_entry(tactix::Kernel&, tactix::DefaultInprocessScheduler::SlotEntry&, tactix::RuleVTable const&, tactix::DefaultInprocessScheduler::SlotPhaseCtx&) -> tactix::DefaultInprocessScheduler::run_phase(tactix::Kernel&, tactix::SlotGroup, int volatile*) -> tactix::DefaultPolicy::solve(tactix::Kernel&, int volatile*)": 35668366,
+        "probe | tactix::kernel_dense_connect(tactix::Kernel&, tactix::OccIndex&, bool) -> tactix::DefaultInprocessScheduler::run_phase(tactix::Kernel&, tactix::SlotGroup, int volatile*) -> tactix::DefaultPolicy::solve(tactix::Kernel&, int volatile*) -> tactix::default_solve(tactix::Kernel&, int volatile*) -> main": 2552295176,
+        "probe | tactix::kernel_canonicalize_binary_watches(tactix::Kernel&, bool, std::vector<std::pair<unsigned int, unsigned int>, std::allocator<std::pair<unsigned int, unsigned int> > > const*) -> tactix::congruence_apply(tactix::Kernel&) -> tactix::apply_rule(tactix::RuleVTable const&, tactix::Kernel&) -> tactix::DefaultInprocessScheduler::run_batch_entry(tactix::Kernel&, tactix::DefaultInprocessScheduler::SlotEntry&, tactix::RuleVTable const&, tactix::DefaultInprocessScheduler::SlotPhaseCtx&) -> tactix::DefaultInprocessScheduler::run_phase(tactix::Kernel&, tactix::SlotGroup, int volatile*) -> tactix::DefaultPolicy::solve(tactix::Kernel&, int volatile*)": 2242048533,
+        "eliminate | tactix::kernel_dense_connect(tactix::Kernel&, tactix::OccIndex&, bool) -> tactix::DefaultInprocessScheduler::run_phase(tactix::Kernel&, tactix::SlotGroup, int volatile*) -> tactix::DefaultPolicy::solve(tactix::Kernel&, int volatile*) -> tactix::default_solve(tactix::Kernel&, int volatile*) -> main": 1925720173,
+        "eliminate | tactix::kernel_collect_garbage(tactix::Kernel&, unsigned int, bool, bool) -> tactix::strengthen_apply(tactix::Kernel&) -> tactix::apply_rule(tactix::RuleVTable const&, tactix::Kernel&) -> tactix::DefaultInprocessScheduler::run_budgeted_batch(tactix::Kernel&, tactix::DefaultInprocessScheduler::SlotEntry&, tactix::RuleVTable const&, unsigned long, bool) -> tactix::DefaultInprocessScheduler::run_batch_entry(tactix::Kernel&, tactix::DefaultInprocessScheduler::SlotEntry&, tactix::RuleVTable const&, tactix::DefaultInprocessScheduler::SlotPhaseCtx&) -> tactix::DefaultInprocessScheduler::run_phase(tactix::Kernel&, tactix::SlotGroup, int volatile*)": 3857999772,
+        "eliminate | tactix::strengthen_reconnect_and_flush(tactix::Kernel&, unsigned int) -> tactix::DefaultInprocessScheduler::run_batch_entry(tactix::Kernel&, tactix::DefaultInprocessScheduler::SlotEntry&, tactix::RuleVTable const&, tactix::DefaultInprocessScheduler::SlotPhaseCtx&) -> tactix::DefaultInprocessScheduler::run_phase(tactix::Kernel&, tactix::SlotGroup, int volatile*) -> tactix::DefaultPolicy::solve(tactix::Kernel&, int volatile*) -> tactix::default_solve(tactix::Kernel&, int volatile*) -> main": 3832069583,
+        "eliminate | tactix::kernel_collect_garbage(tactix::Kernel&, unsigned int, bool, bool) -> tactix::DefaultInprocessScheduler::run_dosed_entry(tactix::Kernel&, tactix::DefaultInprocessScheduler::SlotEntry&, tactix::RuleVTable const&, tactix::DefaultInprocessScheduler::SlotPhaseCtx&) -> tactix::DefaultInprocessScheduler::run_phase(tactix::Kernel&, tactix::SlotGroup, int volatile*) -> tactix::DefaultPolicy::solve(tactix::Kernel&, int volatile*) -> tactix::default_solve(tactix::Kernel&, int volatile*) -> main": 3984163629
+      },
+      "by_leaf": {
+        "initial_probe | [unknown]": 18927473,
+        "initial_probe | tactix::rebuild_dense_large_occurrences(tactix::Kernel&, tactix::OccIndex&)": 51302650,
+        "probe | tactix::rebuild_dense_large_occurrences(tactix::Kernel&, tactix::OccIndex&)": 4588289009,
+        "eliminate | tactix::rebuild_dense_large_occurrences(tactix::Kernel&, tactix::OccIndex&)": 13145209604,
+        "eliminate | __memset_avx512_unaligned_erms": 34727066,
+        "eliminate | std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&)": 420016487,
+        "probe | std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&)": 206054700
+      }
+    },
+    {
+      "total_period": 1354458526864,
+      "samples": 72111,
+      "selected_period": 18650681066,
+      "by_phase": {
+        "initial_probe": 69017501,
+        "probe": 4849627416,
+        "eliminate": 13732036149
+      },
+      "by_parent": {
+        "initial_probe | tactix::kernel_dense_connect(tactix::Kernel&, tactix::OccIndex&, bool)": 34494280,
+        "initial_probe | tactix::kernel_canonicalize_binary_watches(tactix::Kernel&, bool, std::vector<std::pair<unsigned int, unsigned int>, std::allocator<std::pair<unsigned int, unsigned int> > > const*)": 34523221,
+        "probe | tactix::kernel_dense_connect(tactix::Kernel&, tactix::OccIndex&, bool)": 2571051218,
+        "probe | tactix::kernel_canonicalize_binary_watches(tactix::Kernel&, bool, std::vector<std::pair<unsigned int, unsigned int>, std::allocator<std::pair<unsigned int, unsigned int> > > const*)": 2278576198,
+        "eliminate | tactix::kernel_dense_connect(tactix::Kernel&, tactix::OccIndex&, bool)": 1925872182,
+        "eliminate | tactix::kernel_collect_garbage(tactix::Kernel&, unsigned int, bool, bool)": 7903015639,
+        "eliminate | tactix::strengthen_reconnect_and_flush(tactix::Kernel&, unsigned int)": 3903148328
+      },
+      "by_path": {
+        "initial_probe | tactix::kernel_dense_connect(tactix::Kernel&, tactix::OccIndex&, bool) -> tactix::DefaultInprocessScheduler::run_phase(tactix::Kernel&, tactix::SlotGroup, int volatile*) -> tactix::DefaultPolicy::solve(tactix::Kernel&, int volatile*) -> tactix::default_solve(tactix::Kernel&, int volatile*) -> main": 34494280,
+        "initial_probe | tactix::kernel_canonicalize_binary_watches(tactix::Kernel&, bool, std::vector<std::pair<unsigned int, unsigned int>, std::allocator<std::pair<unsigned int, unsigned int> > > const*) -> tactix::congruence_apply(tactix::Kernel&) -> tactix::apply_rule(tactix::RuleVTable const&, tactix::Kernel&) -> tactix::DefaultInprocessScheduler::run_batch_entry(tactix::Kernel&, tactix::DefaultInprocessScheduler::SlotEntry&, tactix::RuleVTable const&, tactix::DefaultInprocessScheduler::SlotPhaseCtx&) -> tactix::DefaultInprocessScheduler::run_phase(tactix::Kernel&, tactix::SlotGroup, int volatile*) -> tactix::DefaultPolicy::solve(tactix::Kernel&, int volatile*)": 34523221,
+        "probe | tactix::kernel_dense_connect(tactix::Kernel&, tactix::OccIndex&, bool) -> tactix::DefaultInprocessScheduler::run_phase(tactix::Kernel&, tactix::SlotGroup, int volatile*) -> tactix::DefaultPolicy::solve(tactix::Kernel&, int volatile*) -> tactix::default_solve(tactix::Kernel&, int volatile*) -> main": 2571051218,
+        "probe | tactix::kernel_canonicalize_binary_watches(tactix::Kernel&, bool, std::vector<std::pair<unsigned int, unsigned int>, std::allocator<std::pair<unsigned int, unsigned int> > > const*) -> tactix::congruence_apply(tactix::Kernel&) -> tactix::apply_rule(tactix::RuleVTable const&, tactix::Kernel&) -> tactix::DefaultInprocessScheduler::run_batch_entry(tactix::Kernel&, tactix::DefaultInprocessScheduler::SlotEntry&, tactix::RuleVTable const&, tactix::DefaultInprocessScheduler::SlotPhaseCtx&) -> tactix::DefaultInprocessScheduler::run_phase(tactix::Kernel&, tactix::SlotGroup, int volatile*) -> tactix::DefaultPolicy::solve(tactix::Kernel&, int volatile*)": 2278576198,
+        "eliminate | tactix::kernel_dense_connect(tactix::Kernel&, tactix::OccIndex&, bool) -> tactix::DefaultInprocessScheduler::run_phase(tactix::Kernel&, tactix::SlotGroup, int volatile*) -> tactix::DefaultPolicy::solve(tactix::Kernel&, int volatile*) -> tactix::default_solve(tactix::Kernel&, int volatile*) -> main": 1925872182,
+        "eliminate | tactix::kernel_collect_garbage(tactix::Kernel&, unsigned int, bool, bool) -> tactix::strengthen_apply(tactix::Kernel&) -> tactix::apply_rule(tactix::RuleVTable const&, tactix::Kernel&) -> tactix::DefaultInprocessScheduler::run_budgeted_batch(tactix::Kernel&, tactix::DefaultInprocessScheduler::SlotEntry&, tactix::RuleVTable const&, unsigned long, bool) -> tactix::DefaultInprocessScheduler::run_batch_entry(tactix::Kernel&, tactix::DefaultInprocessScheduler::SlotEntry&, tactix::RuleVTable const&, tactix::DefaultInprocessScheduler::SlotPhaseCtx&) -> tactix::DefaultInprocessScheduler::run_phase(tactix::Kernel&, tactix::SlotGroup, int volatile*)": 3822519218,
+        "eliminate | tactix::strengthen_reconnect_and_flush(tactix::Kernel&, unsigned int) -> tactix::DefaultInprocessScheduler::run_batch_entry(tactix::Kernel&, tactix::DefaultInprocessScheduler::SlotEntry&, tactix::RuleVTable const&, tactix::DefaultInprocessScheduler::SlotPhaseCtx&) -> tactix::DefaultInprocessScheduler::run_phase(tactix::Kernel&, tactix::SlotGroup, int volatile*) -> tactix::DefaultPolicy::solve(tactix::Kernel&, int volatile*) -> tactix::default_solve(tactix::Kernel&, int volatile*) -> main": 3903148328,
+        "eliminate | tactix::kernel_collect_garbage(tactix::Kernel&, unsigned int, bool, bool) -> tactix::DefaultInprocessScheduler::run_dosed_entry(tactix::Kernel&, tactix::DefaultInprocessScheduler::SlotEntry&, tactix::RuleVTable const&, tactix::DefaultInprocessScheduler::SlotPhaseCtx&) -> tactix::DefaultInprocessScheduler::run_phase(tactix::Kernel&, tactix::SlotGroup, int volatile*) -> tactix::DefaultPolicy::solve(tactix::Kernel&, int volatile*) -> tactix::default_solve(tactix::Kernel&, int volatile*) -> main": 4080496421
+      },
+      "by_leaf": {
+        "initial_probe | tactix::rebuild_dense_large_occurrences(tactix::Kernel&, tactix::OccIndex&)": 52189777,
+        "initial_probe | std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&)": 16827724,
+        "probe | tactix::rebuild_dense_large_occurrences(tactix::Kernel&, tactix::OccIndex&)": 4698728457,
+        "eliminate | tactix::rebuild_dense_large_occurrences(tactix::Kernel&, tactix::OccIndex&)": 13238208041,
+        "eliminate | std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&)": 475090744,
+        "probe | std::vector<unsigned int, std::allocator<unsigned int> >::push_back(unsigned int const&)": 150898959,
+        "eliminate | __memset_avx512_unaligned_erms": 18737364
+      }
+    }
+  ],
+  "scope": "Complete dense rebuild inclusive samples in all three frozen7030 control streams. Caller attribution is sampled ancestry, not invocation counts. No new solver execution or exact operation-cost claim.",
+  "decision": "Distinguish mandatory reconnection from repeated materialization at collection before selecting a structural redesign. Do not remove the native-required round/forward boundaries."
+}
