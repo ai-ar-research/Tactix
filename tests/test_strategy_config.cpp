@@ -39,6 +39,7 @@ int main() {
          DefaultInprocessScheduler::SUBSUME_INTERVAL);
   assert(defaults.inprocess.substitute_rounds ==
          DefaultStrategyConfig::SUBSTITUTE_ROUNDS_DEFAULT);
+  assert(defaults.inprocess.substitute_search_rounds == 1);
   assert(defaults.analysis.bump_reason_rate ==
          DefaultPolicy::BUMP_REASONS_RATE);
   assert(defaults.reduction.tier1_default == TIER1_STATIC);
@@ -52,8 +53,19 @@ int main() {
 
   assert(defaults.analysis.small_clause_limit == 100000);
   assert(defaults.analysis.big_binary_fraction_permille == 990);
+  assert(defaults.analysis.conflict_reuse && defaults.analysis.jump_reasons);
+  assert(defaults.analysis.shrink_glue_promote &&
+         defaults.analysis.bump_extension_reasons);
+  assert(defaults.analysis.eager_subsume ==
+         strategy::AnalyzeParameters::EAGER_SUBSUME_CAPACITY);
   assert(defaults.inprocess.bve_enabled &&
          defaults.inprocess.bve_permille == 100);
+  assert(defaults.inprocess.bve_xor_arity_limit == 5);
+  assert(defaults.inprocess.bve_resolvent_size_limit == 100);
+  assert(defaults.inprocess.bve_backward_occurrence_limit == 100);
+  assert(defaults.inprocess.bve_definition_budget == 1000000);
+  assert(defaults.inprocess.bve_definition_cores == 2);
+  assert(defaults.inprocess.bve_definition_core_budget_multiplier == 10);
   assert(defaults.inprocess.factor_repeated_enabled &&
          defaults.inprocess.factor_permille == 50 &&
          defaults.inprocess.factor_active_ceiling == 0);
@@ -62,6 +74,50 @@ int main() {
   assert(defaults.inprocess.subsume_forward_permille == 100);
   assert(defaults.inprocess.vivify_enabled &&
          defaults.inprocess.vivify_permille == 100);
+  std::string validation_error;
+  assert(defaults.valid(&validation_error) && validation_error.empty());
+  {
+    DefaultStrategyConfig invalid = defaults;
+    invalid.inprocess.vivify_total_share = 0;
+    assert(!invalid.valid(&validation_error));
+    assert(!validation_error.empty());
+  }
+  {
+    DefaultStrategyConfig invalid = defaults;
+    invalid.inprocess.program[0].effort_permille = 1001;
+    assert(!invalid.valid(&validation_error));
+  }
+
+  {
+    DefaultStrategyConfig typed = defaults;
+    typed.inprocess.bve_backward = true;
+    typed.inprocess.bce_parameters.occurrence_limit = 11;
+    typed.inprocess.ternary_parameters = {12, 13};
+    typed.inprocess.factor_parameters = {4, 5, 6, true, false};
+    typed.inprocess.transitive_parameters = {false, false, true};
+    typed.inprocess.substitute_parameters = {true};
+    typed.inprocess.vivify_parameters = {3, false, true, 14};
+    Kernel posed;
+    kernel_reserve_vars(posed, 1);
+    DefaultPolicy typed_policy(typed);
+    typed_policy.inprocess().build(posed);
+    assert(posed.bve_backward && posed.bce_occ_limit == 11);
+    assert(posed.ternary_occ_limit == 12 &&
+           posed.ternary_max_add_percent == 13);
+    assert(posed.factor_size == 4 && posed.factor_bound == 5 &&
+           posed.factor_cand_rounds == 6 && posed.factor_composite &&
+           !posed.factor_demote_fresh);
+    assert(!posed.transitive_early_exit && !posed.transitive_live_meter &&
+           posed.transitive_budget_checked && posed.subst_demote);
+    assert(posed.vivify_scope == 3 && !posed.vivify_reuse &&
+           posed.vivify_flush && posed.vivify_irredundant_sort_ratio == 14);
+  }
+  {
+    DefaultStrategyConfig invalid = defaults;
+    invalid.analysis.eager_subsume =
+        strategy::AnalyzeParameters::EAGER_SUBSUME_CAPACITY + 1;
+    assert(!invalid.valid(&validation_error));
+  }
 
   DefaultPolicy classifier;
   const auto at_limit = classifier.classify_formula_counts(100000, 0);
@@ -303,10 +359,11 @@ int main() {
   custom.reorder.initial_interval = 47;
   custom.analysis.chronological_levels = 53;
   custom.inprocess.probe_permille = 59;
-  custom.inprocess.sweep_vars = 67;
+  custom.inprocess.sweep_parameters.max_env_vars = 67;
   custom.inprocess.factor_active_ceiling = 71;
-  custom.inprocess.sweep_skip_embedded_fixed = false;
-  custom.inprocess.sweep_resume = false;
+  custom.inprocess.sweep_parameters.skip_embedded_fixed = false;
+  custom.inprocess.sweep_parameters.resume = false;
+  custom.inprocess.sweep_parameters.force_general_proof = true;
   DefaultPolicy policy(custom);
   Kernel k;
   ScopedHeuristics heuristics(k);
@@ -325,6 +382,8 @@ int main() {
   assert(snapshot.find("inprocess.sweep_skip_embedded_fixed=0") !=
          std::string::npos);
   assert(snapshot.find("inprocess.sweep_resume=0") != std::string::npos);
+  assert(snapshot.find("inprocess.sweep_force_general_proof=1") !=
+         std::string::npos);
 
   // The arithmetic cadence changes only deadlines after a reduction.  Kissat
   // always seeds the first deadline from `reduceinit`.
@@ -333,6 +392,18 @@ int main() {
   DefaultPolicy arithmetic(custom);
   arithmetic.reset_schedule(k);
   assert(arithmetic.reduce.next_conflicts == 37);
+
+  // The configured reluctant period must govern the first cycle too;
+  // subsequent ticks must not be the first place that reads the setting.
+  custom.restart.reluctant_period = 3;
+  DefaultPolicy short_restart(custom);
+  short_restart.reset_schedule(k);
+  assert(short_restart.reluctant.wait == 3);
+  short_restart.tick_reluctant();
+  short_restart.tick_reluctant();
+  assert(!short_restart.reluctant.trigger);
+  short_restart.tick_reluctant();
+  assert(short_restart.reluctant.trigger);
 
   // Environment arms overlay the typed profile and remain visible in its
   // readback rather than becoming hidden use-site constants.

@@ -4,7 +4,7 @@
 Oracles enforced on every case:
   1. model     — SAT verdicts: `checkmodel` verifies the v-line assignment
   2. proof     — UNSAT verdicts: DRAT accepted by drat-trim ('s VERIFIED');
-                 with --lrat also drat-trim -L -> lrat-check
+                 native LRAT and optional DRAT conversion checked by cake_lpr
   3. differential — verdict must agree with the oracle solver
   4. crash/io  — clean exit (10/20), s-line consistent with exit code,
                  no sanitizer reports on stderr
@@ -50,9 +50,14 @@ sys.path.insert(0, HERE)
 from generators import generate, parse_dimacs, write_dimacs  # noqa: E402
 from modelcheck import check_files  # noqa: E402
 from shrink import minimize  # noqa: E402
+# slurm.sh includes this shared parser in its immutable harness snapshot.
+# The fallback is only for the maintained tools/fuzz checkout.
+sys.path.append(os.path.join(ROOT, "tools", "bench"))
+from proof_oracle import proof_check_status  # noqa: E402
 
 DRAT_TRIM = os.path.join(ROOT, "tools", "checkers", "bin", "drat-trim")
 LRAT_CHECK = os.path.join(ROOT, "tools", "checkers", "bin", "lrat-check")
+CAKE_LPR = os.path.join(ROOT, "tools", "checkers", "bin", "cake_lpr")
 
 
 class CaseOutcome:
@@ -66,6 +71,8 @@ class CaseOutcome:
         self.skips = []  # list of (oracle, reason)
         self.solver_out = ""
         self.solver_err = ""
+        self.checker_runs = []
+        self.proof_artifacts = []
 
     def fail(self, kind, detail):
         self.failures.append((kind, detail))
@@ -356,11 +363,28 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
 
     Native-LRAT mode: when the solver command itself contains --lrat, the
     proof is the solver's own LRAT and is checked directly with
-    lrat-check (no drat-trim conversion)."""
+    cake_lpr (no drat-trim conversion). Legacy lrat-check is not an acceptance
+    oracle: it accepts a non-conflicting empty-lemma chain on a SAT input."""
     out = CaseOutcome()
+    def check(command):
+        c, o, e = run_cmd(command, 120)
+        status = proof_check_status(os.path.basename(command[0]), c, o, e)
+        # The pinned drat-trim exits 1 on an input empty clause even while
+        # reporting success. Confirm that semantic condition from the actual
+        # original CNF; never accept an abnormal exit from success text alone.
+        if (status == "error" and command[0] == DRAT_TRIM and c == 1 and
+                "c trivial UNSAT" in o.splitlines() and
+                "s VERIFIED" in o.splitlines()):
+            _, clauses = parse_dimacs(cnf_path)
+            if [] in clauses:
+                status = "verified"
+        out.checker_runs.append(dict(command=command, exit_code=c, stdout=o,
+                                     stderr=e, status=status))
+        return status == "verified"
     native_lrat = "--lrat" in solver
     proof = os.path.join(workdir,
                          "proof.lrat" if native_lrat else "proof.drat")
+    out.proof_artifacts.append(proof)
     if os.path.exists(proof):
         os.unlink(proof)
 
@@ -391,14 +415,11 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
             if not os.path.exists(proof):
                 out.fail("proof", "no proof file produced")
         if os.path.exists(proof) and native_lrat:
-            c, o, e = run_cmd([LRAT_CHECK, cnf_path, proof], 120)
-            if not lrat_verified(c, o):
-                out.fail("proof",
-                         f"lrat-check rejected the native LRAT (exit {c})")
+            if not check([CAKE_LPR, cnf_path, proof]):
+                out.fail("proof", "cake_lpr did not verify the native LRAT")
         elif os.path.exists(proof):
-            c, o, e = run_cmd([DRAT_TRIM, cnf_path, proof], 120)
-            if c is None or "s VERIFIED" not in o:
-                out.fail("proof", f"drat-trim did not verify (exit {c})")
+            if not check([DRAT_TRIM, cnf_path, proof]):
+                out.fail("proof", "drat-trim did not verify")
             elif lrat:
                 # On some degenerate-but-legal CNFs drat-trim and lrat-check
                 # disagree about the file itself, so the conversion cross-check
@@ -409,16 +430,12 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
                     out.skip("lrat-convert", why)
                 else:
                     lrat_file = os.path.join(workdir, "proof.lrat")
-                    c, o, e = run_cmd(
-                        [DRAT_TRIM, cnf_path, proof, "-L", lrat_file], 120)
-                    if c is None or "s VERIFIED" not in o:
+                    out.proof_artifacts.append(lrat_file)
+                    if not check([DRAT_TRIM, cnf_path, proof, "-L", lrat_file]):
                         out.fail("proof", "drat-trim -L (LRAT emission) failed")
                     else:
-                        c, o, e = run_cmd([LRAT_CHECK, cnf_path, lrat_file],
-                                          120)
-                        if not lrat_verified(c, o):
-                            out.fail("proof",
-                                     "lrat-check rejected the LRAT proof")
+                        if not check([CAKE_LPR, cnf_path, lrat_file]):
+                            out.fail("proof", "cake_lpr did not verify the converted LRAT")
 
     if oracle and verdict in ("SAT", "UNSAT"):
         code_o, stdout_o, _ = run_cmd(oracle + [cnf_path], timeout)
@@ -450,7 +467,11 @@ def save_bundle(outdir, idx, seed, name, cnf_path, outcome, solver, oracle,
         "oracle_verdict": outcome.oracle_verdict,
         "failures": outcome.failures,
         "timeout": timeout,
+        "checker_runs": outcome.checker_runs,
     }
+    for artifact in outcome.proof_artifacts:
+        if os.path.isfile(artifact):
+            shutil.copy2(artifact, os.path.join(bundle, os.path.basename(artifact)))
     with open(os.path.join(bundle, "meta.json"), "w") as f:
         json.dump(meta, f, indent=2)
     fail_kind = outcome.failures[0][0]
@@ -504,11 +525,19 @@ def save_nonterminating(outdir, idx, seed, name, cnf_path, outcome, solver,
     d = os.path.join(outdir, "nonterminating", f"{idx:06d}-seed{seed}")
     os.makedirs(d, exist_ok=True)
     shutil.copy(cnf_path, os.path.join(d, "case.cnf"))
+    meta = {"seed": seed, "index": idx, "generator": name,
+            "solver": solver, "verdict": outcome.verdict,
+            "timeout": timeout}
+    harness_sha = os.environ.get("TACTIX_FUZZ_HARNESS_SHA256")
+    if harness_sha:
+        meta["harness_sha256"] = harness_sha
     with open(os.path.join(d, "meta.json"), "w") as f:
-        json.dump({"seed": seed, "index": idx, "generator": name,
-                   "solver": solver, "verdict": outcome.verdict,
-                   "timeout": timeout}, f, indent=2)
-    cmd = [os.path.join(HERE, "fuzz.py"), "check-one",
+        json.dump(meta, f, indent=2)
+    # Successful SLURM legs remove their transient submission snapshot.  The
+    # submitter installs the same content-addressed harness under failures/ so
+    # retained timeout controls never point at a deleted build/pin directory.
+    replay_harness = os.environ.get("TACTIX_FUZZ_REPLAY_HARNESS", HERE)
+    cmd = [os.path.join(replay_harness, "fuzz.py"), "check-one",
            "--solver", shlex.join(solver)]
     with open(os.path.join(d, "repro.sh"), "w") as f:
         # cd to the repo root, not to the bundle: a repo-relative --solver path

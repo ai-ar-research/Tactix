@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <limits>
 #include <vector>
 
 namespace tactix {
@@ -15,6 +16,7 @@ namespace {
 // pair loop never re-reads the arena, which `kernel_add_large_clause` may
 // reallocate (the same hazard bve.cpp records).
 struct Tern {
+  Ref ref;
   uint64_t id;
   Lit l[3];
 };
@@ -44,8 +46,9 @@ bool ternary_candidate(const Kernel &k, const Clause *c) {
 // round-local path every inprocessing rule keeps for N1 standalone use.
 void collect(const Kernel &k, Lit l, std::vector<Tern> &out) {
   out.clear();
-  auto take = [&](const Clause *c) {
+  auto take = [&](Ref ref, const Clause *c) {
     Tern t;
+    t.ref = ref;
     t.id = c->id();
     t.l[0] = c->lits[0];
     t.l[1] = c->lits[1];
@@ -53,18 +56,20 @@ void collect(const Kernel &k, Lit l, std::vector<Tern> &out) {
     out.push_back(t);
   };
   if (k.dense) {
-    for (const Ref ref : k.dense->large[l]) {
-      const Clause *c = clause_at(k.arena, ref);
-      if (ternary_candidate(k, c))
-        take(c);
-    }
+    k.dense->with_large(l, [&](auto refs) {
+      for (const Ref ref : refs) {
+        const Clause *c = clause_at(k.arena, ref);
+        if (ternary_candidate(k, c))
+          take(ref, c);
+      }
+    });
     return;
   }
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
     const uint32_t words = clause_actual_words(c);
     if (ternary_candidate(k, c) && has_lit(c, l))
-      take(c);
+      take(ref, c);
     ref += words;
   }
 }
@@ -76,12 +81,14 @@ bool ternary_exists(const Kernel &k, Lit a, Lit b, Lit c) {
     return has_lit(x, a) && has_lit(x, b) && has_lit(x, c);
   };
   if (k.dense) {
-    for (const Ref ref : k.dense->large[a]) {
-      const Clause *x = clause_at(k.arena, ref);
-      if (!x->garbage() && x->size == 3 && same(x))
-        return true;
-    }
-    return false;
+    return k.dense->with_large(a, [&](auto refs) {
+      for (const Ref ref : refs) {
+        const Clause *x = clause_at(k.arena, ref);
+        if (!x->garbage() && x->size == 3 && same(x))
+          return true;
+      }
+      return false;
+    });
   }
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *x = clause_at(k.arena, ref);
@@ -117,7 +124,80 @@ bool resolve(const Tern &c, const Tern &d, Lit pivot, std::vector<Lit> &res) {
   return true;
 }
 
+bool add_resolvent(Kernel &k, const Tern &positive, const Tern &negative,
+                   const std::vector<Lit> &res) {
+  if (res.size() == 2) {
+    if (kernel_binary_live(k, res[0], res[1]))
+      return false;
+  } else if (ternary_exists(k, res[0], res[1], res[2])) {
+    return false;
+  }
+  // RUP from its two parents, in checker-propagation order: negating the
+  // resolvent falsifies every literal of `positive` but the pivot, so it forces
+  // the pivot and `negative` is then falsified (the E1 resolvent argument).
+  const bool lrat = k.proof && k.proof->lrat();
+  const uint64_t id = ++k.next_clause_id;
+  const uint64_t chain[2] = {positive.id, negative.id};
+  if (k.proof)
+    k.proof->add_rup(lrat ? id : 0, res.data(),
+                     static_cast<uint32_t>(res.size()),
+                     lrat ? chain : nullptr, lrat ? 2 : 0);
+  if (res.size() == 2) {
+    kernel_add_binary_clause(k, res[0], res[1], id);
+    ++k.stats.ternary_binaries;
+  } else {
+    kernel_add_large_clause(k, res.data(), 3, /*redundant=*/true,
+                            /*glue=*/3, id);
+    ++k.stats.ternary_resolvents;
+  }
+  return true;
+}
+
+struct TernaryChoice {
+  Tern positive;
+  Tern negative;
+  std::vector<Lit> resolvent;
+};
+
+void semantic_choices(Kernel &k, std::vector<TernaryChoice> &out) {
+  out.clear();
+  std::vector<Lit> pivots;
+  ternary_pivots(k, pivots, nullptr, /*complete=*/true);
+  std::vector<Tern> positive, negative;
+  std::vector<Lit> resolvent;
+  for (const Lit pivot : pivots) {
+    collect(k, pivot, positive);
+    collect(k, negate(pivot), negative);
+    for (const Tern &c : positive)
+      for (const Tern &d : negative) {
+        if (!resolve(c, d, pivot, resolvent))
+          continue;
+        if (resolvent.size() == 2) {
+          if (kernel_binary_live(k, resolvent[0], resolvent[1]))
+            continue;
+        } else if (ternary_exists(k, resolvent[0], resolvent[1],
+                                  resolvent[2])) {
+          continue;
+        }
+        out.push_back({c, d, resolvent});
+      }
+  }
+}
+
 } // namespace
+
+uint64_t ternary_percent_limit(uint64_t base, uint32_t percent) {
+  if (!percent)
+    return 0;
+  constexpr uint64_t maximum = std::numeric_limits<uint64_t>::max();
+  const uint64_t quotient = base / 100;
+  const uint64_t remainder = base % 100;
+  if (quotient > maximum / percent)
+    return maximum;
+  const uint64_t high = quotient * percent;
+  const uint64_t low = remainder * static_cast<uint64_t>(percent) / 100;
+  return high > maximum - low ? maximum : high + low;
+}
 
 RuleEligibility ternary_guard(const Kernel &k) {
   RuleEligibility result;
@@ -126,7 +206,7 @@ RuleEligibility ternary_guard(const Kernel &k) {
 }
 
 void ternary_pivots(const Kernel &k, std::vector<Lit> &out,
-                   uint64_t *total_clauses) {
+                    uint64_t *total_clauses, bool complete) {
   out.clear();
   const uint32_t nlits = 2 * k.nvars;
   std::vector<uint32_t> tern(nlits, 0);
@@ -152,7 +232,8 @@ void ternary_pivots(const Kernel &k, std::vector<Lit> &out,
     if (tern[l] && tern[negate(l)] &&
         // cadical ternary.cpp:247 — a pivot in a dense neighbourhood is skipped
         // on BOTH polarities before any resolution work is attempted.
-        !(occ_lim && (tern[l] > occ_lim || tern[negate(l)] > occ_lim)))
+        (complete ||
+         !(occ_lim && (tern[l] > occ_lim || tern[negate(l)] > occ_lim))))
       out.push_back(l);
 }
 
@@ -166,7 +247,6 @@ ApplyResult ternary_try(Kernel &k, Lit pivot) {
   if (pos.empty() || neg.empty())
     return ApplyResult::NoOp;
 
-  const bool lrat = k.proof && k.proof->lrat();
   std::vector<Lit> res;
   bool added = false;
   // §6 termination polled per pair, not per outer clause: `ternary_exists`
@@ -187,31 +267,7 @@ ApplyResult ternary_try(Kernel &k, Lit pivot) {
       k.stats.ternary_ticks++;
       if (!resolve(c, d, pivot, res))
         continue;
-      if (res.size() == 2) {
-        if (kernel_binary_live(k, res[0], res[1]))
-          continue;
-      } else if (ternary_exists(k, res[0], res[1], res[2])) {
-        continue;
-      }
-      // RUP from its two parents, in checker-propagation order: negating the
-      // resolvent falsifies every literal of `c` but the pivot, so `c` forces
-      // the pivot and `d` is then falsified (the E1 resolvent argument).
-      const uint64_t id = ++k.next_clause_id;
-      const uint64_t chain[2] = {c.id, d.id};
-      if (k.proof)
-        k.proof->add_rup(lrat ? id : 0, res.data(),
-                         static_cast<uint32_t>(res.size()),
-                         lrat ? chain : nullptr, lrat ? 2 : 0);
-      if (res.size() == 2) {
-        kernel_add_binary_clause(k, res[0], res[1], id);
-        k.stats.ternary_binaries++;
-      } else {
-        // redundant: an entailed consequence Reduce may retire
-        kernel_add_large_clause(k, res.data(), 3, /*redundant=*/true,
-                                /*glue=*/3, id);
-        k.stats.ternary_resolvents++;
-      }
-      added = true;
+      added |= add_resolvent(k, c, d, res);
     }
   }
   return added ? ApplyResult::Ok : ApplyResult::NoOp;
@@ -232,9 +288,7 @@ ApplyResult ternary_apply(Kernel &k) {
   const uint64_t add_start =
       k.stats.ternary_resolvents + k.stats.ternary_binaries;
   const uint64_t add_limit =
-      k.ternary_max_add_percent
-          ? total_clauses * k.ternary_max_add_percent / 100
-          : 0;
+      ternary_percent_limit(total_clauses, k.ternary_max_add_percent);
   // Repetition filter over the touched-epoch substrate; cadical keeps the same
   // thing as a per-variable `ternary` flag (ternary.cpp:258-266). A pivot with
   // no new material resolves the same pairs to the same already-present
@@ -248,7 +302,8 @@ ApplyResult ternary_apply(Kernel &k) {
   size_t stopped_at = pivots.size();
   for (size_t pi = 0; pi < pivots.size(); pi++) {
     const Lit p = pivots[pi];
-    if (k.work_budget && k.stats.ternary_ticks - tick_start > k.work_budget) {
+    if (kernel_work_budget_exceeded(k,
+                                    k.stats.ternary_ticks - tick_start)) {
       stopped_at = pi;
       break;
     }
@@ -293,7 +348,7 @@ ApplyResult ternary_apply(Kernel &k) {
 
 static uint32_t ternary_instances(Kernel &k, uint64_t *out, uint32_t cap) {
   std::vector<Lit> pivots;
-  ternary_pivots(k, pivots);
+  ternary_pivots(k, pivots, nullptr, /*complete=*/true);
   const uint32_t n =
       std::min<uint32_t>(cap, static_cast<uint32_t>(pivots.size()));
   for (uint32_t i = 0; i < n; i++)
@@ -313,7 +368,45 @@ static ApplyResult ternary_apply_instance(Kernel &k, uint64_t inst) {
   return ternary_try(k, pivot);
 }
 
+static uint64_t ternary_choice_instance(const TernaryChoice &choice) {
+  assert(choice.positive.ref != INVALID_REF &&
+         choice.negative.ref != INVALID_REF);
+  return (static_cast<uint64_t>(choice.positive.ref) << 32) |
+         choice.negative.ref;
+}
+
+static uint32_t ternary_semantic_instances(Kernel &k, uint64_t *out,
+                                           uint32_t cap) {
+  std::vector<TernaryChoice> choices;
+  semantic_choices(k, choices);
+  const uint32_t count = std::min<uint32_t>(
+      cap, static_cast<uint32_t>(choices.size()));
+  for (uint32_t i = 0; i < count; ++i)
+    out[i] = ternary_choice_instance(choices[i]);
+  return count;
+}
+
+static ApplyResult ternary_apply_semantic_instance(Kernel &k, uint64_t inst) {
+  if (inprocess_reach_root(k))
+    return ApplyResult::Unsat;
+  if (inst == INSTANCE_CANONICAL)
+    return ternary_apply(k);
+  std::vector<TernaryChoice> choices;
+  semantic_choices(k, choices);
+  for (const TernaryChoice &choice : choices) {
+    if (ternary_choice_instance(choice) != inst)
+      continue;
+    return add_resolvent(k, choice.positive, choice.negative,
+                         choice.resolvent)
+               ? ApplyResult::Ok
+               : ApplyResult::NoOp;
+  }
+  return ApplyResult::NoOp;
+}
+
 TACTIX_REGISTER_RULE(HyperTernaryRes, RuleTier::Inprocess, ternary_guard,
-                     ternary_apply, ternary_instances, ternary_apply_instance);
+                     ternary_apply, ternary_instances, ternary_apply_instance,
+                     ternary_semantic_instances,
+                     ternary_apply_semantic_instance);
 
 } // namespace tactix

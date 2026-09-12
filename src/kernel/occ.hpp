@@ -7,6 +7,7 @@
 #pragma once
 
 #include "kernel/types.hpp"
+#include "kernel/realloc_words.hpp"
 
 #include <algorithm>
 #include <cassert>
@@ -50,7 +51,7 @@ public:
   // Release payload and headers both: a phase with no consumer must not
   // retain several GiB of cold capacity.
   void release() {
-    std::vector<T>().swap(arena_);
+    ReallocWords<T>().swap(arena_);
     std::vector<Head>().swap(heads_);
     holes_ = 0;
   }
@@ -235,7 +236,7 @@ private:
     size_t stack_capacity = 1;
     while (stack_capacity < live + 1)
       stack_capacity *= 2;
-    std::vector<T> fresh;
+    ReallocWords<T> fresh;
     if (live)
       fresh.reserve(stack_capacity - 1);
     for (const Lit lit : order) {
@@ -253,7 +254,7 @@ private:
     holes_ = 0;
   }
 
-  std::vector<T> arena_;
+  ReallocWords<T> arena_;
   std::vector<Head> heads_;
   std::vector<uint32_t> pending_; // exact-layout counts, reused across calls
   // arena_.size() - sum(head.size): abandoned images plus unconsumed slice

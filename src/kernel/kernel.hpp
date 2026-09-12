@@ -1,17 +1,24 @@
 #pragma once
 
 #include "kernel/clause.hpp"
+#include "kernel/connected_occurrence.hpp"
 #include "kernel/occ.hpp"
 #include "kernel/types.hpp"
 #include "kernel/watch.hpp"
 #include "proof/proof.hpp"
+#include "strategy/analyze_parameters.hpp"
+#include "strategy/congruence_parameters.hpp"
+#include "strategy/forward_parameters.hpp"
+#include "strategy/failed_literal_parameters.hpp"
+#include "strategy/instantiate_parameters.hpp"
+#include "strategy/rule_parameters.hpp"
+#include "strategy/vivify_parameters.hpp"
 
 #include <cassert>
 #include <csignal>
 #include <cstddef>
 #include <cstdint>
 #include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 namespace tactix {
@@ -495,9 +502,6 @@ struct Stats {
   uint64_t budget_stops_c2 = 0; // Strengthen rounds cut between candidates
   uint64_t subsume_interrupted = 0;
   uint64_t strengthen_interrupted = 0;
-  uint64_t c1_shadow_observed = 0;  // clauses C1 would have deleted but did not
-  uint64_t c1_shadow_deleted = 0;   // C2 deleted the same clause outright
-  uint64_t c1_shadow_rewritten = 0; // C2 strengthened it away (old id retired)
   uint64_t flushed = 0; // root-satisfied deletions + root-falsified literal
   uint64_t sparse_collections = 0; // startup whole-arena root collections
   uint64_t sparse_collected = 0;   // clauses deleted or rewritten by them
@@ -707,6 +711,9 @@ struct Stats {
   uint64_t bve_definition_budget = 0;   // attempts the per-attempt tick ceiling
   uint64_t bve_definition_units = 0;    // one-sided cores / failed pivots
   uint64_t bve_gate_pairs_saved = 0; // resolvent pairs the gate reduction
+  // Appended so extending the public semantic HBR surface does not perturb the
+  // layout of existing hot counters.
+  uint64_t hbr_units = 0; // explicit semantic resolvents collapsed to units
 };
 
 struct PendingLearned {
@@ -719,36 +726,52 @@ struct PendingLearned {
 };
 
 struct OccIndex {
-  FlatLists<Ref> large; // by literal; may hold stale garbage Refs
+  FlatLists<Ref> large; // Probe-only owner; may hold stale garbage Refs
   // Kissat dense watches are one mixed connected stream: the binary prefix
   // present at dense entry, then arena-order large occurrences, followed by
-  // every binary or large clause created while dense.  `large` remains the
-  // cheap membership index used by other simplifiers; BVE consumes this image
-  // because resolvent insertion order is search-visible.
-  struct Entry {
-    // Exact Kissat dense-watch representation: one 31-bit literal/reference
-    // payload and one kind bit.  Binary removals compact the owning stream in
-    // place; stale large references are validated against the arena.
-    uint32_t payload : 31; // other literal for binary, arena Ref for large
-    uint32_t binary : 1;
-
-    static constexpr uint32_t MAX_PAYLOAD = UINT32_MAX >> 1;
-    static Entry from_binary(Lit other) {
-      assert(other <= MAX_PAYLOAD);
-      return {other, true};
-    }
-    static Entry from_large(Ref ref) {
-      assert(ref <= MAX_PAYLOAD);
-      return {ref, false};
-    }
-  };
+  // every binary or large clause created while dense. Other simplifiers use
+  // its large-only projection; resolvent insertion order is search-visible.
+  using Entry = ConnectedOccurrences::Entry;
   static_assert(sizeof(Entry) == sizeof(uint32_t),
                 "dense mixed entries must match Kissat's one-word watch");
-  FlatLists<Entry> ordered; // by literal; stale entries allowed
+  ConnectedOccurrences ordered; // sole payload owner in mixed mode
   // Only Eliminate/BVE consumes the mixed stream. Probe's Congruence,
   // Substitute, Sweep, and Strengthen consumers use `large` and must not pay
   // another formula-wide vector header and payload image.
   bool track_order = false;
+
+  size_t large_lits() const { return track_order ? ordered.lits() : large.lits(); }
+  uint32_t large_size(Lit lit) const {
+    return track_order ? ordered.large_size(lit) : large.size(lit);
+  }
+  // Dispatch once outside the consumer's loop. Probe retains its direct
+  // contiguous Ref iteration; free N1 callers can use the mixed projection.
+  template <class Visit> decltype(auto) with_large(Lit lit, Visit visit) const {
+    if (track_order)
+      return visit(ordered.large_refs(lit));
+    return visit(large[lit]);
+  }
+  void copy_large(Lit lit, std::vector<Ref> &out) const {
+    with_large(lit, [&](auto refs) { out.assign(refs.begin(), refs.end()); });
+  }
+  void push_large(Lit lit, Ref ref) {
+    if (track_order) ordered.push(lit, Entry::from_large(ref));
+    else large.push(lit, ref);
+  }
+  void clear_large(Lit lit) {
+    if (track_order) ordered.compact_large(lit, [](Ref) { return false; });
+    else large.clear(lit);
+  }
+  template <class Keep> void compact_large(Lit lit, Keep keep) {
+    if (track_order) ordered.compact_large(lit, keep);
+    else {
+      const auto refs = large[lit];
+      size_t out = 0;
+      for (const Ref ref : refs)
+        if (keep(ref)) refs[out++] = ref;
+      large.shrink(lit, out);
+    }
+  }
 };
 
 struct ArenaOrdering {
@@ -931,6 +954,10 @@ struct Kernel {
   // materializes this generation-local position and clears the image. This
   // keeps later sparse-collection permutations authoritative.
   ClausePositionAliases clause_position_alias;
+  // Historical logical arena position of the first reducible record. Promotion
+  // to irredundant does not advance this collection boundary. Reduce captures
+  // it before advancing the next-call marker; genuine collection recomputes it.
+  Ref first_reducible = INVALID_REF;
   WatchLists watches;
   // Kissat's `watching` is false while a dense/Vivify phase has disconnected
   // every large watch. Binary watches remain live in both states.
@@ -994,7 +1021,8 @@ struct Kernel {
   std::vector<uint8_t> marked_levels;
   std::vector<uint32_t> touched_levels;
 
-  static constexpr uint32_t EAGER_SUBSUME_SLOTS = 4; // kissat's option maximum
+  static constexpr uint32_t EAGER_SUBSUME_SLOTS =
+      strategy::AnalyzeParameters::EAGER_SUBSUME_CAPACITY;
   Ref eager_recent[EAGER_SUBSUME_SLOTS] = {INVALID_REF, INVALID_REF,
                                            INVALID_REF, INVALID_REF};
   std::vector<uint8_t> eager_marks;
@@ -1083,7 +1111,18 @@ struct Kernel {
   // collection compares this instead of reasoning about the call graph.
   uint64_t arena_generation = 1;
 
+  // Cold shared-strategy boundary epoch. Registry dispatch and public API
+  // mutations advance it; DefaultPolicy's static hot path never reads or
+  // writes it. Online selections bind to this value so an intervening action
+  // cannot become invisible by restoring the same arena/trail shape.
+  uint64_t strategy_epoch = 0;
+
   uint64_t touch_epoch = 0;
+  // Separate native subsumption-material lifecycle. Shared touch epochs also
+  // carry removal/root/retry advice and must not be used as this counter.
+  // During deferred startup every activated variable is implicitly armed.
+  std::vector<uint8_t> subsume_material;
+  uint64_t subsume_material_count = 0;
   std::vector<uint64_t> touched; // by var
   std::vector<uint64_t> removed; // by var
   std::vector<uint64_t> touched_kept; // by var
@@ -1103,12 +1142,9 @@ struct Kernel {
   bool subsume_complete = true;
   bool strengthen_complete = true;
   bool touch_filter = true;
-  bool subsume_holds_elim = true;
   // Kissat forward.c only admits irredundant victims.  The CaDiCaL
   // likely-kept redundant band remains an explicit diagnostic arm.
   bool touch_redundant = false;
-  bool subsume_shadow = false;
-  std::unordered_set<uint64_t> shadow_victims;
   uint32_t kept_glue = 0;
   uint32_t kept_size = 0;
   BveScoreUpdateHook bve_score_update_hook = nullptr;
@@ -1132,10 +1168,17 @@ struct Kernel {
   // its next forward pass; that reference-aligned strategy is the default,
   // while the proof rule remains available through TACTIX_BVE_BACKWARD=1.
   bool bve_backward = false;
+  // Strategy-owned XOR-recognition arity.  The proof rule's representation
+  // capacity and the shipped default are named in rules/bve/bve.hpp.
+  uint32_t bve_xor_arity_limit = 5;
+  uint32_t bve_resolvent_size_limit = 100;
+  uint32_t bve_backward_occurrence_limit = 100;
   // Kissat `definitionticks`: first-core Kitten ticks per candidate.
   uint64_t bve_definition_budget = 1000000;
   // Kissat `definitioncores`: refine once after the first extracted core.
   uint32_t bve_definition_cores = 2;
+  // Per-refinement Kitten allowance relative to `bve_definition_budget`.
+  uint32_t bve_definition_core_budget_multiplier = 10;
   // Strategy-owned lifetime of the embedded definition Kitten. Kissat creates
   // one per elimination invocation and clears it between candidates.
   uint64_t bve_definition_session = 0;
@@ -1151,7 +1194,6 @@ struct Kernel {
   uint32_t factor_bound = 0;
   bool factor_demote_fresh = true;
   uint32_t factor_cand_rounds = 2;
-  bool no_ext_decisions = false;
   bool no_ext_reason_bump = false;
   std::vector<VarStatus> var_status;
   std::vector<Var> retired_events;
@@ -1162,7 +1204,6 @@ struct Kernel {
   };
   std::vector<FreshVars> fresh_var_events;
   bool subst_demote = false;
-  bool retire_enabled = true;
   volatile sig_atomic_t *stop = nullptr;
   uint32_t stop_fuzz = 0;
   mutable uint64_t stop_fuzz_state = 0x9E3779B97F4A7C15ull;
@@ -1183,6 +1224,8 @@ struct Kernel {
   uint8_t vivify_scope = 0;
   bool vivify_reuse = true;
   bool vivify_flush = false;
+  uint32_t vivify_irredundant_sort_ratio =
+      strategy::VivifyParameters::IRREDUNDANT_SORT_RATIO_DEFAULT;
   std::vector<Var> sweep_tail; // stable external identities
   uint32_t sweep_tail_next = 0;
   // Kissat's `schedule_inner` moves a proved representative to the pop end
@@ -1202,12 +1245,13 @@ struct Kernel {
   // Chronological gap used by the conflict-reuse shortcut.  Bare rule tests
   // default to non-chronological; DefaultPolicy poses its configured limit.
   uint32_t conflict_reuse_chrono_levels = UINT32_MAX;
-  bool conflict_reuse_no_repair = false;
   bool jump_reasons = true;
   bool jump_reasons_bigbig = false;
   uint32_t bump_reason_limit = 0;
   uint32_t bump_reason_depth = 1;
   uint32_t eager_subsume = EAGER_SUBSUME_SLOTS;
+  uint32_t reorder_maximum_clause_size =
+      strategy::ReorderParameters::MAXIMUM_CLAUSE_SIZE_DEFAULT;
   // DefaultPolicy retains Kissat's separate focused/stable tier snapshots.
   // `tier1/tier2` is the pair posed for the rule currently being applied.
   uint32_t tier1_by_mode[2] = {2, 2};
@@ -1215,6 +1259,24 @@ struct Kernel {
   uint32_t tier1 = 2, tier2 = 6;
   bool shrink_glue_promote = true;
   bool tumble = true;
+
+  // Fixed identities no longer occupying a hot internal slot. These remain
+  // distinct external facts, not aliases of the retained root representative.
+  // Only representation compaction fills these arrays; inference still owns
+  // every root assignment and its proof unit.
+  std::vector<int8_t> fixed_external_values;
+  std::vector<uint64_t> fixed_external_units;
+  uint32_t fixed_external_count = 0;
+
+  // Strategy-supplied canonical discovery parameters. Kept at the cold tail
+  // so adding this configuration does not disturb hot Kernel field offsets.
+  // Explicit C1/C2 instances bypass these heuristic limits.
+  strategy::SubsumeForwardParameters subsume_forward_parameters;
+  strategy::StrengthenParameters strengthen_parameters;
+  strategy::AnalyzeParameters analyze_parameters;
+  strategy::CongruenceParameters congruence_parameters;
+  strategy::InstantiateParameters instantiate_parameters;
+  strategy::BackboneParameters backbone_parameters;
 
 #ifdef TACTIX_ENABLE_EVENT_TRACE
   // Keep diagnostic-only storage at the final object boundary. The dedicated
@@ -1228,6 +1290,31 @@ struct Kernel {
   int8_t value(Lit l) const { return values[l]; }
   uint32_t var_level(Var v) const { return assigned[v].level; }
 };
+
+inline void kernel_mark_subsume_material(Kernel &k, Var v) {
+  assert(v < k.nvars);
+  if (k.cold_state_deferred)
+    return; // activation already counted the implicitly armed variable
+  assert(k.subsume_material.size() == k.nvars);
+  if (!k.subsume_material[v]) {
+    k.subsume_material[v] = 1;
+    assert(k.subsume_material_count != UINT64_MAX);
+    ++k.subsume_material_count;
+  }
+}
+inline bool kernel_has_subsume_material(const Kernel &k, Var v) {
+  assert(v < k.nvars && !k.cold_state_deferred);
+  return k.subsume_material[v] != 0;
+}
+inline void kernel_rearm_subsume_material(Kernel &k, Var v) {
+  assert(v < k.nvars && !k.cold_state_deferred);
+  k.subsume_material[v] = 1; // consumer retry, not a new producer event
+}
+inline void kernel_clear_subsume_material(Kernel &k) {
+  assert(!k.cold_state_deferred);
+  for (uint8_t &flag : k.subsume_material)
+    flag = 0;
+}
 
 inline void kernel_mark_factor_literal(Kernel &k, Lit lit,
                                        const char *source = "unspecified") {
@@ -1304,6 +1391,26 @@ inline Lit kernel_internalize(const Kernel &k, int elit) {
   return iv == INVALID_VAR ? INVALID_LIT : make_lit(iv, negated(external));
 }
 
+inline int8_t kernel_external_value(const Kernel &k, Lit external) {
+  const Var ev = var_of(external);
+  if (ev < k.fixed_external_values.size() && k.fixed_external_values[ev])
+    return negated(external) ? -k.fixed_external_values[ev]
+                            : k.fixed_external_values[ev];
+  if (ev >= k.external_to_internal.size())
+    return 0;
+  const Var iv = k.external_to_internal[ev];
+  return iv == INVALID_VAR ? 0 : k.values[make_lit(iv, negated(external))];
+}
+
+inline uint64_t kernel_external_unit_id(const Kernel &k, Var external) {
+  if (external < k.fixed_external_values.size() && k.fixed_external_values[external])
+    return k.fixed_external_units[external];
+  if (external >= k.external_to_internal.size())
+    return 0;
+  const Var iv = k.external_to_internal[external];
+  return iv == INVALID_VAR ? 0 : k.unit_ids[iv];
+}
+
 void kernel_push_witness(Kernel &, Lit witness, const Lit *rest, uint32_t nrest);
 void kernel_extend_model(Kernel &);
 
@@ -1311,7 +1418,10 @@ void kernel_extend_model(Kernel &);
 // retirement is already complete.  External proof/API/model identities do not
 // change.  Returns false when there is nothing to remove or a retirement
 // invariant is not yet strong enough to compact safely.
-bool kernel_compact_variables(Kernel &);
+// fold_fixed additionally archives unreferenced, proved fixed identities while
+// retaining one representative in the existing compact/import image. A fixed
+// variable still named by a live clause or non-root reason keeps its hot slot.
+bool kernel_compact_variables(Kernel &, bool fold_fixed = false);
 bool kernel_should_compact_variables(const Kernel &, uint32_t percent);
 
 void kernel_emit_empty_from_pair(Kernel &, uint64_t id_a, uint64_t id_b);
@@ -1378,10 +1488,13 @@ enum class RootFlushOutcome { None, Deleted, Rewritten, Binary, Unit, Refuted };
 // `clamp_glue` selects the reference glue semantics for the shrink: kissat's
 // generic root flush (collect.c) leaves glue untouched, while Vivify's
 // schedule-time root simplification clamps to size-1 (vivify.c).
+// A sparse collection retires satisfied large records without removal advice;
+// semantic simplifiers such as Vivify retain the default removal notification.
 RootFlushOutcome kernel_flush_root_clause(Kernel &, Ref *ref,
                                           uint64_t *changed = nullptr,
                                           bool mark_binary_added_material = false,
-                                          bool clamp_glue = false);
+                                          bool clamp_glue = false,
+                                          bool mark_satisfied_removal = true);
 enum class RootCollectOutcome { NoChange, Changed, Unit, Refuted };
 RootCollectOutcome kernel_sparse_collect_root(Kernel &, Ref start = 0);
 
@@ -1752,12 +1865,20 @@ kernel_assign_binary(Kernel &k, Lit lit, Lit other_false,
   const Clause *c = clause_at(k.arena, reason);
   const Var v = var_of(lit);
   uint32_t lvl = 0;
-  for (const Lit m : *c)
-    if (var_of(m) != v) {
-      const uint32_t ml = k.assigned[var_of(m)].level;
-      if (ml > lvl)
-        lvl = ml;
-    }
+  // Every assigned level is at most k.level (kernel_check_invariants).
+  // Preserve the true antecedent maximum, including chrono/root implications,
+  // but stop once that bound is reached. At root the maximum is already zero.
+  // Kissat/CaDiCaL scan the whole reason; this only removes redundant reads.
+  if (k.level)
+    for (const Lit m : *c)
+      if (var_of(m) != v) {
+        const uint32_t ml = k.assigned[var_of(m)].level;
+        if (ml > lvl) {
+          lvl = ml;
+          if (lvl == k.level)
+            break;
+        }
+      }
   kernel_assign(k, lit, lvl, reason, false);
 }
 void kernel_backtrack(Kernel &, uint32_t target_level,
@@ -1770,7 +1891,8 @@ void kernel_backtrack(Kernel &, uint32_t target_level,
 // keeps every literal whose recorded level is already zero. Unwinding by trail
 // POSITION does, and routing it through the kernel keeps the per-literal
 // unassign contract (both counters plus the policy's ranking structures) in one
-// place instead of half-copied into the rule.
+// place instead of half-copied into the rule. Retracted assignments lose their
+// cached unit ids; a replay must name its own polarity.
 void kernel_unwind_speculation(Kernel &, uint32_t position);
 
 // The one propagation-fixpoint predicate. Not `propagate_head == trail.size()`
@@ -1822,20 +1944,23 @@ inline bool kernel_terminating(const Kernel &k) {
   return k.stop && *k.stop;
 }
 
+// `work_budget_bounded` distinguishes an explicit zero allowance from the
+// legacy zero-as-unlimited handoff. Rules poll only at their documented safe
+// boundaries, so a completed atomic unit may overshoot this ceiling.
+inline bool kernel_has_work_budget(const Kernel &k) {
+  return k.work_budget_bounded || k.work_budget != 0;
+}
+
+inline bool kernel_work_budget_exceeded(const Kernel &k, uint64_t spent) {
+  return kernel_has_work_budget(k) && spent > k.work_budget;
+}
+
 inline bool kernel_rule_interrupt(Kernel &k, uint64_t &site) {
   if (!kernel_terminating(k))
     return false;
   k.stats.rule_interrupted++;
   site++;
   return true;
-}
-
-inline void kernel_shadow_observe(Kernel &k, uint64_t id) {
-  if (k.shadow_victims.insert(id).second)
-    k.stats.c1_shadow_observed++;
-}
-inline bool kernel_shadow_retire(Kernel &k, uint64_t id) {
-  return k.subsume_shadow && k.shadow_victims.erase(id) != 0;
 }
 
 struct KernelStopPublisher {
@@ -1873,6 +1998,13 @@ struct KernelAnalysisConflictPublisher {
 
 inline uint32_t kernel_root_fixed(const Kernel &k) {
   return k.level == 0 ? static_cast<uint32_t>(k.trail.size()) : k.frames[1];
+}
+
+// Material watermarks and public root counts retain permanent fixed facts.
+// Array bounds, trail cursors and active-population subtraction still use the
+// physical prefix above. Compaction alone must not consume a new-root signal.
+inline uint32_t kernel_logical_root_fixed(const Kernel &k) {
+  return kernel_root_fixed(k) + k.fixed_external_count;
 }
 
 // A true-level assignment can be appended after higher-level literals, so the

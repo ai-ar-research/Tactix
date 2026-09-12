@@ -7,6 +7,7 @@
 #include "rules/registry.hpp"
 #include "policies/ops/rephase/rephase.hpp"
 #include "rules/restart/restart.hpp"
+#include "rules/propagate/propagate.hpp"
 
 #include <cassert>
 #include <cstdio>
@@ -155,6 +156,58 @@ static void test_walk_effort_uses_eliminate_anchor() {
          DefaultStrategyConfig::INPROCESS_MINIMUM_EFFORT_DEFAULT);
 }
 
+static std::vector<int> warmup_after_retained_root(bool prepare) {
+  Kernel k;
+  kernel_reserve_vars(k, 5);
+  ScopedHeuristics h(k);
+  k.h->stable = true;
+  kernel_add_binary_clause(k, internalize(-4), internalize(-1));
+  kernel_add_binary_clause(k, internalize(-5), internalize(-1));
+  const Lit clause[] = {internalize(-2), internalize(3), internalize(-1)};
+  const Ref ref = kernel_add_large_clause(k, clause, 3, false, 0);
+  // A legal cached blocker need not be the other current watched literal.
+  // The root scan is initially satisfied by a transient decision, leaving
+  // this watch on +3 until backtracking removes that blocker.
+  kernel_unwatch_large(k, internalize(3), ref);
+  k.watches.push_large(internalize(3), internalize(-1), ref);
+  kernel_assign_decision(k, internalize(-1));
+  kernel_assign_unit(k, internalize(-3));
+  assert(propagate_apply(k) == ApplyResult::Ok);
+  assert(kernel_propagation_fixpoint(k));
+  k.stats.restarts = 90;
+  DefaultPolicy p;
+  if (prepare) {
+    assert(p.prepare_rephase_root(k) == ApplyResult::Ok);
+    assert(kernel_propagation_fixpoint(k) && k.unflushed_root == 0);
+  } else {
+    // Executable old-negative witness, not a failing assertion or crash.
+    assert(restart_backtrack_to(k, 0) == ApplyResult::Ok);
+    assert(!kernel_propagation_fixpoint(k));
+  }
+  assert(k.stats.restarts == 90);
+  k.warming = true;
+  kernel_assign_decision(k, internalize(1));
+  const size_t begin = k.trail.size();
+  kernel_propagate_beyond_conflicts(k);
+  std::vector<int> result;
+  for (size_t i = begin; i < k.trail.size(); ++i)
+    result.push_back(kernel_externalize(k, k.trail[i]));
+  k.warming = false;
+  return result;
+}
+
+static void test_rephase_root_closure_precedes_warmup() {
+  assert(warmup_after_retained_root(false) == std::vector<int>({-2, -4, -5}));
+  assert(warmup_after_retained_root(true) == std::vector<int>({-4, -5, -2}));
+  Kernel k;
+  kernel_reserve_vars(k, 2);
+  ScopedHeuristics h(k);
+  kernel_assign_decision(k, internalize(1));
+  // Public Rephase remains H-only and universally usable mid-trail.
+  assert(rephase_apply_type(k, REPHASE_ORIGINAL) == ApplyResult::Ok);
+  assert(k.level == 1 && k.value(internalize(1)) > 0);
+}
+
 int main() {
   test_best_snapshot();
   test_types();
@@ -162,6 +215,7 @@ int main() {
   test_policy_trigger();
   test_rephase_backtrack_preserves_restart_cadence();
   test_walk_effort_uses_eliminate_anchor();
+  test_rephase_root_closure_precedes_warmup();
   puts("test_rephase OK");
   return 0;
 }

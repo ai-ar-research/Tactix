@@ -13,10 +13,6 @@
 #include "kernel/clause.hpp"
 #include "policies/heuristics.hpp"
 
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-
 namespace tactix {
 
 namespace {
@@ -197,15 +193,9 @@ bool build_table(Walker &w, Kernel &k) {
 void seed_values(Walker &w, const Kernel &k) {
   w.values.resize(2 * k.nvars);
   w.best_values.resize(k.nvars);
-  // TACTIX_WALK_PREV (diagnostic, cadical-shaped arm): resume from the previous
-  // walk's assignment (cadical phases.prev) instead of the decision phases.
-  static const bool use_prev = std::getenv("TACTIX_WALK_PREV") != nullptr;
-  const bool have_prev = use_prev && k.h->walk_prev.size() == k.nvars;
   for (Var v = 0; v < k.nvars; v++) {
     const Lit pos_lit = make_lit(v, false);
     int8_t val = k.value(pos_lit);
-    if (!val && have_prev)
-      val = k.h->walk_prev[v];
     if (!val)
       val = negated(heuristics_decide_lit(k, v)) ? -1 : 1;
     w.values[pos_lit] = val;
@@ -280,7 +270,6 @@ Lit pick_literal(Walker &w, std::vector<double> &scores) {
     scores.push_back(s);
     sum += s;
   }
-  const uint64_t rng_before = w.rng;
   const double random = pick_double(w.rng);
   const double threshold = sum * random;
   double acc = 0;
@@ -291,22 +280,6 @@ Lit pick_literal(Walker &w, std::vector<double> &scores) {
       picked = w.cl_lits[i];
       break;
     }
-  }
-  static const uint64_t trace_choices = [] {
-    const char *value = std::getenv("TACTIX_WALK_CHOICES");
-    return value ? std::strtoull(value, nullptr, 10) : UINT64_C(0);
-  }();
-  if (w.flips < trace_choices) {
-    fprintf(stderr,
-            "c walk-choice flip=%llu current=%zu pos=%u clause=%u lits=",
-            (unsigned long long)w.flips, w.unsat.size(), pos, c);
-    for (uint32_t i = beg; i < end; i++)
-      fprintf(stderr, "%s%d:%g", i == beg ? "" : ",",
-              kernel_externalize(*w.k, w.cl_lits[i]), scores[i - beg]);
-    fprintf(stderr,
-            " rng=%llu random=%.17g sum=%.17g threshold=%.17g picked=%u\n",
-            (unsigned long long)rng_before, random, sum, threshold,
-            kernel_externalize(*w.k, picked));
   }
   return picked; // rounding: fall back to the last literal
 }
@@ -400,27 +373,9 @@ RuleEligibility walk_guard(const Kernel &k) {
       .fact("has-variables", k.nvars > 0);
 }
 
-ApplyResult walk_apply_steps(Kernel &k, uint64_t steps) {
+static ApplyResult walk_apply_exact_steps(Kernel &k, uint64_t steps) {
   assert(walk_guard(k));
   k.stats.walks++;
-  if (const char *selected = std::getenv("TACTIX_WALK_WATCH_LITERAL")) {
-    const int wanted = std::abs(std::atoi(selected));
-    for (Lit lit = 0; lit < 2 * k.nvars; lit++) {
-      if (std::abs(kernel_externalize(k, lit)) != wanted)
-        continue;
-      std::fprintf(stderr, "c walk-pre-watch lit=%d entries=",
-                   kernel_externalize(k, lit));
-      bool first = true;
-      for (const WatchEntry watch : k.watches.entries(lit)) {
-        if (!watch.binary())
-          continue;
-        std::fprintf(stderr, "%s%d", first ? "" : ",",
-                     kernel_externalize(k, watch.other()));
-        first = false;
-      }
-      std::fputc('\n', stderr);
-    }
-  }
   // Kissat's non-null dense entry removes repeated binary watches before it
   // saves the irredundant pairs consumed by Walk.  Deduplicate at the same
   // boundary so copies neither skew the local-search counters nor survive the
@@ -433,17 +388,7 @@ ApplyResult walk_apply_steps(Kernel &k, uint64_t steps) {
   if (build_table(w, k)) {
     seed_values(w, k);
     init_counters(w);
-    uint64_t limit = steps ? steps : WALK_DEFAULT_STEPS;
-    // TACTIX_WALK_MAX_STEPS (diagnostic): hard-cap the per-walk dose on top of
-    // the policy's budget — the dose-response axis
-    // (docs/design/s6-walk-design.md §6, measured-dead dosing knobs).
-    static const char *const cap_env = std::getenv("TACTIX_WALK_MAX_STEPS");
-    if (cap_env) {
-      const uint64_t cap = std::strtoull(cap_env, nullptr, 10);
-      if (cap && limit > cap)
-        limit = cap;
-    }
-    local_search(w, limit);
+    local_search(w, steps);
     // Kissat's walker temporarily repurposes every large-watch list as an
     // occurrence index.  Leaving dense mode consequently reconnects all large
     // clauses in arena order and reselects their watched pair.  That
@@ -455,50 +400,32 @@ ApplyResult walk_apply_steps(Kernel &k, uint64_t steps) {
     k.stats.walk_flips += w.flips;
     k.stats.walk_steps += w.steps;
     k.stats.walk_minimum = w.minimum;
-    if (std::getenv("TACTIX_WALK_TRACE"))
-      {
-      fprintf(stderr,
-              "c walk#%llu clauses=%u full=%u binary=%u "
-              "initial=%u binary_unsat=%u minimum=%u flips=%llu "
-              "steps=%llu budget=%llu conflicts=%llu\n",
-              (unsigned long long)k.stats.walks, w.nclauses,
-              w.binary_clauses + w.full_irredundant_clauses,
-              w.binary_clauses, w.initial, w.initial_binary_unsat, w.minimum,
-              (unsigned long long)w.flips,
-              (unsigned long long)w.steps, (unsigned long long)steps,
-              (unsigned long long)k.stats.conflicts);
-      }
-    // TACTIX_WALK_DRY (diagnostic): run the walk but discard its assignment,
-    // separating the phases the walk writes from what else the slot changed.
-    // See docs/design/s6-walk-design.md §6.
-    static const bool dry = std::getenv("TACTIX_WALK_DRY") != nullptr;
-    if (w.minimum < w.initial && !dry) {
+    if (w.minimum < w.initial) {
       sync_best(w); // materialise the winning prefix into best_values
       for (Var v = 0; v < k.nvars; v++)
         if (!k.value(make_lit(v, false))) // fixed literals keep their phase
           k.h->saved[v] = w.best_values[v];
       k.stats.walk_improved++;
       improved = true;
-      static const bool keep_prev = std::getenv("TACTIX_WALK_PREV") != nullptr;
-      if (keep_prev)
-        k.h->walk_prev = w.best_values; // cadical phases.prev continuity
     }
   }
   // The rephase tail every type runs (kissat reset_phases): the fresh saved
   // phases become the target ones. `best` is not consumed here — kissat resets
-  // its watermark only on type Best. TACTIX_WALK_NO_TARGET (diagnostic) skips
-  // the target copy, leaving the walk visible to focused-mode decisions only.
-  static const bool no_target = std::getenv("TACTIX_WALK_NO_TARGET") != nullptr;
-  if (!no_target) {
-    std::copy(k.h->saved.begin(), k.h->saved.end(), k.h->target.begin());
-    k.h->target_assigned = 0;
-  }
+  // its watermark only on type Best.
+  std::copy(k.h->saved.begin(), k.h->saved.end(), k.h->target.begin());
+  k.h->target_assigned = 0;
   k.stats.rephased++;
   return improved ? ApplyResult::Ok : ApplyResult::NoOp;
 }
 
+ApplyResult walk_apply_steps(Kernel &k, uint64_t steps) {
+  return walk_apply_exact_steps(k, steps);
+}
+
 ApplyResult walk_apply(Kernel &k) {
-  return walk_apply_steps(k, k.work_budget);
+  const uint64_t steps = kernel_has_work_budget(k) ? k.work_budget
+      : strategy::WalkParameters::STEP_BUDGET_DEFAULT;
+  return walk_apply_exact_steps(k, steps);
 }
 
 // Instance surface (plan §5.1): the payload is the step budget, so the §5.6

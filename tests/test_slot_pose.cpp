@@ -307,7 +307,7 @@ static void test_dynamic_bve_heap_rearms_all_at_later_bound() {
   std::printf("  BVE dynamic heap: all candidates rearmed at bound 16\n");
 }
 
-static void test_incomplete_bve_round_drops_remaining_retry_flags() {
+static void test_cut_bve_phase_advances_and_rearms() {
   Kernel k;
   Heuristics h;
   k.h = &h;
@@ -325,11 +325,10 @@ static void test_incomplete_bve_round_drops_remaining_retry_flags() {
   assert(p.inprocess().run_phase(k, SlotGroup::Eliminate, nullptr) != 20);
   assert(k.stats.bve_eliminated == 1);
   for (const uint8_t retry : k.bve_retry)
-    assert(!retry &&
-           "an incomplete Kissat elimination round drops every remaining flag");
-  assert(p.inprocess().elim_clock.marks_mark == k.stats.bve_marks &&
-         "an incomplete round must not advance and blanket-rearm the bound");
-  std::printf("  incomplete BVE round drops remaining retry flags\n");
+    assert(retry && "a consistent phase advances and rearms after a quota cut");
+  assert(p.inprocess().elim_clock.marks_mark == 0 &&
+         "a nonterminal bound keeps admission open after a quota cut");
+  std::printf("  cut BVE phase advances and rearms\n");
 }
 
 static void test_factor_bound_walks_posed_bve_ladder() {
@@ -486,14 +485,6 @@ static void check_enable_default_off(DefaultPolicy &p, Kernel &) {
          "TACTIX_SLOT_ENABLE must expose default-off standalone C1");
 }
 
-static void check_legacy_order(DefaultPolicy &p, Kernel &) {
-  const size_t n = p.inprocess().entries.size();
-  assert(n >= 2);
-  const uint32_t bve = slot_index(p, "BVE"), factor = slot_index(p, "Factor");
-  assert(factor == n - 1 && bve == n - 2 &&
-         "TACTIX_SLOT_ORDER=legacy must move BVE then Factor to the back");
-}
-
 static void check_authored_order(DefaultPolicy &p, Kernel &) {
   const size_t n = p.inprocess().entries.size();
   const uint32_t factor = slot_index(p, "Factor");
@@ -536,7 +527,7 @@ int main() {
   test_declined_bve_candidate_flushes_immediate_unit();
   test_default_bve_ladder_reaches_kissat_terminal_bound();
   test_dynamic_bve_heap_rearms_all_at_later_bound();
-  test_incomplete_bve_round_drops_remaining_retry_flags();
+  test_cut_bve_phase_advances_and_rearms();
   test_factor_bound_walks_posed_bve_ladder();
   test_pose_and_disable();
 
@@ -553,9 +544,6 @@ int main() {
   std::printf("  TACTIX_SLOT_ENABLE exposes default-off SubsumeForward\n");
 
   with_env(nullptr, 0, check_authored_order);
-  const char *legacy[] = {"TACTIX_SLOT_ORDER", "legacy"};
-  with_env(legacy, 2, check_legacy_order);
-  std::printf("  TACTIX_SLOT_ORDER=legacy moves BVE/Factor to the back\n");
 
   const char *knobs[] = {"TACTIX_SLOT_PERMILLE",   "Sweep:7,Congruence:7",
                          "TACTIX_SLOT_MAX_APPLIES", "Congruence:1",

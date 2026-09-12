@@ -46,6 +46,15 @@ add_library(tactix_lib OBJECT
   src/policies/random_policy.cpp
   src/policies/trace.cpp
   src/policies/stress_registry.cpp
+  src/strategy/analyze_parameters.cpp
+  src/strategy/forward_parameters.cpp
+  src/strategy/failed_literal_parameters.cpp
+  src/strategy/congruence_parameters.cpp
+  src/strategy/instantiate_parameters.cpp
+  src/strategy/vivify_parameters.cpp
+  src/strategy/online_inprocess.cpp
+  src/strategy/random_online.cpp
+  src/strategy/rule_parameters.cpp
   src/frontend/parse.cpp
   src/api/api.cpp
 )

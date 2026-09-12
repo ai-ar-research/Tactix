@@ -7,6 +7,7 @@
 // soundness may not depend on the schedule; and singleton-level literals still
 // get minimized (see the block pass).
 #include "rules/analyze/analyze.hpp"
+#include "rules/analyze/learned_sort.hpp"
 #include "diagnostics/event_trace.hpp"
 #include "policies/heuristics.hpp"
 
@@ -189,11 +190,9 @@ static const Lit *conflict_lits(const Kernel &k, uint32_t *size) {
 // deliberately allows the walk to cross intermediate decision levels absent
 // from the learned clause; requiring clause-level membership here only keeps
 // literals whose redundancy the same reason graph proves.
-// Kissat's shipped `minimizedepth=1000`; it rejects the node at depth 1000.
-// Binary reason runs are iterative there and do not consume this recursion
-// budget.  Keep the constant authored here: it is analysis mechanism, not a
-// policy arm, and the former 900/override arm was measured neutral and closed.
-static constexpr unsigned MINIMIZE_DEPTH_LIMIT = 1000;
+// Binary reason runs are iterative and do not consume the strategy's recursive
+// reason-walk budget. Reaching the configured depth keeps the literal; it does
+// not affect soundness of the first-UIP learned clause.
 
 static bool literal_redundant(Kernel &, Lit, unsigned);
 
@@ -275,8 +274,9 @@ static bool literal_redundant(Kernel &k, Lit l, unsigned depth) {
     return true;
   if (k.seen[v] & POISONED)
     return false;
-  if (a.reason == DECISION_REASON || depth >= MINIMIZE_DEPTH_LIMIT) {
-    if (depth >= MINIMIZE_DEPTH_LIMIT)
+  if (a.reason == DECISION_REASON ||
+      depth >= k.analyze_parameters.minimize_depth_limit) {
+    if (depth >= k.analyze_parameters.minimize_depth_limit)
       k.stats.minimize_depth_cutoffs++;
     const uint8_t before = k.seen[v];
     k.seen[v] |= POISONED;
@@ -353,36 +353,6 @@ static void radix_sort_bumps_by_stamp(Kernel &k, std::vector<Var> &a) {
   }
   if (src != &a)
     a.swap(b);
-}
-
-// Kissat's sort_deduced_clause orders decision-level buckets descending and
-// preserves deduction order within each bucket.  Stable LSD radix sorting on
-// the complemented level reproduces that order without per-conflict
-// allocation; OTFS scratch is dead once the final learned clause is reached.
-static void radix_sort_learned_by_level(Kernel &k, std::vector<Lit> &learned) {
-  const size_t n = learned.size() - 1;
-  if (n < 2)
-    return;
-  std::vector<Lit> &scratch = k.otfs_scratch;
-  scratch.resize(n);
-  Lit *const original = learned.data() + 1;
-  Lit *src = original, *dst = scratch.data();
-  for (uint32_t shift = 0; shift < 32; shift += 8) {
-    uint32_t count[257] = {0};
-    for (size_t i = 0; i < n; i++) {
-      const uint32_t rank = ~k.var_level(var_of(src[i]));
-      count[((rank >> shift) & 0xff) + 1]++;
-    }
-    for (uint32_t i = 1; i < 257; i++)
-      count[i] += count[i - 1];
-    for (size_t i = 0; i < n; i++) {
-      const uint32_t rank = ~k.var_level(var_of(src[i]));
-      dst[count[(rank >> shift) & 0xff]++] = src[i];
-    }
-    std::swap(src, dst);
-  }
-  if (src != original)
-    std::copy(src, src + n, original);
 }
 
 static void reset_analyzed_without_bump(Kernel &k) {
@@ -679,6 +649,7 @@ static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
     if (reason_irredundant)
       for (uint32_t i = 1; i < lits.size(); ++i) {
         kernel_touch_var(k, var_of(lits[i]));
+        kernel_mark_subsume_material(k, var_of(lits[i]));
         kernel_mark_factor_literal(k, lits[i], "analyze_strengthen");
       }
 
@@ -1208,7 +1179,11 @@ static ApplyResult analyze_failed_level_one(Kernel &k, const Lit *clits,
   return ApplyResult::Ok;
 }
 
-ApplyResult analyze_apply(Kernel &k) {
+// Public dispatch supplies the selected backjump target before a reuse path
+// consumes the conflict. DefaultPolicy uses the other specialization, keeping
+// its reference target calculation out of the public action semantics.
+template <bool PublicTarget>
+static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target) {
   assert(analyze_guard(k));
   assert(k.analyzed.empty());
   assert(k.bump_order.empty());
@@ -1265,7 +1240,7 @@ ApplyResult analyze_apply(Kernel &k) {
 
     // A conflict with one literal at `alevel` is already asserting after a
     // backtrack to `jump2`; reuse it without learning. Apply the ordinary
-    // chronological-gap target, and let jump2==0 use the LRAT unit path.
+    // chronological-gap target, including a root implication when jump2==0.
     // Canonicalize watches first because even a declined conflict can survive
     // the backtrack and its pose controls its next observation. Repeat this at
     // every OTFS pass. See docs/implementation-notes.md §12.
@@ -1287,21 +1262,7 @@ ApplyResult analyze_apply(Kernel &k) {
           jump2 = lv;
         }
       }
-      // Diagnostic arm (k.conflict_reuse_no_repair): decline instead of
-      // repairing, so reuse can be measured without the watch-repair
-      // primitive. Sound, and inert unless the knob is set.
-      bool crippled_declines = false;
-      if (k.conflict_reuse_no_repair && at_alevel == 1 &&
-          k.conflict_ref != INVALID_REF) {
-        const Clause *cc = clause_at(k.arena, k.conflict_ref);
-        if (cc->size > 2)
-          crippled_declines =
-              !((cc->lits[0] == forced || cc->lits[1] == forced) &&
-                k.var_level(var_of(cc->lits[0] == forced ? cc->lits[1]
-                                                         : cc->lits[0])) ==
-                    jump2);
-      }
-      if (at_alevel == 1 && jump2 > 0 && !crippled_declines) {
+      if (at_alevel == 1) {
         const Ref cref = k.conflict_ref;
         const Lit other = cref == INVALID_REF
                               ? (k.conflict_bin[0] ^ k.conflict_bin[1] ^ forced)
@@ -1319,10 +1280,31 @@ ApplyResult analyze_apply(Kernel &k) {
           }
         }
 #endif
-        const uint32_t target = conflict_reuse_target(k, jump2);
+        const uint32_t target =
+            PublicTarget ? std::clamp(requested_target, jump2, k.level - 1)
+                         : conflict_reuse_target(k, jump2);
         unwind_after_conflict(k, target);
         analyze_retire_otfs_reasons(k);
-        if (cref == INVALID_REF)
+        if (!jump2) {
+          // A reused root implication is propagation, not a learned-clause
+          // transaction. Kissat inlineassign.h publishes its unit and fixes
+          // the variable without entering Deduce or advancing EVSIDS. Name
+          // the same root fact in LRAT using the other literals' unit ids.
+          const uint64_t id = ++k.next_clause_id;
+          if (k.proof) {
+            if (lrat) {
+              for (uint32_t i = 0; i < csize; ++i)
+                if (clits[i] != forced)
+                  chain_record_root(k, var_of(clits[i]));
+              chain_emit(k, id, &forced, 1, conflict_chain_id);
+            } else {
+              k.proof->add_rup(id, &forced, 1, nullptr, 0);
+            }
+          }
+          k.unit_ids[var_of(forced)] = id;
+          kernel_assign_unit(k, forced);
+          heuristics_deactivate_var(k, var_of(forced));
+        } else if (cref == INVALID_REF)
           // Kissat routes reused binary conflicts through
           // `kissat_assign_binary`, whose reason-jump path is intentionally
           // not guarded by the big/big formula classification.  Storing the
@@ -1342,7 +1324,7 @@ ApplyResult analyze_apply(Kernel &k) {
 
     // A genuine level-one conflict with more than one literal on that level
     // is Kissat's failed-literal case.  The one-literal case above remains the
-    // conflict-reuse path (or Tactix's explicit LRAT unit path when jump2=0).
+    // conflict-reuse path, including zero-jump root implications.
     if (alevel == 1) {
       uint32_t on_level_one = 0;
       for (uint32_t i = 0; i < csize; i++)
@@ -1595,7 +1577,9 @@ ApplyResult analyze_apply(Kernel &k) {
                           : INVALID_LIT;
     if (cref != INVALID_REF && repair_conflict_watches(k, cref, k.level))
       k.stats.conflict_watch_repaired++;
-    const uint32_t target = conflict_reuse_target(k, jump);
+    const uint32_t target =
+        PublicTarget ? std::clamp(requested_target, jump, k.level - 1)
+                     : conflict_reuse_target(k, jump);
     unwind_after_conflict(k, target);
     analyze_retire_otfs_reasons(k);
     if (cref == INVALID_REF)
@@ -1665,20 +1649,28 @@ ApplyResult analyze_apply(Kernel &k) {
   return ApplyResult::Ok;
 }
 
+ApplyResult analyze_apply(Kernel &k) {
+  return analyze_apply_internal<false>(k, 0);
+}
+
 // ConflictAnalysis — the atomic learn+backjump rule (docs/calculus.md §3 M3).
 // One transition from a recorded conflict: derive and emit the learned clause,
 // then, unless that was a root refutation, assert it by backjumping. Fusing
 // the two removes the `pending` control state that was observable at a rule
 // boundary, so no guard needs a ¬pending.valid conjunct. The step functions
 // stay internal, driven white-box by DefaultPolicy and the analyze tests.
-static ApplyResult conflictanalysis_apply(Kernel &k) {
-  const ApplyResult r = analyze_apply(k);
+static ApplyResult conflictanalysis_apply_to(Kernel &k, uint32_t target) {
+  const ApplyResult r = analyze_apply_internal<true>(k, target);
   if (r != ApplyResult::Ok)
     return r; // root refutation (Unsat) — analyze set no pending clause
   if (!k.pending.valid)
     return ApplyResult::Ok; // conflict reused as its own driver: the implied
                             // literal is already assigned
-  return backjump_apply(k); // asserts the UIP at jump_level; clears pending
+  return backjump_apply_to(k, target); // same selected target when learning
+}
+
+static ApplyResult conflictanalysis_apply(Kernel &k) {
+  return conflictanalysis_apply_to(k, 0); // clamps up to the true jump level
 }
 
 // Instance surface (D-LEVEL-2): the backjump target, any level in
@@ -1694,19 +1686,11 @@ static uint32_t conflictanalysis_instances(Kernel &k, uint64_t *out,
 }
 
 static ApplyResult conflictanalysis_apply_instance(Kernel &k, uint64_t inst) {
-  const ApplyResult r = analyze_apply(k);
-  if (r != ApplyResult::Ok)
-    return r; // root refutation
-  if (!k.pending.valid)
-    return ApplyResult::Ok; // conflict reused as its own driver: no clause to
-                            // assert and no target to honour. Must stay in
-                            // step with the canonical path above; the random
-                            // policy drives only this one.
   if (inst == INSTANCE_CANONICAL)
-    return backjump_apply(k); // jump_level
+    return conflictanalysis_apply(k);
   const uint32_t target =
       inst > UINT32_MAX ? UINT32_MAX : static_cast<uint32_t>(inst);
-  return backjump_apply_to(k, target); // clamps into [jump_level, level-1]
+  return conflictanalysis_apply_to(k, target);
 }
 
 TACTIX_REGISTER_RULE(ConflictAnalysis, RuleTier::Micro, analyze_guard,

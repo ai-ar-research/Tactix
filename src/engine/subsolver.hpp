@@ -47,10 +47,21 @@ enum class SubSearchMode {
 // One derived clause: `lits` follows from `chain` in the LRAT sense — assume
 // every literal of `lits` false, then propagate `chain` in order, each entry
 // unit or (the last) conflicting. An empty `lits` is the empty clause.
+//
+// `antecedents` is a second, generally smaller list: the clauses Kitten records
+// on the lemma (`kitten.c:965`), which is what its clausal core walks. Kitten's
+// failing-assumption analysis stops at a root reason instead of expanding it
+// (`kitten.c:1461-1477`), so that set is not the transitive cone an LRAT chain
+// needs. Empty means the two coincide, which holds everywhere but there.
 struct SubStep {
   uint32_t id = 0;
   std::vector<SubLit> lits;
   std::vector<uint32_t> chain;
+  std::vector<uint32_t> antecedents;
+
+  const std::vector<uint32_t> &core_antecedents() const {
+    return antecedents.empty() ? chain : antecedents;
+  }
 };
 
 // A complete refutation, payable as a proof obligation: a swept equivalence is
@@ -63,6 +74,17 @@ struct SubStep {
 struct SubDerivation {
   std::vector<SubStep> steps;
   std::vector<uint32_t> core;
+  // Kitten's clausal core: every clause reachable from the refuting lemma over
+  // `antecedents`, each emitted once, in the post-order
+  // `kitten_compute_clausal_core` produces (`kitten.c:1978-2008`). `learned`
+  // separates a lemma from a stated original, which Kissat's `save_core_clause`
+  // filters on (`sweep.c:333-337`).
+  struct CoreClause {
+    uint32_t id = 0;
+    bool learned = false;
+    std::vector<SubLit> lits;
+  };
+  std::vector<CoreClause> core_clauses;
 };
 
 class SubSolver {
@@ -107,7 +129,10 @@ public:
   // refutation yet, or the assumptions were directly contradictory, so nothing
   // was derived and the target clause would be a tautology — which only
   // `Proof::add_rup`'s assert catches, DRAT accepting it for free.
-  bool derivation(SubDerivation &out) const;
+  // `with_core` additionally fills `out.core_clauses` with Kitten's clausal
+  // core; it costs one arena walk, so only the caller that consumes the core
+  // asks for it.
+  bool derivation(SubDerivation &out, bool with_core = false) const;
 
   // Kitten definition-core refinement: retain only the original clauses in a
   // computed core, discard learned state, then deterministically shuffle the
@@ -177,7 +202,8 @@ private:
   bool propagate_units();
   void attach(SubRef ref);
   SubRef add_derived(const std::vector<SubLit> &lits,
-                     const std::vector<uint32_t> &chain);
+                     const std::vector<uint32_t> &chain,
+                     const std::vector<uint32_t> &ante = {});
   SubLit *clause_lits(SubRef ref) { return &arena_[ref]; }
   const SubLit *clause_lits(SubRef ref) const { return &arena_[ref]; }
   uint32_t clause_size(SubRef ref) const { return arena_[ref - 1]; }
@@ -192,6 +218,9 @@ private:
   void chain_clear();
   // sorted ids, with `closing` appended last when it is not NO_REF
   std::vector<uint32_t> chain_build(SubRef closing);
+  std::vector<uint32_t> refute_antecedents(SubRef conflict);
+  const SubStep *step_of(uint32_t id) const;
+  void compute_clausal_core(SubDerivation &out) const;
   void refute_empty(SubRef conflict); // the empty clause, from a level-0 conflict
 
   uint32_t nvars_ = 0;
@@ -261,6 +290,12 @@ private:
   std::vector<SubVar> cone_touched_;
   std::vector<SubVar> cone_stack_;
   std::vector<std::pair<uint32_t, uint32_t>> chain_entries_; // (trail pos, id)
+  std::vector<uint32_t> analyze_ante_; // Kitten's `resolved`, in its own order
+  size_t next_root_ = 0;               // `inconsistent`'s breadth cursor
+  // The clause Kitten leaves in `inconsistent`/`failing`, which roots the core.
+  // Not always the proof target: a single-antecedent failing analysis reuses
+  // that antecedent and never allocates a clause for the target.
+  uint32_t core_root_ = 0;
 
   std::vector<SubStep> derived_; // every lemma learned, in derivation order
   SubStep target_;               // the last refutation's target clause

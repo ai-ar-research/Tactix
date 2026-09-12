@@ -16,17 +16,16 @@ The implementation follows the reference shape for assignment initialization,
 break-value updates, bounded local flips, and phase export. Before every walk,
 the policy runs Kissat's default root decision/propagation warm-up and saves
 its assignment-time phases. The production rotation is Kissat's exact
-`B,W,I,B,W,O`; `TACTIX_WALK_AUGMENT_BEST=1` retains the former `B+W` behavior
-only as an explicit diagnostic arm. Historical performance evidence for the
-composition does not select it automatically.
+`B,W,I,B,W,O`. The former `Best+Walk` diagnostic composition and the
+rule-local Walk trace switches were removed after their localization work
+ended.
 
 ## 6. Dosing record
 
 The former `TACTIX_WALK_WARMUP` arm only warmed the walker's private assignment;
-it was not the reference mechanism and has been removed. Current knobs exist
-only where they retain a distinct diagnostic or scheduling use; neutral or
-superseded arms are removed under the project's arm-frugality policy. Current
-defaults, counters, and measurement evidence are owned by
+it was not the reference mechanism and has been removed. Neutral or superseded
+arms are removed under the project's arm-frugality policy. Current defaults,
+counters, and measurement evidence are owned by
 `docs/implementation-notes.md` and dated reports.
 
 `walkeffort=50‰` uses the same generic Kissat effort mechanism as the other

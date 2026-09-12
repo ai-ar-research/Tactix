@@ -3,6 +3,7 @@
 
 #include "diagnostics/event_trace.hpp"
 #include "rules/propagate/propagate.hpp"
+#include "rules/bve/bve.hpp"
 
 #include "proof/proof.hpp"
 
@@ -88,7 +89,7 @@ RuleEligibility strengthen_guard(const Kernel &k) {
 // clause is S2 Forget, and strengthening one emits an add-RUP that stands
 // against the whole formula at emit time.
 static bool is_victim(const Kernel &k, const Clause *c) {
-  if (c->garbage() || c->size > STRENGTHEN_CLSLIM)
+  if (c->garbage())
     return false;
   for (const Lit l : *c)
     if (k.value(l) > 0)
@@ -102,20 +103,27 @@ static bool is_victim(const Kernel &k, const Clause *c) {
 // `likely_to_be_kept_clause`), evaluated LIVE, so band membership is read now
 // rather than at creation. Ledger row D-C1C2-VICTIM.
 static bool in_round_scope(const Kernel &k, const Clause *c) {
-  if (!is_victim(k, c))
+  if (c->size > k.strengthen_parameters.clause_size_limit ||
+      !is_victim(k, c))
     return false;
   return !c->redundant() ||
          (k.touch_redundant &&
           kernel_likely_kept(k, true, c->glue(), c->size));
 }
 
-static bool touched_on_two_variables(const Kernel &k, const Clause *c,
+// The explicit CaDiCaL victim-band arm retains its shared-touch protocol.
+// Only the canonical irredundant round owns native material flags.
+static bool round_marked(const Kernel &k, Var v, uint64_t watermark) {
+  return k.touch_redundant ? kernel_touched_since(k, v, watermark)
+                           : kernel_has_subsume_material(k, v);
+}
+
+static bool material_on_two_variables(const Kernel &k, const Clause *c,
                                      uint64_t watermark) {
   uint32_t touched = 0;
   for (const Lit lit : *c)
-    if ((kernel_touched_since(k, var_of(lit), watermark) ||
-         (c->redundant() &&
-          kernel_kept_since(k, var_of(lit), watermark))) &&
+    if ((round_marked(k, var_of(lit), watermark) ||
+         (c->redundant() && kernel_kept_since(k, var_of(lit), watermark))) &&
         ++touched == 2)
       return true;
   return false;
@@ -172,14 +180,17 @@ struct CheckResult {
 // once — marked in the opposite phase, which is the strengthen case.
 static CheckResult check_marked(const Kernel &k,
                                 const std::vector<uint8_t> &marks,
-                                const Clause *d) {
+                                const Clause *d, bool *satisfied = nullptr) {
   CheckResult r;
   for (const Lit l : *d) {
     if (marks[l])
       continue;
     const int8_t v = k.value(l);
-    if (v > 0)
+    if (v > 0) {
+      if (satisfied)
+        *satisfied = true;
       return {}; // satisfied partner proves nothing
+    }
     if (v < 0)
       continue; // absorbed
     if (marks[negate(l)]) {
@@ -200,19 +211,6 @@ static void mark_candidate(const Kernel &k, std::vector<uint8_t> &marks,
   for (const Lit l : *c)
     if (k.value(l) == 0)
       marks[l] = on;
-}
-
-static bool watch_population_within(const Kernel &k, Lit lit, bool binary,
-                                    uint32_t limit) {
-  if (binary)
-    return k.watches.binary_size(lit) <= limit;
-  uint32_t count = 0;
-  // Large entries still require the complete entry-aware walk: unlike the
-  // exact binary population, lazy garbage remains part of this physical cap.
-  for (const WatchEntry w : k.watches.entries(lit))
-    if (!w.binary() && ++count > limit)
-      return false;
-  return true;
 }
 
 // partner found by a scan: NONE / SUBSUMED / STRENGTHEN with the flipped
@@ -351,9 +349,181 @@ static uint64_t forward_cache_lines(size_t watches) {
   return (watches + 31u) / 32u;
 }
 
+// Root facts must survive deletion of a connected reason. Native dense
+// assignment emits the unit immediately and retains UNIT_REASON. Reuse the
+// established LRAT chain builder, before any later satisfied-clause cleanup.
+static void forward_assign_root(Kernel &k, Lit unit, uint32_t reason,
+                                bool binary) {
+  const size_t from = k.trail.size();
+  kernel_assign(k, unit, 0, reason, binary);
+  if (k.proof) {
+    if (k.proof->lrat())
+      kernel_emit_root_units(k, from);
+    else
+      k.proof->add_rup(0, &unit, 1, nullptr, 0);
+  }
+  Assigned &assigned = k.assigned[var_of(unit)];
+  assigned.reason = UNIT_REASON;
+  assigned.binary = false;
+  assigned.jumped = false;
+}
+
+static void forward_refute(Kernel &k, const Clause *clause,
+                           Lit first = INVALID_LIT, Lit second = INVALID_LIT) {
+  if (k.proof) {
+    if (k.proof->lrat()) {
+      k.lrat_entries.clear();
+      const auto add = [&](Lit lit) {
+        assert(k.value(lit) < 0);
+        const Var v = var_of(lit);
+        k.lrat_entries.emplace_back(k.assigned[v].trail, k.unit_ids[v]);
+      };
+      if (clause)
+        for (const Lit lit : *clause)
+          add(lit);
+      else {
+        add(first);
+        add(second);
+      }
+      kernel_lrat_chain(k, clause ? clause->id()
+                                 : kernel_binary_id(k, first, second));
+      k.proof->add_empty(++k.next_clause_id, k.lrat_chain.data(),
+                         static_cast<uint32_t>(k.lrat_chain.size()));
+    } else
+      k.proof->add_empty(0, nullptr, 0);
+  }
+  k.inconsistent = true;
+  k.conflict_valid = false;
+}
+
+// The same dense assignment/proof semantics apply to the private partial
+// forward image and to the caller's complete irredundant image. The caller
+// chooses the image; do not replace the partial scan during candidate work.
+template <class Streams>
+static bool forward_propagate_units(Kernel &k, const Streams &watches,
+                                    uint64_t &changed) {
+  while (k.propagate_head < k.trail.size()) {
+    const Lit false_lit = negate(k.trail[k.propagate_head++]);
+    k.stats.propagations++;
+    const auto &stream = watches[false_lit];
+    uint64_t ticks = 1 + forward_cache_lines(stream.size());
+    for (const auto watch : stream) {
+      if (watch.binary) {
+        const Lit other = watch.payload;
+        if (k.value(other) > 0)
+          continue;
+        if (k.value(other) < 0) {
+          forward_refute(k, nullptr, false_lit, other);
+          return false; // native does not charge the conflicting scan
+        }
+        if (!kernel_var_retired(k, var_of(other)))
+          forward_assign_root(k, other, false_lit, true);
+        continue;
+      }
+      ++ticks;
+      Clause *clause = clause_at(k.arena, watch.payload);
+      if (clause->garbage())
+        continue;
+      Lit unit = INVALID_LIT;
+      unsigned non_false = 0;
+      bool satisfied = false;
+      for (const Lit lit : *clause) {
+        if (lit == false_lit || k.value(lit) < 0)
+          continue;
+        if (k.value(lit) > 0) {
+          satisfied = true;
+          kernel_delete_clause(k, clause);
+          ++changed;
+          break;
+        }
+        unit = lit;
+        if (++non_false == 2)
+          break;
+      }
+      if (satisfied)
+        continue;
+      if (!non_false) {
+        forward_refute(k, clause);
+        return false;
+      }
+      if (non_false == 1)
+        forward_assign_root(k, unit, watch.payload, false);
+    }
+    const bool saved_inprocessing = k.inprocessing;
+    k.inprocessing = true; // dense ticks never increase search_ticks
+    kernel_charge_ticks(k, ticks);
+    k.inprocessing = saved_inprocessing;
+  }
+  return true;
+}
+
+// Compact the private forward image only after closing its reachable units.
+// Sparse public callers retain full replay debt. Eliminate's caller separately
+// reconnects all irredundant clauses before replaying the forward suffix.
+static bool forward_flush_units(
+    Kernel &k, std::vector<std::vector<ForwardWatch>> &watches,
+    uint64_t &changed) {
+  const uint32_t from = k.propagate_head;
+  if (from == k.trail.size())
+    return true;
+  if (k.large_watches_connected)
+    k.binary_only_head = std::min(k.binary_only_head, from);
+  if (!forward_propagate_units(k, watches, changed))
+    return false;
+  for (uint32_t i = from; i < k.propagate_head; ++i) {
+    auto &stream = watches[k.trail[i]];
+    size_t kept = 0;
+    for (const ForwardWatch watch : stream) {
+      if (watch.binary) {
+        stream[kept++] = watch;
+        // Normally no BVE heap exists during the forward pass. Preserve the
+        // shared removal notification if a public caller has installed one.
+        if (k.value(watch.other()) == 0)
+          kernel_notify_bve_score(k, var_of(watch.other()), true);
+        continue;
+      }
+      Clause *clause = clause_at(k.arena, watch.ref());
+      if (!clause->garbage()) {
+        kernel_delete_clause(k, clause);
+        ++changed;
+      }
+    }
+    stream.resize(kept);
+  }
+  return true;
+}
+
+ApplyResult strengthen_reconnect_and_flush(Kernel &k, uint32_t trail_from) {
+  assert(k.level == 0 && k.dense && k.dense->track_order);
+  assert(!k.large_watches_connected && trail_from <= k.trail.size());
+  if (k.inconsistent)
+    return ApplyResult::Unsat;
+  // eliminate.c rebuilds full connections after every forward call, even a
+  // quota cut. Reuse the existing arena-order constructor, without allocating
+  // another formula-wide copy of the mixed occurrence image.
+  kernel_rebuild_dense_occurrences(k);
+  k.propagate_head = trail_from;
+  const auto propagate = [&] {
+    uint64_t changed = 0;
+    if (!forward_propagate_units(k, k.dense->ordered, changed))
+      return ApplyResult::Unsat;
+    bve_flush_units_while_connected(k, trail_from);
+    return ApplyResult::Ok;
+  };
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+  // Rearm before journal eligibility is evaluated: the partial forward scan
+  // may have consumed the old cursor without covering this complete image.
+  return journal_direct_rule(k, "Propagate", "post-forward-connected",
+                             propagate, ApplyResult::Ok);
+#else
+  return propagate();
+#endif
+}
+
 static Partner find_forward_partner(
     Kernel &k, const std::vector<uint8_t> &marks, const Clause *c,
-    std::vector<std::vector<ForwardWatch>> &watches, uint64_t &steps) {
+    std::vector<std::vector<ForwardWatch>> &watches, uint64_t &steps,
+    uint64_t &changed) {
   Partner p;
   const bool lrat = k.proof && k.proof->lrat();
   for (const Lit l : *c) {
@@ -372,7 +542,7 @@ static Partner find_forward_partner(
                            stream.size());
       }
 #endif
-      if (stream.size() > STRENGTHEN_OCCLIM)
+      if (stream.size() > k.strengthen_parameters.occurrence_limit)
         continue;
       if (stream.empty())
         continue;
@@ -469,7 +639,14 @@ static Partner find_forward_partner(
           write--;
           continue;
         }
-        const CheckResult r = check_marked(k, marks, d);
+        bool satisfied = false;
+        const CheckResult r = check_marked(k, marks, d, &satisfied);
+        if (satisfied) {
+          kernel_delete_clause(k, clause_at(k.arena, watch.ref()));
+          ++changed;
+          --write;
+          break; // native cleans this entry and retains the unscanned tail
+        }
         if (r.kind == CheckResult::NONE)
           continue;
         p.res = r;
@@ -515,10 +692,10 @@ static Partner find_forward_partner(
 
 // Pinned Kissat forward.c begins every pass by collapsing duplicate binaries
 // on variables whose persistent `subsume` flag is armed. Tactix's equivalent
-// flag image is the Strengthen touch watermark. The same scan detects
+// flag image is independent of shared touch/retry advice. The same scan detects
 // (l∨a),(l∨¬a), whose hyper-unary resolvent is l, before compacting later
 // copies. Returns the number of retired copies, or UINT64_MAX on refutation.
-static uint64_t sweep_forward_binaries(Kernel &k, uint64_t since,
+static uint64_t sweep_forward_binaries(Kernel &k, uint64_t watermark,
                                        bool filtered) {
   struct UnitWitness {
     Lit unit;
@@ -531,7 +708,7 @@ static uint64_t sweep_forward_binaries(Kernel &k, uint64_t since,
   for (Lit lit = 0; lit < 2 * k.nvars; ++lit) {
     const Var v = var_of(lit);
     if (kernel_var_retired(k, v) || k.value(lit) != 0 ||
-        (filtered && !kernel_touched_since(k, v, since)))
+        (filtered && !round_marked(k, v, watermark)))
       continue;
     std::vector<Lit> touched;
     for (const WatchEntry w : k.watches.entries(lit)) {
@@ -540,7 +717,7 @@ static uint64_t sweep_forward_binaries(Kernel &k, uint64_t since,
       const Lit other = w.other();
       const Var ov = var_of(other);
       if (kernel_var_retired(k, ov) || k.value(other) != 0 ||
-          (filtered && !kernel_touched_since(k, ov, since)))
+          (filtered && !round_marked(k, ov, watermark)))
         continue;
       if (marks[other]) {
         // The current list itself is the exact multiplicity authority.  Record
@@ -624,8 +801,7 @@ static Partner find_partner(Kernel &k, const std::vector<uint8_t> &marks,
       // occurrences only.  Opposite-phase binary discovery is logically
       // redundant (the same binary is reachable from its same-phase literal)
       // but changes which of several valid strengtheners wins first.
-      if (phase == 0 &&
-          watch_population_within(k, probe, true, STRENGTHEN_BINLIM)) {
+      if (phase == 0) {
         const bool stop_at_large = k.watches.heads[probe].binaries_first();
         bool strengthened_by_binary = false;
         for (const WatchEntry w : k.watches.entries(probe)) {
@@ -667,8 +843,6 @@ static Partner find_partner(Kernel &k, const std::vector<uint8_t> &marks,
       if (!occs) // instance surface: large partners via watch lists below
         continue;
       const std::vector<Ref> &os = (*occs)[probe];
-      if (os.size() > STRENGTHEN_OCCLIM)
-        continue;
       for (const Ref dref : os) {
         if (budget_cut())
           return p;
@@ -702,8 +876,6 @@ static Partner find_partner(Kernel &k, const std::vector<uint8_t> &marks,
       continue;
     for (int phase = 0; phase < 2; phase++) {
       const Lit probe = phase ? negate(l) : l;
-      if (!watch_population_within(k, probe, false, STRENGTHEN_OCCLIM))
-        continue;
       for (const WatchEntry w : k.watches.entries(probe)) {
         if (w.binary())
           continue;
@@ -735,10 +907,124 @@ static Partner find_partner(Kernel &k, const std::vector<uint8_t> &marks,
   return p;
 }
 
+struct SemanticStrengthening {
+  Ref candidate;
+  Lit gone;
+};
+
+// Enumerate state-distinct C2 outcomes rather than partners. Two partners that
+// remove the same victim literal produce the same formula transition; either
+// proof chain is a valid realization of that semantic instance. Unlike the
+// fused default scan, a redundant large partner is legal for STRENGTHEN: the
+// newly added RUP clause remains in the formula even if that partner is later
+// forgotten. It is still forbidden for the SUBSUMED/C1 branch.
+static void semantic_strengthenings(Kernel &k,
+                                    std::vector<SemanticStrengthening> &out) {
+  out.clear();
+  std::vector<Ref> candidates;
+  strengthen_candidates(k, candidates, /*complete=*/true);
+  std::vector<uint8_t> marks(2 * k.nvars, 0);
+  std::vector<uint8_t> possible(2 * k.nvars, 0);
+  for (const Ref candidate : candidates) {
+    const Clause *c = clause_at(k.arena, candidate);
+    mark_candidate(k, marks, c, 1);
+    bool subsumed = false;
+    for (const Lit l : *c) {
+      if (k.value(l) != 0)
+        continue;
+      for (const WatchEntry watch : k.watches.entries(l)) {
+        if (!watch.binary())
+          continue;
+        const Lit other = watch.other();
+        if (marks[other])
+          subsumed = true;
+        else if (marks[negate(other)])
+          possible[negate(other)] = 1;
+      }
+    }
+    for (Ref partner = 0; partner < k.arena.size();) {
+      const Clause *d = clause_at(k.arena, partner);
+      const uint32_t words = clause_actual_words(d);
+      if (partner != candidate && !d->garbage()) {
+        const CheckResult result = check_marked(k, marks, d);
+        if (result.kind == CheckResult::SUBSUMED && !d->redundant())
+          subsumed = true;
+        else if (result.kind == CheckResult::STRENGTHEN)
+          possible[negate(result.flipped)] = 1;
+      }
+      partner += words;
+    }
+    if (subsumed)
+      out.push_back({candidate, INVALID_LIT});
+    for (const Lit literal : *c)
+      if (k.value(literal) == 0 && possible[literal]) {
+        out.push_back({candidate, literal});
+        possible[literal] = 0;
+      }
+    mark_candidate(k, marks, c, 0);
+  }
+}
+
+static bool find_semantic_strengthener(Kernel &k,
+                                       const std::vector<uint8_t> &marks,
+                                       const Clause *candidate, Ref self,
+                                       Lit gone, Partner &out) {
+  const bool lrat = k.proof && k.proof->lrat();
+  for (const Lit l : *candidate) {
+    if (k.value(l) != 0)
+      continue;
+    for (const WatchEntry watch : k.watches.entries(l)) {
+      if (!watch.binary())
+        continue;
+      const Lit other = watch.other();
+      if (gone == INVALID_LIT) {
+        if (!marks[other])
+          continue;
+        out.res.kind = CheckResult::SUBSUMED;
+        out.res.flipped = INVALID_LIT;
+      } else {
+        if (negate(other) != gone || !marks[gone])
+          continue;
+        out.res.kind = CheckResult::STRENGTHEN;
+        out.res.flipped = other;
+      }
+      out.absorbed.clear();
+      if (lrat)
+        out.id = kernel_binary_id(k, l, other);
+      return true;
+    }
+  }
+  for (Ref partner = 0; partner < k.arena.size();) {
+    const Clause *d = clause_at(k.arena, partner);
+    const uint32_t words = clause_actual_words(d);
+    if (partner != self && !d->garbage()) {
+      const CheckResult result = check_marked(k, marks, d);
+      const bool selected =
+          gone == INVALID_LIT
+              ? result.kind == CheckResult::SUBSUMED && !d->redundant()
+              : result.kind == CheckResult::STRENGTHEN &&
+                    negate(result.flipped) == gone;
+      if (selected) {
+        out.res = result;
+        out.absorbed.clear();
+        if (lrat) {
+          out.id = d->id();
+          for (const Lit literal : *d)
+            if (k.value(literal) < 0)
+              out.absorbed.push_back(k.unit_ids[var_of(literal)]);
+        }
+        return true;
+      }
+    }
+    partner += words;
+  }
+  return false;
+}
+
 // act() on a found partner. Returns: 0 = candidate unchanged (NONE),
 // 1 = candidate died (subsumed), 2 = strengthened into *ref (rescan),
 // 3 = strengthened to binary (done with candidate), 4 = unit asserted
-// (round must end: values changed), 5 = empty clause derived (UNSAT)
+// (the canonical caller propagates and continues), 5 = empty clause (UNSAT)
 static int act(Kernel &k, Ref *ref, const Partner &p, uint64_t *changed,
                std::pair<Lit, Lit> *new_binary = nullptr) {
   if (p.res.kind == CheckResult::NONE)
@@ -752,19 +1038,12 @@ static int act(Kernel &k, Ref *ref, const Partner &p, uint64_t *changed,
       event_trace_detail(k, "strengthen_target_removed", 1);
     }
 #endif
-    // C1 shadowed this clause and C2 has now deleted it on its own.
-    if (kernel_shadow_retire(k, c->id()))
-      k.stats.c1_shadow_deleted++;
     kernel_delete_clause(k, c);
     k.stats.strengthen_subsumed++;
     (*changed)++;
     return 1;
   }
-  // Strengthen: rebuild from free literals minus the resolved one. A shadowed
-  // clause rewritten away is also handled, but that is a different disposal
-  // from a deletion, so it gets its own counter.
-  if (kernel_shadow_retire(k, c->id()))
-    k.stats.c1_shadow_rewritten++;
+  // Strengthen: rebuild from free literals minus the resolved one.
   const Lit gone = negate(p.res.flipped);
   const bool lrat = k.proof && k.proof->lrat();
   std::vector<Lit> lits;
@@ -829,7 +1108,7 @@ static int act(Kernel &k, Ref *ref, const Partner &p, uint64_t *changed,
                                 redundant ? glue : 0, ref)) {
   case ReplaceOutcome::Refuted:
     return 5; // corpus 002: the empty clause just emitted IS the refutation
-  case ReplaceOutcome::Unit: // unit: assert at root, end the round
+  case ReplaceOutcome::Unit: // caller owns the appropriate propagation image
     k.unit_ids[var_of(lits[0])] = id;
     kernel_assign_unit(k, lits[0]);
     return 4;
@@ -848,9 +1127,10 @@ ApplyResult strengthen_apply(Kernel &k) {
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
   k.stats.strengthen_rounds++;
-  // Repetition filter, C1's arrangement exactly (see the N1 note in
-  // subsume_forward.cpp).
-  kernel_touch_sync_fixed(k);
+  // Native forward admission consumes clause-addition marks, not root-fixed
+  // notifications: Kissat's mark_fixed_literal does not set flags.subsume.
+  // Keep actual addition marks even on fixed variables. C1/CCE retain their
+  // separate root-notification consumer; public instances remain unfiltered.
   const bool filter = k.touch_filter;
   const uint64_t snapshot = k.touch_epoch;
   const uint64_t wm = k.strengthen_touch_mark;
@@ -858,7 +1138,6 @@ ApplyResult strengthen_apply(Kernel &k) {
   if (binary_removed == UINT64_MAX)
     return ApplyResult::Unsat;
   uint64_t changed = binary_removed;
-  bool ended = false;
   // §6 termination polling before and inside the candidate loop. Like
   // Kissat's `forward_subsume_all_clauses`, one candidate gets at most one
   // subsume-or-strengthen action in a round, so there is no same-candidate
@@ -885,7 +1164,7 @@ ApplyResult strengthen_apply(Kernel &k) {
       Clause *c = clause_at(k.arena, ref);
       const uint32_t words = clause_actual_words(c);
       if (!c->garbage() && !c->redundant() &&
-          c->size <= STRENGTHEN_CLSLIM) {
+          c->size <= k.strengthen_parameters.clause_size_limit) {
         bool satisfied = false;
         for (const Lit lit : *c)
           satisfied |= k.value(lit) > 0;
@@ -905,7 +1184,7 @@ ApplyResult strengthen_apply(Kernel &k) {
       ref += words;
     }
   std::vector<Ref> candidates;
-  if (!ended && !interrupted) {
+  if (!interrupted) {
     strengthen_candidates(k, candidates);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
     for (const Ref ref : candidates) {
@@ -914,7 +1193,7 @@ ApplyResult strengthen_apply(Kernel &k) {
         continue;
       uint32_t touched = 0;
       for (const Lit lit : *c)
-        touched += kernel_touched_since(k, var_of(lit), wm);
+        touched += round_marked(k, var_of(lit), wm);
       event_trace_detail(k, "strengthen_selected_pre_filter", 1);
       event_trace_detail(k, "strengthen_selected_touched", touched);
       event_trace_detail(k, "strengthen_selected_size", c->size);
@@ -925,7 +1204,7 @@ ApplyResult strengthen_apply(Kernel &k) {
       size_t kept = 0;
       for (const Ref ref : candidates) {
         const Clause *c = clause_at(k.arena, ref);
-        if (touched_on_two_variables(k, c, wm)) {
+        if (material_on_two_variables(k, c, wm)) {
           candidates[kept++] = ref;
           continue;
         }
@@ -961,7 +1240,7 @@ ApplyResult strengthen_apply(Kernel &k) {
   // a budget; DefaultPolicy enables this uniformly for its fused forward pass.
   ForwardStepCounter steps(k.stats.strengthen_visits);
   const uint64_t check_start = steps.value;
-  const bool step_bounded = k.midround_budget && k.work_budget;
+  const bool step_bounded = k.midround_budget;
   const uint64_t step_budget = k.work_budget;
   // Connect a scheduled survivor at its least-occurring free literal in the
   // current mixed forward stream.  Under the canonical filter every active
@@ -982,7 +1261,7 @@ ApplyResult strengthen_apply(Kernel &k) {
       for (const Lit l : *c) {
         if (k.value(l) != 0)
           continue;
-        if (!kernel_touched_since(k, var_of(l), wm))
+        if (!round_marked(k, var_of(l), wm))
           return;
       }
     Lit min_lit = INVALID_LIT;
@@ -1000,11 +1279,13 @@ ApplyResult strengthen_apply(Kernel &k) {
     }
     // under-derived roots (corpus 002) can leave a candidate with no free
     // literals; nothing to connect then
-    if (min_lit != INVALID_LIT && min_occs <= STRENGTHEN_OCCLIM)
+    if (min_lit != INVALID_LIT &&
+        min_occs <= k.strengthen_parameters.occurrence_limit)
       forward_watches[min_lit].push_back(ForwardWatch::large_entry(cr));
   };
   size_t stopped_at = candidates.size(); // index of the first unreached one
-  const uint64_t produced_before = k.stats.strengthened;
+  std::vector<Ref> rewritten_survivors;
+  std::vector<std::pair<Lit, Lit>> new_binaries;
   for (size_t ci = 0; ci < candidates.size(); ci++) {
     Ref cref = candidates[ci];
     if (step_bounded && steps.value - check_start > step_budget) {
@@ -1021,6 +1302,46 @@ ApplyResult strengthen_apply(Kernel &k) {
     const uint64_t red_sub_before = k.stats.strengthen_subsumed;
     const uint64_t red_str_before = k.stats.strengthened;
     Clause *c = clause_at(k.arena, cref);
+    if (c->garbage())
+      continue;
+    // Earlier candidates can change roots. Re-evaluate this scheduled clause
+    // before marking it; the native candidate step is charged only when at
+    // least two free literals remain and partner discovery actually runs.
+    unsigned non_false = 0;
+    Lit remaining = INVALID_LIT;
+    bool satisfied = false;
+    for (const Lit lit : *c) {
+      if (k.value(lit) > 0) {
+        satisfied = true;
+        break;
+      }
+      if (k.value(lit) == 0) {
+        ++non_false;
+        remaining = lit;
+        marks[lit] = 1;
+      }
+    }
+    k.stats.strengthen_checked++;
+    if (satisfied) {
+      mark_candidate(k, marks, c, 0);
+      kernel_delete_clause(k, c);
+      ++k.stats.flushed;
+      ++changed;
+      continue;
+    }
+    if (!non_false) {
+      forward_refute(k, c);
+      return ApplyResult::Unsat;
+    }
+    if (non_false == 1) {
+      marks[remaining] = 0;
+      forward_assign_root(k, remaining, cref, false);
+      kernel_delete_clause(k, c);
+      ++changed;
+      if (!forward_flush_units(k, forward_watches, changed))
+        return ApplyResult::Unsat;
+      continue;
+    }
 #ifdef TACTIX_ENABLE_EVENT_TRACE
     const bool selected = selected_strengthen_clause(c);
     if (selected) {
@@ -1050,11 +1371,9 @@ ApplyResult strengthen_apply(Kernel &k) {
       }
     }
 #endif
-    k.stats.strengthen_checked++;
     steps.value++; // Kissat `INC(forward_steps)` in forward_marked_clause.
-    mark_candidate(k, marks, c, 1);
     const Partner p =
-        find_forward_partner(k, marks, c, forward_watches, steps.value);
+        find_forward_partner(k, marks, c, forward_watches, steps.value, changed);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
     trace_forward_result(k, c, p, ci, forward_watches);
 #endif
@@ -1078,27 +1397,29 @@ ApplyResult strengthen_apply(Kernel &k) {
     // rescan the strengthened candidate until a later forward round.
     if (r == 0 || r == 2)
       connect(cref);
+    if (r == 2)
+      rewritten_survivors.push_back(cref);
     if (r == 3) {
+      new_binaries.push_back(new_binary);
       const Lit a = new_binary.first, b = new_binary.second;
       assert(a != INVALID_LIT && b != INVALID_LIT);
       forward_watches[a].push_back(ForwardWatch::binary_entry(b));
       forward_watches[b].push_back(ForwardWatch::binary_entry(a));
     }
-    if (r == 4)
-      ended = true;
+    if (r == 4 && !forward_flush_units(k, forward_watches, changed))
+      return ApplyResult::Unsat;
     if (red) { // the band's YIELD, read against `strengthen_red_checked`
       k.stats.strengthen_red_subsumed +=
           k.stats.strengthen_subsumed - red_sub_before;
       k.stats.strengthen_red_strengthened +=
           k.stats.strengthened - red_str_before;
     }
-    if (ended || interrupted) {
+    if (interrupted) {
       stopped_at = ci + 1; // this candidate was checked; the rest were not
       break;
     }
   }
-  // Resume (see the twin comment in subsume_forward.cpp); `ended` leaves a tail
-  // too, re-armed for the same reason a budget cut's is. A re-arm writes the
+  // Resume (see the twin comment in subsume_forward.cpp). A re-arm writes the
   // array the candidate's own creation would have written — `touched` for an
   // irredundant clause, `touched_kept` for a band one — because re-arming a
   // band candidate through `touched` would leak the band into
@@ -1122,14 +1443,37 @@ ApplyResult strengthen_apply(Kernel &k) {
     k.strengthen_touch_mark = snapshot;
     k.stats.strengthen_mark_advances++;
   }
-  // Completeness, kissat's `completed` (forward.c:664-670): nothing was
-  // re-armed. Unlike C1 this rule rewrites clauses, and a rewrite is an add the
-  // substrate arms, so a productive round is incomplete whatever it reached.
-  // `!ended`/`!interrupted` cover an entry stop which leaves `candidates`
-  // empty and would otherwise read as a vacuous fixpoint.
-  k.strengthen_complete = !ended && !interrupted &&
-                          stopped_at == candidates.size() &&
-                          k.stats.strengthened == produced_before;
+  // Native forward owns this independent flag image. Retire the scan image
+  // only at a normal boundary, then retain pending work without publishing a
+  // fresh material event. Shared retry watermarks above still serve other
+  // consumers and the explicit redundant band. Single-instance actions never
+  // reach this boundary; entry/partial interruption preserves unseen flags.
+  if (!interrupted && !k.touch_redundant) {
+    kernel_clear_subsume_material(k);
+    const auto rearm = [&](Ref ref) {
+      const Clause *c = clause_at(k.arena, ref);
+      if (c->garbage() || c->redundant())
+        return;
+      for (const Lit lit : *c)
+        kernel_rearm_subsume_material(k, var_of(lit));
+    };
+    for (size_t ci = stopped_at; ci < candidates.size(); ++ci)
+      rearm(candidates[ci]);
+    for (const Ref ref : rewritten_survivors)
+      rearm(ref);
+    for (const auto &[a, b] : new_binaries) {
+      kernel_rearm_subsume_material(k, var_of(a));
+      kernel_rearm_subsume_material(k, var_of(b));
+    }
+  }
+  // A unit-only rewrite which later leaves no live strengthened candidate
+  // does not itself re-arm native forward subsumption. Live large rewrites
+  // and newly created binaries do; so do unreached candidates or interruption.
+  const bool live_rewrite = std::any_of(
+      rewritten_survivors.begin(), rewritten_survivors.end(),
+      [&](Ref ref) { return !clause_at(k.arena, ref)->garbage(); });
+  k.strengthen_complete = !interrupted && stopped_at == candidates.size() &&
+                          new_binaries.empty() && !live_rewrite;
   if (!changed)
     return ApplyResult::NoOp;
   // Tactix still uses a packed variable-width arena. Until the remaining
@@ -1143,7 +1487,8 @@ ApplyResult strengthen_apply(Kernel &k) {
 
 // Single-candidate instance surface (payload = arena Ref, like C1); applies at
 // most one subsume-or-strengthen step, no cascade.
-ApplyResult strengthen_try(Kernel &k, Ref candidate) {
+template <bool Collect>
+static ApplyResult strengthen_try_impl(Kernel &k, Ref candidate) {
   assert(strengthen_guard(k));
   // `work_budget` is a round device and does not reach this path, so
   // termination is checked here at entry, before the per-clause flush, where
@@ -1173,8 +1518,13 @@ ApplyResult strengthen_try(Kernel &k, Ref candidate) {
     return ApplyResult::Unsat;
   if (!changed)
     return ApplyResult::NoOp;
-  kernel_collect_garbage(k);
+  if constexpr (Collect)
+    kernel_collect_garbage(k);
   return ApplyResult::Ok;
+}
+
+ApplyResult strengthen_try(Kernel &k, Ref candidate) {
+  return strengthen_try_impl<true>(k, candidate);
 }
 
 // Complete over victims, band or no band, so `instances()` never advertises
@@ -1189,7 +1539,8 @@ static uint32_t strengthen_instances(Kernel &k, uint64_t *out, uint32_t cap) {
   return n;
 }
 
-static ApplyResult strengthen_apply_instance(Kernel &k, uint64_t inst) {
+template <bool Collect>
+static ApplyResult strengthen_apply_instance_impl(Kernel &k, uint64_t inst) {
   // D-LEVEL: drain the root closure (no-op at a fixpoint); a conflict refutes.
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
@@ -1197,7 +1548,7 @@ static ApplyResult strengthen_apply_instance(Kernel &k, uint64_t inst) {
     return strengthen_apply(k);
   for (Ref ref = 0; ref < k.arena.size();) {
     if (ref == inst)
-      return strengthen_try(k, ref);
+      return strengthen_try_impl<Collect>(k, ref);
     if (ref > inst)
       break;
     ref += clause_actual_words(clause_at(k.arena, ref));
@@ -1205,8 +1556,74 @@ static ApplyResult strengthen_apply_instance(Kernel &k, uint64_t inst) {
   return ApplyResult::NoOp;
 }
 
+static ApplyResult strengthen_apply_instance(Kernel &k, uint64_t inst) {
+  return strengthen_apply_instance_impl<true>(k, inst);
+}
+
+// Semantic batches keep arena offsets stable between explicit applications.
+// Deletion leaves traversable garbage and shrinking preserves allocation size;
+// collection remains a separate representation boundary. Legacy calls retain
+// their immediate collection and watch-order contract.
+static ApplyResult strengthen_apply_semantic_instance(Kernel &k, uint64_t inst) {
+  if (inprocess_reach_root(k))
+    return ApplyResult::Unsat;
+  if (inst == INSTANCE_CANONICAL)
+    return strengthen_apply(k);
+  Ref selected_ref;
+  Lit selected_gone;
+  strengthen_literal_of_instance(inst, &selected_ref, &selected_gone);
+  if (selected_gone != INVALID_LIT && selected_gone >= 2 * k.nvars)
+    return ApplyResult::NoOp;
+  Ref candidate_ref = INVALID_REF;
+  for (Ref ref = 0; ref < k.arena.size();) {
+    if (ref == selected_ref) {
+      candidate_ref = ref;
+      break;
+    }
+    if (ref > selected_ref)
+      break;
+    ref += clause_actual_words(clause_at(k.arena, ref));
+  }
+  if (candidate_ref == INVALID_REF)
+    return ApplyResult::NoOp;
+  Clause *candidate = clause_at(k.arena, candidate_ref);
+  if (!is_victim(k, candidate) ||
+      (selected_gone != INVALID_LIT &&
+       (k.value(selected_gone) != 0 ||
+        std::find(candidate->begin(), candidate->end(), selected_gone) ==
+            candidate->end())))
+    return ApplyResult::NoOp;
+  std::vector<uint8_t> marks(2 * k.nvars, 0);
+  mark_candidate(k, marks, candidate, 1);
+  Partner partner;
+  const bool found = find_semantic_strengthener(
+      k, marks, candidate, candidate_ref, selected_gone, partner);
+  mark_candidate(k, marks, candidate, 0);
+  if (!found)
+    return ApplyResult::NoOp;
+  uint64_t changed = 0;
+  Ref ref = candidate_ref;
+  const int result = act(k, &ref, partner, &changed);
+  if (result == 5)
+    return ApplyResult::Unsat;
+  return changed ? ApplyResult::Ok : ApplyResult::NoOp;
+}
+
+static uint32_t strengthen_semantic_instances(Kernel &k, uint64_t *out,
+                                              uint32_t cap) {
+  std::vector<SemanticStrengthening> choices;
+  semantic_strengthenings(k, choices);
+  const uint32_t count = std::min<uint32_t>(
+      cap, static_cast<uint32_t>(choices.size()));
+  for (uint32_t i = 0; i < count; ++i)
+    out[i] = strengthen_literal_instance(choices[i].candidate,
+                                         choices[i].gone);
+  return count;
+}
+
 TACTIX_REGISTER_RULE(Strengthen, RuleTier::Inprocess, strengthen_guard,
                      strengthen_apply, strengthen_instances,
-                     strengthen_apply_instance);
+                     strengthen_apply_instance, strengthen_semantic_instances,
+                     strengthen_apply_semantic_instance);
 
 } // namespace tactix

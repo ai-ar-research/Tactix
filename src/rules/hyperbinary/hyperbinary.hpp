@@ -46,4 +46,12 @@ ApplyResult hyperbinary_try(Kernel &k, Lit p);
 // `CandidateOrderPolicy`); shared with the instance surface.
 void hyperbinary_candidates(const Kernel &k, std::vector<Lit> &out);
 
+// Fine-grained semantic payload: an explicit dominator and the arena word of
+// the selected output-literal occurrence. The word identifies both the long
+// clause and l0, so every nondegenerate `(d,C,l0)` fits losslessly in uint64 and
+// remains stable until arena collection. Applying one validates binary reach
+// from d and emits at most that one resolvent.
+uint64_t hyperbinary_semantic_instance(Lit dominator,
+                                       uint32_t literal_word);
+
 } // namespace tactix

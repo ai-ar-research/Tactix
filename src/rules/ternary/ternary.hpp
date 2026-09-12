@@ -15,19 +15,27 @@
 
 namespace tactix {
 
-// Guard: quiescent root (D-ROOT) — the occurrence index and the "already
+// Guard: declared quiescent-root boundary — the occurrence index and the "already
 // present" checks only mean anything once every level-0 unit is propagated into
 // the clause set.
 RuleEligibility ternary_guard(const Kernel &);
 
-// Instance space (plan §5.1): payload = the pivot literal, sign-extended DIMACS
-// int; one instance = one pivot = all resolutions of its positive ternaries
-// against its negative ones. Canonical order: variables carrying at least one
-// ternary occurrence in each polarity, ascending by literal code.
+// Frozen v1 instance space (plan §5.1): payload = the pivot literal; one
+// instance applies all resolutions of its positive ternaries against its
+// negative ones. The additive semantic surface exposes each applicable parent
+// pair/resolvent independently through an opaque snapshot payload. Canonical
+// order: variables carrying at least one ternary occurrence in each polarity,
+// ascending by literal code.
 // `total_clauses` (optional out) is the live clause count from the same arena
 // pass, the base for `Kernel::ternary_max_add_percent`.
 void ternary_pivots(const Kernel &, std::vector<Lit> &out,
-                    uint64_t *total_clauses = nullptr);
+                    uint64_t *total_clauses = nullptr,
+                    bool complete = false);
+
+// Saturating floor(base * percent / 100), used by the caller-configurable
+// output governor.  Saturation keeps the complete uint32 percentage domain
+// valid without allowing multiplication to wrap into a smaller limit.
+uint64_t ternary_percent_limit(uint64_t base, uint32_t percent);
 
 // One pivot: add every collapsing resolvent. Resolvents are added redundant
 // (glue = size) so Reduce can retire them, since adding an entailed consequence

@@ -33,14 +33,11 @@ enum BveGate : uint32_t {
 constexpr uint32_t BVE_GATE_KISSAT_DEFAULT =
     BVE_GATE_EQUIV | BVE_GATE_AND_OR | BVE_GATE_ITE | BVE_GATE_DEFINITION;
 
-// XOR arity ceiling (cadical `elimxorlim`, default 5): a parity relation over
-// the pivot and m inputs needs all 2^m clauses. Any value is sound.
-constexpr uint32_t BVE_XOR_ARITY_LIMIT = 5;
-
-// Maximum growth slack (kissat option eliminatebound). `Kernel::bve_bound`
-// defaults to this; a policy ramps it 0,1,2,4,8,16 for kissat's fine-grained
-// dose. Keep in step with the Kernel field's default.
-constexpr uint32_t BVE_MAX_BOUND = 16;
+// XOR recognition enumerates all 2^m assignments.  The configurable strategy
+// default is separate from this fixed-stack representation capacity; values
+// outside the capacity are rejected by the typed invocation interface.
+constexpr uint32_t BVE_XOR_ARITY_MIN = 2;
+constexpr uint32_t BVE_XOR_ARITY_CAPACITY = 5;
 
 // Pure quiescent-root precondition, D-LEVEL purified: no fixpoint conjunct,
 // since the round drains the root closure U at apply entry.

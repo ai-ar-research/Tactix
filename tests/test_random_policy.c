@@ -110,6 +110,9 @@ static void run_random(const struct formula *f, unsigned long long seed) {
     }
     verdict = tactix_status(s);
   }
+  if (verdict != f->expected)
+    fprintf(stderr, "random-policy mismatch: %s seed=%llu verdict=%d expected=%d steps=%ld\n",
+            f->name, seed, verdict, f->expected, steps);
   assert(verdict == f->expected); /* same truth under any legal schedule */
   tactix_release(s);
 }

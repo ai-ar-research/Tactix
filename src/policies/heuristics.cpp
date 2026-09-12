@@ -48,7 +48,7 @@ void heuristics_consume_rule_advice(Kernel &k) {
 }
 
 void heuristics_consume_retirements(Kernel &k) {
-  if (k.retire_enabled && k.h)
+  if (k.h)
     for (const Var v : k.retired_events)
       heuristics_deactivate_var(k, v);
   k.retired_events.clear();
@@ -90,12 +90,17 @@ void heuristics_reserve_vars(Kernel &k, uint32_t old, uint32_t nvars) {
   // and lets preprocessing assignments leak into the first search trajectory.
   k.h->saved.resize(nvars, 0);
   k.compact_import_position.resize(nvars, INVALID_VAR);
-  for (Var v = old; v < nvars; ++v) {
-    const Var position = static_cast<Var>(k.compact_import_order.size());
-    k.compact_import_order.push_back(v);
-    assert(k.compact_import_position[v] == INVALID_VAR);
-    k.compact_import_position[v] = position;
-  }
+  // A fresh H can attach after a stopped solve or explicit detachment. The
+  // kernel's compact index image survives that owner; rebuilding H must not
+  // append its existing identities again (or restore compacted fixed slots).
+  // Ordinary variable growth still appends every newly allocated identity.
+  if (old || k.compact_import_order.empty())
+    for (Var v = old; v < nvars; ++v) {
+      const Var position = static_cast<Var>(k.compact_import_order.size());
+      k.compact_import_order.push_back(v);
+      assert(k.compact_import_position[v] == INVALID_VAR);
+      k.compact_import_position[v] = position;
+    }
   k.h->links.resize(nvars);
   k.h->scores.pos.resize(nvars, UINT32_MAX);
   k.h->scores.score.resize(nvars, 0.0);
@@ -149,8 +154,6 @@ void heuristics_compact_vars(Kernel &k, const std::vector<Var> &old_to_new,
   compact_values(h.target, int8_t{0});
   compact_values(h.best, int8_t{0});
   compact_values(h.scores.score, 0.0);
-  if (!h.walk_prev.empty())
-    compact_values(h.walk_prev, int8_t{0});
 
   std::vector<Var> compact_import_order;
   compact_import_order.reserve(k.compact_import_order.size());
@@ -171,7 +174,11 @@ void heuristics_compact_vars(Kernel &k, const std::vector<Var> &old_to_new,
     if (now != INVALID_VAR)
       queue.push_back(now);
   }
-  h.links.assign(new_nvars, {});
+  // Native compact_queue restamps live members, but also copies the retained
+  // fixed representative's old stamp. Transitive ordering can read that
+  // inactive key through its compact-index image. Preserve detached records
+  // through the physical map; the live queue below supplies fresh links.
+  compact_values(h.links, Link{});
   h.queue_first = queue.empty() ? INVALID_VAR : queue.front();
   h.queue_last = queue.empty() ? INVALID_VAR : queue.back();
   h.queue_stamp = 0;
@@ -208,6 +215,8 @@ void heuristics_compact_vars(Kernel &k, const std::vector<Var> &old_to_new,
   }
   h.scores.stack.swap(heap);
   h.scores.pos.assign(new_nvars, INVALID_VAR);
+  if (k.fixed_external_count)
+    h.scores.pos.shrink_to_fit();
   for (uint32_t i = 0; i < h.scores.stack.size(); i++)
     h.scores.pos[h.scores.stack[i]] = i;
 
@@ -255,6 +264,20 @@ void heuristics_seed_activation_order(Kernel &k, const std::vector<Var> &order) 
   // imports one at all, so its position is unconstrained.
   for (const Var v : order)
     heuristics_queue_bump(k, v);
+  // First activation is enqueueing, not a search bump. Rebuilding its order
+  // above must not retain stamps from the provisional allocation queue:
+  // native flags.c assigns exactly one increasing stamp per activation.
+  // In particular, roots fixed during parsing keep their activation stamp
+  // after they leave the queue and through later compact-key lookups.
+  for (Link &link : k.h->links)
+    link.stamp = 0;
+  uint32_t stamp = 0;
+  for (const Var v : order)
+    k.h->links[v].stamp = ++stamp;
+  k.h->queue_stamp = stamp;
+  k.h->search_stamp = k.h->search_idx == INVALID_VAR
+                          ? 0
+                          : k.h->links[k.h->search_idx].stamp;
   // The first activated variable scores exactly 0.0, as does every unactivated
   // one, so the heap ranks unactivated variables no higher than any other.
   // The heap is not built until the first stable entry, matching kissat's
@@ -434,7 +457,7 @@ static void queue_restamp(Kernel &k) {
 // O(#queue) per call, so call it once per rule application, never once per
 // fresh variable.
 void heuristics_demote_fresh_vars(Kernel &k, Var first, Var end) {
-  if (!k.h || first >= end || first >= k.h->nvars)
+  if (!k.h || first > end || first > k.h->nvars)
     return;
   end = std::min(end, k.h->nvars);
   // Kissat factor.c::adjust_scores_and_phases_of_fresh_variables walks the
@@ -464,14 +487,17 @@ void heuristics_demote_fresh_vars(Kernel &k, Var first, Var end) {
     k.h->queue_first = v;
   }
   // Reachability, counted at the site (see Kernel::Stats::factor_demotions).
-  k.stats.factor_demotions++;
+  if (first < end)
+    k.stats.factor_demotions++;
   k.stats.factor_demoted_vars += end - first;
-  queue_restamp(k); // renumber in queue order + reset the search cache
+  // Native Factor performs this housekeeping even for an empty fresh batch.
+  // Numeric stamps feed focused BVE's score, not just VMTF relative order.
+  queue_restamp(k);
 }
 
 static void heap_remove(Kernel &k, Var v); // defined with the heap, below
 
-#ifdef TACTIX_ENABLE_CONFLICT_STOP
+#if defined(TACTIX_ENABLE_CONFLICT_STOP) || defined(TACTIX_ENABLE_EVENT_TRACE)
 // Diagnostic: the order variables leave the decision structures. Removing an
 // element from a binary heap swaps the last element into its slot and sifts,
 // so two solvers that deactivate the same set in a different order end with
@@ -499,7 +525,7 @@ static void heuristics_deact_trace(const Kernel &k, Var v) {
 void heuristics_deactivate_var(Kernel &k, Var v) {
   if (!k.h || v >= k.h->nvars)
     return;
-#ifdef TACTIX_ENABLE_CONFLICT_STOP
+#if defined(TACTIX_ENABLE_CONFLICT_STOP) || defined(TACTIX_ENABLE_EVENT_TRACE)
   heuristics_deact_trace(k, v);
 #endif
   // Several formula rules can report the same retirement before the policy
@@ -574,6 +600,30 @@ void heuristics_queue_bump(Kernel &k, Var v) {
   if (!heuristics_var_active(k, v))
     return;
 
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+  static std::FILE *trace = [] {
+    const char *path = std::getenv("TACTIX_QUEUE_BUMP_TRACE");
+    return path && *path ? std::fopen(path, "w") : nullptr;
+  }();
+  static const uint64_t first = [] {
+    const char *s = std::getenv("SAT_QUEUE_BUMP_FROM");
+    return s ? std::strtoull(s, nullptr, 10) : 0;
+  }();
+  static const uint64_t last = [] {
+    const char *s = std::getenv("SAT_QUEUE_BUMP_TO");
+    return s ? std::strtoull(s, nullptr, 10) : UINT64_MAX;
+  }();
+  if (trace && k.stats.conflicts >= first && k.stats.conflicts <= last) {
+    const auto ext = [&](Var x) { return x == INVALID_VAR ? 0 :
+        std::abs(kernel_externalize(k, make_lit(x, false))); };
+    const Link &link = k.h->links[v];
+    std::fprintf(trace, "%llu\t%llu\t%d\t%d\t%u\t%d\t%d\t%d\t%u\t%u\t%d\n",
+        (unsigned long long)k.stats.conflicts,
+        (unsigned long long)k.stats.decisions, int(k.h->stable), ext(v),
+        link.stamp, ext(link.prev), ext(link.next), ext(k.h->search_idx),
+        k.h->search_stamp, k.h->queue_stamp, int(k.values[make_lit(v,false)]));
+  }
+#endif
   if (k.h->queue_last == v)
     return;
   queue_dequeue(k, v);
@@ -631,32 +681,6 @@ Var heuristics_queue_next_active_unassigned(Kernel &k) {
   k.h->search_idx = v;
   k.h->search_stamp = k.h->links[v].stamp;
   return v;
-}
-
-// See the header. Diagnostic: prefer any non-extension unassigned variable,
-// scanning the ACTIVE order (heap in stable, queue in focused) and falling back
-// to the ordinary choice when only extension vars remain.
-Var heuristics_next_decision_var_no_ext(Kernel &k) {
-  const Var ext = k.first_extension_var;
-  if (!k.h->stable) {
-    for (Var v = k.h->search_idx; v != UINT32_MAX; v = k.h->links[v].prev)
-      if (k.values[make_lit(v, false)] == 0 && v < ext) {
-        k.h->search_idx = v;
-        k.h->search_stamp = k.h->links[v].stamp;
-        return v;
-      }
-    return heuristics_queue_next_unassigned(k); // only extension vars left
-  }
-  // Stable: the heap is not fully ordered, so take the best NON-extension var
-  // by score directly. O(nvars) per decision — fine for a diagnostic arm only.
-  Var best = UINT32_MAX;
-  double bs = -1.0;
-  for (Var v = 0; v < ext && v < k.nvars; v++)
-    if (k.values[make_lit(v, false)] == 0 && k.h->scores.score[v] > bs) {
-      bs = k.h->scores.score[v];
-      best = v;
-    }
-  return best != UINT32_MAX ? best : heuristics_heap_next_unassigned(k);
 }
 
 void heuristics_reset_queue_search(Kernel &k) {

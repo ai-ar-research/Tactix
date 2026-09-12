@@ -7,9 +7,9 @@ engineering deviations. Semantic, guard, proof, addition, or removal changes upd
 ## 1. Applicability and N1
 
 N1 requires every rule and legal branch instance to be callable whenever its pure soundness precondition
-holds. A stronger implemented guard narrows that surface and belongs in the implementation-notes deviation
-ledger with its root cause and removal path.
-
+holds at its declared action boundary. Search rules operate during search; inprocessing rules operate on
+the level-zero root formula `F|U`, reached through explicit S1 Restart. A stronger guard within that
+boundary belongs in the implementation-notes deviation ledger with its root cause and removal path.
 ## 2. Abstract state
 
 Following the formal model in `DEVELOPMENT_PLAN.md` §4:
@@ -130,7 +130,7 @@ Backjump is not separately schedulable. It is the atomic tail of M3; its canonic
 ### S2 · Reduce
 - **Precondition (abstract):** `F` not refuted; plus the standing invariant (enforced in `apply`, not
   the guard) that non-root and pending learned-clause reasons are never deleted; proved root units need no clause lock.
-- **Effect:** delete a subset of the *redundant* (learned) clauses by the glue/usage tiers; compact the
+- **Effect:** delete any legally unlocked subset of the *redundant* clauses; glue/usage tiers are policy advice. Compact the
   arena; forward live reasons and retire deleted root reasons to proved units. `F` unchanged; `R` shrinks. Proof δ: `del` per deleted
   clause. Preparatory root closure is M1; consuming its roots into decision guidance belongs to policy, not S2's guard. Collection-side retry notifications are advice, not a new precondition or restriction on legal BVE instances.
 - **Soundness:** deleting redundant/entailed clauses is equisatisfiability-preserving; the checker
@@ -138,21 +138,21 @@ Backjump is not separately schedulable. It is the atomic tail of M3; its canonic
 
 
 ### S5 · Lucky
-- **Precondition (abstract):** `F` not refuted and consistent. Attempts a complete assignment via
-  decision-free assumptions + propagation; may **conclude SAT**, else restores the entry state exactly.
+- **Precondition (abstract):** consistent at level zero with no pending conflict. Attempts a complete
+  assignment via decision-free assumptions + propagation; may **conclude SAT**, else restores the root entry state exactly.
 - **Effect:** on success `τ` is a total model → `Sat`; otherwise `σ` is unchanged *by the probing
   itself*. Proof δ: none from the probes (SAT needs no proof) — but like every inprocessing rule it
   drains the root closure at apply entry, emitting that closure's units (`add_derived_unit` under LRAT)
   and possibly refuting (`add_empty` → `Unsat`). "No proof δ" is true of the rule's own inference, not
   of an apply.
 - **Soundness:** it only *reports* SAT when every variable is assigned with no conflict — a genuine
-  model, leveling-independent; on failure it fully backtracks, restoring `σ`.
+  model; on failure it fully backtracks to the level-zero entry state, restoring `σ`.
 
 ## 5. Subsumption & strengthening (C1–C3)
 
-Inprocessing rules on the root formula `F|U` (shared `root` guard; see `implementation-notes.md`). They
-complete the root closure `U` by draining propagation at apply entry, so their guard needs no fixpoint
-conjunct.
+Inprocessing rules use the level-zero root formula `F|U` as their declared action boundary (shared
+`root` guard; see `implementation-notes.md`). They drain the root closure `U` at apply entry, so the
+guard needs no fixpoint conjunct.
 
 ### C1 · SubsumeForward
 - **Precondition (abstract):** ∃ live irredundant clauses `d ⊆ c` (modulo the `F`-entailed root units)
@@ -368,19 +368,25 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
   and clauses subsumed modulo the proved equivalences. An irredundant victim requires an
   irredundant surviving subsumer; redundant victims may use either class. Each deletion emits `del`
   after its justifying equivalences are live, preserves models, and needs no reconstruction witness.
-  Still deferred, sound: the ITE collapses (`Canon::Skip`), and the literal-form `x ≡ ¬x` for XOR/ITE,
-  whose "binaries" degenerate to units (AND refutes it directly). *(Closed ledger row **D-CONG-UNIT**,
+  Typed ITE collapses, including a single fixed branch, re-enter closure under the effective kind.
+  Non-valued converted ANDs publish RUP implication binaries even without a match; root-valued sides
+  can remain as original-clause cofactors. Original gates retain proof/occurrence ownership (D-CONG-ITE).
+  If an ITE's effective AND/OR collapses again to a constant, its original ternaries need both
+  condition-case lemmas before the output unit; direct RUP is not implied by semantic equivalence.
+  Literal-form `x ≡ ¬x` refutes for AND/XOR/ITE by normalizing the two degenerate binaries to opposing units.
+  *(Closed ledger row **D-CONG-UNIT**,
   `implementation-notes.md` §2.)*
-- **Instances:** the closure IS the instance. A single merge re-canonicalizes every gate that used
-  either output, and its bridging lemmas are produced by that same closure, so one merge is a prefix of
-  an application rather than an application: V6 offers exactly the canonical payload. Choosing WHICH
-  discovered equivalence to collapse into the formula is V3's instance surface over the binaries V6 adds.
+- **Instances:** the frozen scalar payload remains the canonical closure. The additive semantic surface
+  names each distinct currently available transition: a matching-output or unary-gate equivalence, a
+  gate-degeneracy unit, or a V6a unit. It emits only that transition; the next enumeration reads
+  persistent binary pairs/root values and exposes later layers, including literal-form refutations. Closure is repeat-to-fixpoint composition.
 - **Proof δ:** for outputs `a,b`, write `B→={¬a,b}` and `B←={a,¬b}`. Every path emits the supporting
   transient lemmas first, then `add_rup(B→,h→) · add_rup(B←,h←)`, then deletes the transients newest
   first. Each new representative union publishes both additions even if an identical binary is already
   live; the duplicate is RUP from that existing clause and has its own immutable proof identity. AND —
   each equivalence binary is RUP from the two gates’ clauses (bridged by the
-  equivalence binaries added earlier in the closure). XOR — a parity-elimination **ladder**: eliminate
+  equivalence binaries added earlier in the closure; a root-true intermediate
+  contributes its proved unit id). XOR — a parity-elimination **ladder**: eliminate
   one rhs variable per level, at each level emit `{signed-prefix,¬a,b}` and `{signed-prefix,a,¬b}` for
   all sign patterns; every lemma is RUP over the current DB, the two size-0 lemmas are the binaries. ITE
   — a fixed **6-clause case-split on cond**: `{a,¬b,±cond}`, `{¬a,b,±cond}` then the two binaries. A
@@ -390,9 +396,8 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
   |cancelled| … 1`, every sign pattern over `cancelled[0..size-1]` appended to each conclusion; the
   size-0 lemmas are the unit / the two binaries. **No `add_rat`.** Equivalence-preserving (no variable
   eliminated here), so no `ρ` witness — the outputs stay live until V3. *(Native-LRAT realization and
-  transient-lemma deletion are closed ledger rows D-CONG-LRAT / D-CONG-DELETE; two completeness deviations are
-  open — D-CONG-SKIP (LRAT path only) and D-CONG-TAUT (drops the merge in BOTH formats, so the two
-  proof modes stay trajectory-identical) — `implementation-notes.md` §2.)*
+  transient-lemma deletion are closed ledger rows D-CONG-LRAT / D-CONG-DELETE / D-CONG-TAUT; the remaining
+  proof-path completeness deviation is D-CONG-SKIP (LRAT path only) — `implementation-notes.md` §2.)*
 - **Soundness:** a gate is emitted only when ALL its defining clauses are present (XOR: the full `2^k`
   parity set; ITE: all four ternaries), so `out = f(in…)` genuinely holds and the merged equivalence is
   entailed. The union-find only ever equates literals proven equivalent; `x ≡ ¬x` is a refutation.
@@ -498,13 +503,16 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
   inverse of E1's Davis–Putnam step — BVE on `x` resolves the dividers against the quotients back to the
   grid (so BVE must not schedule extension variables, else the two rules thrash; see
   `implementation-notes.md` §5).
-- **Instances:** the seed literal (`lit_instance`), i.e. the grid's first factor; the canonical payload
-  is that choice repeated over the ranked schedule. Every unassigned, unretired literal is enumerated,
-  independently of any policy-side schedule filter, and applying one applies at most one factoring. The
-  grid `(F,R)` a seed grows into is not separately addressable — that space is exponential — and is the
-  matcher's maximal-delta construction, swappable through `Kernel::factor_selection`.
-  Candidate-support pruning is matcher scope, not a soundness precondition or a restriction on
-  seed enumeration; physical binaries, including root-satisfied pairs, remain grid material.
+- **Instances:** the frozen scalar surface is seed literal (`lit_instance`); canonical repeats that
+  choice over the ranked schedule. Every unassigned,
+  unretired literal is enumerated independently of policy-side filters, and applying one performs at
+  most one factoring. The additive typed surface accepts an exact `(F,R)` grid, including caller-chosen
+  batches and exact large-clause occurrences, validates the complete profitable grid before mutation,
+  and applies exactly that E2 transition. The C API uses permanent DIMACS literals and binds matching
+  occurrences deterministically. The lazy typed enumerator discovers every profitable factor subset,
+  remainder-column subset and physical large-clause assignment; `CompleteCurrentPass` consumes it
+  subject to explicit budget/stop. The canonical matcher and candidate pruning are policy scope;
+  physical binaries, including root-satisfied pairs, remain material.
 - **Proof δ:** **add-RAT**. Each divider `(x ∨ fᵢ)` is vacuous RAT on fresh `x`, since no clause yet
   mentions `¬x`. Each quotient `{¬x} ∪ Rⱼ` is RAT on `¬x`: resolving against divider `i` yields the
   still-live grid clause `{fᵢ} ∪ Rⱼ`, hence RUP. Order is load-bearing: **dividers, quotients, grid
@@ -547,31 +555,30 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
 ### X6 · HyperBinaryRes — hyper binary resolution over the binary implication graph
 - **Precondition (abstract):** a clause `C ∈ F` with `|C| > 2`, a literal `l₀ ∈ C`, and a literal `d`
   such that for every `lᵢ ∈ C \ {l₀}` the binary implication graph of `F` contains a path
-  `d ⟹ ¬lᵢ` — i.e. `d` implies the falsity of every other literal of `C` by binary clauses alone.
-  Purely a property of `F`; no trail, no probing state, nothing about how `d` was found.
-- **Effect:** add the binary `R = (¬d ∨ l₀)`. Additionally, if `¬d ∈ C`, then `R ⊆ C`, and `C` may be
-  deleted — that half is an instance of the standard subsumption effect, not a new one. `τ`/`ρ`/`π`
-  untouched, no variable eliminated.
+  `d ⟹ ¬lᵢ`: `d` implies every other literal false by binary clauses alone. This is purely a property
+  of `F`; no trail, probing state or discovery method is part of the precondition.
+- **Effect:** add `R = (¬d ∨ l₀)`, binary unless `l₀ = ¬d`, when it collapses to unit `(¬d)`. If
+  `¬d ∈ C`, `R ⊆ C` and `C` may also be deleted by standard subsumption. `τ`/`ρ`/`π` are untouched.
 - **Proof δ:** let `h_R` be the main-kernel replay under `d∧¬l₀`: binary reasons in propagation order,
-  followed by `C` as the conflict. Emit `add_rup(R,h_R)`; if `¬d∈C`, then and only then emit `del(C)`
-  after the addition. Assume `¬R`, i.e.
-  `d ∧ ¬l₀`. Unit propagation from `d` traverses each `d ⟹ ¬lᵢ` path and falsifies every
+  followed by `C` as conflict. Emit `add_rup(R,h_R)`; iff `¬d∈C`, emit `del(C)` afterward. Assume
+  `¬R`, i.e. `d ∧ ¬l₀`. Unit propagation from `d` traverses each `d ⟹ ¬lᵢ` path and falsifies every
   `lᵢ ∈ C \ {l₀}`, so `C` becomes unit on `l₀` and conflicts with `¬l₀`. `R` is therefore RUP against
-  `F`, and the chain is the binaries on those paths followed by `C`. **The implementation obtains that
-  chain by REPLAY rather than by construction** (assume `d ∧ ¬l₀`, propagate, read the conflict's
-  antecedents), which makes the replay the RUP *test* as well — a resolvent the replay cannot re-derive
-  is declined rather than emitted. Same discipline as V5's fast path.
-- **Soundness:** `R` is entailed by `F` (the argument above is a derivation, not just a checker fact),
-  so `F ≡ F ∪ {R}`; deleting a clause that `R` subsumes preserves the model set in both directions.
-  **No reconstruction entry is owed** — unlike X1/X3, nothing is removed that is not implied by what
-  remains.
-- **Why the tightest `d` is the point.** Any `d` on the path works, including the probe root itself,
-  but the *closest common dominator* of the `¬lᵢ` gives the strongest binary — it is implied by
-  strictly more assignments. The dominator is well defined because the binary implications closed from
-  a single root form a TREE.
-- **Termination:** each apply adds only binaries not already in `F` and deletes only subsumed clauses,
-  and the binary clause space over a fixed variable set is finite, so repeated application reaches a
-  fixpoint.
+  `F`; the chain is those binaries followed by `C`. **The implementation obtains it by REPLAY**: assume
+  `d ∧ ¬l₀`, propagate and read antecedents. Replay is the RUP *test*, so failure declines the result.
+  as V5's fast path.
+- **Soundness:** `R` is entailed by `F`, so `F ≡ F ∪ {R}`; deleting a clause that `R` subsumes preserves
+  the model set. **No reconstruction entry is owed** because everything removed is implied by `R`.
+- **Why the canonical policy chooses the tightest `d`.** Any legal `d` works, including the probe root,
+  but the *closest common dominator* of the `¬lᵢ` gives the strongest result — it is implied by strictly
+  more assignments. Binary implications closed from one root form a TREE, so it is well defined. This
+  is a policy preference, not a restriction on explicit applications.
+- **Instances:** the frozen scalar surface selects one probe root and may emit all consequences found
+  below it using its closest-dominator choice. The additive semantic surface completely enumerates
+  triples `(d, C, l₀)`, including nonclosest dominators and unit case `l₀ = ¬d`, and emits at most that
+  recomputed resolvent. Its stable payload stores `d` and the arena word for the selected `l₀`
+  occurrence, retaining identity across a selected batch until collection. Invalid results are NoOp.
+- **Termination:** each apply adds only a new unit/binary or deletes a subsumed clause. Those spaces over
+  fixed variables are finite, so repetition reaches a fixpoint.
 
 ### X1 · BCE — blocked clause elimination
 - **Precondition (abstract):** a clause `C ∈ F` and a literal `l ∈ C` such that every resolvent of `C`

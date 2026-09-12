@@ -2,11 +2,14 @@
 // equivalent outputs; congruence_apply adds (¬a∨b),(a∨¬b). docs/calculus.md.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
+#include "frontend/parse.hpp"
+#include "policies/default_policy.hpp"
 #include "rules/congruence/congruence.hpp"
 #include "rules/registry.hpp"
 
 #include <algorithm>
 #include <cassert>
+#include <cstring>
 #include <cstdio>
 #include <string>
 #include <unistd.h>
@@ -32,6 +35,18 @@ static bool has_binary(const Kernel &k, Lit a, Lit b) {
 static bool equivalence_added(const Kernel &k, int ea, int eb) {
   return has_binary(k, internalize(-ea), internalize(eb)) &&
          has_binary(k, internalize(ea), internalize(-eb));
+}
+
+static uint64_t congruence_pair_payload(int first, int second) {
+  Lit a = internalize(first), b = internalize(second);
+  if (b < a)
+    std::swap(a, b);
+  return (static_cast<uint64_t>(a) << 32) | b;
+}
+
+static uint64_t congruence_unit_payload(int unit) {
+  const Lit literal = internalize(unit);
+  return (static_cast<uint64_t>(literal) << 32) | literal;
 }
 
 static std::vector<Lit> binary_partners(const Kernel &k, Lit lit) {
@@ -87,6 +102,24 @@ static void ite_gate(Kernel &k, int out, int c, int t, int e) {
   add3(k, c, e, -out);
   add3(k, -c, -t, out);
   add3(k, -c, t, -out);
+}
+
+static void test_forward_includes_only_redundant_physical_prefix() {
+  Kernel k;
+  kernel_reserve_vars(k, 7);
+  and_gate(k, 3, 1, 2);
+  and_gate(k, 4, 1, 2);
+  const Lit before_lits[] = {internalize(3), internalize(-4), internalize(5)};
+  const Ref before = kernel_add_large_clause(k, before_lits, 3, true, 1,
+                                              ++k.next_clause_id);
+  add3(k, 5, 6, 7); // the last irredundant record divides prefix from suffix
+  const Lit after_lits[] = {internalize(3), internalize(-4), internalize(6)};
+  const Ref after = kernel_add_large_clause(k, after_lits, 3, true, 1,
+                                             ++k.next_clause_id);
+  assert(congruence_apply(k) == ApplyResult::Ok);
+  assert(clause_at(k.arena, before)->garbage());
+  assert(!clause_at(k.arena, after)->garbage());
+  assert_large_watches_are_live(k);
 }
 
 static void test_and_congruent() {
@@ -842,13 +875,11 @@ static void test_binary_extraction_precedes_gate_budget() {
          "the gate-cost compensator remains live after the pre-pass");
 }
 
-// `N1-CONG-INSTANCES` (disposition: docs/calculus.md §6 V6). V6's effect is the
-// closure, so a single merge is a prefix of one application rather than an
-// application, and the canonical round is the whole legal instance space. The
-// finer choice — which discovered equivalence to collapse into the formula —
-// belongs to V3, which offers one instance per representative over exactly the
-// binaries V6 adds. This test holds that division in place.
-static void test_round_is_the_instance_and_substitute_owns_the_choice() {
+// The frozen v1 payload retains the canonical closure, while the additive
+// semantic surface exposes one currently legal congruent-output inference.
+// Re-enumeration after one merge observes the persistent binary equivalence
+// partition and makes the next closure layer available without hiding a batch.
+static void test_individual_merges_and_canonical_closure_coexist() {
   Kernel k;
   kernel_reserve_vars(k, 6); // x1 x2, two AND outputs, and a second gate pair
   and_gate(k, 3, 1, 2);
@@ -857,7 +888,28 @@ static void test_round_is_the_instance_and_substitute_owns_the_choice() {
   const RuleVTable &cong = tactix_rules()[tactix_rule_id("Congruence")];
   uint64_t insts[8];
   assert(cong.instances(k, insts, 8) == 1 && insts[0] == INSTANCE_CANONICAL &&
-         "V6's instance is the closure; see the disposition above");
+         "the frozen v1 surface retains its canonical closure");
+  assert(cong.semantic_instances(k, insts, 8) == 3);
+  const uint64_t selected = insts[0];
+  const Lit selected_a = static_cast<Lit>(selected >> 32);
+  const Lit selected_b = static_cast<Lit>(selected);
+  assert(cong.apply_semantic_instance(k, selected) == ApplyResult::Ok);
+  assert(kernel_binary_live(k, negate(selected_a), selected_b));
+  assert(kernel_binary_live(k, selected_a, negate(selected_b)));
+
+  unsigned unselected_live = 0;
+  for (const std::pair<int, int> &pair :
+       {std::pair<int, int>{3, 4}, {3, 5}, {4, 5}}) {
+    const Lit a = internalize(pair.first), b = internalize(pair.second);
+    const uint64_t payload =
+        (static_cast<uint64_t>(std::min(a, b)) << 32) | std::max(a, b);
+    if (payload != selected)
+      unselected_live += equivalence_added(k, pair.first, pair.second);
+  }
+  assert(unselected_live == 0 && "one semantic action must not run the closure");
+  assert(cong.semantic_instances(k, insts, 8) == 2);
+
+  // The canonical entry remains the broad round and closes what is left.
   assert(cong.apply_instance(k, INSTANCE_CANONICAL) == ApplyResult::Ok);
   assert(equivalence_added(k, 3, 4) && equivalence_added(k, 3, 5));
 
@@ -870,7 +922,279 @@ static void test_round_is_the_instance_and_substitute_owns_the_choice() {
   assert(subst.apply_instance(k, insts[0]) == ApplyResult::Ok);
 }
 
-int main() {
+static void test_individual_merges_expose_later_closure_layers() {
+  Kernel k;
+  kernel_reserve_vars(k, 7);
+  and_gate(k, 3, 1, 2);
+  and_gate(k, 4, 1, 2);
+  and_gate(k, 5, 3, 6);
+  and_gate(k, 7, 4, 6);
+  const RuleVTable &cong = tactix_rules()[tactix_rule_id("Congruence")];
+  uint64_t instances[16];
+  uint32_t count = cong.semantic_instances(k, instances, 16);
+  const auto payload = [](int first, int second) {
+    const Lit a = internalize(first), b = internalize(second);
+    return (static_cast<uint64_t>(std::min(a, b)) << 32) | std::max(a, b);
+  };
+  const uint64_t first_layer = payload(3, 4);
+  const uint64_t second_layer = payload(5, 7);
+  assert(std::find(instances, instances + count, first_layer) !=
+         instances + count);
+  assert(std::find(instances, instances + count, second_layer) ==
+         instances + count);
+  assert(cong.apply_semantic_instance(k, first_layer) == ApplyResult::Ok);
+
+  count = cong.semantic_instances(k, instances, 16);
+  assert(std::find(instances, instances + count, second_layer) !=
+         instances + count);
+  assert(cong.apply_semantic_instance(k, second_layer) == ApplyResult::Ok);
+  assert(equivalence_added(k, 3, 4));
+  assert(equivalence_added(k, 5, 7));
+  kernel_check_invariants(k);
+}
+
+static void test_individual_binary_resolution_unit() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  kernel_add_binary_clause(k, internalize(1), internalize(2));
+  kernel_add_binary_clause(k, internalize(1), internalize(-2));
+  const RuleVTable &cong = tactix_rules()[tactix_rule_id("Congruence")];
+  uint64_t instances[4];
+  assert(cong.semantic_instances(k, instances, 4) == 1);
+  assert(instances[0] == congruence_unit_payload(1));
+  assert(cong.apply_semantic_instance(k, instances[0]) == ApplyResult::Ok);
+  assert(k.value(internalize(1)) > 0);
+  assert(k.stats.congruence_y1_units == 1);
+  assert(k.stats.congruence_units == 0);
+  assert(cong.semantic_instances(k, instances, 4) == 0);
+
+  Kernel negative;
+  kernel_reserve_vars(negative, 3);
+  kernel_add_binary_clause(negative, internalize(1), internalize(2));
+  assert(cong.semantic_instances(negative, instances, 4) == 0 &&
+         "one parent must not expose a V6a unit");
+}
+
+static void test_individual_unary_gate_equivalence() {
+  Kernel k;
+  kernel_reserve_vars(k, 5); // p q, equivalent a/b, unary result c
+  and_gate(k, 3, 1, 2);
+  and_gate(k, 4, 1, 2);
+  and_gate(k, 5, 3, 4);
+  // State the enabling equality without running Congruence's closure.
+  kernel_add_binary_clause(k, internalize(-3), internalize(4));
+  kernel_add_binary_clause(k, internalize(3), internalize(-4));
+  const RuleVTable &cong = tactix_rules()[tactix_rule_id("Congruence")];
+  uint64_t instances[8];
+  const uint32_t count = cong.semantic_instances(k, instances, 8);
+  const uint64_t wanted = congruence_pair_payload(3, 5);
+  assert(std::find(instances, instances + count, wanted) !=
+         instances + count);
+  assert(cong.apply_semantic_instance(k, wanted) == ApplyResult::Ok);
+  assert(equivalence_added(k, 3, 5));
+  assert(!k.inconsistent);
+  kernel_check_invariants(k);
+}
+
+static void test_individual_gate_degeneracy_unit() {
+  Kernel k;
+  kernel_reserve_vars(k, 5); // p q, equivalent a/b, XOR result out
+  and_gate(k, 3, 1, 2);
+  and_gate(k, 4, 1, 2);
+  xor_gate(k, 5, 3, 4);
+  kernel_add_binary_clause(k, internalize(-3), internalize(4));
+  kernel_add_binary_clause(k, internalize(3), internalize(-4));
+  const RuleVTable &cong = tactix_rules()[tactix_rule_id("Congruence")];
+  uint64_t instances[8];
+  const uint32_t count = cong.semantic_instances(k, instances, 8);
+  const uint64_t wanted = congruence_unit_payload(-5);
+  assert(std::find(instances, instances + count, wanted) !=
+         instances + count);
+  assert(cong.apply_semantic_instance(k, wanted) == ApplyResult::Ok);
+  assert(k.value(internalize(-5)) > 0);
+  assert(k.stats.congruence_units == 1);
+  assert(k.stats.congruence_y1_units == 0);
+  kernel_check_invariants(k);
+}
+
+static void test_individual_complementary_class_refutation() {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  and_gate(k, 3, 1, 2);
+  and_gate(k, 4, 1, 2);
+  // State a ≡ ¬b. The two congruent AND outputs then prove a ≡ b, so the
+  // selected semantic transition is itself a refutation.
+  kernel_add_binary_clause(k, internalize(-3), internalize(-4));
+  kernel_add_binary_clause(k, internalize(3), internalize(4));
+  const RuleVTable &cong = tactix_rules()[tactix_rule_id("Congruence")];
+  uint64_t instances[8];
+  const uint32_t count = cong.semantic_instances(k, instances, 8);
+  const uint64_t wanted = congruence_pair_payload(3, 4);
+  assert(std::find(instances, instances + count, wanted) !=
+         instances + count);
+  assert(cong.apply_semantic_instance(k, wanted) == ApplyResult::Unsat);
+  assert(k.inconsistent);
+  assert(k.stats.congruence_merges == 1);
+}
+
+static void test_individual_literal_form_and_refutation() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  and_gate(k, 3, 1, 2);
+  // Define the opposite polarity of the same variable as the same function.
+  kernel_add_binary_clause(k, internalize(3), internalize(1));
+  kernel_add_binary_clause(k, internalize(3), internalize(2));
+  add3(k, -3, -1, -2);
+  const RuleVTable &cong = tactix_rules()[tactix_rule_id("Congruence")];
+  uint64_t instances[8];
+  const uint32_t count = cong.semantic_instances(k, instances, 8);
+  const uint64_t wanted = congruence_pair_payload(3, -3);
+  assert(std::find(instances, instances + count, wanted) !=
+         instances + count);
+  assert(cong.apply_semantic_instance(k, wanted) == ApplyResult::Unsat);
+  assert(k.inconsistent);
+}
+
+static void literal_form_xor_fixture(Kernel &k) {
+  kernel_reserve_vars(k, 5);
+  xor_gate(k, 5, 1, 2);
+  xor_gate(k, -5, 3, 4);
+  kernel_add_binary_clause(k, internalize(-1), internalize(3));
+  kernel_add_binary_clause(k, internalize(1), internalize(-3));
+  kernel_add_binary_clause(k, internalize(-2), internalize(4));
+  kernel_add_binary_clause(k, internalize(2), internalize(-4));
+}
+
+static void test_individual_literal_form_xor_refutation() {
+  Kernel k;
+  literal_form_xor_fixture(k);
+  const RuleVTable &cong = tactix_rules()[tactix_rule_id("Congruence")];
+  uint64_t instances[16];
+  const uint32_t count = cong.semantic_instances(k, instances, 16);
+  const uint64_t wanted = congruence_pair_payload(5, -5);
+  assert(std::find(instances, instances + count, wanted) !=
+         instances + count);
+  assert(cong.apply_semantic_instance(k, wanted) == ApplyResult::Unsat);
+  assert(k.inconsistent && !k.stats.congruence_unjustified);
+}
+
+static void literal_form_ite_fixture(Kernel &k) {
+  kernel_reserve_vars(k, 7);
+  ite_gate(k, 7, 1, 2, 3);
+  ite_gate(k, -7, 4, 5, 6);
+  for (const std::pair<int, int> &pair :
+       {std::pair<int, int>{1, 4}, {2, 5}, {3, 6}}) {
+    kernel_add_binary_clause(k, internalize(-pair.first),
+                             internalize(pair.second));
+    kernel_add_binary_clause(k, internalize(pair.first),
+                             internalize(-pair.second));
+  }
+}
+
+static void test_individual_literal_form_ite_refutation() {
+  Kernel k;
+  literal_form_ite_fixture(k);
+  const RuleVTable &cong = tactix_rules()[tactix_rule_id("Congruence")];
+  uint64_t instances[32];
+  const uint32_t count = cong.semantic_instances(k, instances, 32);
+  const uint64_t wanted = congruence_pair_payload(7, -7);
+  assert(std::find(instances, instances + count, wanted) !=
+         instances + count);
+  assert(cong.apply_semantic_instance(k, wanted) == ApplyResult::Unsat);
+  assert(k.inconsistent && !k.stats.congruence_unjustified);
+}
+
+static void test_canonical_literal_form_xor_ite_refutations() {
+  Kernel xor_kernel;
+  literal_form_xor_fixture(xor_kernel);
+  assert(congruence_apply(xor_kernel) == ApplyResult::Unsat);
+  assert(xor_kernel.inconsistent &&
+         !xor_kernel.stats.congruence_unjustified);
+
+  Kernel ite_kernel;
+  literal_form_ite_fixture(ite_kernel);
+  assert(congruence_apply(ite_kernel) == ApplyResult::Unsat);
+  assert(ite_kernel.inconsistent &&
+         !ite_kernel.stats.congruence_unjustified);
+}
+
+static int semantic_proof_witness(const char *input_path,
+                                  const char *proof_path,
+                                  const char *mode,
+                                  const char *wanted_kind) {
+  Kernel k;
+  Proof proof;
+  const ProofFormat format = std::string(mode) == "lrat"
+                                 ? ProofFormat::Lrat
+                                 : ProofFormat::DratAscii;
+  assert(proof.open(proof_path, format));
+  k.proof = &proof;
+  proof.bind_variable_map(&k.internal_to_external);
+  FILE *input = std::fopen(input_path, "r");
+  assert(input && !parse_dimacs(input, k));
+  std::fclose(input);
+
+  const RuleVTable &cong = tactix_rules()[tactix_rule_id("Congruence")];
+  const bool canonical = !std::strncmp(wanted_kind, "canonical-", 10);
+  const char *const kind = canonical ? wanted_kind + 10 : wanted_kind;
+  std::vector<uint64_t> actions(64);
+  const uint32_t count =
+      cong.semantic_instances(k, actions.data(), actions.size());
+  actions.resize(count);
+  uint64_t selected = INSTANCE_CANONICAL;
+  for (const uint64_t action : actions) {
+    const Lit first = static_cast<Lit>(action >> 32);
+    const Lit second = static_cast<Lit>(action);
+    const int ef = kernel_externalize(k, first);
+    const int es = kernel_externalize(k, second);
+    if ((!std::strcmp(kind, "v6a") && ef == 1 && es == 1) ||
+        (!std::strcmp(kind, "gate-unit") && ef == -5 && es == -5) ||
+        (!std::strcmp(kind, "unary") &&
+         ((ef == 3 && es == 5) || (ef == 5 && es == 3))) ||
+        (!std::strcmp(kind, "clash") &&
+         ((ef == 3 && es == 4) || (ef == 4 && es == 3))) ||
+        (!std::strcmp(kind, "literal-clash") &&
+         ((ef == 3 && es == -3) || (ef == -3 && es == 3))) ||
+        (!std::strcmp(kind, "literal-xor-clash") &&
+         ((ef == 5 && es == -5) || (ef == -5 && es == 5))) ||
+        (!std::strcmp(kind, "literal-ite-clash") &&
+         ((ef == 7 && es == -7) || (ef == -7 && es == 7)))) {
+      selected = action;
+      break;
+    }
+  }
+  assert(canonical || selected != INSTANCE_CANONICAL);
+  const ApplyResult applied = canonical
+                                  ? cong.apply_instance(k, INSTANCE_CANONICAL)
+                                  : cong.apply_semantic_instance(k, selected);
+  const bool refutation = !std::strcmp(kind, "clash") ||
+                          std::strstr(kind, "literal-");
+  assert(applied == (refutation
+                         ? ApplyResult::Unsat
+                         : ApplyResult::Ok));
+  assert(!k.stats.congruence_unjustified);
+  if (!std::strcmp(kind, "v6a"))
+    assert(k.stats.congruence_y1_units == 1);
+  else if (!std::strcmp(kind, "gate-unit"))
+    assert(k.stats.congruence_units == 1);
+  else if (!refutation)
+    assert(k.stats.congruence_merges == 1);
+
+  int result = 20;
+  if (!k.inconsistent) {
+    DefaultPolicy policy;
+    result = policy.solve(k, nullptr);
+  }
+  assert(result == 20);
+  proof.flush();
+  k.proof = nullptr;
+  return result;
+}
+
+int main(int argc, char **argv) {
+  if (argc == 5)
+    return semantic_proof_witness(argv[1], argv[2], argv[3], argv[4]);
+  assert(argc == 1);
   test_budget_stops_round();
   test_binary_extraction_precedes_gate_budget();
   test_and_congruent();
@@ -901,8 +1225,18 @@ int main() {
   test_root_false_input_makes_binary_xor_ineligible();
   test_extracted_binary_suffix_is_sorted();
   test_forward_dense_resume_reorders_complete_binary_population();
+  test_forward_includes_only_redundant_physical_prefix();
   test_binary_extraction_from_mixed_watch_lists();
-  test_round_is_the_instance_and_substitute_owns_the_choice();
+  test_individual_merges_and_canonical_closure_coexist();
+  test_individual_merges_expose_later_closure_layers();
+  test_individual_binary_resolution_unit();
+  test_individual_unary_gate_equivalence();
+  test_individual_gate_degeneracy_unit();
+  test_individual_complementary_class_refutation();
+  test_individual_literal_form_and_refutation();
+  test_individual_literal_form_xor_refutation();
+  test_individual_literal_form_ite_refutation();
+  test_canonical_literal_form_xor_ite_refutations();
   std::printf("test_congruence: all passed\n");
   return 0;
 }

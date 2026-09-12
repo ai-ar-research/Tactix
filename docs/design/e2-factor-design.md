@@ -16,8 +16,10 @@ still-live grid clauses.
 
 The rule owns proof-bearing validation and rewrite. Policy owns admission,
 candidate ordering, budgets, the BVE-coupled acceptance bound, and optional
-composite scheduling. A policy-selected grid is not a substitute for exposing
-all legal public instances; `N1-FACTOR-INSTANCES` remains open.
+composite scheduling. The typed exact-grid path and its lazy exhaustive
+enumerator expose profitable factor/remainder subgrids independently of the
+canonical matcher's choices; `CompleteCurrentPass` consumes that space under
+the caller's application budget and stop signal.
 
 ## 3. Model and proof invariants
 

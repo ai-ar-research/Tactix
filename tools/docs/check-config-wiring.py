@@ -49,6 +49,11 @@ TABLE = {
                                           "at each inprocessing phase"),
     "bve_clause_size_limit":   ("POLICY", "named DefaultStrategyConfig antecedent "
                                           "cap installed at each inprocessing phase"),
+    "bve_xor_arity_limit":     ("POLICY", "typed BVE XOR recognition arity installed "
+                                          "at each inprocessing phase"),
+    "bve_resolvent_size_limit": ("POLICY", "typed BVE resolvent-size admission limit"),
+    "bve_backward_occurrence_limit":
+                                ("POLICY", "typed backward elimination occurrence limit"),
     "bve_definition_session":  ("POLICY", "embedded Kitten create/release lifetime; "
                                            "advanced once per BVE slot"),
     "factor_composite":        ("POLICY", "S2b composite grids, per-occasion"),
@@ -60,6 +65,8 @@ TABLE = {
     "vivify_scope":            ("POLICY", "which clause tier Vivify may touch; SCHED-G3 "
                                           "splits the redundant side into kissat's "
                                           "tier1/tier2/tier3 (C10 hand-off H3)"),
+    "vivify_irredundant_sort_ratio":
+                                ("POLICY", "typed irredundant Vivify population ratio"),
     "bump_reason_limit":       ("POLICY", "reason-side bumping rate"),
     "bump_reason_depth":       ("POLICY", "reason traversal depth; the shipped config is a "
                                           "constant 1 in BOTH modes, reset after analysis"),
@@ -85,79 +92,69 @@ TABLE = {
                                         "drained before policy advances the watermark"),
     # --- A/B or diagnostic knobs; shipped value is the kernel.hpp default --
     "bve_gate_mask":           ("ENV", "--bve-gates"),
-    "bve_backward":            ("ENV", "TACTIX_BVE_BACKWARD (optional cadical elimbackward; ships OFF like kissat)"),
-    "bce_occ_limit":           ("ENV", "TACTIX_BCE_OCC_LIMIT"),
-    "midround_budget":         ("ENV", "TACTIX_MIDROUND_BUDGET (measured negative)"),
-    "factor_size":             ("ENV", "TACTIX_FACTOR_SIZE"),
-    "transitive_early_exit":   ("ENV", "TACTIX_V4_EARLY_EXIT"),
-    "transitive_live_meter":   ("ENV", "TACTIX_TRANSITIVE_LIVE_METER"),
-    "transitive_budget_checked": ("ENV", "TACTIX_V4_METER=checked diagnostic currency"),
+    "bve_backward":            ("POLICY", "typed BVE backward-tail setting"),
+    "bce_occ_limit":           ("POLICY", "typed BCE occurrence limit"),
+    "midround_budget":         ("POLICY", "typed default forward scheduling and "
+                                           "per-invocation bounded rule-work pose"),
+    "factor_size":             ("POLICY", "typed Factor clause-size limit"),
+    "transitive_early_exit":   ("POLICY", "typed TransitiveReduce stop setting"),
+    "transitive_live_meter":   ("POLICY", "typed TransitiveReduce meter setting"),
+    "transitive_budget_checked": ("POLICY", "typed TransitiveReduce budget currency"),
     # R10: the per-attempt sub-solver ceiling for definition extraction. NOT
     # POLICY — kissat treats `definitionticks` as a fixed option and moves
     # nothing per phase, so a writer in default_policy.* would be the fake
     # wiring this check exists to expose. Pricing it is phase-4 dosing.
-    "bve_definition_budget":   ("ENV", "TACTIX_BVE_DEF_TICKS; ships kissat's "
-                                       "1e6 first-core Kitten ticks"),
-    "bve_definition_cores":    ("ENV", "TACTIX_BVE_DEF_CORES; ships kissat's "
-                                       "two refined definition cores"),
-    "ternary_occ_limit":       ("ENV", "TACTIX_TERNARY_OCC_LIMIT"),
-    "ternary_max_add_percent": ("ENV", "TACTIX_TERNARY_MAXADD"),
+    "bve_definition_budget":   ("POLICY", "typed BVE first-core Kitten budget"),
+    "bve_definition_cores":    ("POLICY", "typed BVE refined-core count"),
+    "bve_definition_core_budget_multiplier":
+                                ("POLICY", "typed BVE refinement allowance"),
+    "ternary_occ_limit":       ("POLICY", "typed HyperTernaryRes occurrence limit"),
+    "ternary_max_add_percent": ("POLICY", "typed HyperTernaryRes growth limit"),
     # Default-on with an `=0` revert hatch: the touched-epoch filters are
     # rule-round policy, not scheduler policy.
-    "touch_filter":            ("ENV", "TACTIX_TOUCH_MARKS (stage-F off arm)"),
-    "subsume_holds_elim":      ("ENV", "TACTIX_SUBSUME_HOLD (SCHED-F2 off arm)"),
+    "touch_filter":            ("POLICY", "typed canonical material filter; "
+                                           "TACTIX_TOUCH_MARKS is a frontend adapter"),
     # CaDiCaL's likely-kept redundant tier band ships on; =0 is the narrow arm.
-    "touch_redundant":         ("ENV", "TACTIX_TOUCH_REDUNDANT; ships ON "
-                                       "(SCHED-F6 parity), =0 reverts"),
+    "touch_redundant":         ("POLICY", "typed likely-kept redundant band; "
+                                          "TACTIX_TOUCH_REDUNDANT is a frontend adapter"),
     # Same shape as touch_filter. The probe/candidate order and the trail
     # retention are one mechanism inside the rule's round.
-    "vivify_reuse":            ("ENV", "TACTIX_VIVIFY_REUSE; ships ON (SCHED-G3), "
-                                       "=0 reverts to the per-candidate root return"),
-    "vivify_flush":            ("ENV", "TACTIX_VIVIFY_FLUSH; CaDiCaL vivifyflush, "
-                                       "ships ON via the kernel.hpp default, =0 reverts"),
+    "vivify_reuse":            ("POLICY", "typed Vivify trail-reuse setting"),
+    "vivify_flush":            ("POLICY", "typed Vivify schedule-flush setting"),
     "sweep_tail_next":         ("RULE", "Sweep canonical schedule state"),
     "sweep_tail_indexed": ("RULE", "Sweep canonical schedule state"),
     "sweep_live": ("RULE", "Sweep canonical schedule state"),
     "sweep_passes_completed":  ("RULE", "Sweep completed-pass limit growth"),
-    # Pure diagnostic: it makes C1 report instead of act, so it can never be a
-    # shipped default and nothing in the policy may write it.
-    "subsume_shadow":          ("ENV", "TACTIX_SUBSUME_SHADOW (SCHED-G2 shadow arm)"),
     # Ships on via the kernel.hpp default, matching both references (kissat
     # unconditionally, cadical `factorunbump`=1), with an `=0` revert hatch.
-    "factor_demote_fresh":     ("ENV", "TACTIX_FACTOR_DEMOTE; ships ON via the kernel.hpp "
-                                       "default (SP-FACTOR-2 parity), =0 reverts"),
-    "factor_cand_rounds":      ("ENV", "TACTIX_FACTOR_CAND_ROUNDS; both references "
-                                       "ship 2, =0 restores the unfiltered set"),
-    "no_ext_decisions":        ("ENV", "TACTIX_NO_EXT_DECISIONS"),
-    "no_ext_reason_bump":      ("ENV", "TACTIX_NO_EXT_REASON_BUMP"),
-    "subst_demote":            ("ENV", "TACTIX_SUBST_DEMOTE"),
-    "retire_enabled":          ("ENV", "TACTIX_RETIRE; ships ON via the kernel.hpp default"),
+    "factor_demote_fresh":     ("POLICY", "typed Factor fresh-variable ranking advice"),
+    "factor_cand_rounds":      ("POLICY", "typed Factor candidate-pruning rounds"),
+    "no_ext_reason_bump":      ("POLICY", "typed Analyze behavior; the inverse "
+                                           "bump_extension_reasons setting"),
+    "subst_demote":            ("POLICY", "typed Substitute ranking advice"),
     # Same shape as retire_enabled / factor_demote_fresh: ships on at kissat's
     # own default (`eagersubsume`=4), `=0` reverts. Both references treat it as
     # a fixed option, so no reference schedule moves it per phase.
-    "eager_subsume":           ("ENV", "TACTIX_EAGER_SUBSUME; ships ON at kissat's "
-                                       "default 4 (SP-EAGERSUB-1), =0 reverts"),
+    "eager_subsume":           ("POLICY", "typed Analyze eager register size; "
+                                          "TACTIX_EAGER_SUBSUME is an adapter"),
     "stop_fuzz":               ("ENV", "TACTIX_STOP_FUZZ, fuzz-only abort knob"),
-    "conflict_reuse":          ("ENV", "TACTIX_CONFLICT_REUSE; ships OFF (TB4b(B))"),
-    "conflict_reuse_no_repair": ("ENV", "TACTIX_CONFLICT_REUSE_NOREPAIR, diagnostic"),
-    "jump_reasons":            ("ENV", "TACTIX_JUMP_REASONS; kissat `jumpreasons` "
-                                       "ships ON, =0 reverts (SP-JUMP-1)"),
+    "conflict_reuse":          ("POLICY", "typed Analyze conflict reuse; "
+                                          "TACTIX_CONFLICT_REUSE is an adapter"),
+    "jump_reasons":            ("POLICY", "typed Analyze reason jumping; "
+                                          "TACTIX_JUMP_REASONS is an adapter"),
     # Both ship ON at the reference default, `=0` reverts — the transliterated
     # behaviour is the baseline and the OFF arm is what gets priced.
-    "shrink_glue_promote":     ("ENV", "TACTIX_SHRINK_GLUE; kissat `promote`, "
-                                       "ships ON (SP-SHRINK-GLUE-1), =0 reverts "
-                                       "to min(glue, new_size)"),
+    "shrink_glue_promote":     ("POLICY", "typed Analyze glue promotion; "
+                                          "TACTIX_SHRINK_GLUE is an adapter"),
     "tumble":                  ("ENV", "TACTIX_TUMBLE; kissat `tumble`, ships ON "
                                        "(SP-DECIDE-2), =0 reverts to ascending "
                                        "variable order"),
     # --- external-policy surface (N1) ------------------------------------
-    "factor_bound":            ("API", "kissat's `reduction > bound`. The FIELD stays "
-                                       "unwritten on purpose — it is the external-policy "
-                                       "surface N1 owes, and a writer added to satisfy this "
-                                       "check would be the fake wiring it exists to expose. "
-                                       "The WIRE is closed: SP-FACTOR-1 reads bve_level_ at "
-                                       "phase entry and hands it to Factor as the matcher "
-                                       "bound. Ledger row: scheduling-parity-ledger.md 13.3."),
+    "factor_bound":            ("POLICY", "typed Factor base bound combined with the "
+                                          "DefaultPolicy BVE-bound coupling; public calls "
+                                          "can scope or set it explicitly"),
+    "reorder_maximum_clause_size":
+                                ("API", "typed Reorder scan cutoff; reference default 100"),
 }
 
 # Where the config surface begins in kernel.hpp. Everything below this marker
@@ -169,6 +166,8 @@ CONFIG_START = "cold_state_deferred"
 # category, which a policy may reset but never "configures".
 NOT_CONFIG = {"cold_state_deferred", "lvl", "transitive_cursor",
               "warming",
+              "strategy_epoch", "subsume_material_count",
+              "fixed_external_count",
               # Trace-only accounting lives at Kernel's final ABI boundary so
               # a diagnostic test can link against the non-trace library. It
               # is compiled out of production and cannot steer scheduling.

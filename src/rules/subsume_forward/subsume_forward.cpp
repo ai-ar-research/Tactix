@@ -36,12 +36,12 @@ static bool subsumes_marked(const Kernel &k, const std::vector<uint8_t> &marks,
   return true;
 }
 
-// A clause qualifies as a victim: live, within the size limit, not
+// A clause qualifies as a victim: live, not
 // root-satisfied. Redundancy is deliberately not part of it — deleting a
 // redundant clause is licensed unconditionally (S2 Forget). The load-bearing
 // redundancy check sits on the subsumer instead (subsume_forward.hpp).
 static bool is_victim(const Kernel &k, const Clause *c) {
-  if (c->garbage() || c->size > SUBSUME_CLSLIM)
+  if (c->garbage())
     return false;
   for (const Lit l : *c)
     if (k.value(l) > 0)
@@ -54,7 +54,9 @@ static bool is_victim(const Kernel &k, const Clause *c) {
 // entirely. A round-scope decision, not a precondition (see the N1 note below).
 // Ledger row D-C1C2-VICTIM.
 static bool is_round_candidate(const Kernel &k, const Clause *c) {
-  return !c->redundant() && is_victim(k, c);
+  return !c->redundant() &&
+         c->size <= k.subsume_forward_parameters.clause_size_limit &&
+         is_victim(k, c);
 }
 
 void subsume_forward_candidates(const Kernel &k, std::vector<Ref> &out,
@@ -145,7 +147,9 @@ static bool subsumed_by_binary(Kernel &k,
   for (const Lit l : *c) {
     if (k.value(l) != 0)
       continue;
-    if (!watch_population_within(k, l, true, SUBSUME_BINLIM))
+    if (!watch_population_within(
+            k, l, true,
+            k.subsume_forward_parameters.binary_occurrence_limit))
       continue;
     const bool stop_at_large = k.watches.heads[l].binaries_first();
     for (const WatchEntry w : k.watches.entries(l)) {
@@ -212,7 +216,7 @@ ApplyResult subsume_forward_apply(Kernel &k) {
   }
   const auto watch_population = [&](Lit l) -> size_t {
     const size_t large =
-        k.dense ? k.dense->large[l].size() : fallback_population[l];
+        k.dense ? k.dense->large_size(l) : fallback_population[l];
     return k.watches.binary_size(l) + large;
   };
   uint64_t deleted = 0;
@@ -222,7 +226,7 @@ ApplyResult subsume_forward_apply(Kernel &k) {
   // next round. 0 = unbounded. Dosing: ledger row D-STRENGTHEN-BUDGET.
   ForwardVisitCounter visits(k.stats.forward_visits);
   const uint64_t check_start = visits.value;
-  const bool visit_bounded = k.midround_budget && k.work_budget;
+  const bool visit_bounded = k.midround_budget;
   const uint64_t visit_budget = k.work_budget;
   size_t stopped_at = candidates.size(); // index of the first unreached one
   // §6 termination polling, reusing the budget's cut point: an interrupted
@@ -267,7 +271,8 @@ ApplyResult subsume_forward_apply(Kernel &k) {
           if (k.value(l) != 0)
             continue;
           const std::vector<Ref> &os = occs[l];
-          if (os.size() > SUBSUME_OCCLIM)
+          if (os.size() >
+              k.subsume_forward_parameters.large_occurrence_limit)
             continue;
           for (const Ref dref : os) {
             visits.value++;
@@ -296,15 +301,6 @@ ApplyResult subsume_forward_apply(Kernel &k) {
     } else {
       k.stats.forward_mark_skipped++;
     }
-    // Shadow mode (`Kernel::subsume_shadow`, diagnostic): record the victim and
-    // let it live, so the rest of the solve is a C1-less trajectory in which
-    // Strengthen's absorption of this clause is observable. Declining a
-    // deletion is sound in the same way a budget cut is, and the shadowed
-    // clause still falls through to `connect` below.
-    if (subsumed && k.subsume_shadow) {
-      kernel_shadow_observe(k, c->id());
-      subsumed = false;
-    }
     if (subsumed) {
       delete_subsumed(k, c);
       deleted++;
@@ -327,7 +323,7 @@ ApplyResult subsume_forward_apply(Kernel &k) {
       }
     }
     assert(min_lit != INVALID_LIT);
-    if (min_occs <= SUBSUME_OCCLIM)
+    if (min_occs <= k.subsume_forward_parameters.large_occurrence_limit)
       occs[min_lit].push_back(ref);
   }
   // Resume. A cut round re-arms the variables of the candidates it never
@@ -374,12 +370,12 @@ ApplyResult subsume_forward_apply(Kernel &k) {
 // literal of the candidate, so d appears there. The victim may be redundant
 // here, which is the complete surface N1 requires; the subsumer may not, hence
 // the `d->redundant()` skip below.
-ApplyResult subsume_forward_try(Kernel &k, Ref candidate) {
+template <bool Collect>
+static ApplyResult subsume_forward_try_impl(Kernel &k, Ref candidate) {
   assert(subsume_forward_guard(k));
   // The round's `work_budget` is a round device and is not consulted here, so
   // termination gets its own check — one per call, at entry, where nothing is
-  // marked. The scan below is bounded, but at CLSLIM x OCCLIM it is the same
-  // order of work as one round candidate.
+  // marked. An explicit request scans the finite input without strategy caps.
   if (kernel_rule_interrupt(k, k.stats.subsume_interrupted))
     return ApplyResult::NoOp;
   Clause *c = clause_at(k.arena, candidate);
@@ -394,21 +390,14 @@ ApplyResult subsume_forward_try(Kernel &k, Ref candidate) {
   for (const Lit l : *c) {
     if (k.value(l) != 0)
       continue;
-    const bool binaries =
-        watch_population_within(k, l, true, SUBSUME_BINLIM);
-    const bool large =
-        watch_population_within(k, l, false, SUBSUME_OCCLIM);
     for (const WatchEntry w : k.watches.entries(l)) {
       if (subsumed)
         break;
       k.stats.forward_visits++;
       if (w.binary()) {
-        if (binaries)
-          subsumed = marks[w.other()] != 0;
+        subsumed = marks[w.other()] != 0;
         continue;
       }
-      if (!large)
-        continue;
       const Ref dref = w.ref();
       if (dref == candidate)
         continue;
@@ -424,8 +413,13 @@ ApplyResult subsume_forward_try(Kernel &k, Ref candidate) {
   if (!subsumed)
     return ApplyResult::NoOp;
   delete_subsumed(k, c);
-  kernel_collect_garbage(k);
+  if constexpr (Collect)
+    kernel_collect_garbage(k);
   return ApplyResult::Ok;
+}
+
+ApplyResult subsume_forward_try(Kernel &k, Ref candidate) {
+  return subsume_forward_try_impl<true>(k, candidate);
 }
 
 // Generic instance surface: payload = candidate arena Ref, canonical-first
@@ -443,7 +437,8 @@ static uint32_t subsume_forward_instances(Kernel &k, uint64_t *out,
   return n;
 }
 
-static ApplyResult subsume_forward_apply_instance(Kernel &k, uint64_t inst) {
+template <bool Collect>
+static ApplyResult subsume_forward_apply_instance_impl(Kernel &k, uint64_t inst) {
   // D-LEVEL: drain the root closure (no-op at a fixpoint); a conflict refutes.
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
@@ -453,7 +448,7 @@ static ApplyResult subsume_forward_apply_instance(Kernel &k, uint64_t inst) {
   // rejected, not dereferenced)
   for (Ref ref = 0; ref < k.arena.size();) {
     if (ref == inst)
-      return subsume_forward_try(k, ref);
+      return subsume_forward_try_impl<Collect>(k, ref);
     if (ref > inst)
       break;
     ref += clause_actual_words(clause_at(k.arena, ref));
@@ -461,8 +456,21 @@ static ApplyResult subsume_forward_apply_instance(Kernel &k, uint64_t inst) {
   return ApplyResult::NoOp;
 }
 
+static ApplyResult subsume_forward_apply_instance(Kernel &k, uint64_t inst) {
+  return subsume_forward_apply_instance_impl<true>(k, inst);
+}
+
+// Semantic batches keep arena offsets stable between explicit applications.
+// Deletion leaves traversable garbage and shrinking preserves allocation size;
+// collection remains a separate representation boundary. Legacy calls retain
+// their immediate collection and watch-order contract.
+static ApplyResult subsume_forward_apply_semantic_instance(Kernel &k, uint64_t inst) {
+  return subsume_forward_apply_instance_impl<false>(k, inst);
+}
+
 TACTIX_REGISTER_RULE(SubsumeForward, RuleTier::Inprocess, subsume_forward_guard,
                      subsume_forward_apply, subsume_forward_instances,
-                     subsume_forward_apply_instance);
+                     subsume_forward_apply_instance, nullptr,
+                     subsume_forward_apply_semantic_instance);
 
 } // namespace tactix

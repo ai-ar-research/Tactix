@@ -10,18 +10,21 @@
 namespace tactix {
 
 RuleEligibility instantiate_guard(const Kernel &k) {
-  // Quiescent root (D-ROOT). A pure F-rewrite, so a recorded conflict does not
+  // Declared quiescent-root boundary. A pure F-rewrite, so a recorded conflict does not
   // bar it; level == 0 is what the occurrence and unassigned filters need.
   RuleEligibility result;
   return result.fact("consistent", !k.inconsistent)
       .fact("root-level", k.level == 0);
 }
 
-// candidate clause: live, irredundant, size >= INST_CLSLIM, not root-satisfied,
-// and >= 3 unassigned literals so the rewrite cannot produce a unit (cadical's
-// `unassigned < 3` filter — "avoid learning units")
+// Canonical candidate advice. None of these strategy limits constrains the
+// explicit semantic (clause,literal) surface below.
 static bool is_candidate(const Kernel &k, const Clause *c) {
-  if (c->garbage() || c->redundant() || c->size < INST_CLSLIM)
+  const strategy::InstantiateParameters &parameters =
+      k.instantiate_parameters;
+  if (c->garbage() || (!parameters.include_redundant && c->redundant()) ||
+      (parameters.minimum_clause_size &&
+       c->size < parameters.minimum_clause_size))
     return false;
   uint32_t unassigned = 0;
   for (const Lit l : *c) {
@@ -31,7 +34,8 @@ static bool is_candidate(const Kernel &k, const Clause *c) {
     if (v == 0)
       unassigned++;
   }
-  return unassigned >= 3;
+  return !parameters.minimum_unassigned ||
+         unassigned >= parameters.minimum_unassigned;
 }
 
 // irredundant occurrence counts per literal, one arena pass. Per round, not per
@@ -49,11 +53,10 @@ static void occurrence_counts(const Kernel &k, std::vector<uint32_t> &occ) {
   }
 }
 
-// eligible literal: unassigned and rare in its own polarity. `occ[l] >= 1`
-// always (l occurs in the candidate), so INST_OCCLIM == 1 means "l occurs
-// nowhere else".
+// Canonical literal advice: unassigned and rare in its own polarity.
 static bool eligible(const Kernel &k, const std::vector<uint32_t> &occ, Lit l) {
-  return k.value(l) == 0 && occ[l] <= INST_OCCLIM;
+  return k.value(l) == 0 &&
+         occ[l] <= k.instantiate_parameters.occurrence_limit;
 }
 
 static bool has_eligible(const Kernel &k, const Clause *c,
@@ -147,10 +150,19 @@ static bool probe_pair(Kernel &k, Ref cref, Lit lit) {
 // `ended_round` reports a root-value change.
 static ApplyResult instantiate_one(Kernel &k, Ref cref,
                                    const std::vector<uint32_t> &occ,
-                                   bool *ended_round) {
+                                   bool *ended_round,
+                                   const Lit *selected = nullptr) {
   const Clause *c = clause_at(k.arena, cref);
-  if (!is_candidate(k, c))
+  if ((!selected && !is_candidate(k, c)) ||
+      (selected && c->garbage()))
     return ApplyResult::NoOp;
+  if (selected) {
+    bool present = false;
+    for (const Lit lit : *c)
+      present |= lit == *selected;
+    if (!present || k.value(*selected) != 0)
+      return ApplyResult::NoOp;
+  }
   const bool lrat = k.proof && k.proof->lrat();
   // Persistent walk scratch (the per-call linear-scratch fix, shared in shape
   // with C3 Vivify's copy): grown on demand, restored all-zero in O(marked) at
@@ -167,7 +179,7 @@ static ApplyResult instantiate_one(Kernel &k, Ref cref,
     // rewritten or untouched, never half-instantiated.
     if (kernel_rule_interrupt(k, k.stats.instantiate_interrupted))
       break;
-    if (!eligible(k, occ, lit))
+    if (selected ? lit != *selected : !eligible(k, occ, lit))
       continue;
     if (lrat) {
       if (seen.size() < k.nvars)
@@ -208,9 +220,11 @@ static ApplyResult instantiate_one(Kernel &k, Ref cref,
                          nullptr, 0);
     }
     k.stats.instantiated++;
+    const bool redundant = cc->redundant();
+    const uint32_t glue = redundant ? cc->glue() : 0;
     switch (kernel_replace_clause(k, cc, id, next.data(),
                                   static_cast<uint32_t>(next.size()),
-                                  /*redundant=*/false, /*glue=*/0, nullptr)) {
+                                  redundant, glue, nullptr)) {
     case ReplaceOutcome::Refuted:
       return ApplyResult::Unsat;
     case ReplaceOutcome::Unit:
@@ -255,7 +269,7 @@ ApplyResult instantiate_apply(Kernel &k) {
   // a per-clause bit set at the first attempt and never reset
   // (`instantiateonce`, instantiate.cpp:32,211); this one is deliberately
   // weaker, re-offering a clause as soon as anything in it changes, which
-  // recovers what the once-ever bit forfeits. `need = 1`, unlike the
+  // recovers what the once-ever bit forfeits. The reference need is one, unlike the
   // subsumption family's 2: the probe is a propagation, so one new clause over
   // one of c's variables can change the outcome.
   const bool filter = k.touch_filter;
@@ -264,7 +278,7 @@ ApplyResult instantiate_apply(Kernel &k) {
   size_t stopped_at = candidates.size();
   for (size_t ci = 0; ci < candidates.size(); ci++) {
     const Ref cref = candidates[ci];
-    if (k.work_budget && k.stats.ticks - tick_start > k.work_budget) {
+    if (kernel_work_budget_exceeded(k, k.stats.ticks - tick_start)) {
       stopped_at = ci;
       break;
     }
@@ -276,7 +290,9 @@ ApplyResult instantiate_apply(Kernel &k) {
       break;
     }
     if (filter &&
-        !kernel_clause_new_material(k, clause_at(k.arena, cref), wm, 1)) {
+        !kernel_clause_new_material(
+            k, clause_at(k.arena, cref), wm,
+            k.instantiate_parameters.new_material_threshold)) {
       k.stats.instantiate_mark_skipped++;
       continue;
     }
@@ -295,7 +311,9 @@ ApplyResult instantiate_apply(Kernel &k) {
   for (size_t ci = filter ? stopped_at : candidates.size();
        ci < candidates.size(); ci++) {
     const Clause *c = clause_at(k.arena, candidates[ci]);
-    if (c->garbage() || !kernel_clause_new_material(k, c, wm, 1))
+    if (c->garbage() ||
+        !kernel_clause_new_material(
+            k, c, wm, k.instantiate_parameters.new_material_threshold))
       continue;
     for (const Lit l : *c)
       kernel_touch_var(k, var_of(l));
@@ -316,6 +334,17 @@ ApplyResult instantiate_try(Kernel &k, Ref candidate) {
   occurrence_counts(k, occ);
   bool ended = false;
   const ApplyResult r = instantiate_one(k, candidate, occ, &ended);
+  if (r == ApplyResult::Ok)
+    kernel_collect_garbage(k);
+  return r;
+}
+
+ApplyResult instantiate_try_literal(Kernel &k, Ref candidate, Lit literal) {
+  assert(instantiate_guard(k));
+  const std::vector<uint32_t> unused;
+  bool ended = false;
+  const ApplyResult r =
+      instantiate_one(k, candidate, unused, &ended, &literal);
   if (r == ApplyResult::Ok)
     kernel_collect_garbage(k);
   return r;
@@ -347,8 +376,49 @@ static ApplyResult instantiate_apply_instance(Kernel &k, uint64_t inst) {
   return ApplyResult::NoOp;
 }
 
+static uint32_t instantiate_semantic_instances(Kernel &k, uint64_t *out,
+                                               uint32_t cap) {
+  uint32_t count = 0;
+  for (Ref ref = 0; ref < k.arena.size() && count < cap;) {
+    const Clause *c = clause_at(k.arena, ref);
+    const uint32_t words = clause_actual_words(c);
+    if (!c->garbage())
+      for (const Lit literal : *c) {
+        if (k.value(literal) == 0)
+          out[count++] = instantiate_pair_instance(ref, literal);
+        if (count == cap)
+          break;
+      }
+    ref += words;
+  }
+  return count;
+}
+
+static ApplyResult instantiate_apply_semantic_instance(Kernel &k,
+                                                        uint64_t instance) {
+  if (inprocess_reach_root(k))
+    return ApplyResult::Unsat;
+  if (instance == INSTANCE_CANONICAL)
+    return instantiate_apply(k);
+  Ref selected_ref;
+  Lit selected_literal;
+  instantiate_pair_of_instance(instance, &selected_ref, &selected_literal);
+  if (selected_ref == INVALID_REF || selected_literal >= 2 * k.nvars)
+    return ApplyResult::NoOp;
+  for (Ref ref = 0; ref < k.arena.size();) {
+    if (ref == selected_ref)
+      return instantiate_try_literal(k, ref, selected_literal);
+    if (ref > selected_ref)
+      break;
+    ref += clause_actual_words(clause_at(k.arena, ref));
+  }
+  return ApplyResult::NoOp;
+}
+
 TACTIX_REGISTER_RULE(Instantiate, RuleTier::Inprocess, instantiate_guard,
                      instantiate_apply, instantiate_instances,
-                     instantiate_apply_instance);
+                     instantiate_apply_instance,
+                     instantiate_semantic_instances,
+                     instantiate_apply_semantic_instance);
 
 } // namespace tactix

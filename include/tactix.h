@@ -19,7 +19,9 @@
  *    required, not stylistic: a sign-extending cast maps -1 onto
  *    TACTIX_INSTANCE_CANONICAL, so branching on -1 would silently get the
  *    canonical pick — an N1 hole.
- *  - Restart: the keep-level. Reduce: the number of ranked victims to delete.
+ *  - Restart: the keep-level. Reduce: v1 payloads are ranked victim counts;
+ *    its additive semantic surface returns tagged opaque payloads that select
+ *    one legal redundant clause independently of policy protection.
  *    ConflictAnalysis: the backjump level it may return to, 0..level-1.
  *  - Sweep: the seed it sweeps around, as an OPAQUE value obtained from
  *    tactix_rule_instances. It is an internal variable index, not a DIMACS
@@ -27,11 +29,13 @@
  *    the values returned, within the same solver state.
  *  - Propagate and SwitchMode have no instance surface at all, so a
  *    non-canonical payload to tactix_apply_instance on one of them is an
- *    invalid argument (-1), never a silent canonical application. Congruence,
- *    Factor and Walk do have the entry point but currently enumerate only the
- *    canonical sentinel. Both sets are pinned by tests/test_api_instances.c;
- *    joining or leaving either is a deliberate act, so update that test and
- *    this comment together.
+ *    invalid argument (-1), never a silent canonical application. Congruence
+ *    and Walk currently enumerate only the canonical sentinel. Factor's scalar
+ *    surface enumerates seed literals; online steps can carry a typed exact
+ *    grid, while COMPLETE_PASS exhaustively discovers exact legal grids. These
+ *    sets are pinned by tests/test_api_instances.c;
+ *    joining or leaving one is deliberate, so update that test and this
+ *    comment together.
  * Enumeration fills a caller buffer with the rule's own instances; a rule with
  * no surface reports exactly the canonical sentinel, and one with a surface
  * need not list the canonical instance at all — it is always reachable as
@@ -125,11 +129,13 @@ typedef struct tactix_solver tactix;
 #define TACTIX_STAT_SUBSTITUTE_SCC_LITS 47 /* Substitute work: literals in the
                                               non-trivial SCCs it walked */
 
-/* X6 HyperBinaryRes: yield is the emitted resolvent count, effort the private
- * tick meter its EFFORT_SPECS row doses on. */
-#define TACTIX_STAT_HBR_BINARIES 48 /* hyper binary resolvents emitted */
+/* X6 HyperBinaryRes exposes ordinary binary outputs and the unit-degenerate
+ * semantic outputs separately. Its effort counter is the private tick meter
+ * used by the EFFORT_SPECS row. */
+#define TACTIX_STAT_HBR_BINARIES 48 /* binary resolvents emitted */
 #define TACTIX_STAT_HBR_TICKS 49    /* HyperBinaryRes work */
 #define TACTIX_STAT_SUBSTITUTE_TICKS 50 /* Substitute binary-watch scan work */
+#define TACTIX_STAT_HBR_UNITS 51 /* semantic resolvents collapsed to units */
 
 tactix *tactix_init(void);
 void tactix_release(tactix *);
@@ -172,6 +178,28 @@ void tactix_set_factor_bound(tactix *, unsigned bound);
 void tactix_set_factor_composite(tactix *, int on);
 void tactix_set_work_budget(tactix *, uint64_t budget);
 void tactix_set_vivify_scope(tactix *, unsigned scope);
+/* Complete Vivify pose. Returns -1 for an unknown scope or zero population
+ * ratio and leaves the prior pose untouched. */
+int tactix_set_vivify_parameters(tactix *, unsigned scope, int reuse,
+                                 int flush, uint32_t irredundant_sort_ratio);
+
+/* Canonical C1/C2 discovery costs, never explicit-action preconditions.
+ * UINT32_MAX removes a cap. Explicit clause instances bypass these values. */
+void tactix_set_subsume_limits(tactix *, uint32_t clause_size,
+                              uint32_t large_occurrences,
+                              uint32_t binary_occurrences);
+void tactix_set_strengthen_limits(tactix *, uint32_t clause_size,
+                                  uint32_t occurrences);
+void tactix_set_analyze_minimize_depth(tactix *, uint32_t depth);
+int tactix_set_congruence_limits(tactix *, uint32_t and_arity,
+                                 uint64_t gate_count, uint32_t xor_arity);
+void tactix_set_instantiate_limits(tactix *, uint32_t minimum_clause_size,
+                                   uint32_t occurrence_limit,
+                                   uint32_t minimum_unassigned,
+                                   int include_redundant);
+void tactix_set_instantiate_material_threshold(tactix *, uint32_t threshold);
+void tactix_set_backbone_round_limits(tactix *, uint32_t initial_rounds,
+                                      uint32_t maximum_rounds);
 
 /* Config readback (additive) — the pose surface's anti-vacuity half: a policy
  * that poses a value must be able to prove the solver holds it, or a silently
@@ -184,6 +212,25 @@ void tactix_set_vivify_scope(tactix *, unsigned scope);
 #define TACTIX_CFG_FACTOR_COMPOSITE 3
 #define TACTIX_CFG_WORK_BUDGET 4
 #define TACTIX_CFG_VIVIFY_SCOPE 5
+#define TACTIX_CFG_SUBSUME_CLAUSE_SIZE 6
+#define TACTIX_CFG_SUBSUME_LARGE_OCCURRENCES 7
+#define TACTIX_CFG_SUBSUME_BINARY_OCCURRENCES 8
+#define TACTIX_CFG_STRENGTHEN_CLAUSE_SIZE 9
+#define TACTIX_CFG_STRENGTHEN_OCCURRENCES 10
+#define TACTIX_CFG_ANALYZE_MINIMIZE_DEPTH 11
+#define TACTIX_CFG_CONGRUENCE_AND_ARITY 12
+#define TACTIX_CFG_CONGRUENCE_GATE_COUNT 13
+#define TACTIX_CFG_CONGRUENCE_XOR_ARITY 14
+#define TACTIX_CFG_INSTANTIATE_MINIMUM_CLAUSE_SIZE 16
+#define TACTIX_CFG_INSTANTIATE_OCCURRENCE_LIMIT 17
+#define TACTIX_CFG_INSTANTIATE_MINIMUM_UNASSIGNED 18
+#define TACTIX_CFG_INSTANTIATE_INCLUDE_REDUNDANT 19
+#define TACTIX_CFG_BACKBONE_INITIAL_ROUNDS 20
+#define TACTIX_CFG_BACKBONE_MAXIMUM_ROUNDS 21
+#define TACTIX_CFG_VIVIFY_REUSE 22
+#define TACTIX_CFG_VIVIFY_FLUSH 23
+#define TACTIX_CFG_VIVIFY_IRREDUNDANT_SORT_RATIO 24
+#define TACTIX_CFG_INSTANTIATE_NEW_MATERIAL_THRESHOLD 25
 uint64_t tactix_config(tactix *, int cfg_id);
 
 /* run the default policy to completion: 10 SAT / 20 UNSAT */
@@ -228,6 +275,241 @@ int tactix_apply(tactix *, int rule_id);
  * payloads on a rule that has one are clamped or no-ops per that rule's
  * documented encoding, never unsound. */
 int tactix_apply_instance(tactix *, int rule_id, uint64_t instance);
+
+/* Additive fine-grained action surface. Most rules delegate to the frozen v1
+ * payloads. Rules whose v1 payload grouped multiple choices enumerate opaque
+ * semantic payloads here; Instantiate, for example, exposes one payload per
+ * (large-clause,literal) pair. Values are valid until the next mutation. */
+int tactix_rule_semantic_instances(tactix *, int rule_id, uint64_t *out,
+                                   int cap);
+int tactix_apply_semantic_instance(tactix *, int rule_id, uint64_t instance);
+
+/* --- additive online strategy composition -------------------------------
+ * Configuration is copied and validated transactionally. All pointers only
+ * need to remain valid for the configure call. One advance performs at most
+ * one atomic registered rule application; the caller may reconfigure between
+ * advances without restarting or discarding learned state. */
+#define TACTIX_ONLINE_GRANULARITY_ONE 0
+#define TACTIX_ONLINE_GRANULARITY_BATCH 1
+#define TACTIX_ONLINE_GRANULARITY_COMPLETE_PASS 2
+#define TACTIX_ONLINE_GRANULARITY_CANONICAL 3
+#define TACTIX_ONLINE_REPEAT_ONCE 0
+#define TACTIX_ONLINE_REPEAT_COUNT 1
+#define TACTIX_ONLINE_REPEAT_FIXPOINT 2
+#define TACTIX_ONLINE_WORK_APPLICATIONS 0
+#define TACTIX_ONLINE_WORK_BVE_TICKS 1
+#define TACTIX_ONLINE_WORK_PROPAGATIONS 2
+#define TACTIX_ONLINE_RECONFIGURE_RESET 0
+#define TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS 1
+
+/* Native rule-work allowance, separate from the composition budget below.
+ * INHERIT preserves the solver's current rule profile. UNLIMITED clears it.
+ * BOUNDED accepts zero and is polled at each rule's documented safe points;
+ * an indivisible rule transition may therefore finish past the allowance. */
+#define TACTIX_ONLINE_RULE_BUDGET_INHERIT 0
+#define TACTIX_ONLINE_RULE_BUDGET_UNLIMITED 1
+#define TACTIX_ONLINE_RULE_BUDGET_BOUNDED 2
+
+/* Tri-state overrides for shared canonical rule settings. Zero-initialized
+ * callers inherit the active strategy profile. */
+#define TACTIX_ONLINE_SETTING_INHERIT 0
+#define TACTIX_ONLINE_SETTING_DISABLE 1
+#define TACTIX_ONLINE_SETTING_ENABLE 2
+
+#define TACTIX_ONLINE_PARAMETERS_INHERIT 0
+#define TACTIX_ONLINE_PARAMETERS_BVE 1
+#define TACTIX_ONLINE_PARAMETERS_SUBSUME 2
+#define TACTIX_ONLINE_PARAMETERS_STRENGTHEN 3
+#define TACTIX_ONLINE_PARAMETERS_CONGRUENCE 4
+#define TACTIX_ONLINE_PARAMETERS_INSTANTIATE 5
+#define TACTIX_ONLINE_PARAMETERS_BACKBONE 6
+#define TACTIX_ONLINE_PARAMETERS_SWEEP 7
+#define TACTIX_ONLINE_PARAMETERS_VIVIFY 8
+#define TACTIX_ONLINE_PARAMETERS_ANALYZE 9
+#define TACTIX_ONLINE_PARAMETERS_BCE 10
+#define TACTIX_ONLINE_PARAMETERS_TERNARY 11
+#define TACTIX_ONLINE_PARAMETERS_FACTOR 12
+#define TACTIX_ONLINE_PARAMETERS_TRANSITIVE 13
+#define TACTIX_ONLINE_PARAMETERS_SUBSTITUTE 14
+#define TACTIX_ONLINE_PARAMETERS_REDUCE 15
+#define TACTIX_ONLINE_PARAMETERS_WALK 16
+#define TACTIX_ONLINE_PARAMETERS_REORDER 17
+
+typedef struct {
+  uint32_t minimize_depth_limit;
+  uint32_t chronological_levels, bump_reason_limit, bump_reason_depth;
+  uint32_t eager_subsume;
+  int conflict_reuse;
+  /* These names preserve the historical behavior of zero-initialized steps. */
+  int disable_jump_reasons;
+  int enable_jump_reasons_bigbig;
+  int disable_shrink_glue_promotion;
+  int exclude_extension_reason_bumps;
+} tactix_online_analyze_parameters;
+
+typedef struct {
+  uint32_t gate_mask, growth_bound, occurrence_limit, clause_size_limit;
+  uint32_t xor_arity_limit, resolvent_size_limit;
+  uint32_t backward_occurrence_limit, definition_cores;
+  uint32_t definition_core_budget_multiplier;
+  uint64_t definition_budget;
+  int backward;
+} tactix_online_bve_parameters;
+typedef struct {
+  uint32_t clause_size_limit, large_occurrence_limit;
+  uint32_t binary_occurrence_limit;
+} tactix_online_subsume_parameters;
+typedef struct {
+  uint32_t clause_size_limit, occurrence_limit;
+} tactix_online_strengthen_parameters;
+typedef struct {
+  uint32_t and_arity_limit, xor_arity_limit;
+  uint64_t gate_count_limit;
+} tactix_online_congruence_parameters;
+typedef struct {
+  uint32_t minimum_clause_size, occurrence_limit, minimum_unassigned;
+  uint32_t new_material_threshold;
+  int include_redundant;
+} tactix_online_instantiate_parameters;
+typedef struct {
+  uint32_t initial_rounds, maximum_rounds;
+} tactix_online_backbone_parameters;
+typedef struct {
+  uint32_t max_depth, max_depth_ceiling;
+  uint32_t max_env_vars, max_env_vars_ceiling;
+  uint32_t max_env_clauses, max_env_clauses_ceiling;
+  uint32_t max_candidates, max_proof_steps, max_seeds, flip_rounds;
+  uint64_t env_ticks, round_ticks;
+  int strip_false, measure_closure, full_partition, skip_embedded_fixed, resume;
+  int force_general_proof;
+} tactix_online_sweep_parameters;
+typedef struct {
+  uint32_t scope, irredundant_sort_ratio;
+  int reuse, flush;
+} tactix_online_vivify_parameters;
+typedef struct {
+  uint32_t occurrence_limit;
+} tactix_online_bce_parameters;
+typedef struct {
+  uint32_t occurrence_limit, maximum_add_percent;
+} tactix_online_ternary_parameters;
+typedef struct {
+  uint32_t maximum_clause_size, growth_bound, candidate_rounds;
+  int composite, demote_fresh;
+} tactix_online_factor_parameters;
+typedef struct {
+  int early_exit, live_meter, checked_budget_meter;
+} tactix_online_transitive_parameters;
+typedef struct {
+  int demote_substituted;
+} tactix_online_substitute_parameters;
+typedef struct {
+  uint32_t tier1, tier2;
+} tactix_online_reduce_parameters;
+typedef struct {
+  uint64_t step_budget, random_seed;
+} tactix_online_walk_parameters;
+typedef struct {
+  uint32_t maximum_clause_size;
+} tactix_online_reorder_parameters;
+
+/* One exact Factor remainder column and grid. Literals use permanent DIMACS
+ * identities. The grid is copied during configure; caller storage may be
+ * released immediately afterward. Matching large-clause occurrences are
+ * chosen deterministically when the action executes. */
+typedef struct {
+  const int *literals;
+  int literal_count;
+} tactix_online_factor_remainder;
+
+typedef struct {
+  const int *factors;
+  int factor_count;
+  const tactix_online_factor_remainder *remainders;
+  int remainder_count;
+} tactix_online_factor_grid;
+
+typedef struct {
+  int kind;
+  union {
+    tactix_online_bve_parameters bve;
+    tactix_online_subsume_parameters subsume;
+    tactix_online_strengthen_parameters strengthen;
+    tactix_online_congruence_parameters congruence;
+    tactix_online_instantiate_parameters instantiate;
+    tactix_online_backbone_parameters backbone;
+    tactix_online_sweep_parameters sweep;
+    tactix_online_vivify_parameters vivify;
+    tactix_online_analyze_parameters analyze;
+    tactix_online_bce_parameters bce;
+    tactix_online_ternary_parameters ternary;
+    tactix_online_factor_parameters factor;
+    tactix_online_transitive_parameters transitive;
+    tactix_online_substitute_parameters substitute;
+    tactix_online_reduce_parameters reduce;
+    tactix_online_walk_parameters walk;
+    tactix_online_reorder_parameters reorder;
+  } value;
+} tactix_online_parameters;
+
+typedef struct {
+  uint64_t step_id;
+  int rule_id;
+  tactix_online_parameters parameters;
+  int granularity;
+  const uint64_t *instances;
+  int instance_count;
+  const tactix_online_factor_grid *factor_grids;
+  int factor_grid_count;
+  int repeat_mode;
+  uint64_t repeat_limit;
+  /* rule_budget must be zero for INHERIT and UNLIMITED. */
+  int rule_budget_mode;
+  uint64_t rule_budget;
+  int touch_filter_mode;
+  int likely_kept_redundant_mode;
+  int work_unit;
+  uint64_t budget;
+  int budget_unlimited;
+} tactix_online_step;
+
+typedef struct {
+  const tactix_online_step *steps;
+  int step_count;
+  int repeat_mode;
+  uint64_t repeat_limit;
+} tactix_online_program;
+
+#define TACTIX_ONLINE_COMPLETED 0
+#define TACTIX_ONLINE_SCOPED_FIXPOINT 1
+#define TACTIX_ONLINE_NO_CHANGE 2
+#define TACTIX_ONLINE_INAPPLICABLE 3
+#define TACTIX_ONLINE_BUDGET_EXHAUSTED 4
+#define TACTIX_ONLINE_INTERRUPTED 5
+#define TACTIX_ONLINE_CONFLICT 6
+#define TACTIX_ONLINE_SAT 7
+#define TACTIX_ONLINE_UNSAT 8
+#define TACTIX_ONLINE_INVALID_REQUEST 9
+#define TACTIX_ONLINE_STALE_REQUEST 10
+#define TACTIX_ONLINE_RESOURCE_EXHAUSTED 11
+#define TACTIX_ONLINE_ACCOUNTING_ERROR 12
+
+typedef struct {
+  int status, rule_result, budget_status, work_unit;
+  uint64_t work, applications, step_id, instance;
+  uint32_t rule_id;
+  int made_rule_progress, selection_complete;
+  uint64_t before_arena_generation, before_touch_epoch;
+  uint64_t after_arena_generation, after_touch_epoch;
+  uint64_t before_strategy_epoch, after_strategy_epoch;
+  uint64_t configuration_revision;
+} tactix_online_result;
+
+int tactix_online_configure(tactix *, const tactix_online_program *,
+                            uint64_t revision, int reconfigure_mode);
+int tactix_online_advance(tactix *, tactix_online_result *);
+uint64_t tactix_online_step_consumed(tactix *, uint64_t step_id);
+int tactix_online_complete(tactix *);
 
 /* branching surface (N1): candidates ranked by the active heuristic
  * (saved/target-phase literals, DIMACS convention); tactix_decide branches

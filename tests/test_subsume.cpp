@@ -18,7 +18,11 @@
 
 using namespace tactix;
 
-static_assert(SUBSUME_OCCLIM == 100 && SUBSUME_BINLIM == 10000);
+static constexpr uint32_t TEST_SUBSUME_OCCLIM =
+    strategy::SubsumeForwardParameters::LARGE_OCCURRENCE_DEFAULT;
+static_assert(TEST_SUBSUME_OCCLIM == 100 &&
+              strategy::SubsumeForwardParameters::BINARY_OCCURRENCE_DEFAULT ==
+                  10000);
 
 static Ref add(Kernel &k, std::initializer_list<int> elits,
                bool redundant = false) {
@@ -120,7 +124,7 @@ static void test_complete_dense_population_caps_connection() {
   add(k, {1, 2, 3, 4});
   int next = 5;
   for (int anchor = 1; anchor <= 3; ++anchor)
-    for (uint32_t i = 0; i <= SUBSUME_OCCLIM; ++i) {
+    for (uint32_t i = 0; i <= TEST_SUBSUME_OCCLIM; ++i) {
       const Lit filler[5] = {internalize(anchor), internalize(next),
                              internalize(next + 1), internalize(next + 2),
                              internalize(next + 3)};
@@ -131,7 +135,7 @@ static void test_complete_dense_population_caps_connection() {
   kernel_dense_connect(k, dense);
   assert(subsume_forward_apply(k) == ApplyResult::NoOp);
   assert(k.stats.forward_subsumed == 0);
-  assert(live_clauses(k) == 2 + 3 * (SUBSUME_OCCLIM + 1));
+  assert(live_clauses(k) == 2 + 3 * (TEST_SUBSUME_OCCLIM + 1));
   kernel_dense_disconnect(k);
 }
 
@@ -444,47 +448,6 @@ static void test_binary_subsumer_then_substitute() {
 // The shadow ledger, and the capability-subset claim under it: SubsumeForward's
 // per-pair test is Strengthen's with the flip count pinned to zero and the two
 // share their limits, so anything the first deletes the second deletes too.
-static void shadow_case(Kernel &k, bool binary_subsumer) {
-  kernel_reserve_vars(k, 4);
-  add(k, {1, 2, 3, 4});
-  if (binary_subsumer)
-    kernel_add_binary_clause(k, internalize(1), internalize(2),
-                             ++k.next_clause_id);
-  else
-    add(k, {1, 2, 3});
-}
-
-static void test_shadow_ledger() {
-  for (int bin = 0; bin < 2; bin++) {
-    // (1) shipped: SubsumeForward deletes
-    Kernel on;
-    shadow_case(on, bin != 0);
-    assert(subsume_forward_apply(on) == ApplyResult::Ok);
-    assert(on.stats.forward_subsumed == 1);
-    assert(on.stats.c1_shadow_observed == 0); // the hatch is off by default
-
-    // (2) shadow: the same victim is reported, nothing is deleted
-    Kernel sh;
-    sh.subsume_shadow = true;
-    shadow_case(sh, bin != 0);
-    const size_t before = live_clauses(sh);
-    assert(subsume_forward_apply(sh) == ApplyResult::NoOp);
-    assert(sh.stats.forward_subsumed == 0);
-    assert(sh.stats.c1_shadow_observed == 1);
-    assert(live_clauses(sh) == before);
-    // observing the same clause again must not double-count it
-    assert(subsume_forward_apply(sh) == ApplyResult::NoOp);
-    assert(sh.stats.c1_shadow_observed == 1);
-
-    // (3) Strengthen alone disposes of it, and the ledger attributes that
-    assert(strengthen_apply(sh) == ApplyResult::Ok);
-    assert(sh.stats.c1_shadow_deleted + sh.stats.c1_shadow_rewritten == 1);
-    assert(sh.shadow_victims.empty()); // no residual: Strengthen handled it all
-    assert(live_clauses(sh) == before - 1);
-    kernel_check_invariants(sh);
-  }
-}
-
 // Both interrupt sites. There is no polling cadence, so a raised flag fires at
 // the first poll of whichever entry point is driven, even in a short round.
 static void test_interrupt() {
@@ -547,7 +510,6 @@ int main() {
   test_touch_redundant_scope();
   test_proof_deltas();
   test_binary_subsumer_then_substitute();
-  test_shadow_ledger();
   test_interrupt();
   printf("test_subsume: all ok\n");
   return 0;

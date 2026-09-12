@@ -180,13 +180,18 @@ ApplyResult failed_literal_apply_chained_binary(
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
 
-  // Kissat grows `backbonerounds` (100) with the computation count and caps it
-  // at `backbonemaxrounds` (1000).  Keep the same later-call reach rather than
-  // permanently applying only the first-computation scope.
+  // The caller owns Kissat's growing-round schedule. Saturation keeps every
+  // uint32 configuration total without changing the reference defaults.
   const uint64_t computation = ++k.stats.backbone_computations;
-  const uint32_t round_limit = computation >= 10
-                                   ? 1000
-                                   : static_cast<uint32_t>(100 * computation);
+  const strategy::BackboneParameters &parameters = k.backbone_parameters;
+  const uint64_t grown =
+      !parameters.initial_rounds
+          ? 0
+          : computation > UINT64_MAX / parameters.initial_rounds
+                ? UINT64_MAX
+                : computation * parameters.initial_rounds;
+  const uint32_t round_limit = static_cast<uint32_t>(
+      std::min<uint64_t>(grown, parameters.maximum_rounds));
   const uint64_t meter_begin = k.stats.backbone_ticks;
   bool changed = false;
   std::vector<uint64_t> lrat_chain;
@@ -260,8 +265,8 @@ ApplyResult failed_literal_apply_chained_binary(
     if (candidates.empty())
       break;
     if (kernel_terminating(k) ||
-        (k.work_budget &&
-         k.stats.backbone_ticks - meter_begin > k.work_budget))
+        kernel_work_budget_exceeded(
+            k, k.stats.backbone_ticks - meter_begin))
       break;
 
     k.stats.*stats.rounds += 1;
@@ -303,8 +308,8 @@ ApplyResult failed_literal_apply_chained_binary(
         continue;
       }
       if (kernel_terminating(k) ||
-          (k.work_budget &&
-           k.stats.backbone_ticks - meter_begin > k.work_budget)) {
+          kernel_work_budget_exceeded(
+              k, k.stats.backbone_ticks - meter_begin)) {
         budget_hit = true;
         break;
       }

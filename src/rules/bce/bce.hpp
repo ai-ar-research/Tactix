@@ -16,17 +16,17 @@
 
 namespace tactix {
 
-// Guard: quiescent root (D-ROOT) — the tautology test reads the live occurrence
+// Guard: declared quiescent-root boundary — the tautology test reads the live occurrence
 // structure, which only means what it says once every level-0 unit is
 // propagated.
 RuleEligibility bce_guard(const Kernel &);
 
-// Instance space (plan §5.1): payload = the blocking literal. One instance =
-// one literal = delete every irredundant clause blocked on it; per-clause
-// instances would need clause identity in the payload, which the v1 encoding
-// does not carry (and `Ref`s move under GC). Canonical order: literals with at
-// least one irredundant occurrence, ascending by code. INSTANCE_CANONICAL = the
-// full round.
+// Frozen v1 instance space (plan §5.1): payload = the blocking literal. One
+// instance deletes every irredundant clause blocked on it. The additive
+// semantic surface names each (clause, blocking-literal) choice independently,
+// including binary pairs; its opaque payloads are valid until the next formula
+// mutation. Canonical order: literals with at least one irredundant occurrence,
+// ascending by code. INSTANCE_CANONICAL = the full round.
 void bce_literals(const Kernel &, std::vector<Lit> &out);
 
 // One literal: delete every irredundant clause blocked on it, pushing a witness

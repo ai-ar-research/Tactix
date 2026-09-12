@@ -1,6 +1,7 @@
 #pragma once
 
-#include "rules/sweep/sweep_defaults.hpp"
+#include "strategy/sweep_parameters.hpp"
+#include "strategy/inprocess_program.hpp"
 
 #include <array>
 #include <cstdint>
@@ -69,11 +70,19 @@ struct DefaultStrategyConfig {
   } branching;
 
   struct Analysis {
+    uint32_t minimize_depth_limit =
+        strategy::AnalyzeParameters::MINIMIZE_DEPTH_DEFAULT;
     uint32_t bump_reason_limit = BUMP_REASON_LIMIT_DEFAULT;
     double bump_reason_rate = BUMP_REASON_RATE_DEFAULT;
     uint32_t reason_depth = 1; // Kissat direct-reason traversal in both modes.
     uint32_t chronological_levels = CHRONOLOGICAL_LEVELS_DEFAULT;
     bool reuse_ranked_trail_suffix = false; // Kissat tie-break over CaDiCaL.
+    bool conflict_reuse = true;
+    bool jump_reasons = true;
+    bool shrink_glue_promote = true;
+    bool bump_extension_reasons = true;
+    uint32_t eager_subsume =
+        strategy::AnalyzeParameters::EAGER_SUBSUME_CAPACITY;
     uint64_t small_clause_limit = SMALL_CLAUSE_LIMIT_DEFAULT;
     uint32_t big_binary_fraction_permille =
         BIG_BINARY_FRACTION_PERMILLE_DEFAULT;
@@ -141,24 +150,48 @@ struct DefaultStrategyConfig {
     // remain explicit diagnostic arms and are never selected by classification.
     bool bve_enabled = true;
     bool vivify_enabled = true;
+    bool factor_enabled = true;
+    bool sweep_enabled = true;
     bool factor_repeated_enabled = true;
     bool preprocess_only = false;
     // Kissat creation order is the production default.  Enabling this switch
     // is the explicit CaDiCaL VMTF/phase-order diagnostic arm; classification
     // and benchmark identity never select it.
     bool cadical_arena_ordering_enabled = false;
+    // The shipped program is the exact historical pipeline.  Callers may
+    // reorder, omit or repeat occurrences; false makes omission authoritative.
+    std::vector<strategy::InprocessStep> program =
+        strategy::reference_inprocess_program();
+    bool append_unlisted_rules = true;
     uint64_t eliminate_interval = INPROCESS_ELIMINATE_INTERVAL_DEFAULT;
     uint64_t probe_interval = INPROCESS_PROBE_INTERVAL_DEFAULT;
     uint64_t minimum_effort_ticks = INPROCESS_MINIMUM_EFFORT_DEFAULT;
     uint64_t preprocess_initial_ticks = INPROCESS_PREPROCESS_EFFORT_DEFAULT;
     uint32_t phase_rounds = INPROCESS_PHASE_ROUNDS_DEFAULT;
     uint32_t substitute_rounds = SUBSTITUTE_ROUNDS_DEFAULT;
+    // Ordinary search-time Substitute is one round; preprocessing follow-ups
+    // use `substitute_rounds`. Both are explicit strategy repetition choices.
+    uint32_t substitute_search_rounds = 1;
     uint64_t factor_initial_ticks = FACTOR_INITIAL_EFFORT_DEFAULT;
     double logarithm_offset = 9.0;
     double scale_quadratic = 4.5;
     double scale_constant = 25.0;
     double scale_log_shift = 5.0;
     uint64_t candidate_order_seed = 0x9e3779b97f4a7c15ull;
+    strategy::CongruenceParameters congruence_parameters;
+    strategy::InstantiateParameters instantiate_parameters;
+    strategy::BackboneParameters backbone_parameters;
+    strategy::VivifyParameters vivify_parameters;
+    strategy::BceParameters bce_parameters;
+    strategy::TernaryParameters ternary_parameters;
+    strategy::FactorParameters factor_parameters;
+    strategy::TransitiveReduceParameters transitive_parameters;
+    strategy::SubstituteParameters substitute_parameters;
+    // Canonical touched-material admission shared by C1/C2, BCE, CCE,
+    // Instantiate, HyperTernaryRes and Factor. Explicit semantic instances
+    // bypass this scheduling filter through their rule contracts.
+    bool touch_filter = true;
+    bool likely_kept_redundant = false;
 
     std::array<uint32_t, 6> bve_bounds{{0, 1, 2, 4, 8, 16}};
     // Kissat's shipped `eliminatebound` is 16. Lower ceilings remain
@@ -168,6 +201,19 @@ struct DefaultStrategyConfig {
     uint32_t bve_default_ceiling = 16;
     uint32_t bve_occurrence_limit = 2000; // kissat eliminateocclim
     uint32_t bve_clause_size_limit = 100; // kissat eliminateclslim
+    uint32_t bve_xor_arity_limit =
+        strategy::BveParameters::XOR_ARITY_DEFAULT; // CaDiCaL elimxorlim
+    uint32_t bve_resolvent_size_limit =
+        strategy::BveParameters::RESOLVENT_SIZE_DEFAULT; // Kissat eliminateclslim
+    uint32_t bve_backward_occurrence_limit =
+        strategy::BveParameters::BACKWARD_OCCURRENCE_DEFAULT; // CaDiCaL elimocclim
+    uint64_t bve_definition_budget =
+        strategy::BveParameters::DEFINITION_BUDGET_DEFAULT;
+    uint32_t bve_definition_cores =
+        strategy::BveParameters::DEFINITION_CORES_DEFAULT;
+    uint32_t bve_definition_core_budget_multiplier =
+        strategy::BveParameters::DEFINITION_CORE_BUDGET_MULTIPLIER_DEFAULT;
+    bool bve_backward = false;
     uint32_t factor_decade_round_cap = 14;
     uint32_t factor_decade_cap = 19;
     uint32_t factor_decade_offset = 5;
@@ -192,24 +238,14 @@ struct DefaultStrategyConfig {
     uint32_t sweep_permille = 100;
     uint32_t substitute_permille = 10;
 
-    // Kissat Sweep environment and growth options (options.h).  These belong
-    // to the strategy profile even though Sweep also exposes a caller-owned
-    // limits object for public rule applications.
-    uint32_t sweep_depth = SweepReferenceDefaults::DEPTH;
-    uint32_t sweep_max_depth = SweepReferenceDefaults::MAX_DEPTH;
-    uint32_t sweep_vars = SweepReferenceDefaults::VARS;
-    uint32_t sweep_max_vars = SweepReferenceDefaults::MAX_VARS;
-    uint32_t sweep_clauses = SweepReferenceDefaults::CLAUSES;
-    uint32_t sweep_max_clauses = SweepReferenceDefaults::MAX_CLAUSES;
-    uint32_t sweep_candidate_pairs = SweepReferenceDefaults::CANDIDATE_PAIRS;
-    uint32_t sweep_flip_rounds = SweepReferenceDefaults::FLIP_ROUNDS;
-    uint32_t sweep_seed_cap = SweepReferenceDefaults::SEED_CAP;
-    uint64_t sweep_environment_ticks =
-        SweepReferenceDefaults::ENVIRONMENT_TICKS;
-    bool sweep_strip_root_false = true;
-    bool sweep_full_partition = true;
-    bool sweep_skip_embedded_fixed = true;
-    bool sweep_resume = true;
+    // Kissat Sweep environment and growth options (options.h). Public and
+    // default-policy calls share one typed shape; the reference policy alone
+    // skips literals already fixed in the embedded environment.
+    strategy::SweepParameters sweep_parameters = [] {
+      strategy::SweepParameters result;
+      result.skip_embedded_fixed = true;
+      return result;
+    }();
 
     uint32_t congruence_productivity_permille = 1;
     uint32_t sweep_productivity_permille = 1;
@@ -223,6 +259,10 @@ struct DefaultStrategyConfig {
     bool split_clocks = true;
     bool watermarks = true;
     bool preprocess_followups = true;
+    // Hold standalone C1 for the Eliminate phase. The reference program keeps
+    // C1 disabled because C2 owns the fused forward pass; custom programs may
+    // enable it and select this cadence explicitly.
+    bool hold_subsume_until_eliminate = true;
     // Kissat's fused forward pass always enforces its `forward_steps` effort
     // ceiling between candidates.  The name is retained for serialized-config
     // compatibility; this is not an inside-candidate interruption.
@@ -230,6 +270,7 @@ struct DefaultStrategyConfig {
     bool couple_factor_bound = true;
   } inprocess;
 
+  bool valid(std::string *error = nullptr) const;
   // Stable, line-oriented snapshot used by trace and benchmark metadata.
   std::string serialize() const;
 };

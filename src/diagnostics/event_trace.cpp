@@ -6,6 +6,7 @@
 #include "rules/bve/bve.hpp"
 
 #include <algorithm>
+#include <array>
 #include <csignal>
 #include <cstdlib>
 #include <cstring>
@@ -19,6 +20,7 @@
 #endif
 
 namespace tactix {
+void emit_heap_set_snapshot(const Kernel &k, bool after_decision);
 namespace {
 
 EventTrace *active_trace;
@@ -82,10 +84,12 @@ DenseStorage dense_storage(const OccIndex *dense) {
   account(dense->large.heads_data(), dense->large.heads_capacity_bytes());
   account(dense->ordered.arena_data(), dense->ordered.arena_capacity_bytes());
   account(dense->ordered.heads_data(), dense->ordered.heads_capacity_bytes());
+  account(dense->ordered.counts_data(), dense->ordered.count_capacity_bytes());
   return result;
 }
 
-void trace_slot_memory(const Kernel &k, const char *name, const char *stage) {
+void trace_slot_memory(const Kernel &k, const char *name, const char *stage,
+                       size_t temporary_bytes = 0, uint32_t subject = 0) {
   static bool initialized = false;
   static FILE *out = nullptr;
   if (!initialized) {
@@ -141,6 +145,7 @@ void trace_slot_memory(const Kernel &k, const char *name, const char *stage) {
       capacity_bytes(k.input_refutation_units);
   const size_t touch_bytes =
       capacity_bytes(k.bve_retry) + capacity_bytes(k.factor_marks) +
+      capacity_bytes(k.subsume_material) +
       capacity_bytes(k.backbone_priority) + capacity_bytes(k.touched) +
       capacity_bytes(k.removed) + capacity_bytes(k.touched_kept);
   const size_t event_bytes =
@@ -158,7 +163,7 @@ void trace_slot_memory(const Kernel &k, const char *name, const char *stage) {
         capacity_bytes(k.h->saved) + capacity_bytes(k.h->links) +
         capacity_bytes(k.h->scores.stack) + capacity_bytes(k.h->scores.pos) +
         capacity_bytes(k.h->scores.score) + capacity_bytes(k.h->target) +
-        capacity_bytes(k.h->best) + capacity_bytes(k.h->walk_prev);
+        capacity_bytes(k.h->best);
   }
   const size_t clause_alias_bytes =
       k.clause_position_alias.diagnostic_storage_bytes();
@@ -189,7 +194,13 @@ void trace_slot_memory(const Kernel &k, const char *name, const char *stage) {
                "policy_reduce_capacity_bytes=%zu\t"
                "policy_inprocess_capacity_bytes=%zu\t"
                "delayed_capacity_bytes=%zu\t"
-               "heap_used_kib=%zu\theap_free_kib=%zu\tmmap_kib=%zu\n",
+               "heap_used_kib=%zu\theap_free_kib=%zu\tmmap_kib=%zu\t"
+               "collector_order_capacity_bytes=%zu\t"
+               "collector_temporary_capacity_bytes=%zu\t"
+               "dense_large_arena_capacity_bytes=%zu\t"
+               "dense_ordered_arena_capacity_bytes=%zu\t"
+               "memory_conflicts=%llu\tmemory_decisions=%llu\t"
+               "memory_subject_internal=%u\n",
                name, stage, usage.ru_maxrss, current_rss_kib, vm_kib, k.nvars,
                k.arena.size(), k.arena.capacity(), k.watches.arena.size(),
                k.watches.arena.capacity(), k.watches.heads.capacity(),
@@ -201,7 +212,40 @@ void trace_slot_memory(const Kernel &k, const char *name, const char *stage) {
                k.diagnostic_policy_reduce_bytes,
                k.diagnostic_policy_inprocess_bytes,
                capacity_bytes(k.delayed),
-               heap_used_kib, heap_free_kib, mmap_kib);
+               heap_used_kib, heap_free_kib, mmap_kib,
+               capacity_bytes(k.collect_order_scratch), temporary_bytes,
+               k.dense ? k.dense->large.arena_capacity_bytes() : 0,
+               k.dense ? k.dense->ordered.arena_capacity_bytes() : 0,
+               (unsigned long long)k.stats.conflicts,
+               (unsigned long long)k.stats.decisions, subject);
+}
+
+void trace_bve_capacity_change(const Kernel &k, Var var, const char *stage) {
+  static const bool enabled = [] {
+    const char *path = std::getenv("TACTIX_SLOT_MEMORY_TRACE");
+    return path && *path;
+  }();
+  if (!enabled)
+    return;
+  // Constant-space reads at existing candidate callbacks. Only a capacity
+  // transition opens /proc and samples the allocator; do not scan lists or
+  // emit a row for every attempted variable. A row brackets an interval,
+  // not necessarily one allocation when a candidate grows several pools.
+  const std::array<size_t, 9> capacities = {
+      k.arena.capacity(), k.watches.arena.capacity(),
+      k.reconstruction.capacity(), k.watches.heads.capacity(),
+      k.dense ? k.dense->large.arena_capacity_bytes() : 0,
+      k.dense ? k.dense->ordered.arena_capacity_bytes() : 0,
+      k.dense ? k.dense->large.heads_capacity_bytes() : 0,
+      k.dense ? k.dense->ordered.heads_capacity_bytes() : 0,
+      k.dense ? k.dense->ordered.count_capacity_bytes() : 0};
+  static std::array<size_t, 9> previous{};
+  static const Kernel *owner = nullptr;
+  if (owner == &k && capacities == previous)
+    return;
+  owner = &k;
+  previous = capacities;
+  trace_slot_memory(k, "BVECapacity", stage, 0, var + 1);
 }
 
 struct BinaryLifecycleState {
@@ -293,6 +337,79 @@ void initialize_decision_prefix() {
 }
 
 void note_decision_prefix(const Kernel &k, int external) {
+  // Reuse the one-shot observer without enabling broad event payloads.
+  static const bool direct_heap =
+      std::getenv("SAT_DECISION_HEAP_SNAPSHOT") != nullptr;
+  if (direct_heap)
+    emit_heap_set_snapshot(k, true);
+  static bool state_initialized = false;
+  static FILE *state = nullptr;
+  static uint64_t state_conflict = UINT64_MAX;
+  static int wanted = 0;
+  if (!state_initialized) {
+    state_initialized = true;
+    const char *path = std::getenv("TACTIX_CHOICE_STATE_TRACE");
+    const char *conflict = std::getenv("SAT_CHOICE_STATE_CONFLICT");
+    const char *variable = std::getenv("SAT_CHOICE_STATE_VARIABLE");
+    if (path && conflict && variable) {
+      state = std::fopen(path, "w");
+      if (!state) { std::perror(path); std::exit(2); }
+      state_conflict = std::strtoull(conflict, nullptr, 10);
+      wanted = std::atoi(variable);
+    }
+  }
+  if (state && k.stats.conflicts == state_conflict) {
+    const Lit l = kernel_internalize(k, wanted);
+    if (l != INVALID_LIT) {
+      const Var v = var_of(l);
+      const auto &a = k.assigned[v];
+      std::fprintf(state, "%llu\t%llu\t%u\t%d\t%d\t%d\t%u\t%u\t%.17g\t",
+          (unsigned long long)k.stats.conflicts,
+          (unsigned long long)k.stats.decisions, k.level, external, wanted,
+          int(k.values[l]), k.values[l] ? a.level : UINT32_MAX,
+          k.h ? k.h->scores.pos[v] : UINT32_MAX,
+          k.h ? k.h->scores.score[v] : 0.0);
+      if (!k.values[l]) std::fputs("unassigned",state);
+      else if (a.reason == DECISION_REASON) std::fputs("decision",state);
+      else if (a.reason == UNIT_REASON) std::fputs("unit",state);
+      else if (a.binary)
+        std::fprintf(state,"binary:%d",kernel_externalize(k,a.reason));
+      else {
+        const Clause *c = clause_at(k.arena,a.reason);
+        std::fputs("large:",state);
+        for (uint32_t i=0;i<c->size;i++)
+          std::fprintf(state,"%s%d",i?",":"",kernel_externalize(k,c->lits[i]));
+      }
+      if (k.h) {
+        const auto ext = [&](Var x) { return x == INVALID_VAR ? 0 :
+            std::abs(kernel_externalize(k, make_lit(x, false))); };
+        const Lit chosen = kernel_internalize(k, external);
+        std::fprintf(state, "\t%d\t%u\t%d\t%u\t%u\t%d\t%d\t%u",
+            int(k.h->stable), k.h->queue_stamp, ext(k.h->search_idx),
+            k.h->search_stamp, k.h->links[v].stamp,
+            ext(k.h->links[v].prev), ext(k.h->links[v].next),
+            chosen == INVALID_LIT ? 0 : k.h->links[var_of(chosen)].stamp);
+      }
+      std::fputc('\n',state);
+    }
+  }
+  static bool stream_initialized = false;
+  static FILE *stream = nullptr;
+  static uint64_t stream_conflict_from = 0;
+  if (!stream_initialized) {
+    stream_initialized = true;
+    if (const char *path = std::getenv("TACTIX_DECISION_STREAM_TRACE")) {
+      if (const char *from = std::getenv("SAT_DECISION_STREAM_CONFLICT_FROM"))
+        stream_conflict_from = std::strtoull(from, nullptr, 10);
+      stream = std::fopen(path, "w");
+      if (!stream) { std::perror(path); std::exit(2); }
+    }
+  }
+  if (stream && k.stats.conflicts >= stream_conflict_from)
+    std::fprintf(stream, "%llu\t%llu\t%u\t%d\t%d\n",
+                 (unsigned long long)k.stats.conflicts,
+                 (unsigned long long)k.stats.decisions, k.level, external,
+                 k.warming ? 1 : 0);
   initialize_decision_prefix();
   auto &s = decision_prefix;
   // Accumulate the CUMULATIVE decision prefix (every decision up to and
@@ -1311,6 +1428,9 @@ void EventTrace::close() {
 
 void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
                       bool snapshot) {
+  if (std::getenv("SAT_EVENT_TRACE_ALL_ROOTS") &&
+      std::strcmp(event, "root_assign") && std::strcmp(event, "analysis_end"))
+    return;
   const bool exit_after_match =
       exit_selector_matches(event, payload, exit_match_.c_str()) &&
       (exit_conflict_ == UINT64_MAX || exit_conflict_ == k.stats.conflicts);
@@ -2258,6 +2378,8 @@ bool EventTrace::want_detail(const Kernel &k) {
   // Learned-only is a low-perturbation trajectory observer.  Reject other
   // detailed helpers before they construct payloads; learned_stage applies
   // the same conflict window directly below.
+  if (imply_only_)
+    return false;
   if (learned_only_ || heap_vars_only_ || factor_fresh_only_ ||
       factor_update_only_ || factor_literal_only_ || clause_lifecycle_only_)
     return false;
@@ -3103,6 +3225,26 @@ void EventTrace::target_state(const Kernel &k, const char *stage,
 
 void event_trace_target_state(const Kernel &k, const char *stage,
                               uint32_t assigned) {
+  if (k.h && (std::strstr(stage, "compact") || std::strstr(stage, "factor-stamps") ||
+              !std::strcmp(stage, "bve-schedule"))) {
+    static std::FILE *file = [] {
+      const char *path = std::getenv("TACTIX_QUEUE_STAMP_TRACE");
+      return path && *path ? std::fopen(path, "w") : nullptr;
+    }();
+    if (file) {
+      const Var search = k.h->search_idx;
+      std::fprintf(file, "snapshot\t%s\t%llu\t%llu\t%d\t%u\t%d\t%u\t%u\n",
+          stage, (unsigned long long)k.stats.conflicts,
+          (unsigned long long)k.stats.decisions, int(k.h->stable),
+          k.h->queue_stamp, search == INVALID_VAR ? 0 :
+              std::abs(kernel_externalize(k, make_lit(search, false))),
+          k.h->search_stamp, assigned);
+      for (Var v = k.h->queue_first; v != INVALID_VAR; v = k.h->links[v].next)
+        std::fprintf(file, "member\t%d\t%u\n",
+            std::abs(kernel_externalize(k, make_lit(v, false))), k.h->links[v].stamp);
+      std::fflush(file);
+    }
+  }
   if (active_trace)
     active_trace->target_state(k, stage, assigned);
 }
@@ -3155,6 +3297,11 @@ void EventTrace::slot_boundary(const Kernel &k, const char *name,
   if (emitted_ >= limit_ && !exit_after_match)
     return;
   emit(k, "slot_boundary", payload.c_str(), true);
+}
+
+void event_trace_memory_checkpoint(const Kernel &k, const char *name,
+                                   const char *stage, size_t temporary_bytes) {
+  trace_slot_memory(k, name, stage, temporary_bytes);
 }
 
 void event_trace_slot_boundary(const Kernel &k, const char *name,
@@ -4388,6 +4535,7 @@ void event_trace_recompute_input(const Kernel &k, const Clause *c) {
 
 void event_trace_bve_candidate(const Kernel &k, Var var, const char *stage,
                                uint64_t ticks, uint64_t limit, bool applied) {
+  trace_bve_capacity_change(k, var, stage);
   if (std::getenv("TACTIX_BVE_RETRY_TRACE")) {
     const char *conflict = std::getenv("SAT_BVE_RETRY_CONFLICT");
     if (!conflict || !*conflict ||
@@ -4456,6 +4604,40 @@ void event_trace_bve_candidate(const Kernel &k, Var var, const char *stage,
 void event_trace_bve_retry_mark(const Kernel &k, Var var, const char *source,
                                 bool before, bool after,
                                 const Clause *clause) {
+  // Standalone read-only producer journal, independent of the old one-shot
+  // post-candidate observer. Compile-time tracing keeps this out of Release.
+  static bool producer_initialized = false;
+  static FILE *producer = nullptr;
+  static uint64_t producer_from = 0, producer_to = UINT64_MAX;
+  static uint32_t producer_external = 0;
+  if (!producer_initialized) {
+    producer_initialized = true;
+    if (const char *path = std::getenv("TACTIX_RETRY_PRODUCER_TRACE")) {
+      producer = std::fopen(path, "w");
+      if (!producer) std::exit(2);
+      std::setvbuf(producer, nullptr, _IOLBF, 0);
+      if (const char *s = std::getenv("SAT_RETRY_PRODUCER_FROM"))
+        producer_from = std::strtoull(s, nullptr, 10);
+      if (const char *s = std::getenv("SAT_RETRY_PRODUCER_TO"))
+        producer_to = std::strtoull(s, nullptr, 10);
+      if (const char *s = std::getenv("SAT_RETRY_PRODUCER_EXTERNAL"))
+        producer_external = std::strtoul(s, nullptr, 10);
+    }
+  }
+  if (producer && k.stats.conflicts >= producer_from &&
+      k.stats.conflicts <= producer_to &&
+      k.internal_to_external[var] + 1 == producer_external) {
+    std::fprintf(producer, "tactix\tconflicts=%llu\tdecisions=%llu\texternal=%u\tsource=%s\tbefore=%u\tafter=%u\tvalue=%d\tretired=%u\tclause=",
+                 (unsigned long long)k.stats.conflicts,
+                 (unsigned long long)k.stats.decisions, producer_external,
+                 source ? source : "unspecified", before, after,
+                 static_cast<int>(k.value(make_lit(var, false))),
+                 kernel_var_retired(k, var));
+    if (clause)
+      for (const Lit l : *clause)
+        std::fprintf(producer, "%d,", kernel_externalize(k, l));
+    std::fputc('\n', producer);
+  }
   if (!bve_retry_trace_armed || before || !after)
     return;
   const char *path = std::getenv("TACTIX_BVE_RETRY_TRACE");
@@ -4857,6 +5039,7 @@ void event_trace_bve_schedule(const Kernel &k, const Var *members,
       }
       const std::string payload = bve_schedule_payload(
           k, members, scores, size, bound, insertion_hash);
+      event_trace_target_state(k, "bve-schedule", 0);
       uint64_t irredundant = 0, redundant = 0;
       live_clause_counts(k, irredundant, redundant);
       std::fprintf(out, "# bve-schedule-observer\t1\n");
@@ -5331,6 +5514,8 @@ void EventTrace::heap_scores(const Kernel &k) {
 }
 
 bool EventTrace::heap_var_selected(const Kernel &k, Var v) const {
+  if (std::getenv("SAT_EVENT_TRACE_ALL_ROOTS"))
+    return true;
   if (v >= k.nvars)
     return false;
   const int external =
@@ -5341,6 +5526,8 @@ bool EventTrace::heap_var_selected(const Kernel &k, Var v) const {
 
 void EventTrace::heap_insert(const Kernel &k, Var v, uint32_t from,
                              uint32_t to) {
+  if (imply_only_)
+    return;
   if (!out_ || !k.h || !k.h->stable)
     return;
   if (heap_vars_only_ && detail_window_ &&
@@ -5366,6 +5553,8 @@ void EventTrace::heap_insert(const Kernel &k, Var v, uint32_t from,
 void EventTrace::heap_remove(const Kernel &k, Var removed, Var last,
                              uint32_t removed_pos, uint32_t from,
                              uint32_t to) {
+  if (imply_only_)
+    return;
   if (!out_ || !k.h || !k.h->stable)
     return;
   if (heap_vars_only_ && detail_window_ &&
@@ -5398,6 +5587,8 @@ void EventTrace::heap_remove(const Kernel &k, Var removed, Var last,
 
 void EventTrace::heap_pop(const Kernel &k, const char *stage, Var held,
                           Var other, uint32_t from, uint32_t to) {
+  if (imply_only_)
+    return;
   if (!out_ || !k.h || !k.h->stable)
     return;
   if (heap_vars_only_ && detail_window_ &&
@@ -5675,7 +5866,14 @@ void event_trace_root_assign(const Kernel &k, Lit lit) {
 }
 
 void EventTrace::implications(const Kernel &k, size_t trail_begin) {
-  if (!want_detail(k) || emitted_ >= limit_)
+  // Implication-only tracing rejects unrelated helpers before constructing
+  // their payloads. Admit this owner directly at the same conflict window.
+  const bool selected = imply_only_
+      ? out_ && (!detail_window_ ||
+                 (k.stats.conflicts >= detail_conflict_from_ &&
+                  k.stats.conflicts <= detail_conflict_to_))
+      : want_detail(k);
+  if (!selected || emitted_ >= limit_)
     return;
   for (size_t pos = trail_begin; pos < k.trail.size(); pos++) {
     if (emitted_ >= limit_)

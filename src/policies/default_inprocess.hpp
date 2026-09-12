@@ -5,6 +5,7 @@
 #include "rules/registry.hpp"
 
 #include <cstdlib>
+#include <optional>
 
 namespace tactix {
 
@@ -40,15 +41,7 @@ public:
   }
 };
 
-enum class CandidateOrder : uint8_t {
-  Native,
-  Reverse,
-  Random,
-  OccAsc,
-  OccDesc,
-  NegOccDesc,
-  Heuristic
-};
+using CandidateOrder = strategy::CandidateOrder;
 const char *candidate_order_name(CandidateOrder);
 bool parse_candidate_order(const char *, CandidateOrder *);
 
@@ -130,6 +123,7 @@ public:
   }
 
   struct SlotEntry {
+    strategy::StepId step_id = 0;
     int rule = -1;
     bool enabled = true;
     SlotGroup group = SlotGroup::Probe;
@@ -139,6 +133,7 @@ public:
     bool dosed = false;
     bool budget_aware = false;
     bool closure = false;
+    strategy::InprocessParameters parameters;
     uint64_t limit = 0;
     bool defer_preprocess = false;
     bool preprocess = false;
@@ -185,6 +180,7 @@ public:
     uint64_t reductions_mark = 0;
     uint64_t marks_mark = 0;
     uint64_t fixed_mark = 0;
+    uint64_t material_mark = 0;
     bool blocked = false;
     uint64_t blocked_episodes = 0;
     uint64_t anchor = 0;
@@ -197,7 +193,7 @@ public:
   SlotClock probe_clock, elim_clock;
 
   void reset(const Kernel &);
-  void configure_from_env();
+  void configure();
   void build(Kernel &);
   void initialize_search_limits(const Kernel &);
   bool want_phase(const Kernel &, SlotGroup);
@@ -227,6 +223,7 @@ private:
     int outer = 0;
     bool phase_unsat = false;
     bool round_changed = false;
+    bool eliminate_limit_reached = false;
     bool congruence_changed = false;
     bool sweep_changed = false;
     ApplyResult last_result = ApplyResult::NoOp;
@@ -251,13 +248,11 @@ private:
   uint32_t bve_rounds_run_ = 0;
   bool factor_large_formula_ = false;
   uint64_t factor_marked_watermark_ = 0;
-  bool slot_order_legacy_ = false;
   bool closure_delay_ = true;
   uint64_t factor_init_ticks_ = FACTOR_INIT_TICKS;
   uint32_t bve_level_ = 0;
   uint32_t bve_level_idx_ = 0;
   bool bve_ran_this_phase_ = false;
-  bool bve_complete_this_phase_ = true;
   uint32_t factor_bound_snapshot_ = 0;
   bool couple_factor_bound_ = true;
   OccIndex occurrence_index_;

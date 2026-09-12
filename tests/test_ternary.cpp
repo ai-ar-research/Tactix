@@ -9,6 +9,7 @@
 #include <cassert>
 #include <csignal>
 #include <cstdio>
+#include <limits>
 #include <vector>
 
 using namespace tactix;
@@ -98,6 +99,76 @@ static void test_instances() {
   assert(k.stats.ternary_resolvents == 1);
 }
 
+static void test_explicit_instances_bypass_canonical_occurrence_limit() {
+  Kernel k;
+  kernel_reserve_vars(k, 6);
+  add3(k, 1, 2, 3);
+  add3(k, 1, 5, 6);
+  add3(k, -1, 2, 4);
+  k.ternary_occ_limit = 1;
+  std::vector<Lit> canonical, complete;
+  ternary_pivots(k, canonical);
+  ternary_pivots(k, complete, nullptr, /*complete=*/true);
+  assert(canonical.empty());
+  assert(complete.size() == 1 && complete[0] == internalize(1));
+  assert(ternary_try(k, complete[0]) == ApplyResult::Ok);
+}
+
+static void test_semantic_instance_adds_one_resolvent() {
+  Kernel k;
+  kernel_reserve_vars(k, 6);
+  add3(k, 1, 2, 3);
+  add3(k, 1, 5, 6);
+  add3(k, -1, 2, 5);
+  const RuleVTable &rule =
+      tactix_rules()[tactix_rule_id("HyperTernaryRes")];
+  assert(rule.semantic_instances && rule.apply_semantic_instance);
+  uint64_t choices[8];
+  assert(rule.semantic_instances(k, choices, 8) == 2);
+  assert(rule.apply_semantic_instance(k, choices[0]) == ApplyResult::Ok);
+  assert(k.stats.ternary_resolvents == 1 &&
+         "one semantic instance applied the whole pivot batch");
+}
+
+static void test_semantic_batch_payloads_keep_parent_identity() {
+  Kernel k;
+  kernel_reserve_vars(k, 6);
+  add3(k, 1, 2, 3);
+  add3(k, 1, 5, 6);
+  add3(k, -1, 2, 5);
+  const RuleVTable &rule =
+      tactix_rules()[tactix_rule_id("HyperTernaryRes")];
+  uint64_t choices[8];
+  assert(rule.semantic_instances(k, choices, 8) == 2);
+  assert(rule.apply_semantic_instance(k, choices[0]) == ApplyResult::Ok);
+  assert(rule.apply_semantic_instance(k, choices[1]) == ApplyResult::Ok);
+  assert(k.stats.ternary_resolvents == 2);
+}
+
+static void test_percentage_limit_saturates() {
+  assert(ternary_percent_limit(101, 1000) == 1010);
+  assert(ternary_percent_limit(999, 0) == 0);
+  assert(ternary_percent_limit(std::numeric_limits<uint64_t>::max(), 100) ==
+         std::numeric_limits<uint64_t>::max());
+  assert(ternary_percent_limit(std::numeric_limits<uint64_t>::max(),
+                               std::numeric_limits<uint32_t>::max()) ==
+         std::numeric_limits<uint64_t>::max());
+}
+
+static void test_semantic_invalid_payload_is_noop() {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  add3(k, 1, 2, 3);
+  add3(k, -1, 2, 4);
+  const RuleVTable &rule =
+      tactix_rules()[tactix_rule_id("HyperTernaryRes")];
+  uint64_t choices[2];
+  assert(rule.semantic_instances(k, choices, 2) == 1);
+  assert(rule.apply_semantic_instance(k, choices[0] + 99) ==
+         ApplyResult::NoOp);
+  assert(k.stats.ternary_resolvents == 0);
+}
+
 // N1: the touched-epoch filter is policy. The canonical round may decline on
 // it, but `ternary_pivots` and `ternary_try` must never filter on it.
 static void test_touch_filter_is_policy_only() {
@@ -160,6 +231,11 @@ int main() {
   test_duplicate_rejected();
   test_idempotent();
   test_instances();
+  test_explicit_instances_bypass_canonical_occurrence_limit();
+  test_semantic_instance_adds_one_resolvent();
+  test_semantic_batch_payloads_keep_parent_identity();
+  test_semantic_invalid_payload_is_noop();
+  test_percentage_limit_saturates();
   std::printf("test_ternary: all passed\n");
   return 0;
 }

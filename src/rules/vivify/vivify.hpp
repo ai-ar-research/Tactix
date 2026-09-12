@@ -21,8 +21,6 @@ namespace tactix {
 // Static fallback only: the live bound is `Kernel::tier2`, recomputed from the
 // glue distribution at every reduce. This is that field's initial value, and
 // also kissat's `TIER2` constant.
-constexpr uint32_t VIVIFY_TIER2 = 6;    // redundant scope (LCM): glue <= 6
-
 RuleEligibility vivify_guard(const Kernel &);
 // Complete per-clause instance surface in the canonical candidate order.
 void vivify_candidates(const Kernel &, std::vector<Ref> &out);

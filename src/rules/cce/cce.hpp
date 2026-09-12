@@ -13,21 +13,31 @@
 
 #include "rules/registry.hpp"
 
+#include <utility>
 #include <vector>
 
 namespace tactix {
 
-// Guard: quiescent root (D-ROOT) — every test reads the live occurrence
+// Guard: declared quiescent-root boundary — every test reads the live occurrence
 // structure, which only means what it says once each level-0 unit is
 // propagated.
 RuleEligibility cce_guard(const Kernel &);
 
-// Instance space (plan §5.1): payload = a literal. One instance = one literal =
-// attempt CCE on every candidate clause containing it; per-clause instances
-// would need clause identity in the payload, which the v1 encoding does not
-// carry (and `Ref`s move under GC). Canonical order: every root-unassigned
-// literal, ascending by code. INSTANCE_CANONICAL = the full round.
+// Frozen v1 instance space: payload = a literal. One instance attempts every
+// candidate clause containing it. The additive semantic surface below names
+// one large clause or one binary pair and is preferred by online composition.
+// Payloads are snapshots and remain valid only until the next state mutation.
 void cce_literals(const Kernel &, std::vector<Lit> &out);
+
+constexpr uint64_t CCE_LARGE_TAG = uint64_t{UINT32_MAX} << 32;
+inline uint64_t cce_large_instance(Ref ref) {
+  return CCE_LARGE_TAG | ref;
+}
+inline uint64_t cce_binary_instance(Lit first, Lit second) {
+  if (second < first)
+    std::swap(first, second);
+  return (static_cast<uint64_t>(first) << 32) | second;
+}
 
 // One literal: attempt CCE on every candidate clause containing it, witnessing
 // each elimination. Ok = something deleted, NoOp = nothing.

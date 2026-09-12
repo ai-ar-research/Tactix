@@ -97,6 +97,33 @@ static void bands_stay_disjoint() {
   std::printf("  bands 1/3/4/5 unchanged, scope 0 spans all three tiers\n");
 }
 
+// The canonical/v1 schedule may select one band, but that policy choice must
+// not remove the other legal clause instances from the additive semantic API.
+static void semantic_surface_bypasses_schedule_band() {
+  Kernel k;
+  const Ref ref = build_tier3_vivifiable(k);
+  k.vivify_scope = 3; // tier1 only: v1 should decline the tier3 witness
+
+  const int id = tactix_rule_id("Vivify");
+  assert(id >= 0);
+  const RuleVTable &v = tactix_rules()[id];
+  assert(v.semantic_instances && v.apply_semantic_instance);
+
+  uint64_t legacy[4];
+  assert(v.instances(k, legacy, 4) == 0);
+  uint64_t semantic[4];
+  const uint32_t count = v.semantic_instances(k, semantic, 4);
+  assert(count == 1 && semantic[0] == ref &&
+         "N1 BREACH: a policy band hid a legal semantic instance");
+
+  const ApplyResult result = v.apply_semantic_instance(k, semantic[0]);
+  assert(result == ApplyResult::Ok);
+  assert(k.stats.vivify_subsumed == 1);
+  assert(k.vivify_scope == 3 &&
+         "semantic application did not restore online configuration");
+  std::printf("  semantic clause selection bypasses and restores scope\n");
+}
+
 // The setter stores what it was asked for: a clamp that substitutes a different
 // band is worse than a rejection, since the caller cannot see it happened.
 static void api_side() {
@@ -117,6 +144,7 @@ int main() {
   rule_side(0); // the unscoped N1 path
   rule_side(5); // the named tier3 band
   bands_stay_disjoint();
+  semantic_surface_bypasses_schedule_band();
   api_side();
   std::printf("test_vivify_n1: all passed\n");
   return 0;

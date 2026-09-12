@@ -66,7 +66,6 @@ struct Heuristics {
   uint32_t best_assigned = 0;
   // cadical phases.prev (S6 Walk, diagnostic arm TACTIX_WALK_PREV): the
   // previous walk's assignment, so local search resumes from it. Empty = none.
-  std::vector<int8_t> walk_prev;
 };
 
 // Grow the `H` per-variable state for vars [old, nvars) and set h->nvars.
@@ -125,7 +124,8 @@ Var heuristics_queue_next_unassigned(Kernel &); // last-enqueued unassigned var
 void heuristics_reset_queue_search(Kernel &);
 // Demote the extension variables [first, end) to the bottom of the decision
 // queue (kissat factor.c adjust_scores_and_phases_of_fresh_variables).
-// O(#queue) per call, so call it once per variable-adding rule application.
+// An empty interval still restamps and resets the cursor after an executed
+// Factor pass. O(#queue) per call, once per application, independent of yield.
 void heuristics_demote_fresh_vars(Kernel &, Var first, Var end);
 // The same for a scattered set: move every marked variable to the
 // least-preferred end of the VMTF queue, preserving relative order, and floor
@@ -187,16 +187,9 @@ inline bool heuristics_heap_contains(const Kernel &k, Var v) {
 void heuristics_update_target_phases(Kernel &);
 
 // --- decision ranking dispatch (§5.1) ---------------------------------------
-// Diagnostic only (`TACTIX_NO_EXT_DECISIONS`): skip Factor's extension
-// variables when branching, falling back only when nothing else is unassigned.
-// Never shippable — it narrows the policy's action space, which N1 forbids.
-Var heuristics_next_decision_var_no_ext(Kernel &k);
-
 Var heuristics_queue_next_active_unassigned(Kernel &);
 
 inline Var heuristics_next_decision_var(Kernel &k) {
-  if (k.no_ext_decisions && k.first_extension_var != UINT32_MAX)
-    return heuristics_next_decision_var_no_ext(k);
   return k.h->stable ? heuristics_heap_next_unassigned(k)
                      : heuristics_queue_next_unassigned(k);
 }
@@ -205,8 +198,6 @@ inline Var heuristics_next_decision_var(Kernel &k) {
 // remains. Kissat relies on the same invariant and therefore does not carry the
 // policy-neutral N1 fallback checks through every ranked decision scan.
 inline Var heuristics_next_active_decision_var(Kernel &k) {
-  if (k.no_ext_decisions && k.first_extension_var != UINT32_MAX)
-    return heuristics_next_decision_var_no_ext(k);
   return k.h->stable ? heuristics_heap_next_active_unassigned(k)
                      : heuristics_queue_next_active_unassigned(k);
 }

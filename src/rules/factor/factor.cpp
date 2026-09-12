@@ -11,6 +11,7 @@
 #include <cstring>
 #include <numeric>
 #include <string>
+#include <unordered_set>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -448,9 +449,20 @@ void trace_factor_match_large(const Kernel &k, Lit seed, Lit next,
 static void count_binaries(const Kernel &k, std::vector<uint32_t> &bincount) {
   bincount.assign(2 * k.nvars, 0);
   for (Lit l = 0; l < static_cast<Lit>(2 * k.nvars); l++) {
-    uint32_t n = 0;
-    for_each_factor_binary(k, l, [&](Lit) { n++; });
-    bincount[l] = n;
+    // Native counts a pair once, from its smaller imported endpoint, only
+    // while that endpoint is ACTIVE. Root-fixed identities remain allocated
+    // in Tactix, so retirement alone is not the corresponding predicate.
+    // This is the candidate-peeling census, not the physical matching degree:
+    // the null-stack dense transition still retains satisfied binaries.
+    if (k.value(l) || kernel_var_retired(k, var_of(l)))
+      continue;
+    const uint64_t order = kernel_import_lit_order(k, l);
+    for_each_factor_binary(k, l, [&](Lit other) {
+      if (order > kernel_import_lit_order(k, other))
+        return;
+      bincount[l]++;
+      bincount[other]++;
+    });
   }
 }
 
@@ -871,25 +883,26 @@ void apply_factoring(Kernel &k, FactorIndex &idx, const std::vector<Lit> &F,
       Clause *c = clause_at(k.arena, ref);
       if (c->garbage())
         continue;
-      for (const Lit l : *c) {
-        assert(l < idx.live_degree.size() && idx.live_degree[l]);
-        idx.live_degree[l]--;
-        // kissat's `delete_unfactored` removes the clause's occurrence from
-        // every literal's dense list before marking it garbage (`factor.c`),
-        // so no later scan reaches it.  Keeping the entry and filtering it on
-        // arrival costs one clause-header load per visit for the rest of the
-        // application; that was 47.5% of this rule's dense visits on
-        // mod4block.  `live_degree` already excludes it, so the scan charge,
-        // the per-visit tick and the surviving order are unchanged.
-        if (l < idx.order.size()) {
-          std::vector<FactorWatch> &entries = idx.order[l];
-          entries.erase(std::remove_if(entries.begin(), entries.end(),
-                                       [ref](const FactorWatch w) {
-                                         return !w.binary() && w.ref == ref;
-                                       }),
-                        entries.end());
+      if (idx.built)
+        for (const Lit l : *c) {
+          assert(l < idx.live_degree.size() && idx.live_degree[l]);
+          idx.live_degree[l]--;
+          // kissat's `delete_unfactored` removes the clause's occurrence from
+          // every literal's dense list before marking it garbage (`factor.c`),
+          // so no later scan reaches it. Keeping the entry and filtering it on
+          // arrival costs one clause-header load per visit for the rest of the
+          // application; that was 47.5% of this rule's dense visits on
+          // mod4block. `live_degree` already excludes it, so the scan charge,
+          // the per-visit tick and the surviving order are unchanged.
+          if (l < idx.order.size()) {
+            std::vector<FactorWatch> &entries = idx.order[l];
+            entries.erase(std::remove_if(entries.begin(), entries.end(),
+                                         [ref](const FactorWatch w) {
+                                           return !w.binary() && w.ref == ref;
+                                         }),
+                          entries.end());
+          }
         }
-      }
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
       std::string transition = "factor-grid-delete(factors=";
       for (size_t fi = 0; fi < F.size(); fi++) {
@@ -948,6 +961,146 @@ RuleEligibility factor_guard(const Kernel &k) {
   RuleEligibility result;
   return result.fact("consistent", !k.inconsistent)
       .fact("root-level", k.level == 0);
+}
+
+namespace {
+
+bool exact_grid_clause_matches(const Clause *clause, Lit factor,
+                               const std::vector<Lit> &remainder) {
+  if (clause->garbage() || clause->redundant() ||
+      clause->size != remainder.size() + 1)
+    return false;
+  bool found_factor = false;
+  for (const Lit literal : *clause) {
+    if (literal == factor) {
+      if (found_factor)
+        return false;
+      found_factor = true;
+    } else if (!std::binary_search(remainder.begin(), remainder.end(), literal)) {
+      return false;
+    }
+  }
+  return found_factor;
+}
+
+bool prepare_exact_grid(Kernel &k, const FactorGrid &request,
+                        std::vector<Lit> &factors,
+                        std::vector<std::vector<Lit>> &remainders,
+                        std::vector<uint32_t> &remainder_ids, RemPool &pool,
+                        std::vector<std::vector<Ref>> &grid_refs) {
+  factors = request.factors;
+  remainders = request.remainders;
+  if (factors.size() < 2 || remainders.size() < 2)
+    return false;
+  if (remainders.size() >
+      std::numeric_limits<uint64_t>::max() / factors.size())
+    return false;
+  const uint64_t cells = static_cast<uint64_t>(factors.size()) *
+                         static_cast<uint64_t>(remainders.size());
+  if (cells <= factors.size() + remainders.size() ||
+      (!request.members.empty() && request.members.size() != cells))
+    return false;
+
+  std::unordered_set<Lit> distinct_factors;
+  for (const Lit factor : factors)
+    if (factor == INVALID_LIT || var_of(factor) >= k.nvars ||
+        k.value(factor) != 0 || kernel_var_retired(k, var_of(factor)) ||
+        !distinct_factors.insert(factor).second)
+      return false;
+
+  remainder_ids.clear();
+  remainder_ids.reserve(remainders.size());
+  for (std::vector<Lit> &remainder : remainders) {
+    if (remainder.empty())
+      return false;
+    std::sort(remainder.begin(), remainder.end());
+    if (std::adjacent_find(remainder.begin(), remainder.end()) !=
+        remainder.end())
+      return false;
+    for (const Lit literal : remainder)
+      if (literal == INVALID_LIT || var_of(literal) >= k.nvars)
+        return false;
+    remainder_ids.push_back(pool.intern(
+        remainder.data(), static_cast<uint32_t>(remainder.size())));
+  }
+
+  grid_refs.assign(factors.size(),
+                   std::vector<Ref>(remainders.size(), INVALID_REF));
+  std::unordered_set<uint64_t> used_binaries;
+  std::unordered_set<Ref> used_large;
+  for (size_t row = 0; row < factors.size(); ++row) {
+    const Lit factor = factors[row];
+    for (size_t column = 0; column < remainders.size(); ++column) {
+      const std::vector<Lit> &remainder = remainders[column];
+      if (std::binary_search(remainder.begin(), remainder.end(), factor))
+        return false;
+      if (remainder.size() == 1) {
+        const Lit other = remainder.front();
+        if (factor == other || factor == negate(other) ||
+            !kernel_binary_live(k, factor, other))
+          return false;
+        const uint64_t key = kernel_binary_key(factor, other);
+        if (!used_binaries.insert(key).second)
+          return false;
+        if (!request.members.empty() &&
+            request.members[row * remainders.size() + column] != INVALID_REF)
+          return false;
+        continue;
+      }
+
+      Ref selected = INVALID_REF;
+      if (!request.members.empty()) {
+        selected = request.members[row * remainders.size() + column];
+        if (selected == INVALID_REF || selected >= k.arena.size())
+          return false;
+        const Clause *clause = clause_at(k.arena, selected);
+        if (!exact_grid_clause_matches(clause, factor, remainder))
+          return false;
+      } else {
+        for (Ref ref = 0; ref < k.arena.size();) {
+          const Clause *clause = clause_at(k.arena, ref);
+          const uint32_t words = clause_actual_words(clause);
+          if (exact_grid_clause_matches(clause, factor, remainder) &&
+              !used_large.count(ref)) {
+            selected = ref;
+            break;
+          }
+          ref += words;
+        }
+        if (selected == INVALID_REF)
+          return false;
+      }
+      if (!used_large.insert(selected).second)
+        return false;
+      grid_refs[row][column] = selected;
+    }
+  }
+  return true;
+}
+
+} // namespace
+
+ApplyResult factor_apply_grid(Kernel &k, const FactorGrid &request) {
+  assert(factor_guard(k));
+  if (inprocess_reach_root(k))
+    return ApplyResult::Unsat;
+
+  std::vector<Lit> factors;
+  std::vector<std::vector<Lit>> remainders;
+  std::vector<uint32_t> remainder_ids;
+  std::vector<std::vector<Ref>> grid_refs;
+  RemPool pool;
+  if (!prepare_exact_grid(k, request, factors, remainders, remainder_ids, pool,
+                          grid_refs))
+    return ApplyResult::NoOp;
+
+  const Var fresh_first = k.nvars;
+  FactorIndex index; // sparse exact action; no matcher-owned dense image
+  apply_factoring(k, index, factors, remainder_ids, pool, grid_refs);
+  ++k.stats.factorings;
+  k.factor_completed = false;
+  k.fresh_var_events.push_back({fresh_first, k.nvars});
+  return ApplyResult::Ok;
 }
 
 // `forced_seed == INVALID_LIT` is the canonical sweep: schedule every eligible
@@ -1144,12 +1297,14 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
                     k, l, static_cast<double>(reference_score)))
               : reference_score;
   };
-  // `k.work_budget`: stop the round after this many factor_ticks, 0 = unbounded.
-  // Two quit points, mirroring kissat's (factor.c:442, :914).
+  // `k.work_budget`: stop the round after this many factor_ticks. A legacy
+  // zero is unbounded; `work_budget_bounded` represents explicit zero. Two
+  // quit points mirror Kissat's (factor.c:442, :914).
   const uint64_t tick_start = k.stats.factor_ticks;
   const uint64_t budget = k.work_budget;
   const auto over_budget = [&]() {
-    return budget && k.stats.factor_ticks - tick_start > budget;
+    return kernel_work_budget_exceeded(k,
+                                       k.stats.factor_ticks - tick_start);
   };
   FactorHeap schedule;
   // Per-polarity analogue of Kissat's `flags->factor`: clear on pop, set again
@@ -1794,8 +1949,10 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
   // A budget cut needs no tail repair: unpopped literal bits remain set in
   // `factor_marks`, exactly as Kissat leaves them for the next occasion.
 
-  if (applied)
-    k.fresh_var_events.push_back({fresh_first, k.nvars});
+  // The executed pass owns an advice boundary even if its fresh interval is
+  // empty: Kissat restamps the queue after zero-yield and budget-cut passes.
+  // Only the policy consumer mutates H; NoOp still describes formula yield.
+  k.fresh_var_events.push_back({fresh_first, k.nvars});
 
   if (fm)
     fm->end_sweep();

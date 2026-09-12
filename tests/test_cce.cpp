@@ -3,13 +3,16 @@
 // a sequence of witness segments. docs/calculus.md §X3.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
+#include "frontend/parse.hpp"
 #include "policies/default_policy.hpp"
+#include "proof/proof.hpp"
 #include "rules/cce/cce.hpp"
 #include "rules/propagate/propagate.hpp"
 
 #include <cassert>
 #include <cstdio>
 #include <cstdint>
+#include <string>
 #include <vector>
 
 using namespace tactix;
@@ -48,7 +51,9 @@ static void test_covered_then_blocked() {
   Kernel k;
   load(k, 4, {{1, 2, 3}, {-1, 4}, {-4, -2}, {-3, 4}});
   assert(cce_guard(k));
-  assert(cce_apply(k) == ApplyResult::Ok);
+  const RuleVTable &rule = tactix_rules()[tactix_rule_id("CCE")];
+  assert(rule.apply_semantic_instance(k, cce_large_instance(0)) ==
+         ApplyResult::Ok);
   assert(k.stats.cce_deleted == 1);
   assert(k.stats.cce_cla == 1 && "the covered literal 4 was added");
   assert(k.stats.cce_blocked == 1 && k.stats.cce_ata == 0);
@@ -75,7 +80,9 @@ static void test_empty_intersection() {
 static void test_asymmetric_tautology() {
   Kernel k;
   load(k, 3, {{1, 2, 3}, {1, 2}});
-  assert(cce_apply(k) == ApplyResult::Ok);
+  const RuleVTable &rule = tactix_rules()[tactix_rule_id("CCE")];
+  assert(rule.apply_semantic_instance(k, cce_large_instance(0)) ==
+         ApplyResult::Ok);
   assert(k.stats.cce_deleted == 1 && k.stats.cce_ata == 1);
   assert(k.reconstruction.empty() && "an ATA deletion needs no witness");
 }
@@ -88,7 +95,9 @@ static void test_redundant_skipped() {
   const Lit c[3] = {internalize(1), internalize(2), internalize(3)};
   kernel_add_large_clause(k, c, 3, /*redundant=*/true, 3);
   kernel_add_binary_clause(k, internalize(-1), internalize(4));
-  assert(cce_apply(k) == ApplyResult::NoOp);
+  const RuleVTable &rule = tactix_rules()[tactix_rule_id("CCE")];
+  assert(rule.apply_semantic_instance(k, cce_large_instance(0)) ==
+         ApplyResult::NoOp);
   assert(k.stats.cce_deleted == 0);
 }
 
@@ -111,6 +120,49 @@ static void test_instances() {
   // totality: a payload naming a variable outside the kernel is a NoOp
   assert(r.apply_instance(k, lit_instance(internalize(99))) ==
          ApplyResult::NoOp);
+}
+
+static void test_binary_semantic_instance() {
+  for (bool duplicated : {false, true}) {
+    Kernel k;
+    load(k, 2, duplicated ? Cnf{{1, 2}, {1, 2}, {-1, -2}}
+                          : Cnf{{1, 2}, {-1, -2}});
+    const RuleVTable &rule = tactix_rules()[tactix_rule_id("CCE")];
+    assert(rule.semantic_instances && rule.apply_semantic_instance);
+    uint64_t instances[8];
+    const uint32_t count = rule.semantic_instances(k, instances, 8);
+    assert(count == 2);
+    const uint64_t selected =
+        cce_binary_instance(internalize(1), internalize(2));
+    assert(std::find(instances, instances + count, selected) !=
+           instances + count);
+    assert(rule.apply_semantic_instance(k, selected) == ApplyResult::Ok);
+    assert(!kernel_binary_live(k, internalize(1), internalize(2)));
+    assert(kernel_binary_live(k, internalize(-1), internalize(-2)));
+    assert(k.stats.cce_deleted == 1);
+    assert(k.stats.binaries_deleted == (duplicated ? 2 : 1));
+
+    const auto solver_values = k.values;
+    for (unsigned bits = 0; bits < 4; ++bits) {
+      for (Var variable = 0; variable < 2; ++variable) {
+        const Lit positive = make_lit(variable, false);
+        const int8_t value = bits & (1u << variable) ? 1 : -1;
+        k.values[positive] = value;
+        k.values[negate(positive)] = -value;
+      }
+      if (k.value(internalize(-1)) < 0 && k.value(internalize(-2)) < 0)
+        continue;
+      k.model_values = k.values;
+      k.model_extended = false;
+      kernel_extend_model(k);
+      assert(k.model_values[internalize(1)] > 0 ||
+             k.model_values[internalize(2)] > 0);
+      assert(k.model_values[internalize(-1)] > 0 ||
+             k.model_values[internalize(-2)] > 0);
+    }
+    k.values = solver_values;
+    kernel_check_invariants(k);
+  }
 }
 
 // The round's repetition filter and its resume: a filter that skips nothing is
@@ -276,12 +328,54 @@ static void test_model_reconstruction_solved() {
            "every original clause satisfied by the extended model");
 }
 
-int main() {
+static int binary_proof_witness(const char *input, const char *output,
+                                const char *format) {
+  Kernel k;
+  Proof proof;
+  assert(proof.open(output, std::string(format) == "lrat"
+                                ? ProofFormat::Lrat
+                                : ProofFormat::DratAscii));
+  k.proof = &proof;
+  FILE *cnf = std::fopen(input, "r");
+  assert(cnf && !parse_dimacs(cnf, k));
+  std::fclose(cnf);
+  const RuleVTable &rule = tactix_rules()[tactix_rule_id("CCE")];
+  const Lit one = kernel_internalize(k, 1);
+  const Lit two = kernel_internalize(k, 2);
+  assert(one != INVALID_LIT && two != INVALID_LIT);
+  assert(rule.apply_semantic_instance(k, cce_binary_instance(one, two)) ==
+         ApplyResult::Ok);
+  assert(!kernel_binary_live(k, one, two));
+  DefaultPolicy policy;
+  const int result = policy.solve(k, nullptr);
+  proof.flush();
+  if (result == 10) {
+    kernel_extend_model(k);
+    std::puts("s SATISFIABLE");
+    std::printf("v");
+    for (Var variable = 0; variable < kernel_num_output_vars(k); ++variable) {
+      const Lit literal = make_lit(variable, false);
+      const int external = static_cast<int>(variable) + 1;
+      std::printf(" %d", k.model_values[literal] > 0 ? external : -external);
+    }
+    std::puts(" 0");
+  } else {
+    assert(result == 20);
+    std::puts("s UNSATISFIABLE");
+  }
+  return 0;
+}
+
+int main(int argc, char **argv) {
+  if (argc == 4)
+    return binary_proof_witness(argv[1], argv[2], argv[3]);
+  assert(argc == 1);
   test_covered_then_blocked();
   test_empty_intersection();
   test_asymmetric_tautology();
   test_redundant_skipped();
   test_instances();
+  test_binary_semantic_instance();
   test_filter_and_resume();
   test_model_reconstruction_solved();
   test_reconstruction_exhaustive();

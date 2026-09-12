@@ -542,7 +542,7 @@ ApplyResult reduce_source(Kernel &k, Lit src, Walk &w) {
         k.transitive_budget_checked
             ? k.stats.transitive_checked - source_checked_before
             : k.stats.transitive_ticks + w.ticks - source_ticks_before;
-    if (k.work_budget && budget_spent > k.work_budget)
+    if (kernel_work_budget_exceeded(k, budget_spent))
       break;
   }
 

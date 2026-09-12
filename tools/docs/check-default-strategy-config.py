@@ -7,6 +7,7 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 CONFIG = ROOT / "src/policies/default_strategy_config.hpp"
+SWEEP_CONFIG = ROOT / "src/strategy/sweep_parameters.hpp"
 USES = [ROOT / "src/policies/default_policy.cpp",
         ROOT / "src/policies/default_policy.hpp",
         ROOT / "src/policies/default_inprocess.hpp"]
@@ -26,10 +27,7 @@ def main():
     required = ["struct DefaultStrategyConfig", "struct Branching",
                 "struct Analysis", "struct Restart", "struct Mode",
                 "struct Reduction", "struct Rephase", "struct Reorder",
-                "struct Inprocess", "sweep_depth", "sweep_max_depth",
-                "sweep_vars", "sweep_max_vars", "sweep_clauses",
-                "sweep_max_clauses", "sweep_candidate_pairs",
-                "sweep_flip_rounds", "sweep_environment_ticks",
+                "struct Inprocess", "strategy::SweepParameters sweep_parameters",
                 "bve_enabled", "bve_permille", "factor_repeated_enabled",
                 "factor_permille", "factor_active_ceiling",
                 "subsume_forward_permille", "vivify_enabled",
@@ -38,6 +36,14 @@ def main():
     for token in required:
         if token not in config:
             failures.append(f"{CONFIG.relative_to(ROOT)} lacks `{token}`")
+    sweep_config = SWEEP_CONFIG.read_text()
+    for token in ("struct SweepParameters", "max_depth", "max_depth_ceiling",
+                  "max_env_vars", "max_env_vars_ceiling", "max_env_clauses",
+                  "max_env_clauses_ceiling", "max_candidates", "flip_rounds",
+                  "env_ticks"):
+        if token not in sweep_config:
+            failures.append(
+                f"{SWEEP_CONFIG.relative_to(ROOT)} lacks `{token}`")
 
     # These were the scattered shipped scheduling literals that motivated the
     # rule.  They may occur in the catalog, but not at policy use sites.  Small
