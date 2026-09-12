@@ -121,22 +121,18 @@ Backjump is not separately schedulable. It is the atomic tail of M3; its canonic
 ## 4. Search management (S1, S2, S5)
 
 ### S1 · Restart
-- **Precondition (abstract):** `F` not refuted (and consistent). A model-preserving trail-prefix reset —
-  sound in any non-terminal state.
-- **Effect:** truncate `τ` to a keep-level prefix; keep `F,R`; `dl` drops accordingly. `H` (EMAs,
-  reluctant counter) updated. No proof δ.
+- **Precondition (abstract):** `F` not refuted (and consistent). A model-preserving trail-prefix reset is sound in any non-terminal state.
+- **Effect:** truncate `τ` to a keep-level prefix; keep `F,R`; `dl` drops accordingly. `H` (EMAs, reluctant counter) updated. A recorded conflict remains available exactly
+  when a non-root retained prefix still falsifies its antecedent; otherwise discard that stale record. A surviving root conflict emits its empty-clause proof and refutes `F`. With no conflict, level zero is an explicit no-op.
 - **Soundness:** removing assignments neither gains nor loses models.
 
 ### S2 · Reduce
-- **Precondition (abstract):** `F` not refuted; plus the standing invariant (enforced in `apply`, not
-  the guard) that non-root and pending learned-clause reasons are never deleted; proved root units need no clause lock.
+- **Precondition (abstract):** `F` not refuted; plus the standing invariant (enforced in `apply`, not the guard) that non-root and pending learned-clause reasons and a recorded conflict antecedent are never deleted; proved root units need no clause lock.
 - **Effect:** delete any legally unlocked subset of the *redundant* clauses; glue/usage tiers are policy advice. Compact the
   arena; forward live reasons and retire deleted root reasons to proved units. `F` unchanged; `R` shrinks. Proof δ: `del` per deleted
   clause. Preparatory root closure is M1; consuming its roots into decision guidance belongs to policy, not S2's guard. Collection-side retry notifications are advice, not a new precondition or restriction on legal BVE instances.
 - **Soundness:** deleting redundant/entailed clauses is equisatisfiability-preserving; the checker
   accepts any deletion.
-
-
 ### S5 · Lucky
 - **Precondition (abstract):** consistent at level zero with no pending conflict. Attempts a complete
   assignment via decision-free assumptions + propagation; may **conclude SAT**, else restores the root entry state exactly.

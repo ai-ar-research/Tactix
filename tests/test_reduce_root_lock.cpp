@@ -146,7 +146,9 @@ static void protected_reasons(bool pending) {
   assert(rule().apply_instance(k, 1) == ApplyResult::NoOp);
   k.pending.valid = false;
   assert(reduce_guard(k));
-  k.conflict_valid = true; assert(!reduce_guard(k)); k.conflict_valid = false;
+  // A conflict pins its antecedent, not the whole redundant database. Reduce
+  // remains applicable and protects/forwards that antecedent during packing.
+  k.conflict_valid = true; assert(reduce_guard(k)); k.conflict_valid = false;
   k.inconsistent = true; assert(!reduce_guard(k)); k.inconsistent = false;
   kernel_check_invariants(k);
   std::printf("protected pending=%d stale payload PASS\n", pending);

@@ -99,7 +99,9 @@ static void test_instance_surface(void) {
   /* errors: unknown rule / guard not holding */
   assert(tactix_rule_instances(s, -1, insts, 64) == -1);
   assert(tactix_rule_instances(s, 9999, insts, 64) == -1);
-  assert(tactix_rule_instances(s, restart, insts, 64) == -1); /* level 0 */
+  assert(tactix_rule_instances(s, restart, insts, 64) == 1); /* legal root no-op */
+  assert(insts[0] == 0);
+  assert(tactix_apply_instance(s, restart, 0) == 0);
   assert(tactix_rule_instances(s, propagate, insts, 64) == -1); /* queue
     empty: nothing to propagate on a fresh formula without units */
 
@@ -138,9 +140,10 @@ static void test_instance_surface(void) {
   assert(tactix_decide(s, 2) == 0);
   const int m = tactix_rule_instances(s, restart, insts, 64);
   assert(m >= 2);
+  const uint64_t restarts_before = tactix_stat(s, TACTIX_STAT_RESTARTS);
   assert(tactix_apply_instance(s, restart, 0) == 0); /* full restart */
   assert(tactix_stat(s, TACTIX_STAT_LEVEL) == 0);
-  assert(tactix_stat(s, TACTIX_STAT_RESTARTS) == 1);
+  assert(tactix_stat(s, TACTIX_STAT_RESTARTS) == restarts_before + 1);
 
   assert(tactix_stat(s, 9999) == UINT64_MAX);
   tactix_release(s);
@@ -160,6 +163,28 @@ static void test_instance_surface(void) {
   assert(tactix_proof(s, proof_path, TACTIX_PROOF_DRAT_BINARY) == 0);
   tactix_release(s);
   remove(proof_path);
+}
+
+static void test_conflict_boundary_restart_and_reduce(void) {
+  tactix *s = tactix_init();
+  add_clause(s, (const int[]){1, 2, 0});
+  add_clause(s, (const int[]){-1, 2, 0});
+  add_clause(s, (const int[]){1, -2, 0});
+  add_clause(s, (const int[]){-1, -2, 0});
+  const int decide = rule_id("Decide");
+  const int propagate = rule_id("Propagate");
+  const int reduce = rule_id("Reduce");
+  const int restart = rule_id("Restart");
+  assert(tactix_apply_instance(s, decide, TACTIX_LIT_INSTANCE(-1)) == 0);
+  assert(tactix_apply(s, propagate) == 2);
+
+  /* N1 state boundary: database reduction is legal with the conflict pinned,
+     and a subsequent full restart may abandon that conflicting search cube. */
+  assert(tactix_apply(s, reduce) == 1);
+  assert(tactix_apply_instance(s, restart, 0) == 0);
+  assert(tactix_stat(s, TACTIX_STAT_LEVEL) == 0);
+  assert(tactix_status(s) == 0);
+  tactix_release(s);
 }
 
 /* A solver that never saw a variable must survive rule application. */
@@ -323,6 +348,7 @@ int main(void) {
   test_solve_sat();
   test_external_branching();
   test_instance_surface();
+  test_conflict_boundary_restart_and_reduce();
   test_empty_solver_rule_application();
   test_stepwise_unsat();
   test_bve_gate_selection();

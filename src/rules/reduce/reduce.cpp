@@ -72,16 +72,19 @@ void reduce_retier(Kernel &k, uint32_t mode, uint32_t tier1_default,
       tier1_relative_permille, tier2_relative_permille);
 }
 
-// Deleting redundant clauses is sound as long as reason-locked clauses and the
-// pending learned clause survive; only a recorded-but-unanalyzed conflict pins
-// the arena, through its stale conflict ref.
+// Deleting redundant clauses is sound as long as trail reasons, a pending
+// learned clause, and any recorded conflict antecedent survive.
 RuleEligibility reduce_guard(const Kernel &k) {
   RuleEligibility result;
-  return result.fact("no-conflict", !k.conflict_valid)
-      .fact("consistent", !k.inconsistent);
+  return result.fact("consistent", !k.inconsistent);
 }
 
 void reduce_prepare(Kernel &k) {
+  // A recorded search conflict is a legal Reduce boundary.  Preserve its
+  // trail and antecedent for the subsequent ConflictAnalysis action; the
+  // collection path below protects and forwards a large conflict clause.
+  if (k.conflict_valid)
+    return;
   if (!k.unflushed_root)
     return;
   if (k.level) {
@@ -101,6 +104,14 @@ void reduce_prepare(Kernel &k) {
 }
 
 static void lock_reasons(Kernel &k, bool lock) {
+  // Reduce may be explicitly composed before ConflictAnalysis.  Its conflict
+  // clause is then just as live as a trail reason: it may neither be selected
+  // nor lose its Ref when collection packs the arena.
+  if (k.conflict_valid && k.conflict_ref != INVALID_REF) {
+    Clause *c = clause_at(k.arena, k.conflict_ref);
+    c->flags = lock ? (c->flags | Clause::REASON)
+                    : (c->flags & ~Clause::REASON);
+  }
   // the pending learned clause (Analyze -> Backjump handoff) must survive
   // collection under arbitrary legal rule orders, like any trail reason
   if (k.pending.valid && k.pending.ref != INVALID_REF) {
@@ -272,7 +283,7 @@ ApplyResult reduce_apply_refs(Kernel &k, const Ref *refs, size_t n,
     // mutated watch order of the irredundant prefix.  When compactlim fires,
     // Kissat instead sets start=0 before sparse collection, so root-satisfied
     // irredundant clauses and root-false literals are swept too.
-    if (kernel_has_root_assignment(k))
+    if (kernel_has_root_assignment(k) && !k.conflict_valid)
       kernel_sparse_collect_root(k, collect_start);
     else
       kernel_collect_garbage(k, collect_start, /*sparse_collection=*/true);

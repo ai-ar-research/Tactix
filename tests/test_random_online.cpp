@@ -478,7 +478,10 @@ static void every_registry_action_has_random_support() {
     assert(decide_apply(k, internalize(-2), true) == ApplyResult::Ok);
     assert(decide_apply(k, internalize(-3), true) == ApplyResult::Ok);
     assert(propagate_service(k) == ApplyResult::Conflict);
-    sample_each_applicable_action(k, seen);
+    std::set<std::string> conflict_seen;
+    sample_each_applicable_action(k, conflict_seen);
+    assert(conflict_seen.count("Restart") && conflict_seen.count("Reduce"));
+    seen.insert(conflict_seen.begin(), conflict_seen.end());
   }
   assert(seen.size() == tactix_rules().size());
 }

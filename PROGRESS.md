@@ -22,24 +22,19 @@ rather than a sequential portfolio.
 
 | Role | Authority |
 |---|---|
-| Last committed source | `8e0b2198218f9fecce8b5f64a42c0d15cf2b9dc1` |
-| Recorded production | `c2a95a6`; no recovered source has been promoted |
-| Refactor baseline | isolated 7491, copied into [7529](benchmarks/runs/20260911-7529-strategy-composition-prepare/manifest.json) |
-| Active implementation | root checkout: `src/`, `include/`, `tests/`, build files and living docs |
+| Refactor source anchor | `7a668e76`; current HEAD adds the documented D-NOOP state-boundary closure |
+| Gate evidence | `bb03aea2`, the [refactor/N1 checkpoint](benchmarks/reports/2026-09-12-refactor-n1-gates.md), and [state-boundary follow-up](benchmarks/reports/2026-09-12-n1-state-boundary-followup.md) |
 | Design | [online proposal](docs/design/2026-09-11-online-strategy-proposal.md) and [preservation addendum](docs/design/2026-09-11-strategy-behavior-preservation-addendum.md) |
-| Claude design review | [7528 disposition](benchmarks/reports/2026-09-11-online-strategy-review-7528/disposition.md) |
-| Initial surface audit | [7530](benchmarks/reports/2026-09-11-strategy-surface-audit-7530.md) |
+| Claude design review | [7528 disposition](benchmarks/reports/2026-09-11-online-strategy-review-7528/disposition.md) and [final D-NOOP PASS](benchmarks/reports/2026-09-12-claude-d-noop-recheck.md) |
 
-The root worktree contains the recovered refactor and independently supported
-repairs; do not reset it. Root files are authoritative, and `.claude` is clean.
+The root checkout is authoritative. `.claude` supplies workflow instructions
+only and has no implementation or documentation edits.
 
-The current local Release validation passes **146/146 tests**. ASan+UBSan passes
-all **145 core tests**; the Release-only scripted trajectory demo also passes,
-but its invariant-heavy sanitizer form was stopped after eleven CPU minutes and
-is not counted as sanitizer evidence. All inprocessing registry actions and
-Lucky now reject non-root states; the abandoned suspension/cube-preservation
-experiment has no retained source behavior. These local suites do not replace
-fuzz or performance gates.
+The current local Release validation passes **146/146 tests** and ASan+UBSan
+passes all **145 core tests**. All inprocessing registry actions and Lucky
+reject non-root states; the abandoned suspension/cube-preservation experiment
+has no retained source behavior. Restart and Reduce now expose their full pure
+guards while DefaultPolicy retains its prior scheduling choices.
 
 ## Implemented checkpoint
 
@@ -77,17 +72,12 @@ fuzz or performance gates.
 
 ## Next actions
 
-1. Finish reference-default equivalence through action/work/proof differentials,
-   native DRAT/LRAT and original-input models. The bounded Claude-owned fuzz
-   checkpoint passed; focused online tests own replay, interruption and the five
-   transitions that the random CLI schedule did not reach.
-2. Evaluate the active Tactix-only B28+C5 and Rank 1–50 checkpoints against
-   historical baselines. Investigate individual runtime or memory regressions;
-   do not hide them in aggregates.
-3. Close the remaining source/documentation review findings and land one
-   coherent verified commit.
-4. Monitor committed-source Tier-D job `1683876`; summarize it only after all
-   solver verdicts and the corresponding model/proof checks are terminal.
+1. Let the two remaining Rank proofs and committed-source Tier-D job `1683876`
+   finish in the background; inspect their model/proof and cleanup records.
+2. Close the refactor/N1 gate from those retained results without rerunning the
+   historical reference solvers.
+3. Then freeze the requested ten SAT and ten UNSAT winner-VBS losses and begin
+   general solver-mechanism work.
 
 ## Acceptance gates
 
@@ -128,8 +118,8 @@ Their first SAT records exposed an omitted `modelcheck.py` pin; solver timings
 remain usable, but those final records are invalid. Corrective job `1683830`
 completed all 42 SAT-only reruns with independently verified original-input
 models and clean scratch; valid UNSAT cases and reference solvers were not
-rerun. B28+C5 is now 33/33 valid. Rank is 47/50 valid (25 corrected models and
-22 proofs); three long proof checks continue in the background. Tier-D validation
+rerun. B28+C5 is now 33/33 valid. Rank is 48/50 valid (25 corrected models and
+23 proofs); proof checks for tasks 17 and 21 continue in the background. Tier-D validation
 job `1683875` passed native SAT/model, UNSAT/DRAT, crash and timeout cleanup;
 committed-source array `1683876` now covers all 1,166 instances on `cpu-q` with
 four CPUs, 32 GiB and a 1,200-second solver timeout. Its input, proof, model and
@@ -160,12 +150,8 @@ guard stays stopped.
 
 ## Recent changes
 
-- Recovered the authoritative refactor in the root checkout and removed stale auxiliary-worktree artifacts.
-- Added typed online composition, complete-frontier seeded random/replay support, and per-call native rule budgets.
-- Closed the C1/C2, CCE, HyperBinary/Ternary, Factor, and supported Congruence instance gaps with proof/model tests.
-- Centralized DefaultPolicy rule and scheduler settings and removed obsolete restriction, timing, probe, and environment arms.
-- Fixed the level-zero inprocessing/Lucky contract, typed Sweep proof selection
-  and exact Walk zero-step budgets. Cleanup removed obsolete runs, traces,
-  profiles, proofs, probe scripts and superseded reports; the workspace now
-  occupies 96 GiB. The visible archive is bounded to 113 run campaigns, 117
-  benchmark-report entries and 15 current Andrew reports; runs occupy 1.5 GiB.
+- Refactored all registered actions behind typed online composition and complete semantic instance surfaces.
+- Added seeded random/replay, interruption, reconfiguration, scoped fixpoint and per-call budget coverage.
+- Centralized DefaultPolicy settings and removed obsolete configuration macros, scripts, runs and reports.
+- Verified B28+C5 at 1.011x and Rank 1–50 at 1.025x retained Tactix runtime with flat memory.
+- Closed the root/non-root action contract and final Restart/Reduce restriction without changing DefaultPolicy scheduling.

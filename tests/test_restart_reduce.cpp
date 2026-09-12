@@ -31,7 +31,7 @@ static void test_restart() {
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
   kernel_assign_decision(k, internalize(1));
   assert(propagate_apply(k) == ApplyResult::Ok);
-  // the guard holds at any level > 0; scheduling is policy, not rule
+  // the guard holds at every consistent nonterminal level; scheduling is policy
   assert(restart_guard(k));
   DefaultPolicy p;
   assert(!p.want_restart(k)); // conflicts 0 < the initial limit
@@ -44,7 +44,100 @@ static void test_restart() {
   assert(k.level == 0);
   assert(k.values[internalize(1)] == 0); // decision undone
   assert(k.stats.restarts == 1);
-  assert(!restart_guard(k)); // level 0 now
+  assert(restart_guard(k)); // a level-zero Restart is a legal explicit no-op
+}
+
+static void test_restart_at_root_is_explicitly_applicable() {
+  Kernel k;
+  ScopedHeuristics h(k);
+  assert(k.level == 0 && restart_guard(k));
+  uint64_t instance = INSTANCE_CANONICAL;
+  assert(tactix_rules()[tactix_rule_id("Restart")].instances(k, &instance, 1) ==
+         1);
+  assert(instance == 0);
+  assert(restart_apply(k) == ApplyResult::Ok);
+  assert(k.level == 0 && k.stats.restarts == 1);
+  k.inconsistent = true;
+  assert(!restart_guard(k));
+}
+
+static void test_restart_can_abandon_or_retain_a_conflict() {
+  Kernel k;
+  ScopedHeuristics h(k);
+  kernel_reserve_vars(k, 2);
+  kernel_add_binary_clause(k, internalize(1), internalize(2));
+  kernel_assign_decision(k, internalize(-1));
+  kernel_assign_decision(k, internalize(-2));
+  k.conflict_valid = true;
+  k.conflict_ref = INVALID_REF;
+  k.conflict_bin[0] = internalize(1);
+  k.conflict_bin[1] = internalize(2);
+  assert(restart_guard(k));
+
+  // Keeping the whole trail keeps the still-falsified conflict available.
+  assert(restart_apply_to(k, 2) == ApplyResult::Ok);
+  assert(k.level == 2 && k.conflict_valid);
+
+  // Dropping either falsifying decision resolves the recorded conflict. The
+  // remaining prefix will be rescanned by the ordinary Propagate action.
+  assert(restart_apply_to(k, 1) == ApplyResult::Ok);
+  assert(k.level == 1 && !k.conflict_valid);
+  assert(k.conflict_ref == INVALID_REF);
+  assert(k.conflict_bin[0] == INVALID_LIT &&
+         k.conflict_bin[1] == INVALID_LIT);
+  kernel_check_invariants(k);
+}
+
+static void test_restart_discharge_root_conflict() {
+  Kernel k;
+  ScopedHeuristics h(k);
+  kernel_reserve_vars(k, 3);
+  kernel_add_binary_clause(k, internalize(1), internalize(2));
+  kernel_assign(k, internalize(-1), 0, UNIT_REASON, false);
+  kernel_assign(k, internalize(-2), 0, UNIT_REASON, false);
+  kernel_assign_decision(k, internalize(3));
+  k.conflict_valid = true;
+  k.conflict_ref = INVALID_REF;
+  k.conflict_bin[0] = internalize(1);
+  k.conflict_bin[1] = internalize(2);
+
+  assert(restart_apply_to(k, 0) == ApplyResult::Unsat);
+  assert(k.level == 0 && k.inconsistent && !k.conflict_valid);
+  assert(!restart_guard(k));
+  kernel_check_invariants(k);
+}
+
+static void test_reduce_preserves_recorded_large_conflict() {
+  Kernel k;
+  ScopedHeuristics h(k);
+  kernel_reserve_vars(k, 6);
+  const Lit conflict_lits[3] = {internalize(1), internalize(2), internalize(3)};
+  const Ref conflict =
+      kernel_add_large_clause(k, conflict_lits, 3, true, 3, 701);
+  const Lit victim_lits[3] = {internalize(4), internalize(5), internalize(6)};
+  const Ref victim = kernel_add_large_clause(k, victim_lits, 3, true, 9, 702);
+  kernel_assign_decision(k, internalize(-1));
+  kernel_assign_decision(k, internalize(-2));
+  kernel_assign_decision(k, internalize(-3));
+  k.conflict_valid = true;
+  k.conflict_ref = conflict;
+
+  assert(reduce_guard(k));
+  const RuleVTable &reduce = tactix_rules()[tactix_rule_id("Reduce")];
+  uint64_t semantic[2] = {};
+  assert(reduce.semantic_instances(k, semantic, 2) == 1);
+  assert(semantic[0] == (REDUCE_CLAUSE_INSTANCE | victim));
+  assert(apply_rule_semantic_instance(
+             reduce, k, REDUCE_CLAUSE_INSTANCE | victim) == ApplyResult::Ok);
+  assert(k.conflict_valid && k.level == 3);
+  assert(k.conflict_ref != INVALID_REF);
+  assert(clause_at(k.arena, k.conflict_ref)->id() == 701);
+  const RuleVTable &analyze =
+      tactix_rules()[tactix_rule_id("ConflictAnalysis")];
+  assert(analyze.guard(k));
+  assert(analyze.apply(k) == ApplyResult::Ok);
+  assert(!k.conflict_valid);
+  kernel_check_invariants(k);
 }
 
 static void test_collect_preserves_propagation() {
@@ -545,8 +638,38 @@ static void test_restart_apply_to() {
   assert(k.stats.restarts_reused == 1);
 }
 
-int main() {
+static void emit_restart_root_conflict_lrat(const char *path) {
+  Proof proof;
+  assert(proof.open(path, ProofFormat::Lrat));
+  Kernel k;
+  ScopedHeuristics h(k);
+  k.proof = &proof;
+  kernel_reserve_vars(k, 3);
+  kernel_add_binary_clause(k, internalize(1), internalize(2), 3);
+  k.next_clause_id = 3;
+  kernel_assign(k, internalize(-1), 0, UNIT_REASON, false);
+  kernel_assign(k, internalize(-2), 0, UNIT_REASON, false);
+  k.unit_ids[var_of(internalize(-1))] = 1;
+  k.unit_ids[var_of(internalize(-2))] = 2;
+  kernel_assign_decision(k, internalize(3));
+  k.conflict_valid = true;
+  k.conflict_ref = INVALID_REF;
+  k.conflict_bin[0] = internalize(1);
+  k.conflict_bin[1] = internalize(2);
+  assert(restart_apply_to(k, 0) == ApplyResult::Unsat);
+  proof.flush();
+}
+
+int main(int argc, char **argv) {
+  if (argc == 2) {
+    emit_restart_root_conflict_lrat(argv[1]);
+    return 0;
+  }
+  assert(argc == 1);
   test_restart();
+  test_restart_at_root_is_explicitly_applicable();
+  test_restart_can_abandon_or_retain_a_conflict();
+  test_restart_discharge_root_conflict();
   test_restart_apply_to();
   test_restart_reuses_trail();
   test_collect_preserves_propagation();
@@ -559,6 +682,7 @@ int main() {
   test_reduce_flushes_new_root_units_before_selection();
   test_reduce_prepare_propagates_root_before_collection();
   test_reduce_prepare_reports_root_conflict();
+  test_reduce_preserves_recorded_large_conflict();
   test_root_propagation_consumes_unflushed_marker();
   test_reduce_used_retention();
   test_reduce_equal_rank_preserves_arena_order();

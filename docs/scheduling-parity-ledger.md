@@ -1,9 +1,6 @@
 # Tactix scheduling-parity ledger — evidence for N4 verification
 
-This living N4 register retains the section/row identifiers formerly in `implementation-notes.md §13`: frozen citations and the §13.6 option-coverage
-parser depend on them. Do not renumber them or change parsed headings.
-`docs/README.md` routes ownership: calculus owns semantics, implementation notes
-own guards/representation, and PROGRESS owns current status.
+This living N4 register retains the section/row identifiers formerly in `implementation-notes.md §13`; frozen citations and the §13.6 option-coverage parser depend on them. Do not renumber them or change parsed headings. `docs/README.md` routes ownership: calculus owns semantics, implementation notes own guards/representation, and PROGRESS owns current status.
 
 <!-- parity-ledger:begin -->
 ## 13. The scheduling-parity ledger (evidence for N4 verification)
