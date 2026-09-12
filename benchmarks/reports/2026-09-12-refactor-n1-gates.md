@@ -63,6 +63,13 @@ pin contract before starting a solver.
 
 Job `1683830` completed all 42 original-input model checks successfully and
 released every scratch object. B28+C5 is now 33/33 valid (17 corrected SAT
-models plus 16 UNSAT proofs). Rank 1–50 is 43/50 valid (25 corrected SAT models
-plus 18 UNSAT proofs); seven independent proof checks continue in the
+models plus 16 UNSAT proofs). Rank 1–50 is 47/50 valid (25 corrected SAT models
+plus 22 UNSAT proofs); three independent proof checks continue in the
 background and still gate final acceptance.
+
+The committed refactor is `7a668e76`. Experimental validation job `1683875`
+passed native SAT/model, UNSAT/DRAT, forced-crash and forced-timeout cases, with
+all formula, proof, model and checker scratch held in anonymous node-local
+`O_TMPFILE` objects. Tier-D array `1683876` therefore submitted all 1,166
+committed-Tactix tasks to `cpu-q` with four CPUs, 32 GiB, a 1,200-second solver
+timeout, a 16,000-second checker timeout and no concurrency throttle.
