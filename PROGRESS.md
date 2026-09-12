@@ -8,9 +8,9 @@ own history and evidence.
 
 Finish the online-configurable sub-strategy refactor and the N1 surface audit
 while preserving N2–N4 and reference-default behavior and runtime. Inprocessing
-programs run at level zero; a strategy in search explicitly applies `Restart`
-before entering that phase. Do not implement executor-owned suspension or replay
-of non-root decision trails.
+programs, Lucky, and Walk run at level zero; a strategy in search explicitly
+applies `Restart` before entering those phases. Do not implement executor-owned
+suspension or replay of non-root decision trails.
 
 Stop Kissat-only tuning and defer winner-benchmark solver development until the
 refactor gate passes. Then freeze ten SAT and ten UNSAT 1200-second/32-GiB
@@ -31,7 +31,7 @@ The root checkout is authoritative. `.claude` supplies workflow instructions
 only and has no implementation or documentation edits.
 
 The current local Release validation passes **146/146 tests** and ASan+UBSan
-passes all **145 core tests**. All inprocessing registry actions and Lucky
+passes all **145 core tests**. All inprocessing registry actions, Lucky, and Walk
 reject non-root states; the abandoned suspension/cube-preservation experiment
 has no retained source behavior. Restart and Reduce now expose their full pure
 guards while DefaultPolicy retains its prior scheduling choices.
@@ -118,9 +118,9 @@ Their first SAT records exposed an omitted `modelcheck.py` pin; solver timings
 remain usable, but those final records are invalid. Corrective job `1683830`
 completed all 42 SAT-only reruns with independently verified original-input
 models and clean scratch; valid UNSAT cases and reference solvers were not
-rerun. B28+C5 is now 33/33 valid. Rank is 48/50 valid (25 corrected models and
-23 proofs); proof checks for tasks 17 and 21 continue in the background. Tier-D validation
-job `1683875` passed native SAT/model, UNSAT/DRAT, crash and timeout cleanup;
+rerun. B28+C5 is now 33/33 valid. Rank is 49/50 valid (25 corrected models and
+24 proofs); task 21's proof verified, while task 17 continues in the background.
+Tier-D validation job `1683875` passed native SAT/model, UNSAT/DRAT, crash and timeout cleanup;
 committed-source array `1683876` now covers all 1,166 instances on `cpu-q` with
 four CPUs, 32 GiB and a 1,200-second solver timeout. Its input, proof, model and
 checker scratch is anonymous node-local `O_TMPFILE` storage. No storage guard is
@@ -154,4 +154,4 @@ guard stays stopped.
 - Added seeded random/replay, interruption, reconfiguration, scoped fixpoint and per-call budget coverage.
 - Centralized DefaultPolicy settings and removed obsolete configuration macros, scripts, runs and reports.
 - Verified B28+C5 at 1.011x and Rank 1–50 at 1.025x retained Tactix runtime with flat memory.
-- Closed the root/non-root action contract and final Restart/Reduce restriction without changing DefaultPolicy scheduling.
+- Closed the root boundary for Restart, Reduce, inprocessing, Lucky and Walk without changing DefaultPolicy scheduling.

@@ -158,6 +158,12 @@ int replay_solve(Kernel &k, const char *path, volatile sig_atomic_t *stop) {
       std::fclose(in);
       return -1;
     }
+    // RandomPolicy snapshots the current target phases before abandoning a
+    // non-root suffix. This is policy state around Restart rather than part of
+    // the proof rule, so reproduce it at the trace boundary.
+    if (!std::strcmp(name, "Restart") && payload != INSTANCE_CANONICAL &&
+        payload < k.level)
+      heuristics_update_target_phases(k);
     const ApplyResult res =
         payload == INSTANCE_CANONICAL
             ? apply_rule(r, k)

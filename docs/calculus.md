@@ -7,9 +7,11 @@ engineering deviations. Semantic, guard, proof, addition, or removal changes upd
 ## 1. Applicability and N1
 
 N1 requires every rule and legal branch instance to be callable whenever its pure soundness precondition
-holds at its declared action boundary. Search rules operate during search; inprocessing rules operate on
-the level-zero root formula `F|U`, reached through explicit S1 Restart. A stronger guard within that
-boundary belongs in the implementation-notes deviation ledger with its root cause and removal path.
+holds at its declared action boundary. Search rules operate during search;
+inprocessing rules and the Walk policy operation use the level-zero root
+formula `F|U`, reached through explicit S1 Restart. A stronger guard within
+that boundary belongs in the implementation-notes deviation ledger with its
+root cause and removal path.
 ## 2. Abstract state
 
 Following the formal model in `DEVELOPMENT_PLAN.md` §4:

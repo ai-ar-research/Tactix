@@ -7,7 +7,9 @@ invariants live here; scheduling parity and dated evidence live in the ledger an
 
 `root` abbreviates `!inconsistent && level == 0`. Inprocessing drains root
 closure through `inprocess_reach_root`/`propagate_service`; V1/V2/S5 also retain
-the abstract `!conflict_valid` condition. Policy S3/S4/S6/S7 are H-only.
+the abstract `!conflict_valid` condition. Policy S3/S4/S6/S7 change guidance;
+S6 additionally requires root because its representation transition rewrites
+the formula image.
 
 | Rule | Implemented guard | Deviation or invariant |
 |---|---|---|
@@ -17,6 +19,7 @@ the abstract `!conflict_valid` condition. Policy S3/S4/S6/S7 are H-only.
 | S1 Restart | `!inconsistent` | pure; level zero without a conflict is an explicit no-op. A retained non-root prefix keeps a still-falsified conflict; a stale record is cleared, while a surviving root conflict is discharged through native analysis/proof before root rewrites. DefaultPolicy schedules Restart only above root. |
 | S2 Reduce | `!inconsistent` | pure; pending/non-root reasons and a recorded large conflict are locked through deletion and collection, with live Refs forwarded. Proved root units need no clause lock. Isolated7448 adds opaque individual-victim payloads independent of tier/recency protection, retaining canonical/count selection. M1 names LRAT units before deletion; GC retires root reasons. Preparation-root guidance remains policy-owned. |
 | S5 Lucky | `root && !conflict_valid` | root-phase model probe; a failed probe restores the level-zero entry state |
+| S6 Walk | `root && H && nvars > 0` | root-phase policy operation; the dense-entry/sparse-resume representation transition is not exposed on a live decision trail |
 | C1 SubsumeForward, C2 Strengthen, C3 Vivify | `root` | declared inprocessing boundary. C1 exposes every live victim. C2 additionally exposes each distinct `(victim, removed literal)` result plus its fused C1 deletion; proper C2 strengthening may use redundant partners, while C1 deletion still requires an irredundant or binary subsumer. |
 | V1 Probe, V2 Backbone | `root && !conflict_valid` | root is the declared inprocessing boundary; conflict condition is abstract |
 | V3 Substitute, V4 TransitiveReduce, V5 Sweep | `root` | declared inprocessing boundary; isolated7448 moves `TACTIX_NO_SWEEP` to scheduling only, preserving explicit and canonical public V5 calls. |
@@ -43,9 +46,9 @@ rules remain registered, journaled, N1-reachable, and explicitly poseable.
 ### Closed
 
 - D-NOOP: Restart and Reduce use their pure `!inconsistent` guards. Restart exposes the root no-op, refreshes a conflict after a prefix change, and discharges a surviving root conflict before root rewrites. Reduce locks and forwards a live large conflict antecedent; pending clauses and trail reasons retain their protection.
-- D-ROOT: removed by the approved action-boundary contract. Inprocessing rules
-  and S5 Lucky operate only on the level-zero root formula; a strategy at a
-  non-root search state explicitly composes S1 Restart before applying them. No
+- D-ROOT: removed by the approved action-boundary contract. Inprocessing rules,
+  S5 Lucky, and S6 Walk operate only on the level-zero root formula; a strategy
+  at a non-root search state explicitly composes S1 Restart before applying them. No
   executor-owned decision-cube suspension or replay is supported.
 - D-SUBST-UNBOUNDED: public Substitute is unbounded; policy meters it.
 - D-CCE-SCOPE: CCE enumerates and applies individual large-clause and

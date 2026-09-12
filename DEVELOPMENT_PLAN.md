@@ -159,9 +159,9 @@ rounds and closures; arbitrary reordered/repeated rules or sequences; scoped
 fixpoint repetition or explicit budget/stop. Shared execution preserves state,
 proof and reconstruction invariants without hiding strategy choices.
 
-Inprocessing programs and root-phase Lucky execute at level zero. A caller that
-is currently searching composes an explicit `Restart` before either operation;
-the executor does not suspend, rewrite or replay a non-root decision trail.
+Inprocessing programs, Lucky, and Walk execute at level zero. A caller that is
+currently searching composes an explicit `Restart` before those operations; the
+executor does not suspend, rewrite or replay a non-root decision trail.
 
 Distinguish local exhaustion, scoped fixpoint, budget exhaustion, interruption
 and terminal results. Online updates take effect at safe boundaries without

@@ -85,7 +85,8 @@ RuleEligibility substitute_guard(const Kernel &k) {
       .fact("root-level", k.level == 0);
 }
 
-SccResult substitute_find_sccs(const Kernel &k, bool collect_instances) {
+SccResult substitute_find_sccs(const Kernel &k, bool collect_instances,
+                               bool account_work) {
   const Lit nlits = static_cast<Lit>(2 * k.nvars);
   SccResult res;
   substitute_stage_trace(k, "scc-entry", nlits);
@@ -113,6 +114,10 @@ SccResult substitute_find_sccs(const Kernel &k, bool collect_instances) {
     WatchIter it;
   };
   std::vector<Frame> work;
+  const auto charge = [&](uint64_t ticks) {
+    if (account_work)
+      k.stats.substitute_ticks += ticks;
+  };
 
   // Kissat substitute.c builds the implication SCC graph from ACTIVE
   // variables only.  Retired identities can remain addressable and stale
@@ -141,8 +146,7 @@ SccResult substitute_find_sccs(const Kernel &k, bool collect_instances) {
       const uint32_t mark_root = node[root].dfs;
       bool failed_root = false;
       tstack.push_back(root);
-      k.stats.substitute_ticks +=
-          1 + kernel_cache_lines(k.watches.size(negate(root)));
+      charge(1 + kernel_cache_lines(k.watches.size(negate(root))));
       work.push_back({root, out_edges(root).begin()});
 
       while (!work.empty()) {
@@ -162,8 +166,7 @@ SccResult substitute_find_sccs(const Kernel &k, bool collect_instances) {
             work.back().it = ++it;
             node[q].dfs = node[q].low = next++;
             tstack.push_back(q);
-            k.stats.substitute_ticks +=
-                1 + kernel_cache_lines(k.watches.size(negate(q)));
+            charge(1 + kernel_cache_lines(k.watches.size(negate(q))));
             // may reallocate `work`; touch it no more
             work.push_back({q, out_edges(q).begin()});
             descended = true;
@@ -186,8 +189,7 @@ SccResult substitute_find_sccs(const Kernel &k, bool collect_instances) {
         // low-link during the single scan above; charge the reference's
         // second scan so the round's substitute_ticks, and with them the
         // 10-per-mille second-round test, match kissat's.
-        k.stats.substitute_ticks +=
-            1 + kernel_cache_lines(k.watches.size(negate(v)));
+        charge(1 + kernel_cache_lines(k.watches.size(negate(v))));
         if (node[v].low == node[v].dfs) {
           // v roots an SCC: pop the component off tstack
           size_t start = tstack.size();
@@ -3222,7 +3224,9 @@ ApplyResult substitute_apply_sweep_equivalences(
 // substitutes the requested class — the SCC with representative `rep` and its
 // mirror ¬rep — so both polarities of every member variable go together.
 static uint32_t substitute_instances(Kernel &k, uint64_t *out, uint32_t cap) {
-  SccResult r = substitute_find_sccs(k);
+  // Public enumeration observes the current frontier. It must not spend the
+  // solver's work currency before the caller chooses an instance.
+  SccResult r = substitute_find_sccs(k, true, false);
   const uint32_t n =
       std::min<uint32_t>(cap, static_cast<uint32_t>(r.nontrivial_reps.size()));
   for (uint32_t i = 0; i < n; i++)

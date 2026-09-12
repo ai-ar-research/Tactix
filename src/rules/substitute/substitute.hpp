@@ -46,7 +46,8 @@ struct SccResult {
   bool contradiction = false;
   Lit contradiction_lit = INVALID_LIT;
 };
-SccResult substitute_find_sccs(const Kernel &k, bool collect_instances = true);
+SccResult substitute_find_sccs(const Kernel &k, bool collect_instances = true,
+                               bool account_work = true);
 
 // Instance space (plan §5.1): payload = an SCC representative literal via
 // lit_instance/lit_of_instance. A single instance substitutes the requested
