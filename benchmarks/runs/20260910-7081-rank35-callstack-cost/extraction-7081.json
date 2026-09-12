@@ -1,0 +1,68 @@
+{
+  "hashes": {
+    "benchmarks/runs/20260910-7060-rank35-residual-profile/results/000.json": "1ab8cce34d2c2a7e9c99a3be067de73203c02a7e5af6487b362cafe24e878094",
+    "benchmarks/runs/20260910-7060-rank35-residual-profile/pins/candidate": "4029d621784c7ca12ce8ee575fe7fc6f0bd68d990b9290fd36866297c16fc00b",
+    "benchmarks/runs/20260910-7060-rank35-residual-profile/profiles/000.perf.data.xz": "80b04f36ff181288ea08bebd138c63d12b5964d13faa13f956f8d356f1add0c5",
+    "benchmarks/runs/20260910-7060-rank35-residual-profile/profiles/000-callpaths.txt": "6cc27de545dd25ff0c3803d5c20f9540ea6784b79a114e0022a69bbdc91f7cfd",
+    "benchmarks/runs/20260910-7060-rank35-residual-profile/profiles/000-self.txt": "4758163758690a22133b36a20a3803813fc9bc423f2a24ef0a4ce5f32463bf79",
+    "benchmarks/runs/20260910-7081-rank35-callstack-cost/candidate.samples.txt.xz": "9ecbc77b500b5887152a3e4f13652cea0a319137b1e316f5ba2203d71558eff3",
+    "benchmarks/runs/20260910-7081-rank35-callstack-cost/candidate.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "benchmarks/runs/20260910-7002-largest-gap-release-profiles/results/003.json": "d086ba76f7506a84953a66ff784d629da8c154d01670e0bb52bb7b60895743d7",
+    "benchmarks/runs/20260910-7002-largest-gap-release-profiles/pins/kissat": "3aa8e41f976e213d3c4627150e9cd4e5fce0ce9508d67ab469a7696e26a8d49c",
+    "benchmarks/runs/20260910-7002-largest-gap-release-profiles/profiles/003.perf.data.xz": "d8d83c2c5e404ae9e283401cd202ab976d39d987423152fd260a8e30bc6f6788",
+    "benchmarks/runs/20260910-7002-largest-gap-release-profiles/profiles/003-callpaths.txt": "afb020fd69f53620db2b309d50787c59059533cba12cf06b84047f29db2ebb3e",
+    "benchmarks/runs/20260910-7002-largest-gap-release-profiles/profiles/003-self.txt": "8147259bd6719214b8afc0c5e2dc2711d5994e7b5c814f5e4c830936c6797a36",
+    "benchmarks/runs/20260910-7081-rank35-callstack-cost/kissat.samples.txt.xz": "dfac0e35f032a21065f9d070f4c174e4a178517ca30d0916b18c8c0032ee8231",
+    "benchmarks/runs/20260910-7081-rank35-callstack-cost/kissat.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "benchmarks/runs/20260910-7081-rank35-callstack-cost/solve-disassembly.txt": "0b3198501fb70e04b14fd16cb0b17a97809864965655a89fceb23c80bfbf8d2e",
+    "benchmarks/probes/scratch/extract-rank35-callstacks-7081.py": "34f235763a0021c1a5bba5374baea3378a6faddd05cd35a741f24745824184e3",
+    ".claude/worktrees/runtime-collect-retry-7030/src/policies/default_policy.cpp": "121df7ea1a49628e291bd0eb13c87bcd57bfeb0b66b337d4ec95a33d051e02f1",
+    ".claude/worktrees/runtime-collect-retry-7030/src/policies/default_policy.hpp": "4da331fc986d71110041cb383ef74255ad157fc5ed6ac5326db47e0c677c08f7",
+    "benchmarks/reports/2026-09-10-rank35-cost-scopes-7079.json": "05ec8f95be386d496c331af0d6143741a4b1cecefaf9998b4850c67c5e2c7f19"
+  },
+  "records": {
+    "candidate": {
+      "record": "benchmarks/runs/20260910-7060-rank35-residual-profile/results/000.json",
+      "state": {
+        "status": "checked_UNSAT",
+        "clean": true,
+        "checked": true,
+        "scorable": true
+      },
+      "command": [
+        "perf",
+        "script",
+        "-i",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-7081-rank35-callstack-cost/expanded-loyph6_6/profile.data",
+        "-F",
+        "period,ip,sym,dso"
+      ],
+      "lines": 648622,
+      "raw_profile_bytes": 608210800,
+      "sample_stream": "benchmarks/runs/20260910-7081-rank35-callstack-cost/candidate.samples.txt.xz"
+    },
+    "kissat": {
+      "record": "benchmarks/runs/20260910-7002-largest-gap-release-profiles/results/003.json",
+      "state": {
+        "status": "checked_UNSAT",
+        "clean": true,
+        "checked": true,
+        "scorable": true
+      },
+      "command": [
+        "perf",
+        "script",
+        "-i",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260910-7081-rank35-callstack-cost/expanded-1ya9apzq/profile.data",
+        "-F",
+        "period,ip,sym,dso"
+      ],
+      "lines": 596140,
+      "raw_profile_bytes": 505472132,
+      "sample_stream": "benchmarks/runs/20260910-7081-rank35-callstack-cost/kissat.samples.txt.xz"
+    }
+  },
+  "temporary_expansions_deleted_bytes": 1113682932,
+  "decision": "Use caller PCs to distinguish current initial Probe, search Probe and Eliminate without new solver executions. Native has distinct entry symbols. Parsing, conservation and exact call-site validation still required before cost interpretation.",
+  "limitation": "Offline extraction only. Zero stderr and exact input hashes do not establish correct attribution or semantic work equality. The next validator owns framing, sample-period conservation and unknown call stacks."
+}
