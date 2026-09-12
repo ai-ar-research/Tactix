@@ -1,8 +1,0 @@
-{
-  "command": [
-    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6843-sweep-rootfree-control/candidate-test_sweep"
-  ],
-  "exit_code": 0,
-  "stdout": "  S-d: emitted 6 binaries via the RUP fast path\n  S-d: non-RUP pairs declined, F unchanged\n  admission: no-proof agrees (non-RUP declined, RUP admitted)\n  admission: DRAT agrees (non-RUP declined, RUP admitted)\n  admission: LRAT agrees (non-RUP declined, RUP admitted)\n  S-e: general path emitted 2 binaries for a non-RUP equivalence\n  substitution without a dense session kept 10 binary watches whole\n  oracle: 86501 environments, 5344 claims (17 not RUP)\ntest_sweep: all tests passed\n",
-  "stderr": ""
-}

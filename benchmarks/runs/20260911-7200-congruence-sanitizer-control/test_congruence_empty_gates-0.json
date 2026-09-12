@@ -1,8 +1,0 @@
-{
-  "command": [
-    "/home/hwu/SAT-solving/build/pin-7197-congruence-fused-sanitizers/tests/test_congruence_empty_gates"
-  ],
-  "exit_code": 0,
-  "stdout": "PASS:64 binary-only Congruence cases, public/direct, proof modes, copies, import order and lazy-unit controls\n",
-  "stderr": ""
-}

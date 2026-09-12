@@ -1,8 +1,0 @@
-{
-  "command": [
-    "/home/hwu/SAT-solving/build/pin-7366-lucky-roots-sanitizers/tests/test_collect_connection"
-  ],
-  "returncode": 0,
-  "stdout": "collect-connection: 8 connection/cache/cut combinations, repeated GC and models PASS\n",
-  "stderr": ""
-}

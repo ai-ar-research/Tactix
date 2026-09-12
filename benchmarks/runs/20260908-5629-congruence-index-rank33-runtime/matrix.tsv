@@ -1,7 +1,0 @@
-task	rank	arm	tier	instance	expected
-0	33	candidate	D	tierD24-26/5314fd6ccb53b6f6af49a594ea68a273-oski15a01b15s_opt.cnf.xz	UNSAT
-1	33	previous	D	tierD24-26/5314fd6ccb53b6f6af49a594ea68a273-oski15a01b15s_opt.cnf.xz	UNSAT
-2	33	candidate	D	tierD24-26/5314fd6ccb53b6f6af49a594ea68a273-oski15a01b15s_opt.cnf.xz	UNSAT
-3	33	previous	D	tierD24-26/5314fd6ccb53b6f6af49a594ea68a273-oski15a01b15s_opt.cnf.xz	UNSAT
-4	33	candidate	D	tierD24-26/5314fd6ccb53b6f6af49a594ea68a273-oski15a01b15s_opt.cnf.xz	UNSAT
-5	33	previous	D	tierD24-26/5314fd6ccb53b6f6af49a594ea68a273-oski15a01b15s_opt.cnf.xz	UNSAT

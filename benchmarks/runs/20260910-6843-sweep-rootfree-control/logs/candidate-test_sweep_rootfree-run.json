@@ -1,8 +1,0 @@
-{
-  "command": [
-    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6843-sweep-rootfree-control/candidate-test_sweep_rootfree"
-  ],
-  "exit_code": 0,
-  "stdout": "sweep-rootfree cases=300 environments=1500 stripped=3115 proof-bytes=3080 digest=5c9480aed6b712d1\n",
-  "stderr": ""
-}

@@ -1,8 +1,0 @@
-{
-  "command": [
-    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6448-shared-blocker-build/control6450-previous-test_propagation_cursor"
-  ],
-  "exit_code": 0,
-  "stdout": "propagation-cursor: 224 fixed cases, digest=f82475e400a7f62b\n",
-  "stderr": ""
-}

@@ -1,8 +1,0 @@
-{
-  "purpose": "User-approved asynchronous proof-checking workflow: use expected solver results provisionally to continue dependent work, revisit actual checker outcomes.",
-  "source_campaigns": {
-    "5383": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40",
-    "5395": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40"
-  },
-  "no_solver_execution": true
-}

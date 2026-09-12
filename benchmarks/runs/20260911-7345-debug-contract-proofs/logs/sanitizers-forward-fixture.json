@@ -1,9 +1,0 @@
-{
-  "command": [
-    "/home/hwu/SAT-solving/build/pin-7340-debug-contracts-sanitizers/tests/test_forward_unit",
-    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7345-debug-contract-proofs/sanitizers-forward"
-  ],
-  "returncode": 0,
-  "stdout": "PASS forward units: 17 state/model cases and16 proof cases\n",
-  "stderr": ""
-}

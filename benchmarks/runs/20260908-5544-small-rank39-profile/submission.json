@@ -1,1 +1,0 @@
-{"job_id":"1672400","array":"0-1","basis":"Prior full5485 Rank39 is slower despite fewer propagations/decisions; profile current5522 to select an execution-cost ablation, not infer unit cost from unmatched counters.","contract":"Unchanged clean profile wrapper,5535 Release/native pins and12CPU/48000MiB solve-check-cleanup tasks; no throttle or node constraint."}

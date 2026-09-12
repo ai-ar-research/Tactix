@@ -1,8 +1,0 @@
-{
-  "command": [
-    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6950-xor-presence-build/candidate-test_xor_presence-6951"
-  ],
-  "exit_code": 0,
-  "stdout": "PASS 3176 XOR presence cases digest=cb9ff4553209f52b\n",
-  "stderr": ""
-}

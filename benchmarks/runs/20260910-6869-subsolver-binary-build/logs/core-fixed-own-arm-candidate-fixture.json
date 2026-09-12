@@ -1,8 +1,0 @@
-{
-  "command": [
-    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6869-subsolver-binary-build/core-fixed-own-arm-candidate-test_subsolver_core_binary"
-  ],
-  "exit_code": 0,
-  "stdout": "subsolver-core-binary cases=80 solves=320 UNSAT=320 digest=2d689e5008fdfa53\n",
-  "stderr": ""
-}

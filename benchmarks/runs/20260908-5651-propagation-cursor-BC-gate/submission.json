@@ -1,9 +1,0 @@
-{
-  "job": "1672791",
-  "command": [
-    "sbatch",
-    "--parsable",
-    "benchmarks/runs/20260908-5651-propagation-cursor-BC-gate/array.sbatch"
-  ],
-  "manifest_sha256": "fb7a0dba3848ded88a03222129bc0f9a966cf04aa087abf72e54931cec86cf2c"
-}

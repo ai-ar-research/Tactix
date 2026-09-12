@@ -1,6 +1,0 @@
-tactix	conflicts=0	decisions=0	external=399915	source=unspecified	before=0	after=0	value=0	retired=0	clause=
-tactix	conflicts=15353	decisions=18100166	external=399915	source=delete-clause	before=0	after=1	value=0	retired=0	clause=-128147,390667,-399915,
-tactix	conflicts=15353	decisions=18100166	external=399915	source=delete-binary	before=1	after=1	value=0	retired=0	clause=
-tactix	conflicts=19375	decisions=18522616	external=399915	source=delete-binary	before=1	after=1	value=0	retired=0	clause=
-tactix	conflicts=19375	decisions=18522616	external=399915	source=delete-binary	before=1	after=1	value=0	retired=0	clause=
-tactix	conflicts=179463	decisions=55033606	external=399915	source=delete-binary	before=0	after=1	value=0	retired=0	clause=

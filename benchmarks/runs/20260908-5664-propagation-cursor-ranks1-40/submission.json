@@ -1,9 +1,0 @@
-{
-  "job": "1672864",
-  "command": [
-    "sbatch",
-    "--parsable",
-    "benchmarks/runs/20260908-5664-propagation-cursor-ranks1-40/array.sbatch"
-  ],
-  "manifest_sha256": "429eb6098135c2d362da2667e396424319888187e91c651e42ecab01ddd0c7f4"
-}

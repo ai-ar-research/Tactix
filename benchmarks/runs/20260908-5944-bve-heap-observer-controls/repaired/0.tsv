@@ -1,7 +1,0 @@
-# bve-heap-observer	1
-kissat	stage=initial	trigger=0	subject=1	score=0x1p+2	positive=0	negative=0	pos=0	root=1	size=4
-kissat	stage=initial	trigger=0	subject=2	score=0x1.8p+1	positive=0	negative=0	pos=1	root=1	size=4
-kissat	stage=pop	trigger=1	subject=1	score=0x1p+2	positive=0	negative=0	pos=-1	root=2	size=3
-kissat	stage=pop	trigger=1	subject=2	score=0x1.8p+1	positive=0	negative=0	pos=0	root=2	size=3
-kissat	stage=initial	trigger=0	subject=1	score=0x1p+1	positive=0	negative=0	pos=2	root=2	size=3
-kissat	stage=initial	trigger=0	subject=2	score=0x1.8p+1	positive=0	negative=0	pos=0	root=2	size=3

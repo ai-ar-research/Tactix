@@ -1,9 +1,0 @@
-{
-  "job": "1668667",
-  "slurm_terminal": "COMPLETED",
-  "solver_exits": {"core": 124, "sequential": 124, "kissat": 124},
-  "scratch_deleted": 3,
-  "target_accepted": false,
-  "reason": "All three observers hit the 600-second diagnostic cap before conflict 10001. Row filtering does not suppress hot-path payload work or native restart global snapshots. No complete-window comparison or runtime claim.",
-  "replacement": "20260907-5333-rank21-standalone"
-}

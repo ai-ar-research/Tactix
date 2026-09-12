@@ -1,7 +1,0 @@
-allowance=0 forward=0 enabled=0 resolutions=0 ceiling=0 bve=1 strengthen=1 eliminated=0
-allowance=0 forward=0 enabled=1 resolutions=1 ceiling=0 bve=2 strengthen=2 eliminated=1
-allowance=0 forward=1 enabled=0 resolutions=0 ceiling=0 bve=1 strengthen=1 eliminated=0
-allowance=0 forward=1 enabled=1 resolutions=1 ceiling=0 bve=2 strengthen=2 eliminated=1
-allowance=1 forward=0 enabled=0 resolutions=0 ceiling=0 bve=1 strengthen=1 eliminated=0
-allowance=1 forward=0 enabled=1 resolutions=1 ceiling=1 bve=2 strengthen=2 eliminated=3
-eliminate-limit-old-5450: /home/hwu/SAT-solving/.claude/worktrees/runtime-eliminate-limit-5450/tests/test_eliminate_limit.cpp:54: void check(unsigned int, bool, bool): Assertion `k.stats.bve_resolutions==1 && k.stats.bve_eliminated==1' failed.

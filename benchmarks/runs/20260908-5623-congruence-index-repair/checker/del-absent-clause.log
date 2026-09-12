@@ -1,6 +1,0 @@
-c parsing input formula with 3 variables and 3 clauses
-c WARNING: deleted clause on proof line 4 does not occur: [0] 1 2 4 0
-c finished parsing
-c found complementary unit clauses: -1
-s VERIFIED
-c verification time: 0.044 seconds

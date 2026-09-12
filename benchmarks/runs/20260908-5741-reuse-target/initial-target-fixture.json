@@ -1,4 +1,0 @@
-{
-  "sha256": "babe0c7dd74b1f89f72771f43105d2d763e989f383f3223e3a26a32d6f6558f0",
-  "observation": "New fixture target/value assertion fails; all other tests pass. Diagnosis pending; no assertion expectation or solver changed."
-}

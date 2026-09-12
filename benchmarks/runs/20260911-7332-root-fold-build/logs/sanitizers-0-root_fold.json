@@ -1,8 +1,0 @@
-{
-  "command": [
-    "/home/hwu/SAT-solving/build/pin-7332-root-fold-sanitizers/tests/test_root_fold"
-  ],
-  "returncode": 1,
-  "stdout": "",
-  "stderr": "==1294==LeakSanitizer has encountered a fatal error.\n==1294==HINT: For debugging, try setting environment variable LSAN_OPTIONS=verbosity=1:log_threads=1\n==1294==HINT: LeakSanitizer does not work under ptrace (strace, gdb, etc)\n"
-}

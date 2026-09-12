@@ -1,8 +1,0 @@
-{
-  "command": [
-    "/home/hwu/SAT-solving/build/pin-7373-lucky-reattach-sanitizers/tests/test_propagation_cursor"
-  ],
-  "returncode": 0,
-  "stdout": "propagation-cursor: 224 fixed cases, digest=f82475e400a7f62b\n",
-  "stderr": ""
-}

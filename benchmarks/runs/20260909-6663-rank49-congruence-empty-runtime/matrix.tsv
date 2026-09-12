@@ -1,7 +1,0 @@
-task	arm	rank	tier	instance	expected
-0	candidate	49	D	tierD24-26/59fc779feee4390b57502814d424e0d6-jgiraldezlevy.2200.9086.08.40.149-sr2015.cnf.xz	SAT
-1	previous	49	D	tierD24-26/59fc779feee4390b57502814d424e0d6-jgiraldezlevy.2200.9086.08.40.149-sr2015.cnf.xz	SAT
-2	previous	49	D	tierD24-26/59fc779feee4390b57502814d424e0d6-jgiraldezlevy.2200.9086.08.40.149-sr2015.cnf.xz	SAT
-3	candidate	49	D	tierD24-26/59fc779feee4390b57502814d424e0d6-jgiraldezlevy.2200.9086.08.40.149-sr2015.cnf.xz	SAT
-4	candidate	49	D	tierD24-26/59fc779feee4390b57502814d424e0d6-jgiraldezlevy.2200.9086.08.40.149-sr2015.cnf.xz	SAT
-5	previous	49	D	tierD24-26/59fc779feee4390b57502814d424e0d6-jgiraldezlevy.2200.9086.08.40.149-sr2015.cnf.xz	SAT

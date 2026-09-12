@@ -1,3 +1,0 @@
-extra=0 result=0 eliminated=1 retired=1 roots=1 unit=1 resolutions=1
-extra=1 result=0 eliminated=3 retired=3 roots=1 unit=1 resolutions=3
-extra=2 result=0 eliminated=5 retired=5 roots=1 unit=1 resolutions=7

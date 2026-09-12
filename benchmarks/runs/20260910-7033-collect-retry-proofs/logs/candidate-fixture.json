@@ -1,9 +1,0 @@
-{
-  "command": [
-    "/home/hwu/SAT-solving/build/pin-7030-collect-retry-release/tests/test_reduce_root_lock",
-    "/home/hwu/SAT-solving/benchmarks/runs/20260910-7033-collect-retry-proofs/candidate"
-  ],
-  "returncode": 0,
-  "stdout": "protected pending=0 stale payload PASS\nprotected pending=1 stale payload PASS\nroot elevated=0 compact=0 unsat=0 lrat=0 candidates=1 deleted=1 PASS\nroot elevated=0 compact=0 unsat=0 lrat=1 candidates=1 deleted=1 PASS\nroot elevated=0 compact=0 unsat=1 lrat=0 candidates=1 deleted=1 PASS\nroot elevated=0 compact=0 unsat=1 lrat=1 candidates=1 deleted=1 PASS\nroot elevated=0 compact=1 unsat=0 lrat=0 candidates=1 deleted=1 PASS\nroot elevated=0 compact=1 unsat=0 lrat=1 candidates=1 deleted=1 PASS\nroot elevated=0 compact=1 unsat=1 lrat=0 candidates=1 deleted=1 PASS\nroot elevated=0 compact=1 unsat=1 lrat=1 candidates=1 deleted=1 PASS\nroot elevated=1 compact=0 unsat=0 lrat=0 candidates=1 deleted=1 PASS\nroot elevated=1 compact=0 unsat=0 lrat=1 candidates=1 deleted=1 PASS\nroot elevated=1 compact=0 unsat=1 lrat=0 candidates=1 deleted=1 PASS\nroot elevated=1 compact=0 unsat=1 lrat=1 candidates=1 deleted=1 PASS\nroot elevated=1 compact=1 unsat=0 lrat=0 candidates=1 deleted=1 PASS\nroot elevated=1 compact=1 unsat=0 lrat=1 candidates=1 deleted=1 PASS\nroot elevated=1 compact=1 unsat=1 lrat=0 candidates=1 deleted=1 PASS\nroot elevated=1 compact=1 unsat=1 lrat=1 candidates=1 deleted=1 PASS\nPASS: root admission, pure public surface, protected/stale reasons, models and proofs\n",
-  "stderr": ""
-}

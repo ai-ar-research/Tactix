@@ -1,8 +1,0 @@
-{
-  "command": [
-    "/home/hwu/SAT-solving/build/pin-7373-lucky-reattach-sanitizers/tests/test_lucky"
-  ],
-  "returncode": 0,
-  "stdout": "test_lucky OK\n",
-  "stderr": ""
-}

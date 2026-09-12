@@ -1,4 +1,0 @@
-# tactix-binary-lifecycle	3
-# solver	seq	event	conflicts	search_ticks	probing_ticks	a	b	value_a	value_b	id	copies	payload
-kissat	0	add	780400	1298029921	145392975	-525	574	-1	0	0	0	internal=583,630|raw_export=525,574
-kissat	1	delete	823562	1363357103	145392975	-525	574	0	0	0	0	internal=583,630|raw_export=525,574

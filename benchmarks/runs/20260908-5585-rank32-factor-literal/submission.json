@@ -1,6 +1,0 @@
-{
-  "job": "1672518",
-  "tasks": [0, 1],
-  "command": "sbatch --parsable --array=0-1 benchmarks/runs/20260908-5585-rank32-factor-literal/array.sbatch",
-  "purpose": "Bounded selected-literal occurrence diagnostic; no production change or acceptance timing."
-}

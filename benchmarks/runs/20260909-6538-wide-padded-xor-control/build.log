@@ -1,4 +1,0 @@
-/home/hwu/SAT-solving/benchmarks/probes/scratch/test-wide-padded-xor-6537.cpp: In lambda function:
-/home/hwu/SAT-solving/benchmarks/probes/scratch/test-wide-padded-xor-6537.cpp:55:48: error: ‘const struct tactix::CongGate’ has no member named ‘out’
-   55 |     return g.kind == GateKind::Xor && var_of(g.out) == 3;
-      |                                                ^~~

@@ -1,4 +1,0 @@
-# tactix-macro-boundary	1
-# solver	seq	event	conflicts	decisions	propagations	level	mode	unassigned	trail	restarts	reductions	switched	rephased	stamp
-tactix	0	eliminate_begin	29761	7434658	121672385	1427	stable	112167	50456	484	12	3	6	162275
-tactix	1	eliminate_end	29761	7434658	121672751	0	stable	148616	585	484	12	3	6	162275

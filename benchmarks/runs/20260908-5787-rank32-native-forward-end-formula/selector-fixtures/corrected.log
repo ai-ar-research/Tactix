@@ -1,4 +1,0 @@
-ENTRY tail=3 first_size=3 first_garbage=0 flags=1,1,1 steps=0
-NATIVE tail=3 forced3=1 subsumed=1
-ENTRY tail=4 first_size=3 first_garbage=0 flags=1,1,1 steps=0
-NATIVE tail=4 forced3=1 subsumed=1

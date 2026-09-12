@@ -1,6 +1,0 @@
-{
-  "job": "1672513",
-  "array": "0-1",
-  "command": "sbatch --parsable --array=0-1 benchmarks/runs/20260908-5582-rank33-congruence-output/array.sbatch",
-  "dependency": "Immutable5522, pending Claude-owned fuzz5539; no source promotion."
-}

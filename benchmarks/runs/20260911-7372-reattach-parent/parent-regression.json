@@ -1,8 +1,0 @@
-{
-  "command": [
-    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7372-reattach-parent/test_heuristics_reattach"
-  ],
-  "returncode": -6,
-  "stdout": "",
-  "stderr": "test_heuristics_reattach: /home/hwu/SAT-solving/.claude/worktrees/runtime-lucky-reattach-7371/tests/test_heuristics_reattach.cpp:60: int main(int, char**): Assertion `negative?missing==48:missing==0' failed.\n"
-}

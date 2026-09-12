@@ -1,7 +1,0 @@
-task	rank	arm	tier	instance	expected
-0	17	shipped	D	tierD24-26/0a8a4c28d27228e954354ea0a6e7f16c-sum_of_three_cubes_42_known_representation.cnf.xz	SAT
-1	17	candidate	D	tierD24-26/0a8a4c28d27228e954354ea0a6e7f16c-sum_of_three_cubes_42_known_representation.cnf.xz	SAT
-2	21	shipped	D	tierD24-26/ac3887576c2ce781202b9fe0fdc31420-pj2008_k80.cnf.xz	SAT
-3	21	candidate	D	tierD24-26/ac3887576c2ce781202b9fe0fdc31420-pj2008_k80.cnf.xz	SAT
-4	34	shipped	D	tierD24-26/0ae917c2e0c1d39cbe411c29b2f5ff08-dislog_a14_x14_n24.cnf.xz	SAT
-5	34	candidate	D	tierD24-26/0ae917c2e0c1d39cbe411c29b2f5ff08-dislog_a14_x14_n24.cnf.xz	SAT

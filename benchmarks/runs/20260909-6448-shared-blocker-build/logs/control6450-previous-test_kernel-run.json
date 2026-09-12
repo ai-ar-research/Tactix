@@ -1,8 +1,0 @@
-{
-  "command": [
-    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6448-shared-blocker-build/control6450-previous-test_kernel"
-  ],
-  "exit_code": 0,
-  "stdout": "test_kernel OK\n",
-  "stderr": ""
-}

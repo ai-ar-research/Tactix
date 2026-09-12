@@ -1,6 +1,0 @@
-351bef360ee6427cf40ea3450f3777a615779c3377cb26721a4435ad2b79073e  /home/hwu/SAT-solving/build/pin-congruence-index-repair-5623-release/tactix
-351bef360ee6427cf40ea3450f3777a615779c3377cb26721a4435ad2b79073e  /home/hwu/SAT-solving/build/pin-congruence-index-repair-5623-bc/tactix
-794f28b8a6a4730cdfd9d02ecae76bbe8fc3b992f327eb59bf7be155765bf130  /home/hwu/SAT-solving/build/pin-congruence-index-repair-5623-trace/tactix
-351bef360ee6427cf40ea3450f3777a615779c3377cb26721a4435ad2b79073e  /home/hwu/SAT-solving/build/pin-5619-congruence-index-release/tactix
-818e0fb920dd674a1e42d6310ed940dd902e8c6265d5cdc6b3fcfacd8b23a899  /home/hwu/SAT-solving/build/pin-congruence-index-repair-5623-release/tests/test_congruence_index_cleanup
-818e0fb920dd674a1e42d6310ed940dd902e8c6265d5cdc6b3fcfacd8b23a899  /home/hwu/SAT-solving/build/pin-congruence-index-repair-5623-bc/tests/test_congruence_index_cleanup

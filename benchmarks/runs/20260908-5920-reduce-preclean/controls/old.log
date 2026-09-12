@@ -1,3 +1,0 @@
-policy=1 retained-chain roots=2 original SAT model PASS
-policy=0 retained-chain roots=2 original SAT model PASS
-PASS: Reduce root guidance, truncated suffix, policy neutrality, no-op and six proof cases

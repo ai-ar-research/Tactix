@@ -1,6 +1,0 @@
-{
-  "5453": {"job": 1670291, "campaign": "benchmarks/runs/20260907-5453-rank37-eliminate-limit-prefix", "watcher_session": 69325},
-  "5454": {"job": 1670292, "campaign": "benchmarks/runs/20260907-5454-eliminate-limit-ranks1-40"},
-  "5455": {"job": 1670293, "campaign": "benchmarks/runs/20260907-5455-eliminate-limit-BC-gate"},
-  "contract": "Existing full-width arrays, one solver per task, 12 logical CPUs, 48000 MiB, no throttle or node constraint. Proof checking proceeds asynchronously with development; no separate solve/check runner change."
-}

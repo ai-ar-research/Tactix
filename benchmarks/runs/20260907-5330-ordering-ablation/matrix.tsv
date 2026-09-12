@@ -1,7 +1,0 @@
-task	rank	arm	tier	instance	expected
-0	21	current	D	tierD24-26/ac3887576c2ce781202b9fe0fdc31420-pj2008_k80.cnf.xz	SAT
-1	21	core	D	tierD24-26/ac3887576c2ce781202b9fe0fdc31420-pj2008_k80.cnf.xz	SAT
-2	21	physical	D	tierD24-26/ac3887576c2ce781202b9fe0fdc31420-pj2008_k80.cnf.xz	SAT
-3	21	sequential	D	tierD24-26/ac3887576c2ce781202b9fe0fdc31420-pj2008_k80.cnf.xz	SAT
-4	21	combined	D	tierD24-26/ac3887576c2ce781202b9fe0fdc31420-pj2008_k80.cnf.xz	SAT
-5	21	bridge	D	tierD24-26/ac3887576c2ce781202b9fe0fdc31420-pj2008_k80.cnf.xz	SAT

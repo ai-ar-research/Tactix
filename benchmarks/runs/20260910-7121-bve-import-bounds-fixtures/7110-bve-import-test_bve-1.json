@@ -1,8 +1,0 @@
-{
-  "command": [
-    "/home/hwu/SAT-solving/benchmarks/runs/20260910-7121-bve-import-bounds-fixtures/7110-bve-import-test_bve"
-  ],
-  "exit_code": 0,
-  "stdout": "XOR signature boundary: 496 reconstructed fixed cases OK\n  definition reconstruction: 391 trials, 420 gates, 2772 eliminated, 70754 models (63349 needed repair)\ntest_bve OK\n",
-  "stderr": ""
-}
