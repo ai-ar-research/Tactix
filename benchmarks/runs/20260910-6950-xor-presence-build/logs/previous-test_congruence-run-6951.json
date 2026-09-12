@@ -1,8 +1,0 @@
-{
-  "command": [
-    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6950-xor-presence-build/previous-test_congruence-6951"
-  ],
-  "exit_code": 0,
-  "stdout": "test_congruence: all passed\n",
-  "stderr": ""
-}

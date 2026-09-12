@@ -1,4 +1,0 @@
-/home/hwu/SAT-solving/.claude/worktrees/runtime-substitute-retry-6231/tests/test_substitute_retry.cpp: In function ‘bool fixture(unsigned int, int, bool, bool)’:
-/home/hwu/SAT-solving/.claude/worktrees/runtime-substitute-retry-6231/tests/test_substitute_retry.cpp:63:28: error: ‘class tactix::Proof’ has no member named ‘close’
-   63 |   k.proof = nullptr; proof.close();
-      |                            ^~~~~

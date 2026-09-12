@@ -1,8 +1,0 @@
-{
-  "command": [
-    "/home/hwu/SAT-solving/build/pin-7366-lucky-roots-sanitizers/tests/test_substitute_collapse"
-  ],
-  "returncode": 0,
-  "stdout": "PASS: 72 collapse/large/redundancy/public/proof/model fixtures; missing=0\n",
-  "stderr": ""
-}

@@ -1,6 +1,0 @@
-{
-  "job": "1672529",
-  "tasks": "0-65",
-  "command": "sbatch --parsable benchmarks/runs/20260908-5598-factor-support-BC-gate/array.sbatch",
-  "continuation": "After all56 B28 expected solver snapshots, submit5599 timing wave0 tasks0-1. Advance tasks2-3 and4-5 after preceding solver pairs; proofs remain asynchronous."
-}

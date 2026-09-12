@@ -1,1 +1,0 @@
-{"job_id":"1672240","array":"2-3","wave":1,"precondition":"Wave0 tasks0/1 both expected UNSAT solver snapshots exist; proof checking remains pending.","wave0_seconds":{"candidate":438.175,"previous":410.609},"next":"Submit tasks4-5 after both wave1 solver snapshots; do not wait for checkers."}

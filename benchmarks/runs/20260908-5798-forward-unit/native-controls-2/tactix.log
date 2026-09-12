@@ -1,6 +1,0 @@
-CASE 0 complete=1 steps=8 subsumed=1 strengthened=1 trail=3, values=-1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,
-CASE 1 complete=1 steps=8 subsumed=1 strengthened=1 trail=3, values=-1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,
-CASE 2 complete=1 steps=5 subsumed=0 strengthened=1 trail=3, values=-1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,
-CASE 3 complete=1 steps=5 subsumed=0 strengthened=1 trail=3,5, values=-1,0,1,-1,1,0,0,0,0,0,0,0,0,0,0,0,
-CASE 4 complete=1 steps=10 subsumed=1 strengthened=1 trail=3,6,7, values=-1,0,1,0,0,1,1,0,0,0,0,0,0,0,0,0,
-CASE 5 complete=1 steps=10 subsumed=0 strengthened=1 trail=3,-6,5, values=-1,0,1,-1,1,-1,0,0,0,0,0,0,0,0,0,0,

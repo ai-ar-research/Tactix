@@ -1,9 +1,0 @@
-{
-  "command": [
-    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7200-congruence-sanitizer-control/minimal",
-    "--repaired"
-  ],
-  "exit_code": 0,
-  "stdout": "",
-  "stderr": ""
-}

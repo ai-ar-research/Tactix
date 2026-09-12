@@ -1,5 +1,0 @@
-  scope 0: tier3 candidate enumerated and applied
-  scope 5: tier3 candidate enumerated and applied
-  bands 1/3/4/5 unchanged, scope 0 spans all three tiers
-  API setter stores scopes 0-5, ignores out-of-range
-test_vivify_n1: all passed

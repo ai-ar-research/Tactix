@@ -1,9 +1,0 @@
-{
-  "command": [
-    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7364-lucky-root-parent/test_lucky_root_consumer",
-    "--expect-missing"
-  ],
-  "returncode": 0,
-  "stdout": "Lucky root consumer: cases=12 stale=140 expected-old=140\n",
-  "stderr": ""
-}

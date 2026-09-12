@@ -1,6 +1,0 @@
-{
-  "job_id": "1673507",
-  "manifest_sha256": "d1d25d5cb5a1d3533c76b0310e53a3f38314c9063526273565901728dd1bb17b",
-  "command": "sbatch --parsable benchmarks/runs/20260908-5794-rank32-forward-binaries/array.sbatch",
-  "purpose": "Missing binary context for the first differing Rank 32 Strengthen action; existing source/pins unchanged."
-}

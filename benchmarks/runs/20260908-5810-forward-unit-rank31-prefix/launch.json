@@ -1,5 +1,0 @@
-{
-  "job_id": "1673814",
-  "command": "sbatch --parsable benchmarks/runs/20260908-5810-forward-unit-rank31-prefix/array.sbatch",
-  "scope": "Single repaired Rank31 proof-on300K stopped diagnostic;cached parent and native controls,12CPU/48000MiB,development partition. No new Kissat solve."
-}

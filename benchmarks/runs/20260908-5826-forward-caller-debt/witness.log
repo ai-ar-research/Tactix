@@ -1,2 +1,0 @@
-next-slot: unit5=0 head=3 trail=3 fixpoint=1
-PASS: actual next slot sees unclosed unit;phase exit restores closure and valid SAT model

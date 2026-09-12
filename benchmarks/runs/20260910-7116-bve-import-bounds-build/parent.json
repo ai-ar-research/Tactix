@@ -1,6 +1,0 @@
-{
-  "authority": "benchmarks/runs/20260910-7110-bve-import-build/manifest.json",
-  "sha256": "9ef3612f7434a80eca9be17aa1b3693806f2f45ac1dc374f7295b2b6aca82ca5",
-  "scope": "Re-establish existing bounded XOR signature range at its consumer; unambiguous vector trail snapshot; boundary regression. No gate, scheduling, proof or API change.",
-  "inherited_approval": "Approved BVE data-path prototype; stage2 mapping/index fusion7110 retained."
-}

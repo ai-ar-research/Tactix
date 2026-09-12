@@ -1,6 +1,0 @@
-{
-  "job": "1672522",
-  "tasks": [0, 1],
-  "command": "sbatch --parsable --array=0-1 benchmarks/runs/20260908-5588-rank32-factor-root-neighbor/array.sbatch",
-  "purpose": "Test active/value state of the sole binary neighbor supporting the extra Factor candidate; no solver change."
-}

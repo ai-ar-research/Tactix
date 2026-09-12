@@ -1,9 +1,0 @@
-{
-  "job_id": "1674781",
-  "command": [
-    "sbatch",
-    "--parsable",
-    "/home/hwu/SAT-solving/benchmarks/runs/20260908-5883-rank32-choice-frontier/array.sbatch"
-  ],
-  "manifest_sha256": "589711f80ecfb0d1a3cd7174f5d4c14fb2d24d172e0e994208b24ae90cce332b"
-}

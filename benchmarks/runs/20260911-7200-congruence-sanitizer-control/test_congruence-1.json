@@ -1,8 +1,0 @@
-{
-  "command": [
-    "/home/hwu/SAT-solving/build/pin-7197-congruence-fused-sanitizers/tests/test_congruence"
-  ],
-  "exit_code": 0,
-  "stdout": "test_congruence: all passed\n",
-  "stderr": ""
-}

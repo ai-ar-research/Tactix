@@ -1,8 +1,0 @@
-{
-  "command": [
-    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6857-subsolver-shrink-build/candidate-test_subsolver_shrink"
-  ],
-  "exit_code": 0,
-  "stdout": "subsolver-shrink cases=80 solves=1440 SAT=200 UNSAT=627 budget=613 digest=eaeeec26246b290c\n",
-  "stderr": ""
-}

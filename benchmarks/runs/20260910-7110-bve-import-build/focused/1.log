@@ -1,5 +1,0 @@
-  mapped import: 252 fixed cases, 81 SAT / 204 UNSAT / 75 budgets, 108 refinements
-  brute force: 100000 iterations, 34428 SAT / 65572 UNSAT, 33300 with assumptions
-  fixed derivations: 20688 refutations checked (5683 over assumptions, 15005 empty), 2.7 steps / 11.1 core clauses each, 11913 multi-step (max 44)
-  Kitten derivations: 8281 refutations checked (2287 over assumptions, 5994 empty), 5.1 steps / 10.9 core clauses each, 5863 multi-step (max 45)
-test_subsolver: all passed

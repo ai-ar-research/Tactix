@@ -1,8 +1,0 @@
-{
-  "command": [
-    "/home/hwu/SAT-solving/build/pin-7340-debug-contracts-sanitizers/tests/test_root_watermark"
-  ],
-  "returncode": 0,
-  "stdout": "root-watermark: actual Eliminate admission and late-root compaction PASS\n",
-  "stderr": ""
-}

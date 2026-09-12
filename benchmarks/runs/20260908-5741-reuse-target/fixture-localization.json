@@ -1,9 +1,0 @@
-{
-  "failure": "Fixture expectation; no solver implementation assertion or rejected correctness oracle",
-  "case": {"otfs":true,"size":3,"jump":1,"depth":7,"mode":0,"extra":false,"reuse":false,"dispatch":"Policy","proof":"DRAT"},
-  "observed": {"level":7,"wanted_level":1,"forced_value":-1,"conflict_reused":0,"learned":1,"otfs_strengthened":1},
-  "diagnosis": "The fixture used raw kernel_assign to make literal3 a large-clause consequence while its reason remained ordered[-1,-2,3]. OTFS requires the implied literal to be one of the watched first two literals (explicit otfs_strengthen assertion). Actual propagation establishes that pose; raw assignment did not. The invalid fixture produced replacement[-1,3] rather than[-1,-2]. No solver change is required for this fixture construction error.",
-  "rejected_hypothesis": "Replacing closing binary gadgets with ternary gadgets did not change the mismatch, so binary closure strengthening alone does not explain it.",
-  "correction": "Restore the original binary gadgets and use actual propagation to construct the OTFS reason/conflict, asserting its watched implied-literal invariant before analysis. Preserve the target/reuse expectations and independently check resulting complete proofs.",
-  "preserved": ["initial-target-fixture.cpp","initial-target-fixture.json","logs/ctest-release.log","logs/ctest-bc.log","logs/ctest-trace.log"]
-}

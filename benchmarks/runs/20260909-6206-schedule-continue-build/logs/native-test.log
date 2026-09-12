@@ -1,1 +1,0 @@
-test-native: /home/hwu/SAT-solving/benchmarks/probes/scratch/test-native-schedule-continue-6206.c:44: main: Assertion `WEXITSTATUS(status) == (resume ? 99 : 0)' failed.

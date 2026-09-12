@@ -1,3 +1,0 @@
-task	rank	arm	tier	instance	expected
-0	14	parent	B	tierB/FmlaEquivChain_4_6_6.sanitized.cnf.xz	UNSAT
-1	14	candidate	B	tierB/FmlaEquivChain_4_6_6.sanitized.cnf.xz	UNSAT

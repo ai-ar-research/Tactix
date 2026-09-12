@@ -1,8 +1,0 @@
-{
-  "command": [
-    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6383-vivify-count-cache-build/candidate-test_vivify_count_cache"
-  ],
-  "exit_code": 0,
-  "stdout": "vivify-count-cache cases=432 digest=fb0f8be6d21838ed proof-bytes=9804 subsumed=432\n",
-  "stderr": ""
-}

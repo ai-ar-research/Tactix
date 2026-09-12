@@ -1,9 +1,0 @@
-{
-  "name": "old-collector",
-  "command": [
-    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7341-debug-contracts-regression/parent-test-collect-connection"
-  ],
-  "returncode": -6,
-  "stdout": "",
-  "stderr": "parent-test-collect-connection: /home/hwu/SAT-solving/.claude/worktrees/runtime-debug-contracts-7339/tests/test_collect_connection.cpp:32: void collect(bool, bool, bool): Assertion `!disconnected' failed.\n"
-}

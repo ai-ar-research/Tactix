@@ -1,8 +1,0 @@
-{
-  "command": [
-    "/home/hwu/SAT-solving/build/pin-7087-bve-views-sanitizers/tests/test_bve_antecedent_view"
-  ],
-  "exit_code": -6,
-  "stdout": "",
-  "stderr": "test_bve_antecedent_view: /home/hwu/SAT-solving/.claude/worktrees/runtime-bve-views-7087/src/kernel/kernel.cpp:3992: void tactix::kernel_check_invariants(const Kernel&): Assertion `assigned_count + k.unassigned == k.nvars' failed.\n"
-}

@@ -1,8 +1,0 @@
-{
-  "command": [
-    "/home/hwu/SAT-solving/build/pin-7340-debug-contracts-sanitizers/tests/test_api_c"
-  ],
-  "returncode": 0,
-  "stdout": "test_api_c OK\n",
-  "stderr": ""
-}

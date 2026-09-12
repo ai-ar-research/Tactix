@@ -1,3 +1,0 @@
-tactix copies=1 retained_endpoint_retry=0
-tactix copies=2 retained_endpoint_retry=0
-tactix copies=5 retained_endpoint_retry=0

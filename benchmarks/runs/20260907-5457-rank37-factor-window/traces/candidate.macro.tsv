@@ -1,4 +1,0 @@
-# tactix-macro-boundary	1
-# solver	seq	event	conflicts	decisions	propagations	level	mode	unassigned	trail	restarts	reductions	switched	rephased	stamp
-tactix	0	probe_begin	32073	7848914	123890547	7643	stable	60426	88775	485	13	3	7	162275
-tactix	1	probe_end	32073	7848914	126087768	0	stable	148613	572	485	13	3	7	148613

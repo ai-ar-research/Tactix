@@ -1,9 +1,0 @@
-{
-  "command": [
-    "/home/hwu/SAT-solving/benchmarks/runs/20260911-7372-reattach-parent/test_heuristics_reattach",
-    "--expect-missing"
-  ],
-  "returncode": 0,
-  "stdout": "guidance reattach: cases=8 changed-images=48\n",
-  "stderr": ""
-}

@@ -1,4 +1,0 @@
-PASS: late-fixed removal, ten reconstructed models and witnessed Substitute proof
-INVARIANT: root literal -6 has a binary reason (-6 -15) with no proof id; watched 1 forward / 1 mirrored
-INVARIANT: root literal -8 has a binary reason (-8 -5) with no proof id; watched 1 forward / 1 mirrored
-INVARIANT: root literal -11 has a binary reason (-11 -5) with no proof id; watched 1 forward / 1 mirrored

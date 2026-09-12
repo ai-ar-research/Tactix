@@ -1,1 +1,0 @@
-old-fixture: /home/hwu/SAT-solving/.claude/worktrees/runtime-substitute-journal-6136/tests/test_substitute_publication.cpp:146: void test_order(bool, bool, uint32_t): Assertion `transactions == 1' failed.

@@ -1,5 +1,0 @@
-task	arm	tier	rank	instance	expected
-0	input3080	D-rank19-diagnostic	19	tierD24-26/4551c996fc6f5fbe62b43076abb25077-knight_18.cnf.xz	SAT
-1	unit3170	D-rank19-diagnostic	19	tierD24-26/4551c996fc6f5fbe62b43076abb25077-knight_18.cnf.xz	SAT
-2	round3220	D-rank19-diagnostic	19	tierD24-26/4551c996fc6f5fbe62b43076abb25077-knight_18.cnf.xz	SAT
-3	retry3270	D-rank19-diagnostic	19	tierD24-26/4551c996fc6f5fbe62b43076abb25077-knight_18.cnf.xz	SAT

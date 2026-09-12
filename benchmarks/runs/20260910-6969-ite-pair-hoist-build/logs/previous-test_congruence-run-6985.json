@@ -1,8 +1,0 @@
-{
-  "command": [
-    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6969-ite-pair-hoist-build/previous-test_congruence-6985"
-  ],
-  "exit_code": 0,
-  "stdout": "test_congruence: all passed\n",
-  "stderr": ""
-}

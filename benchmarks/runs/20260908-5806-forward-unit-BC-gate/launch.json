@@ -1,7 +1,0 @@
-{
-  "job_id": "1673704",
-  "observed_at": "2026-09-08T16:27:55Z",
-  "command": "sbatch --parsable benchmarks/runs/20260908-5806-forward-unit-BC-gate/array.sbatch",
-  "scope": "Separate immutable B28+C5 continuation5798 gate; production/candidate pairs,66 tasks,12CPU/48000MiB,development partition,1200s solver,16000s checker,5h allocation.",
-  "isolation": "No existing campaign manifest, matrix, runner, source or binary was changed. User-approved fullTierD5784 remains on cpu-q."
-}

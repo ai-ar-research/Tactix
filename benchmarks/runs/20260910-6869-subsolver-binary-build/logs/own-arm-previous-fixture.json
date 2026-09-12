@@ -1,8 +1,0 @@
-{
-  "command": [
-    "/home/hwu/SAT-solving/benchmarks/runs/20260910-6869-subsolver-binary-build/own-arm-previous-test_subsolver_binary"
-  ],
-  "exit_code": 0,
-  "stdout": "subsolver-binary cases=720 solves=12960 SAT=1640 UNSAT=6515 budget=4805 digest=c4232e021de7f41b\n",
-  "stderr": ""
-}

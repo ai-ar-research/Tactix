@@ -1,4 +1,0 @@
-begin	clauses=0	vars=0	rss_kib=3072	binary_count=0	watch_heads=0	watch_words=0	watch_capacity=0	watch_holes=0	arena_words=0	trail_capacity=0	frames_capacity=1	activation_capacity=0
-header	clauses=0	vars=489817	rss_kib=78248	binary_count=0	watch_heads=979634	watch_words=0	watch_capacity=0	watch_holes=0	arena_words=0	trail_capacity=489817	frames_capacity=489818	activation_capacity=0
-finish-begin	clauses=1556955	vars=489817	rss_kib=162996	binary_count=906108	watch_heads=979634	watch_words=4658046	watch_capacity=6552236	watch_holes=123172	arena_words=5344832	trail_capacity=489817	frames_capacity=489818	activation_capacity=524288
-finish-end	clauses=1556955	vars=489817	rss_kib=162996	binary_count=906108	watch_heads=979634	watch_words=4658046	watch_capacity=6552236	watch_holes=123172	arena_words=5344832	trail_capacity=489817	frames_capacity=489818	activation_capacity=524288

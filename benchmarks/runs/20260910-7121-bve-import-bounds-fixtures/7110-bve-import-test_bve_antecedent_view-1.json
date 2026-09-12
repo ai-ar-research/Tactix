@@ -1,8 +1,0 @@
-{
-  "command": [
-    "/home/hwu/SAT-solving/benchmarks/runs/20260910-7121-bve-import-bounds-fixtures/7110-bve-import-test_bve_antecedent_view"
-  ],
-  "exit_code": 0,
-  "stdout": "PASS162 preparation poses, late roots/duplicates/garbage, sparse+dense BVE arena growth/model\n",
-  "stderr": ""
-}

@@ -1,7 +1,0 @@
-make -C "/home/hwu/SAT-solving/tools/solvers/variants/kissat-clause-pose-series-6004/build"
-make[1]: Entering directory '/home/hwu/SAT-solving/tools/solvers/variants/kissat-clause-pose-series-6004/build'
-../scripts/generate-build-header.sh > build.h
-gcc -W -Wall -O3 -DNDEBUG -I../build -c ../src/build.c
-ar rc libkissat.a allocate.o analyze.o ands.o arena.o assign.o averages.o backbone.o backtrack.o build.o bump.o check.o classify.o clause.o collect.o colors.o compact.o config.o congruence.o decide.o deduce.o definition.o dense.o dump.o eliminate.o equivalences.o error.o eventtrace.o extend.o factor.o fastel.o file.o flags.o format.o forward.o gates.o heap.o ifthenelse.o import.o internal.o kimits.o kitten.o krite.o learn.o logging.o lucky.o minimize.o mode.o options.o phases.o preprocess.o print.o probe.o profile.o promote.o proof.o propbeyond.o propdense.o propinitially.o proprobe.o propsearch.o queue.o reduce.o reluctant.o reorder.o rephase.o report.o resize.o resolve.o resources.o restart.o rulejournal.o search.o shrink.o smooth.o sort.o statistics.o strengthen.o substitute.o sweep.o terminate.o tiers.o trail.o transitive.o utilities.o vector.o vivify.o walk.o warmup.o watch.o weaken.o
-gcc -o kissat main.o application.o handle.o parse.o witness.o libkissat.a -lm
-make[1]: Leaving directory '/home/hwu/SAT-solving/tools/solvers/variants/kissat-clause-pose-series-6004/build'

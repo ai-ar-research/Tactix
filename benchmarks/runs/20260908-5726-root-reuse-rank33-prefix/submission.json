@@ -1,9 +1,0 @@
-{
-  "job": "1673168",
-  "command": [
-    "sbatch",
-    "--parsable",
-    "benchmarks/runs/20260908-5726-root-reuse-rank33-prefix/array.sbatch"
-  ],
-  "manifest_sha256": "93d07a27e8380e3c34512862106d2fadd7193aba909c11e26502e0bd21ebf489"
-}

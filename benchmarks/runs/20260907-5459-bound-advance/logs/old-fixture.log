@@ -1,4 +1,0 @@
-terminal=0 after-cut Factor bound=0 retry7=0 retry8=0
-terminal=1 after-cut Factor bound=0 retry7=0 retry8=0
-BVE cut-bound lifecycle: PASS
-exit=0

@@ -1,8 +1,0 @@
-{
-  "command": [
-    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6475-position-key-build/control6477-previous-test_walk"
-  ],
-  "exit_code": 0,
-  "stdout": "test_walk: all passed\n",
-  "stderr": ""
-}

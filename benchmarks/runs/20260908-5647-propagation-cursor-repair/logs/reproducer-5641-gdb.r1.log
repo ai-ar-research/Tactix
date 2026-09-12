@@ -1,9 +1,0 @@
-"Auto-loading safe path" section in the GDB manual.  E.g., run from the shell:
-	info "(gdb)Auto-loading safe path"
-[Thread debugging using libthread_db enabled]
-Using host libthread_db library "/lib64/libthread_db.so.1".
-Program received signal SIGSEGV, Segmentation fault.
-0x0000000000000000 in ?? ()
-#0  0x0000000000000000 in ?? ()
-#1  0x0000000000404969 in fixture(unsigned int, bool, bool, bool, bool, unsigned int) ()
-#2  0x0000000000402526 in main ()

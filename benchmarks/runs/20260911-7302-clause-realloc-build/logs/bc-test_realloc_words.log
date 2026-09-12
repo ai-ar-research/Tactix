@@ -1,2 +1,0 @@
-realloc-words operations=35815 exact size/capacity/value replay
-realloc-words forced-move/failure/overflow/tagged/copy/move/zero PASS

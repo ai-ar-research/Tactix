@@ -1,7 +1,0 @@
-{
-  "parent_candidate_bad_proofs_identical": true,
-  "proof_sha256": "00ee221666a2712b88350abb7b479f248fd20de8a999d0d498352be1f76f9803",
-  "fixture_sha256": "d8feeda2afc9bf0889a86873618fd0e88ba5d736aef57ed84f25722a1eceeb0b",
-  "cause": "Direct kernel_add_* used default id0 and left next_clause_id0. The frontend assigns original clause IDs; omitted by this fixture. Both actual old/new objects emit byte-identical malformed LRAT. Correct fixture import, not solver.",
-  "checker_output": "c parsed a formula with 16 variables and 26 clauses\nc failed while checking clause: -2 1 0\nc check redundancy res: 0 pivot: -2 start: 0\nc SUCCESS\nc start 1 first 0\nc WARNING: Verification incomplete. Last line checked = 1\nc NOT VERIFIED\nc allocated 1024 117 160\nc Added clauses = 26.  Deleted clauses = 0.  Max live clauses = 26\nc verification time = 0.00 secs\n"
-}

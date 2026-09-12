@@ -1,2 +1,0 @@
-rounds=1 eliminated=4 heap_equal=0 expected: 11 2 15 14 13 6 7 16 12 actual: 14 2 15 13 12 6 7 16 11
-rounds=2 eliminated=4 heap_equal=0 expected: 11 2 15 14 13 6 7 16 12 actual: 14 2 15 13 12 6 7 16 11
