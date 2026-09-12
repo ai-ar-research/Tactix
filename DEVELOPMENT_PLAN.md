@@ -210,7 +210,7 @@ their owning documents.
 | M2 | `Decide` | none (`H`) | 1 |
 | M3 | `ConflictAnalysis` (learn + backjump) | add-RUP | 1 |
 | M4 | folded into M3 | — | — |
-| S1 | `Restart` | none | 1 |
+| S1 | `Restart` | none; empty if the retained root refutes | 1 |
 | S2 | `Reduce` | delete | 1 |
 | S3 | `Rephase` policy operation | none (`H`) | 2 |
 | S4 | `SwitchMode` policy operation | none (`H`) | 1 |

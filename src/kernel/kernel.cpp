@@ -2833,6 +2833,14 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
     assert(!c->garbage() && "pending learned clause retired before Backjump");
     k.pending.ref = c->searched;
   }
+  if (k.conflict_valid && k.conflict_ref != INVALID_REF) {
+    const Clause *c = clause_at(k.arena, k.conflict_ref);
+    // Conflict-state Reduce marks this clause as a reason before collection,
+    // so its proof antecedent remains live and receives an ordinary forwarding
+    // pointer.  A binary conflict has INVALID_REF and needs no forwarding.
+    assert(!c->garbage() && "conflict clause retired before analysis");
+    k.conflict_ref = c->searched;
+  }
   if (preserve_eager_recent)
     for (Ref &ref : k.eager_recent) {
       if (ref == INVALID_REF)

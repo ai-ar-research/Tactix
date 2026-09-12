@@ -94,7 +94,9 @@ static tactix *prepare(int id) {
   if (!strcmp(name, "Propagate")) {
     assert(tactix_decide(s, 5) == 0); /* a decision leaves the queue nonempty */
   } else if (!strcmp(name, "Restart")) {
-    assert(tactix_decide(s, 5) == 0); /* restart_guard wants level > 0 */
+    /* Exercise both noncanonical keep-levels; the root no-op is covered by
+       the dedicated C API state-boundary test. */
+    assert(tactix_decide(s, 5) == 0);
     assert(tactix_apply(s, rule_id("Propagate")) != -1);
   } else if (!strcmp(name, "ConflictAnalysis")) {
     /* three decisions falsify (17 18 19) outright, so propagation reports the

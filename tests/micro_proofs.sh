@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
 # Micro-formula proof tests (N2): tiny UNSAT formulas through the real binary;
 # DRAT accepted by drat-trim in both binary and ascii encodings, native LRAT
-# accepted by lrat-check. Exit 77 (ctest SKIP) without a checker.
+# accepted by lrat-check and targeted chains by cake_lpr. Exit 77 (ctest SKIP)
+# without a checker.
 set -euo pipefail
 TACTIX="$1"
 ROOT="$2"
 DRAT_TRIM="$ROOT/tools/checkers/bin/drat-trim"
 LRAT_CHECK="$ROOT/tools/checkers/bin/lrat-check"
+CAKE_LPR="$ROOT/tools/checkers/bin/cake_lpr"
 ANALYZE_TEST="${3:-}"
 CONGRUENCE_TEST="${4:-}"
+RESTART_TEST="${5:-}"
 [ -x "$DRAT_TRIM" ] || { echo "drat-trim not built — skipping"; exit 77; }
 
 T="$(mktemp -d)"
@@ -139,6 +142,36 @@ if [ -n "$ANALYZE_TEST" ] && [ -x "$LRAT_CHECK" ]; then
   grep -q 'c VERIFIED' "$T/check" \
     || { echo "FAIL: lrat-check gave no verdict on level-one failed batch"; \
          cat "$T/check"; exit 1; }
+fi
+
+# A full Restart can expose a conflict made entirely of chronological
+# level-zero implications while the solver stood above root. Restart must
+# discharge that conflict before any root rewrite can retire its antecedent.
+if [ -n "$RESTART_TEST" ] && [ -x "$CAKE_LPR" ]; then
+  cnf="$T/restart-root-conflict.cnf"
+  printf 'p cnf 3 3\n-1 0\n-2 0\n1 2 0\n' > "$cnf"
+  proof="$cnf.lrat"
+  "$RESTART_TEST" "$proof"
+  "$CAKE_LPR" "$cnf" "$proof" > "$T/check" 2>&1 \
+    || { echo "FAIL: native LRAT of Restart root conflict rejected by cake_lpr"; \
+         cat "$T/check"; exit 1; }
+  grep -Eq '^s VERIFIED[[:space:]]+UNSAT$' "$T/check" \
+    || { echo "FAIL: cake_lpr gave no Restart root-conflict verdict"; \
+         cat "$T/check"; exit 1; }
+  # Keep the oracle live: the same empty lemma with an incomplete hint chain
+  # must be rejected.  This catches verdict parsing and checker invocation
+  # mistakes in addition to checking the positive proof.
+  printf '4 0 1 3 0\n' > "$T/restart-root-conflict-bad.lrat"
+  "$CAKE_LPR" "$cnf" "$T/restart-root-conflict-bad.lrat" \
+    > "$T/check-bad" 2>&1 || true
+  if grep -Eq '^s VERIFIED[[:space:]]+UNSAT$' "$T/check-bad"; then
+    echo "FAIL: cake_lpr accepted invalid Restart root-conflict control"
+    cat "$T/check-bad"
+    exit 1
+  fi
+  grep -q 'Checking failed at' "$T/check-bad" \
+    || { echo "FAIL: cake_lpr gave no rejection for invalid Restart control"; \
+         cat "$T/check-bad"; exit 1; }
 fi
 
 # Congruence's additive semantic surface must carry the same native proof

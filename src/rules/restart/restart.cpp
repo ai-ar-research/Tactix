@@ -2,6 +2,7 @@
 // policy state (focused: Glucose EMA scheme; stable: reluctant doubling —
 // both in DefaultPolicy); HOW — including trail reuse — is here.
 #include "rules/restart/restart.hpp"
+#include "rules/analyze/analyze.hpp"
 
 namespace tactix {
 
@@ -11,9 +12,36 @@ namespace tactix {
 // this module only knows HOW.
 RuleEligibility restart_guard(const Kernel &k) {
   RuleEligibility result;
-  return result.fact("no-conflict", !k.conflict_valid)
-      .fact("consistent", !k.inconsistent)
-      .fact("nonroot-level", k.level > 0);
+  return result.fact("consistent", !k.inconsistent);
+}
+
+static bool recorded_conflict_still_holds(const Kernel &k) {
+  if (!k.conflict_valid)
+    return false;
+  if (k.conflict_ref == INVALID_REF)
+    return k.value(k.conflict_bin[0]) < 0 && k.value(k.conflict_bin[1]) < 0;
+  const Clause *conflict = clause_at(k.arena, k.conflict_ref);
+  for (const Lit lit : *conflict)
+    if (k.value(lit) >= 0)
+      return false;
+  return true;
+}
+
+static ApplyResult refresh_recorded_conflict(Kernel &k) {
+  if (recorded_conflict_still_holds(k)) {
+    // Chronological backtracking can retain root-level implications above a
+    // decision frame. If every conflict literal survives a full restart, the
+    // root formula is refuted. Discharge it immediately through Analyze's
+    // native DRAT/LRAT path; otherwise a root rewrite could retire the live
+    // conflict antecedent before the caller explicitly selected Analyze.
+    if (k.level == 0)
+      return analyze_apply(k);
+    return ApplyResult::Ok;
+  }
+  k.conflict_valid = false;
+  k.conflict_ref = INVALID_REF;
+  k.conflict_bin[0] = k.conflict_bin[1] = INVALID_LIT;
+  return ApplyResult::Ok;
 }
 
 ApplyResult restart_backtrack_to(Kernel &k, uint32_t keep_level) {
@@ -22,7 +50,7 @@ ApplyResult restart_backtrack_to(Kernel &k, uint32_t keep_level) {
     keep_level = k.level; // keep at most the whole trail
   if (keep_level < k.level)
     kernel_backtrack(k, keep_level);
-  return ApplyResult::Ok;
+  return refresh_recorded_conflict(k);
 }
 
 ApplyResult restart_apply_to(Kernel &k, uint32_t keep_level) {

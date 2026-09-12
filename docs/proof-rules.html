@@ -374,8 +374,9 @@ assert UIP with true level 2</div><p>The extra decisions remain, but the asserti
           <div class="rule-content"><div class="tabs"><button class="tab active" data-panel="formal">Formal calculus</button><button class="tab" data-panel="plain">Informal</button><button class="tab" data-panel="examples">Examples</button></div>
             <section class="panel" data-panel-content="formal"><div class="equation">F consistent and not refuted
 ────────────────────────────── S1(k)
-⟨F,R,τ,ρ,π⟩ → ⟨F,R,prefixₖ(τ),ρ,π⟩      δ = ε</div><div class="formal-grid"><div class="formal-block"><h4>Effect</h4><p>Drop to a chosen keep level; clauses and proof state stay unchanged.</p></div><div class="formal-block"><h4>Soundness</h4><p>Removing temporary assumptions cannot remove or create formula models.</p></div></div></section>
-            <section class="panel" data-panel-content="plain"><p class="plain"><strong>Start searching from a shallower point without forgetting learned clauses.</strong> Restarts change the route through the search tree, not the formula.</p></section>
+⟨F,R,τ,ρ,π⟩ → ⟨F,R,prefixₖ(τ),ρ,π⟩      δ = ε
+if prefix₀(τ) still falsifies a recorded conflict: Refuted, δ = add_empty</div><div class="formal-grid"><div class="formal-block"><h4>Effect</h4><p>Drop to a chosen keep level; clauses stay unchanged. Clear a stale conflict, retain a non-root conflict, or prove a surviving root conflict.</p></div><div class="formal-block"><h4>Soundness</h4><p>Removing temporary assumptions cannot remove or create formula models; a conflict supported entirely by proved root assignments refutes the formula.</p></div></div></section>
+            <section class="panel" data-panel-content="plain"><p class="plain"><strong>Start searching from a shallower point without forgetting learned clauses.</strong> Restarts change the route through the search tree. If the root facts alone still falsify a recorded clause, the solver emits the empty-clause proof and stops.</p></section>
             <section class="panel" data-panel-content="examples"><div class="examples"><div class="example"><h4>Full restart</h4><div class="equation">τ = [u@0, a@1, b@2, c@3]
 Restart(0)
 ⇒ τ′ = [u@0]</div><p>Only root facts survive.</p></div><div class="example"><h4>Prefix restart</h4><div class="equation">τ = [u@0, a@1, b@2, c@3]

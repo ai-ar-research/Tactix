@@ -261,7 +261,8 @@ add_test(NAME micro_proofs
          COMMAND ${CMAKE_SOURCE_DIR}/tests/micro_proofs.sh
                  $<TARGET_FILE:tactix> ${CMAKE_SOURCE_DIR}
                  $<TARGET_FILE:test_analyze>
-                 $<TARGET_FILE:test_congruence>)
+                 $<TARGET_FILE:test_congruence>
+                 $<TARGET_FILE:test_restart_reduce>)
 set_tests_properties(micro_proofs PROPERTIES SKIP_RETURN_CODE 77)
 
 # Sweep: every proof it produces, replayed through the real checkers (drat-trim

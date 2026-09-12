@@ -807,7 +807,9 @@ bool DefaultPolicy::want_rephase(const Kernel &k) const {
 }
 
 ApplyResult DefaultPolicy::prepare_rephase_root(Kernel &k) {
-  if (restart_guard(k)) {
+  // Restart is publicly applicable as a level-zero no-op, but this helper
+  // preserves the shipped policy's old root-preparation schedule.
+  if (k.level > 0 && restart_guard(k)) {
     heuristics_update_target_phases(k);
     (void)default_direct_rule(k, "Restart", "keep-level=0;rephase=1",
                               [&] { return restart_backtrack_to(k, 0); });
@@ -3075,7 +3077,10 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                                 avg.fast_glue.value, avg.slow_glue.value,
                                 config_.restart.glue_margin, want_restart(k));
     }
-    if (want_restart(k) && restart_guard(k)) {
+    // The public Restart rule is applicable at level zero as an explicit
+    // no-op. DefaultPolicy retains Kissat's scheduling choice to restart only
+    // when there is a search prefix to abandon.
+    if (want_restart(k) && k.level > 0 && restart_guard(k)) {
       event_trace.macro(k, "restart_begin");
       // Kissat restart.c asks `kissat_next_decision_variable` for the reuse
       // threshold.  That call is semantically part of restart: during a
