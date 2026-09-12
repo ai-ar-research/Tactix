@@ -86,10 +86,8 @@ fuzz or performance gates.
    do not hide them in aggregates.
 3. Close the remaining source/documentation review findings and land one
    coherent verified commit.
-4. Only after the refactor/N1 gate passes, submit the committed Tactix Tier-D
-   campaign with `-c=4`, 32 GiB and a 1200-second solver timeout through the
-   experimental anonymous node-local scratch runner that unlinks formula,
-   proof and model scratch on normal exit, timeout, crash, OOM and cancellation.
+4. Monitor committed-source Tier-D job `1683876`; summarize it only after all
+   solver verdicts and the corresponding model/proof checks are terminal.
 
 ## Acceptance gates
 
@@ -130,11 +128,15 @@ Their first SAT records exposed an omitted `modelcheck.py` pin; solver timings
 remain usable, but those final records are invalid. Corrective job `1683830`
 completed all 42 SAT-only reruns with independently verified original-input
 models and clean scratch; valid UNSAT cases and reference solvers were not
-rerun. B28+C5 is now 33/33 valid. Rank is 43/50 valid (25 corrected models and
-18 proofs); seven long proof checks continue in the background. No Tier-D
-campaign or storage guard is running. The three visible `bash` allocations are
-pre-existing interactive sessions and remain untouched. Consolidated evidence
-is in the [refactor/N1 gate report](benchmarks/reports/2026-09-12-refactor-n1-gates.md).
+rerun. B28+C5 is now 33/33 valid. Rank is 47/50 valid (25 corrected models and
+22 proofs); three long proof checks continue in the background. Tier-D validation
+job `1683875` passed native SAT/model, UNSAT/DRAT, crash and timeout cleanup;
+committed-source array `1683876` now covers all 1,166 instances on `cpu-q` with
+four CPUs, 32 GiB and a 1,200-second solver timeout. Its input, proof, model and
+checker scratch is anonymous node-local `O_TMPFILE` storage. No storage guard is
+running. The three visible `bash` allocations are pre-existing interactive
+sessions and remain untouched. Consolidated evidence is in the
+[refactor/N1 gate report](benchmarks/reports/2026-09-12-refactor-n1-gates.md).
 
 Historical matched reference results are the baseline; do not rerun reference
 solvers unless explicitly requested. Fixed controls remain at
