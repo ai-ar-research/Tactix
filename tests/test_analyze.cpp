@@ -364,7 +364,10 @@ static void test_singleton_block_skips_minimization() {
   assert(k.stats.minimized == 0);
 }
 
-static Kernel minimization_depth_fixture(uint32_t chain, bool binary) {
+static Kernel minimization_depth_fixture(
+    uint32_t chain, bool binary,
+    uint32_t depth_limit =
+        strategy::AnalyzeParameters::MINIMIZE_DEPTH_DEFAULT) {
   // a is the learned anchor, z is a root-false side literal in every large
   // reason, and x[0..chain) imply one another from a.  The second level-2
   // literal y depends on the absent lower-level decision c, which makes block
@@ -375,6 +378,7 @@ static Kernel minimization_depth_fixture(uint32_t chain, bool binary) {
   const uint32_t a = 1, z = 2, c = 3, b = 4, first_x = 5;
   const uint32_t y = first_x + chain, d = y + 1;
   Kernel k;
+  k.analyze_parameters.minimize_depth_limit = depth_limit;
   kernel_reserve_vars(k, d);
   kernel_assign_unit(k, internalize(z));
   kernel_assign_decision(k, internalize(a));
@@ -432,6 +436,19 @@ static void test_minimization_depth_matches_kissat() {
   assert(rejected.pending.lits.size() == 4);
   assert(rejected.stats.minimized == 0);
   assert(rejected.stats.minimize_depth_cutoffs == 1);
+
+  Kernel small_admitted = minimization_depth_fixture(2, false, 2);
+  assert(small_admitted.pending.lits.size() == 3);
+  assert(small_admitted.stats.minimized == 1);
+  Kernel small_rejected = minimization_depth_fixture(3, false, 2);
+  assert(small_rejected.pending.lits.size() == 4);
+  assert(small_rejected.stats.minimized == 0);
+  assert(small_rejected.stats.minimize_depth_cutoffs == 1);
+  Kernel disabled = minimization_depth_fixture(1, false, 0);
+  assert(disabled.pending.lits.size() == 4);
+  Kernel unbounded = minimization_depth_fixture(1100, false, UINT32_MAX);
+  assert(unbounded.pending.lits.size() == 3);
+  assert(unbounded.stats.minimize_depth_cutoffs == 0);
 }
 
 static Kernel learned_stable_order_fixture() {
@@ -558,6 +575,8 @@ static void test_large_otfs_shrinks_reason_in_place() {
   std::fill(k.factor_marks.begin(), k.factor_marks.end(), 0);
   std::fill(k.bve_retry.begin(), k.bve_retry.end(), 0);
   const uint64_t touch_before = k.touch_epoch;
+  kernel_clear_subsume_material(k);
+  const uint64_t material_before = k.subsume_material_count;
   assert(analyze_apply(k) == ApplyResult::Ok);
   assert(k.stats.otfs_strengthened == 1);
   assert(k.stats.conflict_reused == 0);
@@ -577,6 +596,9 @@ static void test_large_otfs_shrinks_reason_in_place() {
   assert(k.touched[var_of(internalize(-2))] == touch_before + 5);
   assert(k.touched[var_of(internalize(-1))] == touch_before + 6);
   assert(!kernel_touched_since(k, var_of(internalize(5)), touch_before));
+  assert(k.subsume_material_count == material_before + 4);
+  for (Var v = 0; v < 5; ++v)
+    assert(kernel_has_subsume_material(k, v) == (v < 4));
   assert(k.factor_marks[internalize(-3)]);
   assert(k.factor_marks[internalize(-4)]);
   assert(k.factor_marks[internalize(-1)]);

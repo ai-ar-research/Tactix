@@ -15,12 +15,6 @@
 
 namespace tactix {
 
-constexpr uint32_t STRENGTHEN_CLSLIM = 1000;
-// Pinned Kissat options.h `subsumeocclim`: one limit for the complete mixed
-// dense watch stream (binary and large entries alike).
-constexpr uint32_t STRENGTHEN_OCCLIM = 1000;
-constexpr uint32_t STRENGTHEN_BINLIM = 10000;
-
 // Guard: quiescent root, C1's argument — value semantics plus no in-flight
 // reasons; reaching the root is the policy's job.
 RuleEligibility strengthen_guard(const Kernel &);
@@ -42,6 +36,20 @@ void strengthen_candidates(const Kernel &, std::vector<Ref> &out,
 // so widening the victim set leaves the partner set alone.
 ApplyResult strengthen_try(Kernel &, Ref candidate);
 
+// Additive semantic surface: each payload selects one distinct fused result
+// (victim plus literal to remove, or INVALID_LIT for C1 deletion). This is the
+// same snapshot encoding
+// used by Instantiate: arena Ref in the high word, internal literal in the low
+// word. Any state mutation invalidates it.
+inline uint64_t strengthen_literal_instance(Ref candidate, Lit gone) {
+  return (static_cast<uint64_t>(candidate) << 32) | gone;
+}
+inline void strengthen_literal_of_instance(uint64_t instance, Ref *candidate,
+                                           Lit *gone) {
+  *candidate = static_cast<Ref>(instance >> 32);
+  *gone = static_cast<Lit>(instance);
+}
+
 // Canonical: the full round, FUSED — it takes C1's inference whenever the check
 // finds one, so the default slot schedules this rule instead of SubsumeForward
 // while C1 stays registered and N1-exposed. Strengthened clauses are rebuilt
@@ -49,10 +57,16 @@ ApplyResult strengthen_try(Kernel &, Ref candidate);
 // root-falsified literals stripped and their unit ids joining the chain.  As in
 // Kissat's forward pass, a candidate gets at most one action per round; a
 // strengthened large survivor is connected for later candidates and re-armed
-// for a later round. A unit result is asserted at the root and ends the round;
-// an empty result refutes, which is
+// for a later round. A unit result is propagated through the current partial
+// forward connection image before continuing; an empty result refutes, which is
 // reachable because an N1 history can leave a root engine-quiescent yet
 // semantically under-derived (corpus 002).
 ApplyResult strengthen_apply(Kernel &);
+
+// Eliminate's post-forward service, separate from canonical C2 and explicit
+// actions: reconnect the full irredundant image, replay from the saved entry
+// cursor, then flush satisfied large clauses before scheduling BVE. Uses the
+// existing unit/refutation proof vocabulary; requires root dense ordered mode.
+ApplyResult strengthen_reconnect_and_flush(Kernel &, uint32_t trail_from);
 
 } // namespace tactix

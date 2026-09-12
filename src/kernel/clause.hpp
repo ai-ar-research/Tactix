@@ -13,6 +13,7 @@
 #pragma once
 
 #include "kernel/types.hpp"
+#include "kernel/realloc_words.hpp"
 
 #include <vector>
 
@@ -119,7 +120,11 @@ inline uint32_t clause_actual_words(const Clause *c) {
                                reinterpret_cast<const uint32_t *>(c));
 }
 
-using Arena = std::vector<uint32_t>;
+// Preserve the old word-vector capacities and initialization, but allow the
+// allocator to grow the existing backing store (Kissat's arena also reallocs).
+// Refs remain word offsets; no borrowed Clause pointer survives arena growth.
+// Collection still owns a distinct fresh arena and its existing forwarding.
+using Arena = ReallocWords<uint32_t>;
 
 inline Clause *clause_at(Arena &arena, Ref ref) {
   assert(ref + CLAUSE_HEADER_WORDS <= arena.size());

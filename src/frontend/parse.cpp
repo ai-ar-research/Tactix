@@ -119,6 +119,14 @@ void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
   // Every input clause consumes one proof id in input order, including
   // tautologies and duplicates that are never stored (LRAT input numbering).
   const uint64_t id = ++k.next_clause_id;
+  // Headerless C API input has no earlier identity-map reservation. Diagnostic
+  // proof shadowing translates raw literals through that map, so grow it before
+  // recording the original clause (still before normalization/import reorder).
+  Var maxv = 0;
+  for (const Lit l : scratch)
+    maxv = std::max(maxv, var_of(l));
+  if (!scratch.empty())
+    kernel_reserve_vars(k, maxv + 1);
   // Seed the diagnostic proof shadow from the checker's ACTUAL starting
   // population, before normalization changes or drops this clause. The checker
   // reads every file clause, including tautologies and duplicate copies; a
@@ -127,13 +135,6 @@ void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
   if (k.proof && k.proof->population_shadow())
     k.proof->seed_population(id, scratch.data(),
                              static_cast<uint32_t>(scratch.size()));
-
-  // Grow the kernel to cover every mentioned variable.
-  Var maxv = 0;
-  for (const Lit l : scratch)
-    maxv = std::max(maxv, var_of(l));
-  if (!scratch.empty())
-    kernel_reserve_vars(k, maxv + 1);
 
   // Kissat's default `tumble=1` imports variables by first occurrence and
   // activates the literals of each surviving clause in that same file order
@@ -316,7 +317,7 @@ void finish_input(Kernel &k) {
         assert(k.unassigned_active > 0);
         k.unassigned_active--;
         k.var_status[v] = VarStatus::Eliminated;
-        if (k.retire_enabled && k.h)
+        if (k.h)
           heuristics_deactivate_var(k, v);
         else
           k.retired_events.push_back(v);

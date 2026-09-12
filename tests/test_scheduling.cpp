@@ -573,7 +573,7 @@ static void test_vivify_scope_tracks_tier2(void) {
   const uint32_t wide = candidates_at(10);
   assert(wide > narrow &&
          "Vivify's redundant scope ignored Kernel::tier2 -- it is back on the "
-         "static VIVIFY_TIER2 and the dynamic tier is unwired again (SCHED-C1)");
+         "the dynamic Vivify tier is unwired again (SCHED-C1)");
   printf("  vivify scope: tier2=2 -> %u candidates, tier2=10 -> %u\n", narrow,
          wide);
 }
@@ -898,8 +898,8 @@ static void test_rule_boundary_deactivates_root_before_substitute_member(void) {
   std::printf("  rule lifecycle: root fixed before substituted heap removal\n");
 }
 
-// --- the authored slot order covers the registry ----------------------------
-// The slot order is data (default_slot_order), and an unnamed rule is still
+// --- the strategy-owned slot program covers the registry -------------------
+// The slot order is strategy data, and an unnamed rule is still
 // scheduled — appended in registry order — so its position becomes an accident.
 // Every Inprocess-tier rule needs an authored position, and every authored row
 // needs a rule registered at that tier.
@@ -917,7 +917,7 @@ static void test_authored_slot_order_covers_registry(void) {
       std::printf("  UNAUTHORED Inprocess rule: %s\n", r.name);
     assert(found &&
            "an Inprocess-tier rule has no authored slot position -- give it one "
-           "in AUTHORED_SLOT_ORDER (SCHED-D1); the append fallback puts it last "
+           "in the reference strategy program (SCHED-D1); the append fallback puts it last "
            "by accident, which is the T6 defect");
   }
   for (size_t o = 0; o < norder; o++) {
@@ -927,10 +927,101 @@ static void test_authored_slot_order_covers_registry(void) {
               (r.tier == RuleTier::Inprocess && !std::strcmp(order[o].name, r.name));
     if (!found)
       std::printf("  STALE authored row: %s\n", order[o].name);
-    assert(found && "AUTHORED_SLOT_ORDER names a rule that is not registered at "
+    assert(found && "the reference strategy program names an unregistered "
                     "the Inprocess tier");
   }
   std::printf("  authored slot order: %zu rows, registry-complete\n", norder);
+}
+
+// Inprocessing is a root-formula phase. A strategy that is currently searching
+// must compose an explicit Restart before any registry member becomes legal.
+static void test_inprocess_registry_requires_root(void) {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  ScopedHeuristics heuristics(k);
+  for (const RuleVTable &rule : tactix_rules()) {
+    if (rule.tier != RuleTier::Inprocess)
+      continue;
+    assert(rule.guard(k));
+    k.level = 1;
+    assert(!rule.guard(k));
+    k.level = 0;
+  }
+}
+
+static void test_typed_program_preserves_default_and_composes_occurrences() {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  DefaultStrategyConfig defaults;
+  DefaultPolicy reference(defaults);
+  reference.inprocess().build(k);
+  assert(reference.inprocess().entries.size() == defaults.inprocess.program.size());
+  const auto &rules = tactix_rules();
+  for (size_t i = 0; i < defaults.inprocess.program.size(); ++i) {
+    const strategy::InprocessStep &step = defaults.inprocess.program[i];
+    const auto &entry = reference.inprocess().entries[i];
+    const SlotGroup expected_group =
+        step.phase == strategy::InprocessPhase::Probe ? SlotGroup::Probe
+                                                       : SlotGroup::Eliminate;
+    const FollowupKind expected_followup =
+        step.followup == strategy::Followup::AfterCongruence
+            ? FollowupKind::AfterCongruence
+            : step.followup == strategy::Followup::AfterSweepOrFinal
+                  ? FollowupKind::AfterSweepOrFinal
+                  : FollowupKind::None;
+    assert(entry.step_id == step.id);
+    assert(!std::strcmp(rules[entry.rule].name, step.rule.c_str()));
+    assert(entry.group == expected_group);
+    assert(entry.enabled == step.enabled);
+    assert(entry.preprocess == step.preprocessing);
+    assert(entry.followup == expected_followup);
+  }
+
+  DefaultStrategyConfig custom;
+  custom.inprocess.append_unlisted_rules = false;
+  strategy::BveParameters posed_bve;
+  posed_bve.growth_bound = 7;
+  strategy::StrengthenParameters posed_strengthen;
+  posed_strengthen.clause_size_limit = 11;
+  posed_strengthen.occurrence_limit = 13;
+  custom.inprocess.program = {
+      {91, "Sweep", strategy::InprocessPhase::Probe, true, true},
+      {92, "BVE", strategy::InprocessPhase::Eliminate, true},
+      {93, "Sweep", strategy::InprocessPhase::Eliminate, false},
+      {94, "Strengthen", strategy::InprocessPhase::Probe, true, false,
+       strategy::Followup::None, posed_strengthen},
+  };
+  custom.inprocess.program[1].parameters = posed_bve;
+  custom.inprocess.program[1].effort_permille = 7;
+  custom.inprocess.program[1].max_applications = 3;
+  custom.inprocess.program[1].cursor_enabled = true;
+  custom.inprocess.program[1].candidate_order = CandidateOrder::Reverse;
+  DefaultPolicy composed(custom);
+  composed.inprocess().build(k);
+  assert(composed.inprocess().entries.size() == 4);
+  static constexpr const char *names[] = {"Sweep", "BVE", "Sweep",
+                                           "Strengthen"};
+  for (size_t i = 0; i < 4; ++i) {
+    const auto &entry = composed.inprocess().entries[i];
+    assert(entry.step_id == 91 + i);
+    assert(!std::strcmp(rules[entry.rule].name, names[i]));
+  }
+  assert(composed.inprocess().entries[0].preprocess);
+  assert(composed.inprocess().entries[0].group == SlotGroup::Probe);
+  assert(composed.inprocess().entries[1].group == SlotGroup::Eliminate);
+  assert(composed.inprocess().entries[1].permille == 7);
+  assert(composed.inprocess().entries[1].max_applies == 3);
+  assert(composed.inprocess().entries[1].cursor_enabled);
+  assert(composed.inprocess().entries[1].order == CandidateOrder::Reverse);
+  const auto *posed_entry = std::get_if<strategy::BveParameters>(
+      &composed.inprocess().entries[1].parameters);
+  assert(posed_entry && posed_entry->growth_bound == 7);
+  assert(composed.inprocess().entries[2].group == SlotGroup::Eliminate);
+  assert(!composed.inprocess().entries[2].enabled);
+  const auto *forward = std::get_if<strategy::StrengthenParameters>(
+      &composed.inprocess().entries[3].parameters);
+  assert(forward && forward->clause_size_limit == 11 &&
+         forward->occurrence_limit == 13);
 }
 
 static void test_default_slot_membership_matches_kissat(void) {
@@ -1212,6 +1303,7 @@ static void test_slot_gates_decline_without_new_material(void) {
   p.inprocess().probe_clock.reductions_mark = k.stats.reductions;
   p.inprocess().elim_clock.marks_mark = k.stats.bve_marks;
   p.inprocess().elim_clock.fixed_mark = kernel_root_fixed(k);
+  p.inprocess().elim_clock.material_mark = k.subsume_material_count;
   assert(!p.inprocess().want_phase(k, SlotGroup::Eliminate) &&
          "an elimination phase fired with no new material (SCHED-D3)");
   assert(!p.inprocess().want_phase(k, SlotGroup::Probe) &&
@@ -1236,6 +1328,7 @@ static void test_slot_gates_decline_without_new_material(void) {
   q.inprocess().probe_clock.reductions_mark = k.stats.reductions;
   q.inprocess().elim_clock.marks_mark = k.stats.bve_marks;
   q.inprocess().elim_clock.fixed_mark = kernel_root_fixed(k);
+  q.inprocess().elim_clock.material_mark = k.subsume_material_count;
   assert(q.inprocess().want_phase(k, SlotGroup::Probe) &&
          q.inprocess().want_phase(k, SlotGroup::Eliminate) &&
          "the preprocessing phase must not be gated");
@@ -1554,15 +1647,14 @@ static void test_jump_reason_formula_classification(void) {
   std::printf("  jump reasons: Kissat small/bigbig classification gates search\n");
 }
 
-static void test_preprocess_followup_legacy_arm(void) {
-  assert(setenv("TACTIX_PREPROCESS_FOLLOWUPS", "0", 1) == 0);
+static void test_preprocess_followup_typed_arm(void) {
   Kernel k;
   kernel_reserve_vars(k, 4);
-  DefaultPolicy p;
-  p.inprocess().configure_from_env();
+  DefaultStrategyConfig config;
+  config.inprocess.preprocess_followups = false;
+  DefaultPolicy p(config);
   p.inprocess().build(k);
   assert(p.inprocess().run_phase(k, SlotGroup::Probe, nullptr) == 0);
-  assert(unsetenv("TACTIX_PREPROCESS_FOLLOWUPS") == 0);
   const auto &rules = tactix_rules();
   unsigned seen = 0;
   for (const auto &e : p.inprocess().entries)
@@ -1572,7 +1664,7 @@ static void test_preprocess_followup_legacy_arm(void) {
       assert(e.tm.followup_offered == 0 && e.tm.followup_taken == 0);
     }
   assert(seen == 2);
-  std::printf("  preprocess followups: legacy arm calls both entries\n");
+  std::printf("  preprocess followups: typed arm calls both entries\n");
 }
 
 static void test_reorder_ships_in_both_modes(void) {
@@ -1620,7 +1712,73 @@ static void test_startup_sparse_collection_precedes_probe(void) {
          "startup collection is scaffolding, not an authored C2 slot");
 }
 
+static void test_eliminate_owns_physical_dense_transition() {
+  struct Observe : CandidateOrderPolicy {
+    bool called = false, connected = false;
+    uint32_t large_words = 0;
+    const char *name() const override { return "observe-dense-entry"; }
+    void rank(const Kernel &k, uint32_t, uint64_t *, uint32_t) override {
+      if (called)
+        return;
+      called = true;
+      connected = k.large_watches_connected;
+      for (Lit l = 0; l < 2 * k.nvars; ++l)
+        large_words += k.watches.size(l) - k.watches.binary_size(l);
+    }
+  } observer;
+  Kernel k;
+  ScopedHeuristics heuristics(k);
+  kernel_reserve_vars(k, 4);
+  const Lit lits[] = {internalize(1), internalize(2), internalize(3)};
+  kernel_add_large_clause(k, lits, 3, false, 0, 1);
+  kernel_add_binary_clause(k, internalize(-1), internalize(4), 2);
+  const auto watch_words = [&k](uint32_t *large, uint32_t *binary) {
+    *large = *binary = 0;
+    for (Lit l = 0; l < 2 * k.nvars; ++l) {
+      *binary += k.watches.binary_size(l);
+      *large += k.watches.size(l) - k.watches.binary_size(l);
+    }
+  };
+  uint32_t large_before = 0, binary_before = 0;
+  watch_words(&large_before, &binary_before);
+  assert(large_before > 0 && binary_before > 0 && k.large_watches_connected);
+  // Eliminate is a search-time phase: DefaultPolicy's BVE entry defers
+  // preprocessing (kissat fastel=0) and slot admission declines every
+  // non-preprocess entry while `conflicts == 0`.  Pose the search-time call.
+  k.stats.conflicts = 1;
+  // The dosed loop consults the retry advice only after ranking.  Holding it
+  // at zero keeps every candidate out of the dose, so the formula survives
+  // and the exit's sparse restoration is observable rather than vacuous.
+  std::fill(k.bve_retry.begin(), k.bve_retry.end(), uint8_t{0});
+  DefaultPolicy p;
+  p.inprocess().pose_initialized();
+  p.inprocess().candidate_order = &observer;
+  DefaultInprocessScheduler::SlotEntry e;
+  e.rule = tactix_rule_id("BVE");
+  e.group = SlotGroup::Eliminate;
+  e.dosed = true;
+  e.order = CandidateOrder::Reverse;
+  e.max_applies = 1;
+  e.meter = [](const Kernel &) -> uint64_t { return 0; };
+  p.inprocess().entries.push_back(e);
+  assert(p.inprocess().run_phase(k, SlotGroup::Eliminate, nullptr) != 20);
+  const DefaultInprocessScheduler::SlotEntry &ran = p.inprocess().entries[0];
+  assert(ran.applies == 1 && ran.tm.admitted == 1 && ran.ord.lists == 1 &&
+         "the dosed BVE entry must reach its candidate ranking");
+  assert(observer.called && !observer.connected && observer.large_words == 0);
+  assert(k.stats.bve_eliminated == 0 && "the retry advice kept the formula");
+  assert(k.large_watches_connected && !k.dense);
+  uint32_t large_after = 0, binary_after = 0;
+  watch_words(&large_after, &binary_after);
+  assert(large_after == large_before && binary_after == binary_before &&
+         "phase exit must restore the ordinary sparse watches");
+  kernel_check_invariants(k);
+  std::printf("  eliminate entry: sparse watches flushed, dense image only, "
+              "restored at exit\n");
+}
+
 int main() {
+  test_eliminate_owns_physical_dense_transition();
   test_mode_growth_key_matches_kissat();
   test_reason_bump_depth_matches_kissat();
   test_reason_bump_delay_lives_at_final_clause_gate();
@@ -1637,7 +1795,7 @@ int main() {
   test_inprocess_does_not_save_probe_phases();
   test_probe_entry_does_not_snapshot_target_phases();
   test_jump_reason_formula_classification();
-  test_preprocess_followup_legacy_arm();
+  test_preprocess_followup_typed_arm();
   test_reorder_ships_in_both_modes();
   test_startup_sparse_collection_precedes_probe();
   test_slot_cursor_rotates();
@@ -1654,6 +1812,8 @@ int main() {
   test_substitute_overshoot_stops_only_optional_round();
   test_rule_boundary_deactivates_root_before_substitute_member();
   test_authored_slot_order_covers_registry();
+  test_inprocess_registry_requires_root();
+  test_typed_program_preserves_default_and_composes_occurrences();
   test_default_slot_membership_matches_kissat();
   test_two_slot_clocks_diverge();
   test_initial_elimination_deadline_matches_kissat();

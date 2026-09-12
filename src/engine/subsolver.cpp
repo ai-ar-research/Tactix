@@ -169,6 +169,7 @@ void SubSolver::reset_impl(uint32_t nvars, SubSearchMode mode,
   chain_entries_.clear();
   derived_.clear();
   target_ = {};
+  core_root_ = 0;
   have_derivation_ = false;
   target_is_derived_ = false;
   next_id_ = 1;
@@ -316,11 +317,14 @@ void SubSolver::assign(SubLit l, SubRef reason) {
     chain_clear();
     const SubLit *c = clause_lits(reason);
     const uint32_t size = clause_size(reason);
+    std::vector<uint32_t> antecedents{clause_id(reason)};
     for (uint32_t i = 0; i < size; i++)
-      if (c[i] != l)
+      if (c[i] != l) {
+        antecedents.push_back(clause_id(reason_[sub_var_of(c[i])]));
         record_cone(sub_var_of(c[i]), nullptr);
+      }
     const std::vector<SubLit> unit{l};
-    reason = add_derived(unit, chain_build(reason));
+    reason = add_derived(unit, chain_build(reason), antecedents);
     chain_clear();
   }
   values_[l] = 1;
@@ -408,10 +412,11 @@ uint32_t SubSolver::add_clause(const std::vector<SubLit> &lits) {
 }
 
 SubSolver::SubRef SubSolver::add_derived(const std::vector<SubLit> &lits,
-                                         const std::vector<uint32_t> &chain) {
+                                         const std::vector<uint32_t> &chain,
+                                         const std::vector<uint32_t> &ante) {
   const uint32_t id = next_id_++;
   kitten_ticks_++; // learned clauses use the same `new_reference`
-  derived_.push_back({id, export_literals(lits), chain});
+  derived_.push_back({id, export_literals(lits), chain, ante});
   arena_.push_back(id);
   arena_.push_back(static_cast<SubLit>(lits.size()));
   const SubRef ref = static_cast<SubRef>(arena_.size());
@@ -620,9 +625,44 @@ void SubSolver::refute_empty(SubRef conflict) {
   // already `inconsistent` and does not allocate that lemma.
   if (search_mode_ == SubSearchMode::Kitten && clause_size(conflict))
     kitten_ticks_++;
-  target_ = {next_id_++, {}, chain_build(conflict)};
+  target_ = {next_id_++, {}, chain_build(conflict),
+             refute_antecedents(conflict)};
+  core_root_ = target_.id;
   have_derivation_ = true;
   target_is_derived_ = false;
+}
+
+// `inconsistent` (`kitten.c:1622-1645`) records the antecedents of the empty
+// clause by breadth: the conflict, then the reason of each root literal in the
+// order the walk marks it. The LRAT cone reaches the same clauses depth-first,
+// which is a different list and so a different core post-order.
+std::vector<uint32_t> SubSolver::refute_antecedents(SubRef conflict) {
+  std::vector<uint32_t> ante;
+  assert(analyzed_.empty());
+  SubRef ref = conflict;
+  for (;;) {
+    ante.push_back(clause_id(ref));
+    const uint32_t size = clause_size(ref);
+    const SubLit *c = clause_lits(ref);
+    for (uint32_t i = 0; i < size; i++) {
+      const SubVar v = sub_var_of(c[i]);
+      if (seen_[v])
+        continue;
+      seen_[v] = 1;
+      analyzed_.push_back(v);
+    }
+    if (next_root_ == analyzed_.size())
+      break;
+    const SubVar v = analyzed_[next_root_++];
+    if (reason_[v] == NO_REF)
+      break; // no antecedent to follow: the list stops here, as Kitten's does
+    ref = reason_[v];
+  }
+  for (const SubVar v : analyzed_)
+    seen_[v] = 0;
+  analyzed_.clear();
+  next_root_ = 0;
+  return ante;
 }
 
 bool SubSolver::analyze() {
@@ -635,6 +675,13 @@ bool SubSolver::analyze() {
   analyzed_.clear();
   chain_clear();
 
+  // Kitten's `resolved` (`kitten.c:1303`): the conflict, then each reason as
+  // the reverse-trail walk resolves on it. The LRAT chain sorts the same
+  // clauses ascending by trail position with the conflict last, and the core
+  // DFS pushes antecedents in list order, so the two give different
+  // post-orders.
+  analyze_ante_.clear();
+  analyze_ante_.push_back(clause_id(conflict_ref_));
   uint32_t count = 0; // seen, unresolved, at the current level
   uint32_t bj = 0;
   const auto see = [&](SubLit l) {
@@ -703,6 +750,7 @@ bool SubSolver::analyze() {
     const SubLit resolved = trail_[idx];
     assert(reason_[v] != NO_REF); // a decision is never resolved on
     chain_entries_.emplace_back(trail_pos_[v], clause_id(reason_[v]));
+    analyze_ante_.push_back(clause_id(reason_[v]));
     const uint32_t size = clause_size(reason_[v]);
     const SubLit *c = clause_lits(reason_[v]);
     for (uint32_t i = 0; i < size; i++)
@@ -726,7 +774,7 @@ bool SubSolver::analyze() {
     bj = level_[sub_var_of(learned_[1])];
   }
   backtrack(bj);
-  const SubRef ref = add_derived(learned_, chain);
+  const SubRef ref = add_derived(learned_, chain, analyze_ante_);
   assign(learned_[0], ref);
   return true;
 }
@@ -773,6 +821,7 @@ void SubSolver::fail_assumptions(
     assert(reason != NO_REF && clause_size(reason) == 1);
     target_ = {next_id_, {export_literal(sub_negate(failed))},
                {clause_id(reason)}};
+    core_root_ = clause_id(reason);
     have_derivation_ = true;
     return;
   }
@@ -838,15 +887,28 @@ void SubSolver::fail_assumptions(
   chain_clear();
   record_cone(failed_var, nullptr);
   const std::vector<uint32_t> chain = chain_build(NO_REF);
+  // The two lists are different sets, not two orders of one: `record_cone`
+  // closes transitively, while the walk above stops at a root reason as Kitten
+  // does. Only the cone is a RUP sequence; only `resolved` is what Kitten's
+  // clausal core traverses, so the lemma has to carry both.
+  std::vector<uint32_t> antecedents;
+  antecedents.reserve(resolved.size());
+  for (const SubRef ref : resolved)
+    antecedents.push_back(clause_id(ref));
   if (resolved.size() == 1) {
     // Kitten points at the sole antecedent rather than allocating a duplicate
     // clause.  Expose a synthetic proof target without consuming its id.
-    target_ = {next_id_, export_literals(clause), chain};
+    target_ = {next_id_, export_literals(clause), chain, antecedents};
     target_is_derived_ = false;
+    // `failing` points straight at the sole antecedent (`kitten.c:1523`), so
+    // the core is rooted there. The synthetic target names no clause and must
+    // not enter the core as one.
+    core_root_ = antecedents.front();
   } else {
-    add_derived(clause, chain);
+    add_derived(clause, chain, antecedents);
     target_ = derived_.back();
     target_is_derived_ = true;
+    core_root_ = target_.id;
   }
   have_derivation_ = true;
 }
@@ -962,6 +1024,7 @@ SubResult SubSolver::solve(const std::vector<SubLit> &assumptions,
           (void)target_ref;
           target_ = derived_.back();
           target_is_derived_ = true;
+          core_root_ = target_.id;
         } else {
           // Kitten reuses a single antecedent as the failing core. Keep a
           // synthetic view for proof capture without consuming a clause id or
@@ -971,6 +1034,7 @@ SubResult SubSolver::solve(const std::vector<SubLit> &assumptions,
           target_ = {target_id, export_literals(lits), chain};
           target_is_derived_ = false;
         }
+        core_root_ = target_.id;
         have_derivation_ = true;
         return SubResult::Unsat;
       }
@@ -1158,6 +1222,7 @@ void SubSolver::shrink_to_clausal_core(const std::vector<uint32_t> &core) {
   next_id_ = original_clauses_ + 1;
   derived_.clear();
   target_ = {};
+  core_root_ = 0;
   have_derivation_ = false;
   target_is_derived_ = false;
   conflict_ref_ = NO_REF;
@@ -1191,26 +1256,28 @@ void SubSolver::shuffle_clauses() {
   shuffle(units_);
 }
 
-bool SubSolver::derivation(SubDerivation &out) const {
+const SubStep *SubSolver::step_of(uint32_t id) const {
+  if (id == target_.id && !target_is_derived_)
+    return &target_;
+  // derived_ is in ascending id order, so a binary search finds it
+  const auto it = std::lower_bound(
+      derived_.begin(), derived_.end(), id,
+      [](const SubStep &s, uint32_t v) { return s.id < v; });
+  if (it == derived_.end() || it->id != id)
+    return nullptr;
+  return &*it;
+}
+
+bool SubSolver::derivation(SubDerivation &out, bool with_core) const {
   out.steps.clear();
   out.core.clear();
+  out.core_clauses.clear();
   if (!have_derivation_)
     return false;
   // Walk back from the target, marking the lemmas and originals it needs.
   std::vector<uint8_t> needed(next_id_ + 1, 0);
   std::vector<uint32_t> todo{target_.id};
   needed[target_.id] = 1;
-  const auto step_of = [&](uint32_t id) -> const SubStep * {
-    if (id == target_.id && !target_is_derived_)
-      return &target_;
-    // derived_ is in ascending id order, so a binary search finds it
-    const auto it = std::lower_bound(
-        derived_.begin(), derived_.end(), id,
-        [](const SubStep &s, uint32_t v) { return s.id < v; });
-    if (it == derived_.end() || it->id != id)
-      return nullptr;
-    return &*it;
-  };
   while (!todo.empty()) {
     const uint32_t id = todo.back();
     todo.pop_back();
@@ -1232,7 +1299,60 @@ bool SubSolver::derivation(SubDerivation &out) const {
     out.steps.push_back(target_);
   std::sort(out.core.begin(), out.core.end());
   out.core.erase(std::unique(out.core.begin(), out.core.end()), out.core.end());
+  if (with_core)
+    compute_clausal_core(out);
   return true;
+}
+
+// `kitten_compute_clausal_core` (`kitten.c:1978-2008`): a DFS from the refuting
+// lemma over recorded antecedents, pushing each clause back under a sentinel so
+// it is appended after its own antecedents and marked, which emits every core
+// clause exactly once in post-order. The stack alternates clause ids and the
+// sentinel, so an id may never equal it.
+void SubSolver::compute_clausal_core(SubDerivation &out) const {
+  constexpr uint32_t SENTINEL = UINT32_MAX;
+  assert(next_id_ < SENTINEL);
+  std::vector<uint8_t> in_core(static_cast<size_t>(next_id_) + 2, 0);
+  std::vector<uint32_t> resolved{core_root_};
+  std::vector<size_t> slot(static_cast<size_t>(next_id_) + 2, SIZE_MAX);
+  while (!resolved.empty()) {
+    const uint32_t c_id = resolved.back();
+    resolved.pop_back();
+    if (c_id == SENTINEL) {
+      const uint32_t d_id = resolved.back();
+      resolved.pop_back();
+      assert(!in_core[d_id]);
+      in_core[d_id] = 1;
+      const SubStep *d = step_of(d_id);
+      slot[d_id] = out.core_clauses.size();
+      out.core_clauses.push_back(
+          {d_id, d != nullptr, d ? d->lits : std::vector<SubLit>{}});
+      continue;
+    }
+    if (in_core[c_id])
+      continue;
+    resolved.push_back(c_id);
+    resolved.push_back(SENTINEL);
+    const SubStep *c = step_of(c_id);
+    if (!c) // a stated original clause has no antecedents
+      continue;
+    for (const uint32_t a : c->core_antecedents())
+      if (!in_core[a])
+        resolved.push_back(a);
+  }
+  // The core sees each clause's live watch pose. Proof steps keep their
+  // creation pose and LRAT chain independently. Join once, not per core row.
+  for (size_t off = 0; off < arena_.size();) {
+    const uint32_t id = arena_[off];
+    const uint32_t size = arena_[off + 1];
+    const size_t next = off + 2 + size;
+    if (id < slot.size() && slot[id] != SIZE_MAX) {
+      const SubLit *lits = arena_.data() + off + 2;
+      out.core_clauses[slot[id]].lits =
+          export_literals(std::vector<SubLit>(lits, lits + size));
+    }
+    off = next;
+  }
 }
 
 } // namespace tactix

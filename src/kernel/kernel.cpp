@@ -30,6 +30,7 @@ void kernel_defer_cold_state(Kernel &k) {
   assert(k.nvars == 0);
   assert(k.bve_retry.empty() && k.backbone_priority.empty());
   assert(k.touched.empty() && k.removed.empty() && k.touched_kept.empty());
+  assert(k.subsume_material.empty() && !k.subsume_material_count);
   assert(k.seen.empty() && k.eager_marks.empty());
   assert(k.marked_levels.empty() && k.probing.stamp.empty());
   k.cold_state_deferred = true;
@@ -49,6 +50,7 @@ void kernel_materialize_cold_state(Kernel &k) {
   k.bve_retry.assign(k.nvars, 1);
   k.backbone_priority.assign(k.nvars, 0);
   k.touched.assign(k.nvars, k.touch_epoch);
+  k.subsume_material.assign(k.nvars, 1);
   k.removed.assign(k.nvars, 0);
   k.touched_kept.assign(k.nvars, 0);
   k.seen.assign(k.nvars, 0);
@@ -105,6 +107,12 @@ void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
   if (!k.cold_state_deferred) {
     k.touched.resize(nvars, 0);
     k.removed.resize(nvars, 0);
+    k.subsume_material.resize(nvars, 0);
+  } else {
+    // No consumer can clear flags before cold-state materialization. Parsing
+    // additions therefore cannot flip any of these new activation flags again.
+    assert(UINT64_MAX - k.subsume_material_count >= nvars - old);
+    k.subsume_material_count += nvars - old;
   }
   // The band array needs no such event: a fresh variable is already touched
   // below, and C2 reads the two arrays as a union.
@@ -116,6 +124,7 @@ void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
     // initial BVE-retry event for a newly imported/extended variable.
     kernel_mark_bve_retry(k, v);
     kernel_touch_var(k, v);
+    kernel_mark_subsume_material(k, v);
     // Variable activation marks the stripped (positive) literal in Kissat;
     // actual clause polarities are marked below by clause addition.
     kernel_mark_factor_literal(k, make_lit(v, false), "activate");
@@ -137,9 +146,10 @@ void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
   // literal out of bounds. New (extension) literals occur in no large clause
   // yet, so empty entries are correct; add() maintains them from there.
   if (k.dense) {
-    k.dense->large.resize_lits(2 * nvars);
     if (k.dense->track_order)
       k.dense->ordered.resize_lits(2 * nvars);
+    else
+      k.dense->large.resize_lits(2 * nvars);
   }
   k.unassigned += nvars - old;
   k.unassigned_active += nvars - old; // fresh variables are Active (R-a)
@@ -305,13 +315,24 @@ Ref kernel_add_large_clause(Kernel &k, const Lit *lits, uint32_t size,
   c->set_glue(redundant ? glue : 0);
   c->searched = 2;
   c->set_id(id);
+  if (redundant) {
+    const uint64_t position = kernel_clause_position(k, ref);
+    assert(position <= UINT32_MAX);
+    k.first_reducible = std::min(k.first_reducible, static_cast<Ref>(position));
+  }
   for (uint32_t i = 0; i < size; i++)
     c->lits[i] = lits[i];
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
   rule_journal_note_large_add(k, lits, size, id, redundant, glue);
 #endif
-  k.watches.push_large(lits[0], lits[1], ref);
-  k.watches.push_large(lits[1], lits[0], ref);
+  // Physical dense mode publishes occurrences below, not sparse watches.
+  // Kissat's new_large_clause selects those representations by `watching`;
+  // in-place replacement already obeys this same connection flag.
+  // Reconnection publishes the final live clauses once, in their owned order.
+  if (k.large_watches_connected) {
+    k.watches.push_large(lits[0], lits[1], ref);
+    k.watches.push_large(lits[1], lits[0], ref);
+  }
   // Irredundant clauses feed the dense index and the added-material consumers
   // (forward subsumption and Factor).  Pinned Kissat's `mark_added_literal`
   // does NOT set `flags.eliminate`: BVE retry is armed by variable activation
@@ -320,6 +341,7 @@ Ref kernel_add_large_clause(Kernel &k, const Lit *lits, uint32_t size,
     for (uint32_t i = 0; i < size; i++) {
       if (mark_added_material) {
         kernel_touch_var(k, var_of(lits[i]));
+        kernel_mark_subsume_material(k, var_of(lits[i]));
         kernel_mark_factor_literal(k, lits[i], "add_large");
       }
       if (k.dense) {
@@ -382,6 +404,8 @@ static void note_binary_add(Kernel &k, Lit a, Lit b, uint64_t id,
     // (kissat new_binary_clause marks both unconditionally, clause.c:71-72).
     kernel_touch_var(k, var_of(a));
     kernel_touch_var(k, var_of(b));
+    kernel_mark_subsume_material(k, var_of(a));
+    kernel_mark_subsume_material(k, var_of(b));
     kernel_mark_factor_literal(k, a, "add_binary");
     kernel_mark_factor_literal(k, b, "add_binary");
   }
@@ -612,23 +636,19 @@ uint32_t kernel_remove_duplicate_binary_copies(Kernel &k, Lit a, Lit b) {
     });
     assert(kept && removed == removed_copies);
     if (k.dense && k.dense->track_order) {
-      const auto ordered = k.dense->ordered[x];
       bool retained = false;
       uint32_t retired = 0;
-      size_t out = 0;
-      for (const OccIndex::Entry entry : ordered) {
+      k.dense->ordered.compact(x, [&](OccIndex::Entry entry) {
         if (entry.binary && entry.payload == other) {
           if (!retained) {
             retained = true;
-            ordered[out++] = entry;
           } else {
             retired++;
+            return false;
           }
-        } else {
-          ordered[out++] = entry;
         }
-      }
-      k.dense->ordered.shrink(x, out);
+        return true;
+      });
       assert(retained && retired == removed_copies);
     }
   }
@@ -701,17 +721,14 @@ static bool delete_binary_all_copies(Kernel &k, Lit a, Lit b,
       });
     }
     if (k.dense && k.dense->track_order) {
-      const auto ordered = k.dense->ordered[x];
       uint32_t retired = 0;
-      size_t out = 0;
-      for (const OccIndex::Entry entry : ordered) {
+      k.dense->ordered.compact(x, [&](OccIndex::Entry entry) {
         if (entry.binary && entry.payload == other) {
           retired++;
-        } else {
-          ordered[out++] = entry;
+          return false;
         }
-      }
-      k.dense->ordered.shrink(x, out);
+        return true;
+      });
       assert(retired == copies);
     }
   }
@@ -856,7 +873,7 @@ template <bool HasH> static void kernel_unassign_literal(Kernel &k, Lit lit) {
     // the hint update points `search_idx` at a dequeued variable whose
     // `values` are 0, so the queue returns it immediately. kissat never hits
     // this, because its deactivated variables are never on the trail.
-    if (k.retire_enabled && kernel_var_retired(k, v)) {
+    if (kernel_var_retired(k, v)) {
       // leave both structures alone; it stays out for good
     } else if (k.h->stable) {
       if (!heuristics_heap_contains(k, v)) {
@@ -943,6 +960,11 @@ static void kernel_unwind_speculation_impl(Kernel &k, uint32_t position) {
     const Lit lit = k.trail.back();
     k.trail.pop_back();
     kernel_unassign_literal<HasH>(k, lit);
+    // A unit id caches the polarity of the assignment being retracted. A
+    // later root replay can derive the opposite polarity before refuting F;
+    // retaining this id would suppress that derivation and cite the wrong
+    // unit in the empty-clause chain. The old proof line itself stays live.
+    k.unit_ids[var_of(lit)] = 0;
   }
   k.frames.resize(1);
   k.level = 0;
@@ -1100,17 +1122,31 @@ void kernel_replace_large_clause_in_place(Kernel &k, Ref ref, uint64_t id,
   const Lit old_first = c->lits[0], old_second = c->lits[1];
   const bool redundant = c->redundant();
 
+  // Rewrite images usually retain the source order (root stripping and
+  // connected substitution). Restarting each membership lookup at the first
+  // literal turns those unchanged runs into quadratic scans. Continue after
+  // the previous match, wrapping over the prefix if necessary: every query
+  // still searches the complete image, including arbitrary reorderings.
+  // No marks, clause pose, or shared scratch are changed by this cursor.
+  const auto membership = [](const Lit *begin, const Lit *end) {
+    return [begin, end, next = begin](Lit lit) mutable {
+      const Lit *found = std::find(next, end, lit);
+      if (found == end) {
+        found = std::find(begin, next, lit);
+        if (found == next)
+          return false;
+      }
+      next = found + 1;
+      return true;
+    };
+  };
+  auto in_new = membership(lits, lits + size);
+
   // Update the optional dense membership while the old semantic image is
   // still readable.  Retained literals keep the same Ref and therefore their
   // exact occurrence position; only a genuinely new literal is appended.
   if (k.dense && !redundant) {
-    const auto in_new = [&](Lit lit) {
-      return std::find(lits, lits + size, lit) != lits + size;
-    };
-    const auto in_old = [&](Lit lit) {
-      return std::find(c->lits, c->lits + old_size, lit) !=
-             c->lits + old_size;
-    };
+    auto in_old = membership(c->lits, c->lits + old_size);
     for (uint32_t i = 0; i < old_size; i++) {
       const Lit lit = c->lits[i];
       if (in_new(lit))
@@ -1142,7 +1178,7 @@ void kernel_replace_large_clause_in_place(Kernel &k, Ref ref, uint64_t id,
   if (!redundant && !retain)
     for (uint32_t i = 0; i < old_size; ++i) {
       const Lit old = c->lits[i];
-      if (std::find(lits, lits + size, old) != lits + size)
+      if (in_new(old))
         continue;
       kernel_mark_bve_retry(k, var_of(old));
       kernel_removed_var(k, var_of(old));
@@ -1201,6 +1237,7 @@ void kernel_replace_large_clause_in_place(Kernel &k, Ref ref, uint64_t id,
   if (!redundant && mark_added_material)
     for (uint32_t i = 0; i < size; i++) {
       kernel_touch_var(k, var_of(lits[i]));
+      kernel_mark_subsume_material(k, var_of(lits[i]));
       kernel_mark_factor_literal(k, lits[i], source_tag);
       kernel_notify_bve_score(k, var_of(lits[i]), false);
     }
@@ -1217,7 +1254,8 @@ void kernel_replace_large_clause_in_place(Kernel &k, Ref ref, uint64_t id,
 RootFlushOutcome kernel_flush_root_clause(Kernel &k, Ref *ref,
                                           uint64_t *changed,
                                           bool mark_binary_added_material,
-                                          bool clamp_glue) {
+                                          bool clamp_glue,
+                                          bool mark_satisfied_removal) {
   const Ref original_ref = *ref;
   Clause *c = clause_at(k.arena, *ref);
   assert(!c->garbage());
@@ -1241,9 +1279,7 @@ RootFlushOutcome kernel_flush_root_clause(Kernel &k, Ref *ref,
         }
       assert(reason_var == INVALID_VAR || k.assigned[reason_var].level == 0);
 #endif
-      if (kernel_shadow_retire(k, c->id()))
-        k.stats.c1_shadow_deleted++;
-      kernel_delete_clause(k, c);
+      kernel_delete_clause(k, c, mark_satisfied_removal);
       k.stats.flushed++;
       if (changed)
         (*changed)++;
@@ -1294,8 +1330,6 @@ RootFlushOutcome kernel_flush_root_clause(Kernel &k, Ref *ref,
       break;
     }
 
-  if (kernel_shadow_retire(k, c->id()))
-    k.stats.c1_shadow_rewritten++;
   const uint64_t original_id = c->id();
   const bool redundant = c->redundant();
   // kissat's generic root flush (collect.c) drops root-false literals without
@@ -1448,7 +1482,7 @@ RootCollectOutcome kernel_sparse_collect_root(Kernel &k, Ref start) {
     outcome = RootCollectOutcome::Changed;
   }
 
-  // A Reduce collection starts at the first redundant clause in Kissat's
+  // A Reduce collection starts at the historical reducible boundary in Kissat's
   // current arena. Tactix can have an appended packed replacement whose
   // generation-local position lies before that cut. Classify every original
   // record by that position: the logical prefix remains byte-for-byte
@@ -1463,7 +1497,9 @@ RootCollectOutcome kernel_sparse_collect_root(Kernel &k, Ref start) {
       Ref current = ref;
       const RootFlushOutcome flushed =
           kernel_flush_root_clause(k, &current, &changed,
-                                   /*mark_binary_added_material=*/false);
+                                   /*mark_binary_added_material=*/false,
+                                   /*clamp_glue=*/false,
+                                   /*mark_satisfied_removal=*/false);
       if (flushed == RootFlushOutcome::Refuted) {
         outcome = RootCollectOutcome::Refuted;
         break;
@@ -2020,17 +2056,25 @@ static void kernel_tick_trace_dump(const Kernel &k, Lit lit) {
 }
 #endif
 
-bool kernel_propagate(Kernel &k, Ref ignore) {
+template <bool IGNORE>
+static bool propagate_trail(Kernel &k, Ref ignore) {
   kernel_settle_binary_only_debt(k);
   const uint32_t saved_propagate = k.propagate_head;
+  uint32_t propagate = saved_propagate;
   uint64_t ticks = 0;
   bool conflict = false;
-  while (k.propagate_head < k.trail.size()) {
+  while (propagate < k.trail.size()) {
     // Pinned Kissat post-increments its local trail cursor before scanning the
     // literal and publishes that cursor even when the scan finds a conflict
     // (propsearch.c:37-40). Backtrack, not Propagate, owns any required rewind
     // to the surviving frame boundary.
-    const Lit lit = k.trail[k.propagate_head++];
+    const Lit lit = k.trail[propagate++];
+#if defined(TACTIX_ENABLE_EVENT_TRACE) || defined(TACTIX_ENABLE_CONFLICT_STOP) || \
+    defined(TACTIX_ENABLE_RULE_JOURNAL)
+    // Diagnostic callbacks observe the same consumed cursor as before. The
+    // ordinary scan only appends assignments and never reads or rewinds it.
+    k.propagate_head = propagate;
+#endif
     // Kissat's propagation statistic counts trail literals whose watch lists
     // are scanned, including the literal that exposes a conflict.  It does not
     // count implications at assignment time (propsearch.c:14-23).
@@ -2054,10 +2098,7 @@ bool kernel_propagate(Kernel &k, Ref ignore) {
     // without it, exactly as `propsearch.c` is compiled without
     // `PROBING_PROPAGATION`.
     const bool tick_trace_conflict =
-        ignore == INVALID_REF
-            ? propagate_literal<false, false, false>(k, lit, INVALID_REF,
-                                                    ticks)
-            : propagate_literal<false, false, true>(k, lit, ignore, ticks);
+        propagate_literal<false, false, IGNORE>(k, lit, ignore, ticks);
 #ifdef TACTIX_ENABLE_CONFLICT_STOP
     kernel_pose_trace(k, k.inprocessing ? "inpr"
                          : k.warming    ? "warm"
@@ -2069,13 +2110,22 @@ bool kernel_propagate(Kernel &k, Ref ignore) {
       break;
     }
   }
-  k.stats.propagations += k.propagate_head - saved_propagate;
+  k.propagate_head = propagate;
+  k.stats.propagations += propagate - saved_propagate;
 #ifdef TACTIX_ENABLE_EVENT_TRACE
   if (!k.inprocessing && !k.warming)
     k.diagnostic_search_propagation_ticks += ticks;
 #endif
   kernel_charge_ticks(k, ticks);
   return conflict;
+}
+
+bool kernel_propagate(Kernel &k, Ref ignore) {
+  // Select the candidate-aware scan once per call, not once per trail literal.
+  // The local cursor follows the growing used trail during assignments; publish
+  // it on both fixpoint and conflict exits as native propsearch.c does.
+  return ignore == INVALID_REF ? propagate_trail<false>(k, INVALID_REF)
+                               : propagate_trail<true>(k, ignore);
 }
 
 void kernel_propagate_beyond_conflicts(Kernel &k) {
@@ -2449,6 +2499,8 @@ static void rebuild_dense_large_occurrences(Kernel &k, OccIndex &occ) {
     // Probe has no consumer for it; release its payload rather than retain
     // several GiB of cold capacity across phases.
     occ.ordered.release();
+  else
+    occ.large.release();
 
   // One arena walk both collects the irredundant references and counts each
   // literal's occurrences, so every slice below is laid out at its exact
@@ -2458,17 +2510,19 @@ static void rebuild_dense_large_occurrences(Kernel &k, OccIndex &occ) {
   // (benchmarks/reports/2026-09-02-unit-cost-and-fidelity-stack.md 3.47).
   std::vector<Ref> &order = k.dense_order_scratch;
   order.clear();
-  occ.large.begin_exact_layout(nlits);
   if (occ.track_order)
     occ.ordered.begin_exact_layout(nlits);
+  else
+    occ.large.begin_exact_layout(nlits);
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
     if (!c->garbage() && !c->redundant()) {
       order.push_back(ref);
       for (const Lit lit : *c) {
-        occ.large.count(lit);
         if (occ.track_order)
           occ.ordered.count(lit);
+        else
+          occ.large.count(lit);
       }
     }
     ref += clause_actual_words(c);
@@ -2479,24 +2533,21 @@ static void rebuild_dense_large_occurrences(Kernel &k, OccIndex &occ) {
   if (occ.track_order)
     for (Lit lit = 0; lit < nlits; ++lit)
       occ.ordered.count(lit, k.watches.binary_size(lit));
-  occ.large.finish_exact_layout();
   if (occ.track_order) {
     occ.ordered.finish_exact_layout();
     for (Lit lit = 0; lit < nlits; ++lit)
       for (const WatchEntry watch : k.watches.entries(lit))
         if (watch.binary())
           occ.ordered.push(lit, OccIndex::Entry::from_binary(watch.other()));
-  }
+  } else
+    occ.large.finish_exact_layout();
   // Kissat's dense lists follow its current irredundant arena order. Tactix's
   // generation-local source positions retain that order across append-only
   // replacement records until collection materializes it.
   kernel_sort_refs_by_logical_clause_position(k, order);
   for (const Ref ref : order)
-    for (const Lit lit : *clause_at(k.arena, ref)) {
-      occ.large.push(lit, ref);
-      if (occ.track_order)
-        occ.ordered.push(lit, OccIndex::Entry::from_large(ref));
-    }
+    for (const Lit lit : *clause_at(k.arena, ref))
+      occ.push_large(lit, ref);
 }
 
 void kernel_rebuild_dense_occurrences(Kernel &k) {
@@ -2506,36 +2557,17 @@ void kernel_rebuild_dense_occurrences(Kernel &k) {
 
 void kernel_dense_add_large_occurrence(Kernel &k, Lit lit, Ref ref) {
   assert(k.dense);
-  k.dense->large.push(lit, ref);
-  if (k.dense->track_order)
-    k.dense->ordered.push(lit, OccIndex::Entry::from_large(ref));
+  k.dense->push_large(lit, ref);
 }
 
 void kernel_dense_remove_large_occurrence(Kernel &k, Lit lit, Ref ref) {
   assert(k.dense);
-  const auto occ = k.dense->large[lit];
   if (k.dense->track_order) {
-    // `large` is exactly the large payloads of `ordered` in order, so one
-    // pass over the mixed stream locates the entry in both: the position in
-    // `ordered`, and the count of large entries before it, which is the index
-    // in `large`.  Searching the two separately scanned the same occurrences
-    // twice.
-    const auto ordered = k.dense->ordered[lit];
-    size_t large_index = 0, at_ordered = ordered.size();
-    for (size_t j = 0; j < ordered.size(); j++) {
-      if (ordered[j].binary)
-        continue;
-      if (ordered[j].payload == ref) {
-        at_ordered = j;
-        break;
-      }
-      large_index++;
-    }
-    assert(at_ordered != ordered.size());
-    assert(large_index < occ.size() && occ[large_index] == ref);
-    k.dense->large.erase_at(lit, large_index);
-    k.dense->ordered.erase_at(lit, at_ordered);
+    const bool removed = k.dense->ordered.erase_large_once(lit, ref);
+    assert(removed);
+    (void)removed;
   } else {
+    const auto occ = k.dense->large[lit];
     const auto at = std::find(occ.begin(), occ.end(), ref);
     assert(at != occ.end());
     k.dense->large.erase_at(lit, static_cast<size_t>(at - occ.begin()));
@@ -2546,14 +2578,26 @@ void kernel_defrag_vectors(Kernel &k) {
   k.watches.defrag_if_needed();
   if (!k.dense)
     return;
-  k.dense->large.defrag_if_needed();
   if (k.dense->track_order)
     k.dense->ordered.defrag_if_needed();
+  else
+    k.dense->large.defrag_if_needed();
 }
 
 void kernel_collect_garbage(Kernel &k, Ref watch_start,
                             bool sparse_collection,
                             bool preserve_eager_recent) {
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+  // Construct first so the final sample follows destruction of the old arena
+  // and every collector-local vector, without changing their lifetimes.
+  struct MemoryExit {
+    const Kernel &kernel;
+    ~MemoryExit() {
+      event_trace_memory_checkpoint(kernel, "Collect", "exit");
+    }
+  } memory_exit{k};
+  event_trace_memory_checkpoint(k, "Collect", "entry");
+#endif
   assert(!k.bve_occurrence_count_image);
   // No probing scope may be open: this relocates every Ref, so an outstanding
   // snapshot would roll pre-collection watch words (and ClauseSnap refs) back
@@ -2567,8 +2611,12 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
   // so collection must take the ordinary rewatch path even if the phase-local
   // occurrence cache remains live.  Treating the cache alone as dense
   // preserves stale clause pose and creates a transition Kissat never has.
-  const bool dense_collection =
-      k.dense != nullptr && !k.large_watches_connected;
+  // The converse is independent too: an explicit caller can disconnect large
+  // watches without installing an occurrence cache. Do not silently reconnect
+  // them while leaving the connection flag false.
+  const bool dense_collection = !k.large_watches_connected;
+  const Ref old_reducible = k.first_reducible;
+  Ref packed_reducible = INVALID_REF;
   // Genuine Kissat collections reset the raw-reference recent-learned
   // register (collect.c:274/514/702).  Some Tactix rules need an additional
   // packing pass solely because replacements are append-only here; if the
@@ -2654,12 +2702,19 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
     ref += words;
   }
   assert(retained_words <= UINT32_MAX);
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+  event_trace_memory_checkpoint(k, "Collect", "before-reserve");
+#endif
   Arena fresh;
   // Appending rewrites can leave a large garbage suffix. Reserving the old
   // arena size here needlessly kept that suffix alive in both arenas during
   // collection; the live-word prepass is the exact Kissat-style compacted
   // image and also prevents geometric growth while copying it.
   fresh.reserve(retained_words);
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+  event_trace_memory_checkpoint(k, "Collect", "before-sort",
+                                fresh.capacity() * sizeof(Arena::value_type));
+#endif
   uint32_t packed_watch_start = 0;
   // Arena-order policies belong to whole-arena/inprocessing collection.
   // Kissat's sparse collector preserves the prefix, sweeps the tail in its
@@ -2690,6 +2745,10 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
     // current-position path above.
     kernel_sort_refs_by_logical_clause_position(k, order);
   }
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+  event_trace_memory_checkpoint(k, "Collect", "after-sort",
+                                fresh.capacity() * sizeof(Arena::value_type));
+#endif
 #ifndef NDEBUG
   std::vector<uint8_t> seen(k.arena.size());
   for (const Ref ref : order) {
@@ -2713,6 +2772,14 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
       packed_watch_start += words;
     }
     const Ref nref = static_cast<Ref>(fresh.size());
+    // Genuine collection refreshes Kissat's first-reducible register. An
+    // implementation-only packing pass instead forwards the old logical cut,
+    // even if its original record was promoted or retired. The first surviving
+    // tail record is the new boundary when the original record disappeared.
+    if (c->redundant() ||
+        (preserve_eager_recent && old_reducible != INVALID_REF &&
+         kernel_clause_position(k, ref) >= old_reducible))
+      packed_reducible = std::min(packed_reducible, nref);
     fresh.insert(fresh.end(), k.arena.begin() + ref,
                  k.arena.begin() + ref + words);
     // Kissat's sparse sweep starts at `watch_start` in its current arena: only
@@ -2730,6 +2797,10 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
         (dense_collection || retained_sparse_watch) ? c->searched : 2;
     c->searched = nref;
   }
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+  event_trace_memory_checkpoint(k, "Collect", "after-copy",
+                                fresh.capacity() * sizeof(Arena::value_type));
+#endif
   for (const Lit lit : k.trail) {
     Assigned &a = k.assigned[var_of(lit)];
     if (!a.binary && a.reason != DECISION_REASON && a.reason != UNIT_REASON) {
@@ -2811,11 +2882,16 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
     });
   }
   k.arena.swap(fresh);
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+  event_trace_memory_checkpoint(k, "Collect", "after-swap",
+                                fresh.capacity() * sizeof(Arena::value_type));
+#endif
   // Every replacement alias named a position in the old arena. The packed
   // arena now embodies the selected order directly; retaining aliases would
   // make a later sparse partition snap clauses back to a superseded
   // generation. All rebuilds below therefore consume the new physical arena.
   k.clause_position_alias.clear();
+  k.first_reducible = packed_reducible;
   // GC relocated every Ref: the dense occurrence index (increment 2) is
   // rebuilt from the compacted arena in lock-step with the watches below (it
   // held offsets into the old arena, now stale).  The rebuild clears logical
@@ -2837,6 +2913,10 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
   // not install sparse two-watches or sort literals until sparse resume.
   if (k.dense)
     rebuild_dense_large_occurrences(k, *k.dense);
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+  event_trace_memory_checkpoint(k, "Collect", "after-reindex",
+                                fresh.capacity() * sizeof(Arena::value_type));
+#endif
   // Every surviving binary was kept in place by the strip above and every large
   // entry was appended after it, so the binary-first layout now holds — the
   // same way kissat gets it out of `kissat_watch_large_clauses`
@@ -3283,14 +3363,12 @@ void kernel_dense_disconnect(Kernel &k) {
   assert(!k.bve_occurrence_count_image);
   // Drain the phase's arena readouts; the index itself is caller-owned and
   // outlives this call, so the counters are moved rather than read in place.
-  for (auto *lists : {&k.dense->large.relocations, &k.dense->ordered.relocations}) {
-    k.stats.dense_slice_moves += *lists;
-    *lists = 0;
-  }
-  for (auto *lists : {&k.dense->large.defrags, &k.dense->ordered.defrags}) {
-    k.stats.dense_defrags += *lists;
-    *lists = 0;
-  }
+  k.stats.dense_slice_moves += k.dense->large.relocations +
+                               k.dense->ordered.take_relocations();
+  k.dense->large.relocations = 0;
+  k.stats.dense_defrags += k.dense->large.defrags +
+                         k.dense->ordered.take_defrags();
+  k.dense->large.defrags = 0;
   k.dense = nullptr;
 }
 
@@ -3331,16 +3409,80 @@ bool kernel_should_compact_variables(const Kernel &k, uint32_t percent) {
   return inactive > limit;
 }
 
-bool kernel_compact_variables(Kernel &k) {
+bool kernel_compact_variables(Kernel &k, bool fold_fixed) {
   if (k.conflict_valid || k.pending.valid || k.dense || k.probing.recording ||
       k.delayed_used)
     return false;
 
   const uint32_t old_nvars = k.nvars;
+  std::vector<uint8_t> archive;
+  if (fold_fixed) {
+    // LRAT roots must already have been named by their inference owner. Do not
+    // manufacture proof units or change a rule's preparation from compaction.
+    if (k.proof && k.proof->lrat())
+      for (Var v = 0; v < old_nvars; v++)
+        if (kernel_root_value(k, make_lit(v, false)) && !k.unit_ids[v]) {
+          fold_fixed = false;
+          break;
+        }
+  }
+  if (fold_fixed) {
+    archive.assign(old_nvars, 0);
+    Var representative = INVALID_VAR;
+    for (Var v : k.compact_import_order)
+      if (!kernel_var_retired(k, v) && kernel_root_value(k, make_lit(v, false))) {
+        representative = v;
+        break;
+      }
+    if (representative == INVALID_VAR)
+      for (Var v = 0; v < old_nvars; v++)
+        if (!kernel_var_retired(k, v) && kernel_root_value(k, make_lit(v, false))) {
+          representative = v;
+          break;
+        }
+    const uint32_t root_prefix = kernel_root_fixed(k);
+    for (Var v = 0; v < old_nvars; v++)
+      archive[v] = v != representative && !kernel_var_retired(k, v) &&
+                   kernel_root_value(k, make_lit(v, false)) &&
+                   k.assigned[v].trail < root_prefix;
+    // True-level roots may follow decisions on the physical trail. Keep that
+    // suffix hot until backtracking brings it into the root prefix: archiving
+    // it now would change prefix-based public/material counts without an
+    // inference. This restricts storage folding, never a public proof rule.
+    // Representation-only: fixed literals can remain in an explicit caller's
+    // unsimplified clauses. Keep those identities, never flush their clauses
+    // or narrow the public rule surface to make folding convenient.
+    for (Ref ref = 0; ref < k.arena.size();) {
+      const Clause *c = clause_at(k.arena, ref);
+      if (!c->garbage())
+        for (Lit l : *c)
+          archive[var_of(l)] = 0;
+      ref += clause_actual_words(c);
+    }
+    for (Lit l = 0; l < 2 * old_nvars; l++)
+      for (WatchEntry w : k.watches.entries(l))
+        if (w.binary()) {
+          archive[var_of(l)] = 0;
+          archive[var_of(w.other())] = 0;
+        }
+    for (Var v = 0; v < old_nvars; v++) {
+      if (!k.values[make_lit(v, false)] || !k.assigned[v].level ||
+          kernel_var_retired(k, v))
+        continue;
+      const Assigned &a = k.assigned[v];
+      if (a.binary && a.reason < 2 * old_nvars)
+        archive[var_of(a.reason)] = 0;
+      if (a.jumped && k.jumped_over[v] < 2 * old_nvars)
+        archive[var_of(k.jumped_over[v])] = 0;
+    }
+  }
+  const uint32_t archived = static_cast<uint32_t>(
+      std::count(archive.begin(), archive.end(), uint8_t{1}));
   std::vector<Var> old_to_new(old_nvars, INVALID_VAR);
   uint32_t new_nvars = 0;
   for (Var old = 0; old < old_nvars; old++)
-    if (k.var_status.empty() || k.var_status[old] == VarStatus::Active)
+    if ((k.var_status.empty() || k.var_status[old] == VarStatus::Active) &&
+        (!archived || !archive[old]))
       old_to_new[old] = new_nvars++;
   // A direct compaction can still be useful when only root-fixed identities
   // remain: it rebuilds the whole arena/watch pose even when there is no
@@ -3378,6 +3520,10 @@ bool kernel_compact_variables(Kernel &k) {
         k.values[make_lit(old, false)] == 0)
       continue;
     const Assigned &a = k.assigned[old];
+    // A kept fixed assignment may have a stale binary antecedent in the cold
+    // set. Its already-proved unit becomes the canonical root reason below.
+    if (archived && a.level == 0)
+      continue;
     if (a.binary && a.reason < 2 * old_nvars &&
         old_to_new[var_of(a.reason)] == INVALID_VAR)
       return false;
@@ -3516,6 +3662,11 @@ bool kernel_compact_variables(Kernel &k) {
     // record, invalid jumped endpoint, and zero unit id for this case.
     if (values[npos] != 0) {
       assigned[now] = k.assigned[old];
+      if (archived && assigned[now].level == 0) {
+        assigned[now].reason = UNIT_REASON;
+        assigned[now].binary = false;
+        assigned[now].jumped = false;
+      }
       if (assigned[now].binary && assigned[now].reason < 2 * old_nvars)
         assigned[now].reason = map_lit(assigned[now].reason);
       if (assigned[now].jumped)
@@ -3560,11 +3711,25 @@ bool kernel_compact_variables(Kernel &k) {
   compact_by_var(k.bve_retry, uint8_t{0});
   compact_by_var(k.backbone_priority, uint8_t{0});
   compact_by_var(k.touched, uint64_t{0});
+  compact_by_var(k.subsume_material, uint8_t{0});
   compact_by_var(k.removed, uint64_t{0});
   compact_by_var(k.touched_kept, uint64_t{0});
   compact_by_var(k.internal_import_rank, uint32_t{UINT32_MAX});
 
   std::vector<Var> internal_to_external(new_nvars);
+  if (archived) {
+    k.fixed_external_values.resize(k.external_to_internal.size(), 0);
+    k.fixed_external_units.resize(k.external_to_internal.size(), 0);
+    for (Var old = 0; old < old_nvars; old++) {
+      if (!archive[old])
+        continue;
+      const Var external = k.internal_to_external[old];
+      assert(!k.fixed_external_values[external]);
+      k.fixed_external_values[external] = k.values[make_lit(old, false)];
+      k.fixed_external_units[external] = k.unit_ids[old];
+    }
+    k.fixed_external_count += archived;
+  }
   for (Var old = 0; old < old_nvars; old++) {
     const Var now = old_to_new[old];
     const Var external = k.internal_to_external[old];
@@ -3609,7 +3774,16 @@ bool kernel_compact_variables(Kernel &k) {
   k.eager_marks.assign(2 * new_nvars, 0);
   k.marked_levels.assign(new_nvars + 1, 0);
   k.probing.stamp.assign(2 * new_nvars, 0);
+  if (archived) {
+    // assign/clear alone retain the old root-sized backing allocations.
+    k.seen.shrink_to_fit();
+    k.eager_marks.shrink_to_fit();
+    k.marked_levels.shrink_to_fit();
+    k.probing.stamp.shrink_to_fit();
+  }
   k.var_status.clear();
+  if (archived)
+    k.var_status.shrink_to_fit();
   k.retired_events.clear();
   k.substituted_events.clear();
   k.fresh_var_events.clear();
@@ -3861,6 +4035,8 @@ void kernel_check_invariants(const Kernel &k) {
   assert(k.internal_to_external.size() == k.nvars);
   assert(k.internal_import_rank.size() == k.nvars);
   assert(k.factor_marks.size() == 2 * k.nvars);
+  assert(k.cold_state_deferred ? k.subsume_material.empty()
+                               : k.subsume_material.size() == k.nvars);
   for (Var internal = 0; internal < k.nvars; internal++) {
     const Var external = k.internal_to_external[internal];
     assert(external < k.external_to_internal.size());
@@ -3875,8 +4051,21 @@ void kernel_check_invariants(const Kernel &k) {
     const Var internal = k.external_to_internal[external];
     assert(internal == INVALID_VAR ||
            (internal < k.nvars &&
-            k.internal_to_external[internal] == external));
+           k.internal_to_external[internal] == external));
   }
+  assert(k.fixed_external_values.size() == k.fixed_external_units.size());
+  assert(k.fixed_external_values.size() <= k.external_to_internal.size());
+  uint32_t fixed_external_count = 0;
+  for (Var external = 0; external < k.fixed_external_values.size(); external++) {
+    const int8_t value = k.fixed_external_values[external];
+    assert(value >= -1 && value <= 1);
+    if (value) {
+      assert(k.external_to_internal[external] == INVALID_VAR);
+      assert(!k.proof || !k.proof->lrat() || k.fixed_external_units[external]);
+      fixed_external_count++;
+    }
+  }
+  assert(fixed_external_count == k.fixed_external_count);
   // values <-> trail <-> unassigned coherence
   uint32_t assigned_count = 0;
   for (Var v = 0; v < k.nvars; v++) {
@@ -4008,15 +4197,14 @@ void kernel_check_invariants(const Kernel &k) {
 
     // Eliminate's connected image is allowed to retain garbage large refs, but
     // it is not allowed to invent or lose physical binary copies, nor may its
-    // mixed stream and cheap large-only mirror disagree.  Checking only at the
+    // mixed stream and cached large population disagree. Checking only at the
     // deletion sites reports the later consumer (usually BVE) instead of the
     // bulk rewrite that corrupted the image; keep this in the random-policy
     // boundary oracle so fuzzing attributes the first bad transition.
     if (k.dense && k.dense->track_order) {
       physical_binary.clear();
       ordered_binary.clear();
-      const auto large_span = k.dense->large[lit];
-      physical_large.assign(large_span.begin(), large_span.end());
+      k.dense->copy_large(lit, physical_large);
       ordered_large.clear();
       for (const WatchEntry w : k.watches.entries(lit))
         if (w.binary())
@@ -4029,12 +4217,12 @@ void kernel_check_invariants(const Kernel &k) {
       }
       std::sort(physical_binary.begin(), physical_binary.end());
       std::sort(ordered_binary.begin(), ordered_binary.end());
-      std::sort(physical_large.begin(), physical_large.end());
-      std::sort(ordered_large.begin(), ordered_large.end());
       assert(physical_binary == ordered_binary &&
              "dense ordered stream lost a physical binary copy");
       assert(physical_large == ordered_large &&
-             "dense ordered stream disagrees with its large mirror");
+             "dense ordered stream disagrees with its filtered range");
+      assert(ordered_large.size() == k.dense->large_size(lit) &&
+             "dense ordered stream lost its cached large population");
     }
   }
   // binary watch symmetry: every binary entry (l -> other) must have its
@@ -4143,8 +4331,10 @@ void kernel_extend_model(Kernel &k) {
   k.model_values.resize(2 * k.external_to_internal.size());
   for (Var ev = 0; ev < k.external_to_internal.size(); ev++) {
     const Lit pos = make_lit(ev, false);
-    k.model_values[pos] = -1;
-    k.model_values[negate(pos)] = 1;
+    const int8_t fixed = ev < k.fixed_external_values.size()
+                             ? k.fixed_external_values[ev] : 0;
+    k.model_values[pos] = fixed ? fixed : -1;
+    k.model_values[negate(pos)] = -k.model_values[pos];
   }
   for (Var iv = 0; iv < k.nvars; iv++) {
     const Var ev = k.internal_to_external[iv];

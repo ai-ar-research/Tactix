@@ -174,6 +174,22 @@ def checked_verdict_valid(expected, verdict, solve, certificate_valid):
                 solve["exit_code"] == (10 if verdict == "SAT" else 20))
 
 
+def validate_runtime_pin_contract(campaign, manifest):
+    """Reject an incomplete checker bundle before spending solver time."""
+    required = {"pins/drat-trim", "pins/checkmodel", "pins/modelcheck.py"}
+    for arm in manifest.get("arms", {}).values():
+        required.add(arm["path"])
+    if manifest.get("scratch_policy") == "anonymous-local-files-v1":
+        required.add("pins/anonymous_scratch.py")
+    hashes = manifest.get("pin_sha256", {})
+    missing = sorted(rel for rel in required if rel not in hashes)
+    if missing:
+        raise RuntimeError(f"runtime pin contract omits {missing}")
+    absent = sorted(rel for rel in required if not (campaign / rel).is_file())
+    if absent:
+        raise RuntimeError(f"runtime pin files missing {absent}")
+
+
 def provisional_result(result, recorded_at):
     """Publish bounded solver diagnostics now, without inheriting validity.
 
@@ -217,14 +233,22 @@ def main():
     arm = manifest["arms"][row["arm"]]
     binary = CAMPAIGN / arm["path"]
     scratch_root = Path(os.environ.get("SLURM_TMPDIR", tempfile.gettempdir()))
-    scratch = Path(tempfile.mkdtemp(prefix=f"tactix-runtime-{task:03d}-",
-                                    dir=scratch_root))
+    anonymous = manifest.get("scratch_policy") == "anonymous-local-files-v1"
+    if anonymous:
+        from anonymous_scratch import AnonymousScratch
+        # User-authorized node-local scratch. The repository filesystem does
+        # not support O_TMPFILE; never fall back to named certificate files.
+        scratch = AnonymousScratch("/tmp")
+    else:
+        scratch = Path(tempfile.mkdtemp(prefix=f"tactix-runtime-{task:03d}-",
+                                       dir=scratch_root))
     cnf = scratch / "input.cnf"
     proof = scratch / "proof.drat"
     stdout = scratch / "solver.stdout"
     stderr = scratch / "solver.stderr"
     result = None
     try:
+        validate_runtime_pin_contract(CAMPAIGN, manifest)
         if sha256(compressed) != manifest["input_sha256"][row["instance"]]:
             raise RuntimeError("compressed input hash mismatch")
         with open(cnf, "wb") as target:
@@ -338,7 +362,10 @@ def main():
             "cleanup_pending": True,
         }
     finally:
-        shutil.rmtree(scratch, ignore_errors=True)
+        if anonymous:
+            scratch.close()
+        else:
+            shutil.rmtree(scratch, ignore_errors=True)
     result["artifact_deleted"] = not scratch.exists()
     result["derived_artifacts_deleted"] = not scratch.exists()
     result["cleanup_pending"] = scratch.exists()

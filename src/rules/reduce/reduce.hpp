@@ -21,12 +21,17 @@ RuleEligibility reduce_guard(const Kernel &);
 // Idempotent; propagation may refute the formula.
 void reduce_prepare(Kernel &);
 
-// Ranked deletion candidates, worst-first (glue desc, size desc; redundant,
-// unlocked, above the keep tier only — soundness filtering is the rule's). A
+// Ranked deletion candidates, worst-first. Reason locks are soundness;
+// optional tier/recency protection is policy advice, not public eligibility. A
 // pure query apart from transient reason locks. `measure` gates the scan
 // counters: only a real reduction pass may move them, never `instances()`,
 // since an enumeration that changes a counter breaks replay identity.
-void reduce_candidates(Kernel &, std::vector<Ref> &out, bool measure = false);
+void reduce_candidates(Kernel &, std::vector<Ref> &out, bool measure = false,
+                       bool policy_protection = true);
+
+// Additive v2 semantic payload: the high bit selects one arena-clause snapshot.
+// The frozen v1 surface continues to enumerate only ranked victim counts.
+constexpr uint64_t REDUCE_CLAUSE_INSTANCE = uint64_t{1} << 63;
 
 // Recompute one mode's tier snapshot from configurable quantiles of its
 // used-glue histogram (kissat 4.0 tiers.c). A pure configuration update — no

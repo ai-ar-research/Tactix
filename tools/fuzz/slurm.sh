@@ -72,12 +72,34 @@ mkdir -p "$PIN_FUZZ"
 cp -a "$HERE/run.sh" "$HERE/fuzz.py" "$HERE/generators.py" \
       "$HERE/modelcheck.py" "$HERE/shrink.py" "$HERE/stress.py" \
       "$HERE/corpus" "$HERE/stress-scenarios" "$PIN_FUZZ/"
+cp -a "$ROOT/tools/bench/proof_oracle.py" "$PIN_FUZZ/"
 HARNESS_SHA=$(
     cd "$PIN_FUZZ"
     find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum | \
         sha256sum | cut -d' ' -f1
 )
 chmod -R a-w "$PIN_ROOT"
+
+# Retained non-terminating controls outlive a successful batch job, while the
+# transient build/pin snapshot deliberately does not.  Keep one small,
+# content-addressed replay harness per distinct hash; concurrent submissions
+# converge on the same immutable directory.
+REPLAY_PARENT="$HERE/failures/harnesses"
+REPLAY_ROOT="$REPLAY_PARENT/$HARNESS_SHA"
+mkdir -p "$REPLAY_PARENT"
+if [ ! -d "$REPLAY_ROOT/fuzz" ]; then
+    REPLAY_TMP=$(mktemp -d "$REPLAY_PARENT/.install-XXXXXX")
+    cp -a "$PIN_FUZZ" "$REPLAY_TMP/fuzz"
+    chmod -R a-w "$REPLAY_TMP"
+    if ! mv -T "$REPLAY_TMP" "$REPLAY_ROOT" 2>/dev/null; then
+        chmod -R u+w "$REPLAY_TMP"
+        rm -rf "$REPLAY_TMP"
+        [ -d "$REPLAY_ROOT/fuzz" ] || {
+            echo "error: failed to install replay harness $REPLAY_ROOT" >&2
+            exit 2
+        }
+    fi
+fi
 
 JID=$(sbatch --parsable --partition="$PARTITION" --nodes=1 --ntasks=1 \
        --cpus-per-task="$ALLOC_CPUS" --mem="${MEM_MIB}M" --time="$TIME" \
@@ -88,6 +110,8 @@ cd "$ROOT"
 export TMPDIR=\$(mktemp -d /tmp/fuzz-\$SLURM_JOB_ID-XXXXXX)
 export TACTIX_REPO_ROOT="$ROOT"
 export TACTIX_FUZZ_OUTPUT_ROOT="$HERE/failures"
+export TACTIX_FUZZ_REPLAY_HARNESS="$REPLAY_ROOT/fuzz"
+export TACTIX_FUZZ_HARNESS_SHA256="$HARNESS_SHA"
 cleanup_fuzz_job() {
     status=\$?
     rm -rf "\$TMPDIR"

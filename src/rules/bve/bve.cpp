@@ -18,14 +18,6 @@
 
 namespace tactix {
 
-// occurrence limit (kissat eliminateocclim): skip a variable whose polarities
-// together occur more than this, where O(occ⁺·occ⁻) resolution blows up
-// cadical `elimocclim` (options.hpp:100), the only effort bound inside the
-// backward pass: skip a subsumer whose least-occurring literal is commoner
-// than this (backward.cpp:70).
-static constexpr size_t BVE_BWD_OCCLIM = 100;
-// resolvent size limit (kissat eliminateclslim): a larger resolvent aborts
-static constexpr uint32_t BVE_CLSLIM = 100;
 // Growth slack: eliminate iff #non-tautological resolvents ≤ occ⁺ + occ⁻ +
 // bound. `Kernel::bve_bound` is the one channel for it — no in-rule env pin
 // may override a policy's write — and DefaultPolicy ramps it cheap-first, so
@@ -49,9 +41,11 @@ void bve_build_occurrences(const Kernel &k, BveOccurrences &occ) {
     for (Lit l = 0; l < nlits; l++) {
       if (k.values[l] != 0) // active-variable literals only
         continue;
-      for (const Ref ref : k.dense->large[l])
-        if (!clause_at(k.arena, ref)->garbage())
-          occ.counts[l]++;
+      k.dense->with_large(l, [&](auto refs) {
+        for (const Ref ref : refs)
+          if (!clause_at(k.arena, ref)->garbage())
+            occ.counts[l]++;
+      });
     }
   } else {
     for (Ref ref = 0; ref < k.arena.size();) {
@@ -115,40 +109,19 @@ void bve_flush_units_while_connected(Kernel &k, uint32_t trail_from) {
 
     // Kissat compacts only the satisfied unit's connected stack here.  Other
     // literal stacks retain their garbage references until inspected later.
-    const auto refs = k.dense->large[unit];
-    const size_t before = refs.size();
-    const size_t kept = static_cast<size_t>(
-        std::remove_if(refs.begin(), refs.end(),
-                       [&](Ref ref) {
-                         const Clause *c = clause_at(k.arena, ref);
-                         if (c->garbage())
-                           return true;
-                         for (const Lit l : *c)
-                           if (l == unit)
-                             return false;
-                         return true;
-                       }) -
-        refs.begin());
-    k.dense->large.shrink(unit, kept);
-    const uint32_t removed = static_cast<uint32_t>(before - kept);
+    const uint32_t before = k.dense->large_size(unit);
+    k.dense->compact_large(unit, [&](Ref ref) {
+      const Clause *c = clause_at(k.arena, ref);
+      if (c->garbage())
+        return false;
+      for (const Lit l : *c)
+        if (l == unit)
+          return true;
+      return false;
+    });
+    const uint32_t removed = before - k.dense->large_size(unit);
     if (removed && k.bve_occurrence_count_image)
       kernel_bve_occurrence_remove(k, unit, removed);
-    k.dense->ordered.shrink(
-        unit, static_cast<size_t>(
-                  std::remove_if(ordered.begin(), ordered.end(),
-                                 [&](const auto &entry) {
-                                   if (entry.binary)
-                                     return false;
-                                   const Clause *c =
-                                       clause_at(k.arena, entry.payload);
-                                   if (c->garbage())
-                                     return true;
-                                   for (const Lit l : *c)
-                                     if (l == unit)
-                                       return false;
-                                   return true;
-                                 }) -
-                  ordered.begin()));
   }
 }
 
@@ -160,7 +133,7 @@ uint32_t bve_schedule_occurrence_count(const Kernel &k, Lit lit) {
   }
   uint64_t count = 0;
   if (k.dense) {
-    count = k.dense->large[lit].size();
+    count = k.dense->large_size(lit);
   } else {
     for (Ref ref = 0; ref < k.arena.size();) {
       const Clause *c = clause_at(k.arena, ref);
@@ -341,10 +314,10 @@ struct BveDefScratch {
 // `ifthenelse.c`, including its binary/root-shortened opposite-side clauses.
 
 // Sorted signature of a clause's non-pivot active literals, for the exact
-// lookups ITE and XOR need. Only clauses with 2..BVE_XOR_ARITY_LIMIT non-pivot
+// lookups ITE and XOR need. Only clauses within the configured XOR arity
 // literals and no repeated variable are indexed: a repeat means a duplicated
 // literal or a tautology, and neither may stand in for a gate clause.
-constexpr uint32_t BVE_SIG_MAX = BVE_XOR_ARITY_LIMIT;
+constexpr uint32_t BVE_SIG_MAX = BVE_XOR_ARITY_CAPACITY;
 struct GateSig {
   uint32_t n = 0;
   Lit l[BVE_SIG_MAX] = {0};
@@ -363,12 +336,30 @@ struct GateSig {
 };
 using SigIndex = std::vector<std::pair<GateSig, uint32_t>>; // sorted by sig
 
+static void bve_sort_signature(Lit *lits, uint32_t size) {
+  assert(size <= BVE_SIG_MAX);
+  // std::sort's 16-element unguarded insertion tail makes GCC diagnose an
+  // impossible out-of-bounds access on this deliberately five-slot array.
+  // Its actual small-range algorithm is insertion sort; spell that bounded
+  // loop directly so the representation invariant stays visible.
+  for (uint32_t i = 1; i < size; ++i) {
+    const Lit value = lits[i];
+    uint32_t j = i;
+    while (j && value < lits[j - 1]) {
+      lits[j] = lits[j - 1];
+      --j;
+    }
+    lits[j] = value;
+  }
+}
+
 void bve_build_sig_index(const std::vector<MClause> &side, Lit pivot,
-                         SigIndex &out) {
+                         uint32_t arity_limit, SigIndex &out) {
+  arity_limit = std::min<uint32_t>(arity_limit, BVE_SIG_MAX);
   out.clear();
   for (size_t i = 0; i < side.size(); ++i) {
     const PoolSlice<Lit> &a = side[i].active;
-    if (a.size() < 3 || a.size() > BVE_SIG_MAX + 1)
+    if (a.size() < 3 || a.size() > arity_limit + 1)
       continue;
     GateSig s;
     bool ok = true;
@@ -383,7 +374,7 @@ void bve_build_sig_index(const std::vector<MClause> &side, Lit pivot,
     }
     if (!ok || s.n + 1 != a.size())
       continue;
-    std::sort(s.l, s.l + s.n);
+    bve_sort_signature(s.l, s.n);
     for (uint32_t j = 1; j < s.n; j++)
       if (var_of(s.l[j]) == var_of(s.l[j - 1]))
         ok = false;
@@ -548,15 +539,20 @@ uint32_t bve_find_definition(const Kernel &k, Lit px,
       s.solver.kitten_generator(), static_cast<uint32_t>(s.vars.size()),
       static_cast<uint32_t>(pos.size()), static_cast<uint32_t>(neg.size()),
       s.deriv.core.data(), static_cast<uint32_t>(s.deriv.core.size()));
+  const auto refinement_budget = [&] {
+    if (!k.bve_definition_budget)
+      return uint64_t{0};
+    const uint64_t multiplier = k.bve_definition_core_budget_multiplier;
+    return multiplier && k.bve_definition_budget > UINT64_MAX / multiplier
+               ? UINT64_MAX
+               : multiplier * k.bve_definition_budget;
+  };
   for (uint32_t core = 2; core <= k.bve_definition_cores; ++core) {
     s.solver.shrink_to_clausal_core(s.deriv.core);
     s.solver.shuffle_clauses();
     uint64_t ceiling = 0; // SubSolver's public zero means unlimited.
     if (k.bve_definition_budget) {
-      const uint64_t delta =
-          k.bve_definition_budget > UINT64_MAX / 10
-              ? UINT64_MAX
-              : 10 * k.bve_definition_budget;
+      const uint64_t delta = refinement_budget();
       const uint64_t current = s.solver.kitten_ticks();
       ceiling = UINT64_MAX - delta <= current ? UINT64_MAX : current + delta;
     }
@@ -570,9 +566,7 @@ uint32_t bve_find_definition(const Kernel &k, Lit px,
           k, pv, attempt, core,
           res == SubResult::Budget ? "budget" :
           res == SubResult::Sat ? "sat" : "no-derivation",
-          s.ticks, k.bve_definition_budget > UINT64_MAX / 10
-                       ? UINT64_MAX
-                       : 10 * k.bve_definition_budget,
+          s.ticks, refinement_budget(),
           s.solver.kitten_generator(),
           static_cast<uint32_t>(s.vars.size()),
           static_cast<uint32_t>(pos.size()),
@@ -580,10 +574,7 @@ uint32_t bve_find_definition(const Kernel &k, Lit px,
       return 0;
     }
     event_trace_bve_definition(
-        k, pv, attempt, core, "unsat", s.ticks,
-        k.bve_definition_budget > UINT64_MAX / 10
-            ? UINT64_MAX
-            : 10 * k.bve_definition_budget,
+        k, pv, attempt, core, "unsat", s.ticks, refinement_budget(),
         s.solver.kitten_generator(), static_cast<uint32_t>(s.vars.size()),
         static_cast<uint32_t>(pos.size()), static_cast<uint32_t>(neg.size()),
         s.deriv.core.data(), static_cast<uint32_t>(s.deriv.core.size()));
@@ -814,8 +805,12 @@ uint32_t bve_detect_gate(const Kernel &k, Lit px, Lit nx,
   // the pos/neg MClause vectors are already materialized, so it is O(P+N) and
   // needs no O(nvars) scratch
   SigIndex psig, nsig;
-  bve_build_sig_index(pos, px, psig);
-  bve_build_sig_index(neg, nx, nsig);
+  const uint32_t signature_arity =
+      std::min<uint32_t>(BVE_SIG_MAX,
+                         std::max<uint32_t>(BVE_XOR_ARITY_MIN,
+                                            k.bve_xor_arity_limit));
+  bve_build_sig_index(pos, px, signature_arity, psig);
+  bve_build_sig_index(neg, nx, signature_arity, nsig);
 
   // (3) ITE, transliterated from pinned Kissat `ifthenelse.c`.  Two live
   // ternaries on one pivot side name the condition and branches.  Each
@@ -919,11 +914,13 @@ uint32_t bve_detect_gate(const Kernel &k, Lit px, Lit nx,
   //     variable set and the parity R, and the 2^m falsified assignments then
   //     name the 2^m clauses exactly, so this is a fixed enumeration.
   auto try_xor = [&]() -> bool {
-    uint32_t gate_pos[1u << BVE_XOR_ARITY_LIMIT];
-    uint32_t gate_neg[1u << BVE_XOR_ARITY_LIMIT];
+    uint32_t gate_pos[1u << BVE_XOR_ARITY_CAPACITY];
+    uint32_t gate_neg[1u << BVE_XOR_ARITY_CAPACITY];
     for (const std::pair<GateSig, uint32_t> &base : psig) {
       const uint32_t m = base.first.n; // arity
       if (m < 2)                       // m == 1 is an equivalence (case 1)
+        continue;
+      if (m > k.bve_xor_arity_limit)
         continue;
       // The relation is x ⊕ a₁ ⊕ … ⊕ aₘ = R. `base` is a pos-side clause, so
       // x = 0 in its falsifying assignment "aⱼ true iff base.l[j] is
@@ -945,7 +942,7 @@ uint32_t bve_detect_gate(const Kernel &k, Lit px, Lit nx,
           // aⱼ true ⇒ the clause carries its NEGATIVE literal
           probe.l[j] = make_lit(var_of(base.first.l[j]), bit != 0);
         }
-        std::sort(probe.l, probe.l + m);
+        bve_sort_signature(probe.l, m);
         // x's value in this falsified assignment: total parity must be 1⊕R
         const uint32_t xv = (1u ^ r) ^ par;
         const int hit = xv ? bve_find_sig(nsig, probe) : bve_find_sig(psig, probe);
@@ -1010,15 +1007,15 @@ static void bve_backward(Kernel &k, std::vector<Ref> &queue,
   const bool lrat = k.proof && k.proof->lrat();
   // Least-occurring-literal count, cadical's occs parity: dense->large is
   // large-only, so the binary share comes from the watch list. Counting stops
-  // one past BVE_BWD_OCCLIM — a count beyond the limit can only disqualify,
+  // one past the configured limit — a count beyond it can only disqualify,
   // so the cap changes neither the argmin (a capped literal never beats an
   // under-limit one) nor the guard (all capped means the minimum is over).
   auto occ_len = [&](Lit l) {
-    size_t n = k.dense->large[l].size();
-    if (n > BVE_BWD_OCCLIM)
+    size_t n = k.dense->large_size(l);
+    if (n > k.bve_backward_occurrence_limit)
       return n;
     for (const WatchEntry w : k.watches.entries(l))
-      if (w.binary() && ++n > BVE_BWD_OCCLIM)
+      if (w.binary() && ++n > k.bve_backward_occurrence_limit)
         break;
     return n;
   };
@@ -1041,7 +1038,8 @@ static void bve_backward(Kernel &k, std::vector<Ref> &queue,
       const size_t n = occ_len(l);
       if (best == INVALID_LIT || n < len) { best = l; len = n; }
     }
-    if (satisfied || best == INVALID_LIT || size == 0 || len > BVE_BWD_OCCLIM) {
+    if (satisfied || best == INVALID_LIT || size == 0 ||
+        len > k.bve_backward_occurrence_limit) {
       // A root-satisfied subsumer is garbage, not merely unusable — a fresh
       // resolvent goes root-true the moment a sibling unit resolvent is
       // asserted (cadical backward.cpp:66-69 marks it garbage here too). A
@@ -1058,7 +1056,7 @@ static void bve_backward(Kernel &k, std::vector<Ref> &queue,
     }
     k.stats.bve_bwd_queued++;
     bool unit_derived = false;
-    victims.assign(k.dense->large[best].begin(), k.dense->large[best].end());
+    k.dense->copy_large(best, victims);
     for (const Ref dref : victims) {
       if (dref == cref || k.inconsistent)
         continue;
@@ -1102,8 +1100,6 @@ static void bve_backward(Kernel &k, std::vector<Ref> &queue,
       // the strengthened clause keeps an unassigned literal and the
       // not-a-reason argument above survives the rewrite (cadical asserts the
       // same thing at backward.cpp:201).
-      if (k.subsume_shadow)
-        kernel_shadow_retire(k, d->id());
       dlits.clear();
       std::vector<uint64_t> chain;
       for (const Lit l : *d) {
@@ -1245,8 +1241,6 @@ static void bve_backward(Kernel &k, std::vector<Ref> &queue,
         // unit {best}. `neg_lit != best` as above — a stored pair never
         // carries both polarities of one variable.
         const uint64_t vid = kernel_binary_id(k, best, o);
-        if (k.subsume_shadow)
-          kernel_shadow_retire(k, vid);
         std::vector<uint64_t> chain;
         if (lrat) {
           // Both victim literals are unassigned here (value-checked above),
@@ -1452,33 +1446,18 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
         (void)removed;
       }
       if (!garbage_prefix.empty()) {
-        const auto refs = k.dense->large[pivot];
-        size_t garbage = 0, out = 0;
-        for (const Ref ref : refs) {
+        size_t garbage = 0;
+        k.dense->compact_large(pivot, [&](Ref ref) {
           if (garbage < garbage_prefix.size() &&
               ref == garbage_prefix[garbage]) {
             garbage++;
-            continue;
+            return false;
           }
-          refs[out++] = ref;
-        }
+          return true;
+        });
         assert(garbage == garbage_prefix.size());
-        k.dense->large.shrink(pivot, out);
         kernel_bve_occurrence_remove(
             k, pivot, static_cast<uint32_t>(garbage_prefix.size()));
-
-        const auto ordered = k.dense->ordered[pivot];
-        garbage = out = 0;
-        for (const OccIndex::Entry entry : ordered) {
-          if (!entry.binary && garbage < garbage_prefix.size() &&
-              entry.payload == garbage_prefix[garbage]) {
-            garbage++;
-            continue;
-          }
-          ordered[out++] = entry;
-        }
-        assert(garbage == garbage_prefix.size());
-        k.dense->ordered.shrink(pivot, out);
       }
       const bool changed =
           !satisfied_binaries.empty() || !garbage_prefix.empty();
@@ -1804,7 +1783,7 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
   // overflow still supplies the only sound retry hint available at this level
   // (`current bound + 1`); a later ramp level recomputes, as the reference does.
   const size_t gen_limit = commit_limit;
-  bool oversized = false; // a resolvent exceeded BVE_CLSLIM → never eliminable
+  bool oversized = false; // configured resolvent-size limit was exceeded
   bool over_gen = false;  // resolvent count passed gen_limit → needs > ceiling
   bool immediate_unsat = false;
   uint64_t resolved = 0;
@@ -1988,7 +1967,7 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
           }
           continue;
         }
-        if (lits_size > BVE_CLSLIM) {
+        if (lits_size > k.bve_resolvent_size_limit) {
           def->resolvent_lits.resize(lits_begin);
           def->resolvent_chains.resize(chain_begin);
           event_trace_bve_pair(k, x, ordinal, c.active.data(), c.active.size(),

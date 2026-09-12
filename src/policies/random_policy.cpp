@@ -10,6 +10,7 @@
 #include "rules/decide/decide.hpp"
 #include "rules/registry.hpp"
 #include "rules/restart/restart.hpp"
+#include "strategy/online_inprocess.hpp"
 
 namespace tactix {
 
@@ -125,6 +126,7 @@ int random_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop,
     // reach the same effect via a direct call below, so their payload has to be
     // spelled out rather than read back.
     uint64_t applied = INSTANCE_CANONICAL;
+    bool applied_semantic = false;
     if (id == decide_id) {
       const Lit l = stress_random_unassigned_literal(k, rng);
       applied = lit_instance(k, l);
@@ -136,28 +138,38 @@ int random_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop,
       if (applied < k.level)
         heuristics_update_target_phases(k);
       r = restart_apply_to(k, static_cast<uint32_t>(applied));
-    } else if (rules[id].instances && rules[id].apply_instance) {
-      // Generic instance draw over the rule's own enumeration, so any rule
-      // registering an instance surface gets instance fuzzing for free.
-      // INSTANCE_CANONICAL is drawn about a third of the time (always when the
-      // enumeration is empty) because a canonical round emits proof deltas the
-      // single instances never emit together — Probe's multi-unit batch,
-      // Strengthen's flush plus one-action round, Vivify's full round, Lucky's
-      // cascade — and the proof strategy must hold under every legal schedule.
-      uint64_t insts[16];
-      const uint32_t m = rules[id].instances(k, insts, 16);
-      const uint64_t inst = (m == 0 || stress_random(rng) % 3 == 0)
-                                ? INSTANCE_CANONICAL
-                                : insts[stress_random(rng) % m];
-      applied = inst;
-      r = apply_rule_instance(rules[id], k, inst);
+    } else if ((rules[id].semantic_instances &&
+                rules[id].apply_semantic_instance) ||
+               (rules[id].instances && rules[id].apply_instance)) {
+      // Enumerate the complete current semantic frontier. The former fixed
+      // array made every candidate after ordinal 15 unreachable regardless of
+      // seed. Decide remains the uniform O(1) special case above; other rules
+      // draw from the full formula-dependent space. Canonical closure remains
+      // a one-in-three choice because its grouped proof/state transition is
+      // independently legal and must stay fuzzed.
+      std::vector<uint64_t> instances;
+      const strategy::InvocationStatus enumerated =
+          strategy::enumerate_complete_instances(k, rules[id], instances);
+      if (enumerated != strategy::InvocationStatus::Completed)
+        return fin.verdict = 0;
+      const bool canonical =
+          instances.empty() || stress_random(rng) % 3 == 0;
+      if (canonical) {
+        r = apply_rule(rules[id], k);
+      } else {
+        applied = instances[stress_random(rng) % instances.size()];
+        applied_semantic = rules[id].semantic_instances != nullptr;
+        r = applied_semantic
+                ? apply_rule_semantic_instance(rules[id], k, applied)
+                : apply_rule_instance(rules[id], k, applied);
+      }
     } else {
       r = apply_rule(rules[id], k);
     }
     heuristics_consume_rule_advice(k);
     heuristics_consume_retirements(k);
     if (trace)
-      trace->record(id, applied);
+      trace->record(id, applied, applied_semantic);
     // Per-step rule trace, env-gated: it names rule, result and state at every
     // step, where the every-256 invariant check only reports that state was
     // corrupted. Printed before the invariant oracle so an abort inside the

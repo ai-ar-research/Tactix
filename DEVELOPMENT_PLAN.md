@@ -18,15 +18,17 @@ single-threaded, deterministic solving.
 - **R3:** expose every applicable proof rule and legal instance through a public
   API; rule order is not hardcoded into the kernel.
 - **R4:** ship an automatic DefaultPolicy with state-of-the-art scheduling.
-- **R5:** exceed Kissat by engineering before learned scheduling; learning is
-  additional upside rather than the mechanism that first reaches parity.
+- **R5:** beat every frozen competition winner by engineering before learned
+  scheduling; learning is additional upside, not the first route to parity.
 
 ### 1.1 Non-negotiables
 
-- **N1 — Universal applicability.** At every state, the API exposes every rule
-  whose pure guard holds and every legal instance, including branch variable
-  and phase. DefaultPolicy may decline an offered action; it may not narrow the
-  API surface.
+- **N1 — Universal applicability.** At every declared action boundary, the API
+  exposes every rule whose pure guard holds and every legal instance, including
+  branch variable and phase. Search actions are available during search;
+  inprocessing actions and root-phase Lucky are defined on the level-zero root
+  formula `F|U` after an explicit Restart-to-root transition. DefaultPolicy may
+  decline an offered action; it may not narrow the legal API surface.
 - **N2 — Proof/model correctness.** Every policy and rule path produces valid
   DRAT/LRAT evidence or a valid reconstructed SAT model.
 - **N3 — Competitive default.** A shipped DefaultPolicy reaches at least Kissat
@@ -48,69 +50,53 @@ goals. A soundness regression is never staged.
 ## 2. Landscape and reference policy
 
 The frozen SC24–26 performance set is Kissat 4.0.4, kissat-sc2024,
-AE-Kissat-MAB, Satsuma+Kissat, and SAT-only LymphoSAT. CaDiCaL, Glucose, and
-CryptoMiniSat remain mechanism references, not Tier-D arms.
+AE-Kissat-MAB, Satsuma+Kissat and SAT-only LymphoSAT. CaDiCaL, Glucose and
+CryptoMiniSat are mechanism references, not Tier-D arms.
 
-For DefaultPolicy, transliterate mechanism and effect, never code. Read Kissat
-and CaDiCaL, choose the stronger mechanism, and use Kissat as the tie-break for
-equivalent designs. Preserve a faithful baseline beside any stronger design;
-derive or remove unbacked constants, never tune them. Proof generation belongs
-in every measured workload. Reference source selects port repairs and
-benchmarks measure them, never the reverse; a faithful-port regression
-indicates an implementation error or missing coupled mechanism, not a reason
-to weaken the reference.
+DefaultPolicy transliterates mechanisms and effects, never source code. Read
+Kissat and CaDiCaL; choose the stronger mechanism and use Kissat to break ties.
+Preserve a faithful baseline beside stronger work. Derive or remove unbacked
+constants; do not tune them. Measure with proofs enabled. Source determines
+reference repairs; a regression calls for investigating implementation errors
+and coupled mechanisms, not weakening the reference.
 
-Port the smallest complete semantic unit, including all state that gives an
-observed branch meaning: analysis result, retained trail, candidate class,
+Port complete semantic units: analysis result, retained trail, candidate class,
 conditional predecessors/follow-ups, and proof/model transition. A local proxy
-or positional heuristic is not a faithful baseline. If the unit cannot land
-whole, keep the gap open and trace until its contract is understood. For each
-mismatch, retain and specify a provably stronger Tactix effect under the same
-correctness contract; otherwise repair it. If source, trace, proof/model
-evidence, and semantics establish neither conclusion, ask the project owner.
+is not a faithful baseline. Keep incomplete units open. For each mismatch,
+prove a stronger Tactix effect under the same correctness contract or repair it;
+if source, traces and semantics establish neither, ask the project owner.
 
-For convergence work, equivalent sets or terminal results are not enough when
-the reference consumes order or physical state. Compare the earliest common
-state before a trajectory split and include every decision-observable part of
-the mechanism: iteration and admission order, retained clause/watch layout,
-propagation order, heuristic update order and values, heap/queue topology, and
-the clocks charged by the operation. Do not infer a cause from a later semantic
-divergence while an earlier common-state mismatch remains unexplained. A
-repaired discrepancy lands with a differential regression test for the exact
-state transition that was wrong. Performance evidence promotes the repair only
-after that mechanism check; it does not excuse or conceal an upstream parity
-gap.
+Compare the earliest common state before a split, including iteration/admission
+order, clause/watch layout, propagation, heuristic values/update order,
+heap/queue topology and charged clocks. Equal sets or terminal results do not
+establish equivalence when order is observable. Do not infer causes from later
+semantic divergence while an earlier common-state mismatch is unexplained.
+Each repair needs a differential regression for the exact wrong transition;
+performance evidence cannot conceal an upstream parity gap.
 
-Once source and common-state evidence establish a sound, general reference
-repair, retain it through downstream performance regressions and investigate
-the next coupled mechanism from that honest baseline. A regression can expose
-another missing state transition, ordering rule, or representation cost; it is
-not by itself evidence that the established repair was wrong. Discard such a
-repair only if stronger evidence disproves its reference fidelity, correctness,
-generality, or an N1--N4 obligation. Record and bound diagnostic alternatives,
-but do not restore an older compensating behavior as the production default.
+Retain sound, general reference repairs through downstream regressions; discard
+one only when stronger evidence disproves its fidelity, correctness, generality
+or an N1–N4 obligation. Bound diagnostic alternatives rather than restoring an
+older compensating default. Compare downstream utility as specified in §8.3.
 
-Add a configuration arm only for a concrete time-bounded question with a
-removal condition; prefer trace-only instrumentation and remove neutral,
-superseded, or completed arms. A permanent knob needs a distinct continuing
-use beyond the shipped default and temporary instrumentation; historical
-behavior alone is insufficient.
+Diagnostic arms require a concrete time-bounded question and removal condition;
+prefer trace-only instrumentation and remove completed, neutral or superseded
+arms. A permanent knob needs a continuing use beyond historical behavior.
+Prefer matched feature-off projections; permit one-sided disables for narrow
+attribution. Record gate, hypothesis, fixture, trace anchor and removal condition.
+A diagnostic projection cannot justify disabling a required shipped mechanism,
+retaining an experimental arm or replacing default-on performance gates.
 
-Prefer matched feature-off projections in Tactix and the reference, with a
-one-sided disable allowed for narrow attribution. Name the semantic gate,
-hypothesis, fixture, trace anchor, and removal condition. A projection is
-diagnostic: it cannot justify shipping a required mechanism disabled or inert,
-retaining an experimental arm, or replacing default-on performance gates.
-
-DefaultPolicy contains no magic strategy numbers. Every numeric value that can
-change action choice, order, admission, timing, repetition, effort, candidate
-scope, or retention is a descriptively named field in the centralized typed
-default-strategy configuration, with its reference or derivation recorded.
-Use sites do not embed those values. Algorithmic invariants, representation
-constants, enum values, sentinels, and diagnostic-only limits are exempt but
-must be identifiable as such. A new or changed strategy value lands with
-configuration-wiring and shipped-default tests; a narrow annotated allowlist is
-required for any exceptional literal.
+DefaultPolicy contains no magic strategy numbers: every strategy number affecting
+choice, order, admission, timing, repetition,
+effort, candidate scope or retention belongs in centralized typed configuration,
+with a descriptive name and reference or derivation. No embedded use-site values.
+Configuration wiring and shipped-default tests accompany changes; exceptional
+literals need a narrow annotated allowlist. Algorithmic/representation constants,
+enums, sentinels and diagnostic-only limits must be clearly identifiable.
+Move all heuristic cutoffs, budgets and search limits out of rules into validated,
+fully configurable strategy settings. Rules keep semantic/representation facts;
+caller limits never narrow legal public actions or become soundness preconditions.
 
 ## 3. Core design: flexibility without hot-loop overhead
 
@@ -161,6 +147,28 @@ Architecture obligations:
 4. Measure abstraction cost and redesign abstractions that cost N3.
 5. Port mechanisms with their effect; source counters must prove they fire.
 6. Begin from faithful reference behavior; deviations carry the argument.
+
+**Strategy composition.** Decompose DefaultPolicy into branching/analysis,
+restart/mode, database-maintenance, phase-guidance and inprocessing sub-strategies.
+Keep their cohesive configuration and runtime-state ownership; static hot dispatch
+and the shared rule implementations remain intact.
+
+All strategies use typed, validated per-call parameters, explicit instances,
+granularity and budgets. Support single legal instances, caller-selected batches,
+rounds and closures; arbitrary reordered/repeated rules or sequences; scoped
+fixpoint repetition or explicit budget/stop. Shared execution preserves state,
+proof and reconstruction invariants without hiding strategy choices.
+
+Inprocessing programs and root-phase Lucky execute at level zero. A caller that
+is currently searching composes an explicit `Restart` before either operation;
+the executor does not suspend, rewrite or replay a non-root decision trail.
+
+Distinguish local exhaustion, scoped fixpoint, budget exhaustion, interruption
+and terminal results. Online updates take effect at safe boundaries without
+restarting the solver; version settings and validate/invalidate resumption state.
+Serialize configurations and actions for replay. Default, scripted, broad random
+and future learned strategies share the same surface. Preserve existing default
+behavior and report any conflicting N1/soundness repair under §8.4.
 
 ### 5.1 Public API (v1, frozen)
 
@@ -239,16 +247,15 @@ A new proof rule adds one `src/rules/<name>/` module and one
 `src/policies/ops/<name>/` module and one registration line. Registries drive
 discovery, API exposure, random-policy fuzzing, and default scheduling.
 
-Rules use stable kernel primitives and the five proof primitives; options,
-statistics, budgets, guards, lazy instances, tests, and proof tests remain local
-to the family. CCE is the phase-5 acceptance test: if its implementation needs
-unrelated kernel, policy, rule, or proof-backend edits, repair the architecture.
+Rules own semantics, statistics, guards, lazy instances and proof tests;
+strategies own heuristic parameters and execution budgets. CCE tests phase-5
+extensibility: unrelated kernel/policy/rule/proof edits require architecture repair.
 
 ### 5.4 Revamp discipline
 
-At phase gates or structural bottlenecks, use `revamp` to define measurable
-redesign success, preserve N1–N4, revalidate default and dynamic policies, and
-treat revert as valid.
+Revamps within this project need no separate user approval: communicate the
+design, then proceed through `revamp` with measurable success and rollback points.
+Preserve N1–N4 and revalidate default, scripted and broad random policies.
 
 ### 5.5 Codebase hygiene
 
@@ -282,49 +289,24 @@ starts only in Phase 4.5.
 
 ### 8.1 Benchmark tiers
 
-All solver executions use SLURM partition `cpu-dense-hwulab-q`, with one
-single-threaded solver per task. Allocate 8 GiB per **physical** core. Because
-the current nodes use SMT-2, request two SLURM logical CPUs per physical core:
-for example, 32 GiB uses four physical/eight logical CPUs. Tier D uses a 32 GiB
-SLURM task-cgroup limit and 5000 s solve limit. Record the allocation shape,
-independently check every UNSAT proof and SAT model, and keep these execution
-invariants:
+All solver runs use SLURM `cpu-dense-hwulab-q`, one single-threaded solver per
+task. Allocate 8 GiB per **physical** core. On SMT-2, request two logical CPUs per
+physical core (32 GiB = four physical/eight logical CPUs). Canonical Tier D
+uses a 32 GiB task-cgroup limit and 5000 s solve limit. User-authorized
+experimental allocations are recorded separately and never redefine a gate.
+Thus a 16 GiB check uses two physical/four logical CPUs in one SLURM `--mem=16G` task cgroup.
 
-- Concurrent arms own distinct immutable `build/pin-*` directories and
-  manifests recording source commit and binary hash. Never mutate or share a
-  queued/running pin. Remove an ephemeral pin only after its campaign is
-  terminal and aggregated and no job or retained manifest references it.
-  Long-lived development builds are only `build/release` and `build/debug`;
-  frozen campaigns retain pins under their campaign directories.
-- One SLURM job or array task may execute only one solver invocation. Never
-  serialize predecessor and candidate solver runs back-to-back inside one
-  allocation; submit independent arms so they remain parallelizable subject to
-  available resources. Targeted Phase-4.25 diagnostics should prefer
-  `node018` when it is available, while full-width arrays retain the no-hard-
-  node-constraint contract below.
-- A task atomically solves, checks any verdict, records verdict, solve/check
-  time, peak memory, certificate size/hash, and checker provenance, then deletes
-  every certificate and checker derivative on every exit path. A task with
-  residue is incomplete and its campaign is unscorable; reproduce diagnostics
-  from the immutable pin and manifest, not a retained partial proof. Each
-  checker deletes its consumed input immediately, and the task clears remaining
-  scratch before publishing its result.
-- Proof checking is asynchronous during runtime iteration. After an expected
-  solver verdict, treat pending checks as provisional passes for continuing
-  investigation, implementation and subsequent measurements, including dependent
-  work; do not wait for certificates before proceeding. Keep checkers running,
-  retain pin-to-successor dependencies, and revisit outcomes at checkpoints.
-  Label pending results unverified: provisional continuation does not close a
-  checked gate or authorize final promotion. A rejected proof/model immediately
-  pauses affected dependent work and invokes the §8.2 repair workflow.
-- An early exit without a valid result is a blocking incident, not a performance
-  loss. Preserve its status, signal, and diagnostics; distinguish timeout,
-  scheduler cancellation/preemption, and enforced or confirmed OOM. A crash,
-  assertion, sanitizer finding, or unexplained nonzero exit pauses unrelated
-  development and performance interpretation and stops dependent owned jobs
-  until the pinned fixture has a causal reproducer, regression-tested fix,
-  validated proof/model, and clean affected correctness gate. Tooling must not
-  flatten this class to `UNKNOWN`.
+- Every arm owns an immutable pin and manifest. One task runs one solver; never
+  serialize arms, throttle full-width arrays, constrain their node placement, or
+  mutate a queued/running pin.
+- Independently check every verdict and record solve/check time, peak memory,
+  certificate size/hash, checker provenance, placement, and cleanup. Formula,
+  proof, model, and checker scratch must be anonymous node-local files whose
+  storage is released on normal exit, timeout, crash, OOM, or cancellation.
+  Residue or a missing final result makes the task incomplete and unscorable.
+- Pending checking permits independent work but cannot close a gate or authorize
+  promotion. Preserve and classify failures; a crash, sanitizer finding,
+  rejected proof/model, or unexplained exit enters the §8.2 repair workflow.
 
 | Tier | Purpose | Set and limit | Cadence |
 |---|---|---|---|
@@ -333,128 +315,53 @@ invariants:
 | C | scheduling signal | 30 frozen instances, 1200 s, 32 GB | weekly/major change |
 | D | gate scale | SC24+SC25+SC26 union, 1166 unique, 5000 s, 32 GB | frozen reference + phase gates |
 
-The three annual memberships (1200 total) are scoring views over 1166 unique
-runs. Never tune on Tier A or mix set versions or resource contracts.
-Per-instance results are authoritative; PROGRESS carries only a headline.
+The annual memberships are scoring views over 1166 unique runs. Per-instance
+results are authoritative. Frozen reference data lives under
+`benchmarks/baselines/`; never rerun a valid reference merely to fill a metric
+or repair a frozen result. Lower time caps use exact censoring; lower-memory
+views are labeled peak-RSS simulations and do not prove OOM.
 
-The five reference solvers run once per valid frozen campaign. Infrastructure-
-or storage-invalidated runs are replaced in a new directory, never repaired in
-place. `benchmarks/baselines/sc24-26-32g-5000s/` owns their manifests, pins,
-per-instance metrics, and integrity metadata; its generated Andrew report is a
-view, not result authority, and checked certificates are deleted. Derive future
-time caps by exact truncation. Label lower-memory projections as simulations
-from peak RSS: they neither locate the crossing time nor prove OOM. Never rerun
-a frozen reference to fill a missing metric.
-
-Before Phase 4.5, the **debug comparison contract** gives ordinary hard-memory
-Tactix tasks two physical/four logical CPUs, a SLURM `--mem=16G` task cgroup,
-and 1200 s solver timeout. Do not add `RLIMIT_AS`: virtual reservations are not
-resident memory and can reject a task below the intended physical-memory
-ceiling. Derive the matched reference view without rerunning: truncate the
-immutable 32 GiB/5000 s record
-at 1200 s and admit a validated solve under the simulated 16 GiB cap only when
-recorded peak RSS is at most 16 GiB. Label the projection and any memory-based
-non-solve as simulated. This iteration contract never replaces canonical gates.
-Submit full-width arrays without `%N` or hard node constraints, including
-`node017,node018`, while retaining one solver per task, immutable pins,
-certificate cleanup, and enough checker wall time.
-
-Treat memory convergence as an independent acceptance dimension. On matched
-current-Tactix/current-Kissat jobs with the same input, proof mode, and resource
-contract, a Tactix solve loss or materially higher peak memory has priority over
-a runtime-only gap. Merely falling below the task-cgroup cap does not close it:
-require comparable peak and live-state ownership, or a source-backed general
-reason for any residual excess. Attribute formula, search, inprocessing, proof,
-and checker memory separately; a resource exit is not a correctness failure.
-
-Every debug candidate passes full Tier B plus a predeclared mechanism-relevant
-Tier C subset before targeted Tier D. A round may carry up to ten predeclared
-Kissat-over-Tactix improvement witnesses; they prioritize general
-repairs but do not become regressions or require one shared mechanism. The
-witness may reveal an N4 gap but never parameterize its repair: names, hashes,
-ranks, per-instance arms, deadline shifts, and tuned constants are forbidden.
-Follow a reference path or document a stronger effect and accepted deviation,
-then require focused coverage and the Tier-B/Tier-C guard. Keep witnesses
-cumulative where practical. Predeclare Tier C from causal evidence with
-productive, worst-cost, and low/no-yield cases where available, recording exact
-membership in the manifest before submission; compare shipped and candidate
-Tactix in the same window. Validate all proofs/models; an unexplained solve
-loss blocks promotion. This subset and rule-neutral projections are
-diagnostics, never full Tier C/D replacements.
-
-Every frozen-tier instance remains scored. Replication, leave-one-out, and
-unrelated perturbations improve confidence and attribution; they create no
-gate exemption and never waive a matched Kissat solve.
+Memory is a separate gate: compare matched inputs, proof modes, and resources;
+attribute solver and checker memory separately. Diagnostic subsets and
+projections help causal analysis but never replace a complete tier gate. Every
+frozen instance remains scored, and identities or measured deadlines never
+parameterize a solver repair.
 
 ### 8.2 Correctness
 
-For every change, explicitly consider whether new or updated unit tests are
-needed. Check coverage of the affected behavior, boundaries, and failure modes;
-add focused tests for uncovered cases. When no test change is needed, record a
-brief coverage-based reason in the change's validation summary. This applies
-to implementation, policy, refactoring, tooling, and documentation changes;
-it does not replace the existing correctness or benchmark gates.
+For every change, cover affected behavior and boundaries with focused tests or a
+recorded reason existing tests suffice. Check SAT models against the original
+CNF, UNSAT proofs independently, differential verdicts, and internal invariants.
+Tier D follows the SC2026 Main-track proof contract; checker failure or timeout
+is unsolved. Fuzz recorded uniform, structured, mutated, circuit-derived, and
+degenerate inputs under legal random/stress schedules and known-bad controls.
+Shrink failures and retain minimal regressions. Operational commands belong in
+`fuzz`, `proof-check`, and `stress-policy`.
 
-Every relevant run checks SAT models against the original CNF, UNSAT proofs
-with independent checkers, differential status against references, and internal
-invariants. The Tier-D campaign follows the SC2026 Main-track contract: the
-solver writes `proof.out` in its supplied output directory, uses its registered
-DPR, GRAT, or VeriPB pipeline, and an UNSAT result whose checker fails or times
-out is unsolved. SAT output includes a competition-valid (possibly partial)
-model. Fuzz uniform, structured, mutated, circuit-derived, and fixed
-degenerate inputs with recorded seeds. Random-policy and targeted stress-policy
-legs exercise legal schedules; validate every oracle with known-bad artifacts.
-Shrink failures and retain minimal regressions. Cadence and commands live in the
-`fuzz`, `proof-check`, and `stress-policy` skills.
+**Claude owns fuzzing.** Codex invokes Claude Code for each needed solver-fuzz
+checkpoint, supplying candidate/pins, scope, resources and acceptance criteria.
+Claude owns preparation, submission, monitoring, artifact inspection, oracle
+interpretation, cleanup audit and the terminal report. Codex may continue
+independent development, but must not inspect the campaign or recompute/reinterpret
+its report. Claude's terminal pass closes only that fuzz gate; a failure pauses
+dependent work and supplies a bounded reproducer, command and failure class for
+Codex to repair. Do not rerun a passing unchanged campaign for reassurance.
 
-**Direct fuzzing ownership.** Codex may prepare and submit solver fuzz jobs
-directly, and owns monitoring, artifact inspection, oracle interpretation,
-cleanup audit, and the terminal report. Invoking Claude Code is not required;
-do not delegate fuzzing to it unless the user explicitly requests that.
-Record the bounded candidate, immutable pins, stress scope, resource contract,
-and acceptance criteria. Run the campaign in the background while continuing
-independent development, then inspect its actual outputs at checkpoints.
-A verified terminal `pass` closes the fuzz gate; a `failure` pauses dependent
-work and triggers Codex's direct diagnosis and repair under §8.2. Pending or
-interim output is not a pass. Do not rerun a passing campaign merely for
-confirmation. Unit tests, benchmark guards, proof witnesses, and performance
-diagnostics retain their existing independent-validation contracts. Run periodic
-checkpoints after meaningful solver-change batches during extended runtime work,
-not only at final
-consolidation; unchanged rebuilds and diagnostic-only work need no duplicate
-campaign. Pending fuzz results do not pass a gate or authorize promotion. A
-reported correctness failure pauses dependent work and triggers the repair path.
+Run one checkpoint after each meaningful solver-change batch; unchanged rebuilds
+and diagnostics need no duplicate. Generated legs normally use the 50-physical-
+core harness contract; a bounded corpus or reachability checkpoint may use less
+with the reason recorded. Every leg uses an immutable read-only harness snapshot
+and records its hash. A successful job removes that snapshot; a failed job
+retains it for Claude's handoff. Pending fuzz never authorizes promotion.
 
-Each generated fuzz leg uses 50 physical cores when cluster capacity permits,
-not 50 SMT threads: on the current SMT-2 nodes this is 100 logical CPUs,
-400,000 MiB of scheduler memory, and 50 harness workers (one per physical
-core). Codex records the requested allocation, worker count, and achieved
-concurrency in its terminal report. Preparation, small fixed-corpus checks, and
-intrinsically narrower reachability probes may use less with a recorded reason;
-a generated fuzz leg may not silently fall back to one or two workers. This is
-parallelism within the one required campaign, not campaign replication, and it
-does not change seeds, case counts, or acceptance oracles.
-
-Every submitted fuzz leg owns an immutable, read-only snapshot of all harness
-scripts, Python modules, stress scenarios, and corpus inputs it executes.  Its
-job log records the snapshot's aggregate SHA-256.  A batch job must never
-execute a live repository script: editing a script while Bash is waiting for a
-child can otherwise shift the interpreter's saved file offset and turn a clean
-oracle result into a post-oracle shell failure.  Remove the snapshot only after
-a successful terminal exit; retain a failed job's snapshot for the fuzz owner's
-failure handoff and cleanup audit.
-
-**Direct debugging ownership.** Codex diagnoses and repairs implementation,
-performance, unit-test, crash, sanitizer, proof/model, and soundness failures
-directly. Do not delegate debugging or repair review to Claude unless the user
-explicitly requests it. Preserve the original failure, establish a causal
-reproducer, add a regression, and validate
-the fix with the affected invariants and independent proof/model oracles before
-resuming dependent work. Do not weaken correctness or promotion gates.
-For a fuzz failure, Codex inspects the campaign directly and records the
-reproducer, command, and failure class before repair. A repair does not itself
-close the required fuzz gate: rerun the affected correctness checks and the
-required changed-source fuzz checkpoint with the original failure preserved.
+**Codex owns debugging.** Diagnose and repair implementation, performance,
+unit-test, crash, sanitizer, proof/model and soundness failures directly; delegate
+debugging or repair review to Claude only at the user's explicit request.
+Preserve the original failure, establish a causal reproducer and regression,
+and validate affected invariants and independent proof/model oracles before
+resuming dependent work. Do not weaken gates. A bounded fuzz handoff is available
+for direct repair; the rest of that campaign stays Claude-owned, and the repair
+alone does not close its required fuzz gate.
 
 ### 8.3 Performance gates
 
@@ -470,157 +377,77 @@ required changed-source fuzz checkpoint with the original failure preserved.
   the union; LymphoSAT contributes SAT results only. This gates Phase 4.5.
 - **T5:** exceed the frozen VBS or ship the best verified effort.
 
-**Targeted timing measurement.** A long-instance performance comparison used
-to accept or reject a solver repair runs as three independent paired waves.
-Each wave submits the candidate and its exact-state baseline as two separate,
-concurrent one-solver jobs; never serialize arms in one allocation, and cross
-their node/L3 placement over the three waves when practical. On the current
-EPYC 9454 nodes, each timed job requests 12 logical CPUs and 48,000 MiB from
-SLURM so its mask owns one complete six-physical-core L3 domain and its scheduler
-memory reservation matches the partition's effective 8,000-MiB-per-physical-
-core capacity. The exact MiB request lets all 16 L3 domains fit within the
-node's configured 769,024 MiB; do not round it up to `--mem=48G`.
-The solver itself remains single-threaded and bound to one granted hardware
-thread. Do not add an address-space limit to this 48,000-MiB timing allocation;
-record peak RSS and VmPeak, score 16-GiB compatibility from measured peak RSS,
-and confirm a decision-changing hard-memory claim separately in a SLURM
-`--mem=16G` task. The larger timing allocation is capacity accounting, not
-permission to ignore memory competitiveness. Stage inputs,
-proofs, and checker work on verified node-local scratch, and record topology,
-cross-partition occupancy, perf service-rate counters, proof/check identities,
-and cleanup. Decide primarily from the median of the three paired
-candidate/baseline ratios and report its complete range, never best-of. An
-absolute runtime headline is admissible only when each arm's complete
-shared-node range is at most 2%; otherwise retain the paired result but reject
-the absolute observation as environmentally unstable. Proof-on solver time,
-proof-off diagnostic time, and checker time are separate measurements and may
-not be priced by subtracting unmatched runs. Never request whole-node
-exclusivity or all-memory reservation for timing or diagnosis.
+**Targeted timing measurement.** Decision-grade long-instance comparisons use
+three independent paired waves. Each wave submits candidate and exact-state
+baseline as separate concurrent jobs. On EPYC 9454 use 12 logical CPUs, exactly
+48,000 MiB, one pinned solver thread, and no address-space limit. Record
+placement, peak RSS/VmPeak, service-rate counters, proof/check identities, and
+anonymous-scratch cleanup. Report the median and full ratio range; reject an
+absolute headline when either arm's range exceeds 2%. Do not serialize arms,
+subtract unmatched proof/check time, or extend this repetition requirement to
+fuzz and full-width tier arrays.
 
-This three-wave rule applies only to decision-grade performance evidence. It
-does not repeat or multiply fuzzing: each required fuzz checkpoint remains one
-fuzz campaign under §8.2. It likewise does not multiply correctness
-gates or ordinary diagnostic probes; those retain their predeclared contracts.
-Full-width tier arrays retain their no-throttle, no-node-constraint allocation
-contract and are interpreted through aggregate evidence rather than this
-targeted timing protocol.
+**Fixed Rank 1–50 reference.** Keep the approved fifty/frozen Kissat vector as
+12-CPU/48,000-MiB regression controls; matched full-view reruns are Tactix-only.
+The ≤1.01× target is deferred, not achieved or a winner-stage prerequisite.
+No routine refresh/best-of denominator or cross-window unit-cost inference.
+Pending checks permit work, not acceptance; correctness/B28+C5/memory gates stay.
 
-**Fixed Rank 1–50 reference.** The runtime target is aggregate ≤1.01× Kissat
-over the approved fifty: preserve the original forty and append the seven UNSAT
-and three SAT selections in `benchmarks/baselines/rank1-50-selection-v1/`.
-Keep the frozen Rank 1–40 Kissat vector; measure ranks 41–50 once on the same
-12-logical-CPU/48,000-MiB contract and append those values, never cpu-q timings.
-Future full-view arrays run Tactix only with matching inputs, options, proof
-mode and limits. No routine reference refresh or best-of denominator. These
-cross-window scores do not isolate unit cost; targeted predecessor waves and
-missing native diagnostics remain allowed. Pending checks permit provisional
-work, not acceptance. Correctness, B28+C5 and memory gates remain unchanged.
+**Causal convergence and consolidation.** Journal each earliest portable gap
+with its cause, strength, evidence, reproducer, owner, and reopening condition.
+Compose only independently supported repairs. Complete checked B28+C5 and one
+Claude-owned fuzz checkpoint before promotion; feature-off projections and
+pending checks cannot replace these gates.
 
-**Causal convergence.** For every coverage or runtime gap, localize the earliest
-portable semantic divergence with the structured rule journal. Repair it unless
-Tactix is demonstrably stronger or the deviation is explicitly accepted; then
-rerun the instance and cumulative guards. Record context, cause, relative
-strength, evidence, reproducer, owner, and reopening condition. Feature-off
-projections diagnose one semantic mechanism but never replace a full gate.
+**Refactor/N1 entry gate.** Complete strategy composition and audit the combined
+candidate's entire calculus/API surface—legal instances, branches/phases,
+declared action boundaries, budgets and disable switches—before winner-driven development.
+Resolve restrictions with direct API reach/regression and correctness evidence;
+fuzz alone is insufficient. Stop further Kissat-only tuning.
 
-**Phase-4.25 consolidation workflow.** Vivify/collection, Substitute, residual
-BVE, and Congruence investigations may proceed without an intervening fuzz
-campaign only while every repair remains isolated behind its own immutable
-pins, manifest, focused tests, and performance evidence. Such a repair is
-explicitly *unfuzzed investigation material*: it is neither promoted nor final.
-At the consolidation point, compose only the independently supported repairs,
-run the complete B28 plus predeclared C5 checked gate on that combined
-candidate, and then run one Codex-owned fuzz campaign before the required
-report, commit, and push. That fuzz/wrap-up checkpoint does not terminate
-convergence: immediately resume the next demonstrated current-Tactix/current-
-Kissat gap from the newly accepted pin. A soundness defect, crash, sanitizer failure,
-rejected SAT model, or rejected UNSAT proof discovered at any earlier stage
-immediately interrupts this batching and triggers Codex's direct debugging and
-repair workflow in §8.2.
-
-**Proof-rule/strategy boundary during convergence.** A repair may enlarge a
-rule's general calculus or the kernel's proof-neutral representation machinery,
-but it must not move candidate admission, cadence, effort allowance, deadlines,
-or benchmark-conditioned choice into that rule or kernel primitive. The rule
-owns preconditions, semantic effect, proof/reconstruction delta, and legal
-instances; the strategy owns when and how much of that legal surface to invoke.
-Representation optimizations must preserve this separation even when they are
-first motivated by one scheduled inprocessing rule, and the automated
+Rule/kernel changes may improve general calculus or proof-neutral representation,
+but never absorb strategy-owned admission, cadence, effort, deadlines or
+benchmark-conditioned choice. Preserve legal instances and proof/reconstruction
+obligations even when one scheduled rule motivates an optimization. The automated
 rule/policy boundary check remains a required focused guard.
 
-**Worse-side-first divergence priority.** The journal must record every exact
-portable mismatch, but investigation and repair effort prioritizes the earliest
-divergence at which Tactix is measurably worse along either of two axes:
+**Worse-side-first priority.** At the earliest common portable state, compare
+both throughput and work quality per invocation. Record effort allowance,
+entry/exit ticks, overshoot, frontier/order, semantic rewrites, physical pose,
+lineage, CPU/memory cost, and downstream yield. Equal ticks with higher cost or
+equal cost with weaker work is not parity. Localize semantic or representation
+divergence before comparing later work. Clause IDs, arena refs, benchmark names,
+and wall time are diagnostics, never alignment keys or solver controls.
 
-1. **Throughput:** at a common semantic state, Tactix performs the same
-   normalized logical work but takes materially more wall time, CPU time, or
-   memory traffic to do it.
-2. **Work quality:** over comparable elapsed time or normalized cost, Tactix
-   produces a weaker result--for example fewer useful learned clauses, longer
-   learned clauses at comparable validity and scope, fewer eliminations or
-   simplifications, less pruning, weaker retained state, or a worse validated
-   solve trajectory.
-
-Compare both axes for each localized rule invocation: matching ticks alone does
-not establish parity when their real cost differs, and matching runtime alone
-does not establish parity when the resulting state is weaker. Raw counts are
-diagnostic rather than intrinsically better; judge their utility by portable
-semantic consequence and downstream validated trajectory. Also record greater
-logical work, later scheduling, and higher retained memory when they explain a
-worse result. A Tactix-stronger or behaviorally neutral mismatch is documented
-and may be accepted without convergence; do not spend a campaign making it
-reference-identical unless it blocks localization of the first worse boundary,
-violates an exact contract, causes a cumulative regression, or lacks a sound
-general justification. When several mismatches coexist, compare their
-downstream impact and pursue the earliest causal worse boundary rather than the
-earliest difference in raw trace order.
-
-**Exact inprocessing effort parity.** The diagnostic contract covers every
-inprocessing rule, not only the rule implicated by the current witness. At each
-common portable semantic state, its normalized ledger records the rule and
-invocation, effort reference and scaled allowance, entry/exit logical ticks,
-overshoot, and terminal budget comparison. Candidate-oriented rules also record
-portable candidate identity and order, candidate entry/exit ticks and exact
-delta, disposition, cost-category totals where the reference exposes them, and
-the semantic set, physical pose, and lineage of every rewrite. Clause ids,
-arena references, benchmark identities, and wall time are diagnostic metadata,
-never alignment keys or solver controls. Require exact candidate frontier and
-logical-cost agreement with the reference while states remain common; after a
-semantic or representation divergence, first localize that owner rather than
-forcing counters to agree across different work. Keep this instrumentation
-compile-time gated and disabled by default, with replay/normalization tests.
-For every matched invocation also record elapsed CPU/wall time and normalized
-yield (learned-clause count and length distribution, eliminations,
-simplifications, pruning, and retained-state deltas where applicable), so a
-rule that matches logical ticks but runs slower--or consumes similar time while
-producing weaker work--is treated as a first-class divergence.
-
-After the complete T4-K pass, the first divergence set is at most twelve
-coverage losses where validated Kissat finishes within 300 s and Tactix does
-not finish within 5000 s, balanced across SAT and UNSAT when possible and then
-ordered by Kissat time. Diagnose this compact set iteratively; frozen Kissat
-measurements remain scoring authority, while instrumented reruns are diagnostic.
-
-Tier-D convergence is cumulative: A closes T4-K; B adds kissat-sc2024; C adds
-AE-Kissat-MAB; D adds Satsuma+Kissat; E adds LymphoSAT's SAT solves. At stages
-B–E Tactix must preserve prior coverage and be within 1.10× the cumulative
-status-sensitive VBS on every annual view and the union. A single
-feature-driven Tactix binary is used throughout: content-derived features are
-allowed, benchmark names, paths, hashes, identities, and external-solver output
-are not. Final T4-VBS requires exact coverage parity, not only the 1.10× score.
-
-Report #solved before PAR-2, SAT/UNSAT split, proof time/size, regressions, and
-memory. A solve gained with none lost may be banked despite PAR-2 cost, but the
-cost gets a named closer. A staged regression requires a pre-registered sequence,
-mechanism, ceiling, recovery point, revert path, and kill criterion; it cannot
-cross a gate or cover N1/N2.
+**Twenty winner-coverage targets.** After the refactor gate, treat the five
+frozen baselines as an offline VBS and select ten SAT plus ten UNSAT checked
+1,200-second/32-GiB wins over genuine Tactix timeouts. Use existing censored
+data; exclude OOM, crash, missing, and checker-failure cases. Prefer rarer
+coverage and LymphoSAT-only SAT wins, then freeze provenance and tie-breaks.
+Rerun Tactix and only each target's fastest qualifying baseline in a matched
+full-width window (12 logical CPUs, one thread, 32 GiB, 1,200 solver seconds).
+Proof/model checking gates acceptance but does not block independent work.
+Study and report the winning mechanism before implementing it. Integrate general
+mechanisms in Tactix, never a sequential portfolio or identity-conditioned rule.
+Preserve prior coverage; report solved SAT/UNSAT counts before PAR-2, proof cost,
+memory, and regressions. T4-K and final exact T4-VBS coverage remain required.
 
 ### 8.4 Flexibility
 
+Evaluate B28+C5 and Rank 1–50 periodically at meaningful refactor checkpoints,
+using the same resources and benchmark definitions as prior runs, frozen candidates
+and matched baseline controls. Defer the full Tier D campaign until refactor
+implementation and correctness/API validation are complete.
+
 Default dynamic-macro/static-micro overhead is ≤5% versus a hardcoded twin.
-Demonstrate pure DPLL, CDCL without restarts/inprocessing, scripted reproduction
-of default scheduling, preprocessing-only, random macro scheduling, and external
-branching without kernel edits. Ablations use configuration, not forks.
+Refactoring must preserve existing configurations' action/work/proof behavior
+and runtime within measured noise on Rank 1–50 and B28+C5. Review individual
+regressions as well as aggregates; new behavior is opt-in. Flag conflicting N1 repairs.
+Demonstrate DPLL, plain CDCL, default replay, preprocessing and external branching
+without kernel edits. Broad seeded random strategies vary order, repetition,
+parameters, granularity, budgets and noncanonical instances beyond fixed prefixes.
+Require effective transitions, reachability and replay, not mostly NoOps.
+Ablations use configuration, not forks; test online reconfiguration and replay.
 
 ### 8.5 Learned scheduling
 
@@ -643,7 +470,8 @@ branching without kernel edits. Ablations use configuration, not forks.
 | 4.19 | code/document cleanup | no obsolete artifact or duplicated live authority |
 | 4.20 | proof-rule and solving-strategy design surveys | two reviewed reports; no implementation |
 | 4.21 | once-only SC24–26 reference campaign | frozen five-solver metrics and generated Andrew report at the §8.1 authority |
-| 4.25 | staged Tier-D convergence A–E | T4-VBS |
+| Refactor gate | online sub-strategies, complete N1 surface, preserved N2–N4 | §5 composition + §8.2–§8.4 evidence |
+| 4.25 | five-winner coverage convergence after the refactor gate | T4-VBS |
 | 4.5 | proof-event correlation and novel engineering | proof ranges map to emitting rule/application |
 | 5 | tuning, bindings, extensibility proof | ≤5% overhead + CCE test |
 | 6 | competition packaging | T5/best effort + submission ready |

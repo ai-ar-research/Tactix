@@ -110,6 +110,13 @@ static void lock_reasons(Kernel &k, bool lock) {
   }
   for (const Lit lit : k.trail) {
     const Assigned &a = k.assigned[var_of(lit)];
+    // Kissat's reduction trail contains only non-root assignments after its
+    // root flush. Retained root identities do not need clause-reason locks:
+    // LRAT propagation has named the implied unit, and
+    // collection retires a deleted root reason to UNIT_REASON. Keep pending
+    // learned clauses protected independently above, even at the root.
+    if (!a.level)
+      continue;
     if (!a.binary && a.reason != DECISION_REASON &&
         a.reason != UNIT_REASON) {
       Clause *c = clause_at(k.arena, a.reason);
@@ -119,7 +126,8 @@ static void lock_reasons(Kernel &k, bool lock) {
   }
 }
 
-void reduce_candidates(Kernel &k, std::vector<Ref> &out, bool measure) {
+void reduce_candidates(Kernel &k, std::vector<Ref> &out, bool measure,
+                       bool policy_protection) {
   out.clear();
   lock_reasons(k, true);
   struct Victim {
@@ -152,8 +160,10 @@ void reduce_candidates(Kernel &k, std::vector<Ref> &out, bool measure) {
       const uint32_t used = c->used();
       const uint32_t glue = c->glue();
       const bool keep =
-          c->reason() || (glue <= t1 && used) ||
-          (glue <= t2 && used >= Clause::MAX_USED - 1);
+          c->reason() ||
+          (policy_protection &&
+           ((glue <= t1 && used) ||
+            (glue <= t2 && used >= Clause::MAX_USED - 1)));
       if (!keep)
         candidates.push_back(
             {ref, kernel_clause_position(k, ref), glue, c->size});
@@ -188,7 +198,11 @@ ApplyResult reduce_apply_refs(Kernel &k, const Ref *refs, size_t n,
   if (k.inconsistent)
     return ApplyResult::Unsat;
   k.stats.reductions++;
-  Ref first_reducible = INVALID_REF;
+  // Kissat captures the collection start before collect_reducibles advances
+  // its stored marker past clauses promoted to irredundant. Those clauses
+  // still belong to this call's rewatched tail, not its retained prefix.
+  Ref first_reducible = k.first_reducible;
+  Ref next_reducible = INVALID_REF;
   // aging tick (kissat reduce.c decrements `used` once per reduction):
   // selection already happened on the pre-aging values, matching kissat's
   // read-then-decrement order.  The explicit CaDiCaL redundant-band arm also
@@ -196,11 +210,11 @@ ApplyResult reduce_apply_refs(Kernel &k, const Ref *refs, size_t n,
   // Kissat-default path pays no diagnostic counter traffic.
   for (Ref ref = 0; ref < k.arena.size();) {
     Clause *c = clause_at(k.arena, ref);
-    if (c->redundant() &&
-        (first_reducible == INVALID_REF ||
-         kernel_clause_position(k, ref) <
-             kernel_clause_position(k, first_reducible)))
-      first_reducible = ref;
+    if (c->redundant()) {
+      const auto position = static_cast<Ref>(kernel_clause_position(k, ref));
+      first_reducible = std::min(first_reducible, position);
+      next_reducible = std::min(next_reducible, position);
+    }
     if (c->redundant() && !c->garbage()) {
       const uint32_t used = c->used();
       if (used)
@@ -213,6 +227,7 @@ ApplyResult reduce_apply_refs(Kernel &k, const Ref *refs, size_t n,
     }
     ref += clause_actual_words(c);
   }
+  k.first_reducible = next_reducible;
   lock_reasons(k, true);
   size_t deleted = 0;
   for (size_t i = 0; i < n; i++) {
@@ -303,12 +318,37 @@ static uint32_t reduce_instances(Kernel &k, uint64_t *out, uint32_t cap) {
   return n;
 }
 
+// Additive semantic surface: v1 above is frozen as ranked victim counts.
+// Online composition can independently select every legally deletable clause,
+// including clauses excluded only by the default policy's protection bands.
+static uint32_t reduce_semantic_instances(Kernel &k, uint64_t *out,
+                                          uint32_t cap) {
+  std::vector<Ref> legal;
+  reduce_candidates(k, legal, false, false);
+  const uint32_t count = std::min<uint32_t>(
+      cap, static_cast<uint32_t>(legal.size()));
+  for (uint32_t i = 0; i < count; ++i)
+    out[i] = REDUCE_CLAUSE_INSTANCE | legal[i];
+  return count;
+}
+
 static ApplyResult reduce_apply_instance(Kernel &k, uint64_t inst) {
   if (inst == INSTANCE_CANONICAL)
     return reduce_apply(k);
   reduce_prepare(k);
   if (k.inconsistent)
     return ApplyResult::Unsat;
+  if (inst & REDUCE_CLAUSE_INSTANCE) {
+    const uint64_t raw = inst & ~REDUCE_CLAUSE_INSTANCE;
+    // Validate by membership, not clause_at(raw): an arbitrary payload may
+    // point into the middle of a clause or outside the arena.
+    std::vector<Ref> legal;
+    reduce_candidates(k, legal, false, false);
+    for (const Ref ref : legal)
+      if (raw == ref)
+        return reduce_apply_refs(k, &ref, 1);
+    return ApplyResult::NoOp;
+  }
   std::vector<Ref> candidates;
   reduce_candidates(k, candidates, /*measure=*/true);
   const size_t n =
@@ -318,6 +358,8 @@ static ApplyResult reduce_apply_instance(Kernel &k, uint64_t inst) {
 
 TACTIX_REGISTER_RULE(Reduce, RuleTier::Macro, reduce_guard,
                      reduce_apply, reduce_instances,
+                     reduce_apply_instance,
+                     reduce_semantic_instances,
                      reduce_apply_instance);
 
 } // namespace tactix

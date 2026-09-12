@@ -196,6 +196,38 @@ static void test_falsified_candidate_survives_to_next_round() {
   assert(k.stats.backbone_rounds >= 2);
 }
 
+static void test_round_limits_are_strategy_parameters() {
+  for (uint32_t maximum : {0u, 1u, 2u}) {
+    Kernel k;
+    kernel_reserve_vars(k, 3);
+    kernel_add_binary_clause(k, internalize(-1), internalize(2));
+    kernel_add_binary_clause(k, internalize(1), internalize(3));
+    kernel_add_binary_clause(k, internalize(1), internalize(-3));
+    k.backbone_parameters = {maximum, maximum};
+    const ApplyResult result = backbone_apply(k);
+    assert(k.stats.backbone_rounds == maximum);
+    if (maximum < 2) {
+      assert(result == ApplyResult::NoOp);
+      assert(k.value(internalize(1)) == 0);
+    } else {
+      assert(result == ApplyResult::Ok);
+      assert(k.value(internalize(1)) > 0);
+    }
+  }
+
+  Kernel growing;
+  kernel_reserve_vars(growing, 3);
+  kernel_add_binary_clause(growing, internalize(-1), internalize(2));
+  kernel_add_binary_clause(growing, internalize(1), internalize(3));
+  kernel_add_binary_clause(growing, internalize(1), internalize(-3));
+  growing.backbone_parameters = {1, 2};
+  assert(backbone_apply(growing) == ApplyResult::NoOp);
+  assert(growing.stats.backbone_rounds == 1);
+  assert(backbone_apply(growing) == ApplyResult::Ok);
+  assert(growing.stats.backbone_rounds >= 2);
+  assert(growing.value(internalize(1)) > 0);
+}
+
 // A chained-UIP unit is not a root assignment until the complete round has
 // flushed its speculative trail.  Here candidate 1 first succeeds, candidate
 // 2 then fails and derives -2, and temporary -2 implies 3.  Under a one-round
@@ -273,11 +305,13 @@ static void test_chained_binary_uip_lrat_order() {
   const size_t size = fread(bytes, 1, sizeof bytes, file);
   fclose(file);
   remove(path.c_str());
-  // Replaying the temporary -2 batch at root also emits its root implication
-  // -1 with the derived unit and original binary as the LRAT chain.
+  // The speculative -1 implication is named before unwind. Replaying the
+  // -2 batch names -1 again: the old id's polarity cache was invalidated with
+  // its assignment, so an opposite replay could not silently reuse it.
   assert(std::string(bytes, size) ==
          "4 -2 0 2 3 0\n"
-         "5 -1 0 4 1 0\n");
+         "5 -1 0 4 1 0\n"
+         "6 -1 0 4 1 0\n");
 }
 
 // The binary-only restriction: 1 fails only through the size-3 clauses, so
@@ -440,7 +474,23 @@ static void test_instance_surface() {
          ApplyResult::NoOp);
 }
 
+// Backbone retracts even temporary level-zero implications. Their cached
+// unit ids name the retracted polarity and cannot be reused for a later value.
+static void test_speculative_unwind_invalidates_unit_ids() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  k.unit_ids[0] = 10;
+  kernel_assign_unit(k, internalize(1));
+  const uint32_t prefix = k.trail.size();
+  k.unit_ids[1] = 11;
+  kernel_assign(k, internalize(-2), 0, UNIT_REASON, false);
+  kernel_unwind_speculation(k, prefix);
+  assert(k.value(internalize(1)) > 0 && k.unit_ids[0] == 10);
+  assert(k.value(internalize(2)) == 0 && k.unit_ids[1] == 0);
+}
+
 int main() {
+  test_speculative_unwind_invalidates_unit_ids();
   test_binary_failed_literal();
   test_canonical_computation_counter_advances();
   test_chained_binary_uip_learns_internal_predecessor();
@@ -450,6 +500,7 @@ int main() {
   test_binary_propagation_names_its_root_units_for_lrat();
   test_round_exit_rescans_every_speculative_root_literal();
   test_falsified_candidate_survives_to_next_round();
+  test_round_limits_are_strategy_parameters();
   test_chained_unit_stays_speculative_until_round_end();
   test_candidate_priority_persists_between_computations();
   test_candidate_priority_survives_variable_compaction();

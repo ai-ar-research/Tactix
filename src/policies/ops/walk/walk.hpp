@@ -17,10 +17,8 @@ namespace tactix {
 
 // Instance payload: the step budget for this application, counted in
 // occurrence-list entries scanned (kissat's `walk_steps`). INSTANCE_CANONICAL
-// takes the budget from `Kernel::work_budget`, falling back to
-// WALK_DEFAULT_STEPS when that is 0. Any payload is applicable — the budget
-// decides how long the search runs, never whether it is sound.
-constexpr uint64_t WALK_DEFAULT_STEPS = 1000000;
+// takes a bounded budget from `Kernel::work_budget`, otherwise the typed
+// reference default. Every explicit payload, including zero, is exact.
 
 RuleEligibility walk_guard(const Kernel &);
 ApplyResult walk_apply(Kernel &);                 // canonical: budgeted round

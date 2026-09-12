@@ -36,6 +36,7 @@ for rule in ("decide", "restart"):
 # strategy ranking creep into the rule unnoticed.
 fused_allowed = {
     "analyze": {
+        "heuristics_deactivate_var",
         "heuristics_queue_bump",
         "heuristics_score_bump",
         "heuristics_scores_decay",

@@ -17,7 +17,8 @@ with patch.object(sys, "argv", ["runtime_task.py", str(ROOT / "benchmarks/runs/t
 
 class RuntimeTaskTest(unittest.TestCase):
     def run_case(self, arm, verdict="SAT", solver_exit=10, checker_exit=0,
-                 checker_text="s VERIFIED\n", tampered=False):
+                 checker_text="s VERIFIED\n", tampered=False,
+                 omit_modelcheck=False):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             campaign = root / "benchmarks/runs/test"
@@ -27,9 +28,19 @@ class RuntimeTaskTest(unittest.TestCase):
             cache.mkdir()
             (cache / "test.xz").write_bytes(b"fixture")
             (campaign / "pins/solver").write_bytes(b"pin")
+            for name in ("drat-trim", "checkmodel", "modelcheck.py"):
+                (campaign / "pins" / name).write_bytes(b"pin")
+            pin_sha256 = {
+                "pins/solver": "bad" if tampered else runner.sha256(campaign / "pins/solver"),
+                "pins/drat-trim": runner.sha256(campaign / "pins/drat-trim"),
+                "pins/checkmodel": runner.sha256(campaign / "pins/checkmodel"),
+                "pins/modelcheck.py": runner.sha256(campaign / "pins/modelcheck.py"),
+            }
+            if omit_modelcheck:
+                del pin_sha256["pins/modelcheck.py"]
             manifest = dict(arms={arm: dict(path="pins/solver", arguments=[], sha256="pin")},
                             input_sha256={"test.xz": runner.sha256(cache / "test.xz")},
-                            pin_sha256={"pins/solver": "bad" if tampered else runner.sha256(campaign / "pins/solver")})
+                            pin_sha256=pin_sha256)
             (campaign / "manifest.json").write_text(json.dumps(manifest))
             (campaign / "matrix.tsv").write_text(
                 "task\trank\tarm\ttier\tinstance\texpected\n"
@@ -88,6 +99,13 @@ class RuntimeTaskTest(unittest.TestCase):
             self.assertEqual(code, 1)
             self.assertEqual(result["verdict"], "INFRA_ERROR")
             self.assertEqual(calls, [])
+
+    def test_missing_modelcheck_dependency_stops_before_solver(self):
+        code, result, calls = self.run_case("tactix", omit_modelcheck=True)
+        self.assertEqual(code, 1)
+        self.assertEqual(result["verdict"], "INFRA_ERROR")
+        self.assertIn("modelcheck.py", result["error"])
+        self.assertEqual(calls, [])
 
 
 if __name__ == "__main__":

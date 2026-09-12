@@ -3,6 +3,7 @@
 // is the implication p → q. See docs/calculus.md §V3.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
+#include "occurrence_test_utils.hpp"
 #include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/substitute/substitute.hpp"
@@ -18,6 +19,26 @@
 #include <unistd.h>
 
 using namespace tactix;
+
+// Congruence can ask for a bridge after root propagation has valued an
+// intermediate BIG node. The proved root unit replaces the incoming edge in
+// the LRAT propagation chain; filtering every valued node used to lose this
+// otherwise legal bridge.
+static void test_big_path_chain_crosses_root_true_intermediate() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  const uint64_t x_to_root = ++k.next_clause_id;
+  kernel_add_binary_clause(k, internalize(-1), internalize(2), x_to_root);
+  const uint64_t root_to_y = ++k.next_clause_id;
+  kernel_add_binary_clause(k, internalize(-2), internalize(3), root_to_y);
+  kernel_assign_unit(k, internalize(2));
+  const uint64_t root_id = ++k.next_clause_id;
+  k.unit_ids[var_of(internalize(2))] = root_id;
+
+  std::vector<uint64_t> chain;
+  assert(big_path_chain(k, internalize(1), internalize(3), chain));
+  assert((chain == std::vector<uint64_t>{root_id, root_to_y}));
+}
 
 // x1 ≡ x2 via x1 -> x2 -> x1: SCC {+1,+2} plus its complement {-1,-2}
 static void test_equivalence_scc() {
@@ -291,7 +312,7 @@ static void test_complete_closes_exposed_scc() {
   kernel_add_large_clause(k, a, 3, false, 0);
   kernel_add_large_clause(k, b, 3, false, 0);
 
-  assert(substitute_apply_complete(k) == ApplyResult::Ok);
+  assert(substitute_apply_complete(k, 2) == ApplyResult::Ok);
   assert(k.stats.substitute_rounds == 2);
   assert(kernel_var_retired(k, 1));
   assert(kernel_var_retired(k, 2));
@@ -349,7 +370,7 @@ static void test_sweep_equivalence_preserves_large_clause_position() {
   // mixed stream. Its live x4 occurrences must already retain
   // before/touched/after order.
   std::vector<Lit> live_dense_first;
-  for (const Ref ref : occ.large[internalize(4)]) {
+  for (const Ref ref : large_occurrences(occ, internalize(4))) {
     const Clause *c = clause_at(k.arena, ref);
     if (!c->garbage())
       live_dense_first.push_back(c->lits[0]);
@@ -462,8 +483,8 @@ static void test_sweep_preserves_cross_kind_dense_order() {
 
 // The logical dense ledger follows Kissat's cross-kind order, while Tactix's
 // physical binary watches can retain a different order after an inline
-// rewrite. Synchronization matches the old multiset and appends only the new
-// binary; treating the physical list as a prefix corrupts release builds.
+// rewrite. Synchronization matches the old multiset, appends only the new
+// binary, and then publishes that order to physical propagation watches.
 static void test_sweep_syncs_new_binaries_by_multiset() {
   Kernel k;
   kernel_reserve_vars(k, 4);
@@ -484,6 +505,12 @@ static void test_sweep_syncs_new_binaries_by_multiset() {
   assert(ordered[0].payload == internalize(3));
   assert(ordered[1].payload == internalize(2));
   assert(ordered[2].payload == internalize(4));
+  std::vector<Lit> physical;
+  for (const WatchEntry watch : k.watches.entries(one))
+    if (watch.binary())
+      physical.push_back(watch.other());
+  assert((physical == std::vector<Lit>{internalize(3), internalize(2),
+                                     internalize(4)}));
   assert(occ.ordered[one].size() == ordered.size());
   for (size_t i = 0; i < ordered.size(); ++i) {
     assert(occ.ordered[one][i].binary == ordered[i].binary);
@@ -503,6 +530,39 @@ static void test_sweep_syncs_new_binaries_by_multiset() {
     assert(!occurrence.binary || occurrence.payload != phantom_b);
   for (const auto occurrence : session.occurrences(k, phantom_b))
     assert(!occurrence.binary || occurrence.payload != phantom_a);
+  kernel_check_invariants(k);
+}
+
+static void test_sweep_reposes_only_last_bridge_copy() {
+  Kernel k;
+  kernel_reserve_vars(k, 5);
+  const Lit a = internalize(1), b = internalize(2);
+  const Lit c = internalize(3), d = internalize(4);
+  kernel_add_binary_clause(k, negate(a), b);
+  kernel_add_binary_clause(k, negate(a), c);
+  kernel_add_binary_clause(k, negate(a), b);
+  kernel_add_binary_clause(k, negate(a), d);
+  kernel_add_binary_clause(k, a, negate(b));
+  OccIndex occ;
+  kernel_dense_connect(k, occ, true);
+  SweepSubstitutionSession session;
+  session.begin(k);
+  session.sync_new_binaries(k, {{a, b}});
+  const auto id = kernel_binary_id(k, negate(a), b);
+  const auto count = k.watches.size(negate(a));
+  session.repose_emitted_equivalence(k, a, b);
+  session.sync_new_binaries(k, {{a, b}});
+  std::vector<Lit> physical;
+  for (const WatchEntry watch : k.watches.entries(negate(a)))
+    if (watch.binary())
+      physical.push_back(watch.other());
+  assert((physical == std::vector<Lit>{b, c, d, b}));
+  assert(k.watches.size(negate(a)) == count);
+  assert(kernel_binary_id(k, negate(a), b) == id);
+  session.repose_emitted_equivalence(k, a, internalize(5));
+  session.sync_new_binaries(k, {{a, internalize(5)}});
+  assert(!kernel_binary_live(k, negate(a), internalize(5)));
+  assert(k.watches.size(negate(a)) == count);
   kernel_check_invariants(k);
 }
 
@@ -555,7 +615,7 @@ static void assert_ledger_mirrors_kernel(Kernel &k,
     for (const WatchEntry watch : k.watches.entries(lit))
       if (watch.binary())
         watch_binaries.push_back(watch.other());
-    for (const Ref ref : k.dense->large[lit]) {
+    for (const Ref ref : large_occurrences(*k.dense, lit)) {
       const Clause *c = clause_at(k.arena, ref);
       if (!c->garbage() && !c->redundant())
         dense_large.push_back(ref);
@@ -936,8 +996,8 @@ static void test_sweep_rewrites_only_connected_irredundant_clause() {
     ref += clause_actual_words(c);
   }
   assert(replacements == 1);
-  assert(occ.large[internalize(1)].size() == 1);
-  assert(!clause_at(k.arena, occ.large[internalize(1)][0])->redundant());
+  assert(large_occurrences(occ, internalize(1)).size() == 1);
+  assert(!clause_at(k.arena, large_occurrences(occ, internalize(1))[0])->redundant());
   assert_ledger_mirrors_kernel(k, session);
   (void)session.collect(k);
   assert(!kernel_var_retired(k, var_of(internalize(2))));
@@ -1509,13 +1569,14 @@ static void test_canonical_substitution_republishes_attached_mixed_stream() {
   for (const Lit retired : {internalize(2), internalize(-2)}) {
     assert(k.watches.binary_size(retired) == 0);
     assert(occ.ordered[retired].size() == 0);
-    assert(occ.large[retired].size() == 0);
+    assert(large_occurrences(occ, retired).size() == 0);
   }
   kernel_check_invariants(k);
   kernel_dense_disconnect(k);
 }
 
 int main() {
+  test_big_path_chain_crosses_root_true_intermediate();
   test_canonical_substitution_republishes_attached_mixed_stream();
   test_sweep_duplicate_literal_pose();
   test_equivalence_scc();
@@ -1539,6 +1600,7 @@ int main() {
   test_sweep_flushes_sources_in_emission_order();
   test_sweep_chained_collapse_uses_last_mixed_stream();
   test_sweep_syncs_new_binaries_by_multiset();
+  test_sweep_reposes_only_last_bridge_copy();
   test_sweep_identity_rewrite_has_no_dirty_binary_owners();
   test_sweep_records_binaries_of_a_declined_batch();
   test_sweep_ledger_declines_the_same_members_as_the_rewrite();

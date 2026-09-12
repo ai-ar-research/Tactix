@@ -8,6 +8,7 @@ ROOT="$2"
 DRAT_TRIM="$ROOT/tools/checkers/bin/drat-trim"
 LRAT_CHECK="$ROOT/tools/checkers/bin/lrat-check"
 ANALYZE_TEST="${3:-}"
+CONGRUENCE_TEST="${4:-}"
 [ -x "$DRAT_TRIM" ] || { echo "drat-trim not built — skipping"; exit 77; }
 
 T="$(mktemp -d)"
@@ -138,6 +139,77 @@ if [ -n "$ANALYZE_TEST" ] && [ -x "$LRAT_CHECK" ]; then
   grep -q 'c VERIFIED' "$T/check" \
     || { echo "FAIL: lrat-check gave no verdict on level-one failed batch"; \
          cat "$T/check"; exit 1; }
+fi
+
+# Congruence's additive semantic surface must carry the same native proof
+# obligations as its canonical closure. Each fixture has an independent enum2
+# refutation tail, while the helper asserts that it first applied exactly the
+# requested V6a unit, gate-degeneracy unit, or unary equivalence.
+if [ -n "$CONGRUENCE_TEST" ]; then
+  printf 'p cnf 4 6\n1 2 0\n1 -2 0\n3 4 0\n3 -4 0\n-3 4 0\n-3 -4 0\n' \
+    > "$T/congruence-v6a.cnf"
+  printf 'p cnf 7 10\n-3 4 0\n3 -4 0\n-5 3 4 0\n5 -3 4 0\n5 3 -4 0\n-5 -3 -4 0\n6 7 0\n6 -7 0\n-6 7 0\n-6 -7 0\n' \
+    > "$T/congruence-gate-unit.cnf"
+  printf 'p cnf 7 9\n-3 4 0\n3 -4 0\n-5 3 0\n-5 4 0\n5 -3 -4 0\n6 7 0\n6 -7 0\n-6 7 0\n-6 -7 0\n' \
+    > "$T/congruence-unary.cnf"
+  printf 'p cnf 4 8\n-3 1 0\n-3 2 0\n3 -1 -2 0\n-4 1 0\n-4 2 0\n4 -1 -2 0\n-3 -4 0\n3 4 0\n' \
+    > "$T/congruence-clash.cnf"
+  printf 'p cnf 3 6\n-3 1 0\n-3 2 0\n3 -1 -2 0\n3 1 0\n3 2 0\n-3 -1 -2 0\n' \
+    > "$T/congruence-literal-clash.cnf"
+  printf 'p cnf 5 12\n-5 1 2 0\n5 -1 2 0\n5 1 -2 0\n-5 -1 -2 0\n5 3 4 0\n-5 -3 4 0\n-5 3 -4 0\n5 -3 -4 0\n-1 3 0\n1 -3 0\n-2 4 0\n2 -4 0\n' \
+    > "$T/congruence-literal-xor-clash.cnf"
+  printf 'p cnf 7 14\n1 -3 7 0\n1 3 -7 0\n-1 -2 7 0\n-1 2 -7 0\n4 -6 -7 0\n4 6 7 0\n-4 -5 -7 0\n-4 5 7 0\n-1 4 0\n1 -4 0\n-2 5 0\n2 -5 0\n-3 6 0\n3 -6 0\n' \
+    > "$T/congruence-literal-ite-clash.cnf"
+  for kind in v6a gate-unit unary clash literal-clash \
+              literal-xor-clash literal-ite-clash; do
+    cnf="$T/congruence-$kind.cnf"
+    proof="$cnf.semantic.drat"
+    "$CONGRUENCE_TEST" "$cnf" "$proof" drat "$kind" \
+      > "$T/out" && rc=$? || rc=$?
+    [ "$rc" -eq 20 ] \
+      || { echo "FAIL: semantic Congruence $kind DRAT helper (rc=$rc)"; exit 1; }
+    "$DRAT_TRIM" "$cnf" "$proof" > "$T/check" 2>&1 || true
+    grep -q 's VERIFIED' "$T/check" \
+      || { echo "FAIL: semantic Congruence $kind DRAT rejected"; \
+           cat "$T/check"; exit 1; }
+    if [ -x "$LRAT_CHECK" ]; then
+      proof="$cnf.semantic.lrat"
+      "$CONGRUENCE_TEST" "$cnf" "$proof" lrat "$kind" \
+        > "$T/out" && rc=$? || rc=$?
+      [ "$rc" -eq 20 ] \
+        || { echo "FAIL: semantic Congruence $kind LRAT helper (rc=$rc)"; exit 1; }
+      "$LRAT_CHECK" "$cnf" "$proof" > "$T/check" 2>&1 \
+        || { echo "FAIL: semantic Congruence $kind LRAT rejected"; \
+             cat "$T/check"; exit 1; }
+      grep -q 'c VERIFIED' "$T/check" \
+        || { echo "FAIL: no semantic Congruence $kind LRAT verdict"; \
+             cat "$T/check"; exit 1; }
+    fi
+  done
+  for kind in literal-xor-clash literal-ite-clash; do
+    cnf="$T/congruence-$kind.cnf"
+    for mode in drat lrat; do
+      [ "$mode" = drat ] || [ -x "$LRAT_CHECK" ] || continue
+      proof="$cnf.canonical.$mode"
+      "$CONGRUENCE_TEST" "$cnf" "$proof" "$mode" "canonical-$kind" \
+        > "$T/out" && rc=$? || rc=$?
+      [ "$rc" -eq 20 ] \
+        || { echo "FAIL: canonical Congruence $kind $mode helper (rc=$rc)"; exit 1; }
+      if [ "$mode" = drat ]; then
+        "$DRAT_TRIM" "$cnf" "$proof" > "$T/check" 2>&1 || true
+        grep -q 's VERIFIED' "$T/check" \
+          || { echo "FAIL: canonical Congruence $kind DRAT rejected"; \
+               cat "$T/check"; exit 1; }
+      else
+        "$LRAT_CHECK" "$cnf" "$proof" > "$T/check" 2>&1 \
+          || { echo "FAIL: canonical Congruence $kind LRAT rejected"; \
+               cat "$T/check"; exit 1; }
+        grep -q 'c VERIFIED' "$T/check" \
+          || { echo "FAIL: no canonical Congruence $kind LRAT verdict"; \
+               cat "$T/check"; exit 1; }
+      fi
+    done
+  done
 fi
 
 # ---- the same formulas with BVE in the proof. The generic stress scenario

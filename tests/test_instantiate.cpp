@@ -46,6 +46,17 @@ static const Clause *find_clause(const Kernel &k, uint32_t size) {
   return nullptr;
 }
 
+static Kernel two_choice_fixture() {
+  Kernel k;
+  kernel_reserve_vars(k, 6);
+  addn(k, {1, 2, 3, 6});
+  addn(k, {-1, 4});
+  addn(k, {-1, -4});
+  addn(k, {-2, 5});
+  addn(k, {-2, -5});
+  return k;
+}
+
 // The shape the rule exists for: literal 1 is rare and {1} propagates to a
 // conflict, so F ⊨ ¬1 ∨ (2 ∨ 3 ∨ 5) resolves against C to drop 1 — and ¬1 is
 // not root-derivable by propagation, so instantiation is doing the work.
@@ -171,7 +182,59 @@ static void test_instance_surface() {
   assert(default_solve(k) == 10);
 }
 
-// Guard: off the root the rule is not applicable (D-ROOT).
+// The v1 clause payload retains its historical first-success behavior, while
+// the additive semantic surface makes either successful literal selectable.
+static void test_semantic_pair_surface() {
+  const RuleVTable *rule = nullptr;
+  for (const RuleVTable &candidate : tactix_rules())
+    if (!std::strcmp(candidate.name, "Instantiate"))
+      rule = &candidate;
+  assert(rule && rule->semantic_instances && rule->apply_semantic_instance);
+
+  Kernel legacy = two_choice_fixture();
+  uint64_t legacy_instances[2];
+  assert(rule->instances(legacy, legacy_instances, 2) == 1);
+  const Ref original = static_cast<Ref>(legacy_instances[0]);
+  assert(rule->apply_instance(legacy, original) == ApplyResult::Ok);
+  const Clause *legacy_clause = find_clause(legacy, 3);
+  assert(legacy_clause);
+  assert(std::find(legacy_clause->begin(), legacy_clause->end(),
+                   internalize(1)) == legacy_clause->end());
+  assert(std::find(legacy_clause->begin(), legacy_clause->end(),
+                   internalize(2)) != legacy_clause->end());
+
+  for (int selected : {1, 2}) {
+    Kernel k = two_choice_fixture();
+    // Canonical discovery can be disabled without shrinking explicit N1.
+    k.instantiate_parameters = {UINT32_MAX, 0, UINT32_MAX, false};
+    assert(rule->instances(k, legacy_instances, 2) == 0);
+    uint64_t semantic[8];
+    const uint32_t count = rule->semantic_instances(k, semantic, 8);
+    assert(count == 4);
+    uint64_t chosen = INSTANCE_CANONICAL;
+    for (uint32_t i = 0; i < count; ++i) {
+      Ref ref;
+      Lit literal;
+      instantiate_pair_of_instance(semantic[i], &ref, &literal);
+      if (kernel_externalize(k, literal) == selected) {
+        assert(ref == find_ref(k, 4));
+        chosen = semantic[i];
+      }
+    }
+    assert(chosen != INSTANCE_CANONICAL);
+    assert(rule->apply_semantic_instance(k, chosen) == ApplyResult::Ok);
+    const Clause *rewritten = find_clause(k, 3);
+    assert(rewritten);
+    assert(std::find(rewritten->begin(), rewritten->end(),
+                     internalize(selected)) == rewritten->end());
+    assert(std::find(rewritten->begin(), rewritten->end(),
+                     internalize(selected == 1 ? 2 : 1)) != rewritten->end());
+    kernel_check_invariants(k);
+    assert(default_solve(k) == 10);
+  }
+}
+
+// Guard: off the declared root boundary the rule is not applicable.
 static void test_guard() {
   Kernel k;
   kernel_reserve_vars(k, 4);
@@ -262,6 +325,7 @@ int main() {
   test_probe_failure_is_a_noop();
   test_redundant_out_of_scope();
   test_instance_surface();
+  test_semantic_pair_surface();
   test_guard();
   printf("test_instantiate: all passed\n");
   return 0;

@@ -18,22 +18,15 @@
 
 namespace tactix {
 
-// cadical options.hpp defaults: instantiateclslim 3, instantiateocclim 1
-constexpr uint32_t INST_CLSLIM = 3;  // minimum candidate clause size
-constexpr uint32_t INST_OCCLIM = 1;  // maximum occurrences of the literal
-
-// Guard: quiescent root (D-ROOT) — occurrence counts and the "unassigned"
+// Guard: declared quiescent-root boundary — occurrence counts and the "unassigned"
 // filters only mean anything once every level-0 unit is propagated into the
 // clause set.
 RuleEligibility instantiate_guard(const Kernel &);
 
-// Instance space (plan §5.1): payload = candidate arena Ref, in arena order.
-// One instance = one clause = all of its eligible literals, since every removal
-// a per-(clause, literal) surface could reach is reached by applying the
-// clause. Candidates are irredundant, matching cadical's occurrence lists —
-// distilling learned tiers is C3 Vivify's job here. There is deliberately no
-// "already tried" flag (cadical's `instantiateonce`): that is a scheduling
-// memo, and under N1 the same clause must stay applicable at any time.
+// Frozen v1 instance space: payload = candidate arena Ref, in arena order; an
+// application tries its configured eligible literals in clause order. This
+// grouped payload remains for replay compatibility. The registry's additive
+// semantic surface exposes each (clause,literal) choice independently.
 void instantiate_candidates(const Kernel &, std::vector<Ref> &out);
 
 // One clause: try its eligible literals in clause order; the first success
@@ -43,6 +36,17 @@ void instantiate_candidates(const Kernel &, std::vector<Ref> &out);
 // dropping them would mix two strengthenings into one delta for no new
 // reachable state, and the next Vivify round removes them.
 ApplyResult instantiate_try(Kernel &, Ref candidate);
+ApplyResult instantiate_try_literal(Kernel &, Ref candidate, Lit literal);
+
+inline uint64_t instantiate_pair_instance(Ref candidate, Lit literal) {
+  return (static_cast<uint64_t>(candidate) << 32) |
+         static_cast<uint32_t>(literal);
+}
+inline void instantiate_pair_of_instance(uint64_t instance, Ref *candidate,
+                                         Lit *literal) {
+  *candidate = static_cast<Ref>(instance >> 32);
+  *literal = static_cast<Lit>(static_cast<uint32_t>(instance));
+}
 
 // Canonical: the full round. No steps budget in the rule — the round is
 // budget_aware, reading `Kernel::work_budget` in propagation ticks.

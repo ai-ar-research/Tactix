@@ -236,7 +236,22 @@ static void test_stats_and_config_surface(void) {
   assert(tactix_config(s, TACTIX_CFG_VIVIFY_SCOPE) == 1);
   tactix_set_bve_gates(s, TACTIX_BVE_GATE_ITE);
   assert(tactix_config(s, TACTIX_CFG_BVE_GATES) == TACTIX_BVE_GATE_ITE);
-  assert(tactix_config(s, 6) == UINT64_MAX); /* first unknown cfg id */
+  assert(tactix_config(s, TACTIX_CFG_BACKBONE_INITIAL_ROUNDS) == 100);
+  assert(tactix_config(s, TACTIX_CFG_BACKBONE_MAXIMUM_ROUNDS) == 1000);
+  tactix_set_backbone_round_limits(s, 13, 17);
+  assert(tactix_config(s, TACTIX_CFG_BACKBONE_INITIAL_ROUNDS) == 13);
+  assert(tactix_config(s, TACTIX_CFG_BACKBONE_MAXIMUM_ROUNDS) == 17);
+  assert(tactix_set_vivify_parameters(s, 4, 0, 1, 17) == 0);
+  assert(tactix_config(s, TACTIX_CFG_VIVIFY_SCOPE) == 4);
+  assert(tactix_config(s, TACTIX_CFG_VIVIFY_REUSE) == 0);
+  assert(tactix_config(s, TACTIX_CFG_VIVIFY_FLUSH) == 1);
+  assert(tactix_config(s, TACTIX_CFG_VIVIFY_IRREDUNDANT_SORT_RATIO) == 17);
+  assert(tactix_set_vivify_parameters(s, 6, 1, 0, 10) == -1);
+  assert(tactix_set_vivify_parameters(s, 0, 1, 0, 0) == -1);
+  assert(tactix_config(s, TACTIX_CFG_VIVIFY_SCOPE) == 4);
+  tactix_set_instantiate_material_threshold(s, 7);
+  assert(tactix_config(s, TACTIX_CFG_INSTANTIATE_NEW_MATERIAL_THRESHOLD) == 7);
+  assert(tactix_config(s, 26) == UINT64_MAX); /* first unknown cfg id */
   assert(tactix_config(s, -1) == UINT64_MAX);
   /* every band Vivify implements is settable: clamping 3/4/5 onto 0 would
      deny API callers a tier DefaultPolicy uses (N1) */
@@ -249,13 +264,14 @@ static void test_stats_and_config_surface(void) {
   tactix_set_factor_composite(s, 0);
   tactix_set_work_budget(s, 0);
   tactix_set_vivify_scope(s, 0);
+  assert(tactix_set_vivify_parameters(s, 0, 1, 0, 10) == 0);
   assert(tactix_solve(s) == 20);
   /* Completeness: every documented id 0..50 answers, in yield/effort pairs so
      the §5.6 learner can order outcomes by cost per unit output. Presence
      only — tools/docs/check-stat-ids.py pins the mapping. */
-  for (id = 0; id <= 50; id++)
+  for (id = 0; id <= 51; id++)
     assert(tactix_stat(s, id) != UINT64_MAX);
-  assert(tactix_stat(s, 51) == UINT64_MAX); /* first unknown id */
+  assert(tactix_stat(s, 52) == UINT64_MAX); /* first unknown id */
   assert(tactix_stat(s, -1) == UINT64_MAX);
   tactix_release(s);
 }

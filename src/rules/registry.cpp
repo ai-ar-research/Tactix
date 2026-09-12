@@ -160,6 +160,7 @@ ApplyResult dispatch_rule(const RuleVTable &vt, Kernel &k,
     k.stats.rule_nanos[vt.id] += now_nanos() - t0;
     k.stats.rule_calls[vt.id]++;
   }
+  ++k.strategy_epoch;
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
   if (journal) {
     journal_dispatch(vt, k, candidate.c_str(), pre_digest, formula_epoch,
@@ -186,6 +187,24 @@ ApplyResult apply_rule_instance(const RuleVTable &vt, Kernel &k,
                                     : std::to_string(inst);
                        },
                        [&] { return vt.apply_instance(k, inst); });
+}
+
+ApplyResult apply_rule_semantic_instance(const RuleVTable &vt, Kernel &k,
+                                         uint64_t inst) {
+  return dispatch_rule(vt, k,
+                       [&] {
+                         return inst == INSTANCE_CANONICAL
+                                    ? std::string("canonical")
+                                    : std::to_string(inst);
+                       },
+                       [&] { return vt.apply_semantic_instance(k, inst); });
+}
+
+ApplyResult apply_rule_structured(const RuleVTable &vt, Kernel &k,
+                                  const char *description,
+                                  const std::function<ApplyResult()> &apply) {
+  return dispatch_rule(vt, k, [description] { return std::string(description); },
+                       apply);
 }
 
 #ifdef TACTIX_ENABLE_RULE_JOURNAL

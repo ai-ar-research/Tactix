@@ -1,7 +1,6 @@
 # Fuzz harness
 
 Soundness pipeline per DEVELOPMENT_PLAN.md §8.2 (workflow: the `fuzz` skill).
-Codex operates and inspects campaigns directly; Claude Code is not required.
 
 - `run.sh --quick --solver CMD` — per-commit gate: regression corpus + 10,000
   seeded cases; `--nightly` = 200,000 cases + LRAT chain. These counts are
@@ -13,7 +12,9 @@ Codex operates and inspects campaigns directly; Claude Code is not required.
   read-only `build/pin-fuzz-harness-*` snapshot of `run.sh`, the Python harness,
   stress scenarios, and the regression corpus.  The batch job executes only
   that snapshot and logs its aggregate SHA-256; it removes the snapshot after
-  success and retains it after failure for direct diagnosis.  Never make
+  success and retains it after failure for Claude-owned diagnosis. A small
+  deduplicated copy under `failures/harnesses/<sha256>/` keeps successful-leg
+  timeout controls replayable after the transient snapshot is gone. Never make
   a fuzz job execute a live repository script.
 - **Read a leg by its `coverage:` and `reached:` fields, not by `--n`.**
   `coverage:` counts cases that reached a verdict — a case that times out runs
@@ -24,8 +25,10 @@ Codex operates and inspects campaigns directly; Claude Code is not required.
   never fired fatal. A corpus entry that does not terminate is fatal too
   (`--allow-nonterminating N` pre-registers an exception).
 - `fuzz.py` — runner (subcommands `run`, `check-one`, `corpus`); oracles:
-  model (`checkmodel`), proof (drat-trim / lrat-check), differential vs the
-  oracle solver, crash/io consistency.
+  model (`checkmodel`), proof (drat-trim / cake_lpr), differential vs the
+  oracle solver, crash/io consistency. Legacy `lrat-check` is diagnostic only:
+  it can accept an invalid empty lemma on a satisfiable input. Failed cases
+  retain the original proof and exact checker commands/stdout/stderr.
 - `checkmodel` — independent model checker (never trusts solver bookkeeping).
 - `ddmin` — delta-debugging shrinker (clause- then literal-level).
 - `broken/` — deliberately broken solver wrappers used by `selftest.sh` to

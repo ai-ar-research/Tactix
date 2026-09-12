@@ -1,0 +1,686 @@
+#undef NDEBUG
+#include "kernel/kernel.hpp"
+#include "policies/heuristics.hpp"
+#include "policies/random_policy.hpp"
+#include "policies/trace.hpp"
+#include "rules/decide/decide.hpp"
+#include "rules/propagate/propagate.hpp"
+#include "strategy/random_online.hpp"
+
+#include <algorithm>
+#include <cassert>
+#include <cstdlib>
+#include <cstring>
+#include <cstdio>
+#include <set>
+#include <string>
+#include <unistd.h>
+
+using namespace tactix;
+using namespace tactix::strategy;
+
+static Kernel broad_fixture() {
+  Kernel k;
+  kernel_reserve_vars(k, 42);
+  kernel_add_binary_clause(k, internalize(1), internalize(2));
+  for (int variable = 3; variable <= 42; ++variable) {
+    const Lit victim[] = {internalize(1), internalize(2),
+                          internalize(variable)};
+    kernel_add_large_clause(k, victim, 3, false, 0);
+  }
+  return k;
+}
+
+static void add3(Kernel &k, int a, int b, int c) {
+  const Lit clause[] = {internalize(a), internalize(b), internalize(c)};
+  kernel_add_large_clause(k, clause, 3, false, 0);
+}
+
+static Kernel layered_congruence_fixture() {
+  Kernel k;
+  kernel_reserve_vars(k, 5);
+  for (const int output : {3, 4}) {
+    kernel_add_binary_clause(k, internalize(-output), internalize(1));
+    kernel_add_binary_clause(k, internalize(-output), internalize(2));
+    add3(k, output, -1, -2);
+  }
+  add3(k, -5, 3, 4);
+  add3(k, 5, -3, 4);
+  add3(k, 5, 3, -4);
+  add3(k, -5, -3, -4);
+  return k;
+}
+
+static void invalid_configuration_is_rejected() {
+  Kernel k = broad_fixture();
+  OnlineStrategyProgram output;
+  std::string error;
+
+  RandomOnlineConfig config;
+  config.maximum_sequence_length = 0;
+  assert(!random_online_strategy_program(k, 1, config, output, &error));
+  assert(error == "random-online maxima must be positive");
+
+  config = {};
+  config.maximum_bve_definition_cores = 0;
+  assert(!random_online_strategy_program(k, 1, config, output, &error));
+
+  config = {};
+  config.rules = {"not-a-registered-action"};
+  assert(!random_online_strategy_program(k, 1, config, output, &error));
+  assert(error == "random-online action is not registered");
+}
+
+static void seeds_are_replayable_and_behavior_is_wide() {
+  Kernel k = broad_fixture();
+  RandomOnlineConfig config;
+  config.rules = {"SubsumeForward", "Strengthen", "Congruence", "BVE",
+                  "Backbone", "Instantiate", "Vivify", "BCE",
+                  "HyperTernaryRes", "Factor", "TransitiveReduce",
+                  "Substitute", "Reduce"};
+
+  bool granularities[4] = {};
+  bool repeats[3] = {};
+  bool repetitions_by_granularity[4][3] = {};
+  bool sequence_repeats[3] = {};
+  bool rule_work_budgets[3] = {};
+  bool touch_filter_modes[3] = {};
+  bool redundant_modes[3] = {};
+  bool bounded_budget = false, unlimited_budget = false;
+  bool unlimited_noncomplete = false;
+  bool long_sequence = false;
+  std::set<std::string> orderings;
+  std::set<std::string> parameterizations;
+
+  for (uint64_t seed = 1; seed <= 2048; ++seed) {
+    OnlineStrategyProgram first, second;
+    std::string error;
+    assert(random_online_strategy_program(k, seed, config, first, &error));
+    assert(random_online_strategy_program(k, seed, config, second, &error));
+    assert(serialize_online_strategy_program(first) ==
+           serialize_online_strategy_program(second));
+    OnlineStrategyProgram decoded;
+    assert(deserialize_online_strategy_program(
+        serialize_online_strategy_program(first), decoded, &error));
+    assert(serialize_online_strategy_program(decoded) ==
+           serialize_online_strategy_program(first));
+    assert(validate_online_strategy_program(first, &error));
+    OnlineStrategyExecutor executor;
+    assert(executor.configure(first, seed, ReconfigureMode::ResetRuntime,
+                              &error));
+
+    long_sequence |= first.sequence.size() > 1;
+    sequence_repeats[static_cast<unsigned>(first.repeat.mode)] = true;
+    std::string order;
+    for (const OnlineInvocation &step : first.sequence) {
+      rule_work_budgets[static_cast<unsigned>(step.rule_work_budget.mode)] =
+          true;
+      touch_filter_modes[static_cast<unsigned>(step.material.touch_filter)] =
+          true;
+      redundant_modes[static_cast<unsigned>(
+          step.material.likely_kept_redundant)] = true;
+      granularities[static_cast<unsigned>(step.granularity)] = true;
+      repeats[static_cast<unsigned>(step.repeat.mode)] = true;
+      repetitions_by_granularity[static_cast<unsigned>(step.granularity)]
+                                 [static_cast<unsigned>(step.repeat.mode)] = true;
+      bounded_budget |= !step.budget.is_unlimited();
+      unlimited_budget |= step.budget.is_unlimited();
+      unlimited_noncomplete |=
+          step.budget.is_unlimited() &&
+          step.granularity != InvocationGranularity::CompleteCurrentPass;
+      if (step.granularity == InvocationGranularity::CompleteCurrentPass)
+        assert(!step.budget.is_unlimited() &&
+               "complete random enumeration needs a finite safety ceiling");
+      if (!order.empty())
+        order += ',';
+      order += step.rule;
+    }
+    orderings.insert(order);
+    parameterizations.insert(serialize_online_strategy_program(first));
+  }
+
+  assert(long_sequence && bounded_budget && unlimited_budget &&
+         unlimited_noncomplete);
+  assert(std::all_of(std::begin(granularities), std::end(granularities),
+                     [](bool seen) { return seen; }));
+  assert(std::all_of(std::begin(repeats), std::end(repeats),
+                     [](bool seen) { return seen; }));
+  assert(std::all_of(std::begin(sequence_repeats),
+                     std::end(sequence_repeats),
+                     [](bool seen) { return seen; }));
+  assert(std::all_of(std::begin(rule_work_budgets),
+                     std::end(rule_work_budgets),
+                     [](bool seen) { return seen; }));
+  assert(std::all_of(std::begin(touch_filter_modes),
+                     std::end(touch_filter_modes),
+                     [](bool seen) { return seen; }));
+  assert(std::all_of(std::begin(redundant_modes),
+                     std::end(redundant_modes),
+                     [](bool seen) { return seen; }));
+  for (const auto &modes : repetitions_by_granularity)
+    assert(std::all_of(std::begin(modes), std::end(modes),
+                       [](bool seen) { return seen; }));
+  assert(orderings.size() > 32);
+  assert(parameterizations.size() > 1024);
+}
+
+static void generated_program_interrupts_and_reconfigures_online() {
+  Kernel k = broad_fixture();
+  RandomOnlineConfig config;
+  config.rules = {"SubsumeForward"};
+  config.maximum_sequence_length = 1;
+  OnlineStrategyProgram generated;
+  std::string error;
+  assert(random_online_strategy_program(k, 17, config, generated, &error));
+  assert(generated.sequence.size() == 1);
+
+  OnlineStrategyExecutor executor;
+  assert(executor.configure(generated, 90, ReconfigureMode::ResetRuntime,
+                            &error));
+  const StateVersion before = state_version(k);
+  const uint64_t clause_id_before = k.next_clause_id;
+  volatile sig_atomic_t stop = 1;
+  const InvocationResult interrupted = executor.advance(k, &stop);
+  assert(interrupted.status == InvocationStatus::Interrupted);
+  assert(interrupted.applications == 0 && executor.step_consumed(
+             generated.sequence.front().id) == 0);
+  assert(state_version(k).arena_generation == before.arena_generation);
+  assert(state_version(k).touch_epoch == before.touch_epoch);
+  assert(state_version(k).strategy_epoch == before.strategy_epoch);
+  assert(k.next_clause_id == clause_id_before);
+
+  OnlineStrategyProgram replay;
+  assert(deserialize_online_strategy_program(
+      serialize_online_strategy_program(generated), replay, &error));
+  assert(executor.configure(replay, 91,
+                            ReconfigureMode::RetainMatchingStepBudgets,
+                            &error));
+  assert(k.next_clause_id == clause_id_before &&
+         "online reconfiguration must not restart or mutate the solver");
+  stop = 0;
+  const InvocationResult resumed = executor.advance(k, &stop);
+  assert(resumed.configuration_revision == 91);
+  assert(resumed.status != InvocationStatus::Interrupted &&
+         resumed.status != InvocationStatus::InvalidRequest &&
+         resumed.status != InvocationStatus::StaleRequest);
+  kernel_check_invariants(k);
+}
+
+static OnlineStrategyProgram exact_factor_replay_program(Kernel &k) {
+  kernel_reserve_vars(k, 5);
+  FactorGrid grid;
+  grid.factors = {internalize(1), internalize(2)};
+  grid.remainders = {{internalize(3)}, {internalize(4)}, {internalize(5)}};
+  for (const Lit factor : grid.factors)
+    for (const auto &remainder : grid.remainders)
+      kernel_add_binary_clause(k, factor, remainder.front());
+  OnlineStrategyProgram program;
+  OnlineInvocation step;
+  step.id = 77;
+  step.rule = "Factor";
+  step.parameters = FactorParameters{9, 3, 4, true, false};
+  step.granularity = InvocationGranularity::OneInstance;
+  step.factor_grids.push_back(std::move(grid));
+  step.repeat = {RepeatMode::Once, 1};
+  step.work_unit = WorkUnit::Applications;
+  step.budget = WorkLimit::bounded(1);
+  program.sequence.push_back(std::move(step));
+  return program;
+}
+
+static void serialized_configuration_round_trips_and_executes() {
+  Kernel original, replay;
+  OnlineStrategyProgram program = exact_factor_replay_program(original);
+  (void)exact_factor_replay_program(replay);
+  const std::string encoded = serialize_online_strategy_program(program);
+  OnlineStrategyProgram decoded;
+  std::string error;
+  assert(deserialize_online_strategy_program(encoded, decoded, &error));
+  assert(serialize_online_strategy_program(decoded) == encoded);
+  assert(decoded.sequence.front().factor_grids.size() == 1);
+
+  // Replays produced before the additive native-rule budget field remain
+  // valid and inherit the caller's rule allowance.
+  std::string legacy = encoded;
+  const size_t marker = legacy.find(":rulework(");
+  assert(marker != std::string::npos);
+  const size_t marker_end = legacy.find(')', marker);
+  assert(marker_end != std::string::npos);
+  legacy.erase(marker, marker_end - marker + 1);
+  const size_t material_marker = legacy.find(":material(");
+  assert(material_marker != std::string::npos);
+  const size_t material_end = legacy.find(')', material_marker);
+  assert(material_end != std::string::npos);
+  legacy.erase(material_marker, material_end - material_marker + 1);
+  OnlineStrategyProgram legacy_decoded;
+  assert(deserialize_online_strategy_program(legacy, legacy_decoded, &error));
+  assert(legacy_decoded.sequence.front().rule_work_budget.mode ==
+         RuleWorkBudgetMode::Inherit);
+  assert(legacy_decoded.sequence.front().rule_work_budget.amount == 0);
+  assert(legacy_decoded.sequence.front().material.touch_filter ==
+         SettingOverride::Inherit);
+
+  OnlineStrategyExecutor first, second;
+  assert(first.configure(program, 31, ReconfigureMode::ResetRuntime, &error));
+  assert(second.configure(decoded, 31, ReconfigureMode::ResetRuntime, &error));
+  const InvocationResult a = first.advance(original);
+  const InvocationResult b = second.advance(replay);
+  assert(a.status == b.status && a.rule_result == b.rule_result);
+  assert(a.work == b.work && a.instance == b.instance);
+  assert(original.stats.factorings == 1 && replay.stats.factorings == 1);
+  assert(original.nvars == replay.nvars &&
+         original.next_clause_id == replay.next_clause_id);
+
+  OnlineStrategyProgram unchanged = decoded;
+  assert(!deserialize_online_strategy_program(encoded + " garbage", decoded,
+                                               &error));
+  assert(serialize_online_strategy_program(decoded) ==
+         serialize_online_strategy_program(unchanged));
+  kernel_check_invariants(original);
+  kernel_check_invariants(replay);
+}
+
+static void explicit_selection_reaches_beyond_a_prefix() {
+  Kernel k = broad_fixture();
+  const int id = tactix_rule_id("SubsumeForward");
+  assert(id >= 0);
+  std::vector<uint64_t> complete;
+  assert(enumerate_complete_instances(k, tactix_rules()[id], complete) ==
+         InvocationStatus::Completed);
+  assert(complete.size() > 16);
+
+  RandomOnlineConfig config;
+  config.rules = {"SubsumeForward"};
+  bool reached_late = false;
+  for (uint64_t seed = 1; seed <= 512 && !reached_late; ++seed) {
+    OnlineStrategyProgram program;
+    assert(random_online_strategy_program(k, seed, config, program));
+    for (const OnlineInvocation &step : program.sequence)
+      for (uint64_t instance : step.instances) {
+        const auto found = std::find(complete.begin(), complete.end(), instance);
+        assert(found != complete.end());
+        reached_late |= static_cast<size_t>(found - complete.begin()) >= 16;
+      }
+  }
+  assert(reached_late);
+}
+
+static void parameter_domains_are_caller_controlled() {
+  Kernel k = broad_fixture();
+  RandomOnlineConfig config;
+  config.rules = {"BVE"};
+  config.maximum_bve_growth_bound = 0;
+  config.maximum_bve_definition_budget = 0;
+  config.maximum_bve_definition_cores = 1;
+  config.maximum_bve_definition_core_budget_multiplier = 0;
+  config.bve_occurrence_reference = 37;
+  config.bve_clause_size_reference = 41;
+  for (uint64_t seed = 1; seed <= 64; ++seed) {
+    OnlineStrategyProgram program;
+    assert(random_online_strategy_program(k, seed, config, program));
+    for (const OnlineInvocation &step : program.sequence) {
+      const auto *parameters = std::get_if<BveParameters>(&step.parameters);
+      assert(parameters);
+      assert(parameters->growth_bound == 0);
+      assert(parameters->definition_budget == 0);
+      assert(parameters->definition_cores == 1);
+      assert(parameters->definition_core_budget_multiplier == 0);
+    }
+  }
+
+  config = {};
+  config.rules = {"Congruence"};
+  config.maximum_congruence_gate_count = 0;
+  for (uint64_t seed = 1; seed <= 64; ++seed) {
+    OnlineStrategyProgram program;
+    assert(random_online_strategy_program(k, seed, config, program));
+    for (const OnlineInvocation &step : program.sequence) {
+      const auto *parameters =
+          std::get_if<CongruenceParameters>(&step.parameters);
+      assert(parameters);
+      assert(parameters->gate_count_limit == 0);
+    }
+  }
+
+  config = {};
+  config.rules = {"Vivify"};
+  config.vivify_reference.irredundant_sort_ratio = 1;
+  bool saw_reuse[2] = {}, saw_flush[2] = {};
+  bool saw_scope[6] = {};
+  for (uint64_t seed = 1; seed <= 128; ++seed) {
+    OnlineStrategyProgram program;
+    assert(random_online_strategy_program(k, seed, config, program));
+    for (const OnlineInvocation &step : program.sequence) {
+      const auto *parameters = std::get_if<VivifyParameters>(&step.parameters);
+      assert(parameters && parameters->irredundant_sort_ratio == 1);
+      saw_reuse[parameters->reuse] = true;
+      saw_flush[parameters->flush] = true;
+      saw_scope[parameters->scope] = true;
+    }
+  }
+  assert(saw_reuse[0] && saw_reuse[1] && saw_flush[0] && saw_flush[1]);
+  assert(std::all_of(std::begin(saw_scope), std::end(saw_scope),
+                     [](bool seen) { return seen; }));
+
+  config = {};
+  config.rules = {"Sweep"};
+  config.maximum_sequence_length = 1;
+  bool saw_general_proof[2] = {};
+  std::string sweep_encoding;
+  for (uint64_t seed = 1; seed <= 128; ++seed) {
+    OnlineStrategyProgram program;
+    assert(random_online_strategy_program(k, seed, config, program));
+    const auto *parameters =
+        std::get_if<SweepParameters>(&program.sequence.front().parameters);
+    assert(parameters);
+    saw_general_proof[parameters->force_general_proof] = true;
+    sweep_encoding = serialize_online_strategy_program(program);
+    OnlineStrategyProgram replay;
+    std::string error;
+    assert(deserialize_online_strategy_program(sweep_encoding, replay, &error));
+    const auto *replayed =
+        std::get_if<SweepParameters>(&replay.sequence.front().parameters);
+    assert(replayed &&
+           replayed->force_general_proof == parameters->force_general_proof);
+  }
+  assert(saw_general_proof[0] && saw_general_proof[1]);
+
+  // Programs serialized before the additive proof-path choice remain valid.
+  const size_t sweep = sweep_encoding.find(":sweep(");
+  assert(sweep != std::string::npos);
+  const size_t sweep_end = sweep_encoding.find(')', sweep);
+  const size_t last_field = sweep_encoding.rfind(',', sweep_end);
+  assert(sweep_end != std::string::npos && last_field != std::string::npos);
+  sweep_encoding.erase(last_field, sweep_end - last_field);
+  OnlineStrategyProgram legacy_sweep;
+  std::string legacy_error;
+  assert(deserialize_online_strategy_program(sweep_encoding, legacy_sweep,
+                                             &legacy_error));
+  const auto *legacy_parameters = std::get_if<SweepParameters>(
+      &legacy_sweep.sequence.front().parameters);
+  assert(legacy_parameters && !legacy_parameters->force_general_proof);
+
+  const std::vector<std::pair<std::string, bool (*)(const ActionParameters &)>>
+      typed_rules = {
+          {"BCE", [](const ActionParameters &p) {
+             return std::holds_alternative<BceParameters>(p);
+           }},
+          {"HyperTernaryRes", [](const ActionParameters &p) {
+             return std::holds_alternative<TernaryParameters>(p);
+           }},
+          {"Factor", [](const ActionParameters &p) {
+             return std::holds_alternative<FactorParameters>(p);
+           }},
+          {"TransitiveReduce", [](const ActionParameters &p) {
+             return std::holds_alternative<TransitiveReduceParameters>(p);
+           }},
+          {"Substitute", [](const ActionParameters &p) {
+             return std::holds_alternative<SubstituteParameters>(p);
+           }},
+          {"Reduce", [](const ActionParameters &p) {
+             return std::holds_alternative<ReduceParameters>(p);
+           }},
+      };
+  for (const auto &[rule, has_expected_type] : typed_rules) {
+    config = {};
+    config.rules = {rule};
+    std::set<std::string> serializations;
+    for (uint64_t seed = 1; seed <= 128; ++seed) {
+      OnlineStrategyProgram program;
+      assert(random_online_strategy_program(k, seed, config, program));
+      for (const OnlineInvocation &step : program.sequence)
+        assert(has_expected_type(step.parameters));
+      serializations.insert(serialize_online_strategy_program(program));
+    }
+    assert(serializations.size() > 16);
+  }
+}
+
+static void sample_each_applicable_action(Kernel &k,
+                                          std::set<std::string> &seen) {
+  for (const RuleVTable &rule : tactix_rules()) {
+    if (!rule.guard(k))
+      continue;
+    RandomOnlineConfig config;
+    config.rules = {rule.name};
+    config.maximum_sequence_length = 1;
+    OnlineStrategyProgram program;
+    std::string error;
+    assert(random_online_strategy_program(k, rule.id + 1, config, program,
+                                          &error));
+    assert(program.sequence.size() == 1);
+    assert(program.sequence.front().rule == rule.name);
+    assert(validate_online_strategy_program(program, &error));
+    seen.insert(rule.name);
+  }
+}
+
+static void every_registry_action_has_random_support() {
+  std::set<std::string> seen;
+  {
+    Kernel k = broad_fixture();
+    ScopedHeuristics heuristics(k);
+    sample_each_applicable_action(k, seen);
+  }
+  {
+    Kernel k = broad_fixture();
+    ScopedHeuristics heuristics(k);
+    assert(decide_apply(k, internalize(5), true) == ApplyResult::Ok);
+    sample_each_applicable_action(k, seen);
+  }
+  {
+    Kernel k;
+    ScopedHeuristics heuristics(k);
+    kernel_reserve_vars(k, 3);
+    const Lit conflict[] = {internalize(1), internalize(2), internalize(3)};
+    kernel_add_large_clause(k, conflict, 3, false, 0);
+    assert(decide_apply(k, internalize(-1), true) == ApplyResult::Ok);
+    assert(decide_apply(k, internalize(-2), true) == ApplyResult::Ok);
+    assert(decide_apply(k, internalize(-3), true) == ApplyResult::Ok);
+    assert(propagate_service(k) == ApplyResult::Conflict);
+    sample_each_applicable_action(k, seen);
+  }
+  assert(seen.size() == tactix_rules().size());
+}
+
+static void random_search_choices_cover_phases_targets_and_parameters() {
+  {
+    Kernel k = broad_fixture();
+    ScopedHeuristics heuristics(k);
+    RandomOnlineConfig config;
+    config.rules = {"Decide"};
+    bool phase[2] = {};
+    for (uint64_t seed = 1; seed <= 512; ++seed) {
+      OnlineStrategyProgram program;
+      assert(random_online_strategy_program(k, seed, config, program));
+      for (const OnlineInvocation &step : program.sequence)
+        for (const uint64_t instance : step.instances) {
+          const int32_t literal =
+              static_cast<int32_t>(static_cast<uint32_t>(instance));
+          phase[literal < 0] = true;
+        }
+    }
+    assert(phase[0] && phase[1]);
+  }
+  {
+    Kernel k = broad_fixture();
+    ScopedHeuristics heuristics(k);
+    for (int literal : {5, 8, 9, 12})
+      assert(decide_apply(k, internalize(literal), true) == ApplyResult::Ok);
+    RandomOnlineConfig config;
+    config.rules = {"Restart"};
+    std::set<uint64_t> targets;
+    for (uint64_t seed = 1; seed <= 512; ++seed) {
+      OnlineStrategyProgram program;
+      assert(random_online_strategy_program(k, seed, config, program));
+      for (const OnlineInvocation &step : program.sequence)
+        targets.insert(step.instances.begin(), step.instances.end());
+    }
+    assert(targets.size() >= 4);
+    assert(targets.count(0) && targets.count(4));
+  }
+  {
+    Kernel k;
+    ScopedHeuristics heuristics(k);
+    kernel_reserve_vars(k, 3);
+    const Lit conflict[] = {internalize(1), internalize(2), internalize(3)};
+    kernel_add_large_clause(k, conflict, 3, false, 0);
+    assert(decide_apply(k, internalize(-1), true) == ApplyResult::Ok);
+    assert(decide_apply(k, internalize(-2), true) == ApplyResult::Ok);
+    assert(decide_apply(k, internalize(-3), true) == ApplyResult::Ok);
+    assert(propagate_service(k) == ApplyResult::Conflict);
+    RandomOnlineConfig config;
+    config.rules = {"ConflictAnalysis"};
+    std::set<uint32_t> depths;
+    std::set<uint32_t> chronological_levels, bump_limits, bump_depths;
+    std::set<uint32_t> eager_sizes;
+    bool reuse[2] = {};
+    bool jump[2] = {}, bigbig[2] = {}, promote[2] = {}, extension[2] = {};
+    std::set<uint64_t> targets;
+    for (uint64_t seed = 1; seed <= 512; ++seed) {
+      OnlineStrategyProgram program;
+      assert(random_online_strategy_program(k, seed, config, program));
+      for (const OnlineInvocation &step : program.sequence) {
+        const auto *parameters =
+            std::get_if<AnalyzeParameters>(&step.parameters);
+        assert(parameters);
+        depths.insert(parameters->minimize_depth_limit);
+        reuse[parameters->conflict_reuse] = true;
+        chronological_levels.insert(parameters->chronological_levels);
+        bump_limits.insert(parameters->bump_reason_limit);
+        bump_depths.insert(parameters->bump_reason_depth);
+        eager_sizes.insert(parameters->eager_subsume);
+        jump[parameters->jump_reasons] = true;
+        bigbig[parameters->jump_reasons_bigbig] = true;
+        promote[parameters->shrink_glue_promote] = true;
+        extension[parameters->bump_extension_reasons] = true;
+        targets.insert(step.instances.begin(), step.instances.end());
+      }
+    }
+    assert(depths.size() > 3);
+    assert(reuse[0] && reuse[1]);
+    assert(chronological_levels.size() > 3);
+    assert(bump_limits.size() > 3 && bump_depths.size() > 3);
+    assert(eager_sizes.size() ==
+           AnalyzeParameters::EAGER_SUBSUME_CAPACITY + 1);
+    assert(jump[0] && jump[1] && bigbig[0] && bigbig[1]);
+    assert(promote[0] && promote[1] && extension[0] && extension[1]);
+    assert(targets.count(0) && targets.count(2));
+  }
+}
+
+static void generated_programs_execute_effective_semantic_transitions() {
+  bool explicit_effective = false;
+  bool complete_layered_fixpoint = false;
+  for (uint64_t seed = 1;
+       seed <= 8192 && !(explicit_effective && complete_layered_fixpoint);
+       ++seed) {
+    Kernel k = layered_congruence_fixture();
+    RandomOnlineConfig config;
+    config.rules = {"Congruence"};
+    config.maximum_sequence_length = 1;
+    config.maximum_repeat_count = 4;
+    config.maximum_application_budget = 4;
+    OnlineStrategyProgram program;
+    assert(random_online_strategy_program(k, seed, config, program));
+    const OnlineInvocation &step = program.sequence.front();
+    const bool explicit_selection =
+        step.granularity == InvocationGranularity::OneInstance ||
+        step.granularity == InvocationGranularity::SelectedBatch;
+    const bool complete_fixpoint =
+        step.granularity == InvocationGranularity::CompleteCurrentPass &&
+        step.repeat.mode == RepeatMode::UntilScopedFixpoint;
+
+    OnlineStrategyExecutor executor;
+    assert(executor.configure(program, seed));
+    bool progress = false;
+    for (unsigned advances = 0; advances != 64 && !executor.complete();
+         ++advances) {
+      const InvocationResult result = executor.advance(k);
+      progress |= result.made_rule_progress;
+      assert(result.status != InvocationStatus::InvalidRequest);
+      assert(result.status != InvocationStatus::ResourceExhausted);
+      assert(result.status != InvocationStatus::StaleRequest);
+      if (result.status == InvocationStatus::BudgetExhausted ||
+          result.status == InvocationStatus::Interrupted)
+        break;
+    }
+    explicit_effective |= explicit_selection && progress &&
+                          k.stats.congruence_merges != 0;
+    complete_layered_fixpoint |=
+        complete_fixpoint && k.stats.congruence_rounds == 0 &&
+        k.stats.congruence_merges != 0 && k.stats.congruence_units != 0 &&
+        k.value(internalize(-5)) > 0;
+    kernel_check_invariants(k);
+  }
+  assert(explicit_effective &&
+         "generated noncanonical Congruence payload must change state");
+  assert(complete_layered_fixpoint &&
+         "generated complete/fixpoint schedule must expose its second layer");
+}
+
+static void cli_random_reaches_late_semantics_and_replays_them() {
+  Kernel inventory = broad_fixture();
+  const int c1 = tactix_rule_id("SubsumeForward");
+  assert(c1 >= 0);
+  std::vector<uint64_t> complete;
+  assert(enumerate_complete_instances(inventory, tactix_rules()[c1], complete) ==
+         InvocationStatus::Completed);
+  assert(complete.size() > 16);
+  const std::set<uint64_t> late(complete.begin() + 16, complete.end());
+
+  const std::string path = "/tmp/tactix-random-late-" +
+                           std::to_string(static_cast<long>(getpid())) +
+                           ".trace";
+  setenv("TACTIX_STRESS_RULES", "SubsumeForward", 1);
+  setenv("TACTIX_STRESS_NORMAL_EVERY", "2", 1);
+  bool reached = false;
+  uint64_t selected_seed = 0;
+  for (uint64_t seed = 1; seed <= 32 && !reached; ++seed) {
+    Kernel k = broad_fixture();
+    ScopedHeuristics heuristics(k);
+    RuleTrace trace;
+    assert(trace.open(path.c_str(), "random", seed));
+    assert(random_solve(k, seed, nullptr, &trace) == 10);
+    trace.close();
+    FILE *input = std::fopen(path.c_str(), "r");
+    assert(input);
+    char line[256], rule[128], encoded[96];
+    while (std::fgets(line, sizeof line, input)) {
+      if (std::sscanf(line, "%127s %95s", rule, encoded) != 2 ||
+          std::strcmp(rule, "SubsumeForward") ||
+          ((std::strncmp(encoded, "s:", 2) != 0) &&
+           (std::strncmp(encoded, "v:", 2) != 0)))
+        continue;
+      const uint64_t payload = std::strtoull(encoded + 2, nullptr, 10);
+      reached |= late.count(payload) != 0;
+    }
+    std::fclose(input);
+    if (reached)
+      selected_seed = seed;
+  }
+  unsetenv("TACTIX_STRESS_RULES");
+  unsetenv("TACTIX_STRESS_NORMAL_EVERY");
+  assert(reached && "CLI RandomPolicy must sample beyond the old first16 cap");
+
+  Kernel replay = broad_fixture();
+  ScopedHeuristics replay_heuristics(replay);
+  assert(replay_solve(replay, path.c_str(), nullptr) == 10);
+  assert(selected_seed != 0);
+  std::remove(path.c_str());
+  kernel_check_invariants(replay);
+}
+
+int main() {
+  invalid_configuration_is_rejected();
+  seeds_are_replayable_and_behavior_is_wide();
+  generated_program_interrupts_and_reconfigures_online();
+  explicit_selection_reaches_beyond_a_prefix();
+  parameter_domains_are_caller_controlled();
+  every_registry_action_has_random_support();
+  random_search_choices_cover_phases_targets_and_parameters();
+  generated_programs_execute_effective_semantic_transitions();
+  serialized_configuration_round_trips_and_executes();
+  cli_random_reaches_late_semantics_and_replays_them();
+  std::puts("Random online strategy breadth and replay PASS");
+}

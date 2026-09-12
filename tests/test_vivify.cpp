@@ -129,12 +129,17 @@ static void test_terminal_dispatch() {
     const Ref candidate = kernel_add_large_clause(k, lits, 3, false, 0);
     kernel_add_large_clause(k, lits, 3, true, 2);
     const uint64_t marks_before = k.stats.bve_marks;
+    kernel_clear_subsume_material(k);
+    const uint64_t material_before = k.subsume_material_count;
     assert(vivify_try(k, candidate) == ApplyResult::Ok);
     assert(k.stats.vivify_subsumed == 1 && k.stats.vivify_promoted == 1);
     // Deleting the irredundant candidate marks its three removed literals.
     // Promoting the redundant subsumer is added material and must not add a
     // second set of Eliminate marks (`mark_added_literals` in pinned Kissat).
     assert(k.stats.bve_marks - marks_before == 3);
+    assert(k.subsume_material_count == material_before + 3);
+    for (Var v = 0; v < 4; ++v)
+      assert(kernel_has_subsume_material(k, v) == (v < 3));
     bool saw_irredundant = false;
     for (Ref r = 0; r < k.arena.size();) {
       const Clause *c = clause_at(k.arena, r);
@@ -361,6 +366,42 @@ static void test_large_rewrite_stays_in_place() {
   assert(default_solve(k) == 10);
 }
 
+static void test_large_learned_retry_advice() {
+  for (const bool redundant : {false, true}) {
+    Kernel k;
+    kernel_reserve_vars(k, 5);
+    const Lit candidate[4] = {internalize(1), internalize(2),
+                              internalize(3), internalize(4)};
+    const Ref ref = kernel_add_large_clause(k, candidate, 4, redundant, 2);
+    kernel_add_binary_clause(k, internalize(1), internalize(-2));
+    std::fill(k.bve_retry.begin(), k.bve_retry.end(), 0);
+    const uint64_t marks = k.stats.bve_marks;
+    assert(vivify_try(k, ref) == ApplyResult::Ok);
+    assert(k.stats.vivify_shrunken == 1);
+    assert(clause_at(k.arena, ref)->size == 3);
+    for (Var v = 0; v < 4; ++v)
+      assert(static_cast<bool>(k.bve_retry[v]) == !redundant);
+    assert(!k.bve_retry[4]);
+    assert(k.stats.bve_marks - marks == (redundant ? 0 : 4));
+    assert(default_solve(k) == 10);
+  }
+  // Large reverse-last instantiation has selective removed-literal advice.
+  Kernel k;
+  k.vivify_reuse = false;
+  kernel_reserve_vars(k, 5);
+  const Lit candidate[4] = {internalize(1), internalize(2),
+                            internalize(3), internalize(4)};
+  const Ref ref = kernel_add_large_clause(k, candidate, 4, false, 0);
+  kernel_add_binary_clause(k, internalize(-4), internalize(5));
+  kernel_add_binary_clause(k, internalize(-4), internalize(-5));
+  std::fill(k.bve_retry.begin(), k.bve_retry.end(), 0);
+  assert(vivify_try(k, ref) == ApplyResult::Ok);
+  assert(k.stats.vivify_instantiated == 1);
+  for (Var v = 0; v < 3; ++v) assert(!k.bve_retry[v]);
+  assert(k.bve_retry[3] && !k.bve_retry[4]);
+  assert(default_solve(k) == 10);
+}
+
 // vivify_learn_large marks its rewritten irredundant clause before reducing
 // c->size, so pinned Kissat publishes both the new prefix and the stale old
 // tail to Factor. This physical lifecycle is observable at the next Factor
@@ -375,12 +416,17 @@ static void test_large_rewrite_marks_stale_old_tail() {
   std::fill(k.factor_marks.begin(), k.factor_marks.end(), 0);
   k.factor_literals_marked = 0;
 
+  kernel_clear_subsume_material(k);
+  const uint64_t material_before = k.subsume_material_count;
   assert(vivify_try(k, ref) == ApplyResult::Ok);
   const Clause *rewritten = clause_at(k.arena, ref);
   assert(!rewritten->garbage() && rewritten->size == 3);
   assert(std::find(rewritten->begin(), rewritten->end(), internalize(2)) ==
          rewritten->end());
   assert(k.factor_marks[internalize(2)]);
+  assert(k.subsume_material_count == material_before + 4);
+  for (Var v = 0; v < 4; ++v)
+    assert(kernel_has_subsume_material(k, v));
 }
 
 // After a conflict shrink, literals above the retained level are unassigned.
@@ -790,6 +836,7 @@ int main() {
   test_leftover_priority();
   test_trail_reuse();
   test_large_rewrite_stays_in_place();
+  test_large_learned_retry_advice();
   test_large_rewrite_marks_stale_old_tail();
   test_replacement_watch_pose_scans_unassigned_tail();
   test_replacement_watch_invariant_backtracks_below_false_pair();

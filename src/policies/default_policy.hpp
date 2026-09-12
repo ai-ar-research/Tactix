@@ -1,6 +1,8 @@
 #pragma once
 
 #include "policies/default_inprocess.hpp"
+#include "policies/default_periodic.hpp"
+#include "policies/default_restart.hpp"
 #include "policies/policy.hpp"
 
 namespace tactix {
@@ -16,6 +18,10 @@ struct FormulaClassification {
 // position corresponding to the reference's cleared trail begin.
 ApplyResult default_resume_sparse_propagation(Kernel &, uint32_t trail_begin,
                                               bool charge_search_ticks);
+
+// Reduce's root preparation can shorten the trail before deriving new units.
+// Consume only those new root identities into DefaultPolicy's rankings.
+void default_prepare_reduction(Kernel &);
 
 class DefaultBranching final : public BranchingPolicy {
 public:
@@ -49,7 +55,7 @@ public:
     config_ = config;
   }
   void reset(uint64_t conflicts) {
-    const auto defaults = DefaultStrategyConfig{}.branching;
+    const DefaultStrategyConfig::Branching defaults;
     const auto &cfg = config_ ? *config_ : defaults;
     randec_remaining = 0;
     randec_next = conflicts + cfg.random_initial_interval;
@@ -79,7 +85,11 @@ private:
   const DefaultStrategyConfig::Reduction *config_ = nullptr;
 };
 
-class DefaultPolicy final : public Policy {
+class DefaultPolicy final : public Policy,
+                            public DefaultRestartControl,
+                            public DefaultModeControl,
+                            public DefaultDatabaseControl,
+                            public DefaultPhaseControl {
 public:
   static constexpr double RESTART_MARGIN =
       DefaultStrategyConfig::RESTART_MARGIN_DEFAULT;
@@ -144,35 +154,6 @@ public:
   BranchingPolicy *branching = nullptr;
   ReductionPolicy *reduction = nullptr;
 
-  struct Smooth {
-    double value = 0, biased = 0, alpha = 0, beta = 0, exp = 1.0;
-    void init(double window) {
-      alpha = 1.0 / window;
-      beta = 1.0 - alpha;
-      value = biased = 0;
-      exp = 1.0;
-    }
-    void update(double y) {
-      biased += alpha * (y - biased);
-      if (!exp) {
-        value = biased;
-        return;
-      }
-      const double old_exp = exp;
-      exp *= beta;
-      if (exp == old_exp) {
-        exp = 0;
-        value = biased;
-      } else {
-        value = biased / (1.0 - exp);
-      }
-    }
-  };
-  struct ModeAverages {
-    bool initialized = false;
-    Smooth fast_glue, slow_glue, decision_rate;
-    uint64_t saved_decisions = 0;
-  };
 
   // Kissat owns this delay at the finalized-clause reason-side gate, not at
   // search-conflict entry.  Keeping the transition explicit makes conflict
@@ -194,23 +175,12 @@ public:
     }
   };
 
-  ModeAverages averages[2];
-  struct { uint64_t next_conflicts = RESTART_INTERVAL; } restart;
-  struct { uint64_t next_conflicts = REDUCE_INTERVAL_INIT; } reduce;
-  struct {
-    uint64_t count = 0, conflicts_limit = MODE_INITIAL_CONFLICTS;
-    uint64_t ticks_limit = 0, ticks_at_focus_entry = 0;
-  } mode;
-  struct {
-    uint64_t u = 1, v = 1, wait = RELUCTANT_PERIOD;
-    bool trigger = false;
-  } reluctant;
-  struct { uint64_t next_conflicts = REPHASE_INTERVAL_INIT, count = 0; } rephase;
-  struct { uint64_t next_conflicts = REORDER_INTERVAL_INIT, count = 0; } reorder;
   bool want_restart(const Kernel &) const;
   bool want_reduce(const Kernel &) const;
   bool want_switch_mode(const Kernel &) const;
   bool want_rephase(const Kernel &) const;
+  // Policy composition, not an additional guard on public Restart/Rephase.
+  ApplyResult prepare_rephase_root(Kernel &);
   bool want_reorder(const Kernel &) const;
   void tick_reluctant();
   void update_mode_limits(const Kernel &);

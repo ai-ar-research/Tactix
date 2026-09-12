@@ -10,6 +10,7 @@
 #include "rules/congruence/congruence.hpp" // congruence_replay_rup, RupReplay
 #include "rules/propagate/propagate.hpp"
 #include "rules/sweep/sweep.hpp"
+#include "rules/substitute/substitute.hpp"
 
 #include <algorithm>
 #include <cassert>
@@ -168,6 +169,28 @@ void test_non_rup_equivalence() {
   assert(k.next_clause_id == cls.size());
 }
 
+void test_proof_capture_limit_is_caller_controlled() {
+  const std::vector<std::vector<int>> cls = non_rup_formula();
+  Kernel limited;
+  build(limited, 4, cls);
+  SweepRound limited_round;
+  SweepLimits limit;
+  limit.max_proof_steps = 1;
+  assert(sweep_detect_round(limited, limit, limited_round) == 1);
+  assert(limited_round.proofs.size() == 1);
+  assert(!limited_round.proofs[0].fwd.ok ||
+         !limited_round.proofs[0].rev.ok);
+
+  Kernel unbounded;
+  build(unbounded, 4, cls);
+  SweepRound unbounded_round;
+  limit.max_proof_steps = 0;
+  assert(sweep_detect_round(unbounded, limit, unbounded_round) == 1);
+  assert(unbounded_round.proofs.size() == 1);
+  assert(unbounded_round.proofs[0].fwd.ok &&
+         unbounded_round.proofs[0].rev.ok);
+}
+
 // The per-seed entry point `instances()` drives: the answer must not depend on
 // which end of the pair is swept.
 void test_seed_symmetry() {
@@ -232,16 +255,14 @@ void test_full_partition_finds_nonseed_pair() {
 
   Kernel emitted;
   build(emitted, 5, cls);
-  assert(setenv("TACTIX_SWEEP_PARTITION", "1", 1) == 0);
-  assert(setenv("TACTIX_SWEEP_FLIP_ROUNDS", "0", 1) == 0);
-  assert(setenv("TACTIX_SWEEP_FORCE_GENERAL", "1", 1) == 0);
-  assert(sweep_try(emitted, 0) == ApplyResult::Ok);
+  SweepLimits emitted_limits;
+  emitted_limits.full_partition = true;
+  emitted_limits.flip_rounds = 0;
+  emitted_limits.force_general_proof = true;
+  assert(sweep_try_with_limits(emitted, 0, emitted_limits) == ApplyResult::Ok);
   assert(kernel_binary_id(emitted, negate(y), z));
   assert(kernel_binary_id(emitted, y, negate(z)));
   assert(emitted.stats.sweep_general >= 1);
-  assert(unsetenv("TACTIX_SWEEP_FORCE_GENERAL") == 0);
-  assert(unsetenv("TACTIX_SWEEP_FLIP_ROUNDS") == 0);
-  assert(unsetenv("TACTIX_SWEEP_PARTITION") == 0);
 }
 
 // Existing implication binaries make an equivalence cheap to detect. Sweep
@@ -537,11 +558,12 @@ void test_seeds() {
 void test_resumable_schedule() {
   const std::vector<std::vector<int>> cls = {
       {1, 2}, {-1, 3}, {-2, 4}, {-3, -4}};
-  assert(setenv("TACTIX_SWEEP_SEEDS", "1", 1) == 0);
+  SweepLimits one_seed;
+  one_seed.max_seeds = 1;
 
   Kernel off;
   build(off, 4, cls);
-  SweepLimits off_limits;
+  SweepLimits off_limits = one_seed;
   off_limits.resume = false;
   sweep_apply_with_limits(off, off_limits);
   sweep_apply_with_limits(off, off_limits);
@@ -550,7 +572,7 @@ void test_resumable_schedule() {
 
   Kernel filtered;
   build(filtered, 3, {{1, 2}, {-1, 2}});
-  sweep_apply(filtered);
+  sweep_apply_with_limits(filtered, one_seed);
   assert(filtered.stats.sweep_scheduled == 1);
   assert(filtered.stats.sweep_completed == 1);
   std::vector<Var> complete_surface;
@@ -558,20 +580,19 @@ void test_resumable_schedule() {
   assert(filtered.stats.sweep_units == 1);
   assert(complete_surface.size() == 2); // only the newly fixed var leaves scope
 
-  assert(setenv("TACTIX_SWEEP_CLAUSES", "1", 1) == 0);
   Kernel growth;
   build(growth, 3, {{1, 2}, {1, 3}, {-1, 2}, {-1, 3}});
-  sweep_apply(growth);
+  SweepLimits growth_limits = one_seed;
+  growth_limits.max_env_clauses = 1;
+  sweep_apply_with_limits(growth, growth_limits);
   assert(growth.stats.sweep_scheduled == 0 &&
          growth.stats.sweep_completed == 1);
-  sweep_apply(growth);
+  sweep_apply_with_limits(growth, growth_limits);
   assert(growth.stats.sweep_limit_clauses == 2);
   assert(growth.stats.sweep_scheduled == 1);
-  assert(unsetenv("TACTIX_SWEEP_CLAUSES") == 0);
-
   Kernel on;
   build(on, 4, cls);
-  sweep_apply(on);
+  sweep_apply_with_limits(on, one_seed);
   // Productive seeds move their surviving representatives to the pop end
   // (the reschedule front), exactly as Kissat's schedule_inner does. The
   // original four entries remain the scheduled baseline, but completion is
@@ -581,11 +602,19 @@ void test_resumable_schedule() {
   assert(on.stats.sweep_scheduled == 4 && on.stats.sweep_resumed == 0);
   (void)substitute_apply(on); // mandatory post-Sweep phase owner
   const uint32_t live_before = on.sweep_live;
-  sweep_apply(on);
-  assert(on.sweep_live < live_before && on.stats.sweep_resumed >= 1);
+  // Substitution leaves only an isolated representative. Entry revalidation
+  // drains that retained seed without attempting another environment.
+  assert(!kernel_var_retired(on, 0));
+  assert(on.watches.size(make_lit(0, false)) == 0 &&
+         on.watches.size(make_lit(0, true)) == 0);
+  for (Var v = 1; v < 4; v++)
+    assert(kernel_var_retired(on, v));
+  sweep_apply_with_limits(on, one_seed);
+  assert(on.sweep_live < live_before && on.sweep_live == 0 &&
+         on.stats.sweep_resumed == 0);
   (void)substitute_apply(on);
   for (uint32_t calls = 0; !on.sweep_passes_completed && calls < 16; calls++) {
-    sweep_apply(on);
+    sweep_apply_with_limits(on, one_seed);
     (void)substitute_apply(on);
   }
   assert(on.sweep_tail.empty() && on.sweep_tail_next == 0);
@@ -594,11 +623,10 @@ void test_resumable_schedule() {
          on.stats.sweep_limit_clauses == 1024 &&
          on.stats.sweep_limit_depth == 2);
 
-  sweep_apply(on);
+  sweep_apply_with_limits(on, one_seed);
   assert(on.stats.sweep_limit_vars == 512 &&
          on.stats.sweep_limit_clauses == 2048 &&
          on.stats.sweep_limit_depth == 3);
-  assert(unsetenv("TACTIX_SWEEP_SEEDS") == 0);
 }
 
 // Kissat reschedules a proved pair's REPRESENTATIVE — `schedule_inner
@@ -609,7 +637,8 @@ void test_resumable_schedule() {
 // when the pair is declined. Both import orders are exercised because the
 // representative is not a function of the external numbering.
 void test_reschedules_pair_representative_by_import_order() {
-  assert(setenv("TACTIX_SWEEP_SEEDS", "1", 1) == 0);
+  SweepLimits limits;
+  limits.max_seeds = 1;
   for (uint32_t flipped = 0; flipped < 2; flipped++) {
     Kernel k;
     kernel_reserve_vars(k, 3);
@@ -620,7 +649,7 @@ void test_reschedules_pair_representative_by_import_order() {
                              ++k.next_clause_id);
     kernel_add_binary_clause(k, internalize(-2), internalize(1),
                              ++k.next_clause_id);
-    assert(sweep_apply(k) == ApplyResult::Ok);
+    assert(sweep_apply_with_limits(k, limits) == ApplyResult::Ok);
 
     const Var representative = flipped ? 1u : 0u;
     assert(!kernel_var_retired(k, representative));
@@ -630,7 +659,6 @@ void test_reschedules_pair_representative_by_import_order() {
     assert(substitute_apply(k) == ApplyResult::Ok);
     assert(kernel_var_retired(k, flipped ? 0u : 1u));
   }
-  assert(unsetenv("TACTIX_SWEEP_SEEDS") == 0);
 }
 
 // One environment can prove several pairs, and every pair is rescheduled on
@@ -645,7 +673,8 @@ void test_reschedules_pair_representative_by_import_order() {
 // The chain x1 = x2 = x3 is proved from a single environment, so one of the
 // two pairs names x2 — which the same batch then retires into x1.
 void test_reschedule_declines_a_retired_representative() {
-  assert(setenv("TACTIX_SWEEP_SEEDS", "1", 1) == 0);
+  SweepLimits limits;
+  limits.max_seeds = 1;
   Kernel k;
   kernel_reserve_vars(k, 5);
   // Four ternaries state the equivalence without handing unit propagation a
@@ -662,7 +691,7 @@ void test_reschedule_declines_a_retired_representative() {
   equate(1, 2, 4);
   equate(2, 3, 5);
 
-  assert(sweep_apply(k) == ApplyResult::Ok);
+  assert(sweep_apply_with_limits(k, limits) == ApplyResult::Ok);
   const Var minimum = var_of(internalize(1));
   const Var intermediate = var_of(internalize(2));
   assert(k.stats.sweep_equivalences == 2);
@@ -678,7 +707,6 @@ void test_reschedule_declines_a_retired_representative() {
   assert(substitute_apply(k) == ApplyResult::Ok);
   assert(kernel_var_retired(k, intermediate));
   assert(kernel_var_retired(k, var_of(internalize(3))));
-  assert(unsetenv("TACTIX_SWEEP_SEEDS") == 0);
 }
 
 // A productive dense environment is a transaction boundary, not just a
@@ -689,9 +717,9 @@ void test_resumable_closes_root_between_environments() {
   Kernel k;
   build(k, 6,
         {{1, 2}, {-1, 2}, {-2, 3}, {-3, 4}, {-4, 5}, {-5, 6}});
-  assert(setenv("TACTIX_SWEEP_DEPTH", "0", 1) == 0);
-  assert(sweep_apply(k) == ApplyResult::Ok);
-  assert(unsetenv("TACTIX_SWEEP_DEPTH") == 0);
+  SweepLimits limits;
+  limits.max_depth = 0;
+  assert(sweep_apply_with_limits(k, limits) == ApplyResult::Ok);
   for (Var v = 1; v < 6; v++)
     assert(kernel_root_value(k, make_lit(v, false)) > 0);
   assert(k.stats.sweep_environments == 1 &&
@@ -832,9 +860,9 @@ static void test_se_general_path_emits(void) {
   assert(!is_rup_binary(k, negate(x), y)); // premise: S-d cannot do this
   assert(!is_rup_binary(k, x, negate(y)));
 
-  assert(setenv("TACTIX_SWEEP_FORCE_GENERAL", "1", 1) == 0);
-  const ApplyResult r = sweep_apply(k);
-  assert(unsetenv("TACTIX_SWEEP_FORCE_GENERAL") == 0);
+  SweepLimits limits;
+  limits.force_general_proof = true;
+  const ApplyResult r = sweep_apply_exact_limits(k, limits);
   assert(r == ApplyResult::Ok && "the general path must justify what RUP cannot");
   assert(k.stats.sweep_general >= 1 &&
          "S-e NEVER FIRED -- the general path is unreachable and untested");
@@ -873,9 +901,9 @@ static void test_inline_bridge_refreshes_owned_occurrences(void) {
   k.sweep_tail = {k.internal_to_external[4], k.internal_to_external[0]};
   k.sweep_tail_next = 0;
 
-  assert(setenv("TACTIX_SWEEP_FORCE_GENERAL", "1", 1) == 0);
-  assert(sweep_apply(k) == ApplyResult::Ok);
-  assert(unsetenv("TACTIX_SWEEP_FORCE_GENERAL") == 0);
+  SweepLimits limits;
+  limits.force_general_proof = true;
+  assert(sweep_apply_exact_limits(k, limits) == ApplyResult::Ok);
   assert(k.stats.substitute_vars == 0);
   assert(k.stats.sweep_general >= 1);
   assert(substitute_apply(k) == ApplyResult::Ok);
@@ -905,9 +933,9 @@ static void test_dense_call_collects_once_across_productive_environments() {
   k.sweep_tail = {k.internal_to_external[4], k.internal_to_external[0]};
   k.sweep_tail_next = 0;
   const uint64_t generation = k.arena_generation;
-  assert(setenv("TACTIX_SWEEP_FORCE_GENERAL", "1", 1) == 0);
-  assert(sweep_apply(k) == ApplyResult::Ok);
-  assert(unsetenv("TACTIX_SWEEP_FORCE_GENERAL") == 0);
+  SweepLimits limits;
+  limits.force_general_proof = true;
+  assert(sweep_apply_exact_limits(k, limits) == ApplyResult::Ok);
   assert(k.stats.sweep_equivalences >= 2);
   assert(k.stats.substitute_vars == 0);
   assert(k.arena_generation == generation);
@@ -941,9 +969,9 @@ static void test_sessionless_substitution_keeps_binaries_whole(void) {
   build(k, 6, cls);
   assert(k.dense == nullptr); // the state this regression is about
 
-  assert(setenv("TACTIX_SWEEP_FORCE_GENERAL", "1", 1) == 0);
-  const ApplyResult r = sweep_apply(k);
-  assert(unsetenv("TACTIX_SWEEP_FORCE_GENERAL") == 0);
+  SweepLimits limits;
+  limits.force_general_proof = true;
+  const ApplyResult r = sweep_apply_exact_limits(k, limits);
   assert(r == ApplyResult::Ok);
   assert(k.stats.sweep_equivalences >= 1 &&
          "the connected Sweep substitution under test never ran");
@@ -1177,7 +1205,53 @@ static void emit_bridge_two_hint_case(const char *dir) {
   printf("emitted the bridge two-hint case to %s\n", dir);
 }
 
+// All three variables remain active across Sweep's connected rewrite.
+// Reusing a pre-rewrite endpoint in a later pair must preserve every original
+// equivalence, even before the caller chooses to run Substitute.
+static void test_sequential_equivalence_images() {
+  uint64_t productive = 0;
+  for (bool dense : {false, true})
+    for (bool partition : {false, true})
+      for (unsigned signs = 0; signs != 8; ++signs) {
+        std::vector<Var> order{0, 1, 2};
+        do {
+          Kernel k;
+          kernel_reserve_vars(k, 3);
+          for (const Var v : order) kernel_record_import(k, v);
+          const Lit a = make_lit(0, signs & 1);
+          const Lit b = make_lit(1, signs & 2);
+          const Lit c = make_lit(2, signs & 4);
+          for (const auto &[x, y] :
+               std::vector<std::pair<Lit, Lit>>{{a, negate(b)},
+                                               {b, negate(c)},
+                                               {c, negate(a)}})
+            kernel_add_binary_clause(k, x, y, ++k.next_clause_id);
+          OccIndex occ;
+          if (dense) kernel_dense_connect(k, occ);
+          SweepLimits lim;
+          lim.full_partition = partition;
+          // Repeating individual applications crosses fresh round/session
+          // boundaries as well as the within-environment merge boundary.
+          for (const Var seed : {2u, 1u, 0u, 2u}) {
+            assert(sweep_try_with_limits(k, seed, lim) != ApplyResult::Unsat);
+            std::vector<uint64_t> chain;
+            for (const Lit x : {a, b, c})
+              for (const Lit y : {a, b, c})
+                if (x != y && !big_path_chain(k, x, y, chain)) {
+                  fprintf(stderr, "bridge lost: dense=%d partition=%d signs=%u order=%u,%u,%u seed=%u from=%u to=%u\n", dense, partition, signs, order[0], order[1], order[2], seed, x, y);
+                  assert(false && "Sweep must preserve the complete equivalence");
+                }
+            kernel_check_invariants(k);
+          }
+          productive += k.stats.sweep_binaries;
+          if (dense) kernel_dense_disconnect(k);
+        } while (std::next_permutation(order.begin(), order.end()));
+      }
+  assert(productive > 0);
+}
+
 int main(int argc, char **argv) {
+  test_sequential_equivalence_images();
   if (argc > 2 && !strcmp(argv[1], "--emit")) {
     emit_se_case(argv[2]);
     emit_unit_case(argv[2]);
@@ -1190,6 +1264,7 @@ int main(int argc, char **argv) {
   test_effort_prices_embedded_and_representation_ticks();
   test_dense_entry_flushes_only_irredundant_satisfied_clauses();
   test_non_rup_equivalence();
+  test_proof_capture_limit_is_caller_controlled();
   test_seed_symmetry();
   test_full_partition_finds_nonseed_pair();
   test_known_equivalence_still_substitutes();

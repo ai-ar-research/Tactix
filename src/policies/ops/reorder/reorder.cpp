@@ -10,6 +10,8 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cmath>
+#include <limits>
 
 namespace tactix {
 
@@ -25,30 +27,14 @@ namespace tactix {
 //      retired variables addressable for N1/model reconstruction, but they are
 //      disconnected from H and must not be reinserted by this policy op.
 
-namespace {
-
-// kissat reordermaxsize: stop inspecting a clause as soon as this many open
-// literals have been seen and contribute the smallest table weight.  This is
-// observably different from continuing to scan for a satisfying root literal
-// later in the clause (2^-98 is already indistinguishable from 0 for ranking).
-constexpr uint32_t REORDER_MAX_SIZE = 100;
-
-// weight per clause size, table[s] = 2^-(s-2) for s in [2, REORDER_MAX_SIZE]
-const double *size_weight_table() {
-  static const std::vector<double> table = [] {
-    std::vector<double> t(REORDER_MAX_SIZE + 1, 0.0);
-    double w = 1.0;
-    for (uint32_t s = 2; s <= REORDER_MAX_SIZE; s++, w /= 2.0)
-      t[s] = w;
-    return t;
-  }();
-  return table.data();
-}
-
-} // namespace
-
 void reorder_weights(const Kernel &k, std::vector<double> &var_weight) {
-  const double *table = size_weight_table();
+  const uint32_t maximum = k.reorder_maximum_clause_size;
+  assert(maximum >= 2);
+  const auto weight = [](uint32_t size) {
+    if (size > static_cast<uint32_t>(std::numeric_limits<int>::max()))
+      return 0.0;
+    return std::ldexp(1.0, 2 - static_cast<int>(size));
+  };
   std::vector<double> lit_weight(2 * static_cast<size_t>(k.nvars), 0.0);
   // Large irredundant clauses: one arena pass, no occurrence index needed since
   // every clause is visited exactly once.
@@ -65,19 +51,19 @@ void reorder_weights(const Kernel &k, std::vector<double> &var_weight) {
         satisfied = true;
         break;
       }
-      if (v == 0 && open < REORDER_MAX_SIZE && ++open == REORDER_MAX_SIZE)
+      if (v == 0 && open < maximum && ++open == maximum)
         break;
     }
     if (satisfied)
       continue;
-    const double w = table[open < 2 ? 2 : open]; // deviation (2)
+    const double w = weight(open < 2 ? 2 : open); // deviation (2)
     for (const Lit l : *c)
       lit_weight[l] += w;
   }
   // Binaries never materialize in the arena (kernel.hpp binary_ids): they live
   // in the watch lists, one slot each, and carry no redundancy bit there, so
   // like kissat's binary pass this counts redundant binaries too.
-  const double binary_weight = table[2];
+  const double binary_weight = weight(2);
   const uint32_t nlits = 2 * k.nvars;
   for (Lit l = 0; l < nlits; l++) {
     if (k.values[l] != 0) // deviation (3)

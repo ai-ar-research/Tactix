@@ -263,33 +263,21 @@ int main(int argc, char **argv) {
   if (const char *dc = getenv("TACTIX_BVE_DEF_CORES"))
     kernel.bve_definition_cores = std::clamp<uint32_t>(
         static_cast<uint32_t>(strtoul(dc, nullptr, 10)), 1, 100);
+  if (const char *dm = getenv("TACTIX_BVE_DEF_CORE_MULTIPLIER"))
+    kernel.bve_definition_core_budget_multiplier =
+        static_cast<uint32_t>(strtoul(dm, nullptr, 10));
   if (const char *ee = getenv("TACTIX_V4_EARLY_EXIT"))
     kernel.transitive_early_exit = (*ee != '0');
   if (const char *lm = getenv("TACTIX_TRANSITIVE_LIVE_METER"))
     kernel.transitive_live_meter = (*lm != '0');
   if (const char *meter = getenv("TACTIX_V4_METER"))
     kernel.transitive_budget_checked = !std::strcmp(meter, "checked");
-  // Touched-epoch round filters ship ON; =0 restores unfiltered candidates.
-  if (const char *tm = getenv("TACTIX_TOUCH_MARKS"))
-    kernel.touch_filter = (*tm != '0');
-  if (const char *sh = getenv("TACTIX_SUBSUME_HOLD"))
-    kernel.subsume_holds_elim = (*sh != '0');
   // Vivify's cross-candidate trail reuse ships ON; =0 also restores the older
   // probe/candidate order, which cannot be separated (Kernel::vivify_reuse).
   if (const char *vr = getenv("TACTIX_VIVIFY_REUSE"))
     kernel.vivify_reuse = (*vr != '0');
   if (const char *vf = getenv("TACTIX_VIVIFY_FLUSH"))
     kernel.vivify_flush = (*vf != '0');
-  // Pinned Kissat's forward pass is irredundant-only.  CaDiCaL's likely-kept
-  // redundant band remains available only as an explicit diagnostic arm.
-  if (const char *tr = getenv("TACTIX_TOUCH_REDUNDANT"))
-    kernel.touch_redundant = (*tr != '0');
-  // SubsumeForward's shadow arm; the `c c1shadow` line below is its output.
-  if (const char *ss = getenv("TACTIX_SUBSUME_SHADOW"))
-    kernel.subsume_shadow = (*ss != '0');
-  if (const char *mb = getenv("TACTIX_MIDROUND_BUDGET"))
-    kernel.midround_budget = (*mb != '0'); // direct-rule diagnostic override;
-                                           // policy uses its typed config
   if (const char *fs = getenv("TACTIX_FACTOR_SIZE"))
     kernel.factor_size = (uint32_t)strtoul(fs, nullptr, 10);
   // Kissat's `reduction > bound` acceptance threshold (factor.c:939), default 0
@@ -303,12 +291,8 @@ int main(int argc, char **argv) {
     kernel.factor_demote_fresh = (*fd != '0');
   if (const char *cr = getenv("TACTIX_FACTOR_CAND_ROUNDS"))
     kernel.factor_cand_rounds = (uint32_t)strtoul(cr, nullptr, 10);
-  if (getenv("TACTIX_NO_EXT_DECISIONS"))
-    kernel.no_ext_decisions = true; // diagnostic, see Kernel::no_ext_decisions
   if (const char *sf = getenv("TACTIX_STOP_FUZZ"))
     kernel.stop_fuzz = (uint32_t)strtoul(sf, nullptr, 10); // see kernel_terminating
-  if (const char *rt = getenv("TACTIX_RETIRE"))
-    kernel.retire_enabled = (*rt != '0'); // retirement ships ON; =0 reverts
   if (getenv("TACTIX_SUBST_DEMOTE"))
     kernel.subst_demote = true; // rank substituted vars last, see Kernel
   // Eager subsumption of recent learned clauses ships ON at kissat's default
@@ -329,8 +313,6 @@ int main(int argc, char **argv) {
   // Kissat's `jumpreasons` ships ON; =0 restores direct antecedent reasons.
   if (const char *jr = getenv("TACTIX_JUMP_REASONS"))
     kernel.jump_reasons = (*jr != '0');
-  if (getenv("TACTIX_CONFLICT_REUSE_NOREPAIR")) // diagnostic; see the field
-    kernel.conflict_reuse_no_repair = true;
   // Both ship ON at their references' defaults (kissat `promote`, `tumble`);
   // `=0` reverts to the pre-parity behaviour and is the priced arm.
   if (const char *sg = getenv("TACTIX_SHRINK_GLUE"))
@@ -849,18 +831,6 @@ int main(int argc, char **argv) {
     printf("c budgetstop  %llu C1 rounds, %llu C2 rounds stopped mid-round\n",
            (unsigned long long)kernel.stats.budget_stops_c1,
            (unsigned long long)kernel.stats.budget_stops_c2);
-    // Diagnostic, zero unless TACTIX_SUBSUME_SHADOW=1. `observed` is what
-    // SubsumeForward declined to delete; absorption by any rule other than
-    // Strengthen is not counted, so `residual` overstates its unique yield
-    // rather than flattering it.
-    printf("c c1shadow    %llu observed, %llu deleted + %llu rewritten by C2, "
-           "%llu residual\n",
-           (unsigned long long)kernel.stats.c1_shadow_observed,
-           (unsigned long long)kernel.stats.c1_shadow_deleted,
-           (unsigned long long)kernel.stats.c1_shadow_rewritten,
-           (unsigned long long)(kernel.stats.c1_shadow_observed -
-                                kernel.stats.c1_shadow_deleted -
-                                kernel.stats.c1_shadow_rewritten));
     // Non-wedge witness for the touched-epoch filters (Kernel::touched):
     // `marks` must keep growing on a long solve, `skipped` and `checked` (the
     // `c subsume` / `c strengthen` lines) must both be non-zero, and `advances`

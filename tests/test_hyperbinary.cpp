@@ -148,6 +148,101 @@ static void test_instance_surface() {
   assert(default_solve(k) == 10);
 }
 
+// The semantic surface names individual resolvents.  Applying a later payload
+// first must not shift the earlier payload to a different consequence.
+static void test_individual_semantic_resolvents_keep_identity() {
+  Kernel k;
+  k.jump_reasons = false;
+  kernel_reserve_vars(k, 8);
+  bin(k, -1, 2);
+  bin(k, -2, 3);
+  bin(k, -2, 4);
+  add3(k, -3, -4, 5);
+  bin(k, -2, 6);
+  bin(k, -2, 7);
+  add3(k, -6, -7, 8);
+  const RuleVTable &rule =
+      tactix_rules()[tactix_rule_id("HyperBinaryRes")];
+  assert(rule.semantic_instances && rule.apply_semantic_instance);
+  uint64_t choices[64], selected[2];
+  const uint32_t count = rule.semantic_instances(k, choices, 64);
+  uint32_t selected_count = 0;
+  for (uint32_t i = 0; i < count && selected_count < 2; ++i)
+    if (static_cast<Lit>(choices[i] >> 32) == internalize(2))
+      selected[selected_count++] = choices[i];
+  assert(selected_count == 2);
+
+  assert(apply_rule_semantic_instance(rule, k, selected[1]) == ApplyResult::Ok);
+  assert(k.stats.hbr_binaries == 1);
+  assert(apply_rule_semantic_instance(rule, k, selected[0]) == ApplyResult::Ok);
+  assert(k.stats.hbr_binaries == 2);
+  assert(has_bin(k, -2, 5));
+  assert(has_bin(k, -2, 8));
+}
+
+// The calculus permits any dominator with the required binary paths. The
+// canonical probe deliberately chooses the closest (2), but N1 must also make
+// the weaker, legal dominator 1 directly reachable.
+static void test_nonclosest_dominator_is_semantically_reachable() {
+  Kernel k;
+  k.jump_reasons = false;
+  kernel_reserve_vars(k, 5);
+  bin(k, -1, 2);
+  bin(k, -2, 3);
+  bin(k, -2, 4);
+  add3(k, -3, -4, 5);
+  const RuleVTable &rule =
+      tactix_rules()[tactix_rule_id("HyperBinaryRes")];
+  uint64_t choices[64];
+  const uint32_t count = rule.semantic_instances(k, choices, 64);
+  uint64_t selected = INSTANCE_CANONICAL;
+  for (uint32_t i = 0; i < count; ++i)
+    if (static_cast<Lit>(choices[i] >> 32) == internalize(1)) {
+      selected = choices[i];
+      break;
+    }
+  assert(selected != INSTANCE_CANONICAL);
+  assert(rule.apply_semantic_instance(k, selected) == ApplyResult::Ok);
+  assert(has_bin(k, -1, 5));
+  assert(!has_bin(k, -2, 5));
+}
+
+static void test_semantic_resolvent_can_collapse_to_unit() {
+  Kernel k;
+  k.jump_reasons = false;
+  kernel_reserve_vars(k, 4);
+  bin(k, -1, 3);
+  bin(k, -1, 4);
+  add3(k, -1, -3, -4);
+  const RuleVTable &rule =
+      tactix_rules()[tactix_rule_id("HyperBinaryRes")];
+  uint64_t choices[64];
+  const uint32_t count = rule.semantic_instances(k, choices, 64);
+  uint64_t selected = INSTANCE_CANONICAL;
+  for (uint32_t i = 0; i < count; ++i)
+    if (static_cast<Lit>(choices[i] >> 32) == internalize(1)) {
+      selected = choices[i];
+      break;
+    }
+  assert(selected != INSTANCE_CANONICAL);
+  assert(rule.apply_semantic_instance(k, selected) == ApplyResult::Ok);
+  assert(k.value(internalize(-1)) > 0);
+  assert(k.stats.hbr_units == 1 && k.stats.hbr_binaries == 0);
+}
+
+static void test_invalid_semantic_payload_is_noop() {
+  Kernel k;
+  k.jump_reasons = false;
+  kernel_reserve_vars(k, 2);
+  const RuleVTable &rule =
+      tactix_rules()[tactix_rule_id("HyperBinaryRes")];
+  assert(apply_rule_semantic_instance(
+             rule, k,
+             hyperbinary_semantic_instance(make_lit(1, false), 17)) ==
+         ApplyResult::NoOp);
+  assert(k.stats.hbr_binaries == 0);
+}
+
 // `apply_instance` is total: an off-schedule literal is a NoOp, not a trap.
 static void test_apply_off_schedule_is_total() {
   Kernel k;
@@ -169,6 +264,10 @@ int main() {
   test_no_opportunity();
   test_resolvent_is_implied();
   test_instance_surface();
+  test_individual_semantic_resolvents_keep_identity();
+  test_nonclosest_dominator_is_semantically_reachable();
+  test_semantic_resolvent_can_collapse_to_unit();
+  test_invalid_semantic_payload_is_noop();
   test_apply_off_schedule_is_total();
   printf("test_hyperbinary: all passed\n");
   return 0;

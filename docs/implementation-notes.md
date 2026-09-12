@@ -1,14 +1,13 @@
 # Tactix implementation notes — guards, deviations, and durable design
 
-Engineering companion to `docs/calculus.md`: this file owns guards, deviations,
-and representation invariants; scheduling parity and dated evidence live in the
-parity ledger and frozen reports.
+Engineering companion to `docs/calculus.md`: guards, deviations and representation
+invariants live here; scheduling parity and dated evidence live in the ledger and frozen reports.
 
 ## 1. Implemented guards, per rule
 
 `root` abbreviates `!inconsistent && level == 0`. Inprocessing drains root
-closure through `inprocess_reach_root`/`propagate_service`; V1/V2/S5 retain the
-abstract `!conflict_valid` condition. Policy S3/S4/S6/S7 are H-only.
+closure through `inprocess_reach_root`/`propagate_service`; V1/V2/S5 also retain
+the abstract `!conflict_valid` condition. Policy S3/S4/S6/S7 are H-only.
 
 | Rule | Implemented guard | Deviation or invariant |
 |---|---|---|
@@ -16,16 +15,16 @@ abstract `!conflict_valid` condition. Policy S3/S4/S6/S7 are H-only.
 | M2 Decide | `!conflict_valid && !inconsistent && unassigned > 0` | pure; every unassigned literal/phase remains N1-reachable |
 | M3 ConflictAnalysis | `conflict_valid && !inconsistent` | pure; Analyze+Backjump is atomic |
 | S1 Restart | `!inconsistent && !conflict_valid && level > 0` | D-NOOP |
-| S2 Reduce | `!inconsistent && !conflict_valid` | D-NOOP; isolated6049 excludes retained root assignments from reason locks; M1 names LRAT units before deletion and GC retires root reasons. Pending/non-root locks remain. Isolated5900 consumes new preparation roots into guidance by post-truncation suffix; raw S2 stays policy-neutral |
-| S5 Lucky | `root && !conflict_valid` | D-ROOT; conflict condition is abstract |
-| C1 SubsumeForward, C2 Strengthen, C3 Vivify | `root` | D-ROOT |
-| V1 Probe, V2 Backbone | `root && !conflict_valid` | D-ROOT; conflict condition is abstract |
-| V3 Substitute, V4 TransitiveReduce, V5 Sweep | `root` | D-ROOT |
-| V6 Congruence | `root` | D-ROOT; D-CONG-SKIP and D-CONG-TAUT are effect deviations |
-| E1 BVE | `root` | D-ROOT; extension-variable exclusion and size limits are policy scope |
-| E2 Factor | `root` | D-ROOT; every eligible seed literal is N1-reachable |
-| X1 BCE, X2 HyperTernaryRes, X3 CCE, X4 Instantiate | `root` | D-ROOT; within-rule candidate filters are scope |
-| X6 HyperBinaryRes | `root && !conflict_valid` | D-ROOT; conflict condition is abstract |
+| S2 Reduce | `!inconsistent && !conflict_valid` | D-NOOP; proved root units need no clause lock; pending/non-root locks remain. Isolated7448 adds opaque individual-victim payloads independent of tier/recency protection, retaining canonical/count selection. M1 names LRAT units before deletion; GC retires root reasons. Preparation-root guidance remains policy-owned. |
+| S5 Lucky | `root && !conflict_valid` | root-phase model probe; a failed probe restores the level-zero entry state |
+| C1 SubsumeForward, C2 Strengthen, C3 Vivify | `root` | declared inprocessing boundary. C1 exposes every live victim. C2 additionally exposes each distinct `(victim, removed literal)` result plus its fused C1 deletion; proper C2 strengthening may use redundant partners, while C1 deletion still requires an irredundant or binary subsumer. |
+| V1 Probe, V2 Backbone | `root && !conflict_valid` | root is the declared inprocessing boundary; conflict condition is abstract |
+| V3 Substitute, V4 TransitiveReduce, V5 Sweep | `root` | declared inprocessing boundary; isolated7448 moves `TACTIX_NO_SWEEP` to scheduling only, preserving explicit and canonical public V5 calls. |
+| V6 Congruence | `root` | declared inprocessing boundary; individual matching/unary equivalences, gate/V6a units, representative clashes and literal-form AND/XOR/ITE refutations compose through persistent binaries and root values. D-CONG-SKIP remains. D-CONG-ITE: retained7373 skips type-changing ITE closure;7424's double-collapse units can invalidate DRAT;7464 adds the condition ladder. Isolated7491 also omits watched sides only for root-valued ITE-to-AND conversions, retaining original-clause cofactors and closure;7492/7493 fixed model/proof gates pass. Runtime/fuzz acceptance remains open. |
+| E1 BVE | `root` | declared inprocessing boundary; extension-variable exclusion and size limits are policy scope |
+| E2 Factor | `root` | declared inprocessing boundary; every eligible seed is reachable; typed exact-grid application and exhaustive lazy grid enumeration cover profitable subgrids and exact large-clause occurrences |
+| X1 BCE, X2 HyperTernaryRes, X3 CCE, X4 Instantiate | `root` | declared inprocessing boundary; additive semantic surfaces name individual clause/blocker, parent-pair/resolvent, CCE victim, and clause/literal choices. Duplicate binary copies form one represented victim. |
+| X6 HyperBinaryRes | `root && !conflict_valid` | root is the declared inprocessing boundary; conflict condition is abstract; semantic payloads completely enumerate stable `(d, clause, selected literal)` resolvents, including nonclosest dominators and unit-degenerate results |
 
 DefaultPolicy ships original-Kissat pipeline membership. Off-pipeline CaDiCaL
 rules remain registered, journaled, N1-reachable, and explicitly poseable.
@@ -36,23 +35,39 @@ rules remain registered, journaled, N1-reachable, and explicitly poseable.
 
 | ID | Surface | Reason and reopening path |
 |---|---|---|
-| D-ROOT | Root-only inprocessing and Lucky | Framework is defined on `F|U`. Reopen only with a reviewed arbitrary-fixpoint formulation and corpus 004/005/006 proof/model coverage. |
-| D-CONG-SKIP | Native-LRAT Congruence drops a merge when its bridge chain cannot be built | Dropping is sound; emitting an unverifiable line violates N2. Make bridge construction total using root-unit ids. Nonzero `congruence_unjustified` is the alarm. |
-| D-CONG-TAUT | Both proof modes skip a merge whose ladder would emit a tautological lemma | DRAT/LRAT checkers disagree on such ladders. Derive the nondegenerate half instead; debug proof code rejects tautological RUP/RAT additions. |
 | D-STRENGTHEN-BUDGET | Fused C2 uses native `forward_steps` and strict between-candidate limits; public instances remain single-action | Rank-27 campaigns4481–4483 establish candidate/cache-line/large-watch currency. Isolated5798 continues units through partial forward connections with fresh root checks, proof-safe reasons and sparse replay debt; completion depends on unreached/live rewritten material, not unit count. Isolated5830 removes C2's synthetic root-to-added-mark producer, preserving genuine fixed-variable added marks and C1/CCE's helper. Isolated5870/5920 delete incoming-root-satisfied irredundant clauses before5849's full reconnect/suffix replay; later-derived satisfied clauses retain native lazy occurrence cleanup. Journal eligibility sees the rearmed cursor. Isolated6579 migrates only canonical C2 binary/victim/connection predicates to separate subsumption flags: normal exit clears and rearms live pending/replaced clauses and new binaries without recount; interruption preserves flags, explicit instances never drain them, and the optional CaDiCaL band retains its shared-touch protocol. Partial C2/public inference guards stay unchanged. Evidence: [material cutover](../benchmarks/reports/2026-09-09-material-scheduling-cutover.md). Owners: SP-FORWARD-UNIT-CONTINUE-1, SP-FORWARD-ROOT-MARK-1, SP-FORWARD-CALLER-CLOSURE-1. Standalone C1 remains public, outside the default fused pipeline. |
 | D-VIVIFY-SCHED | Vivify policy is source-shaped but its cumulative performance remains an N3 concern | Candidate order, reference 100‰ cumulative band budget, focused tiers, persistent pose, productivity, and cleanup are implemented. Formula profiles do not dose this allowance. Reopen behavior only on exact weaker-work evidence. |
-| D-CCE-SCOPE | CCE omits binary victims | Admit only through the duplicate-safe binary deletion path with X1-shaped regression/fuzz coverage. |
 | D-CCE-FILTER | CCE change filter lacks redundant-removal stamps | Add a separate redundant-removal epoch only if `c cce2` proves all-skipped starvation. |
-| D-C1C2-VICTIM | Canonical victim scope is narrower than the abstract surface | Production C2 follows pinned Kissat's irredundant-only forward scope. CaDiCaL's likely-kept redundant band remains only under explicit `TACTIX_TOUCH_REDUNDANT=1`; C1 remains narrow because fused C2 absorbs its work. Public instances remain complete (N1). |
 | D-NOOP | Restart/Reduce reject dangling conflict or root no-op states | Forward/clear `conflict_ref` across collection or remove the no-op guard. |
+| D-RULE-CAPS | **CLOSED: typed controls and semantic granularity complete at declared actions** | Typed per-call settings cover Analyze, C1/C2, Vivify, BVE, Sweep, Congruence, Instantiate, Backbone, BCE, X2, Factor, TransitiveReduce, Substitute, Reduce, Walk and Reorder. Every invocation also selects inherit, explicit-unlimited, or bounded native rule work; bounded zero is distinct and the pose restores after one atomic application. Composition budgets remain a separate typed currency. Sweep general-proof selection travels through typed configuration and compatible random replay, and DefaultPolicy owns the same `SweepParameters` object. Walk's explicit zero-step payload is exact; only an unbudgeted canonical call receives the named reference default. Obsolete Walk controls and Substitute/Congruence timing or probe arms are removed. Remaining compile guards are assertions or bounded event/journal/proof/conflict-stop diagnostics. Factor exact grids and Congruence matching/unary equivalences, gate/V6a units and supported clashes are individual. The remaining rule literals are semantic arities, payload/storage encodings, work-currency definitions or diagnostic bounds. Reopen on a behavior-changing rule-local cutoff, silent parameter truncation, or explicit-instance admission filter. |
 
 ### Closed
 
+- D-ROOT: removed by the approved action-boundary contract. Inprocessing rules
+  and S5 Lucky operate only on the level-zero root formula; a strategy at a
+  non-root search state explicitly composes S1 Restart before applying them. No
+  executor-owned decision-cube suspension or replay is supported.
 - D-SUBST-UNBOUNDED: public Substitute is unbounded; policy meters it.
+- D-CCE-SCOPE: CCE enumerates and applies individual large-clause and
+  binary-pair semantic victims. A binary victim excludes every identical copy
+  from ALA/CLA support and deletes those physical copies together through the
+  duplicate-safe kernel path. `test_cce` covers unique and duplicate pairs,
+  reconstruction, independently checked models, native DRAT and native LRAT.
+- D-C1C2-VICTIM: explicit C1 enumerates every live victim without canonical
+  size, occurrence, material or redundancy filters. C2's additive surface
+  enumerates every distinct victim/removal result and the fused C1 deletion;
+  proper strengthening admits redundant partners because the added RUP clause
+  survives their later forgetting. Selected batches preserve arena offsets.
+  Focused outcome/reconfiguration tests and native model/DRAT/LRAT witnesses
+  cover the resulting transitions.
 - D-LEVEL/D-SPLIT: Decide may run off-fixpoint, M3 is atomic, and every
   inprocessing apply drains root closure with native-LRAT unit identities.
-- D-CONG-LRAT/UNIT/INPUT-UNIT/DELETE/ARITY: canonical ladders, degeneracies,
+- D-CONG-LRAT/UNIT/INPUT-UNIT/DELETE/ARITY/TAUT: canonical ladders, degeneracies,
   deletion order, and the 1,000,000-input AND scope are covered.
+- D-CONG-SKIP: a BIG bridge may cross a root-true intermediate by citing its
+  proved unit id, so native LRAT no longer loses that legal path. The focused
+  chain regression and native Congruence proofs pass; a nonzero
+  `congruence_unjustified` remains an alarm for a different missing proof path.
 - D-FACTOR-LRAT: Factor emits real RAT; dividers precede quotients and grid
   deletion.
 
@@ -69,7 +84,7 @@ rules remain registered, journaled, N1-reachable, and explicitly poseable.
 - Binary-only propagation records its covered prefix in `binary_only_head` so
   later full propagation pays outstanding work.
 - Every root-fixed literal has a native-LRAT unit id. All propagation entry
-  points name new root units and `kernel_check_invariants` enforces the rule.
+  points name new root units; speculative retraction invalidates cached unit ids so replay cannot cite the opposite polarity.
 - Arena `Ref`s are valid only within one `arena_generation`; any retained Ref
   must compare the generation after possible collection.
 - Ordering is semantic when it changes candidate, reason, proof-line, or watch
@@ -401,7 +416,7 @@ dense transition, including gate-free binary merges, retains the first copy. Nat
 pre-existing identical clause when proving a duplicate and retains independent
 identities even after physical deduplication.
 Directed Sweep bridges are protected per physical entry, never by pair, so
-coincident ordinary copies follow normal proof deletion.
+coincident ordinary copies follow normal proof deletion. Later certified pairs use the composed images of earlier rewrites, preserving every equivalence member.
 
 Policy root-assignment consumption is guarded by a monotonic assignment epoch.
 The epoch changes at the assignment primitive only for true level-zero facts,
@@ -438,12 +453,12 @@ change the representation argument.
 | C1 `SubsumeForward` · C2 `Strengthen` · C3 `Vivify` | implemented |
 | V1 `Probe` · V2 `Backbone` · V3 `Substitute` · V4 `TransitiveReduce` | implemented |
 | V5 `Sweep` | implemented with embedded sub-solver |
-| V6 `Congruence` | implemented; closure is canonical N1 instance |
+| V6 `Congruence` | implemented; individual and canonical literal-form AND/XOR/ITE refutations have native DRAT/LRAT witnesses |
 | E1 `BVE` | implemented; equivalence, AND/OR, ITE, XOR, and definition cores |
-| E2 `Factor` | implemented; seed-literal N1 surface |
+| E2 `Factor` | implemented; seed surface, exact-grid application and exhaustive lazy grid enumeration complete |
 | X1 `BCE` · X2 `HyperTernaryRes` · X3 `CCE` · X4 `Instantiate` | implemented |
 | X5 `Condition` | reasoned no-implement; §16 reopening path |
-| X6 `HyperBinaryRes` | implemented |
+| X6 `HyperBinaryRes` | implemented; individual resolvent surface complete |
 
 ## 18. Structured rule journal
 
@@ -490,47 +505,16 @@ reconstruction witnesses, not a no-op. This does not add isolated variables to
 the initial public schedule; it preserves the effect of an already-enumerated
 instance after earlier candidates mutate its occurrences.
 
-## 21. Reserved assignment trail
+## 21. Retained representation decisions
 
-The pre-sized trail removes grow-capable push from search; compaction restores
-backing capacity. Jobs `1645700`--`1645778` own profile, gates and validation.
+- The pre-sized assignment trail restores capacity after compaction.
+- Congruence uses first-literal ranges, byte-packed ITE sign membership, and
+  touched-literal conditional vectors while preserving append order.
+- Sweep phase randomization uses eight masked 64-bit words with a scalar
+  non-little-endian fallback and restarts its seed sequence per invocation.
+- Historical profiling and rejected layout prototypes remain in dated reports.
 
-## 22. Post-trail representation closures
-
-Jobs `1645781`--`1645791` close cold proof-id layout, active assignment,
-binary-source/phase snapshots, probing-ignore removal and atomic watch append
-negative: no material matched-prefix gain. The one-word-capacity crash was
-Claude-repaired, tested, priced, rejected and reverted.
-
-## 23. Congruence first-literal directory
-
-Scoped offsets narrow lookup to each sorted first-literal range, preserving
-order, ticks, candidates, proof and pruning. Promotion: exact jobs
-`1645800`--`1645805`, guard `1645806`/`1645872`, fuzz `1645874`, Rank-27 `1645875`.
-
-## 24. Batched ITE sign membership
-
-One byte per unsigned three-variable prefix records its eight sign patterns.
-Only distinct-variable same-prefix ITE records use it; other cases retain exact
-lookup. Release ordinal scratch after indexing. Jobs `1645882`--`1645956` own
-promotion; compact-hash/unfinished-index prototypes are negative/repaired/reverted.
-
-## 25. Dense ITE conditional-list ownership
-
-Dense literal-to-slot state owns vectors only for touched literals; sort sparse
-keys before consumption and preserve per-key append order. It is scoped
-representation, not strategy. Jobs `1645957`--`1646031` own promotion evidence.
-
-## 26. Sweep phase-word expansion
-
-`SubSolver::randomize_phases()` uses Kitten's eight masked 64-bit words and
-alignment-safe `memcpy` on little-endian targets; other byte orders use the
-scalar mapping. A fresh Sweep Kitten starts at seed 0; later clears advance to
-1, 2, and so on, and each invocation restarts at 0. Phase bytes, ticks, order,
-proof, learning, and pruning are exact. Reports `2026-08-27-rank27-sweep-phase-word.md`
-and `2026-08-30-codebase-revisit-and-otfs-candidate.md` own the evidence.
-
-## 27. Import, root lifecycle, and retained search state
+## 22. Import, root lifecycle, and retained search state
 
 - Original units close through search propagation, charging both total and
   search ticks. Proofless/DRAT parsing follows that order; native LRAT defers

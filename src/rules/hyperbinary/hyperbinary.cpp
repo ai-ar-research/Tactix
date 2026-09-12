@@ -42,6 +42,12 @@ Lit dominator(const Kernel &k, const std::vector<Lit> &parent, Lit a, Lit b) {
 
 } // namespace
 
+uint64_t hyperbinary_semantic_instance(Lit dominator,
+                                       uint32_t literal_word) {
+  assert(dominator != INVALID_LIT && literal_word != UINT32_MAX);
+  return (static_cast<uint64_t>(dominator) << 32) | literal_word;
+}
+
 RuleEligibility hyperbinary_guard(const Kernel &k) {
   // quiescent root, the probing-family precondition (V1's argument)
   RuleEligibility result;
@@ -185,6 +191,45 @@ bool emit(Kernel &k, const Resolvent &r, std::vector<uint64_t> &chain) {
   return true;
 }
 
+ApplyResult emit_semantic(Kernel &k, const Resolvent &r,
+                          std::vector<uint64_t> &chain) {
+  if (negate(r.dom) != r.forced)
+    return emit(k, r, chain) ? ApplyResult::Ok : ApplyResult::NoOp;
+
+  // The binary resolvent (¬d ∨ l0) collapses to unit l0 when l0=¬d.
+  // Canonical probing retains its historical division of work and still uses
+  // `emit`; this unit path belongs only to the complete semantic surface.
+  const Lit unit = r.forced;
+  const int8_t value = k.value(unit);
+  if (value > 0)
+    return ApplyResult::NoOp;
+  if (!congruence_replay_rup(k, &unit, 1, chain, RupReplay::Decide)) {
+    ++k.stats.hbr_declined;
+    return ApplyResult::NoOp;
+  }
+  const bool lrat = k.proof && k.proof->lrat();
+  const uint64_t id = ++k.next_clause_id;
+  if (k.proof)
+    k.proof->add_rup(lrat ? id : 0, &unit, 1,
+                     lrat ? chain.data() : nullptr,
+                     lrat ? static_cast<uint32_t>(chain.size()) : 0);
+  ++k.stats.hbr_units;
+  if (value < 0) {
+    kernel_emit_empty_from_pair(k, id, k.unit_ids[var_of(unit)]);
+    return ApplyResult::Unsat;
+  }
+  k.unit_ids[var_of(unit)] = id;
+  kernel_assign_unit(k, unit);
+  if (r.subsumes) {
+    Clause *reason = clause_at(k.arena, r.reason);
+    if (!reason->garbage()) {
+      kernel_delete_clause(k, reason);
+      ++k.stats.hbr_subsumed;
+    }
+  }
+  return ApplyResult::Ok;
+}
+
 } // namespace
 
 ApplyResult hyperbinary_try(Kernel &k, Lit p) {
@@ -198,7 +243,8 @@ ApplyResult hyperbinary_try(Kernel &k, Lit p) {
     return ApplyResult::NoOp; // a failed literal is V1 Probe's inference
   std::vector<uint64_t> chain;
   bool any = false;
-  // `k.work_budget` in this rule's own currency (hbr_ticks), 0 = unbounded.
+  // `k.work_budget` in this rule's own currency (hbr_ticks); bounded zero is
+  // distinguished from the legacy zero-as-unlimited handoff.
   // One root's closure can carry thousands of resolvents and every one costs a
   // RUP replay, so this is the only place the effort ledger can bind: the
   // policy polls between INSTANCES, and one instance is this whole loop. The
@@ -207,7 +253,7 @@ ApplyResult hyperbinary_try(Kernel &k, Lit p) {
   // consequences — and it never narrows `instances()`.
   const uint64_t tick_start = k.stats.hbr_ticks;
   for (const Resolvent &r : found) {
-    if (k.work_budget && k.stats.hbr_ticks - tick_start > k.work_budget)
+    if (kernel_work_budget_exceeded(k, k.stats.hbr_ticks - tick_start))
       break;
     if (kernel_rule_interrupt(k, k.stats.hbr_interrupts))
       break;
@@ -262,8 +308,124 @@ static ApplyResult hyperbinary_apply_instance(Kernel &k, uint64_t inst) {
   return hyperbinary_try(k, p);
 }
 
+static uint32_t hyperbinary_semantic_instances(Kernel &k, uint64_t *out,
+                                               uint32_t cap) {
+  uint32_t count = 0;
+  std::vector<uint8_t> reached(2 * k.nvars, 0);
+  std::vector<Lit> queue;
+  for (Lit dom = 0; dom < 2 * k.nvars; ++dom) {
+    if (k.value(dom) != 0)
+      continue;
+    std::fill(reached.begin(), reached.end(), 0);
+    queue.clear();
+    reached[dom] = 1;
+    queue.push_back(dom);
+    for (size_t head = 0; head < queue.size(); ++head)
+      for (const WatchEntry watch : k.watches.entries(negate(queue[head]))) {
+        if (!watch.binary() || reached[watch.other()])
+          continue;
+        reached[watch.other()] = 1;
+        queue.push_back(watch.other());
+      }
+
+    for (Ref ref = 0; ref < k.arena.size();) {
+      const Clause *clause = clause_at(k.arena, ref);
+      const uint32_t words = clause_actual_words(clause);
+      if (!clause->garbage())
+        for (uint32_t pos = 0; pos < clause->size; ++pos) {
+          const Lit forced = clause->lits[pos];
+          // forced==dom is tautological. forced==¬dom is the legal unit case.
+          const bool unit = forced == negate(dom);
+          if (forced == dom ||
+              (unit ? k.value(forced) > 0 : k.value(forced) != 0) ||
+              (!unit && kernel_binary_live(k, negate(dom), forced)))
+            continue;
+          bool legal = true;
+          for (uint32_t other = 0; other < clause->size; ++other)
+            if (other != pos && !reached[negate(clause->lits[other])]) {
+              legal = false;
+              break;
+            }
+          if (!legal)
+            continue;
+          if (count == cap)
+            return count;
+          const uint32_t word = ref + CLAUSE_HEADER_WORDS + pos;
+          out[count++] = hyperbinary_semantic_instance(dom, word);
+        }
+      ref += words;
+    }
+  }
+  return count;
+}
+
+static ApplyResult hyperbinary_apply_semantic_instance(Kernel &k,
+                                                       uint64_t inst) {
+  if (inprocess_reach_root(k))
+    return ApplyResult::Unsat;
+  if (inst == INSTANCE_CANONICAL)
+    return hyperbinary_apply(k);
+  const Lit dom = static_cast<Lit>(inst >> 32);
+  const uint32_t literal_word = static_cast<uint32_t>(inst);
+  if (dom == INVALID_LIT || var_of(dom) >= k.nvars ||
+      literal_word >= k.arena.size() || k.value(dom) != 0)
+    return ApplyResult::NoOp;
+
+  Ref reason = INVALID_REF;
+  uint32_t forced_pos = 0;
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *clause = clause_at(k.arena, ref);
+    const uint32_t words = clause_actual_words(clause);
+    const uint64_t first = static_cast<uint64_t>(ref) + CLAUSE_HEADER_WORDS;
+    const uint64_t end = first + clause->size;
+    if (literal_word >= first && literal_word < end) {
+      if (clause->garbage())
+        return ApplyResult::NoOp;
+      reason = ref;
+      forced_pos = static_cast<uint32_t>(literal_word - first);
+      break;
+    }
+    ref += words;
+  }
+  if (reason == INVALID_REF)
+    return ApplyResult::NoOp;
+
+  std::vector<uint8_t> reached(2 * k.nvars, 0);
+  std::vector<Lit> queue;
+  reached[dom] = 1;
+  queue.push_back(dom);
+  for (size_t head = 0; head < queue.size(); ++head) {
+    const auto entries = k.watches.entries(negate(queue[head]));
+    ++k.stats.hbr_ticks;
+    for (const WatchEntry watch : entries) {
+      if (!watch.binary() || reached[watch.other()])
+        continue;
+      reached[watch.other()] = 1;
+      queue.push_back(watch.other());
+    }
+  }
+
+  const Clause *clause = clause_at(k.arena, reason);
+  const Lit forced = clause->lits[forced_pos];
+  const bool unit = forced == negate(dom);
+  if (forced == dom ||
+      (unit ? k.value(forced) > 0 : k.value(forced) != 0))
+    return ApplyResult::NoOp;
+  for (uint32_t pos = 0; pos < clause->size; ++pos)
+    if (pos != forced_pos && !reached[negate(clause->lits[pos])])
+      return ApplyResult::NoOp;
+  bool subsumes = false;
+  for (const Lit literal : *clause)
+    subsumes |= literal == negate(dom);
+  const Resolvent resolvent{dom, forced, reason, subsumes};
+  std::vector<uint64_t> chain;
+  return emit_semantic(k, resolvent, chain);
+}
+
 TACTIX_REGISTER_RULE(HyperBinaryRes, RuleTier::Inprocess, hyperbinary_guard,
                      hyperbinary_apply, hyperbinary_instances,
-                     hyperbinary_apply_instance);
+                     hyperbinary_apply_instance,
+                     hyperbinary_semantic_instances,
+                     hyperbinary_apply_semantic_instance);
 
 } // namespace tactix

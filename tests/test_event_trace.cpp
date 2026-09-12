@@ -26,6 +26,43 @@ static std::string trace_path(const char *stem) {
 }
 
 int main() {
+  const std::string imply_path = trace_path("imply-only");
+  setenv("TACTIX_EVENT_TRACE", imply_path.c_str(), 1);
+  setenv("TACTIX_EVENT_TRACE_IMPLY_ONLY", "1", 1);
+  setenv("TACTIX_EVENT_TRACE_CONFLICT_FROM", "77", 1);
+  setenv("TACTIX_EVENT_TRACE_CONFLICT_TO", "77", 1);
+  setenv("SAT_EVENT_TRACE_IMPLY_LITERALS", "2", 1);
+  {
+    Kernel implied;
+    kernel_reserve_vars(implied, 2);
+    ScopedHeuristics ih(implied);
+    implied.warming = true;
+    kernel_assign_decision(implied, internalize(1));
+    const size_t begin = implied.trail.size();
+    kernel_assign_binary(implied, internalize(2), internalize(-1));
+    EventTrace trace;
+    assert(trace.open_from_env(implied));
+    for (uint64_t conflict : {76, 77, 78}) {
+      implied.stats.conflicts = conflict;
+      trace.implications(implied, begin);
+      trace.detail(implied, "unrelated", 42);
+    }
+  }
+  unsetenv("TACTIX_EVENT_TRACE");
+  unsetenv("TACTIX_EVENT_TRACE_IMPLY_ONLY");
+  unsetenv("TACTIX_EVENT_TRACE_CONFLICT_FROM");
+  unsetenv("TACTIX_EVENT_TRACE_CONFLICT_TO");
+  unsetenv("SAT_EVENT_TRACE_IMPLY_LITERALS");
+  std::ifstream imply_input(imply_path);
+  const std::string imply_text((std::istreambuf_iterator<char>(imply_input)),
+                               std::istreambuf_iterator<char>());
+  assert(imply_text.find("\timply\t77\t") != std::string::npos);
+  assert(imply_text.find("lit=2|level=1|reason=-1,2") != std::string::npos);
+  assert(imply_text.find("\timply\t76\t") == std::string::npos);
+  assert(imply_text.find("\timply\t78\t") == std::string::npos);
+  assert(imply_text.find("unrelated") == std::string::npos);
+  std::remove(imply_path.c_str());
+
   const std::string macro_path = trace_path("macro-boundary");
   const std::string macro_state_path = trace_path("macro-state");
   const std::string macro_active_set_path = trace_path("macro-active-set");

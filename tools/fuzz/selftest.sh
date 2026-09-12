@@ -9,9 +9,22 @@ KISSAT="$ROOT/tools/solvers/bin/kissat"
 CADICAL="$ROOT/tools/solvers/bin/cadical"
 [ -x "$KISSAT" ] && [ -x "$CADICAL" ] || "$ROOT/tools/solvers/setup.sh"
 [ -x "$ROOT/tools/checkers/bin/drat-trim" ] || "$ROOT/tools/checkers/setup.sh"
+[ -x "$ROOT/tools/checkers/bin/cake_lpr" ] || "$ROOT/tools/checkers/setup.sh"
+
+# Fixed native/conversion dispatch, invalid-empty-lemma, strict status and
+# failure-artifact retention controls use the actual acceptance checkers.
+python3 "$ROOT/tests/test_fuzz_proof_oracles.py"
 
 TMP="$(mktemp -d)"
-trap 'rm -rf "$TMP"' EXIT
+cleanup_selftest() {
+    status=$?
+    if [ "$status" -eq 0 ]; then
+        rm -rf "$TMP"
+    else
+        echo "retained failed-selftest artifacts: $TMP"
+    fi
+}
+trap cleanup_selftest EXIT
 FUZZ="python3 $HERE/fuzz.py"
 
 expect_clean () { # name solver oracle n

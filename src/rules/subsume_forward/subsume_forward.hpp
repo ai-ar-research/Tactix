@@ -13,18 +13,14 @@
 
 namespace tactix {
 
-constexpr uint32_t SUBSUME_CLSLIM = 1000;
-constexpr uint32_t SUBSUME_OCCLIM = 100;
-constexpr uint32_t SUBSUME_BINLIM = 10000;
-
 // Guard: quiescent root — fully propagated, consistent, level 0. That is what
 // makes the semantic check sound as stated ("false" means root-falsified) and
 // keeps deletion away from in-flight reasons.
 RuleEligibility subsume_forward_guard(const Kernel &);
 
 // Instance space (plan §5.1): payload = the arena Ref of a candidate clause, in
-// canonical processing order (size ascending): live, 3 <= size <=
-// SUBSUME_CLSLIM, not root-satisfied. `complete` selects the instance surface's
+// canonical processing order (size ascending): live large clauses, not
+// root-satisfied. `complete` selects the uncapped instance surface's
 // set — any redundancy, every clause `subsume_forward_try` accepts; the default
 // is the canonical round's, which is irredundant-only.
 void subsume_forward_candidates(const Kernel &, std::vector<Ref> &out,

@@ -3,6 +3,7 @@
 // witness stack. Rule semantics live in docs/calculus.md.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
+#include "occurrence_test_utils.hpp"
 #include "rules/bve/bve.hpp"
 
 #include <algorithm>
@@ -130,7 +131,7 @@ static void test_candidate_gather_compacts_garbage_occurrences() {
   assert(image[pivot] == 1);
   assert(image[internalize(2)] == 1 &&
          "only the inspected pivot stack is compacted");
-  assert(dense.large[pivot].size() == 1 && dense.large[pivot][0] != stale);
+  assert(large_occurrences(dense, pivot).size() == 1 && large_occurrences(dense, pivot)[0] != stale);
   bool stale_connected = false;
   for (const OccIndex::Entry &entry : dense.ordered[pivot])
     stale_connected |= !entry.binary && entry.payload == stale;
@@ -172,7 +173,7 @@ static void test_candidate_gather_stops_before_late_garbage() {
   const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
   assert(vt.apply_instance(k, lit_instance(pivot)) == ApplyResult::NoOp);
   assert(image[pivot] == 2);
-  assert(dense.large[pivot].size() == 2);
+  assert(large_occurrences(dense, pivot).size() == 2);
   bool stale_connected = false;
   for (const OccIndex::Entry &entry : dense.ordered[pivot])
     stale_connected |= !entry.binary && entry.payload == stale;
@@ -301,8 +302,8 @@ static void test_candidate_gather_mutating_prefix_boundary() {
   assert(kernel_binary_live(k, pivot, late) &&
          "the suffix beyond the oversized occurrence remains untouched");
   assert(image[pivot] == 2 && image[early] == 0 && image[late] == 1);
-  assert(dense.large[pivot].size() == 1 &&
-         dense.large[pivot][0] != stale);
+  assert(large_occurrences(dense, pivot).size() == 1 &&
+         large_occurrences(dense, pivot)[0] != stale);
   assert(notifications.events.size() == 1);
   assert(notifications.events[0] == std::make_pair(var_of(early), true));
 
@@ -335,8 +336,8 @@ static void test_flush_units_while_connected() {
   k.propagate_head = static_cast<uint32_t>(k.trail.size());
   bve_flush_units_while_connected(k, 0);
   assert(clause_at(k.arena, ref)->garbage());
-  assert(dense.large[unit].empty() && image[unit] == 1);
-  assert(dense.large[a].size() == 1 && dense.large[b].size() == 1 &&
+  assert(large_occurrences(dense, unit).empty() && image[unit] == 1);
+  assert(large_occurrences(dense, a).size() == 1 && large_occurrences(dense, b).size() == 1 &&
          "only the satisfying unit's dense stack is compacted");
   assert(kernel_binary_live(k, unit, binary_other));
   assert(std::find(notifications.events.begin(), notifications.events.end(),
@@ -1150,6 +1151,8 @@ static void test_gate_definition_fires() {
            "definitionticks must match Kissat's first-core allowance");
     assert(k.bve_definition_cores == 2 &&
            "definitioncores must match Kissat's refined-core default");
+    assert(k.bve_definition_core_budget_multiplier == 10 &&
+           "the refined-core allowance must match the historical 10x value");
     k.bve_gate_mask = BVE_GATE_DEFINITION;
     build(k);
     assert(vt.apply_instance(k, x) == ApplyResult::Ok);
@@ -1189,16 +1192,20 @@ static void test_gate_definition_fires() {
 // smallest no-UP refutation of all assignments to a,b, so deriving x requires
 // learned intermediate clauses rather than a direct main-formula RUP.
 static void test_definition_one_sided_core_emits_unit() {
+  const auto build = [](Kernel &k, int negative_clauses) {
+    kernel_reserve_vars(k, static_cast<uint32_t>(3 + negative_clauses));
+    const int positive[4][3] = {
+        {1, 2, 3}, {1, 2, -3}, {1, -2, 3}, {1, -2, -3}};
+    for (const auto &clause : positive) {
+      Lit lits[3] = {internalize(clause[0]), internalize(clause[1]),
+                     internalize(clause[2])};
+      kernel_add_large_clause(k, lits, 3, false, 0);
+    }
+    for (int i = 0; i < negative_clauses; ++i)
+      kernel_add_binary_clause(k, internalize(-1), internalize(4 + i));
+  };
   Kernel k;
-  kernel_reserve_vars(k, 4); // x=1, a=2, b=3, c=4
-  const int positive[4][3] = {
-      {1, 2, 3}, {1, 2, -3}, {1, -2, 3}, {1, -2, -3}};
-  for (const auto &clause : positive) {
-    Lit lits[3] = {internalize(clause[0]), internalize(clause[1]),
-                   internalize(clause[2])};
-    kernel_add_large_clause(k, lits, 3, false, 0);
-  }
-  kernel_add_binary_clause(k, internalize(-1), internalize(4));
+  build(k, 1);
   k.bve_gate_mask = BVE_GATE_DEFINITION;
   const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
   assert(vt.apply_instance(k, lit_instance(internalize(1))) ==
@@ -1210,6 +1217,20 @@ static void test_definition_one_sided_core_emits_unit() {
   assert(k.stats.bve_eliminated == 0 && "unit extraction is not elimination");
   assert(has_binary(k, internalize(-1), internalize(4)) &&
          "resolve.c exits before deleting the pivot clauses");
+
+  // This core needs search again after the shuffle. With no allowance for
+  // that refinement and enough opposite antecedents to make ordinary BVE
+  // unprofitable, the typed multiplier alone controls the outcome.
+  Kernel limited;
+  build(limited, 10);
+  limited.bve_gate_mask = BVE_GATE_DEFINITION;
+  limited.bve_definition_core_budget_multiplier = 0;
+  assert(vt.apply_instance(limited, lit_instance(internalize(1))) ==
+         ApplyResult::NoOp);
+  assert(limited.stats.bve_definitions_checked == 1);
+  assert(limited.stats.bve_gates_definition == 0);
+  assert(limited.stats.bve_definition_budget == 1 &&
+         "the explicit zero refinement allowance must bind");
 }
 
 // Model reconstruction through a definition-derived elimination. Random

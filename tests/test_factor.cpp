@@ -578,6 +578,41 @@ static void test_fresh_large_quotients_do_not_become_factors() {
 // creation order, so the newest is least preferred — matching kissat
 // factor.c:867-882 and cadical factor.cpp:799-802. Two disjoint grids in one
 // apply are what makes that order observable.
+static void test_empty_factor_restamps_only_when_advice_is_consumed() {
+  for (const bool consume : {false, true}) {
+    Kernel k;
+    kernel_reserve_vars(k, 3);
+    k.input_activation_order = {0, 1, 2};
+    ScopedHeuristics h(k);
+    kernel_add_binary_clause(k, internalize(1), internalize(2));
+    kernel_add_binary_clause(k, internalize(2), internalize(3));
+    heuristics_queue_bump(k, 0);
+    k.h->search_idx = k.h->queue_first;
+    k.h->search_stamp = k.h->links[k.h->queue_first].stamp;
+    const auto stamp = k.h->queue_stamp;
+    const auto cursor = k.h->search_idx;
+    assert(factor_apply(k) == ApplyResult::NoOp);
+    assert(k.nvars == 3 && k.stats.factorings == 0);
+    assert(k.h->queue_stamp == stamp && k.h->search_idx == cursor);
+    assert(k.fresh_var_events.size() == 1);
+    assert(k.fresh_var_events[0].first == 3 && k.fresh_var_events[0].end == 3);
+    k.factor_demote_fresh = consume;
+    heuristics_consume_rule_advice(k);
+    assert(k.fresh_var_events.empty());
+    if (consume) {
+      unsigned n = 0;
+      for (Var v = k.h->queue_first; v != INVALID_VAR; v = k.h->links[v].next)
+        assert(k.h->links[v].stamp == ++n);
+      assert(k.h->queue_stamp == n && n == 3);
+      assert(k.h->search_idx == k.h->queue_last);
+      assert(k.h->search_stamp == n);
+    } else {
+      assert(k.h->queue_stamp == stamp && k.h->search_idx == cursor);
+    }
+    assert(k.stats.factor_demotions == 0 && k.stats.factor_demoted_vars == 0);
+  }
+}
+
 static void test_demote_fresh_order() {
   Kernel k;
   ScopedHeuristics _hg_k(k);
@@ -709,6 +744,7 @@ int main() {
   test_fresh_large_quotients_do_not_become_factors();
   test_touch_filter_is_policy_only();
   test_demote_fresh_order();
+  test_empty_factor_restamps_only_when_advice_is_consumed();
   test_demote_fresh_stable_heap_lifecycle();
   test_demote_fresh_uses_recorded_end();
   std::printf("test_factor: all passed\n");

@@ -71,7 +71,7 @@ ApplyResult substitute_reconnect_large_watches(Kernel &, uint32_t trail_begin);
 // Initial probing uses Kissat's `complete=true` contract: repeat productive
 // rounds so equivalences exposed by one rewrite are consumed by the next.
 // The shipped reference cap is two rounds (`substituterounds=2`).
-ApplyResult substitute_apply_complete(Kernel &, uint32_t max_rounds = 2);
+ApplyResult substitute_apply_complete(Kernel &, uint32_t max_rounds);
 
 // Mechanism helper for callers that consume named equivalence classes
 // immediately. Sweep uses the session-aware entry point below instead so it
@@ -106,8 +106,9 @@ struct SweepSubstitutionSession final {
   // Invariant, restored at every entry point below: for each literal the
   // binary sub-multiset of this ledger equals that literal's physical binary
   // watch multiset, and its large sub-multiset names the same irredundant
-  // records as `Kernel::dense`. The ledger owns only the ORDER; the watch lists
-  // and `Kernel::dense` own membership. A ledger that claims a clause the
+  // records as `Kernel::dense`. Synchronization also publishes the ledger's
+  // binary order to physical watches; propagation must see the same stream.
+  // The watch lists and `Kernel::dense` own membership. A ledger claiming what
   // formula does not hold puts a phantom clause into the next environment.
   struct DenseOccurrenceList {
     std::vector<DenseOccurrence> entries;
@@ -165,6 +166,10 @@ struct SweepSubstitutionSession final {
   // the binaries are already in the watch lists by then.
   void sync_new_binaries(
       Kernel &, const std::vector<std::pair<Lit, Lit>> &equivalences);
+  // Pose-only experiment: after synchronization, move the last extant copy
+  // of each freshly emitted directed bridge to this pair's commit boundary.
+  // No membership or proof identity changes; absent images remain absent.
+  void repose_emitted_equivalence(const Kernel &, Lit a, Lit b);
   // `map` is the sparse requested literal-to-representative map. The rewrite
   // this mirrors declines a member that is already root-fixed or retired, so
   // this applies the same
@@ -264,7 +269,8 @@ private:
 // closure.
 ApplyResult substitute_apply_sweep_equivalences(
     Kernel &, const std::vector<std::pair<Lit, Lit>> &,
-    SweepSubstitutionSession &);
+    SweepSubstitutionSession &,
+    std::vector<std::pair<Lit, Lit>> *applied_images = nullptr);
 
 // One directed binary-implication-graph path `from → … → to` as its edge
 // clause-ids in FORWARD order (LRAT antecedent chain; caller guards on lrat).

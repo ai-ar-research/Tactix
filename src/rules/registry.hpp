@@ -6,8 +6,8 @@
 
 #include "kernel/kernel.hpp"
 
-#ifdef TACTIX_ENABLE_RULE_JOURNAL
 #include <functional>
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
 #include <string>
 #endif
 
@@ -131,6 +131,12 @@ struct RuleVTable {
   // be total for every payload instances() may yield, and reject anything else.
   uint32_t (*instances)(Kernel &, uint64_t *out, uint32_t cap) = nullptr;
   ApplyResult (*apply_instance)(Kernel &, uint64_t inst) = nullptr;
+  // Additive v2 surface for rules whose legacy payload grouped several
+  // semantic choices.  Existing policies keep using the frozen v1 callbacks;
+  // flexible/online callers prefer these finer instances when present.
+  uint32_t (*semantic_instances)(Kernel &, uint64_t *out,
+                                 uint32_t cap) = nullptr;
+  ApplyResult (*apply_semantic_instance)(Kernel &, uint64_t inst) = nullptr;
   // Proof rule vs H-only policy operation, set by the registration macro rather
   // than the brace-init so existing registration lines are unchanged.
   ActionKind kind = ActionKind::ProofRule;
@@ -152,6 +158,11 @@ uint64_t now_nanos();
 // the return value and every kernel effect are exactly vt.apply's.
 ApplyResult apply_rule(const RuleVTable &vt, Kernel &k);
 ApplyResult apply_rule_instance(const RuleVTable &vt, Kernel &k, uint64_t inst);
+ApplyResult apply_rule_semantic_instance(const RuleVTable &vt, Kernel &k,
+                                         uint64_t inst);
+ApplyResult apply_rule_structured(const RuleVTable &, Kernel &,
+                                  const char *description,
+                                  const std::function<ApplyResult()> &);
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
 // DefaultPolicy statically composes hot micro/macro calls in production.  A
 // journal build brackets those exact calls through this diagnostic-only

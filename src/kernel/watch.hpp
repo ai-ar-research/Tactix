@@ -300,6 +300,17 @@ struct WatchLists {
   }
   void push_large(Lit l, Lit blocking, Ref ref) {
     WatchHead &h = heads[l];
+    if (h.capacity - h.size >= 2) {
+      // Both words fit the existing slice: no growth or relocation can occur.
+      // Adding two preserves size parity, hence the packed binary/order image.
+      assert(holes >= 2 && h.size <= UINT32_MAX - 2);
+      uint32_t *const dst = arena.data() + h.offset + h.size;
+      dst[0] = blocking_watch(blocking).raw;
+      dst[1] = ref;
+      h.size += 2;
+      holes -= 2;
+      return;
+    }
     const uint32_t binaries = h.binary_count();
     const bool first = h.binaries_first();
     push(l, blocking_watch(blocking).raw);

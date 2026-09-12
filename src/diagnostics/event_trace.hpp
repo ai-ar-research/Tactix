@@ -419,6 +419,9 @@ void event_trace_target_state(const Kernel &, const char *stage,
 void event_trace_phase_save(const Kernel &, Lit);
 void event_trace_slot_boundary(const Kernel &, const char *name,
                                const char *stage);
+// Memory-only checkpoints must not fire semantic boundary selectors.
+void event_trace_memory_checkpoint(const Kernel &, const char *name,
+                                   const char *stage, size_t temporary_bytes = 0);
 void event_trace_sweep_schedule(const Kernel &, Var, uint64_t pos,
                                 uint64_t neg, uint64_t rank,
                                 uint64_t import_order);
@@ -586,6 +589,8 @@ inline void event_trace_target_state(const Kernel &, const char *, uint32_t) {}
 inline void event_trace_phase_save(const Kernel &, Lit) {}
 inline void event_trace_slot_boundary(const Kernel &, const char *,
                                       const char *) {}
+inline void event_trace_memory_checkpoint(const Kernel &, const char *,
+                                          const char *, size_t = 0) {}
 inline void event_trace_sweep_schedule(const Kernel &, Var, uint64_t,
                                        uint64_t, uint64_t, uint64_t) {}
 inline void event_trace_sweep_seed(const Kernel &, Var) {}

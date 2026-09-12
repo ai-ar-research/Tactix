@@ -86,6 +86,51 @@ static void test_instances() {
   assert(bce_try(k, internalize(2)) == ApplyResult::Ok); // symmetric here
 }
 
+static void test_explicit_instance_bypasses_canonical_occurrence_limit() {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  kernel_add_binary_clause(k, internalize(1), internalize(2));
+  kernel_add_binary_clause(k, internalize(1), internalize(3));
+  // Keep 2 and 3 from being independently pure blocked literals; 4 itself
+  // exceeds the same occurrence ceiling. Thus only the deliberately dense
+  // blocking literal 1 could eliminate anything in this fixture.
+  kernel_add_binary_clause(k, internalize(-2), internalize(4));
+  kernel_add_binary_clause(k, internalize(-3), internalize(4));
+  k.bce_occ_limit = 1;
+  assert(bce_apply(k) == ApplyResult::NoOp);
+  assert(bce_try(k, internalize(1)) == ApplyResult::Ok);
+  assert(k.stats.bce_deleted == 2);
+}
+
+static void test_semantic_instance_deletes_one_clause() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  kernel_add_binary_clause(k, internalize(1), internalize(2));
+  kernel_add_binary_clause(k, internalize(1), internalize(3));
+  const RuleVTable &rule = tactix_rules()[tactix_rule_id("BCE")];
+  assert(rule.semantic_instances && rule.apply_semantic_instance);
+  uint64_t choices[8];
+  assert(rule.semantic_instances(k, choices, 8) == 4);
+  assert(rule.apply_semantic_instance(k, choices[0]) == ApplyResult::Ok);
+  assert(k.stats.bce_deleted == 1 &&
+         "one semantic BCE instance deleted a blocking-literal batch");
+  assert(kernel_binary_live(k, internalize(1), internalize(3)) &&
+         "the unselected blocked clause was deleted");
+}
+
+static void test_semantic_negative_control() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  kernel_add_binary_clause(k, internalize(1), internalize(2));
+  kernel_add_binary_clause(k, internalize(-1), internalize(3));
+  const RuleVTable &rule = tactix_rules()[tactix_rule_id("BCE")];
+  uint64_t choices[8];
+  assert(rule.semantic_instances(k, choices, 8) == 4);
+  assert(rule.apply_semantic_instance(k, choices[0]) == ApplyResult::NoOp);
+  assert(k.stats.bce_deleted == 0);
+  assert(kernel_binary_live(k, internalize(1), internalize(2)));
+}
+
 // Reconstruction regression: root propagation assigns 39, 9, 33, so the two
 // ternaries carry an assigned literal while (19 ∨ 4) does not.
 static void test_regression_fuzz_2204() {
@@ -200,6 +245,9 @@ int main() {
   test_redundant_skipped();
   test_model_reconstruction();
   test_instances();
+  test_explicit_instance_bypasses_canonical_occurrence_limit();
+  test_semantic_instance_deletes_one_clause();
+  test_semantic_negative_control();
   std::printf("test_bce: all passed\n");
   return 0;
 }

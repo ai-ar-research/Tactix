@@ -1,6 +1,7 @@
 // See trace.hpp for the format and the scope argument.
 #include "policies/trace.hpp"
 
+#include "policies/heuristics.hpp"
 #include "rules/registry.hpp"
 
 #include <cstdlib>
@@ -8,7 +9,7 @@
 
 namespace tactix {
 
-static constexpr int TRACE_VERSION = 1;
+static constexpr int TRACE_VERSION = 2;
 
 bool RuleTrace::open(const char *path, const char *policy, uint64_t seed) {
   out = std::fopen(path, "w");
@@ -20,14 +21,15 @@ bool RuleTrace::open(const char *path, const char *policy, uint64_t seed) {
   return true;
 }
 
-void RuleTrace::record(int rule_id, uint64_t instance) {
+void RuleTrace::record(int rule_id, uint64_t instance, bool semantic) {
   if (!out)
     return;
   const char *name = tactix_rules()[static_cast<size_t>(rule_id)].name;
   if (instance == INSTANCE_CANONICAL)
     std::fprintf(out, "%s -\n", name);
   else
-    std::fprintf(out, "%s %llu\n", name, (unsigned long long)instance);
+    std::fprintf(out, "%s %c:%llu\n", name, semantic ? 's' : 'v',
+                 (unsigned long long)instance);
 }
 
 void RuleTrace::finish(int verdict) {
@@ -80,8 +82,9 @@ int replay_solve(Kernel &k, const char *path, volatile sig_atomic_t *stop) {
   while (std::fgets(line, sizeof line, in)) {
     if (line[0] == 'c') {
       if (!version && std::sscanf(line, "c tactix-trace %d", &version) == 1) {
-        if (version != TRACE_VERSION) {
-          std::fprintf(stderr, "c ERROR: trace version %d, expected %d\n",
+        if (version != 1 && version != TRACE_VERSION) {
+          std::fprintf(stderr,
+                       "c ERROR: trace version %d, expected 1 or %d\n",
                        version, TRACE_VERSION);
           std::fclose(in);
           return -1;
@@ -134,13 +137,39 @@ int replay_solve(Kernel &k, const char *path, volatile sig_atomic_t *stop) {
       std::fclose(in);
       return -1;
     }
+    bool semantic = false;
+    const char *number = inst;
+    if (version >= 2 && inst[0] != '-') {
+      if ((inst[0] != 's' && inst[0] != 'v') || inst[1] != ':') {
+        std::fprintf(stderr, "c ERROR: malformed v2 payload '%s'\n", inst);
+        std::fclose(in);
+        return -1;
+      }
+      semantic = inst[0] == 's';
+      number += 2;
+    }
     const uint64_t payload = inst[0] == '-' && inst[1] == '\0'
                                  ? INSTANCE_CANONICAL
-                                 : std::strtoull(inst, nullptr, 10);
+                                 : std::strtoull(number, nullptr, 10);
+    if (semantic && !r.apply_semantic_instance) {
+      std::fprintf(stderr,
+                   "c ERROR: trace requests a semantic payload from %s\n",
+                   name);
+      std::fclose(in);
+      return -1;
+    }
     const ApplyResult res =
-        (payload == INSTANCE_CANONICAL || !r.apply_instance)
+        payload == INSTANCE_CANONICAL
             ? apply_rule(r, k)
-            : apply_rule_instance(r, k, payload);
+            : semantic ? apply_rule_semantic_instance(r, k, payload)
+                       : r.apply_instance
+                             ? apply_rule_instance(r, k, payload)
+                             : apply_rule(r, k);
+    // RandomPolicy consumes rule-produced search advice and retirements after
+    // every action. Replay must do the same: these H transitions can change a
+    // later branch choice even when the proof-producing rule delta is exact.
+    heuristics_consume_rule_advice(k);
+    heuristics_consume_retirements(k);
     steps++;
     if ((steps & 255) == 0)
       kernel_check_invariants(k); // no-op in NDEBUG, as in random_solve

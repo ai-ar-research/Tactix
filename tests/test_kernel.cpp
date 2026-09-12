@@ -2,6 +2,7 @@
 // root-level conflict detection.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
+#include "occurrence_test_utils.hpp"
 #include "policies/heuristics.hpp"
 #include "policies/default_policy.hpp"
 #include "rules/propagate/propagate.hpp"
@@ -586,7 +587,7 @@ static void test_dense_collection_preserves_clause_pose() {
   assert(clause->searched == 3);
   assert(std::equal(clause->begin(), clause->end(), live_lits));
   for (const Lit lit : live_lits) {
-    assert(dense.large[lit].size() == 1 && dense.large[lit][0] == 0);
+    assert(large_occurrences(dense, lit).size() == 1 && large_occurrences(dense, lit)[0] == 0);
     bool found = false;
     for (const OccIndex::Entry entry : dense.ordered[lit])
       found |= !entry.binary && entry.payload == 0;
@@ -627,8 +628,8 @@ static void test_collection_after_in_phase_sparse_resume_rewatches() {
   assert(k.arena.size() == clause_words(3));
   const Clause *packed = clause_at(k.arena, 0);
   assert(packed->id() == 212 && packed->searched == 2);
-  assert(dense.large[live_lits[0]].size() == 1 &&
-         dense.large[live_lits[0]][0] == 0);
+  assert(large_occurrences(dense, live_lits[0]).size() == 1 &&
+         large_occurrences(dense, live_lits[0])[0] == 0);
   for (uint32_t i = 0; i != 2; ++i) {
     bool found = false;
     for (const WatchEntry watch : k.watches.entries(packed->lits[i]))
@@ -648,8 +649,8 @@ static void test_occurrence_cache_does_not_enter_physical_dense_mode() {
   OccIndex cache;
   kernel_dense_connect(k, cache, /*track_order=*/false);
   assert(k.large_watches_connected);
-  assert(cache.large[lits[0]].size() == 1 &&
-         cache.large[lits[0]][0] == ref);
+  assert(large_occurrences(cache, lits[0]).size() == 1 &&
+         large_occurrences(cache, lits[0])[0] == ref);
   kernel_check_invariants(k);
   kernel_dense_disconnect(k);
 }
@@ -1541,7 +1542,7 @@ static void test_dense_occurrences_keep_source_order_across_collection() {
   kernel_dense_connect(k, occ);
   const auto dense_ids = [&] {
     std::vector<uint64_t> ids;
-    for (const Ref ref : occ.large[shared])
+    for (const Ref ref : large_occurrences(occ, shared))
       ids.push_back(clause_at(k.arena, ref)->id());
     return ids;
   };
@@ -1586,7 +1587,7 @@ static void test_dense_occurrences_reuse_capacity_and_position_order() {
   OccIndex occ;
   kernel_dense_connect(k, occ);
   std::vector<uint64_t> ids;
-  for (const Ref ref : occ.large[shared])
+  for (const Ref ref : large_occurrences(occ, shared))
     ids.push_back(clause_at(k.arena, ref)->id());
   const std::vector<uint64_t> expected{520, 521, 519, 516, 517, 518};
   assert(ids == expected);
@@ -1598,7 +1599,7 @@ static void test_dense_occurrences_reuse_capacity_and_position_order() {
   assert(occ.large.data(shared) == allocation);
   assert(occ.large.capacity(shared) == capacity);
   ids.clear();
-  for (const Ref ref : occ.large[shared])
+  for (const Ref ref : large_occurrences(occ, shared))
     ids.push_back(clause_at(k.arena, ref)->id());
   assert(ids == expected);
   kernel_dense_disconnect(k);
@@ -1618,7 +1619,7 @@ static void test_dense_mixed_order_is_consumer_scoped() {
   kernel_dense_connect(k, occ);
   assert(!occ.track_order);
   assert(occ.ordered.empty());
-  assert(occ.large[large[0]].size() == 1);
+  assert(large_occurrences(occ, large[0]).size() == 1);
   kernel_dense_disconnect(k);
 
   kernel_dense_connect(k, occ, true);
@@ -1658,7 +1659,7 @@ static void test_dense_mixed_order_is_consumer_scoped() {
   // headers and payload instead of retaining a cold Eliminate image.
   kernel_dense_connect(k, occ);
   assert(!occ.track_order && occ.ordered.empty());
-  assert(occ.large[large[0]].size() == 1);
+  assert(large_occurrences(occ, large[0]).size() == 1);
   kernel_dense_disconnect(k);
   kernel_check_invariants(k);
 }
@@ -1710,10 +1711,10 @@ static void test_in_place_large_replacement_preserves_allocation_span() {
   assert(c->size == 4 && c->shrunken());
   assert(clause_actual_words(c) == clause_words(6));
   assert(ref + clause_actual_words(c) == tail_ref);
-  assert(std::find(occ.large[original[1]].begin(),
-                   occ.large[original[1]].end(), ref) ==
-         occ.large[original[1]].end());
-  assert(occ.large[tail[0]].back() == ref);
+  const auto removed_occurrences = large_occurrences(occ, original[1]);
+  assert(std::find(removed_occurrences.begin(), removed_occurrences.end(), ref) ==
+         removed_occurrences.end());
+  assert(large_occurrences(occ, tail[0]).back() == ref);
   const auto ordered_holds = [&](Lit lit) {
     return std::any_of(occ.ordered[lit].begin(), occ.ordered[lit].end(),
                        [ref](const OccIndex::Entry entry) {
@@ -2265,7 +2266,47 @@ static void test_kissat_watch_growth_and_clause_checkpoint_defrag() {
            binary_watch(i & 1u).raw);
 }
 
+static void test_large_add_respects_physical_connection_mode() {
+  for (const bool sparse : {false, true}) {
+    Kernel k;
+    kernel_reserve_vars(k, 5);
+    const Lit binary[2] = {internalize(4), internalize(5)};
+    kernel_add_binary_clause(k, binary[0], binary[1], 1);
+    OccIndex dense;
+    kernel_dense_connect(k, dense, /*track_order=*/true);
+    if (!sparse)
+      kernel_flush_large_watches(k);
+    const Lit lits[3] = {internalize(1), internalize(2), internalize(3)};
+    const Ref ref = kernel_add_large_clause(k, lits, 3, false, 0, 2);
+    const Ref redundant = kernel_add_large_clause(k, lits, 3, true, 2, 3);
+    for (const Lit lit : lits) {
+      assert(large_occurrences(dense, lit).size() == 1 && large_occurrences(dense, lit)[0] == ref);
+      assert(dense.ordered[lit].size() == 1 &&
+             !dense.ordered[lit][0].binary && dense.ordered[lit][0].payload == ref);
+    }
+    for (const Lit lit : {lits[0], lits[1]})
+      assert(k.watches.size(lit) == (sparse ? 4 : 0));
+    assert(k.watches.size(binary[0]) == 1 && k.watches.size(binary[1]) == 1);
+    kernel_check_invariants(k);
+    // Dense deletion creates no stale sparse record. Reconnect publishes only
+    // the retained irredundant clause, then ordinary propagation must see it.
+    kernel_delete_clause(k, clause_at(k.arena, redundant));
+    kernel_dense_disconnect(k);
+    kernel_rebuild_large_watches(k, /*flush_eliminated=*/false);
+    for (const Lit lit : {lits[0], lits[1]}) {
+      assert(k.watches.size(lit) == 2);
+      assert(!k.watches.entries(lit).begin().operator*().binary());
+    }
+    kernel_assign(k, negate(lits[0]), 0, UNIT_REASON, false);
+    kernel_assign(k, negate(lits[1]), 0, UNIT_REASON, false);
+    assert(!kernel_propagate(k));
+    assert(k.value(lits[2]) > 0);
+    kernel_check_invariants(k);
+  }
+}
+
 int main() {
+  test_large_add_respects_physical_connection_mode();
   test_irredundant_clause_never_stores_glue();
   test_active_population_is_live_state();
   test_compact_watch_head_encoding_is_full_width();

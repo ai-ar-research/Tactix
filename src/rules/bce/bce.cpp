@@ -5,6 +5,7 @@
 #include "rules/support/flat_occurrence.hpp"
 
 #include <algorithm>
+#include <unordered_set>
 #include <vector>
 
 namespace tactix {
@@ -15,6 +16,11 @@ namespace {
 struct Occ {
   Ref ref = INVALID_REF; // INVALID_REF ⇒ binary
   Lit partner = 0;       // binary only
+};
+
+struct BceChoice {
+  Lit blocking;
+  Occ candidate;
 };
 
 bool root_open(const Kernel &k, Lit l) { return k.values[l] == 0; }
@@ -104,6 +110,114 @@ void collect_occs(const Kernel &k, const BceIndex &idx, Lit l, Side side,
   collect_binaries(k, l, side, out);
 }
 
+// Stable until the next formula mutation, like the other semantic payload
+// surfaces. Large clauses appear in arena/literal order; binary pairs appear
+// once in lexicographic endpoint order and contribute both blocking choices.
+void semantic_choices(const Kernel &k, std::vector<BceChoice> &out) {
+  out.clear();
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    if (candidate_clause(k, c))
+      for (const Lit blocking : *c)
+        out.push_back({blocking, {ref, 0}});
+    ref += clause_actual_words(c);
+  }
+
+  std::vector<std::pair<Lit, Lit>> binaries;
+  std::unordered_set<uint64_t> seen;
+  for (Lit first = 0; first < 2 * k.nvars; ++first) {
+    if (!root_open(k, first))
+      continue;
+    for (const WatchEntry watch : k.watches.entries(first)) {
+      if (!watch.binary())
+        continue;
+      const Lit second = watch.other();
+      if (second <= first || !root_open(k, second))
+        continue;
+      if (seen.insert(kernel_binary_key(first, second)).second)
+        binaries.emplace_back(first, second);
+    }
+  }
+  std::sort(binaries.begin(), binaries.end());
+  for (const auto &[first, second] : binaries) {
+    out.push_back({first, {INVALID_REF, second}});
+    out.push_back({second, {INVALID_REF, first}});
+  }
+}
+
+ApplyResult bce_try_choice_indexed(Kernel &k, const BceChoice &choice,
+                                   const BceIndex &idx,
+                                   std::vector<uint8_t> &marked) {
+  const Lit blocking = choice.blocking;
+  if (!root_open(k, blocking))
+    return ApplyResult::NoOp;
+
+  std::vector<Lit> lits;
+  if (choice.candidate.ref == INVALID_REF) {
+    if (!root_open(k, choice.candidate.partner) ||
+        !kernel_binary_live(k, blocking, choice.candidate.partner))
+      return ApplyResult::NoOp;
+    lits = {blocking, choice.candidate.partner};
+  } else {
+    const Clause *candidate = clause_at(k.arena, choice.candidate.ref);
+    if (!candidate_clause(k, candidate) ||
+        std::find(candidate->begin(), candidate->end(), blocking) ==
+            candidate->end())
+      return ApplyResult::NoOp;
+    lits.assign(candidate->begin(), candidate->end());
+  }
+
+  std::vector<Occ> opposite;
+  collect_occs(k, idx, negate(blocking), Side::Opposite, opposite);
+  k.stats.bce_ticks += 1 + opposite.size();
+  for (const Lit lit : lits)
+    if (lit != blocking)
+      marked[lit] = 1;
+  bool blocked = true;
+  for (const Occ &other : opposite) {
+    bool tautological = false;
+    if (other.ref == INVALID_REF) {
+      tautological = marked[negate(other.partner)] != 0;
+    } else {
+      const Clause *clause = clause_at(k.arena, other.ref);
+      if (clause->garbage())
+        continue;
+      for (const Lit lit : *clause)
+        if (lit != negate(blocking) && marked[negate(lit)]) {
+          tautological = true;
+          break;
+        }
+    }
+    if (!tautological) {
+      blocked = false;
+      break;
+    }
+  }
+  for (const Lit lit : lits)
+    marked[lit] = 0;
+  if (!blocked)
+    return ApplyResult::NoOp;
+
+  std::vector<Lit> rest;
+  for (const Lit lit : lits)
+    if (lit != blocking)
+      rest.push_back(lit);
+  if (choice.candidate.ref == INVALID_REF) {
+    if (!kernel_delete_binary_all_copies(k, blocking,
+                                         choice.candidate.partner))
+      return ApplyResult::NoOp;
+  } else {
+    Clause *candidate = clause_at(k.arena, choice.candidate.ref);
+    if (candidate->garbage())
+      return ApplyResult::NoOp;
+    kernel_delete_clause(k, candidate);
+  }
+  kernel_push_witness(k, blocking, rest.data(),
+                      static_cast<uint32_t>(rest.size()));
+  ++k.stats.bce_deleted;
+  return ApplyResult::Ok;
+}
+
 } // namespace
 
 RuleEligibility bce_guard(const Kernel &k) {
@@ -123,16 +237,22 @@ void bce_literals(const Kernel &k, std::vector<Lit> &out) {
 // caller-owned scratch, cleared on exit: a fresh vector per literal would be an
 // O(nvars) fill per call, the per-call linear-scratch hazard.
 ApplyResult bce_try_indexed(Kernel &k, Lit blocking, const BceIndex &idx,
-                            std::vector<uint8_t> &marked) {
+                            std::vector<uint8_t> &marked,
+                            bool apply_occurrence_limit) {
   if (!root_open(k, blocking))
     return ApplyResult::NoOp;
   // Occurrence ceiling (Kernel::bce_occ_limit, cadical `blockocclim`): a
   // literal in a dense neighbourhood is declined before any scan. Checked on
   // the raw index sizes so the decision is O(1), and on both sides because
   // blockedness quantifies over the opposite occurrences too.
-  if (k.bce_occ_limit &&
-      (idx.occ.size(blocking) > k.bce_occ_limit ||
-       idx.occ.size(negate(blocking)) > k.bce_occ_limit))
+  const uint64_t candidate_occurrences =
+      idx.occ.size(blocking) + k.watches.binary_size(blocking);
+  const uint64_t opposite_occurrences =
+      idx.occ.size(negate(blocking)) +
+      k.watches.binary_size(negate(blocking));
+  if (apply_occurrence_limit && k.bce_occ_limit &&
+      (candidate_occurrences > k.bce_occ_limit ||
+       opposite_occurrences > k.bce_occ_limit))
     return ApplyResult::NoOp;
   std::vector<Occ> cands, opposite;
   collect_occs(k, idx, blocking, Side::Cand, cands);
@@ -239,7 +359,8 @@ ApplyResult bce_try(Kernel &k, Lit blocking) {
   BceIndex idx;
   build_index(k, idx);
   std::vector<uint8_t> marked(2 * k.nvars, 0);
-  return bce_try_indexed(k, blocking, idx, marked);
+  return bce_try_indexed(k, blocking, idx, marked,
+                         /*apply_occurrence_limit=*/false);
 }
 
 ApplyResult bce_apply(Kernel &k) {
@@ -267,7 +388,7 @@ ApplyResult bce_apply(Kernel &k) {
   size_t stopped_at = lits.size();
   for (size_t li = 0; li < lits.size(); li++) {
     const Lit l = lits[li];
-    if (k.work_budget && k.stats.bce_ticks - tick_start > k.work_budget) {
+    if (kernel_work_budget_exceeded(k, k.stats.bce_ticks - tick_start)) {
       stopped_at = li;
       break;
     }
@@ -283,7 +404,8 @@ ApplyResult bce_apply(Kernel &k) {
       k.stats.bce_mark_skipped++;
       continue;
     }
-    const ApplyResult r = bce_try_indexed(k, l, idx, marked);
+    const ApplyResult r = bce_try_indexed(k, l, idx, marked,
+                                          /*apply_occurrence_limit=*/true);
     if (r == ApplyResult::Unsat)
       return r;
     any |= (r == ApplyResult::Ok);
@@ -325,7 +447,43 @@ static ApplyResult bce_apply_instance(Kernel &k, uint64_t inst) {
   return bce_try(k, blocking);
 }
 
+// Semantic payloads are opaque ordinals in a state snapshot. This avoids
+// aliasing a 32-bit arena reference with a 32-bit binary partner while still
+// naming every individual (clause, blocking-literal) choice.
+static constexpr uint64_t BCE_SEMANTIC_BASE = uint64_t{1} << 63;
+
+static uint32_t bce_semantic_instances(Kernel &k, uint64_t *out,
+                                       uint32_t cap) {
+  std::vector<BceChoice> choices;
+  semantic_choices(k, choices);
+  const uint32_t count = std::min<uint32_t>(
+      cap, static_cast<uint32_t>(choices.size()));
+  for (uint32_t i = 0; i < count; ++i)
+    out[i] = BCE_SEMANTIC_BASE + i;
+  return count;
+}
+
+static ApplyResult bce_apply_semantic_instance(Kernel &k, uint64_t inst) {
+  if (inprocess_reach_root(k))
+    return ApplyResult::Unsat;
+  if (inst == INSTANCE_CANONICAL)
+    return bce_apply(k);
+  if (inst < BCE_SEMANTIC_BASE)
+    return ApplyResult::NoOp;
+  const uint64_t ordinal = inst - BCE_SEMANTIC_BASE;
+  std::vector<BceChoice> choices;
+  semantic_choices(k, choices);
+  if (ordinal >= choices.size())
+    return ApplyResult::NoOp;
+  BceIndex index;
+  build_index(k, index);
+  std::vector<uint8_t> marked(2 * k.nvars, 0);
+  return bce_try_choice_indexed(k, choices[ordinal], index, marked);
+}
+
 TACTIX_REGISTER_RULE(BCE, RuleTier::Inprocess, bce_guard, bce_apply,
-                     bce_instances, bce_apply_instance);
+                     bce_instances, bce_apply_instance,
+                     bce_semantic_instances,
+                     bce_apply_semantic_instance);
 
 } // namespace tactix

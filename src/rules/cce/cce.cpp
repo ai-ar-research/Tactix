@@ -6,18 +6,12 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <unordered_set>
 #include <vector>
 
 namespace tactix {
 
 namespace {
-
-// One candidate may not spend more than this many of the rule's own ticks. The
-// extension loop restarts the covered scan after every addition, so a single
-// dense clause is quadratic in its own neighbourhood and the round budget alone
-// would let it swallow a whole dose. Not a reference constant: cadical bounds
-// only the round (`covereffort`).
-constexpr uint64_t CCE_CANDIDATE_TICKS = 4096;
 
 bool root_open(const Kernel &k, Lit l) { return k.values[l] == 0; }
 
@@ -54,9 +48,20 @@ bool relevant(const Kernel &k, const Clause *c) {
 // CLA side must quantify over redundant ones too. One arena pass per round — a
 // per-literal scan would make a canonical round O(nlits x arena), which
 // measured as an order-of-magnitude tier regression for BCE.
+struct CceCandidate {
+  Ref ref = INVALID_REF;
+  Lit first = INVALID_LIT;
+  Lit second = INVALID_LIT;
+
+  bool binary() const { return ref == INVALID_REF; }
+};
+
 struct CceIndex {
   FlatOccurrenceIndex occ;
-  std::vector<Ref> cands;            // deletion candidates, arena order
+  // Large clauses retain arena order, followed by unique binary pairs in
+  // literal/watch order. Identical physical binary copies are one semantic
+  // victim because they have the same model-reconstruction obligation.
+  std::vector<CceCandidate> cands;
 };
 
 void build_index(const Kernel &k, CceIndex &idx) {
@@ -68,11 +73,33 @@ void build_index(const Kernel &k, CceIndex &idx) {
     if (relevant(k, c)) {
       relevant_clauses.push_back(ref);
       if (candidate_clause(k, c))
-        idx.cands.push_back(ref);
+        idx.cands.push_back({ref, INVALID_LIT, INVALID_LIT});
     }
     ref += words;
   }
   idx.occ.build(k, relevant_clauses);
+  std::unordered_set<uint64_t> seen;
+  for (Lit first = 0; first < 2 * k.nvars; ++first) {
+    if (!root_open(k, first))
+      continue;
+    for (const WatchEntry watch : k.watches.entries(first)) {
+      if (!watch.binary())
+        continue;
+      const Lit second = watch.other();
+      if (!root_open(k, second))
+        continue;
+      const uint64_t key = kernel_binary_key(first, second);
+      if (seen.insert(key).second)
+        idx.cands.push_back(
+            {INVALID_REF, std::min(first, second), std::max(first, second)});
+    }
+  }
+}
+
+bool same_binary(const CceCandidate &candidate, Lit a, Lit b) {
+  return candidate.binary() &&
+         candidate.first == std::min(a, b) &&
+         candidate.second == std::max(a, b);
 }
 
 // The extension state for one candidate. Every array is round-owned and
@@ -119,9 +146,9 @@ void extend(Coveror &cv, Lit l) {
 // Returns true on that conflict (the ATA exit). `self` is the candidate itself,
 // which must be ignored or it falsifies immediately and trivially.
 bool ala_propagate(Kernel &k, const CceIndex &idx, Coveror &cv, Lit l,
-                   Ref self) {
+                   const CceCandidate &self) {
   for (const Ref r : idx.occ[l]) {
-    if (r == self)
+    if (!self.binary() && r == self.ref)
       continue;
     const Clause *d = clause_at(k.arena, r);
     if (d->garbage() || d->redundant())
@@ -154,6 +181,8 @@ bool ala_propagate(Kernel &k, const CceIndex &idx, Coveror &cv, Lit l,
     if (!w.binary())
       continue;
     const Lit o = w.other();
+    if (same_binary(self, l, o))
+      continue;
     k.stats.cce_ticks += 2;
     if (is_true(k, cv, o))
       continue;
@@ -207,7 +236,8 @@ enum class ClaResult { Nothing, Added, Blocked };
 // One CLA step on pivot `u`, a recorded literal of C''. Either every clause
 // holding `¬u` resolves tautologically against C'' — C'' is blocked on `u` — or
 // the literals shared by all the others may be added to C''.
-ClaResult cla_step(Kernel &k, const CceIndex &idx, Coveror &cv, Lit u) {
+ClaResult cla_step(Kernel &k, const CceIndex &idx, Coveror &cv, Lit u,
+                   const CceCandidate &self) {
   const Lit nu = negate(u);
   bool first = true, empty = false;
   cv.inter.clear();
@@ -217,6 +247,8 @@ ClaResult cla_step(Kernel &k, const CceIndex &idx, Coveror &cv, Lit u) {
   // satisfied"). That is the test the blocked exit rests on, so a step skipping
   // every candidate IS the blocked exit.
   for (const Ref r : idx.occ[nu]) {
+    if (!self.binary() && r == self.ref)
+      continue;
     const Clause *e = clause_at(k.arena, r);
     if (e->garbage())
       continue;
@@ -239,6 +271,8 @@ ClaResult cla_step(Kernel &k, const CceIndex &idx, Coveror &cv, Lit u) {
       if (!w.binary())
         continue;
       const Lit o = w.other();
+      if (same_binary(self, nu, o))
+        continue;
       k.stats.cce_ticks += 2;
       if (is_true(k, cv, o))
         continue;
@@ -276,8 +310,14 @@ ClaResult cla_step(Kernel &k, const CceIndex &idx, Coveror &cv, Lit u) {
 }
 
 // Try to eliminate one candidate. Returns true if it was deleted.
-bool cover_clause(Kernel &k, const CceIndex &idx, Coveror &cv, Ref self) {
-  Clause *c = clause_at(k.arena, self);
+bool cover_clause(Kernel &k, const CceIndex &idx, Coveror &cv,
+                  const CceCandidate &self) {
+  if (self.binary()) {
+    if (!kernel_binary_live(k, self.first, self.second))
+      return false;
+  } else if (clause_at(k.arena, self.ref)->garbage()) {
+    return false;
+  }
   cv.added.clear();
   cv.covered.clear();
   cv.pivot.clear();
@@ -285,26 +325,39 @@ bool cover_clause(Kernel &k, const CceIndex &idx, Coveror &cv, Ref self) {
   k.stats.cce_tried++;
 
   bool tautological = false;
-  for (const Lit l : *c) {
+  const auto add_initial = [&](Lit l) {
     if (cv.mark[negate(l)]) {
-      tautological = true; // a tautological candidate has no ¬-free extension
-      break;
+      tautological = true;
+      return;
     }
     if (cv.mark[l])
-      continue; // duplicated literal
+      return;
     extend(cv, l);
     cv.covered.push_back(l);
+  };
+  if (self.binary()) {
+    add_initial(self.first);
+    add_initial(self.second);
+  } else {
+    const Clause *c = clause_at(k.arena, self.ref);
+    for (const Lit l : *c)
+      add_initial(l);
   }
 
   bool ata = false, blocked = false;
   if (!tautological) {
-    const uint64_t cap = k.stats.cce_ticks + CCE_CANDIDATE_TICKS;
+    const uint64_t start_ticks = k.stats.cce_ticks;
     // cadical's control flow (cover.cpp:358-367): drain the ALA queue first,
     // then take the next recorded literal for a CLA step, and restart the
     // covered scan after every addition — a new false literal can block a pivot
     // that was not blocked before.
     size_t next_added = 0, next_covered = 0;
-    while (k.stats.cce_ticks <= cap) {
+    // The caller's public work budget is the only effort ceiling. Zero is
+    // unbounded, so an explicit legal application cannot be silently disabled
+    // by the old, unbacked per-candidate constant. Subtraction avoids overflow
+    // when a caller supplies a very large allowance.
+    while (!kernel_has_work_budget(k) ||
+           k.stats.cce_ticks - start_ticks <= k.work_budget) {
       if (next_added < cv.added.size()) {
         const size_t before = cv.added.size();
         if (ala_propagate(k, idx, cv, cv.added[next_added++], self)) {
@@ -314,7 +367,8 @@ bool cover_clause(Kernel &k, const CceIndex &idx, Coveror &cv, Ref self) {
         if (cv.added.size() != before)
           next_covered = 0;
       } else if (next_covered < cv.covered.size()) {
-        const ClaResult r = cla_step(k, idx, cv, cv.covered[next_covered++]);
+        const ClaResult r =
+            cla_step(k, idx, cv, cv.covered[next_covered++], self);
         if (r == ClaResult::Blocked) {
           blocked = true;
           break;
@@ -333,21 +387,39 @@ bool cover_clause(Kernel &k, const CceIndex &idx, Coveror &cv, Ref self) {
     // `docs/calculus.md` §X3 unwinds the CLA steps in. An ATA exit reached with
     // no CLA step in front of it needs no segment: the extension is then pure
     // unit propagation of ¬C over F∖{C}, so C is RUP there.
-    for (size_t i = 0; i < cv.pivot.size(); i++) {
-      const Lit w = cv.pivot[i];
-      cv.rest.clear();
-      for (uint32_t j = 0; j < cv.prefix[i]; j++)
-        if (cv.covered[j] != w)
-          cv.rest.push_back(cv.covered[j]);
-      kernel_push_witness(k, w, cv.rest.data(),
-                          static_cast<uint32_t>(cv.rest.size()));
+    const auto record_witnesses = [&] {
+      for (size_t i = 0; i < cv.pivot.size(); i++) {
+        const Lit w = cv.pivot[i];
+        cv.rest.clear();
+        for (uint32_t j = 0; j < cv.prefix[i]; j++)
+          if (cv.covered[j] != w)
+            cv.rest.push_back(cv.covered[j]);
+        kernel_push_witness(k, w, cv.rest.data(),
+                            static_cast<uint32_t>(cv.rest.size()));
+      }
+    };
+    bool deleted = true;
+    if (self.binary()) {
+      deleted = kernel_delete_binary_all_copies(k, self.first, self.second);
+      if (deleted)
+        record_witnesses();
+    } else {
+      record_witnesses();
+      kernel_delete_clause(k, clause_at(k.arena, self.ref));
     }
-    kernel_delete_clause(k, c);
-    k.stats.cce_deleted++;
-    if (blocked)
-      k.stats.cce_blocked++;
-    else
-      k.stats.cce_ata++;
+    if (deleted) {
+      k.stats.cce_deleted++;
+      if (blocked)
+        k.stats.cce_blocked++;
+      else
+        k.stats.cce_ata++;
+    }
+    if (!deleted) {
+      for (const Lit l : cv.added)
+        cv.mark[l] = 0;
+      cv.added.clear();
+      return false;
+    }
   }
 
   for (const Lit l : cv.added)
@@ -377,29 +449,37 @@ bool changed_clause(const Kernel &k, const Clause *c, uint64_t since) {
 // remove a capability (N1). `stopped_at` receives the index of the first
 // candidate the budget never reached, for the caller's re-arm.
 bool cover_range(Kernel &k, const CceIndex &idx, Coveror &cv,
-                 const std::vector<Ref> &cands, bool filter, uint64_t wm,
+                 const std::vector<CceCandidate> &cands, bool filter,
+                 uint64_t wm,
                  size_t *stopped_at) {
   const uint64_t tick_start = k.stats.cce_ticks;
   bool any = false;
   if (stopped_at)
     *stopped_at = cands.size();
   for (size_t i = 0; i < cands.size(); i++) {
-    if (k.work_budget && k.stats.cce_ticks - tick_start > k.work_budget) {
+    if (kernel_work_budget_exceeded(k, k.stats.cce_ticks - tick_start)) {
       if (stopped_at)
         *stopped_at = i;
       break;
     }
-    const Ref r = cands[i];
-    Clause *c = clause_at(k.arena, r);
+    const CceCandidate &candidate = cands[i];
     // re-validate: an earlier elimination in this very round may have retired
     // it, and the index is built once
-    if (!candidate_clause(k, c))
+    if (candidate.binary()
+            ? (!root_open(k, candidate.first) ||
+               !root_open(k, candidate.second) ||
+               !kernel_binary_live(k, candidate.first, candidate.second))
+            : !candidate_clause(k, clause_at(k.arena, candidate.ref)))
       continue;
-    if (filter && !changed_clause(k, c, wm)) {
+    const bool changed = candidate.binary()
+                             ? kernel_changed_since(k, var_of(candidate.first), wm) ||
+                                   kernel_changed_since(k, var_of(candidate.second), wm)
+                             : changed_clause(k, clause_at(k.arena, candidate.ref), wm);
+    if (filter && !changed) {
       k.stats.cce_mark_skipped++;
       continue;
     }
-    any |= cover_clause(k, idx, cv, r);
+    any |= cover_clause(k, idx, cv, candidate);
   }
   return any;
 }
@@ -428,10 +508,18 @@ ApplyResult cce_try(Kernel &k, Lit l) {
   build_index(k, idx);
   Coveror cv;
   cv.resize(k.nvars);
-  std::vector<Ref> cands;
-  for (const Ref r : idx.occ[l])
-    if (candidate_clause(k, clause_at(k.arena, r)))
-      cands.push_back(r);
+  std::vector<CceCandidate> cands;
+  for (const CceCandidate &candidate : idx.cands) {
+    bool contains = candidate.binary()
+                        ? candidate.first == l || candidate.second == l
+                        : false;
+    if (!candidate.binary()) {
+      const Clause *clause = clause_at(k.arena, candidate.ref);
+      contains = std::find(clause->begin(), clause->end(), l) != clause->end();
+    }
+    if (contains)
+      cands.push_back(candidate);
+  }
   if (cands.empty())
     return ApplyResult::NoOp;
   return cover_range(k, idx, cv, cands, /*filter=*/false, 0, nullptr)
@@ -464,9 +552,19 @@ ApplyResult cce_apply(Kernel &k) {
       cover_range(k, idx, cv, idx.cands, filter, wm, &stopped_at);
   for (size_t i = filter ? stopped_at : idx.cands.size(); i < idx.cands.size();
        i++) {
-    const Clause *c = clause_at(k.arena, idx.cands[i]);
+    const CceCandidate &candidate = idx.cands[i];
+    if (candidate.binary()) {
+      if (!kernel_binary_live(k, candidate.first, candidate.second) ||
+          (!kernel_changed_since(k, var_of(candidate.first), wm) &&
+           !kernel_changed_since(k, var_of(candidate.second), wm)))
+        continue;
+      kernel_touch_var(k, var_of(candidate.first));
+      k.stats.cce_rearmed++;
+      continue;
+    }
+    const Clause *c = clause_at(k.arena, candidate.ref);
     if (c->garbage() || !changed_clause(k, c, wm))
-      continue; // sharper than a bare re-arm: it had nothing new at `wm` either
+      continue;
     // One mark, not one per literal: `changed_clause` needs a single changed
     // variable, so one is enough to re-offer the clause. A re-arm is a producer
     // on the shared substrate, so every mark past what the filter needs weakens
@@ -503,7 +601,46 @@ static ApplyResult cce_apply_instance(Kernel &k, uint64_t inst) {
   return cce_try(k, l);
 }
 
+static uint32_t cce_semantic_instances(Kernel &k, uint64_t *out,
+                                       uint32_t cap) {
+  CceIndex index;
+  build_index(k, index);
+  const uint32_t count = std::min<uint32_t>(
+      cap, static_cast<uint32_t>(index.cands.size()));
+  for (uint32_t i = 0; i < count; ++i) {
+    const CceCandidate &candidate = index.cands[i];
+    out[i] = candidate.binary()
+                 ? cce_binary_instance(candidate.first, candidate.second)
+                 : cce_large_instance(candidate.ref);
+  }
+  return count;
+}
+
+static ApplyResult cce_apply_semantic_instance(Kernel &k, uint64_t inst) {
+  if (inprocess_reach_root(k))
+    return ApplyResult::Unsat;
+  if (inst == INSTANCE_CANONICAL)
+    return cce_apply(k);
+  CceIndex index;
+  build_index(k, index);
+  for (const CceCandidate &candidate : index.cands) {
+    const uint64_t candidate_instance =
+        candidate.binary()
+            ? cce_binary_instance(candidate.first, candidate.second)
+            : cce_large_instance(candidate.ref);
+    if (candidate_instance != inst)
+      continue;
+    Coveror coveror;
+    coveror.resize(k.nvars);
+    return cover_clause(k, index, coveror, candidate) ? ApplyResult::Ok
+                                                       : ApplyResult::NoOp;
+  }
+  return ApplyResult::NoOp;
+}
+
 TACTIX_REGISTER_RULE(CCE, RuleTier::Inprocess, cce_guard, cce_apply,
-                     cce_instances, cce_apply_instance);
+                     cce_instances, cce_apply_instance,
+                     cce_semantic_instances,
+                     cce_apply_semantic_instance);
 
 } // namespace tactix

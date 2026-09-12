@@ -5,6 +5,10 @@ add_executable(test_kernel test_kernel.cpp)
 target_link_libraries(test_kernel PRIVATE tactix_lib)
 add_test(NAME kernel COMMAND test_kernel)
 
+add_executable(test_clause_arena_replay test_clause_arena_replay.cpp)
+target_link_libraries(test_clause_arena_replay PRIVATE tactix_lib)
+add_test(NAME clause_arena_replay COMMAND test_clause_arena_replay)
+
 add_executable(test_parse test_parse.cpp)
 target_link_libraries(test_parse PRIVATE tactix_lib)
 add_test(NAME parse COMMAND test_parse)
@@ -114,10 +118,14 @@ add_test(NAME fuzz_slurm_snapshot
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_fuzz_slurm_snapshot.py)
 if(NOT TACTIX_ENABLE_EVENT_TRACE AND NOT TACTIX_ENABLE_RULE_JOURNAL)
+  set(trace_symbol_test_args)
+  if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    list(APPEND trace_symbol_test_args --debug-stubs)
+  endif()
   add_test(NAME event_trace_zero_overhead
            COMMAND ${CMAKE_COMMAND} -E env python3
                    ${CMAKE_CURRENT_SOURCE_DIR}/test_no_event_trace_symbols.py
-                   $<TARGET_FILE:tactix>)
+                   $<TARGET_FILE:tactix> ${trace_symbol_test_args})
 endif()
 
 # The §5.6 pose surface: a preposed slot, a disabled entry inert at its own
@@ -208,6 +216,10 @@ add_executable(test_bve test_bve.cpp)
 target_link_libraries(test_bve PRIVATE tactix_lib)
 add_test(NAME bve COMMAND test_bve)
 
+add_executable(test_bve_invocation test_bve_invocation.cpp)
+target_link_libraries(test_bve_invocation PRIVATE tactix_lib)
+add_test(NAME bve_invocation COMMAND test_bve_invocation)
+
 add_executable(test_lucky test_lucky.cpp)
 target_link_libraries(test_lucky PRIVATE tactix_lib)
 add_test(NAME lucky COMMAND test_lucky)
@@ -224,6 +236,16 @@ target_link_libraries(test_api_instances PRIVATE tactix_lib)
 target_include_directories(test_api_instances PRIVATE ${CMAKE_SOURCE_DIR}/include)
 add_test(NAME api_instances COMMAND test_api_instances)
 
+add_executable(test_online_api test_online_api.c)
+target_link_libraries(test_online_api PRIVATE tactix_lib)
+target_include_directories(test_online_api PRIVATE ${CMAKE_SOURCE_DIR}/include)
+add_test(NAME online_api COMMAND test_online_api)
+
+add_executable(test_online_all_actions test_online_all_actions.c)
+target_link_libraries(test_online_all_actions PRIVATE tactix_lib)
+target_include_directories(test_online_all_actions PRIVATE ${CMAKE_SOURCE_DIR}/include)
+add_test(NAME online_all_actions COMMAND test_online_all_actions)
+
 add_executable(test_random_policy test_random_policy.c)
 target_link_libraries(test_random_policy PRIVATE tactix_lib)
 target_include_directories(test_random_policy PRIVATE ${CMAKE_SOURCE_DIR}/include)
@@ -238,7 +260,8 @@ add_test(NAME trace_replay
 add_test(NAME micro_proofs
          COMMAND ${CMAKE_SOURCE_DIR}/tests/micro_proofs.sh
                  $<TARGET_FILE:tactix> ${CMAKE_SOURCE_DIR}
-                 $<TARGET_FILE:test_analyze>)
+                 $<TARGET_FILE:test_analyze>
+                 $<TARGET_FILE:test_congruence>)
 set_tests_properties(micro_proofs PROPERTIES SKIP_RETURN_CODE 77)
 
 # Sweep: every proof it produces, replayed through the real checkers (drat-trim
@@ -375,3 +398,6 @@ foreach(test_source IN LISTS TACTIX_CONVENTIONAL_TESTS)
     add_test(NAME "${test_name}" COMMAND "${test_target}")
   endif()
 endforeach()
+
+# Bound the empty-scope interruption regression if stop polling regresses.
+set_tests_properties(online_inprocess PROPERTIES TIMEOUT 10)
