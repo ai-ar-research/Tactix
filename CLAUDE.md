@@ -10,8 +10,8 @@ home; other documents link to it.
 
 - **N1:** every applicable proof rule, including branch variable and phase, is
   selectable through the public API at its declared action boundary. Search
-  rules operate during search; inprocessing rules and root-phase Lucky operate
-  at level zero after an explicit Restart-to-root transition.
+  rules operate during search; inprocessing rules, Lucky, and Walk operate at
+  level zero after an explicit Restart-to-root transition.
 - **N2:** every path emits checkable DRAT/LRAT evidence and valid SAT models.
 - **N3:** DefaultPolicy must be competitive with Kissat on Tier D.
 - **N4:** DefaultPolicy's scheduling must be at least as sophisticated as

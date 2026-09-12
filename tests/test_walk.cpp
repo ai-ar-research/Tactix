@@ -1,5 +1,5 @@
 // Walk unit tests (plan §5.2 policy op). The walker repairs phases the
-// defaults get wrong, is `H`-only, respects the trail, and is deterministic.
+// defaults get wrong at root and is deterministic.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "policies/heuristics.hpp"
@@ -67,19 +67,14 @@ static void test_kernel_untouched() {
   assert(!k.inconsistent);
 }
 
-// trail-assigned literals are fixed: the walk may not flip them
-static void test_respects_trail() {
+// Walk is part of the root phase. A caller in search must explicitly Restart.
+static void test_rejects_non_root() {
   Kernel k;
   ScopedHeuristics _h(k);
   build_conflict_cover(k, 6);
   kernel_assign_decision(k, internalize(3)); // x3 true at level 1
   assert(k.level == 1);
-  walk_apply(k);
-  assert(k.h->saved[2] == 1); // var 3 (0-based 2) keeps its assigned phase
-  int trues = 0;
-  for (Var v = 0; v < k.nvars; v++)
-    trues += (k.h->saved[v] > 0);
-  assert(trues == 1); // the other five must go false around it
+  assert(!walk_guard(k));
 }
 
 // the walker is a pure function of kernel state: same formula, same result
@@ -244,7 +239,7 @@ static void test_root_satisfied_binaries_do_not_reach_the_walk() {
 int main() {
   test_finds_model();
   test_kernel_untouched();
-  test_respects_trail();
+  test_rejects_non_root();
   test_deterministic();
   test_budget_and_noop();
   test_resume_uses_compact_literal_order();

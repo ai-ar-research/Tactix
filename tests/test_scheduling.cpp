@@ -933,8 +933,9 @@ static void test_authored_slot_order_covers_registry(void) {
   std::printf("  authored slot order: %zu rows, registry-complete\n", norder);
 }
 
-// Inprocessing is a root-formula phase. A strategy that is currently searching
-// must compose an explicit Restart before any registry member becomes legal.
+// Inprocessing, Lucky, and Walk are root-formula phases. A strategy that is
+// currently searching must compose an explicit Restart before they become
+// legal. Other H-only operations remain available during search.
 static void test_inprocess_registry_requires_root(void) {
   Kernel k;
   kernel_reserve_vars(k, 4);
@@ -947,6 +948,15 @@ static void test_inprocess_registry_requires_root(void) {
     assert(!rule.guard(k));
     k.level = 0;
   }
+  const RuleVTable &lucky = tactix_rules()[tactix_rule_id("Lucky")];
+  const RuleVTable &walk = tactix_rules()[tactix_rule_id("Walk")];
+  const RuleVTable &rephase = tactix_rules()[tactix_rule_id("Rephase")];
+  const RuleVTable &switchmode = tactix_rules()[tactix_rule_id("SwitchMode")];
+  k.level = 1;
+  assert(!lucky.guard(k));
+  assert(!walk.guard(k));
+  assert(rephase.guard(k));
+  assert(switchmode.guard(k));
 }
 
 static void test_typed_program_preserves_default_and_composes_occurrences() {

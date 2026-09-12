@@ -1,14 +1,8 @@
 // Transliterated from kissat/src/walk.c (MIT, Biere et al.) — the ProbSAT
-// flipper, its break-value scoring and its CB score table — with two
-// deviations, both recorded in docs/design/s6-walk-design.md §4:
-//  (1) The walker owns its state: a walker-local CSR occurrence index and value
-//      array rather than kissat's scratch `solver->values` and repurposed watch
-//      lists. A walk therefore leaves the kernel untouched, which is what makes
-//      the op legal at any decision level (N1), not only at a quiescent root.
-//  (2) Literals assigned on the trail are fixed for the duration: clauses they
-//      satisfy leave the table and the literals they falsify leave their
-//      clauses. At level 0 that is kissat's treatment of root-fixed literals;
-//      above it the walk optimises the free part of the formula.
+// flipper, its break-value scoring and its CB score table. The walker owns its
+// scratch values and CSR occurrence index, leaving search guidance and the
+// kernel trail separate. Walk is a root-phase operation because its dense-entry
+// and sparse-resume normalization rewrites the formula representation.
 #include "policies/ops/walk/walk.hpp"
 #include "kernel/clause.hpp"
 #include "policies/heuristics.hpp"
@@ -364,11 +358,12 @@ void local_search(Walker &w, uint64_t limit) {
 
 } // namespace
 
-// Requires `H` (the walk writes the phase arrays) and a non-refuted kernel. Any
-// decision level is legal; assigned literals are held fixed (deviation 2).
+// Requires a consistent root state and `H` for the phase arrays. A caller in
+// search explicitly composes Restart before selecting Walk.
 RuleEligibility walk_guard(const Kernel &k) {
   RuleEligibility result;
   return result.fact("consistent", !k.inconsistent)
+      .fact("root-level", k.level == 0)
       .fact("heuristics-attached", k.h != nullptr)
       .fact("has-variables", k.nvars > 0);
 }

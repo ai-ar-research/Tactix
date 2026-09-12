@@ -86,6 +86,19 @@ static void test_scc_charges_two_scans_per_literal() {
          "every visited literal is charged on entry and on finish");
 }
 
+static void test_instance_enumeration_does_not_charge_work() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  kernel_add_binary_clause(k, internalize(-1), internalize(2));
+  kernel_add_binary_clause(k, internalize(-2), internalize(3));
+  kernel_add_binary_clause(k, internalize(-3), internalize(1));
+  const RuleVTable &rule = tactix_rules()[tactix_rule_id("Substitute")];
+  uint64_t instances[8];
+  assert(rule.instances(k, instances, 8) > 0);
+  assert(k.stats.substitute_ticks == 0 &&
+         "observing Substitute instances must not consume rule work");
+}
+
 static void test_representative_uses_import_order() {
   Kernel k;
   kernel_reserve_vars(k, 3);
@@ -1581,6 +1594,7 @@ int main() {
   test_sweep_duplicate_literal_pose();
   test_equivalence_scc();
   test_scc_charges_two_scans_per_literal();
+  test_instance_enumeration_does_not_charge_work();
   test_representative_uses_import_order();
   test_no_scc();
   test_no_scc_still_simplifies_root_fixed_clauses();
