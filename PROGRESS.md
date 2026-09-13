@@ -92,17 +92,20 @@ not implementation or project-document changes.
   CPUs, 32 GiB and a 1200-second solver timeout. Its anonymous node-local
   `O_TMPFILE` runner removes input, proof, model and checker scratch on every
   exit path.
+- Post-refactor Tier-D array `1685130` covers all 1,166 instances from commit
+  `b1165641` with the same `cpu-q`, four-CPU, 32-GiB and 1200-second solver
+  contract. Validation job `1685119` passed SAT/model, UNSAT/DRAT, forced-crash
+  and forced-timeout cleanup before submission. The array has no throttle or
+  node constraint and uses the same fail-closed anonymous scratch runner.
 - Historical proof-checking and already-running validation jobs continue in
   the background. Do not wait for them before doing independent work and do not
   rerun retained reference solvers.
 
 ## Next actions
 
-1. Submit a new Tier-D run from the landed refactor, using
-   the established four-CPU, 32-GiB, 1200-second anonymous-scratch runner.
-2. Inspect background proof/model and cleanup records without blocking the
+1. Inspect background Tier-D, proof/model and cleanup records without blocking the
    next independent step.
-3. Begin the deferred winner-VBS selection and matched hwu reruns.
+2. Begin the deferred winner-VBS selection and matched hwu reruns.
 
 ## Acceptance
 
@@ -128,4 +131,5 @@ not implementation or project-document changes.
 - Added trace-v3 typed-program replay while preserving v1/v2 compatibility.
 - Specialized finite and interruptible subsolver paths and repaired queue state.
 - Removed obsolete configuration guards and retained root-only phase boundaries.
-- Restored B28+C5 and Rank1–50 aggregate runtime to the retained trajectory.
+- Restored both performance gates and submitted the validated post-refactor
+  Tier-D array from `b1165641`.
