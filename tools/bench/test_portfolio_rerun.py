@@ -3,6 +3,7 @@ from contextlib import redirect_stdout
 import csv
 import io
 import json
+import os
 from pathlib import Path
 from types import SimpleNamespace
 import tempfile
@@ -15,6 +16,7 @@ from portfolio_rerun import (
     adapter_lymphosat,
     adapter_satsuma,
     batch_text,
+    bound_launch,
     build_matrix,
     checked_valid,
     classify_result,
@@ -63,6 +65,37 @@ class PortfolioRerunTests(unittest.TestCase):
         )
         self.assertNotIn("--nodelist", text)
         self.assertIn("#SBATCH --chdir=/tmp/repo", text)
+
+    def test_launch_binding_rejects_other_jobs_and_tasks(self):
+        with tempfile.TemporaryDirectory() as directory:
+            campaign = Path(directory)
+            (campaign / "manifest.json").write_text("{}")
+            record = {
+                "job_id": "123",
+                "manifest_sha256": sha256(campaign / "manifest.json"),
+            }
+            (campaign / "launch.json").write_text(json.dumps(record))
+            environment = {
+                "SLURM_JOB_ID": "124",
+                "SLURM_ARRAY_JOB_ID": "123",
+                "SLURM_ARRAY_TASK_ID": "7",
+            }
+            with patch.dict(os.environ, environment, clear=True):
+                self.assertEqual(bound_launch(campaign, task=7, wait_seconds=0), record)
+                with self.assertRaisesRegex(ValueError, "task identity"):
+                    bound_launch(campaign, task=8, wait_seconds=0)
+                os.environ["SLURM_ARRAY_JOB_ID"] = "999"
+                with self.assertRaisesRegex(ValueError, "job identity"):
+                    bound_launch(campaign, task=7, wait_seconds=0)
+
+            (campaign / "validation-launch.json").write_text(json.dumps(record))
+            with patch.dict(os.environ, {"SLURM_JOB_ID": "123"}, clear=True):
+                self.assertEqual(
+                    bound_launch(campaign, validation=True, wait_seconds=0), record
+                )
+                os.environ["SLURM_JOB_ID"] = "999"
+                with self.assertRaisesRegex(ValueError, "validation job identity"):
+                    bound_launch(campaign, validation=True, wait_seconds=0)
 
     def test_only_checked_solve_or_clean_full_timeout_is_scoreable(self):
         solve = {"exit_code": 10, "timed_out": False, "wall_seconds": 0.1}
