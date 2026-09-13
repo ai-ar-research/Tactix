@@ -298,6 +298,64 @@ static void parity_lucky_instance_is_public(void) {
   tactix_release(solver);
 }
 
+static void onehot_lucky_instance_is_public(void) {
+  tactix *solver = tactix_init();
+  for (int domain = 0; domain < 3; ++domain) {
+    const int a = 3 * domain + 1, b = a + 1, c = a + 2;
+    add_clause(solver, (int[]){a, b, c, 0});
+    add_clause(solver, (int[]){-a, -b, 0});
+    add_clause(solver, (int[]){-a, -c, 0});
+    add_clause(solver, (int[]){-b, -c, 0});
+  }
+  for (int a = 0; a < 3; ++a)
+    for (int b = 0; b < 3; ++b)
+      for (int c = 0; c < 3; ++c) {
+        if ((a + b + c) % 3 == 1)
+          continue;
+        add_clause(solver,
+                   (int[]){-(1 + a), -(4 + b), -(7 + c), 0});
+      }
+
+  const int lucky = rule_id("Lucky");
+  uint64_t instances[NINST];
+  const int count =
+      tactix_rule_semantic_instances(solver, lucky, instances, NINST);
+  int found = 0;
+  for (int i = 0; i < count; ++i)
+    found |= instances[i] == 7;
+  assert(found);
+
+  uint64_t selected = 7;
+  tactix_online_step step;
+  memset(&step, 0, sizeof step);
+  step.step_id = 91;
+  step.rule_id = lucky;
+  step.parameters.kind = TACTIX_ONLINE_PARAMETERS_ONEHOT_MODEL;
+  step.parameters.value.onehot_model.maximum_variables = 64;
+  step.parameters.value.onehot_model.maximum_domains = 16;
+  step.parameters.value.onehot_model.maximum_constraints = 128;
+  step.parameters.value.onehot_model.maximum_equation_arity = 4;
+  step.parameters.value.onehot_model.minimum_domains = 3;
+  step.parameters.value.onehot_model.minimum_equations = 1;
+  step.parameters.value.onehot_model.maximum_free_domains = 4;
+  step.parameters.value.onehot_model.candidate_budget = 16;
+  step.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
+  step.instances = &selected;
+  step.instance_count = 1;
+  step.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
+  step.repeat_limit = 1;
+  step.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
+  step.budget_unlimited = 1;
+  tactix_online_program program = {
+      &step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
+  assert(tactix_online_configure(solver, &program, 27,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  tactix_online_result result;
+  assert(tactix_online_advance(solver, &result) == 0);
+  assert(result.status == TACTIX_ONLINE_SAT && tactix_status(solver) == 10);
+  tactix_release(solver);
+}
+
 static void aba_transition_invalidates_a_pending_batch(void) {
   tactix *solver = tactix_init();
   fixture(solver);
@@ -337,6 +395,7 @@ int main(void) {
   invalid_reduce_parameters_are_transactional();
   invalid_parity_parameters_are_transactional();
   parity_lucky_instance_is_public();
+  onehot_lucky_instance_is_public();
   aba_transition_invalidates_a_pending_batch();
   puts("test_online_all_actions: all 26 actions and ABA invalidation PASS");
   return 0;

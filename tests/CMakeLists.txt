@@ -146,6 +146,10 @@ add_executable(test_parity_model test_parity_model.cpp)
 target_link_libraries(test_parity_model PRIVATE tactix_lib)
 add_test(NAME parity_model COMMAND test_parity_model)
 
+add_executable(test_onehot_model test_onehot_model.cpp)
+target_link_libraries(test_onehot_model PRIVATE tactix_lib)
+add_test(NAME onehot_model COMMAND test_onehot_model)
+
 add_executable(test_subsume test_subsume.cpp)
 target_link_libraries(test_subsume PRIVATE tactix_lib)
 add_test(NAME subsume COMMAND test_subsume)

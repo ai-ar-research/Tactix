@@ -5,6 +5,7 @@
 // saving, matching kissat's `solver->probing`).
 #include "rules/lucky/lucky.hpp"
 #include "rules/lucky/parity_model.hpp"
+#include "rules/lucky/onehot_model.hpp"
 
 #include "rules/propagate/propagate.hpp"
 
@@ -294,7 +295,7 @@ ApplyResult lucky_apply(Kernel &k) {
 }
 
 static uint32_t lucky_instances(Kernel &, uint64_t *out, uint32_t cap) {
-  const uint32_t n = cap < 7 ? cap : 7;
+  const uint32_t n = cap < 8 ? cap : 8;
   for (uint32_t i = 0; i < n; i++)
     out[i] = i;
   return n;
@@ -309,6 +310,8 @@ static ApplyResult lucky_apply_instance(Kernel &k, uint64_t inst) {
     return lucky_apply(k);
   if (inst == 6)
     return parity_model_guard(k) ? parity_model_apply(k) : ApplyResult::NoOp;
+  if (inst == 7)
+    return onehot_model_guard(k) ? onehot_model_apply(k) : ApplyResult::NoOp;
   return lucky_apply_probe(k, inst);
 }
 

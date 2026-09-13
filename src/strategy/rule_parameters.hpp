@@ -138,6 +138,34 @@ struct ParityModelParameters {
   static ParityModelParameters from_kernel(const Kernel &);
 };
 
+// SAT-only search over exact one-hot encodings of affine equations in GF(3).
+// Recognition is structural and candidates are accepted only after a complete
+// scan of the live Boolean formula.
+struct OnehotModelParameters {
+  static constexpr uint32_t MAXIMUM_VARIABLES_DEFAULT = 4096;
+  static constexpr uint32_t MAXIMUM_DOMAINS_DEFAULT = 2048;
+  static constexpr uint32_t MAXIMUM_CONSTRAINTS_DEFAULT = 262144;
+  static constexpr uint32_t MAXIMUM_EQUATION_ARITY_DEFAULT = 8;
+  static constexpr uint32_t MINIMUM_DOMAINS_DEFAULT = 1;
+  static constexpr uint32_t MINIMUM_EQUATIONS_DEFAULT = 1;
+  static constexpr uint32_t MAXIMUM_FREE_DOMAINS_DEFAULT = 64;
+  static constexpr uint64_t CANDIDATE_BUDGET_DEFAULT = 1024;
+
+  uint32_t maximum_variables = MAXIMUM_VARIABLES_DEFAULT;
+  uint32_t maximum_domains = MAXIMUM_DOMAINS_DEFAULT;
+  uint32_t maximum_constraints = MAXIMUM_CONSTRAINTS_DEFAULT;
+  uint32_t maximum_equation_arity = MAXIMUM_EQUATION_ARITY_DEFAULT;
+  uint32_t minimum_domains = MINIMUM_DOMAINS_DEFAULT;
+  uint32_t minimum_equations = MINIMUM_EQUATIONS_DEFAULT;
+  uint32_t maximum_free_domains = MAXIMUM_FREE_DOMAINS_DEFAULT;
+  uint64_t candidate_budget = CANDIDATE_BUDGET_DEFAULT;
+  constexpr bool valid() const {
+    return maximum_variables && maximum_domains && maximum_constraints &&
+           maximum_equation_arity && minimum_domains <= maximum_domains;
+  }
+  static OnehotModelParameters from_kernel(const Kernel &);
+};
+
 void install_rule_parameters(Kernel &, const BceParameters &);
 void install_rule_parameters(Kernel &, const TernaryParameters &);
 void install_rule_parameters(Kernel &, const FactorParameters &);
@@ -147,6 +175,7 @@ void install_rule_parameters(Kernel &, const ReduceParameters &);
 void install_rule_parameters(Kernel &, const WalkParameters &);
 void install_rule_parameters(Kernel &, const ReorderParameters &);
 void install_rule_parameters(Kernel &, const ParityModelParameters &);
+void install_rule_parameters(Kernel &, const OnehotModelParameters &);
 
 template <class Parameters> class ScopedRuleParameters {
 public:
@@ -172,6 +201,7 @@ using ScopedSubstituteParameters = ScopedRuleParameters<SubstituteParameters>;
 using ScopedReduceParameters = ScopedRuleParameters<ReduceParameters>;
 using ScopedReorderParameters = ScopedRuleParameters<ReorderParameters>;
 using ScopedParityModelParameters = ScopedRuleParameters<ParityModelParameters>;
+using ScopedOnehotModelParameters = ScopedRuleParameters<OnehotModelParameters>;
 
 class ScopedWalkParameters {
 public:

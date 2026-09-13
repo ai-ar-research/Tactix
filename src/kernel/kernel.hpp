@@ -436,6 +436,13 @@ struct Stats {
   uint64_t parity_model_candidates = 0;
   uint64_t parity_model_sat = 0;
   uint64_t parity_model_interrupted = 0;
+  uint64_t onehot_model_calls = 0;
+  uint64_t onehot_model_domains = 0;
+  uint64_t onehot_model_equations = 0;
+  uint64_t onehot_model_rank = 0;
+  uint64_t onehot_model_candidates = 0;
+  uint64_t onehot_model_sat = 0;
+  uint64_t onehot_model_interrupted = 0;
   uint64_t walks = 0;         // S6 Walk applications (policy op)
   uint64_t walk_flips = 0;    // literal flips
   uint64_t walk_steps = 0;    // occurrence entries scanned (kissat walk_steps)
@@ -1275,6 +1282,22 @@ struct Kernel {
       strategy::ParityModelParameters::MAXIMUM_FREE_VARIABLES_DEFAULT;
   uint64_t parity_model_candidate_budget =
       strategy::ParityModelParameters::CANDIDATE_BUDGET_DEFAULT;
+  uint32_t onehot_model_maximum_variables =
+      strategy::OnehotModelParameters::MAXIMUM_VARIABLES_DEFAULT;
+  uint32_t onehot_model_maximum_domains =
+      strategy::OnehotModelParameters::MAXIMUM_DOMAINS_DEFAULT;
+  uint32_t onehot_model_maximum_constraints =
+      strategy::OnehotModelParameters::MAXIMUM_CONSTRAINTS_DEFAULT;
+  uint32_t onehot_model_maximum_equation_arity =
+      strategy::OnehotModelParameters::MAXIMUM_EQUATION_ARITY_DEFAULT;
+  uint32_t onehot_model_minimum_domains =
+      strategy::OnehotModelParameters::MINIMUM_DOMAINS_DEFAULT;
+  uint32_t onehot_model_minimum_equations =
+      strategy::OnehotModelParameters::MINIMUM_EQUATIONS_DEFAULT;
+  uint32_t onehot_model_maximum_free_domains =
+      strategy::OnehotModelParameters::MAXIMUM_FREE_DOMAINS_DEFAULT;
+  uint64_t onehot_model_candidate_budget =
+      strategy::OnehotModelParameters::CANDIDATE_BUDGET_DEFAULT;
   // DefaultPolicy retains Kissat's separate focused/stable tier snapshots.
   // `tier1/tier2` is the pair posed for the rule currently being applied.
   uint32_t tier1_by_mode[2] = {2, 2};

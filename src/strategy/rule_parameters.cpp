@@ -74,6 +74,16 @@ ParityModelParameters ParityModelParameters::from_kernel(const Kernel &k) {
           k.parity_model_maximum_free_variables,
           k.parity_model_candidate_budget};
 }
+OnehotModelParameters OnehotModelParameters::from_kernel(const Kernel &k) {
+  return {k.onehot_model_maximum_variables,
+          k.onehot_model_maximum_domains,
+          k.onehot_model_maximum_constraints,
+          k.onehot_model_maximum_equation_arity,
+          k.onehot_model_minimum_domains,
+          k.onehot_model_minimum_equations,
+          k.onehot_model_maximum_free_domains,
+          k.onehot_model_candidate_budget};
+}
 
 void install_rule_parameters(Kernel &k, const BceParameters &p) {
   k.bce_occ_limit = p.occurrence_limit;
@@ -153,6 +163,17 @@ void install_rule_parameters(Kernel &k, const ParityModelParameters &p) {
   k.parity_model_minimum_equations = p.minimum_equations;
   k.parity_model_maximum_free_variables = p.maximum_free_variables;
   k.parity_model_candidate_budget = p.candidate_budget;
+}
+
+void install_rule_parameters(Kernel &k, const OnehotModelParameters &p) {
+  k.onehot_model_maximum_variables = p.maximum_variables;
+  k.onehot_model_maximum_domains = p.maximum_domains;
+  k.onehot_model_maximum_constraints = p.maximum_constraints;
+  k.onehot_model_maximum_equation_arity = p.maximum_equation_arity;
+  k.onehot_model_minimum_domains = p.minimum_domains;
+  k.onehot_model_minimum_equations = p.minimum_equations;
+  k.onehot_model_maximum_free_domains = p.maximum_free_domains;
+  k.onehot_model_candidate_budget = p.candidate_budget;
 }
 
 } // namespace tactix::strategy
