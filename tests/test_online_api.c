@@ -136,6 +136,10 @@ static void walk_scoring_is_validated_and_copied(void) {
   tactix_online_program program = {
       &step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
 
+  curve[0].break_base_milli = 0;
+  assert(tactix_online_configure(solver, &program, 152,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  curve[0].break_base_milli = 1500;
   curve[2].average_clause_size_milli = 3000;
   assert(tactix_online_configure(solver, &program, 15,
                                  TACTIX_ONLINE_RECONFIGURE_RESET) == -1);

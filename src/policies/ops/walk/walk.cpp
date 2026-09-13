@@ -7,6 +7,8 @@
 #include "kernel/clause.hpp"
 #include "policies/heuristics.hpp"
 
+#include <cmath>
+
 namespace tactix {
 
 namespace {
@@ -45,6 +47,8 @@ struct Walker {
 
   std::vector<double> table; // scale_score: table[breaks]
   double epsilon = 1.0;
+  double score_base = 0.5;
+  bool increasing_scores = false;
 
   uint32_t nclauses = 0;
   uint32_t binary_clauses = 0; // root-open, deduplicated (kissat BINARY_CLAUSES)
@@ -165,9 +169,21 @@ bool build_table(Walker &w, Kernel &k) {
       strategy::WalkParameters::from_kernel(k);
   const double cb = walk_break_base(parameters, avg, k.stats.walks);
   const double base = 1 / cb;
+  w.score_base = base;
+  w.increasing_scores = base >= 1;
+  if (w.increasing_scores)
+    return true;
   double next = 1;
-  for (w.epsilon = 1; next; next = w.epsilon * base)
+  for (w.epsilon = 1; next;) {
     w.table.push_back(w.epsilon = next);
+    const double candidate = w.epsilon * base;
+    // For bases in (0.5, 1), the smallest subnormal can round back to itself
+    // instead of underflowing to zero. Its constant tail is already represented
+    // by epsilon, so stop at that floating-point fixed point.
+    if (candidate == w.epsilon)
+      break;
+    next = candidate;
+  }
   return true;
 }
 
@@ -247,12 +263,25 @@ Lit pick_literal(Walker &w, std::vector<double> &scores) {
   const uint32_t c = w.unsat[pos];
   const uint32_t beg = w.cl_beg[c], end = w.cl_beg[c + 1];
   scores.clear();
-  double sum = 0;
-  for (uint32_t i = beg; i < end; i++) {
-    const double s = scale_score(w, break_value(w, w.cl_lits[i]));
-    scores.push_back(s);
-    sum += s;
+  if (w.increasing_scores) {
+    uint32_t maximum = 0;
+    for (uint32_t i = beg; i < end; i++) {
+      const uint32_t breaks = break_value(w, w.cl_lits[i]);
+      maximum = std::max(maximum, breaks);
+      scores.push_back(static_cast<double>(breaks));
+    }
+    // cb <= 1 rewards larger break counts. Divide every weight by the largest
+    // weight in this clause before roulette selection, keeping the exact
+    // distribution while preventing overflow. At cb == 1 every score is one.
+    for (double &score : scores)
+      score = std::pow(w.score_base, score - maximum);
+  } else {
+    for (uint32_t i = beg; i < end; i++)
+      scores.push_back(scale_score(w, break_value(w, w.cl_lits[i])));
   }
+  double sum = 0;
+  for (const double score : scores)
+    sum += score;
   const double random = pick_double(w.rng);
   const double threshold = sum * random;
   double acc = 0;

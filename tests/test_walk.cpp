@@ -54,6 +54,8 @@ static void test_configurable_score_curve() {
   custom = reference;
   custom.even_break_base_milli = 0;
   assert(!custom.valid());
+  custom.even_break_base_milli = 1;
+  assert(custom.valid());
   custom = reference;
   custom.score_curve.front().average_clause_size_milli = 1;
   assert(!custom.valid());
@@ -73,6 +75,19 @@ static void build_conflict_cover(Kernel &k, int n) {
   for (int i = 1; i <= n; i++)
     cover.push_back(internalize(i));
   kernel_add_large_clause(k, cover.data(), (uint32_t)cover.size(), false, 0);
+}
+
+static void test_break_base_domain_terminates() {
+  for (const uint32_t base : {1u, 25u, 232u, 999u, 1000u, 1001u, 1500u,
+                              1999u, 2000u}) {
+    Kernel k;
+    ScopedHeuristics heuristics(k);
+    build_conflict_cover(k, 3);
+    k.walk_even_break_base_milli = base;
+    k.walk_score_curve = {{0, base}, {3000, base}};
+    assert(walk_apply_steps(k, 1) != ApplyResult::Conflict);
+    assert(k.stats.walks == 1 && k.stats.walk_steps > 0);
+  }
 }
 
 // the walk finds the model and writes it into the saved phases
@@ -288,6 +303,7 @@ static void test_root_satisfied_binaries_do_not_reach_the_walk() {
 
 int main() {
   test_configurable_score_curve();
+  test_break_base_domain_terminates();
   test_finds_model();
   test_kernel_untouched();
   test_rejects_non_root();

@@ -323,9 +323,13 @@ static void random_walk_and_reorder_vary_scoring_parameters() {
     assert(random_online_strategy_program(k, seed, config, program, &error));
     for (const OnlineInvocation &step : program.sequence) {
       if (const auto *p = std::get_if<WalkParameters>(&step.parameters)) {
+        assert(p->valid());
+        assert(p->even_break_base_milli > 0);
         walk_even_bases.insert(p->even_break_base_milli);
-        for (const WalkParameters::ScorePoint point : p->score_curve)
+        for (const WalkParameters::ScorePoint point : p->score_curve) {
+          assert(point.break_base_milli > 0);
           walk_curve_bases.insert(point.break_base_milli);
+        }
       } else if (const auto *p =
                      std::get_if<ReorderParameters>(&step.parameters)) {
         reorder_decay.insert(p->clause_decay_milli);
