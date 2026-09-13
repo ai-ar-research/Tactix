@@ -6,16 +6,18 @@ and frozen reports own detailed history.
 
 ## Current objective
 
-The online-configurable strategy/N1 refactor is accepted at `a08f9f6a`. Native
-DSR is now Tactix's canonical whole-solver certificate. Proof production remains
-mandatory; DRAT and native LRAT remain compatibility formats for the older rule
-vocabulary.
+The online-configurable strategy/N1 refactor is accepted at `a08f9f6a`, and
+native DSR is landed at `20223134` as Tactix's canonical whole-solver
+certificate. The current working-tree increment adds the first general
+direct-DSR substitution-redundancy rule for the Satsuma symmetry path. Proof
+production remains mandatory; DRAT and native LRAT remain compatibility formats
+for the older rule vocabulary.
 
-The next increment is the first general direct-DSR substitution-redundancy rule
-and orbitopal producer for the Satsuma symmetry path. Preserve N1--N4 and the
-reference default, then resume the fixed WV100 mechanism program. Do not submit a new full Tier-D run at the DSR
-boundary. Kissat-only tuning, benchmark dispatch, and sequential portfolios are
-out of scope; MAB scheduling remains an open design choice.
+Finish the direct-SR orbitopal producer, preserve N1--N4 and the reference
+default, and resume the fixed WV100 mechanism program. Do not submit a new full
+Tier-D run at the DSR or direct-SR boundary. Kissat-only tuning, benchmark
+dispatch, and sequential portfolios are out of scope; MAB scheduling remains
+an open design choice.
 
 ## Authority
 
@@ -59,8 +61,8 @@ checks. Claude job `1687182` passed the final refactor fuzz checkpoint.
 
 ## Native DSR status
 
-- Tactix contains streaming binary/ASCII DSR, typed `add_sr`, CLI/C
-  API selection, and one combined certificate for ordinary CDCL,
+- Accepted source `20223134` contains streaming binary/ASCII DSR, typed
+  `add_sr`, CLI/C API selection, and one combined certificate for ordinary CDCL,
   inprocessing, and future substitution-redundancy additions/deletions.
 - The default checker path is `dsr-trim` to LSR followed by pinned Trestle
   `srcheck`. Benchmark, runtime, and fuzz launchers use anonymous scratch with
@@ -71,8 +73,8 @@ checks. Claude job `1687182` passed the final refactor fuzz checkpoint.
 - B27+C5 paired gate `1688455` completed 64/64 tasks. Candidate DSR solver time
   was 926.873 s versus 931.337 s for the accepted reference (**0.995207x**) and
   928.581 s for its same-source DRAT control (**0.998161x DSR/DRAT**).
-- Rank1--40 paired gate `1688424` has 76/80 completed tasks and four running
-  tasks. Its complete solver-time vector is already available: DSR 7,516.228 s
+- Rank1--40 paired gate `1688424` has a complete solver-time vector; remaining
+  checker tasks continue in the background: DSR 7,516.228 s
   versus 7,589.858 s for the accepted reference (**0.990299x**) and 7,507.764 s
   for same-source DRAT (**1.001127x DSR/DRAT**). Final checker completion remains
   background work.
@@ -100,6 +102,36 @@ or node residue. A fixed micro proof checked one direct non-RAT SR witness and
 rejected an incomplete witness; the pinned pre-SR solver emitted no SR step, so
 the new X7 rule still requires its own Claude fuzz checkpoint.
 
+## Direct substitution redundancy status
+
+- A registered root `SubstitutionRedundancy` action accepts an explicit clause,
+  witness literals, and a finite literal substitution. It validates the DSR SR
+  condition by bounded unit propagation before any proof or formula mutation,
+  emits one direct SR addition, and commits the clause through ordinary kernel
+  insertion/propagation.
+- The typed online v2 surface supports explicit SR instances, caller-selected
+  batches, resumable general enumeration, orbitopal production, ordinary
+  composition granularities, explicit budgets/stops, and safe reconfiguration.
+  Random-online generation and replay use the same representation.
+- The general enumerator ranges over every candidate pivot, clause, witness,
+  and finite literal mapping over non-retired variables. All enumeration and
+  validation limits are named, validated strategy parameters; exhaustion and
+  interruption remain distinct from semantic inapplicability.
+- The first default producer recognizes exact orbitopal matrices, checks each
+  adjacent-row swap as a full clause-multiset automorphism, and schedules its
+  direct SR units before `Factor`, the first known symmetry-breaking boundary.
+- Focused local tests pass 8/8. Slurm micro job `1688570` passed 5/5, including
+  direct SR elaboration by patched `dsr-trim` and independent Trestle checking.
+  Transactional proof-format job `1688574` passed in Release and Debug; jobs
+  `1688577` and `1688578` then passed all 148 Release and all 147 applicable
+  ASan/UBSan tests. The first performance candidate was rejected and jobs
+  `1688579`/`1688607` canceled after zero-yield orbitopal detection took 93.3 s
+  on Rank 8. A general lightweight screen reduced that rule time to 0.945 s and
+  restored the focused case to 66.694 s versus 66.330 s. Replacement native-DSR
+  jobs `1688666` (B28+C5, 33 tasks) and `1688694` (Rank1--50, 50 tasks) are
+  running at c12, 32 GiB, and 1,200 solver seconds. They rerun neither the
+  retained reference solver nor a DRAT compatibility arm.
+
 ## Operations and fixed experiment contracts
 
 - Existing proof-checking jobs continue in the background and do not block
@@ -124,10 +156,10 @@ the new X7 rule still requires its own Claude fuzz checkpoint.
 
 ## Next actions
 
-1. Keep the four remaining Rank checker tasks in the background and freeze their
+1. Keep the remaining Rank checker tasks in the background and freeze their
    report when they finish.
-2. Implement and gate direct SR/orbitopal symmetry through the shared online
-   interfaces, native DSR, Claude fuzz, and default-performance controls.
+2. Finish direct SR/orbitopal correctness, Claude fuzz, and default-performance
+   gates; then land the Satsuma symmetry rule.
 3. Resume WV100 by mechanism/signature groups while preserving prior coverage;
    implement general proof-supported mechanisms rather than portfolios.
 
