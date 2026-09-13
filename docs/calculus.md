@@ -127,16 +127,20 @@ target in `[jump_level, level-1]` is sound.
 ### S5 · Lucky
 - **Precondition (abstract):** consistent at level zero with no pending conflict. Instances 0–5 attempt reference complete assignments
   via decision-free assumptions and propagation. Instance 6 groups ternary clauses by variable triple and same-parity falsifying
-  sign masks, treats the resulting affine equations only as candidate guidance, and searches their residual GF(2) space.
+  sign masks, treats the resulting affine equations only as candidate guidance, and searches their residual GF(2) space. Instance 7
+  recognizes disjoint exactly-one triples and complete forbidden-tuple encodings of affine GF(3) equations, then searches the
+  residual field space.
 - **Effect:** on success `τ` is a total model → `Sat`; otherwise `σ` is unchanged *by the probing itself*. Proof δ: none from the
   probes (SAT needs no proof) — but like every inprocessing rule it drains the root closure at apply entry, emitting that closure's
   units (`add_derived_unit` under LRAT) and possibly refuting (`add_empty` → `Unsat`). "No proof δ" is true of the rule's own
   inference, not of an apply.
-- **Parameters and termination:** instance 6 exposes variable, group and total-constraint admission bounds, minimum group/equation
-  counts, maximum free variables, and candidate budget as validated per-call settings; interruption and every exhausted bound return
-  `NoOp` before any assignment. Group and equation order is stable. Instances 0–5 retain their reference order.
-- **Soundness:** every successful instance has a total model. Instance 6 validates each candidate against every live large and binary
-  clause before committing it, so incomplete structural groups can miss models but cannot produce false SAT. Failure preserves `σ`.
+- **Parameters and termination:** instances 6 and 7 expose their variable, structure, total-constraint, equation, free-dimension and
+  candidate bounds as validated per-call settings; instance 7 also exposes maximum equation arity. Interruption and every exhausted
+  bound return `NoOp` before any assignment. Structural ordering is deterministic. Instances 0–5 retain their reference order.
+- **Soundness:** every successful instance has a total model. Both structural instances validate each candidate against every live
+  large and binary clause before committing it. Instance 7 recognizes an equation only when its exactly-one domain clauses and the
+  complete set of forbidden tuples are present. Incomplete recognition can miss models but cannot produce false SAT. Failure
+  preserves `σ`.
 
 ## 5. Subsumption & strengthening (C1–C3)
 
