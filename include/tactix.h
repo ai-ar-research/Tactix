@@ -418,7 +418,8 @@ typedef struct {
 typedef struct {
   uint64_t step_budget, random_seed;
   /* Appended scoring fields: zero selects the reference default so existing
-   * zero-initialized source callers retain their behavior. A nonzero point
+   * zero-initialized source callers retain their behavior. Explicit break
+   * bases use positive per-mille fixed point. A nonzero point
    * count requires a copied, strictly size-ascending curve. */
   uint32_t even_break_base_milli;
   const tactix_online_walk_score_point *score_curve;
