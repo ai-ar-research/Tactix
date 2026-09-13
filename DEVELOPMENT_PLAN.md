@@ -9,6 +9,20 @@ open decisions. Status belongs in PROGRESS; rule semantics in
 evidence in frozen reports and run results. Scope is sequential,
 single-threaded, deterministic solving.
 
+### Active execution order
+
+1. Keep native DSR as the canonical whole-solver certificate and preserve its
+   accepted B27+C5 and Rank 1--40 gate.
+2. Complete the direct-SR Satsuma symmetry rule through the shared strategy
+   interface. Gate it with focused proof checks, Claude-owned fuzzing, B28+C5,
+   and Rank 1--50 before landing it.
+3. Resume mechanism-driven work on the fixed WV100 target. Integrate general
+   preprocessing or root-inprocessing mechanisms; do not build a sequential
+   portfolio or dispatch on benchmark identity.
+
+Do not submit a new full Tier-D run at the DSR or direct-SR boundary. Existing
+proof-checking jobs remain background checks and do not block independent work.
+
 ## 1. Goal and requirements
 
 - **R1:** emit one native DSR certificate for every UNSAT execution, elaborate
@@ -249,6 +263,7 @@ their owning documents.
 | X4 | `Instantiate` | add-RUP + delete | 3 |
 | X5 | `Condition` | delete + push-witness | 3 |
 | X6 | `HyperBinaryRes` | add-RUP + delete | 3 |
+| X7 | `SubstitutionRedundancy` | direct add-SR | 3 |
 
 Support services—classification, reconstruction, internal checking, occurrence
 indexes—are not schedulable rules. Phase 3 requires every catalog family to be
