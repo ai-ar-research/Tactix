@@ -16,7 +16,7 @@ guidance; S6 additionally requires root because its representation transition re
 | M3 ConflictAnalysis | `conflict_valid && !inconsistent` | pure; Analyze+Backjump is atomic |
 | S1 Restart | `!inconsistent` | pure; level zero without a conflict is an explicit no-op. A retained non-root prefix keeps a still-falsified conflict; a stale record is cleared, while a surviving root conflict is discharged through native analysis/proof before root rewrites. DefaultPolicy schedules Restart only above root. |
 | S2 Reduce | `!inconsistent` | pure; pending/non-root reasons and a recorded large conflict are locked through deletion and collection, with live Refs forwarded. Proved root units need no clause lock. Isolated7448 adds opaque individual-victim payloads independent of tier/recency protection, retaining canonical/count selection. M1 names LRAT units before deletion; GC retires root reasons. Preparation-root guidance remains policy-owned. |
-| S5 Lucky | `root && !conflict_valid` | root-phase model probe; instances 0–5 restore the root state on failure. Structural instance 6 runs after root closure at the sparse, connected, non-probing action boundary; all admission/search limits are typed settings, and it commits only a whole-CNF-validated model. |
+| S5 Lucky | `root && !conflict_valid` | root-phase model probe; instances 0–5 restore the root state on failure. Structural instances 6 (GF(2) ternary groups) and 7 (exact one-hot GF(3)) run after root closure at the sparse, connected, non-probing action boundary; all admission/search limits are typed settings, and each commits only a whole-CNF-validated model. |
 | S6 Walk | `root && H && nvars > 0` | root-phase policy operation; the dense-entry/sparse-resume representation transition is not exposed on a live decision trail |
 | C1 SubsumeForward, C2 Strengthen, C3 Vivify | `root` | declared inprocessing boundary. C1 exposes every live victim. C2 additionally exposes each distinct `(victim, removed literal)` result plus its fused C1 deletion; proper C2 strengthening may use redundant partners, while C1 deletion still requires an irredundant or binary subsumer. |
 | V1 Probe, V2 Backbone | `root && !conflict_valid` | root is the declared inprocessing boundary; conflict condition is abstract |
@@ -72,6 +72,9 @@ explicitly poseable.
   because the trail need not be level-sorted.
 - Off-fixpoint Decide taints propagation; search backtrack or root additions rearm the cursor. `kernel_propagation_fixpoint` is the
   sole fixpoint oracle.
+- Independent probing episodes close any level-zero implications retained by the preceding episode before opening a new assumption;
+  otherwise an assumption can mask a watched clause behind the root propagation cursor. In-place binary rewrites rearm both new
+  literals under the same propagation contract as binary insertion.
 - Search, probing, and binary propagation post-increment the trail cursor before scanning, so a conflict publishes the consumed
   literal exactly like Kissat. Isolated5649 keeps a local cursor, publishing at exits (per scan for diagnostics). Backtrack owns
   rewinds; binary-only debt still forces every skipped large scan.

@@ -6,21 +6,20 @@ reports own detailed history.
 
 ## Current objective
 
-The online-configurable strategy/N1 refactor gate is complete with N2–N4,
-reference-default behavior and runtime preserved. A Claude fuzz checkpoint
-found and Codex repaired one totality defect in noncanonical Walk scoring; all
-former failures and the bounded broad recheck now pass. Inprocessing programs,
-Lucky, and Walk operate at level zero. A search-time strategy can explicitly
-apply `Restart` before them; the executor does not suspend or restore non-root
-trails.
+The online-configurable strategy/N1 implementation is complete. Final N2–N4
+acceptance is being rechecked after Claude fuzzing exposed inherited root
+propagation debt between independent probes and slow SIGTERM handling inside
+Sweep. Codex repaired both boundaries. Inprocessing programs, Lucky, and Walk
+operate at level zero. A search-time strategy can explicitly apply `Restart`
+before them; the executor does not suspend or restore non-root trails.
 
 The post-gate winner-VBS set is now frozen and its matched rerun is complete:
 ten LymphoSAT-only SAT wins and ten Satsuma-only UNSAT wins over genuine Tactix
-timeouts. Development now starts with a general Boolean-parity model mechanism;
-Kissat-only tuning and sequential portfolios remain out of scope.
-The first experimental increment is S5 Lucky semantic instance 6: it derives
-GF(2) candidate guidance from ternary groups and accepts only a model checked
-against the complete live CNF.
+timeouts. S5 Lucky now has two general structural model mechanisms: instance 6
+derives GF(2) candidate guidance from ternary groups, and instance 7 recognizes
+exact one-hot GF(3) affine encodings. Both accept only a model checked against
+the complete live CNF. Kissat-only tuning and sequential portfolios remain out
+of scope.
 
 ## Authority and candidate
 
@@ -28,7 +27,7 @@ against the complete live CNF.
 |---|---|
 | Refactor base | `0060215a` (`Keep inprocessing and Walk at root`) |
 | Refactor closure | `b1165641`; Release pin `916eae4d7e87f5602649035ac15a8c2985e83deaec2250e338a47972b998e9bf` |
-| Current source | `690322ab`; Release SHA `40b6b348adfbfd75736b45edc2c229463deb54876719ef11bfda4057eccaf9e8` |
+| Current source | `8f9161f4`; Release SHA `eea4de53e617e89ca1223a6ff254b9457ccfbf6f627f72dc3e60147445a5620f` |
 | Design | [online proposal](docs/design/2026-09-11-online-strategy-proposal.md) and [preservation addendum](docs/design/2026-09-11-strategy-behavior-preservation-addendum.md) |
 | Claude review | [7528 disposition](benchmarks/reports/2026-09-11-online-strategy-review-7528/disposition.md) and [D-NOOP recheck](benchmarks/reports/2026-09-12-claude-d-noop-recheck.md) |
 | Prior gate evidence | [refactor/N1 checkpoint](benchmarks/reports/2026-09-12-refactor-n1-gates.md) and [state-boundary follow-up](benchmarks/reports/2026-09-12-n1-state-boundary-followup.md) |
@@ -84,14 +83,20 @@ not implementation or project-document changes.
   free-variable and candidate limits as validated scoped settings through the
   C++ and C online APIs. Production random programs vary, serialize and replay
   the same settings and can explicitly select the structural instance.
+- Lucky instance 7 exposes the corresponding one-hot domain, GF(3) equation
+  arity, free-dimension and candidate settings. Equation recognition requires
+  complete exactly-one and forbidden-tuple encodings; public and random-online
+  callers reach the same implementation.
+- Independent probing scopes now close retained level-zero implications before
+  opening the next assumption. Sweep and BVE embedded solves observe external
+  stops for finite as well as unlimited budgets; Sweep also polls model-flip,
+  detection and proof-emission loops without consuming interrupted items.
 
 ## Current validation
 
-- Release: **146/146** tests passed.
-- Current source `690322ab` passes **146/146** Release tests and **7/7** focused
-  ASan+UBSan Walk, API and random-strategy tests. Original-CNF model, native
-  DRAT and native LRAT checks pass for the typed settings and zero-gain Factor
-  boundary; the earlier complete sanitizer suite remains background work.
+- Current source `8f9161f4` passes **147/147** Release tests excluding the long
+  scripted demo and **17/17** focused ASan+UBSan tests. The preceding GF(3)
+  source passed **147/147** Debug tests under the same exclusion.
 - B28+C5 candidate `20260913-0337-walkfix-gate-BC`: **33/33** solver
   results, 949.997 seconds versus 951.866 pre-fix, **0.998036x**, and 958.538
   retained, **0.991090x**.
@@ -108,16 +113,30 @@ not implementation or project-document changes.
   `690322ab`. Claude's [single-job recheck](benchmarks/reports/2026-09-13-walk-scoring-closure-fuzz-690322ab.md)
   `1686614` passed all 676 former failures, 2000 fresh typed programs and 600
   square cases with every required oracle and reachability target satisfied.
-- The structural Lucky increment builds in Debug and passes its focused guard,
-  model, negative-control, budget, interruption, public C API and random replay
-  checks. Its real-instance and performance gates are not yet complete.
+- The GF(2) short gate solved both parity targets with independent model checks;
+  B28+C5 ran 33/33 with identical semantic counters at 1.0069x retained time,
+  and Rank1–50 ran 50/50 at 1.0167x with identical semantic counters. Certificate
+  checks remain background work.
+- The GF(3) short gate `1686852` solved all eight remaining selected SAT targets
+  in 0.034 seconds each. Every original-CNF model verified, all eight reached
+  400 domains and 360 rank-360 equations, and anonymous cleanup was complete.
+- Its B28+C5 gate `1686861` produced 33/33 expected solver results in 953.067
+  seconds: **1.0032x** the retained refactor build and **0.9964x** the parity
+  build, with identical semantic counters. Certificate checks remain background
+  work; candidate-only Rank1–50 job `1686894` is running under the retained
+  resource contract.
+- Claude checkpoint `1686850` found two Debug replay invariant failures and one
+  release interruption failure. Exact Codex repros `1686953` and `1686954` now
+  replay cleanly; final SIGTERM repro `1686958` exits `UNKNOWN` in 1.195 seconds
+  without SIGKILL or named formula/proof/trace residue. A corrected bounded
+  Claude checkpoint and final performance gates remain acceptance work.
 
 ## Active operations
 
 - Storage guard PID `1076798` checks `/home/hwu/SAT-solving` every ten minutes.
   Above 700 GiB it holds only pending jobs whose Slurm `WorkDir` is this repo;
   it never suspends running jobs. Below the threshold it releases only jobs it
-  held. Its latest completed check was 108 GiB with no holds.
+  held. Its latest completed check was 114 GiB with no holds.
 - Post-refactor Tier-D array `1685130` covers all 1,166 instances from commit
   `b1165641` with the same `cpu-q`, four-CPU, 32-GiB and 1200-second solver
   contract. Validation job `1685119` passed SAT/model, UNSAT/DRAT, forced-crash
@@ -134,10 +153,13 @@ not implementation or project-document changes.
 ## Next actions
 
 1. Leave performance proof/model checks and the storage guard backgrounded.
-2. Run the immutable short gate on both frozen parity targets and independently
-   check each original-CNF model.
-3. If the premise holds, run Claude's fuzz checkpoint and fast-rejection
-   overhead before broader B28+C5 and Rank 1–50 gates.
+2. Run one corrected bounded Claude checkpoint and current-source B28+C5 and
+   Rank1–50 default-preservation gates.
+3. Once those pass, submit the latest committed Tactix over Tier D with the
+   validated anonymous-scratch runner and retained four-CPU/32-GiB/1200-second
+   contract.
+4. Then study proof-producing symmetry mechanisms for the ten selected UNSAT
+   losses; do not add a constraint without a native DRAT/LRAT justification.
 
 ## Acceptance
 
@@ -168,3 +190,7 @@ not implementation or project-document changes.
   validated strategy settings and completed exact zero-gain Factor N1 coverage.
 - Froze and reran the exact 10 SAT + 10 UNSAT winner-VBS loss set; began the
   general Boolean-parity mechanism from two structurally recovered SAT cases.
+- Added exact one-hot GF(3) recognition and model search, covering the other
+  eight selected SAT losses with independently checked models.
+- Closed root propagation before independent probes and made long Sweep proof,
+  model-flip and embedded-solver work interruptible and safely resumable.

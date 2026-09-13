@@ -401,14 +401,14 @@ candidate D contains reason(x)
           </div>
         </details>
 
-        <details class="rule-card" id="S5" data-family="search" data-search="s5 lucky sat model complete assignment restore parity affine gf2">
+        <details class="rule-card" id="S5" data-family="search" data-search="s5 lucky sat model complete assignment restore parity affine gf2 onehot gf3">
           <summary><span class="rule-id">S5</span><span class="rule-title"><h3>Lucky</h3><p>Search configured complete assignments and report SAT only on success</p></span><span class="status">public</span></summary>
           <div class="rule-content"><div class="tabs"><button class="tab active" data-panel="formal">Formal calculus</button><button class="tab" data-panel="plain">Informal</button><button class="tab" data-panel="examples">Examples</button></div>
             <section class="panel" data-panel-content="formal"><div class="equation">F consistent and not refuted; level(τ)=0; no pending conflict
 ──────────────────────────────────────── S5
 configured complete-assignment candidate A
-if A ⊨ every live clause: Sat(A) ; otherwise restore root σ exactly  δown = ε</div><div class="formal-grid"><div class="formal-block"><h4>Effect</h4><p>Instances 0–5 try the reference assumption patterns. Instance 6 derives candidate GF(2) equations from ternary sign groups and searches within configured bounds. Success leaves a total model; failure preserves the entry state.</p></div><div class="formal-block"><h4>Soundness</h4><p>The affine equations guide search only. SAT is returned after an independent scan confirms that the total assignment satisfies every live large and binary clause.</p></div></div></section>
-            <section class="panel" data-panel-content="plain"><p class="plain"><strong>Try configured ways to construct a complete model.</strong> The structural mode can use parity-shaped clauses to propose candidates, but accepts one only after checking the whole formula.</p></section>
+if A ⊨ every live clause: Sat(A) ; otherwise restore root σ exactly  δown = ε</div><div class="formal-grid"><div class="formal-block"><h4>Effect</h4><p>Instances 0–5 try the reference assumption patterns. Instance 6 derives candidate GF(2) equations from ternary sign groups. Instance 7 recognizes exact one-hot GF(3) affine encodings. Both search within configured bounds. Success leaves a total model; failure preserves the entry state.</p></div><div class="formal-block"><h4>Soundness</h4><p>The affine equations guide search only. GF(3) equations require complete exactly-one and forbidden-tuple encodings. SAT is returned after an independent scan confirms that the total assignment satisfies every live large and binary clause.</p></div></div></section>
+            <section class="panel" data-panel-content="plain"><p class="plain"><strong>Try configured ways to construct a complete model.</strong> Structural modes use Boolean or one-hot finite-field clauses to propose candidates, but accept one only after checking the whole formula.</p></section>
             <section class="panel" data-panel-content="examples"><div class="examples"><div class="example"><h4>A lucky model</h4><div class="equation">F = {(a ∨ b), (¬a ∨ b), (a ∨ ¬b)}
 try A = {a=true, b=true}
 A ⊨ F ⇒ Sat</div><p>All three clauses are satisfied.</p></div><div class="example"><h4>A failed attempt</h4><div class="equation">F = {(a ∨ b), (¬a ∨ b)}
