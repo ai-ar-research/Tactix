@@ -113,6 +113,10 @@ not implementation or project-document changes.
   52 became immediate contradictions, with 51 structured, five Johnson and one
   general priority class. This is causal-attribution evidence only; G0--G2 must
   close before S1 mutates Tactix.
+- Satsuma G1 now has an independently derived native-LRAT prototype. The
+  official 39-record `R_18_4_4` example expanded to 888,337 exact proof
+  operations and 47,445,835 bytes; pinned `cake_lpr` verified it in 3.21 seconds
+  and rejected the terminal-empty negative control. G0 and G2 remain open.
 - Focused WV100 development defaults to `cpu-dense-hwulab-q`, eight CPUs,
   32 GiB and 300 solver seconds; qualitative `cpu-q` probes are allowed.
   B28+C5 and Rank 1--50 retain the stable `cpu-dense-hwulab-q`, 12-CPU,
@@ -122,8 +126,9 @@ not implementation or project-document changes.
 
 1. Leave Tier-D, proof checks and the storage guard running in the background.
 2. Score arriving Tier-D results against fixed WV100 without rerunning references.
-3. Close Satsuma G0 obligation classification, G1 native-LRAT prototype and G2
-   post-inprocessing automorphism survival; Claude's design review is complete.
+3. Close Satsuma G0 obligation classification and G2 post-inprocessing
+   automorphism survival; G1 native-LRAT feasibility and Claude's advisory
+   design review are complete.
 4. Implement supported mechanisms through the shared typed rule interface,
    extending the calculus and native proof path where required.
 5. Gate every mechanism with focused proof/model tests, Claude-owned fuzz,
