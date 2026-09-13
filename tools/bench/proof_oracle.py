@@ -9,6 +9,46 @@ from typing import Literal
 from pathlib import Path
 
 
+def _at_most_three_integer_tokens(path):
+    """Read a possible trivial LSR without materializing a real proof."""
+    tokens = []
+    value = 0
+    sign = 1
+    digits = 0
+    in_token = False
+    try:
+        with Path(path).open('rb') as source:
+            while True:
+                chunk = source.read(64 * 1024)
+                if not chunk:
+                    break
+                for byte in chunk:
+                    if byte in b' \t\r\n\v\f':
+                        if not in_token:
+                            continue
+                        if not digits:
+                            return None
+                        tokens.append(sign * value)
+                        if len(tokens) > 3:
+                            return None
+                        value, sign, digits, in_token = 0, 1, 0, False
+                    elif not in_token and byte == ord('-'):
+                        sign, in_token = -1, True
+                    elif ord('0') <= byte <= ord('9'):
+                        value = 10 * value + byte - ord('0')
+                        digits += 1
+                        in_token = True
+                    else:
+                        return None
+        if in_token:
+            if not digits:
+                return None
+            tokens.append(sign * value)
+        return tokens if len(tokens) <= 3 else None
+    except OSError:
+        return None
+
+
 def proof_check_status(checker: str, returncode: int, stdout: str,
                        stderr: str) -> Literal['verified', 'rejected', 'error']:
     if checker not in ('drat-trim', 'cake_lpr', 'dsr-trim', 'srcheck'):
@@ -46,9 +86,8 @@ def bridge_trivial_input_lsr(cnf_path, lsr_path) -> bool:
     input clause k is empty. Trestle remains the authority for acceptance.
     """
     cnf_path, lsr_path = Path(cnf_path), Path(lsr_path)
-    try:
-        tokens = [int(token) for token in lsr_path.read_text().split()]
-    except (OSError, ValueError):
+    tokens = _at_most_three_integer_tokens(lsr_path)
+    if tokens is None:
         return False
     if len(tokens) != 3 or tokens[1:] != [0, 0]:
         return False

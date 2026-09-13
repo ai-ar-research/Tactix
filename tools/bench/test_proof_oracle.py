@@ -85,6 +85,16 @@ class ProofOracleTests(unittest.TestCase):
                 self.assertFalse(bridge_trivial_input_lsr(cnf, lsr))
                 self.assertEqual(lsr.read_text(), proof)
 
+    def test_trivial_bridge_streams_past_a_large_real_proof_prefix(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            cnf, lsr = root / 'input.cnf', root / 'proof.lsr'
+            cnf.write_text('p cnf 1 1\n0\n')
+            proof = b'2 0 1 0 ' + b'7 ' * 1_000_000
+            lsr.write_bytes(proof)
+            self.assertFalse(bridge_trivial_input_lsr(cnf, lsr))
+            self.assertEqual(lsr.stat().st_size, len(proof))
+
 
 if __name__ == '__main__':
     unittest.main()
