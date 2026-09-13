@@ -1464,7 +1464,10 @@ inline uint64_t kernel_external_unit_id(const Kernel &k, Var external) {
 }
 
 void kernel_push_witness(Kernel &, Lit witness, const Lit *rest, uint32_t nrest);
-void kernel_extend_model(Kernel &);
+// Reconstruct a total external model.  Terminal solver/output paths may also
+// mirror it into internal values for legacy white-box consumers.  Resumable
+// online paths pass false so model export cannot mutate solver state.
+void kernel_extend_model(Kernel &, bool materialize_internal = true);
 
 // Policy-free support primitive: densely renumber variables whose formula
 // retirement is already complete.  External proof/API/model identities do not

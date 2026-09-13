@@ -791,7 +791,7 @@ int tactix_online_advance(tactix_solver *s, tactix_online_result *result) {
   heuristics_discard_rule_events(s->kernel);
   kernel_check_invariants(s->kernel);
   if (advanced.status == strategy::InvocationStatus::Sat) {
-    kernel_extend_model(s->kernel);
+    kernel_extend_model(s->kernel, /*materialize_internal=*/false);
   }
   online_result(advanced, *result);
   return 0;
@@ -1013,11 +1013,12 @@ int tactix_status(tactix_solver *s) {
   input_complete(s);
   if (s->kernel.inconsistent)
     return 20;
-  // SAT requires a total, fully propagated assignment with no conflict in
-  // flight: a recorded conflict (conflict_valid) or an analyzed but not yet
-  // backjumped one (pending.valid) means the assignment still falsifies a
-  // clause even though the propagation head moved on.
-  if (s->kernel.unassigned == 0 && !s->kernel.conflict_valid &&
+  // SAT requires every active variable assigned at a propagation fixpoint,
+  // with no conflict in flight. Retired, unassigned identities occur in no
+  // live clause and kernel_extend_model supplies their external values. A
+  // recorded conflict (conflict_valid) or an analyzed but not yet backjumped
+  // one (pending.valid) still prevents a verdict.
+  if (s->kernel.unassigned_active == 0 && !s->kernel.conflict_valid &&
       !s->kernel.pending.valid && kernel_propagation_fixpoint(s->kernel))
     return 10;
   return 0;
