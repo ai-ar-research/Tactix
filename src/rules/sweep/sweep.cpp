@@ -22,13 +22,18 @@ SubResult sweep_solve(Kernel &k, SweepEnv &e,
                       const std::vector<SubLit> &assumptions,
                       uint64_t budget) {
   e.solver.randomize_phases();
-  // Reference settings bound every embedded solve. Only an explicitly
-  // unlimited online request needs the interruptible specialization; the
-  // finite path retains SubSolver's original hot-loop code generation.
-  return budget
-             ? e.solver.solve(assumptions, budget, SubTickMode::Kitten)
-             : e.solver.solve_interruptible(assumptions, budget,
-                                             SubTickMode::Kitten, k.stop);
+  // A finite tick ceiling can still be arbitrarily large through the typed
+  // online interface.  The external stop is an independent bound, so retain
+  // it for both finite and unlimited embedded solves.
+  return e.solver.solve_interruptible(assumptions, budget,
+                                      SubTickMode::Kitten, k.stop);
+}
+
+static bool sweep_stopping(Kernel &k) {
+  if (!kernel_terminating(k))
+    return false;
+  k.stats.rule_interrupted++;
+  return true;
 }
 
 ApplyResult sweep_emit_round(Kernel &, SweepRound &, uint32_t,
@@ -911,18 +916,23 @@ static void backbone_refine(const Kernel &k, SweepRound &r) {
   r.backbone.resize(keep);
 }
 
-static void backbone_flip(Kernel &k,
+static bool backbone_flip(Kernel &k,
 #ifdef TACTIX_ENABLE_EVENT_TRACE
                           Var seed,
 #endif
                           const SweepLimits &lim, SweepRound &r) {
   SweepEnv &e = r.env;
   if (!e.solver.has_model())
-    return;
+    return false;
   for (uint32_t round = 0; round < lim.flip_rounds; round++) {
+    if (sweep_stopping(k))
+      return true;
     uint32_t flipped = 0;
     size_t keep = 0;
+    uint32_t stop_poll = 0;
     for (const Lit lit : r.backbone) {
+      if (!(stop_poll++ & 255u) && sweep_stopping(k))
+        return true;
       k.stats.sweep_backbone_candidates++;
       const SubLit sl = sub_lit(e.sub_of_var[var_of(lit)], negated(lit));
       const bool did_flip = e.solver.flip_model_literal(sl);
@@ -944,22 +954,28 @@ static void backbone_flip(Kernel &k,
         (lim.env_ticks && e.solver.kitten_ticks() > lim.env_ticks))
       break;
   }
+  return false;
 }
 
-static void partition_flip(Kernel &k,
+static bool partition_flip(Kernel &k,
 #ifdef TACTIX_ENABLE_EVENT_TRACE
                            Var seed,
 #endif
                            const SweepLimits &lim, SweepRound &r) {
   SweepEnv &e = r.env;
   if (!e.solver.has_model())
-    return;
+    return false;
   for (uint32_t round = 0; round < lim.flip_rounds; round++) {
+    if (sweep_stopping(k))
+      return true;
     uint32_t flipped = 0;
+    uint32_t stop_poll = 0;
     for (auto &c : r.partition) {
       size_t keep = 0;
       size_t live = c.size();
       for (size_t i = 0; i < c.size(); i++) {
+        if (!(stop_poll++ & 255u) && sweep_stopping(k))
+          return true;
         const Lit l = c[i];
         k.stats.sweep_flip_attempts++;
         const SubLit sl = sub_lit(e.sub_of_var[var_of(l)], negated(l));
@@ -995,6 +1011,7 @@ static void partition_flip(Kernel &k,
         (lim.env_ticks && e.solver.kitten_ticks() > lim.env_ticks))
       break;
   }
+  return false;
 }
 
 static uint32_t detect_full_partition(
@@ -1027,7 +1044,10 @@ static uint32_t detect_full_partition(
   k.stats.sweep_cand_seeded += partition_size(r);
 
   std::vector<SubLit> &assumptions = r.assumptions;
+  uint32_t found = 0, solved = 0;
   while (!r.backbone.empty()) {
+    if (sweep_stopping(k))
+      return found;
     // Kissat's outer refinement poll is inclusive even though the inner flip
     // loop permits an overrun (`kitten_ticks_limit_hit`, sweep.c:1369-1382).
     if (lim.env_ticks && e.solver.kitten_ticks() >= lim.env_ticks)
@@ -1037,11 +1057,12 @@ static uint32_t detect_full_partition(
     // one popped candidate returns here before the next candidate is chosen;
     // the changed model can eliminate or reorder much of the remaining
     // backbone without another embedded solve.
-    backbone_flip(k,
+    if (backbone_flip(k,
 #ifdef TACTIX_ENABLE_EVENT_TRACE
                   seed,
 #endif
-                  lim, r);
+                  lim, r))
+      return found;
     if (r.backbone.empty() ||
         (lim.env_ticks && e.solver.kitten_ticks() >= lim.env_ticks))
       break;
@@ -1102,9 +1123,10 @@ static uint32_t detect_full_partition(
       return 0;
   }
 
-  uint32_t found = 0, solved = 0;
   while (!r.partition.empty() &&
          (!lim.max_candidates || solved < lim.max_candidates)) {
+    if (sweep_stopping(k))
+      return found;
     if (lim.env_ticks && e.solver.kitten_ticks() >= lim.env_ticks)
       break;
     // Kissat runs the whole partition-flip pass at the top of *every*
@@ -1112,11 +1134,12 @@ static uint32_t detect_full_partition(
     // endpoint flip, or a proved equivalence, mutates the embedded model and
     // watch lists before returning here.  Omitting this interstitial pass keeps
     // candidates alive which Kissat can discard without another solve.
-    partition_flip(k,
+    if (partition_flip(k,
 #ifdef TACTIX_ENABLE_EVENT_TRACE
                    seed,
 #endif
-                   lim, r);
+                   lim, r))
+      return found;
     if (r.partition.empty() ||
         (lim.env_ticks && e.solver.kitten_ticks() >= lim.env_ticks))
       break;
@@ -1376,6 +1399,8 @@ static uint32_t sweep_process_seed(Kernel &k, Var seed, const SweepLimits &lim,
   uint32_t solved = 0;
   while (!r.candidates.empty() &&
          (!lim.max_candidates || solved < lim.max_candidates)) {
+    if (sweep_stopping(k))
+      break;
     const Lit y = r.candidates.back();
     const Lit ry = repr_find(r, y);
     if (ry == seed_lit || ry == negate(seed_lit)) {
@@ -1478,6 +1503,8 @@ uint32_t sweep_detect_round(Kernel &k, const SweepLimits &lim, SweepRound &r) {
   const uint64_t start = sweep_semantic_effort(k);
   uint32_t found = 0, seeds = 0;
   for (const Var v : r.seeds) {
+    if (sweep_stopping(k))
+      break;
     if (lim.max_seeds && seeds >= lim.max_seeds)
       break;
     if (lim.round_ticks &&
@@ -1697,6 +1724,8 @@ static ApplyResult sweep_apply_resumable(Kernel &k, SweepLimits lim,
   uint32_t seeds = 0;
   ApplyResult result = ApplyResult::NoOp;
   while (k.sweep_live > 0) {
+    if (sweep_stopping(k))
+      break;
     if (lim.max_seeds && seeds >= lim.max_seeds)
       break;
     if (lim.round_ticks &&
@@ -1820,6 +1849,7 @@ static bool sweep_emit_equiv(Kernel &k, Lit a, Lit b,
 // checked whole before either half is written.
 enum class SweepGeneralDecline : uint8_t {
   None,
+  Interrupted,
   CaptureMissing,
   StripShape,
   SubVariable,
@@ -1949,6 +1979,8 @@ static const char *sweep_general_decline_name(SweepGeneralDecline decline) {
   switch (decline) {
   case SweepGeneralDecline::None:
     return "none";
+  case SweepGeneralDecline::Interrupted:
+    return "interrupted";
   case SweepGeneralDecline::CaptureMissing:
     return "capture-missing";
   case SweepGeneralDecline::StripShape:
@@ -2009,6 +2041,9 @@ static SweepGeneralPlan sweep_plan_general(const Kernel &k,
     named[i + 1] = p.orig_ids[i] != 0;
 
   for (size_t si = 0; si < p.steps.size(); si++) {
+    if (kernel_terminating(k))
+      return decline(SweepGeneralDecline::Interrupted,
+                     static_cast<uint32_t>(si));
     const SubStep &step = p.steps[si];
     SweepGeneralStepPlan translated;
     translated.sub_id = step.id;
@@ -2103,7 +2138,7 @@ static SweepGeneralPlan sweep_plan_general(const Kernel &k,
   return plan;
 }
 
-static void sweep_apply_general_plan(Kernel &k,
+static bool sweep_apply_general_plan(Kernel &k,
                                      const SweepGeneralPlan &plan) {
   assert(plan.eligible() && !plan.steps.empty());
   const bool lrat = k.proof && k.proof->lrat();
@@ -2116,6 +2151,11 @@ static void sweep_apply_general_plan(Kernel &k,
   std::vector<uint64_t> chain;
   uint64_t last_id = 0;
   for (const SweepGeneralStepPlan &step : plan.steps) {
+    // Every emitted step is itself a valid RUP lemma.  Stopping between steps
+    // can therefore leave harmless unused lemmas in the proof without
+    // publishing the plan's final logical consequence into the kernel.
+    if (sweep_stopping(k))
+      return false;
     chain = step.strip_ids;
     if (lrat)
       k.stats.sweep_strip_cited += step.strip_ids.size();
@@ -2141,6 +2181,7 @@ static void sweep_apply_general_plan(Kernel &k,
     kernel_add_binary_clause(k, plan.t0, plan.t1, last_id);
     k.stats.sweep_binaries++;
   }
+  return true;
 }
 
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
@@ -2307,22 +2348,28 @@ ApplyResult sweep_emit_pending_units(Kernel &k, SweepRound &round,
                                      const SweepLimits &lim) {
   bool any = false;
   while (round.units_emitted < round.units.size()) {
-    const SweepUnitProof &unit = round.units[round.units_emitted++];
-    if (k.value(unit.unit) != 0)
+    if (sweep_stopping(k))
+      break;
+    const SweepUnitProof &unit = round.units[round.units_emitted];
+    if (k.value(unit.unit) != 0) {
+      round.units_emitted++;
       continue;
+    }
     bool emitted = !lim.force_general_proof &&
                    sweep_commit_unit_without_proof(k, unit.unit);
+    bool interrupted = false;
     if (!emitted) {
       const SweepGeneralPlan plan =
           sweep_plan_general(k, unit.proof, unit.unit, INVALID_LIT);
+      interrupted = plan.decline == SweepGeneralDecline::Interrupted;
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
       uint64_t pre_digest = 0;
       const bool journal_plan =
           begin_journal_sweep_general(k, plan, pre_digest);
 #endif
       if (plan.eligible()) {
-        sweep_apply_general_plan(k, plan);
-        emitted = true;
+        emitted = sweep_apply_general_plan(k, plan);
+        interrupted = !emitted && kernel_terminating(k);
       }
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
       if (journal_plan)
@@ -2332,6 +2379,8 @@ ApplyResult sweep_emit_pending_units(Kernel &k, SweepRound &round,
             emitted ? "unit" : "-");
 #endif
     }
+    if (interrupted)
+      break;
     if (!emitted)
       emitted = sweep_emit_unit(k, unit.unit);
     if (k.inconsistent)
@@ -2342,6 +2391,7 @@ ApplyResult sweep_emit_pending_units(Kernel &k, SweepRound &round,
       event_trace_sweep_unit(k, unit.unit);
 #endif
     }
+    round.units_emitted++;
   }
   return any ? ApplyResult::Ok : ApplyResult::NoOp;
 }
@@ -2369,10 +2419,14 @@ ApplyResult sweep_emit_round(Kernel &k, SweepRound &round, uint32_t found,
   if (k.inconsistent)
     return ApplyResult::Unsat;
   while (round.equivalences_emitted < round.found.size()) {
+    if (sweep_stopping(k))
+      break;
     const size_t idx = round.equivalences_emitted++;
     const SweepEquiv &e = round.found[idx];
-    if (k.level != 0 || k.conflict_valid)
+    if (k.level != 0 || k.conflict_valid) {
+      round.equivalences_emitted = idx;
       break; // replay needs a quiescent root; stop rather than assert
+    }
     // Units are committed before equivalences, as in Kissat.  If one member
     // of a proved class became fixed in that first batch, the class merge is
     // a unit on the other member, not a reason to discard the consequence.
@@ -2475,9 +2529,7 @@ ApplyResult sweep_emit_round(Kernel &k, SweepRound &round, uint32_t found,
       const bool journal_plan =
           begin_journal_sweep_general(k, plan, pre_digest);
 #endif
-      bool emitted = plan.eligible();
-      if (emitted)
-        sweep_apply_general_plan(k, plan);
+      bool emitted = plan.eligible() && sweep_apply_general_plan(k, plan);
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
       if (journal_plan)
         journal_sweep_general(
@@ -2485,6 +2537,11 @@ ApplyResult sweep_emit_round(Kernel &k, SweepRound &round, uint32_t found,
             emitted ? "none" : sweep_general_decline_name(plan.decline),
             emitted ? "unit-from-fixed-equivalence" : "-");
 #endif
+      if (plan.decline == SweepGeneralDecline::Interrupted ||
+          (!emitted && kernel_terminating(k))) {
+        round.equivalences_emitted = idx;
+        break;
+      }
       if (!emitted)
         emitted = sweep_emit_unit(k, unit);
       if (emitted) {
@@ -2533,6 +2590,11 @@ ApplyResult sweep_emit_round(Kernel &k, SweepRound &round, uint32_t found,
           k, *selection.forward, selection.forward->t0, INVALID_LIT);
       const SweepGeneralPlan second = sweep_plan_general(
           k, *selection.reverse, selection.reverse->t0, INVALID_LIT);
+      if (first.decline == SweepGeneralDecline::Interrupted ||
+          second.decline == SweepGeneralDecline::Interrupted) {
+        round.equivalences_emitted = idx;
+        break;
+      }
       if (first.eligible() && second.eligible() && k.value(first.t0) >= 0 &&
           k.value(second.t0) >= 0) {
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
@@ -2542,7 +2604,10 @@ ApplyResult sweep_emit_round(Kernel &k, SweepRound &round, uint32_t found,
 #endif
         const bool apply_first = k.value(first.t0) == 0;
         if (apply_first) {
-          sweep_apply_general_plan(k, first);
+          if (!sweep_apply_general_plan(k, first)) {
+            round.equivalences_emitted = idx;
+            break;
+          }
 #ifdef TACTIX_ENABLE_EVENT_TRACE
           event_trace_sweep_unit(k, first.t0);
 #endif
@@ -2556,7 +2621,10 @@ ApplyResult sweep_emit_round(Kernel &k, SweepRound &round, uint32_t found,
 #endif
         const bool apply_second = k.value(second.t0) == 0;
         if (apply_second) {
-          sweep_apply_general_plan(k, second);
+          if (!sweep_apply_general_plan(k, second)) {
+            round.equivalences_emitted = idx;
+            break;
+          }
 #ifdef TACTIX_ENABLE_EVENT_TRACE
           event_trace_sweep_unit(k, second.t0);
 #endif
@@ -2579,13 +2647,21 @@ ApplyResult sweep_emit_round(Kernel &k, SweepRound &round, uint32_t found,
       const SweepGeneralPlan rev =
           sweep_plan_general(k, *selection.reverse, selection.reverse->t0,
                              selection.reverse->t1);
+      if (fwd.decline == SweepGeneralDecline::Interrupted ||
+          rev.decline == SweepGeneralDecline::Interrupted) {
+        round.equivalences_emitted = idx;
+        break;
+      }
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
       uint64_t fwd_pre_digest = 0;
       const bool journal_fwd =
           begin_journal_sweep_general(k, fwd, fwd_pre_digest);
 #endif
       if (fwd.eligible() && rev.eligible()) {
-        sweep_apply_general_plan(k, fwd);
+        if (!sweep_apply_general_plan(k, fwd)) {
+          round.equivalences_emitted = idx;
+          break;
+        }
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
         if (journal_fwd)
           journal_sweep_general(k, fwd, fwd_pre_digest, "applied", "none",
@@ -2594,7 +2670,10 @@ ApplyResult sweep_emit_round(Kernel &k, SweepRound &round, uint32_t found,
         const bool journal_rev =
             begin_journal_sweep_general(k, rev, rev_pre_digest);
 #endif
-        sweep_apply_general_plan(k, rev);
+        if (!sweep_apply_general_plan(k, rev)) {
+          round.equivalences_emitted = idx;
+          break;
+        }
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
         if (journal_rev)
           journal_sweep_general(k, rev, rev_pre_digest, "applied", "none",

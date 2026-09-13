@@ -234,6 +234,8 @@ ApplyResult emit_semantic(Kernel &k, const Resolvent &r,
 
 ApplyResult hyperbinary_try(Kernel &k, Lit p) {
   assert(hyperbinary_guard(k));
+  if (inprocess_reach_root(k))
+    return ApplyResult::Unsat;
   if (var_of(p) >= k.nvars || k.value(p) != 0)
     return ApplyResult::NoOp;
   std::vector<Lit> parent(k.nvars, INVALID_LIT);
@@ -275,6 +277,11 @@ ApplyResult hyperbinary_apply(Kernel &k) {
   std::vector<uint64_t> chain;
   bool any = false;
   for (const Lit p : candidates) {
+    // A prior probe can retain newly discovered root facts when its
+    // assumptions are unwound.  Complete their closure before opening the
+    // next independent probing scope.
+    if (inprocess_reach_root(k))
+      return ApplyResult::Unsat;
     if (k.value(p) != 0)
       continue; // fixed since the round began
     if (kernel_rule_interrupt(k, k.stats.hbr_interrupts))

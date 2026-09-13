@@ -179,6 +179,12 @@ static ApplyResult instantiate_one(Kernel &k, Ref cref,
     // rewritten or untouched, never half-instantiated.
     if (kernel_rule_interrupt(k, k.stats.instantiate_interrupted))
       break;
+    // A preceding probe can discover a level-zero implication while standing
+    // under assumptions.  Backtracking preserves that fact but leaves its
+    // closure pending.  Drain it before a new assumption can mask a watched
+    // clause behind the propagation cursor.
+    if (inprocess_reach_root(k))
+      return ApplyResult::Unsat;
     if (selected ? lit != *selected : !eligible(k, occ, lit))
       continue;
     if (lrat) {

@@ -1652,6 +1652,12 @@ void kernel_inherit_clause_position(Kernel &, uint64_t replacement_id,
                                     Ref source_ref);
 void kernel_add_binary_clause(Kernel &, Lit a, Lit b, uint64_t id = 0,
                               bool mark_added_material = true);
+// A root-only transformation that changes an existing binary clause in place
+// must re-arm propagation for its new literals just like clause insertion.
+// This is separate from publication because the stable watch direction may be
+// rewritten before the moved mirror is published (or without publishing a new
+// logical clause at all).
+void kernel_rearm_binary_clause(Kernel &, Lit a, Lit b);
 // Bulk input has already established that this pair is absent.  Publish the
 // same clause transition without rescanning a growing high-degree watch list.
 // Unlike the general API, duplicate callers violate this function's contract.

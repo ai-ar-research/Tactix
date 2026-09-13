@@ -506,6 +506,11 @@ ApplyResult failed_literal_apply(Kernel &k,
       continue;
     bool forced = false;
     for (int neg = 0; neg <= 1 && !forced; neg++) {
+      // Probing propagation may derive a true level-zero fact below the
+      // assumption.  Backtracking keeps it, so close that root debt before
+      // starting another independent assumption episode.
+      if (inprocess_reach_root(k))
+        return ApplyResult::Unsat;
       const Lit p = make_lit(v, neg != 0);
       bool candidate = false;
       for (const WatchEntry w : k.watches.entries(negate(p)))
@@ -533,6 +538,8 @@ ApplyResult failed_literal_try(Kernel &k, Lit p,
                                FailedLiteralPropagation propagation,
                                const FailedLiteralStats &stats) {
   assert(failed_literal_guard(k));
+  if (inprocess_reach_root(k))
+    return ApplyResult::Unsat;
   if (var_of(p) >= k.nvars || k.value(p) != 0)
     return ApplyResult::NoOp;
   Lit unit;
