@@ -1683,6 +1683,13 @@ bool congruence_rup_chain(Kernel &k, const Lit *lits, uint32_t n,
                           RupReplay purpose = RupReplay::ChainOnly) {
   assert(k.level == 0 && !k.conflict_valid);
   chain.clear();
+  // A replay assumption may satisfy a binary watched by an older pending root
+  // literal.  If that assumption is then retracted, the cursor still stands
+  // beyond the root literal and falsely reports a fixpoint.  Complete the root
+  // closure before opening the probing scope so every later scan is caused
+  // only by the assumptions that the replay itself owns.
+  if (inprocess_reach_root(k))
+    return false;
   const bool lrat = k.proof && k.proof->lrat();
   // `ChainOnly` may skip the whole replay when no chain is wanted: its lemma is
   // RUP by construction and the replay only reads antecedents off it. `Decide`

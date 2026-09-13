@@ -2043,6 +2043,7 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
           }
           proof_del_source();
           if (lit == repr_lit) { // stable owner: rewrite in place, survives
+            kernel_rearm_binary_clause(k, repr_lit, repr_other);
             *q++ = binary_watch(repr_other).raw;
             ++kept_binaries;
             kept_binaries_first = kept_binaries_first && !kept_has_large;
@@ -2384,6 +2385,7 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
             // The unit and tautological images are retired elsewhere and must
             // keep their source entry until then.
             if (target != stable && target != negate(stable)) {
+              kernel_rearm_binary_clause(k, stable, target);
               *p = binary_watch(target).raw;
               stable_rewrites++;
             }
@@ -2426,6 +2428,7 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
           if (watch.other() == old_other) {
             // Preserve the first physical copy's position and leave later
             // duplicates untouched (docs/implementation-notes.md §5).
+            kernel_rearm_binary_clause(k, stable, new_other);
             *p = binary_watch(new_other).raw;
             rewritten = true;
             break;

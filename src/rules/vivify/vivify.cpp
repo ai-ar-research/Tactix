@@ -1879,6 +1879,13 @@ ApplyResult vivify_apply(Kernel &k) {
       k.stats.vivify_terminated++;
       break;
     }
+    // A candidate that closed its probing scope can leave level-zero facts
+    // discovered below its assumptions on the retained trail.  They must
+    // reach closure before the next scope begins.  With reuse still active,
+    // the current assumption prefix intentionally remains one episode and is
+    // not a root boundary.
+    if ((!reuse || !k.probing.recording) && inprocess_reach_root(k))
+      return ApplyResult::Unsat;
     // Reopen the scope only when the previous candidate closed it by mutating
     // the database. Test `recording`, not `level == 0`: a candidate can
     // decline at the root without closing the scope, and reopening a
@@ -1954,6 +1961,8 @@ ApplyResult vivify_apply(Kernel &k) {
 
 ApplyResult vivify_try(Kernel &k, Ref candidate) {
   assert(vivify_guard(k));
+  if (inprocess_reach_root(k))
+    return ApplyResult::Unsat;
   // Standalone: its own root-to-root probing scope, no retained trail — the N1
   // surface must not depend on a round having run first.
   return vivify_one(k, candidate, /*reuse=*/false, 0);

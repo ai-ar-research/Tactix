@@ -189,6 +189,20 @@ void test_non_rup_equivalence() {
   assert(k.next_clause_id == cls.size());
 }
 
+// Online parameters may request an effectively unbounded model-flip pass.
+// The external stop remains an independent bound on that pass, including
+// after the embedded solver has already returned a model.
+void test_unbounded_flip_rounds_observe_stop() {
+  Kernel k;
+  build(k, 4, non_rup_formula());
+  SweepLimits limits;
+  limits.flip_rounds = UINT32_MAX;
+  k.stop_fuzz = 1; // every kernel termination poll fires deterministically
+  assert(sweep_try_with_limits(k, 0, limits) != ApplyResult::Unsat);
+  assert(k.stats.rule_interrupted > 0);
+  assert(k.level == 0 && !k.conflict_valid);
+}
+
 void test_proof_capture_limit_is_caller_controlled() {
   const std::vector<std::vector<int>> cls = non_rup_formula();
   Kernel limited;
@@ -868,6 +882,28 @@ static void test_rup_admission_is_format_independent(void) {
   }
 }
 
+// A RUP replay can be requested while Sweep owns a newly committed root unit.
+// Applying an assumption first can satisfy a binary watched by that pending
+// root literal; retracting the assumption then leaves a unit clause behind a
+// cursor that still claims fixpoint.  The shared replay primitive must close
+// the inherited root trail before it opens its speculative levels.
+static void test_rup_replay_closes_inherited_root_debt() {
+  Kernel k;
+  kernel_reserve_vars(k, 2);
+  const Lit root = internalize(1), implied = internalize(2);
+  kernel_add_binary_clause(k, negate(root), implied, ++k.next_clause_id);
+  k.unit_ids[var_of(root)] = ++k.next_clause_id;
+  kernel_assign_unit(k, root);
+  assert(!kernel_propagation_fixpoint(k));
+
+  std::vector<uint64_t> chain;
+  assert(congruence_replay_rup(k, &implied, 1, chain,
+                               RupReplay::Decide));
+  assert(k.value(implied) > 0);
+  assert(kernel_propagation_fixpoint(k));
+  kernel_check_invariants(k);
+}
+
 // --- the general path, and its reachability ---------------------------------
 // `non_rup_formula()` carries an equivalence unit propagation cannot refute in
 // either direction, so only the captured sub-solver refutation can justify it.
@@ -1285,6 +1321,7 @@ int main(int argc, char **argv) {
   test_unbounded_clause_limit_sizes_from_formula();
   test_dense_entry_flushes_only_irredundant_satisfied_clauses();
   test_non_rup_equivalence();
+  test_unbounded_flip_rounds_observe_stop();
   test_proof_capture_limit_is_caller_controlled();
   test_seed_symmetry();
   test_full_partition_finds_nonseed_pair();
@@ -1304,6 +1341,7 @@ int main(int argc, char **argv) {
   test_sd_emits_rup_equivalence();
   test_sd_declines_non_rup();
   test_rup_admission_is_format_independent();
+  test_rup_replay_closes_inherited_root_debt();
   test_se_general_path_emits();
   test_inline_bridge_refreshes_owned_occurrences();
   test_dense_call_collects_once_across_productive_environments();

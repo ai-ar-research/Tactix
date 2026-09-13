@@ -295,6 +295,10 @@ static void kernel_rearm_propagation(Kernel &k, Lit a, Lit b) {
   kernel_rearm_propagation(k, pair, 2);
 }
 
+void kernel_rearm_binary_clause(Kernel &k, Lit a, Lit b) {
+  kernel_rearm_propagation(k, a, b);
+}
+
 Ref kernel_add_large_clause(Kernel &k, const Lit *lits, uint32_t size,
                             bool redundant, uint32_t glue, uint64_t id,
                             bool mark_added_material) {
@@ -419,7 +423,7 @@ static void note_binary_add(Kernel &k, Lit a, Lit b, uint64_t id,
 static void add_binary_clause(Kernel &k, Lit a, Lit b, uint64_t id,
                               bool new_pair, bool mark_added_material) {
   event_trace_binary_add(k, a, b);
-  kernel_rearm_propagation(k, a, b);
+  kernel_rearm_binary_clause(k, a, b);
   k.watches.push_binary(a, b);
   k.watches.push_binary(b, a);
   if (k.dense && k.dense->track_order) {
@@ -447,7 +451,7 @@ void kernel_add_binary_mirror(Kernel &k, Lit stable, Lit moved, uint64_t id) {
   // the caller. Adding the opposite direction restores the mirrored-watch
   // invariant without appending and immediately discarding a stable duplicate.
   assert(!k.bve_occurrence_count_image);
-  kernel_rearm_propagation(k, stable, moved);
+  kernel_rearm_binary_clause(k, stable, moved);
   k.watches.push_binary(moved, stable);
   // This is the missing physical direction of an already-published clause,
   // not new semantic material.  Kissat's in-place/delayed substitution moves
@@ -458,7 +462,7 @@ void kernel_add_binary_mirror(Kernel &k, Lit stable, Lit moved, uint64_t id) {
 void kernel_publish_binary_clause(Kernel &k, Lit a, Lit b, uint64_t id,
                                   bool new_pair) {
   assert(!k.bve_occurrence_count_image);
-  kernel_rearm_propagation(k, a, b);
+  kernel_rearm_binary_clause(k, a, b);
   // Binary substitution has already published the logical/proof image.  This
   // call only publishes the rebuilt physical watch pair and its identity.
   // Pinned Kissat's substitute_binaries and Sweep connected substitution move
@@ -1945,6 +1949,12 @@ static bool propagate_literal_binary(Kernel &k, Lit lit,
 // conflict are the same.
 
 void kernel_probing_begin(Kernel &k, bool rollback_pose) {
+  // Production probing rules enter at the root.  Starting an assumption while
+  // a root literal is still waiting to be propagated can mask one of its
+  // watched clauses; after the assumption is retracted the cursor would then
+  // claim a false fixpoint.  Low-level tests also exercise this primitive at
+  // decision levels, where the caller deliberately owns the unfinished scan.
+  assert(k.level != 0 || kernel_propagation_fixpoint(k));
   ProbingLog &lg = k.probing;
   if (lg.recording)
     kernel_probing_end(k); // defensive: scopes never nest

@@ -518,11 +518,8 @@ uint32_t bve_find_definition(const Kernel &k, Lit px,
       k.bve_definition_budget, s.solver.kitten_generator(),
       static_cast<uint32_t>(s.vars.size()), static_cast<uint32_t>(pos.size()),
       static_cast<uint32_t>(neg.size()), nullptr, 0);
-  SubResult res = k.bve_definition_budget
-                      ? s.solver.solve({}, k.bve_definition_budget,
-                                       SubTickMode::Kitten)
-                      : s.solver.solve_interruptible(
-                            {}, 0, SubTickMode::Kitten, k.stop);
+  SubResult res = s.solver.solve_interruptible(
+      {}, k.bve_definition_budget, SubTickMode::Kitten, k.stop);
   s.ticks = s.solver.kitten_ticks();
   s.exhausted = res == SubResult::Budget;
   if (res != SubResult::Unsat || !s.solver.derivation(s.deriv) ||
@@ -559,9 +556,8 @@ uint32_t bve_find_definition(const Kernel &k, Lit px,
       const uint64_t current = s.solver.kitten_ticks();
       ceiling = UINT64_MAX - delta <= current ? UINT64_MAX : current + delta;
     }
-    res = ceiling ? s.solver.solve({}, ceiling, SubTickMode::Kitten)
-                  : s.solver.solve_interruptible(
-                        {}, 0, SubTickMode::Kitten, k.stop);
+    res = s.solver.solve_interruptible({}, ceiling, SubTickMode::Kitten,
+                                       k.stop);
     s.ticks = s.solver.kitten_ticks();
     s.exhausted = res == SubResult::Budget;
     assert(res != SubResult::Sat && "an UNSAT core subset became SAT");
