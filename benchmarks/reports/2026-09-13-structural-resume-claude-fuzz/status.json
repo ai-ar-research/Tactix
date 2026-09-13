@@ -1,0 +1,49 @@
+{
+  "checkpoint": "structural-resume Claude-owned full refactor fuzz checkpoint",
+  "verdict": "PASS",
+  "candidate_commit": "a08f9f6a841c22f006af872f6f162ca606cef3bd",
+  "tree": "5c2931d460628984d86d7f359b239a7215457eeb",
+  "pin": "build/pin-structfuzz-a08f9f6a",
+  "release_tactix_sha256": "b63f30031229a36b9fea46e37590e892ab4a178a1239357ff3f80557548e1413",
+  "supplied_release_identical": true,
+  "debug_tactix_sha256": "2b307b56759c40d1c9b4682bce723dc54650c2aab061c4a9ec31f2de1ee45287",
+  "debug_flags": "-O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer, TACTIX_ENABLE_PROOF_SHADOW=ON",
+  "pin_manifest_sha256": "27236a0815082d716328b42de91cc3103a00b67c3256c010bf19cc81604574d8",
+  "harness_sha256": {
+    "audit.py": "31245d31583e516d33f01d6ffede139eb4d36c6b7469abfa19d9c1d2f6826dfc",
+    "capidriver.c": "1f53ecda5fc52df4c60c217da210ca6e83115945d6ef62c831bb5ec7fde62ecb",
+    "selftest_harness.py": "83692c57c89a61a792fcd19733d167b610fd8d6bc111c9878cd932796e2120b3",
+    "work.sh": "d3a287c1d6421e7208ddf073b5fcd39ae042c622f5cb7d8a94dc39782517d27b",
+    "batch.sh": "c633b3aa656d9b142d23197de6a99f9cdd502cd884ab6fd389d2f5a6e52f1c6a",
+    "runtest.sh": "24c71b7c78fe658bda045f2213c2836c854a21ff852337caaae95a796cfa5830",
+    "pargen.py": "dc30cf8423f7fbf07ae0097fd6d3337ab379caf8d2df998ed4e4d36de64ececa",
+    "tracecheck.cpp": "365e60c666db72a659119996296b1548b59197130938ab2ecfb59317063c9901",
+    "capwrap.sh": "a3cf5258c6350e2e04bd9e68a6fe6b5c5f9a8118a67bba64002ccc65e00b1ec6"
+  },
+  "job": {"id": 1687182, "array": false, "partition": "cpu-dense-hwulab-q", "node": "node018", "cpus_per_task": 100, "mem": "400000M", "time_limit": "01:00:00", "state": "COMPLETED", "exit": "0:0", "elapsed": "00:16:12", "work_exit": 0, "max_rss_kb": 7180660},
+  "solver_failures": [],
+  "regressions": {
+    "S1_d000437": {"status": "PASS", "drat": "UNSAT, Release+Debug proofs verified, Kissat agrees", "lrat": "UNSAT, Release+Debug proofs verified, Kissat agrees", "invalid_models": 0},
+    "S1_S2_onehot_cases": {"status": "PASS", "default_watch": 8, "capi_watch": 8, "progs_watch": 10, "invalid_models": 0, "differential_mismatches": 0, "debug_invariant_failures": 0},
+    "S3_c000027": {"status": "PASS", "warm_status": 10, "sat_reflected": true, "export_stable": true, "post_export_probe_debug_invariants_ok": true, "cross_build_identical": true},
+    "S3_mode5_population": {"status": "PASS", "cases": 646, "nonterminal_resumed": 383, "nonterminal_cross_build_identical": 383, "lucky6_resumed": 197, "lucky7_resumed": 186, "warm_terminal_sat_reflected": 202, "warm_unsat": 61, "invariant_failures": 0},
+    "online_model_export": {"status": "PASS", "online_sat_cases": 866, "status_reflected": 866, "export_stable": 866, "post_export_probe_ran": 866, "probe_status_after": "10 in all 866"}
+  },
+  "lanes": {
+    "exact_regressions_F1": {"status": "PASS", "replays_identical": 4, "transitions_identical": 4},
+    "interruption_F2": {"status": "PASS", "harness_credited": true, "long_sweep_s": 26.58, "sigterm_runs_in_sweep": 4, "clean_unknown": 4, "max_latency_ms": 1908, "sigkill": 0, "sweep_only_clean_interrupted": 36, "unlimited_drat_lrat": true, "finite_drat_lrat": true, "debug": true},
+    "h4_admission_reachability": {"status": "PASS", "default_admission_bound_noop": 1, "default_onehot_admission_bound_noop": 1},
+    "structural_models_gf2_gf3": {"status": "PASS", "default_parity_sat": 43, "default_onehot_sat": 101, "random_parity_sat_replay_identical": 19, "random_onehot_sat_replay_identical": 10},
+    "typed_api_random_replay_reconfiguration": {"status": "PASS", "missing_required": [], "random_replay_identical": 4612, "random_transitions_identical": 4612, "release_determinism": 4752},
+    "oracles": {"status": "PASS", "models_valid": {"random": 8303, "default": 6741, "progs": 2418, "capi": 2114, "regress": 9}, "drat_verified": 2833, "lrat_verified": 2406, "proofs_rejected": 0, "checker_timeouts": 0, "kissat_agree": {"random": "4612/4612", "default": "3988/3988", "progs": "1415/1415", "regress": "6/6"}},
+    "negative_controls": {"status": "PASS"},
+    "stock_fuzz_legs": {"status": "PASS", "failures": 0, "corpus_failures": 0, "parity_model_reached": {"random-drat": 127, "random-lrat": 121, "default-drat": 295, "default-lrat": 298}},
+    "focused_tests": {"status": "PASS", "runs": 18, "sanitizer_lines": 0},
+    "harness_selftests": {"status": "PASS", "selftest_harness_checks": 560, "selftest_sh": "OK", "test_modelcheck": 0},
+    "skipped_deadline": 0
+  },
+  "harness_changes": ["regress S1 d000437 DRAT/LRAT and S3 c000027 cases", "watch list of all 1687094 S1/S2/S3 ids", "C-API SAT status reflection, export stability, post-export probe, mode-5 nonterminal resume checks (no new RNG draws)", "H-a authored admission bound", "H-b Lucky Sat/Unsat lines terminal", "H-c Debug replay limit 300 s", "H-d F2 in-Sweep credit from probe interval", "Debug build is the ASan/UBSan preset (1687094 used plain -g)"],
+  "reproducer": null,
+  "cleanup": {"scratch_removed": true, "node_new_entries": 0, "node_user_entries_newer_than_start": 0, "session_residue": 0, "failure_bundles": 0, "repo_output_kib": 308},
+  "pending": false
+}

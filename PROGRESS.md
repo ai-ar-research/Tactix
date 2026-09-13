@@ -6,172 +6,107 @@ reports own detailed history.
 
 ## Current objective
 
-The online-configurable strategy/N1 implementation is complete. Final N2–N4
-acceptance is being rechecked after Claude fuzzing exposed inherited root
-propagation debt between independent probes and slow SIGTERM handling inside
-Sweep. Codex repaired both boundaries. Inprocessing programs, Lucky, and Walk
-operate at level zero. A search-time strategy can explicitly apply `Restart`
-before them; the executor does not suspend or restore non-root trails.
+The online-configurable strategy/N1 refactor is accepted at `a08f9f6a`. All
+inprocessing actions, Lucky and Walk operate at level zero; a search-time caller
+uses an explicit `Restart` before them. The shared typed executor supports legal
+instances and granularities, arbitrary composition, finite or externally
+stopped fixpoints, and safe online reconfiguration without restarting the
+solver.
 
-The post-gate winner-VBS set is now frozen and its matched rerun is complete:
-ten LymphoSAT-only SAT wins and ten Satsuma-only UNSAT wins over genuine Tactix
-timeouts. S5 Lucky now has two general structural model mechanisms: instance 6
-derives GF(2) candidate guidance from ternary groups, and instance 7 recognizes
-exact one-hot GF(3) affine encodings. Both accept only a model checked against
-the complete live CNF. Kissat-only tuning and sequential portfolios remain out
-of scope.
+The final current-source Tier-D array is running as background N3 evidence. The
+next solver work is a proof-producing general mechanism for the ten frozen
+winner-VBS UNSAT losses. Kissat-only tuning, benchmark dispatch and sequential
+portfolios remain out of scope.
 
-## Authority and candidate
+## Authority
 
 | Role | Authority |
 |---|---|
 | Refactor base | `0060215a` (`Keep inprocessing and Walk at root`) |
-| Refactor closure | `b1165641`; Release pin `916eae4d7e87f5602649035ac15a8c2985e83deaec2250e338a47972b998e9bf` |
-| Current source | `8f9161f4`; Release SHA `eea4de53e617e89ca1223a6ff254b9457ccfbf6f627f72dc3e60147445a5620f` |
+| Initial closure | `b1165641` |
+| Accepted source | `a08f9f6a`; Release SHA `b63f30031229a36b9fea46e37590e892ab4a178a1239357ff3f80557548e1413` |
 | Design | [online proposal](docs/design/2026-09-11-online-strategy-proposal.md) and [preservation addendum](docs/design/2026-09-11-strategy-behavior-preservation-addendum.md) |
-| Claude review | [7528 disposition](benchmarks/reports/2026-09-11-online-strategy-review-7528/disposition.md) and [D-NOOP recheck](benchmarks/reports/2026-09-12-claude-d-noop-recheck.md) |
-| Prior gate evidence | [refactor/N1 checkpoint](benchmarks/reports/2026-09-12-refactor-n1-gates.md) and [state-boundary follow-up](benchmarks/reports/2026-09-12-n1-state-boundary-followup.md) |
-| Current closure | [configurable-strategy closure](benchmarks/reports/2026-09-13-configurable-strategy-closure.md) |
+| Final evidence | [online refactor/N1 closure](benchmarks/reports/2026-09-13-online-refactor-n1-final.md) |
+| Claude checkpoint | [job 1687182 report](benchmarks/reports/2026-09-13-structural-resume-claude-fuzz/terminal-report.md) |
+| Winner set | [10 SAT + 10 UNSAT matched targets](benchmarks/reports/2026-09-13-winner-vbs-targets.md) |
 
 The root checkout is authoritative. `.claude` contains workflow instructions,
 not implementation or project-document changes.
 
 ## Implemented state
 
-- The shared typed C++/C interface covers all 26 registered actions with
-  validated per-call parameters, explicit instances, selected batches,
-  complete passes, rounds, closures, reordered and repeated sequences, scoped
-  fixpoints, budgets/stops, transactional reconfiguration and resumable state.
-- Complete semantic surfaces include C1/C2 victims, CCE large and duplicate
-  binary victims, HyperBinary/Ternary resolvents, exact Factor grids, and
-  individual Congruence equivalences, units and supported clashes.
-- `DefaultPolicy` owns cohesive typed branching, analysis, restart, database,
-  guidance and inprocessing settings. Rule-side values that affect scheduling,
-  admission or work are configurable; rule modules retain semantic,
-  representation and diagnostic constants.
-- Reduce owns its victim fraction, tier protection and collection choice; Walk
-  owns its ProbSAT curve; Reorder owns its target, size and weighting controls.
-  Default rephase, focused-phase, BVE-ladder and tier-source choices are typed,
-  validated strategy data and are serialized by trace v3.
-- `--random-policy` now generates typed online programs and executes them with
-  `OnlineStrategyExecutor`. The separate legacy random scheduler is removed.
-  Trace v3 stores typed programs; v1/v2 action traces remain replayable.
-- Random programs vary orders, repetitions, parameters, granularity, budgets,
-  phases and non-prefix instances. Generated fixpoints are finite; the public
-  API still supports an external stop for an unbounded fixpoint.
-- All inprocessing actions, Lucky and Walk reject non-root states. Restart and
-  Reduce expose their pure legal guards. There is no retained non-root
-  inprocessing suspension or cube replay.
-- Retired-variable queue handling, zero-budget subsolver interruption, complete
-  HyperBinary enumeration stops, zero-program replay and unbounded Sweep-cap
-  allocation are repaired. Sweep retains the default 1024-clause initial table
-  without an extra whole-formula scan.
-- Obsolete solver-configuration macros, superseded test-only compatibility
-  branches and the completed Rank31/34 conflict-stop/tick/pose/heap/warmup
-  probe bundle are removed. Remaining production compile guards cover
-  assertions and bounded event, journal and proof-shadow diagnostics.
-- Proof-population shadowing distinguishes compiled availability from active
-  checking. Parsing seeds the complete original clause multiset before arming;
-  directly assembled kernels remain inert until explicitly armed.
-- Exact Factor application and complete enumeration admit every legal
-  nontrivial grid, including zero-gain 2x2 equality. Canonical matching retains
-  the profitable frontier, preserving the reference hot path and trajectory.
-- Walk scoring is total over every validated positive break base: increasing
-  weights normalize per selected clause, and decaying tables stop at their
-  floating-point fixed point without narrowing the public parameter domain.
-- Lucky instance 6 exposes variable, group, total-constraint, equation,
-  free-variable and candidate limits as validated scoped settings through the
-  C++ and C online APIs. Production random programs vary, serialize and replay
-  the same settings and can explicitly select the structural instance.
-- Lucky instance 7 exposes the corresponding one-hot domain, GF(3) equation
-  arity, free-dimension and candidate settings. Equation recognition requires
-  complete exactly-one and forbidden-tuple encodings; public and random-online
-  callers reach the same implementation.
-- Independent probing scopes now close retained level-zero implications before
-  opening the next assumption. Sweep and BVE embedded solves observe external
-  stops for finite as well as unlimited budgets; Sweep also polls model-flip,
-  detection and proof-emission loops without consuming interrupted items.
+- `DefaultPolicy` owns cohesive typed branching/analysis, restart/mode,
+  database, guidance and inprocessing settings while preserving static hot
+  dispatch and the reference schedule.
+- The C++/C surface covers all 26 registered actions with validated per-call
+  parameters, explicit instances, selected batches, passes, rounds, closures,
+  reordered and repeated sequences, scoped fixpoints, budgets and stops.
+- Complete N1 surfaces include C1/C2 victims, CCE large and duplicate-binary
+  victims, HyperBinary/Ternary resolvents, exact Factor grids, and individual
+  Congruence equivalences, units and supported clashes.
+- Every scheduling, admission, effort, search and heuristic value is strategy
+  data. Rule modules retain soundness, representation and diagnostic constants.
+  Static inventory, wiring, ownership and reference-option audits pass.
+- `--random-policy` generates typed online programs through the shared executor.
+  It varies order, repetition, settings, granularity, budgets, phases and
+  non-prefix instances; trace v3 is replayable and historical v1/v2 traces
+  remain readable. The legacy random scheduler is removed.
+- Root propagation closes between independent probes. Sweep and BVE embedded
+  solves poll external stops across finite and unlimited budgets without
+  consuming interrupted work.
+- Lucky 6 and 7 provide bounded, configurable GF(2) and one-hot GF(3) structural
+  model search. They publish SAT only after checking the complete live CNF.
+- Online model export reconstructs `model_values` without changing trail,
+  assignment or unassigned counters. Terminal active-variable assignments are
+  reflected by `tactix_status` and remain safe across later API calls.
+- Obsolete solver configuration macros, superseded compatibility branches and
+  completed diagnostic probe artifacts are removed. Future probe output remains
+  ignored under `benchmarks/probes/scratch/`.
 
-## Current validation
+## Validation
 
-- Current source `8f9161f4` passes **147/147** Release tests excluding the long
-  scripted demo and **17/17** focused ASan+UBSan tests. The preceding GF(3)
-  source passed **147/147** Debug tests under the same exclusion.
-- B28+C5 candidate `20260913-0337-walkfix-gate-BC`: **33/33** solver
-  results, 949.997 seconds versus 951.866 pre-fix, **0.998036x**, and 958.538
-  retained, **0.991090x**.
-- Rank1–50 candidate `20260913-0337-walkfix-gate-ranks1-50`: **50/50** solver
-  results, 8146.381 seconds versus 8135.359 pre-fix, **1.001355x**, and 8278.533
-  retained, **0.984037x**. All 83 verdicts, certificates, non-timing statistics
-  and peak-RSS values match the pre-fix pin.
-- Completed final records are valid and report deleted formula, certificate and
-  derived scratch. Remaining proof checks continue in the background and do
-  not block independent work.
-- Claude job `1686458` found no oracle failure but OOMed on nonterminating Walk
-  score tables; its [report](benchmarks/reports/2026-09-13-configurable-strategy-fuzz-0daf2ded.md)
-  isolated positive bases at and below one. Codex repaired the full domain in
-  `690322ab`. Claude's [single-job recheck](benchmarks/reports/2026-09-13-walk-scoring-closure-fuzz-690322ab.md)
-  `1686614` passed all 676 former failures, 2000 fresh typed programs and 600
-  square cases with every required oracle and reachability target satisfied.
-- The GF(2) short gate solved both parity targets with independent model checks;
-  B28+C5 ran 33/33 with identical semantic counters at 1.0069x retained time,
-  and Rank1–50 ran 50/50 at 1.0167x with identical semantic counters. Certificate
-  checks remain background work.
-- The GF(3) short gate `1686852` solved all eight remaining selected SAT targets
-  in 0.034 seconds each. Every original-CNF model verified, all eight reached
-  400 domains and 360 rank-360 equations, and anonymous cleanup was complete.
-- Its B28+C5 gate `1686861` produced 33/33 expected solver results in 953.067
-  seconds: **1.0032x** the retained refactor build and **0.9964x** the parity
-  build, with identical semantic counters. Certificate checks remain background
-  work; candidate-only Rank1–50 job `1686894` is running under the retained
-  resource contract.
-- Claude checkpoint `1686850` found two Debug replay invariant failures and one
-  release interruption failure. Exact Codex repros `1686953` and `1686954` now
-  replay cleanly; final SIGTERM repro `1686958` exits `UNKNOWN` in 1.195 seconds
-  without SIGKILL or named formula/proof/trace residue. A corrected bounded
-  Claude checkpoint and final performance gates remain acceptance work.
+- Release: **148/148** tests. Sanitizer-enabled Debug: **147/147** relevant
+  tests; the explicitly long scripted demo was stopped after 1:48.
+- Claude job `1687182`: **PASS**, one full non-array checkpoint, 0 solver
+  failures, 0 missing features, 4,612/4,612 identical random replays, 2,833
+  DRAT proofs, 2,406 native LRAT proofs, valid models throughout, and clean
+  interruption, negative-control and ASan/UBSan lanes.
+- The checkpoint closes all S1 one-hot model, S2 propagation and S3 online
+  resume failures from job `1687094`; all 646 mode-5 cases and 866 repeated
+  online model exports passed.
+- B28+C5 `20260913-0825-structuralfix-gate-BC`: **33/33** expected solver
+  outcomes, 950.837 seconds versus 948.484, **1.002481x**.
+- Rank1–50 `20260913-0825-structuralfix-gate-ranks1-50`: **50/50** expected
+  solver outcomes, 8,123.812 seconds versus 8,041.173, **1.010277x**.
+- All 83 certificate hashes, non-timing statistics and peak-RSS values match the
+  preceding candidate. B28+C5 final checks are complete; remaining Rank proof
+  checks continue in the background without blocking independent work.
 
 ## Active operations
 
-- Storage guard PID `1076798` checks `/home/hwu/SAT-solving` every ten minutes.
+- Tier-D validation job `1687183` passed SAT/model, UNSAT/DRAT, forced-crash and
+  forced-timeout cleanup. Array `1687184` runs all 1,166 instances from
+  `a08f9f6a` on `cpu-q`, four CPUs, 32 GiB and a 1,200-second solver timeout.
+  It has no throttle or node constraint and uses anonymous node-local formula,
+  proof, model and checker files.
+- Existing Tier-D and proof-checking jobs remain unchanged. Do not rerun retained
+  reference solvers or wait for proof checking before independent work.
+- Storage guard PID `1458620` checks the complete repository every ten minutes.
   Above 700 GiB it holds only pending jobs whose Slurm `WorkDir` is this repo;
-  it never suspends running jobs. Below the threshold it releases only jobs it
-  held. Its latest completed check was 114 GiB with no holds.
-- Post-refactor Tier-D array `1685130` covers all 1,166 instances from commit
-  `b1165641` with the same `cpu-q`, four-CPU, 32-GiB and 1200-second solver
-  contract. Validation job `1685119` passed SAT/model, UNSAT/DRAT, forced-crash
-  and forced-timeout cleanup before submission. The array has no throttle or
-  node constraint and uses the same fail-closed anonymous scratch runner.
-- Historical proof-checking and already-running validation jobs continue in
-  the background. Do not wait for them before doing independent work and do not
-  rerun retained reference solvers.
-- The fail-closed winner selector waited for complete Tier-D outcomes before
-  freezing the set. It froze the required 10+10 targets, and matched job `1686574`
-  reproduced all 20 Tactix timeouts plus all 20 checked winner solves with zero
-  cleanup residue; see the [target report](benchmarks/reports/2026-09-13-winner-vbs-targets.md).
+  it never pauses running jobs and releases only its own holds. The submission
+  check was 114 GiB with no holds.
+- The winner-VBS set is frozen at ten LymphoSAT-only SAT and ten Satsuma-only
+  UNSAT wins. Matched job `1686574` reproduced all 20 Tactix timeouts and all 20
+  checked winner solves with no scratch residue.
 
 ## Next actions
 
-1. Leave performance proof/model checks and the storage guard backgrounded.
-2. Run one corrected bounded Claude checkpoint and current-source B28+C5 and
-   Rank1–50 default-preservation gates.
-3. Once those pass, submit the latest committed Tactix over Tier D with the
-   validated anonymous-scratch runner and retained four-CPU/32-GiB/1200-second
-   contract.
-4. Then study proof-producing symmetry mechanisms for the ten selected UNSAT
-   losses; do not add a constraint without a native DRAT/LRAT justification.
-
-## Acceptance
-
-- N1 exposes every legal action and instance at its declared state boundary;
-  strategy defaults do not narrow the public calculus.
-- N2 proof/model paths pass native DRAT/LRAT and original-input model checks.
-- N3/N4 default scheduling and performance remain broad and within the measured
-  B28+C5, Rank1–50, full50, memory/runtime and abstraction-overhead controls.
-- Online random coverage is reproducible, replayable, interruptible and broad,
-  with effective-transition and negative controls.
-- The landed commit, reports and documentation describe the same verified
-  candidate.
+1. Leave Tier-D, proof checks and the storage guard running in the background.
+2. Monitor Tier-D outcomes and cleanup without rerunning references.
+3. Study the selected UNSAT encodings and references for a general symmetry
+   mechanism whose additions have native DRAT/LRAT justification.
+4. Gate any implementation with focused proof/model tests, Claude-owned fuzz,
+   B28+C5, Rank1–50 and retained Tier-D coverage.
 
 <!-- track-sched:begin -->
 - Kissat creation order remains the production default; `TACTIX_ARENA_ORDER=1`
@@ -181,16 +116,8 @@ not implementation or project-document changes.
 
 ## Recent changes
 
-- Retired the legacy random scheduler for typed online programs and added trace-v3
-  typed-program replay while preserving v1/v2 compatibility.
-- Retained root-only phase boundaries and removed obsolete configuration guards.
-- Restored both performance gates and submitted the validated `b1165641`
-  Tier-D array.
-- Moved the remaining Reduce, Walk, Reorder and default-schedule heuristics into
-  validated strategy settings and completed exact zero-gain Factor N1 coverage.
-- Froze and reran the exact 10 SAT + 10 UNSAT winner-VBS loss set; began the
-  general Boolean-parity mechanism from two structurally recovered SAT cases.
-- Added exact one-hot GF(3) recognition and model search, covering the other
-  eight selected SAT losses with independently checked models.
-- Closed root propagation before independent probes and made long Sweep proof,
-  model-flip and embedded-solver work interruptible and safely resumable.
+- 2026-09-13: Closed structural-model and online-resume soundness at `a08f9f6a`.
+- 2026-09-13: Passed the full Claude fuzz, replay, proof/model and sanitizer checkpoint.
+- 2026-09-13: Preserved B28+C5 and Rank1–50 trajectories within 1.03% aggregate time.
+- 2026-09-13: Removed 2,366 obsolete tracked files from the temporary probe archive.
+- 2026-09-13: Validated anonymous cleanup and submitted current Tier-D array `1687184`.
