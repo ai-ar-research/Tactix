@@ -13,13 +13,13 @@ instances and granularities, arbitrary composition, finite or externally
 stopped fixpoints, and safe online reconfiguration without restarting the
 solver.
 
-The next increment makes native DSR the canonical whole-solver proof output.
-Ordinary CDCL and inprocessing additions/deletions and later substitution-
-redundancy transformations share one stream; `dsr-trim` elaborates it to LSR
-and the pinned Trestle checker verifies that LSR. DRAT and native LRAT remain
-compatibility modes. The pending SR/orbitopal implementation is preserved in
-stash `pre-native-dsr-sr-increment-2026-09-13`; its DRAT/LRAT translation is
-discarded when restored.
+The current working-tree increment makes native DSR the canonical whole-solver
+proof output. Ordinary CDCL and inprocessing additions/deletions and later
+substitution-redundancy transformations share one stream; `dsr-trim` elaborates
+it to LSR and the pinned Trestle checker verifies that LSR. DRAT and native LRAT
+remain compatibility modes. The pending SR/orbitopal implementation is
+preserved in stash `pre-native-dsr-sr-increment-2026-09-13`; its DRAT/LRAT
+translation is discarded when restored.
 
 After native DSR passes B27+C5 and Rank 1–40 without a material runtime or
 coverage regression, Phase 4.25 resumes the Satsuma symmetry-breaking rule and
@@ -78,6 +78,15 @@ not implementation or project-document changes.
   ignored under `benchmarks/probes/scratch/`.
 
 ## Validation
+
+- Native binary/ASCII DSR serialization, direct typed `add_sr`, CLI/C API
+  selection, and the DSR -> LSR -> Trestle checker pipeline are implemented in
+  the working tree. Exact proof-byte/API tests and 37 proof-oracle/runtime tests
+  pass. The pinned-checker setup self-test accepts a non-vacuous SR witness and
+  rejects malformed DSR and LSR controls.
+- This increment is not landed yet. Active benchmark and fuzz launchers still
+  need conversion to the DSR pipeline, followed by Slurm correctness,
+  sanitizer, Claude fuzz, B27+C5 and Rank 1–40 gates.
 
 - Release: **148/148** tests. Sanitizer-enabled Debug: **147/147** relevant
   tests; the explicitly long scripted demo was stopped after 1:48.
@@ -154,9 +163,9 @@ not implementation or project-document changes.
 
 1. Leave the existing Tier-D run, proof checks and storage guard unchanged in
    the background; submit no new Tier-D run.
-2. Implement native binary/ASCII DSR as the canonical streaming proof backend,
-   including public CLI/C API formats and the direct typed SR proof event.
-3. Change test, fuzz and benchmark runners to require
+2. Finish the native DSR increment by converting the remaining fuzz and
+   benchmark launchers to the pinned checker pipeline.
+3. Require every UNSAT acceptance path to run
    DSR -> `dsr-trim` -> LSR -> pinned Trestle for UNSAT and anonymous cleanup.
 4. Pass full correctness/sanitizer/fuzz coverage, then B27+C5 and Rank 1--40 at
    c12/32 GiB/1,200 s with a same-source DRAT control.
@@ -171,8 +180,9 @@ not implementation or project-document changes.
 
 ## Recent changes
 
+- 2026-09-13: Implemented the native DSR writer and pinned three-stage checker
+  pipeline in the working tree; launcher conversion and fixed gates remain.
 - 2026-09-13: Preserved B28+C5 and Rank1–50 trajectories within 1.03% aggregate time.
 - 2026-09-13: Validated anonymous cleanup and submitted current Tier-D array `1687184`.
 - 2026-09-13: Located the structured symmetry slot before Factor with exact generator survival.
 - 2026-09-13: Classified the first orbitopal producer's SR obligations with zero unresolved.
-- 2026-09-13: Repaired future Tier-D handling of drat-trim's verified trivial-UNSAT exit.
