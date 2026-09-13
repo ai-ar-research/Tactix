@@ -110,8 +110,9 @@ not implementation or project-document changes.
   matrix on hwu. It independently recomputes selection evidence and uses
   anonymous formula, proof, model, solver-stream and checker scratch, including
   direct exact-binary adapters for Satsuma and LymphoSAT. Compute-node job
-  `1685429` passed launch binding, every adapter, proof/model pipeline,
-  crash/timeout cleanup and residue check; see the [launch-binding report](benchmarks/reports/2026-09-12-winner-launch-binding-validation.md).
+  `1685454` passed the pinned environment, launch binding, every adapter,
+  proof/model pipeline, crash/timeout cleanup and residue check; see the
+  [environment report](benchmarks/reports/2026-09-12-winner-environment-validation.md).
 
 ## Next actions
 
@@ -146,5 +147,5 @@ not implementation or project-document changes.
 - Removed obsolete configuration guards and retained root-only phase boundaries.
 - Restored both performance gates and submitted the validated post-refactor
   Tier-D array from `b1165641`.
-- Repaired cgroup-timeout selection and validated the launch-bound matched
-  rerun adapters and anonymous proof/model pipelines on a compute node.
+- Repaired cgroup-timeout selection and validated environment-pinned,
+  launch-bound matched reruns with anonymous proof/model pipelines.
