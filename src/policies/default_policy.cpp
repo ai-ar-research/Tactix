@@ -231,6 +231,12 @@ bool DefaultStrategyConfig::valid(std::string *error) const {
   if (!reduction.initial_interval || !reduction.arithmetic_interval ||
       !reduction.arithmetic_step ||
       !positive_finite(reduction.logarithm_offset) ||
+      !std::isfinite(reduction.low_percent) ||
+      reduction.low_percent < 0.0 ||
+      reduction.low_percent > static_cast<double>(PERCENT_SCALE) ||
+      !std::isfinite(reduction.high_percent) ||
+      reduction.high_percent < 0.0 ||
+      reduction.high_percent > static_cast<double>(PERCENT_SCALE) ||
       reduction.compact_inactive_percent > PERCENT_SCALE ||
       reduction.tier1_default > reduction.tier2_default ||
       reduction.tier1_relative_permille >
@@ -309,6 +315,8 @@ bool DefaultStrategyConfig::valid(std::string *error) const {
   for (const uint8_t scope : ip.vivify_tier_scopes)
     if (scope > 5)
       return reject("Vivify tier scope is invalid");
+  if (ip.vivify_irredundant_productivity_percent > PERCENT_SCALE)
+    return reject("Vivify productivity exceeds 100 percent");
   if (!strategy::validate_inprocess_program(ip.program, error))
     return false;
   for (const strategy::InprocessStep &step : ip.program)
@@ -2069,6 +2077,9 @@ size_t GlueTieredReduction::victims(const Kernel &k, size_t candidates) {
     return reduce_canonical_victims(candidates);
   static const DefaultStrategyConfig::Reduction defaults;
   const auto &cfg = config_ ? *config_ : defaults;
+  if (cfg.low_percent >= cfg.high_percent)
+    return static_cast<size_t>(static_cast<double>(candidates) *
+                               cfg.low_percent / PERCENT_SCALE);
   const double r = static_cast<double>(k.stats.reductions) + 1.0;
   const double percent =
       cfg.high_percent - (cfg.high_percent - cfg.low_percent) /
@@ -3627,8 +3638,9 @@ ApplyResult DefaultInprocessScheduler::run_vivify_dose(Kernel &k, SlotEntry &e,
       const uint64_t tried = k.stats.vivify_checked - tried_before;
       const uint64_t produced_now = produced() - produced_before;
       if (tried == 0 ||
-          produced_now * PERCENT_SCALE <
-              tried * cfg.vivify_irredundant_productivity_percent) {
+          static_cast<unsigned __int128>(produced_now) * PERCENT_SCALE <
+              static_cast<unsigned __int128>(tried) *
+                  cfg.vivify_irredundant_productivity_percent) {
         e.delay_current += (e.delay_current < UINT32_MAX);
         e.delay_count = e.delay_current;
       } else {

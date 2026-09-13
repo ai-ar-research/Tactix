@@ -6,6 +6,7 @@
 
 #include <cassert>
 #include <cstdlib>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -86,6 +87,34 @@ int main() {
     DefaultStrategyConfig invalid = defaults;
     invalid.inprocess.program[0].effort_permille = 1001;
     assert(!invalid.valid(&validation_error));
+  }
+  {
+    DefaultStrategyConfig invalid = defaults;
+    invalid.inprocess.vivify_irredundant_productivity_percent = 101;
+    assert(!invalid.valid(&validation_error));
+  }
+  for (const double invalid_percent :
+       {-1.0, 100.01, std::numeric_limits<double>::infinity(),
+        std::numeric_limits<double>::quiet_NaN()}) {
+    DefaultStrategyConfig invalid_low = defaults;
+    invalid_low.reduction.low_percent = invalid_percent;
+    assert(!invalid_low.valid(&validation_error));
+    DefaultStrategyConfig invalid_high = defaults;
+    invalid_high.reduction.high_percent = invalid_percent;
+    assert(!invalid_high.valid(&validation_error));
+  }
+  {
+    // Kissat accepts both endpoints independently.  When low is at least
+    // high, its reduction fraction stays at low instead of ramping downward.
+    DefaultStrategyConfig reverse = defaults;
+    reverse.reduction.low_percent = 70.0;
+    reverse.reduction.high_percent = 30.0;
+    assert(reverse.valid(&validation_error));
+    GlueTieredReduction reduction(&reverse.reduction);
+    reduction.ramp = true;
+    Kernel k;
+    k.stats.reductions = 99;
+    assert(reduction.victims(k, 100) == 70);
   }
 
   {
