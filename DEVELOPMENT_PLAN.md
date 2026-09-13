@@ -11,8 +11,10 @@ single-threaded, deterministic solving.
 
 ## 1. Goal and requirements
 
-- **R1:** emit machine-checkable DRAT and native LRAT for UNSAT; reconstruct and
-  validate models for SAT.
+- **R1:** emit one native DSR certificate for every UNSAT execution, elaborate
+  it to LSR with `dsr-trim`, and verify the LSR with pinned Trestle; reconstruct
+  and validate models for SAT. Retain DRAT and native LRAT as explicit
+  compatibility outputs for the pre-existing proof vocabulary.
 - **R2:** implement competition DIMACS I/O, result lines, exit codes, proof-file
   handling, resource limits, and signal behavior.
 - **R3:** expose every applicable proof rule and legal instance through a public
@@ -29,8 +31,12 @@ single-threaded, deterministic solving.
   inprocessing actions and root-phase Lucky are defined on the level-zero root
   formula `F|U` after an explicit Restart-to-root transition. DefaultPolicy may
   decline an offered action; it may not narrow the legal API surface.
-- **N2 — Proof/model correctness.** Every policy and rule path produces valid
-  DRAT/LRAT evidence or a valid reconstructed SAT model.
+- **N2 — Proof/model correctness.** Every UNSAT policy/rule path produces a
+  valid machine-checkable proof, and every SAT path produces a valid
+  reconstructed model. Proof production is mandatory; the format is otherwise
+  negotiable. Tactix's canonical proof format is DSR, independently checked by
+  the `dsr-trim` to LSR to Trestle pipeline. New Satsuma-derived rules emit
+  direct DSR witnesses and do not owe a DRAT/LRAT expansion.
 - **N3 — Competitive default.** A shipped DefaultPolicy reaches at least Kissat
   parity on Tier D. Flexibility never excuses a slow default.
 - **N4 — Scheduling floor.** DefaultPolicy scheduling—order, effort, delays,
@@ -119,8 +125,9 @@ and a proof delta. Abstract definitions and soundness are authoritative in
 `docs/calculus.md`; stronger implemented guards and their removal paths are in
 `docs/implementation-notes.md`.
 
-Rules compose five proof primitives: `add-RUP`, `add-RAT(pivot)`, `delete`,
-`restore`, and `push-witness`. Guidance-only operations change `H`, not the
+Rules compose six proof primitives: `add-RUP`, `add-RAT(pivot)`,
+`add-SR(substitution)`, `delete`, `restore`, and `push-witness`.
+Guidance-only operations change `H`, not the
 formula, but remain API-exposed under N1. Terminal UNSAT requires a checkable
 empty-clause derivation; terminal SAT requires an original-formula model after
 reconstruction.
@@ -132,6 +139,14 @@ proof backend. The kernel owns arenas, watches, trail/reasons, reconstruction,
 limits, and statistics; it has no policy knowledge. DefaultPolicy uses a static
 micro loop and reference-strength macro scheduler. Scripted, replay, random, and
 learned policies drive the same public surfaces.
+
+The proof backend receives typed logical events. Its canonical serializer emits
+one streaming DSR certificate: ordinary RUP/RAT additions are witnessless DSR
+additions, deletions are DSR deletions, and substitution-redundancy additions
+carry their finite substitution witness directly. Binary DSR is the normal CLI
+output; ASCII DSR, DRAT and native LRAT remain explicit modes. Format choice may
+not alter rule admission, scheduling, state effects, or N1 instances. The
+backend retains no whole-formula proof ledger.
 
 DIMACS, proof, model, reconstruction, and public-API literals have permanent
 external identities. Search state uses dense internal indices behind
@@ -449,15 +464,17 @@ For every signature class, inspect the official submission description and
 available source, reproduce the winning technique's effective transition, and
 report that mechanism before implementing it. Integrate supported mechanisms
 deeply as general Tactix preprocessing or root-inprocessing rules through the
-shared typed application interface. Extend the calculus and native DRAT/LRAT
-proof construction when the mechanism requires it. Never use a sequential
+shared typed application interface. Extend the calculus and emit direct native
+DSR witnesses when the mechanism requires substitution redundancy. Never use a sequential
 portfolio, invoke another solver as a solving stage, or dispatch by benchmark
 identity. AE-Kissat-MAB's seven rows require mechanism study, but adopting MAB
 scheduling itself remains open.
 Preserve prior coverage; report solved SAT/UNSAT and per-signature counts before
 PAR-2, proof cost, memory, and regressions. T4-K and final exact T4-VBS coverage
 remain required. The staged mechanism and experimental protocol is
-`docs/design/2026-09-13-wv100-mechanism-integration.md`.
+`docs/design/2026-09-13-wv100-mechanism-integration.md`; its frozen G1/S1
+DRAT/LRAT translation route is historical evidence and is superseded by the
+native-DSR contract here.
 
 ### 8.4 Flexibility
 
@@ -465,6 +482,15 @@ Evaluate B28+C5 and Rank 1–50 periodically at meaningful refactor checkpoints,
 using the fixed benchmark definitions and §8.3 resource contract, frozen
 candidates and retained baseline controls. Defer new full Tier D campaigns until
 the mechanism increment passes focused correctness/API validation.
+
+The native-DSR proof-backend increment lands first and has its own fixed gate:
+B27+C5 and Rank 1–40 on `cpu-dense-hwulab-q`, 12 CPUs, 32 GiB and a 1,200-second
+solver timeout. Every UNSAT result must pass DSR elaboration and Trestle
+verification. Compare candidate DSR with retained historical references and a
+same-source DRAT control so serialization cost is distinguishable from solver
+trajectory. Report proof bytes and both checker stages separately. Do not submit
+a new full Tier-D run at this boundary; resume the Satsuma symmetry-breaking
+rule after the gate passes.
 
 Default dynamic-macro/static-micro overhead is ≤5% versus a hardcoded twin.
 Refactoring must preserve existing configurations' action/work/proof behavior
@@ -521,7 +547,7 @@ independently checkable native proofs and must earn a measured time/memory gain.
 - Add proof-event correlation from each emitting rule/application to its proof
   lines or byte range; this is a fixed Phase-4.5 prerequisite.
 - Decide P1's N1 compound-instance surface during survey review; after entry,
-  implement generic definitional extension with checked DRAT/LRAT and correct
+  implement generic definitional extension with a checked proof and correct
   model projection.
 - Evaluate a zero-copy embedded-`SubSolver` view with local watches, trail,
   compact variables, and proof mapping over immutable main-formula clauses.
@@ -584,7 +610,7 @@ Resolve through `revise-plan` concretize mode and record only the minimum needed
 | O8 | retain FRAT only if a consumer appears | phase 6 |
 | O12 | contextual features and learned-state persistence | phase 7 RL2 |
 | O13 | distill stable learned schedules into DefaultPolicy | phase-7 exit |
-| O16 | admit PR/SR learning with an N2 checker/translation story | first WV100 rule needing it |
+| O16 | closed: direct native DSR, elaborated by `dsr-trim` and verified by Trestle | native-DSR gate before Satsuma rules |
 | O17 | whether and how to integrate MAB scheduling for the seven WV100 AE-Kissat-MAB signatures | before claiming those rows mechanism-complete |
 
 Closed decisions have their current contracts in the owning sections; Git
@@ -594,7 +620,8 @@ history preserves the decisions they replaced.
 
 Kissat 4.0.4; CaDiCaL 3.0.0/CaDiCaL-SC2025; Glucose; CryptoMiniSat; recent SAT
 Competition solver descriptions; Järvisalo–Heule–Biere on inprocessing rules;
-Nieuwenhuis–Oliveras–Tinelli on Abstract DPLL; DRAT/LRAT and cake_lpr work;
+Nieuwenhuis–Oliveras–Tinelli on Abstract DPLL; DSR/LSR, `dsr-trim`, and Trestle;
+DRAT/LRAT and cake_lpr work;
 DynamicSAT and Kissat-MAB scheduling; SBVA; and *Cubing for Tuning*. Local
 papers, clones, and winner tooling are indexed from `docs/README.md` and
 `tools/solvers/`.

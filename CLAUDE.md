@@ -12,7 +12,11 @@ home; other documents link to it.
   selectable through the public API at its declared action boundary. Search
   rules operate during search; inprocessing rules, Lucky, and Walk operate at
   level zero after an explicit Restart-to-root transition.
-- **N2:** every path emits checkable DRAT/LRAT evidence and valid SAT models.
+- **N2:** every UNSAT path emits a machine-checkable proof and every SAT path
+  emits a valid reconstructed model. Native DSR is Tactix's canonical proof
+  output: `dsr-trim` elaborates it to LSR and the pinned Trestle checker verifies
+  that LSR. DRAT and native LRAT are compatibility outputs, not requirements for
+  new Satsuma-derived rules.
 - **N3:** DefaultPolicy must be competitive with Kissat on Tier D.
 - **N4:** DefaultPolicy's scheduling must be at least as sophisticated as
   Kissat's; close or explicitly accept every parity-ledger deviation.
