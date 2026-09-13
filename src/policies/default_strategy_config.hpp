@@ -9,6 +9,19 @@
 
 namespace tactix {
 
+enum class DefaultRephaseSlot : uint8_t {
+  Best,
+  Walk,
+  Inverted,
+  Original,
+};
+
+enum class DefaultReorderTarget : uint8_t {
+  Active,
+  Queue,
+  Heap,
+};
+
 // Canonical configuration of the shipped strategy.  A value belongs here when
 // changing it can alter which DefaultPolicy action runs, when it runs, how much
 // work it receives, or which candidates it keeps.  Constants intrinsic to data
@@ -65,7 +78,7 @@ struct DefaultStrategyConfig {
     // (mode switches / switch span) modulo the pattern length.  Zero selects
     // the saved phase, +/-1 forces the initial/opposite phase (decide.c).
     uint32_t focused_phase_switch_span = 2;
-    std::array<int8_t, 8> focused_phase_pattern{{0, 1, 0, -1, 0, 0, 0, 0}};
+    std::vector<int8_t> focused_phase_pattern{0, 1, 0, -1, 0, 0, 0, 0};
     bool random_sequences = true;
   } branching;
 
@@ -122,6 +135,17 @@ struct DefaultStrategyConfig {
     uint32_t tier2_default = 6; // Kissat tier2.
     uint32_t tier1_relative_permille = 500; // Kissat tier1relative.
     uint32_t tier2_relative_permille = 900; // Kissat tier2relative.
+    uint8_t reduce_tier1_mode = 0; // focused tier-1 snapshot.
+    uint8_t reduce_tier2_mode = 1; // stable tier-2 snapshot.
+    uint32_t victim_numerator =
+        strategy::ReduceParameters::VICTIM_NUMERATOR_DEFAULT;
+    uint32_t victim_denominator =
+        strategy::ReduceParameters::VICTIM_DENOMINATOR_DEFAULT;
+    bool protect_tiers = true;
+    // The ordinary scheduled reduction computes compactness from the live
+    // inactive-variable ratio. This is the profile for an explicit canonical
+    // Reduce action through the shared strategy interface.
+    bool canonical_compact_collection = false;
     bool square_root_cadence = true;
     bool ramp_fraction = true;
     bool dynamic_tiers = true;
@@ -134,6 +158,19 @@ struct DefaultStrategyConfig {
     double logarithm_offset = 9.0;
     unsigned logarithm_power = 3;
     uint64_t walk_permille = WALK_PERMILLE_DEFAULT;
+    uint32_t walk_even_break_base_milli =
+        strategy::WalkParameters::EVEN_BREAK_BASE_DEFAULT;
+    std::vector<strategy::WalkParameters::ScorePoint> walk_score_curve =
+        strategy::WalkParameters::reference_score_curve();
+    std::vector<DefaultRephaseSlot> rotation{
+        DefaultRephaseSlot::Best, DefaultRephaseSlot::Walk,
+        DefaultRephaseSlot::Inverted, DefaultRephaseSlot::Best,
+        DefaultRephaseSlot::Walk, DefaultRephaseSlot::Original};
+    DefaultRephaseSlot walk_inapplicable_fallback =
+        DefaultRephaseSlot::Best;
+    bool walk_warmup = true;
+    bool walk_use_branch_seed = true;
+    uint64_t walk_random_seed = 0;
     bool stable_only = true;
     bool late_lucky = true;
   } rephase;
@@ -141,8 +178,10 @@ struct DefaultStrategyConfig {
   struct Reorder {
     uint64_t initial_interval = REORDER_INITIAL_INTERVAL_DEFAULT;
     uint64_t interval = REORDER_INITIAL_INTERVAL_DEFAULT;
-    // 0 off, 1 both modes, 2 stable only.  Kissat ships reorder enabled.
+    // 0 off, 1 stable only, 2 both modes. Kissat ships Reorder in both.
     uint32_t mode = 2;
+    DefaultReorderTarget target = DefaultReorderTarget::Active;
+    strategy::ReorderParameters parameters;
   } reorder;
 
   struct Inprocess {
@@ -193,7 +232,7 @@ struct DefaultStrategyConfig {
     bool touch_filter = true;
     bool likely_kept_redundant = false;
 
-    std::array<uint32_t, 6> bve_bounds{{0, 1, 2, 4, 8, 16}};
+    std::vector<uint32_t> bve_bounds{0, 1, 2, 4, 8, 16};
     // Kissat's shipped `eliminatebound` is 16. Lower ceilings remain
     // explicitly poseable through this typed config / TACTIX_BVE_RAMP_MAX,
     // but production walks the complete ladder before arming its terminal
@@ -250,6 +289,7 @@ struct DefaultStrategyConfig {
     uint32_t congruence_productivity_permille = 1;
     uint32_t sweep_productivity_permille = 1;
     uint32_t vivify_irredundant_productivity_percent = 1;
+    uint8_t vivify_tier_mode = 0; // Kissat `vivifyfocusedtiers` default.
     uint32_t vivify_redundant_share = 7;
     uint32_t vivify_total_share = 10;
     std::array<uint32_t, 3> vivify_tier_shares{{3, 3, 1}};

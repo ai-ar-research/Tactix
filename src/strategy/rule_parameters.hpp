@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <vector>
 
 namespace tactix {
 struct Kernel;
@@ -45,27 +46,67 @@ struct SubstituteParameters {
 };
 
 struct ReduceParameters {
+  static constexpr uint32_t VICTIM_NUMERATOR_DEFAULT = 3;
+  static constexpr uint32_t VICTIM_DENOMINATOR_DEFAULT = 4;
   uint32_t tier1 = 2;
   uint32_t tier2 = 6;
-  constexpr bool valid() const { return tier1 <= tier2; }
+  uint32_t victim_numerator = VICTIM_NUMERATOR_DEFAULT;
+  uint32_t victim_denominator = VICTIM_DENOMINATOR_DEFAULT;
+  bool protect_tiers = true;
+  bool compact_collection = false;
+  constexpr bool valid() const {
+    return tier1 <= tier2 && victim_denominator &&
+           victim_numerator <= victim_denominator;
+  }
   static ReduceParameters from_kernel(const Kernel &);
 };
 
 struct WalkParameters {
   static constexpr uint64_t STEP_BUDGET_DEFAULT = 1000000;
+  static constexpr uint32_t BREAK_BASE_SCALE = 1000;
+  static constexpr uint32_t EVEN_BREAK_BASE_DEFAULT = 2000;
+
+  struct ScorePoint {
+    uint32_t average_clause_size_milli = 0;
+    uint32_t break_base_milli = EVEN_BREAK_BASE_DEFAULT;
+
+    friend bool operator==(const ScorePoint &, const ScorePoint &) = default;
+  };
+
+  static std::vector<ScorePoint> reference_score_curve();
 
   // Exact occurrence-list entries to scan. Zero is an explicit zero-work
   // request; omitting WalkParameters retains the canonical reference default.
   uint64_t step_budget = STEP_BUDGET_DEFAULT;
   uint64_t random_seed = 0;
-  constexpr bool valid() const { return true; }
+  // Kissat alternates this fixed base with the fitted curve on successive
+  // Walk calls. Both are heuristic choices, so the shared typed invocation
+  // surface owns them rather than the Walk implementation.
+  uint32_t even_break_base_milli = EVEN_BREAK_BASE_DEFAULT;
+  std::vector<ScorePoint> score_curve = reference_score_curve();
+  bool valid() const;
   static WalkParameters from_kernel(const Kernel &);
 };
 
 struct ReorderParameters {
   static constexpr uint32_t MAXIMUM_CLAUSE_SIZE_DEFAULT = 100;
+  static constexpr uint32_t WEIGHT_SCALE = 1000;
+  static constexpr uint32_t CLAUSE_DECAY_DEFAULT = 500;
+  static constexpr uint32_t BINARY_WEIGHT_DEFAULT = 1000;
+  static constexpr uint32_t BALANCED_POLARITY_DEFAULT = 2000;
+  static constexpr uint32_t MAXIMUM_WEIGHT_PARAMETER = 1000000;
   uint32_t maximum_clause_size = MAXIMUM_CLAUSE_SIZE_DEFAULT;
-  constexpr bool valid() const { return maximum_clause_size >= 2; }
+  uint32_t clause_decay_milli = CLAUSE_DECAY_DEFAULT;
+  uint32_t binary_weight_milli = BINARY_WEIGHT_DEFAULT;
+  uint32_t balanced_polarity_milli = BALANCED_POLARITY_DEFAULT;
+  constexpr bool valid() const {
+    return maximum_clause_size >= 2 &&
+           clause_decay_milli && clause_decay_milli <= WEIGHT_SCALE &&
+           binary_weight_milli &&
+           binary_weight_milli <= MAXIMUM_WEIGHT_PARAMETER &&
+           balanced_polarity_milli &&
+           balanced_polarity_milli <= MAXIMUM_WEIGHT_PARAMETER;
+  }
   static ReorderParameters from_kernel(const Kernel &);
 };
 
@@ -113,6 +154,8 @@ private:
   Kernel &kernel_;
   uint64_t saved_budget_;
   uint64_t saved_seed_;
+  uint32_t saved_even_break_base_milli_;
+  std::vector<WalkParameters::ScorePoint> saved_score_curve_;
   bool saved_bounded_;
 };
 

@@ -2,7 +2,10 @@
 // that guards true, advertises an instance and then NoOps on a strategy
 // predicate removes a capability from every external policy.
 #undef NDEBUG
+#include "frontend/parse.hpp"
 #include "kernel/kernel.hpp"
+#include "policies/default_policy.hpp"
+#include "proof/proof.hpp"
 #include "rules/factor/factor.hpp"
 #include "rules/registry.hpp"
 
@@ -12,8 +15,48 @@
 #include <cstdio>
 #include <cstring>
 #include <set>
+#include <string>
 
 using namespace tactix;
+
+static int zero_gain_proof_witness(const char *input, const char *output,
+                                   const char *format) {
+  Kernel k;
+  Proof proof;
+  assert(proof.open(output, std::string(format) == "lrat"
+                                ? ProofFormat::Lrat
+                                : ProofFormat::DratAscii));
+  k.proof = &proof;
+  FILE *cnf = std::fopen(input, "r");
+  assert(cnf && !parse_dimacs(cnf, k));
+  std::fclose(cnf);
+
+  FactorGrid grid;
+  grid.factors = {kernel_internalize(k, 1), kernel_internalize(k, 2)};
+  grid.remainders = {{kernel_internalize(k, 3)},
+                     {kernel_internalize(k, 4)}};
+  assert(factor_apply_grid(k, grid) == ApplyResult::Ok);
+  assert(k.stats.factorings == 1);
+
+  DefaultPolicy policy;
+  const int result = policy.solve(k, nullptr);
+  proof.flush();
+  if (result == 10) {
+    kernel_extend_model(k);
+    std::puts("s SATISFIABLE");
+    std::printf("v");
+    for (Var variable = 0; variable < kernel_num_output_vars(k); ++variable) {
+      const Lit literal = make_lit(variable, false);
+      const int external = static_cast<int>(variable) + 1;
+      std::printf(" %d", k.model_values[literal] > 0 ? external : -external);
+    }
+    std::puts(" 0");
+  } else {
+    assert(result == 20);
+    std::puts("s UNSATISFIABLE");
+  }
+  return result;
+}
 
 // A 2x3 grid with delta = m*n - (m+n) = 1 > 0, so the factoring is worth
 // applying, plus padding that holds the binary density far below the shipped
@@ -47,6 +90,21 @@ static void test_exact_subgrid_selection() {
   for (const Lit remainder : {p, q, r})
     assert(kernel_binary_live(k, c, remainder) &&
            "the unselected third row must remain live");
+}
+
+static void test_exact_zero_gain_grid_is_legal() {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  const Lit a = internalize(1), b = internalize(2);
+  const Lit p = internalize(3), q = internalize(4);
+  for (const Lit factor : {a, b})
+    for (const Lit remainder : {p, q})
+      kernel_add_binary_clause(k, factor, remainder);
+  FactorGrid grid;
+  grid.factors = {a, b};
+  grid.remainders = {{p}, {q}};
+  assert(factor_apply_grid(k, grid) == ApplyResult::Ok);
+  assert(k.stats.factorings == 1 && k.nvars == 5);
 }
 
 static void test_exact_large_grid_selection() {
@@ -106,8 +164,9 @@ static void test_complete_grid_enumeration_includes_subgrids() {
         return true;
       });
   assert(result.status == FactorEnumerationStatus::Complete);
-  assert(matching == 5 &&
-         "a 2x4 grid has all four profitable 2x3 subgrids plus itself");
+  assert(matching == 11 &&
+         "a 2x4 grid has six 2x2, four 2x3, and one 2x4 subgrid");
+  assert(selected_columns.count({p, q}));
   assert(selected_columns.count({p, q, r}));
   assert(selected_columns.count({p, q, s}));
   assert(selected_columns.count({p, r, s}));
@@ -125,8 +184,8 @@ static void test_complete_grid_enumeration_controls() {
       kernel_add_binary_clause(square, factor, remainder);
   const FactorEnumerationResult none =
       factor_enumerate_grids(square, [](const FactorGrid &) { return true; });
-  assert(none.status == FactorEnumerationStatus::Complete && none.grids == 0 &&
-         "zero-gain 2x2 rectangles are not legal E2 actions");
+  assert(none.status == FactorEnumerationStatus::Complete && none.grids == 2 &&
+         "zero-gain 2x2 rectangles are legal explicit E2 actions");
 
   Kernel larger;
   kernel_reserve_vars(larger, 6);
@@ -177,8 +236,12 @@ static void test_complete_grid_enumeration_names_large_occurrences() {
   assert(result.status == FactorEnumerationStatus::Complete && found);
 }
 
-int main() {
+int main(int argc, char **argv) {
+  if (argc == 4)
+    return zero_gain_proof_witness(argv[1], argv[2], argv[3]);
+  assert(argc == 1);
   test_exact_subgrid_selection();
+  test_exact_zero_gain_grid_is_legal();
   test_exact_large_grid_selection();
   test_complete_grid_enumeration_includes_subgrids();
   test_complete_grid_enumeration_controls();

@@ -271,8 +271,7 @@ struct Enumerator {
   }
 
   void enumerate_for_current_factors() {
-    const size_t rows = factors.size();
-    const size_t minimum_columns = rows == 2 ? 3 : 2;
+    const size_t minimum_columns = 2;
     std::vector<ColumnChoice> columns = common_columns();
     if (columns.size() < minimum_columns || stopped())
       return;
@@ -291,9 +290,9 @@ struct Enumerator {
     if (factors.size() >= 2)
       enumerate_for_current_factors();
 
-    // Adding a row can only remove common columns. Every profitable grid with
-    // three or more rows needs at least two columns, so this branch cannot
-    // recover once the multiplicity upper bound falls below two.
+    // Adding a row can only remove common columns. Every legal nontrivial grid
+    // needs at least two columns, so this branch cannot recover once the
+    // multiplicity upper bound falls below two.
     if (!factors.empty() && common_column_upper_bound() < 2)
       return;
     for (size_t index = start; index < candidates.size(); ++index) {

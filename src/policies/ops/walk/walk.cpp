@@ -23,19 +23,6 @@ inline double pick_double(uint64_t &s) {
   return static_cast<uint32_t>(next_random(s) >> 32) / 4294967296.0;
 }
 
-// ProbSAT CB base as a function of average clause size (kissat walk.c cbvals)
-const double CBVALS[6][2] = {{0.0, 2.00}, {3.0, 2.50}, {4.0, 2.85},
-                             {5.0, 3.70}, {6.0, 5.10}, {7.0, 7.40}};
-
-double fit_cbval(double size) {
-  size_t i = 0;
-  while (i + 2 < 6 && (CBVALS[i][0] > size || CBVALS[i + 1][0] < size))
-    i++;
-  const double x2 = CBVALS[i + 1][0], x1 = CBVALS[i][0];
-  const double y2 = CBVALS[i + 1][1], y1 = CBVALS[i][1];
-  return (y2 - y1) * (size - x1) / (x2 - x1) + y1;
-}
-
 // The walk table: every clause that is neither satisfied nor emptied by the
 // trail, flattened into CSR literal storage plus a CSR literal->clause index.
 struct Walker {
@@ -174,7 +161,9 @@ bool build_table(Walker &w, Kernel &k) {
   // afterwards in connect_large_counters and so still count.
   const uint32_t denominator = w.binary_clauses + w.full_irredundant_clauses;
   const double avg = total_size / denominator;
-  const double cb = (k.stats.walks & 1) ? fit_cbval(avg) : 2.0;
+  const strategy::WalkParameters parameters =
+      strategy::WalkParameters::from_kernel(k);
+  const double cb = walk_break_base(parameters, avg, k.stats.walks);
   const double base = 1 / cb;
   double next = 1;
   for (w.epsilon = 1; next; next = w.epsilon * base)
@@ -357,6 +346,28 @@ void local_search(Walker &w, uint64_t limit) {
 }
 
 } // namespace
+
+double walk_break_base(const strategy::WalkParameters &parameters,
+                       double average_size, uint64_t walk_count) {
+  assert(parameters.valid());
+  constexpr double scale = strategy::WalkParameters::BREAK_BASE_SCALE;
+  if (!(walk_count & 1))
+    return parameters.even_break_base_milli / scale;
+  const auto &curve = parameters.score_curve;
+  size_t i = 0;
+  const auto x = [scale](const strategy::WalkParameters::ScorePoint point) {
+    return point.average_clause_size_milli / scale;
+  };
+  const auto y = [scale](const strategy::WalkParameters::ScorePoint point) {
+    return point.break_base_milli / scale;
+  };
+  while (i + 2 < curve.size() &&
+         (x(curve[i]) > average_size || x(curve[i + 1]) < average_size))
+    ++i;
+  const double x1 = x(curve[i]), x2 = x(curve[i + 1]);
+  const double y1 = y(curve[i]), y2 = y(curve[i + 1]);
+  return (y2 - y1) * (average_size - x1) / (x2 - x1) + y1;
+}
 
 // Requires a consistent root state and `H` for the phase arrays. A caller in
 // search explicitly composes Restart before selecting Walk.

@@ -202,19 +202,46 @@ ActionParameters random_parameters(uint64_t &state, const std::string &rule,
   if (rule == "Substitute")
     return SubstituteParameters{bounded(state, OPTIONAL_CHOICES) != 0};
   if (rule == "Reduce") {
+    ReduceParameters p = config.reduce_reference;
     const uint32_t first =
         choice_limit(state, config.reduce_reference.tier1);
     const uint32_t second =
         choice_limit(state, config.reduce_reference.tier2);
-    return ReduceParameters{std::min(first, second), std::max(first, second)};
+    p.tier1 = std::min(first, second);
+    p.tier2 = std::max(first, second);
+    p.victim_denominator =
+        1 + inclusive_u32(state, p.victim_denominator - 1);
+    p.victim_numerator = inclusive_u32(state, p.victim_denominator);
+    p.protect_tiers = bounded(state, OPTIONAL_CHOICES) != 0;
+    p.compact_collection = bounded(state, OPTIONAL_CHOICES) != 0;
+    return p;
   }
-  if (rule == "Walk")
-    return WalkParameters{
-        optional_positive(state, config.maximum_walk_step_budget), draw(state)};
-  if (rule == "Reorder")
-    return ReorderParameters{2 + inclusive_u32(
-                                     state,
-                                     config.reorder_reference.maximum_clause_size - 2)};
+  if (rule == "Walk") {
+    WalkParameters p = config.walk_reference;
+    p.step_budget = optional_positive(state, config.maximum_walk_step_budget);
+    p.random_seed = draw(state);
+    p.even_break_base_milli = 1 + inclusive_u32(
+        state, p.even_break_base_milli - 1);
+    uint32_t previous = 1;
+    for (WalkParameters::ScorePoint &point : p.score_curve) {
+      const uint32_t ceiling = std::max(previous, point.break_base_milli);
+      point.break_base_milli =
+          previous + inclusive_u32(state, ceiling - previous);
+      previous = point.break_base_milli;
+    }
+    return p;
+  }
+  if (rule == "Reorder") {
+    ReorderParameters p = config.reorder_reference;
+    p.maximum_clause_size =
+        2 + inclusive_u32(state, p.maximum_clause_size - 2);
+    p.clause_decay_milli = 1 + inclusive_u32(state, p.clause_decay_milli - 1);
+    p.binary_weight_milli =
+        1 + inclusive_u32(state, p.binary_weight_milli - 1);
+    p.balanced_polarity_milli =
+        1 + inclusive_u32(state, p.balanced_polarity_milli - 1);
+    return p;
+  }
   return std::monostate{};
 }
 
@@ -385,12 +412,44 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
     SubstituteParameters p;
     if (!boolean(v[0], p.demote_substituted)) return false;
     parameters = p;
-  } else if (tuple(text, "reduce", v) && v.size() == 2) {
-    ReduceParameters p; U32_AT(0, p.tier1); U32_AT(1, p.tier2); parameters = p;
-  } else if (tuple(text, "walk", v) && v.size() == 2) {
-    WalkParameters p; p.step_budget = v[0]; p.random_seed = v[1]; parameters = p;
-  } else if (tuple(text, "reorder", v) && v.size() == 1) {
-    ReorderParameters p; U32_AT(0, p.maximum_clause_size); parameters = p;
+  } else if (tuple(text, "reduce", v) &&
+             (v.size() == 2 || v.size() == 6)) {
+    ReduceParameters p; U32_AT(0, p.tier1); U32_AT(1, p.tier2);
+    if (v.size() == 6) {
+      U32_AT(2, p.victim_numerator); U32_AT(3, p.victim_denominator);
+      if (!boolean(v[4], p.protect_tiers) ||
+          !boolean(v[5], p.compact_collection)) return false;
+    }
+    parameters = p;
+  } else if (tuple(text, "walk", v) && v.size() >= 2) {
+    WalkParameters p;
+    p.step_budget = v[0];
+    p.random_seed = v[1];
+    if (v.size() != 2) {
+      if (v.size() < 4 || v[2] > UINT32_MAX ||
+          v[3] > (v.size() - 4) / 2 || v.size() != 4 + 2 * v[3])
+        return false;
+      p.even_break_base_milli = static_cast<uint32_t>(v[2]);
+      p.score_curve.clear();
+      for (size_t i = 0; i < v[3]; ++i) {
+        const uint64_t x = v[4 + 2 * i], y = v[5 + 2 * i];
+        if (x > UINT32_MAX || y > UINT32_MAX)
+          return false;
+        p.score_curve.push_back(
+            {static_cast<uint32_t>(x), static_cast<uint32_t>(y)});
+      }
+    }
+    parameters = std::move(p);
+  } else if (tuple(text, "reorder", v) &&
+             (v.size() == 1 || v.size() == 4)) {
+    ReorderParameters p;
+    U32_AT(0, p.maximum_clause_size);
+    if (v.size() == 4) {
+      U32_AT(1, p.clause_decay_milli);
+      U32_AT(2, p.binary_weight_milli);
+      U32_AT(3, p.balanced_polarity_milli);
+    }
+    parameters = p;
   } else {
     return false;
   }
@@ -676,12 +735,22 @@ std::string serialize_online_strategy_program(
       out << ":substitute(" << p->demote_substituted << ')';
     else if (const auto *p =
                  std::get_if<ReduceParameters>(&step.parameters))
-      out << ":reduce(" << p->tier1 << ',' << p->tier2 << ')';
-    else if (const auto *p = std::get_if<WalkParameters>(&step.parameters))
-      out << ":walk(" << p->step_budget << ',' << p->random_seed << ')';
+      out << ":reduce(" << p->tier1 << ',' << p->tier2 << ','
+          << p->victim_numerator << ',' << p->victim_denominator << ','
+          << p->protect_tiers << ',' << p->compact_collection << ')';
+    else if (const auto *p = std::get_if<WalkParameters>(&step.parameters)) {
+      out << ":walk(" << p->step_budget << ',' << p->random_seed << ','
+          << p->even_break_base_milli << ',' << p->score_curve.size();
+      for (const WalkParameters::ScorePoint point : p->score_curve)
+        out << ',' << point.average_clause_size_milli << ','
+            << point.break_base_milli;
+      out << ')';
+    }
     else if (const auto *p =
                  std::get_if<ReorderParameters>(&step.parameters))
-      out << ":reorder(" << p->maximum_clause_size << ')';
+      out << ":reorder(" << p->maximum_clause_size << ','
+          << p->clause_decay_milli << ',' << p->binary_weight_milli << ','
+          << p->balanced_polarity_milli << ')';
     else
       out << ":inherit";
     out << ":instances[";

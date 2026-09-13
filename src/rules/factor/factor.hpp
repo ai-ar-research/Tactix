@@ -51,8 +51,9 @@ ApplyResult factor_apply_grid(Kernel &, const FactorGrid &);
 
 // Exhaustive, deterministic enumeration of the abstract E2 action space.
 // Factor sets and column sets are canonicalized, while `members` preserves the
-// selected physical large-clause occurrence for every cell. The visitor is
-// called lazily, so an external strategy may stop or impose an explicit
+// selected physical large-clause occurrence for every cell. This includes
+// zero-gain 2x2 grids; profitability remains a canonical policy decision. The
+// visitor is called lazily, so an external strategy may stop or impose an explicit
 // result budget without materializing the exponential grid space. The kernel
 // must not be mutated from the visitor.
 enum class FactorEnumerationStatus : uint8_t {

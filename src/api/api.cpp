@@ -17,6 +17,7 @@
 
 #include <memory>
 #include <limits>
+#include <utility>
 #include <vector>
 
 using namespace tactix;
@@ -243,18 +244,68 @@ bool online_parameters(const tactix_online_parameters &source,
     target = strategy::SubstituteParameters{
         source.value.substitute.demote_substituted != 0};
     return true;
-  case TACTIX_ONLINE_PARAMETERS_REDUCE:
-    target = strategy::ReduceParameters{source.value.reduce.tier1,
-                                        source.value.reduce.tier2};
+  case TACTIX_ONLINE_PARAMETERS_REDUCE: {
+    const tactix_online_reduce_parameters &source_reduce =
+        source.value.reduce;
+    if (source_reduce.tier_protection_mode < TACTIX_ONLINE_SETTING_INHERIT ||
+        source_reduce.tier_protection_mode > TACTIX_ONLINE_SETTING_ENABLE ||
+        source_reduce.compact_collection_mode < TACTIX_ONLINE_SETTING_INHERIT ||
+        source_reduce.compact_collection_mode > TACTIX_ONLINE_SETTING_ENABLE)
+      return false;
+    strategy::ReduceParameters reduce;
+    reduce.tier1 = source_reduce.tier1;
+    reduce.tier2 = source_reduce.tier2;
+    if (source_reduce.victim_denominator) {
+      reduce.victim_numerator = source_reduce.victim_numerator;
+      reduce.victim_denominator = source_reduce.victim_denominator;
+    }
+    if (source_reduce.tier_protection_mode != TACTIX_ONLINE_SETTING_INHERIT)
+      reduce.protect_tiers =
+          source_reduce.tier_protection_mode == TACTIX_ONLINE_SETTING_ENABLE;
+    if (source_reduce.compact_collection_mode !=
+        TACTIX_ONLINE_SETTING_INHERIT)
+      reduce.compact_collection = source_reduce.compact_collection_mode ==
+                                  TACTIX_ONLINE_SETTING_ENABLE;
+    target = reduce;
     return true;
-  case TACTIX_ONLINE_PARAMETERS_WALK:
-    target = strategy::WalkParameters{source.value.walk.step_budget,
-                                      source.value.walk.random_seed};
+  }
+  case TACTIX_ONLINE_PARAMETERS_WALK: {
+    const tactix_online_walk_parameters &source_walk = source.value.walk;
+    if (source_walk.score_curve_count < 0 ||
+        (source_walk.score_curve_count && !source_walk.score_curve))
+      return false;
+    strategy::WalkParameters walk;
+    walk.step_budget = source_walk.step_budget;
+    walk.random_seed = source_walk.random_seed;
+    if (source_walk.even_break_base_milli)
+      walk.even_break_base_milli = source_walk.even_break_base_milli;
+    if (source_walk.score_curve_count) {
+      walk.score_curve.clear();
+      walk.score_curve.reserve(
+          static_cast<size_t>(source_walk.score_curve_count));
+      for (int i = 0; i < source_walk.score_curve_count; ++i)
+        walk.score_curve.push_back(
+            {source_walk.score_curve[i].average_clause_size_milli,
+             source_walk.score_curve[i].break_base_milli});
+    }
+    target = std::move(walk);
     return true;
-  case TACTIX_ONLINE_PARAMETERS_REORDER:
-    target = strategy::ReorderParameters{
-        source.value.reorder.maximum_clause_size};
+  }
+  case TACTIX_ONLINE_PARAMETERS_REORDER: {
+    const tactix_online_reorder_parameters &source_reorder =
+        source.value.reorder;
+    strategy::ReorderParameters reorder;
+    reorder.maximum_clause_size = source_reorder.maximum_clause_size;
+    if (source_reorder.clause_decay_milli)
+      reorder.clause_decay_milli = source_reorder.clause_decay_milli;
+    if (source_reorder.binary_weight_milli)
+      reorder.binary_weight_milli = source_reorder.binary_weight_milli;
+    if (source_reorder.balanced_polarity_milli)
+      reorder.balanced_polarity_milli =
+          source_reorder.balanced_polarity_milli;
+    target = reorder;
     return true;
+  }
   default:
     return false;
   }

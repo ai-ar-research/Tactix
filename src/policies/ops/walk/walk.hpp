@@ -13,6 +13,7 @@
 #pragma once
 
 #include "rules/registry.hpp"
+#include "strategy/rule_parameters.hpp"
 
 namespace tactix {
 
@@ -24,5 +25,10 @@ namespace tactix {
 RuleEligibility walk_guard(const Kernel &);
 ApplyResult walk_apply(Kernel &);                 // canonical: budgeted round
 ApplyResult walk_apply_steps(Kernel &, uint64_t); // explicit step budget
+
+// Pure scoring seam used by validation/tests and by the walker. `walk_count`
+// is one-based, matching Kernel::stats.walks after the application starts.
+double walk_break_base(const strategy::WalkParameters &, double average_size,
+                       uint64_t walk_count);
 
 } // namespace tactix

@@ -319,11 +319,12 @@ collection. Root consequences still emit native-LRAT unit ids.
 
 ## 8. Phase saving and rephasing
 
-Saved phases update on every non-probing assignment. Focused decisions use the
-reference epoch pattern; shipped rephase rotation is `B,W,I,B,W,O`. Walk first
-warms search, saves phases, backtracks neutrally, and restores binaries in the
-reference compact/import order before large clauses. Its `walkeffort=50‰`
-dose reads the Eliminate tick anchor: Kissat invokes Walk with
+Saved phases update on every non-probing assignment. Focused decisions use a
+typed epoch pattern; the shipped defaults retain the reference pattern and
+`B,W,I,B,W,O` rephase rotation. Walk's warmup, seed, fallback, even-call base,
+and fitted ProbSAT curve are configurable; defaults warm search, save phases,
+backtrack neutrally, and restore binaries in reference compact/import order
+before large clauses. Its default `walkeffort=50‰` dose reads the Eliminate tick anchor: Kissat invokes Walk with
 `solver->probing == false`, so `SET_EFFORT_LIMIT` selects
 `last.ticks.eliminate`. Walk has no private effort anchor and does not advance
 that shared anchor; only a completed Eliminate phase does. The ProbSAT average
@@ -356,7 +357,9 @@ tiers before every Vivify dose.
 
 ## 10. Reorder
 
-Reorder is H-only and ships in both modes (`TACTIX_REORDER=2`). It filters
+Reorder is H-only and ships in both modes (`TACTIX_REORDER=2`). Its target,
+maximum clause size, clause-decay, binary weight, and polarity balance are
+typed strategy settings with reference-preserving defaults. It filters
 retired identities, consumes root assignments before retirements, and rebuilds
 focused/stable order from active variables using irredundant-clause weights.
 Stable Reorder rescales EVSIDS scores before sorting candidates, matching
@@ -524,12 +527,12 @@ instance after earlier candidates mutate its occurrences.
 - Probe and Eliminate enter root through neutral backtracking: this scaffolding
   does not increment scheduled Restart, reuse, or focused-cadence counters.
   Rephase and Reduce keep the same accounting distinction.
-- Production BVE reaches the complete 0,1,2,4,8,16 bound ladder. Dynamic heap
+- Production BVE defaults to the complete 0,1,2,4,8,16 configurable bound ladder. Dynamic heap
   insertion preserves candidates retryable at a later bound. A lower diagnostic
   ceiling never changes the public instance surface.
 - Packed OTFS retains the source clause's Vivify untried-tail bit, along with
   the physical pose and path-specific addition/removal marks specified in §5.
-- Stable Reorder scans stop at exactly 100 open literals; equal-weight/score
+- Stable Reorder defaults to at most 100 open literals; equal-weight/score
   ordering uses first-import rank after score rescaling (§10).
 - Root-fixed variables are inactive immediately; compact random slots use
   first-import order filtered to active variables. Activation order remains

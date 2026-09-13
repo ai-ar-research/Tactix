@@ -99,9 +99,8 @@ struct FactorMatchPolicy : SubPolicy, FactorSelection {
                                    double reference_score) override = 0;
 
   // Accept threshold for the best greedy grid (m by n, net gain
-  // delta = m*n - (m+n)). At its most permissive setting it must accept every
-  // delta >= 1 — the N1 reachability floor. The rule-side FACTOR_MIN_GAIN cost
-  // floor is applied before this is consulted.
+  // delta = m*n - (m+n)). The rule exposes every m,n >= 2 grid, including a
+  // zero-gain 2x2 grid; the selection policy alone decides profitability.
   virtual bool accept(uint32_t m, uint32_t n, int delta) override = 0;
 };
 

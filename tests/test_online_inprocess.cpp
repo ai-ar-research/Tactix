@@ -889,20 +889,45 @@ static void rule_parameters_are_scoped_per_call() {
 
   k.tier1 = 3;
   k.tier2 = 8;
-  assert(apply_parameterized(k, "Reduce", ReduceParameters{1, 4}, 106)
+  k.reduce_victim_numerator = 7;
+  k.reduce_victim_denominator = 9;
+  k.reduce_protect_tiers = true;
+  k.reduce_compact_collection = false;
+  assert(apply_parameterized(
+             k, "Reduce", ReduceParameters{1, 4, 1, 2, false, true}, 106)
              .applications == 1);
-  assert(k.tier1 == 3 && k.tier2 == 8);
+  assert(k.tier1 == 3 && k.tier2 == 8 &&
+         k.reduce_victim_numerator == 7 &&
+         k.reduce_victim_denominator == 9 && k.reduce_protect_tiers &&
+         !k.reduce_compact_collection);
 
   k.work_budget = 81;
   k.walk_random_seed = 82;
-  assert(apply_parameterized(k, "Walk", WalkParameters{1, 2}, 108)
+  k.walk_even_break_base_milli = 83;
+  k.walk_score_curve = {{0, 101}, {1000, 202}};
+  WalkParameters walk_parameters;
+  walk_parameters.step_budget = 1;
+  walk_parameters.random_seed = 2;
+  walk_parameters.even_break_base_milli = 303;
+  walk_parameters.score_curve = {{0, 404}, {2000, 505}};
+  assert(apply_parameterized(k, "Walk", walk_parameters, 108)
              .applications == 1);
-  assert(k.work_budget == 81 && k.walk_random_seed == 82);
+  assert(k.work_budget == 81 && k.walk_random_seed == 82 &&
+         k.walk_even_break_base_milli == 83 &&
+         (k.walk_score_curve ==
+          std::vector<WalkParameters::ScorePoint>{{0, 101}, {1000, 202}}));
 
-  k.reorder_maximum_clause_size = 83;
-  assert(apply_parameterized(k, "Reorder", ReorderParameters{3}, 109)
+  k.reorder_maximum_clause_size = 84;
+  k.reorder_clause_decay_milli = 85;
+  k.reorder_binary_weight_milli = 86;
+  k.reorder_balanced_polarity_milli = 87;
+  assert(apply_parameterized(k, "Reorder",
+                             ReorderParameters{3, 400, 900, 1700}, 109)
              .applications == 1);
-  assert(k.reorder_maximum_clause_size == 83);
+  assert(k.reorder_maximum_clause_size == 84 &&
+         k.reorder_clause_decay_milli == 85 &&
+         k.reorder_binary_weight_milli == 86 &&
+         k.reorder_balanced_polarity_milli == 87);
   kernel_check_invariants(k);
 
   Kernel a;
@@ -1004,12 +1029,14 @@ static void complete_factor_pass_uses_exact_grid_enumeration() {
     applications += result.applications;
     progress += result.made_rule_progress;
   }
-  // K(2,4) contains four 2x3 subgrids and one 2x4 grid in one orientation,
-  // four 3x2 subgrids and one 4x2 grid in the other. The first rewrite makes
-  // the overlapping snapshot entries NoOp, but every legal entry is consumed.
-  assert(applications == 10);
-  assert(progress == 1 && k.stats.factorings == 1);
-  assert(executor.step_consumed(62) == 10);
+  // Each orientation contains six 2x2, four 2x3/3x2, and one full grid. The
+  // first rewrite makes overlapping snapshot entries NoOp, but every legal
+  // entry is consumed.
+  assert(applications == 22);
+  // The ascending 2x2 frontier first consumes columns {3,4}, then the
+  // disjoint {5,6}; every overlapping selection is stale by application.
+  assert(progress == 2 && k.stats.factorings == 2);
+  assert(executor.step_consumed(62) == 22);
   kernel_check_invariants(k);
 
   Kernel bounded = complete_factor_fixture();

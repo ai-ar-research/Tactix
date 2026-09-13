@@ -226,6 +226,119 @@ static void generation_observes_interruption_without_mutating_kernel() {
   kernel_check_invariants(k);
 }
 
+static void reduce_walk_and_reorder_parameters_round_trip() {
+  OnlineStrategyProgram program;
+  OnlineInvocation reduce;
+  reduce.id = 60;
+  reduce.rule = "Reduce";
+  reduce.parameters = ReduceParameters{3, 8, 2, 5, false, true};
+  reduce.granularity = InvocationGranularity::CanonicalApplication;
+  reduce.repeat = {RepeatMode::Once, 1};
+  reduce.work_unit = WorkUnit::Applications;
+  reduce.budget = WorkLimit::bounded(1);
+  program.sequence.push_back(reduce);
+
+  OnlineInvocation walk;
+  walk.id = 61;
+  walk.rule = "Walk";
+  WalkParameters walk_parameters;
+  walk_parameters.step_budget = 17;
+  walk_parameters.random_seed = 19;
+  walk_parameters.even_break_base_milli = 2300;
+  walk_parameters.score_curve = {{0, 1700}, {2500, 2600}, {9000, 8100}};
+  walk.parameters = walk_parameters;
+  walk.granularity = InvocationGranularity::CanonicalApplication;
+  walk.repeat = {RepeatMode::Once, 1};
+  walk.work_unit = WorkUnit::Applications;
+  walk.budget = WorkLimit::bounded(1);
+  program.sequence.push_back(walk);
+
+  OnlineInvocation reorder;
+  reorder.id = 62;
+  reorder.rule = "Reorder";
+  reorder.parameters = ReorderParameters{23, 375, 1250, 2750};
+  reorder.granularity = InvocationGranularity::CanonicalApplication;
+  reorder.repeat = {RepeatMode::Once, 1};
+  reorder.work_unit = WorkUnit::Applications;
+  reorder.budget = WorkLimit::bounded(1);
+  program.sequence.push_back(reorder);
+
+  std::string error;
+  assert(validate_online_strategy_program(program, &error));
+  const std::string encoded = serialize_online_strategy_program(program);
+  OnlineStrategyProgram decoded;
+  assert(deserialize_online_strategy_program(encoded, decoded, &error));
+  assert(serialize_online_strategy_program(decoded) == encoded);
+  const auto &decoded_reduce =
+      std::get<ReduceParameters>(decoded.sequence[0].parameters);
+  assert(decoded_reduce.victim_numerator == 2 &&
+         decoded_reduce.victim_denominator == 5 &&
+         !decoded_reduce.protect_tiers && decoded_reduce.compact_collection);
+  const auto &decoded_walk =
+      std::get<WalkParameters>(decoded.sequence[1].parameters);
+  assert(decoded_walk.even_break_base_milli == 2300 &&
+         decoded_walk.score_curve == walk_parameters.score_curve);
+  const auto &decoded_reorder =
+      std::get<ReorderParameters>(decoded.sequence[2].parameters);
+  assert(decoded_reorder.clause_decay_milli == 375 &&
+         decoded_reorder.binary_weight_milli == 1250 &&
+         decoded_reorder.balanced_polarity_milli == 2750);
+
+  // Trace-v3 payloads written before scoring became configurable retain the
+  // reference scoring defaults.
+  const std::string old =
+      "sequence-repeat=once:1 "
+      "step=71:Walk:3:once:1:0:1:rulework(0,0):material(0,0):"
+      "walk(5,7):instances[]:grids[]";
+  assert(deserialize_online_strategy_program(old, decoded, &error));
+  const auto &legacy = std::get<WalkParameters>(decoded.sequence[0].parameters);
+  assert(legacy.step_budget == 5 && legacy.random_seed == 7 &&
+         legacy.even_break_base_milli ==
+             WalkParameters::EVEN_BREAK_BASE_DEFAULT &&
+         legacy.score_curve == WalkParameters::reference_score_curve());
+
+  const std::string old_reduce =
+      "sequence-repeat=once:1 "
+      "step=72:Reduce:3:once:1:0:1:rulework(0,0):material(0,0):"
+      "reduce(2,6):instances[]:grids[]";
+  assert(deserialize_online_strategy_program(old_reduce, decoded, &error));
+  const auto &legacy_reduce =
+      std::get<ReduceParameters>(decoded.sequence[0].parameters);
+  assert(legacy_reduce.victim_numerator == 3 &&
+         legacy_reduce.victim_denominator == 4 &&
+         legacy_reduce.protect_tiers &&
+         !legacy_reduce.compact_collection);
+}
+
+static void random_walk_and_reorder_vary_scoring_parameters() {
+  Kernel k = broad_fixture();
+  ScopedHeuristics heuristics(k);
+  RandomOnlineConfig config;
+  config.rules = {"Walk", "Reorder"};
+  std::set<uint32_t> walk_even_bases, walk_curve_bases;
+  std::set<uint32_t> reorder_decay, reorder_binary, reorder_polarity;
+  for (uint64_t seed = 1; seed <= 256; ++seed) {
+    OnlineStrategyProgram program;
+    std::string error;
+    assert(random_online_strategy_program(k, seed, config, program, &error));
+    for (const OnlineInvocation &step : program.sequence) {
+      if (const auto *p = std::get_if<WalkParameters>(&step.parameters)) {
+        walk_even_bases.insert(p->even_break_base_milli);
+        for (const WalkParameters::ScorePoint point : p->score_curve)
+          walk_curve_bases.insert(point.break_base_milli);
+      } else if (const auto *p =
+                     std::get_if<ReorderParameters>(&step.parameters)) {
+        reorder_decay.insert(p->clause_decay_milli);
+        reorder_binary.insert(p->binary_weight_milli);
+        reorder_polarity.insert(p->balanced_polarity_milli);
+      }
+    }
+  }
+  assert(walk_even_bases.size() > 8 && walk_curve_bases.size() > 16);
+  assert(reorder_decay.size() > 8 && reorder_binary.size() > 8 &&
+         reorder_polarity.size() > 8);
+}
+
 static OnlineStrategyProgram exact_factor_replay_program(Kernel &k) {
   kernel_reserve_vars(k, 5);
   FactorGrid grid;
@@ -706,6 +819,8 @@ int main() {
   seeds_are_replayable_and_behavior_is_wide();
   generated_program_interrupts_and_reconfigures_online();
   generation_observes_interruption_without_mutating_kernel();
+  reduce_walk_and_reorder_parameters_round_trip();
+  random_walk_and_reorder_vary_scoring_parameters();
   explicit_selection_reaches_beyond_a_prefix();
   parameter_domains_are_caller_controlled();
   every_registry_action_has_random_support();
