@@ -109,8 +109,9 @@ not implementation or project-document changes.
 - The matched winner rerun tool is ready to pin a final 40-task, instance-major
   matrix on hwu. It independently recomputes selection evidence and uses
   anonymous formula, proof, model, solver-stream and checker scratch, including
-  direct exact-binary adapters for Satsuma and LymphoSAT. Compute-node adapter
-  and checker validation remains mandatory before array submission.
+  direct exact-binary adapters for Satsuma and LymphoSAT. Compute-node job
+  `1685372` passed every adapter, proof/model pipeline, crash/timeout cleanup and
+  residue check; see the [validation report](benchmarks/reports/2026-09-12-winner-adapter-validation.md).
 
 ## Next actions
 
@@ -145,4 +146,5 @@ not implementation or project-document changes.
 - Removed obsolete configuration guards and retained root-only phase boundaries.
 - Restored both performance gates and submitted the validated post-refactor
   Tier-D array from `b1165641`.
-- Repaired cgroup-timeout selection and added the fail-closed matched rerun tool.
+- Repaired cgroup-timeout selection and validated the fail-closed matched rerun
+  adapters and anonymous proof/model pipelines on a compute node.
