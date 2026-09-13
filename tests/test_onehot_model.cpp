@@ -91,6 +91,18 @@ int main() {
     assert(k.stats.onehot_model_candidates > 1 && satisfied(k));
   }
   {
+    Kernel k = fixture();
+    // The all-zero free assignment chooses value zero in domain 1. A root
+    // unit forbidding precisely that indicator must reject the candidate;
+    // testing it as true and then skipping it during materialization used to
+    // return a model with this domain entirely false.
+    kernel_assign_unit(k, make_lit(indicator(1, 0), true));
+    assert(!kernel_propagate(k));
+    assert(onehot_model_apply(k) == ApplyResult::Sat);
+    assert(k.stats.onehot_model_candidates > 1 && satisfied(k));
+    assert(k.value(make_lit(indicator(1, 0), false)) < 0);
+  }
+  {
     Kernel k = fixture(false);
     assert(onehot_model_apply(k) == ApplyResult::NoOp);
     assert(k.stats.onehot_model_equations == 0 && k.trail.empty());

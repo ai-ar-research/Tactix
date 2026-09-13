@@ -329,10 +329,23 @@ ApplyResult onehot_model_apply(Kernel &k) {
     for (Var var = 0; var < k.nvars; ++var)
       if (k.value(make_lit(var, false)) > 0)
         assignment[var] = 1;
-    for (uint32_t index = 0; index < domains.size(); ++index)
-      assignment[domains[index][field_values[index]]] = 1;
+    bool root_compatible = true;
+    for (uint32_t index = 0; index < domains.size(); ++index) {
+      const Var selected = domains[index][field_values[index]];
+      // A partially fixed domain can have one forbidden indicator without
+      // fixing either of the other two.  The affine candidate still chooses
+      // exactly one indicator, but it is not a model when that choice is
+      // already false at the root.  Do not overwrite the root value in the
+      // temporary assignment: materialization below deliberately skips fixed
+      // variables and would otherwise publish a different, falsifying model.
+      if (k.value(make_lit(selected, false)) < 0) {
+        root_compatible = false;
+        break;
+      }
+      assignment[selected] = 1;
+    }
     ++k.stats.onehot_model_candidates;
-    if (satisfies(k, assignment)) {
+    if (root_compatible && satisfies(k, assignment)) {
       for (Var var = 0; var < k.nvars; ++var) {
         const Lit positive = make_lit(var, false);
         if (!k.value(positive) && !kernel_var_retired(k, var))

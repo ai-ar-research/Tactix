@@ -2305,6 +2305,26 @@ static void test_large_add_respects_physical_connection_mode() {
   }
 }
 
+static void test_resumable_model_export_preserves_solver_state() {
+  Kernel k;
+  kernel_reserve_vars(k, 2);
+  k.var_status.resize(2, VarStatus::Active);
+  k.var_status[1] = VarStatus::Eliminated;
+  --k.unassigned_active;
+  kernel_assign_decision(k, internalize(1));
+  k.propagate_head = static_cast<uint32_t>(k.trail.size());
+  const auto values = k.values;
+  const auto trail = k.trail;
+  const uint32_t unassigned = k.unassigned;
+  kernel_extend_model(k, /*materialize_internal=*/false);
+  assert(k.model_extended && k.model_values[internalize(1)] > 0);
+  assert(k.model_values[internalize(-2)] > 0);
+  assert(k.values == values && k.trail.size() == trail.size() &&
+         std::equal(k.trail.begin(), k.trail.end(), trail.begin()) &&
+         k.unassigned == unassigned);
+  kernel_check_invariants(k);
+}
+
 int main() {
   test_large_add_respects_physical_connection_mode();
   test_irredundant_clause_never_stores_glue();
@@ -2372,6 +2392,7 @@ int main() {
   test_pending_units_borrow_and_restore_literal_marks();
   test_watch_batch_reserve_preserves_prefixes_and_fills_exactly();
   test_kissat_watch_growth_and_clause_checkpoint_defrag();
+  test_resumable_model_export_preserves_solver_state();
   puts("test_kernel OK");
   return 0;
 }

@@ -4006,7 +4006,7 @@ void kernel_push_witness(Kernel &k, Lit witness, const Lit *rest,
   k.reconstruction.push_back(static_cast<Lit>(nrest + 1));
 }
 
-void kernel_extend_model(Kernel &k) {
+void kernel_extend_model(Kernel &k, bool materialize_internal) {
   if (k.model_extended)
     return;
   k.model_extended = true;
@@ -4058,14 +4058,17 @@ void kernel_extend_model(Kernel &k) {
     }
     i = begin;
   }
-  // Preserve the long-standing kernel test/debug view for variables that are
-  // still live internally.  Compacted-away variables remain available only
-  // through model_values, which is the public/output contract.
-  for (Var iv = 0; iv < k.nvars; iv++) {
-    const Var ev = k.internal_to_external[iv];
-    const Lit ipos = make_lit(iv, false), epos = make_lit(ev, false);
-    k.values[ipos] = k.model_values[epos];
-    k.values[negate(ipos)] = k.model_values[negate(epos)];
+  if (materialize_internal) {
+    // Preserve the long-standing terminal kernel test/debug view for variables
+    // that are still live internally. Compacted-away variables remain
+    // available only through model_values, which is the public/output
+    // contract. Resumable online callers leave the semantic state untouched.
+    for (Var iv = 0; iv < k.nvars; iv++) {
+      const Var ev = k.internal_to_external[iv];
+      const Lit ipos = make_lit(iv, false), epos = make_lit(ev, false);
+      k.values[ipos] = k.model_values[epos];
+      k.values[negate(ipos)] = k.model_values[negate(epos)];
+    }
   }
 }
 
