@@ -189,6 +189,11 @@ struct DefaultStrategyConfig {
     strategy::ParityModelParameters parameters;
   } parity_model;
 
+  struct OnehotModel {
+    bool enabled = true;
+    strategy::OnehotModelParameters parameters;
+  } onehot_model;
+
   struct Inprocess {
     // Production values are formula-shape invariant. These typed switches
     // remain explicit diagnostic arms and are never selected by classification.

@@ -53,7 +53,7 @@ using ActionParameters =
                  BceParameters, TernaryParameters, FactorParameters,
                  TransitiveReduceParameters, SubstituteParameters,
                  ReduceParameters, WalkParameters, ReorderParameters,
-                 ParityModelParameters>;
+                 ParityModelParameters, OnehotModelParameters>;
 
 // Compatibility name for the inprocessing scheduler. Online composition uses
 // the same typed parameter vocabulary for every registered action.
@@ -243,6 +243,12 @@ inline bool validate_inprocess_program(std::span<const InprocessStep> program,
         return reject("parity-model parameters are attached to a different action");
       if (!p->valid())
         return reject("Lucky parity-model parameters are invalid");
+    } else if (const auto *p =
+                   std::get_if<OnehotModelParameters>(&step.parameters)) {
+      if (step.rule != "Lucky")
+        return reject("onehot-model parameters are attached to a different action");
+      if (!p->valid())
+        return reject("Lucky onehot-model parameters are invalid");
     }
     for (size_t j = 0; j < i; ++j)
       if (program[j].id == step.id)

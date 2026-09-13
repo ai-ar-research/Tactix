@@ -33,6 +33,17 @@ struct RandomOnlineConfig {
   uint32_t maximum_parity_model_free_variables =
       ParityModelParameters::MAXIMUM_FREE_VARIABLES_DEFAULT;
   uint64_t maximum_parity_model_candidates = 1024;
+  uint32_t maximum_onehot_model_variables =
+      OnehotModelParameters::MAXIMUM_VARIABLES_DEFAULT;
+  uint32_t maximum_onehot_model_domains =
+      OnehotModelParameters::MAXIMUM_DOMAINS_DEFAULT;
+  uint32_t maximum_onehot_model_constraints =
+      OnehotModelParameters::MAXIMUM_CONSTRAINTS_DEFAULT;
+  uint32_t maximum_onehot_model_equation_arity =
+      OnehotModelParameters::MAXIMUM_EQUATION_ARITY_DEFAULT;
+  uint32_t maximum_onehot_model_free_domains =
+      OnehotModelParameters::MAXIMUM_FREE_DOMAINS_DEFAULT;
+  uint64_t maximum_onehot_model_candidates = 1024;
 
   // The generator samples semantic boundaries around these caller-owned
   // reference values.  Keeping the domains here makes random exploration
@@ -66,6 +77,7 @@ struct RandomOnlineConfig {
   WalkParameters walk_reference;
   ReorderParameters reorder_reference;
   ParityModelParameters parity_model_reference;
+  OnehotModelParameters onehot_model_reference;
   size_t maximum_congruence_gate_count =
       CongruenceParameters::GATE_COUNT_DEFAULT;
 };

@@ -273,6 +273,12 @@ static void configurable_parameters_round_trip() {
   parity.budget = WorkLimit::bounded(1);
   program.sequence.push_back(parity);
 
+  OnlineInvocation onehot = parity;
+  onehot.id = 64;
+  onehot.parameters =
+      OnehotModelParameters{53, 79, 103, 6, 5, 11, 13, 23456};
+  program.sequence.push_back(onehot);
+
   std::string error;
   assert(validate_online_strategy_program(program, &error));
   const std::string encoded = serialize_online_strategy_program(program);
@@ -302,6 +308,16 @@ static void configurable_parameters_round_trip() {
          decoded_parity.minimum_equations == 7 &&
          decoded_parity.maximum_free_variables == 9 &&
          decoded_parity.candidate_budget == 12345);
+  const auto &decoded_onehot =
+      std::get<OnehotModelParameters>(decoded.sequence[4].parameters);
+  assert(decoded_onehot.maximum_variables == 53 &&
+         decoded_onehot.maximum_domains == 79 &&
+         decoded_onehot.maximum_constraints == 103 &&
+         decoded_onehot.maximum_equation_arity == 6 &&
+         decoded_onehot.minimum_domains == 5 &&
+         decoded_onehot.minimum_equations == 11 &&
+         decoded_onehot.maximum_free_domains == 13 &&
+         decoded_onehot.candidate_budget == 23456);
 
   // Trace-v3 payloads written before scoring became configurable retain the
   // reference scoring defaults.
@@ -564,24 +580,55 @@ static void parameter_domains_are_caller_controlled() {
   config.maximum_parity_model_constraints = 131;
   config.maximum_parity_model_free_variables = 11;
   config.maximum_parity_model_candidates = 257;
-  bool selected_structural_instance = false;
+  config.maximum_onehot_model_variables = 71;
+  config.maximum_onehot_model_domains = 83;
+  config.maximum_onehot_model_constraints = 127;
+  config.maximum_onehot_model_equation_arity = 7;
+  config.maximum_onehot_model_free_domains = 13;
+  config.maximum_onehot_model_candidates = 251;
+  bool selected_parity_instance = false, selected_onehot_instance = false;
   std::set<uint32_t> parity_variables, parity_groups, parity_constraints,
       parity_free;
   std::set<uint64_t> parity_candidates;
+  std::set<uint32_t> onehot_variables, onehot_domains, onehot_constraints,
+      onehot_arities, onehot_free;
+  std::set<uint64_t> onehot_candidates;
   for (uint64_t seed = 1; seed <= 512; ++seed) {
     OnlineStrategyProgram program;
-    assert(random_online_strategy_program(k, seed, config, program));
+    std::string generation_error;
+    if (!random_online_strategy_program(k, seed, config, program,
+                                        &generation_error)) {
+      std::fprintf(stderr, "Lucky generation seed %llu: %s\n",
+                   (unsigned long long)seed, generation_error.c_str());
+      std::fprintf(stderr, "%s\n",
+                   serialize_online_strategy_program(program).c_str());
+      assert(false);
+    }
     const OnlineInvocation &step = program.sequence.front();
-    const auto *parameters =
-        std::get_if<ParityModelParameters>(&step.parameters);
-    assert(parameters && parameters->valid());
-    parity_variables.insert(parameters->maximum_variables);
-    parity_groups.insert(parameters->maximum_groups);
-    parity_constraints.insert(parameters->maximum_constraints);
-    parity_free.insert(parameters->maximum_free_variables);
-    parity_candidates.insert(parameters->candidate_budget);
-    selected_structural_instance |=
+    if (const auto *parameters =
+            std::get_if<ParityModelParameters>(&step.parameters)) {
+      assert(parameters->valid());
+      parity_variables.insert(parameters->maximum_variables);
+      parity_groups.insert(parameters->maximum_groups);
+      parity_constraints.insert(parameters->maximum_constraints);
+      parity_free.insert(parameters->maximum_free_variables);
+      parity_candidates.insert(parameters->candidate_budget);
+    } else {
+      const auto *onehot_parameters =
+          std::get_if<OnehotModelParameters>(&step.parameters);
+      assert(onehot_parameters && onehot_parameters->valid());
+      onehot_variables.insert(onehot_parameters->maximum_variables);
+      onehot_domains.insert(onehot_parameters->maximum_domains);
+      onehot_constraints.insert(onehot_parameters->maximum_constraints);
+      onehot_arities.insert(onehot_parameters->maximum_equation_arity);
+      onehot_free.insert(onehot_parameters->maximum_free_domains);
+      onehot_candidates.insert(onehot_parameters->candidate_budget);
+    }
+    selected_parity_instance |=
         std::find(step.instances.begin(), step.instances.end(), uint64_t{6}) !=
+        step.instances.end();
+    selected_onehot_instance |=
+        std::find(step.instances.begin(), step.instances.end(), uint64_t{7}) !=
         step.instances.end();
     OnlineStrategyProgram replay;
     std::string error;
@@ -590,10 +637,13 @@ static void parameter_domains_are_caller_controlled() {
     assert(serialize_online_strategy_program(replay) ==
            serialize_online_strategy_program(program));
   }
-  assert(selected_structural_instance);
+  assert(selected_parity_instance && selected_onehot_instance);
   assert(parity_variables.size() > 8 && parity_groups.size() > 8 &&
          parity_constraints.size() > 8 && parity_free.size() > 8 &&
          parity_candidates.size() > 8);
+  assert(onehot_variables.size() > 8 && onehot_domains.size() > 8 &&
+         onehot_constraints.size() > 8 && onehot_arities.size() > 3 &&
+         onehot_free.size() > 8 && onehot_candidates.size() > 8);
 
   const std::vector<std::pair<std::string, bool (*)(const ActionParameters &)>>
       typed_rules = {
@@ -616,7 +666,8 @@ static void parameter_domains_are_caller_controlled() {
              return std::holds_alternative<ReduceParameters>(p);
            }},
           {"Lucky", [](const ActionParameters &p) {
-             return std::holds_alternative<ParityModelParameters>(p);
+             return std::holds_alternative<ParityModelParameters>(p) ||
+                    std::holds_alternative<OnehotModelParameters>(p);
            }},
       };
   for (const auto &[rule, has_expected_type] : typed_rules) {

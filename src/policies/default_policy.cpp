@@ -13,6 +13,7 @@
 #include "policies/ops/rephase/rephase.hpp"
 #include "policies/ops/reorder/reorder.hpp"
 #include "rules/lucky/parity_model.hpp"
+#include "rules/lucky/onehot_model.hpp"
 #include "policies/ops/walk/walk.hpp"
 #include "rules/restart/restart.hpp"
 #include "rules/registry.hpp"
@@ -286,6 +287,8 @@ bool DefaultStrategyConfig::valid(std::string *error) const {
     return reject("reorder schedule is invalid");
   if (!parity_model.parameters.valid())
     return reject("parity-model settings are invalid");
+  if (!onehot_model.parameters.valid())
+    return reject("onehot-model settings are invalid");
 
   const auto &ip = inprocess;
   if (!ip.eliminate_interval || !ip.probe_interval || !ip.phase_rounds ||
@@ -492,6 +495,23 @@ std::string DefaultStrategyConfig::serialize() const {
       << parity_model.parameters.maximum_free_variables
       << " parity_model.candidate_budget="
       << parity_model.parameters.candidate_budget
+      << " onehot_model.enabled=" << onehot_model.enabled
+      << " onehot_model.maximum_variables="
+      << onehot_model.parameters.maximum_variables
+      << " onehot_model.maximum_domains="
+      << onehot_model.parameters.maximum_domains
+      << " onehot_model.maximum_constraints="
+      << onehot_model.parameters.maximum_constraints
+      << " onehot_model.maximum_equation_arity="
+      << onehot_model.parameters.maximum_equation_arity
+      << " onehot_model.minimum_domains="
+      << onehot_model.parameters.minimum_domains
+      << " onehot_model.minimum_equations="
+      << onehot_model.parameters.minimum_equations
+      << " onehot_model.maximum_free_domains="
+      << onehot_model.parameters.maximum_free_domains
+      << " onehot_model.candidate_budget="
+      << onehot_model.parameters.candidate_budget
       << " inprocess.bve_enabled=" << inprocess.bve_enabled
       << " inprocess.vivify_enabled=" << inprocess.vivify_enabled
       << " inprocess.factor_enabled=" << inprocess.factor_enabled
@@ -2834,6 +2854,22 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       config_.parity_model.parameters.maximum_free_variables;
   k.parity_model_candidate_budget =
       config_.parity_model.parameters.candidate_budget;
+  k.onehot_model_maximum_variables =
+      config_.onehot_model.parameters.maximum_variables;
+  k.onehot_model_maximum_domains =
+      config_.onehot_model.parameters.maximum_domains;
+  k.onehot_model_maximum_constraints =
+      config_.onehot_model.parameters.maximum_constraints;
+  k.onehot_model_maximum_equation_arity =
+      config_.onehot_model.parameters.maximum_equation_arity;
+  k.onehot_model_minimum_domains =
+      config_.onehot_model.parameters.minimum_domains;
+  k.onehot_model_minimum_equations =
+      config_.onehot_model.parameters.minimum_equations;
+  k.onehot_model_maximum_free_domains =
+      config_.onehot_model.parameters.maximum_free_domains;
+  k.onehot_model_candidate_budget =
+      config_.onehot_model.parameters.candidate_budget;
   k.reduce_victim_numerator = config_.reduction.victim_numerator;
   k.reduce_victim_denominator = config_.reduction.victim_denominator;
   k.reduce_protect_tiers = config_.reduction.protect_tiers;
@@ -2905,6 +2941,16 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       return finish(10);
     }
     event_trace.macro(k, "parity_model_end", "unknown");
+  }
+  if (config_.onehot_model.enabled && onehot_model_guard(k)) {
+    event_trace.macro(k, "onehot_model_begin");
+    const ApplyResult onehot = default_direct_rule(
+        k, "Lucky", "onehot-model", [&] { return onehot_model_apply(k); });
+    if (onehot == ApplyResult::Sat) {
+      event_trace.macro(k, "onehot_model_end", "sat");
+      return finish(10);
+    }
+    event_trace.macro(k, "onehot_model_end", "unknown");
   }
   // The shipped frontend postpones state that neither root propagation nor
   // early Lucky can read. A failed opportunity crosses the first consumer

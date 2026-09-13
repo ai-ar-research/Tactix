@@ -315,6 +315,15 @@ bool online_parameters(const tactix_online_parameters &source,
         p.maximum_free_variables, p.candidate_budget};
     return true;
   }
+  case TACTIX_ONLINE_PARAMETERS_ONEHOT_MODEL: {
+    const tactix_online_onehot_model_parameters &p =
+        source.value.onehot_model;
+    target = strategy::OnehotModelParameters{
+        p.maximum_variables, p.maximum_domains, p.maximum_constraints,
+        p.maximum_equation_arity, p.minimum_domains, p.minimum_equations,
+        p.maximum_free_domains, p.candidate_budget};
+    return true;
+  }
   default:
     return false;
   }

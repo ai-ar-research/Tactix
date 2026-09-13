@@ -243,6 +243,25 @@ ActionParameters random_parameters(uint64_t &state, const std::string &rule,
     return p;
   }
   if (rule == "Lucky") {
+    if (bounded(state, 2)) {
+      OnehotModelParameters p = config.onehot_model_reference;
+      p.maximum_variables =
+          1 + inclusive_u32(state, config.maximum_onehot_model_variables - 1);
+      p.maximum_domains =
+          1 + inclusive_u32(state, config.maximum_onehot_model_domains - 1);
+      p.maximum_constraints = 1 + inclusive_u32(
+          state, config.maximum_onehot_model_constraints - 1);
+      p.maximum_equation_arity = 1 + inclusive_u32(
+          state, config.maximum_onehot_model_equation_arity - 1);
+      p.minimum_domains = inclusive_u32(
+          state, std::min(p.minimum_domains, p.maximum_domains));
+      p.minimum_equations = inclusive_u32(state, p.minimum_equations);
+      p.maximum_free_domains = inclusive_u32(
+          state, config.maximum_onehot_model_free_domains);
+      p.candidate_budget = optional_positive(
+          state, config.maximum_onehot_model_candidates);
+      return p;
+    }
     ParityModelParameters p = config.parity_model_reference;
     p.maximum_variables =
         1 + inclusive_u32(state, config.maximum_parity_model_variables - 1);
@@ -478,6 +497,17 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
     U32_AT(5, p.maximum_free_variables);
     p.candidate_budget = v[6];
     parameters = p;
+  } else if (tuple(text, "onehot-model", v) && v.size() == 8) {
+    OnehotModelParameters p;
+    U32_AT(0, p.maximum_variables);
+    U32_AT(1, p.maximum_domains);
+    U32_AT(2, p.maximum_constraints);
+    U32_AT(3, p.maximum_equation_arity);
+    U32_AT(4, p.minimum_domains);
+    U32_AT(5, p.minimum_equations);
+    U32_AT(6, p.maximum_free_domains);
+    p.candidate_budget = v[7];
+    parameters = p;
   } else {
     return false;
   }
@@ -553,7 +583,13 @@ bool random_online_strategy_program(Kernel &k, uint64_t seed,
       !config.maximum_parity_model_constraints ||
       config.maximum_parity_model_free_variables > 63 ||
       !config.maximum_parity_model_candidates ||
-      !config.parity_model_reference.valid())
+      !config.parity_model_reference.valid() ||
+      !config.maximum_onehot_model_variables ||
+      !config.maximum_onehot_model_domains ||
+      !config.maximum_onehot_model_constraints ||
+      !config.maximum_onehot_model_equation_arity ||
+      !config.maximum_onehot_model_candidates ||
+      !config.onehot_model_reference.valid())
     return reject("random-online maxima must be positive");
 
   std::vector<int> available;
@@ -791,6 +827,13 @@ std::string serialize_online_strategy_program(
           << p->maximum_groups << ',' << p->maximum_constraints << ','
           << p->minimum_group_clauses << ',' << p->minimum_equations << ','
           << p->maximum_free_variables << ',' << p->candidate_budget << ')';
+    else if (const auto *p =
+                 std::get_if<OnehotModelParameters>(&step.parameters))
+      out << ":onehot-model(" << p->maximum_variables << ','
+          << p->maximum_domains << ',' << p->maximum_constraints << ','
+          << p->maximum_equation_arity << ',' << p->minimum_domains << ','
+          << p->minimum_equations << ',' << p->maximum_free_domains << ','
+          << p->candidate_budget << ')';
     else
       out << ":inherit";
     out << ":instances[";

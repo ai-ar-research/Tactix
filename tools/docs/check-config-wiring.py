@@ -178,6 +178,22 @@ TABLE = {
                                 ("POLICY", "typed Lucky affine search bound"),
     "parity_model_candidate_budget":
                                 ("POLICY", "typed Lucky candidate budget"),
+    "onehot_model_maximum_variables":
+                                ("POLICY", "typed Lucky one-hot admission bound"),
+    "onehot_model_maximum_domains":
+                                ("POLICY", "typed Lucky one-hot memory bound"),
+    "onehot_model_maximum_constraints":
+                                ("POLICY", "typed Lucky one-hot formula-work bound"),
+    "onehot_model_maximum_equation_arity":
+                                ("POLICY", "typed Lucky GF(3) recognition bound"),
+    "onehot_model_minimum_domains":
+                                ("POLICY", "typed Lucky one-hot admission"),
+    "onehot_model_minimum_equations":
+                                ("POLICY", "typed Lucky GF(3) admission"),
+    "onehot_model_maximum_free_domains":
+                                ("POLICY", "typed Lucky GF(3) search bound"),
+    "onehot_model_candidate_budget":
+                                ("POLICY", "typed Lucky GF(3) candidate budget"),
     "reduce_victim_numerator": ("POLICY", "typed canonical Reduce victim fraction"),
     "reduce_victim_denominator":
                                 ("POLICY", "typed canonical Reduce victim fraction"),
