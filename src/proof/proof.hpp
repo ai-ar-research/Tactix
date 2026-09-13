@@ -82,12 +82,14 @@ public:
   // clause and completed input restatement. A kernel assembled directly in a
   // unit test never arms it.
   void arm_population_shadow() { armed_ = true; }
+  bool population_shadow_available() const { return true; }
   bool population_contains(uint64_t id, const Lit *lits, uint32_t size) const;
   uint64_t unbacked_deletions() const { return unbacked_deletions_; }
-  bool population_shadow() const { return true; }
+  bool population_shadow() const { return armed_; }
 #else
   void seed_population(uint64_t, const Lit *, uint32_t) {}
   void arm_population_shadow() {}
+  bool population_shadow_available() const { return false; }
   bool population_contains(uint64_t, const Lit *, uint32_t) const {
     return true;
   }
