@@ -4,15 +4,15 @@ A sequential CDCL SAT solver architected around an explicit **proof-rule API**:
 at any point the embedding client can query which proof rules are currently
 applicable and apply a chosen rule instance; a default policy schedules rules
 automatically to act as a competitive solver. Every rule application emits a
-DRAT/LRAT proof delta, and I/O follows SAT Competition main-track conventions.
+typed proof delta. Tactix's canonical certificate is one native DSR stream,
+elaborated by `dsr-trim` to LSR and verified by Trestle; DRAT and native LRAT
+remain explicit compatibility formats.
 
-**Status: in development (phase 4 — reference-faithful scheduling).** Core CDCL + proof
-production + the rule API are in place; the inprocessing rule inventory
-(subsume, strengthen, vivify, probe, backbone, substitute, congruence,
-transitive reduction, blocked-clause elimination, hyper-ternary resolution,
-instantiation, BVE, factoring/BVA, sweeping) is implemented and scheduled, and
-work is focused on faithful default scheduling and Tier-A convergence with
-Kissat. See
+**Status: in development.** The online-configurable strategy and complete N1
+surface are accepted with N2–N4 preserved. Native DSR integration is at its
+B27+C5 and Rank1–40 landing gate; the next mechanism increment completes the
+Satsuma-derived symmetry-breaking rule through direct substitution-redundancy
+witnesses, followed by the fixed WV100 target. See
 [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md) for the architecture, benchmark tiers,
 fuzzing/proof-checking harness, and milestones; [PROGRESS.md](PROGRESS.md) for the
 live checklist; and [docs/README.md](docs/README.md) for the documentation map.

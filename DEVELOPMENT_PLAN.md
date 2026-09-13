@@ -516,8 +516,8 @@ Ablations use configuration, not forks; test online reconfiguration and replay.
 | Phase | Deliverable | Exit |
 |---|---|---|
 | 0 | repository, tools, fuzz pipeline, Tier A/B | reproducible baseline |
-| 1 | kernel, M1–M3, S1/S2/S4, DRAT, I/O | T1 + green proof fuzz |
-| 2 | S3/S5, LRAT, API freeze | T2 + API review |
+| 1 | kernel, M1–M3, S1/S2/S4, native DSR, I/O | T1 + green proof fuzz |
+| 2 | S3/S5, compatibility DRAT/LRAT, API freeze | T2 + API review |
 | 3 | complete reference rule inventory and Tier C | catalog disposition/reach complete |
 | 4 | faithful dosing, scheduling verification, and Tier B/C causal convergence | P4-CVG + N4 verification complete + T3 |
 | 4.19 | code/document cleanup | no obsolete artifact or duplicated live authority |

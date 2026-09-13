@@ -39,6 +39,7 @@ still open.
 | Final evidence | [online refactor/N1 closure](benchmarks/reports/2026-09-13-online-refactor-n1-final.md) |
 | Claude checkpoint | [job 1687182 report](benchmarks/reports/2026-09-13-structural-resume-claude-fuzz/terminal-report.md) |
 | DSR B27+C5 reference | [fixed 32-row vector](benchmarks/baselines/b27c5-tactix-a08f9f6a-v1/manifest.json) |
+| DSR Rank1–40 reference | [accepted Tactix vector](benchmarks/baselines/rank1-40-tactix-a08f9f6a-v1/manifest.json) |
 | Winner target | [fixed WV100 set](benchmarks/tiers/WV100.tsv): 33 SAT / 67 UNSAT |
 | WV100 protocol | [mechanism integration and experiment design](docs/design/2026-09-13-wv100-mechanism-integration.md) |
 | Satsuma transition | [57-row structural screen](benchmarks/reports/2026-09-13-wv100-satsuma-transition.md) |
@@ -82,7 +83,7 @@ not implementation or project-document changes.
 
 - Native binary/ASCII DSR serialization, direct typed `add_sr`, CLI/C API
   selection, and the DSR -> LSR -> Trestle checker pipeline are implemented in
-  the working tree. Exact proof-byte/API tests and 51 proof-oracle/runtime/fuzz
+  the working tree. Exact proof-byte/API tests and 53 proof-oracle/runtime/fuzz
   protocol tests pass. Slurm job `1688419` passes the complete micro suite in
   binary/ASCII DSR and explicit DRAT/LRAT modes, including a non-vacuous SR
   witness and malformed DSR/LSR controls. Jobs `1688422` and `1688423` pass all
@@ -120,6 +121,15 @@ not implementation or project-document changes.
 - Existing Tier-D and proof-checking jobs remain unchanged. Do not rerun retained
   reference solvers or wait for proof checking before independent work. Do not
   submit a new full Tier-D run after the native-DSR gate.
+- Native-DSR gates `1688424` (Rank 1–40, 80 paired tasks) and `1688455`
+  (B27+C5, 64 paired tasks) run at full width on `cpu-dense-hwulab-q`, c12,
+  32 GiB and 1,200 solver seconds. Each instance runs the same binary once in
+  default DSR mode and once with explicit `--drat`; retained reference solvers
+  are not rerun.
+- Claude-owned native-DSR fuzz checkpoint `1688465` is one non-array job. It
+  covers default and online-random DSR, DRAT/LRAT controls, effective
+  transitions, replay, negative controls and interruption accounting; Claude
+  owns its terminal audit and report.
 - Partial WV100 scoring has 13 fully accepted SAT solves. Ranks 68 and 74 also
   solved UNSAT in 0.367 and 1.319 seconds and printed `s VERIFIED`, but the
   immutable active runner mislabeled `drat-trim`'s source-confirmed
