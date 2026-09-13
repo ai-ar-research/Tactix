@@ -20,6 +20,7 @@ from portfolio_rerun import (
     build_matrix,
     checked_valid,
     classify_result,
+    clean_environment,
     sha256,
     verify_selection,
 )
@@ -96,6 +97,37 @@ class PortfolioRerunTests(unittest.TestCase):
                 os.environ["SLURM_JOB_ID"] = "999"
                 with self.assertRaisesRegex(ValueError, "validation job identity"):
                     bound_launch(campaign, validation=True, wait_seconds=0)
+
+    def test_solver_environment_excludes_external_configuration(self):
+        environment = {
+            "PATH": "/usr/bin",
+            "LD_LIBRARY_PATH": "/cluster/lib",
+            "LD_PRELOAD": "/tmp/injected.so",
+            "PYTHONPATH": "/tmp/injected",
+            "TACTIX_RANDOM_SEED": "99",
+            "KISSAT_OPTION": "changed",
+            "ASAN_OPTIONS": "detect_leaks=0",
+            "UNRELATED": "value",
+        }
+        with patch.dict(os.environ, environment, clear=True):
+            self.assertEqual(
+                clean_environment(),
+                {
+                    "PATH": (
+                        "/cm/local/apps/python3/bin:/usr/local/bin:/usr/bin:"
+                        "/usr/local/sbin:/usr/sbin:/bin"
+                    ),
+                    "LD_LIBRARY_PATH": (
+                        "/cm/local/apps/gcc/13.1.0/lib64:"
+                        "/cm/local/apps/gcc/13.1.0/lib:"
+                        "/cm/local/apps/gcc/13.1.0/lib32"
+                    ),
+                    "LANG": "C",
+                    "LC_ALL": "C",
+                    "PYTHONHASHSEED": "0",
+                    "TMPDIR": "/tmp",
+                },
+            )
 
     def test_only_checked_solve_or_clean_full_timeout_is_scoreable(self):
         solve = {"exit_code": 10, "timed_out": False, "wall_seconds": 0.1}

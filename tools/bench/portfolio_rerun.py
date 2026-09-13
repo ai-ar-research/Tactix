@@ -31,6 +31,20 @@ CHECK_SECONDS = 16000
 MEMORY_MIB = 32768
 CPUS = 12
 PARTITION = "cpu-dense-hwulab-q"
+ENVIRONMENT_FIXED = {
+    "LANG": "C",
+    "LD_LIBRARY_PATH": (
+        "/cm/local/apps/gcc/13.1.0/lib64:/cm/local/apps/gcc/13.1.0/lib:"
+        "/cm/local/apps/gcc/13.1.0/lib32"
+    ),
+    "LC_ALL": "C",
+    "PATH": (
+        "/cm/local/apps/python3/bin:/usr/local/bin:/usr/bin:"
+        "/usr/local/sbin:/usr/sbin:/bin"
+    ),
+    "PYTHONHASHSEED": "0",
+    "TMPDIR": "/tmp",
+}
 
 
 def require(condition, message):
@@ -552,6 +566,7 @@ def prepare(args):
             "throttle": None,
             "node_constraint": None,
         },
+        "solver_environment": clean_environment(),
         "scratch_policy": "anonymous-node-local-otmpfile-v1",
         "cleanup_contract": (
             "Formula, proof, model, solver streams, metrics, profile, transformed CNF "
@@ -627,6 +642,13 @@ def verify_campaign(campaign, full=False, arm_name=None):
             "node_constraint": None,
         },
         "rerun resource contract differs",
+    )
+    environment = manifest.get("solver_environment")
+    require(
+        isinstance(environment, dict)
+        and environment.get("PATH")
+        and clean_environment() == environment,
+        "solver environment contract differs",
     )
     keys = set(manifest["pin_digests"]) if full else required_pins(manifest, arm_name)
     for rel in sorted(keys):
@@ -751,11 +773,7 @@ def solver_summary(path):
 
 
 def clean_environment():
-    return {
-        key: value
-        for key, value in os.environ.items()
-        if not key.startswith(("TACTIX_", "KISSAT_", "SAT_EVENT_", "SAT_INPROCESS_"))
-    }
+    return dict(ENVIRONMENT_FIXED)
 
 
 def truncate(path):
@@ -973,7 +991,7 @@ def check_proof(campaign, manifest, certificate, cnf, proof, scratch, timeout):
             scratch / f"checker-{number}.stdout",
             scratch / f"checker-{number}.stderr",
         )
-        environment = clean_environment()
+        environment = dict(manifest["solver_environment"])
         stage_environment = {}
         if name in ("cake-lpr", "cake-pb-cnf"):
             environment["CML_HEAP_SIZE"] = "24576"
@@ -1095,7 +1113,7 @@ def execute_case(
         stderr,
         scratch / "solver.time",
         solve_timeout,
-        clean_environment(),
+        dict(manifest["solver_environment"]),
     )
     verdict, statistics = solver_summary(stdout)
     certificate = stdout if verdict == "SAT" else proof
@@ -1144,7 +1162,7 @@ def execute_case(
             scratch / "model.stderr",
             scratch / "model.time",
             min(600, check_timeout),
-            clean_environment(),
+            dict(manifest["solver_environment"]),
         )
         checked.update(
             result="verified" if checked["exit_code"] == 0 else "not-verified",
@@ -1224,7 +1242,12 @@ def task_main(campaign, task):
         )
         cnf = scratch / "input.cnf"
         with open(cnf, "wb") as target:
-            subprocess.run(["xz", "-dc", compressed], stdout=target, check=True)
+            subprocess.run(
+                ["xz", "-dc", compressed],
+                stdout=target,
+                check=True,
+                env=dict(manifest["solver_environment"]),
+            )
         result = execute_case(
             campaign,
             manifest,
