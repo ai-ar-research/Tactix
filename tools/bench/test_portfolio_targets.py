@@ -40,14 +40,13 @@ class PortfolioTargetsTests(unittest.TestCase):
             row = self.baseline(); row['solve'][field] = value
             self.assertFalse(self.eligible(row))
 
-    def test_unsat_requires_all_oracles_and_no_lymphosat_credit(self):
+    def test_unsat_requires_all_oracles_and_allows_checked_lymphosat(self):
         row = self.baseline('UNSAT'); self.assertTrue(self.eligible(row))
         for field, value in [('exit_code', 1), ('result', 'not-verified'), ('timed_out', True)]:
             bad = copy.deepcopy(row); bad['proof_check']['stages'][0][field] = value
             self.assertFalse(self.eligible(bad))
-        row['solver'] = 'lymphosat'; self.assertFalse(self.eligible(row))
-        row['solver'] = 'kissat-4.0.4'; row['vbs_eligible'] = 'SAT-only'
-        self.assertFalse(self.eligible(row))
+        row['solver'] = 'lymphosat'; row['vbs_eligible'] = 'SAT-only'
+        self.assertTrue(self.eligible(row))
 
     def test_only_genuine_final_solver_timeout(self):
         row = self.baseline(); row.update(verdict='UNKNOWN', model_check=None, proof_check=None)

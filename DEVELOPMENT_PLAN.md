@@ -289,12 +289,12 @@ starts only in Phase 4.5.
 
 ### 8.1 Benchmark tiers
 
-All solver runs use SLURM `cpu-dense-hwulab-q`, one single-threaded solver per
-task. Allocate 8 GiB per **physical** core. On SMT-2, request two logical CPUs per
-physical core (32 GiB = four physical/eight logical CPUs). Canonical Tier D
-uses a 32 GiB task-cgroup limit and 5000 s solve limit. User-authorized
-experimental allocations are recorded separately and never redefine a gate.
-Thus a 16 GiB check uses two physical/four logical CPUs in one SLURM `--mem=16G` task cgroup.
+Solver runs use SLURM with one single-threaded solver per task. Focused WV100
+development defaults to `cpu-dense-hwulab-q`, eight logical CPUs, 32 GiB and
+300 solver seconds. B28+C5 and Rank 1--50 use the same partition with 12 logical
+CPUs, 32 GiB and 1,200 solver seconds. Canonical Tier D uses a 32-GiB task-cgroup
+limit and 5,000-second solve limit. User-authorized `cpu-q` and other experimental
+allocations are recorded separately and never redefine a gate.
 
 - Every arm owns an immutable pin and manifest. One task runs one solver; never
   serialize arms, throttle full-width arrays, constrain their node placement, or
@@ -373,14 +373,21 @@ alone does not close its required fuzz gate.
   either full-tier requirement. Gates phase 4.
 - **T4-K:** on each annual Tier-D view and their union, cover every Kissat 4.0.4
   solve and reach at most 1.10× its PAR-2.
+- **T4-WV100:** solve all 100 fixed WV100 instances within 1,200 seconds and
+  32 GiB with independently checked models or proofs while retaining the
+  B28+C5, Rank 1–50, memory and runtime gates. This gates Phase 4.5.
 - **T4-VBS:** exact status-sensitive parity with the frozen reference VBS on
-  the union; LymphoSAT contributes SAT results only. This gates Phase 4.5.
+  the union. Every independently checked SAT or UNSAT result from each frozen
+  configuration qualifies, including LymphoSAT.
 - **T5:** exceed the frozen VBS or ship the best verified effort.
 
-**Targeted timing measurement.** Decision-grade long-instance comparisons use
-three independent paired waves. Each wave submits candidate and exact-state
-baseline as separate concurrent jobs. On EPYC 9454 use 12 logical CPUs, exactly
-48,000 MiB, one pinned solver thread, and no address-space limit. Record
+**Targeted timing measurement.** Focused WV100 development defaults to
+`cpu-dense-hwulab-q`, eight logical CPUs, 32 GiB, one solver thread and a
+300-second solver limit; `cpu-q` may establish a qualitative large-effect
+transition but cannot close a timing gate. B28+C5 and Rank 1--50 use
+`cpu-dense-hwulab-q`, 12 logical CPUs, 32 GiB and a 1,200-second solver limit.
+Decision-grade close comparisons use three independent paired waves. Each wave
+submits candidate and exact-state baseline as separate concurrent jobs. Record
 placement, peak RSS/VmPeak, service-rate counters, proof/check identities, and
 anonymous-scratch cleanup. Report the median and full ratio range; reject an
 absolute headline when either arm's range exceeds 2%. Do not serialize arms,
@@ -388,7 +395,8 @@ subtract unmatched proof/check time, or extend this repetition requirement to
 fuzz and full-width tier arrays.
 
 **Fixed Rank 1–50 reference.** Keep the approved fifty/frozen Kissat vector as
-12-CPU/48,000-MiB regression controls; matched full-view reruns are Tactix-only.
+the retained regression control; full-view reruns are Tactix-only under the
+12-CPU/32-GiB/1,200-second contract above.
 The ≤1.01× target is deferred, not achieved or a winner-stage prerequisite.
 No routine refresh/best-of denominator or cross-window unit-cost inference.
 Pending checks permit work, not acceptance; correctness/B28+C5/memory gates stay.
@@ -398,6 +406,13 @@ with its cause, strength, evidence, reproducer, owner, and reopening condition.
 Compose only independently supported repairs. Complete checked B28+C5 and one
 Claude-owned fuzz checkpoint before promotion; feature-off projections and
 pending checks cannot replace these gates.
+
+**Commit invariant.** Every committed tree must satisfy N1--N4. Intermediate
+mechanism work may remain uncommitted while it is being developed, but a commit
+must expose every legal instance promised by its declared rule boundary, retain
+checked proof/model behavior, and preserve the accepted default performance and
+scheduling contracts. A default-off mechanism still owes N1 and N2 for its
+public surface; default-off status only limits its N3/N4 schedule impact.
 
 **Refactor/N1 entry gate.** Complete strategy composition and audit the combined
 candidate's entire calculus/API surface—legal instances, branches/phases,
@@ -419,25 +434,37 @@ equal cost with weaker work is not parity. Localize semantic or representation
 divergence before comparing later work. Clause IDs, arena refs, benchmark names,
 and wall time are diagnostics, never alignment keys or solver controls.
 
-**Twenty winner-coverage targets.** After the refactor gate, treat the five
-frozen baselines as an offline VBS and select ten SAT plus ten UNSAT checked
-1,200-second/32-GiB wins over genuine Tactix timeouts. Use existing censored
-data; exclude OOM, crash, missing, and checker-failure cases. Prefer rarer
-coverage and LymphoSAT-only SAT wins, then freeze provenance and tie-breaks.
-Rerun Tactix and only each target's fastest qualifying baseline in a matched
-full-width window (12 logical CPUs, one thread, 32 GiB, 1,200 solver seconds).
-Proof/model checking gates acceptance but does not block independent work.
-Study and report the winning mechanism before implementing it. Integrate general
-mechanisms in Tactix, never a sequential portfolio or identity-conditioned rule.
-Preserve prior coverage; report solved SAT/UNSAT counts before PAR-2, proof cost,
-memory, and regressions. T4-K and final exact T4-VBS coverage remain required.
+**WV100 winner-signature target.** After the refactor gate, treat the five
+frozen baselines as an offline VBS. WV100 is permanently the first 100 rows of
+the frozen coverage ranking in `benchmarks/tiers/WV100.tsv`: each row has a
+checked solve within 1,200 seconds and 32 GiB from exactly one configuration.
+All checked solver/status combinations qualify, including LymphoSAT UNSAT.
+The fixed set contains 33 SAT and 67 UNSAT targets: 34 LymphoSAT, 57
+Satsuma+Kissat, seven AE-Kissat-MAB, and two kissat-sc2024 sole-winner
+signatures. Solved entries remain in the denominator; the goal is checked
+Tactix coverage of 100/100 under the same 32-GiB/1,200-second contract.
+
+Use the retained checked baseline results; do not rerun reference solvers.
+For every signature class, inspect the official submission description and
+available source, reproduce the winning technique's effective transition, and
+report that mechanism before implementing it. Integrate supported mechanisms
+deeply as general Tactix preprocessing or root-inprocessing rules through the
+shared typed application interface. Extend the calculus and native DRAT/LRAT
+proof construction when the mechanism requires it. Never use a sequential
+portfolio, invoke another solver as a solving stage, or dispatch by benchmark
+identity. AE-Kissat-MAB's seven rows require mechanism study, but adopting MAB
+scheduling itself remains open.
+Preserve prior coverage; report solved SAT/UNSAT and per-signature counts before
+PAR-2, proof cost, memory, and regressions. T4-K and final exact T4-VBS coverage
+remain required. The staged mechanism and experimental protocol is
+`docs/design/2026-09-13-wv100-mechanism-integration.md`.
 
 ### 8.4 Flexibility
 
 Evaluate B28+C5 and Rank 1–50 periodically at meaningful refactor checkpoints,
-using the same resources and benchmark definitions as prior runs, frozen candidates
-and matched baseline controls. Defer the full Tier D campaign until refactor
-implementation and correctness/API validation are complete.
+using the fixed benchmark definitions and §8.3 resource contract, frozen
+candidates and retained baseline controls. Defer new full Tier D campaigns until
+the mechanism increment passes focused correctness/API validation.
 
 Default dynamic-macro/static-micro overhead is ≤5% versus a hardcoded twin.
 Refactoring must preserve existing configurations' action/work/proof behavior
@@ -471,7 +498,7 @@ Ablations use configuration, not forks; test online reconfiguration and replay.
 | 4.20 | proof-rule and solving-strategy design surveys | two reviewed reports; no implementation |
 | 4.21 | once-only SC24–26 reference campaign | frozen five-solver metrics and generated Andrew report at the §8.1 authority |
 | Refactor gate | online sub-strategies, complete N1 surface, preserved N2–N4 | §5 composition + §8.2–§8.4 evidence |
-| 4.25 | five-winner coverage convergence after the refactor gate | T4-VBS |
+| 4.25 | WV100 winner-signature convergence after the refactor gate | T4-WV100 |
 | 4.5 | proof-event correlation and novel engineering | proof ranges map to emitting rule/application |
 | 5 | tuning, bindings, extensibility proof | ≤5% overhead + CCE test |
 | 6 | competition packaging | T5/best effort + submission ready |
@@ -513,7 +540,7 @@ independently checkable native proofs and must earn a measured time/memory gain.
 
 ### 9.2 Phase 5 — tuning, bindings, and extensibility
 
-- Decide O16's PR/SR-learning proof story.
+- Complete any PR/SR-learning proof work not required by WV100.
 - Add reviewed policy presets/MAB scheduling, Python bindings, and
   external-branching demonstrations.
 - Pass the at-most-5% hardcoded-twin overhead gate and CCE pure-plugin test.
@@ -557,7 +584,8 @@ Resolve through `revise-plan` concretize mode and record only the minimum needed
 | O8 | retain FRAT only if a consumer appears | phase 6 |
 | O12 | contextual features and learned-state persistence | phase 7 RL2 |
 | O13 | distill stable learned schedules into DefaultPolicy | phase-7 exit |
-| O16 | admit PR/SR learning with an N2 checker/translation story | phase-5 entry |
+| O16 | admit PR/SR learning with an N2 checker/translation story | first WV100 rule needing it |
+| O17 | whether and how to integrate MAB scheduling for the seven WV100 AE-Kissat-MAB signatures | before claiming those rows mechanism-complete |
 
 Closed decisions have their current contracts in the owning sections; Git
 history preserves the decisions they replaced.
