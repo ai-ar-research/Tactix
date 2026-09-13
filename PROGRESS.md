@@ -114,13 +114,17 @@ not implementation or project-document changes.
 ## Active operations
 
 - Tier-D validation job `1687183` passed SAT/model, UNSAT/DRAT, forced-crash and
-  forced-timeout cleanup. Array `1687184` runs all 1,166 instances from
-  `a08f9f6a` on `cpu-q`, four CPUs, 32 GiB and a 1,200-second solver timeout.
-  It has no throttle or node constraint and uses anonymous node-local formula,
-  proof, model and checker files.
-- Existing Tier-D and proof-checking jobs remain unchanged. Do not rerun retained
-  reference solvers or wait for proof checking before independent work. Do not
-  submit a new full Tier-D run after the native-DSR gate.
+  forced-timeout cleanup. Array `1687184` completed all 1,166 instances from
+  `a08f9f6a` on `cpu-q`, four CPUs, 32 GiB and a 1,200-second solver timeout:
+  407 SAT models and 361 ordinary UNSAT proofs checked, two further trivial
+  UNSAT proofs printed `s VERIFIED` under drat-trim's exit-1 convention, nine
+  proof checks exhausted the 16,000-second checker allowance, and 387 solver
+  runs timed out. Every task deleted its anonymous formula, proof, model and
+  checker artifacts. The immutable run is
+  [`20260913-0905-tierd-refactor-final-a08f9f6a`](benchmarks/runs/20260913-0905-tierd-refactor-final-a08f9f6a/).
+- Existing proof-checking jobs remain unchanged. Do not rerun retained reference
+  solvers or wait for proof checking before independent work. Do not submit a
+  new full Tier-D run after the native-DSR gate.
 - Native-DSR gates `1688424` (Rank 1–40, 80 paired tasks) and `1688455`
   (B27+C5, 64 paired tasks) run at full width on `cpu-dense-hwulab-q`, c12,
   32 GiB and 1,200 solver seconds. Each instance runs the same binary once in
@@ -130,11 +134,13 @@ not implementation or project-document changes.
   covers default and online-random DSR, DRAT/LRAT controls, effective
   transitions, replay, negative controls and interruption accounting; Claude
   owns its terminal audit and report.
-- Partial WV100 scoring has 13 fully accepted SAT solves. Ranks 68 and 74 also
-  solved UNSAT in 0.367 and 1.319 seconds and printed `s VERIFIED`, but the
-  immutable active runner mislabeled `drat-trim`'s source-confirmed
-  trivial-UNSAT exit-1 path. The shared oracle is repaired for future pins;
-  final scoring must recover that exact case from the retained checker output.
+- The completed Tier-D run gives current Tactix **17/100** effective WV100
+  coverage: 15 independently checked SAT models and the two trivial UNSAT
+  proofs at ranks 68 and 74, which solved in 0.367 and 1.319 seconds and printed
+  `s VERIFIED` under drat-trim's exit-1 convention. Rank 90 also solved UNSAT,
+  but its proof check exhausted the 16,000-second checker allowance and does not
+  count. The shared oracle is repaired for future pins; derived scoring recovers
+  only the two retained `s VERIFIED` cases from the immutable result records.
 - Storage guard PID `1458620` checks the complete repository every ten minutes.
   Above 700 GiB it holds only pending jobs whose Slurm `WorkDir` is this repo;
   it never pauses running jobs and releases only its own holds. The submission
@@ -176,8 +182,8 @@ not implementation or project-document changes.
 
 ## Next actions
 
-1. Leave the existing Tier-D run, proof checks and storage guard unchanged in
-   the background; submit no new Tier-D run.
+1. Leave the existing proof checks and storage guard unchanged in the
+   background; submit no new Tier-D run.
 2. Complete the Claude-owned native-DSR fuzz checkpoint; Codex owns any repair.
 3. Run B27+C5 and Rank 1--40 at
    c12/32 GiB/1,200 s with a same-source DRAT control.
@@ -197,6 +203,6 @@ not implementation or project-document changes.
 - 2026-09-13: Implemented the native DSR writer and pinned three-stage checker
   pipeline across active launchers; fuzz and fixed performance gates remain.
 - 2026-09-13: Preserved B28+C5 and Rank1–50 trajectories within 1.03% aggregate time.
-- 2026-09-13: Validated anonymous cleanup and submitted current Tier-D array `1687184`.
+- 2026-09-13: Completed Tier-D array `1687184` with 17/100 effective WV100 coverage and clean anonymous artifacts.
 - 2026-09-13: Located the structured symmetry slot before Factor with exact generator survival.
 - 2026-09-13: Classified the first orbitopal producer's SR obligations with zero unresolved.
