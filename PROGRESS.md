@@ -22,7 +22,8 @@ mechanisms. Kissat-only tuning and sequential portfolios remain out of scope.
 | Role | Authority |
 |---|---|
 | Refactor base | `0060215a` (`Keep inprocessing and Walk at root`) |
-| Refactor closure | Current checkout; Release binary `916eae4d7e87f5602649035ac15a8c2985e83deaec2250e338a47972b998e9bf` |
+| Refactor closure | `b1165641`; Release pin `916eae4d7e87f5602649035ac15a8c2985e83deaec2250e338a47972b998e9bf` |
+| Production-equivalent cleanup | Current checkout; stripped Release SHA `287a3e6c5cd98a9520536faca251dd1a5a55163fbe7f21f7db5a3f1f427d6197`, with identical loadable sections to the refactor pin |
 | Design | [online proposal](docs/design/2026-09-11-online-strategy-proposal.md) and [preservation addendum](docs/design/2026-09-11-strategy-behavior-preservation-addendum.md) |
 | Claude review | [7528 disposition](benchmarks/reports/2026-09-11-online-strategy-review-7528/disposition.md) and [D-NOOP recheck](benchmarks/reports/2026-09-12-claude-d-noop-recheck.md) |
 | Prior gate evidence | [refactor/N1 checkpoint](benchmarks/reports/2026-09-12-refactor-n1-gates.md) and [state-boundary follow-up](benchmarks/reports/2026-09-12-n1-state-boundary-followup.md) |
@@ -56,13 +57,17 @@ not implementation or project-document changes.
   HyperBinary enumeration stops, zero-program replay and unbounded Sweep-cap
   allocation are repaired. Sweep retains the default 1024-clause initial table
   without an extra whole-formula scan.
-- Obsolete solver-configuration macros are removed. Remaining production
-  compile guards cover assertions and bounded event, journal, proof-shadow and
-  conflict-stop diagnostics.
+- Obsolete solver-configuration macros and the completed Rank31/34 conflict-
+  stop/tick/pose/heap/warmup probe bundle are removed. Remaining production
+  compile guards cover assertions and bounded event, journal and proof-shadow
+  diagnostics.
 
 ## Current validation
 
 - Release: **146/146** tests passed.
+- The macro cleanup retains identical Release `.text`, `.rodata`, `.data` and
+  unwind sections versus `b1165641`; all **146/146** default tests and **7/7**
+  focused event/journal/proof-shadow diagnostic tests pass.
 - ASan+UBSan: **145/145** core tests passed (the established demo3 exclusion).
 - B28+C5 candidate `20260912-2105-online-refactor-final-BC`: **33/33** solver
   results, 958.538 seconds versus 962.588 retained, **0.995793x**; no verdict,
