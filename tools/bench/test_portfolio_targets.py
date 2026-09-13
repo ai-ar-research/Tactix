@@ -61,6 +61,23 @@ class PortfolioTargetsTests(unittest.TestCase):
         row['model_check'] = {'result': 'not-verified'}
         self.assertFalse(genuine_timeout(row, True, 1200, 32*1024*1024))
 
+    def test_timeout_without_time_peak_requires_matching_cgroup_contract(self):
+        row = self.baseline(); row.update(verdict='UNKNOWN', model_check=None,
+                                          proof_check=None,
+                                          memory_enforcement='slurm_task_cgroup')
+        row['solve'].update(timed_out=True, exit_code=None, wall_seconds=1200.004,
+                            peak_rss_kb=None)
+        self.assertFalse(genuine_timeout(row, True, 1200, 32*1024*1024))
+        self.assertTrue(genuine_timeout(row, True, 1200, 32*1024*1024,
+                                        matching_cgroup_contract=True))
+        row['memory_enforcement'] = 'legacy RLIMIT_AS'
+        self.assertFalse(genuine_timeout(row, True, 1200, 32*1024*1024,
+                                         matching_cgroup_contract=True))
+        row['memory_enforcement'] = 'slurm_task_cgroup'
+        row['solve']['peak_rss_kb'] = 32*1024*1024 + 1
+        self.assertFalse(genuine_timeout(row, True, 1200, 32*1024*1024,
+                                         matching_cgroup_contract=True))
+
     def test_rarity_lymphosat_preference_fastest_and_quotas(self):
         def candidate(name, solvers, seconds, verdict='SAT'):
             return dict(instance=name, solvers=sorted(solvers), fastest_seconds=seconds, verdict=verdict)
