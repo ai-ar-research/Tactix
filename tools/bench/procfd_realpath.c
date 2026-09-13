@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 /*
  * O_TMPFILE descriptors appear as deleted inode targets, so glibc realpath
@@ -35,6 +36,14 @@ static int anonymous_proc_fd(const char *path) {
   return digits(&p) && !*p;
 }
 
+static int proc_fd_directory(const char *path) {
+  const char *p = path;
+  if (!p || strncmp(p, "/proc/", 6))
+    return 0;
+  p += 6;
+  return digits(&p) && !strcmp(p, "/fd");
+}
+
 char *realpath(const char *path, char *resolved) {
   static char *(*next_realpath)(const char *, char *);
   if (anonymous_proc_fd(path)) {
@@ -51,4 +60,25 @@ char *realpath(const char *path, char *resolved) {
     return NULL;
   }
   return next_realpath(path, resolved);
+}
+
+int access(const char *path, int mode) {
+  static int (*next_access)(const char *, int);
+
+  /*
+   * Kissat checks W_OK on the descriptor's procfs directory before checking
+   * and opening the already-existing descriptor itself.  Procfs directories
+   * are not writable in the filesystem sense, so that preliminary test can
+   * reject a usable anonymous file.  Skip only this redundant exact query;
+   * stat(2), access(2) on the descriptor, and fopen(3) still enforce access.
+   */
+  if (mode == W_OK && proc_fd_directory(path))
+    return 0;
+  if (!next_access)
+    next_access = dlsym(RTLD_NEXT, "access");
+  if (!next_access) {
+    errno = ENOSYS;
+    return -1;
+  }
+  return next_access(path, mode);
 }
