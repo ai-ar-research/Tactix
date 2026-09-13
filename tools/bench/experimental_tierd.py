@@ -48,8 +48,18 @@ def prepare(a):
     assert sha(ref/'manifest.json')==json.loads((ref/'launch.json').read_text())['manifest_sha256']
     assert sha(ref/'cache.sha256')==manifest['cache_manifest_sha256']
     inputs=dict((rel,digest) for digest,rel in (line.split() for line in (ref/'cache.sha256').read_text().splitlines()))
-    rows=[dict(task=i,rank=i+1,arm='tactix',tier='D',instance=r['rel'],expected=r['expected']) for i,r in enumerate(manifest['instances'])]
-    assert len(rows)==1166 and len({r['instance'] for r in rows})==1166
+    source_rows=[dict(rank=i+1,arm='tactix',tier='D',instance=r['rel'],expected=r['expected']) for i,r in enumerate(manifest['instances'])]
+    assert len(source_rows)==1166 and len({r['instance'] for r in source_rows})==1166
+    if a.instance:
+        selected=set(a.instance)
+        if len(selected)!=len(a.instance):raise ValueError('duplicate --instance')
+        known={r['instance'] for r in source_rows}
+        missing=selected-known
+        if missing:raise ValueError('unknown Tier-D instance: '+sorted(missing)[0])
+        source_rows=[r for r in source_rows if r['instance'] in selected]
+    rows=[dict(task=i,**r) for i,r in enumerate(source_rows)]
+    assert rows and len({r['instance'] for r in rows})==len(rows)
+    inputs={rel:digest for rel,digest in inputs.items() if rel in {r['instance'] for r in rows}}
     assert set(inputs)=={r['instance'] for r in rows}
     assert all((ROOT/'benchmarks/cache'/rel).is_file() for rel in inputs)
     c.mkdir()
@@ -64,7 +74,7 @@ def prepare(a):
     common=f'''#!/usr/bin/env bash
 #SBATCH --partition={a.partition}
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=4
+#SBATCH --cpus-per-task={a.cpus_per_task}
 #SBATCH --mem=32768M
 #SBATCH --no-requeue
 #SBATCH --output={c}/logs/%x-%A_%a.log
@@ -83,12 +93,12 @@ ulimit -c 0
 python3 {c}/pins/test_anonymous_scratch.py
 exec python3 {c}/pins/validate_anonymous_runtime.py {c}
 ''')
-    m=dict(schema='tactix-experimental-single-tierd-v2',created_at=dt.datetime.now(dt.timezone.utc).isoformat(),
+    m=dict(schema='tactix-experimental-single-tierd-v3',created_at=dt.datetime.now(dt.timezone.utc).isoformat(),
         source_commit=commit,source_tree=str(source),source_files=sources,
         arms={'tactix':dict(path='pins/tactix',sha256=sha(c/'pins/tactix'),arguments=[])},
         input_sha256=inputs,scratch_policy='anonymous-local-files-v1',
         dataset_authority=dict(path=str(ref/'manifest.json'),sha256=sha(ref/'manifest.json')),
-        resource_contract=dict(partition=a.partition,cpus_per_task=4,memory_mib=32768,solve_timeout=1200,
+        resource_contract=dict(partition=a.partition,cpus_per_task=a.cpus_per_task,memory_mib=32768,solve_timeout=1200,
             checker_timeout=16000,scheduler_wall_seconds=18000,array=f'0-{len(rows)-1}',throttle=None,node_constraint=None),
         cleanup_contract='O_TMPFILE on /tmp for input, proof, model and checker scratch; no directory entries ever. Kernel releases storage at last close, including SIGKILL/OOM. Fail closed if unsupported. Only bounded JSON metadata and scheduler logs persist; core dumps disabled.',
         caveat='If the entire job dies, its result may be missing; never interpret missing as timeout or checked. Local disk may fill during a live run; no home-quota certificate storage or failure retention.',
@@ -113,6 +123,10 @@ if __name__=='__main__':
     p.add_argument('--source',type=Path)
     p.add_argument('--binary',type=Path)
     p.add_argument('--partition',default='cpu-q')
+    p.add_argument('--cpus-per-task',type=int,default=4)
+    p.add_argument('--instance',action='append',default=[])
     g=p.add_mutually_exclusive_group(required=True)
     g.add_argument('--prepare',action='store_true');g.add_argument('--validate',action='store_true');g.add_argument('--submit',action='store_true')
-    a=p.parse_args();prepare(a) if a.prepare else submit(a)
+    a=p.parse_args()
+    if a.cpus_per_task < 1:p.error('--cpus-per-task must be positive')
+    prepare(a) if a.prepare else submit(a)
