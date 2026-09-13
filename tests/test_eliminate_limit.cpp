@@ -3,10 +3,10 @@
 // Kissat eliminate.c::eliminate_variables compares eliminate_resolutions with
 // its resolution limit (strictly greater) twice: before every popped candidate
 // and, after the round's flush/collect, before it would start another forward
-// subsumption plus elimination round.  Tactix's run_dosed_entry holds the first
-// comparison; run_phase currently repeats the pipeline on activity alone.  This
-// fixture pins the actual predecessor behaviour at the three ceiling positions
-// and states the post-fix expectation without TACTIX_TEST_PREVIOUS.
+// subsumption plus elimination round. Tactix checks both boundaries: the
+// candidate loop enforces the first and the phase stops after that round's
+// cleanup when the ceiling was crossed. This fixture pins all three ceiling
+// positions.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
@@ -108,11 +108,7 @@ static void check(unsigned allowance, bool forward, bool bve_enabled) {
       // phase after round 0's cleanup, as eliminate.c does.
       assert(k.stats.bve_eliminated==1);
       assert(live(k,RESOLVENT));
-#ifdef TACTIX_TEST_PREVIOUS
-      rounds=2;
-#else
       rounds=1;
-#endif
     } else {
       // Equality and remaining allowance let round 0 finish the four pure
       // eliminations; round 1 is the activity re-check that finds the

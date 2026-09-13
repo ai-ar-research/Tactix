@@ -45,9 +45,6 @@ static void fixture(unsigned width, unsigned position, int value, bool negative,
   assert(rule.instances(k, &instance, 1) == 1);
   const uint64_t proof_line = k.next_clause_id;
   bool deleted = !redundant && value == 1 && position <= 5;
-#ifdef TACTIX_EXPECT_RETAINED_CONGRUENCE_INDEX
-  deleted = false;
-#endif
   char path[] = "/tmp/tactix-congruence-index-XXXXXX";
   const int fd = mkstemp(path);
   assert(fd >= 0);
