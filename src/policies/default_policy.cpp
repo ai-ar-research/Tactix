@@ -12,6 +12,7 @@
 #include "rules/reduce/reduce.hpp"
 #include "policies/ops/rephase/rephase.hpp"
 #include "policies/ops/reorder/reorder.hpp"
+#include "rules/lucky/parity_model.hpp"
 #include "policies/ops/walk/walk.hpp"
 #include "rules/restart/restart.hpp"
 #include "rules/registry.hpp"
@@ -283,6 +284,8 @@ bool DefaultStrategyConfig::valid(std::string *error) const {
        reorder.target != DefaultReorderTarget::Heap) ||
       !reorder.parameters.valid())
     return reject("reorder schedule is invalid");
+  if (!parity_model.parameters.valid())
+    return reject("parity-model settings are invalid");
 
   const auto &ip = inprocess;
   if (!ip.eliminate_interval || !ip.probe_interval || !ip.phase_rounds ||
@@ -474,6 +477,21 @@ std::string DefaultStrategyConfig::serialize() const {
       << reorder.parameters.binary_weight_milli
       << " reorder.balanced_polarity_milli="
       << reorder.parameters.balanced_polarity_milli
+      << " parity_model.enabled=" << parity_model.enabled
+      << " parity_model.maximum_variables="
+      << parity_model.parameters.maximum_variables
+      << " parity_model.maximum_groups="
+      << parity_model.parameters.maximum_groups
+      << " parity_model.maximum_constraints="
+      << parity_model.parameters.maximum_constraints
+      << " parity_model.minimum_group_clauses="
+      << parity_model.parameters.minimum_group_clauses
+      << " parity_model.minimum_equations="
+      << parity_model.parameters.minimum_equations
+      << " parity_model.maximum_free_variables="
+      << parity_model.parameters.maximum_free_variables
+      << " parity_model.candidate_budget="
+      << parity_model.parameters.candidate_budget
       << " inprocess.bve_enabled=" << inprocess.bve_enabled
       << " inprocess.vivify_enabled=" << inprocess.vivify_enabled
       << " inprocess.factor_enabled=" << inprocess.factor_enabled
@@ -2803,6 +2821,19 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       config_.reorder.parameters.binary_weight_milli;
   k.reorder_balanced_polarity_milli =
       config_.reorder.parameters.balanced_polarity_milli;
+  k.parity_model_maximum_variables =
+      config_.parity_model.parameters.maximum_variables;
+  k.parity_model_maximum_groups = config_.parity_model.parameters.maximum_groups;
+  k.parity_model_maximum_constraints =
+      config_.parity_model.parameters.maximum_constraints;
+  k.parity_model_minimum_group_clauses =
+      config_.parity_model.parameters.minimum_group_clauses;
+  k.parity_model_minimum_equations =
+      config_.parity_model.parameters.minimum_equations;
+  k.parity_model_maximum_free_variables =
+      config_.parity_model.parameters.maximum_free_variables;
+  k.parity_model_candidate_budget =
+      config_.parity_model.parameters.candidate_budget;
   k.reduce_victim_numerator = config_.reduction.victim_numerator;
   k.reduce_victim_denominator = config_.reduction.victim_denominator;
   k.reduce_protect_tiers = config_.reduction.protect_tiers;
@@ -2864,6 +2895,16 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       return finish(10);
     }
     event_trace.macro(k, "lucky_early_end", "unknown");
+  }
+  if (config_.parity_model.enabled && parity_model_guard(k)) {
+    event_trace.macro(k, "parity_model_begin");
+    const ApplyResult parity = default_direct_rule(
+        k, "Lucky", "parity-model", [&] { return parity_model_apply(k); });
+    if (parity == ApplyResult::Sat) {
+      event_trace.macro(k, "parity_model_end", "sat");
+      return finish(10);
+    }
+    event_trace.macro(k, "parity_model_end", "unknown");
   }
   // The shipped frontend postpones state that neither root propagation nor
   // early Lucky can read. A failed opportunity crosses the first consumer

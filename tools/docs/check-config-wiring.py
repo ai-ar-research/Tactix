@@ -164,6 +164,20 @@ TABLE = {
                                 ("POLICY", "typed Reorder binary-clause weight"),
     "reorder_balanced_polarity_milli":
                                 ("POLICY", "typed Reorder both-polarity multiplier"),
+    "parity_model_maximum_variables":
+                                ("POLICY", "typed Lucky structural admission bound"),
+    "parity_model_maximum_groups":
+                                ("POLICY", "typed Lucky structural memory bound"),
+    "parity_model_maximum_constraints":
+                                ("POLICY", "typed Lucky formula-work bound"),
+    "parity_model_minimum_group_clauses":
+                                ("POLICY", "typed Lucky equation admission"),
+    "parity_model_minimum_equations":
+                                ("POLICY", "typed Lucky equation admission"),
+    "parity_model_maximum_free_variables":
+                                ("POLICY", "typed Lucky affine search bound"),
+    "parity_model_candidate_budget":
+                                ("POLICY", "typed Lucky candidate budget"),
     "reduce_victim_numerator": ("POLICY", "typed canonical Reduce victim fraction"),
     "reduce_victim_denominator":
                                 ("POLICY", "typed canonical Reduce victim fraction"),

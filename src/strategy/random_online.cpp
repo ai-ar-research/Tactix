@@ -242,6 +242,24 @@ ActionParameters random_parameters(uint64_t &state, const std::string &rule,
         1 + inclusive_u32(state, p.balanced_polarity_milli - 1);
     return p;
   }
+  if (rule == "Lucky") {
+    ParityModelParameters p = config.parity_model_reference;
+    p.maximum_variables =
+        1 + inclusive_u32(state, config.maximum_parity_model_variables - 1);
+    p.maximum_groups =
+        1 + inclusive_u32(state, config.maximum_parity_model_groups - 1);
+    p.maximum_constraints =
+        1 + inclusive_u32(state, config.maximum_parity_model_constraints - 1);
+    p.minimum_group_clauses =
+        1 + static_cast<uint32_t>(bounded(state, 4));
+    p.minimum_equations = choice_limit(state, p.minimum_equations);
+    p.maximum_free_variables = inclusive_u32(
+        state, std::min<uint32_t>(63,
+                                 config.maximum_parity_model_free_variables));
+    p.candidate_budget = optional_positive(
+        state, config.maximum_parity_model_candidates);
+    return p;
+  }
   return std::monostate{};
 }
 
@@ -450,6 +468,16 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
       U32_AT(3, p.balanced_polarity_milli);
     }
     parameters = p;
+  } else if (tuple(text, "parity-model", v) && v.size() == 7) {
+    ParityModelParameters p;
+    U32_AT(0, p.maximum_variables);
+    U32_AT(1, p.maximum_groups);
+    U32_AT(2, p.maximum_constraints);
+    U32_AT(3, p.minimum_group_clauses);
+    U32_AT(4, p.minimum_equations);
+    U32_AT(5, p.maximum_free_variables);
+    p.candidate_budget = v[6];
+    parameters = p;
   } else {
     return false;
   }
@@ -519,7 +547,13 @@ bool random_online_strategy_program(Kernel &k, uint64_t seed,
       !config.transitive_reference.valid() ||
       !config.substitute_reference.valid() ||
       !config.reduce_reference.valid() || !config.walk_reference.valid() ||
-      !config.reorder_reference.valid())
+      !config.reorder_reference.valid() ||
+      !config.maximum_parity_model_variables ||
+      !config.maximum_parity_model_groups ||
+      !config.maximum_parity_model_constraints ||
+      config.maximum_parity_model_free_variables > 63 ||
+      !config.maximum_parity_model_candidates ||
+      !config.parity_model_reference.valid())
     return reject("random-online maxima must be positive");
 
   std::vector<int> available;
@@ -751,6 +785,12 @@ std::string serialize_online_strategy_program(
       out << ":reorder(" << p->maximum_clause_size << ','
           << p->clause_decay_milli << ',' << p->binary_weight_milli << ','
           << p->balanced_polarity_milli << ')';
+    else if (const auto *p =
+                 std::get_if<ParityModelParameters>(&step.parameters))
+      out << ":parity-model(" << p->maximum_variables << ','
+          << p->maximum_groups << ',' << p->maximum_constraints << ','
+          << p->minimum_group_clauses << ',' << p->minimum_equations << ','
+          << p->maximum_free_variables << ',' << p->candidate_budget << ')';
     else
       out << ":inherit";
     out << ":instances[";

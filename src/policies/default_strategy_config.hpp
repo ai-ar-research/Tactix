@@ -184,6 +184,11 @@ struct DefaultStrategyConfig {
     strategy::ReorderParameters parameters;
   } reorder;
 
+  struct ParityModel {
+    bool enabled = true;
+    strategy::ParityModelParameters parameters;
+  } parity_model;
+
   struct Inprocess {
     // Production values are formula-shape invariant. These typed switches
     // remain explicit diagnostic arms and are never selected by classification.

@@ -430,6 +430,12 @@ struct Stats {
   uint64_t lucky_late_calls = 0;  // ... after initial preprocessing
   uint64_t lucky_late_sat = 0;    // late opportunities proving SAT
   uint64_t lucky_probes = 0; // Lucky probes run (S5)
+  uint64_t parity_model_calls = 0;
+  uint64_t parity_model_equations = 0;
+  uint64_t parity_model_rank = 0;
+  uint64_t parity_model_candidates = 0;
+  uint64_t parity_model_sat = 0;
+  uint64_t parity_model_interrupted = 0;
   uint64_t walks = 0;         // S6 Walk applications (policy op)
   uint64_t walk_flips = 0;    // literal flips
   uint64_t walk_steps = 0;    // occurrence entries scanned (kissat walk_steps)
@@ -1255,6 +1261,20 @@ struct Kernel {
       strategy::ReorderParameters::BINARY_WEIGHT_DEFAULT;
   uint32_t reorder_balanced_polarity_milli =
       strategy::ReorderParameters::BALANCED_POLARITY_DEFAULT;
+  uint32_t parity_model_maximum_variables =
+      strategy::ParityModelParameters::MAXIMUM_VARIABLES_DEFAULT;
+  uint32_t parity_model_maximum_groups =
+      strategy::ParityModelParameters::MAXIMUM_GROUPS_DEFAULT;
+  uint32_t parity_model_maximum_constraints =
+      strategy::ParityModelParameters::MAXIMUM_CONSTRAINTS_DEFAULT;
+  uint32_t parity_model_minimum_group_clauses =
+      strategy::ParityModelParameters::MINIMUM_GROUP_CLAUSES_DEFAULT;
+  uint32_t parity_model_minimum_equations =
+      strategy::ParityModelParameters::MINIMUM_EQUATIONS_DEFAULT;
+  uint32_t parity_model_maximum_free_variables =
+      strategy::ParityModelParameters::MAXIMUM_FREE_VARIABLES_DEFAULT;
+  uint64_t parity_model_candidate_budget =
+      strategy::ParityModelParameters::CANDIDATE_BUDGET_DEFAULT;
   // DefaultPolicy retains Kissat's separate focused/stable tier snapshots.
   // `tier1/tier2` is the pair posed for the rule currently being applied.
   uint32_t tier1_by_mode[2] = {2, 2};

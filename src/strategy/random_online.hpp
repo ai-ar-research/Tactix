@@ -24,6 +24,15 @@ struct RandomOnlineConfig {
   uint32_t maximum_analyze_bump_reason_depth = 4;
   uint64_t maximum_walk_step_budget = 2000000;
   uint64_t maximum_rule_work_budget = 2000000;
+  uint32_t maximum_parity_model_variables =
+      ParityModelParameters::MAXIMUM_VARIABLES_DEFAULT;
+  uint32_t maximum_parity_model_groups =
+      ParityModelParameters::MAXIMUM_GROUPS_DEFAULT;
+  uint32_t maximum_parity_model_constraints =
+      ParityModelParameters::MAXIMUM_CONSTRAINTS_DEFAULT;
+  uint32_t maximum_parity_model_free_variables =
+      ParityModelParameters::MAXIMUM_FREE_VARIABLES_DEFAULT;
+  uint64_t maximum_parity_model_candidates = 1024;
 
   // The generator samples semantic boundaries around these caller-owned
   // reference values.  Keeping the domains here makes random exploration
@@ -56,6 +65,7 @@ struct RandomOnlineConfig {
   ReduceParameters reduce_reference;
   WalkParameters walk_reference;
   ReorderParameters reorder_reference;
+  ParityModelParameters parity_model_reference;
   size_t maximum_congruence_gate_count =
       CongruenceParameters::GATE_COUNT_DEFAULT;
 };

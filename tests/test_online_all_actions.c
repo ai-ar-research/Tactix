@@ -118,6 +118,15 @@ static void configure_parameters(const char *name,
   } else if (!strcmp(name, "Reorder")) {
     parameters->kind = TACTIX_ONLINE_PARAMETERS_REORDER;
     parameters->value.reorder.maximum_clause_size = 7;
+  } else if (!strcmp(name, "Lucky")) {
+    parameters->kind = TACTIX_ONLINE_PARAMETERS_PARITY_MODEL;
+    parameters->value.parity_model.maximum_variables = 64;
+    parameters->value.parity_model.maximum_groups = 64;
+    parameters->value.parity_model.maximum_constraints = 256;
+    parameters->value.parity_model.minimum_group_clauses = 3;
+    parameters->value.parity_model.minimum_equations = 1;
+    parameters->value.parity_model.maximum_free_variables = 4;
+    parameters->value.parity_model.candidate_budget = 16;
   }
 }
 
@@ -215,6 +224,80 @@ static void invalid_reduce_parameters_are_transactional(void) {
   tactix_release(solver);
 }
 
+static void invalid_parity_parameters_are_transactional(void) {
+  tactix *solver = tactix_init();
+  fixture(solver);
+  tactix_online_step step;
+  memset(&step, 0, sizeof step);
+  step.step_id = 89;
+  step.rule_id = rule_id("Lucky");
+  step.parameters.kind = TACTIX_ONLINE_PARAMETERS_PARITY_MODEL;
+  step.parameters.value.parity_model.maximum_variables = 64;
+  step.parameters.value.parity_model.maximum_groups = 0;
+  step.parameters.value.parity_model.maximum_constraints = 256;
+  step.parameters.value.parity_model.minimum_group_clauses = 3;
+  step.parameters.value.parity_model.minimum_equations = 1;
+  step.parameters.value.parity_model.maximum_free_variables = 4;
+  step.parameters.value.parity_model.candidate_budget = 16;
+  step.granularity = TACTIX_ONLINE_GRANULARITY_CANONICAL;
+  step.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
+  step.repeat_limit = 1;
+  step.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
+  step.budget_unlimited = 1;
+  tactix_online_program program = {
+      &step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
+  assert(tactix_online_configure(solver, &program, 24,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  step.parameters.value.parity_model.maximum_groups = 64;
+  assert(tactix_online_configure(solver, &program, 25,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  tactix_release(solver);
+}
+
+static void parity_lucky_instance_is_public(void) {
+  tactix *solver = tactix_init();
+  /* Forbid the four even assignments on variables 1,2,3, then select one
+   * affine witness with a binary clause. */
+  add_clause(solver, (const int[]){1, 2, 3, 0});
+  add_clause(solver, (const int[]){-1, -2, 3, 0});
+  add_clause(solver, (const int[]){-1, 2, -3, 0});
+  add_clause(solver, (const int[]){1, -2, -3, 0});
+  add_clause(solver, (const int[]){-1, -2, 0});
+
+  const int lucky = rule_id("Lucky");
+  uint64_t instances[NINST];
+  const int count =
+      tactix_rule_semantic_instances(solver, lucky, instances, NINST);
+  int found = 0;
+  for (int i = 0; i < count; ++i)
+    found |= instances[i] == 6;
+  assert(found);
+
+  uint64_t selected = 6;
+  tactix_online_step step;
+  memset(&step, 0, sizeof step);
+  step.step_id = 90;
+  step.rule_id = lucky;
+  configure_parameters("Lucky", &step.parameters);
+  step.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
+  step.instances = &selected;
+  step.instance_count = 1;
+  step.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
+  step.repeat_limit = 1;
+  step.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
+  step.budget_unlimited = 1;
+  tactix_online_program program = {
+      &step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
+  assert(tactix_online_configure(solver, &program, 26,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  tactix_online_result result;
+  assert(tactix_online_advance(solver, &result) == 0);
+  assert(result.status == TACTIX_ONLINE_SAT && tactix_status(solver) == 10);
+  assert(tactix_value(solver, 1) && tactix_value(solver, 2) &&
+         tactix_value(solver, 3));
+  tactix_release(solver);
+}
+
 static void aba_transition_invalidates_a_pending_batch(void) {
   tactix *solver = tactix_init();
   fixture(solver);
@@ -252,6 +335,8 @@ static void aba_transition_invalidates_a_pending_batch(void) {
 int main(void) {
   reaches_every_registered_action();
   invalid_reduce_parameters_are_transactional();
+  invalid_parity_parameters_are_transactional();
+  parity_lucky_instance_is_public();
   aba_transition_invalidates_a_pending_batch();
   puts("test_online_all_actions: all 26 actions and ABA invalidation PASS");
   return 0;

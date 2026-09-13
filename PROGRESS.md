@@ -18,6 +18,9 @@ The post-gate winner-VBS set is now frozen and its matched rerun is complete:
 ten LymphoSAT-only SAT wins and ten Satsuma-only UNSAT wins over genuine Tactix
 timeouts. Development now starts with a general Boolean-parity model mechanism;
 Kissat-only tuning and sequential portfolios remain out of scope.
+The first experimental increment is S5 Lucky semantic instance 6: it derives
+GF(2) candidate guidance from ternary groups and accepts only a model checked
+against the complete live CNF.
 
 ## Authority and candidate
 
@@ -77,6 +80,10 @@ not implementation or project-document changes.
 - Walk scoring is total over every validated positive break base: increasing
   weights normalize per selected clause, and decaying tables stop at their
   floating-point fixed point without narrowing the public parameter domain.
+- Lucky instance 6 exposes variable, group, total-constraint, equation,
+  free-variable and candidate limits as validated scoped settings through the
+  C++ and C online APIs. Production random programs vary, serialize and replay
+  the same settings and can explicitly select the structural instance.
 
 ## Current validation
 
@@ -101,13 +108,16 @@ not implementation or project-document changes.
   `690322ab`. Claude's [single-job recheck](benchmarks/reports/2026-09-13-walk-scoring-closure-fuzz-690322ab.md)
   `1686614` passed all 676 former failures, 2000 fresh typed programs and 600
   square cases with every required oracle and reachability target satisfied.
+- The structural Lucky increment builds in Debug and passes its focused guard,
+  model, negative-control, budget, interruption, public C API and random replay
+  checks. Its real-instance and performance gates are not yet complete.
 
 ## Active operations
 
 - Storage guard PID `1076798` checks `/home/hwu/SAT-solving` every ten minutes.
   Above 700 GiB it holds only pending jobs whose Slurm `WorkDir` is this repo;
   it never suspends running jobs. Below the threshold it releases only jobs it
-  held. Its latest completed check was 106 GiB with no holds.
+  held. Its latest completed check was 108 GiB with no holds.
 - Post-refactor Tier-D array `1685130` covers all 1,166 instances from commit
   `b1165641` with the same `cpu-q`, four-CPU, 32-GiB and 1200-second solver
   contract. Validation job `1685119` passed SAT/model, UNSAT/DRAT, forced-crash
@@ -124,10 +134,10 @@ not implementation or project-document changes.
 ## Next actions
 
 1. Leave performance proof/model checks and the storage guard backgrounded.
-2. Implement and locally validate a uniform structural XOR extractor plus
-   GF(2) model constructor, accepting SAT only after whole-formula validation.
-3. Measure its two parity targets and fast-rejection overhead before broader
-   correctness, B28+C5 and Rank 1–50 gates.
+2. Run the immutable short gate on both frozen parity targets and independently
+   check each original-CNF model.
+3. If the premise holds, run Claude's fuzz checkpoint and fast-rejection
+   overhead before broader B28+C5 and Rank 1–50 gates.
 
 ## Acceptance
 
