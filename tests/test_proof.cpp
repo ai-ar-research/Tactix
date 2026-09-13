@@ -1,6 +1,6 @@
-// The proof backend (src/proof/proof.cpp): the two DRAT serializers and the
-// native-LRAT writer, checked byte for byte. N2 rests on the encoding, which an
-// end-to-end checker cannot tell apart from a wrong lemma.
+// The proof backend (src/proof/proof.cpp): DSR, DRAT, and native-LRAT
+// serializers checked byte for byte. N2 rests on the encoding, which an
+// end-to-end checker cannot distinguish from a wrong lemma.
 #undef NDEBUG
 #include "proof/proof.hpp"
 
@@ -131,6 +131,65 @@ void test_drat_ascii() {
          "0\n", "drat-ascii add_empty");
 }
 
+// --- DSR -------------------------------------------------------------------
+// Canonical binary DSR uses unprintable line tags 1/2 rather than the
+// CaDiCaL-compatible DRAT tags 'a'/'d'. Witnessless additions otherwise share
+// the literal encoding.
+void test_dsr_binary() {
+  const Lit lits[3] = {make_lit(0, false), make_lit(1, true),
+                       make_lit(2, false)};
+  expect(emitted("dsr-bin-add", ProofFormat::DsrBinary,
+                 [&](Proof &p) { p.add_rup(7, lits, 3, nullptr, 0); }),
+         std::string("\x01\x02\x05\x06\x00", 5), "dsr-binary add_rup");
+  expect(emitted("dsr-bin-rat", ProofFormat::DsrBinary,
+                 [&](Proof &p) { p.add_rat(8, lits, 3, nullptr, 0); }),
+         std::string("\x01\x02\x05\x06\x00", 5), "dsr-binary add_rat");
+  expect(emitted("dsr-bin-del", ProofFormat::DsrBinary,
+                 [&](Proof &p) { p.del(9, 7, lits, 3); }),
+         std::string("\x02\x02\x05\x06\x00", 5), "dsr-binary del");
+  expect(emitted("dsr-bin-empty", ProofFormat::DsrBinary,
+                 [&](Proof &p) { p.add_empty(10, nullptr, 0); }),
+         std::string("\x01\x00", 2), "dsr-binary add_empty");
+}
+
+void test_dsr_ascii() {
+  const Lit lits[2] = {make_lit(0, false), make_lit(2, true)};
+  expect(emitted("dsr-asc-add", ProofFormat::DsrAscii,
+                 [&](Proof &p) { p.add_rup(5, lits, 2, nullptr, 0); }),
+         "1 -3 0\n", "dsr-ascii add_rup");
+  expect(emitted("dsr-asc-del", ProofFormat::DsrAscii,
+                 [&](Proof &p) { p.del(6, 5, lits, 2); }),
+         "d 1 -3 0\n", "dsr-ascii del");
+}
+
+void test_dsr_substitution() {
+  const Lit clause[2] = {make_lit(0, false), make_lit(1, true)};
+  const Lit true_lits[1] = {make_lit(2, false)};
+  const DsrLiteralMapping mappings[1] = {
+      {make_lit(3, false), make_lit(4, true)}};
+
+  expect(emitted("dsr-asc-sr", ProofFormat::DsrAscii, [&](Proof &p) {
+           assert(p.add_sr(11, clause, 2, true_lits, 1, mappings, 1));
+         }),
+         "1 -2 1 3 1 4 -5 0\n", "dsr-ascii add_sr");
+  expect(emitted("dsr-bin-sr", ProofFormat::DsrBinary, [&](Proof &p) {
+           assert(p.add_sr(11, clause, 2, true_lits, 1, mappings, 1));
+         }),
+         std::string("\x01\x02\x05\x02\x06\x02\x08\x0b\x00", 9),
+         "dsr-binary add_sr");
+
+  for (const ProofFormat format : {ProofFormat::DratBinary,
+                                   ProofFormat::DratAscii,
+                                   ProofFormat::Lrat})
+    expect(emitted("incompatible-sr", format, [&](Proof &p) {
+             assert(!p.add_sr(11, clause, 2, true_lits, 1, mappings, 1));
+           }),
+           "", "add_sr rejects compatibility format");
+
+  Proof unopened;
+  assert(unopened.add_sr(11, clause, 2, true_lits, 1, mappings, 1));
+}
+
 void test_external_variable_map() {
   const Lit lits[2] = {make_lit(0, false), make_lit(1, true)};
   const std::vector<Var> map = {4, 1};
@@ -184,6 +243,16 @@ void test_lrat_empty_and_unit() {
                    p.add_derived_unit(31, make_lit(3, true), chain, 2);
                  }),
          "", "drat-ascii add_derived_unit is silent");
+  expect(emitted("dsr-bin-unit", ProofFormat::DsrBinary,
+                 [&](Proof &p) {
+                   p.add_derived_unit(31, make_lit(3, true), chain, 2);
+                 }),
+         "", "dsr-binary add_derived_unit is silent");
+  expect(emitted("dsr-asc-unit", ProofFormat::DsrAscii,
+                 [&](Proof &p) {
+                   p.add_derived_unit(31, make_lit(3, true), chain, 2);
+                 }),
+         "", "dsr-ascii add_derived_unit is silent");
 }
 
 void test_lrat_delete() {
@@ -261,6 +330,9 @@ int main() {
   test_drat_binary_delete();
   test_drat_binary_empty_clause();
   test_drat_ascii();
+  test_dsr_binary();
+  test_dsr_ascii();
+  test_dsr_substitution();
   test_external_variable_map();
   test_lrat_add_rup();
   test_lrat_add_rat();

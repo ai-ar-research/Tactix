@@ -9,5 +9,5 @@ fi
 instance=$1
 output_dir=$2
 mkdir -p "$output_dir"
-exec "$(dirname "$0")/build/release/tactix" --lrat "$instance" \
+exec "$(dirname "$0")/build/release/tactix" "$instance" \
   "$output_dir/proof.out"

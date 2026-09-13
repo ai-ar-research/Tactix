@@ -1,22 +1,61 @@
 #!/usr/bin/env bash
 # Micro-formula proof tests (N2): tiny UNSAT formulas through the real binary;
-# DRAT accepted by drat-trim in both binary and ascii encodings, native LRAT
-# accepted by lrat-check and targeted chains by cake_lpr. Exit 77 (ctest SKIP)
-# without a checker.
+# canonical DSR accepted by dsr-trim and pinned Trestle in binary and ASCII,
+# with explicit DRAT/native-LRAT compatibility coverage. Exit 77 (ctest SKIP)
+# without the canonical checker pipeline.
 set -euo pipefail
 TACTIX="$1"
 ROOT="$2"
 DRAT_TRIM="$ROOT/tools/checkers/bin/drat-trim"
 LRAT_CHECK="$ROOT/tools/checkers/bin/lrat-check"
 CAKE_LPR="$ROOT/tools/checkers/bin/cake_lpr"
+DSR_TRIM="$ROOT/tools/checkers/bin/dsr-trim"
+DSR_COMPRESS="$ROOT/tools/checkers/bin/dsr-compress"
+SR_CHECK="$ROOT/tools/checkers/bin/srcheck"
 ANALYZE_TEST="${3:-}"
 CONGRUENCE_TEST="${4:-}"
 RESTART_TEST="${5:-}"
 FACTOR_N1_TEST="${6:-}"
-[ -x "$DRAT_TRIM" ] || { echo "drat-trim not built — skipping"; exit 77; }
+for checker in "$DSR_TRIM" "$DSR_COMPRESS" "$SR_CHECK"; do
+  [ -x "$checker" ] \
+    || { echo "native DSR checker pipeline not built — skipping"; exit 77; }
+done
 
 T="$(mktemp -d)"
 trap 'rm -rf "$T"' EXIT
+
+check_dsr() {
+  local cnf="$1" proof="$2" direction="${3:-backward}"
+  local binary_lsr="$T/check.binary.lsr" text_lsr="$T/check.lsr"
+  local direction_args=()
+  [ "$direction" = backward ] || direction_args=(-f)
+  rm -f "$binary_lsr" "$text_lsr"
+  "$DSR_TRIM" -q -c "${direction_args[@]}" "$cnf" "$proof" "$binary_lsr" \
+    > "$T/dsr-trim.out" 2>&1 \
+    || { echo "FAIL: dsr-trim rejected $proof"; cat "$T/dsr-trim.out"; return 1; }
+  grep -Eq '^s VERIFIED[[:space:]]+UNSAT$' "$T/dsr-trim.out" \
+    || { echo "FAIL: dsr-trim gave no verified verdict for $proof"; \
+         cat "$T/dsr-trim.out"; return 1; }
+  [ -s "$binary_lsr" ] \
+    || { echo "FAIL: dsr-trim emitted no LSR for $proof"; return 1; }
+  "$DSR_COMPRESS" -d "$binary_lsr" "$text_lsr" \
+    > "$T/dsr-compress.out" 2>&1 \
+    || { echo "FAIL: DSR LSR decompression failed for $proof"; \
+         cat "$T/dsr-compress.out"; return 1; }
+  [ -s "$text_lsr" ] \
+    || { echo "FAIL: DSR LSR decompression was empty for $proof"; return 1; }
+  PYTHONPATH="${TACTIX_PROOF_ORACLE_DIR:-$ROOT/tools/bench}" \
+    python3 - "$cnf" "$text_lsr" <<'PY'
+import sys
+from proof_oracle import bridge_trivial_input_lsr
+bridge_trivial_input_lsr(sys.argv[1], sys.argv[2])
+PY
+  "$SR_CHECK" "$cnf" "$text_lsr" > "$T/srcheck.out" 2>&1 \
+    || { echo "FAIL: Trestle rejected $proof"; cat "$T/srcheck.out"; return 1; }
+  grep -Eq '^s VERIFIED[[:space:]]+UNSAT$' "$T/srcheck.out" \
+    || { echo "FAIL: Trestle gave no verified verdict for $proof"; \
+         cat "$T/srcheck.out"; return 1; }
+}
 
 make_cases() {
   # contradictory units
@@ -80,7 +119,7 @@ EOF
 make_cases
 for cnf in "$T"/*.cnf; do
   for mode in binary ascii; do
-    proof="$cnf.$mode.drat"
+    proof="$cnf.$mode.dsr"
     if [ "$mode" = binary ]; then
       "$TACTIX" -q "$cnf" "$proof" > "$T/out" && rc=$? || rc=$?
     else
@@ -89,12 +128,25 @@ for cnf in "$T"/*.cnf; do
     [ "$rc" -eq 20 ] || { echo "FAIL: $cnf not UNSAT (rc=$rc)"; exit 1; }
     grep -q '^s UNSATISFIABLE$' "$T/out" \
       || { echo "FAIL: $cnf missing s line"; exit 1; }
-    # judge by output, not exit code: drat-trim exits nonzero on
-    # "trivial UNSAT" even when it verifies
-    "$DRAT_TRIM" "$cnf" "$proof" > "$T/check" 2>&1 || true
-    grep -q 's VERIFIED' "$T/check" \
-      || { echo "FAIL: proof of $cnf ($mode) rejected"; cat "$T/check"; exit 1; }
+    check_dsr "$cnf" "$proof"
   done
+  # The historical proof vocabulary remains available explicitly in both
+  # DRAT encodings. It is a compatibility surface, not the default.
+  if [ -x "$DRAT_TRIM" ]; then
+    for mode in binary ascii; do
+      proof="$cnf.$mode.drat"
+      if [ "$mode" = binary ]; then
+        "$TACTIX" -q --drat "$cnf" "$proof" > "$T/out" && rc=$? || rc=$?
+      else
+        "$TACTIX" -q --drat --no-binary "$cnf" "$proof" \
+          > "$T/out" && rc=$? || rc=$?
+      fi
+      [ "$rc" -eq 20 ] || { echo "FAIL: $cnf not UNSAT under DRAT (rc=$rc)"; exit 1; }
+      "$DRAT_TRIM" "$cnf" "$proof" > "$T/check" 2>&1 || true
+      grep -q 's VERIFIED' "$T/check" \
+        || { echo "FAIL: DRAT proof of $cnf ($mode) rejected"; cat "$T/check"; exit 1; }
+    done
+  fi
   # native LRAT (plan O4): hints emitted by the solver, no conversion
   if [ -x "$LRAT_CHECK" ]; then
     proof="$cnf.lrat"
@@ -106,6 +158,63 @@ for cnf in "$T"/*.cnf; do
       || { echo "FAIL: lrat-check gave no verdict on $cnf"; cat "$T/check"; exit 1; }
   fi
 done
+
+# Direct substitution witness: a two-row permutation adds unit -1 to the
+# symmetric component. The independent no-UP refutation tail ends the proof.
+# Forward checking forces dsr-trim to validate the SR line even though a
+# backward trimmer could discard it as irrelevant to the final empty clause.
+cat > "$T/direct-sr.cnf" <<'EOF'
+p cnf 6 8
+1 2 0
+3 4 0
+-1 -3 0
+-2 -4 0
+5 6 0
+5 -6 0
+-5 6 0
+-5 -6 0
+EOF
+cat > "$T/direct-sr.dsr" <<'EOF'
+-1 -1 3 -1 2 4 4 2 0
+5 0
+0
+EOF
+check_dsr "$T/direct-sr.cnf" "$T/direct-sr.dsr" forward
+
+# Removing half of the row permutation is not an SR witness. The elaborator
+# must reject it before producing an accepted LSR certificate.
+cat > "$T/direct-sr-bad.dsr" <<'EOF'
+-1 -1 3 -1 2 4 0
+5 0
+0
+EOF
+if "$DSR_TRIM" -q -f -c "$T/direct-sr.cnf" "$T/direct-sr-bad.dsr" \
+     "$T/direct-sr-bad.lsr" > "$T/direct-sr-bad.out" 2>&1; then
+  echo "FAIL: dsr-trim accepted the incomplete substitution witness"
+  cat "$T/direct-sr-bad.out"
+  exit 1
+fi
+grep -q 'No UP contradiction' "$T/direct-sr-bad.out" \
+  || { echo "FAIL: dsr-trim did not diagnose the invalid SR control"; \
+       cat "$T/direct-sr-bad.out"; exit 1; }
+
+# Keep the verified endpoint live as an oracle too: an incomplete final hint
+# chain must not be accepted by Trestle.
+cat > "$T/direct-sr-bad.lsr" <<'EOF'
+9 -1 -1 3 2 -4 0 0
+10 5 0 5 6 0
+11 0 10 7 0
+EOF
+"$SR_CHECK" "$T/direct-sr.cnf" "$T/direct-sr-bad.lsr" \
+  > "$T/direct-sr-bad-check.out" 2>&1 || true
+grep -Eq '^s INVALID$' "$T/direct-sr-bad-check.out" \
+  || { echo "FAIL: Trestle gave no rejection for the invalid LSR control"; \
+       cat "$T/direct-sr-bad-check.out"; exit 1; }
+if grep -Eq '^s VERIFIED[[:space:]]+UNSAT$' "$T/direct-sr-bad-check.out"; then
+  echo "FAIL: Trestle reported VERIFIED for the invalid LSR control"
+  cat "$T/direct-sr-bad-check.out"
+  exit 1
+fi
 
 # Drive the failed-source rule path directly and require that the independently
 # checked proof actually contains a TransitiveReduce unit, rather than passing
@@ -252,7 +361,7 @@ fi
 # path derives {b},{¬b}→∅), xor3/php3 mix resolvents with a search-proof tail.
 for cnf in "$T/enum2.cnf" "$T/xor3.cnf" "$T/php3.cnf"; do
   for mode in binary ascii; do
-    proof="$cnf.bve.$mode.drat"
+    proof="$cnf.bve.$mode.dsr"
     if [ "$mode" = binary ]; then
       TACTIX_STRESS_RULES=BVE "$TACTIX" -q --stress-policy "$cnf" "$proof" > "$T/out" && rc=$? || rc=$?
     else
@@ -262,9 +371,7 @@ for cnf in "$T/enum2.cnf" "$T/xor3.cnf" "$T/php3.cnf"; do
     [ "$rc" -eq 20 ] || { echo "FAIL: $cnf not UNSAT under BVE (rc=$rc)"; exit 1; }
     grep -q '^s UNSATISFIABLE$' "$T/out" \
       || { echo "FAIL: $cnf (BVE) missing s line"; exit 1; }
-    "$DRAT_TRIM" "$cnf" "$proof" > "$T/check" 2>&1 || true
-    grep -q 's VERIFIED' "$T/check" \
-      || { echo "FAIL: BVE proof of $cnf ($mode) rejected"; cat "$T/check"; exit 1; }
+    check_dsr "$cnf" "$proof"
   done
   if [ -x "$LRAT_CHECK" ]; then
     proof="$cnf.bve.lrat"
@@ -285,7 +392,7 @@ printf 'p cnf 4 8\n1 2 0\n1 3 0\n-1 -2 4 0\n-1 -3 -4 0\n2 3 0\n-2 -3 0\n-2 -4 0\
   > "$T/bvedef.cnf"
 cnf="$T/bvedef.cnf"
 for mode in binary ascii; do
-  proof="$cnf.$mode.drat"
+  proof="$cnf.$mode.dsr"
   extra=""
   [ "$mode" = ascii ] && extra="--no-binary"
   # shellcheck disable=SC2086
@@ -295,10 +402,7 @@ for mode in binary ascii; do
   grep -qE '^c bve-gates .*[1-9][0-9]* definition' "$T/out" \
     || { echo "FAIL: no definition gate extracted — the case is vacuous"; \
          grep '^c bve' "$T/out"; exit 1; }
-  "$DRAT_TRIM" "$cnf" "$proof" > "$T/check" 2>&1 || true
-  grep -q 's VERIFIED' "$T/check" \
-    || { echo "FAIL: definition-gate proof ($mode) rejected"; cat "$T/check"; \
-         exit 1; }
+  check_dsr "$cnf" "$proof"
 done
 if [ -x "$LRAT_CHECK" ]; then
   proof="$cnf.lrat"
@@ -322,7 +426,7 @@ printf 'p cnf 6 9\n1 2 3 0\n1 2 -3 0\n1 -2 3 0\n1 -2 -3 0\n-1 4 0\n5 6 0\n5 -6 0
   > "$T/bvedefunit.cnf"
 cnf="$T/bvedefunit.cnf"
 for mode in binary ascii; do
-  proof="$cnf.$mode.drat"
+  proof="$cnf.$mode.dsr"
   extra=""
   [ "$mode" = ascii ] && extra="--no-binary"
   # shellcheck disable=SC2086
@@ -332,10 +436,7 @@ for mode in binary ascii; do
   grep -qE '^c bve-def .* [1-9][0-9]* units$' "$T/out" \
     || { echo "FAIL: no one-sided definition unit extracted"; \
          grep '^c bve' "$T/out"; exit 1; }
-  "$DRAT_TRIM" "$cnf" "$proof" > "$T/check" 2>&1 || true
-  grep -q 's VERIFIED' "$T/check" \
-    || { echo "FAIL: one-sided definition proof ($mode) rejected"; \
-         cat "$T/check"; exit 1; }
+  check_dsr "$cnf" "$proof"
 done
 if [ -x "$LRAT_CHECK" ]; then
   proof="$cnf.lrat"
@@ -362,7 +463,7 @@ printf 'p cnf 7 14\n1 3 0\n1 3 0\n1 4 0\n1 5 0\n2 3 0\n2 4 0\n2 5 0\n-1 -2 0\n-3
 printf 'p cnf 6 10\n1 3 4 0\n2 3 4 0\n1 3 4 0\n2 3 4 0\n1 3 4 0\n2 3 4 0\n5 6 0\n5 -6 0\n-5 6 0\n-5 -6 0\n' > "$T/factor_dup_large.cnf"
 for cnf in "$T/factor.cnf" "$T/factor_dup.cnf" "$T/factor_dup_large.cnf"; do
   for mode in binary ascii; do
-    proof="$cnf.fac.$mode.drat"
+    proof="$cnf.fac.$mode.dsr"
     if [ "$mode" = binary ]; then
       TACTIX_NO_BVE=1 "$TACTIX" -q "$cnf" "$proof" \
         > "$T/out" && rc=$? || rc=$?
@@ -373,9 +474,7 @@ for cnf in "$T/factor.cnf" "$T/factor_dup.cnf" "$T/factor_dup_large.cnf"; do
     [ "$rc" -eq 20 ] || { echo "FAIL: $cnf not UNSAT under Factor (rc=$rc)"; exit 1; }
     grep -q '^s UNSATISFIABLE$' "$T/out" \
       || { echo "FAIL: $cnf (Factor) missing s line"; exit 1; }
-    "$DRAT_TRIM" "$cnf" "$proof" > "$T/check" 2>&1 || true
-    grep -q 's VERIFIED' "$T/check" \
-      || { echo "FAIL: Factor proof of $cnf ($mode) rejected"; cat "$T/check"; exit 1; }
+    check_dsr "$cnf" "$proof"
   done
   if [ -x "$LRAT_CHECK" ]; then
     proof="$cnf.fac.lrat"

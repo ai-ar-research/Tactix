@@ -9,7 +9,7 @@
 #
 # Examples (default: 50 physical cores, 100 logical CPUs, 50 workers):
 #   slurm.sh --name quick   -- --quick   --solver build/debug/tactix
-#   slurm.sh --name nightly -- --nightly --solver "build/release/tactix --random-policy --lrat"
+#   slurm.sh --name nightly -- --nightly --solver "build/release/tactix --random-policy"
 #
 # The job cd's to the repo root, so solver paths may be repo-relative.
 # Submission snapshots every harness input used by run.sh.  The batch job never

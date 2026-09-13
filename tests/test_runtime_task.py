@@ -9,6 +9,7 @@ import unittest
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "tools/bench"))
 with patch.object(sys, "argv", ["runtime_task.py", str(ROOT / "benchmarks/runs/test"), "0"]):
     spec = importlib.util.spec_from_file_location("runtime_task", ROOT / "tools/bench/runtime_task.py")
     runner = importlib.util.module_from_spec(spec)
@@ -18,7 +19,7 @@ with patch.object(sys, "argv", ["runtime_task.py", str(ROOT / "benchmarks/runs/t
 class RuntimeTaskTest(unittest.TestCase):
     def run_case(self, arm, verdict="SAT", solver_exit=10, checker_exit=0,
                  checker_text="s VERIFIED\n", tampered=False,
-                 omit_modelcheck=False):
+                 omit_modelcheck=False, certificate="drat"):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             campaign = root / "benchmarks/runs/test"
@@ -28,17 +29,23 @@ class RuntimeTaskTest(unittest.TestCase):
             cache.mkdir()
             (cache / "test.xz").write_bytes(b"fixture")
             (campaign / "pins/solver").write_bytes(b"pin")
-            for name in ("drat-trim", "checkmodel", "modelcheck.py"):
+            checker_names = ["checkmodel", "modelcheck.py"]
+            checker_names += (["drat-trim"] if certificate == "drat" else
+                              ["dsr-trim", "dsr-compress", "srcheck"])
+            for name in checker_names:
                 (campaign / "pins" / name).write_bytes(b"pin")
             pin_sha256 = {
                 "pins/solver": "bad" if tampered else runner.sha256(campaign / "pins/solver"),
-                "pins/drat-trim": runner.sha256(campaign / "pins/drat-trim"),
                 "pins/checkmodel": runner.sha256(campaign / "pins/checkmodel"),
                 "pins/modelcheck.py": runner.sha256(campaign / "pins/modelcheck.py"),
             }
+            for name in checker_names:
+                pin_sha256[f"pins/{name}"] = runner.sha256(
+                    campaign / "pins" / name)
             if omit_modelcheck:
                 del pin_sha256["pins/modelcheck.py"]
-            manifest = dict(arms={arm: dict(path="pins/solver", arguments=[], sha256="pin")},
+            manifest = dict(arms={arm: dict(path="pins/solver", arguments=[],
+                                           sha256="pin", certificate=certificate)},
                             input_sha256={"test.xz": runner.sha256(cache / "test.xz")},
                             pin_sha256=pin_sha256)
             (campaign / "manifest.json").write_text(json.dumps(manifest))
@@ -55,7 +62,17 @@ class RuntimeTaskTest(unittest.TestCase):
                     Path(command[-1]).write_bytes(b"proof")
                     code = solver_exit
                 else:
-                    stdout.write_text(checker_text)
+                    name = Path(command[0]).name
+                    if certificate == "dsr" and name == "dsr-trim":
+                        stdout.write_text("s VERIFIED UNSAT\n")
+                        Path(command[-1]).write_bytes(b"binary lsr")
+                    elif certificate == "dsr" and name == "dsr-compress":
+                        stdout.write_text("")
+                        Path(command[-1]).write_bytes(b"text lsr")
+                    elif certificate == "dsr" and name == "srcheck":
+                        stdout.write_text("s VERIFIED UNSAT\n")
+                    else:
+                        stdout.write_text(checker_text)
                     code = checker_exit
                 return dict(exit_code=code, wall_seconds=1, peak_rss_kb=1, timed_out=False)
 
@@ -92,6 +109,20 @@ class RuntimeTaskTest(unittest.TestCase):
                 self.assertEqual(result["valid"], valid)
                 self.assertEqual(code, 0 if valid else 1)
                 self.assertEqual(Path(calls[1][0]).name, "drat-trim")
+
+    def test_dsr_runs_all_three_checked_stages(self):
+        code, result, calls = self.run_case(
+            "tactix", "UNSAT", 20, certificate="dsr")
+        self.assertEqual(code, 0)
+        self.assertTrue(result["valid"])
+        self.assertEqual(
+            [Path(call[0]).name for call in calls[1:]],
+            ["dsr-trim", "dsr-compress", "srcheck"])
+        self.assertEqual(result["proof_check"]["pipeline"],
+                         "dsr-trim-lsr-trestle")
+        self.assertEqual([stage["result"] for stage in
+                          result["proof_check"]["stages"]],
+                         ["verified", "verified", "verified"])
 
     def test_changed_pin_stops_before_solver(self):
         for arm in ("tactix", "kissat"):

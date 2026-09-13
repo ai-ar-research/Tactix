@@ -93,7 +93,9 @@ int main(int argc, char **argv) {
   const bool frontend_time = getenv("TACTIX_FRONTEND_TIME") != nullptr;
   const char *cnf_path = nullptr;
   const char *proof_path = nullptr;
-  ProofFormat proof_format = ProofFormat::DratBinary;
+  enum class CliProofFamily { Dsr, Drat, Lrat };
+  CliProofFamily proof_family = CliProofFamily::Dsr;
+  bool binary_proof = true;
   bool quiet = false;
   bool random_policy = false;
   // EVERY stress policy lives in stress_registry.cpp's table, so it reaches
@@ -115,9 +117,13 @@ int main(int argc, char **argv) {
     } else if (!strcmp(a, "-q") || !strcmp(a, "--quiet")) {
       quiet = true;
     } else if (!strcmp(a, "--no-binary")) {
-      proof_format = ProofFormat::DratAscii;
+      binary_proof = false;
+    } else if (!strcmp(a, "--dsr")) {
+      proof_family = CliProofFamily::Dsr;
+    } else if (!strcmp(a, "--drat")) {
+      proof_family = CliProofFamily::Drat;
     } else if (!strcmp(a, "--lrat")) {
-      proof_format = ProofFormat::Lrat; // native LRAT (plan O4)
+      proof_family = CliProofFamily::Lrat; // native LRAT compatibility
     } else if (!strncmp(a, "--random-policy", 15)) {
       random_policy = true;
       if (a[15] == '=')
@@ -169,7 +175,7 @@ int main(int argc, char **argv) {
     } else if (StressSolveFn fn = stress_policy_flag(a, &random_seed)) {
       stress_policy = fn;
     } else if (!strcmp(a, "-h") || !strcmp(a, "--help")) {
-      printf("usage: tactix [-q] [--no-binary] [--lrat] "
+      printf("usage: tactix [-q] [--dsr|--drat|--lrat] [--no-binary] "
              "[--random-policy[=SEED]] "
              "[--bve-gates=all|none|equiv,andor,ite,xor,def] "
              "[--trace=FILE] [--replay=FILE] %s "
@@ -190,6 +196,15 @@ int main(int argc, char **argv) {
       return 1;
     }
   }
+
+  const ProofFormat proof_format =
+      proof_family == CliProofFamily::Lrat
+          ? ProofFormat::Lrat
+          : proof_family == CliProofFamily::Drat
+                ? (binary_proof ? ProofFormat::DratBinary
+                                : ProofFormat::DratAscii)
+                : (binary_proof ? ProofFormat::DsrBinary
+                                : ProofFormat::DsrAscii);
   if (!cnf_path) {
     fprintf(stderr, "tactix: no input file\n");
     printf("s UNKNOWN\n");

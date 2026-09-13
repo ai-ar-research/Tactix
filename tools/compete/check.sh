@@ -4,7 +4,9 @@
 set -euo pipefail
 SOLVER="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-DRAT_TRIM="$ROOT/tools/checkers/bin/drat-trim"
+DSR_TRIM="$ROOT/tools/checkers/bin/dsr-trim"
+DSR_COMPRESS="$ROOT/tools/checkers/bin/dsr-compress"
+SR_CHECK="$ROOT/tools/checkers/bin/srcheck"
 CHECKMODEL="$ROOT/tools/fuzz/checkmodel"
 T="$(mktemp -d)"
 trap 'rm -rf "$T"' EXIT
@@ -25,20 +27,25 @@ awk '/^v/ { if (length($0) > 4096) exit 1 }' "$T/out" || fail "v line > 4096"
 
 # 2. UNSAT instance: exit 20, proof written and verified
 printf 'p cnf 2 4\n1 2 0\n1 -2 0\n-1 2 0\n-1 -2 0\n' > "$T/unsat.cnf"
-"$SOLVER" "$T/unsat.cnf" "$T/proof.drat" > "$T/out" && rc=$? || rc=$?
+"$SOLVER" "$T/unsat.cnf" "$T/proof.dsr" > "$T/out" && rc=$? || rc=$?
 [ "$rc" -eq 20 ] || fail "UNSAT exit code $rc != 20"
 grep -qx 's UNSATISFIABLE' "$T/out" || fail "missing exact 's UNSATISFIABLE'"
 one_status "$T/out" UNSAT
-[ -s "$T/proof.drat" ] || fail "no proof written"
-"$DRAT_TRIM" "$T/unsat.cnf" "$T/proof.drat" > "$T/check" 2>&1 || true
-grep -q 's VERIFIED' "$T/check" || fail "proof not verified"
+[ -s "$T/proof.dsr" ] || fail "no proof written"
+"$DSR_TRIM" -q -c "$T/unsat.cnf" "$T/proof.dsr" "$T/proof.binary.lsr" \
+  > "$T/dsr-check" 2>&1 || fail "DSR not verified"
+grep -qx 's VERIFIED UNSAT' "$T/dsr-check" || fail "DSR not verified"
+"$DSR_COMPRESS" -d "$T/proof.binary.lsr" "$T/proof.lsr" \
+  || fail "LSR decompression"
+"$SR_CHECK" "$T/unsat.cnf" "$T/proof.lsr" > "$T/lsr-check" 2>&1
+grep -qx 's VERIFIED UNSAT' "$T/lsr-check" || fail "LSR not verified"
 
 # 2b. proofs are opt-in: UNSAT without a proof argument must work and
 #     must not create any proof file
 ( cd "$T" && "$SOLVER" unsat.cnf > out.noproof ) && rc=$? || rc=$?
 [ "$rc" -eq 20 ] || fail "no-proof UNSAT exit code $rc != 20"
 grep -qx 's UNSATISFIABLE' "$T/out.noproof" || fail "no-proof UNSAT s line"
-[ "$(find "$T" -name '*.drat' | wc -l)" -eq 1 ] \
+[ "$(find "$T" -name '*.dsr' | wc -l)" -eq 1 ] \
   || fail "unexpected proof file created in no-proof mode"
 
 # 3. SIGTERM mid-solve on a hard instance: s UNKNOWN, proof prefix-valid
@@ -52,7 +59,7 @@ with open(sys.argv[1], "w") as f:
         vs = rng.sample(range(1, n + 1), 3)
         f.write(" ".join(str(v if rng.random() < .5 else -v) for v in vs) + " 0\n")
 EOF
-"$SOLVER" "$T/hard.cnf" "$T/hard.drat" > "$T/out" & pid=$!
+"$SOLVER" "$T/hard.cnf" "$T/hard.dsr" > "$T/out" & pid=$!
 sleep 0.4; kill -TERM "$pid" 2>/dev/null || true
 wait "$pid" && rc=$? || rc=$?
 if grep -qx 's UNKNOWN' "$T/out"; then
@@ -86,13 +93,13 @@ one_status "$T/out" odd-DIMACS
 
 # 5. determinism: identical verdict + proof across two runs
 printf 'p cnf 4 8\n1 2 3 0\n-1 -2 0\n-1 -3 0\n-2 -3 0\n4 1 0\n-4 2 0\n-4 3 0\n4 -1 -2 0\n' > "$T/det.cnf"
-"$SOLVER" "$T/det.cnf" "$T/det1.drat" > "$T/out1" || true
-"$SOLVER" "$T/det.cnf" "$T/det2.drat" > "$T/out2" || true
+"$SOLVER" "$T/det.cnf" "$T/det1.dsr" > "$T/out1" || true
+"$SOLVER" "$T/det.cnf" "$T/det2.dsr" > "$T/out2" || true
 cmp -s "$T/out1" "$T/out2" || fail "nondeterministic stdout"
-cmp -s "$T/det1.drat" "$T/det2.drat" || fail "nondeterministic proof"
+cmp -s "$T/det1.dsr" "$T/det2.dsr" || fail "nondeterministic proof"
 
-# 2026 submission wrapper: argument two is a directory and native LPR/LRAT is
-# written as proof.out for the selected DPR/cake_lpr pipeline.
+# Submission wrapper: argument two is a directory and native DSR is written as
+# proof.out for the pinned dsr-trim/Trestle pipeline.
 WRAPPER="$ROOT/run.sh"
 mkdir "$T/wrapper-out"
 "$WRAPPER" "$T/unsat.cnf" "$T/wrapper-out" > "$T/wrapper.stdout" \
@@ -100,10 +107,14 @@ mkdir "$T/wrapper-out"
 [ "$rc" -eq 20 ] || fail "wrapper UNSAT exit $rc"
 [ -s "$T/wrapper-out/proof.out" ] || fail "wrapper did not write proof.out"
 one_status "$T/wrapper.stdout" wrapper
-CAKE="$ROOT/tools/checkers/bin/cake_lpr"
-if [ -x "$CAKE" ]; then
-  "$CAKE" "$T/unsat.cnf" "$T/wrapper-out/proof.out" > "$T/cake.out"
-  grep -q 's VERIFIED UNSAT' "$T/cake.out" || fail "cake_lpr rejected wrapper proof"
-fi
+"$DSR_TRIM" -q -c "$T/unsat.cnf" "$T/wrapper-out/proof.out" \
+  "$T/wrapper.binary.lsr" > "$T/wrapper-dsr-check"
+grep -qx 's VERIFIED UNSAT' "$T/wrapper-dsr-check" \
+  || fail "dsr-trim rejected wrapper proof"
+"$DSR_COMPRESS" -d "$T/wrapper.binary.lsr" "$T/wrapper.lsr" \
+  || fail "wrapper LSR decompression"
+"$SR_CHECK" "$T/unsat.cnf" "$T/wrapper.lsr" > "$T/wrapper-lsr-check"
+grep -qx 's VERIFIED UNSAT' "$T/wrapper-lsr-check" \
+  || fail "Trestle rejected wrapper proof"
 
 echo "COMPLIANCE OK"

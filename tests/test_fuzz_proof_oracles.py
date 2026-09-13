@@ -13,7 +13,8 @@ import fuzz
 
 
 class FuzzProofOracles(unittest.TestCase):
-    def fixture(self, cnf_text, proof_text, lrat=True, checker_response=None, convert=False):
+    def fixture(self, cnf_text, proof_text, lrat=True, checker_response=None,
+                convert=False, dsr=False):
         with tempfile.TemporaryDirectory(prefix='fuzz-oracle-fixed-') as directory:
             work = Path(directory); cnf = work/'input.cnf'; cnf.write_text(cnf_text)
             actual = fuzz.run_cmd
@@ -23,14 +24,18 @@ class FuzzProofOracles(unittest.TestCase):
                     return 20, 's UNSATISFIABLE\n', ''
                 if checker_response is not None: return checker_response
                 return actual(command, timeout)
-            solver = ['fixed-proof-emitter'] + (['--lrat'] if lrat else [])
+            solver = ['fixed-proof-emitter'] + (
+                ['--dsr', '--no-binary'] if dsr else
+                (['--lrat'] if lrat else ['--drat']))
             with patch.object(fuzz, 'run_cmd', side_effect=run):
                 result = fuzz.run_case(str(cnf), solver, None, 10, convert, str(work))
             self.assertTrue(result.checker_runs)
             if result.failures:
                 bundle = Path(fuzz.save_bundle(str(work/'failures'), 0, 0, 'fixed-checker-control',
                                               str(cnf), result, solver, None, 10, convert, False))
-                self.assertEqual((bundle/('proof.lrat' if lrat else 'proof.drat')).read_text(), proof_text)
+                proof_name = ('proof.dsr' if dsr else
+                              ('proof.lrat' if lrat else 'proof.drat'))
+                self.assertEqual((bundle/proof_name).read_text(), proof_text)
                 self.assertEqual(json.loads((bundle/'meta.json').read_text())['checker_runs'], result.checker_runs)
             return result
 
@@ -58,6 +63,19 @@ class FuzzProofOracles(unittest.TestCase):
         r = self.fixture('p cnf 1 1\n1 0\n', '0\n', lrat=False,
                          checker_response=(1, 'c trivial UNSAT\ns VERIFIED\n', ''))
         self.assertTrue(r.failures)
+
+    def test_default_dsr_pipeline_accepts_actual_conflict(self):
+        r = self.fixture('p cnf 1 2\n1 0\n-1 0\n', '0\n', dsr=True)
+        self.assertFalse(r.failures)
+        self.assertEqual([Path(run['command'][0]).name
+                          for run in r.checker_runs],
+                         ['dsr-trim', 'dsr-compress', 'srcheck'])
+
+    def test_default_dsr_rejects_nonconflicting_empty_lemma(self):
+        r = self.fixture('p cnf 1 1\n1 0\n', '0\n', dsr=True)
+        self.assertIn('proof', [kind for kind, _ in r.failures])
+        self.assertEqual(Path(r.checker_runs[0]['command'][0]).name,
+                         'dsr-trim')
 
     def test_conversion_dispatches_to_cake(self):
         r = self.fixture('p cnf 1 2\n1 0\n-1 0\n', '0\n', lrat=False, convert=True)

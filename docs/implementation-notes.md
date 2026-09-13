@@ -30,7 +30,7 @@ guidance; S6 additionally requires root because its representation transition re
 DefaultPolicy ships original-Kissat pipeline membership. Off-pipeline CaDiCaL rules remain registered, journaled, N1-reachable, and
 explicitly poseable.
 
-### Native DSR proof backend contract (implementation in progress)
+### Native DSR proof backend contract
 
 The current proof increment makes the canonical mode one streaming binary DSR certificate. Existing
 RUP/RAT additions and deletions use DSR's backward-compatible witnessless
@@ -53,13 +53,19 @@ protocol repairs only that exact output to `n+1 0 k 0`, where input clause `k`
 is independently parsed as empty, and still requires Trestle acceptance. Every
 other formula or LSR spelling bypasses the bridge unchanged.
 
+Pinned upstream `dsr-trim` commit `ffe486` deleted tautological input clauses during parsing and then attempted to hash their
+deleted slots. `tools/checkers/patches/dsr-trim-ffe486-tautology-hash.patch` skips those slots during hash initialization. Setup
+verifies the exact diff and runs a raw-tautology DSR-to-LSR-to-Trestle self-test; the raw CNF and proof still reach Trestle unchanged.
+
 The working tree contains binary/ASCII DSR serialization, the typed `add_sr`
 event, public CLI/C API format selection, pinned checker setup, and the
 anonymous-scratch runtime checker pipeline. Active benchmark and fuzz launchers
 select that pipeline by default; explicit DRAT/LRAT compatibility paths remain.
-Unit, proof-oracle, runtime, full Release and sanitizer suites pass. The contract
-remains pending until the Claude-owned native-DSR fuzz checkpoint and the
-B27+C5 and Rank 1–40 performance gates pass.
+Unit, proof-oracle, runtime, full Release and sanitizer suites pass. The first
+Claude-owned fuzz checkpoint exposed the pinned checker defect; its replacement
+passed with identical solver binaries and the patched checker. B27+C5 and the
+complete Rank1--40 solver-time vector show no regression; four final Rank checker
+tasks continue in the background under the accepted nonblocking proof-check rule.
 
 ## 2. Engineering-deviation ledger
 

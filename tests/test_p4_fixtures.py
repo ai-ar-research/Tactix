@@ -47,9 +47,36 @@ assert runner.TIER_TIMEOUT["P4A"] == 30.0
 assert runner.TIER_TIMEOUT["P4B"] == 300.0
 assert all(runner.TIER_MEM_GB[tier] == 32
            for tier in ("A", "B", "C", "P4A", "P4B"))
-assert runner.TIER_MEM_GB["D"] == 16
+assert runner.TIER_MEM_GB["D"] == 32
 assert [row[0] for row in runner.read_tier_list("P4A")] == [row[0] for row in p4a]
 assert [row[0] for row in runner.read_tier_list("P4B")] == [row[0] for row in p4b]
+assert runner.proof_format(["/pin/tactix"]) == "dsr"
+assert runner.proof_format(["/pin/tactix", "--dsr"]) == "dsr"
+assert runner.proof_format(["/pin/tactix", "--drat"]) == "drat"
+assert runner.proof_format(["/pin/tactix", "--lrat"]) == "lrat"
+assert runner.proof_format(["/pin/kissat"]) == "drat"
+
+with tempfile.TemporaryDirectory(prefix="generic-dsr-proof-") as directory:
+    directory = pathlib.Path(directory)
+    cnf, proof = directory / "input.cnf", directory / "proof.dsr"
+    cnf.write_text("p cnf 1 2\n1 0\n-1 0\n")
+    proof.write_bytes(b"proof")
+
+    def fake_checker(argv, **kwargs):
+        name = pathlib.Path(argv[0]).name
+        if name == "dsr-trim":
+            pathlib.Path(argv[-1]).write_bytes(b"binary-lsr")
+            return subprocess.CompletedProcess(argv, 0, "s VERIFIED UNSAT\n", "")
+        if name == "dsr-compress":
+            pathlib.Path(argv[-1]).write_text("3 0 1 2 0\n")
+            return subprocess.CompletedProcess(argv, 0, "", "")
+        assert name == "srcheck"
+        return subprocess.CompletedProcess(argv, 0, "s VERIFIED UNSAT\n", "")
+
+    with mock.patch.object(runner.subprocess, "run", side_effect=fake_checker):
+        checked = runner.check_proof("dsr", str(cnf), str(proof), 30)
+    assert checked[:3] == (True, "VERIFIED", runner.CHK_VERIFIED)
+assert runner.classify_checker_output("s INVALID\n", "", 0)[0] == runner.CHK_REJECTED
 
 spec = importlib.util.spec_from_file_location("p4_cvg", ROOT / "tools" /
                                               "bench" / "p4_cvg.py")

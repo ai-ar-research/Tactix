@@ -148,20 +148,24 @@ static void test_instance_surface(void) {
   assert(tactix_stat(s, 9999) == UINT64_MAX);
   tactix_release(s);
 
-  /* proof formats: all three accepted (native LRAT landed); junk isn't.
+  /* proof formats: all five accepted; junk isn't.
      Named after the writing process: ctest runs concurrently over several
      build directories, and a shared name lets those runs reopen and truncate
      each other's proof file. */
   char proof_path[64];
-  snprintf(proof_path, sizeof proof_path, "/tmp/tactix-api-fmt-%ld.drat",
+  snprintf(proof_path, sizeof proof_path, "/tmp/tactix-api-fmt-%ld.proof",
            (long)getpid());
   s = tactix_init();
   assert(tactix_proof(s, proof_path, 99) == -1);
-  assert(tactix_proof(s, proof_path, TACTIX_PROOF_LRAT) == 0);
   tactix_release(s);
-  s = tactix_init();
-  assert(tactix_proof(s, proof_path, TACTIX_PROOF_DRAT_BINARY) == 0);
-  tactix_release(s);
+  const int formats[] = {TACTIX_PROOF_DRAT_BINARY, TACTIX_PROOF_DRAT_ASCII,
+                         TACTIX_PROOF_LRAT, TACTIX_PROOF_DSR_BINARY,
+                         TACTIX_PROOF_DSR_ASCII};
+  for (unsigned i = 0; i < sizeof formats / sizeof formats[0]; ++i) {
+    s = tactix_init();
+    assert(tactix_proof(s, proof_path, formats[i]) == 0);
+    tactix_release(s);
+  }
   remove(proof_path);
 }
 

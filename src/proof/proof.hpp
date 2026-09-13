@@ -1,8 +1,8 @@
-// Proof backend (plan §5.2): the closed five-primitive vocabulary is the
-// only side channel rules may use. DRAT (binary/ascii) serializes
-// add-RUP/delete ignoring hints; LRAT (ascii, native — plan O4) writes
-// the clause id and the antecedent chain the rules capture during
-// conflict analysis. Streaming + buffered: never held in memory (§6).
+// Proof backend (plan §5.2): rules emit typed logical events. Native DSR is
+// the canonical stream; witnessless DSR additions cover the existing RUP/RAT
+// vocabulary and direct SR additions carry a substitution witness. DRAT and
+// native LRAT remain compatibility serializers for the pre-existing events.
+// Streaming + buffered: never held in memory (§6).
 #pragma once
 
 #include "kernel/types.hpp"
@@ -15,7 +15,12 @@
 
 namespace tactix {
 
-enum class ProofFormat { DratBinary, DratAscii, Lrat };
+enum class ProofFormat { DsrBinary, DsrAscii, DratBinary, DratAscii, Lrat };
+
+struct DsrLiteralMapping {
+  Lit from = INVALID_LIT;
+  Lit to = INVALID_LIT;
+};
 
 class Proof {
 public:
@@ -23,6 +28,14 @@ public:
 
   bool open(const char *path, ProofFormat format);
   bool lrat() const { return format_ == ProofFormat::Lrat; }
+  bool dsr() const {
+    return format_ == ProofFormat::DsrBinary ||
+           format_ == ProofFormat::DsrAscii;
+  }
+  bool binary() const {
+    return format_ == ProofFormat::DsrBinary ||
+           format_ == ProofFormat::DratBinary;
+  }
   void bind_variable_map(const std::vector<Var> *map) { variable_map_ = map; }
 
   // --- proof-delta vocabulary (subset live in phase 2) ---
@@ -40,9 +53,16 @@ public:
   // Factor is the first RAT-emitting rule (plan §5.2 add-RAT primitive).
   void add_rat(uint64_t id, const Lit *lits, uint32_t size,
                const int64_t *hints, uint32_t nhints);
+  // Add a substitution-redundant clause. `lits[0]` is the DSR pivot,
+  // `true_lits` are mapped to true, and each mapping maps its source literal
+  // to its target literal. Returns false for compatibility formats so callers
+  // can decline the transition before mutating the formula.
+  bool add_sr(uint64_t id, const Lit *lits, uint32_t size,
+              const Lit *true_lits, uint32_t ntrue,
+              const DsrLiteralMapping *mappings, uint32_t nmappings);
   void add_empty(uint64_t id, const uint64_t *chain, uint32_t nchain);
   // root-level propagation-derived unit: explicit in LRAT (each level-0
-  // assignment needs an id for later chains), implied/omitted in DRAT
+  // assignment needs an id for later chains), implied/omitted in DSR/DRAT
   void add_derived_unit(uint64_t id, Lit unit, const uint64_t *chain,
                         uint32_t nchain);
   // delete: DRAT writes the literals; LRAT the clause id
@@ -112,7 +132,7 @@ private:
   void put_u64(uint64_t v);
   void end_line();
   FILE *file_ = nullptr;
-  ProofFormat format_ = ProofFormat::DratBinary;
+  ProofFormat format_ = ProofFormat::DsrBinary;
   std::array<unsigned char, 1 << 20> binary_buffer_{};
   size_t binary_buffer_size_ = 0;
   const std::vector<Var> *variable_map_ = nullptr;

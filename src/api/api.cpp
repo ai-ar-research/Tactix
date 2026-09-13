@@ -464,7 +464,7 @@ void tactix_add(tactix_solver *s, int lit) {
 static void input_complete(tactix_solver *s) { finish_input(s->kernel); }
 
 int tactix_proof(tactix_solver *s, const char *path, int format) {
-  // formats per tactix.h: 0 binary DRAT, 1 ascii DRAT, 2 native LRAT
+  // Public values are append-only; see TACTIX_PROOF_* in tactix.h.
   ProofFormat f;
   switch (format) {
   case 0:
@@ -475,6 +475,12 @@ int tactix_proof(tactix_solver *s, const char *path, int format) {
     break;
   case 2:
     f = ProofFormat::Lrat;
+    break;
+  case 3:
+    f = ProofFormat::DsrBinary;
+    break;
+  case 4:
+    f = ProofFormat::DsrAscii;
     break;
   default:
     return -1;

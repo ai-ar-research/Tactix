@@ -66,8 +66,12 @@ def prepare(a):
     c.mkdir()
     for name in ['pins','logs','claims','provisional','results']:(c/name).mkdir()
     shutil.copy2(a.binary,c/'pins/tactix')
-    for name in ['checkmodel','modelcheck.py','drat-trim']:
+    for name in ['checkmodel','modelcheck.py']:
         shutil.copy2(ref/'pins'/name,c/'pins'/name)
+    for name in ['dsr-trim','dsr-compress','srcheck']:
+        checker=ROOT/'tools/checkers/bin'/name
+        if not checker.is_file():raise ValueError('missing checker: '+str(checker))
+        shutil.copy2(checker,c/'pins'/name)
     for name in ['runtime_task.py','proof_oracle.py','anonymous_scratch.py','test_anonymous_scratch.py','validate_anonymous_runtime.py']:
         shutil.copy2(ROOT/'tools/bench'/name,c/'pins'/name)
     with (c/'matrix.tsv').open('x',newline='') as f:
@@ -96,12 +100,14 @@ exec python3 {c}/pins/validate_anonymous_runtime.py {c}
 ''')
     m=dict(schema='tactix-experimental-single-tierd-v3',created_at=dt.datetime.now(dt.timezone.utc).isoformat(),
         source_commit=commit,source_tree=str(source),source_files=sources,
-        arms={'tactix':dict(path='pins/tactix',sha256=sha(c/'pins/tactix'),arguments=[])},
+        arms={'tactix':dict(path='pins/tactix',sha256=sha(c/'pins/tactix'),
+                           arguments=[],certificate='dsr')},
         input_sha256=inputs,scratch_policy='anonymous-local-files-v1',
         dataset_authority=dict(path=str(ref/'manifest.json'),sha256=sha(ref/'manifest.json')),
         resource_contract=dict(partition=a.partition,cpus_per_task=a.cpus_per_task,memory_mib=32768,solve_timeout=1200,
             checker_timeout=16000,scheduler_wall_seconds=18000,array=f'0-{len(rows)-1}',throttle=None,node_constraint=None),
-        cleanup_contract='O_TMPFILE on /tmp for input, proof, model and checker scratch; no directory entries ever. Kernel releases storage at last close, including SIGKILL/OOM. Fail closed if unsupported. Only bounded JSON metadata and scheduler logs persist; core dumps disabled.',
+        proof_contract='Native DSR elaborated by pinned dsr-trim to LSR, decompressed by pinned dsr-compress, and verified by pinned Trestle srcheck.',
+        cleanup_contract='O_TMPFILE on /tmp for input, DSR, LSR, model and checker scratch; no directory entries ever. Kernel releases storage at last close, including SIGKILL/OOM. Fail closed if unsupported. Only bounded JSON metadata and scheduler logs persist; core dumps disabled.',
         caveat='If the entire job dies, its result may be missing; never interpret missing as timeout or checked. Local disk may fill during a live run; no home-quota certificate storage or failure retention.',
         pin_sha256={str(p.relative_to(c)):sha(p) for p in [*(c/'pins').iterdir(),c/'matrix.tsv',c/'array.sbatch',c/'validate.sbatch']})
     save(c/'manifest.json',m)
