@@ -61,11 +61,22 @@ def baseline_eligible(record, seconds, memory_kib):
                 number(solve.get('peak_rss_kb')) and solve['peak_rss_kb'] <= memory_kib)
 
 
-def genuine_timeout(record, final, seconds, memory_kib):
+def genuine_timeout(record, final, seconds, memory_kib,
+                    matching_cgroup_contract=False):
     solve = record.get('solve') or {}
+    peak = solve.get('peak_rss_kb')
+    # /usr/bin/time is in the solver process group and is terminated at the
+    # wall limit, so a real timeout can legitimately lack its final %M line.
+    # Existing censored runs still carry direct memory evidence when the final
+    # record names SLURM's task cgroup and the caller has independently matched
+    # the campaign's scheduler memory limit to `memory_kib`.  A numeric peak,
+    # when present, remains authoritative and may not be excused by the cgroup.
+    memory_ok = ((number(peak) and peak <= memory_kib) or
+                 (peak is None and matching_cgroup_contract and
+                  record.get('memory_enforcement') == 'slurm_task_cgroup'))
     return bool(final and clean(record) and solve.get('timed_out') is True and
                 number(solve.get('wall_seconds')) and solve['wall_seconds'] >= seconds and
-                number(solve.get('peak_rss_kb')) and solve['peak_rss_kb'] <= memory_kib and
+                memory_ok and
                 record.get('verdict') == 'UNKNOWN' and
                 solve.get('exit_code') not in (10, 20) and
                 not record.get('proof_check') and not record.get('model_check'))
@@ -148,7 +159,8 @@ def snapshot(baseline, tactix, seconds, memory_kib, per_status):
         # Provisional records may omit the binary hash; final records may not.
         if path == final_path and r.get('solve'):
             require(r['binary_sha256'] == tm['arms']['tactix']['sha256'], 'Tactix binary mismatch')
-        timeout = genuine_timeout(r, path == final_path, seconds, memory_kib)
+        timeout = genuine_timeout(r, path == final_path, seconds, memory_kib,
+                                  matching_cgroup_contract=True)
         unresolved_timeout = path != final_path and r.get('solve', {}).get('timed_out') is True
         classes['genuine_timeout' if timeout else 'timeout_cleanup_pending' if unresolved_timeout
                 else 'other_published_solver_outcome'] += 1
