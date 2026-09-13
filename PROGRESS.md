@@ -38,6 +38,7 @@ still open.
 | Design | [online proposal](docs/design/2026-09-11-online-strategy-proposal.md) and [preservation addendum](docs/design/2026-09-11-strategy-behavior-preservation-addendum.md) |
 | Final evidence | [online refactor/N1 closure](benchmarks/reports/2026-09-13-online-refactor-n1-final.md) |
 | Claude checkpoint | [job 1687182 report](benchmarks/reports/2026-09-13-structural-resume-claude-fuzz/terminal-report.md) |
+| DSR B27+C5 reference | [fixed 32-row vector](benchmarks/baselines/b27c5-tactix-a08f9f6a-v1/manifest.json) |
 | Winner target | [fixed WV100 set](benchmarks/tiers/WV100.tsv): 33 SAT / 67 UNSAT |
 | WV100 protocol | [mechanism integration and experiment design](docs/design/2026-09-13-wv100-mechanism-integration.md) |
 | Satsuma transition | [57-row structural screen](benchmarks/reports/2026-09-13-wv100-satsuma-transition.md) |
@@ -81,12 +82,16 @@ not implementation or project-document changes.
 
 - Native binary/ASCII DSR serialization, direct typed `add_sr`, CLI/C API
   selection, and the DSR -> LSR -> Trestle checker pipeline are implemented in
-  the working tree. Exact proof-byte/API tests and 37 proof-oracle/runtime tests
-  pass. The pinned-checker setup self-test accepts a non-vacuous SR witness and
-  rejects malformed DSR and LSR controls.
-- This increment is not landed yet. Active benchmark and fuzz launchers still
-  need conversion to the DSR pipeline, followed by Slurm correctness,
-  sanitizer, Claude fuzz, B27+C5 and Rank 1–40 gates.
+  the working tree. Exact proof-byte/API tests and 51 proof-oracle/runtime/fuzz
+  protocol tests pass. Slurm job `1688419` passes the complete micro suite in
+  binary/ASCII DSR and explicit DRAT/LRAT modes, including a non-vacuous SR
+  witness and malformed DSR/LSR controls. Jobs `1688422` and `1688423` pass all
+  148 Release and all 147 applicable ASan/UBSan tests.
+- The benchmark, anonymous-runtime and fuzz launchers now use the pinned DSR
+  pipeline by default; explicit DRAT/LRAT compatibility modes remain covered.
+  The increment is not landed yet. Its remaining acceptance work is the
+  Claude-owned native-DSR fuzz checkpoint and the paired B27+C5 and Rank 1–40
+  DSR/DRAT performance gates.
 
 - Release: **148/148** tests. Sanitizer-enabled Debug: **147/147** relevant
   tests; the explicitly long scripted demo was stopped after 1:48.
@@ -163,12 +168,11 @@ not implementation or project-document changes.
 
 1. Leave the existing Tier-D run, proof checks and storage guard unchanged in
    the background; submit no new Tier-D run.
-2. Finish the native DSR increment by converting the remaining fuzz and
-   benchmark launchers to the pinned checker pipeline.
-3. Require every UNSAT acceptance path to run
-   DSR -> `dsr-trim` -> LSR -> pinned Trestle for UNSAT and anonymous cleanup.
-4. Pass full correctness/sanitizer/fuzz coverage, then B27+C5 and Rank 1--40 at
+2. Complete the Claude-owned native-DSR fuzz checkpoint; Codex owns any repair.
+3. Run B27+C5 and Rank 1--40 at
    c12/32 GiB/1,200 s with a same-source DRAT control.
+4. Land native DSR only after its checker, cleanup, correctness, sanitizer,
+   fuzz and performance gates pass.
 5. Restore the pending SR/orbitopal work without its DRAT/LRAT translator and
    finish the general Satsuma symmetry-breaking rule using direct DSR.
 
@@ -181,7 +185,7 @@ not implementation or project-document changes.
 ## Recent changes
 
 - 2026-09-13: Implemented the native DSR writer and pinned three-stage checker
-  pipeline in the working tree; launcher conversion and fixed gates remain.
+  pipeline across active launchers; fuzz and fixed performance gates remain.
 - 2026-09-13: Preserved B28+C5 and Rank1–50 trajectories within 1.03% aggregate time.
 - 2026-09-13: Validated anonymous cleanup and submitted current Tier-D array `1687184`.
 - 2026-09-13: Located the structured symmetry slot before Factor with exact generator survival.
