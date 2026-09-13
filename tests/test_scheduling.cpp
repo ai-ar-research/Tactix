@@ -619,6 +619,35 @@ static void test_vivify_dose_poses_focused_tiers(void) {
          "Vivify consumed the last posed stable snapshot instead of Kissat's "
          "shipped focused tier snapshot");
   std::printf("  vivify tiers: stable retier -> focused 20/38 at dose entry\n");
+
+  Kernel selected;
+  kernel_reserve_vars(selected, 64);
+  ScopedHeuristics selected_h(selected);
+  selected.h->stable = true;
+  selected.stats.conflicts = 1;
+  kernel_add_large_clause(selected, clause, 3, true, 20, 0);
+  DefaultStrategyConfig config;
+  config.inprocess.vivify_tier_mode = 1;
+  DefaultPolicy selected_policy(config);
+  selected_policy.inprocess().build(selected);
+  DefaultInprocessScheduler::SlotEntry *selected_vivify = nullptr;
+  for (auto &e : selected_policy.inprocess().entries) {
+    const bool is_vivify = !std::strcmp(rules[e.rule].name, "Vivify");
+    e.enabled = is_vivify;
+    if (is_vivify)
+      selected_vivify = &e;
+  }
+  assert(selected_vivify);
+  selected.tier1_by_mode[0] = 20;
+  selected.tier2_by_mode[0] = 38;
+  selected.tier1_by_mode[1] = 19;
+  selected.tier2_by_mode[1] = 46;
+  assert(selected_policy.inprocess().run_phase(
+             selected, SlotGroup::Probe, nullptr) == 0);
+  assert(selected_vivify->tm.admitted > 0 &&
+         selected.tier1 == selected.tier1_by_mode[1] &&
+         selected.tier2 == selected.tier2_by_mode[1] &&
+         "typed Vivify tier mode must select the requested snapshot");
 }
 
 // Kissat's tier limits are cumulative absolute ceilings.  With no tier-1 or

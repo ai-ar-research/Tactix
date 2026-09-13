@@ -140,6 +140,35 @@ static void test_reduce_preserves_recorded_large_conflict() {
   kernel_check_invariants(k);
 }
 
+static void test_reduce_strategy_parameters_control_canonical_selection() {
+  assert(reduce_fractional_victims(101, 2, 5) == 40);
+  Kernel k;
+  ScopedHeuristics h(k);
+  kernel_reserve_vars(k, 6);
+  const Lit protected_lits[3] = {internalize(1), internalize(2),
+                                 internalize(3)};
+  const Lit ordinary_lits[3] = {internalize(4), internalize(5),
+                                internalize(6)};
+  const Ref protected_ref =
+      kernel_add_large_clause(k, protected_lits, 3, true, 1);
+  kernel_add_large_clause(k, ordinary_lits, 3, true, 9);
+  clause_at(k.arena, protected_ref)->set_used(1);
+
+  std::vector<Ref> candidates;
+  reduce_candidates(k, candidates, false, true);
+  assert(candidates.size() == 1);
+  reduce_candidates(k, candidates, false, false);
+  assert(candidates.size() == 2);
+
+  const RuleVTable &reduce = tactix_rules()[tactix_rule_id("Reduce")];
+  uint64_t instances[3] = {};
+  k.reduce_protect_tiers = false;
+  k.reduce_victim_numerator = 1;
+  k.reduce_victim_denominator = 2;
+  assert(reduce.instances(k, instances, 3) == 3);
+  assert(instances[0] == 1);
+}
+
 static void test_collect_preserves_propagation() {
   Kernel k;
   ScopedHeuristics _hg_k(k);
@@ -683,6 +712,7 @@ int main(int argc, char **argv) {
   test_reduce_prepare_propagates_root_before_collection();
   test_reduce_prepare_reports_root_conflict();
   test_reduce_preserves_recorded_large_conflict();
+  test_reduce_strategy_parameters_control_canonical_selection();
   test_root_propagation_consumes_unflushed_marker();
   test_reduce_used_retention();
   test_reduce_equal_rank_preserves_arena_order();

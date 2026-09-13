@@ -7,10 +7,60 @@
 #include "rules/registry.hpp"
 
 #include <cassert>
+#include <bit>
+#include <cmath>
 #include <cstdio>
 #include <vector>
 
 using namespace tactix;
+
+static bool near(double a, double b) { return std::fabs(a - b) < 1e-12; }
+
+static void test_configurable_score_curve() {
+  strategy::WalkParameters reference;
+  assert(reference.valid());
+  assert(near(walk_break_base(reference, 3.0, 1), 2.5));
+  assert(near(walk_break_base(reference, 3.5, 1), 2.675));
+  assert(near(walk_break_base(reference, 3.5, 2), 2.0));
+  const double old_curve[6][2] = {{0.0, 2.00}, {3.0, 2.50},
+                                  {4.0, 2.85}, {5.0, 3.70},
+                                  {6.0, 5.10}, {7.0, 7.40}};
+  for (const double average : {0.01, 1.0, 3.5, 7.0, 11.25}) {
+    size_t i = 0;
+    while (i + 2 < 6 &&
+           (old_curve[i][0] > average || old_curve[i + 1][0] < average))
+      ++i;
+    const double old =
+        (old_curve[i + 1][1] - old_curve[i][1]) *
+            (average - old_curve[i][0]) /
+            (old_curve[i + 1][0] - old_curve[i][0]) +
+        old_curve[i][1];
+    assert(std::bit_cast<uint64_t>(walk_break_base(reference, average, 1)) ==
+           std::bit_cast<uint64_t>(old));
+  }
+
+  strategy::WalkParameters custom = reference;
+  custom.even_break_base_milli = 4000;
+  custom.score_curve = {{0, 1000}, {4000, 5000}};
+  assert(custom.valid());
+  assert(near(walk_break_base(custom, 2.0, 1), 3.0));
+  assert(near(walk_break_base(custom, 2.0, 2), 4.0));
+
+  custom.score_curve[1].average_clause_size_milli = 0;
+  assert(!custom.valid());
+  custom = reference;
+  custom.score_curve[0].break_base_milli = 0;
+  assert(!custom.valid());
+  custom = reference;
+  custom.even_break_base_milli = 0;
+  assert(!custom.valid());
+  custom = reference;
+  custom.score_curve.front().average_clause_size_milli = 1;
+  assert(!custom.valid());
+  custom = reference;
+  custom.score_curve[2].break_base_milli = 1;
+  assert(!custom.valid());
+}
 
 // Pairwise-conflicting variables plus one covering clause: a model sets
 // exactly one variable true, so the all-positive default phase is worst-case.
@@ -237,6 +287,7 @@ static void test_root_satisfied_binaries_do_not_reach_the_walk() {
 }
 
 int main() {
+  test_configurable_score_curve();
   test_finds_model();
   test_kernel_untouched();
   test_rejects_non_root();

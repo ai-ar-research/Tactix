@@ -191,6 +191,27 @@ static void invalid_reduce_parameters_are_transactional(void) {
       &step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
   assert(tactix_online_configure(solver, &program, 20,
                                  TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+
+  step.parameters.value.reduce.tier1 = 2;
+  step.parameters.value.reduce.tier2 = 6;
+  step.parameters.value.reduce.victim_numerator = 5;
+  step.parameters.value.reduce.victim_denominator = 4;
+  assert(tactix_online_configure(solver, &program, 21,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+
+  step.parameters.value.reduce.victim_numerator = 3;
+  step.parameters.value.reduce.victim_denominator = 4;
+  step.parameters.value.reduce.tier_protection_mode = 99;
+  assert(tactix_online_configure(solver, &program, 22,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+
+  step.parameters.value.reduce.tier_protection_mode =
+      TACTIX_ONLINE_SETTING_DISABLE;
+  step.parameters.value.reduce.compact_collection_mode =
+      TACTIX_ONLINE_SETTING_ENABLE;
+  step.parameters.value.reduce.victim_numerator = 0;
+  assert(tactix_online_configure(solver, &program, 23,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
   tactix_release(solver);
 }
 

@@ -28,12 +28,22 @@ namespace tactix {
 //      disconnected from H and must not be reinserted by this policy op.
 
 void reorder_weights(const Kernel &k, std::vector<double> &var_weight) {
-  const uint32_t maximum = k.reorder_maximum_clause_size;
-  assert(maximum >= 2);
-  const auto weight = [](uint32_t size) {
+  const strategy::ReorderParameters parameters =
+      strategy::ReorderParameters::from_kernel(k);
+  assert(parameters.valid());
+  const uint32_t maximum = parameters.maximum_clause_size;
+  const auto weight = [&](uint32_t size) {
     if (size > static_cast<uint32_t>(std::numeric_limits<int>::max()))
       return 0.0;
-    return std::ldexp(1.0, 2 - static_cast<int>(size));
+    if (parameters.clause_decay_milli ==
+            strategy::ReorderParameters::CLAUSE_DECAY_DEFAULT &&
+        parameters.binary_weight_milli ==
+            strategy::ReorderParameters::BINARY_WEIGHT_DEFAULT)
+      return std::ldexp(1.0, 2 - static_cast<int>(size));
+    const double scale = strategy::ReorderParameters::WEIGHT_SCALE;
+    const double binary = parameters.binary_weight_milli / scale;
+    const double decay = parameters.clause_decay_milli / scale;
+    return binary * std::pow(decay, static_cast<int>(size) - 2);
   };
   std::vector<double> lit_weight(2 * static_cast<size_t>(k.nvars), 0.0);
   // Large irredundant clauses: one arena pass, no occurrence index needed since
@@ -79,10 +89,14 @@ void reorder_weights(const Kernel &k, std::vector<double> &var_weight) {
     }
   }
   var_weight.assign(k.nvars, 0.0);
+  const double polarity_multiplier =
+      static_cast<double>(parameters.balanced_polarity_milli) /
+      strategy::ReorderParameters::WEIGHT_SCALE;
   for (Var v = 0; v < k.nvars; v++) {
     const double pos = lit_weight[make_lit(v, false)];
     const double neg = lit_weight[make_lit(v, true)];
-    var_weight[v] = std::max(pos, neg) + 2.0 * std::min(pos, neg);
+    var_weight[v] =
+        std::max(pos, neg) + polarity_multiplier * std::min(pos, neg);
   }
 }
 

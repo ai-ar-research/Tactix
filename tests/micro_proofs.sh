@@ -12,6 +12,7 @@ CAKE_LPR="$ROOT/tools/checkers/bin/cake_lpr"
 ANALYZE_TEST="${3:-}"
 CONGRUENCE_TEST="${4:-}"
 RESTART_TEST="${5:-}"
+FACTOR_N1_TEST="${6:-}"
 [ -x "$DRAT_TRIM" ] || { echo "drat-trim not built — skipping"; exit 77; }
 
 T="$(mktemp -d)"
@@ -387,6 +388,39 @@ for cnf in "$T/factor.cnf" "$T/factor_dup.cnf" "$T/factor_dup_large.cnf"; do
       || { echo "FAIL: lrat-check gave no verdict on Factor $cnf"; cat "$T/check"; exit 1; }
   fi
 done
+
+# The public exact-grid surface also admits the equality case m*n=m+n (2x2).
+# Drive that opt-in action directly: the shipped canonical schedule remains
+# profitability-filtered. Check its SAT projection against the original CNF,
+# then its UNSAT proof in both proof formats.
+if [ -n "$FACTOR_N1_TEST" ]; then
+  printf 'p cnf 4 4\n1 3 0\n1 4 0\n2 3 0\n2 4 0\n' > "$T/factor_zero_sat.cnf"
+  "$FACTOR_N1_TEST" "$T/factor_zero_sat.cnf" \
+    "$T/factor_zero_sat.drat" drat > "$T/out" && rc=$? || rc=$?
+  [ "$rc" -eq 10 ] || { echo "FAIL: zero-gain Factor SAT witness (rc=$rc)"; exit 1; }
+  "$ROOT/tools/fuzz/checkmodel" "$T/factor_zero_sat.cnf" "$T/out" \
+    || { echo "FAIL: zero-gain Factor model rejected"; exit 1; }
+
+  printf 'p cnf 6 8\n1 3 0\n1 4 0\n2 3 0\n2 4 0\n5 6 0\n5 -6 0\n-5 6 0\n-5 -6 0\n' \
+    > "$T/factor_zero_unsat.cnf"
+  for mode in drat lrat; do
+    [ "$mode" = drat ] || [ -x "$LRAT_CHECK" ] || continue
+    proof="$T/factor_zero_unsat.$mode"
+    "$FACTOR_N1_TEST" "$T/factor_zero_unsat.cnf" "$proof" "$mode" \
+      > "$T/out" && rc=$? || rc=$?
+    [ "$rc" -eq 20 ] || { echo "FAIL: zero-gain Factor UNSAT witness (rc=$rc)"; exit 1; }
+    if [ "$mode" = drat ]; then
+      "$DRAT_TRIM" "$T/factor_zero_unsat.cnf" "$proof" > "$T/check" 2>&1 || true
+      grep -q 's VERIFIED' "$T/check" \
+        || { echo "FAIL: zero-gain Factor DRAT rejected"; cat "$T/check"; exit 1; }
+    else
+      "$LRAT_CHECK" "$T/factor_zero_unsat.cnf" "$proof" > "$T/check" 2>&1 \
+        || { echo "FAIL: zero-gain Factor LRAT rejected"; cat "$T/check"; exit 1; }
+      grep -q 'c VERIFIED' "$T/check" \
+        || { echo "FAIL: zero-gain Factor LRAT missing verdict"; cat "$T/check"; exit 1; }
+    fi
+  done
+fi
 # V3 rewrite chain order (corpus 019-022 family): a substituted literal whose
 # representative is root-false needs that unit BEFORE the bridging lemma, since
 # the unit is what makes the lemma unit. Reached through a legal random

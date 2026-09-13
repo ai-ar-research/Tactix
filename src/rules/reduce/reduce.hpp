@@ -55,11 +55,14 @@ ApplyResult reduce_apply_refs(Kernel &, const Ref *refs, size_t n,
                               bool compact_collect = false);
 ApplyResult reduce_apply(Kernel &);
 
-// Canonical deletion volume, kissat's default fraction of the ranked
-// candidates; defined once so the canonical instance and DefaultPolicy's
-// sub-policy cannot drift apart.
-inline size_t reduce_canonical_victims(size_t candidates) {
-  return (3 * candidates) / 4;
+// Policy-selected deletion volume. The numerator and denominator live on the
+// typed strategy surfaces; this arithmetic helper owns no heuristic default.
+inline size_t reduce_fractional_victims(size_t candidates,
+                                        uint32_t numerator,
+                                        uint32_t denominator) {
+  assert(denominator && numerator <= denominator);
+  return static_cast<size_t>(
+      (static_cast<unsigned __int128>(candidates) * numerator) / denominator);
 }
 
 } // namespace tactix

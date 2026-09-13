@@ -20,10 +20,6 @@ namespace tactix {
 
 namespace {
 
-// A factoring is worth applying only if it removes at least this many clauses
-// (delta = m·n − (m+n)). delta ≥ 1 needs m,n ≥ 2 with one ≥ 3.
-constexpr int FACTOR_MIN_GAIN = 1;
-
 // Factor work currency (kissat factor.c:274, utilities.h kissat_cache_lines):
 // 1 + one tick per 128 bytes touched, so a walk over `words` uint32_t watch
 // entries costs 1 + (4·words)/128. The apply-local stream retains unique
@@ -997,8 +993,7 @@ bool prepare_exact_grid(Kernel &k, const FactorGrid &request,
     return false;
   const uint64_t cells = static_cast<uint64_t>(factors.size()) *
                          static_cast<uint64_t>(remainders.size());
-  if (cells <= factors.size() + remainders.size() ||
-      (!request.members.empty() && request.members.size() != cells))
+  if (!request.members.empty() && request.members.size() != cells)
     return false;
 
   std::unordered_set<Lit> distinct_factors;
@@ -1463,7 +1458,10 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
       continue;
     F.assign(1, seed);
     marks[seed] |= MARK_FACTOR;
-    int best_delta = 0;
+    // m,n >= 2 makes delta nonnegative. Starting below that legal floor lets
+    // an external selection policy admit a zero-gain 2x2 grid, while the
+    // shipped `delta > bound` policy (bound 0) retains its exact behavior.
+    int best_delta = -1;
     best_F.clear();
     best_R.clear();
     best_grid_refs.clear();
@@ -1818,15 +1816,14 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
     }
 
     // Acceptance: an attached FactorSelection takes precedence, otherwise
-    // `k.factor_bound` (kissat factor.c:939). The delta ≥ FACTOR_MIN_GAIN floor
-    // stays unconditional — termination is delta-monotone, and an empty best_F
-    // must never reach `apply_factoring`.
+    // `k.factor_bound` (kissat factor.c:939). Grid existence supplies the only
+    // rule-side floor (m,n >= 2, hence delta >= 0); profitability is policy.
     const bool bound_ok =
-        best_delta >= FACTOR_MIN_GAIN &&
+        best_delta >= 0 &&
         (fm ? fm->accept(static_cast<uint32_t>(best_F.size()),
                          static_cast<uint32_t>(best_R.size()), best_delta)
             : best_delta > static_cast<int>(k.factor_bound));
-    if (!bound_ok && best_delta >= FACTOR_MIN_GAIN)
+    if (!bound_ok && best_delta >= 0)
       k.stats.factor_rejected_by_bound++; // the grid existed; the bound said no
     if (bound_ok) {
 #ifdef TACTIX_ENABLE_EVENT_TRACE

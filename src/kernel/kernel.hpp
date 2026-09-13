@@ -1243,13 +1243,29 @@ struct Kernel {
   uint32_t bump_reason_limit = 0;
   uint32_t bump_reason_depth = 1;
   uint32_t eager_subsume = EAGER_SUBSUME_SLOTS;
+  uint32_t walk_even_break_base_milli =
+      strategy::WalkParameters::EVEN_BREAK_BASE_DEFAULT;
+  std::vector<strategy::WalkParameters::ScorePoint> walk_score_curve =
+      strategy::WalkParameters::reference_score_curve();
   uint32_t reorder_maximum_clause_size =
       strategy::ReorderParameters::MAXIMUM_CLAUSE_SIZE_DEFAULT;
+  uint32_t reorder_clause_decay_milli =
+      strategy::ReorderParameters::CLAUSE_DECAY_DEFAULT;
+  uint32_t reorder_binary_weight_milli =
+      strategy::ReorderParameters::BINARY_WEIGHT_DEFAULT;
+  uint32_t reorder_balanced_polarity_milli =
+      strategy::ReorderParameters::BALANCED_POLARITY_DEFAULT;
   // DefaultPolicy retains Kissat's separate focused/stable tier snapshots.
   // `tier1/tier2` is the pair posed for the rule currently being applied.
   uint32_t tier1_by_mode[2] = {2, 2};
   uint32_t tier2_by_mode[2] = {6, 6};
   uint32_t tier1 = 2, tier2 = 6;
+  uint32_t reduce_victim_numerator =
+      strategy::ReduceParameters::VICTIM_NUMERATOR_DEFAULT;
+  uint32_t reduce_victim_denominator =
+      strategy::ReduceParameters::VICTIM_DENOMINATOR_DEFAULT;
+  bool reduce_protect_tiers = true;
+  bool reduce_compact_collection = false;
   bool shrink_glue_promote = true;
   bool tumble = true;
 

@@ -153,8 +153,23 @@ TABLE = {
     "factor_bound":            ("POLICY", "typed Factor base bound combined with the "
                                           "DefaultPolicy BVE-bound coupling; public calls "
                                           "can scope or set it explicitly"),
+    "walk_even_break_base_milli":
+                                ("POLICY", "typed Walk ProbSAT break-score base"),
     "reorder_maximum_clause_size":
-                                ("API", "typed Reorder scan cutoff; reference default 100"),
+                                ("POLICY", "typed Reorder scan cutoff; online calls "
+                                           "can scope it explicitly"),
+    "reorder_clause_decay_milli":
+                                ("POLICY", "typed Reorder clause-size decay"),
+    "reorder_binary_weight_milli":
+                                ("POLICY", "typed Reorder binary-clause weight"),
+    "reorder_balanced_polarity_milli":
+                                ("POLICY", "typed Reorder both-polarity multiplier"),
+    "reduce_victim_numerator": ("POLICY", "typed canonical Reduce victim fraction"),
+    "reduce_victim_denominator":
+                                ("POLICY", "typed canonical Reduce victim fraction"),
+    "reduce_protect_tiers":    ("POLICY", "typed canonical Reduce tier protection"),
+    "reduce_compact_collection":
+                                ("POLICY", "typed explicit Reduce collection scope"),
 }
 
 # Where the config surface begins in kernel.hpp. Everything below this marker

@@ -48,6 +48,32 @@ static void test_weight_formula() {
   assert(w[var_of(internalize(1))] > w[var_of(internalize(2))]);
 }
 
+static void test_configurable_weight_formula() {
+  Kernel k;
+  ScopedHeuristics _h(k);
+  kernel_reserve_vars(k, 4);
+  addn(k, {1, 2});
+  addn(k, {-1, 3, 4});
+  strategy::ReorderParameters parameters;
+  parameters.clause_decay_milli = 250;
+  parameters.binary_weight_milli = 2000;
+  parameters.balanced_polarity_milli = 3000;
+  assert(parameters.valid());
+  strategy::install_rule_parameters(k, parameters);
+  std::vector<double> w;
+  reorder_weights(k, w);
+  // var 1 has (2, 0.5): max + 3*min = 3.5.
+  assert(near(w[var_of(internalize(1))], 3.5));
+  // var 2 occurs only in the binary; var 3 only in the ternary.
+  assert(near(w[var_of(internalize(2))], 2.0));
+  assert(near(w[var_of(internalize(3))], 0.5));
+
+  parameters.clause_decay_milli = 0;
+  assert(!parameters.valid());
+  parameters.clause_decay_milli = 1001;
+  assert(!parameters.valid());
+}
+
 // Redundant clauses and clauses satisfied under the assignment contribute 0.
 static void test_exclusions() {
   Kernel k;
@@ -346,6 +372,7 @@ static void test_solve_unaffected() {
 
 int main() {
   test_weight_formula();
+  test_configurable_weight_formula();
   test_exclusions();
   test_max_size_stops_before_late_satisfaction();
   test_queue_ranking();

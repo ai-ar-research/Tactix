@@ -302,9 +302,13 @@ ApplyResult reduce_apply(Kernel &k) {
   if (k.inconsistent)
     return ApplyResult::Unsat;
   std::vector<Ref> candidates;
-  reduce_candidates(k, candidates, /*measure=*/true);
-  return reduce_apply_refs(k, candidates.data(),
-                           reduce_canonical_victims(candidates.size()));
+  reduce_candidates(k, candidates, /*measure=*/true,
+                    k.reduce_protect_tiers);
+  const size_t victims = reduce_fractional_victims(
+      candidates.size(), k.reduce_victim_numerator,
+      k.reduce_victim_denominator);
+  return reduce_apply_refs(k, candidates.data(), victims,
+                           k.reduce_compact_collection);
 }
 
 // instance surface: payload = how many of the ranked candidates to delete,
@@ -313,9 +317,11 @@ static uint32_t reduce_instances(Kernel &k, uint64_t *out, uint32_t cap) {
   if (cap == 0)
     return 0;
   std::vector<Ref> candidates;
-  reduce_candidates(k, candidates);
+  reduce_candidates(k, candidates, false, k.reduce_protect_tiers);
   const uint64_t total = candidates.size();
-  const uint64_t canonical = reduce_canonical_victims(candidates.size());
+  const uint64_t canonical = reduce_fractional_victims(
+      candidates.size(), k.reduce_victim_numerator,
+      k.reduce_victim_denominator);
   uint32_t n = 0;
   out[n++] = canonical;
   for (uint64_t count = total;; count--) {
@@ -357,14 +363,17 @@ static ApplyResult reduce_apply_instance(Kernel &k, uint64_t inst) {
     reduce_candidates(k, legal, false, false);
     for (const Ref ref : legal)
       if (raw == ref)
-        return reduce_apply_refs(k, &ref, 1);
+        return reduce_apply_refs(k, &ref, 1,
+                                 k.reduce_compact_collection);
     return ApplyResult::NoOp;
   }
   std::vector<Ref> candidates;
-  reduce_candidates(k, candidates, /*measure=*/true);
+  reduce_candidates(k, candidates, /*measure=*/true,
+                    k.reduce_protect_tiers);
   const size_t n =
       inst < candidates.size() ? static_cast<size_t>(inst) : candidates.size();
-  return reduce_apply_refs(k, candidates.data(), n);
+  return reduce_apply_refs(k, candidates.data(), n,
+                           k.reduce_compact_collection);
 }
 
 TACTIX_REGISTER_RULE(Reduce, RuleTier::Macro, reduce_guard,

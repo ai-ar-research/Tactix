@@ -53,6 +53,7 @@ public:
   }
   void set_config(const DefaultStrategyConfig::Branching *config) {
     config_ = config;
+    focused_phase_epoch_ = UINT64_MAX;
   }
   void reset(uint64_t conflicts) {
     const DefaultStrategyConfig::Branching defaults;
@@ -61,12 +62,15 @@ public:
     randec_next = conflicts + cfg.random_initial_interval;
     randec_sequences = 0;
     randec_rng = cfg.random_seed;
+    focused_phase_epoch_ = UINT64_MAX;
   }
 
 private:
   Lit pick_impl(Kernel &, bool restart_reuse);
-  Lit decide_lit(const Kernel &, Var) const;
+  Lit decide_lit(const Kernel &, Var);
   const DefaultStrategyConfig::Branching *config_ = nullptr;
+  uint64_t focused_phase_epoch_ = UINT64_MAX;
+  int8_t focused_phase_ = 0;
 };
 
 class GlueTieredReduction final : public ReductionPolicy {
@@ -179,6 +183,10 @@ public:
   bool want_reduce(const Kernel &) const;
   bool want_switch_mode(const Kernel &) const;
   bool want_rephase(const Kernel &) const;
+  DefaultRephaseSlot current_rephase_slot() const {
+    return config_.rephase.rotation[rephase.count %
+                                    config_.rephase.rotation.size()];
+  }
   // Policy composition, not an additional guard on public Restart/Rephase.
   ApplyResult prepare_rephase_root(Kernel &);
   bool want_reorder(const Kernel &) const;

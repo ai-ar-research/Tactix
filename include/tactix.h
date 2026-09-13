@@ -405,12 +405,31 @@ typedef struct {
 } tactix_online_substitute_parameters;
 typedef struct {
   uint32_t tier1, tier2;
+  /* A zero denominator selects the reference 3/4 fraction. With a nonzero
+   * denominator, numerator may be zero and must not exceed denominator.
+   * Switch modes use TACTIX_ONLINE_SETTING_INHERIT/DISABLE/ENABLE; INHERIT
+   * selects the reference value for these appended source-compatible fields. */
+  uint32_t victim_numerator, victim_denominator;
+  int tier_protection_mode, compact_collection_mode;
 } tactix_online_reduce_parameters;
 typedef struct {
+  uint32_t average_clause_size_milli, break_base_milli;
+} tactix_online_walk_score_point;
+typedef struct {
   uint64_t step_budget, random_seed;
+  /* Appended scoring fields: zero selects the reference default so existing
+   * zero-initialized source callers retain their behavior. A nonzero point
+   * count requires a copied, strictly size-ascending curve. */
+  uint32_t even_break_base_milli;
+  const tactix_online_walk_score_point *score_curve;
+  int score_curve_count;
 } tactix_online_walk_parameters;
 typedef struct {
   uint32_t maximum_clause_size;
+  /* Appended fields use per-mille fixed point; zero selects the reference
+   * default for source compatibility. */
+  uint32_t clause_decay_milli, binary_weight_milli;
+  uint32_t balanced_polarity_milli;
 } tactix_online_reorder_parameters;
 
 /* One exact Factor remainder column and grid. Literals use permanent DIMACS

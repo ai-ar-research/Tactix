@@ -489,13 +489,14 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
 ### E2 · Factor — bounded variable addition (BVA), the inverse of E1
 - **Precondition (abstract):** an `m×n` grid
   `{{fᵢ} ∪ Rⱼ : i∈[m], j∈[n]}` is present in `F`, each `fᵢ` is a literal, each `Rⱼ` a remainder,
-  `m,n ≥ 2`, `mn > m+n`, and `x ∉ vars(F)` is fresh. Binary grids have `|Rⱼ|=1`; the shipped matcher
+  `m,n ≥ 2`, and `x ∉ vars(F)` is fresh. Binary grids have `|Rⱼ|=1`; the shipped matcher
   admits source clauses through size five. Members are **clause occurrences**, so equal large clauses
   keep distinct proof ids. Root assignments may occur in remainders; factors are active/unassigned.
   Earlier extension literals may be factors: entry snapshots the current literal universe, excluding
   only literals created during this application. Dense root-satisfied-binary deletion is maintenance.
 - **Effect:** introduce the fresh extension variable `x`; add the `m` **dividers** `{x ∨ fᵢ}` and the
-  `n` **quotients** `{¬x} ∪ Rⱼ`; delete the `mn` grid clauses. Net `Δ|F| = (m+n) − mn < 0`. `x` is an
+  `n` **quotients** `{¬x} ∪ Rⱼ`; delete the `mn` grid clauses. Net `Δ|F| = (m+n) − mn ≤ 0`, with
+  equality only for a 2×2 grid. `x` is an
   *extension* variable (indices `≥ first_extension_var`): assigned by search like any other but
   **projected out** of the reported model (§2, the `v`-line ranges over the originals). Exactly the
   inverse of E1's Davis–Putnam step — BVE on `x` resolves the dividers against the quotients back to the
@@ -505,9 +506,9 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
   choice over the ranked schedule. Every unassigned,
   unretired literal is enumerated independently of policy-side filters, and applying one performs at
   most one factoring. The additive typed surface accepts an exact `(F,R)` grid, including caller-chosen
-  batches and exact large-clause occurrences, validates the complete profitable grid before mutation,
+  batches and exact large-clause occurrences, validates the complete legal grid before mutation,
   and applies exactly that E2 transition. The C API uses permanent DIMACS literals and binds matching
-  occurrences deterministically. The lazy typed enumerator discovers every profitable factor subset,
+  occurrences deterministically. The lazy typed enumerator discovers every legal factor subset,
   remainder-column subset and physical large-clause assignment; `CompleteCurrentPass` consumes it
   subject to explicit budget/stop. The canonical matcher and candidate pruning are policy scope;
   physical binaries, including root-satisfied pairs, remain material.

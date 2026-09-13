@@ -105,15 +105,56 @@ static void complete_factor_grid_is_discovered_and_applied(void) {
     applications += (int)result.applications;
     progress += result.made_rule_progress;
   }
-  assert(applications == 2); /* the 2x3 grid and its 3x2 orientation */
+  /* Four grids in each orientation: three 2x2 subgrids and the full grid. */
+  assert(applications == 8);
   assert(progress == 1);
   assert(tactix_stat(solver, TACTIX_STAT_FACTORINGS) == 1);
+  tactix_release(solver);
+}
+
+static void walk_scoring_is_validated_and_copied(void) {
+  tactix *solver = tactix_init();
+  const int binary[] = {1, 2, 0};
+  clause(solver, binary);
+  tactix_online_walk_score_point curve[3] = {
+      {0, 1500}, {3000, 2700}, {8000, 6900}};
+  tactix_online_step step;
+  memset(&step, 0, sizeof step);
+  step.step_id = 75;
+  step.rule_id = rule("Walk");
+  step.parameters.kind = TACTIX_ONLINE_PARAMETERS_WALK;
+  step.parameters.value.walk.step_budget = 10;
+  step.parameters.value.walk.random_seed = 11;
+  step.parameters.value.walk.even_break_base_milli = 2200;
+  step.parameters.value.walk.score_curve = curve;
+  step.parameters.value.walk.score_curve_count = 3;
+  step.granularity = TACTIX_ONLINE_GRANULARITY_CANONICAL;
+  step.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
+  step.repeat_limit = 1;
+  step.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
+  step.budget = 1;
+  tactix_online_program program = {
+      &step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
+
+  curve[2].average_clause_size_milli = 3000;
+  assert(tactix_online_configure(solver, &program, 15,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  curve[2].average_clause_size_milli = 8000;
+  assert(tactix_online_configure(solver, &program, 16,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  /* The configured program owns the curve after this call. */
+  curve[1].break_base_milli = 0;
+  tactix_online_result result;
+  assert(tactix_online_advance(solver, &result) == 0);
+  assert(result.status == TACTIX_ONLINE_COMPLETED ||
+         result.status == TACTIX_ONLINE_NO_CHANGE);
   tactix_release(solver);
 }
 
 int main(void) {
   exact_factor_grid_is_copied_and_applied();
   complete_factor_grid_is_discovered_and_applied();
+  walk_scoring_is_validated_and_copied();
   tactix *solver = tactix_init();
   const int binary[] = {1, 2, 0};
   const int victim[] = {1, 2, 3, 0};

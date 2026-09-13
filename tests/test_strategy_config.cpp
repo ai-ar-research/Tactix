@@ -45,10 +45,21 @@ int main() {
          DefaultPolicy::BUMP_REASONS_RATE);
   assert(defaults.reduction.tier1_default == TIER1_STATIC);
   assert(defaults.reduction.tier2_default == TIER2_STATIC);
+  assert(defaults.reduction.victim_numerator == 3);
+  assert(defaults.reduction.victim_denominator == 4);
+  assert(defaults.reduction.protect_tiers);
   assert(defaults.branching.random_seed == 0);
+  assert(defaults.rephase.rotation.size() == 6);
+  assert(defaults.rephase.rotation[0] == DefaultRephaseSlot::Best &&
+         defaults.rephase.rotation[1] == DefaultRephaseSlot::Walk &&
+         defaults.rephase.rotation[2] == DefaultRephaseSlot::Inverted &&
+         defaults.rephase.rotation[5] == DefaultRephaseSlot::Original);
+  assert(defaults.rephase.walk_even_break_base_milli == 2000);
+  assert(defaults.rephase.walk_score_curve.size() == 6);
+  assert(defaults.reorder.parameters.valid());
   if (defaults.branching.focused_phase_switch_span != 2)
     return 1;
-  const std::array<int8_t, 8> focused_phases{{0, 1, 0, -1, 0, 0, 0, 0}};
+  const std::vector<int8_t> focused_phases{0, 1, 0, -1, 0, 0, 0, 0};
   if (defaults.branching.focused_phase_pattern != focused_phases)
     return 1;
 
@@ -93,6 +104,51 @@ int main() {
     invalid.inprocess.vivify_irredundant_productivity_percent = 101;
     assert(!invalid.valid(&validation_error));
   }
+  {
+    DefaultStrategyConfig invalid = defaults;
+    invalid.branching.focused_phase_pattern.clear();
+    assert(!invalid.valid(&validation_error));
+    invalid = defaults;
+    invalid.inprocess.bve_bounds.clear();
+    assert(!invalid.valid(&validation_error));
+    invalid = defaults;
+    invalid.inprocess.bve_bounds = {3, 4};
+    invalid.inprocess.bve_default_ceiling = 2;
+    assert(!invalid.valid(&validation_error));
+  }
+  {
+    DefaultStrategyConfig invalid = defaults;
+    invalid.rephase.rotation.clear();
+    assert(!invalid.valid(&validation_error));
+    invalid = defaults;
+    invalid.rephase.rotation[0] = static_cast<DefaultRephaseSlot>(99);
+    assert(!invalid.valid(&validation_error));
+    invalid = defaults;
+    invalid.rephase.walk_inapplicable_fallback = DefaultRephaseSlot::Walk;
+    assert(!invalid.valid(&validation_error));
+    invalid = defaults;
+    invalid.rephase.walk_score_curve[1].average_clause_size_milli = 0;
+    assert(!invalid.valid(&validation_error));
+    invalid = defaults;
+    invalid.reorder.parameters.clause_decay_milli = 0;
+    assert(!invalid.valid(&validation_error));
+    invalid = defaults;
+    invalid.reorder.target = static_cast<DefaultReorderTarget>(99);
+    assert(!invalid.valid(&validation_error));
+    invalid = defaults;
+    invalid.reduction.reduce_tier2_mode = 2;
+    assert(!invalid.valid(&validation_error));
+    invalid = defaults;
+    invalid.reduction.victim_denominator = 0;
+    assert(!invalid.valid(&validation_error));
+    invalid = defaults;
+    invalid.reduction.victim_numerator = 5;
+    invalid.reduction.victim_denominator = 4;
+    assert(!invalid.valid(&validation_error));
+    invalid = defaults;
+    invalid.inprocess.vivify_tier_mode = 2;
+    assert(!invalid.valid(&validation_error));
+  }
   for (const double invalid_percent :
        {-1.0, 100.01, std::numeric_limits<double>::infinity(),
         std::numeric_limits<double>::quiet_NaN()}) {
@@ -115,6 +171,12 @@ int main() {
     Kernel k;
     k.stats.reductions = 99;
     assert(reduction.victims(k, 100) == 70);
+
+    reverse.reduction.ramp_fraction = false;
+    reverse.reduction.victim_numerator = 2;
+    reverse.reduction.victim_denominator = 5;
+    GlueTieredReduction fixed(&reverse.reduction);
+    assert(fixed.victims(k, 101) == 40);
   }
 
   {
@@ -210,6 +272,24 @@ int main() {
   phase.stats.switched = 6;
   if (phase_branching.pick(phase) != internalize(-1))
     return 1;
+
+  DefaultStrategyConfig variable_sequences = defaults;
+  variable_sequences.branching.random_sequences = false;
+  variable_sequences.branching.focused_phase_switch_span = 1;
+  variable_sequences.branching.focused_phase_pattern = {-1, 1, 0};
+  DefaultBranching variable_phase(&variable_sequences.branching);
+  phase.h->saved[0] = -1;
+  phase.stats.switched = 0;
+  assert(variable_phase.pick(phase) == internalize(-1));
+  phase.stats.switched = 1;
+  assert(variable_phase.pick(phase) == internalize(1));
+  phase.stats.switched = 2;
+  assert(variable_phase.pick(phase) == internalize(-1));
+  variable_sequences.inprocess.bve_bounds = {2, 5, 9};
+  variable_sequences.inprocess.bve_default_ceiling = 9;
+  DefaultBveBoundRamp variable_ramp(&variable_sequences.inprocess);
+  assert(variable_ramp.num_passes() == 3 && variable_ramp.bound(0) == 2 &&
+         variable_ramp.bound(1) == 5 && variable_ramp.bound(2) == 9);
 
   // Kissat's first seed-0 LCG value selects internal variable 254 of 260.
   // Pin both the generator and the removal of the old bounded-retry fallback.
@@ -393,6 +473,23 @@ int main() {
   custom.inprocess.sweep_parameters.skip_embedded_fixed = false;
   custom.inprocess.sweep_parameters.resume = false;
   custom.inprocess.sweep_parameters.force_general_proof = true;
+  custom.rephase.rotation = {DefaultRephaseSlot::Original,
+                             DefaultRephaseSlot::Walk};
+  custom.rephase.walk_even_break_base_milli = 3100;
+  custom.rephase.walk_warmup = false;
+  custom.rephase.walk_use_branch_seed = false;
+  custom.rephase.walk_random_seed = 313;
+  custom.rephase.walk_inapplicable_fallback =
+      DefaultRephaseSlot::Original;
+  custom.reorder.target = DefaultReorderTarget::Queue;
+  custom.reorder.parameters = {17, 400, 900, 1700};
+  custom.reduction.reduce_tier1_mode = 1;
+  custom.reduction.reduce_tier2_mode = 0;
+  custom.reduction.victim_numerator = 2;
+  custom.reduction.victim_denominator = 5;
+  custom.reduction.protect_tiers = false;
+  custom.reduction.canonical_compact_collection = true;
+  custom.inprocess.vivify_tier_mode = 1;
   DefaultPolicy policy(custom);
   Kernel k;
   ScopedHeuristics heuristics(k);
@@ -402,6 +499,9 @@ int main() {
   assert(policy.rephase.next_conflicts == 43);
   assert(policy.reorder.next_conflicts == 47);
   assert(policy.chrono_levels == 53);
+  assert(policy.current_rephase_slot() == DefaultRephaseSlot::Original);
+  policy.rephase.count = 1;
+  assert(policy.current_rephase_slot() == DefaultRephaseSlot::Walk);
   const std::string snapshot = policy.strategy_config_snapshot();
   assert(snapshot.find("reduction.initial_interval=37") != std::string::npos);
   assert(snapshot.find("inprocess.probe_permille=59") != std::string::npos);
@@ -413,6 +513,36 @@ int main() {
   assert(snapshot.find("inprocess.sweep_resume=0") != std::string::npos);
   assert(snapshot.find("inprocess.sweep_force_general_proof=1") !=
          std::string::npos);
+  assert(snapshot.find("rephase.walk_even_break_base_milli=3100") !=
+         std::string::npos);
+  assert(snapshot.find("rephase.rotation0=3") != std::string::npos);
+  assert(snapshot.find("rephase.walk_warmup=0") != std::string::npos);
+  assert(snapshot.find("rephase.walk_random_seed=313") !=
+         std::string::npos);
+  assert(snapshot.find("reorder.target=1") != std::string::npos);
+  assert(snapshot.find("reduction.reduce_tier1_mode=1") !=
+         std::string::npos);
+  assert(snapshot.find("reduction.victim_numerator=2") !=
+         std::string::npos);
+  assert(snapshot.find("reduction.victim_denominator=5") !=
+         std::string::npos);
+  assert(snapshot.find("reduction.protect_tiers=0") !=
+         std::string::npos);
+  assert(snapshot.find("reduction.canonical_compact_collection=1") !=
+         std::string::npos);
+  assert(snapshot.find("inprocess.vivify_tier_mode=1") !=
+         std::string::npos);
+  assert(snapshot.find("reorder.maximum_clause_size=17") !=
+         std::string::npos);
+  assert(policy.solve(k) == 10);
+  assert(k.walk_even_break_base_milli == 3100 &&
+         k.reorder_maximum_clause_size == 17 &&
+         k.reorder_clause_decay_milli == 400 &&
+         k.reorder_binary_weight_milli == 900 &&
+         k.reorder_balanced_polarity_milli == 1700 &&
+         k.reduce_victim_numerator == 2 &&
+         k.reduce_victim_denominator == 5 && !k.reduce_protect_tiers &&
+         k.reduce_compact_collection);
 
   // The arithmetic cadence changes only deadlines after a reduction.  Kissat
   // always seeds the first deadline from `reduceinit`.

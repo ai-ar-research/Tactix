@@ -171,18 +171,24 @@ constexpr uint64_t PERCENT_SCALE = 100;
 constexpr uint32_t MODES_PER_CYCLE = 2;
 constexpr uint32_t REORDER_STABLE_ONLY = 2;
 
-void pose_focused_tiers(Kernel &k) {
-  k.tier1 = k.tier1_by_mode[0];
-  k.tier2 = std::max(k.tier1, k.tier2_by_mode[0]);
+void pose_tiers(Kernel &k, uint8_t tier1_mode, uint8_t tier2_mode) {
+  assert(tier1_mode < MODES_PER_CYCLE && tier2_mode < MODES_PER_CYCLE);
+  k.tier1 = k.tier1_by_mode[tier1_mode];
+  k.tier2 = std::max(k.tier1, k.tier2_by_mode[tier2_mode]);
 }
 
-void pose_reduce_tiers(Kernel &k) {
+void pose_reduce_tiers(Kernel &k,
+                       const DefaultStrategyConfig::Reduction &config) {
   // Kissat 4.0.4's shipped internal.h deliberately uses focused tier-1 and
   // stable tier-2 for Reduce (the general focusedtiers selector is compiled
   // out). Keep the unusual hybrid explicit: it is the first-reduction witness
   // on P4A tr-n300-s055, not an inferred simplification.
-  k.tier1 = k.tier1_by_mode[0];
-  k.tier2 = std::max(k.tier1, k.tier2_by_mode[1]);
+  pose_tiers(k, config.reduce_tier1_mode, config.reduce_tier2_mode);
+}
+
+void pose_vivify_tiers(Kernel &k,
+                       const DefaultStrategyConfig::Inprocess &config) {
+  pose_tiers(k, config.vivify_tier_mode, config.vivify_tier_mode);
 }
 
 void retier_current_mode(Kernel &k,
@@ -203,8 +209,9 @@ bool DefaultStrategyConfig::valid(std::string *error) const {
   const auto positive_finite = [](double value) {
     return std::isfinite(value) && value > 0.0;
   };
-  if (!branching.focused_phase_switch_span)
-    return reject("branching phase switch span must be positive");
+  if (!branching.focused_phase_switch_span ||
+      branching.focused_phase_pattern.empty())
+    return reject("branching phase schedule must be nonempty with a positive span");
   for (const int8_t phase : branching.focused_phase_pattern)
     if (phase < -1 || phase > 1)
       return reject("branching phase pattern contains an invalid phase");
@@ -242,6 +249,10 @@ bool DefaultStrategyConfig::valid(std::string *error) const {
       reduction.tier1_relative_permille >
           reduction.tier2_relative_permille ||
       reduction.tier2_relative_permille > PERMILLE_SCALE ||
+      reduction.reduce_tier1_mode >= MODES_PER_CYCLE ||
+      reduction.reduce_tier2_mode >= MODES_PER_CYCLE ||
+      !reduction.victim_denominator ||
+      reduction.victim_numerator > reduction.victim_denominator ||
       !reduction.retier_initial_interval || !reduction.retier_max_interval ||
       reduction.retier_growth < 1)
     return reject("reduction schedule is invalid");
@@ -249,7 +260,28 @@ bool DefaultStrategyConfig::valid(std::string *error) const {
       !positive_finite(rephase.logarithm_offset) || !rephase.logarithm_power ||
       rephase.walk_permille > PERMILLE_SCALE)
     return reject("rephase schedule is invalid");
-  if (!reorder.initial_interval || !reorder.interval || reorder.mode > 2)
+  strategy::WalkParameters walk_parameters;
+  walk_parameters.even_break_base_milli =
+      rephase.walk_even_break_base_milli;
+  walk_parameters.score_curve = rephase.walk_score_curve;
+  if (!walk_parameters.valid() || rephase.rotation.empty())
+    return reject("rephase Walk settings are invalid");
+  for (const DefaultRephaseSlot slot : rephase.rotation)
+    if (slot != DefaultRephaseSlot::Best &&
+        slot != DefaultRephaseSlot::Walk &&
+        slot != DefaultRephaseSlot::Inverted &&
+        slot != DefaultRephaseSlot::Original)
+      return reject("rephase rotation contains an invalid slot");
+  if (rephase.walk_inapplicable_fallback == DefaultRephaseSlot::Walk ||
+      (rephase.walk_inapplicable_fallback != DefaultRephaseSlot::Best &&
+       rephase.walk_inapplicable_fallback != DefaultRephaseSlot::Inverted &&
+       rephase.walk_inapplicable_fallback != DefaultRephaseSlot::Original))
+    return reject("rephase Walk fallback is invalid");
+  if (!reorder.initial_interval || !reorder.interval || reorder.mode > 2 ||
+      (reorder.target != DefaultReorderTarget::Active &&
+       reorder.target != DefaultReorderTarget::Queue &&
+       reorder.target != DefaultReorderTarget::Heap) ||
+      !reorder.parameters.valid())
     return reject("reorder schedule is invalid");
 
   const auto &ip = inprocess;
@@ -258,7 +290,8 @@ bool DefaultStrategyConfig::valid(std::string *error) const {
       !positive_finite(ip.logarithm_offset) ||
       !std::isfinite(ip.scale_quadratic) || ip.scale_quadratic < 0.0 ||
       !std::isfinite(ip.scale_constant) || ip.scale_constant < 0.0 ||
-      !std::isfinite(ip.scale_log_shift))
+      !std::isfinite(ip.scale_log_shift) ||
+      ip.vivify_tier_mode >= MODES_PER_CYCLE)
     return reject("inprocessing cadence or scaling is invalid");
   if (!ip.congruence_parameters.valid() ||
       !ip.instantiate_parameters.valid() || !ip.backbone_parameters.valid() ||
@@ -279,6 +312,9 @@ bool DefaultStrategyConfig::valid(std::string *error) const {
       ip.bve_definition_core_budget_multiplier;
   if (!bve.valid())
     return reject("inprocessing BVE parameters are invalid");
+  if (ip.bve_bounds.empty() ||
+      ip.bve_bounds.front() > ip.bve_default_ceiling)
+    return reject("BVE bound ladder is empty or starts above its ceiling");
   for (size_t i = 1; i < ip.bve_bounds.size(); ++i)
     if (ip.bve_bounds[i - 1] > ip.bve_bounds[i])
       return reject("BVE bound ladder is not monotone");
@@ -389,6 +425,15 @@ std::string DefaultStrategyConfig::serialize() const {
       << reduction.tier1_relative_permille
       << " reduction.tier2_relative_permille="
       << reduction.tier2_relative_permille
+      << " reduction.reduce_tier1_mode="
+      << unsigned(reduction.reduce_tier1_mode)
+      << " reduction.reduce_tier2_mode="
+      << unsigned(reduction.reduce_tier2_mode)
+      << " reduction.victim_numerator=" << reduction.victim_numerator
+      << " reduction.victim_denominator=" << reduction.victim_denominator
+      << " reduction.protect_tiers=" << reduction.protect_tiers
+      << " reduction.canonical_compact_collection="
+      << reduction.canonical_compact_collection
       << " reduction.square_root_cadence="
       << reduction.square_root_cadence
       << " reduction.ramp_fraction=" << reduction.ramp_fraction
@@ -399,11 +444,36 @@ std::string DefaultStrategyConfig::serialize() const {
       << " rephase.logarithm_offset=" << rephase.logarithm_offset
       << " rephase.logarithm_power=" << rephase.logarithm_power
       << " rephase.walk_permille=" << rephase.walk_permille
+      << " rephase.walk_even_break_base_milli="
+      << rephase.walk_even_break_base_milli
+      << " rephase.walk_inapplicable_fallback="
+      << static_cast<unsigned>(rephase.walk_inapplicable_fallback)
+      << " rephase.walk_warmup=" << rephase.walk_warmup
+      << " rephase.walk_use_branch_seed="
+      << rephase.walk_use_branch_seed
+      << " rephase.walk_random_seed=" << rephase.walk_random_seed
       << " rephase.stable_only=" << rephase.stable_only
-      << " rephase.late_lucky=" << rephase.late_lucky
+      << " rephase.late_lucky=" << rephase.late_lucky;
+  for (size_t i = 0; i < rephase.walk_score_curve.size(); ++i)
+    out << " rephase.walk_score_point" << i << '='
+        << rephase.walk_score_curve[i].average_clause_size_milli << ':'
+        << rephase.walk_score_curve[i].break_base_milli;
+  for (size_t i = 0; i < rephase.rotation.size(); ++i)
+    out << " rephase.rotation" << i << '='
+        << static_cast<unsigned>(rephase.rotation[i]);
+  out
       << " reorder.initial_interval=" << reorder.initial_interval
       << " reorder.interval=" << reorder.interval
       << " reorder.mode=" << reorder.mode
+      << " reorder.target=" << static_cast<unsigned>(reorder.target)
+      << " reorder.maximum_clause_size="
+      << reorder.parameters.maximum_clause_size
+      << " reorder.clause_decay_milli="
+      << reorder.parameters.clause_decay_milli
+      << " reorder.binary_weight_milli="
+      << reorder.parameters.binary_weight_milli
+      << " reorder.balanced_polarity_milli="
+      << reorder.parameters.balanced_polarity_milli
       << " inprocess.bve_enabled=" << inprocess.bve_enabled
       << " inprocess.vivify_enabled=" << inprocess.vivify_enabled
       << " inprocess.factor_enabled=" << inprocess.factor_enabled
@@ -567,6 +637,8 @@ std::string DefaultStrategyConfig::serialize() const {
       << inprocess.sweep_productivity_permille
       << " inprocess.vivify_irredundant_productivity_percent="
       << inprocess.vivify_irredundant_productivity_percent
+      << " inprocess.vivify_tier_mode="
+      << unsigned(inprocess.vivify_tier_mode)
       << " inprocess.vivify_redundant_share="
       << inprocess.vivify_redundant_share
       << " inprocess.vivify_total_share=" << inprocess.vivify_total_share;
@@ -2073,10 +2145,11 @@ void DefaultPolicy::update_formula_classification(Kernel &k) const {
 }
 
 size_t GlueTieredReduction::victims(const Kernel &k, size_t candidates) {
-  if (!ramp)
-    return reduce_canonical_victims(candidates);
   static const DefaultStrategyConfig::Reduction defaults;
   const auto &cfg = config_ ? *config_ : defaults;
+  if (!ramp)
+    return reduce_fractional_victims(candidates, cfg.victim_numerator,
+                                     cfg.victim_denominator);
   if (cfg.low_percent >= cfg.high_percent)
     return static_cast<size_t>(static_cast<double>(candidates) *
                                cfg.low_percent / PERCENT_SCALE);
@@ -2133,16 +2206,20 @@ Lit DefaultBranching::pick_impl(Kernel &k, bool restart_reuse) {
   return decide_lit(k, v);
 }
 
-Lit DefaultBranching::decide_lit(const Kernel &k, Var v) const {
+Lit DefaultBranching::decide_lit(const Kernel &k, Var v) {
   static const DefaultStrategyConfig::Branching defaults;
   const auto &cfg = config_ ? *config_ : defaults;
   int8_t phase = 0;
   if (!k.h->stable && cfg.focused_phase_switch_span &&
       !cfg.focused_phase_pattern.empty()) {
-    const size_t index =
-        (k.stats.switched / cfg.focused_phase_switch_span) %
-        cfg.focused_phase_pattern.size();
-    phase = cfg.focused_phase_pattern[index];
+    const uint64_t epoch =
+        k.stats.switched / cfg.focused_phase_switch_span;
+    if (focused_phase_epoch_ != epoch) {
+      focused_phase_epoch_ = epoch;
+      focused_phase_ =
+          cfg.focused_phase_pattern[epoch % cfg.focused_phase_pattern.size()];
+    }
+    phase = focused_phase_;
   }
   const int8_t target = k.h->stable ? k.h->target[v] : 0;
   const int8_t saved = k.h->saved[v];
@@ -2718,13 +2795,29 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   k.shrink_glue_promote = config_.analysis.shrink_glue_promote;
   k.no_ext_reason_bump = !config_.analysis.bump_extension_reasons;
   k.eager_subsume = config_.analysis.eager_subsume;
+  k.reorder_maximum_clause_size =
+      config_.reorder.parameters.maximum_clause_size;
+  k.reorder_clause_decay_milli =
+      config_.reorder.parameters.clause_decay_milli;
+  k.reorder_binary_weight_milli =
+      config_.reorder.parameters.binary_weight_milli;
+  k.reorder_balanced_polarity_milli =
+      config_.reorder.parameters.balanced_polarity_milli;
+  k.reduce_victim_numerator = config_.reduction.victim_numerator;
+  k.reduce_victim_denominator = config_.reduction.victim_denominator;
+  k.reduce_protect_tiers = config_.reduction.protect_tiers;
+  k.reduce_compact_collection =
+      config_.reduction.canonical_compact_collection;
+  k.walk_even_break_base_milli =
+      config_.rephase.walk_even_break_base_milli;
+  k.walk_score_curve = config_.rephase.walk_score_curve;
   if (reset_schedule_per_solve) {
     for (uint32_t mode = 0; mode != 2; ++mode) {
       k.tier1_by_mode[mode] = config_.reduction.tier1_default;
       k.tier2_by_mode[mode] = std::max(config_.reduction.tier1_default,
                                        config_.reduction.tier2_default);
     }
-    pose_focused_tiers(k);
+    pose_vivify_tiers(k, config_.inprocess);
     reset_schedule(k);
   }
   inprocess_.build(k);
@@ -3006,7 +3099,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       ReductionPolicy &rp = reduction ? *reduction : default_reduction_;
       if (dynamic_tiers_)
         retier_current_mode(k, config_.reduction);
-      pose_reduce_tiers(k);
+      pose_reduce_tiers(k, config_.reduction);
       // Kissat samples compactlim before selecting/deleting victims and uses
       // that decision to choose sparse-collection start 0 versus the first
       // reducible clause.  Reusing the decision after Reduce also prevents a
@@ -3014,7 +3107,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       const bool compact_due =
           compact_ && kernel_should_compact_variables(
                           k, config_.reduction.compact_inactive_percent);
-      reduce_candidates(k, reduce_scratch_);
+      reduce_candidates(k, reduce_scratch_, /*measure=*/false,
+                        config_.reduction.protect_tiers);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
       k.diagnostic_policy_reduce_bytes =
           reduce_scratch_.capacity() * sizeof(Ref);
@@ -3042,7 +3136,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
             static_cast<uint32_t>(k.compact_import_order.size() -
                                   k.unassigned_active));
       update_reduce_limit(k);
-      pose_focused_tiers(k); // vivifyfocusedtiers=1 is the shipped default.
+      pose_vivify_tiers(k, config_.inprocess);
       update_formula_classification(k);
       event_trace.macro(k, "reduce_end");
       continue;
@@ -3105,7 +3199,12 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       k.stats.reorder_eligible++;
       if (reorder_guard(k)) {
         event_trace.reorder_begin(k);
-        reorder_apply(k);
+        if (config_.reorder.target == DefaultReorderTarget::Queue)
+          reorder_apply_target(k, REORDER_QUEUE);
+        else if (config_.reorder.target == DefaultReorderTarget::Heap)
+          reorder_apply_target(k, REORDER_HEAP);
+        else
+          reorder_apply(k);
         reorder.count++;
         update_reorder_limit(k);
         event_trace.reorder_end(k);
@@ -3116,47 +3215,56 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       event_trace.macro(k, "rephase_begin");
       if (prepare_rephase_root(k) == ApplyResult::Unsat)
         return finish(20);
-      static constexpr uint64_t WALK_SLOT = UINT64_MAX;
-      static constexpr uint64_t ROTATION[6] = {
-          REPHASE_BEST, WALK_SLOT, REPHASE_INVERTED,
-          REPHASE_BEST, WALK_SLOT, REPHASE_ORIGINAL};
-      const uint64_t type = ROTATION[rephase.count % 6];
+      const DefaultRephaseSlot slot = current_rephase_slot();
       rephase.count++; // ONE rephase event, whatever it is composed of
-      if (type == WALK_SLOT && walk_guard(k)) {
+      if (slot == DefaultRephaseSlot::Walk && walk_guard(k)) {
         // Kissat warmup.c: before importing phases into the walker, complete a
         // temporary assignment with the active branch ranking and propagate
         // beyond conflicts. Assignment-time phase saving is the output; the
         // trail is then discarded without undoing it.
-        BranchingPolicy &bp = branching ? *branching : default_branching_;
-        assert(k.level == 0 && kernel_propagation_fixpoint(k));
-        k.warming = true;
-        k.stats.warmups++;
-        while (k.unassigned_active) {
-          if (kernel_terminating(k))
-            break;
-          const Lit decision = bp.pick(k);
-          kernel_assign_decision(k, decision);
-          k.stats.warming_decisions++;
-          event_trace.detail(k, "decision", kernel_externalize(k, decision));
-          event_trace.heap_after_decision(k);
-          event_trace.heap_scores(k);
-          const size_t warmup_trail_begin = k.trail.size();
-          kernel_propagate_beyond_conflicts(k);
-          event_trace.implications(k, warmup_trail_begin);
+        if (config_.rephase.walk_warmup) {
+          BranchingPolicy &bp = branching ? *branching : default_branching_;
+          assert(k.level == 0 && kernel_propagation_fixpoint(k));
+          k.warming = true;
+          k.stats.warmups++;
+          while (k.unassigned_active) {
+            if (kernel_terminating(k))
+              break;
+            const Lit decision = bp.pick(k);
+            kernel_assign_decision(k, decision);
+            k.stats.warming_decisions++;
+            event_trace.detail(k, "decision", kernel_externalize(k, decision));
+            event_trace.heap_after_decision(k);
+            event_trace.heap_scores(k);
+            const size_t warmup_trail_begin = k.trail.size();
+            kernel_propagate_beyond_conflicts(k);
+            event_trace.implications(k, warmup_trail_begin);
+          }
+          if (k.level)
+            kernel_backtrack(k, 0);
+          k.warming = false;
         }
-        if (k.level)
-          kernel_backtrack(k, 0);
-        k.warming = false;
         const uint64_t reference = walk_effort_reference(k);
         k.work_budget = scale_permille(reference, config_.rephase.walk_permille);
         // Kissat seeds the walker from the search policy's shared generator.
         // DefaultBranching owns that generator in Tactix; snapshot it here so
         // the H-only Walk operation need not reach back into its caller.
-        k.walk_random_seed = default_branching_.randec_rng;
+        k.walk_random_seed = config_.rephase.walk_use_branch_seed
+                                 ? default_branching_.randec_rng
+                                 : config_.rephase.walk_random_seed;
         walk_apply(k);
         k.work_budget = 0;
       } else {
-        rephase_apply_type(k, type == WALK_SLOT ? REPHASE_BEST : type);
+        const DefaultRephaseSlot effective =
+            slot == DefaultRephaseSlot::Walk
+                ? config_.rephase.walk_inapplicable_fallback
+                : slot;
+        uint64_t type = REPHASE_BEST;
+        if (effective == DefaultRephaseSlot::Inverted)
+          type = REPHASE_INVERTED;
+        else if (effective == DefaultRephaseSlot::Original)
+          type = REPHASE_ORIGINAL;
+        rephase_apply_type(k, type);
       }
       update_rephase_limit(k);
       event_trace.macro(k, "rephase_end");
@@ -3561,7 +3669,7 @@ ApplyResult DefaultInprocessScheduler::run_vivify_dose(Kernel &k, SlotEntry &e,
   // A stable OTFS retier legitimately poses the stable snapshot for the
   // analysis it resumes, so pose the Vivify consumer here instead of relying
   // on the last Reduce to have left these shared fields in focused mode.
-  pose_focused_tiers(k);
+  pose_vivify_tiers(k, config());
   const auto &cfg = config();
   const uint64_t remaining0 = ledger_remaining(e, k, limit);
   const uint64_t remaining = remaining0 ? remaining0 : 1;
