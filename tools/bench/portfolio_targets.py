@@ -188,7 +188,7 @@ def snapshot(baseline, tactix, seconds, memory_kib, per_status):
         candidate_counts=dict(Counter(r['verdict'] for r in candidates)),
         selection_final=bool(enough and complete), selected=selected,
         candidates=sorted(candidates, key=lambda r: (r['verdict'], order_key(r))),
-        policy='10 SAT and10 UNSAT by default. SAT LymphoSAT-only first; then fewer qualifying '
+        policy=f'{per_status} SAT and {per_status} UNSAT requested. SAT LymphoSAT-only first; then fewer qualifying '
                'baselines, fastest validated baseline time, lexical identity as deterministic tie-break. '
                'No identity enters solver policy. Final selection requires complete solver-phase coverage; '
                'pending certificate checks do not block selection or independent development. '
