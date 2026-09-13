@@ -177,9 +177,12 @@ inline bool validate_inprocess_program(std::span<const InprocessStep> program,
         return reject("Backbone parameters are attached to a different rule");
       if (!p->valid())
         return reject("Backbone parameters are invalid");
-    } else if (std::holds_alternative<SweepParameters>(step.parameters)) {
+    } else if (const auto *p =
+                   std::get_if<SweepParameters>(&step.parameters)) {
       if (step.rule != "Sweep")
         return reject("Sweep parameters are attached to a different rule");
+      if (!p->valid())
+        return reject("Sweep parameters are invalid");
     } else if (const auto *p =
                    std::get_if<VivifyParameters>(&step.parameters)) {
       if (step.rule != "Vivify")
