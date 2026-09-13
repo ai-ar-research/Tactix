@@ -30,8 +30,16 @@ Invariants: `F₀ ≡SAT (F ∪ ρ)`; `F ⊨ R` is proof-justified; every transi
 without proof. Only operations changing `σ` belong here; Rephase, SwitchMode, Walk, and Reorder are H-only policy operations.
 Recorded-conflict/pending flags are engineering state, so guards mentioning them are deviations rather than abstract preconditions.
 
-The proof vocabulary is `add_rup`, `add_derived_unit`, `add_empty`, `del`, `add_rat`, and internal `kernel_push_witness` (changes
-`ρ` without a proof line). Factor alone uses `add_rat`.
+The logical proof-event vocabulary is `add_rup`, `add_derived_unit`,
+`add_empty`, `del`, `add_rat`, `add_sr`, and internal
+`kernel_push_witness` (changes `ρ` without a proof line). Native DSR is the
+canonical serializer: RUP/RAT events are witnessless DSR additions, `del` is a
+DSR deletion, and `add_sr(C,σ)` writes the finite substitution witness directly
+on the addition of `C`. One stream records ordinary reasoning and SR in their
+actual order. `dsr-trim` elaborates it to LSR and pinned Trestle checks the LSR.
+DRAT and native LRAT serialize the pre-existing event subset as compatibility
+formats. Factor alone currently uses `add_rat`; the Satsuma-derived SR rule will
+use `add_sr`.
 
 Each public rule has pure `guard(σ)`, lazy `instances(σ)`, and total `apply(σ,instance) → (σ′,δ)` when guarded. Implemented guards
 are in implementation-notes §1.

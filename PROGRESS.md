@@ -13,13 +13,20 @@ instances and granularities, arbitrary composition, finite or externally
 stopped fixpoints, and safe online reconfiguration without restarting the
 solver.
 
-The final current-source Tier-D array is running as background N3 evidence.
-Phase 4.25 now targets checked 100/100 coverage on the fixed WV100 singleton
-winner-signature set. Work starts from official solver descriptions, sources
-and effective-transition evidence, then integrates general mechanisms as native
-preprocessing or root-inprocessing rules with calculus and proof support.
-Kissat-only tuning, benchmark dispatch and sequential portfolios remain out of
-scope; whether MAB scheduling belongs in Tactix is still open.
+The next increment makes native DSR the canonical whole-solver proof output.
+Ordinary CDCL and inprocessing additions/deletions and later substitution-
+redundancy transformations share one stream; `dsr-trim` elaborates it to LSR
+and the pinned Trestle checker verifies that LSR. DRAT and native LRAT remain
+compatibility modes. The pending SR/orbitopal implementation is preserved in
+stash `pre-native-dsr-sr-increment-2026-09-13`; its DRAT/LRAT translation is
+discarded when restored.
+
+After native DSR passes B27+C5 and Rank 1–40 without a material runtime or
+coverage regression, Phase 4.25 resumes the Satsuma symmetry-breaking rule and
+then the checked 100/100 WV100 target. No new full Tier-D run is scheduled at
+the DSR boundary. Kissat-only tuning, benchmark dispatch and sequential
+portfolios remain out of scope; whether MAB scheduling belongs in Tactix is
+still open.
 
 ## Authority
 
@@ -97,7 +104,8 @@ not implementation or project-document changes.
   It has no throttle or node constraint and uses anonymous node-local formula,
   proof, model and checker files.
 - Existing Tier-D and proof-checking jobs remain unchanged. Do not rerun retained
-  reference solvers or wait for proof checking before independent work.
+  reference solvers or wait for proof checking before independent work. Do not
+  submit a new full Tier-D run after the native-DSR gate.
 - Partial WV100 scoring has 13 fully accepted SAT solves. Ranks 68 and 74 also
   solved UNSAT in 0.367 and 1.319 seconds and printed `s VERIFIED`, but the
   immutable active runner mislabeled `drat-trim`'s source-confirmed
@@ -123,7 +131,9 @@ not implementation or project-document changes.
 - Satsuma G1 now has an independently derived native-LRAT prototype. The
   official 39-record `R_18_4_4` example expanded to 888,337 exact proof
   operations and 47,445,835 bytes; pinned `cake_lpr` verified it in 3.21 seconds
-  and rejected the terminal-empty negative control.
+  and rejected the terminal-empty negative control. This remains evidence that
+  the semantics can be translated, but the expansion is no longer the
+  implementation route.
 - Structured-symmetry G2 is closed for the first producer. Across PHP Sudoku,
   clique colouring and channel routing, every one of 173 formula-derived,
   full-multiset-validated generator-basis entries survives through the second
@@ -136,19 +146,22 @@ not implementation or project-document changes.
   Johnson/general G0 remains scoped to those later producers.
 - Focused WV100 development defaults to `cpu-dense-hwulab-q`, eight CPUs,
   32 GiB and 300 solver seconds; qualitative `cpu-q` probes are allowed.
-  B28+C5 and Rank 1--50 retain the stable `cpu-dense-hwulab-q`, 12-CPU,
-  32-GiB, 1,200-second regression contract.
+  General B28+C5 and Rank 1--50 checks retain the stable
+  `cpu-dense-hwulab-q`, 12-CPU, 32-GiB, 1,200-second contract. The native-DSR
+  landing gate uses B27+C5 and Rank 1--40 with those same resources.
 
 ## Next actions
 
-1. Leave Tier-D, proof checks and the storage guard running in the background.
-2. Score arriving Tier-D results against fixed WV100 without rerunning references.
-3. Implement the first structured orbitopal SR increment through the shared
-   typed rule interface and native proof path; its G0--G2 entry gates are closed.
-4. Keep Johnson and general producer obligations separate; close their G0/G2
-   gates before adding either mechanism.
-5. Gate every mechanism with focused proof/model tests, Claude-owned fuzz,
-   B28+C5, Rank1–50, WV100 and retained Tier-D coverage.
+1. Leave the existing Tier-D run, proof checks and storage guard unchanged in
+   the background; submit no new Tier-D run.
+2. Implement native binary/ASCII DSR as the canonical streaming proof backend,
+   including public CLI/C API formats and the direct typed SR proof event.
+3. Change test, fuzz and benchmark runners to require
+   DSR -> `dsr-trim` -> LSR -> pinned Trestle for UNSAT and anonymous cleanup.
+4. Pass full correctness/sanitizer/fuzz coverage, then B27+C5 and Rank 1--40 at
+   c12/32 GiB/1,200 s with a same-source DRAT control.
+5. Restore the pending SR/orbitopal work without its DRAT/LRAT translator and
+   finish the general Satsuma symmetry-breaking rule using direct DSR.
 
 <!-- track-sched:begin -->
 - Kissat creation order remains the production default; `TACTIX_ARENA_ORDER=1`

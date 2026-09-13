@@ -30,6 +30,23 @@ guidance; S6 additionally requires root because its representation transition re
 DefaultPolicy ships original-Kissat pipeline membership. Off-pipeline CaDiCaL rules remain registered, journaled, N1-reachable, and
 explicitly poseable.
 
+### Native DSR proof backend contract (pending)
+
+The next proof increment makes the canonical mode one streaming binary DSR certificate. Existing
+RUP/RAT additions and deletions use DSR's backward-compatible witnessless
+forms; a substitution-redundancy event appends its finite substitution witness
+to the same addition line. ASCII DSR is the diagnostic spelling. DRAT and native
+LRAT remain explicit compatibility modes for the pre-existing event vocabulary;
+new Satsuma-derived rules do not construct DRAT/LRAT expansions.
+
+UNSAT acceptance runs `dsr-trim` against the original CNF to check and elaborate
+the DSR stream, decompresses the resulting LSR when required, and invokes the
+pinned Trestle `srcheck` on that LSR. CNF, DSR, LSR and checker intermediates use
+anonymous scratch and disappear on normal exit, timeout, crash, cancellation
+and signal. The writer is streaming and retains no checker-population ledger or
+proof-only kernel variables. Format selection cannot change formula mutation,
+rule guards, scheduling, or legal instances.
+
 ## 2. Engineering-deviation ledger
 
 ### Open
