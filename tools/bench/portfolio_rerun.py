@@ -644,6 +644,41 @@ def process_group():
     os.setsid()
 
 
+def bound_launch(campaign, validation=False, task=None, wait_seconds=30):
+    name = "validation-launch.json" if validation else "launch.json"
+    path = Path(campaign) / name
+    deadline = time.monotonic() + wait_seconds
+    while True:
+        try:
+            record = json.loads(path.read_text())
+            break
+        except FileNotFoundError:
+            require(
+                time.monotonic() < deadline,
+                f"{name} was not published after Slurm submission",
+            )
+            time.sleep(0.05)
+    require(
+        record.get("manifest_sha256") == sha256(Path(campaign) / "manifest.json"),
+        f"{name} manifest authority differs",
+    )
+    if validation:
+        require(
+            record.get("job_id") == os.environ.get("SLURM_JOB_ID"),
+            "validation job identity differs from its launch record",
+        )
+    else:
+        require(
+            record.get("job_id") == os.environ.get("SLURM_ARRAY_JOB_ID"),
+            "array job identity differs from its launch record",
+        )
+        require(
+            task is not None and os.environ.get("SLURM_ARRAY_TASK_ID") == str(task),
+            "array task identity differs",
+        )
+    return record
+
+
 def measured(command, stdout, stderr, metrics, timeout, env=None):
     wrapped = [
         "/usr/bin/time",
@@ -1150,13 +1185,12 @@ def provisional_record(row, result):
 
 def task_main(campaign, task):
     campaign = Path(campaign).resolve()
-    require(os.environ.get("SLURM_JOB_ID"), "portfolio tasks run only under Slurm")
-    manifest = json.loads((campaign / "manifest.json").read_text())
-    launch = json.loads((campaign / "launch.json").read_text())
     require(
-        launch["manifest_sha256"] == sha256(campaign / "manifest.json"),
-        "launch manifest authority differs",
+        os.environ.get("SLURM_JOB_ID") and os.environ.get("SLURM_ARRAY_JOB_ID"),
+        "portfolio tasks run only in the submitted Slurm array",
     )
+    manifest = json.loads((campaign / "manifest.json").read_text())
+    bound_launch(campaign, task=task)
     rows = load_matrix(campaign)
     require(0 <= task < len(rows), "invalid task")
     row = rows[task]
@@ -1170,6 +1204,8 @@ def task_main(campaign, task):
         {
             "task": task,
             "job_id": os.environ["SLURM_JOB_ID"],
+            "array_job_id": os.environ["SLURM_ARRAY_JOB_ID"],
+            "array_task_id": int(os.environ["SLURM_ARRAY_TASK_ID"]),
             "node": os.environ.get("SLURMD_NODENAME", os.uname().nodename),
             "started_at": dt.datetime.now(dt.timezone.utc).isoformat(),
         },
@@ -1217,6 +1253,8 @@ def task_main(campaign, task):
             schema="tactix-winner-vbs-rerun-result-v1",
             node=os.environ.get("SLURMD_NODENAME", os.uname().nodename),
             slurm_job_id=os.environ["SLURM_JOB_ID"],
+            slurm_array_job_id=os.environ["SLURM_ARRAY_JOB_ID"],
+            slurm_array_task_id=int(os.environ["SLURM_ARRAY_TASK_ID"]),
         )
     except Exception as error:
         result = {
@@ -1231,6 +1269,9 @@ def task_main(campaign, task):
             "valid": False,
             "error": repr(error),
             "node": os.environ.get("SLURMD_NODENAME", os.uname().nodename),
+            "slurm_job_id": os.environ["SLURM_JOB_ID"],
+            "slurm_array_job_id": os.environ["SLURM_ARRAY_JOB_ID"],
+            "slurm_array_task_id": int(os.environ["SLURM_ARRAY_TASK_ID"]),
         }
     finally:
         scratch.close()
@@ -1248,6 +1289,7 @@ def task_main(campaign, task):
 def validate(campaign):
     campaign = Path(campaign).resolve()
     require(os.environ.get("SLURM_JOB_ID"), "validation runs only under Slurm")
+    bound_launch(campaign, validation=True)
     require(
         not (campaign / "launch.json").exists(),
         "refusing validation after array launch",
@@ -1362,6 +1404,11 @@ def submit(campaign, validation=False):
 def aggregate(campaign):
     campaign = Path(campaign).resolve()
     manifest, rows = verify_campaign(campaign, full=True)
+    launch = json.loads((campaign / "launch.json").read_text())
+    require(
+        launch.get("manifest_sha256") == sha256(campaign / "manifest.json"),
+        "launch manifest authority differs",
+    )
     results, missing = [], []
     for task, row in enumerate(rows):
         path = campaign / "results" / f"{task:03d}.json"
@@ -1379,6 +1426,11 @@ def aggregate(campaign):
             )
             == (task, int(row["target"]), row["side"], row["arm"], row["instance"]),
             f"result identity differs for task {task}",
+        )
+        require(
+            result.get("slurm_array_job_id") == launch.get("job_id")
+            and result.get("slurm_array_task_id") == task,
+            f"result Slurm provenance differs for task {task}",
         )
         results.append(result)
     classes = Counter(classify_result(result) for result in results)
