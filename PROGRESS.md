@@ -100,12 +100,24 @@ not implementation or project-document changes.
 - Historical proof-checking and already-running validation jobs continue in
   the background. Do not wait for them before doing independent work and do not
   rerun retained reference solvers.
+- The fail-closed winner selector now recognizes a final timeout with no
+  `/usr/bin/time` peak only when the final record names the matching Slurm task
+  cgroup contract. A partial dry run on the older campaign finds 354 genuine
+  timeouts and 72 SAT plus 91 UNSAT checked VBS wins, but freezes nothing while
+  outcomes are missing. Its provisional SAT top ten are LymphoSAT-only and its
+  UNSAT top ten are Satsuma-only.
+- The matched winner rerun tool is ready to pin a final 40-task, instance-major
+  matrix on hwu. It independently recomputes selection evidence and uses
+  anonymous formula, proof, model, solver-stream and checker scratch, including
+  direct exact-binary adapters for Satsuma and LymphoSAT. Compute-node adapter
+  and checker validation remains mandatory before array submission.
 
 ## Next actions
 
-1. Inspect background Tier-D, proof/model and cleanup records without blocking the
-   next independent step.
-2. Begin the deferred winner-VBS selection and matched hwu reruns.
+1. Continue inspecting background Tier-D, proof/model, cleanup and storage-guard
+   state without blocking independent work.
+2. When all 1,166 latest Tactix solver records exist, freeze the ten SAT and ten
+   UNSAT losses, prepare and validate the matched hwu campaign, then submit it.
 
 ## Acceptance
 
@@ -127,9 +139,10 @@ not implementation or project-document changes.
 
 ## Recent changes
 
-- Retired the legacy random scheduler in favor of typed online programs.
-- Added trace-v3 typed-program replay while preserving v1/v2 compatibility.
+- Retired the legacy random scheduler for typed online programs and added trace-v3
+  typed-program replay while preserving v1/v2 compatibility.
 - Specialized finite and interruptible subsolver paths and repaired queue state.
 - Removed obsolete configuration guards and retained root-only phase boundaries.
 - Restored both performance gates and submitted the validated post-refactor
   Tier-D array from `b1165641`.
+- Repaired cgroup-timeout selection and added the fail-closed matched rerun tool.
