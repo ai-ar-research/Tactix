@@ -52,8 +52,10 @@ are in implementation-notes §1.
 - **Effect:** run BCP to the first conflict or to fixpoint. `F,R,ρ` unchanged; `τ` gains every forced literal (each stamped at its
   **true level** — the max level among its reason's other literals), `propagate_head` advances. No conflict → `Ok`. Conflict below
   root → record it (`conflict_valid`), `Conflict`. Conflict at root → `inconsistent`, emit ∅, `Unsat`.
-- **Proof δ:** `add_derived_unit` per level-0 forced unit (LRAT only; DRAT re-derives them); `add_empty` on a root conflict (LRAT
-  with a hint chain / DRAT). Below-root propagation and conflicts emit nothing (the learned clause is M3's).
+- **Proof δ:** `add_derived_unit` per level-0 forced unit (LRAT only;
+  DSR/DRAT re-derive them); `add_empty` on a root conflict (LRAT with a hint
+  chain / DSR/DRAT). Below-root propagation and conflicts emit nothing (the
+  learned clause is M3's).
 - **Soundness:** BCP assigns only literals entailed by `F ∧ M`, so it is model-preserving. Each root unit is RUP from its reason
   plus the reasons of that clause's other root literals (chain ascending by trail position); a root conflict's clause is all-false,
   so ∅ is RUP from it and those unit ids.
@@ -78,7 +80,7 @@ are in implementation-notes §1.
 - **Already-asserting reuse:** when `K₀` has exactly one literal at `d>0`, reuse it as the driver without constructing a new learned
   clause. Honor the selected target in `[j,d−1]` (canonical `j`) and assert at true level `j`; reuse does not remove the caller's
   backjump choice. If `j=0`, publish the implied unit, citing the other literals' root-unit ids followed by `K₀` in LRAT (a unit
-  addition in DRAT), and retain its unit reason. Otherwise no proof addition is needed.
+  addition in DSR/DRAT), and retain its unit reason. Otherwise no proof addition is needed.
 - **Level-one failed-literal construction:** if `d=1` and `K₀` has more than one level-one literal, walk the marked implication
   graph backwards instead of stopping at one UIP. Whenever the unresolved frontier has one true literal `q`, record the root unit
   `¬q`; stop when a reason contains the negated decision, then record that literal too. This is one size-one/glue-zero learned
@@ -95,7 +97,7 @@ are in implementation-notes §1.
 - **Proof δ:** let `h_L` be the reason clauses used by analysis/minimization in increasing trail order, followed by the conflict
   clause. Emit `add_rup(L,h_L)`. For every OTFS replacement `C ↦ C′`, emit `add_rup(C′,h_C′) · del(C)` before the final learned
   addition; after backtracking emit `del(D)` for every eagerly subsumed recent clause `D`. Root refutation is `add_rup(∅,h_⊥)` in
-  LRAT (not a dedicated empty line) and `add_empty` in DRAT. Backtracking and assertion emit no line, except that a learned unit
+  LRAT (not a dedicated empty line) and `add_empty` in DSR/DRAT. Backtracking and assertion emit no line, except that a learned unit
   contradicting a root unit emits the resulting empty clause and returns `Unsat`.
 - **Level-one proof δ:** emit one `add_rup({¬q},h_q)` for every singleton frontier, where `h_q` is the already-resolved suffix in
   increasing trail order followed by the conflict. Rebuild the full conflict reason walk for the final negated-decision unit; then
@@ -213,7 +215,8 @@ root closure at apply entry. V1/V2 Probe/Backbone additionally require `!conflic
 - **Precondition (abstract):** ∃ an unassigned `p` with `F ∧ M ∧ p ⊢₁ ⊥`; then `F ∧ M ⊨ ¬p`, so `¬p` may be added as a root unit.
 - **Effect:** collect-then-batch — assume each candidate, full-propagate, and on a conflict record `¬p`; assert the batch of derived
   units un-propagated (M1 owns the cascade). Proof δ: `add_rup` per unit (the reason-walk chain closed by the conflict id) — **not**
-  `add_derived_unit` (which emits nothing in DRAT; a failed-literal unit is RUP and the DRAT checker must see it).
+  `add_derived_unit` (which emits nothing in DSR/DRAT; a failed-literal unit is
+  RUP and the checker re-derives it).
 - **Soundness:** `¬p` is RUP: assume `p`, the recorded reason chain propagates to the conflict.
 
 ### V2 · Backbone — binary-only failed-literal probing
@@ -225,7 +228,7 @@ root closure at apply entry. V1/V2 Probe/Backbone additionally require `!conflic
   accumulated-assumption level, and continues. At round end it unwinds the complete speculative suffix, asserts the proved unit
   batch at root, propagates that root closure, and may repeat. The public one-literal instance remains V1-shaped.
 - **Proof δ:** `add_rup({¬u}, reversed binary conflict/reason-id chain)`. The reversal is the checker's propagation order under
-  assumption `u`; DRAT records the same unit without hints.
+  assumption `u`; DSR/DRAT record the same unit without hints.
 - **Soundness:** negating `¬u` replays the cited BIG path to the binary conflict. Retaining other assumptions is only a schedule for
   discovering `u`; they do not occur in the unit's replay chain.
 
@@ -461,8 +464,10 @@ root closure at apply entry. V1/V2 Probe/Backbone additionally require `!conflic
   applications. Physical binaries, including root-satisfied pairs, remain material.
 - **Proof δ:** **add-RAT**. Each divider `(x ∨ fᵢ)` is vacuous RAT on fresh `x`, since no clause yet mentions `¬x`. Each quotient
   `{¬x} ∪ Rⱼ` is RAT on `¬x`: resolving against divider `i` yields the still-live grid clause `{fᵢ} ∪ Rⱼ`, hence RUP. Order is
-  load-bearing: **dividers, quotients, grid deletion last**. DRAT writes pivot first. Native LRAT writes each divider as vacuous
-  `add_rat` and each quotient with one group per divider, `-⟨dividerᵢ id⟩ ⟨orig(fᵢ,rⱼ) id⟩`; the DRAT byte stream is unchanged.
+  load-bearing: **dividers, quotients, grid deletion last**. DSR/DRAT write the
+  pivot first. Native LRAT writes each divider as vacuous `add_rat` and each
+  quotient with one group per divider, `-⟨dividerᵢ id⟩ ⟨orig(fᵢ,rⱼ) id⟩`;
+  the compatibility DRAT byte stream is unchanged.
 - **Reconstruction (`ρ`):** *none* — `x` is fully defined by the clauses just added, so a model of `F′` restricted to `vars(F)`
   already satisfies `F` (drop `x`). No witness is pushed; recovery is pure projection over `first_extension_var`
   (`kernel_num_output_vars`).
@@ -472,7 +477,8 @@ root closure at apply entry. V1/V2 Probe/Backbone additionally require `!conflic
   semantic rejection.
 - **Soundness:** BVA is satisfiability-preserving *on the originals* — `F′` is equisatisfiable with `F`, and every model of `F′`
   restricted to `vars(F)` models `F` (the added clauses constrain only the fresh `x`). Each add step is a RAT addition
-  (satisfiability-preserving) and each delete removes a clause entailed by the survivors, so the DRAT stream is sound end-to-end.
+  (satisfiability-preserving) and each delete removes a clause entailed by the
+  survivors, so the DSR/DRAT stream is sound end-to-end.
 
 ## 6c. Bounded clause addition and witnessed elimination (X1–X3, X6)
 
@@ -591,5 +597,6 @@ literal. The rule is unimplemented; its reopening conditions are in `implementat
 ## 7. Maintenance
 
 Every registered proof rule has an entry here. Stronger implemented guards need a root cause and removal path in implementation
-notes; deltas match actual DRAT/LRAT calls; no entry weakens N1–N4. Keep engineering conditions out of abstract preconditions and
+notes; deltas match the typed proof events and supported serializers; no entry
+weakens N1–N4. Keep engineering conditions out of abstract preconditions and
 update every affected authority with code.

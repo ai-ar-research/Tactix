@@ -402,7 +402,7 @@ non-BCE form has a single-literal witness. Yield alone does not change the repre
 | C1 `SubsumeForward` · C2 `Strengthen` · C3 `Vivify` | implemented |
 | V1 `Probe` · V2 `Backbone` · V3 `Substitute` · V4 `TransitiveReduce` | implemented |
 | V5 `Sweep` | implemented with embedded sub-solver |
-| V6 `Congruence` | implemented; individual and canonical literal-form AND/XOR/ITE refutations have native DRAT/LRAT witnesses |
+| V6 `Congruence` | implemented; individual and canonical literal-form AND/XOR/ITE refutations have native DSR and compatibility DRAT/LRAT proofs |
 | E1 `BVE` | implemented; equivalence, AND/OR, ITE, XOR, and definition cores |
 | E2 `Factor` | implemented; seed surface, exact-grid application and exhaustive lazy grid enumeration complete |
 | X1 `BCE` · X2 `HyperTernaryRes` · X3 `CCE` · X4 `Instantiate` | implemented |

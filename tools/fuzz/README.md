@@ -25,10 +25,11 @@ Soundness pipeline per DEVELOPMENT_PLAN.md §8.2 (workflow: the `fuzz` skill).
   never fired fatal. A corpus entry that does not terminate is fatal too
   (`--allow-nonterminating N` pre-registers an exception).
 - `fuzz.py` — runner (subcommands `run`, `check-one`, `corpus`); oracles:
-  model (`checkmodel`), proof (drat-trim / cake_lpr), differential vs the
-  oracle solver, crash/io consistency. Legacy `lrat-check` is diagnostic only:
-  it can accept an invalid empty lemma on a satisfiable input. Failed cases
-  retain the original proof and exact checker commands/stdout/stderr.
+  model (`checkmodel`), native DSR (`dsr-trim` to LSR to Trestle), explicit
+  DRAT (`drat-trim`), explicit native LRAT (`cake_lpr`), differential verdict,
+  and crash/I/O consistency. Legacy `lrat-check` is diagnostic only: it can
+  accept an invalid empty lemma on a satisfiable input. Failed cases retain the
+  original proof and exact checker commands/stdout/stderr.
 - `checkmodel` — independent model checker (never trusts solver bookkeeping).
 - `ddmin` — delta-debugging shrinker (clause- then literal-level).
 - `broken/` — deliberately broken solver wrappers used by `selftest.sh` to
