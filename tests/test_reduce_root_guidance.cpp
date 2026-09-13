@@ -15,11 +15,7 @@
 using namespace tactix;
 
 static void prepare(Kernel &k) {
-#ifdef TACTIX_EXPECT_OLD_REDUCE_ROOT
-  reduce_prepare(k);
-#else
   default_prepare_reduction(k);
-#endif
 }
 
 static void retained_chain(bool policy) {
@@ -49,11 +45,7 @@ static void retained_chain(bool policy) {
   assert(k.stats.root_assignments == old_roots + 2 && k.trail.size() < old_size);
   for (Var v : {Var(0), Var(1)}) {
     assert(k.assigned[v].level == 0);
-#ifdef TACTIX_EXPECT_OLD_REDUCE_ROOT
-    const bool expected_active = true;
-#else
     const bool expected_active = !policy;
-#endif
     assert(heuristics_var_active(k, v) == expected_active);
     assert(heuristics_heap_contains(k, v) == expected_active);
   }
@@ -123,9 +115,7 @@ static void refutation(unsigned kind, ProofFormat format, const std::string &ste
   heuristics_consume_root_assignments(k, roots_from);
   prepare(k);
   assert(k.inconsistent && !k.conflict_valid && !k.level);
-#ifndef TACTIX_EXPECT_OLD_REDUCE_ROOT
   for (Lit lit : k.trail) assert(!heuristics_var_active(k, var_of(lit)));
-#endif
   assert(heuristics_var_active(k, 4) && heuristics_var_active(k, 5));
   const auto id = k.next_clause_id;
   prepare(k);

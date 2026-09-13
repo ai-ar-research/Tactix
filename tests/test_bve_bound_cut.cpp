@@ -50,25 +50,16 @@ static void check(bool terminal) {
   // Variables 7 and 8 belong to an untouched disjoint pair. The native phase
   // releases its schedule before final completion bookkeeping, so even at
   // the terminal bound it never clears their retry bits on a quota cut.
-#ifdef TACTIX_TEST_PREVIOUS_RAMP
-  for(uint8_t retry:k.bve_retry)assert(!retry);
-  assert(scheduler.elim_clock.marks_mark==k.stats.bve_marks);
-#else
   if(!terminal)for(uint8_t retry:k.bve_retry)assert(retry);
   else assert(k.bve_retry[var_of(internalize(7))] && k.bve_retry[var_of(internalize(8))]);
   assert(scheduler.elim_clock.marks_mark==(terminal?k.stats.bve_marks:0));
   assert(scheduler.elim_clock.material_mark ==
          (terminal ? k.subsume_material_count : entry_material - 1));
-#endif
   const uint64_t saved_material = scheduler.elim_clock.material_mark;
   assert(scheduler.run_phase(k,SlotGroup::Probe,nullptr)==0);
   assert(scheduler.elim_clock.material_mark == saved_material);
   assert(recorder.seen.size()==2);
-#ifdef TACTIX_TEST_PREVIOUS_RAMP
-  assert(recorder.seen[1]==0);
-#else
   assert(recorder.seen[1]==(terminal?0:3));
-#endif
   assert(k.propagate_head==k.trail.size() && !k.dense && k.large_watches_connected);
   assert(tactix_rules()[bve.rule].guard(k));kernel_check_invariants(k);
   std::printf("terminal=%u after-cut Factor bound=%u retry7=%u retry8=%u\n",terminal,

@@ -31,19 +31,11 @@ static void entry(SlotGroup group) {
   // scheduler lifecycle with an empty legal pipeline.
   assert(p.inprocess().entries.empty());
   assert(p.inprocess().run_phase(k, group, nullptr) == 0);
-#ifdef TACTIX_EXPECT_OLD_ENTRY
-  assert(k.value(internalize(-1)) == 0);
-  assert(k.stats.propagations == props && k.stats.search_ticks == ticks);
-  // Eliminate's sparse-resume cursor hides the unscanned old root suffix;
-  // Probe leaves the same work visibly pending. Neither is root closure.
-  assert(kernel_propagation_fixpoint(k) == (group == SlotGroup::Eliminate));
-#else
   assert(k.value(internalize(-1)) > 0 && k.assigned[0].level == 0);
   assert(kernel_propagation_fixpoint(k) && k.unflushed_root == 0);
   assert(k.stats.propagations > props);
   assert((k.stats.search_ticks > ticks) == (group == SlotGroup::Eliminate));
   assert(k.h->saved[0] == (group == SlotGroup::Probe ? 1 : -1));
-#endif
   assert(k.stats.restarts == 90 && !k.dense && k.large_watches_connected);
   assert(!k.inprocessing && !k.phase_saving_suppressed);
   std::printf("%s entry: root value %d, propagated %llu, search ticks %llu\n",
@@ -56,7 +48,6 @@ static void entry(SlotGroup group) {
 int main() {
   entry(SlotGroup::Probe);
   entry(SlotGroup::Eliminate);
-#ifndef TACTIX_EXPECT_OLD_ENTRY
   for (const auto group : {SlotGroup::Probe, SlotGroup::Eliminate}) {
     Kernel k;
     kernel_reserve_vars(k, 2);
@@ -70,5 +61,4 @@ int main() {
     assert(k.inconsistent && !k.conflict_valid && !k.dense);
     assert(!k.inprocessing && !k.phase_saving_suppressed);
   }
-#endif
 }

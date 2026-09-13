@@ -52,9 +52,6 @@ static void fixture(bool reverse, unsigned signs, bool fixed,
   const auto result = forced ? rule.apply_instance(k, lit_instance(k, x)) : factor_apply(k);
   assert(result == ApplyResult::NoOp && k.stats.factorings == 0);
   bool omitted = fixed && !reverse && rounds;
-#ifdef TACTIX_EXPECT_UNFILTERED_FACTOR_SUPPORT
-  omitted = false;
-#endif
   assert(scores.seen[x] == (omitted ? 1 : 2));
   if (!forced) assert(scores.seen[a] == scores.seen[x] && scores.seen[b] == scores.seen[x]);
   assert(kernel_binary_copies(k, u, x) == 1);

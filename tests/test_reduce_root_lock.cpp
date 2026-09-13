@@ -82,15 +82,9 @@ static void root_reason(bool elevated, bool compact, bool unsat,
   assert(k.level == unsigned(elevated));
   std::vector<Ref> candidates;
   pure_candidates(k, candidates);
-#ifdef TACTIX_EXPECT_OLD_REDUCE_ROOT_LOCK
-  assert(candidates.empty());
-  assert(reduce_apply_refs(k, &ref, 1, compact) == ApplyResult::NoOp);
-  assert(k.stats.deleted == 0);
-#else
   assert(candidates == std::vector<Ref>{ref});
   assert(reduce_apply_refs(k, &ref, 1, compact) == ApplyResult::Ok);
   assert(k.stats.deleted == 1 && k.assigned[2].reason == UNIT_REASON);
-#endif
   assert(k.value(internalize(3)) > 0 && k.assigned[2].level == 0);
   if (elevated) assert(k.value(internalize(7)) > 0);
   kernel_check_invariants(k);

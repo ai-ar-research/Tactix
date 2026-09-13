@@ -47,11 +47,7 @@ static void run(unsigned sides,bool negative,bool reverse,bool stable,
   assert(policy.inprocess().run_phase(k,SlotGroup::Eliminate,nullptr)!=20);
   unsigned retired=0;for(Var v=0;v<k.nvars;++v)retired+=kernel_var_retired(k,v);
   assert(retired==1u+bool(sides&1)+bool(sides&2));
-#ifdef TACTIX_EXPECT_OLD_BVE_GHOST
-  assert(k.stats.bve_eliminated==retired+(sides==3));
-#else
   assert(k.stats.bve_eliminated==retired);
-#endif
   assert(k.value(internalize(u))>0 && !k.level && k.propagate_head==k.trail.size());
   assert(!k.dense && !k.bve_score_update_hook && !k.bve_occurrence_count_image);
   kernel_check_invariants(k);
