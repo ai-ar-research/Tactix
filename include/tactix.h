@@ -334,6 +334,7 @@ int tactix_apply_semantic_instance(tactix *, int rule_id, uint64_t instance);
 #define TACTIX_ONLINE_PARAMETERS_REDUCE 15
 #define TACTIX_ONLINE_PARAMETERS_WALK 16
 #define TACTIX_ONLINE_PARAMETERS_REORDER 17
+#define TACTIX_ONLINE_PARAMETERS_PARITY_MODEL 18
 
 typedef struct {
   uint32_t minimize_depth_limit;
@@ -432,6 +433,13 @@ typedef struct {
   uint32_t clause_decay_milli, binary_weight_milli;
   uint32_t balanced_polarity_milli;
 } tactix_online_reorder_parameters;
+typedef struct {
+  /* Parameters for Lucky semantic instance 6 (structural parity model). */
+  uint32_t maximum_variables, maximum_groups, maximum_constraints;
+  uint32_t minimum_group_clauses, minimum_equations;
+  uint32_t maximum_free_variables;
+  uint64_t candidate_budget;
+} tactix_online_parity_model_parameters;
 
 /* One exact Factor remainder column and grid. Literals use permanent DIMACS
  * identities. The grid is copied during configure; caller storage may be
@@ -469,6 +477,7 @@ typedef struct {
     tactix_online_reduce_parameters reduce;
     tactix_online_walk_parameters walk;
     tactix_online_reorder_parameters reorder;
+    tactix_online_parity_model_parameters parity_model;
   } value;
 } tactix_online_parameters;
 

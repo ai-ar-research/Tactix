@@ -353,8 +353,9 @@ static void test_registry_surface() {
   const RuleVTable &r = tactix_rules()[id];
   assert(r.guard(k));
   uint64_t insts[8];
-  assert(r.instances(k, insts, 8) == 6);
+  assert(r.instances(k, insts, 8) == 7);
   assert(insts[0] == LUCKY_ALL_TRUE);
+  assert(insts[6] == 6); // structural parity model
   assert(r.apply_instance(k, 99) == ApplyResult::NoOp); // unknown payload
   assert(r.apply_instance(k, INSTANCE_CANONICAL) == ApplyResult::Sat);
   // the guard reads state shape only; SAT comes from the status predicate

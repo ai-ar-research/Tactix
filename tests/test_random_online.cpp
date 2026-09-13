@@ -226,7 +226,7 @@ static void generation_observes_interruption_without_mutating_kernel() {
   kernel_check_invariants(k);
 }
 
-static void reduce_walk_and_reorder_parameters_round_trip() {
+static void configurable_parameters_round_trip() {
   OnlineStrategyProgram program;
   OnlineInvocation reduce;
   reduce.id = 60;
@@ -263,6 +263,16 @@ static void reduce_walk_and_reorder_parameters_round_trip() {
   reorder.budget = WorkLimit::bounded(1);
   program.sequence.push_back(reorder);
 
+  OnlineInvocation parity;
+  parity.id = 63;
+  parity.rule = "Lucky";
+  parity.parameters = ParityModelParameters{47, 89, 101, 2, 7, 9, 12345};
+  parity.granularity = InvocationGranularity::CanonicalApplication;
+  parity.repeat = {RepeatMode::Once, 1};
+  parity.work_unit = WorkUnit::Applications;
+  parity.budget = WorkLimit::bounded(1);
+  program.sequence.push_back(parity);
+
   std::string error;
   assert(validate_online_strategy_program(program, &error));
   const std::string encoded = serialize_online_strategy_program(program);
@@ -283,6 +293,15 @@ static void reduce_walk_and_reorder_parameters_round_trip() {
   assert(decoded_reorder.clause_decay_milli == 375 &&
          decoded_reorder.binary_weight_milli == 1250 &&
          decoded_reorder.balanced_polarity_milli == 2750);
+  const auto &decoded_parity =
+      std::get<ParityModelParameters>(decoded.sequence[3].parameters);
+  assert(decoded_parity.maximum_variables == 47 &&
+         decoded_parity.maximum_groups == 89 &&
+         decoded_parity.maximum_constraints == 101 &&
+         decoded_parity.minimum_group_clauses == 2 &&
+         decoded_parity.minimum_equations == 7 &&
+         decoded_parity.maximum_free_variables == 9 &&
+         decoded_parity.candidate_budget == 12345);
 
   // Trace-v3 payloads written before scoring became configurable retain the
   // reference scoring defaults.
@@ -537,6 +556,45 @@ static void parameter_domains_are_caller_controlled() {
       &legacy_sweep.sequence.front().parameters);
   assert(legacy_parameters && !legacy_parameters->force_general_proof);
 
+  config = {};
+  config.rules = {"Lucky"};
+  config.maximum_sequence_length = 1;
+  config.maximum_parity_model_variables = 73;
+  config.maximum_parity_model_groups = 97;
+  config.maximum_parity_model_constraints = 131;
+  config.maximum_parity_model_free_variables = 11;
+  config.maximum_parity_model_candidates = 257;
+  bool selected_structural_instance = false;
+  std::set<uint32_t> parity_variables, parity_groups, parity_constraints,
+      parity_free;
+  std::set<uint64_t> parity_candidates;
+  for (uint64_t seed = 1; seed <= 512; ++seed) {
+    OnlineStrategyProgram program;
+    assert(random_online_strategy_program(k, seed, config, program));
+    const OnlineInvocation &step = program.sequence.front();
+    const auto *parameters =
+        std::get_if<ParityModelParameters>(&step.parameters);
+    assert(parameters && parameters->valid());
+    parity_variables.insert(parameters->maximum_variables);
+    parity_groups.insert(parameters->maximum_groups);
+    parity_constraints.insert(parameters->maximum_constraints);
+    parity_free.insert(parameters->maximum_free_variables);
+    parity_candidates.insert(parameters->candidate_budget);
+    selected_structural_instance |=
+        std::find(step.instances.begin(), step.instances.end(), uint64_t{6}) !=
+        step.instances.end();
+    OnlineStrategyProgram replay;
+    std::string error;
+    assert(deserialize_online_strategy_program(
+        serialize_online_strategy_program(program), replay, &error));
+    assert(serialize_online_strategy_program(replay) ==
+           serialize_online_strategy_program(program));
+  }
+  assert(selected_structural_instance);
+  assert(parity_variables.size() > 8 && parity_groups.size() > 8 &&
+         parity_constraints.size() > 8 && parity_free.size() > 8 &&
+         parity_candidates.size() > 8);
+
   const std::vector<std::pair<std::string, bool (*)(const ActionParameters &)>>
       typed_rules = {
           {"BCE", [](const ActionParameters &p) {
@@ -556,6 +614,9 @@ static void parameter_domains_are_caller_controlled() {
            }},
           {"Reduce", [](const ActionParameters &p) {
              return std::holds_alternative<ReduceParameters>(p);
+           }},
+          {"Lucky", [](const ActionParameters &p) {
+             return std::holds_alternative<ParityModelParameters>(p);
            }},
       };
   for (const auto &[rule, has_expected_type] : typed_rules) {
@@ -823,7 +884,7 @@ int main() {
   seeds_are_replayable_and_behavior_is_wide();
   generated_program_interrupts_and_reconfigures_online();
   generation_observes_interruption_without_mutating_kernel();
-  reduce_walk_and_reorder_parameters_round_trip();
+  configurable_parameters_round_trip();
   random_walk_and_reorder_vary_scoring_parameters();
   explicit_selection_reaches_beyond_a_prefix();
   parameter_domains_are_caller_controlled();

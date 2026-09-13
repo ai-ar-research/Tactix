@@ -268,6 +268,9 @@ REACH_SPECS = [
     # first field would miss a late-only Lucky, and the old pattern matched no
     # line at all, so this row read 0 in every leg ever run.
     ("Lucky", r"^c lucky\s+\d+ early, \d+ late \(\d+ SAT\), (\d+) probes"),
+    # S5 instance 6 is the structural affine candidate path. Its own call
+    # counter distinguishes it from the six reference Lucky probes.
+    ("ParityModel", r"^c parity\s+(\d+) calls,"),
     ("Vivify", r"^c vivify\s+(\d+) rounds,"),
     # These key on attempts, not rounds: they are `dosed` entries reached
     # through apply_instance, whose round counter never moves. See the note

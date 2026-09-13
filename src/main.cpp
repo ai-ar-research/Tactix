@@ -802,6 +802,14 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.lucky_late_calls,
            (unsigned long long)kernel.stats.lucky_late_sat,
            (unsigned long long)kernel.stats.lucky_probes);
+    printf("c parity     %llu calls, %llu equations, rank %llu, "
+           "%llu candidates, %llu SAT, %llu interrupted\n",
+           (unsigned long long)kernel.stats.parity_model_calls,
+           (unsigned long long)kernel.stats.parity_model_equations,
+           (unsigned long long)kernel.stats.parity_model_rank,
+           (unsigned long long)kernel.stats.parity_model_candidates,
+           (unsigned long long)kernel.stats.parity_model_sat,
+           (unsigned long long)kernel.stats.parity_model_interrupted);
     printf("c walk        %llu walks (%llu improved, %llu flips, %llu steps)\n",
            (unsigned long long)kernel.stats.walks,
            (unsigned long long)kernel.stats.walk_improved,

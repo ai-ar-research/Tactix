@@ -306,6 +306,15 @@ bool online_parameters(const tactix_online_parameters &source,
     target = reorder;
     return true;
   }
+  case TACTIX_ONLINE_PARAMETERS_PARITY_MODEL: {
+    const tactix_online_parity_model_parameters &p =
+        source.value.parity_model;
+    target = strategy::ParityModelParameters{
+        p.maximum_variables, p.maximum_groups, p.maximum_constraints,
+        p.minimum_group_clauses, p.minimum_equations,
+        p.maximum_free_variables, p.candidate_budget};
+    return true;
+  }
   default:
     return false;
   }

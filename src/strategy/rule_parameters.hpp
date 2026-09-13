@@ -110,6 +110,34 @@ struct ReorderParameters {
   static ReorderParameters from_kernel(const Kernel &);
 };
 
+// SAT-only structural model search. Every inferred affine restriction is a
+// search heuristic: a candidate is accepted only after the complete live CNF
+// independently validates it, so incomplete groups can lose opportunities but
+// can never create a false SAT result.
+struct ParityModelParameters {
+  static constexpr uint32_t MAXIMUM_VARIABLES_DEFAULT = 4096;
+  static constexpr uint32_t MAXIMUM_GROUPS_DEFAULT = 65536;
+  static constexpr uint32_t MAXIMUM_CONSTRAINTS_DEFAULT = 262144;
+  static constexpr uint32_t MINIMUM_GROUP_CLAUSES_DEFAULT = 3;
+  static constexpr uint32_t MINIMUM_EQUATIONS_DEFAULT = 1;
+  static constexpr uint32_t MAXIMUM_FREE_VARIABLES_DEFAULT = 24;
+  static constexpr uint64_t CANDIDATE_BUDGET_DEFAULT = 1024;
+
+  uint32_t maximum_variables = MAXIMUM_VARIABLES_DEFAULT;
+  uint32_t maximum_groups = MAXIMUM_GROUPS_DEFAULT;
+  uint32_t maximum_constraints = MAXIMUM_CONSTRAINTS_DEFAULT;
+  uint32_t minimum_group_clauses = MINIMUM_GROUP_CLAUSES_DEFAULT;
+  uint32_t minimum_equations = MINIMUM_EQUATIONS_DEFAULT;
+  uint32_t maximum_free_variables = MAXIMUM_FREE_VARIABLES_DEFAULT;
+  uint64_t candidate_budget = CANDIDATE_BUDGET_DEFAULT;
+  constexpr bool valid() const {
+    return maximum_variables && maximum_groups && maximum_constraints &&
+           minimum_group_clauses >= 1 && minimum_group_clauses <= 4 &&
+           maximum_free_variables <= 63;
+  }
+  static ParityModelParameters from_kernel(const Kernel &);
+};
+
 void install_rule_parameters(Kernel &, const BceParameters &);
 void install_rule_parameters(Kernel &, const TernaryParameters &);
 void install_rule_parameters(Kernel &, const FactorParameters &);
@@ -118,6 +146,7 @@ void install_rule_parameters(Kernel &, const SubstituteParameters &);
 void install_rule_parameters(Kernel &, const ReduceParameters &);
 void install_rule_parameters(Kernel &, const WalkParameters &);
 void install_rule_parameters(Kernel &, const ReorderParameters &);
+void install_rule_parameters(Kernel &, const ParityModelParameters &);
 
 template <class Parameters> class ScopedRuleParameters {
 public:
@@ -142,6 +171,7 @@ using ScopedTransitiveReduceParameters =
 using ScopedSubstituteParameters = ScopedRuleParameters<SubstituteParameters>;
 using ScopedReduceParameters = ScopedRuleParameters<ReduceParameters>;
 using ScopedReorderParameters = ScopedRuleParameters<ReorderParameters>;
+using ScopedParityModelParameters = ScopedRuleParameters<ParityModelParameters>;
 
 class ScopedWalkParameters {
 public:

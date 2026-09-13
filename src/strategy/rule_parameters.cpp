@@ -65,6 +65,15 @@ ReorderParameters ReorderParameters::from_kernel(const Kernel &k) {
           k.reorder_binary_weight_milli,
           k.reorder_balanced_polarity_milli};
 }
+ParityModelParameters ParityModelParameters::from_kernel(const Kernel &k) {
+  return {k.parity_model_maximum_variables,
+          k.parity_model_maximum_groups,
+          k.parity_model_maximum_constraints,
+          k.parity_model_minimum_group_clauses,
+          k.parity_model_minimum_equations,
+          k.parity_model_maximum_free_variables,
+          k.parity_model_candidate_budget};
+}
 
 void install_rule_parameters(Kernel &k, const BceParameters &p) {
   k.bce_occ_limit = p.occurrence_limit;
@@ -134,6 +143,16 @@ void install_rule_parameters(Kernel &k, const ReorderParameters &p) {
   k.reorder_clause_decay_milli = p.clause_decay_milli;
   k.reorder_binary_weight_milli = p.binary_weight_milli;
   k.reorder_balanced_polarity_milli = p.balanced_polarity_milli;
+}
+
+void install_rule_parameters(Kernel &k, const ParityModelParameters &p) {
+  k.parity_model_maximum_variables = p.maximum_variables;
+  k.parity_model_maximum_groups = p.maximum_groups;
+  k.parity_model_maximum_constraints = p.maximum_constraints;
+  k.parity_model_minimum_group_clauses = p.minimum_group_clauses;
+  k.parity_model_minimum_equations = p.minimum_equations;
+  k.parity_model_maximum_free_variables = p.maximum_free_variables;
+  k.parity_model_candidate_budget = p.candidate_budget;
 }
 
 } // namespace tactix::strategy

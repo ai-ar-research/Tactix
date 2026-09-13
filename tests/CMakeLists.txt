@@ -142,6 +142,10 @@ add_executable(test_walk test_walk.cpp)
 target_link_libraries(test_walk PRIVATE tactix_lib)
 add_test(NAME walk COMMAND test_walk)
 
+add_executable(test_parity_model test_parity_model.cpp)
+target_link_libraries(test_parity_model PRIVATE tactix_lib)
+add_test(NAME parity_model COMMAND test_parity_model)
+
 add_executable(test_subsume test_subsume.cpp)
 target_link_libraries(test_subsume PRIVATE tactix_lib)
 add_test(NAME subsume COMMAND test_subsume)

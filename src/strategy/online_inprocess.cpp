@@ -150,6 +150,8 @@ bool parameter_matches(const OnlineInvocation &step) {
     return step.rule == "Walk";
   if (std::holds_alternative<ReorderParameters>(step.parameters))
     return step.rule == "Reorder";
+  if (std::holds_alternative<ParityModelParameters>(step.parameters))
+    return step.rule == "Lucky";
   return false;
 }
 
@@ -256,6 +258,10 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
     if (const auto *p = std::get_if<ReorderParameters>(&step.parameters);
         p && !p->valid())
       return reject("Reorder parameters are invalid");
+    if (const auto *p =
+            std::get_if<ParityModelParameters>(&step.parameters);
+        p && !p->valid())
+      return reject("Lucky parity-model parameters are invalid");
     if (!step.factor_grids.empty() && step.rule != "Factor")
       return reject("exact Factor grids are attached to a different rule");
     if (!step.factor_grids.empty() && !step.instances.empty())
@@ -745,6 +751,7 @@ InvocationResult OnlineStrategyExecutor::advance(
       std::optional<ScopedReduceParameters> reduce;
       std::optional<ScopedWalkParameters> walk;
       std::optional<ScopedReorderParameters> reorder;
+      std::optional<ScopedParityModelParameters> parity_model;
       if (const auto *p = std::get_if<AnalyzeParameters>(&step.parameters))
         analyze.emplace(k, *p);
       else if (const auto *p =
@@ -788,6 +795,9 @@ InvocationResult OnlineStrategyExecutor::advance(
       else if (const auto *p =
                    std::get_if<ReorderParameters>(&step.parameters))
         reorder.emplace(k, *p);
+      else if (const auto *p =
+                   std::get_if<ParityModelParameters>(&step.parameters))
+        parity_model.emplace(k, *p);
       // Invocation-level native work limits override a rule parameter which
       // happens to share the legacy Kernel::work_budget handoff (Walk).  Both
       // scopes still unwind to the caller profile after this atomic apply.
