@@ -83,6 +83,7 @@ def main():
     for name in ("drat-trim", "checkmodel", "modelcheck.py"):
         pin(args.checkers / name, name)
     runner = pin(Path(__file__).with_name("runtime_task.py"), "runtime_task.py")
+    pin(Path(__file__).with_name("proof_oracle.py"), "proof_oracle.py")
     rows, hashes = [], {}
     for rank, row in sorted(instances.items()):
         hashes[row["instance"]] = sha256(ROOT / "benchmarks/cache" / row["instance"])

@@ -18,8 +18,14 @@ def proof_check_status(checker: str, returncode: int, stdout: str,
                 for line in lines)):
         return 'rejected'
     success = 's VERIFIED' if checker == 'drat-trim' else 's VERIFIED UNSAT'
-    # A recognized token from the wrong checker, a mere substring, or a
+    # drat-trim's parse-time trivial-UNSAT branch prints the verified token but
+    # does not update `sts` before returning `(sts != UNSAT)`, so that one exact
+    # success path exits 1.  It is source-confirmed and distinct from a generic
+    # abnormal exit carrying success-looking text.
+    trivial_drat = (checker == 'drat-trim' and returncode == 1 and
+                    'c trivial UNSAT' in lines and success in lines)
+    # A recognized token from the wrong checker, a mere substring, or any other
     # success-looking message followed by an abnormal exit is not acceptance.
-    if returncode == 0 and success in lines:
+    if (returncode == 0 and success in lines) or trivial_drat:
         return 'verified'
     return 'error'

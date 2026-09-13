@@ -98,6 +98,11 @@ not implementation or project-document changes.
   proof, model and checker files.
 - Existing Tier-D and proof-checking jobs remain unchanged. Do not rerun retained
   reference solvers or wait for proof checking before independent work.
+- Partial WV100 scoring has 13 fully accepted SAT solves. Ranks 68 and 74 also
+  solved UNSAT in 0.367 and 1.319 seconds and printed `s VERIFIED`, but the
+  immutable active runner mislabeled `drat-trim`'s source-confirmed
+  trivial-UNSAT exit-1 path. The shared oracle is repaired for future pins;
+  final scoring must recover that exact case from the retained checker output.
 - Storage guard PID `1458620` checks the complete repository every ten minutes.
   Above 700 GiB it holds only pending jobs whose Slurm `WorkDir` is this repo;
   it never pauses running jobs and releases only its own holds. The submission
@@ -153,8 +158,8 @@ not implementation or project-document changes.
 
 ## Recent changes
 
-- 2026-09-13: Passed the full Claude fuzz, replay, proof/model and sanitizer checkpoint.
 - 2026-09-13: Preserved B28+C5 and Rank1–50 trajectories within 1.03% aggregate time.
 - 2026-09-13: Validated anonymous cleanup and submitted current Tier-D array `1687184`.
 - 2026-09-13: Located the structured symmetry slot before Factor with exact generator survival.
 - 2026-09-13: Classified the first orbitopal producer's SR obligations with zero unresolved.
+- 2026-09-13: Repaired future Tier-D handling of drat-trim's verified trivial-UNSAT exit.
