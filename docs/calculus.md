@@ -511,7 +511,8 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
   occurrences deterministically. The lazy typed enumerator discovers every legal factor subset,
   remainder-column subset and physical large-clause assignment; `CompleteCurrentPass` consumes it
   subject to explicit budget/stop. The canonical matcher and candidate pruning are policy scope;
-  physical binaries, including root-satisfied pairs, remain material.
+  its shipped profitable-grid frontier does not limit exact applications. Physical binaries,
+  including root-satisfied pairs, remain material.
 - **Proof δ:** **add-RAT**. Each divider `(x ∨ fᵢ)` is vacuous RAT on fresh `x`, since no clause yet
   mentions `¬x`. Each quotient `{¬x} ∪ Rⱼ` is RAT on `¬x`: resolving against divider `i` yields the
   still-live grid clause `{fᵢ} ∪ Rⱼ`, hence RUP. Order is load-bearing: **dividers, quotients, grid
