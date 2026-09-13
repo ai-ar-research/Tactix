@@ -17,6 +17,8 @@ import tempfile
 import threading
 import time
 
+from proof_oracle import proof_check_status
+
 
 CAMPAIGN = None
 ROOT = None
@@ -324,8 +326,8 @@ def main():
                                scratch / "checker.time", CHECK_TIMEOUT)
             output = "\n".join(tail(checker_out, 100) + tail(checker_err, 100))
             checked["result"] = (
-                "verified" if checked["exit_code"] == 0 and
-                "s VERIFIED" in output and "s NOT VERIFIED" not in output
+                "verified" if proof_check_status(
+                    "drat-trim", checked["exit_code"], output, "") == "verified"
                 else "not-verified")
             checked["output_tail"] = output[-12000:]
             result["proof_check"] = checked

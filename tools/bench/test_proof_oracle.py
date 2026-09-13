@@ -13,6 +13,14 @@ class ProofOracleTests(unittest.TestCase):
     def test_rejection_precedes_success(self):
         self.assertEqual(proof_check_status('drat-trim', 1, 's VERIFIED\ns NOT VERIFIED\n', ''), 'rejected')
 
+    def test_drat_trivial_unsat_exit_one_is_source_confirmed_success(self):
+        self.assertEqual(proof_check_status(
+            'drat-trim', 1, 'c trivial UNSAT\ns VERIFIED\n', ''), 'verified')
+
+    def test_other_drat_exit_one_is_not_rescued(self):
+        self.assertEqual(proof_check_status(
+            'drat-trim', 1, 's VERIFIED\n', ''), 'error')
+
     def test_cake_zero_exit_is_not_acceptance(self):
         self.assertEqual(proof_check_status('cake_lpr', 0, '', 'c Checking failed at line: 0. Reason: pivot must be non-zero\n'), 'rejected')
 

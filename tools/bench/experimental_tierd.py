@@ -68,7 +68,7 @@ def prepare(a):
     shutil.copy2(a.binary,c/'pins/tactix')
     for name in ['checkmodel','modelcheck.py','drat-trim']:
         shutil.copy2(ref/'pins'/name,c/'pins'/name)
-    for name in ['runtime_task.py','anonymous_scratch.py','test_anonymous_scratch.py','validate_anonymous_runtime.py']:
+    for name in ['runtime_task.py','proof_oracle.py','anonymous_scratch.py','test_anonymous_scratch.py','validate_anonymous_runtime.py']:
         shutil.copy2(ROOT/'tools/bench'/name,c/'pins'/name)
     with (c/'matrix.tsv').open('x',newline='') as f:
         w=csv.DictWriter(f,fieldnames=list(rows[0]),delimiter='\t');w.writeheader();w.writerows(rows)
