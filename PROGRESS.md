@@ -14,10 +14,10 @@ Lucky, and Walk operate at level zero. A search-time strategy can explicitly
 apply `Restart` before them; the executor does not suspend or restore non-root
 trails.
 
-After this gate, freeze ten SAT and ten UNSAT 1200-second/32-GiB winner-VBS
-losses, favoring rare baseline coverage and LymphoSAT-only SAT wins. Rerun
-Tactix and every fastest qualifying baseline on hwu, then develop general solver
-mechanisms. Kissat-only tuning and sequential portfolios remain out of scope.
+The post-gate winner-VBS set is now frozen and its matched rerun is complete:
+ten LymphoSAT-only SAT wins and ten Satsuma-only UNSAT wins over genuine Tactix
+timeouts. Development now starts with a general Boolean-parity model mechanism;
+Kissat-only tuning and sequential portfolios remain out of scope.
 
 ## Authority and candidate
 
@@ -116,16 +116,18 @@ not implementation or project-document changes.
 - Historical proof-checking and already-running validation jobs continue in
   the background. Do not wait for them before doing independent work and do not
   rerun retained reference solvers.
-- The fail-closed winner selector waits for complete Tier-D outcomes before
-  freezing any set. The matched 40-task hwu rerun tool and its Satsuma and
-  LymphoSAT adapters passed pinning, launch, proof/model and residue validation;
-  see the [environment report](benchmarks/reports/2026-09-12-winner-environment-validation.md).
+- The fail-closed winner selector waited for complete Tier-D outcomes before
+  freezing the set. It froze the required 10+10 targets, and matched job `1686574`
+  reproduced all 20 Tactix timeouts plus all 20 checked winner solves with zero
+  cleanup residue; see the [target report](benchmarks/reports/2026-09-13-winner-vbs-targets.md).
 
 ## Next actions
 
 1. Leave performance proof/model checks and the storage guard backgrounded.
-2. When all 1,166 Tier-D solver records exist, freeze the ten SAT and ten
-   UNSAT losses, prepare and validate the matched hwu campaign, then submit it.
+2. Implement and locally validate a uniform structural XOR extractor plus
+   GF(2) model constructor, accepting SAT only after whole-formula validation.
+3. Measure its two parity targets and fast-rejection overhead before broader
+   correctness, B28+C5 and Rank 1–50 gates.
 
 ## Acceptance
 
@@ -154,3 +156,5 @@ not implementation or project-document changes.
   Tier-D array.
 - Moved the remaining Reduce, Walk, Reorder and default-schedule heuristics into
   validated strategy settings and completed exact zero-gain Factor N1 coverage.
+- Froze and reran the exact 10 SAT + 10 UNSAT winner-VBS loss set; began the
+  general Boolean-parity mechanism from two structurally recovered SAT cases.
