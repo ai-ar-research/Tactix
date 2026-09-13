@@ -437,6 +437,41 @@ def prepare(args):
             f"baseline solver pin differs: {name}",
         )
 
+    if "satsuma-kissat" in arms:
+        shim_source = pin(
+            Path(__file__).with_name("procfd_realpath.c"), "procfd_realpath.c"
+        )
+        shim_path = campaign / "pins/procfd_realpath.so"
+        compiler = shutil.which("cc")
+        require(
+            compiler is not None, "C compiler unavailable for proc-fd transport shim"
+        )
+        shim_command = [
+            compiler,
+            "-shared",
+            "-fPIC",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-Werror",
+            "-o",
+            str(shim_path),
+            str(campaign / shim_source),
+            "-ldl",
+        ]
+        subprocess.run(shim_command, check=True)
+        readonly(shim_path)
+        shim_rel = str(shim_path.relative_to(campaign))
+        pin_digests[shim_rel] = sha256(shim_path)
+        arms["satsuma-kissat"].update(
+            transport_shim=shim_rel,
+            transport_shim_source=shim_source,
+            transport_shim_build=shim_command,
+            transport_shim_compiler=subprocess.check_output(
+                [compiler, "--version"], text=True
+            ).splitlines()[0],
+        )
+
     checker_names = {"drat-trim", "cake-lpr", "checkmodel", "modelcheck.py"}
     if any(arm["certificate"] == "dsr" for arm in arms.values()):
         checker_names.update({"dsr-trim", "dsr-compress", "srcheck"})
@@ -555,6 +590,8 @@ def required_pins(manifest, arm_name=None):
         return set(manifest["pin_digests"])
     arm = manifest["arms"][arm_name]
     required.add(arm["path"])
+    if arm.get("transport_shim"):
+        required.add(arm["transport_shim"])
     checker_names = {"checkmodel", "modelcheck.py"}
     checker_names.update(
         {
@@ -693,7 +730,8 @@ def truncate(path):
 
 def adapter_satsuma(campaign, arm_name, cnf, proof, transformed):
     manifest = json.loads((campaign / "manifest.json").read_text())
-    root = campaign / manifest["arms"][arm_name]["path"]
+    arm = manifest["arms"][arm_name]
+    root = campaign / arm["path"]
     truncate(proof)
     truncate(transformed)
     print(f"c Running satsuma on {cnf}")
@@ -715,8 +753,10 @@ def adapter_satsuma(campaign, arm_name, cnf, proof, transformed):
     )
     # The submitted run_base.sh invokes Kissat even if preprocessing reports
     # an error, and returns Kissat's status.  Preserve that exact behavior.
+    environment = os.environ.copy()
+    environment["LD_PRELOAD"] = str(campaign / arm["transport_shim"])
     return subprocess.run(
-        [root / "solver/kissat/build/kissat", transformed, proof]
+        [root / "solver/kissat/build/kissat", transformed, proof], env=environment
     ).returncode
 
 

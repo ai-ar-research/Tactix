@@ -97,13 +97,22 @@ class PortfolioRerunTests(unittest.TestCase):
             campaign = Path(directory)
             (campaign / "manifest.json").write_text(
                 json.dumps(
-                    {"arms": {"satsuma-kissat": {"path": "pins/satsuma-kissat"}}}
+                    {
+                        "arms": {
+                            "satsuma-kissat": {
+                                "path": "pins/satsuma-kissat",
+                                "transport_shim": "pins/procfd_realpath.so",
+                            }
+                        }
+                    }
                 )
             )
             calls = []
+            environments = []
 
             def fake_run(command, **unused):
                 calls.append(list(map(str, command)))
+                environments.append(unused.get("env"))
                 return SimpleNamespace(returncode=0 if len(calls) == 1 else 20)
 
             with (
@@ -121,6 +130,10 @@ class PortfolioRerunTests(unittest.TestCase):
             self.assertTrue(calls[0][0].endswith("/satsuma"))
             self.assertIn("--proof-file", calls[0])
             self.assertTrue(calls[1][0].endswith("/solver/kissat/build/kissat"))
+            self.assertTrue(calls[1][1].endswith("/output"))
+            self.assertTrue(
+                environments[1]["LD_PRELOAD"].endswith("/procfd_realpath.so")
+            )
 
     def test_lymphosat_adapter_uses_first_matching_exact_subsolver(self):
         with tempfile.TemporaryDirectory() as directory:
