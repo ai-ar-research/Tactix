@@ -7,7 +7,9 @@ reports own detailed history.
 ## Current objective
 
 The online-configurable strategy/N1 refactor gate is complete with N2–N4,
-reference-default behavior, and runtime preserved. Inprocessing programs,
+reference-default behavior and runtime preserved. A Claude fuzz checkpoint
+found and Codex repaired one totality defect in noncanonical Walk scoring; all
+former failures and the bounded broad recheck now pass. Inprocessing programs,
 Lucky, and Walk operate at level zero. A search-time strategy can explicitly
 apply `Restart` before them; the executor does not suspend or restore non-root
 trails.
@@ -23,11 +25,11 @@ mechanisms. Kissat-only tuning and sequential portfolios remain out of scope.
 |---|---|
 | Refactor base | `0060215a` (`Keep inprocessing and Walk at root`) |
 | Refactor closure | `b1165641`; Release pin `916eae4d7e87f5602649035ac15a8c2985e83deaec2250e338a47972b998e9bf` |
-| Production-equivalent follow-ups | `9c6049a9` diagnostic cleanup and `601d3c4c` proof-shadow activation repair; stripped Release SHA `287a3e6c5cd98a9520536faca251dd1a5a55163fbe7f21f7db5a3f1f427d6197`, with identical loadable sections to the refactor pin |
-| Current source | `d6546e6f`; includes validated percentage domains and constant-low reverse reduction endpoints from `abd3ba87`, plus removal of superseded test-only compatibility branches |
+| Current source | `690322ab`; Release SHA `40b6b348adfbfd75736b45edc2c229463deb54876719ef11bfda4057eccaf9e8` |
 | Design | [online proposal](docs/design/2026-09-11-online-strategy-proposal.md) and [preservation addendum](docs/design/2026-09-11-strategy-behavior-preservation-addendum.md) |
 | Claude review | [7528 disposition](benchmarks/reports/2026-09-11-online-strategy-review-7528/disposition.md) and [D-NOOP recheck](benchmarks/reports/2026-09-12-claude-d-noop-recheck.md) |
 | Prior gate evidence | [refactor/N1 checkpoint](benchmarks/reports/2026-09-12-refactor-n1-gates.md) and [state-boundary follow-up](benchmarks/reports/2026-09-12-n1-state-boundary-followup.md) |
+| Current closure | [configurable-strategy closure](benchmarks/reports/2026-09-13-configurable-strategy-closure.md) |
 
 The root checkout is authoritative. `.claude` contains workflow instructions,
 not implementation or project-document changes.
@@ -45,6 +47,10 @@ not implementation or project-document changes.
   guidance and inprocessing settings. Rule-side values that affect scheduling,
   admission or work are configurable; rule modules retain semantic,
   representation and diagnostic constants.
+- Reduce owns its victim fraction, tier protection and collection choice; Walk
+  owns its ProbSAT curve; Reorder owns its target, size and weighting controls.
+  Default rephase, focused-phase, BVE-ladder and tier-source choices are typed,
+  validated strategy data and are serialized by trace v3.
 - `--random-policy` now generates typed online programs and executes them with
   `OnlineStrategyExecutor`. The separate legacy random scheduler is removed.
   Trace v3 stores typed programs; v1/v2 action traces remain replayable.
@@ -65,49 +71,43 @@ not implementation or project-document changes.
 - Proof-population shadowing distinguishes compiled availability from active
   checking. Parsing seeds the complete original clause multiset before arming;
   directly assembled kernels remain inert until explicitly armed.
+- Exact Factor application and complete enumeration admit every legal
+  nontrivial grid, including zero-gain 2x2 equality. Canonical matching retains
+  the profitable frontier, preserving the reference hot path and trajectory.
+- Walk scoring is total over every validated positive break base: increasing
+  weights normalize per selected clause, and decaying tables stop at their
+  floating-point fixed point without narrowing the public parameter domain.
 
 ## Current validation
 
 - Release: **146/146** tests passed.
-- Current source `d6546e6f` passes **146/146** Release and **145/145** established
-  ASan+UBSan core tests. Strategy configuration now rejects non-finite or
-  out-of-range percentages; reverse reduction endpoints use the documented
-  constant-low semantics. Default reduction endpoints remain on the previously
-  measured ramp path.
-- Production-equivalent changes through `601d3c4c` retain identical Release
-  `.text`, `.rodata`, `.data` and unwind sections versus `b1165641`; the fully
-  stripped binaries are byte-identical. All **146/146** default tests pass.
-- A dedicated proof-shadow Release build passes **146/146**, including direct
-  unarmed kernels and parser-seeded activation. The **7/7** focused retained
-  event/journal/proof-shadow diagnostic checks also pass.
-- B28+C5 candidate `20260912-2105-online-refactor-final-BC`: **33/33** solver
-  results, 958.538 seconds versus 962.588 retained, **0.995793x**; no verdict,
-  expected-result or certificate-hash mismatch and no instance over 1.10x.
-- Rank1–50 candidate `20260912-2105-online-refactor-final-ranks1-50`:
-  **50/50** solver results, 8278.533 seconds versus 8327.103 retained,
-  **0.994167x**; no verdict, expected-result or certificate-hash mismatch and
-  no instance over 1.10x.
+- Current source `690322ab` passes **146/146** Release tests and **7/7** focused
+  ASan+UBSan Walk, API and random-strategy tests. Original-CNF model, native
+  DRAT and native LRAT checks pass for the typed settings and zero-gain Factor
+  boundary; the earlier complete sanitizer suite remains background work.
+- B28+C5 candidate `20260913-0337-walkfix-gate-BC`: **33/33** solver
+  results, 949.997 seconds versus 951.866 pre-fix, **0.998036x**, and 958.538
+  retained, **0.991090x**.
+- Rank1–50 candidate `20260913-0337-walkfix-gate-ranks1-50`: **50/50** solver
+  results, 8146.381 seconds versus 8135.359 pre-fix, **1.001355x**, and 8278.533
+  retained, **0.984037x**. All 83 verdicts, certificates, non-timing statistics
+  and peak-RSS values match the pre-fix pin.
 - Completed final records are valid and report deleted formula, certificate and
   derived scratch. Remaining proof checks continue in the background and do
   not block independent work.
-- Claude's [bounded final fuzz checkpoint](benchmarks/reports/2026-09-12-online-refactor-final-fuzz.md),
-  Slurm job `1685021`, passed in 14:38
-  with zero audit, model, proof, differential, replay, interruption or negative-
-  control failures. Its fresh leg applied all 26 actions across 144,908 typed
-  programs; 940 DRAT and 641 native LRAT proofs and 2,557 models checked. The
-  disclosed focused-test wrapper gap is covered by the complete local suites.
-  Codex retains implementation and debugging ownership.
+- Claude job `1686458` found no oracle failure but OOMed on nonterminating Walk
+  score tables; its [report](benchmarks/reports/2026-09-13-configurable-strategy-fuzz-0daf2ded.md)
+  isolated positive bases at and below one. Codex repaired the full domain in
+  `690322ab`. Claude's [single-job recheck](benchmarks/reports/2026-09-13-walk-scoring-closure-fuzz-690322ab.md)
+  `1686614` passed all 676 former failures, 2000 fresh typed programs and 600
+  square cases with every required oracle and reachability target satisfied.
 
 ## Active operations
 
 - Storage guard PID `1076798` checks `/home/hwu/SAT-solving` every ten minutes.
   Above 700 GiB it holds only pending jobs whose Slurm `WorkDir` is this repo;
   it never suspends running jobs. Below the threshold it releases only jobs it
-  held. Its latest completed check was 103 GiB with no holds.
-- Committed-source Tier-D array `1683876` remains unchanged on `cpu-q`, four
-  CPUs, 32 GiB and a 1200-second solver timeout. Its anonymous node-local
-  `O_TMPFILE` runner removes input, proof, model and checker scratch on every
-  exit path.
+  held. Its latest completed check was 106 GiB with no holds.
 - Post-refactor Tier-D array `1685130` covers all 1,166 instances from commit
   `b1165641` with the same `cpu-q`, four-CPU, 32-GiB and 1200-second solver
   contract. Validation job `1685119` passed SAT/model, UNSAT/DRAT, forced-crash
@@ -116,25 +116,15 @@ not implementation or project-document changes.
 - Historical proof-checking and already-running validation jobs continue in
   the background. Do not wait for them before doing independent work and do not
   rerun retained reference solvers.
-- The fail-closed winner selector now recognizes a final timeout with no
-  `/usr/bin/time` peak only when the final record names the matching Slurm task
-  cgroup contract. A partial dry run on the older campaign finds 354 genuine
-  timeouts and 72 SAT plus 91 UNSAT checked VBS wins, but freezes nothing while
-  outcomes are missing. Its provisional SAT top ten are LymphoSAT-only and its
-  UNSAT top ten are Satsuma-only.
-- The matched winner rerun tool is ready to pin a final 40-task, instance-major
-  matrix on hwu. It independently recomputes selection evidence and uses
-  anonymous formula, proof, model, solver-stream and checker scratch, including
-  direct exact-binary adapters for Satsuma and LymphoSAT. Compute-node job
-  `1685454` passed the pinned environment, launch binding, every adapter,
-  proof/model pipeline, crash/timeout cleanup and residue check; see the
-  [environment report](benchmarks/reports/2026-09-12-winner-environment-validation.md).
+- The fail-closed winner selector waits for complete Tier-D outcomes before
+  freezing any set. The matched 40-task hwu rerun tool and its Satsuma and
+  LymphoSAT adapters passed pinning, launch, proof/model and residue validation;
+  see the [environment report](benchmarks/reports/2026-09-12-winner-environment-validation.md).
 
 ## Next actions
 
-1. Continue inspecting background Tier-D, proof/model, cleanup and storage-guard
-   state without blocking independent work.
-2. When all 1,166 latest Tactix solver records exist, freeze the ten SAT and ten
+1. Leave performance proof/model checks and the storage guard backgrounded.
+2. When all 1,166 Tier-D solver records exist, freeze the ten SAT and ten
    UNSAT losses, prepare and validate the matched hwu campaign, then submit it.
 
 ## Acceptance
@@ -159,9 +149,8 @@ not implementation or project-document changes.
 
 - Retired the legacy random scheduler for typed online programs and added trace-v3
   typed-program replay while preserving v1/v2 compatibility.
-- Specialized finite and interruptible subsolver paths and repaired queue state.
-- Removed obsolete configuration guards and retained root-only phase boundaries.
-- Restored both performance gates and submitted the validated post-refactor
-  Tier-D array from `b1165641`.
-- Repaired cgroup-timeout selection and validated environment-pinned,
-  launch-bound matched reruns with anonymous proof/model pipelines.
+- Retained root-only phase boundaries and removed obsolete configuration guards.
+- Restored both performance gates and submitted the validated `b1165641`
+  Tier-D array.
+- Moved the remaining Reduce, Walk, Reorder and default-schedule heuristics into
+  validated strategy settings and completed exact zero-gain Factor N1 coverage.
