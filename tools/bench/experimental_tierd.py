@@ -29,7 +29,8 @@ def verify(c):
 
 def prepare(a):
     c=a.campaign.resolve(); ref=ROOT/'benchmarks/baselines/sc24-26-32g-5000s'
-    commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
+    revision=a.binary_source_commit or 'HEAD'
+    commit=subprocess.check_output(['git','rev-parse',revision],cwd=ROOT,text=True).strip()
     # Every archived source/build input must be exactly the committed blob.
     source=a.source.resolve()
     listing=subprocess.check_output(['git','ls-tree','-rz',commit,'--','src','include','CMakeLists.txt'],cwd=ROOT)
@@ -122,6 +123,7 @@ if __name__=='__main__':
     p.add_argument('--campaign',type=Path,required=True)
     p.add_argument('--source',type=Path)
     p.add_argument('--binary',type=Path)
+    p.add_argument('--binary-source-commit')
     p.add_argument('--partition',default='cpu-q')
     p.add_argument('--cpus-per-task',type=int,default=4)
     p.add_argument('--instance',action='append',default=[])
