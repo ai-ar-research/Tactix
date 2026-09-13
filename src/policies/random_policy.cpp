@@ -4,73 +4,71 @@
 
 #include <cstdio>
 #include <cstdlib>
-#include <cstring>
 #include <string>
+#include <utility>
+#include <vector>
 
-#include "rules/decide/decide.hpp"
 #include "rules/registry.hpp"
-#include "rules/restart/restart.hpp"
 #include "strategy/online_inprocess.hpp"
+#include "strategy/random_online.hpp"
 
 namespace tactix {
 
+static strategy::OnlineStrategyProgram
+targeted_program(Kernel &k, const std::vector<int> &preferred,
+                 uint64_t ordering_seed) {
+  strategy::OnlineStrategyProgram program;
+  if (preferred.empty())
+    return program;
+  const size_t start = ordering_seed % preferred.size();
+  for (size_t offset = 0; offset < preferred.size(); ++offset) {
+    const int id = preferred[(start + offset) % preferred.size()];
+    const RuleVTable &rule = tactix_rules()[id];
+    if (!rule.guard(k))
+      continue;
+    strategy::OnlineInvocation step;
+    step.id = static_cast<strategy::StepId>(program.sequence.size()) + 1;
+    step.rule = rule.name;
+    step.granularity = strategy::InvocationGranularity::CanonicalApplication;
+    step.repeat = {strategy::RepeatMode::Once, 1};
+    step.work_unit = step.rule == "BVE"
+                         ? strategy::WorkUnit::BveTicks
+                         : step.rule == "Propagate"
+                               ? strategy::WorkUnit::Propagations
+                               : strategy::WorkUnit::Applications;
+    step.budget = strategy::WorkLimit::unlimited();
+    program.sequence.push_back(std::move(step));
+  }
+  program.repeat = {strategy::RepeatMode::Once, 1};
+  return program;
+}
+
+static strategy::OnlineStrategyProgram service_program(Kernel &k) {
+  // A targeted stress leg still has to reach a verdict so proof/model oracles
+  // run. Use the ordinary proof-rule service order through the same executor;
+  // parameter-randomized broad programs remain the unconfigured policy path.
+  for (const char *name : {"Propagate", "ConflictAnalysis", "Decide",
+                           "Restart"}) {
+    const int id = tactix_rule_id(name);
+    if (id < 0 || !tactix_rules()[id].guard(k))
+      continue;
+    return targeted_program(k, {id}, 0);
+  }
+  return {};
+}
+
 int random_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop,
-                 RuleTrace *trace) {
+                 RuleTrace *trace,
+                 const strategy::RandomOnlineConfig *configured) {
   const char *stress_spec = getenv("TACTIX_STRESS_RULES");
   const bool targeted = stress_spec && *stress_spec;
   const uint32_t normal_every = stress_env_u32("TACTIX_STRESS_NORMAL_EVERY", 8);
-  const bool trace_steps = getenv("TACTIX_TRACE") != nullptr;
-  // A verdict must be recorded on every exit, or a trace that stops early
-  // replays as "reached 0" against a recorded 20 and reports a divergence that
-  // is really a missing line. One scope-exit writer covers all four returns.
-  struct Finish {
-    RuleTrace *t;
-    int verdict = 0;
-    bool targeted = false;
-    uint64_t target_fires = 0;
-    ~Finish() {
-      if (t)
-        t->finish(verdict);
-      if (targeted)
-        std::printf("c stress-target-fires %llu\n",
-                    (unsigned long long)target_fires);
-    }
-  } fin{trace, 0, targeted, 0};
-  KernelStopPublisher stop_published(k, stop);
-  // Half of all seeds walk with the dense occurrence index attached:
-  // dense-gated tails (bve_backward) are unreachable without it, and a leg
-  // that cannot reach a subsystem is vacuous evidence for it
-  // (benchmarks/reports/2026-08-08-n2-frozen-pivot.md). Seed-derived, never
-  // an env knob, so a recorded trace replays with the same connection state
-  // (replay_solve reads the seed back from the trace header).
-  OccIndex stress_occ;
-  struct DenseScope {
-    Kernel &k;
-    bool active = false;
-    ~DenseScope() {
-      if (active)
-        kernel_dense_disconnect(k);
-    }
-  } dense_scope{k};
-  if ((seed & 1) != 0 && k.level == 0) {
-    // A dense random walk can select BVE at any later step.
-    kernel_dense_connect(k, stress_occ, true);
-    dense_scope.active = true;
-  }
-  std::printf("c stress-dense %d\n", dense_scope.active ? 1 : 0);
-  uint64_t rng = seed ? seed : 1;
-  const auto &rules = tactix_rules();
-  const int decide_id = tactix_rule_id("Decide");
-  const int restart_id = tactix_rule_id("Restart");
-  std::vector<int> applicable;
-  applicable.reserve(rules.size());
   std::vector<int> preferred;
   if (targeted) {
-    std::string spec(stress_spec);
+    const std::string spec(stress_spec);
     for (size_t begin = 0; begin <= spec.size();) {
       const size_t end = spec.find(',', begin);
-      const std::string name = spec.substr(begin, end - begin);
-      const int id = tactix_rule_id(name.c_str());
+      const int id = tactix_rule_id(spec.substr(begin, end - begin).c_str());
       if (id >= 0)
         preferred.push_back(id);
       if (end == std::string::npos)
@@ -78,117 +76,143 @@ int random_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop,
       begin = end + 1;
     }
   }
+  const bool trace_steps = getenv("TACTIX_TRACE") != nullptr;
+  struct Finish {
+    RuleTrace *trace;
+    int verdict = 0;
+    bool targeted = false;
+    uint64_t target_fires = 0;
+    ~Finish() {
+      if (trace)
+        trace->finish(verdict);
+      if (targeted)
+        std::printf("c stress-target-fires %llu\n",
+                    (unsigned long long)target_fires);
+    }
+  } finish{trace, 0, targeted, 0};
+  KernelStopPublisher stop_published(k, stop);
 
-  for (uint64_t steps = 0;; steps++) {
-    // Periodic invariant oracle (plan §8.2 oracle 4): most random walks never
-    // reach a verdict, so without it a state-corrupting logic bug is invisible.
-    // Every 256 steps, not per step: the check is O(vars + arena + watches) and
-    // would dominate the walk. No-op in NDEBUG builds.
-    if ((steps & 255) == 0)
+  OccIndex occurrence_index;
+  struct DenseScope {
+    Kernel &kernel;
+    bool active = false;
+    ~DenseScope() {
+      if (active)
+        kernel_dense_disconnect(kernel);
+    }
+  } dense{k};
+  if ((seed & 1) != 0 && k.level == 0) {
+    kernel_dense_connect(k, occurrence_index, true);
+    dense.active = true;
+  }
+  std::printf("c stress-dense %d\n", dense.active ? 1 : 0);
+
+  uint64_t rng = seed ? seed : 1;
+  uint64_t revision = 0;
+  uint64_t applications = 0;
+  bool force_service_program = false;
+  const strategy::RandomOnlineConfig default_config;
+  const strategy::RandomOnlineConfig &config =
+      configured ? *configured : default_config;
+  for (;;) {
+    if ((applications & 255) == 0)
       kernel_check_invariants(k);
     if (k.inconsistent)
-      return fin.verdict = 20;
-    // SAT only when the assignment is total, fully propagated, and no conflict
-    // is in flight: an unpropagated suffix or a recorded conflict can each mean
-    // the assignment still falsifies a clause. No `pending` check is needed —
-    // ConflictAnalysis is atomic, so no learned clause crosses this boundary.
+      return finish.verdict = 20;
     if (k.unassigned == 0 && !k.conflict_valid &&
         kernel_propagation_fixpoint(k))
-      return fin.verdict = 10;
-    if (stop && *stop && (steps & 1023) == 0)
-      return fin.verdict = 0;
+      return finish.verdict = 10;
+    if (stop && *stop)
+      return finish.verdict = 0;
 
-    applicable.clear();
-    for (size_t i = 0; i < rules.size(); i++)
-      if (rules[i].guard(k))
-        applicable.push_back(static_cast<int>(i));
-    assert(!applicable.empty()); // some rule is always applicable pre-verdict
-
-    int id = -1;
-    if (targeted && normal_every && (steps % normal_every) != 0) {
-      for (int candidate : preferred)
-        if (rules[candidate].guard(k)) {
-          id = candidate;
-          fin.target_fires++;
-          break;
-        }
-    }
-    if (id < 0)
-      id = applicable[stress_random(rng) % applicable.size()];
-    // Named BEFORE the apply: a rule that aborts inside its own body (an
-    // invariant or proof assert) is otherwise the one step the trace never
-    // attributes, since the result line below is never reached.
-    if (trace_steps)
-      fprintf(stderr, "step %-16s -> ...\n", rules[id].name);
-    ApplyResult r;
-    // The payload this step applied, in the rule's own encoding, recorded so
-    // the step replays through apply_instance (trace.hpp). Decide and Restart
-    // reach the same effect via a direct call below, so their payload has to be
-    // spelled out rather than read back.
-    uint64_t applied = INSTANCE_CANONICAL;
-    bool applied_semantic = false;
-    if (id == decide_id) {
-      const Lit l = stress_random_unassigned_literal(k, rng);
-      applied = lit_instance(k, l);
-      r = decide_apply(k, l, true);
-    } else if (id == restart_id) {
-      // Random keep-level: every level in [0, current] is a legal instance
-      // (plan §8.2 fuzzes instance choices, not only rule order).
-      applied = stress_random(rng) % (k.level + 1);
-      if (applied < k.level)
-        heuristics_update_target_phases(k);
-      r = restart_apply_to(k, static_cast<uint32_t>(applied));
-    } else if ((rules[id].semantic_instances &&
-                rules[id].apply_semantic_instance) ||
-               (rules[id].instances && rules[id].apply_instance)) {
-      // Enumerate the complete current semantic frontier. The former fixed
-      // array made every candidate after ordinal 15 unreachable regardless of
-      // seed. Decide remains the uniform O(1) special case above; other rules
-      // draw from the full formula-dependent space. Canonical closure remains
-      // a one-in-three choice because its grouped proof/state transition is
-      // independently legal and must stay fuzzed.
-      std::vector<uint64_t> instances;
-      const strategy::InvocationStatus enumerated =
-          strategy::enumerate_complete_instances(k, rules[id], instances);
-      if (enumerated != strategy::InvocationStatus::Completed)
-        return fin.verdict = 0;
-      const bool canonical =
-          instances.empty() || stress_random(rng) % 3 == 0;
-      if (canonical) {
-        r = apply_rule(rules[id], k);
-      } else {
-        applied = instances[stress_random(rng) % instances.size()];
-        applied_semantic = rules[id].semantic_instances != nullptr;
-        r = applied_semantic
-                ? apply_rule_semantic_instance(rules[id], k, applied)
-                : apply_rule_instance(rules[id], k, applied);
+    strategy::OnlineStrategyProgram program;
+    std::string error;
+    const uint64_t program_seed = stress_random(rng);
+    bool targeted_program_selected =
+        targeted && !force_service_program && normal_every &&
+        ((revision + 1) % normal_every) != 0;
+    if (targeted_program_selected)
+      program = targeted_program(k, preferred, program_seed);
+    if (program.sequence.empty()) {
+      targeted_program_selected = false;
+      if (targeted)
+        program = service_program(k);
+      if (program.sequence.empty() &&
+          !strategy::random_online_strategy_program(k, program_seed, config,
+                                                     program, &error, stop)) {
+        if (stop && *stop)
+          return finish.verdict = 0;
+        std::fprintf(stderr, "c ERROR: cannot generate online strategy: %s\n",
+                     error.c_str());
+        return finish.verdict = 0;
       }
-    } else {
-      r = apply_rule(rules[id], k);
     }
-    heuristics_consume_rule_advice(k);
-    heuristics_consume_retirements(k);
+    force_service_program = false;
+    ++revision;
+    strategy::OnlineStrategyExecutor executor;
+    if (!executor.configure(program, revision,
+                            strategy::ReconfigureMode::ResetRuntime, &error)) {
+      std::fprintf(stderr, "c ERROR: cannot configure online strategy: %s\n",
+                   error.c_str());
+      return finish.verdict = 0;
+    }
     if (trace)
-      trace->record(id, applied, applied_semantic);
-    // Per-step rule trace, env-gated: it names rule, result and state at every
-    // step, where the every-256 invariant check only reports that state was
-    // corrupted. Printed before the invariant oracle so an abort inside the
-    // oracle still has this step's result line. See the stress-policy skill.
-    if (trace_steps) {
-      static const char *rn[] = {"Ok", "NoOp", "Conflict", "Sat", "Unsat"};
-      fprintf(stderr,
-              "step %-16s -> %-8s level=%u trail=%zu head=%u unassigned=%u "
-              "conflict=%d incons=%d\n",
-              rules[id].name, rn[(int)r], k.level, k.trail.size(),
-              k.propagate_head, k.unassigned, (int)k.conflict_valid,
-              (int)k.inconsistent);
+      trace->record_program(
+          revision, strategy::serialize_online_strategy_program(program));
+
+    bool program_progress = false;
+    while (!executor.complete()) {
+      const strategy::InvocationResult result = executor.advance(k, stop);
+      applications += result.applications;
+      program_progress |= result.made_rule_progress;
+      if (targeted && result.applications)
+        for (const int id : preferred)
+          if (result.rule_id == static_cast<uint32_t>(id)) {
+            finish.target_fires += result.applications;
+            break;
+          }
+      if (trace_steps && result.applications) {
+        const char *name = result.rule_id < tactix_rules().size()
+                               ? tactix_rules()[result.rule_id].name
+                               : "?";
+        std::fprintf(stderr,
+                     "online %-16s status=%u level=%u applications=%llu "
+                     "revision=%llu\n",
+                     name, static_cast<unsigned>(result.status), k.level,
+                     (unsigned long long)applications,
+                     (unsigned long long)revision);
+      }
+      if (result.applications && (applications & 255) == 0)
+        kernel_check_invariants(k);
+      if (targeted && result.applications)
+        kernel_check_invariants(k);
+      if (result.status == strategy::InvocationStatus::Unsat ||
+          k.inconsistent)
+        return finish.verdict = 20;
+      if (result.status == strategy::InvocationStatus::Sat ||
+          (k.unassigned == 0 && !k.conflict_valid &&
+           kernel_propagation_fixpoint(k)))
+        return finish.verdict = 10;
+      if (result.status == strategy::InvocationStatus::Interrupted)
+        return finish.verdict = 0;
+      // A changed guard or invalidated explicit snapshot is a normal online
+      // boundary: discard only executor runtime and generate from the current
+      // kernel. The formula, proof, heuristic state and search trail continue.
+      if (result.status == strategy::InvocationStatus::Conflict ||
+          result.status == strategy::InvocationStatus::Inapplicable ||
+          result.status == strategy::InvocationStatus::StaleRequest ||
+          result.status == strategy::InvocationStatus::ResourceExhausted ||
+          (result.status == strategy::InvocationStatus::BudgetExhausted &&
+           !result.selection_complete))
+        break;
+      if (result.status == strategy::InvocationStatus::InvalidRequest ||
+          result.status == strategy::InvocationStatus::AccountingError) {
+        std::fprintf(stderr,
+                     "c ERROR: generated online strategy failed validation\n");
+        return finish.verdict = 0;
+      }
     }
-    if (targeted)
-      kernel_check_invariants(k);
-    if (r == ApplyResult::Unsat)
-      return fin.verdict = 20;
-    if (r == ApplyResult::Sat)
-      return fin.verdict = 10;
+    force_service_program = targeted_program_selected && !program_progress;
   }
 }
 

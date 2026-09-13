@@ -314,6 +314,13 @@ static uint32_t hyperbinary_semantic_instances(Kernel &k, uint64_t *out,
   std::vector<uint8_t> reached(2 * k.nvars, 0);
   std::vector<Lit> queue;
   for (Lit dom = 0; dom < 2 * k.nvars; ++dom) {
+    // Complete enumeration can be quadratic in the variable count. The
+    // caller publishes its external stop through Kernel while this legacy
+    // callback is active; return the partial prefix immediately and let the
+    // typed enumerator report Interrupted rather than mistaking it for a
+    // complete frontier.
+    if (k.stop && *k.stop)
+      return count;
     if (k.value(dom) != 0)
       continue;
     std::fill(reached.begin(), reached.end(), 0);

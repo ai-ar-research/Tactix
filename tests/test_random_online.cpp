@@ -12,6 +12,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <cstdio>
+#include <fstream>
 #include <set>
 #include <string>
 #include <unistd.h>
@@ -203,6 +204,25 @@ static void generated_program_interrupts_and_reconfigures_online() {
   assert(resumed.status != InvocationStatus::Interrupted &&
          resumed.status != InvocationStatus::InvalidRequest &&
          resumed.status != InvocationStatus::StaleRequest);
+  kernel_check_invariants(k);
+}
+
+static void generation_observes_interruption_without_mutating_kernel() {
+  Kernel k = broad_fixture();
+  RandomOnlineConfig config;
+  config.rules = {"SubsumeForward"};
+  OnlineStrategyProgram generated;
+  std::string error;
+  const StateVersion before = state_version(k);
+  const uint64_t clause_id_before = k.next_clause_id;
+  volatile sig_atomic_t stop = 1;
+  assert(!random_online_strategy_program(k, 29, config, generated, &error,
+                                         &stop));
+  assert(error == "random-online generation interrupted");
+  assert(state_version(k).arena_generation == before.arena_generation);
+  assert(state_version(k).touch_epoch == before.touch_epoch);
+  assert(state_version(k).strategy_epoch == before.strategy_epoch);
+  assert(k.next_clause_id == clause_id_before);
   kernel_check_invariants(k);
 }
 
@@ -622,7 +642,7 @@ static void generated_programs_execute_effective_semantic_transitions() {
          "generated complete/fixpoint schedule must expose its second layer");
 }
 
-static void cli_random_reaches_late_semantics_and_replays_them() {
+static void production_random_reaches_late_semantics_and_replays_them() {
   Kernel inventory = broad_fixture();
   const int c1 = tactix_rule_id("SubsumeForward");
   assert(c1 >= 0);
@@ -635,8 +655,12 @@ static void cli_random_reaches_late_semantics_and_replays_them() {
   const std::string path = "/tmp/tactix-random-late-" +
                            std::to_string(static_cast<long>(getpid())) +
                            ".trace";
-  setenv("TACTIX_STRESS_RULES", "SubsumeForward", 1);
-  setenv("TACTIX_STRESS_NORMAL_EVERY", "2", 1);
+  RandomOnlineConfig config;
+  // Exercise the production controller and generator while keeping this unit
+  // fixture focused on search service plus the clause rule whose late
+  // noncanonical instances it observes.
+  config.rules = {"SubsumeForward", "Propagate", "ConflictAnalysis",
+                  "Decide", "Restart"};
   bool reached = false;
   uint64_t selected_seed = 0;
   for (uint64_t seed = 1; seed <= 32 && !reached; ++seed) {
@@ -644,27 +668,30 @@ static void cli_random_reaches_late_semantics_and_replays_them() {
     ScopedHeuristics heuristics(k);
     RuleTrace trace;
     assert(trace.open(path.c_str(), "random", seed));
-    assert(random_solve(k, seed, nullptr, &trace) == 10);
+    assert(random_solve(k, seed, nullptr, &trace, &config) == 10);
     trace.close();
-    FILE *input = std::fopen(path.c_str(), "r");
+    std::ifstream input(path);
     assert(input);
-    char line[256], rule[128], encoded[96];
-    while (std::fgets(line, sizeof line, input)) {
-      if (std::sscanf(line, "%127s %95s", rule, encoded) != 2 ||
-          std::strcmp(rule, "SubsumeForward") ||
-          ((std::strncmp(encoded, "s:", 2) != 0) &&
-           (std::strncmp(encoded, "v:", 2) != 0)))
+    std::string line;
+    while (std::getline(input, line)) {
+      if (line.rfind("p ", 0) != 0)
         continue;
-      const uint64_t payload = std::strtoull(encoded + 2, nullptr, 10);
-      reached |= late.count(payload) != 0;
+      const size_t program_begin = line.find(' ', 2);
+      assert(program_begin != std::string::npos);
+      OnlineStrategyProgram program;
+      std::string error;
+      assert(deserialize_online_strategy_program(
+          line.substr(program_begin + 1), program, &error));
+      for (const OnlineInvocation &step : program.sequence)
+        if (step.rule == "SubsumeForward")
+          for (const uint64_t payload : step.instances)
+            reached |= late.count(payload) != 0;
     }
-    std::fclose(input);
     if (reached)
       selected_seed = seed;
   }
-  unsetenv("TACTIX_STRESS_RULES");
-  unsetenv("TACTIX_STRESS_NORMAL_EVERY");
-  assert(reached && "CLI RandomPolicy must sample beyond the old first16 cap");
+  assert(reached &&
+         "production RandomPolicy must sample beyond the old first16 cap");
 
   Kernel replay = broad_fixture();
   ScopedHeuristics replay_heuristics(replay);
@@ -678,12 +705,13 @@ int main() {
   invalid_configuration_is_rejected();
   seeds_are_replayable_and_behavior_is_wide();
   generated_program_interrupts_and_reconfigures_online();
+  generation_observes_interruption_without_mutating_kernel();
   explicit_selection_reaches_beyond_a_prefix();
   parameter_domains_are_caller_controlled();
   every_registry_action_has_random_support();
   random_search_choices_cover_phases_targets_and_parameters();
   generated_programs_execute_effective_semantic_transitions();
   serialized_configuration_round_trips_and_executes();
-  cli_random_reaches_late_semantics_and_replays_them();
+  production_random_reaches_late_semantics_and_replays_them();
   std::puts("Random online strategy breadth and replay PASS");
 }

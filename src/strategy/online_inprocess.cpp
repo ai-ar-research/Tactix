@@ -297,8 +297,11 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
 
 InvocationStatus enumerate_complete_instances(Kernel &k,
                                               const RuleVTable &rule,
-                                              std::vector<uint64_t> &out) {
+                                              std::vector<uint64_t> &out,
+                                              volatile sig_atomic_t *stop) {
   out.clear();
+  if ((stop && *stop) || (k.stop && *k.stop))
+    return InvocationStatus::Interrupted;
   const auto enumerate =
       rule.semantic_instances ? rule.semantic_instances : rule.instances;
   if (!enumerate) {
@@ -307,8 +310,16 @@ InvocationStatus enumerate_complete_instances(Kernel &k,
   }
   uint32_t cap = 64;
   for (;;) {
+    if ((stop && *stop) || (k.stop && *k.stop)) {
+      out.clear();
+      return InvocationStatus::Interrupted;
+    }
     out.resize(cap);
     const uint32_t count = enumerate(k, out.data(), cap);
+    if ((stop && *stop) || (k.stop && *k.stop)) {
+      out.clear();
+      return InvocationStatus::Interrupted;
+    }
     if (count < cap) {
       out.resize(count);
       // Some frozen v1 surfaces rank the whole-rule sentinel beside finer
@@ -458,7 +469,7 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
     for (size_t i = 0; i < runtime.selection.size(); ++i)
       runtime.selection[i] = i;
   } else {
-    out.status = enumerate_complete_instances(k, rule, runtime.selection);
+    out.status = enumerate_complete_instances(k, rule, runtime.selection, stop);
     if (out.status != InvocationStatus::Completed)
       return false;
   }

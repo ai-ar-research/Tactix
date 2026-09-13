@@ -545,3 +545,14 @@ instance after earlier candidates mutate its occurrences.
 Historical rank-by-rank validation is owned by the dated reports linked from
 [the runtime review](../benchmarks/reports/2026-09-07-runtime-review.md);
 the pre-compaction text is recoverable from Git commit `96e894c`.
+
+## 23. Online random execution and replay
+
+`--random-policy` generates typed `OnlineStrategyProgram` values and executes
+them through `OnlineStrategyExecutor`; the former direct rule scheduler is
+retired. Random programs vary parameters, order, granularity, repetitions,
+budgets, material settings, phases and complete or noncanonical instances.
+Generated fixpoint repeats have finite ceilings and generation polls the same
+external stop source as execution. Trace v3 records each complete serialized
+program before applying it; replay restores that request through the executor.
+Historical v1/v2 action traces remain readable for saved fuzz failures.

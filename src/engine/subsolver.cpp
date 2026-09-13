@@ -932,8 +932,10 @@ SubLit SubSolver::next_decision() {
   return NO_LIT;
 }
 
-SubResult SubSolver::solve(const std::vector<SubLit> &assumptions,
-                           uint64_t ticks_budget, SubTickMode tick_mode) {
+template <bool Interruptible>
+SubResult SubSolver::solve_impl(const std::vector<SubLit> &assumptions,
+                                uint64_t ticks_budget, SubTickMode tick_mode,
+                                const volatile sig_atomic_t *stop) {
   // Kissat's `kitten_status` ceases to be SAT as soon as another solve starts.
   // In particular an UNSAT-under-assumptions result must disable the model
   // flipping API even though `model_` still stores the preceding SAT model.
@@ -962,6 +964,9 @@ SubResult SubSolver::solve(const std::vector<SubLit> &assumptions,
                            : spent > budget_);
   };
   conflicts_ = 0;
+  if constexpr (Interruptible)
+    if (stop && *stop)
+      return SubResult::Budget;
   if (inconsistent_) {
     if (!have_derivation_ && pending_refutation_ != NO_REF)
       refute_empty(pending_refutation_); // stated empty clause / clashing unit
@@ -976,7 +981,11 @@ SubResult SubSolver::solve(const std::vector<SubLit> &assumptions,
   } else {
     backtrack(0);
   }
+  uint32_t stop_poll = 0;
   for (;;) {
+    if constexpr (Interruptible)
+      if (!(stop_poll++ & 255u) && stop && *stop)
+        return SubResult::Budget;
     if (!propagate()) {
       const uint32_t current = static_cast<uint32_t>(frames_.size()) - 1;
       conflicts_++;
@@ -1056,6 +1065,17 @@ SubResult SubSolver::solve(const std::vector<SubLit> &assumptions,
     frames_.push_back(static_cast<uint32_t>(trail_.size()));
     assign(d, NO_REF);
   }
+}
+
+SubResult SubSolver::solve(const std::vector<SubLit> &assumptions,
+                           uint64_t ticks_budget, SubTickMode tick_mode) {
+  return solve_impl<false>(assumptions, ticks_budget, tick_mode, nullptr);
+}
+
+SubResult SubSolver::solve_interruptible(
+    const std::vector<SubLit> &assumptions, uint64_t ticks_budget,
+    SubTickMode tick_mode, const volatile sig_atomic_t *stop) {
+  return solve_impl<true>(assumptions, ticks_budget, tick_mode, stop);
 }
 
 bool SubSolver::flip_model_literal(SubLit lit) {

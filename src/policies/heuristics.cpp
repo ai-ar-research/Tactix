@@ -39,8 +39,9 @@ void heuristics_consume_rule_advice(Kernel &k) {
 
   if (k.subst_demote && !k.substituted_events.empty()) {
     std::vector<uint8_t> mark(k.nvars, 0);
-    for (Var v = 0; v < k.nvars; v++)
-      mark[v] = kernel_var_retired(k, v) ? 1 : 0;
+    for (const Var v : k.substituted_events)
+      if (v < k.nvars)
+        mark[v] = 1;
     heuristics_demote_marked_vars(k, mark);
   }
   k.substituted_events.clear();
@@ -564,30 +565,31 @@ void heuristics_demote_marked_vars(Kernel &k, const std::vector<uint8_t> &mark) 
   const Var n = std::min<Var>(k.h->nvars, static_cast<Var>(mark.size()));
   // Dequeue first, then re-insert at the front (least preferred) in reverse so
   // relative order is preserved — the heuristics_demote_fresh_vars idiom.
-  bool any = false;
+  std::vector<Var> active;
+  active.reserve(n);
   for (Var v = 0; v < n; v++)
-    if (mark[v]) {
+    if (mark[v] && heuristics_queue_contains(k, v)) {
       queue_dequeue(k, v);
-      any = true;
+      active.push_back(v);
     }
-  if (!any)
+  if (active.empty())
     return;
-  for (Var v = n; v-- > 0;)
-    if (mark[v]) {
-      Link &l = k.h->links[v];
-      l.prev = UINT32_MAX;
-      l.next = k.h->queue_first;
-      if (k.h->queue_first != UINT32_MAX)
-        k.h->links[k.h->queue_first].prev = v;
-      else
-        k.h->queue_last = v;
-      k.h->queue_first = v;
-    }
+  for (auto it = active.rbegin(); it != active.rend(); ++it) {
+    const Var v = *it;
+    Link &l = k.h->links[v];
+    l.prev = UINT32_MAX;
+    l.next = k.h->queue_first;
+    if (k.h->queue_first != UINT32_MAX)
+      k.h->links[k.h->queue_first].prev = v;
+    else
+      k.h->queue_last = v;
+    k.h->queue_first = v;
+  }
   queue_restamp(k); // renumber in queue order + reset the search cache
   // Stable mode ranks by score, so floor those too (a substituted variable
   // occurs in no clause; any score it still carries is stale).
-  for (Var v = 0; v < n; v++)
-    if (mark[v] && k.h->scores.score[v] != 0.0)
+  for (const Var v : active)
+    if (k.h->scores.score[v] != 0.0)
       heuristics_score_set(k, v, 0.0);
 }
 

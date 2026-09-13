@@ -18,10 +18,17 @@ namespace tactix {
 namespace {
 
 
-SubResult sweep_solve(SweepEnv &e, const std::vector<SubLit> &assumptions,
+SubResult sweep_solve(Kernel &k, SweepEnv &e,
+                      const std::vector<SubLit> &assumptions,
                       uint64_t budget) {
   e.solver.randomize_phases();
-  return e.solver.solve(assumptions, budget, SubTickMode::Kitten);
+  // Reference settings bound every embedded solve. Only an explicitly
+  // unlimited online request needs the interruptible specialization; the
+  // finite path retains SubSolver's original hot-loop code generation.
+  return budget
+             ? e.solver.solve(assumptions, budget, SubTickMode::Kitten)
+             : e.solver.solve_interruptible(assumptions, budget,
+                                             SubTickMode::Kitten, k.stop);
 }
 
 ApplyResult sweep_emit_round(Kernel &, SweepRound &, uint32_t,
@@ -101,10 +108,13 @@ void env_reset(const Kernel &k, SweepEnv &e) {
   e.strip_off.assign(1, 0);
 }
 
-// Start large enough for the configured clause cap. Kissat admits the whole
-// clause which crosses a structural boundary, so `keyset_grow` preserves the
-// half-full invariant if that admitted clause crosses the initial cap.
-void keyset_reset(SweepEnv &e, uint32_t cap) {
+// Preserve the reference allocation for its ordinary clause cap, but do not
+// reserve from an arbitrarily large online cap.  The table grows as clauses
+// actually enter the environment.  This keeps UINT32_MAX usable without either
+// a formula-wide count for every seed or a 64 GiB sentinel allocation. Kissat
+// admits the whole clause which crosses a structural boundary, so
+// `keyset_grow` preserves the half-full invariant across that overshoot.
+void keyset_reset(SweepEnv &e, uint64_t cap) {
   size_t n = 16;
   while (n < 2 * static_cast<size_t>(cap) + 2)
     n <<= 1;
@@ -500,7 +510,9 @@ bool sweep_env_build(Kernel &k, Var seed, const SweepLimits &lim,
   sweep_refresh_occurrences(k, r);
   SweepEnv &e = r.env;
   env_reset(k, e);
-  keyset_reset(e, lim.max_env_clauses);
+  keyset_reset(e, std::min<uint64_t>(
+                      lim.max_env_clauses,
+                      strategy::SweepReferenceDefaults::CLAUSES));
   if (root_fixed(k, seed) || kernel_var_retired(k, seed))
     return false;
   env_var(e, seed, 0);
@@ -1117,7 +1129,7 @@ static uint32_t detect_full_partition(
 #ifdef TACTIX_ENABLE_EVENT_TRACE
     const uint64_t ticks_before = e.solver.kitten_ticks();
 #endif
-    const SubResult res = sweep_solve(e, assumptions, lim.env_ticks);
+    const SubResult res = sweep_solve(k, e, assumptions, lim.env_ticks);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
     event_trace_sweep_query(k, seed, query_ordinal++, "backbone", lit,
                             INVALID_LIT, static_cast<int>(res),
@@ -1211,7 +1223,7 @@ static uint32_t detect_full_partition(
 #ifdef TACTIX_ENABLE_EVENT_TRACE
     const uint64_t fwd_ticks_before = e.solver.kitten_ticks();
 #endif
-    SubResult res = sweep_solve(e, assumptions, lim.env_ticks);
+    SubResult res = sweep_solve(k, e, assumptions, lim.env_ticks);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
     event_trace_sweep_query(k, seed, query_ordinal++, "equiv_fwd", a, b,
                             static_cast<int>(res),
@@ -1244,7 +1256,7 @@ static uint32_t detect_full_partition(
 #ifdef TACTIX_ENABLE_EVENT_TRACE
     const uint64_t rev_ticks_before = e.solver.kitten_ticks();
 #endif
-    res = sweep_solve(e, assumptions, lim.env_ticks);
+    res = sweep_solve(k, e, assumptions, lim.env_ticks);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
     event_trace_sweep_query(k, seed, query_ordinal++, "equiv_rev", a, b,
                             static_cast<int>(res),
@@ -1347,7 +1359,7 @@ static uint32_t sweep_process_seed(Kernel &k, Var seed, const SweepLimits &lim,
 #ifdef TACTIX_ENABLE_EVENT_TRACE
   const uint64_t initial_ticks_before = e.solver.kitten_ticks();
 #endif
-  SubResult res = sweep_solve(e, assumptions, lim.env_ticks);
+  SubResult res = sweep_solve(k, e, assumptions, lim.env_ticks);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
   event_trace_sweep_query(k, seed, query_ordinal++, "initial", INVALID_LIT,
                           INVALID_LIT, static_cast<int>(res),
@@ -1448,7 +1460,7 @@ static uint32_t sweep_process_seed(Kernel &k, Var seed, const SweepLimits &lim,
     solved++;
     k.stats.sweep_candidates++;
     k.stats.sweep_solves++;
-    res = sweep_solve(e, assumptions, lim.env_ticks);
+    res = sweep_solve(k, e, assumptions, lim.env_ticks);
     if (res == SubResult::Budget) {
       k.stats.sweep_budget++;
       break;
@@ -1481,7 +1493,7 @@ static uint32_t sweep_process_seed(Kernel &k, Var seed, const SweepLimits &lim,
     solved++;
     k.stats.sweep_candidates++;
     k.stats.sweep_solves++;
-    res = sweep_solve(e, assumptions, lim.env_ticks);
+    res = sweep_solve(k, e, assumptions, lim.env_ticks);
     if (res == SubResult::Budget) {
       k.stats.sweep_budget++;
       break;

@@ -13,6 +13,9 @@ struct RandomOnlineConfig {
   std::vector<std::string> rules;
   uint32_t maximum_sequence_length = 8;
   uint32_t maximum_selected_batch = 8;
+  // Generated fixpoint repetitions always use this finite ceiling. The public
+  // executor still accepts RepeatSpec{UntilScopedFixpoint, 0} when an explicit
+  // caller supplies the external stop condition required for an unbounded run.
   uint32_t maximum_repeat_count = 4;
   uint64_t maximum_application_budget = 64;
   uint64_t maximum_bve_tick_budget = 100000;
@@ -60,7 +63,8 @@ struct RandomOnlineConfig {
 bool random_online_strategy_program(Kernel &, uint64_t seed,
                                     const RandomOnlineConfig &,
                                     OnlineStrategyProgram &,
-                                    std::string *error = nullptr);
+                                    std::string *error = nullptr,
+                                    volatile sig_atomic_t *stop = nullptr);
 
 std::string serialize_online_strategy_program(const OnlineStrategyProgram &);
 bool deserialize_online_strategy_program(const std::string &,
@@ -69,8 +73,10 @@ bool deserialize_online_strategy_program(const std::string &,
 
 inline bool random_online_inprocess_program(
     Kernel &kernel, uint64_t seed, const RandomOnlineConfig &config,
-    OnlineInprocessProgram &program, std::string *error = nullptr) {
-  return random_online_strategy_program(kernel, seed, config, program, error);
+    OnlineInprocessProgram &program, std::string *error = nullptr,
+    volatile sig_atomic_t *stop = nullptr) {
+  return random_online_strategy_program(kernel, seed, config, program, error,
+                                        stop);
 }
 
 inline std::string

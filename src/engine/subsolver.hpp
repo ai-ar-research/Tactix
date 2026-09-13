@@ -6,6 +6,7 @@
 // lists of a pivot to extract a definition (kissat's definition.c).
 #pragma once
 
+#include <csignal>
 #include <cstdint>
 #include <vector>
 
@@ -124,6 +125,13 @@ public:
   SubResult solve(const std::vector<SubLit> &assumptions,
                   uint64_t ticks_budget,
                   SubTickMode tick_mode = SubTickMode::Entries);
+  // The interruptible specialization polls `stop` at a bounded search cadence
+  // and returns Budget without claiming a verdict. Keeping it separate leaves
+  // the ordinary finite-budget engine's hot path unchanged.
+  SubResult solve_interruptible(const std::vector<SubLit> &assumptions,
+                                uint64_t ticks_budget,
+                                SubTickMode tick_mode,
+                                const volatile sig_atomic_t *stop);
 
   // The refutation behind the last `Unsat`. False when there is none: no
   // refutation yet, or the assumptions were directly contradictory, so nothing
@@ -169,6 +177,9 @@ public:
   bool inconsistent() const { return inconsistent_; }
 
 private:
+  template <bool Interruptible>
+  SubResult solve_impl(const std::vector<SubLit> &, uint64_t, SubTickMode,
+                       const volatile sig_atomic_t *);
   // A clause is a run in `arena_` with a two-word header: `arena_[ref - 2]` is
   // its id and `arena_[ref - 1]` its size, so a `SubRef` (the index of the
   // first literal) both identifies the clause and names it for the proof.

@@ -439,7 +439,8 @@ bool parse_grid(std::string_view text, FactorGrid &grid) {
 bool random_online_strategy_program(Kernel &k, uint64_t seed,
                                     const RandomOnlineConfig &config,
                                     OnlineStrategyProgram &out,
-                                    std::string *error) {
+                                    std::string *error,
+                                    volatile sig_atomic_t *stop) {
   const auto reject = [error](const char *message) {
     if (error)
       *error = message;
@@ -515,7 +516,9 @@ bool random_online_strategy_program(Kernel &k, uint64_t seed,
 
     std::vector<uint64_t> instances;
     const InvocationStatus enumerated =
-        enumerate_complete_instances(k, rule, instances);
+        enumerate_complete_instances(k, rule, instances, stop);
+    if (enumerated == InvocationStatus::Interrupted)
+      return reject("random-online generation interrupted");
     if (enumerated != InvocationStatus::Completed)
       return reject("complete instance enumeration exhausted resources");
     const bool whole_rule_only =
@@ -562,9 +565,7 @@ bool random_online_strategy_program(Kernel &k, uint64_t seed,
                      1 + bounded(rng, config.maximum_repeat_count)};
     } else {
       step.repeat = {RepeatMode::UntilScopedFixpoint,
-                     bounded(rng, OPTIONAL_CHOICES)
-                         ? 0
-                         : 1 + bounded(rng, config.maximum_repeat_count)};
+                     1 + bounded(rng, config.maximum_repeat_count)};
     }
     out.sequence.push_back(std::move(step));
   }
@@ -577,9 +578,7 @@ bool random_online_strategy_program(Kernel &k, uint64_t seed,
                   1 + bounded(rng, config.maximum_repeat_count)};
   else
     out.repeat = {RepeatMode::UntilScopedFixpoint,
-                  bounded(rng, OPTIONAL_CHOICES)
-                      ? 0
-                      : 1 + bounded(rng, config.maximum_repeat_count)};
+                  1 + bounded(rng, config.maximum_repeat_count)};
 
   if (!validate_online_strategy_program(out, error))
     return false;

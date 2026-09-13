@@ -88,7 +88,8 @@ inline bool validate_online_inprocess_program(const OnlineInprocessProgram &p,
 }
 
 InvocationStatus enumerate_complete_instances(Kernel &, const RuleVTable &,
-                                              std::vector<uint64_t> &);
+                                              std::vector<uint64_t> &,
+                                              volatile sig_atomic_t *stop = nullptr);
 
 // Single-threaded online executor. Each advance performs at most one atomic
 // registered rule application. Configuration is replace-transactional and may
