@@ -47,11 +47,19 @@ and signal. The writer is streaming and retains no checker-population ledger or
 proof-only kernel variables. Format selection cannot change formula mutation,
 rule guards, scheduling, or legal instances.
 
+Pinned `dsr-trim` emits the hintless LSR line `n+1 0 0` when the input CNF
+already contains an empty clause; Trestle correctly rejects it. The checker
+protocol repairs only that exact output to `n+1 0 k 0`, where input clause `k`
+is independently parsed as empty, and still requires Trestle acceptance. Every
+other formula or LSR spelling bypasses the bridge unchanged.
+
 The working tree contains binary/ASCII DSR serialization, the typed `add_sr`
 event, public CLI/C API format selection, pinned checker setup, and the
-anonymous-scratch runtime checker pipeline. Unit and checker-fixture tests pass.
-The contract remains pending until every active launcher uses that pipeline and
-the Slurm correctness, sanitizer, Claude fuzz, B27+C5 and Rank 1–40 gates pass.
+anonymous-scratch runtime checker pipeline. Active benchmark and fuzz launchers
+select that pipeline by default; explicit DRAT/LRAT compatibility paths remain.
+Unit, proof-oracle, runtime, full Release and sanitizer suites pass. The contract
+remains pending until the Claude-owned native-DSR fuzz checkpoint and the
+B27+C5 and Rank 1–40 performance gates pass.
 
 ## 2. Engineering-deviation ledger
 
