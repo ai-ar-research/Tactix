@@ -34,6 +34,7 @@ scope; whether MAB scheduling belongs in Tactix is still open.
 | Winner target | [fixed WV100 set](benchmarks/tiers/WV100.tsv): 33 SAT / 67 UNSAT |
 | WV100 protocol | [mechanism integration and experiment design](docs/design/2026-09-13-wv100-mechanism-integration.md) |
 | Satsuma transition | [57-row structural screen](benchmarks/reports/2026-09-13-wv100-satsuma-transition.md) |
+| Orbitopal G0 | [structured SR obligation classification](benchmarks/reports/2026-09-13-wv100-orbitopal-sr-g0.md) |
 | Symmetry G2 | [structured automorphism schedule boundary](benchmarks/reports/2026-09-13-wv100-structured-symmetry-g2.md) |
 
 The root checkout is authoritative. `.claude` contains workflow instructions,
@@ -113,7 +114,7 @@ not implementation or project-document changes.
 - The complete 57-row Satsuma transition screen returned normally on every row:
   52 became immediate contradictions, with 51 structured, five Johnson and one
   general priority class. This is causal-attribution evidence only; G0--G2 must
-  close before S1 mutates Tactix.
+  close per producer before S1 mutates Tactix.
 - Satsuma G1 now has an independently derived native-LRAT prototype. The
   official 39-record `R_18_4_4` example expanded to 888,337 exact proof
   operations and 47,445,835 bytes; pinned `cake_lpr` verified it in 3.21 seconds
@@ -122,7 +123,12 @@ not implementation or project-document changes.
   clique colouring and channel routing, every one of 173 formula-derived,
   full-multiset-validated generator-basis entries survives through the second
   `Backbone`; `Factor` is the first breaking boundary. The initial default slot
-  must precede Factor. G0 remains open; Johnson/general G2 follows their producers.
+  must precede Factor. Johnson/general G2 follows their producers.
+- Orbitopal G0 is closed for the first structured producer. Its 281 ordered unit
+  applications classified 14,212,861 SR image obligations as direct originals,
+  prior symmetry units, RUP discharges, or witness-satisfied cases with zero
+  unresolved; independent Tactix root propagation confirmed both contradictions.
+  Johnson/general G0 remains scoped to those later producers.
 - Focused WV100 development defaults to `cpu-dense-hwulab-q`, eight CPUs,
   32 GiB and 300 solver seconds; qualitative `cpu-q` probes are allowed.
   B28+C5 and Rank 1--50 retain the stable `cpu-dense-hwulab-q`, 12-CPU,
@@ -132,10 +138,10 @@ not implementation or project-document changes.
 
 1. Leave Tier-D, proof checks and the storage guard running in the background.
 2. Score arriving Tier-D results against fixed WV100 without rerunning references.
-3. Close Satsuma G0 obligation classification. G1 native-LRAT feasibility,
-   structured-producer G2 and Claude's advisory design review are complete.
-4. Implement supported mechanisms through the shared typed rule interface,
-   extending the calculus and native proof path where required.
+3. Implement the first structured orbitopal SR increment through the shared
+   typed rule interface and native proof path; its G0--G2 entry gates are closed.
+4. Keep Johnson and general producer obligations separate; close their G0/G2
+   gates before adding either mechanism.
 5. Gate every mechanism with focused proof/model tests, Claude-owned fuzz,
    B28+C5, Rank1–50, WV100 and retained Tier-D coverage.
 
@@ -147,8 +153,8 @@ not implementation or project-document changes.
 
 ## Recent changes
 
-- 2026-09-13: Froze WV100 as the 100/100 winner-signature development target.
 - 2026-09-13: Passed the full Claude fuzz, replay, proof/model and sanitizer checkpoint.
 - 2026-09-13: Preserved B28+C5 and Rank1–50 trajectories within 1.03% aggregate time.
 - 2026-09-13: Validated anonymous cleanup and submitted current Tier-D array `1687184`.
 - 2026-09-13: Located the structured symmetry slot before Factor with exact generator survival.
+- 2026-09-13: Classified the first orbitopal producer's SR obligations with zero unresolved.
