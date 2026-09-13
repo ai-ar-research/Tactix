@@ -15,10 +15,6 @@ option(TACTIX_ENABLE_RULE_JOURNAL "Compile semantic rule journaling" OFF)
 # the checker still holds. Production pins compile none of it (the emission
 # sites are #ifdef-ed out and `Proof::population_shadow()` folds to false).
 option(TACTIX_ENABLE_PROOF_SHADOW "Compile the proof-population oracle" OFF)
-# Diagnostic-only stopped-state timing without compiling the semantic observer.
-# Production builds omit both the environment lookup and the conflict check.
-option(TACTIX_ENABLE_CONFLICT_STOP "Compile diagnostic conflict stop" OFF)
-
 # Kernel discipline (plan §5): C-style core, no exceptions/RTTI anywhere in
 # the solver library or binary.
 add_compile_options(-Wall -Wextra -fno-exceptions -fno-rtti)
@@ -70,9 +66,6 @@ if(TACTIX_ENABLE_PROOF_SHADOW)
   target_compile_definitions(tactix_lib PUBLIC TACTIX_ENABLE_PROOF_SHADOW=1)
   # backtrace_symbols_fd names the emitting rule without a debugger.
   target_link_options(tactix_lib PUBLIC -rdynamic)
-endif()
-if(TACTIX_ENABLE_CONFLICT_STOP)
-  target_compile_definitions(tactix_lib PUBLIC TACTIX_ENABLE_CONFLICT_STOP=1)
 endif()
 target_include_directories(tactix_lib PUBLIC src include)
 

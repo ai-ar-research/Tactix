@@ -437,12 +437,6 @@ int main(int argc, char **argv) {
     printf("c tumble      %llu vars seeded (%s)\n",
            (unsigned long long)kernel.stats.tumble_seeded,
            kernel.tumble ? "activation order" : "off");
-#ifdef TACTIX_ENABLE_CONFLICT_STOP
-    printf("c ticksplit   %llu search, %llu suppressed, %llu total\n",
-           (unsigned long long)kernel.stats.search_ticks,
-           (unsigned long long)kernel.stats.suppressed_search_ticks,
-           (unsigned long long)kernel.stats.ticks);
-#endif
     // Kissat reports these three; they are the only readout of the sweep
     // that seeds Walk, and Walk's own step count is downstream of them.
     printf("c warmup      %llu warmups, %llu decisions, %llu propagations\n",

@@ -775,53 +775,6 @@ static void sweep_capture_dir(const Kernel &host, const SweepEnv &e,
   out.ok = true;
 }
 
-#ifdef TACTIX_ENABLE_CONFLICT_STOP
-// Diagnostic: every backbone candidate this sweep pops, and what became of it.
-// The candidate stack's content and order decide which literals become root
-// units here rather than through a later equivalence. Kissat's matching rows
-// come from the `kissat-ticktrace` variant's `sweep_backbone_candidate`.
-static void sweep_backbone_trace(const Kernel &k, Lit lit,
-                                 const char *outcome) {
-  static std::FILE *file = [] {
-    const char *path = std::getenv("TACTIX_SWEEP_TRACE");
-    return path && *path ? std::fopen(path, "w") : nullptr;
-  }();
-  if (!file)
-    return;
-  std::fprintf(file, "BB %llu %d %s\n",
-               static_cast<unsigned long long>(k.stats.conflicts),
-               kernel_externalize(k, lit), outcome);
-}
-#endif
-
-#ifdef TACTIX_ENABLE_CONFLICT_STOP
-// Diagnostic: the extracted core lemmas, in the order this walk sees them.
-// Kissat's matching rows come from the `kissat-ticktrace` variant's
-// `add_core`, whose walk assigns a unit the moment a lemma reduces to one, so
-// the sequence fixes the order root units enter the trail.
-static void sweep_core_trace(const Kernel &k, const SweepDirProof &proof,
-                             const SubStep &step, const char *site) {
-  static std::FILE *file = [] {
-    const char *path = std::getenv("TACTIX_CORE_TRACE");
-    return path && *path ? std::fopen(path, "w") : nullptr;
-  }();
-  if (!file)
-    return;
-  std::fprintf(file, "CORE %llu %s id=%u %zu:",
-               static_cast<unsigned long long>(k.stats.conflicts), site,
-               step.id, step.lits.size());
-  for (const SubLit sl : step.lits) {
-    if (sub_var_of(sl) >= proof.vars.size()) {
-      std::fprintf(file, " ?");
-      continue;
-    }
-    std::fprintf(file, " %d",
-                 kernel_externalize(k, sweep_kernel_lit(proof.vars, sl)));
-  }
-  std::fputc('\n', file);
-}
-#endif
-
 // Kissat's `save_add_clear_core` does not retain only the failed assumption's
 // final target.  It walks every learned lemma in the extracted core and a lemma
 // which is unit under the live root assignment is committed immediately.  A
@@ -833,8 +786,7 @@ static void sweep_capture_core_units(Kernel &k,
                                      const SweepDirProof &proof,
                                      SweepRound &round,
                                      const SweepLimits &lim,
-                                     bool commit_inline,
-                                     [[maybe_unused]] const char *site = "?") {
+                                     bool commit_inline) {
   if (!proof.ok)
     return;
   bool committed = false;
@@ -843,10 +795,6 @@ static void sweep_capture_core_units(Kernel &k,
         [](const SubStep &step, uint32_t id) { return step.id < id; });
     if (cc.learned && (step_at == proof.steps.end() || step_at->id != cc.id))
       continue; // No independent proof prefix: do not borrow a different target.
-#ifdef TACTIX_ENABLE_CONFLICT_STOP
-    if (cc.learned)
-      sweep_core_trace(k, proof, *step_at, site);
-#endif
     Lit unit = INVALID_LIT;
     bool satisfied = false;
     for (const SubLit sl : cc.lits) {
@@ -1099,9 +1047,6 @@ static uint32_t detect_full_partition(
       break;
     const Lit lit = r.backbone.back();
     r.backbone.pop_back();
-#ifdef TACTIX_ENABLE_CONFLICT_STOP
-    sweep_backbone_trace(k, lit, "try");
-#endif
     const SubLit candidate =
         sub_lit(e.sub_of_var[var_of(lit)], negated(lit));
     // `kitten_fixed` is checked before the retry flip. A root-fixed candidate
@@ -1152,10 +1097,7 @@ static uint32_t detect_full_partition(
     k.stats.sweep_dir_unsat++;
     SweepDirProof proof;
     sweep_capture_dir(k, e, lim.max_proof_steps, proof);
-#ifdef TACTIX_ENABLE_CONFLICT_STOP
-    sweep_backbone_trace(k, lit, "unit");
-#endif
-    sweep_capture_core_units(k, proof, r, lim, commit_inline, "backbone");
+    sweep_capture_core_units(k, proof, r, lim, commit_inline);
     if (k.inconsistent)
       return 0;
   }
@@ -1280,10 +1222,10 @@ static uint32_t detect_full_partition(
     k.stats.sweep_dir_unsat++;
     assert(!e.solver.inconsistent());
     sweep_capture_dir(k, e, lim.max_proof_steps, pair.rev);
-    sweep_capture_core_units(k, pair.fwd, r, lim, commit_inline, "fwd");
+    sweep_capture_core_units(k, pair.fwd, r, lim, commit_inline);
     if (k.inconsistent)
       return found;
-    sweep_capture_core_units(k, pair.rev, r, lim, commit_inline, "rev");
+    sweep_capture_core_units(k, pair.rev, r, lim, commit_inline);
     if (k.inconsistent)
       return found;
     r.found.push_back({std::min(a, b), std::max(a, b)});

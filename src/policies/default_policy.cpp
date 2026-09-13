@@ -2734,17 +2734,6 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
 #else
   const auto event_trace_analysis_deletions = [](const Kernel &) {};
 #endif
-#ifdef TACTIX_ENABLE_CONFLICT_STOP
-  uint64_t diagnostic_stop_conflict = UINT64_MAX;
-  if (const char *stop = std::getenv("TACTIX_STOP_AFTER_CONFLICT"))
-    diagnostic_stop_conflict = std::strtoull(stop, nullptr, 10);
-  const auto diagnostic_conflict_stop = [&] {
-    if (k.stats.conflicts >= diagnostic_stop_conflict)
-      std::raise(SIGTERM);
-  };
-#else
-  const auto diagnostic_conflict_stop = [] {};
-#endif
   event_trace.macro(k, "startup_begin");
   auto finish = [&](int verdict) {
     char payload[16];
@@ -2961,7 +2950,6 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         event_trace_analysis_deletions(k);
         event_trace.mode_clock(k, "post_analyze", mode.ticks_limit,
                                mode.ticks_at_focus_entry, mode.count);
-        diagnostic_conflict_stop();
         continue;
       }
       event_trace.learned(k, k.pending.lits);
@@ -2995,7 +2983,6 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       event_trace_analysis_deletions(k);
       event_trace.mode_clock(k, "post_analyze", mode.ticks_limit,
                              mode.ticks_at_focus_entry, mode.count);
-      diagnostic_conflict_stop();
       continue;
     }
     if (k.unassigned_active == 0)
@@ -3133,75 +3120,17 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         assert(k.level == 0 && kernel_propagation_fixpoint(k));
         k.warming = true;
         k.stats.warmups++;
-#ifdef TACTIX_ENABLE_CONFLICT_STOP
-        // Kissat prints the same two counters; the decided-literal sequence
-        // beside them is what localises a warm-up order divergence.
-        static FILE *warmup_trace = [] {
-          const char *path = std::getenv("TACTIX_WARMUP_TRACE");
-          return path && *path ? std::fopen(path, "w") : nullptr;
-        }();
-        static const int warmup_want = [] {
-          const char *v = std::getenv("TACTIX_WARMUP_INDEX");
-          return v ? std::atoi(v) : -1;
-        }();
-        const bool warmup_dump =
-            warmup_trace && (warmup_want < 0 ||
-                             static_cast<int>(k.stats.warmups) == warmup_want);
-#endif
         while (k.unassigned_active) {
           if (kernel_terminating(k))
             break;
-#ifdef TACTIX_ENABLE_CONFLICT_STOP
-          if (warmup_dump) {
-            static int at = -2, a_ext = 0, b_ext = 0, n = 0;
-            if (at == -2) {
-              const char *v = std::getenv("TACTIX_WARMUP_AT");
-              const char *a = std::getenv("TACTIX_WARMUP_VARA");
-              const char *b = std::getenv("TACTIX_WARMUP_VARB");
-              at = v ? std::atoi(v) : -1;
-              a_ext = a ? std::atoi(a) : 0;
-              b_ext = b ? std::atoi(b) : 0;
-            }
-            n++;
-            if (at > 0 && n == at) {
-              std::fprintf(warmup_trace, "S stable=%d queue_search=%u\n",
-                           static_cast<int>(k.h->stable), k.h->search_idx);
-              for (Var v = 0; v < k.nvars; v++) {
-                const int e = kernel_externalize(k, make_lit(v, false));
-                if (e != a_ext && e != b_ext)
-                  continue;
-                std::fprintf(warmup_trace,
-                             "V ext=%d score=%g inheap=%d stamp=%u value=%d "
-                             "retired=%d\n",
-                             e, k.h->scores.score[v],
-                             static_cast<int>(v < k.h->scores.pos.size() &&
-                                              k.h->scores.pos[v] != UINT32_MAX),
-                             k.h->links[v].stamp,
-                             static_cast<int>(k.values[make_lit(v, false)]),
-                             static_cast<int>(kernel_var_retired(k, v)));
-              }
-            }
-          }
-#endif
           const Lit decision = bp.pick(k);
           kernel_assign_decision(k, decision);
-#ifdef TACTIX_ENABLE_CONFLICT_STOP
-          if (warmup_dump)
-            std::fprintf(warmup_trace, "D %d\n",
-                         kernel_externalize(k, decision));
-#endif
           k.stats.warming_decisions++;
           event_trace.detail(k, "decision", kernel_externalize(k, decision));
           event_trace.heap_after_decision(k);
           event_trace.heap_scores(k);
           const size_t warmup_trail_begin = k.trail.size();
           kernel_propagate_beyond_conflicts(k);
-#ifdef TACTIX_ENABLE_CONFLICT_STOP
-          if (warmup_dump) {
-            std::fprintf(warmup_trace, "P %zu\n", k.trail.size());
-            std::fflush(warmup_trace);
-          }
-#endif
           event_trace.implications(k, warmup_trail_begin);
         }
         if (k.level)

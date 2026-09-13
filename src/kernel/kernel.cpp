@@ -1760,301 +1760,6 @@ static void kernel_settle_binary_only_debt(Kernel &k) {
   k.binary_only_head = UINT32_MAX;
 }
 
-#ifdef TACTIX_ENABLE_CONFLICT_STOP
-// Diagnostic: one row per literal whose watch list the SEARCH propagator
-// scanned, in a conflict window, with the ticks that scan charged and the
-// list's length as the scan found it. The scan moves and drops watches, so a
-// length sampled afterwards belongs to a different list than the charge.
-// Kissat's matching rows come from the `kissat-ticktrace` variant, so a diff
-// names the literal one solver propagates and the other does not.
-static FILE *kernel_tick_trace_file() {
-  static FILE *file = nullptr;
-  static bool initialized = false;
-  if (!initialized) {
-    initialized = true;
-    const char *path = std::getenv("TACTIX_TICK_TRACE");
-    if (path && *path)
-      file = std::fopen(path, "w");
-  }
-  return file;
-}
-
-static bool kernel_tick_trace_window(const Kernel &k) {
-  static uint64_t lo = 0, hi = 0;
-  static bool initialized = false;
-  if (!initialized) {
-    initialized = true;
-    if (const char *v = std::getenv("TACTIX_TICK_LO"))
-      lo = std::strtoull(v, nullptr, 10);
-    if (const char *v = std::getenv("TACTIX_TICK_HI"))
-      hi = std::strtoull(v, nullptr, 10);
-  }
-  return !k.inprocessing && !k.warming && k.stats.conflicts >= lo &&
-         k.stats.conflicts <= hi;
-}
-
-static int kernel_tick_trace_dump_lit() {
-  static int dump_lit = [] {
-    const char *v = std::getenv("TACTIX_TICK_DUMP_LIT");
-    return v ? std::atoi(v) : 0;
-  }();
-  return dump_lit;
-}
-
-static void kernel_tick_trace(const Kernel &k, Lit lit, uint64_t ticks,
-                              uint32_t list_size) {
-  FILE *const file = kernel_tick_trace_file();
-  if (!file || !kernel_tick_trace_window(k))
-    return;
-  // With one literal selected the trace follows only that literal, so a
-  // window may span the whole run.
-  const int dump_lit = kernel_tick_trace_dump_lit();
-  if (dump_lit && kernel_externalize(k, lit) != dump_lit)
-    return;
-  std::fprintf(file, "%llu %d %llu sz=%u\n",
-               static_cast<unsigned long long>(k.stats.conflicts),
-               kernel_externalize(k, lit),
-               static_cast<unsigned long long>(ticks), list_size);
-}
-
-// Every arena clause of a given size containing a given external literal,
-// with the two watched literals and the replacement-search cursor. Fires once,
-// at a chosen conflict, so a clause can be compared by content across the two
-// solvers instead of by which literal happens to watch it.
-static void kernel_clause_dump(const Kernel &k) {
-  static const int at = [] {
-    const char *v = std::getenv("TACTIX_CLAUSE_DUMP_AT");
-    return v ? std::atoi(v) : -1;
-  }();
-  static const int want_lit = [] {
-    const char *v = std::getenv("TACTIX_CLAUSE_DUMP_LIT");
-    return v ? std::atoi(v) : 0;
-  }();
-  static bool fired = false;
-  if (at < 0 || fired || static_cast<int>(k.stats.conflicts) != at)
-    return;
-  FILE *const file = kernel_tick_trace_file();
-  if (!file)
-    return;
-  fired = true;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
-    const uint32_t words = clause_actual_words(c);
-    bool hit = false;
-    for (uint32_t i = 0; i < c->size; i++)
-      hit |= kernel_externalize(k, c->lits[i]) == want_lit;
-    if (hit && !c->garbage()) {
-      std::fprintf(file, "C size=%u searched=%u w0=%d w1=%d red=%d lits=",
-                   c->size, c->searched, kernel_externalize(k, c->lits[0]),
-                   kernel_externalize(k, c->lits[1]),
-                   static_cast<int>(c->redundant()));
-      for (uint32_t i = 0; i < c->size; i++)
-        std::fprintf(file, "%d,", kernel_externalize(k, c->lits[i]));
-      std::fprintf(file, "\n");
-    }
-    ref += words;
-  }
-}
-
-// A large clause identified by its literal CONTENT, printed whenever its pose
-// changes -- the literal order, the replacement-search cursor, and the
-// blocking literal cached in each of its two watch lists. A blocker is only a
-// hint, so two solvers that agree on every clause can still disagree on which
-// clauses a propagation dereferences; this names the event that made them
-// disagree. Kissat's matching rows come from the `kissat-ticktrace` variant.
-static int kernel_pose_blocker(const Kernel &k, Lit watched, Ref ref) {
-  for (const WatchEntry w : k.watches.entries(watched))
-    if (!w.binary() && w.ref() == ref)
-      return kernel_externalize(k, w.blocking());
-  return 0;
-}
-
-static void kernel_pose_trace(const Kernel &k, const char *phase) {
-  static constexpr int MAX_TARGETS = 4, MAX_LITS = 16;
-  static int targets = 0;
-  static int want_size[MAX_TARGETS];
-  static int want[MAX_TARGETS][MAX_LITS];
-  static char last[MAX_TARGETS][512];
-  static Ref cached[MAX_TARGETS];
-  static uint64_t last_conflicts = ~uint64_t{0};
-  static const bool initialized = [] {
-    const char *v = std::getenv("TACTIX_POSE_LITS");
-    const char *p = v ? v : "";
-    while (*p && targets < MAX_TARGETS) {
-      int n = 0;
-      while (*p && *p != ';') {
-        int sign = 1;
-        if (*p == '-')
-          sign = -1, p++;
-        int value = 0;
-        while (*p >= '0' && *p <= '9')
-          value = 10 * value + (*p++ - '0');
-        if (n < MAX_LITS)
-          want[targets][n++] = sign * value;
-        if (*p == ',')
-          p++;
-      }
-      want_size[targets] = n;
-      cached[targets] = INVALID_REF;
-      last[targets][0] = 0;
-      targets++;
-      if (*p == ';')
-        p++;
-    }
-    return true;
-  }();
-  (void)initialized;
-  static const uint64_t fine_lo = [] {
-    const char *v = std::getenv("TACTIX_POSE_FINE_LO");
-    return v ? std::strtoull(v, nullptr, 10) : uint64_t{1};
-  }();
-  static const uint64_t fine_hi = [] {
-    const char *v = std::getenv("TACTIX_POSE_FINE_HI");
-    return v ? std::strtoull(v, nullptr, 10) : uint64_t{0};
-  }();
-  FILE *const file = kernel_tick_trace_file();
-  if (!targets || !file)
-    return;
-  const bool fine =
-      k.stats.conflicts >= fine_lo && k.stats.conflicts <= fine_hi;
-  if (!fine) {
-    if (k.inprocessing || k.warming || k.stats.conflicts == last_conflicts)
-      return;
-    last_conflicts = k.stats.conflicts;
-  }
-  const auto matches = [&k](const Clause *c, int t) {
-    if (c->garbage() || static_cast<int>(c->size) != want_size[t])
-      return false;
-    int hits = 0;
-    for (uint32_t i = 0; i < c->size; i++)
-      for (int j = 0; j < want_size[t]; j++)
-        hits += kernel_externalize(k, c->lits[i]) == want[t][j];
-    return hits == want_size[t];
-  };
-  for (int t = 0; t < targets; t++) {
-    const Clause *found = nullptr;
-    Ref found_ref = INVALID_REF;
-    if (cached[t] != INVALID_REF && matches(clause_at(k.arena, cached[t]), t))
-      found = clause_at(k.arena, (found_ref = cached[t]));
-    for (Ref ref = 0; !found && ref < k.arena.size();) {
-      const Clause *c = clause_at(k.arena, ref);
-      if (matches(c, t))
-        found = c, cached[t] = found_ref = ref;
-      ref += clause_actual_words(c);
-    }
-    char line[512];
-    int at = 0;
-    if (!found) {
-      cached[t] = INVALID_REF;
-      std::snprintf(line, sizeof line, "gone");
-    } else {
-      at = std::snprintf(line, sizeof line, "red=%d searched=%u lits=",
-                         static_cast<int>(found->redundant()),
-                         found->searched);
-      for (uint32_t i = 0; i < found->size; i++)
-        at += std::snprintf(line + at, sizeof line - at, "%d,",
-                            kernel_externalize(k, found->lits[i]));
-      std::snprintf(line + at, sizeof line - at, " blk0=%d blk1=%d",
-                    kernel_pose_blocker(k, found->lits[0], found_ref),
-                    kernel_pose_blocker(k, found->lits[1], found_ref));
-    }
-    if (!std::strcmp(line, last[t]))
-      continue;
-    std::strcpy(last[t], line);
-    std::fprintf(file, "P %llu %s #%d %s\n",
-                 static_cast<unsigned long long>(k.stats.conflicts), phase, t,
-                 line);
-    std::fflush(file);
-  }
-}
-
-// The score heap's ARRAY order, which decides every tie between equal-score
-// variables (report 3.39: Rank 34's first divergence is one such tie). Emitted
-// as an FNV-1a hash over external variable numbers so the two solvers'
-// internal numbering cannot register as a difference, with a full dump
-// available at one chosen conflict.
-static uint64_t kernel_heap_signature(const Kernel &k, FILE *file, bool dump) {
-  uint64_t hash = 1469598103934665603ull;
-  uint32_t at = 0;
-  for (const uint32_t v : k.h->scores.stack) {
-    const int ext = std::abs(kernel_externalize(k, make_lit(v, false)));
-    if (dump)
-      std::fprintf(file, "HEAP %u %d %g\n", at, ext, k.h->scores.score[v]);
-    hash = (hash ^ static_cast<uint64_t>(static_cast<unsigned>(ext))) *
-           1099511628211ull;
-    at++;
-  }
-  return hash;
-}
-
-static void kernel_heap_trace(const Kernel &k) {
-  static const uint64_t every = [] {
-    const char *v = std::getenv("TACTIX_HEAP_HASH_EVERY");
-    return v ? std::strtoull(v, nullptr, 10) : uint64_t{0};
-  }();
-  static const int64_t dump_at = [] {
-    const char *v = std::getenv("TACTIX_HEAP_DUMP_AT");
-    return v ? std::strtoll(v, nullptr, 10) : int64_t{-1};
-  }();
-  static uint64_t last_conflicts = ~uint64_t{0};
-  FILE *const file = kernel_tick_trace_file();
-  // DefaultPolicy leaves `H` unattached through startup propagation and early
-  // Lucky, so there is no heap to sample before the first search decision.
-  if (!file || !k.h || (!every && dump_at < 0) || k.inprocessing || k.warming)
-    return;
-  if (k.stats.conflicts == last_conflicts)
-    return;
-  last_conflicts = k.stats.conflicts;
-  const bool dump =
-      dump_at >= 0 && k.stats.conflicts == static_cast<uint64_t>(dump_at);
-  if (!dump && (!every || k.stats.conflicts % every))
-    return;
-  const uint64_t hash = kernel_heap_signature(k, file, dump);
-  std::fprintf(file, "H %llu %zu %llu stable=%d\n",
-               static_cast<unsigned long long>(k.stats.conflicts),
-               k.h->scores.stack.size(),
-               static_cast<unsigned long long>(hash),
-               static_cast<int>(k.h->stable));
-  std::fflush(file);
-}
-
-// One literal's whole list, as the scan is about to see it.
-static void kernel_tick_trace_dump(const Kernel &k, Lit lit) {
-  const int dump_lit = kernel_tick_trace_dump_lit();
-  if (!dump_lit || kernel_externalize(k, lit) != dump_lit)
-    return;
-  FILE *const file = kernel_tick_trace_file();
-  if (!file || !kernel_tick_trace_window(k))
-    return;
-  uint32_t slot = 0;
-  for (const WatchEntry w : k.watches.entries(negate(lit))) {
-    if (w.binary()) {
-      std::fprintf(file, "W %u bin other=%d\n", slot++,
-                   kernel_externalize(k, w.other()));
-      continue;
-    }
-    const Clause *c = clause_at(k.arena, w.ref());
-    std::fprintf(file,
-                 "W %u lrg ref=%u blk=%d blkval=%d garbage=%d size=%u lits=",
-                 slot++, w.ref(), kernel_externalize(k, w.blocking()),
-                 static_cast<int>(k.values[w.blocking()]),
-                 static_cast<int>(c->garbage()), c->size);
-    // Canonical order: propagation permutes `lits` on every relocation, so the
-    // printed sequence is not clause identity. Sorting makes rows comparable
-    // across dumps taken at different moments and across solvers.
-    {
-      std::vector<int> sorted;
-      sorted.reserve(c->size);
-      for (uint32_t i = 0; i < c->size; i++)
-        sorted.push_back(kernel_externalize(k, c->lits[i]));
-      std::sort(sorted.begin(), sorted.end());
-      for (const int lit : sorted)
-        std::fprintf(file, "%d,", lit);
-    }
-    std::fprintf(file, "\n");
-  }
-}
-#endif
 
 template <bool IGNORE>
 static bool propagate_trail(Kernel &k, Ref ignore) {
@@ -2069,8 +1774,7 @@ static bool propagate_trail(Kernel &k, Ref ignore) {
     // (propsearch.c:37-40). Backtrack, not Propagate, owns any required rewind
     // to the surviving frame boundary.
     const Lit lit = k.trail[propagate++];
-#if defined(TACTIX_ENABLE_EVENT_TRACE) || defined(TACTIX_ENABLE_CONFLICT_STOP) || \
-    defined(TACTIX_ENABLE_RULE_JOURNAL)
+#if defined(TACTIX_ENABLE_EVENT_TRACE) || defined(TACTIX_ENABLE_RULE_JOURNAL)
     // Diagnostic callbacks observe the same consumed cursor as before. The
     // ordinary scan only appends assignments and never reads or rewinds it.
     k.propagate_head = propagate;
@@ -2078,34 +1782,13 @@ static bool propagate_trail(Kernel &k, Ref ignore) {
     // Kissat's propagation statistic counts trail literals whose watch lists
     // are scanned, including the literal that exposes a conflict.  It does not
     // count implications at assignment time (propsearch.c:14-23).
-#ifdef TACTIX_ENABLE_CONFLICT_STOP
-    const uint64_t tick_trace_before = ticks;
-#endif
-#ifdef TACTIX_ENABLE_CONFLICT_STOP
-    // The scan itself moves and drops watches, so the list length must be
-    // sampled BEFORE it or the row reports the post-scan length beside a
-    // pre-scan charge.
-    const uint32_t tick_trace_size = k.watches.size(negate(lit));
-    kernel_clause_dump(k);
-    kernel_heap_trace(k);
-    kernel_pose_trace(k, k.inprocessing ? "inpr"
-                         : k.warming    ? "warm"
-                                        : "search");
-    kernel_tick_trace_dump(k, lit);
-#endif
     // The candidate test exists only for the probing caller, which is the one
     // site that passes a reference here; search takes the instantiation
     // without it, exactly as `propsearch.c` is compiled without
     // `PROBING_PROPAGATION`.
-    const bool tick_trace_conflict =
+    const bool scan_conflict =
         propagate_literal<false, false, IGNORE>(k, lit, ignore, ticks);
-#ifdef TACTIX_ENABLE_CONFLICT_STOP
-    kernel_pose_trace(k, k.inprocessing ? "inpr"
-                         : k.warming    ? "warm"
-                                        : "search");
-    kernel_tick_trace(k, lit, ticks - tick_trace_before, tick_trace_size);
-#endif
-    if (tick_trace_conflict) {
+    if (scan_conflict) {
       conflict = true;
       break;
     }
@@ -2930,9 +2613,6 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
   // same way kissat gets it out of `kissat_watch_large_clauses`
   // (substitute.c:594-596), as a byproduct rather than as a sort.
   k.arena_generation++; // every Ref taken before this call is now stale
-#ifdef TACTIX_ENABLE_CONFLICT_STOP
-  kernel_pose_trace(k, "collect");
-#endif
 }
 
 // Re-enter sparse search after an inprocessing phase in arena order.  Kissat's
@@ -2982,9 +2662,6 @@ void kernel_rebuild_large_watches(Kernel &k, bool flush_eliminated) {
       k.watches.push_large(c->lits[1], c->lits[0], ref);
   }
   k.large_watches_connected = true;
-#ifdef TACTIX_ENABLE_CONFLICT_STOP
-  kernel_pose_trace(k, "rebuild");
-#endif
 }
 
 void kernel_resume_walk_watches(Kernel &k) {
@@ -3287,9 +2964,6 @@ void kernel_canonicalize_binary_watches(Kernel &k,
   // in its ordered stream.
   if (k.dense)
     rebuild_dense_large_occurrences(k, *k.dense);
-#ifdef TACTIX_ENABLE_CONFLICT_STOP
-  kernel_pose_trace(k, "canon");
-#endif
 }
 
 static void kernel_compact_dense_entry_watches(Kernel &k, bool keep_large) {
