@@ -239,6 +239,8 @@ void test_unopened_proof_is_silent() {
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
 void test_population_membership_uses_exact_drat_multiset() {
   Proof p;
+  assert(p.population_shadow_available());
+  assert(!p.population_shadow());
   const Lit a = make_lit(0, false), b = make_lit(1, true);
   const Lit raw[3] = {a, b, b};
   const Lit reordered[3] = {b, a, b};
@@ -246,6 +248,8 @@ void test_population_membership_uses_exact_drat_multiset() {
   p.seed_population(1, raw, 3);
   assert(p.population_contains(99, reordered, 3));
   assert(!p.population_contains(1, normalized, 2));
+  p.arm_population_shadow();
+  assert(p.population_shadow());
 }
 #endif
 

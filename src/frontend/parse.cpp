@@ -132,7 +132,7 @@ void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
   // reads every file clause, including tautologies and duplicate copies; a
   // snapshot of only the solver's later live formula cannot model DRAT
   // deletion-by-literal-multiset.
-  if (k.proof && k.proof->population_shadow())
+  if (k.proof && k.proof->population_shadow_available())
     k.proof->seed_population(id, scratch.data(),
                              static_cast<uint32_t>(scratch.size()));
 
@@ -379,7 +379,7 @@ void finish_input(Kernel &k) {
   // checks use the mirrored watch lists.
   if (!k.proof || !k.proof->lrat())
     k.binary_ids.discard_storage();
-  if (k.proof && k.proof->population_shadow())
+  if (k.proof && k.proof->population_shadow_available())
     k.proof->arm_population_shadow();
   // The decision order is `H` state.  If `H` is already attached, publish the
   // activation population now. Otherwise retain it until ScopedHeuristics
