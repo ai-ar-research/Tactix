@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Non-solving protocol tests for fixed-reference full-view measurements."""
 import copy
+import contextlib
+import io
 import json
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 import fixed_runtime as f
 
 
@@ -19,15 +21,55 @@ class FixedRuntimeTests(unittest.TestCase):
 
     def test_candidate_only_contiguous_matrix(self):
         rows = f.candidate_rows(self.ref)
-        self.assertEqual([r['task'] for r in rows], list(range(40)))
-        self.assertEqual({r['arm'] for r in rows}, {'tactix'})
-        self.assertEqual([r['rank'] for r in rows], list(range(1,41)))
+        self.assertEqual([r['task'] for r in rows], list(range(80)))
+        self.assertEqual({r['arm'] for r in rows},
+                         {'tactix-dsr', 'tactix-drat'})
+        self.assertEqual([r['rank'] for r in rows[::2]], list(range(1,41)))
+        self.assertEqual([r['rank'] for r in rows[1::2]], list(range(1,41)))
+
+    def test_each_control_score_requires_its_named_arm(self):
+        dsr = copy.deepcopy(self.records)
+        for record in dsr:
+            record['arm'] = 'tactix-dsr'
+        self.assertTrue(f.score_records(
+            self.ref, dsr, 'tactix-dsr')['runtime_target_met'])
+        with self.assertRaisesRegex(ValueError, 'identity'):
+            f.score_records(self.ref, dsr, 'tactix-drat')
 
     def test_complete_pending_score_not_verified(self):
         r = f.score_records(self.ref,self.records)
         self.assertEqual(r['ratio'],1.0)
+        self.assertEqual(r['fixed_reference_seconds'],40.0)
+        self.assertNotIn('fixed_kissat_seconds',r)
+        self.assertIn('reference_seconds',r['per_rank'][0])
+        self.assertNotIn('kissat_seconds',r['per_rank'][0])
         self.assertTrue(r['runtime_target_met'])
         self.assertEqual(r['checked_clean'],0)
+
+    def test_submit_records_exact_manifest_and_job(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            campaign = root / 'campaign'
+            campaign.mkdir()
+            manifest = {'fixed_reference': {'path': 'ref.json'}}
+            (campaign / 'manifest.json').write_text('{}')
+            completed = Mock(stdout='12345;cluster\n')
+            with (patch.object(f, 'ROOT', root),
+                  patch.object(f, 'verify_campaign', return_value=manifest),
+                  patch.object(f, 'reference', return_value=self.ref),
+                  patch.object(f.subprocess, 'run', return_value=completed) as run):
+                with contextlib.redirect_stdout(io.StringIO()):
+                    record = f.submit(campaign)
+            self.assertEqual(record['job_id'], '12345')
+            self.assertEqual(record['tasks'], 80)
+            self.assertEqual(json.loads((campaign / 'launch.json').read_text()),
+                             record)
+            run.assert_called_once_with(
+                ['sbatch', '--parsable', str(campaign / 'array.sbatch')],
+                check=True, capture_output=True, text=True)
+            with patch.object(f, 'verify_campaign', return_value=manifest), \
+                 self.assertRaisesRegex(ValueError, 'already submitted'):
+                f.submit(campaign)
 
     def test_partial_has_no_aggregate(self):
         r = f.score_records(self.ref,self.records[:-1])
@@ -122,7 +164,8 @@ class FixedRuntimeTests(unittest.TestCase):
         result = f.score_records(ref, records)
         self.assertEqual(result['ratio'], 1.0)
         self.assertTrue(result['runtime_target_met'])
-        self.assertEqual([r['rank'] for r in f.candidate_rows(ref)], list(range(1,51)))
+        self.assertEqual([r['rank'] for r in f.candidate_rows(ref)[::2]],
+                         list(range(1,51)))
         records[-1]['valid'] = False
         with self.assertRaisesRegex(ValueError, 'certificate'):
             f.score_records(ref, records)
@@ -153,6 +196,44 @@ class FixedRuntimeTests(unittest.TestCase):
                 rp.write_text(json.dumps(bad))
                 with self.assertRaisesRegex(ValueError,'resource mismatch'):
                     f.reference(rp)
+
+    def test_b27c5_reference_is_a_fixed_32_row_vector(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            records = [dict(rank=i, tier='B' if i <= 27 else 'C',
+                            instance=f'{i}.cnf', input_sha256='input',
+                            expected='SAT',
+                            measurement=dict(solve=dict(wall_seconds=1.0)))
+                       for i in range(1, 33)]
+            ref = dict(schema='tactix-fixed-b27c5-reference-v1',
+                       solver_seconds=32.0,
+                       resource_contract=dict(solve_timeout=1200),
+                       records=records)
+            path = root / 'bc.json'
+            path.write_text(json.dumps(ref))
+            loaded = f.reference(path)
+            rows = f.candidate_rows(loaded)
+            self.assertEqual(len(rows), 64)
+            self.assertEqual({row['tier'] for row in rows[:54]}, {'B'})
+            self.assertEqual({row['tier'] for row in rows[54:]}, {'C'})
+
+    def test_tactix_rank_reference_is_supported(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'tactix-rank.json'
+            ref = copy.deepcopy(self.ref)
+            ref['schema'] = 'tactix-fixed-rank1-40-reference-v1'
+            path.write_text(json.dumps(ref))
+            self.assertEqual(len(f.reference(path)['records']), 40)
+
+    def test_comparison_reference_identity_includes_status_and_hash(self):
+        identity = f.reference_identity(self.ref)
+        for key, value in [('instance', 'other.cnf'),
+                           ('input_sha256', 'other'),
+                           ('expected', 'UNSAT')]:
+            changed = copy.deepcopy(self.ref)
+            changed['records'][0][key] = value
+            with self.subTest(key=key):
+                self.assertNotEqual(f.reference_identity(changed), identity)
 
 
 if __name__ == '__main__':

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Fuzzing entry point (plan §8.2; fuzz skill). Wraps fuzz.py:
 #   run.sh --quick  --solver CMD     ~10k cases + regression corpus (per commit)
-#   run.sh --nightly --solver CMD    ~200k cases + LRAT chain
+#   run.sh --nightly --solver CMD    ~200k cases + full proof cross-checks
 #   run.sh [fuzz.py args...]         pass-through
 # Sizes are the cluster scale (10x the workstation defaults); submit
 # via tools/fuzz/slurm.sh (50 physical cores/workers), never in the session shell.

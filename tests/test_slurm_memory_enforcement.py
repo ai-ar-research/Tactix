@@ -32,8 +32,8 @@ assert "cpus = 2 * physical_cores" in run_source
 assert "#SBATCH --mem={mem_gb}G" in run_source
 
 plan = (ROOT / "DEVELOPMENT_PLAN.md").read_text()
-assert "Allocate 8 GiB per **physical** core" in plan
-assert "two physical/four logical CPUs" in plan
-assert "SLURM `--mem=16G` task cgroup" in plan
+assert "eight logical CPUs, 32 GiB" in plan
+assert "12 logical\nCPUs, 32 GiB and 1,200 solver seconds" in plan
+assert "Canonical Tier D uses a 32-GiB task-cgroup" in plan
 
 print("SLURM memory enforcement: PASS")

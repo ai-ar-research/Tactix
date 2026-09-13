@@ -1,0 +1,9 @@
+diff --git a/src/dsr-trim.c b/src/dsr-trim.c
+index b096430..289653f 100644
+--- a/src/dsr-trim.c
++++ b/src/dsr-trim.c
+@@ -1762 +1762,3 @@ static void prepare_dsr_trim_data(void) {
+-    add_formula_clause_to_ht(i);
++    if (!is_clause_deleted(i)) {
++      add_formula_clause_to_ht(i);
++    }

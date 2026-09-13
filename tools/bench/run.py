@@ -24,8 +24,9 @@ Usage:
   paths relative to `benchmarks/cache/`.
 - For the solver under test, every UNSAT answer's proof is checked; a rejected
   (or missing) proof counts as UNSOLVED, competition-style. The arm's own
-  command picks the format (fuzz-harness convention): `--lrat` in the command
-  => native LRAT verified by cake_lpr, otherwise DRAT verified by drat-trim.
+  command picks the format: Tactix defaults to native DSR checked through
+  `dsr-trim` and Trestle, `--lrat` selects native LRAT, and `--drat` selects
+  compatibility DRAT. Other solver commands default to DRAT.
   A DRAT check that outruns its budget is not final: the arm is re-solved with
   `--lrat` and cake_lpr verifies that instead (§8.1, `lrat_rescue`). A checker
   that rejects still scores the instance unsolved — that is an N2 failure.
@@ -74,7 +75,12 @@ TIERS = os.path.join(ROOT, "benchmarks", "tiers")
 MANIFESTS = os.path.join(HERE, "manifests")
 RUNS = os.path.join(ROOT, "benchmarks", "runs")
 DRAT_TRIM = os.path.join(ROOT, "tools", "checkers", "bin", "drat-trim")
+DSR_TRIM = os.path.join(ROOT, "tools", "checkers", "bin", "dsr-trim")
+DSR_COMPRESS = os.path.join(ROOT, "tools", "checkers", "bin", "dsr-compress")
+SR_CHECK = os.path.join(ROOT, "tools", "checkers", "bin", "srcheck")
 CAKE_LPR = os.path.join(ROOT, "tools", "checkers", "bin", "cake_lpr")
+sys.path.insert(0, HERE)
+from proof_oracle import bridge_trivial_input_lsr  # noqa: E402
 # Oracle 1 of the fuzz harness (§8.2), shared here since 2026-08-08: a SAT
 # verdict's v-lines are checked against the ORIGINAL formula. The wrong-SAT
 # exhibit was caught only by the expected-verdict column; an instance without
@@ -140,7 +146,7 @@ def classify_checker_output(stdout, stderr, returncode):
     NOT-form must be tested first. cake_lpr prints `s VERIFIED UNSAT`, and on
     failure a `Checking failed at line: N. Reason: …` on stderr."""
     both = stdout + "\n" + stderr
-    if "s NOT VERIFIED" in both:
+    if "s NOT VERIFIED" in both or "s INVALID" in both:
         kind = CHK_REJECTED
     elif "s MEMORY ALLOCATION ERROR" in both:
         kind = CHK_RESOURCE
@@ -169,12 +175,10 @@ TIER_TIMEOUT = {
     "A": 30.0, "B": 300.0, "C": 1200.0, "D": 5000.0,
     "P4A": 30.0, "P4B": 300.0,
 }
-# A–C and the Phase-4 fixtures receive 32 GB. Tier D mirrors the competition's
-# 16 GB cap. Under the cluster's 8 GiB/physical-core and SMT-2 rule these
-# become eight and four allocated logical CPUs respectively; the extra CPUs
-# buy memory capacity, not solver parallelism.
-TIER_MEM_GB = {tier: 32 for tier in ("A", "B", "C", "P4A", "P4B")}
-TIER_MEM_GB["D"] = 16
+# All maintained tiers use the current 32-GiB contract. Under the cluster's
+# 8-GiB/physical-core and SMT-2 rule this allocates eight logical CPUs; the
+# extra CPUs buy memory capacity, not solver parallelism.
+TIER_MEM_GB = {tier: 32 for tier in ("A", "B", "C", "D", "P4A", "P4B")}
 BASELINES = {
     "kissat": os.path.join(ROOT, "tools", "solvers", "bin", "kissat"),
     "cadical": os.path.join(ROOT, "tools", "solvers", "bin", "cadical"),
@@ -217,11 +221,15 @@ def parse_verdict(exitcode, stdout):
 def proof_format(cmd):
     """Which certificate this arm emits — the solver's own flag decides.
 
-    Same convention as the fuzz harness: an arm whose command carries
-    `--lrat` writes native LRAT (checked by the verified cake_lpr), anything
-    else writes DRAT (checked by drat-trim). No separate runner switch, so a
-    single array can time a DRAT arm and an LRAT arm in the same window."""
-    return "lrat" if "--lrat" in cmd else "drat"
+    Tactix defaults to DSR. Explicit flags select compatibility formats;
+    external solvers retain their usual DRAT default."""
+    if "--lrat" in cmd:
+        return "lrat"
+    if "--dsr" in cmd:
+        return "dsr"
+    if "--drat" in cmd:
+        return "drat"
+    return "dsr" if os.path.basename(cmd[0]) == "tactix" else "drat"
 
 
 def checker_budget(timeout):
@@ -242,6 +250,52 @@ def check_proof(fmt, cnf, proof, budget):
     and looks exactly like a rejected proof -- and the converse misreading, a
     genuine `s NOT VERIFIED` taken for an OOM, is just as easy. See
     classify_checker_output."""
+    if fmt == "dsr":
+        started = time.monotonic()
+
+        def remaining():
+            return max(0.001, budget - (time.monotonic() - started))
+
+        with tempfile.TemporaryDirectory(prefix="tactix-dsr-check-") as scratch:
+            binary_lsr = os.path.join(scratch, "proof.binary.lsr")
+            text_lsr = os.path.join(scratch, "proof.text.lsr")
+            stages = [
+                ([DSR_TRIM, "-q", "-c", cnf, proof, binary_lsr], binary_lsr),
+                ([DSR_COMPRESS, "-d", binary_lsr, text_lsr], text_lsr),
+                ([SR_CHECK, cnf, text_lsr], None),
+            ]
+            details = []
+            for index, (argv, produced) in enumerate(stages):
+                if index == 2:
+                    bridge_trivial_input_lsr(cnf, text_lsr)
+                try:
+                    checked = subprocess.run(
+                        argv, capture_output=True, text=True,
+                        errors="replace", timeout=remaining())
+                except subprocess.TimeoutExpired:
+                    return (False,
+                            f"{CHECKER_TIMEOUT_PREFIX}{budget:g}s budget",
+                            CHK_TIMEOUT, details)
+                if index == 1:
+                    kind = (CHK_VERIFIED if checked.returncode == 0 and
+                            "ERROR" not in checked.stdout + checked.stderr and
+                            "not supported" not in checked.stdout + checked.stderr
+                            else CHK_ERROR)
+                    msg, detail = ("VERIFIED" if kind == CHK_VERIFIED else
+                                   "checker-error: DSR decompression failed"), []
+                else:
+                    kind, msg, detail = classify_checker_output(
+                        checked.stdout, checked.stderr, checked.returncode)
+                details.extend(detail)
+                if (kind != CHK_VERIFIED or
+                        (produced is not None and
+                         (not os.path.isfile(produced) or
+                          os.path.getsize(produced) == 0))):
+                    if kind == CHK_VERIFIED:
+                        kind, msg = CHK_ERROR, "checker-error: empty DSR stage output"
+                    return False, msg, kind, details
+            return True, "VERIFIED", CHK_VERIFIED, details
+
     argv = ([CAKE_LPR, cnf, proof] if fmt == "lrat"
             else [DRAT_TRIM, cnf, proof])
     try:

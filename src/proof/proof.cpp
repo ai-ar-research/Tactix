@@ -25,8 +25,7 @@ bool Proof::open(const char *path, ProofFormat format) {
   file_ = fopen(path, "wb");
   format_ = format;
   if (file_)
-    setvbuf(file_, nullptr,
-            format == ProofFormat::DratBinary ? _IONBF : _IOFBF, 1 << 20);
+    setvbuf(file_, nullptr, binary() ? _IONBF : _IOFBF, 1 << 20);
   return file_ != nullptr;
 }
 
@@ -46,7 +45,7 @@ void Proof::flush_binary() {
   binary_buffer_size_ = 0;
 }
 
-// Binary DRAT literal encoding (drat-trim format): map external literal e
+// Binary DSR/DRAT literal encoding: map external literal e
 // to unsigned u = (|e| << 1) | (e < 0), then 7-bit varint chunks,
 // high bit = continuation.
 void Proof::put_lit(Lit l) {
@@ -55,7 +54,7 @@ void Proof::put_lit(Lit l) {
     l = make_lit((*variable_map_)[var_of(l)], negated(l));
   }
   const int e = externalize(l);
-  if (format_ == ProofFormat::DratBinary) {
+  if (binary()) {
     uint32_t u = (static_cast<uint32_t>(e < 0 ? -e : e) << 1) | (e < 0);
     while (u >= 128) {
       put_byte(static_cast<unsigned char>(128 | (u & 127)));
@@ -70,7 +69,7 @@ void Proof::put_lit(Lit l) {
 void Proof::put_u64(uint64_t v) { fprintf(file_, "%" PRIu64 " ", v); }
 
 void Proof::end_line() {
-  if (format_ == ProofFormat::DratBinary)
+  if (binary())
     put_byte(0);
   else
     fputs("0\n", file_);
@@ -123,7 +122,9 @@ void Proof::add_rup(uint64_t id, const Lit *lits, uint32_t size,
 #endif
     return;
   }
-  if (format_ == ProofFormat::DratBinary)
+  if (format_ == ProofFormat::DsrBinary)
+    put_byte(1);
+  else if (format_ == ProofFormat::DratBinary)
     put_byte('a');
   for (uint32_t i = 0; i < size; i++)
     put_lit(lits[i]);
@@ -159,10 +160,11 @@ void Proof::add_rat(uint64_t id, const Lit *lits, uint32_t size,
 #endif
     return;
   }
-  // DRAT (binary/ascii): a plain add with the pivot ordered first; the RAT
-  // justification is inferred by the checker (first-literal RAT). Byte-identical
-  // to add_rup's DRAT path, so DRAT output is unchanged.
-  if (format_ == ProofFormat::DratBinary)
+  // DSR/DRAT: a witnessless addition with the pivot ordered first. The checker
+  // first tries RUP and then infers first-literal RAT. DRAT output is unchanged.
+  if (format_ == ProofFormat::DsrBinary)
+    put_byte(1);
+  else if (format_ == ProofFormat::DratBinary)
     put_byte('a');
   for (uint32_t i = 0; i < size; i++)
     put_lit(lits[i]);
@@ -172,6 +174,64 @@ void Proof::add_rat(uint64_t id, const Lit *lits, uint32_t size,
 #endif
 }
 
+bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
+                   const Lit *true_lits, uint32_t ntrue,
+                   const DsrLiteralMapping *mappings, uint32_t nmappings) {
+#ifndef TACTIX_ENABLE_PROOF_SHADOW
+  (void)id;
+#endif
+  assert(size > 0);
+  assert(lits);
+  assert(!tautological(lits, size));
+  assert(!ntrue || true_lits);
+  assert(!nmappings || mappings);
+  const Lit pivot = lits[0];
+
+#ifndef NDEBUG
+  for (uint32_t i = 0; i < ntrue; ++i) {
+    assert(var_of(true_lits[i]) != var_of(pivot));
+    for (uint32_t j = 0; j < i; ++j)
+      assert(var_of(true_lits[i]) != var_of(true_lits[j]));
+  }
+  for (uint32_t i = 0; i < nmappings; ++i) {
+    assert(mappings[i].from != INVALID_LIT);
+    assert(mappings[i].to != INVALID_LIT);
+    assert(mappings[i].from != mappings[i].to ||
+           var_of(mappings[i].from) == var_of(pivot));
+    for (uint32_t j = 0; j < ntrue; ++j)
+      assert(var_of(mappings[i].from) != var_of(true_lits[j]));
+    for (uint32_t j = 0; j < i; ++j)
+      assert(var_of(mappings[i].from) != var_of(mappings[j].from));
+  }
+#endif
+
+  if (!file_)
+    return true;
+  if (!dsr())
+    return false;
+
+  if (format_ == ProofFormat::DsrBinary)
+    put_byte(1);
+  for (uint32_t i = 0; i < size; ++i)
+    put_lit(lits[i]);
+
+  put_lit(pivot); // begin witness; the pivot is initially mapped true
+  for (uint32_t i = 0; i < ntrue; ++i)
+    put_lit(true_lits[i]);
+  if (nmappings) {
+    put_lit(pivot); // separate true literals from literal mappings
+    for (uint32_t i = 0; i < nmappings; ++i) {
+      put_lit(mappings[i].from);
+      put_lit(mappings[i].to);
+    }
+  }
+  end_line();
+#ifdef TACTIX_ENABLE_PROOF_SHADOW
+  population_add(id, lits, size);
+#endif
+  return true;
+}
+
 void Proof::add_empty(uint64_t id, const uint64_t *chain, uint32_t nchain) {
   add_rup(id, nullptr, 0, chain, nchain);
 }
@@ -179,7 +239,7 @@ void Proof::add_empty(uint64_t id, const uint64_t *chain, uint32_t nchain) {
 void Proof::add_derived_unit(uint64_t id, Lit unit, const uint64_t *chain,
                              uint32_t nchain) {
   if (!file_ || format_ != ProofFormat::Lrat)
-    return; // DRAT: propagation-derived units are implied, never written
+    return; // DSR/DRAT: propagation-derived units are implied, never written
   add_rup(id, &unit, 1, chain, nchain);
 }
 
@@ -197,11 +257,14 @@ void Proof::del(uint64_t line_id, uint64_t del_id, const Lit *lits,
 #endif
     return;
   }
-  if (format_ == ProofFormat::DratBinary)
+  if (format_ == ProofFormat::DsrBinary)
+    put_byte(2);
+  else if (format_ == ProofFormat::DratBinary)
     put_byte('d');
   else
     fputc('d', file_);
-  if (format_ == ProofFormat::DratAscii)
+  if (format_ == ProofFormat::DsrAscii ||
+      format_ == ProofFormat::DratAscii)
     fputc(' ', file_);
   for (uint32_t i = 0; i < size; i++)
     put_lit(lits[i]);

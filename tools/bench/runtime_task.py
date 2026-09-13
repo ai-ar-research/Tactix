@@ -17,7 +17,7 @@ import tempfile
 import threading
 import time
 
-from proof_oracle import proof_check_status
+from proof_oracle import bridge_trivial_input_lsr, proof_check_status
 
 
 CAMPAIGN = None
@@ -178,9 +178,18 @@ def checked_verdict_valid(expected, verdict, solve, certificate_valid):
 
 def validate_runtime_pin_contract(campaign, manifest):
     """Reject an incomplete checker bundle before spending solver time."""
-    required = {"pins/drat-trim", "pins/checkmodel", "pins/modelcheck.py"}
+    required = {"pins/checkmodel", "pins/modelcheck.py"}
     for arm in manifest.get("arms", {}).values():
         required.add(arm["path"])
+        certificate = arm.get("certificate", "drat")
+        if certificate == "drat":
+            required.add("pins/drat-trim")
+        elif certificate == "dsr":
+            required.update(
+                {"pins/dsr-trim", "pins/dsr-compress", "pins/srcheck"}
+            )
+        else:
+            raise RuntimeError(f"unsupported proof certificate: {certificate}")
     if manifest.get("scratch_policy") == "anonymous-local-files-v1":
         required.add("pins/anonymous_scratch.py")
     hashes = manifest.get("pin_sha256", {})
@@ -190,6 +199,79 @@ def validate_runtime_pin_contract(campaign, manifest):
     absent = sorted(rel for rel in required if not (campaign / rel).is_file())
     if absent:
         raise RuntimeError(f"runtime pin files missing {absent}")
+
+
+def proof_stage(scratch, name, command, timeout, produced=None):
+    """Run one proof stage and require its exact oracle/output contract."""
+    stdout = scratch / f"{name}.stdout"
+    stderr = scratch / f"{name}.stderr"
+    result = measured(command, stdout, stderr, scratch / f"{name}.time", timeout)
+    output = "\n".join(tail(stdout, 100) + tail(stderr, 100))
+    if name in ("drat-trim", "dsr-trim", "srcheck"):
+        status = proof_check_status(name, result["exit_code"], output, "")
+    elif name == "dsr-compress":
+        status = ("verified" if result["exit_code"] == 0 and
+                  not result["timed_out"] and
+                  "ERROR" not in output and "not supported" not in output
+                  else "error")
+    else:
+        raise RuntimeError(f"unsupported proof stage: {name}")
+    if produced is not None and (not produced.is_file() or produced.stat().st_size == 0):
+        status = "error"
+    result.update(name=name, result=status, output_tail=output[-12000:])
+    if produced is not None:
+        result["produced_bytes"] = (
+            produced.stat().st_size if produced.is_file() else None
+        )
+    return result
+
+
+def check_unsat_proof(campaign, certificate, cnf, proof, scratch, timeout):
+    """Check one certificate, stopping at the first failed pipeline stage."""
+    started = time.monotonic()
+    stages = []
+
+    def remaining():
+        return max(1, timeout - int(time.monotonic() - started))
+
+    if certificate == "drat":
+        stages.append(proof_stage(
+            scratch, "drat-trim",
+            [campaign / "pins/drat-trim", cnf, proof], remaining()))
+        pipeline = "drat-trim"
+    elif certificate == "dsr":
+        binary_lsr = scratch / "proof.binary.lsr"
+        text_lsr = scratch / "proof.text.lsr"
+        stages.append(proof_stage(
+            scratch, "dsr-trim",
+            [campaign / "pins/dsr-trim", "-q", "-c", cnf, proof, binary_lsr],
+            remaining(), binary_lsr))
+        if stages[-1]["result"] == "verified":
+            stages.append(proof_stage(
+                scratch, "dsr-compress",
+                [campaign / "pins/dsr-compress", "-d", binary_lsr, text_lsr],
+                remaining(), text_lsr))
+        if stages[-1]["result"] == "verified":
+            bridge_trivial_input_lsr(cnf, text_lsr)
+            stages.append(proof_stage(
+                scratch, "srcheck",
+                [campaign / "pins/srcheck", cnf, text_lsr], remaining()))
+        pipeline = "dsr-trim-lsr-trestle"
+    else:
+        raise RuntimeError(f"unsupported proof certificate: {certificate}")
+    return {
+        "pipeline": pipeline,
+        "result": ("verified" if stages and
+                   all(stage["result"] == "verified" for stage in stages)
+                   else "not-verified"),
+        "wall_seconds": round(time.monotonic() - started, 3),
+        "exit_code": stages[-1]["exit_code"] if stages else None,
+        "timed_out": any(stage["timed_out"] for stage in stages),
+        "output_tail": "\n".join(
+            stage["output_tail"] for stage in stages
+        )[-12000:],
+        "stages": stages,
+    }
 
 
 def provisional_result(result, recorded_at):
@@ -233,6 +315,7 @@ def main():
     manifest = json.loads((CAMPAIGN / "manifest.json").read_text())
     compressed = ROOT / "benchmarks/cache" / row["instance"]
     arm = manifest["arms"][row["arm"]]
+    certificate = arm.get("certificate", "drat")
     binary = CAMPAIGN / arm["path"]
     scratch_root = Path(os.environ.get("SLURM_TMPDIR", tempfile.gettempdir()))
     anonymous = manifest.get("scratch_policy") == "anonymous-local-files-v1"
@@ -245,7 +328,7 @@ def main():
         scratch = Path(tempfile.mkdtemp(prefix=f"tactix-runtime-{task:03d}-",
                                        dir=scratch_root))
     cnf = scratch / "input.cnf"
-    proof = scratch / "proof.drat"
+    proof = scratch / ("proof.dsr" if certificate == "dsr" else "proof.drat")
     stdout = scratch / "solver.stdout"
     stderr = scratch / "solver.stderr"
     result = None
@@ -319,17 +402,8 @@ def main():
         atomic_json(provisional_path, provisional_result(
             result, dt.datetime.now(dt.timezone.utc).isoformat()))
         if verdict == "UNSAT" and proof.is_file():
-            checker_out = scratch / "checker.stdout"
-            checker_err = scratch / "checker.stderr"
-            checked = measured([CAMPAIGN / "pins/drat-trim", cnf, proof],
-                               checker_out, checker_err,
-                               scratch / "checker.time", CHECK_TIMEOUT)
-            output = "\n".join(tail(checker_out, 100) + tail(checker_err, 100))
-            checked["result"] = (
-                "verified" if proof_check_status(
-                    "drat-trim", checked["exit_code"], output, "") == "verified"
-                else "not-verified")
-            checked["output_tail"] = output[-12000:]
+            checked = check_unsat_proof(
+                CAMPAIGN, certificate, cnf, proof, scratch, CHECK_TIMEOUT)
             result["proof_check"] = checked
             result["valid"] = checked["result"] == "verified"
         elif verdict == "SAT":

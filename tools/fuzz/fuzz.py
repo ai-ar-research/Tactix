@@ -3,8 +3,9 @@
 
 Oracles enforced on every case:
   1. model     — SAT verdicts: `checkmodel` verifies the v-line assignment
-  2. proof     — UNSAT verdicts: DRAT accepted by drat-trim ('s VERIFIED');
-                 native LRAT and optional DRAT conversion checked by cake_lpr
+  2. proof     — UNSAT verdicts: native DSR elaborated by dsr-trim and checked
+                 as LSR by Trestle; explicit DRAT/LRAT compatibility checked
+                 by drat-trim/cake_lpr
   3. differential — verdict must agree with the oracle solver
   4. crash/io  — clean exit (10/20), s-line consistent with exit code,
                  no sanitizer reports on stderr
@@ -53,9 +54,12 @@ from shrink import minimize  # noqa: E402
 # slurm.sh includes this shared parser in its immutable harness snapshot.
 # The fallback is only for the maintained tools/fuzz checkout.
 sys.path.append(os.path.join(ROOT, "tools", "bench"))
-from proof_oracle import proof_check_status  # noqa: E402
+from proof_oracle import bridge_trivial_input_lsr, proof_check_status  # noqa: E402
 
 DRAT_TRIM = os.path.join(ROOT, "tools", "checkers", "bin", "drat-trim")
+DSR_TRIM = os.path.join(ROOT, "tools", "checkers", "bin", "dsr-trim")
+DSR_COMPRESS = os.path.join(ROOT, "tools", "checkers", "bin", "dsr-compress")
+SR_CHECK = os.path.join(ROOT, "tools", "checkers", "bin", "srcheck")
 LRAT_CHECK = os.path.join(ROOT, "tools", "checkers", "bin", "lrat-check")
 CAKE_LPR = os.path.join(ROOT, "tools", "checkers", "bin", "cake_lpr")
 
@@ -364,29 +368,41 @@ def substitute_seed(cmd, seed):
 def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
     """Run the solver under test on cnf_path and apply all oracles.
 
-    Native-LRAT mode: when the solver command itself contains --lrat, the
-    proof is the solver's own LRAT and is checked directly with
-    cake_lpr (no drat-trim conversion). Legacy lrat-check is not an acceptance
-    oracle: it accepts a non-conflicting empty-lemma chain on a SAT input."""
+    The default solver mode is native DSR. An explicit --drat or --lrat selects
+    the corresponding compatibility oracle. Native LRAT is checked directly
+    with cake_lpr; legacy lrat-check is not an acceptance oracle because it
+    accepts a non-conflicting empty-lemma chain on a SAT input."""
     out = CaseOutcome()
     def check(command):
         c, o, e = run_cmd(command, 120)
-        status = proof_check_status(os.path.basename(command[0]), c, o, e)
+        checker = os.path.basename(command[0])
+        if checker == "dsr-compress":
+            status = ("verified" if c == 0 and "ERROR" not in o + e and
+                      "not supported" not in o + e else "error")
+        else:
+            status = proof_check_status(checker, c, o, e)
         # The pinned drat-trim exits 1 on an input empty clause even while
         # reporting success. Confirm that semantic condition from the actual
         # original CNF; never accept an abnormal exit from success text alone.
-        if (status == "error" and command[0] == DRAT_TRIM and c == 1 and
+        if (command[0] == DRAT_TRIM and c == 1 and
                 "c trivial UNSAT" in o.splitlines() and
                 "s VERIFIED" in o.splitlines()):
             _, clauses = parse_dimacs(cnf_path)
-            if [] in clauses:
-                status = "verified"
+            status = "verified" if [] in clauses else "rejected"
         out.checker_runs.append(dict(command=command, exit_code=c, stdout=o,
                                      stderr=e, status=status))
         return status == "verified"
     native_lrat = "--lrat" in solver
-    proof = os.path.join(workdir,
-                         "proof.lrat" if native_lrat else "proof.drat")
+    explicit_dsr = "--dsr" in solver
+    is_tactix = os.path.basename(solver[0]) == "tactix"
+    # Competition reference solvers still default to DRAT. Tactix's default is
+    # native DSR; --drat keeps a same-source compatibility/control lane.
+    explicit_drat = ("--drat" in solver or
+                     (not native_lrat and not explicit_dsr and not is_tactix))
+    native_dsr = not native_lrat and not explicit_drat
+    proof = os.path.join(
+        workdir, "proof.lrat" if native_lrat else
+        ("proof.drat" if explicit_drat else "proof.dsr"))
     out.proof_artifacts.append(proof)
     if os.path.exists(proof):
         os.unlink(proof)
@@ -420,7 +436,7 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
         if os.path.exists(proof) and native_lrat:
             if not check([CAKE_LPR, cnf_path, proof]):
                 out.fail("proof", "cake_lpr did not verify the native LRAT")
-        elif os.path.exists(proof):
+        elif os.path.exists(proof) and explicit_drat:
             if not check([DRAT_TRIM, cnf_path, proof]):
                 out.fail("proof", "drat-trim did not verify")
             elif lrat:
@@ -439,6 +455,22 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
                     else:
                         if not check([CAKE_LPR, cnf_path, lrat_file]):
                             out.fail("proof", "cake_lpr did not verify the converted LRAT")
+        elif os.path.exists(proof) and native_dsr:
+            binary_lsr = os.path.join(workdir, "proof.binary.lsr")
+            text_lsr = os.path.join(workdir, "proof.text.lsr")
+            out.proof_artifacts.extend([binary_lsr, text_lsr])
+            if not check([DSR_TRIM, "-q", "-c", cnf_path, proof, binary_lsr]):
+                out.fail("proof", "dsr-trim did not verify and elaborate DSR")
+            elif not os.path.isfile(binary_lsr) or os.path.getsize(binary_lsr) == 0:
+                out.fail("proof", "dsr-trim produced no LSR")
+            elif not check([DSR_COMPRESS, "-d", binary_lsr, text_lsr]):
+                out.fail("proof", "dsr-compress did not produce textual LSR")
+            elif not os.path.isfile(text_lsr) or os.path.getsize(text_lsr) == 0:
+                out.fail("proof", "dsr-compress produced no textual LSR")
+            else:
+                bridge_trivial_input_lsr(cnf_path, text_lsr)
+                if not check([SR_CHECK, cnf_path, text_lsr]):
+                    out.fail("proof", "Trestle did not verify elaborated LSR")
 
     if oracle and verdict in ("SAT", "UNSAT"):
         code_o, stdout_o, _ = run_cmd(oracle + [cnf_path], timeout)
@@ -879,7 +911,9 @@ def main() -> int:
                        help="oracle solver for differential testing")
         p.add_argument("--timeout", type=float, default=5.0)
         p.add_argument("--lrat", action="store_true",
-                       help="also exercise drat-trim -L -> lrat-check")
+                       help="also convert explicit DRAT to LRAT and check it "
+                            "with cake_lpr (native DSR always runs its full "
+                            "dsr-trim/Trestle pipeline)")
 
     p = sub.add_parser("run")
     common(p)

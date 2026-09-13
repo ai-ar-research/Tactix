@@ -64,6 +64,8 @@ typedef struct tactix_solver tactix;
 #define TACTIX_PROOF_DRAT_BINARY 0
 #define TACTIX_PROOF_DRAT_ASCII 1
 #define TACTIX_PROOF_LRAT 2 /* native LRAT: antecedent hints (plan O4) */
+#define TACTIX_PROOF_DSR_BINARY 3 /* canonical DSR stream */
+#define TACTIX_PROOF_DSR_ASCII 4  /* diagnostic DSR spelling */
 
 /* read-only statistics ids; the list grows additively */
 #define TACTIX_STAT_CONFLICTS 0

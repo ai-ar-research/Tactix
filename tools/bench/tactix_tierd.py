@@ -116,7 +116,7 @@ def prepare(campaign, binary, source_commit, source_tree, solve_limit, memory_gi
     wrapper.write_text(
         "#!/usr/bin/env bash\n"
         "set -eu\n"
-        "exec \"$(dirname \"$0\")/tactix\" \"$1\" \"$2/proof.out\"\n")
+        "exec \"$(dirname \"$0\")/tactix\" --drat \"$1\" \"$2/proof.out\"\n")
     wrapper.chmod(0o750)
 
     needed = ("checkmodel", "drat-trim", "cake-lpr")
