@@ -1458,10 +1458,10 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
       continue;
     F.assign(1, seed);
     marks[seed] |= MARK_FACTOR;
-    // m,n >= 2 makes delta nonnegative. Starting below that legal floor lets
-    // an external selection policy admit a zero-gain 2x2 grid, while the
-    // shipped `delta > bound` policy (bound 0) retains its exact behavior.
-    int best_delta = -1;
+    // The canonical/seeded matcher is the shipped profitable-grid heuristic.
+    // Legal zero-gain 2x2 actions remain available through exact-grid
+    // enumeration/application without expanding this hot search frontier.
+    int best_delta = 0;
     best_F.clear();
     best_R.clear();
     best_grid_refs.clear();
@@ -1816,14 +1816,14 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
     }
 
     // Acceptance: an attached FactorSelection takes precedence, otherwise
-    // `k.factor_bound` (kissat factor.c:939). Grid existence supplies the only
-    // rule-side floor (m,n >= 2, hence delta >= 0); profitability is policy.
+    // `k.factor_bound` (kissat factor.c:939). Exact grid application is the
+    // policy-neutral legal surface; this matcher only records improving grids.
     const bool bound_ok =
-        best_delta >= 0 &&
+        !best_F.empty() &&
         (fm ? fm->accept(static_cast<uint32_t>(best_F.size()),
                          static_cast<uint32_t>(best_R.size()), best_delta)
             : best_delta > static_cast<int>(k.factor_bound));
-    if (!bound_ok && best_delta >= 0)
+    if (!bound_ok && !best_F.empty())
       k.stats.factor_rejected_by_bound++; // the grid existed; the bound said no
     if (bound_ok) {
 #ifdef TACTIX_ENABLE_EVENT_TRACE

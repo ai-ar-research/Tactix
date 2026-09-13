@@ -107,6 +107,19 @@ static void test_exact_zero_gain_grid_is_legal() {
   assert(k.stats.factorings == 1 && k.nvars == 5);
 }
 
+static void test_zero_gain_grid_does_not_expand_canonical_frontier() {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  const Lit a = internalize(1), b = internalize(2);
+  const Lit p = internalize(3), q = internalize(4);
+  for (const Lit factor : {a, b})
+    for (const Lit remainder : {p, q})
+      kernel_add_binary_clause(k, factor, remainder);
+  assert(factor_apply(k) == ApplyResult::NoOp);
+  assert(k.stats.factorings == 0 && k.stats.factor_rejected_by_bound == 0 &&
+         "exact completeness must not add zero-gain work to the shipped matcher");
+}
+
 static void test_exact_large_grid_selection() {
   Kernel k;
   kernel_reserve_vars(k, 8);
@@ -242,6 +255,7 @@ int main(int argc, char **argv) {
   assert(argc == 1);
   test_exact_subgrid_selection();
   test_exact_zero_gain_grid_is_legal();
+  test_zero_gain_grid_does_not_expand_canonical_frontier();
   test_exact_large_grid_selection();
   test_complete_grid_enumeration_includes_subgrids();
   test_complete_grid_enumeration_controls();
