@@ -30,9 +30,9 @@ guidance; S6 additionally requires root because its representation transition re
 DefaultPolicy ships original-Kissat pipeline membership. Off-pipeline CaDiCaL rules remain registered, journaled, N1-reachable, and
 explicitly poseable.
 
-### Native DSR proof backend contract (pending)
+### Native DSR proof backend contract (implementation in progress)
 
-The next proof increment makes the canonical mode one streaming binary DSR certificate. Existing
+The current proof increment makes the canonical mode one streaming binary DSR certificate. Existing
 RUP/RAT additions and deletions use DSR's backward-compatible witnessless
 forms; a substitution-redundancy event appends its finite substitution witness
 to the same addition line. ASCII DSR is the diagnostic spelling. DRAT and native
@@ -46,6 +46,12 @@ anonymous scratch and disappear on normal exit, timeout, crash, cancellation
 and signal. The writer is streaming and retains no checker-population ledger or
 proof-only kernel variables. Format selection cannot change formula mutation,
 rule guards, scheduling, or legal instances.
+
+The working tree contains binary/ASCII DSR serialization, the typed `add_sr`
+event, public CLI/C API format selection, pinned checker setup, and the
+anonymous-scratch runtime checker pipeline. Unit and checker-fixture tests pass.
+The contract remains pending until every active launcher uses that pipeline and
+the Slurm correctness, sanitizer, Claude fuzz, B27+C5 and Rank 1–40 gates pass.
 
 ## 2. Engineering-deviation ledger
 
