@@ -1,23 +1,20 @@
-// RandomPolicy (plan §8.2 rule-order fuzzing): drives the solver purely through
-// the rule registry, choosing uniformly among the rules whose soundness guard
-// holds with no scheduling heuristics, and for Decide branching on a uniformly
-// random unassigned literal with a random phase — the full theoretical instance
-// space, not a heuristic ranking. Soundness and proof validity must survive
-// every schedule it generates; that is N1.
+// RandomPolicy (plan §8.2 rule-order fuzzing): generates broad typed programs
+// and drives them through the same OnlineStrategyExecutor exposed to callers.
+// Soundness and proof validity must survive every schedule it generates.
 #pragma once
 
 #include "policies/policy.hpp"
 #include "policies/trace.hpp"
+#include "strategy/random_online.hpp"
 
 namespace tactix {
 
 // returns 10 (SAT) / 20 (UNSAT) / 0 (interrupted); deterministic per seed.
-// `trace`, when non-null, records the (rule, instance) sequence for
-// replay_solve (trace.hpp) — this policy is traceable BECAUSE every action it
-// takes is one registry application with one payload.
+// `trace`, when non-null, records every complete typed program for replay_solve.
 int random_solve(Kernel &, uint64_t seed,
                  volatile sig_atomic_t *stop = nullptr,
-                 RuleTrace *trace = nullptr);
+                 RuleTrace *trace = nullptr,
+                 const strategy::RandomOnlineConfig *config = nullptr);
 
 // Generic targeted scheduler. Configuration is supplied by the validated fuzz
 // scenario launcher through TACTIX_STRESS_RULES and TACTIX_STRESS_NORMAL_EVERY.

@@ -29,6 +29,26 @@ static void test_effort_prices_embedded_and_representation_ticks() {
   assert(sweep_semantic_effort(k) == 17);
 }
 
+static void test_unbounded_clause_limit_sizes_from_formula() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  const Lit clause[] = {internalize(1), internalize(2), internalize(3)};
+  kernel_add_large_clause(k, clause, 3, false, 0);
+  SweepLimits limits;
+  limits.max_env_clauses = UINT32_MAX;
+  limits.max_env_clauses_ceiling = UINT32_MAX;
+  limits.max_seeds = 1;
+  limits.round_ticks = 1;
+  SweepRound round;
+  sweep_round_begin(k, round);
+  assert(sweep_env_build(k, 0, limits, round));
+  // An unbounded semantic cap retains the ordinary reference-sized initial
+  // table and grows from actual admissions; it never sizes from UINT32_MAX.
+  assert(round.env.key_slots.size() == 4096);
+  assert(sweep_apply_exact_limits(k, limits) != ApplyResult::Unsat);
+  kernel_check_invariants(k);
+}
+
 static void test_dense_entry_flushes_only_irredundant_satisfied_clauses() {
   Kernel k;
   kernel_reserve_vars(k, 4);
@@ -1262,6 +1282,7 @@ int main(int argc, char **argv) {
   const uint32_t rounds =
       argc > 1 ? static_cast<uint32_t>(strtoul(argv[1], nullptr, 10)) : 20000;
   test_effort_prices_embedded_and_representation_ticks();
+  test_unbounded_clause_limit_sizes_from_formula();
   test_dense_entry_flushes_only_irredundant_satisfied_clauses();
   test_non_rup_equivalence();
   test_proof_capture_limit_is_caller_controlled();

@@ -243,6 +243,18 @@ static void test_invalid_semantic_payload_is_noop() {
   assert(k.stats.hbr_binaries == 0);
 }
 
+static void test_semantic_enumeration_observes_published_stop() {
+  Kernel k;
+  kernel_reserve_vars(k, 500000);
+  bin(k, 1, -500000);
+  const RuleVTable &rule =
+      tactix_rules()[tactix_rule_id("HyperBinaryRes")];
+  volatile sig_atomic_t stop = 1;
+  KernelStopPublisher published(k, &stop);
+  uint64_t choice = 0;
+  assert(rule.semantic_instances(k, &choice, 1) == 0);
+}
+
 // `apply_instance` is total: an off-schedule literal is a NoOp, not a trap.
 static void test_apply_off_schedule_is_total() {
   Kernel k;
@@ -268,6 +280,7 @@ int main() {
   test_nonclosest_dominator_is_semantically_reachable();
   test_semantic_resolvent_can_collapse_to_unit();
   test_invalid_semantic_payload_is_noop();
+  test_semantic_enumeration_observes_published_stop();
   test_apply_off_schedule_is_total();
   printf("test_hyperbinary: all passed\n");
   return 0;

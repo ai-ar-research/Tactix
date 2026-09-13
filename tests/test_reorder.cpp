@@ -241,6 +241,14 @@ static void test_retired_variables_stay_disconnected() {
     assert(k.h->links[1].prev == INVALID_VAR &&
            k.h->links[1].next == INVALID_VAR);
     assert(k.h->scores.score[4] == retired_score);
+    // A later Substitute demotion batch can overlap identities retired by an
+    // earlier rule. It must demote its still-connected members without
+    // splicing those already-disconnected identities back into the queue.
+    std::vector<uint8_t> marked(k.nvars, 0);
+    marked[1] = marked[3] = marked[4] = 1;
+    heuristics_demote_marked_vars(k, marked);
+    assert(!heuristics_queue_contains(k, 1));
+    assert(!heuristics_queue_contains(k, 4));
     assert(reorder_apply(k) == ApplyResult::Ok);
     assert(k.stats.reactivations == 0);
     uint32_t queued = 0;

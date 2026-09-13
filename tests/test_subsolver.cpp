@@ -249,6 +249,19 @@ void test_budget_and_determinism() {
   assert(s.kitten_ticks() == 2);
 }
 
+void test_external_stop_is_budget_result() {
+  SubSolver s;
+  s.reset(3, SubSearchMode::Kitten);
+  s.add_clause(
+      {sub_lit(0, false), sub_lit(1, false), sub_lit(2, false)});
+  volatile sig_atomic_t stop = 1;
+  assert(s.solve_interruptible({}, 0, SubTickMode::Kitten, &stop) ==
+         SubResult::Budget);
+  stop = 0;
+  assert(s.solve_interruptible({}, 0, SubTickMode::Kitten, &stop) ==
+         SubResult::Sat);
+}
+
 void test_model_flip() {
   SubSolver s;
   s.reset(2);
@@ -760,6 +773,7 @@ int main(int argc, char **argv) {
   test_degenerate();
   test_assumption_paths();
   test_budget_and_determinism();
+  test_external_stop_is_budget_result();
   test_model_flip();
   test_kitten_search_state();
   test_compact_kitten_identity();

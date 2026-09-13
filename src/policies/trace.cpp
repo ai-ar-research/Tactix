@@ -3,13 +3,17 @@
 
 #include "policies/heuristics.hpp"
 #include "rules/registry.hpp"
+#include "strategy/online_inprocess.hpp"
+#include "strategy/random_online.hpp"
 
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
+#include <string>
 
 namespace tactix {
 
-static constexpr int TRACE_VERSION = 2;
+static constexpr int TRACE_VERSION = 3;
 
 bool RuleTrace::open(const char *path, const char *policy, uint64_t seed) {
   out = std::fopen(path, "w");
@@ -21,15 +25,14 @@ bool RuleTrace::open(const char *path, const char *policy, uint64_t seed) {
   return true;
 }
 
-void RuleTrace::record(int rule_id, uint64_t instance, bool semantic) {
-  if (!out)
-    return;
-  const char *name = tactix_rules()[static_cast<size_t>(rule_id)].name;
-  if (instance == INSTANCE_CANONICAL)
-    std::fprintf(out, "%s -\n", name);
-  else
-    std::fprintf(out, "%s %c:%llu\n", name, semantic ? 's' : 'v',
-                 (unsigned long long)instance);
+void RuleTrace::record_program(uint64_t revision, const std::string &program) {
+  if (out) {
+    std::fprintf(out, "p %llu %s\n", (unsigned long long)revision,
+                 program.c_str());
+    // A crash or hard timeout inside the following atomic application must
+    // still identify the configuration that triggered it.
+    std::fflush(out);
+  }
 }
 
 void RuleTrace::finish(int verdict) {
@@ -54,18 +57,19 @@ static bool concluded_sat(const Kernel &k) {
 }
 
 int replay_solve(Kernel &k, const char *path, volatile sig_atomic_t *stop) {
-  std::FILE *in = std::fopen(path, "r");
+  std::ifstream in(path);
   if (!in) {
     std::fprintf(stderr, "c ERROR: cannot read trace '%s'\n", path);
     return -1;
   }
   KernelStopPublisher stop_published(k, stop);
   const std::vector<RuleVTable> &rules = tactix_rules();
-  char line[512];
+  std::string line;
   int version = 0, recorded = -1, verdict = 0;
   uint64_t steps = 0;
   bool done = false;
   bool policy_seen = false;
+  enum class TraceBody { None, Actions, Programs } body = TraceBody::None;
   // Mirror the recorded run's dense-connection state (random_policy.cpp: odd
   // seeds walk with the dense index attached). Replaying without it would
   // silently skip every dense-gated tail the recording exercised.
@@ -79,20 +83,20 @@ int replay_solve(Kernel &k, const char *path, volatile sig_atomic_t *stop) {
     }
   } dense_scope{k};
 
-  while (std::fgets(line, sizeof line, in)) {
-    if (line[0] == 'c') {
-      if (!version && std::sscanf(line, "c tactix-trace %d", &version) == 1) {
-        if (version != 1 && version != TRACE_VERSION) {
+  while (std::getline(in, line)) {
+    if (!line.empty() && line[0] == 'c') {
+      if (!version &&
+          std::sscanf(line.c_str(), "c tactix-trace %d", &version) == 1) {
+        if (version < 1 || version > TRACE_VERSION) {
           std::fprintf(stderr,
-                       "c ERROR: trace version %d, expected 1 or %d\n",
+                       "c ERROR: trace version %d, expected 1 through %d\n",
                        version, TRACE_VERSION);
-          std::fclose(in);
           return -1;
         }
       }
       unsigned long long hseed = 0;
       if (!policy_seen &&
-          std::sscanf(line, "c policy %*s seed=%llu", &hseed) == 1) {
+          std::sscanf(line.c_str(), "c policy %*s seed=%llu", &hseed) == 1) {
         policy_seen = true;
         if ((hseed & 1) != 0 && k.level == 0) {
           kernel_dense_connect(k, replay_occ, true);
@@ -102,27 +106,115 @@ int replay_solve(Kernel &k, const char *path, volatile sig_atomic_t *stop) {
         // compares counter lines)
         std::printf("c stress-dense %d\n", dense_scope.active ? 1 : 0);
       }
-      (void)std::sscanf(line, "c verdict %d", &recorded);
+      (void)std::sscanf(line.c_str(), "c verdict %d", &recorded);
       continue;
     }
     if (!version) {
       std::fprintf(stderr, "c ERROR: '%s' is not a tactix trace\n", path);
-      std::fclose(in);
       return -1;
     }
     if (done)
       continue; // actions after the verdict: the trace is longer than the run
+    if (version >= 3 && line.rfind("p ", 0) == 0) {
+      if (body == TraceBody::Actions) {
+        std::fprintf(stderr, "c ERROR: trace mixes actions and programs\n");
+        return -1;
+      }
+      body = TraceBody::Programs;
+      const size_t revision_end = line.find(' ', 2);
+      if (revision_end == std::string::npos) {
+        std::fprintf(stderr, "c ERROR: malformed program trace line\n");
+        return -1;
+      }
+      char *revision_tail = nullptr;
+      const uint64_t revision =
+          std::strtoull(line.c_str() + 2, &revision_tail, 10);
+      if (revision_tail != line.c_str() + revision_end || !revision) {
+        std::fprintf(stderr, "c ERROR: malformed program revision\n");
+        return -1;
+      }
+      strategy::OnlineStrategyProgram program;
+      std::string error;
+      if (!strategy::deserialize_online_strategy_program(
+              line.substr(revision_end + 1), program, &error)) {
+        std::fprintf(stderr, "c ERROR: malformed online program: %s\n",
+                     error.c_str());
+        return -1;
+      }
+      strategy::OnlineStrategyExecutor executor;
+      if (!executor.configure(program, revision,
+                              strategy::ReconfigureMode::ResetRuntime,
+                              &error)) {
+        std::fprintf(stderr, "c ERROR: invalid online program: %s\n",
+                     error.c_str());
+        return -1;
+      }
+      while (!executor.complete()) {
+        const strategy::InvocationResult result = executor.advance(k, stop);
+        steps += result.applications;
+#ifndef NDEBUG
+        if (result.applications) {
+          if (std::getenv("TACTIX_TRACE")) {
+            const char *name = result.rule_id < rules.size()
+                                   ? rules[result.rule_id].name
+                                   : "?";
+            std::fprintf(stderr,
+                         "replay %-16s applications=%llu revision=%llu\n",
+                         name, (unsigned long long)steps,
+                         (unsigned long long)revision);
+          }
+          kernel_check_invariants(k);
+        }
+#else
+        if (result.applications && (steps & 255) == 0)
+          kernel_check_invariants(k);
+#endif
+        if (result.status == strategy::InvocationStatus::Unsat ||
+            k.inconsistent) {
+          verdict = 20;
+          done = true;
+          break;
+        }
+        if (result.status == strategy::InvocationStatus::Sat ||
+            concluded_sat(k)) {
+          verdict = 10;
+          done = true;
+          break;
+        }
+        if (result.status == strategy::InvocationStatus::Interrupted)
+          return 0;
+        // These statuses are the online controller's safe reconfiguration
+        // boundary. The next recorded program resumes from the current kernel.
+        if (result.status == strategy::InvocationStatus::Conflict ||
+            result.status == strategy::InvocationStatus::Inapplicable ||
+            result.status == strategy::InvocationStatus::StaleRequest ||
+            result.status == strategy::InvocationStatus::ResourceExhausted ||
+            (result.status == strategy::InvocationStatus::BudgetExhausted &&
+             !result.selection_complete))
+          break;
+        if (result.status == strategy::InvocationStatus::InvalidRequest ||
+            result.status == strategy::InvocationStatus::AccountingError) {
+          std::fprintf(stderr,
+                       "c ERROR: online program failed during replay\n");
+          return -1;
+        }
+      }
+      continue;
+    }
+    if (body == TraceBody::Programs) {
+      std::fprintf(stderr, "c ERROR: trace mixes programs and actions\n");
+      return -1;
+    }
+    body = TraceBody::Actions;
     char name[128];
     char inst[64];
-    if (std::sscanf(line, "%127s %63s", name, inst) != 2) {
-      std::fprintf(stderr, "c ERROR: malformed trace line: %s", line);
-      std::fclose(in);
+    if (std::sscanf(line.c_str(), "%127s %63s", name, inst) != 2) {
+      std::fprintf(stderr, "c ERROR: malformed trace line: %s\n", line.c_str());
       return -1;
     }
     const int id = tactix_rule_id(name);
     if (id < 0) {
       std::fprintf(stderr, "c ERROR: trace names unknown rule '%s'\n", name);
-      std::fclose(in);
       return -1;
     }
     const RuleVTable &r = rules[static_cast<size_t>(id)];
@@ -134,7 +226,6 @@ int replay_solve(Kernel &k, const char *path, volatile sig_atomic_t *stop) {
                    "c ERROR: replay diverged at step %llu: %s's guard does not "
                    "hold\n",
                    (unsigned long long)steps, name);
-      std::fclose(in);
       return -1;
     }
     bool semantic = false;
@@ -142,7 +233,6 @@ int replay_solve(Kernel &k, const char *path, volatile sig_atomic_t *stop) {
     if (version >= 2 && inst[0] != '-') {
       if ((inst[0] != 's' && inst[0] != 'v') || inst[1] != ':') {
         std::fprintf(stderr, "c ERROR: malformed v2 payload '%s'\n", inst);
-        std::fclose(in);
         return -1;
       }
       semantic = inst[0] == 's';
@@ -155,7 +245,6 @@ int replay_solve(Kernel &k, const char *path, volatile sig_atomic_t *stop) {
       std::fprintf(stderr,
                    "c ERROR: trace requests a semantic payload from %s\n",
                    name);
-      std::fclose(in);
       return -1;
     }
     // RandomPolicy snapshots the current target phases before abandoning a
@@ -187,11 +276,18 @@ int replay_solve(Kernel &k, const char *path, volatile sig_atomic_t *stop) {
       done = true;
     }
     if (stop && *stop) {
-      std::fclose(in);
       return 0; // interrupted: no verdict to compare
     }
   }
-  std::fclose(in);
+  // The recorded driver checks for a verdict before generating its first
+  // program. Empty formulas and formulas completed by parsing therefore have
+  // a valid trace body containing only metadata and the verdict.
+  if (body == TraceBody::None) {
+    if (k.inconsistent)
+      verdict = 20;
+    else if (concluded_sat(k))
+      verdict = 10;
+  }
   if (recorded >= 0 && recorded != verdict) {
     std::fprintf(stderr,
                  "c ERROR: replay reached %d, the trace recorded %d — the run "

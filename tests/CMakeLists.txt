@@ -251,8 +251,9 @@ target_link_libraries(test_random_policy PRIVATE tactix_lib)
 target_include_directories(test_random_policy PRIVATE ${CMAKE_SOURCE_DIR}/include)
 add_test(NAME random_policy COMMAND test_random_policy)
 
-# --trace/--replay (the §8.5 offline replay harness) plus the cross-process
-# reproducibility of --random-policy=SEED. Runs the real binary; never skips.
+# --trace/--replay (the §8.5 offline replay harness) plus cross-process
+# reproducibility of the typed online random policy. Runs the real binary;
+# never skips.
 add_test(NAME trace_replay
          COMMAND ${CMAKE_SOURCE_DIR}/tests/trace_replay.sh $<TARGET_FILE:tactix>)
 
