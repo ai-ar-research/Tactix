@@ -23,7 +23,7 @@ the formula image.
 | C1 SubsumeForward, C2 Strengthen, C3 Vivify | `root` | declared inprocessing boundary. C1 exposes every live victim. C2 additionally exposes each distinct `(victim, removed literal)` result plus its fused C1 deletion; proper C2 strengthening may use redundant partners, while C1 deletion still requires an irredundant or binary subsumer. |
 | V1 Probe, V2 Backbone | `root && !conflict_valid` | root is the declared inprocessing boundary; conflict condition is abstract |
 | V3 Substitute, V4 TransitiveReduce, V5 Sweep | `root` | declared inprocessing boundary; isolated7448 moves `TACTIX_NO_SWEEP` to scheduling only, preserving explicit and canonical public V5 calls. |
-| V6 Congruence | `root` | declared inprocessing boundary; individual matching/unary equivalences, gate/V6a units, representative clashes and literal-form AND/XOR/ITE refutations compose through persistent binaries and root values. D-CONG-SKIP remains. D-CONG-ITE: retained7373 skips type-changing ITE closure;7424's double-collapse units can invalidate DRAT;7464 adds the condition ladder. Isolated7491 also omits watched sides only for root-valued ITE-to-AND conversions, retaining original-clause cofactors and closure;7492/7493 fixed model/proof gates pass. Runtime/fuzz acceptance remains open. |
+| V6 Congruence | `root` | declared inprocessing boundary; individual matching/unary equivalences, gate/V6a units, representative clashes and literal-form AND/XOR/ITE refutations compose through persistent binaries and root values. D-CONG-SKIP is closed below. D-CONG-ITE: retained7373 skips type-changing ITE closure;7424's double-collapse units can invalidate DRAT;7464 adds the condition ladder. Isolated7491 omits watched sides only for root-valued ITE-to-AND conversions, retaining original-clause cofactors and closure;7492/7493 fixed model/proof gates pass. Final runtime and fuzz acceptance is recorded in the [online-refactor closure report](../benchmarks/reports/2026-09-12-online-refactor-final.md). |
 | E1 BVE | `root` | declared inprocessing boundary; extension-variable exclusion and size limits are policy scope |
 | E2 Factor | `root` | declared inprocessing boundary; every eligible seed is reachable; typed exact-grid application and exhaustive lazy grid enumeration cover profitable subgrids and exact large-clause occurrences |
 | X1 BCE, X2 HyperTernaryRes, X3 CCE, X4 Instantiate | `root` | declared inprocessing boundary; additive semantic surfaces name individual clause/blocker, parent-pair/resolvent, CCE victim, and clause/literal choices. Duplicate binary copies form one represented victim. |
@@ -41,7 +41,6 @@ rules remain registered, journaled, N1-reachable, and explicitly poseable.
 | D-STRENGTHEN-BUDGET | Fused C2 uses native `forward_steps` and strict between-candidate limits; public instances remain single-action | Rank-27 campaigns4481–4483 establish candidate/cache-line/large-watch currency. Isolated5798 continues units through partial forward connections with fresh root checks, proof-safe reasons and sparse replay debt; completion depends on unreached/live rewritten material, not unit count. Isolated5830 removes C2's synthetic root-to-added-mark producer, preserving genuine fixed-variable added marks and C1/CCE's helper. Isolated5870/5920 delete incoming-root-satisfied irredundant clauses before5849's full reconnect/suffix replay; later-derived satisfied clauses retain native lazy occurrence cleanup. Journal eligibility sees the rearmed cursor. Isolated6579 migrates only canonical C2 binary/victim/connection predicates to separate subsumption flags: normal exit clears and rearms live pending/replaced clauses and new binaries without recount; interruption preserves flags, explicit instances never drain them, and the optional CaDiCaL band retains its shared-touch protocol. Partial C2/public inference guards stay unchanged. Evidence: [material cutover](../benchmarks/reports/2026-09-09-material-scheduling-cutover.md). Owners: SP-FORWARD-UNIT-CONTINUE-1, SP-FORWARD-ROOT-MARK-1, SP-FORWARD-CALLER-CLOSURE-1. Standalone C1 remains public, outside the default fused pipeline. |
 | D-VIVIFY-SCHED | Vivify policy is source-shaped but its cumulative performance remains an N3 concern | Candidate order, reference 100‰ cumulative band budget, focused tiers, persistent pose, productivity, and cleanup are implemented. Formula profiles do not dose this allowance. Reopen behavior only on exact weaker-work evidence. |
 | D-CCE-FILTER | CCE change filter lacks redundant-removal stamps | Add a separate redundant-removal epoch only if `c cce2` proves all-skipped starvation. |
-| D-RULE-CAPS | **CLOSED: typed controls and semantic granularity complete at declared actions** | Typed per-call settings cover Analyze, C1/C2, Vivify, BVE, Sweep, Congruence, Instantiate, Backbone, BCE, X2, Factor, TransitiveReduce, Substitute, Reduce, Walk and Reorder. Every invocation also selects inherit, explicit-unlimited, or bounded native rule work; bounded zero is distinct and the pose restores after one atomic application. Composition budgets remain a separate typed currency. Sweep general-proof selection travels through typed configuration and compatible random replay, and DefaultPolicy owns the same `SweepParameters` object. Walk's explicit zero-step payload is exact; only an unbudgeted canonical call receives the named reference default. Obsolete Walk controls and Substitute/Congruence timing or probe arms are removed. Remaining compile guards are assertions or bounded event/journal/proof/conflict-stop diagnostics. Factor exact grids and Congruence matching/unary equivalences, gate/V6a units and supported clashes are individual. The remaining rule literals are semantic arities, payload/storage encodings, work-currency definitions or diagnostic bounds. Reopen on a behavior-changing rule-local cutoff, silent parameter truncation, or explicit-instance admission filter. |
 
 ### Closed
 
@@ -53,16 +52,13 @@ rules remain registered, journaled, N1-reachable, and explicitly poseable.
 - D-SUBST-UNBOUNDED: public Substitute is unbounded; policy meters it.
 - D-CCE-SCOPE: CCE enumerates and applies individual large-clause and
   binary-pair semantic victims. A binary victim excludes every identical copy
-  from ALA/CLA support and deletes those physical copies together through the
-  duplicate-safe kernel path. `test_cce` covers unique and duplicate pairs,
-  reconstruction, independently checked models, native DRAT and native LRAT.
+  from ALA/CLA support and deletes all copies through the duplicate-safe path.
+  `test_cce` covers unique/duplicate pairs, reconstruction, models and DRAT/LRAT.
 - D-C1C2-VICTIM: explicit C1 enumerates every live victim without canonical
-  size, occurrence, material or redundancy filters. C2's additive surface
-  enumerates every distinct victim/removal result and the fused C1 deletion;
-  proper strengthening admits redundant partners because the added RUP clause
-  survives their later forgetting. Selected batches preserve arena offsets.
-  Focused outcome/reconfiguration tests and native model/DRAT/LRAT witnesses
-  cover the resulting transitions.
+  filters. C2 enumerates each victim/removal result and fused C1 deletion;
+  proper strengthening admits redundant partners because its RUP clause
+  survives their later forgetting. Selected batches preserve arena offsets;
+  focused reconfiguration and model/DRAT/LRAT witnesses cover the transitions.
 - D-LEVEL/D-SPLIT: Decide may run off-fixpoint, M3 is atomic, and every
   inprocessing apply drains root closure with native-LRAT unit identities.
 - D-CONG-LRAT/UNIT/INPUT-UNIT/DELETE/ARITY/TAUT: canonical ladders, degeneracies,
@@ -73,6 +69,9 @@ rules remain registered, journaled, N1-reachable, and explicitly poseable.
   `congruence_unjustified` remains an alarm for a different missing proof path.
 - D-FACTOR-LRAT: Factor emits real RAT; dividers precede quotients and grid
   deletion.
+- D-RULE-CAPS: typed per-call settings cover all behavior-changing controls,
+  with separate native-rule and composition budgets and exact semantic instances.
+  Reopen on a heuristic cutoff, silent truncation or explicit-instance filter.
 
 ## 3. Cross-cutting state invariants
 
@@ -174,7 +173,7 @@ pending half-analysis or schedules Backjump independently.
   exact final length. A later push relocates by doubling and adds the abandoned
   image to the same `holes` accounting. A slice reference is therefore valid
   only until the next push to that index — the precondition Kissat states for
-  `BEGIN_WATCHES`. Isolated7253's [single-image cutover](../benchmarks/reports/2026-09-11-occurrence-cutover-checkpoint-7258.md) migrates Kernel and rule consumers to one mixed owner plus exact large counts and filtered views; Probe stays direct-large and forward stays partial. Fixed actual-parent order/proof/model/sanitizer gates pass; runtime/RSS and consolidation remain open.
+  `BEGIN_WATCHES`. Isolated7253's [single-image cutover](../benchmarks/reports/2026-09-11-occurrence-cutover-checkpoint-7258.md) migrates Kernel and rule consumers to one mixed owner plus exact large counts and filtered views; Probe stays direct-large and forward stays partial. Fixed actual-parent order/proof/model/sanitizer gates and the final refactor runtime/RSS consolidation gates pass.
 - Attached dense views change together: large promotion/removal uses paired
   kernel primitives, including Sweep's eager session erases. Canonical
   Substitute republishes an attached mixed stream at its boundary after bulk
