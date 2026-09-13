@@ -13,10 +13,13 @@ instances and granularities, arbitrary composition, finite or externally
 stopped fixpoints, and safe online reconfiguration without restarting the
 solver.
 
-The final current-source Tier-D array is running as background N3 evidence. The
-next solver work is a proof-producing general mechanism for the ten frozen
-winner-VBS UNSAT losses. Kissat-only tuning, benchmark dispatch and sequential
-portfolios remain out of scope.
+The final current-source Tier-D array is running as background N3 evidence.
+Phase 4.25 now targets checked 100/100 coverage on the fixed WV100 singleton
+winner-signature set. Work starts from official solver descriptions, sources
+and effective-transition evidence, then integrates general mechanisms as native
+preprocessing or root-inprocessing rules with calculus and proof support.
+Kissat-only tuning, benchmark dispatch and sequential portfolios remain out of
+scope; whether MAB scheduling belongs in Tactix is still open.
 
 ## Authority
 
@@ -28,7 +31,9 @@ portfolios remain out of scope.
 | Design | [online proposal](docs/design/2026-09-11-online-strategy-proposal.md) and [preservation addendum](docs/design/2026-09-11-strategy-behavior-preservation-addendum.md) |
 | Final evidence | [online refactor/N1 closure](benchmarks/reports/2026-09-13-online-refactor-n1-final.md) |
 | Claude checkpoint | [job 1687182 report](benchmarks/reports/2026-09-13-structural-resume-claude-fuzz/terminal-report.md) |
-| Winner set | [10 SAT + 10 UNSAT matched targets](benchmarks/reports/2026-09-13-winner-vbs-targets.md) |
+| Winner target | [fixed WV100 set](benchmarks/tiers/WV100.tsv): 33 SAT / 67 UNSAT |
+| WV100 protocol | [mechanism integration and experiment design](docs/design/2026-09-13-wv100-mechanism-integration.md) |
+| Satsuma transition | [57-row structural screen](benchmarks/reports/2026-09-13-wv100-satsuma-transition.md) |
 
 The root checkout is authoritative. `.claude` contains workflow instructions,
 not implementation or project-document changes.
@@ -95,18 +100,34 @@ not implementation or project-document changes.
   Above 700 GiB it holds only pending jobs whose Slurm `WorkDir` is this repo;
   it never pauses running jobs and releases only its own holds. The submission
   check was 114 GiB with no holds.
-- The winner-VBS set is frozen at ten LymphoSAT-only SAT and ten Satsuma-only
-  UNSAT wins. Matched job `1686574` reproduced all 20 Tactix timeouts and all 20
-  checked winner solves with no scratch residue.
+- WV100 permanently freezes the first 100 rows of the all-configuration ranking,
+  each solved within 1,200 seconds and 32 GiB by exactly one checked winner:
+  34 LymphoSAT, 57 Satsuma+Kissat, seven AE-Kissat-MAB and two kissat-sc2024.
+  Its denominator does not change when Tactix solves an entry. The earlier
+  10+10 matched run remains a checked pilot, not the active target definition.
+- A 20-instance Satsuma pilot reduced every formula to an empty clause in at
+  most 50 ms. Independent SR-to-DRAT-to-LRAT checking passed 19; the Johnson
+  case exposed a translator failure. This supports a general substitution-
+  redundancy/proof study but does not yet establish a Tactix rule.
+- The complete 57-row Satsuma transition screen returned normally on every row:
+  52 became immediate contradictions, with 51 structured, five Johnson and one
+  general priority class. This is causal-attribution evidence only; G0--G2 must
+  close before S1 mutates Tactix.
+- Focused WV100 development defaults to `cpu-dense-hwulab-q`, eight CPUs,
+  32 GiB and 300 solver seconds; qualitative `cpu-q` probes are allowed.
+  B28+C5 and Rank 1--50 retain the stable `cpu-dense-hwulab-q`, 12-CPU,
+  32-GiB, 1,200-second regression contract.
 
 ## Next actions
 
 1. Leave Tier-D, proof checks and the storage guard running in the background.
-2. Monitor Tier-D outcomes and cleanup without rerunning references.
-3. Study the selected UNSAT encodings and references for a general symmetry
-   mechanism whose additions have native DRAT/LRAT justification.
-4. Gate any implementation with focused proof/model tests, Claude-owned fuzz,
-   B28+C5, Rank1–50 and retained Tier-D coverage.
+2. Score arriving Tier-D results against fixed WV100 without rerunning references.
+3. Close Satsuma G0 obligation classification, G1 native-LRAT prototype and G2
+   post-inprocessing automorphism survival; Claude's design review is complete.
+4. Implement supported mechanisms through the shared typed rule interface,
+   extending the calculus and native proof path where required.
+5. Gate every mechanism with focused proof/model tests, Claude-owned fuzz,
+   B28+C5, Rank1–50, WV100 and retained Tier-D coverage.
 
 <!-- track-sched:begin -->
 - Kissat creation order remains the production default; `TACTIX_ARENA_ORDER=1`
@@ -116,7 +137,7 @@ not implementation or project-document changes.
 
 ## Recent changes
 
-- 2026-09-13: Closed structural-model and online-resume soundness at `a08f9f6a`.
+- 2026-09-13: Froze WV100 as the 100/100 winner-signature development target.
 - 2026-09-13: Passed the full Claude fuzz, replay, proof/model and sanitizer checkpoint.
 - 2026-09-13: Preserved B28+C5 and Rank1–50 trajectories within 1.03% aggregate time.
 - 2026-09-13: Removed 2,366 obsolete tracked files from the temporary probe archive.

@@ -53,8 +53,6 @@ def baseline_eligible(record, seconds, memory_kib):
                 record.get('expected') in (verdict, 'UNKNOWN') and
                 record.get('expected_match') is True and
                 record.get('vbs_eligible') in ('SAT+UNSAT', 'SAT-only') and
-                not (record.get('vbs_eligible') == 'SAT-only' and verdict != 'SAT') and
-                not (record.get('solver') == 'lymphosat' and verdict != 'SAT') and
                 solve.get('timed_out') is False and
                 solve.get('exit_code') == {'SAT': 10, 'UNSAT': 20}[verdict] and
                 number(solve.get('wall_seconds')) and solve['wall_seconds'] <= seconds and
@@ -185,11 +183,15 @@ def snapshot(baseline, tactix, seconds, memory_kib, per_status):
         tactix_classes=dict(classes), baseline_covered_instances=len(winners),
         baseline_lymphosat_only_sat=sum(len(ws) == 1 and ws[0]['solver'] == 'lymphosat'
             and ws[0]['verdict'] == 'SAT' for ws in winners.values()),
+        baseline_lymphosat_only_unsat=sum(len(ws) == 1 and ws[0]['solver'] == 'lymphosat'
+            and ws[0]['verdict'] == 'UNSAT' for ws in winners.values()),
         candidate_counts=dict(Counter(r['verdict'] for r in candidates)),
         selection_final=bool(enough and complete), selected=selected,
         candidates=sorted(candidates, key=lambda r: (r['verdict'], order_key(r))),
-        policy=f'{per_status} SAT and {per_status} UNSAT requested. SAT LymphoSAT-only first; then fewer qualifying '
-               'baselines, fastest validated baseline time, lexical identity as deterministic tie-break. '
+        policy=f'{per_status} SAT and {per_status} UNSAT requested. Every independently checked SAT or UNSAT '
+               'winner result qualifies; historical SAT-only labels are provenance, not a status exclusion. '
+               'SAT LymphoSAT-only first; then fewer qualifying baselines, fastest validated baseline time, '
+               'lexical identity as deterministic tie-break. '
                'No identity enters solver policy. Final selection requires complete solver-phase coverage; '
                'pending certificate checks do not block selection or independent development. '
                'No family balancing silently overrides the requested rarity order.',
@@ -219,7 +221,8 @@ def main():
         json.dump(result, f, indent=2)
         f.write('\n')
     print(json.dumps({k: result[k] for k in ('selection_final', 'tactix_classes',
-          'baseline_covered_instances', 'baseline_lymphosat_only_sat', 'candidate_counts')}, indent=2))
+          'baseline_covered_instances', 'baseline_lymphosat_only_sat',
+          'baseline_lymphosat_only_unsat', 'candidate_counts')}, indent=2))
 
 
 if __name__ == '__main__':
