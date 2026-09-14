@@ -29,7 +29,7 @@ remain out of scope; MAB scheduling remains an open design choice.
 | Strategy design | [online proposal](docs/design/2026-09-11-online-strategy-proposal.md) and [preservation addendum](docs/design/2026-09-11-strategy-behavior-preservation-addendum.md) |
 | Native DSR | source `20223134`; [checker repair](benchmarks/reports/2026-09-13-dsr-trim-tautology-hash-fix.md); [passing Claude checkpoint](benchmarks/reports/2026-09-13-native-dsr-claude-fuzz-r2/terminal-report.md) |
 | DSR baselines | [B27+C5](benchmarks/baselines/b27c5-tactix-a08f9f6a-v1/manifest.json) and [Rank1--40](benchmarks/baselines/rank1-40-tactix-a08f9f6a-v1/manifest.json) |
-| Direct-SR evidence | source `298c3467`; [performance gate](benchmarks/reports/2026-09-13-direct-sr-performance-gate.md), [failed first checkpoint](benchmarks/reports/2026-09-13-direct-sr-claude-fuzz/terminal-report.md), and [failed replacement checkpoint](benchmarks/reports/2026-09-13-direct-sr-r16-claude-fuzz/terminal-report.md) |
+| Direct-SR evidence | source `298c3467`; [performance gate](benchmarks/reports/2026-09-13-direct-sr-performance-gate.md), [failed replacement checkpoint](benchmarks/reports/2026-09-13-direct-sr-r16-claude-fuzz/terminal-report.md), and [local elaborator repair](benchmarks/reports/2026-09-13-dsr-trim-forward-elaboration-fix.md) |
 | Winner target | [fixed WV100 set](benchmarks/tiers/WV100.tsv), 33 SAT / 67 UNSAT; [experiment protocol](docs/design/2026-09-13-wv100-mechanism-integration.md) |
 | Satsuma evidence | [transition screen](benchmarks/reports/2026-09-13-wv100-satsuma-transition.md), [orbitopal G0](benchmarks/reports/2026-09-13-wv100-orbitopal-sr-g0.md), and [symmetry G2](benchmarks/reports/2026-09-13-wv100-structured-symmetry-g2.md) |
 
@@ -67,13 +67,12 @@ not implementation or project-document changes.
   **FAIL**: 64 cases across `srdefault`, `srprogs`, and `srcapi` reached
   solver-emitted SR but produced LSR that Trestle rejected. All other oracles,
   required keys, identity checks, and cleanup passed. Four failure classes have
-  retained reproducers. The forward elaborator drops input tautologies from its
-  internal formula without deleting them from the emitted LSR, and an SR step
-  that derives contradiction before the next input proof line asks the printer
-  to serialize a nonexistent candidate instead of an empty clause. The retained
-  backward-mode failure is a separate unit/dependency-pruning defect. These are
-  `dsr-trim` elaboration failures at the DSR-to-LSR boundary; Trestle remains the
-  independent acceptance checker.
+  retained reproducers. The repair pins upstream `dsr-trim` at `0b8cc0ef`, emits
+  parser-deleted tautologies and duplicates as forward LSR deletions, and emits
+  an explicit hinted empty clause when an SR addition immediately derives a
+  contradiction. Its setup self-test and all five retained proof variants pass
+  through compressed LSR and Trestle. Trestle remains the independent
+  acceptance checker; a fresh Claude checkpoint is still required.
 
 ## Active Satsuma producer work
 
@@ -113,10 +112,8 @@ not implementation or project-document changes.
 
 ## Next actions
 
-1. Repair the retained `1689026` elaboration failures in the pinned `dsr-trim`,
-   add forward duplicate/tautology, early-contradiction, and negative checker
-   controls, and verify every retained reproducer with Trestle. Then rerun one
-   replacement Claude checkpoint before promoting the unchanged R16 source.
+1. Freeze the repaired checker with the unchanged R16 source and have Claude
+   run one replacement checkpoint. Audit its terminal report before promotion.
 2. Keep the newer support-local producer changes separate; after R16 passes,
    close the clique producer coverage gap and rerun focused proof/model checks.
 3. At meaningful producer checkpoints rerun B28+C5 and Rank1--50 with the fixed

@@ -244,7 +244,8 @@ def check_unsat_proof(campaign, certificate, cnf, proof, scratch, timeout):
         text_lsr = scratch / "proof.text.lsr"
         stages.append(proof_stage(
             scratch, "dsr-trim",
-            [campaign / "pins/dsr-trim", "-q", "-c", cnf, proof, binary_lsr],
+            [campaign / "pins/dsr-trim", "-q", "-f", "-c", cnf, proof,
+             binary_lsr],
             remaining(), binary_lsr))
         if stages[-1]["result"] == "verified":
             stages.append(proof_stage(

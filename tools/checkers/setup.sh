@@ -11,8 +11,8 @@
 # Pinned commits — bump deliberately, never implicitly:
 #   drat-trim  2e3b2dc0ecf938addbd779d42877b6ed69d9a985
 #   cake_lpr   a4323b203cc9ecd584ba7da9e3fff08135a09d5f
-#   dsr-trim   ffe486a46a7a7894607e92fb962424c17779171c plus the
-#              repository-pinned deleted-tautology hash initialization fix
+#   dsr-trim   0b8cc0ef4d228c059994923cbc66abeb9a42ea14 plus the
+#              repository-pinned forward-elaboration consistency repairs
 #   Trestle    03ac9418bc23d345fe0111533c198e8903362ed6
 #
 # Usage: tools/checkers/setup.sh
@@ -25,10 +25,10 @@ mkdir -p "$BIN"
 
 DRAT_TRIM_COMMIT=2e3b2dc0ecf938addbd779d42877b6ed69d9a985
 CAKE_LPR_COMMIT=a4323b203cc9ecd584ba7da9e3fff08135a09d5f
-DSR_TRIM_COMMIT=ffe486a46a7a7894607e92fb962424c17779171c
+DSR_TRIM_COMMIT=0b8cc0ef4d228c059994923cbc66abeb9a42ea14
 TRESTLE_COMMIT=03ac9418bc23d345fe0111533c198e8903362ed6
 TRESTLE_FALLBACK_SHA256=f0eef5c48e2378c6fb5dfee4c7dc68ad0ff96d359067483fbf484d266f3aeb18
-DSR_TRIM_PATCH="$ROOT/tools/checkers/patches/dsr-trim-ffe486-tautology-hash.patch"
+DSR_TRIM_PATCH="$ROOT/tools/checkers/patches/dsr-trim-0b8cc0e-forward-elaboration.patch"
 
 clone_at_commit () { # dir url commit
     local dir="$ROOT/$1" url="$2" commit="$3"
@@ -61,7 +61,7 @@ clone_patched_at_commit () { # dir url commit patch
         exit 1
     fi
     if git -C "$dir" diff --quiet "$commit" --; then
-        git -C "$dir" apply "$patch"
+        git -C "$dir" apply --unidiff-zero "$patch"
     fi
     if ! git -C "$dir" diff --binary --unified=0 "$commit" -- | cmp -s - "$patch"; then
         echo "$dir does not carry exactly the pinned patch $patch" >&2
@@ -91,7 +91,7 @@ ln -sf "$ROOT/cake_lpr/cake_lpr" "$BIN/cake_lpr"
 echo "== dsr-trim + DSR compressor =="
 clone_patched_at_commit dsr-trim-sr https://github.com/ccodel/dsr-trim.git \
     "$DSR_TRIM_COMMIT" "$DSR_TRIM_PATCH"
-(cd "$ROOT/dsr-trim-sr" && make)
+(cd "$ROOT/dsr-trim-sr" && make clean && make)
 ln -sf "$ROOT/dsr-trim-sr/bin/dsr-trim" "$BIN/dsr-trim"
 ln -sf "$ROOT/dsr-trim-sr/bin/compress" "$BIN/dsr-compress"
 
@@ -163,23 +163,87 @@ test -s "$T/sr.lsr"
 "$BIN/srcheck" "$T/sr.cnf" "$T/sr.lsr" > "$T/srcheck.out"
 grep -Eq '^s VERIFIED[[:space:]]+UNSAT$' "$T/srcheck.out"
 
-# Pinned ffe486 deletes tautological CNF clauses while parsing, then used to
-# insert those deleted slots into its duplicate hash and fail by deleting one
-# twice. The repository patch skips already-deleted slots; keep this raw-CNF
-# regression in both elaboration and final Trestle verification.
-cat > "$T/taut.cnf" <<'EOF'
-p cnf 2 3
+# Forward elaboration must expose parser-deleted tautologies and duplicates to
+# the downstream LSR checker. Exercise a real SR line so an undeleted
+# tautology would enter its reduced-clause obligations.
+cat > "$T/normalized.cnf" <<'EOF'
+p cnf 6 10
 1 -1 0
-2 0
--2 0
+1 2 0
+1 2 0
+3 4 0
+-1 -3 0
+-2 -4 0
+5 6 0
+5 -6 0
+-5 6 0
+-5 -6 0
 EOF
-: > "$T/taut.dsr"
-"$BIN/dsr-trim" -q -c "$T/taut.cnf" "$T/taut.dsr" \
-    "$T/taut.binary.lsr" > "$T/taut-dsr.out"
-grep -Eq '^s VERIFIED[[:space:]]+UNSAT$' "$T/taut-dsr.out"
-"$BIN/dsr-compress" -d "$T/taut.binary.lsr" "$T/taut.lsr"
-"$BIN/srcheck" "$T/taut.cnf" "$T/taut.lsr" > "$T/taut-srcheck.out"
-grep -Eq '^s VERIFIED[[:space:]]+UNSAT$' "$T/taut-srcheck.out"
+cat > "$T/normalized.dsr" <<'EOF'
+-1 -1 3 -1 2 4 4 2 0
+5 0
+0
+EOF
+"$BIN/dsr-trim" -q -f -c "$T/normalized.cnf" "$T/normalized.dsr" \
+    "$T/normalized.binary.lsr" > "$T/normalized-dsr.out"
+grep -Eq '^s VERIFIED[[:space:]]+UNSAT$' "$T/normalized-dsr.out"
+"$BIN/dsr-compress" -d "$T/normalized.binary.lsr" "$T/normalized.lsr"
+"$BIN/srcheck" "$T/normalized.cnf" "$T/normalized.lsr" \
+    > "$T/normalized-srcheck.out"
+grep -Eq '^s VERIFIED[[:space:]]+UNSAT$' "$T/normalized-srcheck.out"
+
+# This valid SR addition makes the formula contradictory during the
+# elaborator's global propagation, before another DSR line exists. The emitted
+# LSR must contain an explicit empty clause with its UP chain.
+cat > "$T/early-empty.cnf" <<'EOF'
+p cnf 12 26
+2 -1 0
+-7 5 0
+8 10 0
+-9 -6 0
+-9 11 0
+6 -8 4 0
+11 -10 0
+4 -6 0
+-10 -9 0
+-4 5 0
+12 -11 7 0
+-7 3 0
+8 -1 0
+3 5 0
+-6 -10 0
+-7 -4 0
+-3 9 1 0
+-6 11 0
+-12 -1 0
+-4 3 0
+8 2 0
+8 -12 0
+2 -12 0
+-7 -4 0
+-5 -6 0
+-5 -2 10 0
+EOF
+cat > "$T/early-empty.dsr" <<'EOF'
+-4 -4 -8 -4 7 12 12 7 5 2 2 5 3 -1 1 -3 0
+EOF
+"$BIN/dsr-trim" -q -f -c "$T/early-empty.cnf" "$T/early-empty.dsr" \
+    "$T/early-empty.binary.lsr" > "$T/early-empty-dsr.out"
+grep -Eq '^s VERIFIED[[:space:]]+UNSAT$' "$T/early-empty-dsr.out"
+"$BIN/dsr-compress" -d "$T/early-empty.binary.lsr" "$T/early-empty.lsr"
+"$BIN/srcheck" "$T/early-empty.cnf" "$T/early-empty.lsr" \
+    > "$T/early-empty-srcheck.out"
+grep -Eq '^s VERIFIED[[:space:]]+UNSAT$' "$T/early-empty-srcheck.out"
+
+# Trestle is the independent acceptance boundary. Its process returns zero for
+# an invalid proof, so assert the verdict text as a negative control.
+printf '11 0 0\n' > "$T/invalid.lsr"
+"$BIN/srcheck" "$T/normalized.cnf" "$T/invalid.lsr" > "$T/invalid.out"
+grep -Eq '^s INVALID$' "$T/invalid.out"
+if grep -Eq '^s VERIFIED[[:space:]]+UNSAT$' "$T/invalid.out"; then
+    echo "Trestle accepted the invalid LSR negative control" >&2
+    exit 1
+fi
 
 cat > "$T/sr-bad.dsr" <<'EOF'
 -1 -1 3 -1 2 4 0
