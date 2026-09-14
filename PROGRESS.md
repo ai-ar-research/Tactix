@@ -29,6 +29,7 @@ sequential portfolios remain out of scope; MAB scheduling remains open.
 | Direct-SR evidence | source `298c3467`; [performance gate](benchmarks/reports/2026-09-13-direct-sr-performance-gate.md), [failed replacement checkpoint](benchmarks/reports/2026-09-13-direct-sr-r16-claude-fuzz/terminal-report.md), [local elaborator repair](benchmarks/reports/2026-09-13-dsr-trim-forward-elaboration-fix.md), and [passing r2 checkpoint](benchmarks/reports/2026-09-13-direct-sr-r16-claude-fuzz-r2/terminal-report.md) |
 | Winner target | [fixed WV100 set](benchmarks/tiers/WV100.tsv), 33 SAT / 67 UNSAT; [experiment protocol](docs/design/2026-09-13-wv100-mechanism-integration.md) |
 | Satsuma evidence | [transition screen](benchmarks/reports/2026-09-13-wv100-satsuma-transition.md), [orbitopal G0](benchmarks/reports/2026-09-13-wv100-orbitopal-sr-g0.md), and [symmetry G2](benchmarks/reports/2026-09-13-wv100-structured-symmetry-g2.md) |
+| Current producer gates | [support-local performance gate](benchmarks/reports/2026-09-14-support-local-sr-performance-gate.md) and [clique diagnosis](benchmarks/reports/2026-09-14-clique-symmetry-producer-diagnosis.md) |
 
 The root checkout is authoritative. `.claude` contains workflow instructions,
 not implementation or project-document changes.
@@ -89,15 +90,20 @@ not implementation or project-document changes.
   pass all **148/148** Release tests and all **147/147** sanitizer-applicable
   tests. The candidate remains uncommitted and separate from the accepted R16
   increment.
-- Candidate-only B28+C5 job `1689071` (33 tasks) and Rank1--50 job `1689096`
-  (50 tasks) measure that exact binary against retained references. Both use
-  the fixed c12/32-GiB/1,200-second native-DSR protocol and anonymous scratch;
-  neither reruns a reference solver. Solver checkpoints may guide independent
-  work before slow proof checks finish.
-- Clique rank 4 still times out with zero SR transitions. Immediate application
-  at the original formula boundary also finds zero, while an independent
-  colored-CNF automorphism probe finds 11 generators in 14 ms. This is a
-  producer coverage gap rather than a scheduling-loss diagnosis.
+- Candidate-only B28+C5 job `1689071` solves all 33 expected outcomes at
+  958.310 versus 950.837 seconds (**1.007859x**) and passes the 1.01 timing
+  limit. Rank1--50 job `1689096` solves all 50 expected outcomes at 8,303.463
+  versus 8,123.812 seconds (**1.022114x**) and **fails** that limit. The
+  [bounded gate report](benchmarks/reports/2026-09-14-support-local-sr-performance-gate.md)
+  therefore rejects the candidate pending a causal overhead repair. Slow proof
+  checks remain background work.
+- Clique rank 4 still times out with zero SR transitions from the exact-row
+  producer. A formula-derived colored-CNF graph finds 11 general generators;
+  a direct-SR prototype applies 22 checked units from them but still times out.
+  Pinned Satsuma instead emits 91 units and closes UNSAT in about 0.013 seconds.
+  The [diagnosis](benchmarks/reports/2026-09-14-clique-symmetry-producer-diagnosis.md)
+  identifies stabilizer-chain clause fixing over completed automorphisms as the
+  missing general mechanism.
 
 ## Operations
 
@@ -121,10 +127,12 @@ not implementation or project-document changes.
 
 ## Next actions
 
-1. Complete the support-local producer as a separate increment and close the
-   clique producer coverage gap with focused proof/model checks.
-2. At meaningful producer checkpoints rerun B28+C5 and Rank1--50 with the fixed
-   resources, then resume the 57-row Satsuma WV100 group. Do not run full Tier D.
+1. Remove the measured support-local default-path overhead and repeat B28+C5
+   and Rank1--50 only after a causal repair; do not land the failed candidate.
+2. Implement deterministic, resource-bounded stabilizer-chain clause fixing
+   over formula-derived colored-CNF automorphisms. Close clique rank 4 with an
+   effective transition and checked direct DSR, then continue across the
+   57-row Satsuma WV100 group. Do not run full Tier D.
 
 <!-- track-sched:begin -->
 - Kissat creation order remains the production default; `TACTIX_ARENA_ORDER=1`
