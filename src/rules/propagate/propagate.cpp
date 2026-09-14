@@ -26,6 +26,7 @@ ApplyResult propagate_service(Kernel &k) {
   if (k.inconsistent)
     return ApplyResult::Unsat;
   const bool lrat = k.proof && k.proof->lrat();
+  const bool named_root_units = k.proof && (lrat || k.proof->dsr());
   const size_t assigned_before = k.trail.size();
   const bool conflict = kernel_propagate(k);
   // Deliberately not gated on `k.level == 0`. A forced literal is stamped at
@@ -36,7 +37,7 @@ ApplyResult propagate_service(Kernel &k) {
   // `kernel_emit_root_units` applies the correct per-literal test. Only
   // reachable with chrono on, and invisible to DRAT, so an LRAT fuzz leg pins
   // it.
-  if (lrat)
+  if (named_root_units)
     kernel_emit_root_units(k, assigned_before);
   if (conflict) {
     k.stats.conflicts++;

@@ -3759,6 +3759,10 @@ ApplyResult congruence_apply(Kernel &k) {
       bool justified;
       if (value_derived_i) {
         cch.resize(2);
+        // Canonical unary reductions come from one extracted gate whose
+        // complete definition is still live. LRAT replays them to collect
+        // antecedents; witnessless formats let their checkers perform that
+        // same RUP check without duplicating it inside the solver.
         justified = congruence_rup_chain(k, concl[0].data(), 2, cch[0]) &&
                     congruence_rup_chain(k, concl[1].data(), 2, cch[1]);
       } else {
@@ -4479,8 +4483,12 @@ ApplyResult congruence_apply_semantic_instance(Kernel &k, uint64_t instance) {
                                 match.second_output};
             const Lit rev[2] = {match.first_output,
                                 negate(match.second_output)};
-            justified = congruence_rup_chain(k, fwd, 2, forward) &&
-                        congruence_rup_chain(k, rev, 2, reverse);
+            // A mixed ITE/AND semantic match has no proof ladder. Replay
+            // both direct conclusions before either witnessless addition.
+            justified = congruence_rup_chain(k, fwd, 2, forward,
+                                              RupReplay::Decide) &&
+                        congruence_rup_chain(k, rev, 2, reverse,
+                                              RupReplay::Decide);
           } else if (match.kind == GateKind::Xor) {
             justified = add_xor_matching_proof_chain(
                 k, match.key, match.first_output, match.second_output,

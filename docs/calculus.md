@@ -52,9 +52,8 @@ are in implementation-notes §1.
 - **Effect:** run BCP to the first conflict or to fixpoint. `F,R,ρ` unchanged; `τ` gains every forced literal (each stamped at its
   **true level** — the max level among its reason's other literals), `propagate_head` advances. No conflict → `Ok`. Conflict below
   root → record it (`conflict_valid`), `Conflict`. Conflict at root → `inconsistent`, emit ∅, `Unsat`.
-- **Proof δ:** `add_derived_unit` per level-0 forced unit (LRAT only;
-  DSR/DRAT re-derive them); `add_empty` on a root conflict (LRAT with a hint
-  chain / DSR/DRAT). Below-root propagation and conflicts emit nothing (the
+- **Proof δ:** `add_derived_unit` per level-0 forced unit (LRAT with a hint chain; DSR as an explicit witnessless RUP unit; DRAT
+  leaves it implicit); `add_empty` on a root conflict (LRAT with a hint chain / DSR/DRAT). Below-root propagation and conflicts emit nothing (the
   learned clause is M3's).
 - **Soundness:** BCP assigns only literals entailed by `F ∧ M`, so it is model-preserving. Each root unit is RUP from its reason
   plus the reasons of that clause's other root literals (chain ascending by trail position); a root conflict's clause is all-false,
@@ -215,8 +214,8 @@ root closure at apply entry. V1/V2 Probe/Backbone additionally require `!conflic
 - **Precondition (abstract):** ∃ an unassigned `p` with `F ∧ M ∧ p ⊢₁ ⊥`; then `F ∧ M ⊨ ¬p`, so `¬p` may be added as a root unit.
 - **Effect:** collect-then-batch — assume each candidate, full-propagate, and on a conflict record `¬p`; assert the batch of derived
   units un-propagated (M1 owns the cascade). Proof δ: `add_rup` per unit (the reason-walk chain closed by the conflict id) — **not**
-  `add_derived_unit` (which emits nothing in DSR/DRAT; a failed-literal unit is
-  RUP and the checker re-derives it).
+  `add_derived_unit`; a failed-literal unit is an explicit logical inference,
+  while `add_derived_unit` publishes an ordinary propagation consequence.
 - **Soundness:** `¬p` is RUP: assume `p`, the recorded reason chain propagates to the conflict.
 
 ### V2 · Backbone — binary-only failed-literal probing
@@ -578,7 +577,19 @@ extend `C` until the extension is blocked, and then the ORIGINAL `C` is deleted.
 **X5 Condition is deliberately absent.** Conditional autarky needs a witness cube, while `ρ` represents one in-clause witness
 literal. The rule is unimplemented; its reopening conditions are in `implementation-notes.md` §16.
 
-## 6d. Clause strengthening by instantiation (X4)
+## 6d. Direct substitution redundancy (X7)
+### X7 · SubstitutionRedundancy — add a clause with a finite DSR witness
+- **Precondition (abstract):** let `C` be a nonempty, non-tautological clause, `p ∈ C` its pivot, and `σ` a finite,
+  polarity-preserving substitution mapping `p` to true and every other source to a constant or literal. For every `D ∈ F`, either
+  `D|σ` is satisfied or unit propagation refutes `F ∧ ¬C ∧ ¬(D|σ)`. Discovery, work limits and producers are strategy choices.
+- **Effect:** add `C`, then perform ordinary root propagation; existing clauses and reconstruction state stay unchanged. An
+  already-present/true candidate is a no-op, and a unit may close the root formula.
+- **Proof δ / soundness:** `add_sr(C,p,σ)` joins the combined DSR stream. Serialize each mapped variable with its positive source
+  literal and that literal's signed image. Every root fact used by validation is already a DSR RUP unit, so validation and the
+  checker see the same formula. The SR condition preserves satisfiability; `dsr-trim` and Trestle check it. No DRAT/LRAT expansion exists.
+- **Instances / termination:** `(C,p,σ)` is the explicit tuple. Lazy enumeration covers every legal tuple and resumes after selected
+  batches. Repetition terminates over finite clause space or by caller budget/stop. Orbitopal symmetry is a producer, not a guard.
+## 6e. Clause strengthening by instantiation (X4)
 
 ### X4 · Instantiate — removing a literal a probe refutes
 - **Precondition (abstract):** a clause `C = D ∨ l` in `F` such that the assignment `l ∧ ¬D` (assume `l` true and every literal of
@@ -597,6 +608,5 @@ literal. The rule is unimplemented; its reopening conditions are in `implementat
 ## 7. Maintenance
 
 Every registered proof rule has an entry here. Stronger implemented guards need a root cause and removal path in implementation
-notes; deltas match the typed proof events and supported serializers; no entry
-weakens N1–N4. Keep engineering conditions out of abstract preconditions and
-update every affected authority with code.
+notes; deltas match typed proof events and supported serializers; no entry weakens N1–N4. Keep engineering conditions out of
+abstract preconditions and update every affected authority with code.

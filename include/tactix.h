@@ -146,8 +146,10 @@ void tactix_release(tactix *);
  * clause. */
 void tactix_add(tactix *, int lit);
 
-/* proof logging (N2): open before solving; TACTIX_PROOF_* format.
- * Returns 0, or -1 (unwritable path / unsupported format). */
+/* Proof logging (N2): attach exactly once, before the first operation that
+ * reasons about the input (including status/enumeration/solve calls).
+ * TACTIX_PROOF_* selects the format. Returns 0, or -1 for a late/duplicate
+ * attachment, an unwritable path, or an unsupported format. */
 int tactix_proof(tactix *, const char *path, int format);
 
 /* BVE gate-type selection (additive): bitmask of the gate types BVE may
@@ -338,6 +340,7 @@ int tactix_apply_semantic_instance(tactix *, int rule_id, uint64_t instance);
 #define TACTIX_ONLINE_PARAMETERS_REORDER 17
 #define TACTIX_ONLINE_PARAMETERS_PARITY_MODEL 18
 #define TACTIX_ONLINE_PARAMETERS_ONEHOT_MODEL 19
+#define TACTIX_ONLINE_PARAMETERS_SUBSTITUTION_REDUNDANCY 20
 
 typedef struct {
   uint32_t minimize_depth_limit;
@@ -450,6 +453,18 @@ typedef struct {
   uint32_t maximum_free_domains;
   uint64_t candidate_budget;
 } tactix_online_onehot_model_parameters;
+typedef struct {
+  /* Zero is a valid disabling limit. UINT64_MAX is unbounded. */
+  uint64_t maximum_validation_ticks;
+  int orbitopal_producer;
+  uint32_t minimum_orbitopal_rows, minimum_orbitopal_columns;
+  uint64_t maximum_orbitopal_matrices, maximum_orbitopal_instances;
+  uint64_t maximum_detection_ticks;
+  /* Mutually exclusive with orbitopal_producer. The general producer walks
+   * the complete finite candidate/witness/substitution domain lazily. */
+  int general_producer;
+  uint64_t maximum_general_candidates_per_advance;
+} tactix_online_sr_parameters;
 
 /* One exact Factor remainder column and grid. Literals use permanent DIMACS
  * identities. The grid is copied during configure; caller storage may be
@@ -489,6 +504,7 @@ typedef struct {
     tactix_online_reorder_parameters reorder;
     tactix_online_parity_model_parameters parity_model;
     tactix_online_onehot_model_parameters onehot_model;
+    tactix_online_sr_parameters substitution_redundancy;
   } value;
 } tactix_online_parameters;
 
@@ -520,6 +536,32 @@ typedef struct {
   uint64_t repeat_limit;
 } tactix_online_program;
 
+/* Additive typed v2 payload for general substitution redundancy. The base v1
+ * step is copied first; SR instances are then copied and validated against the
+ * same immutable configuration snapshot. */
+typedef struct {
+  int source_literal, target_literal;
+} tactix_online_sr_mapping;
+typedef struct {
+  const int *clause;
+  int clause_count;
+  const int *witness;
+  int witness_count;
+  const tactix_online_sr_mapping *substitution;
+  int substitution_count;
+} tactix_online_sr_instance;
+typedef struct {
+  tactix_online_step base;
+  const tactix_online_sr_instance *sr_instances;
+  int sr_instance_count;
+} tactix_online_step_v2;
+typedef struct {
+  const tactix_online_step_v2 *steps;
+  int step_count;
+  int repeat_mode;
+  uint64_t repeat_limit;
+} tactix_online_program_v2;
+
 #define TACTIX_ONLINE_COMPLETED 0
 #define TACTIX_ONLINE_SCOPED_FIXPOINT 1
 #define TACTIX_ONLINE_NO_CHANGE 2
@@ -547,6 +589,8 @@ typedef struct {
 
 int tactix_online_configure(tactix *, const tactix_online_program *,
                             uint64_t revision, int reconfigure_mode);
+int tactix_online_configure_v2(tactix *, const tactix_online_program_v2 *,
+                               uint64_t revision, int reconfigure_mode);
 int tactix_online_advance(tactix *, tactix_online_result *);
 uint64_t tactix_online_step_consumed(tactix *, uint64_t step_id);
 int tactix_online_complete(tactix *);

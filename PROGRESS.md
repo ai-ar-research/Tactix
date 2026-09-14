@@ -8,16 +8,15 @@ and frozen reports own history and evidence.
 
 The online-configurable strategy/N1 refactor is accepted at `a08f9f6a`, and
 native DSR is landed at `20223134` as Tactix's canonical whole-solver
-certificate. Direct-SR R16 has passed its complete tests, proof preflight,
-performance gates, and, with the forward-repaired `dsr-trim` pin, its
-replacement Claude fuzz checkpoint (job `1689057`, **PASS**).
+certificate. Direct-SR R16 is accepted and landed from immutable source
+`298c3467` after complete tests, proof preflight, performance gates, and the
+passing replacement Claude fuzz checkpoint `1689057` with the forward-repaired
+`dsr-trim` pin.
 
-Land the exact R16 direct-SR kernel/API increment separately from the newer
-producer work. Then complete the general
-Satsuma symmetry producer, starting with its 57-instance WV100 group. Preserve
-N1--N4 and the accepted default throughout. Do not submit a full Tier-D run at
-this boundary. Kissat-only tuning, benchmark dispatch, and sequential portfolios
-remain out of scope; MAB scheduling remains an open design choice.
+Complete the general Satsuma symmetry producer, starting with its 57-instance
+WV100 group. Preserve N1--N4 and the accepted default throughout. Do not submit
+a full Tier-D run at this boundary. Kissat-only tuning, benchmark dispatch, and
+sequential portfolios remain out of scope; MAB scheduling remains open.
 
 ## Authorities
 
@@ -49,13 +48,16 @@ not implementation or project-document changes.
   B27+C5 **0.995207x** versus reference and Rank1--40 **0.990299x** on the
   complete solver-time vector. Remaining Rank proof checks stay nonblocking.
 
-## Active direct-SR boundary
+## Accepted direct-SR increment
 
 - R16 exposes complete validated direct-SR instances plus typed single, batch,
   pass, fixpoint, budget, stop, replay, interruption, and reconfiguration paths.
   It also repairs DSR root publication, signed substitutions, checker/kernel
   population agreement, C proof attachment, and transactional proof-only
   lemmas identified by the failed first Claude checkpoint.
+- The landed solver, API, rule, proof, and semantic-document blobs match
+  immutable R16 source `298c3467`. The later support-local producer and its
+  diagnostic counters remain only in the working tree for a separate increment.
 - Immutable source `298c3467` passes the **15/15** proof preflight, **148/148**
   Release tests, and **147/147** applicable ASan/UBSan tests. B28+C5 passes all
   **33/33** checks at 952.263 versus 950.837 solver seconds (**1.001500x**).
@@ -102,7 +104,7 @@ not implementation or project-document changes.
   and 1,200 seconds.
 - Storage guard PID `1458620` checks repository use every ten minutes. Above
   700 GiB it holds only pending repository jobs and later releases only its own
-  holds; it never pauses running jobs. Current repository use is 39 GiB.
+  holds; it never pauses running jobs. Current repository use is 40 GiB.
 - WV100 freezes the first 100 all-configuration ranking rows solved within
   1,200 seconds and 32 GiB by exactly one checked winner: 34 LymphoSAT, 57
   Satsuma+Kissat, seven AE-Kissat-MAB, and two kissat-sc2024. Solved Tactix rows
@@ -110,12 +112,9 @@ not implementation or project-document changes.
 
 ## Next actions
 
-1. Codex lands exactly the R16 source `298c3467` direct-SR increment with the
-   forward `dsr-trim` checker pin (`0b8cc0ef` plus `a5653c3a`). It must not include
-   the newer uncommitted producer changes, and no fuzz rerun is needed.
-2. Then commit the support-local producer changes separately, close the clique
-   producer coverage gap, and rerun focused proof/model checks.
-3. At meaningful producer checkpoints rerun B28+C5 and Rank1--50 with the fixed
+1. Complete the support-local producer as a separate increment and close the
+   clique producer coverage gap with focused proof/model checks.
+2. At meaningful producer checkpoints rerun B28+C5 and Rank1--50 with the fixed
    resources, then resume the 57-row Satsuma WV100 group. Do not run full Tier D.
 
 <!-- track-sched:begin -->

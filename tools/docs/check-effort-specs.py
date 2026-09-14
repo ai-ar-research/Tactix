@@ -53,6 +53,8 @@ EV_DELAY = r"closure_delay_ && \(e\.closure \|\| delay_spec"
 # DELAY_SPECS row keyed on its merge yield is what `delay_spec(r.name)` finds.
 EV_CONGRUENCE_LADDER = (r'\{"Congruence", \[\]\(const Kernel &k\) '
                         r'\{ return k\.stats\.congruence_merges; \}')
+EV_ONE_SHOT_CAP = r"e\.max_applies && e\.applies >= e\.max_applies"
+EV_SR_STRUCTURED = r'apply_rule_structured\(r, k, "orbitopal-producer"'
 
 # Every rule the slot schedules, classified. The justification is the point of
 # the row — for ALTERNATE-GOVERNOR it must NAME the mechanism.
@@ -82,6 +84,10 @@ TABLE = {
     "Substitute":       (METERED, "hand-rolled 10 permille, substitute_ticks "
                                    "currency, no minimum-effort floor; ALSO "
                                    "closure-gated"),
+    "SubstitutionRedundancy":
+                        (ALT, "the reference program's one-shot preprocessing "
+                              "cap plus typed producer/proof limits",
+                         [EV_ONE_SHOT_CAP, EV_SR_STRUCTURED]),
 }
 
 # The slot's admission predicate. If this stops being how the slot is built,

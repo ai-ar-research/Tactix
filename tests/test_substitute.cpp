@@ -1158,38 +1158,42 @@ static void test_substitution_preserves_binary_multiplicity() {
   assert(kernel_binary_copies(k, internalize(1), internalize(3)) == 3);
 }
 
-// A DRAT deletion names a literal multiset, not the clause id.  The temporary
-// equivalence lemmas are deliberately identical to the SCC source binaries;
-// deleting both the physical source and the temporary proof line would make a
-// checker consume an identity the solver did not select.  Only native LRAT can
-// retire the temporary lines by id, so DRAT emits the two source deletions and
-// keeps its two RUP lemmas live.
-static void test_drat_keeps_transient_equivalence_lemmas() {
+// DSR/DRAT deletions name a literal multiset, so identical physical clauses are
+// interchangeable but their count must still match the kernel. The two SCC
+// bridge lemmas are proof-only copies of the two source binaries: Substitute
+// deletes both source copies during rewriting and must then delete both
+// transient copies. A stale proof-only binary can invalidate a later direct-SR
+// witness even though it could only help ordinary RUP.
+static void test_non_lrat_retires_transient_equivalence_lemmas() {
   const std::string path = "/tmp/tactix-substitute-drat-" +
                            std::to_string(static_cast<long>(getpid())) +
                            ".proof";
   std::remove(path.c_str());
-  {
-    Kernel k;
-    kernel_reserve_vars(k, 2);
-    kernel_add_binary_clause(k, internalize(-1), internalize(2));
-    kernel_add_binary_clause(k, internalize(-2), internalize(1));
-    Proof proof;
-    assert(proof.open(path.c_str(), ProofFormat::DratAscii));
-    k.proof = &proof;
-    assert(substitute_apply(k) == ApplyResult::Ok);
+  for (const ProofFormat format : {ProofFormat::DratAscii,
+                                   ProofFormat::DsrAscii}) {
+    {
+      Kernel k;
+      kernel_reserve_vars(k, 2);
+      kernel_add_binary_clause(k, internalize(-1), internalize(2));
+      kernel_add_binary_clause(k, internalize(-2), internalize(1));
+      Proof proof;
+      assert(proof.open(path.c_str(), format));
+      k.proof = &proof;
+      assert(substitute_apply(k) == ApplyResult::Ok);
+    }
+    std::ifstream input(path);
+    assert(input.good());
+    uint32_t additions = 0, deletions = 0;
+    for (std::string line; std::getline(input, line);)
+      if (line.rfind("d ", 0) == 0)
+        deletions++;
+      else if (!line.empty())
+        additions++;
+    input.close();
+    std::remove(path.c_str());
+    assert(additions == 2);
+    assert(deletions == 4);
   }
-  std::ifstream input(path);
-  assert(input.good());
-  uint32_t additions = 0, deletions = 0;
-  for (std::string line; std::getline(input, line);)
-    if (line.rfind("d ", 0) == 0)
-      deletions++;
-    else if (!line.empty())
-      additions++;
-  std::remove(path.c_str());
-  assert(additions == 2);
-  assert(deletions == 2);
 }
 
 // A preserved bridge's transformed pair can coincide with an ordinary live
@@ -1625,7 +1629,7 @@ int main() {
   test_canonical_root_shrink_preserves_vivify_priority();
   test_substitution_preserves_unrelated_binary_watch_order();
   test_substitution_preserves_binary_multiplicity();
-  test_drat_keeps_transient_equivalence_lemmas();
+  test_non_lrat_retires_transient_equivalence_lemmas();
   test_sweep_bridge_target_pair_collision_consumes_ordinary_copy();
   test_substitution_rewrites_stable_watch_in_place();
   test_substitution_appends_moved_watches_in_source_order();

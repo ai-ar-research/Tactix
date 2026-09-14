@@ -112,6 +112,80 @@ static void complete_factor_grid_is_discovered_and_applied(void) {
   tactix_release(solver);
 }
 
+static void exact_sr_instance_v2_is_copied_and_applied(void) {
+  tactix *solver = tactix_init();
+  const int clauses[][3] = {{1, 2, 0}, {3, 4, 0},
+                            {-1, -3, 0}, {-2, -4, 0}};
+  int i;
+  for (i = 0; i < 4; ++i)
+    clause(solver, clauses[i]);
+
+  int sr_clause[] = {-1};
+  int witness[] = {-1, 3};
+  tactix_online_sr_mapping mapping[] = {{2, 4}, {4, 2}};
+  tactix_online_sr_instance instance = {
+      sr_clause, 1, witness, 2, mapping, 2};
+  tactix_online_step_v2 step;
+  tactix_online_program_v2 program;
+  tactix_online_result result;
+  memset(&step, 0, sizeof step);
+  step.base.step_id = 74;
+  step.base.rule_id = rule("SubstitutionRedundancy");
+  step.base.parameters.kind =
+      TACTIX_ONLINE_PARAMETERS_SUBSTITUTION_REDUNDANCY;
+  step.base.parameters.value.substitution_redundancy.maximum_validation_ticks =
+      UINT64_MAX;
+  step.base.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
+  step.base.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
+  step.base.repeat_limit = 1;
+  step.base.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
+  step.base.budget_unlimited = 1;
+  step.sr_instances = &instance;
+  step.sr_instance_count = 1;
+  program.steps = &step;
+  program.step_count = 1;
+  program.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
+  program.repeat_limit = 1;
+  assert(tactix_online_configure_v2(solver, &program, 17,
+                                    TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+
+  /* Every nested array is owned by the configured immutable snapshot. */
+  sr_clause[0] = witness[0] = witness[1] = 0;
+  mapping[0].source_literal = mapping[0].target_literal = 0;
+  assert(tactix_online_advance(solver, &result) == 0);
+  assert(result.status == TACTIX_ONLINE_COMPLETED);
+  assert(result.instance == 0 && result.made_rule_progress);
+  tactix_release(solver);
+}
+
+static void general_sr_producer_is_available_through_v1(void) {
+  tactix *solver = tactix_init();
+  clause(solver, (const int[]){1, -1, 0}); /* reserve one external variable */
+  tactix_online_step step;
+  tactix_online_program program;
+  tactix_online_result result;
+  memset(&step, 0, sizeof step);
+  step.step_id = 76;
+  step.rule_id = rule("SubstitutionRedundancy");
+  step.parameters.kind = TACTIX_ONLINE_PARAMETERS_SUBSTITUTION_REDUNDANCY;
+  step.parameters.value.substitution_redundancy.maximum_validation_ticks =
+      UINT64_MAX;
+  step.parameters.value.substitution_redundancy.general_producer = 1;
+  step.parameters.value.substitution_redundancy
+      .maximum_general_candidates_per_advance = UINT64_MAX;
+  step.granularity = TACTIX_ONLINE_GRANULARITY_COMPLETE_PASS;
+  step.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
+  step.repeat_limit = 1;
+  step.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
+  step.budget = 1;
+  program = (tactix_online_program){&step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
+  assert(tactix_online_configure(solver, &program, 18,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  assert(tactix_online_advance(solver, &result) == 0);
+  assert(result.applications == 1 && result.made_rule_progress);
+  tactix_release(solver);
+}
+
 static void walk_scoring_is_validated_and_copied(void) {
   tactix *solver = tactix_init();
   const int binary[] = {1, 2, 0};
@@ -158,6 +232,8 @@ static void walk_scoring_is_validated_and_copied(void) {
 int main(void) {
   exact_factor_grid_is_copied_and_applied();
   complete_factor_grid_is_discovered_and_applied();
+  exact_sr_instance_v2_is_copied_and_applied();
+  general_sr_producer_is_available_through_v1();
   walk_scoring_is_validated_and_copied();
   tactix *solver = tactix_init();
   const int binary[] = {1, 2, 0};

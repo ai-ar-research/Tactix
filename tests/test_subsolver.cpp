@@ -760,6 +760,32 @@ void emit_cases(const char *dir) {
   assert(multi_step >= 15 && max_steps >= 10);
 }
 
+void test_assumption_only_propagation() {
+  SubSolver s;
+  s.reset(3, SubSearchMode::Fixed);
+  s.add_clause({sub_lit(0, false), sub_lit(1, false)});
+  s.add_clause({sub_lit(0, true), sub_lit(2, false)});
+
+  assert(s.propagate_assumptions_only({sub_lit(0, true)}, UINT64_MAX) ==
+         SubPropagationResult::Consistent);
+  assert(s.propagate_assumptions_only(
+             {sub_lit(0, true), sub_lit(1, true)}, UINT64_MAX) ==
+         SubPropagationResult::Conflict);
+  // A new query must discard every temporary level from the preceding
+  // conflict and may reach a different conflict through propagation.
+  assert(s.propagate_assumptions_only(
+             {sub_lit(0, false), sub_lit(2, true)}, UINT64_MAX) ==
+         SubPropagationResult::Conflict);
+  assert(s.propagate_assumptions_only({}, UINT64_MAX) ==
+         SubPropagationResult::Consistent);
+  assert(s.propagate_assumptions_only({}, 0) ==
+         SubPropagationResult::Budget);
+
+  volatile sig_atomic_t stop = 1;
+  assert(s.propagate_assumptions_only({}, UINT64_MAX, &stop) ==
+         SubPropagationResult::Interrupted);
+}
+
 } // namespace
 
 int main(int argc, char **argv) {
@@ -777,6 +803,7 @@ int main(int argc, char **argv) {
   test_model_flip();
   test_kitten_search_state();
   test_compact_kitten_identity();
+  test_assumption_only_propagation();
   test_kitten_against_brute_force(iterations / 5);
   test_against_brute_force(iterations);
   test_derivation_edge_cases();

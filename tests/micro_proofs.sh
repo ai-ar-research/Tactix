@@ -16,6 +16,7 @@ ANALYZE_TEST="${3:-}"
 CONGRUENCE_TEST="${4:-}"
 RESTART_TEST="${5:-}"
 FACTOR_N1_TEST="${6:-}"
+ONLINE_INPROCESS_TEST="${7:-}"
 for checker in "$DSR_TRIM" "$DSR_COMPRESS" "$SR_CHECK"; do
   [ -x "$checker" ] \
     || { echo "native DSR checker pipeline not built — skipping"; exit 77; }
@@ -25,10 +26,10 @@ T="$(mktemp -d)"
 trap 'rm -rf "$T"' EXIT
 
 check_dsr() {
-  local cnf="$1" proof="$2" direction="${3:-backward}"
+  local cnf="$1" proof="$2" direction="${3:-forward}"
   local binary_lsr="$T/check.binary.lsr" text_lsr="$T/check.lsr"
   local direction_args=()
-  [ "$direction" = backward ] || direction_args=(-f)
+  [ "$direction" = forward ] && direction_args=(-f)
   rm -f "$binary_lsr" "$text_lsr"
   "$DSR_TRIM" -q -c "${direction_args[@]}" "$cnf" "$proof" "$binary_lsr" \
     > "$T/dsr-trim.out" 2>&1 \
@@ -180,6 +181,24 @@ cat > "$T/direct-sr.dsr" <<'EOF'
 0
 EOF
 check_dsr "$T/direct-sr.cnf" "$T/direct-sr.dsr" forward
+
+# Exercise the solver's typed SR application and native DSR writer together.
+# The emitted certificate must contain an effective orbitopal transition and
+# survive forward elaboration, which prevents backward trimming from hiding a
+# malformed or ineffective SR line.
+if [ -n "$ONLINE_INPROCESS_TEST" ]; then
+  proof="$T/orbitopal-sr.dsr"
+  "$ONLINE_INPROCESS_TEST" "$T/direct-sr.cnf" "$proof" dsr OrbitopalSR \
+    > "$T/orbitopal-sr.out" && rc=$? || rc=$?
+  [ "$rc" -eq 20 ] \
+    || { echo "FAIL: orbitopal SR fixture not UNSAT (rc=$rc)"; \
+         cat "$T/orbitopal-sr.out"; exit 1; }
+  grep -Eq '^c effective orbitopal SR transitions [1-9][0-9]*$' \
+    "$T/orbitopal-sr.out" \
+    || { echo "FAIL: orbitopal SR fixture made no effective transition"; \
+         cat "$T/orbitopal-sr.out"; exit 1; }
+  check_dsr "$T/direct-sr.cnf" "$proof" forward
+fi
 
 # Removing half of the row permutation is not an SR witness. The elaborator
 # must reject it before producing an accepted LSR certificate.

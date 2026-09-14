@@ -1078,6 +1078,47 @@ SubResult SubSolver::solve_interruptible(
   return solve_impl<true>(assumptions, ticks_budget, tick_mode, stop);
 }
 
+SubPropagationResult SubSolver::propagate_assumptions_only(
+    const std::vector<SubLit> &assumptions, uint64_t ticks_budget,
+    const volatile sig_atomic_t *stop) {
+  assert(search_mode_ == SubSearchMode::Fixed);
+  model_valid_ = false;
+  if (!solved_) {
+    solved_ = true;
+    original_clauses_ = next_id_ - 1;
+  }
+  if (frames_.size() > 1)
+    backtrack(0);
+  const uint64_t start = ticks_;
+  const auto interrupted = [&] { return stop && *stop; };
+  const auto exhausted = [&] {
+    return ticks_budget != UINT64_MAX && ticks_ - start >= ticks_budget;
+  };
+  if (interrupted())
+    return SubPropagationResult::Interrupted;
+  if (inconsistent_ || !propagate())
+    return SubPropagationResult::Conflict;
+  if (exhausted())
+    return SubPropagationResult::Budget;
+
+  for (const SubLit assumption : assumptions) {
+    if (interrupted())
+      return SubPropagationResult::Interrupted;
+    if (exhausted())
+      return SubPropagationResult::Budget;
+    const SubLit internal = import_literal(assumption);
+    frames_.push_back(static_cast<uint32_t>(trail_.size()));
+    if (values_[internal] < 0)
+      return SubPropagationResult::Conflict;
+    if (!values_[internal])
+      assign(internal, NO_REF);
+    if (!propagate())
+      return SubPropagationResult::Conflict;
+  }
+  return exhausted() ? SubPropagationResult::Budget
+                     : SubPropagationResult::Consistent;
+}
+
 bool SubSolver::flip_model_literal(SubLit lit) {
   assert(solved_ && "a flip requires a SAT model");
   if (!model_valid_)

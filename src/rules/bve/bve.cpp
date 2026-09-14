@@ -602,10 +602,11 @@ uint32_t bve_find_definition(const Kernel &k, Lit px,
 // Each sub-lemma L becomes (unit v L). Original sub-clause ids map to the
 // corresponding live pivot clauses; LRAT additionally cites root units whose
 // false literals were stripped on import. The final empty sub-lemma becomes
-// the failed-literal unit. These are proof-only lemmas: DRAT retains the
-// intermediates because literal-multiset deletion is ambiguous when a lemma
-// duplicates a live clause; native LRAT retires them by exact id after the
-// unit is installed, matching Kissat's temporary-lemma lifecycle.
+// the failed-literal unit. These proof-only lemmas are retired after the unit
+// is installed. LRAT uses exact ids; DSR/DRAT remove one literal-multiset copy
+// per emitted intermediate. Identical clauses are interchangeable in the
+// latter formats, while retaining an extra copy would make a later direct-SR
+// validator observe fewer clauses than the checker.
 static void bve_emit_definition_unit(Kernel &k, Lit unit,
                                      const std::vector<MClause> &pos,
                                      const std::vector<MClause> &neg,
@@ -663,16 +664,16 @@ static void bve_emit_definition_unit(Kernel &k, Lit unit,
                        lrat ? static_cast<uint32_t>(chain.size()) : 0);
     id_of[step.id] = id;
     last_id = id;
-    if (lrat && si + 1 != s.deriv.steps.size())
+    if (k.proof && si + 1 != s.deriv.steps.size())
       transients.push_back({id, lifted});
   }
   assert(last_id);
   k.unit_ids[var_of(unit)] = last_id;
   kernel_assign_unit(k, unit);
   k.stats.bve_definition_units++;
-  if (k.proof && lrat)
+  if (k.proof)
     for (size_t i = transients.size(); i-- > 0;)
-      k.proof->del(k.next_clause_id, transients[i].id,
+      k.proof->del(k.next_clause_id, lrat ? transients[i].id : 0,
                    transients[i].lits.data(),
                    static_cast<uint32_t>(transients[i].lits.size()));
 }

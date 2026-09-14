@@ -60,6 +60,9 @@ struct OnlineInvocation {
   // OneInstance/SelectedBatch machinery; InvocationResult::instance is the
   // zero-based index in this immutable request snapshot.
   std::vector<FactorGrid> factor_grids;
+  // General SR payloads are likewise variable-sized semantic instances.
+  std::vector<SubstitutionRedundancyInstance>
+      substitution_redundancy_instances = {};
   RepeatSpec repeat;
   RuleWorkBudget rule_work_budget;
   RuleMaterialSettings material;
@@ -125,6 +128,9 @@ private:
     StateVersion expected_state;
     std::vector<uint64_t> selection;
     std::vector<FactorGrid> structured_selection;
+    std::vector<SubstitutionRedundancyInstance> sr_selection;
+    SubstitutionRedundancyGeneralCursor sr_general_cursor;
+    bool sr_general_mode = false;
   };
 
   bool prepare_selection(Kernel &, const OnlineInvocation &, Runtime &,

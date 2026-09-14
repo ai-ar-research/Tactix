@@ -420,6 +420,10 @@ struct Stats {
   uint64_t rule_calls[MAX_TIMED_RULES] = {};
   uint64_t inprocess_nanos = 0; // whole slot, incl. scheduling not in a rule
   uint64_t solve_nanos = 0;     // wall time of solve(), set by the frontend
+  uint64_t sr_applications = 0;
+  uint64_t sr_applied = 0;
+  uint64_t sr_validation_ticks = 0;
+  uint64_t sr_witness_literals = 0;
   uint64_t switched = 0; // mode switches (S4)
   uint64_t target_saved = 0; // target-phase snapshots
   uint64_t best_saved = 0;   // best-phase snapshots
@@ -1041,6 +1045,11 @@ struct Kernel {
   // record is created, retired, reused in place, or flips redundancy.
   uint64_t live_irredundant_large = 0;
   std::vector<uint64_t> unit_ids; // by var
+  // DSR must publish propagation-derived root facts without turning them into
+  // solver-side asserted units.  Keep that proof-only deduplication state
+  // separate from `unit_ids`, whose presence is observable by simplification
+  // rules and therefore affects the search trajectory.
+  std::vector<int8_t> dsr_root_values; // emitted polarity by var, 0 if none
   BinaryIdMap binary_ids;
   BinaryLivenessIndex *binary_liveness = nullptr; // scoped dense-rule index
   std::vector<std::pair<uint32_t, uint64_t>> lrat_entries;

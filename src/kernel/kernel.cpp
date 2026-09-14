@@ -92,6 +92,8 @@ void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
   k.jumped_over.resize(nvars, 0);
   k.watches.resize_lits(2 * nvars);
   k.unit_ids.resize(nvars, 0);
+  if (!k.dsr_root_values.empty())
+    k.dsr_root_values.resize(nvars, 0);
   // BVE retry filter: a brand-new variable has never been attempted, so it
   // starts retry-worthy (kissat activate_variable marks it removed+added). A
   // derived index, not `H` (docs/implementation-notes.md §6) — kernel-side.
@@ -2010,7 +2012,8 @@ bool kernel_propagate_probing(Kernel &k, Ref ignore) {
   // V5 Sweep does deliberately: it asserts each environment's units without
   // propagating and then replays the next equivalence.
   const size_t assigned_before = k.trail.size();
-  const bool lrat = k.proof && k.proof->lrat();
+  const bool named_root_units =
+      k.proof && (k.proof->lrat() || k.proof->dsr());
   bool conflict = false;
   kernel_settle_binary_only_debt(k); // this scan is a full one
   if (!k.probing.recording) {
@@ -2035,7 +2038,7 @@ bool kernel_propagate_probing(Kernel &k, Ref ignore) {
     k.stats.propagations += k.propagate_head - saved_propagate;
     kernel_charge_ticks(k, ticks);
   }
-  if (lrat)
+  if (named_root_units)
     kernel_emit_root_units(k, assigned_before);
   return conflict;
 }
@@ -2058,7 +2061,8 @@ bool kernel_propagate_binary(Kernel &k, bool use_current_level) {
   if (k.propagate_head < k.binary_only_head)
     k.binary_only_head = k.propagate_head;
   const size_t assigned_before = k.trail.size();
-  const bool lrat = k.proof && k.proof->lrat();
+  const bool named_root_units =
+      k.proof && (k.proof->lrat() || k.proof->dsr());
   bool conflict = false;
   const uint32_t saved_propagate = k.propagate_head;
   uint64_t ticks = 0;
@@ -2072,7 +2076,7 @@ bool kernel_propagate_binary(Kernel &k, bool use_current_level) {
   }
   k.stats.propagations += k.propagate_head - saved_propagate;
   kernel_charge_ticks(k, ticks);
-  if (lrat)
+  if (named_root_units)
     kernel_emit_root_units(k, assigned_before);
   return conflict;
 }
@@ -3331,6 +3335,9 @@ bool kernel_compact_variables(Kernel &k, bool fold_fixed) {
   std::vector<Assigned> assigned(new_nvars);
   std::vector<Lit> jumped_over(new_nvars, INVALID_LIT);
   std::vector<uint64_t> unit_ids(new_nvars, 0);
+  std::vector<int8_t> dsr_root_values;
+  if (!k.dsr_root_values.empty())
+    dsr_root_values.resize(new_nvars, 0);
   for (Var old = 0; old < old_nvars; old++) {
     const Var now = old_to_new[old];
     if (now == INVALID_VAR)
@@ -3364,6 +3371,8 @@ bool kernel_compact_variables(Kernel &k, bool fold_fixed) {
       if (assigned[now].jumped)
         jumped_over[now] = map_lit(k.jumped_over[old]);
       unit_ids[now] = k.unit_ids[old];
+      if (!dsr_root_values.empty())
+        dsr_root_values[now] = k.dsr_root_values[old];
     }
   }
 
@@ -3441,6 +3450,7 @@ bool kernel_compact_variables(Kernel &k, bool fold_fixed) {
   k.assigned.swap(assigned);
   k.jumped_over.swap(jumped_over);
   k.unit_ids.swap(unit_ids);
+  k.dsr_root_values.swap(dsr_root_values);
   k.trail.swap(trail);
   k.frames.swap(frames);
   k.propagate_head = propagate_head;
@@ -3560,11 +3570,16 @@ void kernel_lrat_chain(Kernel &k, uint64_t closing_id) {
   kernel_build_lrat_chain(k.lrat_entries, closing_id, k.lrat_chain);
 }
 
-// LRAT: every root-level propagation-derived literal becomes an explicit unit
-// clause in the proof (CaDiCaL's scheme) so later chains can cite it. Emitting
-// in trail order is what makes each chain nameable: a reason's other literals
-// are all root-false and were assigned earlier, so their own ids already exist.
+// LRAT and DSR: every root-level propagation-derived literal becomes an
+// explicit unit clause so it remains available after its reason is deleted.
+// Emitting in trail order makes each LRAT chain nameable; native DSR lets its
+// checker reconstruct the same RUP chain and therefore avoids the reason walk.
+// DSR publication deliberately does not populate `unit_ids`: that vector is
+// solver-semantic state (several rules distinguish asserted from implied root
+// units), so using it only to remember a proof line changes the default search.
 void kernel_emit_root_units(Kernel &k, size_t from) {
+  if (k.proof->dsr() && k.dsr_root_values.empty())
+    k.dsr_root_values.resize(k.nvars, 0);
   for (size_t i = from; i < k.trail.size(); i++) {
     const Lit lit = k.trail[i];
     const Var v = var_of(lit);
@@ -3573,7 +3588,16 @@ void kernel_emit_root_units(Kernel &k, size_t from) {
         a.reason == DECISION_REASON)
       continue; // asserted units got their ids at the source
     if (k.unit_ids[v])
-      continue; // already named (a repeated drain of the same root literal)
+      continue; // an asserted/named unit is already present in the proof
+    if (k.proof->dsr()) {
+      const int8_t polarity = negated(lit) ? -1 : 1;
+      if (k.dsr_root_values[v] == polarity)
+        continue; // repeated drain of the same proof-only root fact
+      const uint64_t id = ++k.next_clause_id;
+      k.proof->add_derived_unit(id, lit, nullptr, 0);
+      k.dsr_root_values[v] = polarity;
+      continue;
+    }
     k.lrat_entries.clear();
     uint64_t reason_id;
     if (a.binary) {

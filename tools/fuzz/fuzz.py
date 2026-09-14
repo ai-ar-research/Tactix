@@ -284,6 +284,8 @@ REACH_SPECS = [
     ("TransitiveReduce", r"^c transitive\s+\d+ rounds, (\d+) checked,"),
     ("HyperBinaryRes", r"^c hbr\s+\d+ rounds, (\d+) probes,"),
     ("Substitute", r"^c substitute\s+(\d+) rounds,"),
+    ("SubstitutionRedundancy",
+     r"^c sr\s+\d+ applications, (\d+) applied,"),
     ("BCE", r"^c bce\s+(\d+) rounds,"),
     ("CCE", r"^c cce\s+(\d+) rounds,"),
     ("Instantiate", r"^c instantiate\s+(\d+) rounds,"),
@@ -459,7 +461,8 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
             binary_lsr = os.path.join(workdir, "proof.binary.lsr")
             text_lsr = os.path.join(workdir, "proof.text.lsr")
             out.proof_artifacts.extend([binary_lsr, text_lsr])
-            if not check([DSR_TRIM, "-q", "-c", cnf_path, proof, binary_lsr]):
+            if not check([DSR_TRIM, "-q", "-f", "-c", cnf_path, proof,
+                          binary_lsr]):
                 out.fail("proof", "dsr-trim did not verify and elaborate DSR")
             elif not os.path.isfile(binary_lsr) or os.path.getsize(binary_lsr) == 0:
                 out.fail("proof", "dsr-trim produced no LSR")

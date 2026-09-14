@@ -52,6 +52,20 @@ static Kernel layered_congruence_fixture() {
   return k;
 }
 
+static Kernel sr_fixture() {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  const auto add = [&](int a, int b) {
+    kernel_add_binary_clause(k, internalize(a), internalize(b),
+                             ++k.next_clause_id);
+  };
+  add(1, 2);
+  add(3, 4);
+  add(-1, -3);
+  add(-2, -4);
+  return k;
+}
+
 static void invalid_configuration_is_rejected() {
   Kernel k = broad_fixture();
   OnlineStrategyProgram output;
@@ -376,6 +390,46 @@ static void random_walk_and_reorder_vary_scoring_parameters() {
   assert(walk_even_bases.size() > 8 && walk_curve_bases.size() > 16);
   assert(reorder_decay.size() > 8 && reorder_binary.size() > 8 &&
          reorder_polarity.size() > 8);
+}
+
+static void random_sr_is_structured_replayable_and_effective() {
+  RandomOnlineConfig config;
+  config.rules = {"SubstitutionRedundancy"};
+  config.maximum_sequence_length = 1;
+  bool saw_explicit = false, saw_complete = false, saw_effective = false;
+  std::set<uint64_t> validation_limits, detection_limits;
+  for (uint64_t seed = 1; seed <= 1024; ++seed) {
+    Kernel k = sr_fixture();
+    OnlineStrategyProgram program;
+    std::string error;
+    assert(random_online_strategy_program(k, seed, config, program, &error));
+    assert(program.sequence.size() == 1);
+    const OnlineInvocation &step = program.sequence.front();
+    const auto &parameters =
+        std::get<SubstitutionRedundancyParameters>(step.parameters);
+    validation_limits.insert(parameters.maximum_validation_ticks);
+    detection_limits.insert(parameters.maximum_detection_ticks);
+    saw_explicit |= !step.substitution_redundancy_instances.empty();
+    saw_complete |=
+        step.granularity == InvocationGranularity::CompleteCurrentPass;
+
+    const std::string encoded = serialize_online_strategy_program(program);
+    OnlineStrategyProgram replay;
+    assert(deserialize_online_strategy_program(encoded, replay, &error));
+    assert(serialize_online_strategy_program(replay) == encoded);
+    assert(replay.sequence.front().substitution_redundancy_instances ==
+           step.substitution_redundancy_instances);
+
+    OnlineStrategyExecutor executor;
+    assert(executor.configure(replay, seed));
+    const InvocationResult result = executor.advance(k);
+    if (result.made_rule_progress) {
+      saw_effective = true;
+      assert(k.value(internalize(-1)) > 0);
+    }
+  }
+  assert(saw_explicit && saw_complete && saw_effective);
+  assert(validation_limits.size() > 32 && detection_limits.size() > 32);
 }
 
 static OnlineStrategyProgram exact_factor_replay_program(Kernel &k) {
@@ -937,6 +991,7 @@ int main() {
   generation_observes_interruption_without_mutating_kernel();
   configurable_parameters_round_trip();
   random_walk_and_reorder_vary_scoring_parameters();
+  random_sr_is_structured_replayable_and_effective();
   explicit_selection_reaches_beyond_a_prefix();
   parameter_domains_are_caller_controlled();
   every_registry_action_has_random_support();

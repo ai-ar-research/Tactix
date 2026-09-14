@@ -11,13 +11,9 @@ single-threaded, deterministic solving.
 
 ### Active execution order
 
-1. Preserve the accepted native-DSR whole-solver certificate and its B27+C5 and
-   Rank 1--40 proof/performance gate.
-2. Land the direct-SR kernel, proof, and shared typed API increment only after
-   its focused proof/verdict checks, full Release and sanitizer tests, B28+C5,
-   Rank 1--50, and replacement Claude-owned fuzz checkpoint pass. A failed
-   checkpoint returns the increment to debugging with its retained reproducer.
-3. Complete the Satsuma symmetry producer through that direct-SR interface,
+1. Preserve the accepted native-DSR certificate and direct-SR typed interface
+   with their proof, test, fuzz, B27+C5/Rank 1--40, and B28+C5/Rank 1--50 gates.
+2. Complete the Satsuma symmetry producer through that direct-SR interface,
    starting with the largest fixed WV100 signature group. Integrate general
    preprocessing or root-inprocessing mechanisms; do not build a sequential
    portfolio or dispatch on benchmark identity.

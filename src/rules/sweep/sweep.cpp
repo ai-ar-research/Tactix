@@ -2149,13 +2149,29 @@ static bool sweep_apply_general_plan(Kernel &k,
   for (size_t i = 0; i < plan.source_ids.size(); i++)
     id_of[i + 1] = plan.source_ids[i];
   std::vector<uint64_t> chain;
+  struct Transient {
+    uint64_t id;
+    std::vector<Lit> lits;
+  };
+  std::vector<Transient> transients;
+  const auto delete_transients = [&]() {
+    if (k.proof)
+      for (size_t i = transients.size(); i-- > 0;)
+        k.proof->del(k.next_clause_id, lrat ? transients[i].id : 0,
+                     transients[i].lits.data(),
+                     static_cast<uint32_t>(transients[i].lits.size()));
+    transients.clear();
+  };
   uint64_t last_id = 0;
-  for (const SweepGeneralStepPlan &step : plan.steps) {
-    // Every emitted step is itself a valid RUP lemma.  Stopping between steps
-    // can therefore leave harmless unused lemmas in the proof without
-    // publishing the plan's final logical consequence into the kernel.
-    if (sweep_stopping(k))
+  for (size_t si = 0; si < plan.steps.size(); si++) {
+    const SweepGeneralStepPlan &step = plan.steps[si];
+    // An interrupted plan has no kernel effect. Retire every already-emitted
+    // proof-only prefix so a later direct-SR step sees the same clause
+    // population in the checker and kernel.
+    if (sweep_stopping(k)) {
+      delete_transients();
       return false;
+    }
     chain = step.strip_ids;
     if (lrat)
       k.stats.sweep_strip_cited += step.strip_ids.size();
@@ -2172,6 +2188,8 @@ static bool sweep_apply_general_plan(Kernel &k,
     if (step.sub_id < id_of.size())
       id_of[step.sub_id] = id;
     last_id = id;
+    if (k.proof && si + 1 != plan.steps.size())
+      transients.push_back({id, step.lits});
   }
   if (plan.t1 == INVALID_LIT) {
     k.unit_ids[var_of(plan.t0)] = last_id;
@@ -2181,6 +2199,7 @@ static bool sweep_apply_general_plan(Kernel &k,
     kernel_add_binary_clause(k, plan.t0, plan.t1, last_id);
     k.stats.sweep_binaries++;
   }
+  delete_transients();
   return true;
 }
 

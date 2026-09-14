@@ -26,26 +26,31 @@ guidance; S6 additionally requires root because its representation transition re
 | E2 Factor | `root` | declared inprocessing boundary; every eligible seed is reachable; typed exact-grid application and exhaustive lazy grid enumeration cover profitable subgrids and exact large-clause occurrences |
 | X1 BCE, X2 HyperTernaryRes, X3 CCE, X4 Instantiate | `root` | declared inprocessing boundary; additive semantic surfaces name individual clause/blocker, parent-pair/resolvent, CCE victim, and clause/literal choices. Duplicate binary copies form one represented victim. |
 | X6 HyperBinaryRes | `root && !conflict_valid` | root is the declared inprocessing boundary; conflict condition is abstract; semantic payloads completely enumerate stable `(d, clause, selected literal)` resolvents, including nonclosest dominators and unit-degenerate results |
+| X7 SubstitutionRedundancy | `root` | declared inprocessing boundary; explicit instances carry the candidate clause, witness literals, and finite literal substitution. The rule validates the complete DSR SR condition before mutation; strategy parameters own validation/enumeration/detection limits and producer selection. Direct SR requires native DSR output. |
 
 DefaultPolicy ships original-Kissat pipeline membership. Off-pipeline CaDiCaL rules remain registered, journaled, N1-reachable, and
 explicitly poseable.
 
 ### Native DSR proof backend contract
 
-The current proof increment makes the canonical mode one streaming binary DSR certificate. Existing
-RUP/RAT additions and deletions use DSR's backward-compatible witnessless
-forms; a substitution-redundancy event appends its finite substitution witness
-to the same addition line. ASCII DSR is the diagnostic spelling. DRAT and native
-LRAT remain explicit compatibility modes for the pre-existing event vocabulary;
-new Satsuma-derived rules do not construct DRAT/LRAT expansions.
+The current proof increment makes the canonical mode one streaming binary DSR certificate. Existing RUP/RAT additions and deletions
+use DSR's backward-compatible witnessless forms; a substitution-redundancy event appends its finite substitution witness to the same
+addition line. ASCII DSR is diagnostic; DRAT and native LRAT remain compatibility modes for the earlier event vocabulary.
 
-UNSAT acceptance runs `dsr-trim` against the original CNF to check and elaborate
-the DSR stream, decompresses the resulting LSR when required, and invokes the
-pinned Trestle `srcheck` on that LSR. CNF, DSR, LSR and checker intermediates use
-anonymous scratch and disappear on normal exit, timeout, crash, cancellation
-and signal. The writer is streaming and retains no checker-population ledger or
-proof-only kernel variables. Format selection cannot change formula mutation,
-rule guards, scheduling, or legal instances.
+DSR emits every propagation-derived root unit as a witnessless RUP addition with a proof identity, keeping the checker formula equal
+to the root state used by later deletion and direct-SR validation. Substitutions serialize positive source variables with their
+signed images; signed semantic inputs are canonicalized first. Direct Congruence additions without an emitted proof ladder replay
+RUP before emission in DSR/DRAT as an admission check; LRAT uses the same replay to obtain antecedent chains.
+Substitute, BVE, and Sweep retire proof-only equivalence/refutation lemmas after their conclusions are installed in every format:
+LRAT uses their ids, while DSR/DRAT delete one literal-multiset copy per emitted lemma. Sweep also retires an emitted general-plan
+prefix before returning from interruption. Identical non-LRAT clauses are interchangeable, but leaving an extra copy in the checker
+would give a later direct-SR validation an incomplete formula.
+
+UNSAT acceptance runs `dsr-trim` against the original CNF, decompresses its LSR when required, and invokes pinned Trestle `srcheck`.
+CNF, DSR, LSR and checker intermediates use anonymous scratch and disappear on exit, timeout, crash, cancellation and signal. The
+streaming writer retains no checker-population ledger or proof-only kernel variables. Format selection cannot change formula mutation,
+guards, scheduling, or legal instances. The C API permits one writer before input/proof-id settlement; late or duplicate attachment
+returns `-1` because it would omit earlier proof-state transitions.
 
 Pinned `dsr-trim` emits the hintless LSR line `n+1 0 0` when the input CNF
 already contains an empty clause; Trestle correctly rejects it. The checker
@@ -57,14 +62,14 @@ Pinned upstream `dsr-trim` commit `ffe486` deleted tautological input clauses du
 deleted slots. `tools/checkers/patches/dsr-trim-ffe486-tautology-hash.patch` skips those slots during hash initialization. Setup
 verifies the exact diff and runs a raw-tautology DSR-to-LSR-to-Trestle self-test; the raw CNF and proof still reach Trestle unchanged.
 
-The working tree contains binary/ASCII DSR serialization, the typed `add_sr`
-event, public CLI/C API format selection, pinned checker setup, and the
+Accepted source `20223134` contains binary/ASCII DSR serialization, the typed
+`add_sr` event, public CLI/C API format selection, pinned checker setup, and the
 anonymous-scratch runtime checker pipeline. Active benchmark and fuzz launchers
 select that pipeline by default; explicit DRAT/LRAT compatibility paths remain.
 Unit, proof-oracle, runtime, full Release and sanitizer suites pass. The first
 Claude-owned fuzz checkpoint exposed the pinned checker defect; its replacement
 passed with identical solver binaries and the patched checker. B27+C5 and the
-complete Rank1--40 solver-time vector show no regression; four final Rank checker
+complete Rank1--40 solver-time vector show no regression; remaining Rank checker
 tasks continue in the background under the accepted nonblocking proof-check rule.
 
 ## 2. Engineering-deviation ledger
@@ -116,7 +121,7 @@ tasks continue in the background under the accepted nonblocking proof-check rule
   literal exactly like Kissat. Isolated5649 keeps a local cursor, publishing at exits (per scan for diagnostics). Backtrack owns
   rewinds; binary-only debt still forces every skipped large scan.
 - Binary-only propagation records its covered prefix in `binary_only_head` so later full propagation pays outstanding work.
-- Every root-fixed literal has a native-LRAT unit id. All propagation entry points name new root units; speculative retraction
+- Every root-fixed literal has a proof-unit id under native LRAT and DSR. All propagation entry points name new root units; speculative retraction
   invalidates cached unit ids so replay cannot cite the opposite polarity.
 - Arena `Ref`s are valid only within one `arena_generation`; any retained Ref must compare the generation after possible collection.
 - Ordering is semantic when it changes candidate, reason, proof-line, or watch order. Every trajectory-affecting comparator is a
@@ -414,6 +419,7 @@ non-BCE form has a single-literal witness. Yield alone does not change the repre
 | X1 `BCE` · X2 `HyperTernaryRes` · X3 `CCE` · X4 `Instantiate` | implemented |
 | X5 `Condition` | reasoned no-implement; §16 reopening path |
 | X6 `HyperBinaryRes` | implemented; individual resolvent surface complete |
+| X7 `SubstitutionRedundancy` | implementation in progress; explicit/general/orbitopal surfaces and direct DSR micro proof pass, full acceptance pending |
 
 ## 18. Structured rule journal
 
@@ -487,3 +493,11 @@ direct rule scheduler is retired. Random programs vary parameters, order, granul
 phases and complete or noncanonical instances. Generated fixpoint repeats have finite ceilings and generation polls the same
 external stop source as execution. Trace v3 records each complete serialized program before applying it; replay restores that
 request through the executor. Historical v1/v2 action traces remain readable for saved fuzz failures.
+## 24. Direct substitution redundancy
+An explicit SR payload gives a nonempty candidate clause, its first-literal pivot, true-mapped witnesses, and a finite polarity-preserving substitution. Invalid, contradictory, retired-variable, duplicate-source, identity, and non-DSR payloads fail before mutation. The rule snapshots the live root formula and checks every changed substituted image by unit propagation under the negated candidate. Validation, proof-id reservation, and `add_sr` finish before insertion, so interruption, exhaustion, or inapplicability leaves state unchanged.
+The lazy cursor enumerates every candidate clause/pivot, witness assignment, and finite literal mapping over non-retired variables.
+Owner, arena generation, and touch epoch permit same-state resumption and restart after mutation. Named settings bound candidates per advance, validation, detection, matrices, and emissions without narrowing explicit N1 actions.
+The structured producer finds disjoint equal-width exactly-one columns, aligns them through mutual-exclusion binaries, and accepts a matrix only when every adjacent-row swap preserves the complete clause multiset.
+A lightweight occurrence screen precedes whole-formula materialization; screen, alignment, snapshot, and automorphism work is charged to the caller's detection limit and polls interruption.
+It emits orbitopal prefix-fixing units as direct SR before Factor, the first operation that the retained G2 trace shows destroying those automorphisms.
+DefaultPolicy invokes the producer once, with ceilings of 1,000,000 detection ticks, 10,000,000 validation ticks, 16 matrices, and 256 emitted instances. These are typed policy admission settings: explicit X7 and opt-in general enumeration remain unbounded by default and report resource exhaustion without consuming a pending application.

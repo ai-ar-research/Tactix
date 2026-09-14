@@ -2790,16 +2790,17 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
   std::vector<uint64_t>().swap(pending.ids);
   substitute_stage_trace(k, "rewrite-large-scratch-released");
 
-  // (E) Native LRAT names the transient equivalence lemmas by id, so it can
-  // retire exactly those lines.  DRAT names a deletion only by its literal
-  // multiset: a transient lemma can be identical to a live source/bridge
-  // binary, and a later `d` line can consume the wrong copy in the checker's
-  // population.  Keep these harmless RUP lemmas in DRAT instead of introducing
-  // an identity-ambiguous deletion; they need not remain in the solver formula.
-  if (k.proof && lrat)
+  // (E) Retire every transient equivalence lemma after the rewrite. LRAT names
+  // the exact lemma by id. DSR/DRAT name an identical-clause multiset, where
+  // physical identity is irrelevant but multiplicity is not: retaining a
+  // proof-only copy makes the checker formula strictly larger than the kernel
+  // formula. That used to be harmless for RUP-only output, but a later direct
+  // SR step must discharge every checker clause and therefore requires exact
+  // population counts.
+  if (k.proof)
     for_each_substitutable([&](Lit l) {
       const Lit lits2[2] = {negate(l), representative(l)};
-      k.proof->del(k.next_clause_id, lemma_id(l), lits2, 2);
+      k.proof->del(k.next_clause_id, lrat ? lemma_id(l) : 0, lits2, 2);
     });
 
   // (F) reconstruction witnesses, once per substituted variable: the
