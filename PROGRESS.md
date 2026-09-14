@@ -71,8 +71,8 @@ not implementation or project-document changes.
   status aggregator. There are 0 failing cases in 15,108 audit cases and 3,350
   stock cases. No required key is missing, forward DSR-to-LSR-to-Trestle had 0
   rejections, and identity and cleanup checks are exact. This closes the R16
-  Claude fuzz gate. The passing snapshot
-  `build/pin-srfuzz-direct-r16-298c3467-r2` is removable per §8.2.
+  Claude fuzz gate. The passing and superseded failed fuzz pins were removed
+  after audit; their bounded manifests, terminal reports, and reproducers remain.
 
 ## Active Satsuma producer work
 
