@@ -21,8 +21,10 @@ evidence in frozen reports and runs. The solver is sequential and deterministic.
    retain old replay readers. Pass focused tests, Release, sanitizers, a real
    DSR-to-LSR-to-Trestle proof, Claude-owned fuzzing, then candidate-only
    B28+C5 and Rank 1--50 against retained controls before committing.
-3. After promotion, measure the mechanism on the fixed 57-row Satsuma WV100
-   signature group and group the remaining misses by effective transition.
+3. The fixed 57-row Satsuma WV100 screen establishes nine checked solves and 48
+   residuals. Next implement structured row/row-column action discovery and
+   fixing, including typed clique-guided ordering and alternating root rounds;
+   then implement Johnson actions and regroup the remaining misses.
 
 Do not submit a new full Tier-D run after this symmetry increment. A future full
 Tier-D campaign requires a separate decision after focused WV100 evidence.
@@ -515,10 +517,14 @@ strategy settings. Run only at level zero or after Restart-to-root, with
 interruption and replay and no formula/family/rank identity. Pin, license and
 failure-isolate third-party code from the no-exception/no-RTTI core.
 
-Official SAT 2026 Satsuma also alternates simplification and symmetry breaking,
-using variable-clause graph cliques to guide fixing. This first increment does
-not claim that full mechanism; after its fixed gates, use 57-row transitions to
-decide whether clique-guided fixing and alternating root rounds come next.
+Official SAT 2026 Satsuma alternates simplification and symmetry breaking and
+uses variable-clause co-occurrence cliques to order structured actions. The
+checked first screen solves 9/57, while the retained official-binary transition
+screen classifies 51 rows as structured row/row-column, five as Johnson, and one
+as generic Schreier. Implement the structured detector and fixing first, with
+clique search, fallback ordering, split/search limits, iteration, and stops as
+validated strategy settings. Johnson detection follows. These mechanisms use
+formula/group structure uniformly and never dispatch by family or identity.
 
 Treat the backend as untrusted: exact-check every signed permutation against
 the live X7 formula and validate every derived clause before mutation. A
