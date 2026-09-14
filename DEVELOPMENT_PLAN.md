@@ -17,6 +17,12 @@ single-threaded, deterministic solving.
    starting with the largest fixed WV100 signature group. Integrate general
    preprocessing or root-inprocessing mechanisms; do not build a sequential
    portfolio or dispatch on benchmark identity.
+   1. Detect complete signed automorphisms from a formula-derived colored-CNF
+      representation under explicit resource budgets.
+   2. Build a deterministic stabilizer chain and perform clause fixing with
+      full group elements, emitting each accepted unit through direct DSR.
+   3. Expose detection, fixing, repetition, stopping and resumption through the
+      shared typed strategy interface, then measure the 57-row Satsuma group.
 
 Do not submit a new full Tier-D run at the DSR or direct-SR boundary. Existing
 proof-checking jobs remain background checks and do not block independent work.
@@ -508,6 +514,20 @@ DSR witnesses when the mechanism requires substitution redundancy. Never use a s
 portfolio, invoke another solver as a solving stage, or dispatch by benchmark
 identity. AE-Kissat-MAB's seven rows require mechanism study, but adopting MAB
 scheduling itself remains open.
+
+For Satsuma-style symmetry, distinguish generator detection from group fixing.
+Use a colored-CNF representation to obtain complete signed formula
+automorphisms, then sift them into a deterministic stabilizer chain. Clause
+fixing may derive transversal group elements that are not initial detector
+generators; every emitted unit carries that complete permutation through the
+direct-SR interface. Detection and fixing budgets, seed, ordering, eligible
+structure classes, batch size, repetition and stop conditions are validated
+strategy settings. The mechanism runs only at level zero or after explicit
+Restart-to-root, supports interruption and replay, and never keys on a formula,
+family, rank or winner identity. Third-party graph/group code must be pinned,
+licensed and isolated behind a failure-safe build/API boundary compatible with
+the no-exception/no-RTTI solver core.
+
 Preserve prior coverage; report solved SAT/UNSAT and per-signature counts before
 PAR-2, proof cost, memory, and regressions. T4-K and final exact T4-VBS coverage
 remain required. The staged mechanism and experimental protocol is
