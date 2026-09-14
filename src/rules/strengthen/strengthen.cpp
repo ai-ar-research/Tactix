@@ -351,13 +351,14 @@ static uint64_t forward_cache_lines(size_t watches) {
 
 // Root facts must survive deletion of a connected reason. Native dense
 // assignment emits the unit immediately and retains UNIT_REASON. Reuse the
-// established LRAT chain builder, before any later satisfied-clause cleanup.
+// established named-unit chain builder, before any later satisfied-clause
+// cleanup.
 static void forward_assign_root(Kernel &k, Lit unit, uint32_t reason,
                                 bool binary) {
   const size_t from = k.trail.size();
   kernel_assign(k, unit, 0, reason, binary);
   if (k.proof) {
-    if (k.proof->lrat())
+    if (k.proof->lrat() || k.proof->dsr())
       kernel_emit_root_units(k, from);
     else
       k.proof->add_rup(0, &unit, 1, nullptr, 0);

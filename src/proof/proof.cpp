@@ -238,9 +238,17 @@ void Proof::add_empty(uint64_t id, const uint64_t *chain, uint32_t nchain) {
 
 void Proof::add_derived_unit(uint64_t id, Lit unit, const uint64_t *chain,
                              uint32_t nchain) {
-  if (!file_ || format_ != ProofFormat::Lrat)
-    return; // DSR/DRAT: propagation-derived units are implied, never written
-  add_rup(id, &unit, 1, chain, nchain);
+  if (!file_)
+    return;
+  if (format_ == ProofFormat::Lrat) {
+    add_rup(id, &unit, 1, chain, nchain);
+    return;
+  }
+  // Native DSR keeps root units explicit so they remain available after a
+  // reason clause is deleted and later direct-SR checks see the same root
+  // formula as dsr-trim/Trestle. DRAT retains its historical implicit units.
+  if (dsr())
+    add_rup(id, &unit, 1, nullptr, 0);
 }
 
 void Proof::del(uint64_t line_id, uint64_t del_id, const Lit *lits,

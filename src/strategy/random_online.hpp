@@ -44,6 +44,12 @@ struct RandomOnlineConfig {
   uint32_t maximum_onehot_model_free_domains =
       OnehotModelParameters::MAXIMUM_FREE_DOMAINS_DEFAULT;
   uint64_t maximum_onehot_model_candidates = 1024;
+  uint64_t maximum_sr_validation_ticks = 10000000;
+  uint64_t maximum_sr_matrices = 16;
+  uint64_t maximum_sr_instances = 256;
+  uint64_t maximum_sr_detection_ticks = 1000000;
+  uint64_t maximum_sr_general_candidates_per_advance = 64;
+  SubstitutionRedundancyParameters sr_reference;
 
   // The generator samples semantic boundaries around these caller-owned
   // reference values.  Keeping the domains here makes random exploration

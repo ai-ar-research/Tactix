@@ -1092,11 +1092,11 @@ static void test_default_slot_membership_matches_kissat(void) {
   static constexpr const char *SEARCH_PROBE[] = {
       "Congruence",       "Substitute", "Backbone",
       "Vivify",          "Sweep",      "Substitute",
-      "TransitiveReduce", "Backbone",   "Factor",
+      "TransitiveReduce", "Backbone",   "SubstitutionRedundancy", "Factor",
   };
   static constexpr const char *INITIAL_PROBE[] = {
       "Congruence", "Substitute", "Backbone",
-      "Sweep",      "Substitute", "Factor",
+      "Sweep",      "Substitute", "SubstitutionRedundancy", "Factor",
   };
   std::vector<const char *> search_probe, initial_probe;
   for (const auto &entry : p.inprocess().entries) {
@@ -1498,7 +1498,7 @@ static void test_preprocess_is_reduced_and_bounded(void) {
       offered.push_back(rules[e.rule].name);
   static const char *const expected[] = {
       "Congruence", "Substitute", "Backbone",
-      "Sweep", "Substitute", "Factor"};
+      "Sweep", "Substitute", "SubstitutionRedundancy", "Factor"};
   assert(offered.size() == std::size(expected));
   for (size_t i = 0; i < offered.size(); i++)
     assert(!std::strcmp(offered[i], expected[i]));

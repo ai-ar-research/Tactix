@@ -1,6 +1,7 @@
 #undef NDEBUG
 #include "strategy/inprocess_program.hpp"
 
+#include <algorithm>
 #include <cassert>
 #include <string>
 #include <vector>
@@ -10,11 +11,25 @@ using namespace tactix::strategy;
 int main() {
   std::vector<InprocessStep> program = reference_inprocess_program();
   std::string error;
-  assert(program.size() == 18);
+  assert(program.size() == 19);
   assert(validate_inprocess_program(program, &error) && error.empty());
   assert(program[1].rule == "Substitute" &&
          program[7].rule == "Substitute" &&
          program[1].id != program[7].id);
+  const auto sr = std::find_if(program.begin(), program.end(),
+                               [](const InprocessStep &step) {
+                                 return step.rule ==
+                                        "SubstitutionRedundancy";
+                               });
+  assert(sr != program.end() && sr->preprocessing &&
+         sr->max_applications == 1);
+  const auto *sr_parameters =
+      std::get_if<tactix::SubstitutionRedundancyParameters>(&sr->parameters);
+  assert(sr_parameters && sr_parameters->orbitopal_producer &&
+         sr_parameters->maximum_detection_ticks == 1'000'000 &&
+         sr_parameters->maximum_validation_ticks == 10'000'000 &&
+         sr_parameters->maximum_orbitopal_matrices == 16 &&
+         sr_parameters->maximum_orbitopal_instances == 256);
   assert(program[1].followup == Followup::AfterCongruence);
   assert(program[7].followup == Followup::AfterSweepOrFinal);
 
@@ -55,8 +70,8 @@ int main() {
   assert(!validate_inprocess_program(program, &error));
 
   program = reference_inprocess_program();
-  program[12].parameters = SubsumeForwardParameters{};
-  program[13].parameters = StrengthenParameters{};
+  program[13].parameters = SubsumeForwardParameters{};
+  program[14].parameters = StrengthenParameters{};
   assert(validate_inprocess_program(program, &error));
   program[0].parameters = StrengthenParameters{};
   assert(!validate_inprocess_program(program, &error));

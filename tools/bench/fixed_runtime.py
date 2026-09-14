@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Prepare candidate-only DSR/DRAT measurements or score a frozen reference.
+"""Prepare candidate-only native-DSR measurements or score a frozen reference.
 
-This tool never submits jobs or reruns a reference solver. Each candidate gate
-runs one native-DSR arm and one same-binary explicit-DRAT control through the
-current anonymous-scratch runtime protocol.
+This tool never reruns a reference solver. Candidate gates use native DSR through
+the anonymous-scratch runtime protocol. A same-binary explicit-DRAT control is
+available only when a proof-backend comparison specifically requires it.
 """
 import argparse
 import csv
@@ -39,13 +39,15 @@ def reference(path=REFERENCE):
     sizes = {'tactix-fixed-rank1-40-kissat-reference-v1': 40,
              'tactix-fixed-rank1-40-reference-v1': 40,
              'tactix-fixed-rank1-50-kissat-reference-v1': 50,
-             'tactix-fixed-b27c5-reference-v1': 32}
+             'tactix-fixed-rank1-50-reference-v1': 50,
+             'tactix-fixed-b27c5-reference-v1': 32,
+             'tactix-fixed-b28c5-reference-v1': 33}
     require(ref['schema'] in sizes, 'reference schema')
     count = sizes[ref['schema']]
     rows = ref['records']
     require(len(rows) == count and {r['rank'] for r in rows} == set(range(1,count+1)), 'reference rank coverage')
     require(len({r['instance'] for r in rows}) == count, 'duplicate reference input')
-    if count == 50:
+    if 'original_reference' in ref:
         binding = ref['original_reference']
         original_path = ROOT / binding['path']
         require(sha(original_path) == binding['sha256'], 'original reference changed')
@@ -73,7 +75,8 @@ def reference_identity(ref):
             for row in ref['records']]
 
 
-def prepare(campaign, authority, release, bc, reference_path=REFERENCE):
+def prepare(campaign, authority, release, bc, reference_path=REFERENCE,
+            include_drat=False):
     campaign = campaign.resolve()
     require(campaign.parent == ROOT / 'benchmarks/runs', 'campaign must be directly under benchmarks/runs')
     require(not campaign.exists(), 'campaign already exists')
@@ -99,7 +102,8 @@ def prepare(campaign, authority, release, bc, reference_path=REFERENCE):
         shutil.copy2(source, campaign / 'pins' / name)
     shutil.copy2(release, campaign / 'pins/tactix')
     shutil.copy2(authority / 'cumulative.patch', campaign / 'pins/candidate-source.patch')
-    rows = candidate_rows(ref)
+    selected_arms = ('tactix-dsr', 'tactix-drat') if include_drat else ('tactix-dsr',)
+    rows = candidate_rows(ref, selected_arms)
     with (campaign / 'matrix.tsv').open('x', newline='') as stream:
         writer = csv.DictWriter(stream, fieldnames=rows[0], delimiter='\t', lineterminator='\n')
         writer.writeheader()
@@ -123,24 +127,28 @@ exec python3 {shlex.quote(str(campaign / 'pins/runtime_task.py'))} {shlex.quote(
     arm = dict(path='pins/tactix', sha256=sha(release), source_commit=a['production'],
         source_build=str(release.parent.relative_to(ROOT)), arguments=[],
         source_patch='pins/candidate-source.patch', source_patch_sha256=sha(authority / 'cumulative.patch'))
-    arms = {
-        'tactix-dsr': dict(arm, arguments=[], certificate='dsr'),
-        'tactix-drat': dict(arm, arguments=['--drat'], certificate='drat'),
-    }
+    arms = {'tactix-dsr': dict(arm, arguments=[], certificate='dsr')}
+    if include_drat:
+        arms['tactix-drat'] = dict(arm, arguments=['--drat'], certificate='drat')
+    proof_mode = ('native DSR plus same-source DRAT' if include_drat
+                  else 'native DSR')
     contract = dict(partition='cpu-dense-hwulab-q', cpus_per_task=12,
                     memory_mib=32768, array=array, throttle=None,
-                    node_constraint=None, proof_mode='native DSR plus same-source DRAT',
+                    node_constraint=None, proof_mode=proof_mode,
                     one_solver_per_task=True, solve_timeout=1200,
                     checker_timeout=16000)
-    manifest = dict(schema='tactix-fixed-reference-runtime-v2', created_at=dt.datetime.now(dt.timezone.utc).isoformat(),
+    manifest = dict(schema='tactix-fixed-reference-runtime-v3', created_at=dt.datetime.now(dt.timezone.utc).isoformat(),
         arms=arms, input_sha256={r['instance']:r['input_sha256'] for r in ref['records']},
         resource_contract=contract, collect_runtime_context=True,
         scratch_policy='anonymous-local-files-v1',
         scratch_contract='Linux O_TMPFILE under /tmp for CNF, proof, model and checker intermediates; kernel cleanup on exit, timeout, crash, OOM and cancellation.',
         candidate_authority=dict(path=str((authority / 'manifest.json').relative_to(ROOT)),sha256=sha(authority / 'manifest.json')),
         fixed_reference=dict(path=str(reference_path.relative_to(ROOT)),sha256=sha(reference_path)),
-        purpose=f'{len(ref["records"])} native-DSR solves plus same-source DRAT controls against the retained reference vector; no reference solver rerun.',
-        test_consideration=a['test_consideration'] + ' Current runtime protocol checks DSR elaboration/Trestle, DRAT control, task identity and anonymous cleanup.',
+        purpose=(f'{len(ref["records"])} native-DSR solves against the retained reference vector; '
+                 + ('same-source DRAT controls included; ' if include_drat else '')
+                 + 'no reference solver rerun.'),
+        test_consideration=(a['test_consideration'] +
+            ' Current runtime protocol checks DSR elaboration/Trestle, task identity and anonymous cleanup.'),
         validation=f'Expected solves allow provisional development; all {len(rows)} candidate results, retained reference certificates, the companion B27+C5 gate, memory and Claude fuzz are required for acceptance.',
         limitation='Cross-window fixed reference; not isolated unit-cost attribution or promotion.')
     manifest['pin_sha256'] = {str(p.relative_to(campaign)):sha(p)
@@ -156,7 +164,8 @@ def verify_campaign(campaign):
     manifest_path = campaign / 'manifest.json'
     require(manifest_path.is_file(), 'prepare campaign first')
     manifest = json.loads(manifest_path.read_text())
-    require(manifest.get('schema') == 'tactix-fixed-reference-runtime-v2',
+    require(manifest.get('schema') in ('tactix-fixed-reference-runtime-v2',
+                                       'tactix-fixed-reference-runtime-v3'),
             'campaign schema')
     binding = manifest['fixed_reference']
     require(sha(ROOT / binding['path']) == binding['sha256'],
@@ -176,9 +185,10 @@ def submit(campaign):
         ['sbatch', '--parsable', str(campaign / 'array.sbatch')],
         check=True, capture_output=True, text=True).stdout.strip()
     job_id = output.split(';', 1)[0]
+    with (campaign / 'matrix.tsv').open(newline='') as source:
+        tasks = sum(1 for _ in csv.DictReader(source, delimiter='\t'))
     record = dict(job_id=job_id,
-                  tasks=len(candidate_rows(reference(
-                      ROOT / manifest['fixed_reference']['path']))),
+                  tasks=tasks,
                   manifest_sha256=sha(campaign / 'manifest.json'),
                   submitted_at=dt.datetime.now(dt.timezone.utc).isoformat())
     with launch.open('x') as stream:
@@ -241,25 +251,31 @@ def score(campaign, comparison_reference=None):
             path=str(comparison_reference.relative_to(ROOT)),
             sha256=sha(comparison_reference))
     schema = m.get('schema')
-    if schema == 'tactix-fixed-reference-runtime-v2':
+    if schema in ('tactix-fixed-reference-runtime-v2',
+                  'tactix-fixed-reference-runtime-v3'):
+        expected_arms = tuple(m['arms'])
+        require(expected_arms in (('tactix-dsr',),
+                                  ('tactix-dsr', 'tactix-drat')),
+                'arm mismatch')
+        proof_mode = ('native DSR plus same-source DRAT'
+                      if len(expected_arms) == 2 else 'native DSR')
         required = dict(partition='cpu-dense-hwulab-q', cpus_per_task=12,
                         memory_mib=32768, solve_timeout=1200,
                         checker_timeout=16000, one_solver_per_task=True,
-                        proof_mode='native DSR plus same-source DRAT')
+                        proof_mode=proof_mode)
         for key, value in required.items():
             require(m['resource_contract'].get(key) == value,
                     'resource mismatch: ' + key)
         require(m.get('scratch_policy') == 'anonymous-local-files-v1',
                 'scratch policy mismatch')
-        require(set(m['arms']) == {'tactix-dsr', 'tactix-drat'}, 'arm mismatch')
         require(m['arms']['tactix-dsr'].get('certificate') == 'dsr' and
                 m['arms']['tactix-dsr'].get('arguments') == [], 'DSR arm mismatch')
-        require(m['arms']['tactix-drat'].get('certificate') == 'drat' and
-                m['arms']['tactix-drat'].get('arguments') == ['--drat'],
-                'DRAT arm mismatch')
-        require(m['arms']['tactix-dsr']['sha256'] ==
-                m['arms']['tactix-drat']['sha256'], 'control binary mismatch')
-        expected_arms = ('tactix-dsr', 'tactix-drat')
+        if len(expected_arms) == 2:
+            require(m['arms']['tactix-drat'].get('certificate') == 'drat' and
+                    m['arms']['tactix-drat'].get('arguments') == ['--drat'],
+                    'DRAT arm mismatch')
+            require(m['arms']['tactix-dsr']['sha256'] ==
+                    m['arms']['tactix-drat']['sha256'], 'control binary mismatch')
     else:
         for key in ('cpus_per_task','memory_mib','solve_timeout','checker_timeout','one_solver_per_task'):
             require(m['resource_contract'][key] == ref['resource_contract'][key], 'resource mismatch: ' + key)
@@ -295,7 +311,7 @@ def score(campaign, comparison_reference=None):
         ref, [record for (record_arm, _), record in records.items()
               if record_arm == arm], arm) for arm in expected_arms}
     output = arm_scores[expected_arms[0]]
-    if schema == 'tactix-fixed-reference-runtime-v2':
+    if len(expected_arms) == 2:
         dsr = arm_scores['tactix-dsr']
         drat = arm_scores['tactix-drat']
         output = dict(dsr, arms=arm_scores,
@@ -341,6 +357,7 @@ def main():
     for arg in ('authority','release','bc'):
         p.add_argument('--' + arg, type=Path, required=True)
     p.add_argument('--reference', type=Path, default=REFERENCE)
+    p.add_argument('--same-source-drat', action='store_true')
     p = sub.add_parser('score')
     p.add_argument('campaign', type=Path)
     p.add_argument('--reference', type=Path)
@@ -348,7 +365,9 @@ def main():
     p.add_argument('campaign', type=Path)
     args = ap.parse_args()
     if args.command == 'prepare':
-        prepare(args.campaign.resolve(), args.authority.resolve(), args.release.resolve(), args.bc.resolve(), args.reference.resolve())
+        prepare(args.campaign.resolve(), args.authority.resolve(),
+                args.release.resolve(), args.bc.resolve(),
+                args.reference.resolve(), args.same_source_drat)
         print(args.campaign)
     elif args.command == 'score':
         print(json.dumps(score(

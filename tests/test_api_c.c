@@ -164,8 +164,14 @@ static void test_instance_surface(void) {
   for (unsigned i = 0; i < sizeof formats / sizeof formats[0]; ++i) {
     s = tactix_init();
     assert(tactix_proof(s, proof_path, formats[i]) == 0);
+    assert(tactix_proof(s, proof_path, formats[i]) == -1);
     tactix_release(s);
   }
+  s = tactix_init();
+  add_clause(s, (const int[]){1, 0});
+  assert(tactix_status(s) == 10); /* settles the input/proof id boundary */
+  assert(tactix_proof(s, proof_path, TACTIX_PROOF_DSR_BINARY) == -1);
+  tactix_release(s);
   remove(proof_path);
 }
 
@@ -316,7 +322,8 @@ static void test_action_kind(void) {
       "Instantiate", "Lucky",     "Probe",            "Propagate",
       "Reduce",     "Reorder",    "Rephase",          "Restart",
       "Strengthen",
-      "Substitute", "SubsumeForward", "Sweep",        "SwitchMode",
+      "Substitute", "SubstitutionRedundancy", "SubsumeForward", "Sweep",
+      "SwitchMode",
       "TransitiveReduce",
       "Vivify",     "Walk"};
   const int n = (int)(sizeof(golden) / sizeof(golden[0]));

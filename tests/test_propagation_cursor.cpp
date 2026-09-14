@@ -1,10 +1,12 @@
 #undef NDEBUG
 #include "kernel/kernel.hpp"
+#include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/registry.hpp"
 #include <cassert>
 #include <cstdio>
 #include <vector>
+#include <unistd.h>
 using namespace tactix;
 
 static uint64_t digest = 1469598103934665603ull;
@@ -141,6 +143,35 @@ static void registry_dispatch(bool refute) {
   assert(!rule.guard(k));
 }
 
+// Publishing an implied root fact for a later DSR step is proof bookkeeping.
+// It must not populate unit_ids: that vector distinguishes solver-side
+// asserted units and changing it perturbs subsequent simplification/search.
+static void dsr_publication_is_semantically_inert() {
+  char path[] = "/tmp/tactix-dsr-root-XXXXXX";
+  const int fd = mkstemp(path);
+  assert(fd >= 0);
+  close(fd);
+  {
+    Kernel k;
+    kernel_reserve_vars(k, 2);
+    Proof proof;
+    assert(proof.open(path, ProofFormat::DsrAscii));
+    k.proof = &proof;
+    clause(k, {-1, 2});
+    k.unit_ids[var_of(lit(1))] = ++k.next_clause_id;
+    kernel_assign_unit(k, lit(1));
+    assert(propagate_apply(k) == ApplyResult::Ok);
+    const Var derived = var_of(lit(2));
+    assert(k.value(lit(2)) > 0);
+    assert(k.unit_ids[derived] == 0);
+    assert(k.dsr_root_values[derived] == 1);
+    const uint64_t after_first_publication = k.next_clause_id;
+    kernel_emit_root_units(k, 0);
+    assert(k.next_clause_id == after_first_publication);
+  }
+  remove(path);
+}
+
 int main() {
   unsigned cases = 0;
   for (unsigned kind = 0; kind < 7; ++kind)
@@ -155,6 +186,7 @@ int main() {
   assert(cases == 224);
   registry_dispatch(false);
   registry_dispatch(true);
+  dsr_publication_is_semantically_inert();
   std::printf("propagation-cursor: %u fixed cases, digest=%016llx\n", cases,
               static_cast<unsigned long long>(digest));
 }

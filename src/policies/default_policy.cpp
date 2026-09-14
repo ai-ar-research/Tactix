@@ -3420,7 +3420,7 @@ bool DefaultInprocessScheduler::slot_entry_admissible(SlotEntry &e, const Kernel
   }
   if (e.max_applies && e.applies >= e.max_applies) {
     e.tm.dec_cap++;
-    return false; // diagnostic round cap (see SlotEntry::max_applies)
+    return false; // configured per-occurrence cap (see SlotEntry::max_applies)
   }
   if (e.defer_preprocess && k.stats.conflicts == 0) {
     e.tm.dec_preprocess++;
@@ -4086,6 +4086,14 @@ DefaultInprocessScheduler::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVT
         k.stats.rule_nanos[r.id] += now_nanos() - t0;
         k.stats.rule_calls[r.id]++;
       }
+    } else if (!std::strcmp(r.name, "SubstitutionRedundancy")) {
+      const auto *parameters =
+          std::get_if<SubstitutionRedundancyParameters>(&e.parameters);
+      assert(parameters);
+      ar = apply_rule_structured(r, k, "orbitopal-producer", [&] {
+        return substitution_redundancy_apply_orbitopal(k, *parameters,
+                                                       k.stop);
+      });
     } else {
       ar = metered_rule_apply(k, journal_effort_meter(e, r),
                               [&] { return apply_rule(r, k); });

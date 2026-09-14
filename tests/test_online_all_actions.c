@@ -133,7 +133,7 @@ static void configure_parameters(const char *name,
 static void reaches_every_registered_action(void) {
   const int count = tactix_rule_count();
   int id;
-  assert(count == 26);
+  assert(count == 27);
   for (id = 0; id < count; ++id) {
     tactix *solver = prepare(id);
     const char *name = tactix_rule_name(id);
@@ -397,6 +397,6 @@ int main(void) {
   parity_lucky_instance_is_public();
   onehot_lucky_instance_is_public();
   aba_transition_invalidates_a_pending_batch();
-  puts("test_online_all_actions: all 26 actions and ABA invalidation PASS");
+  puts("test_online_all_actions: all 27 actions and ABA invalidation PASS");
   return 0;
 }

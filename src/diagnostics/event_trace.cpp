@@ -155,7 +155,8 @@ void trace_slot_memory(const Kernel &k, const char *name, const char *stage,
       capacity_bytes(k.probing.lists) + capacity_bytes(k.probing.words) +
       capacity_bytes(k.probing.stamp) + capacity_bytes(k.probing.clauses);
   const size_t proof_index_bytes =
-      capacity_bytes(k.unit_ids) + k.binary_ids.diagnostic_storage_bytes() +
+      capacity_bytes(k.unit_ids) + capacity_bytes(k.dsr_root_values) +
+      k.binary_ids.diagnostic_storage_bytes() +
       capacity_bytes(k.lrat_entries) + capacity_bytes(k.lrat_chain);
   size_t heuristics_bytes = 0;
   if (k.h) {

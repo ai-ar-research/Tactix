@@ -35,6 +35,13 @@ enum class SubResult {
   Budget, // the tick budget ran out — NO conclusion may be drawn
 };
 
+enum class SubPropagationResult {
+  Consistent,
+  Conflict,
+  Interrupted,
+  Budget,
+};
+
 enum class SubTickMode {
   Entries, // legacy shared-engine work unit used by BVE definition extraction
   Kitten,  // Kissat cache-line currency used by Sweep scheduling
@@ -132,6 +139,13 @@ public:
                                 uint64_t ticks_budget,
                                 SubTickMode tick_mode,
                                 const volatile sig_atomic_t *stop);
+
+  // Pure unit propagation under temporary assumptions. No decisions, learning,
+  // model publication, or proof derivation occur. A finite budget is checked
+  // between propagation cascades; one cascade may overshoot it atomically.
+  SubPropagationResult propagate_assumptions_only(
+      const std::vector<SubLit> &assumptions, uint64_t ticks_budget,
+      const volatile sig_atomic_t *stop = nullptr);
 
   // The refutation behind the last `Unsat`. False when there is none: no
   // refutation yet, or the assumptions were directly contradictory, so nothing

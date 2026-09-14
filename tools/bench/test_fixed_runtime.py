@@ -27,6 +27,13 @@ class FixedRuntimeTests(unittest.TestCase):
         self.assertEqual([r['rank'] for r in rows[::2]], list(range(1,41)))
         self.assertEqual([r['rank'] for r in rows[1::2]], list(range(1,41)))
 
+    def test_native_dsr_only_matrix(self):
+        rows = f.candidate_rows(self.ref, ('tactix-dsr',))
+        self.assertEqual(len(rows), 40)
+        self.assertEqual([r['task'] for r in rows], list(range(40)))
+        self.assertEqual({r['arm'] for r in rows}, {'tactix-dsr'})
+        self.assertEqual([r['rank'] for r in rows], list(range(1,41)))
+
     def test_each_control_score_requires_its_named_arm(self):
         dsr = copy.deepcopy(self.records)
         for record in dsr:
@@ -52,6 +59,10 @@ class FixedRuntimeTests(unittest.TestCase):
             campaign = root / 'campaign'
             campaign.mkdir()
             manifest = {'fixed_reference': {'path': 'ref.json'}}
+            (campaign / 'matrix.tsv').write_text(
+                'task\trank\tarm\tinstance\texpected\n'
+                + ''.join(f'{i-1}\t{i}\ttactix-dsr\t{i}.cnf\tSAT\n'
+                          for i in range(1, 41)))
             (campaign / 'manifest.json').write_text('{}')
             completed = Mock(stdout='12345;cluster\n')
             with (patch.object(f, 'ROOT', root),
@@ -61,7 +72,7 @@ class FixedRuntimeTests(unittest.TestCase):
                 with contextlib.redirect_stdout(io.StringIO()):
                     record = f.submit(campaign)
             self.assertEqual(record['job_id'], '12345')
-            self.assertEqual(record['tasks'], 80)
+            self.assertEqual(record['tasks'], 40)
             self.assertEqual(json.loads((campaign / 'launch.json').read_text()),
                              record)
             run.assert_called_once_with(
@@ -216,6 +227,21 @@ class FixedRuntimeTests(unittest.TestCase):
             self.assertEqual(len(rows), 64)
             self.assertEqual({row['tier'] for row in rows[:54]}, {'B'})
             self.assertEqual({row['tier'] for row in rows[54:]}, {'C'})
+
+    def test_full_b28c5_and_tactix_rank50_references_are_supported(self):
+        for schema, count in [('tactix-fixed-b28c5-reference-v1', 33),
+                              ('tactix-fixed-rank1-50-reference-v1', 50)]:
+            with self.subTest(schema=schema), tempfile.TemporaryDirectory() as tmp:
+                records = [dict(rank=i, tier='B', instance=f'{i}.cnf',
+                                input_sha256='input', expected='SAT',
+                                measurement=dict(solve=dict(wall_seconds=1.0)))
+                           for i in range(1, count + 1)]
+                ref = dict(schema=schema, solver_seconds=float(count),
+                           resource_contract=dict(solve_timeout=1200),
+                           records=records)
+                path = Path(tmp) / 'reference.json'
+                path.write_text(json.dumps(ref))
+                self.assertEqual(len(f.reference(path)['records']), count)
 
     def test_tactix_rank_reference_is_supported(self):
         with tempfile.TemporaryDirectory() as tmp:

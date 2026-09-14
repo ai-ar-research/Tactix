@@ -752,6 +752,12 @@ int main(int argc, char **argv) {
     printf("c factor-dem  %llu demotions, %llu fresh vars demoted\n",
            (unsigned long long)kernel.stats.factor_demotions,
            (unsigned long long)kernel.stats.factor_demoted_vars);
+    printf("c sr          %llu applications, %llu applied, %llu validation "
+           "ticks, %llu witness literals\n",
+           (unsigned long long)kernel.stats.sr_applications,
+           (unsigned long long)kernel.stats.sr_applied,
+           (unsigned long long)kernel.stats.sr_validation_ticks,
+           (unsigned long long)kernel.stats.sr_witness_literals);
     printf("c bve         %llu rounds, %llu eliminated, %llu resolutions\n",
            (unsigned long long)kernel.stats.bve_rounds,
            (unsigned long long)kernel.stats.bve_eliminated,

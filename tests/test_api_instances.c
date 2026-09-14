@@ -15,7 +15,8 @@
 
 /* Entries with no instance surface: one application, so a payload is an
  * invalid argument. */
-static const char *const NO_SURFACE[] = {"Propagate", "SwitchMode"};
+static const char *const NO_SURFACE[] = {"Propagate", "SubstitutionRedundancy",
+                                         "SwitchMode"};
 
 /* Entries whose enumeration is exactly the canonical sentinel: an
  * `apply_instance` with nothing to choose between. Joining or leaving this set
@@ -25,6 +26,7 @@ static const char *const NO_SURFACE[] = {"Propagate", "SwitchMode"};
  * docs/calculus.md §6 V6 and pinned by test_congruence.cpp). Factor left this
  * set when its seed-literal surface landed (`N1-FACTOR-INSTANCES`). */
 static const char *const CANONICAL_ONLY[] = {"Congruence", "Propagate",
+                                             "SubstitutionRedundancy",
                                              "SwitchMode", "Walk"};
 
 static int in_list(const char *const *list, size_t n, const char *name) {

@@ -583,6 +583,9 @@ int main() {
   // to one reduction boundary.
   DefaultStrategyConfig cadence = defaults;
   cadence.reduction.retier_initial_interval = 1ull << 40;
+  for (strategy::InprocessStep &step : cadence.inprocess.program)
+    if (step.rule == "SubstitutionRedundancy")
+      step.enabled = false;
   Kernel php;
   ScopedHeuristics php_heuristics(php);
   add_php_4_3(php);

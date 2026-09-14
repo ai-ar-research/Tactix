@@ -279,6 +279,27 @@ ActionParameters random_parameters(uint64_t &state, const std::string &rule,
         state, config.maximum_parity_model_candidates);
     return p;
   }
+  if (rule == "SubstitutionRedundancy") {
+    SubstitutionRedundancyParameters p = config.sr_reference;
+    p.maximum_validation_ticks = optional_positive(
+        state, config.maximum_sr_validation_ticks);
+    const uint64_t producer = bounded(state, 3);
+    p.orbitopal_producer = producer == 1;
+    p.general_producer = producer == 2;
+    p.minimum_orbitopal_rows =
+        2 + inclusive_u32(state, std::max<uint32_t>(2, p.minimum_orbitopal_rows) - 2);
+    p.minimum_orbitopal_columns = 2 + inclusive_u32(
+        state, std::max<uint32_t>(2, p.minimum_orbitopal_columns) - 2);
+    p.maximum_orbitopal_matrices =
+        optional_positive(state, config.maximum_sr_matrices);
+    p.maximum_orbitopal_instances =
+        optional_positive(state, config.maximum_sr_instances);
+    p.maximum_detection_ticks =
+        optional_positive(state, config.maximum_sr_detection_ticks);
+    p.maximum_general_candidates_per_advance = optional_positive(
+        state, config.maximum_sr_general_candidates_per_advance);
+    return p;
+  }
   return std::monostate{};
 }
 
@@ -508,6 +529,20 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
     U32_AT(6, p.maximum_free_domains);
     p.candidate_budget = v[7];
     parameters = p;
+  } else if (tuple(text, "sr", v) && v.size() == 9) {
+    SubstitutionRedundancyParameters p;
+    p.maximum_validation_ticks = v[0];
+    if (!boolean(v[1], p.orbitopal_producer))
+      return false;
+    U32_AT(2, p.minimum_orbitopal_rows);
+    U32_AT(3, p.minimum_orbitopal_columns);
+    p.maximum_orbitopal_matrices = v[4];
+    p.maximum_orbitopal_instances = v[5];
+    p.maximum_detection_ticks = v[6];
+    if (!boolean(v[7], p.general_producer))
+      return false;
+    p.maximum_general_candidates_per_advance = v[8];
+    parameters = p;
   } else {
     return false;
   }
@@ -551,6 +586,41 @@ bool parse_grid(std::string_view text, FactorGrid &grid) {
   return at == v.size();
 }
 
+bool parse_sr_instance(std::string_view text,
+                       SubstitutionRedundancyInstance &instance) {
+  std::vector<uint64_t> v;
+  if (!comma_values(text, v))
+    return false;
+  size_t at = 0;
+  const auto count = [&]() -> uint64_t {
+    return at < v.size() ? v[at++] : UINT64_MAX;
+  };
+  const auto literals = [&](std::vector<Lit> &out) {
+    const uint64_t n = count();
+    if (n == UINT64_MAX || n > v.size() - at)
+      return false;
+    for (uint64_t i = 0; i < n; ++i) {
+      if (v[at] > UINT32_MAX)
+        return false;
+      out.push_back(static_cast<Lit>(v[at++]));
+    }
+    return true;
+  };
+  if (!literals(instance.clause) || !literals(instance.witness))
+    return false;
+  const uint64_t pairs = count();
+  if (pairs == UINT64_MAX || pairs > (v.size() - at) / 2)
+    return false;
+  for (uint64_t i = 0; i < pairs; ++i) {
+    if (v[at] > UINT32_MAX || v[at + 1] > UINT32_MAX)
+      return false;
+    instance.substitution.emplace_back(static_cast<Lit>(v[at]),
+                                       static_cast<Lit>(v[at + 1]));
+    at += 2;
+  }
+  return at == v.size();
+}
+
 } // namespace
 
 bool random_online_strategy_program(Kernel &k, uint64_t seed,
@@ -589,7 +659,11 @@ bool random_online_strategy_program(Kernel &k, uint64_t seed,
       !config.maximum_onehot_model_constraints ||
       !config.maximum_onehot_model_equation_arity ||
       !config.maximum_onehot_model_candidates ||
-      !config.onehot_model_reference.valid())
+      !config.onehot_model_reference.valid() ||
+      !config.maximum_sr_validation_ticks || !config.maximum_sr_matrices ||
+      !config.maximum_sr_instances || !config.maximum_sr_detection_ticks ||
+      !config.maximum_sr_general_candidates_per_advance ||
+      !config.sr_reference.valid())
     return reject("random-online maxima must be positive");
 
   std::vector<int> available;
@@ -644,33 +718,64 @@ bool random_online_strategy_program(Kernel &k, uint64_t seed,
         static_cast<SettingOverride>(bounded(rng, 3));
 
     std::vector<uint64_t> instances;
-    const InvocationStatus enumerated =
-        enumerate_complete_instances(k, rule, instances, stop);
+    std::vector<SubstitutionRedundancyInstance> sr_instances;
+    InvocationStatus enumerated = InvocationStatus::Completed;
+    if (step.rule == "SubstitutionRedundancy") {
+      const auto &parameters =
+          std::get<SubstitutionRedundancyParameters>(step.parameters);
+      if (!parameters.general_producer) {
+        const OrbitopalEnumerationResult result =
+            substitution_redundancy_enumerate_orbitopal(
+                k, parameters,
+                [&](const SubstitutionRedundancyInstance &instance) {
+                  sr_instances.push_back(instance);
+                  return true;
+                },
+                stop);
+        if (result.status == OrbitopalEnumerationStatus::Interrupted)
+          enumerated = InvocationStatus::Interrupted;
+      }
+    } else {
+      enumerated = enumerate_complete_instances(k, rule, instances, stop);
+    }
     if (enumerated == InvocationStatus::Interrupted)
       return reject("random-online generation interrupted");
     if (enumerated != InvocationStatus::Completed)
       return reject("complete instance enumeration exhausted resources");
+    const size_t semantic_size = step.rule == "SubstitutionRedundancy"
+                                     ? sr_instances.size()
+                                     : instances.size();
     const bool whole_rule_only =
-        instances.empty() ||
+        semantic_size == 0 ||
         (instances.size() == 1 && instances.front() == INSTANCE_CANONICAL);
     const uint64_t granularity = whole_rule_only
                                      ? 2 + bounded(rng, 2)
                                      : bounded(rng, GRANULARITY_CHOICES);
     if (granularity == 0) {
       step.granularity = InvocationGranularity::OneInstance;
-      step.instances.push_back(instances[bounded(rng, instances.size())]);
+      const size_t selected = bounded(rng, semantic_size);
+      if (step.rule == "SubstitutionRedundancy")
+        step.substitution_redundancy_instances.push_back(
+            sr_instances[selected]);
+      else
+        step.instances.push_back(instances[selected]);
     } else if (granularity == 1) {
       step.granularity = InvocationGranularity::SelectedBatch;
       const size_t count = 1 + static_cast<size_t>(bounded(
-          rng, std::min<size_t>(instances.size(),
+          rng, std::min<size_t>(semantic_size,
                                 config.maximum_selected_batch)));
-      const size_t start = bounded(rng, instances.size());
-      size_t stride = 1 + bounded(rng, instances.size());
-      while (std::gcd(stride, instances.size()) != 1)
+      const size_t start = bounded(rng, semantic_size);
+      size_t stride = 1 + bounded(rng, semantic_size);
+      while (std::gcd(stride, semantic_size) != 1)
         ++stride;
-      for (size_t j = 0; j < count; ++j)
-        step.instances.push_back(instances[(start + j * stride) %
-                                           instances.size()]);
+      for (size_t j = 0; j < count; ++j) {
+        const size_t selected = (start + j * stride) % semantic_size;
+        if (step.rule == "SubstitutionRedundancy")
+          step.substitution_redundancy_instances.push_back(
+              sr_instances[selected]);
+        else
+          step.instances.push_back(instances[selected]);
+      }
     } else if (granularity == 2) {
       step.granularity = InvocationGranularity::CompleteCurrentPass;
     } else {
@@ -834,6 +939,16 @@ std::string serialize_online_strategy_program(
           << p->maximum_equation_arity << ',' << p->minimum_domains << ','
           << p->minimum_equations << ',' << p->maximum_free_domains << ','
           << p->candidate_budget << ')';
+    else if (const auto *p = std::get_if<SubstitutionRedundancyParameters>(
+                 &step.parameters))
+      out << ":sr(" << p->maximum_validation_ticks << ','
+          << p->orbitopal_producer << ','
+          << p->minimum_orbitopal_rows << ','
+          << p->minimum_orbitopal_columns << ','
+          << p->maximum_orbitopal_matrices << ','
+          << p->maximum_orbitopal_instances << ','
+          << p->maximum_detection_ticks << ',' << p->general_producer << ','
+          << p->maximum_general_candidates_per_advance << ')';
     else
       out << ":inherit";
     out << ":instances[";
@@ -859,6 +974,22 @@ std::string serialize_online_strategy_program(
       out << ',' << grid.members.size();
       for (const Ref member : grid.members)
         out << ',' << member;
+    }
+    out << "]:sr[";
+    for (size_t s = 0; s < step.substitution_redundancy_instances.size(); ++s) {
+      if (s)
+        out << ';';
+      const SubstitutionRedundancyInstance &instance =
+          step.substitution_redundancy_instances[s];
+      out << instance.clause.size();
+      for (const Lit lit : instance.clause)
+        out << ',' << lit;
+      out << ',' << instance.witness.size();
+      for (const Lit lit : instance.witness)
+        out << ',' << lit;
+      out << ',' << instance.substitution.size();
+      for (const auto &[source, target] : instance.substitution)
+        out << ',' << source << ',' << target;
     }
     out << ']';
   }
@@ -961,20 +1092,42 @@ bool deserialize_online_strategy_program(const std::string &encoded,
     text.remove_prefix(instances_end + 1);
 
     constexpr std::string_view grids_marker = ":grids[";
-    if (!text.starts_with(grids_marker) || text.back() != ']')
+    if (!text.starts_with(grids_marker))
       return reject("online replay Factor grids are malformed");
     text.remove_prefix(grids_marker.size());
-    text.remove_suffix(1);
-    while (!text.empty()) {
-      const size_t semicolon = text.find(';');
+    const size_t grids_end = text.find(']');
+    if (grids_end == std::string_view::npos)
+      return reject("online replay Factor grids are malformed");
+    std::string_view grids = text.substr(0, grids_end);
+    text.remove_prefix(grids_end + 1);
+    while (!grids.empty()) {
+      const size_t semicolon = grids.find(';');
       FactorGrid grid;
-      if (!parse_grid(text.substr(0, semicolon), grid))
+      if (!parse_grid(grids.substr(0, semicolon), grid))
         return reject("online replay Factor grid payload is malformed");
       step.factor_grids.push_back(std::move(grid));
       if (semicolon == std::string_view::npos)
-        text = {};
+        grids = {};
       else
-        text.remove_prefix(semicolon + 1);
+        grids.remove_prefix(semicolon + 1);
+    }
+    constexpr std::string_view sr_marker = ":sr[";
+    if (!text.empty()) {
+      if (!text.starts_with(sr_marker) || text.back() != ']')
+        return reject("online replay SR payload is malformed");
+      text.remove_prefix(sr_marker.size());
+      text.remove_suffix(1);
+      while (!text.empty()) {
+        const size_t semicolon = text.find(';');
+        SubstitutionRedundancyInstance instance;
+        if (!parse_sr_instance(text.substr(0, semicolon), instance))
+          return reject("online replay SR instance is malformed");
+        step.substitution_redundancy_instances.push_back(std::move(instance));
+        if (semicolon == std::string_view::npos)
+          text = {};
+        else
+          text.remove_prefix(semicolon + 1);
+      }
     }
     parsed.sequence.push_back(std::move(step));
   }

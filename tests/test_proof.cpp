@@ -160,6 +160,12 @@ void test_dsr_ascii() {
   expect(emitted("dsr-asc-del", ProofFormat::DsrAscii,
                  [&](Proof &p) { p.del(6, 5, lits, 2); }),
          "d 1 -3 0\n", "dsr-ascii del");
+  const uint64_t ignored_chain[2] = {7, 8};
+  expect(emitted("dsr-asc-root-unit", ProofFormat::DsrAscii,
+                 [&](Proof &p) {
+                   p.add_derived_unit(9, lits[0], ignored_chain, 2);
+                 }),
+         "1 0\n", "dsr-ascii derived root unit");
 }
 
 void test_dsr_substitution() {
@@ -247,12 +253,13 @@ void test_lrat_empty_and_unit() {
                  [&](Proof &p) {
                    p.add_derived_unit(31, make_lit(3, true), chain, 2);
                  }),
-         "", "dsr-binary add_derived_unit is silent");
+         std::string("\x01\x09\x00", 3),
+         "dsr-binary add_derived_unit is explicit");
   expect(emitted("dsr-asc-unit", ProofFormat::DsrAscii,
                  [&](Proof &p) {
                    p.add_derived_unit(31, make_lit(3, true), chain, 2);
                  }),
-         "", "dsr-ascii add_derived_unit is silent");
+         "-4 0\n", "dsr-ascii add_derived_unit is explicit");
 }
 
 void test_lrat_delete() {

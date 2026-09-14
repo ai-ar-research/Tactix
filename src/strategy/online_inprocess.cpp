@@ -154,6 +154,8 @@ bool parameter_matches(const OnlineInvocation &step) {
     return step.rule == "Lucky";
   if (std::holds_alternative<OnehotModelParameters>(step.parameters))
     return step.rule == "Lucky";
+  if (std::holds_alternative<SubstitutionRedundancyParameters>(step.parameters))
+    return step.rule == "SubstitutionRedundancy";
   return false;
 }
 
@@ -268,32 +270,49 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
             std::get_if<OnehotModelParameters>(&step.parameters);
         p && !p->valid())
       return reject("Lucky onehot-model parameters are invalid");
+    if (const auto *p = std::get_if<SubstitutionRedundancyParameters>(
+            &step.parameters);
+        p && !p->valid())
+      return reject("SR parameters are invalid");
     if (!step.factor_grids.empty() && step.rule != "Factor")
       return reject("exact Factor grids are attached to a different rule");
     if (!step.factor_grids.empty() && !step.instances.empty())
       return reject("scalar and exact-grid selections cannot be mixed");
+    if (!step.substitution_redundancy_instances.empty() &&
+        step.rule != "SubstitutionRedundancy")
+      return reject("SR instances are attached to a different rule");
+    const unsigned structured_payload_kinds =
+        !step.factor_grids.empty() +
+        !step.substitution_redundancy_instances.empty();
+    if (structured_payload_kinds && !step.instances.empty())
+      return reject("scalar and structured selections cannot be mixed");
+    if (structured_payload_kinds > 1)
+      return reject("different structured selection kinds cannot be mixed");
+    const size_t structured_size = !step.factor_grids.empty()
+                                       ? step.factor_grids.size()
+                                       : step.substitution_redundancy_instances.size();
     switch (step.granularity) {
     case InvocationGranularity::OneInstance:
-      if ((!step.factor_grids.empty() && step.factor_grids.size() != 1) ||
-          (step.factor_grids.empty() && step.instances.size() != 1))
+      if ((structured_payload_kinds && structured_size != 1) ||
+          (!structured_payload_kinds && step.instances.size() != 1))
         return reject("one-instance selection does not contain one payload");
-      if (step.factor_grids.empty() &&
+      if (!structured_payload_kinds &&
           step.instances.front() == INSTANCE_CANONICAL)
         return reject("explicit selection contains the canonical whole-rule payload");
       break;
     case InvocationGranularity::SelectedBatch:
-      if (step.instances.empty() && step.factor_grids.empty())
+      if (step.instances.empty() && !structured_payload_kinds)
         return reject("selected batch is empty");
       if (std::find(step.instances.begin(), step.instances.end(),
                     INSTANCE_CANONICAL) != step.instances.end())
         return reject("explicit selection contains the canonical whole-rule payload");
       break;
     case InvocationGranularity::CompleteCurrentPass:
-      if (!step.instances.empty() || !step.factor_grids.empty())
+      if (!step.instances.empty() || structured_payload_kinds)
         return reject("complete pass carries explicit payloads");
       break;
     case InvocationGranularity::CanonicalApplication:
-      if (!step.instances.empty() || !step.factor_grids.empty())
+      if (!step.instances.empty() || structured_payload_kinds)
         return reject("canonical application carries explicit payloads");
       break;
     default:
@@ -440,11 +459,24 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
     out.step_id = step.id;
     return false;
   }
+  const auto *sr_parameters =
+      step.rule == "SubstitutionRedundancy"
+          ? std::get_if<SubstitutionRedundancyParameters>(&step.parameters)
+          : nullptr;
+  const bool general_sr =
+      step.granularity == InvocationGranularity::CompleteCurrentPass &&
+      sr_parameters && sr_parameters->general_producer;
+  const bool continuing_general_sr = runtime.sr_general_mode && general_sr;
   runtime.selection.clear();
   runtime.structured_selection.clear();
+  runtime.sr_selection.clear();
   runtime.cursor = 0;
-  runtime.pass_progress = false;
+  if (!continuing_general_sr)
+    runtime.pass_progress = false;
   runtime.selection_truncated = false;
+  runtime.sr_general_mode = general_sr;
+  if (!general_sr)
+    runtime.sr_general_cursor = {};
   const RuleVTable &rule = tactix_rules()[tactix_rule_id(step.rule.c_str())];
   if (!rule.guard(k)) {
     out.status = InvocationStatus::Inapplicable;
@@ -453,10 +485,14 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
   if (step.granularity == InvocationGranularity::CanonicalApplication) {
     runtime.selection = {INSTANCE_CANONICAL};
   } else if (step.granularity != InvocationGranularity::CompleteCurrentPass) {
-    if (step.factor_grids.empty()) {
+    if (step.factor_grids.empty() &&
+        step.substitution_redundancy_instances.empty()) {
       runtime.selection = step.instances;
     } else {
-      runtime.selection.resize(step.factor_grids.size());
+      const size_t size = !step.factor_grids.empty()
+                              ? step.factor_grids.size()
+                              : step.substitution_redundancy_instances.size();
+      runtime.selection.resize(size);
       for (size_t i = 0; i < runtime.selection.size(); ++i)
         runtime.selection[i] = i;
     }
@@ -480,6 +516,49 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
     runtime.selection.resize(runtime.structured_selection.size());
     for (size_t i = 0; i < runtime.selection.size(); ++i)
       runtime.selection[i] = i;
+  } else if (step.rule == "SubstitutionRedundancy") {
+    const auto *configured =
+        std::get_if<SubstitutionRedundancyParameters>(&step.parameters);
+    const SubstitutionRedundancyParameters parameters =
+        configured ? *configured : SubstitutionRedundancyParameters{};
+    if (parameters.general_producer) {
+      SubstitutionRedundancyInstance instance;
+      const SubstitutionRedundancyGeneralResult enumeration =
+          substitution_redundancy_next_general(
+              k, parameters, runtime.sr_general_cursor, instance, stop);
+      if (enumeration.status ==
+          SubstitutionRedundancyGeneralStatus::Interrupted) {
+        out.status = InvocationStatus::Interrupted;
+        return false;
+      }
+      if (enumeration.status ==
+              SubstitutionRedundancyGeneralStatus::ResourceExhausted ||
+          enumeration.status ==
+              SubstitutionRedundancyGeneralStatus::LimitReached) {
+        out.status = InvocationStatus::ResourceExhausted;
+        return false;
+      }
+      if (enumeration.status == SubstitutionRedundancyGeneralStatus::Found)
+        runtime.sr_selection.push_back(std::move(instance));
+    } else {
+      const OrbitopalEnumerationResult enumeration =
+          substitution_redundancy_enumerate_orbitopal(
+              k, parameters,
+              [&](const SubstitutionRedundancyInstance &instance) {
+                runtime.sr_selection.push_back(instance);
+                return true;
+              },
+              stop);
+      if (enumeration.status == OrbitopalEnumerationStatus::Interrupted) {
+        out.status = InvocationStatus::Interrupted;
+        return false;
+      }
+      runtime.selection_truncated =
+          enumeration.status == OrbitopalEnumerationStatus::LimitReached;
+    }
+    runtime.selection.resize(runtime.sr_selection.size());
+    for (size_t i = 0; i < runtime.selection.size(); ++i)
+      runtime.selection[i] = i;
   } else {
     out.status = enumerate_complete_instances(k, rule, runtime.selection, stop);
     if (out.status != InvocationStatus::Completed)
@@ -498,6 +577,9 @@ bool OnlineStrategyExecutor::finish_step_pass(const OnlineInvocation &step,
   runtime.selection_ready = false;
   runtime.selection.clear();
   runtime.structured_selection.clear();
+  runtime.sr_selection.clear();
+  runtime.sr_general_cursor = {};
+  runtime.sr_general_mode = false;
   runtime.selection_truncated = false;
   runtime.cursor = 0;
   ++runtime.passes;
@@ -561,6 +643,9 @@ bool OnlineStrategyExecutor::finish_sequence(InvocationResult &out) {
       runtime.selection_ready = false;
       runtime.selection.clear();
       runtime.structured_selection.clear();
+      runtime.sr_selection.clear();
+      runtime.sr_general_cursor = {};
+      runtime.sr_general_mode = false;
       runtime.selection_truncated = false;
     }
     sequence_progress_ = false;
@@ -667,6 +752,15 @@ InvocationResult OnlineStrategyExecutor::advance(
       }
     }
     if (runtime.cursor == runtime.selection.size()) {
+      if (runtime.sr_general_mode &&
+          !runtime.sr_general_cursor.complete) {
+        runtime.selection_ready = false;
+        if (!prepare_selection(k, step, runtime, out, stop)) {
+          out.after = state_version(k);
+          return out;
+        }
+        continue;
+      }
       if (runtime.selection_truncated) {
         out.status = InvocationStatus::BudgetExhausted;
         out.budget_status = BudgetStatus::Exhausted;
@@ -815,8 +909,28 @@ InvocationResult OnlineStrategyExecutor::advance(
       const bool enumerated_factor_grid =
           step.rule == "Factor" &&
           step.granularity == InvocationGranularity::CompleteCurrentPass;
+      const bool enumerated_sr =
+          step.rule == "SubstitutionRedundancy" &&
+          step.granularity == InvocationGranularity::CompleteCurrentPass;
+      std::optional<SubstitutionRedundancyApplicationResult> sr_application;
       const ApplyResult result =
-          (!step.factor_grids.empty() || enumerated_factor_grid)
+          (!step.substitution_redundancy_instances.empty() || enumerated_sr)
+              ? apply_rule_structured(rule, k, "exact-sr", [&] {
+                  const auto *configured =
+                      std::get_if<SubstitutionRedundancyParameters>(
+                          &step.parameters);
+                  const SubstitutionRedundancyParameters parameters =
+                      configured ? *configured
+                                 : SubstitutionRedundancyParameters{};
+                  const SubstitutionRedundancyInstance &instance =
+                      !step.substitution_redundancy_instances.empty()
+                          ? step.substitution_redundancy_instances[payload]
+                          : runtime.sr_selection[payload];
+                  sr_application = substitution_redundancy_apply_detailed(
+                      k, instance, parameters, stop);
+                  return sr_application->rule_result;
+                })
+          : (!step.factor_grids.empty() || enumerated_factor_grid)
               ? apply_rule_structured(rule, k, "exact-grid", [&] {
                   const FactorGrid &grid = !step.factor_grids.empty()
                                                ? step.factor_grids[payload]
@@ -854,6 +968,41 @@ InvocationResult OnlineStrategyExecutor::advance(
                        : result == ApplyResult::Ok
                              ? InvocationStatus::Completed
                              : detail::terminal_status(result);
+      if (sr_application) {
+        switch (sr_application->status) {
+        case SubstitutionRedundancyApplicationStatus::Invalid:
+          // Once an earlier batch member changes the formula, a later SR
+          // precondition is judged against a different state. Treat that as
+          // the same stale-snapshot boundary used by other exact batches;
+          // malformed storage was already rejected before any mutation.
+          out.status = runtime.pass_progress
+                           ? InvocationStatus::StaleRequest
+                           : InvocationStatus::InvalidRequest;
+          break;
+        case SubstitutionRedundancyApplicationStatus::Inapplicable:
+        case SubstitutionRedundancyApplicationStatus::UnsupportedProofFormat:
+          out.status = InvocationStatus::Inapplicable;
+          break;
+        case SubstitutionRedundancyApplicationStatus::Interrupted:
+          out.status = InvocationStatus::Interrupted;
+          break;
+        case SubstitutionRedundancyApplicationStatus::ResourceExhausted:
+          out.status = InvocationStatus::ResourceExhausted;
+          break;
+        default:
+          break;
+        }
+        if (out.status == InvocationStatus::InvalidRequest ||
+            out.status == InvocationStatus::StaleRequest ||
+            out.status == InvocationStatus::Inapplicable ||
+            out.status == InvocationStatus::Interrupted ||
+            out.status == InvocationStatus::ResourceExhausted) {
+          out.work = 0;
+          out.applications = 0;
+          out.selection_complete = false;
+          out.budget_status = BudgetStatus::Ready;
+        }
+      }
       out.after = state_version(k);
     }
     runtime.expected_state = state_version(k);

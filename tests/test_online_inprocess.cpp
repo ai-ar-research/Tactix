@@ -16,6 +16,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <csignal>
+#include <cstring>
 #include <unistd.h>
 #include <string>
 #include <unordered_set>
@@ -1052,6 +1053,420 @@ static void complete_factor_pass_uses_exact_grid_enumeration() {
   assert(!exhausted.selection_complete && limited.step_consumed(63) == 2);
 }
 
+static void exact_sr_instance_uses_shared_online_composition() {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  const auto add_binary = [&](int a, int b) {
+    kernel_add_binary_clause(k, internalize(a), internalize(b),
+                             ++k.next_clause_id);
+  };
+  add_binary(1, 2);
+  add_binary(3, 4);
+  add_binary(-1, -3);
+  add_binary(-2, -4);
+
+  SubstitutionRedundancyInstance sr;
+  sr.clause = {internalize(-1)};
+  sr.witness = {internalize(-1), internalize(3)};
+  sr.substitution = {{internalize(2), internalize(4)},
+                     {internalize(4), internalize(2)}};
+  OnlineInvocation step;
+  step.id = 64;
+  step.rule = "SubstitutionRedundancy";
+  step.parameters = SubstitutionRedundancyParameters{};
+  step.granularity = InvocationGranularity::OneInstance;
+  step.substitution_redundancy_instances.push_back(sr);
+  step.budget = WorkLimit::bounded(1);
+  OnlineInprocessProgram program;
+  program.sequence.push_back(step);
+  OnlineInprocessExecutor executor;
+  assert(executor.configure(program, 14));
+
+  const InvocationResult applied = executor.advance(k);
+  assert(applied.status == InvocationStatus::Completed);
+  assert(applied.instance == 0 && applied.applications == 1);
+  assert(k.value(internalize(-1)) > 0);
+  assert(executor.advance(k).status == InvocationStatus::Completed);
+  kernel_check_invariants(k);
+
+  OnlineInprocessProgram invalid = program;
+  invalid.sequence.front().rule = "Factor";
+  std::string error;
+  assert(!executor.configure(invalid, 15, ReconfigureMode::ResetRuntime,
+                             &error));
+  assert(error == "parameters do not match rule");
+}
+
+static void signed_sr_sources_emit_canonical_dsr_mappings() {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  const auto add_binary = [&](int a, int b) {
+    kernel_add_binary_clause(k, internalize(a), internalize(b),
+                             ++k.next_clause_id);
+  };
+  add_binary(1, 2);
+  add_binary(3, 4);
+  add_binary(-1, -3);
+  add_binary(-2, -4);
+
+  char path[] = "/tmp/tactix-sr-signed-source-XXXXXX";
+  const int descriptor = mkstemp(path);
+  assert(descriptor >= 0);
+  close(descriptor);
+  {
+    Proof proof;
+    assert(proof.open(path, ProofFormat::DsrAscii));
+    proof.bind_variable_map(&k.internal_to_external);
+    k.proof = &proof;
+    SubstitutionRedundancyInstance instance;
+    instance.clause = {internalize(-1)};
+    instance.witness = {internalize(-1), internalize(3)};
+    // (-2 -> -4) is the same variable substitution as (+2 -> +4).
+    instance.substitution = {{internalize(-2), internalize(-4)},
+                             {internalize(4), internalize(2)}};
+    const auto result = substitution_redundancy_apply_detailed(k, instance);
+    assert(result.status == SubstitutionRedundancyApplicationStatus::Applied);
+    proof.flush();
+    k.proof = nullptr;
+  }
+  FILE *file = fopen(path, "rb");
+  assert(file);
+  char buffer[128] = {};
+  const size_t size = fread(buffer, 1, sizeof buffer - 1, file);
+  fclose(file);
+  unlink(path);
+  assert(std::string(buffer, size) == "-1 -1 3 -1 2 4 4 2 0\n");
+}
+
+static void sr_failure_statuses_preserve_the_pending_application() {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  const auto add_binary = [&](int a, int b) {
+    kernel_add_binary_clause(k, internalize(a), internalize(b),
+                             ++k.next_clause_id);
+  };
+  add_binary(1, 2);
+  add_binary(3, 4);
+  add_binary(-1, -3);
+  add_binary(-2, -4);
+
+  SubstitutionRedundancyInstance sr;
+  sr.clause = {internalize(-1)};
+  sr.witness = {internalize(-1), internalize(3)};
+  sr.substitution = {{internalize(2), internalize(4)},
+                     {internalize(4), internalize(2)}};
+  SubstitutionRedundancyParameters limited;
+  limited.maximum_validation_ticks = 1;
+  OnlineInvocation step;
+  step.id = 66;
+  step.rule = "SubstitutionRedundancy";
+  step.parameters = limited;
+  step.granularity = InvocationGranularity::OneInstance;
+  step.substitution_redundancy_instances = {sr};
+  step.budget = WorkLimit::bounded(1);
+  OnlineInprocessProgram program;
+  program.sequence = {step};
+  OnlineInprocessExecutor executor;
+  assert(executor.configure(program, 17));
+  const StateVersion before = state_version(k);
+  const InvocationResult exhausted = executor.advance(k);
+  assert(exhausted.status == InvocationStatus::ResourceExhausted);
+  assert(exhausted.applications == 0 && executor.step_consumed(66) == 0);
+  assert(k.next_clause_id == 4 && state_version(k).arena_generation ==
+                                      before.arena_generation);
+
+  program.sequence.front().parameters = SubstitutionRedundancyParameters{};
+  assert(executor.configure(program, 18,
+                            ReconfigureMode::RetainMatchingStepBudgets));
+  const InvocationResult resumed = executor.advance(k);
+  assert(resumed.status == InvocationStatus::Completed);
+  assert(resumed.applications == 1 && resumed.made_rule_progress);
+  assert(k.value(internalize(-1)) > 0);
+  kernel_check_invariants(k);
+
+  Kernel malformed;
+  kernel_reserve_vars(malformed, 1);
+  OnlineInvocation bad = step;
+  bad.id = 67;
+  bad.parameters = SubstitutionRedundancyParameters{};
+  bad.substitution_redundancy_instances = {
+      SubstitutionRedundancyInstance{}};
+  program.sequence = {bad};
+  OnlineInprocessExecutor invalid;
+  assert(invalid.configure(program, 19));
+  const InvocationResult rejected = invalid.advance(malformed);
+  assert(rejected.status == InvocationStatus::InvalidRequest);
+  assert(rejected.applications == 0 && invalid.step_consumed(67) == 0);
+}
+
+static void orbitopal_complete_pass_discovers_structured_sr() {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  const auto add_binary = [&](int a, int b) {
+    kernel_add_binary_clause(k, internalize(a), internalize(b),
+                             ++k.next_clause_id);
+  };
+  add_binary(1, 2);
+  add_binary(3, 4);
+  add_binary(-1, -3);
+  add_binary(-2, -4);
+
+  SubstitutionRedundancyParameters parameters;
+  parameters.orbitopal_producer = true;
+  OnlineInvocation step;
+  step.id = 65;
+  step.rule = "SubstitutionRedundancy";
+  step.parameters = parameters;
+  step.granularity = InvocationGranularity::CompleteCurrentPass;
+  step.budget = WorkLimit::unlimited();
+  OnlineInprocessProgram program;
+  program.sequence.push_back(step);
+  OnlineInprocessExecutor executor;
+  assert(executor.configure(program, 16));
+  const InvocationResult result = executor.advance(k);
+  assert(result.status == InvocationStatus::Completed);
+  assert(result.made_rule_progress && result.instance == 0);
+  assert(k.value(internalize(-1)) > 0);
+  kernel_check_invariants(k);
+}
+
+static void orbitopal_screen_is_budgeted_and_interruptible() {
+  Kernel k;
+  kernel_reserve_vars(k, 2);
+  kernel_add_binary_clause(k, internalize(1), internalize(2),
+                           ++k.next_clause_id);
+  SubstitutionRedundancyParameters parameters;
+  parameters.orbitopal_producer = true;
+  parameters.maximum_detection_ticks = 1;
+  uint64_t visited = 0;
+  const auto limited = substitution_redundancy_enumerate_orbitopal(
+      k, parameters,
+      [&](const SubstitutionRedundancyInstance &) {
+        ++visited;
+        return true;
+      });
+  assert(limited.status == OrbitopalEnumerationStatus::LimitReached);
+  assert(limited.ticks == parameters.maximum_detection_ticks && !visited);
+
+  parameters.maximum_detection_ticks = UINT64_MAX;
+  volatile sig_atomic_t stop = 1;
+  const auto interrupted = substitution_redundancy_enumerate_orbitopal(
+      k, parameters,
+      [&](const SubstitutionRedundancyInstance &) {
+        ++visited;
+        return true;
+      },
+      &stop);
+  assert(interrupted.status == OrbitopalEnumerationStatus::Interrupted);
+  assert(!visited);
+}
+
+static void general_sr_cursor_is_lazy_complete_and_resumable() {
+  Kernel k;
+  kernel_reserve_vars(k, 1);
+  SubstitutionRedundancyParameters parameters;
+  parameters.general_producer = true;
+  OnlineInvocation step;
+  step.id = 68;
+  step.rule = "SubstitutionRedundancy";
+  step.parameters = parameters;
+  step.granularity = InvocationGranularity::CompleteCurrentPass;
+  step.budget = WorkLimit::bounded(8);
+  OnlineInprocessProgram program;
+  program.sequence = {step};
+  OnlineInprocessExecutor executor;
+  assert(executor.configure(program, 20));
+  const InvocationResult first = executor.advance(k);
+  assert(first.status == InvocationStatus::Completed);
+  assert(first.applications == 1 && first.made_rule_progress);
+  assert(k.value(internalize(1)) > 0);
+  for (unsigned calls = 0; calls < 8 && !executor.complete(); ++calls) {
+    const InvocationResult result = executor.advance(k);
+    assert(result.status != InvocationStatus::InvalidRequest);
+    assert(result.status != InvocationStatus::StaleRequest);
+    assert(result.status != InvocationStatus::ResourceExhausted);
+  }
+  assert(executor.complete());
+
+  Kernel limited;
+  kernel_reserve_vars(limited, 1);
+  limited.unit_ids[0] = ++limited.next_clause_id;
+  kernel_assign_unit(limited, internalize(-1));
+  parameters.maximum_general_candidates_per_advance = 1;
+  SubstitutionRedundancyGeneralCursor cursor;
+  SubstitutionRedundancyInstance instance;
+  const auto a = substitution_redundancy_next_general(
+      limited, parameters, cursor, instance);
+  assert(a.status == SubstitutionRedundancyGeneralStatus::LimitReached);
+  const std::vector<uint32_t> after_first = cursor.candidate_digits;
+  const std::vector<uint32_t> witness_after_first = cursor.witness_digits;
+  const std::vector<uint32_t> substitution_after_first =
+      cursor.substitution_digits;
+  const auto b = substitution_redundancy_next_general(
+      limited, parameters, cursor, instance);
+  assert(b.status == SubstitutionRedundancyGeneralStatus::LimitReached ||
+         b.status == SubstitutionRedundancyGeneralStatus::Complete);
+  assert(cursor.candidate_digits != after_first ||
+         cursor.witness_digits != witness_after_first ||
+         cursor.substitution_digits != substitution_after_first ||
+         cursor.complete);
+}
+
+static void repeated_nonunit_sr_is_a_semantic_noop() {
+  Kernel k;
+  kernel_reserve_vars(k, 2);
+  SubstitutionRedundancyInstance instance;
+  instance.clause = {internalize(1), internalize(2)};
+  instance.witness = {internalize(1)};
+  const auto first = substitution_redundancy_apply_detailed(k, instance);
+  assert(first.status == SubstitutionRedundancyApplicationStatus::Applied);
+  const StateVersion after_first = state_version(k);
+  const uint64_t clause_id_after_first = k.next_clause_id;
+  const auto repeated = substitution_redundancy_apply_detailed(k, instance);
+  assert(repeated.status ==
+         SubstitutionRedundancyApplicationStatus::NoChange);
+  const StateVersion after_repeat = state_version(k);
+  assert(after_repeat.arena_generation == after_first.arena_generation &&
+         after_repeat.touch_epoch == after_first.touch_epoch &&
+         after_repeat.strategy_epoch == after_first.strategy_epoch);
+  assert(k.next_clause_id == clause_id_after_first);
+  kernel_check_invariants(k);
+}
+
+static void malformed_sr_is_rejected_before_true_clause_noop() {
+  Kernel k;
+  kernel_reserve_vars(k, 1);
+  k.unit_ids[0] = ++k.next_clause_id;
+  kernel_assign_unit(k, internalize(1));
+  SubstitutionRedundancyInstance instance;
+  instance.clause = {internalize(1), INVALID_LIT};
+  const StateVersion before = state_version(k);
+  const uint64_t clause_id_before = k.next_clause_id;
+  const uint32_t propagation_head_before = k.propagate_head;
+  const uint64_t applications_before = k.stats.sr_applications;
+  const auto result = substitution_redundancy_apply_detailed(k, instance);
+  assert(result.status == SubstitutionRedundancyApplicationStatus::Invalid);
+  assert(result.rule_result == ApplyResult::NoOp);
+  const StateVersion after = state_version(k);
+  assert(after.arena_generation == before.arena_generation &&
+         after.touch_epoch == before.touch_epoch &&
+         after.strategy_epoch == before.strategy_epoch);
+  assert(k.next_clause_id == clause_id_before);
+  assert(k.propagate_head == propagation_head_before);
+  assert(k.stats.sr_applications == applications_before);
+}
+
+static void unsupported_sr_proof_format_is_transactional() {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  const auto add_binary = [&](int a, int b) {
+    kernel_add_binary_clause(k, internalize(a), internalize(b),
+                             ++k.next_clause_id);
+  };
+  add_binary(1, 2);
+  add_binary(3, 4);
+  add_binary(-1, -3);
+  add_binary(-2, -4);
+
+  char path[] = "/tmp/tactix-sr-drat-XXXXXX";
+  const int descriptor = mkstemp(path);
+  assert(descriptor >= 0);
+  close(descriptor);
+  {
+    Proof proof;
+    assert(proof.open(path, ProofFormat::DratAscii));
+    k.proof = &proof;
+    proof.bind_variable_map(&k.internal_to_external);
+
+    SubstitutionRedundancyInstance instance;
+    instance.clause = {internalize(-1)};
+    instance.witness = {internalize(-1), internalize(3)};
+    instance.substitution = {{internalize(2), internalize(4)},
+                             {internalize(4), internalize(2)}};
+    const StateVersion before = state_version(k);
+    const uint64_t clause_id_before = k.next_clause_id;
+    const auto result = substitution_redundancy_apply_detailed(k, instance);
+    assert(result.status ==
+           SubstitutionRedundancyApplicationStatus::UnsupportedProofFormat);
+    assert(result.rule_result == ApplyResult::NoOp);
+    const StateVersion after = state_version(k);
+    assert(after.arena_generation == before.arena_generation &&
+           after.touch_epoch == before.touch_epoch &&
+           after.strategy_epoch == before.strategy_epoch);
+    assert(k.next_clause_id == clause_id_before);
+    assert(k.value(internalize(-1)) == 0);
+    proof.flush();
+    k.proof = nullptr;
+  }
+  FILE *written = fopen(path, "rb");
+  assert(written);
+  assert(fgetc(written) == EOF);
+  fclose(written);
+  unlink(path);
+}
+
+static void later_sr_batch_member_can_become_inapplicable() {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  const auto add_binary = [&](int a, int b) {
+    kernel_add_binary_clause(k, internalize(a), internalize(b),
+                             ++k.next_clause_id);
+  };
+  add_binary(1, 2);
+  add_binary(3, 4);
+  add_binary(-1, -3);
+  add_binary(-2, -4);
+
+  SubstitutionRedundancyInstance first;
+  first.clause = {internalize(-1)};
+  first.witness = {internalize(-1), internalize(3)};
+  first.substitution = {{internalize(2), internalize(4)},
+                        {internalize(4), internalize(2)}};
+  SubstitutionRedundancyInstance second;
+  second.clause = {internalize(-3)};
+  second.witness = {internalize(-3), internalize(1)};
+  second.substitution = {{internalize(4), internalize(2)},
+                         {internalize(2), internalize(4)}};
+
+  OnlineInvocation step;
+  step.id = 70;
+  step.rule = "SubstitutionRedundancy";
+  step.parameters = SubstitutionRedundancyParameters{};
+  step.granularity = InvocationGranularity::SelectedBatch;
+  step.substitution_redundancy_instances = {first, second};
+  step.budget = WorkLimit::unlimited();
+  OnlineInprocessProgram program;
+  program.sequence = {step};
+  OnlineInprocessExecutor executor;
+  assert(executor.configure(program, 22));
+  const InvocationResult applied = executor.advance(k);
+  assert(applied.status == InvocationStatus::Completed &&
+         applied.made_rule_progress);
+  const InvocationResult inapplicable = executor.advance(k);
+  assert(inapplicable.status == InvocationStatus::Inapplicable);
+  assert(inapplicable.applications == 0);
+  assert(!inapplicable.made_rule_progress);
+}
+
+static void sr_producer_settings_are_validated() {
+  OnlineInprocessProgram program;
+  OnlineInvocation step;
+  step.id = 69;
+  step.rule = "SubstitutionRedundancy";
+  SubstitutionRedundancyParameters parameters;
+  parameters.orbitopal_producer = true;
+  parameters.minimum_orbitopal_rows = 1;
+  step.parameters = parameters;
+  step.granularity = InvocationGranularity::CanonicalApplication;
+  step.budget = WorkLimit::bounded(1);
+  program.sequence = {step};
+  OnlineInprocessExecutor executor;
+  std::string error;
+  assert(!executor.configure(program, 21, ReconfigureMode::ResetRuntime,
+                             &error));
+  assert(error == "SR parameters are invalid");
+}
+
 // Native-checker witness mode is run on SLURM. The normal micro-test entry
 // below never launches a solver. Input includes exactly twenty selected victims
 // containing variable 1, with an independent SAT/UNSAT component for the tail.
@@ -1059,12 +1474,48 @@ static int proof_witness(const char *input, const char *output,
                          const char *format, const char *rule_name) {
   Kernel k;
   Proof proof;
-  assert(proof.open(output, std::string(format) == "lrat"
-                               ? ProofFormat::Lrat : ProofFormat::DratAscii));
+  const std::string proof_format = format;
+  assert(proof.open(output, proof_format == "lrat" ? ProofFormat::Lrat
+                            : proof_format == "dsr" ? ProofFormat::DsrAscii
+                                                    : ProofFormat::DratAscii));
   k.proof = &proof;
+  proof.bind_variable_map(&k.internal_to_external);
   FILE *cnf = fopen(input, "r");
   assert(cnf && !parse_dimacs(cnf, k));
   fclose(cnf);
+  if (!std::strcmp(rule_name, "OrbitopalSR")) {
+    SubstitutionRedundancyParameters parameters;
+    parameters.orbitopal_producer = true;
+    OnlineInvocation orbitopal;
+    orbitopal.id = 82;
+    orbitopal.rule = "SubstitutionRedundancy";
+    orbitopal.parameters = parameters;
+    orbitopal.granularity = InvocationGranularity::CompleteCurrentPass;
+    orbitopal.budget = WorkLimit::unlimited();
+    OnlineInprocessProgram orbitopal_program;
+    orbitopal_program.sequence.push_back(orbitopal);
+    OnlineInprocessExecutor orbitopal_executor;
+    assert(orbitopal_executor.configure(orbitopal_program, 1));
+    uint64_t effective = 0;
+    int terminal = 0;
+    while (!orbitopal_executor.complete()) {
+      const InvocationResult advanced = orbitopal_executor.advance(k);
+      effective += advanced.made_rule_progress;
+      if (advanced.status == InvocationStatus::Unsat) {
+        terminal = 20;
+        break;
+      }
+      assert(advanced.status != InvocationStatus::InvalidRequest &&
+             advanced.status != InvocationStatus::ResourceExhausted &&
+             advanced.status != InvocationStatus::StaleRequest);
+    }
+    std::printf("c effective orbitopal SR transitions %llu\n",
+                static_cast<unsigned long long>(effective));
+    const int result = terminal ? terminal : DefaultPolicy{}.solve(k, nullptr);
+    proof.flush();
+    std::puts(result == 20 ? "s UNSATISFIABLE" : "s UNKNOWN");
+    return result;
+  }
   OnlineInvocation step;
   step.id = 81;
   step.rule = rule_name;
@@ -1130,6 +1581,17 @@ int main(int argc, char **argv) {
   congruence_semantic_actions_reach_online_fixpoint();
   exact_factor_grids_compose_as_a_selected_batch();
   complete_factor_pass_uses_exact_grid_enumeration();
+  exact_sr_instance_uses_shared_online_composition();
+  signed_sr_sources_emit_canonical_dsr_mappings();
+  sr_failure_statuses_preserve_the_pending_application();
+  orbitopal_complete_pass_discovers_structured_sr();
+  orbitopal_screen_is_budgeted_and_interruptible();
+  general_sr_cursor_is_lazy_complete_and_resumable();
+  repeated_nonunit_sr_is_a_semantic_noop();
+  malformed_sr_is_rejected_before_true_clause_noop();
+  unsupported_sr_proof_format_is_transactional();
+  later_sr_batch_member_can_become_inapplicable();
+  sr_producer_settings_are_validated();
   complete_pass_reenumerates_after_its_own_collection();
   sweep_parameters_are_exact_per_invocation();
   rule_parameters_are_scoped_per_call();

@@ -29,6 +29,7 @@ struct tactix_solver {
                          // before any solve still has an H.
   Proof proof;
   std::vector<Lit> scratch;
+  bool input_completed = false;
   // Additive and lazy: ordinary tactix_solve sessions retain the pre-online
   // object layout's allocation behavior and never construct program vectors.
   std::unique_ptr<strategy::OnlineInprocessExecutor> online;
@@ -324,6 +325,18 @@ bool online_parameters(const tactix_online_parameters &source,
         p.maximum_free_domains, p.candidate_budget};
     return true;
   }
+  case TACTIX_ONLINE_PARAMETERS_SUBSTITUTION_REDUNDANCY: {
+    const tactix_online_sr_parameters &p =
+        source.value.substitution_redundancy;
+    target = SubstitutionRedundancyParameters{
+        p.maximum_validation_ticks, p.orbitopal_producer != 0,
+        p.minimum_orbitopal_rows,
+        p.minimum_orbitopal_columns, p.maximum_orbitopal_matrices,
+        p.maximum_orbitopal_instances, p.maximum_detection_ticks,
+        p.general_producer != 0,
+        p.maximum_general_candidates_per_advance};
+    return true;
+  }
   default:
     return false;
   }
@@ -414,6 +427,72 @@ bool online_program(const tactix_online_program &source, const Kernel &kernel,
   return true;
 }
 
+bool online_program_v2(const tactix_online_program_v2 &source,
+                       const Kernel &kernel,
+                       strategy::OnlineInprocessProgram &target) {
+  if (source.step_count < 0 || (source.step_count && !source.steps))
+    return false;
+  std::vector<tactix_online_step> base_steps;
+  base_steps.reserve(static_cast<size_t>(source.step_count));
+  for (int i = 0; i < source.step_count; ++i)
+    base_steps.push_back(source.steps[i].base);
+  const tactix_online_program base_program = {
+      base_steps.data(), source.step_count, source.repeat_mode,
+      source.repeat_limit};
+  if (!online_program(base_program, kernel, target))
+    return false;
+  for (int i = 0; i < source.step_count; ++i) {
+    const tactix_online_step_v2 &input_step = source.steps[i];
+    if (input_step.sr_instance_count < 0 ||
+        (input_step.sr_instance_count && !input_step.sr_instances))
+      return false;
+    strategy::OnlineInvocation &output_step = target.sequence[i];
+    output_step.substitution_redundancy_instances.reserve(
+        static_cast<size_t>(input_step.sr_instance_count));
+    for (int j = 0; j < input_step.sr_instance_count; ++j) {
+      const tactix_online_sr_instance &input = input_step.sr_instances[j];
+      if (input.clause_count < 0 || input.witness_count < 0 ||
+          input.substitution_count < 0 ||
+          (input.clause_count && !input.clause) ||
+          (input.witness_count && !input.witness) ||
+          (input.substitution_count && !input.substitution))
+        return false;
+      SubstitutionRedundancyInstance output;
+      const auto append_literal = [&](int external,
+                                      std::vector<Lit> &destination) {
+        if (!external || external == INT32_MIN)
+          return false;
+        const Lit literal = kernel_internalize(kernel, external);
+        if (literal == INVALID_LIT)
+          return false;
+        destination.push_back(literal);
+        return true;
+      };
+      output.clause.reserve(static_cast<size_t>(input.clause_count));
+      for (int k = 0; k < input.clause_count; ++k)
+        if (!append_literal(input.clause[k], output.clause))
+          return false;
+      output.witness.reserve(static_cast<size_t>(input.witness_count));
+      for (int k = 0; k < input.witness_count; ++k)
+        if (!append_literal(input.witness[k], output.witness))
+          return false;
+      output.substitution.reserve(
+          static_cast<size_t>(input.substitution_count));
+      for (int k = 0; k < input.substitution_count; ++k) {
+        std::vector<Lit> pair;
+        pair.reserve(2);
+        if (!append_literal(input.substitution[k].source_literal, pair) ||
+            !append_literal(input.substitution[k].target_literal, pair))
+          return false;
+        output.substitution.emplace_back(pair[0], pair[1]);
+      }
+      output_step.substitution_redundancy_instances.push_back(
+          std::move(output));
+    }
+  }
+  return strategy::validate_online_strategy_program(target);
+}
+
 void online_result(const strategy::InvocationResult &source,
                    tactix_online_result &target) {
   target.status = static_cast<int>(source.status);
@@ -461,9 +540,14 @@ void tactix_add(tactix_solver *s, int lit) {
 // With a proof attached, adding clauses after this point is outside the v1
 // contract: their ids would land above already-derived ones, which no checker's
 // file numbering can match.
-static void input_complete(tactix_solver *s) { finish_input(s->kernel); }
+static void input_complete(tactix_solver *s) {
+  finish_input(s->kernel);
+  s->input_completed = true;
+}
 
 int tactix_proof(tactix_solver *s, const char *path, int format) {
+  if (s->input_completed || s->kernel.proof)
+    return -1;
   // Public values are append-only; see TACTIX_PROOF_* in tactix.h.
   ProofFormat f;
   switch (format) {
@@ -771,6 +855,34 @@ int tactix_online_configure(tactix_solver *s,
   input_complete(s);
   strategy::OnlineInprocessProgram program;
   if (!online_program(*source, s->kernel, program))
+    return -1;
+  std::unique_ptr<strategy::OnlineInprocessExecutor> replacement;
+  strategy::OnlineInprocessExecutor *executor = s->online.get();
+  if (!executor) {
+    replacement = std::make_unique<strategy::OnlineInprocessExecutor>();
+    executor = replacement.get();
+  }
+  const strategy::ReconfigureMode mode =
+      reconfigure_mode == TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS
+          ? strategy::ReconfigureMode::RetainMatchingStepBudgets
+          : strategy::ReconfigureMode::ResetRuntime;
+  if (!executor->configure(program, revision, mode))
+    return -1;
+  if (replacement)
+    s->online = std::move(replacement);
+  return 0;
+}
+
+int tactix_online_configure_v2(tactix_solver *s,
+                               const tactix_online_program_v2 *source,
+                               uint64_t revision, int reconfigure_mode) {
+  if (!s || !source ||
+      (reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RESET &&
+       reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS))
+    return -1;
+  input_complete(s);
+  strategy::OnlineInprocessProgram program;
+  if (!online_program_v2(*source, s->kernel, program))
     return -1;
   std::unique_ptr<strategy::OnlineInprocessExecutor> replacement;
   strategy::OnlineInprocessExecutor *executor = s->online.get();

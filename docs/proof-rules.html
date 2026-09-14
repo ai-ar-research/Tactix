@@ -269,7 +269,7 @@ F₀ ≡SAT (F ∪ ρ)              F ⊨ R</div>
 ⟨F,R,τ,ρ,π⟩ → ⟨F,R,τ·forced,ρ,π·δ⟩</div>
               <div class="formal-grid">
                 <div class="formal-block"><h4>Effect</h4><p>Assign every forced literal at its true level. Stop at the first conflict or at fixpoint; a root conflict returns <span class="math">Unsat</span>.</p></div>
-                <div class="formal-block"><h4>Proof δ &amp; soundness</h4><p><span class="math">add_derived_unit</span> for root units under LRAT; <span class="math">add_empty</span> for a root conflict. BCP assigns only consequences of <span class="math">F ∧ M</span>.</p></div>
+                <div class="formal-block"><h4>Proof δ &amp; soundness</h4><p><span class="math">add_derived_unit</span> records root units with LRAT hints or as explicit witnessless DSR RUP additions; DRAT leaves ordinary propagated units implicit. <span class="math">add_empty</span> records a root conflict. BCP assigns only consequences of <span class="math">F ∧ M</span>.</p></div>
               </div>
             </section>
             <section class="panel" data-panel-content="plain"><p class="plain"><strong>Follow implications until nothing else is forced.</strong> If a clause has one possible literal left, that literal must be true. If every literal in a clause becomes false, propagation has found a conflict.</p></section>
@@ -277,7 +277,7 @@ F₀ ≡SAT (F ∪ ρ)              F ⊨ R</div>
               <div class="examples">
                 <div class="example"><h4>A root implication</h4><div class="equation">F = {(a), (¬a ∨ b)}
 τ = []
-⇒ τ′ = [a@0, b@0]</div><p>The unit <span class="math">a</span> forces <span class="math">b</span>. LRAT records both derived root units.</p></div>
+⇒ τ′ = [a@0, b@0]</div><p>The unit <span class="math">a</span> forces <span class="math">b</span>. LRAT and DSR record both derived root units so later proof rules see the same root formula.</p></div>
                 <div class="example"><h4>A root contradiction</h4><div class="equation">F = {(a), (¬a)}
 ⇒ a@0 and ¬a@0
 ⇒ ∅, Unsat</div><p>The empty clause is RUP from the contradictory units.</p></div>
@@ -718,6 +718,21 @@ assume d,¬u ⇒ E forces ¬b ⇒ C conflicts
 h_B=[E,C]
 
 add_rup(B,h_B); del(C)       [B⊂C]</div><p>The binary is added first, so the proof and solver retain the subsumer before the longer source disappears.</p></div></div></section>
+          </div>
+        </details>
+
+        <details class="rule-card" id="X7" data-family="addition" data-search="x7 substitution redundancy dsr sr witness symmetry orbitopal clause addition">
+          <summary><span class="rule-id">X7</span><span class="rule-title"><h3>SubstitutionRedundancy</h3><p>Add a clause justified by a finite DSR substitution</p></span><span class="status">public</span></summary>
+          <div class="rule-content"><div class="tabs"><button class="tab active" data-panel="formal">Formal calculus</button><button class="tab" data-panel="plain">Informal</button><button class="tab" data-panel="examples">Examples</button></div>
+            <section class="panel" data-panel-content="formal"><div class="equation">C nonempty and non-tautological; p∈C; σ(p)=⊤
+for each D∈F: D|σ=⊤ or F∧¬C∧¬(D|σ) ⊢₁ ∅
+──────────────────────────────────────────────────── X7(C,p,σ)
+F := F ∪ {C}; δ = add_sr(C,p,σ)</div><div class="formal-grid"><div class="formal-block"><h4>Effect</h4><p>Add the candidate and perform ordinary root propagation; existing clauses and reconstruction state remain unchanged.</p></div><div class="formal-block"><h4>Certificate</h4><p>Every root fact consumed by validation is already an explicit DSR unit. Mapping sources are serialized as positive variables with the corresponding signed images.</p></div><div class="formal-block"><h4>Soundness</h4><p>The substitution condition makes <span class="math">C</span> satisfiability-preserving. <code>dsr-trim</code> checks the direct witness and Trestle checks the elaborated LSR.</p></div></div></section>
+            <section class="panel" data-panel-content="plain"><p class="plain"><strong>Use a symmetry or another finite substitution to justify adding a clause that removes equivalent search.</strong> The producer discovers candidates; the proof rule accepts every legal explicit tuple.</p></section>
+            <section class="panel" data-panel-content="examples"><div class="examples"><div class="example"><h4>Orbitopal prefix fixing</h4><div class="equation">two interchangeable rows r₀,r₁
+C=(¬x₀₀)
+σ swaps r₀ and r₁ and maps pivot ¬x₀₀ to ⊤
+add_sr(C,¬x₀₀,σ)</div><p>The added unit chooses one representative of the row symmetry. Orbitopal detection is one strategy producer, not part of X7's guard.</p></div></div></section>
           </div>
         </details>
 
