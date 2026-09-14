@@ -1,6 +1,7 @@
 """Non-solving acceptance tests: UNKNOWN is a dataset label, not an oracle."""
 import unittest
-from runtime_task import checked_verdict_valid, expected_matches, provisional_result
+from runtime_task import (checked_verdict_valid, expected_matches,
+                          positive_timeout, provisional_result, solver_command)
 
 
 class RuntimeTaskTests(unittest.TestCase):
@@ -63,6 +64,29 @@ class RuntimeTaskTests(unittest.TestCase):
                                     and code == {'SAT': 10, 'UNSAT': 20}.get(verdict))
                             self.assertEqual(checked_verdict_valid(expected, verdict,
                                 dict(exit_code=code, timed_out=timeout), checked), want)
+
+    def test_manifest_timeouts_are_enforced(self):
+        manifest = {'resource_contract': {'solve_timeout': 300,
+                                          'checker_timeout': 16000}}
+        self.assertEqual(positive_timeout(manifest, 'solve_timeout'), 300)
+        self.assertEqual(positive_timeout(manifest, 'checker_timeout'), 16000)
+        for value in (None, True, False, 0, -1, 1.0, '300'):
+            manifest['resource_contract']['solve_timeout'] = value
+            with self.assertRaises(RuntimeError):
+                positive_timeout(manifest, 'solve_timeout')
+
+    def test_solver_command_supports_validated_trailing_arguments(self):
+        arm = {'arguments': ['--before'],
+               'trailing_arguments': ['dsr', 'SymmetrySR']}
+        self.assertEqual(
+            solver_command('solver', arm, 'input.cnf', 'proof.dsr'),
+            ['solver', '--before', 'input.cnf', 'proof.dsr', 'dsr',
+             'SymmetrySR'])
+        for arm in ({'arguments': 'bad'},
+                    {'trailing_arguments': [1]},
+                    {'arguments': [], 'trailing_arguments': 'bad'}):
+            with self.assertRaises(RuntimeError):
+                solver_command('solver', arm, 'input.cnf', 'proof.dsr')
 
 
 if __name__ == '__main__':

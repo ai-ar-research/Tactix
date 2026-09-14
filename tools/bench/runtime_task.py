@@ -22,8 +22,22 @@ from proof_oracle import bridge_trivial_input_lsr, proof_check_status
 
 CAMPAIGN = None
 ROOT = None
-SOLVE_TIMEOUT = 1200
-CHECK_TIMEOUT = 16000
+
+
+def positive_timeout(manifest, name):
+    value = manifest.get("resource_contract", {}).get(name)
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        raise RuntimeError(f"invalid resource timeout: {name}")
+    return value
+
+
+def solver_command(binary, arm, cnf, proof):
+    before = arm.get("arguments", [])
+    after = arm.get("trailing_arguments", [])
+    if (not isinstance(before, list) or not isinstance(after, list) or
+            any(not isinstance(arg, str) for arg in before + after)):
+        raise RuntimeError("solver arguments must be string lists")
+    return [binary, *before, cnf, proof, *after]
 
 
 def sha256(path):
@@ -314,6 +328,8 @@ def main():
     })
 
     manifest = json.loads((CAMPAIGN / "manifest.json").read_text())
+    solve_timeout = positive_timeout(manifest, "solve_timeout")
+    check_timeout = positive_timeout(manifest, "checker_timeout")
     compressed = ROOT / "benchmarks/cache" / row["instance"]
     arm = manifest["arms"][row["arm"]]
     certificate = arm.get("certificate", "drat")
@@ -346,8 +362,8 @@ def main():
             if name.startswith(("TACTIX_", "KISSAT_", "SAT_EVENT_", "SAT_INPROCESS_")):
                 del os.environ[name]
         affinity = sorted(os.sched_getaffinity(0))
-        command = ["taskset", "-c", str(affinity[0]), binary,
-                   *arm["arguments"], cnf, proof]
+        command = ["taskset", "-c", str(affinity[0]),
+                   *solver_command(binary, arm, cnf, proof)]
         context = None
         perf_path = scratch / "solver.perf"
         if manifest.get("collect_runtime_context"):
@@ -364,7 +380,7 @@ def main():
             except (OSError, subprocess.TimeoutExpired) as error:
                 context["perf_probe"] = {"error": repr(error)}
         solve = measured(command, stdout, stderr,
-                         scratch / "solve.time", SOLVE_TIMEOUT)
+                         scratch / "solve.time", solve_timeout)
         if context is not None:
             context["perf_statistics"] = tail(perf_path, 50)
             context["end"] = runtime_context(affinity)
@@ -404,7 +420,7 @@ def main():
             result, dt.datetime.now(dt.timezone.utc).isoformat()))
         if verdict == "UNSAT" and proof.is_file():
             checked = check_unsat_proof(
-                CAMPAIGN, certificate, cnf, proof, scratch, CHECK_TIMEOUT)
+                CAMPAIGN, certificate, cnf, proof, scratch, check_timeout)
             result["proof_check"] = checked
             result["valid"] = checked["result"] == "verified"
         elif verdict == "SAT":
