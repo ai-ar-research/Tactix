@@ -106,7 +106,7 @@ exec python3 {c}/pins/validate_anonymous_runtime.py {c}
         dataset_authority=dict(path=str(ref/'manifest.json'),sha256=sha(ref/'manifest.json')),
         resource_contract=dict(partition=a.partition,cpus_per_task=a.cpus_per_task,memory_mib=32768,solve_timeout=1200,
             checker_timeout=16000,scheduler_wall_seconds=18000,array=f'0-{len(rows)-1}',throttle=None,node_constraint=None),
-        proof_contract='Native DSR elaborated by pinned dsr-trim to LSR, decompressed by pinned dsr-compress, and verified by pinned Trestle srcheck.',
+        proof_contract='Native DSR checked and elaborated forwards by pinned dsr-trim to LSR, decompressed by pinned dsr-compress, and verified by pinned Trestle srcheck.',
         cleanup_contract='O_TMPFILE on /tmp for input, DSR, LSR, model and checker scratch; no directory entries ever. Kernel releases storage at last close, including SIGKILL/OOM. Fail closed if unsupported. Only bounded JSON metadata and scheduler logs persist; core dumps disabled.',
         caveat='If the entire job dies, its result may be missing; never interpret missing as timeout or checked. Local disk may fill during a live run; no home-quota certificate storage or failure retention.',
         pin_sha256={str(p.relative_to(c)):sha(p) for p in [*(c/'pins').iterdir(),c/'matrix.tsv',c/'array.sbatch',c/'validate.sbatch']})

@@ -1,0 +1,40 @@
+diff --git a/src/dsr-trim.c b/src/dsr-trim.c
+index 6a1a24e..39cd049 100644
+--- a/src/dsr-trim.c
++++ b/src/dsr-trim.c
+@@ -1326,2 +1326,4 @@ static void print_unsat_core_if_requested(void) {
+-  // Only emit the core if UNSAT was derived
+-  if (!derived_empty_clause) return;
++  // Core dependencies are collected only during backwards checking.
++  if (!derived_empty_clause || !print_unsat_core_flag) return;
++  FATAL_ERR_IF(ch_mode != BACKWARDS_CHECKING_MODE,
++    "UNSAT-core output requires backwards checking.");
+@@ -1847,0 +1850,4 @@ static void prepare_dsr_trim_data(void) {
++    } else if (ch_mode == FORWARDS_CHECKING_MODE) {
++      // The CNF parser removes tautologies before proof checking. Mirror that
++      // removal in the emitted LSR so its checker sees the same formula.
++      store_user_deletion(i);
+@@ -2217 +2223,22 @@ static inline void mark_and_store_empty_clause_refutation(srid_t c, ullong g) {
+-  mark_and_store_up_refutation(c, g);
++  if (ch_mode == BACKWARDS_CHECKING_MODE) {
++    mark_and_store_up_refutation(c, g);
++    return;
++  }
++
++  /* An added clause can make the formula globally contradictory before the
++   * next DSR addition is parsed. There is then no candidate clause at
++   * `current_line` for print_lsr_line() to serialize. Emit the derived empty
++   * clause directly with the UP derivation gathered here. */
++  mark_up_derivation(c, g + GEN_INC);
++  ra_commit_range(&hints);
++  store_active_dependencies(g);
++  add_up_hint(c);
++
++  if (lsr_file != NULL) {
++    write_lsr_addition_line_start(lsr_file,
++      LINE_ID_FROM_LINE_NUM(current_line));
++    write_lit(lsr_file, 0);
++    print_hints(current_line);
++    write_sr_line_end(lsr_file);
++  }
++  ra_reset(&hints);

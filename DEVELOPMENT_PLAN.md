@@ -28,9 +28,9 @@ proof-checking jobs remain background checks and do not block independent work.
 ## 1. Goal and requirements
 
 - **R1:** emit one native DSR certificate for every UNSAT execution, elaborate
-  it to LSR with `dsr-trim`, and verify the LSR with pinned Trestle; reconstruct
-  and validate models for SAT. Retain DRAT and native LRAT as explicit
-  compatibility outputs for the pre-existing proof vocabulary.
+  it forwards to LSR with pinned `dsr-trim`, and verify it with pinned Trestle;
+  reconstruct and validate models for SAT. Retain DRAT and native LRAT as
+  explicit compatibility outputs for the pre-existing proof vocabulary.
 - **R2:** implement competition DIMACS I/O, result lines, exit codes, proof-file
   handling, resource limits, and signal behavior.
 - **R3:** expose every applicable proof rule and legal instance through a public
@@ -160,8 +160,9 @@ The proof backend receives typed logical events. Its canonical serializer emits
 one streaming DSR certificate: ordinary RUP/RAT additions are witnessless DSR
 additions, deletions are DSR deletions, and substitution-redundancy additions
 carry their finite substitution witness directly. Binary DSR is the normal CLI
-output; ASCII DSR, DRAT and native LRAT remain explicit modes. Format choice may
-not alter admission, scheduling, or state effects within the vocabulary a
+output; ASCII DSR, DRAT and native LRAT remain explicit modes. The acceptance
+pipeline uses forward elaboration so every DSR line is checked. Format choice
+may not alter admission, scheduling, or state effects within the vocabulary a
 format supports. A direct-SR action in a DRAT/LRAT compatibility run reports
 `unsupported` before mutation; compatibility formats do not narrow its DSR N1
 instance surface. The backend retains no whole-formula proof ledger.
@@ -527,7 +528,7 @@ the mechanism increment passes focused correctness/API validation.
 
 The native-DSR proof-backend increment lands first and has its own fixed gate:
 B27+C5 and Rank 1–40 on `cpu-dense-hwulab-q`, 12 CPUs, 32 GiB and a 1,200-second
-solver timeout. Every UNSAT result must pass DSR elaboration and Trestle
+solver timeout. Every UNSAT result must pass forward DSR elaboration and Trestle
 verification. Compare candidate DSR with retained historical references and a
 same-source DRAT control so serialization cost is distinguishable from solver
 trajectory. Report proof bytes and both checker stages separately. Do not submit

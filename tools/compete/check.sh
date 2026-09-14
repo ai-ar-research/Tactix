@@ -32,7 +32,7 @@ printf 'p cnf 2 4\n1 2 0\n1 -2 0\n-1 2 0\n-1 -2 0\n' > "$T/unsat.cnf"
 grep -qx 's UNSATISFIABLE' "$T/out" || fail "missing exact 's UNSATISFIABLE'"
 one_status "$T/out" UNSAT
 [ -s "$T/proof.dsr" ] || fail "no proof written"
-"$DSR_TRIM" -q -c "$T/unsat.cnf" "$T/proof.dsr" "$T/proof.binary.lsr" \
+"$DSR_TRIM" -q -f -c "$T/unsat.cnf" "$T/proof.dsr" "$T/proof.binary.lsr" \
   > "$T/dsr-check" 2>&1 || fail "DSR not verified"
 grep -qx 's VERIFIED UNSAT' "$T/dsr-check" || fail "DSR not verified"
 "$DSR_COMPRESS" -d "$T/proof.binary.lsr" "$T/proof.lsr" \
@@ -107,7 +107,7 @@ mkdir "$T/wrapper-out"
 [ "$rc" -eq 20 ] || fail "wrapper UNSAT exit $rc"
 [ -s "$T/wrapper-out/proof.out" ] || fail "wrapper did not write proof.out"
 one_status "$T/wrapper.stdout" wrapper
-"$DSR_TRIM" -q -c "$T/unsat.cnf" "$T/wrapper-out/proof.out" \
+"$DSR_TRIM" -q -f -c "$T/unsat.cnf" "$T/wrapper-out/proof.out" \
   "$T/wrapper.binary.lsr" > "$T/wrapper-dsr-check"
 grep -qx 's VERIFIED UNSAT' "$T/wrapper-dsr-check" \
   || fail "dsr-trim rejected wrapper proof"

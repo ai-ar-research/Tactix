@@ -260,7 +260,8 @@ def check_proof(fmt, cnf, proof, budget):
             binary_lsr = os.path.join(scratch, "proof.binary.lsr")
             text_lsr = os.path.join(scratch, "proof.text.lsr")
             stages = [
-                ([DSR_TRIM, "-q", "-c", cnf, proof, binary_lsr], binary_lsr),
+                ([DSR_TRIM, "-q", "-f", "-c", cnf, proof, binary_lsr],
+                 binary_lsr),
                 ([DSR_COMPRESS, "-d", binary_lsr, text_lsr], text_lsr),
                 ([SR_CHECK, cnf, text_lsr], None),
             ]
