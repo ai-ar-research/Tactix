@@ -1,34 +1,31 @@
 # Development Plan: A Competitive, Proof-Rule-Driven SAT Solver
 
-Working name: **Tactix**. Reference: Kissat 4.0.4. Current status:
-[PROGRESS.md](PROGRESS.md). Git history records changes to this specification.
+Working name: **Tactix**. Reference: Kissat 4.0.4. Current status: [PROGRESS.md](PROGRESS.md).
 
 This document owns stable scope, architecture, roadmap, gates, and deliberately
 open decisions. Status belongs in PROGRESS; rule semantics in
 `docs/calculus.md`; guards and deviations in `docs/implementation-notes.md`;
-evidence in frozen reports and run results. Scope is sequential,
-single-threaded, deterministic solving.
+evidence in frozen reports and runs. The solver is sequential and deterministic.
 
 ### Active execution order
 
 1. Preserve the accepted native-DSR certificate and direct-SR typed interface
    with their proof, test, fuzz, B27+C5/Rank 1--40, and B28+C5/Rank 1--50 gates.
-2. Complete the Satsuma symmetry producer through that direct-SR interface,
-   starting with the largest fixed WV100 signature group. Integrate general
-   preprocessing or root-inprocessing mechanisms; do not build a sequential
-   portfolio or dispatch on benchmark identity.
-   1. Detect complete signed automorphisms from a formula-derived colored-CNF
-      representation under explicit resource budgets.
-   2. Build a deterministic stabilizer chain and perform clause fixing with
-      full group elements, emitting each accepted unit through direct DSR.
-      When a stabilizer round has no eligible clause, re-detect on the current
-      root formula and admit exact direct-generator involutions through the
-      same X7 validator; each batch must stabilize its earlier fixed points.
-   3. Expose detection, fixing, repetition, stopping and resumption through the
-      shared typed strategy interface, then measure the 57-row Satsuma group.
+2. Complete one coherent, default-off Satsuma symmetry increment through that
+   direct-SR interface as general root processing. Detect signed colored-CNF
+   automorphisms under typed budgets; exact-check the untrusted backend's literal
+   action; fix clauses with seeded full group elements; and re-detect after each
+   strengthening batch. Direct-generator involutions use the same X7 validator.
+   Expose representation, traversal, fixing, batching, repetition, seed, stop,
+   interruption and resumption through typed settings and versioned replay;
+   retain old replay readers. Pass focused tests, Release, sanitizers, a real
+   DSR-to-LSR-to-Trestle proof, Claude-owned fuzzing, then candidate-only
+   B28+C5 and Rank 1--50 against retained controls before committing.
+3. After promotion, measure the mechanism on the fixed 57-row Satsuma WV100
+   signature group and group the remaining misses by effective transition.
 
-Do not submit a new full Tier-D run at the DSR or direct-SR boundary. Existing
-proof-checking jobs remain background checks and do not block independent work.
+Do not submit a new full Tier-D run at this boundary. Existing proof-checking
+jobs remain background checks and do not block independent work.
 
 ## 1. Goal and requirements
 
@@ -82,29 +79,23 @@ CryptoMiniSat are mechanism references, not Tier-D arms.
 
 DefaultPolicy transliterates mechanisms and effects, never source code. Read
 Kissat and CaDiCaL; choose the stronger mechanism and use Kissat to break ties.
-Preserve a faithful baseline beside stronger work. Derive or remove unbacked
-constants; do not tune them. Measure with proofs enabled. Source determines
-reference repairs; a regression calls for investigating implementation errors
-and coupled mechanisms, not weakening the reference.
+Preserve a faithful baseline beside stronger work, derive or remove unbacked
+constants, and measure with proofs enabled. Investigate regressions in the
+implementation and coupled mechanisms before changing the reference behavior.
 
-Port complete semantic units: analysis result, retained trail, candidate class,
-conditional predecessors/follow-ups, and proof/model transition. A local proxy
-is not a faithful baseline. Keep incomplete units open. For each mismatch,
-prove a stronger Tactix effect under the same correctness contract or repair it;
-if source, traces and semantics establish neither, ask the project owner.
+Port complete semantic units: result, retained trail, candidate class,
+predecessors/follow-ups, and proof/model transition. Keep incomplete units open.
+For each mismatch, prove a stronger effect under the same correctness contract
+or repair it; if source, traces and semantics establish neither, ask the owner.
 
-Compare the earliest common state before a split, including iteration/admission
-order, clause/watch layout, propagation, heuristic values/update order,
-heap/queue topology and charged clocks. Equal sets or terminal results do not
-establish equivalence when order is observable. Do not infer causes from later
-semantic divergence while an earlier common-state mismatch is unexplained.
-Each repair needs a differential regression for the exact wrong transition;
-performance evidence cannot conceal an upstream parity gap.
+Compare the earliest common state before a split, including order, physical
+layout, propagation, heuristic updates, queue topology and charged clocks.
+Equal sets or outcomes do not establish equivalence when order is observable.
+Each repair needs a differential regression for the first wrong transition.
 
-Retain sound, general reference repairs through downstream regressions; discard
-one only when stronger evidence disproves its fidelity, correctness, generality
-or an N1–N4 obligation. Bound diagnostic alternatives rather than restoring an
-older compensating default. Compare downstream utility as specified in §8.3.
+Retain sound general repairs unless stronger evidence disproves fidelity,
+correctness, generality or an N1--N4 obligation. Bound diagnostic alternatives
+and compare downstream utility as specified in §8.3.
 
 Diagnostic arms require a concrete time-bounded question and removal condition;
 prefer trace-only instrumentation and remove completed, neutral or superseded
@@ -444,18 +435,14 @@ alone does not close its required fuzz gate.
   configuration qualifies, including LymphoSAT.
 - **T5:** exceed the frozen VBS or ship the best verified effort.
 
-**Targeted timing measurement.** Focused WV100 development defaults to
-`cpu-dense-hwulab-q`, eight logical CPUs, 32 GiB, one solver thread and a
-300-second solver limit; `cpu-q` may establish a qualitative large-effect
-transition but cannot close a timing gate. B28+C5 and Rank 1--50 use
-`cpu-dense-hwulab-q`, 12 logical CPUs, 32 GiB and a 1,200-second solver limit.
-Decision-grade close comparisons use three independent paired waves. Each wave
-submits candidate and exact-state baseline as separate concurrent jobs. Record
-placement, peak RSS/VmPeak, service-rate counters, proof/check identities, and
-anonymous-scratch cleanup. Report the median and full ratio range; reject an
-absolute headline when either arm's range exceeds 2%. Do not serialize arms,
-subtract unmatched proof/check time, or extend this repetition requirement to
-fuzz and full-width tier arrays.
+**Targeted timing measurement.** Use the allocations fixed in §8.1; `cpu-q` may
+show a qualitative large transition but cannot close a timing gate. Close
+comparisons use three independent paired waves with candidate and exact-state
+baseline as concurrent separate jobs. Record placement, memory, service-rate
+counters, proof/check identities and scratch cleanup. Report median and full
+range; reject an absolute headline when either arm's range exceeds 2%. Do not
+serialize arms, subtract unmatched checker time, or require paired waves for
+fuzz and full-width arrays.
 
 **Fixed Rank 1–50 reference.** Keep the approved fifty/frozen Kissat vector as
 the retained regression control; full-view reruns are Tactix-only under the
@@ -518,30 +505,25 @@ portfolio, invoke another solver as a solving stage, or dispatch by benchmark
 identity. AE-Kissat-MAB's seven rows require mechanism study, but adopting MAB
 scheduling itself remains open.
 
-For Satsuma-style symmetry, distinguish generator detection from group fixing.
-Use a colored-CNF representation to obtain complete signed formula
-automorphisms, then sift them into a deterministic stabilizer chain. Clause
-fixing may derive transversal group elements that are not initial detector
-generators; every emitted unit carries that complete permutation through the
-direct-SR interface. Detection and fixing budgets, seed, ordering, eligible
-structure classes, batch size, repetition and stop conditions are validated
-strategy settings. The mechanism runs only at level zero or after explicit
-Restart-to-root, supports interruption and replay, and never keys on a formula,
-family, rank or winner identity. Third-party graph/group code must be pinned,
-licensed and isolated behind a failure-safe build/API boundary compatible with
-the no-exception/no-RTTI solver core.
+For Satsuma-style symmetry, separate colored-CNF generator detection from
+seeded stabilizer-chain group fixing. A fixing permutation may be a derived
+transversal element; carry the complete element through direct SR. Detection,
+fixing, traversal, seed, structure, batching, repetition and stop are validated
+strategy settings. Run only at level zero or after Restart-to-root, with
+interruption and replay and no formula/family/rank identity. Pin, license and
+failure-isolate third-party code from the no-exception/no-RTTI core.
 
-Treat the graph backend as an untrusted producer. Exact-check every returned
-signed permutation against the same live root formula that X7 validates, and
-run every derived clause through X7 before mutation. A resource-limited backend
-prefix is safe only as an explicitly incomplete proposal set; it cannot support
-a complete-group or complete-orbit claim. Generator order is canonicalized,
-randomness is seeded, and replay budgets count deterministic work rather than
-wall time. Adding only part of an orbit invalidates cached group assumptions:
-commit a whole orbit or mark the chain stale and re-detect on the current root
-formula. Cursor identity includes the formula generations and producer epoch;
-identity-setting changes reset it, while compatible budget changes retain it.
-Version serialized strategy tuples when these settings enter replay.
+Official SAT 2026 Satsuma also alternates simplification and symmetry breaking,
+using variable-clause graph cliques to guide fixing. This first increment does
+not claim that full mechanism; after its fixed gates, use 57-row transitions to
+decide whether clique-guided fixing and alternating root rounds come next.
+
+Treat the backend as untrusted: exact-check every signed permutation against
+the live X7 formula and validate every derived clause before mutation. A
+resource-limited prefix is explicitly incomplete. Seed noncanonical order and
+charge replay by deterministic work. Commit a whole orbit or stale the chain
+and re-detect. Formula generation, producer epoch and identity settings govern
+cursor reset; compatible budget updates retain progress. Version replay tuples.
 
 Preserve prior coverage; report solved SAT/UNSAT and per-signature counts before
 PAR-2, proof cost, memory, and regressions. T4-K and final exact T4-VBS coverage
@@ -556,15 +538,6 @@ Evaluate B28+C5 and Rank 1–50 periodically at meaningful refactor checkpoints,
 using the fixed benchmark definitions and §8.3 resource contract, frozen
 candidates and retained baseline controls. Defer new full Tier D campaigns until
 the mechanism increment passes focused correctness/API validation.
-
-The native-DSR proof-backend increment lands first and has its own fixed gate:
-B27+C5 and Rank 1–40 on `cpu-dense-hwulab-q`, 12 CPUs, 32 GiB and a 1,200-second
-solver timeout. Every UNSAT result must pass forward DSR elaboration and Trestle
-verification. Compare candidate DSR with retained historical references and a
-same-source DRAT control so serialization cost is distinguishable from solver
-trajectory. Report proof bytes and both checker stages separately. Do not submit
-a new full Tier-D run at this boundary; resume the Satsuma symmetry-breaking
-rule after the gate passes.
 
 Default dynamic-macro/static-micro overhead is ≤5% versus a hardcoded twin.
 Refactoring must preserve existing configurations' action/work/proof behavior
