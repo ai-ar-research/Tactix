@@ -21,6 +21,9 @@ single-threaded, deterministic solving.
       representation under explicit resource budgets.
    2. Build a deterministic stabilizer chain and perform clause fixing with
       full group elements, emitting each accepted unit through direct DSR.
+      When a stabilizer round has no eligible clause, re-detect on the current
+      root formula and admit exact direct-generator involutions through the
+      same X7 validator; each batch must stabilize its earlier fixed points.
    3. Expose detection, fixing, repetition, stopping and resumption through the
       shared typed strategy interface, then measure the 57-row Satsuma group.
 

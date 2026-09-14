@@ -588,7 +588,9 @@ literal. The rule is unimplemented; its reopening conditions are in `implementat
   literal and that literal's signed image. Every root fact used by validation is already a DSR RUP unit, so validation and the
   checker see the same formula. The SR condition preserves satisfiability; `dsr-trim` and Trestle check it. No DRAT/LRAT expansion exists.
 - **Instances / termination:** `(C,p,σ)` is the explicit tuple. Lazy enumeration covers every legal tuple and resumes after selected
-  batches. Repetition terminates over finite clause space or by caller budget/stop. Orbitopal symmetry is a producer, not a guard.
+  batches. Repetition terminates over finite clause space or by caller budget/stop. Row-oriented, column-oriented, stabilizer-chain,
+  and direct-generator symmetry discovery are producers of ordinary X7 tuples, not additional guards or new proof rules. Each
+  produced tuple is independently checked against the current live formula before mutation.
 ## 6e. Clause strengthening by instantiation (X4)
 
 ### X4 · Instantiate — removing a literal a probe refutes
