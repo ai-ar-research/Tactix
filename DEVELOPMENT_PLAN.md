@@ -529,6 +529,10 @@ as generic Schreier. Implement the structured detector and fixing first, with
 clique search, fallback ordering, split/search limits, iteration, and stops as
 validated strategy settings. Johnson detection follows. These mechanisms use
 formula/group structure uniformly and never dispatch by family or identity.
+Measure each Satsuma-derived preprocessing transition separately from CDCL.
+Retain it for scheduling only when its applicable and inapplicable work is at
+least as efficient as Satsuma on comparable structures; the subsecond official
+transitions are the floor, not merely a qualitative solve signal.
 
 Treat the backend as untrusted: exact-check every signed permutation against
 the live X7 formula and validate every derived clause before mutation. A
