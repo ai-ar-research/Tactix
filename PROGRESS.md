@@ -6,12 +6,12 @@ frozen reports own history and detailed evidence.
 
 ## Objective
 
-Promote the default-off general Satsuma graph-symmetry producer through the
-accepted online X7 interface while preserving N1--N4 and native checked DSR.
-Then measure it on the fixed 57-row Satsuma WV100 signature group and continue
-toward independently checked WV100 coverage of 100/100. Do not submit a full
-Tier-D run after this symmetry increment; any future full Tier-D campaign needs
-a separate decision after focused WV100 results.
+Complete a coherent structured Satsuma symmetry increment through the accepted
+online X7 interface while preserving N1--N4, native checked DSR, and the retained
+default performance. Use the fixed WV100 signatures to develop general
+mechanisms toward independently checked coverage of 100/100. Do not submit a
+full Tier-D run after this increment; any future full Tier-D campaign needs a
+separate decision after focused WV100 evidence.
 
 ## Authorities
 
@@ -24,6 +24,7 @@ a separate decision after focused WV100 results.
 | Symmetry fuzz | [terminal PASS](benchmarks/reports/2026-09-14-symmetry-claude-fuzz/terminal-report.md), jobs `1689218` and `1689220` |
 | Symmetry performance | [B28+C5 and Rank 1--50 report](benchmarks/reports/2026-09-14-graph-symmetry-performance-gate.md), jobs `1689221` and `1689222` |
 | Satsuma WV57 screen | [9/57 checked](benchmarks/reports/2026-09-14-symmetry-wv57-screen.md), campaign `benchmarks/runs/20260914-0701-symmetry-3bed3dd1-wv57`, job `1689304` |
+| Symmetry follow-ups | [all-clause and connected-alignment negative controls](benchmarks/reports/2026-09-14-symmetry-followup-screens.md), jobs `1689361` and `1689409` |
 | Fixed winner target | [WV100](benchmarks/tiers/WV100.tsv), 33 SAT / 67 UNSAT; [mechanism protocol](docs/design/2026-09-13-wv100-mechanism-integration.md) |
 
 The root checkout is authoritative. `.claude` contains workflow instructions,
@@ -58,13 +59,24 @@ not project implementation or documentation changes.
 - The compile-time guard audit found no obsolete strategy configuration macros.
   The remaining public-header, platform, debug, journal, trace, and proof-shadow
   guards are active and retained.
+- A non-involutive backend regression establishes that DejaVu's image maps the
+  selected witness endpoint to the fixed endpoint. An inverse-direction trial
+  removed valid transitions in 23 of 1,000 seeded formulas and added none, so
+  the forward direction is retained.
+- The structured detector now composes column alignments through connected
+  mutual-exclusion compatibility paths. A causal three-column regression passes;
+  the six-row focused screen shows that this repair alone adds no solve.
+- The current uncommitted increment adds opt-in exact maximum-clique ordering on
+  the variable clause-co-occurrence graph. Canonical ordering remains default.
+  Core order and zero-budget tests pass; C API, random generation, versioned
+  replay, interruption, and campaign-driver wiring remain before measurement.
 
 ## Gate state
 
 | Gate | Result | Proof/check status |
 |---|---|---|
-| B28+C5 | 949.894 s vs 950.837 s, **0.999008x**, 33/33 outcomes | 31/33 checked clean; remaining checks run in background |
-| Rank 1--50 | 8,125.694 s vs 8,123.812 s, **1.000232x**, 50/50 outcomes | 34/50 checked clean; remaining checks run in background |
+| B28+C5 | 949.894 s vs 950.837 s, **0.999008x**, 33/33 outcomes | 32/33 checked clean; one check remains in background |
+| Rank 1--50 | 8,125.694 s vs 8,123.812 s, **1.000232x**, 50/50 outcomes | 39 checked clean; rank 40 Trestle leg exceeded 32 GiB; ten checks remain in background |
 
 Both complete solver-time vectors pass the 1.01 limit with no timeout. The
 graph producer is default-off, so these runs test default-path overhead.
@@ -84,17 +96,22 @@ No reference solver was rerun.
 - Focused job `1689304` completed all 57 Satsuma-owned WV100 rows: nine checked
   UNSAT solves and 48 timeouts, with every formula, proof, and checker
   intermediate deleted. No winner solver was rerun.
+- Follow-up jobs `1689361` and `1689409` are complete. All-clause graph scope
+  added 0/48 solves and connected-column alignment added 0/6 solves. All 54
+  final records are cleanup-clean; neither negative result narrows the legal X7
+  surface.
 
 ## Next actions
 
-1. Inspect every final validity and cleanup record from jobs `1689221` and
-   `1689222`, then commit and promote the
-   symmetry increment only if the complete gate establishes N1--N4.
-2. Implement structured row/row-column action discovery and fixing through X7,
-   with typed clique-guided ordering and alternating root rounds, against the
-   largest measured Satsuma residual group.
-3. Add Johnson-action discovery after the structured group, then regroup the
-   remaining WV57 misses by effective transition.
+1. Complete the maximum-clique ordering settings across the C API, random
+   generation, replay, interruption, and the generic campaign driver; then run
+   the six-row clique-colouring screen with one immutable candidate.
+2. Inspect final validity and cleanup records from jobs `1689221` and `1689222`.
+   Resolve the rank-40 checker-memory result without blocking independent
+   development, and promote only a fully checked coherent source increment.
+3. Continue structured row/row-column discovery with alternating root rounds,
+   then add Johnson actions and regroup the remaining WV57 misses by effective
+   transition.
 
 <!-- track-sched:begin -->
 - Kissat creation order remains the production default; `TACTIX_ARENA_ORDER=1`
