@@ -37,10 +37,12 @@ The current proof increment makes the canonical mode one streaming binary DSR ce
 use DSR's backward-compatible witnessless forms; a substitution-redundancy event appends its finite substitution witness to the same
 addition line. ASCII DSR is diagnostic; DRAT and native LRAT remain compatibility modes for the earlier event vocabulary.
 
-DSR emits every propagation-derived root unit as a witnessless RUP addition with a proof identity, keeping the checker formula equal
-to the root state used by later deletion and direct-SR validation. Substitutions serialize positive source variables with their
-signed images; signed semantic inputs are canonicalized first. Direct Congruence additions without an emitted proof ladder replay
-RUP before emission in DSR/DRAT as an admission check; LRAT uses the same replay to obtain antecedent chains.
+DSR emits every propagation-derived root unit as a witnessless RUP addition, keeping the checker formula equal to the root state used
+by later deletion and direct-SR validation. A separate emitted-polarity vector deduplicates those proof lines; it does not populate
+solver-semantic `unit_ids` or change later rule behavior. Substitutions serialize positive source variables with their signed images;
+signed semantic inputs are canonicalized first. Direct Congruence additions without an emitted proof ladder replay RUP before
+emission in DSR/DRAT as an admission check; LRAT uses the same replay to obtain antecedent chains. Structurally derived proof ladders
+and representative-star edges retain direct emission, avoiding whole-formula validation at every merge.
 Substitute, BVE, and Sweep retire proof-only equivalence/refutation lemmas after their conclusions are installed in every format:
 LRAT uses their ids, while DSR/DRAT delete one literal-multiset copy per emitted lemma. Sweep also retires an emitted general-plan
 prefix before returning from interruption. Identical non-LRAT clauses are interchangeable, but leaving an extra copy in the checker
@@ -121,8 +123,9 @@ tasks continue in the background under the accepted nonblocking proof-check rule
   literal exactly like Kissat. Isolated5649 keeps a local cursor, publishing at exits (per scan for diagnostics). Backtrack owns
   rewinds; binary-only debt still forces every skipped large scan.
 - Binary-only propagation records its covered prefix in `binary_only_head` so later full propagation pays outstanding work.
-- Every root-fixed literal has a proof-unit id under native LRAT and DSR. All propagation entry points name new root units; speculative retraction
-  invalidates cached unit ids so replay cannot cite the opposite polarity.
+- Every root-fixed literal has a proof-unit id under native LRAT. Native DSR emits the same logical unit but tracks only its published
+  polarity in proof-only state. All propagation entry points publish new root units; speculative retraction invalidates LRAT's cached
+  unit ids so replay cannot cite the opposite polarity.
 - Arena `Ref`s are valid only within one `arena_generation`; any retained Ref must compare the generation after possible collection.
 - Ordering is semantic when it changes candidate, reason, proof-line, or watch order. Every trajectory-affecting comparator is a
   strict total order and no trajectory depends on unordered-container iteration.
