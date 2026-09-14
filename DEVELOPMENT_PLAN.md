@@ -528,6 +528,18 @@ family, rank or winner identity. Third-party graph/group code must be pinned,
 licensed and isolated behind a failure-safe build/API boundary compatible with
 the no-exception/no-RTTI solver core.
 
+Treat the graph backend as an untrusted producer. Exact-check every returned
+signed permutation against the same live root formula that X7 validates, and
+run every derived clause through X7 before mutation. A resource-limited backend
+prefix is safe only as an explicitly incomplete proposal set; it cannot support
+a complete-group or complete-orbit claim. Generator order is canonicalized,
+randomness is seeded, and replay budgets count deterministic work rather than
+wall time. Adding only part of an orbit invalidates cached group assumptions:
+commit a whole orbit or mark the chain stale and re-detect on the current root
+formula. Cursor identity includes the formula generations and producer epoch;
+identity-setting changes reset it, while compatible budget changes retain it.
+Version serialized strategy tuples when these settings enter replay.
+
 Preserve prior coverage; report solved SAT/UNSAT and per-signature counts before
 PAR-2, proof cost, memory, and regressions. T4-K and final exact T4-VBS coverage
 remain required. The staged mechanism and experimental protocol is

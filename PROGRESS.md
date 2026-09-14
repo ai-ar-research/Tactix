@@ -95,8 +95,14 @@ not implementation or project-document changes.
   limit. Rank1--50 job `1689096` solves all 50 expected outcomes at 8,303.463
   versus 8,123.812 seconds (**1.022114x**) and **fails** that limit. The
   [bounded gate report](benchmarks/reports/2026-09-14-support-local-sr-performance-gate.md)
-  therefore rejects the candidate pending a causal overhead repair. Slow proof
-  checks remain background work.
+  therefore blocks promotion under the wall-time contract. Slow proof checks
+  remain background work.
+- On the 34 Rank tasks with both runs' `perf` records, the candidate/R16
+  weighted retired-instruction ratio is **0.999993x**, while task-clock is
+  **1.027950x**; decisions, conflicts, propagations, proof bytes, and
+  certificates are identical. The failed wall-time gate remains failed, but
+  this isolates its aggregate excess to node contention rather than additional
+  solver work. Do not repeat it while the same nodes are saturated by checkers.
 - Clique rank 4 still times out with zero SR transitions from the exact-row
   producer. A formula-derived colored-CNF graph finds 11 general generators;
   a direct-SR prototype applies 22 checked units from them but still times out.
@@ -104,6 +110,17 @@ not implementation or project-document changes.
   The [diagnosis](benchmarks/reports/2026-09-14-clique-symmetry-producer-diagnosis.md)
   identifies stabilizer-chain clause fixing over completed automorphisms as the
   missing general mechanism.
+- A later isolated formula-derived prototype closes that gap: transposing the
+  detected 13-by-8 ULC matrix contributes 28 checked direct-SR units; repeated
+  colored-CNF detection, root propagation, and stabilizer fixing bring the
+  total to 69 and finish clique rank 4 UNSAT in **0.79 seconds**, including
+  detection and validation. The run had no proof sink, so it establishes the
+  effective transition but does not satisfy N2 or authorize promotion.
+- Claude Code reviewed the concrete production design read-only. Adopt its
+  exact generator check, untrusted-backend boundary, incomplete-limit status,
+  whole-orbit/stale-chain rule, deterministic budgets, versioned replay, and
+  exception/RTTI isolation. Retain the measured transpose stage as part of the
+  complete increment; do not land its insufficient 28-unit prefix alone.
 
 ## Operations
 
@@ -127,12 +144,14 @@ not implementation or project-document changes.
 
 ## Next actions
 
-1. Remove the measured support-local default-path overhead and repeat B28+C5
-   and Rank1--50 only after a causal repair; do not land the failed candidate.
-2. Implement deterministic, resource-bounded stabilizer-chain clause fixing
-   over formula-derived colored-CNF automorphisms. Close clique rank 4 with an
-   effective transition and checked direct DSR, then continue across the
-   57-row Satsuma WV100 group. Do not run full Tier D.
+1. Build the default-off complete symmetry increment: typed row/column
+   orientation, an isolated pinned graph backend, exact signed-generator
+   checking, deterministic whole-orbit fixing, stale-chain re-detection, and
+   versioned replay/interruption/reconfiguration behavior.
+2. Reproduce the 69-unit clique transition with native DSR, `dsr-trim`, and
+   Trestle, then run correctness, API, sanitizer, Claude fuzz, B28+C5 and
+   Rank1--50 gates. The rejected support-local candidate remains separate; do
+   not repeat its wall gate amid current checker contention or run full Tier D.
 
 <!-- track-sched:begin -->
 - Kissat creation order remains the production default; `TACTIX_ARENA_ORDER=1`
