@@ -116,6 +116,16 @@ not implementation or project-document changes.
   total to 69 and finish clique rank 4 UNSAT in **0.79 seconds**, including
   detection and validation. The run had no proof sink, so it establishes the
   effective transition but does not satisfy N2 or authorize promotion.
+- The first clean production candidate now isolates pinned DejaVu commit
+  `4c275e9e` behind a `noexcept` C-shaped library boundary while the Tactix core
+  remains exception/RTTI-free. Its graph producer is typed and default-off,
+  exact-checks every signed generator against the live formula, and alternates
+  deterministic stabilizer fixing with re-detected direct-generator fixing.
+  Together with the typed column orientation it closes clique rank 4 with **70**
+  native SR transitions in **1.78 seconds**. The 15,931,364-byte DSR certificate
+  passes forward `dsr-trim` in 2.85 seconds and its elaborated LSR passes pinned
+  Trestle in 0.92 seconds. This is an uncommitted candidate checkpoint; API,
+  replay/interruption, sanitizer, fuzz, and performance gates remain pending.
 - Claude Code reviewed the concrete production design read-only. Adopt its
   exact generator check, untrusted-backend boundary, incomplete-limit status,
   whole-orbit/stale-chain rule, deterministic budgets, versioned replay, and
@@ -144,14 +154,13 @@ not implementation or project-document changes.
 
 ## Next actions
 
-1. Build the default-off complete symmetry increment: typed row/column
-   orientation, an isolated pinned graph backend, exact signed-generator
-   checking, deterministic whole-orbit fixing, stale-chain re-detection, and
-   versioned replay/interruption/reconfiguration behavior.
-2. Reproduce the 69-unit clique transition with native DSR, `dsr-trim`, and
-   Trestle, then run correctness, API, sanitizer, Claude fuzz, B28+C5 and
-   Rank1--50 gates. The rejected support-local candidate remains separate; do
-   not repeat its wall gate amid current checker contention or run full Tier D.
+1. Finish the candidate's typed C/C++ API, versioned replay, interruption,
+   reconfiguration, negative-control, exact-generator, and resource-bound
+   tests; keep the graph producer default-off.
+2. Run the full correctness and sanitizer suites, then the Claude-owned fuzz
+   checkpoint and B28+C5/Rank1--50 gates. The rejected support-local candidate
+   remains separate; do not repeat its wall gate amid current checker
+   contention or run full Tier D.
 
 <!-- track-sched:begin -->
 - Kissat creation order remains the production default; `TACTIX_ARENA_ORDER=1`
