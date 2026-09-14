@@ -9,15 +9,17 @@ and frozen reports own history and evidence.
 The online-configurable strategy/N1 refactor is accepted at `a08f9f6a`, and
 native DSR is landed at `20223134` as Tactix's canonical whole-solver
 certificate. Direct-SR R16 has passed its complete tests, proof preflight, and
-performance gates. Its single replacement Claude fuzz workload has finished;
-Claude's terminal audit is still required, so the increment remains unaccepted.
+performance gates, but its replacement Claude fuzz checkpoint failed: 64
+solver-emitted SR proofs were rejected by the DSR-to-LSR-to-Trestle pipeline.
+The increment remains unaccepted until the retained proof failures are repaired
+and a replacement Claude checkpoint passes.
 
-After that audit, land the exact R16 direct-SR kernel/API increment separately
-from the newer producer work. Then complete the general Satsuma symmetry
-producer, starting with its 57-instance WV100 group. Preserve N1--N4 and the
-accepted default throughout. Do not submit a full Tier-D run at this boundary.
-Kissat-only tuning, benchmark dispatch, and sequential portfolios remain out of
-scope; MAB scheduling remains an open design choice.
+Debug that proof boundary before landing the exact R16 direct-SR kernel/API
+increment separately from the newer producer work. Then complete the general
+Satsuma symmetry producer, starting with its 57-instance WV100 group. Preserve
+N1--N4 and the accepted default throughout. Do not submit a full Tier-D run at
+this boundary. Kissat-only tuning, benchmark dispatch, and sequential portfolios
+remain out of scope; MAB scheduling remains an open design choice.
 
 ## Authorities
 
@@ -27,7 +29,7 @@ scope; MAB scheduling remains an open design choice.
 | Strategy design | [online proposal](docs/design/2026-09-11-online-strategy-proposal.md) and [preservation addendum](docs/design/2026-09-11-strategy-behavior-preservation-addendum.md) |
 | Native DSR | source `20223134`; [checker repair](benchmarks/reports/2026-09-13-dsr-trim-tautology-hash-fix.md); [passing Claude checkpoint](benchmarks/reports/2026-09-13-native-dsr-claude-fuzz-r2/terminal-report.md) |
 | DSR baselines | [B27+C5](benchmarks/baselines/b27c5-tactix-a08f9f6a-v1/manifest.json) and [Rank1--40](benchmarks/baselines/rank1-40-tactix-a08f9f6a-v1/manifest.json) |
-| Direct-SR evidence | source `298c3467`; [performance gate](benchmarks/reports/2026-09-13-direct-sr-performance-gate.md), [failed first checkpoint](benchmarks/reports/2026-09-13-direct-sr-claude-fuzz/terminal-report.md), and [replacement submission](benchmarks/reports/2026-09-13-direct-sr-r16-claude-fuzz/SUBMISSION.md) |
+| Direct-SR evidence | source `298c3467`; [performance gate](benchmarks/reports/2026-09-13-direct-sr-performance-gate.md), [failed first checkpoint](benchmarks/reports/2026-09-13-direct-sr-claude-fuzz/terminal-report.md), and [failed replacement checkpoint](benchmarks/reports/2026-09-13-direct-sr-r16-claude-fuzz/terminal-report.md) |
 | Winner target | [fixed WV100 set](benchmarks/tiers/WV100.tsv), 33 SAT / 67 UNSAT; [experiment protocol](docs/design/2026-09-13-wv100-mechanism-integration.md) |
 | Satsuma evidence | [transition screen](benchmarks/reports/2026-09-13-wv100-satsuma-transition.md), [orbitopal G0](benchmarks/reports/2026-09-13-wv100-orbitopal-sr-g0.md), and [symmetry G2](benchmarks/reports/2026-09-13-wv100-structured-symmetry-g2.md) |
 
@@ -61,9 +63,11 @@ not implementation or project-document changes.
   **33/33** checks at 952.263 versus 950.837 solver seconds (**1.001500x**).
   Rank1--50 solves all **50/50** with no timeout at 8,115.735 versus 8,123.812
   seconds (**0.999006x**); slow proof checks remain nonblocking.
-- Claude job `1689026` was the only fuzz job. Slurm reports its workload
-  complete; the terminal Claude-owned report is absent, so it has not closed
-  the acceptance gate.
+- Claude job `1689026` was the only fuzz job. Its terminal audit reports
+  **FAIL**: 64 cases across `srdefault`, `srprogs`, and `srcapi` reached
+  solver-emitted SR but produced LSR that Trestle rejected. All other oracles,
+  required keys, identity checks, and cleanup passed. Four failure classes have
+  retained reproducers; the suspected checker/elaboration cause is unconfirmed.
 
 ## Active Satsuma producer work
 
@@ -103,10 +107,11 @@ not implementation or project-document changes.
 
 ## Next actions
 
-1. Obtain Claude's terminal audit for completed fuzz job `1689026`; repair any
-   retained failure or, on a pass, land the exact R16 N1--N4 increment.
-2. Keep the newer support-local producer changes separate, close the clique
-   producer coverage gap, and rerun focused proof/model checks.
+1. Reproduce and repair the four retained `1689026` DSR elaboration/checking
+   failures, add the missing duplicate/tautology checker controls, and rerun one
+   replacement Claude checkpoint before promoting R16.
+2. Keep the newer support-local producer changes separate; after R16 passes,
+   close the clique producer coverage gap and rerun focused proof/model checks.
 3. At meaningful producer checkpoints rerun B28+C5 and Rank1--50 with the fixed
    resources, then resume the 57-row Satsuma WV100 group. Do not run full Tier D.
 
