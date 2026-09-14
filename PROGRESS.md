@@ -22,6 +22,7 @@ Tier-D run at this boundary.
 | Symmetry candidate | snapshot `3bed3dd12240b99182a6688dbeb2ea09a95e67c7`, tree `28c801039631e8e7b9410fe35a4e49ccc5203794`; ref `refs/codex/snapshots/symmetry-3bed3dd12240` |
 | Symmetry fuzz | [terminal PASS](benchmarks/reports/2026-09-14-symmetry-claude-fuzz/terminal-report.md), jobs `1689218` and `1689220` |
 | Symmetry performance | [B28+C5 and Rank 1--50 report](benchmarks/reports/2026-09-14-graph-symmetry-performance-gate.md), jobs `1689221` and `1689222` |
+| Satsuma WV57 screen | campaign `benchmarks/runs/20260914-0701-symmetry-3bed3dd1-wv57`, job `1689304` |
 | Fixed winner target | [WV100](benchmarks/tiers/WV100.tsv), 33 SAT / 67 UNSAT; [mechanism protocol](docs/design/2026-09-13-wv100-mechanism-integration.md) |
 
 The root checkout is authoritative. `.claude` contains workflow instructions,
@@ -62,7 +63,7 @@ not project implementation or documentation changes.
 | Gate | Result | Proof/check status |
 |---|---|---|
 | B28+C5 | 949.894 s vs 950.837 s, **0.999008x**, 33/33 outcomes | 31/33 checked clean; remaining checks run in background |
-| Rank 1--50 | 8,125.694 s vs 8,123.812 s, **1.000232x**, 50/50 outcomes | 33/50 checked clean; remaining checks run in background |
+| Rank 1--50 | 8,125.694 s vs 8,123.812 s, **1.000232x**, 50/50 outcomes | 34/50 checked clean; remaining checks run in background |
 
 Both complete solver-time vectors pass the 1.01 limit with no timeout. The
 graph producer is default-off, so these runs test default-path overhead.
@@ -79,15 +80,19 @@ No reference solver was rerun.
   intervals. Never pause running jobs.
 - Existing proof-checking work remains untouched. The prior full Tier-D run
   `1687184` is retained; no replacement full Tier-D run is planned.
+- Focused job `1689304` runs the immutable symmetry snapshot on all 57
+  Satsuma-owned WV100 rows at full array width. Its manifest enforces the
+  focused resource contract and anonymous scratch; no winner solver is rerun.
 
 ## Next actions
 
-1. Prepare the focused 57-row Satsuma WV100 screen while jobs `1689221` and
-   `1689222` finish checking in the background.
-2. Inspect every final validity and cleanup record, then commit and promote the
+1. Analyze checked transitions from WV57 job `1689304` and group the remaining
+   misses by general mechanism.
+2. Inspect every final validity and cleanup record from jobs `1689221` and
+   `1689222`, then commit and promote the
    symmetry increment only if the complete gate establishes N1--N4.
-3. Run the focused screen and group misses by effective general mechanism;
-   investigate clique-guided fixing and alternating root rounds first.
+3. Investigate clique-guided fixing and alternating root rounds against the
+   largest measured residual group.
 
 <!-- track-sched:begin -->
 - Kissat creation order remains the production default; `TACTIX_ARENA_ORDER=1`
