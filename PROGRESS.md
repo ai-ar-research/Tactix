@@ -67,7 +67,13 @@ not implementation or project-document changes.
   **FAIL**: 64 cases across `srdefault`, `srprogs`, and `srcapi` reached
   solver-emitted SR but produced LSR that Trestle rejected. All other oracles,
   required keys, identity checks, and cleanup passed. Four failure classes have
-  retained reproducers; the suspected checker/elaboration cause is unconfirmed.
+  retained reproducers. The forward elaborator drops input tautologies from its
+  internal formula without deleting them from the emitted LSR, and an SR step
+  that derives contradiction before the next input proof line asks the printer
+  to serialize a nonexistent candidate instead of an empty clause. The retained
+  backward-mode failure is a separate unit/dependency-pruning defect. These are
+  `dsr-trim` elaboration failures at the DSR-to-LSR boundary; Trestle remains the
+  independent acceptance checker.
 
 ## Active Satsuma producer work
 
@@ -107,9 +113,10 @@ not implementation or project-document changes.
 
 ## Next actions
 
-1. Reproduce and repair the four retained `1689026` DSR elaboration/checking
-   failures, add the missing duplicate/tautology checker controls, and rerun one
-   replacement Claude checkpoint before promoting R16.
+1. Repair the retained `1689026` elaboration failures in the pinned `dsr-trim`,
+   add forward duplicate/tautology, early-contradiction, and negative checker
+   controls, and verify every retained reproducer with Trestle. Then rerun one
+   replacement Claude checkpoint before promoting the unchanged R16 source.
 2. Keep the newer support-local producer changes separate; after R16 passes,
    close the clique producer coverage gap and rerun focused proof/model checks.
 3. At meaningful producer checkpoints rerun B28+C5 and Rank1--50 with the fixed
