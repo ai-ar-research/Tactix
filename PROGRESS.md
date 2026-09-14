@@ -23,7 +23,7 @@ a separate decision after focused WV100 results.
 | Symmetry candidate | snapshot `3bed3dd12240b99182a6688dbeb2ea09a95e67c7`, tree `28c801039631e8e7b9410fe35a4e49ccc5203794`; ref `refs/codex/snapshots/symmetry-3bed3dd12240` |
 | Symmetry fuzz | [terminal PASS](benchmarks/reports/2026-09-14-symmetry-claude-fuzz/terminal-report.md), jobs `1689218` and `1689220` |
 | Symmetry performance | [B28+C5 and Rank 1--50 report](benchmarks/reports/2026-09-14-graph-symmetry-performance-gate.md), jobs `1689221` and `1689222` |
-| Satsuma WV57 screen | campaign `benchmarks/runs/20260914-0701-symmetry-3bed3dd1-wv57`, job `1689304` |
+| Satsuma WV57 screen | [9/57 checked](benchmarks/reports/2026-09-14-symmetry-wv57-screen.md), campaign `benchmarks/runs/20260914-0701-symmetry-3bed3dd1-wv57`, job `1689304` |
 | Fixed winner target | [WV100](benchmarks/tiers/WV100.tsv), 33 SAT / 67 UNSAT; [mechanism protocol](docs/design/2026-09-13-wv100-mechanism-integration.md) |
 
 The root checkout is authoritative. `.claude` contains workflow instructions,
@@ -81,19 +81,20 @@ No reference solver was rerun.
   intervals. Never pause running jobs.
 - Existing proof-checking work remains untouched. The prior full Tier-D run
   `1687184` is retained; no replacement full Tier-D run is planned.
-- Focused job `1689304` runs the immutable symmetry snapshot on all 57
-  Satsuma-owned WV100 rows at full array width. Its manifest enforces the
-  focused resource contract and anonymous scratch; no winner solver is rerun.
+- Focused job `1689304` completed all 57 Satsuma-owned WV100 rows: nine checked
+  UNSAT solves and 48 timeouts, with every formula, proof, and checker
+  intermediate deleted. No winner solver was rerun.
 
 ## Next actions
 
-1. Analyze checked transitions from WV57 job `1689304` and group the remaining
-   misses by general mechanism.
-2. Inspect every final validity and cleanup record from jobs `1689221` and
+1. Inspect every final validity and cleanup record from jobs `1689221` and
    `1689222`, then commit and promote the
    symmetry increment only if the complete gate establishes N1--N4.
-3. Investigate clique-guided fixing and alternating root rounds against the
-   largest measured residual group.
+2. Implement structured row/row-column action discovery and fixing through X7,
+   with typed clique-guided ordering and alternating root rounds, against the
+   largest measured Satsuma residual group.
+3. Add Johnson-action discovery after the structured group, then regroup the
+   remaining WV57 misses by effective transition.
 
 <!-- track-sched:begin -->
 - Kissat creation order remains the production default; `TACTIX_ARENA_ORDER=1`
