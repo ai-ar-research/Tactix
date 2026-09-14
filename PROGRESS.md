@@ -8,17 +8,16 @@ and frozen reports own history and evidence.
 
 The online-configurable strategy/N1 refactor is accepted at `a08f9f6a`, and
 native DSR is landed at `20223134` as Tactix's canonical whole-solver
-certificate. The working tree adds general direct-DSR substitution redundancy
-and its first orbitopal Satsuma producer. The increment is **not accepted**:
-its first Claude checkpoint failed. R16 has repaired that candidate and passed
-both complete performance gates; fresh full tests and the replacement Claude
-checkpoint remain required before landing.
+certificate. Direct-SR R16 has passed its complete tests, proof preflight, and
+performance gates. Its single replacement Claude fuzz workload has finished;
+Claude's terminal audit is still required, so the increment remains unaccepted.
 
-Finish those gates while preserving N1--N4 and reference-default behavior, then
-complete the Satsuma symmetry producer and resume mechanism-driven work on the
-fixed WV100 target. Do not submit a full Tier-D run at this boundary. Kissat-only
-tuning, benchmark dispatch, and sequential portfolios remain out of scope; MAB
-scheduling remains an open design choice.
+After that audit, land the exact R16 direct-SR kernel/API increment separately
+from the newer producer work. Then complete the general Satsuma symmetry
+producer, starting with its 57-instance WV100 group. Preserve N1--N4 and the
+accepted default throughout. Do not submit a full Tier-D run at this boundary.
+Kissat-only tuning, benchmark dispatch, and sequential portfolios remain out of
+scope; MAB scheduling remains an open design choice.
 
 ## Authorities
 
@@ -28,7 +27,7 @@ scheduling remains an open design choice.
 | Strategy design | [online proposal](docs/design/2026-09-11-online-strategy-proposal.md) and [preservation addendum](docs/design/2026-09-11-strategy-behavior-preservation-addendum.md) |
 | Native DSR | source `20223134`; [checker repair](benchmarks/reports/2026-09-13-dsr-trim-tautology-hash-fix.md); [passing Claude checkpoint](benchmarks/reports/2026-09-13-native-dsr-claude-fuzz-r2/terminal-report.md) |
 | DSR baselines | [B27+C5](benchmarks/baselines/b27c5-tactix-a08f9f6a-v1/manifest.json) and [Rank1--40](benchmarks/baselines/rank1-40-tactix-a08f9f6a-v1/manifest.json) |
-| Direct-SR evidence | [performance gate](benchmarks/reports/2026-09-13-direct-sr-performance-gate.md) and [failed Claude checkpoint](benchmarks/reports/2026-09-13-direct-sr-claude-fuzz/terminal-report.md) |
+| Direct-SR evidence | source `298c3467`; [performance gate](benchmarks/reports/2026-09-13-direct-sr-performance-gate.md), [failed first checkpoint](benchmarks/reports/2026-09-13-direct-sr-claude-fuzz/terminal-report.md), and [replacement submission](benchmarks/reports/2026-09-13-direct-sr-r16-claude-fuzz/SUBMISSION.md) |
 | Winner target | [fixed WV100 set](benchmarks/tiers/WV100.tsv), 33 SAT / 67 UNSAT; [experiment protocol](docs/design/2026-09-13-wv100-mechanism-integration.md) |
 | Satsuma evidence | [transition screen](benchmarks/reports/2026-09-13-wv100-satsuma-transition.md), [orbitopal G0](benchmarks/reports/2026-09-13-wv100-orbitopal-sr-g0.md), and [symmetry G2](benchmarks/reports/2026-09-13-wv100-structured-symmetry-g2.md) |
 
@@ -50,75 +49,42 @@ not implementation or project-document changes.
   B27+C5 **0.995207x** versus reference and Rank1--40 **0.990299x** on the
   complete solver-time vector. Remaining Rank proof checks stay nonblocking.
 
-## Working direct-SR increment
+## Active direct-SR boundary
 
-- X7 accepts a clause, witness literals, and finite substitution; it validates
-  the complete SR condition before mutation. Typed online v2 supports explicit
-  actions, selected batches, resumable complete enumeration, orbitopal
-  production, composition, budgets/stops, and reconfiguration. All limits and
-  producer choices are validated strategy settings.
-- DefaultPolicy's producer recognizes exact orbitopal matrices, validates each
-  adjacent-row swap against the complete clause multiset, and emits prefix
-  fixing before Factor. The current bounded screen reduces zero-yield overhead
-  to 0.002--0.088 seconds while the effective control emits all 66 checked SR
-  additions; see the performance report above.
-- Claude job `1688763` rejected the earlier candidate for wrong verdicts,
-  invalid ordinary proofs, checker/kernel population mismatches, and invalid
-  DSR-to-LSR output. The repair publishes DSR root facts, canonicalizes signed
-  substitution sources, validates direct non-LRAT Congruence conclusions,
-  rejects late/duplicate C proof attachment, and retires proof-only Substitute,
-  BVE, and Sweep lemmas at completion and interruption boundaries.
-- Corrected-parser preflight `1688775` passes all **15/15** retained S3/S4/P1
-  DSR, DRAT, and LRAT cases; focused rule, API, online, and Sweep proof tests pass.
-- R11 pin `5fee7dab` passed full Release/sanitizer tests and proof preflight but
-  failed performance at **1.163x** B28+C5 because broad proof-only Congruence
-  replay made rank 8 take 117.0 seconds. Its gate jobs were canceled without
-  rerunning a reference.
-- R15 source `cb32c410` restricts replay to the two direct shapes required by S3
-  and separates DSR publication from solver `unit_ids`. Preflight `1688872`
-  passes **15/15**, full tests `1688873` pass **148/148 Release** and **147/147
-  sanitizer-applicable**, and rank 8 returns to 2.670 seconds.
-- R15 B28+C5 job `1688874` is clean on all **33/33** outcomes but measures
-  961.725 versus 950.837 seconds (**1.011451x**), missing the strict 1% target by
-  1.38 seconds; rank 33 contributes 12.234 seconds. Rank1--50 job `1688903`
-  completed its solver phase at 48/50 solves: ranks 12 and 47 timed out after
-  the same proof-only replay regression, while final proof checks remain active.
-- Those three Rank regressions preserve decisions, conflicts, and rule outcomes
-  but add 1.1--1.9 billion proof-only Congruence propagations. R16 source
-  `298c3467` keeps the S3-required selected mixed ITE/AND admission check while
-  removing duplicate canonical replay. Preflight `1688957` passes **15/15**;
-  probe `1688958` restores the exact reference propagation trajectories on
-  ranks 17, 22, and 48. B28 rank-33 probe `1688961` likewise restores the exact
-  reference decisions, conflicts, propagations, and Congruence work at 313.580
-  seconds versus 310.992 seconds (**1.008322x**). Substituting that result into
-  the completed R15 vector gives a provisional 951.217 seconds versus the
-  retained 950.837 seconds (**1.000400x**). Full candidate-only B28+C5 job
-  `1688962` then completed all **33/33** solver outcomes at 952.263 seconds
-  (**1.001500x**), and all 33 proof/model checks pass. Rank1--50 job `1688979`
-  completed all **50/50** expected outcomes with no timeout at 8,115.735 seconds
-  versus retained 8,123.812 seconds (**0.999006x**). Its proof/model checks
-  continue in the background. Neither gate reran a retained reference.
-- Claude froze replacement checkpoint `build/pin-srfuzz-direct-r16-298c3467`
-  after its corrected H1--H4 harness caught every planted failure and passed
-  **4,046** self-checks. Exactly one non-array fuzz job, `1689026`, is pending
-  on `cpu-dense-hwulab-q`; its terminal audit remains required for acceptance.
-- Fresh immutable-source test job `1689035` was canceled after its external
-  scratch build exposed a harness-path error: six source-conformance scripts
-  could not locate their Git worktree, while all 142 executed binary tests
-  passed. Corrected job `1689048` binds those scripts to the immutable R16
-  source, rebuilds in node-local scratch, requires byte identity with the
-  performance pin, and passes **148/148 Release** plus **147/147** applicable
-  ASan/UBSan tests.
-- Focused WV100 job `1689041` tested three structured Satsuma signatures from
-  the same R16 pin under the c8/32-GiB/300-second protocol. It solves
-  `php_sudoku_p15_h14` UNSAT in 0.166 seconds after 91 direct-SR additions;
-  clique rank 4 and channel rank 17 time out, confirming that the current
-  row-only producer does not yet cover the broader Satsuma mechanisms.
+- R16 exposes complete validated direct-SR instances plus typed single, batch,
+  pass, fixpoint, budget, stop, replay, interruption, and reconfiguration paths.
+  It also repairs DSR root publication, signed substitutions, checker/kernel
+  population agreement, C proof attachment, and transactional proof-only
+  lemmas identified by the failed first Claude checkpoint.
+- Immutable source `298c3467` passes the **15/15** proof preflight, **148/148**
+  Release tests, and **147/147** applicable ASan/UBSan tests. B28+C5 passes all
+  **33/33** checks at 952.263 versus 950.837 solver seconds (**1.001500x**).
+  Rank1--50 solves all **50/50** with no timeout at 8,115.735 versus 8,123.812
+  seconds (**0.999006x**); slow proof checks remain nonblocking.
+- Claude job `1689026` was the only fuzz job. Slurm reports its workload
+  complete; the terminal Claude-owned report is absent, so it has not closed
+  the acceptance gate.
+
+## Active Satsuma producer work
+
+- R16's exact row producer solves `php_sudoku_p15_h14` in 0.166 seconds with 91
+  checked SR additions. A typed unbounded diagnostic shows the same producer
+  solves channel rank 17 in 3.156 seconds with 190 checked additions, locating
+  that miss in the default detector budget.
+- The support-local exact-automorphism candidate removes full-formula rescans
+  per adjacent-row generator. On the normal focused protocol it solves channel
+  rank 17 in 2.921 seconds with 190 additions; `dsr-trim` and Trestle accept the
+  combined proof. This newer work remains uncommitted and must not be folded
+  into the R16 acceptance commit.
+- Clique rank 4 still times out with zero SR transitions. Immediate application
+  at the original formula boundary also finds zero, while an independent
+  colored-CNF automorphism probe finds 11 generators in 14 ms. This is a
+  producer coverage gap rather than a scheduling-loss diagnosis.
 
 ## Operations
 
 - Existing proof-checking jobs continue in the background and do not block
-  independent work. Do not rerun retained reference solvers.
+  independent work or trigger reference reruns.
 - Completed Tier-D array `1687184` is frozen at
   [`20260913-0905-tierd-refactor-final-a08f9f6a`](benchmarks/runs/20260913-0905-tierd-refactor-final-a08f9f6a/).
   It used `cpu-q`, c4, 32 GiB, a 1,200-second solver timeout, and anonymous
@@ -129,7 +95,7 @@ not implementation or project-document changes.
   and 1,200 seconds.
 - Storage guard PID `1458620` checks repository use every ten minutes. Above
   700 GiB it holds only pending repository jobs and later releases only its own
-  holds; it never pauses running jobs. Its 22:22 check measured 39 GiB.
+  holds; it never pauses running jobs. Current repository use is 39 GiB.
 - WV100 freezes the first 100 all-configuration ranking rows solved within
   1,200 seconds and 32 GiB by exactly one checked winner: 34 LymphoSAT, 57
   Satsuma+Kissat, seven AE-Kissat-MAB, and two kissat-sc2024. Solved Tactix rows
@@ -137,12 +103,12 @@ not implementation or project-document changes.
 
 ## Next actions
 
-1. Finish the single replacement Claude-owned fuzz checkpoint and audit every
-   retained failure before promotion.
-2. Leave Rank proof checks in the background while using the focused WV100
-   results to extend the general Satsuma symmetry producer.
-3. After every gate passes, land the coherent N1--N4 increment and resume WV100
-   by mechanism/signature group.
+1. Obtain Claude's terminal audit for completed fuzz job `1689026`; repair any
+   retained failure or, on a pass, land the exact R16 N1--N4 increment.
+2. Keep the newer support-local producer changes separate, close the clique
+   producer coverage gap, and rerun focused proof/model checks.
+3. At meaningful producer checkpoints rerun B28+C5 and Rank1--50 with the fixed
+   resources, then resume the 57-row Satsuma WV100 group. Do not run full Tier D.
 
 <!-- track-sched:begin -->
 - Kissat creation order remains the production default; `TACTIX_ARENA_ORDER=1`
