@@ -83,8 +83,17 @@ not implementation or project-document changes.
 - The support-local exact-automorphism candidate removes full-formula rescans
   per adjacent-row generator. On the normal focused protocol it solves channel
   rank 17 in 2.921 seconds with 190 additions; `dsr-trim` and Trestle accept the
-  combined proof. This newer work remains uncommitted and must not be folded
-  into the R16 acceptance commit.
+  combined proof. Immutable candidate source `992e0414` and its independently
+  reproduced Release binary
+  `96cdeac8c35a53981feaaf506ccebe8d413d1b860ce49a61c83c147246b8e0b6`
+  pass all **148/148** Release tests and all **147/147** sanitizer-applicable
+  tests. The candidate remains uncommitted and separate from the accepted R16
+  increment.
+- Candidate-only B28+C5 job `1689071` (33 tasks) and Rank1--50 job `1689096`
+  (50 tasks) measure that exact binary against retained references. Both use
+  the fixed c12/32-GiB/1,200-second native-DSR protocol and anonymous scratch;
+  neither reruns a reference solver. Solver checkpoints may guide independent
+  work before slow proof checks finish.
 - Clique rank 4 still times out with zero SR transitions. Immediate application
   at the original formula boundary also finds zero, while an independent
   colored-CNF automorphism probe finds 11 generators in 14 ms. This is a
