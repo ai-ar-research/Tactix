@@ -68,8 +68,10 @@ not project implementation or documentation changes.
   the six-row focused screen shows that this repair alone adds no solve.
 - The current uncommitted increment adds opt-in exact maximum-clique ordering on
   the variable clause-co-occurrence graph. Canonical ordering remains default.
-  Core order and zero-budget tests pass; C API, random generation, versioned
-  replay, interruption, and campaign-driver wiring remain before measurement.
+  Its incremental prefix-bound search avoids per-recursion coloring and uses
+  dense bitsets and variable lookup. C API, seeded random generation, `sr4`
+  replay, online execution, zero-budget, and backend tests pass; `sr`--`sr3`
+  remain readable.
 
 ## Gate state
 
@@ -100,12 +102,16 @@ No reference solver was rerun.
   added 0/48 solves and connected-column alignment added 0/6 solves. All 54
   final records are cleanup-clean; neither negative result narrows the legal X7
   surface.
+- Job `1689416` is the active two-arm six-row clique-order screen. It separates
+  the orbitopal maximum-clique transition from the combined graph program and
+  records preprocessing time before CDCL. Its immutable binary SHA-256 is
+  `81c85235cab19bbe69bbb5661261bdd41a825c42a0e5426b1a3ad3b635e3a439`.
 
 ## Next actions
 
-1. Complete the maximum-clique ordering settings across the C API, random
-   generation, replay, interruption, and the generic campaign driver; then run
-   the six-row clique-colouring screen with one immutable candidate.
+1. Inspect every result from job `1689416`. Require checked correctness, clean
+   anonymous cleanup, a stronger transition, and Satsuma-scale preprocessing
+   efficiency before retaining clique ordering as a scheduled mechanism.
 2. Inspect final validity and cleanup records from jobs `1689221` and `1689222`.
    Resolve the rank-40 checker-memory result without blocking independent
    development, and promote only a fully checked coherent source increment.
