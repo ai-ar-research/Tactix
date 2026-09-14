@@ -1,0 +1,35 @@
+{
+  "verdict": "FAIL",
+  "job": 1689026,
+  "slurm_state": "COMPLETED 0:0 (workload exit 0 masks leg failures; not a pass)",
+  "source_commit": "298c3467d11bb215237c2ccaaac62e63a949d0c1",
+  "checkpoint_pin": "build/pin-srfuzz-direct-r16-298c3467",
+  "manifest_sha256": "643417bfa5512e347e906b60d13e57452864e7f033abf23ddb4f9836d88ab53f",
+  "candidate_pin": "build/pin-direct-sr-r16-canonical-proof",
+  "candidate_manifest_sha256": "8f8b32babd841d4f33beee26e415be1f8cadd758b7623432eae49e1f26000359",
+  "release_tactix_sha256": "4d0c3668c699469bbf479670a1377971ca22bed6cc2ef6d5ca5a2fa70a4baccd",
+  "identity_immutability": "PASS",
+  "failure_class": "proof: srcheck rejected dsr-trim LSR for solver-emitted DSR/DSRA SR proofs (DSR->LSR->Trestle)",
+  "failure_counts": {
+    "total_failing_cases": 64,
+    "srdefault": {"cases": 24, "of": 2000, "kinds": {"proof": 24, "proof-debug": 24, "proof-S": 3}, "subtype": "SR forward rejected at srcheck"},
+    "srprogs": {"cases": 4, "of": 1200, "kinds": {"proof-r1": 4, "proof-dbg": 4}, "subtype": "default-mode rejected at srcheck"},
+    "srcapi": {"cases": 36, "of": 1800, "kinds": {"proof": 36}, "subtype": "34 SR forward + 2 default-mode (sc000518, sc001365) rejected at srcheck"},
+    "srrandom": 0, "srinterrupt": 0, "regress": 0, "interrupt": 0, "random": 0, "default": 0, "progs": 0,
+    "stock_fuzz_and_corpus": 0,
+    "model": 0, "differential": 0, "replay": 0, "crash_sanitizer": 0, "api": 0, "negative_control": 0, "checker_timeout": 0, "capkill_oom": 0
+  },
+  "root_cause_assessment": "unconfirmed; inference from static re-check: solver proofs valid in 4/4 reproducers; suspected dsr-trim/srcheck handling of tautological/duplicate input clauses",
+  "missing_required_keys": [],
+  "reproducers": {
+    "srcapi:proof": "benchmarks/reports/2026-09-13-direct-sr-r16-claude-fuzz/campaign/out-1689026/reproducers/00-srcapi_proof",
+    "srdefault:proof,proof-debug": "benchmarks/reports/2026-09-13-direct-sr-r16-claude-fuzz/campaign/out-1689026/reproducers/01-srdefault_proof",
+    "srdefault:proof-S": "benchmarks/reports/2026-09-13-direct-sr-r16-claude-fuzz/campaign/out-1689026/reproducers/02-srdefault_proof-S",
+    "srprogs:proof-dbg,proof-r1": "benchmarks/reports/2026-09-13-direct-sr-r16-claude-fuzz/campaign/out-1689026/reproducers/03-srprogs_proof-dbg"
+  },
+  "uncovered_subtypes": ["srcapi default-mode srcheck rejection (sc000518, sc001365): no bundle; seeds in srcapi-summary.json"],
+  "harness_findings": ["work.sh does not propagate leg exit codes", "per-kind promotion hides subtypes", "no selftest control for tautological/duplicate clauses on forward SR path"],
+  "cleanup": "PASS (scratch_exists=no, new_entries=0, user_entries_newer=0, pin_writes=0)",
+  "memory_cap": "PASS (0 CAPKILL, max HWM 3033936 kB)",
+  "report_path": "benchmarks/reports/2026-09-13-direct-sr-r16-claude-fuzz/terminal-report.md"
+}
