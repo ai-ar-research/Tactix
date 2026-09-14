@@ -24,8 +24,10 @@ evidence in frozen reports and runs. The solver is sequential and deterministic.
 3. After promotion, measure the mechanism on the fixed 57-row Satsuma WV100
    signature group and group the remaining misses by effective transition.
 
-Do not submit a new full Tier-D run at this boundary. Existing proof-checking
-jobs remain background checks and do not block independent work.
+Do not submit a new full Tier-D run after this symmetry increment. A future full
+Tier-D campaign requires a separate decision after focused WV100 evidence.
+Existing proof-checking jobs remain background checks and do not block
+independent work.
 
 ## 1. Goal and requirements
 
@@ -536,8 +538,9 @@ native-DSR contract here.
 
 Evaluate B28+C5 and Rank 1–50 periodically at meaningful refactor checkpoints,
 using the fixed benchmark definitions and §8.3 resource contract, frozen
-candidates and retained baseline controls. Defer new full Tier D campaigns until
-the mechanism increment passes focused correctness/API validation.
+candidates and retained baseline controls. Focused correctness/API validation
+does not itself authorize a full Tier D campaign; that requires a separate
+decision after focused WV100 evidence.
 
 Default dynamic-macro/static-micro overhead is ≤5% versus a hardcoded twin.
 Refactoring must preserve existing configurations' action/work/proof behavior
