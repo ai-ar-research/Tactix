@@ -10,7 +10,8 @@ Promote the default-off general Satsuma graph-symmetry producer through the
 accepted online X7 interface while preserving N1--N4 and native checked DSR.
 Then measure it on the fixed 57-row Satsuma WV100 signature group and continue
 toward independently checked WV100 coverage of 100/100. Do not submit a full
-Tier-D run at this boundary.
+Tier-D run after this symmetry increment; any future full Tier-D campaign needs
+a separate decision after focused WV100 results.
 
 ## Authorities
 
@@ -75,7 +76,7 @@ No reference solver was rerun.
 - Focused WV100 work uses `cpu-dense-hwulab-q`, c8, 32 GiB, and a 300-second
   solver timeout. B28+C5 and Rank 1--50 use the same partition, c12, 32 GiB,
   and a 1,200-second solver timeout.
-- Repository usage is 108,137,763,203 bytes. Recheck before each submission;
+- Repository usage is 108,326,965,785 bytes. Recheck before each submission;
   at 700 GiB or above, hold only pending repository jobs in ten-minute
   intervals. Never pause running jobs.
 - Existing proof-checking work remains untouched. The prior full Tier-D run
