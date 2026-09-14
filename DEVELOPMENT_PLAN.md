@@ -14,8 +14,10 @@ single-threaded, deterministic solving.
 1. Keep native DSR as the canonical whole-solver certificate and preserve its
    accepted B27+C5 and Rank 1--40 gate.
 2. Complete the direct-SR Satsuma symmetry rule through the shared strategy
-   interface. Gate it with focused proof checks, Claude-owned fuzzing, B28+C5,
-   and Rank 1--50 before landing it.
+   interface. A failed checkpoint returns the increment to debugging: close each
+   retained reproducer, rerun focused independent proof/verdict checks, full
+   Release and sanitizer tests, B28+C5, Rank 1--50, and a fresh Claude-owned
+   fuzz checkpoint before landing it.
 3. Resume mechanism-driven work on the fixed WV100 target. Integrate general
    preprocessing or root-inprocessing mechanisms; do not build a sequential
    portfolio or dispatch on benchmark identity.
@@ -159,8 +161,33 @@ one streaming DSR certificate: ordinary RUP/RAT additions are witnessless DSR
 additions, deletions are DSR deletions, and substitution-redundancy additions
 carry their finite substitution witness directly. Binary DSR is the normal CLI
 output; ASCII DSR, DRAT and native LRAT remain explicit modes. Format choice may
-not alter rule admission, scheduling, state effects, or N1 instances. The
-backend retains no whole-formula proof ledger.
+not alter admission, scheduling, or state effects within the vocabulary a
+format supports. A direct-SR action in a DRAT/LRAT compatibility run reports
+`unsupported` before mutation; compatibility formats do not narrow its DSR N1
+instance surface. The backend retains no whole-formula proof ledger.
+
+Every level-zero fact used by a later proof rule belongs to the checker-visible
+proof state. LRAT records it with its reason chain; DSR records an explicit
+witnessless RUP unit. A kernel root assignment may not remain implicit in DSR,
+because later deletion or substitution-redundancy validation must see the same
+root formula as `dsr-trim` and Trestle. DRAT retains its established implicit
+unit behavior where no later direct-SR step can consume that hidden state.
+
+Direct SR also requires exact non-LRAT clause multiplicity at its application
+boundary. DSR/DRAT deletions identify a literal multiset, so identical physical
+copies are interchangeable but every solver-side removal needs a matching
+count change. Proof-only transient lemmas must be retired before SR validation;
+leaving a harmless extra RUP antecedent in the checker creates an additional SR
+obligation absent from the kernel snapshot. Multi-step proof derivations are
+transactional at interruption boundaries: if their final consequence never
+enters the kernel, they delete every already-emitted proof-only prefix before
+returning.
+
+The C API attaches at most one proof writer, before the first operation that
+settles the input/proof-id boundary. A duplicate attachment or attachment after
+`status`, solving, enumeration, or another reasoning entry point returns `-1`;
+otherwise the earlier unrecorded transitions would make a whole-solver
+certificate incomplete.
 
 DIMACS, proof, model, reconstruction, and public-API literals have permanent
 external identities. Search state uses dense internal indices behind
