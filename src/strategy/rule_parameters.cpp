@@ -1,4 +1,6 @@
 #include "strategy/rule_parameters.hpp"
+#include <algorithm>
+#include <climits>
 
 #include "kernel/kernel.hpp"
 
@@ -27,7 +29,7 @@ SubstituteParameters SubstituteParameters::from_kernel(const Kernel &k) {
 ReduceParameters ReduceParameters::from_kernel(const Kernel &k) {
   return {k.tier1, k.tier2, k.reduce_victim_numerator,
           k.reduce_victim_denominator, k.reduce_protect_tiers,
-          k.reduce_compact_collection};
+          k.reduce_compact_collection, k.reduce_bookkeeping};
 }
 std::vector<WalkParameters::ScorePoint>
 WalkParameters::reference_score_curve() {
@@ -85,6 +87,39 @@ OnehotModelParameters OnehotModelParameters::from_kernel(const Kernel &k) {
           k.onehot_model_candidate_budget};
 }
 
+std::vector<AffineSearchScope> AffineModelParameters::reference_scopes() {
+  std::vector<AffineSearchScope> result;
+  for (uint64_t weight = 0; weight <= DEFAULT_MAXIMUM_WEIGHT; ++weight) {
+    const uint64_t low = weight / 2;
+    const uint64_t high = std::min(weight, low + DEFAULT_IMBALANCE);
+    result.push_back({AffineSearchScope::AUTO_SPLIT, low, high, weight});
+    if (low != high)
+      result.push_back({AffineSearchScope::AUTO_SPLIT, high, low, weight});
+  }
+  return result;
+}
+bool AffineModelParameters::valid() const {
+  if (projection_mode < AffineProjectionMode::Boundary ||
+      projection_mode > AffineProjectionMode::Explicit)
+    return false;
+  if (projection_mode != AffineProjectionMode::Explicit && !projection.empty())
+    return false;
+  std::vector<uint32_t> variables;
+  variables.reserve(projection.size());
+  for (int literal : projection) {
+    if (!literal || literal == INT_MIN) return false;
+    variables.push_back(static_cast<uint32_t>(literal < 0 ? -literal : literal));
+  }
+  std::sort(variables.begin(), variables.end());
+  return std::adjacent_find(variables.begin(), variables.end()) == variables.end();
+}
+AffineModelParameters AffineModelParameters::from_kernel(const Kernel &k) {
+  return k.affine_model_parameters;
+}
+void install_rule_parameters(Kernel &k, const AffineModelParameters &p) {
+  k.affine_model_parameters = p;
+}
+
 void install_rule_parameters(Kernel &k, const BceParameters &p) {
   k.bce_occ_limit = p.occurrence_limit;
 }
@@ -120,6 +155,7 @@ void install_rule_parameters(Kernel &k, const ReduceParameters &p) {
   k.reduce_victim_denominator = p.victim_denominator;
   k.reduce_protect_tiers = p.protect_tiers;
   k.reduce_compact_collection = p.compact_collection;
+  k.reduce_bookkeeping = p.reduction_bookkeeping;
 }
 
 void install_rule_parameters(Kernel &k, const WalkParameters &p) {

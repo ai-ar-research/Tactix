@@ -14,3 +14,16 @@ here for the licence/attribution pass that competition packaging needs
   this project's owner). Grounding for §5.6's episode-online mode: cubes as
   self-generated tuning data, true terminal cost, tune/validate/fallback,
   MCMC over strategy spaces.
+- `OrbitopalFixing-SAT2026.pdf` — Anders, Codel, Heule: *Orbitopal
+  Fixing in SAT*, arXiv:2601.16855v1 (2026). Reference for static
+  orbitopal fixing, ULC/AMO recognition, unit-only SR consequences, and the
+  low-overhead baseline that the integrated implementation should preserve.
+  Source: https://arxiv.org/abs/2601.16855. SHA-256
+  `b865a755d4e18a1dc60da6af4fda1d0359953cd5ec205cb291cd74c773d360cc`.
+- `SimplifyOrderBreakRepeat-SAT2026.pdf` — Anders, Codel, Heule:
+  *Simplify, Order, Break, Repeat*, SAT 2026, LIPIcs 377, article 4. DOI
+  10.4230/LIPIcs.SAT.2026.4; CC-BY 4.0. Primary reference for the
+  incremental Schreier-Sims chain, clique/AMO-aware ordering, binary and unit
+  SR steps, simplification, and repeated symmetry detection. Source:
+  https://doi.org/10.4230/LIPIcs.SAT.2026.4. SHA-256
+  `2ee7589d916749b418d44148064b5afbf1c97a0c9f89d70f6e13acb080aa48fb`.

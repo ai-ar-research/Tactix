@@ -1,4 +1,5 @@
 #include "rules/lucky/parity_model.hpp"
+#include "rules/lucky/model.hpp"
 
 #include <algorithm>
 #include <array>
@@ -66,32 +67,6 @@ bool add_row(std::vector<Row> &basis, Row row, uint32_t nvars) {
   }
 }
 
-bool satisfies(const Kernel &k, const std::vector<uint8_t> &assignment) {
-  const auto true_lit = [&](Lit lit) {
-    const bool value = assignment[var_of(lit)] != 0;
-    return value != negated(lit);
-  };
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, ref);
-    if (!clause->garbage()) {
-      bool sat = false;
-      for (const Lit lit : *clause)
-        if (true_lit(lit)) {
-          sat = true;
-          break;
-        }
-      if (!sat)
-        return false;
-    }
-    ref += clause_actual_words(clause);
-  }
-  for (Lit lit = 0; lit < 2 * k.nvars; ++lit)
-    for (const WatchEntry watch : k.watches.entries(lit))
-      if (watch.binary() && lit <= watch.other() && !true_lit(lit) &&
-          !true_lit(watch.other()))
-        return false;
-  return true;
-}
 
 } // namespace
 
@@ -259,17 +234,8 @@ ApplyResult parity_model_apply(Kernel &k) {
       assignment[p] = static_cast<uint8_t>(value);
     }
     ++k.stats.parity_model_candidates;
-    if (satisfies(k, assignment)) {
-      for (Var var = 0; var < k.nvars; ++var) {
-        const Lit positive = make_lit(var, false);
-        if (!k.value(positive) && !kernel_var_retired(k, var))
-          kernel_assign_decision(
-              k, make_lit(var, assignment[var] == uint8_t{0}));
-      }
-      // The independent full-CNF scan above already performed the semantic
-      // work of propagation for this terminal assignment. Publish the same
-      // quiescent SAT boundary expected by public online callers.
-      k.propagate_head = static_cast<uint32_t>(k.trail.size());
+    if (lucky_model_valid(k, assignment)) {
+      lucky_publish_model(k, assignment);
       ++k.stats.parity_model_sat;
       return ApplyResult::Sat;
     }

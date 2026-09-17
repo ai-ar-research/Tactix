@@ -22,6 +22,25 @@ struct DsrLiteralMapping {
   Lit to = INVALID_LIT;
 };
 
+// Preserve the semantic pivot override using an encoding shared by dsr-trim
+// and Trestle. Classify images relative to !C: an unmapped pivot is Direct,
+// a true image permits Repivot, all-false images permit Rup, one open image
+// permits Lemma, and multiple open images use a temporary Extension.
+// Every form preserves the X7 application; see docs/calculus.md section 6d.
+enum class DsrWitnessForm : uint8_t { Direct, Repivot, Rup, Lemma, Extension };
+
+struct DsrWitnessPlan {
+  DsrWitnessForm form = DsrWitnessForm::Direct;
+  uint32_t pivot = 0;      // clause index of the emitted pivot
+  Lit lemma = INVALID_LIT; // Lemma: open image appended to the clause
+};
+
+// `lits[0]` is the semantic pivot; `mappings` use positive sources.
+DsrWitnessPlan plan_dsr_witness(const Lit *lits, uint32_t size,
+                                const Lit *true_lits, uint32_t ntrue,
+                                const DsrLiteralMapping *mappings,
+                                uint32_t nmappings);
+
 class Proof {
 public:
   ~Proof();
@@ -55,11 +74,16 @@ public:
                const int64_t *hints, uint32_t nhints);
   // Add a substitution-redundant clause. `lits[0]` is the DSR pivot,
   // `true_lits` are mapped to true, and each mapping maps its source literal
-  // to its target literal. Returns false for compatibility formats so callers
-  // can decline the transition before mutating the formula.
+  // to its target literal. `external_variables` bounds every external variable
+  // in the proof-visible formula, including retired variables. The general
+  // encoding temporarily uses the next external variable and deletes every
+  // clause containing it before returning, so later solver extensions may use
+  // that identity. Returns false for compatibility formats or exhaustion of
+  // the external literal representation, before emitting any clause.
   bool add_sr(uint64_t id, const Lit *lits, uint32_t size,
               const Lit *true_lits, uint32_t ntrue,
-              const DsrLiteralMapping *mappings, uint32_t nmappings);
+              const DsrLiteralMapping *mappings, uint32_t nmappings,
+              uint32_t external_variables);
   void add_empty(uint64_t id, const uint64_t *chain, uint32_t nchain);
   // root-level propagation-derived unit: explicit in LRAT (each level-0
   // assignment needs an id for later chains), implied/omitted in DSR/DRAT
@@ -129,6 +153,7 @@ private:
   void put_byte(unsigned char byte);
   void flush_binary();
   void put_lit(Lit l);
+  void put_external_lit(Lit l);
   void put_u64(uint64_t v);
   void end_line();
   FILE *file_ = nullptr;

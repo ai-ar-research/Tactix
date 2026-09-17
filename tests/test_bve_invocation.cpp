@@ -29,6 +29,29 @@ static void build_two_pivots(Kernel &k) {
   add_pair(k, 2, 5, 6);
 }
 
+static void test_empty_pivot_progress_distinguishes_retirement() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  kernel_add_binary_clause(k, internalize(1), internalize(2));
+  const uint64_t first = lit_instance(k, internalize(1));
+  assert(apply_rule_instance(bve_rule(), k, first) == ApplyResult::Ok);
+  const auto witness = k.reconstruction;
+  const auto retired = k.retired_events;
+  const uint64_t clauses = k.next_clause_id;
+  assert(apply_rule_instance(bve_rule(), k, first) == ApplyResult::NoOp);
+  assert(k.stats.bve_eliminated == 1 && k.reconstruction == witness);
+  assert(k.retired_events == retired && k.next_clause_id == clauses);
+  // An active variable with no occurrences still leaves the active population;
+  // the no-op repair must not turn that legal elimination into a restriction.
+  assert(apply_rule_instance(bve_rule(), k, lit_instance(k, internalize(3))) ==
+         ApplyResult::Ok);
+  assert(kernel_var_retired(k, var_of(internalize(3))));
+  assert(apply_rule(bve_rule(), k) == ApplyResult::Ok);
+  assert(apply_rule(bve_rule(), k) == ApplyResult::NoOp);
+  assert(k.stats.bve_eliminated == 3 && k.unassigned_active == 0);
+  kernel_check_invariants(k);
+}
+
 static void test_one_instance_matches_legacy_and_restores_parameters() {
   Kernel legacy, configured;
   kernel_reserve_vars(legacy, 3);
@@ -231,6 +254,70 @@ static void test_complete_pass_and_stale_batch_are_distinct() {
   assert(stale.value(internalize(2)) > 0);
 }
 
+static void test_pure_scope_filters_only_generated_complete_passes() {
+  Kernel generated;
+  kernel_reserve_vars(generated, 3);
+  kernel_add_binary_clause(generated, internalize(1), internalize(2));
+  kernel_add_binary_clause(generated, internalize(-2), internalize(3));
+  BveParameters pure = BveParameters::from_kernel(generated);
+  pure.candidate_scope = BveCandidateScope::PureOnly;
+  pure.gate_mask = 0;
+  BveInvocationRequest complete{pure,
+                                InvocationGranularity::CompleteCurrentPass,
+                                {}, 0};
+  InvocationBudget complete_budget(WorkUnit::BveTicks,
+                                   WorkLimit::unlimited());
+  const InvocationResult filtered =
+      invoke_bve(bve_rule(), generated, complete, complete_budget);
+  assert(filtered.status == InvocationStatus::Completed);
+  assert(filtered.selection_complete && filtered.applications == 2);
+  assert(kernel_var_retired(generated, var_of(internalize(1))));
+  assert(kernel_var_retired(generated, var_of(internalize(3))));
+  assert(!kernel_var_retired(generated, var_of(internalize(2))));
+
+  Kernel explicit_instance;
+  kernel_reserve_vars(explicit_instance, 3);
+  add_pair(explicit_instance, 1, 2, 3);
+  pure = BveParameters::from_kernel(explicit_instance);
+  pure.candidate_scope = BveCandidateScope::PureOnly;
+  pure.gate_mask = 0;
+  const uint64_t pivot[] = {lit_instance(internalize(1))};
+  BveInvocationRequest one{pure, InvocationGranularity::OneInstance, pivot, 0};
+  InvocationBudget one_budget(WorkUnit::BveTicks, WorkLimit::unlimited());
+  const InvocationResult unfiltered =
+      invoke_bve(bve_rule(), explicit_instance, one, one_budget);
+  assert(unfiltered.status == InvocationStatus::Completed);
+  assert(unfiltered.applications == 1 && unfiltered.made_rule_progress);
+  assert(kernel_var_retired(explicit_instance, var_of(internalize(1))));
+  kernel_check_invariants(generated);
+  kernel_check_invariants(explicit_instance);
+}
+
+static void test_pure_scope_inside_unordered_dense_state() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  kernel_add_binary_clause(k, internalize(1), internalize(2));
+  kernel_add_binary_clause(k, internalize(-2), internalize(3));
+
+  OccIndex occurrences;
+  kernel_dense_connect(k, occurrences, /*track_order=*/false);
+  BveParameters pure = BveParameters::from_kernel(k);
+  pure.candidate_scope = BveCandidateScope::PureOnly;
+  pure.gate_mask = 0;
+  BveInvocationRequest request{pure,
+                               InvocationGranularity::CompleteCurrentPass,
+                               {}, 0};
+  InvocationBudget budget(WorkUnit::BveTicks, WorkLimit::unlimited());
+  const InvocationResult result = invoke_bve(bve_rule(), k, request, budget);
+  assert(result.status == InvocationStatus::Completed);
+  assert(result.selection_complete && result.applications == 2);
+  assert(kernel_var_retired(k, var_of(internalize(1))));
+  assert(kernel_var_retired(k, var_of(internalize(3))));
+  assert(!kernel_var_retired(k, var_of(internalize(2))));
+  kernel_check_invariants(k);
+  kernel_dense_disconnect(k);
+}
+
 static void test_invalid_zero_budget_and_stop_do_not_mutate() {
   Kernel k;
   kernel_reserve_vars(k, 3);
@@ -278,12 +365,15 @@ static void test_terminal_result_is_not_overwritten_by_completion() {
 }
 
 int main() {
+  test_empty_pivot_progress_distinguishes_retirement();
   test_one_instance_matches_legacy_and_restores_parameters();
   test_per_call_bound_is_effective_and_scoped();
   test_per_call_xor_arity_is_effective_and_scoped();
   test_batch_budget_stops_between_atomic_pivots();
   test_pass_session_poses_once_and_keeps_cumulative_budget();
   test_complete_pass_and_stale_batch_are_distinct();
+  test_pure_scope_filters_only_generated_complete_passes();
+  test_pure_scope_inside_unordered_dense_state();
   test_invalid_zero_budget_and_stop_do_not_mutate();
   test_terminal_result_is_not_overwritten_by_completion();
   std::puts("test_bve_invocation OK");

@@ -1,0 +1,8 @@
+{
+  "origin": "Claude SR112 checkpoint F1, generator seed100057 / random policy911",
+  "failure_class": "lost oracle coverage: UNKNOWN after valid payload becomes inapplicable",
+  "cause": "An earlier BVE/Substitute transition retires a variable referenced by a later explicit SR request; live-variable eligibility was conflated with payload syntax",
+  "min_verdict": "UNSAT",
+  "required_profile": "--random-policy=911, native DSR",
+  "repair": "Separate malformed representation from retired-variable applicability. Return Inapplicable without formula/proof mutation, preserve Invalid for malformed syntax; random driver regenerates at the same kernel state."
+}

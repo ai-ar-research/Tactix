@@ -1,0 +1,9 @@
+{
+  "origin": "Claude SR112 deep checkpoint1696065 F2; original generator seed2002133",
+  "failure_class": "forward DSR proof rejected",
+  "min_verdict": "UNSAT",
+  "case_verdict": "UNSAT",
+  "cause": "kernel_delete_binary_one_copy omitted DSR deletion when another identical binary survived, leaving an extra checker clause after final retirement",
+  "required_profile": "Native DSR production; include reference startup order for minimized case and both proof encodings",
+  "repair": "Emit one DSR literal-named deletion per physical copy, preserving existing optional-deletion behavior for DRAT/LRAT and all kernel transitions"
+}

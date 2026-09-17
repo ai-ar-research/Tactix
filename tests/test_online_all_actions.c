@@ -221,6 +221,18 @@ static void invalid_reduce_parameters_are_transactional(void) {
   step.parameters.value.reduce.victim_numerator = 0;
   assert(tactix_online_configure(solver, &program, 23,
                                  TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  step.parameters.value.reduce.reduction_bookkeeping_mode = 99;
+  assert(tactix_online_configure(solver, &program, 24,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  for (int mode = TACTIX_ONLINE_SETTING_INHERIT;
+       mode <= TACTIX_ONLINE_SETTING_ENABLE; ++mode) {
+    step.parameters.value.reduce.reduction_bookkeeping_mode = mode;
+    assert(tactix_online_configure(solver, &program, 25 + mode,
+                                   TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+    tactix_online_result result;
+    assert(tactix_online_advance(solver, &result) == 0);
+    assert(result.applications == 1);
+  }
   tactix_release(solver);
 }
 

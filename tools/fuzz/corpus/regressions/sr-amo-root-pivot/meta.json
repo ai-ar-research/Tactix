@@ -1,0 +1,9 @@
+{
+  "origin": "Claude SR119 full82-arm replay, original SR112 seed1013719/prod-random1",
+  "failure_class": "forward DSR unit witness rejection",
+  "min_verdict": "UNSAT",
+  "case_verdict": "UNSAT",
+  "required_profile": "--random-policy=911, binary and textual native DSR",
+  "cause": "Generated unique-literal AMO certificate bypassed full X7 validation although its pivot-only witness falsified a current root unit",
+  "repair": "Reconstruct the implicit witness and fall back to complete X7 validation when the pivot is false; retain legal RUP candidates and opposite-pivot requests"
+}

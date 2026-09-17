@@ -208,7 +208,8 @@ ApplyResult reduce_apply_refs(Kernel &k, const Ref *refs, size_t n,
   reduce_prepare(k);
   if (k.inconsistent)
     return ApplyResult::Unsat;
-  k.stats.reductions++;
+  if (k.reduce_bookkeeping)
+    k.stats.reductions++;
   // Kissat captures the collection start before collect_reducibles advances
   // its stored marker past clauses promoted to irredundant. Those clauses
   // still belong to this call's rewatched tail, not its retained prefix.
@@ -226,7 +227,7 @@ ApplyResult reduce_apply_refs(Kernel &k, const Ref *refs, size_t n,
       first_reducible = std::min(first_reducible, position);
       next_reducible = std::min(next_reducible, position);
     }
-    if (c->redundant() && !c->garbage()) {
+    if (k.reduce_bookkeeping && c->redundant() && !c->garbage()) {
       const uint32_t used = c->used();
       if (used)
         c->set_used(used - 1);
@@ -256,7 +257,7 @@ ApplyResult reduce_apply_refs(Kernel &k, const Ref *refs, size_t n,
   // `kernel_likely_kept`. Taken over survivors, not victims, and not reset
   // when nothing was deleted — cadical's envelope likewise persists until the
   // next reduction. Diagnostic until a consumer reads it.
-  {
+  if (k.reduce_bookkeeping) {
     uint32_t g = 0, sz = 0;
     for (Ref ref = 0; ref < k.arena.size();) {
       const Clause *c = clause_at(k.arena, ref);
@@ -271,6 +272,7 @@ ApplyResult reduce_apply_refs(Kernel &k, const Ref *refs, size_t n,
     k.kept_glue = g;
     k.kept_size = sz;
   }
+  RootCollectOutcome root_outcome = RootCollectOutcome::NoChange;
   if (deleted || compact_collect) {
     assert(compact_collect || first_reducible != INVALID_REF);
     const Ref collect_start = compact_collect ? 0 : first_reducible;
@@ -284,7 +286,7 @@ ApplyResult reduce_apply_refs(Kernel &k, const Ref *refs, size_t n,
     // Kissat instead sets start=0 before sparse collection, so root-satisfied
     // irredundant clauses and root-false literals are swept too.
     if (kernel_has_root_assignment(k) && !k.conflict_valid)
-      kernel_sparse_collect_root(k, collect_start);
+      root_outcome = kernel_sparse_collect_root(k, collect_start);
     else
       kernel_collect_garbage(k, collect_start, /*sparse_collection=*/true);
   }
@@ -292,7 +294,14 @@ ApplyResult reduce_apply_refs(Kernel &k, const Ref *refs, size_t n,
   // root-false stripping may relocate a large reason or turn it into a binary.
   // The collector updates that assignment before this final unmarking pass.
   lock_reasons(k, false);
-  return deleted ? ApplyResult::Ok : ApplyResult::NoOp;
+  if (root_outcome == RootCollectOutcome::Refuted)
+    return ApplyResult::Unsat;
+  // A caller can request zero learned victims and still simplify the root
+  // formula. Scoped fixpoints must observe that semantic progress; moving
+  // storage or updating reduction bookkeeping alone is not progress.
+  return deleted || root_outcome != RootCollectOutcome::NoChange
+             ? ApplyResult::Ok
+             : ApplyResult::NoOp;
 }
 
 // canonical instance: kissat's default fraction of the ranked candidates

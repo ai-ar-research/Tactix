@@ -1,128 +1,106 @@
-# Progress
+# Progress and resume guide
 
-[DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md) owns stable scope and acceptance
-criteria. This file is the current resume anchor; Git, immutable manifests, and
-frozen reports own history and detailed evidence.
+## Active ordered goal
 
-## Objective
+**Phase 1 comes first.** Independently check Rank 1--50 at 50/50 and B28+C5 at
+33/33, each case within 1,200 seconds and 32 GiB. Aggregate solver time must be
+below the frozen R16 gates: Rank below 8,115.735s and B28+C5 below 952.263s.
+Preserve WV61 coverage, public rule selectability, native DSR proofs and original
+CNF models. Rank 6 must remain no slower than frozen Satsuma+Kissat's 203.321s
+under comparable hwu/c4/32 GiB conditions. Repair Rank 1 and Rank 6 overhead with
+general mechanisms; individual trajectory regressions are acceptable only when
+both complete suite aggregates improve.
 
-Complete a coherent structured Satsuma symmetry increment through the accepted
-online X7 interface while preserving N1--N4, native checked DSR, and the retained
-default performance. Use the fixed WV100 signatures to develop general
-mechanisms toward independently checked coverage of 100/100. Do not submit a
-full Tier-D run after this increment; any future full Tier-D campaign needs a
-separate decision after focused WV100 evidence.
+**Phase 2 starts only after Phase 1 passes.** Reach independently checked WV100
+100/100 within 1,200 seconds and 32 GiB per case by integrating each owning
+baseline's techniques into Tactix. No sequential portfolio, external solver,
+benchmark dispatch, or arbitrary benchmark-tuned cutoff is allowed.
 
-## Authorities
+Use cpu-q for one-off profiles and coarse solved/timeout iteration. Use matched
+allocations for close runtime claims and the final aggregate gates. All solver
+runs use SLURM, full-width arrays, immutable pins, anonymous scratch, and the
+native proof/model oracle.
 
-| Item | Authority |
-|---|---|
-| Online refactor and N1 gate | source `a08f9f6a`; [closure report](benchmarks/reports/2026-09-13-online-refactor-n1-final.md) |
-| Native DSR | source `20223134`; [checker repair](benchmarks/reports/2026-09-13-dsr-trim-tautology-hash-fix.md); [Claude PASS](benchmarks/reports/2026-09-13-native-dsr-claude-fuzz-r2/terminal-report.md) |
-| Direct SR | source `298c3467`; [performance gate](benchmarks/reports/2026-09-13-direct-sr-performance-gate.md); [Claude PASS](benchmarks/reports/2026-09-13-direct-sr-r16-claude-fuzz-r2/terminal-report.md) |
-| Symmetry candidate | snapshot `3bed3dd12240b99182a6688dbeb2ea09a95e67c7`, tree `28c801039631e8e7b9410fe35a4e49ccc5203794`; ref `refs/codex/snapshots/symmetry-3bed3dd12240` |
-| Symmetry fuzz | [terminal PASS](benchmarks/reports/2026-09-14-symmetry-claude-fuzz/terminal-report.md), jobs `1689218` and `1689220` |
-| Symmetry performance | [B28+C5 and Rank 1--50 report](benchmarks/reports/2026-09-14-graph-symmetry-performance-gate.md), jobs `1689221` and `1689222` |
-| Satsuma WV57 screen | [9/57 checked](benchmarks/reports/2026-09-14-symmetry-wv57-screen.md), campaign `benchmarks/runs/20260914-0701-symmetry-3bed3dd1-wv57`, job `1689304` |
-| Symmetry follow-ups | [all-clause and connected-alignment negative controls](benchmarks/reports/2026-09-14-symmetry-followup-screens.md), jobs `1689361` and `1689409` |
-| Fixed winner target | [WV100](benchmarks/tiers/WV100.tsv), 33 SAT / 67 UNSAT; [mechanism protocol](docs/design/2026-09-13-wv100-mechanism-integration.md) |
+## Current checkpoint
 
-The root checkout is authoritative. `.claude` contains workflow instructions,
-not project implementation or documentation changes.
+The root source is the coherent **AM56 native AMO-provenance BCE** checkpoint:
 
-## Accepted base
+- Authority: `build/20260917-120206-am56-native-amo-bce-authority/manifest.json`.
+- Snapshot: `build/source-20260917-120206-am56-native-amo-bce`.
+- Source tree SHA256: `02093cb73198632e00c4fcbae5c14d34e8f894a46f0507172bb92d6a9bfe11bf`.
+- Bit-identical Release A/B binary SHA256:
+  `2a2fbb4c355a5c741bcdd92c09c09b7d45c3579b0b9b3448f1c086b28cda09d0`.
+- All 343 manifest source files match the root byte for byte.
+- Release 161/161 passed in 199.69s. Focused ASan/UBSan/leak tests and fixed
+  proof/model oracles passed.
 
-- The configurable online-strategy/N1 refactor at `a08f9f6a` supports typed
-  composition, explicit legal instances, online reconfiguration, seeded random
-  execution, replay, interruption, and configurable strategy-owned limits.
-- Native DSR at `20223134` is the canonical whole-solver certificate and uses
-  anonymous node-local scratch. Proof production is mandatory; DRAT and LRAT
-  remain compatibility formats and are not requirements for new Satsuma rules.
-- Direct SR at `298c3467` passes proof, model, API, replay, sanitizer, fuzz, and
-  retained-performance gates.
+AM56 runs canonical BCE once after structured processing only when that scope
+actually published unique-literal AMO helper binaries. The monotonic provenance
+counter excludes caller-supplied SR. The policy therefore recovers Rank 26
+without imposing the harmful cleanup observed after unrelated SR progress.
+Implementation details and prior rule contracts remain in
+[implementation notes](docs/implementation-notes.md).
 
-## Active symmetry checkpoint
+## Decision-relevant evidence
 
-- The uncommitted candidate vendors DejaVu `4c275e9e` behind a failure-safe
-  `noexcept` boundary and exact-checks every proposed automorphism and derived
-  group element against the live root formula before X7 mutation.
-- Its typed C++ and C settings cover graph representation, traversal, seeded
-  ordering, detection/group/fixing/emission limits, scope, batching, stopping,
-  interruption, resumption, and `sr3` replay; `sr` and `sr2` remain readable.
-- The exact snapshot passes 150/150 Release tests, 149/149 applicable
-  ASan/UBSan tests, and the Claude-owned fuzz checkpoint. Two independent GCC
-  13.1 builds have identical solver SHA-256
-  `41e1a1c74aa70032fc3d6b897a46cc6e9cfff368cc95b3324719df45459240a2`.
-- Clique rank 4 closes with 70 SR transitions in 1.863 seconds. Its combined
-  DSR passes forward `dsr-trim` elaboration and the resulting LSR passes pinned
-  Trestle; anonymous scratch cleanup is clean.
-- The compile-time guard audit found no obsolete strategy configuration macros.
-  The remaining public-header, platform, debug, journal, trace, and proof-shadow
-  guards are active and retained.
-- A non-involutive backend regression establishes that DejaVu's image maps the
-  selected witness endpoint to the fixed endpoint. An inverse-direction trial
-  removed valid transitions in 23 of 1,000 seeded formulas and added none, so
-  the forward direction is retained.
-- The structured detector now composes column alignments through connected
-  mutual-exclusion compatibility paths. A causal three-column regression passes;
-  the six-row focused screen shows that this repair alone adds no solve.
-- The current uncommitted increment adds opt-in exact maximum-clique ordering on
-  the variable clause-co-occurrence graph. Canonical ordering remains default.
-  Its incremental prefix-bound search avoids per-recursion coloring and uses
-  dense bitsets and variable lookup. C API, seeded random generation, `sr4`
-  replay, online execution, zero-budget, and backend tests pass; `sr`--`sr3`
-  remain readable.
+The current complete Phase 1 vectors are still AM36 and fail acceptance:
+B28+C5 is 33/33 in 1,414.317s; Rank is 49/50 in 10,520.336s with Rank 29 timed
+out. Later focused work recovers Rank 29 and Rank 26, but focused unions do not
+replace a coherent full gate. The required aggregates and independent checks
+remain open.
 
-## Gate state
+AM56's independently checked focused screen is:
 
-| Gate | Result | Proof/check status |
-|---|---|---|
-| B28+C5 | 949.894 s vs 950.837 s, **0.999008x**, 33/33 outcomes | 32/33 checked clean; one check remains in background |
-| Rank 1--50 | 8,125.694 s vs 8,123.812 s, **1.000232x**, 50/50 outcomes | 39 checked clean; rank 40 Trestle leg exceeded 32 GiB; ten checks remain in background |
+| Case | Solver seconds | Result |
+|---|---:|---|
+| Rank 26 | 399.586 | SAT model verified; 1,089 AMO binaries trigger BCE, 1,084 helpers deleted |
+| Rank 1 | 6.025 | UNSAT proof verified |
+| Rank 6 | 122.575 | SAT model verified; below the 203.321s Satsuma gate |
+| B28 rank 7 | 3.672 | SAT model verified; no unrelated BCE |
+| WV88 | 92.482 | UNSAT proof verified |
 
-Both complete solver-time vectors pass the 1.01 limit with no timeout. The
-graph producer is default-off, so these runs test default-path overhead.
-Completed proof checks still gate promotion but do not block independent work.
-No reference solver was rerun.
+AM57's fixed 128-generator prefix is rejected. It improves WV88 to 41.321s and
+Rank 26 to 306.742s, but regresses Rank 1 to 9.580s and Rank 6 to 324.775s; all
+four outcomes independently check. Keep its frozen run as negative evidence,
+not source policy.
 
-## Operations
+Rank 1's gap is SR preprocessing. AM56 spends 5.775s in the structured root and
+5.614s in unattributed structured work, applies 615 SR clauses, then proves UNSAT
+with one conflict. Its expensive inclusive phases include 2.936s of orbitopal
+generator-orbit work and 0.956s of generic detection; clause application itself
+costs 36ms.
 
-- Focused WV100 work uses `cpu-dense-hwulab-q`, c8, 32 GiB, and a 300-second
-  solver timeout. B28+C5 and Rank 1--50 use the same partition, c12, 32 GiB,
-  and a 1,200-second solver timeout.
-- Repository usage is 108,326,965,785 bytes. Recheck before each submission;
-  at 700 GiB or above, hold only pending repository jobs in ten-minute
-  intervals. Never pause running jobs.
-- Existing proof-checking work remains untouched. The prior full Tier-D run
-  `1687184` is retained; no replacement full Tier-D run is planned.
-- Focused job `1689304` completed all 57 Satsuma-owned WV100 rows: nine checked
-  UNSAT solves and 48 timeouts, with every formula, proof, and checker
-  intermediate deleted. No winner solver was rerun.
-- Follow-up jobs `1689361` and `1689409` are complete. All-clause graph scope
-  added 0/48 solves and connected-column alignment added 0/6 solves. All 54
-  final records are cleanup-clean; neither negative result narrows the legal X7
-  surface.
-- Job `1689416` is the active two-arm six-row clique-order screen. It separates
-  the orbitopal maximum-clique transition from the combined graph program and
-  records preprocessing time before CDCL. Its immutable binary SHA-256 is
-  `81c85235cab19bbe69bbb5661261bdd41a825c42a0e5426b1a3ad3b635e3a439`.
+Frozen Satsuma+Kissat solves the same Rank 1 in 1.218s total with a verified proof
+(`sc24-26-32g-5000s/results/00563.json`). Diagnostic job 1699170, using the exact
+frozen binaries and input on cpu-q, measures 1.09s Satsuma plus 0.18s Kissat.
+Satsuma detects 614 generators, then follows its baseline-owned large-domain
+path because 85,230 variables exceed `schreier_domain_limit=50,000`: negation
+fixing publishes one unit, binary fixing publishes nothing, and a second pass
+stops after no further consequence. It does not build the full clausal Schreier
+chain that produces Tactix's 615 clauses. Detailed evidence and qualifications:
+[AM55--AM57 and Rank 1 attribution](benchmarks/reports/2026-09-17-shared-discovery-amo-cleanup-and-rank1-attribution.md).
 
-## Next actions
+## Active work and exact next action
 
-1. Inspect every result from job `1689416`. Require checked correctness, clean
-   anonymous cleanup, a stronger transition, and Satsuma-scale preprocessing
-   efficiency before retaining clique ordering as a scheduled mechanism.
-2. Inspect final validity and cleanup records from jobs `1689221` and `1689222`.
-   Resolve the rank-40 checker-memory result without blocking independent
-   development, and promote only a fully checked coherent source increment.
-3. Continue structured row/row-column discovery with alternating root rounds,
-   then add Johnson actions and regroup the remaining WV57 misses by effective
-   transition.
+Storage guard PID 2967585 owns allocation 1697679 and must remain live, fresh,
+and clear before submissions. Claude owner PID 3454766 is still working under
+`build/am55-claude-shared-sr-discovery/`; read only `handoff.md` or
+`terminal-report.md` when present, never raw owner streams. **NOTHING IN FLIGHT**
+in SLURM beyond the storage-guard allocation; no solver/checker arrays remain.
 
-<!-- track-sched:begin -->
-- Kissat creation order remains the production default; `TACTIX_ARENA_ORDER=1`
-  is a CaDiCaL diagnostic arm. Unsupported formula-dependent profiles stay
-  removed.
-- Retain sound general repairs through downstream regressions; every commit must
-  preserve N1--N4.
-<!-- track-sched:end -->
+Next, integrate Satsuma's large-domain negation/binary fixing behavior into the
+native typed structured strategy. Use the owning baseline's 50,000-variable
+boundary and exact publication-driven repetition, preserve the unrestricted
+public graph-SR action, and keep the earlier useful-inference admission path that
+can finish Rank 1 before SR. First require Rank 1 to match or beat 1.218s without
+Rank 6 regression; then screen Rank 26, B7, WV75/77/88 and the known early-pass
+controls. Run complete B28+C5 and Rank 1--50 gates only after the focused candidate
+is coherent. After Phase 1 passes, resume WV100 expansion.
+
+## Recent changes
+
+- AM56 made post-AMO BCE admission depend on actual native helper publication and recovered Rank 26.
+- AM55 shared one non-refilling SR discovery allowance across the structured root and brought Rank 6 below its case gate.
+- AM54 added exact within-pass row feasibility feedback and unique coloring ownership.
+- AM48 reused prepared gate extraction for useful early-Congruence admission, yielding a checked 0.317s Rank 1 diagnostic.
+- AM34 repaired forward Congruence's root propagation closure; independent fuzz found no candidate defect.

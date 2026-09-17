@@ -51,13 +51,40 @@ def prepare(a):
     inputs=dict((rel,digest) for digest,rel in (line.split() for line in (ref/'cache.sha256').read_text().splitlines()))
     source_rows=[dict(rank=i+1,arm='tactix',tier='D',instance=r['rel'],expected=r['expected']) for i,r in enumerate(manifest['instances'])]
     assert len(source_rows)==1166 and len({r['instance'] for r in source_rows})==1166
-    if a.instance:
-        selected=set(a.instance)
-        if len(selected)!=len(a.instance):raise ValueError('duplicate --instance')
+    selection_authority=None
+    selected_from_table={}
+    if a.selection_table:
+        table=a.selection_table.resolve()
+        if not table.is_relative_to(ROOT):raise ValueError('selection table must be under repository root')
+        with table.open(newline='') as f:
+            lines=(line for line in f if line.strip() and not line.startswith('#'))
+            reader=csv.DictReader(lines,delimiter='\t')
+            required={'coverage_rank','original_tierd_rank','instance','verdict'}
+            if not reader.fieldnames or not required.issubset(reader.fieldnames):
+                raise ValueError('selection table schema mismatch')
+            for row in reader:
+                instance=row['instance']
+                if instance in selected_from_table:raise ValueError('duplicate selection-table instance: '+instance)
+                selected_from_table[instance]=row
+        selection_authority=dict(path=str(table.relative_to(ROOT)),sha256=sha(table))
+    if a.instance or selected_from_table:
+        selected=set(a.instance) if a.instance else set(selected_from_table)
+        if a.instance and len(selected)!=len(a.instance):raise ValueError('duplicate --instance')
         known={r['instance'] for r in source_rows}
         missing=selected-known
         if missing:raise ValueError('unknown Tier-D instance: '+sorted(missing)[0])
         source_rows=[r for r in source_rows if r['instance'] in selected]
+    if selected_from_table:
+        missing={r['instance'] for r in source_rows}-set(selected_from_table)
+        if missing:raise ValueError('selected instance missing from selection table: '+sorted(missing)[0])
+        for row in source_rows:
+            selected=selected_from_table[row['instance']]
+            if int(selected['original_tierd_rank'])!=row['rank']:
+                raise ValueError('selection-table Tier-D rank mismatch: '+row['instance'])
+            row['rank']=int(selected['coverage_rank'])
+            row['tier']=a.selection_table.stem
+            row['expected']=selected['verdict']
+        source_rows.sort(key=lambda row:row['rank'])
     rows=[dict(task=i,**r) for i,r in enumerate(source_rows)]
     assert rows and len({r['instance'] for r in rows})==len(rows)
     inputs={rel:digest for rel,digest in inputs.items() if rel in {r['instance'] for r in rows}}
@@ -104,8 +131,9 @@ exec python3 {c}/pins/validate_anonymous_runtime.py {c}
                            arguments=[],certificate='dsr')},
         input_sha256=inputs,scratch_policy='anonymous-local-files-v1',
         dataset_authority=dict(path=str(ref/'manifest.json'),sha256=sha(ref/'manifest.json')),
-        resource_contract=dict(partition=a.partition,cpus_per_task=a.cpus_per_task,memory_mib=32768,solve_timeout=1200,
-            checker_timeout=16000,scheduler_wall_seconds=18000,array=f'0-{len(rows)-1}',throttle=None,node_constraint=None),
+        selection_authority=selection_authority,
+        resource_contract=dict(partition=a.partition,cpus_per_task=a.cpus_per_task,memory_mib=32768,solve_timeout=a.solve_timeout,
+            checker_timeout=a.checker_timeout,scheduler_wall_seconds=18000,array=f'0-{len(rows)-1}',throttle=None,node_constraint=None),
         proof_contract='Native DSR checked and elaborated forwards by pinned dsr-trim to LSR, decompressed by pinned dsr-compress, and verified by pinned Trestle srcheck.',
         cleanup_contract='O_TMPFILE on /tmp for input, DSR, LSR, model and checker scratch; no directory entries ever. Kernel releases storage at last close, including SIGKILL/OOM. Fail closed if unsupported. Only bounded JSON metadata and scheduler logs persist; core dumps disabled.',
         caveat='If the entire job dies, its result may be missing; never interpret missing as timeout or checked. Local disk may fill during a live run; no home-quota certificate storage or failure retention.',
@@ -132,9 +160,14 @@ if __name__=='__main__':
     p.add_argument('--binary-source-commit')
     p.add_argument('--partition',default='cpu-q')
     p.add_argument('--cpus-per-task',type=int,default=4)
+    p.add_argument('--solve-timeout',type=int,default=1200)
+    p.add_argument('--checker-timeout',type=int,default=16000)
     p.add_argument('--instance',action='append',default=[])
+    p.add_argument('--selection-table',type=Path)
     g=p.add_mutually_exclusive_group(required=True)
     g.add_argument('--prepare',action='store_true');g.add_argument('--validate',action='store_true');g.add_argument('--submit',action='store_true')
     a=p.parse_args()
     if a.cpus_per_task < 1:p.error('--cpus-per-task must be positive')
+    if a.solve_timeout < 1:p.error('--solve-timeout must be positive')
+    if a.checker_timeout < 1:p.error('--checker-timeout must be positive')
     prepare(a) if a.prepare else submit(a)

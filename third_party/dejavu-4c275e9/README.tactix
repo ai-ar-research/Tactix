@@ -1,0 +1,24 @@
+DejaVu 2.1, pinned from commit
+4c275e9ebac4fe51a26aac406682b9bcbfd03a9d (2026-08-13).
+
+Upstream: https://github.com/markusa4/dejavu
+License: MIT; see LICENSE.
+
+Tactix compiles these headers only in
+src/symmetry_backend/dejavu_backend.cpp, with exceptions and RTTI enabled, and
+exposes a failure-safe noexcept boundary to the no-exception/no-RTTI core.
+
+The source matches the pinned commit except for a narrow cooperative
+termination hook in utility.h, dejavu.h, preprocess.h, dfs.h, bfs.h, and
+rand.h. The hook only polls a caller callback and throws the private
+termination_requested marker inside the exception-enabled backend. Tactix
+catches that marker and translates it to Status::Interrupted before returning
+through the noexcept boundary; it does not change graph or group results.
+
+The additional groups.h extension accepts optional per-point orbit-size bounds
+in random_schreier::set_base. Null retains the upstream path. Tactix supplies
+the exact initial input-generator orbit sizes only for FixAndCutResift: every
+later stabilizer is a subgroup, so these bounds remain valid. They permit the
+existing completed-transversal fast path; they do not discard generators or
+change which explicit SR tuples are legal. Generator-ID reuse experiments are
+not included in this vendor patch.

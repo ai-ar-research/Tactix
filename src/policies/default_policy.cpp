@@ -5,6 +5,7 @@
 
 #include "rules/analyze/analyze.hpp"
 #include "rules/backjump/backjump.hpp"
+#include "rules/bce/bce.hpp"
 #include "rules/bve/bve.hpp"
 #include "rules/decide/decide.hpp"
 #include "rules/lucky/lucky.hpp"
@@ -202,6 +203,139 @@ void retier_current_mode(Kernel &k,
 }
 } // namespace
 
+strategy::OnlineStrategyProgram
+DefaultStrategyConfig::reference_structured_root_program() {
+  strategy::OnlineInvocation pure;
+  pure.id = 1000;
+  pure.rule = "BVE";
+  strategy::BveParameters pure_parameters;
+  pure_parameters.candidate_scope = strategy::BveCandidateScope::PureOnly;
+  pure.parameters = pure_parameters;
+  pure.granularity = strategy::InvocationGranularity::CompleteCurrentPass;
+  pure.work_unit = strategy::WorkUnit::BveTicks;
+  pure.post_application = strategy::PostApplication::Propagate;
+
+  strategy::OnlineInvocation orbitopal;
+  orbitopal.id = 1001;
+  orbitopal.rule = "SubstitutionRedundancy";
+  SubstitutionRedundancyParameters orbitopal_parameters;
+  orbitopal_parameters.maximum_validation_ticks = 10'000'000;
+  orbitopal_parameters.producer =
+      SubstitutionRedundancyProducer::Orbitopal;
+  // The two-dimensional refinement producer needs both axes so it can select
+  // the ULC-bearing dimension after exact row and column checks. One-axis
+  // matrices continue to emit only their independently certified action.
+  orbitopal_parameters.orbitopal_orientation = OrbitopalOrientation::Both;
+  orbitopal_parameters.minimum_orbitopal_rows = 2;
+  orbitopal_parameters.minimum_orbitopal_columns = 2;
+  // A complete orbitopal pass is the semantic scheduling unit.  A finite
+  // matrix prefix can miss a later productive matrix and, because truncation
+  // correctly stops the startup program, can suppress every following
+  // producer.  Keep caller-selected finite prefixes available through the
+  // typed interface, but let the reference program enumerate the full pass.
+  orbitopal_parameters.maximum_orbitopal_matrices = UINT64_MAX;
+  orbitopal_parameters.maximum_orbitopal_instances = UINT64_MAX;
+  orbitopal_parameters.minimum_orbitopal_clique_columns = 5;
+  orbitopal_parameters.maximum_orbitopal_clique_vertices = 100'000;
+  orbitopal_parameters.maximum_orbitopal_clique_ticks = 10'000'000;
+  orbitopal_parameters.maximum_orbitopal_product_states = 100'000;
+  orbitopal_parameters.complete_unique_literal_amos = true;
+  // Orbitopal refinement owns structured row actions. Generic generator
+  // fixing is the following GraphSymmetry sub-strategy; repeating it inside
+  // every inexact refinement orbit duplicates formula-wide group work and can
+  // delay an already available exact structured action.
+  orbitopal_parameters.orbitopal_generator_fallback = false;
+  // Bound repeated pointwise-stabilizer refinement in the reference startup
+  // schedule. Callers retain zero, finite, and unbounded choices through the
+  // typed parameter surface.
+  orbitopal_parameters.maximum_orbitopal_refinement_orbits = 64;
+  orbitopal_parameters.maximum_detection_ticks = UINT64_MAX;
+  orbitopal_parameters.orbitopal_column_order =
+      OrbitopalColumnOrder::CooccurrenceGreedyClique;
+  orbitopal_parameters.orbitopal_completion =
+      OrbitopalCompletion::IndividualizedGraphCompletion;
+  // Consume formula-derived structured columns before asking the generic
+  // equitable partition for candidate row orbits. The scoped-fixpoint repeat
+  // resumes the generic phase after the cheaper producer stops making
+  // progress.
+  orbitopal_parameters.orbitopal_discovery_order =
+      OrbitopalDiscoveryOrder::UniqueLiteralThenRefinement;
+  orbitopal_parameters.graph_symmetry.maximum_graph_vertices =
+      SYMMETRY_GRAPH_COMPONENT_LIMIT_DEFAULT;
+  orbitopal_parameters.graph_symmetry.maximum_graph_edges =
+      SYMMETRY_GRAPH_EDGE_LIMIT_DEFAULT;
+  orbitopal_parameters.graph_symmetry.maximum_generators =
+      SYMMETRY_GENERATOR_LIMIT_DEFAULT;
+  orbitopal_parameters.graph_symmetry.backend_search_budget =
+      SYMMETRY_BACKTRACK_LIMIT_DEFAULT;
+  orbitopal_parameters.graph_symmetry.backend_support_budget =
+      SYMMETRY_SUPPORT_LIMIT_DEFAULT;
+  orbitopal_parameters.graph_symmetry.backend_component_size_limit =
+      SYMMETRY_GRAPH_COMPONENT_LIMIT_DEFAULT;
+  orbitopal.parameters = orbitopal_parameters;
+  orbitopal.granularity =
+      strategy::InvocationGranularity::CompleteCurrentPass;
+  // ULC completion deliberately emits only its binary phase in the current
+  // pass. Re-enumerate this producer against that strengthened formula before
+  // a later sub-strategy can stop the outer sequence.
+  orbitopal.repeat = {strategy::RepeatMode::UntilScopedFixpoint, 0};
+  orbitopal.post_application = strategy::PostApplication::Propagate;
+
+  strategy::OnlineInvocation graph;
+  graph.id = 1002;
+  graph.rule = "SubstitutionRedundancy";
+  SubstitutionRedundancyParameters graph_parameters;
+  graph_parameters.maximum_validation_ticks =
+      SYMMETRY_TOTAL_TICK_LIMIT_DEFAULT;
+  graph_parameters.maximum_detection_ticks =
+      SYMMETRY_TOTAL_TICK_LIMIT_DEFAULT;
+  graph_parameters.producer =
+      SubstitutionRedundancyProducer::GraphSymmetry;
+  graph_parameters.graph_symmetry.maximum_graph_vertices =
+      SYMMETRY_GRAPH_COMPONENT_LIMIT_DEFAULT;
+  graph_parameters.graph_symmetry.maximum_graph_edges =
+      SYMMETRY_GRAPH_EDGE_LIMIT_DEFAULT;
+  graph_parameters.graph_symmetry.maximum_generators =
+      SYMMETRY_GENERATOR_LIMIT_DEFAULT;
+  graph_parameters.graph_symmetry.backend_search_budget =
+      SYMMETRY_BACKTRACK_LIMIT_DEFAULT;
+  graph_parameters.graph_symmetry.backend_support_budget =
+      SYMMETRY_SUPPORT_LIMIT_DEFAULT;
+  graph_parameters.graph_symmetry.backend_component_size_limit =
+      SYMMETRY_GRAPH_COMPONENT_LIMIT_DEFAULT;
+  graph_parameters.graph_symmetry.maximum_fixing_instances =
+      SYMMETRY_FIXING_LIMIT_DEFAULT;
+  // One direct generator changes the stabilizer used by the next pass.  Fresh
+  // detection is therefore the complete semantic unit, matching the
+  // Satsuma-derived scheduling experiment rather than retaining a stale
+  // generator prefix.
+  graph_parameters.graph_symmetry.maximum_generator_instances_per_pass = 1;
+  graph_parameters.graph_symmetry.maximum_group_ticks =
+      SYMMETRY_TOTAL_TICK_LIMIT_DEFAULT;
+  graph_parameters.graph_symmetry.clause_scope = SymmetryClauseScope::All;
+  graph_parameters.graph_symmetry.binary_graph_mode =
+      SymmetryBinaryGraphMode::Automatic;
+  graph_parameters.graph_symmetry.binary_graph_density_permille =
+      SYMMETRY_BINARY_DENSITY_PERMILLE_DEFAULT;
+  graph_parameters.graph_symmetry.clause_selection =
+      SymmetryClauseSelection::AmoThenShortest;
+  graph_parameters.graph_symmetry.chain_mode = SymmetryChainMode::FixAndCut;
+  graph_parameters.graph_symmetry.base_selection =
+      SymmetryBaseSelection::CommonClauseAmo;
+  graph.parameters = graph_parameters;
+  graph.granularity = strategy::InvocationGranularity::CompleteCurrentPass;
+  graph.post_application = strategy::PostApplication::Propagate;
+
+  strategy::OnlineStrategyProgram result;
+  result.sequence =
+      {std::move(pure), std::move(orbitopal), std::move(graph)};
+  // Repeat to the program's scoped no-progress boundary. Root assignments
+  // alone are not a termination measure: ULC can add useful binaries without
+  // fixing a variable. An incomplete budget stop is not a scoped fixpoint.
+  result.repeat = {strategy::RepeatMode::UntilScopedFixpoint, 0};
+  return result;
+}
+
 bool DefaultStrategyConfig::valid(std::string *error) const {
   const auto reject = [error](const char *message) {
     if (error)
@@ -362,6 +496,46 @@ bool DefaultStrategyConfig::valid(std::string *error) const {
   if (!strategy::validate_inprocess_program(ip.program, error))
     return false;
   for (const strategy::InprocessStep &step : ip.program)
+    if (step.rule == "SubstitutionRedundancy")
+      return reject("slot program duplicates structured root SR ownership");
+  for (const auto &stage : ip.structured_root_stages) {
+    if (stage.on_budget_exhaustion != strategy::BudgetExhaustionPolicy::Stop &&
+        stage.on_budget_exhaustion != strategy::BudgetExhaustionPolicy::Continue &&
+        stage.on_budget_exhaustion != strategy::BudgetExhaustionPolicy::FinishRoundThenStop)
+      return reject("structured root budget disposition is invalid");
+    if (!strategy::validate_online_strategy_program(stage.program, error))
+      return false;
+    for (size_t i = 0; i < stage.progress_followups.size(); ++i) {
+      const auto id = stage.progress_followups[i];
+      if (std::none_of(stage.program.sequence.begin(), stage.program.sequence.end(),
+              [id](const auto &step) { return step.id == id; }) ||
+          std::find(stage.progress_followups.begin(), stage.progress_followups.begin() + i,
+                    id) != stage.progress_followups.begin() + i)
+        return reject("progress followup must name a unique existing step");
+    }
+    for (size_t i = 0; i < stage.before_progress.size(); ++i) {
+      const auto id = stage.before_progress[i];
+      if (std::none_of(stage.program.sequence.begin(), stage.program.sequence.end(),
+              [id](const auto &step) { return step.id == id; }) ||
+          std::find(stage.before_progress.begin(), stage.before_progress.begin() + i,
+                    id) != stage.before_progress.begin() + i ||
+          std::find(stage.progress_followups.begin(), stage.progress_followups.end(),
+                    id) != stage.progress_followups.end())
+        return reject("before-progress step must name a unique existing non-followup");
+    }
+    // This scheduler owns a quiescent-root preprocessing scope. All declared
+    // inprocessing actions, Reduce, Propagate and Lucky fit that boundary
+    // (Lucky may terminate with a model); other search
+    // transitions remain freely composable through the general online API.
+    for (const auto &step : stage.program.sequence) {
+      const int id = tactix_rule_id(step.rule.c_str());
+      if (id < 0 || (tactix_rules()[id].tier != RuleTier::Inprocess &&
+                    step.rule != "Reduce" && step.rule != "Propagate" &&
+                    step.rule != "Lucky"))
+        return reject("structured root action does not preserve its root scope");
+    }
+  }
+  for (const strategy::InprocessStep &step : ip.program)
     if (step.effort_permille && *step.effort_permille > PERMILLE_SCALE)
       return reject("inprocess step effort exceeds 1000 permille");
   if (error)
@@ -440,6 +614,7 @@ std::string DefaultStrategyConfig::serialize() const {
       << " reduction.protect_tiers=" << reduction.protect_tiers
       << " reduction.canonical_compact_collection="
       << reduction.canonical_compact_collection
+      << " reduction.bookkeeping=" << reduction.bookkeeping
       << " reduction.square_root_cadence="
       << reduction.square_root_cadence
       << " reduction.ramp_fraction=" << reduction.ramp_fraction
@@ -546,6 +721,8 @@ std::string DefaultStrategyConfig::serialize() const {
       << inprocess.congruence_parameters.gate_count_limit
       << " inprocess.congruence_xor_arity_limit="
       << inprocess.congruence_parameters.xor_arity_limit
+      << " inprocess.congruence_binary_watch_order="
+      << static_cast<unsigned>(inprocess.congruence_parameters.binary_watch_order)
       << " inprocess.instantiate_minimum_clause_size="
       << inprocess.instantiate_parameters.minimum_clause_size
       << " inprocess.instantiate_occurrence_limit="
@@ -592,7 +769,34 @@ std::string DefaultStrategyConfig::serialize() const {
       << inprocess.substitute_parameters.demote_substituted
       << " inprocess.touch_filter=" << inprocess.touch_filter
       << " inprocess.likely_kept_redundant="
-      << inprocess.likely_kept_redundant;
+      << inprocess.likely_kept_redundant
+      << " inprocess.structured_root_before_lucky="
+      << inprocess.structured_root_before_lucky
+      << " inprocess.structured_root_sr_discovery_unlimited="
+      << inprocess.structured_root_sr_discovery_budget.is_unlimited()
+      << " inprocess.structured_root_sr_discovery_ticks="
+      << (inprocess.structured_root_sr_discovery_budget.is_unlimited()
+              ? 0
+              : inprocess.structured_root_sr_discovery_budget.amount())
+      << " inprocess.structured_root_bce_after_unique_literal_amo="
+      << inprocess.structured_root_bce_after_unique_literal_amo
+;
+  for (size_t i = 0; i < inprocess.structured_root_stages.size(); ++i) {
+    const auto &stage = inprocess.structured_root_stages[i];
+    out << " inprocess.structured_root_stage" << i << "={"
+        << static_cast<unsigned>(stage.on_budget_exhaustion) << ':'
+        << strategy::serialize_online_strategy_program(stage.program) << '}';
+    if (!stage.progress_followups.empty()) {
+      out << " inprocess.structured_root_stage" << i << ".progress_followups=";
+      for (size_t j = 0; j < stage.progress_followups.size(); ++j)
+        out << (j ? "," : "") << stage.progress_followups[j];
+    }
+    if (!stage.before_progress.empty()) {
+      out << " inprocess.structured_root_stage" << i << ".before_progress=";
+      for (size_t j = 0; j < stage.before_progress.size(); ++j)
+        out << (j ? "," : "") << stage.before_progress[j];
+    }
+  }
   for (size_t i = 0; i < inprocess.bve_bounds.size(); ++i)
     out << " inprocess.bve_bound" << i << '=' << inprocess.bve_bounds[i];
   out << " inprocess.bve_default_ceiling=" << inprocess.bve_default_ceiling
@@ -723,8 +927,8 @@ std::string DefaultStrategyConfig::serialize() const {
           << p->xor_arity_limit << ',' << p->resolvent_size_limit << ','
           << p->backward_occurrence_limit << ',' << p->definition_budget << ','
           << p->definition_cores << ','
-          << p->definition_core_budget_multiplier << ',' << p->backward
-          << ')';
+          << p->definition_core_budget_multiplier << ',' << p->backward << ','
+          << static_cast<unsigned>(p->candidate_scope) << ')';
     } else if (const auto *p =
                    std::get_if<strategy::SubsumeForwardParameters>(
                        &step.parameters)) {
@@ -740,7 +944,8 @@ std::string DefaultStrategyConfig::serialize() const {
                    std::get_if<strategy::CongruenceParameters>(
                        &step.parameters)) {
       out << ":congruence(" << p->and_arity_limit << ','
-          << p->gate_count_limit << ',' << p->xor_arity_limit << ')';
+          << p->gate_count_limit << ',' << p->xor_arity_limit << ','
+          << static_cast<unsigned>(p->binary_watch_order) << ')';
     } else if (const auto *p =
                    std::get_if<strategy::InstantiateParameters>(
                        &step.parameters)) {
@@ -2587,6 +2792,8 @@ void DefaultInprocessScheduler::reset(const Kernel &) {
   factor_marked_watermark_ = 0;
   bve_level_ = 0;
   bve_level_idx_ = 0;
+  structured_root_consumed_ = false;
+  structured_root = {};
   default_candidate_order_.reset(config().candidate_order_seed);
   for (SlotEntry &e : entries) {
     e.limit = 0;
@@ -2728,7 +2935,8 @@ void DefaultInprocessScheduler::build(Kernel &k) {
     }
     if (config().append_unlisted_rules)
       for (int i = 0; i < static_cast<int>(rules.size()); i++)
-        if (rules[i].tier == RuleTier::Inprocess && !placed[i])
+        if (rules[i].tier == RuleTier::Inprocess && !placed[i] &&
+            std::strcmp(rules[i].name, "SubstitutionRedundancy"))
           add_entry(i);
     default_candidate_order_.arms.assign(rules.size(),
                                          CandidateOrder::Native);
@@ -2875,6 +3083,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   k.reduce_protect_tiers = config_.reduction.protect_tiers;
   k.reduce_compact_collection =
       config_.reduction.canonical_compact_collection;
+  k.reduce_bookkeeping = config_.reduction.bookkeeping;
   k.walk_even_break_base_milli =
       config_.rephase.walk_even_break_base_milli;
   k.walk_score_curve = config_.rephase.walk_score_curve;
@@ -2923,6 +3132,40 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   ApplyResult startup = default_propagate(k, "startup");
   if (startup != ApplyResult::Ok)
     return finish(20); // startup is at root: a conflict is a refutation
+  // Symmetry detection may depend on adjacency insertion order. Schedule the
+  // shared structured program on the imported root before speculative Lucky
+  // propagation can rearrange watches. The reference Probe-entry order remains
+  // an explicit strategy choice; empty/compatibility programs retain the cold
+  // Lucky fast path.
+  if (config_.inprocess.structured_root_before_lucky &&
+      !config_.inprocess.structured_root_stages.empty() &&
+      (!k.proof || k.proof->dsr())) {
+    kernel_materialize_cold_state(k);
+    const uint64_t amo_binaries_before =
+        k.stats.sr_unique_literal_amo_binaries;
+    const uint64_t structured_started = now_nanos();
+    const int structured_result = inprocess_.run_structured_root(k, stop);
+    k.stats.inprocess_nanos += now_nanos() - structured_started;
+    if (structured_result == 10 || structured_result == 20)
+      return finish(structured_result);
+    if ((stop && *stop) || (k.stop && *k.stop))
+      return finish(0);
+    if (config_.inprocess.structured_root_bce_after_unique_literal_amo &&
+        k.stats.sr_unique_literal_amo_binaries != amo_binaries_before) {
+      if (inprocess_reach_root(k))
+        return finish(20);
+      if (bce_guard(k)) {
+        InprocessScope scope(k);
+        const ApplyResult bce = default_direct_rule(
+            k, "BCE", "post-structured-amo",
+            [&] { return bce_apply(k); });
+        if (bce == ApplyResult::Unsat)
+          return finish(20);
+      }
+      if ((stop && *stop) || (k.stop && *k.stop))
+        return finish(0);
+    }
+  }
   if (lucky_guard(k)) {
     event_trace.macro(k, "lucky_early_begin");
     k.stats.lucky_early_calls++;
@@ -3003,9 +3246,10 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           event_trace_sweep_watch(k, v, ordinal++, w.other());
   }
 #endif
-  if (inprocess_.want_phase(k, SlotGroup::Probe) &&
-      inprocess_.run_phase(k, SlotGroup::Probe, stop) == 20)
-    return finish(20);
+  if (inprocess_.want_phase(k, SlotGroup::Probe)) {
+    const int phase_result = inprocess_.run_phase(k, SlotGroup::Probe, stop);
+    if (phase_result == 10 || phase_result == 20) return finish(phase_result);
+  }
   event_trace.macro(k, "preprocess_end");
   startup = default_propagate(k, "post-preprocess");
   if (startup != ApplyResult::Ok)
@@ -3359,16 +3603,16 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     }
     if (inprocess_.want_phase(k, SlotGroup::Probe)) {
       event_trace.macro(k, "probe_begin");
-      if (inprocess_.run_phase(k, SlotGroup::Probe, stop) == 20)
-        return finish(20);
+      const int phase_result = inprocess_.run_phase(k, SlotGroup::Probe, stop);
+      if (phase_result == 10 || phase_result == 20) return finish(phase_result);
       update_formula_classification(k);
       event_trace.macro(k, "probe_end");
       continue;
     }
     if (inprocess_.want_phase(k, SlotGroup::Eliminate)) {
       event_trace.macro(k, "eliminate_begin");
-      if (inprocess_.run_phase(k, SlotGroup::Eliminate, stop) == 20)
-        return finish(20);
+      const int phase_result = inprocess_.run_phase(k, SlotGroup::Eliminate, stop);
+      if (phase_result == 10 || phase_result == 20) return finish(phase_result);
       update_formula_classification(k);
       event_trace.macro(k, "eliminate_end");
       continue;
@@ -4086,14 +4330,6 @@ DefaultInprocessScheduler::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVT
         k.stats.rule_nanos[r.id] += now_nanos() - t0;
         k.stats.rule_calls[r.id]++;
       }
-    } else if (!std::strcmp(r.name, "SubstitutionRedundancy")) {
-      const auto *parameters =
-          std::get_if<SubstitutionRedundancyParameters>(&e.parameters);
-      assert(parameters);
-      ar = apply_rule_structured(r, k, "orbitopal-producer", [&] {
-        return substitution_redundancy_apply_orbitopal(k, *parameters,
-                                                       k.stop);
-      });
     } else {
       ar = metered_rule_apply(k, journal_effort_meter(e, r),
                               [&] { return apply_rule(r, k); });
@@ -4171,6 +4407,99 @@ DefaultInprocessScheduler::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVT
     return SlotStep::Stop;
   }
   return SlotStep::Next;
+}
+
+int DefaultInprocessScheduler::run_structured_root(
+    Kernel &k, volatile sig_atomic_t *stop) {
+  using strategy::InvocationStatus;
+  if (structured_root_consumed_ || k.stats.conflicts)
+    return 0;
+  structured_root_consumed_ = true;
+  ++structured_root.runs;
+  const auto &stages = config().structured_root_stages;
+  if (stages.empty())
+    return 0;
+  if (k.proof && !k.proof->dsr()) {
+    ++structured_root.proof_format_declines;
+    structured_root.terminal = InvocationStatus::Inapplicable;
+    return 0;
+  }
+  InprocessScope scope(k);
+  strategy::Allowance sr_discovery_allowance(
+      strategy::WorkUnit::SrDiscoveryTicks,
+      config().structured_root_sr_discovery_budget);
+  structured_root.stages.resize(stages.size());
+  for (size_t index = 0; index < stages.size(); ++index) {
+    const auto &stage = stages[index];
+    auto &telem = structured_root.stages[index];
+    ++telem.runs;
+    strategy::OnlineStrategySequence executor;
+    std::string error;
+    if (!executor.configure(stage, 1,
+                            strategy::ReconfigureMode::ResetRuntime, &error)) {
+      telem.terminal = structured_root.terminal = InvocationStatus::InvalidRequest;
+      return 0;
+    }
+    const uint64_t started = now_nanos();
+    const auto finish = [&] {
+      telem.sequence_passes = executor.rounds();
+      telem.nanos += now_nanos() - started;
+      structured_root.sequence_passes += telem.sequence_passes;
+      structured_root.nanos += telem.nanos;
+    };
+    while (!executor.complete()) {
+      // Rule-local probing and BVE snapshots must end with each application;
+      // collection may relocate clauses at the following atomic boundary.
+      assert(k.level == 0 && !k.probing.recording && !k.bve_occurrence_count_image);
+      const auto advanced =
+          executor.advance(k, stop, &sr_discovery_allowance);
+      structured_root.sr_discovery_ticks = sr_discovery_allowance.consumed();
+      structured_root.sr_discovery_overflow =
+          sr_discovery_allowance.accounting_overflow();
+      ++telem.advances;
+      ++structured_root.advances;
+      telem.applications += advanced.applications;
+      structured_root.applications += advanced.applications;
+      telem.effective += advanced.made_rule_progress;
+      structured_root.effective += advanced.made_rule_progress;
+      telem.terminal = structured_root.terminal = advanced.status;
+      switch (advanced.status) {
+      case InvocationStatus::Completed:
+      case InvocationStatus::NoChange:
+      case InvocationStatus::ScopedFixpoint:
+        continue;
+      case InvocationStatus::Sat:
+        finish();
+        return 10;
+      case InvocationStatus::Unsat:
+        finish();
+        return 20;
+      case InvocationStatus::BudgetExhausted:
+        if (stage.on_budget_exhaustion == strategy::BudgetExhaustionPolicy::Continue ||
+            (stage.on_budget_exhaustion == strategy::BudgetExhaustionPolicy::FinishRoundThenStop &&
+             !executor.complete()))
+          continue;
+        finish();
+        return 0;
+      case InvocationStatus::Interrupted:
+      case InvocationStatus::ResourceExhausted:
+      case InvocationStatus::Inapplicable:
+      case InvocationStatus::InvalidRequest:
+      case InvocationStatus::StaleRequest:
+      case InvocationStatus::AccountingError:
+        // Preserve the visible status and every committed atomic transition.
+        // No stale payload is retried or silently advanced by the scheduler.
+        finish();
+        return 0;
+      case InvocationStatus::Conflict:
+        std::fprintf(stderr, "c ERROR: root preprocessing returned status %u\n",
+                     static_cast<unsigned>(advanced.status));
+        std::abort();
+      }
+    }
+    finish();
+  }
+  return k.inconsistent ? 20 : 0;
 }
 
 int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
@@ -4277,12 +4606,27 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   // Eliminate otherwise publishes and scans a second, obsolete large image.
   if (group == SlotGroup::Eliminate)
     kernel_flush_large_watches(k);
-  kernel_dense_connect(k, occurrence_index_, group == SlotGroup::Eliminate);
   default_factor_match_.bound = std::max(k.factor_bound, factor_bound_snapshot_); // see DefaultFactorMatch
   k.factor_selection = factor_match ? factor_match : &default_factor_match_;
   if (factor_match)
     factor_match->set_bound(factor_bound_snapshot_);
+  // Structured startup owns rule-local occurrence scopes. Construct the
+  // ordinary Probe index only after it finishes, so every SR insertion and
+  // collection does not maintain an index that no startup consumer needs.
+  const int structured_result = group == SlotGroup::Probe
+                                    ? run_structured_root(k, stop) : 0;
+  if (structured_result == 10) {
+    // No pipeline occurrence image has been attached yet. Preserve the
+    // terminal model and release only the phase-owned guidance handoff.
+    k.factor_selection = nullptr;
+    k.stats.inprocess_propagations += k.stats.propagations - phase_props_at_entry;
+    k.stats.inprocess_nanos += now_nanos() - phase_nanos_at_entry;
+    return 10;
+  }
+  const bool structured_unsat = structured_result == 20;
+  kernel_dense_connect(k, occurrence_index_, group == SlotGroup::Eliminate);
   SlotPhaseCtx ctx{group, stop};
+  ctx.phase_unsat = structured_unsat;
   const std::vector<RuleVTable> &rules = tactix_rules();
   uint64_t active_before = active_variables(k);
   size_t sweep_retired_begin = SIZE_MAX;
@@ -4633,6 +4977,32 @@ void DefaultInprocessScheduler::set_entry_limit(SlotEntry &e, Kernel &k) {
 }
 
 void DefaultInprocessScheduler::report(const Kernel &k) const {
+  std::printf("c structured-root runs %llu advances %llu applications %llu "
+              "effective %llu passes %llu seconds %.6f terminal %u "
+              "proof-format-declines %llu sr-discovery-ticks %llu "
+              "sr-discovery-overflow %u\n",
+              (unsigned long long)structured_root.runs,
+              (unsigned long long)structured_root.advances,
+              (unsigned long long)structured_root.applications,
+              (unsigned long long)structured_root.effective,
+              (unsigned long long)structured_root.sequence_passes,
+              structured_root.nanos / 1e9,
+              static_cast<unsigned>(structured_root.terminal),
+              (unsigned long long)structured_root.proof_format_declines,
+              (unsigned long long)structured_root.sr_discovery_ticks,
+              static_cast<unsigned>(structured_root.sr_discovery_overflow));
+  for (size_t i = 0; i < structured_root.stages.size(); ++i) {
+    const auto &stage = structured_root.stages[i];
+    std::printf("c structured-stage %zu runs %llu advances %llu applications %llu "
+                "effective %llu passes %llu seconds %.6f terminal %u\n", i,
+                (unsigned long long)stage.runs,
+                (unsigned long long)stage.advances,
+                (unsigned long long)stage.applications,
+                (unsigned long long)stage.effective,
+                (unsigned long long)stage.sequence_passes, stage.nanos / 1e9,
+                static_cast<unsigned>(stage.terminal));
+  }
+
   std::printf("c meters      probe %llu backbone %llu vivify %llu "
               "instantiate %llu | global ticks %llu\n",
               (unsigned long long)k.stats.probe_ticks,

@@ -13,6 +13,72 @@
 
 namespace tactix {
 
+DsrWitnessPlan plan_dsr_witness(const Lit *lits, uint32_t size,
+                                const Lit *true_lits, uint32_t ntrue,
+                                const DsrLiteralMapping *mappings,
+                                uint32_t nmappings) {
+  DsrWitnessPlan plan;
+  if (!size)
+    return plan;
+  const Var pivot_var = var_of(lits[0]);
+  const DsrLiteralMapping *pivot_mapping = nullptr;
+  for (uint32_t i = 0; i < nmappings && !pivot_mapping; ++i)
+    if (var_of(mappings[i].from) == pivot_var)
+      pivot_mapping = &mappings[i];
+  if (!pivot_mapping)
+    return plan;
+
+  enum class Image : uint8_t { True, False, Open };
+  const auto in_clause = [&](Lit lit) {
+    for (uint32_t i = 0; i < size; ++i)
+      if (lits[i] == lit)
+        return true;
+    return false;
+  };
+  const auto image_of = [&](uint32_t at, Lit &image) {
+    const Lit lit = lits[at];
+    for (uint32_t i = 0; i < nmappings; ++i)
+      if (var_of(mappings[i].from) == var_of(lit)) {
+        image = negated(lit) ? negate(mappings[i].to) : mappings[i].to;
+        return in_clause(negate(image)) ? Image::True
+               : in_clause(image)       ? Image::False
+                                        : Image::Open;
+      }
+    for (uint32_t i = 0; i < ntrue; ++i)
+      if (var_of(true_lits[i]) == var_of(lit))
+        return true_lits[i] == lit ? Image::True : Image::False;
+    return Image::False; // an identity image of a clause literal
+  };
+
+  uint32_t open = 0;
+  for (uint32_t at = 0; at < size; ++at) {
+    Lit image = INVALID_LIT;
+    switch (image_of(at, image)) {
+    case Image::True:
+      plan.form = DsrWitnessForm::Repivot;
+      plan.pivot = at;
+      plan.lemma = INVALID_LIT;
+      return plan;
+    case Image::Open:
+      if (!open++) {
+        plan.pivot = at;
+        plan.lemma = image;
+      }
+      break;
+    case Image::False:
+      break;
+    }
+  }
+  plan.form = !open        ? DsrWitnessForm::Rup
+              : open == 1 ? DsrWitnessForm::Lemma
+                          : DsrWitnessForm::Extension;
+  if (plan.form != DsrWitnessForm::Lemma) {
+    plan.pivot = 0;
+    plan.lemma = INVALID_LIT;
+  }
+  return plan;
+}
+
 Proof::~Proof() {
   if (file_) {
     flush_binary();
@@ -53,6 +119,10 @@ void Proof::put_lit(Lit l) {
     assert(var_of(l) < variable_map_->size());
     l = make_lit((*variable_map_)[var_of(l)], negated(l));
   }
+  put_external_lit(l);
+}
+
+void Proof::put_external_lit(Lit l) {
   const int e = externalize(l);
   if (binary()) {
     uint32_t u = (static_cast<uint32_t>(e < 0 ? -e : e) << 1) | (e < 0);
@@ -176,7 +246,8 @@ void Proof::add_rat(uint64_t id, const Lit *lits, uint32_t size,
 
 bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
                    const Lit *true_lits, uint32_t ntrue,
-                   const DsrLiteralMapping *mappings, uint32_t nmappings) {
+                   const DsrLiteralMapping *mappings, uint32_t nmappings,
+                   uint32_t external_variables) {
 #ifndef TACTIX_ENABLE_PROOF_SHADOW
   (void)id;
 #endif
@@ -185,9 +256,9 @@ bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
   assert(!tautological(lits, size));
   assert(!ntrue || true_lits);
   assert(!nmappings || mappings);
-  const Lit pivot = lits[0];
 
 #ifndef NDEBUG
+  const Lit pivot = lits[0];
   for (uint32_t i = 0; i < ntrue; ++i) {
     assert(var_of(true_lits[i]) != var_of(pivot));
     for (uint32_t j = 0; j < i; ++j)
@@ -210,22 +281,106 @@ bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
   if (!dsr())
     return false;
 
-  if (format_ == ProofFormat::DsrBinary)
-    put_byte(1);
-  for (uint32_t i = 0; i < size; ++i)
-    put_lit(lits[i]);
+  const DsrWitnessPlan plan =
+      plan_dsr_witness(lits, size, true_lits, ntrue, mappings, nmappings);
+  if (plan.form == DsrWitnessForm::Extension) {
+    if (external_variables >= static_cast<uint32_t>(INT32_MAX))
+      return false;
+    const Lit auxiliary = make_lit(external_variables, false);
+    const auto temporary = [&](bool deletion, bool negative) {
+      if (format_ == ProofFormat::DsrBinary)
+        put_byte(deletion ? 2 : 1);
+      else if (deletion)
+        fputs("d ", file_);
+      put_external_lit(negative ? negate(auxiliary) : auxiliary);
+      for (uint32_t i = 0; i < size; ++i)
+        put_lit(lits[i]);
+    };
+    // The first clause is RAT on a fresh variable. Under the negation of
+    // the second clause, the original X7 obligations hold; the first clause's
+    // image is exactly the already-validated candidate image C|sigma.
+    temporary(false, true);
+    end_line();
+    temporary(false, false);
+    put_external_lit(auxiliary);
+    for (uint32_t i = 0; i < ntrue; ++i)
+      put_lit(true_lits[i]);
+    if (nmappings) {
+      put_external_lit(auxiliary);
+      for (uint32_t i = 0; i < nmappings; ++i) {
+        put_lit(mappings[i].from);
+        put_lit(mappings[i].to);
+      }
+    }
+    end_line();
+    if (format_ == ProofFormat::DsrBinary)
+      put_byte(1);
+    for (uint32_t i = 0; i < size; ++i)
+      put_lit(lits[i]);
+    end_line();
+    // These are nonunit clauses, so the checkers honour both deletions.
+    // No live clause retains the auxiliary identity after this transaction.
+    temporary(true, false);
+    end_line();
+    temporary(true, true);
+    end_line();
+#ifdef TACTIX_ENABLE_PROOF_SHADOW
+    population_add(id, lits, size);
+#endif
+    return true;
+  }
+  const Lit emitted_pivot = lits[plan.pivot];
+  const auto put_addition = [&](bool lemma) {
+    if (format_ == ProofFormat::DsrBinary)
+      put_byte(1);
+    put_lit(emitted_pivot);
+    for (uint32_t i = 0; i < size; ++i)
+      if (i != plan.pivot)
+        put_lit(lits[i]);
+    if (lemma)
+      put_lit(plan.lemma);
+  };
+  const auto put_lemma_deletion = [&] {
+    if (format_ == ProofFormat::DsrBinary)
+      put_byte(2);
+    else
+      fputs("d ", file_);
+    put_lit(emitted_pivot);
+    for (uint32_t i = 0; i < size; ++i)
+      if (i != plan.pivot)
+        put_lit(lits[i]);
+    put_lit(plan.lemma);
+    end_line();
+  };
 
-  put_lit(pivot); // begin witness; the pivot is initially mapped true
-  for (uint32_t i = 0; i < ntrue; ++i)
-    put_lit(true_lits[i]);
-  if (nmappings) {
-    put_lit(pivot); // separate true literals from literal mappings
-    for (uint32_t i = 0; i < nmappings; ++i) {
-      put_lit(mappings[i].from);
-      put_lit(mappings[i].to);
+  if (plan.form == DsrWitnessForm::Lemma) {
+    put_addition(true);
+    end_line();
+  }
+  put_addition(false);
+  if (plan.form != DsrWitnessForm::Rup) {
+    const Var dropped = plan.form == DsrWitnessForm::Direct
+                            ? INVALID_VAR
+                            : var_of(emitted_pivot);
+    uint32_t kept_mappings = 0;
+    for (uint32_t i = 0; i < nmappings; ++i)
+      kept_mappings += var_of(mappings[i].from) != dropped;
+    put_lit(emitted_pivot); // begin witness; the pivot is mapped true
+    for (uint32_t i = 0; i < ntrue; ++i)
+      if (var_of(true_lits[i]) != dropped)
+        put_lit(true_lits[i]);
+    if (kept_mappings) {
+      put_lit(emitted_pivot); // separate true literals from literal mappings
+      for (uint32_t i = 0; i < nmappings; ++i)
+        if (var_of(mappings[i].from) != dropped) {
+          put_lit(mappings[i].from);
+          put_lit(mappings[i].to);
+        }
     }
   }
   end_line();
+  if (plan.form == DsrWitnessForm::Lemma)
+    put_lemma_deletion();
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
   population_add(id, lits, size);
 #endif
@@ -326,14 +481,14 @@ bool Proof::population_contains(uint64_t id, const Lit *lits,
 }
 
 void Proof::population_del(uint64_t id, const Lit *lits, uint32_t size) {
-  if (!armed_)
-    return;
   const auto found = population_.find(population_key(id, lits, size));
   if (found != population_.end() && found->second) {
     if (!--found->second)
       population_.erase(found);
     return;
   }
+  if (!armed_)
+    return; // unknown pre-seeding deltas remain outside the strict oracle
   unbacked_deletions_++;
   fprintf(stderr, "PROOF SHADOW: unbacked deletion #%" PRIu64 " of [%" PRIu64
                   "]",

@@ -1,0 +1,9 @@
+{
+  "origin": "Claude SR108 checkpoint, job1695575; minimized1695625",
+  "failure_class": "crash",
+  "cause": "Structured clause-set automorphism rejected by physical-multiset hint validator",
+  "min_verdict": "SAT",
+  "case_verdict": "UNSAT",
+  "required_profile": "CombinedSR diagnostic and current production native DSR",
+  "repair": "Exact signed-bijection clause-set validation; physical proof populations unchanged"
+}

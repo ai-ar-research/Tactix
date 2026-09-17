@@ -9,11 +9,13 @@ Harness commands, seed counts, timeouts, and tool paths live in
 `tools/fuzz/README.md` and the harness itself. This skill defines coverage and
 acceptance.
 
-Follow the direct fuzzing ownership in `DEVELOPMENT_PLAN.md` §8.2: Codex can
-prepare, submit, monitor, inspect, interpret, and clean up fuzz campaigns without
-invoking Claude Code. Keep campaigns in the background while independent work
-proceeds; inspect real outcomes at checkpoints and pause dependent work on a
-correctness failure. Delegation to Claude Code requires an explicit user request.
+Follow the Claude-owned fuzzing contract in `DEVELOPMENT_PLAN.md` §8.2 and
+`CLAUDE.md`. Codex supplies the immutable solver snapshot, scope, resources and
+acceptance criteria; Claude owns preparation through the terminal report. Codex
+may monitor job status but does not inspect the campaign or reinterpret the
+owner report. Keep campaigns in the background while independent work proceeds.
+A failure hands Codex one bounded reproducer, command and failure class for
+direct debugging; pending fuzz never authorizes promotion.
 
 ## Choose legs by risk
 

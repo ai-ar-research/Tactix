@@ -422,6 +422,10 @@ struct Stats {
   uint64_t solve_nanos = 0;     // wall time of solve(), set by the frontend
   uint64_t sr_applications = 0;
   uint64_t sr_applied = 0;
+  // Generated unique-literal AMO certificates which committed a binary.
+  // This provenance is a monotonic scheduling signal; ordinary SR binaries
+  // and caller-authored payloads do not contribute.
+  uint64_t sr_unique_literal_amo_binaries = 0;
   uint64_t sr_validation_ticks = 0;
   uint64_t sr_witness_literals = 0;
   uint64_t switched = 0; // mode switches (S4)
@@ -440,6 +444,11 @@ struct Stats {
   uint64_t parity_model_candidates = 0;
   uint64_t parity_model_sat = 0;
   uint64_t parity_model_interrupted = 0;
+  uint64_t affine_model_calls = 0, affine_model_equations = 0;
+  uint64_t affine_model_projection = 0, affine_model_entries = 0;
+  uint64_t affine_model_candidates = 0, affine_model_sat = 0;
+  uint64_t affine_model_work = 0, affine_model_interrupted = 0;
+  uint64_t affine_model_budget = 0, affine_model_unavailable = 0;
   uint64_t onehot_model_calls = 0;
   uint64_t onehot_model_domains = 0;
   uint64_t onehot_model_equations = 0;
@@ -1291,6 +1300,7 @@ struct Kernel {
       strategy::ParityModelParameters::MAXIMUM_FREE_VARIABLES_DEFAULT;
   uint64_t parity_model_candidate_budget =
       strategy::ParityModelParameters::CANDIDATE_BUDGET_DEFAULT;
+  strategy::AffineModelParameters affine_model_parameters;
   uint32_t onehot_model_maximum_variables =
       strategy::OnehotModelParameters::MAXIMUM_VARIABLES_DEFAULT;
   uint32_t onehot_model_maximum_domains =
@@ -1318,6 +1328,7 @@ struct Kernel {
       strategy::ReduceParameters::VICTIM_DENOMINATOR_DEFAULT;
   bool reduce_protect_tiers = true;
   bool reduce_compact_collection = false;
+  bool reduce_bookkeeping = true;
   bool shrink_glue_promote = true;
   bool tumble = true;
 
@@ -1684,8 +1695,9 @@ void kernel_publish_binary_clause(Kernel &, Lit a, Lit b, uint64_t id,
                                   bool new_pair);
 bool kernel_delete_binary(Kernel &, Lit a, Lit b);
 // Remove exactly one physical copy. If another identical copy survives, its
-// proof clause remains a valid reason and the optional proof deletion is
-// omitted; the final copy delegates to the ordinary named-pair deletion.
+// proof clause remains a valid reason. Native DSR deletes one literal-named
+// copy; DRAT/LRAT omit this optional deletion to preserve the retained LRAT id.
+// The final copy delegates to the ordinary named-pair deletion.
 bool kernel_delete_binary_one_copy(Kernel &, Lit a, Lit b);
 // Dense BVE is already compacting `pivot`'s connected stack while it removes
 // this satisfied occurrence.  Kissat updates/reinserts only the partner's

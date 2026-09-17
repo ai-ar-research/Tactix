@@ -79,6 +79,7 @@ static void test_order(bool budgeted, bool preprocessing, uint32_t rounds) {
   assert(expected.h->scores.stack == std::vector<Var>({10, 1, 14, 13, 12, 5, 6, 15, 11}));
 
   DefaultStrategyConfig cfg;
+  cfg.inprocess.structured_root_stages.clear(); // compare only Substitute
   cfg.inprocess.phase_rounds = 1;
   cfg.inprocess.substitute_rounds = rounds;
   DefaultPolicy policy(cfg);

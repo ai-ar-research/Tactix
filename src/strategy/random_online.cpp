@@ -1,6 +1,7 @@
 #include "strategy/random_online.hpp"
 
 #include <algorithm>
+#include <climits>
 #include <charconv>
 #include <limits>
 #include <numeric>
@@ -57,7 +58,7 @@ uint64_t optional_positive(uint64_t &state, uint64_t maximum) {
   return 1 + bounded(state, maximum);
 }
 
-ActionParameters random_parameters(uint64_t &state, const std::string &rule,
+ActionParameters random_parameters(const Kernel &k, uint64_t &state, const std::string &rule,
                                    const RandomOnlineConfig &config) {
   if (rule == "ConflictAnalysis") {
     AnalyzeParameters p = config.analyze_reference;
@@ -101,6 +102,7 @@ ActionParameters random_parameters(uint64_t &state, const std::string &rule,
     p.definition_core_budget_multiplier = inclusive_u32(
         state, config.maximum_bve_definition_core_budget_multiplier);
     p.backward = bounded(state, OPTIONAL_CHOICES) != 0;
+    p.candidate_scope = static_cast<BveCandidateScope>(bounded(state, 2));
     return p;
   }
   if (rule == "SubsumeForward")
@@ -214,6 +216,7 @@ ActionParameters random_parameters(uint64_t &state, const std::string &rule,
     p.victim_numerator = inclusive_u32(state, p.victim_denominator);
     p.protect_tiers = bounded(state, OPTIONAL_CHOICES) != 0;
     p.compact_collection = bounded(state, OPTIONAL_CHOICES) != 0;
+    p.reduction_bookkeeping = bounded(state, OPTIONAL_CHOICES) != 0;
     return p;
   }
   if (rule == "Walk") {
@@ -243,6 +246,61 @@ ActionParameters random_parameters(uint64_t &state, const std::string &rule,
     return p;
   }
   if (rule == "Lucky") {
+    if (bounded(state, 3) == 2) {
+      AffineModelParameters p = config.affine_model_reference;
+      const bool joint = bounded(state,config.affine_joint_positive_denominator) <
+                         config.affine_joint_positive_numerator;
+      const auto sample = [&](uint64_t maximum) {
+        return joint && maximum ? 1+bounded(state,maximum)
+                                : optional_positive(state,maximum);
+      };
+      p.seed = draw(state);
+      p.maximum_variables = sample(p.maximum_variables);
+      p.maximum_constraints = sample(p.maximum_constraints);
+      p.maximum_arity = sample(p.maximum_arity);
+      p.maximum_projection = sample(p.maximum_projection);
+      p.minimum_equations = choice_limit(state,p.minimum_equations);
+      p.maximum_entries = sample(p.maximum_entries);
+      p.import_bytes = sample(p.import_bytes);
+      p.linear_bytes = sample(p.linear_bytes);
+      p.table_bytes = sample(p.table_bytes);
+      p.maximum_work = sample(
+          std::min(p.maximum_work,config.maximum_rule_work_budget));
+      p.candidate_budget = sample(p.candidate_budget);
+      p.permutations = sample(p.permutations);
+      p.automatic_negated = bounded(state,2);
+      p.shuffle_first = bounded(state,2);
+      p.free_phase = bounded(state,2);
+      p.residual_phase = bounded(state,2);
+      p.projection_mode = static_cast<AffineProjectionMode>(bounded(state,3));
+      p.projection.clear();
+      if (p.projection_mode == AffineProjectionMode::Explicit) {
+        std::vector<int> coordinates;
+        for (Var v=0;v<k.nvars;++v)
+          if (!kernel_var_retired(k,v))
+            coordinates.push_back(kernel_externalize(k,make_lit(v,false)));
+        const size_t count = bounded(state,1+std::min<size_t>(
+            coordinates.size(),config.maximum_affine_projection_coordinates));
+        for(size_t i=0;i<count;++i) {
+          const size_t selected=i+bounded(state,coordinates.size()-i);
+          std::swap(coordinates[i],coordinates[selected]);
+          p.projection.push_back(bounded(state,2)?coordinates[i]:-coordinates[i]);
+        }
+      }
+      // Retaining the reference scopes sometimes gives jointly productive
+      // settings; the other branch explores arbitrary noncanonical scopes.
+      if (bounded(state,2)) {
+        p.scopes.clear();
+        const size_t count=bounded(state,uint64_t(config.maximum_affine_scopes)+1);
+        for(size_t i=0;i<count;++i)
+          p.scopes.push_back({bounded(state,2)?AffineSearchScope::AUTO_SPLIT:
+                                 bounded(state,uint64_t(k.nvars)+1),
+              inclusive_u32(state,config.maximum_affine_weight),
+              inclusive_u32(state,config.maximum_affine_weight),
+              inclusive_u32(state,config.maximum_affine_weight)});
+      }
+      return p;
+    }
     if (bounded(state, 2)) {
       OnehotModelParameters p = config.onehot_model_reference;
       p.maximum_variables =
@@ -283,9 +341,10 @@ ActionParameters random_parameters(uint64_t &state, const std::string &rule,
     SubstitutionRedundancyParameters p = config.sr_reference;
     p.maximum_validation_ticks = optional_positive(
         state, config.maximum_sr_validation_ticks);
-    const uint64_t producer = bounded(state, 3);
-    p.orbitopal_producer = producer == 1;
-    p.general_producer = producer == 2;
+    p.producer = static_cast<SubstitutionRedundancyProducer>(
+        bounded(state, 4));
+    p.orbitopal_orientation = static_cast<OrbitopalOrientation>(
+        bounded(state, 3));
     p.minimum_orbitopal_rows =
         2 + inclusive_u32(state, std::max<uint32_t>(2, p.minimum_orbitopal_rows) - 2);
     p.minimum_orbitopal_columns = 2 + inclusive_u32(
@@ -298,6 +357,134 @@ ActionParameters random_parameters(uint64_t &state, const std::string &rule,
         optional_positive(state, config.maximum_sr_detection_ticks);
     p.maximum_general_candidates_per_advance = optional_positive(
         state, config.maximum_sr_general_candidates_per_advance);
+    GraphSymmetryParameters &graph = p.graph_symmetry;
+    graph.maximum_graph_vertices =
+        optional_positive(state, config.maximum_sr_graph_vertices);
+    graph.maximum_graph_edges =
+        optional_positive(state, config.maximum_sr_graph_edges);
+    graph.maximum_generators =
+        optional_positive(state, config.maximum_sr_symmetry_generators);
+    graph.backend_search_budget =
+        optional_positive(state, config.maximum_sr_backend_search_budget);
+    graph.backend_support_budget =
+        optional_positive(state, config.maximum_sr_backend_support_budget);
+    graph.backend_component_size_limit =
+        optional_positive(state, config.maximum_sr_backend_component_size);
+    graph.maximum_fixing_instances = optional_positive(
+        state, config.maximum_sr_symmetry_fixing_instances);
+    graph.maximum_generator_instances_per_pass = optional_positive(
+        state, config.maximum_sr_symmetry_generator_instances_per_pass);
+    graph.maximum_group_ticks =
+        optional_positive(state, config.maximum_sr_symmetry_group_ticks);
+    graph.chain_planning_tick_limit =
+        optional_positive(state, config.maximum_sr_symmetry_group_ticks);
+    graph.seed = static_cast<uint32_t>(draw(state));
+    graph.error_bound = 1 + inclusive_u32(
+        state, std::max<uint32_t>(1,
+                                  config.maximum_sr_symmetry_error_bound) - 1);
+    graph.fixing_mode =
+        static_cast<SymmetryFixingMode>(bounded(state, 3));
+    graph.decompose = bounded(state, 2);
+    graph.prefer_depth_first = bounded(state, 2);
+    graph.strong_certification = bounded(state, 2);
+    // Derive additive scheduling choices from the already-selected symmetry
+    // seed so older fields and later random steps retain their historical draw
+    // positions. Versioned replay records the derived values explicitly.
+    uint64_t scheduling_state =
+        static_cast<uint64_t>(graph.seed) ^ 0x53594d4f52444552ull;
+    graph.generator_order =
+        static_cast<SymmetryTraversalOrder>(bounded(scheduling_state, 3));
+    graph.clause_order =
+        static_cast<SymmetryTraversalOrder>(bounded(scheduling_state, 3));
+    graph.literal_order =
+        static_cast<SymmetryTraversalOrder>(bounded(scheduling_state, 3));
+    graph.clause_scope =
+        static_cast<SymmetryClauseScope>(bounded(scheduling_state, 2));
+    graph.pair_orientation =
+        static_cast<SymmetryPairOrientation>(bounded(scheduling_state, 3));
+    graph.direct_generator_involutions_only = bounded(scheduling_state, 2);
+    graph.binary_graph_mode =
+        static_cast<SymmetryBinaryGraphMode>(bounded(scheduling_state, 3));
+    graph.binary_graph_density_permille = inclusive_u32(
+        scheduling_state,
+        config.maximum_sr_symmetry_binary_graph_density_permille);
+    p.orbitopal_column_order =
+        static_cast<OrbitopalColumnOrder>(bounded(scheduling_state, 4));
+    p.orbitopal_completion =
+        static_cast<OrbitopalCompletion>(bounded(scheduling_state, 2));
+    p.orbitopal_discovery_order =
+        static_cast<OrbitopalDiscoveryOrder>(bounded(scheduling_state, 4));
+    p.orbitopal_row_orbit_source =
+        static_cast<OrbitopalRowOrbitSource>(bounded(scheduling_state, 2));
+    p.minimum_orbitopal_clique_columns =
+        2 + inclusive_u32(
+                scheduling_state,
+                config.maximum_sr_orbitopal_clique_minimum_columns - 2);
+    p.maximum_orbitopal_clique_vertices = optional_positive(
+        scheduling_state, config.maximum_sr_orbitopal_clique_vertices);
+    p.maximum_orbitopal_clique_ticks = optional_positive(
+        scheduling_state, config.maximum_sr_orbitopal_clique_ticks);
+    p.maximum_orbitopal_product_states = optional_positive(
+        scheduling_state, config.maximum_sr_orbitopal_product_states);
+    p.complete_unique_literal_amos = bounded(scheduling_state, 2);
+    p.orbitopal_generator_fallback = bounded(scheduling_state, 2);
+    p.maximum_orbitopal_refinement_orbits = optional_positive(
+        scheduling_state, config.maximum_sr_orbitopal_refinement_orbits);
+    p.orbitopal_base_probe_filter = bounded(scheduling_state, 2);
+    p.orbitopal_base_probe_factor =
+        1 + inclusive_u32(
+                scheduling_state,
+                config.maximum_sr_orbitopal_base_probe_factor - 1);
+    graph.clause_selection =
+        static_cast<SymmetryClauseSelection>(bounded(scheduling_state, 3));
+    graph.chain_mode =
+        static_cast<SymmetryChainMode>(bounded(scheduling_state, 3));
+    graph.base_selection =
+        static_cast<SymmetryBaseSelection>(bounded(scheduling_state, 7));
+    graph.pointwise_root_stabilizer = bounded(scheduling_state, 2);
+    graph.factor_support_components = bounded(scheduling_state, 2);
+    graph.preserve_detector_order = bounded(scheduling_state, 2);
+    graph.use_structured_generators = bounded(scheduling_state, 2);
+    graph.stabilize_structured_variables = bounded(scheduling_state, 2);
+    graph.structured_scope = static_cast<SymmetryStructuredScope>(bounded(scheduling_state, 2));
+    if (config.sr_joint_positive_numerator &&
+        bounded(scheduling_state, config.sr_joint_positive_denominator) <
+            config.sr_joint_positive_numerator) {
+      // Independent disabling values compound across a producer's admission
+      // limits. Keep that boundary arm, but also sample resources together
+      // without selecting a particular producer, order, phase or granularity.
+      // This derived stream leaves the earlier parameter draws unchanged.
+      const auto enable = [&](uint64_t &value, uint64_t maximum) {
+        if (!value && maximum)
+          value = 1 + bounded(scheduling_state, maximum);
+      };
+      enable(p.maximum_validation_ticks, config.maximum_sr_validation_ticks);
+      enable(p.maximum_detection_ticks, config.maximum_sr_detection_ticks);
+      enable(p.maximum_orbitopal_matrices, config.maximum_sr_matrices);
+      enable(p.maximum_orbitopal_instances, config.maximum_sr_instances);
+      enable(p.maximum_general_candidates_per_advance,
+             config.maximum_sr_general_candidates_per_advance);
+      enable(p.maximum_orbitopal_clique_vertices,
+             config.maximum_sr_orbitopal_clique_vertices);
+      enable(p.maximum_orbitopal_clique_ticks,
+             config.maximum_sr_orbitopal_clique_ticks);
+      enable(p.maximum_orbitopal_product_states,
+             config.maximum_sr_orbitopal_product_states);
+      enable(p.maximum_orbitopal_refinement_orbits,
+             config.maximum_sr_orbitopal_refinement_orbits);
+      enable(graph.maximum_graph_vertices, config.maximum_sr_graph_vertices);
+      enable(graph.maximum_graph_edges, config.maximum_sr_graph_edges);
+      enable(graph.maximum_generators, config.maximum_sr_symmetry_generators);
+      enable(graph.backend_search_budget, config.maximum_sr_backend_search_budget);
+      enable(graph.backend_support_budget, config.maximum_sr_backend_support_budget);
+      enable(graph.backend_component_size_limit,
+             config.maximum_sr_backend_component_size);
+      enable(graph.maximum_fixing_instances,
+             config.maximum_sr_symmetry_fixing_instances);
+      enable(graph.maximum_generator_instances_per_pass,
+             config.maximum_sr_symmetry_generator_instances_per_pass);
+      enable(graph.maximum_group_ticks, config.maximum_sr_symmetry_group_ticks);
+    }
     return p;
   }
   return std::monostate{};
@@ -395,7 +582,8 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
         return false;
     }
     parameters = p;
-  } else if (tuple(text, "bve", v) && v.size() == 11) {
+  } else if ((tuple(text, "bve", v) && v.size() == 11) ||
+             (tuple(text, "bve2", v) && v.size() == 12)) {
     BveParameters p;
     U32_AT(0, p.gate_mask); U32_AT(1, p.growth_bound);
     U32_AT(2, p.occurrence_limit); U32_AT(3, p.clause_size_limit);
@@ -404,6 +592,11 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
     U32_AT(8, p.definition_cores);
     U32_AT(9, p.definition_core_budget_multiplier);
     if (!boolean(v[10], p.backward)) return false;
+    if (v.size() == 12) {
+      if (v[11] > static_cast<uint64_t>(BveCandidateScope::PureOnly))
+        return false;
+      p.candidate_scope = static_cast<BveCandidateScope>(v[11]);
+    }
     parameters = p;
   } else if (tuple(text, "c1", v) && v.size() == 3) {
     SubsumeForwardParameters p;
@@ -471,12 +664,13 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
     if (!boolean(v[0], p.demote_substituted)) return false;
     parameters = p;
   } else if (tuple(text, "reduce", v) &&
-             (v.size() == 2 || v.size() == 6)) {
+             (v.size() == 2 || v.size() == 6 || v.size() == 7)) {
     ReduceParameters p; U32_AT(0, p.tier1); U32_AT(1, p.tier2);
-    if (v.size() == 6) {
+    if (v.size() >= 6) {
       U32_AT(2, p.victim_numerator); U32_AT(3, p.victim_denominator);
       if (!boolean(v[4], p.protect_tiers) ||
           !boolean(v[5], p.compact_collection)) return false;
+      if (v.size() == 7 && !boolean(v[6], p.reduction_bookkeeping)) return false;
     }
     parameters = p;
   } else if (tuple(text, "walk", v) && v.size() >= 2) {
@@ -529,19 +723,256 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
     U32_AT(6, p.maximum_free_domains);
     p.candidate_budget = v[7];
     parameters = p;
+  } else if (tuple(text, "affine1", v) && v.size() >= 20) {
+    AffineModelParameters p;
+    p.maximum_variables=v[0]; p.maximum_constraints=v[1]; p.maximum_arity=v[2];
+    p.maximum_projection=v[3]; p.minimum_equations=v[4]; p.maximum_entries=v[5];
+    p.import_bytes=v[6]; p.linear_bytes=v[7]; p.table_bytes=v[8];
+    p.maximum_work=v[9]; p.candidate_budget=v[10]; p.permutations=v[11]; p.seed=v[12];
+    if(v[13]>static_cast<uint64_t>(AffineProjectionMode::Explicit) ||
+       !boolean(v[14],p.automatic_negated) || !boolean(v[15],p.shuffle_first) ||
+       !boolean(v[16],p.free_phase) || !boolean(v[17],p.residual_phase) ||
+       v[18]>v.size()-20)return false;
+    p.projection_mode=static_cast<AffineProjectionMode>(v[13]);
+    const size_t count=static_cast<size_t>(v[18]);
+    p.projection.clear();
+    for(size_t i=0;i<count;++i) {
+      const uint64_t wire=v[19+i];
+      if((wire>>1)>=INT_MAX)return false;
+      const int positive=static_cast<int>((wire>>1)+1);
+      p.projection.push_back(wire&1?-positive:positive);
+    }
+    const size_t at=19+count;
+    if((v.size()-at-1)%4 || v[at]!=(v.size()-at-1)/4)return false;
+    p.scopes.clear();
+    for(size_t i=at+1;i<v.size();i+=4)
+      p.scopes.push_back({v[i],v[i+1],v[i+2],v[i+3]});
+    if(!p.valid())return false;
+    parameters=std::move(p);
   } else if (tuple(text, "sr", v) && v.size() == 9) {
     SubstitutionRedundancyParameters p;
     p.maximum_validation_ticks = v[0];
-    if (!boolean(v[1], p.orbitopal_producer))
+    bool orbitopal = false, general = false;
+    if (!boolean(v[1], orbitopal))
       return false;
     U32_AT(2, p.minimum_orbitopal_rows);
     U32_AT(3, p.minimum_orbitopal_columns);
     p.maximum_orbitopal_matrices = v[4];
     p.maximum_orbitopal_instances = v[5];
     p.maximum_detection_ticks = v[6];
-    if (!boolean(v[7], p.general_producer))
+    if (!boolean(v[7], general) || (orbitopal && general))
       return false;
     p.maximum_general_candidates_per_advance = v[8];
+    p.producer = orbitopal
+                     ? SubstitutionRedundancyProducer::Orbitopal
+                     : general
+                           ? SubstitutionRedundancyProducer::GeneralComplete
+                           : SubstitutionRedundancyProducer::ExplicitOnly;
+    parameters = p;
+  } else if ((tuple(text, "sr2", v) && v.size() == 24) ||
+             (tuple(text, "sr3", v) && v.size() == 30) ||
+             (tuple(text, "sr4", v) && v.size() == 33) ||
+             (tuple(text, "sr5", v) && v.size() == 34) ||
+             (tuple(text, "sr6", v) && v.size() == 35) ||
+             (tuple(text, "sr7", v) && v.size() == 36) ||
+             (tuple(text, "sr8", v) && v.size() == 37) ||
+             (tuple(text, "sr9", v) && v.size() == 41) ||
+             (tuple(text, "sr10", v) && v.size() == 42) ||
+             (tuple(text, "sr11", v) && v.size() == 44) ||
+             (tuple(text, "sr12", v) && v.size() == 45) ||
+             (tuple(text, "sr13", v) && v.size() == 47) ||
+             (tuple(text, "sr14", v) && v.size() == 48) ||
+             (tuple(text, "sr15", v) && v.size() == 48) ||
+             (tuple(text, "sr16", v) && v.size() == 49) ||
+             (tuple(text, "sr17", v) && v.size() == 50) ||
+             (tuple(text, "sr18", v) && v.size() == 50) ||
+             (tuple(text, "sr19", v) && v.size() == 50) ||
+             (tuple(text, "sr20", v) && v.size() == 51) ||
+             (tuple(text, "sr21", v) && v.size() == 52) ||
+             (tuple(text, "sr22", v) && v.size() == 54) ||
+             (tuple(text, "sr23", v) && v.size() == 55) ||
+             (tuple(text, "sr24", v) && v.size() == 55) ||
+             (tuple(text, "sr25", v) && v.size() == 55)) {
+    const bool has_first_shortest = text.starts_with("sr25(");
+    const bool has_shortest_base = text.starts_with("sr24(") || has_first_shortest;
+    const bool has_structured_scope = text.starts_with("sr23(") || has_shortest_base;
+    const bool has_structured_handoff = text.starts_with("sr22(") || has_structured_scope;
+    const bool has_detector_order = text.starts_with("sr21(") || has_structured_handoff;
+    const bool has_components = text.starts_with("sr20(") || has_detector_order;
+    const bool has_resift = text.starts_with("sr19(") || has_components;
+    const bool has_forward_scan = text.starts_with("sr18(") || has_resift;
+    const bool has_planning_limit = text.starts_with("sr17(") || has_forward_scan;
+    const bool has_row_orbit_source =
+        text.starts_with("sr16(") || has_planning_limit;
+    const bool has_bounded_clique_order =
+        text.starts_with("sr15(") || has_row_orbit_source;
+    const bool has_graph_scheduling = v.size() >= 30;
+    const bool has_orbitopal_ordering = v.size() >= 33;
+    const bool has_orbitopal_completion = v.size() >= 35;
+    const bool has_orbitopal_product_states = v.size() >= 36;
+    const bool has_unique_literal_amos = v.size() >= 37;
+    const bool has_refinement_scheduling = v.size() >= 41;
+    const bool has_discovery_order = v.size() >= 42;
+    const bool has_binary_graph = v.size() >= 44;
+    const bool has_clause_selection = v.size() >= 45;
+    const bool has_fix_and_cut = v.size() >= 47;
+    const bool has_root_stabilizer = v.size() >= 48;
+    SubstitutionRedundancyParameters p;
+    if (v[1] > static_cast<uint64_t>(
+                   SubstitutionRedundancyProducer::GraphSymmetry) ||
+        v[2] > static_cast<uint64_t>(OrbitopalOrientation::Both))
+      return false;
+    p.maximum_validation_ticks = v[0];
+    p.producer = static_cast<SubstitutionRedundancyProducer>(v[1]);
+    p.orbitopal_orientation = static_cast<OrbitopalOrientation>(v[2]);
+    U32_AT(3, p.minimum_orbitopal_rows);
+    U32_AT(4, p.minimum_orbitopal_columns);
+    p.maximum_orbitopal_matrices = v[5];
+    p.maximum_orbitopal_instances = v[6];
+    p.maximum_detection_ticks = v[7];
+    p.maximum_general_candidates_per_advance = v[8];
+    GraphSymmetryParameters &graph = p.graph_symmetry;
+    graph.maximum_graph_vertices = v[9];
+    graph.maximum_graph_edges = v[10];
+    graph.maximum_generators = v[11];
+    graph.backend_search_budget = v[12];
+    graph.backend_support_budget = v[13];
+    graph.backend_component_size_limit = v[14];
+    graph.maximum_fixing_instances = v[15];
+    graph.maximum_generator_instances_per_pass = v[16];
+    graph.maximum_group_ticks = v[17];
+    if (has_planning_limit)
+      graph.chain_planning_tick_limit = v[49];
+    U32_AT(18, graph.seed);
+    U32_AT(19, graph.error_bound);
+    if (v[20] > static_cast<uint64_t>(
+                    SymmetryFixingMode::StabilizerThenGenerators))
+      return false;
+    graph.fixing_mode = static_cast<SymmetryFixingMode>(v[20]);
+    if (!boolean(v[21], graph.decompose) ||
+        !boolean(v[22], graph.prefer_depth_first) ||
+        !boolean(v[23], graph.strong_certification))
+      return false;
+    if (has_graph_scheduling) {
+      if (v[24] > static_cast<uint64_t>(SymmetryTraversalOrder::Seeded) ||
+          v[25] > static_cast<uint64_t>(SymmetryTraversalOrder::Seeded) ||
+          v[26] > static_cast<uint64_t>(SymmetryTraversalOrder::Seeded) ||
+          v[27] >
+              static_cast<uint64_t>(SymmetryClauseScope::UniqueLiteralsOnly) ||
+          v[28] > static_cast<uint64_t>(SymmetryPairOrientation::Seeded) ||
+          v[29] > 1)
+        return false;
+      graph.generator_order = static_cast<SymmetryTraversalOrder>(v[24]);
+      graph.clause_order = static_cast<SymmetryTraversalOrder>(v[25]);
+      graph.literal_order = static_cast<SymmetryTraversalOrder>(v[26]);
+      graph.clause_scope = static_cast<SymmetryClauseScope>(v[27]);
+      graph.pair_orientation = static_cast<SymmetryPairOrientation>(v[28]);
+      graph.direct_generator_involutions_only = v[29] != 0;
+    }
+    if (has_orbitopal_ordering) {
+      if (v[30] > static_cast<uint64_t>(
+                      has_bounded_clique_order
+                          ? OrbitopalColumnOrder::CooccurrenceBoundedGreedyClique
+                          : OrbitopalColumnOrder::CooccurrenceGreedyClique))
+        return false;
+      p.orbitopal_column_order = static_cast<OrbitopalColumnOrder>(v[30]);
+      p.maximum_orbitopal_clique_vertices = v[31];
+      p.maximum_orbitopal_clique_ticks = v[32];
+      // sr4 reordered every legal matrix. Preserve that exact schedule while
+      // sr5 records the caller-selected small-matrix admission cutoff.
+      if (v.size() >= 34) {
+        if (v[33] > UINT32_MAX)
+          return false;
+        p.minimum_orbitopal_clique_columns = static_cast<uint32_t>(v[33]);
+      } else {
+        p.minimum_orbitopal_clique_columns = 2;
+      }
+      if (has_orbitopal_completion) {
+        if (v[34] > static_cast<uint64_t>(
+                        OrbitopalCompletion::IndividualizedGraphCompletion))
+          return false;
+        p.orbitopal_completion = static_cast<OrbitopalCompletion>(v[34]);
+      }
+      if (has_orbitopal_product_states)
+        p.maximum_orbitopal_product_states = v[35];
+      if (has_unique_literal_amos &&
+          !boolean(v[36], p.complete_unique_literal_amos))
+        return false;
+      if (has_refinement_scheduling) {
+        if (!boolean(v[37], p.orbitopal_generator_fallback) ||
+            !boolean(v[39], p.orbitopal_base_probe_filter) ||
+            v[40] > UINT32_MAX || !v[40])
+          return false;
+        p.maximum_orbitopal_refinement_orbits = v[38];
+        p.orbitopal_base_probe_factor = static_cast<uint32_t>(v[40]);
+      }
+      if (has_discovery_order) {
+        if (v[41] > static_cast<uint64_t>(
+                        OrbitopalDiscoveryOrder::UniqueLiteralOnly))
+          return false;
+        p.orbitopal_discovery_order =
+            static_cast<OrbitopalDiscoveryOrder>(v[41]);
+      }
+      if (has_binary_graph) {
+        if (v[42] >
+                static_cast<uint64_t>(SymmetryBinaryGraphMode::Automatic) ||
+            v[43] > UINT32_MAX)
+          return false;
+        graph.binary_graph_mode =
+            static_cast<SymmetryBinaryGraphMode>(v[42]);
+        graph.binary_graph_density_permille = static_cast<uint32_t>(v[43]);
+      }
+      if (has_clause_selection) {
+        if (v[44] >
+            static_cast<uint64_t>(SymmetryClauseSelection::AmoThenShortest))
+          return false;
+        graph.clause_selection =
+            static_cast<SymmetryClauseSelection>(v[44]);
+      }
+      if (has_fix_and_cut) {
+        if (v[45] > static_cast<uint64_t>(has_resift
+                        ? SymmetryChainMode::FixAndCutResift
+                        : SymmetryChainMode::FixAndCut) ||
+            v[46] >
+                static_cast<uint64_t>(has_first_shortest
+                    ? SymmetryBaseSelection::FirstShortestThenForwardRemainder
+                    : has_shortest_base ? SymmetryBaseSelection::ShortestClause
+                    : has_forward_scan
+                    ? SymmetryBaseSelection::FirstAmoThenForwardRemainder
+                    : SymmetryBaseSelection::FirstAmoThenOrderedRemainder))
+          return false;
+        graph.chain_mode = static_cast<SymmetryChainMode>(v[45]);
+        graph.base_selection = static_cast<SymmetryBaseSelection>(v[46]);
+      }
+      if (has_structured_scope) {
+        if (v[54] > static_cast<uint64_t>(SymmetryStructuredScope::AxisAnchors))
+          return false;
+        graph.structured_scope = static_cast<SymmetryStructuredScope>(v[54]);
+      }
+      if (has_structured_handoff) {
+        if (v[52] > 1 || v[53] > 1) return false;
+        graph.use_structured_generators = v[52];
+        graph.stabilize_structured_variables = v[53];
+      }
+      if (has_detector_order) {
+        if (v[51] > 1) return false;
+        graph.preserve_detector_order = v[51];
+      }
+      if (has_components) {
+        if (v[50] > 1) return false;
+        graph.factor_support_components = v[50];
+      }
+      if (has_root_stabilizer) {
+        if (v[47] > 1)
+          return false;
+        graph.pointwise_root_stabilizer = v[47];
+      }
+      if (has_row_orbit_source) {
+        if (v[48] > static_cast<uint64_t>(OrbitopalRowOrbitSource::RefinementCells))
+          return false;
+        p.orbitopal_row_orbit_source = static_cast<OrbitopalRowOrbitSource>(v[48]);
+      }
+    }
     parameters = p;
   } else {
     return false;
@@ -633,6 +1064,9 @@ bool random_online_strategy_program(Kernel &k, uint64_t seed,
       *error = message;
     return false;
   };
+  if (!config.sr_joint_positive_denominator ||
+      config.sr_joint_positive_numerator > config.sr_joint_positive_denominator)
+    return reject("random-online joint SR probability is invalid");
   if (!config.maximum_sequence_length || !config.maximum_selected_batch ||
       !config.maximum_repeat_count || !config.maximum_application_budget ||
       !config.maximum_bve_tick_budget ||
@@ -660,9 +1094,26 @@ bool random_online_strategy_program(Kernel &k, uint64_t seed,
       !config.maximum_onehot_model_equation_arity ||
       !config.maximum_onehot_model_candidates ||
       !config.onehot_model_reference.valid() ||
+      !config.affine_model_reference.valid() ||
+      !config.affine_joint_positive_denominator ||
+      config.affine_joint_positive_numerator > config.affine_joint_positive_denominator ||
       !config.maximum_sr_validation_ticks || !config.maximum_sr_matrices ||
-      !config.maximum_sr_instances || !config.maximum_sr_detection_ticks ||
+      !config.maximum_sr_instances ||
+      config.maximum_sr_orbitopal_clique_minimum_columns < 2 ||
+      !config.maximum_sr_orbitopal_clique_vertices ||
+      !config.maximum_sr_orbitopal_clique_ticks ||
+      !config.maximum_sr_orbitopal_product_states ||
+      !config.maximum_sr_detection_ticks ||
       !config.maximum_sr_general_candidates_per_advance ||
+      !config.maximum_sr_graph_vertices || !config.maximum_sr_graph_edges ||
+      !config.maximum_sr_symmetry_generators ||
+      !config.maximum_sr_backend_search_budget ||
+      !config.maximum_sr_backend_support_budget ||
+      !config.maximum_sr_backend_component_size ||
+      !config.maximum_sr_symmetry_fixing_instances ||
+      !config.maximum_sr_symmetry_generator_instances_per_pass ||
+      !config.maximum_sr_symmetry_group_ticks ||
+      !config.maximum_sr_symmetry_error_bound ||
       !config.sr_reference.valid())
     return reject("random-online maxima must be positive");
 
@@ -693,7 +1144,7 @@ bool random_online_strategy_program(Kernel &k, uint64_t seed,
     OnlineInvocation step;
     step.id = static_cast<StepId>(i) + 1;
     step.rule = rule.name;
-    step.parameters = random_parameters(rng, step.rule, config);
+    step.parameters = random_parameters(k, rng, step.rule, config);
     step.work_unit = step.rule == "BVE"
                          ? WorkUnit::BveTicks
                          : step.rule == "Propagate" ? WorkUnit::Propagations
@@ -716,6 +1167,8 @@ bool random_online_strategy_program(Kernel &k, uint64_t seed,
         static_cast<SettingOverride>(bounded(rng, 3));
     step.material.likely_kept_redundant =
         static_cast<SettingOverride>(bounded(rng, 3));
+    if (config.sample_post_propagation && bounded(rng, 2))
+      step.post_application = PostApplication::Propagate;
 
     std::vector<uint64_t> instances;
     std::vector<SubstitutionRedundancyInstance> sr_instances;
@@ -723,7 +1176,8 @@ bool random_online_strategy_program(Kernel &k, uint64_t seed,
     if (step.rule == "SubstitutionRedundancy") {
       const auto &parameters =
           std::get<SubstitutionRedundancyParameters>(step.parameters);
-      if (!parameters.general_producer) {
+      if (parameters.producer ==
+          SubstitutionRedundancyProducer::Orbitopal) {
         const OrbitopalEnumerationResult result =
             substitution_redundancy_enumerate_orbitopal(
                 k, parameters,
@@ -734,6 +1188,24 @@ bool random_online_strategy_program(Kernel &k, uint64_t seed,
                 stop);
         if (result.status == OrbitopalEnumerationStatus::Interrupted)
           enumerated = InvocationStatus::Interrupted;
+      } else if (parameters.producer ==
+                 SubstitutionRedundancyProducer::GraphSymmetry) {
+        const SymmetryEnumerationResult result =
+            substitution_redundancy_enumerate_symmetry(
+                k, parameters,
+                [&](const SubstitutionRedundancyInstance &instance) {
+                  sr_instances.push_back(instance);
+                  return true;
+                },
+                stop);
+        if (result.status == SymmetryEnumerationStatus::Interrupted)
+          enumerated = InvocationStatus::Interrupted;
+        else if (result.status == SymmetryEnumerationStatus::Invalid)
+          return reject("graph symmetry enumeration rejected its input");
+        else if (result.status == SymmetryEnumerationStatus::Failed)
+          return reject("graph symmetry enumeration failed");
+        else if (result.status == SymmetryEnumerationStatus::ResourceExhausted)
+          enumerated = InvocationStatus::ResourceExhausted;
       }
     } else {
       enumerated = enumerate_complete_instances(k, rule, instances, stop);
@@ -833,6 +1305,7 @@ std::string serialize_online_strategy_program(
         << static_cast<unsigned>(step.work_unit) << ':'
         << (step.budget.is_unlimited() ? "unlimited"
                                        : std::to_string(step.budget.amount()))
+        << ":post(" << static_cast<unsigned>(step.post_application) << ')'
         << ":rulework("
         << static_cast<unsigned>(step.rule_work_budget.mode) << ','
         << step.rule_work_budget.amount << ")"
@@ -847,13 +1320,13 @@ std::string serialize_online_strategy_program(
           << p->jump_reasons_bigbig << ',' << p->shrink_glue_promote << ','
           << p->bump_extension_reasons << ')';
     else if (const auto *p = std::get_if<BveParameters>(&step.parameters))
-      out << ":bve(" << p->gate_mask << ',' << p->growth_bound << ','
+      out << ":bve2(" << p->gate_mask << ',' << p->growth_bound << ','
           << p->occurrence_limit << ',' << p->clause_size_limit << ','
           << p->xor_arity_limit << ',' << p->resolvent_size_limit << ','
           << p->backward_occurrence_limit << ',' << p->definition_budget << ','
           << p->definition_cores << ','
-          << p->definition_core_budget_multiplier << ',' << p->backward
-          << ')';
+          << p->definition_core_budget_multiplier << ',' << p->backward << ','
+          << static_cast<unsigned>(p->candidate_scope) << ')';
     else if (const auto *p =
                  std::get_if<SubsumeForwardParameters>(&step.parameters))
       out << ":c1(" << p->clause_size_limit << ','
@@ -912,7 +1385,8 @@ std::string serialize_online_strategy_program(
                  std::get_if<ReduceParameters>(&step.parameters))
       out << ":reduce(" << p->tier1 << ',' << p->tier2 << ','
           << p->victim_numerator << ',' << p->victim_denominator << ','
-          << p->protect_tiers << ',' << p->compact_collection << ')';
+          << p->protect_tiers << ',' << p->compact_collection << ','
+          << p->reduction_bookkeeping << ')';
     else if (const auto *p = std::get_if<WalkParameters>(&step.parameters)) {
       out << ":walk(" << p->step_budget << ',' << p->random_seed << ','
           << p->even_break_base_milli << ',' << p->score_curve.size();
@@ -939,16 +1413,91 @@ std::string serialize_online_strategy_program(
           << p->maximum_equation_arity << ',' << p->minimum_domains << ','
           << p->minimum_equations << ',' << p->maximum_free_domains << ','
           << p->candidate_budget << ')';
+    else if (const auto *p = std::get_if<AffineModelParameters>(&step.parameters)) {
+      out << ":affine1(" << p->maximum_variables << ',' << p->maximum_constraints
+          << ',' << p->maximum_arity << ',' << p->maximum_projection << ','
+          << p->minimum_equations << ',' << p->maximum_entries << ','
+          << p->import_bytes << ',' << p->linear_bytes << ',' << p->table_bytes << ','
+          << p->maximum_work << ',' << p->candidate_budget << ',' << p->permutations
+          << ',' << p->seed << ',' << static_cast<unsigned>(p->projection_mode)
+          << ',' << p->automatic_negated << ',' << p->shuffle_first << ','
+          << p->free_phase << ',' << p->residual_phase << ',' << p->projection.size();
+      for(int literal:p->projection) {
+        const uint64_t positive=static_cast<uint64_t>(literal<0?-int64_t(literal):int64_t(literal));
+        out << ',' << 2*(positive-1)+(literal<0);
+      }
+      out << ',' << p->scopes.size();
+      for(const auto &scope:p->scopes)
+        out << ',' << scope.left_size << ',' << scope.left_weight << ','
+            << scope.right_weight << ',' << scope.total_weight;
+      out << ')';
+    }
     else if (const auto *p = std::get_if<SubstitutionRedundancyParameters>(
-                 &step.parameters))
-      out << ":sr(" << p->maximum_validation_ticks << ','
-          << p->orbitopal_producer << ','
+                 &step.parameters)) {
+      const bool first_shortest = p->graph_symmetry.base_selection ==
+          SymmetryBaseSelection::FirstShortestThenForwardRemainder;
+      const bool shortest_base = first_shortest ||
+          p->graph_symmetry.base_selection == SymmetryBaseSelection::ShortestClause;
+      out << (first_shortest ? ":sr25(" : shortest_base ? ":sr24("
+                  : p->graph_symmetry.structured_scope == SymmetryStructuredScope::WholeMatrix
+                  ? ":sr22(" : ":sr23(") << p->maximum_validation_ticks << ','
+          << static_cast<unsigned>(p->producer) << ','
+          << static_cast<unsigned>(p->orbitopal_orientation) << ','
           << p->minimum_orbitopal_rows << ','
           << p->minimum_orbitopal_columns << ','
           << p->maximum_orbitopal_matrices << ','
           << p->maximum_orbitopal_instances << ','
-          << p->maximum_detection_ticks << ',' << p->general_producer << ','
-          << p->maximum_general_candidates_per_advance << ')';
+          << p->maximum_detection_ticks << ','
+          << p->maximum_general_candidates_per_advance << ','
+          << p->graph_symmetry.maximum_graph_vertices << ','
+          << p->graph_symmetry.maximum_graph_edges << ','
+          << p->graph_symmetry.maximum_generators << ','
+          << p->graph_symmetry.backend_search_budget << ','
+          << p->graph_symmetry.backend_support_budget << ','
+          << p->graph_symmetry.backend_component_size_limit << ','
+          << p->graph_symmetry.maximum_fixing_instances << ','
+          << p->graph_symmetry.maximum_generator_instances_per_pass << ','
+          << p->graph_symmetry.maximum_group_ticks << ','
+          << p->graph_symmetry.seed << ','
+          << p->graph_symmetry.error_bound << ','
+          << static_cast<unsigned>(p->graph_symmetry.fixing_mode) << ','
+          << p->graph_symmetry.decompose << ','
+          << p->graph_symmetry.prefer_depth_first << ','
+          << p->graph_symmetry.strong_certification << ','
+          << static_cast<unsigned>(p->graph_symmetry.generator_order) << ','
+          << static_cast<unsigned>(p->graph_symmetry.clause_order) << ','
+          << static_cast<unsigned>(p->graph_symmetry.literal_order) << ','
+          << static_cast<unsigned>(p->graph_symmetry.clause_scope) << ','
+          << static_cast<unsigned>(p->graph_symmetry.pair_orientation) << ','
+          << p->graph_symmetry.direct_generator_involutions_only << ','
+          << static_cast<unsigned>(p->orbitopal_column_order) << ','
+          << p->maximum_orbitopal_clique_vertices << ','
+          << p->maximum_orbitopal_clique_ticks << ','
+          << p->minimum_orbitopal_clique_columns << ','
+          << static_cast<unsigned>(p->orbitopal_completion) << ','
+          << p->maximum_orbitopal_product_states << ','
+          << p->complete_unique_literal_amos << ','
+          << p->orbitopal_generator_fallback << ','
+          << p->maximum_orbitopal_refinement_orbits << ','
+          << p->orbitopal_base_probe_filter << ','
+          << p->orbitopal_base_probe_factor << ','
+          << static_cast<unsigned>(p->orbitopal_discovery_order) << ','
+          << static_cast<unsigned>(p->graph_symmetry.binary_graph_mode) << ','
+          << p->graph_symmetry.binary_graph_density_permille << ','
+          << static_cast<unsigned>(p->graph_symmetry.clause_selection) << ','
+          << static_cast<unsigned>(p->graph_symmetry.chain_mode) << ','
+          << static_cast<unsigned>(p->graph_symmetry.base_selection) << ','
+          << p->graph_symmetry.pointwise_root_stabilizer << ','
+          << static_cast<unsigned>(p->orbitopal_row_orbit_source) << ','
+          << p->graph_symmetry.chain_planning_tick_limit << ','
+          << p->graph_symmetry.factor_support_components << ','
+          << p->graph_symmetry.preserve_detector_order << ','
+          << p->graph_symmetry.use_structured_generators << ','
+          << p->graph_symmetry.stabilize_structured_variables;
+      if (shortest_base || p->graph_symmetry.structured_scope != SymmetryStructuredScope::WholeMatrix)
+        out << ',' << static_cast<unsigned>(p->graph_symmetry.structured_scope);
+      out << ')';
+    }
     else
       out << ":inherit";
     out << ":instances[";
@@ -1053,6 +1602,17 @@ bool deserialize_online_strategy_program(const std::string &encoded,
       step.budget = WorkLimit::bounded(number);
     else
       return reject("online replay budget is malformed");
+
+    if (text.starts_with("post(")) {
+      if (!field(value))
+        return reject("online replay post-application action is malformed");
+      std::vector<uint64_t> fields;
+      if (!tuple(value, "post", fields) || fields.size() != 1 ||
+          fields[0] > UINT8_MAX)
+        return reject("online replay post-application action is malformed");
+      step.post_application =
+          static_cast<PostApplication>(fields[0]);
+    }
 
     if (text.starts_with("rulework(")) {
       if (!field(value))

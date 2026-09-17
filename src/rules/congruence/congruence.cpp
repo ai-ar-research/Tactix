@@ -454,17 +454,19 @@ void congruence_extract(const Kernel &k, std::vector<CongGate> &out) {
     k.stats.congruence_ticks += c->size;
     for (const Lit outp : *c) {
       const Lit nout = negate(outp);
-      mark_bin_partners<1>(k, nout, mark);
       bool all = true;
       for (const Lit l : *c) {
         if (l == outp)
           continue;
-        if (!mark[negate(l)]) { // need binary (¬out ∨ ¬l)
+        // Sparse clause-major traversal can revisit this output many times.
+        // Query the exact live pair instead of remarking its whole watch list
+        // for every occurrence. A scoped filter may reject a missing pair;
+        // every possible hit is still confirmed against live binary watches.
+        if (!kernel_binary_live(k, nout, negate(l))) {
           all = false;
           break;
         }
       }
-      mark_bin_partners<0>(k, nout, mark); // unmark
       if (!all)
         continue;
       emit(c, outp);
@@ -2546,6 +2548,12 @@ static void congruence_delete_root_assigned_binaries(Kernel &k,
 
 template <class Find>
 static uint64_t forward_subsume_congruent_clauses(Kernel &k, Find &find) {
+  // Publishing a representative equivalence can add a binary behind an
+  // already propagated root value and re-arm the propagation cursor. Drain
+  // that debt before the dense-entry cleanup assumes every assigned pair is
+  // satisfied; otherwise it can delete a still-unit binary (or miss conflict).
+  if (inprocess_reach_root(k))
+    return 0;
   // Dense entry first deduplicates binaries and drops every one satisfied by a
   // newly propagated root unit.
   kernel_deduplicate_binary_watches(k);
@@ -3003,7 +3011,9 @@ ApplyResult congruence_apply(Kernel &k) {
   congruence_stage_trace(k, "binary-candidates-end",
                          binary_candidates.size());
   {
-    kernel_canonicalize_binary_watches(k, true, &binary_candidates);
+    if (k.congruence_parameters.binary_watch_order ==
+        strategy::CongruenceBinaryWatchOrder::Canonical)
+      kernel_canonicalize_binary_watches(k, true, &binary_candidates);
   }
   congruence_stage_trace(k, "binary-rebuild-end");
   congruence_candidate_trace_end(k, binary_candidates_complete,

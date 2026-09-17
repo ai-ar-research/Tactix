@@ -9,7 +9,12 @@
 
 namespace tactix::strategy {
 
-enum class WorkUnit : uint8_t { Applications, BveTicks, Propagations };
+enum class WorkUnit : uint8_t {
+  Applications,
+  BveTicks,
+  Propagations,
+  SrDiscoveryTicks,
+};
 
 class WorkLimit {
 public:

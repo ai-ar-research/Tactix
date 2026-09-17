@@ -191,6 +191,22 @@ public:
   CandidateOrderPolicy *candidate_order = nullptr;
   std::vector<SlotEntry> entries;
   SlotClock probe_clock, elim_clock;
+  struct StructuredRootStageTelem {
+    uint64_t runs = 0;
+    uint64_t advances = 0;
+    uint64_t applications = 0;
+    uint64_t effective = 0;
+    uint64_t sequence_passes = 0;
+    uint64_t nanos = 0;
+    strategy::InvocationStatus terminal =
+        strategy::InvocationStatus::Completed;
+  };
+  struct StructuredRootTelem : StructuredRootStageTelem {
+    uint64_t proof_format_declines = 0;
+    uint64_t sr_discovery_ticks = 0;
+    bool sr_discovery_overflow = false;
+    std::vector<StructuredRootStageTelem> stages;
+  } structured_root;
 
   void reset(const Kernel &);
   void configure();
@@ -198,13 +214,20 @@ public:
   void initialize_search_limits(const Kernel &);
   bool want_phase(const Kernel &, SlotGroup);
   int run_phase(Kernel &, SlotGroup, volatile sig_atomic_t *stop);
+  int run_structured_root(Kernel &, volatile sig_atomic_t *);
   void update_limit(const Kernel &, SlotGroup);
   void order_candidates(const Kernel &, SlotEntry &, uint64_t *, uint32_t);
   void set_entry_limit(SlotEntry &, Kernel &);
   void report(const Kernel &) const;
   static FollowupMode preprocessing_followup_mode(FollowupKind, bool, bool);
   ArenaOrdering *cadical_arena_ordering() { return &cadical_arena_order_; }
-  void pose_initialized(bool value = true) { initialized_ = value; }
+  void pose_initialized(bool value = true) {
+    initialized_ = value;
+    // White-box callers that pose an already-entered scheduler own the exact
+    // entries they install; they must not receive the separate startup-only
+    // structured program as an implicit prefix.
+    structured_root_consumed_ = value;
+  }
   bool initialized() const { return initialized_; }
 #ifdef TACTIX_ENABLE_EVENT_TRACE
   size_t diagnostic_non_dense_storage_bytes() const {
@@ -261,6 +284,7 @@ private:
   bool slot_watermark_ = true;
   bool preprocess_followups_ = true;
   bool preprocess_only_ = false;
+  bool structured_root_consumed_ = false;
   bool initialized_ = false;
   bool search_limits_initialized_ = false;
   const DefaultStrategyConfig::Inprocess *config_ = nullptr;

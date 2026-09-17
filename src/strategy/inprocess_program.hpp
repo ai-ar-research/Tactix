@@ -54,7 +54,7 @@ using ActionParameters =
                  BceParameters, TernaryParameters, FactorParameters,
                  TransitiveReduceParameters, SubstituteParameters,
                  ReduceParameters, WalkParameters, ReorderParameters,
-                 ParityModelParameters, OnehotModelParameters,
+                 ParityModelParameters, OnehotModelParameters, AffineModelParameters,
                  SubstitutionRedundancyParameters>;
 
 // Compatibility name for the inprocessing scheduler. Online composition uses
@@ -106,10 +106,6 @@ inline std::vector<InprocessStep> reference_inprocess_program() {
       {9, "TransitiveReduce", Probe, true},
       {10, "HyperTernaryRes", Probe, false},
       {11, "Backbone", Probe, true},
-      {19, "SubstitutionRedundancy", Probe, true, true, None,
-       SubstitutionRedundancyParameters{
-           10'000'000, true, 2, 2, 16, 256, 1'000'000, false,
-           UINT64_MAX}},
       {12, "Factor", Probe, true, true, None},
       {13, "SubsumeForward", Eliminate, false},
       {14, "Strengthen", Eliminate, true},
@@ -118,14 +114,6 @@ inline std::vector<InprocessStep> reference_inprocess_program() {
       {17, "BCE", Eliminate, false},
       {18, "CCE", Eliminate, false},
   };
-  // Structural symmetry is intentionally a one-shot preprocessing sub-strategy
-  // at the G2 boundary immediately before Factor. Its finite discovery,
-  // validation and emission ceilings are policy admission settings; explicit
-  // X7 instances and the opt-in complete general cursor retain unbounded
-  // defaults.
-  for (InprocessStep &step : result)
-    if (step.rule == "SubstitutionRedundancy")
-      step.max_applications = 1;
   return result;
 }
 
@@ -264,7 +252,10 @@ inline bool validate_inprocess_program(std::span<const InprocessStep> program,
         return reject("onehot-model parameters are attached to a different action");
       if (!p->valid())
         return reject("Lucky onehot-model parameters are invalid");
-    } else if (const auto *p = std::get_if<
+    } else if (const auto *p = std::get_if<AffineModelParameters>(&step.parameters)) {
+      if (step.rule != "Lucky" || !p->valid())
+        return reject("Lucky affine-model parameters are invalid or misplaced");
+} else if (const auto *p = std::get_if<
                    SubstitutionRedundancyParameters>(&step.parameters)) {
       if (step.rule != "SubstitutionRedundancy")
         return reject("SR parameters are attached to a different rule");

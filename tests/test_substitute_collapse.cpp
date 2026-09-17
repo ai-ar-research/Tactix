@@ -47,9 +47,21 @@ static bool check(unsigned copies, bool redundant, bool large, int mode,
   k.level=1; assert(!rule.guard(k)); k.level=0;
   kernel_check_invariants(k);
   k.proof=nullptr; if(mode)proof.flush(); assert(std::remove(path)==0);
+  // The redundant-marking controls above deliberately supply an arbitrary
+  // learned clause to isolate removal advice. Make that clause entailed before
+  // testing an original-formula model: preprocessing may soundly discard a
+  // redundant clause, whereas the previous all-true Lucky model hid this
+  // fixture's missing entailment. Use only surviving substitution endpoints.
+  if (redundant) {
+    const Lit support[] = {internalize(1), internalize(3), internalize(4)};
+    if (large) kernel_add_large_clause(k, support, 3, false, 0, ++k.next_clause_id);
+    else kernel_add_binary_clause(k, support[0], support[1], ++k.next_clause_id);
+  }
   assert(default_solve(k)==10); kernel_extend_model(k);
   const auto val=[&](int x){return k.value(internalize(x))>0;};
   assert((val(-1)||val(2)) && (val(1)||val(-2)));
+  if (!(val(1)||val(2)||val(3)||(large&&val(4))))
+    std::fprintf(stderr,"collapse model failure: copies=%u redundant=%u large=%u mode=%d explicit=%u\n",copies,redundant,large,mode,explicit_action);
   assert(val(1)||val(2)||val(3)||(large&&val(4)));
   return ok;
 }

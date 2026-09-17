@@ -7,6 +7,7 @@ these archives are superseded by the semantic text and repository Git history.
 
 | week | dates | entries | what it covers |
 |---|---|---|---|
+| [17 September AM7--AM54](2026-09-17-pre-am56-progress.md) | 09-16 → 09-17 | historical resume body | AM7 through AM54 diagnostics and gate qualifications before the AM56 checkpoint |
 | [2026-W32](2026-W32.md) | 08-03 → 08-09 | 9 | phase 3 close, reference dosing, backward-BVE N2 fix |
 | [2026-W31](2026-W31.md) | 07-27 → 08-02 | 41 | all-rules-ON, TB4b, task #11, R-d retirement, L19–L23 |
 | [2026-W30](2026-W30.md) | 07-20 → 07-26 | 31 | E2 Factor, V6 Congruence, the S4 arrangement, Track W Walk |
@@ -20,3 +21,7 @@ and are freely revised or deleted there, which the archives deliberately do not 
 its own reasoning, so a dangling number costs nothing). Measurements quoted inside an entry are the
 numbers *as measured then*; on conflict, the current truth is `PROGRESS.md` for status,
 `docs/lessons.md` for a lesson, and `benchmarks/runs/<window>/results.json` for per-instance timings.
+
+The [16 September structured-SR excerpt](2026-09-16-structured-sr-progress.md)
+preserves unique early experiment pointers and checkpoint qualifications removed
+from the current resume guide; later AM7 evidence remains in its primary report.
