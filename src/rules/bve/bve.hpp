@@ -76,5 +76,7 @@ uint32_t bve_schedule_occurrence_count(const Kernel &, Lit);
 // here would narrow the instance surface a policy enumerates, and "when to
 // retry" is scheduling. See docs/implementation-notes.md §6.
 void bve_schedule(Kernel &, std::vector<Var> &out);
+void bve_schedule_from_occurrences(const Kernel &, const BveOccurrences &,
+                                   std::vector<Var> &out);
 
 } // namespace tactix

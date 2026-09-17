@@ -130,24 +130,29 @@ target in `[jump_level, level-1]` is sound.
   pending learned-clause reasons and a recorded conflict antecedent are never deleted; proved root units need no clause lock.
 - **Effect:** delete any legally unlocked subset of the *redundant* clauses; glue/usage tiers are policy advice. Compact the arena;
   forward live reasons and retire deleted root reasons to proved units. `F` unchanged; `R` shrinks. Proof δ: `del` per deleted
-  clause. Preparatory root closure is M1; consuming its roots into decision guidance belongs to policy, not S2's guard.
-  Collection-side retry notifications are advice, not a new precondition or restriction on legal BVE instances.
+  clause. Preparatory root closure is M1; consuming its roots into decision guidance belongs to policy, not S2's guard. Optional
+  root compaction composes proved-root shortening and satisfied deletion, with their RUP additions/deletions; these can change
+  `F` even for an empty learned-victim subset. Report those changes as progress and any resulting refutation as UNSAT.
+  Collection-side retry notifications and optional reduction-count/usage/survivor bookkeeping are strategy advice; they do not restrict legal deletion subsets or BVE instances.
 - **Soundness:** deleting redundant/entailed clauses is equisatisfiability-preserving; the checker accepts any deletion.
 ### S5 · Lucky
 - **Precondition (abstract):** consistent at level zero with no pending conflict. Instances 0–5 attempt reference complete assignments
   via decision-free assumptions and propagation. Instance 6 groups ternary clauses by variable triple and same-parity falsifying
   sign masks, treats the resulting affine equations only as candidate guidance, and searches their residual GF(2) space. Instance 7
   recognizes disjoint exactly-one triples and complete forbidden-tuple encodings of affine GF(3) equations, then searches the
-  residual field space.
+  residual field space. Instance 8 recovers complete Boolean parity groups and root equations, projects onto selected signed
+  coordinates, and searches explicit bounded syndrome-support scopes with private residual propagation.
 - **Effect:** on success `τ` is a total model → `Sat`; otherwise `σ` is unchanged *by the probing itself*. Proof δ: none from the
   probes (SAT needs no proof) — but like every inprocessing rule it drains the root closure at apply entry, emitting that closure's
   units (`add_derived_unit` under LRAT) and possibly refuting (`add_empty` → `Unsat`). "No proof δ" is true of the rule's own
   inference, not of an apply.
 - **Parameters and termination:** instances 6 and 7 expose their variable, structure, total-constraint, equation, free-dimension and
   candidate bounds as validated per-call settings; instance 7 also exposes maximum equation arity. Interruption and every exhausted
-  bound return `NoOp` before any assignment. Structural ordering is deterministic. Instances 0–5 retain their reference order.
-- **Soundness:** every successful instance has a total model. Both structural instances validate each candidate against every live
-  large and binary clause before committing it. Instance 7 recognizes an equation only when its exactly-one domain clauses and the
+  bound return `NoOp` before any assignment. Instance 8 additionally exposes signed external projection coordinates, ordered
+  split/half-weight/total-weight scopes, permutations/seed, free and residual phases, payload limits and a shared work budget.
+  Exhaustion never infers UNSAT; zero and fully complete search scopes remain selectable. Instances 0–5 retain their reference order.
+- **Soundness:** every successful instance has a total model. All structural instances validate each candidate against every live
+  large and binary clause and every root assignment before committing it. Unassigned retired values omitted by publication cannot witness a live clause's satisfaction. Instance 7 recognizes an equation only when its exactly-one domain clauses and the
   complete set of forbidden tuples are present. Incomplete recognition can miss models but cannot produce false SAT. Failure
   preserves `σ`.
 
@@ -399,7 +404,10 @@ root closure at apply entry. V1/V2 Probe/Backbone additionally require `!conflic
   reconstruction witness per removed *live* clause onto `ρ` with the pivot as its blocking literal (both sides); assert any
   size-collapsed root units un-propagated (M1 owns the cascade). An empty resolvent or two contradictory collapsed units → `Unsat`.
   One variable per apply (canonical = the best schedulable candidate within budget); over-budget or a duplicate-binary hazard →
-  `NoOp` (no state mutated). Private retry/active-pop advice adds no abstract precondition and does not narrow public instances.
+  `NoOp` (no state mutated). Repeating elimination on an already-retired, clause-free pivot is a semantic `NoOp`; an active clause-free variable still retires. Private retry/active-pop advice does not narrow public instances.
+  A strategy may generate a complete pass over all active variables or only the
+  current nonempty one-sided (pure) candidates. This is enumeration scope: an
+  explicit legal variable remains applicable under either setting.
 - **Gate reduction:** the resolvent set above is the *full* cross product; when a subset of `x`'s clauses is a **gate** — writing
   them `(x∨Cᵢ)` for `i∈P`, `(¬x∨Dⱼ)` for `j∈N`, with marked subsets `G⁺⊆P`, `G⁻⊆N` — the *antecedent×antecedent* resolvents are
   dropped. Marking is legal exactly when
@@ -580,17 +588,56 @@ literal. The rule is unimplemented; its reopening conditions are in `implementat
 ## 6d. Direct substitution redundancy (X7)
 ### X7 · SubstitutionRedundancy — add a clause with a finite DSR witness
 - **Precondition (abstract):** let `C` be a nonempty, non-tautological clause, `p ∈ C` its pivot, and `σ` a finite,
-  polarity-preserving substitution mapping `p` to true and every other source to a constant or literal. For every `D ∈ F`, either
-  `D|σ` is satisfied or unit propagation refutes `F ∧ ¬C ∧ ¬(D|σ)`. Discovery, work limits and producers are strategy choices.
+  polarity-preserving substitution mapping variables to constants or literals. DSR supplies the default `σ(p)=true` when the
+  witness has no explicit mapping for the pivot; an explicit pivot mapping overrides that default. For every `D ∈ F ∪ {C}`, either
+  `D|σ` is satisfied or unit propagation refutes `F ∧ ¬C ∧ ¬(D|σ)`. The candidate-image obligation is essential when the pivot is explicitly mapped. Discovery, work limits and producers are strategy choices.
 - **Effect:** add `C`, then perform ordinary root propagation; existing clauses and reconstruction state stay unchanged. An
   already-present/true candidate is a no-op, and a unit may close the root formula.
-- **Proof δ / soundness:** `add_sr(C,p,σ)` joins the combined DSR stream. Serialize each mapped variable with its positive source
-  literal and that literal's signed image. Every root fact used by validation is already a DSR RUP unit, so validation and the
-  checker see the same formula. The SR condition preserves satisfiability; `dsr-trim` and Trestle check it. No DRAT/LRAT expansion exists.
+- **Proof δ / soundness:** `add_sr(C,p,σ)` joins the combined DSR stream; mapping sources are positive variables with signed images.
+  The serializer preserves the semantic witness using direct, repivoted, RUP or lemma forms. The general form chooses fresh
+  proof-only `z`, adds `E=(¬z∨C)` by vacuous RAT and `K=(z∨C)` by SR with `z=true` and `σ`, derives `C` by RUP, then deletes `K,E`.
+  Under `¬K`, the original obligations apply; `E|σ` is the candidate-image obligation. Both temporary clauses are nonunit and
+  completely removed, so no solver variable or reconstruction change is needed. Every root fact used by validation is already
+  a DSR RUP unit. `dsr-trim` and Trestle check the complete stream; no legal witness is excluded by its number of open images.
 - **Instances / termination:** `(C,p,σ)` is the explicit tuple. Lazy enumeration covers every legal tuple and resumes after selected
   batches. Repetition terminates over finite clause space or by caller budget/stop. Row-oriented, column-oriented, stabilizer-chain,
-  and direct-generator symmetry discovery are producers of ordinary X7 tuples, not additional guards or new proof rules. Each
-  produced tuple is independently checked against the current live formula before mutation.
+  and direct-generator symmetry discovery are producers of ordinary X7 tuples, not additional guards or new proof rules.
+  Forward-only clause scanning is an optional producer priority; explicit X7 remains unrestricted by its scan frontier. Shortest-active-clause selection is another producer priority with unchanged tuple obligations.
+  Strategy may re-sift retained stabilizer generators on every base extension; this changes discovery, not X7 legality.
+  Strategy may retain detector callback order or canonicalize generator maps before traversal; either order uses the same X7 validation.
+  Structured generators and a caller-selected discovery stabilizer may guide generic discovery; every emitted tuple retains the same X7 obligations. The stabilizer may fix whole matrices or their row/column anchors; neither choice restricts explicit X7.
+  A planning stop may finalize and publish a prefix of complete chain levels under the independent total work budget;
+  it never relaxes tuple validation or permits a partially published level. Structured
+  row-candidate discovery may use equitable refinement cells or detected-generator orbits; an equitable cell is only a
+  candidate set and never replaces exact action validation. Explicit
+  and general tuples are independently checked against the current live formula. A generated orbitopal prefix may share a structural
+  validation: for member `i`, its full action is an exact clause-set automorphism of the base formula (duplicate counts are irrelevant), maps the selected fixed literal to its
+  witness mate, and preserves the multiset of prior prefix units `U_<i`. It is therefore an automorphism of `F ∪ U_<i`, which proves
+  the same X7 SR condition without repeating propagation over every base clause. The executor admits this only in original prefix
+  order and rejects external state changes; the emitted proof remains an ordinary independently checked DSR `add_sr` sequence.
+  A graph-symmetry clausal-fixing level chooses a representative `r` and the other active literals `k` of one clause in their common
+  orbit. For each `k`, it first applies the ordinary X7 tuple `C_k = (r ∨ ¬k)` with pivot `r` and the inverse Schreier transversal
+  `h(r)=k`; pivot order is part of the DSR rule. Under `¬C_k`, `k` is true, so the image of every earlier cut at this level is
+  immediately satisfied. The level then applies unit `(r)`, which is RUP from the complete binary prefix and the source clause. The pointwise
+  stabilizer of `r` preserves the completed level, so later levels use the same incremental chain. An AMO source additionally
+  propagates every other active literal false. Every materialized transversal is exact-checked against the detection snapshot;
+  ordered application certifies the earlier cuts, while the live root closure must remain invariant under the witness. This private
+  producer certificate only avoids repeating the generic formula scan; every emitted tuple remains independently checkable DSR.
+  Product-axis witnesses may move variables outside the selected matrix if they preserve the full formula and required prefix;
+  fixing those outside variables is a sufficient discovery fast path, not an additional X7 precondition.
+  If no source clause lies in the current orbit, a fix-and-cut producer may instead publish the complete orbit level
+  `B_k = (¬r ∨ k)` for every `k ∈ O(r) \ {r}`, each with pivot `¬r` and inverse transversal `h(r)=k`. Under `¬B_k`, the image
+  of every earlier member of that level is satisfied by `¬k`. If `¬r ∈ O(r)`, the level is the unit `(r)` with the corresponding
+  negation-orbit witness. Before granting the private certificate to a later level, the producer independently checks that its
+  transversal fixes every earlier cut base and maps every earlier complete cut orbit into itself; fixed points satisfy these obligations automatically. Hence each image is another
+  published cut or a tautology. The chain is closed before any transversal is materialized. No partial level is selected when its
+  action or work budget is insufficient. Cut-producing repeat-to-fixpoint remains finite because original clauses are retained,
+  each effective application adds a previously absent binary or unit, and the finite literal domain has only finitely many such
+  clauses. Strategy may rank only the initial level by active clause length and then use a forward caller-order scan;
+  this changes producer priority, not the X7 condition or selectable explicit instances.
+  A producer may factor the supplied generator subgroup by whole generator supports. Each factor acts identically outside
+  its component; coupled cycles stay together. Local source clauses retain every unknown literal, and mapped witnesses
+  undergo the same full-formula and preceding-prefix checks. This changes discovery order, never explicit X7 legality.
 ## 6e. Clause strengthening by instantiation (X4)
 
 ### X4 · Instantiate — removing a literal a probe refutes

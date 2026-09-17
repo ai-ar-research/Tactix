@@ -134,6 +134,7 @@ static void test_large_formula_factor_decline_is_solve_latched(void) {
   kernel_reserve_vars(k, 8);
   DefaultStrategyConfig cfg;
   cfg.inprocess.factor_active_ceiling = 6;
+  cfg.inprocess.structured_root_stages.clear(); // isolate the Factor gate
   DefaultPolicy p(cfg);
   p.inprocess().build(k);
 
@@ -927,14 +928,14 @@ static void test_rule_boundary_deactivates_root_before_substitute_member(void) {
   std::printf("  rule lifecycle: root fixed before substituted heap removal\n");
 }
 
-// --- the strategy-owned slot program covers the registry -------------------
-// The slot order is strategy data, and an unnamed rule is still
-// scheduled — appended in registry order — so its position becomes an accident.
-// Every Inprocess-tier rule needs an authored position, and every authored row
-// needs a rule registered at that tier.
+// --- the strategy-owned programs cover the registry ------------------------
+// The slot order and the separate startup root composition are strategy data.
+// An unnamed rule would otherwise be appended in registry order and acquire an
+// accidental position. Every Inprocess-tier rule needs an authored owner.
 static void test_authored_slot_order_covers_registry(void) {
   size_t norder = 0;
   const SlotOrderRow *order = default_slot_order(&norder);
+  const DefaultStrategyConfig defaults;
   const std::vector<RuleVTable> &rules = tactix_rules();
   for (const RuleVTable &r : rules) {
     if (r.tier != RuleTier::Inprocess)
@@ -942,6 +943,9 @@ static void test_authored_slot_order_covers_registry(void) {
     bool found = false;
     for (size_t o = 0; o < norder; o++)
       found = found || !std::strcmp(order[o].name, r.name);
+    for (const auto &stage : defaults.inprocess.structured_root_stages)
+      for (const auto &step : stage.program.sequence)
+        found = found || step.rule == r.name;
     if (!found)
       std::printf("  UNAUTHORED Inprocess rule: %s\n", r.name);
     assert(found &&
@@ -959,7 +963,15 @@ static void test_authored_slot_order_covers_registry(void) {
     assert(found && "the reference strategy program names an unregistered "
                     "the Inprocess tier");
   }
-  std::printf("  authored slot order: %zu rows, registry-complete\n", norder);
+  for (const auto &stage : defaults.inprocess.structured_root_stages)
+    for (const auto &step : stage.program.sequence) {
+      const int id = tactix_rule_id(step.rule.c_str());
+      assert(id >= 0 && (rules[id].tier == RuleTier::Inprocess ||
+                         step.rule == "Reduce" || step.rule == "Propagate" ||
+                         step.rule == "Lucky"));
+    }
+  std::printf("  authored slot/root programs: %zu slot rows, registry-complete\n",
+              norder);
 }
 
 // Inprocessing, Lucky, and Walk are root-formula phases. A strategy that is
@@ -1090,13 +1102,12 @@ static void test_default_slot_membership_matches_kissat(void) {
   // `probe_initially` (probe.c:54-139), but is unconditional between the
   // early Backbone and Sweep in every search-time Probe (probe.c:35-43).
   static constexpr const char *SEARCH_PROBE[] = {
-      "Congruence",       "Substitute", "Backbone",
-      "Vivify",          "Sweep",      "Substitute",
-      "TransitiveReduce", "Backbone",   "SubstitutionRedundancy", "Factor",
+      "Congruence", "Substitute", "Backbone", "Vivify", "Sweep",
+      "Substitute", "TransitiveReduce", "Backbone", "Factor",
   };
   static constexpr const char *INITIAL_PROBE[] = {
-      "Congruence", "Substitute", "Backbone",
-      "Sweep",      "Substitute", "SubstitutionRedundancy", "Factor",
+      "Congruence", "Substitute", "Backbone", "Sweep", "Substitute",
+      "Factor",
   };
   std::vector<const char *> search_probe, initial_probe;
   for (const auto &entry : p.inprocess().entries) {
@@ -1119,6 +1130,142 @@ static void test_default_slot_membership_matches_kissat(void) {
            "startup Probe interleaving diverged from Kissat");
   std::printf("  slot membership/order: exact Kissat startup/search Probe; "
               "seven extra rules poseable\n");
+}
+
+static void test_default_structured_root_sequence_is_effective() {
+  for (const bool before_lucky : {false, true}) {
+  Kernel k;
+  kernel_defer_cold_state(k);
+  constexpr unsigned vertices = 5, colors = 3;
+  kernel_reserve_vars(k, vertices * colors);
+  const auto variable = [](unsigned vertex, unsigned color) {
+    return static_cast<int>(vertex * colors + color + 1);
+  };
+  const auto add_binary = [&](int first, int second) {
+    kernel_add_binary_clause(k, internalize(first), internalize(second),
+                             ++k.next_clause_id);
+  };
+  for (unsigned vertex = 0; vertex < vertices; ++vertex) {
+    Lit at_least[colors];
+    for (unsigned color = 0; color < colors; ++color)
+      at_least[color] = internalize(variable(vertex, color));
+    kernel_add_large_clause(k, at_least, colors, false, 0,
+                            ++k.next_clause_id);
+    for (unsigned first = 0; first < colors; ++first)
+      for (unsigned second = first + 1; second < colors; ++second)
+        add_binary(-variable(vertex, first), -variable(vertex, second));
+  }
+  constexpr unsigned edges[][2] = {
+      {0, 1}, {1, 2}, {1, 3}, {1, 4}, {2, 3}, {2, 4}, {3, 4}};
+  for (const auto &edge : edges)
+    for (unsigned color = 0; color < colors; ++color)
+      add_binary(-variable(edge[0], color), -variable(edge[1], color));
+
+  DefaultStrategyConfig config;
+  config.inprocess.structured_root_before_lucky = before_lucky;
+  DefaultPolicy policy(config);
+  assert(policy.solve(k) == 20);
+  const auto &telem = policy.inprocess().structured_root;
+  std::printf("  structured root telemetry: runs=%llu applications=%llu "
+              "effective=%llu passes=%llu terminal=%u\n",
+              (unsigned long long)telem.runs,
+              (unsigned long long)telem.applications,
+              (unsigned long long)telem.effective,
+              (unsigned long long)telem.sequence_passes,
+              static_cast<unsigned>(telem.terminal));
+  assert(telem.runs == 1 && telem.applications > 0 &&
+         telem.effective > 0);
+  assert(telem.terminal == strategy::InvocationStatus::Unsat);
+  assert(k.inconsistent);
+  assert(k.stats.lucky_early_calls == (before_lucky ? 0u : 1u));
+  assert(!k.inprocessing && !k.phase_saving_suppressed);
+  kernel_check_invariants(k);
+  std::printf("  structured root: typed SR sequence reaches checked state\n");
+  }
+}
+
+static void test_structured_root_exhaustion_finishes_selected_scope() {
+  using namespace strategy;
+  for (const auto disposition : {BudgetExhaustionPolicy::Stop,
+                                 BudgetExhaustionPolicy::Continue,
+                                 BudgetExhaustionPolicy::FinishRoundThenStop}) {
+    Kernel k;
+    kernel_reserve_vars(k, 3);
+    kernel_add_binary_clause(k, internalize(1), internalize(2), ++k.next_clause_id);
+    const Lit clause[] = {internalize(1), internalize(2), internalize(3)};
+    kernel_add_large_clause(k, clause, 3, false, 0, ++k.next_clause_id);
+    OnlineInvocation limited;
+    limited.id = 1171;
+    limited.rule = "SubstitutionRedundancy";
+    SubstitutionRedundancyParameters parameters;
+    parameters.producer = SubstitutionRedundancyProducer::GraphSymmetry;
+    parameters.graph_symmetry.maximum_graph_vertices = 1;
+    limited.parameters = parameters;
+    OnlineInvocation tail;
+    tail.id = 1172;
+    tail.rule = "SubstitutionRedundancy";
+    tail.parameters = SubstitutionRedundancyParameters{};
+    tail.granularity = InvocationGranularity::OneInstance;
+    tail.substitution_redundancy_instances = {
+        SubstitutionRedundancyInstance{{internalize(1)}, {}, {}}};
+    OnlineStrategyProgram program;
+    program.sequence = {limited, tail};
+    program.repeat = {RepeatMode::UntilScopedFixpoint, 4};
+    DefaultStrategyConfig config;
+    config.inprocess.structured_root_stages = {
+        {program, disposition}, {{}, BudgetExhaustionPolicy::Continue}};
+    DefaultPolicy policy(config);
+    assert(policy.inprocess().run_structured_root(k, nullptr) == 0);
+    const auto &stages = policy.inprocess().structured_root.stages;
+    assert(stages.size() == 2);
+    if (stages[0].terminal != InvocationStatus::BudgetExhausted)
+      std::fprintf(stderr, "exhaustion disposition=%u status=%u rounds=%llu effective=%llu\n",
+                   static_cast<unsigned>(disposition), static_cast<unsigned>(stages[0].terminal),
+                   (unsigned long long)stages[0].sequence_passes,
+                   (unsigned long long)stages[0].effective);
+    assert(stages[0].terminal == InvocationStatus::BudgetExhausted);
+    const bool immediate = disposition == BudgetExhaustionPolicy::Stop;
+    assert(stages[0].effective == (immediate ? 0u : 1u));
+    assert(stages[0].sequence_passes == (immediate ? 0u :
+        disposition == BudgetExhaustionPolicy::FinishRoundThenStop ? 1u : 2u));
+    assert(stages[1].runs == (disposition == BudgetExhaustionPolicy::Continue ? 1u : 0u));
+    assert(!k.inprocessing && !k.phase_saving_suppressed);
+    kernel_check_invariants(k);
+  }
+}
+
+static void test_structured_root_publishes_before_probe_slots() {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  const auto add_binary = [&](int first, int second) {
+    kernel_add_binary_clause(k, internalize(first), internalize(second),
+                             ++k.next_clause_id);
+  };
+  add_binary(1, 2);
+  add_binary(3, 4);
+  add_binary(-1, -3);
+  add_binary(-2, -4);
+  ScopedHeuristics heuristics(k);
+  const std::vector<int8_t> saved_before = k.h->saved;
+
+  DefaultStrategyConfig config;
+  config.inprocess.program.clear();
+  config.inprocess.append_unlisted_rules = false;
+  DefaultPolicy policy(config);
+  policy.inprocess().build(k);
+  assert(policy.inprocess().run_phase(k, SlotGroup::Probe, nullptr) == 0);
+  assert(policy.inprocess().structured_root.runs == 1);
+  assert(policy.inprocess().structured_root.effective > 0);
+  assert(kernel_propagation_fixpoint(k));
+  assert(k.value(internalize(-1)) > 0);
+  assert(!heuristics_var_active(k, var_of(internalize(1))));
+  assert(k.h->saved == saved_before &&
+         "startup SR validation and closure escaped InprocessScope");
+  // A later root Probe cannot re-enter the consumed startup program.
+  assert(policy.inprocess().run_phase(k, SlotGroup::Probe, nullptr) == 0);
+  assert(policy.inprocess().structured_root.runs == 1);
+  kernel_check_invariants(k);
+  std::printf("  structured root boundary: propagation and H published once\n");
 }
 
 // --- the two clocks are actually two ----------------------------------------
@@ -1497,8 +1644,8 @@ static void test_preprocess_is_reduced_and_bounded(void) {
     if (e.preprocess)
       offered.push_back(rules[e.rule].name);
   static const char *const expected[] = {
-      "Congruence", "Substitute", "Backbone",
-      "Sweep", "Substitute", "SubstitutionRedundancy", "Factor"};
+      "Congruence", "Substitute", "Backbone", "Sweep", "Substitute",
+      "Factor"};
   assert(offered.size() == std::size(expected));
   for (size_t i = 0; i < offered.size(); i++)
     assert(!std::strcmp(offered[i], expected[i]));
@@ -1741,7 +1888,9 @@ static void test_startup_sparse_collection_precedes_probe(void) {
   for (const auto &binary : unsat)
     kernel_add_binary_clause(k, binary[0], binary[1]);
 
-  DefaultPolicy p;
+  DefaultStrategyConfig config;
+  config.inprocess.structured_root_before_lucky = false; // reference collection boundary
+  DefaultPolicy p(config);
   assert(p.solve(k) == 20);
   assert(k.stats.sparse_collections == 1);
   // The sparse collector removes the satisfied large clause, rewrites the
@@ -1854,6 +2003,9 @@ int main() {
   test_inprocess_registry_requires_root();
   test_typed_program_preserves_default_and_composes_occurrences();
   test_default_slot_membership_matches_kissat();
+  test_default_structured_root_sequence_is_effective();
+  test_structured_root_exhaustion_finishes_selected_scope();
+  test_structured_root_publishes_before_probe_slots();
   test_two_slot_clocks_diverge();
   test_initial_elimination_deadline_matches_kissat();
   test_bve_default_order_adds_search_relevancy();

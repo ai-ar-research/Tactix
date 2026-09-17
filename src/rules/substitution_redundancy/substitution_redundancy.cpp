@@ -30,17 +30,21 @@ struct ParsedWitness {
   std::vector<DsrLiteralMapping> emitted_mappings;
 };
 
-bool valid_internal_literal(const Kernel &k, Lit lit) {
-  return lit != INVALID_LIT && var_of(lit) < k.nvars &&
-         !kernel_var_retired(k, var_of(lit));
+// Syntax and current-state eligibility are different: a payload can outlive
+// a variable eliminated by an earlier step in the same online program.
+bool valid_internal_literal(const Kernel &k, Lit lit, bool &active) {
+  if (lit == INVALID_LIT || var_of(lit) >= k.nvars)
+    return false;
+  active &= !kernel_var_retired(k, var_of(lit));
+  return true;
 }
 
 bool normalize_candidate(const Kernel &k, const std::vector<Lit> &input,
-                         std::vector<Lit> &output) {
+                         std::vector<Lit> &output, bool &active) {
   output.clear();
   output.reserve(input.size());
   for (const Lit lit : input) {
-    if (!valid_internal_literal(k, lit))
+    if (!valid_internal_literal(k, lit, active))
       return false;
     if (std::find(output.begin(), output.end(), negate(lit)) != output.end())
       return false;
@@ -52,14 +56,14 @@ bool normalize_candidate(const Kernel &k, const std::vector<Lit> &input,
 
 bool parse_witness(const Kernel &k, Lit pivot,
                    const SubstitutionRedundancyInstance &instance,
-                   ParsedWitness &result) {
+                   ParsedWitness &result, bool &active) {
   result.constants.assign(k.nvars, 0);
   result.images.assign(k.nvars, INVALID_LIT);
   result.emitted_true.clear();
   result.emitted_mappings.clear();
 
   const auto set_true = [&](Lit lit, bool implicit) {
-    if (!valid_internal_literal(k, lit))
+    if (!valid_internal_literal(k, lit, active))
       return false;
     const Var var = var_of(lit);
     const int8_t value = negated(lit) ? -1 : 1;
@@ -84,12 +88,23 @@ bool parse_witness(const Kernel &k, Lit pivot,
   std::unordered_set<Var> sources;
   result.emitted_mappings.reserve(instance.substitution.size());
   for (const auto &[source, target] : instance.substitution) {
-    if (!valid_internal_literal(k, source) ||
-        !valid_internal_literal(k, target))
+    if (!valid_internal_literal(k, source, active) ||
+        !valid_internal_literal(k, target, active))
       return false;
     const Var var = var_of(source);
-    if (result.constants[var] || !sources.insert(var).second)
+    if (!sources.insert(var).second)
       return false;
+    // DSR begins every witness with the clause pivot mapped to true, but an
+    // explicit mapping for the pivot later in the same witness overrides that
+    // default. This is required by SST cuts: the first clause literal is the
+    // orbit representative and the symmetry maps it to the other orbit point.
+    // No other true-mapped source may also have an explicit image.
+    if (result.constants[var]) {
+      if (var != var_of(pivot) ||
+          result.constants[var] != (negated(pivot) ? -1 : 1))
+        return false;
+      result.constants[var] = 0;
+    }
     const Lit image = negated(source) ? negate(target) : target;
     if (image == make_lit(var, false))
       return false;
@@ -261,6 +276,35 @@ ValidationStatus transformed_image(const Lit *lits, uint32_t size,
   return ValidationStatus::Inapplicable;
 }
 
+// A generated automorphism certificate describes the formula snapshot used
+// by orbitopal discovery.  Applying an earlier certified unit can expose more
+// root units by propagation, and native DSR publishes those consequences as
+// explicit clauses.  They are therefore part of the checker's formula even
+// though they were not members of the detector's planned unit prefix.  Keep
+// the fast path only when the current root-unit closure is invariant (or a
+// unit is made true) under this witness.  Otherwise the ordinary complete X7
+// validator decides the instance against the strengthened state.
+bool certified_root_closure_preserved(const Kernel &k,
+                                      const ParsedWitness &witness) {
+  std::vector<Lit> image;
+  for (Var var = 0; var < k.nvars; ++var) {
+    const Lit positive = make_lit(var, false);
+    const int value = k.value(positive);
+    if (!value)
+      continue;
+    const Lit unit = value > 0 ? positive : negate(positive);
+    bool changed = false;
+    if (transformed_image(&unit, 1, witness, image, changed) ==
+        ValidationStatus::Valid)
+      continue;
+    if (!changed)
+      continue;
+    if (image.size() != 1 || k.value(image.front()) <= 0)
+      return false;
+  }
+  return true;
+}
+
 ValidationResult validate_semantics(
     const Kernel &k, const std::vector<Lit> &candidate,
     const ParsedWitness &witness,
@@ -275,12 +319,13 @@ ValidationResult validate_semantics(
   for (const Lit lit : candidate)
     assumptions.push_back(negate(lit));
   std::vector<Lit> image;
-  const auto check = [&](const Lit *lits, uint32_t size) {
+  const auto check = [&](const Lit *lits, uint32_t size,
+                         bool candidate_clause = false) {
     bool changed = false;
     if (transformed_image(lits, size, witness, image, changed) ==
         ValidationStatus::Valid)
       return ValidationStatus::Valid;
-    if (!changed)
+    if (!changed && !candidate_clause)
       return ValidationStatus::Valid;
     switch (formula.refutes(assumptions, image)) {
     case SubPropagationResult::Conflict:
@@ -294,6 +339,15 @@ ValidationResult validate_semantics(
     }
     return ValidationStatus::Inapplicable;
   };
+
+  // SR requires F & !C |-UP (F & C)|sigma, not merely F|sigma.
+  // An explicit pivot image may override the default true assignment; it
+  // must still repair C under !C. An unchanged clause in F is automatic,
+  // whereas an unchanged candidate needs a real RUP derivation.
+  const ValidationStatus repaired =
+      check(candidate.data(), candidate.size(), true);
+  if (repaired != ValidationStatus::Valid)
+    return {repaired, formula.ticks()};
 
   for (Var var = 0; var < k.nvars; ++var) {
     if (!k.value(make_lit(var, false)))
@@ -409,7 +463,9 @@ SubstitutionRedundancyGeneralResult substitution_redundancy_next_general(
     SubstitutionRedundancyGeneralCursor &cursor,
     SubstitutionRedundancyInstance &instance, volatile sig_atomic_t *stop) {
   SubstitutionRedundancyGeneralResult result;
-  if (!parameters.valid() || !parameters.general_producer)
+  if (!parameters.valid() ||
+      parameters.producer !=
+          SubstitutionRedundancyProducer::GeneralComplete)
     return result;
   if (!cursor.initialized || cursor.owner != &k ||
       cursor.arena_generation != k.arena_generation ||
@@ -428,8 +484,9 @@ SubstitutionRedundancyGeneralResult substitution_redundancy_next_general(
     materialize_general_instance(cursor, instance);
     std::vector<Lit> candidate;
     ParsedWitness witness;
-    if (normalize_candidate(k, instance.clause, candidate) &&
-        parse_witness(k, candidate.front(), instance, witness) &&
+    bool active = true;
+    if (normalize_candidate(k, instance.clause, candidate, active) &&
+        parse_witness(k, candidate.front(), instance, witness, active) && active &&
         !clause_already_true(k, candidate)) {
       const ValidationResult checked = validate_semantics(
           k, candidate, witness, parameters, stop ? stop : k.stop);
@@ -462,19 +519,41 @@ ApplyResult substitution_redundancy_apply(Kernel &) {
   return ApplyResult::NoOp;
 }
 
-SubstitutionRedundancyApplicationResult substitution_redundancy_apply_detailed(
+static SubstitutionRedundancyApplicationResult
+substitution_redundancy_apply_detailed_impl(
     Kernel &k, const SubstitutionRedundancyInstance &instance,
     const SubstitutionRedundancyParameters &parameters,
-    volatile sig_atomic_t *stop) {
+    volatile sig_atomic_t *stop, bool accept_generated_certificate) {
   SubstitutionRedundancyApplicationResult outcome;
   if (!substitution_redundancy_guard(k) || !parameters.valid())
     return outcome;
 
   std::vector<Lit> candidate;
   ParsedWitness witness;
-  if (!normalize_candidate(k, instance.clause, candidate) ||
-      !parse_witness(k, candidate.front(), instance, witness))
+  const bool unique_literal_amo =
+      accept_generated_certificate &&
+      instance.unique_literal_amo_certificate;
+  bool active = true;
+  if (!normalize_candidate(k, instance.clause, candidate, active))
     return outcome;
+  // The generated ULC completion has the implicit pivot-only substitution.
+  // Avoid allocating and clearing two nvars-sized witness images for every
+  // pair in a potentially large AMO. Its producer certificate is accepted
+  // only on the private generated path and only in this exact normal form.
+  if (unique_literal_amo) {
+    if (candidate.size() != 2 || !instance.witness.empty() ||
+        !instance.substitution.empty())
+      return outcome;
+  } else if (!parse_witness(k, candidate.front(), instance, witness, active))
+    return outcome;
+
+  // A retired variable makes this well-formed request inapplicable now; it
+  // does not make its serialized payload malformed. Check after full syntax
+  // validation so retirement never masks an invalid witness or literal.
+  if (!active) {
+    outcome.status = SubstitutionRedundancyApplicationStatus::Inapplicable;
+    return outcome;
+  }
 
   ++k.stats.sr_applications;
   if ((stop && *stop) || (k.stop && *k.stop)) {
@@ -495,18 +574,49 @@ SubstitutionRedundancyApplicationResult substitution_redundancy_apply_detailed(
         SubstitutionRedundancyApplicationStatus::UnsupportedProofFormat;
     return outcome;
   }
-
-  const ValidationResult checked = validate_semantics(
-      k, candidate, witness, parameters, stop ? stop : k.stop);
-  outcome.validation_ticks = checked.ticks;
-  k.stats.sr_validation_ticks += checked.ticks;
-  if (checked.status != ValidationStatus::Valid) {
-    outcome.status = checked.status == ValidationStatus::Interrupted
-                         ? SubstitutionRedundancyApplicationStatus::Interrupted
-                     : checked.status == ValidationStatus::ResourceExhausted
-                         ? SubstitutionRedundancyApplicationStatus::ResourceExhausted
-                         : SubstitutionRedundancyApplicationStatus::Inapplicable;
+  // The general serializer needs one temporary external literal. This is a
+  // representation limit, independent of whether proof output is enabled.
+  if (plan_dsr_witness(candidate.data(), candidate.size(),
+                       witness.emitted_true.data(), witness.emitted_true.size(),
+                       witness.emitted_mappings.data(),
+                       witness.emitted_mappings.size())
+          .form == DsrWitnessForm::Extension &&
+      k.external_to_internal.size() >= static_cast<uint32_t>(INT32_MAX)) {
+    outcome.status = SubstitutionRedundancyApplicationStatus::ResourceExhausted;
     return outcome;
+  }
+
+  // The ULC certificate counts stored-clause occurrences, not root units
+  // exposed since discovery. Its implicit witness only sets the pivot true.
+  // A currently false pivot would therefore falsify an explicit root unit.
+  // Reconstruct that witness and use complete X7 validation in this case:
+  // the request can still be legal when the candidate is already RUP.
+  const bool certified_unique_literal_amo =
+      unique_literal_amo && k.value(candidate.front()) >= 0;
+  if (unique_literal_amo && !certified_unique_literal_amo &&
+      !parse_witness(k, candidate.front(), instance, witness, active))
+    return outcome;
+  const bool certified =
+      certified_unique_literal_amo ||
+      (accept_generated_certificate &&
+       instance.symmetry_chain_certificate &&
+       certified_root_closure_preserved(k, witness)) ||
+      (accept_generated_certificate &&
+       instance.orbitopal_prefix_certificate &&
+       certified_root_closure_preserved(k, witness));
+  if (!certified) {
+    const ValidationResult checked = validate_semantics(
+        k, candidate, witness, parameters, stop ? stop : k.stop);
+    outcome.validation_ticks = checked.ticks;
+    k.stats.sr_validation_ticks += checked.ticks;
+    if (checked.status != ValidationStatus::Valid) {
+      outcome.status = checked.status == ValidationStatus::Interrupted
+                           ? SubstitutionRedundancyApplicationStatus::Interrupted
+                       : checked.status == ValidationStatus::ResourceExhausted
+                           ? SubstitutionRedundancyApplicationStatus::ResourceExhausted
+                           : SubstitutionRedundancyApplicationStatus::Inapplicable;
+      return outcome;
+    }
   }
 
   std::vector<Lit> kept;
@@ -530,7 +640,8 @@ SubstitutionRedundancyApplicationResult substitution_redundancy_apply_detailed(
       !k.proof->add_sr(sr_id, candidate.data(), candidate.size(),
                        witness.emitted_true.data(), witness.emitted_true.size(),
                        witness.emitted_mappings.data(),
-                       witness.emitted_mappings.size())) {
+                       witness.emitted_mappings.size(),
+                       static_cast<uint32_t>(k.external_to_internal.size()))) {
     --k.next_clause_id;
     outcome.status =
         SubstitutionRedundancyApplicationStatus::UnsupportedProofFormat;
@@ -560,13 +671,41 @@ SubstitutionRedundancyApplicationResult substitution_redundancy_apply_detailed(
     kernel_assign_unit(k, kept[0]);
   } else if (kept.size() == 2) {
     kernel_add_binary_clause(k, kept[0], kept[1], committed_id);
+    if (unique_literal_amo)
+      ++k.stats.sr_unique_literal_amo_binaries;
   } else {
     kernel_add_large_clause(k, kept.data(), kept.size(), true, 0, committed_id);
   }
   outcome.status = SubstitutionRedundancyApplicationStatus::Applied;
   outcome.rule_result = ApplyResult::Ok;
   ++k.stats.sr_applied;
+  // A certified prefix will use the resulting root state to admit its next
+  // member. Propagate here so the last member exposes an immediate
+  // contradiction too, instead of paying solver-startup cost merely to reach
+  // the same root closure after the online pass returns.
+  if (accept_generated_certificate &&
+      instance.orbitopal_prefix_certificate && inprocess_reach_root(k)) {
+    outcome.status = SubstitutionRedundancyApplicationStatus::Unsat;
+    outcome.rule_result = ApplyResult::Unsat;
+  }
   return outcome;
+}
+
+SubstitutionRedundancyApplicationResult substitution_redundancy_apply_detailed(
+    Kernel &k, const SubstitutionRedundancyInstance &instance,
+    const SubstitutionRedundancyParameters &parameters,
+    volatile sig_atomic_t *stop) {
+  return substitution_redundancy_apply_detailed_impl(k, instance, parameters,
+                                                      stop, false);
+}
+
+SubstitutionRedundancyApplicationResult
+substitution_redundancy_apply_orbitopal_prefix(
+    Kernel &k, const SubstitutionRedundancyInstance &instance,
+    const SubstitutionRedundancyParameters &parameters,
+    volatile sig_atomic_t *stop) {
+  return substitution_redundancy_apply_detailed_impl(k, instance, parameters,
+                                                      stop, true);
 }
 
 ApplyResult substitution_redundancy_apply(
@@ -595,8 +734,9 @@ ApplyResult substitution_redundancy_apply_orbitopal(
   for (const SubstitutionRedundancyInstance &instance : instances) {
     if ((stop && *stop) || (kernel.stop && *kernel.stop))
       break;
-    const ApplyResult applied =
-        substitution_redundancy_apply(kernel, instance, parameters, stop);
+    const ApplyResult applied = substitution_redundancy_apply_orbitopal_prefix(
+                                    kernel, instance, parameters, stop)
+                                    .rule_result;
     if (applied == ApplyResult::Unsat)
       return applied;
     progress |= applied == ApplyResult::Ok;

@@ -9,29 +9,42 @@ evidence in frozen reports and runs. The solver is sequential and deterministic.
 
 ### Active execution order
 
-1. Preserve the accepted native-DSR certificate and direct-SR typed interface
-   with their proof, test, fuzz, B27+C5/Rank 1--40, and B28+C5/Rank 1--50 gates.
-2. Complete one coherent, default-off Satsuma symmetry increment through that
-   direct-SR interface as general root processing. Detect signed colored-CNF
-   automorphisms under typed budgets; exact-check the untrusted backend's literal
-   action; fix clauses with seeded full group elements; and re-detect after each
-   strengthening batch. Direct-generator involutions use the same X7 validator.
-   Expose representation, traversal, fixing, batching, repetition, seed, stop,
-   interruption and resumption through typed settings and versioned replay;
-   retain old replay readers. Pass focused tests, Release, sanitizers, a real
-   DSR-to-LSR-to-Trestle proof, Claude-owned fuzzing, then candidate-only
-   B28+C5 and Rank 1--50 against retained controls before committing.
-3. The fixed 57-row Satsuma WV100 screen establishes nine checked solves and 48
-   residuals. Complete structured row/row-column discovery and fixing first:
-   compose column alignments across connected compatibility graphs, order
-   columns through typed exact clique search with explicit resource stops, and
-   alternate root rounds. Then implement Johnson actions and regroup the
-   remaining misses.
+1. Preserve accepted native DSR and the typed direct-SR API, with proof, test,
+   fuzz, B27+C5/Rank 1--40 and B28+C5/Rank 1--50 evidence.
+2. Complete general root-start Satsuma symmetry preprocessing through that API:
+   signed colored-CNF detection, exact validation of untrusted automorphisms,
+   seeded group-element clause fixing, and re-detection after strengthening.
+   Preserve direct-generator involutions through X7. Type representation,
+   traversal, fixing, batching, repetition, seed, budgets, stop and resumption;
+   version replay while retaining old readers. Defer restart-boundary SR scheduling.
+3. Close all **57 permanently frozen Satsuma+Kissat-owned WV100 rows** with
+   independently checked native DSR, matching the retained winner's useful
+   preprocessing and efficient complete solve. Attack the 51 structured cases,
+   five Johnson cases and one general automorphism/Schreier case; overlapping
+   mechanisms do not reduce the denominator. Screen each coherent increment on
+   all 57 at c8/32 GiB/300 seconds; use 10-second screens for quick iteration.
+   Judge efficiency against retained end-to-end winner times, not a universal
+   10-second target. Final coverage remains 1,200 seconds/32 GiB for all 57.
+4. Freeze checked 57/57 as the SR-preprocessing regression set. Recover B28+C5
+   and Rank 1--50 without losing solves, proofs, effective preprocessing or
+   material efficiency on those 57. Complete the Rank/B28 performance and independent-validation gates before further WV100 coverage expansion; then integrate the other owning-baseline techniques while preserving those gates.
+   Only afterward study restart-boundary SR benefit beyond startup preprocessing
+   on B28+C5 and Rank 1--40, as specified in §8.3.
 
 Do not submit a new full Tier-D run after this symmetry increment. A future full
 Tier-D campaign requires a separate decision after focused WV100 evidence.
 Existing proof-checking jobs remain background checks and do not block
 independent work.
+
+Historical checker evidence: [SC 2026 audit](benchmarks/reports/2026-09-15-sc2026-sr-checking-audit.md).
+Routine 57-row evaluations use a separate 3,600-second complete checker
+pipeline allowance, including after 300-second solver runs; checkers may finish
+independently. A proof that only times out is rechecked with a 45,000-second
+pipeline ceiling before milestone acceptance. This is a local extended-check
+policy, consistent with the documented SC 2025 checker limit; the numerical
+SC 2026 checker limit remains unverified. This corrects the SC 2026 attribution
+in the historical audit above. Final acceptance still requires the complete
+native DSR → `dsr-trim` → LSR → Trestle path.
 
 ## 1. Goal and requirements
 
@@ -46,6 +59,9 @@ independent work.
 - **R4:** ship an automatic DefaultPolicy with state-of-the-art scheduling.
 - **R5:** beat every frozen competition winner by engineering before learned
   scheduling; learning is additional upside, not the first route to parity.
+- **R6:** match the practical proof-checking behavior of the SC 2026 SR path;
+  a larger checker ceiling makes validation conclusive but does not excuse
+  avoidably large or slow Tactix certificates on easy symmetry instances.
 
 ### 1.1 Non-negotiables
 
@@ -198,19 +214,10 @@ kernel-owned bidirectional maps. Formula-neutral variable compaction is a
 kernel support service; policy decides when to invoke it, and no proof rule or
 guard depends on that scheduling decision.
 
-Architecture obligations:
-
-1. Survey multiple reference lineages before designing a subsystem.
-2. Keep one implementation per rule, shared by static and dynamic modes.
-3. Separate pure guards from policy advice and engineering restrictions.
-4. Measure abstraction cost and redesign abstractions that cost N3.
-5. Port mechanisms with their effect; source counters must prove they fire.
-6. Begin from faithful reference behavior; deviations carry the argument.
-
 **Strategy composition.** Decompose DefaultPolicy into branching/analysis,
 restart/mode, database-maintenance, phase-guidance and inprocessing sub-strategies.
-Keep their cohesive configuration and runtime-state ownership; static hot dispatch
-and the shared rule implementations remain intact.
+Keep cohesive configuration/runtime ownership and static hot dispatch. Static
+and dynamic modes share one rule implementation; separate pure guards from policy advice.
 
 All strategies use typed, validated per-call parameters, explicit instances,
 granularity and budgets. Support single legal instances, caller-selected batches,
@@ -349,12 +356,13 @@ starts only in Phase 4.5.
 
 ### 8.1 Benchmark tiers
 
-Solver runs use SLURM with one single-threaded solver per task. Focused WV100
-development defaults to `cpu-dense-hwulab-q`, eight logical CPUs, 32 GiB and
-300 solver seconds. B28+C5 and Rank 1--50 use the same partition with 12 logical
+Solver runs use SLURM with one single-threaded solver per task. Each coherent
+Satsuma candidate runs on all 57 rows at c8/32 GiB/300 seconds. Optional
+10-second screens measure fast transitions, not final coverage. WV100 development
+and final coverage may use `cpu-q`; development uses the same c8/32 GiB/300s contract. B28+C5 and Rank 1--50 use `cpu-dense-hwulab-q` with 12 logical
 CPUs, 32 GiB and 1,200 solver seconds. Canonical Tier D uses a 32-GiB task-cgroup
-limit and 5,000-second solve limit. User-authorized `cpu-q` and other experimental
-allocations are recorded separately and never redefine a gate.
+limit and 5,000-second solve limit. Record partition and placement for every
+WV100 run; its final coverage limit remains 1,200 seconds and 32 GiB.
 
 - Every arm owns an immutable pin and manifest. One task runs one solver; never
   serialize arms, throttle full-width arrays, constrain their node placement, or
@@ -398,30 +406,19 @@ degenerate inputs under legal random/stress schedules and known-bad controls.
 Shrink failures and retain minimal regressions. Operational commands belong in
 `fuzz`, `proof-check`, and `stress-policy`.
 
-**Claude owns fuzzing.** Codex invokes Claude Code for each needed solver-fuzz
-checkpoint, supplying candidate/pins, scope, resources and acceptance criteria.
-Claude owns preparation, submission, monitoring, artifact inspection, oracle
-interpretation, cleanup audit and the terminal report. Codex may continue
-independent development, but must not inspect the campaign or recompute/reinterpret
-its report. Claude's terminal pass closes only that fuzz gate; a failure pauses
-dependent work and supplies a bounded reproducer, command and failure class for
-Codex to repair. Do not rerun a passing unchanged campaign for reassurance.
+**Claude owns fuzzing.** Codex supplies each meaningful solver-change snapshot,
+scope, resources and acceptance criteria. Claude owns preparation through the
+terminal report; Codex neither inspects the campaign nor reinterprets that
+report. Use an immutable hashed pin and normally the 50-physical-core harness;
+record any smaller bounded checkpoint. Do not repeat a passing unchanged run.
+Pending fuzz never authorizes promotion, and a failure hands Codex one bounded
+reproducer, command and failure class.
 
-Run one checkpoint after each meaningful solver-change batch; unchanged rebuilds
-and diagnostics need no duplicate. Generated legs normally use the 50-physical-
-core harness contract; a bounded corpus or reachability checkpoint may use less
-with the reason recorded. Every leg uses an immutable read-only harness snapshot
-and records its hash. A successful job removes that snapshot; a failed job
-retains it for Claude's handoff. Pending fuzz never authorizes promotion.
-
-**Codex owns debugging.** Diagnose and repair implementation, performance,
-unit-test, crash, sanitizer, proof/model and soundness failures directly; delegate
-debugging or repair review to Claude only at the user's explicit request.
-Preserve the original failure, establish a causal reproducer and regression,
-and validate affected invariants and independent proof/model oracles before
-resuming dependent work. Do not weaken gates. A bounded fuzz handoff is available
-for direct repair; the rest of that campaign stays Claude-owned, and the repair
-alone does not close its required fuzz gate.
+**Codex owns debugging.** Preserve and repair the original implementation,
+performance, crash, sanitizer, proof/model or soundness failure, add a causal
+regression, and rerun affected independent oracles before dependent work resumes.
+Claude receives debugging or repair review only by explicit user request; a
+repair alone does not close its fuzz gate.
 
 ### 8.3 Performance gates
 
@@ -441,8 +438,8 @@ alone does not close its required fuzz gate.
   configuration qualifies, including LymphoSAT.
 - **T5:** exceed the frozen VBS or ship the best verified effort.
 
-**Targeted timing measurement.** Use the allocations fixed in §8.1; `cpu-q` may
-show a qualitative large transition but cannot close a timing gate. Close
+**Targeted timing measurement.** Use `cpu-q` for one-off diagnostics, correctness, profiling, ablations and coarse solved-quickly/timeout screens; reserve matched allocations for close relative-performance decisions and final aggregate gates. WV100 checked coverage may close on `cpu-q`;
+regressions and close unit-cost comparisons use hwu allocations from §8.1. Close
 comparisons use three independent paired waves with candidate and exact-state
 baseline as concurrent separate jobs. Record placement, memory, service-rate
 counters, proof/check identities and scratch cleanup. Report median and full
@@ -453,9 +450,20 @@ fuzz and full-width arrays.
 **Fixed Rank 1–50 reference.** Keep the approved fifty/frozen Kissat vector as
 the retained regression control; full-view reruns are Tactix-only under the
 12-CPU/32-GiB/1,200-second contract above.
-The ≤1.01× target is deferred, not achieved or a winner-stage prerequisite.
-No routine refresh/best-of denominator or cross-window unit-cost inference.
-Pending checks permit work, not acceptance; correctness/B28+C5/memory gates stay.
+B28+C5 and Rank 1–50 must each improve aggregate runtime against the starting WV100 R16 gates (952.263s and 8,115.735s respectively), with complete coverage. Rank1/6 overhead must be repaired generally; Rank6 must also take no longer than Satsuma+Kissat’s frozen203.321s total under comparable conditions (baseline `sc24-26-32g-5000s/results/02913.json`, hwu,c4,32GiB). This is an additional case gate, not a replacement for either suite target. After matching Rank6 performance, audit whether the remaining discovery, planning and validation work is unavoidable; distinguish proof obligations from implementation costs, and pursue substantially more efficient preprocessing through cheaper algorithms, exact reuse and justified early stopping or deferral, preserving correctness and effective preprocessing. The
+≤1.01× target is an investigation trigger, not an automatic rejection of a
+sound, general mechanism. Localize per-instance deltas with feature-off controls,
+traces and repeated matched measurements; separate symmetry work from search.
+An unlucky symmetry-induced search trajectory can justify a residual slowdown
+when evidence gives no reason to infer a systematically worse search state.
+One slower run, valid proofs or fewer variables alone cannot establish this.
+Inspect propagation, clause quality and added search work; explain persistent
+losses and improve implementation or scheduling before accepting their cost.
+Do not discard a productive mechanism merely because its first result is slower.
+Any accepted residual cost needs a documented cause and independently checked
+WV100 benefit. No arbitrary replacement ratio, routine refresh/best-of
+reference, or cross-window unit-cost inference is allowed. Pending checks permit
+work, not acceptance; correctness, B28+C5, Rank and memory gates remain.
 
 **Causal convergence and consolidation.** Journal each earliest portable gap
 with its cause, strength, evidence, reproducer, owner, and reopening condition.
@@ -498,13 +506,30 @@ All checked solver/status combinations qualify, including LymphoSAT UNSAT.
 The fixed set contains 33 SAT and 67 UNSAT targets: 34 LymphoSAT, 57
 Satsuma+Kissat, seven AE-Kissat-MAB, and two kissat-sc2024 sole-winner
 signatures. Solved entries remain in the denominator; the goal is checked
-Tactix coverage of 100/100 under the same 32-GiB/1,200-second contract.
+Tactix coverage of 100/100 under the same 32-GiB/1,200-second contract. The persistent goal continues beyond recovery of the Rank/B28 runtime gates: identify and integrate the relevant techniques from each remaining row's owning baseline into Tactix's shared rules and strategy. No sequential portfolio, external solver stage, or benchmark-specific dispatch qualifies; retain correctness, fuzz, memory and aggregate runtime gates throughout.
+
+**Intermediate Satsuma gate.** Before work on the remaining 43 signatures,
+Tactix must solve and independently check all 57 Satsuma+Kissat-owned rows in
+that fixed denominator. The retained transition screen partitions the first
+implementation targets into 51 structured row/row-column cases, five Johnson
+cases, and one general automorphism/Schreier case. This is an engineering order,
+not benchmark dispatch and not a claim that the classes are disjoint. A class
+closes only when every member solves through Tactix's integrated mechanisms;
+running Satsuma or Kissat as an external stage does not count.
+
+This gate is root-start preprocessing first. Reproduce Satsuma's useful
+transition and its efficient solve on all 57 before designing a non-root SR
+schedule or repairing legacy aggregate performance. After closure, the fixed 57
+become a permanent mechanism regression set: later policy work must preserve
+their checked coverage and Satsuma-scale behavior. B28+C5 and Rank 1--40 then
+own the separate inprocessing scheduling study; Rank 1--50 remains a broader
+final N3 control.
 
 Use the retained checked baseline results; do not rerun reference solvers.
 For every signature class, inspect the official submission description and
 available source, reproduce the winning technique's effective transition, and
 report that mechanism before implementing it. Integrate supported mechanisms
-deeply as general Tactix preprocessing or root-inprocessing rules through the
+deeply as general Tactix root-start preprocessing rules through the
 shared typed application interface. Extend the calculus and emit direct native
 DSR witnesses when the mechanism requires substitution redundancy. Never use a sequential
 portfolio, invoke another solver as a solving stage, or dispatch by benchmark
@@ -518,21 +543,63 @@ fixing, traversal, seed, structure, batching, repetition and stop are validated
 strategy settings. Run only at level zero or after Restart-to-root, with
 interruption and replay and no formula/family/rank identity. Pin, license and
 failure-isolate third-party code from the no-exception/no-RTTI core.
+For an SST pair with representative `r` and orbit point `k`, emit the
+pivot-sensitive DSR clause `(r ∨ ¬k)` with `r` first and the explicit
+transversal mapping `r ↦ k`; the explicit mapping overrides DSR's default
+pivot-to-true assignment. Independently check every materialized transversal.
+
+The graph producer supports Satsuma's exact dense-binary representation:
+binary clauses are direct literal edges and colored degree-two gadgets encode
+literal negation. Representation mode and density admission are typed settings;
+all backend actions are still exact-checked against the live formula.
 
 Official SAT 2026 Satsuma alternates simplification and symmetry breaking and
-uses variable-clause co-occurrence cliques to order structured actions. Column
-alignment may compose through a connected compatibility graph; it is not
-restricted to direct alignment with one seed column. The checked first screen
-solves 9/57, while the retained official-binary transition
-screen classifies 51 rows as structured row/row-column, five as Johnson, and one
-as generic Schreier. Implement the structured detector and fixing first, with
-clique search, fallback ordering, split/search limits, iteration, and stops as
-validated strategy settings. Johnson detection follows. These mechanisms use
-formula/group structure uniformly and never dispatch by family or identity.
-Measure each Satsuma-derived preprocessing transition separately from CDCL.
-Retain it for scheduling only when its applicable and inapplicable work is at
-least as efficient as Satsuma on comparable structures; the subsecond official
-transitions are the floor, not merely a qualitative solve signal.
+orders structured actions with variable-clause co-occurrence cliques. The first
+screen solves 9/57; the retained winner transition classifies 51 rows as
+row/row-column, five as Johnson, and one as generic Schreier. Finish structured
+fixing before Johnson. Connected alignment, clique ordering, iteration and all
+search limits are typed settings. Formula structure governs the mechanism;
+family or instance identity never does. Measure preprocessing separately and
+require symmetry-breaking unit cost no worse than Satsuma for comparable work.
+Measure equivalent operation counts and phase times, including inapplicable
+passes; fewer operations alone do not establish better unit cost. Solve all 57
+in not significantly more end-to-end time than the retained Satsuma+Kissat
+vector: the user accepts100s baseline versus120s Tactix on cpu-q. This example
+is not a universal ratio or10-second target. Recover legacy regressions under
+§8.3 after57/57, preserving its productive transitions and checked solves.
+
+DefaultPolicy owns a startup root program outside legacy inprocessing slots:
+propagate, perform simultaneous PureOnly BVE, construct the duplicate-free
+formula and complete ULC AMOs, close Orbitopal, then run GraphSymmetry with one
+generator application before fresh detection. Propagate each application and
+repeat the sequence to a scoped fixpoint. This preserves Satsuma's pure-literal
+predecessor; binary-SCC substitution is excluded by the rank-34/37/39 negative
+control. Detector or policy limits report incomplete work, never a fixpoint.
+The public producers retain §5's arbitrary ordering, repetition, budgets,
+interruption and online resumption.
+
+Every preprocessing job has one commit boundary: discovery and validation stage
+without mutation; pre-commit stop/resource/proof failure discards the job; commit
+finishes proof, formula bookkeeping and root closure. A generated job must fix
+or retire variables, shorten clauses, or add propagation-useful units/binaries.
+Rules report semantic effects; strategy owns usefulness, batching, order, effort
+and heuristic advice. N1 still exposes every legal explicit X7 instance.
+
+One strategy experiment is proof-neutral branch advice after SR commit: rank
+unassigned variables by new short-clause propagation fanout and advise VMTF and
+EVSIDS. Type and replay its mode, order, measure, cap and strength; compare with
+advice off under the identical proof/formula transition. Rules never touch scores.
+
+Deferred until 57/57: ask whether later restart-to-root SR adds useful work beyond
+complete startup preprocessing. Compare later SR off/on with identical rules and
+seeds on B28+C5 and Rank 1--40, retaining all 57. If useful, design typed cadence
+and atomic resumption; otherwise keep startup only. A bounded evidence/schedule
+report requires Claude review before Codex implements or promotes restart-boundary SR.
+
+For row-by-column generator actions, use a bounded typed Schreier transversal
+to compute the kernel of the column action. Its exact automorphism words may
+supply pure row transpositions missing from the returned generators. Reuse the
+exact-checked cache; composition needs no further CNF scan.
 
 Treat the backend as untrusted: exact-check every signed permutation against
 the live X7 formula and validate every derived clause before mutation. A
@@ -541,20 +608,15 @@ charge replay by deterministic work. Commit a whole orbit or stale the chain
 and re-detect. Formula generation, producer epoch and identity settings govern
 cursor reset; compatible budget updates retain progress. Version replay tuples.
 
-Preserve prior coverage; report solved SAT/UNSAT and per-signature counts before
-PAR-2, proof cost, memory, and regressions. T4-K and final exact T4-VBS coverage
-remain required. The staged mechanism and experimental protocol is
-`docs/design/2026-09-13-wv100-mechanism-integration.md`; its frozen G1/S1
-DRAT/LRAT translation route is historical evidence and is superseded by the
-native-DSR contract here.
+Preserve prior coverage and report checked status/signature counts before PAR-2,
+proof cost, memory and regressions. T4-K and final exact T4-VBS remain required;
+`docs/design/2026-09-13-wv100-mechanism-integration.md` owns the staged protocol.
 
 ### 8.4 Flexibility
 
-Evaluate B28+C5 and Rank 1–50 periodically at meaningful refactor checkpoints,
-using the fixed benchmark definitions and §8.3 resource contract, frozen
-candidates and retained baseline controls. Focused correctness/API validation
-does not itself authorize a full Tier D campaign; that requires a separate
-decision after focused WV100 evidence.
+Periodic refactor checkpoints retain the full B28+C5 and Rank 1–50 gates,
+resources and frozen controls in §8.1–§8.3. Focused correctness/API validation
+alone does not authorize a new Tier-D campaign.
 
 Default dynamic-macro/static-micro overhead is ≤5% versus a hardcoded twin.
 Refactoring must preserve existing configurations' action/work/proof behavior
@@ -651,16 +713,11 @@ independently checkable native proofs and must earn a measured time/memory gain.
 
 ## 10. Risks and mitigations
 
-- **Abstraction overhead:** static hot loop, measure against hardcoded twin.
-- **Proof unsoundness:** independent checkers, negative oracle tests, stress
-  schedules, regression corpus.
-- **Model reconstruction bugs:** validate every SAT model against original CNF.
-- **Benchmark noise/overfitting:** fixed references, matched attribution, Tier C/D
-  gates, per-instance review.
-- **Documentation drift:** one fact/one home, enforced budgets and cross-reference
-  checks, concise PROGRESS resume block.
-- **Memory/proof volume:** arena storage, streaming proofs, tracked high-water
-  marks and proof bytes.
+Measure abstraction cost against the hardcoded twin; use independent proof/model
+checks, negative oracles, stress schedules and the regression corpus for soundness.
+Control noise and overfitting with frozen references, matched attribution, Tier C/D
+and per-instance review. Track arena high-water marks and streaming-proof volume.
+Keep documentation within budgets, cross-reference checks and one fact/one home.
 
 ## 11. Open decisions
 
@@ -674,8 +731,8 @@ Resolve through `revise-plan` concretize mode and record only the minimum needed
 | O8 | retain FRAT only if a consumer appears | phase 6 |
 | O12 | contextual features and learned-state persistence | phase 7 RL2 |
 | O13 | distill stable learned schedules into DefaultPolicy | phase-7 exit |
-| O16 | closed: direct native DSR, elaborated by `dsr-trim` and verified by Trestle | native-DSR gate before Satsuma rules |
 | O17 | whether and how to integrate MAB scheduling for the seven WV100 AE-Kissat-MAB signatures | before claiming those rows mechanism-complete |
+| O18 | adapt SR discovery effort from useful producer output per unit work, separately from conditional cleanup; preserve explicit per-call budgets and replay | after the Rank17 repair and full preservation gates |
 
 Closed decisions have their current contracts in the owning sections; Git
 history preserves the decisions they replaced.

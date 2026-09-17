@@ -5,9 +5,13 @@
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "rules/propagate/propagate.hpp"
+#include "proof/proof.hpp"
 
 #include <cassert>
 #include <cstdio>
+#include <cstdlib>
+#include <string>
+#include <unistd.h>
 
 using namespace tactix;
 
@@ -138,6 +142,54 @@ static void test_duplicate_pair_refused() {
   assert(k.stats.binaries_deleted == 0);
 }
 
+static void test_dsr_deletes_each_physical_copy() {
+  for (const auto format : {ProofFormat::DsrAscii, ProofFormat::DratAscii,
+                             ProofFormat::Lrat}) {
+    for (const unsigned copies : {2u, 3u, 5u}) {
+      Kernel k;
+      kernel_reserve_vars(k, 2);
+      char path[] = "/tmp/tactix-copy-proof-XXXXXX";
+      const int fd = mkstemp(path);
+      assert(fd >= 0);
+      close(fd);
+      Proof proof;
+      assert(proof.open(path, format));
+      k.proof = &proof;
+      const Lit a = internalize(1), b = internalize(2);
+      for (unsigned i = 0; i < copies; ++i)
+        kernel_add_binary_clause(k, a, b, ++k.next_clause_id);
+      const uint64_t retained_id = kernel_binary_id(k, a, b);
+      for (unsigned removed = 1; removed <= copies; ++removed) {
+        assert(kernel_delete_binary_one_copy(k, a, b));
+        assert(kernel_binary_copies(k, a, b) == copies - removed);
+        assert(kernel_binary_id(k, a, b) == retained_id);
+        proof.flush();
+        FILE *input = std::fopen(path, "rb");
+        assert(input);
+        std::string bytes;
+        for (int c; (c = std::fgetc(input)) != EOF;)
+          bytes.push_back(static_cast<char>(c));
+        assert(!std::ferror(input));
+        std::fclose(input);
+        size_t deletions = 0;
+        for (const char c : bytes) deletions += c == 'd';
+        const size_t expected = format == ProofFormat::DsrAscii ? removed :
+                                removed == copies ? 1u : 0u;
+        assert(deletions == expected);
+        if (format == ProofFormat::DsrAscii)
+          assert(bytes == [&] {
+            std::string expected_bytes;
+            for (unsigned n = 0; n < removed; ++n)
+              expected_bytes += "d 1 2 0\n";
+            return expected_bytes;
+          }());
+        kernel_check_invariants(k);
+      }
+      assert(std::remove(path) == 0);
+    }
+  }
+}
+
 static void test_delete_one_duplicate_copy_keeps_pair_named() {
   Kernel k;
   kernel_reserve_vars(k, 3);
@@ -220,6 +272,7 @@ int main() {
   test_add_missing_mirror_does_not_duplicate_stable_direction();
   test_publish_rebuilt_binary_does_not_rearm_added_material();
   test_duplicate_pair_refused();
+  test_dsr_deletes_each_physical_copy();
   test_delete_one_duplicate_copy_keeps_pair_named();
   test_delete_idempotent();
   test_reason_binary_retired_to_unit();

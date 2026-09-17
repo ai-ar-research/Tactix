@@ -53,8 +53,12 @@ EV_DELAY = r"closure_delay_ && \(e\.closure \|\| delay_spec"
 # DELAY_SPECS row keyed on its merge yield is what `delay_spec(r.name)` finds.
 EV_CONGRUENCE_LADDER = (r'\{"Congruence", \[\]\(const Kernel &k\) '
                         r'\{ return k\.stats\.congruence_merges; \}')
-EV_ONE_SHOT_CAP = r"e\.max_applies && e\.applies >= e\.max_applies"
-EV_SR_STRUCTURED = r'apply_rule_structured\(r, k, "orbitopal-producer"'
+EV_SR_LEGACY_SKIP = (r'std::strcmp\(rules\[i\]\.name, '
+                     r'"SubstitutionRedundancy"\)')
+EV_SR_ROOT_OWNER = r"run_structured_root\(k, stop\)"
+EV_SR_RUN_ONCE = r"structured_root_consumed_ \|\| k\.stats\.conflicts"
+EV_SR_SCOPED_FIXPOINT = (r"result\.repeat = \{strategy::RepeatMode::"
+                         r"UntilScopedFixpoint, 0\}")
 
 # Every rule the slot schedules, classified. The justification is the point of
 # the row — for ALTERNATE-GOVERNOR it must NAME the mechanism.
@@ -85,9 +89,11 @@ TABLE = {
                                    "currency, no minimum-effort floor; ALSO "
                                    "closure-gated"),
     "SubstitutionRedundancy":
-                        (ALT, "the reference program's one-shot preprocessing "
-                              "cap plus typed producer/proof limits",
-                         [EV_ONE_SHOT_CAP, EV_SR_STRUCTURED]),
+                        (ALT, "the root-only structured program's run-once "
+                              "ownership, typed producer limits and semantic "
+                              "sequence fixpoint",
+                         [EV_SR_LEGACY_SKIP, EV_SR_ROOT_OWNER, EV_SR_RUN_ONCE,
+                          EV_SR_SCOPED_FIXPOINT]),
 }
 
 # The slot's admission predicate. If this stops being how the slot is built,

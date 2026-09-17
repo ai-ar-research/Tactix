@@ -1,0 +1,7 @@
+{
+  "kind": "proof",
+  "owner": "Claude SR106 C1",
+  "seed": 20265428,
+  "cause": "Raw input clause remained live after normalization and later deletion of its replacement; DSR SR witness rejected.",
+  "repair": "DSR add-before-delete normalization and deletion of discarded binary input copies."
+}

@@ -2,6 +2,8 @@
 
 #include "strategy/sweep_parameters.hpp"
 #include "strategy/inprocess_program.hpp"
+#include "strategy/online_inprocess.hpp"
+#include "strategy/online_sequence.hpp"
 
 #include <array>
 #include <cstdint>
@@ -30,6 +32,9 @@ enum class DefaultReorderTarget : uint8_t {
 // Defaults cite Kissat 4.0.4 unless a comment says otherwise.  The executable
 // call-site evidence is maintained in docs/implementation-notes.md.
 struct DefaultStrategyConfig {
+  static strategy::OnlineStrategyProgram reference_structured_root_program();
+  static std::vector<strategy::OnlineStrategyStage>
+  structured_root_preprocessing_stages();
   // Named compatibility constants are kept beside the typed fields so tests
   // and design probes can cite a default without duplicating its literal.
   static constexpr uint64_t RESTART_INTERVAL_DEFAULT = 1;
@@ -68,6 +73,18 @@ struct DefaultStrategyConfig {
   static constexpr uint32_t TIER_RELATIVE_SCALE = 1000;
   static constexpr uint64_t SMALL_CLAUSE_LIMIT_DEFAULT = 100000;
   static constexpr uint32_t BIG_BINARY_FRACTION_PERMILLE_DEFAULT = 990;
+  // Satsuma 1.3's submitted symmetry profile admits graph components through
+  // five million vertices.  Keep the reference value named here; callers can
+  // still choose any smaller or unbounded value per invocation.
+  static constexpr uint64_t SYMMETRY_GRAPH_COMPONENT_LIMIT_DEFAULT = 5'000'000;
+  static constexpr uint64_t SYMMETRY_GRAPH_EDGE_LIMIT_DEFAULT = 1'000'000;
+  static constexpr uint64_t SYMMETRY_GENERATOR_LIMIT_DEFAULT = 128;
+  static constexpr uint64_t SYMMETRY_BACKTRACK_LIMIT_DEFAULT = 64;
+  static constexpr uint64_t SYMMETRY_SUPPORT_LIMIT_DEFAULT = 64ull << 20;
+  static constexpr uint64_t SYMMETRY_FIXING_LIMIT_DEFAULT = 128;
+  static constexpr uint64_t SYMMETRY_TOTAL_TICK_LIMIT_DEFAULT =
+      20'000'000'000ull;
+  static constexpr uint32_t SYMMETRY_BINARY_DENSITY_PERMILLE_DEFAULT = 1000;
 
   struct Branching {
     uint64_t random_initial_interval = RANDOM_INITIAL_INTERVAL_DEFAULT;
@@ -146,6 +163,7 @@ struct DefaultStrategyConfig {
     // inactive-variable ratio. This is the profile for an explicit canonical
     // Reduce action through the shared strategy interface.
     bool canonical_compact_collection = false;
+    bool bookkeeping = true;
     bool square_root_cadence = true;
     bool ramp_fraction = true;
     bool dynamic_tiers = true;
@@ -211,6 +229,24 @@ struct DefaultStrategyConfig {
     // reorder, omit or repeat occurrences; false makes omission authoritative.
     std::vector<strategy::InprocessStep> program =
         strategy::reference_inprocess_program();
+    // Formula-independent root-only SR composition.  It executes once inside
+    // the selected startup boundary before the ordinary slot program. The shared
+    // online representation keeps producer parameters, per-application
+    // propagation, repetition, budgets and stop behavior explicit.
+    // False retains the reference ordering after early Lucky at Probe entry.
+    bool structured_root_before_lucky = true;
+    // One non-refilling pool spans every structured-root SR producer. A
+    // producer may finish an already admitted atomic certificate batch, but
+    // its full cost is charged and no later fresh discovery starts at zero.
+    strategy::WorkLimit structured_root_sr_discovery_budget =
+        strategy::WorkLimit::bounded(SYMMETRY_TOTAL_TICK_LIMIT_DEFAULT);
+    // Certified ULC completion deliberately publishes binary AMO helpers.
+    // Once all structured consumers have run, one ordinary BCE pass may
+    // retire helpers which are now blocked, retaining its normal proof and
+    // reconstruction obligations. Other SR progress does not admit the pass.
+    bool structured_root_bce_after_unique_literal_amo = true;
+    std::vector<strategy::OnlineStrategyStage> structured_root_stages =
+        DefaultStrategyConfig::structured_root_preprocessing_stages();
     bool append_unlisted_rules = true;
     uint64_t eliminate_interval = INPROCESS_ELIMINATE_INTERVAL_DEFAULT;
     uint64_t probe_interval = INPROCESS_PROBE_INTERVAL_DEFAULT;

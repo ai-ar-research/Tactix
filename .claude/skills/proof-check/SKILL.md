@@ -5,9 +5,11 @@ description: Verify and debug Tactix proof certificates with the checker require
 
 # Proof checking
 
-Select the checker pipeline from the target year's official rules. For the 2026
-submission, the project target is DPR/LPR checked by `cake_lpr`; retain native
-DRAT/LRAT tools where they provide faster development diagnostics.
+Tactix's canonical pipeline is native DSR, elaborated forwards by pinned
+`dsr-trim -f -c` to LSR and independently verified by pinned Trestle `srcheck`.
+Decode binary LSR with `dsr-compress` when required. This project decision is
+owned by `DEVELOPMENT_PLAN.md`; verify competition-specific requirements
+separately. DRAT/LRAT remain compatibility outputs for the earlier vocabulary.
 
 ## Acceptance
 

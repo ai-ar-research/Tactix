@@ -47,7 +47,9 @@ class RuntimeTaskTest(unittest.TestCase):
             manifest = dict(arms={arm: dict(path="pins/solver", arguments=[],
                                            sha256="pin", certificate=certificate)},
                             input_sha256={"test.xz": runner.sha256(cache / "test.xz")},
-                            pin_sha256=pin_sha256)
+                            pin_sha256=pin_sha256,
+                            resource_contract={"solve_timeout": 1,
+                                               "checker_timeout": 1})
             (campaign / "manifest.json").write_text(json.dumps(manifest))
             (campaign / "matrix.tsv").write_text(
                 "task\trank\tarm\ttier\tinstance\texpected\n"

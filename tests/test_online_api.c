@@ -21,6 +21,134 @@ static void clause(tactix *solver, const int *literals) {
   tactix_add(solver, 0);
 }
 
+static void canonical_bve_reaches_a_real_fixpoint(void) {
+  for (int signs = 0; signs < 4; ++signs) {
+    tactix *solver = tactix_init();
+    const int a = (signs & 1) ? -1 : 1;
+    const int b = (signs & 2) ? -2 : 2;
+    const int input[] = {b, a, 0};
+    clause(solver, input);
+    int progress = 0, result;
+    while ((result = tactix_apply(solver, rule("BVE"))) == 0) {
+      assert(++progress <= 2);
+      const int propagated = tactix_apply(solver, rule("Propagate"));
+      // Pure elimination may already be at a propagation fixpoint, where the
+      // propagation guard correctly declines the optional follow-up.
+      assert(propagated == -1 || propagated == 0 || propagated == 1 ||
+             propagated == 10);
+    }
+    assert(result == 1 && progress == 2);
+    assert(tactix_stat(solver, TACTIX_STAT_BVE_ELIMINATED) == 2);
+    assert(tactix_status(solver) == 10);
+    assert(tactix_value(solver, a) == a || tactix_value(solver, b) == b);
+    assert(tactix_apply(solver, rule("BVE")) == 1);
+    assert(tactix_stat(solver, TACTIX_STAT_BVE_ELIMINATED) == 2);
+    assert(tactix_value(solver, a) == a || tactix_value(solver, b) == b);
+    tactix_release(solver);
+  }
+}
+
+static void status_reconstructs_bve_models_and_refreshes_after_restart(void) {
+  for (int signs = 0; signs < 4; ++signs) {
+    tactix *solver = tactix_init();
+    const int a = (signs & 1) ? -1 : 1;
+    const int b = (signs & 2) ? -2 : 2;
+    const int input[] = {b, a, 0};
+    clause(solver, input);
+    tactix_online_step step;
+    memset(&step, 0, sizeof step);
+    step.step_id = 101;
+    step.rule_id = rule("BVE");
+    step.parameters.kind = TACTIX_ONLINE_PARAMETERS_INHERIT;
+    step.granularity = TACTIX_ONLINE_GRANULARITY_COMPLETE_PASS;
+    step.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
+    step.repeat_limit = 1;
+    step.work_unit = TACTIX_ONLINE_WORK_BVE_TICKS;
+    step.budget_unlimited = 1;
+    tactix_online_program program = {&step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
+    assert(tactix_online_configure(solver, &program, 1,
+                                  TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+    int advances = 0;
+    while (!tactix_online_complete(solver)) {
+      tactix_online_result result;
+      assert(++advances < 64);
+      assert(tactix_online_advance(solver, &result) == 0);
+    }
+    assert(tactix_stat(solver, TACTIX_STAT_BVE_ELIMINATED) > 0);
+    // The original clause is the independent model oracle. Test value access
+    // both before and after the explicit status query at the completed state.
+    assert(tactix_value(solver, a) == a || tactix_value(solver, b) == b);
+    assert(tactix_status(solver) == 10);
+    assert(tactix_value(solver, a) == a || tactix_value(solver, b) == b);
+    const uint64_t spent = tactix_online_step_consumed(solver, 101);
+    assert(tactix_status(solver) == 10);
+    assert(tactix_online_step_consumed(solver, 101) == spent);
+    tactix_release(solver);
+  }
+
+  tactix *solver = tactix_init();
+  const int input[] = {1, 2, 0};
+  clause(solver, input);
+  assert(tactix_decide(solver, 1) == 0);
+  assert(tactix_apply(solver, rule("Propagate")) >= 0);
+  assert(tactix_decide(solver, -2) == 0);
+  assert(tactix_apply(solver, rule("Propagate")) >= 0);
+  assert(tactix_status(solver) == 10);
+  assert(tactix_value(solver, 1) == 1 && tactix_value(solver, 2) == -2);
+  assert(tactix_apply(solver, rule("Restart")) == 0);
+  assert(tactix_status(solver) == 0);
+  assert(tactix_decide(solver, -1) == 0);
+  assert(tactix_apply(solver, rule("Propagate")) >= 0);
+  assert(tactix_status(solver) == 10);
+  assert(tactix_value(solver, 1) == -1 && tactix_value(solver, 2) == 2);
+  tactix_release(solver);
+}
+
+static void pure_bve_scope_is_public_and_validated(void) {
+  tactix *solver = tactix_init();
+  const int first[] = {1, 2, 0};
+  const int second[] = {-2, 3, 0};
+  clause(solver, first);
+  clause(solver, second);
+
+  tactix_online_step step;
+  memset(&step, 0, sizeof step);
+  step.step_id = 80;
+  step.rule_id = rule("BVE");
+  step.parameters.kind = TACTIX_ONLINE_PARAMETERS_BVE;
+  step.parameters.value.bve.growth_bound = 16;
+  step.parameters.value.bve.occurrence_limit = UINT32_MAX;
+  step.parameters.value.bve.clause_size_limit = UINT32_MAX;
+  step.parameters.value.bve.xor_arity_limit = 2;
+  step.parameters.value.bve.resolvent_size_limit = UINT32_MAX;
+  step.parameters.value.bve.backward_occurrence_limit = UINT32_MAX;
+  step.parameters.value.bve.definition_cores = 1;
+  step.parameters.value.bve.candidate_scope =
+      TACTIX_ONLINE_BVE_CANDIDATES_PURE_ONLY;
+  step.granularity = TACTIX_ONLINE_GRANULARITY_COMPLETE_PASS;
+  step.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
+  step.repeat_limit = 1;
+  step.work_unit = TACTIX_ONLINE_WORK_BVE_TICKS;
+  step.budget_unlimited = 1;
+  tactix_online_program program = {
+      &step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
+  assert(tactix_online_configure(solver, &program, 20,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  uint64_t applications = 0;
+  while (!tactix_online_complete(solver)) {
+    tactix_online_result result;
+    assert(tactix_online_advance(solver, &result) == 0);
+    applications += result.applications;
+  }
+  assert(applications == 2);
+
+  step.parameters.value.bve.candidate_scope = 2;
+  assert(tactix_online_configure(solver, &program, 21,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  assert(tactix_online_complete(solver));
+  tactix_release(solver);
+}
+
 static void exact_factor_grid_is_copied_and_applied(void) {
   tactix *solver = tactix_init();
   int factor_literals[2] = {1, 2};
@@ -140,6 +268,7 @@ static void exact_sr_instance_v2_is_copied_and_applied(void) {
   step.base.repeat_limit = 1;
   step.base.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
   step.base.budget_unlimited = 1;
+  step.base.post_application = TACTIX_ONLINE_POST_PROPAGATE;
   step.sr_instances = &instance;
   step.sr_instance_count = 1;
   program.steps = &step;
@@ -155,6 +284,9 @@ static void exact_sr_instance_v2_is_copied_and_applied(void) {
   assert(tactix_online_advance(solver, &result) == 0);
   assert(result.status == TACTIX_ONLINE_COMPLETED);
   assert(result.instance == 0 && result.made_rule_progress);
+  assert(tactix_online_advance(solver, &result) == 0);
+  assert(result.status == TACTIX_ONLINE_COMPLETED);
+  assert(tactix_online_complete(solver));
   tactix_release(solver);
 }
 
@@ -170,6 +302,8 @@ static void general_sr_producer_is_available_through_v1(void) {
   step.parameters.kind = TACTIX_ONLINE_PARAMETERS_SUBSTITUTION_REDUNDANCY;
   step.parameters.value.substitution_redundancy.maximum_validation_ticks =
       UINT64_MAX;
+  step.parameters.value.substitution_redundancy.maximum_detection_ticks =
+      UINT64_MAX;
   step.parameters.value.substitution_redundancy.general_producer = 1;
   step.parameters.value.substitution_redundancy
       .maximum_general_candidates_per_advance = UINT64_MAX;
@@ -183,6 +317,422 @@ static void general_sr_producer_is_available_through_v1(void) {
                                  TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
   assert(tactix_online_advance(solver, &result) == 0);
   assert(result.applications == 1 && result.made_rule_progress);
+  tactix_release(solver);
+}
+
+static void graph_sr_producer_is_typed_through_v1(void) {
+  tactix *solver = tactix_init();
+  const int clauses[][3] = {
+      {1, 2, 0}, {3, 4, 0}, {-1, -3, 0}, {-2, -4, 0}};
+  tactix_online_step step;
+  tactix_online_program program;
+  tactix_online_result result;
+  size_t i;
+  for (i = 0; i < sizeof clauses / sizeof clauses[0]; ++i)
+    clause(solver, clauses[i]);
+  memset(&step, 0, sizeof step);
+  step.step_id = 77;
+  step.rule_id = rule("SubstitutionRedundancy");
+  step.parameters.kind = TACTIX_ONLINE_PARAMETERS_SUBSTITUTION_REDUNDANCY;
+  step.parameters.value.substitution_redundancy.maximum_validation_ticks =
+      UINT64_MAX;
+  step.parameters.value.substitution_redundancy.maximum_detection_ticks =
+      UINT64_MAX;
+  step.parameters.value.substitution_redundancy.producer =
+      TACTIX_ONLINE_SR_GRAPH_SYMMETRY;
+  step.parameters.value.substitution_redundancy.maximum_graph_vertices = 128;
+  step.parameters.value.substitution_redundancy.maximum_graph_edges = 256;
+  step.parameters.value.substitution_redundancy.maximum_symmetry_generators =
+      64;
+  step.parameters.value.substitution_redundancy
+      .symmetry_backend_search_budget = 64;
+  step.parameters.value.substitution_redundancy
+      .symmetry_backend_support_budget = UINT64_MAX;
+  step.parameters.value.substitution_redundancy
+      .symmetry_backend_component_size_limit = UINT64_MAX;
+  step.parameters.value.substitution_redundancy
+      .maximum_symmetry_fixing_instances = 64;
+  step.parameters.value.substitution_redundancy
+      .maximum_symmetry_generator_instances_per_pass = 1;
+  step.parameters.value.substitution_redundancy
+      .maximum_symmetry_group_ticks = 100000;
+  step.granularity = TACTIX_ONLINE_GRANULARITY_COMPLETE_PASS;
+  step.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
+  step.repeat_limit = 1;
+  step.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
+  step.budget_unlimited = 1;
+  program = (tactix_online_program){&step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
+  assert(tactix_online_configure(solver, &program, 19,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  assert(tactix_online_advance(solver, &result) == 0);
+  assert(result.status == TACTIX_ONLINE_COMPLETED &&
+         result.made_rule_progress);
+  tactix_release(solver);
+}
+
+static void invalid_graph_sr_settings_are_transactional(void) {
+  tactix *solver = tactix_init();
+  const int clauses[][3] = {
+      {1, 2, 0}, {3, 4, 0}, {-1, -3, 0}, {-2, -4, 0}};
+  tactix_online_step step;
+  tactix_online_result result;
+  size_t i;
+  for (i = 0; i < sizeof clauses / sizeof clauses[0]; ++i)
+    clause(solver, clauses[i]);
+  memset(&step, 0, sizeof step);
+  step.step_id = 78;
+  step.rule_id = rule("SubstitutionRedundancy");
+  step.parameters.kind = TACTIX_ONLINE_PARAMETERS_SUBSTITUTION_REDUNDANCY;
+  step.parameters.value.substitution_redundancy.maximum_validation_ticks =
+      UINT64_MAX;
+  step.parameters.value.substitution_redundancy.maximum_detection_ticks =
+      UINT64_MAX;
+  step.parameters.value.substitution_redundancy.producer =
+      TACTIX_ONLINE_SR_GRAPH_SYMMETRY;
+  step.parameters.value.substitution_redundancy.maximum_graph_vertices = 128;
+  step.parameters.value.substitution_redundancy.maximum_graph_edges = 256;
+  step.parameters.value.substitution_redundancy.maximum_symmetry_generators =
+      64;
+  step.parameters.value.substitution_redundancy
+      .symmetry_backend_search_budget = 64;
+  step.parameters.value.substitution_redundancy
+      .symmetry_backend_support_budget = UINT64_MAX;
+  step.parameters.value.substitution_redundancy
+      .symmetry_backend_component_size_limit = UINT64_MAX;
+  step.parameters.value.substitution_redundancy
+      .maximum_symmetry_fixing_instances = 64;
+  step.parameters.value.substitution_redundancy
+      .maximum_symmetry_generator_instances_per_pass = 1;
+  step.parameters.value.substitution_redundancy
+      .maximum_symmetry_group_ticks = 100000;
+  step.granularity = TACTIX_ONLINE_GRANULARITY_COMPLETE_PASS;
+  step.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
+  step.repeat_limit = 1;
+  step.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
+  step.budget_unlimited = 1;
+  tactix_online_program program = {
+      &step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
+  assert(tactix_online_configure(solver, &program, 20,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+
+  step.parameters.value.substitution_redundancy.producer = 99;
+  assert(tactix_online_configure(solver, &program, 21,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  step.parameters.value.substitution_redundancy.producer =
+      TACTIX_ONLINE_SR_GRAPH_SYMMETRY;
+  step.parameters.value.substitution_redundancy.orbitopal_producer = 1;
+  assert(tactix_online_configure(solver, &program, 22,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+
+  // Both rejected replacements leave revision 20's immutable snapshot live.
+  assert(tactix_online_advance(solver, &result) == 0);
+  assert(result.configuration_revision == 20 &&
+         result.status == TACTIX_ONLINE_COMPLETED &&
+         result.made_rule_progress);
+
+  /* Matching legacy and typed selectors are accepted during migration. */
+  step.parameters.value.substitution_redundancy.producer =
+      TACTIX_ONLINE_SR_ORBITOPAL;
+  step.parameters.value.substitution_redundancy.orbitopal_producer = 1;
+  step.parameters.value.substitution_redundancy.minimum_orbitopal_rows = 2;
+  step.parameters.value.substitution_redundancy.minimum_orbitopal_columns = 2;
+  step.parameters.value.substitution_redundancy.orbitopal_column_order =
+      TACTIX_ONLINE_ORBITOPAL_ORDER_COOCCURRENCE_MAXIMUM_CLIQUE;
+  for (int source = TACTIX_ONLINE_ORBITOPAL_ROW_ORBITS_DETECTED_GENERATORS;
+       source <= TACTIX_ONLINE_ORBITOPAL_ROW_ORBITS_REFINEMENT_CELLS; ++source) {
+    step.parameters.value.substitution_redundancy.orbitopal_row_orbit_source = source;
+    assert(tactix_online_configure(solver, &program, 231,
+                                   TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  }
+  const uint64_t planning_limits[] = {0, 1, UINT64_MAX};
+  for (unsigned i = 0; i < 3; ++i) {
+    step.parameters.value.substitution_redundancy
+        .symmetry_chain_planning_tick_limit = planning_limits[i];
+    assert(tactix_online_configure(solver, &program, 232,
+                                   TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  }
+  step.parameters.value.substitution_redundancy
+      .symmetry_chain_planning_tick_limit = 0;
+  step.parameters.value.substitution_redundancy.orbitopal_row_orbit_source = 2;
+  assert(tactix_online_configure(solver, &program, 231,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  step.parameters.value.substitution_redundancy.orbitopal_row_orbit_source = -1;
+  assert(tactix_online_configure(solver, &program, 231,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  step.parameters.value.substitution_redundancy.orbitopal_row_orbit_source =
+      TACTIX_ONLINE_ORBITOPAL_ROW_ORBITS_DETECTED_GENERATORS;
+  step.parameters.value.substitution_redundancy
+      .maximum_orbitopal_clique_vertices = 128;
+  step.parameters.value.substitution_redundancy
+      .maximum_orbitopal_clique_ticks = 100000;
+  step.parameters.value.substitution_redundancy
+      .minimum_orbitopal_clique_columns = 5;
+  assert(tactix_online_configure(solver, &program, 23,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+
+  step.parameters.value.substitution_redundancy.orbitopal_column_order =
+      TACTIX_ONLINE_ORBITOPAL_ORDER_COOCCURRENCE_GREEDY_CLIQUE;
+  assert(tactix_online_configure(solver, &program, 230,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+
+  step.parameters.value.substitution_redundancy.orbitopal_column_order = 99;
+  assert(tactix_online_configure(solver, &program, 231,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+
+  step.parameters.value.substitution_redundancy.orbitopal_column_order =
+      TACTIX_ONLINE_ORBITOPAL_ORDER_COOCCURRENCE_BOUNDED_GREEDY_CLIQUE;
+  assert(tactix_online_configure(solver, &program, 231,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  step.parameters.value.substitution_redundancy.orbitopal_column_order = 4;
+  assert(tactix_online_configure(solver, &program, 231,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+
+  step.parameters.value.substitution_redundancy.orbitopal_column_order =
+      TACTIX_ONLINE_ORBITOPAL_ORDER_COOCCURRENCE_MAXIMUM_CLIQUE;
+  step.parameters.value.substitution_redundancy
+      .minimum_orbitopal_clique_columns = 1;
+  assert(tactix_online_configure(solver, &program, 232,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+
+  step.parameters.value.substitution_redundancy
+      .minimum_orbitopal_clique_columns = 5;
+  step.parameters.value.substitution_redundancy.orbitopal_completion =
+      TACTIX_ONLINE_ORBITOPAL_COMPLETION_INDIVIDUALIZED_GRAPH;
+  step.parameters.value.substitution_redundancy
+      .maximum_orbitopal_product_states = 128;
+  step.parameters.value.substitution_redundancy
+      .orbitopal_unique_literal_amo_mode = TACTIX_ONLINE_SETTING_ENABLE;
+  step.parameters.value.substitution_redundancy
+      .orbitopal_generator_fallback_mode = TACTIX_ONLINE_SETTING_DISABLE;
+  step.parameters.value.substitution_redundancy.orbitopal_refinement_mode =
+      TACTIX_ONLINE_SETTING_ENABLE;
+  step.parameters.value.substitution_redundancy
+      .maximum_orbitopal_refinement_orbits = 6;
+  step.parameters.value.substitution_redundancy
+      .orbitopal_base_probe_filter_mode = TACTIX_ONLINE_SETTING_ENABLE;
+  step.parameters.value.substitution_redundancy.orbitopal_base_probe_factor =
+      8;
+  step.parameters.value.substitution_redundancy.orbitopal_discovery_order =
+      TACTIX_ONLINE_ORBITOPAL_DISCOVERY_UNIQUE_LITERAL_THEN_REFINEMENT;
+  step.parameters.value.substitution_redundancy.maximum_graph_vertices = 1000;
+  step.parameters.value.substitution_redundancy.maximum_graph_edges = 10000;
+  step.parameters.value.substitution_redundancy.symmetry_binary_graph_mode =
+      TACTIX_ONLINE_SYMMETRY_BINARY_GRAPH_DIRECT_EDGES;
+  step.parameters.value.substitution_redundancy
+      .symmetry_binary_graph_density_permille = 1250;
+  step.parameters.value.substitution_redundancy.symmetry_clause_selection =
+      TACTIX_ONLINE_SYMMETRY_CLAUSE_SELECTION_SHORTEST;
+  step.parameters.value.substitution_redundancy.symmetry_chain_mode =
+      TACTIX_ONLINE_SYMMETRY_CHAIN_FIX_AND_CUT;
+  step.parameters.value.substitution_redundancy.symmetry_base_selection =
+      TACTIX_ONLINE_SYMMETRY_BASE_COMMON_CLAUSE_AMO;
+  assert(tactix_online_configure(solver, &program, 233,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  for (int mode = TACTIX_ONLINE_SYMMETRY_BASE_FIRST_AMO_THEN_COMMON_CLAUSE;
+       mode <= TACTIX_ONLINE_SYMMETRY_BASE_FIRST_SHORTEST_THEN_FORWARD_REMAINDER; ++mode) {
+    step.parameters.value.substitution_redundancy.symmetry_base_selection = mode;
+    assert(tactix_online_configure(solver, &program, 23312 + mode,
+                                   TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  }
+  step.parameters.value.substitution_redundancy.symmetry_base_selection = -1;
+  assert(tactix_online_configure(solver, &program, 23317,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  step.parameters.value.substitution_redundancy.symmetry_base_selection =
+      TACTIX_ONLINE_SYMMETRY_BASE_FIRST_SHORTEST_THEN_FORWARD_REMAINDER + 1;
+  assert(tactix_online_configure(solver, &program, 23318,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  step.parameters.value.substitution_redundancy.symmetry_base_selection =
+      TACTIX_ONLINE_SYMMETRY_BASE_FIRST_AMO_THEN_ORDERED_REMAINDER;
+  for (int mode = TACTIX_ONLINE_SETTING_INHERIT;
+       mode <= TACTIX_ONLINE_SETTING_ENABLE; ++mode) {
+    step.parameters.value.substitution_redundancy
+        .symmetry_pointwise_root_stabilizer_mode = mode;
+    assert(tactix_online_configure(solver, &program, 23308 + mode,
+                                   TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  }
+  step.parameters.value.substitution_redundancy
+      .symmetry_pointwise_root_stabilizer_mode = 99;
+  assert(tactix_online_configure(solver, &program, 23311,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  step.parameters.value.substitution_redundancy
+      .symmetry_pointwise_root_stabilizer_mode = TACTIX_ONLINE_SETTING_ENABLE;
+  for (int mode = TACTIX_ONLINE_SETTING_INHERIT;
+       mode <= TACTIX_ONLINE_SETTING_ENABLE; ++mode) {
+    step.parameters.value.substitution_redundancy
+        .symmetry_factor_support_components_mode = mode;
+    assert(tactix_online_configure(solver, &program, 23320 + mode,
+                                   TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  }
+  step.parameters.value.substitution_redundancy
+      .symmetry_factor_support_components_mode = 99;
+  assert(tactix_online_configure(solver, &program, 23324,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  step.parameters.value.substitution_redundancy
+      .symmetry_factor_support_components_mode = TACTIX_ONLINE_SETTING_ENABLE;
+  for (int mode = TACTIX_ONLINE_SETTING_INHERIT;
+       mode <= TACTIX_ONLINE_SETTING_ENABLE; ++mode) {
+    step.parameters.value.substitution_redundancy
+        .symmetry_preserve_detector_order_mode = mode;
+    assert(tactix_online_configure(solver, &program, 23330 + mode,
+                                   TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  }
+  for (int invalid = -1; invalid <= 99; invalid += 100) {
+    step.parameters.value.substitution_redundancy
+        .symmetry_preserve_detector_order_mode = invalid;
+    assert(tactix_online_configure(solver, &program, 23334,
+                                   TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  }
+  step.parameters.value.substitution_redundancy
+      .symmetry_preserve_detector_order_mode = TACTIX_ONLINE_SETTING_ENABLE;
+  for (int scope = TACTIX_ONLINE_SYMMETRY_STRUCTURED_SCOPE_INHERIT;
+       scope <= TACTIX_ONLINE_SYMMETRY_STRUCTURED_SCOPE_AXIS_ANCHORS; ++scope) {
+    step.parameters.value.substitution_redundancy.symmetry_structured_scope = scope;
+    assert(tactix_online_configure(solver, &program, 23350 + scope,
+                                   TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  }
+  for (int scope = -1; scope <= 3; scope += 4) {
+    step.parameters.value.substitution_redundancy.symmetry_structured_scope = scope;
+    assert(tactix_online_configure(solver, &program, 23354,
+                                   TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  }
+  step.parameters.value.substitution_redundancy.symmetry_structured_scope =
+      TACTIX_ONLINE_SYMMETRY_STRUCTURED_SCOPE_INHERIT;
+  int *handoff_fields[] = {
+    &step.parameters.value.substitution_redundancy.symmetry_use_structured_generators_mode,
+    &step.parameters.value.substitution_redundancy.symmetry_stabilize_structured_variables_mode
+  };
+  for (unsigned field = 0; field < 2; ++field) {
+    for (int mode = TACTIX_ONLINE_SETTING_INHERIT; mode <= TACTIX_ONLINE_SETTING_ENABLE; ++mode) {
+      *handoff_fields[field] = mode;
+      assert(tactix_online_configure(solver, &program, 23340 + mode,
+                                     TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+    }
+    for (int invalid = -1; invalid <= 3; invalid += 4) {
+      *handoff_fields[field] = invalid;
+      assert(tactix_online_configure(solver, &program, 23344,
+                                     TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+    }
+    *handoff_fields[field] = TACTIX_ONLINE_SETTING_INHERIT;
+  }
+
+  step.parameters.value.substitution_redundancy.symmetry_chain_mode =
+      TACTIX_ONLINE_SYMMETRY_CHAIN_FIX_AND_CUT_RESIFT;
+  assert(tactix_online_configure(solver, &program, 23319,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  step.parameters.value.substitution_redundancy.symmetry_chain_mode = 99;
+  assert(tactix_online_configure(solver, &program, 23306,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  step.parameters.value.substitution_redundancy.symmetry_chain_mode =
+      TACTIX_ONLINE_SYMMETRY_CHAIN_FIX_AND_CUT;
+  step.parameters.value.substitution_redundancy.symmetry_base_selection = 99;
+  assert(tactix_online_configure(solver, &program, 23307,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  step.parameters.value.substitution_redundancy.symmetry_base_selection =
+      TACTIX_ONLINE_SYMMETRY_BASE_COMMON_CLAUSE_AMO;
+  step.parameters.value.substitution_redundancy.symmetry_clause_selection = 99;
+  assert(tactix_online_configure(solver, &program, 23304,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  step.parameters.value.substitution_redundancy.symmetry_clause_selection =
+      TACTIX_ONLINE_SYMMETRY_CLAUSE_SELECTION_SHORTEST;
+  step.parameters.value.substitution_redundancy.symmetry_binary_graph_mode = 99;
+  assert(tactix_online_configure(solver, &program, 23305,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  step.parameters.value.substitution_redundancy.symmetry_binary_graph_mode =
+      TACTIX_ONLINE_SYMMETRY_BINARY_GRAPH_DIRECT_EDGES;
+  {
+    const int saved_producer = step.parameters.value.substitution_redundancy.producer;
+    step.parameters.value.substitution_redundancy.producer = TACTIX_ONLINE_SR_ORBITOPAL;
+    for (int scope = TACTIX_ONLINE_ORBITOPAL_DISCOVERY_REFINEMENT_ONLY;
+         scope <= TACTIX_ONLINE_ORBITOPAL_DISCOVERY_UNIQUE_LITERAL_ONLY; ++scope) {
+      step.parameters.value.substitution_redundancy.orbitopal_discovery_order = scope;
+      assert(tactix_online_configure(solver, &program, 23306,
+                                     TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+    }
+    step.parameters.value.substitution_redundancy.orbitopal_discovery_order = 4;
+    assert(tactix_online_configure(solver, &program, 23307,
+                                   TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+    step.parameters.value.substitution_redundancy.orbitopal_discovery_order = -1;
+    assert(tactix_online_configure(solver, &program, 23308,
+                                   TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+    step.parameters.value.substitution_redundancy.producer = saved_producer;
+  }
+  step.parameters.value.substitution_redundancy.orbitopal_discovery_order = 99;
+  assert(tactix_online_configure(solver, &program, 23300,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  step.parameters.value.substitution_redundancy.orbitopal_discovery_order =
+      TACTIX_ONLINE_ORBITOPAL_DISCOVERY_UNIQUE_LITERAL_THEN_REFINEMENT;
+  step.parameters.value.substitution_redundancy
+      .orbitopal_unique_literal_amo_mode = 99;
+  assert(tactix_online_configure(solver, &program, 2330,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  step.parameters.value.substitution_redundancy
+      .orbitopal_unique_literal_amo_mode = TACTIX_ONLINE_SETTING_ENABLE;
+  step.parameters.value.substitution_redundancy
+      .orbitopal_generator_fallback_mode = 99;
+  assert(tactix_online_configure(solver, &program, 23301,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  step.parameters.value.substitution_redundancy
+      .orbitopal_generator_fallback_mode = TACTIX_ONLINE_SETTING_DISABLE;
+  step.parameters.value.substitution_redundancy.orbitopal_refinement_mode = 99;
+  assert(tactix_online_configure(solver, &program, 23302,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  step.parameters.value.substitution_redundancy.orbitopal_refinement_mode =
+      TACTIX_ONLINE_SETTING_ENABLE;
+  step.parameters.value.substitution_redundancy
+      .orbitopal_base_probe_filter_mode = 99;
+  assert(tactix_online_configure(solver, &program, 23303,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  step.parameters.value.substitution_redundancy
+      .orbitopal_base_probe_filter_mode = TACTIX_ONLINE_SETTING_ENABLE;
+  step.parameters.value.substitution_redundancy.orbitopal_base_probe_factor =
+      0;
+  assert(tactix_online_configure(solver, &program, 23304,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  step.parameters.value.substitution_redundancy.orbitopal_base_probe_factor =
+      8;
+  step.parameters.value.substitution_redundancy
+      .maximum_orbitopal_product_states = 0;
+  assert(tactix_online_configure(solver, &program, 2331,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  step.parameters.value.substitution_redundancy
+      .maximum_orbitopal_product_states = 128;
+  step.parameters.value.substitution_redundancy.orbitopal_completion = 99;
+  step.parameters.value.substitution_redundancy
+      .orbitopal_generator_fallback_mode = 99;
+  step.parameters.value.substitution_redundancy.orbitopal_refinement_mode = 99;
+  step.parameters.value.substitution_redundancy
+      .orbitopal_base_probe_filter_mode = 99;
+  assert(tactix_online_configure(solver, &program, 234,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+
+  /* Dormant producer settings are normalized away and cannot narrow the
+   * explicit X7 surface. */
+  step.parameters.value.substitution_redundancy.producer =
+      TACTIX_ONLINE_SR_EXPLICIT_ONLY;
+  step.parameters.value.substitution_redundancy.orbitopal_producer = 0;
+  step.parameters.value.substitution_redundancy.symmetry_factor_support_components_mode = 99;
+  step.parameters.value.substitution_redundancy.symmetry_preserve_detector_order_mode = 99;
+  step.parameters.value.substitution_redundancy.orbitopal_orientation = 99;
+  step.parameters.value.substitution_redundancy.orbitopal_column_order = 99;
+  step.parameters.value.substitution_redundancy.orbitopal_completion = 99;
+  step.parameters.value.substitution_redundancy.symmetry_fixing_mode = 99;
+  step.parameters.value.substitution_redundancy.symmetry_generator_order = 99;
+  step.parameters.value.substitution_redundancy.symmetry_clause_scope = 99;
+  step.parameters.value.substitution_redundancy.symmetry_pair_orientation = 99;
+  step.parameters.value.substitution_redundancy.symmetry_binary_graph_mode = 99;
+  step.parameters.value.substitution_redundancy.symmetry_clause_selection = 99;
+  step.parameters.value.substitution_redundancy
+      .symmetry_pointwise_root_stabilizer_mode = 99;
+  step.parameters.value.substitution_redundancy.symmetry_chain_mode =
+      TACTIX_ONLINE_SYMMETRY_CHAIN_FIX_AND_CUT_RESIFT;
+  assert(tactix_online_configure(solver, &program, 23319,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  step.parameters.value.substitution_redundancy.symmetry_chain_mode = 99;
+  step.parameters.value.substitution_redundancy.symmetry_base_selection = 99;
+  step.parameters.value.substitution_redundancy
+      .symmetry_direct_generator_involutions_mode = 99;
+  assert(tactix_online_configure(solver, &program, 24,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
   tactix_release(solver);
 }
 
@@ -229,11 +779,54 @@ static void walk_scoring_is_validated_and_copied(void) {
   tactix_release(solver);
 }
 
+static void affine_model_parameters_are_copied(void) {
+  tactix *solver=tactix_init();
+  for(unsigned mask=0;mask<16;++mask) {
+    unsigned parity=0;for(unsigned i=0;i<4;++i)parity^=(mask>>i)&1;
+    if(parity)continue;
+    int lits[5];for(unsigned i=0;i<4;++i)lits[i]=(mask&(1u<<i))?-(int)(i+1):(int)(i+1);
+    lits[4]=0;clause(solver,lits);
+  }
+  for(int i=1;i<4;++i){const int pair[]={-i,-(i+1),0};clause(solver,pair);}
+  tactix_online_step step;memset(&step,0,sizeof step);
+  step.step_id=908;step.rule_id=rule("Lucky");
+  step.parameters.kind=TACTIX_ONLINE_PARAMETERS_AFFINE_MODEL;
+  tactix_online_affine_model_parameters *p=&step.parameters.value.affine_model;
+  p->maximum_variables=100;p->maximum_constraints=1000;p->maximum_arity=8;
+  p->maximum_projection=10;p->minimum_equations=1;p->maximum_entries=1000;
+  p->import_bytes=p->linear_bytes=p->table_bytes=1000000;
+  p->maximum_work=1000000;p->candidate_budget=1000;p->permutations=1;
+  p->projection_mode=TACTIX_ONLINE_AFFINE_EXPLICIT;
+  int projection[]={4,-1,3,-2};p->projection=projection;p->projection_count=4;
+  tactix_online_affine_scope scope={2,2,2,4};p->scopes=&scope;p->scope_count=1;
+  uint64_t instance=8;step.instances=&instance;step.instance_count=1;
+  step.granularity=TACTIX_ONLINE_GRANULARITY_ONE;
+  step.repeat_mode=TACTIX_ONLINE_REPEAT_ONCE;step.repeat_limit=1;
+  step.work_unit=TACTIX_ONLINE_WORK_APPLICATIONS;step.budget_unlimited=1;
+  tactix_online_program program={&step,1,TACTIX_ONLINE_REPEAT_ONCE,1};
+  assert(tactix_online_configure(solver,&program,1,TACTIX_ONLINE_RECONFIGURE_RESET)==0);
+  projection[0]=0;scope.total_weight=0;
+  /* Invalid replacement is transactional; the copied original stays active. */
+  assert(tactix_online_configure(solver,&program,2,TACTIX_ONLINE_RECONFIGURE_RESET)==-1);
+  tactix_online_result result;assert(tactix_online_advance(solver,&result)==0);
+  assert(result.status==TACTIX_ONLINE_SAT&&result.instance==8);
+  unsigned parity=0;for(int v=1;v<=4;++v)parity^=tactix_value(solver,v)>0;
+  assert(parity==1);
+  for(int v=1;v<4;++v)assert(tactix_value(solver,v)<0||tactix_value(solver,v+1)<0);
+  tactix_release(solver);
+}
+
 int main(void) {
+  canonical_bve_reaches_a_real_fixpoint();
+  status_reconstructs_bve_models_and_refreshes_after_restart();
+  affine_model_parameters_are_copied();
+  pure_bve_scope_is_public_and_validated();
   exact_factor_grid_is_copied_and_applied();
   complete_factor_grid_is_discovered_and_applied();
   exact_sr_instance_v2_is_copied_and_applied();
   general_sr_producer_is_available_through_v1();
+  graph_sr_producer_is_typed_through_v1();
+  invalid_graph_sr_settings_are_transactional();
   walk_scoring_is_validated_and_copied();
   tactix *solver = tactix_init();
   const int binary[] = {1, 2, 0};
@@ -301,6 +894,11 @@ int main(void) {
                                  TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
   assert(tactix_online_complete(solver));
   step.touch_filter_mode = TACTIX_ONLINE_SETTING_INHERIT;
+  step.post_application = 99;
+  assert(tactix_online_configure(solver, &program, 84,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  assert(tactix_online_complete(solver));
+  step.post_application = TACTIX_ONLINE_POST_NONE;
 
   /* A complete pass may be configured after mutation and reaches fixpoint. */
   step.parameters.kind = TACTIX_ONLINE_PARAMETERS_STRENGTHEN;

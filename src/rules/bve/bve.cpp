@@ -148,9 +148,8 @@ uint32_t bve_schedule_occurrence_count(const Kernel &k, Lit lit) {
   return static_cast<uint32_t>(std::min<uint64_t>(count, UINT32_MAX));
 }
 
-void bve_schedule(Kernel &k, std::vector<Var> &out) {
-  BveOccurrences occ;
-  bve_build_occurrences(k, occ);
+void bve_schedule_from_occurrences(const Kernel &k, const BveOccurrences &occ,
+                                   std::vector<Var> &out) {
   std::vector<std::pair<int64_t, Var>> ranked; // structural score, ascending
   for (Var v = 0; v < k.nvars; v++) {
     // The retry bitmap (Kernel::bve_retry) is deliberately not consulted here:
@@ -174,6 +173,12 @@ void bve_schedule(Kernel &k, std::vector<Var> &out) {
   out.reserve(ranked.size());
   for (const auto &pr : ranked)
     out.push_back(pr.second);
+}
+
+void bve_schedule(Kernel &k, std::vector<Var> &out) {
+  BveOccurrences occ;
+  bve_build_occurrences(k, occ);
+  bve_schedule_from_occurrences(k, occ, out);
 }
 
 namespace {
@@ -1413,8 +1418,7 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
   // popped-candidate update flag.  Tactix drives this from its mixed connected
   // order and mirrors each inspected garbage removal into the large index.
   // Test only garbage and physical size, never current clause membership.
-  if (k.dense) {
-    assert(k.dense->track_order);
+  if (k.dense && k.dense->track_order) {
     for (const Lit pivot : {px, nx}) {
       // First identify the mutable prefix without copying the occurrence
       // stack.  Apply its deletions before inspecting the opposite polarity,
@@ -1568,8 +1572,7 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
       (has_px ? pos : neg).push_back(std::move(m));
     }
   };
-  if (k.dense) {
-    assert(k.dense->track_order);
+  if (k.dense && k.dense->track_order) {
     // Consume the exact connected stream. Entries can be stale after deletion
     // or an in-place membership rewrite; filter them against current kernel
     // state without disturbing survivor order.
@@ -1604,8 +1607,38 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
     };
     gather(px, nx, pos, true);
     gather(nx, px, neg, false);
+  } else if (k.dense) {
+    // Probe and public composition may supply the ordinary large-only dense
+    // image without Eliminate's mixed binary/large order. Consume its exact
+    // per-literal large slices, then the authoritative binary watches. This
+    // keeps a PureOnly pass linear in the clauses it removes instead of
+    // rescanning the whole arena once per pure variable. There is no mixed
+    // ordering authority in this state; the deterministic large-then-binary
+    // pose is therefore the complete available representation.
+    const auto gather_large = [&](Lit pivot, Lit opposite,
+                                  bool positive) {
+      k.dense->with_large(pivot, [&](auto refs) {
+        for (const Ref ref : refs) {
+          const Clause *c = clause_at(k.arena, ref);
+          if (c->garbage() || !has_lit(c, pivot))
+            continue;
+          const bool has_opposite = has_lit(c, opposite);
+          if (!positive && has_opposite)
+            continue;
+          classify(ref, c, positive, !positive || has_opposite);
+        }
+      });
+    };
+    gather_large(px, nx, true);
+    gather_large(nx, px, false);
+    for (const WatchEntry w : k.watches.entries(px))
+      if (w.binary())
+        gather_bin(px, w.other(), pos);
+    for (const WatchEntry w : k.watches.entries(nx))
+      if (w.binary())
+        gather_bin(nx, w.other(), neg);
   } else {
-    // N1 fallback: one arena scan (any state, no phase index).
+    // N1 fallback: one arena scan in the public no-index state.
     for (Ref ref = 0; ref < k.arena.size();) {
       const Clause *c = clause_at(k.arena, ref);
       const uint32_t words = clause_actual_words(c);
@@ -1631,6 +1664,15 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
   }
 
   if (antecedent_oversized)
+    return decline_after_compaction();
+
+  // Reapplying Davis-Putnam to an already-retired, occurrence-free pivot has
+  // no formula, reconstruction or active-population effect. In particular it
+  // must not report another elimination and trap a canonical caller on it.
+  // Keep every explicit identity selectable: retirement alone does not bypass
+  // work when actual clauses remain on the requested pivot.
+  if (kernel_var_retired(k, x) && pos.empty() && neg.empty() &&
+      del_large.empty() && del_bin.empty())
     return decline_after_compaction();
 
   // Occurrence blow-up (kissat `eliminateocclim` = 2000, resolve.c:282-290):

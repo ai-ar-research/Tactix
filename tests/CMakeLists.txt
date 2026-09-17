@@ -18,6 +18,10 @@ add_executable(test_proof test_proof.cpp)
 target_link_libraries(test_proof PRIVATE tactix_lib)
 add_test(NAME proof COMMAND test_proof)
 
+add_executable(test_sr_proof_encoding test_sr_proof_encoding.cpp)
+target_link_libraries(test_sr_proof_encoding PRIVATE tactix_lib)
+add_test(NAME sr_proof_encoding COMMAND test_sr_proof_encoding)
+
 add_executable(test_analyze test_analyze.cpp)
 target_link_libraries(test_analyze PRIVATE tactix_lib)
 add_test(NAME analyze COMMAND test_analyze)
@@ -114,6 +118,22 @@ add_test(NAME tierd_campaign_pinning
 add_test(NAME slurm_memory_enforcement
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_slurm_memory_enforcement.py)
+add_test(NAME symmetry_backend_build_boundary
+         COMMAND ${CMAKE_COMMAND} -E env python3
+                 ${CMAKE_CURRENT_SOURCE_DIR}/test_symmetry_backend_flags.py
+                 ${CMAKE_BINARY_DIR}/compile_commands.json
+                 ${CMAKE_SOURCE_DIR})
+add_executable(test_symmetry_backend test_symmetry_backend.cpp)
+target_include_directories(test_symmetry_backend PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries(test_symmetry_backend PRIVATE tactix_symmetry_backend)
+add_test(NAME symmetry_backend COMMAND test_symmetry_backend)
+add_executable(test_symmetry_clause_multiset test_symmetry_clause_multiset.cpp)
+target_include_directories(test_symmetry_clause_multiset PRIVATE ${CMAKE_SOURCE_DIR}/src)
+add_test(NAME symmetry_clause_multiset COMMAND test_symmetry_clause_multiset)
+add_executable(test_orbitopal_group test_orbitopal_group.cpp)
+target_include_directories(test_orbitopal_group PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries(test_orbitopal_group PRIVATE tactix_lib)
+add_test(NAME orbitopal_group COMMAND test_orbitopal_group)
 add_test(NAME fuzz_slurm_snapshot
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_fuzz_slurm_snapshot.py)
@@ -412,4 +432,6 @@ foreach(test_source IN LISTS TACTIX_CONVENTIONAL_TESTS)
 endforeach()
 
 # Bound the empty-scope interruption regression if stop polling regresses.
-set_tests_properties(online_inprocess PROPERTIES TIMEOUT 10)
+# The nonvacuous 728-graph clique-order sweep also exercises bounded prefixes;
+# the full online suite takes about 21 seconds under ASan/UBSan.
+set_tests_properties(online_inprocess PROPERTIES TIMEOUT 60)

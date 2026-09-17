@@ -31,8 +31,59 @@ static void add_php_4_3(Kernel &k) {
                                  internalize(-variable(second, hole)));
 }
 
+static void add_blocked_amo_cleanup_fixture(Kernel &k) {
+  static constexpr int clauses[][3] = {
+      {1, 2, 3},    {4, 5, 6},    {7, 8, 9},
+      {-1, -4, -7}, {-1, -5, -8}, {-1, -6, -9},
+      {-2, -4, -8}, {-2, -5, -9}, {-2, -6, -7},
+      {-3, -4, -9}, {-3, -5, -7}, {-3, -6, -8},
+      {-1, -4, -8},
+  };
+  kernel_reserve_vars(k, 9);
+  for (const auto &clause : clauses) {
+    const Lit lits[] = {internalize(clause[0]), internalize(clause[1]),
+                        internalize(clause[2])};
+    kernel_add_large_clause(k, lits, 3, false, 0, ++k.next_clause_id);
+  }
+}
+
 int main() {
   DefaultStrategyConfig defaults;
+  assert(defaults.inprocess.structured_root_before_lucky);
+  assert(!defaults.inprocess.structured_root_sr_discovery_budget.is_unlimited());
+  assert(defaults.inprocess.structured_root_sr_discovery_budget.amount() ==
+         DefaultStrategyConfig::SYMMETRY_TOTAL_TICK_LIMIT_DEFAULT);
+  assert(defaults.inprocess.structured_root_bce_after_unique_literal_amo);
+  assert(defaults.serialize().find(
+             "inprocess.structured_root_sr_discovery_ticks=20000000000") !=
+         std::string::npos);
+  assert(defaults.serialize().find(
+             "inprocess.structured_root_bce_after_unique_literal_amo=1") !=
+         std::string::npos);
+  {
+    // The policy cleanup is admitted by generated ULC binary provenance. Its
+    // typed switch controls exactly this one startup pass; the producer itself
+    // is identical in both runs.
+    Kernel enabled, disabled;
+    add_blocked_amo_cleanup_fixture(enabled);
+    add_blocked_amo_cleanup_fixture(disabled);
+    DefaultStrategyConfig enabled_config = defaults;
+    DefaultStrategyConfig disabled_config = defaults;
+    disabled_config.inprocess.structured_root_bce_after_unique_literal_amo =
+        false;
+    assert(DefaultPolicy(enabled_config).solve(enabled) == 10);
+    assert(DefaultPolicy(disabled_config).solve(disabled) == 10);
+    assert(enabled.stats.sr_unique_literal_amo_binaries > 0);
+    assert(enabled.stats.sr_unique_literal_amo_binaries ==
+           disabled.stats.sr_unique_literal_amo_binaries);
+    assert(enabled.stats.bce_deleted > disabled.stats.bce_deleted);
+  }
+  {
+    auto reference_order = defaults;
+    reference_order.inprocess.structured_root_before_lucky = false;
+    assert(reference_order.valid());
+    assert(reference_order.serialize().find("inprocess.structured_root_before_lucky=0") != std::string::npos);
+  }
   assert(defaults.reduction.initial_interval ==
          DefaultPolicy::REDUCE_INTERVAL_INIT);
   assert(defaults.mode.interval == DefaultPolicy::MODE_INTERVAL);
@@ -97,6 +148,27 @@ int main() {
   {
     DefaultStrategyConfig invalid = defaults;
     invalid.inprocess.program[0].effort_permille = 1001;
+    assert(!invalid.valid(&validation_error));
+  }
+  {
+    DefaultStrategyConfig invalid = defaults;
+    invalid.inprocess.program.push_back(
+        {900, "SubstitutionRedundancy",
+         strategy::InprocessPhase::Probe, true, true});
+    assert(!invalid.valid(&validation_error));
+    assert(validation_error ==
+           "slot program duplicates structured root SR ownership");
+    invalid = defaults;
+    invalid.inprocess.structured_root_stages[0].program.sequence[0].rule = "Sweep";
+    assert(!invalid.valid(&validation_error));
+    assert(validation_error ==
+           "parameters do not match rule");
+    invalid = defaults;
+    invalid.inprocess.structured_root_stages[0].program.sequence[0].repeat =
+        {strategy::RepeatMode::Count, 2};
+    assert(invalid.valid(&validation_error));
+    invalid.inprocess.structured_root_stages[0].on_budget_exhaustion =
+        static_cast<strategy::BudgetExhaustionPolicy>(99);
     assert(!invalid.valid(&validation_error));
   }
   {
@@ -583,9 +655,7 @@ int main() {
   // to one reduction boundary.
   DefaultStrategyConfig cadence = defaults;
   cadence.reduction.retier_initial_interval = 1ull << 40;
-  for (strategy::InprocessStep &step : cadence.inprocess.program)
-    if (step.rule == "SubstitutionRedundancy")
-      step.enabled = false;
+  cadence.inprocess.structured_root_stages.clear();
   Kernel php;
   ScopedHeuristics php_heuristics(php);
   add_php_4_3(php);

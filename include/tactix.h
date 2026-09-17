@@ -197,6 +197,11 @@ void tactix_set_strengthen_limits(tactix *, uint32_t clause_size,
 void tactix_set_analyze_minimize_depth(tactix *, uint32_t depth);
 int tactix_set_congruence_limits(tactix *, uint32_t and_arity,
                                  uint64_t gate_count, uint32_t xor_arity);
+#define TACTIX_CONGRUENCE_CANONICAL_WATCH_ORDER 0
+#define TACTIX_CONGRUENCE_PRESERVE_WATCH_ORDER 1
+/* Controls entry ordering only; inference and required cleanup remain active.
+ * Invalid values return -1 without changing configuration. */
+int tactix_set_congruence_watch_order(tactix *, int order);
 void tactix_set_instantiate_limits(tactix *, uint32_t minimum_clause_size,
                                    uint32_t occurrence_limit,
                                    uint32_t minimum_unassigned,
@@ -235,6 +240,7 @@ void tactix_set_backbone_round_limits(tactix *, uint32_t initial_rounds,
 #define TACTIX_CFG_VIVIFY_FLUSH 23
 #define TACTIX_CFG_VIVIFY_IRREDUNDANT_SORT_RATIO 24
 #define TACTIX_CFG_INSTANTIATE_NEW_MATERIAL_THRESHOLD 25
+#define TACTIX_CFG_CONGRUENCE_WATCH_ORDER 26
 uint64_t tactix_config(tactix *, int cfg_id);
 
 /* run the default policy to completion: 10 SAT / 20 UNSAT */
@@ -300,6 +306,8 @@ int tactix_apply_semantic_instance(tactix *, int rule_id, uint64_t instance);
 #define TACTIX_ONLINE_REPEAT_ONCE 0
 #define TACTIX_ONLINE_REPEAT_COUNT 1
 #define TACTIX_ONLINE_REPEAT_FIXPOINT 2
+#define TACTIX_ONLINE_POST_NONE 0
+#define TACTIX_ONLINE_POST_PROPAGATE 1
 #define TACTIX_ONLINE_WORK_APPLICATIONS 0
 #define TACTIX_ONLINE_WORK_BVE_TICKS 1
 #define TACTIX_ONLINE_WORK_PROPAGATIONS 2
@@ -341,6 +349,77 @@ int tactix_apply_semantic_instance(tactix *, int rule_id, uint64_t instance);
 #define TACTIX_ONLINE_PARAMETERS_PARITY_MODEL 18
 #define TACTIX_ONLINE_PARAMETERS_ONEHOT_MODEL 19
 #define TACTIX_ONLINE_PARAMETERS_SUBSTITUTION_REDUNDANCY 20
+#define TACTIX_ONLINE_PARAMETERS_AFFINE_MODEL 21
+#define TACTIX_ONLINE_AFFINE_BOUNDARY 0
+#define TACTIX_ONLINE_AFFINE_ALL_PARITY 1
+#define TACTIX_ONLINE_AFFINE_EXPLICIT 2
+
+#define TACTIX_ONLINE_BVE_CANDIDATES_ALL 0
+#define TACTIX_ONLINE_BVE_CANDIDATES_PURE_ONLY 1
+
+#define TACTIX_ONLINE_SR_EXPLICIT_ONLY 0
+#define TACTIX_ONLINE_SR_ORBITOPAL 1
+#define TACTIX_ONLINE_SR_GENERAL_COMPLETE 2
+#define TACTIX_ONLINE_SR_GRAPH_SYMMETRY 3
+
+#define TACTIX_ONLINE_ORBITOPAL_ROWS 0
+#define TACTIX_ONLINE_ORBITOPAL_COLUMNS 1
+#define TACTIX_ONLINE_ORBITOPAL_BOTH 2
+
+#define TACTIX_ONLINE_ORBITOPAL_ORDER_CANONICAL 0
+#define TACTIX_ONLINE_ORBITOPAL_ORDER_COOCCURRENCE_MAXIMUM_CLIQUE 1
+#define TACTIX_ONLINE_ORBITOPAL_ORDER_COOCCURRENCE_GREEDY_CLIQUE 2
+#define TACTIX_ONLINE_ORBITOPAL_ORDER_COOCCURRENCE_BOUNDED_GREEDY_CLIQUE 3
+#define TACTIX_ONLINE_ORBITOPAL_COMPLETION_MATRIX_ONLY 0
+#define TACTIX_ONLINE_ORBITOPAL_COMPLETION_INDIVIDUALIZED_GRAPH 1
+#define TACTIX_ONLINE_ORBITOPAL_DISCOVERY_REFINEMENT_THEN_UNIQUE_LITERAL 0
+#define TACTIX_ONLINE_ORBITOPAL_DISCOVERY_UNIQUE_LITERAL_THEN_REFINEMENT 1
+#define TACTIX_ONLINE_ORBITOPAL_DISCOVERY_REFINEMENT_ONLY 2
+#define TACTIX_ONLINE_ORBITOPAL_DISCOVERY_UNIQUE_LITERAL_ONLY 3
+#define TACTIX_ONLINE_ORBITOPAL_ROW_ORBITS_DETECTED_GENERATORS 0
+#define TACTIX_ONLINE_ORBITOPAL_ROW_ORBITS_REFINEMENT_CELLS 1
+
+#define TACTIX_ONLINE_SYMMETRY_STABILIZER_ONLY 0
+#define TACTIX_ONLINE_SYMMETRY_GENERATORS_ONLY 1
+#define TACTIX_ONLINE_SYMMETRY_STABILIZER_THEN_GENERATORS 2
+
+#define TACTIX_ONLINE_SYMMETRY_ORDER_CANONICAL 0
+#define TACTIX_ONLINE_SYMMETRY_ORDER_REVERSE 1
+#define TACTIX_ONLINE_SYMMETRY_ORDER_SEEDED 2
+
+#define TACTIX_ONLINE_SYMMETRY_CLAUSES_UNIQUE_LITERALS 0
+#define TACTIX_ONLINE_SYMMETRY_CLAUSES_ALL 1
+
+#define TACTIX_ONLINE_SYMMETRY_PAIR_CANONICAL 0
+#define TACTIX_ONLINE_SYMMETRY_PAIR_REVERSE 1
+#define TACTIX_ONLINE_SYMMETRY_PAIR_SEEDED 2
+
+#define TACTIX_ONLINE_SYMMETRY_BINARY_GRAPH_INHERIT 0
+#define TACTIX_ONLINE_SYMMETRY_BINARY_GRAPH_CLAUSE_VERTICES 1
+#define TACTIX_ONLINE_SYMMETRY_BINARY_GRAPH_DIRECT_EDGES 2
+#define TACTIX_ONLINE_SYMMETRY_BINARY_GRAPH_AUTOMATIC 3
+
+#define TACTIX_ONLINE_SYMMETRY_CLAUSE_SELECTION_INHERIT 0
+#define TACTIX_ONLINE_SYMMETRY_CLAUSE_SELECTION_INPUT_ORDER 1
+#define TACTIX_ONLINE_SYMMETRY_CLAUSE_SELECTION_SHORTEST 2
+#define TACTIX_ONLINE_SYMMETRY_CLAUSE_SELECTION_AMO_THEN_SHORTEST 3
+
+#define TACTIX_ONLINE_SYMMETRY_CHAIN_INHERIT 0
+#define TACTIX_ONLINE_SYMMETRY_CHAIN_CLAUSAL_FIXING 1
+#define TACTIX_ONLINE_SYMMETRY_CHAIN_FIX_AND_CUT 2
+#define TACTIX_ONLINE_SYMMETRY_CHAIN_FIX_AND_CUT_RESIFT 3
+
+#define TACTIX_ONLINE_SYMMETRY_STRUCTURED_SCOPE_INHERIT 0
+#define TACTIX_ONLINE_SYMMETRY_STRUCTURED_SCOPE_WHOLE_MATRIX 1
+#define TACTIX_ONLINE_SYMMETRY_STRUCTURED_SCOPE_AXIS_ANCHORS 2
+#define TACTIX_ONLINE_SYMMETRY_BASE_INHERIT 0
+#define TACTIX_ONLINE_SYMMETRY_BASE_CLAUSE_ORDER 1
+#define TACTIX_ONLINE_SYMMETRY_BASE_COMMON_CLAUSE_AMO 2
+#define TACTIX_ONLINE_SYMMETRY_BASE_FIRST_AMO_THEN_COMMON_CLAUSE 3
+#define TACTIX_ONLINE_SYMMETRY_BASE_FIRST_AMO_THEN_ORDERED_REMAINDER 4
+#define TACTIX_ONLINE_SYMMETRY_BASE_FIRST_AMO_THEN_FORWARD_REMAINDER 5
+#define TACTIX_ONLINE_SYMMETRY_BASE_SHORTEST_CLAUSE 6
+#define TACTIX_ONLINE_SYMMETRY_BASE_FIRST_SHORTEST_THEN_FORWARD_REMAINDER 7
 
 typedef struct {
   uint32_t minimize_depth_limit;
@@ -361,6 +440,8 @@ typedef struct {
   uint32_t definition_core_budget_multiplier;
   uint64_t definition_budget;
   int backward;
+  /* Appended generated-pass scope. Explicit selections remain unrestricted. */
+  int candidate_scope;
 } tactix_online_bve_parameters;
 typedef struct {
   uint32_t clause_size_limit, large_occurrence_limit;
@@ -372,6 +453,7 @@ typedef struct {
 typedef struct {
   uint32_t and_arity_limit, xor_arity_limit;
   uint64_t gate_count_limit;
+  int binary_watch_order; /* TACTIX_CONGRUENCE_*_WATCH_ORDER; zero is canonical. */
 } tactix_online_congruence_parameters;
 typedef struct {
   uint32_t minimum_clause_size, occurrence_limit, minimum_unassigned;
@@ -418,6 +500,7 @@ typedef struct {
    * selects the reference value for these appended source-compatible fields. */
   uint32_t victim_numerator, victim_denominator;
   int tier_protection_mode, compact_collection_mode;
+  int reduction_bookkeeping_mode;
 } tactix_online_reduce_parameters;
 typedef struct {
   uint32_t average_clause_size_milli, break_base_milli;
@@ -454,8 +537,31 @@ typedef struct {
   uint64_t candidate_budget;
 } tactix_online_onehot_model_parameters;
 typedef struct {
+  /* UINT64_MAX selects half of the current coordinate count. */
+  uint64_t left_size, left_weight, right_weight, total_weight;
+} tactix_online_affine_scope;
+typedef struct {
+  /* Lucky instance 8. Every scalar is explicit; zero limits mean zero work or
+   * an empty domain, never an implicit default. Arrays are copied on configure.
+   * Projection literals use stable external DIMACS identities. Duplicate or
+   * complementary coordinates of the same variable are invalid. A currently
+   * unavailable retired coordinate declines this attempt without mutation.
+   * Explicit empty projection and empty scopes are both valid requests. */
+  uint64_t maximum_variables, maximum_constraints, maximum_arity;
+  uint64_t maximum_projection, minimum_equations, maximum_entries;
+  uint64_t import_bytes, linear_bytes, table_bytes, maximum_work;
+  uint64_t candidate_budget, permutations, seed;
+  int projection_mode, automatic_negated, shuffle_first;
+  int free_phase, residual_phase;
+  const int *projection;
+  int projection_count;
+  const tactix_online_affine_scope *scopes;
+  int scope_count;
+} tactix_online_affine_model_parameters;
+typedef struct {
   /* Zero is a valid disabling limit. UINT64_MAX is unbounded. */
   uint64_t maximum_validation_ticks;
+  /* Deprecated compatibility selectors. New callers set producer below. */
   int orbitopal_producer;
   uint32_t minimum_orbitopal_rows, minimum_orbitopal_columns;
   uint64_t maximum_orbitopal_matrices, maximum_orbitopal_instances;
@@ -464,6 +570,100 @@ typedef struct {
    * the complete finite candidate/witness/substitution domain lazily. */
   int general_producer;
   uint64_t maximum_general_candidates_per_advance;
+  int producer;
+  int orbitopal_orientation;
+  uint64_t maximum_graph_vertices, maximum_graph_edges;
+  uint64_t maximum_symmetry_generators;
+  uint64_t symmetry_backend_search_budget;
+  uint64_t symmetry_backend_support_budget;
+  uint64_t symmetry_backend_component_size_limit;
+  uint64_t maximum_symmetry_fixing_instances;
+  uint64_t maximum_symmetry_generator_instances_per_pass;
+  uint64_t maximum_symmetry_group_ticks;
+  uint32_t symmetry_seed;
+  /* Zero selects the C++ default error bound. */
+  uint32_t symmetry_error_bound;
+  int symmetry_fixing_mode;
+  int symmetry_generator_order;
+  int symmetry_clause_order;
+  int symmetry_literal_order;
+  int symmetry_clause_scope;
+  int symmetry_pair_orientation;
+  int symmetry_direct_generator_involutions_mode;
+  /* TACTIX_ONLINE_SETTING_*; INHERIT uses the typed C++ defaults. */
+  int symmetry_decompose_mode;
+  int symmetry_prefer_depth_first_mode;
+  int symmetry_strong_certification_mode;
+  /* Structured-action ordering. Bounded greedy retains a valid incumbent on
+   * local clique-work exhaustion (zero work retains canonical order). Global
+   * work, vertex and interruption limits still stop the current matrix. */
+  int orbitopal_column_order;
+  uint64_t maximum_orbitopal_clique_vertices;
+  uint64_t maximum_orbitopal_clique_ticks;
+  /* Zero selects the C++ default (currently five columns). */
+  uint32_t minimum_orbitopal_clique_columns;
+  int orbitopal_completion;
+  /* Compact induced-column group states used by product-action completion.
+   * Zero disables that fallback; UINT64_MAX is unbounded. */
+  uint64_t maximum_orbitopal_product_states;
+  /* TACTIX_ONLINE_SETTING_*; complete unique-literal clauses with pairwise
+   * blocked AMO binaries before matrix detection. */
+  int orbitopal_unique_literal_amo_mode;
+  /* TACTIX_ONLINE_SETTING_*; allow individualized matrix completion to use
+   * the configured generic formula generators after direct refinement fails. */
+  int orbitopal_generator_fallback_mode;
+  /* TACTIX_ONLINE_SETTING_*; INHERIT preserves the typed C++ default,
+   * DISABLE examines no refinement roots, and ENABLE uses the following
+   * maximum (UINT64_MAX is unbounded). */
+  int orbitopal_refinement_mode;
+  uint64_t maximum_orbitopal_refinement_orbits;
+  /* TACTIX_ONLINE_SETTING_*; restrict refinement roots by the probed base.
+   * A zero factor selects the typed C++ default (currently eight). */
+  int orbitopal_base_probe_filter_mode;
+  uint32_t orbitopal_base_probe_factor;
+  /* Select which complete discovery phase runs first. A productive phase
+   * yields to the caller; a scoped-fixpoint repeat resumes with the next
+   * formula state. */
+  int orbitopal_discovery_order;
+  /* Appended exact graph representation. INHERIT preserves the C++ default;
+   * automatic mode selects direct binary edges when 1000*binary clauses is at
+   * least density*variables. A zero density selects the typed default. */
+  int symmetry_binary_graph_mode;
+  uint32_t symmetry_binary_graph_density_permille;
+  /* Appended selection policy for stabilizer-chain base clauses. INHERIT
+   * preserves the typed C++ default. */
+  int symmetry_clause_selection;
+  /* Appended Schreier schedule. Zero preserves source compatibility and the
+   * typed defaults; DefaultPolicy explicitly selects fix-and-cut with
+   * common-clause/AMO base ranking. */
+  int symmetry_chain_mode;
+  /* TACTIX_ONLINE_SYMMETRY_BASE_*; active with FIX_AND_CUT, otherwise dormant. */
+  int symmetry_base_selection;
+  /* TACTIX_ONLINE_SETTING_*; INHERIT leaves discovery unrestricted. ENABLE
+   * fixes assigned root literals pointwise during graph discovery only.
+   * Explicit SR application is unaffected. */
+  int symmetry_pointwise_root_stabilizer_mode;
+  /* Candidate source for individualized row discovery. Refinement cells need
+   * no preliminary generic search and still require exact action validation. */
+  int orbitopal_row_orbit_source;
+  /* Optional FixAndCut planning threshold between complete levels. Zero
+   * disables it. The maximum_symmetry_group_ticks hard limit still applies
+   * to both planning and finalization. */
+  uint64_t symmetry_chain_planning_tick_limit;
+  /* TACTIX_ONLINE_SETTING_*; factor disjoint generator supports before group
+   * planning. Independent of chain mode; INHERIT retains the disabled default. */
+  int symmetry_factor_support_components_mode;
+  /* TACTIX_ONLINE_SETTING_*; preserve first detector occurrence before
+   * canonical/reverse/seeded traversal. INHERIT keeps canonical sorting. */
+  int symmetry_preserve_detector_order_mode;
+  /* Independent per-call structured basis and remaining-subgroup discovery.
+     INHERIT keeps the default (disabled); matrix settings above are shared. */
+  int symmetry_use_structured_generators_mode;
+  int symmetry_stabilize_structured_variables_mode;
+  /* TACTIX_ONLINE_SYMMETRY_STRUCTURED_SCOPE_*; INHERIT keeps WholeMatrix.
+   * Axis anchors are first-column row anchors and first-row column anchors
+   * for each complete discovered action; explicit SR legality is unchanged. */
+  int symmetry_structured_scope;
 } tactix_online_sr_parameters;
 
 /* One exact Factor remainder column and grid. Literals use permanent DIMACS
@@ -504,6 +704,7 @@ typedef struct {
     tactix_online_reorder_parameters reorder;
     tactix_online_parity_model_parameters parity_model;
     tactix_online_onehot_model_parameters onehot_model;
+    tactix_online_affine_model_parameters affine_model;
     tactix_online_sr_parameters substitution_redundancy;
   } value;
 } tactix_online_parameters;
@@ -527,6 +728,11 @@ typedef struct {
   int work_unit;
   uint64_t budget;
   int budget_unlimited;
+  /* TACTIX_ONLINE_POST_*; appended for source-compatible zero initialization.
+   * The selected follow-up executes after each semantic application inside
+   * the same state-version transaction and does not itself count as repeat
+   * progress. */
+  int post_application;
 } tactix_online_step;
 
 typedef struct {
@@ -602,7 +808,8 @@ int tactix_decide_candidates(tactix *, int *lits, int cap);
 int tactix_decide(tactix *, int lit); /* 0 ok, -1 not applicable */
 
 /* solver status: 0 unknown/in progress, 10 all-assigned (SAT),
- * 20 refuted (UNSAT) */
+ * 20 refuted (UNSAT). SAT prepares the reconstructed original-formula model
+ * for tactix_value without changing the resumable rule/search state. */
 int tactix_status(tactix *);
 
 /* read-only statistics: returns the counter for a TACTIX_STAT_*

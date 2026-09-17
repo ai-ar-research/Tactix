@@ -99,6 +99,49 @@ EOF
   # LRAT ids; native LRAT deliberately keeps the deferred-input path.
   printf 'p cnf 5 6\n-1 2 0\n-2 3 0\n1 0\n-3 4 5 0\n-4 0\n-5 0\n' \
     > "$T/rootcascade.cnf"
+  # A later SR witness can fail if the checker retains the raw input clause
+  # after pure elimination deletes its normalized replacement. Claude's two
+  # minimized regressions cover root shortening and repeated literals.
+  cat > "$T/sr-input-root.cnf" <<'EOF'
+p cnf 9 10
+-5 -6 0
+-6 5 0
+-6 7 0
+-7 -5 0
+-2 0
+-7 5 0
+-3 4 2 0
+3 -1 0
+9 8 0
+6 7 0
+EOF
+  cat > "$T/sr-input-repeat.cnf" <<'EOF'
+p cnf 16 15
+11 0
+5 0
+-10 0
+7 0
+9 8 0
+-8 9 0
+-14 16 -14 0
+-9 -13 0
+-12 0
+14 15 0
+3 0
+-2 0
+-9 13 0
+6 0
+4 5 -1 0
+EOF
+  # Binary deduplication must retire every discarded physical input copy.
+  sed 's/p cnf 9 10/p cnf 9 11/; /3 -1 0/a 3 -1 0' \
+    "$T/sr-input-root.cnf" > "$T/sr-input-duplicate.cnf"
+  # This discarded input duplicate itself shortens to the stored binary.
+  sed 's/p cnf 9 10/p cnf 9 11/; /-3 4 2 0/a -3 4 2 0' \
+    "$T/sr-input-root.cnf" > "$T/sr-input-normalized-duplicate.cnf"
+  # Retained satisfied and tautological input clauses remain SR-safe.
+  sed 's/p cnf 9 10/p cnf 9 12/; /-2 0/a -2 3 4 0\n3 -3 4 0' \
+    "$T/sr-input-root.cnf" > "$T/sr-input-inert-raw.cnf"
   # Startup sparse collection: the large clause precedes the binary implication
   # that fixes x1, so input normalization cannot shorten it. Initial propagation
   # derives x1; the collector then rewrites the large clause to binary (5 6).
@@ -193,11 +236,100 @@ if [ -n "$ONLINE_INPROCESS_TEST" ]; then
   [ "$rc" -eq 20 ] \
     || { echo "FAIL: orbitopal SR fixture not UNSAT (rc=$rc)"; \
          cat "$T/orbitopal-sr.out"; exit 1; }
-  grep -Eq '^c effective orbitopal SR transitions [1-9][0-9]*$' \
+  grep -Eq '^c effective structured SR transitions [1-9][0-9]*$' \
     "$T/orbitopal-sr.out" \
     || { echo "FAIL: orbitopal SR fixture made no effective transition"; \
          cat "$T/orbitopal-sr.out"; exit 1; }
   check_dsr "$T/direct-sr.cnf" "$proof" forward
+
+  # A three-literal orbit requires two binary SST cuts before its representative
+  # unit becomes RUP. Keep the independent two-variable contradiction only to
+  # finish the certificate; forward elaboration validates every generated X7
+  # tuple in the incremental chain.
+  cat > "$T/sst-chain.cnf" <<'EOF'
+p cnf 6 9
+1 2 3 0
+4 5 6 0
+4 5 -6 0
+4 -5 6 0
+4 -5 -6 0
+-4 5 6 0
+-4 5 -6 0
+-4 -5 6 0
+-4 -5 -6 0
+EOF
+  proof="$T/sst-chain.dsr"
+  "$ONLINE_INPROCESS_TEST" "$T/sst-chain.cnf" "$proof" dsr SstSR \
+    > "$T/sst-chain.out" && rc=$? || rc=$?
+  [ "$rc" -eq 20 ] \
+    || { echo "FAIL: SST-chain fixture not UNSAT (rc=$rc)"; \
+         cat "$T/sst-chain.out"; exit 1; }
+  grep -Eq '^c effective structured SR transitions [3-9][0-9]*$|^c effective structured SR transitions [3-9]$' \
+    "$T/sst-chain.out" \
+    || { echo "FAIL: SST-chain fixture did not apply the complete level"; \
+         cat "$T/sst-chain.out"; exit 1; }
+  check_dsr "$T/sst-chain.cnf" "$proof" forward
+
+  # No clause in the first four-clause component lies within its nontrivial
+  # literal orbits. The two-pass producer must therefore reach a full orbit
+  # cut. The fixed asymmetric UNSAT tail lets the ordinary search finish while
+  # forward elaboration and Trestle validate every preceding cut tuple.
+  cat > "$T/fix-and-cut.cnf" <<'EOF'
+p cnf 11 39
+1 3 0
+2 4 0
+-3 5 0
+-4 6 0
+7 8 9 0
+-9 -10 11 0
+-7 9 -11 0
+-7 -9 10 0
+-7 -10 11 0
+7 -10 11 0
+-8 10 11 0
+8 10 -11 0
+7 -8 -11 0
+-8 -9 11 0
+-8 9 10 0
+7 9 -11 0
+9 -10 11 0
+7 -8 -9 0
+7 8 -10 0
+7 -10 -11 0
+-7 9 -10 0
+-7 -8 10 0
+-8 9 -11 0
+-9 10 11 0
+7 -9 10 0
+8 -9 11 0
+-9 10 -11 0
+-7 8 -10 0
+-7 -9 -11 0
+-7 8 -11 0
+-8 9 -10 0
+7 10 -11 0
+8 9 -11 0
+-9 -10 -11 0
+-8 -9 -11 0
+-7 -10 -11 0
+8 9 -10 0
+-7 8 -9 0
+-7 8 9 0
+EOF
+  proof="$T/fix-and-cut.dsr"
+  "$ONLINE_INPROCESS_TEST" "$T/fix-and-cut.cnf" "$proof" dsr FixAndCutSR all \
+    > "$T/fix-and-cut.out" && rc=$? || rc=$?
+  [ "$rc" -eq 20 ] \
+    || { echo "FAIL: fix-and-cut fixture not UNSAT (rc=$rc)"; \
+         cat "$T/fix-and-cut.out"; exit 1; }
+  grep -Eq '^c effective structured SR transitions [1-9][0-9]*$' \
+    "$T/fix-and-cut.out" \
+    || { echo "FAIL: fix-and-cut fixture made no effective transition"; \
+         cat "$T/fix-and-cut.out"; exit 1; }
+  awk 'NR == 1 { if ($1 >= 0 || $2 <= 0 || NF <= 4) exit 1 }' "$proof" \
+    || { echo "FAIL: first generated proof action was not an orbit cut"; \
+         head -n 1 "$proof"; exit 1; }
+  check_dsr "$T/fix-and-cut.cnf" "$proof" forward
 fi
 
 # Removing half of the row permutation is not an SR witness. The elaborator
@@ -552,6 +684,121 @@ if [ -x "$LRAT_CHECK" ]; then
   "$LRAT_CHECK" "$T/substchain.cnf" "$T/substchain.lrat" > "$T/check" 2>&1 || true
   grep -q 'c VERIFIED' "$T/check" \
     || { echo "FAIL: native LRAT of substchain rejected"; cat "$T/check"; exit 1; }
+fi
+
+# Internal structured advice must accept unequal duplicate counts, retaining
+# exact missing-image rejection and independently checked SAT/UNSAT results.
+if [ -n "$ONLINE_INPROCESS_TEST" ]; then
+  corpus="$ROOT/tools/fuzz/corpus/regressions/sr-unequal-duplicate-handoff"
+  for case in min case; do
+    for arm in production diagnostic; do
+      cnf="$corpus/$case.cnf"
+      proof="$T/unequal-$case-$arm.dsr"
+      if [ "$arm" = production ]; then
+        "$TACTIX" --dsr "$cnf" "$proof" > "$T/out" && rc=$? || rc=$?
+      else
+        "$ONLINE_INPROCESS_TEST" "$cnf" "$proof" dsr CombinedSR all \
+          > "$T/out" && rc=$? || rc=$?
+      fi
+      if [ "$case" = min ]; then
+        [ "$rc" -eq 10 ] || { echo "FAIL: unequal duplicate SAT (rc=$rc)"; exit 1; }
+        "$ROOT/tools/fuzz/checkmodel" "$cnf" "$T/out"
+      else
+        [ "$rc" -eq 20 ] || { echo "FAIL: unequal duplicate UNSAT (rc=$rc)"; exit 1; }
+        check_dsr "$cnf" "$proof"
+      fi
+    done
+  done
+fi
+
+# Combined startup must retain the reference PureOnly predecessor when it
+# selects individual SR sub-strategies. Check both the actual transition and
+# the reconstructed model/proof against an input containing a pure variable.
+if [ -n "$ONLINE_INPROCESS_TEST" ]; then
+  for vertices in 4 5; do
+    for sign in 1 -1; do
+      cnf="$T/combined-pure-$vertices-$sign.cnf"
+      python3 - "$cnf" "$vertices" "$sign" <<'PY'
+import sys
+path, vertices, sign = sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
+lit = lambda v, c: sign * (3 * v + c + 1)
+clauses = []
+for v in range(vertices):
+    clauses.append([lit(v, c) for c in range(3)])
+    clauses.extend([-lit(v, a), -lit(v, b)] for a in range(3) for b in range(a + 1, 3))
+for a in range(vertices):
+    for b in range(a + 1, vertices):
+        if a or b == 1:
+            clauses.extend([-lit(a, c), -lit(b, c)] for c in range(3))
+clauses.append([sign * (3 * vertices + 1), lit(0, 0)])
+with open(path, 'w') as out:
+    out.write(f'p cnf {3 * vertices + 1} {len(clauses)}\n')
+    for clause in clauses:
+        out.write(' '.join(map(str, clause)) + ' 0\n')
+PY
+      "$ONLINE_INPROCESS_TEST" "$cnf" "$T/combined-pure.dsr" dsr CombinedSR all \
+        > "$T/out" && rc=$? || rc=$?
+      grep -q 'c structured step 94 .*progress 1' "$T/out" \
+        || { echo "FAIL: CombinedSR omitted its PureOnly transition"; exit 1; }
+      if [ "$vertices" = 4 ]; then
+        [ "$rc" -eq 10 ] || { echo "FAIL: CombinedSR pure SAT (rc=$rc)"; exit 1; }
+        "$ROOT/tools/fuzz/checkmodel" "$cnf" "$T/out"
+      else
+        [ "$rc" -eq 20 ] || { echo "FAIL: CombinedSR pure UNSAT (rc=$rc)"; exit 1; }
+        check_dsr "$cnf" "$T/combined-pure.dsr"
+      fi
+    done
+  done
+fi
+
+# Product-axis completion must move coupled auxiliary variables, preserve
+# trace-off certificates, and extend to independently checked SAT/UNSAT tails.
+if [ -n "$ONLINE_INPROCESS_TEST" ]; then
+  for unsat in 0 1; do
+    for sign in 1 -1; do
+      cnf="$T/product-coupled-$unsat-$sign.cnf"
+      python3 - "$cnf" "$unsat" "$sign" <<'PYFIXTURE'
+import sys
+path, unsat, sign = sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
+x = lambda r, c: sign * (3*r+c+1)
+y = lambda c: sign * (10+c)
+clauses = [[x(r,c) for c in range(3)] for r in range(3)]
+clauses += [[-x(r,c), y(c)] for r in range(3) for c in range(3)]
+clauses += [[-x(a,c), -x(b,c)] for c in range(3) for a in range(3) for b in range(a+1,3)]
+if unsat:
+    # Keep the coupled product component identical to the SAT control. A
+    # clause over y changes its refinement/ULC structure and can let a row
+    # producer solve before product completion is exercised.
+    clauses += [[a*13, b*14] for a in (1, -1) for b in (1, -1)]
+with open(path, 'w') as out:
+    out.write(f'p cnf {14 if unsat else 12} {len(clauses)}\n')
+    for clause in clauses:
+        out.write(' '.join(map(str, clause)) + ' 0\n')
+PYFIXTURE
+      for trace in 0 1; do
+        proof="$T/product-coupled-$trace.dsr"
+        TACTIX_SR_TRACE="$trace" "$ONLINE_INPROCESS_TEST" "$cnf" "$proof" dsr OrbitopalProductSR all \
+          > "$T/product-out-$trace" 2> "$T/product-trace-$trace" && rc=$? || rc=$?
+        grep -Eq 'c structured totals applications [1-9][0-9]* applied [1-9]' "$T/product-out-$trace" \
+          || { echo "FAIL: coupled product made no effective SR application"; exit 1; }
+        if [ "$unsat" = 1 ]; then
+          [ "$rc" -eq 20 ] || { echo "FAIL: coupled product UNSAT (rc=$rc)"; exit 1; }
+        else
+          [ "$rc" -eq 10 ] || { echo "FAIL: coupled product SAT (rc=$rc)"; exit 1; }
+          "$ROOT/tools/fuzz/checkmodel" "$cnf" "$T/product-out-$trace"
+        fi
+      done
+      grep -Eq 'product_axis_check.*pure[[:space:]]0' "$T/product-trace-1" \
+        || { echo "FAIL: product control did not require permutation completion"; exit 1; }
+      grep -Eq 'product_axes_completed.*row_valid[[:space:]]1.*column_valid[[:space:]]1' "$T/product-trace-1" \
+        || { echo "FAIL: product control did not complete both axes"; exit 1; }
+      cmp "$T/product-coupled-0.dsr" "$T/product-coupled-1.dsr" \
+        || { echo "FAIL: product tracing changed the certificate"; exit 1; }
+      if [ "$unsat" = 1 ]; then
+        check_dsr "$cnf" "$T/product-coupled-1.dsr"
+      fi
+    done
+  done
 fi
 
 echo "micro_proofs OK"

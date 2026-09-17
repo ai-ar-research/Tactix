@@ -753,11 +753,12 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.factor_demotions,
            (unsigned long long)kernel.stats.factor_demoted_vars);
     printf("c sr          %llu applications, %llu applied, %llu validation "
-           "ticks, %llu witness literals\n",
+           "ticks, %llu witness literals, %llu unique-literal AMO binaries\n",
            (unsigned long long)kernel.stats.sr_applications,
            (unsigned long long)kernel.stats.sr_applied,
            (unsigned long long)kernel.stats.sr_validation_ticks,
-           (unsigned long long)kernel.stats.sr_witness_literals);
+           (unsigned long long)kernel.stats.sr_witness_literals,
+           (unsigned long long)kernel.stats.sr_unique_literal_amo_binaries);
     printf("c bve         %llu rounds, %llu eliminated, %llu resolutions\n",
            (unsigned long long)kernel.stats.bve_rounds,
            (unsigned long long)kernel.stats.bve_eliminated,
@@ -831,6 +832,19 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.parity_model_candidates,
            (unsigned long long)kernel.stats.parity_model_sat,
            (unsigned long long)kernel.stats.parity_model_interrupted);
+    printf("c affine     %llu calls, %llu equations, %llu coordinates, "
+           "%llu entries, %llu candidates, %llu SAT, %llu work, "
+           "%llu budgets, %llu unavailable, %llu interrupted\n",
+           (unsigned long long)kernel.stats.affine_model_calls,
+           (unsigned long long)kernel.stats.affine_model_equations,
+           (unsigned long long)kernel.stats.affine_model_projection,
+           (unsigned long long)kernel.stats.affine_model_entries,
+           (unsigned long long)kernel.stats.affine_model_candidates,
+           (unsigned long long)kernel.stats.affine_model_sat,
+           (unsigned long long)kernel.stats.affine_model_work,
+           (unsigned long long)kernel.stats.affine_model_budget,
+           (unsigned long long)kernel.stats.affine_model_unavailable,
+           (unsigned long long)kernel.stats.affine_model_interrupted);
     printf("c onehot     %llu calls, %llu domains, %llu equations, rank %llu, "
            "%llu candidates, %llu SAT, %llu interrupted\n",
            (unsigned long long)kernel.stats.onehot_model_calls,

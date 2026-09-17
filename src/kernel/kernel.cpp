@@ -585,9 +585,15 @@ bool kernel_delete_binary_one_copy(Kernel &k, Lit a, Lit b) {
   }
   kernel_bve_occurrence_remove(k, a);
   kernel_bve_occurrence_remove(k, b);
-  // DRAT/LRAT deletions are optional. Without a per-copy id ledger, emitting
-  // the pair's current id here could retire the id later reasons cite; retain
-  // it in the checker until the final physical copy is removed instead.
+  // DSR must track every physical copy: a stale checker clause imposes an
+  // extra substitution obligation after the last live copy disappears. DSR
+  // names copies by literals, so retiring one leaves the surviving reason.
+  // DRAT/LRAT retain their optional-deletion behavior; without per-copy LRAT
+  // ids, deleting the current id could invalidate a later reason.
+  if (k.proof && k.proof->dsr()) {
+    const Lit clause[2] = {a, b};
+    k.proof->del(k.next_clause_id, 0, clause, 2);
+  }
   k.stats.binaries_deleted++;
   kernel_mark_bve_retry(k, var_of(a), "delete-binary-copy");
   kernel_mark_bve_retry(k, var_of(b), "delete-binary-copy");

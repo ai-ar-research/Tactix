@@ -17,6 +17,7 @@ struct RandomOnlineConfig {
   // executor still accepts RepeatSpec{UntilScopedFixpoint, 0} when an explicit
   // caller supplies the external stop condition required for an unbounded run.
   uint32_t maximum_repeat_count = 4;
+  bool sample_post_propagation = true;
   uint64_t maximum_application_budget = 64;
   uint64_t maximum_bve_tick_budget = 100000;
   uint64_t maximum_propagation_budget = 100000;
@@ -47,8 +48,30 @@ struct RandomOnlineConfig {
   uint64_t maximum_sr_validation_ticks = 10000000;
   uint64_t maximum_sr_matrices = 16;
   uint64_t maximum_sr_instances = 256;
+  uint32_t maximum_sr_orbitopal_clique_minimum_columns = 16;
+  uint64_t maximum_sr_orbitopal_clique_vertices = 100000;
+  uint64_t maximum_sr_orbitopal_clique_ticks = 1000000;
+  uint64_t maximum_sr_orbitopal_product_states = 100000;
+  uint64_t maximum_sr_orbitopal_refinement_orbits = 64;
+  uint32_t maximum_sr_orbitopal_base_probe_factor = 16;
   uint64_t maximum_sr_detection_ticks = 1000000;
   uint64_t maximum_sr_general_candidates_per_advance = 64;
+  uint64_t maximum_sr_graph_vertices = 100000;
+  uint64_t maximum_sr_graph_edges = 1000000;
+  uint64_t maximum_sr_symmetry_generators = 128;
+  uint64_t maximum_sr_backend_search_budget = 256;
+  uint64_t maximum_sr_backend_support_budget = 1000000;
+  uint64_t maximum_sr_backend_component_size = 100000;
+  uint64_t maximum_sr_symmetry_fixing_instances = 256;
+  uint64_t maximum_sr_symmetry_generator_instances_per_pass = 16;
+  uint64_t maximum_sr_symmetry_group_ticks = 1000000;
+  uint32_t maximum_sr_symmetry_error_bound = 24;
+  uint32_t maximum_sr_symmetry_binary_graph_density_permille = 4000;
+  // Mix independent zero/positive boundary samples with jointly positive
+  // resource limits so generated symmetry work is reachable. Zero numerator
+  // retains the original independent sampler; all limits still obey maxima.
+  uint32_t sr_joint_positive_numerator = 1;
+  uint32_t sr_joint_positive_denominator = 2;
   SubstitutionRedundancyParameters sr_reference;
 
   // The generator samples semantic boundaries around these caller-owned
@@ -84,6 +107,12 @@ struct RandomOnlineConfig {
   ReorderParameters reorder_reference;
   ParityModelParameters parity_model_reference;
   OnehotModelParameters onehot_model_reference;
+  AffineModelParameters affine_model_reference;
+  uint32_t maximum_affine_projection_coordinates = 32;
+  uint32_t maximum_affine_scopes = 8;
+  uint32_t maximum_affine_weight = 12;
+  uint32_t affine_joint_positive_numerator = 1;
+  uint32_t affine_joint_positive_denominator = 2;
   size_t maximum_congruence_gate_count =
       CongruenceParameters::GATE_COUNT_DEFAULT;
 };
@@ -93,11 +122,6 @@ bool random_online_strategy_program(Kernel &, uint64_t seed,
                                     OnlineStrategyProgram &,
                                     std::string *error = nullptr,
                                     volatile sig_atomic_t *stop = nullptr);
-
-std::string serialize_online_strategy_program(const OnlineStrategyProgram &);
-bool deserialize_online_strategy_program(const std::string &,
-                                         OnlineStrategyProgram &,
-                                         std::string *error = nullptr);
 
 inline bool random_online_inprocess_program(
     Kernel &kernel, uint64_t seed, const RandomOnlineConfig &config,

@@ -9,6 +9,11 @@ struct Kernel;
 
 namespace strategy {
 
+enum class CongruenceBinaryWatchOrder : uint8_t {
+  Canonical = 0,
+  PreserveExisting = 1,
+};
+
 struct CongruenceParameters {
   static constexpr uint32_t AND_ARITY_DEFAULT = 1000000;
   static constexpr size_t GATE_COUNT_DEFAULT = 20000000;
@@ -21,9 +26,15 @@ struct CongruenceParameters {
   uint32_t and_arity_limit = AND_ARITY_DEFAULT;
   size_t gate_count_limit = GATE_COUNT_DEFAULT;
   uint32_t xor_arity_limit = XOR_ARITY_DEFAULT;
+  // The ordinary pass reproduces the reference dense-resume order. An extra
+  // pass may retain existing order while keeping every inference and cleanup.
+  CongruenceBinaryWatchOrder binary_watch_order =
+      CongruenceBinaryWatchOrder::Canonical;
 
   constexpr bool valid() const {
-    return xor_arity_limit <= XOR_ARITY_CAPACITY;
+    return xor_arity_limit <= XOR_ARITY_CAPACITY &&
+           (binary_watch_order == CongruenceBinaryWatchOrder::Canonical ||
+            binary_watch_order == CongruenceBinaryWatchOrder::PreserveExisting);
   }
 };
 

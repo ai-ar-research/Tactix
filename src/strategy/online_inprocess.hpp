@@ -3,6 +3,7 @@
 #include "rules/factor/factor.hpp"
 #include "strategy/inprocess_program.hpp"
 #include "strategy/rule_invocation.hpp"
+#include "strategy/bve_occurrence_cache.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -41,6 +42,17 @@ struct RuleWorkBudget {
 
 enum class SettingOverride : uint8_t { Inherit, Disable, Enable };
 
+// A typed atomic follow-up owned by the composition layer.  Propagation is a
+// separate proof rule, but CompleteCurrentPass may contain many semantic
+// applications before the surrounding sequence regains control.  Selecting
+// Propagate therefore closes each application inside the executor's
+// state-version transaction instead of forcing a caller-side mutation that
+// would make the retained selection stale.
+enum class PostApplication : uint8_t {
+  None,
+  Propagate,
+};
+
 // Canonical round admission shared by the touched-material rules. Explicit
 // semantic instances remain unfiltered; these settings affect only discovery
 // inside a canonical application and restore after that application.
@@ -64,6 +76,7 @@ struct OnlineInvocation {
   std::vector<SubstitutionRedundancyInstance>
       substitution_redundancy_instances = {};
   RepeatSpec repeat;
+  PostApplication post_application = PostApplication::None;
   RuleWorkBudget rule_work_budget;
   RuleMaterialSettings material;
   WorkUnit work_unit = WorkUnit::Applications;
@@ -84,6 +97,10 @@ enum class ReconfigureMode : uint8_t {
 
 bool validate_online_strategy_program(const OnlineStrategyProgram &,
                                       std::string *error = nullptr);
+std::string serialize_online_strategy_program(const OnlineStrategyProgram &);
+bool deserialize_online_strategy_program(const std::string &,
+                                         OnlineStrategyProgram &,
+                                         std::string *error = nullptr);
 
 inline bool validate_online_inprocess_program(const OnlineInprocessProgram &p,
                                               std::string *error = nullptr) {
@@ -105,11 +122,13 @@ public:
   bool configure(const OnlineStrategyProgram &, uint64_t revision,
                  ReconfigureMode mode = ReconfigureMode::ResetRuntime,
                  std::string *error = nullptr);
-  InvocationResult advance(Kernel &, volatile sig_atomic_t *stop = nullptr);
+  InvocationResult advance(Kernel &, volatile sig_atomic_t *stop = nullptr,
+                           Allowance *sr_discovery_allowance = nullptr);
   void reset_runtime();
 
   uint64_t revision() const { return revision_; }
   size_t step_index() const { return step_index_; }
+  uint64_t sequence_passes() const { return sequence_passes_; }
   uint64_t step_consumed(StepId) const;
   bool complete() const { return complete_; }
 
@@ -131,10 +150,12 @@ private:
     std::vector<SubstitutionRedundancyInstance> sr_selection;
     SubstitutionRedundancyGeneralCursor sr_general_cursor;
     bool sr_general_mode = false;
+    BveOccurrenceCache bve_occurrences;
   };
 
   bool prepare_selection(Kernel &, const OnlineInvocation &, Runtime &,
-                         InvocationResult &, volatile sig_atomic_t *stop);
+                         InvocationResult &, volatile sig_atomic_t *stop,
+                         Allowance *sr_discovery_allowance);
   bool finish_step_pass(const OnlineInvocation &, Runtime &,
                         InvocationResult &);
   bool finish_sequence(InvocationResult &);

@@ -81,6 +81,34 @@ static void invalid_configuration_is_rejected() {
   assert(!random_online_strategy_program(k, 1, config, output, &error));
 
   config = {};
+  config.maximum_sr_graph_vertices = 0;
+  assert(!random_online_strategy_program(k, 1, config, output, &error));
+
+  config = {};
+  config.maximum_sr_orbitopal_clique_ticks = 0;
+  assert(!random_online_strategy_program(k, 1, config, output, &error));
+
+  config = {};
+  config.maximum_sr_orbitopal_product_states = 0;
+  assert(!random_online_strategy_program(k, 1, config, output, &error));
+
+  config = {};
+  config.maximum_sr_orbitopal_clique_minimum_columns = 1;
+  assert(!random_online_strategy_program(k, 1, config, output, &error));
+
+  config = {};
+  config.maximum_sr_symmetry_error_bound = 0;
+  assert(!random_online_strategy_program(k, 1, config, output, &error));
+
+  config = {};
+  config.sr_joint_positive_denominator = 0;
+  assert(!random_online_strategy_program(k, 1, config, output, &error));
+  assert(error == "random-online joint SR probability is invalid");
+  config.sr_joint_positive_denominator = 1;
+  config.sr_joint_positive_numerator = 2;
+  assert(!random_online_strategy_program(k, 1, config, output, &error));
+
+  config = {};
   config.rules = {"not-a-registered-action"};
   assert(!random_online_strategy_program(k, 1, config, output, &error));
   assert(error == "random-online action is not registered");
@@ -245,7 +273,7 @@ static void configurable_parameters_round_trip() {
   OnlineInvocation reduce;
   reduce.id = 60;
   reduce.rule = "Reduce";
-  reduce.parameters = ReduceParameters{3, 8, 2, 5, false, true};
+  reduce.parameters = ReduceParameters{3, 8, 2, 5, false, true, false};
   reduce.granularity = InvocationGranularity::CanonicalApplication;
   reduce.repeat = {RepeatMode::Once, 1};
   reduce.work_unit = WorkUnit::Applications;
@@ -293,6 +321,72 @@ static void configurable_parameters_round_trip() {
       OnehotModelParameters{53, 79, 103, 6, 5, 11, 13, 23456};
   program.sequence.push_back(onehot);
 
+  OnlineInvocation sr = parity;
+  sr.id = 65;
+  sr.rule = "SubstitutionRedundancy";
+  SubstitutionRedundancyParameters sr_parameters;
+  sr_parameters.maximum_validation_ticks = 1001;
+  sr_parameters.producer = SubstitutionRedundancyProducer::GraphSymmetry;
+  sr_parameters.orbitopal_orientation = OrbitopalOrientation::Both;
+  sr_parameters.minimum_orbitopal_rows = 3;
+  sr_parameters.minimum_orbitopal_columns = 4;
+  sr_parameters.maximum_orbitopal_matrices = 1002;
+  sr_parameters.maximum_orbitopal_instances = 1003;
+  sr_parameters.minimum_orbitopal_clique_columns = 1018;
+  sr_parameters.maximum_orbitopal_clique_vertices = 1016;
+  sr_parameters.maximum_orbitopal_clique_ticks = 1017;
+  sr_parameters.maximum_orbitopal_product_states = 1019;
+  sr_parameters.complete_unique_literal_amos = true;
+  sr_parameters.orbitopal_generator_fallback = false;
+  sr_parameters.maximum_orbitopal_refinement_orbits = 1020;
+  sr_parameters.orbitopal_base_probe_filter = false;
+  sr_parameters.orbitopal_base_probe_factor = 19;
+  sr_parameters.maximum_detection_ticks = 1004;
+  sr_parameters.maximum_general_candidates_per_advance = 1005;
+  sr_parameters.orbitopal_column_order =
+      OrbitopalColumnOrder::CooccurrenceMaximumClique;
+  sr_parameters.orbitopal_completion =
+      OrbitopalCompletion::IndividualizedGraphCompletion;
+  sr_parameters.orbitopal_discovery_order =
+      OrbitopalDiscoveryOrder::UniqueLiteralThenRefinement;
+  sr_parameters.graph_symmetry.maximum_graph_vertices = 1006;
+  sr_parameters.graph_symmetry.maximum_graph_edges = 1007;
+  sr_parameters.graph_symmetry.maximum_generators = 1008;
+  sr_parameters.graph_symmetry.backend_search_budget = 1009;
+  sr_parameters.graph_symmetry.backend_support_budget = 1010;
+  sr_parameters.graph_symmetry.backend_component_size_limit = 1011;
+  sr_parameters.graph_symmetry.maximum_fixing_instances = 1012;
+  sr_parameters.graph_symmetry.maximum_generator_instances_per_pass = 1013;
+  sr_parameters.graph_symmetry.maximum_group_ticks = 1014;
+  sr_parameters.graph_symmetry.seed = 1015;
+  sr_parameters.graph_symmetry.error_bound = 17;
+  sr_parameters.graph_symmetry.fixing_mode =
+      SymmetryFixingMode::GeneratorsOnly;
+  sr_parameters.graph_symmetry.generator_order =
+      SymmetryTraversalOrder::Reverse;
+  sr_parameters.graph_symmetry.clause_order =
+      SymmetryTraversalOrder::Seeded;
+  sr_parameters.graph_symmetry.literal_order =
+      SymmetryTraversalOrder::Reverse;
+  sr_parameters.graph_symmetry.clause_scope = SymmetryClauseScope::All;
+  sr_parameters.graph_symmetry.pair_orientation =
+      SymmetryPairOrientation::Seeded;
+  sr_parameters.graph_symmetry.direct_generator_involutions_only = false;
+  sr_parameters.graph_symmetry.binary_graph_mode =
+      SymmetryBinaryGraphMode::DirectEdges;
+  sr_parameters.graph_symmetry.binary_graph_density_permille = 2021;
+  sr_parameters.graph_symmetry.clause_selection =
+      SymmetryClauseSelection::Shortest;
+  sr_parameters.graph_symmetry.chain_mode = SymmetryChainMode::FixAndCut;
+  sr_parameters.graph_symmetry.base_selection =
+      SymmetryBaseSelection::CommonClauseAmo;
+  sr_parameters.graph_symmetry.decompose = false;
+  sr_parameters.graph_symmetry.prefer_depth_first = true;
+  sr_parameters.graph_symmetry.strong_certification = true;
+  sr_parameters.graph_symmetry.pointwise_root_stabilizer = true;
+  sr.parameters = sr_parameters;
+  program.sequence.push_back(sr);
+
   std::string error;
   assert(validate_online_strategy_program(program, &error));
   const std::string encoded = serialize_online_strategy_program(program);
@@ -303,7 +397,8 @@ static void configurable_parameters_round_trip() {
       std::get<ReduceParameters>(decoded.sequence[0].parameters);
   assert(decoded_reduce.victim_numerator == 2 &&
          decoded_reduce.victim_denominator == 5 &&
-         !decoded_reduce.protect_tiers && decoded_reduce.compact_collection);
+         !decoded_reduce.protect_tiers && decoded_reduce.compact_collection &&
+         !decoded_reduce.reduction_bookkeeping);
   const auto &decoded_walk =
       std::get<WalkParameters>(decoded.sequence[1].parameters);
   assert(decoded_walk.even_break_base_milli == 2300 &&
@@ -332,6 +427,407 @@ static void configurable_parameters_round_trip() {
          decoded_onehot.minimum_equations == 11 &&
          decoded_onehot.maximum_free_domains == 13 &&
          decoded_onehot.candidate_budget == 23456);
+  const auto &decoded_sr =
+      std::get<SubstitutionRedundancyParameters>(
+          decoded.sequence[5].parameters);
+  assert(decoded_sr == sr_parameters);
+  assert(encoded.find(":sr22(1001,3,2,3,4,1002,1003,1004,1005,1006,") !=
+         std::string::npos);
+
+  // Equal-shaped versions retain their historical enum domain.
+  for (const auto order : {OrbitopalColumnOrder::CooccurrenceGreedyClique,
+                          OrbitopalColumnOrder::CooccurrenceBoundedGreedyClique}) {
+    auto ordered = program;
+    std::get<SubstitutionRedundancyParameters>(ordered.sequence[5].parameters)
+        .orbitopal_column_order = order;
+    const std::string wire = serialize_online_strategy_program(ordered);
+    OnlineStrategyProgram restored;
+    assert(deserialize_online_strategy_program(wire, restored, &error));
+    assert(serialize_online_strategy_program(restored) == wire);
+    std::string legacy = wire;
+    const size_t tag = legacy.find(":sr22(");
+    assert(tag != std::string::npos);
+    const size_t close = legacy.find("):instances", tag);
+    const size_t callback = legacy.rfind(',', legacy.rfind(',', legacy.rfind(',', close - 1) - 1) - 1);
+    const size_t components = legacy.rfind(',', callback - 1);
+    const size_t planning = legacy.rfind(',', components - 1);
+    const size_t source = legacy.rfind(',', planning - 1);
+    legacy.erase(source, close - source);
+    legacy.replace(tag + 1, 4, "sr14");
+    assert(deserialize_online_strategy_program(legacy, restored, &error) ==
+           (order == OrbitopalColumnOrder::CooccurrenceGreedyClique));
+    if (order == OrbitopalColumnOrder::CooccurrenceGreedyClique)
+      assert(serialize_online_strategy_program(restored) == wire);
+  }
+
+  for (const auto source : {OrbitopalRowOrbitSource::DetectedGenerators,
+                            OrbitopalRowOrbitSource::RefinementCells}) {
+    auto selected = program;
+    auto &parameters = std::get<SubstitutionRedundancyParameters>(
+        selected.sequence[5].parameters);
+    parameters.orbitopal_row_orbit_source = source;
+    const std::string wire = serialize_online_strategy_program(selected);
+    OnlineStrategyProgram restored;
+    assert(deserialize_online_strategy_program(wire, restored, &error));
+    assert(serialize_online_strategy_program(restored) == wire);
+    std::string invalid = wire;
+    const size_t close = invalid.find("):instances", invalid.find(":sr22("));
+    const size_t callback = invalid.rfind(',', invalid.rfind(',', invalid.rfind(',', close - 1) - 1) - 1);
+    const size_t components = invalid.rfind(',', callback - 1);
+    const size_t planning = invalid.rfind(',', components - 1);
+    const size_t field = invalid.rfind(',', planning - 1);
+    invalid.replace(field + 1, planning - field - 1, "2");
+    assert(!deserialize_online_strategy_program(invalid, restored, &error));
+  }
+
+  for (const auto scope : {OrbitopalDiscoveryOrder::RefinementOnly,
+                           OrbitopalDiscoveryOrder::UniqueLiteralOnly}) {
+    auto scoped = program;
+    auto &parameters = std::get<SubstitutionRedundancyParameters>(
+        scoped.sequence[5].parameters);
+    parameters.producer = SubstitutionRedundancyProducer::Orbitopal;
+    parameters.orbitopal_discovery_order = scope;
+    const std::string wire = serialize_online_strategy_program(scoped);
+    OnlineStrategyProgram restored;
+    assert(deserialize_online_strategy_program(wire, restored, &error));
+    assert(serialize_online_strategy_program(restored) == wire);
+    size_t field = wire.find(":sr22(") + std::strlen(":sr22(");
+    for (unsigned column = 0; column < 41; ++column)
+      field = wire.find(',', field) + 1;
+    const size_t end = wire.find(',', field);
+    assert(field && end != std::string::npos);
+    std::string invalid = wire;
+    invalid.replace(field, end - field, "4");
+    assert(!deserialize_online_strategy_program(invalid, restored, &error));
+  }
+
+  for (const auto selection : {SymmetryBaseSelection::FirstAmoThenCommonClause,
+                               SymmetryBaseSelection::FirstAmoThenOrderedRemainder,
+                               SymmetryBaseSelection::FirstAmoThenForwardRemainder}) {
+    auto first_amo = program;
+    auto &parameters = std::get<SubstitutionRedundancyParameters>(
+        first_amo.sequence[5].parameters);
+    parameters.graph_symmetry.base_selection = selection;
+    const std::string wire = serialize_online_strategy_program(first_amo);
+    OnlineStrategyProgram restored;
+    assert(deserialize_online_strategy_program(wire, restored, &error));
+    assert(serialize_online_strategy_program(restored) == wire);
+    assert(std::get<SubstitutionRedundancyParameters>(
+               restored.sequence[5].parameters).graph_symmetry.base_selection ==
+           selection);
+    std::string invalid = wire;
+    const size_t close = invalid.find("):instances", invalid.find(":sr22("));
+    const size_t callback = invalid.rfind(',', invalid.rfind(',', invalid.rfind(',', close - 1) - 1) - 1);
+    const size_t components = invalid.rfind(',', callback - 1);
+    const size_t planning = invalid.rfind(',', components - 1);
+    const size_t source = invalid.rfind(',', planning - 1);
+    const size_t flag = invalid.rfind(',', source - 1);
+    const size_t base = invalid.rfind(',', flag - 1);
+    invalid.replace(base + 1, flag - base - 1, "5");
+    assert(!deserialize_online_strategy_program(invalid, restored, &error));
+    std::string old_wire = wire;
+    // The four appended Boolean fields postdate these schemas.
+    for (unsigned field = 0; field < 4; ++field)
+      old_wire.erase(old_wire.rfind(',', old_wire.find("):instances", old_wire.find(":sr22(")) - 1), 2);
+    old_wire.replace(old_wire.find(":sr22(") + 1, 4, "sr17");
+    assert(deserialize_online_strategy_program(old_wire, restored, &error) ==
+           (selection != SymmetryBaseSelection::FirstAmoThenForwardRemainder));
+  }
+
+  for (const auto mode : {SymmetryChainMode::ClausalFixing,
+                          SymmetryChainMode::FixAndCut,
+                          SymmetryChainMode::FixAndCutResift}) {
+    auto selected = program;
+    std::get<SubstitutionRedundancyParameters>(selected.sequence[5].parameters)
+        .graph_symmetry.chain_mode = mode;
+    const auto wire = serialize_online_strategy_program(selected);
+    OnlineStrategyProgram restored;
+    assert(deserialize_online_strategy_program(wire, restored, &error));
+    assert(serialize_online_strategy_program(restored) == wire);
+    auto old_wire = wire;
+    // The four appended Boolean fields postdate these schemas.
+    for (unsigned field = 0; field < 4; ++field)
+      old_wire.erase(old_wire.rfind(',', old_wire.find("):instances", old_wire.find(":sr22(")) - 1), 2);
+    old_wire.replace(old_wire.find(":sr22(") + 1, 4, "sr18");
+    assert(deserialize_online_strategy_program(old_wire, restored, &error) ==
+           (mode != SymmetryChainMode::FixAndCutResift));
+    auto invalid = wire;
+    size_t field = invalid.find(":sr22(") + std::strlen(":sr22(");
+    for (unsigned i = 0; i < 45; ++i) field = invalid.find(',', field) + 1;
+    invalid.replace(field, invalid.find(',', field) - field, "3");
+    assert(!deserialize_online_strategy_program(invalid, restored, &error));
+  }
+
+  for (const bool factor : {false, true}) {
+    auto selected = program;
+    std::get<SubstitutionRedundancyParameters>(selected.sequence[5].parameters)
+        .graph_symmetry.factor_support_components = factor;
+    const auto wire = serialize_online_strategy_program(selected);
+    OnlineStrategyProgram restored;
+    assert(deserialize_online_strategy_program(wire, restored, &error));
+    assert(serialize_online_strategy_program(restored) == wire);
+    const auto close = wire.find("):instances", wire.find(":sr22("));
+    const auto callback = wire.rfind(',', wire.rfind(',', wire.rfind(',', close - 1) - 1) - 1);
+    const auto last = wire.rfind(',', callback - 1);
+    auto invalid = wire;
+    invalid.replace(last + 1, callback - last - 1, "2");
+    assert(!deserialize_online_strategy_program(invalid, restored, &error));
+    auto legacy = wire;
+    legacy.erase(last, close - last);
+    legacy.replace(legacy.find(":sr22(") + 1, 4, "sr19");
+    assert(deserialize_online_strategy_program(legacy, restored, &error));
+    assert(!std::get<SubstitutionRedundancyParameters>(restored.sequence[5].parameters)
+                .graph_symmetry.factor_support_components);
+  }
+
+  for (const bool preserve : {false, true}) {
+    auto selected = program;
+    std::get<SubstitutionRedundancyParameters>(selected.sequence[5].parameters)
+        .graph_symmetry.preserve_detector_order = preserve;
+    const auto wire = serialize_online_strategy_program(selected);
+    OnlineStrategyProgram restored;
+    assert(deserialize_online_strategy_program(wire, restored, &error));
+    assert(serialize_online_strategy_program(restored) == wire);
+    const auto close = wire.find("):instances", wire.find(":sr22("));
+    const auto last = wire.rfind(',', wire.rfind(',', wire.rfind(',', close - 1) - 1) - 1);
+    auto invalid = wire;
+    invalid.replace(last + 1, wire.find(',', last + 1) - last - 1, "2");
+    assert(!deserialize_online_strategy_program(invalid, restored, &error));
+    auto legacy = wire;
+    legacy.erase(last, close - last);
+    legacy.replace(legacy.find(":sr22(") + 1, 4, "sr20");
+    assert(deserialize_online_strategy_program(legacy, restored, &error));
+    assert(!std::get<SubstitutionRedundancyParameters>(restored.sequence[5].parameters)
+                .graph_symmetry.preserve_detector_order);
+  }
+
+  for (unsigned mode = 0; mode < 4; ++mode) {
+    auto selected = program;
+    auto &g = std::get<SubstitutionRedundancyParameters>(selected.sequence[5].parameters).graph_symmetry;
+    g.use_structured_generators = mode & 1;
+    g.stabilize_structured_variables = mode & 2;
+    const auto wire = serialize_online_strategy_program(selected);
+    OnlineStrategyProgram restored;
+    assert(deserialize_online_strategy_program(wire, restored, &error));
+    assert(serialize_online_strategy_program(restored) == wire);
+    const auto close = wire.find("):instances", wire.find(":sr22("));
+    const auto scope = wire.rfind(',', close - 1);
+    const auto basis = wire.rfind(',', scope - 1);
+    for (const auto field : {basis, scope}) {
+      auto invalid = wire;
+      invalid.replace(field + 1, 1, "2");
+      assert(!deserialize_online_strategy_program(invalid, restored, &error));
+    }
+    auto legacy = wire;
+    legacy.erase(basis, close - basis);
+    legacy.replace(legacy.find(":sr22(") + 1, 4, "sr21");
+    assert(deserialize_online_strategy_program(legacy, restored, &error));
+    const auto &old = std::get<SubstitutionRedundancyParameters>(restored.sequence[5].parameters).graph_symmetry;
+    assert(!old.use_structured_generators && !old.stabilize_structured_variables);
+  }
+
+  {
+    auto selected = program;
+    auto &g = std::get<SubstitutionRedundancyParameters>(selected.sequence[5].parameters).graph_symmetry;
+    g.use_structured_generators = true;
+    g.stabilize_structured_variables = true;
+    g.structured_scope = SymmetryStructuredScope::AxisAnchors;
+    const auto wire = serialize_online_strategy_program(selected);
+    const auto tag = wire.find(":sr23(");
+    assert(tag != std::string::npos);
+    OnlineStrategyProgram restored;
+    assert(deserialize_online_strategy_program(wire, restored, &error));
+    assert(serialize_online_strategy_program(restored) == wire);
+    const auto close = wire.find("):instances", tag);
+    const auto field = wire.rfind(',', close - 1);
+    for (const auto value : {"2", "18446744073709551615"}) {
+      auto invalid = wire;
+      invalid.replace(field + 1, close - field - 1, value);
+      assert(!deserialize_online_strategy_program(invalid, restored, &error));
+    }
+    auto legacy = wire;
+    legacy.erase(field, close - field);
+    legacy.replace(tag + 1, 4, "sr22");
+    assert(deserialize_online_strategy_program(legacy, restored, &error));
+    assert(std::get<SubstitutionRedundancyParameters>(restored.sequence[5].parameters)
+               .graph_symmetry.structured_scope == SymmetryStructuredScope::WholeMatrix);
+    assert(serialize_online_strategy_program(restored) == legacy);
+  }
+
+  for (const auto scope : {SymmetryStructuredScope::WholeMatrix,
+                           SymmetryStructuredScope::AxisAnchors}) {
+    for (const auto selection : {SymmetryBaseSelection::ShortestClause,
+             SymmetryBaseSelection::FirstShortestThenForwardRemainder}) {
+      auto selected = program;
+      auto &g = std::get<SubstitutionRedundancyParameters>(selected.sequence[5].parameters).graph_symmetry;
+      g.base_selection = selection;
+      const bool initial_only = selection == SymmetryBaseSelection::FirstShortestThenForwardRemainder;
+      g.structured_scope = scope;
+      const auto wire = serialize_online_strategy_program(selected);
+      const auto tag = wire.find(initial_only ? ":sr25(" : ":sr24(");
+      assert(tag != std::string::npos);
+      OnlineStrategyProgram restored;
+      assert(deserialize_online_strategy_program(wire, restored, &error));
+      assert(serialize_online_strategy_program(restored) == wire);
+      auto legacy = wire;
+      legacy.replace(tag + 1, 4, initial_only ? "sr24" : "sr23");
+      assert(!deserialize_online_strategy_program(legacy, restored, &error));
+      size_t field = tag + std::strlen(":sr24(");
+      for (unsigned index = 0; index < 46; ++index)
+        field = wire.find(',', field) + 1;
+      auto invalid = wire;
+      invalid.replace(field, wire.find(',', field) - field, initial_only ? "7" : "6");
+      assert(!deserialize_online_strategy_program(invalid, restored, &error));
+    }
+  }
+
+  // sr12 predates fix-and-cut and base selection and resumes with the legacy
+  // clausal-fixing schedule.
+  for (const uint64_t limit : {uint64_t{0}, uint64_t{1}, UINT64_MAX}) {
+    auto selected = program;
+    std::get<SubstitutionRedundancyParameters>(selected.sequence[5].parameters)
+        .graph_symmetry.chain_planning_tick_limit = limit;
+    const auto wire = serialize_online_strategy_program(selected);
+    OnlineStrategyProgram restored;
+    assert(deserialize_online_strategy_program(wire, restored, &error));
+    assert(serialize_online_strategy_program(restored) == wire);
+  }
+  std::string old_sr16 = encoded;
+  const size_t sr17 = old_sr16.find(":sr22(");
+  const size_t sr17_close = old_sr16.find("):instances", sr17);
+  const size_t callback = old_sr16.rfind(',', old_sr16.rfind(',', old_sr16.rfind(',', sr17_close - 1) - 1) - 1);
+    const size_t components = old_sr16.rfind(',', callback - 1);
+  const size_t planning = old_sr16.rfind(',', components - 1);
+  old_sr16.erase(planning, sr17_close - planning);
+  old_sr16.replace(sr17 + 1, 4, "sr16");
+  assert(deserialize_online_strategy_program(old_sr16, decoded, &error));
+  assert(std::get<SubstitutionRedundancyParameters>(decoded.sequence[5].parameters)
+             .graph_symmetry.chain_planning_tick_limit == 0);
+  std::string old_sr15 = old_sr16;
+  const size_t sr16 = old_sr15.find(":sr16(");
+  const size_t sr16_close = old_sr15.find("):instances", sr16);
+  const size_t row_source = old_sr15.rfind(',', sr16_close - 1);
+  old_sr15.erase(row_source, sr16_close - row_source);
+  old_sr15.replace(sr16 + 1, 4, "sr15");
+  assert(deserialize_online_strategy_program(old_sr15, decoded, &error));
+  assert(std::get<SubstitutionRedundancyParameters>(
+      decoded.sequence[5].parameters).orbitopal_row_orbit_source ==
+      OrbitopalRowOrbitSource::DetectedGenerators);
+  std::string old_sr13 = old_sr15;
+  const size_t sr14 = old_sr13.find(":sr15(");
+  const size_t sr14_close = old_sr13.find("):instances", sr14);
+  const size_t root_setting = old_sr13.rfind(',', sr14_close - 1);
+  assert(sr14 != std::string::npos && root_setting > sr14);
+  std::string invalid_root = old_sr15;
+  invalid_root.replace(root_setting + 1, sr14_close - root_setting - 1, "2");
+  assert(!deserialize_online_strategy_program(invalid_root, decoded, &error));
+  old_sr13.erase(root_setting, sr14_close - root_setting);
+  old_sr13.replace(sr14 + 1, 4, "sr13");
+  assert(deserialize_online_strategy_program(old_sr13, decoded, &error));
+  assert(!std::get<SubstitutionRedundancyParameters>(
+      decoded.sequence[5].parameters).graph_symmetry.pointwise_root_stabilizer);
+  std::string old_sr12 = old_sr13;
+  const size_t sr13 = old_sr12.find(":sr13(");
+  assert(sr13 != std::string::npos);
+  const size_t sr13_close = old_sr12.find("):instances", sr13);
+  assert(sr13_close != std::string::npos);
+  size_t fix_and_cut = sr13_close;
+  for (unsigned i = 0; i < 2; ++i) {
+    fix_and_cut = old_sr12.rfind(',', fix_and_cut - 1);
+    assert(fix_and_cut != std::string::npos && fix_and_cut > sr13);
+  }
+  old_sr12.erase(fix_and_cut, sr13_close - fix_and_cut);
+  old_sr12.replace(sr13 + 1, 4, "sr12");
+  assert(deserialize_online_strategy_program(old_sr12, decoded, &error));
+  const auto &legacy_sr12 = std::get<SubstitutionRedundancyParameters>(
+      decoded.sequence[5].parameters);
+  const SubstitutionRedundancyParameters sr_defaults;
+  assert(legacy_sr12.graph_symmetry.chain_mode ==
+             sr_defaults.graph_symmetry.chain_mode &&
+         legacy_sr12.graph_symmetry.base_selection ==
+             sr_defaults.graph_symmetry.base_selection);
+
+  // sr11 predates stabilizer-clause selection and resumes with its typed
+  // default.
+  std::string old_sr11 = old_sr12;
+  const size_t sr12 = old_sr11.find(":sr12(");
+  assert(sr12 != std::string::npos);
+  const size_t sr12_close = old_sr11.find("):instances", sr12);
+  assert(sr12_close != std::string::npos);
+  const size_t clause_selection = old_sr11.rfind(',', sr12_close - 1);
+  assert(clause_selection != std::string::npos && clause_selection > sr12);
+  old_sr11.erase(clause_selection, sr12_close - clause_selection);
+  old_sr11.replace(sr12 + 1, 4, "sr11");
+  assert(deserialize_online_strategy_program(old_sr11, decoded, &error));
+  const auto &legacy_sr11 = std::get<SubstitutionRedundancyParameters>(
+      decoded.sequence[5].parameters);
+  assert(legacy_sr11.graph_symmetry.clause_selection ==
+         sr_defaults.graph_symmetry.clause_selection);
+
+  // sr10 predates the binary graph representation settings and resumes with
+  // their historical typed defaults.
+  std::string old_sr10 = old_sr11;
+  const size_t sr11 = old_sr10.find(":sr11(");
+  assert(sr11 != std::string::npos);
+  const size_t sr11_close = old_sr10.find("):instances", sr11);
+  assert(sr11_close != std::string::npos);
+  size_t binary_graph = sr11_close;
+  for (unsigned i = 0; i < 2; ++i) {
+    binary_graph = old_sr10.rfind(',', binary_graph - 1);
+    assert(binary_graph != std::string::npos && binary_graph > sr11);
+  }
+  old_sr10.erase(binary_graph, sr11_close - binary_graph);
+  old_sr10.replace(sr11 + 1, 4, "sr10");
+  assert(deserialize_online_strategy_program(old_sr10, decoded, &error));
+  const auto &legacy_sr10 = std::get<SubstitutionRedundancyParameters>(
+      decoded.sequence[5].parameters);
+  assert(legacy_sr10.graph_symmetry.binary_graph_mode ==
+             sr_defaults.graph_symmetry.binary_graph_mode &&
+         legacy_sr10.graph_symmetry.binary_graph_density_permille ==
+             sr_defaults.graph_symmetry.binary_graph_density_permille);
+
+  // sr9 predates the discovery-phase order and resumes with its historical
+  // refinement-first schedule.
+  std::string old_sr9 = old_sr10;
+  const size_t sr10 = old_sr9.find(":sr10(");
+  assert(sr10 != std::string::npos);
+  const size_t sr10_close = old_sr9.find("):instances", sr10);
+  assert(sr10_close != std::string::npos);
+  const size_t discovery = old_sr9.rfind(',', sr10_close - 1);
+  assert(discovery != std::string::npos && discovery > sr10);
+  old_sr9.erase(discovery, sr10_close - discovery);
+  old_sr9.replace(sr10 + 1, 4, "sr9");
+  assert(deserialize_online_strategy_program(old_sr9, decoded, &error));
+  const auto &legacy_sr9 = std::get<SubstitutionRedundancyParameters>(
+      decoded.sequence[5].parameters);
+  assert(legacy_sr9.orbitopal_discovery_order ==
+         OrbitopalDiscoveryOrder::RefinementThenUniqueLiteral);
+
+  // sr8 predates the four individualized-refinement scheduling fields. Its
+  // reader restores their historical typed defaults.
+  std::string old_sr8 = old_sr9;
+  const size_t sr9 = old_sr8.find(":sr9(");
+  assert(sr9 != std::string::npos);
+  const size_t sr9_close = old_sr8.find("):instances", sr9);
+  assert(sr9_close != std::string::npos);
+  size_t appended = sr9_close;
+  for (unsigned i = 0; i < 4; ++i) {
+    appended = old_sr8.rfind(',', appended - 1);
+    assert(appended != std::string::npos && appended > sr9);
+  }
+  old_sr8.erase(appended, sr9_close - appended);
+  old_sr8.replace(sr9 + 1, 3, "sr8");
+  assert(deserialize_online_strategy_program(old_sr8, decoded, &error));
+  const auto &legacy_sr8 = std::get<SubstitutionRedundancyParameters>(
+      decoded.sequence[5].parameters);
+  assert(legacy_sr8.orbitopal_generator_fallback ==
+             sr_defaults.orbitopal_generator_fallback &&
+         legacy_sr8.maximum_orbitopal_refinement_orbits ==
+             sr_defaults.maximum_orbitopal_refinement_orbits &&
+         legacy_sr8.orbitopal_base_probe_filter ==
+             sr_defaults.orbitopal_base_probe_filter &&
+         legacy_sr8.orbitopal_base_probe_factor ==
+             sr_defaults.orbitopal_base_probe_factor);
 
   // Trace-v3 payloads written before scoring became configurable retain the
   // reference scoring defaults.
@@ -356,7 +852,84 @@ static void configurable_parameters_round_trip() {
   assert(legacy_reduce.victim_numerator == 3 &&
          legacy_reduce.victim_denominator == 4 &&
          legacy_reduce.protect_tiers &&
-         !legacy_reduce.compact_collection);
+         !legacy_reduce.compact_collection && legacy_reduce.reduction_bookkeeping);
+
+  // The nine-field SR tuple remains replayable after producer settings moved
+  // to the versioned payload.
+  const std::string old_sr =
+      "sequence-repeat=once:1 "
+      "step=73:SubstitutionRedundancy:3:once:1:0:1:rulework(0,0):"
+      "material(0,0):sr(91,1,3,4,92,93,94,0,95):instances[]:grids[]";
+  assert(deserialize_online_strategy_program(old_sr, decoded, &error));
+  const auto &legacy_sr = std::get<SubstitutionRedundancyParameters>(
+      decoded.sequence[0].parameters);
+  assert(legacy_sr.maximum_validation_ticks == 91 &&
+         legacy_sr.producer == SubstitutionRedundancyProducer::Orbitopal &&
+         legacy_sr.orbitopal_orientation == OrbitopalOrientation::Rows &&
+         legacy_sr.minimum_orbitopal_rows == 3 &&
+         legacy_sr.minimum_orbitopal_columns == 4 &&
+         legacy_sr.maximum_orbitopal_matrices == 92 &&
+         legacy_sr.maximum_orbitopal_instances == 93 &&
+         legacy_sr.maximum_detection_ticks == 94 &&
+         legacy_sr.maximum_general_candidates_per_advance == 95);
+
+  // sr2 traces predate configurable graph traversal and retain canonical
+  // generator, clause and literal order.
+  const std::string old_sr2 =
+      "sequence-repeat=once:1 "
+      "step=74:SubstitutionRedundancy:3:once:1:0:1:rulework(0,0):"
+      "material(0,0):sr2(101,3,2,3,4,102,103,104,105,106,107,108,109,"
+      "110,111,112,113,114,115,16,2,1,0,1):instances[]:grids[]";
+  assert(deserialize_online_strategy_program(old_sr2, decoded, &error));
+  const auto &legacy_sr2 = std::get<SubstitutionRedundancyParameters>(
+      decoded.sequence[0].parameters);
+  assert(legacy_sr2.graph_symmetry.generator_order ==
+             SymmetryTraversalOrder::Canonical &&
+         legacy_sr2.graph_symmetry.clause_order ==
+             SymmetryTraversalOrder::Canonical &&
+         legacy_sr2.graph_symmetry.literal_order ==
+             SymmetryTraversalOrder::Canonical);
+
+  // sr3 traces predate structured column ordering and retain canonical,
+  // unbounded orbitopal settings.
+  const std::string old_sr3 =
+      "sequence-repeat=once:1 "
+      "step=75:SubstitutionRedundancy:3:once:1:0:1:rulework(0,0):"
+      "material(0,0):sr3(101,1,0,3,4,102,103,104,105,106,107,108,109,"
+      "110,111,112,113,114,115,16,2,1,0,1,2,1,0,1,2,0):"
+      "instances[]:grids[]";
+  assert(deserialize_online_strategy_program(old_sr3, decoded, &error));
+  const auto &legacy_sr3 = std::get<SubstitutionRedundancyParameters>(
+      decoded.sequence[0].parameters);
+  assert(legacy_sr3.orbitopal_column_order ==
+             OrbitopalColumnOrder::Canonical &&
+         legacy_sr3.maximum_orbitopal_clique_vertices == UINT64_MAX &&
+         legacy_sr3.maximum_orbitopal_clique_ticks == UINT64_MAX);
+
+  // sr4 traces reordered every legal orbitopal matrix, before the
+  // small-matrix admission cutoff became configurable.
+  const std::string old_sr4 =
+      "sequence-repeat=once:1 "
+      "step=76:SubstitutionRedundancy:3:once:1:0:1:rulework(0,0):"
+      "material(0,0):sr4(101,1,0,3,4,102,103,104,105,106,107,108,109,"
+      "110,111,112,113,114,115,16,2,1,0,1,2,1,0,1,2,0,1,116,117):"
+      "instances[]:grids[]";
+  assert(deserialize_online_strategy_program(old_sr4, decoded, &error));
+  const auto &legacy_sr4 = std::get<SubstitutionRedundancyParameters>(
+      decoded.sequence[0].parameters);
+  assert(legacy_sr4.minimum_orbitopal_clique_columns == 2);
+
+  const std::string old_sr5 =
+      "sequence-repeat=once:1 "
+      "step=77:SubstitutionRedundancy:3:once:1:0:1:rulework(0,0):"
+      "material(0,0):sr5(101,1,0,3,4,102,103,104,105,106,107,108,109,"
+      "110,111,112,113,114,115,16,2,1,0,1,2,1,0,1,2,0,1,116,117,5):"
+      "instances[]:grids[]";
+  assert(deserialize_online_strategy_program(old_sr5, decoded, &error));
+  const auto &legacy_sr5 = std::get<SubstitutionRedundancyParameters>(
+      decoded.sequence[0].parameters);
+  assert(legacy_sr5.minimum_orbitopal_clique_columns == 5 &&
+         legacy_sr5.orbitopal_completion == OrbitopalCompletion::MatrixOnly);
 }
 
 static void random_walk_and_reorder_vary_scoring_parameters() {
@@ -392,24 +965,116 @@ static void random_walk_and_reorder_vary_scoring_parameters() {
          reorder_polarity.size() > 8);
 }
 
+static void random_clausal_fixing_retains_known_orbit_targets() {
+  Kernel k = broad_fixture();
+  RandomOnlineConfig config;
+  config.rules = {"SubstitutionRedundancy"};
+  config.maximum_sequence_length = 1;
+  OnlineStrategyProgram program;
+  std::string error;
+  // This seed selects the clausal producer on S2 x S40. Extending its
+  // stabilizer base must retain the known two-point orbit even when random
+  // sifting samples only the much larger independent component.
+  assert(random_online_strategy_program(k, 58, config, program, &error));
+  assert(validate_online_strategy_program(program, &error));
+}
+
 static void random_sr_is_structured_replayable_and_effective() {
   RandomOnlineConfig config;
   config.rules = {"SubstitutionRedundancy"};
   config.maximum_sequence_length = 1;
-  bool saw_explicit = false, saw_complete = false, saw_effective = false;
+  bool saw_explicit = false, saw_graph_explicit = false, saw_complete = false,
+       saw_effective = false, saw_effective_resift = false;
+  bool post_actions[2] = {};
   std::set<uint64_t> validation_limits, detection_limits;
-  for (uint64_t seed = 1; seed <= 1024; ++seed) {
+  std::set<SubstitutionRedundancyProducer> producers;
+  std::set<OrbitopalOrientation> orientations;
+  std::set<OrbitopalColumnOrder> orbitopal_orders;
+  std::set<OrbitopalCompletion> orbitopal_completions;
+  std::set<OrbitopalDiscoveryOrder> orbitopal_discovery_orders;
+  std::set<OrbitopalRowOrbitSource> row_orbit_sources;
+  std::set<bool> planning_limits;
+  bool unique_literal_amos[2] = {};
+  std::set<SymmetryFixingMode> fixing_modes;
+  std::set<SymmetryTraversalOrder> generator_orders, clause_orders,
+      literal_orders;
+  std::set<SymmetryClauseScope> clause_scopes;
+  std::set<SymmetryPairOrientation> pair_orientations;
+  std::set<SymmetryBinaryGraphMode> binary_graph_modes;
+  std::set<SymmetryClauseSelection> clause_selections;
+  std::set<SymmetryChainMode> chain_modes;
+  std::set<SymmetryBaseSelection> base_selections;
+  std::set<SymmetryBaseSelection> effective_fix_and_cut_bases;
+  std::set<uint32_t> binary_graph_densities;
+  bool involutions_only[2] = {}, root_stabilizers[2] = {};
+  bool component_modes[2] = {}, effective_components[2] = {};
+  bool detector_orders[2] = {}, effective_detector_orders[2] = {};
+  bool handoffs[4] = {}, effective_handoffs[4] = {};
+  bool structured_scopes[2] = {}, effective_structured_scopes[2] = {};
+  std::set<uint64_t> graph_vertex_limits, generator_limits,
+      orbitopal_clique_vertex_limits, orbitopal_clique_tick_limits,
+      orbitopal_product_state_limits;
+  std::set<uint32_t> orbitopal_clique_minimum_columns;
+  std::set<uint32_t> symmetry_seeds;
+  for (uint64_t seed = 1; seed <= 4096; ++seed) {
     Kernel k = sr_fixture();
     OnlineStrategyProgram program;
     std::string error;
     assert(random_online_strategy_program(k, seed, config, program, &error));
     assert(program.sequence.size() == 1);
     const OnlineInvocation &step = program.sequence.front();
+    post_actions[static_cast<unsigned>(step.post_application)] = true;
     const auto &parameters =
         std::get<SubstitutionRedundancyParameters>(step.parameters);
     validation_limits.insert(parameters.maximum_validation_ticks);
     detection_limits.insert(parameters.maximum_detection_ticks);
+    producers.insert(parameters.producer);
+    orientations.insert(parameters.orbitopal_orientation);
+    orbitopal_orders.insert(parameters.orbitopal_column_order);
+    orbitopal_completions.insert(parameters.orbitopal_completion);
+    orbitopal_discovery_orders.insert(parameters.orbitopal_discovery_order);
+    row_orbit_sources.insert(parameters.orbitopal_row_orbit_source);
+    planning_limits.insert(parameters.graph_symmetry.chain_planning_tick_limit != 0);
+    unique_literal_amos[parameters.complete_unique_literal_amos] = true;
+    orbitopal_clique_vertex_limits.insert(
+        parameters.maximum_orbitopal_clique_vertices);
+    orbitopal_clique_tick_limits.insert(
+        parameters.maximum_orbitopal_clique_ticks);
+    orbitopal_product_state_limits.insert(
+        parameters.maximum_orbitopal_product_states);
+    orbitopal_clique_minimum_columns.insert(
+        parameters.minimum_orbitopal_clique_columns);
+    fixing_modes.insert(parameters.graph_symmetry.fixing_mode);
+    generator_orders.insert(parameters.graph_symmetry.generator_order);
+    clause_orders.insert(parameters.graph_symmetry.clause_order);
+    literal_orders.insert(parameters.graph_symmetry.literal_order);
+    clause_scopes.insert(parameters.graph_symmetry.clause_scope);
+    pair_orientations.insert(parameters.graph_symmetry.pair_orientation);
+    binary_graph_modes.insert(parameters.graph_symmetry.binary_graph_mode);
+    clause_selections.insert(parameters.graph_symmetry.clause_selection);
+    chain_modes.insert(parameters.graph_symmetry.chain_mode);
+    base_selections.insert(parameters.graph_symmetry.base_selection);
+    root_stabilizers[parameters.graph_symmetry.pointwise_root_stabilizer] = true;
+    component_modes[parameters.graph_symmetry.factor_support_components] = true;
+    detector_orders[parameters.graph_symmetry.preserve_detector_order] = true;
+    const unsigned handoff = parameters.graph_symmetry.use_structured_generators |
+        (parameters.graph_symmetry.stabilize_structured_variables << 1);
+    handoffs[handoff] = true;
+    const unsigned structured_scope = static_cast<unsigned>(parameters.graph_symmetry.structured_scope);
+    structured_scopes[structured_scope] = true;
+    binary_graph_densities.insert(
+        parameters.graph_symmetry.binary_graph_density_permille);
+    involutions_only[parameters.graph_symmetry
+                         .direct_generator_involutions_only] = true;
+    graph_vertex_limits.insert(
+        parameters.graph_symmetry.maximum_graph_vertices);
+    generator_limits.insert(parameters.graph_symmetry.maximum_generators);
+    symmetry_seeds.insert(parameters.graph_symmetry.seed);
     saw_explicit |= !step.substitution_redundancy_instances.empty();
+    saw_graph_explicit |=
+        parameters.producer ==
+            SubstitutionRedundancyProducer::GraphSymmetry &&
+        !step.substitution_redundancy_instances.empty();
     saw_complete |=
         step.granularity == InvocationGranularity::CompleteCurrentPass;
 
@@ -417,19 +1082,143 @@ static void random_sr_is_structured_replayable_and_effective() {
     OnlineStrategyProgram replay;
     assert(deserialize_online_strategy_program(encoded, replay, &error));
     assert(serialize_online_strategy_program(replay) == encoded);
+    auto semantic_instances = step.substitution_redundancy_instances;
+    for (auto &instance : semantic_instances)
+      instance.orbitopal_prefix_certificate = false;
+    for (auto &instance : semantic_instances)
+      instance.symmetry_chain_certificate = false;
+    for (auto &instance : semantic_instances)
+      instance.unique_literal_amo_certificate = false;
     assert(replay.sequence.front().substitution_redundancy_instances ==
-           step.substitution_redundancy_instances);
+           semantic_instances);
 
     OnlineStrategyExecutor executor;
     assert(executor.configure(replay, seed));
+    const uint64_t applications_before = k.stats.sr_applications;
+    const uint64_t clause_id_before = k.next_clause_id;
     const InvocationResult result = executor.advance(k);
     if (result.made_rule_progress) {
       saw_effective = true;
-      assert(k.value(internalize(-1)) > 0);
+      if (parameters.producer == SubstitutionRedundancyProducer::GraphSymmetry &&
+          parameters.graph_symmetry.fixing_mode == SymmetryFixingMode::StabilizerOnly) {
+        effective_components[parameters.graph_symmetry.factor_support_components] = true;
+        effective_detector_orders[parameters.graph_symmetry.preserve_detector_order] = true;
+        effective_handoffs[handoff] = true;
+        if (parameters.graph_symmetry.stabilize_structured_variables)
+          effective_structured_scopes[structured_scope] = true;
+      }
+      saw_effective_resift |=
+          parameters.producer == SubstitutionRedundancyProducer::GraphSymmetry &&
+          parameters.graph_symmetry.chain_mode == SymmetryChainMode::FixAndCutResift &&
+          parameters.graph_symmetry.fixing_mode == SymmetryFixingMode::StabilizerOnly;
+      assert(k.stats.sr_applications > applications_before);
+      assert(k.next_clause_id > clause_id_before || k.inconsistent);
+      if (parameters.producer == SubstitutionRedundancyProducer::GraphSymmetry &&
+          parameters.graph_symmetry.chain_mode == SymmetryChainMode::FixAndCut &&
+          parameters.graph_symmetry.fixing_mode == SymmetryFixingMode::StabilizerOnly)
+        effective_fix_and_cut_bases.insert(parameters.graph_symmetry.base_selection);
     }
+    kernel_check_invariants(k);
   }
-  assert(saw_explicit && saw_complete && saw_effective);
+  assert(producers.size() == 4 && orientations.size() == 3 &&
+         orbitopal_orders.size() == 4 &&
+         orbitopal_completions.size() == 2 &&
+         orbitopal_discovery_orders.size() == 4 && row_orbit_sources.size() == 2 && planning_limits.size() == 2 &&
+         unique_literal_amos[0] && unique_literal_amos[1] &&
+         fixing_modes.size() == 3 && generator_orders.size() == 3 &&
+         clause_orders.size() == 3 && literal_orders.size() == 3 &&
+         clause_scopes.size() == 2 && pair_orientations.size() == 3 &&
+         binary_graph_modes.size() == 3 && clause_selections.size() == 3 &&
+         chain_modes.size() == 3 && base_selections.size() == 7 &&
+         binary_graph_densities.size() > 32 &&
+         involutions_only[0] && involutions_only[1] &&
+         root_stabilizers[0] && root_stabilizers[1]);
+  assert(component_modes[0] && component_modes[1]);
+  assert(effective_components[0] && effective_components[1]);
+  for (unsigned mode = 0; mode < 4; ++mode)
+    assert(handoffs[mode] && effective_handoffs[mode]);
+  assert(structured_scopes[0] && structured_scopes[1]);
+  assert(effective_structured_scopes[0] && effective_structured_scopes[1]);
+  assert(detector_orders[0] && detector_orders[1]);
+  assert(effective_detector_orders[0] && effective_detector_orders[1]);
+  assert(effective_fix_and_cut_bases.count(
+      SymmetryBaseSelection::FirstAmoThenCommonClause));
+  assert(effective_fix_and_cut_bases.count(
+      SymmetryBaseSelection::FirstAmoThenOrderedRemainder));
+  assert(effective_fix_and_cut_bases.count(
+      SymmetryBaseSelection::FirstAmoThenForwardRemainder));
+  assert(effective_fix_and_cut_bases.count(SymmetryBaseSelection::ShortestClause));
+  assert(effective_fix_and_cut_bases.count(SymmetryBaseSelection::FirstShortestThenForwardRemainder));
+  assert(graph_vertex_limits.size() > 8 && generator_limits.size() > 8 &&
+         orbitopal_clique_vertex_limits.size() > 8 &&
+         orbitopal_clique_tick_limits.size() > 8 &&
+         orbitopal_product_state_limits.size() > 8 &&
+         orbitopal_clique_minimum_columns.size() > 4 &&
+         symmetry_seeds.size() > 32);
+  assert(saw_explicit && saw_graph_explicit && saw_complete && saw_effective);
+  assert(saw_effective_resift);
+  assert(post_actions[static_cast<unsigned>(PostApplication::None)] &&
+         post_actions[static_cast<unsigned>(PostApplication::Propagate)]);
   assert(validation_limits.size() > 32 && detection_limits.size() > 32);
+}
+
+static void joint_sr_limits_are_configurable_and_replayable() {
+  RandomOnlineConfig boundary;
+  boundary.rules = {"SubstitutionRedundancy"};
+  boundary.maximum_sequence_length = 1;
+  boundary.sr_joint_positive_numerator = 0;
+  RandomOnlineConfig equivalent = boundary;
+  equivalent.sr_joint_positive_denominator = UINT32_MAX;
+  RandomOnlineConfig positive = boundary;
+  positive.sr_joint_positive_numerator = 1;
+  positive.sr_joint_positive_denominator = 1;
+  bool saw_disabled_admission = false;
+  for (uint64_t seed = 1; seed <= 128; ++seed) {
+    Kernel k = sr_fixture();
+    OnlineStrategyProgram old, same, active;
+    std::string error;
+    assert(random_online_strategy_program(k, seed, boundary, old, &error));
+    assert(random_online_strategy_program(k, seed, equivalent, same, &error));
+    assert(serialize_online_strategy_program(old) ==
+           serialize_online_strategy_program(same));
+    assert(random_online_strategy_program(k, seed, positive, active, &error));
+    const auto &before = std::get<SubstitutionRedundancyParameters>(
+        old.sequence.front().parameters);
+    const auto &after = std::get<SubstitutionRedundancyParameters>(
+        active.sequence.front().parameters);
+    const auto &graph = after.graph_symmetry;
+    saw_disabled_admission |= !before.maximum_detection_ticks ||
+        !before.graph_symmetry.maximum_graph_vertices ||
+        !before.graph_symmetry.maximum_graph_edges ||
+        !before.graph_symmetry.maximum_generators;
+    assert(after.maximum_validation_ticks > 0 &&
+           after.maximum_validation_ticks <= positive.maximum_sr_validation_ticks);
+    assert(after.maximum_detection_ticks > 0 &&
+           after.maximum_detection_ticks <= positive.maximum_sr_detection_ticks);
+    assert(graph.maximum_graph_vertices > 0 &&
+           graph.maximum_graph_vertices <= positive.maximum_sr_graph_vertices);
+    assert(graph.maximum_graph_edges > 0 &&
+           graph.maximum_graph_edges <= positive.maximum_sr_graph_edges);
+    assert(graph.maximum_generators > 0 &&
+           graph.maximum_generators <= positive.maximum_sr_symmetry_generators);
+    assert(graph.maximum_group_ticks > 0 &&
+           graph.maximum_group_ticks <= positive.maximum_sr_symmetry_group_ticks);
+    assert(graph.maximum_fixing_instances > 0 &&
+           graph.maximum_fixing_instances <= positive.maximum_sr_symmetry_fixing_instances);
+    // The resource mixture does not force semantic choices or move earlier
+    // parameter draws. Changed materialized instances can move later draws.
+    assert(before.producer == after.producer);
+    assert(before.graph_symmetry.seed == graph.seed);
+    assert(before.graph_symmetry.base_selection == graph.base_selection);
+    assert(before.graph_symmetry.chain_mode == graph.chain_mode);
+    assert(before.graph_symmetry.fixing_mode == graph.fixing_mode);
+    const std::string encoded = serialize_online_strategy_program(active);
+    OnlineStrategyProgram replay;
+    assert(deserialize_online_strategy_program(encoded, replay, &error));
+    assert(serialize_online_strategy_program(replay) == encoded);
+    kernel_check_invariants(k);
+  }
+  assert(saw_disabled_admission);
 }
 
 static OnlineStrategyProgram exact_factor_replay_program(Kernel &k) {
@@ -541,18 +1330,39 @@ static void parameter_domains_are_caller_controlled() {
   config.maximum_bve_definition_core_budget_multiplier = 0;
   config.bve_occurrence_reference = 37;
   config.bve_clause_size_reference = 41;
+  bool saw_bve_scope[2] = {};
   for (uint64_t seed = 1; seed <= 64; ++seed) {
     OnlineStrategyProgram program;
     assert(random_online_strategy_program(k, seed, config, program));
-    for (const OnlineInvocation &step : program.sequence) {
-      const auto *parameters = std::get_if<BveParameters>(&step.parameters);
+    for (size_t i = 0; i < program.sequence.size(); ++i) {
+      const auto *parameters =
+          std::get_if<BveParameters>(&program.sequence[i].parameters);
       assert(parameters);
       assert(parameters->growth_bound == 0);
       assert(parameters->definition_budget == 0);
       assert(parameters->definition_cores == 1);
       assert(parameters->definition_core_budget_multiplier == 0);
+      saw_bve_scope[static_cast<unsigned>(parameters->candidate_scope)] = true;
+      const std::string encoded = serialize_online_strategy_program(program);
+      assert(encoded.find(":bve2(") != std::string::npos);
+      OnlineStrategyProgram replay;
+      std::string error;
+      assert(deserialize_online_strategy_program(encoded, replay, &error));
+      assert(std::get<BveParameters>(replay.sequence[i].parameters)
+                 .candidate_scope == parameters->candidate_scope);
     }
   }
+  assert(saw_bve_scope[0] && saw_bve_scope[1]);
+
+  OnlineStrategyProgram legacy_bve;
+  std::string legacy_bve_error;
+  assert(deserialize_online_strategy_program(
+      "sequence-repeat=once:1 "
+      "step=79:BVE:3:once:1:1:1:post(0):rulework(0,0):material(0,0):"
+      "bve(0,1,2,3,2,4,5,6,1,7,0):instances[]:grids[]",
+      legacy_bve, &legacy_bve_error));
+  assert(std::get<BveParameters>(legacy_bve.sequence.front().parameters)
+             .candidate_scope == BveCandidateScope::All);
 
   config = {};
   config.rules = {"Congruence"};
@@ -640,6 +1450,14 @@ static void parameter_domains_are_caller_controlled() {
   config.maximum_onehot_model_equation_arity = 7;
   config.maximum_onehot_model_free_domains = 13;
   config.maximum_onehot_model_candidates = 251;
+  config.affine_model_reference.maximum_variables=79;
+  config.affine_model_reference.maximum_constraints=137;
+  config.affine_model_reference.maximum_arity=9;
+  config.affine_model_reference.maximum_projection=17;
+  config.affine_model_reference.maximum_work=263;
+  config.maximum_affine_projection_coordinates=3;
+  bool selected_affine_instance=false;
+  std::set<uint64_t> affine_variables,affine_work;
   bool selected_parity_instance = false, selected_onehot_instance = false;
   std::set<uint32_t> parity_variables, parity_groups, parity_constraints,
       parity_free;
@@ -667,6 +1485,13 @@ static void parameter_domains_are_caller_controlled() {
       parity_constraints.insert(parameters->maximum_constraints);
       parity_free.insert(parameters->maximum_free_variables);
       parity_candidates.insert(parameters->candidate_budget);
+    } else if(const auto *parameters=std::get_if<AffineModelParameters>(&step.parameters)) {
+      assert(parameters->valid());
+      assert(parameters->maximum_variables<=79&&parameters->maximum_constraints<=137);
+      assert(parameters->maximum_arity<=9&&parameters->maximum_projection<=17);
+      assert(parameters->maximum_work<=263&&parameters->projection.size()<=3);
+      affine_variables.insert(parameters->maximum_variables);
+      affine_work.insert(parameters->maximum_work);
     } else {
       const auto *onehot_parameters =
           std::get_if<OnehotModelParameters>(&step.parameters);
@@ -678,6 +1503,8 @@ static void parameter_domains_are_caller_controlled() {
       onehot_free.insert(onehot_parameters->maximum_free_domains);
       onehot_candidates.insert(onehot_parameters->candidate_budget);
     }
+    selected_affine_instance |=
+        std::find(step.instances.begin(),step.instances.end(),uint64_t{8})!=step.instances.end();
     selected_parity_instance |=
         std::find(step.instances.begin(), step.instances.end(), uint64_t{6}) !=
         step.instances.end();
@@ -691,6 +1518,7 @@ static void parameter_domains_are_caller_controlled() {
     assert(serialize_online_strategy_program(replay) ==
            serialize_online_strategy_program(program));
   }
+  assert(selected_affine_instance&&affine_variables.size()>8&&affine_work.size()>8);
   assert(selected_parity_instance && selected_onehot_instance);
   assert(parity_variables.size() > 8 && parity_groups.size() > 8 &&
          parity_constraints.size() > 8 && parity_free.size() > 8 &&
@@ -721,7 +1549,8 @@ static void parameter_domains_are_caller_controlled() {
            }},
           {"Lucky", [](const ActionParameters &p) {
              return std::holds_alternative<ParityModelParameters>(p) ||
-                    std::holds_alternative<OnehotModelParameters>(p);
+                    std::holds_alternative<OnehotModelParameters>(p) ||
+                    std::holds_alternative<AffineModelParameters>(p);
            }},
       };
   for (const auto &[rule, has_expected_type] : typed_rules) {
@@ -985,6 +1814,7 @@ static void production_random_reaches_late_semantics_and_replays_them() {
 }
 
 int main() {
+  random_clausal_fixing_retains_known_orbit_targets();
   invalid_configuration_is_rejected();
   seeds_are_replayable_and_behavior_is_wide();
   generated_program_interrupts_and_reconfigures_online();
@@ -992,6 +1822,7 @@ int main() {
   configurable_parameters_round_trip();
   random_walk_and_reorder_vary_scoring_parameters();
   random_sr_is_structured_replayable_and_effective();
+  joint_sr_limits_are_configurable_and_replayable();
   explicit_selection_reaches_beyond_a_prefix();
   parameter_domains_are_caller_controlled();
   every_registry_action_has_random_support();

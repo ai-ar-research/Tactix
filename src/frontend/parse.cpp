@@ -75,7 +75,8 @@ static void grow_input_binary_liveness(Kernel &k, size_t entries) {
 // Cases and checker evidence:
 // benchmarks/reports/2026-08-05-input-clause-normalization-n2.md §2.
 static void restate_input(Kernel &k, uint64_t id, const std::vector<Lit> &lits,
-                          const std::vector<Lit> &units, Ref ref) {
+                          const std::vector<Lit> &units, Ref ref,
+                          const std::vector<Lit> &original) {
   // Record that the checker's clause `id` is not the clause just stored. The
   // count is unconditional, being the reachability probe for this path; the
   // restatement matters only with a proof, since without one no checker
@@ -83,6 +84,19 @@ static void restate_input(Kernel &k, uint64_t id, const std::vector<Lit> &lits,
   k.stats.input_restated++;
   if (!k.proof)
     return;
+  // DSR substitutions need the checker and kernel to agree after later
+  // deletions. A retained, stronger input clause is harmless for RUP but can
+  // invalidate an SR witness after its normalized replacement is removed.
+  // Literal-addressed DSR can publish the replacement immediately; only LRAT
+  // needs to defer additions until the complete input id namespace is known.
+  if (k.proof->dsr()) {
+    assert(!original.empty());
+    k.proof->add_rup(id, lits.data(), static_cast<uint32_t>(lits.size()),
+                     nullptr, 0);
+    k.proof->del(k.next_clause_id, id, original.data(),
+                 static_cast<uint32_t>(original.size()));
+    return;
+  }
   Kernel::InputRestatement r;
   r.id = id;
   r.begin = static_cast<uint32_t>(k.input_restate_lits.size());
@@ -142,6 +156,13 @@ void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
   // imports over the raw file literals now; activation follows below, after
   // the set-semantics pass, which keeps first-occurrence file order.
   const size_t file_size = scratch.size();
+  // Capture only clauses that actually change, before the first in-place
+  // rewrite. Unchanged input carries no extra allocation or literal copy.
+  std::vector<Lit> original;
+  const auto retain_original = [&] {
+    if (k.proof && k.proof->dsr() && original.empty())
+      original = scratch;
+  };
   for (const Lit lit : scratch)
     kernel_record_import(k, var_of(lit));
 
@@ -153,8 +174,10 @@ void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
   if (file_size == 2) {
     if (scratch[0] == negate(scratch[1]))
       return;
-    if (scratch[0] == scratch[1])
+    if (scratch[0] == scratch[1]) {
+      retain_original();
       scratch.resize(1);
+    }
   } else if (file_size > 2) {
     if (k.input_marks.size() < 2 * k.nvars)
       k.input_marks.resize(2 * k.nvars, 0);
@@ -162,8 +185,10 @@ void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
     bool tautology = false;
     for (size_t i = 0; i < file_size; i++) {
       const Lit lit = scratch[i];
-      if (k.input_marks[lit])
+      if (k.input_marks[lit]) {
+        retain_original();
         continue; // repeated literal: the first occurrence stands
+      }
       if (k.input_marks[negate(lit)]) {
         tautology = true;
         break;
@@ -191,6 +216,7 @@ void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
     if (value > 0)
       return; // satisfied input clause: consume its id, activate/store nothing
     if (value < 0) {
+      retain_original();
       if (native_lrat)
         root_units.push_back(negate(lit));
     }
@@ -249,7 +275,7 @@ void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
     }
     k.unit_ids[var_of(u)] = id;
     if (shrunk)
-      restate_input(k, id, scratch, root_units, 0);
+      restate_input(k, id, scratch, root_units, 0, original);
     kernel_assign_unit(k, u);
     propagate_input_unit(k);
   } else if (scratch.size() == 2) {
@@ -263,8 +289,16 @@ void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
     const bool duplicate = k.binary_ids.tracks_keys()
                                ? k.binary_ids.count(key)
                                : kernel_binary_live(k, scratch[0], scratch[1]);
-    if (duplicate)
+    if (duplicate) {
+      // Each raw duplicate still exists in the checker. Keep exactly the
+      // one copy represented by the kernel so a later deletion removes it.
+      if (k.proof && k.proof->dsr()) {
+        const auto &raw = original.empty() ? scratch : original;
+        k.proof->del(k.next_clause_id, id, raw.data(),
+                     static_cast<uint32_t>(raw.size()));
+      }
       return;
+    }
     if (!k.binary_ids.tracks_keys() && k.binary_liveness &&
         k.binary_liveness->needs_growth(k.binary_ids.size() + 1))
       grow_input_binary_liveness(k, k.binary_ids.size() + 1);
@@ -273,13 +307,13 @@ void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
     // after the complete clause has joined the watch database.
     k.watches.defrag_if_needed();
     if (shrunk)
-      restate_input(k, id, scratch, root_units, 0);
+      restate_input(k, id, scratch, root_units, 0, original);
   } else {
     const Ref ref = kernel_add_large_clause(
         k, scratch.data(), static_cast<uint32_t>(scratch.size()), false, 0, id);
     k.watches.defrag_if_needed();
     if (shrunk)
-      restate_input(k, id, scratch, root_units, ref);
+      restate_input(k, id, scratch, root_units, ref, original);
   }
 }
 

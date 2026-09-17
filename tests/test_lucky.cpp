@@ -15,6 +15,13 @@
 
 using namespace tactix;
 
+// These reference-lifecycle controls isolate the two Kissat Lucky calls.
+static int solve_reference_startup(Kernel &k) {
+  DefaultStrategyConfig config;
+  config.inprocess.structured_root_before_lucky = false;
+  return DefaultPolicy(config).solve(k);
+}
+
 static void add3(Kernel &k, int a, int b, int c) {
   const Lit lits[3] = {internalize(a), internalize(b), internalize(c)};
   kernel_add_large_clause(k, lits, 3, false, 0);
@@ -35,6 +42,7 @@ static void test_all_true() {
 }
 
 static void test_default_early_lucky_keeps_cold_state_deferred() {
+  for (bool empty_program : {false, true}) {
   Kernel k;
   kernel_defer_cold_state(k);
   kernel_reserve_vars(k, 4);
@@ -47,12 +55,16 @@ static void test_default_early_lucky_keeps_cold_state_deferred() {
   assert(k.seen.empty() && k.eager_marks.empty() &&
          k.marked_levels.empty() && k.probing.stamp.empty());
   assert(!k.h && !k.saved_phases);
-  assert(default_solve(k) == 10);
+  DefaultStrategyConfig config;
+  config.inprocess.structured_root_before_lucky = empty_program;
+  if (empty_program) config.inprocess.structured_root_stages.clear();
+  assert(DefaultPolicy(config).solve(k) == 10);
   assert(k.stats.lucky_early_calls == 1);
   assert(k.cold_state_deferred &&
          "an early Lucky verdict must not materialize later rule state");
   assert(!k.h && !k.saved_phases &&
          "an early Lucky verdict must not materialize search guidance");
+  }
 }
 
 static void test_cold_state_materialization_preserves_first_round_predicates() {
@@ -169,7 +181,7 @@ static void test_unsat_probes_commit_root_consequences() {
   assert(setenv("TACTIX_SLOT_DISABLE",
                 "Congruence,Substitute,Backbone,Sweep,Factor", 1) == 0);
   assert(setenv("TACTIX_LUCKY_LATE", "0", 1) == 0);
-  assert(default_solve(off) == 20);
+  assert(solve_reference_startup(off) == 20);
   assert(unsetenv("TACTIX_LUCKY_LATE") == 0);
   assert(unsetenv("TACTIX_SLOT_DISABLE") == 0);
   assert(off.stats.lucky_early_calls == 1);
@@ -312,7 +324,7 @@ static void test_late_call_is_formula_shape_invariant() {
   Kernel on;
   ScopedHeuristics _hg_on(on);
   build(on);
-  assert(default_solve(on) == 10);
+  assert(solve_reference_startup(on) == 10);
   assert(on.stats.lucky_early_calls == 1 && on.stats.lucky_late_calls == 1);
   assert(model_satisfies(on, formula));
 
@@ -321,7 +333,7 @@ static void test_late_call_is_formula_shape_invariant() {
   Kernel deferred;
   build(deferred);
   assert(!deferred.h && !deferred.saved_phases);
-  assert(default_solve(deferred) == 10);
+  assert(solve_reference_startup(deferred) == 10);
   assert(!deferred.h && !deferred.saved_phases);
   assert(deferred.stats.lucky_early_calls == on.stats.lucky_early_calls);
   assert(deferred.stats.lucky_late_calls == on.stats.lucky_late_calls);
@@ -336,7 +348,7 @@ static void test_late_call_is_formula_shape_invariant() {
   ScopedHeuristics _hg_off(off);
   build(off);
   assert(setenv("TACTIX_LUCKY_LATE", "0", 1) == 0);
-  const int off_result = default_solve(off);
+  const int off_result = solve_reference_startup(off);
   assert(unsetenv("TACTIX_LUCKY_LATE") == 0);
   assert(off_result == 10);
   assert(off.stats.lucky_early_calls == 1 && off.stats.lucky_late_calls == 0);

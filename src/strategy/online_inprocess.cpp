@@ -1,6 +1,7 @@
 #include "strategy/online_inprocess.hpp"
 
 #include "policies/heuristics.hpp"
+#include "rules/propagate/propagate.hpp"
 #include "rules/sweep/sweep.hpp"
 #include "strategy/bve_invocation.hpp"
 
@@ -9,6 +10,15 @@
 #include <limits>
 #include <optional>
 #include <unordered_map>
+
+namespace tactix {
+// Private cross-translation-unit admission used only for freshly enumerated
+// producer certificates. It is intentionally absent from the rule API.
+SubstitutionRedundancyApplicationResult
+substitution_redundancy_apply_orbitopal_prefix(
+    Kernel &, const SubstitutionRedundancyInstance &,
+    const SubstitutionRedundancyParameters &, volatile sig_atomic_t *);
+}
 
 namespace tactix::strategy {
 
@@ -41,6 +51,15 @@ bool valid_setting_override(SettingOverride value) {
   case SettingOverride::Inherit:
   case SettingOverride::Disable:
   case SettingOverride::Enable:
+    return true;
+  }
+  return false;
+}
+
+bool valid_post_application(PostApplication value) {
+  switch (value) {
+  case PostApplication::None:
+  case PostApplication::Propagate:
     return true;
   }
   return false;
@@ -154,6 +173,8 @@ bool parameter_matches(const OnlineInvocation &step) {
     return step.rule == "Lucky";
   if (std::holds_alternative<OnehotModelParameters>(step.parameters))
     return step.rule == "Lucky";
+  if (std::holds_alternative<AffineModelParameters>(step.parameters))
+    return step.rule == "Lucky";
   if (std::holds_alternative<SubstitutionRedundancyParameters>(step.parameters))
     return step.rule == "SubstitutionRedundancy";
   return false;
@@ -202,6 +223,8 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
         return reject("StepId is duplicated");
     if (!valid_repeat(step.repeat))
       return reject("step repeat specification is invalid");
+    if (!valid_post_application(step.post_application))
+      return reject("post-application action is invalid");
     if (!valid_rule_work_budget(step.rule_work_budget))
       return reject("rule work budget is invalid");
     if (!valid_setting_override(step.material.touch_filter) ||
@@ -270,6 +293,9 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
             std::get_if<OnehotModelParameters>(&step.parameters);
         p && !p->valid())
       return reject("Lucky onehot-model parameters are invalid");
+    if (const auto *p = std::get_if<AffineModelParameters>(&step.parameters);
+        p && !p->valid())
+      return reject("Lucky affine-model parameters are invalid");
     if (const auto *p = std::get_if<SubstitutionRedundancyParameters>(
             &step.parameters);
         p && !p->valid())
@@ -446,7 +472,8 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
                                                const OnlineInvocation &step,
                                                Runtime &runtime,
                                                InvocationResult &out,
-                                               volatile sig_atomic_t *stop) {
+                                               volatile sig_atomic_t *stop,
+                                               Allowance *sr_discovery_allowance) {
   // An explicit scope remains bound across repeated passes/sequences. Only
   // CompleteCurrentPass asks for fresh enumeration after a representation
   // change; repeating a pass is not permission to reinterpret old payloads.
@@ -465,8 +492,11 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
           : nullptr;
   const bool general_sr =
       step.granularity == InvocationGranularity::CompleteCurrentPass &&
-      sr_parameters && sr_parameters->general_producer;
+      sr_parameters &&
+      sr_parameters->producer ==
+          SubstitutionRedundancyProducer::GeneralComplete;
   const bool continuing_general_sr = runtime.sr_general_mode && general_sr;
+  runtime.bve_occurrences.reset();
   runtime.selection.clear();
   runtime.structured_selection.clear();
   runtime.sr_selection.clear();
@@ -519,9 +549,40 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
   } else if (step.rule == "SubstitutionRedundancy") {
     const auto *configured =
         std::get_if<SubstitutionRedundancyParameters>(&step.parameters);
-    const SubstitutionRedundancyParameters parameters =
+    SubstitutionRedundancyParameters parameters =
         configured ? *configured : SubstitutionRedundancyParameters{};
-    if (parameters.general_producer) {
+    const bool shared_discovery =
+        sr_discovery_allowance &&
+        parameters.producer != SubstitutionRedundancyProducer::GeneralComplete;
+    Allowance unlimited_discovery(WorkUnit::SrDiscoveryTicks,
+                                  WorkLimit::unlimited());
+    Allowance *discovery_pool = shared_discovery
+                                    ? sr_discovery_allowance
+                                    : &unlimited_discovery;
+    std::span<Allowance *const> discovery_pools(&discovery_pool, 1);
+    InvocationBudget discovery_budget(WorkUnit::SrDiscoveryTicks,
+                                      WorkLimit::unlimited(),
+                                      discovery_pools);
+    if (shared_discovery) {
+      const BudgetStatus status = discovery_budget.status();
+      if (status != BudgetStatus::Ready &&
+          status != BudgetStatus::Exhausted) {
+        out.status = InvocationStatus::AccountingError;
+        out.budget_status = status;
+        return false;
+      }
+      const WorkLimit remaining = discovery_budget.remaining();
+      if (!remaining.admits_work()) {
+        out.status = InvocationStatus::BudgetExhausted;
+        out.budget_status = discovery_budget.status();
+        return false;
+      }
+      if (!remaining.is_unlimited())
+        parameters.maximum_detection_ticks =
+            std::min(parameters.maximum_detection_ticks, remaining.amount());
+    }
+    if (parameters.producer ==
+        SubstitutionRedundancyProducer::GeneralComplete) {
       SubstitutionRedundancyInstance instance;
       const SubstitutionRedundancyGeneralResult enumeration =
           substitution_redundancy_next_general(
@@ -540,7 +601,8 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
       }
       if (enumeration.status == SubstitutionRedundancyGeneralStatus::Found)
         runtime.sr_selection.push_back(std::move(instance));
-    } else {
+    } else if (parameters.producer ==
+               SubstitutionRedundancyProducer::Orbitopal) {
       const OrbitopalEnumerationResult enumeration =
           substitution_redundancy_enumerate_orbitopal(
               k, parameters,
@@ -549,16 +611,69 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
                 return true;
               },
               stop);
+      out.budget_status = discovery_budget.charge(
+          WorkUnit::SrDiscoveryTicks, enumeration.ticks);
+      if (out.budget_status == BudgetStatus::AccountingOverflow) {
+        out.status = InvocationStatus::AccountingError;
+        return false;
+      }
       if (enumeration.status == OrbitopalEnumerationStatus::Interrupted) {
         out.status = InvocationStatus::Interrupted;
         return false;
       }
       runtime.selection_truncated =
           enumeration.status == OrbitopalEnumerationStatus::LimitReached;
+    } else if (parameters.producer ==
+               SubstitutionRedundancyProducer::GraphSymmetry) {
+      const SymmetryEnumerationResult enumeration =
+          substitution_redundancy_enumerate_symmetry(
+              k, parameters,
+              [&](const SubstitutionRedundancyInstance &instance) {
+                runtime.sr_selection.push_back(instance);
+                return true;
+              },
+              stop, nullptr,
+              SymmetryEnumerationScheduling{shared_discovery});
+      out.budget_status = discovery_budget.charge(
+          WorkUnit::SrDiscoveryTicks, enumeration.ticks);
+      if (out.budget_status == BudgetStatus::AccountingOverflow) {
+        out.status = InvocationStatus::AccountingError;
+        return false;
+      }
+      if (enumeration.status == SymmetryEnumerationStatus::Interrupted) {
+        out.status = InvocationStatus::Interrupted;
+        return false;
+      }
+      if (enumeration.status == SymmetryEnumerationStatus::Invalid) {
+        out.status = InvocationStatus::InvalidRequest;
+        return false;
+      }
+      if (enumeration.status ==
+              SymmetryEnumerationStatus::ResourceExhausted ||
+          enumeration.status == SymmetryEnumerationStatus::Failed) {
+        out.status = InvocationStatus::ResourceExhausted;
+        return false;
+      }
+      runtime.selection_truncated =
+          enumeration.status == SymmetryEnumerationStatus::LimitReached;
     }
     runtime.selection.resize(runtime.sr_selection.size());
     for (size_t i = 0; i < runtime.selection.size(); ++i)
       runtime.selection[i] = i;
+  } else if (step.rule == "BVE") {
+    const auto *configured = std::get_if<BveParameters>(&step.parameters);
+    const BveParameters parameters =
+        configured ? *configured : BveParameters::from_kernel(k);
+    if ((stop && *stop) || (k.stop && *k.stop)) {
+      out.status = InvocationStatus::Interrupted;
+      return false;
+    }
+    bve_complete_instances(k, rule, parameters, runtime.selection);
+    if ((stop && *stop) || (k.stop && *k.stop)) {
+      runtime.selection.clear();
+      out.status = InvocationStatus::Interrupted;
+      return false;
+    }
   } else {
     out.status = enumerate_complete_instances(k, rule, runtime.selection, stop);
     if (out.status != InvocationStatus::Completed)
@@ -575,6 +690,7 @@ bool OnlineStrategyExecutor::finish_step_pass(const OnlineInvocation &step,
                                               Runtime &runtime,
                                               InvocationResult &out) {
   runtime.selection_ready = false;
+  runtime.bve_occurrences.reset();
   runtime.selection.clear();
   runtime.structured_selection.clear();
   runtime.sr_selection.clear();
@@ -660,7 +776,8 @@ bool OnlineStrategyExecutor::finish_sequence(InvocationResult &out) {
 }
 
 InvocationResult OnlineStrategyExecutor::advance(
-    Kernel &k, volatile sig_atomic_t *stop) {
+    Kernel &k, volatile sig_atomic_t *stop,
+    Allowance *sr_discovery_allowance) {
   InvocationResult out;
   out.before = state_version(k);
   out.after = out.before;
@@ -720,14 +837,16 @@ InvocationResult OnlineStrategyExecutor::advance(
       // above and can never be silently absorbed here.
       const bool progress = runtime.pass_progress;
       runtime.selection_ready = false;
-      if (!prepare_selection(k, step, runtime, out, stop)) {
+      if (!prepare_selection(k, step, runtime, out, stop,
+                             sr_discovery_allowance)) {
         out.after = state_version(k);
         return out;
       }
       runtime.pass_progress |= progress;
     }
     if (!runtime.selection_ready) {
-      if (!prepare_selection(k, step, runtime, out, stop)) {
+      if (!prepare_selection(k, step, runtime, out, stop,
+                             sr_discovery_allowance)) {
         // An inapplicable scope is not a fixpoint and is not consumed. The
         // caller may change solver state or replace the program and retry.
         out.after = state_version(k);
@@ -755,7 +874,8 @@ InvocationResult OnlineStrategyExecutor::advance(
       if (runtime.sr_general_mode &&
           !runtime.sr_general_cursor.complete) {
         runtime.selection_ready = false;
-        if (!prepare_selection(k, step, runtime, out, stop)) {
+        if (!prepare_selection(k, step, runtime, out, stop,
+                               sr_discovery_allowance)) {
           out.after = state_version(k);
           return out;
         }
@@ -795,8 +915,28 @@ InvocationResult OnlineStrategyExecutor::advance(
       return out;
     }
     const uint64_t payload = runtime.selection[runtime.cursor];
+    const size_t trail_before = k.trail.size();
     InvocationBudget budget(step.work_unit, allowance);
+    bool consume_generated_sr_noop = false;
+    bool discard_generated_sr_batch = false;
+    bool preserve_affine_selection = false;
+    const uint64_t affine_budget_before = k.stats.affine_model_budget;
+    const uint64_t affine_interrupt_before = k.stats.affine_model_interrupted;
+    const uint64_t affine_unavailable_before = k.stats.affine_model_unavailable;
     ScopedRuleMaterialSettings material(k, step.material);
+    // Attach only for a generated pure-BVE pass and its atomic propagation
+    // follow-up. No index survives at the public boundary or changes another
+    // rule's eligibility. Borrow an existing caller-owned index unchanged.
+    std::optional<BveOccurrenceCache::Scope> bve_occurrences;
+    if (step.rule == "BVE" &&
+        step.granularity == InvocationGranularity::CompleteCurrentPass) {
+      const auto *parameters = std::get_if<BveParameters>(&step.parameters);
+      if (parameters && parameters->candidate_scope == BveCandidateScope::PureOnly)
+        bve_occurrences.emplace(runtime.bve_occurrences, k);
+    }
+    const bool generated_sr_pass =
+        step.rule == "SubstitutionRedundancy" &&
+        step.granularity == InvocationGranularity::CompleteCurrentPass;
     if (step.rule == "BVE") {
       ScopedRuleWorkBudget rule_work_budget(k, step.rule_work_budget);
       const auto *configured = std::get_if<BveParameters>(&step.parameters);
@@ -853,6 +993,7 @@ InvocationResult OnlineStrategyExecutor::advance(
       std::optional<ScopedReorderParameters> reorder;
       std::optional<ScopedParityModelParameters> parity_model;
       std::optional<ScopedOnehotModelParameters> onehot_model;
+      std::optional<ScopedAffineModelParameters> affine_model;
       if (const auto *p = std::get_if<AnalyzeParameters>(&step.parameters))
         analyze.emplace(k, *p);
       else if (const auto *p =
@@ -902,6 +1043,8 @@ InvocationResult OnlineStrategyExecutor::advance(
       else if (const auto *p =
                    std::get_if<OnehotModelParameters>(&step.parameters))
         onehot_model.emplace(k, *p);
+      else if (const auto *p = std::get_if<AffineModelParameters>(&step.parameters))
+        affine_model.emplace(k, *p);
       // Invocation-level native work limits override a rule parameter which
       // happens to share the legacy Kernel::work_budget handoff (Walk).  Both
       // scopes still unwind to the caller profile after this atomic apply.
@@ -910,8 +1053,7 @@ InvocationResult OnlineStrategyExecutor::advance(
           step.rule == "Factor" &&
           step.granularity == InvocationGranularity::CompleteCurrentPass;
       const bool enumerated_sr =
-          step.rule == "SubstitutionRedundancy" &&
-          step.granularity == InvocationGranularity::CompleteCurrentPass;
+          generated_sr_pass;
       std::optional<SubstitutionRedundancyApplicationResult> sr_application;
       const ApplyResult result =
           (!step.substitution_redundancy_instances.empty() || enumerated_sr)
@@ -926,8 +1068,15 @@ InvocationResult OnlineStrategyExecutor::advance(
                       !step.substitution_redundancy_instances.empty()
                           ? step.substitution_redundancy_instances[payload]
                           : runtime.sr_selection[payload];
-                  sr_application = substitution_redundancy_apply_detailed(
-                      k, instance, parameters, stop);
+                  sr_application =
+                      enumerated_sr &&
+                              (instance.orbitopal_prefix_certificate ||
+                               instance.symmetry_chain_certificate ||
+                               instance.unique_literal_amo_certificate)
+                          ? substitution_redundancy_apply_orbitopal_prefix(
+                                k, instance, parameters, stop)
+                          : substitution_redundancy_apply_detailed(
+                                k, instance, parameters, stop);
                   return sr_application->rule_result;
                 })
           : (!step.factor_grids.empty() || enumerated_factor_grid)
@@ -975,11 +1124,30 @@ InvocationResult OnlineStrategyExecutor::advance(
           // precondition is judged against a different state. Treat that as
           // the same stale-snapshot boundary used by other exact batches;
           // malformed storage was already rejected before any mutation.
-          out.status = runtime.pass_progress
-                           ? InvocationStatus::StaleRequest
-                           : InvocationStatus::InvalidRequest;
+          if (enumerated_sr) {
+            out.status = InvocationStatus::NoChange;
+            consume_generated_sr_noop = true;
+          } else
+            out.status = runtime.pass_progress
+                             ? InvocationStatus::StaleRequest
+                             : InvocationStatus::InvalidRequest;
           break;
         case SubstitutionRedundancyApplicationStatus::Inapplicable:
+          if (enumerated_sr &&
+              runtime.sr_selection[payload].symmetry_chain_certificate) {
+            // A later Schreier member is certified only for the contiguous
+            // prefix selected from the same snapshot. If that obligation ever
+            // fails, discard the rest of this snapshot.  A repeated step may
+            // enumerate again from the strengthened live state; it must never
+            // skip the failed premise and continue through the old batch.
+            out.status = InvocationStatus::NoChange;
+            discard_generated_sr_batch = true;
+          } else if (enumerated_sr) {
+            out.status = InvocationStatus::NoChange;
+            consume_generated_sr_noop = true;
+          } else
+            out.status = InvocationStatus::Inapplicable;
+          break;
         case SubstitutionRedundancyApplicationStatus::UnsupportedProofFormat:
           out.status = InvocationStatus::Inapplicable;
           break;
@@ -1002,14 +1170,75 @@ InvocationResult OnlineStrategyExecutor::advance(
           out.selection_complete = false;
           out.budget_status = BudgetStatus::Ready;
         }
+        if (consume_generated_sr_noop) {
+          out.work = 0;
+          out.applications = 0;
+          out.budget_status = BudgetStatus::Ready;
+        }
+      }
+      if (step.rule == "Lucky" && payload == 8 && result == ApplyResult::NoOp) {
+        // An unfinished private model search is not a scoped fixpoint. Keep
+        // its explicit selection pending for reconfiguration; attempted work
+        // stays charged even though its private candidate state was discarded.
+        if (k.stats.affine_model_interrupted != affine_interrupt_before)
+          out.status = InvocationStatus::Interrupted;
+        else if (k.stats.affine_model_budget != affine_budget_before) {
+          out.status = InvocationStatus::BudgetExhausted;
+          out.budget_status = BudgetStatus::Exhausted;
+        } else if (k.stats.affine_model_unavailable != affine_unavailable_before)
+          out.status = InvocationStatus::Inapplicable;
+        preserve_affine_selection = out.status == InvocationStatus::Interrupted ||
+            out.status == InvocationStatus::BudgetExhausted ||
+            out.status == InvocationStatus::Inapplicable;
+        if (preserve_affine_selection) out.selection_complete = false;
       }
       out.after = state_version(k);
     }
+    // Keep the selected follow-up inside the same executor transaction.  A
+    // caller-side propagation here would change touch/strategy epochs after
+    // expected_state was recorded and correctly make the retained batch stale.
+    // The follow-up is scheduling scaffolding: only the primary rule decides
+    // whether this pass made progress for repeat-to-fixpoint.
+    if (step.post_application == PostApplication::Propagate &&
+        out.status != InvocationStatus::Unsat &&
+        out.status != InvocationStatus::Sat &&
+        out.status != InvocationStatus::Conflict &&
+        out.status != InvocationStatus::Interrupted &&
+        out.status != InvocationStatus::ResourceExhausted &&
+        propagate_guard(k)) {
+      const int propagation_id = tactix_rule_id("Propagate");
+      assert(propagation_id >= 0);
+      const ApplyResult propagated =
+          apply_rule(tactix_rules()[static_cast<size_t>(propagation_id)], k);
+      if (propagated == ApplyResult::Unsat) {
+        out.status = InvocationStatus::Unsat;
+        out.rule_result = propagated;
+      } else if (propagated == ApplyResult::Conflict) {
+        out.status = InvocationStatus::Conflict;
+        out.rule_result = propagated;
+      }
+    }
+    // Online execution can run with DefaultPolicy's H already attached.  Root
+    // units produced directly or by the configured follow-up must leave its
+    // queue and heap before the next composed action observes the state.
+    heuristics_consume_root_assignments(k, trail_before);
+    out.after = state_version(k);
     runtime.expected_state = state_version(k);
+    // Generated SR payloads contain only stable literal identities. A prior
+    // member may collect/rebuild clause storage while reaching root. Ordinary
+    // members are checked against that strengthened formula; a certified
+    // orbitopal member already carries a base automorphism that preserves its
+    // complete preceding unit prefix. The expected-state check above rejects
+    // external transitions. Preserve the batch instead of repeating expensive
+    // structured discovery after each successful unit.
+    if (generated_sr_pass)
+      runtime.selection_generation = k.arena_generation;
     runtime.consumed = saturated_add(runtime.consumed, out.work);
     runtime.pass_progress |= out.made_rule_progress;
     sequence_progress_ |= out.made_rule_progress;
-    if (out.applications)
+    if (discard_generated_sr_batch)
+      runtime.cursor = runtime.selection.size();
+    else if (!preserve_affine_selection && (out.applications || consume_generated_sr_noop))
       ++runtime.cursor;
     out.configuration_revision = revision_;
     out.step_id = step.id;

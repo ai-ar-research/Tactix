@@ -200,6 +200,7 @@ TABLE = {
     "reduce_protect_tiers":    ("POLICY", "typed canonical Reduce tier protection"),
     "reduce_compact_collection":
                                 ("POLICY", "typed explicit Reduce collection scope"),
+    "reduce_bookkeeping":       ("POLICY", "typed Reduce aging and reduction clock control"),
 }
 
 # Where the config surface begins in kernel.hpp. Everything below this marker

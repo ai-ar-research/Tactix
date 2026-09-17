@@ -175,11 +175,11 @@ void test_dsr_substitution() {
       {make_lit(3, false), make_lit(4, true)}};
 
   expect(emitted("dsr-asc-sr", ProofFormat::DsrAscii, [&](Proof &p) {
-           assert(p.add_sr(11, clause, 2, true_lits, 1, mappings, 1));
+           assert(p.add_sr(11, clause, 2, true_lits, 1, mappings, 1, 5));
          }),
          "1 -2 1 3 1 4 -5 0\n", "dsr-ascii add_sr");
   expect(emitted("dsr-bin-sr", ProofFormat::DsrBinary, [&](Proof &p) {
-           assert(p.add_sr(11, clause, 2, true_lits, 1, mappings, 1));
+           assert(p.add_sr(11, clause, 2, true_lits, 1, mappings, 1, 5));
          }),
          std::string("\x01\x02\x05\x02\x06\x02\x08\x0b\x00", 9),
          "dsr-binary add_sr");
@@ -188,12 +188,88 @@ void test_dsr_substitution() {
                                    ProofFormat::DratAscii,
                                    ProofFormat::Lrat})
     expect(emitted("incompatible-sr", format, [&](Proof &p) {
-             assert(!p.add_sr(11, clause, 2, true_lits, 1, mappings, 1));
+             assert(!p.add_sr(11, clause, 2, true_lits, 1, mappings, 1, 5));
            }),
            "", "add_sr rejects compatibility format");
 
   Proof unopened;
-  assert(unopened.add_sr(11, clause, 2, true_lits, 1, mappings, 1));
+  assert(unopened.add_sr(11, clause, 2, true_lits, 1, mappings, 1, 5));
+}
+
+// Pinned Trestle rejects the pivot literal as a mapping source and forces the
+// pivot true after the substitution. An explicit pivot mapping is therefore
+// re-expressed in a form both dsr-trim and Trestle read identically.
+void test_dsr_pivot_mapping_forms() {
+  const auto lit = [](int e) { return make_lit(std::abs(e) - 1, e < 0); };
+  const auto mapping = [&](int from, int to) {
+    return DsrLiteralMapping{lit(from), lit(to)};
+  };
+  const auto ascii = [](const char *name, const std::vector<Lit> &clause,
+                        const std::vector<Lit> &true_lits,
+                        const std::vector<DsrLiteralMapping> &mappings) {
+    return emitted(name, ProofFormat::DsrAscii, [&](Proof &p) {
+      assert(p.add_sr(1, clause.data(), clause.size(), true_lits.data(),
+                      true_lits.size(), mappings.data(), mappings.size(), 6));
+    });
+  };
+
+  // SST cut: the pivot image 2 is true under !C, so its mapping is dropped.
+  expect(ascii("pivot-drop", {lit(1), lit(-2)}, {},
+               {mapping(1, 2), mapping(2, 1)}),
+         "1 -2 1 1 2 1 0\n", "pivot mapping true under !C is dropped");
+  expect(ascii("negative-pivot-drop", {lit(-1), lit(2)}, {}, {mapping(1, 2)}),
+         "-1 2 -1 0\n", "negative pivot mapping true under !C is dropped");
+  // Another clause literal is mapped true, so it becomes the pivot.
+  expect(ascii("repivot", {lit(1), lit(3)}, {lit(3)}, {mapping(1, 2)}),
+         "3 1 3 3 1 2 0\n", "true-mapped literal becomes the pivot");
+  // Every image is false under !C: the clause is RUP.
+  expect(ascii("rup", {lit(1), lit(2)}, {}, {mapping(1, 2), mapping(2, 1)}),
+         "1 2 0\n", "all-false image is a witnessless addition");
+  // One open image m: RUP (C | m), then C with that pivot, then delete.
+  expect(ascii("unit-lemma", {lit(1)}, {}, {mapping(1, 6)}),
+         "1 6 0\n1 1 0\nd 1 6 0\n", "open unit pivot image uses a lemma");
+  const Lit unit[1] = {lit(1)};
+  const DsrLiteralMapping unit_map[1] = {mapping(1, 6)};
+  expect(emitted("unit-lemma-bin", ProofFormat::DsrBinary,
+                 [&](Proof &p) {
+                   assert(p.add_sr(1, unit, 1, nullptr, 0, unit_map, 1, 6));
+                 }),
+         std::string("\x01\x02\x0c\x00\x01\x02\x02\x00\x02\x02\x0c\x00", 12),
+         "dsr-binary pivot lemma");
+  expect(ascii("lemma-pivot", {lit(2), lit(1)}, {},
+               {mapping(2, 1), mapping(1, 6)}),
+         "1 2 6 0\n1 2 1 1 2 1 0\nd 1 2 6 0\n",
+         "open non-pivot image becomes the lemma pivot");
+
+  const Lit open_pair[2] = {lit(1), lit(2)};
+  const DsrLiteralMapping open_maps[2] = {mapping(1, 3), mapping(2, 4)};
+  assert(plan_dsr_witness(open_pair, 2, nullptr, 0, open_maps, 2).form ==
+         DsrWitnessForm::Extension);
+  const DsrLiteralMapping unrelated[1] = {mapping(3, 4)};
+  assert(plan_dsr_witness(open_pair, 2, nullptr, 0, unrelated, 1).form ==
+         DsrWitnessForm::Direct);
+
+  const std::string extension =
+      "-5 1 2 0\n5 1 2 5 5 1 3 2 4 0\n1 2 0\n"
+      "d 5 1 2 0\nd -5 1 2 0\n";
+  expect(emitted("general-extension", ProofFormat::DsrAscii, [&](Proof &p) {
+           assert(p.add_sr(1, open_pair, 2, nullptr, 0, open_maps, 2, 4));
+           assert(p.add_sr(2, open_pair, 2, nullptr, 0, open_maps, 2, 4));
+         }), extension + extension, "temporary external variable is reusable");
+  expect(emitted("general-extension-mapped", ProofFormat::DsrAscii,
+                 [&](Proof &p) {
+                   const std::vector<Var> map{6, 1, 8, 3};
+                   p.bind_variable_map(&map);
+                   assert(p.add_sr(1, open_pair, 2, nullptr, 0, open_maps, 2, 9));
+                 }),
+         "-10 7 2 0\n10 7 2 10 10 7 9 2 4 0\n7 2 0\n"
+         "d 10 7 2 0\nd -10 7 2 0\n",
+         "temporary external identity bypasses internal renaming");
+  expect(emitted("general-extension-exhausted", ProofFormat::DsrAscii,
+                 [&](Proof &p) {
+                   assert(!p.add_sr(1, open_pair, 2, nullptr, 0, open_maps, 2,
+                                    INT32_MAX));
+                 }), "", "external literal exhaustion emits no prefix");
 }
 
 void test_external_variable_map() {
@@ -324,6 +400,15 @@ void test_population_membership_uses_exact_drat_multiset() {
   p.seed_population(1, raw, 3);
   assert(p.population_contains(99, reordered, 3));
   assert(!p.population_contains(1, normalized, 2));
+  // Input import publishes replacements before the strict checker is armed.
+  // Known deletions must still update the population during that interval.
+  const std::string path = tmp_path("import-shadow");
+  assert(p.open(path.c_str(), ProofFormat::DsrAscii));
+  p.add_rup(2, normalized, 2, nullptr, 0);
+  p.del(2, 1, raw, 3);
+  assert(!p.population_contains(1, raw, 3));
+  assert(p.population_contains(2, normalized, 2));
+  std::remove(path.c_str());
   p.arm_population_shadow();
   assert(p.population_shadow());
 }
@@ -340,6 +425,7 @@ int main() {
   test_dsr_binary();
   test_dsr_ascii();
   test_dsr_substitution();
+  test_dsr_pivot_mapping_forms();
   test_external_variable_map();
   test_lrat_add_rup();
   test_lrat_add_rat();

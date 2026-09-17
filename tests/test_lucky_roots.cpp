@@ -41,7 +41,9 @@ static unsigned fixture(unsigned roots, bool reverse, bool fold) {
   // Inprocessing respects the stop, so it cannot accidentally remove the
   // motivating roots on behalf of the missing Lucky lifecycle consumer.
   volatile sig_atomic_t stop=1;
-  assert(default_solve(k,&stop)==0);
+  DefaultStrategyConfig config;
+  config.inprocess.structured_root_before_lucky = false; // reference Lucky lifecycle
+  assert(DefaultPolicy(config).solve(k,&stop)==0);
   assert(k.stats.lucky_early_calls==1 && k.stats.lucky_late_calls==1);
   assert(k.level==0 && kernel_root_fixed(k)==roots);
   unsigned stale=0;

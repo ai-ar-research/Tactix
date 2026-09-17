@@ -54,6 +54,7 @@ struct ReduceParameters {
   uint32_t victim_denominator = VICTIM_DENOMINATOR_DEFAULT;
   bool protect_tiers = true;
   bool compact_collection = false;
+  bool reduction_bookkeeping = true;
   constexpr bool valid() const {
     return tier1 <= tier2 && victim_denominator &&
            victim_numerator <= victim_denominator;
@@ -166,6 +167,41 @@ struct OnehotModelParameters {
   static OnehotModelParameters from_kernel(const Kernel &);
 };
 
+// SAT-only low-weight search of an exact projected affine image. Coordinates
+// use stable external DIMACS identities; an explicit empty projection is legal.
+enum class AffineProjectionMode : uint8_t { Boundary, AllParity, Explicit };
+struct AffineSearchScope {
+  // AUTO_SPLIT selects half of the current coordinate count. An explicit
+  // split is interpreted after the caller-selected coordinate permutation.
+  static constexpr uint64_t AUTO_SPLIT = UINT64_MAX;
+  uint64_t left_size = AUTO_SPLIT;
+  uint64_t left_weight = 0, right_weight = 0, total_weight = 0;
+  friend bool operator==(const AffineSearchScope &, const AffineSearchScope &) = default;
+};
+struct AffineModelParameters {
+  static constexpr uint64_t DEFAULT_MAXIMUM_WEIGHT = 9;
+  static constexpr uint64_t DEFAULT_IMBALANCE = 2;
+  static std::vector<AffineSearchScope> reference_scopes();
+  uint64_t maximum_variables = 100000, maximum_constraints = 1000000;
+  uint64_t maximum_arity = 8, maximum_projection = 128;
+  // Recovered nonunit equations; mandatory root rows do not satisfy this
+  // strategy admission threshold. Zero enables even a root-only model search.
+  uint64_t minimum_equations = 1;
+  uint64_t maximum_entries = 5000000;
+  // Separate declared payload budgets; allocator overhead and existing Kernel
+  // storage are not part of these bounds. SLURM enforces total process memory.
+  uint64_t import_bytes = 268435456, linear_bytes = 268435456;
+  uint64_t table_bytes = 268435456, maximum_work = 2000000000;
+  uint64_t candidate_budget = 10000, permutations = 5, seed = 1;
+  AffineProjectionMode projection_mode = AffineProjectionMode::Boundary;
+  bool automatic_negated = false, shuffle_first = false;
+  bool free_phase = false, residual_phase = false;
+  std::vector<int> projection;
+  std::vector<AffineSearchScope> scopes = reference_scopes();
+  bool valid() const;
+  static AffineModelParameters from_kernel(const Kernel &);
+};
+
 void install_rule_parameters(Kernel &, const BceParameters &);
 void install_rule_parameters(Kernel &, const TernaryParameters &);
 void install_rule_parameters(Kernel &, const FactorParameters &);
@@ -176,6 +212,7 @@ void install_rule_parameters(Kernel &, const WalkParameters &);
 void install_rule_parameters(Kernel &, const ReorderParameters &);
 void install_rule_parameters(Kernel &, const ParityModelParameters &);
 void install_rule_parameters(Kernel &, const OnehotModelParameters &);
+void install_rule_parameters(Kernel &, const AffineModelParameters &);
 
 template <class Parameters> class ScopedRuleParameters {
 public:
@@ -202,6 +239,7 @@ using ScopedReduceParameters = ScopedRuleParameters<ReduceParameters>;
 using ScopedReorderParameters = ScopedRuleParameters<ReorderParameters>;
 using ScopedParityModelParameters = ScopedRuleParameters<ParityModelParameters>;
 using ScopedOnehotModelParameters = ScopedRuleParameters<OnehotModelParameters>;
+using ScopedAffineModelParameters = ScopedRuleParameters<AffineModelParameters>;
 
 class ScopedWalkParameters {
 public:

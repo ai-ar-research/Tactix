@@ -12,6 +12,16 @@
 
 namespace tactix::strategy {
 
+enum class BveCandidateScope : uint8_t {
+  All = 0,
+  PureOnly = 1,
+};
+
+constexpr bool valid_bve_candidate_scope(BveCandidateScope scope) {
+  return scope == BveCandidateScope::All ||
+         scope == BveCandidateScope::PureOnly;
+}
+
 // Every heuristic control consumed by BVE is supplied per invocation.  The
 // legacy Kernel fields remain the rule ABI during migration; ScopedParameters
 // poses these values only for the atomic request and restores them exactly.
@@ -36,6 +46,9 @@ struct BveParameters {
   uint32_t definition_core_budget_multiplier =
       DEFINITION_CORE_BUDGET_MULTIPLIER_DEFAULT;
   bool backward = false;
+  // This filters only policy-generated complete passes. Explicit one-instance
+  // and selected-batch requests retain the complete legal BVE surface.
+  BveCandidateScope candidate_scope = BveCandidateScope::All;
 
   static BveParameters from_kernel(const Kernel &k) {
     return {k.bve_gate_mask,
@@ -48,16 +61,43 @@ struct BveParameters {
             k.bve_definition_budget,
             k.bve_definition_cores,
             k.bve_definition_core_budget_multiplier,
-            k.bve_backward};
+            k.bve_backward,
+            BveCandidateScope::All};
   }
 
   bool valid() const {
     // Preserve the historical `~0u` spelling for "all gates" and leave
     // unknown bits inert for forward-compatible gate-family additions.
     return definition_cores > 0 && xor_arity_limit >= BVE_XOR_ARITY_MIN &&
-           xor_arity_limit <= BVE_XOR_ARITY_CAPACITY;
+           xor_arity_limit <= BVE_XOR_ARITY_CAPACITY &&
+           valid_bve_candidate_scope(candidate_scope);
   }
 };
+
+inline void bve_complete_instances(Kernel &k, const RuleVTable &rule,
+                                   const BveParameters &parameters,
+                                   std::vector<uint64_t> &out) {
+  if (parameters.candidate_scope == BveCandidateScope::All) {
+    out.resize(k.nvars);
+    out.resize(rule.instances(k, out.data(), k.nvars));
+    return;
+  }
+
+  BveOccurrences occurrences;
+  bve_build_occurrences(k, occurrences);
+  std::vector<Var> candidates;
+  bve_schedule_from_occurrences(k, occurrences, candidates);
+  out.clear();
+  out.reserve(candidates.size());
+  for (const Var variable : candidates) {
+    const uint32_t positive =
+        occurrences.count(make_lit(variable, false));
+    const uint32_t negative = occurrences.count(make_lit(variable, true));
+    if ((positive == 0) == (negative == 0))
+      continue;
+    out.push_back(lit_instance(k, make_lit(variable, false)));
+  }
+}
 
 struct BveInvocationRequest {
   BveParameters parameters;
@@ -313,8 +353,7 @@ inline InvocationResult invoke_bve(const RuleVTable &rule, Kernel &k,
       out.status = InvocationStatus::InvalidRequest;
       return out;
     }
-    complete.resize(k.nvars);
-    complete.resize(rule.instances(k, complete.data(), k.nvars));
+    bve_complete_instances(k, rule, request.parameters, complete);
     selected = complete;
     break;
   case InvocationGranularity::CanonicalApplication:

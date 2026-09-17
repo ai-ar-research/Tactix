@@ -42,13 +42,19 @@ Each mechanism increment follows the same sequence.
    interface. Settings own every heuristic threshold, admission bound, effort
    limit, search limit and scheduling decision. Rules retain only soundness and
    representation constants.
-5. **Verify.** Check focused models or native DRAT/LRAT proofs, explicit and
-   enumerated instances, interruption and online resumption. Claude Code owns
+5. **Verify.** Check focused models or native DSR proofs through forward
+   `dsr-trim`, LSR, and Trestle, explicit and enumerated instances,
+   interruption and online resumption. Claude Code owns
    the required fuzz checkpoint; Codex owns implementation and debugging.
-6. **Measure.** Count checked WV100 transitions and solves, then run the
+6. **Measure.** Run every coherent Satsuma-mechanism implementation across all
+   fixed 57 Satsuma+Kissat rows with a 10-second timeout per row. Count checked
+   transitions and solves, extend promising cases to the focused limit, then run the
    periodic B28+C5 and Rank 1--50 regression gates. Promote only a coherent
    general mechanism whose coverage gain survives the correctness and
-   performance gates.
+   performance gates. A crossing starts causal localization and follow-up
+   optimization; keep a sound, plausible step while testing whether its data
+   structures or schedule need another repair. Revert only when that work shows
+   the mechanism is wrong or leaves an unjustifiable residual cost.
 
 Experiments use immutable solver pins and record the commit, binary hash,
 instance hash, arguments, seed, rule settings, allocation, timeout, result,
@@ -63,14 +69,18 @@ measurements under the three-wave/2%-range rule in the development plan.
 
 | Purpose | Partition | CPUs/task | Memory | Solver / checker limit |
 |---|---|---:|---:|---:|
-| Focused WV100 mechanism development | `cpu-dense-hwulab-q` by default | 8 | 32 GiB | 300 s / recorded per run |
+| Full WV57 implementation breadth screen | `cpu-dense-hwulab-q` | 8 | 32 GiB | 10 s / recorded per run |
+| Promising focused WV100 follow-up | `cpu-dense-hwulab-q` by default | 8 | 32 GiB | 300 s / recorded per run |
 | Qualitative large-effect probe | `cpu-q` is allowed | record the allocation | 32 GiB | at most 300 s / recorded per run |
 | B28+C5 regression gate | `cpu-dense-hwulab-q` | 12 | 32 GiB | 1,200 s / 16,000 s |
 | Rank 1--50 regression gate | `cpu-dense-hwulab-q` | 12 | 32 GiB | 1,200 s / 16,000 s |
 | Final WV100 coverage | `cpu-dense-hwulab-q` | 8 | 32 GiB | 1,200 s / 16,000 s |
 
-Every task runs one solver thread and has no node constraint. Arrays are full
-width unless a correctness or storage constraint is recorded. The current
+Every task runs one solver thread and has no node constraint. A coherent
+Satsuma mechanism is screened on all 57 fixed rows rather than only a selected
+family; the short timeout is a breadth and transition test, not final coverage
+evidence. Arrays are full width unless a correctness or storage constraint is
+recorded. The current
 Tier-D array remains the separately authorized `cpu-q`, four-CPU, 32-GiB,
 1,200-second campaign and is not altered to match this protocol.
 
@@ -144,15 +154,11 @@ mechanism hypothesis, source location, transition reproducer, negative control
 and proof/model route. Unknown attribution stays unknown rather than becoming a
 family-specific policy.
 
-Before S1 implementation, run three falsification gates. G0 classifies each
-emitted Satsuma obligation as a direct substitution image, RUP discharge, or a
-dependency on an earlier symmetry addition, and determines whether each empty
-residual follows by unit propagation over those additions. G1 builds an offline
-native-LRAT prototype and checks it with the pinned independent checker while
-recording expansion, checker time and peak memory. G2 tests whether the same
-automorphisms survive Tactix's default root inprocessing, determining the safe
-schedule boundary. A failed gate changes the rule/proof design before solver
-mutation begins.
+Before S1 implementation, three falsification gates classified Satsuma's
+obligations, established native DSR with forward elaboration and independent
+Trestle checking, and fixed the safe level-zero schedule boundary. The retained
+DRAT/LRAT translation experiments are historical evidence; new Satsuma-derived
+actions emit direct DSR witnesses.
 
 ### S1: Satsuma symmetry and substitution redundancy (57 UNSAT)
 
@@ -166,21 +172,16 @@ Introduce a general root `SubstitutionRedundancy` calculus action whose explicit
 instance is a candidate clause plus a finite literal substitution witness. The
 rule validates the witness against a proof-visible view before mutation. That
 view contains every original, learned, Factor and symmetry clause not yet
-proof-deleted, plus LRAT-emitted root units and scoped proof-only translation
-clauses. DRAT root consequences that were not emitted remain propagation facts,
-not population entries. Duplicate identity follows the target format: literal
-multiset multiplicity for DRAT and clause id for LRAT. Diagnostic builds extend
-the existing proof shadow to assert that this view matches the checker's
-population. Garbage collection is not a substitute for this invariant.
+proof-deleted, plus every emitted root unit. DSR deletion and SR validation use
+literal-multiset multiplicity. Diagnostic builds extend the proof shadow to
+assert that this view matches the checker's population. Garbage collection is
+not a substitute for this invariant.
 
-Validation records every direct image clause id and every RUP antecedent while
-checking the witness; proof generation does not search for hints afterward.
-Any fresh translation variables live only in the proof emitter, above the input
-identity range, and never become kernel decision variables or model entries.
-The native proof line schema and proof-visible population contract must be added
-to the calculus and settle O16 after G1 establishes them. Proof and checker cost
-must fit the declared run resource/scratch limits and is always reported; no
-unsupported fixed expansion ratio is assumed.
+Validation establishes every direct image and RUP obligation before mutation;
+proof generation serializes the checked substitution directly. The native DSR
+line schema and proof-visible population contract are fixed in the calculus and
+close O16. Proof and checker cost must fit the declared run resource/scratch
+limits and is always reported.
 
 Detection and proof construction poll the external stop and consume configured
 ticks at bounded obligation boundaries. They stage their result without formula
@@ -199,6 +200,29 @@ converter. The existing
 20-row pilot's 19 successful SR-to-DRAT-to-LRAT checks establish feasibility;
 its one Johnson conversion failure blocks the Johnson substage until it has a
 native checked route, but does not remove those rows from S1.
+
+For binary-dense formulas, the colored graph uses direct literal-to-literal
+edges for binary clauses and colored degree-two negation gadgets. This is an
+exact representation optimization, not hyperedge compression. Its mode and
+density threshold are typed caller settings, and every proposed literal action
+is still checked against the complete live clause multiset.
+
+The structured checkpoint exposes canonical, coloring-bounded exact maximum,
+and deterministic multistart greedy clique schedules. DefaultPolicy uses the
+greedy schedule so an NP-hard ordering heuristic cannot exhaust its explicit
+budget before a sound fixing pass; exact search remains caller-selectable. One
+exact-checked formula generator cache serves all schedules. For row-by-column product bases it
+computes the kernel of the induced column action over compact permutations,
+finds a row transposition in a bounded stabilizer chain, and lifts only the
+resulting word to the full literal domain. Default admission is one first root
+pass; the public producer remains repeatable and resumable. On each subsecond
+control, the isolated symmetry time must not exceed Satsuma's retained complete
+solver time. Default promotion separately requires the B28+C5 and Rank 1--50
+normal 1.01 targets, proof/model checks, fuzz, and anonymous cleanup. Crossing
+a timing target starts causal localization and optimization; it does not erase
+an independently supported mechanism. Any promoted residual cost must be small,
+stable under matched repeats, understood per instance, and reported alongside
+the checked WV100 gain.
 
 ### S2: LymphoSAT specialist mechanisms (34 mixed-status rows)
 
@@ -233,7 +257,7 @@ strategy while still counting toward API-level reachability experiments.
 ## Acceptance matrix
 
 A mechanism increment must pass focused unit/API tests, independent model or
-native DRAT/LRAT checks, sanitizer coverage where memory/state changes, seeded
+native DSR checks, sanitizer coverage where memory/state changes, seeded
 random replay, effective-transition and negative-control tests, interruption
 and resume tests, and a Claude-owned fuzz checkpoint. B28+C5 and Rank 1--50 run
 periodically after meaningful solver batches and before promotion. Their fixed
@@ -241,7 +265,7 @@ membership and retained references are reused; reference solvers are not rerun.
 
 Causal probes use concurrent on/off arms from the same immutable pin, differing
 only in typed settings, and counters must prove that the on arm reached and
-applied the intended action. Registration/default-off tests require identical
+applied the intended action. Registration-only/default-disabled tests require identical
 proofs, non-timing statistics and outcomes. Before a mechanism enters the one
 fixed WV100 configuration, its enabled detector runs on B28+C5, Rank 1--50 and
 structurally similar non-WV100 Tier-D rows to measure inapplicable cost and
@@ -251,8 +275,8 @@ explicit strategy budgets, not tuned from WV100 identities.
 Every commit is an N1--N4-valid checkpoint. Partial implementation may remain
 in the working tree during development, but it is not committed until its
 declared API surface is N1-complete, its proof/model paths satisfy N2, and its
-default behavior satisfies the current N3/N4 gates. Keeping a rule default-off
-does not waive N1 or N2 for callers that explicitly apply it.
+default behavior satisfies the current N3/N4 gates. A rule disabled by a
+strategy still owes N1 and N2 for callers that explicitly apply it.
 
 WV100 reporting leads with checked solved counts by SAT/UNSAT and winner
 signature, followed by time, proof size, peak memory and regression effects.

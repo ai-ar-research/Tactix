@@ -19,6 +19,17 @@ option(TACTIX_ENABLE_PROOF_SHADOW "Compile the proof-population oracle" OFF)
 # the solver library or binary.
 add_compile_options(-Wall -Wextra -fno-exceptions -fno-rtti)
 
+# DejaVu is a pinned graph-automorphism backend whose public implementation
+# uses exceptions and RTTI.  Keep it in a separate translation unit with a
+# narrow, noexcept boundary; the solver core retains its C-style build flags.
+add_library(tactix_symmetry_backend STATIC
+  src/symmetry_backend/dejavu_backend.cpp)
+target_include_directories(tactix_symmetry_backend PRIVATE src)
+target_include_directories(tactix_symmetry_backend SYSTEM PRIVATE
+  third_party/dejavu-4c275e9)
+target_compile_options(tactix_symmetry_backend PRIVATE
+  -fexceptions -frtti -fvisibility=hidden)
+
 # OBJECT (not STATIC): rule registration happens in static initializers
 # (TACTIX_REGISTER_RULE), and an archive lets the linker drop any rule TU
 # nothing references directly — exactly the situation the registry-driven
@@ -39,6 +50,7 @@ add_library(tactix_lib OBJECT
   src/engine/subsolver.cpp
   src/policies/heuristics.cpp
   src/policies/default_policy.cpp
+  src/policies/structured_root_strategy.cpp
   src/policies/random_policy.cpp
   src/policies/trace.cpp
   src/policies/stress_registry.cpp
@@ -68,6 +80,7 @@ if(TACTIX_ENABLE_PROOF_SHADOW)
   target_link_options(tactix_lib PUBLIC -rdynamic)
 endif()
 target_include_directories(tactix_lib PUBLIC src include)
+target_link_libraries(tactix_lib PUBLIC tactix_symmetry_backend)
 
 add_executable(tactix src/main.cpp)
 target_link_libraries(tactix PRIVATE tactix_lib)
