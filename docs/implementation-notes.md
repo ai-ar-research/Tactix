@@ -13,9 +13,9 @@ Engineering companion to `docs/calculus.md`: guards, deviations and representati
 | M3 ConflictAnalysis | `conflict_valid && !inconsistent` | pure; Analyze+Backjump is atomic |
 | S1 Restart | `!inconsistent` | pure; level zero without a conflict is an explicit no-op. A retained non-root prefix keeps a still-falsified conflict; a stale record is cleared, while a surviving root conflict is discharged through native analysis/proof before root rewrites. DefaultPolicy schedules Restart only above root. |
 | S2 Reduce | `!inconsistent` | pure; pending/non-root reasons and a recorded large conflict are locked through deletion and collection, with live Refs forwarded. Proved root units need no clause lock. Isolated7448 adds opaque individual-victim payloads independent of tier/recency protection, retaining canonical/count selection. M1 names LRAT units before deletion; GC retires root reasons. Preparation-root guidance remains policy-owned. |
-| S5 Lucky | `root && !conflict_valid` | root-phase model probe; instances 0–5 restore the root state on failure. Structural instances 6 (GF(2) ternary groups), 7 (exact one-hot GF(3)), 8 (projected GF(2) syndrome search), and 9 (exact direct finite-domain binary CSP) run after root closure at the sparse, connected, non-probing action boundary; all admission/search limits are typed settings, and each commits only a whole-CNF/root-validated model. DefaultPolicy schedules proof-producing structured-root work before the potentially expensive DirectCSP search while preserving its stable imported binary order; DirectCSP also declines a degree-ordered, actually witnessed all-different clique larger than its value domain without claiming UNSAT. A failed structural search may retain one complete assignment as H-only advice, indexed by stable external variable identity; this does not change formula, trail, proof, or SAT status. Validation counts only values publication will retain: an unassigned retired literal cannot alone satisfy a live clause, including a redundant clause retained by caller-owned BVE. Instance 8 uses stable signed external projection identities (unavailable retired coordinates decline), exact caller-scoped supports, declared logical payload limits, and one shared work ledger; the configurable minimum equation count excludes mandatory root rows. Recognition hashes normalized scopes, excludes only counts below the necessary complete-group size, then checks distinct sign patterns and sorts viable scopes for deterministic equation order. |
+| S5 Lucky | `root && !conflict_valid` | root-phase model probe; instances 0–5 restore root state on failure. Structural instances 6 (GF(2) ternary), 7 (one-hot GF(3)), 8 (projected GF(2)), 9 (finite-domain CSP), 10 (balanced signatures), 11 (factorized arithmetic circuit), 12 (Černý automaton), 13 (lookup-table circuit), and 14 (SIMON32 round circuit) run at the sparse, connected, non-probing root boundary and publish only whole-CNF/root-validated models. DefaultPolicy schedules 10–14 at the first untouched imported root closure because they use stable external coordinates or raw parser summaries; proof-producing structured-root work still precedes DirectCSP. Instance 10 checks its complete diagonal/boundary signature before owner-equivalent annealing. Instance 11 retains exact long-clause shape and an 80-clause raw tail, recognizes two ordered input blocks and a complemented comparator pair, then applies the owner's deterministic Miller–Rabin/Pollard-Rho bounds and productive completion fixpoint. Instance 12 derives states/word length from parser counts, recovers every transition and the initial image from live clauses, accepts only the two-letter cycle-plus-one-compression structure, and constructs the general Černý word. Instance 13 uses constant-time parser summaries to admit only uniform truth-table blocks, then recovers every ordered gate and missing output tuple before structural-support SIMD enumeration or occurrence-queued GAC with minimum-row/lookahead branching; its work limits are typed and it declines after identity-changing compaction. Instance 14 admits the exact round-family census, recovers the secondary-key permutation and each round key half from clauses, runs the owner numeric word-level key scan under typed round/candidate limits, and reconstructs all state and gate auxiliaries. DirectCSP also declines a witnessed oversized all-different clique without claiming UNSAT. Failed structural search may retain only H advice where declared. Validation counts only values publication retains; retired values cannot witness a live clause. Instance 8 keeps stable signed projections, exact scoped supports and one shared work ledger. Recognition failure, interruption, or exhausted bounded work returns NoOp. |
 | S6 Walk | `root && H && nvars > 0` | root-phase policy operation; the dense-entry/sparse-resume representation transition is not exposed on a live decision trail |
-| S8 LocalSearchGuidance | `root && propagated && H` | H-only import of one retained structural assignment into saved/target phases. Instances select DirectCSP, affine, parity, or one-hot advice independently. DefaultPolicy rotates available sources immediately before a Walk slot, so the generic walker refines the selected structural candidate before CDCL consumes it. |
+| S8 LocalSearchGuidance | `root && propagated && H` | H-only import of one retained structural assignment into saved/target phases. Instances select DirectCSP, affine, parity, one-hot, or balanced-signature advice independently. DefaultPolicy rotates available sources immediately before a Walk slot, so the generic walker refines the selected structural candidate before CDCL consumes it. |
 | C1 SubsumeForward, C2 Strengthen, C3 Vivify | `root` | declared inprocessing boundary. C1 exposes every live victim. C2 additionally exposes each distinct `(victim, removed literal)` result plus its fused C1 deletion; proper C2 strengthening may use redundant partners, while C1 deletion still requires an irredundant or binary subsumer. |
 | V1 Probe, V2 Backbone | `root && !conflict_valid` | root is the declared inprocessing boundary; conflict condition is abstract |
 | V3 Substitute, V4 TransitiveReduce, V5 Sweep | `root` | declared inprocessing boundary; isolated7448 moves `TACTIX_NO_SWEEP` to scheduling only, preserving explicit and canonical public V5 calls. |
@@ -46,17 +46,18 @@ LRAT uses their ids, while DSR/DRAT delete one literal-multiset copy per emitted
 prefix before returning from interruption. Identical non-LRAT clauses are interchangeable, but leaving an extra copy in the checker
 would give a later direct-SR validation an incomplete formula.
 
-UNSAT acceptance runs `dsr-trim` against the original CNF, decompresses its LSR when required, and invokes pinned Trestle `srcheck`.
+UNSAT acceptance runs `dsr-trim` against the original CNF and invokes pinned Trestle `srcheck` directly on its binary LSR.
 CNF, DSR, LSR and checker intermediates use anonymous scratch and disappear on exit, timeout, crash, cancellation and signal. The
+repository-pinned Trestle patch recognizes LSR addition/deletion markers 3/4 and signed varints, and rejects truncated or overflowing tokens before semantic checking.
 streaming writer retains no checker-population ledger or proof-only kernel variables. Format selection cannot change formula mutation,
 guards, scheduling, or legal instances. The C API permits one writer before input/proof-id settlement; late or duplicate attachment
 returns `-1` because it would omit earlier proof-state transitions.
 
-Pinned `dsr-trim` emits the hintless LSR line `n+1 0 0` when the input CNF
-already contains an empty clause; Trestle correctly rejects it. The checker
-protocol repairs only that exact output to `n+1 0 k 0`, where input clause `k`
-is independently parsed as empty, and still requires Trestle acceptance. Every
-other formula or LSR spelling bypasses the bridge unchanged.
+Pinned `dsr-trim` emits the hintless binary equivalent of `n+1 0 0` when the
+input CNF already contains an empty clause; Trestle correctly rejects it. The
+checker protocol repairs only that exact output with input-empty hint `k`, which
+is independently parsed from the CNF, and still requires Trestle acceptance.
+Every other formula or binary LSR stream bypasses the bridge unchanged.
 
 Pinned upstream `dsr-trim` commit `ffe486` deleted tautological input clauses during parsing and then attempted to hash their
 deleted slots. `tools/checkers/patches/dsr-trim-ffe486-tautology-hash.patch` skips those slots during hash initialization. Setup
@@ -68,9 +69,8 @@ anonymous-scratch runtime checker pipeline. Active benchmark and fuzz launchers
 select that pipeline by default; explicit DRAT/LRAT compatibility paths remain.
 Unit, proof-oracle, runtime, full Release and sanitizer suites pass. The first
 Claude-owned fuzz checkpoint exposed the pinned checker defect; its replacement
-passed with identical solver binaries and the patched checker. B27+C5 and the
-complete Rank1--40 solver-time vector show no regression; remaining Rank checker
-tasks continue in the background under the accepted nonblocking proof-check rule.
+passed with identical solver binaries and the patched checker. B28+C5 and Rank1--50 are the current mandatory regression gates; pending solver
+or checker tasks never count as acceptance.
 
 ## 2. Engineering-deviation ledger
 
@@ -412,7 +412,7 @@ non-BCE form has a single-literal witness. Yield alone does not change the repre
 | M3 `ConflictAnalysis` | implemented |
 | M4 | folded into M3 |
 | S1 `Restart` · S2 `Reduce` · S5 `Lucky` | implemented |
-| S3 `Rephase` · S4 `SwitchMode` · S6 `Walk` · S7 `Reorder` · S8 `LocalSearchGuidance` | implemented H-only operations; S8 independently exposes retained DirectCSP, affine, parity, and one-hot phase advice |
+| S3 `Rephase` · S4 `SwitchMode` · S6 `Walk` · S7 `Reorder` · S8 `LocalSearchGuidance` | implemented H-only operations; S8 independently exposes retained DirectCSP, affine, parity, one-hot, and balanced-signature phase advice |
 | C1 `SubsumeForward` · C2 `Strengthen` · C3 `Vivify` | implemented |
 | V1 `Probe` · V2 `Backbone` · V3 `Substitute` · V4 `TransitiveReduce` | implemented |
 | V5 `Sweep` | implemented with embedded sub-solver |

@@ -173,6 +173,14 @@ bool parameter_matches(const OnlineInvocation &step) {
     return step.rule == "Lucky";
   if (std::holds_alternative<OnehotModelParameters>(step.parameters))
     return step.rule == "Lucky";
+  if (std::holds_alternative<BalancedSignatureModelParameters>(step.parameters))
+    return step.rule == "Lucky";
+  if (std::holds_alternative<FermatModelParameters>(step.parameters))
+    return step.rule == "Lucky";
+  if (std::holds_alternative<LookupCircuitModelParameters>(step.parameters))
+    return step.rule == "Lucky";
+  if (std::holds_alternative<SimonModelParameters>(step.parameters))
+    return step.rule == "Lucky";
   if (std::holds_alternative<AffineModelParameters>(step.parameters))
     return step.rule == "Lucky";
   if (std::holds_alternative<SubstitutionRedundancyParameters>(step.parameters))
@@ -293,6 +301,20 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
             std::get_if<OnehotModelParameters>(&step.parameters);
         p && !p->valid())
       return reject("Lucky onehot-model parameters are invalid");
+    if (const auto *p =
+            std::get_if<BalancedSignatureModelParameters>(&step.parameters);
+        p && !p->valid())
+      return reject("Lucky balanced-signature-model parameters are invalid");
+    if (const auto *p = std::get_if<FermatModelParameters>(&step.parameters);
+        p && !p->valid())
+      return reject("Lucky fermat-model parameters are invalid");
+    if (const auto *p =
+            std::get_if<LookupCircuitModelParameters>(&step.parameters);
+        p && !p->valid())
+      return reject("Lucky lookup-circuit-model parameters are invalid");
+    if (const auto *p = std::get_if<SimonModelParameters>(&step.parameters);
+        p && !p->valid())
+      return reject("Lucky simon-model parameters are invalid");
     if (const auto *p = std::get_if<AffineModelParameters>(&step.parameters);
         p && !p->valid())
       return reject("Lucky affine-model parameters are invalid");
@@ -1109,6 +1131,11 @@ InvocationResult OnlineStrategyExecutor::advance(
       std::optional<ScopedReorderParameters> reorder;
       std::optional<ScopedParityModelParameters> parity_model;
       std::optional<ScopedOnehotModelParameters> onehot_model;
+      std::optional<ScopedBalancedSignatureModelParameters>
+          balanced_signature_model;
+      std::optional<ScopedFermatModelParameters> fermat_model;
+      std::optional<ScopedLookupCircuitModelParameters> lookup_circuit_model;
+      std::optional<ScopedSimonModelParameters> simon_model;
       std::optional<ScopedAffineModelParameters> affine_model;
       if (const auto *p = std::get_if<AnalyzeParameters>(&step.parameters))
         analyze.emplace(k, *p);
@@ -1159,6 +1186,18 @@ InvocationResult OnlineStrategyExecutor::advance(
       else if (const auto *p =
                    std::get_if<OnehotModelParameters>(&step.parameters))
         onehot_model.emplace(k, *p);
+      else if (const auto *p = std::get_if<
+                   BalancedSignatureModelParameters>(&step.parameters))
+        balanced_signature_model.emplace(k, *p);
+      else if (const auto *p =
+                   std::get_if<FermatModelParameters>(&step.parameters))
+        fermat_model.emplace(k, *p);
+      else if (const auto *p =
+                   std::get_if<LookupCircuitModelParameters>(&step.parameters))
+        lookup_circuit_model.emplace(k, *p);
+      else if (const auto *p =
+                   std::get_if<SimonModelParameters>(&step.parameters))
+        simon_model.emplace(k, *p);
       else if (const auto *p = std::get_if<AffineModelParameters>(&step.parameters))
         affine_model.emplace(k, *p);
       // Invocation-level native work limits override a rule parameter which

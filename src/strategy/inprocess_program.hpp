@@ -54,7 +54,10 @@ using ActionParameters =
                  BceParameters, TernaryParameters, FactorParameters,
                  TransitiveReduceParameters, SubstituteParameters,
                  ReduceParameters, WalkParameters, ReorderParameters,
-                 ParityModelParameters, OnehotModelParameters, AffineModelParameters,
+                 ParityModelParameters, OnehotModelParameters,
+                 BalancedSignatureModelParameters, FermatModelParameters,
+                 LookupCircuitModelParameters, SimonModelParameters,
+                 AffineModelParameters,
                  SubstitutionRedundancyParameters>;
 
 // Compatibility name for the inprocessing scheduler. Online composition uses
@@ -252,6 +255,26 @@ inline bool validate_inprocess_program(std::span<const InprocessStep> program,
         return reject("onehot-model parameters are attached to a different action");
       if (!p->valid())
         return reject("Lucky onehot-model parameters are invalid");
+    } else if (const auto *p = std::get_if<
+                   BalancedSignatureModelParameters>(&step.parameters)) {
+      if (step.rule != "Lucky")
+        return reject(
+            "balanced-signature-model parameters are attached to a different action");
+      if (!p->valid())
+        return reject("Lucky balanced-signature-model parameters are invalid");
+    } else if (const auto *p =
+                   std::get_if<FermatModelParameters>(&step.parameters)) {
+      if (step.rule != "Lucky" || !p->valid())
+        return reject("Lucky fermat-model parameters are invalid or misplaced");
+    } else if (const auto *p =
+                   std::get_if<LookupCircuitModelParameters>(&step.parameters)) {
+      if (step.rule != "Lucky" || !p->valid())
+        return reject(
+            "Lucky lookup-circuit-model parameters are invalid or misplaced");
+    } else if (const auto *p =
+                   std::get_if<SimonModelParameters>(&step.parameters)) {
+      if (step.rule != "Lucky" || !p->valid())
+        return reject("Lucky simon-model parameters are invalid or misplaced");
     } else if (const auto *p = std::get_if<AffineModelParameters>(&step.parameters)) {
       if (step.rule != "Lucky" || !p->valid())
         return reject("Lucky affine-model parameters are invalid or misplaced");

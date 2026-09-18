@@ -1,0 +1,137 @@
+diff --git a/Experiments/SR/Main.lean b/Experiments/SR/Main.lean
+index 311ce6a..8cc03bf 100644
+--- a/Experiments/SR/Main.lean
++++ b/Experiments/SR/Main.lean
+@@ -79,0 +80,42 @@ partial def main : List String → IO Unit
++  | [cnfFile, lsrFile, "c"] => do
++    let cnfContents ← IO.FS.withFile cnfFile .read (·.readBinToEnd)
++    if hc : cnfContents.size ≥ USize.size then
++      IO.println "c CNF file too large"
++      return
++    else
++      let (F, nVars) ← IO.ofExcept <|
++        SRParser.parseFormula ⟨cnfContents, Nat.not_le.mp hc⟩ (RangeArray.empty : RangeArray ILit)
++
++      let bytes ← IO.FS.withFile lsrFile .read (·.readBinToEnd)
++      if hp : bytes.size ≥ USize.size then
++        IO.println "c LSR file too large"
++        return
++      else
++      let bytes : ByteArray' := ⟨bytes, Nat.not_le.mp hp⟩
++      let rec binaryLoop (iter : Nat) : SR.SRState → Except Bool SR.SRState
++      | ⟨F, τ, σ⟩ => do
++        if iter < bytes.val.size then
++          match SRParser.parseLSRLineBinary F bytes iter with
++          | .error _ => .error false
++          | .ok ⟨iter, F, .inl line⟩ =>
++            match SR.checkLine ⟨F, τ, σ⟩ line with
++            | .error b => .error b
++            | .ok state => binaryLoop iter state
++          | .ok ⟨iter, F, .inr clauseIds⟩ =>
++            match SR.consumeDeletionLine F clauseIds with
++            | .error _ => .error false
++            | .ok F => binaryLoop iter ⟨F, τ, σ⟩
++        else
++          .ok ⟨F, τ, σ⟩
++
++      match binaryLoop 0 ⟨F, PPA.new (nVars * 2), PS.new (nVars * 2)⟩ with
++      | .ok _ =>
++        IO.println "c Proof is valid, but did not derive the empty clause."
++        IO.println "s VALID"
++      | .error true => do
++        IO.println "c Proof derived the empty clause"
++        IO.println "s VERIFIED UNSAT"
++      | .error false => do
++        IO.println "c Error or invalid proof"
++        IO.println "s INVALID"
++
+diff --git a/Experiments/SR/Parsing/SRParser.lean b/Experiments/SR/Parsing/SRParser.lean
+index 91b7a74..7cb9644 100644
+--- a/Experiments/SR/Parsing/SRParser.lean
++++ b/Experiments/SR/Parsing/SRParser.lean
+@@ -161,0 +162,85 @@ partial def parseDeletionLine (arr : ByteArray') (iter : USize) : Except String
++
++def undoBinaryMapping (x : UInt64) : Int :=
++  if x &&& 1 = 1 then
++    -Int.ofNat ((x >>> 1).toNat)
++  else
++    Int.ofNat ((x >>> 1).toNat)
++
++partial def readBinaryToken (arr : ByteArray') (index : Nat) :
++    Except String (Int × Nat) :=
++  let rec loop (i : Nat) (acc shift : UInt64) :
++      Except String (Int × Nat) := do
++    if hi : i < arr.val.size then
++      let atom := arr.val[i]'hi
++      if shift ≥ 64 then
++        throw "Binary token overflow"
++      if shift = 63 && atom &&& 254 != 0 then
++        throw "Binary token overflow"
++      let acc := acc ||| ((atom &&& 127).toUInt64 <<< shift)
++      if atom &&& 128 != 0 then
++        loop (i + 1) acc (shift + 7)
++      else
++        return (undoBinaryMapping acc, i + 1)
++    else
++      throw "Binary token ended early"
++  loop index 0 0
++
++partial def parseDeletionLineBinary (arr : ByteArray') (index : Nat) :
++    Except String (Array Nat × Nat) :=
++  let rec loop (i : Nat) (acc : Array Nat) : Except String (Array Nat × Nat) := do
++    if i < arr.val.size then
++      let (atom, next) ← readBinaryToken arr i
++      if atom = 0 then
++        return (acc, next)
++      if atom < 0 then
++        throw "Negative deletion clause ID"
++      loop next (acc.push (atom.natAbs - 1))
++    else
++      throw "Deletion line ended early"
++  loop index #[]
++
++@[specialize]
++partial def parseLSRAdditionLineBinary (F : CNF) (arr : ByteArray')
++    (index : Nat) (pivot : Int) : Except String (Nat × CNF × SRAdditionLine) :=
++  let line := SRAdditionLine.new
++  let state :=
++    if hp : pivot = 0 then
++      ParsingState.mk .upHints F line
++    else
++      ParsingState.mk .clause (Formula.addLiteral F ⟨pivot, hp⟩) line
++  let rec loop (i : Nat) (state : ParsingState CNF) :
++      Except String (Nat × CNF × SRAdditionLine) := do
++    if i < arr.val.size then
++      let (atom, next) ← readBinaryToken arr i
++      let ⟨mode, F, line⟩ := processSRAtom atom pivot state
++      match mode with
++      | .err message => throw message
++      | .lineDone => return (next, F, line)
++      | _ => loop next ⟨mode, F, line⟩
++    else
++      throw "Addition line ended early"
++  loop index state
++
++@[specialize]
++partial def parseLSRLineBinary (F : CNF) (arr : ByteArray') (index : Nat) :
++    Except String (Nat × CNF × (SRAdditionLine ⊕ Array Nat)) := do
++  if hi : index < arr.val.size then
++    let lineStart := arr.val[index]'hi
++    let (lineId, index) ← readBinaryToken arr (index + 1)
++    if lineId <= 0 then
++      throw "Nonpositive line ID"
++    if lineStart = 3 then
++      if index < arr.val.size then
++        let F := Formula.commitClauseUntil F (lineId.natAbs - 1)
++        let (pivot, index) ← readBinaryToken arr index
++        let (index, F, line) ← parseLSRAdditionLineBinary F arr index pivot
++        return (index, F, .inl line)
++      else
++        throw "Addition line ended before pivot"
++    else if lineStart = 4 then
++      let (line, index) ← parseDeletionLineBinary arr index
++      return (index, F, .inr line)
++    else
++      throw "Binary line was not an LSR addition or deletion"
++  else
++    throw "No more proof bytes"

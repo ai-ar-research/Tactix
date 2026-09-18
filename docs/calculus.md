@@ -141,7 +141,10 @@ target in `[jump_level, level-1]` is sound.
   sign masks, treats the resulting affine equations only as candidate guidance, and searches their residual GF(2) space. Instance 7
   recognizes disjoint exactly-one triples and complete forbidden-tuple encodings of affine GF(3) equations, then searches the
   residual field space. Instance 8 recovers complete Boolean parity groups and root equations, projects onto selected signed
-  coordinates, and searches explicit bounded syndrome-support scopes with private residual propagation.
+  coordinates, and searches explicit bounded syndrome-support scopes with private residual propagation. Instance 9 solves an
+  exactly reconstructed finite-domain binary CSP. Instance 10 recognizes a pair-choice block followed by signed ternary
+  signatures, selects distinct signatures and orientations whose coordinate sums are zero, and privately completes the encoded
+  auxiliary variables by unit propagation. Instance 11 recognizes two ordered binary input blocks for an arithmetic circuit, recovers and factors its odd comparison constant, maps the factors to the circuit inputs, and privately completes auxiliaries. Instance 12 recognizes a two-letter Černý synchronizing automaton and constructs its reset word. Instance 13 reconstructs feed-forward lookup-table gates and searches the fixed-output primary support by SIMD enumeration or gate-CSP propagation and branching. Instance 14 recognizes SIMON32 round circuits, recovers their key permutation and round-key choice, exhaustively searches the typed key budget, and reconstructs every gate value.
 - **Effect:** on success `τ` is a total model → `Sat`; otherwise `σ` is unchanged *by the probing itself*. Proof δ: none from the
   probes (SAT needs no proof) — but like every inprocessing rule it drains the root closure at apply entry, emitting that closure's
   units (`add_derived_unit` under LRAT) and possibly refuting (`add_empty` → `Unsat`). "No proof δ" is true of the rule's own
@@ -151,10 +154,17 @@ target in `[jump_level, level-1]` is sound.
   bound return `NoOp` before any assignment. Instance 8 additionally exposes signed external projection coordinates, ordered
   split/half-weight/total-weight scopes, permutations/seed, free and residual phases, payload limits and a shared work budget.
   Exhaustion never infers UNSAT; zero and fully complete search scopes remain selectable. Instances 0–5 retain their reference order.
+  Instance 9 exposes its reconstruction and search bounds. Instance 10 exposes the maximum object count and signature width,
+  restarts, steps, sampled neighbors, seed, and completion rounds; every nonzero finite setting terminates, interruption returns
+  `NoOp`, and a failed search may publish only H advice. Instance 11 exposes its maximum recovered bit width, comparator-tail
+  window, Pollard-Rho constants and per-constant iterations. Primality and factor exhaustion return `NoOp`, never UNSAT; its completion feedback continues only while a full clause pass fixes another variable. Instance 12 is a finite structural construction. Instance 13 exposes fan-in, fan-out, primary-input, support and vector-gate-work bounds; interruption or exhausted enumeration/CSP returns `NoOp`, never UNSAT.
 - **Soundness:** every successful instance has a total model. All structural instances validate each candidate against every live
   large and binary clause and every root assignment before committing it. Unassigned retired values omitted by publication cannot witness a live clause's satisfaction. Instance 7 recognizes an equation only when its exactly-one domain clauses and the
-  complete set of forbidden tuples are present. Incomplete recognition can miss models but cannot produce false SAT. Failure
-  preserves `σ`.
+  complete set of forbidden tuples are present. Instance 10 checks the complete diagonal/boundary root signature before search,
+  then validates its completed candidate against every live clause and root assignment. Instance 11 checks exactly two ordered
+  long input clauses and an adjacent complemented comparator pair in the bounded raw-input tail before arithmetic begins, then
+  validates its completed factor candidate against every live clause and root assignment. Instances 12 and 13 likewise require exact recovered wiring/table structure and validate their total constructed assignments against every live clause and root assignment. Incomplete recognition or completion can
+  miss models but cannot produce false SAT. Failure preserves `σ`.
 
 ## 5. Subsumption & strengthening (C1–C3)
 

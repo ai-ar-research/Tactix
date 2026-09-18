@@ -31,7 +31,7 @@ class RuntimeTaskTest(unittest.TestCase):
             (campaign / "pins/solver").write_bytes(b"pin")
             checker_names = ["checkmodel", "modelcheck.py"]
             checker_names += (["drat-trim"] if certificate == "drat" else
-                              ["dsr-trim", "dsr-compress", "srcheck"])
+                              ["dsr-trim", "srcheck"])
             for name in checker_names:
                 (campaign / "pins" / name).write_bytes(b"pin")
             pin_sha256 = {
@@ -68,9 +68,6 @@ class RuntimeTaskTest(unittest.TestCase):
                     if certificate == "dsr" and name == "dsr-trim":
                         stdout.write_text("s VERIFIED UNSAT\n")
                         Path(command[-1]).write_bytes(b"binary lsr")
-                    elif certificate == "dsr" and name == "dsr-compress":
-                        stdout.write_text("")
-                        Path(command[-1]).write_bytes(b"text lsr")
                     elif certificate == "dsr" and name == "srcheck":
                         stdout.write_text("s VERIFIED UNSAT\n")
                     else:
@@ -112,19 +109,20 @@ class RuntimeTaskTest(unittest.TestCase):
                 self.assertEqual(code, 0 if valid else 1)
                 self.assertEqual(Path(calls[1][0]).name, "drat-trim")
 
-    def test_dsr_runs_all_three_checked_stages(self):
+    def test_dsr_checks_binary_lsr_without_text_expansion(self):
         code, result, calls = self.run_case(
             "tactix", "UNSAT", 20, certificate="dsr")
         self.assertEqual(code, 0)
         self.assertTrue(result["valid"])
         self.assertEqual(
             [Path(call[0]).name for call in calls[1:]],
-            ["dsr-trim", "dsr-compress", "srcheck"])
+            ["dsr-trim", "srcheck"])
+        self.assertEqual(calls[-1][-1], "c")
         self.assertEqual(result["proof_check"]["pipeline"],
-                         "dsr-trim-lsr-trestle")
+                         "dsr-trim-binary-lsr-trestle")
         self.assertEqual([stage["result"] for stage in
                           result["proof_check"]["stages"]],
-                         ["verified", "verified", "verified"])
+                         ["verified", "verified"])
 
     def test_changed_pin_stops_before_solver(self):
         for arm in ("tactix", "kissat"):

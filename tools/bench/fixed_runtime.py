@@ -76,7 +76,7 @@ def reference_identity(ref):
 
 
 def prepare(campaign, authority, release, bc, reference_path=REFERENCE,
-            include_drat=False):
+            include_drat=False, runtime_target_seconds=None):
     campaign = campaign.resolve()
     require(campaign.parent == ROOT / 'benchmarks/runs', 'campaign must be directly under benchmarks/runs')
     require(not campaign.exists(), 'campaign already exists')
@@ -96,7 +96,7 @@ def prepare(campaign, authority, release, bc, reference_path=REFERENCE,
         shutil.copy2(ROOT / 'tools/bench' / name, campaign / 'pins' / name)
     for name in ('checkmodel', 'modelcheck.py'):
         shutil.copy2(MODEL_CHECKER_PINS / name, campaign / 'pins' / name)
-    for name in ('drat-trim', 'dsr-trim', 'dsr-compress', 'srcheck'):
+    for name in ('drat-trim', 'dsr-trim', 'srcheck'):
         source = ROOT / 'tools/checkers/bin' / name
         require(source.is_file(), 'missing checker: ' + str(source))
         shutil.copy2(source, campaign / 'pins' / name)
@@ -137,7 +137,10 @@ exec python3 {shlex.quote(str(campaign / 'pins/runtime_task.py'))} {shlex.quote(
                     node_constraint=None, proof_mode=proof_mode,
                     one_solver_per_task=True, solve_timeout=1200,
                     checker_timeout=16000)
-    manifest = dict(schema='tactix-fixed-reference-runtime-v3', created_at=dt.datetime.now(dt.timezone.utc).isoformat(),
+    if runtime_target_seconds is not None:
+        require(math.isfinite(runtime_target_seconds) and
+                runtime_target_seconds > 0, 'runtime target')
+    manifest = dict(schema='tactix-fixed-reference-runtime-v4', created_at=dt.datetime.now(dt.timezone.utc).isoformat(),
         arms=arms, input_sha256={r['instance']:r['input_sha256'] for r in ref['records']},
         resource_contract=contract, collect_runtime_context=True,
         scratch_policy='anonymous-local-files-v1',
@@ -148,9 +151,11 @@ exec python3 {shlex.quote(str(campaign / 'pins/runtime_task.py'))} {shlex.quote(
                  + ('same-source DRAT controls included; ' if include_drat else '')
                  + 'no reference solver rerun.'),
         test_consideration=(a['test_consideration'] +
-            ' Current runtime protocol checks DSR elaboration/Trestle, task identity and anonymous cleanup.'),
-        validation=f'Expected solves allow provisional development; all {len(rows)} candidate results, retained reference certificates, the companion B27+C5 gate, memory and Claude fuzz are required for acceptance.',
+            ' Current runtime protocol checks binary-LSR DSR elaboration/Trestle, task identity and anonymous cleanup.'),
+        validation=f'Expected solves allow provisional development; all {len(rows)} candidate results, retained reference certificates, the companion B28+C5 gate, memory and Claude fuzz are required for acceptance.',
         limitation='Cross-window fixed reference; not isolated unit-cost attribution or promotion.')
+    if runtime_target_seconds is not None:
+        manifest['acceptance_runtime_seconds'] = runtime_target_seconds
     manifest['pin_sha256'] = {str(p.relative_to(campaign)):sha(p)
         for p in [*(campaign / 'pins').iterdir(), campaign / 'matrix.tsv', campaign / 'array.sbatch']}
     (campaign / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
@@ -165,7 +170,8 @@ def verify_campaign(campaign):
     require(manifest_path.is_file(), 'prepare campaign first')
     manifest = json.loads(manifest_path.read_text())
     require(manifest.get('schema') in ('tactix-fixed-reference-runtime-v2',
-                                       'tactix-fixed-reference-runtime-v3'),
+                                       'tactix-fixed-reference-runtime-v3',
+                                       'tactix-fixed-reference-runtime-v4'),
             'campaign schema')
     binding = manifest['fixed_reference']
     require(sha(ROOT / binding['path']) == binding['sha256'],
@@ -198,7 +204,7 @@ def submit(campaign):
     return record
 
 
-def score_records(ref, records, arm='tactix'):
+def score_records(ref, records, arm='tactix', runtime_target_seconds=None):
     expected = {r['rank']:r for r in ref['records']}
     seen = set()
     total = 0.0
@@ -227,15 +233,20 @@ def score_records(ref, records, arm='tactix'):
             candidate_peak_rss_kb=s.get('peak_rss_kb'),
             reference_peak_rss_kb=base['measurement']['solve'].get('peak_rss_kb')))
     complete = seen == set(expected)
+    target = (1.01 * ref['solver_seconds'] if runtime_target_seconds is None
+              else runtime_target_seconds)
+    require(math.isfinite(target) and target > 0, 'runtime target')
     return dict(records=len(records), expected_solves=solved, checked_clean=checked,
         complete=complete, candidate_par2=total if complete else None,
         fixed_reference_seconds=ref['solver_seconds'],
+        runtime_target_seconds=target,
         ratio=total / ref['solver_seconds'] if complete else None,
-        runtime_target_met=bool(complete and solved == len(expected) and total <= 1.01 * ref['solver_seconds']),
+        runtime_target_met=bool(complete and solved == len(expected) and
+                                total <= target),
         per_rank=sorted(per_rank,key=lambda r:r['rank']))
 
 
-def score(campaign, comparison_reference=None):
+def score(campaign, comparison_reference=None, runtime_target_seconds=None):
     m = json.loads((campaign / 'manifest.json').read_text())
     binding = m['fixed_reference']
     require(sha(ROOT / binding['path']) == binding['sha256'], 'fixed reference changed')
@@ -252,7 +263,8 @@ def score(campaign, comparison_reference=None):
             sha256=sha(comparison_reference))
     schema = m.get('schema')
     if schema in ('tactix-fixed-reference-runtime-v2',
-                  'tactix-fixed-reference-runtime-v3'):
+                  'tactix-fixed-reference-runtime-v3',
+                  'tactix-fixed-reference-runtime-v4'):
         expected_arms = tuple(m['arms'])
         require(expected_arms in (('tactix-dsr',),
                                   ('tactix-dsr', 'tactix-drat')),
@@ -307,9 +319,11 @@ def score(campaign, comparison_reference=None):
                     for key in ('solve','certificate_sha256','certificate_bytes'):
                         require(records[(r['arm'], int(r['rank']))][key] == r[key], 'provisional/final mismatch')
             records[(r['arm'], int(r['rank']))] = r
+    target = (m.get('acceptance_runtime_seconds')
+              if runtime_target_seconds is None else runtime_target_seconds)
     arm_scores = {arm: score_records(
         ref, [record for (record_arm, _), record in records.items()
-              if record_arm == arm], arm) for arm in expected_arms}
+              if record_arm == arm], arm, target) for arm in expected_arms}
     output = arm_scores[expected_arms[0]]
     if len(expected_arms) == 2:
         dsr = arm_scores['tactix-dsr']
@@ -358,21 +372,25 @@ def main():
         p.add_argument('--' + arg, type=Path, required=True)
     p.add_argument('--reference', type=Path, default=REFERENCE)
     p.add_argument('--same-source-drat', action='store_true')
+    p.add_argument('--runtime-target-seconds', type=float)
     p = sub.add_parser('score')
     p.add_argument('campaign', type=Path)
     p.add_argument('--reference', type=Path)
+    p.add_argument('--runtime-target-seconds', type=float)
     p = sub.add_parser('submit')
     p.add_argument('campaign', type=Path)
     args = ap.parse_args()
     if args.command == 'prepare':
         prepare(args.campaign.resolve(), args.authority.resolve(),
                 args.release.resolve(), args.bc.resolve(),
-                args.reference.resolve(), args.same_source_drat)
+                args.reference.resolve(), args.same_source_drat,
+                args.runtime_target_seconds)
         print(args.campaign)
     elif args.command == 'score':
         print(json.dumps(score(
             args.campaign.resolve(),
-            args.reference.resolve() if args.reference else None), indent=2))
+            args.reference.resolve() if args.reference else None,
+            args.runtime_target_seconds), indent=2))
     else:
         submit(args.campaign.resolve())
 

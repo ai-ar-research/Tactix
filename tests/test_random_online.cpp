@@ -1511,12 +1511,24 @@ static void parameter_domains_are_caller_controlled() {
   bool selected_affine_instance=false;
   std::set<uint64_t> affine_variables,affine_work;
   bool selected_parity_instance = false, selected_onehot_instance = false;
+  bool selected_balanced_instance = false, selected_fermat_instance = false;
+  bool selected_lookup_instance = false, selected_simon_instance = false;
   std::set<uint32_t> parity_variables, parity_groups, parity_constraints,
       parity_free;
   std::set<uint64_t> parity_candidates;
   std::set<uint32_t> onehot_variables, onehot_domains, onehot_constraints,
       onehot_arities, onehot_free;
   std::set<uint64_t> onehot_candidates;
+  std::set<uint32_t> balanced_balls, balanced_widths, balanced_samples,
+      balanced_completion;
+  std::set<uint64_t> balanced_restarts, balanced_steps, balanced_seeds;
+  std::set<uint32_t> fermat_bits, fermat_tail;
+  std::set<uint64_t> fermat_constants, fermat_iterations;
+  std::set<uint32_t> lookup_fanin, lookup_fanout, lookup_inputs,
+      lookup_support;
+  std::set<uint64_t> lookup_evaluations;
+  std::set<uint32_t> simon_rounds;
+  std::set<uint64_t> simon_candidates;
   for (uint64_t seed = 1; seed <= 512; ++seed) {
     OnlineStrategyProgram program;
     std::string generation_error;
@@ -1544,6 +1556,50 @@ static void parameter_domains_are_caller_controlled() {
       assert(parameters->maximum_work<=263&&parameters->projection.size()<=3);
       affine_variables.insert(parameters->maximum_variables);
       affine_work.insert(parameters->maximum_work);
+    } else if (const auto *parameters =
+                   std::get_if<BalancedSignatureModelParameters>(
+                       &step.parameters)) {
+      assert(parameters->valid());
+      assert(parameters->maximum_balls <=
+             config.balanced_signature_model_reference.maximum_balls);
+      assert(parameters->maximum_width <=
+             config.balanced_signature_model_reference.maximum_width);
+      assert(parameters->restarts <=
+             config.balanced_signature_model_reference.restarts);
+      assert(parameters->steps_per_restart <=
+             config.balanced_signature_model_reference.steps_per_restart);
+      assert(parameters->samples_per_step <=
+             config.balanced_signature_model_reference.samples_per_step);
+      assert(parameters->completion_rounds <=
+             config.balanced_signature_model_reference.completion_rounds);
+      balanced_balls.insert(parameters->maximum_balls);
+      balanced_widths.insert(parameters->maximum_width);
+      balanced_restarts.insert(parameters->restarts);
+      balanced_steps.insert(parameters->steps_per_restart);
+      balanced_samples.insert(parameters->samples_per_step);
+      balanced_seeds.insert(parameters->seed);
+      balanced_completion.insert(parameters->completion_rounds);
+    } else if (const auto *parameters =
+                   std::get_if<FermatModelParameters>(&step.parameters)) {
+      assert(parameters->valid());
+      fermat_bits.insert(parameters->maximum_bits);
+      fermat_tail.insert(parameters->comparator_tail_clauses);
+      fermat_constants.insert(parameters->rho_constants);
+      fermat_iterations.insert(parameters->rho_iterations);
+    } else if (const auto *parameters =
+                   std::get_if<LookupCircuitModelParameters>(
+                       &step.parameters)) {
+      assert(parameters->valid());
+      lookup_fanin.insert(parameters->maximum_fanin);
+      lookup_fanout.insert(parameters->maximum_fanout);
+      lookup_inputs.insert(parameters->maximum_primary_inputs);
+      lookup_support.insert(parameters->maximum_support);
+      lookup_evaluations.insert(parameters->maximum_vector_gate_evaluations);
+    } else if (const auto *parameters =
+                   std::get_if<SimonModelParameters>(&step.parameters)) {
+      assert(parameters->valid());
+      simon_rounds.insert(parameters->maximum_rounds);
+      simon_candidates.insert(parameters->maximum_candidates);
     } else {
       const auto *onehot_parameters =
           std::get_if<OnehotModelParameters>(&step.parameters);
@@ -1563,6 +1619,18 @@ static void parameter_domains_are_caller_controlled() {
     selected_onehot_instance |=
         std::find(step.instances.begin(), step.instances.end(), uint64_t{7}) !=
         step.instances.end();
+    selected_balanced_instance |=
+        std::find(step.instances.begin(), step.instances.end(), uint64_t{10}) !=
+        step.instances.end();
+    selected_fermat_instance |=
+        std::find(step.instances.begin(), step.instances.end(), uint64_t{11}) !=
+        step.instances.end();
+    selected_lookup_instance |=
+        std::find(step.instances.begin(), step.instances.end(), uint64_t{13}) !=
+        step.instances.end();
+    selected_simon_instance |=
+        std::find(step.instances.begin(), step.instances.end(), uint64_t{14}) !=
+        step.instances.end();
     OnlineStrategyProgram replay;
     std::string error;
     assert(deserialize_online_strategy_program(
@@ -1572,6 +1640,18 @@ static void parameter_domains_are_caller_controlled() {
   }
   assert(selected_affine_instance&&affine_variables.size()>8&&affine_work.size()>8);
   assert(selected_parity_instance && selected_onehot_instance);
+  assert(selected_balanced_instance && balanced_balls.size() > 8 &&
+         balanced_widths.size() > 4 && balanced_restarts.size() > 8 &&
+         balanced_steps.size() > 8 && balanced_samples.size() > 8 &&
+         balanced_seeds.size() > 8 && balanced_completion.size() > 8);
+  assert(selected_fermat_instance && fermat_bits.size() > 8 &&
+         fermat_tail.size() > 8 && fermat_constants.size() > 8 &&
+         fermat_iterations.size() > 8);
+  assert(selected_lookup_instance && lookup_fanin.size() > 4 &&
+         lookup_fanout.size() > 4 && lookup_inputs.size() > 8 &&
+         lookup_support.size() > 8 && lookup_evaluations.size() > 8);
+  assert(selected_simon_instance && simon_rounds.size() > 8 &&
+         simon_candidates.size() > 8);
   assert(parity_variables.size() > 8 && parity_groups.size() > 8 &&
          parity_constraints.size() > 8 && parity_free.size() > 8 &&
          parity_candidates.size() > 8);
@@ -1602,6 +1682,11 @@ static void parameter_domains_are_caller_controlled() {
           {"Lucky", [](const ActionParameters &p) {
              return std::holds_alternative<ParityModelParameters>(p) ||
                     std::holds_alternative<OnehotModelParameters>(p) ||
+                    std::holds_alternative<
+                        BalancedSignatureModelParameters>(p) ||
+                    std::holds_alternative<FermatModelParameters>(p) ||
+                    std::holds_alternative<LookupCircuitModelParameters>(p) ||
+                    std::holds_alternative<SimonModelParameters>(p) ||
                     std::holds_alternative<AffineModelParameters>(p);
            }},
       };

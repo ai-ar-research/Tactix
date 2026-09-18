@@ -10,14 +10,13 @@ DRAT_TRIM="$ROOT/tools/checkers/bin/drat-trim"
 LRAT_CHECK="$ROOT/tools/checkers/bin/lrat-check"
 CAKE_LPR="$ROOT/tools/checkers/bin/cake_lpr"
 DSR_TRIM="$ROOT/tools/checkers/bin/dsr-trim"
-DSR_COMPRESS="$ROOT/tools/checkers/bin/dsr-compress"
 SR_CHECK="$ROOT/tools/checkers/bin/srcheck"
 ANALYZE_TEST="${3:-}"
 CONGRUENCE_TEST="${4:-}"
 RESTART_TEST="${5:-}"
 FACTOR_N1_TEST="${6:-}"
 ONLINE_INPROCESS_TEST="${7:-}"
-for checker in "$DSR_TRIM" "$DSR_COMPRESS" "$SR_CHECK"; do
+for checker in "$DSR_TRIM" "$SR_CHECK"; do
   [ -x "$checker" ] \
     || { echo "native DSR checker pipeline not built — skipping"; exit 77; }
 done
@@ -27,10 +26,10 @@ trap 'rm -rf "$T"' EXIT
 
 check_dsr() {
   local cnf="$1" proof="$2" direction="${3:-forward}"
-  local binary_lsr="$T/check.binary.lsr" text_lsr="$T/check.lsr"
+  local binary_lsr="$T/check.binary.lsr"
   local direction_args=()
   [ "$direction" = forward ] && direction_args=(-f)
-  rm -f "$binary_lsr" "$text_lsr"
+  rm -f "$binary_lsr"
   "$DSR_TRIM" -q -c "${direction_args[@]}" "$cnf" "$proof" "$binary_lsr" \
     > "$T/dsr-trim.out" 2>&1 \
     || { echo "FAIL: dsr-trim rejected $proof"; cat "$T/dsr-trim.out"; return 1; }
@@ -39,19 +38,13 @@ check_dsr() {
          cat "$T/dsr-trim.out"; return 1; }
   [ -s "$binary_lsr" ] \
     || { echo "FAIL: dsr-trim emitted no LSR for $proof"; return 1; }
-  "$DSR_COMPRESS" -d "$binary_lsr" "$text_lsr" \
-    > "$T/dsr-compress.out" 2>&1 \
-    || { echo "FAIL: DSR LSR decompression failed for $proof"; \
-         cat "$T/dsr-compress.out"; return 1; }
-  [ -s "$text_lsr" ] \
-    || { echo "FAIL: DSR LSR decompression was empty for $proof"; return 1; }
   PYTHONPATH="${TACTIX_PROOF_ORACLE_DIR:-$ROOT/tools/bench}" \
-    python3 - "$cnf" "$text_lsr" <<'PY'
+    python3 - "$cnf" "$binary_lsr" <<'PY'
 import sys
-from proof_oracle import bridge_trivial_input_lsr
-bridge_trivial_input_lsr(sys.argv[1], sys.argv[2])
+from proof_oracle import bridge_trivial_input_binary_lsr
+bridge_trivial_input_binary_lsr(sys.argv[1], sys.argv[2])
 PY
-  "$SR_CHECK" "$cnf" "$text_lsr" > "$T/srcheck.out" 2>&1 \
+  "$SR_CHECK" "$cnf" "$binary_lsr" c > "$T/srcheck.out" 2>&1 \
     || { echo "FAIL: Trestle rejected $proof"; cat "$T/srcheck.out"; return 1; }
   grep -Eq '^s VERIFIED[[:space:]]+UNSAT$' "$T/srcheck.out" \
     || { echo "FAIL: Trestle gave no verified verdict for $proof"; \

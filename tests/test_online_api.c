@@ -840,10 +840,159 @@ static void affine_model_parameters_are_copied(void) {
   tactix_release(solver);
 }
 
+static void balanced_signature_parameters_are_public_and_validated(void) {
+  tactix *solver = tactix_init();
+  clause(solver, (const int[]){1, 2, 0});
+  tactix_online_step step;
+  memset(&step, 0, sizeof step);
+  step.step_id = 909;
+  step.rule_id = rule("Lucky");
+  step.parameters.kind = TACTIX_ONLINE_PARAMETERS_BALANCED_SIGNATURE_MODEL;
+  tactix_online_balanced_signature_model_parameters *p =
+      &step.parameters.value.balanced_signature_model;
+  p->maximum_balls = 256;
+  p->maximum_width = 8;
+  p->restarts = 160;
+  p->steps_per_restart = 140000;
+  p->samples_per_step = 36;
+  p->seed = UINT64_C(0xabcdef1234567890);
+  p->completion_rounds = 64;
+  uint64_t instance = 10;
+  step.instances = &instance;
+  step.instance_count = 1;
+  step.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
+  step.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
+  step.repeat_limit = 1;
+  step.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
+  step.budget_unlimited = 1;
+  tactix_online_program program = {
+      &step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
+  assert(tactix_online_configure(
+             solver, &program, 1, TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  p->maximum_balls = 2;
+  assert(tactix_online_configure(
+             solver, &program, 2, TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  tactix_online_result result;
+  assert(tactix_online_advance(solver, &result) == 0);
+  assert(result.status == TACTIX_ONLINE_COMPLETED ||
+         result.status == TACTIX_ONLINE_NO_CHANGE);
+  tactix_release(solver);
+}
+
+static void fermat_parameters_are_public_and_validated(void) {
+  tactix *solver = tactix_init();
+  clause(solver, (const int[]){1, 2, 0});
+  tactix_online_step step;
+  memset(&step, 0, sizeof step);
+  step.step_id = 910;
+  step.rule_id = rule("Lucky");
+  step.parameters.kind = TACTIX_ONLINE_PARAMETERS_FERMAT_MODEL;
+  tactix_online_fermat_model_parameters *p =
+      &step.parameters.value.fermat_model;
+  p->maximum_bits = 63;
+  p->comparator_tail_clauses = 80;
+  p->rho_constants = 199;
+  p->rho_iterations = 200000;
+  uint64_t instance = 11;
+  step.instances = &instance;
+  step.instance_count = 1;
+  step.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
+  step.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
+  step.repeat_limit = 1;
+  step.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
+  step.budget_unlimited = 1;
+  tactix_online_program program = {
+      &step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
+  assert(tactix_online_configure(
+             solver, &program, 1, TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  p->comparator_tail_clauses = 81;
+  assert(tactix_online_configure(
+             solver, &program, 2, TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  tactix_online_result result;
+  assert(tactix_online_advance(solver, &result) == 0);
+  assert(result.status == TACTIX_ONLINE_COMPLETED ||
+         result.status == TACTIX_ONLINE_NO_CHANGE);
+  tactix_release(solver);
+}
+
+static void lookup_circuit_parameters_are_public_and_validated(void) {
+  tactix *solver = tactix_init();
+  clause(solver, (const int[]){1, 2, 0});
+  tactix_online_step step;
+  memset(&step, 0, sizeof step);
+  step.step_id = 911;
+  step.rule_id = rule("Lucky");
+  step.parameters.kind = TACTIX_ONLINE_PARAMETERS_LOOKUP_CIRCUIT_MODEL;
+  tactix_online_lookup_circuit_model_parameters *p =
+      &step.parameters.value.lookup_circuit_model;
+  p->maximum_fanin = 8;
+  p->maximum_fanout = 8;
+  p->maximum_primary_inputs = 64;
+  p->maximum_support = 32;
+  p->maximum_vector_gate_evaluations = 6000000000ULL;
+  uint64_t instance = 13;
+  step.instances = &instance;
+  step.instance_count = 1;
+  step.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
+  step.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
+  step.repeat_limit = 1;
+  step.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
+  step.budget_unlimited = 1;
+  tactix_online_program program = {
+      &step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
+  assert(tactix_online_configure(
+             solver, &program, 1, TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  p->maximum_support = 64;
+  assert(tactix_online_configure(
+             solver, &program, 2, TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  tactix_online_result result;
+  assert(tactix_online_advance(solver, &result) == 0);
+  assert(result.status == TACTIX_ONLINE_COMPLETED ||
+         result.status == TACTIX_ONLINE_NO_CHANGE);
+  tactix_release(solver);
+}
+
+static void simon_parameters_are_public_and_validated(void) {
+  tactix *solver = tactix_init();
+  clause(solver, (const int[]){1, 2, 0});
+  tactix_online_step step;
+  memset(&step, 0, sizeof step);
+  step.step_id = 912;
+  step.rule_id = rule("Lucky");
+  step.parameters.kind = TACTIX_ONLINE_PARAMETERS_SIMON_MODEL;
+  tactix_online_simon_model_parameters *p = &step.parameters.value.simon_model;
+  p->maximum_rounds = 64;
+  p->maximum_candidates = 1ULL << 32;
+  uint64_t instance = 14;
+  step.instances = &instance;
+  step.instance_count = 1;
+  step.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
+  step.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
+  step.repeat_limit = 1;
+  step.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
+  step.budget_unlimited = 1;
+  tactix_online_program program = {
+      &step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
+  assert(tactix_online_configure(
+             solver, &program, 1, TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  p->maximum_rounds = 65;
+  assert(tactix_online_configure(
+             solver, &program, 2, TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  tactix_online_result result;
+  assert(tactix_online_advance(solver, &result) == 0);
+  assert(result.status == TACTIX_ONLINE_COMPLETED ||
+         result.status == TACTIX_ONLINE_NO_CHANGE);
+  tactix_release(solver);
+}
+
 int main(void) {
   canonical_bve_reaches_a_real_fixpoint();
   status_reconstructs_bve_models_and_refreshes_after_restart();
   affine_model_parameters_are_copied();
+  balanced_signature_parameters_are_public_and_validated();
+  fermat_parameters_are_public_and_validated();
+  lookup_circuit_parameters_are_public_and_validated();
+  simon_parameters_are_public_and_validated();
   pure_bve_scope_is_public_and_validated();
   exact_factor_grid_is_copied_and_applied();
   complete_factor_grid_is_discovered_and_applied();

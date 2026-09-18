@@ -350,6 +350,10 @@ int tactix_apply_semantic_instance(tactix *, int rule_id, uint64_t instance);
 #define TACTIX_ONLINE_PARAMETERS_ONEHOT_MODEL 19
 #define TACTIX_ONLINE_PARAMETERS_SUBSTITUTION_REDUNDANCY 20
 #define TACTIX_ONLINE_PARAMETERS_AFFINE_MODEL 21
+#define TACTIX_ONLINE_PARAMETERS_BALANCED_SIGNATURE_MODEL 22
+#define TACTIX_ONLINE_PARAMETERS_FERMAT_MODEL 23
+#define TACTIX_ONLINE_PARAMETERS_LOOKUP_CIRCUIT_MODEL 24
+#define TACTIX_ONLINE_PARAMETERS_SIMON_MODEL 25
 #define TACTIX_ONLINE_AFFINE_BOUNDARY 0
 #define TACTIX_ONLINE_AFFINE_ALL_PARITY 1
 #define TACTIX_ONLINE_AFFINE_EXPLICIT 2
@@ -542,6 +546,35 @@ typedef struct {
   uint64_t candidate_budget;
 } tactix_online_onehot_model_parameters;
 typedef struct {
+  /* Parameters for Lucky semantic instance 10.  Recognition is structural;
+   * these fields control its general balanced-signature local search and
+   * private model-completion allowance. */
+  uint32_t maximum_balls, maximum_width;
+  uint64_t restarts, steps_per_restart;
+  uint32_t samples_per_step;
+  uint64_t seed;
+  uint32_t completion_rounds;
+} tactix_online_balanced_signature_model_parameters;
+typedef struct {
+  /* Parameters for Lucky instance 11.  The comparator window and Pollard-Rho
+   * work controls follow the owning arithmetic-circuit strategy. */
+  uint32_t maximum_bits, comparator_tail_clauses;
+  uint64_t rho_constants, rho_iterations;
+} tactix_online_fermat_model_parameters;
+typedef struct {
+  /* Parameters for Lucky instance 13. Recognition recovers feed-forward
+   * lookup tables; these bounds dose SIMD primary-support enumeration. */
+  uint32_t maximum_fanin, maximum_fanout, maximum_primary_inputs;
+  uint32_t maximum_support;
+  uint64_t maximum_vector_gate_evaluations;
+} tactix_online_lookup_circuit_model_parameters;
+typedef struct {
+  /* Parameters for Lucky instance 14. Recognition recovers the Simon round
+   * circuit; these fields bound the admitted rounds and exhaustive key work. */
+  uint32_t maximum_rounds;
+  uint64_t maximum_candidates;
+} tactix_online_simon_model_parameters;
+typedef struct {
   /* UINT64_MAX selects half of the current coordinate count. */
   uint64_t left_size, left_weight, right_weight, total_weight;
 } tactix_online_affine_scope;
@@ -724,6 +757,10 @@ typedef struct {
     tactix_online_reorder_parameters reorder;
     tactix_online_parity_model_parameters parity_model;
     tactix_online_onehot_model_parameters onehot_model;
+    tactix_online_balanced_signature_model_parameters balanced_signature_model;
+    tactix_online_fermat_model_parameters fermat_model;
+    tactix_online_lookup_circuit_model_parameters lookup_circuit_model;
+    tactix_online_simon_model_parameters simon_model;
     tactix_online_affine_model_parameters affine_model;
     tactix_online_sr_parameters substitution_redundancy;
   } value;

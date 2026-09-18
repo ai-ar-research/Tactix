@@ -535,6 +535,41 @@ struct Stats {
   uint64_t direct_csp_model_work = 0;
   uint64_t direct_csp_model_best = UINT64_MAX;
   uint64_t direct_csp_model_sat = 0;
+  uint64_t balanced_signature_calls = 0;
+  uint64_t balanced_signature_recognized = 0;
+  uint64_t balanced_signature_candidates = 0;
+  uint64_t balanced_signature_restarts = 0;
+  uint64_t balanced_signature_steps = 0;
+  uint64_t balanced_signature_completion_rounds = 0;
+  uint64_t balanced_signature_sat = 0;
+  uint64_t balanced_signature_interrupted = 0;
+  uint64_t fermat_model_calls = 0;
+  uint64_t fermat_model_recognized = 0;
+  uint64_t fermat_model_candidates = 0;
+  uint64_t fermat_model_factor_iterations = 0;
+  uint64_t fermat_model_completion_rounds = 0;
+  uint64_t fermat_model_sat = 0;
+  uint64_t fermat_model_interrupted = 0;
+  uint64_t cerny_model_calls = 0;
+  uint64_t cerny_model_recognized = 0;
+  uint64_t cerny_model_states = 0;
+  uint64_t cerny_model_length = 0;
+  uint64_t cerny_model_sat = 0;
+  uint64_t cerny_model_interrupted = 0;
+  uint64_t lookup_circuit_model_calls = 0;
+  uint64_t lookup_circuit_model_recognized = 0;
+  uint64_t lookup_circuit_model_gates = 0;
+  uint64_t lookup_circuit_model_support = 0;
+  uint64_t lookup_circuit_model_vector_evaluations = 0;
+  uint64_t lookup_circuit_model_csp_work = 0;
+  uint64_t lookup_circuit_model_sat = 0;
+  uint64_t lookup_circuit_model_interrupted = 0;
+  uint64_t simon_model_calls = 0;
+  uint64_t simon_model_recognized = 0;
+  uint64_t simon_model_rounds = 0;
+  uint64_t simon_model_candidates = 0;
+  uint64_t simon_model_sat = 0;
+  uint64_t simon_model_interrupted = 0;
   uint64_t local_search_hints_offered = 0;
   uint64_t local_search_hints_applied = 0;
   uint64_t walks = 0;         // S6 Walk applications (policy op)
@@ -1165,6 +1200,23 @@ struct Kernel {
   // after the subsequent model-search opportunity.
   std::vector<uint64_t> input_binary_order;
   bool input_binary_order_captured = false;
+  // The Fermat owner inspects the two long input blocks and the final 80 raw
+  // clauses.  Preserve only the sufficient structural summary: exact long
+  // clause count/shape plus a fixed-size ring of raw binary DIMACS pairs.
+  // This avoids retaining the input formula or scanning it again at startup.
+  static constexpr uint32_t INPUT_CLAUSE_TAIL_CAPACITY = 80;
+  std::vector<std::array<int32_t, 2>> input_clause_tail;
+  uint32_t input_clause_tail_next = 0;
+  uint32_t input_long_clause_count = 0;
+  uint64_t input_positive_binary_count = 0;
+  uint64_t input_binary_clause_count = 0;
+  uint64_t input_ternary_clause_count = 0;
+  uint64_t input_unit_clause_count = 0;
+  uint64_t input_nonunit_clause_count = 0;
+  uint32_t input_uniform_nonunit_width = 0;
+  bool input_nonunit_uniform = true;
+  uint32_t input_fermat_width = 0;
+  bool input_fermat_long_shape = true;
   std::vector<uint8_t> input_activated; // per-var membership, parse-scoped
   std::vector<uint8_t> input_marks;     // per-lit membership, parse-scoped
   // Permanent external-variable import ranks. Kissat's tumble=1 assigns
@@ -1392,6 +1444,11 @@ struct Kernel {
   uint64_t parity_model_candidate_budget =
       strategy::ParityModelParameters::CANDIDATE_BUDGET_DEFAULT;
   strategy::AffineModelParameters affine_model_parameters;
+  strategy::BalancedSignatureModelParameters
+      balanced_signature_model_parameters;
+  strategy::FermatModelParameters fermat_model_parameters;
+  strategy::LookupCircuitModelParameters lookup_circuit_model_parameters;
+  strategy::SimonModelParameters simon_model_parameters;
   uint32_t onehot_model_maximum_variables =
       strategy::OnehotModelParameters::MAXIMUM_VARIABLES_DEFAULT;
   uint32_t onehot_model_maximum_domains =
@@ -2007,7 +2064,8 @@ inline void kernel_assign_decision(Kernel &k, Lit lit) { // level++ inside
   k.frames.push_back(static_cast<uint32_t>(k.trail.size()));
   kernel_assign(k, lit, k.level, DECISION_REASON, false);
 }
-inline void kernel_assign_unit(Kernel &k, Lit lit) { // root level
+[[gnu::always_inline]] inline void kernel_assign_unit(Kernel &k,
+                                                       Lit lit) { // root level
   kernel_assign(k, lit, 0, UNIT_REASON, false);
 }
 [[gnu::always_inline]] inline void

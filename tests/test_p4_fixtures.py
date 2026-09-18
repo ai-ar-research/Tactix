@@ -67,10 +67,8 @@ with tempfile.TemporaryDirectory(prefix="generic-dsr-proof-") as directory:
         if name == "dsr-trim":
             pathlib.Path(argv[-1]).write_bytes(b"binary-lsr")
             return subprocess.CompletedProcess(argv, 0, "s VERIFIED UNSAT\n", "")
-        if name == "dsr-compress":
-            pathlib.Path(argv[-1]).write_text("3 0 1 2 0\n")
-            return subprocess.CompletedProcess(argv, 0, "", "")
         assert name == "srcheck"
+        assert argv[-1] == "c"
         return subprocess.CompletedProcess(argv, 0, "s VERIFIED UNSAT\n", "")
 
     with mock.patch.object(runner.subprocess, "run", side_effect=fake_checker):

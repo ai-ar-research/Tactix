@@ -95,7 +95,7 @@ def prepare(a):
     shutil.copy2(a.binary,c/'pins/tactix')
     for name in ['checkmodel','modelcheck.py']:
         shutil.copy2(ref/'pins'/name,c/'pins'/name)
-    for name in ['dsr-trim','dsr-compress','srcheck']:
+    for name in ['dsr-trim','srcheck']:
         checker=ROOT/'tools/checkers/bin'/name
         if not checker.is_file():raise ValueError('missing checker: '+str(checker))
         shutil.copy2(checker,c/'pins'/name)
@@ -134,7 +134,7 @@ exec python3 {c}/pins/validate_anonymous_runtime.py {c}
         selection_authority=selection_authority,
         resource_contract=dict(partition=a.partition,cpus_per_task=a.cpus_per_task,memory_mib=32768,solve_timeout=a.solve_timeout,
             checker_timeout=a.checker_timeout,scheduler_wall_seconds=18000,array=f'0-{len(rows)-1}',throttle=None,node_constraint=None),
-        proof_contract='Native DSR checked and elaborated forwards by pinned dsr-trim to LSR, decompressed by pinned dsr-compress, and verified by pinned Trestle srcheck.',
+        proof_contract='Native DSR checked and elaborated forwards by pinned dsr-trim to binary LSR and verified directly by pinned Trestle srcheck.',
         cleanup_contract='O_TMPFILE on /tmp for input, DSR, LSR, model and checker scratch; no directory entries ever. Kernel releases storage at last close, including SIGKILL/OOM. Fail closed if unsupported. Only bounded JSON metadata and scheduler logs persist; core dumps disabled.',
         caveat='If the entire job dies, its result may be missing; never interpret missing as timeout or checked. Local disk may fill during a live run; no home-quota certificate storage or failure retention.',
         pin_sha256={str(p.relative_to(c)):sha(p) for p in [*(c/'pins').iterdir(),c/'matrix.tsv',c/'array.sbatch',c/'validate.sbatch']})

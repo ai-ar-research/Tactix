@@ -879,6 +879,55 @@ int main(int argc, char **argv) {
                                     ? 0
                                     : kernel.stats.direct_csp_model_best),
            (unsigned long long)kernel.stats.direct_csp_model_sat);
+    printf("c balance    %llu calls, %llu recognized, %llu candidates, "
+           "%llu restarts, %llu steps, %llu completion rounds, %llu SAT, "
+           "%llu interrupted\n",
+           (unsigned long long)kernel.stats.balanced_signature_calls,
+           (unsigned long long)kernel.stats.balanced_signature_recognized,
+           (unsigned long long)kernel.stats.balanced_signature_candidates,
+           (unsigned long long)kernel.stats.balanced_signature_restarts,
+           (unsigned long long)kernel.stats.balanced_signature_steps,
+           (unsigned long long)kernel.stats.balanced_signature_completion_rounds,
+           (unsigned long long)kernel.stats.balanced_signature_sat,
+           (unsigned long long)kernel.stats.balanced_signature_interrupted);
+    printf("c fermat     %llu calls, %llu recognized, %llu candidates, "
+           "%llu factor iterations, %llu completion rounds, %llu SAT, "
+           "%llu interrupted\n",
+           (unsigned long long)kernel.stats.fermat_model_calls,
+           (unsigned long long)kernel.stats.fermat_model_recognized,
+           (unsigned long long)kernel.stats.fermat_model_candidates,
+           (unsigned long long)kernel.stats.fermat_model_factor_iterations,
+           (unsigned long long)kernel.stats.fermat_model_completion_rounds,
+           (unsigned long long)kernel.stats.fermat_model_sat,
+           (unsigned long long)kernel.stats.fermat_model_interrupted);
+    printf("c cerny      %llu calls, %llu recognized, %llu states, "
+           "%llu length, %llu SAT, %llu interrupted\n",
+           (unsigned long long)kernel.stats.cerny_model_calls,
+           (unsigned long long)kernel.stats.cerny_model_recognized,
+           (unsigned long long)kernel.stats.cerny_model_states,
+           (unsigned long long)kernel.stats.cerny_model_length,
+           (unsigned long long)kernel.stats.cerny_model_sat,
+           (unsigned long long)kernel.stats.cerny_model_interrupted);
+    printf("c lookup     %llu calls, %llu recognized, %llu gates, "
+           "%llu support, %llu vector gate evaluations, %llu CSP work, "
+           "%llu SAT, %llu interrupted\n",
+           (unsigned long long)kernel.stats.lookup_circuit_model_calls,
+           (unsigned long long)kernel.stats.lookup_circuit_model_recognized,
+           (unsigned long long)kernel.stats.lookup_circuit_model_gates,
+           (unsigned long long)kernel.stats.lookup_circuit_model_support,
+           (unsigned long long)
+               kernel.stats.lookup_circuit_model_vector_evaluations,
+           (unsigned long long)kernel.stats.lookup_circuit_model_csp_work,
+           (unsigned long long)kernel.stats.lookup_circuit_model_sat,
+           (unsigned long long)kernel.stats.lookup_circuit_model_interrupted);
+    printf("c simon      %llu calls, %llu recognized, %llu rounds, "
+           "%llu candidates, %llu SAT, %llu interrupted\n",
+           (unsigned long long)kernel.stats.simon_model_calls,
+           (unsigned long long)kernel.stats.simon_model_recognized,
+           (unsigned long long)kernel.stats.simon_model_rounds,
+           (unsigned long long)kernel.stats.simon_model_candidates,
+           (unsigned long long)kernel.stats.simon_model_sat,
+           (unsigned long long)kernel.stats.simon_model_interrupted);
     printf("c localsearch %llu hints offered, %llu applied\n",
            (unsigned long long)kernel.stats.local_search_hints_offered,
            (unsigned long long)kernel.stats.local_search_hints_applied);

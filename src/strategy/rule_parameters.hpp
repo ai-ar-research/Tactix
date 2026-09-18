@@ -167,6 +167,101 @@ struct OnehotModelParameters {
   static OnehotModelParameters from_kernel(const Kernel &);
 };
 
+// SAT-only construction for balance designs encoded by a block of pair
+// choices and a block of signed ternary signatures.  The reference work
+// controls are the LymphoSAT owner strategy's complete neighborhood schedule;
+// keeping them typed lets online policies shorten, lengthen, or reseed the
+// search without changing recognition or model validation.
+struct BalancedSignatureModelParameters {
+  static constexpr uint32_t MAXIMUM_BALLS_DEFAULT = 256;
+  static constexpr uint32_t MAXIMUM_WIDTH_DEFAULT = 8;
+  static constexpr uint64_t RESTARTS_DEFAULT = 160;
+  static constexpr uint64_t STEPS_PER_RESTART_DEFAULT = 140000;
+  static constexpr uint32_t SAMPLES_PER_STEP_DEFAULT = 36;
+  static constexpr uint64_t SEED_DEFAULT = 0xabcdef1234567890ULL;
+  static constexpr uint32_t COMPLETION_ROUNDS_DEFAULT = 64;
+
+  uint32_t maximum_balls = MAXIMUM_BALLS_DEFAULT;
+  uint32_t maximum_width = MAXIMUM_WIDTH_DEFAULT;
+  uint64_t restarts = RESTARTS_DEFAULT;
+  uint64_t steps_per_restart = STEPS_PER_RESTART_DEFAULT;
+  uint32_t samples_per_step = SAMPLES_PER_STEP_DEFAULT;
+  uint64_t seed = SEED_DEFAULT;
+  uint32_t completion_rounds = COMPLETION_ROUNDS_DEFAULT;
+  constexpr bool valid() const {
+    return maximum_balls >= 3 && maximum_width && maximum_width <= 12 &&
+           restarts && steps_per_restart && samples_per_step &&
+           completion_rounds;
+  }
+  static BalancedSignatureModelParameters from_kernel(const Kernel &);
+};
+
+// SAT-only reconstruction for arithmetic circuits encoding
+// (a-b)(a+b)=N.  The owner recovers N from the final comparator and factors it
+// with deterministic 64-bit Miller--Rabin/Pollard Rho before validating the
+// completed assignment against the entire live CNF.  These bounds are the
+// owner's algorithmic limits, exposed so an online caller can dose the action.
+struct FermatModelParameters {
+  static constexpr uint32_t MAXIMUM_BITS_DEFAULT = 63;
+  static constexpr uint32_t COMPARATOR_TAIL_CLAUSES_DEFAULT = 80;
+  static constexpr uint64_t RHO_CONSTANTS_DEFAULT = 199;
+  static constexpr uint64_t RHO_ITERATIONS_DEFAULT = 200000;
+
+  uint32_t maximum_bits = MAXIMUM_BITS_DEFAULT;
+  uint32_t comparator_tail_clauses = COMPARATOR_TAIL_CLAUSES_DEFAULT;
+  uint64_t rho_constants = RHO_CONSTANTS_DEFAULT;
+  uint64_t rho_iterations = RHO_ITERATIONS_DEFAULT;
+  constexpr bool valid() const {
+    return maximum_bits && maximum_bits <= 63 &&
+           comparator_tail_clauses >= 2 &&
+           comparator_tail_clauses <= COMPARATOR_TAIL_CLAUSES_DEFAULT &&
+           rho_constants && rho_iterations;
+  }
+  static FermatModelParameters from_kernel(const Kernel &);
+};
+
+// SAT-only reconstruction of feed-forward lookup-table circuits.  The owner
+// enumerates the structural primary-input support with byte-lane SIMD and uses
+// occurrence-queued gate-CSP search when that finite enumeration is not
+// admitted.  The limits are public work controls, independent of recognition.
+struct LookupCircuitModelParameters {
+  static constexpr uint32_t MAXIMUM_FANIN_DEFAULT = 8;
+  static constexpr uint32_t MAXIMUM_FANOUT_DEFAULT = 8;
+  static constexpr uint32_t MAXIMUM_PRIMARY_INPUTS_DEFAULT = 64;
+  static constexpr uint32_t MAXIMUM_SUPPORT_DEFAULT = 32;
+  static constexpr uint64_t MAXIMUM_VECTOR_GATE_EVALUATIONS_DEFAULT =
+      6000000000ULL;
+
+  uint32_t maximum_fanin = MAXIMUM_FANIN_DEFAULT;
+  uint32_t maximum_fanout = MAXIMUM_FANOUT_DEFAULT;
+  uint32_t maximum_primary_inputs = MAXIMUM_PRIMARY_INPUTS_DEFAULT;
+  uint32_t maximum_support = MAXIMUM_SUPPORT_DEFAULT;
+  uint64_t maximum_vector_gate_evaluations =
+      MAXIMUM_VECTOR_GATE_EVALUATIONS_DEFAULT;
+  constexpr bool valid() const {
+    return maximum_fanin && maximum_fanin <= 8 && maximum_fanout &&
+           maximum_fanout <= 8 && maximum_primary_inputs &&
+           maximum_primary_inputs <= 64 && maximum_support &&
+           maximum_support <= 63 && maximum_vector_gate_evaluations;
+  }
+  static LookupCircuitModelParameters from_kernel(const Kernel &);
+};
+
+// SAT-only key search for Simon-family round circuits. Recognition recovers
+// the key permutation and per-round key selection from the CNF itself; these
+// controls bound the admitted circuit depth and exhaustive 32-bit key work.
+struct SimonModelParameters {
+  static constexpr uint32_t MAXIMUM_ROUNDS_DEFAULT = 64;
+  static constexpr uint64_t MAXIMUM_CANDIDATES_DEFAULT = uint64_t{1} << 32;
+
+  uint32_t maximum_rounds = MAXIMUM_ROUNDS_DEFAULT;
+  uint64_t maximum_candidates = MAXIMUM_CANDIDATES_DEFAULT;
+  constexpr bool valid() const {
+    return maximum_rounds && maximum_rounds <= 64 && maximum_candidates;
+  }
+  static SimonModelParameters from_kernel(const Kernel &);
+};
+
 // SAT-only low-weight search of an exact projected affine image. Coordinates
 // use stable external DIMACS identities; an explicit empty projection is legal.
 enum class AffineProjectionMode : uint8_t { Boundary, AllParity, Explicit };
@@ -212,6 +307,10 @@ void install_rule_parameters(Kernel &, const WalkParameters &);
 void install_rule_parameters(Kernel &, const ReorderParameters &);
 void install_rule_parameters(Kernel &, const ParityModelParameters &);
 void install_rule_parameters(Kernel &, const OnehotModelParameters &);
+void install_rule_parameters(Kernel &, const BalancedSignatureModelParameters &);
+void install_rule_parameters(Kernel &, const FermatModelParameters &);
+void install_rule_parameters(Kernel &, const LookupCircuitModelParameters &);
+void install_rule_parameters(Kernel &, const SimonModelParameters &);
 void install_rule_parameters(Kernel &, const AffineModelParameters &);
 
 template <class Parameters> class ScopedRuleParameters {
@@ -240,6 +339,12 @@ using ScopedReorderParameters = ScopedRuleParameters<ReorderParameters>;
 using ScopedParityModelParameters = ScopedRuleParameters<ParityModelParameters>;
 using ScopedOnehotModelParameters = ScopedRuleParameters<OnehotModelParameters>;
 using ScopedAffineModelParameters = ScopedRuleParameters<AffineModelParameters>;
+using ScopedBalancedSignatureModelParameters =
+    ScopedRuleParameters<BalancedSignatureModelParameters>;
+using ScopedFermatModelParameters = ScopedRuleParameters<FermatModelParameters>;
+using ScopedLookupCircuitModelParameters =
+    ScopedRuleParameters<LookupCircuitModelParameters>;
+using ScopedSimonModelParameters = ScopedRuleParameters<SimonModelParameters>;
 
 class ScopedWalkParameters {
 public:

@@ -54,11 +54,10 @@ from shrink import minimize  # noqa: E402
 # slurm.sh includes this shared parser in its immutable harness snapshot.
 # The fallback is only for the maintained tools/fuzz checkout.
 sys.path.append(os.path.join(ROOT, "tools", "bench"))
-from proof_oracle import bridge_trivial_input_lsr, proof_check_status  # noqa: E402
+from proof_oracle import bridge_trivial_input_binary_lsr, proof_check_status  # noqa: E402
 
 DRAT_TRIM = os.path.join(ROOT, "tools", "checkers", "bin", "drat-trim")
 DSR_TRIM = os.path.join(ROOT, "tools", "checkers", "bin", "dsr-trim")
-DSR_COMPRESS = os.path.join(ROOT, "tools", "checkers", "bin", "dsr-compress")
 SR_CHECK = os.path.join(ROOT, "tools", "checkers", "bin", "srcheck")
 LRAT_CHECK = os.path.join(ROOT, "tools", "checkers", "bin", "lrat-check")
 CAKE_LPR = os.path.join(ROOT, "tools", "checkers", "bin", "cake_lpr")
@@ -380,11 +379,7 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
     def check(command):
         c, o, e = run_cmd(command, 120)
         checker = os.path.basename(command[0])
-        if checker == "dsr-compress":
-            status = ("verified" if c == 0 and "ERROR" not in o + e and
-                      "not supported" not in o + e else "error")
-        else:
-            status = proof_check_status(checker, c, o, e)
+        status = proof_check_status(checker, c, o, e)
         # The pinned drat-trim exits 1 on an input empty clause even while
         # reporting success. Confirm that semantic condition from the actual
         # original CNF; never accept an abnormal exit from success text alone.
@@ -461,20 +456,15 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
                             out.fail("proof", "cake_lpr did not verify the converted LRAT")
         elif os.path.exists(proof) and native_dsr:
             binary_lsr = os.path.join(workdir, "proof.binary.lsr")
-            text_lsr = os.path.join(workdir, "proof.text.lsr")
-            out.proof_artifacts.extend([binary_lsr, text_lsr])
+            out.proof_artifacts.append(binary_lsr)
             if not check([DSR_TRIM, "-q", "-f", "-c", cnf_path, proof,
                           binary_lsr]):
                 out.fail("proof", "dsr-trim did not verify and elaborate DSR")
             elif not os.path.isfile(binary_lsr) or os.path.getsize(binary_lsr) == 0:
                 out.fail("proof", "dsr-trim produced no LSR")
-            elif not check([DSR_COMPRESS, "-d", binary_lsr, text_lsr]):
-                out.fail("proof", "dsr-compress did not produce textual LSR")
-            elif not os.path.isfile(text_lsr) or os.path.getsize(text_lsr) == 0:
-                out.fail("proof", "dsr-compress produced no textual LSR")
             else:
-                bridge_trivial_input_lsr(cnf_path, text_lsr)
-                if not check([SR_CHECK, cnf_path, text_lsr]):
+                bridge_trivial_input_binary_lsr(cnf_path, binary_lsr)
+                if not check([SR_CHECK, cnf_path, binary_lsr, "c"]):
                     out.fail("proof", "Trestle did not verify elaborated LSR")
 
     if oracle and verdict in ("SAT", "UNSAT"):

@@ -5,7 +5,6 @@ set -euo pipefail
 SOLVER="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 DSR_TRIM="$ROOT/tools/checkers/bin/dsr-trim"
-DSR_COMPRESS="$ROOT/tools/checkers/bin/dsr-compress"
 SR_CHECK="$ROOT/tools/checkers/bin/srcheck"
 CHECKMODEL="$ROOT/tools/fuzz/checkmodel"
 T="$(mktemp -d)"
@@ -35,9 +34,7 @@ one_status "$T/out" UNSAT
 "$DSR_TRIM" -q -f -c "$T/unsat.cnf" "$T/proof.dsr" "$T/proof.binary.lsr" \
   > "$T/dsr-check" 2>&1 || fail "DSR not verified"
 grep -qx 's VERIFIED UNSAT' "$T/dsr-check" || fail "DSR not verified"
-"$DSR_COMPRESS" -d "$T/proof.binary.lsr" "$T/proof.lsr" \
-  || fail "LSR decompression"
-"$SR_CHECK" "$T/unsat.cnf" "$T/proof.lsr" > "$T/lsr-check" 2>&1
+"$SR_CHECK" "$T/unsat.cnf" "$T/proof.binary.lsr" c > "$T/lsr-check" 2>&1
 grep -qx 's VERIFIED UNSAT' "$T/lsr-check" || fail "LSR not verified"
 
 # 2b. proofs are opt-in: UNSAT without a proof argument must work and
@@ -111,9 +108,8 @@ one_status "$T/wrapper.stdout" wrapper
   "$T/wrapper.binary.lsr" > "$T/wrapper-dsr-check"
 grep -qx 's VERIFIED UNSAT' "$T/wrapper-dsr-check" \
   || fail "dsr-trim rejected wrapper proof"
-"$DSR_COMPRESS" -d "$T/wrapper.binary.lsr" "$T/wrapper.lsr" \
-  || fail "wrapper LSR decompression"
-"$SR_CHECK" "$T/unsat.cnf" "$T/wrapper.lsr" > "$T/wrapper-lsr-check"
+"$SR_CHECK" "$T/unsat.cnf" "$T/wrapper.binary.lsr" c \
+  > "$T/wrapper-lsr-check"
 grep -qx 's VERIFIED UNSAT' "$T/wrapper-lsr-check" \
   || fail "Trestle rejected wrapper proof"
 
