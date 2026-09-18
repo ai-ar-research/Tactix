@@ -72,8 +72,9 @@ public:
   Recognizer(Kernel &k, const strategy::ParityModelParameters &parameters)
       : k_(k), parameters_(parameters) {
     const uint64_t reserve = std::min<uint64_t>(
-        parameters.refutation_maximum_groups,
-        parameters.refutation_probe_constraints);
+        k.input_nonunit_clause_count,
+        std::min<uint64_t>(parameters.refutation_maximum_groups,
+                           parameters.refutation_probe_constraints));
     index_.reserve(static_cast<size_t>(reserve));
     groups.reserve(static_cast<size_t>(reserve));
   }
