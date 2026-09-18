@@ -21,6 +21,8 @@
 namespace tactix::symmetry_backend {
 namespace {
 
+struct generator_limit_requested {};
+
 bool stopped(StopCallback callback, void *context) noexcept {
   return callback && callback(context);
 }
@@ -199,6 +201,8 @@ Status detect(const Graph &input, const DetectionSettings &settings,
     std::vector<detail::SparsePermutation> found;
     bool invalid_callback = false;
     bool generator_limit_reached = false;
+    uint64_t live_generator_limit =
+        std::min(settings.initial_generators, settings.maximum_generators);
     uint64_t callbacks = 0, support_sum = 0, dropped = 0;
     dejavu_hook hook = [&](int domain, const int *permutation, int support_size,
                            const int *support) {
@@ -230,13 +234,13 @@ Status detect(const Graph &input, const DetectionSettings &settings,
 #endif
       if (image.moved.empty())
         return;
-      if (found.size() >= settings.maximum_generators) {
+      if (found.size() >= live_generator_limit) {
         generator_limit_reached = true;
         if (trace.enabled())
           ++dropped;
-        return;
+        throw generator_limit_requested{};
       }
-      if (trace.enabled()) {
+      if (trace.detailed()) {
         // Preserve the existing full-image diagnostic fingerprint. This one
         // temporary is never retained by the detector or used for scheduling.
         std::vector<uint32_t> dense(returned_domain);
@@ -245,14 +249,33 @@ Status detect(const Graph &input, const DetectionSettings &settings,
         trace.permutation("backend_generator", found.size(), dense.data(), returned_domain);
       }
       found.push_back(std::move(image));
+      if (settings.progress_generators_per_generator &&
+          live_generator_limit < settings.maximum_generators) {
+        const uint64_t room =
+            settings.maximum_generators - live_generator_limit;
+        live_generator_limit +=
+            std::min(room, settings.progress_generators_per_generator);
+      }
+      // A finite caller cap is a work limit, not merely an output truncation.
+      // Stop as soon as the requested prefix exists instead of continuing an
+      // automorphism search whose further callbacks must all be discarded.
+      if (found.size() == live_generator_limit) {
+        generator_limit_reached = true;
+        throw generator_limit_requested{};
+      }
     };
-    solver.automorphisms(&graph, &hook);
+    try {
+      solver.automorphisms(&graph, &hook);
+    } catch (const generator_limit_requested &) {
+      generator_limit_reached = true;
+    }
     trace.event("backend_detection", "callbacks\t%llu\tsupport_sum\t%llu\t"
-                "retained\t%zu\tdropped\t%llu\tcap\t%llu\t"
+                "retained\t%zu\tdropped\t%llu\tinitial_cap\t%llu\tcap\t%llu\t"
                 "backend_limit\t%u\tdeterministic\t%u",
                 static_cast<unsigned long long>(callbacks),
                 static_cast<unsigned long long>(support_sum), found.size(),
                 static_cast<unsigned long long>(dropped),
+                static_cast<unsigned long long>(settings.initial_generators),
                 static_cast<unsigned long long>(settings.maximum_generators),
                 solver.get_reached_limit(),
                 solver.get_deterministic_termination());

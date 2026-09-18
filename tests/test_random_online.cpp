@@ -434,6 +434,53 @@ static void configurable_parameters_round_trip() {
   assert(encoded.find(":sr22(1001,3,2,3,4,1002,1003,1004,1005,1006,") !=
          std::string::npos);
 
+  auto bounded_schreier = program;
+  auto &bounded_parameters = std::get<SubstitutionRedundancyParameters>(
+      bounded_schreier.sequence[5].parameters);
+  bounded_parameters.graph_symmetry.schreier_domain_limit = 50'000;
+  const std::string bounded_wire =
+      serialize_online_strategy_program(bounded_schreier);
+  assert(bounded_wire.find(":sr26(") != std::string::npos);
+  OnlineStrategyProgram bounded_replay;
+  assert(deserialize_online_strategy_program(bounded_wire, bounded_replay,
+                                             &error));
+  assert(std::get<SubstitutionRedundancyParameters>(
+             bounded_replay.sequence[5].parameters)
+             .graph_symmetry.schreier_domain_limit == 50'000);
+  assert(serialize_online_strategy_program(bounded_replay) == bounded_wire);
+
+  auto progress_feedback = program;
+  std::get<SubstitutionRedundancyParameters>(
+      progress_feedback.sequence[5].parameters).orbitopal_progress_feedback = true;
+  const std::string progress_wire =
+      serialize_online_strategy_program(progress_feedback);
+  assert(progress_wire.find(":sr27(") != std::string::npos);
+  OnlineStrategyProgram progress_replay;
+  assert(deserialize_online_strategy_program(progress_wire, progress_replay,
+                                             &error));
+  assert(std::get<SubstitutionRedundancyParameters>(
+             progress_replay.sequence[5].parameters)
+             .orbitopal_progress_feedback);
+  assert(serialize_online_strategy_program(progress_replay) == progress_wire);
+
+  auto cut_admission = program;
+  std::get<SubstitutionRedundancyParameters>(
+      cut_admission.sequence[5].parameters)
+      .graph_symmetry.nonforcing_cut_admission =
+      SymmetryNonforcingCutAdmission::RequireCompoundProgress;
+  const std::string cut_admission_wire =
+      serialize_online_strategy_program(cut_admission);
+  assert(cut_admission_wire.find(":sr28(") != std::string::npos);
+  OnlineStrategyProgram cut_admission_replay;
+  assert(deserialize_online_strategy_program(
+      cut_admission_wire, cut_admission_replay, &error));
+  assert(std::get<SubstitutionRedundancyParameters>(
+             cut_admission_replay.sequence[5].parameters)
+             .graph_symmetry.nonforcing_cut_admission ==
+         SymmetryNonforcingCutAdmission::RequireCompoundProgress);
+  assert(serialize_online_strategy_program(cut_admission_replay) ==
+         cut_admission_wire);
+
   // Equal-shaped versions retain their historical enum domain.
   for (const auto order : {OrbitopalColumnOrder::CooccurrenceGreedyClique,
                           OrbitopalColumnOrder::CooccurrenceBoundedGreedyClique}) {
@@ -1007,6 +1054,7 @@ static void random_sr_is_structured_replayable_and_effective() {
   std::set<SymmetryBaseSelection> effective_fix_and_cut_bases;
   std::set<uint32_t> binary_graph_densities;
   bool involutions_only[2] = {}, root_stabilizers[2] = {};
+  bool nonforcing_cut_admissions[3] = {};
   bool component_modes[2] = {}, effective_components[2] = {};
   bool detector_orders[2] = {}, effective_detector_orders[2] = {};
   bool handoffs[4] = {}, effective_handoffs[4] = {};
@@ -1055,6 +1103,8 @@ static void random_sr_is_structured_replayable_and_effective() {
     chain_modes.insert(parameters.graph_symmetry.chain_mode);
     base_selections.insert(parameters.graph_symmetry.base_selection);
     root_stabilizers[parameters.graph_symmetry.pointwise_root_stabilizer] = true;
+    nonforcing_cut_admissions[static_cast<unsigned>(
+        parameters.graph_symmetry.nonforcing_cut_admission)] = true;
     component_modes[parameters.graph_symmetry.factor_support_components] = true;
     detector_orders[parameters.graph_symmetry.preserve_detector_order] = true;
     const unsigned handoff = parameters.graph_symmetry.use_structured_generators |
@@ -1133,6 +1183,8 @@ static void random_sr_is_structured_replayable_and_effective() {
          binary_graph_densities.size() > 32 &&
          involutions_only[0] && involutions_only[1] &&
          root_stabilizers[0] && root_stabilizers[1]);
+  assert(nonforcing_cut_admissions[0] && nonforcing_cut_admissions[1] &&
+         nonforcing_cut_admissions[2]);
   assert(component_modes[0] && component_modes[1]);
   assert(effective_components[0] && effective_components[1]);
   for (unsigned mode = 0; mode < 4; ++mode)

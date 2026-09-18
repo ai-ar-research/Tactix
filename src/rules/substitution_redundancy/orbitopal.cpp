@@ -59,7 +59,12 @@ struct LogicalFormula {
 
 struct OrbitopalScreen {
   std::vector<uint32_t> occurrences;
+  // Satsuma constructs ULC AMOs before propagating input units.  Keep that
+  // pre-propagation occurrence view separate from the root-aware view used by
+  // every later structured detector.
+  std::vector<uint32_t> ulc_occurrences;
   std::vector<std::vector<Lit>> candidate_clauses;
+  std::vector<std::vector<Lit>> ulc_candidate_clauses;
 };
 
 bool charge(const Kernel &, volatile sig_atomic_t *,
@@ -69,6 +74,52 @@ bool charge(const Kernel &, volatile sig_atomic_t *,
 struct RefinementStopContext {
   const Kernel *kernel;
   volatile sig_atomic_t *stop;
+};
+
+// Satsuma shares a max(16 * variables, 16 Mi) split allowance across its
+// structured detectors.  Tactix charges deterministic degree/width work
+// instead of backend-specific split counts.  Use the same owner scale as a
+// zero-progress allowance and renew it only when a complete useful matrix is
+// admitted.  This lets productive producers continue while a costly stream of
+// one-column or otherwise unusable candidates ends at a completed atom.
+class RefinementProgressFeedback {
+public:
+  RefinementProgressFeedback(const Kernel &kernel,
+                             const SubstitutionRedundancyParameters &parameters,
+                             const OrbitopalEnumerationResult &result)
+      : enabled_(parameters.orbitopal_progress_feedback),
+        allowance_(std::max<uint64_t>(
+            16ull * 1024 * 1024,
+            16ull * static_cast<uint64_t>(kernel.nvars))),
+        checkpoint_(result.ticks), matrices_(result.matrices) {}
+
+  bool stop(OrbitopalEnumerationResult &result, const char *producer) {
+    if (!enabled_)
+      return false;
+    if (result.matrices != matrices_) {
+      matrices_ = result.matrices;
+      checkpoint_ = result.ticks;
+      return false;
+    }
+    if (result.ticks < checkpoint_ ||
+        result.ticks - checkpoint_ < allowance_)
+      return false;
+    ++result.unproductive_refinement_stops;
+    SymmetryTrace{}.event(
+        "orbitopal_progress_stop",
+        "producer\t%s\twork\t%llu\tallowance\t%llu\tmatrices\t%llu",
+        producer,
+        static_cast<unsigned long long>(result.ticks - checkpoint_),
+        static_cast<unsigned long long>(allowance_),
+        static_cast<unsigned long long>(result.matrices));
+    return true;
+  }
+
+private:
+  bool enabled_ = false;
+  uint64_t allowance_ = UINT64_MAX;
+  uint64_t checkpoint_ = 0;
+  uint64_t matrices_ = 0;
 };
 
 bool refinement_stopped(void *opaque) noexcept {
@@ -404,6 +455,7 @@ bool screen_formula(const Kernel &kernel,
       ref += words;
     }
   }
+  screen.ulc_occurrences = screen.occurrences;
   for (Var var = 0; var < kernel.nvars; ++var) {
     if (!charge(kernel, stop, parameters, result, 1))
       return false;
@@ -414,56 +466,67 @@ bool screen_formula(const Kernel &kernel,
     ++screen.occurrences[unit];
   }
 
-  std::unordered_set<uint64_t> candidate_binaries;
-  std::unordered_set<Ref> candidate_large;
-  for (Lit literal = 0; literal < 2 * kernel.nvars; ++literal) {
-    if (screen.occurrences[literal] != 1)
-      continue;
-    if (kernel.watches.binary_size(literal) == 1 &&
-        parameters.minimum_orbitopal_rows <= 2) {
-      for (const WatchEntry watch : kernel.watches.entries(literal)) {
-        if (!watch.binary())
-          continue;
-        const Lit other = watch.other();
-        if (screen.occurrences[other] == 1 &&
-            candidate_binaries.insert(
-                kernel_binary_key(literal, other)).second) {
-          std::vector<Lit> clause = {literal, other};
-          std::sort(clause.begin(), clause.end());
-          screen.candidate_clauses.push_back(std::move(clause));
+  const auto collect_candidates =
+      [&](const std::vector<uint32_t> &occurrences,
+          std::vector<std::vector<Lit>> &candidates) {
+        std::unordered_set<uint64_t> candidate_binaries;
+        std::unordered_set<Ref> candidate_large;
+        for (Lit literal = 0; literal < 2 * kernel.nvars; ++literal) {
+          if (occurrences[literal] != 1)
+            continue;
+          if (kernel.watches.binary_size(literal) == 1 &&
+              parameters.minimum_orbitopal_rows <= 2) {
+            for (const WatchEntry watch : kernel.watches.entries(literal)) {
+              if (!watch.binary())
+                continue;
+              const Lit other = watch.other();
+              if (occurrences[other] == 1 &&
+                  candidate_binaries
+                      .insert(kernel_binary_key(literal, other))
+                      .second) {
+                std::vector<Lit> clause = {literal, other};
+                std::sort(clause.begin(), clause.end());
+                candidates.push_back(std::move(clause));
+              }
+              break;
+            }
+          }
+          if (kernel.dense && kernel.dense->large_size(literal) == 1)
+            kernel.dense->with_large(literal, [&](auto refs) {
+              if (!refs.empty())
+                candidate_large.insert(*refs.begin());
+            });
         }
-        break;
-      }
-    }
-    if (kernel.dense && kernel.dense->large_size(literal) == 1)
-      kernel.dense->with_large(literal, [&](auto refs) {
-        if (!refs.empty())
-          candidate_large.insert(*refs.begin());
-      });
-  }
-  if (kernel.dense) {
-    possible_large.assign(candidate_large.begin(), candidate_large.end());
-    // Dense lookup discovers candidates by literal, but the ULC completion
-    // schedule is clause-order sensitive: an admitted clause adds negative
-    // pairs which can make a later opposite-polarity clause non-unique.  Arena
-    // references preserve the current clause order, so restore it here after
-    // the set-valued discovery step.
-    std::sort(possible_large.begin(), possible_large.end());
-  }
-  for (const Ref ref : possible_large) {
-    const Clause *clause = clause_at(kernel.arena, ref);
-    if (clause->garbage() ||
-        clause->size < parameters.minimum_orbitopal_rows)
-      continue;
-    if (!charge(kernel, stop, parameters, result, clause->size))
-      return false;
-    bool unique = true;
-    for (const Lit literal : *clause)
-      unique &= screen.occurrences[literal] == 1;
-    if (unique) {
-      screen.candidate_clauses.emplace_back(clause->begin(), clause->end());
-    }
-  }
+        std::vector<Ref> candidate_refs = possible_large;
+        if (kernel.dense) {
+          candidate_refs.assign(candidate_large.begin(),
+                                candidate_large.end());
+          // Dense lookup discovers candidates by literal, but ULC completion
+          // is clause-order sensitive. Restore physical arena order after the
+          // set-valued discovery step.
+          std::sort(candidate_refs.begin(), candidate_refs.end());
+        }
+        for (const Ref ref : candidate_refs) {
+          const Clause *clause = clause_at(kernel.arena, ref);
+          if (clause->garbage() ||
+              clause->size < parameters.minimum_orbitopal_rows)
+            continue;
+          if (!charge(kernel, stop, parameters, result, clause->size))
+            return false;
+          bool unique = true;
+          for (const Lit literal : *clause)
+            unique &= occurrences[literal] == 1;
+          if (unique)
+            candidates.emplace_back(clause->begin(), clause->end());
+        }
+        return true;
+      };
+  if (parameters.complete_unique_literal_amos &&
+      !collect_candidates(screen.ulc_occurrences,
+                          screen.ulc_candidate_clauses))
+    return false;
+  if (!collect_candidates(screen.occurrences, screen.candidate_clauses))
+    return false;
   return true;
 }
 
@@ -2025,7 +2088,10 @@ bool emit_refined_product_orbits(
   symmetry_backend::release(root);
 
   std::vector<uint8_t> tested(refinement.literal_count, 0);
+  RefinementProgressFeedback progress(kernel, parameters, result);
   for (auto &[cell, orbit] : root_cells) {
+    if (progress.stop(result, "product"))
+      break;
     (void)cell;
     if (parameters.minimum_orbitopal_rows >
             SIZE_MAX / parameters.minimum_orbitopal_columns ||
@@ -2050,6 +2116,10 @@ bool emit_refined_product_orbits(
     while (candidate.size() >=
            static_cast<size_t>(parameters.minimum_orbitopal_rows) *
                parameters.minimum_orbitopal_columns) {
+      if (progress.stop(result, "product")) {
+        symmetry_backend::release(branch);
+        return true;
+      }
       if (!admit_product_refinement(parameters, result, candidate.size())) {
         symmetry_backend::release(branch);
         return false;
@@ -2385,7 +2455,10 @@ bool emit_refined_row_candidates(
   }
   std::vector<uint8_t> claimed(kernel.nvars, 0);
   std::vector<Lit> last_inexact_action;
+  RefinementProgressFeedback progress(kernel, parameters, result);
   for (const std::vector<Lit> &orbit : orbits) {
+    if (progress.stop(result, "rows"))
+      break;
     if (parameters.orbitopal_base_probe_filter &&
         orbit.size() >
             static_cast<uint64_t>(parameters.orbitopal_base_probe_factor) *
@@ -2584,12 +2657,12 @@ static OrbitopalEnumerationResult enumerate_orbitopal(
     trace.event("orbitopal_amo_completion", "boundary\tbegin");
     bool emitted = false;
     std::unordered_set<uint64_t> scheduled_binaries;
-    for (const std::vector<Lit> &clause : screen.candidate_clauses) {
+    for (const std::vector<Lit> &clause : screen.ulc_candidate_clauses) {
       bool currently_unique = true;
       for (const Lit literal : clause) {
         if (!charge(kernel, stop, parameters, result, 1))
           return result;
-        currently_unique &= screen.occurrences[literal] == 1;
+        currently_unique &= screen.ulc_occurrences[literal] == 1;
       }
       if (!currently_unique)
         continue;
@@ -2614,8 +2687,8 @@ static OrbitopalEnumerationResult enumerate_orbitopal(
           emitted = true;
           if (!visitor(instance))
             return result;
-          ++screen.occurrences[a];
-          ++screen.occurrences[b];
+          ++screen.ulc_occurrences[a];
+          ++screen.ulc_occurrences[b];
         }
       }
     }

@@ -217,6 +217,7 @@ ApplyResult parity_model_apply(Kernel &k) {
   const uint64_t candidates =
       std::min(affine_size, parameters.candidate_budget);
   std::vector<uint8_t> assignment(k.nvars, 0);
+  std::vector<uint8_t> guidance;
   for (uint64_t candidate = 0; candidate < candidates; ++candidate) {
     std::fill(assignment.begin(), assignment.end(), uint8_t{0});
     for (Var var = 0; var < k.nvars; ++var)
@@ -239,9 +240,17 @@ ApplyResult parity_model_apply(Kernel &k) {
       ++k.stats.parity_model_sat;
       return ApplyResult::Sat;
     }
-    if (kernel_rule_interrupt(k, k.stats.parity_model_interrupted))
+    if (guidance.empty())
+      guidance = assignment;
+    if (kernel_rule_interrupt(k, k.stats.parity_model_interrupted)) {
+      kernel_offer_local_search_hint(k, strategy::LocalSearchKind::Parity,
+                                     guidance);
       return ApplyResult::NoOp;
+    }
   }
+  if (!guidance.empty())
+    kernel_offer_local_search_hint(k, strategy::LocalSearchKind::Parity,
+                                   guidance);
   return ApplyResult::NoOp;
 }
 

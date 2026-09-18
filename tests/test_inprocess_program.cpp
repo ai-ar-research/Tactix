@@ -61,6 +61,7 @@ int main() {
          orbitopal.orbitopal_column_order ==
              tactix::OrbitopalColumnOrder::CooccurrenceGreedyClique &&
          !orbitopal.orbitopal_generator_fallback &&
+         orbitopal.orbitopal_progress_feedback &&
          orbitopal.orbitopal_completion ==
              tactix::OrbitopalCompletion::IndividualizedGraphCompletion);
   const auto &graph = std::get<tactix::SubstitutionRedundancyParameters>(
@@ -80,10 +81,44 @@ int main() {
          graph.graph_symmetry.maximum_generator_instances_per_pass == 1);
 
   assert(defaults.inprocess.structured_root_stages.size() == 4);
+  assert(defaults.inprocess.structured_root_backtracking_domain_limit ==
+         32'000);
+  assert(defaults.inprocess.structured_root_bounded_backtracking_stages.size() ==
+         defaults.inprocess.structured_root_stages.size());
+  assert(defaults.inprocess.structured_root_large_domain_limit == 50'000);
+  assert(defaults.inprocess.structured_root_large_domain_stages.size() == 2);
   const auto &model = defaults.inprocess.structured_root_stages[0].program;
   assert(model.repeat.mode == RepeatMode::Once && model.sequence.size() == 1);
   assert(model.sequence[0].rule == "Lucky" && model.sequence[0].instances == std::vector<uint64_t>{8});
   assert(std::holds_alternative<AffineModelParameters>(model.sequence[0].parameters));
+  assert(defaults.inprocess.structured_root_stages[2]
+             .structured_handoff_after_prior_progress);
+  const auto no_progress =
+      tactix::DefaultStrategyConfig::structured_root_stage_after_feedback(
+          defaults.inprocess.structured_root_stages[2], false, false);
+  const auto progress =
+      tactix::DefaultStrategyConfig::structured_root_stage_after_feedback(
+          defaults.inprocess.structured_root_stages[2], true, false);
+  const auto helper_progress =
+      tactix::DefaultStrategyConfig::structured_root_stage_after_feedback(
+          defaults.inprocess.structured_root_stages[2], true, true);
+  const auto &no_progress_graph =
+      std::get<tactix::SubstitutionRedundancyParameters>(
+          no_progress.program.sequence[2].parameters).graph_symmetry;
+  const auto &progress_graph =
+      std::get<tactix::SubstitutionRedundancyParameters>(
+          progress.program.sequence[2].parameters).graph_symmetry;
+  const auto &helper_progress_graph =
+      std::get<tactix::SubstitutionRedundancyParameters>(
+          helper_progress.program.sequence[2].parameters).graph_symmetry;
+  assert(!no_progress_graph.use_structured_generators &&
+         !no_progress_graph.stabilize_structured_variables);
+  assert(progress_graph.use_structured_generators &&
+         progress_graph.stabilize_structured_variables);
+  assert(progress_graph.nonforcing_cut_admission ==
+         tactix::SymmetryNonforcingCutAdmission::RequireCompoundProgress);
+  assert(helper_progress_graph.nonforcing_cut_admission ==
+         tactix::SymmetryNonforcingCutAdmission::Publish);
   for (const auto &stage : defaults.inprocess.structured_root_stages) {
     assert(validate_online_strategy_program(stage.program));
     assert(stage.on_budget_exhaustion == BudgetExhaustionPolicy::Continue);
@@ -96,6 +131,31 @@ int main() {
         assert(p->compact_collection && !p->victim_numerator &&
                !p->reduction_bookkeeping);
   }
+  for (const auto &stage :
+       defaults.inprocess.structured_root_bounded_backtracking_stages) {
+    assert(validate_online_strategy_program(stage.program));
+    for (const auto &step : stage.program.sequence)
+      if (const auto *p =
+              std::get_if<tactix::SubstitutionRedundancyParameters>(
+                  &step.parameters))
+        assert(p->graph_symmetry.backend_search_budget == 1);
+  }
+  const auto &large_graph =
+      defaults.inprocess.structured_root_large_domain_stages[1].program;
+  assert(large_graph.sequence.size() == 1 &&
+         large_graph.repeat.mode == RepeatMode::UntilScopedFixpoint);
+  const auto &large_parameters =
+      std::get<tactix::SubstitutionRedundancyParameters>(
+          large_graph.sequence.front().parameters);
+  assert(large_parameters.producer ==
+             tactix::SubstitutionRedundancyProducer::GraphSymmetry &&
+         large_parameters.graph_symmetry.schreier_domain_limit == 50'000 &&
+         large_parameters.graph_symmetry.backend_search_budget == 1 &&
+         !large_parameters.graph_symmetry.use_structured_generators &&
+         !large_parameters.graph_symmetry.stabilize_structured_variables);
+  for (const auto &stage :
+       defaults.inprocess.structured_root_large_domain_stages)
+    assert(validate_online_strategy_program(stage.program));
 
   program[1].id = program[0].id;
   assert(!validate_inprocess_program(program, &error));

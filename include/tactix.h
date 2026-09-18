@@ -409,6 +409,11 @@ int tactix_apply_semantic_instance(tactix *, int rule_id, uint64_t instance);
 #define TACTIX_ONLINE_SYMMETRY_CHAIN_FIX_AND_CUT 2
 #define TACTIX_ONLINE_SYMMETRY_CHAIN_FIX_AND_CUT_RESIFT 3
 
+#define TACTIX_ONLINE_SYMMETRY_CUT_ADMISSION_INHERIT 0
+#define TACTIX_ONLINE_SYMMETRY_CUT_ADMISSION_PUBLISH 1
+#define TACTIX_ONLINE_SYMMETRY_CUT_ADMISSION_REQUIRE_FORCING 2
+#define TACTIX_ONLINE_SYMMETRY_CUT_ADMISSION_REQUIRE_COMPOUND_PROGRESS 3
+
 #define TACTIX_ONLINE_SYMMETRY_STRUCTURED_SCOPE_INHERIT 0
 #define TACTIX_ONLINE_SYMMETRY_STRUCTURED_SCOPE_WHOLE_MATRIX 1
 #define TACTIX_ONLINE_SYMMETRY_STRUCTURED_SCOPE_AXIS_ANCHORS 2
@@ -617,6 +622,10 @@ typedef struct {
    * maximum (UINT64_MAX is unbounded). */
   int orbitopal_refinement_mode;
   uint64_t maximum_orbitopal_refinement_orbits;
+  /* TACTIX_ONLINE_SETTING_*; stop row/product refinement after the owning
+   * Satsuma work allowance produces no complete useful matrix. Productive
+   * matrices reset the allowance. */
+  int orbitopal_progress_feedback_mode;
   /* TACTIX_ONLINE_SETTING_*; restrict refinement roots by the probed base.
    * A zero factor selects the typed C++ default (currently eight). */
   int orbitopal_base_probe_filter_mode;
@@ -664,6 +673,17 @@ typedef struct {
    * Axis anchors are first-column row anchors and first-row column anchors
    * for each complete discovered action; explicit SR legality is unchanged. */
   int symmetry_structured_scope;
+  /* Above this variable count, use exact-generator negation/binary fixing
+   * instead of constructing a Schreier chain. Zero keeps the typed default
+   * (UINT64_MAX, disabled). */
+  uint64_t symmetry_schreier_domain_limit;
+  /* A complete kind-2-only FixAndCut batch is legal but only changes the
+   * search fundamental domain. INHERIT/PUBLISH retains full Satsuma behavior;
+   * REQUIRE_FORCING publishes the atomic batch only when it also contains a
+   * representative or negation-orbit unit. REQUIRE_COMPOUND_PROGRESS also
+   * withholds a singleton forcing batch which exposes no second certified
+   * consequence in the same pass. */
+  int symmetry_nonforcing_cut_admission;
 } tactix_online_sr_parameters;
 
 /* One exact Factor remainder column and grid. Literals use permanent DIMACS

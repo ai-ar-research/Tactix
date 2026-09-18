@@ -7,7 +7,7 @@ addition, or removal changes update their owners with code.
 ## 1. Applicability and N1
 
 N1 requires every rule and legal branch instance to be callable whenever its pure soundness precondition holds at its declared
-action boundary. Search rules operate during search; inprocessing rules and the Walk policy operation use the level-zero root
+action boundary. Search rules operate during search; inprocessing rules, Walk, and LocalSearchGuidance use the level-zero root
 formula `F|U`, reached through explicit S1 Restart. A stronger guard within that boundary belongs in the implementation-notes
 deviation ledger with its root cause and removal path.
 ## 2. Abstract state
@@ -27,7 +27,7 @@ conflict. Formula-neutral storage compaction may keep fixed facts outside hot ar
 identities and reconstruction effects remain in the abstract state; no proof delta.
 
 Invariants: `F₀ ≡SAT (F ∪ ρ)`; `F ⊨ R` is proof-justified; every transition emits a checker-accepted delta. Rules may change `H`
-without proof. Only operations changing `σ` belong here; Rephase, SwitchMode, Walk, and Reorder are H-only policy operations.
+without proof. Only operations changing `σ` belong here; Rephase, SwitchMode, Walk, Reorder, and LocalSearchGuidance are H-only policy operations.
 Recorded-conflict/pending flags are engineering state, so guards mentioning them are deviations rather than abstract preconditions.
 
 The logical proof-event vocabulary is `add_rup`, `add_derived_unit`,
@@ -635,6 +635,14 @@ literal. The rule is unimplemented; its reopening conditions are in `implementat
   each effective application adds a previously absent binary or unit, and the finite literal domain has only finitely many such
   clauses. Strategy may rank only the initial level by active clause length and then use a forward caller-order scan;
   this changes producer priority, not the X7 condition or selectable explicit instances.
+  After a complete chain has passed all of these checks, strategy may withhold
+  the whole batch when it contains only nonforcing binary orbit cuts. Strategy
+  may also require compound progress and withhold a forcing batch containing
+  only one certified row: that row chooses a fundamental-domain representative
+  but exposes no second consequence in the same group pass. These are
+  batch-admission choices. They neither change the X7 precondition nor prevent
+  a caller from selecting the same explicit tuples or requesting unconditional
+  publication.
   A producer may factor the supplied generator subgroup by whole generator supports. Each factor acts identically outside
   its component; coupled cycles stay together. Local source clauses retain every unknown literal, and mapped witnesses
   undergo the same full-formula and preceding-prefix checks. This changes discovery order, never explicit X7 legality.

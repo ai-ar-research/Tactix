@@ -123,6 +123,27 @@ static void test_binary_liveness_filter_has_no_false_negatives() {
   assert(filter.maybe(first));
 }
 
+static void test_binary_liveness_uses_bounded_exact_pair_image() {
+  BinaryLivenessIndex index;
+  index.reserve_bounded_exact(4, 16, 100);
+  assert(index.exact());
+  const uint64_t first = kernel_binary_key(2, 9);
+  const uint64_t second = kernel_binary_key(4, 11);
+  assert(!index.maybe(first));
+  assert(!index.maybe(second));
+  index.add(first);
+  index.add(second);
+  assert(index.maybe(first));
+  assert(index.maybe(second));
+  index.remove(first);
+  assert(!index.maybe(first));
+  assert(index.maybe(second));
+
+  BinaryLivenessIndex sparse;
+  sparse.reserve_bounded_exact(4, 100000, 4);
+  assert(!sparse.exact());
+}
+
 static void test_reserved_trail_stack_contract() {
   ReservedTrail trail;
   trail.reserve(5);
@@ -834,6 +855,22 @@ static void test_root_sparse_collection() {
   assert(remaining->size == 3 && !remaining->garbage());
   for (const Lit l : *remaining)
     assert(var_of(l) != 0);
+  kernel_check_invariants(k);
+}
+
+static void test_root_sparse_collection_binary_owner_once() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  kernel_assign_unit(k, internalize(1));
+  kernel_assign_unit(k, internalize(2));
+  kernel_add_binary_clause(k, internalize(1), internalize(2));
+  kernel_add_binary_clause(k, internalize(1), internalize(2));
+  // Both root-true endpoints are on the trail. The lower stable endpoint owns
+  // the scan, so the two physical copies are removed once rather than counted
+  // from both mirrors.
+  assert(kernel_sparse_collect_root(k) == RootCollectOutcome::Changed);
+  assert(!kernel_binary_live(k, internalize(1), internalize(2)));
+  assert(k.stats.sparse_collected == 2);
   kernel_check_invariants(k);
 }
 
@@ -2074,7 +2111,10 @@ static void test_canonical_binary_watch_rebuild() {
   const Lit p = make_lit(1, false);
   for (const Var v : {5u, 3u, 0u, 4u, 2u})
     kernel_add_binary_clause(tumbled, p, make_lit(v, true));
-  kernel_canonicalize_binary_watches(tumbled);
+  std::vector<std::pair<Lit, Lit>> saved_tumbled;
+  kernel_deduplicate_binary_watches(tumbled, nullptr, &saved_tumbled);
+  kernel_canonicalize_binary_watches(tumbled, true, nullptr, &saved_tumbled);
+  assert(saved_tumbled.empty());
   std::vector<Lit> pair_sorted;
   for (const WatchEntry w : tumbled.watches.entries(p))
     if (w.binary())
@@ -2084,6 +2124,55 @@ static void test_canonical_binary_watch_rebuild() {
                            make_lit(4, true), make_lit(3, true),
                            make_lit(5, true)}));
   kernel_check_invariants(tumbled);
+
+  // Kissat switches to byte-radix sorting at 32 partners.  Exercise that
+  // owner path with a reversed high-degree run and require the same exact
+  // import-order image published to propagation.
+  Kernel radix;
+  kernel_reserve_vars(radix, 45);
+  for (Var v = 0; v < 45; v++)
+    kernel_record_import(radix, v);
+  const Lit radix_pivot = make_lit(0, false);
+  for (Var v = 44; v > 0; v--)
+    kernel_add_binary_clause(radix, radix_pivot,
+                             make_lit(v, (v & 1) != 0));
+  std::vector<std::pair<Lit, Lit>> saved_radix;
+  kernel_deduplicate_binary_watches(radix, nullptr, &saved_radix);
+  kernel_canonicalize_binary_watches(radix, true, nullptr, &saved_radix);
+  assert(saved_radix.empty());
+  uint64_t previous_rank = 0;
+  size_t radix_partners = 0;
+  for (const WatchEntry w : radix.watches.entries(radix_pivot)) {
+    if (!w.binary())
+      continue;
+    const uint64_t rank = kernel_import_lit_order(radix, w.other());
+    if (radix_partners)
+      assert(previous_rank < rank);
+    previous_rank = rank;
+    radix_partners++;
+  }
+  assert(radix_partners == 44);
+  kernel_check_invariants(radix);
+
+  // A second dense round consumes the canonical image produced above.  Its
+  // already-ordered fast path must be representation-idempotent.
+  std::vector<std::pair<Lit, Lit>> saved_canonical;
+  kernel_deduplicate_binary_watches(radix, nullptr, &saved_canonical);
+  kernel_canonicalize_binary_watches(radix, true, nullptr, &saved_canonical);
+  assert(saved_canonical.empty());
+  size_t canonical_partners = 0;
+  previous_rank = 0;
+  for (const WatchEntry w : radix.watches.entries(radix_pivot)) {
+    if (!w.binary())
+      continue;
+    const uint64_t rank = kernel_import_lit_order(radix, w.other());
+    if (canonical_partners)
+      assert(previous_rank < rank);
+    previous_rank = rank;
+    canonical_partners++;
+  }
+  assert(canonical_partners == radix_partners);
+  kernel_check_invariants(radix);
 }
 
 static void test_null_stack_dense_flush_retains_root_satisfied_pairs() {
@@ -2332,6 +2421,7 @@ int main() {
   test_compact_watch_head_encoding_is_full_width();
   test_clause_position_alias_pages_are_exact_and_sparse();
   test_binary_liveness_filter_has_no_false_negatives();
+  test_binary_liveness_uses_bounded_exact_pair_image();
   test_reserved_trail_stack_contract();
   test_conflicting_propagation_consumes_trail_literal();
   test_variable_identity_maps();
@@ -2353,6 +2443,7 @@ int main() {
   test_lit_encoding();
   test_unit_chain();
   test_root_sparse_collection();
+  test_root_sparse_collection_binary_owner_once();
   test_root_sparse_collection_keeps_native_order();
   test_root_sparse_collection_ignores_nonroot_values();
   test_root_sparse_collection_rewrites_nonroot_reason();

@@ -195,6 +195,10 @@ bool online_graph_symmetry_parameters(const tactix_online_sr_parameters &p,
           TACTIX_ONLINE_SYMMETRY_CLAUSE_SELECTION_AMO_THEN_SHORTEST ||
       p.symmetry_chain_mode < TACTIX_ONLINE_SYMMETRY_CHAIN_INHERIT ||
       p.symmetry_chain_mode > TACTIX_ONLINE_SYMMETRY_CHAIN_FIX_AND_CUT_RESIFT ||
+      p.symmetry_nonforcing_cut_admission <
+          TACTIX_ONLINE_SYMMETRY_CUT_ADMISSION_INHERIT ||
+      p.symmetry_nonforcing_cut_admission >
+          TACTIX_ONLINE_SYMMETRY_CUT_ADMISSION_REQUIRE_COMPOUND_PROGRESS ||
       p.symmetry_base_selection < TACTIX_ONLINE_SYMMETRY_BASE_INHERIT ||
       p.symmetry_base_selection >
           TACTIX_ONLINE_SYMMETRY_BASE_FIRST_SHORTEST_THEN_FORWARD_REMAINDER ||
@@ -235,6 +239,8 @@ bool online_graph_symmetry_parameters(const tactix_online_sr_parameters &p,
       p.maximum_symmetry_generator_instances_per_pass;
   graph.maximum_group_ticks = p.maximum_symmetry_group_ticks;
   graph.chain_planning_tick_limit = p.symmetry_chain_planning_tick_limit;
+  if (p.symmetry_schreier_domain_limit)
+    graph.schreier_domain_limit = p.symmetry_schreier_domain_limit;
   graph.seed = p.symmetry_seed;
   if (p.symmetry_error_bound)
     graph.error_bound = p.symmetry_error_bound;
@@ -265,6 +271,11 @@ bool online_graph_symmetry_parameters(const tactix_online_sr_parameters &p,
   if (p.symmetry_chain_mode != TACTIX_ONLINE_SYMMETRY_CHAIN_INHERIT)
     graph.chain_mode =
         static_cast<SymmetryChainMode>(p.symmetry_chain_mode - 1);
+  if (p.symmetry_nonforcing_cut_admission !=
+      TACTIX_ONLINE_SYMMETRY_CUT_ADMISSION_INHERIT)
+    graph.nonforcing_cut_admission =
+        static_cast<SymmetryNonforcingCutAdmission>(
+            p.symmetry_nonforcing_cut_admission - 1);
   if (p.symmetry_base_selection != TACTIX_ONLINE_SYMMETRY_BASE_INHERIT)
     graph.base_selection =
         static_cast<SymmetryBaseSelection>(p.symmetry_base_selection - 1);
@@ -575,6 +586,10 @@ bool online_parameters(const tactix_online_parameters &source,
           p.orbitopal_generator_fallback_mode > TACTIX_ONLINE_SETTING_ENABLE ||
           p.orbitopal_refinement_mode < TACTIX_ONLINE_SETTING_INHERIT ||
           p.orbitopal_refinement_mode > TACTIX_ONLINE_SETTING_ENABLE ||
+          p.orbitopal_progress_feedback_mode <
+              TACTIX_ONLINE_SETTING_INHERIT ||
+          p.orbitopal_progress_feedback_mode >
+              TACTIX_ONLINE_SETTING_ENABLE ||
           p.orbitopal_base_probe_filter_mode <
               TACTIX_ONLINE_SETTING_INHERIT ||
           p.orbitopal_base_probe_filter_mode > TACTIX_ONLINE_SETTING_ENABLE)
@@ -617,6 +632,11 @@ bool online_parameters(const tactix_online_parameters &source,
       else if (p.orbitopal_refinement_mode == TACTIX_ONLINE_SETTING_ENABLE)
         sr.maximum_orbitopal_refinement_orbits =
             p.maximum_orbitopal_refinement_orbits;
+      if (p.orbitopal_progress_feedback_mode !=
+          TACTIX_ONLINE_SETTING_INHERIT)
+        sr.orbitopal_progress_feedback =
+            p.orbitopal_progress_feedback_mode ==
+            TACTIX_ONLINE_SETTING_ENABLE;
       if (p.orbitopal_base_probe_filter_mode !=
           TACTIX_ONLINE_SETTING_INHERIT)
         sr.orbitopal_base_probe_filter =

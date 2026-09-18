@@ -2496,50 +2496,14 @@ static void install_congruence_binary_candidates(
 // without reading values, so only units known at entry retire binaries here.
 static void congruence_delete_root_assigned_binaries(Kernel &k,
                                                      const char *scan_stage,
-                                                     const char *delete_stage) {
-  struct SatisfiedBinary {
-    Lit a, b;
-    uint32_t copies;
-  };
-  std::vector<SatisfiedBinary> satisfied_binaries;
-  // Every binary of a root-satisfied literal is deleted here, so asking the
-  // kernel to recount each pair would rescan a prefix that is still nearly
-  // whole: quadratic in that literal's degree.  This scan already reads the
-  // list once, so it carries the exact multiplicity out with the pair.
-  std::vector<uint32_t> seen_epoch(2 * static_cast<size_t>(k.nvars), 0);
-  std::vector<uint32_t> seen_at;
-  uint32_t generation = 0;
-  for (Lit lit = 0; lit < 2 * k.nvars; lit++) {
-    generation++;
-    seen_at.clear();
-    const size_t first = satisfied_binaries.size();
-    for (const WatchEntry w : k.watches.entries(lit)) {
-      if (!w.binary())
-        continue;
-      const Lit other = w.other();
-      if (kernel_import_lit_order(k, lit) >=
-          kernel_import_lit_order(k, other))
-        continue;
-      if (!k.value(lit) && !k.value(other))
-        continue;
-      assert(k.value(lit) > 0 || k.value(other) > 0);
-      if (seen_epoch[other] != generation) {
-        seen_epoch[other] = generation;
-        seen_at.push_back(other);
-        satisfied_binaries.push_back({lit, other, 1});
-        continue;
-      }
-      for (size_t i = first; i < satisfied_binaries.size(); i++)
-        if (satisfied_binaries[i].b == other) {
-          satisfied_binaries[i].copies++;
-          break;
-        }
-    }
-  }
+                                                     const char *delete_stage,
+                                                     const std::vector<
+                                                         std::pair<Lit, Lit>> &
+                                                         satisfied_binaries) {
   congruence_stage_trace(k, scan_stage, satisfied_binaries.size());
-  for (const SatisfiedBinary &pair : satisfied_binaries) {
+  for (const auto &[a, b] : satisfied_binaries) {
     const bool deleted =
-        kernel_delete_binary_all_copies_known(k, pair.a, pair.b, pair.copies);
+        kernel_delete_binary_all_copies_known(k, a, b, /*copies=*/1);
     assert(deleted);
     (void)deleted;
   }
@@ -2556,10 +2520,12 @@ static uint64_t forward_subsume_congruent_clauses(Kernel &k, Find &find) {
     return 0;
   // Dense entry first deduplicates binaries and drops every one satisfied by a
   // newly propagated root unit.
-  kernel_deduplicate_binary_watches(k);
+  std::vector<std::pair<Lit, Lit>> satisfied_binaries;
+  kernel_deduplicate_binary_watches(k, &satisfied_binaries);
   congruence_stage_trace(k, "forward-deduplicate-end");
   congruence_delete_root_assigned_binaries(k, "forward-satisfied-scan-end",
-                                           "forward-satisfied-delete-end");
+                                           "forward-satisfied-delete-end",
+                                           satisfied_binaries);
   std::vector<uint8_t> matchable(k.nvars, 0);
   for (Var v = 0; v < k.nvars; v++) {
     if (k.value(make_lit(v, false)) || kernel_var_retired(k, v))
@@ -2964,44 +2930,48 @@ ApplyResult congruence_apply(Kernel &k) {
   // Kissat enters dense mode before extraction and keeps the live binaries in
   // closure->binaries, where find_binary answers every later membership query
   // without touching large-watch tails.  Build a compact no-false-negative
-  // filter once for the whole Tactix application.  A positive filter result is
-  // confirmed against the authoritative watch list, so stale positives after
-  // deletions affect cost only while k.binary_ids remains the proof-id archive.
+  // index once for the whole Tactix application.  As with Kissat's exact
+  // binary save stack, use an authoritative pair image when the complete
+  // universe is bounded and no larger than the saved binary watch payload.
+  // Sparse or large universes retain the blocked filter and exact-watch
+  // confirmation; stale positives after deletion then affect cost only.
   struct ScopedBinaryLiveness {
     Kernel &kernel;
     BinaryLivenessIndex index;
-    explicit ScopedBinaryLiveness(Kernel &k) : kernel(k) {
+    ScopedBinaryLiveness(
+        Kernel &k, const std::vector<std::pair<Lit, Lit>> &binaries)
+        : kernel(k) {
       assert(!kernel.binary_liveness);
-      size_t pairs = 0;
-      for (Lit lit = 0; lit < 2 * kernel.nvars; lit++)
-        for (const WatchEntry w : kernel.watches.entries(lit))
-          pairs += w.binary() && lit < w.other();
-      index.reserve(pairs);
-      for (Lit lit = 0; lit < 2 * kernel.nvars; lit++)
-        for (const WatchEntry w : kernel.watches.entries(lit))
-          if (w.binary() && lit < w.other())
-            index.add(kernel_binary_key(lit, w.other()));
+      index.reserve_bounded_exact(binaries.size(), 2 * kernel.nvars,
+                                  binaries.size());
+      for (const auto &[a, b] : binaries)
+        index.add(kernel_binary_key(a, b));
       kernel.binary_liveness = &index;
     }
     ~ScopedBinaryLiveness() {
       assert(kernel.binary_liveness == &index);
       kernel.binary_liveness = nullptr;
     }
-  } binary_liveness(k);
+  };
   congruence_binary_trace(k, "entry");
   struct ScopedBinaryExitTrace {
     const Kernel &kernel;
     ~ScopedBinaryExitTrace() { congruence_binary_trace(kernel, "exit"); }
-  } binary_exit_trace{k};
+  };
   event_trace_slot_boundary(k, "congruence-dense-resume", "entry");
   // congruence.c init_extraction enters dense mode before extracting the
   // binaries (kissat_enter_dense_mode with the save stack), and that entry
   // deletes every later copy of a repeated binary and every root-assigned
   // binary as a clause, so neither reaches the binary candidates, the
   // canonical rebuild, or the occurrence counts of the rules that follow.
-  kernel_deduplicate_binary_watches(k);
+  std::vector<std::pair<Lit, Lit>> satisfied_binaries;
+  std::vector<std::pair<Lit, Lit>> saved_binaries;
+  kernel_deduplicate_binary_watches(k, &satisfied_binaries, &saved_binaries);
   congruence_delete_root_assigned_binaries(k, "entry-satisfied-scan-end",
-                                           "entry-satisfied-delete-end");
+                                           "entry-satisfied-delete-end",
+                                           satisfied_binaries);
+  ScopedBinaryLiveness binary_liveness(k, saved_binaries);
+  ScopedBinaryExitTrace binary_exit_trace{k};
   std::vector<std::pair<Lit, Lit>> binary_candidates;
   bool binary_candidates_complete = false;
   {
@@ -3013,7 +2983,8 @@ ApplyResult congruence_apply(Kernel &k) {
   {
     if (k.congruence_parameters.binary_watch_order ==
         strategy::CongruenceBinaryWatchOrder::Canonical)
-      kernel_canonicalize_binary_watches(k, true, &binary_candidates);
+      kernel_canonicalize_binary_watches(k, true, &binary_candidates,
+                                         &saved_binaries);
   }
   congruence_stage_trace(k, "binary-rebuild-end");
   congruence_candidate_trace_end(k, binary_candidates_complete,
@@ -3358,17 +3329,17 @@ ApplyResult congruence_apply(Kernel &k) {
     return true;
   };
 
-  // Kissat's `find_equivalences` channel runs before propagating the gate
-  // closure (congruence.c). Import every equivalence already stated by the
-  // paired binaries (a v !b), (!a v b) into this round's representatives.
-  // This is not redundant with Substitute: the imported classes simplify
-  // gates during this very closure, and a non-zero merge count is the signal
-  // that `probe_initially` uses to run its eager Substitute follow-up.
-  //
-  // Follow Kissat's positive-literal, smaller-endpoint traversal. Besides
-  // making every pair unique, that order keeps the representative trajectory
-  // stable for trace comparison.
-  std::vector<Lit> marked;
+  // Import paired-binary equivalences before propagating the gate closure, as
+  // Kissat's `find_equivalences` does. The imported classes simplify gates in
+  // this round and can trigger the eager Substitute follow-up. Preserve its
+  // positive-literal, smaller-endpoint traversal and representative order.
+  // The owner BIG pass marks partners, probes the negated literal, and clears
+  // only touched bytes; no partner sorting is needed for membership.
+  static thread_local std::vector<uint8_t> binary_marks;
+  static thread_local std::vector<Lit> binary_marked;
+  if (binary_marks.size() < nlits)
+    binary_marks.resize(nlits, 0);
+  assert(binary_marked.empty());
   CompactVarOrder binary_vars(k);
   for (size_t variable_index = 0; variable_index < binary_vars.size();
        variable_index++) {
@@ -3391,13 +3362,15 @@ ApplyResult congruence_apply(Kernel &k) {
         if (kernel_import_lit_order(k, lit) >
             kernel_import_lit_order(k, other))
           continue;
-        marked.push_back(other);
+        if (binary_marks[other])
+          continue;
+        binary_marks[other] = 1;
+        binary_marked.push_back(other);
       }
       if (variable_index < 16 || !(variable_index % 250000))
         congruence_stage_trace(k, "binary-import-collected", variable_index,
-                               marked.size(), marked.capacity(), neq);
-      std::sort(marked.begin(), marked.end());
-      marked.erase(std::unique(marked.begin(), marked.end()), marked.end());
+                               binary_marked.size(), binary_marked.capacity(),
+                               neq);
       const Lit not_lit = negate(lit);
       for (const WatchEntry w : k.watches.entries(not_lit)) {
         if (!w.binary())
@@ -3406,7 +3379,7 @@ ApplyResult congruence_apply(Kernel &k) {
         if (kernel_import_lit_order(k, not_lit) >
             kernel_import_lit_order(k, other) ||
             lit == other ||
-            !std::binary_search(marked.begin(), marked.end(), negate(other)))
+            !binary_marks[negate(other)])
           continue;
         const Lit lit_repr = find(lit), other_repr = find(other);
         if (lit_repr == other_repr)
@@ -3422,13 +3395,15 @@ ApplyResult congruence_apply(Kernel &k) {
           k.stats.congruence_unjustified++;
         break;
       }
-      marked.clear();
+      for (const Lit other : binary_marked)
+        binary_marks[other] = 0;
+      binary_marked.clear();
     } while (restart && !unsat);
     if (variable_index < 16 || !(variable_index % 250000))
       congruence_stage_trace(k, "binary-import-variable-end", variable_index,
                              k.watches.arena.size(), k.watches.holes, neq);
   }
-  std::vector<Lit>().swap(marked);
+  assert(binary_marked.empty());
   binary_vars = CompactVarOrder{};
   congruence_stage_trace(k, "binary-import-scratch-released", gates.size(),
                          occ_tails.allocated_blocks());

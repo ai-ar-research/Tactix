@@ -759,6 +759,19 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.sr_validation_ticks,
            (unsigned long long)kernel.stats.sr_witness_literals,
            (unsigned long long)kernel.stats.sr_unique_literal_amo_binaries);
+    printf("c sr-life     %llu post-AMO nonhelper consequences, %llu graph root units\n",
+           (unsigned long long)kernel.stats.sr_post_amo_nonhelper_applied,
+           (unsigned long long)kernel.stats.sr_post_amo_graph_root_units);
+  printf("c sr-admit    %llu nonforcing cut batches declined, %llu cuts; "
+         "%llu singleton forcing batches declined, %llu rows\n",
+           (unsigned long long)kernel.stats.sr_nonforcing_cut_batches_declined,
+           (unsigned long long)kernel.stats.sr_nonforcing_cuts_declined,
+           (unsigned long long)kernel.stats.sr_singleton_forcing_batches_declined,
+           (unsigned long long)kernel.stats.sr_singleton_forcing_rows_declined);
+    printf("c handoff     %llu residual seeds, %llu variables, %.3f seconds\n",
+           (unsigned long long)kernel.stats.residual_handoff_calls,
+           (unsigned long long)kernel.stats.residual_handoff_variables,
+           kernel.stats.residual_handoff_nanos / 1e9);
     printf("c bve         %llu rounds, %llu eliminated, %llu resolutions\n",
            (unsigned long long)kernel.stats.bve_rounds,
            (unsigned long long)kernel.stats.bve_eliminated,
@@ -854,6 +867,21 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.onehot_model_candidates,
            (unsigned long long)kernel.stats.onehot_model_sat,
            (unsigned long long)kernel.stats.onehot_model_interrupted);
+    printf("c directcsp  %llu calls, %llu domains, %llu edges, %llu restarts, "
+           "%llu infeasible, %llu work, best %llu, %llu SAT\n",
+           (unsigned long long)kernel.stats.direct_csp_model_calls,
+           (unsigned long long)kernel.stats.direct_csp_model_domains,
+           (unsigned long long)kernel.stats.direct_csp_model_edges,
+           (unsigned long long)kernel.stats.direct_csp_model_restarts,
+           (unsigned long long)kernel.stats.direct_csp_model_infeasible,
+           (unsigned long long)kernel.stats.direct_csp_model_work,
+           (unsigned long long)(kernel.stats.direct_csp_model_best == UINT64_MAX
+                                    ? 0
+                                    : kernel.stats.direct_csp_model_best),
+           (unsigned long long)kernel.stats.direct_csp_model_sat);
+    printf("c localsearch %llu hints offered, %llu applied\n",
+           (unsigned long long)kernel.stats.local_search_hints_offered,
+           (unsigned long long)kernel.stats.local_search_hints_applied);
     printf("c walk        %llu walks (%llu improved, %llu flips, %llu steps)\n",
            (unsigned long long)kernel.stats.walks,
            (unsigned long long)kernel.stats.walk_improved,
@@ -944,6 +972,13 @@ int main(int argc, char **argv) {
       printf("c timing      %.0f ms (%.1f%%) inprocessing slot, %.0f ms (%.1f%%) "
              "search+scaffolding outside it\n",
              slot_ms, pct(slot_ms), total_ms - slot_ms, pct(total_ms - slot_ms));
+      printf("c phasecost   structured %.0f ms, entry %.0f ms, dense-connect %.0f ms, "
+             "slot-loop %.0f ms, exit %.0f ms\n",
+             kernel.stats.structured_root_nanos / 1e6,
+             kernel.stats.inprocess_entry_nanos / 1e6,
+             kernel.stats.inprocess_dense_connect_nanos / 1e6,
+             kernel.stats.inprocess_slot_loop_nanos / 1e6,
+             kernel.stats.inprocess_exit_nanos / 1e6);
       // Per rule, biggest first; only rules that actually ran.
       const auto &rules = tactix::tactix_rules();
       std::vector<std::pair<uint64_t, size_t>> ranked;

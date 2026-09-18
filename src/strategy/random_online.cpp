@@ -447,6 +447,11 @@ ActionParameters random_parameters(const Kernel &k, uint64_t &state, const std::
     graph.use_structured_generators = bounded(scheduling_state, 2);
     graph.stabilize_structured_variables = bounded(scheduling_state, 2);
     graph.structured_scope = static_cast<SymmetryStructuredScope>(bounded(scheduling_state, 2));
+    uint64_t cut_admission_state =
+        static_cast<uint64_t>(graph.seed) ^ 0x43555441444d4954ull;
+    graph.nonforcing_cut_admission =
+        static_cast<SymmetryNonforcingCutAdmission>(
+            bounded(cut_admission_state, 3));
     if (config.sr_joint_positive_numerator &&
         bounded(scheduling_state, config.sr_joint_positive_denominator) <
             config.sr_joint_positive_numerator) {
@@ -485,6 +490,7 @@ ActionParameters random_parameters(const Kernel &k, uint64_t &state, const std::
              config.maximum_sr_symmetry_generator_instances_per_pass);
       enable(graph.maximum_group_ticks, config.maximum_sr_symmetry_group_ticks);
     }
+    p.orbitopal_progress_feedback = bounded(scheduling_state, 2);
     return p;
   }
   return std::monostate{};
@@ -792,8 +798,17 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
              (tuple(text, "sr22", v) && v.size() == 54) ||
              (tuple(text, "sr23", v) && v.size() == 55) ||
              (tuple(text, "sr24", v) && v.size() == 55) ||
-             (tuple(text, "sr25", v) && v.size() == 55)) {
-    const bool has_first_shortest = text.starts_with("sr25(");
+             (tuple(text, "sr25", v) && v.size() == 55) ||
+             (tuple(text, "sr26", v) && v.size() == 56) ||
+             (tuple(text, "sr27", v) && v.size() == 57) ||
+             (tuple(text, "sr28", v) && v.size() == 58)) {
+    const bool has_cut_admission = text.starts_with("sr28(");
+    const bool has_progress_feedback = text.starts_with("sr27(") ||
+                                       has_cut_admission;
+    const bool has_schreier_domain_limit = text.starts_with("sr26(") ||
+                                           has_progress_feedback;
+    const bool has_first_shortest = text.starts_with("sr25(") ||
+                                    has_schreier_domain_limit;
     const bool has_shortest_base = text.starts_with("sr24(") || has_first_shortest;
     const bool has_structured_scope = text.starts_with("sr23(") || has_shortest_base;
     const bool has_structured_handoff = text.starts_with("sr22(") || has_structured_scope;
@@ -948,6 +963,18 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
         if (v[54] > static_cast<uint64_t>(SymmetryStructuredScope::AxisAnchors))
           return false;
         graph.structured_scope = static_cast<SymmetryStructuredScope>(v[54]);
+      }
+      if (has_schreier_domain_limit)
+        graph.schreier_domain_limit = v[55];
+      if (has_progress_feedback &&
+          !boolean(v[56], p.orbitopal_progress_feedback))
+        return false;
+      if (has_cut_admission) {
+        if (v[57] > static_cast<uint64_t>(
+                        SymmetryNonforcingCutAdmission::RequireCompoundProgress))
+          return false;
+        graph.nonforcing_cut_admission =
+            static_cast<SymmetryNonforcingCutAdmission>(v[57]);
       }
       if (has_structured_handoff) {
         if (v[52] > 1 || v[53] > 1) return false;
@@ -1434,11 +1461,16 @@ std::string serialize_online_strategy_program(
     }
     else if (const auto *p = std::get_if<SubstitutionRedundancyParameters>(
                  &step.parameters)) {
+      const bool bounded_schreier =
+          p->graph_symmetry.schreier_domain_limit != UINT64_MAX;
+      const bool nonforcing_cut_admission =
+          p->graph_symmetry.nonforcing_cut_admission !=
+          SymmetryNonforcingCutAdmission::Publish;
       const bool first_shortest = p->graph_symmetry.base_selection ==
           SymmetryBaseSelection::FirstShortestThenForwardRemainder;
       const bool shortest_base = first_shortest ||
           p->graph_symmetry.base_selection == SymmetryBaseSelection::ShortestClause;
-      out << (first_shortest ? ":sr25(" : shortest_base ? ":sr24("
+      out << (nonforcing_cut_admission ? ":sr28(" : p->orbitopal_progress_feedback ? ":sr27(" : bounded_schreier ? ":sr26(" : first_shortest ? ":sr25(" : shortest_base ? ":sr24("
                   : p->graph_symmetry.structured_scope == SymmetryStructuredScope::WholeMatrix
                   ? ":sr22(" : ":sr23(") << p->maximum_validation_ticks << ','
           << static_cast<unsigned>(p->producer) << ','
@@ -1494,8 +1526,16 @@ std::string serialize_online_strategy_program(
           << p->graph_symmetry.preserve_detector_order << ','
           << p->graph_symmetry.use_structured_generators << ','
           << p->graph_symmetry.stabilize_structured_variables;
-      if (shortest_base || p->graph_symmetry.structured_scope != SymmetryStructuredScope::WholeMatrix)
+      if (nonforcing_cut_admission || p->orbitopal_progress_feedback || bounded_schreier || shortest_base ||
+          p->graph_symmetry.structured_scope != SymmetryStructuredScope::WholeMatrix)
         out << ',' << static_cast<unsigned>(p->graph_symmetry.structured_scope);
+      if (nonforcing_cut_admission || p->orbitopal_progress_feedback || bounded_schreier)
+        out << ',' << p->graph_symmetry.schreier_domain_limit;
+      if (nonforcing_cut_admission || p->orbitopal_progress_feedback)
+        out << ',' << p->orbitopal_progress_feedback;
+      if (nonforcing_cut_admission)
+        out << ',' << static_cast<unsigned>(
+            p->graph_symmetry.nonforcing_cut_admission);
       out << ')';
     }
     else

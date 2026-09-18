@@ -18,8 +18,10 @@ home; other documents link to it.
   that LSR. DRAT and native LRAT are compatibility outputs, not requirements for
   new Satsuma-derived rules.
 - **N3:** DefaultPolicy must be competitive with Kissat on Tier D.
-- **N4:** DefaultPolicy's scheduling must be at least as sophisticated as
-  Kissat's; close or explicitly accept every parity-ledger deviation.
+- **N4:** For every integrated technique, DefaultPolicy's scheduling must be at
+  least as sophisticated as the state-of-the-art reference that owns that
+  technique (including Kissat, Satsuma, and LymphoSAT); close or explicitly
+  accept every parity-ledger deviation.
 
 DefaultPolicy starts from faithful Kissat/CaDiCaL mechanisms. Read both; use
 Kissat as the tie-break when equally strong, preserve a transliterated baseline

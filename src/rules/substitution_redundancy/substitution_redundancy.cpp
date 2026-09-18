@@ -533,6 +533,8 @@ substitution_redundancy_apply_detailed_impl(
   const bool unique_literal_amo =
       accept_generated_certificate &&
       instance.unique_literal_amo_certificate;
+  const bool follows_unique_literal_amo =
+      !unique_literal_amo && k.stats.sr_unique_literal_amo_binaries;
   bool active = true;
   if (!normalize_candidate(k, instance.clause, candidate, active))
     return outcome;
@@ -670,7 +672,14 @@ substitution_redundancy_apply_detailed_impl(
     k.unit_ids[var_of(kept[0])] = committed_id;
     kernel_assign_unit(k, kept[0]);
   } else if (kept.size() == 2) {
-    kernel_add_binary_clause(k, kept[0], kept[1], committed_id);
+    // Satsuma publishes ULC completion in the preprocessed DIMACS, so the
+    // downstream solver imports these pairs as initial formula material.  Do
+    // the corresponding in-process publication without arming Tactix's
+    // incremental "new material" consumers.  The pair is still immediately
+    // live in propagation, symmetry discovery and BCE; only scheduling advice
+    // which an imported clause would never receive is suppressed.
+    kernel_add_binary_clause(k, kept[0], kept[1], committed_id,
+                             /*mark_added_material=*/!unique_literal_amo);
     if (unique_literal_amo)
       ++k.stats.sr_unique_literal_amo_binaries;
   } else {
@@ -679,6 +688,12 @@ substitution_redundancy_apply_detailed_impl(
   outcome.status = SubstitutionRedundancyApplicationStatus::Applied;
   outcome.rule_result = ApplyResult::Ok;
   ++k.stats.sr_applied;
+  if (follows_unique_literal_amo) {
+    ++k.stats.sr_post_amo_nonhelper_applied;
+    if (kept.size() == 1 &&
+        parameters.producer == SubstitutionRedundancyProducer::GraphSymmetry)
+      ++k.stats.sr_post_amo_graph_root_units;
+  }
   // A certified prefix will use the resulting root state to admit its next
   // member. Propagate here so the last member exposes an immediate
   // contradiction too, instead of paying solver-startup cost merely to reach

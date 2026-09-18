@@ -23,6 +23,23 @@ ApplyResult default_resume_sparse_propagation(Kernel &, uint32_t trail_begin,
 // Consume only those new root identities into DefaultPolicy's rankings.
 void default_prepare_reduction(Kernel &);
 
+// Outcome feedback for the one startup BCE pass following unique-literal AMO
+// completion.  Exposed as a pure seam so all lifecycle cases remain pinned
+// without manufacturing a particular symmetry group in a policy test.
+bool default_should_cleanup_unique_literal_amo(
+    uint64_t binaries_added, bool later_progress,
+    bool generic_graph_root_progress);
+
+// Decide whether structured startup should replace the initial search seed
+// with a residual-CNF import seed.  Helper-backed progress earns that reparse
+// only when generic graph fixing also reaches a root consequence; otherwise
+// the durable certified cut is useful while the original search pose remains
+// the stronger owner.  Progress without a helper layer retains the ordinary
+// Satsuma-to-Kissat handoff.
+bool default_should_seed_structured_residual(
+    bool grew_root_trail, uint64_t unique_literal_amo_binaries,
+    bool generic_graph_root_progress);
+
 class DefaultBranching final : public BranchingPolicy {
 public:
   explicit DefaultBranching(
@@ -214,6 +231,7 @@ private:
   bool reduce_sqrt_ = true;
   bool compact_ = true;
   bool lucky_late_ = true;
+  uint64_t structural_seed_cursor_ = 0;
   bool dynamic_tiers_ = true;
   struct { uint64_t next_conflicts = 0, interval = 0; } retier_;
   DefaultStrategyConfig base_config_;

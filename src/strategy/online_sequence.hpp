@@ -26,6 +26,11 @@ struct OnlineStrategyStage {
   // sequence scope. Admission lasts through the selected batch; its own
   // progress cannot truncate it. Repetition retains the scope's history.
   std::vector<StepId> before_progress = {};
+  // A GraphSymmetry step can internally repeat the same structured discovery
+  // already attempted by an earlier root stage.  When this feedback switch is
+  // set, that internal handoff is admitted only after an earlier stage made an
+  // effective formula transition.  Generic graph discovery remains enabled.
+  bool structured_handoff_after_prior_progress = false;
 };
 
 // Typed sequence controller with an explicit disposition for a bounded
@@ -168,7 +173,8 @@ public:
   }
 
   InvocationResult advance(Kernel &k, volatile sig_atomic_t *stop = nullptr,
-                           Allowance *sr_discovery_allowance = nullptr) {
+                           Allowance *sr_discovery_allowance = nullptr,
+                           DiscoveryFeedbackPolicy discovery_feedback = {}) {
     if (!configured_) {
       InvocationResult out;
       out.before = out.after = state_version(k);
@@ -247,8 +253,15 @@ public:
         }
         ++dispatches_[current_];
         InvocationResult out =
-            executor.advance(k, stop, sr_discovery_allowance);
+            executor.advance(k, stop, sr_discovery_allowance,
+                             discovery_feedback);
         expected_ = out.after;
+        // A producer can prove that its affordable deterministic prefix is
+        // still growing without publishing an arbitrary subgroup. Keep the
+        // same step pending while the enclosing scheduler decides whether to
+        // grant more discovery work.
+        if (out.discovery_progress_units || out.discovery_entry_required)
+          return out;
         if (!followup && out.made_rule_progress)
           followup_credit_ = true;
         // A useful followup may enable more discovery. Keep its actual effect

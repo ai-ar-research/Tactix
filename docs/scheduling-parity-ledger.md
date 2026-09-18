@@ -5,12 +5,12 @@ This living N4 register retains the section/row identifiers formerly in `impleme
 <!-- parity-ledger:begin -->
 ## 13. The scheduling-parity ledger (evidence for N4 verification)
 
-**plan decision (f22423c) §1.1 N4** requires that DefaultPolicy's *scheduling* — order, effort budgets, warm-ups,
-watermarks, acceptance bounds and their ramps, and the couplings between them — be **at least as
-sophisticated as Kissat's default strategy**. This section is the register that makes that checkable:
-**per reference scheduling mechanism, either an at-least-as-strong analogue, or a row here naming the
-gap and its closer.** It is reviewed at every phase gate; **an empty or stale ledger is itself a
-finding.**
+**Plan decision (f22423c), broadened 2026-09-17, §1.1 N4** requires DefaultPolicy's
+order, effort, warm-ups, watermarks, ramps, feedback, and couplings to be **at
+least as sophisticated as the state-of-the-art owner of each integrated
+technique**, including Kissat, Satsuma, and LymphoSAT in the frozen landscape.
+Per owner, this register records an at-least-as-strong analogue or names the gap
+and closer; an empty or stale ledger is itself a finding at every phase gate.
 **plan decision (7cb3212) makes this ledger a GATE:** N4 verification is complete only when no row reads
 `WE_LACK_IT` or `WE_ARE_CRUDER` without closure or an accepted §13.3 deviation carrying measurement and a
 reopening path. N4 is immutable, never an item that opens or closes. Verification complete joins P4-CVG,
@@ -513,26 +513,23 @@ Acceptance requires checked WV57 benefit and understood B28+C5/Rank1–50 deltas
 
 ### 13.8 N4 verification record (2026-08-20)
 
-The later common-state mp1 investigation adds **SP-PHASE-COMPACT-1**: Kissat
-recomputes `target_assigned` and `best_assigned` from the surviving nonzero
-phase entries of *active* variables during variable compaction. Tactix formerly
-remapped the arrays but reset both high-water counts, allowing a smaller restart
-trail to replace a better target. Jobs `1640902` and `1640904` closed that first
-owner (3810/3774 and the formerly divergent decision polarity), while production
-job `1640906` model-checked complete mp1 SAT in 18.63 s versus current
-instrumented Kissat's 105.77 s, with zero residue. Rank-27 campaign `4627`
-reopened the physical-image edge: immutable root-fixed identities made the
-post-Reduce recount 664 too high. Campaign `4629` closes it generally by
-recounting the compact import image while excluding retired and semantic
-root-fixed variables, including Kissat's one retained but inactive fixed
-representative. All 440 target/saved/high-water checkpoints and the complete
-conflict/decision trajectory through conflict 76,779 are exact and clean.
-Reopen on a common-state post-compaction high-water or phase mismatch.
+The later common-state mp1 investigation adds **SP-PHASE-COMPACT-1**: Kissat recomputes `target_assigned` and `best_assigned` from the surviving nonzero phase entries of *active* variables during variable compaction. Tactix formerly remapped the arrays but reset both high-water counts, allowing a smaller restart trail to replace a better target. Jobs `1640902` and `1640904` closed that first owner (3810/3774 and the formerly divergent decision polarity), while production job `1640906` model-checked complete mp1 SAT in 18.63 s versus current instrumented Kissat's 105.77 s, with zero residue. Rank-27 campaign `4627` reopened the physical-image edge: immutable root-fixed identities made the post-Reduce recount 664 too high. Campaign `4629` closes it generally by recounting the compact import image while excluding retired and semantic root-fixed variables, including Kissat's one retained but inactive fixed representative. All 440 target/saved/high-water checkpoints and the complete conflict/decision trajectory through conflict 76,779 are exact and clean. Reopen on a common-state post-compaction high-water or phase mismatch.
 
-N4 is **complete** at the accepted parity pin. All HIGH rows are closed by
-code or by a documented accepted deviation, and every remaining
-`WE_ARE_CRUDER`, partial-completeness, or reference-disagreement entry has
-measurement plus a reopening/removal path in §2 or §13.3.
+N4 is **complete** at the current mechanism pin. The broadened owner audit adds Satsuma's exact 32,000-variable DejaVu budget transition and separate 50,000-variable generator-fixing transition; Tactix now carries both as typed schedules. The shared root schedule also feeds observed utility back into later Satsuma work: finite generator discovery is coupled to the exact validation work it can fund, and a graph stage does not repeat an unchanged structured handoff after an earlier stage made no effective transition. Any formula transition restores the handoff, while generic graph discovery remains available. Row and product refinement also use the owner's `max(16 * variables, 16 Mi)` effort scale as a zero-yield feedback window. Tactix renews that window after every admitted matrix and stops only between completed candidates, retaining more productive continuation than the owner's shared fixed split ceiling. ULC completion follows the owner's add-then-propagate lifecycle: discovery uses the pre-unit stored-clause occurrence view, and a private generated binary whose first endpoint becomes false during the batch can pivot on its still-open endpoint under the same complete certificate validation. Public payload ordering remains caller-owned.
+Satsuma's `fix_and_cut` publishes every completed prefix below its cost bound.
+Tactix retains that behavior as the public typed default, while structured
+startup normally requires compound progress and declines a batch made solely of
+nonforcing binary cuts. If ULC completion first built a helper BIG, a later
+binary-only graph batch is instead published as durable certified information:
+the startup BCE pass may retire the helpers, but must not erase their useful
+consequence too. This producer-outcome rule preserves all 537 forcing WV88
+applications and C32's standalone-cut decline while restoring Rank26's exact
+29,908,009-decision fast trajectory. Reopen on broader gate evidence, never by
+formula, size, rank, or benchmark dispatch.
+Satsuma then serializes its reduced formula and Kissat reparses it. That process boundary gives the residual formula ownership of Kissat's activation order and internal variable permutation. Tactix performs the equivalent typed handoff after integrated structured startup adds root assignments, except that helper-backed progress earns the residual seed only when generic graph fixing also reaches a root consequence. With no helper layer, ordinary root progress retains the owner handoff. With helpers but no graph-root consequence, the durable cut remains while the original parser search pose is preserved. Focused AM149 evidence keeps exact Rank16, Rank27, Rank30, Rank46 and C32 counters and restores Rank26; complete Rank and B28+C5 acceptance remains open.
+The same owner scale now governs the complete small-domain structured chain. The chain begins with one `max(16 * variables, 16 Mi)` deterministic-tick opportunity; bounded empty orbitopal siblings do not replenish it. Reaching the distinct generic graph producer grants one bounded entry opportunity. Each exact generic generator then extends the live allowance by one owner-scale window inside that same DejaVu session, capped by the existing cumulative 20-billion hard allowance, so productive discovery retains its snapshot, graph, refinement state and callback order instead of restarting from a larger prefix. Effective formula transitions earn more windows; hard-capped incomplete subgroups are never published. The owner's separate large-domain generator-fixing program retains its single cumulative hard allowance. Atomic work is charged in full. Rank 6 attribution showed why zero-yield feedback is required: two completed stages consumed 20 billion ticks and 16.45 seconds while publishing nothing. WV88 showed both why generic graph discovery needs a distinct entry opportunity and why repeated prefix restarts are invalid feedback: one shared initial window starved the graph that owns 537 useful consequences, while AM87's growing-restart loop timed out at 600 seconds. AM88 moves feedback inside the pass; Rank 1 matches the owner's one-unit repeat in 1.169 seconds and Rank 6 restores the exact search with 0.219 seconds of structured startup. The predicates contain no wall clock, formula identity, rank or tuned case threshold.
+LymphoSAT's direct finite-domain RBSAT row is closed by the integrated Lucky9 producer. Recognition recovers signed one-hot domains and ordered binary forbidden pairs without a formula identity; its weighted breakout moves, noise, weight bumps, greedy restarts, stagnation and growing restart limits follow the owner, while typed restart allowance and formula-work feedback replace the owner's wall clock. The feedback scale is derived from domain width, and a residual no larger than one domain's average edge neighborhood retains the full allowance. Failed complete assignments remain independently selectable H-only advice and can seed a later Walk.
+Diagnostic job 1700775 established owner runtimes of 108.02s on WV93 and 212.31s on WV98 with verified models. Restart-state hashing found one Tactix off-by-one: it made a move after the owner's stagnation break. After repair, hashes match and production job 1700781 solves the same cases in 104.34s and 204.63s with verified original-CNF models on `cpu-dense -c8`. The unsuccessful bounded arc-repair experiment was removed; it added work without solving either case. Reopen on a recognized direct CSP where normalized feedback cuts off an owner-solving trajectory, or where restart-state hashes diverge before a deliberate feedback stop.
 
 The final general repairs cover the level-one Analyze transition, configured
 random-decision schedule, post-Lucky compaction lifecycle, focused Vivify
@@ -594,6 +591,10 @@ identities and keeps search-assigned ones (consumers: Factor factordelay,
 Substitute progress, Probe/Eliminate fixed points, Trace). Causal job `1657636`
 changes only Rank 17's first-BVE `active` 944,336→328,081; job `1657639` solves
 40/40 in 10,290.269 s versus 10,573.791. No selector or consumer was added.
+
+DirectCSP startup now follows the existing proof-producing structured root pass while retaining imported binary order. Diagnostic job `1700887` restores Rank4/38 from
+96.95/121.50s to 1.24/0.28s, preserves Rank36 at 33.86s, and retains verified WV93/WV98 models at 103.85/203.68s. A witnessed oversized all-different clique is also
+a sound negative admission signal for this SAT-only search; terminal UNSAT remains owned by the normal proof path. The complete Rank and B28+C5 gates remain mandatory.
 
 N4 reopens if a new missing/cruder reference mechanism appears, a closed row violates its reopening condition, an accepted deviation loses its evidence, or a future scheduling change fails the required correctness and cumulative guards.
 <!-- parity-ledger:end -->

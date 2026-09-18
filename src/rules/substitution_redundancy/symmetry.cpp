@@ -36,6 +36,30 @@ struct StopContext {
   volatile sig_atomic_t *external;
 };
 
+uint64_t saturating_add(uint64_t first, uint64_t second) {
+  return second > UINT64_MAX - first ? UINT64_MAX : first + second;
+}
+
+uint64_t saturating_twice(uint64_t value) {
+  return value > UINT64_MAX / 2 ? UINT64_MAX : 2 * value;
+}
+
+// A sparse generator's exact set-automorphism check charges one full clause
+// count and literal-domain scan, at most every literal occurrence once while
+// finding touched clauses, and at most every clause literal once while mapping
+// those clauses.  This upper bound lets discovery admit only a generator batch
+// that can be validated, while reserving one equally sized downstream work
+// quantum for group planning.
+uint64_t generator_validation_upper_bound(const FormulaSnapshot &snapshot,
+                                          uint64_t literal_count) {
+  uint64_t support = 0;
+  for (const auto &clause : snapshot.clause_index.clauses())
+    support = saturating_add(support, clause.size());
+  return saturating_add(
+      saturating_add(snapshot.clause_index.clauses().size(), literal_count),
+      saturating_twice(support));
+}
+
 uint64_t splitmix64(uint64_t &state) {
   state += 0x9e3779b97f4a7c15ull;
   uint64_t value = state;
@@ -357,12 +381,13 @@ bool exact_automorphism(const Kernel &kernel, const FormulaSnapshot &snapshot,
   const bool valid = snapshot.clause_index.preserves_set_support(
       mapping, [&](uint64_t amount) {
         return charge(kernel, parameters, stop, result, amount);
-      }, trace.enabled() ? &stats : nullptr);
-  trace.event("symmetry_exact_index",
-              "fixed\t%llu\tmapped\t%llu\tvalid\t%u\tstatus\t%u",
-              static_cast<unsigned long long>(stats.fixed_clauses),
-              static_cast<unsigned long long>(stats.mapped_clauses),
-              static_cast<unsigned>(valid), static_cast<unsigned>(result.status));
+      }, trace.detailed() ? &stats : nullptr);
+  if (trace.detailed())
+    trace.event("symmetry_exact_index",
+                "fixed\t%llu\tmapped\t%llu\tvalid\t%u\tstatus\t%u",
+                static_cast<unsigned long long>(stats.fixed_clauses),
+                static_cast<unsigned long long>(stats.mapped_clauses),
+                static_cast<unsigned>(valid), static_cast<unsigned>(result.status));
   return valid;
 }
 
@@ -383,12 +408,13 @@ bool exact_generator_automorphism(const Kernel &kernel, const FormulaSnapshot &s
   const bool valid = snapshot.clause_index.preserves_set_moved_reference(
       mapping, mapping.moved, workspace,
       [&](uint64_t amount) { return charge(kernel, parameters, stop, result, amount); },
-      trace.enabled() ? &stats : nullptr);
-  trace.event("symmetry_exact_index",
-              "fixed\t%llu\tmapped\t%llu\tvalid\t%u\tstatus\t%u",
-              static_cast<unsigned long long>(stats.fixed_clauses),
-              static_cast<unsigned long long>(stats.mapped_clauses),
-              static_cast<unsigned>(valid), static_cast<unsigned>(result.status));
+      trace.detailed() ? &stats : nullptr);
+  if (trace.detailed())
+    trace.event("symmetry_exact_index",
+                "fixed\t%llu\tmapped\t%llu\tvalid\t%u\tstatus\t%u",
+                static_cast<unsigned long long>(stats.fixed_clauses),
+                static_cast<unsigned long long>(stats.mapped_clauses),
+                static_cast<unsigned>(valid), static_cast<unsigned>(result.status));
   return valid;
 }
 
@@ -407,11 +433,12 @@ bool exact_sparse_automorphism(const Kernel &kernel, const FormulaSnapshot &snap
   const bool valid = snapshot.clause_index.preserves_set_moved(
       mapping, mapping.moved, workspace,
       [&](uint64_t amount) { return charge(kernel, parameters, stop, result, amount); },
-      trace.enabled() ? &stats : nullptr);
-  trace.event("symmetry_exact_sparse", "support\t%zu\tfixed\t%llu\tmapped\t%llu\tvalid\t%u\tstatus\t%u",
-      mapping.moved.size(), static_cast<unsigned long long>(stats.fixed_clauses),
-      static_cast<unsigned long long>(stats.mapped_clauses), static_cast<unsigned>(valid),
-      static_cast<unsigned>(result.status));
+      trace.detailed() ? &stats : nullptr);
+  if (trace.detailed())
+    trace.event("symmetry_exact_sparse", "support\t%zu\tfixed\t%llu\tmapped\t%llu\tvalid\t%u\tstatus\t%u",
+        mapping.moved.size(), static_cast<unsigned long long>(stats.fixed_clauses),
+        static_cast<unsigned long long>(stats.mapped_clauses), static_cast<unsigned>(valid),
+        static_cast<unsigned>(result.status));
   return valid;
 }
 
@@ -532,7 +559,7 @@ SubstitutionRedundancyInstance orbit_cut_instance(
 }
 
 template <class Image>
-SubstitutionRedundancyInstance negation_orbit_unit_instance(
+SubstitutionRedundancyInstance symmetry_generator_unit_instance(
     const Kernel &kernel, Lit representative, const Image &image) {
   SubstitutionRedundancyInstance instance;
   instance.clause = {representative};
@@ -545,6 +572,166 @@ SubstitutionRedundancyInstance negation_orbit_unit_instance(
     instance.substitution.emplace_back(source, target);
   });
   return instance;
+}
+
+struct GeneratorFixingStats {
+  uint64_t negation_units = 0;
+  uint64_t binary_units = 0;
+  bool visitor_stopped = false;
+};
+
+// The large-domain owner avoids a Schreier chain. It orders exact generators
+// by the rarest point in their support, takes complement moves first, removes
+// every generator touching a new unit, and repeats that discipline for binary
+// clauses. The local fixed set makes later witnesses preserve earlier units.
+bool generator_fixing_scans(
+    const Kernel &kernel, const FormulaSnapshot &snapshot,
+    const SubstitutionRedundancyParameters &parameters,
+    const std::vector<SparseLiteralPermutation> &generators,
+    const OrbitopalInstanceVisitor &visitor, volatile sig_atomic_t *stop,
+    SymmetryEnumerationResult &result, GeneratorFixingStats &stats) {
+  const size_t literal_count = 2ull * kernel.nvars;
+  std::vector<uint8_t> active(generators.size(), 1);
+  std::vector<uint8_t> propagated(literal_count, 0);
+  std::vector<uint64_t> incidence;
+  std::vector<size_t> order;
+
+  const auto rank_active = [&] {
+    incidence.assign(literal_count, 0);
+    order.clear();
+    for (size_t id = 0; id < generators.size(); ++id) {
+      if (!active[id])
+        continue;
+      order.push_back(id);
+      for (const auto &[source, target] : generators[id].moved) {
+        (void)target;
+        if (!charge(kernel, parameters, stop, result, 1))
+          return false;
+        ++incidence[source];
+      }
+    }
+    std::vector<uint64_t> rarity(generators.size(), UINT64_MAX);
+    for (const size_t id : order)
+      for (const auto &[source, target] : generators[id].moved) {
+        (void)target;
+        rarity[id] = std::min(rarity[id], incidence[source]);
+      }
+    // Match the owning implementation's score-only ordering. Detector order
+    // remains the input order and is deliberately not an extra tie-break.
+    std::sort(order.begin(), order.end(), [&](size_t first, size_t second) {
+      return rarity[first] < rarity[second];
+    });
+    return true;
+  };
+  const auto at_limit = [&] {
+    return stats.negation_units + stats.binary_units ==
+           parameters.graph_symmetry.maximum_fixing_instances;
+  };
+
+  if (!rank_active())
+    return false;
+  for (const size_t id : order) {
+    if (at_limit())
+      return true;
+    const auto &image = generators[id];
+    Lit applicable = INVALID_LIT;
+    bool touches_fixed = false;
+    for (const auto &[source, target] : image.moved) {
+      if (!charge(kernel, parameters, stop, result, 1))
+        return false;
+      if (propagated[source]) {
+        touches_fixed = true;
+        break;
+      }
+      if (source == negate(target) && image[target] == source &&
+          !kernel.value(source) &&
+          (applicable == INVALID_LIT ||
+           incidence[source] < incidence[applicable]))
+        applicable = source;
+    }
+    if (touches_fixed) {
+      active[id] = 0;
+      continue;
+    }
+    if (applicable == INVALID_LIT)
+      continue;
+    active[id] = 0;
+    propagated[applicable] = 1;
+    ++stats.negation_units;
+    ++result.instances;
+    if (!visitor(symmetry_generator_unit_instance(kernel, applicable, image))) {
+      stats.visitor_stopped = true;
+      return true;
+    }
+  }
+
+  // Binary fixing is a refinement of the negation-fixed subgroup, not an
+  // independent reason to perturb the search trajectory.  Continue to the
+  // more expensive phase only when the preceding phase established at least
+  // one unit.  This also gives large-domain preprocessing a local progress
+  // feedback loop: a fruitless phase does not unlock further speculative
+  // work.
+  if (!stats.negation_units)
+    return true;
+
+  // The binary phase sees only generators which stabilize every unit emitted
+  // by negation fixing, exactly as deleting marked generators in the owner.
+  for (size_t id = 0; id < generators.size(); ++id) {
+    if (!active[id])
+      continue;
+    for (const auto &[source, target] : generators[id].moved) {
+      (void)target;
+      if (!charge(kernel, parameters, stop, result, 1))
+        return false;
+      if (propagated[source]) {
+        active[id] = 0;
+        break;
+      }
+    }
+  }
+  std::fill(propagated.begin(), propagated.end(), 0);
+
+  std::unordered_set<uint64_t> binaries;
+  binaries.reserve(snapshot.clause_index.clauses().size());
+  for (const auto &clause : snapshot.clause_index.clauses()) {
+    if (clause.size() != 2)
+      continue;
+    if (!charge(kernel, parameters, stop, result, 1))
+      return false;
+    binaries.insert(kernel_binary_key(clause[0], clause[1]));
+  }
+  if (!rank_active())
+    return false;
+  for (const size_t id : order) {
+    if (at_limit())
+      return true;
+    const auto &image = generators[id];
+    Lit applicable = INVALID_LIT;
+    bool touches_fixed = false;
+    for (const auto &[source, target] : image.moved) {
+      if (!charge(kernel, parameters, stop, result, 1))
+        return false;
+      if (propagated[source]) {
+        touches_fixed = true;
+        break;
+      }
+      if (applicable == INVALID_LIT && source != target &&
+          source != negate(target) && !kernel.value(source) &&
+          !kernel.value(target) &&
+          binaries.count(kernel_binary_key(source, target)))
+        applicable = target;
+    }
+    if (touches_fixed || applicable == INVALID_LIT)
+      continue;
+    propagated[applicable] = 1;
+    ++stats.binary_units;
+    ++result.instances;
+    if (!visitor(symmetry_generator_unit_instance(kernel, applicable, image))) {
+      stats.visitor_stopped = true;
+      return true;
+    }
+  }
+  return true;
 }
 
 SubstitutionRedundancyInstance representative_unit_instance(
@@ -576,11 +763,13 @@ SymmetryEnumerationStatus convert(symmetry_backend::Status status) {
 } // namespace
 
 SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
-    const Kernel &kernel, const SubstitutionRedundancyParameters &parameters,
+    const Kernel &kernel,
+    const SubstitutionRedundancyParameters &requested_parameters,
     const OrbitopalInstanceVisitor &visitor, volatile sig_atomic_t *stop,
     const SymmetryDiscoveryHints *hints,
     SymmetryEnumerationScheduling scheduling) {
   SymmetryEnumerationResult result;
+  SubstitutionRedundancyParameters parameters = requested_parameters;
   const SymmetryTrace trace;
   trace.event("symmetry_begin", "variables\t%u", kernel.nvars);
   if (!parameters.valid() ||
@@ -635,10 +824,14 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
                 snapshot.clause_index.distinct_clause_count());
   }
   const GraphSymmetryParameters &configured = parameters.graph_symmetry;
+  const bool large_domain_generator_fixing =
+      configured.fixing_mode != SymmetryFixingMode::GeneratorsOnly &&
+      kernel.nvars > configured.schreier_domain_limit;
   SymmetryDiscoveryHints structured;
   bool structured_incomplete = false;
-  if (configured.use_structured_generators ||
-      configured.stabilize_structured_variables) {
+  if (!large_domain_generator_fixing &&
+      (configured.use_structured_generators ||
+       configured.stabilize_structured_variables)) {
     auto discovery_parameters = parameters;
     discovery_parameters.producer = SubstitutionRedundancyProducer::Orbitopal;
     discovery_parameters.maximum_detection_ticks -= result.ticks;
@@ -669,6 +862,17 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
       structured.generators.clear();
     if (!configured.stabilize_structured_variables)
       structured.fixed_variables.clear();
+    // The structured producer shares this invocation's discovery allowance.
+    // If it spent the last credit, generic graph construction and DejaVu
+    // cannot publish a validated consequence: even the first subsequent
+    // charge must fail.  End at the producer feedback boundary instead of
+    // doing an unpublishable full-formula pass.  A caller that grants more
+    // work starts a fresh typed invocation; an admitted group batch is not
+    // involved yet.
+    if (result.ticks >= parameters.maximum_detection_ticks) {
+      result.status = SymmetryEnumerationStatus::LimitReached;
+      return result;
+    }
   }
   std::vector<SparseLiteralPermutation> generators;
   // Generator and transversal checks have different historical setup charges.
@@ -742,6 +946,55 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
   settings.prefer_depth_first = configured.prefer_depth_first;
   settings.strong_certification = configured.strong_certification;
   settings.preserve_generator_order = configured.preserve_detector_order;
+  const uint64_t validation_quantum =
+      generator_validation_upper_bound(snapshot, literal_count);
+  const uint64_t remaining_detection_ticks =
+      parameters.maximum_detection_ticks - result.ticks;
+  const uint64_t validation_allowance =
+      remaining_detection_ticks > validation_quantum
+          ? remaining_detection_ticks - validation_quantum
+          : 0;
+  const uint64_t affordable_generators = validation_quantum
+      ? validation_allowance / validation_quantum
+      : 0;
+  const uint64_t requested_generators = settings.maximum_generators;
+  const uint64_t hard_detection_ticks =
+      scheduling.progress_ticks_per_generator &&
+              scheduling.hard_detection_ticks >
+                  parameters.maximum_detection_ticks
+          ? scheduling.hard_detection_ticks
+          : parameters.maximum_detection_ticks;
+  const uint64_t hard_remaining_detection_ticks =
+      hard_detection_ticks > result.ticks
+          ? hard_detection_ticks - result.ticks
+          : 0;
+  const uint64_t hard_validation_allowance =
+      hard_remaining_detection_ticks > validation_quantum
+          ? hard_remaining_detection_ticks - validation_quantum
+          : 0;
+  const uint64_t hard_affordable_generators = validation_quantum
+      ? hard_validation_allowance / validation_quantum
+      : 0;
+  const bool detector_work_capped =
+      hard_affordable_generators < requested_generators;
+  settings.maximum_generators =
+      std::min(requested_generators, hard_affordable_generators);
+  settings.initial_generators =
+      std::min(settings.maximum_generators, affordable_generators);
+  settings.progress_generators_per_generator = validation_quantum
+      ? scheduling.progress_ticks_per_generator / validation_quantum
+      : 0;
+  trace.event("symmetry_generator_admission",
+              "remaining\t%llu\thard_remaining\t%llu\tvalidation_quantum\t%llu\t"
+              "affordable\t%llu\tinitial_cap\t%llu\tcap\t%llu\tprogress\t%llu",
+              static_cast<unsigned long long>(remaining_detection_ticks),
+              static_cast<unsigned long long>(hard_remaining_detection_ticks),
+              static_cast<unsigned long long>(validation_quantum),
+              static_cast<unsigned long long>(affordable_generators),
+              static_cast<unsigned long long>(settings.initial_generators),
+              static_cast<unsigned long long>(settings.maximum_generators),
+              static_cast<unsigned long long>(
+                  settings.progress_generators_per_generator));
   const symmetry_backend::Graph graph{
       graph_storage.vertices, graph_storage.edge_count,
       graph_storage.colors.data(), graph_storage.degrees.data(),
@@ -749,7 +1002,7 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
   StopContext context{&kernel, stop};
   symmetry_backend::Permutations proposed;
   const symmetry_backend::Status detection = trace.measure("symmetry_detect", [&] {
-    if (!settings.maximum_generators)
+    if (!settings.initial_generators)
       return symmetry_backend::Status::Incomplete;
     return symmetry_backend::detect(graph, settings, backend_stop, &context,
                                     proposed);
@@ -770,12 +1023,51 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
       snapshot.clause_index.clauses().size() ==
           snapshot.clause_index.distinct_clause_count();
   result.generators_proposed = proposed.count + generators.size();
+  if (scheduling.progress_ticks_per_generator && proposed.count) {
+    result.discovery_progress_units = proposed.count;
+    const uint64_t credit =
+        proposed.count >
+                UINT64_MAX / scheduling.progress_ticks_per_generator
+            ? UINT64_MAX
+            : proposed.count * scheduling.progress_ticks_per_generator;
+    const uint64_t renewed =
+        credit > UINT64_MAX - parameters.maximum_detection_ticks
+            ? UINT64_MAX
+            : parameters.maximum_detection_ticks + credit;
+    parameters.maximum_detection_ticks =
+        std::min(renewed, hard_detection_ticks);
+  }
   if (result.status == SymmetryEnumerationStatus::Interrupted ||
       result.status == SymmetryEnumerationStatus::Invalid ||
       result.status == SymmetryEnumerationStatus::ResourceExhausted ||
       result.status == SymmetryEnumerationStatus::Failed) {
     symmetry_backend::release(proposed);
     return result;
+  }
+  if (detector_work_capped &&
+      detection == symmetry_backend::Status::Incomplete) {
+    if (!scheduling.progress_ticks_per_generator && proposed.count &&
+        proposed.count == settings.maximum_generators)
+      result.discovery_progress_units = proposed.count;
+    // The derived cap proved that the shared allowance cannot validate an
+    // unrestricted detector stream and still give group planning one useful
+    // work quantum.  A prefix is valid group input, but publishing its
+    // arbitrary callback-order subgroup can perturb search after the producer
+    // has already reported that it could not finish.  Keep independently
+    // validated structured/hinted generators, but discard this work-limited
+    // generic prefix.  The finite cap still makes the probe self-terminating.
+    symmetry_backend::release(proposed);
+    result.complete_group = false;
+    if (generators.empty()) {
+      // This is the same accounting outcome as charge() declining an atomic
+      // operation whose upper bound does not fit: the local allowance is no
+      // longer useful to this producer.  Saturation also prevents the shared
+      // startup scope from spending the rejected remainder on another
+      // formula-wide structured retry after this no-progress result.
+      result.ticks = parameters.maximum_detection_ticks;
+      result.status = SymmetryEnumerationStatus::LimitReached;
+      return result;
+    }
   }
   result.status = SymmetryEnumerationStatus::Complete;
 
@@ -835,6 +1127,25 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
   if (result.status == SymmetryEnumerationStatus::Interrupted ||
       result.status == SymmetryEnumerationStatus::LimitReached ||
       generators.empty()) {
+    if (result.status == SymmetryEnumerationStatus::Complete &&
+        detection_incomplete)
+      result.status = SymmetryEnumerationStatus::LimitReached;
+    return result;
+  }
+
+  if (large_domain_generator_fixing) {
+    GeneratorFixingStats fixing;
+    const bool completed = trace.measure("symmetry_generator_fixing", [&] {
+      return generator_fixing_scans(kernel, snapshot, parameters, generators,
+                                    visitor, stop, result, fixing);
+    });
+    trace.event("symmetry_generator_fixing_result",
+                "negation_units\t%llu\tbinary_units\t%llu\tvisitor_stopped\t%u",
+                static_cast<unsigned long long>(fixing.negation_units),
+                static_cast<unsigned long long>(fixing.binary_units),
+                static_cast<unsigned>(fixing.visitor_stopped));
+    if (!completed)
+      return result;
     if (result.status == SymmetryEnumerationStatus::Complete &&
         detection_incomplete)
       result.status = SymmetryEnumerationStatus::LimitReached;
@@ -1067,11 +1378,33 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
 
     trace.event("symmetry_chain_validation", "boundary\tend\tvalid\t%u",
                 static_cast<unsigned>(valid_chain));
-    trace.event("symmetry_publish", "boundary\tbegin");
+    const bool forcing_batch = std::any_of(
+        rows.begin(), rows.end(),
+        [](const CertifiedRow &row) { return row.kind == 1 || row.kind == 3; });
+    const bool decline_nonforcing =
+        valid_chain && !rows.empty() && !forcing_batch &&
+        configured.nonforcing_cut_admission !=
+            SymmetryNonforcingCutAdmission::Publish;
+    const bool decline_singleton_forcing =
+        valid_chain && forcing_batch && rows.size() == 1 &&
+        configured.nonforcing_cut_admission ==
+            SymmetryNonforcingCutAdmission::RequireCompoundProgress;
+    trace.event("symmetry_publish",
+                "boundary\tbegin\tforcing\t%u\tdeclined_nonforcing\t%u"
+                "\tdeclined_singleton\t%u",
+                static_cast<unsigned>(forcing_batch),
+                static_cast<unsigned>(decline_nonforcing),
+                static_cast<unsigned>(decline_singleton_forcing));
     if (!valid_chain) {
       result.complete_group = false;
       if (result.status == SymmetryEnumerationStatus::Complete)
         result.status = SymmetryEnumerationStatus::Failed;
+    } else if (decline_nonforcing) {
+      result.nonforcing_orbit_cuts_declined += rows.size();
+      stabilizer_instances += rows.size();
+    } else if (decline_singleton_forcing) {
+      result.singleton_forcing_rows_declined += rows.size();
+      stabilizer_instances += rows.size();
     } else
       for (auto &row : rows) {
         const auto &image = row.image;
@@ -1086,13 +1419,19 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
             : row.kind == 2
                 ? orbit_cut_instance(kernel, row.representative, row.other,
                                      image)
-                : negation_orbit_unit_instance(kernel, row.representative,
-                                               image);
+                : symmetry_generator_unit_instance(kernel, row.representative,
+                                                   image);
         if (!visitor(instance))
           break;
       }
-    trace.event("symmetry_publish", "boundary\tend\tinstances\t%llu",
-                static_cast<unsigned long long>(result.instances));
+    trace.event("symmetry_publish",
+                "boundary\tend\tinstances\t%llu\tnonforcing_declined\t%llu"
+                "\tsingleton_declined\t%llu",
+                static_cast<unsigned long long>(result.instances),
+                static_cast<unsigned long long>(
+                    result.nonforcing_orbit_cuts_declined),
+                static_cast<unsigned long long>(
+                    result.singleton_forcing_rows_declined));
     symmetry_backend::release(fixings);
     if (result.status == SymmetryEnumerationStatus::Failed ||
         result.status == SymmetryEnumerationStatus::Invalid ||

@@ -139,6 +139,17 @@ enum class SymmetryStructuredScope : uint8_t {
   AxisAnchors,
 };
 
+// A kind-2-only FixAndCut batch is legal X7, but cannot simplify the root
+// formula; its immediate effect is solely to choose a CDCL fundamental domain.
+enum class SymmetryNonforcingCutAdmission : uint8_t {
+  Publish,
+  RequireForcingMember,
+  // Also withhold a one-row forcing batch. A lone representative choice
+  // changes the CDCL trajectory without exposing a second certified group
+  // consequence; compound prefixes have demonstrated within-pass progress.
+  RequireCompoundProgress,
+};
+
 struct GraphSymmetryParameters {
   uint64_t maximum_graph_vertices = UINT64_MAX;
   uint64_t maximum_graph_edges = UINT64_MAX;
@@ -149,6 +160,10 @@ struct GraphSymmetryParameters {
   uint64_t maximum_fixing_instances = UINT64_MAX;
   uint64_t maximum_generator_instances_per_pass = UINT64_MAX;
   uint64_t maximum_group_ticks = UINT64_MAX;
+  // Above this variable count, skip Schreier-chain construction and use the
+  // exact-generator negation/binary fixing scans. UINT64_MAX disables the
+  // switch. The default policy selects the owning baseline's 50,000 limit.
+  uint64_t schreier_domain_limit = UINT64_MAX;
   // Optional soft planning threshold, polled between complete FixAndCut
   // levels. Zero disables it. Finalization still obeys maximum_group_ticks.
   uint64_t chain_planning_tick_limit = 0;
@@ -194,6 +209,8 @@ struct GraphSymmetryParameters {
   // AxisAnchors fixes the first column for a row action and the first row
   // for a column action, retaining more of the overlapping automorphisms.
   SymmetryStructuredScope structured_scope = SymmetryStructuredScope::WholeMatrix;
+  SymmetryNonforcingCutAdmission nonforcing_cut_admission =
+      SymmetryNonforcingCutAdmission::Publish;
 
   bool valid() const {
     return error_bound > 0 && fixing_mode >= SymmetryFixingMode::StabilizerOnly &&
@@ -217,7 +234,11 @@ struct GraphSymmetryParameters {
            base_selection >= SymmetryBaseSelection::ClauseOrder &&
            base_selection <= SymmetryBaseSelection::FirstShortestThenForwardRemainder &&
            structured_scope >= SymmetryStructuredScope::WholeMatrix &&
-           structured_scope <= SymmetryStructuredScope::AxisAnchors;
+           structured_scope <= SymmetryStructuredScope::AxisAnchors &&
+           nonforcing_cut_admission >=
+               SymmetryNonforcingCutAdmission::Publish &&
+           nonforcing_cut_admission <=
+               SymmetryNonforcingCutAdmission::RequireCompoundProgress;
   }
   bool operator==(const GraphSymmetryParameters &) const = default;
 };
@@ -255,6 +276,12 @@ struct SubstitutionRedundancyParameters {
   // descendants. UINT64_MAX is unbounded; zero disables this detector while
   // leaving explicit matrices and the other orbitopal paths available.
   uint64_t maximum_orbitopal_refinement_orbits = UINT64_MAX;
+  // Stop a structured refinement producer after it has spent the owning
+  // Satsuma split allowance without completing a useful matrix.  Every
+  // completed matrix resets the allowance, so productive discovery keeps
+  // going.  This is a scheduling choice; disabling it retains exhaustive
+  // traversal up to the explicit admission limits above.
+  bool orbitopal_progress_feedback = false;
   // Satsuma-style row admission: probe a deterministic individualized base
   // and examine only root cells of size at most factor * base length. The
   // Boolean keeps the filter selectable; the positive factor is policy.
@@ -353,6 +380,7 @@ struct OrbitopalEnumerationResult {
   uint64_t refinement_unique_literal_columns = 0;
   uint64_t refinement_exact_failures = 0;
   uint64_t reused_inexact_matrices = 0;
+  uint64_t unproductive_refinement_stops = 0;
   uint64_t column_neighborhoods = 0;
   uint64_t reused_column_neighborhoods = 0;
   uint64_t column_transports = 0;
@@ -380,7 +408,16 @@ struct SymmetryEnumerationResult {
   SymmetryEnumerationStatus status = SymmetryEnumerationStatus::Complete;
   uint64_t generators_proposed = 0;
   uint64_t generators_validated = 0;
+  // A work-capped generic detector filled its complete affordable callback
+  // prefix.  No arbitrary prefix is publishable, but the count is a
+  // deterministic discovery-progress signal for a composing strategy.
+  uint64_t discovery_progress_units = 0;
   uint64_t instances = 0;
+  // Complete validated kind-2-only batches withheld by strategy admission.
+  uint64_t nonforcing_orbit_cuts_declined = 0;
+  // Complete singleton forcing batches withheld because they did not expose
+  // a second certified consequence in the same group pass.
+  uint64_t singleton_forcing_rows_declined = 0;
   uint64_t ticks = 0;
   // True only when discovery establishes the full unrestricted clause-set group.
   bool complete_group = false;
@@ -393,6 +430,11 @@ struct SymmetryEnumerationResult {
 // retains its prior per-call accounting when this option is false.
 struct SymmetryEnumerationScheduling {
   bool finish_admitted_group = false;
+  // When nonzero, an exact generic generator extends the current discovery
+  // allowance inside the same detector session.  hard_detection_ticks is the
+  // remaining run-global ceiling at invocation entry.
+  uint64_t progress_ticks_per_generator = 0;
+  uint64_t hard_detection_ticks = 0;
 };
 
 struct SubstitutionRedundancyGeneralCursor {

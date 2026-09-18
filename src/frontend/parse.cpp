@@ -2,6 +2,7 @@
 
 #include "policies/heuristics.hpp"
 #include "proof/proof.hpp"
+#include "strategy/rule_parameters.hpp"
 
 #include <algorithm>
 #include <cstdlib>
@@ -129,7 +130,8 @@ static void propagate_input_unit(Kernel &k) {
   k.inconsistent = true;
 }
 
-void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
+[[gnu::noinline]] static void ingest_clause_generic(Kernel &k,
+                                                    std::vector<Lit> &scratch) {
   // Every input clause consumes one proof id in input order, including
   // tautologies and duplicates that are never stored (LRAT input numbering).
   const uint64_t id = ++k.next_clause_id;
@@ -303,6 +305,8 @@ void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
         k.binary_liveness->needs_growth(k.binary_ids.size() + 1))
       grow_input_binary_liveness(k, k.binary_ids.size() + 1);
     kernel_add_new_binary_clause(k, scratch[0], scratch[1], id);
+    if (k.input_binary_order_captured)
+      k.input_binary_order.push_back(key);
     // Kissat's original-clause constructor checks vector defragmentation only
     // after the complete clause has joined the watch database.
     k.watches.defrag_if_needed();
@@ -315,6 +319,57 @@ void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
     if (shrunk)
       restate_input(k, id, scratch, root_units, ref, original);
   }
+}
+
+void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
+  // Keep the ordinary normalized binary path in a small frame of its own.
+  // The generic importer owns proof-restatement and root-unit vectors needed
+  // by the exceptional cases; constructing its frame for every binary input
+  // clause is avoidable when the DIMACS header has already reserved both
+  // variables and neither literal has a root value.
+  if (scratch.size() == 2) {
+    const Lit a = scratch[0], b = scratch[1];
+    if (a != b && a != negate(b) && var_of(a) < k.nvars &&
+        var_of(b) < k.nvars && !k.inconsistent && k.values[a] == 0 &&
+        k.values[b] == 0) {
+      const uint64_t id = ++k.next_clause_id;
+      if (k.proof && k.proof->population_shadow_available())
+        k.proof->seed_population(id, scratch.data(), 2);
+      kernel_record_import(k, var_of(a));
+      kernel_record_import(k, var_of(b));
+
+      if (k.tumble) {
+        if (k.input_activated.size() < k.nvars)
+          k.input_activated.resize(k.nvars, 0);
+        for (const Lit lit : {a, b}) {
+          const Var v = var_of(lit);
+          if (!k.input_activated[v]) {
+            k.input_activated[v] = 1;
+            k.input_activation_order.push_back(v);
+          }
+        }
+      }
+
+      const uint64_t key = kernel_binary_key(a, b);
+      const bool duplicate = k.binary_ids.tracks_keys()
+                                 ? k.binary_ids.count(key)
+                                 : kernel_binary_live(k, a, b);
+      if (duplicate) {
+        if (k.proof && k.proof->dsr())
+          k.proof->del(k.next_clause_id, id, scratch.data(), 2);
+        return;
+      }
+      if (!k.binary_ids.tracks_keys() && k.binary_liveness &&
+          k.binary_liveness->needs_growth(k.binary_ids.size() + 1))
+        grow_input_binary_liveness(k, k.binary_ids.size() + 1);
+      kernel_add_new_binary_clause(k, a, b, id);
+      if (k.input_binary_order_captured)
+        k.input_binary_order.push_back(key);
+      k.watches.defrag_if_needed();
+      return;
+    }
+  }
+  ingest_clause_generic(k, scratch);
 }
 
 void finish_input(Kernel &k) {
@@ -465,10 +520,10 @@ const char *parse_dimacs_with_block(FILE *f, Kernel &k, size_t block_bytes) {
         kernel.binary_liveness = nullptr;
       }
     }
-    void arm(size_t entries) {
+    void arm(size_t entries, uint32_t literals, uint64_t declared_clauses) {
       assert(!index && !kernel.binary_liveness);
       index = std::make_unique<BinaryLivenessIndex>();
-      index->reserve(entries);
+      index->reserve_bounded_exact(entries, literals, declared_clauses);
       kernel.binary_liveness = index.get();
     }
   } input_liveness(k);
@@ -566,13 +621,24 @@ const char *parse_dimacs_with_block(FILE *f, Kernel &k, size_t block_bytes) {
         // large circuit encodings.
         const uint64_t predicted_binaries =
             std::min<uint64_t>(clauses, 2 * n);
+        // The direct finite-domain startup rule needs the original order of
+        // unique binary constraints to reproduce its owning algorithm's
+        // deterministic seed. Keep that order only inside the rule's bounded
+        // admission envelope; the first startup opportunity releases it.
+        k.input_binary_order_captured =
+            n <= strategy::OnehotModelParameters::MAXIMUM_VARIABLES_DEFAULT &&
+            clauses <=
+                strategy::OnehotModelParameters::MAXIMUM_CONSTRAINTS_DEFAULT;
+        if (k.input_binary_order_captured)
+          k.input_binary_order.reserve(static_cast<size_t>(clauses));
         // Native LRAT retains exact binary proof identities. DRAT and
         // proofless solving instead use a compact no-false-negative filter
         // backed by exact mirrored-watch confirmation during input.  The
         // filter grows by load, never by formula identity or a size gate.
         if (!k.proof || !k.proof->lrat()) {
           k.binary_ids.discard_storage();
-          input_liveness.arm(static_cast<size_t>(predicted_binaries));
+          input_liveness.arm(static_cast<size_t>(predicted_binaries),
+                             2 * k.nvars, clauses);
         } else {
           k.binary_ids.reserve(static_cast<size_t>(predicted_binaries));
         }

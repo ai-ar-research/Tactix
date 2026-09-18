@@ -296,7 +296,7 @@ ApplyResult lucky_apply(Kernel &k) {
 }
 
 static uint32_t lucky_instances(Kernel &, uint64_t *out, uint32_t cap) {
-  const uint32_t n = cap < 9 ? cap : 9;
+  const uint32_t n = cap < 10 ? cap : 10;
   for (uint32_t i = 0; i < n; i++)
     out[i] = i;
   return n;
@@ -315,6 +315,9 @@ static ApplyResult lucky_apply_instance(Kernel &k, uint64_t inst) {
     return onehot_model_guard(k) ? onehot_model_apply(k) : ApplyResult::NoOp;
   if (inst == 8)
     return affine_model_guard(k) ? affine_model_apply(k) : ApplyResult::NoOp;
+  if (inst == 9)
+    return onehot_model_guard(k) ? direct_csp_model_apply(k)
+                                 : ApplyResult::NoOp;
   return lucky_apply_probe(k, inst);
 }
 

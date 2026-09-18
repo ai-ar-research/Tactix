@@ -321,7 +321,7 @@ static void test_action_kind(void) {
       "ConflictAnalysis",
       "Congruence", "Decide",     "Factor",           "HyperBinaryRes",
       "HyperTernaryRes",
-      "Instantiate", "Lucky",     "Probe",            "Propagate",
+      "Instantiate", "LocalSearchGuidance", "Lucky",  "Probe", "Propagate",
       "Reduce",     "Reorder",    "Rephase",          "Restart",
       "Strengthen",
       "Substitute", "SubstitutionRedundancy", "SubsumeForward", "Sweep",
@@ -337,8 +337,10 @@ static void test_action_kind(void) {
   assert(tactix_action_kind(rule_id("SwitchMode")) == TACTIX_ACTION_POLICY_OP);
   assert(tactix_action_kind(rule_id("Walk")) == TACTIX_ACTION_POLICY_OP);
   assert(tactix_action_kind(rule_id("Reorder")) == TACTIX_ACTION_POLICY_OP);
+  assert(tactix_action_kind(rule_id("LocalSearchGuidance")) ==
+         TACTIX_ACTION_POLICY_OP);
 
-  /* spot-check proof rules, and assert exactly those four are policy ops */
+  /* spot-check proof rules, and assert exactly those five are policy ops */
   assert(tactix_action_kind(rule_id("Propagate")) == TACTIX_ACTION_PROOF_RULE);
   assert(tactix_action_kind(rule_id("BVE")) == TACTIX_ACTION_PROOF_RULE);
   assert(tactix_action_kind(rule_id("Lucky")) == TACTIX_ACTION_PROOF_RULE);
@@ -349,7 +351,7 @@ static void test_action_kind(void) {
     if (k == TACTIX_ACTION_POLICY_OP)
       policy_ops++;
   }
-  assert(policy_ops == 4);
+  assert(policy_ops == 5);
 
   /* out-of-range → -1 (same convention as tactix_rule_id) */
   assert(tactix_action_kind(-1) == -1);

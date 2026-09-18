@@ -920,6 +920,8 @@ static void shared_sr_discovery_budget_does_not_refill() {
   const InvocationResult spent = first.advance(k, nullptr, &shared);
   assert(spent.status == InvocationStatus::BudgetExhausted);
   assert(spent.budget_status == BudgetStatus::Exhausted);
+  assert(!spent.discovery_exhausted &&
+         "bounded orbitopal siblings must not earn producer-boundary credit");
   assert(shared.consumed() == 1 && !shared.accounting_overflow());
 
   OnlineStrategyExecutor later;
@@ -938,6 +940,33 @@ static void shared_sr_discovery_budget_does_not_refill() {
   assert(rejected.status == InvocationStatus::AccountingError);
   assert(rejected.budget_status == BudgetStatus::CurrencyMismatch);
   assert(!wrong_currency.consumed());
+
+  SubstitutionRedundancyParameters graph_parameters = sr;
+  graph_parameters.producer = SubstitutionRedundancyProducer::GraphSymmetry;
+  limited.parameters = graph_parameters;
+  program.sequence = {limited};
+  Allowance graph_pool(WorkUnit::SrDiscoveryTicks, WorkLimit::bounded(0));
+  OnlineStrategyExecutor graph;
+  assert(graph.configure(program, 77));
+  const DiscoveryFeedbackPolicy feedback{100, 1000};
+  const InvocationResult seed =
+      graph.advance(k, nullptr, &graph_pool, feedback);
+  assert(seed.status == InvocationStatus::BudgetExhausted &&
+         seed.discovery_entry_required);
+  graph_pool.set_limit(WorkLimit::bounded(100));
+  const InvocationResult attempted =
+      graph.advance(k, nullptr, &graph_pool, feedback);
+  assert(!attempted.discovery_entry_required &&
+         "a graph producer receives at most one entry seed per scope");
+
+  Allowance too_small_pool(WorkUnit::SrDiscoveryTicks,
+                           WorkLimit::bounded(0));
+  OnlineStrategyExecutor too_small;
+  assert(too_small.configure(program, 78));
+  const InvocationResult skipped = too_small.advance(
+      k, nullptr, &too_small_pool, DiscoveryFeedbackPolicy{1, 100});
+  assert(!skipped.discovery_entry_required &&
+         "a window below the exact binary snapshot lower bound cannot yield detector feedback");
 }
 
 static void finish_round_budget_policy_preserves_tail_and_resume() {
@@ -1749,6 +1778,7 @@ static void unique_literal_amo_phase_is_checked_bounded_and_composable() {
   program.sequence = {step};
   OnlineInprocessExecutor executor;
   assert(executor.configure(program, 160));
+  const std::vector<uint64_t> touched_before = enumerated.touched;
   for (unsigned advances = 0; advances < 8 && !executor.complete();
        ++advances) {
     const InvocationResult result = executor.advance(enumerated);
@@ -1763,6 +1793,10 @@ static void unique_literal_amo_phase_is_checked_bounded_and_composable() {
   assert(enumerated.stats.sr_applied == 3 &&
          enumerated.stats.sr_unique_literal_amo_binaries == 3 &&
          enumerated.stats.sr_validation_ticks == 0);
+  // A preprocessor's completed AMO reaches the owned solver as input.  Its
+  // in-process equivalent must therefore not masquerade as newly derived
+  // material to incremental subsumption, Factor, or BVE scheduling.
+  assert(enumerated.touched == touched_before);
   kernel_check_invariants(enumerated);
 
   // Producer provenance on caller-owned input never bypasses X7 validation.
@@ -3222,9 +3256,87 @@ static SubstitutionRedundancyParameters sst_parameters() {
   return parameters;
 }
 
+static void large_domain_generator_fixing_uses_units_without_a_chain() {
+  const auto enumerate = [](Kernel k, std::vector<std::vector<Lit>> images) {
+    SubstitutionRedundancyParameters parameters = sst_parameters();
+    parameters.graph_symmetry.maximum_generators = images.size();
+    parameters.graph_symmetry.schreier_domain_limit = 0;
+    SymmetryDiscoveryHints hints;
+    hints.generators = std::move(images);
+    std::vector<SubstitutionRedundancyInstance> instances;
+    const auto enumeration = substitution_redundancy_enumerate_symmetry(
+        k, parameters,
+        [&](const SubstitutionRedundancyInstance &instance) {
+          instances.push_back(instance);
+          return true;
+        }, nullptr, &hints);
+    // Supplying the complete test generator consumes the configured detector
+    // prefix, so group completeness is deliberately not claimed.
+    assert(enumeration.status == SymmetryEnumerationStatus::LimitReached);
+    assert(enumeration.generators_validated == hints.generators.size());
+    assert(enumeration.instances == instances.size());
+    return std::pair{std::move(k), std::move(instances)};
+  };
+
+  const auto check = [&](Kernel k, std::vector<std::vector<Lit>> images,
+                         std::vector<Lit> expected) {
+    auto [checked, instances] = enumerate(std::move(k), std::move(images));
+    assert(instances.size() == expected.size());
+    for (size_t i = 0; i < expected.size(); ++i) {
+      assert(instances[i].clause == std::vector<Lit>{expected[i]});
+      assert(instances[i].symmetry_chain_certificate);
+      // The public path ignores the private certificate and rechecks X7 fully.
+      assert(substitution_redundancy_apply_detailed(checked, instances[i],
+                                                    sst_parameters())
+                 .status == SubstitutionRedundancyApplicationStatus::Applied);
+      assert(checked.value(expected[i]) > 0);
+    }
+    kernel_check_invariants(checked);
+  };
+
+  Kernel negation;
+  kernel_reserve_vars(negation, 2);
+  kernel_add_binary_clause(negation, internalize(1), internalize(2),
+                           ++negation.next_clause_id);
+  kernel_add_binary_clause(negation, internalize(-1), internalize(2),
+                           ++negation.next_clause_id);
+  check(std::move(negation),
+        {{internalize(-1), internalize(1), internalize(2), internalize(-2)}},
+        {internalize(1)});
+
+  // A binary-only opportunity does not unlock a second fixing phase when the
+  // preceding negation scan made no progress.
+  Kernel binary;
+  kernel_reserve_vars(binary, 2);
+  kernel_add_binary_clause(binary, internalize(1), internalize(2),
+                           ++binary.next_clause_id);
+  check(std::move(binary),
+        {{internalize(2), internalize(-2), internalize(1), internalize(-1)}},
+        {});
+
+  // Once negation fixing establishes a unit, binary fixing may refine the
+  // surviving subgroup in the same pass.
+  Kernel refined;
+  kernel_reserve_vars(refined, 4);
+  kernel_add_binary_clause(refined, internalize(1), internalize(2),
+                           ++refined.next_clause_id);
+  kernel_add_binary_clause(refined, internalize(-1), internalize(2),
+                           ++refined.next_clause_id);
+  kernel_add_binary_clause(refined, internalize(3), internalize(4),
+                           ++refined.next_clause_id);
+  check(std::move(refined),
+        {{internalize(-1), internalize(1), internalize(2), internalize(-2),
+          internalize(3), internalize(-3), internalize(4), internalize(-4)},
+         {internalize(1), internalize(-1), internalize(2), internalize(-2),
+          internalize(4), internalize(-4), internalize(3), internalize(-3)}},
+        {internalize(1), internalize(4)});
+}
+
 static void stabilizer_chain_adds_all_cuts_before_rup_unit() {
   Kernel k = sst_clause_fixture(false);
-  const SubstitutionRedundancyParameters parameters = sst_parameters();
+  SubstitutionRedundancyParameters parameters = sst_parameters();
+  parameters.graph_symmetry.nonforcing_cut_admission =
+      SymmetryNonforcingCutAdmission::RequireForcingMember;
   std::vector<SubstitutionRedundancyInstance> instances;
   const auto enumeration = substitution_redundancy_enumerate_symmetry(
       k, parameters,
@@ -3234,6 +3346,7 @@ static void stabilizer_chain_adds_all_cuts_before_rup_unit() {
       });
   assert(enumeration.status == SymmetryEnumerationStatus::Complete);
   assert(enumeration.generators_validated > 0 && instances.size() == 3);
+  assert(!enumeration.nonforcing_orbit_cuts_declined);
   assert(instances[0].clause.size() == 2 &&
          instances[1].clause.size() == 2 &&
          instances[2].clause.size() == 1);
@@ -3295,6 +3408,20 @@ static void fix_and_cut_reaches_nonclausal_orbits() {
     return instance.clause.size() == 2 &&
            instance.symmetry_chain_certificate;
   }));
+
+  SubstitutionRedundancyParameters forcing_only = parameters;
+  forcing_only.graph_symmetry.nonforcing_cut_admission =
+      SymmetryNonforcingCutAdmission::RequireForcingMember;
+  uint64_t admitted = 0;
+  const SymmetryEnumerationResult declined =
+      substitution_redundancy_enumerate_symmetry(
+          k, forcing_only,
+          [&](const SubstitutionRedundancyInstance &) {
+            ++admitted;
+            return true;
+          });
+  assert(declined.status == SymmetryEnumerationStatus::Complete && !admitted &&
+         declined.nonforcing_orbit_cuts_declined == instances.size());
 
   SubstitutionRedundancyParameters legacy = parameters;
   legacy.graph_symmetry.chain_mode = SymmetryChainMode::ClausalFixing;
@@ -3719,7 +3846,9 @@ repeated_binary_run(unsigned first_copies, unsigned second_copies,
                     uint64_t maximum_vertices = 128,
                     SymmetryBinaryGraphMode mode =
                         SymmetryBinaryGraphMode::DirectEdges,
-                    bool finish_admitted_group = false) {
+                    bool finish_admitted_group = false,
+                    uint64_t progress_ticks_per_generator = 0,
+                    uint64_t hard_detection_ticks = 0) {
   Kernel k;
   kernel_reserve_vars(k, 4);
   const auto add = [&](int a, int b) {
@@ -3755,7 +3884,9 @@ repeated_binary_run(unsigned first_copies, unsigned second_copies,
         ++run.visited;
         return true;
       }, nullptr, nullptr,
-      SymmetryEnumerationScheduling{finish_admitted_group});
+      SymmetryEnumerationScheduling{finish_admitted_group,
+                                    progress_ticks_per_generator,
+                                    hard_detection_ticks});
   return run;
 }
 
@@ -3786,8 +3917,9 @@ static void direct_binary_edges_encode_repeated_binary_clauses() {
   // Admission and work accounting for (1 2)x2, (3 4): the snapshot charges
   // six watch entries and four variables; the repeat-free direct graph has
   // 12 vertices, and repeat classification charges one tick per binary
-  // before the graph's edge charge. A zero-tick stop poll fails once the
-  // budget is spent, so detection needs one tick beyond those charges.
+  // before the graph's edge charge. Generic discovery is admitted only when
+  // the remaining allowance can pay the conservative exact-validation bound
+  // for one generator and reserve the same derived quantum for group work.
   const uint64_t snapshot_ticks = 10, binaries = 3, edges = 12;
   const RepeatedBinaryRun below_minimum =
       repeated_binary_run(2, 1, false, UINT64_MAX, 11);
@@ -3811,9 +3943,34 @@ static void direct_binary_edges_encode_repeated_binary_clauses() {
   assert(graph_budget.result.status ==
              SymmetryEnumerationStatus::LimitReached &&
          !graph_budget.result.generators_proposed);
-  const RepeatedBinaryRun detected =
-      repeated_binary_run(2, 1, false, snapshot_ticks + binaries + edges + 1);
-  assert(detected.result.generators_proposed > 0);
+  const uint64_t generator_quantum = 3 + 8 + 2 * 6;
+  const RepeatedBinaryRun unpublishable = repeated_binary_run(
+      2, 1, false,
+      snapshot_ticks + binaries + edges + 2 * generator_quantum - 1);
+  assert(!unpublishable.result.generators_proposed);
+  const RepeatedBinaryRun detected = repeated_binary_run(
+      2, 1, false,
+      snapshot_ticks + binaries + edges + 2 * generator_quantum);
+  assert(detected.result.status == SymmetryEnumerationStatus::LimitReached &&
+         detected.result.ticks ==
+             snapshot_ticks + binaries + edges + 2 * generator_quantum &&
+         detected.result.generators_proposed > 0 &&
+         detected.result.discovery_progress_units ==
+             detected.result.generators_proposed &&
+         !detected.result.generators_validated && !detected.result.instances &&
+         !detected.visited);
+  const RepeatedBinaryRun inline_feedback = repeated_binary_run(
+      2, 1, false,
+      snapshot_ticks + binaries + edges + 2 * generator_quantum,
+      128, SymmetryBinaryGraphMode::DirectEdges, false,
+      2 * generator_quantum, 100'000);
+  const RepeatedBinaryRun inline_full = repeated_binary_run(2, 1, false);
+  assert(inline_feedback.result.status == inline_full.result.status &&
+         inline_feedback.result.discovery_progress_units > 0 &&
+         inline_feedback.result.generators_validated ==
+             inline_full.result.generators_validated &&
+         inline_feedback.result.instances == inline_full.result.instances &&
+         inline_feedback.visited == inline_full.visited);
 
   // A scope-owned allowance controls admission of fresh discovery. Once the
   // fixing batch is admitted, its proof-bearing result is atomic: finish it,
@@ -3982,6 +4139,31 @@ static void retired_sr_payload_is_inapplicable_and_reconfigurable() {
     assert(k.value(internalize(2)) > 0 && executor.step_consumed(502) == 1);
     kernel_check_invariants(k);
   }
+}
+
+static void root_fixing_after_amo_completion_is_recorded() {
+  Kernel k;
+  kernel_reserve_vars(k, 2);
+  kernel_add_binary_clause(k, internalize(-1), internalize(2),
+                           ++k.next_clause_id);
+  kernel_add_binary_clause(k, internalize(-1), internalize(-2),
+                           ++k.next_clause_id);
+
+  // Model an earlier generated ULC pair without relying on a particular
+  // producer fixture.  The two source clauses make -1 RUP, so this exercises
+  // the ordinary checked SR path used by the later symmetry producers.
+  k.stats.sr_unique_literal_amo_binaries = 1;
+  SubstitutionRedundancyInstance unit;
+  unit.clause = {internalize(-1)};
+  SubstitutionRedundancyParameters parameters;
+  parameters.producer = SubstitutionRedundancyProducer::GraphSymmetry;
+  const auto result =
+      substitution_redundancy_apply_detailed(k, unit, parameters);
+  assert(result.status == SubstitutionRedundancyApplicationStatus::Applied);
+  assert(k.value(internalize(-1)) > 0);
+  assert(k.stats.sr_post_amo_nonhelper_applied == 1);
+  assert(k.stats.sr_post_amo_graph_root_units == 1);
+  kernel_check_invariants(k);
 }
 
 static void malformed_sr_is_rejected_before_true_clause_noop() {
@@ -4614,6 +4796,7 @@ int main(int argc, char **argv) {
   for (bool preserve : {false, true})
     graph_symmetry_is_exact_bounded_and_interruptible(preserve);
   stabilizer_chain_adds_all_cuts_before_rup_unit();
+  large_domain_generator_fixing_uses_units_without_a_chain();
   fix_and_cut_reaches_nonclausal_orbits();
   amo_stabilizer_chain_propagates_complements_online();
   every_root_assignment_constrains_graph_symmetry();
@@ -4628,6 +4811,7 @@ int main(int argc, char **argv) {
   general_sr_cursor_is_lazy_complete_and_resumable();
   repeated_nonunit_sr_is_a_semantic_noop();
   retired_sr_payload_is_inapplicable_and_reconfigurable();
+  root_fixing_after_amo_completion_is_recorded();
   malformed_sr_is_rejected_before_true_clause_noop();
   unsupported_sr_proof_format_is_transactional();
   later_sr_batch_member_can_become_inapplicable();

@@ -21,6 +21,32 @@ void kernel_update_target_phases(Kernel &k) {
     heuristics_update_target_phases(k);
 }
 
+void kernel_offer_local_search_hint(
+    Kernel &k, strategy::LocalSearchKind kind,
+    const std::vector<uint8_t> &assignment, uint64_t objective,
+    bool objective_exact) {
+  if (assignment.size() != k.nvars ||
+      !strategy::valid_local_search_kind(kind))
+    return;
+  if (std::any_of(assignment.begin(), assignment.end(),
+                  [](uint8_t value) { return value > 1; }))
+    return;
+  auto &hint = k.local_search_hints[static_cast<size_t>(kind)];
+  if (hint.available() && hint.objective_exact && objective_exact &&
+      hint.objective <= objective)
+    return;
+  hint.external_phases.assign(k.external_to_internal.size(), 0);
+  for (Var internal = 0; internal < k.nvars; ++internal) {
+    const Var external = k.internal_to_external[internal];
+    if (external >= hint.external_phases.size())
+      hint.external_phases.resize(static_cast<size_t>(external) + 1, 0);
+    hint.external_phases[external] = assignment[internal] ? 1 : -1;
+  }
+  hint.objective = objective;
+  hint.objective_exact = objective_exact;
+  ++k.stats.local_search_hints_offered;
+}
+
 // The kernel does NOT own `H`: it is a non-owning `Heuristics *`
 // (kernel.hpp), attached by whoever owns the storage (the session / a policy).
 // So Kernel needs no ctor/dtor for it. heuristics.hpp is still included above —
@@ -1459,22 +1485,38 @@ RootCollectOutcome kernel_sparse_collect_root(Kernel &k, Ref start) {
   // every later Factor score even though the root assignment was identical.
   // Snapshot unique pairs first because deletion compacts both watch lists.
   std::vector<std::pair<Lit, Lit>> satisfied_binaries;
-  // The rank is two lookups and a branch per call; the pair test needs it for
-  // every watch entry, so read it once per literal.
-  std::vector<uint64_t> lit_rank(2 * static_cast<size_t>(k.nvars));
-  for (Lit l = 0; l < static_cast<Lit>(2 * k.nvars); l++)
-    lit_rank[l] = kernel_import_lit_order(k, l);
-  for (Lit lit = 0; lit < static_cast<Lit>(2 * k.nvars); lit++)
+  // The mirror-owner test needs the stable import rank for every binary watch.
+  // Store its variable component once instead of materializing two 64-bit
+  // literal ranks per variable: the sign is already the low literal bit.  On
+  // binary-heavy formulas this keeps the random rank probes in half the cache
+  // footprint while preserving the exact kernel_import_lit_order comparison.
+  std::vector<uint64_t> var_rank(static_cast<size_t>(k.nvars));
+  for (Var v = 0; v < k.nvars; v++)
+    var_rank[v] = kernel_import_var_order(k, v);
+  // A satisfied binary has at least one root-true endpoint. Visit only those
+  // endpoint lists instead of decoding both mirrors of the complete BIG. If
+  // both endpoints are root true, the stable lower import endpoint owns the
+  // visit; otherwise orient the recorded pair to that same owner afterward.
+  // Thus every physical copy is recorded exactly once in the same form as the
+  // former complete-image scan.
+  for (const Lit lit : k.trail) {
+    if (kernel_root_value(k, lit) <= 0)
+      continue;
     for (const WatchEntry watch : k.watches.entries(lit)) {
       if (!watch.binary())
         continue;
       const Lit other = watch.other();
-      if (lit_rank[lit] >= lit_rank[other])
+      const uint64_t lit_order = 2 * var_rank[var_of(lit)] + negated(lit);
+      const uint64_t other_order =
+          2 * var_rank[var_of(other)] + negated(other);
+      if (kernel_root_value(k, other) > 0 && lit_order >= other_order)
         continue;
-      if (kernel_root_value(k, lit) > 0 ||
-          kernel_root_value(k, other) > 0)
+      if (lit_order < other_order)
         satisfied_binaries.emplace_back(lit, other);
+      else
+        satisfied_binaries.emplace_back(other, lit);
     }
+  }
   std::sort(satisfied_binaries.begin(), satisfied_binaries.end());
   // The scan above already met every copy of every pair, and each pair is
   // deleted whole, so recounting through the watch list would rescan a
@@ -2564,6 +2606,9 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
     }
     k.otfs_retired.resize(kept);
   }
+  const auto forward_large_ref = [&k](Ref ref) {
+    return clause_at(k.arena, ref)->searched;
+  };
   for (Lit lit = 0; lit < 2 * k.nvars; lit++) {
     // Kissat tests the literal's fixedness and the collection mode once per
     // LIST (`collect.c:flush_watched_clauses_by_literal`), not once per entry.
@@ -2571,7 +2616,7 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
     // is dropped, so the position lookup -- a hash probe plus two further
     // clause dereferences -- has nothing to decide.
     if (sparse_collection && kernel_root_value(k, lit) == 0)
-      k.watches.compact(lit, [&k, sparse_cut](WatchEntry w) {
+      k.watches.compact_map_large(lit, [&k, sparse_cut](WatchEntry w) {
         if (w.binary())
           return true;
         const uint64_t position = kernel_clause_position(k, w.ref());
@@ -2582,15 +2627,13 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
           return true;
         return clause_at(k.arena, static_cast<Ref>(position))->searched !=
                INVALID_REF;
-      });
+      }, forward_large_ref);
     else
-      k.watches.compact(lit, [](WatchEntry w) { return w.binary(); });
-    // `compact` is stable: every current-prefix entry keeps its exact
+      k.watches.compact_map_large(
+          lit, [](WatchEntry w) { return w.binary(); }, forward_large_ref);
+    // The compaction is stable: every current-prefix entry keeps its exact
     // position and cached blocker. Sorting these survivors would erase
     // search-visible watch relocation.
-    k.watches.map_large_refs(lit, [&k](Ref ref) {
-      return clause_at(k.arena, ref)->searched;
-    });
   }
   k.arena.swap(fresh);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
@@ -2809,33 +2852,23 @@ void kernel_resume_walk_watches(Kernel &k) {
 void kernel_canonicalize_binary_watches(Kernel &k,
                                         bool count_congruence_rebuild,
                                         const std::vector<std::pair<Lit, Lit>> *
-                                            binary_suffix) {
+                                            binary_suffix,
+                                        std::vector<std::pair<Lit, Lit>> *
+                                            binary_population) {
   // Kissat Congruence enters dense mode with a non-null binary save stack.
   // `dense.c:flush_large_watches` walks literals globally, keeps the first
   // copy of each binary, and saves a pair only at its smaller literal. Then
   // `extract_binaries` sorts every equal-first run by its second literal before
-  // sparse resume recreates both mirrors. Thus the surviving original pairs
-  // are globally ordered by (min internal literal, max internal literal), not
-  // by their first occurrence in a watch list. Tactix models compacted
-  // internal indices with import order; sorting by the corresponding pair key
-  // preserves that reference-visible order for capped Sweep environments.
-  size_t binary_watch_entries = 0;
-  for (Lit lit = 0; lit < 2 * k.nvars; lit++)
-    for (const WatchEntry w : k.watches.entries(lit))
-      binary_watch_entries += w.binary();
-
+  // sparse resume recreates both mirrors. Surviving pairs use (min,max) order,
+  // not first occurrence. Tactix maps compact indices to import order, keeping
+  // that reference-visible order for capped Sweep environments.
+  // Every head maintains its exact binary-prefix length.  Summing those
+  // lengths is the same count as decoding the complete watch image, and is
+  // also the representation-level statistic Kissat uses.  Avoid a redundant
+  // pass over both mirrors immediately before the collection pass below.
   std::vector<std::pair<Lit, Lit>> binaries;
-  // Every retained binary has two mirrored watch entries.  Reserve their
-  // upper bound before the import-order scan so a large dense instance never
-  // pays the transient memory of geometric vector growth.
-  binaries.reserve((binary_watch_entries + 1) / 2);
-
-  // Deduplication is local to one watch list.  A byte per literal plus a
-  // second pass that clears the touched bits is substantially smaller than a
-  // 32-bit global epoch table and preserves the same first-copy semantics.
-  std::vector<uint8_t> seen(2 * k.nvars, 0);
+  std::vector<uint8_t> seen;
   std::vector<Var> ordered_variables;
-  kernel_vars_in_import_order(k, ordered_variables);
   // kissat compares raw compacted literals here; Tactix's stable identities
   // need their import rank, which is two lookups and a branch per call.  Read
   // it once per literal so the scan and the per-run sort below index an array
@@ -2843,45 +2876,113 @@ void kernel_canonicalize_binary_watches(Kernel &k,
   std::vector<uint64_t> lit_rank(2 * static_cast<size_t>(k.nvars));
   for (Lit l = 0; l < static_cast<Lit>(2 * k.nvars); l++)
     lit_rank[l] = kernel_import_lit_order(k, l);
-  for (const Var variable : ordered_variables)
-    for (uint32_t sign = 0; sign < 2; sign++) {
-      const Lit lit = make_lit(variable, sign != 0);
-      for (const WatchEntry w : k.watches.entries(lit)) {
-        if (!w.binary())
-          continue;
-        const Lit other = w.other();
-        // Kissat's Congruence dense entry keeps only binaries whose endpoints
-        // are both root-unassigned (`dense.c:flush_large_watches`); Tactix's
-        // Congruence drops those at its own entry.  Its sparse resume then
-        // re-appends the saved pairs without reading values
-        // (`dense.c:resume_watching_irredundant_binaries`), so a binary
-        // satisfied by a unit the closure itself derived stays watched until
-        // the next collection and keeps counting toward the irredundant
-        // clause total that scales the next probe interval.  Rebuild from
-        // the same rule: duplicates go, values are not consulted.
-        if (lit_rank[lit] >= lit_rank[other] || seen[other])
-          continue;
-        seen[other] = 1;
-        binaries.emplace_back(lit, other);
+  if (binary_population) {
+    // Congruence's dense entry has already saved every unique root-open pair
+    // in first-literal import order. Consume that owner-style save stack
+    // instead of decoding both sparse-watch mirrors again.
+    binaries.swap(*binary_population);
+  } else {
+    // Every retained binary has two mirrored watch entries. Reserve their
+    // upper bound so a large dense instance avoids geometric vector growth.
+    binaries.reserve(k.watches.binary_clauses());
+    // Deduplication is local to one watch list. A byte per literal plus a
+    // second pass that clears touched bits preserves first-copy semantics.
+    seen.assign(2 * k.nvars, 0);
+    kernel_vars_in_import_order(k, ordered_variables);
+    for (const Var variable : ordered_variables)
+      for (uint32_t sign = 0; sign < 2; sign++) {
+        const Lit lit = make_lit(variable, sign != 0);
+        for (const WatchEntry w : k.watches.entries(lit)) {
+          if (!w.binary())
+            continue;
+          const Lit other = w.other();
+          // Sparse resume re-appends the entry-time saved pairs without
+          // consulting values. Duplicates go; later root values do not.
+          if (lit_rank[lit] >= lit_rank[other] || seen[other])
+            continue;
+          seen[other] = 1;
+          binaries.emplace_back(lit, other);
+        }
+        for (const WatchEntry w : k.watches.entries(lit))
+          if (w.binary() && lit_rank[lit] < lit_rank[w.other()])
+            seen[w.other()] = 0;
       }
-      for (const WatchEntry w : k.watches.entries(lit))
-        if (w.binary() && lit_rank[lit] < lit_rank[w.other()])
-          seen[w.other()] = 0;
-    }
+  }
   // The outer scan already appends groups in first-literal import order.
   // Kissat's extract_binaries sorts only each equal-first run by the other
-  // literal (insertion sort below 32, radix otherwise), not the complete
-  // binary population.  Sorting each run independently preserves that exact
-  // lexicographic result without an O(m log m) global sort of 83M pairs.
+  // literal: comparison sort below 32, stable byte-radix otherwise.  Mirror
+  // that owner algorithm and reuse one temporary buffer across large runs;
+  // std::sort on a high-degree literal turns this linear dense transition into
+  // O(m log m) work.
+  std::vector<std::pair<Lit, Lit>> radix_tmp;
   for (size_t begin = 0; begin < binaries.size();) {
     size_t end = begin + 1;
     while (end < binaries.size() &&
            binaries[end].first == binaries[begin].first)
       end++;
-    std::sort(binaries.begin() + begin, binaries.begin() + end,
-              [&lit_rank](const auto &a, const auto &b) {
-                return lit_rank[a.second] < lit_rank[b.second];
-              });
+    const size_t size = end - begin;
+    // Sparse resume publishes each run in canonical partner order.  On a
+    // later dense round most runs therefore remain canonical unless an
+    // intervening rule appended a new binary to that literal.  Detect that
+    // exact fixed point before invoking either owner sorting path.  This also
+    // supplies the radix bounds in the only case that still needs them.
+    bool ordered = true;
+    uint64_t previous = 0, lower = UINT64_MAX, upper = 0;
+    for (size_t i = begin; i < end; i++) {
+      const uint64_t rank = lit_rank[binaries[i].second];
+      ordered &= previous <= rank;
+      previous = rank;
+      lower &= rank;
+      upper |= rank;
+    }
+    if (ordered) {
+      begin = end;
+      continue;
+    }
+    if (size < 32) {
+      std::sort(binaries.begin() + begin, binaries.begin() + end,
+                [&lit_rank](const auto &a, const auto &b) {
+                  return lit_rank[a.second] < lit_rank[b.second];
+                });
+    } else {
+      radix_tmp.resize(size);
+      auto *const original = binaries.data() + begin;
+      auto *source = original;
+      auto *target = radix_tmp.data();
+      for (unsigned shift = 0; shift < 64; shift += 8) {
+        if (((lower >> shift) & 255u) == ((upper >> shift) & 255u))
+          continue;
+        std::array<size_t, 256> count{};
+        bool digit_sorted = true;
+        unsigned previous = 0;
+        for (size_t i = 0; i < size; i++) {
+          const unsigned digit =
+              static_cast<unsigned>((lit_rank[source[i].second] >> shift) &
+                                    255u);
+          digit_sorted &= previous <= digit;
+          previous = digit;
+          count[digit]++;
+        }
+        if (digit_sorted)
+          continue;
+        size_t position = 0;
+        for (size_t &bucket : count) {
+          const size_t entries = bucket;
+          bucket = position;
+          position += entries;
+        }
+        for (size_t i = 0; i < size; i++) {
+          const unsigned digit =
+              static_cast<unsigned>((lit_rank[source[i].second] >> shift) &
+                                    255u);
+          target[count[digit]++] = source[i];
+        }
+        source = target;
+        target = source == original ? radix_tmp.data() : original;
+      }
+      if (source != original)
+        std::copy(source, source + size, original);
+    }
     begin = end;
   }
   // Dense resume knows the complete entry size of every watch list.  Build the
@@ -2986,7 +3087,10 @@ void kernel_canonicalize_binary_watches(Kernel &k,
     rebuild_dense_large_occurrences(k, *k.dense);
 }
 
-static void kernel_compact_dense_entry_watches(Kernel &k, bool keep_large) {
+static void kernel_compact_dense_entry_watches(
+    Kernel &k, bool keep_large,
+    std::vector<std::pair<Lit, Lit>> *root_assigned = nullptr,
+    std::vector<std::pair<Lit, Lit>> *binary_population = nullptr) {
   // kissat dense.c:flush_large_watches / watch.c:kissat_flush_large_watches:
   // scanning the literals in index order, the first watch of a binary pair
   // stays and every later copy is deleted as a clause (`kissat_delete_binary`
@@ -3002,7 +3106,10 @@ static void kernel_compact_dense_entry_watches(Kernel &k, bool keep_large) {
   std::vector<uint32_t> seen(2 * k.nvars, 0);
   uint32_t epoch = 0;
   std::vector<Lit> duplicates; // partners repeated in this list, once each
-  for (Lit lit = 0; lit < 2 * k.nvars; lit++) {
+  std::vector<Var> ordered_variables;
+  if (binary_population)
+    kernel_vars_in_import_order(k, ordered_variables);
+  const auto compact = [&](Lit lit) {
     if (epoch > UINT32_MAX - 2) {
       std::fill(seen.begin(), seen.end(), 0);
       epoch = 0;
@@ -3017,6 +3124,21 @@ static void kernel_compact_dense_entry_watches(Kernel &k, bool keep_large) {
       const uint32_t stamp = seen[other];
       if (stamp != epoch && stamp != queued) {
         seen[other] = epoch;
+        // Congruence's save-stack dense entry removes root-valued binaries in
+        // this same scan.  Its caller delays the actual clause deletions until
+        // deduplication has completed, preserving Tactix's proof lifecycle;
+        // collect the unique pairs in the exact order of the former follow-up
+        // scan so that no second walk over the complete image is needed.
+        if ((root_assigned || binary_population) &&
+            kernel_import_lit_order(k, lit) <
+                kernel_import_lit_order(k, other)) {
+          if ((k.value(lit) || k.value(other)) && root_assigned) {
+            assert(k.value(lit) > 0 || k.value(other) > 0);
+            root_assigned->emplace_back(lit, other);
+          } else if (binary_population) {
+            binary_population->emplace_back(lit, other);
+          }
+        }
       } else if (lit < other && stamp == epoch) {
         seen[other] = queued;
         duplicates.push_back(other);
@@ -3030,6 +3152,14 @@ static void kernel_compact_dense_entry_watches(Kernel &k, bool keep_large) {
       k.watches.compact(lit, mark);
     for (const Lit other : duplicates)
       kernel_remove_duplicate_binary_copies(k, lit, other);
+  };
+  if (binary_population) {
+    for (const Var variable : ordered_variables)
+      for (uint32_t sign = 0; sign < 2; sign++)
+        compact(make_lit(variable, sign != 0));
+  } else {
+    for (Lit lit = 0; lit < 2 * k.nvars; lit++)
+      compact(lit);
   }
 }
 
@@ -3046,8 +3176,17 @@ void kernel_drop_large_watches(Kernel &k) {
   k.large_watches_connected = false;
 }
 
-void kernel_deduplicate_binary_watches(Kernel &k) {
-  kernel_compact_dense_entry_watches(k, /*keep_large=*/true);
+void kernel_deduplicate_binary_watches(
+    Kernel &k, std::vector<std::pair<Lit, Lit>> *root_assigned,
+    std::vector<std::pair<Lit, Lit>> *binary_population) {
+  if (root_assigned)
+    root_assigned->clear();
+  if (binary_population)
+    binary_population->clear();
+  if (binary_population)
+    binary_population->reserve(k.watches.binary_clauses());
+  kernel_compact_dense_entry_watches(k, /*keep_large=*/true, root_assigned,
+                                     binary_population);
 }
 
 void kernel_dense_connect(Kernel &k, OccIndex &occ, bool track_order) {
