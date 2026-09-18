@@ -12,7 +12,7 @@
 #   drat-trim  2e3b2dc0ecf938addbd779d42877b6ed69d9a985
 #   cake_lpr   a4323b203cc9ecd584ba7da9e3fff08135a09d5f
 #   dsr-trim   0b8cc0ef4d228c059994923cbc66abeb9a42ea14 plus the
-#              repository-pinned forward-elaboration consistency repairs
+#              repository-pinned forward-elaboration and bitmask-growth repairs
 #   Trestle    03ac9418bc23d345fe0111533c198e8903362ed6 plus the
 #              repository-pinned binary-LSR parser
 #
@@ -184,6 +184,19 @@ grep -Eq '^s VERIFIED[[:space:]]+UNSAT$' "$T/normalized-srcheck.out"
 "$BIN/srcheck" "$T/normalized.cnf" "$T/normalized.lsr" \
     > "$T/normalized-text-srcheck.out"
 grep -Eq '^s VERIFIED[[:space:]]+UNSAT$' "$T/normalized-text-srcheck.out"
+
+# A one-unit RAT-candidate bitmask used to write past its allocation for clause
+# ids 64--127, then lose those candidates when a later id grew the mask.  The
+# elaborator reported success but emitted incomplete RAT hints.  Keep the
+# minimized 24-clause certificate that crosses both growth boundaries as a
+# source-level regression for the complete dsr-trim -> Trestle chain.
+F2="$ROOT/tools/checkers/tests/dsr-trim-bitmask-growth"
+"$BIN/dsr-trim" -q -f -c "$F2/reproducer.cnf" "$F2/reproducer.dsr" \
+    "$T/bitmask-growth.binary.lsr" > "$T/bitmask-growth-dsr.out"
+grep -Eq '^s VERIFIED[[:space:]]+UNSAT$' "$T/bitmask-growth-dsr.out"
+"$BIN/srcheck" "$F2/reproducer.cnf" "$T/bitmask-growth.binary.lsr" c \
+    > "$T/bitmask-growth-srcheck.out"
+grep -Eq '^s VERIFIED[[:space:]]+UNSAT$' "$T/bitmask-growth-srcheck.out"
 
 # The binary parser must fail closed on a missing terminator and on a damaged
 # payload, even though Trestle intentionally returns zero for INVALID proofs.
