@@ -1,10 +1,20 @@
 """Non-solving acceptance tests: UNKNOWN is a dataset label, not an oracle."""
+import json
+from pathlib import Path
+import tempfile
 import unittest
-from runtime_task import (checked_verdict_valid, expected_matches,
+from runtime_task import (atomic_json, checked_verdict_valid, expected_matches,
                           positive_timeout, provisional_result, solver_command)
 
 
 class RuntimeTaskTests(unittest.TestCase):
+    def test_atomic_json_creates_missing_output_directory(self):
+        with tempfile.TemporaryDirectory() as root:
+            path = Path(root) / "results" / "007.json"
+            atomic_json(path, {"task": 7})
+            self.assertEqual(json.loads(path.read_text()), {"task": 7})
+            self.assertFalse(path.with_suffix(".json.tmp").exists())
+
     def sample_result(self):
         return dict(task=0, rank=32, arm='tactix', tier='D', instance='fixed.cnf',
                     expected='UNSAT', verdict='UNSAT', expected_match=True,
