@@ -75,8 +75,8 @@ WV96. The rejected variant has been removed rather than retained as another
 strategy branch.
 
 The native parity successor recognizes complete arity-2--4 XOR systems with
-even incidence and odd right-hand-side sum; WV80 solves in 16.542s, while
-WV83/86 solve in 63.966/40.882s and remain in long independent checking. The
+even incidence and odd right-hand-side sum. Its eager recognizer allocation is
+now bounded by actual input size; WV80 checks, while WV83/86 remain in checking. The
 typed Lucky7 successor now recognizes complete bipartite exact-one incidence
 systems and emits a modulo-three ER refutation when the color classes differ.
 Default-policy job AM194 independently checks WV25/26 in

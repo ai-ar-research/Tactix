@@ -10,6 +10,7 @@
 #include <fstream>
 #include <initializer_list>
 #include <iterator>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -191,6 +192,22 @@ int main() {
     assert(parity_refutation_apply(k, parameters) == ApplyResult::Unsat);
     assert(k.inconsistent && k.stats.parity_refutation_recognized == 1 &&
            k.stats.parity_refutation_unsat == 1);
+  }
+  {
+    // Caller bounds limit work; they must not become eager allocation sizes.
+    // A tiny formula remains tiny even at every legal uint32 boundary.
+    Kernel k = inconsistent_xor_cycle();
+    strategy::ParityModelParameters parameters;
+    parameters.refutation_maximum_variables =
+        std::numeric_limits<uint32_t>::max();
+    parameters.refutation_maximum_groups =
+        std::numeric_limits<uint32_t>::max();
+    parameters.refutation_maximum_constraints =
+        std::numeric_limits<uint32_t>::max();
+    parameters.refutation_probe_constraints =
+        std::numeric_limits<uint32_t>::max();
+    assert(parity_refutation_apply(k, parameters) == ApplyResult::Unsat);
+    assert(k.inconsistent && k.stats.parity_refutation_recognized == 1);
   }
   {
     Kernel k;
