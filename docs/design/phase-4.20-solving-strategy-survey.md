@@ -97,17 +97,21 @@ in the source diff; those are not strategy improvements.
 
 ## Stage C — AE-Kissat-MAB
 
-AE adds a second stable-mode CHB heap and selects VSIDS versus CHB at stable
-restarts. Its reward accumulates `log2(decisions)/log2(conflicts)` and its UCB
-term uses an adaptively scaled exploration constant
-(`winners/AE_kissat2025_MAB/.../restart.c:113–175`); CHB updates appear in
-`bump.c:116–142`.
+AE adds a second stable-mode CHB heap and selects EVSIDS versus CHB at stable
+restarts. Tactix now has the same typed two-arm strategy: EVSIDS keeps learning
+while CHB is selected; CHB uses the owner's age-weighted propagation rewards;
+and restart reward, momentum, adaptive exploration, UCB selection and
+root-restart-on-switch follow `restart.c:113–205`. Unit replay pins the first
+exploration switch, reward arithmetic and the following UCB choice.
 
-Implement only after a replay model can reproduce arm choices and rewards on
-recorded traces. Guard zero/one counts, keep bandit state per solver rather than
-function-static, reset/rebuild the active heap on arm switches, and fuzz both
-heaps under arbitrary switching. Pre-register DefaultPolicy as a permanent arm
-and kill the bandit if cumulative Stage A–B coverage or VBS score regresses.
+The state is per solver, zero/one reward counts are total, and the selected heap
+is repaired in import order after a switch. The owner's unused per-variable
+`mab_chosen` bookkeeping is omitted: it never affects a reward or arm choice but
+would clear O(variables) memory at every stable restart. Disabled MAB allocates
+no CHB per-variable state and installs no learned-conflict callback. The frozen
+AM177 mechanism test independently verifies WV87 in 1.620s versus its retained
+29.358s AE owner time; default promotion still depends on the remaining owner
+rows and the Rank/B28+C5 gates.
 
 ## Stage D — Satsuma+Kissat
 

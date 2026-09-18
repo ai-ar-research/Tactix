@@ -712,6 +712,11 @@ struct Stats {
   uint64_t sweep_general = 0;      // pairs emitted via the general proof path
   uint64_t random_sequences = 0;   // random-decision sequences started
   uint64_t random_decisions = 0;   // decisions actually taken at random
+  uint64_t mab_restarts = 0;       // stable restarts observed by the bandit
+  uint64_t mab_switches = 0;       // those selecting a different arm
+  uint64_t mab_evsids_selections = 0;
+  uint64_t mab_chb_selections = 0;
+  uint64_t chb_updates = 0;        // decision-level variables rescored
   uint64_t sweep_known = 0;        // pairs the formula already states as binaries
   uint64_t sweep_env_unsat = 0;    // environments refuted outright (F is UNSAT)
   uint64_t sweep_budget = 0;       // solves abandoned on the tick budget
@@ -959,6 +964,7 @@ struct AnalysisConflictCheckpoint {
 
 struct Kernel;
 using AnalysisConflictHook = void (*)(Kernel &, void *);
+using AnalysisLearnedHook = void (*)(Kernel &, void *);
 // Policy-only observer for Kissat's mutable BVE schedule. Clause mutations
 // remain kernel operations; while a BVE dose owns a live heap it installs this
 // non-owning hook so each affected variable is rescored at the same mutation
@@ -1160,6 +1166,10 @@ struct Kernel {
   std::vector<AnalysisConflictCheckpoint> analysis_conflict_checkpoints;
   AnalysisConflictHook analysis_conflict_hook = nullptr;
   void *analysis_conflict_hook_state = nullptr;
+  // Policy observation after the final learned clause has joined the formula
+  // and while the analyzed set still names that conflict's variables.
+  AnalysisLearnedHook analysis_learned_hook = nullptr;
+  void *analysis_learned_hook_state = nullptr;
   std::vector<Var> radix_scratch;   // radix-sort double buffer
   std::vector<uint8_t> marked_levels;
   std::vector<uint32_t> touched_levels;
@@ -2236,6 +2246,27 @@ struct KernelAnalysisConflictPublisher {
       delete;
   KernelAnalysisConflictPublisher &
   operator=(const KernelAnalysisConflictPublisher &) = delete;
+};
+
+struct KernelAnalysisLearnedPublisher {
+  Kernel &k;
+  AnalysisLearnedHook saved_hook;
+  void *saved_state;
+  KernelAnalysisLearnedPublisher(Kernel &kk, AnalysisLearnedHook hook,
+                                 void *state)
+      : k(kk), saved_hook(kk.analysis_learned_hook),
+        saved_state(kk.analysis_learned_hook_state) {
+    k.analysis_learned_hook = hook;
+    k.analysis_learned_hook_state = state;
+  }
+  ~KernelAnalysisLearnedPublisher() {
+    k.analysis_learned_hook = saved_hook;
+    k.analysis_learned_hook_state = saved_state;
+  }
+  KernelAnalysisLearnedPublisher(const KernelAnalysisLearnedPublisher &) =
+      delete;
+  KernelAnalysisLearnedPublisher &
+  operator=(const KernelAnalysisLearnedPublisher &) = delete;
 };
 
 inline uint32_t kernel_root_fixed(const Kernel &k) {

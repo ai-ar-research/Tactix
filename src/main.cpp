@@ -98,6 +98,7 @@ int main(int argc, char **argv) {
   bool binary_proof = true;
   bool quiet = false;
   bool random_policy = false;
+  bool mab = false;
   // EVERY stress policy lives in stress_registry.cpp's table, so it reaches
   // `main` as this one pointer: one parse branch, one dispatch arm, and one
   // thing for the `--replay` / `--no-heuristics` guards to test. Each policy is
@@ -128,6 +129,8 @@ int main(int argc, char **argv) {
       random_policy = true;
       if (a[15] == '=')
         random_seed = strtoull(a + 16, nullptr, 10);
+    } else if (!strcmp(a, "--mab")) {
+      mab = true;
     } else if (!strncmp(a, "--trace=", 8)) {
       // Record the (rule, instance) sequence for --replay; see trace.hpp.
       trace_path = a + 8;
@@ -176,7 +179,7 @@ int main(int argc, char **argv) {
       stress_policy = fn;
     } else if (!strcmp(a, "-h") || !strcmp(a, "--help")) {
       printf("usage: tactix [-q] [--dsr|--drat|--lrat] [--no-binary] "
-             "[--random-policy[=SEED]] "
+             "[--mab] [--random-policy[=SEED]] "
              "[--bve-gates=all|none|equiv,andor,ite,xor,def] "
              "[--trace=FILE] [--replay=FILE] %s "
              "<cnf[.xz|.gz]> [proof]\n",
@@ -242,6 +245,11 @@ int main(int argc, char **argv) {
   if (no_heuristics && (!random_policy || stress_policy)) {
     fprintf(stderr, "tactix: --no-heuristics requires --random-policy alone "
                     "(no DefaultPolicy / stress policy); those need H\n");
+    printf("s UNKNOWN\n");
+    return 1;
+  }
+  if (mab && (random_policy || stress_policy || replay_path)) {
+    fprintf(stderr, "tactix: --mab requires DefaultPolicy\n");
     printf("s UNKNOWN\n");
     return 1;
   }
@@ -374,6 +382,9 @@ int main(int argc, char **argv) {
     return 1;
   }
   const uint64_t solve_t0 = tactix::now_nanos();
+  DefaultStrategyConfig default_config;
+  default_config.branching.mab = mab;
+  DefaultPolicy default_policy(default_config);
   const int res =
       replay_path
           ? replay_solve(kernel, replay_path, &caught_signal)
@@ -381,7 +392,7 @@ int main(int argc, char **argv) {
       : random_policy
           ? random_solve(kernel, random_seed, &caught_signal,
                          trace_path ? &trace : nullptr)
-          : default_solve(kernel, &caught_signal);
+          : default_policy.solve(kernel, &caught_signal);
   kernel.stats.solve_nanos = tactix::now_nanos() - solve_t0;
   trace.close();
   rule_journal_close();
@@ -801,6 +812,13 @@ int main(int argc, char **argv) {
     printf("c restarts    %llu (%llu reused a trail prefix)\n",
            (unsigned long long)kernel.stats.restarts,
            (unsigned long long)kernel.stats.restarts_reused);
+    printf("c mab         %llu stable restarts, %llu switches, %llu/%llu "
+           "EVSIDS/CHB selections, %llu CHB updates\n",
+           (unsigned long long)kernel.stats.mab_restarts,
+           (unsigned long long)kernel.stats.mab_switches,
+           (unsigned long long)kernel.stats.mab_evsids_selections,
+           (unsigned long long)kernel.stats.mab_chb_selections,
+           (unsigned long long)kernel.stats.chb_updates);
     printf("c reductions  %llu (%llu clauses deleted, %llu promoted)\n",
            (unsigned long long)kernel.stats.reductions,
            (unsigned long long)kernel.stats.deleted,

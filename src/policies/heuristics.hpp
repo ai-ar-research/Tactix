@@ -20,6 +20,11 @@ void heuristics_discard_rule_events(Kernel &);
 void heuristics_deactivate_inactive_vars(Kernel &);
 
 struct Heuristics {
+  struct ScoreHeap {
+    std::vector<uint32_t> stack; // heap array of vars, max at stack[0]
+    std::vector<uint32_t> pos;   // by var: index into stack, or UINT32_MAX
+    std::vector<double> score;   // by var
+  };
   // `H` tracks its own variable count; heuristics_check asserts it equals
   // Kernel::nvars and every per-var vector is sized to it, so a missed growth
   // trips an assert rather than reading out of bounds later.
@@ -44,12 +49,27 @@ struct Heuristics {
   // EVSIDS score heap (stable-mode decision heuristic; kissat heap.h /
   // inlineheap.h): pos-indexed binary max-heap over vars. pos UINT32_MAX
   // means "not in heap" (lazily re-inserted on unassign while stable).
-  struct {
-    std::vector<uint32_t> stack; // heap array of vars, max at stack[0]
-    std::vector<uint32_t> pos;   // by var: index into stack, or UINT32_MAX
-    std::vector<double> score;   // by var
-  } scores;
+  ScoreHeap scores;
   double scinc = 1.0; // EVSIDS bump increment (grows by 1/(1-decay))
+
+  // AE-kissat-MAB's second stable-mode arm.  EVSIDS continues learning while
+  // CHB is selected, while CHB learns from the current decision-level trail.
+  // The bandit is typed policy state and has no hot-path work when disabled.
+  ScoreHeap chb_scores;
+  std::vector<uint64_t> chb_conflicted;
+  bool mab_enabled = false;
+  uint8_t stable_heuristic = 0; // 0 EVSIDS, 1 CHB
+  double chb_step = 0.4;
+  double chb_step_min = 0.06;
+  double chb_step_decay = 0.000001;
+  double mab_exploration = 4.0;
+  double mab_reward[2] = {0.0, 0.0};
+  uint64_t mab_select[2] = {1, 0};
+  double mab_decisions = 0.0;
+  uint64_t mab_conflicts = 0;
+  double mab_recent_gains[10] = {};
+  uint32_t mab_gain_index = 0;
+  double mab_momentum = 1.0;
 
   // Active instance-ranking mode for Decide (§5.1): false = VMTF queue
   // (focused), true = score heap (stable). Flipped only by S4 SwitchMode; when
@@ -192,6 +212,23 @@ Var heuristics_heap_next_active_unassigned(Kernel &);
 inline bool heuristics_heap_contains(const Kernel &k, Var v) {
   return k.h->scores.pos[v] != UINT32_MAX;
 }
+inline bool heuristics_chb_heap_contains(const Kernel &k, Var v) {
+  return k.h->chb_scores.pos[v] != UINT32_MAX;
+}
+
+// Configure and operate AE-kissat-MAB's stable EVSIDS/CHB bandit.  Restart
+// returns whether the selected arm changed; the caller then restarts to root.
+void heuristics_configure_mab(Kernel &, bool enabled, double exploration,
+                              double step, double step_min,
+                              double step_decay);
+void heuristics_mab_note_decision(Kernel &);
+void heuristics_mab_note_conflict(Kernel &);
+void heuristics_chb_update_after_propagation(Kernel &, bool conflict);
+void heuristics_chb_mark_analyzed(Kernel &);
+bool heuristics_mab_restart(Kernel &);
+void heuristics_mab_update_selected_scores(Kernel &);
+void heuristics_reinsert_stable_var(Kernel &, Var);
+void heuristics_activate_stable_var(Kernel &, Var);
 // Snapshot assigned values into target/best phases when the trail is the
 // deepest consistent one seen past each watermark (kissat backtrack.c
 // kissat_update_target_and_best_phases). Stable mode only; S3 Rephase consumes
