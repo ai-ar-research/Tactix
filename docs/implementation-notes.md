@@ -52,24 +52,16 @@ The streaming writer retains no checker-population ledger or proof-only kernel v
 guards, scheduling, or legal instances. The C API permits one writer before input/proof-id settlement; late or duplicate attachment
 returns `-1` because it would omit earlier proof-state transitions.
 
-Pinned `dsr-trim` emits the hintless binary equivalent of `n+1 0 0` when the
-input CNF already contains an empty clause; Trestle correctly rejects it. The
-checker protocol repairs only that exact output with input-empty hint `k`, which
-is independently parsed from the CNF, and still requires Trestle acceptance.
+Pinned `dsr-trim` emits the hintless binary equivalent of `n+1 0 0` when the input CNF already contains an empty clause; Trestle correctly rejects it.
+The checker protocol repairs only that output with independently parsed input-empty hint `k` and still requires Trestle acceptance.
 Every other formula or binary LSR stream bypasses the bridge unchanged.
 
-Pinned upstream `dsr-trim` commit `ffe486` deleted tautological input clauses during parsing and then attempted to hash their
-deleted slots. `tools/checkers/patches/dsr-trim-ffe486-tautology-hash.patch` skips those slots during hash initialization. Setup
-verifies the exact diff and runs a raw-tautology DSR-to-LSR-to-Trestle self-test; the raw CNF and proof still reach Trestle unchanged.
+Pinned upstream `dsr-trim` commit `ffe486` deleted tautological inputs and then hashed their deleted slots. `tools/checkers/patches/dsr-trim-ffe486-tautology-hash.patch` skips them.
+Setup verifies the exact diff and runs the raw CNF and proof through a DSR-to-LSR-to-Trestle self-test.
 
-Pinned `dsr-trim` commit `0b8cc0ef` also grew its RAT-candidate bitmask with
-`RESIZE(mask_index)`.  Since `RESIZE(1) == 1`, the first clause id in the
-64--127 range wrote one word past a one-word allocation; later growth zeroed
-that range and produced incomplete LSR RAT hints while `dsr-trim` still
-reported verification.  The repository patch now enforces a capacity of at
-least `mask_index + 1`.  Setup runs the minimized 24-clause reproducer through
-both `dsr-trim` and Trestle, so checker acceptance requires the missing hints
-to be present.
+Pinned `dsr-trim` commit `0b8cc0ef` grew its RAT-candidate bitmask with `RESIZE(mask_index)`. Since `RESIZE(1) == 1`, clause ids 64--127 wrote past a one-word allocation;
+later growth zeroed that range and emitted incomplete LSR RAT hints while reporting verification. The repository patch requires at least `mask_index + 1` capacity.
+Setup runs the minimized 24-clause reproducer through `dsr-trim` and Trestle, so acceptance requires the missing hints.
 
 Accepted source `20223134` contains binary/ASCII DSR serialization, the typed
 `add_sr` event, public CLI/C API format selection, pinned checker setup, and the
