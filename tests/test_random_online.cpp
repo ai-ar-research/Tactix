@@ -1513,6 +1513,7 @@ static void parameter_domains_are_caller_controlled() {
   bool selected_parity_instance = false, selected_onehot_instance = false;
   bool selected_balanced_instance = false, selected_fermat_instance = false;
   bool selected_lookup_instance = false, selected_simon_instance = false;
+  bool selected_stconn_instance = false;
   std::set<uint32_t> parity_variables, parity_groups, parity_constraints,
       parity_free;
   std::set<uint64_t> parity_candidates;
@@ -1529,6 +1530,8 @@ static void parameter_domains_are_caller_controlled() {
   std::set<uint64_t> lookup_evaluations;
   std::set<uint32_t> simon_rounds;
   std::set<uint64_t> simon_candidates;
+  std::set<uint32_t> stconn_widths, stconn_columns;
+  std::set<uint64_t> stconn_rup_clauses;
   for (uint64_t seed = 1; seed <= 512; ++seed) {
     OnlineStrategyProgram program;
     std::string generation_error;
@@ -1600,6 +1603,12 @@ static void parameter_domains_are_caller_controlled() {
       assert(parameters->valid());
       simon_rounds.insert(parameters->maximum_rounds);
       simon_candidates.insert(parameters->maximum_candidates);
+    } else if (const auto *parameters =
+                   std::get_if<StconnProofParameters>(&step.parameters)) {
+      assert(parameters->valid());
+      stconn_widths.insert(parameters->maximum_width);
+      stconn_columns.insert(parameters->maximum_columns);
+      stconn_rup_clauses.insert(parameters->maximum_rup_clauses);
     } else {
       const auto *onehot_parameters =
           std::get_if<OnehotModelParameters>(&step.parameters);
@@ -1631,6 +1640,9 @@ static void parameter_domains_are_caller_controlled() {
     selected_simon_instance |=
         std::find(step.instances.begin(), step.instances.end(), uint64_t{14}) !=
         step.instances.end();
+    selected_stconn_instance |=
+        std::find(step.instances.begin(), step.instances.end(), uint64_t{15}) !=
+        step.instances.end();
     OnlineStrategyProgram replay;
     std::string error;
     assert(deserialize_online_strategy_program(
@@ -1652,6 +1664,8 @@ static void parameter_domains_are_caller_controlled() {
          lookup_support.size() > 8 && lookup_evaluations.size() > 8);
   assert(selected_simon_instance && simon_rounds.size() > 8 &&
          simon_candidates.size() > 8);
+  assert(selected_stconn_instance && stconn_widths.size() > 4 &&
+         stconn_columns.size() > 8 && stconn_rup_clauses.size() > 8);
   assert(parity_variables.size() > 8 && parity_groups.size() > 8 &&
          parity_constraints.size() > 8 && parity_free.size() > 8 &&
          parity_candidates.size() > 8);
@@ -1687,6 +1701,7 @@ static void parameter_domains_are_caller_controlled() {
                     std::holds_alternative<FermatModelParameters>(p) ||
                     std::holds_alternative<LookupCircuitModelParameters>(p) ||
                     std::holds_alternative<SimonModelParameters>(p) ||
+                    std::holds_alternative<StconnProofParameters>(p) ||
                     std::holds_alternative<AffineModelParameters>(p);
            }},
       };

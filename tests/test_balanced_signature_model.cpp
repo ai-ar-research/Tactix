@@ -80,9 +80,9 @@ int main() {
     const RuleVTable &lucky = tactix_rules()[lucky_id];
     uint64_t instances[16] = {};
     const uint32_t count = lucky.instances(k, instances, 16);
-    assert(count == 15 && instances[10] == 10 && instances[11] == 11 &&
+    assert(count == 16 && instances[10] == 10 && instances[11] == 11 &&
            instances[12] == 12 && instances[13] == 13 &&
-           instances[14] == 14);
+           instances[14] == 14 && instances[15] == 15);
     assert(lucky.apply_instance(k, 10) == ApplyResult::Sat);
   }
   return 0;

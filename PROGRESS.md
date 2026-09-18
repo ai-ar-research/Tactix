@@ -51,14 +51,20 @@ completes auxiliaries to a feedback fixpoint, and validates the whole live CNF.
 Frozen binary SHA-256 is
 `6340aec09e641a242e2afb271cdb2f67806d5bab2ee69ce65c696cca7d417e06`.
 AM168 job 1702754 adds WV40 in 0.066s and AM170 job 1702885 adds WV73 in
-1.319s; both original-CNF models pass and cleanup is clean. Independently
-checked coverage is 89/100. AM171 job 1702894 adds WV85 in 28.115s after
-941,695,142 numeric key candidates; its 8,896-clause original-CNF model passes.
-Open ranks are 1, 25, 26, 80, 83, 84, 86, 87, 95, 96 and 97.
+1.319s; both original-CNF models pass and cleanup is clean. AM171 job 1702894
+adds WV85 in 28.115s after 941,695,142 numeric key candidates; its 8,896-clause
+original-CNF model passes. AM174 job 1702975 adds WV84: typed Lucky15 recognizes
+the exact width-7, 128-column st-connectivity family and emits 7,861,711 native
+RUP clauses in 9.231s and 13.5 MiB solver RSS. The 267.5 MB DSR certificate
+passes dsr-trim and patched Trestle in 204.548s; cleanup is clean. Independently
+checked coverage is 90/100. Open ranks are 1, 25, 26, 80, 83, 86, 87, 95, 96
+and 97.
 
-The cumulative Simon successor complete Release suite passes 167/167. Complete matched AM160
-successor gates are live: Rank 1--50 job 1702533 and B28+C5 job 1702534, both
-c12, 32 GiB, 1,200s, full-width on cpu-dense with immutable pins.
+The cumulative StConn successor Release suite passes all 168 tests. Its
+Claude-owned proof/scheduling fuzz checkpoint is active under
+`build/am173-claude-stconn-fuzz/`; pending fuzz is not acceptance. Complete
+matched AM160 successor gates are live: Rank 1--50 job 1702533 and B28+C5 job
+1702534, both c12, 32 GiB, 1,200s, full-width on cpu-dense with immutable pins.
 
 The user-authorized frozen AM149 full Tier-D campaign is job 1702332. Its
 750 GB pending-task guard and the stricter global 700 GiB guard are live;
@@ -68,9 +74,9 @@ running tasks are never held or interrupted.
 
 Finish jobs 1702533/1702534 and retain the successor only if both complete
 coverage and aggregate gates pass without a drastic individual regression.
-Integrate LymphoSAT's exact bounded-width crossing-sequence RUP refutation for
-StConn WV84 as a typed, structural, native-DSR action. Then continue through the
-remaining SAT-owner rows while retaining the WV80/83/86 Tseitin design as a
-staged native-DSR proof-system gap. Preserve every new checked solve and all
-Phase-1 gates.
+Finish the AM173 Claude fuzz owner and commit the independently checked StConn
+increment. Then integrate AE-kissat-MAB's general EVSIDS/CHB bandit strategy for
+the remaining SAT-owner rows, starting from WV96/87/97. LymphoSAT's PB counting
+proofs for WV1/25/26 and parity proof for WV80/83/86 remain staged native-DSR
+proof-design gaps. Preserve every new checked solve and all Phase-1 gates.
 <!-- track-sched:end -->

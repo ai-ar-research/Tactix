@@ -111,6 +111,7 @@ struct RandomOnlineConfig {
   FermatModelParameters fermat_model_reference;
   LookupCircuitModelParameters lookup_circuit_model_reference;
   SimonModelParameters simon_model_reference;
+  StconnProofParameters stconn_proof_reference;
   AffineModelParameters affine_model_reference;
   uint32_t maximum_affine_projection_coordinates = 32;
   uint32_t maximum_affine_scopes = 8;

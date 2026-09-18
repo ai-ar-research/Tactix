@@ -57,6 +57,7 @@ using ActionParameters =
                  ParityModelParameters, OnehotModelParameters,
                  BalancedSignatureModelParameters, FermatModelParameters,
                  LookupCircuitModelParameters, SimonModelParameters,
+                 StconnProofParameters,
                  AffineModelParameters,
                  SubstitutionRedundancyParameters>;
 
@@ -275,6 +276,10 @@ inline bool validate_inprocess_program(std::span<const InprocessStep> program,
                    std::get_if<SimonModelParameters>(&step.parameters)) {
       if (step.rule != "Lucky" || !p->valid())
         return reject("Lucky simon-model parameters are invalid or misplaced");
+    } else if (const auto *p =
+                   std::get_if<StconnProofParameters>(&step.parameters)) {
+      if (step.rule != "Lucky" || !p->valid())
+        return reject("Lucky stconn-proof parameters are invalid or misplaced");
     } else if (const auto *p = std::get_if<AffineModelParameters>(&step.parameters)) {
       if (step.rule != "Lucky" || !p->valid())
         return reject("Lucky affine-model parameters are invalid or misplaced");

@@ -246,7 +246,16 @@ ActionParameters random_parameters(const Kernel &k, uint64_t &state, const std::
     return p;
   }
   if (rule == "Lucky") {
-    const uint64_t lucky_kind = bounded(state, 7);
+    const uint64_t lucky_kind = bounded(state, 8);
+    if (lucky_kind == 7) {
+      StconnProofParameters p = config.stconn_proof_reference;
+      p.maximum_width =
+          2 + inclusive_u32(state, p.maximum_width - 2);
+      p.maximum_columns =
+          3 + inclusive_u32(state, p.maximum_columns - 3);
+      p.maximum_rup_clauses = 1 + bounded(state, p.maximum_rup_clauses);
+      return p;
+    }
     if (lucky_kind == 6) {
       SimonModelParameters p = config.simon_model_reference;
       p.maximum_rounds = 1 + inclusive_u32(state, p.maximum_rounds - 1);
@@ -800,6 +809,12 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
     U32_AT(0, p.maximum_rounds);
     p.maximum_candidates = v[1];
     parameters = p;
+  } else if (tuple(text, "stconn-proof", v) && v.size() == 3) {
+    StconnProofParameters p;
+    U32_AT(0, p.maximum_width);
+    U32_AT(1, p.maximum_columns);
+    p.maximum_rup_clauses = v[2];
+    parameters = p;
   } else if (tuple(text, "affine1", v) && v.size() >= 20) {
     AffineModelParameters p;
     p.maximum_variables=v[0]; p.maximum_constraints=v[1]; p.maximum_arity=v[2];
@@ -1196,6 +1211,7 @@ bool random_online_strategy_program(Kernel &k, uint64_t seed,
       !config.fermat_model_reference.valid() ||
       !config.lookup_circuit_model_reference.valid() ||
       !config.simon_model_reference.valid() ||
+      !config.stconn_proof_reference.valid() ||
       !config.affine_model_reference.valid() ||
       !config.affine_joint_positive_denominator ||
       config.affine_joint_positive_numerator > config.affine_joint_positive_denominator ||
@@ -1536,6 +1552,10 @@ std::string serialize_online_strategy_program(
                  std::get_if<SimonModelParameters>(&step.parameters))
       out << ":simon-model(" << p->maximum_rounds << ','
           << p->maximum_candidates << ')';
+    else if (const auto *p =
+                 std::get_if<StconnProofParameters>(&step.parameters))
+      out << ":stconn-proof(" << p->maximum_width << ','
+          << p->maximum_columns << ',' << p->maximum_rup_clauses << ')';
     else if (const auto *p = std::get_if<AffineModelParameters>(&step.parameters)) {
       out << ":affine1(" << p->maximum_variables << ',' << p->maximum_constraints
           << ',' << p->maximum_arity << ',' << p->maximum_projection << ','

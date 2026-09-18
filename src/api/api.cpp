@@ -551,6 +551,16 @@ bool online_parameters(const tactix_online_parameters &source,
     target = simon;
     return true;
   }
+  case TACTIX_ONLINE_PARAMETERS_STCONN_PROOF: {
+    const tactix_online_stconn_proof_parameters &p =
+        source.value.stconn_proof;
+    strategy::StconnProofParameters stconn{
+        p.maximum_width, p.maximum_columns, p.maximum_rup_clauses};
+    if (!stconn.valid())
+      return false;
+    target = stconn;
+    return true;
+  }
   case TACTIX_ONLINE_PARAMETERS_AFFINE_MODEL: {
     const auto &p = source.value.affine_model;
     if (p.projection_count < 0 || p.scope_count < 0 ||

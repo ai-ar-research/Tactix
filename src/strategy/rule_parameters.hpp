@@ -262,6 +262,24 @@ struct SimonModelParameters {
   static SimonModelParameters from_kernel(const Kernel &);
 };
 
+// Native RUP refutation of structurally exact bounded-width StConn grids.
+// Width controls the crossing-sequence state space; the other bounds expose
+// formula extent and emitted-proof work without changing recognition.
+struct StconnProofParameters {
+  static constexpr uint32_t MAXIMUM_WIDTH_DEFAULT = 9;
+  static constexpr uint32_t MAXIMUM_COLUMNS_DEFAULT = UINT32_MAX;
+  static constexpr uint64_t MAXIMUM_RUP_CLAUSES_DEFAULT = UINT64_MAX;
+
+  uint32_t maximum_width = MAXIMUM_WIDTH_DEFAULT;
+  uint32_t maximum_columns = MAXIMUM_COLUMNS_DEFAULT;
+  uint64_t maximum_rup_clauses = MAXIMUM_RUP_CLAUSES_DEFAULT;
+  constexpr bool valid() const {
+    return maximum_width >= 2 && maximum_width <= 9 &&
+           maximum_columns >= 3 && maximum_rup_clauses;
+  }
+  static StconnProofParameters from_kernel(const Kernel &);
+};
+
 // SAT-only low-weight search of an exact projected affine image. Coordinates
 // use stable external DIMACS identities; an explicit empty projection is legal.
 enum class AffineProjectionMode : uint8_t { Boundary, AllParity, Explicit };
@@ -311,6 +329,7 @@ void install_rule_parameters(Kernel &, const BalancedSignatureModelParameters &)
 void install_rule_parameters(Kernel &, const FermatModelParameters &);
 void install_rule_parameters(Kernel &, const LookupCircuitModelParameters &);
 void install_rule_parameters(Kernel &, const SimonModelParameters &);
+void install_rule_parameters(Kernel &, const StconnProofParameters &);
 void install_rule_parameters(Kernel &, const AffineModelParameters &);
 
 template <class Parameters> class ScopedRuleParameters {
@@ -345,6 +364,7 @@ using ScopedFermatModelParameters = ScopedRuleParameters<FermatModelParameters>;
 using ScopedLookupCircuitModelParameters =
     ScopedRuleParameters<LookupCircuitModelParameters>;
 using ScopedSimonModelParameters = ScopedRuleParameters<SimonModelParameters>;
+using ScopedStconnProofParameters = ScopedRuleParameters<StconnProofParameters>;
 
 class ScopedWalkParameters {
 public:

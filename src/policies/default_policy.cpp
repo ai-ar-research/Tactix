@@ -21,6 +21,7 @@
 #include "rules/lucky/cerny_model.hpp"
 #include "rules/lucky/lookup_circuit_model.hpp"
 #include "rules/lucky/simon_model.hpp"
+#include "rules/lucky/stconn_proof.hpp"
 #include "policies/ops/walk/walk.hpp"
 #include "rules/restart/restart.hpp"
 #include "rules/registry.hpp"
@@ -458,6 +459,8 @@ bool DefaultStrategyConfig::valid(std::string *error) const {
     return reject("lookup-circuit-model settings are invalid");
   if (!simon_model.parameters.valid())
     return reject("simon-model settings are invalid");
+  if (!stconn_proof.parameters.valid())
+    return reject("stconn-proof settings are invalid");
 
   const auto &ip = inprocess;
   if (!ip.eliminate_interval || !ip.probe_interval || !ip.phase_rounds ||
@@ -786,6 +789,13 @@ std::string DefaultStrategyConfig::serialize() const {
       << simon_model.parameters.maximum_rounds
       << " simon_model.maximum_candidates="
       << simon_model.parameters.maximum_candidates
+      << " stconn_proof.enabled=" << stconn_proof.enabled
+      << " stconn_proof.maximum_width="
+      << stconn_proof.parameters.maximum_width
+      << " stconn_proof.maximum_columns="
+      << stconn_proof.parameters.maximum_columns
+      << " stconn_proof.maximum_rup_clauses="
+      << stconn_proof.parameters.maximum_rup_clauses
       << " inprocess.bve_enabled=" << inprocess.bve_enabled
       << " inprocess.vivify_enabled=" << inprocess.vivify_enabled
       << " inprocess.factor_enabled=" << inprocess.factor_enabled
@@ -3246,6 +3256,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   k.lookup_circuit_model_parameters =
       config_.lookup_circuit_model.parameters;
   k.simon_model_parameters = config_.simon_model.parameters;
+  k.stconn_proof_parameters = config_.stconn_proof.parameters;
   k.reduce_victim_numerator = config_.reduction.victim_numerator;
   k.reduce_victim_denominator = config_.reduction.victim_denominator;
   k.reduce_protect_tiers = config_.reduction.protect_tiers;
@@ -3343,6 +3354,16 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       return finish(10);
     }
     event_trace.macro(k, "simon_model_end", "unknown");
+  }
+  if (config_.stconn_proof.enabled && stconn_proof_guard(k)) {
+    event_trace.macro(k, "stconn_proof_begin");
+    const ApplyResult stconn = default_direct_rule(
+        k, "Lucky", "stconn-proof", [&] { return stconn_proof_apply(k); });
+    if (stconn == ApplyResult::Unsat) {
+      event_trace.macro(k, "stconn_proof_end", "unsat");
+      return finish(20);
+    }
+    event_trace.macro(k, "stconn_proof_end", "unknown");
   }
   // Balance-design construction reads the untouched imported variable blocks.
   // Its root-signature gate is linear in variables and all clause work occurs
