@@ -100,6 +100,9 @@ LookupCircuitModelParameters::from_kernel(const Kernel &k) {
 SimonModelParameters SimonModelParameters::from_kernel(const Kernel &k) {
   return k.simon_model_parameters;
 }
+StconnProofParameters StconnProofParameters::from_kernel(const Kernel &k) {
+  return k.stconn_proof_parameters;
+}
 
 std::vector<AffineSearchScope> AffineModelParameters::reference_scopes() {
   std::vector<AffineSearchScope> result;
@@ -238,6 +241,9 @@ void install_rule_parameters(Kernel &k,
 }
 void install_rule_parameters(Kernel &k, const SimonModelParameters &p) {
   k.simon_model_parameters = p;
+}
+void install_rule_parameters(Kernel &k, const StconnProofParameters &p) {
+  k.stconn_proof_parameters = p;
 }
 
 } // namespace tactix::strategy

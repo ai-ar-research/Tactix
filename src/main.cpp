@@ -928,6 +928,17 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.simon_model_candidates,
            (unsigned long long)kernel.stats.simon_model_sat,
            (unsigned long long)kernel.stats.simon_model_interrupted);
+    printf("c stconn     %llu calls, %llu recognized, width %llu, "
+           "%llu columns, %llu RUP clauses, %llu budget stops, %llu UNSAT, "
+           "%llu interrupted\n",
+           (unsigned long long)kernel.stats.stconn_proof_calls,
+           (unsigned long long)kernel.stats.stconn_proof_recognized,
+           (unsigned long long)kernel.stats.stconn_proof_width,
+           (unsigned long long)kernel.stats.stconn_proof_columns,
+           (unsigned long long)kernel.stats.stconn_proof_rup_clauses,
+           (unsigned long long)kernel.stats.stconn_proof_budget_exhausted,
+           (unsigned long long)kernel.stats.stconn_proof_unsat,
+           (unsigned long long)kernel.stats.stconn_proof_interrupted);
     printf("c localsearch %llu hints offered, %llu applied\n",
            (unsigned long long)kernel.stats.local_search_hints_offered,
            (unsigned long long)kernel.stats.local_search_hints_applied);

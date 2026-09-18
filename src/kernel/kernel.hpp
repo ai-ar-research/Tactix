@@ -570,6 +570,14 @@ struct Stats {
   uint64_t simon_model_candidates = 0;
   uint64_t simon_model_sat = 0;
   uint64_t simon_model_interrupted = 0;
+  uint64_t stconn_proof_calls = 0;
+  uint64_t stconn_proof_recognized = 0;
+  uint64_t stconn_proof_width = 0;
+  uint64_t stconn_proof_columns = 0;
+  uint64_t stconn_proof_rup_clauses = 0;
+  uint64_t stconn_proof_budget_exhausted = 0;
+  uint64_t stconn_proof_unsat = 0;
+  uint64_t stconn_proof_interrupted = 0;
   uint64_t local_search_hints_offered = 0;
   uint64_t local_search_hints_applied = 0;
   uint64_t walks = 0;         // S6 Walk applications (policy op)
@@ -1449,6 +1457,7 @@ struct Kernel {
   strategy::FermatModelParameters fermat_model_parameters;
   strategy::LookupCircuitModelParameters lookup_circuit_model_parameters;
   strategy::SimonModelParameters simon_model_parameters;
+  strategy::StconnProofParameters stconn_proof_parameters;
   uint32_t onehot_model_maximum_variables =
       strategy::OnehotModelParameters::MAXIMUM_VARIABLES_DEFAULT;
   uint32_t onehot_model_maximum_domains =

@@ -354,6 +354,7 @@ int tactix_apply_semantic_instance(tactix *, int rule_id, uint64_t instance);
 #define TACTIX_ONLINE_PARAMETERS_FERMAT_MODEL 23
 #define TACTIX_ONLINE_PARAMETERS_LOOKUP_CIRCUIT_MODEL 24
 #define TACTIX_ONLINE_PARAMETERS_SIMON_MODEL 25
+#define TACTIX_ONLINE_PARAMETERS_STCONN_PROOF 26
 #define TACTIX_ONLINE_AFFINE_BOUNDARY 0
 #define TACTIX_ONLINE_AFFINE_ALL_PARITY 1
 #define TACTIX_ONLINE_AFFINE_EXPLICIT 2
@@ -575,6 +576,12 @@ typedef struct {
   uint64_t maximum_candidates;
 } tactix_online_simon_model_parameters;
 typedef struct {
+  /* Parameters for Lucky instance 15. The bounds dose exact structural
+   * recognition and its bounded-width crossing-sequence RUP refutation. */
+  uint32_t maximum_width, maximum_columns;
+  uint64_t maximum_rup_clauses;
+} tactix_online_stconn_proof_parameters;
+typedef struct {
   /* UINT64_MAX selects half of the current coordinate count. */
   uint64_t left_size, left_weight, right_weight, total_weight;
 } tactix_online_affine_scope;
@@ -761,6 +768,7 @@ typedef struct {
     tactix_online_fermat_model_parameters fermat_model;
     tactix_online_lookup_circuit_model_parameters lookup_circuit_model;
     tactix_online_simon_model_parameters simon_model;
+    tactix_online_stconn_proof_parameters stconn_proof;
     tactix_online_affine_model_parameters affine_model;
     tactix_online_sr_parameters substitution_redundancy;
   } value;

@@ -985,6 +985,41 @@ static void simon_parameters_are_public_and_validated(void) {
   tactix_release(solver);
 }
 
+static void stconn_parameters_are_public_and_validated(void) {
+  tactix *solver = tactix_init();
+  clause(solver, (const int[]){1, 2, 0});
+  tactix_online_step step;
+  memset(&step, 0, sizeof step);
+  step.step_id = 913;
+  step.rule_id = rule("Lucky");
+  step.parameters.kind = TACTIX_ONLINE_PARAMETERS_STCONN_PROOF;
+  tactix_online_stconn_proof_parameters *p =
+      &step.parameters.value.stconn_proof;
+  p->maximum_width = 9;
+  p->maximum_columns = UINT32_MAX;
+  p->maximum_rup_clauses = UINT64_MAX;
+  uint64_t instance = 15;
+  step.instances = &instance;
+  step.instance_count = 1;
+  step.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
+  step.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
+  step.repeat_limit = 1;
+  step.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
+  step.budget_unlimited = 1;
+  tactix_online_program program = {
+      &step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
+  assert(tactix_online_configure(
+             solver, &program, 1, TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  p->maximum_width = 10;
+  assert(tactix_online_configure(
+             solver, &program, 2, TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  tactix_online_result result;
+  assert(tactix_online_advance(solver, &result) == 0);
+  assert(result.status == TACTIX_ONLINE_COMPLETED ||
+         result.status == TACTIX_ONLINE_NO_CHANGE);
+  tactix_release(solver);
+}
+
 int main(void) {
   canonical_bve_reaches_a_real_fixpoint();
   status_reconstructs_bve_models_and_refreshes_after_restart();
@@ -993,6 +1028,7 @@ int main(void) {
   fermat_parameters_are_public_and_validated();
   lookup_circuit_parameters_are_public_and_validated();
   simon_parameters_are_public_and_validated();
+  stconn_parameters_are_public_and_validated();
   pure_bve_scope_is_public_and_validated();
   exact_factor_grid_is_copied_and_applied();
   complete_factor_grid_is_discovered_and_applied();

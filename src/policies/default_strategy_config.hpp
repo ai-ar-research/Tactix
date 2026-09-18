@@ -254,6 +254,11 @@ struct DefaultStrategyConfig {
     strategy::SimonModelParameters parameters;
   } simon_model;
 
+  struct StconnProof {
+    bool enabled = true;
+    strategy::StconnProofParameters parameters;
+  } stconn_proof;
+
   struct Inprocess {
     // Production values are formula-shape invariant. These typed switches
     // remain explicit diagnostic arms and are never selected by classification.
