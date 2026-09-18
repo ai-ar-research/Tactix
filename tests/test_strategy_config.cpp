@@ -205,6 +205,9 @@ int main() {
   assert(defaults.reduction.victim_denominator == 4);
   assert(defaults.reduction.protect_tiers);
   assert(defaults.branching.random_seed == 0);
+  assert(!defaults.branching.mab);
+  assert(defaults.branching.mab_exploration == 4.0);
+  assert(defaults.branching.chb_step == 0.4);
   assert(defaults.rephase.rotation.size() == 6);
   assert(defaults.rephase.rotation[0] == DefaultRephaseSlot::Best &&
          defaults.rephase.rotation[1] == DefaultRephaseSlot::Walk &&
@@ -284,6 +287,9 @@ int main() {
   {
     DefaultStrategyConfig invalid = defaults;
     invalid.branching.focused_phase_pattern.clear();
+    assert(!invalid.valid(&validation_error));
+    invalid = defaults;
+    invalid.branching.chb_step_min = invalid.branching.chb_step + 0.1;
     assert(!invalid.valid(&validation_error));
     invalid = defaults;
     invalid.inprocess.bve_bounds.clear();

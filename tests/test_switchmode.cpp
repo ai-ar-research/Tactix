@@ -19,6 +19,8 @@ static void test_heap_basic() {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 5);
+  assert(k.h->chb_scores.pos.empty() && k.h->chb_scores.score.empty());
+  assert(k.h->chb_conflicted.empty());
   for (Var v = 0; v < k.nvars; ++v)
     heuristics_score_set(k, v, 0.0);
   heuristics_update_scores(k); // push all five
@@ -75,6 +77,70 @@ static void test_rescale() {
   assert(k.h->scinc <= 1e150);
   assert(k.h->scores.score[1] > k.h->scores.score[2]);
   assert(heuristics_heap_next_unassigned(k) == 1);
+}
+
+static void test_stable_mab_chb_arm() {
+  Kernel k;
+  ScopedHeuristics _hg_k(k);
+  kernel_reserve_vars(k, 3);
+  k.h->stable = true;
+  heuristics_update_scores(k);
+  heuristics_configure_mab(k, true, 4.0, 0.4, 0.06, 0.000001);
+  for (Var v = 0; v < 3; ++v)
+    assert(heuristics_chb_heap_contains(k, v));
+
+  heuristics_mab_note_decision(k);
+  heuristics_mab_note_decision(k);
+  heuristics_mab_note_conflict(k);
+  heuristics_mab_note_conflict(k);
+  assert(heuristics_mab_restart(k)); // owner's first exploration selects CHB
+  assert(k.h->stable_heuristic == 1);
+  assert(k.stats.mab_restarts == 1 && k.stats.mab_switches == 1);
+
+  kernel_assign_decision(k, make_lit(0, false));
+  const double before = k.h->chb_scores.score[0];
+  heuristics_chb_update_after_propagation(k, false);
+  assert(k.h->chb_scores.score[0] > before);
+  k.stats.conflicts = 7;
+  k.analyzed.push_back(0);
+  heuristics_chb_mark_analyzed(k);
+  assert(k.h->chb_conflicted[0] == 7);
+  k.analyzed.clear();
+  kernel_backtrack(k, 0);
+  assert(heuristics_chb_heap_contains(k, 0));
+  assert(heuristics_next_decision_var(k) == 0);
+
+  for (int i = 0; i < 4; ++i)
+    heuristics_mab_note_decision(k);
+  heuristics_mab_note_conflict(k);
+  heuristics_mab_note_conflict(k);
+  assert(!heuristics_mab_restart(k));
+  assert(k.h->stable_heuristic == 1);
+  assert(k.h->mab_reward[1] == 2.0 && k.h->mab_select[1] == 2);
+  assert(k.stats.mab_restarts == 2 && k.stats.mab_chb_selections == 2);
+}
+
+static void test_stable_mab_chb_scores_level_boundary() {
+  Kernel k;
+  ScopedHeuristics _hg_k(k);
+  kernel_reserve_vars(k, 4);
+  k.h->stable = true;
+  heuristics_update_scores(k);
+  heuristics_configure_mab(k, true, 4.0, 0.4, 0.06, 0.000001);
+  k.h->stable_heuristic = 1;
+
+  // Root v0, level-one v1/v2, level-two v3.  The owner's reverse scan scores
+  // the current-level suffix and exactly one literal across the boundary.
+  kernel_assign_unit(k, make_lit(0, false));
+  kernel_assign_decision(k, make_lit(1, false));
+  kernel_assign(k, make_lit(2, false), 1, INVALID_REF, false);
+  kernel_assign_decision(k, make_lit(3, false));
+  heuristics_chb_update_after_propagation(k, false);
+  assert(k.h->chb_scores.score[3] > 0.0);
+  assert(k.h->chb_scores.score[2] > 0.0); // first lower-level boundary
+  assert(k.h->chb_scores.score[1] == 0.0);
+  assert(k.h->chb_scores.score[0] == 0.0);
+  assert(k.stats.chb_updates == 2);
 }
 
 static void test_switchmode_rule() {
@@ -243,10 +309,26 @@ static void test_default_policy_solves_across_modes() {
   assert(default_solve(k) == 20);
 }
 
+static void test_default_policy_with_mab_enabled() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  kernel_add_binary_clause(k, internalize(1), internalize(2));
+  kernel_add_binary_clause(k, internalize(1), internalize(-2));
+  kernel_add_binary_clause(k, internalize(-1), internalize(3));
+  kernel_add_binary_clause(k, internalize(-1), internalize(-3));
+  DefaultStrategyConfig config;
+  config.branching.mab = true;
+  config.mode.force = 2;
+  DefaultPolicy policy(config);
+  assert(policy.solve(k) == 20);
+}
+
 int main() {
   test_heap_basic();
   test_heap_uses_import_not_activation_order_for_ties();
   test_rescale();
+  test_stable_mab_chb_arm();
+  test_stable_mab_chb_scores_level_boundary();
   test_switchmode_rule();
   test_stable_decide_and_target_phases();
   test_target_high_water_uses_compact_assigned_count();
@@ -254,6 +336,7 @@ int main() {
   test_stable_trail_reuse();
   test_policy_schedule();
   test_default_policy_solves_across_modes();
+  test_default_policy_with_mab_enabled();
   printf("test_switchmode: all passed\n");
   return 0;
 }

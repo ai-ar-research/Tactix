@@ -1644,6 +1644,11 @@ static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target) 
     k.unit_ids[var_of(p.lits[0])] = learned_id;
   }
 
+  // Publish the final analyzed set after learning and before the ordinary
+  // bump. Aborted OTFS rounds deliberately skip this observation.
+  if (k.analysis_learned_hook)
+    k.analysis_learned_hook(k, k.analysis_learned_hook_state);
+
   k.conflict_valid = false;
   p.valid = true;
   return ApplyResult::Ok;

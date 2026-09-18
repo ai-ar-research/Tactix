@@ -57,14 +57,31 @@ original-CNF model passes. AM174 job 1702975 adds WV84: typed Lucky15 recognizes
 the exact width-7, 128-column st-connectivity family and emits 7,861,711 native
 RUP clauses in 9.231s and 13.5 MiB solver RSS. The 267.5 MB DSR certificate
 passes dsr-trim and patched Trestle in 204.548s; cleanup is clean. Independently
-checked coverage is 90/100. Open ranks are 1, 25, 26, 80, 83, 86, 87, 95, 96
-and 97.
+checked coverage was 90/100 at that checkpoint.
 
-The cumulative StConn successor Release suite passes all 168 tests. Its
-Claude-owned proof/scheduling fuzz checkpoint is active under
-`build/am173-claude-stconn-fuzz/`; pending fuzz is not acceptance. Complete
-matched AM160 successor gates are live: Rank 1--50 job 1702533 and B28+C5 job
-1702534, both c12, 32 GiB, 1,200s, full-width on cpu-dense with immutable pins.
+The general AE-kissat-MAB successor adds simultaneous EVSIDS and CHB stable
+heaps, the owner's age-weighted CHB updates, restart reward/momentum/adaptive
+UCB selection, root restart on arm switches, and selected-heap TransitiveReduce
+ordering. AM177 independently checks WV87 SAT in 1.620s and WV97 SAT in
+179.719s. AM179 job 1703169 independently checks WV96 SAT in 1,197.329s; the
+boundary-only predecessor times out, establishing selected-heap inprocessor
+coupling as causal. Coverage is now 93/100. Open ranks are 1, 25, 26, 80, 83,
+86 and 95.
+
+SC2024's post-Probe fast variable elimination was tested as canonical BVE with
+the owner's four-round schedule and admission bounds. Corrected BVE-only AM185
+times out on WV95 both alone and with MAB, and MAB+fastel also times out on
+WV96. The rejected variant has been removed rather than retained as another
+strategy branch.
+
+The cumulative StConn successor Release suite passes all 168 tests. AM173's
+Claude-owned proof/scheduling fuzz completed both Release and ASan campaigns.
+It exposed invalid harness expectations for non-refuting proof prefixes and a
+normalization-preserving mutant, plus one unrelated random-policy certificate
+failure; these findings still require owner adjudication before StConn is
+accepted. Complete matched AM160 successor gates have solver results for every
+case: Rank 1--50 is 50/50 in 8,007.968s and B28+C5 is 33/33 in 895.121s. Four
+long Trestle tasks remain active before those successor gates are final.
 
 The user-authorized frozen AM149 full Tier-D campaign is job 1702332. Its
 750 GB pending-task guard and the stricter global 700 GiB guard are live;
@@ -72,11 +89,11 @@ running tasks are never held or interrupted.
 
 ## Exact next action
 
-Finish jobs 1702533/1702534 and retain the successor only if both complete
-coverage and aggregate gates pass without a drastic individual regression.
-Finish the AM173 Claude fuzz owner and commit the independently checked StConn
-increment. Then integrate AE-kissat-MAB's general EVSIDS/CHB bandit strategy for
-the remaining SAT-owner rows, starting from WV96/87/97. LymphoSAT's PB counting
-proofs for WV1/25/26 and parity proof for WV80/83/86 remain staged native-DSR
-proof-design gaps. Preserve every new checked solve and all Phase-1 gates.
+Adjudicate AM173's fuzz findings and finish the four live Trestle tasks for
+jobs 1702533/1702534. Independently fuzz and commit the accepted MAB increment.
+Integrate LymphoSAT's general parity refutation for WV80/83/86: all three are
+exact complete arity-2--4 XOR systems, every variable has even incidence, and
+the right-hand sides sum to one. Then close the PB counting proof gap for
+WV1/25/26 and the remaining WV95 owner gap. Preserve every checked solve and
+both Phase-1 aggregate gates.
 <!-- track-sched:end -->
