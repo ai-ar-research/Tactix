@@ -16,6 +16,11 @@
 #include "policies/ops/local_search/local_search.hpp"
 #include "rules/lucky/parity_model.hpp"
 #include "rules/lucky/onehot_model.hpp"
+#include "rules/lucky/balanced_signature_model.hpp"
+#include "rules/lucky/fermat_model.hpp"
+#include "rules/lucky/cerny_model.hpp"
+#include "rules/lucky/lookup_circuit_model.hpp"
+#include "rules/lucky/simon_model.hpp"
 #include "policies/ops/walk/walk.hpp"
 #include "rules/restart/restart.hpp"
 #include "rules/registry.hpp"
@@ -445,6 +450,14 @@ bool DefaultStrategyConfig::valid(std::string *error) const {
     return reject("parity-model settings are invalid");
   if (!onehot_model.parameters.valid())
     return reject("onehot-model settings are invalid");
+  if (!balanced_signature_model.parameters.valid())
+    return reject("balanced-signature-model settings are invalid");
+  if (!fermat_model.parameters.valid())
+    return reject("fermat-model settings are invalid");
+  if (!lookup_circuit_model.parameters.valid())
+    return reject("lookup-circuit-model settings are invalid");
+  if (!simon_model.parameters.valid())
+    return reject("simon-model settings are invalid");
 
   const auto &ip = inprocess;
   if (!ip.eliminate_interval || !ip.probe_interval || !ip.phase_rounds ||
@@ -731,6 +744,48 @@ std::string DefaultStrategyConfig::serialize() const {
       << onehot_model.parameters.maximum_free_domains
       << " onehot_model.candidate_budget="
       << onehot_model.parameters.candidate_budget
+      << " balanced_signature_model.enabled="
+      << balanced_signature_model.enabled
+      << " balanced_signature_model.maximum_balls="
+      << balanced_signature_model.parameters.maximum_balls
+      << " balanced_signature_model.maximum_width="
+      << balanced_signature_model.parameters.maximum_width
+      << " balanced_signature_model.restarts="
+      << balanced_signature_model.parameters.restarts
+      << " balanced_signature_model.steps_per_restart="
+      << balanced_signature_model.parameters.steps_per_restart
+      << " balanced_signature_model.samples_per_step="
+      << balanced_signature_model.parameters.samples_per_step
+      << " balanced_signature_model.seed="
+      << balanced_signature_model.parameters.seed
+      << " balanced_signature_model.completion_rounds="
+      << balanced_signature_model.parameters.completion_rounds
+      << " fermat_model.enabled=" << fermat_model.enabled
+      << " fermat_model.maximum_bits="
+      << fermat_model.parameters.maximum_bits
+      << " fermat_model.comparator_tail_clauses="
+      << fermat_model.parameters.comparator_tail_clauses
+      << " fermat_model.rho_constants="
+      << fermat_model.parameters.rho_constants
+      << " fermat_model.rho_iterations="
+      << fermat_model.parameters.rho_iterations
+      << " cerny_model.enabled=" << cerny_model.enabled
+      << " lookup_circuit_model.enabled=" << lookup_circuit_model.enabled
+      << " lookup_circuit_model.maximum_fanin="
+      << lookup_circuit_model.parameters.maximum_fanin
+      << " lookup_circuit_model.maximum_fanout="
+      << lookup_circuit_model.parameters.maximum_fanout
+      << " lookup_circuit_model.maximum_primary_inputs="
+      << lookup_circuit_model.parameters.maximum_primary_inputs
+      << " lookup_circuit_model.maximum_support="
+      << lookup_circuit_model.parameters.maximum_support
+      << " lookup_circuit_model.maximum_vector_gate_evaluations="
+      << lookup_circuit_model.parameters.maximum_vector_gate_evaluations
+      << " simon_model.enabled=" << simon_model.enabled
+      << " simon_model.maximum_rounds="
+      << simon_model.parameters.maximum_rounds
+      << " simon_model.maximum_candidates="
+      << simon_model.parameters.maximum_candidates
       << " inprocess.bve_enabled=" << inprocess.bve_enabled
       << " inprocess.vivify_enabled=" << inprocess.vivify_enabled
       << " inprocess.factor_enabled=" << inprocess.factor_enabled
@@ -3185,6 +3240,12 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       config_.onehot_model.parameters.maximum_free_domains;
   k.onehot_model_candidate_budget =
       config_.onehot_model.parameters.candidate_budget;
+  k.balanced_signature_model_parameters =
+      config_.balanced_signature_model.parameters;
+  k.fermat_model_parameters = config_.fermat_model.parameters;
+  k.lookup_circuit_model_parameters =
+      config_.lookup_circuit_model.parameters;
+  k.simon_model_parameters = config_.simon_model.parameters;
   k.reduce_victim_numerator = config_.reduction.victim_numerator;
   k.reduce_victim_denominator = config_.reduction.victim_denominator;
   k.reduce_protect_tiers = config_.reduction.protect_tiers;
@@ -3239,6 +3300,65 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   ApplyResult startup = default_propagate(k, "startup");
   if (startup != ApplyResult::Ok)
     return finish(20); // startup is at root: a conflict is a refutation
+  // Arithmetic-circuit construction consumes only the parser's bounded raw
+  // structural summary, then independently validates any completed model.
+  if (config_.fermat_model.enabled && fermat_model_guard(k)) {
+    event_trace.macro(k, "fermat_model_begin");
+    const ApplyResult fermat = default_direct_rule(
+        k, "Lucky", "fermat-model", [&] { return fermat_model_apply(k); });
+    if (fermat == ApplyResult::Sat) {
+      event_trace.macro(k, "fermat_model_end", "sat");
+      return finish(10);
+    }
+    event_trace.macro(k, "fermat_model_end", "unknown");
+  }
+  if (config_.cerny_model.enabled && cerny_model_guard(k)) {
+    event_trace.macro(k, "cerny_model_begin");
+    const ApplyResult cerny = default_direct_rule(
+        k, "Lucky", "cerny-model", [&] { return cerny_model_apply(k); });
+    if (cerny == ApplyResult::Sat) {
+      event_trace.macro(k, "cerny_model_end", "sat");
+      return finish(10);
+    }
+    event_trace.macro(k, "cerny_model_end", "unknown");
+  }
+  if (config_.lookup_circuit_model.enabled &&
+      lookup_circuit_model_guard(k)) {
+    event_trace.macro(k, "lookup_circuit_model_begin");
+    const ApplyResult circuit = default_direct_rule(
+        k, "Lucky", "lookup-circuit-model",
+        [&] { return lookup_circuit_model_apply(k); });
+    if (circuit == ApplyResult::Sat) {
+      event_trace.macro(k, "lookup_circuit_model_end", "sat");
+      return finish(10);
+    }
+    event_trace.macro(k, "lookup_circuit_model_end", "unknown");
+  }
+  if (config_.simon_model.enabled && simon_model_guard(k)) {
+    event_trace.macro(k, "simon_model_begin");
+    const ApplyResult simon = default_direct_rule(
+        k, "Lucky", "simon-model", [&] { return simon_model_apply(k); });
+    if (simon == ApplyResult::Sat) {
+      event_trace.macro(k, "simon_model_end", "sat");
+      return finish(10);
+    }
+    event_trace.macro(k, "simon_model_end", "unknown");
+  }
+  // Balance-design construction reads the untouched imported variable blocks.
+  // Its root-signature gate is linear in variables and all clause work occurs
+  // only after the complete diagonal/boundary shape has been established.
+  if (config_.balanced_signature_model.enabled &&
+      balanced_signature_model_guard(k)) {
+    event_trace.macro(k, "balanced_signature_model_begin");
+    const ApplyResult balanced = default_direct_rule(
+        k, "Lucky", "balanced-signature-model",
+        [&] { return balanced_signature_model_apply(k); });
+    if (balanced == ApplyResult::Sat) {
+      event_trace.macro(k, "balanced_signature_model_end", "sat");
+      return finish(10);
+    }
+    event_trace.macro(k, "balanced_signature_model_end", "unknown");
+  }
   bool structured_root_grew_trail = false;
   uint64_t structured_root_amo_binaries_added = 0;
   bool structured_root_graph_root_progress = false;

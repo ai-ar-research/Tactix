@@ -509,6 +509,48 @@ bool online_parameters(const tactix_online_parameters &source,
         p.maximum_free_domains, p.candidate_budget};
     return true;
   }
+  case TACTIX_ONLINE_PARAMETERS_BALANCED_SIGNATURE_MODEL: {
+    const tactix_online_balanced_signature_model_parameters &p =
+        source.value.balanced_signature_model;
+    strategy::BalancedSignatureModelParameters balanced{
+        p.maximum_balls, p.maximum_width, p.restarts, p.steps_per_restart,
+        p.samples_per_step, p.seed, p.completion_rounds};
+    if (!balanced.valid())
+      return false;
+    target = balanced;
+    return true;
+  }
+  case TACTIX_ONLINE_PARAMETERS_FERMAT_MODEL: {
+    const tactix_online_fermat_model_parameters &p =
+        source.value.fermat_model;
+    strategy::FermatModelParameters fermat{
+        p.maximum_bits, p.comparator_tail_clauses, p.rho_constants,
+        p.rho_iterations};
+    if (!fermat.valid())
+      return false;
+    target = fermat;
+    return true;
+  }
+  case TACTIX_ONLINE_PARAMETERS_LOOKUP_CIRCUIT_MODEL: {
+    const tactix_online_lookup_circuit_model_parameters &p =
+        source.value.lookup_circuit_model;
+    strategy::LookupCircuitModelParameters lookup{
+        p.maximum_fanin, p.maximum_fanout, p.maximum_primary_inputs,
+        p.maximum_support, p.maximum_vector_gate_evaluations};
+    if (!lookup.valid())
+      return false;
+    target = lookup;
+    return true;
+  }
+  case TACTIX_ONLINE_PARAMETERS_SIMON_MODEL: {
+    const tactix_online_simon_model_parameters &p = source.value.simon_model;
+    strategy::SimonModelParameters simon{p.maximum_rounds,
+                                         p.maximum_candidates};
+    if (!simon.valid())
+      return false;
+    target = simon;
+    return true;
+  }
   case TACTIX_ONLINE_PARAMETERS_AFFINE_MODEL: {
     const auto &p = source.value.affine_model;
     if (p.projection_count < 0 || p.scope_count < 0 ||

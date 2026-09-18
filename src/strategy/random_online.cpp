@@ -246,7 +246,48 @@ ActionParameters random_parameters(const Kernel &k, uint64_t &state, const std::
     return p;
   }
   if (rule == "Lucky") {
-    if (bounded(state, 3) == 2) {
+    const uint64_t lucky_kind = bounded(state, 7);
+    if (lucky_kind == 6) {
+      SimonModelParameters p = config.simon_model_reference;
+      p.maximum_rounds = 1 + inclusive_u32(state, p.maximum_rounds - 1);
+      p.maximum_candidates = 1 + bounded(state, p.maximum_candidates);
+      return p;
+    }
+    if (lucky_kind == 5) {
+      LookupCircuitModelParameters p = config.lookup_circuit_model_reference;
+      p.maximum_fanin = 1 + inclusive_u32(state, p.maximum_fanin - 1);
+      p.maximum_fanout = 1 + inclusive_u32(state, p.maximum_fanout - 1);
+      p.maximum_primary_inputs =
+          1 + inclusive_u32(state, p.maximum_primary_inputs - 1);
+      p.maximum_support = 1 + inclusive_u32(state, p.maximum_support - 1);
+      p.maximum_vector_gate_evaluations =
+          1 + bounded(state, p.maximum_vector_gate_evaluations);
+      return p;
+    }
+    if (lucky_kind == 4) {
+      FermatModelParameters p = config.fermat_model_reference;
+      p.maximum_bits = 1 + inclusive_u32(state, p.maximum_bits - 1);
+      p.comparator_tail_clauses =
+          2 + inclusive_u32(state, p.comparator_tail_clauses - 2);
+      p.rho_constants = 1 + bounded(state, p.rho_constants);
+      p.rho_iterations = 1 + bounded(state, p.rho_iterations);
+      return p;
+    }
+    if (lucky_kind == 3) {
+      BalancedSignatureModelParameters p =
+          config.balanced_signature_model_reference;
+      p.maximum_balls = 3 + inclusive_u32(state, p.maximum_balls - 3);
+      p.maximum_width = 1 + inclusive_u32(state, p.maximum_width - 1);
+      p.restarts = 1 + bounded(state, p.restarts);
+      p.steps_per_restart = 1 + bounded(state, p.steps_per_restart);
+      p.samples_per_step =
+          1 + inclusive_u32(state, p.samples_per_step - 1);
+      p.seed = draw(state);
+      p.completion_rounds =
+          1 + inclusive_u32(state, p.completion_rounds - 1);
+      return p;
+    }
+    if (lucky_kind == 2) {
       AffineModelParameters p = config.affine_model_reference;
       const bool joint = bounded(state,config.affine_joint_positive_denominator) <
                          config.affine_joint_positive_numerator;
@@ -729,6 +770,36 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
     U32_AT(6, p.maximum_free_domains);
     p.candidate_budget = v[7];
     parameters = p;
+  } else if (tuple(text, "balanced-signature-model", v) && v.size() == 7) {
+    BalancedSignatureModelParameters p;
+    U32_AT(0, p.maximum_balls);
+    U32_AT(1, p.maximum_width);
+    p.restarts = v[2];
+    p.steps_per_restart = v[3];
+    U32_AT(4, p.samples_per_step);
+    p.seed = v[5];
+    U32_AT(6, p.completion_rounds);
+    parameters = p;
+  } else if (tuple(text, "fermat-model", v) && v.size() == 4) {
+    FermatModelParameters p;
+    U32_AT(0, p.maximum_bits);
+    U32_AT(1, p.comparator_tail_clauses);
+    p.rho_constants = v[2];
+    p.rho_iterations = v[3];
+    parameters = p;
+  } else if (tuple(text, "lookup-circuit-model", v) && v.size() == 5) {
+    LookupCircuitModelParameters p;
+    U32_AT(0, p.maximum_fanin);
+    U32_AT(1, p.maximum_fanout);
+    U32_AT(2, p.maximum_primary_inputs);
+    U32_AT(3, p.maximum_support);
+    p.maximum_vector_gate_evaluations = v[4];
+    parameters = p;
+  } else if (tuple(text, "simon-model", v) && v.size() == 2) {
+    SimonModelParameters p;
+    U32_AT(0, p.maximum_rounds);
+    p.maximum_candidates = v[1];
+    parameters = p;
   } else if (tuple(text, "affine1", v) && v.size() >= 20) {
     AffineModelParameters p;
     p.maximum_variables=v[0]; p.maximum_constraints=v[1]; p.maximum_arity=v[2];
@@ -1121,6 +1192,10 @@ bool random_online_strategy_program(Kernel &k, uint64_t seed,
       !config.maximum_onehot_model_equation_arity ||
       !config.maximum_onehot_model_candidates ||
       !config.onehot_model_reference.valid() ||
+      !config.balanced_signature_model_reference.valid() ||
+      !config.fermat_model_reference.valid() ||
+      !config.lookup_circuit_model_reference.valid() ||
+      !config.simon_model_reference.valid() ||
       !config.affine_model_reference.valid() ||
       !config.affine_joint_positive_denominator ||
       config.affine_joint_positive_numerator > config.affine_joint_positive_denominator ||
@@ -1440,6 +1515,27 @@ std::string serialize_online_strategy_program(
           << p->maximum_equation_arity << ',' << p->minimum_domains << ','
           << p->minimum_equations << ',' << p->maximum_free_domains << ','
           << p->candidate_budget << ')';
+    else if (const auto *p = std::get_if<
+                 BalancedSignatureModelParameters>(&step.parameters))
+      out << ":balanced-signature-model(" << p->maximum_balls << ','
+          << p->maximum_width << ',' << p->restarts << ','
+          << p->steps_per_restart << ',' << p->samples_per_step << ','
+          << p->seed << ',' << p->completion_rounds << ')';
+    else if (const auto *p = std::get_if<FermatModelParameters>(
+                 &step.parameters))
+      out << ":fermat-model(" << p->maximum_bits << ','
+          << p->comparator_tail_clauses << ',' << p->rho_constants << ','
+          << p->rho_iterations << ')';
+    else if (const auto *p = std::get_if<LookupCircuitModelParameters>(
+                 &step.parameters))
+      out << ":lookup-circuit-model(" << p->maximum_fanin << ','
+          << p->maximum_fanout << ',' << p->maximum_primary_inputs << ','
+          << p->maximum_support << ','
+          << p->maximum_vector_gate_evaluations << ')';
+    else if (const auto *p =
+                 std::get_if<SimonModelParameters>(&step.parameters))
+      out << ":simon-model(" << p->maximum_rounds << ','
+          << p->maximum_candidates << ')';
     else if (const auto *p = std::get_if<AffineModelParameters>(&step.parameters)) {
       out << ":affine1(" << p->maximum_variables << ',' << p->maximum_constraints
           << ',' << p->maximum_arity << ',' << p->maximum_projection << ','

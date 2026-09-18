@@ -14,6 +14,7 @@ enum class LocalSearchKind : uint8_t {
   Affine,
   Parity,
   Onehot,
+  BalancedSignature,
   Count,
 };
 

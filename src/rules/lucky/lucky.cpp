@@ -7,6 +7,11 @@
 #include "rules/lucky/parity_model.hpp"
 #include "rules/lucky/onehot_model.hpp"
 #include "rules/lucky/affine_model.hpp"
+#include "rules/lucky/balanced_signature_model.hpp"
+#include "rules/lucky/fermat_model.hpp"
+#include "rules/lucky/cerny_model.hpp"
+#include "rules/lucky/lookup_circuit_model.hpp"
+#include "rules/lucky/simon_model.hpp"
 
 #include "rules/propagate/propagate.hpp"
 
@@ -296,7 +301,7 @@ ApplyResult lucky_apply(Kernel &k) {
 }
 
 static uint32_t lucky_instances(Kernel &, uint64_t *out, uint32_t cap) {
-  const uint32_t n = cap < 10 ? cap : 10;
+  const uint32_t n = cap < 15 ? cap : 15;
   for (uint32_t i = 0; i < n; i++)
     out[i] = i;
   return n;
@@ -318,6 +323,21 @@ static ApplyResult lucky_apply_instance(Kernel &k, uint64_t inst) {
   if (inst == 9)
     return onehot_model_guard(k) ? direct_csp_model_apply(k)
                                  : ApplyResult::NoOp;
+  if (inst == 10)
+    return balanced_signature_model_guard(k)
+               ? balanced_signature_model_apply(k)
+               : ApplyResult::NoOp;
+  if (inst == 11)
+    return fermat_model_guard(k) ? fermat_model_apply(k)
+                                 : ApplyResult::NoOp;
+  if (inst == 12)
+    return cerny_model_guard(k) ? cerny_model_apply(k)
+                                : ApplyResult::NoOp;
+  if (inst == 13)
+    return lookup_circuit_model_guard(k) ? lookup_circuit_model_apply(k)
+                                         : ApplyResult::NoOp;
+  if (inst == 14)
+    return simon_model_guard(k) ? simon_model_apply(k) : ApplyResult::NoOp;
   return lucky_apply_probe(k, inst);
 }
 

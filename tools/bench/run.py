@@ -76,11 +76,10 @@ MANIFESTS = os.path.join(HERE, "manifests")
 RUNS = os.path.join(ROOT, "benchmarks", "runs")
 DRAT_TRIM = os.path.join(ROOT, "tools", "checkers", "bin", "drat-trim")
 DSR_TRIM = os.path.join(ROOT, "tools", "checkers", "bin", "dsr-trim")
-DSR_COMPRESS = os.path.join(ROOT, "tools", "checkers", "bin", "dsr-compress")
 SR_CHECK = os.path.join(ROOT, "tools", "checkers", "bin", "srcheck")
 CAKE_LPR = os.path.join(ROOT, "tools", "checkers", "bin", "cake_lpr")
 sys.path.insert(0, HERE)
-from proof_oracle import bridge_trivial_input_lsr  # noqa: E402
+from proof_oracle import bridge_trivial_input_binary_lsr  # noqa: E402
 # Oracle 1 of the fuzz harness (§8.2), shared here since 2026-08-08: a SAT
 # verdict's v-lines are checked against the ORIGINAL formula. The wrong-SAT
 # exhibit was caught only by the expected-verdict column; an instance without
@@ -258,17 +257,15 @@ def check_proof(fmt, cnf, proof, budget):
 
         with tempfile.TemporaryDirectory(prefix="tactix-dsr-check-") as scratch:
             binary_lsr = os.path.join(scratch, "proof.binary.lsr")
-            text_lsr = os.path.join(scratch, "proof.text.lsr")
             stages = [
                 ([DSR_TRIM, "-q", "-f", "-c", cnf, proof, binary_lsr],
                  binary_lsr),
-                ([DSR_COMPRESS, "-d", binary_lsr, text_lsr], text_lsr),
-                ([SR_CHECK, cnf, text_lsr], None),
+                ([SR_CHECK, cnf, binary_lsr, "c"], None),
             ]
             details = []
             for index, (argv, produced) in enumerate(stages):
-                if index == 2:
-                    bridge_trivial_input_lsr(cnf, text_lsr)
+                if index == 1:
+                    bridge_trivial_input_binary_lsr(cnf, binary_lsr)
                 try:
                     checked = subprocess.run(
                         argv, capture_output=True, text=True,
@@ -277,16 +274,8 @@ def check_proof(fmt, cnf, proof, budget):
                     return (False,
                             f"{CHECKER_TIMEOUT_PREFIX}{budget:g}s budget",
                             CHK_TIMEOUT, details)
-                if index == 1:
-                    kind = (CHK_VERIFIED if checked.returncode == 0 and
-                            "ERROR" not in checked.stdout + checked.stderr and
-                            "not supported" not in checked.stdout + checked.stderr
-                            else CHK_ERROR)
-                    msg, detail = ("VERIFIED" if kind == CHK_VERIFIED else
-                                   "checker-error: DSR decompression failed"), []
-                else:
-                    kind, msg, detail = classify_checker_output(
-                        checked.stdout, checked.stderr, checked.returncode)
+                kind, msg, detail = classify_checker_output(
+                    checked.stdout, checked.stderr, checked.returncode)
                 details.extend(detail)
                 if (kind != CHK_VERIFIED or
                         (produced is not None and

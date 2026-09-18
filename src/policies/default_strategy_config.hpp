@@ -205,7 +205,8 @@ struct DefaultStrategyConfig {
         strategy::LocalSearchKind::DirectCsp,
         strategy::LocalSearchKind::Affine,
         strategy::LocalSearchKind::Parity,
-        strategy::LocalSearchKind::Onehot};
+        strategy::LocalSearchKind::Onehot,
+        strategy::LocalSearchKind::BalancedSignature};
     bool stable_only = true;
     bool late_lucky = true;
   } rephase;
@@ -228,6 +229,30 @@ struct DefaultStrategyConfig {
     bool enabled = true;
     strategy::OnehotModelParameters parameters;
   } onehot_model;
+
+  struct BalancedSignatureModel {
+    bool enabled = true;
+    strategy::BalancedSignatureModelParameters parameters;
+  } balanced_signature_model;
+
+  struct FermatModel {
+    bool enabled = true;
+    strategy::FermatModelParameters parameters;
+  } fermat_model;
+
+  struct CernyModel {
+    bool enabled = true;
+  } cerny_model;
+
+  struct LookupCircuitModel {
+    bool enabled = true;
+    strategy::LookupCircuitModelParameters parameters;
+  } lookup_circuit_model;
+
+  struct SimonModel {
+    bool enabled = true;
+    strategy::SimonModelParameters parameters;
+  } simon_model;
 
   struct Inprocess {
     // Production values are formula-shape invariant. These typed switches

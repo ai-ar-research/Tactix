@@ -68,8 +68,9 @@ class FuzzProofOracles(unittest.TestCase):
         r = self.fixture('p cnf 1 2\n1 0\n-1 0\n', '0\n', dsr=True)
         self.assertFalse(r.failures)
         self.assertEqual([Path(run['command'][0]).name
-                          for run in r.checker_runs],
-                         ['dsr-trim', 'dsr-compress', 'srcheck'])
+                         for run in r.checker_runs],
+                         ['dsr-trim', 'srcheck'])
+        self.assertEqual(r.checker_runs[-1]['command'][-1], 'c')
 
     def test_default_dsr_rejects_nonconflicting_empty_lemma(self):
         r = self.fixture('p cnf 1 1\n1 0\n', '0\n', dsr=True)

@@ -53,6 +53,16 @@ class FixedRuntimeTests(unittest.TestCase):
         self.assertTrue(r['runtime_target_met'])
         self.assertEqual(r['checked_clean'],0)
 
+    def test_explicit_suite_target_replaces_diagnostic_ratio(self):
+        for record in self.records:
+            record['solve']['wall_seconds'] = 1.05
+        default = f.score_records(self.ref, self.records)
+        approved = f.score_records(
+            self.ref, self.records, runtime_target_seconds=42.5)
+        self.assertFalse(default['runtime_target_met'])
+        self.assertTrue(approved['runtime_target_met'])
+        self.assertEqual(approved['runtime_target_seconds'], 42.5)
+
     def test_submit_records_exact_manifest_and_job(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

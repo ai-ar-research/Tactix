@@ -3,7 +3,7 @@
 The legacy lrat-check executable is deliberately not an acceptance oracle:
 6906 demonstrated false acceptance of an empty lemma on a satisfiable input.
 Use cake_lpr for native LRAT, drat-trim for native DRAT, and the exact
-dsr-trim -> textual LSR -> Trestle chain for native DSR.
+dsr-trim -> binary LSR -> Trestle chain for native DSR.
 """
 from typing import Literal
 from pathlib import Path
@@ -124,4 +124,67 @@ def bridge_trivial_input_lsr(cnf_path, lsr_path) -> bool:
             empty_id is None or tokens[0] != declared + 1):
         return False
     lsr_path.write_text(f'{declared + 1} 0 {empty_id} 0\n')
+    return True
+
+
+def _binary_token(data, index):
+    """Decode one dsr-trim signed varint, rejecting truncation/overflow."""
+    value = 0
+    shift = 0
+    while index < len(data) and shift < 64:
+        byte = data[index]
+        index += 1
+        value |= (byte & 0x7f) << shift
+        if byte < 0x80:
+            number = -(value >> 1) if value & 1 else value >> 1
+            return number, index
+        shift += 7
+    return None
+
+
+def _encode_binary_token(number):
+    value = (abs(number) << 1) | (number < 0)
+    encoded = bytearray()
+    while True:
+        byte = value & 0x7f
+        value >>= 7
+        encoded.append(byte | (0x80 if value else 0))
+        if not value:
+            return bytes(encoded)
+
+
+def bridge_trivial_input_binary_lsr(cnf_path, lsr_path) -> bool:
+    """Add the missing input-empty hint to dsr-trim's binary trivial LSR."""
+    lsr_path = Path(lsr_path)
+    try:
+        data = lsr_path.read_bytes()
+    except OSError:
+        return False
+    if len(data) > 32 or not data or data[0] != 3:
+        return False
+    decoded = []
+    index = 1
+    while index < len(data):
+        token = _binary_token(data, index)
+        if token is None:
+            return False
+        value, index = token
+        decoded.append(value)
+        if len(decoded) > 3:
+            return False
+    if len(decoded) != 3 or decoded[1:] != [0, 0]:
+        return False
+
+    # Reuse the narrowly-scoped textual bridge to validate the CNF and obtain
+    # the unique first empty-clause hint without duplicating DIMACS parsing.
+    temporary = lsr_path.with_name(lsr_path.name + '.trivial-text.tmp')
+    try:
+        temporary.write_text(f'{decoded[0]} 0 0\n')
+        if not bridge_trivial_input_lsr(cnf_path, temporary):
+            return False
+        tokens = [int(token) for token in temporary.read_text().split()]
+    finally:
+        temporary.unlink(missing_ok=True)
+    lsr_path.write_bytes(bytes([3]) + b''.join(
+        _encode_binary_token(token) for token in tokens))
     return True

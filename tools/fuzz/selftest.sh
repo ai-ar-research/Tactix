@@ -11,7 +11,6 @@ CADICAL="$ROOT/tools/solvers/bin/cadical"
 [ -x "$ROOT/tools/checkers/bin/drat-trim" ] || "$ROOT/tools/checkers/setup.sh"
 [ -x "$ROOT/tools/checkers/bin/cake_lpr" ] || "$ROOT/tools/checkers/setup.sh"
 [ -x "$ROOT/tools/checkers/bin/dsr-trim" ] || "$ROOT/tools/checkers/setup.sh"
-[ -x "$ROOT/tools/checkers/bin/dsr-compress" ] || "$ROOT/tools/checkers/setup.sh"
 [ -x "$ROOT/tools/checkers/bin/srcheck" ] || "$ROOT/tools/checkers/setup.sh"
 
 # Fixed native/conversion dispatch, invalid-empty-lemma, strict status and

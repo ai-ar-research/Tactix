@@ -86,6 +86,20 @@ OnehotModelParameters OnehotModelParameters::from_kernel(const Kernel &k) {
           k.onehot_model_maximum_free_domains,
           k.onehot_model_candidate_budget};
 }
+BalancedSignatureModelParameters
+BalancedSignatureModelParameters::from_kernel(const Kernel &k) {
+  return k.balanced_signature_model_parameters;
+}
+FermatModelParameters FermatModelParameters::from_kernel(const Kernel &k) {
+  return k.fermat_model_parameters;
+}
+LookupCircuitModelParameters
+LookupCircuitModelParameters::from_kernel(const Kernel &k) {
+  return k.lookup_circuit_model_parameters;
+}
+SimonModelParameters SimonModelParameters::from_kernel(const Kernel &k) {
+  return k.simon_model_parameters;
+}
 
 std::vector<AffineSearchScope> AffineModelParameters::reference_scopes() {
   std::vector<AffineSearchScope> result;
@@ -210,6 +224,20 @@ void install_rule_parameters(Kernel &k, const OnehotModelParameters &p) {
   k.onehot_model_minimum_equations = p.minimum_equations;
   k.onehot_model_maximum_free_domains = p.maximum_free_domains;
   k.onehot_model_candidate_budget = p.candidate_budget;
+}
+void install_rule_parameters(Kernel &k,
+                             const BalancedSignatureModelParameters &p) {
+  k.balanced_signature_model_parameters = p;
+}
+void install_rule_parameters(Kernel &k, const FermatModelParameters &p) {
+  k.fermat_model_parameters = p;
+}
+void install_rule_parameters(Kernel &k,
+                             const LookupCircuitModelParameters &p) {
+  k.lookup_circuit_model_parameters = p;
+}
+void install_rule_parameters(Kernel &k, const SimonModelParameters &p) {
+  k.simon_model_parameters = p;
 }
 
 } // namespace tactix::strategy

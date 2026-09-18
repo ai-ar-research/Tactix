@@ -4,7 +4,7 @@
 #   lrat-check  — fast C LRAT checker (ships in the drat-trim repo)
 #   cake_lpr    — formally verified LRAT/LPR checker (pre-verified CakeML asm)
 #   dsr-trim    — DSR checker + LSR elaborator
-#   srcheck     — Trestle's verified textual-LSR checker
+#   srcheck     — Trestle's verified binary/textual-LSR checker
 # Clones live at the repo root, untracked (see .gitignore); binaries are
 # symlinked into tools/checkers/bin/.
 #
@@ -13,7 +13,8 @@
 #   cake_lpr   a4323b203cc9ecd584ba7da9e3fff08135a09d5f
 #   dsr-trim   0b8cc0ef4d228c059994923cbc66abeb9a42ea14 plus the
 #              repository-pinned forward-elaboration consistency repairs
-#   Trestle    03ac9418bc23d345fe0111533c198e8903362ed6
+#   Trestle    03ac9418bc23d345fe0111533c198e8903362ed6 plus the
+#              repository-pinned binary-LSR parser
 #
 # Usage: tools/checkers/setup.sh
 
@@ -27,8 +28,8 @@ DRAT_TRIM_COMMIT=2e3b2dc0ecf938addbd779d42877b6ed69d9a985
 CAKE_LPR_COMMIT=a4323b203cc9ecd584ba7da9e3fff08135a09d5f
 DSR_TRIM_COMMIT=0b8cc0ef4d228c059994923cbc66abeb9a42ea14
 TRESTLE_COMMIT=03ac9418bc23d345fe0111533c198e8903362ed6
-TRESTLE_FALLBACK_SHA256=f0eef5c48e2378c6fb5dfee4c7dc68ad0ff96d359067483fbf484d266f3aeb18
 DSR_TRIM_PATCH="$ROOT/tools/checkers/patches/dsr-trim-0b8cc0e-forward-elaboration.patch"
+TRESTLE_PATCH="$ROOT/tools/checkers/patches/trestle-03ac9418-binary-lsr.patch"
 
 clone_at_commit () { # dir url commit
     local dir="$ROOT/$1" url="$2" commit="$3"
@@ -96,23 +97,14 @@ ln -sf "$ROOT/dsr-trim-sr/bin/dsr-trim" "$BIN/dsr-trim"
 ln -sf "$ROOT/dsr-trim-sr/bin/compress" "$BIN/dsr-compress"
 
 echo "== Trestle srcheck =="
-clone_at_commit trestle https://github.com/FormalSAT/trestle.git \
-    "$TRESTLE_COMMIT"
+clone_patched_at_commit trestle https://github.com/FormalSAT/trestle.git \
+    "$TRESTLE_COMMIT" "$TRESTLE_PATCH"
 SR_CHECK="$ROOT/trestle/.lake/build/bin/srcheck"
 if [ ! -x "$SR_CHECK" ]; then
     if command -v lake >/dev/null 2>&1; then
-        (cd "$ROOT/trestle" && lake exe cache get && lake build srcheck)
-    elif [ -x "$ROOT/benchmarks/baselines/sc24-26-32g-5000s/pins/srcheck" ]; then
-        # Retained campaigns pin this exact Trestle build. This path keeps an
-        # existing research workspace usable when Lean is not installed.
-        SR_CHECK="$ROOT/benchmarks/baselines/sc24-26-32g-5000s/pins/srcheck"
-        ACTUAL_SR_CHECK_SHA256="$(sha256sum "$SR_CHECK" | awk '{print $1}')"
-        if [ "$ACTUAL_SR_CHECK_SHA256" != "$TRESTLE_FALLBACK_SHA256" ]; then
-            echo "retained srcheck has unexpected SHA-256 $ACTUAL_SR_CHECK_SHA256" >&2
-            exit 1
-        fi
+        (cd "$ROOT/trestle" && lake build srcheck)
     else
-        echo "lake is required to build the pinned Trestle srcheck" >&2
+        echo "lake is required to build the patched Trestle srcheck" >&2
         exit 1
     fi
 fi
@@ -158,9 +150,7 @@ EOF
     > "$T/dsr.out"
 grep -Eq '^s VERIFIED[[:space:]]+UNSAT$' "$T/dsr.out"
 test -s "$T/sr.binary.lsr"
-"$BIN/dsr-compress" -d "$T/sr.binary.lsr" "$T/sr.lsr"
-test -s "$T/sr.lsr"
-"$BIN/srcheck" "$T/sr.cnf" "$T/sr.lsr" > "$T/srcheck.out"
+"$BIN/srcheck" "$T/sr.cnf" "$T/sr.binary.lsr" c > "$T/srcheck.out"
 grep -Eq '^s VERIFIED[[:space:]]+UNSAT$' "$T/srcheck.out"
 
 # Forward elaboration must expose parser-deleted tautologies and duplicates to
@@ -187,10 +177,36 @@ EOF
 "$BIN/dsr-trim" -q -f -c "$T/normalized.cnf" "$T/normalized.dsr" \
     "$T/normalized.binary.lsr" > "$T/normalized-dsr.out"
 grep -Eq '^s VERIFIED[[:space:]]+UNSAT$' "$T/normalized-dsr.out"
-"$BIN/dsr-compress" -d "$T/normalized.binary.lsr" "$T/normalized.lsr"
-"$BIN/srcheck" "$T/normalized.cnf" "$T/normalized.lsr" \
+"$BIN/srcheck" "$T/normalized.cnf" "$T/normalized.binary.lsr" c \
     > "$T/normalized-srcheck.out"
 grep -Eq '^s VERIFIED[[:space:]]+UNSAT$' "$T/normalized-srcheck.out"
+"$BIN/dsr-compress" -d "$T/normalized.binary.lsr" "$T/normalized.lsr"
+"$BIN/srcheck" "$T/normalized.cnf" "$T/normalized.lsr" \
+    > "$T/normalized-text-srcheck.out"
+grep -Eq '^s VERIFIED[[:space:]]+UNSAT$' "$T/normalized-text-srcheck.out"
+
+# The binary parser must fail closed on a missing terminator and on a damaged
+# payload, even though Trestle intentionally returns zero for INVALID proofs.
+python3 - "$T/normalized.binary.lsr" "$T/truncated.binary.lsr" \
+    "$T/corrupt.binary.lsr" "$T/overflow.binary.lsr" <<'PY'
+from pathlib import Path
+import sys
+proof = Path(sys.argv[1]).read_bytes()
+Path(sys.argv[2]).write_bytes(proof[:-1])
+damaged = bytearray(proof)
+damaged[len(damaged) // 2] ^= 0x40
+Path(sys.argv[3]).write_bytes(damaged)
+Path(sys.argv[4]).write_bytes(bytes([3] + [0xff] * 10 + [0]))
+PY
+for invalid in "$T/truncated.binary.lsr" "$T/corrupt.binary.lsr" \
+        "$T/overflow.binary.lsr"; do
+    "$BIN/srcheck" "$T/normalized.cnf" "$invalid" c > "$T/invalid-binary.out"
+    grep -Eq '^s INVALID$' "$T/invalid-binary.out"
+    if grep -Eq '^s VERIFIED[[:space:]]+UNSAT$' "$T/invalid-binary.out"; then
+        echo "Trestle accepted an invalid binary-LSR negative control" >&2
+        exit 1
+    fi
+done
 
 # This valid SR addition makes the formula contradictory during the
 # elaborator's global propagation, before another DSR line exists. The emitted
@@ -230,8 +246,7 @@ EOF
 "$BIN/dsr-trim" -q -f -c "$T/early-empty.cnf" "$T/early-empty.dsr" \
     "$T/early-empty.binary.lsr" > "$T/early-empty-dsr.out"
 grep -Eq '^s VERIFIED[[:space:]]+UNSAT$' "$T/early-empty-dsr.out"
-"$BIN/dsr-compress" -d "$T/early-empty.binary.lsr" "$T/early-empty.lsr"
-"$BIN/srcheck" "$T/early-empty.cnf" "$T/early-empty.lsr" \
+"$BIN/srcheck" "$T/early-empty.cnf" "$T/early-empty.binary.lsr" c \
     > "$T/early-empty-srcheck.out"
 grep -Eq '^s VERIFIED[[:space:]]+UNSAT$' "$T/early-empty-srcheck.out"
 

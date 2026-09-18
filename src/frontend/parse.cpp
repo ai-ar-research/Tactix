@@ -67,6 +67,67 @@ static void grow_input_binary_liveness(Kernel &k, size_t entries) {
         k.binary_liveness->add(kernel_binary_key(lit, watch.other()));
 }
 
+static void capture_raw_input_shape(Kernel &k,
+                                    const std::vector<Lit> &scratch) {
+  if (scratch.size() == 1) {
+    ++k.input_unit_clause_count;
+  } else {
+    ++k.input_nonunit_clause_count;
+    const uint32_t width = static_cast<uint32_t>(scratch.size());
+    if (k.input_nonunit_clause_count == 1)
+      k.input_uniform_nonunit_width = width;
+    else if (width != k.input_uniform_nonunit_width)
+      k.input_nonunit_uniform = false;
+  }
+  std::array<int32_t, 2> tail{0, 0};
+  if (scratch.size() == 2) {
+    ++k.input_binary_clause_count;
+    tail[0] = kernel_externalize(k, scratch[0]);
+    tail[1] = kernel_externalize(k, scratch[1]);
+    if (tail[0] > 0 && tail[1] > 0)
+      ++k.input_positive_binary_count;
+  }
+  if (scratch.size() == 3)
+    ++k.input_ternary_clause_count;
+  if (k.input_clause_tail.size() < Kernel::INPUT_CLAUSE_TAIL_CAPACITY) {
+    k.input_clause_tail.push_back(tail);
+  } else {
+    k.input_clause_tail[k.input_clause_tail_next] = tail;
+    k.input_clause_tail_next =
+        (k.input_clause_tail_next + 1) % Kernel::INPUT_CLAUSE_TAIL_CAPACITY;
+  }
+
+  if (scratch.size() <= 10)
+    return;
+  if (k.input_long_clause_count != UINT32_MAX)
+    ++k.input_long_clause_count;
+  if (!k.input_fermat_long_shape || k.input_long_clause_count > 2) {
+    k.input_fermat_long_shape = false;
+    return;
+  }
+  // The recovered constant has k-1 bits and the owner is a 64-bit strategy.
+  if (scratch.size() > 64) {
+    k.input_fermat_long_shape = false;
+    return;
+  }
+  const uint32_t width = static_cast<uint32_t>(scratch.size());
+  if (k.input_long_clause_count == 1)
+    k.input_fermat_width = width;
+  else if (width != k.input_fermat_width) {
+    k.input_fermat_long_shape = false;
+    return;
+  }
+  const uint32_t first = k.input_long_clause_count == 1
+                             ? 1
+                             : k.input_fermat_width + 1;
+  for (uint32_t i = 0; i < width; ++i)
+    if (kernel_externalize(k, scratch[i]) !=
+        -static_cast<int>(first + i)) {
+      k.input_fermat_long_shape = false;
+      return;
+    }
+}
+
 // N2 input identity: the checker numbers raw file clauses by position, so any
 // normalization can diverge from the stored clause. Add each exact narrowed
 // clause after input: LRAT cites root units then the file id; DRAT searches for
@@ -143,6 +204,7 @@ static void propagate_input_unit(Kernel &k) {
     maxv = std::max(maxv, var_of(l));
   if (!scratch.empty())
     kernel_reserve_vars(k, maxv + 1);
+  capture_raw_input_shape(k, scratch);
   // Seed the diagnostic proof shadow from the checker's ACTUAL starting
   // population, before normalization changes or drops this clause. The checker
   // reads every file clause, including tautologies and duplicate copies; a
@@ -333,6 +395,7 @@ void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
         var_of(b) < k.nvars && !k.inconsistent && k.values[a] == 0 &&
         k.values[b] == 0) {
       const uint64_t id = ++k.next_clause_id;
+      capture_raw_input_shape(k, scratch);
       if (k.proof && k.proof->population_shadow_available())
         k.proof->seed_population(id, scratch.data(), 2);
       kernel_record_import(k, var_of(a));
@@ -631,6 +694,7 @@ const char *parse_dimacs_with_block(FILE *f, Kernel &k, size_t block_bytes) {
                 strategy::OnehotModelParameters::MAXIMUM_CONSTRAINTS_DEFAULT;
         if (k.input_binary_order_captured)
           k.input_binary_order.reserve(static_cast<size_t>(clauses));
+        k.input_clause_tail.reserve(Kernel::INPUT_CLAUSE_TAIL_CAPACITY);
         // Native LRAT retains exact binary proof identities. DRAT and
         // proofless solving instead use a compact no-false-negative filter
         // backed by exact mirrored-watch confirmation during input.  The

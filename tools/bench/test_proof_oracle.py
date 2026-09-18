@@ -1,6 +1,8 @@
+from pathlib import Path
+import tempfile
 import unittest
 
-from proof_oracle import proof_check_status
+from proof_oracle import bridge_trivial_input_binary_lsr, proof_check_status
 
 
 class ProofOracleTests(unittest.TestCase):
@@ -55,6 +57,27 @@ class ProofOracleTests(unittest.TestCase):
     def test_legacy_checker_cannot_be_selected(self):
         with self.assertRaises(ValueError):
             proof_check_status('lrat-check', 0, 'c VERIFIED\n', '')
+
+    def test_binary_trivial_input_bridge(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            cnf = root / 'input.cnf'
+            lsr = root / 'proof.binary.lsr'
+            cnf.write_text('p cnf 2 2\n1 2 0\n0\n')
+            lsr.write_bytes(bytes([3, 6, 0, 0]))
+            self.assertTrue(bridge_trivial_input_binary_lsr(cnf, lsr))
+            self.assertEqual(lsr.read_bytes(), bytes([3, 6, 0, 4, 0]))
+
+    def test_binary_bridge_is_narrow(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            cnf = root / 'input.cnf'
+            cnf.write_text('p cnf 1 1\n1 0\n')
+            for payload in (bytes([3, 4, 0, 0]), bytes([3, 4, 0, 128])):
+                lsr = root / 'proof.binary.lsr'
+                lsr.write_bytes(payload)
+                self.assertFalse(bridge_trivial_input_binary_lsr(cnf, lsr))
+                self.assertEqual(lsr.read_bytes(), payload)
 
 if __name__ == '__main__':
     unittest.main()
