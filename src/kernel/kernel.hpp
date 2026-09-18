@@ -532,6 +532,13 @@ struct Stats {
   uint64_t onehot_model_candidates = 0;
   uint64_t onehot_model_sat = 0;
   uint64_t onehot_model_interrupted = 0;
+  uint64_t exact_one_refutation_calls = 0;
+  uint64_t exact_one_refutation_recognized = 0;
+  uint64_t exact_one_refutation_equations = 0;
+  uint64_t exact_one_refutation_unsat = 0;
+  uint64_t exact_one_refutation_interrupted = 0;
+  uint64_t exact_one_refutation_proof_additions = 0;
+  uint64_t exact_one_refutation_proof_deletions = 0;
   uint64_t direct_csp_model_calls = 0;
   uint64_t direct_csp_model_domains = 0;
   uint64_t direct_csp_model_edges = 0;
@@ -1503,6 +1510,16 @@ struct Kernel {
       strategy::OnehotModelParameters::MAXIMUM_FREE_DOMAINS_DEFAULT;
   uint64_t onehot_model_candidate_budget =
       strategy::OnehotModelParameters::CANDIDATE_BUDGET_DEFAULT;
+  uint32_t exact_one_refutation_maximum_variables =
+      strategy::OnehotModelParameters::REFUTATION_MAXIMUM_VARIABLES_DEFAULT;
+  uint32_t exact_one_refutation_maximum_groups =
+      strategy::OnehotModelParameters::REFUTATION_MAXIMUM_GROUPS_DEFAULT;
+  uint32_t exact_one_refutation_maximum_constraints =
+      strategy::OnehotModelParameters::REFUTATION_MAXIMUM_CONSTRAINTS_DEFAULT;
+  uint32_t exact_one_refutation_maximum_arity =
+      strategy::OnehotModelParameters::REFUTATION_MAXIMUM_ARITY_DEFAULT;
+  uint64_t exact_one_refutation_maximum_proof_additions =
+      strategy::OnehotModelParameters::REFUTATION_MAXIMUM_PROOF_ADDITIONS_DEFAULT;
   // DefaultPolicy retains Kissat's separate focused/stable tier snapshots.
   // `tier1/tier2` is the pair posed for the rule currently being applied.
   uint32_t tier1_by_mode[2] = {2, 2};

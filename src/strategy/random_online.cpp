@@ -778,7 +778,8 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
       p.refutation_maximum_proof_additions = v[13];
     }
     parameters = p;
-  } else if (tuple(text, "onehot-model", v) && v.size() == 8) {
+  } else if ((tuple(text, "onehot-model", v) && v.size() == 8) ||
+             (tuple(text, "onehot-model2", v) && v.size() == 13)) {
     OnehotModelParameters p;
     U32_AT(0, p.maximum_variables);
     U32_AT(1, p.maximum_domains);
@@ -788,6 +789,13 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
     U32_AT(5, p.minimum_equations);
     U32_AT(6, p.maximum_free_domains);
     p.candidate_budget = v[7];
+    if (v.size() == 13) {
+      U32_AT(8, p.refutation_maximum_variables);
+      U32_AT(9, p.refutation_maximum_groups);
+      U32_AT(10, p.refutation_maximum_constraints);
+      U32_AT(11, p.refutation_maximum_arity);
+      p.refutation_maximum_proof_additions = v[12];
+    }
     parameters = p;
   } else if (tuple(text, "balanced-signature-model", v) && v.size() == 7) {
     BalancedSignatureModelParameters p;
@@ -1543,11 +1551,16 @@ std::string serialize_online_strategy_program(
           << p->refutation_maximum_proof_additions << ')';
     else if (const auto *p =
                  std::get_if<OnehotModelParameters>(&step.parameters))
-      out << ":onehot-model(" << p->maximum_variables << ','
+      out << ":onehot-model2(" << p->maximum_variables << ','
           << p->maximum_domains << ',' << p->maximum_constraints << ','
           << p->maximum_equation_arity << ',' << p->minimum_domains << ','
           << p->minimum_equations << ',' << p->maximum_free_domains << ','
-          << p->candidate_budget << ')';
+          << p->candidate_budget << ','
+          << p->refutation_maximum_variables << ','
+          << p->refutation_maximum_groups << ','
+          << p->refutation_maximum_constraints << ','
+          << p->refutation_maximum_arity << ','
+          << p->refutation_maximum_proof_additions << ')';
     else if (const auto *p = std::get_if<
                  BalancedSignatureModelParameters>(&step.parameters))
       out << ":balanced-signature-model(" << p->maximum_balls << ','

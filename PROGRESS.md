@@ -74,6 +74,17 @@ times out on WV95 both alone and with MAB, and MAB+fastel also times out on
 WV96. The rejected variant has been removed rather than retained as another
 strategy branch.
 
+The native parity successor recognizes complete arity-2--4 XOR systems with
+even incidence and odd right-hand-side sum; WV80 solves in 16.542s, while
+WV83/86 solve in 63.966/40.882s and remain in long independent checking. The
+typed Lucky7 successor now recognizes complete bipartite exact-one incidence
+systems and emits a modulo-three ER refutation when the color classes differ.
+Default-policy job AM194 independently checks WV25/26 in
+12.486/17.645s at 6 MiB solver RSS; both native DSR certificates pass dsr-trim
+and Trestle. AM195 is the canonical-Trestle replication. No filename, rank,
+family, size-class dispatch, external solver stage, or sequential portfolio is
+present. The remaining open owner gaps are WV1's SGEN counting proof and WV95.
+
 The cumulative StConn successor Release suite passes all 168 tests. AM173's
 Claude-owned proof/scheduling fuzz completed both Release and ASan campaigns.
 It exposed invalid harness expectations for non-refuting proof prefixes and a
@@ -89,11 +100,8 @@ running tasks are never held or interrupted.
 
 ## Exact next action
 
-Adjudicate AM173's fuzz findings and finish the four live Trestle tasks for
-jobs 1702533/1702534. Independently fuzz and commit the accepted MAB increment.
-Integrate LymphoSAT's general parity refutation for WV80/83/86: all three are
-exact complete arity-2--4 XOR systems, every variable has even incidence, and
-the right-hand sides sum to one. Then close the PB counting proof gap for
-WV1/25/26 and the remaining WV95 owner gap. Preserve every checked solve and
-both Phase-1 aggregate gates.
+Finish the parity checks and Claude-owned differential fuzz, then fuzz the
+exact-one rule. Integrate LymphoSAT's general signed-cardinality counting proof
+for WV1 and resolve WV95's remaining SC2024 mechanism gap. Preserve every
+checked solve and both Phase-1 aggregate gates.
 <!-- track-sched:end -->

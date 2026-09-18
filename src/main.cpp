@@ -904,6 +904,16 @@ int main(int argc, char **argv) {
                                     ? 0
                                     : kernel.stats.direct_csp_model_best),
            (unsigned long long)kernel.stats.direct_csp_model_sat);
+    printf("c exact-one  %llu calls, %llu recognized, %llu equations, "
+           "%llu UNSAT, %llu interrupted, %llu proof additions, "
+           "%llu proof deletions\n",
+           (unsigned long long)kernel.stats.exact_one_refutation_calls,
+           (unsigned long long)kernel.stats.exact_one_refutation_recognized,
+           (unsigned long long)kernel.stats.exact_one_refutation_equations,
+           (unsigned long long)kernel.stats.exact_one_refutation_unsat,
+           (unsigned long long)kernel.stats.exact_one_refutation_interrupted,
+           (unsigned long long)kernel.stats.exact_one_refutation_proof_additions,
+           (unsigned long long)kernel.stats.exact_one_refutation_proof_deletions);
     printf("c balance    %llu calls, %llu recognized, %llu candidates, "
            "%llu restarts, %llu steps, %llu completion rounds, %llu SAT, "
            "%llu interrupted\n",
