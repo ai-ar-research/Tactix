@@ -94,9 +94,19 @@ The candidate-side eager-reservation defect is fixed in `2e429368`. The pinned
 dsr-trim RAT-candidate bitmask defect is repaired by the repository checker
 patch: capacity now grows past `mask_index`, and setup runs the minimized
 24-clause certificate through dsr-trim and canonical Trestle. The owner found
-zero canonical/optimized Trestle divergences across 31,949 streams. Its
-remaining R1 finding is an N4 scheduling gap: structured-root SR can preempt
-the parity refutation on a 3,000-variable residual.
+zero canonical/optimized Trestle divergences across 31,949 streams. AM218 closes
+its R1 scheduling finding: DefaultPolicy now offers the bounded typed parity
+action before structured-root mutation, and the 3,000-variable reproducer
+solves in 0.401s with native DSR verified by dsr-trim and canonical Trestle.
+AM219 preserves the focused Phase-1 gate: Rank 1 solves in 1.018s and Rank 6 in
+53.359s versus AM149's 1.018/52.802s, with identical decisions, conflicts and
+propagations and independently verified proof/model results.
+
+AM217 rejects a fixed random-seed explanation for WV95: all eight diagnostic
+seeds time out at 1,200s, spanning 12.36--14.64 million conflicts. AM220 now
+dumps SC2024's residual after preprocessing and before its first decision; a
+Tactix run on that residual will distinguish a transformation gap from a
+downstream search-state gap without promoting an external preprocessing stage.
 
 The cumulative StConn successor Release suite passes all 168 tests. AM173's
 Claude-owned proof/scheduling fuzz completed both Release and ASan campaigns.
@@ -113,11 +123,9 @@ running tasks are never held or interrupted.
 
 ## Exact next action
 
-Finish the WV86 parity check and the parity R1 scheduling repair, then fuzz the
-exact-one rule. AM217 measures whether WV95's remaining gap is downstream
-random-trajectory sensitivity after matching SC2024's Factor/BVE footprint;
-its result may motivate a general adaptive diversification policy, but cannot
-promote a fixed winning seed or a portfolio. Keep WV1's signed-cardinality
-counting proof staged unless it gains a native DSR formulation. Preserve every
-checked solve and both Phase-1 aggregate gates.
+Finish the WV86 parity check, then fuzz the exact-one rule. Complete AM220's
+SC2024-residual diagnostic and use its result to choose the next general WV95
+integration step. Keep WV1's signed-cardinality counting proof staged unless it
+gains a native DSR formulation. Preserve every checked solve and both Phase-1
+aggregate gates.
 <!-- track-sched:end -->

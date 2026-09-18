@@ -1,4 +1,5 @@
 #undef NDEBUG
+#include "policies/default_policy.hpp"
 #include "rules/lucky/parity_model.hpp"
 #include "rules/lucky/parity_refutation.hpp"
 
@@ -98,6 +99,17 @@ static Kernel inconsistent_xor_cycle() {
 }
 
 int main() {
+  {
+    // Structured-root mutation must not preempt a complete imported parity
+    // refutation.  DefaultPolicy offers the bounded typed parity action at the
+    // same untouched-formula boundary as its exact-one refutation.
+    Kernel k = inconsistent_xor_cycle();
+    DefaultPolicy policy;
+    assert(policy.solve(k) == 20);
+    assert(k.stats.parity_refutation_recognized == 1);
+    assert(k.stats.parity_refutation_unsat == 1);
+    assert(policy.inprocess().structured_root.runs == 0);
+  }
   {
     Kernel k = xor_fixture(true);
     assert(parity_model_guard(k));

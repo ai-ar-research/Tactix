@@ -3458,6 +3458,26 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     }
     event_trace.macro(k, "balanced_signature_model_end", "unknown");
   }
+  // The parity refutation recognizes a complete imported XOR system and its
+  // proof preflight is transactional.  Offer the complete typed parity action
+  // before structured-root SR can fix variables or add helper clauses that
+  // erase that exact representation.  This is the same lifecycle boundary as
+  // exact-one below; admission remains entirely structural and bounded by the
+  // public parity parameters.
+  if (config_.parity_model.enabled && parity_model_guard(k)) {
+    event_trace.macro(k, "parity_model_begin");
+    const ApplyResult parity = default_direct_rule(
+        k, "Lucky", "parity-model", [&] { return parity_model_apply(k); });
+    if (parity == ApplyResult::Sat) {
+      event_trace.macro(k, "parity_model_end", "sat");
+      return finish(10);
+    }
+    if (parity == ApplyResult::Unsat) {
+      event_trace.macro(k, "parity_model_end", "unsat");
+      return finish(20);
+    }
+    event_trace.macro(k, "parity_model_end", "unknown");
+  }
   // The exact-one proof compares a complete live incidence system with the
   // parser's stable binary order. Run it while both still describe the same
   // imported formula, before structured-root rules may add helpers or retire
@@ -3570,20 +3590,6 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       return finish(10);
     }
     event_trace.macro(k, "lucky_early_end", "unknown");
-  }
-  if (config_.parity_model.enabled && parity_model_guard(k)) {
-    event_trace.macro(k, "parity_model_begin");
-    const ApplyResult parity = default_direct_rule(
-        k, "Lucky", "parity-model", [&] { return parity_model_apply(k); });
-    if (parity == ApplyResult::Sat) {
-      event_trace.macro(k, "parity_model_end", "sat");
-      return finish(10);
-    }
-    if (parity == ApplyResult::Unsat) {
-      event_trace.macro(k, "parity_model_end", "unsat");
-      return finish(20);
-    }
-    event_trace.macro(k, "parity_model_end", "unknown");
   }
   if (config_.onehot_model.enabled && onehot_model_guard(k)) {
     event_trace.macro(k, "onehot_model_begin");
