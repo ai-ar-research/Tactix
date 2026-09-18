@@ -863,6 +863,13 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.parity_model_candidates,
            (unsigned long long)kernel.stats.parity_model_sat,
            (unsigned long long)kernel.stats.parity_model_interrupted);
+    printf("c parity-ref %llu probe declines, %llu recognized, %llu UNSAT, "
+           "%llu proof additions, %llu proof deletions\n",
+           (unsigned long long)kernel.stats.parity_refutation_probe_declines,
+           (unsigned long long)kernel.stats.parity_refutation_recognized,
+           (unsigned long long)kernel.stats.parity_refutation_unsat,
+           (unsigned long long)kernel.stats.parity_refutation_proof_additions,
+           (unsigned long long)kernel.stats.parity_refutation_proof_deletions);
     printf("c affine     %llu calls, %llu equations, %llu coordinates, "
            "%llu entries, %llu candidates, %llu SAT, %llu work, "
            "%llu budgets, %llu unavailable, %llu interrupted\n",

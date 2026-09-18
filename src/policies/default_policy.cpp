@@ -744,6 +744,20 @@ std::string DefaultStrategyConfig::serialize() const {
       << parity_model.parameters.maximum_free_variables
       << " parity_model.candidate_budget="
       << parity_model.parameters.candidate_budget
+      << " parity_model.refutation_maximum_variables="
+      << parity_model.parameters.refutation_maximum_variables
+      << " parity_model.refutation_maximum_groups="
+      << parity_model.parameters.refutation_maximum_groups
+      << " parity_model.refutation_maximum_constraints="
+      << parity_model.parameters.refutation_maximum_constraints
+      << " parity_model.refutation_maximum_arity="
+      << parity_model.parameters.refutation_maximum_arity
+      << " parity_model.refutation_probe_constraints="
+      << parity_model.parameters.refutation_probe_constraints
+      << " parity_model.refutation_minimum_probe_repeats="
+      << parity_model.parameters.refutation_minimum_probe_repeats
+      << " parity_model.refutation_maximum_proof_additions="
+      << parity_model.parameters.refutation_maximum_proof_additions
       << " onehot_model.enabled=" << onehot_model.enabled
       << " onehot_model.maximum_variables="
       << onehot_model.parameters.maximum_variables
@@ -3273,6 +3287,20 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       config_.parity_model.parameters.maximum_free_variables;
   k.parity_model_candidate_budget =
       config_.parity_model.parameters.candidate_budget;
+  k.parity_refutation_maximum_variables =
+      config_.parity_model.parameters.refutation_maximum_variables;
+  k.parity_refutation_maximum_groups =
+      config_.parity_model.parameters.refutation_maximum_groups;
+  k.parity_refutation_maximum_constraints =
+      config_.parity_model.parameters.refutation_maximum_constraints;
+  k.parity_refutation_maximum_arity =
+      config_.parity_model.parameters.refutation_maximum_arity;
+  k.parity_refutation_probe_constraints =
+      config_.parity_model.parameters.refutation_probe_constraints;
+  k.parity_refutation_minimum_probe_repeats =
+      config_.parity_model.parameters.refutation_minimum_probe_repeats;
+  k.parity_refutation_maximum_proof_additions =
+      config_.parity_model.parameters.refutation_maximum_proof_additions;
   k.onehot_model_maximum_variables =
       config_.onehot_model.parameters.maximum_variables;
   k.onehot_model_maximum_domains =
@@ -3522,6 +3550,10 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     if (parity == ApplyResult::Sat) {
       event_trace.macro(k, "parity_model_end", "sat");
       return finish(10);
+    }
+    if (parity == ApplyResult::Unsat) {
+      event_trace.macro(k, "parity_model_end", "unsat");
+      return finish(20);
     }
     event_trace.macro(k, "parity_model_end", "unknown");
   }

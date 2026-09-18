@@ -74,7 +74,14 @@ ParityModelParameters ParityModelParameters::from_kernel(const Kernel &k) {
           k.parity_model_minimum_group_clauses,
           k.parity_model_minimum_equations,
           k.parity_model_maximum_free_variables,
-          k.parity_model_candidate_budget};
+          k.parity_model_candidate_budget,
+          k.parity_refutation_maximum_variables,
+          k.parity_refutation_maximum_groups,
+          k.parity_refutation_maximum_constraints,
+          k.parity_refutation_maximum_arity,
+          k.parity_refutation_probe_constraints,
+          k.parity_refutation_minimum_probe_repeats,
+          k.parity_refutation_maximum_proof_additions};
 }
 OnehotModelParameters OnehotModelParameters::from_kernel(const Kernel &k) {
   return {k.onehot_model_maximum_variables,
@@ -216,6 +223,15 @@ void install_rule_parameters(Kernel &k, const ParityModelParameters &p) {
   k.parity_model_minimum_equations = p.minimum_equations;
   k.parity_model_maximum_free_variables = p.maximum_free_variables;
   k.parity_model_candidate_budget = p.candidate_budget;
+  k.parity_refutation_maximum_variables = p.refutation_maximum_variables;
+  k.parity_refutation_maximum_groups = p.refutation_maximum_groups;
+  k.parity_refutation_maximum_constraints = p.refutation_maximum_constraints;
+  k.parity_refutation_maximum_arity = p.refutation_maximum_arity;
+  k.parity_refutation_probe_constraints = p.refutation_probe_constraints;
+  k.parity_refutation_minimum_probe_repeats =
+      p.refutation_minimum_probe_repeats;
+  k.parity_refutation_maximum_proof_additions =
+      p.refutation_maximum_proof_additions;
 }
 
 void install_rule_parameters(Kernel &k, const OnehotModelParameters &p) {

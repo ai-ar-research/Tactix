@@ -1,7 +1,16 @@
 #undef NDEBUG
 #include "rules/lucky/parity_model.hpp"
+#include "rules/lucky/parity_refutation.hpp"
 
+#include "proof/proof.hpp"
+
+#include <bit>
 #include <cassert>
+#include <cstdio>
+#include <fstream>
+#include <initializer_list>
+#include <iterator>
+#include <string>
 #include <vector>
 
 using namespace tactix;
@@ -49,6 +58,41 @@ static Kernel xor_fixture(bool complete) {
   }
   // Select a witness among the residual affine assignments.
   kernel_add_binary_clause(k, make_lit(0, true), make_lit(1, true));
+  return k;
+}
+
+static void add_binary_xor(Kernel &k, Var a, Var b, bool rhs) {
+  for (unsigned mask = 0; mask != 4; ++mask) {
+    if ((std::popcount(mask) & 1) == rhs)
+      continue;
+    kernel_add_binary_clause(k, make_lit(a, mask & 1),
+                             make_lit(b, mask & 2));
+  }
+}
+
+static void add_xor(Kernel &k, std::initializer_list<Var> variables,
+                    bool rhs) {
+  assert(variables.size() >= 2 && variables.size() <= 4);
+  const std::vector<Var> scope(variables);
+  for (unsigned mask = 0; mask != (1u << scope.size()); ++mask) {
+    if ((std::popcount(mask) & 1) == rhs)
+      continue;
+    Lit clause[4];
+    for (size_t i = 0; i < scope.size(); ++i)
+      clause[i] = make_lit(scope[i], mask & (1u << i));
+    if (scope.size() == 2)
+      kernel_add_binary_clause(k, clause[0], clause[1]);
+    else
+      kernel_add_large_clause(k, clause, scope.size(), false, 0);
+  }
+}
+
+static Kernel inconsistent_xor_cycle() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  add_binary_xor(k, 0, 1, true);
+  add_binary_xor(k, 1, 2, false);
+  add_binary_xor(k, 0, 2, false);
   return k;
 }
 
@@ -137,5 +181,93 @@ int main() {
     invalid.maximum_groups = 4;
     invalid.maximum_constraints = 0;
     assert(!invalid.valid());
+    invalid.maximum_constraints = 4;
+    invalid.refutation_minimum_probe_repeats = 0;
+    assert(!invalid.valid());
+  }
+  {
+    Kernel k = inconsistent_xor_cycle();
+    const strategy::ParityModelParameters parameters;
+    assert(parity_refutation_apply(k, parameters) == ApplyResult::Unsat);
+    assert(k.inconsistent && k.stats.parity_refutation_recognized == 1 &&
+           k.stats.parity_refutation_unsat == 1);
+  }
+  {
+    Kernel k;
+    kernel_reserve_vars(k, 6);
+    add_xor(k, {0, 1, 2, 3}, true);
+    add_xor(k, {0, 1, 4, 5}, false);
+    add_xor(k, {2, 3, 4, 5}, false);
+    const strategy::ParityModelParameters parameters;
+    assert(parity_refutation_apply(k, parameters) == ApplyResult::Unsat);
+    assert(k.inconsistent && k.stats.parity_refutation_recognized == 1);
+  }
+  {
+    Kernel k;
+    kernel_reserve_vars(k, 3);
+    add_binary_xor(k, 0, 1, false);
+    add_binary_xor(k, 1, 2, false);
+    add_binary_xor(k, 0, 2, false);
+    const strategy::ParityModelParameters parameters;
+    assert(parity_refutation_apply(k, parameters) == ApplyResult::NoOp);
+    assert(!k.inconsistent && !k.stats.parity_refutation_recognized);
+  }
+  {
+    Kernel k;
+    kernel_reserve_vars(k, 3);
+    add_binary_xor(k, 0, 1, true);
+    add_binary_xor(k, 1, 2, false);
+    const strategy::ParityModelParameters parameters;
+    assert(parity_refutation_apply(k, parameters) == ApplyResult::NoOp);
+  }
+  {
+    Kernel k;
+    kernel_reserve_vars(k, 8);
+    for (Var variable = 0; variable != 5; ++variable)
+      kernel_add_binary_clause(k, make_lit(variable, false),
+                               make_lit(variable + 1, false));
+    k.input_nonunit_clause_count = 5;
+    strategy::ParityModelParameters parameters;
+    parameters.refutation_probe_constraints = 4;
+    parameters.refutation_minimum_probe_repeats = 1;
+    assert(parity_refutation_apply(k, parameters) == ApplyResult::NoOp);
+    assert(k.stats.parity_refutation_probe_declines == 1);
+  }
+  {
+    const std::string path = "/tmp/tactix-parity-refutation.dsr";
+    Kernel k = inconsistent_xor_cycle();
+    Proof proof;
+    assert(proof.open(path.c_str(), ProofFormat::DsrAscii));
+    proof.bind_variable_map(&k.internal_to_external);
+    proof.arm_population_shadow();
+    k.proof = &proof;
+    const strategy::ParityModelParameters parameters;
+    assert(parity_refutation_apply(k, parameters) == ApplyResult::Unsat);
+    k.proof = nullptr;
+    proof.flush();
+    std::ifstream input(path);
+    const std::string contents((std::istreambuf_iterator<char>(input)),
+                               std::istreambuf_iterator<char>());
+    assert(!contents.empty() && contents.ends_with("0\n"));
+    assert(k.stats.parity_refutation_proof_additions > 0);
+    assert(std::remove(path.c_str()) == 0);
+  }
+  {
+    const std::string path = "/tmp/tactix-parity-preflight.dsr";
+    Kernel k = inconsistent_xor_cycle();
+    Proof proof;
+    assert(proof.open(path.c_str(), ProofFormat::DsrAscii));
+    proof.bind_variable_map(&k.internal_to_external);
+    k.proof = &proof;
+    strategy::ParityModelParameters parameters;
+    parameters.refutation_maximum_proof_additions = 1;
+    assert(parity_refutation_apply(k, parameters) == ApplyResult::NoOp);
+    k.proof = nullptr;
+    proof.flush();
+    std::ifstream input(path);
+    const std::string contents((std::istreambuf_iterator<char>(input)),
+                               std::istreambuf_iterator<char>());
+    assert(contents.empty() && !k.inconsistent);
+    assert(std::remove(path.c_str()) == 0);
   }
 }

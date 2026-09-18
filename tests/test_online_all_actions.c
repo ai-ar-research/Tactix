@@ -127,6 +127,13 @@ static void configure_parameters(const char *name,
     parameters->value.parity_model.minimum_equations = 1;
     parameters->value.parity_model.maximum_free_variables = 4;
     parameters->value.parity_model.candidate_budget = 16;
+    parameters->value.parity_model.refutation_maximum_variables = 128;
+    parameters->value.parity_model.refutation_maximum_groups = 128;
+    parameters->value.parity_model.refutation_maximum_constraints = 512;
+    parameters->value.parity_model.refutation_maximum_arity = 4;
+    parameters->value.parity_model.refutation_probe_constraints = 32;
+    parameters->value.parity_model.refutation_minimum_probe_repeats = 2;
+    parameters->value.parity_model.refutation_maximum_proof_additions = 4096;
   }
 }
 

@@ -93,6 +93,16 @@ public:
   void del(uint64_t line_id, uint64_t del_id, const Lit *lits,
            uint32_t size);
 
+  // Proof-only extension clauses use DIMACS literals whose variables need not
+  // exist in the solver kernel.  This keeps terminal extended-resolution
+  // certificates streaming without allocating millions of inactive kernel
+  // variables.  Native LRAT has no witnessless extension vocabulary, so these
+  // operations decline it before writing any bytes.
+  bool add_external_rup(uint64_t id, const int32_t *lits, uint32_t size);
+  bool add_external_rat(uint64_t id, const int32_t *lits, uint32_t size);
+  bool del_external(uint64_t line_id, uint64_t del_id,
+                    const int32_t *lits, uint32_t size);
+
   void flush(); // signal-safe enough: fflush on the buffered stream
 
   // A tautological (or duplicate-carrying) lemma is CHECKER-DIVERGENT: DRAT
@@ -154,6 +164,7 @@ private:
   void flush_binary();
   void put_lit(Lit l);
   void put_external_lit(Lit l);
+  void put_external_dimacs(int32_t literal);
   void put_u64(uint64_t v);
   void end_line();
   FILE *file_ = nullptr;
