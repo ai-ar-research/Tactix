@@ -79,10 +79,11 @@ native DSR → `dsr-trim` → LSR → Trestle path.
   direct DSR witnesses and do not owe a DRAT/LRAT expansion.
 - **N3 — Competitive default.** A shipped DefaultPolicy reaches at least Kissat
   parity on Tier D. Flexibility never excuses a slow default.
-- **N4 — Scheduling floor.** DefaultPolicy scheduling—order, effort, delays,
-  watermarks, quality bounds, ramps, and couplings—is at least as sophisticated
-  as Kissat's. Every gap has a closure or an accepted deviation with evidence
-  and a reopening path in the scheduling-parity ledger.
+- **N4 — Scheduling floor.** For every integrated technique, DefaultPolicy scheduling—order, effort, delays, watermarks, quality bounds, ramps, feedback,
+  and couplings—is at least as sophisticated as the state-of-the-art reference
+  that owns that technique, including Kissat, Satsuma, and LymphoSAT in the
+  frozen landscape. Every gap has a closure or an accepted deviation with
+  evidence and a reopening path in the scheduling-parity ledger.
 
 N1–N4 are immutable requirements, not work items that can be opened, closed, or
 preserved. Their verification is `pending` or `complete`. The
@@ -225,7 +226,7 @@ rounds and closures; arbitrary reordered/repeated rules or sequences; scoped
 fixpoint repetition or explicit budget/stop. Shared execution preserves state,
 proof and reconstruction invariants without hiding strategy choices.
 
-Inprocessing programs, Lucky, and Walk execute at level zero. A caller that is
+Inprocessing programs, Lucky, Walk, and LocalSearchGuidance execute at level zero. A caller that is
 currently searching composes an explicit `Restart` before those operations; the
 executor does not suspend, rewrite or replay a non-root decision trail.
 
@@ -283,6 +284,7 @@ their owning documents.
 | S5 | `Lucky` | none | 2 |
 | S6 | `Walk` policy operation | none (`H`) | 3 |
 | S7 | `Reorder` policy operation | none (`H`) | 3 |
+| S8 | `LocalSearchGuidance` policy operation | none (`H`) | 3 |
 | C1 | `SubsumeForward` | delete | 3 |
 | C2 | `SubsumeBackward` / strengthen | add-RUP + delete | 3 |
 | C3 | `Vivify` | add-RUP + delete | 3 |

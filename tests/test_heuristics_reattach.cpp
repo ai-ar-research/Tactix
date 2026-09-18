@@ -1,6 +1,7 @@
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "policies/heuristics.hpp"
+#include "rules/propagate/propagate.hpp"
 #include <algorithm>
 #include <cassert>
 #include <cstdio>
@@ -49,6 +50,44 @@ static unsigned fixture(bool reverse,bool fixed,bool fold) {
   }
   return missing;
 }
+
+static void residual_handoff_uses_live_unsatisfied_formula() {
+  Kernel k;
+  kernel_reserve_vars(k, 8);
+  for (Var v = 0; v < k.nvars; ++v)
+    kernel_record_import(k, v);
+  // Original activation order is intentionally unrelated to the residual.
+  k.input_activation_order = {7, 6, 5, 4, 3, 2, 1, 0};
+
+  const Lit satisfied[] = {make_lit(6, false), make_lit(5, false),
+                           make_lit(4, false)};
+  const Lit first[] = {make_lit(2, false), make_lit(0, false),
+                       make_lit(3, false)};
+  kernel_add_large_clause(k, satisfied, 3, false, 0, 10);
+  kernel_add_large_clause(k, first, 3, false, 0, 20);
+  // The mirrored binary has no stored direction. Prior activation ranks put
+  // variable 7 before variable 1 inside its later clause.
+  kernel_add_binary_clause(k, make_lit(1, false), make_lit(7, false), 30);
+  kernel_assign_unit(k, make_lit(6, false));
+  assert(propagate_apply(k) == ApplyResult::Ok);
+
+  heuristics_prepare_residual_activation_order(k);
+  const std::vector<Var> expected = {2, 0, 3, 7, 1, 6};
+  assert(k.input_activation_order == expected);
+
+  ScopedHeuristics h(k);
+  heuristics_seed_residual_import_order(k, expected);
+  assert(k.compact_import_order == expected);
+  for (Var position = 0; position < expected.size(); ++position)
+    assert(k.compact_import_position[expected[position]] == position);
+  assert(!heuristics_queue_contains(k, 6));
+  assert(heuristics_queue_contains(k, 2));
+  assert(heuristics_queue_contains(k, 7));
+  // Stable kernel identities absent from the residual stay at the least
+  // preferred end; the next decision comes from the residual suffix.
+  assert(heuristics_queue_next_unassigned(k) == 1);
+  kernel_check_invariants(k);
+}
 int main(int argc,char **argv) {
   const bool negative=argc==2&&!std::strcmp(argv[1],"--expect-missing");
   assert(argc==1||negative);
@@ -58,4 +97,6 @@ int main(int argc,char **argv) {
   }
   std::printf("guidance reattach: cases=%u changed-images=%u\n",cases,missing);
   assert(negative?missing==48:missing==0);
+  if (!negative)
+    residual_handoff_uses_live_unsatisfied_formula();
 }

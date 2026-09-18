@@ -2,6 +2,7 @@
 
 #include "strategy/sweep_parameters.hpp"
 #include "strategy/inprocess_program.hpp"
+#include "strategy/local_search.hpp"
 #include "strategy/online_inprocess.hpp"
 #include "strategy/online_sequence.hpp"
 
@@ -35,6 +36,13 @@ struct DefaultStrategyConfig {
   static strategy::OnlineStrategyProgram reference_structured_root_program();
   static std::vector<strategy::OnlineStrategyStage>
   structured_root_preprocessing_stages();
+  static std::vector<strategy::OnlineStrategyStage>
+  bounded_backtracking_structured_root_preprocessing_stages();
+  static std::vector<strategy::OnlineStrategyStage>
+  large_domain_structured_root_preprocessing_stages();
+  static strategy::OnlineStrategyStage structured_root_stage_after_feedback(
+      const strategy::OnlineStrategyStage &, bool prior_stage_progress,
+      bool prior_unique_literal_amo_progress);
   // Named compatibility constants are kept beside the typed fields so tests
   // and design probes can cite a default without duplicating its literal.
   static constexpr uint64_t RESTART_INTERVAL_DEFAULT = 1;
@@ -189,6 +197,15 @@ struct DefaultStrategyConfig {
     bool walk_warmup = true;
     bool walk_use_branch_seed = true;
     uint64_t walk_random_seed = 0;
+    // A failed structural model search can seed a later generic Walk.  Keep
+    // each source distinct and rotate them so unlike objectives are composed
+    // without pretending their scores are directly comparable.
+    bool structural_walk_seed = true;
+    std::vector<strategy::LocalSearchKind> structural_seed_rotation{
+        strategy::LocalSearchKind::DirectCsp,
+        strategy::LocalSearchKind::Affine,
+        strategy::LocalSearchKind::Parity,
+        strategy::LocalSearchKind::Onehot};
     bool stable_only = true;
     bool late_lucky = true;
   } rephase;
@@ -235,18 +252,51 @@ struct DefaultStrategyConfig {
     // propagation, repetition, budgets and stop behavior explicit.
     // False retains the reference ordering after early Lucky at Probe entry.
     bool structured_root_before_lucky = true;
-    // One non-refilling pool spans every structured-root SR producer. A
-    // producer may finish an already admitted atomic certificate batch, but
-    // its full cost is charged and no later fresh discovery starts at zero.
+    // Satsuma hands Kissat a residual CNF, so Kissat derives both activation
+    // and internal import order from the formula after symmetry fixing. When
+    // integrated structured preprocessing adds root assignments, reconstruct
+    // that same residual search seed before attaching guidance. No-progress
+    // passes retain the original seed and therefore cannot perturb search.
+    bool structured_root_residual_search_handoff = true;
+    // The root schedule charges every producer against this cumulative hard
+    // ceiling. A producer may finish an already admitted atomic certificate
+    // batch, and its complete cost remains charged across later stages.
     strategy::WorkLimit structured_root_sr_discovery_budget =
         strategy::WorkLimit::bounded(SYMMETRY_TOTAL_TICK_LIMIT_DEFAULT);
+    // Satsuma's structured detectors share max(16 * variables, 16 Mi) work.
+    // Give each distinct small-domain producer one such zero-yield
+    // opportunity; effective formula transitions and saturated exact
+    // generator prefixes earn more credit without exceeding the cumulative
+    // hard budget above.
+    // This is deterministic work feedback, not time.
+    bool structured_root_progress_feedback = true;
+    // The owner's >50k-variable program is one generic generator-fixing scan,
+    // rather than the orbitopal chain governed by the window above.
+    bool structured_root_large_domain_progress_feedback = false;
+    uint64_t structured_root_progress_minimum_ticks = 16ull << 20;
+    uint64_t structured_root_progress_ticks_per_variable = 16;
     // Certified ULC completion deliberately publishes binary AMO helpers.
-    // Once all structured consumers have run, one ordinary BCE pass may
-    // retire helpers which are now blocked, retaining its normal proof and
-    // reconstruction obligations. Other SR progress does not admit the pass.
+    // Once a later structured consumer has made progress on the completed
+    // formula, one ordinary BCE pass may retire its now-consumed scaffolding
+    // with normal proof and reconstruction obligations. Helper-only progress
+    // remains live instead of being added and immediately erased.
     bool structured_root_bce_after_unique_literal_amo = true;
     std::vector<strategy::OnlineStrategyStage> structured_root_stages =
         DefaultStrategyConfig::structured_root_preprocessing_stages();
+    // Satsuma reduces DejaVu's non-symmetry backtracking budget from 64 to
+    // one at this domain size while retaining its ordinary fixing schedule.
+    uint64_t structured_root_backtracking_domain_limit = 32'000;
+    std::vector<strategy::OnlineStrategyStage>
+        structured_root_bounded_backtracking_stages =
+            DefaultStrategyConfig::
+                bounded_backtracking_structured_root_preprocessing_stages();
+    // Satsuma changes the complete symmetry schedule above this domain: one
+    // generic exact-generator pass uses negation/binary fixing and repeats
+    // only after output. UINT64_MAX disables the alternate typed program.
+    uint64_t structured_root_large_domain_limit = 50'000;
+    std::vector<strategy::OnlineStrategyStage>
+        structured_root_large_domain_stages =
+            DefaultStrategyConfig::large_domain_structured_root_preprocessing_stages();
     bool append_unlisted_rules = true;
     uint64_t eliminate_interval = INPROCESS_ELIMINATE_INTERVAL_DEFAULT;
     uint64_t probe_interval = INPROCESS_PROBE_INTERVAL_DEFAULT;

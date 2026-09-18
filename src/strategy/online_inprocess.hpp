@@ -90,6 +90,14 @@ struct OnlineStrategyProgram {
 
 using OnlineInprocessProgram = OnlineStrategyProgram;
 
+// Composition-only feedback for a shared SR-discovery allowance.  A detected
+// exact generator may fund more work inside the same backend session, up to
+// the scope's hard ceiling.  Zero disables inline continuation.
+struct DiscoveryFeedbackPolicy {
+  uint64_t ticks_per_generator = 0;
+  uint64_t hard_limit = 0;
+};
+
 enum class ReconfigureMode : uint8_t {
   ResetRuntime,
   RetainMatchingStepBudgets,
@@ -123,7 +131,8 @@ public:
                  ReconfigureMode mode = ReconfigureMode::ResetRuntime,
                  std::string *error = nullptr);
   InvocationResult advance(Kernel &, volatile sig_atomic_t *stop = nullptr,
-                           Allowance *sr_discovery_allowance = nullptr);
+                           Allowance *sr_discovery_allowance = nullptr,
+                           DiscoveryFeedbackPolicy discovery_feedback = {});
   void reset_runtime();
 
   uint64_t revision() const { return revision_; }
@@ -140,6 +149,8 @@ private:
     bool pass_progress = false;
     bool selection_ready = false;
     bool selection_truncated = false;
+    bool selection_discovery_exhausted = false;
+    bool graph_entry_requested = false;
     // Bind pending payloads to their arena and the state left by the last
     // application. External formula changes require caller reconfiguration.
     const Kernel *selection_owner = nullptr;
@@ -155,7 +166,8 @@ private:
 
   bool prepare_selection(Kernel &, const OnlineInvocation &, Runtime &,
                          InvocationResult &, volatile sig_atomic_t *stop,
-                         Allowance *sr_discovery_allowance);
+                         Allowance *sr_discovery_allowance,
+                         DiscoveryFeedbackPolicy discovery_feedback);
   bool finish_step_pass(const OnlineInvocation &, Runtime &,
                         InvocationResult &);
   bool finish_sequence(InvocationResult &);

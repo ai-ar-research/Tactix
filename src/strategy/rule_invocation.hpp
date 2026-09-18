@@ -57,6 +57,17 @@ struct InvocationResult {
   uint32_t rule_id = UINT32_MAX;
   uint64_t instance = INSTANCE_CANONICAL;
   bool made_rule_progress = false;
+  // Intermediate producer progress which changed no solver state. A caller
+  // may use these deterministic units to extend a discovery allowance and
+  // retry the same pending step.
+  uint64_t discovery_progress_units = 0;
+  // The pending generic graph producer has not yet received its single entry
+  // window.  The sequence remains on this step while its owner decides whether
+  // to extend the shared allowance.
+  bool discovery_entry_required = false;
+  // Generic graph discovery exhausted its useful allowance without an
+  // unpublished growing prefix.
+  bool discovery_exhausted = false;
   // True means every application selected at this request's boundary was
   // consumed.  It is deliberately not a fixpoint claim.
   bool selection_complete = false;

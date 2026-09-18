@@ -509,6 +509,8 @@ static void invalid_graph_sr_settings_are_transactional(void) {
   step.parameters.value.substitution_redundancy
       .maximum_orbitopal_refinement_orbits = 6;
   step.parameters.value.substitution_redundancy
+      .orbitopal_progress_feedback_mode = TACTIX_ONLINE_SETTING_ENABLE;
+  step.parameters.value.substitution_redundancy
       .orbitopal_base_probe_filter_mode = TACTIX_ONLINE_SETTING_ENABLE;
   step.parameters.value.substitution_redundancy.orbitopal_base_probe_factor =
       8;
@@ -528,6 +530,12 @@ static void invalid_graph_sr_settings_are_transactional(void) {
       TACTIX_ONLINE_SYMMETRY_BASE_COMMON_CLAUSE_AMO;
   assert(tactix_online_configure(solver, &program, 233,
                                  TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  step.parameters.value.substitution_redundancy
+      .orbitopal_progress_feedback_mode = 99;
+  assert(tactix_online_configure(solver, &program, 233,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  step.parameters.value.substitution_redundancy
+      .orbitopal_progress_feedback_mode = TACTIX_ONLINE_SETTING_ENABLE;
   for (int mode = TACTIX_ONLINE_SYMMETRY_BASE_FIRST_AMO_THEN_COMMON_CLAUSE;
        mode <= TACTIX_ONLINE_SYMMETRY_BASE_FIRST_SHORTEST_THEN_FORWARD_REMAINDER; ++mode) {
     step.parameters.value.substitution_redundancy.symmetry_base_selection = mode;
@@ -597,6 +605,12 @@ static void invalid_graph_sr_settings_are_transactional(void) {
   }
   step.parameters.value.substitution_redundancy.symmetry_structured_scope =
       TACTIX_ONLINE_SYMMETRY_STRUCTURED_SCOPE_INHERIT;
+  step.parameters.value.substitution_redundancy.symmetry_schreier_domain_limit =
+      50000;
+  assert(tactix_online_configure(solver, &program, 23355,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  step.parameters.value.substitution_redundancy.symmetry_schreier_domain_limit =
+      0;
   int *handoff_fields[] = {
     &step.parameters.value.substitution_redundancy.symmetry_use_structured_generators_mode,
     &step.parameters.value.substitution_redundancy.symmetry_stabilize_structured_variables_mode
@@ -624,6 +638,15 @@ static void invalid_graph_sr_settings_are_transactional(void) {
                                  TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
   step.parameters.value.substitution_redundancy.symmetry_chain_mode =
       TACTIX_ONLINE_SYMMETRY_CHAIN_FIX_AND_CUT;
+  step.parameters.value.substitution_redundancy.symmetry_nonforcing_cut_admission =
+      TACTIX_ONLINE_SYMMETRY_CUT_ADMISSION_REQUIRE_COMPOUND_PROGRESS;
+  assert(tactix_online_configure(solver, &program, 23320,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  step.parameters.value.substitution_redundancy.symmetry_nonforcing_cut_admission = 99;
+  assert(tactix_online_configure(solver, &program, 23321,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  step.parameters.value.substitution_redundancy.symmetry_nonforcing_cut_admission =
+      TACTIX_ONLINE_SYMMETRY_CUT_ADMISSION_INHERIT;
   step.parameters.value.substitution_redundancy.symmetry_base_selection = 99;
   assert(tactix_online_configure(solver, &program, 23307,
                                  TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
@@ -728,6 +751,7 @@ static void invalid_graph_sr_settings_are_transactional(void) {
   assert(tactix_online_configure(solver, &program, 23319,
                                  TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
   step.parameters.value.substitution_redundancy.symmetry_chain_mode = 99;
+  step.parameters.value.substitution_redundancy.symmetry_nonforcing_cut_admission = 99;
   step.parameters.value.substitution_redundancy.symmetry_base_selection = 99;
   step.parameters.value.substitution_redundancy
       .symmetry_direct_generator_involutions_mode = 99;

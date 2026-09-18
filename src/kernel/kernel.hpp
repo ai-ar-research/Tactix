@@ -11,10 +11,12 @@
 #include "strategy/forward_parameters.hpp"
 #include "strategy/failed_literal_parameters.hpp"
 #include "strategy/instantiate_parameters.hpp"
+#include "strategy/local_search.hpp"
 #include "strategy/rule_parameters.hpp"
 #include "strategy/vivify_parameters.hpp"
 
 #include <cassert>
+#include <array>
 #include <csignal>
 #include <cstddef>
 #include <cstdint>
@@ -206,6 +208,7 @@ class BinaryLivenessIndex {
   std::vector<uint64_t> bits_;
   uint64_t block_mask_ = 0;
   size_t entry_capacity_ = 0;
+  uint32_t exact_literals_ = 0;
 
   static uint64_t hash(uint64_t x) {
     x += UINT64_C(0x9e3779b97f4a7c15);
@@ -230,6 +233,13 @@ class BinaryLivenessIndex {
   void set_bit(size_t base, uint64_t position) {
     bits_[base + (position >> 6)] |= UINT64_C(1) << (position & 63);
   }
+  uint64_t exact_position(uint64_t key) const {
+    assert(exact_literals_);
+    const uint64_t lo = key >> 32;
+    const uint64_t hi = static_cast<uint32_t>(key);
+    assert(lo < hi && hi < exact_literals_);
+    return lo * (2 * uint64_t{exact_literals_} - lo - 1) / 2 + hi - lo - 1;
+  }
 
 public:
 #ifdef TACTIX_ENABLE_EVENT_TRACE
@@ -239,6 +249,7 @@ public:
 #endif
   // Four bits per entry, rounded up to a power of two of whole blocks.
   void reserve(size_t entries) {
+    exact_literals_ = 0;
     uint64_t target = BLOCK_BITS;
     assert(entries <= UINT64_MAX / 4);
     const uint64_t requested = 4 * static_cast<uint64_t>(entries);
@@ -250,14 +261,46 @@ public:
     block_mask_ = (target / BLOCK_BITS) - 1;
     entry_capacity_ = static_cast<size_t>(target >> 2);
   }
+  // A compact literal universe can use its pair bitmap as the exact authority.
+  // Select it only when the complete bitmap is bounded to 256 MiB and no
+  // larger than the minimum two-word watch payload represented by
+  // 'storage_entries'. Larger or sparse universes retain the blocked Bloom
+  // representation and its exact-watch fallback.
+  void reserve_bounded_exact(size_t entries, uint32_t literals,
+                             uint64_t storage_entries) {
+    constexpr uint64_t MAX_EXACT_WORDS = (UINT64_C(256) << 20) / 8;
+    const uint64_t pairs =
+        uint64_t{literals} * (uint64_t{literals} - (literals != 0)) / 2;
+    const uint64_t words = (pairs + 63) / 64;
+    const bool within_watch_payload =
+        storage_entries <= UINT64_MAX / 64 && pairs <= storage_entries * 64;
+    if (literals >= 2 && words <= MAX_EXACT_WORDS && within_watch_payload) {
+      bits_.assign(static_cast<size_t>(words), 0);
+      block_mask_ = 0;
+      entry_capacity_ = static_cast<size_t>(pairs);
+      exact_literals_ = literals;
+    } else {
+      reserve(entries);
+    }
+  }
+  bool exact() const { return exact_literals_ != 0; }
   bool needs_growth(size_t entries) const { return entries > entry_capacity_; }
   bool maybe(uint64_t key) const {
+    if (exact_literals_) {
+      const uint64_t position = exact_position(key);
+      return bits_[position >> 6] & (UINT64_C(1) << (position & 63));
+    }
     if (bits_.empty())
       return true;
     const Probe q = probe(key);
     return bit(q.base, q.p0) && bit(q.base, q.p1) && bit(q.base, q.p2);
   }
   void add(uint64_t key) {
+    if (exact_literals_) {
+      const uint64_t position = exact_position(key);
+      bits_[position >> 6] |= UINT64_C(1) << (position & 63);
+      return;
+    }
     if (bits_.empty())
       return;
     const Probe q = probe(key);
@@ -265,7 +308,12 @@ public:
     set_bit(q.base, q.p1);
     set_bit(q.base, q.p2);
   }
-  void remove(uint64_t) {}
+  void remove(uint64_t key) {
+    if (exact_literals_) {
+      const uint64_t position = exact_position(key);
+      bits_[position >> 6] &= ~(UINT64_C(1) << (position & 63));
+    }
+  }
 };
 
 // Direct lookup from a packed replacement's proof ID to its source clause's
@@ -419,6 +467,13 @@ struct Stats {
   uint64_t rule_nanos[MAX_TIMED_RULES] = {}; // per registry rule id
   uint64_t rule_calls[MAX_TIMED_RULES] = {};
   uint64_t inprocess_nanos = 0; // whole slot, incl. scheduling not in a rule
+  // Inclusive phase-boundary attribution. These four buckets partition the
+  // ordinary Probe/Eliminate slot; structured-root startup is separate.
+  uint64_t inprocess_entry_nanos = 0;
+  uint64_t inprocess_dense_connect_nanos = 0;
+  uint64_t inprocess_slot_loop_nanos = 0;
+  uint64_t inprocess_exit_nanos = 0;
+  uint64_t structured_root_nanos = 0;
   uint64_t solve_nanos = 0;     // wall time of solve(), set by the frontend
   uint64_t sr_applications = 0;
   uint64_t sr_applied = 0;
@@ -426,6 +481,22 @@ struct Stats {
   // This provenance is a monotonic scheduling signal; ordinary SR binaries
   // and caller-authored payloads do not contribute.
   uint64_t sr_unique_literal_amo_binaries = 0;
+  // Non-unique-literal consequences committed after generated helper binaries.
+  // This monotonic provenance lets DefaultPolicy distinguish consumed
+  // scaffolding from a helper-only result without assuming producer order.
+  uint64_t sr_post_amo_nonhelper_applied = 0;
+  // The subset of those consequences where generic graph symmetry committed
+  // a root unit.  This shows that the completed BIG was consumed by a later
+  // group computation, rather than merely preceding an independent structured
+  // fixing.
+  uint64_t sr_post_amo_graph_root_units = 0;
+  uint64_t sr_nonforcing_cut_batches_declined = 0;
+  uint64_t sr_nonforcing_cuts_declined = 0;
+  uint64_t sr_singleton_forcing_batches_declined = 0;
+  uint64_t sr_singleton_forcing_rows_declined = 0;
+  uint64_t residual_handoff_calls = 0;
+  uint64_t residual_handoff_variables = 0;
+  uint64_t residual_handoff_nanos = 0;
   uint64_t sr_validation_ticks = 0;
   uint64_t sr_witness_literals = 0;
   uint64_t switched = 0; // mode switches (S4)
@@ -456,6 +527,16 @@ struct Stats {
   uint64_t onehot_model_candidates = 0;
   uint64_t onehot_model_sat = 0;
   uint64_t onehot_model_interrupted = 0;
+  uint64_t direct_csp_model_calls = 0;
+  uint64_t direct_csp_model_domains = 0;
+  uint64_t direct_csp_model_edges = 0;
+  uint64_t direct_csp_model_restarts = 0;
+  uint64_t direct_csp_model_infeasible = 0;
+  uint64_t direct_csp_model_work = 0;
+  uint64_t direct_csp_model_best = UINT64_MAX;
+  uint64_t direct_csp_model_sat = 0;
+  uint64_t local_search_hints_offered = 0;
+  uint64_t local_search_hints_applied = 0;
   uint64_t walks = 0;         // S6 Walk applications (policy op)
   uint64_t walk_flips = 0;    // literal flips
   uint64_t walk_steps = 0;    // occurrence entries scanned (kissat walk_steps)
@@ -1078,6 +1159,12 @@ struct Kernel {
   std::vector<Lit> input_restate_lits;
   std::vector<Lit> input_restate_units;
   std::vector<Var> input_activation_order;
+  // Bounded parse-order image for startup structural model recovery.  It is
+  // populated only for small formulas within the direct-CSP admission limits,
+  // preserved through the proof-producing structured root pass, and released
+  // after the subsequent model-search opportunity.
+  std::vector<uint64_t> input_binary_order;
+  bool input_binary_order_captured = false;
   std::vector<uint8_t> input_activated; // per-var membership, parse-scoped
   std::vector<uint8_t> input_marks;     // per-lit membership, parse-scoped
   // Permanent external-variable import ranks. Kissat's tumble=1 assigns
@@ -1240,6 +1327,10 @@ struct Kernel {
   // ScopedHeuristics/the frontend install it together with `h`.
   std::vector<int8_t> *saved_phases = nullptr;
   bool phase_saving_suppressed = false; // true only for probing assignments
+  // Rule-produced, policy-consumed structural assignments.  These are H-only
+  // advice: failed model searches never alter F, the trail, or proof state.
+  std::array<strategy::LocalSearchHint, strategy::LOCAL_SEARCH_KIND_COUNT>
+      local_search_hints;
   uint64_t work_budget = 0;
   // Work already charged before a rule call against a cumulative dose.
   // Vivify uses this to pose Kissat's successive absolute tier ceilings.
@@ -1432,6 +1523,10 @@ uint64_t kernel_compact_import_lit_order(const Kernel &, Lit);
 void kernel_vars_in_import_order(const Kernel &, std::vector<Var> &);
 void kernel_vars_in_external_order(const Kernel &, std::vector<Var> &);
 void kernel_update_target_phases(Kernel &);
+void kernel_offer_local_search_hint(Kernel &, strategy::LocalSearchKind,
+                                    const std::vector<uint8_t> &assignment,
+                                    uint64_t objective = UINT64_MAX,
+                                    bool objective_exact = false);
 
 Var kernel_new_extension_vars(Kernel &, uint32_t count);
 
@@ -1731,9 +1826,11 @@ inline uint32_t kernel_binary_copies(const Kernel &k, Lit a, Lit b,
   return n;
 }
 inline bool kernel_binary_live(const Kernel &k, Lit a, Lit b) {
-  if (k.binary_liveness &&
-      !k.binary_liveness->maybe(kernel_binary_key(a, b)))
-    return false;
+  if (k.binary_liveness) {
+    const bool maybe = k.binary_liveness->maybe(kernel_binary_key(a, b));
+    if (!maybe || k.binary_liveness->exact())
+      return maybe;
+  }
   // Mirror symmetry makes either endpoint authoritative. Scan the smaller
   // exact population after the prefilter admits a possible hit.
   if (k.watches.binary_size(b) < k.watches.binary_size(a))
@@ -2154,8 +2251,12 @@ void kernel_resume_walk_watches(Kernel &);
 void kernel_canonicalize_binary_watches(Kernel &,
                                         bool count_congruence_rebuild = true,
                                         const std::vector<std::pair<Lit, Lit>> *
-                                            binary_suffix = nullptr);
-void kernel_deduplicate_binary_watches(Kernel &);
+                                            binary_suffix = nullptr,
+                                        std::vector<std::pair<Lit, Lit>> *
+                                            binary_population = nullptr);
+void kernel_deduplicate_binary_watches(
+    Kernel &, std::vector<std::pair<Lit, Lit>> *root_assigned = nullptr,
+    std::vector<std::pair<Lit, Lit>> *binary_population = nullptr);
 
 void kernel_dense_connect(Kernel &, OccIndex &occ,
                           bool track_order = false);

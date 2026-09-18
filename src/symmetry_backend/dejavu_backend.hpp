@@ -36,6 +36,11 @@ struct DetectionSettings {
   uint64_t support_budget = UINT64_MAX;
   uint64_t component_size_limit = UINT64_MAX;
   uint64_t maximum_generators = UINT64_MAX;
+  // Start with this bounded prefix.  Each retained generator expands the
+  // live cap by progress_generators_per_generator, without restarting DejaVu,
+  // until maximum_generators or detector completion.
+  uint64_t initial_generators = UINT64_MAX;
+  uint64_t progress_generators_per_generator = 0;
   // Zero returns the full graph image. A nonzero prefix avoids retaining
   // clause-vertex images that an exact formula check does not consume.
   uint32_t returned_prefix_size = 0;

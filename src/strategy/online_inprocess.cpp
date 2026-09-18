@@ -473,7 +473,8 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
                                                Runtime &runtime,
                                                InvocationResult &out,
                                                volatile sig_atomic_t *stop,
-                                               Allowance *sr_discovery_allowance) {
+                                               Allowance *sr_discovery_allowance,
+                                               DiscoveryFeedbackPolicy discovery_feedback) {
   // An explicit scope remains bound across repeated passes/sequences. Only
   // CompleteCurrentPass asks for fresh enumeration after a representation
   // change; repeating a pass is not permission to reinterpret old payloads.
@@ -504,6 +505,7 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
   if (!continuing_general_sr)
     runtime.pass_progress = false;
   runtime.selection_truncated = false;
+  runtime.selection_discovery_exhausted = false;
   runtime.sr_general_mode = general_sr;
   if (!general_sr)
     runtime.sr_general_cursor = {};
@@ -563,6 +565,26 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
     InvocationBudget discovery_budget(WorkUnit::SrDiscoveryTicks,
                                       WorkLimit::unlimited(),
                                       discovery_pools);
+    uint64_t discovery_limit_at_entry = 0;
+    uint64_t hard_detection_ticks = 0;
+    const bool inline_generator_feedback =
+        shared_discovery && discovery_feedback.ticks_per_generator &&
+        discovery_feedback.hard_limit > sr_discovery_allowance->consumed();
+    const auto graph_entry_reaches_detector = [&] {
+      const uint64_t binaries = k.watches.binary_clauses();
+      const uint64_t binary_visits =
+          binaries > UINT64_MAX / 2 ? UINT64_MAX : 2 * binaries;
+      const uint64_t snapshot_lower_bound =
+          k.nvars > UINT64_MAX - binary_visits
+              ? UINT64_MAX
+              : binary_visits + static_cast<uint64_t>(k.nvars);
+      // snapshot_formula must visit both watches of every live binary and all
+      // variables before graph construction can call the detector.  If a
+      // fresh owner-scale window cannot cover even this strict lower bound,
+      // granting it can only repeat a partial snapshot and yield no feedback.
+      return snapshot_lower_bound <=
+             discovery_feedback.ticks_per_generator;
+    };
     if (shared_discovery) {
       const BudgetStatus status = discovery_budget.status();
       if (status != BudgetStatus::Ready &&
@@ -575,11 +597,28 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
       if (!remaining.admits_work()) {
         out.status = InvocationStatus::BudgetExhausted;
         out.budget_status = discovery_budget.status();
+        if (parameters.producer ==
+                SubstitutionRedundancyProducer::GraphSymmetry &&
+            discovery_feedback.ticks_per_generator &&
+            discovery_feedback.hard_limit >
+                sr_discovery_allowance->consumed() &&
+            !runtime.graph_entry_requested &&
+            graph_entry_reaches_detector()) {
+          runtime.graph_entry_requested = true;
+          out.discovery_entry_required = true;
+        }
         return false;
       }
       if (!remaining.is_unlimited())
         parameters.maximum_detection_ticks =
             std::min(parameters.maximum_detection_ticks, remaining.amount());
+      if (!remaining.is_unlimited() &&
+          remaining.amount() <= UINT64_MAX - sr_discovery_allowance->consumed())
+        discovery_limit_at_entry =
+            sr_discovery_allowance->consumed() + remaining.amount();
+      if (inline_generator_feedback)
+        hard_detection_ticks =
+            discovery_feedback.hard_limit - sr_discovery_allowance->consumed();
     }
     if (parameters.producer ==
         SubstitutionRedundancyProducer::GeneralComplete) {
@@ -623,6 +662,13 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
       }
       runtime.selection_truncated =
           enumeration.status == OrbitopalEnumerationStatus::LimitReached;
+      // Orbitopal sub-strategies share one structured detector family.  A
+      // bounded empty prefix is not evidence that paying another complete
+      // snapshot for the next orientation is useful.  Formula progress still
+      // renews the shared allowance.  The producer-boundary opportunity below
+      // is reserved for the distinct generic graph detector, matching the
+      // owning structured-then-generic schedule.
+      runtime.selection_discovery_exhausted = false;
     } else if (parameters.producer ==
                SubstitutionRedundancyProducer::GraphSymmetry) {
       const SymmetryEnumerationResult enumeration =
@@ -633,11 +679,53 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
                 return true;
               },
               stop, nullptr,
-              SymmetryEnumerationScheduling{shared_discovery});
+              SymmetryEnumerationScheduling{
+                  shared_discovery,
+                  inline_generator_feedback
+                      ? discovery_feedback.ticks_per_generator
+                      : 0,
+                  hard_detection_ticks});
+      if (inline_generator_feedback &&
+          enumeration.discovery_progress_units) {
+        const uint64_t units = enumeration.discovery_progress_units;
+        const uint64_t credit =
+            units > UINT64_MAX / discovery_feedback.ticks_per_generator
+                ? UINT64_MAX
+                : units * discovery_feedback.ticks_per_generator;
+        uint64_t renewed =
+            credit > UINT64_MAX - discovery_limit_at_entry
+                ? UINT64_MAX
+                : discovery_limit_at_entry + credit;
+        renewed = std::min(renewed, discovery_feedback.hard_limit);
+        sr_discovery_allowance->set_limit(WorkLimit::bounded(renewed));
+      }
       out.budget_status = discovery_budget.charge(
           WorkUnit::SrDiscoveryTicks, enumeration.ticks);
+      if (enumeration.nonforcing_orbit_cuts_declined) {
+        ++k.stats.sr_nonforcing_cut_batches_declined;
+        k.stats.sr_nonforcing_cuts_declined +=
+            enumeration.nonforcing_orbit_cuts_declined;
+      }
+      if (enumeration.singleton_forcing_rows_declined) {
+        ++k.stats.sr_singleton_forcing_batches_declined;
+        k.stats.sr_singleton_forcing_rows_declined +=
+            enumeration.singleton_forcing_rows_declined;
+      }
       if (out.budget_status == BudgetStatus::AccountingOverflow) {
         out.status = InvocationStatus::AccountingError;
+        return false;
+      }
+      if (enumeration.discovery_progress_units &&
+          !inline_generator_feedback) {
+        // The generic callback prefix is exact but intentionally unpublished:
+        // its callback-order subgroup is incomplete. Leave this step pending
+        // so the root scheduler can reward the measured producer progress and
+        // retry with a larger shared allowance.
+        runtime.sr_selection.clear();
+        out.status = InvocationStatus::BudgetExhausted;
+        out.budget_status = BudgetStatus::Exhausted;
+        out.discovery_progress_units = enumeration.discovery_progress_units;
+        out.step_id = step.id;
         return false;
       }
       if (enumeration.status == SymmetryEnumerationStatus::Interrupted) {
@@ -656,6 +744,29 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
       }
       runtime.selection_truncated =
           enumeration.status == SymmetryEnumerationStatus::LimitReached;
+      runtime.selection_discovery_exhausted =
+          shared_discovery && runtime.selection_truncated;
+      const uint64_t discovery_consumed_before =
+          shared_discovery ? sr_discovery_allowance->consumed() : 0;
+      const uint64_t discovery_consumed_after =
+          enumeration.ticks >
+                  UINT64_MAX - discovery_consumed_before
+              ? UINT64_MAX
+              : discovery_consumed_before + enumeration.ticks;
+      if (inline_generator_feedback && runtime.selection_truncated &&
+          runtime.sr_selection.empty() &&
+          !enumeration.discovery_progress_units &&
+          !runtime.graph_entry_requested &&
+          graph_entry_reaches_detector() &&
+          discovery_feedback.hard_limit >
+              discovery_consumed_after) {
+        runtime.graph_entry_requested = true;
+        out.status = InvocationStatus::BudgetExhausted;
+        out.budget_status = BudgetStatus::Exhausted;
+        out.discovery_entry_required = true;
+        out.step_id = step.id;
+        return false;
+      }
     }
     runtime.selection.resize(runtime.sr_selection.size());
     for (size_t i = 0; i < runtime.selection.size(); ++i)
@@ -697,6 +808,7 @@ bool OnlineStrategyExecutor::finish_step_pass(const OnlineInvocation &step,
   runtime.sr_general_cursor = {};
   runtime.sr_general_mode = false;
   runtime.selection_truncated = false;
+  runtime.selection_discovery_exhausted = false;
   runtime.cursor = 0;
   ++runtime.passes;
   const bool progress = runtime.pass_progress;
@@ -763,6 +875,7 @@ bool OnlineStrategyExecutor::finish_sequence(InvocationResult &out) {
       runtime.sr_general_cursor = {};
       runtime.sr_general_mode = false;
       runtime.selection_truncated = false;
+      runtime.selection_discovery_exhausted = false;
     }
     sequence_progress_ = false;
     return false;
@@ -777,7 +890,8 @@ bool OnlineStrategyExecutor::finish_sequence(InvocationResult &out) {
 
 InvocationResult OnlineStrategyExecutor::advance(
     Kernel &k, volatile sig_atomic_t *stop,
-    Allowance *sr_discovery_allowance) {
+    Allowance *sr_discovery_allowance,
+    DiscoveryFeedbackPolicy discovery_feedback) {
   InvocationResult out;
   out.before = state_version(k);
   out.after = out.before;
@@ -838,7 +952,7 @@ InvocationResult OnlineStrategyExecutor::advance(
       const bool progress = runtime.pass_progress;
       runtime.selection_ready = false;
       if (!prepare_selection(k, step, runtime, out, stop,
-                             sr_discovery_allowance)) {
+                             sr_discovery_allowance, discovery_feedback)) {
         out.after = state_version(k);
         return out;
       }
@@ -846,7 +960,7 @@ InvocationResult OnlineStrategyExecutor::advance(
     }
     if (!runtime.selection_ready) {
       if (!prepare_selection(k, step, runtime, out, stop,
-                             sr_discovery_allowance)) {
+                             sr_discovery_allowance, discovery_feedback)) {
         // An inapplicable scope is not a fixpoint and is not consumed. The
         // caller may change solver state or replace the program and retry.
         out.after = state_version(k);
@@ -856,6 +970,7 @@ InvocationResult OnlineStrategyExecutor::advance(
         if (runtime.selection_truncated) {
           out.status = InvocationStatus::BudgetExhausted;
           out.budget_status = BudgetStatus::Exhausted;
+          out.discovery_exhausted = runtime.selection_discovery_exhausted;
           out.selection_complete = false;
           out.step_id = step.id;
           out.after = state_version(k);
@@ -875,7 +990,7 @@ InvocationResult OnlineStrategyExecutor::advance(
           !runtime.sr_general_cursor.complete) {
         runtime.selection_ready = false;
         if (!prepare_selection(k, step, runtime, out, stop,
-                               sr_discovery_allowance)) {
+                               sr_discovery_allowance, discovery_feedback)) {
           out.after = state_version(k);
           return out;
         }
@@ -884,6 +999,7 @@ InvocationResult OnlineStrategyExecutor::advance(
       if (runtime.selection_truncated) {
         out.status = InvocationStatus::BudgetExhausted;
         out.budget_status = BudgetStatus::Exhausted;
+        out.discovery_exhausted = runtime.selection_discovery_exhausted;
         out.selection_complete = false;
         out.step_id = step.id;
         out.after = state_version(k);
@@ -1064,19 +1180,37 @@ InvocationResult OnlineStrategyExecutor::advance(
                   const SubstitutionRedundancyParameters parameters =
                       configured ? *configured
                                  : SubstitutionRedundancyParameters{};
-                  const SubstitutionRedundancyInstance &instance =
+                  const SubstitutionRedundancyInstance &selected =
                       !step.substitution_redundancy_instances.empty()
                           ? step.substitution_redundancy_instances[payload]
                           : runtime.sr_selection[payload];
+                  SubstitutionRedundancyInstance reoriented;
+                  const SubstitutionRedundancyInstance *instance = &selected;
+                  if (enumerated_sr &&
+                      selected.unique_literal_amo_certificate &&
+                      selected.clause.size() == 2 &&
+                      k.value(selected.clause[0]) < 0 &&
+                      k.value(selected.clause[1]) >= 0) {
+                    // ULC discovery certifies either member as the SR pivot.
+                    // Satsuma publishes the whole AMO before propagation, but
+                    // the online executor observes root consequences between
+                    // atomic members. Keep caller-owned ordering observable;
+                    // only the private generated batch turns a now-false
+                    // pivot around so the still-open endpoint can realize the
+                    // same add-then-propagate closure.
+                    reoriented = selected;
+                    std::swap(reoriented.clause[0], reoriented.clause[1]);
+                    instance = &reoriented;
+                  }
                   sr_application =
                       enumerated_sr &&
-                              (instance.orbitopal_prefix_certificate ||
-                               instance.symmetry_chain_certificate ||
-                               instance.unique_literal_amo_certificate)
+                              (instance->orbitopal_prefix_certificate ||
+                               instance->symmetry_chain_certificate ||
+                               instance->unique_literal_amo_certificate)
                           ? substitution_redundancy_apply_orbitopal_prefix(
-                                k, instance, parameters, stop)
+                                k, *instance, parameters, stop)
                           : substitution_redundancy_apply_detailed(
-                                k, instance, parameters, stop);
+                                k, *instance, parameters, stop);
                   return sr_application->rule_result;
                 })
           : (!step.factor_grids.empty() || enumerated_factor_grid)

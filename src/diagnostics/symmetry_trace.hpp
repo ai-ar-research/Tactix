@@ -14,17 +14,25 @@ namespace tactix {
 // stderr through an anonymous descriptor. Disabled tracing reads no clocks.
 class SymmetryTrace {
   bool enabled_ = false;
+  bool detailed_ = false;
   std::chrono::steady_clock::time_point started_{};
 
 public:
   SymmetryTrace() noexcept {
     const char *setting = std::getenv("TACTIX_SR_TRACE");
-    enabled_ = setting && setting[0] == '1' && setting[1] == '\0';
+    enabled_ = setting && ((setting[0] == '1' || setting[0] == '2') &&
+                           setting[1] == '\0');
+    detailed_ = setting && setting[0] == '2' && setting[1] == '\0';
     if (enabled_)
       started_ = std::chrono::steady_clock::now();
   }
 
   bool enabled() const noexcept { return enabled_; }
+  // Level 1 is the bounded campaign trace: phase boundaries and aggregate
+  // outcomes. Level 2 additionally fingerprints every generator. Computing a
+  // dense identity-padded image for each sparse generator is intentionally a
+  // diagnostic cost and must not perturb checked runtime campaigns.
+  bool detailed() const noexcept { return detailed_; }
 
   void permutation(const char *name, size_t ordinal, const uint32_t *image,
                    size_t domain) const noexcept {

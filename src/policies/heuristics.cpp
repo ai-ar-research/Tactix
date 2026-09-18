@@ -8,6 +8,8 @@
 #include <cassert>
 #include <cstdio>
 #include <cstdlib>
+#include <limits>
+#include <numeric>
 #include <type_traits>
 
 namespace tactix {
@@ -294,6 +296,113 @@ void heuristics_seed_activation_order(Kernel &k, const std::vector<Var> &order) 
     heuristics_score_set(k, v, 1.0 - 1.0 / static_cast<double>(++rank));
   k.h->activation_count = rank;
   k.stats.tumble_seeded = order.size();
+}
+
+size_t heuristics_prepare_residual_activation_order(Kernel &k) {
+  assert(!k.h);
+  assert(k.level == 0);
+
+  struct FirstOccurrence {
+    uint64_t clause = std::numeric_limits<uint64_t>::max();
+    uint32_t literal = UINT32_MAX;
+  };
+  std::vector<FirstOccurrence> first(k.nvars);
+
+  // The original tumble order supplies the missing within-binary orientation:
+  // Tactix mirrors a binary in two watch lists and intentionally does not keep
+  // its file-literal direction.  If a surviving input binary is the first
+  // residual occurrence of both variables, their original activation ranks
+  // recover that direction.  Generated ties fall back to stable identity.
+  std::vector<uint32_t> prior_rank(k.nvars, UINT32_MAX);
+  for (uint32_t rank = 0; rank < k.input_activation_order.size(); ++rank)
+    prior_rank[k.input_activation_order[rank]] = rank;
+
+  const auto note = [&](Var v, uint64_t clause, uint32_t literal) {
+    FirstOccurrence &slot = first[v];
+    if (clause < slot.clause ||
+        (clause == slot.clause && literal < slot.literal))
+      slot = {clause, literal};
+  };
+
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *const c = clause_at(k.arena, ref);
+    const uint32_t words = clause_actual_words(c);
+    if (!c->garbage()) {
+      bool satisfied = false;
+      uint32_t open = 0;
+      for (const Lit lit : *c) {
+        satisfied |= k.value(lit) > 0;
+        open += k.value(lit) == 0;
+      }
+      if (!satisfied && open >= 2) {
+        uint32_t position = 0;
+        for (const Lit lit : *c) {
+          if (!k.value(lit))
+            note(var_of(lit), c->id(), position++);
+        }
+      }
+    }
+    ref += words;
+  }
+
+  for (Lit a = 0; a < static_cast<Lit>(2 * k.nvars); ++a) {
+    if (k.value(a))
+      continue;
+    for (const WatchEntry watch : k.watches.entries(a)) {
+      if (!watch.binary())
+        continue;
+      const Lit b = watch.other();
+      if (a >= b || k.value(b))
+        continue;
+      const Var av = var_of(a), bv = var_of(b);
+      const bool a_first = prior_rank[av] != prior_rank[bv]
+                               ? prior_rank[av] < prior_rank[bv]
+                               : av < bv;
+      const uint64_t id = kernel_binary_id(k, a, b);
+      note(av, id, a_first ? 0u : 1u);
+      note(bv, id, a_first ? 1u : 0u);
+    }
+  }
+
+  std::vector<Var> residual;
+  residual.reserve(k.nvars);
+  for (Var v = 0; v < k.nvars; ++v)
+    if (first[v].clause != std::numeric_limits<uint64_t>::max())
+      residual.push_back(v);
+  std::sort(residual.begin(), residual.end(), [&](Var a, Var b) {
+    if (first[a].clause != first[b].clause)
+      return first[a].clause < first[b].clause;
+    if (first[a].literal != first[b].literal)
+      return first[a].literal < first[b].literal;
+    return a < b;
+  });
+
+  // Satsuma writes every fixed literal as a unit after its reduced clauses.
+  // A fresh Kissat therefore activates and immediately deactivates these
+  // variables after the residual population.  Preserve those stamp slots in
+  // stable external-variable order; variables absent from both the residual
+  // and the unit suffix are never imported by that fresh solver.
+  std::vector<Var> external_order;
+  kernel_vars_in_external_order(k, external_order);
+  for (const Var v : external_order)
+    if (k.values[make_lit(v, false)] != 0 && k.assigned[v].level == 0)
+      residual.push_back(v);
+
+  k.input_activation_order.swap(residual);
+  return k.input_activation_order.size();
+}
+
+void heuristics_seed_residual_import_order(Kernel &k,
+                                           const std::vector<Var> &order) {
+  assert(k.h);
+  std::vector<uint8_t> seen(k.nvars, 0);
+  for (const Var v : order) {
+    assert(v < k.nvars);
+    assert(!seen[v]);
+    seen[v] = 1;
+  }
+  k.compact_import_order = order;
+  rebuild_compact_import_position(k, k.nvars);
 }
 
 void heuristics_compact_random_order_fixed(Kernel &k) {

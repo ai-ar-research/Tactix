@@ -188,6 +188,43 @@ struct WatchLists {
     assert(head.has_large() == has_large);
   }
 
+  // Collection already visits every entry to decide whether it survives.
+  // Forward a retained large reference in that same write-cursor pass instead
+  // of decoding the compacted list again. Binary words and large blockers are
+  // copied unchanged, so this has the same stable-order contract as compact().
+  template <class Keep, class Map>
+  void compact_map_large(Lit l, Keep keep, Map map) {
+    uint32_t *const b = begin(l);
+    uint32_t *q = b;
+    const uint32_t *p = b;
+    const uint32_t *const e = end(l);
+    uint32_t binaries = 0;
+    bool has_large = false, binaries_first = true;
+    while (p != e) {
+      const bool bin = Watch{*p}.binary();
+      const WatchEntry entry{p};
+      if (keep(entry)) {
+        if (bin) {
+          binaries++;
+          binaries_first = binaries_first && !has_large;
+          *q++ = *p++;
+        } else {
+          has_large = true;
+          *q++ = *p++;
+          *q++ = map(*p++);
+        }
+      } else {
+        p += bin ? 1 : 2;
+      }
+    }
+    WatchHead &head = heads[l];
+    const uint32_t old_size = head.size;
+    head.size = static_cast<uint32_t>(q - b);
+    holes += old_size - head.size;
+    head.set_layout(binaries, binaries_first);
+    assert(head.has_large() == has_large);
+  }
+
   // Rewrite the clause reference of every retained large entry in place.
   // Collection uses this after entry-aware compaction: prefix watch order and
   // blockers stay byte-identical while arena references are forwarded around

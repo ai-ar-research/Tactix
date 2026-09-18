@@ -50,20 +50,54 @@ static void add_blocked_amo_cleanup_fixture(Kernel &k) {
 int main() {
   DefaultStrategyConfig defaults;
   assert(defaults.inprocess.structured_root_before_lucky);
+  assert(defaults.inprocess.structured_root_residual_search_handoff);
+  assert(defaults.inprocess.structured_root_progress_feedback);
+  assert(!defaults.inprocess.structured_root_large_domain_progress_feedback);
+  assert(defaults.inprocess.structured_root_progress_minimum_ticks ==
+         (16ull << 20));
+  assert(defaults.inprocess.structured_root_progress_ticks_per_variable == 16);
   assert(!defaults.inprocess.structured_root_sr_discovery_budget.is_unlimited());
   assert(defaults.inprocess.structured_root_sr_discovery_budget.amount() ==
          DefaultStrategyConfig::SYMMETRY_TOTAL_TICK_LIMIT_DEFAULT);
   assert(defaults.inprocess.structured_root_bce_after_unique_literal_amo);
+  bool saw_default_graph = false;
+  for (const auto &stage : defaults.inprocess.structured_root_stages)
+    for (const auto &step : stage.program.sequence)
+      if (const auto *parameters =
+              std::get_if<SubstitutionRedundancyParameters>(&step.parameters);
+          parameters &&
+          parameters->producer == SubstitutionRedundancyProducer::GraphSymmetry) {
+        saw_default_graph = true;
+        assert(parameters->graph_symmetry.nonforcing_cut_admission ==
+               SymmetryNonforcingCutAdmission::RequireCompoundProgress);
+      }
+  assert(saw_default_graph);
   assert(defaults.serialize().find(
              "inprocess.structured_root_sr_discovery_ticks=20000000000") !=
          std::string::npos);
   assert(defaults.serialize().find(
              "inprocess.structured_root_bce_after_unique_literal_amo=1") !=
          std::string::npos);
+  assert(defaults.serialize().find(
+             "inprocess.structured_root_residual_search_handoff=1") !=
+         std::string::npos);
+  assert(defaults.serialize().find(
+             "inprocess.structured_root_progress_feedback=1") !=
+         std::string::npos);
+  assert(defaults.serialize().find(
+             "inprocess.structured_root_large_domain_progress_feedback=0") !=
+         std::string::npos);
+  assert(!default_should_cleanup_unique_literal_amo(0, true, false));
+  assert(!default_should_cleanup_unique_literal_amo(3, false, false));
+  assert(default_should_cleanup_unique_literal_amo(3, true, false));
+  assert(!default_should_cleanup_unique_literal_amo(3, true, true));
+  assert(!default_should_seed_structured_residual(false, 0, false));
+  assert(default_should_seed_structured_residual(true, 0, false));
+  assert(!default_should_seed_structured_residual(true, 3, false));
+  assert(default_should_seed_structured_residual(true, 3, true));
   {
-    // The policy cleanup is admitted by generated ULC binary provenance. Its
-    // typed switch controls exactly this one startup pass; the producer itself
-    // is identical in both runs.
+    // Generic graph symmetry consumes the completed BIG and fixes a root.
+    // That outcome suppresses the optional cleanup in both configurations.
     Kernel enabled, disabled;
     add_blocked_amo_cleanup_fixture(enabled);
     add_blocked_amo_cleanup_fixture(disabled);
@@ -76,7 +110,78 @@ int main() {
     assert(enabled.stats.sr_unique_literal_amo_binaries > 0);
     assert(enabled.stats.sr_unique_literal_amo_binaries ==
            disabled.stats.sr_unique_literal_amo_binaries);
-    assert(enabled.stats.bce_deleted > disabled.stats.bce_deleted);
+    assert(enabled.stats.sr_applied >
+           enabled.stats.sr_unique_literal_amo_binaries);
+    assert(enabled.stats.sr_post_amo_nonhelper_applied > 0);
+    assert(enabled.stats.sr_post_amo_graph_root_units > 0);
+    assert(enabled.stats.bce_deleted == disabled.stats.bce_deleted);
+  }
+  {
+    // Completion with no later SR consequence is itself the structured
+    // result.  Keep those binaries live instead of running a cleanup pass
+    // whose only net effect would be scheduling and heuristic perturbation.
+    Kernel helper_only;
+    kernel_reserve_vars(helper_only, 3);
+    const Lit source[] = {internalize(1), internalize(2), internalize(3)};
+    kernel_add_large_clause(helper_only, source, 3, false, 0,
+                            ++helper_only.next_clause_id);
+    DefaultStrategyConfig config = defaults;
+    strategy::OnlineInvocation completion;
+    completion.id = 110;
+    completion.rule = "SubstitutionRedundancy";
+    SubstitutionRedundancyParameters parameters;
+    parameters.producer = SubstitutionRedundancyProducer::Orbitopal;
+    parameters.maximum_orbitopal_matrices = 0;
+    parameters.complete_unique_literal_amos = true;
+    completion.parameters = parameters;
+    completion.granularity =
+        strategy::InvocationGranularity::CompleteCurrentPass;
+    strategy::OnlineStrategyProgram program;
+    program.sequence = {completion};
+    config.inprocess.structured_root_stages = {
+        {program, strategy::BudgetExhaustionPolicy::Continue}};
+    assert(DefaultPolicy(config).solve(helper_only) == 10);
+    assert(helper_only.stats.sr_unique_literal_amo_binaries == 3);
+    assert(helper_only.stats.sr_applied == 3);
+    assert(helper_only.stats.sr_post_amo_nonhelper_applied == 0);
+    assert(helper_only.stats.sr_post_amo_graph_root_units == 0);
+    assert(helper_only.stats.bce_deleted == 0);
+    assert(kernel_binary_live(helper_only, internalize(-1), internalize(-2)));
+    assert(kernel_binary_live(helper_only, internalize(-1), internalize(-3)));
+    assert(kernel_binary_live(helper_only, internalize(-2), internalize(-3)));
+  }
+  {
+    // A ULC completed during structured startup must immediately expose the
+    // consequences of an already-fixed member.  This is the same lifecycle as
+    // parsing Satsuma's residual: the following structured stage sees the
+    // closed root, not merely the newly published binary clauses.
+    Kernel rooted_helper;
+    kernel_reserve_vars(rooted_helper, 3);
+    const Lit source[] = {internalize(1), internalize(2), internalize(3)};
+    kernel_add_large_clause(rooted_helper, source, 3, false, 0,
+                            ++rooted_helper.next_clause_id);
+    kernel_assign_unit(rooted_helper, internalize(2));
+    DefaultStrategyConfig config = defaults;
+    strategy::OnlineInvocation completion;
+    completion.id = 111;
+    completion.rule = "SubstitutionRedundancy";
+    SubstitutionRedundancyParameters parameters;
+    parameters.producer = SubstitutionRedundancyProducer::Orbitopal;
+    parameters.maximum_orbitopal_matrices = 0;
+    parameters.complete_unique_literal_amos = true;
+    completion.parameters = parameters;
+    completion.granularity =
+        strategy::InvocationGranularity::CompleteCurrentPass;
+    completion.post_application = strategy::PostApplication::Propagate;
+    strategy::OnlineStrategyProgram program;
+    program.sequence = {completion};
+    config.inprocess.structured_root_stages = {
+        {program, strategy::BudgetExhaustionPolicy::Continue}};
+    assert(DefaultPolicy(config).solve(rooted_helper) == 10);
+    assert(rooted_helper.value(internalize(-1)) > 0);
+    assert(rooted_helper.value(internalize(-3)) > 0);
+    assert(rooted_helper.assigned[var_of(internalize(-1))].level == 0);
+    assert(rooted_helper.assigned[var_of(internalize(-3))].level == 0);
   }
   {
     auto reference_order = defaults;
@@ -200,6 +305,13 @@ int main() {
     assert(!invalid.valid(&validation_error));
     invalid = defaults;
     invalid.rephase.walk_score_curve[1].average_clause_size_milli = 0;
+    assert(!invalid.valid(&validation_error));
+    invalid = defaults;
+    invalid.rephase.structural_seed_rotation.clear();
+    assert(!invalid.valid(&validation_error));
+    invalid = defaults;
+    invalid.rephase.structural_seed_rotation[0] =
+        static_cast<strategy::LocalSearchKind>(99);
     assert(!invalid.valid(&validation_error));
     invalid = defaults;
     invalid.reorder.parameters.clause_decay_milli = 0;

@@ -3,6 +3,7 @@
 #include "symmetry_backend/sparse_permutation.hpp"
 #include "symmetry_backend/group_input.hpp"
 #include "rules/substitution_redundancy/cut_orbit_index.hpp"
+#include "diagnostics/symmetry_trace.hpp"
 
 #include <algorithm>
 #include <array>
@@ -14,6 +15,25 @@
 using namespace tactix::symmetry_backend;
 
 namespace {
+
+void symmetry_trace_levels_separate_campaign_and_generator_detail() {
+  unsetenv("TACTIX_SR_TRACE");
+  {
+    tactix::SymmetryTrace trace;
+    assert(!trace.enabled() && !trace.detailed());
+  }
+  setenv("TACTIX_SR_TRACE", "1", 1);
+  {
+    tactix::SymmetryTrace trace;
+    assert(trace.enabled() && !trace.detailed());
+  }
+  setenv("TACTIX_SR_TRACE", "2", 1);
+  {
+    tactix::SymmetryTrace trace;
+    assert(trace.enabled() && trace.detailed());
+  }
+  unsetenv("TACTIX_SR_TRACE");
+}
 
 // Matching edges split one root cell; an unrelated cycle and many root
 // singletons remain untouched. Images must include exactly the split cell,
@@ -1683,6 +1703,7 @@ void fixing_images_have_sr_direction_for_non_involutions() {
 } // namespace
 
 int main() {
+  symmetry_trace_levels_separate_campaign_and_generator_detail();
   row_images_ignore_untouched_root_cells();
   reduced_first_row_preserves_prefixes_and_stops();
   sparse_group_input_preserves_results_and_budgets();

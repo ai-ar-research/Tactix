@@ -48,6 +48,84 @@ static Kernel fixture(bool complete = true) {
   return k;
 }
 
+static Kernel direct_csp_fixture() {
+  constexpr unsigned domains = 4, width = 4;
+  Kernel k;
+  kernel_reserve_vars(k, domains * width);
+  const auto encoded = [](unsigned domain, unsigned value) {
+    return make_lit(static_cast<Var>(domain * width + value),
+                    ((domain + value) & 1) != 0);
+  };
+  for (unsigned domain = 0; domain != domains; ++domain) {
+    Lit clause[width];
+    for (unsigned value = 0; value != width; ++value)
+      clause[value] = encoded(domain, value);
+    kernel_add_large_clause(k, clause, width, false, 0);
+    for (unsigned a = 0; a != width; ++a)
+      for (unsigned b = a + 1; b != width; ++b)
+        kernel_add_binary_clause(k, negate(encoded(domain, a)),
+                                negate(encoded(domain, b)));
+  }
+  // Adjacent CSP objects must choose the same value.  This produces a direct
+  // encoding with signed one-hot literals and cross-domain forbidden pairs.
+  for (unsigned domain = 0; domain + 1 != domains; ++domain)
+    for (unsigned a = 0; a != width; ++a)
+      for (unsigned b = 0; b != width; ++b)
+        if (a != b)
+          kernel_add_binary_clause(k, negate(encoded(domain, a)),
+                                  negate(encoded(domain + 1, b)));
+  return k;
+}
+
+static Kernel direct_csp_unsat_fixture() {
+  constexpr unsigned domains = 2, width = 3;
+  Kernel k;
+  kernel_reserve_vars(k, domains * width);
+  const auto lit = [](unsigned domain, unsigned value) {
+    return make_lit(static_cast<Var>(domain * width + value), false);
+  };
+  for (unsigned domain = 0; domain != domains; ++domain) {
+    Lit clause[width];
+    for (unsigned value = 0; value != width; ++value)
+      clause[value] = lit(domain, value);
+    kernel_add_large_clause(k, clause, width, false, 0);
+  }
+  for (unsigned a = 0; a != width; ++a)
+    for (unsigned b = 0; b != width; ++b)
+      kernel_add_binary_clause(k, negate(lit(0, a)), negate(lit(1, b)));
+  return k;
+}
+
+static Kernel direct_csp_alldifferent_pigeonhole_fixture() {
+  constexpr unsigned domains = 5, clique_domains = 4, width = 3;
+  Kernel k;
+  kernel_reserve_vars(k, domains * width);
+  const auto lit = [](unsigned domain, unsigned value) {
+    return make_lit(static_cast<Var>(domain * width + value), false);
+  };
+  for (unsigned domain = 0; domain != domains; ++domain) {
+    Lit clause[width];
+    for (unsigned value = 0; value != width; ++value)
+      clause[value] = lit(domain, value);
+    kernel_add_large_clause(k, clause, width, false, 0);
+    for (unsigned a = 0; a != width; ++a)
+      for (unsigned b = a + 1; b != width; ++b)
+        kernel_add_binary_clause(k, negate(lit(domain, a)),
+                                negate(lit(domain, b)));
+  }
+  for (unsigned a = 0; a != clique_domains; ++a)
+    for (unsigned b = a + 1; b != clique_domains; ++b)
+      for (unsigned value = 0; value != width; ++value)
+        kernel_add_binary_clause(k, negate(lit(a, value)),
+                                negate(lit(b, value)));
+  // Keep the all-different graph connected but non-complete.  Admission must
+  // find the oversized clique itself rather than rely on component density.
+  for (unsigned value = 0; value != width; ++value)
+    kernel_add_binary_clause(k, negate(lit(0, value)),
+                            negate(lit(4, value)));
+  return k;
+}
+
 static bool satisfied(const Kernel &k) {
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *clause = clause_at(k.arena, ref);
@@ -69,6 +147,46 @@ static bool satisfied(const Kernel &k) {
 }
 
 int main() {
+  {
+    Kernel k = direct_csp_fixture();
+    assert(onehot_model_guard(k));
+    assert(direct_csp_model_apply(k) == ApplyResult::Sat);
+    assert(k.stats.direct_csp_model_calls == 1);
+    assert(k.stats.direct_csp_model_domains == 4);
+    assert(k.stats.direct_csp_model_edges == 3);
+    assert(k.stats.direct_csp_model_restarts == 1);
+    assert(k.stats.direct_csp_model_sat == 1);
+    assert(k.unassigned_active == 0 && satisfied(k));
+  }
+  {
+    Kernel k = direct_csp_unsat_fixture();
+    strategy::OnehotModelParameters parameters;
+    parameters.candidate_budget = 1;
+    strategy::ScopedOnehotModelParameters posed(k, parameters);
+    const size_t arena_words = k.arena.size();
+    assert(direct_csp_model_apply(k) == ApplyResult::NoOp);
+    assert(k.stats.direct_csp_model_restarts == 1);
+    assert(k.trail.empty() && k.arena.size() == arena_words);
+  }
+  {
+    Kernel k = direct_csp_alldifferent_pigeonhole_fixture();
+    const size_t arena_words = k.arena.size();
+    assert(direct_csp_model_apply(k) == ApplyResult::NoOp);
+    assert(k.stats.direct_csp_model_infeasible == 1);
+    assert(k.stats.direct_csp_model_restarts == 0);
+    assert(k.stats.local_search_hints_offered == 0);
+    assert(k.trail.empty() && k.arena.size() == arena_words);
+  }
+  {
+    Kernel k = direct_csp_fixture();
+    k.input_binary_order_captured = true;
+    k.input_binary_order = {1, 2, 3};
+    strategy::OnehotModelParameters parameters;
+    parameters.candidate_budget = 0;
+    strategy::ScopedOnehotModelParameters posed(k, parameters);
+    assert(direct_csp_model_apply(k) == ApplyResult::NoOp);
+    assert(!k.input_binary_order_captured && k.input_binary_order.empty());
+  }
   {
     Kernel k = fixture();
     assert(onehot_model_guard(k));

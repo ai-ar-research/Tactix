@@ -13,6 +13,7 @@
 #include "rules/reduce/reduce.hpp"
 #include "policies/ops/rephase/rephase.hpp"
 #include "policies/ops/reorder/reorder.hpp"
+#include "policies/ops/local_search/local_search.hpp"
 #include "rules/lucky/parity_model.hpp"
 #include "rules/lucky/onehot_model.hpp"
 #include "policies/ops/walk/walk.hpp"
@@ -157,6 +158,19 @@ void default_prepare_reduction(Kernel &k) {
   }
 }
 
+bool default_should_cleanup_unique_literal_amo(
+    uint64_t binaries_added, bool later_progress,
+    bool generic_graph_root_progress) {
+  return binaries_added && later_progress && !generic_graph_root_progress;
+}
+
+bool default_should_seed_structured_residual(
+    bool grew_root_trail, uint64_t unique_literal_amo_binaries,
+    bool generic_graph_root_progress) {
+  return grew_root_trail &&
+         (!unique_literal_amo_binaries || generic_graph_root_progress);
+}
+
 namespace {
 // Unit conversions and protocol values, not strategy parameters.
 constexpr uint64_t PERMILLE_SCALE = 1000;
@@ -249,6 +263,7 @@ DefaultStrategyConfig::reference_structured_root_program() {
   // schedule. Callers retain zero, finite, and unbounded choices through the
   // typed parameter surface.
   orbitopal_parameters.maximum_orbitopal_refinement_orbits = 64;
+  orbitopal_parameters.orbitopal_progress_feedback = true;
   orbitopal_parameters.maximum_detection_ticks = UINT64_MAX;
   orbitopal_parameters.orbitopal_column_order =
       OrbitopalColumnOrder::CooccurrenceGreedyClique;
@@ -402,6 +417,13 @@ bool DefaultStrategyConfig::valid(std::string *error) const {
   walk_parameters.score_curve = rephase.walk_score_curve;
   if (!walk_parameters.valid() || rephase.rotation.empty())
     return reject("rephase Walk settings are invalid");
+  if (rephase.structural_walk_seed &&
+      rephase.structural_seed_rotation.empty())
+    return reject("structural local-search rotation is empty");
+  for (const strategy::LocalSearchKind kind :
+       rephase.structural_seed_rotation)
+    if (!strategy::valid_local_search_kind(kind))
+      return reject("structural local-search rotation contains an invalid kind");
   for (const DefaultRephaseSlot slot : rephase.rotation)
     if (slot != DefaultRephaseSlot::Best &&
         slot != DefaultRephaseSlot::Walk &&
@@ -498,13 +520,30 @@ bool DefaultStrategyConfig::valid(std::string *error) const {
   for (const strategy::InprocessStep &step : ip.program)
     if (step.rule == "SubstitutionRedundancy")
       return reject("slot program duplicates structured root SR ownership");
-  for (const auto &stage : ip.structured_root_stages) {
+  for (const auto *stages : {&ip.structured_root_stages,
+                             &ip.structured_root_bounded_backtracking_stages,
+                             &ip.structured_root_large_domain_stages})
+  for (const auto &stage : *stages) {
     if (stage.on_budget_exhaustion != strategy::BudgetExhaustionPolicy::Stop &&
         stage.on_budget_exhaustion != strategy::BudgetExhaustionPolicy::Continue &&
         stage.on_budget_exhaustion != strategy::BudgetExhaustionPolicy::FinishRoundThenStop)
       return reject("structured root budget disposition is invalid");
     if (!strategy::validate_online_strategy_program(stage.program, error))
       return false;
+    if (stage.structured_handoff_after_prior_progress &&
+        std::none_of(stage.program.sequence.begin(), stage.program.sequence.end(),
+                     [](const auto &step) {
+                       const auto *parameters =
+                           std::get_if<SubstitutionRedundancyParameters>(
+                               &step.parameters);
+                       return parameters &&
+                              parameters->producer ==
+                                  SubstitutionRedundancyProducer::GraphSymmetry &&
+                              (parameters->graph_symmetry.use_structured_generators ||
+                               parameters->graph_symmetry
+                                   .stabilize_structured_variables);
+                     }))
+      return reject("structured handoff feedback requires a graph handoff");
     for (size_t i = 0; i < stage.progress_followups.size(); ++i) {
       const auto id = stage.progress_followups[i];
       if (std::none_of(stage.program.sequence.begin(), stage.program.sequence.end(),
@@ -633,6 +672,8 @@ std::string DefaultStrategyConfig::serialize() const {
       << " rephase.walk_use_branch_seed="
       << rephase.walk_use_branch_seed
       << " rephase.walk_random_seed=" << rephase.walk_random_seed
+      << " rephase.structural_walk_seed="
+      << rephase.structural_walk_seed
       << " rephase.stable_only=" << rephase.stable_only
       << " rephase.late_lucky=" << rephase.late_lucky;
   for (size_t i = 0; i < rephase.walk_score_curve.size(); ++i)
@@ -642,6 +683,9 @@ std::string DefaultStrategyConfig::serialize() const {
   for (size_t i = 0; i < rephase.rotation.size(); ++i)
     out << " rephase.rotation" << i << '='
         << static_cast<unsigned>(rephase.rotation[i]);
+  for (size_t i = 0; i < rephase.structural_seed_rotation.size(); ++i)
+    out << " rephase.structural_seed_rotation" << i << '='
+        << static_cast<unsigned>(rephase.structural_seed_rotation[i]);
   out
       << " reorder.initial_interval=" << reorder.initial_interval
       << " reorder.interval=" << reorder.interval
@@ -772,14 +816,28 @@ std::string DefaultStrategyConfig::serialize() const {
       << inprocess.likely_kept_redundant
       << " inprocess.structured_root_before_lucky="
       << inprocess.structured_root_before_lucky
+      << " inprocess.structured_root_residual_search_handoff="
+      << inprocess.structured_root_residual_search_handoff
       << " inprocess.structured_root_sr_discovery_unlimited="
       << inprocess.structured_root_sr_discovery_budget.is_unlimited()
       << " inprocess.structured_root_sr_discovery_ticks="
       << (inprocess.structured_root_sr_discovery_budget.is_unlimited()
               ? 0
               : inprocess.structured_root_sr_discovery_budget.amount())
+      << " inprocess.structured_root_progress_feedback="
+      << inprocess.structured_root_progress_feedback
+      << " inprocess.structured_root_large_domain_progress_feedback="
+      << inprocess.structured_root_large_domain_progress_feedback
+      << " inprocess.structured_root_progress_minimum_ticks="
+      << inprocess.structured_root_progress_minimum_ticks
+      << " inprocess.structured_root_progress_ticks_per_variable="
+      << inprocess.structured_root_progress_ticks_per_variable
       << " inprocess.structured_root_bce_after_unique_literal_amo="
       << inprocess.structured_root_bce_after_unique_literal_amo
+      << " inprocess.structured_root_backtracking_domain_limit="
+      << inprocess.structured_root_backtracking_domain_limit
+      << " inprocess.structured_root_large_domain_limit="
+      << inprocess.structured_root_large_domain_limit
 ;
   for (size_t i = 0; i < inprocess.structured_root_stages.size(); ++i) {
     const auto &stage = inprocess.structured_root_stages[i];
@@ -796,6 +854,54 @@ std::string DefaultStrategyConfig::serialize() const {
       for (size_t j = 0; j < stage.before_progress.size(); ++j)
         out << (j ? "," : "") << stage.before_progress[j];
     }
+    out << " inprocess.structured_root_stage" << i
+        << ".structured_handoff_after_prior_progress="
+        << stage.structured_handoff_after_prior_progress;
+  }
+  for (size_t i = 0;
+       i < inprocess.structured_root_bounded_backtracking_stages.size(); ++i) {
+    const auto &stage =
+        inprocess.structured_root_bounded_backtracking_stages[i];
+    out << " inprocess.structured_root_bounded_backtracking_stage" << i << "={"
+        << static_cast<unsigned>(stage.on_budget_exhaustion) << ':'
+        << strategy::serialize_online_strategy_program(stage.program) << '}';
+    if (!stage.progress_followups.empty()) {
+      out << " inprocess.structured_root_bounded_backtracking_stage" << i
+          << ".progress_followups=";
+      for (size_t j = 0; j < stage.progress_followups.size(); ++j)
+        out << (j ? "," : "") << stage.progress_followups[j];
+    }
+    if (!stage.before_progress.empty()) {
+      out << " inprocess.structured_root_bounded_backtracking_stage" << i
+          << ".before_progress=";
+      for (size_t j = 0; j < stage.before_progress.size(); ++j)
+        out << (j ? "," : "") << stage.before_progress[j];
+    }
+    out << " inprocess.structured_root_bounded_backtracking_stage" << i
+        << ".structured_handoff_after_prior_progress="
+        << stage.structured_handoff_after_prior_progress;
+  }
+  for (size_t i = 0; i < inprocess.structured_root_large_domain_stages.size();
+       ++i) {
+    const auto &stage = inprocess.structured_root_large_domain_stages[i];
+    out << " inprocess.structured_root_large_stage" << i << "={"
+        << static_cast<unsigned>(stage.on_budget_exhaustion) << ':'
+        << strategy::serialize_online_strategy_program(stage.program) << '}';
+    if (!stage.progress_followups.empty()) {
+      out << " inprocess.structured_root_large_stage" << i
+          << ".progress_followups=";
+      for (size_t j = 0; j < stage.progress_followups.size(); ++j)
+        out << (j ? "," : "") << stage.progress_followups[j];
+    }
+    if (!stage.before_progress.empty()) {
+      out << " inprocess.structured_root_large_stage" << i
+          << ".before_progress=";
+      for (size_t j = 0; j < stage.before_progress.size(); ++j)
+        out << (j ? "," : "") << stage.before_progress[j];
+    }
+    out << " inprocess.structured_root_large_stage" << i
+        << ".structured_handoff_after_prior_progress="
+        << stage.structured_handoff_after_prior_progress;
   }
   for (size_t i = 0; i < inprocess.bve_bounds.size(); ++i)
     out << " inprocess.bve_bound" << i << '=' << inprocess.bve_bounds[i];
@@ -1194,6 +1300,7 @@ void DefaultPolicy::reset_schedule(const Kernel &k) {
   reluctant.wait = config_.restart.reluctant_period;
   rephase = {};
   rephase.next_conflicts = conflicts + config_.rephase.initial_interval;
+  structural_seed_cursor_ = 0;
   reorder = {};
   reorder.next_conflicts = conflicts + config_.reorder.initial_interval;
   bump_reasons_delay_ = {};
@@ -3132,6 +3239,10 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   ApplyResult startup = default_propagate(k, "startup");
   if (startup != ApplyResult::Ok)
     return finish(20); // startup is at root: a conflict is a refutation
+  bool structured_root_grew_trail = false;
+  uint64_t structured_root_amo_binaries_added = 0;
+  bool structured_root_graph_root_progress = false;
+  std::vector<Var> residual_import_order;
   // Symmetry detection may depend on adjacency insertion order. Schedule the
   // shared structured program on the imported root before speculative Lucky
   // propagation can rearrange watches. The reference Probe-entry order remains
@@ -3143,15 +3254,44 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     kernel_materialize_cold_state(k);
     const uint64_t amo_binaries_before =
         k.stats.sr_unique_literal_amo_binaries;
+    const uint64_t post_amo_progress_before =
+        k.stats.sr_post_amo_nonhelper_applied;
+    const uint64_t post_amo_graph_root_units_before =
+        k.stats.sr_post_amo_graph_root_units;
+    const size_t structured_trail_before = k.trail.size();
     const uint64_t structured_started = now_nanos();
     const int structured_result = inprocess_.run_structured_root(k, stop);
-    k.stats.inprocess_nanos += now_nanos() - structured_started;
+    const uint64_t structured_elapsed = now_nanos() - structured_started;
+    k.stats.structured_root_nanos += structured_elapsed;
+    k.stats.inprocess_nanos += structured_elapsed;
+    structured_root_grew_trail = k.trail.size() > structured_trail_before;
     if (structured_result == 10 || structured_result == 20)
       return finish(structured_result);
     if ((stop && *stop) || (k.stop && *k.stop))
       return finish(0);
+    const uint64_t amo_binaries_added =
+        k.stats.sr_unique_literal_amo_binaries - amo_binaries_before;
+    structured_root_amo_binaries_added = amo_binaries_added;
+    // ULC completion is useful in three distinguishable ways.  If generic
+    // graph symmetry consumes the completed BIG and fixes a root literal,
+    // retain the pairs as input structure for search: the fixing is durable
+    // evidence that completion exposed a useful subgroup.  If later progress
+    // does not do that, the helpers have served their discovery purpose and
+    // one canonical BCE pass may remove them.  If completion was the only
+    // progress, retain the pairs instead of paying for a formula round trip
+    // which leaves only scheduler/heuristic perturbation.  These are producer
+    // outcomes, independent of formula size or benchmark identity.
+    const bool amo_enabled_later_progress =
+        k.stats.sr_post_amo_nonhelper_applied != post_amo_progress_before;
+    const bool amo_enabled_graph_root_progress =
+        k.stats.sr_post_amo_graph_root_units !=
+        post_amo_graph_root_units_before;
+    structured_root_graph_root_progress =
+        amo_enabled_graph_root_progress;
     if (config_.inprocess.structured_root_bce_after_unique_literal_amo &&
-        k.stats.sr_unique_literal_amo_binaries != amo_binaries_before) {
+        default_should_cleanup_unique_literal_amo(
+            amo_binaries_added, amo_enabled_later_progress,
+            amo_enabled_graph_root_progress)) {
       if (inprocess_reach_root(k))
         return finish(20);
       if (bce_guard(k)) {
@@ -3165,6 +3305,26 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       if ((stop && *stop) || (k.stop && *k.stop))
         return finish(0);
     }
+  }
+  // Direct finite-domain model search can be much more expensive than a
+  // proof-producing root pass.  Preserve the parser's stable binary order
+  // through that pass, then search only if preprocessing did not already
+  // decide the formula.  The recognizer and full-model validator still own
+  // admission; this scheduling order is independent of names and families.
+  if (config_.onehot_model.enabled && onehot_model_guard(k)) {
+    event_trace.macro(k, "direct_csp_model_begin");
+    const ApplyResult direct_csp = default_direct_rule(
+        k, "Lucky", "direct-csp-model", [&] { return direct_csp_model_apply(k); });
+    if (direct_csp == ApplyResult::Sat) {
+      event_trace.macro(k, "direct_csp_model_end", "sat");
+      return finish(10);
+    }
+    event_trace.macro(k, "direct_csp_model_end", "unknown");
+  }
+  if (k.input_binary_order_captured) {
+    k.input_binary_order.clear();
+    k.input_binary_order.shrink_to_fit();
+    k.input_binary_order_captured = false;
   }
   if (lucky_guard(k)) {
     event_trace.macro(k, "lucky_early_begin");
@@ -3203,8 +3363,27 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   // Attach it only after the early opportunity fails. ScopedHeuristics consumes
   // the parser's retained activation order, preserving the exact first-search
   // pose; callers that supplied H keep their existing session-wide object.
+  // Reconstruct the seed a fresh solver would obtain by parsing the live
+  // post-structured residual. This is the integrated equivalent of Satsuma
+  // writing its reduced CNF before Kissat parses it. A structured pass that
+  // adds no root assignments retains the original seed exactly.
+  if (!k.h &&
+      default_should_seed_structured_residual(
+          structured_root_grew_trail,
+          structured_root_amo_binaries_added,
+          structured_root_graph_root_progress) &&
+      config_.inprocess.structured_root_residual_search_handoff) {
+    const uint64_t started = now_nanos();
+    k.stats.residual_handoff_variables +=
+        heuristics_prepare_residual_activation_order(k);
+    residual_import_order = k.input_activation_order;
+    k.stats.residual_handoff_nanos += now_nanos() - started;
+    ++k.stats.residual_handoff_calls;
+  }
   if (!k.h)
     owned_h.emplace(k);
+  if (!residual_import_order.empty())
+    heuristics_seed_residual_import_order(k, residual_import_order);
   event_trace.macro(k, "preprocess_begin");
   // Kissat preprocess.c initially propagates, then consumes those root units
   // by sparse-collecting the whole large-clause arena before the first Probe
@@ -3575,6 +3754,15 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
             kernel_backtrack(k, 0);
           k.warming = false;
         }
+        // Structural searches retain their best complete assignment even when
+        // it is not a model.  Import one source in a typed round-robin before
+        // generic Walk so Walk can refine it and CDCL later consumes the best
+        // result through the ordinary saved/target phase mechanism.
+        if (config_.rephase.structural_walk_seed &&
+            local_search_guidance_guard(k))
+          (void)local_search_guidance_apply_next(
+              k, config_.rephase.structural_seed_rotation,
+              structural_seed_cursor_);
         const uint64_t reference = walk_effort_reference(k);
         k.work_budget = scale_permille(reference, config_.rephase.walk_permille);
         // Kissat seeds the walker from the search policy's shared generator.
@@ -4416,7 +4604,16 @@ int DefaultInprocessScheduler::run_structured_root(
     return 0;
   structured_root_consumed_ = true;
   ++structured_root.runs;
-  const auto &stages = config().structured_root_stages;
+  const bool large_domain =
+      k.nvars > config().structured_root_large_domain_limit;
+  const bool bounded_backtracking =
+      k.nvars >= config().structured_root_backtracking_domain_limit;
+  const auto &stages =
+      large_domain
+          ? config().structured_root_large_domain_stages
+          : bounded_backtracking
+                ? config().structured_root_bounded_backtracking_stages
+                : config().structured_root_stages;
   if (stages.empty())
     return 0;
   if (k.proof && !k.proof->dsr()) {
@@ -4425,12 +4622,44 @@ int DefaultInprocessScheduler::run_structured_root(
     return 0;
   }
   InprocessScope scope(k);
+  const auto hard_discovery_limit =
+      config().structured_root_sr_discovery_budget;
+  uint64_t progress_window = 0;
+  const bool progress_feedback =
+      config().structured_root_progress_feedback &&
+      (!large_domain ||
+       config().structured_root_large_domain_progress_feedback);
+  if (progress_feedback) {
+    const uint64_t scale =
+        config().structured_root_progress_ticks_per_variable;
+    const uint64_t variable_window =
+        scale && k.nvars > UINT64_MAX / scale
+            ? UINT64_MAX
+            : scale * static_cast<uint64_t>(k.nvars);
+    progress_window =
+        std::max(config().structured_root_progress_minimum_ticks,
+                 variable_window);
+  }
+  strategy::WorkLimit initial_discovery_limit = hard_discovery_limit;
+  if (progress_window &&
+      (hard_discovery_limit.is_unlimited() ||
+       hard_discovery_limit.amount() > progress_window))
+    initial_discovery_limit = strategy::WorkLimit::bounded(progress_window);
+  uint64_t granted_discovery_limit =
+      initial_discovery_limit.is_unlimited()
+          ? UINT64_MAX
+          : initial_discovery_limit.amount();
   strategy::Allowance sr_discovery_allowance(
-      strategy::WorkUnit::SrDiscoveryTicks,
-      config().structured_root_sr_discovery_budget);
+      strategy::WorkUnit::SrDiscoveryTicks, initial_discovery_limit);
+  structured_root.sr_discovery_progress_window = progress_window;
   structured_root.stages.resize(stages.size());
+  bool prior_stage_progress = false;
+  const uint64_t unique_literal_amo_before =
+      k.stats.sr_unique_literal_amo_binaries;
   for (size_t index = 0; index < stages.size(); ++index) {
-    const auto &stage = stages[index];
+    const auto stage = DefaultStrategyConfig::structured_root_stage_after_feedback(
+        stages[index], prior_stage_progress,
+        k.stats.sr_unique_literal_amo_binaries > unique_literal_amo_before);
     auto &telem = structured_root.stages[index];
     ++telem.runs;
     strategy::OnlineStrategySequence executor;
@@ -4452,8 +4681,15 @@ int DefaultInprocessScheduler::run_structured_root(
       // collection may relocate clauses at the following atomic boundary.
       assert(k.level == 0 && !k.probing.recording && !k.bve_occurrence_count_image);
       const auto advanced =
-          executor.advance(k, stop, &sr_discovery_allowance);
-      structured_root.sr_discovery_ticks = sr_discovery_allowance.consumed();
+          executor.advance(
+              k, stop, &sr_discovery_allowance,
+              strategy::DiscoveryFeedbackPolicy{
+                  progress_window,
+                  hard_discovery_limit.is_unlimited()
+                      ? UINT64_MAX
+                      : hard_discovery_limit.amount()});
+      structured_root.sr_discovery_ticks =
+          sr_discovery_allowance.consumed();
       structured_root.sr_discovery_overflow =
           sr_discovery_allowance.accounting_overflow();
       ++telem.advances;
@@ -4462,6 +4698,36 @@ int DefaultInprocessScheduler::run_structured_root(
       structured_root.applications += advanced.applications;
       telem.effective += advanced.made_rule_progress;
       structured_root.effective += advanced.made_rule_progress;
+      uint64_t discovery_credit_units =
+          advanced.discovery_progress_units >
+                  UINT64_MAX - uint64_t(advanced.made_rule_progress)
+              ? UINT64_MAX
+              : advanced.discovery_progress_units +
+                    uint64_t(advanced.made_rule_progress);
+      if (advanced.discovery_entry_required &&
+          discovery_credit_units != UINT64_MAX)
+        ++discovery_credit_units;
+      if (progress_window && discovery_credit_units &&
+          !sr_discovery_allowance.accounting_overflow()) {
+        const uint64_t consumed = sr_discovery_allowance.consumed();
+        const uint64_t base = std::max(granted_discovery_limit, consumed);
+        const uint64_t credit =
+            discovery_credit_units &&
+                    progress_window > UINT64_MAX / discovery_credit_units
+                ? UINT64_MAX
+                : progress_window * discovery_credit_units;
+        uint64_t renewed = credit > UINT64_MAX - base
+                               ? UINT64_MAX
+                               : base + credit;
+        if (!hard_discovery_limit.is_unlimited())
+          renewed = std::min(renewed, hard_discovery_limit.amount());
+        if (renewed > granted_discovery_limit) {
+          granted_discovery_limit = renewed;
+          sr_discovery_allowance.set_limit(
+              strategy::WorkLimit::bounded(renewed));
+          ++structured_root.sr_discovery_renewals;
+        }
+      }
       telem.terminal = structured_root.terminal = advanced.status;
       switch (advanced.status) {
       case InvocationStatus::Completed:
@@ -4498,6 +4764,7 @@ int DefaultInprocessScheduler::run_structured_root(
       }
     }
     finish();
+    prior_stage_progress |= telem.effective != 0;
   }
   return k.inconsistent ? 20 : 0;
 }
@@ -4606,6 +4873,7 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   // Eliminate otherwise publishes and scans a second, obsolete large image.
   if (group == SlotGroup::Eliminate)
     kernel_flush_large_watches(k);
+  k.stats.inprocess_entry_nanos += now_nanos() - phase_nanos_at_entry;
   default_factor_match_.bound = std::max(k.factor_bound, factor_bound_snapshot_); // see DefaultFactorMatch
   k.factor_selection = factor_match ? factor_match : &default_factor_match_;
   if (factor_match)
@@ -4624,7 +4892,10 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
     return 10;
   }
   const bool structured_unsat = structured_result == 20;
+  const uint64_t dense_connect_started = now_nanos();
   kernel_dense_connect(k, occurrence_index_, group == SlotGroup::Eliminate);
+  k.stats.inprocess_dense_connect_nanos +=
+      now_nanos() - dense_connect_started;
   SlotPhaseCtx ctx{group, stop};
   ctx.phase_unsat = structured_unsat;
   const std::vector<RuleVTable> &rules = tactix_rules();
@@ -4633,6 +4904,7 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   size_t sweep_substituted_begin = SIZE_MAX;
   const int rounds =
       k.stats.conflicts == 0 ? 1 : static_cast<int>(config().phase_rounds);
+  const uint64_t slot_loop_started = now_nanos();
   for (ctx.outer = 0;
        ctx.outer < rounds && !ctx.phase_unsat &&
        !(stop && *stop);
@@ -4845,6 +5117,8 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
       break; // outer fixpoint: the round retired and created nothing
     active_before = active_now;
   }
+  k.stats.inprocess_slot_loop_nanos += now_nanos() - slot_loop_started;
+  const uint64_t phase_exit_started = now_nanos();
   if (group == SlotGroup::Eliminate && !ctx.phase_unsat)
     event_trace_eliminate_cleanup(k, "before");
   // Kissat collects the arena only inside an Eliminate round (eliminate.c:519,
@@ -4890,7 +5164,9 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   k.factor_selection = nullptr;
   k.stats.inprocess_propagations +=
       k.stats.propagations - phase_props_at_entry;
-  k.stats.inprocess_nanos += now_nanos() - phase_nanos_at_entry;
+  const uint64_t phase_finished = now_nanos();
+  k.stats.inprocess_exit_nanos += phase_finished - phase_exit_started;
+  k.stats.inprocess_nanos += phase_finished - phase_nanos_at_entry;
   if (group == SlotGroup::Eliminate && bve_ran_this_phase_ && !ctx.phase_unsat) {
     BveBoundPolicy &bramp = bve_bound ? *bve_bound : default_bve_ramp_;
     const uint32_t last = bramp.num_passes() - 1;
@@ -4980,6 +5256,7 @@ void DefaultInprocessScheduler::report(const Kernel &k) const {
   std::printf("c structured-root runs %llu advances %llu applications %llu "
               "effective %llu passes %llu seconds %.6f terminal %u "
               "proof-format-declines %llu sr-discovery-ticks %llu "
+              "sr-discovery-window %llu renewals %llu "
               "sr-discovery-overflow %u\n",
               (unsigned long long)structured_root.runs,
               (unsigned long long)structured_root.advances,
@@ -4990,6 +5267,8 @@ void DefaultInprocessScheduler::report(const Kernel &k) const {
               static_cast<unsigned>(structured_root.terminal),
               (unsigned long long)structured_root.proof_format_declines,
               (unsigned long long)structured_root.sr_discovery_ticks,
+              (unsigned long long)structured_root.sr_discovery_progress_window,
+              (unsigned long long)structured_root.sr_discovery_renewals,
               static_cast<unsigned>(structured_root.sr_discovery_overflow));
   for (size_t i = 0; i < structured_root.stages.size(); ++i) {
     const auto &stage = structured_root.stages[i];

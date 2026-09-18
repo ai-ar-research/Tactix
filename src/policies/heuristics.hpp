@@ -79,6 +79,18 @@ void heuristics_compact_vars(Kernel &, const std::vector<Var> &old_to_new,
 // produced by Kissat's `tumble`. No-op without `H`.
 void heuristics_seed_activation_order(Kernel &, const std::vector<Var> &order);
 
+// Prepare the pending first-search seed as if a fresh solver parsed the live
+// root residual.  This is a policy handoff operation: it changes only the
+// deferred H seed and leaves the formula, assignments, proof, and stable
+// variable identities untouched.  It must run before ScopedHeuristics attaches.
+size_t heuristics_prepare_residual_activation_order(Kernel &);
+
+// Replace the policy-owned compact/import permutation with the order a fresh
+// residual parse assigned internal variable identities. Stable kernel and
+// public identities remain unchanged.
+void heuristics_seed_residual_import_order(Kernel &,
+                                           const std::vector<Var> &order);
+
 // Mirror Kissat's initial literal compaction in the compact-index permutation:
 // retain the first root-fixed variable as the shared fixed representative and
 // remove the rest.  Kernel identities and the public Decide surface stay

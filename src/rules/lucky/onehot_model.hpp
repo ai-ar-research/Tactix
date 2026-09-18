@@ -7,6 +7,7 @@
 namespace tactix {
 
 RuleEligibility onehot_model_guard(const Kernel &);
+ApplyResult direct_csp_model_apply(Kernel &);
 ApplyResult onehot_model_apply(Kernel &);
 
 } // namespace tactix

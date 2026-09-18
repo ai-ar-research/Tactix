@@ -93,6 +93,7 @@ DefaultStrategyConfig::structured_root_preprocessing_stages() {
   group.maximum_fixing_instances = UINT64_MAX;
   group.maximum_generator_instances_per_pass = 1;
   group.maximum_group_ticks = 20'000'000'000ull;
+  group.schreier_domain_limit = 50'000;
   group.chain_mode = SymmetryChainMode::FixAndCut;
   group.factor_support_components = true;
   group.preserve_detector_order = true;
@@ -100,6 +101,11 @@ DefaultStrategyConfig::structured_root_preprocessing_stages() {
   group.stabilize_structured_variables = true;
   group.structured_scope = SymmetryStructuredScope::WholeMatrix;
   group.base_selection = SymmetryBaseSelection::FirstAmoThenForwardRemainder;
+  // Root-forcing chains earn their complete atomic prefix. A kind-2-only batch
+  // merely perturbs the initial search trajectory, so the startup policy waits
+  // for a forcing member while explicit strategies retain full FixAndCut.
+  group.nonforcing_cut_admission =
+      SymmetryNonforcingCutAdmission::RequireCompoundProgress;
 
   sr(rows).orbitopal_discovery_order = OrbitopalDiscoveryOrder::RefinementOnly;
   sr(product).orbitopal_discovery_order = OrbitopalDiscoveryOrder::RefinementOnly;
@@ -153,7 +159,82 @@ DefaultStrategyConfig::structured_root_preprocessing_stages() {
     stages.push_back({std::move(program), BudgetExhaustionPolicy::Continue,
                       std::move(followups)});
   }
+  // The preceding program has already run the same refinement/ULC producers
+  // to a scoped no-progress boundary. Repeating that discovery inside the
+  // following graph step is useful only if an earlier stage changed the root
+  // formula. Generic graph discovery remains independent of this feedback.
+  stages[2].structured_handoff_after_prior_progress = true;
   return stages;
+}
+
+strategy::OnlineStrategyStage
+DefaultStrategyConfig::structured_root_stage_after_feedback(
+    const strategy::OnlineStrategyStage &configured,
+    bool prior_stage_progress, bool prior_unique_literal_amo_progress) {
+  auto scheduled = configured;
+  for (auto &step : scheduled.program.sequence) {
+    auto *parameters =
+        std::get_if<SubstitutionRedundancyParameters>(&step.parameters);
+    if (!parameters ||
+        parameters->producer != SubstitutionRedundancyProducer::GraphSymmetry)
+      continue;
+    // A nonforcing cut discovered only after ULC completion carries forward
+    // certified information from that helper BIG.  The startup BCE pass may
+    // then retire the helper binaries, so publish the cut instead of erasing
+    // both the temporary representation and its durable consequence.  A
+    // standalone binary-only batch remains withheld because it changes only
+    // the initial CDCL fundamental domain.  Public graph enumeration keeps its
+    // caller-selected admission mode.
+    if (prior_unique_literal_amo_progress)
+      parameters->graph_symmetry.nonforcing_cut_admission =
+          SymmetryNonforcingCutAdmission::Publish;
+    if (scheduled.structured_handoff_after_prior_progress &&
+        !prior_stage_progress) {
+      parameters->graph_symmetry.use_structured_generators = false;
+      parameters->graph_symmetry.stabilize_structured_variables = false;
+    }
+  }
+  return scheduled;
+}
+
+std::vector<strategy::OnlineStrategyStage>
+DefaultStrategyConfig::
+bounded_backtracking_structured_root_preprocessing_stages() {
+  auto stages = structured_root_preprocessing_stages();
+  for (auto &stage : stages)
+    for (auto &step : stage.program.sequence)
+      if (auto *parameters =
+              std::get_if<SubstitutionRedundancyParameters>(&step.parameters))
+        parameters->graph_symmetry.backend_search_budget = 1;
+  return stages;
+}
+
+std::vector<strategy::OnlineStrategyStage>
+DefaultStrategyConfig::large_domain_structured_root_preprocessing_stages() {
+  using namespace strategy;
+  auto regular = structured_root_preprocessing_stages();
+  assert(regular.size() >= 3);
+  OnlineInvocation graph;
+  for (const auto &step : regular[2].program.sequence)
+    if (step.id == 84) {
+      graph = step;
+      break;
+    }
+  assert(graph.id == 84);
+  auto &parameters =
+      std::get<SubstitutionRedundancyParameters>(graph.parameters);
+  // Satsuma lowers DejaVu's non-symmetry backtracking budget to one on large
+  // formulas.  Generator fixing only needs a useful exact prefix, and a fresh
+  // detection follows every emitted unit, so deeper speculative backtracking
+  // delays feedback without improving the current pass.
+  parameters.graph_symmetry.backend_search_budget = 1;
+  parameters.graph_symmetry.use_structured_generators = false;
+  parameters.graph_symmetry.stabilize_structured_variables = false;
+  OnlineStrategyProgram program;
+  program.sequence = {std::move(graph)};
+  program.repeat = {RepeatMode::UntilScopedFixpoint, 128};
+  return {regular.front(),
+          {std::move(program), BudgetExhaustionPolicy::Continue}};
 }
 
 } // namespace tactix
