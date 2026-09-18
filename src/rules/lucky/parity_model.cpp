@@ -1,5 +1,6 @@
 #include "rules/lucky/parity_model.hpp"
 #include "rules/lucky/model.hpp"
+#include "rules/lucky/parity_refutation.hpp"
 
 #include <algorithm>
 #include <array>
@@ -87,11 +88,14 @@ ApplyResult parity_model_apply(Kernel &k) {
   ++k.stats.parity_model_calls;
   const strategy::ParityModelParameters parameters =
       strategy::ParityModelParameters::from_kernel(k);
-  if (!parameters.valid() || !k.nvars ||
-      k.nvars > parameters.maximum_variables ||
-      !parameters.candidate_budget)
+  if (!parameters.valid() || !k.nvars)
     return ApplyResult::NoOp;
   if (kernel_rule_interrupt(k, k.stats.parity_model_interrupted))
+    return ApplyResult::NoOp;
+  const ApplyResult refutation = parity_refutation_apply(k, parameters);
+  if (refutation == ApplyResult::Unsat)
+    return refutation;
+  if (k.nvars > parameters.maximum_variables || !parameters.candidate_budget)
     return ApplyResult::NoOp;
 
   std::unordered_map<Triple, uint8_t, TripleHash> groups;

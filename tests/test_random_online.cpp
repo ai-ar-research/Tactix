@@ -308,7 +308,15 @@ static void configurable_parameters_round_trip() {
   OnlineInvocation parity;
   parity.id = 63;
   parity.rule = "Lucky";
-  parity.parameters = ParityModelParameters{47, 89, 101, 2, 7, 9, 12345};
+  ParityModelParameters parity_parameters{47, 89, 101, 2, 7, 9, 12345};
+  parity_parameters.refutation_maximum_variables = 211;
+  parity_parameters.refutation_maximum_groups = 223;
+  parity_parameters.refutation_maximum_constraints = 227;
+  parity_parameters.refutation_maximum_arity = 3;
+  parity_parameters.refutation_probe_constraints = 29;
+  parity_parameters.refutation_minimum_probe_repeats = 5;
+  parity_parameters.refutation_maximum_proof_additions = 1234567;
+  parity.parameters = parity_parameters;
   parity.granularity = InvocationGranularity::CanonicalApplication;
   parity.repeat = {RepeatMode::Once, 1};
   parity.work_unit = WorkUnit::Applications;
@@ -416,7 +424,14 @@ static void configurable_parameters_round_trip() {
          decoded_parity.minimum_group_clauses == 2 &&
          decoded_parity.minimum_equations == 7 &&
          decoded_parity.maximum_free_variables == 9 &&
-         decoded_parity.candidate_budget == 12345);
+         decoded_parity.candidate_budget == 12345 &&
+         decoded_parity.refutation_maximum_variables == 211 &&
+         decoded_parity.refutation_maximum_groups == 223 &&
+         decoded_parity.refutation_maximum_constraints == 227 &&
+         decoded_parity.refutation_maximum_arity == 3 &&
+         decoded_parity.refutation_probe_constraints == 29 &&
+         decoded_parity.refutation_minimum_probe_repeats == 5 &&
+         decoded_parity.refutation_maximum_proof_additions == 1234567);
   const auto &decoded_onehot =
       std::get<OnehotModelParameters>(decoded.sequence[4].parameters);
   assert(decoded_onehot.maximum_variables == 53 &&

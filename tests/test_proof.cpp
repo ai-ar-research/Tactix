@@ -282,6 +282,36 @@ void test_external_variable_map() {
          "5 -2 0\n", "stable external variable map");
 }
 
+void test_proof_only_external_clauses() {
+  const int32_t gate[3] = {70001, -2, 4};
+  const int32_t unit[1] = {-70001};
+  expect(emitted("external-ascii", ProofFormat::DsrAscii, [&](Proof &p) {
+           const std::vector<Var> map = {8, 9, 10, 11};
+           p.bind_variable_map(&map);
+           p.arm_population_shadow();
+           assert(p.add_external_rat(1, gate, 3));
+           assert(p.add_external_rup(2, unit, 1));
+           assert(p.del_external(3, 1, gate, 3));
+           assert(p.add_external_rup(4, nullptr, 0));
+         }),
+         "70001 -2 4 0\n-70001 0\nd 70001 -2 4 0\n0\n",
+         "proof-only identities bypass the solver variable map");
+  expect(emitted("external-binary", ProofFormat::DsrBinary, [&](Proof &p) {
+           const int32_t clause[2] = {64, -65};
+           p.arm_population_shadow();
+           assert(p.add_external_rat(1, clause, 2));
+           assert(p.del_external(2, 1, clause, 2));
+         }),
+         std::string("\x01\x80\x01\x83\x01\x00"
+                     "\x02\x80\x01\x83\x01\x00", 12),
+         "binary proof-only extension encoding");
+  expect(emitted("external-lrat", ProofFormat::Lrat, [&](Proof &p) {
+           assert(!p.add_external_rat(1, gate, 3));
+           assert(!p.add_external_rup(2, unit, 1));
+           assert(!p.del_external(3, 1, gate, 3));
+         }), "", "LRAT declines proof-only extension clauses atomically");
+}
+
 // --- native LRAT ------------------------------------------------------------
 void test_lrat_add_rup() {
   const Lit lits[2] = {make_lit(0, false), make_lit(1, true)};
@@ -427,6 +457,7 @@ int main() {
   test_dsr_substitution();
   test_dsr_pivot_mapping_forms();
   test_external_variable_map();
+  test_proof_only_external_clauses();
   test_lrat_add_rup();
   test_lrat_add_rat();
   test_lrat_empty_and_unit();

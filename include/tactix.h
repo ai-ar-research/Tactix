@@ -538,6 +538,12 @@ typedef struct {
   uint32_t minimum_group_clauses, minimum_equations;
   uint32_t maximum_free_variables;
   uint64_t candidate_budget;
+  /* Exact even-incidence XOR refutation and its streaming proof bounds.
+   * Zero keeps the solver defaults for backward-compatible callers. */
+  uint32_t refutation_maximum_variables, refutation_maximum_groups;
+  uint32_t refutation_maximum_constraints, refutation_maximum_arity;
+  uint32_t refutation_probe_constraints, refutation_minimum_probe_repeats;
+  uint64_t refutation_maximum_proof_additions;
 } tactix_online_parity_model_parameters;
 typedef struct {
   /* Parameters for Lucky semantic instance 7 (one-hot GF(3) model). */

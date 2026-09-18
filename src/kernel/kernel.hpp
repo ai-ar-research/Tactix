@@ -515,6 +515,11 @@ struct Stats {
   uint64_t parity_model_candidates = 0;
   uint64_t parity_model_sat = 0;
   uint64_t parity_model_interrupted = 0;
+  uint64_t parity_refutation_probe_declines = 0;
+  uint64_t parity_refutation_recognized = 0;
+  uint64_t parity_refutation_unsat = 0;
+  uint64_t parity_refutation_proof_additions = 0;
+  uint64_t parity_refutation_proof_deletions = 0;
   uint64_t affine_model_calls = 0, affine_model_equations = 0;
   uint64_t affine_model_projection = 0, affine_model_entries = 0;
   uint64_t affine_model_candidates = 0, affine_model_sat = 0;
@@ -1461,6 +1466,20 @@ struct Kernel {
       strategy::ParityModelParameters::MAXIMUM_FREE_VARIABLES_DEFAULT;
   uint64_t parity_model_candidate_budget =
       strategy::ParityModelParameters::CANDIDATE_BUDGET_DEFAULT;
+  uint32_t parity_refutation_maximum_variables =
+      strategy::ParityModelParameters::REFUTATION_MAXIMUM_VARIABLES_DEFAULT;
+  uint32_t parity_refutation_maximum_groups =
+      strategy::ParityModelParameters::REFUTATION_MAXIMUM_GROUPS_DEFAULT;
+  uint32_t parity_refutation_maximum_constraints =
+      strategy::ParityModelParameters::REFUTATION_MAXIMUM_CONSTRAINTS_DEFAULT;
+  uint32_t parity_refutation_maximum_arity =
+      strategy::ParityModelParameters::REFUTATION_MAXIMUM_ARITY_DEFAULT;
+  uint32_t parity_refutation_probe_constraints =
+      strategy::ParityModelParameters::REFUTATION_PROBE_CONSTRAINTS_DEFAULT;
+  uint32_t parity_refutation_minimum_probe_repeats =
+      strategy::ParityModelParameters::REFUTATION_MINIMUM_PROBE_REPEATS_DEFAULT;
+  uint64_t parity_refutation_maximum_proof_additions =
+      strategy::ParityModelParameters::REFUTATION_MAXIMUM_PROOF_ADDITIONS_DEFAULT;
   strategy::AffineModelParameters affine_model_parameters;
   strategy::BalancedSignatureModelParameters
       balanced_signature_model_parameters;

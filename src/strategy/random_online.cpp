@@ -758,7 +758,8 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
       U32_AT(3, p.balanced_polarity_milli);
     }
     parameters = p;
-  } else if (tuple(text, "parity-model", v) && v.size() == 7) {
+  } else if ((tuple(text, "parity-model", v) && v.size() == 7) ||
+             (tuple(text, "parity-model2", v) && v.size() == 14)) {
     ParityModelParameters p;
     U32_AT(0, p.maximum_variables);
     U32_AT(1, p.maximum_groups);
@@ -767,6 +768,15 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
     U32_AT(4, p.minimum_equations);
     U32_AT(5, p.maximum_free_variables);
     p.candidate_budget = v[6];
+    if (v.size() == 14) {
+      U32_AT(7, p.refutation_maximum_variables);
+      U32_AT(8, p.refutation_maximum_groups);
+      U32_AT(9, p.refutation_maximum_constraints);
+      U32_AT(10, p.refutation_maximum_arity);
+      U32_AT(11, p.refutation_probe_constraints);
+      U32_AT(12, p.refutation_minimum_probe_repeats);
+      p.refutation_maximum_proof_additions = v[13];
+    }
     parameters = p;
   } else if (tuple(text, "onehot-model", v) && v.size() == 8) {
     OnehotModelParameters p;
@@ -1520,10 +1530,17 @@ std::string serialize_online_strategy_program(
           << p->balanced_polarity_milli << ')';
     else if (const auto *p =
                  std::get_if<ParityModelParameters>(&step.parameters))
-      out << ":parity-model(" << p->maximum_variables << ','
+      out << ":parity-model2(" << p->maximum_variables << ','
           << p->maximum_groups << ',' << p->maximum_constraints << ','
           << p->minimum_group_clauses << ',' << p->minimum_equations << ','
-          << p->maximum_free_variables << ',' << p->candidate_budget << ')';
+          << p->maximum_free_variables << ',' << p->candidate_budget << ','
+          << p->refutation_maximum_variables << ','
+          << p->refutation_maximum_groups << ','
+          << p->refutation_maximum_constraints << ','
+          << p->refutation_maximum_arity << ','
+          << p->refutation_probe_constraints << ','
+          << p->refutation_minimum_probe_repeats << ','
+          << p->refutation_maximum_proof_additions << ')';
     else if (const auto *p =
                  std::get_if<OnehotModelParameters>(&step.parameters))
       out << ":onehot-model(" << p->maximum_variables << ','

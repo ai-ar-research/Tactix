@@ -178,6 +178,20 @@ TABLE = {
                                 ("POLICY", "typed Lucky affine search bound"),
     "parity_model_candidate_budget":
                                 ("POLICY", "typed Lucky candidate budget"),
+    "parity_refutation_maximum_variables":
+                                ("POLICY", "typed Lucky XOR-refutation variable bound"),
+    "parity_refutation_maximum_groups":
+                                ("POLICY", "typed Lucky XOR-refutation memory bound"),
+    "parity_refutation_maximum_constraints":
+                                ("POLICY", "typed Lucky XOR-refutation scan bound"),
+    "parity_refutation_maximum_arity":
+                                ("POLICY", "typed Lucky XOR-refutation arity bound"),
+    "parity_refutation_probe_constraints":
+                                ("POLICY", "typed Lucky XOR feedback checkpoint"),
+    "parity_refutation_minimum_probe_repeats":
+                                ("POLICY", "typed Lucky XOR feedback threshold"),
+    "parity_refutation_maximum_proof_additions":
+                                ("POLICY", "typed Lucky XOR certificate bound"),
     "onehot_model_maximum_variables":
                                 ("POLICY", "typed Lucky one-hot admission bound"),
     "onehot_model_maximum_domains":

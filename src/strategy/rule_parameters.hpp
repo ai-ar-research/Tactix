@@ -111,10 +111,10 @@ struct ReorderParameters {
   static ReorderParameters from_kernel(const Kernel &);
 };
 
-// SAT-only structural model search. Every inferred affine restriction is a
-// search heuristic: a candidate is accepted only after the complete live CNF
-// independently validates it, so incomplete groups can lose opportunities but
-// can never create a false SAT result.
+// Structural XOR reasoning. Exact complete bounded-arity encodings can yield
+// an independently checkable even-incidence refutation; otherwise inferred
+// affine restrictions are SAT-search heuristics whose candidates are accepted
+// only after the complete live CNF validates them.
 struct ParityModelParameters {
   static constexpr uint32_t MAXIMUM_VARIABLES_DEFAULT = 4096;
   static constexpr uint32_t MAXIMUM_GROUPS_DEFAULT = 65536;
@@ -123,6 +123,17 @@ struct ParityModelParameters {
   static constexpr uint32_t MINIMUM_EQUATIONS_DEFAULT = 1;
   static constexpr uint32_t MAXIMUM_FREE_VARIABLES_DEFAULT = 24;
   static constexpr uint64_t CANDIDATE_BUDGET_DEFAULT = 1024;
+  static constexpr uint32_t REFUTATION_MAXIMUM_VARIABLES_DEFAULT = 524288;
+  static constexpr uint32_t REFUTATION_MAXIMUM_GROUPS_DEFAULT = 262144;
+  static constexpr uint32_t REFUTATION_MAXIMUM_CONSTRAINTS_DEFAULT = 2000000;
+  static constexpr uint32_t REFUTATION_MAXIMUM_ARITY_DEFAULT = 4;
+  static constexpr uint32_t REFUTATION_PROBE_CONSTRAINTS_DEFAULT = 4096;
+  static constexpr uint32_t REFUTATION_MINIMUM_PROBE_REPEATS_DEFAULT = 8;
+  // The exact recognizer and interruptible count-only preflight bound default
+  // work from formula structure and the caller's deadline.  Do not impose a
+  // target-shaped certificate cutoff; callers that need one can pose it.
+  static constexpr uint64_t REFUTATION_MAXIMUM_PROOF_ADDITIONS_DEFAULT =
+      UINT64_MAX;
 
   uint32_t maximum_variables = MAXIMUM_VARIABLES_DEFAULT;
   uint32_t maximum_groups = MAXIMUM_GROUPS_DEFAULT;
@@ -131,10 +142,28 @@ struct ParityModelParameters {
   uint32_t minimum_equations = MINIMUM_EQUATIONS_DEFAULT;
   uint32_t maximum_free_variables = MAXIMUM_FREE_VARIABLES_DEFAULT;
   uint64_t candidate_budget = CANDIDATE_BUDGET_DEFAULT;
+  uint32_t refutation_maximum_variables =
+      REFUTATION_MAXIMUM_VARIABLES_DEFAULT;
+  uint32_t refutation_maximum_groups = REFUTATION_MAXIMUM_GROUPS_DEFAULT;
+  uint32_t refutation_maximum_constraints =
+      REFUTATION_MAXIMUM_CONSTRAINTS_DEFAULT;
+  uint32_t refutation_maximum_arity = REFUTATION_MAXIMUM_ARITY_DEFAULT;
+  uint32_t refutation_probe_constraints =
+      REFUTATION_PROBE_CONSTRAINTS_DEFAULT;
+  uint32_t refutation_minimum_probe_repeats =
+      REFUTATION_MINIMUM_PROBE_REPEATS_DEFAULT;
+  uint64_t refutation_maximum_proof_additions =
+      REFUTATION_MAXIMUM_PROOF_ADDITIONS_DEFAULT;
   constexpr bool valid() const {
     return maximum_variables && maximum_groups && maximum_constraints &&
            minimum_group_clauses >= 1 && minimum_group_clauses <= 4 &&
-           maximum_free_variables <= 63;
+           maximum_free_variables <= 63 && refutation_maximum_variables &&
+           refutation_maximum_groups && refutation_maximum_constraints &&
+           refutation_maximum_arity >= 2 && refutation_maximum_arity <= 4 &&
+           refutation_probe_constraints &&
+           refutation_minimum_probe_repeats &&
+           refutation_minimum_probe_repeats < refutation_probe_constraints &&
+           refutation_maximum_proof_additions;
   }
   static ParityModelParameters from_kernel(const Kernel &);
 };

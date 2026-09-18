@@ -123,9 +123,15 @@ void Proof::put_lit(Lit l) {
 }
 
 void Proof::put_external_lit(Lit l) {
-  const int e = externalize(l);
+  put_external_dimacs(externalize(l));
+}
+
+void Proof::put_external_dimacs(int32_t e) {
+  assert(e && e != INT32_MIN);
   if (binary()) {
-    uint32_t u = (static_cast<uint32_t>(e < 0 ? -e : e) << 1) | (e < 0);
+    const uint32_t magnitude =
+        static_cast<uint32_t>(e < 0 ? -int64_t(e) : int64_t(e));
+    uint32_t u = (magnitude << 1) | (e < 0);
     while (u >= 128) {
       put_byte(static_cast<unsigned char>(128 | (u & 127)));
       u >>= 7;
@@ -435,6 +441,91 @@ void Proof::del(uint64_t line_id, uint64_t del_id, const Lit *lits,
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
   population_del(del_id, lits, size);
 #endif
+}
+
+namespace {
+
+bool external_tautological(const int32_t *lits, uint32_t size) {
+  for (uint32_t i = 0; i < size; ++i) {
+    if (!lits[i] || lits[i] == INT32_MIN)
+      return true;
+    for (uint32_t j = i + 1; j < size; ++j)
+      if (lits[i] == lits[j] || lits[i] == -lits[j])
+        return true;
+  }
+  return false;
+}
+
+} // namespace
+
+bool Proof::add_external_rup(uint64_t id, const int32_t *lits,
+                             uint32_t size) {
+  if (lrat())
+    return false;
+  assert(!size || lits);
+  if (external_tautological(lits, size))
+    return false;
+  if (!file_)
+    return true;
+  if (format_ == ProofFormat::DsrBinary)
+    put_byte(1);
+  else if (format_ == ProofFormat::DratBinary)
+    put_byte('a');
+  for (uint32_t i = 0; i < size; ++i)
+    put_external_dimacs(lits[i]);
+  end_line();
+#ifdef TACTIX_ENABLE_PROOF_SHADOW
+  std::vector<Lit> external;
+  external.reserve(size);
+  for (uint32_t i = 0; i < size; ++i)
+    external.push_back(internalize(lits[i]));
+  const auto *saved = variable_map_;
+  variable_map_ = nullptr;
+  population_add(id, external.data(), size);
+  variable_map_ = saved;
+#else
+  (void)id;
+#endif
+  return true;
+}
+
+bool Proof::add_external_rat(uint64_t id, const int32_t *lits,
+                             uint32_t size) {
+  // DSR/DRAT infer RAT from the first literal after RUP fails, so their byte
+  // stream is identical to an external RUP addition.
+  return add_external_rup(id, lits, size);
+}
+
+bool Proof::del_external(uint64_t line_id, uint64_t del_id,
+                         const int32_t *lits, uint32_t size) {
+  (void)line_id;
+  if (lrat())
+    return false;
+  assert(!size || lits);
+  if (!file_)
+    return true;
+  if (format_ == ProofFormat::DsrBinary)
+    put_byte(2);
+  else if (format_ == ProofFormat::DratBinary)
+    put_byte('d');
+  else
+    fputs("d ", file_);
+  for (uint32_t i = 0; i < size; ++i)
+    put_external_dimacs(lits[i]);
+  end_line();
+#ifdef TACTIX_ENABLE_PROOF_SHADOW
+  std::vector<Lit> external;
+  external.reserve(size);
+  for (uint32_t i = 0; i < size; ++i)
+    external.push_back(internalize(lits[i]));
+  const auto *saved = variable_map_;
+  variable_map_ = nullptr;
+  population_del(del_id, external.data(), size);
+  variable_map_ = saved;
+#else
+  (void)del_id;
+#endif
+  return true;
 }
 
 void Proof::flush() {
