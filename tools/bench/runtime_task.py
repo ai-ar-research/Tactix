@@ -172,6 +172,12 @@ def solver_summary(path):
 
 
 def atomic_json(path, value):
+    # Focused campaign preparation should normally create every output
+    # directory, but a task must not lose its terminal record merely because
+    # an empty results/provisional directory was omitted from a frozen bundle.
+    # Creating the parent is safe under array concurrency and leaves all
+    # immutable inputs untouched.
+    path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(path.suffix + ".tmp")
     with open(temporary, "x") as target:
         json.dump(value, target, indent=2, sort_keys=True)
