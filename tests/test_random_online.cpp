@@ -325,8 +325,13 @@ static void configurable_parameters_round_trip() {
 
   OnlineInvocation onehot = parity;
   onehot.id = 64;
-  onehot.parameters =
-      OnehotModelParameters{53, 79, 103, 6, 5, 11, 13, 23456};
+  OnehotModelParameters onehot_parameters{53, 79, 103, 6, 5, 11, 13, 23456};
+  onehot_parameters.refutation_maximum_variables = 229;
+  onehot_parameters.refutation_maximum_groups = 233;
+  onehot_parameters.refutation_maximum_constraints = 239;
+  onehot_parameters.refutation_maximum_arity = 3;
+  onehot_parameters.refutation_maximum_proof_additions = 1234568;
+  onehot.parameters = onehot_parameters;
   program.sequence.push_back(onehot);
 
   OnlineInvocation sr = parity;
@@ -441,7 +446,12 @@ static void configurable_parameters_round_trip() {
          decoded_onehot.minimum_domains == 5 &&
          decoded_onehot.minimum_equations == 11 &&
          decoded_onehot.maximum_free_domains == 13 &&
-         decoded_onehot.candidate_budget == 23456);
+         decoded_onehot.candidate_budget == 23456 &&
+         decoded_onehot.refutation_maximum_variables == 229 &&
+         decoded_onehot.refutation_maximum_groups == 233 &&
+         decoded_onehot.refutation_maximum_constraints == 239 &&
+         decoded_onehot.refutation_maximum_arity == 3 &&
+         decoded_onehot.refutation_maximum_proof_additions == 1234568);
   const auto &decoded_sr =
       std::get<SubstitutionRedundancyParameters>(
           decoded.sequence[5].parameters);

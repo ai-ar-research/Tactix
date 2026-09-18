@@ -358,6 +358,11 @@ static void onehot_lucky_instance_is_public(void) {
   step.parameters.value.onehot_model.minimum_equations = 1;
   step.parameters.value.onehot_model.maximum_free_domains = 4;
   step.parameters.value.onehot_model.candidate_budget = 16;
+  step.parameters.value.onehot_model.refutation_maximum_variables = 128;
+  step.parameters.value.onehot_model.refutation_maximum_groups = 64;
+  step.parameters.value.onehot_model.refutation_maximum_constraints = 256;
+  step.parameters.value.onehot_model.refutation_maximum_arity = 4;
+  step.parameters.value.onehot_model.refutation_maximum_proof_additions = 100000;
   step.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
   step.instances = &selected;
   step.instance_count = 1;

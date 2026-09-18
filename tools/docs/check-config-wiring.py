@@ -208,6 +208,16 @@ TABLE = {
                                 ("POLICY", "typed Lucky GF(3) search bound"),
     "onehot_model_candidate_budget":
                                 ("POLICY", "typed Lucky GF(3) candidate budget"),
+    "exact_one_refutation_maximum_variables":
+                                ("POLICY", "typed Lucky exact-one variable bound"),
+    "exact_one_refutation_maximum_groups":
+                                ("POLICY", "typed Lucky exact-one memory bound"),
+    "exact_one_refutation_maximum_constraints":
+                                ("POLICY", "typed Lucky exact-one scan bound"),
+    "exact_one_refutation_maximum_arity":
+                                ("POLICY", "typed Lucky exact-one arity bound"),
+    "exact_one_refutation_maximum_proof_additions":
+                                ("POLICY", "typed Lucky exact-one certificate bound"),
     "reduce_victim_numerator": ("POLICY", "typed canonical Reduce victim fraction"),
     "reduce_victim_denominator":
                                 ("POLICY", "typed canonical Reduce victim fraction"),

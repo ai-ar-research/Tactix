@@ -1,8 +1,14 @@
 #undef NDEBUG
+#include "proof/proof.hpp"
+#include "rules/lucky/exact_one_refutation.hpp"
 #include "rules/lucky/onehot_model.hpp"
 
 #include <array>
 #include <cassert>
+#include <cstdio>
+#include <fstream>
+#include <iterator>
+#include <string>
 
 using namespace tactix;
 
@@ -126,6 +132,64 @@ static Kernel direct_csp_alldifferent_pigeonhole_fixture() {
   return k;
 }
 
+static void add_input_binary(Kernel &k, Lit a, Lit b) {
+  kernel_add_binary_clause(k, a, b);
+  k.input_binary_order.push_back(kernel_binary_key(a, b));
+  ++k.input_binary_clause_count;
+  ++k.input_nonunit_clause_count;
+}
+
+static void add_exact_one(Kernel &k, const std::vector<Var> &variables,
+                          int omitted_pair = -1) {
+  std::vector<Lit> positive;
+  for (const Var variable : variables)
+    positive.push_back(make_lit(variable, false));
+  if (positive.size() == 2)
+    add_input_binary(k, positive[0], positive[1]);
+  else {
+    kernel_add_large_clause(k, positive.data(), positive.size(), false, 0);
+    ++k.input_nonunit_clause_count;
+  }
+  int pair = 0;
+  for (size_t i = 0; i < variables.size(); ++i)
+    for (size_t j = i + 1; j < variables.size(); ++j, ++pair)
+      if (pair != omitted_pair)
+        add_input_binary(k, make_lit(variables[i], true),
+                        make_lit(variables[j], true));
+}
+
+// Exact-one constraints are the vertices of K_{left,right}; variables are
+// its edges. Unequal color-class cardinalities make the system inconsistent.
+static Kernel exact_one_bipartite_fixture(unsigned left, unsigned right,
+                                          int omitted_pair = -1) {
+  Kernel k;
+  kernel_reserve_vars(k, left * right);
+  k.input_binary_order_captured = true;
+  for (unsigned row = 0; row < left; ++row) {
+    std::vector<Var> variables;
+    for (unsigned column = 0; column < right; ++column)
+      variables.push_back(static_cast<Var>(row * right + column));
+    add_exact_one(k, variables, row == 0 ? omitted_pair : -1);
+  }
+  for (unsigned column = 0; column < right; ++column) {
+    std::vector<Var> variables;
+    for (unsigned row = 0; row < left; ++row)
+      variables.push_back(static_cast<Var>(row * right + column));
+    add_exact_one(k, variables);
+  }
+  return k;
+}
+
+static Kernel exact_one_odd_cycle_fixture() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  k.input_binary_order_captured = true;
+  add_exact_one(k, {0, 1});
+  add_exact_one(k, {1, 2});
+  add_exact_one(k, {2, 0});
+  return k;
+}
+
 static bool satisfied(const Kernel &k) {
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *clause = clause_at(k.arena, ref);
@@ -147,6 +211,92 @@ static bool satisfied(const Kernel &k) {
 }
 
 int main() {
+  {
+    Kernel k = exact_one_bipartite_fixture(3, 2);
+    assert(onehot_model_guard(k));
+    assert(onehot_model_apply(k) == ApplyResult::Unsat);
+    assert(k.inconsistent && k.stats.exact_one_refutation_recognized == 1 &&
+           k.stats.exact_one_refutation_equations == 5 &&
+           k.stats.exact_one_refutation_unsat == 1);
+  }
+  {
+    Kernel k = exact_one_bipartite_fixture(2, 2);
+    strategy::OnehotModelParameters parameters;
+    assert(exact_one_refutation_apply(k, parameters) == ApplyResult::NoOp);
+    assert(!k.inconsistent && !k.stats.exact_one_refutation_recognized);
+  }
+  {
+    Kernel k = exact_one_bipartite_fixture(3, 2);
+    k.input_binary_order_captured = false;
+    k.input_binary_order.clear();
+    k.input_binary_clause_count = 0;
+    k.input_nonunit_clause_count = 0;
+    strategy::OnehotModelParameters parameters;
+    assert(exact_one_refutation_apply(k, parameters) == ApplyResult::Unsat);
+    assert(k.inconsistent && k.stats.exact_one_refutation_recognized == 1);
+  }
+  {
+    Kernel k = exact_one_bipartite_fixture(3, 2, 0);
+    strategy::OnehotModelParameters parameters;
+    assert(exact_one_refutation_apply(k, parameters) == ApplyResult::NoOp);
+    assert(!k.inconsistent);
+  }
+  {
+    Kernel k = exact_one_odd_cycle_fixture();
+    strategy::OnehotModelParameters parameters;
+    assert(exact_one_refutation_apply(k, parameters) == ApplyResult::NoOp);
+    assert(!k.inconsistent);
+  }
+  {
+    const std::string path = "/tmp/tactix-exact-one-refutation.dsr";
+    Kernel k = exact_one_bipartite_fixture(3, 2);
+    Proof proof;
+    assert(proof.open(path.c_str(), ProofFormat::DsrAscii));
+    proof.bind_variable_map(&k.internal_to_external);
+    proof.arm_population_shadow();
+    k.proof = &proof;
+    strategy::OnehotModelParameters parameters;
+    assert(exact_one_refutation_apply(k, parameters) == ApplyResult::Unsat);
+    k.proof = nullptr;
+    proof.flush();
+    std::ifstream input(path);
+    const std::string contents((std::istreambuf_iterator<char>(input)),
+                               std::istreambuf_iterator<char>());
+    assert(!contents.empty() && contents.ends_with("0\n"));
+    assert(k.stats.exact_one_refutation_proof_additions > 0);
+    assert(std::remove(path.c_str()) == 0);
+  }
+  {
+    const std::string path = "/tmp/tactix-exact-one-preflight.dsr";
+    Kernel k = exact_one_bipartite_fixture(3, 2);
+    Proof proof;
+    assert(proof.open(path.c_str(), ProofFormat::DsrAscii));
+    proof.bind_variable_map(&k.internal_to_external);
+    k.proof = &proof;
+    strategy::OnehotModelParameters parameters;
+    parameters.refutation_maximum_proof_additions = 1;
+    assert(exact_one_refutation_apply(k, parameters) == ApplyResult::NoOp);
+    k.proof = nullptr;
+    proof.flush();
+    std::ifstream input(path);
+    const std::string contents((std::istreambuf_iterator<char>(input)),
+                               std::istreambuf_iterator<char>());
+    assert(contents.empty() && !k.inconsistent);
+    assert(std::remove(path.c_str()) == 0);
+  }
+  {
+    const std::string path = "/tmp/tactix-exact-one-refutation.lrat";
+    Kernel k = exact_one_bipartite_fixture(3, 2);
+    Proof proof;
+    assert(proof.open(path.c_str(), ProofFormat::Lrat));
+    k.proof = &proof;
+    strategy::OnehotModelParameters parameters;
+    assert(exact_one_refutation_apply(k, parameters) == ApplyResult::NoOp);
+    assert(!k.inconsistent);
+    k.proof = nullptr;
+    proof.flush();
+    assert(std::remove(path.c_str()) == 0);
+  }
   {
     Kernel k = direct_csp_fixture();
     assert(onehot_model_guard(k));

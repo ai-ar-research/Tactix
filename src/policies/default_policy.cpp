@@ -16,6 +16,7 @@
 #include "policies/ops/local_search/local_search.hpp"
 #include "rules/lucky/parity_model.hpp"
 #include "rules/lucky/onehot_model.hpp"
+#include "rules/lucky/exact_one_refutation.hpp"
 #include "rules/lucky/balanced_signature_model.hpp"
 #include "rules/lucky/fermat_model.hpp"
 #include "rules/lucky/cerny_model.hpp"
@@ -3317,6 +3318,16 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       config_.onehot_model.parameters.maximum_free_domains;
   k.onehot_model_candidate_budget =
       config_.onehot_model.parameters.candidate_budget;
+  k.exact_one_refutation_maximum_variables =
+      config_.onehot_model.parameters.refutation_maximum_variables;
+  k.exact_one_refutation_maximum_groups =
+      config_.onehot_model.parameters.refutation_maximum_groups;
+  k.exact_one_refutation_maximum_constraints =
+      config_.onehot_model.parameters.refutation_maximum_constraints;
+  k.exact_one_refutation_maximum_arity =
+      config_.onehot_model.parameters.refutation_maximum_arity;
+  k.exact_one_refutation_maximum_proof_additions =
+      config_.onehot_model.parameters.refutation_maximum_proof_additions;
   k.balanced_signature_model_parameters =
       config_.balanced_signature_model.parameters;
   k.fermat_model_parameters = config_.fermat_model.parameters;
@@ -3446,6 +3457,23 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       return finish(10);
     }
     event_trace.macro(k, "balanced_signature_model_end", "unknown");
+  }
+  // The exact-one proof compares a complete live incidence system with the
+  // parser's stable binary order. Run it while both still describe the same
+  // imported formula, before structured-root rules may add helpers or retire
+  // clauses. Its count-only preflight keeps every decline proof-atomic.
+  if (config_.onehot_model.enabled && onehot_model_guard(k)) {
+    event_trace.macro(k, "exact_one_refutation_begin");
+    const ApplyResult exact_one = default_direct_rule(
+        k, "Lucky", "exact-one-refutation", [&] {
+          return exact_one_refutation_apply(
+              k, strategy::OnehotModelParameters::from_kernel(k));
+        });
+    if (exact_one == ApplyResult::Unsat) {
+      event_trace.macro(k, "exact_one_refutation_end", "unsat");
+      return finish(20);
+    }
+    event_trace.macro(k, "exact_one_refutation_end", "unknown");
   }
   bool structured_root_grew_trail = false;
   uint64_t structured_root_amo_binaries_added = 0;

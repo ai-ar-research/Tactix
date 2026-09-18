@@ -91,7 +91,12 @@ OnehotModelParameters OnehotModelParameters::from_kernel(const Kernel &k) {
           k.onehot_model_minimum_domains,
           k.onehot_model_minimum_equations,
           k.onehot_model_maximum_free_domains,
-          k.onehot_model_candidate_budget};
+          k.onehot_model_candidate_budget,
+          k.exact_one_refutation_maximum_variables,
+          k.exact_one_refutation_maximum_groups,
+          k.exact_one_refutation_maximum_constraints,
+          k.exact_one_refutation_maximum_arity,
+          k.exact_one_refutation_maximum_proof_additions};
 }
 BalancedSignatureModelParameters
 BalancedSignatureModelParameters::from_kernel(const Kernel &k) {
@@ -243,6 +248,13 @@ void install_rule_parameters(Kernel &k, const OnehotModelParameters &p) {
   k.onehot_model_minimum_equations = p.minimum_equations;
   k.onehot_model_maximum_free_domains = p.maximum_free_domains;
   k.onehot_model_candidate_budget = p.candidate_budget;
+  k.exact_one_refutation_maximum_variables = p.refutation_maximum_variables;
+  k.exact_one_refutation_maximum_groups = p.refutation_maximum_groups;
+  k.exact_one_refutation_maximum_constraints =
+      p.refutation_maximum_constraints;
+  k.exact_one_refutation_maximum_arity = p.refutation_maximum_arity;
+  k.exact_one_refutation_maximum_proof_additions =
+      p.refutation_maximum_proof_additions;
 }
 void install_rule_parameters(Kernel &k,
                              const BalancedSignatureModelParameters &p) {

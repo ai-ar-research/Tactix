@@ -525,10 +525,23 @@ bool online_parameters(const tactix_online_parameters &source,
   case TACTIX_ONLINE_PARAMETERS_ONEHOT_MODEL: {
     const tactix_online_onehot_model_parameters &p =
         source.value.onehot_model;
-    target = strategy::OnehotModelParameters{
+    strategy::OnehotModelParameters converted{
         p.maximum_variables, p.maximum_domains, p.maximum_constraints,
         p.maximum_equation_arity, p.minimum_domains, p.minimum_equations,
         p.maximum_free_domains, p.candidate_budget};
+    if (p.refutation_maximum_variables)
+      converted.refutation_maximum_variables = p.refutation_maximum_variables;
+    if (p.refutation_maximum_groups)
+      converted.refutation_maximum_groups = p.refutation_maximum_groups;
+    if (p.refutation_maximum_constraints)
+      converted.refutation_maximum_constraints =
+          p.refutation_maximum_constraints;
+    if (p.refutation_maximum_arity)
+      converted.refutation_maximum_arity = p.refutation_maximum_arity;
+    if (p.refutation_maximum_proof_additions)
+      converted.refutation_maximum_proof_additions =
+          p.refutation_maximum_proof_additions;
+    target = converted;
     return true;
   }
   case TACTIX_ONLINE_PARAMETERS_BALANCED_SIGNATURE_MODEL: {

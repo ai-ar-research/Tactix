@@ -551,6 +551,11 @@ typedef struct {
   uint32_t maximum_equation_arity, minimum_domains, minimum_equations;
   uint32_t maximum_free_domains;
   uint64_t candidate_budget;
+  /* Bipartite exact-one mod-3 refutation and its certificate bounds. Zero
+   * keeps the solver defaults for backward-compatible callers. */
+  uint32_t refutation_maximum_variables, refutation_maximum_groups;
+  uint32_t refutation_maximum_constraints, refutation_maximum_arity;
+  uint64_t refutation_maximum_proof_additions;
 } tactix_online_onehot_model_parameters;
 typedef struct {
   /* Parameters for Lucky semantic instance 10.  Recognition is structural;

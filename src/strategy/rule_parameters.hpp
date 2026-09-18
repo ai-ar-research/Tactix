@@ -180,6 +180,12 @@ struct OnehotModelParameters {
   static constexpr uint32_t MINIMUM_EQUATIONS_DEFAULT = 1;
   static constexpr uint32_t MAXIMUM_FREE_DOMAINS_DEFAULT = 64;
   static constexpr uint64_t CANDIDATE_BUDGET_DEFAULT = 1024;
+  static constexpr uint32_t REFUTATION_MAXIMUM_VARIABLES_DEFAULT = 65536;
+  static constexpr uint32_t REFUTATION_MAXIMUM_GROUPS_DEFAULT = 65536;
+  static constexpr uint32_t REFUTATION_MAXIMUM_CONSTRAINTS_DEFAULT = 262144;
+  static constexpr uint32_t REFUTATION_MAXIMUM_ARITY_DEFAULT = 4;
+  static constexpr uint64_t REFUTATION_MAXIMUM_PROOF_ADDITIONS_DEFAULT =
+      UINT64_MAX;
 
   uint32_t maximum_variables = MAXIMUM_VARIABLES_DEFAULT;
   uint32_t maximum_domains = MAXIMUM_DOMAINS_DEFAULT;
@@ -189,9 +195,21 @@ struct OnehotModelParameters {
   uint32_t minimum_equations = MINIMUM_EQUATIONS_DEFAULT;
   uint32_t maximum_free_domains = MAXIMUM_FREE_DOMAINS_DEFAULT;
   uint64_t candidate_budget = CANDIDATE_BUDGET_DEFAULT;
+  uint32_t refutation_maximum_variables =
+      REFUTATION_MAXIMUM_VARIABLES_DEFAULT;
+  uint32_t refutation_maximum_groups = REFUTATION_MAXIMUM_GROUPS_DEFAULT;
+  uint32_t refutation_maximum_constraints =
+      REFUTATION_MAXIMUM_CONSTRAINTS_DEFAULT;
+  uint32_t refutation_maximum_arity = REFUTATION_MAXIMUM_ARITY_DEFAULT;
+  uint64_t refutation_maximum_proof_additions =
+      REFUTATION_MAXIMUM_PROOF_ADDITIONS_DEFAULT;
   constexpr bool valid() const {
     return maximum_variables && maximum_domains && maximum_constraints &&
-           maximum_equation_arity && minimum_domains <= maximum_domains;
+           maximum_equation_arity && minimum_domains <= maximum_domains &&
+           refutation_maximum_variables && refutation_maximum_groups &&
+           refutation_maximum_constraints && refutation_maximum_arity >= 2 &&
+           refutation_maximum_arity <= 4 &&
+           refutation_maximum_proof_additions;
   }
   static OnehotModelParameters from_kernel(const Kernel &);
 };
