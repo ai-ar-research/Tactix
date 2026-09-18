@@ -62,6 +62,15 @@ Pinned upstream `dsr-trim` commit `ffe486` deleted tautological input clauses du
 deleted slots. `tools/checkers/patches/dsr-trim-ffe486-tautology-hash.patch` skips those slots during hash initialization. Setup
 verifies the exact diff and runs a raw-tautology DSR-to-LSR-to-Trestle self-test; the raw CNF and proof still reach Trestle unchanged.
 
+Pinned `dsr-trim` commit `0b8cc0ef` also grew its RAT-candidate bitmask with
+`RESIZE(mask_index)`.  Since `RESIZE(1) == 1`, the first clause id in the
+64--127 range wrote one word past a one-word allocation; later growth zeroed
+that range and produced incomplete LSR RAT hints while `dsr-trim` still
+reported verification.  The repository patch now enforces a capacity of at
+least `mask_index + 1`.  Setup runs the minimized 24-clause reproducer through
+both `dsr-trim` and Trestle, so checker acceptance requires the missing hints
+to be present.
+
 Accepted source `20223134` contains binary/ASCII DSR serialization, the typed
 `add_sr` event, public CLI/C API format selection, pinned checker setup, and the
 anonymous-scratch runtime checker pipeline. Active benchmark and fuzz launchers

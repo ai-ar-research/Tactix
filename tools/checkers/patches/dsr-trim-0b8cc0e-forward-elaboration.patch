@@ -1,3 +1,9 @@
+diff --git a/src/bitmask.c b/src/bitmask.c
+index 26d56de..888c6fb 100644
+--- a/src/bitmask.c
++++ b/src/bitmask.c
+@@ -84,0 +85 @@ void bmask_set_bit(bmask_t *bm, size_t index) {
++    if (bm->alloc_size <= mask_index) bm->alloc_size = mask_index + 1;
 diff --git a/src/dsr-trim.c b/src/dsr-trim.c
 index 6a1a24e..39cd049 100644
 --- a/src/dsr-trim.c

@@ -76,14 +76,27 @@ strategy branch.
 
 The native parity successor recognizes complete arity-2--4 XOR systems with
 even incidence and odd right-hand-side sum. Its eager recognizer allocation is
-now bounded by actual input size; WV80 checks, while WV83/86 remain in checking. The
+now bounded by actual input size. WV80 checks, and AM197 independently verifies
+WV83: the 65.364s solve emits a 1.741 GB DSR certificate that passes dsr-trim
+and canonical Trestle; WV86 remains in checking. The
 typed Lucky7 successor now recognizes complete bipartite exact-one incidence
 systems and emits a modulo-three ER refutation when the color classes differ.
 Default-policy job AM194 independently checks WV25/26 in
 12.486/17.645s at 6 MiB solver RSS; both native DSR certificates pass dsr-trim
-and Trestle. AM195 is the canonical-Trestle replication. No filename, rank,
+and Trestle. AM195's canonical-Trestle replication verifies WV25 in 814.133s
+total and WV26 in 1,636.742s total. No filename, rank,
 family, size-class dispatch, external solver stage, or sequential portfolio is
 present. The remaining open owner gaps are WV1's SGEN counting proof and WV95.
+
+AM189's independent parity fuzz campaign completed 10,000-case default and
+random-policy quick legs with zero failures and found two bounded gating bugs.
+The candidate-side eager-reservation defect is fixed in `2e429368`. The pinned
+dsr-trim RAT-candidate bitmask defect is repaired by the repository checker
+patch: capacity now grows past `mask_index`, and setup runs the minimized
+24-clause certificate through dsr-trim and canonical Trestle. The owner found
+zero canonical/optimized Trestle divergences across 31,949 streams. Its
+remaining R1 finding is an N4 scheduling gap: structured-root SR can preempt
+the parity refutation on a 3,000-variable residual.
 
 The cumulative StConn successor Release suite passes all 168 tests. AM173's
 Claude-owned proof/scheduling fuzz completed both Release and ASan campaigns.
@@ -100,8 +113,11 @@ running tasks are never held or interrupted.
 
 ## Exact next action
 
-Finish the parity checks and Claude-owned differential fuzz, then fuzz the
-exact-one rule. Integrate LymphoSAT's general signed-cardinality counting proof
-for WV1 and resolve WV95's remaining SC2024 mechanism gap. Preserve every
+Finish the WV86 parity check and the parity R1 scheduling repair, then fuzz the
+exact-one rule. AM217 measures whether WV95's remaining gap is downstream
+random-trajectory sensitivity after matching SC2024's Factor/BVE footprint;
+its result may motivate a general adaptive diversification policy, but cannot
+promote a fixed winning seed or a portfolio. Keep WV1's signed-cardinality
+counting proof staged unless it gains a native DSR formulation. Preserve every
 checked solve and both Phase-1 aggregate gates.
 <!-- track-sched:end -->
