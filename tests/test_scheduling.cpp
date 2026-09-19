@@ -1701,6 +1701,33 @@ static void test_preprocess_is_reduced_and_bounded(void) {
   std::printf("  preprocess: one reduced probe pipeline, 10m tick reference\n");
 }
 
+static void test_initial_fast_elimination_composes_only_proof_rules(void) {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  kernel_add_binary_clause(k, internalize(1), internalize(2));
+  const Lit subsumed[] = {internalize(1), internalize(2), internalize(3)};
+  kernel_add_large_clause(k, subsumed, 3, false, 0);
+  kernel_add_binary_clause(k, internalize(-1), internalize(4));
+  ScopedHeuristics heuristics(k);
+  DefaultPolicy policy;
+  policy.inprocess().build(k);
+  assert(policy.inprocess().run_initial_fast_elimination(k, nullptr) == 0);
+  assert(k.stats.forward_subsumed == 1 &&
+         "fastel local cleanup must use SubsumeForward");
+  const auto &rules = tactix_rules();
+  for (const auto &entry : policy.inprocess().entries) {
+    if (entry.group != SlotGroup::Eliminate)
+      continue;
+    if (!std::strcmp(rules[entry.rule].name, "BVE"))
+      assert(entry.tm.occasions > 0);
+    else
+      assert(entry.tm.occasions == 0 &&
+             "fastel must not replay the ordinary Eliminate pipeline");
+  }
+  kernel_check_invariants(k);
+  std::printf("  fastel: typed local subsumption plus bounded BVE only\n");
+}
+
 static void test_preprocess_followup_truth_table(void) {
   using M = FollowupMode;
   using K = FollowupKind;
@@ -1997,6 +2024,7 @@ int main() {
   test_first_search_effort_keeps_input_propagation_ticks();
   test_eliminate_sparse_resume_replays_root_suffix_as_search();
   test_preprocess_is_reduced_and_bounded();
+  test_initial_fast_elimination_composes_only_proof_rules();
   test_preprocess_followup_truth_table();
   test_preprocess_final_followup_is_observed();
   test_inprocess_does_not_save_probe_phases();

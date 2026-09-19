@@ -1357,6 +1357,9 @@ struct Kernel {
   // occurrence list contains a live irredundant clause above this size.  The
   // public rule remains unrestricted until a strategy installs the bound.
   uint32_t bve_clause_size_limit = UINT32_MAX;
+  // Optional absolute cap on non-tautological resolvents generated for one
+  // pivot. UINT32_MAX leaves the canonical public rule unrestricted.
+  uint32_t bve_resolvent_count_limit = UINT32_MAX;
   // Optional CaDiCaL-derived eager tail. Current Kissat defers this work to
   // its next forward pass; that reference-aligned strategy is the default,
   // while the proof rule remains available through TACTIX_BVE_BACKWARD=1.

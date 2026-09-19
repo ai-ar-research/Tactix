@@ -27,6 +27,7 @@
 #include "rules/restart/restart.hpp"
 #include "rules/registry.hpp"
 #include "rules/strengthen/strengthen.hpp"
+#include "rules/subsume_forward/subsume_forward.hpp"
 #include "rules/substitute/substitute.hpp"
 #include "rules/sweep/sweep.hpp"
 #include "rules/vivify/vivify.hpp"
@@ -474,6 +475,7 @@ bool DefaultStrategyConfig::valid(std::string *error) const {
 
   const auto &ip = inprocess;
   if (!ip.eliminate_interval || !ip.probe_interval || !ip.phase_rounds ||
+      !ip.initial_fast_elimination_rounds ||
       !ip.substitute_rounds || !ip.substitute_search_rounds ||
       !positive_finite(ip.logarithm_offset) ||
       !std::isfinite(ip.scale_quadratic) || ip.scale_quadratic < 0.0 ||
@@ -500,6 +502,8 @@ bool DefaultStrategyConfig::valid(std::string *error) const {
       ip.bve_definition_core_budget_multiplier;
   if (!bve.valid())
     return reject("inprocessing BVE parameters are invalid");
+  if (!ip.initial_fast_elimination_parameters.valid())
+    return reject("initial fast-elimination parameters are invalid");
   if (ip.bve_bounds.empty() ||
       ip.bve_bounds.front() > ip.bve_default_ceiling)
     return reject("BVE bound ladder is empty or starts above its ceiling");
@@ -832,6 +836,12 @@ std::string DefaultStrategyConfig::serialize() const {
       << " inprocess.factor_repeated_enabled="
       << inprocess.factor_repeated_enabled
       << " inprocess.preprocess_only=" << inprocess.preprocess_only
+      << " inprocess.initial_fast_elimination="
+      << inprocess.initial_fast_elimination
+      << " inprocess.initial_fast_elimination_rounds="
+      << inprocess.initial_fast_elimination_rounds
+      << " inprocess.initial_fast_elimination_resolvent_count_limit="
+      << inprocess.initial_fast_elimination_parameters.resolvent_count_limit
       << " inprocess.cadical_arena_ordering_enabled="
       << inprocess.cadical_arena_ordering_enabled
       << " inprocess.append_unlisted_rules="
@@ -1128,7 +1138,8 @@ std::string DefaultStrategyConfig::serialize() const {
           << p->backward_occurrence_limit << ',' << p->definition_budget << ','
           << p->definition_cores << ','
           << p->definition_core_budget_multiplier << ',' << p->backward << ','
-          << static_cast<unsigned>(p->candidate_scope) << ')';
+          << static_cast<unsigned>(p->candidate_scope) << ','
+          << p->resolvent_count_limit << ')';
     } else if (const auto *p =
                    std::get_if<strategy::SubsumeForwardParameters>(
                        &step.parameters)) {
@@ -3007,6 +3018,8 @@ void DefaultInprocessScheduler::reset(const Kernel &) {
   factor_marked_watermark_ = 0;
   bve_level_ = 0;
   bve_level_idx_ = 0;
+  initial_fast_elimination_active_ = false;
+  initial_fast_elimination_attempted_.clear();
   structured_root_consumed_ = false;
   structured_root = {};
   default_candidate_order_.reset(config().candidate_order_seed);
@@ -3190,6 +3203,7 @@ void DefaultInprocessScheduler::build(Kernel &k) {
   k.touch_filter = config().touch_filter;
   k.touch_redundant = config().likely_kept_redundant;
   k.bve_clause_size_limit = config().bve_clause_size_limit;
+  k.bve_resolvent_count_limit = UINT32_MAX;
   k.bve_xor_arity_limit = config().bve_xor_arity_limit;
   k.bve_resolvent_size_limit = config().bve_resolvent_size_limit;
   k.bve_backward_occurrence_limit =
@@ -3680,6 +3694,14 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     const int phase_result = inprocess_.run_phase(k, SlotGroup::Probe, stop);
     if (phase_result == 10 || phase_result == 20) return finish(phase_result);
   }
+  if (config_.inprocess.initial_fast_elimination) {
+    event_trace.macro(k, "initial_fast_eliminate_begin");
+    const int phase_result =
+        inprocess_.run_initial_fast_elimination(k, stop);
+    event_trace.macro(k, "initial_fast_eliminate_end");
+    if (phase_result == 10 || phase_result == 20)
+      return finish(phase_result);
+  }
   event_trace.macro(k, "preprocess_end");
   startup = default_propagate(k, "post-preprocess");
   if (startup != ApplyResult::Ok)
@@ -4115,7 +4137,10 @@ bool DefaultInprocessScheduler::slot_entry_admissible(SlotEntry &e, const Kernel
     e.tm.dec_disabled++;
     return false;
   }
-  if (k.stats.conflicts == 0 && !e.preprocess) {
+  const bool initial_fast_bve =
+      initial_fast_elimination_active_ &&
+      !std::strcmp(tactix_rules()[e.rule].name, "BVE");
+  if (k.stats.conflicts == 0 && !e.preprocess && !initial_fast_bve) {
     e.tm.dec_preprocess++;
     return false;
   }
@@ -4123,7 +4148,7 @@ bool DefaultInprocessScheduler::slot_entry_admissible(SlotEntry &e, const Kernel
     e.tm.dec_cap++;
     return false; // configured per-occurrence cap (see SlotEntry::max_applies)
   }
-  if (e.defer_preprocess && k.stats.conflicts == 0) {
+  if (e.defer_preprocess && k.stats.conflicts == 0 && !initial_fast_bve) {
     e.tm.dec_preprocess++;
     return false; // no elimination at preprocessing (kissat fastel=0)
   }
@@ -4164,6 +4189,83 @@ FollowupMode DefaultInprocessScheduler::preprocessing_followup_mode(
   return FollowupMode::None;
 }
 
+// SC2024 fastel folds a small forward-subsumption check into each occurrence
+// flush. Keep the deletion in the SubsumeForward rule; this helper owns only
+// the outer occurrence traversal, clause-size cap and population accounting.
+static size_t fastel_flush_occurrences(Kernel &k, Lit lit,
+                                       const RuleVTable &subsume,
+                                       std::vector<uint8_t> &marks,
+  uint32_t occurrence_limit,
+  uint32_t clause_size_limit) {
+  assert(k.dense && k.dense->track_order);
+  size_t count = 0;
+  // Kissat compacts the inspected prefix in place.  Delay publication until
+  // this immutable span expires, but retain the same per-entry keep decisions;
+  // an early cap leaves the uninspected suffix untouched.
+  const size_t physical = k.dense->ordered.size(lit);
+  std::vector<uint8_t> keep(physical, 1);
+  size_t at = 0;
+  // SubsumeForward marks a clause garbage but does not collect or mutate the
+  // dense payload, so this owner-ordered view remains stable during the scan.
+  for (const OccIndex::Entry entry : k.dense->ordered[lit]) {
+    if (entry.binary) {
+      const Lit other = entry.payload;
+      if (k.value(other) > 0) {
+        ++at;
+        continue;
+      }
+      if (kernel_var_retired(k, var_of(other))) {
+        keep[at++] = 0;
+        continue;
+      }
+    } else {
+      const Ref ref = entry.payload;
+      Clause *clause = clause_at(k.arena, ref);
+      bool contains = false;
+      for (const Lit other : *clause)
+        contains |= other == lit;
+      if (clause->garbage() || !contains) {
+        keep[at++] = 0;
+        continue;
+      }
+      if (clause->size > clause_size_limit) {
+        count = static_cast<size_t>(occurrence_limit) + 1;
+        ++at;
+        break;
+      }
+      bool satisfied = false;
+      for (const Lit other : *clause)
+        satisfied |= k.value(other) > 0;
+      if (satisfied) {
+        ++at;
+        continue;
+      }
+      const ApplyResult cleaned = apply_rule_structured(
+          subsume, k, "fastel-occurrence",
+          [&] {
+            return subsume_forward_try_fastel(k, ref, occurrence_limit,
+                                              marks);
+          });
+      if (cleaned == ApplyResult::Ok) {
+        keep[at++] = 0;
+        continue;
+      }
+    }
+    ++at;
+    if (++count > occurrence_limit)
+      break;
+  }
+  if (std::find(keep.begin(), keep.end(), uint8_t{0}) != keep.end()) {
+    size_t published = 0;
+    k.dense->ordered.compact(lit, [&](OccIndex::Entry) {
+      assert(published < keep.size());
+      return keep[published++];
+    });
+    assert(published == keep.size());
+  }
+  return count;
+}
+
 uint64_t DefaultInprocessScheduler::ledger_remaining(SlotEntry &e, const Kernel &k,
                                         uint64_t limit) {
   const uint64_t spent = e.meter(k);
@@ -4183,8 +4285,10 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
     return SlotStep::Next;
   }
   const bool bve_entry = !std::strcmp(r.name, "BVE");
+  const bool initial_fast_bve =
+      bve_entry && initial_fast_elimination_active_;
   BveBoundPolicy *ramp = nullptr;
-  if (bve_entry)
+  if (bve_entry && !initial_fast_bve)
     ramp = bve_bound ? bve_bound : &default_bve_ramp_;
   const bool level_mode = bve_entry && ramp;
   const uint32_t passes = level_mode ? 1 : ramp ? ramp->num_passes() : 1;
@@ -4210,16 +4314,74 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
                                     strategy::WorkLimit::unlimited());
       const auto *posed = std::get_if<strategy::BveParameters>(&e.parameters);
       const strategy::BveParameters parameters =
-          posed ? *posed : strategy::BveParameters::from_kernel(k);
+          initial_fast_bve
+              ? config().initial_fast_elimination_parameters
+              : posed ? *posed : strategy::BveParameters::from_kernel(k);
       bve_invocation_session.emplace(
           r, k, parameters, *bve_invocation_budget);
     }
     payloads_.resize(2 * static_cast<size_t>(k.nvars) + 1);
-    const uint32_t n =
+    uint32_t n =
         r.instances(k, payloads_.data(),
                     static_cast<uint32_t>(payloads_.size()));
+    if (initial_fast_bve) {
+      const std::vector<RuleVTable> &rules = tactix_rules();
+      const int subsume_id = tactix_rule_id("SubsumeForward");
+      assert(subsume_id >= 0);
+      const RuleVTable &subsume = rules[static_cast<size_t>(subsume_id)];
+      const strategy::BveParameters &parameters =
+          config().initial_fast_elimination_parameters;
+      struct Candidate {
+        uint64_t payload;
+        uint64_t score;
+        uint64_t tie;
+      };
+      std::vector<Candidate> candidates;
+      candidates.reserve(n);
+      for (uint32_t j = 0; j < n; ++j) {
+        Lit candidate;
+        if (!lit_of_instance(k, payloads_[j], &candidate))
+          continue;
+        const Var variable = var_of(candidate);
+        if (variable >= initial_fast_elimination_attempted_.size() ||
+            initial_fast_elimination_attempted_[variable] ||
+            k.value(candidate) || kernel_var_retired(k, variable))
+          continue;
+        const Lit positive = make_lit(variable, false);
+        const size_t pos = fastel_flush_occurrences(
+            k, positive, subsume, initial_fast_elimination_marks_,
+            parameters.occurrence_limit,
+            parameters.clause_size_limit);
+        if (pos > parameters.occurrence_limit)
+          continue;
+        // Preserve the shipped owner's observable gather bug: both terms use
+        // LIT(pivot), so the radix score is twice the positive population.
+        const size_t neg = fastel_flush_occurrences(
+            k, positive, subsume, initial_fast_elimination_marks_,
+            parameters.occurrence_limit,
+            parameters.clause_size_limit);
+        if (neg > parameters.occurrence_limit ||
+            pos + neg > parameters.occurrence_limit)
+          continue;
+        const uint64_t tie =
+            variable < k.compact_import_position.size() &&
+                    k.compact_import_position[variable] != INVALID_VAR
+                ? k.compact_import_position[variable]
+                : variable;
+        candidates.push_back({payloads_[j], pos + neg, tie});
+      }
+      std::stable_sort(candidates.begin(), candidates.end(),
+                       [](const Candidate &a, const Candidate &b) {
+                         return std::tie(a.score, a.tie) <
+                                std::tie(b.score, b.tie);
+                       });
+      n = static_cast<uint32_t>(candidates.size());
+      for (uint32_t j = 0; j < n; ++j)
+        payloads_[j] = candidates[j].payload;
+    }
     const bool dynamic_bve = bve_entry && !candidate_order &&
-                             e.order == CandidateOrder::Heuristic;
+                             e.order == CandidateOrder::Heuristic &&
+                             !initial_fast_bve;
     BveCandidateHeap bve_heap;
     if (dynamic_bve)
       bve_heap.initialize(k, payloads_.data(), n);
@@ -4251,6 +4413,34 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
         // that physical ghost until pop, but do not apply/count BVE again.
         // Kissat tests active status before its effort limit at this boundary;
         // this is policy eligibility, not a restriction on public BVE actions.
+      }
+      if (initial_fast_bve) {
+        Lit candidate;
+        if (!lit_of_instance(k, payload, &candidate))
+          continue;
+        const Var variable = var_of(candidate);
+        if (variable >= initial_fast_elimination_attempted_.size() ||
+            initial_fast_elimination_attempted_[variable])
+          continue;
+        initial_fast_elimination_attempted_[variable] = 1;
+        const int subsume_id = tactix_rule_id("SubsumeForward");
+        assert(subsume_id >= 0);
+        const RuleVTable &subsume =
+            tactix_rules()[static_cast<size_t>(subsume_id)];
+        const strategy::BveParameters &parameters =
+            config().initial_fast_elimination_parameters;
+        const size_t pos = fastel_flush_occurrences(
+            k, make_lit(variable, false), subsume,
+            initial_fast_elimination_marks_,
+            parameters.occurrence_limit, parameters.clause_size_limit);
+        const size_t neg = fastel_flush_occurrences(
+            k, make_lit(variable, true), subsume,
+            initial_fast_elimination_marks_,
+            parameters.occurrence_limit, parameters.clause_size_limit);
+        if (pos > parameters.occurrence_limit ||
+            neg > parameters.occurrence_limit ||
+            pos + neg > parameters.occurrence_limit)
+          continue;
       }
       if (e.meter(k) > limit) {
         break; // dose spent
@@ -4381,9 +4571,9 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
   if (level_mode && engaged && !ctx.phase_unsat)
     bve_ran_this_phase_ = true;
   (void)elim_at_last_pass;
-  if (bve_entry && ctx.outer == 0)
+  if (bve_entry && ctx.outer == 0 && !initial_fast_bve)
     bve_rounds_run_++;
-  if (bve_entry && !ctx.phase_unsat) {
+  if (bve_entry && !initial_fast_bve && !ctx.phase_unsat) {
     // Kissat flushes and densely collects after every completed elimination
     // round, including a round which schedules candidates but eliminates
     // none (eliminate.c:416-509).  The dosed scheduler is Tactix's authored
@@ -5037,6 +5227,20 @@ int DefaultInprocessScheduler::run_structured_root(
   return k.inconsistent ? 20 : 0;
 }
 
+int DefaultInprocessScheduler::run_initial_fast_elimination(
+    Kernel &k, volatile sig_atomic_t *stop) {
+  assert(config().initial_fast_elimination);
+  assert(!initial_fast_elimination_active_);
+  initial_fast_elimination_active_ = true;
+  initial_fast_elimination_attempted_.assign(k.nvars, 0);
+  initial_fast_elimination_marks_.assign(2 * static_cast<size_t>(k.nvars), 0);
+  const int result = run_phase(k, SlotGroup::Eliminate, stop);
+  initial_fast_elimination_attempted_.clear();
+  initial_fast_elimination_marks_.clear();
+  initial_fast_elimination_active_ = false;
+  return result;
+}
+
 int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
                                   volatile sig_atomic_t *stop) {
   SlotClock &clock = group == SlotGroup::Probe ? probe_clock : elim_clock;
@@ -5051,7 +5255,7 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   // elimination rounds. `run_phase(Eliminate)` is that lifetime boundary;
   // its outer fixpoint rounds must reuse the same deterministic generator
   // sequence instead of restarting it at each BVE slot visit.
-  if (group == SlotGroup::Eliminate)
+  if (group == SlotGroup::Eliminate && !initial_fast_elimination_active_)
     k.bve_definition_session = k.bve_definition_session + 1;
   k.bve_occurrence_limit = config().bve_occurrence_limit;
   k.congruence_parameters = config().congruence_parameters;
@@ -5077,6 +5281,7 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   k.vivify_irredundant_sort_ratio =
       config().vivify_parameters.irredundant_sort_ratio;
   k.bve_clause_size_limit = config().bve_clause_size_limit;
+  k.bve_resolvent_count_limit = UINT32_MAX;
   k.bve_xor_arity_limit = config().bve_xor_arity_limit;
   k.bve_resolvent_size_limit = config().bve_resolvent_size_limit;
   k.bve_backward_occurrence_limit =
@@ -5170,8 +5375,12 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   uint64_t active_before = active_variables(k);
   size_t sweep_retired_begin = SIZE_MAX;
   size_t sweep_substituted_begin = SIZE_MAX;
-  const int rounds =
-      k.stats.conflicts == 0 ? 1 : static_cast<int>(config().phase_rounds);
+  const int rounds = initial_fast_elimination_active_
+                         ? static_cast<int>(
+                               config().initial_fast_elimination_rounds)
+                         : k.stats.conflicts == 0
+                               ? 1
+                               : static_cast<int>(config().phase_rounds);
   const uint64_t slot_loop_started = now_nanos();
   for (ctx.outer = 0;
        ctx.outer < rounds && !ctx.phase_unsat &&
@@ -5191,9 +5400,11 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
       SlotEntry &e = entries[slot];
       if (e.group != group)
         continue; // the other clock's pipeline: not offered here at all
+      const RuleVTable &r = rules[e.rule];
+      if (initial_fast_elimination_active_ && std::strcmp(r.name, "BVE"))
+        continue;
       if (stop && *stop)
         break; // §6: leave the phase promptly; cleanup runs at its exit
-      const RuleVTable &r = rules[e.rule];
       e.tm.occasions++;
       const bool followup = followup_admissible(e, k, ctx);
       slot_trace_entry(k, e, r, ctx.outer);
@@ -5435,7 +5646,8 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   const uint64_t phase_finished = now_nanos();
   k.stats.inprocess_exit_nanos += phase_finished - phase_exit_started;
   k.stats.inprocess_nanos += phase_finished - phase_nanos_at_entry;
-  if (group == SlotGroup::Eliminate && bve_ran_this_phase_ && !ctx.phase_unsat) {
+  if (group == SlotGroup::Eliminate && bve_ran_this_phase_ &&
+      !initial_fast_elimination_active_ && !ctx.phase_unsat) {
     BveBoundPolicy &bramp = bve_bound ? *bve_bound : default_bve_ramp_;
     const uint32_t last = bramp.num_passes() - 1;
     const uint32_t blim = bramp.bound(last);
@@ -5462,17 +5674,28 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   // `kissat_probe_initially` does not update `last.ticks.probe`; the first
   // search-time Probe phase therefore measures effort from search tick zero.
   // Only a completed post-search Probe phase advances that anchor.
-  if (group != SlotGroup::Probe || k.stats.conflicts)
+  if (!initial_fast_elimination_active_ &&
+      (group != SlotGroup::Probe || k.stats.conflicts))
     clock.anchor = search_ticks(k);
   if (ctx.phase_unsat)
     return 20;
-  clock.rounds++;
-  update_limit(k, group);
+  if (!initial_fast_elimination_active_) {
+    clock.rounds++;
+    update_limit(k, group);
+  }
   return 0;
 }
 
 void DefaultInprocessScheduler::set_entry_limit(SlotEntry &e, Kernel &k) {
   const std::vector<RuleVTable> &rules = tactix_rules();
+  if (initial_fast_elimination_active_ &&
+      !std::strcmp(rules[e.rule].name, "BVE")) {
+    e.limit = UINT64_MAX;
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+    e.journal_reference = UINT64_MAX;
+#endif
+    return;
+  }
   const SlotClock &clock =
       e.group == SlotGroup::Probe ? probe_clock : elim_clock;
   const uint64_t now = search_ticks(k);

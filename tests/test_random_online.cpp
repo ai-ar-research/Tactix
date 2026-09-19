@@ -1407,6 +1407,7 @@ static void parameter_domains_are_caller_controlled() {
   config.maximum_bve_definition_core_budget_multiplier = 0;
   config.bve_occurrence_reference = 37;
   config.bve_clause_size_reference = 41;
+  config.bve_resolvent_count_reference = 43;
   bool saw_bve_scope[2] = {};
   for (uint64_t seed = 1; seed <= 64; ++seed) {
     OnlineStrategyProgram program;
@@ -1421,12 +1422,19 @@ static void parameter_domains_are_caller_controlled() {
       assert(parameters->definition_core_budget_multiplier == 0);
       saw_bve_scope[static_cast<unsigned>(parameters->candidate_scope)] = true;
       const std::string encoded = serialize_online_strategy_program(program);
-      assert(encoded.find(":bve2(") != std::string::npos);
+      assert(parameters->resolvent_count_limit == 0 ||
+             parameters->resolvent_count_limit == 1 ||
+             parameters->resolvent_count_limit == 43 ||
+             parameters->resolvent_count_limit == 44 ||
+             parameters->resolvent_count_limit == UINT32_MAX);
+      assert(encoded.find(":bve3(") != std::string::npos);
       OnlineStrategyProgram replay;
       std::string error;
       assert(deserialize_online_strategy_program(encoded, replay, &error));
       assert(std::get<BveParameters>(replay.sequence[i].parameters)
                  .candidate_scope == parameters->candidate_scope);
+      assert(std::get<BveParameters>(replay.sequence[i].parameters)
+                 .resolvent_count_limit == parameters->resolvent_count_limit);
     }
   }
   assert(saw_bve_scope[0] && saw_bve_scope[1]);

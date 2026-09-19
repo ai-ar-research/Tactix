@@ -86,6 +86,8 @@ ActionParameters random_parameters(const Kernel &k, uint64_t &state, const std::
         choice_limit(state, config.bve_occurrence_reference);
     p.clause_size_limit =
         choice_limit(state, config.bve_clause_size_reference);
+    p.resolvent_count_limit =
+        choice_limit(state, config.bve_resolvent_count_reference);
     p.xor_arity_limit = BVE_XOR_ARITY_MIN +
                         static_cast<uint32_t>(bounded(
                             state, BVE_XOR_ARITY_CAPACITY -
@@ -639,7 +641,8 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
     }
     parameters = p;
   } else if ((tuple(text, "bve", v) && v.size() == 11) ||
-             (tuple(text, "bve2", v) && v.size() == 12)) {
+             (tuple(text, "bve2", v) && v.size() == 12) ||
+             (tuple(text, "bve3", v) && v.size() == 13)) {
     BveParameters p;
     U32_AT(0, p.gate_mask); U32_AT(1, p.growth_bound);
     U32_AT(2, p.occurrence_limit); U32_AT(3, p.clause_size_limit);
@@ -648,11 +651,13 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
     U32_AT(8, p.definition_cores);
     U32_AT(9, p.definition_core_budget_multiplier);
     if (!boolean(v[10], p.backward)) return false;
-    if (v.size() == 12) {
+    if (v.size() >= 12) {
       if (v[11] > static_cast<uint64_t>(BveCandidateScope::PureOnly))
         return false;
       p.candidate_scope = static_cast<BveCandidateScope>(v[11]);
     }
+    if (v.size() == 13)
+      U32_AT(12, p.resolvent_count_limit);
     parameters = p;
   } else if (tuple(text, "c1", v) && v.size() == 3) {
     SubsumeForwardParameters p;
@@ -1456,13 +1461,14 @@ std::string serialize_online_strategy_program(
           << p->jump_reasons_bigbig << ',' << p->shrink_glue_promote << ','
           << p->bump_extension_reasons << ')';
     else if (const auto *p = std::get_if<BveParameters>(&step.parameters))
-      out << ":bve2(" << p->gate_mask << ',' << p->growth_bound << ','
+      out << ":bve3(" << p->gate_mask << ',' << p->growth_bound << ','
           << p->occurrence_limit << ',' << p->clause_size_limit << ','
           << p->xor_arity_limit << ',' << p->resolvent_size_limit << ','
           << p->backward_occurrence_limit << ',' << p->definition_budget << ','
           << p->definition_cores << ','
           << p->definition_core_budget_multiplier << ',' << p->backward << ','
-          << static_cast<unsigned>(p->candidate_scope) << ')';
+          << static_cast<unsigned>(p->candidate_scope) << ','
+          << p->resolvent_count_limit << ')';
     else if (const auto *p =
                  std::get_if<SubsumeForwardParameters>(&step.parameters))
       out << ":c1(" << p->clause_size_limit << ','

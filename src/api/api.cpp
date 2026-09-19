@@ -319,13 +319,24 @@ bool online_parameters(const tactix_online_parameters &source,
     return true;
   case TACTIX_ONLINE_PARAMETERS_BVE: {
     const tactix_online_bve_parameters &p = source.value.bve;
-    target = strategy::BveParameters{
-        p.gate_mask, p.growth_bound, p.occurrence_limit,
-        p.clause_size_limit, p.xor_arity_limit, p.resolvent_size_limit,
-        p.backward_occurrence_limit, p.definition_budget,
-        p.definition_cores, p.definition_core_budget_multiplier,
-        p.backward != 0,
-        static_cast<strategy::BveCandidateScope>(p.candidate_scope)};
+    strategy::BveParameters converted;
+    converted.gate_mask = p.gate_mask;
+    converted.growth_bound = p.growth_bound;
+    converted.occurrence_limit = p.occurrence_limit;
+    converted.clause_size_limit = p.clause_size_limit;
+    converted.xor_arity_limit = p.xor_arity_limit;
+    converted.resolvent_size_limit = p.resolvent_size_limit;
+    converted.backward_occurrence_limit = p.backward_occurrence_limit;
+    converted.definition_budget = p.definition_budget;
+    converted.definition_cores = p.definition_cores;
+    converted.definition_core_budget_multiplier =
+        p.definition_core_budget_multiplier;
+    converted.backward = p.backward != 0;
+    converted.candidate_scope =
+        static_cast<strategy::BveCandidateScope>(p.candidate_scope);
+    converted.resolvent_count_limit =
+        p.resolvent_count_limit ? p.resolvent_count_limit : UINT32_MAX;
+    target = converted;
     return true;
   }
   case TACTIX_ONLINE_PARAMETERS_SUBSUME: {

@@ -1826,7 +1826,9 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
   // spend shared effort now and alter the dynamic heap trajectory.  The first
   // overflow still supplies the only sound retry hint available at this level
   // (`current bound + 1`); a later ramp level recomputes, as the reference does.
-  const size_t gen_limit = commit_limit;
+  const size_t gen_limit =
+      std::min(commit_limit,
+               static_cast<size_t>(k.bve_resolvent_count_limit));
   bool oversized = false; // configured resolvent-size limit was exceeded
   bool over_gen = false;  // resolvent count passed gen_limit → needs > ceiling
   bool immediate_unsat = false;

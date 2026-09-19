@@ -459,13 +459,10 @@ mutable elimination heap. Tactix follows that lifecycle: a stale zero/zero candi
 or reconstruction witnesses, not a no-op. This does not add isolated variables to the initial public schedule; it preserves the
 effect of an already-enumerated instance after earlier candidates mutate its occurrences.
 
-The typed BVE candidate scope selects either all active variables or the
-current nonempty one-sided variables when a caller asks for a generated
-complete pass. The pure scope snapshots that pass before applying its members,
-matching Satsuma's simultaneous pure-literal predecessor while using BVE's
-existing proof and reconstruction path. One-instance and selected-batch calls
-ignore this scheduling filter and retain every legal BVE pivot. Replay writes
-`bve2`; historical eleven-field `bve` tuples restore the all-candidate scope. Default structured stages repeat pure passes to scoped fixpoint before symmetry discovery, following elimination's neighbor-reconsideration lifecycle; successful steps retire variables, so closure is finite, with existing work/stop checks retained. The reference structured profile keeps one pure pass.
+The typed BVE candidate scope selects all active variables or snapshots the current nonempty one-sided variables for a generated complete pass, matching Satsuma's simultaneous pure-literal predecessor through BVE's proof and reconstruction path. One-instance and selected-batch calls retain every legal pivot. Replay writes
+`bve3`; historical `bve` and `bve2` tuples restore all candidates and an unlimited absolute resolvent cap. Default structured stages repeat pure passes to scoped fixpoint before symmetry discovery; retired variables make closure finite. The reference structured profile keeps one pure pass.
+
+SC2024 startup fast elimination is a typed composition after initial Probe: the owner's incomplete, record-high-marked occurrence-local SubsumeForward instance, then BVE with occurrence/antecedent caps 100 and absolute resolvent cap eight. Four productive rounds retry only earlier gather rejects; attempted pivots stay disabled. Stable order preserves the owner's twice-positive occurrence score. The schedule adds no proof transition and does not replay ordinary Eliminate.
 
 ## 21. Retained representation decisions
 

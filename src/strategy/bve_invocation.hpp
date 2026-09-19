@@ -49,6 +49,7 @@ struct BveParameters {
   // This filters only policy-generated complete passes. Explicit one-instance
   // and selected-batch requests retain the complete legal BVE surface.
   BveCandidateScope candidate_scope = BveCandidateScope::All;
+  uint32_t resolvent_count_limit = UINT32_MAX;
 
   static BveParameters from_kernel(const Kernel &k) {
     return {k.bve_gate_mask,
@@ -62,7 +63,8 @@ struct BveParameters {
             k.bve_definition_cores,
             k.bve_definition_core_budget_multiplier,
             k.bve_backward,
-            BveCandidateScope::All};
+            BveCandidateScope::All,
+            k.bve_resolvent_count_limit};
   }
 
   bool valid() const {
@@ -126,6 +128,7 @@ private:
     k_.bve_bound = p.growth_bound;
     k_.bve_occurrence_limit = p.occurrence_limit;
     k_.bve_clause_size_limit = p.clause_size_limit;
+    k_.bve_resolvent_count_limit = p.resolvent_count_limit;
     k_.bve_xor_arity_limit = p.xor_arity_limit;
     k_.bve_resolvent_size_limit = p.resolvent_size_limit;
     k_.bve_backward_occurrence_limit = p.backward_occurrence_limit;

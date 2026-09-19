@@ -237,6 +237,17 @@ int main() {
   assert(defaults.inprocess.bve_definition_budget == 1000000);
   assert(defaults.inprocess.bve_definition_cores == 2);
   assert(defaults.inprocess.bve_definition_core_budget_multiplier == 10);
+  assert(defaults.inprocess.initial_fast_elimination);
+  assert(defaults.inprocess.initial_fast_elimination_rounds == 4);
+  const auto &fastel =
+      defaults.inprocess.initial_fast_elimination_parameters;
+  assert(fastel.gate_mask == 0);
+  assert(fastel.growth_bound == UINT32_MAX);
+  assert(fastel.occurrence_limit == 100);
+  assert(fastel.clause_size_limit == 100);
+  assert(fastel.resolvent_count_limit == 8);
+  assert(fastel.resolvent_size_limit == UINT32_MAX);
+  assert(!fastel.backward);
   assert(defaults.inprocess.factor_repeated_enabled &&
          defaults.inprocess.factor_permille == 50 &&
          defaults.inprocess.factor_active_ceiling == 0);

@@ -452,6 +452,9 @@ typedef struct {
   int backward;
   /* Appended generated-pass scope. Explicit selections remain unrestricted. */
   int candidate_scope;
+  /* Appended absolute non-tautological resolvent cap. Zero preserves the
+     historical unlimited behavior for zero-initialized public steps. */
+  uint32_t resolvent_count_limit;
 } tactix_online_bve_parameters;
 typedef struct {
   uint32_t clause_size_limit, large_occurrence_limit;

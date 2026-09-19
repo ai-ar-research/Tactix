@@ -77,8 +77,8 @@ strategy branch.
 The native parity successor recognizes complete arity-2--4 XOR systems with
 even incidence and odd right-hand-side sum. Its eager recognizer allocation is
 now bounded by actual input size. WV80 checks, and AM197 independently verifies
-WV83: the 65.364s solve emits a 1.741 GB DSR certificate that passes dsr-trim
-and canonical Trestle; WV86 remains in checking. The
+WV83 and WV86: the 65.364/41.685s solves emit 1.741/2.625 GB DSR certificates,
+and both pass dsr-trim and canonical Trestle. The
 typed Lucky7 successor now recognizes complete bipartite exact-one incidence
 systems and emits a modulo-three ER refutation when the color classes differ.
 Default-policy job AM194 independently checks WV25/26 in
@@ -104,11 +104,18 @@ propagations and independently verified proof/model results.
 
 AM217 rejects a fixed random-seed explanation for WV95: all eight diagnostic
 seeds time out at 1,200s, spanning 12.36--14.64 million conflicts. AM220 now
-dumps SC2024's residual after preprocessing and before its first decision; a
-Tactix run on that residual will distinguish a transformation gap from a
-downstream search-state gap without promoting an external preprocessing stage.
+dumps SC2024's residual after preprocessing and before its first decision.
+SC2024 solves the original in 113.43s and its corrected residual in 155.24s,
+while disabling either fast elimination or its local subsumption times out at
+1,200s. The integrated typed startup fast-elimination schedule now matches the
+owner's 2,537 eliminated pivots; BVE costs 15ms and local SubsumeForward 148ms
+on WV95. AM231 preserves Rank 1/6 at 1.069/53.461s, but exact owner scheduling
+and disabling structured-root SR both still time out on WV95; the final
+occurrence-compacted AM238 candidate also reaches the 1,200s limit. This
+narrows the remaining gap to the post-preprocessing formula/search state rather
+than fastel runtime or structured SR alone.
 
-The cumulative StConn successor Release suite passes all 168 tests. AM173's
+The cumulative successor Release suite passes all 168 tests. AM173's
 Claude-owned proof/scheduling fuzz completed both Release and ASan campaigns.
 It exposed invalid harness expectations for non-refuting proof prefixes and a
 normalization-preserving mutant, plus one unrelated random-policy certificate
@@ -117,15 +124,18 @@ accepted. Complete matched AM160 successor gates have solver results for every
 case: Rank 1--50 is 50/50 in 8,007.968s and B28+C5 is 33/33 in 895.121s. Four
 long Trestle tasks remain active before those successor gates are final.
 
-The user-authorized frozen AM149 full Tier-D campaign is job 1702332. Its
+AM221 Claude-owned exact-one fuzz remains active. The user-authorized frozen
+AM149 full Tier-D campaign is job 1702332. Its
 750 GB pending-task guard and the stricter global 700 GiB guard are live;
 running tasks are never held or interrupted.
 
 ## Exact next action
 
-Finish the WV86 parity check, then fuzz the exact-one rule. Complete AM220's
-SC2024-residual diagnostic and use its result to choose the next general WV95
-integration step. Keep WV1's signed-cardinality counting proof staged unless it
-gains a native DSR formulation. Preserve every checked solve and both Phase-1
-aggregate gates.
+Commit the owner-faithful fast-elimination checkpoint, then run the complete
+Rank 1--50 and B28+C5 regression gates from its frozen binary. Compare the
+post-preprocessing formula and search initialization against SC2024 to isolate
+the remaining general WV95 gap before another implementation change. Finish
+AM221 fuzz adjudication and the AM157 Tier-D campaign without disturbing active
+tasks. Keep WV1's signed-cardinality counting proof staged unless it gains a
+native DSR formulation.
 <!-- track-sched:end -->

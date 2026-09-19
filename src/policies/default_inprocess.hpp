@@ -216,6 +216,7 @@ public:
   void initialize_search_limits(const Kernel &);
   bool want_phase(const Kernel &, SlotGroup);
   int run_phase(Kernel &, SlotGroup, volatile sig_atomic_t *stop);
+  int run_initial_fast_elimination(Kernel &, volatile sig_atomic_t *stop);
   int run_structured_root(Kernel &, volatile sig_atomic_t *);
   void update_limit(const Kernel &, SlotGroup);
   void order_candidates(const Kernel &, SlotEntry &, uint64_t *, uint32_t);
@@ -286,6 +287,9 @@ private:
   bool slot_watermark_ = true;
   bool preprocess_followups_ = true;
   bool preprocess_only_ = false;
+  bool initial_fast_elimination_active_ = false;
+  std::vector<uint8_t> initial_fast_elimination_attempted_;
+  std::vector<uint8_t> initial_fast_elimination_marks_;
   bool structured_root_consumed_ = false;
   bool initialized_ = false;
   bool search_limits_initialized_ = false;

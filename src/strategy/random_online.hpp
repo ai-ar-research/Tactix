@@ -81,6 +81,7 @@ struct RandomOnlineConfig {
   uint32_t bve_occurrence_reference = 2000;
   uint32_t bve_clause_size_reference =
       BveParameters::RESOLVENT_SIZE_DEFAULT;
+  uint32_t bve_resolvent_count_reference = UINT32_MAX;
   uint32_t maximum_bve_growth_bound =
       4 * BveParameters::GROWTH_BOUND_DEFAULT;
   uint64_t maximum_bve_definition_budget =
