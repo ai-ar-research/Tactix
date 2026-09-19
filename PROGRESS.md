@@ -127,15 +127,18 @@ long Trestle tasks remain active before those successor gates are final.
 AM221 Claude-owned exact-one fuzz remains active. The user-authorized frozen
 AM149 full Tier-D campaign is job 1702332. Its
 750 GB pending-task guard and the stricter global 700 GiB guard are live;
-running tasks are never held or interrupted.
+running tasks are never held or interrupted. The committed fast-elimination
+checkpoint is `792edd4b`; its independently reproduced Release binary is
+`d364f278109424b0c92b3ba6eb93be09099dba9afa405a67b6679a120984de85`.
+Complete matched regression jobs are 1704439 (Rank 1--50) and 1704440
+(B28+C5), both full-width c12/32 GiB arrays with native proof/model checking.
 
 ## Exact next action
 
-Commit the owner-faithful fast-elimination checkpoint, then run the complete
-Rank 1--50 and B28+C5 regression gates from its frozen binary. Compare the
-post-preprocessing formula and search initialization against SC2024 to isolate
-the remaining general WV95 gap before another implementation change. Finish
-AM221 fuzz adjudication and the AM157 Tier-D campaign without disturbing active
-tasks. Keep WV1's signed-cardinality counting proof staged unless it gains a
-native DSR formulation.
+Monitor the complete Rank 1--50 and B28+C5 regression gates. In parallel,
+compare Tactix's post-preprocessing formula and search initialization against
+SC2024 to isolate the remaining general WV95 gap before another implementation
+change. Finish AM221 fuzz adjudication and the AM157 Tier-D campaign without
+disturbing active tasks. Keep WV1's signed-cardinality counting proof staged
+unless it gains a native DSR formulation.
 <!-- track-sched:end -->
