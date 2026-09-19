@@ -371,7 +371,8 @@ ApplyResult subsume_forward_apply(Kernel &k) {
 // here, which is the complete surface N1 requires; the subsumer may not, hence
 // the `d->redundant()` skip below.
 template <bool Collect>
-static ApplyResult subsume_forward_try_impl(Kernel &k, Ref candidate) {
+static ApplyResult subsume_forward_try_impl(Kernel &k, Ref candidate,
+                                            std::vector<uint8_t> *scratch = nullptr) {
   assert(subsume_forward_guard(k));
   // The round's `work_budget` is a round device and is not consulted here, so
   // termination gets its own check — one per call, at entry, where nothing is
@@ -382,7 +383,10 @@ static ApplyResult subsume_forward_try_impl(Kernel &k, Ref candidate) {
   if (!is_victim(k, c))
     return ApplyResult::NoOp;
   k.stats.forward_checked++;
-  std::vector<uint8_t> marks(2 * k.nvars, 0);
+  std::vector<uint8_t> local_marks;
+  std::vector<uint8_t> &marks = scratch ? *scratch : local_marks;
+  if (marks.size() < 2 * static_cast<size_t>(k.nvars))
+    marks.resize(2 * static_cast<size_t>(k.nvars), 0);
   mark_candidate(k, marks, c, 1);
   // one fused scan per free literal's watch list: binary entries subsume when
   // the other literal is marked, large entries via subsumes_marked
@@ -420,6 +424,87 @@ static ApplyResult subsume_forward_try_impl(Kernel &k, Ref candidate) {
 
 ApplyResult subsume_forward_try(Kernel &k, Ref candidate) {
   return subsume_forward_try_impl<true>(k, candidate);
+}
+
+ApplyResult subsume_forward_try_fastel(Kernel &k, Ref candidate,
+                                       uint32_t occurrence_limit,
+                                       std::vector<uint8_t> &marks) {
+  assert(subsume_forward_guard(k));
+  assert(k.dense && k.dense->track_order);
+  if (kernel_rule_interrupt(k, k.stats.subsume_interrupted))
+    return ApplyResult::NoOp;
+  Clause *c = clause_at(k.arena, candidate);
+  if (c->garbage() || c->redundant())
+    return ApplyResult::NoOp;
+  k.stats.forward_checked++;
+  if (marks.size() < 2 * static_cast<size_t>(k.nvars))
+    marks.resize(2 * static_cast<size_t>(k.nvars), 0);
+
+  // fastel.c marks only literals that establish a strictly larger physical
+  // occurrence population.  Earlier record holders stay marked, and the last
+  // (largest) holder is skipped as a discovery literal below.  This is
+  // observable incompleteness: marking the whole candidate can remove extra
+  // clauses and send CDCL down a different trajectory.
+  Lit max_occurring = INVALID_LIT;
+  size_t max_occurrence = 0;
+  for (const Lit other : *c) {
+    const Var variable = var_of(other);
+    if (kernel_var_retired(k, variable) || k.value(other))
+      continue;
+    const size_t occurrence = k.dense->ordered.size(other);
+    if (occurrence <= max_occurrence)
+      continue;
+    max_occurrence = occurrence;
+    max_occurring = other;
+    marks[other] = 1;
+  }
+
+  bool subsumed = false;
+  for (const Lit other : *c) {
+    if (other == max_occurring)
+      continue;
+    const Var variable = var_of(other);
+    if (kernel_var_retired(k, variable) || k.value(other))
+      continue;
+    const auto occurrences = k.dense->ordered[other];
+    if (occurrences.size() > occurrence_limit)
+      continue;
+    for (const OccIndex::Entry entry : occurrences) {
+      k.stats.forward_visits++;
+      if (entry.binary) {
+        if (marks[entry.payload]) {
+          subsumed = true;
+          break;
+        }
+        continue;
+      }
+      const Ref dref = entry.payload;
+      if (dref == candidate)
+        continue;
+      const Clause *d = clause_at(k.arena, dref);
+      if (d->garbage() || d->redundant() || d->size > c->size)
+        continue;
+      subsumed = true;
+      for (const Lit other2 : *d) {
+        if (k.value(other2) < 0)
+          continue;
+        if (!marks[other2]) {
+          subsumed = false;
+          break;
+        }
+      }
+      if (subsumed)
+        break;
+    }
+    if (subsumed)
+      break;
+  }
+  for (const Lit other : *c)
+    marks[other] = 0;
+  if (!subsumed)
+    return ApplyResult::NoOp;
+  delete_subsumed(k, c);
+  return ApplyResult::Ok;
 }
 
 // Generic instance surface: payload = candidate arena Ref, canonical-first

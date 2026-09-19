@@ -62,6 +62,8 @@ static void test_one_instance_matches_legacy_and_restores_parameters() {
   legacy.bve_bound = configured.bve_bound = 7;
   legacy.bve_occurrence_limit = configured.bve_occurrence_limit = 19;
   legacy.bve_clause_size_limit = configured.bve_clause_size_limit = 23;
+  legacy.bve_resolvent_count_limit =
+      configured.bve_resolvent_count_limit = 27;
   legacy.bve_xor_arity_limit = configured.bve_xor_arity_limit = 4;
   legacy.bve_resolvent_size_limit = configured.bve_resolvent_size_limit = 29;
   legacy.bve_backward_occurrence_limit =
@@ -98,6 +100,7 @@ static void test_one_instance_matches_legacy_and_restores_parameters() {
   assert(restored.growth_bound == saved.growth_bound);
   assert(restored.occurrence_limit == saved.occurrence_limit);
   assert(restored.clause_size_limit == saved.clause_size_limit);
+  assert(restored.resolvent_count_limit == saved.resolvent_count_limit);
   assert(restored.xor_arity_limit == saved.xor_arity_limit);
   assert(restored.resolvent_size_limit == saved.resolvent_size_limit);
   assert(restored.backward_occurrence_limit ==
@@ -130,6 +133,30 @@ static void test_per_call_bound_is_effective_and_scoped() {
   assert(result.rule_result == ApplyResult::Ok && result.work == 18);
   assert(kernel_var_retired(k, var_of(internalize(1))));
   assert(k.bve_bound == 0 && "the invocation must restore the caller's pose");
+}
+
+static void test_absolute_resolvent_cap_is_effective_and_scoped() {
+  Kernel k;
+  kernel_reserve_vars(k, 12);
+  for (int i = 2; i <= 3; ++i)
+    kernel_add_binary_clause(k, internalize(1), internalize(i));
+  for (int i = 4; i <= 12; ++i)
+    kernel_add_binary_clause(k, internalize(-1), internalize(i));
+  k.bve_gate_mask = 0;
+  k.bve_bound = 64;
+  k.bve_resolvent_count_limit = 77;
+  BveParameters posed = BveParameters::from_kernel(k);
+  posed.resolvent_count_limit = 8;
+  const uint64_t pivot[] = {lit_instance(internalize(1))};
+  BveInvocationRequest request{posed, InvocationGranularity::OneInstance,
+                               pivot, 0};
+  InvocationBudget budget(WorkUnit::BveTicks, WorkLimit::unlimited());
+  const InvocationResult result = invoke_bve(bve_rule(), k, request, budget);
+  assert(result.status == InvocationStatus::NoChange);
+  assert(result.rule_result == ApplyResult::NoOp && result.work == 9);
+  assert(!kernel_var_retired(k, var_of(internalize(1))));
+  assert(k.bve_resolvent_count_limit == 77 &&
+         "the invocation must restore the caller's absolute cap");
 }
 
 static void build_xor3(Kernel &k) {
@@ -368,6 +395,7 @@ int main() {
   test_empty_pivot_progress_distinguishes_retirement();
   test_one_instance_matches_legacy_and_restores_parameters();
   test_per_call_bound_is_effective_and_scoped();
+  test_absolute_resolvent_cap_is_effective_and_scoped();
   test_per_call_xor_arity_is_effective_and_scoped();
   test_batch_budget_stops_between_atomic_pivots();
   test_pass_session_poses_once_and_keeps_cumulative_budget();

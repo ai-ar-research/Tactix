@@ -52,6 +52,7 @@ TABLE = {
     "bve_xor_arity_limit":     ("POLICY", "typed BVE XOR recognition arity installed "
                                           "at each inprocessing phase"),
     "bve_resolvent_size_limit": ("POLICY", "typed BVE resolvent-size admission limit"),
+    "bve_resolvent_count_limit": ("POLICY", "typed BVE absolute resolvent-count admission limit"),
     "bve_backward_occurrence_limit":
                                 ("POLICY", "typed backward elimination occurrence limit"),
     "bve_definition_session":  ("POLICY", "embedded Kitten create/release lifetime; "

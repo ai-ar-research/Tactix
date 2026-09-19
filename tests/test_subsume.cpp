@@ -100,6 +100,47 @@ static void test_duplicates_and_binary() {
   kernel_check_invariants(k);
 }
 
+static void test_fastel_record_high_marking() {
+  { // The owner marks only strict occurrence-population record highs.  Here
+    // literal 1 is the sole record and the (2,3) binary is deliberately missed.
+    Kernel k;
+    kernel_reserve_vars(k, 5);
+    const Ref candidate = add(k, {1, 2, 3});
+    kernel_add_binary_clause(k, internalize(2), internalize(3),
+                             ++k.next_clause_id);
+    kernel_add_binary_clause(k, internalize(1), internalize(4),
+                             ++k.next_clause_id);
+    kernel_add_binary_clause(k, internalize(1), internalize(5),
+                             ++k.next_clause_id);
+    OccIndex dense;
+    kernel_dense_connect(k, dense, /*track_order=*/true);
+    std::vector<uint8_t> marks;
+    assert(subsume_forward_try_fastel(k, candidate, 100, marks) ==
+           ApplyResult::NoOp);
+    assert(!clause_at(k.arena, candidate)->garbage());
+    for (const uint8_t mark : marks)
+      assert(!mark);
+    kernel_dense_disconnect(k);
+  }
+  { // With (1,2), literal 1 is marked and literal 2 discovers the binary.
+    Kernel k;
+    kernel_reserve_vars(k, 3);
+    const Ref candidate = add(k, {1, 2, 3});
+    kernel_add_binary_clause(k, internalize(1), internalize(2),
+                             ++k.next_clause_id);
+    OccIndex dense;
+    kernel_dense_connect(k, dense, /*track_order=*/true);
+    std::vector<uint8_t> marks;
+    assert(subsume_forward_try_fastel(k, candidate, 100, marks) ==
+           ApplyResult::Ok);
+    assert(clause_at(k.arena, candidate)->garbage());
+    assert(k.stats.forward_subsumed == 1);
+    for (const uint8_t mark : marks)
+      assert(!mark);
+    kernel_dense_disconnect(k);
+  }
+}
+
 static void test_redundant_excluded() {
   Kernel k;
   kernel_reserve_vars(k, 4);
@@ -498,6 +539,7 @@ int main() {
   test_guard();
   test_basic_subsume();
   test_duplicates_and_binary();
+  test_fastel_record_high_marking();
   test_redundant_excluded();
   test_complete_dense_population_caps_connection();
   test_root_modulo_semantics();

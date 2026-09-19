@@ -275,6 +275,22 @@ struct DefaultStrategyConfig {
     bool sweep_enabled = true;
     bool factor_repeated_enabled = true;
     bool preprocess_only = false;
+    // SC2024's bounded startup pass. It composes the existing forward
+    // subsumption and BVE proof rules; the policy owns candidate order,
+    // retry lifetime and limits.
+    bool initial_fast_elimination = true;
+    uint32_t initial_fast_elimination_rounds = 4;
+    strategy::BveParameters initial_fast_elimination_parameters = [] {
+      strategy::BveParameters p;
+      p.gate_mask = 0;
+      p.growth_bound = UINT32_MAX;
+      p.occurrence_limit = 100;
+      p.clause_size_limit = 100;
+      p.resolvent_count_limit = 8;
+      p.resolvent_size_limit = UINT32_MAX;
+      p.backward = false;
+      return p;
+    }();
     // Kissat creation order is the production default.  Enabling this switch
     // is the explicit CaDiCaL VMTF/phase-order diagnostic arm; classification
     // and benchmark identity never select it.

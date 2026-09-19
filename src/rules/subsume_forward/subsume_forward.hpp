@@ -38,6 +38,15 @@ void subsume_forward_candidates(const Kernel &, std::vector<Ref> &out,
 // Argument: `docs/implementation-notes.md` §14.
 ApplyResult subsume_forward_try(Kernel &, Ref candidate);
 
+// Policy-internal SC2024 fast-elimination form for a clause start obtained from
+// the live mixed occurrence index.  It preserves fastel.c's deliberately
+// incomplete record-high marking and physical-occurrence cap while keeping the
+// clause deletion inside C1.  Arena collection belongs to the enclosing dense
+// pass.
+ApplyResult subsume_forward_try_fastel(Kernel &, Ref candidate,
+                                       uint32_t occurrence_limit,
+                                       std::vector<uint8_t> &marks);
+
 // Canonical: the standalone diagnostic C1 round. The production fused
 // Strengthen pass owns Kissat forward.c's round-entry duplicate-binary sweep;
 // do not duplicate that consumer here. No effort budget in the rule.
