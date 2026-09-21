@@ -54,10 +54,14 @@ from shrink import minimize  # noqa: E402
 # slurm.sh includes this shared parser in its immutable harness snapshot.
 # The fallback is only for the maintained tools/fuzz checkout.
 sys.path.append(os.path.join(ROOT, "tools", "bench"))
-from proof_oracle import bridge_trivial_input_binary_lsr, proof_check_status  # noqa: E402
+from proof_oracle import (bridge_trivial_input_binary_lsr,  # noqa: E402
+                          bridge_trivial_input_lsr, dsr_compress_status,
+                          every_lemma_dsr_stages, proof_check_status,
+                          reference_dsr_stages)
 
 DRAT_TRIM = os.path.join(ROOT, "tools", "checkers", "bin", "drat-trim")
 DSR_TRIM = os.path.join(ROOT, "tools", "checkers", "bin", "dsr-trim")
+DSR_COMPRESS = os.path.join(ROOT, "tools", "checkers", "bin", "dsr-compress")
 SR_CHECK = os.path.join(ROOT, "tools", "checkers", "bin", "srcheck")
 LRAT_CHECK = os.path.join(ROOT, "tools", "checkers", "bin", "lrat-check")
 CAKE_LPR = os.path.join(ROOT, "tools", "checkers", "bin", "cake_lpr")
@@ -379,7 +383,9 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
     def check(command):
         c, o, e = run_cmd(command, 120)
         checker = os.path.basename(command[0])
-        status = proof_check_status(checker, c, o, e)
+        status = (dsr_compress_status(c, o + "\n" + e)
+                  if checker == "dsr-compress"
+                  else proof_check_status(checker, c, o, e))
         # The pinned drat-trim exits 1 on an input empty clause even while
         # reporting success. Confirm that semantic condition from the actual
         # original CNF; never accept an abnormal exit from success text alone.
@@ -455,17 +461,38 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
                         if not check([CAKE_LPR, cnf_path, lrat_file]):
                             out.fail("proof", "cake_lpr did not verify the converted LRAT")
         elif os.path.exists(proof) and native_dsr:
+            # proof_oracle.reference_dsr_stages owns the pipeline definition.
             binary_lsr = os.path.join(workdir, "proof.binary.lsr")
-            out.proof_artifacts.append(binary_lsr)
-            if not check([DSR_TRIM, "-q", "-f", "-c", cnf_path, proof,
-                          binary_lsr]):
-                out.fail("proof", "dsr-trim did not verify and elaborate DSR")
-            elif not os.path.isfile(binary_lsr) or os.path.getsize(binary_lsr) == 0:
-                out.fail("proof", "dsr-trim produced no LSR")
-            else:
-                bridge_trivial_input_binary_lsr(cnf_path, binary_lsr)
-                if not check([SR_CHECK, cnf_path, binary_lsr, "c"]):
-                    out.fail("proof", "Trestle did not verify elaborated LSR")
+            text_lsr = os.path.join(workdir, "proof.lsr")
+            out.proof_artifacts += [binary_lsr, text_lsr]
+            why = {"dsr-trim": "dsr-trim did not verify and elaborate DSR",
+                   "dsr-compress": "dsr-compress did not expand the LSR",
+                   "srcheck": "Trestle did not verify elaborated LSR"}
+            # The reference pipeline is the authority; it elaborates backward
+            # and so examines only the lemmas the refutation uses.  Fuzz proofs
+            # are small, so every line is then checked by forward elaboration.
+            for label, stages in (("", reference_dsr_stages),
+                                  ("every-lemma audit: ",
+                                   every_lemma_dsr_stages)):
+                failed = False
+                for name, command in stages(
+                        DSR_TRIM, DSR_COMPRESS, SR_CHECK, cnf_path, proof,
+                        binary_lsr, text_lsr):
+                    if not check(command):
+                        out.fail("proof", label + why[name])
+                        failed = True
+                        break
+                    made = command[-1] if name != "srcheck" else None
+                    if made and (not os.path.isfile(made) or
+                                 os.path.getsize(made) == 0):
+                        out.fail("proof", label + name + " produced no LSR")
+                        failed = True
+                        break
+                    if name == "dsr-trim":
+                        (bridge_trivial_input_binary_lsr if made == binary_lsr
+                         else bridge_trivial_input_lsr)(cnf_path, made)
+                if failed:
+                    break
 
     if oracle and verdict in ("SAT", "UNSAT"):
         code_o, stdout_o, _ = run_cmd(oracle + [cnf_path], timeout)

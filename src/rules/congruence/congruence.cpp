@@ -1799,8 +1799,9 @@ bool add_xor_degeneracy_chain(Kernel &k, const std::vector<Lit> &cancelled,
   const bool lrat = k.proof && k.proof->lrat();
   const size_t nc = concl.size();
   concl_chains.assign(nc, {});
-  if (!k.proof)
-    return true;
+  // Whether the ladder can be justified is decided the same way with or
+  // without a proof; only the writes below depend on one, so a run's search
+  // never depends on proof logging.
   // cancellation removes variables in pairs, so this is ≤ 2 in practice and the
   // ladder is 2^(n+1)−2 lemmas
   assert(cancelled.size() <= CONG_XOR_ARITY / 2 + 1 && "ladder would blow up");
@@ -1833,8 +1834,9 @@ bool add_xor_degeneracy_chain(Kernel &k, const std::vector<Lit> &cancelled,
         if (!normalize_proof_clause(lemma))
           return false;
         if (!lrat) {
-          k.proof->add_rup(0, lemma.data(),
-                           static_cast<uint32_t>(lemma.size()), nullptr, 0);
+          if (k.proof)
+            k.proof->add_rup(0, lemma.data(),
+                             static_cast<uint32_t>(lemma.size()), nullptr, 0);
           continue;
         }
         if (size == top) {
@@ -1871,9 +1873,7 @@ bool add_xor_matching_proof_chain(Kernel &k, const std::vector<Lit> &rhs, Lit a,
                                   std::vector<TransientLemma> &transient) {
   chain_fwd.clear();
   chain_rev.clear();
-  if (!k.proof)
-    return true;
-  const bool lrat = k.proof->lrat();
+  const bool lrat = k.proof && k.proof->lrat(); // decided alike without a proof
   const int top = static_cast<int>(rhs.size()) - 1;
   if (top < 1) {
     // Nothing to eliminate; the binaries stand on the gates alone, which under
@@ -1907,8 +1907,9 @@ bool add_xor_matching_proof_chain(Kernel &k, const std::vector<Lit> &rhs, Lit a,
         if (!normalize_proof_clause(lemma))
           return false;
         if (!lrat) {
-          k.proof->add_rup(0, lemma.data(),
-                           static_cast<uint32_t>(lemma.size()), nullptr, 0);
+          if (k.proof)
+            k.proof->add_rup(0, lemma.data(),
+                             static_cast<uint32_t>(lemma.size()), nullptr, 0);
           continue;
         }
         if (size == top) {
@@ -2124,9 +2125,7 @@ bool add_ite_matching_proof_chain(Kernel &k, Lit cond, Lit a, Lit b,
                                   std::vector<TransientLemma> &transient) {
   chain_fwd.clear();
   chain_rev.clear();
-  if (!k.proof)
-    return true;
-  const bool lrat = k.proof->lrat();
+  const bool lrat = k.proof && k.proof->lrat(); // decided alike without a proof
   std::vector<uint64_t> ch;
   // (¬a∨b) closes on its two cond-sides; (a∨¬b) on the other two.
   auto emit = [&](Lit x, Lit y, Lit z, std::vector<uint64_t> &into) -> bool {
@@ -2134,8 +2133,9 @@ bool add_ite_matching_proof_chain(Kernel &k, Lit cond, Lit a, Lit b,
     if (!normalize_proof_clause(lemma))
       return false;
     if (!lrat) {
-      k.proof->add_rup(0, lemma.data(),
-                       static_cast<uint32_t>(lemma.size()), nullptr, 0);
+      if (k.proof)
+        k.proof->add_rup(0, lemma.data(),
+                         static_cast<uint32_t>(lemma.size()), nullptr, 0);
       return true;
     }
     if (!congruence_rup_chain(k, lemma.data(),

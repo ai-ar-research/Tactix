@@ -80,10 +80,13 @@ public:
   // clause containing it before returning, so later solver extensions may use
   // that identity. Returns false for compatibility formats or exhaustion of
   // the external literal representation, before emitting any clause.
+  // `propagates`: the clause is unit at the root. No witnessed line may
+  // propagate when read, so it takes the general encoding and enters by RUP
+  // (docs/implementation-notes.md, native DSR checking).
   bool add_sr(uint64_t id, const Lit *lits, uint32_t size,
               const Lit *true_lits, uint32_t ntrue,
               const DsrLiteralMapping *mappings, uint32_t nmappings,
-              uint32_t external_variables);
+              uint32_t external_variables, bool propagates = false);
   void add_empty(uint64_t id, const uint64_t *chain, uint32_t nchain);
   // root-level propagation-derived unit: explicit in LRAT (each level-0
   // assignment needs an id for later chains), implied/omitted in DSR/DRAT

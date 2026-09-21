@@ -637,9 +637,12 @@ static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
     // kissat_on_the_fly_subsume turns a redundant reason irredundant when it
     // subsumes an irredundant conflict.
     if (!redundant && replacement->redundant()) {
-      replacement->set_redundant(false);
-      replacement->set_glue(0);
-      k.live_irredundant_large++;
+      // A free N1 schedule can retain Eliminate's dense occurrence image
+      // across ConflictAnalysis. Promotion is therefore a representation
+      // transition too: publish the replacement before a later OTFS rewrite
+      // tries to remove one of its occurrences.
+      kernel_promote_large_irredundant(k, reason_ref);
+      replacement = clause_at(k.arena, reason_ref);
     }
     // Pinned Kissat marks only the surviving old tail (original positions
     // 2..), before choosing its new second watch.  The retained first watch is

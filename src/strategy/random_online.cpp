@@ -105,6 +105,7 @@ ActionParameters random_parameters(const Kernel &k, uint64_t &state, const std::
         state, config.maximum_bve_definition_core_budget_multiplier);
     p.backward = bounded(state, OPTIONAL_CHOICES) != 0;
     p.candidate_scope = static_cast<BveCandidateScope>(bounded(state, 2));
+    p.traversal = static_cast<BveTraversal>(bounded(state, 2));
     return p;
   }
   if (rule == "SubsumeForward")
@@ -248,7 +249,22 @@ ActionParameters random_parameters(const Kernel &k, uint64_t &state, const std::
     return p;
   }
   if (rule == "Lucky") {
-    const uint64_t lucky_kind = bounded(state, 8);
+    const uint64_t lucky_kind = bounded(state, 9);
+    if (lucky_kind == 8) {
+      SignedCardinalityProofParameters p =
+          config.signed_cardinality_proof_reference;
+      p.maximum_variables =
+          1 + inclusive_u32(state, p.maximum_variables - 1);
+      p.maximum_groups = 1 + inclusive_u32(state, p.maximum_groups - 1);
+      p.maximum_constraints =
+          1 + inclusive_u32(state, p.maximum_constraints - 1);
+      p.maximum_group_arity =
+          3 + inclusive_u32(state, p.maximum_group_arity - 3);
+      p.maximum_bdd_nodes = 1 + bounded(state, p.maximum_bdd_nodes);
+      p.maximum_proof_additions =
+          1 + bounded(state, p.maximum_proof_additions);
+      return p;
+    }
     if (lucky_kind == 7) {
       StconnProofParameters p = config.stconn_proof_reference;
       p.maximum_width =
@@ -642,7 +658,8 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
     parameters = p;
   } else if ((tuple(text, "bve", v) && v.size() == 11) ||
              (tuple(text, "bve2", v) && v.size() == 12) ||
-             (tuple(text, "bve3", v) && v.size() == 13)) {
+             (tuple(text, "bve3", v) && v.size() == 13) ||
+             (tuple(text, "bve4", v) && v.size() == 14)) {
     BveParameters p;
     U32_AT(0, p.gate_mask); U32_AT(1, p.growth_bound);
     U32_AT(2, p.occurrence_limit); U32_AT(3, p.clause_size_limit);
@@ -656,8 +673,13 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
         return false;
       p.candidate_scope = static_cast<BveCandidateScope>(v[11]);
     }
-    if (v.size() == 13)
+    if (v.size() >= 13)
       U32_AT(12, p.resolvent_count_limit);
+    if (v.size() == 14) {
+      if (v[13] > static_cast<uint64_t>(BveTraversal::FastEliminate))
+        return false;
+      p.traversal = static_cast<BveTraversal>(v[13]);
+    }
     parameters = p;
   } else if (tuple(text, "c1", v) && v.size() == 3) {
     SubsumeForwardParameters p;
@@ -837,6 +859,15 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
     U32_AT(0, p.maximum_width);
     U32_AT(1, p.maximum_columns);
     p.maximum_rup_clauses = v[2];
+    parameters = p;
+  } else if (tuple(text, "signed-cardinality-proof", v) && v.size() == 6) {
+    SignedCardinalityProofParameters p;
+    U32_AT(0, p.maximum_variables);
+    U32_AT(1, p.maximum_groups);
+    U32_AT(2, p.maximum_constraints);
+    U32_AT(3, p.maximum_group_arity);
+    p.maximum_bdd_nodes = v[4];
+    p.maximum_proof_additions = v[5];
     parameters = p;
   } else if (tuple(text, "affine1", v) && v.size() >= 20) {
     AffineModelParameters p;
@@ -1235,6 +1266,7 @@ bool random_online_strategy_program(Kernel &k, uint64_t seed,
       !config.lookup_circuit_model_reference.valid() ||
       !config.simon_model_reference.valid() ||
       !config.stconn_proof_reference.valid() ||
+      !config.signed_cardinality_proof_reference.valid() ||
       !config.affine_model_reference.valid() ||
       !config.affine_joint_positive_denominator ||
       config.affine_joint_positive_numerator > config.affine_joint_positive_denominator ||
@@ -1461,14 +1493,15 @@ std::string serialize_online_strategy_program(
           << p->jump_reasons_bigbig << ',' << p->shrink_glue_promote << ','
           << p->bump_extension_reasons << ')';
     else if (const auto *p = std::get_if<BveParameters>(&step.parameters))
-      out << ":bve3(" << p->gate_mask << ',' << p->growth_bound << ','
+      out << ":bve4(" << p->gate_mask << ',' << p->growth_bound << ','
           << p->occurrence_limit << ',' << p->clause_size_limit << ','
           << p->xor_arity_limit << ',' << p->resolvent_size_limit << ','
           << p->backward_occurrence_limit << ',' << p->definition_budget << ','
           << p->definition_cores << ','
           << p->definition_core_budget_multiplier << ',' << p->backward << ','
           << static_cast<unsigned>(p->candidate_scope) << ','
-          << p->resolvent_count_limit << ')';
+          << p->resolvent_count_limit << ','
+          << static_cast<unsigned>(p->traversal) << ')';
     else if (const auto *p =
                  std::get_if<SubsumeForwardParameters>(&step.parameters))
       out << ":c1(" << p->clause_size_limit << ','
@@ -1592,6 +1625,12 @@ std::string serialize_online_strategy_program(
                  std::get_if<StconnProofParameters>(&step.parameters))
       out << ":stconn-proof(" << p->maximum_width << ','
           << p->maximum_columns << ',' << p->maximum_rup_clauses << ')';
+    else if (const auto *p = std::get_if<SignedCardinalityProofParameters>(
+                 &step.parameters))
+      out << ":signed-cardinality-proof(" << p->maximum_variables << ','
+          << p->maximum_groups << ',' << p->maximum_constraints << ','
+          << p->maximum_group_arity << ',' << p->maximum_bdd_nodes << ','
+          << p->maximum_proof_additions << ')';
     else if (const auto *p = std::get_if<AffineModelParameters>(&step.parameters)) {
       out << ":affine1(" << p->maximum_variables << ',' << p->maximum_constraints
           << ',' << p->maximum_arity << ',' << p->maximum_projection << ','

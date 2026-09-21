@@ -1,0 +1,14 @@
+{
+  "case_sha256": "7a788ed0104428b67a4cca5fae9977857eb1e80aa593c8b7ad6d892ca07503e4",
+  "diagnosis": "Canonical Substitute rewrote a binary through an immutable SCC map after one target endpoint had become false only in the native-DSR proof shadow. The source binary was not unit in the kernel, but its proof image was. Tactix emitted the binary image without publishing the forced remaining endpoint. A later BVE resolvent was therefore checked against a stale proof closure.",
+  "expected": "UNSAT",
+  "fix": "The shared kernel binary-publication boundary now closes every rule's new binary against both the kernel root state and the native-DSR shadow root state. A consequence supported only by a proof-shadow unit is emitted explicitly while the binary is live and retained only in the DSR shadow, preserving the solver trajectory. Substitute's own rewriting is unchanged: like Kissat's substitute_binaries it never derives a unit from root values, and kernel-visible consequences keep arriving through its two unit batches and root propagation.",
+  "found_by": "Claude-owned AM316 complete fuzz gate, dbg-random seed 296716882; Release and Debug deterministically emitted the same rejected proof, and the frozen AM310b parent reproduced it.",
+  "name": "substitute-root-fixed-binary-image-unit",
+  "oracle": "Frozen dsr-trim 3b5c7737 with -q -f -c --delete-implied-units rejected the parent proof at addition 3194 with 'No UP contradiction for RAT clause 2914'. Inserting the missing explicit unit -66 immediately after the rewritten binary (-28 v -66) makes the complete preserved proof verify.",
+  "schema": "tactix-fuzz-regression-v1",
+  "seed": 296716882,
+  "solver_args": [
+    "--random-policy=296716882"
+  ]
+}

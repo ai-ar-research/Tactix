@@ -31,7 +31,7 @@ class RuntimeTaskTest(unittest.TestCase):
             (campaign / "pins/solver").write_bytes(b"pin")
             checker_names = ["checkmodel", "modelcheck.py"]
             checker_names += (["drat-trim"] if certificate == "drat" else
-                              ["dsr-trim", "srcheck"])
+                              ["dsr-trim", "dsr-compress", "srcheck"])
             for name in checker_names:
                 (campaign / "pins" / name).write_bytes(b"pin")
             pin_sha256 = {
@@ -68,6 +68,9 @@ class RuntimeTaskTest(unittest.TestCase):
                     if certificate == "dsr" and name == "dsr-trim":
                         stdout.write_text("s VERIFIED UNSAT\n")
                         Path(command[-1]).write_bytes(b"binary lsr")
+                    elif certificate == "dsr" and name == "dsr-compress":
+                        stdout.write_text("")
+                        Path(command[-1]).write_bytes(b"text lsr")
                     elif certificate == "dsr" and name == "srcheck":
                         stdout.write_text("s VERIFIED UNSAT\n")
                     else:
@@ -109,20 +112,29 @@ class RuntimeTaskTest(unittest.TestCase):
                 self.assertEqual(code, 0 if valid else 1)
                 self.assertEqual(Path(calls[1][0]).name, "drat-trim")
 
-    def test_dsr_checks_binary_lsr_without_text_expansion(self):
+    def test_dsr_uses_the_reference_pipeline_and_parameters(self):
         code, result, calls = self.run_case(
             "tactix", "UNSAT", 20, certificate="dsr")
         self.assertEqual(code, 0)
         self.assertTrue(result["valid"])
         self.assertEqual(
             [Path(call[0]).name for call in calls[1:]],
-            ["dsr-trim", "srcheck"])
-        self.assertEqual(calls[-1][-1], "c")
+            ["dsr-trim", "dsr-compress", "srcheck"])
+        # Exactly the Satsuma+Kissat reference invocation: dsr-trim takes no
+        # options (backward checking), dsr-compress -d expands its binary LSR,
+        # and Trestle reads that text LSR.
+        self.assertEqual(len(calls[1]), 4)
+        self.assertFalse([arg for arg in map(str, calls[1][1:])
+                          if arg.startswith("-")])
+        self.assertEqual(str(calls[2][1]), "-d")
+        self.assertEqual(str(calls[2][2]), str(calls[1][-1]))
+        self.assertEqual(len(calls[3]), 3)
+        self.assertEqual(str(calls[3][-1]), str(calls[2][-1]))
         self.assertEqual(result["proof_check"]["pipeline"],
-                         "dsr-trim-binary-lsr-trestle")
+                         "dsr-trim-dsr-compress-trestle")
         self.assertEqual([stage["result"] for stage in
                           result["proof_check"]["stages"]],
-                         ["verified", "verified"])
+                         ["verified", "verified", "verified"])
 
     def test_changed_pin_stops_before_solver(self):
         for arm in ("tactix", "kissat"):

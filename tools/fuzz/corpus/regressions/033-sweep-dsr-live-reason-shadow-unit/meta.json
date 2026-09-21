@@ -1,0 +1,14 @@
+{
+  "case_sha256": "5fa945612db633f3cd4e280fb54b546c4624d4e023b381926ba0e3589d334927",
+  "diagnosis": "The first watched closure published every unit reachable from a transient Sweep prefix, including consequences whose immediate propagation reason was a live large clause. Making such live-supported shadow consequences permanent can strengthen the checker formula before a later RAT pivot, even though deleting the transient prefix would not delete that live reason.",
+  "expected": "UNSAT",
+  "fix": "The shadow closure records reason ownership. It emits a unit only when the clause that actually propagated it belongs to the retiring prefix; consequences propagated by live binary, live large, or final target clauses remain shadow-only. Kernel and search state stay unchanged.",
+  "found_by": "Claude-owned AM315 complete fuzz gate, preserved AM296 reproducer leg; Release and Debug deterministically emitted the same rejected proof.",
+  "name": "sweep-dsr-live-reason-shadow-unit",
+  "oracle": "Frozen dsr-trim 3b5c7737 with -q -f -c --delete-implied-units rejected AM315 at its later witnessless addition 55 55: an eagerly published proof-only unit -55 made the pivot witness falsify a permanent unit. Frozen Trestle verifies the repaired elaboration.",
+  "schema": "tactix-fuzz-regression-v1",
+  "seed": 296326708,
+  "solver_args": [
+    "--random-policy=296326708"
+  ]
+}

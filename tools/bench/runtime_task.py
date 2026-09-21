@@ -17,7 +17,9 @@ import tempfile
 import threading
 import time
 
-from proof_oracle import bridge_trivial_input_binary_lsr, proof_check_status
+from proof_oracle import (bridge_trivial_input_binary_lsr,
+                          bridge_trivial_input_lsr, dsr_compress_status,
+                          proof_check_status, reference_dsr_stages)
 
 
 CAMPAIGN = None
@@ -205,7 +207,8 @@ def validate_runtime_pin_contract(campaign, manifest):
         if certificate == "drat":
             required.add("pins/drat-trim")
         elif certificate == "dsr":
-            required.update({"pins/dsr-trim", "pins/srcheck"})
+            required.update({"pins/dsr-trim", "pins/dsr-compress",
+                             "pins/srcheck"})
         else:
             raise RuntimeError(f"unsupported proof certificate: {certificate}")
     if manifest.get("scratch_policy") == "anonymous-local-files-v1":
@@ -225,9 +228,12 @@ def proof_stage(scratch, name, command, timeout, produced=None):
     stderr = scratch / f"{name}.stderr"
     result = measured(command, stdout, stderr, scratch / f"{name}.time", timeout)
     output = "\n".join(tail(stdout, 100) + tail(stderr, 100))
-    if name not in ("drat-trim", "dsr-trim", "srcheck"):
+    if name not in ("drat-trim", "dsr-trim", "dsr-compress", "srcheck"):
         raise RuntimeError(f"unsupported proof stage: {name}")
-    status = proof_check_status(name, result["exit_code"], output, "")
+    if name == "dsr-compress":
+        status = dsr_compress_status(result["exit_code"], output)
+    else:
+        status = proof_check_status(name, result["exit_code"], output, "")
     if produced is not None and (not produced.is_file() or produced.stat().st_size == 0):
         status = "error"
     result.update(name=name, result=status, output_tail=output[-12000:])
@@ -252,18 +258,21 @@ def check_unsat_proof(campaign, certificate, cnf, proof, scratch, timeout):
             [campaign / "pins/drat-trim", cnf, proof], remaining()))
         pipeline = "drat-trim"
     elif certificate == "dsr":
+        # proof_oracle.reference_dsr_stages owns the pipeline definition.
         binary_lsr = scratch / "proof.binary.lsr"
-        stages.append(proof_stage(
-            scratch, "dsr-trim",
-            [campaign / "pins/dsr-trim", "-q", "-f", "-c", cnf, proof,
-             binary_lsr],
-            remaining(), binary_lsr))
-        if stages[-1]["result"] == "verified":
-            bridge_trivial_input_binary_lsr(cnf, binary_lsr)
-            stages.append(proof_stage(
-                scratch, "srcheck",
-                [campaign / "pins/srcheck", cnf, binary_lsr, "c"], remaining()))
-        pipeline = "dsr-trim-binary-lsr-trestle"
+        text_lsr = scratch / "proof.lsr"
+        for name, command in reference_dsr_stages(
+                campaign / "pins/dsr-trim", campaign / "pins/dsr-compress",
+                campaign / "pins/srcheck", cnf, proof, binary_lsr, text_lsr):
+            made = command[-1] if name != "srcheck" else None
+            stages.append(proof_stage(scratch, name, command, remaining(),
+                                      made))
+            if stages[-1]["result"] != "verified":
+                break
+            if name == "dsr-trim":
+                (bridge_trivial_input_binary_lsr if made == binary_lsr
+                 else bridge_trivial_input_lsr)(cnf, made)
+        pipeline = "dsr-trim-dsr-compress-trestle"
     else:
         raise RuntimeError(f"unsupported proof certificate: {certificate}")
     return {

@@ -1709,7 +1709,8 @@ static void test_initial_fast_elimination_composes_only_proof_rules(void) {
   kernel_add_large_clause(k, subsumed, 3, false, 0);
   kernel_add_binary_clause(k, internalize(-1), internalize(4));
   ScopedHeuristics heuristics(k);
-  DefaultPolicy policy;
+  DefaultStrategyConfig config;
+  DefaultPolicy policy(config);
   policy.inprocess().build(k);
   assert(policy.inprocess().run_initial_fast_elimination(k, nullptr) == 0);
   assert(k.stats.forward_subsumed == 1 &&
@@ -1726,6 +1727,82 @@ static void test_initial_fast_elimination_composes_only_proof_rules(void) {
   }
   kernel_check_invariants(k);
   std::printf("  fastel: typed local subsumption plus bounded BVE only\n");
+}
+
+static void test_initial_fast_elimination_budgets_discovery_before_mutation(void) {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  kernel_add_binary_clause(k, internalize(1), internalize(2));
+  kernel_add_binary_clause(k, internalize(-1), internalize(3));
+  kernel_add_binary_clause(k, internalize(-2), internalize(4));
+  ScopedHeuristics heuristics(k);
+  DefaultStrategyConfig config;
+  config.inprocess.preprocess_initial_ticks = 10;
+  config.inprocess.bve_permille = 100;
+  DefaultPolicy policy(config);
+  policy.inprocess().build(k);
+  assert(policy.inprocess().run_initial_fast_elimination(k, nullptr) == 0);
+  assert(k.stats.fastel_rounds == 1 && k.stats.fastel_active == 4);
+  assert(k.stats.fastel_budget_stops == 1);
+  assert(k.stats.fastel_discovery_ticks == 0 &&
+         k.stats.fastel_candidates == 0 && !k.stats.bve_eliminated);
+  for (Var variable = 0; variable < k.nvars; ++variable)
+    assert(!kernel_var_retired(k, variable));
+  kernel_check_invariants(k);
+  std::printf("  fastel discovery: mandatory scan declines before mutation\n");
+}
+
+static void test_initial_fast_elimination_keeps_owner_candidate_order(void) {
+  Kernel k;
+  kernel_reserve_vars(k, 10);
+
+  // Two linked pivots have the same ordinary BVE structural score.  The
+  // owner's fastel score is twice the positive occurrence count, so y must be
+  // tried first (4 < 6).  Eliminating either pivot grows the other past the
+  // eight-resolvent bound, making the first choice directly observable.
+  const Lit x = internalize(1), y = internalize(2);
+  kernel_add_binary_clause(k, x, internalize(3));
+  kernel_add_binary_clause(k, x, internalize(4));
+  kernel_add_binary_clause(k, x, internalize(5));
+  kernel_add_binary_clause(k, negate(x), internalize(6));
+  kernel_add_binary_clause(k, negate(x), y);
+  kernel_add_binary_clause(k, y, internalize(7));
+  kernel_add_binary_clause(k, negate(y), internalize(8));
+  kernel_add_binary_clause(k, negate(y), internalize(9));
+  kernel_add_binary_clause(k, negate(y), internalize(10));
+
+  // Keep the support variables behind x/y in the owner's radix order while
+  // making the candidate domain a majority of the live formula. Each support
+  // receives four positive ring occurrences, so y's score 4 precedes x's 6,
+  // and both precede every support score.
+  for (int external = 3; external <= 10; ++external)
+    for (int offset = 1; offset <= 4; ++offset) {
+      const int other = 3 + (external - 3 + offset) % 8;
+      kernel_add_binary_clause(k, internalize(external), internalize(other));
+    }
+
+  ScopedHeuristics heuristics(k);
+  k.h->stable = true;
+  heuristics_score_set(k, var_of(x), 0.0);
+  heuristics_score_set(k, var_of(y), 100.0);
+
+  DefaultStrategyConfig config;
+  DefaultPolicy policy(config);
+  policy.inprocess().build(k);
+  assert(policy.inprocess().run_initial_fast_elimination(k, nullptr) == 0);
+  assert(!kernel_var_retired(k, var_of(x)));
+  assert(kernel_var_retired(k, var_of(y)) &&
+         "startup fastel must preserve its owner radix order instead of "
+         "re-ranking candidates with ordinary BVE activity");
+  const auto &rules = tactix_rules();
+  for (const auto &entry : policy.inprocess().entries)
+    if (entry.group == SlotGroup::Eliminate &&
+        !std::strcmp(rules[entry.rule].name, "BVE"))
+      assert(entry.limit == config.inprocess.preprocess_initial_ticks *
+                                config.inprocess.bve_permille / 1000 &&
+             "startup fastel must use the ordinary typed BVE effort dose");
+  kernel_check_invariants(k);
+  std::printf("  fastel candidate order: owner score survives BVE dispatch\n");
 }
 
 static void test_preprocess_followup_truth_table(void) {
@@ -2025,6 +2102,8 @@ int main() {
   test_eliminate_sparse_resume_replays_root_suffix_as_search();
   test_preprocess_is_reduced_and_bounded();
   test_initial_fast_elimination_composes_only_proof_rules();
+  test_initial_fast_elimination_budgets_discovery_before_mutation();
+  test_initial_fast_elimination_keeps_owner_candidate_order();
   test_preprocess_followup_truth_table();
   test_preprocess_final_followup_is_observed();
   test_inprocess_does_not_save_probe_phases();

@@ -31,6 +31,25 @@ static void add_php_4_3(Kernel &k) {
                                  internalize(-variable(second, hole)));
 }
 
+static void add_php_8_7(Kernel &k) {
+  kernel_reserve_vars(k, 56);
+  const auto variable = [](int pigeon, int hole) {
+    return pigeon * 7 + hole + 1;
+  };
+  std::vector<Lit> clause;
+  for (int pigeon = 0; pigeon < 8; ++pigeon) {
+    clause.clear();
+    for (int hole = 0; hole < 7; ++hole)
+      clause.push_back(internalize(variable(pigeon, hole)));
+    kernel_add_large_clause(k, clause.data(), clause.size(), false, 0);
+  }
+  for (int hole = 0; hole < 7; ++hole)
+    for (int first = 0; first < 8; ++first)
+      for (int second = first + 1; second < 8; ++second)
+        kernel_add_binary_clause(k, internalize(-variable(first, hole)),
+                                 internalize(-variable(second, hole)));
+}
+
 static void add_blocked_amo_cleanup_fixture(Kernel &k) {
   static constexpr int clauses[][3] = {
       {1, 2, 3},    {4, 5, 6},    {7, 8, 9},
@@ -87,6 +106,8 @@ int main() {
   assert(defaults.serialize().find(
              "inprocess.structured_root_large_domain_progress_feedback=0") !=
          std::string::npos);
+  assert(defaults.serialize().find(
+             "signed_cardinality_proof.enabled=1") != std::string::npos);
   assert(!default_should_cleanup_unique_literal_amo(0, true, false));
   assert(!default_should_cleanup_unique_literal_amo(3, false, false));
   assert(default_should_cleanup_unique_literal_amo(3, true, false));
@@ -95,6 +116,115 @@ int main() {
   assert(default_should_seed_structured_residual(true, 0, false));
   assert(!default_should_seed_structured_residual(true, 3, false));
   assert(default_should_seed_structured_residual(true, 3, true));
+  assert(!default_should_run_initial_fast_elimination(0, 0));
+  assert(!default_should_run_initial_fast_elimination(5, 10));
+  assert(default_should_run_initial_fast_elimination(6, 10));
+  assert(!default_fast_elimination_discovery_admissible(0, 10));
+  assert(default_fast_elimination_discovery_admissible(4, 8));
+  assert(!default_fast_elimination_discovery_admissible(5, 8));
+  assert(default_should_run_fast_elimination_after_structured(0));
+  assert(!default_should_run_fast_elimination_after_structured(1));
+  {
+    // Exercise the policy call site, not only the predicate.  A disconnected
+    // checked SR unit fixes a root before the hard residual reaches FastEl.
+    // The old ULC-only counter would run FastEl here.
+    DefaultStrategyConfig config = defaults;
+    strategy::OnlineInvocation fixing;
+    fixing.id = 112;
+    fixing.rule = "SubstitutionRedundancy";
+    SubstitutionRedundancyParameters parameters;
+    parameters.producer = SubstitutionRedundancyProducer::ExplicitOnly;
+    fixing.parameters = parameters;
+    fixing.granularity = strategy::InvocationGranularity::OneInstance;
+    fixing.substitution_redundancy_instances = {
+        SubstitutionRedundancyInstance{{internalize(-57)}, {}, {}}};
+    strategy::OnlineStrategyProgram program;
+    program.sequence = {fixing};
+    config.inprocess.structured_root_stages = {
+        {program, strategy::BudgetExhaustionPolicy::Continue}};
+    config.inprocess.program.clear();
+    config.inprocess.append_unlisted_rules = false;
+    config.parity_model.enabled = false;
+    config.onehot_model.enabled = false;
+    config.balanced_signature_model.enabled = false;
+    config.fermat_model.enabled = false;
+    config.cerny_model.enabled = false;
+    config.lookup_circuit_model.enabled = false;
+    config.simon_model.enabled = false;
+    config.stconn_proof.enabled = false;
+    config.signed_cardinality_proof.enabled = false;
+
+    Kernel productive;
+    add_php_8_7(productive);
+    kernel_reserve_vars(productive, 58);
+    kernel_add_binary_clause(productive, internalize(-57), internalize(58));
+    kernel_add_binary_clause(productive, internalize(-57), internalize(-58));
+    assert(DefaultPolicy(config).solve(productive) == 20);
+    assert(productive.stats.sr_applications > 0);
+    assert(productive.stats.sr_unique_literal_amo_binaries == 0);
+    assert(productive.stats.fastel_rounds == 0);
+    assert(productive.stats.fastel_root_suppressed == 1);
+  }
+  {
+    // A checked SR clause that does not grow the root trail must still compose
+    // with FastEl.  This guards against treating every SR application as a
+    // reason to suppress the owning baseline's elimination pass.
+    DefaultStrategyConfig config = defaults;
+    strategy::OnlineInvocation clause_only;
+    clause_only.id = 113;
+    clause_only.rule = "SubstitutionRedundancy";
+    SubstitutionRedundancyParameters parameters;
+    parameters.producer = SubstitutionRedundancyProducer::ExplicitOnly;
+    clause_only.parameters = parameters;
+    clause_only.granularity = strategy::InvocationGranularity::OneInstance;
+    clause_only.substitution_redundancy_instances = {
+        SubstitutionRedundancyInstance{
+            {internalize(58), internalize(59)}, {}, {}}};
+    strategy::OnlineStrategyProgram program;
+    program.sequence = {clause_only};
+    config.inprocess.structured_root_stages = {
+        {program, strategy::BudgetExhaustionPolicy::Continue}};
+    config.parity_model.enabled = false;
+    config.onehot_model.enabled = false;
+    config.balanced_signature_model.enabled = false;
+    config.fermat_model.enabled = false;
+    config.cerny_model.enabled = false;
+    config.lookup_circuit_model.enabled = false;
+    config.simon_model.enabled = false;
+    config.stconn_proof.enabled = false;
+    config.signed_cardinality_proof.enabled = false;
+
+    Kernel compositional;
+    add_php_8_7(compositional);
+    kernel_reserve_vars(compositional, 59);
+    kernel_add_binary_clause(compositional, internalize(57), internalize(58));
+    kernel_add_binary_clause(compositional, internalize(-57), internalize(59));
+    assert(DefaultPolicy(config).solve(compositional) == 20);
+    assert(compositional.stats.sr_applications > 0);
+    assert(compositional.stats.fastel_rounds > 0);
+    assert(compositional.stats.fastel_root_suppressed == 0);
+  }
+  assert(default_mab_stagnation_conflict_budget(0) == 0);
+  assert(default_mab_stagnation_conflict_budget(1) == 1);
+  assert(default_mab_stagnation_conflict_budget(2) == 2);
+  assert(default_mab_stagnation_conflict_budget(3) == 6);
+  assert(default_mab_stagnation_conflict_budget(5) == 15);
+  assert(default_mab_stagnation_conflict_budget(5, true) == 0);
+  assert(!default_fast_elimination_material_progress(0, 100));
+  assert(!default_fast_elimination_material_progress(14, 100));
+  assert(default_fast_elimination_material_progress(15, 100));
+  assert(!default_fast_elimination_admits_mab_at_entry(14, 100));
+  assert(default_fast_elimination_admits_mab_at_entry(15, 100));
+  assert(!default_fast_elimination_admits_mab_at_entry(15, 100, false));
+  assert(!default_fast_elimination_admits_mab_at_entry(100, 100));
+  assert(!default_fast_elimination_admits_mab_at_entry(101, 100));
+  assert(!default_mab_stagnation_reached(14, 15));
+  assert(default_mab_stagnation_reached(15, 15));
+  assert(default_mab_stagnation_reached(16, 15));
+  assert(default_should_schedule_delayed_mab(true, true, 0));
+  assert(!default_should_schedule_delayed_mab(false, true, 0));
+  assert(!default_should_schedule_delayed_mab(true, false, 0));
+  assert(!default_should_schedule_delayed_mab(true, true, 1));
   {
     // Generic graph symmetry consumes the completed BIG and fixes a root.
     // That outcome suppresses the optional cleanup in both configurations.
@@ -205,7 +335,8 @@ int main() {
   assert(defaults.reduction.victim_denominator == 4);
   assert(defaults.reduction.protect_tiers);
   assert(defaults.branching.random_seed == 0);
-  assert(!defaults.branching.mab);
+  assert(defaults.branching.mab);
+  assert(defaults.branching.mab_after_search_stagnation);
   assert(defaults.branching.mab_exploration == 4.0);
   assert(defaults.branching.chb_step == 0.4);
   assert(defaults.rephase.rotation.size() == 6);
@@ -248,6 +379,7 @@ int main() {
   assert(fastel.resolvent_count_limit == 8);
   assert(fastel.resolvent_size_limit == UINT32_MAX);
   assert(!fastel.backward);
+  assert(fastel.traversal == strategy::BveTraversal::FastEliminate);
   assert(defaults.inprocess.factor_repeated_enabled &&
          defaults.inprocess.factor_permille == 50 &&
          defaults.inprocess.factor_active_ceiling == 0);

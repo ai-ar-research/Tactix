@@ -1207,20 +1207,14 @@ static void promote_irredundant(Kernel &k, Ref ref) {
   rule_journal_note_clause_transition(k, "promote", c->lits, c->size,
                                       c->id());
 #endif
-  c->set_redundant(false);
-  k.live_irredundant_large++;
+  kernel_promote_large_irredundant(k, ref);
+  c = clause_at(k.arena, ref);
   for (const Lit l : *c) {
     // Pinned Kissat promotes this clause through `mark_added_literals`, which
     // arms forward subsumption and Factor but deliberately not Eliminate.
     kernel_touch_var(k, var_of(l));
     kernel_mark_subsume_material(k, var_of(l));
     kernel_mark_factor_literal(k, l, "vivify_promote");
-    // The promoted record joins every attached occurrence view, not only the
-    // `large` mirror: a free N1 schedule can keep Eliminate's mixed stream
-    // attached across Vivify (random_policy.cpp), and BVE consumes that
-    // stream.  Kissat's dense watches are one list, so this is one append.
-    if (k.dense)
-      kernel_dense_add_large_occurrence(k, l, ref);
   }
   k.stats.vivify_promoted++;
 }

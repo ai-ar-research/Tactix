@@ -527,7 +527,8 @@ bool kernel_delete_binary(Kernel &k, Lit a, Lit b) {
     if (k.values[x] > 0 && binary_antecedes(k, x, other)) {
       if (ax.level != 0)
         return false;          // live non-root reason: refuse (never at a root)
-      ax.reason = UNIT_REASON;  // root literal is a unit, already has its id
+      kernel_materialize_dsr_root_unit(k, x);
+      ax.reason = UNIT_REASON;
     }
   }
   // (3) remove the mirror watch entries by in-place compaction (write cursor),
@@ -732,6 +733,7 @@ static bool delete_binary_all_copies(Kernel &k, Lit a, Lit b,
     if (k.values[x] > 0 && binary_antecedes(k, x, other)) {
       if (ax.level != 0)
         return false; // live non-root reason: refuse (never at a root)
+      kernel_materialize_dsr_root_unit(k, x);
       ax.reason = UNIT_REASON;
     }
   }
@@ -1864,8 +1866,22 @@ bool kernel_propagate(Kernel &k, Ref ignore) {
   // Select the candidate-aware scan once per call, not once per trail literal.
   // The local cursor follows the growing used trail during assignments; publish
   // it on both fixpoint and conflict exits as native propsearch.c does.
-  return ignore == INVALID_REF ? propagate_trail<false>(k, INVALID_REF)
-                               : propagate_trail<true>(k, ignore);
+  const size_t assigned_before = k.trail.size();
+  const bool conflict = ignore == INVALID_REF
+                            ? propagate_trail<false>(k, INVALID_REF)
+                            : propagate_trail<true>(k, ignore);
+  // Kissat writes every root-level assignment to the proof as it is made
+  // (assign.c).  This is the one home for that publication: a caller which
+  // propagates directly (probing, vivification, lucky phases, instantiation)
+  // can force a literal at level 0, and a root literal left implicit is one a
+  // backward checker knows only as an implied unit.  It cannot cite such a unit
+  // for a witnessed addition whose candidate the literal satisfies, so the
+  // elaborated LSR loses that hint group.  Not gated on `k.level`: a forced
+  // literal is stamped at its true level, and `kernel_emit_root_units` applies
+  // the per-literal test.
+  if (k.proof && (k.proof->lrat() || k.proof->dsr()))
+    kernel_emit_root_units(k, assigned_before);
+  return conflict;
 }
 
 void kernel_propagate_beyond_conflicts(Kernel &k) {
@@ -2319,6 +2335,20 @@ void kernel_dense_remove_large_occurrence(Kernel &k, Lit lit, Ref ref) {
     const auto at = std::find(occ.begin(), occ.end(), ref);
     assert(at != occ.end());
     k.dense->large.erase_at(lit, static_cast<size_t>(at - occ.begin()));
+  }
+}
+
+void kernel_promote_large_irredundant(Kernel &k, Ref ref) {
+  Clause *const c = clause_at(k.arena, ref);
+  assert(!c->garbage() && c->redundant());
+  c->set_redundant(false);
+  c->set_glue(0);
+  k.live_irredundant_large++;
+  if (!k.dense)
+    return;
+  for (const Lit lit : *c) {
+    kernel_dense_add_large_occurrence(k, lit, ref);
+    kernel_bve_occurrence_add(k, lit);
   }
 }
 
@@ -3718,6 +3748,23 @@ void kernel_lrat_chain(Kernel &k, uint64_t closing_id) {
   kernel_build_lrat_chain(k.lrat_entries, closing_id, k.lrat_chain);
 }
 
+void kernel_materialize_dsr_root_unit(Kernel &k, Lit lit) {
+  if (!k.proof || !k.proof->dsr())
+    return;
+  const Var v = var_of(lit);
+  assert(v < k.nvars);
+  assert(k.values[lit] > 0);
+  assert(k.assigned[v].level == 0);
+  if (k.dsr_root_values.empty())
+    k.dsr_root_values.resize(k.nvars, 0);
+  const int8_t polarity = negated(lit) ? -1 : 1;
+  if (k.dsr_root_values[v] == polarity)
+    return;
+  const uint64_t id = ++k.next_clause_id;
+  k.proof->add_derived_unit(id, lit, nullptr, 0);
+  k.dsr_root_values[v] = polarity;
+}
+
 // LRAT and DSR: every root-level propagation-derived literal becomes an
 // explicit unit clause so it remains available after its reason is deleted.
 // Emitting in trail order makes each LRAT chain nameable; native DSR lets its
@@ -3726,8 +3773,6 @@ void kernel_lrat_chain(Kernel &k, uint64_t closing_id) {
 // solver-semantic state (several rules distinguish asserted from implied root
 // units), so using it only to remember a proof line changes the default search.
 void kernel_emit_root_units(Kernel &k, size_t from) {
-  if (k.proof->dsr() && k.dsr_root_values.empty())
-    k.dsr_root_values.resize(k.nvars, 0);
   for (size_t i = from; i < k.trail.size(); i++) {
     const Lit lit = k.trail[i];
     const Var v = var_of(lit);
@@ -3738,12 +3783,7 @@ void kernel_emit_root_units(Kernel &k, size_t from) {
     if (k.unit_ids[v])
       continue; // an asserted/named unit is already present in the proof
     if (k.proof->dsr()) {
-      const int8_t polarity = negated(lit) ? -1 : 1;
-      if (k.dsr_root_values[v] == polarity)
-        continue; // repeated drain of the same proof-only root fact
-      const uint64_t id = ++k.next_clause_id;
-      k.proof->add_derived_unit(id, lit, nullptr, 0);
-      k.dsr_root_values[v] = polarity;
+      kernel_materialize_dsr_root_unit(k, lit);
       continue;
     }
     k.lrat_entries.clear();
@@ -3896,6 +3936,17 @@ uint64_t kernel_irredundant_clauses(const Kernel &k) {
 #ifndef NDEBUG
 void kernel_check_invariants(const Kernel &k) {
   heuristics_check(k); // `H` sized to nvars (catches a missed Factor growth)
+  // The native-DSR proof never holds a root unit the kernel lacks: a DRAT/DSR
+  // checker keeps every unit it derives, so a unit published for the proof
+  // alone would let the checker's formula drift ahead of the solver's.  The
+  // statement is about a kernel that keeps deriving: once it is inconsistent
+  // the refutation is complete, and a speculative round that closed it (the
+  // Backbone replay) legitimately leaves retracted literals unassigned.
+  for (Var v = 0; !k.inconsistent && v < k.dsr_root_values.size(); v++)
+    if (const int8_t polarity = k.dsr_root_values[v]) {
+      const Lit unit = make_lit(v, polarity < 0);
+      assert(k.values[unit] > 0 && k.assigned[v].level == 0);
+    }
   assert(k.internal_to_external.size() == k.nvars);
   assert(k.internal_import_rank.size() == k.nvars);
   assert(k.factor_marks.size() == 2 * k.nvars);

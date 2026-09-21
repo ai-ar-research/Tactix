@@ -24,8 +24,9 @@ and fail on any option the ledger does not account for.**
                Each entry names an ANCHOR string that must still be present in
                the corpus, so deleting the covering row fails HERE.
     CITED      the option's name appears literally in the ledger corpus (§13 +
-               the frozen audit + the diagnosis + PROGRESS's Track SCHED). This
-               channel is derived, never restated, so it cannot go stale.
+               the frozen audit + the diagnosis + the frozen Track SCHED
+               archive). This channel is derived, never restated, so it cannot
+               go stale.
 
 An option in NONE of the three fails. That is the whole point: a new option in a
 future reference bump must fail rather than pass silently.
@@ -60,7 +61,8 @@ NOTES = os.path.join(ROOT, "docs", "implementation-notes.md")
 # file. Its headings, row ids and markers moved verbatim, so only the path
 # changed here.
 LEDGER = os.path.join(ROOT, "docs", "scheduling-parity-ledger.md")
-PROGRESS = os.path.join(ROOT, "PROGRESS.md")
+SCHED_TRACK_ARCHIVE = os.path.join(
+    ROOT, "docs", "log", "2026-09-19-pre-am311-progress.md")
 AUDIT = os.path.join(ROOT, "docs", "design",
                      "2026-08-04-n4-scheduling-parity-audit.md")
 DIAGNOSIS = os.path.join(ROOT, "docs", "design",
@@ -290,20 +292,19 @@ def section(text, start_marker, end_marker):
 
 
 def ledger_corpus():
-    """§13 + the frozen audit + the diagnosis + PROGRESS's phase-4 section.
+    """§13 + the frozen audit + the diagnosis + the frozen Track SCHED.
 
-    The phase-4 section is in the corpus because §13 names it as the remediation
-    home: a CLOSED track item is the analogue a row would otherwise describe.
-    Anchored on invisible MARKER COMMENTS, not on heading text. Both anchors
-    have already moved once (a track sub-heading in decision (7cb3212), then the phase
-    heading), and each time this check broke rather than the docs -- so the
-    thing it keys on must be something a doc edit has no reason to touch.
+    The completed scheduling track remains in the corpus because §13 names it
+    as the remediation home: a CLOSED track item is the analogue a row would
+    otherwise describe.  PROGRESS compaction froze that track verbatim in the
+    dated log.  Invisible marker comments delimit it so prose headings may move
+    without silently changing option coverage.
     """
     notes = open(LEDGER).read()
     s13 = section(notes, "<!-- parity-ledger:begin -->",
                   "<!-- parity-ledger:end -->")
-    prog = open(PROGRESS).read()
-    track = section(prog, "<!-- track-sched:begin -->",
+    track_archive = open(SCHED_TRACK_ARCHIVE).read()
+    track = section(track_archive, "<!-- track-sched:begin -->",
                     "<!-- track-sched:end -->")
     return s13 + open(AUDIT).read() + open(DIAGNOSIS).read() + track
 

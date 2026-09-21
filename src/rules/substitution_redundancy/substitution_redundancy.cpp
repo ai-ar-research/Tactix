@@ -643,7 +643,8 @@ substitution_redundancy_apply_detailed_impl(
                        witness.emitted_true.data(), witness.emitted_true.size(),
                        witness.emitted_mappings.data(),
                        witness.emitted_mappings.size(),
-                       static_cast<uint32_t>(k.external_to_internal.size()))) {
+                       static_cast<uint32_t>(k.external_to_internal.size()),
+                       /*propagates=*/kept.size() == 1)) {
     --k.next_clause_id;
     outcome.status =
         SubstitutionRedundancyApplicationStatus::UnsupportedProofFormat;

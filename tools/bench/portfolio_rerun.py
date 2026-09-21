@@ -965,8 +965,7 @@ def proof_specs(campaign, manifest, certificate, cnf, proof, scratch):
     if certificate == "dsr":
         binary_lsr, text_lsr = scratch / "proof.binary.lsr", scratch / "proof.text.lsr"
         return [
-            ("dsr-trim", [checker("dsr-trim"), "-q", "-f", "-c", cnf,
-                          proof, binary_lsr]),
+            ("dsr-trim", [checker("dsr-trim"), cnf, proof, binary_lsr]),
             ("dsr-compress", [checker("dsr-compress"), "-d", binary_lsr, text_lsr]),
             ("srcheck", [checker("srcheck"), cnf, text_lsr]),
         ]

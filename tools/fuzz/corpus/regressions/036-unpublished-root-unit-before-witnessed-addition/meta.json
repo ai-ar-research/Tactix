@@ -1,0 +1,14 @@
+{
+  "case_sha256": "0e7299082cb937754e2c99edc66bc9c146863a3e79e1c045f9c5104db88a5f70",
+  "diagnosis": "A rule propagating through kernel_propagate directly forced literal 10 at level 0. Only propagate_service and the probing/binary propagators published newly forced root literals, so 10 stayed implicit in the native-DSR proof. SubstitutionRedundancy then wrote the witnessed unit '1 1' while (-1 v 10) was live. The step is valid, and forward dsr-trim emits the RAT hint group, but a backward checker knows 10 only as an implied unit, cannot cite it for the satisfied candidate, and emits '33 1 1 0 0' with no group; Trestle rejects that LSR. Writing '10 0' before '1 1' makes the same proof verify.",
+  "expected": "UNSAT",
+  "fix": "kernel_propagate is the one home for publishing the root literals it forces, as Kissat writes every root-level assignment to the proof when it is made, so no caller can leave a kernel root unit implicit before a witnessed addition. propagate_service no longer duplicates the publication.",
+  "found_by": "AM321 corpus replay of entry 015 under --random-policy=1 with the Satsuma+Kissat reference checking pipeline (backward dsr-trim, dsr-compress -d, Trestle).",
+  "name": "unpublished-root-unit-before-witnessed-addition",
+  "oracle": "Reference pipeline: dsr-trim VERIFIED but Trestle 's INVALID' on the elaborated LSR before the fix; both verify after it.",
+  "schema": "tactix-fuzz-regression-v1",
+  "seed": 1,
+  "solver_args": [
+    "--random-policy=1"
+  ]
+}

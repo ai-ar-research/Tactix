@@ -244,7 +244,11 @@ static void test_candidate_gather_deletes_satisfied_binary() {
 
   k.bve_clause_size_limit = 2;
   const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
-  assert(vt.apply_instance(k, lit_instance(pivot)) == ApplyResult::NoOp);
+  // The candidate declines on the oversized antecedent, but its occurrence
+  // scan already retired the satisfied binary and wrote that deletion: the
+  // application changed solver state, which is what `Ok` reports.
+  assert(vt.apply_instance(k, lit_instance(pivot)) == ApplyResult::Ok);
+  assert(k.stats.bve_eliminated == 0 && !kernel_var_retired(k, var_of(pivot)));
   assert(!kernel_binary_live(k, pivot, satisfied));
   assert(image[pivot] == 1 && image[satisfied] == 0);
   assert(notifications.events.size() == 1);
@@ -297,7 +301,10 @@ static void test_candidate_gather_mutating_prefix_boundary() {
 
   k.bve_clause_size_limit = 2;
   const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
-  assert(vt.apply_instance(k, lit_instance(pivot)) == ApplyResult::NoOp);
+  // Declined on the oversized antecedent, but the scan retired the satisfied
+  // binary first: a state change, reported as `Ok`.
+  assert(vt.apply_instance(k, lit_instance(pivot)) == ApplyResult::Ok);
+  assert(k.stats.bve_eliminated == 0);
   assert(!kernel_binary_live(k, pivot, early));
   assert(kernel_binary_live(k, pivot, late) &&
          "the suffix beyond the oversized occurrence remains untouched");
@@ -656,7 +663,7 @@ static void test_bound_does_not_spend_future_work() {
 
 // resolve.c learns a unit as soon as a pair collapses, before it knows whether
 // the candidate's later pairs fit the growth bound.  That root and any large
-// antecedent it satisfies survive a later NoOp; only buffered non-unit
+// antecedent it satisfies survive the kept pivot; only buffered non-unit
 // resolvents are discarded.  This is the small form of the Rank-33 divergence.
 static void test_bound_failure_retains_immediate_unit() {
   Kernel k;
@@ -677,7 +684,10 @@ static void test_bound_failure_retains_immediate_unit() {
   k.bve_backward = false;
   k.bve_bound = 0; // base 4+4=8; the ninth resolvent rejects the pivot
   const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
-  assert(vt.apply_instance(k, lit_instance(x)) == ApplyResult::NoOp);
+  // The pivot is kept, but the attempt learned a root and retired the
+  // antecedent it satisfies: a state change, reported as `Ok`.
+  assert(vt.apply_instance(k, lit_instance(x)) == ApplyResult::Ok);
+  assert(k.stats.bve_eliminated == 0);
   assert(k.value(u) > 0 &&
          "the immediate resolvent unit must survive the later bound failure");
   assert(!kernel_var_retired(k, var_of(x)) &&

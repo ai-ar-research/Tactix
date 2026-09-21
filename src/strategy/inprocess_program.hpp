@@ -58,6 +58,7 @@ using ActionParameters =
                  BalancedSignatureModelParameters, FermatModelParameters,
                  LookupCircuitModelParameters, SimonModelParameters,
                  StconnProofParameters,
+                 SignedCardinalityProofParameters,
                  AffineModelParameters,
                  SubstitutionRedundancyParameters>;
 
@@ -280,6 +281,12 @@ inline bool validate_inprocess_program(std::span<const InprocessStep> program,
                    std::get_if<StconnProofParameters>(&step.parameters)) {
       if (step.rule != "Lucky" || !p->valid())
         return reject("Lucky stconn-proof parameters are invalid or misplaced");
+    } else if (const auto *p =
+                   std::get_if<SignedCardinalityProofParameters>(
+                       &step.parameters)) {
+      if (step.rule != "Lucky" || !p->valid())
+        return reject(
+            "Lucky signed-cardinality-proof parameters are invalid or misplaced");
     } else if (const auto *p = std::get_if<AffineModelParameters>(&step.parameters)) {
       if (step.rule != "Lucky" || !p->valid())
         return reject("Lucky affine-model parameters are invalid or misplaced");

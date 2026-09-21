@@ -1,0 +1,99 @@
+# WV2-89 — frozen second winner-VBS tranche, 2026-09-20.
+# Rows 101-250 of the Andrew Tier-D all-configuration runtime ranking whose
+# fastest checked competition configuration solved within 300 seconds (1,200 s,
+# 32 GiB contract). Two to four of the five configurations solve each row.
+# Goal: checked Tactix solve of every row within 600 seconds and 32 GiB. The
+# denominator is fixed; solved entries are never replaced. The ranking's Tactix
+# columns (2026-09-13) are stale and are deliberately not copied here.
+# Source SHA-256: e9fa2a71d1a2c266d538624a1cc1d5ffa7d2a667219ac25cd066796a0c866822
+# Composition: 57 SAT / 32 UNSAT; fastest configuration: 25 LymphoSAT, 21 Satsuma+Kissat, 24 AE-Kissat-MAB, 11 Kissat 4.0.4, 8 kissat-sc2024.
+coverage_rank	original_tierd_rank	instance	verdict	solving_configurations	fastest_configuration	fastest_seconds
+131	29	tierD24-26/07b476c83150d3cb7e08f5d045e255ab-marg5x5.shuffled-as.sat03-1455.cnf.xz	UNSAT	satsuma-kissat;lymphosat	satsuma-kissat	0.033
+132	189	tierD24-26/24bdfb34654b1aa703fae31ea91e7c7f-tseitin_d3_n158.sanitized.cnf.xz	UNSAT	lymphosat;satsuma-kissat	lymphosat	0.033
+133	332	tierD24-26/42f1311ce504db8cc0cb590a568da20a-tseitin_n188_d3.cnf.xz	UNSAT	lymphosat;satsuma-kissat	lymphosat	0.034
+134	534	tierD24-26/6f40bd5ac85e2a53b392d8f0369e7f1f-harder-fphp-016-015.sat05-1230.reshuffled-07.cnf.xz	UNSAT	satsuma-kissat;lymphosat	satsuma-kissat	0.034
+135	715	tierD24-26/973d699ec01b88da869233a79aaa1912-cliquecolouring_n13_k9_c8.sanitized.cnf.xz	UNSAT	satsuma-kissat;kissat-sc2024	satsuma-kissat	0.034
+136	1049	tierD24-26/e430acf720b63044e5c825a00a76b0eb-rphp_p25_r25.cnf.xz	UNSAT	satsuma-kissat;lymphosat	satsuma-kissat	0.065
+137	91	tierD24-26/110f8eb8b9b80204fe955ea0973bbb00-clqcl_30_7_6.normalised.cnf.xz	UNSAT	satsuma-kissat;lymphosat	satsuma-kissat	0.066
+138	208	tierD24-26/292bedf65cee7cc38fe8b2725eb50868-cliquecoloring_n32_k5_c4.cnf.xz	UNSAT	lymphosat;satsuma-kissat	lymphosat	0.066
+139	271	tierD24-26/35789168b67a74985804902008251269-tseitingrid6x200_shuffled.cnf.xz	UNSAT	lymphosat;satsuma-kissat	lymphosat	0.066
+140	370	tierD24-26/4aab4f954196d3277d9ca7b17c52acca-clqcl_25_8_7.normalised.cnf.xz	UNSAT	satsuma-kissat;lymphosat	satsuma-kissat	0.066
+141	419	tierD24-26/556cf803f9de4b2ec688825b5ff7e325-tseitin_d3_n174.sanitized.cnf.xz	UNSAT	lymphosat;satsuma-kissat	lymphosat	0.066
+142	452	tierD24-26/5d06225b27017e9a703f10cb577cf3bf-clqcl_25_7_6.normalised.cnf.xz	UNSAT	satsuma-kissat;lymphosat	satsuma-kissat	0.066
+143	926	tierD24-26/c69c5163c9087ffe770743bd4cdafcc9-tseitin_d3_n162.sanitized.cnf.xz	UNSAT	lymphosat;satsuma-kissat	lymphosat	0.066
+144	947	tierD24-26/cb950b9accfb53eb98f77b0f995ac0ae-rphp5_050_shuffled.cnf.xz	UNSAT	satsuma-kissat;lymphosat	satsuma-kissat	0.066
+145	1140	tierD24-26/fa5c6d6736a42650656c5bc018413254-bphp_p23_h22.sanitized.cnf.xz	UNSAT	lymphosat;satsuma-kissat	lymphosat	0.066
+146	281	tierD24-26/36dbc206c7d9773bebb03f752070cee9-tseitin_grid_n11_m20.sanitized.cnf.xz	UNSAT	lymphosat;satsuma-kissat	lymphosat	0.116
+147	328	tierD24-26/41f4cb4992a481c9d43e2e1a4e2349ac-sgen1-sat-180-100.cnf.xz	SAT	lymphosat;ae-kissat-mab	lymphosat	0.116
+148	639	tierD24-26/8707ef793f0443b5804c56c2ffca322e-clqcl_40_6_5.normalised.cnf.xz	UNSAT	lymphosat;satsuma-kissat	lymphosat	0.116
+149	691	tierD24-26/91e0db01b254eb78f6643328045bfeb9-sted5_0x1e3-20.cnf.xz	SAT	lymphosat;ae-kissat-mab	lymphosat	0.116
+150	1036	tierD24-26/e12874b16df577b301608d03731595d8-rphp5_085_shuffled.cnf.xz	UNSAT	satsuma-kissat;lymphosat	satsuma-kissat	0.116
+151	1038	tierD24-26/e207ba2df64495327f715e08155a220f-fermat-834855329100173267.cnf.xz	SAT	lymphosat;kissat-sc2024	lymphosat	0.116
+152	1072	tierD24-26/ea37a677b357328c1641ef2f6087bf66-clqcl_30_9_8.normalised.cnf.xz	UNSAT	satsuma-kissat;lymphosat	satsuma-kissat	0.116
+153	175	tierD24-26/21415e807689ea75536e846a24623de1-clqcl_50_6_5.normalised.cnf.xz	UNSAT	lymphosat;satsuma-kissat	lymphosat	0.166
+154	612	tierD24-26/80d8c77f6cab179d469462221f3f624a-clqcl_30_11_10.normalised.cnf.xz	UNSAT	satsuma-kissat;lymphosat	satsuma-kissat	0.166
+155	630	tierD24-26/847c8843ee292b9b31f0c346574af260-ramsey_4_4_19.normalised.cnf.xz	UNSAT	lymphosat;satsuma-kissat	lymphosat	0.166
+156	240	tierD24-26/2dd4b14a8a820e7baa073554ae2c6cb0-rphp_p8_r160.sanitized.cnf.xz	UNSAT	satsuma-kissat;lymphosat	satsuma-kissat	0.266
+157	93	tierD24-26/1156429862d3c03160406d6d1a786f11-rphp_p8_r170.sanitized.cnf.xz	UNSAT	satsuma-kissat;lymphosat	satsuma-kissat	0.367
+158	27	tierD24-26/06d2ca2ee0b47f00d93090495f7fd4f4-clqcl_100_6_5.normalised.cnf.xz	UNSAT	lymphosat;satsuma-kissat	lymphosat	0.466
+159	953	tierD24-26/cccee4b0d4c70a5d5422663e2d8887da-1-ET-512-K-96.sanitized.cnf.xz	SAT	lymphosat;ae-kissat-mab	lymphosat	0.867
+160	181	tierD24-26/22c8d6aa86d51e15ef5ab37479eda22b-xor_op_n40_d3.cnf.xz	UNSAT	lymphosat;satsuma-kissat	lymphosat	2.121
+161	485	tierD24-26/63732c330adb8de8dd47ce1693b86d0e-FmlaEquivChain_4_8_8.sanitized.cnf.xz	UNSAT	lymphosat;ae-kissat-mab	lymphosat	3.871
+162	957	tierD24-26/cdd131110acc861a5a01fae6c4936c91-6g_6color_366_050_04.cnf.xz	SAT	satsuma-kissat;ae-kissat-mab	satsuma-kissat	17.298
+163	581	tierD24-26/7a206b67366c3049f214f360ff943f62-oddball_56_5_tto_zp.normalised.cnf.xz	SAT	ae-kissat-mab;kissat-4.0.4	ae-kissat-mab	34.314
+164	148	tierD24-26/1b8806812861df2b7e91dc316ad1ef80-oddball_52_5_tto_zp.normalised.cnf.xz	SAT	ae-kissat-mab;satsuma-kissat	ae-kissat-mab	40.981
+165	689	tierD24-26/918d9e7c2e197312517736421d728958-SCPC-500-1.cnf.xz	UNSAT	satsuma-kissat;tactix	satsuma-kissat	46.436
+166	899	tierD24-26/c0293283432a9b15cd743702163f5184-mp1-Nb7T42.cnf.xz	SAT	ae-kissat-mab;satsuma-kissat	ae-kissat-mab	61.001
+167	81	tierD24-26/0ec8c5e9084cbc8a326f8f37e1abf741-oddball_54_5_tto_zp.normalised.cnf.xz	SAT	ae-kissat-mab;satsuma-kissat	ae-kissat-mab	63.977
+168	705	tierD24-26/95931bb010dba306e24c79c120044ff9-SC25_Timetable_C_496_E_48_Cl_33_D_7_T_50.normalised.cnf.xz	SAT	satsuma-kissat;lymphosat	satsuma-kissat	226.297
+184	52	tierD24-26/0a27eb7c16c1e69ff4d087d217ac89cb-noL-11-0.sanitized.cnf.xz	SAT	lymphosat;kissat-4.0.4;kissat-sc2024	lymphosat	0.066
+185	937	tierD24-26/c8d21db50338d9d5743802bcae77a466-cliquecoloring_n14_k7_c6.cnf.xz	UNSAT	satsuma-kissat;lymphosat;kissat-sc2024	satsuma-kissat	0.116
+186	617	tierD24-26/822cf4daaa4e1d16ad53d088ff567f32-RoundRobin_n15_d13.cnf.xz	UNSAT	satsuma-kissat;ae-kissat-mab;kissat-sc2024	satsuma-kissat	0.266
+187	678	tierD24-26/8ffd718f763ed7a3f691cf46e57f8d98-mdp-32-10-sat.cnf.xz	SAT	lymphosat;satsuma-kissat;kissat-4.0.4	lymphosat	0.316
+188	799	tierD24-26/a9cb77454c6cfdf4092fb304d3aae8b7-mdp-32-16-sat.cnf.xz	SAT	lymphosat;kissat-sc2024;ae-kissat-mab	lymphosat	0.316
+189	374	tierD24-26/4c037368864330bff3940837ac28ac14-lockchart-group2-rnd0.3-L18-K36-P8D4J1.cnf.xz	SAT	ae-kissat-mab;satsuma-kissat;kissat-4.0.4	ae-kissat-mab	56.508
+190	746	tierD24-26/9da32436de386f3b4f8e6ec1db552349-HCP-529-420.cnf.xz	SAT	kissat-sc2024;ae-kissat-mab;satsuma-kissat	kissat-sc2024	58.098
+191	338	tierD24-26/43ebdada6f6153b50a140ba908d5bf44-oddball_67_5_tto_zp.normalised.cnf.xz	SAT	ae-kissat-mab;satsuma-kissat;kissat-4.0.4	ae-kissat-mab	61.763
+192	529	tierD24-26/6ebe901234af9615bb85b688a26ef2c4-17.normalised.cnf.xz	SAT	kissat-4.0.4;ae-kissat-mab;kissat-sc2024	kissat-4.0.4	65.592
+193	326	tierD24-26/41915707d831e1365389d3cc47c7953f-oddball_51_5_tto_zp.normalised.cnf.xz	SAT	ae-kissat-mab;satsuma-kissat;kissat-sc2024	ae-kissat-mab	66.27
+194	223	tierD24-26/2b4467a5ac4ac41b36d4c3432b07f767-oddball_69_5_tto_zp.normalised.cnf.xz	SAT	ae-kissat-mab;satsuma-kissat;kissat-4.0.4	ae-kissat-mab	76.885
+195	447	tierD24-26/5cae5c0629ce1c724746af890410cfc1-jkkk-one-one-11-38-sat.cnf.xz	SAT	kissat-4.0.4;satsuma-kissat;ae-kissat-mab	kissat-4.0.4	80.119
+196	907	tierD24-26/c15b09b9a7ceff4d4c8fe705958f92ba-snw_16_9_preOpt_pre.cnf.xz	SAT	kissat-4.0.4;satsuma-kissat;ae-kissat-mab	kissat-4.0.4	85.349
+197	472	tierD24-26/6008b958ff6877f32c26b72728df4523-linked_list_swap_contents_safety_unwind76.cnf.xz	UNSAT	kissat-4.0.4;kissat-sc2024;satsuma-kissat	kissat-4.0.4	99.971
+198	94	tierD24-26/115fa7f61704bc12b2373aa471bc434f-Circuit_multiplier24.cnf.xz	SAT	kissat-4.0.4;satsuma-kissat;ae-kissat-mab	kissat-4.0.4	115.439
+199	76	tierD24-26/0e06895600b5cd0b6fadb87e17bf8145-ntil-90d-39.sanitized.cnf.xz	SAT	kissat-sc2024;kissat-4.0.4;lymphosat	kissat-sc2024	116.038
+200	1006	tierD24-26/db099269d468029b70419bf4a49e99a1-stable-400-0.1-2-9876543214002.cnf.xz	SAT	satsuma-kissat;kissat-4.0.4;ae-kissat-mab	satsuma-kissat	140.927
+201	433	tierD24-26/59825ed96dc3bbdbd8789a4870b323ec-hcp_CP18_18.cnf.xz	SAT	ae-kissat-mab;satsuma-kissat;kissat-4.0.4	ae-kissat-mab	149.92
+202	50	tierD24-26/09e0775d2b51c49ec1ec4d214ee7c8c8-ntil-90d-37.sanitized.cnf.xz	SAT	kissat-sc2024;kissat-4.0.4;lymphosat	kissat-sc2024	152.803
+203	1102	tierD24-26/f1973c0a4e960a914ff12aa7e4e9293c-lockchart-group2-rnd0.3-L19-K38-P8D4J1_4.cnf.xz	SAT	ae-kissat-mab;satsuma-kissat;kissat-4.0.4	ae-kissat-mab	183.647
+220	831	tierD24-26/ae9522ea003ea9f75891b2d37a5e264b-srhd-sgi-m37-q446.25-n35-p30-s33692332.cnf.xz	SAT	ae-kissat-mab;kissat-4.0.4;kissat-sc2024;satsuma-kissat	ae-kissat-mab	0.018
+221	484	tierD24-26/634a271f5fe339007a186539d615e92f-noL-11-4.sanitized.cnf.xz	SAT	lymphosat;ae-kissat-mab;kissat-sc2024;kissat-4.0.4	lymphosat	0.034
+222	363	tierD24-26/47e1ada0070708c2953d322c06aea00d-noL-11-8.sanitized.cnf.xz	SAT	lymphosat;kissat-sc2024;kissat-4.0.4;ae-kissat-mab	lymphosat	0.066
+223	872	tierD24-26/b8c7c777e76995e5bf7b517f2db234ba-noL-11-16.sanitized.cnf.xz	SAT	lymphosat;kissat-4.0.4;kissat-sc2024;ae-kissat-mab	lymphosat	0.066
+224	406	tierD24-26/53d23b2b464a5c041114eb1f00cc4b81-puzzle32_sat.cnf.xz	SAT	lymphosat;ae-kissat-mab;kissat-4.0.4;kissat-sc2024	lymphosat	0.116
+225	518	tierD24-26/6cb995b1c550beb579c53e27f6ca881a-RoundRobin_n16_d13.cnf.xz	UNSAT	satsuma-kissat;kissat-sc2024;lymphosat;ae-kissat-mab	satsuma-kissat	0.166
+226	1079	tierD24-26/ed6d842f96d10f3400bce251f9e95bfb-battleship-16-31-sat.cnf.xz	SAT	kissat-4.0.4;satsuma-kissat;ae-kissat-mab;kissat-sc2024	kissat-4.0.4	0.216
+227	753	tierD24-26/9ef9243ff051b32795890fccd6c3f6b2-sum_of_3_cubes_50_bits_91.cnf.xz	SAT	kissat-4.0.4;ae-kissat-mab;kissat-sc2024;satsuma-kissat	kissat-4.0.4	0.818
+228	593	tierD24-26/7cf696bae2c50af38414b61b8d92581a-GP_105_308_40.cnf.xz	SAT	kissat-sc2024;ae-kissat-mab;kissat-4.0.4;satsuma-kissat	kissat-sc2024	1.819
+229	834	tierD24-26/af750c18578d52e60472315692ad83c0-si2-b03m-m800-03.cnf.xz	SAT	kissat-4.0.4;ae-kissat-mab;kissat-sc2024;satsuma-kissat	kissat-4.0.4	2.469
+230	46	tierD24-26/09befe1ffd4e02a988cadecd0a012261-GP_300_140_20.cnf.xz	SAT	ae-kissat-mab;kissat-4.0.4;kissat-sc2024;satsuma-kissat	ae-kissat-mab	2.47
+231	478	tierD24-26/619e9e0d70c78c97b0516afedf086fee-20.normalised.cnf.xz	SAT	ae-kissat-mab;kissat-4.0.4;kissat-sc2024;satsuma-kissat	ae-kissat-mab	2.97
+232	130	tierD24-26/1753a71fefceb0250a75e67b610050a0-GP_190_225_30.cnf.xz	SAT	ae-kissat-mab;kissat-4.0.4;kissat-sc2024;satsuma-kissat	ae-kissat-mab	3.17
+233	653	tierD24-26/8a7977519abed3e4c005da7506349f52-GP_300_180_30.cnf.xz	SAT	kissat-sc2024;ae-kissat-mab;kissat-4.0.4;satsuma-kissat	kissat-sc2024	3.421
+234	12	tierD24-26/032941f5f28c9ac53fa1c80d35f3206f-GP_216_290_40.cnf.xz	SAT	ae-kissat-mab;kissat-sc2024;kissat-4.0.4;satsuma-kissat	ae-kissat-mab	4.473
+235	770	tierD24-26/a38affaa741c958fc32769d5fe89b06c-frb65-12-2.used-as.sat04-874.cnf.xz	SAT	kissat-4.0.4;satsuma-kissat;kissat-sc2024;ae-kissat-mab	kissat-4.0.4	4.473
+236	1039	tierD24-26/e23edb67db2d1dfdbfe2f4c02d09c6c7-14.normalised.cnf.xz	SAT	ae-kissat-mab;kissat-4.0.4;kissat-sc2024;satsuma-kissat	ae-kissat-mab	4.626
+237	788	tierD24-26/a789d0722f1aa0d44c5a38b374719c69-13.normalised.cnf.xz	SAT	kissat-sc2024;ae-kissat-mab;kissat-4.0.4;satsuma-kissat	kissat-sc2024	5.223
+238	893	tierD24-26/be78afd2e0b3d1a955fc403b2d100d55-4.normalised.cnf.xz	SAT	ae-kissat-mab;kissat-sc2024;kissat-4.0.4;satsuma-kissat	ae-kissat-mab	5.825
+239	542	tierD24-26/7083b70c1976162e2693d7a493717ffd-battleship-14-26-sat.cnf.xz	SAT	satsuma-kissat;kissat-sc2024;kissat-4.0.4;ae-kissat-mab	satsuma-kissat	6.837
+240	558	tierD24-26/753757e87d34bd1075c413d801bf99b8-16.normalised.cnf.xz	SAT	ae-kissat-mab;kissat-sc2024;kissat-4.0.4;satsuma-kissat	ae-kissat-mab	7.227
+241	380	tierD24-26/4d6e18e506b7e62d3f32cc775219be24-GP_100_951_33.cnf.xz	SAT	ae-kissat-mab;kissat-sc2024;kissat-4.0.4;satsuma-kissat	ae-kissat-mab	7.627
+242	333	tierD24-26/42fdd4f4c27fd03267afd82490cb59a4-GP_100_1000_10.cnf.xz	SAT	ae-kissat-mab;kissat-sc2024;kissat-4.0.4;satsuma-kissat	ae-kissat-mab	7.878
+243	486	tierD24-26/6415a71364351c0a521fdee510bc2589-18.normalised.cnf.xz	SAT	ae-kissat-mab;kissat-sc2024;kissat-4.0.4;satsuma-kissat	ae-kissat-mab	7.978
+244	3	tierD24-26/00fd8ac9acd186a7a78a2c4d92f90de1-2.normalised.cnf.xz	SAT	ae-kissat-mab;kissat-sc2024;kissat-4.0.4;satsuma-kissat	ae-kissat-mab	11.837
+245	624	tierD24-26/83aa254f7d17e1df7bee19322ac4752b-1.normalised.cnf.xz	SAT	ae-kissat-mab;kissat-sc2024;kissat-4.0.4;satsuma-kissat	ae-kissat-mab	15.391
+246	810	tierD24-26/ab02c7ef78bda1f427d5e3f1f26b1ae5-sum_of_three_cubes_906_known_representation.cnf.xz	SAT	kissat-4.0.4;satsuma-kissat;ae-kissat-mab;kissat-sc2024	kissat-4.0.4	16.291
+247	737	tierD24-26/9af78578225115b54d5e7338562664fd-5.normalised.cnf.xz	SAT	kissat-sc2024;ae-kissat-mab;kissat-4.0.4;satsuma-kissat	kissat-sc2024	18.444
+248	54	tierD24-26/0a8a4c28d27228e954354ea0a6e7f16c-sum_of_three_cubes_42_known_representation.cnf.xz	SAT	kissat-sc2024;ae-kissat-mab;satsuma-kissat;kissat-4.0.4	kissat-sc2024	18.595
+249	739	tierD24-26/9b998be0c639d06988c4902eb125c0b7-frb35-17-5_ext.cnf.xz	SAT	kissat-4.0.4;kissat-sc2024;satsuma-kissat;ae-kissat-mab	kissat-4.0.4	19.397
+250	1114	tierD24-26/f406e2b8b28f205f16e8983bd522db13-oddball_112_5_ttf.normalised.cnf.xz	SAT	ae-kissat-mab;kissat-4.0.4;satsuma-kissat;kissat-sc2024	ae-kissat-mab	22.711

@@ -336,6 +336,8 @@ bool online_parameters(const tactix_online_parameters &source,
         static_cast<strategy::BveCandidateScope>(p.candidate_scope);
     converted.resolvent_count_limit =
         p.resolvent_count_limit ? p.resolvent_count_limit : UINT32_MAX;
+    converted.traversal =
+        static_cast<strategy::BveTraversal>(p.traversal);
     target = converted;
     return true;
   }
@@ -605,6 +607,18 @@ bool online_parameters(const tactix_online_parameters &source,
     if (!stconn.valid())
       return false;
     target = stconn;
+    return true;
+  }
+  case TACTIX_ONLINE_PARAMETERS_SIGNED_CARDINALITY_PROOF: {
+    const tactix_online_signed_cardinality_proof_parameters &p =
+        source.value.signed_cardinality_proof;
+    strategy::SignedCardinalityProofParameters signed_cardinality{
+        p.maximum_variables, p.maximum_groups, p.maximum_constraints,
+        p.maximum_group_arity, p.maximum_bdd_nodes,
+        p.maximum_proof_additions};
+    if (!signed_cardinality.valid())
+      return false;
+    target = signed_cardinality;
     return true;
   }
   case TACTIX_ONLINE_PARAMETERS_AFFINE_MODEL: {

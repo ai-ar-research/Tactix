@@ -37,6 +37,33 @@ static Kernel fixture(bool mixed_width = false) {
   return k;
 }
 
+static Kernel wide_fixture() {
+  // One 8-input/1-output lookup gate whose output is its highest input bit.
+  // Fixing the output high forces enumeration beyond the first 128 input
+  // assignments and exercises every AVX2 table-selection level.
+  std::ostringstream dimacs;
+  dimacs << "p cnf 9 257\n";
+  for (unsigned input = 0; input < 256; ++input) {
+    for (unsigned bit = 0; bit < 8; ++bit)
+      dimacs << ((input >> bit) & 1 ? -int(bit + 1) : int(bit + 1))
+             << ' ';
+    const unsigned wanted = (input >> 7) & 1;
+    const unsigned forbidden = wanted ^ 1;
+    dimacs << (forbidden ? -9 : 9) << " 0\n";
+  }
+  dimacs << "9 0\n";
+
+  FILE *input = std::tmpfile();
+  assert(input);
+  const std::string text = dimacs.str();
+  assert(std::fwrite(text.data(), 1, text.size(), input) == text.size());
+  std::rewind(input);
+  Kernel k;
+  assert(parse_dimacs(input, k) == nullptr);
+  std::fclose(input);
+  return k;
+}
+
 int main() {
   {
     Kernel k = fixture();
@@ -50,6 +77,11 @@ int main() {
     assert(k.stats.lookup_circuit_model_gates == 1);
     assert(k.stats.lookup_circuit_model_support == 2);
     assert(k.stats.lookup_circuit_model_sat == 1);
+#if defined(__x86_64__) || defined(__i386__)
+    __builtin_cpu_init();
+    if (__builtin_cpu_supports("avx2"))
+      assert(k.stats.lookup_circuit_model_vector_evaluations == 1);
+#endif
     assert(k.unassigned_active == 0);
   }
   {
@@ -59,6 +91,21 @@ int main() {
     assert(lookup_circuit_model_apply(k) == ApplyResult::NoOp);
     assert(k.stats.lookup_circuit_model_recognized == 0);
     assert(k.trail.size() == trail);
+  }
+  {
+    Kernel k = wide_fixture();
+    assert(lookup_circuit_model_guard(k));
+    assert(lookup_circuit_model_apply(k) == ApplyResult::Sat);
+    assert(k.stats.lookup_circuit_model_recognized == 1);
+    assert(k.stats.lookup_circuit_model_gates == 1);
+    assert(k.stats.lookup_circuit_model_support == 8);
+#if defined(__x86_64__) || defined(__i386__)
+    __builtin_cpu_init();
+    if (__builtin_cpu_supports("avx2"))
+      assert(k.stats.lookup_circuit_model_vector_evaluations >= 3);
+#endif
+    assert(k.value(internalize(8)) > 0);
+    assert(k.value(internalize(9)) > 0);
   }
   {
     Kernel k = fixture();

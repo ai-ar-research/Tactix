@@ -1,0 +1,12 @@
+{
+  "seed": 296485266,
+  "index": 185266,
+  "generator": "mut-n77-m329 (77 variables, 329 clauses)",
+  "failure": "proof",
+  "solver_args": ["--random-policy=296485266"],
+  "solver_env": {},
+  "found_by": "Claude-owned AM310 rel-random-nightly-s3, case 35276; terminal report session 69701055. The original and two repeat Release proofs are byte-identical. Claude's 2000-evaluation ddmin retained all 329 clauses, so this trajectory-sensitive case is archived as case.cnf.",
+  "oracle": "Frozen dsr-trim 3b5c7737 with -q -f -c --delete-implied-units rejected physical proof line 13680 with 'No UP contradiction for RAT clause 139'; frozen Trestle was therefore unreachable. Kissat independently agreed that the formula is UNSAT.",
+  "diagnosis": "Sweep's general proof path emitted RUP-only intermediate clauses and then deleted them after committing the final unit or binary. dsr-trim's forward propagation had selected one such proof-only clause as the reason for a global implied unit. Deleting it under --delete-implied-units retracted checker state which Tactix could not materialize because the clause and reason never existed in the kernel, exposing the later SR addition to a different formula.",
+  "fix": "Sweep deletes translated proof-only RUP prefixes in every proof format. Before a native DSR deletion, it computes the prefix-induced unit closure incrementally over the live binary implication graph and emits each new unit while its transient reason still exists. The checker therefore retains the consequence without retaining general clauses that would change later RAT obligations. The closure is proof-only and leaves the kernel assignment and search trajectory unchanged."
+}

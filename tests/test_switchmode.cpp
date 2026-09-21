@@ -318,6 +318,7 @@ static void test_default_policy_with_mab_enabled() {
   kernel_add_binary_clause(k, internalize(-1), internalize(-3));
   DefaultStrategyConfig config;
   config.branching.mab = true;
+  config.branching.mab_after_search_stagnation = false;
   config.mode.force = 2;
   DefaultPolicy policy(config);
   assert(policy.solve(k) == 20);

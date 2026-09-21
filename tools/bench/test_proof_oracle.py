@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 import tempfile
 import unittest
 
@@ -67,6 +68,30 @@ class ProofOracleTests(unittest.TestCase):
             lsr.write_bytes(bytes([3, 6, 0, 0]))
             self.assertTrue(bridge_trivial_input_binary_lsr(cnf, lsr))
             self.assertEqual(lsr.read_bytes(), bytes([3, 6, 0, 4, 0]))
+
+    def test_binary_trivial_input_bridge_accepts_string_cnf_path(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            cnf = root / 'input.cnf'
+            lsr = root / 'proof.binary.lsr'
+            cnf.write_text('p cnf 2 2\n1 2 0\n0\n')
+            lsr.write_bytes(bytes([3, 6, 0, 0]))
+            self.assertTrue(bridge_trivial_input_binary_lsr(str(cnf), lsr))
+            self.assertEqual(lsr.read_bytes(), bytes([3, 6, 0, 4, 0]))
+
+    def test_binary_trivial_input_bridge_accepts_anonymous_fd_path(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            cnf = root / 'input.cnf'
+            cnf.write_text('p cnf 2 2\n1 2 0\n0\n')
+            fd = os.open(root, os.O_TMPFILE | os.O_RDWR | os.O_CLOEXEC, 0o600)
+            try:
+                lsr = Path(f'/proc/{os.getpid()}/fd/{fd}')
+                lsr.write_bytes(bytes([3, 6, 0, 0]))
+                self.assertTrue(bridge_trivial_input_binary_lsr(cnf, lsr))
+                self.assertEqual(lsr.read_bytes(), bytes([3, 6, 0, 4, 0]))
+            finally:
+                os.close(fd)
 
     def test_binary_bridge_is_narrow(self):
         with tempfile.TemporaryDirectory() as directory:

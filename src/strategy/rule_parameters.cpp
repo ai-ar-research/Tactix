@@ -116,6 +116,11 @@ StconnProofParameters StconnProofParameters::from_kernel(const Kernel &k) {
   return k.stconn_proof_parameters;
 }
 
+SignedCardinalityProofParameters
+SignedCardinalityProofParameters::from_kernel(const Kernel &k) {
+  return k.signed_cardinality_proof_parameters;
+}
+
 std::vector<AffineSearchScope> AffineModelParameters::reference_scopes() {
   std::vector<AffineSearchScope> result;
   for (uint64_t weight = 0; weight <= DEFAULT_MAXIMUM_WEIGHT; ++weight) {
@@ -272,6 +277,11 @@ void install_rule_parameters(Kernel &k, const SimonModelParameters &p) {
 }
 void install_rule_parameters(Kernel &k, const StconnProofParameters &p) {
   k.stconn_proof_parameters = p;
+}
+
+void install_rule_parameters(Kernel &k,
+                             const SignedCardinalityProofParameters &p) {
+  k.signed_cardinality_proof_parameters = p;
 }
 
 } // namespace tactix::strategy

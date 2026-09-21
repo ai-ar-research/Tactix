@@ -383,7 +383,12 @@ int main(int argc, char **argv) {
   }
   const uint64_t solve_t0 = tactix::now_nanos();
   DefaultStrategyConfig default_config;
-  default_config.branching.mab = mab;
+  // MAB is part of the shipped DefaultPolicy. Keep --mab as the exact-owner
+  // request; the shipped default adds preprocessing-progress feedback.
+  if (mab) {
+    default_config.branching.mab = true;
+    default_config.branching.mab_after_search_stagnation = false;
+  }
   DefaultPolicy default_policy(default_config);
   const int res =
       replay_path
@@ -787,6 +792,21 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.bve_rounds,
            (unsigned long long)kernel.stats.bve_eliminated,
            (unsigned long long)kernel.stats.bve_resolutions);
+    printf("c fastel      %llu checks, %llu candidates / %llu active, "
+           "%llu discovery ticks, %llu budget stops, %llu minority declines, "
+           "%llu root-suppressed, %llu eliminated, "
+           "%llu resolutions, "
+           "%.3f seconds\n",
+           (unsigned long long)kernel.stats.fastel_rounds,
+           (unsigned long long)kernel.stats.fastel_candidates,
+           (unsigned long long)kernel.stats.fastel_active,
+           (unsigned long long)kernel.stats.fastel_discovery_ticks,
+           (unsigned long long)kernel.stats.fastel_budget_stops,
+           (unsigned long long)kernel.stats.fastel_declined,
+           (unsigned long long)kernel.stats.fastel_root_suppressed,
+           (unsigned long long)kernel.stats.fastel_eliminated,
+           (unsigned long long)kernel.stats.fastel_resolutions,
+           kernel.stats.fastel_nanos / 1e9);
     printf("c bve-bwd     %llu subsumers, %llu subsumed, %llu strengthened, "
            "%llu units\n",
            (unsigned long long)kernel.stats.bve_bwd_queued,
@@ -813,12 +833,19 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.restarts,
            (unsigned long long)kernel.stats.restarts_reused);
     printf("c mab         %llu stable restarts, %llu switches, %llu/%llu "
-           "EVSIDS/CHB selections, %llu CHB updates\n",
+           "EVSIDS/CHB selections, %llu CHB updates; activation limit %llu, "
+           "%llu delayed, %llu activated, %llu SR-suppressed, "
+           "%llu FastEl-accelerated\n",
            (unsigned long long)kernel.stats.mab_restarts,
            (unsigned long long)kernel.stats.mab_switches,
            (unsigned long long)kernel.stats.mab_evsids_selections,
            (unsigned long long)kernel.stats.mab_chb_selections,
-           (unsigned long long)kernel.stats.chb_updates);
+           (unsigned long long)kernel.stats.chb_updates,
+           (unsigned long long)kernel.stats.mab_activation_limit,
+           (unsigned long long)kernel.stats.mab_activation_delayed,
+           (unsigned long long)kernel.stats.mab_activations,
+           (unsigned long long)kernel.stats.mab_activation_sr_suppressed,
+           (unsigned long long)kernel.stats.mab_activation_fastel_accelerated);
     printf("c reductions  %llu (%llu clauses deleted, %llu promoted)\n",
            (unsigned long long)kernel.stats.reductions,
            (unsigned long long)kernel.stats.deleted,
@@ -974,6 +1001,18 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.stconn_proof_budget_exhausted,
            (unsigned long long)kernel.stats.stconn_proof_unsat,
            (unsigned long long)kernel.stats.stconn_proof_interrupted);
+    printf("c signedcard %llu calls, %llu recognized, %llu groups, "
+           "%llu BDD nodes, %llu proof additions, %llu budget stops, "
+           "%llu UNSAT, %llu interrupted\n",
+           (unsigned long long)kernel.stats.signed_cardinality_proof_calls,
+           (unsigned long long)kernel.stats.signed_cardinality_proof_recognized,
+           (unsigned long long)kernel.stats.signed_cardinality_proof_groups,
+           (unsigned long long)kernel.stats.signed_cardinality_proof_bdd_nodes,
+           (unsigned long long)kernel.stats.signed_cardinality_proof_additions,
+           (unsigned long long)
+               kernel.stats.signed_cardinality_proof_budget_exhausted,
+           (unsigned long long)kernel.stats.signed_cardinality_proof_unsat,
+           (unsigned long long)kernel.stats.signed_cardinality_proof_interrupted);
     printf("c localsearch %llu hints offered, %llu applied\n",
            (unsigned long long)kernel.stats.local_search_hints_offered,
            (unsigned long long)kernel.stats.local_search_hints_applied);

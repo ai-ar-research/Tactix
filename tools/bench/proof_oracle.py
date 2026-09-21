@@ -77,21 +77,8 @@ def proof_check_status(checker: str, returncode: int, stdout: str,
     return 'error'
 
 
-def bridge_trivial_input_lsr(cnf_path, lsr_path) -> bool:
-    """Add the missing input-empty hint in dsr-trim's trivial LSR output.
-
-    Pinned dsr-trim verifies a CNF containing an empty clause and emits the
-    syntactically valid but hintless line ``n+1 0 0``. Trestle correctly
-    rejects that line. Replace only that exact output with ``n+1 0 k 0``, where
-    input clause k is empty. Trestle remains the authority for acceptance.
-    """
-    cnf_path, lsr_path = Path(cnf_path), Path(lsr_path)
-    tokens = _at_most_three_integer_tokens(lsr_path)
-    if tokens is None:
-        return False
-    if len(tokens) != 3 or tokens[1:] != [0, 0]:
-        return False
-
+def _trivial_input_empty_id(cnf_path, derived_id):
+    cnf_path = Path(cnf_path)
     declared = None
     clause_id = 0
     current_nonempty = False
@@ -106,7 +93,7 @@ def bridge_trivial_input_lsr(cnf_path, lsr_path) -> bool:
                     fields = line.split()
                     if (declared is not None or len(fields) != 4 or
                             fields[:2] != ['p', 'cnf']):
-                        return False
+                        return None
                     declared = int(fields[3])
                     continue
                 for token in line.split():
@@ -119,11 +106,29 @@ def bridge_trivial_input_lsr(cnf_path, lsr_path) -> bool:
                             empty_id = clause_id
                         current_nonempty = False
     except (OSError, ValueError):
-        return False
+        return None
     if (declared is None or current_nonempty or clause_id != declared or
-            empty_id is None or tokens[0] != declared + 1):
+            empty_id is None or derived_id != declared + 1):
+        return None
+    return empty_id
+
+
+def bridge_trivial_input_lsr(cnf_path, lsr_path) -> bool:
+    """Add the missing input-empty hint in dsr-trim's trivial LSR output.
+
+    Pinned dsr-trim verifies a CNF containing an empty clause and emits the
+    syntactically valid but hintless line ``n+1 0 0``. Trestle correctly
+    rejects that line. Replace only that exact output with ``n+1 0 k 0``, where
+    input clause k is empty. Trestle remains the authority for acceptance.
+    """
+    cnf_path, lsr_path = Path(cnf_path), Path(lsr_path)
+    tokens = _at_most_three_integer_tokens(lsr_path)
+    if tokens is None or len(tokens) != 3 or tokens[1:] != [0, 0]:
         return False
-    lsr_path.write_text(f'{declared + 1} 0 {empty_id} 0\n')
+    empty_id = _trivial_input_empty_id(cnf_path, tokens[0])
+    if empty_id is None:
+        return False
+    lsr_path.write_text(f'{tokens[0]} 0 {empty_id} 0\n')
     return True
 
 
@@ -175,16 +180,155 @@ def bridge_trivial_input_binary_lsr(cnf_path, lsr_path) -> bool:
     if len(decoded) != 3 or decoded[1:] != [0, 0]:
         return False
 
-    # Reuse the narrowly-scoped textual bridge to validate the CNF and obtain
-    # the unique first empty-clause hint without duplicating DIMACS parsing.
-    temporary = lsr_path.with_name(lsr_path.name + '.trivial-text.tmp')
-    try:
-        temporary.write_text(f'{decoded[0]} 0 0\n')
-        if not bridge_trivial_input_lsr(cnf_path, temporary):
-            return False
-        tokens = [int(token) for token in temporary.read_text().split()]
-    finally:
-        temporary.unlink(missing_ok=True)
+    empty_id = _trivial_input_empty_id(cnf_path, decoded[0])
+    if empty_id is None:
+        return False
+    tokens = (decoded[0], 0, empty_id, 0)
     lsr_path.write_bytes(bytes([3]) + b''.join(
         _encode_binary_token(token) for token in tokens))
     return True
+
+
+# --- the DSR checking pipeline ------------------------------------------------
+# One home for how a native-DSR certificate is checked.  It is the SC2026
+# verified SR pipeline exactly as the Satsuma+Kissat reference runs it
+# (tools/bench/frozen_baseline.py, amended DSR branch), parameters included:
+# dsr-trim takes no options, so it checks backward and trims to the core; a
+# binary DSR yields a binary LSR; `dsr-compress -d` expands that to text; and
+# Trestle verifies the text LSR.
+
+def dsr_proof_is_binary(proof) -> bool:
+    """Binary DSR marks every addition with 'a'; ASCII DSR never contains it."""
+    try:
+        with open(proof, 'rb') as source:
+            head = source.read(4096)
+    except OSError:
+        return False
+    return any(byte not in b'0123456789- \n\rd' for byte in head)
+
+
+def reference_dsr_stages(dsr_trim, dsr_compress, srcheck, cnf, proof,
+                         binary_lsr, text_lsr):
+    """The (name, command) stages of the reference DSR pipeline, in order.
+
+    dsr-trim mirrors its input encoding: the canonical binary DSR yields a
+    binary LSR, which needs the expansion stage; a diagnostic ASCII DSR yields
+    the text LSR directly, so there is nothing to expand."""
+    if not dsr_proof_is_binary(proof):
+        return [('dsr-trim', [dsr_trim, cnf, proof, text_lsr]),
+                ('srcheck', [srcheck, cnf, text_lsr])]
+    return [
+        ('dsr-trim', [dsr_trim, cnf, proof, binary_lsr]),
+        ('dsr-compress', [dsr_compress, '-d', binary_lsr, text_lsr]),
+        ('srcheck', [srcheck, cnf, text_lsr]),
+    ]
+
+
+def every_lemma_dsr_stages(dsr_trim, dsr_compress, srcheck, cnf, proof,
+                           binary_lsr, text_lsr):
+    """The audit pipeline: the reference stages with forward elaboration.
+
+    Backward dsr-trim elaborates only the lemmas the refutation uses, so an
+    invalid lemma outside that core is never examined.  Forward elaboration
+    (`-f`) checks every line.  It is far too slow for benchmark certificates
+    and is not the acceptance authority; the fuzz harness and the proof suites
+    run it in addition to the reference pipeline, where proofs are small."""
+    stages = reference_dsr_stages(dsr_trim, dsr_compress, srcheck, cnf, proof,
+                                  binary_lsr, text_lsr)
+    name, command = stages[0]
+    assert name == 'dsr-trim'
+    stages[0] = (name, [command[0], '-f'] + command[1:])
+    return stages
+
+
+def dsr_compress_status(returncode, output) -> Literal['verified', 'error']:
+    """dsr-compress converts a format; it is not an acceptance oracle."""
+    return ('verified' if returncode == 0 and 'ERROR' not in output and
+            'not supported' not in output else 'error')
+
+
+def check_dsr(dsr_trim, dsr_compress, srcheck, cnf, proof, workdir,
+              timeout=None, every_lemma=False):
+    """Run the reference pipeline; return (verified, failing stage, output).
+
+    With `every_lemma` the forward audit pipeline runs afterwards and must
+    verify too; its failing stage is reported with an `every-lemma:` prefix."""
+    verified, stage, output = _run_dsr_stages(
+        reference_dsr_stages, dsr_trim, dsr_compress, srcheck, cnf, proof,
+        workdir, timeout)
+    if verified and every_lemma:
+        verified, stage, output = _run_dsr_stages(
+            every_lemma_dsr_stages, dsr_trim, dsr_compress, srcheck, cnf,
+            proof, workdir, timeout)
+        if not verified:
+            stage = 'every-lemma:' + stage
+    return verified, stage, output
+
+
+def _run_dsr_stages(stages, dsr_trim, dsr_compress, srcheck, cnf, proof,
+                    workdir, timeout):
+    import subprocess
+    workdir = Path(workdir)
+    binary_lsr, text_lsr = workdir / 'proof.binary.lsr', workdir / 'proof.lsr'
+    for stale in (binary_lsr, text_lsr):
+        if stale.exists():
+            stale.unlink()
+    for name, command in stages(
+            dsr_trim, dsr_compress, srcheck, cnf, proof, binary_lsr, text_lsr):
+        try:
+            done = subprocess.run([str(part) for part in command],
+                                  capture_output=True, text=True,
+                                  errors='replace', timeout=timeout)
+        except subprocess.TimeoutExpired:
+            return False, name, 'timed out'
+        output = done.stdout + '\n' + done.stderr
+        if name == 'dsr-compress':
+            ok = (dsr_compress_status(done.returncode, output) == 'verified'
+                  and text_lsr.is_file() and text_lsr.stat().st_size > 0)
+        else:
+            ok = proof_check_status(name, done.returncode, done.stdout,
+                                    done.stderr) == 'verified'
+        if name == 'dsr-trim' and ok:
+            made = Path(command[-1])
+            ok = made.is_file() and made.stat().st_size > 0
+            if ok:
+                (bridge_trivial_input_binary_lsr if made == binary_lsr
+                 else bridge_trivial_input_lsr)(cnf, made)
+        if not ok:
+            return False, name, output
+    return True, None, ''
+
+
+def _main(argv):
+    import argparse
+    import tempfile
+    here = Path(__file__).resolve().parents[2] / 'tools/checkers/bin'
+    parser = argparse.ArgumentParser(
+        description='Check a native-DSR certificate with the reference '
+                    'dsr-trim | dsr-compress -d | Trestle pipeline.')
+    parser.add_argument('command', choices=['check-dsr'])
+    parser.add_argument('cnf')
+    parser.add_argument('proof')
+    parser.add_argument('--dsr-trim', default=str(here / 'dsr-trim'))
+    parser.add_argument('--dsr-compress', default=str(here / 'dsr-compress'))
+    parser.add_argument('--srcheck', default=str(here / 'srcheck'))
+    parser.add_argument('--workdir', default=None)
+    parser.add_argument('--every-lemma', action='store_true',
+                        help='also elaborate forward, checking every line')
+    args = parser.parse_args(argv)
+    with tempfile.TemporaryDirectory() as temporary:
+        verified, stage, output = check_dsr(
+            args.dsr_trim, args.dsr_compress, args.srcheck, args.cnf,
+            args.proof, args.workdir or temporary,
+            every_lemma=args.every_lemma)
+    if verified:
+        print('s VERIFIED UNSAT')
+        return 0
+    print(f'FAIL: {stage} did not verify {args.proof}')
+    print(output[-4000:])
+    return 1
+
+
+if __name__ == '__main__':
+    import sys
+    sys.exit(_main(sys.argv[1:]))

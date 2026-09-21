@@ -241,6 +241,34 @@ void test_dsr_pivot_mapping_forms() {
          "1 2 6 0\n1 2 1 1 2 1 0\nd 1 2 6 0\n",
          "open non-pivot image becomes the lemma pivot");
 
+  // A clause that is unit at the root would propagate as soon as the checker
+  // reads it, so it takes the general encoding: neither witnessed temporary is
+  // unit, the default pivot image is stated, and the clause enters by RUP.
+  const Lit root_unit[1] = {lit(1)};
+  const Lit root_unit_true[1] = {lit(3)};
+  expect(emitted("propagating-default-pivot", ProofFormat::DsrAscii,
+                 [&](Proof &p) {
+                   assert(p.add_sr(1, root_unit, 1, root_unit_true, 1, nullptr,
+                                   0, 6, /*propagates=*/true));
+                 }),
+         "-7 1 0\n7 1 7 1 3 0\n1 0\nd 7 1 0\nd -7 1 0\n",
+         "a propagating witnessed unit uses the general encoding");
+  expect(emitted("propagating-mapped-pivot", ProofFormat::DsrAscii,
+                 [&](Proof &p) {
+                   assert(p.add_sr(1, unit, 1, nullptr, 0, unit_map, 1, 6,
+                                   /*propagates=*/true));
+                 }),
+         "-7 1 0\n7 1 7 7 1 6 0\n1 0\nd 7 1 0\nd -7 1 0\n",
+         "a propagating mapped pivot keeps its explicit image");
+  // A witnessless addition cannot lose hint groups; it stays a plain line.
+  expect(emitted("propagating-rup", ProofFormat::DsrAscii, [&](Proof &p) {
+           const Lit pair[2] = {lit(1), lit(2)};
+           const DsrLiteralMapping swap[2] = {mapping(1, 2), mapping(2, 1)};
+           assert(p.add_sr(1, pair, 2, nullptr, 0, swap, 2, 6,
+                           /*propagates=*/true));
+         }),
+         "1 2 0\n", "a propagating RUP form stays witnessless");
+
   const Lit open_pair[2] = {lit(1), lit(2)};
   const DsrLiteralMapping open_maps[2] = {mapping(1, 3), mapping(2, 4)};
   assert(plan_dsr_witness(open_pair, 2, nullptr, 0, open_maps, 2).form ==

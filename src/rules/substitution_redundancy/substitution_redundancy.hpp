@@ -144,9 +144,9 @@ enum class SymmetryStructuredScope : uint8_t {
 enum class SymmetryNonforcingCutAdmission : uint8_t {
   Publish,
   RequireForcingMember,
-  // Also withhold a one-row forcing batch. A lone representative choice
+  // Withhold any one-row batch, forcing or not. A lone representative choice
   // changes the CDCL trajectory without exposing a second certified group
-  // consequence; compound prefixes have demonstrated within-pass progress.
+  // consequence; multi-row prefixes demonstrate within-pass progress.
   RequireCompoundProgress,
 };
 
