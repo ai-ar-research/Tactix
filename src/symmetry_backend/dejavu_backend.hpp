@@ -201,6 +201,17 @@ struct GroupSettings {
   // disables it; maximum_ticks independently bounds planning and finalization.
   uint64_t planning_tick_limit = 0;
   bool factor_support_components = false;
+  // FixAndCut only. Zero takes a cut level's base point in ascending point
+  // order (ranked by common clauses and larger orbit when base_selection
+  // ranks). One is the owner's rule: the largest stabilizer orbit, the highest
+  // variable among equals, replaced only by a strictly better common-clause
+  // score met in ascending literal order.
+  uint8_t cut_point = 0;
+  // FixAndCut only. Before any fix or cut level, take in ascending order every
+  // open variable whose stabilizer orbit holds its own complement; each such
+  // level's base is the variable's negative literal and materializes as that
+  // negation-orbit unit (kind 3), which later levels read as a root value.
+  bool negation_fixing_first = false;
 };
 
 struct Fixings {

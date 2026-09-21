@@ -199,6 +199,11 @@ bool online_graph_symmetry_parameters(const tactix_online_sr_parameters &p,
           TACTIX_ONLINE_SYMMETRY_CUT_ADMISSION_INHERIT ||
       p.symmetry_nonforcing_cut_admission >
           TACTIX_ONLINE_SYMMETRY_CUT_ADMISSION_REQUIRE_COMPOUND_PROGRESS ||
+      p.symmetry_cut_point < TACTIX_ONLINE_SYMMETRY_CUT_POINT_INHERIT ||
+      p.symmetry_cut_point >
+          TACTIX_ONLINE_SYMMETRY_CUT_POINT_LARGEST_ORBIT_LAST ||
+      p.symmetry_negation_fixing_first_mode < TACTIX_ONLINE_SETTING_INHERIT ||
+      p.symmetry_negation_fixing_first_mode > TACTIX_ONLINE_SETTING_ENABLE ||
       p.symmetry_base_selection < TACTIX_ONLINE_SYMMETRY_BASE_INHERIT ||
       p.symmetry_base_selection >
           TACTIX_ONLINE_SYMMETRY_BASE_FIRST_SHORTEST_THEN_FORWARD_REMAINDER ||
@@ -308,6 +313,11 @@ bool online_graph_symmetry_parameters(const tactix_online_sr_parameters &p,
   if (p.symmetry_pointwise_root_stabilizer_mode != TACTIX_ONLINE_SETTING_INHERIT)
     graph.pointwise_root_stabilizer =
         p.symmetry_pointwise_root_stabilizer_mode == TACTIX_ONLINE_SETTING_ENABLE;
+  if (p.symmetry_cut_point != TACTIX_ONLINE_SYMMETRY_CUT_POINT_INHERIT)
+    graph.cut_point = static_cast<SymmetryCutPoint>(p.symmetry_cut_point - 1);
+  if (p.symmetry_negation_fixing_first_mode != TACTIX_ONLINE_SETTING_INHERIT)
+    graph.negation_fixing_first =
+        p.symmetry_negation_fixing_first_mode == TACTIX_ONLINE_SETTING_ENABLE;
   return true;
 }
 

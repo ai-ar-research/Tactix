@@ -426,6 +426,11 @@ DefaultStrategyConfig::reference_structured_root_program() {
   graph_parameters.graph_symmetry.chain_mode = SymmetryChainMode::FixAndCut;
   graph_parameters.graph_symmetry.base_selection =
       SymmetryBaseSelection::CommonClauseAmo;
+  // Satsuma fixes negation orbits before fix-and-cut and cuts at the largest
+  // stabilizer orbit's highest variable (symmetries.h negation_fixing_schreier,
+  // find_non_trivial_orbit).
+  graph_parameters.graph_symmetry.cut_point = SymmetryCutPoint::LargestOrbitLast;
+  graph_parameters.graph_symmetry.negation_fixing_first = true;
   graph.parameters = graph_parameters;
   graph.granularity = strategy::InvocationGranularity::CompleteCurrentPass;
   graph.post_application = strategy::PostApplication::Propagate;

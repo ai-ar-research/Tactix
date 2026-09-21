@@ -134,6 +134,15 @@ enum class SymmetryBaseSelection : uint8_t {
   FirstShortestThenForwardRemainder,
 };
 
+// Where a FixAndCut cut level takes its base point once no clause is fixable.
+// LargestOrbitLast is the owning preprocessor's rule: the largest stabilizer
+// orbit, the highest variable among equals, replaced only by a strictly better
+// common-clause score met in ascending literal order.
+enum class SymmetryCutPoint : uint8_t {
+  FirstOpen,
+  LargestOrbitLast,
+};
+
 enum class SymmetryStructuredScope : uint8_t {
   WholeMatrix,
   AxisAnchors,
@@ -188,6 +197,10 @@ struct GraphSymmetryParameters {
       SymmetryClauseSelection::AmoThenShortest;
   SymmetryChainMode chain_mode = SymmetryChainMode::ClausalFixing;
   SymmetryBaseSelection base_selection = SymmetryBaseSelection::ClauseOrder;
+  SymmetryCutPoint cut_point = SymmetryCutPoint::FirstOpen;
+  // FixAndCut: before any fix or cut level, fix every open variable whose
+  // stabilizer orbit holds its own complement, as a negation-orbit unit.
+  bool negation_fixing_first = false;
   bool direct_generator_involutions_only = true;
   bool decompose = true;
   bool prefer_depth_first = false;
@@ -233,6 +246,8 @@ struct GraphSymmetryParameters {
            chain_mode <= SymmetryChainMode::FixAndCutResift &&
            base_selection >= SymmetryBaseSelection::ClauseOrder &&
            base_selection <= SymmetryBaseSelection::FirstShortestThenForwardRemainder &&
+           cut_point >= SymmetryCutPoint::FirstOpen &&
+           cut_point <= SymmetryCutPoint::LargestOrbitLast &&
            structured_scope >= SymmetryStructuredScope::WholeMatrix &&
            structured_scope <= SymmetryStructuredScope::AxisAnchors &&
            nonforcing_cut_admission >=

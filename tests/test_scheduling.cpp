@@ -1456,7 +1456,12 @@ static void test_inprocess_scale_ignores_deleted_binary_ids(void) {
 static void test_congruence_preprocess_bumps_first_search_delay(void) {
   Kernel k;
   kernel_reserve_vars(k, 4);
-  DefaultPolicy p;
+  // This fixture adds a clause between phases. Structured startup may fix a
+  // free variable by its negation symmetry, which is sound only for the
+  // formula it saw, so isolate the Congruence delay from it.
+  DefaultStrategyConfig cfg;
+  cfg.inprocess.structured_root_stages.clear();
+  DefaultPolicy p(cfg);
   p.inprocess().build(k);
   const auto &rules = tactix_rules();
   DefaultInprocessScheduler::SlotEntry *congruence = nullptr;

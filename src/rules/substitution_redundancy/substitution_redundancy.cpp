@@ -5,6 +5,7 @@
 #include "rules/propagate/propagate.hpp"
 
 #include <algorithm>
+#include <cassert>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -606,6 +607,15 @@ substitution_redundancy_apply_detailed_impl(
       (accept_generated_certificate &&
        instance.orbitopal_prefix_certificate &&
        certified_root_closure_preserved(k, witness));
+#ifndef NDEBUG
+  // A producer certificate only skips the formula scan; the tuple it vouches
+  // for must still be an X7 instance of the live formula. The unique-literal
+  // certificate carries an implicit witness that is never parsed.
+  if (certified && !certified_unique_literal_amo)
+    assert(validate_semantics(k, candidate, witness, parameters,
+                              stop ? stop : k.stop)
+               .status != ValidationStatus::Inapplicable);
+#endif
   if (!certified) {
     const ValidationResult checked = validate_semantics(
         k, candidate, witness, parameters, stop ? stop : k.stop);

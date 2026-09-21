@@ -1436,6 +1436,7 @@ Status fix_clauses(const GroupInput &input, const GroupSettings &settings,
       !settings.error_bound ||
       settings.error_bound > static_cast<uint32_t>(std::numeric_limits<int>::max()) ||
       settings.chain_mode > 2 || settings.base_selection > 6 ||
+      settings.cut_point > 1 ||
       (settings.chain_mode && (input.domain_size & 1u)) ||
       (input.generator_count && !input.generator_images && !input.generator_offsets) ||
       (input.clause_count && !input.clause_offsets) ||
@@ -1785,6 +1786,7 @@ Status fix_clauses(const GroupInput &input, const GroupSettings &settings,
       const bool first_amo = settings.base_selection >= 2 && settings.base_selection <= 4;
       const bool ordered_remainder = settings.base_selection == 3 || settings.base_selection == 4;
       bool amo_exhausted = false;
+      bool negation_fixing = settings.negation_fixing_first;
       uint64_t clause_frontier = 0;
       const uint32_t variable_count = (input.domain_size + 1u) / 2u;
       std::vector<uint8_t> ordered(variable_count, 0);
@@ -1821,6 +1823,23 @@ Status fix_clauses(const GroupInput &input, const GroupSettings &settings,
         }
         schreier.get_stabilizer_orbit(static_cast<int>(base.size()), orbits);
 
+        // The owner fixes negation orbits over the whole chain before its
+        // fix-and-cut pass sees the group (negation_fixing_schreier).
+        uint32_t negation_point = UINT32_MAX;
+        if (negation_fixing) {
+          for (uint32_t point = 0; point < input.domain_size; point += 2) {
+            if (ordered[point >> 1] || values[point] || values[point ^ 1u])
+              continue;
+            if (orbits.are_in_same_orbit(static_cast<int>(point),
+                                         static_cast<int>(point ^ 1u))) {
+              // The owner's unit is the variable's negative literal; it is
+              // the level's base point, so the published unit sets it true.
+              negation_point = point ^ 1u;
+              break;
+            }
+          }
+          negation_fixing = negation_point != UINT32_MAX;
+        }
         const bool shortest_first = settings.base_selection == 5 ||
                                     (first_shortest && base.empty());
         const bool rank_common = settings.base_selection &&
@@ -1848,8 +1867,9 @@ Status fix_clauses(const GroupInput &input, const GroupSettings &settings,
         bool selected_amo = false;
         uint32_t selected_score = 0;
         int selected_orbit_size = std::numeric_limits<int>::max();
-        const uint64_t scan_begin = forward_scan
-                                        ? clause_frontier : 0;
+        const uint64_t scan_begin = negation_point != UINT32_MAX
+                                        ? input.clause_count
+                                    : forward_scan ? clause_frontier : 0;
         bool frontier_found = false;
         for (uint64_t clause = scan_begin; clause < input.clause_count; ++clause) {
           std::vector<uint32_t> candidate;
@@ -1924,7 +1944,7 @@ Status fix_clauses(const GroupInput &input, const GroupSettings &settings,
         if (exhausted)
           break;
 
-        if (ordered_remainder && !selected_amo)
+        if (ordered_remainder && !selected_amo && negation_point == UINT32_MAX)
           amo_exhausted = true;
         PlannedLevel next;
         if (selected_clause != UINT64_MAX) {
@@ -1932,6 +1952,50 @@ Status fix_clauses(const GroupInput &input, const GroupSettings &settings,
           next.representative = representative;
           next.active = std::move(selected_active);
           next.amo = selected_amo;
+        } else if (negation_point != UINT32_MAX) {
+          next.representative = negation_point;
+          next.operation = PlannedOperation::Cut;
+        } else if (settings.cut_point == 1) {
+          const auto open = [&](uint32_t point) {
+            return !ordered[point >> 1] && !values[point] &&
+                   !values[point ^ 1u] &&
+                   orbits.orbit_size(static_cast<int>(point)) > 1;
+          };
+          int largest = 1;
+          for (uint32_t point = input.domain_size & ~1u; point >= 2;) {
+            point -= 2;
+            if (open(point) &&
+                orbits.orbit_size(static_cast<int>(point)) > largest) {
+              largest = orbits.orbit_size(static_cast<int>(point));
+              next.representative = point;
+            }
+          }
+          if (next.representative == UINT32_MAX)
+            break;
+          const auto score = [&](uint32_t point) {
+            uint32_t count = 0;
+            for (const uint64_t clause : variable_clauses[point >> 1])
+              count += marked_clauses[clause] != 0;
+            return count;
+          };
+          uint32_t best = settings.base_selection ? score(next.representative) : 0;
+          for (uint32_t point = 0;
+               settings.base_selection && point < input.domain_size; ++point) {
+            if (!open(point))
+              continue;
+            if (!charge(1)) {
+              exhausted = true;
+              break;
+            }
+            const uint32_t candidate = score(point);
+            if (candidate > best) {
+              best = candidate;
+              next.representative = point;
+            }
+          }
+          if (exhausted)
+            break;
+          next.operation = PlannedOperation::Cut;
         } else {
           for (uint32_t point = 0; point < input.domain_size; point += 2) {
             if (ordered[point >> 1] || values[point] || values[point ^ 1u])
@@ -2005,7 +2069,8 @@ Status fix_clauses(const GroupInput &input, const GroupSettings &settings,
               next.operation = PlannedOperation::None;
               break;
             }
-        if (next.operation == PlannedOperation::Fix) {
+        if (negation_point != UINT32_MAX ||
+            next.operation == PlannedOperation::Fix) {
           values[next.representative] = 1;
           values[next.representative ^ 1u] = -1;
           if (next.amo)
