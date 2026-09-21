@@ -710,6 +710,122 @@ void parallel_edges_are_invalid() {
   assert(preparing.calls == 4 && !session);
 }
 
+// The owner's chain order (Satsuma negation_fixing_schreier, then fix_and_cut
+// with find_non_trivial_orbit): negation orbits are fixed before any cut, and
+// a cut takes the largest stabilizer orbit's highest variable.
+void owner_chain_order_fixes_negations_first_and_cuts_the_last_largest_orbit() {
+  constexpr uint32_t domain = 14; // variables 0..6
+  std::vector<uint32_t> generators;
+  const auto identity = [&] {
+    const size_t offset = generators.size();
+    for (uint32_t point = 0; point < domain; ++point)
+      generators.push_back(point);
+    return offset;
+  };
+  { // variables 0 and 1 are interchangeable (orbit size two)
+    const size_t at = identity();
+    for (uint32_t sign = 0; sign < 2; ++sign)
+      std::swap(generators[at + 0 + sign], generators[at + 2 + sign]);
+  }
+  { // variable 3 maps to its own complement
+    const size_t at = identity();
+    std::swap(generators[at + 6], generators[at + 7]);
+  }
+  { // variables 4, 5, 6 rotate (the largest orbit)
+    const size_t at = identity();
+    for (uint32_t sign = 0; sign < 2; ++sign) {
+      generators[at + 8 + sign] = 10 + sign;
+      generators[at + 10 + sign] = 12 + sign;
+      generators[at + 12 + sign] = 8 + sign;
+    }
+  }
+  const uint64_t offsets[] = {0};
+  const std::vector<int8_t> values(domain, 0);
+  const GroupInput input{domain, generators.size() / domain, generators.data(),
+                         0, offsets, 0, nullptr, values.data()};
+  const auto run = [&](uint8_t cut_point, bool negation_first,
+                       std::vector<std::pair<uint8_t, uint32_t>> &rows) {
+    GroupSettings settings;
+    settings.seed = 7;
+    settings.chain_mode = 1;
+    settings.cut_point = cut_point;
+    settings.negation_fixing_first = negation_first;
+    Fixings fixings;
+    assert(fix_clauses(input, settings, nullptr, nullptr, fixings) ==
+           Status::Complete);
+    rows.clear();
+    for (uint64_t row = 0; row < fixings.count; ++row)
+      rows.emplace_back(fixings.kinds[row], fixings.representatives[row]);
+    release(fixings);
+  };
+  std::vector<std::pair<uint8_t, uint32_t>> rows;
+  run(0, false, rows);
+  // Ascending order: the interchangeable pair is cut first, the negation
+  // orbit is met only when its variable comes up.
+  assert(!rows.empty() && rows.front() == std::make_pair(uint8_t{2}, 0u));
+  assert(std::count(rows.begin(), rows.end(),
+                    std::make_pair(uint8_t{3}, 6u)) == 1);
+
+  // The owner's negation unit is the variable's negative literal.
+  run(0, true, rows);
+  assert(!rows.empty() && rows.front() == std::make_pair(uint8_t{3}, 7u));
+  assert(rows.size() >= 2 && rows[1] == std::make_pair(uint8_t{2}, 0u));
+
+  run(1, true, rows);
+  assert(!rows.empty() && rows.front() == std::make_pair(uint8_t{3}, 7u));
+  // Largest stabilizer orbit is {4,5,6}; its highest variable is cut first.
+  assert(rows.size() >= 2 && rows[1] == std::make_pair(uint8_t{2}, 12u));
+
+  GroupSettings invalid;
+  invalid.chain_mode = 1;
+  invalid.cut_point = 2;
+  Fixings fixings;
+  assert(fix_clauses(input, invalid, nullptr, nullptr, fixings) ==
+         Status::Invalid);
+}
+
+// A later clausal fix reads the root values its earlier levels publish. The
+// negation unit sets its base point true, so a clause holding that point is
+// satisfied and only a clause holding its complement shrinks to the pair.
+void negation_unit_value_matches_the_published_unit() {
+  constexpr uint32_t domain = 8; // variables 0..3
+  std::vector<uint32_t> generators;
+  for (int generator = 0; generator < 2; ++generator) {
+    const size_t at = generators.size();
+    for (uint32_t point = 0; point < domain; ++point)
+      generators.push_back(point);
+    if (!generator)
+      for (uint32_t sign = 0; sign < 2; ++sign)
+        std::swap(generators[at + 0 + sign], generators[at + 2 + sign]);
+    else
+      std::swap(generators[at + 6], generators[at + 7]);
+  }
+  const std::vector<int8_t> values(domain, 0);
+  const uint64_t offsets[] = {0, 3};
+  const auto run = [&](uint32_t negation_literal) {
+    const uint32_t literals[] = {negation_literal, 0, 2};
+    const GroupInput input{domain, 2, generators.data(), 1, offsets, 3,
+                           literals, values.data()};
+    GroupSettings settings;
+    settings.seed = 7;
+    settings.chain_mode = 1;
+    settings.negation_fixing_first = true;
+    Fixings fixings;
+    assert(fix_clauses(input, settings, nullptr, nullptr, fixings) ==
+           Status::Complete);
+    std::vector<std::pair<uint8_t, uint32_t>> rows;
+    for (uint64_t row = 0; row < fixings.count; ++row)
+      rows.emplace_back(fixings.kinds[row], fixings.representatives[row]);
+    release(fixings);
+    return rows;
+  };
+  using Rows = std::vector<std::pair<uint8_t, uint32_t>>;
+  // Satisfied by the unit: the pair is only cut.
+  assert((run(7) == Rows{{3, 7}, {2, 0}}));
+  // Falsified by the unit: the remaining pair is a fixable clause.
+  assert((run(6) == Rows{{3, 7}, {0, 0}, {1, 0}}));
+}
+
 void clausal_base_extension_retains_known_generators() {
   constexpr uint32_t domain = 84;
   std::vector<uint32_t> generators;
@@ -1712,6 +1828,8 @@ int main() {
   clausal_reverse_star_closes_known_targets();
   clausal_transversals_close_alternating_generator_words();
   clausal_base_extension_retains_known_generators();
+  owner_chain_order_fixes_negations_first_and_cuts_the_last_largest_orbit();
+  negation_unit_value_matches_the_published_unit();
   compact_component_images_scale_with_support();
   detection_owns_results_and_observes_stop();
   detector_order_is_effective_reproducible_and_bounded();

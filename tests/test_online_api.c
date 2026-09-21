@@ -570,6 +570,27 @@ static void invalid_graph_sr_settings_are_transactional(void) {
                                  TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
   step.parameters.value.substitution_redundancy
       .symmetry_pointwise_root_stabilizer_mode = TACTIX_ONLINE_SETTING_ENABLE;
+  for (int point = TACTIX_ONLINE_SYMMETRY_CUT_POINT_INHERIT;
+       point <= TACTIX_ONLINE_SYMMETRY_CUT_POINT_LARGEST_ORBIT_LAST; ++point)
+    for (int mode = TACTIX_ONLINE_SETTING_INHERIT;
+         mode <= TACTIX_ONLINE_SETTING_ENABLE; ++mode) {
+      step.parameters.value.substitution_redundancy.symmetry_cut_point = point;
+      step.parameters.value.substitution_redundancy
+          .symmetry_negation_fixing_first_mode = mode;
+      assert(tactix_online_configure(solver, &program, 23340 + 3 * point + mode,
+                                     TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+    }
+  step.parameters.value.substitution_redundancy.symmetry_cut_point = 99;
+  assert(tactix_online_configure(solver, &program, 23350,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  step.parameters.value.substitution_redundancy.symmetry_cut_point =
+      TACTIX_ONLINE_SYMMETRY_CUT_POINT_LARGEST_ORBIT_LAST;
+  step.parameters.value.substitution_redundancy
+      .symmetry_negation_fixing_first_mode = 99;
+  assert(tactix_online_configure(solver, &program, 23351,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  step.parameters.value.substitution_redundancy
+      .symmetry_negation_fixing_first_mode = TACTIX_ONLINE_SETTING_ENABLE;
   for (int mode = TACTIX_ONLINE_SETTING_INHERIT;
        mode <= TACTIX_ONLINE_SETTING_ENABLE; ++mode) {
     step.parameters.value.substitution_redundancy

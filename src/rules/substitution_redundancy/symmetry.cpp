@@ -979,8 +979,17 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
       hard_affordable_generators < requested_generators;
   settings.maximum_generators =
       std::min(requested_generators, hard_affordable_generators);
+  // Under progress scheduling an exact generator earns the window which pays
+  // for its validation, so the entry opportunity admits one generator whenever
+  // the hard allowance affords it. Without that floor a formula whose single
+  // validation quantum exceeds half the entry window can never start the
+  // feedback it is entitled to.
+  const uint64_t entry_generators =
+      scheduling.progress_ticks_per_generator && hard_affordable_generators ? 1
+                                                                            : 0;
   settings.initial_generators =
-      std::min(settings.maximum_generators, affordable_generators);
+      std::min(settings.maximum_generators,
+               std::max(affordable_generators, entry_generators));
   settings.progress_generators_per_generator = validation_quantum
       ? scheduling.progress_ticks_per_generator / validation_quantum
       : 0;
@@ -1257,7 +1266,9 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
                            ? configured.chain_planning_tick_limit : UINT64_MAX,
                        planning_allowance)
             : configured.chain_planning_tick_limit,
-        configured.factor_support_components};
+        configured.factor_support_components,
+        static_cast<uint8_t>(configured.cut_point),
+        configured.negation_fixing_first};
     symmetry_backend::Fixings fixings;
     const symmetry_backend::Status fixed = trace.measure("symmetry_fix_clauses", [&] {
       return symmetry_backend::fix_clauses(group, group_settings, backend_stop,

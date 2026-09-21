@@ -1,0 +1,9 @@
+{
+  "origin": "Claude AM327 focused fuzz, job1711761, sc-drop-n5 seed 297022744",
+  "failure_class": "unsound",
+  "cause": "FixAndCut planner recorded a negation-first level's base point false while the published negation-orbit unit set it true; a later clausal fix read a satisfied clause as the open pair",
+  "min_verdict": "SAT",
+  "case_verdict": "SAT",
+  "required_profile": "DefaultPolicy structured startup with negation_fixing_first and native DSR",
+  "repair": "The negation level's base point is the owner's negative literal and the planner assigns it true, as published"
+}

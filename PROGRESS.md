@@ -165,19 +165,49 @@ pseudo-Boolean ones; this is structural for clausal DSR and is a size/check-time
 matter, not validity. (3) A witnessed clause that is already false at the root
 cannot avoid closing the refutation at its own line; no occurrence is known.
 
+## Phase 3 status (WV2-89)
+
+Baseline on the committed binary (`benchmarks/runs/20260920-am325-wv2-89-baseline`,
+table in its `table.md`): 72 rows within 600s, 5 late, 12 timeouts.
+
+AM329 (Release `74eeb53b...`, Debug `9a7165ba...`; report
+`benchmarks/reports/2026-09-21-am329-negation-first-entry-floor.md`) adds the owner's
+negation-fixing pass before FixAndCut (typed `negation_fixing_first`; the owner's cut
+point and unconditional handoff are typed but declined) and a one-generator entry
+floor for generic symmetry discovery. Gates `...-am329-negation-unit-sign-*` (jobs
+`1711797`-`1711800`): Rank 50/50, B28+C5 33/33, WV100 100/100, WV2-89 79 solved / 74
+within 600s (gained `bphp_p23_h22`, `xor_op_n40_d3`), no lost row; fuzz matrix
+`...-am329-negation-unit-sign-claude-fuzz` 18/18 legs, 0 failures. It supersedes AM327,
+whose pin was UNSOUND although every gate verified (planner root values disagreed with
+the published negation unit); Debug builds now cross-check every chain/orbitopal-
+certified X7 instance. Large certificates still in the checker: AM329 `1711797_{17,21,46}`,
+`1711799_{79,82,85,89}` and the WV2-89 tail; committed binary `1709359_21`,
+`1709383_{79,82,85,89}`.
+
+Remaining WV2-89 misses (15): `ramsey_4_4_19` is a symmetry-breaking-predicate gap
+(Kissat solves original + Satsuma's clauses, times out on original + Tactix's;
+Satsuma's tail after the eight common units is what matters; evidence
+`benchmarks/runs/20260921-wv2-owner-anchor`); `mp1-Nb7T42` and `SC25_Timetable` receive
+the owner's preprocessing and are search gaps; `6g_6color` and `hcp_CP18_18` are
+large-domain (>50k variables) preprocessing gaps (held, no-gain edits in
+`benchmarks/runs/20260921-am328-linear-pass-window`); LymphoSAT structural families
+(`sgen1-sat`, `sted5`, `1-ET-512`, `FmlaEquivChain`, `noL-11-4`, `puzzle32`); plain CDCL
+parity rows (`snw_16_9`, `Circuit_multiplier24`, `ntil-90d-39`, `lockchart...L19`).
+
 ## Exact next action
 
-Read the five pending large-certificate records when they land (a checker
-timeout is a not-valid record and a parity-proof-size work item). Then Phase 3:
-audit the WV2-89 baseline `benchmarks/runs/20260920-am325-wv2-89-baseline` (job
-`1710446`, Release `34bcac0b...`, 1,200s solve limit) into solved-within-600s,
-solved-late and unsolved, grouped by owning solver and family, and start with
-the largest LymphoSAT/Satsuma-owned family that Tactix misses.
+Read job `1712087` (`benchmarks/runs/20260921-wv2-owner-anchor/logs/arms-1712087.log`):
+which part of Satsuma's ramsey tail matters, and whether the owner's first-literal
+anchor plus its cut point reproduce it in Tactix. A port must rescreen the
+`ntil`/`noL`/`clqcl` rows that rejected the cut point alone. The same planner pin
+takes a monotone cursor for the negation-first scan (it restarts at point 0 per
+level and is not tick-charged; stabilizer orbits only shrink, so the rows are
+unchanged). Run the Debug corpus and focused fuzz legs before any gate.
 
 ## Recent changes
 
-- Switched acceptance checking to the exact Satsuma+Kissat DSR pipeline; fuzz and proof suites add a forward every-lemma audit.
-- X7 root-unit clauses take the non-propagating general encoding; the per-unit consequence probe is gone.
+- Acceptance checking is the exact Satsuma+Kissat DSR pipeline plus a forward every-lemma audit; X7 root-unit clauses take the non-propagating general encoding.
 - Sweep: target-conditioned prefix lemmas, proof/no-proof parity, unbounded capture default, proof ids required only under LRAT.
 - BVE candidate contract with the result read from `kernel_change_mark`; TransitiveReduce scratch reset; Debug invariant scoped to a consistent kernel.
 - Fixed the WV2-89 tranche (`benchmarks/tiers/WV2-89.tsv`, plan gate T4-WV2-89) as Phase 3.
+- AM329: owner negation fixing before FixAndCut, generic-entry generator floor, Debug cross-check of certified X7 rows; AM327 withdrawn as unsound.

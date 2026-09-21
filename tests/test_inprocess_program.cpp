@@ -121,6 +121,10 @@ int main() {
          !no_progress_graph.stabilize_structured_variables);
   assert(progress_graph.use_structured_generators &&
          progress_graph.stabilize_structured_variables);
+  // DefaultPolicy takes the owner's negation-fixing pass but keeps its own cut
+  // point; the transliterated reference profile carries both owner choices.
+  assert(progress_graph.negation_fixing_first &&
+         progress_graph.cut_point == tactix::SymmetryCutPoint::FirstOpen);
   assert(progress_graph.nonforcing_cut_admission ==
          tactix::SymmetryNonforcingCutAdmission::RequireCompoundProgress);
   assert(helper_progress_graph.nonforcing_cut_admission ==

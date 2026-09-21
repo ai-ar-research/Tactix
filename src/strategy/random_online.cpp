@@ -520,6 +520,12 @@ ActionParameters random_parameters(const Kernel &k, uint64_t &state, const std::
     graph.nonforcing_cut_admission =
         static_cast<SymmetryNonforcingCutAdmission>(
             bounded(cut_admission_state, 3));
+    // A further derived stream: the earlier parameter draws stay unchanged.
+    uint64_t chain_order_state =
+        static_cast<uint64_t>(graph.seed) ^ 0x434841494e4f5244ull;
+    graph.cut_point =
+        static_cast<SymmetryCutPoint>(bounded(chain_order_state, 2));
+    graph.negation_fixing_first = bounded(chain_order_state, 2);
     if (config.sr_joint_positive_numerator &&
         bounded(scheduling_state, config.sr_joint_positive_denominator) <
             config.sr_joint_positive_numerator) {
@@ -941,8 +947,10 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
              (tuple(text, "sr25", v) && v.size() == 55) ||
              (tuple(text, "sr26", v) && v.size() == 56) ||
              (tuple(text, "sr27", v) && v.size() == 57) ||
-             (tuple(text, "sr28", v) && v.size() == 58)) {
-    const bool has_cut_admission = text.starts_with("sr28(");
+             (tuple(text, "sr28", v) && v.size() == 58) ||
+             (tuple(text, "sr29", v) && v.size() == 60)) {
+    const bool has_chain_order = text.starts_with("sr29(");
+    const bool has_cut_admission = text.starts_with("sr28(") || has_chain_order;
     const bool has_progress_feedback = text.starts_with("sr27(") ||
                                        has_cut_admission;
     const bool has_schreier_domain_limit = text.starts_with("sr26(") ||
@@ -1115,6 +1123,13 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
           return false;
         graph.nonforcing_cut_admission =
             static_cast<SymmetryNonforcingCutAdmission>(v[57]);
+      }
+      if (has_chain_order) {
+        if (v[58] > static_cast<uint64_t>(SymmetryCutPoint::LargestOrbitLast) ||
+            v[59] > 1)
+          return false;
+        graph.cut_point = static_cast<SymmetryCutPoint>(v[58]);
+        graph.negation_fixing_first = v[59];
       }
       if (has_structured_handoff) {
         if (v[52] > 1 || v[53] > 1) return false;
@@ -1657,11 +1672,14 @@ std::string serialize_online_strategy_program(
       const bool nonforcing_cut_admission =
           p->graph_symmetry.nonforcing_cut_admission !=
           SymmetryNonforcingCutAdmission::Publish;
+      const bool chain_order =
+          p->graph_symmetry.cut_point != SymmetryCutPoint::FirstOpen ||
+          p->graph_symmetry.negation_fixing_first;
       const bool first_shortest = p->graph_symmetry.base_selection ==
           SymmetryBaseSelection::FirstShortestThenForwardRemainder;
       const bool shortest_base = first_shortest ||
           p->graph_symmetry.base_selection == SymmetryBaseSelection::ShortestClause;
-      out << (nonforcing_cut_admission ? ":sr28(" : p->orbitopal_progress_feedback ? ":sr27(" : bounded_schreier ? ":sr26(" : first_shortest ? ":sr25(" : shortest_base ? ":sr24("
+      out << (chain_order ? ":sr29(" : nonforcing_cut_admission ? ":sr28(" : p->orbitopal_progress_feedback ? ":sr27(" : bounded_schreier ? ":sr26(" : first_shortest ? ":sr25(" : shortest_base ? ":sr24("
                   : p->graph_symmetry.structured_scope == SymmetryStructuredScope::WholeMatrix
                   ? ":sr22(" : ":sr23(") << p->maximum_validation_ticks << ','
           << static_cast<unsigned>(p->producer) << ','
@@ -1717,16 +1735,19 @@ std::string serialize_online_strategy_program(
           << p->graph_symmetry.preserve_detector_order << ','
           << p->graph_symmetry.use_structured_generators << ','
           << p->graph_symmetry.stabilize_structured_variables;
-      if (nonforcing_cut_admission || p->orbitopal_progress_feedback || bounded_schreier || shortest_base ||
+      if (chain_order || nonforcing_cut_admission || p->orbitopal_progress_feedback || bounded_schreier || shortest_base ||
           p->graph_symmetry.structured_scope != SymmetryStructuredScope::WholeMatrix)
         out << ',' << static_cast<unsigned>(p->graph_symmetry.structured_scope);
-      if (nonforcing_cut_admission || p->orbitopal_progress_feedback || bounded_schreier)
+      if (chain_order || nonforcing_cut_admission || p->orbitopal_progress_feedback || bounded_schreier)
         out << ',' << p->graph_symmetry.schreier_domain_limit;
-      if (nonforcing_cut_admission || p->orbitopal_progress_feedback)
+      if (chain_order || nonforcing_cut_admission || p->orbitopal_progress_feedback)
         out << ',' << p->orbitopal_progress_feedback;
-      if (nonforcing_cut_admission)
+      if (chain_order || nonforcing_cut_admission)
         out << ',' << static_cast<unsigned>(
             p->graph_symmetry.nonforcing_cut_admission);
+      if (chain_order)
+        out << ',' << static_cast<unsigned>(p->graph_symmetry.cut_point) << ','
+            << p->graph_symmetry.negation_fixing_first;
       out << ')';
     }
     else

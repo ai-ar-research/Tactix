@@ -506,6 +506,33 @@ static void configurable_parameters_round_trip() {
   assert(serialize_online_strategy_program(cut_admission_replay) ==
          cut_admission_wire);
 
+  // sr29 appends the owner's chain order; older wires restore its defaults.
+  for (const bool negation_first : {false, true}) {
+    auto chain_order = cut_admission;
+    auto &graph = std::get<SubstitutionRedundancyParameters>(
+                      chain_order.sequence[5].parameters).graph_symmetry;
+    graph.cut_point = negation_first ? SymmetryCutPoint::FirstOpen
+                                     : SymmetryCutPoint::LargestOrbitLast;
+    graph.negation_fixing_first = negation_first;
+    const std::string wire = serialize_online_strategy_program(chain_order);
+    assert(wire.find(":sr29(") != std::string::npos);
+    OnlineStrategyProgram replay;
+    assert(deserialize_online_strategy_program(wire, replay, &error));
+    const auto &decoded_graph = std::get<SubstitutionRedundancyParameters>(
+                                    replay.sequence[5].parameters).graph_symmetry;
+    assert(decoded_graph.cut_point == graph.cut_point &&
+           decoded_graph.negation_fixing_first == negation_first &&
+           decoded_graph.nonforcing_cut_admission ==
+               SymmetryNonforcingCutAdmission::RequireCompoundProgress);
+    assert(serialize_online_strategy_program(replay) == wire);
+  }
+  assert(std::get<SubstitutionRedundancyParameters>(
+             cut_admission_replay.sequence[5].parameters)
+                 .graph_symmetry.cut_point == SymmetryCutPoint::FirstOpen &&
+         !std::get<SubstitutionRedundancyParameters>(
+              cut_admission_replay.sequence[5].parameters)
+              .graph_symmetry.negation_fixing_first);
+
   // Equal-shaped versions retain their historical enum domain.
   for (const auto order : {OrbitopalColumnOrder::CooccurrenceGreedyClique,
                           OrbitopalColumnOrder::CooccurrenceBoundedGreedyClique}) {
@@ -1080,6 +1107,7 @@ static void random_sr_is_structured_replayable_and_effective() {
   std::set<uint32_t> binary_graph_densities;
   bool involutions_only[2] = {}, root_stabilizers[2] = {};
   bool nonforcing_cut_admissions[3] = {};
+  bool cut_points[2] = {}, negation_fixings[2] = {};
   bool component_modes[2] = {}, effective_components[2] = {};
   bool detector_orders[2] = {}, effective_detector_orders[2] = {};
   bool handoffs[4] = {}, effective_handoffs[4] = {};
@@ -1130,6 +1158,8 @@ static void random_sr_is_structured_replayable_and_effective() {
     root_stabilizers[parameters.graph_symmetry.pointwise_root_stabilizer] = true;
     nonforcing_cut_admissions[static_cast<unsigned>(
         parameters.graph_symmetry.nonforcing_cut_admission)] = true;
+    cut_points[static_cast<unsigned>(parameters.graph_symmetry.cut_point)] = true;
+    negation_fixings[parameters.graph_symmetry.negation_fixing_first] = true;
     component_modes[parameters.graph_symmetry.factor_support_components] = true;
     detector_orders[parameters.graph_symmetry.preserve_detector_order] = true;
     const unsigned handoff = parameters.graph_symmetry.use_structured_generators |
@@ -1210,6 +1240,8 @@ static void random_sr_is_structured_replayable_and_effective() {
          root_stabilizers[0] && root_stabilizers[1]);
   assert(nonforcing_cut_admissions[0] && nonforcing_cut_admissions[1] &&
          nonforcing_cut_admissions[2]);
+  assert(cut_points[0] && cut_points[1] && negation_fixings[0] &&
+         negation_fixings[1]);
   assert(component_modes[0] && component_modes[1]);
   assert(effective_components[0] && effective_components[1]);
   for (unsigned mode = 0; mode < 4; ++mode)

@@ -433,6 +433,10 @@ int tactix_apply_semantic_instance(tactix *, int rule_id, uint64_t instance);
 #define TACTIX_ONLINE_SYMMETRY_BASE_FIRST_AMO_THEN_FORWARD_REMAINDER 5
 #define TACTIX_ONLINE_SYMMETRY_BASE_SHORTEST_CLAUSE 6
 #define TACTIX_ONLINE_SYMMETRY_BASE_FIRST_SHORTEST_THEN_FORWARD_REMAINDER 7
+/* Base point of a FIX_AND_CUT cut level once no clause is fixable. */
+#define TACTIX_ONLINE_SYMMETRY_CUT_POINT_INHERIT 0
+#define TACTIX_ONLINE_SYMMETRY_CUT_POINT_FIRST_OPEN 1
+#define TACTIX_ONLINE_SYMMETRY_CUT_POINT_LARGEST_ORBIT_LAST 2
 
 typedef struct {
   uint32_t minimize_depth_limit;
@@ -750,6 +754,14 @@ typedef struct {
    * withholds a singleton forcing batch which exposes no second certified
    * consequence in the same pass. */
   int symmetry_nonforcing_cut_admission;
+  /* Appended. TACTIX_ONLINE_SYMMETRY_CUT_POINT_*; active with FIX_AND_CUT.
+   * LARGEST_ORBIT_LAST takes the largest stabilizer orbit, the highest
+   * variable among equals, then a strictly better common-clause score. */
+  int symmetry_cut_point;
+  /* Appended. TACTIX_ONLINE_SETTING_*; ENABLE makes a FIX_AND_CUT chain fix
+   * every variable whose stabilizer orbit holds its own complement before any
+   * fix or cut level. INHERIT retains the disabled default. */
+  int symmetry_negation_fixing_first_mode;
 } tactix_online_sr_parameters;
 
 /* One exact Factor remainder column and grid. Literals use permanent DIMACS

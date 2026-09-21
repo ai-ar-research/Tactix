@@ -101,6 +101,10 @@ DefaultStrategyConfig::structured_root_preprocessing_stages() {
   group.stabilize_structured_variables = true;
   group.structured_scope = SymmetryStructuredScope::WholeMatrix;
   group.base_selection = SymmetryBaseSelection::FirstAmoThenForwardRemainder;
+  // The owner's negation-fixing pass precedes every fix or cut level. Its cut
+  // point (largest orbit, highest variable) stays a typed choice: on the
+  // frozen gates it only re-rolls satisfiable symmetric searches.
+  group.negation_fixing_first = true;
   // Root-forcing chains earn their complete atomic prefix. A kind-2-only batch
   // merely perturbs the initial search trajectory, so the startup policy waits
   // for a forcing member while explicit strategies retain full FixAndCut.
