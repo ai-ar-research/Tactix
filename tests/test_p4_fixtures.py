@@ -64,11 +64,18 @@ with tempfile.TemporaryDirectory(prefix="generic-dsr-proof-") as directory:
 
     def fake_checker(argv, **kwargs):
         name = pathlib.Path(argv[0]).name
+        # The Satsuma+Kissat reference pipeline: dsr-trim with no options,
+        # dsr-compress -d, then Trestle on the text LSR.
         if name == "dsr-trim":
+            assert not [arg for arg in argv[1:] if str(arg).startswith("-")]
             pathlib.Path(argv[-1]).write_bytes(b"binary-lsr")
             return subprocess.CompletedProcess(argv, 0, "s VERIFIED UNSAT\n", "")
+        if name == "dsr-compress":
+            assert argv[1] == "-d"
+            pathlib.Path(argv[-1]).write_text("text-lsr")
+            return subprocess.CompletedProcess(argv, 0, "", "")
         assert name == "srcheck"
-        assert argv[-1] == "c"
+        assert len(argv) == 3
         return subprocess.CompletedProcess(argv, 0, "s VERIFIED UNSAT\n", "")
 
     with mock.patch.object(runner.subprocess, "run", side_effect=fake_checker):

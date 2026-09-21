@@ -179,12 +179,12 @@ The proof backend receives typed logical events. Its canonical serializer emits
 one streaming DSR certificate: ordinary RUP/RAT additions are witnessless DSR
 additions, deletions are DSR deletions, and substitution-redundancy additions
 carry their finite substitution witness directly. Binary DSR is the normal CLI
-output; ASCII DSR, DRAT and native LRAT remain explicit modes. The acceptance
-pipeline uses forward elaboration so every DSR line is checked. Format choice
-may not alter admission, scheduling, or state effects within the vocabulary a
-format supports. A direct-SR action in a DRAT/LRAT compatibility run reports
-`unsupported` before mutation; compatibility formats do not narrow its DSR N1
-instance surface. The backend retains no whole-formula proof ledger.
+output; ASCII DSR, DRAT and native LRAT remain explicit modes. Acceptance is the
+exact Satsuma+Kissat DSR pipeline; fuzzing also checks every line forward.
+Format choice may not alter admission, scheduling, or state effects within the
+vocabulary a format supports. A direct-SR action in a DRAT/LRAT compatibility
+run reports `unsupported` before mutation; compatibility formats do not narrow
+its DSR N1 instance surface. The backend retains no whole-formula proof ledger.
 
 Every level-zero fact used by a later proof rule belongs to the checker-visible
 proof state. LRAT records it with its reason chain; DSR records an explicit
@@ -195,8 +195,8 @@ unit behavior where no later direct-SR step can consume that hidden state.
 
 Direct SR also requires exact non-LRAT clause multiplicity at its application
 boundary. DSR/DRAT deletions identify a literal multiset, so identical physical
-copies are interchangeable but every solver-side removal needs a matching
-count change. Proof-only transient lemmas must be retired before SR validation;
+copies are interchangeable but every solver-side removal needs a matching count
+change. Proof-only transient lemmas must be retired before SR validation;
 leaving a harmless extra RUP antecedent in the checker creates an additional SR
 obligation absent from the kernel snapshot. Multi-step proof derivations are
 transactional at interruption boundaries: if their final consequence never
@@ -433,8 +433,8 @@ repair alone does not close its fuzz gate.
 - **T4-K:** on each annual Tier-D view and their union, cover every Kissat 4.0.4
   solve and reach at most 1.10× its PAR-2.
 - **T4-WV100:** solve all 100 fixed WV100 instances within 1,200 seconds and
-  32 GiB with independently checked models or proofs while retaining the
-  B28+C5, Rank 1–50, memory and runtime gates. This gates Phase 4.5.
+  32 GiB with independently checked models or proofs while retaining the B28+C5, Rank 1–50, memory and runtime gates. This gates Phase 4.5.
+- **T4-WV2-89:** solve each of the 89 fixed WV2-89 instances within 600 seconds and 32 GiB with independently checked models or proofs, under the same retained gates and the same integration rule as WV100.
 - **T4-VBS:** exact status-sensitive parity with the frozen reference VBS on
   the union. Every independently checked SAT or UNSAT result from each frozen
   configuration qualifies, including LymphoSAT.
@@ -508,7 +508,7 @@ All checked solver/status combinations qualify, including LymphoSAT UNSAT.
 The fixed set contains 33 SAT and 67 UNSAT targets: 34 LymphoSAT, 57
 Satsuma+Kissat, seven AE-Kissat-MAB, and two kissat-sc2024 sole-winner
 signatures. Solved entries remain in the denominator; the goal is checked
-Tactix coverage of 100/100 under the same 32-GiB/1,200-second contract. The persistent goal continues beyond recovery of the Rank/B28 runtime gates: identify and integrate the relevant techniques from each remaining row's owning baseline into Tactix's shared rules and strategy. No sequential portfolio, external solver stage, or benchmark-specific dispatch qualifies; retain correctness, fuzz, memory and aggregate runtime gates throughout.
+Tactix coverage of 100/100 under the same 32-GiB/1,200-second contract. The persistent goal continues beyond recovery of the Rank/B28 runtime gates: identify and integrate the relevant techniques from each remaining row's owning baseline into Tactix's shared rules and strategy. No sequential portfolio, external solver stage, or benchmark-specific dispatch qualifies; retain correctness, fuzz, memory and aggregate runtime gates throughout. **WV2-89** is the second fixed tranche, `benchmarks/tiers/WV2-89.tsv`: the 89 rows of ranks 101–250 whose fastest checked configuration solves within 300 seconds (57 SAT, 32 UNSAT; fastest owner 25 LymphoSAT, 21 Satsuma+Kissat, 24 AE-Kissat-MAB, 19 Kissat). Its target is 600 seconds per row. Rows owned by LymphoSAT or Satsuma+Kissat are technique-integration targets; rows that several Kissat configurations solve are a DefaultPolicy parity question (N3), not a licence for per-instance tuning.
 
 **Intermediate Satsuma gate.** Before work on the remaining 43 signatures,
 Tactix must solve and independently check all 57 Satsuma+Kissat-owned rows in

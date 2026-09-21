@@ -590,6 +590,14 @@ struct Stats {
   uint64_t stconn_proof_budget_exhausted = 0;
   uint64_t stconn_proof_unsat = 0;
   uint64_t stconn_proof_interrupted = 0;
+  uint64_t signed_cardinality_proof_calls = 0;
+  uint64_t signed_cardinality_proof_recognized = 0;
+  uint64_t signed_cardinality_proof_groups = 0;
+  uint64_t signed_cardinality_proof_bdd_nodes = 0;
+  uint64_t signed_cardinality_proof_additions = 0;
+  uint64_t signed_cardinality_proof_budget_exhausted = 0;
+  uint64_t signed_cardinality_proof_unsat = 0;
+  uint64_t signed_cardinality_proof_interrupted = 0;
   uint64_t local_search_hints_offered = 0;
   uint64_t local_search_hints_applied = 0;
   uint64_t walks = 0;         // S6 Walk applications (policy op)
@@ -725,6 +733,11 @@ struct Stats {
   uint64_t random_sequences = 0;   // random-decision sequences started
   uint64_t random_decisions = 0;   // decisions actually taken at random
   uint64_t mab_restarts = 0;       // stable restarts observed by the bandit
+  uint64_t mab_activation_limit = 0;
+  uint64_t mab_activation_delayed = 0;
+  uint64_t mab_activations = 0;
+  uint64_t mab_activation_sr_suppressed = 0;
+  uint64_t mab_activation_fastel_accelerated = 0;
   uint64_t mab_switches = 0;       // those selecting a different arm
   uint64_t mab_evsids_selections = 0;
   uint64_t mab_chb_selections = 0;
@@ -831,6 +844,16 @@ struct Stats {
   uint64_t bve_rounds = 0;         // BVE canonical-apply calls (a policy that
   uint64_t bve_eliminated = 0;     // variables eliminated by BVE resolution
   uint64_t bve_resolutions = 0;    // resolvents attempted — BVE's unit of work
+  uint64_t fastel_rounds = 0;      // startup owner-pass admission checks
+  uint64_t fastel_candidates = 0;  // candidates in those checked domains
+  uint64_t fastel_active = 0;      // active variables at those checks
+  uint64_t fastel_discovery_ticks = 0; // live variables inspected by admission
+  uint64_t fastel_budget_stops = 0; // domains exceeding the shared effort dose
+  uint64_t fastel_declined = 0;    // domains where the owner pass was minority
+  uint64_t fastel_root_suppressed = 0; // structured roots rebuilt the residual
+  uint64_t fastel_eliminated = 0;  // eliminations committed by startup fastel
+  uint64_t fastel_resolutions = 0; // BVE work committed by startup fastel
+  uint64_t fastel_nanos = 0;       // complete startup fastel phase time
   uint64_t bve_bwd_queued = 0;      // fresh resolvents used as subsumers
   uint64_t bve_bwd_subsumed = 0;    // victims deleted (cadical elimbwsub)
   uint64_t bve_bwd_strengthened = 0; // victims shortened (cadical elimbwstr)
@@ -1204,7 +1227,9 @@ struct Kernel {
   // solver-side asserted units.  Keep that proof-only deduplication state
   // separate from `unit_ids`, whose presence is observable by simplification
   // rules and therefore affects the search trajectory.
-  std::vector<int8_t> dsr_root_values; // emitted polarity by var, 0 if none
+  // Kernel root units already written to the native-DSR proof, by variable:
+  // emitted polarity, 0 if none.  Never a unit the kernel does not hold.
+  std::vector<int8_t> dsr_root_values;
   BinaryIdMap binary_ids;
   BinaryLivenessIndex *binary_liveness = nullptr; // scoped dense-rule index
   std::vector<std::pair<uint32_t, uint64_t>> lrat_entries;
@@ -1364,6 +1389,10 @@ struct Kernel {
   // its next forward pass; that reference-aligned strategy is the default,
   // while the proof rule remains available through TACTIX_BVE_BACKWARD=1.
   bool bve_backward = false;
+  // Physical traversal profile posed by the typed BVE invocation. Logical
+  // BVE semantics are unchanged; startup fastel uses its owner's insertion
+  // order while ordinary Eliminate retains Kissat's canonical order.
+  bool bve_fastel_traversal = false;
   // Strategy-owned XOR-recognition arity.  The proof rule's representation
   // capacity and the shipped default are named in rules/bve/bve.hpp.
   uint32_t bve_xor_arity_limit = 5;
@@ -1497,6 +1526,7 @@ struct Kernel {
   strategy::LookupCircuitModelParameters lookup_circuit_model_parameters;
   strategy::SimonModelParameters simon_model_parameters;
   strategy::StconnProofParameters stconn_proof_parameters;
+  strategy::SignedCardinalityProofParameters signed_cardinality_proof_parameters;
   uint32_t onehot_model_maximum_variables =
       strategy::OnehotModelParameters::MAXIMUM_VARIABLES_DEFAULT;
   uint32_t onehot_model_maximum_domains =
@@ -1833,6 +1863,19 @@ inline void kernel_removed_var(Kernel &k, Var v) {
     k.removed[v] = epoch;
   k.stats.touch_marks++;
 }
+// Monotone observation of the formula and the root assignment: every clause
+// addition and semantic removal stamps `touch_epoch`, every root assignment
+// counts in `root_assignments`.  Equal marks bracket an application which
+// changed neither; representation work (list compaction, collection) is
+// deliberately invisible here.
+struct KernelChangeMark {
+  uint64_t touch_epoch = 0;
+  uint64_t root_assignments = 0;
+  bool operator==(const KernelChangeMark &) const = default;
+};
+inline KernelChangeMark kernel_change_mark(const Kernel &k) {
+  return {k.touch_epoch, k.stats.root_assignments};
+}
 inline bool kernel_touched_since(const Kernel &k, Var v, uint64_t since) {
   assert(!k.cold_state_deferred);
   return k.touched[v] > since;
@@ -1966,19 +2009,26 @@ void kernel_swap_large_watch_refs(Kernel &, Lit l, Ref first, Ref second,
 void kernel_promote_watched_lit(Kernel &, Ref ref, uint32_t slot,
                                 uint32_t from);
 
+// Publish a propagation-derived root fact before its reason disappears. DSR
+// checkers must see this unit while the reason clause is still available for
+// RUP; the proof-only polarity table makes repeated publication idempotent.
+void kernel_materialize_dsr_root_unit(Kernel &, Lit);
+
 // Retire any trail reason naming this clause, so a delete never leaves a
-// literal whose reason is a dropped clause. Proof chains no longer depend on
-// this: kernel_reason_walk cites a root-fixed literal's unit id and never
-// enters its retained reason. Retiring keeps the trail's reason state honest
-// for the non-proof readers. Only for callers deleting at a quiescent root,
-// propagated literal is root-fixed and already carries its own unit id. The
-// kernel's own root flush instead lets the collector's pass do this at the
-// end of the same call.
+// literal whose reason is a dropped clause. In DSR mode the reason is also the
+// RUP witness for a permanent unit, so publish that unit before retiring it.
 inline void kernel_retire_root_reason(Kernel &k, const Clause *c, Ref ref) {
   for (const Lit lit : *c) {
     Assigned &a = k.assigned[var_of(lit)];
     if (!a.binary && a.reason == ref && k.values[lit] != 0) {
-      assert(a.level == 0);
+      // In-place OTFS/Strengthen/Vivify rewrites temporarily retire the old
+      // proof clause while preserving this arena Ref as a live non-root
+      // reason. Only a level-zero reason becomes a permanent unit. Changing a
+      // non-root record to UNIT_REASON here drops its implication graph and
+      // makes the next conflict analysis read a decision as a reason.
+      if (a.level != 0)
+        continue;
+      kernel_materialize_dsr_root_unit(k, lit);
       a.reason = UNIT_REASON;
     }
   }
@@ -1999,6 +2049,9 @@ inline void kernel_delete_clause(Kernel &k, Clause *c,
   // already idempotent; this makes the whole retirement idempotent.
   if (c->garbage())
     return; // already retired
+  const Ref ref = static_cast<Ref>(reinterpret_cast<const uint32_t *>(c) -
+                                   k.arena.data());
+  kernel_retire_root_reason(k, c, ref);
   if (k.proof)
     k.proof->del(k.next_clause_id, c->id(), c->lits, c->size);
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
@@ -2410,6 +2463,10 @@ void kernel_dense_add_large_occurrence(Kernel &, Lit, Ref);
 // every remover must keep, which is why the Sweep session's eager membership
 // erases go through here rather than through `large` alone.
 void kernel_dense_remove_large_occurrence(Kernel &, Lit, Ref);
+// Move a live redundant large clause into the irredundant population and
+// publish it to every attached dense occurrence view.  A later in-place
+// rewrite assumes this membership exists for every irredundant literal.
+void kernel_promote_large_irredundant(Kernel &, Ref);
 void kernel_dense_disconnect(Kernel &);
 void kernel_flush_retired_redundant(Kernel &);
 

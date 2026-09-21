@@ -26,19 +26,8 @@ ApplyResult propagate_service(Kernel &k) {
   if (k.inconsistent)
     return ApplyResult::Unsat;
   const bool lrat = k.proof && k.proof->lrat();
-  const bool named_root_units = k.proof && (lrat || k.proof->dsr());
-  const size_t assigned_before = k.trail.size();
+  // `kernel_propagate` publishes the root literals it forces.
   const bool conflict = kernel_propagate(k);
-  // Deliberately not gated on `k.level == 0`. A forced literal is stamped at
-  // its true level (D-LEVEL-2), so a clause whose other literals are all
-  // root-false forces a literal at level 0 while the solver stands higher;
-  // gating on the solver's level would skip those, leave `unit_ids[v] == 0` —
-  // LRAT's chain terminator — and truncate every later chain citing them.
-  // `kernel_emit_root_units` applies the correct per-literal test. Only
-  // reachable with chrono on, and invisible to DRAT, so an LRAT fuzz leg pins
-  // it.
-  if (named_root_units)
-    kernel_emit_root_units(k, assigned_before);
   if (conflict) {
     k.stats.conflicts++;
     if (k.level == 0) { // root conflict: the formula is refuted

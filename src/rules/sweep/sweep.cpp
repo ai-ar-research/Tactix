@@ -11,6 +11,7 @@
 #include <cassert>
 #include <cstdio>
 #include <cstdlib>
+#include <unordered_map>
 #include <utility>
 
 namespace tactix {
@@ -2037,8 +2038,10 @@ static SweepGeneralPlan sweep_plan_general(const Kernel &k,
   for (const SubStep &step : p.steps)
     max_id = std::max(max_id, step.id);
   std::vector<uint8_t> named(static_cast<size_t>(max_id) + 1, 0);
+  // Only LRAT cites an antecedent by id; the other formats re-derive each
+  // lemma by propagation, so an original without a proof id is still usable.
   for (size_t i = 0; i < p.orig_ids.size(); i++)
-    named[i + 1] = p.orig_ids[i] != 0;
+    named[i + 1] = !lrat || p.orig_ids[i] != 0;
 
   for (size_t si = 0; si < p.steps.size(); si++) {
     if (kernel_terminating(k))
@@ -2149,13 +2152,15 @@ static bool sweep_apply_general_plan(Kernel &k,
   for (size_t i = 0; i < plan.source_ids.size(); i++)
     id_of[i + 1] = plan.source_ids[i];
   std::vector<uint64_t> chain;
+  std::vector<Lit> lifted;
   struct Transient {
     uint64_t id;
     std::vector<Lit> lits;
   };
+  const bool delete_transient_rup = k.proof != nullptr;
   std::vector<Transient> transients;
   const auto delete_transients = [&]() {
-    if (k.proof)
+    if (delete_transient_rup)
       for (size_t i = transients.size(); i-- > 0;)
         k.proof->del(k.next_clause_id, lrat ? transients[i].id : 0,
                      transients[i].lits.data(),
@@ -2165,31 +2170,61 @@ static bool sweep_apply_general_plan(Kernel &k,
   uint64_t last_id = 0;
   for (size_t si = 0; si < plan.steps.size(); si++) {
     const SweepGeneralStepPlan &step = plan.steps[si];
-    // An interrupted plan has no kernel effect. Retire every already-emitted
-    // proof-only prefix so a later direct-SR step sees the same clause
-    // population in the checker and kernel.
+    // An interrupted plan has no kernel effect. Every format retires each
+    // already-emitted proof-only prefix.
     if (sweep_stopping(k)) {
       delete_transients();
       return false;
     }
+    // Every intermediate lemma is written conditioned on the target, as the
+    // BVE definition lifter writes (unit v L).  The weakening is sound and
+    // stays RUP: each check assumes the target false, under which the earlier
+    // conditioned lemmas act exactly as the originals.  Its purpose is the
+    // checker's root state.  A DRAT/DSR checker propagates every written
+    // clause and keeps a unit even after its reason is deleted, so a bare
+    // temporary lemma that is unit under the root closure would hand the
+    // checker a unit the kernel never holds, and later deletions and witnessed
+    // additions that are correct for the solver's formula would be wrong for
+    // the checker's.  A conditioned lemma can only ever propagate a target
+    // literal, which the kernel itself holds once the target is installed.
+    // Nothing here depends on whether a proof is being written.
+    const bool final_step = si + 1 == plan.steps.size();
+    lifted.assign(step.lits.begin(), step.lits.end());
+    bool tautology = false;
+    if (!final_step)
+      for (const Lit target : {plan.t0, plan.t1}) {
+        if (target == INVALID_LIT)
+          continue;
+        if (std::find(lifted.begin(), lifted.end(), negate(target)) !=
+            lifted.end())
+          tautology = true;
+        else if (std::find(lifted.begin(), lifted.end(), target) ==
+                 lifted.end())
+          lifted.push_back(target);
+      }
+    // A lemma holding a negated target literal is satisfied whenever the
+    // target is assumed false, so no later conditioned check can use it.
+    if (tautology)
+      continue;
     chain = step.strip_ids;
     if (lrat)
       k.stats.sweep_strip_cited += step.strip_ids.size();
     for (const uint32_t antecedent : step.antecedents) {
-      assert(antecedent < id_of.size() && id_of[antecedent]);
-      chain.push_back(id_of[antecedent]);
+      assert(antecedent < id_of.size());
+      if (id_of[antecedent]) // zero: an omitted tautological lemma
+        chain.push_back(id_of[antecedent]);
     }
     const uint64_t id = ++k.next_clause_id;
     if (k.proof)
-      k.proof->add_rup(lrat ? id : 0, step.lits.data(),
-                       static_cast<uint32_t>(step.lits.size()),
+      k.proof->add_rup(lrat ? id : 0, lifted.data(),
+                       static_cast<uint32_t>(lifted.size()),
                        lrat ? chain.data() : nullptr,
                        lrat ? static_cast<uint32_t>(chain.size()) : 0);
     if (step.sub_id < id_of.size())
       id_of[step.sub_id] = id;
     last_id = id;
-    if (k.proof && si + 1 != plan.steps.size())
-      transients.push_back({id, step.lits});
+    if (delete_transient_rup && !final_step)
+      transients.push_back({id, lifted});
   }
   if (plan.t1 == INVALID_LIT) {
     k.unit_ids[var_of(plan.t0)] = last_id;
@@ -2334,37 +2369,9 @@ static bool sweep_emit_unit(Kernel &k, Lit unit) {
   return true;
 }
 
-// A successful Kitten refutation is the semantic certificate used by Kissat's
-// Sweep implementation.  When no external proof is requested, commit that
-// consequence directly: replaying it through the main propagator is redundant
-// and can decline valid consequences merely because its bounded traversal does
-// not reconstruct the embedded refutation.  Proof-producing runs still take
-// one of the checked translation paths below.
-static bool sweep_commit_unit_without_proof(Kernel &k, Lit unit) {
-  if (k.proof || k.value(unit) != 0)
-    return false;
-  const uint64_t id = ++k.next_clause_id;
-  k.unit_ids[var_of(unit)] = id;
-  kernel_assign_unit(k, unit);
-  k.stats.sweep_units++;
-  return true;
-}
-
-static bool sweep_commit_equiv_without_proof(Kernel &k, Lit a, Lit b) {
-  if (k.proof || a == b || a == negate(b) || k.value(a) != 0 ||
-      k.value(b) != 0)
-    return false;
-  const Lit fwd[2] = {negate(a), b};
-  const Lit rev[2] = {a, negate(b)};
-  kernel_add_binary_clause(k, fwd[0], fwd[1], ++k.next_clause_id);
-  kernel_add_binary_clause(k, rev[0], rev[1], ++k.next_clause_id);
-  k.stats.sweep_binaries += 2;
-  return true;
-}
-
 namespace {
 ApplyResult sweep_emit_pending_units(Kernel &k, SweepRound &round,
-                                     const SweepLimits &lim) {
+                                     const SweepLimits &) {
   bool any = false;
   while (round.units_emitted < round.units.size()) {
     if (sweep_stopping(k))
@@ -2374,8 +2381,10 @@ ApplyResult sweep_emit_pending_units(Kernel &k, SweepRound &round,
       round.units_emitted++;
       continue;
     }
-    bool emitted = !lim.force_general_proof &&
-                   sweep_commit_unit_without_proof(k, unit.unit);
+    // Whether a consequence is committed is decided the same way with or
+    // without a proof: both take the certified path and only the writes
+    // depend on a proof, so a run's search never depends on proof logging.
+    bool emitted = false;
     bool interrupted = false;
     if (!emitted) {
       const SweepGeneralPlan plan =
@@ -2420,6 +2429,10 @@ ApplyResult sweep_emit_pending_units(Kernel &k, SweepRound &round,
 ApplyResult sweep_emit_round(Kernel &k, SweepRound &round, uint32_t found,
                              const SweepLimits &lim) {
   (void)found;
+  // A resumable round substitutes after each emitted environment. Those
+  // rewrites can append binaries, so the next environment must replay the
+  // small set of proof-only units across the changed BIG. Plans within this
+  // emission batch continue sharing one incremental closure.
   if (round.units_emitted >= round.units.size() &&
       round.equivalences_emitted >= round.found.size())
     return ApplyResult::NoOp;
@@ -2455,39 +2468,6 @@ ApplyResult sweep_emit_round(Kernel &k, SweepRound &round, uint32_t found,
 #ifdef TACTIX_ENABLE_EVENT_TRACE
     event_trace_sweep_commit(k, e.a, e.b, av, bv, "entry");
 #endif
-    if (!k.proof && (av || bv)) {
-      bool unit_emitted = false;
-      if (!av && bv)
-        unit_emitted = sweep_commit_unit_without_proof(
-            k, bv > 0 ? e.a : negate(e.a));
-      else if (av && !bv)
-        unit_emitted = sweep_commit_unit_without_proof(
-            k, av > 0 ? e.b : negate(e.b));
-      if (unit_emitted) {
-        any = true;
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-        const Lit unit = !av ? (bv > 0 ? e.a : negate(e.a))
-                             : (av > 0 ? e.b : negate(e.b));
-        event_trace_sweep_unit(k, unit);
-#endif
-      }
-      if ((!av || !bv) || av == bv) {
-        any = true;
-        emitted_equivalences.emplace_back(e.a, e.b);
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-        // Kissat reports the proved equivalence before root-fixed commitment.
-        // Keep the semantic event stream complete when this early branch
-        // retains the same consequence for the substitution batch.
-        event_trace_sweep_equivalence(k, e.a, e.b);
-#endif
-      }
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-      event_trace_sweep_commit(k, e.a, e.b, av, bv,
-                               unit_emitted ? "fixed-no-proof-unit"
-                                            : "fixed-no-proof-no-unit");
-#endif
-      continue;
-    }
     // Detection excludes fixed variables, but a unit proved earlier in this
     // environment can fix one endpoint before this pair is emitted. Collapse
     // the captured implication in that direction directly to the partner unit,
@@ -2501,7 +2481,7 @@ ApplyResult sweep_emit_round(Kernel &k, SweepRound &round, uint32_t found,
 #endif
       continue;
     }
-    if (k.proof && (av || bv)) {
+    if (av || bv) {
       if (av && bv) {
 #ifdef TACTIX_ENABLE_EVENT_TRACE
         event_trace_sweep_commit(k, e.a, e.b, av, bv, "fixed-proof-both");
@@ -2548,7 +2528,8 @@ ApplyResult sweep_emit_round(Kernel &k, SweepRound &round, uint32_t found,
       const bool journal_plan =
           begin_journal_sweep_general(k, plan, pre_digest);
 #endif
-      bool emitted = plan.eligible() && sweep_apply_general_plan(k, plan);
+      bool emitted =
+          plan.eligible() && sweep_apply_general_plan(k, plan);
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
       if (journal_plan)
         journal_sweep_general(
@@ -2593,12 +2574,7 @@ ApplyResult sweep_emit_round(Kernel &k, SweepRound &round, uint32_t found,
     // all-literals ledger build.
     round.substitution.prime_equivalence(k, e.a, e.b);
     const SweepPairSelection selection = sweep_select_pair(round, idx, e.a, e.b);
-    bool emitted =
-        !force_general && sweep_commit_equiv_without_proof(k, e.a, e.b);
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-    if (emitted)
-      event_trace_sweep_commit(k, e.a, e.b, av, bv, "direct");
-#endif
+    bool emitted = false;
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
     if (!emitted) {
       journal_sweep_pair_selection(k, e.a, e.b, selection);

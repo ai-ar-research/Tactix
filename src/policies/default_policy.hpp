@@ -40,6 +40,28 @@ bool default_should_seed_structured_residual(
     bool grew_root_trail, uint64_t unique_literal_amo_binaries,
     bool generic_graph_root_progress);
 
+// The SC2024 pass owns startup only when its bounded candidate domain covers
+// more live variables than it excludes. Otherwise the ordinary Kissat BVE
+// schedule retains the formula without an up-front search-state perturbation.
+bool default_should_run_initial_fast_elimination(uint64_t candidates,
+                                                 uint64_t active_variables);
+bool default_fast_elimination_discovery_admissible(
+    uint64_t active_variables, uint64_t remaining_ticks);
+bool default_should_run_fast_elimination_after_structured(
+    bool structured_root_grew_trail);
+
+bool default_fast_elimination_material_progress(uint64_t eliminated,
+                                                uint64_t active_variables);
+bool default_fast_elimination_admits_mab_at_entry(
+    uint64_t eliminated, uint64_t residual_active_variables,
+    bool producer_complete = true);
+uint64_t default_mab_stagnation_conflict_budget(uint64_t active_variables,
+                                                bool accelerated = false);
+bool default_mab_stagnation_reached(uint64_t conflicts,
+                                    uint64_t activation_conflict);
+bool default_should_schedule_delayed_mab(bool enabled, bool delayed,
+                                         uint64_t sr_applications);
+
 class DefaultBranching final : public BranchingPolicy {
 public:
   explicit DefaultBranching(

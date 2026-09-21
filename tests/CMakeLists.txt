@@ -301,6 +301,7 @@ set_tests_properties(micro_proofs PROPERTIES SKIP_RETURN_CODE 77)
 # after the sub-solver -> kernel translation. Skips 77 without a checker.
 add_test(NAME sweep_proofs
          COMMAND ${CMAKE_SOURCE_DIR}/tests/sweep_proofs.sh ${CMAKE_SOURCE_DIR}
+                 $<TARGET_FILE:tactix>
                  $<TARGET_FILE:test_subsolver> $<TARGET_FILE:test_sweep>)
 set_tests_properties(sweep_proofs PROPERTIES SKIP_RETURN_CODE 77)
 

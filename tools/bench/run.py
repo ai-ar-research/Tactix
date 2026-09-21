@@ -77,9 +77,12 @@ RUNS = os.path.join(ROOT, "benchmarks", "runs")
 DRAT_TRIM = os.path.join(ROOT, "tools", "checkers", "bin", "drat-trim")
 DSR_TRIM = os.path.join(ROOT, "tools", "checkers", "bin", "dsr-trim")
 SR_CHECK = os.path.join(ROOT, "tools", "checkers", "bin", "srcheck")
+DSR_COMPRESS = os.path.join(ROOT, "tools", "checkers", "bin", "dsr-compress")
 CAKE_LPR = os.path.join(ROOT, "tools", "checkers", "bin", "cake_lpr")
 sys.path.insert(0, HERE)
-from proof_oracle import bridge_trivial_input_binary_lsr  # noqa: E402
+from proof_oracle import (bridge_trivial_input_binary_lsr,  # noqa: E402
+                          bridge_trivial_input_lsr, dsr_compress_status,
+                          reference_dsr_stages)
 # Oracle 1 of the fuzz harness (§8.2), shared here since 2026-08-08: a SAT
 # verdict's v-lines are checked against the ORIGINAL formula. The wrong-SAT
 # exhibit was caught only by the expected-verdict column; an instance without
@@ -257,15 +260,19 @@ def check_proof(fmt, cnf, proof, budget):
 
         with tempfile.TemporaryDirectory(prefix="tactix-dsr-check-") as scratch:
             binary_lsr = os.path.join(scratch, "proof.binary.lsr")
+            text_lsr = os.path.join(scratch, "proof.lsr")
+            # proof_oracle.reference_dsr_stages owns the pipeline definition.
             stages = [
-                ([DSR_TRIM, "-q", "-f", "-c", cnf, proof, binary_lsr],
-                 binary_lsr),
-                ([SR_CHECK, cnf, binary_lsr, "c"], None),
-            ]
+                (name, argv, argv[-1] if name != "srcheck" else None)
+                for name, argv in reference_dsr_stages(
+                    DSR_TRIM, DSR_COMPRESS, SR_CHECK, cnf, proof, binary_lsr,
+                    text_lsr)]
             details = []
-            for index, (argv, produced) in enumerate(stages):
+            for index, (name, argv, produced) in enumerate(stages):
                 if index == 1:
-                    bridge_trivial_input_binary_lsr(cnf, binary_lsr)
+                    made = stages[0][2]
+                    (bridge_trivial_input_binary_lsr if made == binary_lsr
+                     else bridge_trivial_input_lsr)(cnf, made)
                 try:
                     checked = subprocess.run(
                         argv, capture_output=True, text=True,
@@ -274,8 +281,17 @@ def check_proof(fmt, cnf, proof, budget):
                     return (False,
                             f"{CHECKER_TIMEOUT_PREFIX}{budget:g}s budget",
                             CHK_TIMEOUT, details)
-                kind, msg, detail = classify_checker_output(
-                    checked.stdout, checked.stderr, checked.returncode)
+                if name == "dsr-compress":
+                    # A format conversion, not an acceptance oracle.
+                    converted = dsr_compress_status(
+                        checked.returncode,
+                        checked.stdout + "\n" + checked.stderr) == "verified"
+                    kind, msg, detail = (
+                        (CHK_VERIFIED, "VERIFIED", []) if converted else
+                        (CHK_ERROR, "checker-error: dsr-compress failed", []))
+                else:
+                    kind, msg, detail = classify_checker_output(
+                        checked.stdout, checked.stderr, checked.returncode)
                 details.extend(detail)
                 if (kind != CHK_VERIFIED or
                         (produced is not None and

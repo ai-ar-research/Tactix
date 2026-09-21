@@ -69,8 +69,58 @@ class FuzzProofOracles(unittest.TestCase):
         self.assertFalse(r.failures)
         self.assertEqual([Path(run['command'][0]).name
                          for run in r.checker_runs],
-                         ['dsr-trim', 'srcheck'])
-        self.assertEqual(r.checker_runs[-1]['command'][-1], 'c')
+                         ['dsr-trim', 'srcheck', 'dsr-trim', 'srcheck'])
+        # reference pipeline first, then the every-lemma forward audit
+        self.assertNotIn('-f', r.checker_runs[0]['command'])
+        self.assertIn('-f', r.checker_runs[2]['command'])
+        # The Satsuma+Kissat reference invocation: dsr-trim takes no options
+        # and Trestle reads a text LSR.  This fixture is diagnostic ASCII DSR,
+        # for which dsr-trim writes that text LSR itself; a binary certificate
+        # adds the `dsr-compress -d` expansion (test_reference_dsr_stages).
+        self.assertFalse([arg for arg in r.checker_runs[0]['command'][1:]
+                          if str(arg).startswith('-')])
+        self.assertEqual(len(r.checker_runs[-1]['command']), 3)
+        self.assertEqual(r.checker_runs[-1]['command'][-1],
+                         r.checker_runs[0]['command'][-1])
+
+    def test_reference_dsr_stages(self):
+        from proof_oracle import reference_dsr_stages
+        with tempfile.TemporaryDirectory() as directory:
+            binary = Path(directory) / 'binary.dsr'
+            binary.write_bytes(b'a\x02\x00a\x00')
+            ascii_proof = Path(directory) / 'ascii.dsr'
+            ascii_proof.write_text('1 0\nd 1 0\n0\n')
+            stages = reference_dsr_stages('T', 'C', 'S', 'f.cnf', binary,
+                                          'b.lsr', 't.lsr')
+            self.assertEqual(stages, [
+                ('dsr-trim', ['T', 'f.cnf', binary, 'b.lsr']),
+                ('dsr-compress', ['C', '-d', 'b.lsr', 't.lsr']),
+                ('srcheck', ['S', 'f.cnf', 't.lsr'])])
+            self.assertEqual(
+                reference_dsr_stages('T', 'C', 'S', 'f.cnf', ascii_proof,
+                                     'b.lsr', 't.lsr'),
+                [('dsr-trim', ['T', 'f.cnf', ascii_proof, 't.lsr']),
+                 ('srcheck', ['S', 'f.cnf', 't.lsr'])])
+
+    def test_every_lemma_stages_elaborate_forward(self):
+        from proof_oracle import every_lemma_dsr_stages
+        with tempfile.TemporaryDirectory() as directory:
+            binary = Path(directory) / 'binary.dsr'
+            binary.write_bytes(b'a\x02\x00a\x00')
+            self.assertEqual(
+                every_lemma_dsr_stages('T', 'C', 'S', 'f.cnf', binary,
+                                       'b.lsr', 't.lsr'),
+                [('dsr-trim', ['T', '-f', 'f.cnf', binary, 'b.lsr']),
+                 ('dsr-compress', ['C', '-d', 'b.lsr', 't.lsr']),
+                 ('srcheck', ['S', 'f.cnf', 't.lsr'])])
+
+    def test_every_lemma_audit_rejects_an_unused_invalid_lemma(self):
+        # `(5 v 6)` is neither RUP nor RAT and the refutation never uses it:
+        # the reference pipeline trims it away, the forward audit refuses it.
+        r = self.fixture('p cnf 8 6\n1 2 0\n1 -2 0\n-1 3 0\n-1 -3 0\n'
+                         '-5 7 0\n-6 8 0\n', '5 6 0\n1 0\n0\n', dsr=True)
+        self.assertIn('proof', [kind for kind, _ in r.failures])
+        self.assertTrue(any('every-lemma' in why for _, why in r.failures))
 
     def test_default_dsr_rejects_nonconflicting_empty_lemma(self):
         r = self.fixture('p cnf 1 1\n1 0\n', '0\n', dsr=True)

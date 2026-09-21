@@ -170,7 +170,8 @@ DefaultStrategyConfig::structured_root_preprocessing_stages() {
 strategy::OnlineStrategyStage
 DefaultStrategyConfig::structured_root_stage_after_feedback(
     const strategy::OnlineStrategyStage &configured,
-    bool prior_stage_progress, bool prior_unique_literal_amo_progress) {
+    bool prior_stage_progress, bool prior_unique_literal_amo_progress,
+    bool prior_nonforcing_cut_progress) {
   auto scheduled = configured;
   for (auto &step : scheduled.program.sequence) {
     auto *parameters =
@@ -181,11 +182,13 @@ DefaultStrategyConfig::structured_root_stage_after_feedback(
     // A nonforcing cut discovered only after ULC completion carries forward
     // certified information from that helper BIG.  The startup BCE pass may
     // then retire the helper binaries, so publish the cut instead of erasing
-    // both the temporary representation and its durable consequence.  A
-    // standalone binary-only batch remains withheld because it changes only
-    // the initial CDCL fundamental domain.  Public graph enumeration keeps its
-    // caller-selected admission mode.
-    if (prior_unique_literal_amo_progress)
+    // both the temporary representation and its durable consequence.  Two
+    // independent complete graph stages finding a cut are also compound
+    // certified progress even when each stage exposes only one row.  A lone
+    // binary-only batch remains withheld because it changes only the initial
+    // CDCL fundamental domain.  Public graph enumeration keeps its caller-
+    // selected admission mode.
+    if (prior_unique_literal_amo_progress || prior_nonforcing_cut_progress)
       parameters->graph_symmetry.nonforcing_cut_admission =
           SymmetryNonforcingCutAdmission::Publish;
     if (scheduled.structured_handoff_after_prior_progress &&

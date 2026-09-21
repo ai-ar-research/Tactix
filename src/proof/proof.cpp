@@ -253,7 +253,7 @@ void Proof::add_rat(uint64_t id, const Lit *lits, uint32_t size,
 bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
                    const Lit *true_lits, uint32_t ntrue,
                    const DsrLiteralMapping *mappings, uint32_t nmappings,
-                   uint32_t external_variables) {
+                   uint32_t external_variables, bool propagates) {
 #ifndef TACTIX_ENABLE_PROOF_SHADOW
   (void)id;
 #endif
@@ -289,7 +289,11 @@ bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
 
   const DsrWitnessPlan plan =
       plan_dsr_witness(lits, size, true_lits, ntrue, mappings, nmappings);
-  if (plan.form == DsrWitnessForm::Extension) {
+  // A pivot without an explicit mapping has the default image true; the
+  // general encoding moves the pivot to the auxiliary, so it states that image.
+  const bool default_pivot = plan.form == DsrWitnessForm::Direct;
+  if (plan.form == DsrWitnessForm::Extension ||
+      (propagates && plan.form != DsrWitnessForm::Rup)) {
     if (external_variables >= static_cast<uint32_t>(INT32_MAX))
       return false;
     const Lit auxiliary = make_lit(external_variables, false);
@@ -309,6 +313,8 @@ bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
     end_line();
     temporary(false, false);
     put_external_lit(auxiliary);
+    if (default_pivot)
+      put_lit(lits[0]);
     for (uint32_t i = 0; i < ntrue; ++i)
       put_lit(true_lits[i]);
     if (nmappings) {

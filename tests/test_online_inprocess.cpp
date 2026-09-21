@@ -1126,8 +1126,12 @@ static void sweep_parameters_are_exact_per_invocation() {
   assert(executor.configure(program, 7));
   const InvocationResult result = executor.advance(selected);
   assert(result.applications == 1 && result.step_id == 61);
+  // The unrestricted invocation does what the restricted one could not:
+  // builds the environment, proves the equivalence and commits it.  The
+  // fixture's clauses carry no proof ids, which only LRAT would need.
+  assert(selected.stats.sweep_equivalences > 0);
+  assert(selected.stats.sweep_not_rup == 0);
   assert(result.made_rule_progress);
-  assert(selected.stats.sweep_environments > 0);
   kernel_check_invariants(selected);
 }
 
@@ -1599,7 +1603,10 @@ static void signed_sr_sources_emit_canonical_dsr_mappings() {
   const size_t size = fread(buffer, 1, sizeof buffer - 1, file);
   fclose(file);
   unlink(path);
-  assert(std::string(buffer, size) == "-1 -1 3 -1 2 4 4 2 0\n");
+  // A root unit takes the serializer's general encoding (no witnessed line
+  // may propagate); the canonical mapping is carried by its witnessed line.
+  assert(std::string(buffer, size) ==
+         "-5 -1 0\n5 -1 5 -1 3 5 2 4 4 2 0\n-1 0\nd 5 -1 0\nd -5 -1 0\n");
 }
 
 static void sr_failure_statuses_preserve_the_pending_application() {
@@ -3422,6 +3429,21 @@ static void fix_and_cut_reaches_nonclausal_orbits() {
           });
   assert(declined.status == SymmetryEnumerationStatus::Complete && !admitted &&
          declined.nonforcing_orbit_cuts_declined == instances.size());
+
+  SubstitutionRedundancyParameters compound = parameters;
+  compound.graph_symmetry.nonforcing_cut_admission =
+      SymmetryNonforcingCutAdmission::RequireCompoundProgress;
+  uint64_t compound_admitted = 0;
+  const SymmetryEnumerationResult compound_result =
+      substitution_redundancy_enumerate_symmetry(
+          k, compound, [&](const SubstitutionRedundancyInstance &) {
+            ++compound_admitted;
+            return true;
+          });
+  assert(instances.size() > 1);
+  assert(compound_result.status == SymmetryEnumerationStatus::Complete &&
+         compound_admitted == instances.size() &&
+         !compound_result.nonforcing_orbit_cuts_declined);
 
   SubstitutionRedundancyParameters legacy = parameters;
   legacy.graph_symmetry.chain_mode = SymmetryChainMode::ClausalFixing;

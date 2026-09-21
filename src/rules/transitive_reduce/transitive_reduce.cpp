@@ -315,11 +315,22 @@ struct Walk {
                                 // into stats.transitive_ticks (const-walk
                                 // helpers charge here instead of the kernel)
 
+  // The by-literal arrays and the lists that name their marked entries form
+  // one state.  The persistent per-instance scratch is re-initialised whenever
+  // `nvars` changes, which VariableCompaction does by shrinking it; a list
+  // kept across that would index the fresh arrays with literals of the old
+  // numbering at the next walk's clearing pass.
   void init(const Kernel &k) {
     const size_t nlits = 2 * static_cast<size_t>(k.nvars);
     reached.assign(nlits, 0);
     dead.assign(nlits, 0);
     seen.assign(nlits, 0);
+    touched.clear();
+    queue.clear();
+    dead_list.clear();
+    seen_list.clear();
+    cands.clear();
+    proof_chain.clear();
   }
 };
 

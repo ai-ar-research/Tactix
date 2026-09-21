@@ -1,0 +1,12 @@
+{
+  "seed": 296305338,
+  "index": 5338,
+  "generator": "Claude-owned AM312 rel-random-nightly-s0 mut-n65-m262, minimized to 253 clauses",
+  "failure": "proof",
+  "solver_args": ["--random-policy=296305338"],
+  "solver_env": {},
+  "found_by": "Claude-owned AM312 complete random-policy nightly; 6 of 32,300 Release cases and 1 of 5,100 Debug cases failed after Sweep began retaining its translated RUP prefixes. This minimized primary reproducer is deterministic in both builds. Frozen AM312 answers UNSAT, but strict dsr-trim rejects proof line 548 (RAT clause 294); frozen AM310 verifies the same seed.",
+  "oracle": "Frozen dsr-trim 3b5c7737 with -q -f -c --delete-implied-units rejected the AM312 proof with 'No UP contradiction for RAT clause 294'. The solver verdict and independent oracle verdict are both UNSAT.",
+  "diagnosis": "Retaining every proof-only RUP prefix fixed corpus 031's disappearing implied-unit reason, but changed the clause population seen by later witnessless DSR additions. RAT is not monotone under adding implied clauses: each retained clause containing the negated pivot creates another resolvent obligation, so a later clause that was RAT in the kernel formula can cease to be RAT in the checker formula.",
+  "fix": "Sweep again deletes each translated proof-only prefix. Before deletion, native DSR computes the prefix-induced unit closure incrementally over the live binary implication graph, emits every newly implied unit while its reason is still present, then retires the prefix. The closure is proof-only and leaves the kernel assignment and search trajectory unchanged; round-local propagation visits each affected BIG edge once instead of rescanning the formula for every translated plan. Frozen strict dsr-trim and Trestle verify this minimized case and all six handed-off Release reproducers."
+}

@@ -204,6 +204,8 @@ void test_unbounded_flip_rounds_observe_stop() {
 }
 
 void test_proof_capture_limit_is_caller_controlled() {
+  // The reference default never declines a proved consequence for its size.
+  assert(SweepLimits{}.max_proof_steps == 0);
   const std::vector<std::vector<int>> cls = non_rup_formula();
   Kernel limited;
   build(limited, 4, cls);
@@ -776,7 +778,7 @@ void test_env_unsat() {
 
 } // namespace
 
-// --- emission via the RUP fast path -----------------------------------------
+// --- emission of a detected equivalence --------------------------------------
 // Detection proves `a == b` inside an environment; emission must justify it
 // over the main formula in a form a checker accepts, as two binaries. The
 // fixture is a 4-cycle a->c->b, b->d->a, so both directions propagate to a
@@ -803,10 +805,12 @@ static void test_sd_emits_rup_equivalence(void) {
          "an emitted equivalence is TWO binaries; one alone would state an "
          "implication the sub-solver did not prove on its own");
   assert(k.stats.sweep_binaries % 2 == 0 && "binaries are emitted in pairs");
-  assert(k.stats.sweep_general == 0 &&
-         "default emission must prefer the independently replayed RUP path");
-  printf("  S-d: emitted %llu binaries via the RUP fast path\n",
-         (unsigned long long)(k.stats.sweep_binaries - before));
+  // Which justification carried the pair (the captured core or the replayed
+  // RUP chain) is not part of this contract; that none was refused is.
+  assert(k.stats.sweep_not_rup == 0);
+  printf("  S-d: emitted %llu binaries (%llu via the captured core)\n",
+         (unsigned long long)(k.stats.sweep_binaries - before),
+         (unsigned long long)k.stats.sweep_general);
 }
 
 // A pair that is not RUP over F must be declined, leaving F unchanged;
@@ -846,6 +850,7 @@ static void test_rup_admission_is_format_independent(void) {
   };
   const Mode modes[] = {{"no-proof", false, ProofFormat::DratAscii},
                         {"DRAT", true, ProofFormat::DratAscii},
+                        {"DSR", true, ProofFormat::DsrAscii},
                         {"LRAT", true, ProofFormat::Lrat}};
   for (const Mode &mode : modes) {
     Proof proof;
@@ -1080,11 +1085,14 @@ static void emit_se_case(const char *dir) {
   fprintf(cnf, "1 0\n-1 0\n"); // checker-only clauses 9 and 10
   fclose(cnf);
 
-  for (int fmt = 0; fmt < 2; fmt++) {
-    const bool lrat = fmt == 1;
-    snprintf(path, sizeof path, "%s/se.%s", dir, lrat ? "lrat" : "drat");
+  for (const ProofFormat format : {ProofFormat::DratAscii, ProofFormat::Lrat,
+                                   ProofFormat::DsrAscii}) {
+    const bool lrat = format == ProofFormat::Lrat;
+    const char *suffix = lrat ? "lrat" :
+                         format == ProofFormat::DsrAscii ? "dsr" : "drat";
+    snprintf(path, sizeof path, "%s/se.%s", dir, suffix);
     Proof proof;
-    assert(proof.open(path, lrat ? ProofFormat::Lrat : ProofFormat::DratAscii));
+    assert(proof.open(path, format));
     Kernel k;
     // The kernel holds only clauses 1..8: detection needs a satisfiable
     // environment, so 9/10 stay out of F and the contradiction is closed by
@@ -1115,12 +1123,14 @@ static void emit_unit_case(const char *dir) {
   fprintf(cnf, "p cnf 2 3\n1 2 0\n1 -2 0\n-1 0\n");
   fclose(cnf);
 
-  for (int fmt = 0; fmt < 2; fmt++) {
-    const bool lrat = fmt == 1;
-    snprintf(path, sizeof path, "%s/unit.%s", dir,
-             lrat ? "lrat" : "drat");
+  for (const ProofFormat format : {ProofFormat::DratAscii, ProofFormat::Lrat,
+                                   ProofFormat::DsrAscii}) {
+    const bool lrat = format == ProofFormat::Lrat;
+    const char *suffix = lrat ? "lrat" :
+                         format == ProofFormat::DsrAscii ? "dsr" : "drat";
+    snprintf(path, sizeof path, "%s/unit.%s", dir, suffix);
     Proof proof;
-    assert(proof.open(path, lrat ? ProofFormat::Lrat : ProofFormat::DratAscii));
+    assert(proof.open(path, format));
     Kernel k;
     build(k, 2, {{1, 2}, {1, -2}}); // clause 3 stays checker-only
     k.next_clause_id = 3;

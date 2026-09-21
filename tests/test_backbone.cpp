@@ -489,8 +489,35 @@ static void test_speculative_unwind_invalidates_unit_ids() {
   assert(k.value(internalize(2)) == 0 && k.unit_ids[1] == 0);
 }
 
+// A root literal published to the native-DSR proof inside a speculative round
+// is retracted with the round.  If the round's replay then refutes the formula
+// the literal is never re-installed; the kernel invariants must accept that
+// terminal state, while a consistent kernel lacking the literal is a defect.
+static void test_refuted_replay_may_leave_a_published_root_retracted() {
+  Kernel k;
+  kernel_reserve_vars(k, 2);
+  char path[] = "/tmp/tactix-backbone-published-root-XXXXXX";
+  const int fd = mkstemp(path);
+  assert(fd >= 0);
+  close(fd);
+  Proof proof;
+  assert(proof.open(path, ProofFormat::DsrAscii));
+  k.proof = &proof;
+  const uint32_t prefix = k.trail.size();
+  kernel_assign(k, internalize(-2), 0, UNIT_REASON, false);
+  kernel_materialize_dsr_root_unit(k, internalize(-2));
+  kernel_check_invariants(k);
+  kernel_unwind_speculation(k, prefix);
+  assert(k.value(internalize(2)) == 0);
+  k.inconsistent = true; // the replay closed the refutation first
+  kernel_check_invariants(k);
+  k.proof = nullptr;
+  unlink(path);
+}
+
 int main() {
   test_speculative_unwind_invalidates_unit_ids();
+  test_refuted_replay_may_leave_a_published_root_retracted();
   test_binary_failed_literal();
   test_canonical_computation_counter_advances();
   test_chained_binary_uip_learns_internal_predecessor();

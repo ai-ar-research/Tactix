@@ -7,6 +7,7 @@ these archives are superseded by the semantic text and repository Git history.
 
 | week | dates | entries | what it covers |
 |---|---|---|---|
+| [19 September pre-AM311](2026-09-19-pre-am311-progress.md) | 09-18 → 09-19 | historical resume body | AM149 through AM310 WV100 expansion, Phase-1 recovery, proof-checker diagnostics, and pre-AM311 validation state |
 | [17 September AM7--AM54](2026-09-17-pre-am56-progress.md) | 09-16 → 09-17 | historical resume body | AM7 through AM54 diagnostics and gate qualifications before the AM56 checkpoint |
 | [2026-W32](2026-W32.md) | 08-03 → 08-09 | 9 | phase 3 close, reference dosing, backward-BVE N2 fix |
 | [2026-W31](2026-W31.md) | 07-27 → 08-02 | 41 | all-rules-ON, TB4b, task #11, R-d retirement, L19–L23 |

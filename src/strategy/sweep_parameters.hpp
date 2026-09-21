@@ -17,7 +17,9 @@ struct SweepReferenceDefaults {
   static constexpr uint32_t FLIP_ROUNDS = 1;
   static constexpr uint32_t SEED_CAP = 0;
   static constexpr uint64_t ENVIRONMENT_TICKS = 0;
-  static constexpr uint32_t PROOF_STEPS = 4096;
+  // Unbounded, as Kissat commits whatever its Kitten core proves; a captured
+  // derivation is already bounded by the environment's tick limit.
+  static constexpr uint32_t PROOF_STEPS = 0;
 };
 
 struct SweepParameters {

@@ -1409,6 +1409,7 @@ static void parameter_domains_are_caller_controlled() {
   config.bve_clause_size_reference = 41;
   config.bve_resolvent_count_reference = 43;
   bool saw_bve_scope[2] = {};
+  bool saw_bve_traversal[2] = {};
   for (uint64_t seed = 1; seed <= 64; ++seed) {
     OnlineStrategyProgram program;
     assert(random_online_strategy_program(k, seed, config, program));
@@ -1421,13 +1422,14 @@ static void parameter_domains_are_caller_controlled() {
       assert(parameters->definition_cores == 1);
       assert(parameters->definition_core_budget_multiplier == 0);
       saw_bve_scope[static_cast<unsigned>(parameters->candidate_scope)] = true;
+      saw_bve_traversal[static_cast<unsigned>(parameters->traversal)] = true;
       const std::string encoded = serialize_online_strategy_program(program);
       assert(parameters->resolvent_count_limit == 0 ||
              parameters->resolvent_count_limit == 1 ||
              parameters->resolvent_count_limit == 43 ||
              parameters->resolvent_count_limit == 44 ||
              parameters->resolvent_count_limit == UINT32_MAX);
-      assert(encoded.find(":bve3(") != std::string::npos);
+      assert(encoded.find(":bve4(") != std::string::npos);
       OnlineStrategyProgram replay;
       std::string error;
       assert(deserialize_online_strategy_program(encoded, replay, &error));
@@ -1435,9 +1437,12 @@ static void parameter_domains_are_caller_controlled() {
                  .candidate_scope == parameters->candidate_scope);
       assert(std::get<BveParameters>(replay.sequence[i].parameters)
                  .resolvent_count_limit == parameters->resolvent_count_limit);
+      assert(std::get<BveParameters>(replay.sequence[i].parameters)
+                 .traversal == parameters->traversal);
     }
   }
   assert(saw_bve_scope[0] && saw_bve_scope[1]);
+  assert(saw_bve_traversal[0] && saw_bve_traversal[1]);
 
   OnlineStrategyProgram legacy_bve;
   std::string legacy_bve_error;
@@ -1547,6 +1552,7 @@ static void parameter_domains_are_caller_controlled() {
   bool selected_balanced_instance = false, selected_fermat_instance = false;
   bool selected_lookup_instance = false, selected_simon_instance = false;
   bool selected_stconn_instance = false;
+  bool selected_signed_cardinality_instance = false;
   std::set<uint32_t> parity_variables, parity_groups, parity_constraints,
       parity_free;
   std::set<uint64_t> parity_candidates;
@@ -1565,6 +1571,11 @@ static void parameter_domains_are_caller_controlled() {
   std::set<uint64_t> simon_candidates;
   std::set<uint32_t> stconn_widths, stconn_columns;
   std::set<uint64_t> stconn_rup_clauses;
+  std::set<uint32_t> signed_cardinality_variables,
+      signed_cardinality_groups, signed_cardinality_constraints,
+      signed_cardinality_arities;
+  std::set<uint64_t> signed_cardinality_nodes,
+      signed_cardinality_additions;
   for (uint64_t seed = 1; seed <= 512; ++seed) {
     OnlineStrategyProgram program;
     std::string generation_error;
@@ -1642,6 +1653,17 @@ static void parameter_domains_are_caller_controlled() {
       stconn_widths.insert(parameters->maximum_width);
       stconn_columns.insert(parameters->maximum_columns);
       stconn_rup_clauses.insert(parameters->maximum_rup_clauses);
+    } else if (const auto *parameters =
+                   std::get_if<SignedCardinalityProofParameters>(
+                       &step.parameters)) {
+      assert(parameters->valid());
+      signed_cardinality_variables.insert(parameters->maximum_variables);
+      signed_cardinality_groups.insert(parameters->maximum_groups);
+      signed_cardinality_constraints.insert(parameters->maximum_constraints);
+      signed_cardinality_arities.insert(parameters->maximum_group_arity);
+      signed_cardinality_nodes.insert(parameters->maximum_bdd_nodes);
+      signed_cardinality_additions.insert(
+          parameters->maximum_proof_additions);
     } else {
       const auto *onehot_parameters =
           std::get_if<OnehotModelParameters>(&step.parameters);
@@ -1676,6 +1698,9 @@ static void parameter_domains_are_caller_controlled() {
     selected_stconn_instance |=
         std::find(step.instances.begin(), step.instances.end(), uint64_t{15}) !=
         step.instances.end();
+    selected_signed_cardinality_instance |=
+        std::find(step.instances.begin(), step.instances.end(), uint64_t{16}) !=
+        step.instances.end();
     OnlineStrategyProgram replay;
     std::string error;
     assert(deserialize_online_strategy_program(
@@ -1699,6 +1724,13 @@ static void parameter_domains_are_caller_controlled() {
          simon_candidates.size() > 8);
   assert(selected_stconn_instance && stconn_widths.size() > 4 &&
          stconn_columns.size() > 8 && stconn_rup_clauses.size() > 8);
+  assert(selected_signed_cardinality_instance &&
+         signed_cardinality_variables.size() > 8 &&
+         signed_cardinality_groups.size() > 8 &&
+         signed_cardinality_constraints.size() > 8 &&
+         signed_cardinality_arities.size() > 4 &&
+         signed_cardinality_nodes.size() > 8 &&
+         signed_cardinality_additions.size() > 8);
   assert(parity_variables.size() > 8 && parity_groups.size() > 8 &&
          parity_constraints.size() > 8 && parity_free.size() > 8 &&
          parity_candidates.size() > 8);
@@ -1735,6 +1767,8 @@ static void parameter_domains_are_caller_controlled() {
                     std::holds_alternative<LookupCircuitModelParameters>(p) ||
                     std::holds_alternative<SimonModelParameters>(p) ||
                     std::holds_alternative<StconnProofParameters>(p) ||
+                    std::holds_alternative<
+                        SignedCardinalityProofParameters>(p) ||
                     std::holds_alternative<AffineModelParameters>(p);
            }},
       };

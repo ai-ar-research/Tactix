@@ -355,6 +355,9 @@ int tactix_apply_semantic_instance(tactix *, int rule_id, uint64_t instance);
 #define TACTIX_ONLINE_PARAMETERS_LOOKUP_CIRCUIT_MODEL 24
 #define TACTIX_ONLINE_PARAMETERS_SIMON_MODEL 25
 #define TACTIX_ONLINE_PARAMETERS_STCONN_PROOF 26
+#define TACTIX_ONLINE_PARAMETERS_SIGNED_CARDINALITY_PROOF 27
+#define TACTIX_ONLINE_BVE_TRAVERSAL_ELIMINATE 0
+#define TACTIX_ONLINE_BVE_TRAVERSAL_FAST_ELIMINATE 1
 #define TACTIX_ONLINE_AFFINE_BOUNDARY 0
 #define TACTIX_ONLINE_AFFINE_ALL_PARITY 1
 #define TACTIX_ONLINE_AFFINE_EXPLICIT 2
@@ -455,6 +458,8 @@ typedef struct {
   /* Appended absolute non-tautological resolvent cap. Zero preserves the
      historical unlimited behavior for zero-initialized public steps. */
   uint32_t resolvent_count_limit;
+  /* Appended physical traversal profile. Zero retains ordinary Eliminate. */
+  int traversal;
 } tactix_online_bve_parameters;
 typedef struct {
   uint32_t clause_size_limit, large_occurrence_limit;
@@ -595,6 +600,13 @@ typedef struct {
   uint32_t maximum_width, maximum_columns;
   uint64_t maximum_rup_clauses;
 } tactix_online_stconn_proof_parameters;
+typedef struct {
+  /* Parameters for Lucky instance 16. These bounds govern exact complete
+   * signed-ternary recognition and its native BDD cutting-planes proof. */
+  uint32_t maximum_variables, maximum_groups, maximum_constraints;
+  uint32_t maximum_group_arity;
+  uint64_t maximum_bdd_nodes, maximum_proof_additions;
+} tactix_online_signed_cardinality_proof_parameters;
 typedef struct {
   /* UINT64_MAX selects half of the current coordinate count. */
   uint64_t left_size, left_weight, right_weight, total_weight;
@@ -783,6 +795,7 @@ typedef struct {
     tactix_online_lookup_circuit_model_parameters lookup_circuit_model;
     tactix_online_simon_model_parameters simon_model;
     tactix_online_stconn_proof_parameters stconn_proof;
+    tactix_online_signed_cardinality_proof_parameters signed_cardinality_proof;
     tactix_online_affine_model_parameters affine_model;
     tactix_online_sr_parameters substitution_redundancy;
   } value;

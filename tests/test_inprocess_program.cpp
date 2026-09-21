@@ -95,13 +95,16 @@ int main() {
              .structured_handoff_after_prior_progress);
   const auto no_progress =
       tactix::DefaultStrategyConfig::structured_root_stage_after_feedback(
-          defaults.inprocess.structured_root_stages[2], false, false);
+          defaults.inprocess.structured_root_stages[2], false, false, false);
   const auto progress =
       tactix::DefaultStrategyConfig::structured_root_stage_after_feedback(
-          defaults.inprocess.structured_root_stages[2], true, false);
+          defaults.inprocess.structured_root_stages[2], true, false, false);
   const auto helper_progress =
       tactix::DefaultStrategyConfig::structured_root_stage_after_feedback(
-          defaults.inprocess.structured_root_stages[2], true, true);
+          defaults.inprocess.structured_root_stages[2], true, true, false);
+  const auto prior_cut_progress =
+      tactix::DefaultStrategyConfig::structured_root_stage_after_feedback(
+          defaults.inprocess.structured_root_stages[3], true, false, true);
   const auto &no_progress_graph =
       std::get<tactix::SubstitutionRedundancyParameters>(
           no_progress.program.sequence[2].parameters).graph_symmetry;
@@ -111,6 +114,9 @@ int main() {
   const auto &helper_progress_graph =
       std::get<tactix::SubstitutionRedundancyParameters>(
           helper_progress.program.sequence[2].parameters).graph_symmetry;
+  const auto &prior_cut_progress_graph =
+      std::get<tactix::SubstitutionRedundancyParameters>(
+          prior_cut_progress.program.sequence[0].parameters).graph_symmetry;
   assert(!no_progress_graph.use_structured_generators &&
          !no_progress_graph.stabilize_structured_variables);
   assert(progress_graph.use_structured_generators &&
@@ -118,6 +124,8 @@ int main() {
   assert(progress_graph.nonforcing_cut_admission ==
          tactix::SymmetryNonforcingCutAdmission::RequireCompoundProgress);
   assert(helper_progress_graph.nonforcing_cut_admission ==
+         tactix::SymmetryNonforcingCutAdmission::Publish);
+  assert(prior_cut_progress_graph.nonforcing_cut_admission ==
          tactix::SymmetryNonforcingCutAdmission::Publish);
   for (const auto &stage : defaults.inprocess.structured_root_stages) {
     assert(validate_online_strategy_program(stage.program));

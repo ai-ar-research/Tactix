@@ -57,8 +57,11 @@ static Kernel fixture(bool extra_binary = false) {
     dimacs << '-' << variable << " 0\n";
   for (uint32_t variable = 225; variable <= 288; ++variable)
     dimacs << '-' << variable << " 0\n";
+  // Key zero forces every key bit false, so (1 v 2) would refute the formula
+  // at parse and the rule's guard would not hold.  (-1 v -2) is satisfied by
+  // that key and still breaks the exact binary population the shape expects.
   if (extra_binary)
-    dimacs << "1 2 0\n";
+    dimacs << "-1 -2 0\n";
 
   FILE *input = std::tmpfile();
   assert(input);

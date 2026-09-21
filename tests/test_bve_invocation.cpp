@@ -110,6 +110,7 @@ static void test_one_instance_matches_legacy_and_restores_parameters() {
   assert(restored.definition_core_budget_multiplier ==
          saved.definition_core_budget_multiplier);
   assert(restored.backward == saved.backward);
+  assert(restored.traversal == saved.traversal);
   kernel_check_invariants(configured);
 }
 
@@ -391,8 +392,158 @@ static void test_terminal_result_is_not_overwritten_by_completion() {
   assert(result.selection_complete && result.applications == 1);
 }
 
+static std::vector<std::vector<Lit>>
+run_traversal_fixture(BveTraversal traversal, bool binary_positive) {
+  Kernel k;
+  kernel_reserve_vars(k, 7);
+  auto L = [](int dimacs) { return internalize(dimacs); };
+  if (binary_positive) {
+    kernel_add_binary_clause(k, L(1), L(2));
+    const Lit negative[3] = {L(-1), L(4), L(5)};
+    kernel_add_large_clause(k, negative, 3, false, 0);
+  } else {
+    const Lit positive[3] = {L(1), L(2), L(3)};
+    const Lit negative0[3] = {L(-1), L(4), L(5)};
+    const Lit negative1[3] = {L(-1), L(6), L(7)};
+    kernel_add_large_clause(k, positive, 3, false, 0);
+    kernel_add_large_clause(k, negative0, 3, false, 0);
+    kernel_add_large_clause(k, negative1, 3, false, 0);
+  }
+  const Ref fresh_begin = static_cast<Ref>(k.arena.size());
+  BveParameters parameters = BveParameters::from_kernel(k);
+  parameters.gate_mask = 0;
+  parameters.growth_bound = 8;
+  parameters.traversal = traversal;
+  const uint64_t selected[] = {lit_instance(k, L(1))};
+  BveInvocationRequest request{parameters, InvocationGranularity::OneInstance,
+                               selected, 0};
+  InvocationBudget budget(WorkUnit::BveTicks, WorkLimit::unlimited());
+  const InvocationResult result = invoke_bve(bve_rule(), k, request, budget);
+  assert(result.status == InvocationStatus::Completed);
+  std::vector<std::vector<Lit>> fresh;
+  for (Ref ref = fresh_begin; ref < k.arena.size();) {
+    const Clause *clause = clause_at(k.arena, ref);
+    if (!clause->garbage())
+      fresh.emplace_back(clause->begin(), clause->end());
+    ref += clause_actual_words(clause);
+  }
+  kernel_check_invariants(k);
+  return fresh;
+}
+
+static void test_typed_fastel_traversal_owns_resolvent_pose() {
+  auto L = [](int dimacs) { return internalize(dimacs); };
+  const auto ordinary =
+      run_traversal_fixture(BveTraversal::Eliminate, false);
+  const auto fast =
+      run_traversal_fixture(BveTraversal::FastEliminate, false);
+  assert(ordinary.size() == 2 && fast.size() == 2);
+  assert((ordinary[0] == std::vector<Lit>{L(4), L(5), L(2), L(3)}));
+  assert((fast[0] == std::vector<Lit>{L(2), L(3), L(4), L(5)}));
+
+  const auto ordinary_mixed =
+      run_traversal_fixture(BveTraversal::Eliminate, true);
+  const auto fast_mixed =
+      run_traversal_fixture(BveTraversal::FastEliminate, true);
+  assert(ordinary_mixed.size() == 1 && fast_mixed.size() == 1);
+  assert((ordinary_mixed[0] == std::vector<Lit>{L(4), L(5), L(2)}));
+  assert((fast_mixed[0] == std::vector<Lit>{L(2), L(4), L(5)}));
+}
+
+// A candidate that declines on growth has already installed its unit
+// resolvents and retired the antecedents they satisfy.  The canonical round's
+// schedule and root closure describe the state at round entry, so the round
+// must end there and report the change: continuing would attempt later
+// candidates at an incomplete root closure, and the last one here is the very
+// pivot the unit fixed, whose definition refutation re-derives that root.
+static void build_declining_unit_formula(Kernel &k) {
+  static const int clauses[][3] = {
+      {-7, -4, 0}, {4, 8, 5},  {2, 1, 0},  {-3, -8, 4},  {-8, -1, 0},
+      {2, 3, -7},  {2, -3, 0}, {2, 6, -8}, {-7, -4, -2}, {-6, 3, 0},
+      {-3, 7, 0},  {-8, 6, 4}, {1, -6, 0}, {6, -5, 0},   {5, -1, -4},
+      {5, -1, -7}, {8, 3, -5}, {3, 6, -2}, {3, 6, 0},    {7, 5, 0}};
+  kernel_reserve_vars(k, 8);
+  for (const auto &clause : clauses) {
+    Lit lits[3];
+    uint32_t size = 0;
+    for (const int lit : clause)
+      if (lit)
+        lits[size++] = internalize(lit);
+    if (size == 2)
+      kernel_add_binary_clause(k, lits[0], lits[1]);
+    else
+      kernel_add_large_clause(k, lits, size, false, 0);
+  }
+  k.bve_bound = 0;
+}
+
+static void test_round_ends_when_declined_candidate_changes_state() {
+  Kernel k;
+  build_declining_unit_formula(k);
+
+  const Lit fixed = internalize(3);
+  std::vector<Var> schedule;
+  bve_schedule(k, schedule);
+  assert(!schedule.empty() && schedule.back() == var_of(fixed));
+  assert(k.value(fixed) == 0 && k.bve_retry[var_of(fixed)]);
+
+  // Every candidate declines at bound zero; an earlier one learns the unit.
+  const uint64_t proof_ids = k.next_clause_id;
+  assert(apply_rule(bve_rule(), k) == ApplyResult::Ok);
+  assert(k.value(fixed) > 0 && k.assigned[var_of(fixed)].level == 0);
+  assert(k.next_clause_id > proof_ids && k.stats.bve_eliminated == 0);
+  // The fixed pivot was never attempted: an attempt clears its retry bit.
+  assert(k.bve_retry[var_of(fixed)] && !kernel_var_retired(k, var_of(fixed)));
+
+  // Later rounds start from the drained root and never schedule the fixed
+  // variable; BVE must not retire a variable the root assignment owns.
+  for (ApplyResult r = ApplyResult::Ok; r == ApplyResult::Ok;) {
+    r = apply_rule(bve_rule(), k);
+    assert(r == ApplyResult::Ok || r == ApplyResult::NoOp);
+    assert(k.bve_retry[var_of(fixed)]);
+    assert(!kernel_var_retired(k, var_of(fixed)));
+  }
+  uint32_t trail_copies = 0;
+  for (const Lit lit : k.trail)
+    trail_copies += var_of(lit) == var_of(fixed);
+  assert(trail_copies == 1);
+  kernel_check_invariants(k);
+}
+
+// `Ok` means the application changed solver state.  A one-instance attempt
+// that declines on growth after installing a unit resolvent reports it, so a
+// client trusting the result alone knows a root propagation is owed; whether
+// the pivot was eliminated is read from retirement.
+static void test_instance_decline_that_changes_state_reports_ok() {
+  Kernel probe;
+  build_declining_unit_formula(probe);
+  std::vector<Var> schedule;
+  bve_schedule(probe, schedule);
+  bool found = false;
+  for (const Var pivot : schedule) {
+    Kernel k;
+    build_declining_unit_formula(k);
+    const size_t trail = k.trail.size();
+    const uint64_t proof_ids = k.next_clause_id;
+    const ApplyResult result = apply_rule_instance(
+        bve_rule(), k, lit_instance(k, make_lit(pivot, false)));
+    if (k.stats.bve_eliminated) {
+      assert(result == ApplyResult::Ok && kernel_var_retired(k, pivot));
+      continue;
+    }
+    assert(!kernel_var_retired(k, pivot));
+    const bool changed =
+        k.trail.size() != trail || k.next_clause_id != proof_ids;
+    assert((result == ApplyResult::Ok) == changed);
+    found |= changed;
+  }
+  assert(found && "the fixture no longer has a state-changing decline");
+}
+
 int main() {
   test_empty_pivot_progress_distinguishes_retirement();
+  test_round_ends_when_declined_candidate_changes_state();
+  test_instance_decline_that_changes_state_reports_ok();
   test_one_instance_matches_legacy_and_restores_parameters();
   test_per_call_bound_is_effective_and_scoped();
   test_absolute_resolvent_cap_is_effective_and_scoped();
@@ -404,5 +555,6 @@ int main() {
   test_pure_scope_inside_unordered_dense_state();
   test_invalid_zero_budget_and_stop_do_not_mutate();
   test_terminal_result_is_not_overwritten_by_completion();
+  test_typed_fastel_traversal_owns_resolvent_pose();
   std::puts("test_bve_invocation OK");
 }

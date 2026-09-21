@@ -1383,8 +1383,11 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
         [](const CertifiedRow &row) { return row.kind == 1 || row.kind == 3; });
     const bool decline_nonforcing =
         valid_chain && !rows.empty() && !forcing_batch &&
-        configured.nonforcing_cut_admission !=
-            SymmetryNonforcingCutAdmission::Publish;
+        (configured.nonforcing_cut_admission ==
+             SymmetryNonforcingCutAdmission::RequireForcingMember ||
+         (configured.nonforcing_cut_admission ==
+              SymmetryNonforcingCutAdmission::RequireCompoundProgress &&
+          rows.size() == 1));
     const bool decline_singleton_forcing =
         valid_chain && forcing_batch && rows.size() == 1 &&
         configured.nonforcing_cut_admission ==

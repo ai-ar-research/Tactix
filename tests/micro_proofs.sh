@@ -6,11 +6,12 @@
 set -euo pipefail
 TACTIX="$1"
 ROOT="$2"
-DRAT_TRIM="$ROOT/tools/checkers/bin/drat-trim"
-LRAT_CHECK="$ROOT/tools/checkers/bin/lrat-check"
-CAKE_LPR="$ROOT/tools/checkers/bin/cake_lpr"
-DSR_TRIM="$ROOT/tools/checkers/bin/dsr-trim"
-SR_CHECK="$ROOT/tools/checkers/bin/srcheck"
+DRAT_TRIM="${DRAT_TRIM:-$ROOT/tools/checkers/bin/drat-trim}"
+LRAT_CHECK="${LRAT_CHECK:-$ROOT/tools/checkers/bin/lrat-check}"
+CAKE_LPR="${CAKE_LPR:-$ROOT/tools/checkers/bin/cake_lpr}"
+DSR_TRIM="${DSR_TRIM:-$ROOT/tools/checkers/bin/dsr-trim}"
+SR_CHECK="${SR_CHECK:-$ROOT/tools/checkers/bin/srcheck}"
+DSR_COMPRESS="${DSR_COMPRESS:-$ROOT/tools/checkers/bin/dsr-compress}"
 ANALYZE_TEST="${3:-}"
 CONGRUENCE_TEST="${4:-}"
 RESTART_TEST="${5:-}"
@@ -25,30 +26,15 @@ T="$(mktemp -d)"
 trap 'rm -rf "$T"' EXIT
 
 check_dsr() {
-  local cnf="$1" proof="$2" direction="${3:-forward}"
-  local binary_lsr="$T/check.binary.lsr"
-  local direction_args=()
-  [ "$direction" = forward ] && direction_args=(-f)
-  rm -f "$binary_lsr"
-  "$DSR_TRIM" -q -c "${direction_args[@]}" "$cnf" "$proof" "$binary_lsr" \
-    > "$T/dsr-trim.out" 2>&1 \
-    || { echo "FAIL: dsr-trim rejected $proof"; cat "$T/dsr-trim.out"; return 1; }
-  grep -Eq '^s VERIFIED[[:space:]]+UNSAT$' "$T/dsr-trim.out" \
-    || { echo "FAIL: dsr-trim gave no verified verdict for $proof"; \
-         cat "$T/dsr-trim.out"; return 1; }
-  [ -s "$binary_lsr" ] \
-    || { echo "FAIL: dsr-trim emitted no LSR for $proof"; return 1; }
-  PYTHONPATH="${TACTIX_PROOF_ORACLE_DIR:-$ROOT/tools/bench}" \
-    python3 - "$cnf" "$binary_lsr" <<'PY'
-import sys
-from proof_oracle import bridge_trivial_input_binary_lsr
-bridge_trivial_input_binary_lsr(sys.argv[1], sys.argv[2])
-PY
-  "$SR_CHECK" "$cnf" "$binary_lsr" c > "$T/srcheck.out" 2>&1 \
-    || { echo "FAIL: Trestle rejected $proof"; cat "$T/srcheck.out"; return 1; }
-  grep -Eq '^s VERIFIED[[:space:]]+UNSAT$' "$T/srcheck.out" \
-    || { echo "FAIL: Trestle gave no verified verdict for $proof"; \
-         cat "$T/srcheck.out"; return 1; }
+  # tools/bench/proof_oracle.py owns the reference DSR checking pipeline and
+  # the forward audit that checks every line of these small proofs.
+  local cnf="$1" proof="$2"
+  python3 "${TACTIX_PROOF_ORACLE_DIR:-$ROOT/tools/bench}/proof_oracle.py" \
+    check-dsr "$cnf" "$proof" --dsr-trim "$DSR_TRIM" \
+    --dsr-compress "$DSR_COMPRESS" --srcheck "$SR_CHECK" --every-lemma \
+    > "$T/dsr-check.out" 2>&1 \
+    || { echo "FAIL: reference DSR pipeline rejected $proof"; \
+         cat "$T/dsr-check.out"; return 1; }
 }
 
 make_cases() {
@@ -56,6 +42,23 @@ make_cases() {
   printf 'p cnf 1 2\n1 0\n-1 0\n' > "$T/units.cnf"
   # classic 2-var full enumeration
   printf 'p cnf 2 4\n1 2 0\n1 -2 0\n-1 2 0\n-1 -2 0\n' > "$T/enum2.cnf"
+  # A large irrelevant root trail plus a two-variable contradiction exercises
+  # sparse dependency elaboration: the empty-clause chain uses only the final
+  # two variables even though the checker has recorded all preceding units.
+  python3 - "$T/sparse-dependencies.cnf" <<'EOF'
+import sys
+
+units = 64
+with open(sys.argv[1], "w") as output:
+    output.write(f"p cnf {units + 2} {units + 4}\n")
+    for variable in range(1, units + 1):
+        output.write(f"{variable} 0\n")
+    left, right = units + 1, units + 2
+    output.write(f"{left} {right} 0\n")
+    output.write(f"{left} -{right} 0\n")
+    output.write(f"-{left} {right} 0\n")
+    output.write(f"-{left} -{right} 0\n")
+EOF
   # pigeonhole PHP(3): 4 pigeons, 3 holes
   python3 - "$T/php3.cnf" <<'EOF'
 import sys
@@ -224,6 +227,22 @@ p cnf 16 68
 -14 -3 0
 -11 -6 0
 EOF
+  # Two complete signed ternary cardinality groups require at least three
+  # falsified literals in each of x1..x5 and -x1..-x5. Their lower bounds sum
+  # to six although only five variables exist. Lucky16 emits the native BDD
+  # cutting-planes refutation for this contradiction.
+  python3 - "$T/signed-cardinality.cnf" <<'EOF'
+import itertools
+import sys
+
+clauses = []
+for group in (range(1, 6), range(-1, -6, -1)):
+    clauses.extend(itertools.combinations(group, 3))
+with open(sys.argv[1], "w") as output:
+    output.write(f"p cnf 5 {len(clauses)}\n")
+    for clause in clauses:
+        output.write(" ".join(map(str, clause)) + " 0\n")
+EOF
 }
 
 make_cases
@@ -269,6 +288,59 @@ for cnf in "$T"/*.cnf; do
   fi
 done
 
+# Negative control for the reference checker semantics.  A DRAT/DSR checker
+# keeps a clause that is the reason of an implied unit even when the proof
+# deletes it, so here -55 stays implied by -5 and (-55 v 5), and the later
+# witnessed unit 55 is not a valid addition.  The reference pipeline must reject
+# this shape; Tactix therefore never deletes a reason the solver does not itself
+# hold as a root unit.  The independent UNSAT tail makes the fixture complete.
+python3 - "$T/implied-unit-delete.cnf" <<'EOF'
+import sys
+
+clauses = [[variable] for variable in range(1, 40) if variable != 5]
+clauses.append([40])
+clauses.extend(([-5], [-55, 5], [56, 57], [56, -57],
+                [-56, 57], [-56, -57]))
+with open(sys.argv[1], "w") as output:
+    output.write(f"p cnf 57 {len(clauses)}\n")
+    for clause in clauses:
+        output.write(" ".join(map(str, clause)) + " 0\n")
+EOF
+cat > "$T/implied-unit-delete.dsr" <<'EOF'
+d -55 5 0
+55 55 0
+56 0
+0
+EOF
+if check_dsr "$T/implied-unit-delete.cnf" "$T/implied-unit-delete.dsr" \
+    > /dev/null 2>&1; then
+  echo "FAIL: reference pipeline accepted a deleted implied-unit reason"
+  exit 1
+fi
+
+# Prove that the checked signed-cardinality certificate above actually came
+# from Lucky16.  The ordinary all-formats loop establishes native DSR/DRAT/LRAT
+# compatibility; this explicit run adds reachability and a negative oracle
+# control for the new proof-producing path.
+cnf="$T/signed-cardinality.cnf"
+proof="$T/signed-cardinality-reach.dsr"
+"$TACTIX" --no-binary "$cnf" "$proof" > "$T/signed-cardinality.out" \
+  && rc=$? || rc=$?
+[ "$rc" -eq 20 ] \
+  || { echo "FAIL: signed-cardinality fixture not UNSAT (rc=$rc)"; exit 1; }
+grep -Eq '^c signedcard 1 calls, 1 recognized, 2 groups, [1-9][0-9]* BDD nodes, [1-9][0-9]* proof additions, 0 budget stops, 1 UNSAT, 0 interrupted$' \
+  "$T/signed-cardinality.out" \
+  || { echo "FAIL: Lucky16 did not produce the signed-cardinality proof"; \
+       cat "$T/signed-cardinality.out"; exit 1; }
+check_dsr "$cnf" "$proof"
+
+lines=$(wc -l < "$proof")
+head -n "$((lines / 2))" "$proof" > "$T/signed-cardinality-incomplete.dsr"
+if check_dsr "$cnf" "$T/signed-cardinality-incomplete.dsr" > /dev/null 2>&1; then
+  echo "FAIL: reference pipeline accepted the incomplete signed-cardinality proof"
+  exit 1
+fi
+
 # Direct substitution witness: a two-row permutation adds unit -1 to the
 # symmetric component. The independent no-UP refutation tail ends the proof.
 # Forward checking forces dsr-trim to validate the SR line even though a
@@ -289,7 +361,7 @@ cat > "$T/direct-sr.dsr" <<'EOF'
 5 0
 0
 EOF
-check_dsr "$T/direct-sr.cnf" "$T/direct-sr.dsr" forward
+check_dsr "$T/direct-sr.cnf" "$T/direct-sr.dsr"
 
 # Exercise the solver's typed SR application and native DSR writer together.
 # The emitted certificate must contain an effective orbitopal transition and
@@ -306,7 +378,7 @@ if [ -n "$ONLINE_INPROCESS_TEST" ]; then
     "$T/orbitopal-sr.out" \
     || { echo "FAIL: orbitopal SR fixture made no effective transition"; \
          cat "$T/orbitopal-sr.out"; exit 1; }
-  check_dsr "$T/direct-sr.cnf" "$proof" forward
+  check_dsr "$T/direct-sr.cnf" "$proof"
 
   # A three-literal orbit requires two binary SST cuts before its representative
   # unit becomes RUP. Keep the independent two-variable contradiction only to
@@ -334,7 +406,7 @@ EOF
     "$T/sst-chain.out" \
     || { echo "FAIL: SST-chain fixture did not apply the complete level"; \
          cat "$T/sst-chain.out"; exit 1; }
-  check_dsr "$T/sst-chain.cnf" "$proof" forward
+  check_dsr "$T/sst-chain.cnf" "$proof"
 
   # No clause in the first four-clause component lies within its nontrivial
   # literal orbits. The two-pass producer must therefore reach a full orbit
@@ -395,25 +467,58 @@ EOF
   awk 'NR == 1 { if ($1 >= 0 || $2 <= 0 || NF <= 4) exit 1 }' "$proof" \
     || { echo "FAIL: first generated proof action was not an orbit cut"; \
          head -n 1 "$proof"; exit 1; }
-  check_dsr "$T/fix-and-cut.cnf" "$proof" forward
+  check_dsr "$T/fix-and-cut.cnf" "$proof"
 fi
 
-# Removing half of the row permutation is not an SR witness. The elaborator
-# must reject it before producing an accepted LSR certificate.
-cat > "$T/direct-sr-bad.dsr" <<'EOF'
--1 -1 3 -1 2 4 0
-5 0
-0
-EOF
-if "$DSR_TRIM" -q -f -c "$T/direct-sr.cnf" "$T/direct-sr-bad.dsr" \
-     "$T/direct-sr-bad.lsr" > "$T/direct-sr-bad.out" 2>&1; then
-  echo "FAIL: dsr-trim accepted the incomplete substitution witness"
-  cat "$T/direct-sr-bad.out"
+# An invalid witnessed step must be rejected even though the reference pipeline
+# checks backward, where a lemma the refutation does not use is never examined.
+# Here the refutation hangs on the witnessed unit 1: it forces 2, and (-2 v 3),
+# (-2 v -3) close.  The unit is not a valid addition, because its candidate
+# (-1 v 2) reduces to (2) and F & -1 & -2 has no unit propagation at all.
+# Backward dsr-trim alone reports VERIFIED on this proof; Trestle, the verified
+# checker and the pipeline's authority, rejects the elaborated LSR.
+printf 'p cnf 5 7\n-1 2 0\n-2 3 0\n-2 -3 0\n1 4 5 0\n1 4 -5 0\n1 -4 5 0\n1 -4 -5 0\n' \
+  > "$T/needed-bad-witness.cnf"
+printf '1 1 0\n0\n' > "$T/needed-bad-witness.dsr"
+if check_dsr "$T/needed-bad-witness.cnf" "$T/needed-bad-witness.dsr" \
+    > /dev/null 2>&1; then
+  echo "FAIL: reference pipeline accepted an invalid witnessed unit"
+  cat "$T/dsr-check.out"
   exit 1
 fi
-grep -q 'No UP contradiction' "$T/direct-sr-bad.out" \
-  || { echo "FAIL: dsr-trim did not diagnose the invalid SR control"; \
-       cat "$T/direct-sr-bad.out"; exit 1; }
+printf -- '-2 0\n-1 0\n4 0\n0\n' > "$T/needed-bad-witness-honest.dsr"
+check_dsr "$T/needed-bad-witness.cnf" "$T/needed-bad-witness-honest.dsr"
+
+# The same defect rejects a VALID witnessed unit whose propagation closes the
+# refutation: backward dsr-trim attributes the final derivation to the
+# witnessed line and omits the hint groups of the clauses it used, so Trestle
+# rejects the elaborated LSR.  Here unit 1 (witness 1) is valid and not RUP:
+# its candidates (-1 v 4) and (-1 v 5) reduce to (4) and (5), both implied
+# under -1, while F & -1 alone has no conflict by propagation.  The plain line
+# is the form Tactix must not write; the general encoding (vacuous RAT on a
+# fresh auxiliary, the witnessed nonunit, then the unit by RUP) verifies.  The
+# plain-line expectation pins frozen checker behaviour and is what to revisit
+# if the dsr-trim pin ever changes.
+printf 'p cnf 8 13\n1 2 0\n1 3 0\n-2 -3 4 0\n-1 4 0\n-1 5 0\n-5 -4 6 0\n-5 -6 0\n1 5 7 0\n1 5 -7 0\n1 7 8 0\n1 7 -8 0\n1 -7 8 0\n1 -7 -8 0\n' \
+  > "$T/closing-witness.cnf"
+printf '1 1 0\n0\n' > "$T/closing-witness-plain.dsr"
+if check_dsr "$T/closing-witness.cnf" "$T/closing-witness-plain.dsr" \
+    > /dev/null 2>&1; then
+  echo "NOTE: the reference pipeline now accepts a closing witnessed unit;"
+  echo "      the general encoding for propagating SR clauses can be retired"
+  exit 1
+fi
+printf -- '-9 1 0\n9 1 9 1 0\n1 0\nd 9 1 0\nd -9 1 0\n0\n' \
+  > "$T/closing-witness-general.dsr"
+check_dsr "$T/closing-witness.cnf" "$T/closing-witness-general.dsr"
+# In that encoding the invalid unit above is refused by dsr-trim itself.
+printf -- '-6 1 0\n6 1 6 1 0\n1 0\nd 6 1 0\nd -6 1 0\n0\n' \
+  > "$T/needed-bad-witness-general.dsr"
+if check_dsr "$T/needed-bad-witness.cnf" "$T/needed-bad-witness-general.dsr" \
+    > /dev/null 2>&1; then
+  echo "FAIL: reference pipeline accepted an invalid witnessed unit (general encoding)"
+  exit 1
+fi
 
 # Keep the verified endpoint live as an oracle too: an incomplete final hint
 # chain must not be accepted by Trestle.
@@ -866,5 +971,31 @@ PYFIXTURE
     done
   done
 fi
+
+# A canonical SCC image can become unit only after replacing an inactive
+# source endpoint by a representative fixed since Tarjan froze the map.  Keep
+# the complete fuzz reproducer here: the parent emitted (-28 v -66) but never
+# published -66, and a much later BVE resolvent exposed the stale root closure.
+if [ -x "$DSR_TRIM" ] && [ -x "$SR_CHECK" ]; then
+  corpus="$ROOT/tools/fuzz/corpus/regressions/034-substitute-root-fixed-binary-image-unit/case.cnf"
+  proof="$T/substitute-root-fixed-binary-image-unit.dsr"
+  "$TACTIX" -q --random-policy=296716882 "$corpus" "$proof" \
+    > "$T/substitute-root-fixed-binary-image-unit.out" && rc=$? || rc=$?
+  [ "$rc" -eq 20 ] \
+    || { echo "FAIL: Substitute root-fixed binary image (rc=$rc)"; exit 1; }
+  check_dsr "$corpus" "$proof"
+fi
+
+# A growth-declined BVE candidate keeps the unit resolvents it learned, so the
+# canonical round's entry schedule and root closure are stale from that point.
+# The minimized fuzz reproducer drives the random policy through such a round;
+# it must end there, and the reconstructed model must satisfy the input.
+corpus="$ROOT/tools/fuzz/corpus/regressions/035-bve-round-stale-schedule-fixed-pivot/case.cnf"
+"$TACTIX" -q --random-policy=296725965 "$corpus" \
+  > "$T/bve-round-stale-schedule.out" && rc=$? || rc=$?
+[ "$rc" -eq 10 ] \
+  || { echo "FAIL: BVE round stale-schedule fixed pivot (rc=$rc)"; exit 1; }
+"$ROOT/tools/fuzz/checkmodel" "$corpus" "$T/bve-round-stale-schedule.out" \
+  || { echo "FAIL: BVE round stale-schedule model rejected"; exit 1; }
 
 echo "micro_proofs OK"

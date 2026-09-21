@@ -327,6 +327,33 @@ struct StconnProofParameters {
   static StconnProofParameters from_kernel(const Kernel &);
 };
 
+// Proof-generating cutting-planes reasoning for complete signed-ternary
+// cardinality blocks.  Each block is translated to a reduced BDD and the
+// resulting inequalities are combined by minimum-fill Fourier--Motzkin
+// elimination.  The bounds govern recognition and certificate construction;
+// they do not identify a benchmark or prescribe a particular block count.
+struct SignedCardinalityProofParameters {
+  static constexpr uint32_t MAXIMUM_VARIABLES_DEFAULT = 4096;
+  static constexpr uint32_t MAXIMUM_GROUPS_DEFAULT = 4096;
+  static constexpr uint32_t MAXIMUM_CONSTRAINTS_DEFAULT = 262144;
+  static constexpr uint32_t MAXIMUM_GROUP_ARITY_DEFAULT = 8;
+  static constexpr uint64_t MAXIMUM_BDD_NODES_DEFAULT = UINT64_MAX;
+  static constexpr uint64_t MAXIMUM_PROOF_ADDITIONS_DEFAULT = UINT64_MAX;
+
+  uint32_t maximum_variables = MAXIMUM_VARIABLES_DEFAULT;
+  uint32_t maximum_groups = MAXIMUM_GROUPS_DEFAULT;
+  uint32_t maximum_constraints = MAXIMUM_CONSTRAINTS_DEFAULT;
+  uint32_t maximum_group_arity = MAXIMUM_GROUP_ARITY_DEFAULT;
+  uint64_t maximum_bdd_nodes = MAXIMUM_BDD_NODES_DEFAULT;
+  uint64_t maximum_proof_additions = MAXIMUM_PROOF_ADDITIONS_DEFAULT;
+  constexpr bool valid() const {
+    return maximum_variables && maximum_groups && maximum_constraints &&
+           maximum_group_arity >= 3 && maximum_group_arity <= 16 &&
+           maximum_bdd_nodes && maximum_proof_additions;
+  }
+  static SignedCardinalityProofParameters from_kernel(const Kernel &);
+};
+
 // SAT-only low-weight search of an exact projected affine image. Coordinates
 // use stable external DIMACS identities; an explicit empty projection is legal.
 enum class AffineProjectionMode : uint8_t { Boundary, AllParity, Explicit };
@@ -377,6 +404,7 @@ void install_rule_parameters(Kernel &, const FermatModelParameters &);
 void install_rule_parameters(Kernel &, const LookupCircuitModelParameters &);
 void install_rule_parameters(Kernel &, const SimonModelParameters &);
 void install_rule_parameters(Kernel &, const StconnProofParameters &);
+void install_rule_parameters(Kernel &, const SignedCardinalityProofParameters &);
 void install_rule_parameters(Kernel &, const AffineModelParameters &);
 
 template <class Parameters> class ScopedRuleParameters {
@@ -412,6 +440,8 @@ using ScopedLookupCircuitModelParameters =
     ScopedRuleParameters<LookupCircuitModelParameters>;
 using ScopedSimonModelParameters = ScopedRuleParameters<SimonModelParameters>;
 using ScopedStconnProofParameters = ScopedRuleParameters<StconnProofParameters>;
+using ScopedSignedCardinalityProofParameters =
+    ScopedRuleParameters<SignedCardinalityProofParameters>;
 
 class ScopedWalkParameters {
 public:

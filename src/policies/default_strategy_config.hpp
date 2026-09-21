@@ -42,7 +42,8 @@ struct DefaultStrategyConfig {
   large_domain_structured_root_preprocessing_stages();
   static strategy::OnlineStrategyStage structured_root_stage_after_feedback(
       const strategy::OnlineStrategyStage &, bool prior_stage_progress,
-      bool prior_unique_literal_amo_progress);
+      bool prior_unique_literal_amo_progress,
+      bool prior_nonforcing_cut_progress);
   // Named compatibility constants are kept beside the typed fields so tests
   // and design probes can cite a default without duplicating its literal.
   static constexpr uint64_t RESTART_INTERVAL_DEFAULT = 1;
@@ -105,9 +106,12 @@ struct DefaultStrategyConfig {
     uint32_t focused_phase_switch_span = 2;
     std::vector<int8_t> focused_phase_pattern{0, 1, 0, -1, 0, 0, 0, 0};
     bool random_sequences = true;
-    // AE-kissat-MAB's stable-search two-arm bandit.  Kept disabled in the
-    // baseline until its frozen WV and regression evidence is complete.
-    bool mab = false;
+    // AE-kissat-MAB's stable-search two-arm bandit. Both rankings learn
+    // concurrently and the owner restart controller selects the active arm.
+    bool mab = true;
+    // Give baseline EVSIDS one normalized search opportunity before admitting
+    // the full owner bandit on a still-unsolved residual.
+    bool mab_after_search_stagnation = true;
     double mab_exploration = 4.0;
     double chb_step = 0.4;
     double chb_step_min = 0.06;
@@ -266,6 +270,11 @@ struct DefaultStrategyConfig {
     strategy::StconnProofParameters parameters;
   } stconn_proof;
 
+  struct SignedCardinalityProof {
+    bool enabled = true;
+    strategy::SignedCardinalityProofParameters parameters;
+  } signed_cardinality_proof;
+
   struct Inprocess {
     // Production values are formula-shape invariant. These typed switches
     // remain explicit diagnostic arms and are never selected by classification.
@@ -289,6 +298,7 @@ struct DefaultStrategyConfig {
       p.resolvent_count_limit = 8;
       p.resolvent_size_limit = UINT32_MAX;
       p.backward = false;
+      p.traversal = strategy::BveTraversal::FastEliminate;
       return p;
     }();
     // Kissat creation order is the production default.  Enabling this switch

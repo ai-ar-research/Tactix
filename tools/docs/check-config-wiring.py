@@ -32,6 +32,12 @@ ROOT = subprocess.run(["git", "rev-parse", "--show-toplevel"],
 KERNEL_H = os.path.join(ROOT, "src", "kernel", "kernel.hpp")
 POLICY = ["src/policies/default_policy.cpp", "src/policies/default_policy.hpp",
           "src/policies/subpolicy.hpp", "src/policies/subpolicy.cpp"]
+# Scoped typed invocations are policy writers even though their save/install/
+# restore mechanics live in the strategy layer. Keep these exceptions named so
+# broad strategy code cannot accidentally satisfy a POLICY row.
+POLICY_ADAPTERS = {
+    "bve_fastel_traversal": ["src/strategy/bve_invocation.hpp"],
+}
 
 # The config surface, classified. Everything from `bve_bound` down in
 # kernel.hpp — the fields that steer scheduling rather than record state.
@@ -53,6 +59,7 @@ TABLE = {
                                           "at each inprocessing phase"),
     "bve_resolvent_size_limit": ("POLICY", "typed BVE resolvent-size admission limit"),
     "bve_resolvent_count_limit": ("POLICY", "typed BVE absolute resolvent-count admission limit"),
+    "bve_fastel_traversal":      ("POLICY", "typed BVE physical traversal selected by the owning fast-elimination schedule"),
     "bve_backward_occurrence_limit":
                                 ("POLICY", "typed backward elimination occurrence limit"),
     "bve_definition_session":  ("POLICY", "embedded Kitten create/release lifetime; "
@@ -309,10 +316,10 @@ def main():
                          f"— stale row, delete it.")
             continue
         if kind == "POLICY":
-            w = writers(f, POLICY)
+            w = writers(f, POLICY + POLICY_ADAPTERS.get(f, []))
             if not w:
                 fails.append(f"UNWIRED: `{f}` is tagged POLICY ({why}) but NOTHING "
-                             f"in default_policy.* writes it. This is the N4 "
+                             f"in default_policy.* or its named typed adapter writes it. This is the N4 "
                              f"failure shape — we own the mechanism and never "
                              f"connect it.")
             else:

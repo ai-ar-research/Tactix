@@ -236,6 +236,97 @@ static void test_reason_binary_retired_to_unit() {
   assert(k.values[b] > 0);                      // b stays assigned
 }
 
+// Strict DSR deletion semantics require the derived unit to be written while
+// its binary reason is still present. This pins both the content and ordering
+// of that transition instead of relying on a later propagation drain.
+static void test_dsr_materializes_root_reason_before_binary_delete() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  const Lit a = internalize(1), b = internalize(2);
+  kernel_add_binary_clause(k, a, b, 9);
+  kernel_assign_unit(k, negate(a));
+  kernel_assign_binary(k, b, a);
+
+  char path[] = "/tmp/tactix-root-reason-proof-XXXXXX";
+  const int fd = mkstemp(path);
+  assert(fd >= 0);
+  close(fd);
+  Proof proof;
+  assert(proof.open(path, ProofFormat::DsrAscii));
+  k.proof = &proof;
+  assert(kernel_delete_binary(k, a, b));
+  proof.flush();
+
+  FILE *input = std::fopen(path, "rb");
+  assert(input);
+  std::string bytes;
+  for (int c; (c = std::fgetc(input)) != EOF;)
+    bytes.push_back(static_cast<char>(c));
+  assert(!std::ferror(input));
+  std::fclose(input);
+  assert(bytes == "2 0\nd 1 2 0\n");
+  assert(k.assigned[var_of(b)].reason == UNIT_REASON);
+  assert(std::remove(path) == 0);
+}
+
+static void test_dsr_materializes_root_reason_before_large_delete() {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  const Lit a = internalize(1), b = internalize(2), c = internalize(3);
+  const Lit clause[3] = {a, b, c};
+  const Ref ref = kernel_add_large_clause(k, clause, 3, false, 0, 9);
+  kernel_assign_unit(k, negate(a));
+  kernel_assign_unit(k, negate(b));
+  kernel_assign_ref(k, c, ref);
+
+  char path[] = "/tmp/tactix-large-root-reason-proof-XXXXXX";
+  const int fd = mkstemp(path);
+  assert(fd >= 0);
+  close(fd);
+  Proof proof;
+  assert(proof.open(path, ProofFormat::DsrAscii));
+  k.proof = &proof;
+  kernel_delete_clause(k, clause_at(k.arena, ref));
+  proof.flush();
+
+  FILE *input = std::fopen(path, "rb");
+  assert(input);
+  std::string bytes;
+  for (int ch; (ch = std::fgetc(input)) != EOF;)
+    bytes.push_back(static_cast<char>(ch));
+  assert(!std::ferror(input));
+  std::fclose(input);
+  assert(bytes == "3 0\nd 1 2 3 0\n");
+  assert(k.assigned[var_of(c)].reason == UNIT_REASON);
+  assert(std::remove(path) == 0);
+}
+
+// An in-place clause rewrite emits a proof deletion for the old image but
+// keeps the arena Ref. OTFS uses that Ref as a non-root implication reason;
+// root-unit retirement must leave it intact for the replacement image.
+static void test_large_rewrite_preserves_nonroot_reason() {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  const Lit a = internalize(1), b = internalize(2);
+  const Lit c = internalize(3), d = internalize(4);
+  const Lit original[4] = {a, b, c, d};
+  const Ref ref = kernel_add_large_clause(k, original, 4, false, 0, 9);
+  kernel_assign_decision(k, negate(a));
+  kernel_assign_decision(k, negate(b));
+  kernel_assign_decision(k, negate(d));
+  kernel_assign_ref(k, c, ref);
+  const Var vc = var_of(c);
+  assert(k.assigned[vc].level == 3 && k.assigned[vc].reason == ref);
+
+  const Lit replacement[3] = {b, c, d};
+  k.next_clause_id = 10;
+  kernel_replace_large_clause_in_place(k, ref, k.next_clause_id, replacement,
+                                       3, 0);
+  assert(!clause_at(k.arena, ref)->garbage());
+  assert(k.assigned[vc].level == 3 && k.assigned[vc].reason == ref);
+  kernel_check_invariants(k);
+}
+
 // Under reason jumping the recorded reason is a virtual resolvent, so the
 // clause the LRAT chain cites is (lit v jumped_over), which the reason field
 // no longer names. The live-reason guard must protect that pair too.
@@ -276,6 +367,9 @@ int main() {
   test_delete_one_duplicate_copy_keeps_pair_named();
   test_delete_idempotent();
   test_reason_binary_retired_to_unit();
+  test_dsr_materializes_root_reason_before_binary_delete();
+  test_dsr_materializes_root_reason_before_large_delete();
+  test_large_rewrite_preserves_nonroot_reason();
   test_jumped_reason_protects_its_antecedent();
   puts("test_binary_deletion OK");
   return 0;

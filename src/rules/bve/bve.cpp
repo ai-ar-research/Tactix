@@ -1321,10 +1321,21 @@ static void bve_backward(Kernel &k, std::vector<Ref> &queue,
 // garbage exactly as Kissat does before the growth bound is known; resolution
 // clauses are not committed until that bound passes. Unsat on an empty
 // resolvent or contradictory collapsed units.
-ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
+// `NoOp` here means only that the pivot was kept: Kissat's resolve.c retires
+// root-satisfied antecedents and installs unit resolvents as it meets them,
+// before the candidate's growth decision, and those effects survive a decline.
+// `bve_eliminate` turns that into the registry's result.
+ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
   assert(def && "BVE candidate scratch is required by every registered entry");
   const bool lrat = k.proof && k.proof->lrat();
   Lit px = make_lit(x, false), nx = make_lit(x, true);
+  // Candidate contract, owed by every registered entry: the pivot is
+  // unassigned and the root closure is complete.  Antecedent gathering reads
+  // root values as final (a binary's partner cannot be root-false, a dropped
+  // false literal already owns its unit id), and the definition refutation
+  // derives a pivot unit the kernel must not already hold.
+  assert(kernel_propagation_fixpoint(k));
+  assert(k.value(px) == 0);
   // Retire the retry bit before doing the work, so a variable whose resolvents
   // blow the bound is not re-tried until its clauses change (kissat
   // eliminate.c eliminate_variable, same position).
@@ -1692,7 +1703,7 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
   // generation.  Equal populations retain the positive/internal-first side.
   // Keeping the side vectors and their pivot literals aligned makes the rest
   // of this symmetric transaction follow that exact orientation.
-  if (pos.size() > neg.size()) {
+  if (!k.bve_fastel_traversal && pos.size() > neg.size()) {
     std::swap(pos, neg);
     std::swap(px, nx);
   }
@@ -1940,9 +1951,11 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
         const uint32_t ordinal = pair_ordinal++;
         const size_t lits_begin = def->resolvent_lits.size();
         bool satisfied_or_tautological = false;
-        // Kissat resolve.c first copies the second antecedent's literals not
-        // already marked by the first, then appends the first antecedent. This
-        // order is observable when connect_resolvents updates heap scores.
+        // Ordinary Kissat resolve.c copies the second antecedent then the
+        // first. SC2024 fastel keeps positive before negative for large/large
+        // pairs and puts the binary literal first for mixed pairs. Build the
+        // same logical second+first image, then rotate only when the posed
+        // traversal owns first+second physical order.
         for (const Lit l : d.active) {
           if (l == second_pivot)
             continue;
@@ -1962,6 +1975,7 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
           }
           def->resolvent_lits.push_back(l);
         }
+        const size_t second_size = def->resolvent_lits.size() - lits_begin;
         if (satisfied_or_tautological) {
           def->resolvent_lits.resize(lits_begin);
           event_trace_bve_pair(k, x, ordinal, c.active.data(), c.active.size(),
@@ -1984,6 +1998,16 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
           assert(value <= 0);
           if (!value)
             def->resolvent_lits.push_back(l);
+        }
+        if (k.bve_fastel_traversal) {
+          const bool first_binary = c.ref == INVALID_REF;
+          const bool second_binary = d.ref == INVALID_REF;
+          const bool first_then_second = first_binary || !second_binary;
+          if (first_then_second && second_size) {
+            auto begin = def->resolvent_lits.begin() + lits_begin;
+            std::rotate(begin, begin + second_size,
+                        def->resolvent_lits.end());
+          }
         }
         const size_t lits_size = def->resolvent_lits.size() - lits_begin;
         const size_t chain_begin =
@@ -2244,6 +2268,19 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
   return k.inconsistent ? ApplyResult::Unsat : ApplyResult::Ok;
 }
 
+// `Ok` means the application changed solver state.  That is read from the
+// kernel's own record of clause transitions and root assignments rather than
+// reported by each mutation in the attempt, so a kept pivot whose attempt
+// retired an antecedent or learned a unit is `Ok` by construction.  Whether
+// the pivot was eliminated is read from retirement and `bve_eliminated`.
+ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
+  const KernelChangeMark before = kernel_change_mark(k);
+  const ApplyResult result = bve_attempt(k, x, def);
+  return result == ApplyResult::NoOp && kernel_change_mark(k) != before
+             ? ApplyResult::Ok
+             : result;
+}
+
 } // namespace
 
 // canonical instance = a round: eliminate the best schedulable candidate
@@ -2260,6 +2297,15 @@ ApplyResult bve_apply(Kernel &k) {
     const ApplyResult r = bve_eliminate(k, x, &def);
     if (r == ApplyResult::Unsat)
       return ApplyResult::Unsat;
+    // The schedule and the root closure describe the state at round entry, so
+    // the round ends at the first candidate which changes that state, whether
+    // it eliminated its pivot or declined after installing a unit resolvent
+    // or retiring a satisfied antecedent.  The next application drains the
+    // new roots and schedules from current occurrences; no later candidate is
+    // ever attempted against a stale schedule or an incomplete root closure.
+    // Kissat keeps its round going instead and pays for that with a unit
+    // flush and a `can_eliminate_variable` re-test per candidate
+    // (eliminate.c); DefaultPolicy's dosing loop is the port of that shape.
     if (r == ApplyResult::Ok) {
       // Reclamation is the caller's cost choice, not part of the rule's
       // effect: deletes are lazy and every reader skips garbage. The canonical
@@ -2267,9 +2313,9 @@ ApplyResult bve_apply(Kernel &k) {
       // scheduler, which reclaims at the end of its authored elimination
       // round.
       kernel_collect_garbage(k);
-      return ApplyResult::Ok; // eliminated one variable
+      return ApplyResult::Ok; // the round changed solver state
     }
-    // NoOp (bound / hazard): try the next candidate
+    // unchanged state (bound / hazard): try the next candidate
   }
   return ApplyResult::NoOp;
 }

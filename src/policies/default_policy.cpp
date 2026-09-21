@@ -23,6 +23,7 @@
 #include "rules/lucky/lookup_circuit_model.hpp"
 #include "rules/lucky/simon_model.hpp"
 #include "rules/lucky/stconn_proof.hpp"
+#include "rules/lucky/signed_cardinality_proof.hpp"
 #include "policies/ops/walk/walk.hpp"
 #include "rules/restart/restart.hpp"
 #include "rules/registry.hpp"
@@ -177,6 +178,86 @@ bool default_should_seed_structured_residual(
     bool generic_graph_root_progress) {
   return grew_root_trail &&
          (!unique_literal_amo_binaries || generic_graph_root_progress);
+}
+
+bool default_should_run_initial_fast_elimination(uint64_t candidates,
+                                                 uint64_t active) {
+  return candidates && candidates > active - std::min(candidates, active);
+}
+
+bool default_fast_elimination_discovery_admissible(uint64_t active,
+                                                   uint64_t remaining) {
+  // Discovery has to inspect every live variable before the owner order is
+  // known. Reserve an equal amount of the shared dose for the transformation;
+  // otherwise startup would pay mostly to construct a domain that can only be
+  // mutated by a short, incomplete prefix.
+  return active && active <= remaining / 2;
+}
+
+bool default_should_run_fast_elimination_after_structured(
+    bool structured_root_grew_trail) {
+  // A new root assignment rebuilds the residual search seed, so another
+  // startup formula transformation would stack two independent trajectory
+  // changes.  Clause-only structured progress composes with FastEliminate and
+  // retains the owner's opportunity.
+  return !structured_root_grew_trail;
+}
+
+namespace {
+uint32_t binary_scale(uint64_t active) {
+  if (!active)
+    return 0;
+  uint32_t result = 0;
+  for (uint64_t bound = 1; bound < active;) {
+    ++result;
+    if (bound > UINT64_MAX / 2)
+      break;
+    bound <<= 1;
+  }
+  return std::max(result, uint32_t{1});
+}
+} // namespace
+
+bool default_fast_elimination_material_progress(uint64_t eliminated,
+                                                uint64_t active) {
+  if (!eliminated || !active)
+    return false;
+  const uint64_t scale = binary_scale(active);
+  return eliminated >= active / scale + !!(active % scale);
+}
+
+bool default_fast_elimination_admits_mab_at_entry(uint64_t eliminated,
+                                                  uint64_t residual_active,
+                                                  bool producer_complete) {
+  // A material minority reduction changes the residual enough to admit the
+  // owner's two-arm search immediately.  If elimination removed at least half
+  // of the entry domain, preserve a baseline opportunity on the compact
+  // residual instead.  Both boundaries derive from producer outcomes.
+  return producer_complete && eliminated < residual_active &&
+         default_fast_elimination_material_progress(eliminated,
+                                                    residual_active);
+}
+
+uint64_t default_mab_stagnation_conflict_budget(uint64_t active,
+                                                bool accelerated) {
+  if (!active)
+    return 0;
+  if (accelerated)
+    return 0;
+  const uint64_t scale = binary_scale(active);
+  return active > UINT64_MAX / scale
+             ? UINT64_MAX
+             : active * scale;
+}
+
+bool default_mab_stagnation_reached(uint64_t conflicts,
+                                    uint64_t activation_conflict) {
+  return conflicts >= activation_conflict;
+}
+
+bool default_should_schedule_delayed_mab(bool enabled, bool delayed,
+                                         uint64_t sr_applications) {
+  return enabled && delayed && !sr_applications;
 }
 
 namespace {
@@ -472,6 +553,8 @@ bool DefaultStrategyConfig::valid(std::string *error) const {
     return reject("simon-model settings are invalid");
   if (!stconn_proof.parameters.valid())
     return reject("stconn-proof settings are invalid");
+  if (!signed_cardinality_proof.parameters.valid())
+    return reject("signed-cardinality-proof settings are invalid");
 
   const auto &ip = inprocess;
   if (!ip.eliminate_interval || !ip.probe_interval || !ip.phase_rounds ||
@@ -625,6 +708,8 @@ std::string DefaultStrategyConfig::serialize() const {
       << branching.focused_phase_switch_span
       << " branching.random_sequences=" << branching.random_sequences
       << " branching.mab=" << branching.mab
+      << " branching.mab_after_search_stagnation="
+      << branching.mab_after_search_stagnation
       << " branching.mab_exploration=" << branching.mab_exploration
       << " branching.chb_step=" << branching.chb_step
       << " branching.chb_step_min=" << branching.chb_step_min
@@ -829,6 +914,20 @@ std::string DefaultStrategyConfig::serialize() const {
       << stconn_proof.parameters.maximum_columns
       << " stconn_proof.maximum_rup_clauses="
       << stconn_proof.parameters.maximum_rup_clauses
+      << " signed_cardinality_proof.enabled="
+      << signed_cardinality_proof.enabled
+      << " signed_cardinality_proof.maximum_variables="
+      << signed_cardinality_proof.parameters.maximum_variables
+      << " signed_cardinality_proof.maximum_groups="
+      << signed_cardinality_proof.parameters.maximum_groups
+      << " signed_cardinality_proof.maximum_constraints="
+      << signed_cardinality_proof.parameters.maximum_constraints
+      << " signed_cardinality_proof.maximum_group_arity="
+      << signed_cardinality_proof.parameters.maximum_group_arity
+      << " signed_cardinality_proof.maximum_bdd_nodes="
+      << signed_cardinality_proof.parameters.maximum_bdd_nodes
+      << " signed_cardinality_proof.maximum_proof_additions="
+      << signed_cardinality_proof.parameters.maximum_proof_additions
       << " inprocess.bve_enabled=" << inprocess.bve_enabled
       << " inprocess.vivify_enabled=" << inprocess.vivify_enabled
       << " inprocess.factor_enabled=" << inprocess.factor_enabled
@@ -842,6 +941,9 @@ std::string DefaultStrategyConfig::serialize() const {
       << inprocess.initial_fast_elimination_rounds
       << " inprocess.initial_fast_elimination_resolvent_count_limit="
       << inprocess.initial_fast_elimination_parameters.resolvent_count_limit
+      << " inprocess.initial_fast_elimination_traversal="
+      << static_cast<unsigned>(
+             inprocess.initial_fast_elimination_parameters.traversal)
       << " inprocess.cadical_arena_ordering_enabled="
       << inprocess.cadical_arena_ordering_enabled
       << " inprocess.append_unlisted_rules="
@@ -1139,7 +1241,8 @@ std::string DefaultStrategyConfig::serialize() const {
           << p->definition_cores << ','
           << p->definition_core_budget_multiplier << ',' << p->backward << ','
           << static_cast<unsigned>(p->candidate_scope) << ','
-          << p->resolvent_count_limit << ')';
+          << p->resolvent_count_limit << ','
+          << static_cast<unsigned>(p->traversal) << ')';
     } else if (const auto *p =
                    std::get_if<strategy::SubsumeForwardParameters>(
                        &step.parameters)) {
@@ -2776,8 +2879,10 @@ void DefaultPolicy::configure_from_env(const Kernel &) {
         strategy::AnalyzeParameters::EAGER_SUBSUME_CAPACITY);
   if (const char *rd = std::getenv("TACTIX_RANDEC"))
     config_.branching.random_sequences = *rd != '0';
-  if (const char *value = std::getenv("TACTIX_MAB"))
+  if (const char *value = std::getenv("TACTIX_MAB")) {
     config_.branching.mab = *value != '0';
+    config_.branching.mab_after_search_stagnation = false;
+  }
   if (const char *wp = std::getenv("TACTIX_WALK_PERMILLE"))
     config_.rephase.walk_permille = std::strtoull(wp, nullptr, 10);
   if (const char *bc = std::getenv("TACTIX_BVE_RAMP_MAX"))
@@ -3019,6 +3124,8 @@ void DefaultInprocessScheduler::reset(const Kernel &) {
   bve_level_ = 0;
   bve_level_idx_ = 0;
   initial_fast_elimination_active_ = false;
+  initial_fast_elimination_discovery_ticks_ = 0;
+  initial_fast_elimination_budget_exhausted_ = false;
   initial_fast_elimination_attempted_.clear();
   structured_root_consumed_ = false;
   structured_root = {};
@@ -3349,6 +3456,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       config_.lookup_circuit_model.parameters;
   k.simon_model_parameters = config_.simon_model.parameters;
   k.stconn_proof_parameters = config_.stconn_proof.parameters;
+  k.signed_cardinality_proof_parameters =
+      config_.signed_cardinality_proof.parameters;
   k.reduce_victim_numerator = config_.reduction.victim_numerator;
   k.reduce_victim_denominator = config_.reduction.victim_denominator;
   k.reduce_protect_tiers = config_.reduction.protect_tiers;
@@ -3403,6 +3512,18 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   ApplyResult startup = default_propagate(k, "startup");
   if (startup != ApplyResult::Ok)
     return finish(20); // startup is at root: a conflict is a refutation
+  if (config_.signed_cardinality_proof.enabled &&
+      signed_cardinality_proof_guard(k)) {
+    event_trace.macro(k, "signed_cardinality_proof_begin");
+    const ApplyResult counting = default_direct_rule(
+        k, "Lucky", "signed-cardinality-proof",
+        [&] { return signed_cardinality_proof_apply(k); });
+    if (counting == ApplyResult::Unsat) {
+      event_trace.macro(k, "signed_cardinality_proof_end", "unsat");
+      return finish(20);
+    }
+    event_trace.macro(k, "signed_cardinality_proof_end", "unknown");
+  }
   // Arithmetic-circuit construction consumes only the parser's bounded raw
   // structural summary, then independently validates any completed model.
   if (config_.fermat_model.enabled && fermat_model_guard(k)) {
@@ -3642,7 +3763,9 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   }
   if (!k.h)
     owned_h.emplace(k);
-  heuristics_configure_mab(k, config_.branching.mab,
+  // Defer the optional second ranking until startup feedback decides whether
+  // this residual search state should leave the baseline EVSIDS trajectory.
+  heuristics_configure_mab(k, false,
                            config_.branching.mab_exploration,
                            config_.branching.chb_step,
                            config_.branching.chb_step_min,
@@ -3694,18 +3817,54 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     const int phase_result = inprocess_.run_phase(k, SlotGroup::Probe, stop);
     if (phase_result == 10 || phase_result == 20) return finish(phase_result);
   }
-  if (config_.inprocess.initial_fast_elimination) {
+  if (config_.inprocess.initial_fast_elimination &&
+      default_should_run_fast_elimination_after_structured(
+          structured_root_grew_trail)) {
     event_trace.macro(k, "initial_fast_eliminate_begin");
     const int phase_result =
         inprocess_.run_initial_fast_elimination(k, stop);
     event_trace.macro(k, "initial_fast_eliminate_end");
     if (phase_result == 10 || phase_result == 20)
       return finish(phase_result);
+  } else if (config_.inprocess.initial_fast_elimination) {
+    ++k.stats.fastel_root_suppressed;
   }
   event_trace.macro(k, "preprocess_end");
   startup = default_propagate(k, "post-preprocess");
   if (startup != ApplyResult::Ok)
     return finish(20);
+  bool mab_activation_pending = false;
+  uint64_t mab_activation_conflict = UINT64_MAX;
+  if (config_.branching.mab) {
+    if (!config_.branching.mab_after_search_stagnation) {
+      heuristics_configure_mab(k, true,
+                               config_.branching.mab_exploration,
+                               config_.branching.chb_step,
+                               config_.branching.chb_step_min,
+                               config_.branching.chb_step_decay);
+      ++k.stats.mab_activations;
+    } else if (default_should_schedule_delayed_mab(
+                   config_.branching.mab,
+                   config_.branching.mab_after_search_stagnation,
+                   k.stats.sr_applications)) {
+      const bool accelerated =
+          default_fast_elimination_admits_mab_at_entry(
+              k.stats.fastel_eliminated, active_variables(k),
+              !k.stats.fastel_budget_stops);
+      const uint64_t budget = default_mab_stagnation_conflict_budget(
+          active_variables(k), accelerated);
+      k.stats.mab_activation_fastel_accelerated += accelerated;
+      k.stats.mab_activation_limit = budget;
+      mab_activation_conflict =
+          budget > UINT64_MAX - k.stats.conflicts
+              ? UINT64_MAX
+              : k.stats.conflicts + budget;
+      mab_activation_pending = true;
+      ++k.stats.mab_activation_delayed;
+    } else {
+      ++k.stats.mab_activation_sr_suppressed;
+    }
+  }
   if (lucky_late_ && lucky_guard(k)) {
     event_trace.macro(k, "lucky_late_begin");
     k.stats.lucky_late_calls++;
@@ -3768,6 +3927,17 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   mode.ticks_at_focus_entry = search_ticks(k);
 
   for (;;) {
+    if (mab_activation_pending && default_mab_stagnation_reached(
+                                      k.stats.conflicts,
+                                      mab_activation_conflict)) {
+      heuristics_configure_mab(k, true,
+                               config_.branching.mab_exploration,
+                               config_.branching.chb_step,
+                               config_.branching.chb_step_min,
+                               config_.branching.chb_step_decay);
+      mab_activation_pending = false;
+      ++k.stats.mab_activations;
+    }
     event_trace.checkpoint(k);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
     if (k.propagate_head < k.trail.size()) {
@@ -4278,7 +4448,7 @@ uint64_t DefaultInprocessScheduler::ledger_remaining(SlotEntry &e, const Kernel 
 DefaultInprocessScheduler::SlotStep
 DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVTable &r,
                                SlotPhaseCtx &ctx) {
-  const uint64_t limit = e.limit;
+  uint64_t limit = e.limit;
   ctx.last_result = ApplyResult::NoOp;
   if (!r.guard(k)) {
     e.tm.dec_guard++;
@@ -4319,6 +4489,34 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
               : posed ? *posed : strategy::BveParameters::from_kernel(k);
       bve_invocation_session.emplace(
           r, k, parameters, *bve_invocation_budget);
+    }
+    if (initial_fast_bve) {
+      // Candidate discovery must inspect every live variable before the
+      // owner's radix order is known. Charge that mandatory lower bound to
+      // the same typed startup dose as resolution. If it cannot fit, decline
+      // before allocating or mutating a partial owner domain.
+      const uint64_t active = active_variables(k);
+      ++k.stats.fastel_rounds;
+      k.stats.fastel_active += active;
+      const uint64_t resolution_remaining = ledger_remaining(e, k, e.limit);
+      const bool overflow =
+          initial_fast_elimination_discovery_ticks_ > resolution_remaining;
+      const uint64_t discovery_remaining =
+          overflow ? 0
+                   : resolution_remaining -
+                         initial_fast_elimination_discovery_ticks_;
+      if (!default_fast_elimination_discovery_admissible(
+              active, discovery_remaining)) {
+        ++k.stats.fastel_budget_stops;
+        initial_fast_elimination_budget_exhausted_ = true;
+        ctx.eliminate_limit_reached = true;
+        ++e.tm.dec_budget;
+        return SlotStep::Next;
+      }
+      initial_fast_elimination_discovery_ticks_ += active;
+      k.stats.fastel_discovery_ticks += active;
+      assert(initial_fast_elimination_discovery_ticks_ <= e.limit);
+      limit = e.limit - initial_fast_elimination_discovery_ticks_;
     }
     payloads_.resize(2 * static_cast<size_t>(k.nvars) + 1);
     uint32_t n =
@@ -4370,6 +4568,12 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
                 : variable;
         candidates.push_back({payloads_[j], pos + neg, tie});
       }
+      k.stats.fastel_candidates += candidates.size();
+      if (!default_should_run_initial_fast_elimination(candidates.size(),
+                                                       active_variables(k))) {
+        ++k.stats.fastel_declined;
+        candidates.clear();
+      }
       std::stable_sort(candidates.begin(), candidates.end(),
                        [](const Candidate &a, const Candidate &b) {
                          return std::tie(a.score, a.tie) <
@@ -4385,7 +4589,7 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
     BveCandidateHeap bve_heap;
     if (dynamic_bve)
       bve_heap.initialize(k, payloads_.data(), n);
-    else
+    else if (!initial_fast_bve)
       order_candidates(k, e, payloads_.data(), n);
     if (std::getenv("TACTIX_SLOT_TRACE"))
       std::fprintf(stderr,
@@ -4443,6 +4647,12 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
           continue;
       }
       if (e.meter(k) > limit) {
+        if (initial_fast_bve &&
+            !initial_fast_elimination_budget_exhausted_) {
+          ++k.stats.fastel_budget_stops;
+          initial_fast_elimination_budget_exhausted_ = true;
+          ctx.eliminate_limit_reached = true;
+        }
         break; // dose spent
       }
       if (!r.guard(k)) {
@@ -4476,6 +4686,7 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
       // when the final formula and scores are identical.
       const size_t candidate_trail_before = k.trail.size();
       const uint64_t candidate_roots_before = k.stats.root_assignments;
+      const uint64_t candidate_eliminated_before = k.stats.bve_eliminated;
       const uint32_t bve_flush_from = k.propagate_head;
 #ifdef TACTIX_ENABLE_EVENT_TRACE
       Var trace_bve_var = INVALID_VAR;
@@ -4532,17 +4743,16 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
         ctx.phase_unsat = true;
         break;
       }
-      const bool bve_learned_root_on_decline =
-          bve_entry && ar != ApplyResult::Ok &&
-          k.stats.root_assignments != candidate_roots_before;
-      if (ar != ApplyResult::Ok && !bve_learned_root_on_decline)
-        continue; // this candidate was not viable; try the next
-      if (ar == ApplyResult::Ok)
+      if (ar != ApplyResult::Ok)
+        continue; // this candidate changed nothing; try the next
+      // Kissat's round repeats on eliminations (`last_round_eliminated`), not
+      // on a unit a declined candidate happened to learn.
+      if (!bve_entry || k.stats.bve_eliminated != candidate_eliminated_before)
         ctx.round_changed = true;
       // resolve.c can learn a unit immediately and then reject the same BVE
       // candidate on its later growth bound.  eliminate.c nevertheless flushes
-      // that unit after every candidate.  A NoOp therefore is not permission to
-      // skip root propagation when the attempt changed the root trail.
+      // that unit after every candidate, and the rule reports such a decline
+      // as a state change, so root propagation follows it here as well.
       const size_t propagation_trail_before = k.trail.size();
       const ApplyResult propagation =
           default_propagate(k, "inprocess-candidate");
@@ -5114,10 +5324,13 @@ int DefaultInprocessScheduler::run_structured_root(
   bool prior_stage_progress = false;
   const uint64_t unique_literal_amo_before =
       k.stats.sr_unique_literal_amo_binaries;
+  const uint64_t nonforcing_cuts_before =
+      k.stats.sr_nonforcing_cuts_declined;
   for (size_t index = 0; index < stages.size(); ++index) {
     const auto stage = DefaultStrategyConfig::structured_root_stage_after_feedback(
         stages[index], prior_stage_progress,
-        k.stats.sr_unique_literal_amo_binaries > unique_literal_amo_before);
+        k.stats.sr_unique_literal_amo_binaries > unique_literal_amo_before,
+        k.stats.sr_nonforcing_cuts_declined > nonforcing_cuts_before);
     auto &telem = structured_root.stages[index];
     ++telem.runs;
     strategy::OnlineStrategySequence executor;
@@ -5232,9 +5445,17 @@ int DefaultInprocessScheduler::run_initial_fast_elimination(
   assert(config().initial_fast_elimination);
   assert(!initial_fast_elimination_active_);
   initial_fast_elimination_active_ = true;
+  initial_fast_elimination_discovery_ticks_ = 0;
+  initial_fast_elimination_budget_exhausted_ = false;
   initial_fast_elimination_attempted_.assign(k.nvars, 0);
   initial_fast_elimination_marks_.assign(2 * static_cast<size_t>(k.nvars), 0);
+  const uint64_t eliminated_before = k.stats.bve_eliminated;
+  const uint64_t resolutions_before = k.stats.bve_resolutions;
+  const uint64_t started = now_nanos();
   const int result = run_phase(k, SlotGroup::Eliminate, stop);
+  k.stats.fastel_nanos += now_nanos() - started;
+  k.stats.fastel_eliminated += k.stats.bve_eliminated - eliminated_before;
+  k.stats.fastel_resolutions += k.stats.bve_resolutions - resolutions_before;
   initial_fast_elimination_attempted_.clear();
   initial_fast_elimination_marks_.clear();
   initial_fast_elimination_active_ = false;
@@ -5688,14 +5909,6 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
 
 void DefaultInprocessScheduler::set_entry_limit(SlotEntry &e, Kernel &k) {
   const std::vector<RuleVTable> &rules = tactix_rules();
-  if (initial_fast_elimination_active_ &&
-      !std::strcmp(rules[e.rule].name, "BVE")) {
-    e.limit = UINT64_MAX;
-#ifdef TACTIX_ENABLE_RULE_JOURNAL
-    e.journal_reference = UINT64_MAX;
-#endif
-    return;
-  }
   const SlotClock &clock =
       e.group == SlotGroup::Probe ? probe_clock : elim_clock;
   const uint64_t now = search_ticks(k);

@@ -17,6 +17,20 @@ enum class BveCandidateScope : uint8_t {
   PureOnly = 1,
 };
 
+// Ordinary Kissat elimination and SC2024 startup fast elimination own
+// different physical antecedent traversal contracts. Both produce the same
+// logical resolvent set, but the resulting clause/watch insertion order is
+// observable by later search.
+enum class BveTraversal : uint8_t {
+  Eliminate = 0,
+  FastEliminate = 1,
+};
+
+constexpr bool valid_bve_traversal(BveTraversal traversal) {
+  return traversal == BveTraversal::Eliminate ||
+         traversal == BveTraversal::FastEliminate;
+}
+
 constexpr bool valid_bve_candidate_scope(BveCandidateScope scope) {
   return scope == BveCandidateScope::All ||
          scope == BveCandidateScope::PureOnly;
@@ -50,6 +64,7 @@ struct BveParameters {
   // and selected-batch requests retain the complete legal BVE surface.
   BveCandidateScope candidate_scope = BveCandidateScope::All;
   uint32_t resolvent_count_limit = UINT32_MAX;
+  BveTraversal traversal = BveTraversal::Eliminate;
 
   static BveParameters from_kernel(const Kernel &k) {
     return {k.bve_gate_mask,
@@ -64,7 +79,9 @@ struct BveParameters {
             k.bve_definition_core_budget_multiplier,
             k.bve_backward,
             BveCandidateScope::All,
-            k.bve_resolvent_count_limit};
+            k.bve_resolvent_count_limit,
+            k.bve_fastel_traversal ? BveTraversal::FastEliminate
+                                   : BveTraversal::Eliminate};
   }
 
   bool valid() const {
@@ -72,7 +89,8 @@ struct BveParameters {
     // unknown bits inert for forward-compatible gate-family additions.
     return definition_cores > 0 && xor_arity_limit >= BVE_XOR_ARITY_MIN &&
            xor_arity_limit <= BVE_XOR_ARITY_CAPACITY &&
-           valid_bve_candidate_scope(candidate_scope);
+           valid_bve_candidate_scope(candidate_scope) &&
+           valid_bve_traversal(traversal);
   }
 };
 
@@ -137,6 +155,7 @@ private:
     k_.bve_definition_core_budget_multiplier =
         p.definition_core_budget_multiplier;
     k_.bve_backward = p.backward;
+    k_.bve_fastel_traversal = p.traversal == BveTraversal::FastEliminate;
   }
   Kernel &k_;
   BveParameters saved_;

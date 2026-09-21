@@ -267,6 +267,13 @@ struct alignas(64) GateTableVectors {
   __m512i part[4];
 };
 
+struct alignas(32) LaneValue256 {
+  __m256i value;
+};
+struct alignas(32) GateTableVectors256 {
+  __m256i part[16];
+};
+
 __attribute__((target("avx512f,avx512bw,avx512vbmi,avx512vl")))
 EnumerationResult enumerate_avx512(
     Kernel &k, const Circuit &circuit, uint64_t support,
@@ -394,6 +401,136 @@ EnumerationResult enumerate_avx512(
   }
   return EnumerationResult::Exhausted;
 }
+
+__attribute__((target("avx2")))
+EnumerationResult enumerate_avx2(
+    Kernel &k, const Circuit &circuit, uint64_t support,
+    const strategy::LookupCircuitModelParameters &parameters,
+    std::vector<uint8_t> &assignment) {
+  const uint32_t support_count =
+      static_cast<uint32_t>(__builtin_popcountll(support));
+  if (!support_count || support_count > parameters.maximum_support)
+    return EnumerationResult::Unavailable;
+  const uint64_t batches = support_count <= 5
+                               ? 1
+                               : uint64_t{1} << (support_count - 5);
+  if (circuit.gates.size() &&
+      batches > parameters.maximum_vector_gate_evaluations /
+                    circuit.gates.size())
+    return EnumerationResult::Unavailable;
+
+  std::vector<uint32_t> support_variables;
+  for (uint32_t i = 0; i < circuit.primary_inputs; ++i)
+    if (support & (uint64_t{1} << i))
+      support_variables.push_back(circuit.primary_variables[i]);
+
+  // AVX2 byte shuffles address sixteen bytes independently in each 128-bit
+  // half.  Duplicate each sixteen-entry table segment in both halves, then
+  // select segments with the remaining input bits.
+  const uint32_t segments =
+      uint32_t{1} << (circuit.fanin > 4 ? circuit.fanin - 4 : 0);
+  std::vector<GateTableVectors256> tables(circuit.gates.size());
+  alignas(32) uint8_t bytes[32];
+  for (uint32_t gate_index = 0; gate_index < circuit.gates.size();
+       ++gate_index) {
+    for (uint32_t segment = 0; segment < 16; ++segment)
+      tables[gate_index].part[segment] = _mm256_setzero_si256();
+    for (uint32_t segment = 0; segment < segments; ++segment) {
+      for (uint32_t lane = 0; lane < 32; ++lane) {
+        const uint32_t input = segment * 16 + (lane & 15);
+        bytes[lane] = input < circuit.gates[gate_index].table.size()
+                          ? static_cast<uint8_t>(
+                                circuit.gates[gate_index].table[input])
+                          : 0;
+      }
+      tables[gate_index].part[segment] =
+          _mm256_load_si256(reinterpret_cast<const __m256i *>(bytes));
+    }
+  }
+
+  __m256i low_patterns[5];
+  for (uint32_t bit = 0; bit < 5; ++bit) {
+    for (uint32_t lane = 0; lane < 32; ++lane)
+      bytes[lane] = (lane >> bit) & 1;
+    low_patterns[bit] =
+        _mm256_load_si256(reinterpret_cast<const __m256i *>(bytes));
+  }
+  const __m256i zero = _mm256_setzero_si256();
+  const __m256i one = _mm256_set1_epi8(1);
+  __m256i output_bits[8];
+  for (uint32_t bit = 0; bit < 8; ++bit)
+    output_bits[bit] = _mm256_set1_epi8(static_cast<char>(1 << bit));
+  const uint32_t valid = support_count < 5
+                             ? (uint32_t{1} <<
+                                (uint32_t{1} << support_count)) -
+                                   1
+                             : UINT32_MAX;
+  std::vector<LaneValue256> values(circuit.variables);
+
+  for (uint64_t batch = 0; batch < batches; ++batch) {
+    if (!(batch & ((uint64_t{1} << 12) - 1)) &&
+        kernel_rule_interrupt(k, k.stats.lookup_circuit_model_interrupted))
+      return EnumerationResult::Interrupted;
+    for (const Var variable : circuit.primary_variables)
+      values[variable].value = zero;
+    for (uint32_t bit = 0; bit < support_count; ++bit)
+      values[support_variables[bit]].value =
+          bit < 5 ? low_patterns[bit]
+                  : ((batch >> (bit - 5)) & 1 ? one : zero);
+
+    for (uint32_t gate_index = 0; gate_index < circuit.gates.size();
+         ++gate_index) {
+      const Gate &gate = circuit.gates[gate_index];
+      __m256i index = zero;
+      for (uint32_t i = 0; i < std::min(circuit.fanin, uint32_t{4}); ++i)
+        index = _mm256_or_si256(
+            index, _mm256_slli_epi16(values[gate.inputs[i]].value, i));
+
+      __m256i selected[16];
+      for (uint32_t segment = 0; segment < segments; ++segment)
+        selected[segment] =
+            _mm256_shuffle_epi8(tables[gate_index].part[segment], index);
+      uint32_t selected_count = segments;
+      for (uint32_t input_bit = 4; input_bit < circuit.fanin;
+           ++input_bit) {
+        const __m256i choose_upper = _mm256_cmpeq_epi8(
+            values[gate.inputs[input_bit]].value, one);
+        for (uint32_t i = 0; i < selected_count / 2; ++i)
+          selected[i] = _mm256_blendv_epi8(
+              selected[2 * i], selected[2 * i + 1], choose_upper);
+        selected_count /= 2;
+      }
+      const __m256i output = selected[0];
+      for (uint32_t i = 0; i < circuit.fanout; ++i) {
+        const __m256i absent = _mm256_cmpeq_epi8(
+            _mm256_and_si256(output, output_bits[i]), zero);
+        values[gate.outputs[i]].value = _mm256_andnot_si256(absent, one);
+      }
+    }
+    k.stats.lookup_circuit_model_vector_evaluations += circuit.gates.size();
+
+    __m256i mismatch = zero;
+    for (const auto &[variable, expected] : circuit.fixed) {
+      const __m256i wanted = expected ? one : zero;
+      mismatch = _mm256_or_si256(
+          mismatch, _mm256_xor_si256(values[variable].value, wanted));
+    }
+    const uint32_t good =
+        static_cast<uint32_t>(_mm256_movemask_epi8(
+            _mm256_cmpeq_epi8(mismatch, zero))) &
+        valid;
+    if (!good)
+      continue;
+    const uint32_t lane = static_cast<uint32_t>(__builtin_ctz(good));
+    const uint64_t assignment_index = batch * 32 + lane;
+    assignment.assign(circuit.variables, 0);
+    for (uint32_t bit = 0; bit < support_count; ++bit)
+      assignment[support_variables[bit]] = (assignment_index >> bit) & 1;
+    forward_fill(circuit, assignment);
+    return EnumerationResult::Found;
+  }
+  return EnumerationResult::Exhausted;
+}
 #endif
 
 EnumerationResult enumerate_primary(
@@ -407,6 +544,8 @@ EnumerationResult enumerate_primary(
       __builtin_cpu_supports("avx512vbmi") &&
       __builtin_cpu_supports("avx512vl"))
     return enumerate_avx512(k, circuit, support, parameters, assignment);
+  if (__builtin_cpu_supports("avx2"))
+    return enumerate_avx2(k, circuit, support, parameters, assignment);
 #else
   (void)k;
   (void)circuit;

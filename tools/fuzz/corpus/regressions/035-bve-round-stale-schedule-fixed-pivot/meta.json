@@ -1,0 +1,14 @@
+{
+  "case_sha256": "54c75718a3468675199cf735c323776a82fb214ff2e82813638a2d8a700bd5bb",
+  "diagnosis": "The canonical BVE round drained the root and built its schedule once, then kept attempting candidates after a declined one had changed solver state. A candidate installs its unit resolvents immediately and they survive its later growth decline, so later candidates ran at an incomplete root closure against a stale schedule. The last one was the very pivot the unit had fixed: its general-definition refutation re-derived the root literal the kernel already held and tripped the definition-unit precondition.",
+  "expected": "SAT",
+  "fix": "Every BVE candidate is owed an unassigned pivot and a complete root closure, asserted at candidate entry. bve_eliminate reports a decline that changed state, and the canonical round ends with Ok at the first candidate that changes state, so the next application re-drains and re-schedules; a stale attempt is impossible by construction. DefaultPolicy never enters the canonical round (it doses one-instance applications and propagates/flushes after each as Kissat does), so its trajectories are unchanged.",
+  "found_by": "Claude-owned AM316 complete fuzz gate, dbg-random seed 296725965 (generator ksat-k3-n41-m164); reproduced on the AM317 general-fix tree in Debug, and the pivot's assigning write was witnessed at bve.cpp:1854 from the preceding candidate x=19.",
+  "name": "bve-round-stale-schedule-fixed-pivot",
+  "oracle": "Assertion-enabled Debug aborted at bve.cpp:619 'unit != INVALID_LIT && k.value(unit) == 0' with pivot literal 58 (variable 29) already root-true. After the fix both Release and Debug report SATISFIABLE and the model checks against the original CNF.",
+  "schema": "tactix-fuzz-regression-v1",
+  "seed": 296725965,
+  "solver_args": [
+    "--random-policy=296725965"
+  ]
+}

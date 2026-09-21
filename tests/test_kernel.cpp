@@ -676,6 +676,47 @@ static void test_occurrence_cache_does_not_enter_physical_dense_mode() {
   kernel_dense_disconnect(k);
 }
 
+// OTFS can promote a redundant reason when it subsumes an irredundant
+// conflict. A free online schedule may keep Eliminate's mixed occurrence
+// image attached across that analysis. The promoted clause must join the
+// image immediately, or its next in-place strengthening tries to remove a
+// membership which was never published (fuzz seed 297309643).
+static void test_irredundant_promotion_joins_dense_occurrences() {
+  Kernel k;
+  kernel_reserve_vars(k, 5);
+  const Lit old_lits[4] = {internalize(1), internalize(2), internalize(3),
+                           internalize(4)};
+  const Ref ref = kernel_add_large_clause(k, old_lits, 4,
+                                          /*redundant=*/true, 3, 301);
+  OccIndex dense;
+  kernel_dense_connect(k, dense, /*track_order=*/true);
+  for (const Lit lit : old_lits)
+    assert(dense.large_size(lit) == 0);
+
+  kernel_promote_large_irredundant(k, ref);
+  assert(!clause_at(k.arena, ref)->redundant());
+  assert(k.live_irredundant_large == 1);
+  for (const Lit lit : old_lits) {
+    assert(dense.large_size(lit) == 1);
+    const auto refs = dense.ordered.large_refs(lit);
+    assert(refs.size() == 1 && *refs.begin() == ref);
+  }
+
+  const Lit image[3] = {old_lits[1], old_lits[2], old_lits[3]};
+  const uint64_t id = ++k.next_clause_id;
+  kernel_replace_large_clause_in_place(k, ref, id, image, 3, 0,
+                                       "test_promoted_otfs",
+                                       /*mark_added_material=*/false);
+  assert(dense.large_size(old_lits[0]) == 0);
+  for (const Lit lit : image) {
+    assert(dense.large_size(lit) == 1);
+    const auto refs = dense.ordered.large_refs(lit);
+    assert(refs.size() == 1 && *refs.begin() == ref);
+  }
+  kernel_check_invariants(k);
+  kernel_dense_disconnect(k);
+}
+
 // Kissat's compactlim path invokes the same sparse collector with start=0.
 // It must partition the entire current arena, not silently become a dense
 // whole-arena collection merely because the watermark is numerically zero.
@@ -2436,6 +2477,7 @@ int main() {
   test_dense_collection_preserves_clause_pose();
   test_collection_after_in_phase_sparse_resume_rewatches();
   test_occurrence_cache_does_not_enter_physical_dense_mode();
+  test_irredundant_promotion_joins_dense_occurrences();
   test_sparse_collection_from_zero_partitions_whole_arena();
   test_sparse_collection_retains_pending_prefix_replacement();
   test_compaction_defers_retired_jumped_reason();

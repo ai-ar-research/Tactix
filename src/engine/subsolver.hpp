@@ -229,8 +229,10 @@ private:
   SubRef add_derived(const std::vector<SubLit> &lits,
                      const std::vector<uint32_t> &chain,
                      const std::vector<uint32_t> &ante = {});
-  SubLit *clause_lits(SubRef ref) { return &arena_[ref]; }
-  const SubLit *clause_lits(SubRef ref) const { return &arena_[ref]; }
+  // A clause's literals start at `ref`; for an empty clause stored last that
+  // is the end of the arena, which may be pointed at but not indexed.
+  SubLit *clause_lits(SubRef ref) { return arena_.data() + ref; }
+  const SubLit *clause_lits(SubRef ref) const { return arena_.data() + ref; }
   uint32_t clause_size(SubRef ref) const { return arena_[ref - 1]; }
   uint32_t clause_id(SubRef ref) const { return arena_[ref - 2]; }
 

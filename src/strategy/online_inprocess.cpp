@@ -183,6 +183,8 @@ bool parameter_matches(const OnlineInvocation &step) {
     return step.rule == "Lucky";
   if (std::holds_alternative<StconnProofParameters>(step.parameters))
     return step.rule == "Lucky";
+  if (std::holds_alternative<SignedCardinalityProofParameters>(step.parameters))
+    return step.rule == "Lucky";
   if (std::holds_alternative<AffineModelParameters>(step.parameters))
     return step.rule == "Lucky";
   if (std::holds_alternative<SubstitutionRedundancyParameters>(step.parameters))
@@ -320,6 +322,10 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
     if (const auto *p = std::get_if<StconnProofParameters>(&step.parameters);
         p && !p->valid())
       return reject("Lucky stconn-proof parameters are invalid");
+    if (const auto *p =
+            std::get_if<SignedCardinalityProofParameters>(&step.parameters);
+        p && !p->valid())
+      return reject("Lucky signed-cardinality-proof parameters are invalid");
     if (const auto *p = std::get_if<AffineModelParameters>(&step.parameters);
         p && !p->valid())
       return reject("Lucky affine-model parameters are invalid");
@@ -1142,6 +1148,8 @@ InvocationResult OnlineStrategyExecutor::advance(
       std::optional<ScopedLookupCircuitModelParameters> lookup_circuit_model;
       std::optional<ScopedSimonModelParameters> simon_model;
       std::optional<ScopedStconnProofParameters> stconn_proof;
+      std::optional<ScopedSignedCardinalityProofParameters>
+          signed_cardinality_proof;
       std::optional<ScopedAffineModelParameters> affine_model;
       if (const auto *p = std::get_if<AnalyzeParameters>(&step.parameters))
         analyze.emplace(k, *p);
@@ -1207,6 +1215,10 @@ InvocationResult OnlineStrategyExecutor::advance(
       else if (const auto *p =
                    std::get_if<StconnProofParameters>(&step.parameters))
         stconn_proof.emplace(k, *p);
+      else if (const auto *p =
+                   std::get_if<SignedCardinalityProofParameters>(
+                       &step.parameters))
+        signed_cardinality_proof.emplace(k, *p);
       else if (const auto *p = std::get_if<AffineModelParameters>(&step.parameters))
         affine_model.emplace(k, *p);
       // Invocation-level native work limits override a rule parameter which
