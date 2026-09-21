@@ -180,29 +180,62 @@ within 600s (gained `bphp_p23_h22`, `xor_op_n40_d3`), no lost row; fuzz matrix
 `...-am329-negation-unit-sign-claude-fuzz` 18/18 legs, 0 failures. It supersedes AM327,
 whose pin was UNSOUND although every gate verified (planner root values disagreed with
 the published negation unit); Debug builds now cross-check every chain/orbitopal-
-certified X7 instance. Large certificates still in the checker: AM329 `1711797_{17,21,46}`,
-`1711799_{79,82,85,89}` and the WV2-89 tail; committed binary `1709359_21`,
-`1709383_{79,82,85,89}`.
+certified X7 instance. Large certificates: on the AM324 gates five solved rows are NOT verified inside the
+57,600s window. `tseitin_grid_n250_m250`, `tseitin_d3_n100000`, `tseitin_grid_n400_m400`
+and `ncc_none_21015...` pass `dsr-trim` (3,153s / 14,316s / 53,938s / 8,732s) and time
+out in Trestle; `oisc-subrv-sll-nested-8` times out inside `dsr-trim`. Owners: the
+Tseitin rows and `ncc` are LymphoSAT's (VeriPB, verified; every Kissat variant is also
+unverified on `ncc`); on `oisc` Satsuma+Kissat's own DSR check times out at 45,000s
+while Kissat's DRAT check verifies in 4,271-7,814s. Work item: parity-refutation proof
+size on the Tseitin rows. The same five AM329 rows were cancelled by job ID and count as not verified
+(`NOTE-cancelled-checks.txt` in the two gate directories).
 
 Remaining WV2-89 misses (15): `ramsey_4_4_19` is a symmetry-breaking-predicate gap
 (Kissat solves original + Satsuma's clauses, times out on original + Tactix's;
 Satsuma's tail after the eight common units is what matters; evidence
 `benchmarks/runs/20260921-wv2-owner-anchor`); `mp1-Nb7T42` and `SC25_Timetable` receive
 the owner's preprocessing and are search gaps; `6g_6color` and `hcp_CP18_18` are
-large-domain (>50k variables) preprocessing gaps (held, no-gain edits in
-`benchmarks/runs/20260921-am328-linear-pass-window`); LymphoSAT structural families
+large-domain (>50k variables) preprocessing gaps (reopened, see next action); LymphoSAT structural families
 (`sgen1-sat`, `sted5`, `1-ET-512`, `FmlaEquivChain`, `noL-11-4`, `puzzle32`); plain CDCL
 parity rows (`snw_16_9`, `Circuit_multiplier24`, `ntil-90d-39`, `lockchart...L19`).
 
+## Learned scheduling candidate: when to break symmetry
+
+User direction: *when* (and how strongly) to apply symmetry breaking is a decision to
+learn (plan §8.5), not a hand-tuned gate. Evidence,
+`benchmarks/runs/20260921-wv2-anchor-cut-screen` (WV100+WV2-89, three same-window arms):
+the owner's cut point with its first-literal fix anchor gains UNSAT rows
+(`ramsey_4_4_19` timeout -> 290s, `bphp_p23_h22` 489s -> 1.8s) and loses or slows SAT
+rows (`ntil-90d-37/40` lost, `noL-11-0/8` 2-3x slower). On `ntil` the whole difference
+is one cut binary, `(-323 v 306)` on early-decided variables against `(-2 v 19)`.
+Satsuma+Kissat itself loses SAT rows plain Kissat solves (`ntil-90d-37` 5,000s vs 223s,
+`noL-11-*` 1.5-2.6ks vs 0.1-0.5ks). SAT/UNSAT is unknown up front, so no static rule
+separates the two groups. Consequences: every symmetry choice stays a typed,
+API-selectable action (`negation_fixing_first`, `cut_point`, `first_literal_fix_anchor`,
+nonforcing-cut admission, structured handoff) so a learner has the action space; no
+gate is tuned on the deciding rows and nothing dispatches on benchmark identity. Late
+(search-time) symmetry breaking is not free under N2: an SR line must also repair every
+learned clause in the checker's database.
+
 ## Exact next action
 
-Read job `1712087` (`benchmarks/runs/20260921-wv2-owner-anchor/logs/arms-1712087.log`):
-which part of Satsuma's ramsey tail matters, and whether the owner's first-literal
-anchor plus its cut point reproduce it in Tactix. A port must rescreen the
-`ntil`/`noL`/`clqcl` rows that rejected the cut point alone. The same planner pin
-takes a monotone cursor for the negation-first scan (it restarts at point 0 per
-level and is not tick-charged; stabilizer orbits only shrink, so the rows are
-unchanged). Run the Debug corpus and focused fuzz legs before any gate.
+Two same-window scratch experiments (env hatches in
+`benchmarks/probes/scratch/wv2-owner-first-literal`; the tree holds only the typed,
+default-off `first_literal_fix_anchor`/`sr30` and the tick-charged negation scan, CTest
+green in job `1712230`, uncommitted):
+
+1. `benchmarks/runs/20260921-wv2-cut-phase-screen` (jobs `1712722`/`1712723`): does a
+   phase hint (a cut's base prefers false, carried until H attaches) let the owner's
+   anchor + cut point keep the SAT rows? Round 1 was vacuous (H attaches after
+   structured startup, the hint never landed).
+2. `benchmarks/runs/20260921-wv2-large-domain-dig` (jobs `1712749`/`1712750`):
+   `hcp_CP18_18`. Tactix gates generator binary fixing on a negation unit; the owner runs
+   it unconditionally (0 negation units, then 1,729 binary-fixed literals). Arms: keep the
+   work-capped generator prefix, ungate binary fixing, both; side effects on `6g_6color`,
+   `SC25_Timetable`, `mp1-Nb7T42`.
+
+A change that fails alone is not shelved: find the coupled change (user direction). Run
+the Debug corpus and focused fuzz legs before any gate.
 
 ## Recent changes
 
