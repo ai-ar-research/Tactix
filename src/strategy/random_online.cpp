@@ -106,6 +106,11 @@ ActionParameters random_parameters(const Kernel &k, uint64_t &state, const std::
     p.backward = bounded(state, OPTIONAL_CHOICES) != 0;
     p.candidate_scope = static_cast<BveCandidateScope>(bounded(state, 2));
     p.traversal = static_cast<BveTraversal>(bounded(state, 2));
+    // A derived stream: the draws above and every later one stay unchanged.
+    uint64_t closure_state = state ^ 0x50555245434c4f53ull;
+    if (p.candidate_scope == BveCandidateScope::PureOnly &&
+        bounded(closure_state, 2))
+      p.candidate_scope = BveCandidateScope::PureClosure;
     return p;
   }
   if (rule == "SubsumeForward")
@@ -526,6 +531,7 @@ ActionParameters random_parameters(const Kernel &k, uint64_t &state, const std::
     graph.cut_point =
         static_cast<SymmetryCutPoint>(bounded(chain_order_state, 2));
     graph.negation_fixing_first = bounded(chain_order_state, 2);
+    graph.first_literal_fix_anchor = bounded(chain_order_state, 2);
     if (config.sr_joint_positive_numerator &&
         bounded(scheduling_state, config.sr_joint_positive_denominator) <
             config.sr_joint_positive_numerator) {
@@ -578,6 +584,8 @@ const char *repeat_name(RepeatMode mode) {
     return "count";
   case RepeatMode::UntilScopedFixpoint:
     return "fixpoint";
+  case RepeatMode::UntilSizeScaledFixpoint:
+    return "size-scaled-fixpoint";
   }
   return "invalid";
 }
@@ -597,6 +605,8 @@ bool parse_repeat(std::string_view text, RepeatMode &mode) {
     mode = RepeatMode::Count;
   else if (text == "fixpoint")
     mode = RepeatMode::UntilScopedFixpoint;
+  else if (text == "size-scaled-fixpoint")
+    mode = RepeatMode::UntilSizeScaledFixpoint;
   else
     return false;
   return true;
@@ -675,7 +685,7 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
     U32_AT(9, p.definition_core_budget_multiplier);
     if (!boolean(v[10], p.backward)) return false;
     if (v.size() >= 12) {
-      if (v[11] > static_cast<uint64_t>(BveCandidateScope::PureOnly))
+      if (v[11] > static_cast<uint64_t>(BveCandidateScope::PureClosure))
         return false;
       p.candidate_scope = static_cast<BveCandidateScope>(v[11]);
     }
@@ -948,8 +958,10 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
              (tuple(text, "sr26", v) && v.size() == 56) ||
              (tuple(text, "sr27", v) && v.size() == 57) ||
              (tuple(text, "sr28", v) && v.size() == 58) ||
-             (tuple(text, "sr29", v) && v.size() == 60)) {
-    const bool has_chain_order = text.starts_with("sr29(");
+             (tuple(text, "sr29", v) && v.size() == 60) ||
+             (tuple(text, "sr30", v) && v.size() == 61)) {
+    const bool has_fix_anchor = text.starts_with("sr30(");
+    const bool has_chain_order = text.starts_with("sr29(") || has_fix_anchor;
     const bool has_cut_admission = text.starts_with("sr28(") || has_chain_order;
     const bool has_progress_feedback = text.starts_with("sr27(") ||
                                        has_cut_admission;
@@ -1130,6 +1142,11 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
           return false;
         graph.cut_point = static_cast<SymmetryCutPoint>(v[58]);
         graph.negation_fixing_first = v[59];
+      }
+      if (has_fix_anchor) {
+        if (v[60] > 1)
+          return false;
+        graph.first_literal_fix_anchor = v[60];
       }
       if (has_structured_handoff) {
         if (v[52] > 1 || v[53] > 1) return false;
@@ -1473,6 +1490,11 @@ bool random_online_strategy_program(Kernel &k, uint64_t seed,
   else
     out.repeat = {RepeatMode::UntilScopedFixpoint,
                   1 + bounded(rng, config.maximum_repeat_count)};
+  // A derived stream: earlier draws and every later one stay unchanged.
+  uint64_t size_scale_state = rng ^ 0x53495a455343414cull;
+  if (out.repeat.mode == RepeatMode::UntilScopedFixpoint &&
+      !bounded(size_scale_state, 4))
+    out.repeat.mode = RepeatMode::UntilSizeScaledFixpoint;
 
   if (!validate_online_strategy_program(out, error))
     return false;
@@ -1672,14 +1694,15 @@ std::string serialize_online_strategy_program(
       const bool nonforcing_cut_admission =
           p->graph_symmetry.nonforcing_cut_admission !=
           SymmetryNonforcingCutAdmission::Publish;
+      const bool fix_anchor = p->graph_symmetry.first_literal_fix_anchor;
       const bool chain_order =
           p->graph_symmetry.cut_point != SymmetryCutPoint::FirstOpen ||
-          p->graph_symmetry.negation_fixing_first;
+          p->graph_symmetry.negation_fixing_first || fix_anchor;
       const bool first_shortest = p->graph_symmetry.base_selection ==
           SymmetryBaseSelection::FirstShortestThenForwardRemainder;
       const bool shortest_base = first_shortest ||
           p->graph_symmetry.base_selection == SymmetryBaseSelection::ShortestClause;
-      out << (chain_order ? ":sr29(" : nonforcing_cut_admission ? ":sr28(" : p->orbitopal_progress_feedback ? ":sr27(" : bounded_schreier ? ":sr26(" : first_shortest ? ":sr25(" : shortest_base ? ":sr24("
+      out << (fix_anchor ? ":sr30(" : chain_order ? ":sr29(" : nonforcing_cut_admission ? ":sr28(" : p->orbitopal_progress_feedback ? ":sr27(" : bounded_schreier ? ":sr26(" : first_shortest ? ":sr25(" : shortest_base ? ":sr24("
                   : p->graph_symmetry.structured_scope == SymmetryStructuredScope::WholeMatrix
                   ? ":sr22(" : ":sr23(") << p->maximum_validation_ticks << ','
           << static_cast<unsigned>(p->producer) << ','
@@ -1748,6 +1771,8 @@ std::string serialize_online_strategy_program(
       if (chain_order)
         out << ',' << static_cast<unsigned>(p->graph_symmetry.cut_point) << ','
             << p->graph_symmetry.negation_fixing_first;
+      if (fix_anchor)
+        out << ',' << p->graph_symmetry.first_literal_fix_anchor;
       out << ')';
     }
     else

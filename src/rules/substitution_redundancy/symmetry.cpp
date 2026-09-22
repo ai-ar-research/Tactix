@@ -665,14 +665,9 @@ bool generator_fixing_scans(
     }
   }
 
-  // Binary fixing is a refinement of the negation-fixed subgroup, not an
-  // independent reason to perturb the search trajectory.  Continue to the
-  // more expensive phase only when the preceding phase established at least
-  // one unit.  This also gives large-domain preprocessing a local progress
-  // feedback loop: a fruitless phase does not unlock further speculative
-  // work.
-  if (!stats.negation_units)
-    return true;
+  // The owner runs binary fixing after negation fixing unconditionally
+  // (satsuma.h); a formula can have no negation orbit and still fix thousands
+  // of literals here.
 
   // The binary phase sees only generators which stabilize every unit emitted
   // by negation fixing, exactly as deleting marked generators in the owner.
@@ -726,6 +721,9 @@ bool generator_fixing_scans(
     propagated[applicable] = 1;
     ++stats.binary_units;
     ++result.instances;
+    // The witness is the generator itself: (source v applicable) is in the
+    // formula, hence so is its image (applicable v image[applicable]), and
+    // under the negated unit that image is true.
     if (!visitor(symmetry_generator_unit_instance(kernel, applicable, image))) {
       stats.visitor_stopped = true;
       return true;
@@ -1053,7 +1051,10 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
     symmetry_backend::release(proposed);
     return result;
   }
-  if (detector_work_capped &&
+  // Generator fixing derives each unit from one exactly validated generator,
+  // so a work-capped prefix loses only later generators. The discard concerns
+  // a chain planned over an arbitrary subgroup.
+  if (detector_work_capped && !large_domain_generator_fixing &&
       detection == symmetry_backend::Status::Incomplete) {
     if (!scheduling.progress_ticks_per_generator && proposed.count &&
         proposed.count == settings.maximum_generators)
@@ -1144,10 +1145,32 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
 
   if (large_domain_generator_fixing) {
     GeneratorFixingStats fixing;
+    // The chain's compound-progress admission, applied to a generator pass: a
+    // lone unit exposes no second consequence and only moves the search's
+    // fundamental domain, so the whole pass is withheld before any mutation.
+    const bool compound_only =
+        configured.nonforcing_cut_admission ==
+        SymmetryNonforcingCutAdmission::RequireCompoundProgress;
+    std::vector<SubstitutionRedundancyInstance> batch;
+    const OrbitopalInstanceVisitor collect =
+        [&](const SubstitutionRedundancyInstance &instance) {
+          batch.push_back(instance);
+          return true;
+        };
     const bool completed = trace.measure("symmetry_generator_fixing", [&] {
       return generator_fixing_scans(kernel, snapshot, parameters, generators,
-                                    visitor, stop, result, fixing);
+                                    compound_only ? collect : visitor, stop,
+                                    result, fixing);
     });
+    if (batch.size() == 1) {
+      result.singleton_forcing_rows_declined += 1;
+      result.instances -= 1;
+    } else
+      for (const auto &instance : batch)
+        if (!visitor(instance)) {
+          fixing.visitor_stopped = true;
+          break;
+        }
     trace.event("symmetry_generator_fixing_result",
                 "negation_units\t%llu\tbinary_units\t%llu\tvisitor_stopped\t%u",
                 static_cast<unsigned long long>(fixing.negation_units),
@@ -1268,7 +1291,8 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
             : configured.chain_planning_tick_limit,
         configured.factor_support_components,
         static_cast<uint8_t>(configured.cut_point),
-        configured.negation_fixing_first};
+        configured.negation_fixing_first,
+        configured.first_literal_fix_anchor};
     symmetry_backend::Fixings fixings;
     const symmetry_backend::Status fixed = trace.measure("symmetry_fix_clauses", [&] {
       return symmetry_backend::fix_clauses(group, group_settings, backend_stop,

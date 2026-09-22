@@ -201,6 +201,9 @@ struct GraphSymmetryParameters {
   // FixAndCut: before any fix or cut level, fix every open variable whose
   // stabilizer orbit holds its own complement, as a negation-orbit unit.
   bool negation_fixing_first = false;
+  // A clause is fixable only through its first stored literal (the owner's
+  // orbit_overlaps_clause); one whose first literal is false is left to a cut.
+  bool first_literal_fix_anchor = false;
   bool direct_generator_involutions_only = true;
   bool decompose = true;
   bool prefer_depth_first = false;

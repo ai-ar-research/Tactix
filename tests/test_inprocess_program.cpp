@@ -29,8 +29,8 @@ int main() {
   const OnlineStrategyProgram root =
       tactix::DefaultStrategyConfig::reference_structured_root_program();
   assert(root.sequence.size() == 3);
-  assert(root.repeat.mode == RepeatMode::UntilScopedFixpoint &&
-         root.repeat.limit == 0);
+  assert(root.repeat.mode == RepeatMode::UntilSizeScaledFixpoint &&
+         root.repeat.limit == 128);
   for (const OnlineInvocation &step : root.sequence) {
     assert(step.granularity == InvocationGranularity::CompleteCurrentPass);
     assert(step.post_application == PostApplication::Propagate);
@@ -39,7 +39,7 @@ int main() {
       std::get<BveParameters>(root.sequence[0].parameters);
   assert(root.sequence[0].rule == "BVE" &&
          root.sequence[0].work_unit == WorkUnit::BveTicks &&
-         pure.candidate_scope == BveCandidateScope::PureOnly);
+         pure.candidate_scope == BveCandidateScope::PureClosure);
   const auto &orbitopal = std::get<tactix::SubstitutionRedundancyParameters>(
       root.sequence[1].parameters);
   assert(root.sequence[1].rule == "SubstitutionRedundancy");
@@ -154,11 +154,23 @@ int main() {
   }
   const auto &large_graph =
       defaults.inprocess.structured_root_large_domain_stages[1].program;
-  assert(large_graph.sequence.size() == 1 &&
-         large_graph.repeat.mode == RepeatMode::UntilScopedFixpoint);
+  // The owner repeats its whole pass at every size: the large-domain program
+  // is the regular repeated sequence around the generator-fixing graph step.
+  const auto &regular_graph = defaults.inprocess.structured_root_stages[2].program;
+  assert(large_graph.sequence.size() == 3 &&
+         large_graph.repeat.mode == RepeatMode::UntilSizeScaledFixpoint &&
+         large_graph.repeat.limit == 128 &&
+         regular_graph.repeat.mode == RepeatMode::UntilSizeScaledFixpoint);
+  // Pure closure, generator-fixing graph step, compaction: in regular order.
+  assert(large_graph.sequence[0].id == 94 && large_graph.sequence[1].id == 84 &&
+         large_graph.sequence[2].id == 85);
+  const OnlineInvocation *large_step = &large_graph.sequence[1];
+  assert(large_step &&
+         !defaults.inprocess.structured_root_large_domain_stages[1]
+              .structured_handoff_after_prior_progress);
   const auto &large_parameters =
       std::get<tactix::SubstitutionRedundancyParameters>(
-          large_graph.sequence.front().parameters);
+          large_step->parameters);
   assert(large_parameters.producer ==
              tactix::SubstitutionRedundancyProducer::GraphSymmetry &&
          large_parameters.graph_symmetry.schreier_domain_limit == 50'000 &&

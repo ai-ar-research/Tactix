@@ -5,6 +5,7 @@
 #include "rules/sweep/sweep.hpp"
 #include "strategy/bve_invocation.hpp"
 
+#include <cmath>
 #include <algorithm>
 #include <cstring>
 #include <limits>
@@ -24,10 +25,38 @@ namespace tactix::strategy {
 
 namespace {
 
+} // namespace
+
+uint64_t repeat_round_limit(const Kernel &k, const RepeatSpec &repeat) {
+  if (repeat.mode != RepeatMode::UntilSizeScaledFixpoint)
+    return repeat.limit;
+  // satsuma.h: size is the clause database's literal count plus its variables.
+  uint64_t size = 2 * k.watches.binary_clauses() + k.nvars;
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *clause = clause_at(k.arena, ref);
+    if (!clause->garbage())
+      size += clause->size;
+    ref += clause_actual_words(clause);
+  }
+  constexpr double scale = static_cast<double>(uint64_t{1} << 23);
+  const double raw =
+      std::pow(scale / static_cast<double>(std::max<uint64_t>(size, 1)), 1.5);
+  // The owner iterates while `iteration < iteration_max`, after one initial
+  // pass: its pass count is the clamped scale plus one.
+  if (repeat.limit && !(raw < static_cast<double>(repeat.limit)))
+    return repeat.limit + 1;
+  if (!(raw < 0x1p62))
+    return 0;
+  return std::max<uint64_t>(1, static_cast<uint64_t>(std::ceil(raw))) + 1;
+}
+
+namespace {
+
 bool valid_repeat(const RepeatSpec &repeat) {
   switch (repeat.mode) {
   case RepeatMode::Once:
   case RepeatMode::UntilScopedFixpoint:
+  case RepeatMode::UntilSizeScaledFixpoint:
     return true;
   case RepeatMode::Count:
     return repeat.limit != 0;
@@ -830,7 +859,8 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
   return true;
 }
 
-bool OnlineStrategyExecutor::finish_step_pass(const OnlineInvocation &step,
+bool OnlineStrategyExecutor::finish_step_pass(const Kernel &k,
+                                              const OnlineInvocation &step,
                                               Runtime &runtime,
                                               InvocationResult &out) {
   runtime.selection_ready = false;
@@ -855,10 +885,12 @@ bool OnlineStrategyExecutor::finish_step_pass(const OnlineInvocation &step,
     repeat = runtime.passes < step.repeat.limit;
     break;
   case RepeatMode::UntilScopedFixpoint:
+  case RepeatMode::UntilSizeScaledFixpoint:
     if (!progress) {
       out.status = InvocationStatus::ScopedFixpoint;
       out.selection_complete = true;
-    } else if (!step.repeat.limit || runtime.passes < step.repeat.limit) {
+    } else if (const uint64_t limit = repeat_round_limit(k, step.repeat);
+               !limit || runtime.passes < limit) {
       repeat = true;
     } else {
       out.status = InvocationStatus::BudgetExhausted;
@@ -873,7 +905,8 @@ bool OnlineStrategyExecutor::finish_step_pass(const OnlineInvocation &step,
   return true;
 }
 
-bool OnlineStrategyExecutor::finish_sequence(InvocationResult &out) {
+bool OnlineStrategyExecutor::finish_sequence(const Kernel &k,
+                                             InvocationResult &out) {
   ++sequence_passes_;
   bool repeat = false;
   switch (program_.repeat.mode) {
@@ -883,11 +916,12 @@ bool OnlineStrategyExecutor::finish_sequence(InvocationResult &out) {
     repeat = sequence_passes_ < program_.repeat.limit;
     break;
   case RepeatMode::UntilScopedFixpoint:
+  case RepeatMode::UntilSizeScaledFixpoint:
     if (!sequence_progress_) {
       out.status = InvocationStatus::ScopedFixpoint;
       out.selection_complete = true;
-    } else if (!program_.repeat.limit ||
-               sequence_passes_ < program_.repeat.limit) {
+    } else if (const uint64_t limit = repeat_round_limit(k, program_.repeat);
+               !limit || sequence_passes_ < limit) {
       repeat = true;
     } else {
       out.status = InvocationStatus::BudgetExhausted;
@@ -952,7 +986,7 @@ InvocationResult OnlineStrategyExecutor::advance(
       return out;
     }
     if (step_index_ == program_.sequence.size()) {
-      if (finish_sequence(out))
+      if (finish_sequence(k, out))
         return out;
       continue;
     }
@@ -1009,7 +1043,7 @@ InvocationResult OnlineStrategyExecutor::advance(
           out.after = state_version(k);
           return out;
         }
-        finish_step_pass(step, runtime, out);
+        finish_step_pass(k, step, runtime, out);
         if (out.status == InvocationStatus::ScopedFixpoint ||
             out.status == InvocationStatus::BudgetExhausted) {
           out.after = state_version(k);
@@ -1038,7 +1072,7 @@ InvocationResult OnlineStrategyExecutor::advance(
         out.after = state_version(k);
         return out;
       }
-      finish_step_pass(step, runtime, out);
+      finish_step_pass(k, step, runtime, out);
       if (out.status == InvocationStatus::ScopedFixpoint ||
           out.status == InvocationStatus::BudgetExhausted) {
         out.after = state_version(k);
@@ -1080,7 +1114,7 @@ InvocationResult OnlineStrategyExecutor::advance(
     if (step.rule == "BVE" &&
         step.granularity == InvocationGranularity::CompleteCurrentPass) {
       const auto *parameters = std::get_if<BveParameters>(&step.parameters);
-      if (parameters && parameters->candidate_scope == BveCandidateScope::PureOnly)
+      if (parameters && pure_bve_candidate_scope(parameters->candidate_scope))
         bve_occurrences.emplace(runtime.bve_occurrences, k);
     }
     const bool generated_sr_pass =

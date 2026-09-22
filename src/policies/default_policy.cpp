@@ -312,7 +312,8 @@ DefaultStrategyConfig::reference_structured_root_program() {
   pure.id = 1000;
   pure.rule = "BVE";
   strategy::BveParameters pure_parameters;
-  pure_parameters.candidate_scope = strategy::BveCandidateScope::PureOnly;
+  // The owner closes pure literals inside its simplification (satsuma.h).
+  pure_parameters.candidate_scope = strategy::BveCandidateScope::PureClosure;
   pure.parameters = pure_parameters;
   pure.granularity = strategy::InvocationGranularity::CompleteCurrentPass;
   pure.work_unit = strategy::WorkUnit::BveTicks;
@@ -426,11 +427,13 @@ DefaultStrategyConfig::reference_structured_root_program() {
   graph_parameters.graph_symmetry.chain_mode = SymmetryChainMode::FixAndCut;
   graph_parameters.graph_symmetry.base_selection =
       SymmetryBaseSelection::CommonClauseAmo;
-  // Satsuma fixes negation orbits before fix-and-cut and cuts at the largest
-  // stabilizer orbit's highest variable (symmetries.h negation_fixing_schreier,
-  // find_non_trivial_orbit).
+  // Satsuma fixes negation orbits before fix-and-cut, fixes a clause only
+  // through its first stored literal, and cuts at the largest stabilizer
+  // orbit's highest variable (symmetries.h negation_fixing_schreier,
+  // orbit_overlaps_clause, find_non_trivial_orbit).
   graph_parameters.graph_symmetry.cut_point = SymmetryCutPoint::LargestOrbitLast;
   graph_parameters.graph_symmetry.negation_fixing_first = true;
+  graph_parameters.graph_symmetry.first_literal_fix_anchor = true;
   graph.parameters = graph_parameters;
   graph.granularity = strategy::InvocationGranularity::CompleteCurrentPass;
   graph.post_application = strategy::PostApplication::Propagate;
@@ -441,7 +444,8 @@ DefaultStrategyConfig::reference_structured_root_program() {
   // Repeat to the program's scoped no-progress boundary. Root assignments
   // alone are not a termination measure: ULC can add useful binaries without
   // fixing a variable. An incomplete budget stop is not a scoped fixpoint.
-  result.repeat = {strategy::RepeatMode::UntilScopedFixpoint, 0};
+  // satsuma.h iteration_max with its iteration_limit of 128.
+  result.repeat = {strategy::RepeatMode::UntilSizeScaledFixpoint, 128};
   return result;
 }
 

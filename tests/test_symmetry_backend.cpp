@@ -802,14 +802,18 @@ void negation_unit_value_matches_the_published_unit() {
   }
   const std::vector<int8_t> values(domain, 0);
   const uint64_t offsets[] = {0, 3};
-  const auto run = [&](uint32_t negation_literal) {
-    const uint32_t literals[] = {negation_literal, 0, 2};
+  const auto run = [&](uint32_t negation_literal, bool anchor = false,
+                       bool negation_last = false) {
+    uint32_t literals[] = {negation_literal, 0, 2};
+    if (negation_last)
+      std::swap(literals[0], literals[2]);
     const GroupInput input{domain, 2, generators.data(), 1, offsets, 3,
                            literals, values.data()};
     GroupSettings settings;
     settings.seed = 7;
     settings.chain_mode = 1;
     settings.negation_fixing_first = true;
+    settings.first_literal_fix_anchor = anchor;
     Fixings fixings;
     assert(fix_clauses(input, settings, nullptr, nullptr, fixings) ==
            Status::Complete);
@@ -824,6 +828,11 @@ void negation_unit_value_matches_the_published_unit() {
   assert((run(7) == Rows{{3, 7}, {2, 0}}));
   // Falsified by the unit: the remaining pair is a fixable clause.
   assert((run(6) == Rows{{3, 7}, {0, 0}, {1, 0}}));
+  // The owner's anchor is the first stored literal: false there, the clause
+  // is left to the cut; stored last, the same clause still fixes. The fix
+  // representative is the first open literal, here point 2.
+  assert((run(6, true) == Rows{{3, 7}, {2, 0}}));
+  assert((run(6, true, true) == Rows{{3, 7}, {0, 2}, {1, 2}}));
 }
 
 void clausal_base_extension_retains_known_generators() {

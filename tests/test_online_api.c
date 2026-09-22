@@ -142,7 +142,8 @@ static void pure_bve_scope_is_public_and_validated(void) {
   }
   assert(applications == 2);
 
-  step.parameters.value.bve.candidate_scope = 2;
+  step.parameters.value.bve.candidate_scope =
+      TACTIX_ONLINE_BVE_CANDIDATES_PURE_CLOSURE + 1;
   assert(tactix_online_configure(solver, &program, 21,
                                  TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
   assert(tactix_online_complete(solver));
@@ -591,6 +592,19 @@ static void invalid_graph_sr_settings_are_transactional(void) {
                                  TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
   step.parameters.value.substitution_redundancy
       .symmetry_negation_fixing_first_mode = TACTIX_ONLINE_SETTING_ENABLE;
+  for (int mode = TACTIX_ONLINE_SETTING_INHERIT;
+       mode <= TACTIX_ONLINE_SETTING_ENABLE; ++mode) {
+    step.parameters.value.substitution_redundancy
+        .symmetry_first_literal_fix_anchor_mode = mode;
+    assert(tactix_online_configure(solver, &program, 23360 + mode,
+                                   TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  }
+  step.parameters.value.substitution_redundancy
+      .symmetry_first_literal_fix_anchor_mode = 99;
+  assert(tactix_online_configure(solver, &program, 23363,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  step.parameters.value.substitution_redundancy
+      .symmetry_first_literal_fix_anchor_mode = TACTIX_ONLINE_SETTING_ENABLE;
   for (int mode = TACTIX_ONLINE_SETTING_INHERIT;
        mode <= TACTIX_ONLINE_SETTING_ENABLE; ++mode) {
     step.parameters.value.substitution_redundancy
@@ -1193,6 +1207,22 @@ int main(void) {
   assert(tactix_online_advance(solver, &result) == 0);
   assert(result.status == TACTIX_ONLINE_COMPLETED);
   assert(tactix_online_complete(solver));
+
+  /* The size-scaled fixpoint is the same observable mode with a derived ceiling. */
+  step.repeat_mode = TACTIX_ONLINE_REPEAT_SIZE_SCALED_FIXPOINT;
+  step.repeat_limit = 128;
+  assert(tactix_online_configure(solver, &program, 11,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  assert(tactix_online_advance(solver, &result) == 0);
+  assert(result.status == TACTIX_ONLINE_SCOPED_FIXPOINT);
+  assert(tactix_online_advance(solver, &result) == 0);
+  assert(result.status == TACTIX_ONLINE_COMPLETED);
+  assert(tactix_online_complete(solver));
+  step.repeat_mode = 99;
+  assert(tactix_online_configure(solver, &program, 12,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  step.repeat_mode = TACTIX_ONLINE_REPEAT_FIXPOINT;
+  step.repeat_limit = 0;
 
   /* The public converter validates typed per-call parameters transactionally. */
   step.rule_id = rule("Vivify");

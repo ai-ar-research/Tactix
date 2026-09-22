@@ -79,6 +79,9 @@ bool online_repeat(int mode, uint64_t limit, strategy::RepeatSpec &out) {
   case TACTIX_ONLINE_REPEAT_FIXPOINT:
     out = {strategy::RepeatMode::UntilScopedFixpoint, limit};
     return true;
+  case TACTIX_ONLINE_REPEAT_SIZE_SCALED_FIXPOINT:
+    out = {strategy::RepeatMode::UntilSizeScaledFixpoint, limit};
+    return true;
   default:
     return false;
   }
@@ -204,6 +207,8 @@ bool online_graph_symmetry_parameters(const tactix_online_sr_parameters &p,
           TACTIX_ONLINE_SYMMETRY_CUT_POINT_LARGEST_ORBIT_LAST ||
       p.symmetry_negation_fixing_first_mode < TACTIX_ONLINE_SETTING_INHERIT ||
       p.symmetry_negation_fixing_first_mode > TACTIX_ONLINE_SETTING_ENABLE ||
+      p.symmetry_first_literal_fix_anchor_mode < TACTIX_ONLINE_SETTING_INHERIT ||
+      p.symmetry_first_literal_fix_anchor_mode > TACTIX_ONLINE_SETTING_ENABLE ||
       p.symmetry_base_selection < TACTIX_ONLINE_SYMMETRY_BASE_INHERIT ||
       p.symmetry_base_selection >
           TACTIX_ONLINE_SYMMETRY_BASE_FIRST_SHORTEST_THEN_FORWARD_REMAINDER ||
@@ -318,6 +323,9 @@ bool online_graph_symmetry_parameters(const tactix_online_sr_parameters &p,
   if (p.symmetry_negation_fixing_first_mode != TACTIX_ONLINE_SETTING_INHERIT)
     graph.negation_fixing_first =
         p.symmetry_negation_fixing_first_mode == TACTIX_ONLINE_SETTING_ENABLE;
+  if (p.symmetry_first_literal_fix_anchor_mode != TACTIX_ONLINE_SETTING_INHERIT)
+    graph.first_literal_fix_anchor =
+        p.symmetry_first_literal_fix_anchor_mode == TACTIX_ONLINE_SETTING_ENABLE;
   return true;
 }
 

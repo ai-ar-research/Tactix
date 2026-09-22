@@ -4,6 +4,7 @@
 #include "strategy/rule_invocation.hpp"
 
 #include <algorithm>
+#include <cassert>
 #include <cstdint>
 #include <cstring>
 #include <optional>
@@ -15,7 +16,18 @@ namespace tactix::strategy {
 enum class BveCandidateScope : uint8_t {
   All = 0,
   PureOnly = 1,
+  // The complete pure-literal closure from one occurrence image: the variables
+  // pure now, then those their removal makes pure, layer by layer. Each layer
+  // is ordered as a PureOnly pass over the formula without the earlier layers
+  // would order it, so repeating PureOnly to a fixpoint selects the same
+  // sequence; this scope does not rebuild the image once per layer.
+  PureClosure = 2,
 };
+
+constexpr bool pure_bve_candidate_scope(BveCandidateScope scope) {
+  return scope == BveCandidateScope::PureOnly ||
+         scope == BveCandidateScope::PureClosure;
+}
 
 // Ordinary Kissat elimination and SC2024 startup fast elimination own
 // different physical antecedent traversal contracts. Both produce the same
@@ -32,8 +44,7 @@ constexpr bool valid_bve_traversal(BveTraversal traversal) {
 }
 
 constexpr bool valid_bve_candidate_scope(BveCandidateScope scope) {
-  return scope == BveCandidateScope::All ||
-         scope == BveCandidateScope::PureOnly;
+  return scope == BveCandidateScope::All || pure_bve_candidate_scope(scope);
 }
 
 // Every heuristic control consumed by BVE is supplied per invocation.  The
@@ -94,6 +105,112 @@ struct BveParameters {
   }
 };
 
+// PureClosure's selection. It removes each layer from `occurrences` the way a
+// pure elimination removes it from the formula: every counted clause holding
+// the pure literal goes, and its other active literals lose one occurrence.
+inline void bve_pure_closure_instances(Kernel &k, BveOccurrences &occurrences,
+                                       std::vector<uint64_t> &out) {
+  const uint32_t literals = 2 * k.nvars;
+  const auto pure_literal = [&](Var variable) {
+    const Lit positive = make_lit(variable, false);
+    const bool has_positive = occurrences.count(positive);
+    const bool has_negative = occurrences.count(negate(positive));
+    if (k.values[positive] || has_positive == has_negative)
+      return INVALID_LIT;
+    return has_positive ? positive : negate(positive);
+  };
+  std::vector<std::pair<int64_t, Var>> layer;
+  for (Var variable = 0; variable < k.nvars; ++variable)
+    if (const Lit pure = pure_literal(variable); pure != INVALID_LIT)
+      layer.emplace_back(-static_cast<int64_t>(occurrences.count(pure)),
+                         variable);
+  if (layer.empty())
+    return;
+
+  // Large occurrence lists of the counted population, built once.
+  std::vector<uint64_t> offsets(literals + 1, 0);
+  const auto counted = [&](const Clause *clause) {
+    return !clause->garbage() && !clause->redundant();
+  };
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *clause = clause_at(k.arena, ref);
+    if (counted(clause))
+      for (const Lit literal : *clause)
+        if (!k.values[literal])
+          ++offsets[literal + 1];
+    ref += clause_actual_words(clause);
+  }
+  for (uint32_t literal = 0; literal < literals; ++literal)
+    offsets[literal + 1] += offsets[literal];
+  std::vector<Ref> lists(offsets[literals]);
+  std::vector<uint64_t> cursor(offsets.begin(), offsets.end() - 1);
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *clause = clause_at(k.arena, ref);
+    if (counted(clause))
+      for (const Lit literal : *clause)
+        if (!k.values[literal])
+          lists[cursor[literal]++] = ref;
+    ref += clause_actual_words(clause);
+  }
+
+  std::vector<uint8_t> removed_clause(k.arena.size(), 0);
+  std::vector<uint8_t> removed_literal(literals, 0), seen(k.nvars, 0);
+  std::vector<Var> touched;
+  while (!layer.empty()) {
+    std::stable_sort(layer.begin(), layer.end());
+    touched.clear();
+    const auto release = [&](Lit literal) {
+      if (k.values[literal] || !occurrences.counts[literal])
+        return;
+      --occurrences.counts[literal];
+      if (!seen[var_of(literal)]) {
+        seen[var_of(literal)] = 1;
+        touched.push_back(var_of(literal));
+      }
+    };
+    for (const auto &[score, variable] : layer) {
+      (void)score;
+      out.push_back(lit_instance(k, make_lit(variable, false)));
+      seen[variable] = 2; // selected: never a later layer's candidate
+    }
+    for (const auto &[score, variable] : layer) {
+      (void)score;
+      const Lit positive = make_lit(variable, false);
+      for (const Lit pure : {positive, negate(positive)}) {
+        if (!occurrences.counts[pure])
+          continue;
+        removed_literal[pure] = 1;
+        for (uint64_t at = offsets[pure]; at < offsets[pure + 1]; ++at) {
+          const Ref ref = lists[at];
+          if (removed_clause[ref])
+            continue;
+          removed_clause[ref] = 1;
+          for (const Lit literal : *clause_at(k.arena, ref))
+            release(literal);
+        }
+        for (const WatchEntry watch : k.watches.entries(pure))
+          if (watch.binary() && !k.values[watch.other()] &&
+              !removed_literal[watch.other()]) {
+            release(pure);
+            release(watch.other());
+          }
+        assert(!occurrences.counts[pure]);
+      }
+    }
+    layer.clear();
+    for (const Var variable : touched) {
+      if (seen[variable] == 2)
+        continue;
+      seen[variable] = 0;
+      if (const Lit pure = pure_literal(variable); pure != INVALID_LIT)
+        layer.emplace_back(-static_cast<int64_t>(occurrences.count(pure)),
+                           variable);
+    }
+    std::sort(layer.begin(), layer.end(),
+              [](const auto &a, const auto &b) { return a.second < b.second; });
+  }
+}
+
 inline void bve_complete_instances(Kernel &k, const RuleVTable &rule,
                                    const BveParameters &parameters,
                                    std::vector<uint64_t> &out) {
@@ -105,9 +222,13 @@ inline void bve_complete_instances(Kernel &k, const RuleVTable &rule,
 
   BveOccurrences occurrences;
   bve_build_occurrences(k, occurrences);
+  out.clear();
+  if (parameters.candidate_scope == BveCandidateScope::PureClosure) {
+    bve_pure_closure_instances(k, occurrences, out);
+    return;
+  }
   std::vector<Var> candidates;
   bve_schedule_from_occurrences(k, occurrences, candidates);
-  out.clear();
   out.reserve(candidates.size());
   for (const Var variable : candidates) {
     const uint32_t positive =

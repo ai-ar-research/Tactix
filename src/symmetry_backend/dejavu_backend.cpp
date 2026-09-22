@@ -1623,6 +1623,9 @@ Status fix_clauses(const GroupInput &input, const GroupSettings &settings,
           }
           if (exhausted)
             break;
+          if (settings.first_literal_fix_anchor && !satisfied &&
+              values[input.literals[input.clause_offsets[clause]]] < 0)
+            continue;
           if (satisfied || candidate.size() < 2 ||
               orbits.orbit_size(static_cast<int>(candidate.front())) == 1)
             continue;
@@ -1827,7 +1830,15 @@ Status fix_clauses(const GroupInput &input, const GroupSettings &settings,
         // fix-and-cut pass sees the group (negation_fixing_schreier).
         uint32_t negation_point = UINT32_MAX;
         if (negation_fixing) {
+          // The owner rescans from the first variable at every level: a
+          // sifted stabilizer orbit is a lower bound that later sifting can
+          // enlarge. Each probe is charged, so the pass stays inside the
+          // planner's allowance.
           for (uint32_t point = 0; point < input.domain_size; point += 2) {
+            if (!charge(1)) {
+              exhausted = true;
+              break;
+            }
             if (ordered[point >> 1] || values[point] || values[point ^ 1u])
               continue;
             if (orbits.are_in_same_orbit(static_cast<int>(point),
@@ -1838,6 +1849,8 @@ Status fix_clauses(const GroupInput &input, const GroupSettings &settings,
               break;
             }
           }
+          if (exhausted)
+            break;
           negation_fixing = negation_point != UINT32_MAX;
         }
         const bool shortest_first = settings.base_selection == 5 ||
@@ -1890,6 +1903,9 @@ Status fix_clauses(const GroupInput &input, const GroupSettings &settings,
           }
           if (exhausted)
             break;
+          if (settings.first_literal_fix_anchor && !satisfied &&
+              values[input.literals[input.clause_offsets[clause]]] < 0)
+            continue;
           if (satisfied || candidate.size() < 2 ||
               orbits.orbit_size(static_cast<int>(candidate.front())) == 1)
             continue;

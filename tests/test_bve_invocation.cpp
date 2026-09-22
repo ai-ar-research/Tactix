@@ -321,6 +321,54 @@ static void test_pure_scope_filters_only_generated_complete_passes() {
   kernel_check_invariants(explicit_instance);
 }
 
+// PureClosure selects, from one occurrence image, the sequence that repeating
+// PureOnly to a fixpoint selects pass by pass.
+static void test_pure_closure_matches_repeated_pure_passes() {
+  const auto build = [](Kernel &k) {
+    kernel_reserve_vars(k, 8);
+    kernel_add_binary_clause(k, internalize(1), internalize(2));
+    kernel_add_binary_clause(k, internalize(-2), internalize(3));
+    kernel_add_binary_clause(k, internalize(-3), internalize(4));
+    const Lit wide[] = {internalize(-4), internalize(5), internalize(6)};
+    kernel_add_large_clause(k, wide, 3, false, 0);
+    kernel_add_binary_clause(k, internalize(-5), internalize(-6));
+    kernel_add_binary_clause(k, internalize(7), internalize(8));
+    kernel_add_binary_clause(k, internalize(-7), internalize(-8));
+  };
+  const auto pass = [](Kernel &k, BveCandidateScope scope) {
+    BveParameters pure = BveParameters::from_kernel(k);
+    pure.candidate_scope = scope;
+    pure.gate_mask = 0;
+    BveInvocationRequest request{pure,
+                                 InvocationGranularity::CompleteCurrentPass,
+                                 {}, 0};
+    InvocationBudget budget(WorkUnit::BveTicks, WorkLimit::unlimited());
+    const InvocationResult result = invoke_bve(bve_rule(), k, request, budget);
+    assert(result.status == InvocationStatus::Completed ||
+           result.status == InvocationStatus::NoChange);
+    return result.applications;
+  };
+  Kernel repeated, closure;
+  build(repeated);
+  build(closure);
+  uint64_t repeated_applications = 0, passes = 0;
+  while (const uint64_t applied = pass(repeated, BveCandidateScope::PureOnly)) {
+    repeated_applications += applied;
+    ++passes;
+  }
+  assert(passes > 1 && "the fixture needs more than one PureOnly layer");
+  assert(pass(closure, BveCandidateScope::PureClosure) == repeated_applications);
+  assert(pass(closure, BveCandidateScope::PureClosure) == 0);
+  for (int variable = 1; variable <= 8; ++variable)
+    assert(kernel_var_retired(repeated, var_of(internalize(variable))) ==
+           kernel_var_retired(closure, var_of(internalize(variable))));
+  // The 7/8 equivalence has no pure literal at any layer.
+  assert(!kernel_var_retired(closure, var_of(internalize(7))));
+  assert(closure.reconstruction == repeated.reconstruction);
+  kernel_check_invariants(repeated);
+  kernel_check_invariants(closure);
+}
+
 static void test_pure_scope_inside_unordered_dense_state() {
   Kernel k;
   kernel_reserve_vars(k, 3);
@@ -552,6 +600,7 @@ int main() {
   test_pass_session_poses_once_and_keeps_cumulative_budget();
   test_complete_pass_and_stale_batch_are_distinct();
   test_pure_scope_filters_only_generated_complete_passes();
+  test_pure_closure_matches_repeated_pure_passes();
   test_pure_scope_inside_unordered_dense_state();
   test_invalid_zero_budget_and_stop_do_not_mutate();
   test_terminal_result_is_not_overwritten_by_completion();
