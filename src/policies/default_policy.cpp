@@ -24,6 +24,8 @@
 #include "rules/lucky/simon_model.hpp"
 #include "rules/lucky/stconn_proof.hpp"
 #include "rules/lucky/signed_cardinality_proof.hpp"
+#include "rules/lucky/exact_cover_model.hpp"
+#include "rules/lucky/independent_set_model.hpp"
 #include "policies/ops/walk/walk.hpp"
 #include "rules/restart/restart.hpp"
 #include "rules/registry.hpp"
@@ -564,6 +566,10 @@ bool DefaultStrategyConfig::valid(std::string *error) const {
     return reject("stconn-proof settings are invalid");
   if (!signed_cardinality_proof.parameters.valid())
     return reject("signed-cardinality-proof settings are invalid");
+  if (!exact_cover_model.parameters.valid())
+    return reject("exact-cover-model settings are invalid");
+  if (!independent_set_model.parameters.valid())
+    return reject("independent-set-model settings are invalid");
 
   const auto &ip = inprocess;
   if (!ip.eliminate_interval || !ip.probe_interval || !ip.phase_rounds ||
@@ -937,6 +943,23 @@ std::string DefaultStrategyConfig::serialize() const {
       << signed_cardinality_proof.parameters.maximum_bdd_nodes
       << " signed_cardinality_proof.maximum_proof_additions="
       << signed_cardinality_proof.parameters.maximum_proof_additions
+      << " exact_cover_model.enabled=" << exact_cover_model.enabled
+      << " exact_cover_model.block_arity="
+      << exact_cover_model.parameters.block_arity
+      << " exact_cover_model.maximum_nodes="
+      << exact_cover_model.parameters.maximum_nodes
+      << " exact_cover_model.restarts=" << exact_cover_model.parameters.restarts
+      << " exact_cover_model.restart_nodes="
+      << exact_cover_model.parameters.restart_nodes
+      << " exact_cover_model.seed=" << exact_cover_model.parameters.seed
+      << " independent_set_model.enabled=" << independent_set_model.enabled
+      << " independent_set_model.maximum_vertices="
+      << independent_set_model.parameters.maximum_vertices
+      << " independent_set_model.maximum_steps="
+      << independent_set_model.parameters.maximum_steps
+      << " independent_set_model.completion_rounds="
+      << independent_set_model.parameters.completion_rounds
+      << " independent_set_model.seed=" << independent_set_model.parameters.seed
       << " inprocess.bve_enabled=" << inprocess.bve_enabled
       << " inprocess.vivify_enabled=" << inprocess.vivify_enabled
       << " inprocess.factor_enabled=" << inprocess.factor_enabled
@@ -3467,6 +3490,9 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   k.stconn_proof_parameters = config_.stconn_proof.parameters;
   k.signed_cardinality_proof_parameters =
       config_.signed_cardinality_proof.parameters;
+  k.exact_cover_model_parameters = config_.exact_cover_model.parameters;
+  k.independent_set_model_parameters =
+      config_.independent_set_model.parameters;
   k.reduce_victim_numerator = config_.reduction.victim_numerator;
   k.reduce_victim_denominator = config_.reduction.victim_denominator;
   k.reduce_protect_tiers = config_.reduction.protect_tiers;
@@ -3532,6 +3558,35 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       return finish(20);
     }
     event_trace.macro(k, "signed_cardinality_proof_end", "unknown");
+  }
+  // Signed at-most-one block exact cover (the sgen owner): exact recognition
+  // on the live clause set, then the owner's deterministic DFS and dosed
+  // randomized restarts; a completed cover is validated as a total model.
+  if (config_.exact_cover_model.enabled && exact_cover_model_guard(k)) {
+    event_trace.macro(k, "exact_cover_model_begin");
+    const ApplyResult cover = default_direct_rule(
+        k, "Lucky", "exact-cover-model",
+        [&] { return exact_cover_model_apply(k); });
+    if (cover == ApplyResult::Sat) {
+      event_trace.macro(k, "exact_cover_model_end", "sat");
+      return finish(10);
+    }
+    event_trace.macro(k, "exact_cover_model_end", "unknown");
+  }
+  // Independent set under a layered exact-count encoding: the owner's count
+  // equation recognizes the shape; a generic greedy + swap search, propagation
+  // completion and full validation construct the model.
+  if (config_.independent_set_model.enabled &&
+      independent_set_model_guard(k)) {
+    event_trace.macro(k, "independent_set_model_begin");
+    const ApplyResult independent = default_direct_rule(
+        k, "Lucky", "independent-set-model",
+        [&] { return independent_set_model_apply(k); });
+    if (independent == ApplyResult::Sat) {
+      event_trace.macro(k, "independent_set_model_end", "sat");
+      return finish(10);
+    }
+    event_trace.macro(k, "independent_set_model_end", "unknown");
   }
   // Arithmetic-circuit construction consumes only the parser's bounded raw
   // structural summary, then independently validates any completed model.

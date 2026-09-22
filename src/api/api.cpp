@@ -639,6 +639,26 @@ bool online_parameters(const tactix_online_parameters &source,
     target = signed_cardinality;
     return true;
   }
+  case TACTIX_ONLINE_PARAMETERS_EXACT_COVER_MODEL: {
+    const tactix_online_exact_cover_model_parameters &p =
+        source.value.exact_cover_model;
+    strategy::ExactCoverModelParameters exact_cover{
+        p.block_arity, p.maximum_nodes, p.restarts, p.restart_nodes, p.seed};
+    if (!exact_cover.valid())
+      return false;
+    target = exact_cover;
+    return true;
+  }
+  case TACTIX_ONLINE_PARAMETERS_INDEPENDENT_SET_MODEL: {
+    const tactix_online_independent_set_model_parameters &p =
+        source.value.independent_set_model;
+    strategy::IndependentSetModelParameters independent_set{
+        p.maximum_vertices, p.maximum_steps, p.completion_rounds, p.seed};
+    if (!independent_set.valid())
+      return false;
+    target = independent_set;
+    return true;
+  }
   case TACTIX_ONLINE_PARAMETERS_AFFINE_MODEL: {
     const auto &p = source.value.affine_model;
     if (p.projection_count < 0 || p.scope_count < 0 ||

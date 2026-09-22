@@ -112,6 +112,14 @@ LookupCircuitModelParameters::from_kernel(const Kernel &k) {
 SimonModelParameters SimonModelParameters::from_kernel(const Kernel &k) {
   return k.simon_model_parameters;
 }
+ExactCoverModelParameters
+ExactCoverModelParameters::from_kernel(const Kernel &k) {
+  return k.exact_cover_model_parameters;
+}
+IndependentSetModelParameters
+IndependentSetModelParameters::from_kernel(const Kernel &k) {
+  return k.independent_set_model_parameters;
+}
 StconnProofParameters StconnProofParameters::from_kernel(const Kernel &k) {
   return k.stconn_proof_parameters;
 }
@@ -274,6 +282,13 @@ void install_rule_parameters(Kernel &k,
 }
 void install_rule_parameters(Kernel &k, const SimonModelParameters &p) {
   k.simon_model_parameters = p;
+}
+void install_rule_parameters(Kernel &k, const ExactCoverModelParameters &p) {
+  k.exact_cover_model_parameters = p;
+}
+void install_rule_parameters(Kernel &k,
+                             const IndependentSetModelParameters &p) {
+  k.independent_set_model_parameters = p;
 }
 void install_rule_parameters(Kernel &k, const StconnProofParameters &p) {
   k.stconn_proof_parameters = p;

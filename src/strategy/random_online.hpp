@@ -114,6 +114,8 @@ struct RandomOnlineConfig {
   SimonModelParameters simon_model_reference;
   StconnProofParameters stconn_proof_reference;
   SignedCardinalityProofParameters signed_cardinality_proof_reference;
+  ExactCoverModelParameters exact_cover_model_reference;
+  IndependentSetModelParameters independent_set_model_reference;
   AffineModelParameters affine_model_reference;
   uint32_t maximum_affine_projection_coordinates = 32;
   uint32_t maximum_affine_scopes = 8;

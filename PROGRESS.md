@@ -230,26 +230,42 @@ green in job `1712230`, uncommitted):
    are luck: a phase hint does not rescue them (`...-wv2-cut-phase-screen`), and with
    structured startup off they time out with no clause and solve 4/10 hand-added-clause
    variants without pattern (`...-wv2-ntil-clause-dig`). Evidence for the learner.
-2. Large-domain (>50k variables) structured program, ported to the owner. AM330 (full
-   owner sequence) was gated and REJECTED: WV100 lost `snw_16_9_CCSpre` and `Break_20_72`,
-   Rank 1-50 +9.9% (`...-am330-owner-fix-anchor-*`). Diagnosis by rows
-   (`...-wv2-large-domain-admission{,2}`): every moved row is >50k variables where the
-   committed binary did nothing; at-most-one completion perturbs Kissat-owned SAT rows, a
-   single generator unit flips `snw`/`6g`/`mp1`, and the pure step rebuilt its occurrence
-   image and re-sorted every variable once per layer (72s on `pj2009_k80`).
-   AM331 (Release `c024f183...`, Debug `6ca994ad...`, verify job `1713577`; report
-   `benchmarks/reports/2026-09-21-am331-large-domain-owner-program.md`): unconditional
-   generator binary fixing, kept work-capped prefix, size-scaled repeat
-   (`UntilSizeScaledFixpoint`), lean repeated pass (pure closure via
-   `BveCandidateScope::PureClosure`, graph, compaction), compound-progress admission of
-   generator passes; typed default-off `first_literal_fix_anchor` (`sr30`), tick-charged
-   negation scan. Gates `...-am331-large-domain-lean-*` (jobs `1713654`-`1713657`) against
-   AM329: Rank 50/50 -5.5%, B28+C5 33/33 +4.0%, WV100 100/100 +2.1%, WV2-89 82 solved / 76
-   within 600s (gained `mp1-Nb7T42` 179s, `SC25_Timetable_C_496` 467s, `hcp_CP18_18` 804s),
-   no lost row. CTest green (job `1713574`); fuzz matrix `1713597`-`1713614` 18/18 legs,
-   0 failures. Open: `FmlaEquivChain_4_8_8` 751s -> 1,112s; `hcp` misses
-   600s and is luck-sensitive.
-3. `6g_6color` is a luck-dominated SAT row: Satsuma's at-most-one binaries are necessary,
+2. Large-domain (>50k variables) structured program: COMMITTED as `4523daae` (AM331; report
+   `benchmarks/reports/2026-09-21-am331-large-domain-owner-program.md`). WV2-89 82 solved / 76
+   within 600s from that commit.
+4. LymphoSAT-owned rows as Lucky model constructors (uncommitted, `benchmarks/runs/20260921-am33{2,3}-*`):
+   instance 17, the sgen owner's signed at-most-one block exact cover (owner DFS, dosed
+   restarts): `sgen1-sat-180-100` 969s -> 0.04s. AM332 gates: zero conflict-count changes on
+   Rank/B28+C5/WV100, no lost row, WV2-89 77 within 600s. Instance 18, the independent-set
+   owner's exact-count recognition with a generic greedy + swap search and propagation
+   completion (the owner's family-specific graph constructions are not ported):
+   `1-ET-512-K-96` timeout -> 0.21s. AM333 = 17 + 18 (Release `0ec66e12...`, Debug
+   `0cfcf2f7...`, build `1714363`; report
+   `benchmarks/reports/2026-09-21-am333-lymphosat-model-constructors.md`): CTest 171/171 and
+   170/170; fuzz matrix `1714364`-`1714381` 18/18 legs, 0 failures; gates `1714420`-
+   `1714423`: zero conflict-count changes on Rank/B28+C5/WV100, no lost row, WV2-89 83 solved / 78
+   within 600s. Staged; awaiting the commit decision. Gate manifests now cap the five
+   never-verifying certificates at 600s (`resource_contract.checker_timeout_overrides`,
+   `tools/bench/runtime_task.py`; user: never wait on large proof checks).
+5. Remaining LymphoSAT-owned rows, classified from the owners' notes
+   (`winners/.../solvers/<family>/solver/README.md`): `noL-11-4` = a stored size-11 grid
+   colouring (witness table) plus stochastic repair; `sted5` = stored graph-level call
+   templates for the recovered Stedman transition system; `puzzle32_sat` = a hard-wired decoder of one
+   generator (fixed 130-bit state layout, `abs(l) > 1000` constants, last clause = goal) + IDA*;
+   `FmlaEquivChain_4_8_8` = exact Buss-generator detector + VeriPB leaf-count invariant. The
+   first three are benchmark-specific dispatch and are DECLINED; FmlaEquivChain's general
+   content is a counting-invariant proof and belongs with the certificate-routing item.
+6. Kissat-owned CDCL rows (`benchmarks/runs/20260921-wv2-cdcl-rows-survey`, out2): Tactix vs
+   kissat-4.0.4 conflicts, `snw_16_9_preOpt_pre` 816k vs 91k (612s vs 75s), `Circuit_multiplier24`
+   8.5M vs 2.1M (680s vs 109s), `ntil-90d-39` timeout vs 659s (kissat-sc2024 104s), `lockchart...J1_4`
+   timeout vs 409s (kissat-sc2024 timeout). All SAT; kissat-sc2024 itself times out on two of them,
+   so these are N3 search-parity rows with a large luck component, not technique gaps. On `snw_16_9` Tactix
+   searches faster than Kissat (1,850 vs 1,250 conflicts/s; inprocessing 28% of wall) with matching
+   factoring (7,732 vs 7,218 variables), twice the elimination (6,327 vs 3,071) and more
+   restarts/rephases/walks per conflict; the shuffle probe (`shuffle-table.tsv`, five renamed copies each) shows both solvers spread over
+   the same range with Tactix's medians better (Circuit 113s vs 332s; snw 220s vs 449s): trajectory
+   luck, not a mechanism; nothing is tuned on these rows.
+7. `6g_6color` is a luck-dominated SAT row: Satsuma's at-most-one binaries are necessary,
    but equally valid colour-symmetry unit sets differ by 70x with no pattern
    (`...-wv2-6g-ablation`, `...-wv2-6g-units-landscape`).
 

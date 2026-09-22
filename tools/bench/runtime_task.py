@@ -33,6 +33,23 @@ def positive_timeout(manifest, name):
     return value
 
 
+def checker_timeout_for(manifest, instance):
+    """The checker window for one instance: the contract's checker_timeout,
+    unless resource_contract.checker_timeout_overrides names the instance's
+    basename with a shorter positive window. Solve results never depend on
+    it; the override only stops a known non-verifying certificate from
+    holding a node for the full window."""
+    timeout = positive_timeout(manifest, "checker_timeout")
+    overrides = manifest.get("resource_contract", {}).get(
+        "checker_timeout_overrides") or {}
+    value = overrides.get(instance.rsplit("/", 1)[-1])
+    if value is None:
+        return timeout
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        raise RuntimeError("invalid checker_timeout_overrides entry")
+    return min(timeout, value)
+
+
 def solver_command(binary, arm, cnf, proof):
     before = arm.get("arguments", [])
     after = arm.get("trailing_arguments", [])
@@ -330,7 +347,7 @@ def main():
 
     manifest = json.loads((CAMPAIGN / "manifest.json").read_text())
     solve_timeout = positive_timeout(manifest, "solve_timeout")
-    check_timeout = positive_timeout(manifest, "checker_timeout")
+    check_timeout = checker_timeout_for(manifest, row["instance"])
     compressed = ROOT / "benchmarks/cache" / row["instance"]
     arm = manifest["arms"][row["arm"]]
     certificate = arm.get("certificate", "drat")

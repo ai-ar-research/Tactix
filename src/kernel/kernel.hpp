@@ -568,6 +568,24 @@ struct Stats {
   uint64_t cerny_model_length = 0;
   uint64_t cerny_model_sat = 0;
   uint64_t cerny_model_interrupted = 0;
+  uint64_t exact_cover_model_calls = 0;
+  uint64_t exact_cover_model_recognized = 0;
+  uint64_t exact_cover_model_blocks = 0;
+  uint64_t exact_cover_model_nodes = 0;
+  uint64_t exact_cover_model_restarts = 0;
+  uint64_t exact_cover_model_budget_exhausted = 0;
+  uint64_t exact_cover_model_sat = 0;
+  uint64_t exact_cover_model_interrupted = 0;
+  uint64_t independent_set_model_calls = 0;
+  uint64_t independent_set_model_recognized = 0;
+  uint64_t independent_set_model_vertices = 0;
+  uint64_t independent_set_model_target = 0;
+  uint64_t independent_set_model_greedy_size = 0;
+  uint64_t independent_set_model_size = 0;
+  uint64_t independent_set_model_steps = 0;
+  uint64_t independent_set_model_completion_rounds = 0;
+  uint64_t independent_set_model_sat = 0;
+  uint64_t independent_set_model_interrupted = 0;
   uint64_t lookup_circuit_model_calls = 0;
   uint64_t lookup_circuit_model_recognized = 0;
   uint64_t lookup_circuit_model_gates = 0;
@@ -1525,6 +1543,8 @@ struct Kernel {
   strategy::FermatModelParameters fermat_model_parameters;
   strategy::LookupCircuitModelParameters lookup_circuit_model_parameters;
   strategy::SimonModelParameters simon_model_parameters;
+  strategy::ExactCoverModelParameters exact_cover_model_parameters;
+  strategy::IndependentSetModelParameters independent_set_model_parameters;
   strategy::StconnProofParameters stconn_proof_parameters;
   strategy::SignedCardinalityProofParameters signed_cardinality_proof_parameters;
   uint32_t onehot_model_maximum_variables =

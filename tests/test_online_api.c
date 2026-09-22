@@ -1099,6 +1099,89 @@ static void signed_cardinality_parameters_are_public_and_validated(void) {
   tactix_release(solver);
 }
 
+static void exact_cover_parameters_are_public_and_validated(void) {
+  tactix *solver = tactix_init();
+  clause(solver, (const int[]){1, 2, 0});
+  tactix_online_step step;
+  memset(&step, 0, sizeof step);
+  step.step_id = 915;
+  step.rule_id = rule("Lucky");
+  step.parameters.kind = TACTIX_ONLINE_PARAMETERS_EXACT_COVER_MODEL;
+  tactix_online_exact_cover_model_parameters *p =
+      &step.parameters.value.exact_cover_model;
+  p->block_arity = 5;
+  p->maximum_nodes = 2000000;
+  p->restarts = 0;
+  p->restart_nodes = 2000000;
+  p->seed = 0x123456789ULL;
+  uint64_t instance = 17;
+  step.instances = &instance;
+  step.instance_count = 1;
+  step.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
+  step.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
+  step.repeat_limit = 1;
+  step.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
+  step.budget_unlimited = 1;
+  tactix_online_program program = {
+      &step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
+  assert(tactix_online_configure(
+             solver, &program, 1, TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  p->block_arity = 2;
+  assert(tactix_online_configure(
+             solver, &program, 2, TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  p->block_arity = 5;
+  p->maximum_nodes = 0;
+  assert(tactix_online_configure(
+             solver, &program, 3, TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  p->maximum_nodes = 2000000;
+  assert(tactix_online_configure(
+             solver, &program, 4, TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  tactix_online_result result;
+  assert(tactix_online_advance(solver, &result) == 0);
+  assert(result.status == TACTIX_ONLINE_COMPLETED ||
+         result.status == TACTIX_ONLINE_NO_CHANGE);
+  tactix_release(solver);
+}
+
+static void independent_set_parameters_are_public_and_validated(void) {
+  tactix *solver = tactix_init();
+  clause(solver, (const int[]){1, 2, 0});
+  tactix_online_step step;
+  memset(&step, 0, sizeof step);
+  step.step_id = 916;
+  step.rule_id = rule("Lucky");
+  step.parameters.kind = TACTIX_ONLINE_PARAMETERS_INDEPENDENT_SET_MODEL;
+  tactix_online_independent_set_model_parameters *p =
+      &step.parameters.value.independent_set_model;
+  p->maximum_vertices = 4096;
+  p->maximum_steps = 0;
+  p->completion_rounds = 0;
+  p->seed = 1;
+  uint64_t instance = 18;
+  step.instances = &instance;
+  step.instance_count = 1;
+  step.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
+  step.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
+  step.repeat_limit = 1;
+  step.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
+  step.budget_unlimited = 1;
+  tactix_online_program program = {
+      &step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
+  assert(tactix_online_configure(
+             solver, &program, 1, TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  p->maximum_vertices = 1;
+  assert(tactix_online_configure(
+             solver, &program, 2, TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  p->maximum_vertices = 4096;
+  assert(tactix_online_configure(
+             solver, &program, 3, TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  tactix_online_result result;
+  assert(tactix_online_advance(solver, &result) == 0);
+  assert(result.status == TACTIX_ONLINE_COMPLETED ||
+         result.status == TACTIX_ONLINE_NO_CHANGE);
+  tactix_release(solver);
+}
+
 int main(void) {
   canonical_bve_reaches_a_real_fixpoint();
   status_reconstructs_bve_models_and_refreshes_after_restart();
@@ -1109,6 +1192,8 @@ int main(void) {
   simon_parameters_are_public_and_validated();
   stconn_parameters_are_public_and_validated();
   signed_cardinality_parameters_are_public_and_validated();
+  exact_cover_parameters_are_public_and_validated();
+  independent_set_parameters_are_public_and_validated();
   pure_bve_scope_is_public_and_validated();
   exact_factor_grid_is_copied_and_applied();
   complete_factor_grid_is_discovered_and_applied();
