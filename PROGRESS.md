@@ -219,63 +219,20 @@ learned clause in the checker's database.
 
 ## Exact next action
 
-Two same-window scratch experiments (env hatches in
-`benchmarks/probes/scratch/wv2-owner-first-literal`; the tree holds only the typed,
-default-off `first_literal_fix_anchor`/`sr30` and the tick-charged negation scan, CTest
-green in job `1712230`, uncommitted):
-
-1. Owner anchor + cut point: DECLINED in DefaultPolicy for now (user decision), typed and
-   selectable. They fix `ramsey_4_4_19` (timeout -> 290s; Kissat agrees on the rows) and
-   `bphp_p23_h22` (489s -> 1.8s) but flip `ntil-90d-37/40` to timeouts, and those rows
-   are luck: a phase hint does not rescue them (`...-wv2-cut-phase-screen`), and with
-   structured startup off they time out with no clause and solve 4/10 hand-added-clause
-   variants without pattern (`...-wv2-ntil-clause-dig`). Evidence for the learner.
-2. Large-domain (>50k variables) structured program: COMMITTED as `4523daae` (AM331; report
-   `benchmarks/reports/2026-09-21-am331-large-domain-owner-program.md`). WV2-89 82 solved / 76
-   within 600s from that commit.
-4. LymphoSAT-owned rows as Lucky model constructors (uncommitted, `benchmarks/runs/20260921-am33{2,3}-*`):
-   instance 17, the sgen owner's signed at-most-one block exact cover (owner DFS, dosed
-   restarts): `sgen1-sat-180-100` 969s -> 0.04s. AM332 gates: zero conflict-count changes on
-   Rank/B28+C5/WV100, no lost row, WV2-89 77 within 600s. Instance 18, the independent-set
-   owner's exact-count recognition with a generic greedy + swap search and propagation
-   completion (the owner's family-specific graph constructions are not ported):
-   `1-ET-512-K-96` timeout -> 0.21s. AM333 = 17 + 18 (Release `0ec66e12...`, Debug
-   `0cfcf2f7...`, build `1714363`; report
-   `benchmarks/reports/2026-09-21-am333-lymphosat-model-constructors.md`): CTest 171/171 and
-   170/170; fuzz matrix `1714364`-`1714381` 18/18 legs, 0 failures; gates `1714420`-
-   `1714423`: zero conflict-count changes on Rank/B28+C5/WV100, no lost row, WV2-89 83 solved / 78
-   within 600s. Staged; awaiting the commit decision. Gate manifests now cap the five
-   never-verifying certificates at 600s (`resource_contract.checker_timeout_overrides`,
-   `tools/bench/runtime_task.py`; user: never wait on large proof checks).
-5. Remaining LymphoSAT-owned rows, classified from the owners' notes
-   (`winners/.../solvers/<family>/solver/README.md`): `noL-11-4` = a stored size-11 grid
-   colouring (witness table) plus stochastic repair; `sted5` = stored graph-level call
-   templates for the recovered Stedman transition system; `puzzle32_sat` = a hard-wired decoder of one
-   generator (fixed 130-bit state layout, `abs(l) > 1000` constants, last clause = goal) + IDA*;
-   `FmlaEquivChain_4_8_8` = exact Buss-generator detector + VeriPB leaf-count invariant. The
-   first three are benchmark-specific dispatch and are DECLINED; FmlaEquivChain's general
-   content is a counting-invariant proof and belongs with the certificate-routing item.
-6. Kissat-owned CDCL rows (`benchmarks/runs/20260921-wv2-cdcl-rows-survey`, out2): Tactix vs
-   kissat-4.0.4 conflicts, `snw_16_9_preOpt_pre` 816k vs 91k (612s vs 75s), `Circuit_multiplier24`
-   8.5M vs 2.1M (680s vs 109s), `ntil-90d-39` timeout vs 659s (kissat-sc2024 104s), `lockchart...J1_4`
-   timeout vs 409s (kissat-sc2024 timeout). All SAT; kissat-sc2024 itself times out on two of them,
-   so these are N3 search-parity rows with a large luck component, not technique gaps. On `snw_16_9` Tactix
-   searches faster than Kissat (1,850 vs 1,250 conflicts/s; inprocessing 28% of wall) with matching
-   factoring (7,732 vs 7,218 variables), twice the elimination (6,327 vs 3,071) and more
-   restarts/rephases/walks per conflict; the shuffle probe (`shuffle-table.tsv`, five renamed copies each) shows both solvers spread over
-   the same range with Tactix's medians better (Circuit 113s vs 332s; snw 220s vs 449s): trajectory
-   luck, not a mechanism; nothing is tuned on these rows.
-7. `6g_6color` is a luck-dominated SAT row: Satsuma's at-most-one binaries are necessary,
-   but equally valid colour-symmetry unit sets differ by 70x with no pattern
-   (`...-wv2-6g-ablation`, `...-wv2-6g-units-landscape`).
-
-A change that fails alone is not shelved: find the coupled change (user direction). Run
-the Debug corpus and focused fuzz legs before any gate.
+Certificate routing (awaiting the user's `revise-plan` approval; evidence in
+`benchmarks/runs/20260922-oisc-drat-routing-probe` and memory): a witness-free binary DSR
+becomes binary DRAT by rewriting its line tags 0x01/0x02 to `a`/`d`; drat-trim + cake_lpr
+verify it (exact on `sgen1-unsat`), and drat-trim verifies `oisc` in 7,003 s, inside Kissat's
+own DRAT-check range. Job `1714724` measures the Tseitin row and `oisc` end to end. On
+approval: routing in `tools/bench/proof_oracle.py` (witness-free -> DRAT owner pipeline,
+witnessed -> Satsuma+Kissat DSR pipeline) with a unit test, the N2 acceptance sentence, and a
+re-verification of the five certificates. Remaining WV2-89 rows are dispositioned above; the
+only technique candidate left is a counting-invariant certificate for `FmlaEquivChain`.
 
 ## Recent changes
 
-- Acceptance checking is the exact Satsuma+Kissat DSR pipeline plus a forward every-lemma audit; X7 root-unit clauses take the non-propagating general encoding.
 - BVE candidate contract with the result read from `kernel_change_mark`; TransitiveReduce scratch reset; Debug invariant scoped to a consistent kernel.
 - Fixed the WV2-89 tranche (`benchmarks/tiers/WV2-89.tsv`, plan gate T4-WV2-89) as Phase 3.
 - AM329: owner negation fixing before FixAndCut, generic-entry generator floor, Debug cross-check of certified X7 rows; AM327 withdrawn as unsound.
 - AM331: owner large-domain symmetry program (four coupled pieces), `PureClosure` scope, size-scaled repeat, generator-pass admission; AM330 gated and rejected.
+- AM333: Lucky 17 (signed exact cover, sgen owner) and 18 (independent set under exact-count encoding); per-instance checker-window overrides.
