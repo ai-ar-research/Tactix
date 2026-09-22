@@ -255,6 +255,25 @@ ActionParameters random_parameters(const Kernel &k, uint64_t &state, const std::
   }
   if (rule == "Lucky") {
     const uint64_t lucky_kind = bounded(state, 9);
+    // A derived stream: the draws above and every later one stay unchanged.
+    uint64_t exact_cover_state = state ^ 0x4558414354434f56ull;
+    if (lucky_kind == 7 && bounded(exact_cover_state, 4) == 0) {
+      IndependentSetModelParameters p = config.independent_set_model_reference;
+      p.maximum_vertices = 2 + inclusive_u32(exact_cover_state, 4094);
+      p.maximum_steps = bounded(exact_cover_state, 64);
+      p.completion_rounds = bounded(exact_cover_state, 64);
+      p.seed = exact_cover_state;
+      return p;
+    }
+    if (lucky_kind == 8 && bounded(exact_cover_state, 4) == 0) {
+      ExactCoverModelParameters p = config.exact_cover_model_reference;
+      p.block_arity = 3 + inclusive_u32(exact_cover_state, 13);
+      p.maximum_nodes = 1 + bounded(exact_cover_state, p.maximum_nodes);
+      p.restarts = bounded(exact_cover_state, 4);
+      p.restart_nodes = 1 + bounded(exact_cover_state, p.restart_nodes);
+      p.seed = exact_cover_state;
+      return p;
+    }
     if (lucky_kind == 8) {
       SignedCardinalityProofParameters p =
           config.signed_cardinality_proof_reference;
@@ -885,6 +904,21 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
     p.maximum_bdd_nodes = v[4];
     p.maximum_proof_additions = v[5];
     parameters = p;
+  } else if (tuple(text, "exact-cover-model", v) && v.size() == 5) {
+    ExactCoverModelParameters p;
+    U32_AT(0, p.block_arity);
+    p.maximum_nodes = v[1];
+    p.restarts = v[2];
+    p.restart_nodes = v[3];
+    p.seed = v[4];
+    parameters = p;
+  } else if (tuple(text, "independent-set-model", v) && v.size() == 4) {
+    IndependentSetModelParameters p;
+    U32_AT(0, p.maximum_vertices);
+    p.maximum_steps = v[1];
+    p.completion_rounds = v[2];
+    p.seed = v[3];
+    parameters = p;
   } else if (tuple(text, "affine1", v) && v.size() >= 20) {
     AffineModelParameters p;
     p.maximum_variables=v[0]; p.maximum_constraints=v[1]; p.maximum_arity=v[2];
@@ -1299,6 +1333,8 @@ bool random_online_strategy_program(Kernel &k, uint64_t seed,
       !config.simon_model_reference.valid() ||
       !config.stconn_proof_reference.valid() ||
       !config.signed_cardinality_proof_reference.valid() ||
+      !config.exact_cover_model_reference.valid() ||
+      !config.independent_set_model_reference.valid() ||
       !config.affine_model_reference.valid() ||
       !config.affine_joint_positive_denominator ||
       config.affine_joint_positive_numerator > config.affine_joint_positive_denominator ||
@@ -1668,6 +1704,16 @@ std::string serialize_online_strategy_program(
           << p->maximum_groups << ',' << p->maximum_constraints << ','
           << p->maximum_group_arity << ',' << p->maximum_bdd_nodes << ','
           << p->maximum_proof_additions << ')';
+    else if (const auto *p =
+                 std::get_if<ExactCoverModelParameters>(&step.parameters))
+      out << ":exact-cover-model(" << p->block_arity << ',' << p->maximum_nodes
+          << ',' << p->restarts << ',' << p->restart_nodes << ',' << p->seed
+          << ')';
+    else if (const auto *p =
+                 std::get_if<IndependentSetModelParameters>(&step.parameters))
+      out << ":independent-set-model(" << p->maximum_vertices << ','
+          << p->maximum_steps << ',' << p->completion_rounds << ',' << p->seed
+          << ')';
     else if (const auto *p = std::get_if<AffineModelParameters>(&step.parameters)) {
       out << ":affine1(" << p->maximum_variables << ',' << p->maximum_constraints
           << ',' << p->maximum_arity << ',' << p->maximum_projection << ','

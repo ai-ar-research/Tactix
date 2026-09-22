@@ -309,6 +309,51 @@ struct SimonModelParameters {
   static SimonModelParameters from_kernel(const Kernel &);
 };
 
+// SAT-only exact-cover model for signed at-most-one block formulas
+// (LymphoSAT's sgen owner). Recognition is exact on the live clause set; the
+// search is the owner's deterministic minimum-remaining-rows DFS, then its
+// randomized restarts. The node bounds are the owner's per-attempt node limit;
+// the owner's phases are otherwise wall-clock bounded, so restarts default to
+// none and are dosed by the caller.
+struct ExactCoverModelParameters {
+  static constexpr uint32_t BLOCK_ARITY_DEFAULT = 5;
+  static constexpr uint64_t MAXIMUM_NODES_DEFAULT = 2000000;
+  static constexpr uint64_t RESTARTS_DEFAULT = 0;
+  static constexpr uint64_t RESTART_NODES_DEFAULT = 2000000;
+  static constexpr uint64_t SEED_DEFAULT = 0x123456789ULL;
+
+  uint32_t block_arity = BLOCK_ARITY_DEFAULT;
+  uint64_t maximum_nodes = MAXIMUM_NODES_DEFAULT;
+  uint64_t restarts = RESTARTS_DEFAULT;
+  uint64_t restart_nodes = RESTART_NODES_DEFAULT;
+  uint64_t seed = SEED_DEFAULT;
+  constexpr bool valid() const {
+    return block_arity >= 3 && block_arity <= 16 && maximum_nodes &&
+           restart_nodes;
+  }
+  static ExactCoverModelParameters from_kernel(const Kernel &);
+};
+
+// SAT-only independent-set model for the layered exact-count encoding
+// (LymphoSAT's independent-set owner). Recognition is the owner's count
+// equation; the search is a generic minimum-degree greedy plus swap local
+// search rather than the owner's family-specific constructions. Zero steps or
+// rounds select the vertex count (one step per vertex, one propagation round
+// per encoding layer).
+struct IndependentSetModelParameters {
+  static constexpr uint32_t MAXIMUM_VERTICES_DEFAULT = UINT32_MAX;
+  static constexpr uint64_t MAXIMUM_STEPS_DEFAULT = 0;
+  static constexpr uint64_t COMPLETION_ROUNDS_DEFAULT = 0;
+  static constexpr uint64_t SEED_DEFAULT = 0x9e3779b97f4a7c15ULL;
+
+  uint32_t maximum_vertices = MAXIMUM_VERTICES_DEFAULT;
+  uint64_t maximum_steps = MAXIMUM_STEPS_DEFAULT;
+  uint64_t completion_rounds = COMPLETION_ROUNDS_DEFAULT;
+  uint64_t seed = SEED_DEFAULT;
+  constexpr bool valid() const { return maximum_vertices >= 2; }
+  static IndependentSetModelParameters from_kernel(const Kernel &);
+};
+
 // Native RUP refutation of structurally exact bounded-width StConn grids.
 // Width controls the crossing-sequence state space; the other bounds expose
 // formula extent and emitted-proof work without changing recognition.
@@ -403,6 +448,8 @@ void install_rule_parameters(Kernel &, const BalancedSignatureModelParameters &)
 void install_rule_parameters(Kernel &, const FermatModelParameters &);
 void install_rule_parameters(Kernel &, const LookupCircuitModelParameters &);
 void install_rule_parameters(Kernel &, const SimonModelParameters &);
+void install_rule_parameters(Kernel &, const ExactCoverModelParameters &);
+void install_rule_parameters(Kernel &, const IndependentSetModelParameters &);
 void install_rule_parameters(Kernel &, const StconnProofParameters &);
 void install_rule_parameters(Kernel &, const SignedCardinalityProofParameters &);
 void install_rule_parameters(Kernel &, const AffineModelParameters &);
@@ -439,6 +486,10 @@ using ScopedFermatModelParameters = ScopedRuleParameters<FermatModelParameters>;
 using ScopedLookupCircuitModelParameters =
     ScopedRuleParameters<LookupCircuitModelParameters>;
 using ScopedSimonModelParameters = ScopedRuleParameters<SimonModelParameters>;
+using ScopedExactCoverModelParameters =
+    ScopedRuleParameters<ExactCoverModelParameters>;
+using ScopedIndependentSetModelParameters =
+    ScopedRuleParameters<IndependentSetModelParameters>;
 using ScopedStconnProofParameters = ScopedRuleParameters<StconnProofParameters>;
 using ScopedSignedCardinalityProofParameters =
     ScopedRuleParameters<SignedCardinalityProofParameters>;

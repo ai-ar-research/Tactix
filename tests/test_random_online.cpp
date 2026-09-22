@@ -1606,6 +1606,12 @@ static void parameter_domains_are_caller_controlled() {
   bool selected_lookup_instance = false, selected_simon_instance = false;
   bool selected_stconn_instance = false;
   bool selected_signed_cardinality_instance = false;
+  bool selected_exact_cover_instance = false;
+  bool selected_independent_set_instance = false;
+  std::set<uint32_t> independent_set_vertices;
+  std::set<uint64_t> independent_set_steps;
+  std::set<uint32_t> exact_cover_arities;
+  std::set<uint64_t> exact_cover_nodes, exact_cover_restarts;
   std::set<uint32_t> parity_variables, parity_groups, parity_constraints,
       parity_free;
   std::set<uint64_t> parity_candidates;
@@ -1717,6 +1723,17 @@ static void parameter_domains_are_caller_controlled() {
       signed_cardinality_nodes.insert(parameters->maximum_bdd_nodes);
       signed_cardinality_additions.insert(
           parameters->maximum_proof_additions);
+    } else if (const auto *parameters =
+                   std::get_if<ExactCoverModelParameters>(&step.parameters)) {
+      assert(parameters->valid());
+      exact_cover_arities.insert(parameters->block_arity);
+      exact_cover_nodes.insert(parameters->maximum_nodes);
+      exact_cover_restarts.insert(parameters->restarts);
+    } else if (const auto *parameters = std::get_if<IndependentSetModelParameters>(
+                   &step.parameters)) {
+      assert(parameters->valid());
+      independent_set_vertices.insert(parameters->maximum_vertices);
+      independent_set_steps.insert(parameters->maximum_steps);
     } else {
       const auto *onehot_parameters =
           std::get_if<OnehotModelParameters>(&step.parameters);
@@ -1754,6 +1771,12 @@ static void parameter_domains_are_caller_controlled() {
     selected_signed_cardinality_instance |=
         std::find(step.instances.begin(), step.instances.end(), uint64_t{16}) !=
         step.instances.end();
+    selected_exact_cover_instance |=
+        std::find(step.instances.begin(), step.instances.end(), uint64_t{17}) !=
+        step.instances.end();
+    selected_independent_set_instance |=
+        std::find(step.instances.begin(), step.instances.end(), uint64_t{18}) !=
+        step.instances.end();
     OnlineStrategyProgram replay;
     std::string error;
     assert(deserialize_online_strategy_program(
@@ -1784,6 +1807,10 @@ static void parameter_domains_are_caller_controlled() {
          signed_cardinality_arities.size() > 4 &&
          signed_cardinality_nodes.size() > 8 &&
          signed_cardinality_additions.size() > 8);
+  assert(selected_exact_cover_instance && exact_cover_arities.size() > 4 &&
+         exact_cover_nodes.size() > 8 && exact_cover_restarts.size() > 2);
+  assert(selected_independent_set_instance &&
+         independent_set_vertices.size() > 8 && independent_set_steps.size() > 8);
   assert(parity_variables.size() > 8 && parity_groups.size() > 8 &&
          parity_constraints.size() > 8 && parity_free.size() > 8 &&
          parity_candidates.size() > 8);
@@ -1822,6 +1849,8 @@ static void parameter_domains_are_caller_controlled() {
                     std::holds_alternative<StconnProofParameters>(p) ||
                     std::holds_alternative<
                         SignedCardinalityProofParameters>(p) ||
+                    std::holds_alternative<ExactCoverModelParameters>(p) ||
+                    std::holds_alternative<IndependentSetModelParameters>(p) ||
                     std::holds_alternative<AffineModelParameters>(p);
            }},
       };

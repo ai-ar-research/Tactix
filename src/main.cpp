@@ -1013,6 +1013,30 @@ int main(int argc, char **argv) {
                kernel.stats.signed_cardinality_proof_budget_exhausted,
            (unsigned long long)kernel.stats.signed_cardinality_proof_unsat,
            (unsigned long long)kernel.stats.signed_cardinality_proof_interrupted);
+    printf("c exactcover %llu calls, %llu recognized, %llu blocks, %llu nodes, "
+           "%llu restarts, %llu budget stops, %llu SAT, %llu interrupted\n",
+           (unsigned long long)kernel.stats.exact_cover_model_calls,
+           (unsigned long long)kernel.stats.exact_cover_model_recognized,
+           (unsigned long long)kernel.stats.exact_cover_model_blocks,
+           (unsigned long long)kernel.stats.exact_cover_model_nodes,
+           (unsigned long long)kernel.stats.exact_cover_model_restarts,
+           (unsigned long long)kernel.stats.exact_cover_model_budget_exhausted,
+           (unsigned long long)kernel.stats.exact_cover_model_sat,
+           (unsigned long long)kernel.stats.exact_cover_model_interrupted);
+    printf("c indepset   %llu calls, %llu recognized, %llu vertices, %llu target, "
+           "%llu greedy, %llu found, %llu steps, %llu completion rounds, "
+           "%llu SAT, %llu interrupted\n",
+           (unsigned long long)kernel.stats.independent_set_model_calls,
+           (unsigned long long)kernel.stats.independent_set_model_recognized,
+           (unsigned long long)kernel.stats.independent_set_model_vertices,
+           (unsigned long long)kernel.stats.independent_set_model_target,
+           (unsigned long long)kernel.stats.independent_set_model_greedy_size,
+           (unsigned long long)kernel.stats.independent_set_model_size,
+           (unsigned long long)kernel.stats.independent_set_model_steps,
+           (unsigned long long)
+               kernel.stats.independent_set_model_completion_rounds,
+           (unsigned long long)kernel.stats.independent_set_model_sat,
+           (unsigned long long)kernel.stats.independent_set_model_interrupted);
     printf("c localsearch %llu hints offered, %llu applied\n",
            (unsigned long long)kernel.stats.local_search_hints_offered,
            (unsigned long long)kernel.stats.local_search_hints_applied);

@@ -1,5 +1,7 @@
 #pragma once
 #include "kernel/kernel.hpp"
+#include <iterator>
+#include <vector>
 namespace tactix {
 // Candidate validation is independent of recognition and of every model-search
 // strategy. Root assignments need their own check: they need not remain clauses.
@@ -46,6 +48,75 @@ bool lucky_model_valid(const Kernel &k, const std::vector<uint8_t> &assignment,
 inline bool lucky_model_valid(const Kernel &k,
                               const std::vector<uint8_t> &assignment) {
   return lucky_model_valid(k, assignment, [](uint64_t) { return true; });
+}
+// Private completion of a partial signed assignment (-1/0/+1 by variable):
+// root values are imposed, then binary and large clauses are propagated in
+// rounds. Returns false on a falsified clause or an interrupt. Bounded rounds
+// keep a chained encoding's completion finite under a caller-dosed limit.
+inline bool lucky_assign_literal(std::vector<int8_t> &assignment, Lit lit) {
+  const Var variable = var_of(lit);
+  const int8_t value = negated(lit) ? -1 : 1;
+  if (assignment[variable] && assignment[variable] != value) return false;
+  assignment[variable] = value;
+  return true;
+}
+template <class It>
+int lucky_propagate_clause(std::vector<int8_t> &assignment, It begin, It end) {
+  Lit last = INVALID_LIT;
+  uint32_t unassigned = 0;
+  for (It it = begin; it != end; ++it) {
+    const Lit lit = *it;
+    const int8_t value = assignment[var_of(lit)];
+    if (!value) {
+      last = lit;
+      ++unassigned;
+    } else if ((value > 0) != negated(lit)) {
+      return 0;
+    }
+  }
+  if (!unassigned) return -1;
+  if (unassigned == 1) return lucky_assign_literal(assignment, last) ? 1 : -1;
+  return 0;
+}
+inline bool lucky_complete_by_propagation(Kernel &k, uint64_t rounds,
+                                          uint64_t &interrupted_counter,
+                                          uint64_t &rounds_counter,
+                                          std::vector<int8_t> &assignment) {
+  for (Var variable = 0; variable < k.nvars; ++variable) {
+    const int value = k.value(make_lit(variable, false));
+    if (value &&
+        !lucky_assign_literal(assignment, make_lit(variable, value < 0)))
+      return false;
+  }
+  for (uint64_t round = 0; round < rounds; ++round) {
+    ++rounds_counter;
+    bool changed = false;
+    uint64_t visited = 0;
+    for (Lit lit = 0; lit < 2 * k.nvars; ++lit)
+      for (const WatchEntry watch : k.watches.entries(lit)) {
+        if (!watch.binary() || lit > watch.other()) continue;
+        const Lit pair[2] = {lit, watch.other()};
+        const int result =
+            lucky_propagate_clause(assignment, std::begin(pair), std::end(pair));
+        if (result < 0) return false;
+        changed |= result > 0;
+        if (!(++visited & ((uint64_t{1} << 20) - 1)) &&
+            kernel_rule_interrupt(k, interrupted_counter))
+          return false;
+      }
+    for (Ref ref = 0; ref < k.arena.size();) {
+      const Clause *clause = clause_at(k.arena, ref);
+      if (!clause->garbage()) {
+        const int result =
+            lucky_propagate_clause(assignment, clause->begin(), clause->end());
+        if (result < 0) return false;
+        changed |= result > 0;
+      }
+      ref += clause_actual_words(clause);
+    }
+    if (!changed) break;
+  }
+  return true;
 }
 // A terminal transaction: the caller has validated the whole assignment and
 // admitted publication work. Do not poll or stop partway through publication.

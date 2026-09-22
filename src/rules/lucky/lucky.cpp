@@ -13,6 +13,8 @@
 #include "rules/lucky/lookup_circuit_model.hpp"
 #include "rules/lucky/simon_model.hpp"
 #include "rules/lucky/stconn_proof.hpp"
+#include "rules/lucky/exact_cover_model.hpp"
+#include "rules/lucky/independent_set_model.hpp"
 #include "rules/lucky/signed_cardinality_proof.hpp"
 
 #include "rules/propagate/propagate.hpp"
@@ -303,7 +305,7 @@ ApplyResult lucky_apply(Kernel &k) {
 }
 
 static uint32_t lucky_instances(Kernel &, uint64_t *out, uint32_t cap) {
-  const uint32_t n = cap < 17 ? cap : 17;
+  const uint32_t n = cap < 19 ? cap : 19;
   for (uint32_t i = 0; i < n; i++)
     out[i] = i;
   return n;
@@ -346,6 +348,12 @@ static ApplyResult lucky_apply_instance(Kernel &k, uint64_t inst) {
     return signed_cardinality_proof_guard(k)
                ? signed_cardinality_proof_apply(k)
                : ApplyResult::NoOp;
+  if (inst == 17)
+    return exact_cover_model_guard(k) ? exact_cover_model_apply(k)
+                                      : ApplyResult::NoOp;
+  if (inst == 18)
+    return independent_set_model_guard(k) ? independent_set_model_apply(k)
+                                          : ApplyResult::NoOp;
   return lucky_apply_probe(k, inst);
 }
 

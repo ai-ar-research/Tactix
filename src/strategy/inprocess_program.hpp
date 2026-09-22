@@ -58,7 +58,8 @@ using ActionParameters =
                  BalancedSignatureModelParameters, FermatModelParameters,
                  LookupCircuitModelParameters, SimonModelParameters,
                  StconnProofParameters,
-                 SignedCardinalityProofParameters,
+                 SignedCardinalityProofParameters, ExactCoverModelParameters,
+                 IndependentSetModelParameters,
                  AffineModelParameters,
                  SubstitutionRedundancyParameters>;
 

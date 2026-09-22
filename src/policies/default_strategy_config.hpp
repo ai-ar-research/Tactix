@@ -275,6 +275,16 @@ struct DefaultStrategyConfig {
     strategy::SignedCardinalityProofParameters parameters;
   } signed_cardinality_proof;
 
+  struct ExactCoverModel {
+    bool enabled = true;
+    strategy::ExactCoverModelParameters parameters;
+  } exact_cover_model;
+
+  struct IndependentSetModel {
+    bool enabled = true;
+    strategy::IndependentSetModelParameters parameters;
+  } independent_set_model;
+
   struct Inprocess {
     // Production values are formula-shape invariant. These typed switches
     // remain explicit diagnostic arms and are never selected by classification.

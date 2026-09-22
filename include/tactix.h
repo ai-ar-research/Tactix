@@ -360,6 +360,8 @@ int tactix_apply_semantic_instance(tactix *, int rule_id, uint64_t instance);
 #define TACTIX_ONLINE_PARAMETERS_SIMON_MODEL 25
 #define TACTIX_ONLINE_PARAMETERS_STCONN_PROOF 26
 #define TACTIX_ONLINE_PARAMETERS_SIGNED_CARDINALITY_PROOF 27
+#define TACTIX_ONLINE_PARAMETERS_EXACT_COVER_MODEL 28
+#define TACTIX_ONLINE_PARAMETERS_INDEPENDENT_SET_MODEL 29
 #define TACTIX_ONLINE_BVE_TRAVERSAL_ELIMINATE 0
 #define TACTIX_ONLINE_BVE_TRAVERSAL_FAST_ELIMINATE 1
 #define TACTIX_ONLINE_AFFINE_BOUNDARY 0
@@ -619,6 +621,19 @@ typedef struct {
   uint64_t maximum_bdd_nodes, maximum_proof_additions;
 } tactix_online_signed_cardinality_proof_parameters;
 typedef struct {
+  /* Parameters for Lucky instance 17: signed at-most-one block exact cover.
+   * block_arity is the block and covering-clause size; the node bounds dose
+   * the deterministic search and each randomized restart. */
+  uint32_t block_arity;
+  uint64_t maximum_nodes, restarts, restart_nodes, seed;
+} tactix_online_exact_cover_model_parameters;
+typedef struct {
+  /* Parameters for Lucky instance 18: independent set with a layered
+   * exact-count encoding. Zero steps or rounds select the vertex count. */
+  uint32_t maximum_vertices;
+  uint64_t maximum_steps, completion_rounds, seed;
+} tactix_online_independent_set_model_parameters;
+typedef struct {
   /* UINT64_MAX selects half of the current coordinate count. */
   uint64_t left_size, left_weight, right_weight, total_weight;
 } tactix_online_affine_scope;
@@ -820,6 +835,8 @@ typedef struct {
     tactix_online_simon_model_parameters simon_model;
     tactix_online_stconn_proof_parameters stconn_proof;
     tactix_online_signed_cardinality_proof_parameters signed_cardinality_proof;
+    tactix_online_exact_cover_model_parameters exact_cover_model;
+    tactix_online_independent_set_model_parameters independent_set_model;
     tactix_online_affine_model_parameters affine_model;
     tactix_online_sr_parameters substitution_redundancy;
   } value;

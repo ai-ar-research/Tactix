@@ -108,6 +108,10 @@ int main() {
          std::string::npos);
   assert(defaults.serialize().find(
              "signed_cardinality_proof.enabled=1") != std::string::npos);
+  assert(defaults.serialize().find("exact_cover_model.enabled=1") !=
+         std::string::npos);
+  assert(defaults.serialize().find("independent_set_model.enabled=1") !=
+         std::string::npos);
   assert(!default_should_cleanup_unique_literal_amo(0, true, false));
   assert(!default_should_cleanup_unique_literal_amo(3, false, false));
   assert(default_should_cleanup_unique_literal_amo(3, true, false));

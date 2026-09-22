@@ -3,7 +3,8 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
-from runtime_task import (atomic_json, checked_verdict_valid, expected_matches,
+from runtime_task import (atomic_json, checked_verdict_valid, checker_timeout_for,
+                          expected_matches,
                           positive_timeout, provisional_result, solver_command)
 
 
@@ -80,6 +81,13 @@ class RuntimeTaskTests(unittest.TestCase):
                                           'checker_timeout': 16000}}
         self.assertEqual(positive_timeout(manifest, 'solve_timeout'), 300)
         self.assertEqual(positive_timeout(manifest, 'checker_timeout'), 16000)
+        self.assertEqual(checker_timeout_for(manifest, 'tierD/x-a.cnf.xz'), 16000)
+        manifest['resource_contract']['checker_timeout_overrides'] = {'x-a.cnf.xz': 600}
+        self.assertEqual(checker_timeout_for(manifest, 'tierD/x-a.cnf.xz'), 600)
+        self.assertEqual(checker_timeout_for(manifest, 'tierD/x-b.cnf.xz'), 16000)
+        manifest['resource_contract']['checker_timeout_overrides'] = {'x-a.cnf.xz': 0}
+        with self.assertRaises(RuntimeError):
+            checker_timeout_for(manifest, 'tierD/x-a.cnf.xz')
         for value in (None, True, False, 0, -1, 1.0, '300'):
             manifest['resource_contract']['solve_timeout'] = value
             with self.assertRaises(RuntimeError):
