@@ -306,6 +306,10 @@ int tactix_apply_semantic_instance(tactix *, int rule_id, uint64_t instance);
 #define TACTIX_ONLINE_REPEAT_ONCE 0
 #define TACTIX_ONLINE_REPEAT_COUNT 1
 #define TACTIX_ONLINE_REPEAT_FIXPOINT 2
+/* FIXPOINT whose round ceiling is one pass plus
+ * clamp(ceil((2^23 / (literals + variables))^1.5), 1, limit) repetitions, read
+ * from the live formula at every round; limit 0 = scale only. */
+#define TACTIX_ONLINE_REPEAT_SIZE_SCALED_FIXPOINT 3
 #define TACTIX_ONLINE_POST_NONE 0
 #define TACTIX_ONLINE_POST_PROPAGATE 1
 #define TACTIX_ONLINE_WORK_APPLICATIONS 0
@@ -364,6 +368,9 @@ int tactix_apply_semantic_instance(tactix *, int rule_id, uint64_t instance);
 
 #define TACTIX_ONLINE_BVE_CANDIDATES_ALL 0
 #define TACTIX_ONLINE_BVE_CANDIDATES_PURE_ONLY 1
+/* The complete pure-literal closure, enumerated layer by layer from one
+ * occurrence image: the sequence a repeated PURE_ONLY pass would select. */
+#define TACTIX_ONLINE_BVE_CANDIDATES_PURE_CLOSURE 2
 
 #define TACTIX_ONLINE_SR_EXPLICIT_ONLY 0
 #define TACTIX_ONLINE_SR_ORBITOPAL 1
@@ -762,6 +769,11 @@ typedef struct {
    * every variable whose stabilizer orbit holds its own complement before any
    * fix or cut level. INHERIT retains the disabled default. */
   int symmetry_negation_fixing_first_mode;
+  /* Appended. TACTIX_ONLINE_SETTING_*; ENABLE lets a chain fix a clause only
+   * through its first stored literal, so a clause whose first literal is
+   * already false is left to a cut level. INHERIT retains the disabled
+   * default. */
+  int symmetry_first_literal_fix_anchor_mode;
 } tactix_online_sr_parameters;
 
 /* One exact Factor remainder column and grid. Literals use permanent DIMACS

@@ -305,9 +305,11 @@ public:
         repeat = rounds_ < program_.repeat.limit;
         break;
       case RepeatMode::UntilScopedFixpoint:
-        repeat = progress_ &&
-                 (!program_.repeat.limit || rounds_ < program_.repeat.limit);
+      case RepeatMode::UntilSizeScaledFixpoint: {
+        const uint64_t limit = repeat_round_limit(k, program_.repeat);
+        repeat = progress_ && (!limit || rounds_ < limit);
         break;
+      }
       }
       if (repeat && !finish_round_) {
         // A changed formula may make previously bounded discovery productive.
@@ -320,15 +322,15 @@ public:
       terminal_ = {};
       terminal_.configuration_revision = revision_;
       terminal_.before = terminal_.after = state_version(k);
-      const bool incomplete = program_.repeat.mode == RepeatMode::UntilScopedFixpoint
-                                  ? incomplete_ : any_incomplete_;
+      const bool fixpoint = fixpoint_repeat(program_.repeat.mode);
+      const bool incomplete = fixpoint ? incomplete_ : any_incomplete_;
       terminal_.selection_complete = !incomplete;
       if (incomplete ||
-          (program_.repeat.mode == RepeatMode::UntilScopedFixpoint && progress_)) {
+          (fixpoint && progress_)) {
         terminal_.status = InvocationStatus::BudgetExhausted;
         terminal_.budget_status = BudgetStatus::Exhausted;
       } else {
-        terminal_.status = program_.repeat.mode == RepeatMode::UntilScopedFixpoint
+        terminal_.status = fixpoint
                                ? InvocationStatus::ScopedFixpoint
                                : InvocationStatus::Completed;
       }

@@ -224,15 +224,34 @@ Two same-window scratch experiments (env hatches in
 default-off `first_literal_fix_anchor`/`sr30` and the tick-charged negation scan, CTest
 green in job `1712230`, uncommitted):
 
-1. `benchmarks/runs/20260921-wv2-cut-phase-screen` (jobs `1712722`/`1712723`): does a
-   phase hint (a cut's base prefers false, carried until H attaches) let the owner's
-   anchor + cut point keep the SAT rows? Round 1 was vacuous (H attaches after
-   structured startup, the hint never landed).
-2. `benchmarks/runs/20260921-wv2-large-domain-dig` (jobs `1712749`/`1712750`):
-   `hcp_CP18_18`. Tactix gates generator binary fixing on a negation unit; the owner runs
-   it unconditionally (0 negation units, then 1,729 binary-fixed literals). Arms: keep the
-   work-capped generator prefix, ungate binary fixing, both; side effects on `6g_6color`,
-   `SC25_Timetable`, `mp1-Nb7T42`.
+1. Owner anchor + cut point: DECLINED in DefaultPolicy for now (user decision), typed and
+   selectable. They fix `ramsey_4_4_19` (timeout -> 290s; Kissat agrees on the rows) and
+   `bphp_p23_h22` (489s -> 1.8s) but flip `ntil-90d-37/40` to timeouts, and those rows
+   are luck: a phase hint does not rescue them (`...-wv2-cut-phase-screen`), and with
+   structured startup off they time out with no clause and solve 4/10 hand-added-clause
+   variants without pattern (`...-wv2-ntil-clause-dig`). Evidence for the learner.
+2. Large-domain (>50k variables) structured program, ported to the owner. AM330 (full
+   owner sequence) was gated and REJECTED: WV100 lost `snw_16_9_CCSpre` and `Break_20_72`,
+   Rank 1-50 +9.9% (`...-am330-owner-fix-anchor-*`). Diagnosis by rows
+   (`...-wv2-large-domain-admission{,2}`): every moved row is >50k variables where the
+   committed binary did nothing; at-most-one completion perturbs Kissat-owned SAT rows, a
+   single generator unit flips `snw`/`6g`/`mp1`, and the pure step rebuilt its occurrence
+   image and re-sorted every variable once per layer (72s on `pj2009_k80`).
+   AM331 (Release `c024f183...`, Debug `6ca994ad...`, verify job `1713577`; report
+   `benchmarks/reports/2026-09-21-am331-large-domain-owner-program.md`): unconditional
+   generator binary fixing, kept work-capped prefix, size-scaled repeat
+   (`UntilSizeScaledFixpoint`), lean repeated pass (pure closure via
+   `BveCandidateScope::PureClosure`, graph, compaction), compound-progress admission of
+   generator passes; typed default-off `first_literal_fix_anchor` (`sr30`), tick-charged
+   negation scan. Gates `...-am331-large-domain-lean-*` (jobs `1713654`-`1713657`) against
+   AM329: Rank 50/50 -5.5%, B28+C5 33/33 +4.0%, WV100 100/100 +2.1%, WV2-89 82 solved / 76
+   within 600s (gained `mp1-Nb7T42` 179s, `SC25_Timetable_C_496` 467s, `hcp_CP18_18` 804s),
+   no lost row. CTest green (job `1713574`); fuzz matrix `1713597`-`1713614` 18/18 legs,
+   0 failures. Open: `FmlaEquivChain_4_8_8` 751s -> 1,112s; `hcp` misses
+   600s and is luck-sensitive.
+3. `6g_6color` is a luck-dominated SAT row: Satsuma's at-most-one binaries are necessary,
+   but equally valid colour-symmetry unit sets differ by 70x with no pattern
+   (`...-wv2-6g-ablation`, `...-wv2-6g-units-landscape`).
 
 A change that fails alone is not shelved: find the coupled change (user direction). Run
 the Debug corpus and focused fuzz legs before any gate.
@@ -240,7 +259,7 @@ the Debug corpus and focused fuzz legs before any gate.
 ## Recent changes
 
 - Acceptance checking is the exact Satsuma+Kissat DSR pipeline plus a forward every-lemma audit; X7 root-unit clauses take the non-propagating general encoding.
-- Sweep: target-conditioned prefix lemmas, proof/no-proof parity, unbounded capture default, proof ids required only under LRAT.
 - BVE candidate contract with the result read from `kernel_change_mark`; TransitiveReduce scratch reset; Debug invariant scoped to a consistent kernel.
 - Fixed the WV2-89 tranche (`benchmarks/tiers/WV2-89.tsv`, plan gate T4-WV2-89) as Phase 3.
 - AM329: owner negation fixing before FixAndCut, generic-entry generator floor, Debug cross-check of certified X7 rows; AM327 withdrawn as unsound.
+- AM331: owner large-domain symmetry program (four coupled pieces), `PureClosure` scope, size-scaled repeat, generator-pass admission; AM330 gated and rejected.

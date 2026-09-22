@@ -19,11 +19,11 @@ DefaultStrategyConfig::structured_root_preprocessing_stages() {
   };
   auto pure = find("BVE");
   pure.id = 94;
-  // Removing a pure pivot can expose another. Finish this finite elimination
-  // closure before paying for another full symmetry-discovery scan. Each
+  // Removing a pure pivot can expose another. The reference step's PureClosure
+  // scope selects that whole finite closure in one pass, from one occurrence
+  // image, before another full symmetry-discovery scan is paid for. Each
   // successful application retires a variable; the shared budget and stop
-  // checks still bound the work. Keep the reference's single pass unchanged.
-  pure.repeat = {RepeatMode::UntilScopedFixpoint, 0};
+  // checks still bound the work.
   auto product = find("SubstitutionRedundancy");
   product.id = 82;
   product.repeat = {RepeatMode::Once, 1};
@@ -119,7 +119,9 @@ DefaultStrategyConfig::structured_root_preprocessing_stages() {
   programs[1].sequence = {pure, amo, graph, compact, rows, compaction(89),
                           product, compaction(88)};
   for (auto &program : programs) {
-    program.repeat = {RepeatMode::UntilScopedFixpoint, 128};
+    // The owner's iteration scale (satsuma.h iteration_max): a large formula
+    // earns few repetitions, a shrinking one earns more.
+    program.repeat = {RepeatMode::UntilSizeScaledFixpoint, 128};
     for (auto &step : program.sequence) {
       auto *parameters = std::get_if<SubstitutionRedundancyParameters>(&step.parameters);
       if (!parameters)
@@ -237,11 +239,29 @@ DefaultStrategyConfig::large_domain_structured_root_preprocessing_stages() {
   parameters.graph_symmetry.backend_search_budget = 1;
   parameters.graph_symmetry.use_structured_generators = false;
   parameters.graph_symmetry.stabilize_structured_variables = false;
-  OnlineStrategyProgram program;
-  program.sequence = {std::move(graph)};
-  program.repeat = {RepeatMode::UntilScopedFixpoint, 128};
-  return {regular.front(),
-          {std::move(program), BudgetExhaustionPolicy::Continue}};
+  // The owner repeats its whole pass for every formula size and changes only
+  // the fixing pass above the domain limit. This program repeats the part of
+  // the regular sequence that large formulas are measured to need: pure
+  // closure, this graph step and compaction. At-most-one completion and row or
+  // product refinement stay out (parity ledger); there is no structured
+  // handoff to gate.
+  auto stage = regular[2];
+  auto &sequence = stage.program.sequence;
+  sequence.erase(std::remove_if(sequence.begin(), sequence.end(),
+                                [](const OnlineInvocation &step) {
+                                  return step.id != 94 && step.id != 84 &&
+                                         step.id != 85;
+                                }),
+                 sequence.end());
+  for (auto &step : sequence)
+    if (step.id == 84)
+      step = graph;
+  auto &followups = stage.progress_followups;
+  followups.erase(std::remove_if(followups.begin(), followups.end(),
+                                 [](StepId id) { return id != 85; }),
+                  followups.end());
+  stage.structured_handoff_after_prior_progress = false;
+  return {regular.front(), std::move(stage)};
 }
 
 } // namespace tactix

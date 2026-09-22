@@ -212,6 +212,11 @@ struct GroupSettings {
   // level's base is the variable's negative literal and materializes as that
   // negation-orbit unit (kind 3), which later levels read as a root value.
   bool negation_fixing_first = false;
+  // FixAndCut and clausal fixing. The owner's orbit_overlaps_clause anchors a
+  // fixable clause on its first stored literal: a clause whose first literal is
+  // already false is never fixed, so its open literals meet a later cut level
+  // instead. Default off: any clause whose open literals share an orbit fixes.
+  bool first_literal_fix_anchor = false;
 };
 
 struct Fixings {

@@ -526,6 +526,26 @@ static void configurable_parameters_round_trip() {
                SymmetryNonforcingCutAdmission::RequireCompoundProgress);
     assert(serialize_online_strategy_program(replay) == wire);
   }
+  // sr30 appends the owner's first-literal fix anchor.
+  {
+    auto anchored = cut_admission;
+    auto &graph = std::get<SubstitutionRedundancyParameters>(
+                      anchored.sequence[5].parameters).graph_symmetry;
+    graph.first_literal_fix_anchor = true;
+    const std::string wire = serialize_online_strategy_program(anchored);
+    assert(wire.find(":sr30(") != std::string::npos);
+    OnlineStrategyProgram replay;
+    assert(deserialize_online_strategy_program(wire, replay, &error));
+    const auto &decoded_graph = std::get<SubstitutionRedundancyParameters>(
+                                    replay.sequence[5].parameters).graph_symmetry;
+    assert(decoded_graph.first_literal_fix_anchor &&
+           decoded_graph.cut_point == SymmetryCutPoint::FirstOpen &&
+           !decoded_graph.negation_fixing_first);
+    assert(serialize_online_strategy_program(replay) == wire);
+  }
+  assert(!std::get<SubstitutionRedundancyParameters>(
+              cut_admission_replay.sequence[5].parameters)
+              .graph_symmetry.first_literal_fix_anchor);
   assert(std::get<SubstitutionRedundancyParameters>(
              cut_admission_replay.sequence[5].parameters)
                  .graph_symmetry.cut_point == SymmetryCutPoint::FirstOpen &&
@@ -1107,7 +1127,7 @@ static void random_sr_is_structured_replayable_and_effective() {
   std::set<uint32_t> binary_graph_densities;
   bool involutions_only[2] = {}, root_stabilizers[2] = {};
   bool nonforcing_cut_admissions[3] = {};
-  bool cut_points[2] = {}, negation_fixings[2] = {};
+  bool cut_points[2] = {}, negation_fixings[2] = {}, fix_anchors[2] = {};
   bool component_modes[2] = {}, effective_components[2] = {};
   bool detector_orders[2] = {}, effective_detector_orders[2] = {};
   bool handoffs[4] = {}, effective_handoffs[4] = {};
@@ -1160,6 +1180,7 @@ static void random_sr_is_structured_replayable_and_effective() {
         parameters.graph_symmetry.nonforcing_cut_admission)] = true;
     cut_points[static_cast<unsigned>(parameters.graph_symmetry.cut_point)] = true;
     negation_fixings[parameters.graph_symmetry.negation_fixing_first] = true;
+    fix_anchors[parameters.graph_symmetry.first_literal_fix_anchor] = true;
     component_modes[parameters.graph_symmetry.factor_support_components] = true;
     detector_orders[parameters.graph_symmetry.preserve_detector_order] = true;
     const unsigned handoff = parameters.graph_symmetry.use_structured_generators |
@@ -1241,7 +1262,7 @@ static void random_sr_is_structured_replayable_and_effective() {
   assert(nonforcing_cut_admissions[0] && nonforcing_cut_admissions[1] &&
          nonforcing_cut_admissions[2]);
   assert(cut_points[0] && cut_points[1] && negation_fixings[0] &&
-         negation_fixings[1]);
+         negation_fixings[1] && fix_anchors[0] && fix_anchors[1]);
   assert(component_modes[0] && component_modes[1]);
   assert(effective_components[0] && effective_components[1]);
   for (unsigned mode = 0; mode < 4; ++mode)
@@ -1440,7 +1461,7 @@ static void parameter_domains_are_caller_controlled() {
   config.bve_occurrence_reference = 37;
   config.bve_clause_size_reference = 41;
   config.bve_resolvent_count_reference = 43;
-  bool saw_bve_scope[2] = {};
+  bool saw_bve_scope[3] = {};
   bool saw_bve_traversal[2] = {};
   for (uint64_t seed = 1; seed <= 64; ++seed) {
     OnlineStrategyProgram program;
@@ -1473,7 +1494,7 @@ static void parameter_domains_are_caller_controlled() {
                  .traversal == parameters->traversal);
     }
   }
-  assert(saw_bve_scope[0] && saw_bve_scope[1]);
+  assert(saw_bve_scope[0] && saw_bve_scope[1] && saw_bve_scope[2]);
   assert(saw_bve_traversal[0] && saw_bve_traversal[1]);
 
   OnlineStrategyProgram legacy_bve;

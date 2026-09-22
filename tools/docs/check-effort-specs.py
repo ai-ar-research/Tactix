@@ -58,7 +58,7 @@ EV_SR_LEGACY_SKIP = (r'std::strcmp\(rules\[i\]\.name, '
 EV_SR_ROOT_OWNER = r"run_structured_root\(k, stop\)"
 EV_SR_RUN_ONCE = r"structured_root_consumed_ \|\| k\.stats\.conflicts"
 EV_SR_SCOPED_FIXPOINT = (r"result\.repeat = \{strategy::RepeatMode::"
-                         r"UntilScopedFixpoint, 0\}")
+                         r"UntilSizeScaledFixpoint, 128\}")
 
 # Every rule the slot schedules, classified. The justification is the point of
 # the row — for ALTERNATE-GOVERNOR it must NAME the mechanism.

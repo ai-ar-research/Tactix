@@ -16,7 +16,18 @@ enum class RepeatMode : uint8_t {
   Once,
   Count,
   UntilScopedFixpoint,
+  // UntilScopedFixpoint whose round ceiling is the owner's size scale (satsuma.h
+  // iteration_max): one initial pass plus
+  // clamp(ceil((2^23 / (literals + variables))^1.5), 1, limit) repetitions, read
+  // from the live formula at every round. A zero limit leaves the scale itself
+  // as the only ceiling.
+  UntilSizeScaledFixpoint,
 };
+
+inline bool fixpoint_repeat(RepeatMode mode) {
+  return mode == RepeatMode::UntilScopedFixpoint ||
+         mode == RepeatMode::UntilSizeScaledFixpoint;
+}
 
 struct RepeatSpec {
   RepeatMode mode = RepeatMode::Once;
@@ -24,6 +35,9 @@ struct RepeatSpec {
   // otherwise a caller-selected safety ceiling which reports exhaustion.
   uint64_t limit = 1;
 };
+
+// The round ceiling a fixpoint repeat applies now; zero is unbounded.
+uint64_t repeat_round_limit(const Kernel &, const RepeatSpec &);
 
 enum class RuleWorkBudgetMode : uint8_t {
   Inherit,
@@ -168,9 +182,9 @@ private:
                          InvocationResult &, volatile sig_atomic_t *stop,
                          Allowance *sr_discovery_allowance,
                          DiscoveryFeedbackPolicy discovery_feedback);
-  bool finish_step_pass(const OnlineInvocation &, Runtime &,
+  bool finish_step_pass(const Kernel &, const OnlineInvocation &, Runtime &,
                         InvocationResult &);
-  bool finish_sequence(InvocationResult &);
+  bool finish_sequence(const Kernel &, InvocationResult &);
 
   OnlineStrategyProgram program_;
   std::vector<Runtime> runtime_;

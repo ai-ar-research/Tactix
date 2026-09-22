@@ -12,6 +12,7 @@
 #include "strategy/online_inprocess.hpp"
 #include "strategy/online_sequence.hpp"
 
+#include <cmath>
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -3311,15 +3312,15 @@ static void large_domain_generator_fixing_uses_units_without_a_chain() {
         {{internalize(-1), internalize(1), internalize(2), internalize(-2)}},
         {internalize(1)});
 
-  // A binary-only opportunity does not unlock a second fixing phase when the
-  // preceding negation scan made no progress.
+  // Binary fixing follows negation fixing unconditionally, as in the owner: a
+  // formula without any negation orbit still fixes the swapped binary's target.
   Kernel binary;
   kernel_reserve_vars(binary, 2);
   kernel_add_binary_clause(binary, internalize(1), internalize(2),
                            ++binary.next_clause_id);
   check(std::move(binary),
         {{internalize(2), internalize(-2), internalize(1), internalize(-1)}},
-        {});
+        {internalize(2)});
 
   // Once negation fixing establishes a unit, binary fixing may refine the
   // surviving subgroup in the same pass.
@@ -4303,6 +4304,42 @@ static void later_sr_batch_member_can_become_inapplicable() {
   assert(!inapplicable.made_rule_progress);
 }
 
+// satsuma.h iteration_max: one pass plus clamp(ceil((2^23 / size)^1.5), 1, limit)
+// repetitions, size = literals + variables of the live formula.
+static void size_scaled_fixpoint_follows_the_owner_scale() {
+  using namespace tactix::strategy;
+  Kernel small;
+  kernel_reserve_vars(small, 4);
+  kernel_add_binary_clause(small, internalize(1), internalize(2),
+                           ++small.next_clause_id);
+  assert(repeat_round_limit(small, {RepeatMode::UntilScopedFixpoint, 7}) == 7);
+  assert(repeat_round_limit(small, {RepeatMode::UntilSizeScaledFixpoint, 128}) ==
+         129);
+  assert(repeat_round_limit(small, {RepeatMode::UntilSizeScaledFixpoint, 0}) > 129);
+
+  // 600 variables and 170,000 distinct binaries: size 340,600, scale 123.
+  Kernel large;
+  constexpr int variables = 600;
+  kernel_reserve_vars(large, variables);
+  uint64_t added = 0;
+  for (int a = 1; a <= variables && added < 170'000; ++a)
+    for (int b = a + 1; b <= variables && added < 170'000; ++b) {
+      kernel_add_binary_clause(large, internalize(a), internalize(b),
+                               ++large.next_clause_id);
+      ++added;
+    }
+  assert(added == 170'000);
+  const double size = 2.0 * 170'000 + variables;
+  const uint64_t scale = static_cast<uint64_t>(
+      std::ceil(std::pow(static_cast<double>(1u << 23) / size, 1.5)));
+  assert(scale > 1 && scale < 128);
+  assert(repeat_round_limit(large, {RepeatMode::UntilSizeScaledFixpoint, 128}) ==
+         scale + 1);
+  assert(repeat_round_limit(large, {RepeatMode::UntilSizeScaledFixpoint, 16}) == 17);
+  assert(fixpoint_repeat(RepeatMode::UntilSizeScaledFixpoint) &&
+         !fixpoint_repeat(RepeatMode::Count));
+}
+
 static void sr_producer_settings_are_validated() {
   OnlineInprocessProgram program;
   OnlineInvocation step;
@@ -4837,6 +4874,7 @@ int main(int argc, char **argv) {
   malformed_sr_is_rejected_before_true_clause_noop();
   unsupported_sr_proof_format_is_transactional();
   later_sr_batch_member_can_become_inapplicable();
+  size_scaled_fixpoint_follows_the_owner_scale();
   sr_producer_settings_are_validated();
   complete_pass_reenumerates_after_its_own_collection();
   sweep_parameters_are_exact_per_invocation();
