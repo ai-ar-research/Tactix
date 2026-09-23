@@ -16,6 +16,7 @@
 #include "policies/ops/local_search/local_search.hpp"
 #include "rules/lucky/parity_model.hpp"
 #include "rules/lucky/parity_refutation.hpp"
+#include "rules/lucky/count_preservation.hpp"
 #include "rules/lucky/onehot_model.hpp"
 #include "rules/lucky/exact_one_refutation.hpp"
 #include "rules/lucky/balanced_signature_model.hpp"
@@ -3551,7 +3552,13 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     if (pb == ApplyResult::Unsat)
       return finish(20);
   }
-  k.startup_certificate_open = false;
+  if (count_preservation_guard(k)) {
+    const ApplyResult counting = default_direct_rule(
+        k, "Lucky", "startup-count-pb", [&] { return count_preservation_apply(k); });
+    if (counting == ApplyResult::Unsat)
+      return finish(20);
+  }
+  k.close_startup_certificate();
   if (k.proof && k.proof->startup_pb_available())
     k.proof->commit_dsr();
   ApplyResult startup = default_propagate(k, "startup");

@@ -520,6 +520,8 @@ struct Stats {
   uint64_t parity_refutation_unsat = 0;
   uint64_t parity_refutation_proof_additions = 0;
   uint64_t parity_refutation_proof_deletions = 0;
+  uint64_t counting_calls = 0, counting_stars = 0, counting_unsat = 0;
+  uint64_t counting_work = 0, counting_interrupted = 0, counting_additions = 0;
   uint64_t affine_model_calls = 0, affine_model_equations = 0;
   uint64_t affine_model_projection = 0, affine_model_entries = 0;
   uint64_t affine_model_candidates = 0, affine_model_sat = 0;
@@ -1288,6 +1290,15 @@ struct Kernel {
   // Original-input terminal-certificate boundary. A policy or dispatcher
   // closes it before its first ordinary rule; root restarts do not reopen it.
   bool startup_certificate_open = true;
+  // Original DIMACS literals, zero-delimited, only until the first ordinary
+  // action. Count-preservation recognition needs clauses lost to input units.
+  std::vector<int32_t> startup_input;
+  void close_startup_certificate() {
+    if (!startup_certificate_open)
+      return;
+    startup_certificate_open = false;
+    std::vector<int32_t>().swap(startup_input);
+  }
   uint64_t input_nonunit_clause_count = 0;
   uint32_t input_uniform_nonunit_width = 0;
   bool input_nonunit_uniform = true;

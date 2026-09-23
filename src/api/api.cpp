@@ -1054,6 +1054,8 @@ int tactix_proof(tactix_solver *s, const char *path, int format) {
   if (!s->proof.open(path, f))
     return -1;
   s->kernel.proof = &s->proof;
+  if (f != ProofFormat::Automatic)
+    s->kernel.close_startup_certificate();
   s->proof.bind_variable_map(&s->kernel.internal_to_external);
   external_state_change(s);
   return 0;
@@ -1620,7 +1622,7 @@ int tactix_decide(tactix_solver *s, int elit) {
     return -1;
   // This legacy convenience call bypasses registry dispatch, but consumes the
   // same original-input action boundary as the typed Decide rule.
-  s->kernel.startup_certificate_open = false;
+  s->kernel.close_startup_certificate();
   if (s->kernel.proof && !s->kernel.proof->commit_dsr())
     return -1;
   const int ok = decide_apply(s->kernel, l, true) == ApplyResult::Ok ? 0 : -1;

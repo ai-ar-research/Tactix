@@ -22,15 +22,17 @@ authorities, and Claude-owned default/random-policy fuzzing.
 
 ## Current checkpoint
 
-AM335 is an **ungated implementation checkpoint**, not a replacement for the
-AM333 authority below. User-approved automatic startup PBP and shared Lucky 19
-are implemented; explicit clausal formats remain strict. Current v2 Release
-`9cf4bd08...`, Debug `0b002961...`, source `fce7c249` + patch `cdc110d6...` are
-frozen in `benchmarks/runs/20260923-am335-startup-parity-v2`. V2 restores
-unbuffered DSR fallback after a reproduced `/dev/full` failure; fixed tests pass.
-The three-row PB diagnostic is v1 (`94cd4710...`) evidence, not a v2 full gate.
-Fmla's structural count-preservation rule and all four full gates remain due.
-Evidence: `benchmarks/reports/2026-09-23-am335-startup-parity-checkpoint.md`.
+AM336 is an **ungated implementation checkpoint**, not a replacement for the
+AM333 authority below. Automatic startup PBP now has shared Lucky 19 (parity)
+and 20 (general signed count preservation); explicit clausal formats stay strict.
+Release `8aa84a97...`, Debug `dba05ba7...`, source `f0ad5a8e` + patch `6aa5af9a...`
+are frozen in `benchmarks/runs/20260923-am336-startup-count`. The Fmla diagnostic
+returned UNSAT in 3.322 s with a 388,840,230-byte PBP; checking remains pending.
+All three Tseitin diagnostics now pass VeriPB and CakePB on AM335 v1
+(`94cd4710...`); these are not combined-candidate gates. Claude's AM335 owner
+reports two pre-existing N2 failures with a bounded handoff: random-policy DSR
+rejection and text proof writers ignoring output failure. Both block promotion.
+Evidence: `benchmarks/reports/2026-09-23-am336-startup-count-checkpoint.md`.
 
 Solver/tooling authority: `10cd18c9` (certificate routing) on top of the
 AM333 solver source (`75487222`). The AM333 pin is the last gated binary:
@@ -68,8 +70,8 @@ repeat (AM331), Lucky 17 signed exact cover and Lucky 18 independent set
 
 | rows | disposition |
 |---|---|
-| `FmlaEquivChain_4_8_8` | owner (LymphoSAT) refutes by a leaf-count invariant with a VeriPB proof; needs a technique-native certificate decision (next step 1) |
-| `tseitin_grid_n250_m250`, `tseitin_d3_n100000`, `tseitin_grid_n400_m400` | solved in 12--33 s, certificates never check: same decision as above (parity-native certificate) |
+| `FmlaEquivChain_4_8_8` | AM336 shared count-preservation diagnostic solves in 3.322 s; independent PB checking pending, not gated |
+| `tseitin_grid_n250_m250`, `tseitin_d3_n100000`, `tseitin_grid_n400_m400` | AM335 v1 startup PB diagnostics independently verified; combined-candidate full gates due |
 | `ncc_none_21015...` | solved; routed drat-trim timed out after 40,119.2 s; not verified |
 | `ramsey_4_4_19` | owner cut point + first-literal fix anchor solves it (290 s) but loses `ntil` SAT rows; kept declined by the user, typed for the learner (next section) |
 | `hcp_CP18_18`, `6g_6color` | solved over 600 s on the large-domain program; per-rule time at matching work is the next measurement |
@@ -100,15 +102,24 @@ learned clause in the checker's database.
 AM335 three-Tseitin diagnostic: initial job `1715851` solved all rows but
 failed before checking because a new runner path tried to unlink a `/proc/fd`
 anonymous file. Maintained runner now truncates it; a real two-checker fixed
-test covers this. Retry `1715866` in `...-am335-startup-parity-retry` is active;
-grid250 and d3 have both-stage verification; grid400 remains pending. Do not
-infer verification from solver exit. Claude's initial owner process was
+test covers this. Retry `1715866` in `...-am335-startup-parity-retry` ended:
+all three rows verified by both stages (checks 152.775/366.783/1117.364 s).
+Claude's initial owner process was
 interrupted before visible fuzz job submission to refresh the I/O-fix candidate;
 a new owner process is resuming with `claude-fuzz-v2-request.md` in the base
-campaign (log in `...-v2/logs/claude-owner.log`). Read only `OWNER_STATUS.md` and the terminal report in
-`...-am335-startup-parity-claude-fuzz`, not campaign internals. Full CTest is
-running (Lucky and scripted-default demo remain); all six v2 focused tests,
-including micro/Sweep proofs with AM333's immutable checker pins, pass.
+campaign (log in `...-v2/logs/claude-owner.log`). Read only `OWNER_STATUS.md`,
+terminal reports and the explicitly handed-off bounded reproducer, not campaign
+internals. Its interim `REPORT.md` hands off `triage/reproducer/min.cnf` and
+`min.trace` (random seed 335110095; 17 variables/41 clauses), plus `/dev/full`
+text-writer failure. Other legs remain active. The old O0 Debug CTest still has
+the scripted-default demo running; its other tests pass after documented reruns.
+AM336 Fmla job `1715952` is active; full Debug-O1 CTest in `build/count-pb-dev`
+is running with immutable AM333 checker pins. Five focused tests pass, including
+both-checker API/default proofs, SAT controls, strict declines, budget/interrupt
+and startup-boundary controls. A separate Claude owner is preparing focused
+count fuzz from `...-am336-startup-count/claude-fuzz-request.md`; monitor only
+`...-am336-startup-count-claude-fuzz/OWNER_STATUS.md` and its report. It does not
+replace broad combined acceptance after repairs.
 
 Routed re-check in `benchmarks/runs/20260922-am334-certificate-routing`:
 all checks ended; ncc and three Tseitin rows are NOT-VERIFIED after roughly
@@ -126,8 +137,10 @@ byte-identical solver pins remain in the AM333 gate campaigns.
    compares this with retaining clausal DSR for every refutation and specifies
    the original-input boundary, general structural recognition, N1/API scope,
    format locking, failure behavior, and validation. Plan §5 now owns the
-   approved contract. Finish AM335's independent checks and Claude-owned fuzz;
-   implement general Fmla count preservation, then run the four routed gates.
+   approved contract. First repair the two N2 failures in Claude's bounded
+   AM335 handoff; preserve both active owner campaigns and immutable pins.
+   Finish Fmla's independent check and focused count fuzz, then have Claude
+   validate the repaired combined candidate and run all four routed gates.
 2. **First gate campaign on the routed runner.** Whatever candidate lands next
    is the end-to-end test of `runtime_task.py`'s DRAT route; its staging must
    copy `pins/drat-trim` and `pins/cake_lpr` from
