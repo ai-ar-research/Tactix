@@ -422,6 +422,14 @@ int main(int argc, char **argv) {
     // ran, so an A/B arm reading zero was skipped, not tested. Only counters
     // whose reading is non-obvious carry a comment below.
     printf("c tactix 0.1.0\n");
+    printf("c count-pb    %llu calls, %llu stars, %llu UNSAT, %llu work, "
+           "%llu interrupted, %llu additions\n",
+           (unsigned long long)kernel.stats.counting_calls,
+           (unsigned long long)kernel.stats.counting_stars,
+           (unsigned long long)kernel.stats.counting_unsat,
+           (unsigned long long)kernel.stats.counting_work,
+           (unsigned long long)kernel.stats.counting_interrupted,
+           (unsigned long long)kernel.stats.counting_additions);
     printf("c input       %llu clauses restated (normalized literals)\n",
            (unsigned long long)kernel.stats.input_restated);
     printf("c decisions   %llu (%llu via API)\n",

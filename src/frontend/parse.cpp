@@ -69,6 +69,11 @@ static void grow_input_binary_liveness(Kernel &k, size_t entries) {
 
 static void capture_raw_input_shape(Kernel &k,
                                     const std::vector<Lit> &scratch) {
+  if (k.startup_certificate_open) {
+    for (const Lit literal : scratch)
+      k.startup_input.push_back(kernel_externalize(k, literal));
+    k.startup_input.push_back(0);
+  }
   if (scratch.size() == 1) {
     ++k.input_unit_clause_count;
   } else {

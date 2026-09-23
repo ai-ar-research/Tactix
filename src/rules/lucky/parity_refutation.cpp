@@ -766,7 +766,7 @@ ApplyResult startup_parity_apply(Kernel &k) {
   }
   k.stats.parity_refutation_proof_additions += preflight.additions();
   ++k.stats.parity_refutation_unsat;
-  k.startup_certificate_open = false;
+  k.close_startup_certificate();
   k.inconsistent = true;
   return ApplyResult::Unsat;
 }
