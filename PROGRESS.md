@@ -33,8 +33,8 @@ All three Tseitin diagnostics now pass VeriPB and CakePB on AM335 v1
 (`94cd4710...`); these are not combined-candidate gates. Both N2 failures from
 Claude's AM335 handoff have causal repairs and passing focused regressions:
 retire non-LRAT Congruence ladders before SR; detect all-format publication
-failure before CLI/API UNSAT. Combined Claude fuzz and four full gates remain
-due; no promotion. Evidence:
+failure before CLI/API UNSAT. Combined Claude fuzz is preparing; four full gates
+are now in flight (`1715989`--`1715992`); no promotion. Repair evidence:
 `benchmarks/reports/2026-09-23-am337-proof-lifetime-checkpoint.md`.
 
 Solver/tooling authority: `10cd18c9` (certificate routing) on top of the
@@ -124,6 +124,10 @@ and startup-boundary controls. A separate Claude owner submitted focused
 count fuzz jobs `1715955`--`1715968` from `...-am336-startup-count/claude-fuzz-request.md`; monitor only
 `...-am336-startup-count-claude-fuzz/OWNER_STATUS.md` and its report. It does not
 replace broad combined acceptance after repairs.
+The owner revised its generator after some intended firing fixtures closed by
+root propagation; replacement legs are `1715973`--`1715986`. Its interim status
+reports legal DIMACS-layout checker failures and malformed-input Debug assertions
+under classification; no bounded handoff yet. Do not reinterpret campaign internals.
 
 AM337 combined Claude owner launched from
 `...-am337-proof-lifetime-v2/claude-fuzz-request.md` (PID `2484169`, log in that
@@ -134,7 +138,19 @@ and all 30 C API output-failure controls. Full 178-entry Debug-O1 suite in
 `build/proof-repair-dev` has the demo active; 176 other entries passed and the
 initial API test fixture failed, then passed after correcting Probe closure in
 the fixture (no solver change). V2 refresh preserves corrected test provenance;
-V1 pins remain frozen, no jobs submitted from V1. All four full gates remain due.
+V1 pins remain frozen, no jobs submitted from V1. The AM337 demo is confirmed
+advancing (33,732 to 35,743 conflicts in read-only samples), not declared hung.
+
+AM337 full routed gates `...-am337-proof-lifetime-{rank1-50,b28c5,wv100,wv2-89}`:
+jobs `1715989`, `1715990`, `1715991`, `1715992` respectively, 272 tasks total.
+Full width, no throttle/node constraint, 12 CPUs/32 GiB, 1,200-second observation
+window; WV2-89 scores at 600 seconds by exact censoring. All checker windows are
+57,600 seconds (old 600-second exceptions removed). Independent Release and B/C
+builds match `40b0de22...`. Both DSR/Trestle and DRAT/LRAT routes have completed
+valid early rows. No full gate is closed; combined fuzz and outstanding failure
+classification still block promotion. Watchers use `tools/slurm/wait.py`.
+Launch authority: `...-am337-proof-lifetime-v2/gate-launch.json`; evidence:
+`benchmarks/reports/2026-09-23-am337-routed-gates-launch.md`.
 
 Routed re-check in `benchmarks/runs/20260922-am334-certificate-routing`:
 all checks ended; ncc and three Tseitin rows are NOT-VERIFIED after roughly
@@ -156,13 +172,13 @@ byte-identical solver pins remain in the AM333 gate campaigns.
    AM337 repairs both bounded AM335 failures with focused regressions. Preserve
    all active Claude owners and immutable pins. Consume their terminal reports,
    debug any bounded handoff, and complete the repaired combined candidate's
-   fuzz acceptance and all four routed gates before promotion.
-2. **First gate campaign on the routed runner.** Whatever candidate lands next
-   is the end-to-end test of `runtime_task.py`'s DRAT route; its staging must
-   copy `pins/drat-trim` and `pins/cake_lpr` from
-   `benchmarks/baselines/sc24-26-32g-5000s/pins` and the maintained runner
-   (template `benchmarks/runs/20260921-am333-lymphosat-models/stage_gates.py`).
-   Do not re-run the AM333 gates for it: same binary, same config, a replicate.
+   fuzz acceptance and all four routed gates before promotion. A newly established
+   solver defect stops dependent work; preserve exact failures and pins.
+2. **Finish the first full routed gate campaign.** Inspect terminal results for
+   jobs `1715989`--`1715992`, certificate cleanup, every original-CNF model/proof,
+   coverage, time and memory. AM337 staging pins baseline `drat-trim`/`cake_lpr`,
+   DSR and PB checkers and the maintained runner. Do not re-run unchanged AM333
+   gates or substitute partial coverage for acceptance.
 3. **`hcp_CP18_18` / `6g_6color` under 600 s.** Per-rule time at matching work
    counters against the owner on the large-domain program; a deterministic gap
    is repaired against the reference, never dosed.
