@@ -15,6 +15,7 @@
 #include "policies/ops/reorder/reorder.hpp"
 #include "policies/ops/local_search/local_search.hpp"
 #include "rules/lucky/parity_model.hpp"
+#include "rules/lucky/parity_refutation.hpp"
 #include "rules/lucky/onehot_model.hpp"
 #include "rules/lucky/exact_one_refutation.hpp"
 #include "rules/lucky/balanced_signature_model.hpp"
@@ -3544,6 +3545,15 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   // The references expose two distinct Lucky opportunities around initial
   // preprocessing. Keep them out of the CDCL loop so neither can repeat after
   // a later inprocessing phase.
+  if (config_.parity_model.enabled && startup_parity_guard(k)) {
+    const ApplyResult pb = default_direct_rule(
+        k, "Lucky", "startup-parity-pb", [&] { return startup_parity_apply(k); });
+    if (pb == ApplyResult::Unsat)
+      return finish(20);
+  }
+  k.startup_certificate_open = false;
+  if (k.proof && k.proof->startup_pb_available())
+    k.proof->commit_dsr();
   ApplyResult startup = default_propagate(k, "startup");
   if (startup != ApplyResult::Ok)
     return finish(20); // startup is at root: a conflict is a refutation

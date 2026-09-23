@@ -14,9 +14,9 @@ home; other documents link to it.
   level zero after an explicit Restart-to-root transition.
 - **N2:** every UNSAT path emits a machine-checkable proof and every SAT path
   emits a valid reconstructed model. Native DSR is Tactix's canonical proof
-  output: `dsr-trim` elaborates it to LSR and the pinned Trestle checker verifies
-  that LSR. DRAT and native LRAT are compatibility outputs, not requirements for
-  new Satsuma-derived rules.
+  output for search: `dsr-trim` elaborates it to LSR and pinned Trestle verifies
+  it. Complete startup refutations may emit PBP checked by VeriPB then CakePB.
+  DRAT/LRAT are compatibility outputs; plan §5 owns format selection and routing.
 - **N3:** DefaultPolicy must be competitive with Kissat on Tier D.
 - **N4:** For every integrated technique, DefaultPolicy's scheduling must be at
   least as sophisticated as the state-of-the-art reference that owns that

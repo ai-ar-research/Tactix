@@ -1285,6 +1285,9 @@ struct Kernel {
   uint64_t input_binary_clause_count = 0;
   uint64_t input_ternary_clause_count = 0;
   uint64_t input_unit_clause_count = 0;
+  // Original-input terminal-certificate boundary. A policy or dispatcher
+  // closes it before its first ordinary rule; root restarts do not reopen it.
+  bool startup_certificate_open = true;
   uint64_t input_nonunit_clause_count = 0;
   uint32_t input_uniform_nonunit_width = 0;
   bool input_nonunit_uniform = true;

@@ -5,6 +5,7 @@
 // saving, matching kissat's `solver->probing`).
 #include "rules/lucky/lucky.hpp"
 #include "rules/lucky/parity_model.hpp"
+#include "rules/lucky/parity_refutation.hpp"
 #include "rules/lucky/onehot_model.hpp"
 #include "rules/lucky/affine_model.hpp"
 #include "rules/lucky/balanced_signature_model.hpp"
@@ -304,14 +305,20 @@ ApplyResult lucky_apply(Kernel &k) {
   return ApplyResult::Ok;
 }
 
-static uint32_t lucky_instances(Kernel &, uint64_t *out, uint32_t cap) {
+static uint32_t lucky_instances(Kernel &k, uint64_t *out, uint32_t cap) {
   const uint32_t n = cap < 19 ? cap : 19;
   for (uint32_t i = 0; i < n; i++)
     out[i] = i;
+  if (n < cap && startup_parity_guard(k)) {
+    out[n] = LUCKY_STARTUP_PARITY;
+    return n + 1;
+  }
   return n;
 }
 
 static ApplyResult lucky_apply_instance(Kernel &k, uint64_t inst) {
+  if (inst == LUCKY_STARTUP_PARITY)
+    return startup_parity_guard(k) ? startup_parity_apply(k) : ApplyResult::NoOp;
   // D-LEVEL guard purification: complete the root closure U (no-op at a
   // fixpoint); a root conflict during the drain refutes.
   if (inprocess_reach_root(k))
@@ -357,7 +364,12 @@ static ApplyResult lucky_apply_instance(Kernel &k, uint64_t inst) {
   return lucky_apply_probe(k, inst);
 }
 
+static bool lucky_startup_instance(uint64_t inst) {
+  return inst == LUCKY_STARTUP_PARITY;
+}
+
 TACTIX_REGISTER_RULE(Lucky, RuleTier::Macro, lucky_guard, lucky_apply,
-                     lucky_instances, lucky_apply_instance);
+                     lucky_instances, lucky_apply_instance, nullptr, nullptr,
+                     ActionKind::ProofRule, 0, lucky_startup_instance);
 
 } // namespace tactix

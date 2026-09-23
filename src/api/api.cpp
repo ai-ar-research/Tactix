@@ -1045,6 +1045,9 @@ int tactix_proof(tactix_solver *s, const char *path, int format) {
   case 4:
     f = ProofFormat::DsrAscii;
     break;
+  case 5:
+    f = ProofFormat::Automatic;
+    break;
   default:
     return -1;
   }
@@ -1614,6 +1617,11 @@ int tactix_decide(tactix_solver *s, int elit) {
     return -1;
   const Lit l = kernel_internalize(s->kernel, elit);
   if (l == INVALID_LIT)
+    return -1;
+  // This legacy convenience call bypasses registry dispatch, but consumes the
+  // same original-input action boundary as the typed Decide rule.
+  s->kernel.startup_certificate_open = false;
+  if (s->kernel.proof && !s->kernel.proof->commit_dsr())
     return -1;
   const int ok = decide_apply(s->kernel, l, true) == ApplyResult::Ok ? 0 : -1;
   if (!ok)

@@ -23,6 +23,7 @@ constexpr uint64_t LUCKY_FORWARD_FALSE = 2;
 constexpr uint64_t LUCKY_FORWARD_TRUE = 3;
 constexpr uint64_t LUCKY_BACKWARD_FALSE = 4;
 constexpr uint64_t LUCKY_BACKWARD_TRUE = 5;
+constexpr uint64_t LUCKY_STARTUP_PARITY = 19;
 
 RuleEligibility lucky_guard(const Kernel &);
 ApplyResult lucky_apply_probe(Kernel &, uint64_t probe);

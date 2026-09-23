@@ -57,7 +57,8 @@ sys.path.append(os.path.join(ROOT, "tools", "bench"))
 from proof_oracle import (bridge_trivial_input_binary_lsr,  # noqa: E402
                           bridge_trivial_input_lsr, dsr_compress_status,
                           every_lemma_dsr_stages, proof_check_status,
-                          reference_dsr_stages)
+                          reference_dsr_stages, pb_proof_has_header, pb_stages,
+                          stage_environment)
 
 DRAT_TRIM = os.path.join(ROOT, "tools", "checkers", "bin", "drat-trim")
 DSR_TRIM = os.path.join(ROOT, "tools", "checkers", "bin", "dsr-trim")
@@ -65,6 +66,11 @@ DSR_COMPRESS = os.path.join(ROOT, "tools", "checkers", "bin", "dsr-compress")
 SR_CHECK = os.path.join(ROOT, "tools", "checkers", "bin", "srcheck")
 LRAT_CHECK = os.path.join(ROOT, "tools", "checkers", "bin", "lrat-check")
 CAKE_LPR = os.path.join(ROOT, "tools", "checkers", "bin", "cake_lpr")
+PB_PINS = (os.path.join(HERE, "checkers") if
+           os.path.isdir(os.path.join(HERE, "checkers")) else
+           os.path.join(ROOT, "benchmarks", "baselines", "sc24-26-32g-5000s", "pins"))
+VERIPB = os.path.join(PB_PINS, "veripb")
+CAKE_PB = os.path.join(PB_PINS, "cake-pb-cnf")
 
 
 class CaseOutcome:
@@ -102,12 +108,12 @@ def _cpu_backstop(timeout):
     return _pre
 
 
-def run_cmd(cmd, timeout):
+def run_cmd(cmd, timeout, env=None):
     """Returns (exitcode, stdout, stderr); exitcode None on timeout."""
     try:
         r = subprocess.run(cmd, capture_output=True, text=True,
                            errors="replace", timeout=timeout,
-                           preexec_fn=_cpu_backstop(timeout))
+                           preexec_fn=_cpu_backstop(timeout), env=env)
         return r.returncode, r.stdout, r.stderr
     except subprocess.TimeoutExpired as e:
         def _txt(b):
@@ -375,14 +381,18 @@ def substitute_seed(cmd, seed):
 def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
     """Run the solver under test on cnf_path and apply all oracles.
 
-    The default solver mode is native DSR. An explicit --drat or --lrat selects
+    The default mode is startup PBP or native DSR. Explicit --drat or --lrat selects
     the corresponding compatibility oracle. Native LRAT is checked directly
     with cake_lpr; legacy lrat-check is not an acceptance oracle because it
     accepts a non-conflicting empty-lemma chain on a SAT input."""
     out = CaseOutcome()
     def check(command):
-        c, o, e = run_cmd(command, 120)
         checker = os.path.basename(command[0])
+        try:
+            c, o, e = (run_cmd(command, 120, env=stage_environment(checker))
+                       if checker == "cake-pb-cnf" else run_cmd(command, 120))
+        except OSError as error:
+            c, o, e = -1, "", str(error)
         status = (dsr_compress_status(c, o + "\n" + e)
                   if checker == "dsr-compress"
                   else proof_check_status(checker, c, o, e))
@@ -399,7 +409,7 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
         return status == "verified"
     native_lrat = "--lrat" in solver
     explicit_dsr = "--dsr" in solver
-    is_tactix = os.path.basename(solver[0]) == "tactix"
+    is_tactix = os.path.basename(solver[0]) == "tactix" or "--auto-proof" in solver
     # Competition reference solvers still default to DRAT. Tactix's default is
     # native DSR; --drat keeps a same-source compatibility/control lane.
     explicit_drat = ("--drat" in solver or
@@ -438,7 +448,24 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
             # empty clause; drat-trim handles that, so only flag absence
             if not os.path.exists(proof):
                 out.fail("proof", "no proof file produced")
-        if os.path.exists(proof) and native_lrat:
+        if os.path.exists(proof) and pb_proof_has_header(proof):
+            if native_lrat or explicit_drat or explicit_dsr or "--no-binary" in solver:
+                out.fail("proof", "PBP emitted in an explicit clausal format mode")
+            else:
+                kernel = os.path.join(workdir, "proof.kernel.pbp")
+                out.proof_artifacts.append(kernel)
+                if os.path.exists(kernel):
+                    os.unlink(kernel)
+                for name, command in pb_stages(
+                        VERIPB, CAKE_PB, cnf_path, proof, kernel):
+                    if not check(command):
+                        out.fail("proof", name + " did not verify startup PBP")
+                        break
+                    if name == "veripb" and (not os.path.isfile(kernel) or
+                                             os.path.getsize(kernel) == 0):
+                        out.fail("proof", "VeriPB produced no kernel proof")
+                        break
+        elif os.path.exists(proof) and native_lrat:
             if not check([CAKE_LPR, cnf_path, proof]):
                 out.fail("proof", "cake_lpr did not verify the native LRAT")
         elif os.path.exists(proof) and explicit_drat:

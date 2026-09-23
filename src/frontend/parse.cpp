@@ -566,6 +566,8 @@ void finish_input(Kernel &k) {
     }
     k.input_refutation_units.clear();
   }
+  if (k.proof)
+    k.proof->finish_input_transaction();
 }
 
 const char *parse_dimacs_with_block(FILE *f, Kernel &k, size_t block_bytes) {

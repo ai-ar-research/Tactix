@@ -250,9 +250,9 @@ for cnf in "$T"/*.cnf; do
   for mode in binary ascii; do
     proof="$cnf.$mode.dsr"
     if [ "$mode" = binary ]; then
-      "$TACTIX" -q "$cnf" "$proof" > "$T/out" && rc=$? || rc=$?
+      "$TACTIX" -q --dsr "$cnf" "$proof" > "$T/out" && rc=$? || rc=$?
     else
-      "$TACTIX" -q --no-binary "$cnf" "$proof" > "$T/out" && rc=$? || rc=$?
+      "$TACTIX" -q --dsr --no-binary "$cnf" "$proof" > "$T/out" && rc=$? || rc=$?
     fi
     [ "$rc" -eq 20 ] || { echo "FAIL: $cnf not UNSAT (rc=$rc)"; exit 1; }
     grep -q '^s UNSATISFIABLE$' "$T/out" \

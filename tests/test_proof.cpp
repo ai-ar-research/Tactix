@@ -10,6 +10,8 @@
 #include <cstring>
 #include <string>
 #include <vector>
+#include <sys/resource.h>
+#include <sys/wait.h>
 
 #include <unistd.h> // getpid, for a collision-free scratch name
 
@@ -474,7 +476,69 @@ void test_population_membership_uses_exact_drat_multiset() {
 
 } // namespace
 
+void test_automatic_certificate_boundary() {
+  const Lit unit = internalize(1);
+  const auto path = tmp_path("auto");
+  {
+    Proof p;
+    assert(p.open(path.c_str(), ProofFormat::Automatic));
+    assert(!p.startup_pb_available());
+    p.add_rup(1, &unit, 1, nullptr, 0);
+    assert(read_all(path).empty()); // input prefix is private
+    p.finish_input_transaction();
+    assert(p.startup_pb_available());
+    FILE *out = p.begin_pb();
+    assert(out && p.pb() && !p.startup_pb_available());
+    std::fputs("pseudo-Boolean proof version 3.0\n", out);
+    assert(p.finish_pb());
+    assert(!p.commit_dsr());
+    assert(!p.begin_pb());
+  }
+  expect(read_all(path), "pseudo-Boolean proof version 3.0\n", "atomic PB selection");
+  {
+    Proof p;
+    assert(p.open(path.c_str(), ProofFormat::Automatic));
+    p.add_rup(1, &unit, 1, nullptr, 0);
+    p.finish_input_transaction();
+    p.add_empty(2, nullptr, 0);
+    assert(!p.startup_pb_available() && !p.begin_pb());
+    p.flush();
+  }
+  expect(read_all(path), std::string("\1\2\0\1\0", 5), "atomic DSR fallback");
+  std::remove(path.c_str());
+  Proof strict;
+  assert(strict.open(path.c_str(), ProofFormat::DsrAscii));
+  strict.finish_input_transaction();
+  assert(!strict.startup_pb_available() && !strict.begin_pb());
+  std::remove(path.c_str());
+  // A completed derivation is not a successful publication on a full device.
+  Proof failed_output;
+  assert(failed_output.open("/dev/full", ProofFormat::Automatic));
+  failed_output.finish_input_transaction();
+  FILE *full = failed_output.begin_pb();
+  assert(full);
+  std::fputs("pseudo-Boolean proof version 3.0\n", full);
+  assert(!failed_output.finish_pb());
+  const pid_t child = fork();
+  assert(child >= 0);
+  if (!child) {
+    const struct rlimit no_core = {0, 0};
+    assert(setrlimit(RLIMIT_CORE, &no_core) == 0);
+    Proof failed_dsr;
+    assert(failed_dsr.open("/dev/full", ProofFormat::Automatic));
+    failed_dsr.add_empty(1, nullptr, 0);
+    failed_dsr.finish_input_transaction();
+    failed_dsr.commit_dsr();
+    failed_dsr.flush();
+    _exit(0); // the regression used to report successful publication
+  }
+  int status = 0;
+  assert(waitpid(child, &status, 0) == child);
+  assert(WIFSIGNALED(status) && WTERMSIG(status) == SIGABRT);
+}
+
 int main() {
+  test_automatic_certificate_boundary();
   test_drat_binary_add();
   test_drat_binary_varint_boundary();
   test_drat_binary_delete();

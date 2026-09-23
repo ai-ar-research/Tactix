@@ -73,10 +73,14 @@ proof-size problem that no route fixes; their remedy is a parity-native certific
 | Certificate | Solve | Route | Check | Result |
 |---|---|---|---|---|
 | `oisc-subrv-sll-nested-8` (745 MB, 70.2M lines) | 236 s | DRAT | 7,182 s (drat-trim ~6,950 s, cake_lpr ~55 s) | **VERIFIED** (was: 57,600 s timeout; Kissat's own DRAT check 4,271--7,814 s) |
-| `ncc_none_21015...` | | DRAT | in its 16 h window (job `1715197_1`) | pending |
-| `tseitin_grid_n250_m250` (872 MB) | 12 s | DRAT | drat-trim > 30,000 s | not verified: proof size |
-| `tseitin_d3_n100000` (1.74 GB) | 21 s | DRAT | in its 16 h window | expected not verified: proof size |
-| `tseitin_grid_n400_m400` (2.63 GB) | 33 s | DRAT | in its 16 h window | expected not verified: proof size |
+| `ncc_none_21015...` (396 MB) | 159.3 s | DRAT | 40,119.2 s (job `1715197_1`) | NOT-VERIFIED: drat-trim timeout |
+| `tseitin_grid_n250_m250` (872 MB) | 11.7 s | DRAT | 40,264.2 s (job `1714785_1`) | NOT-VERIFIED: drat-trim timeout |
+| `tseitin_d3_n100000` (1.74 GB) | 20.5 s | DRAT | 40,541.6 s (job `1714785_2`) | NOT-VERIFIED: drat-trim timeout |
+| `tseitin_grid_n400_m400` (2.63 GB) | 32.7 s | DRAT | 40,798.2 s (job `1714785_3`) | NOT-VERIFIED: drat-trim timeout |
+
+Terminal table update explicitly requested in the attached task, 23 September 2026:
+verdicts are `out2/1.tsv` and `out/{1,2,3}.tsv`; corresponding logs end with
+`s TIMEOUT`. Task `1714785_4` was the superseded ncc pass, not a Tseitin row.
 
 ## Not in scope
 

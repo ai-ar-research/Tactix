@@ -144,6 +144,9 @@ struct RuleVTable {
   // name-sort so a vtable reference can charge its own timing slot without the
   // caller threading the id through. Not set by registration.
   uint32_t id = 0;
+  // Declares explicit instances belonging to the original-input certificate
+  // boundary. Choosing any other action closes that boundary for this run.
+  bool (*startup_instance)(uint64_t) = nullptr;
 };
 
 // --- rule-dispatch timing (diagnostic; see Stats' wall-clock block) ---------
