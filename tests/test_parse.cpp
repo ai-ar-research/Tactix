@@ -91,6 +91,36 @@ static std::string parse_with_block(const char *text, size_t block,
   return err ? std::string("error:") + err : import_fingerprint(k);
 }
 
+static void test_advisory_headers_preserve_binary_liveness() {
+  const char *canonical =
+      "p cnf 3 6\n1 2 0\n2 3 0\n1 2 0\n2 3 0\n-1 3 0\n-1 3 0\n";
+  // The parser deliberately accepts advisory/late headers. The temporary
+  // exact index must not outlive its literal universe, and re-arming must
+  // retain all previous binaries, including the pairs repeated afterwards.
+  const char *variants[] = {
+      "p cnf 2 6\n1 2 0\n2 3 0\n1 2 0\n2 3 0\n-1 3 0\n-1 3 0\n",
+      "p cnf 2 6\n1 2 0\np cnf 3 6\n2 3 0\n1 2 0\n2 3 0\n-1 3 0\n-1 3 0\n",
+      "p cnf 3 6\n1 2 0\np cnf 3 6\n2 3 0\n1 2 0\n2 3 0\n-1 3 0\n-1 3 0\n",
+      "1 2 0\np cnf 3 6\n2 3 0\n1 2 0\n2 3 0\n-1 3 0\n-1 3 0\n",
+  };
+  const std::string expected = parse_with_block(canonical, size_t{1} << 20);
+  for (const char *text : variants) {
+    assert(parse_with_block(text, size_t{1} << 20) == expected);
+    for (size_t block = 1; block <= 40; ++block)
+      assert(parse_with_block(text, block) == expected);
+    Kernel k;
+    FILE *file = dimacs_file(text);
+    assert(!parse_dimacs(file, k));
+    std::fclose(file);
+    assert(!k.binary_liveness); // the import scope must release its index
+    assert(k.binary_ids.size() == 3);
+    assert(kernel_binary_copies(k, internalize(1), internalize(2)) == 1);
+    assert(kernel_binary_copies(k, internalize(2), internalize(3)) == 1);
+    assert(kernel_binary_copies(k, internalize(-1), internalize(3)) == 1);
+    kernel_check_invariants(k);
+  }
+}
+
 // The block scanner must not care where a token, a line, or a comment ends
 // relative to a block boundary: every block size imports the same formula
 // as the production block, and the same malformed input yields the same
@@ -393,6 +423,7 @@ int main() {
   test_input_units_propagate_before_later_clauses();
   test_header_only_variables_are_not_search_variables();
   test_block_boundaries_do_not_change_the_import();
+  test_advisory_headers_preserve_binary_liveness();
   puts("test_parse OK");
   return 0;
 }

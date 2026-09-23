@@ -50,6 +50,17 @@ including the new AM338 owner before preparation. Existing SLURM jobs continue;
 combined AM337 and focused AM338 fuzz ownership/reporting need quota restoration
 or a user-selected available Claude model. No promotion and no waiver.
 
+AM339 is an **unaccepted parser repair checkpoint**, atop AM338. The temporary
+binary-liveness bitmap now falls back before advisory-header variable growth;
+late/repeated headers preserve the live-pair population and scoped owner.
+Parser tolerance and every rule/API boundary are unchanged. Debug/Release fixed
+regressions pass; combined Claude invocation again exited 1 at the Fable limit.
+New immutable authority/request: `benchmarks/runs/20260923-am339-parser-liveness`
+(Release `cbe99910...`, Debug `c0320acb...`, patch `8a7e7101...`). Fresh Debug
+CTest has **177/178 passed**, only the demo active in `build/parser-liveness-dev`
+(CTest PID `2944685`, demo `2946772`); acceptance and successor gates remain due. Evidence:
+`benchmarks/reports/2026-09-23-am339-parser-liveness-checkpoint.md`.
+
 Solver/tooling authority: `10cd18c9` (certificate routing) on top of the
 AM333 solver source (`75487222`). The AM333 pin is the last gated binary:
 Release `0ec66e12...` (build job `1714363`, retained in AM333 campaign pins),
@@ -130,7 +141,7 @@ internals. Its interim `REPORT.md` hands off `triage/reproducer/min.cnf` and
 text-writer failure. Other legs remain active. The old O0 Debug CTest still has
 the scripted-default demo running; its other tests pass after documented reruns.
 AM336 Fmla job `1715952` ended verified; full Debug-O1 CTest in `build/count-pb-dev`
-still has its demo active (174/175 passed), with immutable AM333 checker pins.
+ended **175/175 passed** (demo 3,686.94 s), with immutable AM333 checker pins.
 Five focused tests pass, including
 both-checker API/default proofs, SAT controls, strict declines, budget/interrupt
 and startup-boundary controls. A separate Claude owner submitted focused
@@ -153,11 +164,11 @@ still says PREPARING. AM335/AM336 owner processes also exited 1 at that limit.
 Do not infer completion or read campaign internals; preserve submitted jobs.
 Six focused CTests pass, including the exact handoff in both DSR checker modes
 and all 30 C API output-failure controls. Full 178-entry Debug-O1 suite in
-`build/proof-repair-dev` has the demo active; 176 other entries passed and the
-initial API test fixture failed, then passed after correcting Probe closure in
-the fixture (no solver change). V2 refresh preserves corrected test provenance;
-V1 pins remain frozen, no jobs submitted from V1. The AM337 demo is confirmed
-advancing (33,732 to 35,743 conflicts in read-only samples), not declared hung.
+`build/proof-repair-dev` ended: 177 passed, including the demo (3,367.30 s), and
+the initial API fixture failed. That fixture separately passed after correcting
+Probe closure (no solver change). V2 preserves corrected test provenance;
+V1 pins remain frozen, no jobs submitted from V1. AM339's fresh full suite uses
+the corrected fixture and immutable checker pins; do not rebuild its live tree.
 
 AM337 full routed gates `...-am337-proof-lifetime-{rank1-50,b28c5,wv100,wv2-89}`:
 jobs `1715989`, `1715990`, `1715991`, `1715992` respectively, 272 tasks total.
@@ -193,9 +204,10 @@ byte-identical solver pins remain in the AM333 gate campaigns.
    fuzz acceptance and all four routed gates before promotion. A newly established
    solver defect stops dependent work; preserve exact failures and pins.
    Restore Claude-owned execution/reporting after the reported Fable usage limit
-   (user direction requested); AM338's immutable request is
-   `...-am338-checker-spelling/claude-fuzz-request.md`. Existing campaigns must be
-   resumed by the owner without rerunning completed unchanged legs.
+   (user direction requested). AM339's immutable `claude-fuzz-request.md` covers
+   the new combined candidate, AM338 tooling and the parser repair. Earlier
+   campaigns must be resumed by their owner without repeating passing unchanged
+   legs; no old gate is silently transferred to the new pin.
 2. **Finish the first full routed gate campaign.** Inspect terminal results for
    jobs `1715989`--`1715992`, certificate cleanup, every original-CNF model/proof,
    coverage, time and memory. AM337 staging pins baseline `drat-trim`/`cake_lpr`,

@@ -207,8 +207,15 @@ static void propagate_input_unit(Kernel &k) {
   Var maxv = 0;
   for (const Lit l : scratch)
     maxv = std::max(maxv, var_of(l));
-  if (!scratch.empty())
+  if (!scratch.empty()) {
+    // DIMACS counts are advisory. An input literal beyond the header ends
+    // the fixed-universe bitmap's scope before any lookup can address it.
+    // Rebuild the ordinary filter from the exact live watches, retaining all
+    // previous pairs so later duplicates still consume only their input id.
+    if (maxv >= k.nvars && k.binary_liveness && k.binary_liveness->exact())
+      grow_input_binary_liveness(k, k.binary_ids.size());
     kernel_reserve_vars(k, maxv + 1);
+  }
   capture_raw_input_shape(k, scratch);
   // Seed the diagnostic proof shadow from the checker's ACTUAL starting
   // population, before normalization changes or drops this clause. The checker
@@ -591,10 +598,22 @@ const char *parse_dimacs_with_block(FILE *f, Kernel &k, size_t block_bytes) {
       }
     }
     void arm(size_t entries, uint32_t literals, uint64_t declared_clauses) {
-      assert(!index && !kernel.binary_liveness);
+      if (index) {
+        assert(kernel.binary_liveness == index.get());
+        // A repeated advisory header may have enlarged the literal universe.
+        // Keep the owner and rebuild its filter, not an empty replacement.
+        grow_input_binary_liveness(kernel,
+                                  std::max(entries, kernel.binary_ids.size()));
+        return;
+      }
+      assert(!kernel.binary_liveness);
       index = std::make_unique<BinaryLivenessIndex>();
       index->reserve_bounded_exact(entries, literals, declared_clauses);
       kernel.binary_liveness = index.get();
+      // Headerless clauses may precede the first advisory header.
+      if (kernel.binary_ids.size())
+        grow_input_binary_liveness(kernel,
+                                  std::max(entries, kernel.binary_ids.size()));
     }
   } input_liveness(k);
   // Parsing is single-threaded and owns `f`. Scan one block at a time with the
