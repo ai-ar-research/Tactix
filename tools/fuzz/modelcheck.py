@@ -30,6 +30,13 @@ def check_clauses(clauses, assignment):
 
 def check_files(cnf_path, out_path):
     """Returns (ok, message) for a DIMACS file + solver output file."""
+    try:
+        return _check_files(cnf_path, out_path)
+    except (ValueError, OverflowError, OSError) as error:
+        return False, 'invalid DIMACS/model input: ' + str(error)
+
+
+def _check_files(cnf_path, out_path):
     nvars = None
     with open(cnf_path) as f:
         for line in f:

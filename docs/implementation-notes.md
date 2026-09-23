@@ -50,6 +50,7 @@ repository-pinned Trestle patch recognizes LSR addition/deletion markers 3/4 and
 The streaming writer retains no checker-population ledger or proof-only kernel variables. Format selection cannot change formula mutation,
 guards, scheduling, or legal instances. The C API permits one writer before input/proof-id settlement; late or duplicate attachment
 returns `-1` because it would omit earlier proof-state transitions. Every publication flush checks both sticky stdio errors and the flush result; destructor closure also checks failure. CLI and C API UNSAT verdict paths flush before exposing the verdict, including status-only and online invocation. I/O failure aborts rather than returning UNSAT in any format.
+Final proof checkers receive a validated DIMACS spelling with exactly the original clause/literal sequence, order and multiplicities: comments/whitespace are canonicalized, and a zero variable bound is raised to one unused identity for Trestle. Clause IDs and formula semantics are unchanged; elaborators and solvers still read the original file. Malformed headers, tokens, bounds, counts and unterminated clauses fail closed. The runner records both input hashes and uses anonymous scratch; no proof-checker success condition is relaxed.
 
 Pinned `dsr-trim` emits the hintless binary equivalent of `n+1 0 0` when the input CNF already contains an empty clause; Trestle correctly rejects it.
 The checker protocol repairs only that output with independently parsed input-empty hint `k` and still requires Trestle acceptance.

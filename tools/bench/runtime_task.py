@@ -21,7 +21,8 @@ from proof_oracle import (bridge_trivial_input_binary_lsr,
                           bridge_trivial_input_lsr, dsr_compress_status,
                           proof_check_status, reference_dsr_stages,
                           certificate_route, drat_stages, pb_stages,
-                          dsr_proof_as_drat, stage_environment)
+                          dsr_proof_as_drat, stage_environment,
+                          canonical_checker_cnf)
 
 
 CAMPAIGN = None
@@ -273,6 +274,8 @@ def check_unsat_proof(campaign, certificate, cnf, proof, scratch, timeout):
     """Check one certificate, stopping at the first failed pipeline stage."""
     started = time.monotonic()
     stages = []
+    checker_cnf = scratch / 'checker.cnf'
+    spelling = canonical_checker_cnf(cnf, checker_cnf)
 
     def remaining():
         return max(1, timeout - int(time.monotonic() - started))
@@ -295,7 +298,7 @@ def check_unsat_proof(campaign, certificate, cnf, proof, scratch, timeout):
                 pass
         for name, command in pb_stages(
                 campaign / "pins/veripb", campaign / "pins/cake-pb-cnf",
-                cnf, proof, kernel):
+                cnf, proof, kernel, checker_cnf=checker_cnf):
             made = kernel if name == "veripb" else None
             stages.append(proof_stage(scratch, name, command, remaining(), made))
             if stages[-1]["result"] != "verified":
@@ -309,7 +312,7 @@ def check_unsat_proof(campaign, certificate, cnf, proof, scratch, timeout):
             raise RuntimeError("routing saw a witnessed line")
         for name, command in drat_stages(
                 campaign / "pins/drat-trim", campaign / "pins/cake_lpr",
-                cnf, drat, lrat):
+                cnf, drat, lrat, checker_cnf=checker_cnf):
             made = lrat if name == "drat-trim" else None
             stages.append(proof_stage(scratch, name, command, remaining(),
                                       made))
@@ -322,7 +325,8 @@ def check_unsat_proof(campaign, certificate, cnf, proof, scratch, timeout):
         text_lsr = scratch / "proof.lsr"
         for name, command in reference_dsr_stages(
                 campaign / "pins/dsr-trim", campaign / "pins/dsr-compress",
-                campaign / "pins/srcheck", cnf, proof, binary_lsr, text_lsr):
+                campaign / "pins/srcheck", cnf, proof, binary_lsr, text_lsr,
+                checker_cnf=checker_cnf):
             made = command[-1] if name != "srcheck" else None
             stages.append(proof_stage(scratch, name, command, remaining(),
                                       made))
@@ -336,6 +340,7 @@ def check_unsat_proof(campaign, certificate, cnf, proof, scratch, timeout):
         raise RuntimeError(f"unsupported proof certificate: {certificate}")
     return {
         "pipeline": pipeline,
+        "checker_input": spelling,
         "result": ("verified" if stages and
                    all(stage["result"] == "verified" for stage in stages)
                    else "not-verified"),

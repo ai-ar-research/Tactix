@@ -17,6 +17,77 @@ from typing import Literal
 from pathlib import Path
 
 
+def canonical_checker_cnf(original, destination):
+    """Spell the original clause sequence for restricted verified readers.
+
+    No clause/literal/order/multiplicity changes are permitted. The only header
+    change is 0 -> 1 variables: an unused identity, needed by pinned Trestle.
+    Elaboration still uses the original file. Reject malformed input rather
+    than silently repairing it into a different formula.
+    """
+    import hashlib
+    if Path(destination).exists() and Path(original).samefile(destination):
+        raise ValueError('checker spelling must not overwrite the original CNF')
+    declared = None
+    clauses = 0
+    in_clause = False
+    digest = hashlib.sha256()
+    spelled_digest = hashlib.sha256()
+    with Path(original).open('rb') as source, Path(destination).open('wb') as target:
+        def write(data):
+            target.write(data)
+            spelled_digest.update(data)
+
+        for line_number, raw in enumerate(source, 1):
+            digest.update(raw)
+            line = raw.strip()
+            if not line or line.startswith(b'c'):
+                continue
+            fields = line.split()
+            if fields[0] == b'p':
+                if (declared is not None or len(fields) != 4 or
+                        fields[:2] != [b'p', b'cnf'] or
+                        any(not item.isdigit() for item in fields[2:])):
+                    raise ValueError(f'invalid DIMACS header at line {line_number}')
+                header_numbers = [item.lstrip(b'0') or b'0' for item in fields[2:]]
+                if len(header_numbers[0]) > 10 or len(header_numbers[1]) > 19:
+                    raise ValueError('DIMACS header exceeds checker integer bounds')
+                variables, count = map(int, header_numbers)
+                if variables > 2147483647 or count > 9223372036854775807:
+                    raise ValueError('DIMACS header exceeds checker integer bounds')
+                declared = variables, count
+                write(f'p cnf {max(1, variables)} {count}\n'.encode('ascii'))
+                continue
+            if declared is None:
+                raise ValueError('DIMACS clauses precede the header')
+            output = bytearray()
+            for token in fields:
+                digits = token[1:] if token.startswith(b'-') else token
+                if not digits or not digits.isdigit():
+                    raise ValueError(f'invalid DIMACS literal at line {line_number}')
+                digits = digits.lstrip(b'0') or b'0'
+                if len(digits) > 10:
+                    raise ValueError(f'DIMACS literal exceeds header at line {line_number}')
+                literal = int(digits) * (-1 if token.startswith(b'-') else 1)
+                if abs(literal) > declared[0]:
+                    raise ValueError(f'DIMACS literal exceeds header at line {line_number}')
+                if literal:
+                    output.extend(str(literal).encode('ascii') + b' ')
+                    in_clause = True
+                else:
+                    output.extend(b'0\n')
+                    clauses += 1
+                    in_clause = False
+                if clauses > declared[1]:
+                    raise ValueError('DIMACS clause count exceeds header')
+            write(output)
+        if declared is None or in_clause or clauses != declared[1]:
+            raise ValueError('missing DIMACS header, clause terminator, or declared clauses')
+    return dict(original_sha256=digest.hexdigest(), checker_sha256=spelled_digest.hexdigest(), clauses=clauses,
+                declared_variables=declared[0], checker_variables=max(1, declared[0]),
+                transformation='clause-sequence-preserving DIMACS spelling')
+
+
 def _at_most_three_integer_tokens(path):
     """Read a possible trivial LSR without materializing a real proof."""
     tokens = []
@@ -344,19 +415,19 @@ def stage_environment(name):
     return environment
 
 
-def drat_stages(drat_trim, cake_lpr, cnf, drat, lrat):
+def drat_stages(drat_trim, cake_lpr, cnf, drat, lrat, *, checker_cnf=None):
     """The DRAT owner's pipeline, as the baselines and the fuzz harness run
     it: drat-trim elaborates to LRAT, cake_lpr (under CAKE_LPR_ENVIRONMENT)
     is the authority."""
     return [('drat-trim', [drat_trim, cnf, drat, '-L', lrat]),
-            ('cake_lpr', [cake_lpr, cnf, lrat])]
+            ('cake_lpr', [cake_lpr, checker_cnf or cnf, lrat])]
 
 
-def pb_stages(veripb, cake_pb, cnf, proof, kernel):
+def pb_stages(veripb, cake_pb, cnf, proof, kernel, *, checker_cnf=None):
     """Pinned LymphoSAT pipeline; CakePB verifies the elaborated proof."""
     return [('veripb', [veripb, '-u', '--cnf', '--elaborate', kernel,
                         cnf, proof]),
-            ('cake-pb-cnf', [cake_pb, cnf, kernel])]
+            ('cake-pb-cnf', [cake_pb, checker_cnf or cnf, kernel])]
 
 
 def pb_proof_has_header(proof) -> bool:
@@ -372,7 +443,7 @@ def certificate_route(proof) -> Literal['drat', 'dsr', 'pbp']:
 
 
 def reference_dsr_stages(dsr_trim, dsr_compress, srcheck, cnf, proof,
-                         binary_lsr, text_lsr):
+                         binary_lsr, text_lsr, *, checker_cnf=None):
     """The (name, command) stages of the reference DSR pipeline, in order.
 
     dsr-trim mirrors its input encoding: the canonical binary DSR yields a
@@ -380,16 +451,16 @@ def reference_dsr_stages(dsr_trim, dsr_compress, srcheck, cnf, proof,
     the text LSR directly, so there is nothing to expand."""
     if not dsr_proof_is_binary(proof):
         return [('dsr-trim', [dsr_trim, cnf, proof, text_lsr]),
-                ('srcheck', [srcheck, cnf, text_lsr])]
+                ('srcheck', [srcheck, checker_cnf or cnf, text_lsr])]
     return [
         ('dsr-trim', [dsr_trim, cnf, proof, binary_lsr]),
         ('dsr-compress', [dsr_compress, '-d', binary_lsr, text_lsr]),
-        ('srcheck', [srcheck, cnf, text_lsr]),
+        ('srcheck', [srcheck, checker_cnf or cnf, text_lsr]),
     ]
 
 
 def every_lemma_dsr_stages(dsr_trim, dsr_compress, srcheck, cnf, proof,
-                           binary_lsr, text_lsr):
+                           binary_lsr, text_lsr, *, checker_cnf=None):
     """The audit pipeline: the reference stages with forward elaboration.
 
     Backward dsr-trim elaborates only the lemmas the refutation uses, so an
@@ -398,7 +469,7 @@ def every_lemma_dsr_stages(dsr_trim, dsr_compress, srcheck, cnf, proof,
     and is not the acceptance authority; the fuzz harness and the proof suites
     run it in addition to the reference pipeline, where proofs are small."""
     stages = reference_dsr_stages(dsr_trim, dsr_compress, srcheck, cnf, proof,
-                                  binary_lsr, text_lsr)
+                                  binary_lsr, text_lsr, checker_cnf=checker_cnf)
     name, command = stages[0]
     assert name == 'dsr-trim'
     stages[0] = (name, [command[0], '-f'] + command[1:])
@@ -426,12 +497,18 @@ def check_routed(dsr_trim, dsr_compress, srcheck, drat_trim, cake_lpr, cnf,
         return verified, stage, output, route
     workdir = Path(workdir)
     drat, lrat = workdir / 'proof.drat', workdir / 'proof.lrat'
+    checker_cnf = workdir / 'checker.cnf'
+    try:
+        canonical_checker_cnf(cnf, checker_cnf)
+    except (OSError, ValueError) as error:
+        return False, 'cnf', str(error), route
     for stale in (drat, lrat):
         if stale.exists():
             stale.unlink()
     if not dsr_proof_as_drat(proof, drat):
         return False, 'route', 'witnessed line met during rewrite', route
-    for name, command in drat_stages(drat_trim, cake_lpr, cnf, drat, lrat):
+    for name, command in drat_stages(drat_trim, cake_lpr, cnf, drat, lrat,
+                                     checker_cnf=checker_cnf):
         try:
             done = subprocess.run([str(part) for part in command],
                                   capture_output=True, text=True,
@@ -455,10 +532,16 @@ def check_pb(veripb, cake_pb, cnf, proof, workdir, timeout=None):
         return False, 'pins', 'PBP requires pinned VeriPB and CakePB'
     started = time.monotonic()
     kernel = Path(workdir) / 'proof.kernel.pbp'
+    checker_cnf = Path(workdir) / 'checker.cnf'
+    try:
+        canonical_checker_cnf(cnf, checker_cnf)
+    except (OSError, ValueError) as error:
+        return False, 'cnf', str(error)
     # Never accept a stale elaboration after a checker fails to produce one.
     if kernel.exists():
         kernel.unlink()
-    for name, command in pb_stages(veripb, cake_pb, cnf, proof, kernel):
+    for name, command in pb_stages(veripb, cake_pb, cnf, proof, kernel,
+                                   checker_cnf=checker_cnf):
         remaining = (None if timeout is None else
                      timeout - (time.monotonic() - started))
         if remaining is not None and remaining <= 0:
@@ -487,20 +570,25 @@ def check_dsr(dsr_trim, dsr_compress, srcheck, cnf, proof, workdir,
 
     With `every_lemma` the forward audit pipeline runs afterwards and must
     verify too; its failing stage is reported with an `every-lemma:` prefix."""
+    checker_cnf = Path(workdir) / 'checker.cnf'
+    try:
+        canonical_checker_cnf(cnf, checker_cnf)
+    except (OSError, ValueError) as error:
+        return False, 'cnf', str(error)
     verified, stage, output = _run_dsr_stages(
         reference_dsr_stages, dsr_trim, dsr_compress, srcheck, cnf, proof,
-        workdir, timeout)
+        workdir, timeout, checker_cnf)
     if verified and every_lemma:
         verified, stage, output = _run_dsr_stages(
             every_lemma_dsr_stages, dsr_trim, dsr_compress, srcheck, cnf,
-            proof, workdir, timeout)
+            proof, workdir, timeout, checker_cnf)
         if not verified:
             stage = 'every-lemma:' + stage
     return verified, stage, output
 
 
 def _run_dsr_stages(stages, dsr_trim, dsr_compress, srcheck, cnf, proof,
-                    workdir, timeout):
+                    workdir, timeout, checker_cnf):
     import subprocess
     workdir = Path(workdir)
     binary_lsr, text_lsr = workdir / 'proof.binary.lsr', workdir / 'proof.lsr'
@@ -508,7 +596,8 @@ def _run_dsr_stages(stages, dsr_trim, dsr_compress, srcheck, cnf, proof,
         if stale.exists():
             stale.unlink()
     for name, command in stages(
-            dsr_trim, dsr_compress, srcheck, cnf, proof, binary_lsr, text_lsr):
+            dsr_trim, dsr_compress, srcheck, cnf, proof, binary_lsr, text_lsr,
+            checker_cnf=checker_cnf):
         try:
             done = subprocess.run([str(part) for part in command],
                                   capture_output=True, text=True,
