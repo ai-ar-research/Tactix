@@ -198,7 +198,7 @@ reason-locked clauses are never deleted. No policy observes pending half-analysi
   disconnection; isolated repairs 5387/5391 restore both. Ledger `SP-ELIM-DENSE-ENTRY-1` owns the gap.
 - DIMACS import uses that same clause-by-clause lifecycle; it has no parse-only packing exception. During the deletion-free scope,
   the retained binary-id key map remains the exact live-set image, so known-new binary insertion does not rescan a high-degree watch
-  list. The general post-import binary API retains its live-pair check.
+  list. The general post-import binary API retains its live-pair check. The import-only exact bitmap falls back to the ordinary filter, rebuilt from live watches, before advisory-header growth exceeds its literal universe; late/repeated headers retain every existing pair and the same scoped owner. No parser tolerance, rule guard or API capability changes.
 - Surviving large Strengthen, Vivify, root-flush, Sweep, and Substitute rewrites stay in place, retaining Ref, span, header,
   occurrence, and watch pose; a disconnected dense/Vivify phase stays disconnected until its common rebuild. Consumer marks remain
   path-specific: connected Sweep publishes its image; canonical Substitute does not. Large Vivify publishes its new prefix plus the
