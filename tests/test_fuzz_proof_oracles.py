@@ -221,6 +221,81 @@ class FuzzProofOracles(unittest.TestCase):
     def test_drat_actual_conflict_accepted(self):
         self.assertFalse(self.fixture('p cnf 1 2\n1 0\n-1 0\n', '0\n', lrat=False).failures)
 
+    def test_drat_layout_false_proofs_rejected_and_true_proofs_accepted(self):
+        # AM339 handoff: raw drat-trim parses comments as empty clauses with
+        # binary proofs, and %i interprets leading-zero decimal literals as octal.
+        for raw, unsat in [
+                ('p cnf 2 2\n1 2 0\nc interior comment\n-1 2 0\n', False),
+                ('p cnf 10 2\n8 0\n-010 0\n', False),
+                ('p cnf 1 2\n1\nc split clause\n0 -1 0\n', True),
+                ('p cnf 10 2\n10 0\n-010 0\n', True),
+                ('p cnf 0 1\nc genuine empty clause\n0\n', True)]:
+            for proof in ('0\n', 'a\x00'):
+                for convert in (False, True):
+                    with self.subTest(raw=raw, proof=proof, convert=convert):
+                        result = self.fixture(raw, proof, lrat=False, convert=convert)
+                        self.assertEqual(not result.failures, unsat, result.failures)
+                        for run in result.checker_runs:
+                            self.assertEqual(Path(run['command'][1]).name, 'checker.cnf')
+
+    def test_runtime_drat_layouts_and_routed_elaboration(self):
+        from runtime_task import check_unsat_proof
+        from proof_oracle import check_routed, drat_stages
+        campaign = ROOT/'benchmarks/runs/20260923-am337-proof-lifetime-v2'
+        pins = campaign/'pins'
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            cnf, proof = work/'original.cnf', work/'input.proof'
+            for raw, unsat in [
+                    ('p cnf 2 2\n1 2 0\nc interior comment\n-1 2 0\n', False),
+                    ('p cnf 10 2\n8 0\n-010 0\n', False),
+                    ('p cnf 1 2\n1\nc split clause\n0 -1 0\n', True),
+                    ('p cnf 10 2\n10 0\n-010 0\n', True),
+                    ('p cnf 0 1\nc genuine empty clause\n0\n', True)]:
+                cnf.write_text(raw)
+                for encoding in (b'0\n', b'a\x00'):
+                    with self.subTest(raw=raw, proof=encoding):
+                        proof.write_bytes(encoding)
+                        result = check_unsat_proof(campaign, 'drat', cnf, proof, work, 60)
+                        self.assertEqual(result['result'] == 'verified', unsat, result)
+                        self.assertEqual(cnf.read_text(), raw)
+                # Routed witness-free DSR keeps CakeLPR as final authority.
+                proof.write_bytes(b'\x01\x00')
+                result = check_routed(pins/'dsr-trim', pins/'dsr-compress', pins/'srcheck',
+                                      pins/'drat-trim', pins/'cake_lpr', cnf, proof, work, 60)
+                # Empty-input LRAT elaboration has no output: fail closed.
+                if 'p cnf 0 1' not in raw:
+                    self.assertEqual(result[0], unsat, result)
+        self.assertEqual(drat_stages('DT', 'CL', 'raw', 'p', 'l', checker_cnf='canonical'),
+                         [('drat-trim', ['DT', 'canonical', 'p', '-L', 'l']),
+                          ('cake_lpr', ['CL', 'canonical', 'l'])])
+
+    def test_tier_runner_drat_reader_uses_original_clause_sequence(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('bench_runner', ROOT/'tools/bench/run.py')
+        runner = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(runner)
+        pins = ROOT/'benchmarks/runs/20260923-am337-proof-lifetime-v2/pins'
+        with tempfile.TemporaryDirectory() as directory, patch.object(
+                runner, 'DRAT_TRIM', str(pins/'drat-trim')):
+            cnf, proof = Path(directory)/'original.cnf', Path(directory)/'proof.drat'
+            for raw, unsat in [
+                    ('p cnf 2 2\n1 2 0\nc interior comment\n-1 2 0\n', False),
+                    ('p cnf 10 2\n8 0\n-010 0\n', False),
+                    ('p cnf 1 2\n1\nc split clause\n0 -1 0\n', True),
+                    ('p cnf 10 2\n10 0\n-010 0\n', True)]:
+                for encoding in (b'0\n', b'a\x00'):
+                    with self.subTest(raw=raw, proof=encoding):
+                        cnf.write_text(raw)
+                        proof.write_bytes(encoding)
+                        result = runner.check_proof('drat', str(cnf), str(proof), 60)
+                        self.assertEqual(result[0], unsat, result)
+                        self.assertEqual(cnf.read_text(), raw)
+            cnf.write_text('p cnf 1 1\n2 0\n')
+            with patch.object(runner.subprocess, 'run') as checker:
+                self.assertFalse(runner.check_proof('drat', str(cnf), str(proof), 60)[0])
+                checker.assert_not_called()
+
     def test_drat_empty_input_checker_exit_one(self):
         r = self.fixture('p cnf 1 1\n0\n', '', lrat=False)
         self.assertFalse(r.failures)

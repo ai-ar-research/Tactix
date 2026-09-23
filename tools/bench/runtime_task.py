@@ -286,7 +286,7 @@ def check_unsat_proof(campaign, certificate, cnf, proof, scratch, timeout):
     if certificate == "drat":
         stages.append(proof_stage(
             scratch, "drat-trim",
-            [campaign / "pins/drat-trim", cnf, proof], remaining()))
+            [campaign / "pins/drat-trim", checker_cnf, proof], remaining()))
         pipeline = "drat-trim"
     elif certificate == "auto" and route == "pbp":
         kernel = scratch / "proof.kernel.pbp"
