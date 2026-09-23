@@ -19,7 +19,9 @@ import time
 
 from proof_oracle import (bridge_trivial_input_binary_lsr,
                           bridge_trivial_input_lsr, dsr_compress_status,
-                          proof_check_status, reference_dsr_stages)
+                          proof_check_status, reference_dsr_stages,
+                          certificate_route, drat_stages,
+                          dsr_proof_as_drat, stage_environment)
 
 
 CAMPAIGN = None
@@ -117,7 +119,7 @@ def runtime_context(affinity):
                 observed_at=dt.datetime.now(dt.timezone.utc).isoformat())
 
 
-def measured(command, stdout, stderr, metrics, timeout):
+def measured(command, stdout, stderr, metrics, timeout, environment=None):
     wrapped = ["/usr/bin/time", "-f", "max_rss_kb=%M", "-o", str(metrics),
                "--", *map(str, command)]
     started = time.monotonic()
@@ -125,7 +127,8 @@ def measured(command, stdout, stderr, metrics, timeout):
     vm_peak = [0]
     with open(stdout, "wb") as out, open(stderr, "wb") as err:
         process = subprocess.Popen(wrapped, stdout=out, stderr=err,
-                                   preexec_fn=process_group)
+                                   preexec_fn=process_group,
+                                   env=environment)
         stop = threading.Event()
         sampler = None
         if os.environ.get("TACTIX_RUNTIME_SAMPLE_VM") == "1":
@@ -225,7 +228,8 @@ def validate_runtime_pin_contract(campaign, manifest):
             required.add("pins/drat-trim")
         elif certificate == "dsr":
             required.update({"pins/dsr-trim", "pins/dsr-compress",
-                             "pins/srcheck"})
+                             "pins/srcheck", "pins/drat-trim",
+                             "pins/cake_lpr"})
         else:
             raise RuntimeError(f"unsupported proof certificate: {certificate}")
     if manifest.get("scratch_policy") == "anonymous-local-files-v1":
@@ -243,9 +247,11 @@ def proof_stage(scratch, name, command, timeout, produced=None):
     """Run one proof stage and require its exact oracle/output contract."""
     stdout = scratch / f"{name}.stdout"
     stderr = scratch / f"{name}.stderr"
-    result = measured(command, stdout, stderr, scratch / f"{name}.time", timeout)
+    result = measured(command, stdout, stderr, scratch / f"{name}.time", timeout,
+                      environment=stage_environment(name))
     output = "\n".join(tail(stdout, 100) + tail(stderr, 100))
-    if name not in ("drat-trim", "dsr-trim", "dsr-compress", "srcheck"):
+    if name not in ("drat-trim", "dsr-trim", "dsr-compress", "srcheck",
+                    "cake_lpr"):
         raise RuntimeError(f"unsupported proof stage: {name}")
     if name == "dsr-compress":
         status = dsr_compress_status(result["exit_code"], output)
@@ -274,6 +280,21 @@ def check_unsat_proof(campaign, certificate, cnf, proof, scratch, timeout):
             scratch, "drat-trim",
             [campaign / "pins/drat-trim", cnf, proof], remaining()))
         pipeline = "drat-trim"
+    elif certificate == "dsr" and certificate_route(proof) == "drat":
+        # proof_oracle owns the routing: a witness-free certificate is a DRAT
+        # proof and takes the DRAT owner's pipeline after the tag rewrite.
+        drat, lrat = scratch / "proof.drat", scratch / "proof.lrat"
+        if not dsr_proof_as_drat(proof, drat):
+            raise RuntimeError("routing saw a witnessed line")
+        for name, command in drat_stages(
+                campaign / "pins/drat-trim", campaign / "pins/cake_lpr",
+                cnf, drat, lrat):
+            made = lrat if name == "drat-trim" else None
+            stages.append(proof_stage(scratch, name, command, remaining(),
+                                      made))
+            if stages[-1]["result"] != "verified":
+                break
+        pipeline = "witness-free-dsr-as-drat:drat-trim-cake_lpr"
     elif certificate == "dsr":
         # proof_oracle.reference_dsr_stages owns the pipeline definition.
         binary_lsr = scratch / "proof.binary.lsr"

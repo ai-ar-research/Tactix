@@ -76,6 +76,21 @@ class RuntimeTaskTests(unittest.TestCase):
                             self.assertEqual(checked_verdict_valid(expected, verdict,
                                 dict(exit_code=code, timed_out=timeout), checked), want)
 
+    def test_dsr_pin_contract_requires_the_drat_owner_checkers(self):
+        import tempfile
+        from runtime_task import validate_runtime_pin_contract
+        with tempfile.TemporaryDirectory() as d:
+            campaign = Path(d); (campaign/'pins').mkdir()
+            names = ['checkmodel', 'modelcheck.py', 'tactix', 'dsr-trim', 'dsr-compress', 'srcheck']
+            for n in names: (campaign/'pins'/n).write_text('x')
+            manifest = {'arms': {'a': {'path': 'pins/tactix', 'certificate': 'dsr'}},
+                        'pin_sha256': {'pins/' + n: 'h' for n in names}}
+            with self.assertRaises(RuntimeError):
+                validate_runtime_pin_contract(campaign, manifest)
+            for n in ('drat-trim', 'cake_lpr'):
+                (campaign/'pins'/n).write_text('x'); manifest['pin_sha256']['pins/' + n] = 'h'
+            validate_runtime_pin_contract(campaign, manifest)
+
     def test_manifest_timeouts_are_enforced(self):
         manifest = {'resource_contract': {'solve_timeout': 300,
                                           'checker_timeout': 16000}}

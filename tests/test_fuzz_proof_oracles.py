@@ -83,6 +83,55 @@ class FuzzProofOracles(unittest.TestCase):
         self.assertEqual(r.checker_runs[-1]['command'][-1],
                          r.checker_runs[0]['command'][-1])
 
+    def test_certificate_routing_by_witness(self):
+        sys.path.insert(0, str(ROOT/'tools/bench'))
+        import proof_oracle as oracle
+        with tempfile.TemporaryDirectory(prefix='route-') as directory:
+            work = Path(directory)
+            ascii_plain = work/'plain.dsr'; ascii_plain.write_text('1 2 0\nd 1 2 0\n0\n')
+            ascii_witness = work/'witness.dsr'; ascii_witness.write_text('1 2 1 0\n0\n')
+            self.assertFalse(oracle.dsr_proof_has_witness(ascii_plain))
+            self.assertTrue(oracle.dsr_proof_has_witness(ascii_witness))
+            self.assertEqual(oracle.certificate_route(ascii_plain), 'drat')
+            self.assertEqual(oracle.certificate_route(ascii_witness), 'dsr')
+            # binary: tag 1 = add, 2 = delete; literals 1 -> 2, -1 -> 3 (2*var+sign)
+            plain = bytes([1, 2, 4, 0, 2, 2, 4, 0, 1, 0])
+            witness = bytes([1, 2, 4, 2, 0, 1, 0])
+            bin_plain = work/'plain.bin'; bin_plain.write_bytes(plain)
+            bin_witness = work/'witness.bin'; bin_witness.write_bytes(witness)
+            self.assertTrue(oracle.dsr_proof_is_binary(bin_plain))
+            self.assertFalse(oracle.dsr_proof_has_witness(bin_plain))
+            self.assertTrue(oracle.dsr_proof_has_witness(bin_witness))
+            drat = work/'plain.drat'
+            self.assertTrue(oracle.dsr_proof_as_drat(bin_plain, drat))
+            self.assertEqual(drat.read_bytes(), bytes([ord('a'), 2, 4, 0, ord('d'), 2, 4, 0, ord('a'), 0]))
+            self.assertFalse(oracle.dsr_proof_as_drat(bin_witness, work/'never.drat'))
+            copied = work/'plain.ascii.drat'
+            self.assertTrue(oracle.dsr_proof_as_drat(ascii_plain, copied))
+            self.assertEqual(copied.read_text(), ascii_plain.read_text())
+            self.assertEqual(oracle.drat_stages('DT', 'CL', 'c', 'p', 'l'),
+                             [('drat-trim', ['DT', 'c', 'p', '-L', 'l']), ('cake_lpr', ['CL', 'c', 'l'])])
+            # the reference's checker amendment: cake_lpr runs with the 24576 MiB CakeML heap
+            self.assertEqual(oracle.stage_environment('cake_lpr')['CML_HEAP_SIZE'], '24576')
+            self.assertNotIn('CML_HEAP_SIZE', {k: v for k, v in oracle.stage_environment('drat-trim').items() if k == 'CML_HEAP_SIZE' and v == '24576' and 'CML_HEAP_SIZE' not in __import__('os').environ})
+
+    def test_routed_acceptance_runs_the_drat_owner_pipeline(self):
+        sys.path.insert(0, str(ROOT/'tools/bench'))
+        import proof_oracle as oracle
+        here = ROOT/'tools/checkers/bin'
+        with tempfile.TemporaryDirectory(prefix='routed-') as directory:
+            work = Path(directory)
+            cnf = work/'i.cnf'; cnf.write_text('p cnf 1 2\n1 0\n-1 0\n')
+            proof = work/'p.dsr'; proof.write_bytes(bytes([1, 0]))  # add the empty clause
+            verified, stage, output, route = oracle.check_routed(
+                here/'dsr-trim', here/'dsr-compress', here/'srcheck', here/'drat-trim', here/'cake_lpr',
+                cnf, proof, work)
+            self.assertEqual(route, 'drat')
+            self.assertTrue(verified, (stage, output[-500:]))
+            # a witnessed certificate is never handed to drat-trim
+            witnessed = work/'w.dsr'; witnessed.write_bytes(bytes([1, 2, 4, 2, 0, 1, 0]))
+            self.assertEqual(oracle.certificate_route(witnessed), 'dsr')
+
     def test_reference_dsr_stages(self):
         from proof_oracle import reference_dsr_stages
         with tempfile.TemporaryDirectory() as directory:

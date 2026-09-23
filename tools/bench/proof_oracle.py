@@ -4,6 +4,13 @@ The legacy lrat-check executable is deliberately not an acceptance oracle:
 6906 demonstrated false acceptance of an empty lemma on a satisfiable input.
 Use cake_lpr for native LRAT, drat-trim for native DRAT, and the exact
 dsr-trim -> binary LSR -> Trestle chain for native DSR.
+
+Acceptance of a native DSR certificate routes by its content: DSR is a
+superset of DRAT, so a certificate without any witnessed line is a DRAT proof
+and is checked with the DRAT owner's pipeline (drat-trim -> cake_lpr), reached
+by rewriting the binary line tags; a certificate with a witnessed line takes
+the Satsuma+Kissat DSR pipeline with Trestle as the authority. The solver's
+output does not change; only the checker side reads it differently.
 """
 from typing import Literal
 from pathlib import Path
@@ -207,6 +214,146 @@ def dsr_proof_is_binary(proof) -> bool:
     return any(byte not in b'0123456789- \n\rd' for byte in head)
 
 
+# Binary DSR line tags (dsr-trim's encoding) and their binary DRAT equivalents.
+DSR_BINARY_ADD, DSR_BINARY_DELETE = 1, 2
+DRAT_BINARY_ADD, DRAT_BINARY_DELETE = ord('a'), ord('d')
+
+
+def _dsr_lines(proof, binary):
+    """Yield (kind, tokens) per DSR line: kind is 'a' or 'd', tokens the
+    encoded literals before the terminating zero (binary varint values or
+    ASCII integers). Only the first two tokens are needed by callers that
+    detect a witness, but every line is delimited exactly."""
+    if binary:
+        with open(proof, 'rb') as source:
+            data = source.read()
+        index, size = 0, len(data)
+        while index < size:
+            tag = data[index]
+            index += 1
+            if tag == DSR_BINARY_ADD:
+                kind = 'a'
+            elif tag == DSR_BINARY_DELETE:
+                kind = 'd'
+            else:
+                raise ValueError(f'invalid binary DSR tag {tag} at {index - 1}')
+            tokens = []
+            while True:
+                value, shift = 0, 0
+                while True:
+                    byte = data[index]
+                    index += 1
+                    value |= (byte & 127) << shift
+                    shift += 7
+                    if not byte & 128:
+                        break
+                if not value:
+                    break
+                tokens.append(value)
+            yield kind, tokens
+        return
+    with open(proof, 'r', errors='replace') as source:
+        for line in source:
+            fields = line.split()
+            if not fields:
+                continue
+            if fields[0] == 'd':
+                kind, fields = 'd', fields[1:]
+            else:
+                kind = 'a'
+            if not fields or fields[-1] != '0':
+                raise ValueError('invalid ASCII DSR line')
+            yield kind, [int(field) for field in fields[:-1]]
+
+
+def dsr_proof_has_witness(proof) -> bool:
+    """True when any addition carries a substitution witness, i.e. its first
+    literal (the pivot) reappears later in the line. A witnessed line is an SR
+    step and is never a DRAT line; drat-trim would silently drop the repeated
+    pivot as a duplicate literal, so routing must decide before drat-trim."""
+    for kind, tokens in _dsr_lines(proof, dsr_proof_is_binary(proof)):
+        if kind == 'a' and len(tokens) > 1 and tokens[0] in tokens[1:]:
+            return True
+    return False
+
+
+def dsr_proof_as_drat(proof, drat):
+    """Write the DRAT form of a witness-free DSR certificate to `drat`.
+
+    ASCII DSR without witnesses is already ASCII DRAT and is copied. Binary DSR
+    differs from binary DRAT only in its two line tags (1/2 against 'a'/'d');
+    the literal varints are identical, so the tags are rewritten in place and
+    every other byte is copied. Returns False on a witnessed line."""
+    binary = dsr_proof_is_binary(proof)
+    if not binary:
+        if dsr_proof_has_witness(proof):
+            return False
+        with open(proof, 'rb') as source, open(drat, 'wb') as target:
+            while chunk := source.read(1 << 24):
+                target.write(chunk)
+        return True
+    with open(proof, 'rb') as source:
+        data = bytearray(source.read())
+    index, size = 0, len(data)
+    while index < size:
+        tag = data[index]
+        if tag == DSR_BINARY_ADD:
+            data[index] = DRAT_BINARY_ADD
+        elif tag == DSR_BINARY_DELETE:
+            data[index] = DRAT_BINARY_DELETE
+        else:
+            raise ValueError(f'invalid binary DSR tag {tag} at {index}')
+        index += 1
+        first, count = None, 0
+        while True:
+            value, shift = 0, 0
+            while True:
+                byte = data[index]
+                index += 1
+                value |= (byte & 127) << shift
+                shift += 7
+                if not byte & 128:
+                    break
+            if not value:
+                break
+            if count == 0:
+                first = value
+            elif tag == DSR_BINARY_ADD and value == first:
+                return False
+            count += 1
+    with open(drat, 'wb') as target:
+        target.write(data)
+    return True
+
+
+# The frozen baseline's checker amendment 2: CakeML's 4096 MiB default heap
+# exhausts on large certificates, so the reference runs cake_lpr with a
+# 24576 MiB heap (the pipeline's parameter, not the binary's).
+CAKE_LPR_ENVIRONMENT = {'CML_HEAP_SIZE': '24576'}
+
+
+def stage_environment(name):
+    """Extra environment for one pipeline stage, merged over os.environ."""
+    import os
+    environment = dict(os.environ)
+    if name == 'cake_lpr':
+        environment.update(CAKE_LPR_ENVIRONMENT)
+    return environment
+
+
+def drat_stages(drat_trim, cake_lpr, cnf, drat, lrat):
+    """The DRAT owner's pipeline, as the baselines and the fuzz harness run
+    it: drat-trim elaborates to LRAT, cake_lpr (under CAKE_LPR_ENVIRONMENT)
+    is the authority."""
+    return [('drat-trim', [drat_trim, cnf, drat, '-L', lrat]),
+            ('cake_lpr', [cake_lpr, cnf, lrat])]
+
+
+def certificate_route(proof) -> Literal['drat', 'dsr']:
+    """'drat' for a witness-free certificate, 'dsr' otherwise."""
+    return 'dsr' if dsr_proof_has_witness(proof) else 'drat'
+
+
 def reference_dsr_stages(dsr_trim, dsr_compress, srcheck, cnf, proof,
                          binary_lsr, text_lsr):
     """The (name, command) stages of the reference DSR pipeline, in order.
@@ -245,6 +392,38 @@ def dsr_compress_status(returncode, output) -> Literal['verified', 'error']:
     """dsr-compress converts a format; it is not an acceptance oracle."""
     return ('verified' if returncode == 0 and 'ERROR' not in output and
             'not supported' not in output else 'error')
+
+
+def check_routed(dsr_trim, dsr_compress, srcheck, drat_trim, cake_lpr, cnf,
+                 proof, workdir, timeout=None):
+    """Acceptance by content: (verified, failing stage, output, route)."""
+    import subprocess
+    route = certificate_route(proof)
+    if route == 'dsr':
+        verified, stage, output = check_dsr(
+            dsr_trim, dsr_compress, srcheck, cnf, proof, workdir, timeout)
+        return verified, stage, output, route
+    workdir = Path(workdir)
+    drat, lrat = workdir / 'proof.drat', workdir / 'proof.lrat'
+    for stale in (drat, lrat):
+        if stale.exists():
+            stale.unlink()
+    if not dsr_proof_as_drat(proof, drat):
+        return False, 'route', 'witnessed line met during rewrite', route
+    for name, command in drat_stages(drat_trim, cake_lpr, cnf, drat, lrat):
+        try:
+            done = subprocess.run([str(part) for part in command],
+                                  capture_output=True, text=True,
+                                  errors='replace', timeout=timeout,
+                                  env=stage_environment(name))
+        except subprocess.TimeoutExpired:
+            return False, name, 'timed out', route
+        if proof_check_status(name, done.returncode, done.stdout,
+                              done.stderr) != 'verified':
+            return False, name, done.stdout + '\n' + done.stderr, route
+        if name == 'drat-trim' and not (lrat.is_file() and lrat.stat().st_size):
+            return False, name, 'no LRAT produced', route
+    return True, None, '', route
 
 
 def check_dsr(dsr_trim, dsr_compress, srcheck, cnf, proof, workdir,
@@ -304,23 +483,33 @@ def _main(argv):
     import tempfile
     here = Path(__file__).resolve().parents[2] / 'tools/checkers/bin'
     parser = argparse.ArgumentParser(
-        description='Check a native-DSR certificate with the reference '
-                    'dsr-trim | dsr-compress -d | Trestle pipeline.')
-    parser.add_argument('command', choices=['check-dsr'])
+        description='check-dsr: the reference dsr-trim | dsr-compress -d | '
+                    'Trestle pipeline. check: acceptance routed by content '
+                    '(witness-free -> drat-trim | cake_lpr).')
+    parser.add_argument('command', choices=['check-dsr', 'check'])
     parser.add_argument('cnf')
     parser.add_argument('proof')
     parser.add_argument('--dsr-trim', default=str(here / 'dsr-trim'))
     parser.add_argument('--dsr-compress', default=str(here / 'dsr-compress'))
     parser.add_argument('--srcheck', default=str(here / 'srcheck'))
+    parser.add_argument('--drat-trim', default=str(here / 'drat-trim'))
+    parser.add_argument('--cake-lpr', default=str(here / 'cake_lpr'))
     parser.add_argument('--workdir', default=None)
     parser.add_argument('--every-lemma', action='store_true',
                         help='also elaborate forward, checking every line')
     args = parser.parse_args(argv)
     with tempfile.TemporaryDirectory() as temporary:
-        verified, stage, output = check_dsr(
-            args.dsr_trim, args.dsr_compress, args.srcheck, args.cnf,
-            args.proof, args.workdir or temporary,
-            every_lemma=args.every_lemma)
+        if args.command == 'check':
+            verified, stage, output, route = check_routed(
+                args.dsr_trim, args.dsr_compress, args.srcheck,
+                args.drat_trim, args.cake_lpr, args.cnf, args.proof,
+                args.workdir or temporary)
+            print(f'c route {route}')
+        else:
+            verified, stage, output = check_dsr(
+                args.dsr_trim, args.dsr_compress, args.srcheck, args.cnf,
+                args.proof, args.workdir or temporary,
+                every_lemma=args.every_lemma)
     if verified:
         print('s VERIFIED UNSAT')
         return 0
