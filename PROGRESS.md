@@ -22,7 +22,7 @@ authorities, and Claude-owned default/random-policy fuzzing.
 
 ## Current checkpoint
 
-Committed authority: `main` at `10cd18c9` (certificate routing) on top of the
+Solver/tooling authority: `10cd18c9` (certificate routing) on top of the
 AM333 solver source (`75487222`). The AM333 pin is the last gated binary:
 Release `0ec66e12...` (build job `1714363`, `build/am333-release-1714363`),
 checker pins unchanged (`dsr-trim 3b5c7737...`, `dsr-compress a44102ce...`,
@@ -87,28 +87,25 @@ learned clause in the checker's database.
 
 ## In flight
 
-Routed re-check of the never-verifying certificates,
-`benchmarks/runs/20260922-am334-certificate-routing`: `ncc` (job `1715197_1`)
-and the three Tseitin rows (jobs `1714785_2`, `1714785_3`, `1714785_4`; task
-`1714785_1` is the superseded first `oisc` pass) inside their own 16 h windows.
-They hold nothing else: record the verdict in the AM334 report's table when they
-end, expected not verified for Tseitin. `build/am333-release-1714363` is named
-by those jobs' scripts and is deleted once they finish.
+Routed re-check in `benchmarks/runs/20260922-am334-certificate-routing`:
+`ncc` (job `1715197_1`) remains running. The three Tseitin checks
+(`1714785_1`--`1714785_3`) ended NOT-VERIFIED after roughly 40 ks each;
+`1714785_4` was the superseded first ncc pass. Exact verdicts supplement the
+frozen AM334 report in `benchmarks/reports/2026-09-22-startup-certificate-proposal.md`.
+The active ncc script still needs `build/am333-release-1714363`; preserve it.
 
 ## Next steps
 
 1. **FmlaEquivChain / Tseitin certificate (chosen by the user, 2026-09-22).**
-   Draft a `revise-plan` proposal before any code: how a startup technique that
-   refutes alone (parity refutation, the leaf-count invariant) certifies under
-   N2. Options to put to the user: (a) a typed counting/parity rule whose
-   derivation is emitted as DSR (clausal, so the Tseitin proofs stay 8--33x the
-   owner's PB size and never check); (b) a second, technique-native certificate
-   format chosen at the moment the startup refutation closes and nothing has
-   been streamed yet, checked by a pinned reference checker (VeriPB for the
-   owner's PB proofs), with DSR remaining canonical for every search path. Read
-   the owner's detector and proof for `FmlaEquivChain_4_8_8`
-   (`winners/lymphosat-sc2026/green/lymphosat/src/solver/solvers/<family>/solver/README.md`)
-   and measure the owner's certificate size against ours before proposing. Approval, then implementation, then the four gates.
+   Review and obtain approval for the prepared `revise-plan` proposal,
+   `benchmarks/reports/2026-09-22-startup-certificate-proposal.md`, before any code.
+   Owner sources and retained certificate sizes/checks have been inspected;
+   recommendation: automatic startup PBP, checked by pinned VeriPB then CakePB,
+   with DSR for all search paths and strict explicit format modes. The proposal
+   compares this with retaining clausal DSR for every refutation and specifies
+   the original-input boundary, general structural recognition, N1/API scope,
+   format locking, failure behavior, and validation. After approval, update the
+   owning contracts, implement, run Claude-owned fuzzing, then the four gates.
 2. **First gate campaign on the routed runner.** Whatever candidate lands next
    is the end-to-end test of `runtime_task.py`'s DRAT route; its staging must
    copy `pins/drat-trim` and `pins/cake_lpr` from
