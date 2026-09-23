@@ -49,7 +49,7 @@ CNF, DSR, LSR and checker intermediates use anonymous scratch and disappear on e
 repository-pinned Trestle patch recognizes LSR addition/deletion markers 3/4 and signed varints, and rejects truncated or overflowing tokens before semantic checking.
 The streaming writer retains no checker-population ledger or proof-only kernel variables. Format selection cannot change formula mutation,
 guards, scheduling, or legal instances. The C API permits one writer before input/proof-id settlement; late or duplicate attachment
-returns `-1` because it would omit earlier proof-state transitions.
+returns `-1` because it would omit earlier proof-state transitions. Every publication flush checks both sticky stdio errors and the flush result; destructor closure also checks failure. CLI and C API UNSAT verdict paths flush before exposing the verdict, including status-only and online invocation. I/O failure aborts rather than returning UNSAT in any format.
 
 Pinned `dsr-trim` emits the hintless binary equivalent of `n+1 0 0` when the input CNF already contains an empty clause; Trestle correctly rejects it.
 The checker protocol repairs only that output with independently parsed input-empty hint `k` and still requires Trestle acceptance.
@@ -100,7 +100,7 @@ or checker tasks never count as acceptance.
 - D-LEVEL/D-SPLIT: Decide may run off-fixpoint, M3 is atomic, and every inprocessing apply drains root closure with native-LRAT unit
   identities.
 - D-CONG-LRAT/UNIT/INPUT-UNIT/DELETE/ARITY/TAUT: canonical ladders, degeneracies, deletion order, and the 1,000,000-input AND scope
-  are covered.
+  are covered. DSR/DRAT record the same transient ladder population as LRAT (literal multisets rather than IDs), including failed partial ladders, and retire it before later kernel-only SR validation. Otherwise a later witness can be valid for the live kernel yet fail against a leftover XOR/ITE lemma in the checker.
 - D-CONG-SKIP: a BIG bridge may cross a root-true intermediate by citing its proved unit id, so native LRAT no longer loses that
   legal path. The focused chain regression and native Congruence proofs pass; a nonzero `congruence_unjustified` remains an alarm
   for a different missing proof path.

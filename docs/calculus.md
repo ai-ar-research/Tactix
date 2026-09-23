@@ -360,7 +360,7 @@ root closure at apply entry. V1/V2 Probe/Backbone additionally require `!conflic
   that transition; the next enumeration reads persistent binary pairs/root values and exposes later layers, including literal-form
   refutations. Closure is repeat-to-fixpoint composition.
 - **Proof δ:** for outputs `a,b`, write `B→={¬a,b}` and `B←={a,¬b}`. Every path emits the supporting transient lemmas first, then
-  `add_rup(B→,h→) · add_rup(B←,h←)`, then deletes the transients newest first. Each new representative union publishes both
+  `add_rup(B→,h→) · add_rup(B←,h←)`, then deletes the transients newest first in every clausal format; an abandoned inference also retires its partial ladder. Each new representative union publishes both
   additions even if an identical binary is already live; the duplicate is RUP from that existing clause and has its own immutable
   proof identity. AND — each equivalence binary is RUP from the two gates’ clauses (bridged by the equivalence binaries added
   earlier in the closure; a root-true intermediate contributes its proved unit id). XOR — a parity-elimination **ladder**: eliminate

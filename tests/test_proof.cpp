@@ -512,13 +512,21 @@ void test_automatic_certificate_boundary() {
   assert(!strict.startup_pb_available() && !strict.begin_pb());
   std::remove(path.c_str());
   // A completed derivation is not a successful publication on a full device.
-  Proof failed_output;
-  assert(failed_output.open("/dev/full", ProofFormat::Automatic));
-  failed_output.finish_input_transaction();
-  FILE *full = failed_output.begin_pb();
-  assert(full);
-  std::fputs("pseudo-Boolean proof version 3.0\n", full);
-  assert(!failed_output.finish_pb());
+  const pid_t pb_child = fork();
+  assert(pb_child >= 0);
+  if (!pb_child) {
+    Proof failed_output;
+    assert(failed_output.open("/dev/full", ProofFormat::Automatic));
+    failed_output.finish_input_transaction();
+    FILE *full = failed_output.begin_pb();
+    assert(full);
+    std::fputs("pseudo-Boolean proof version 3.0\n", full);
+    assert(!failed_output.finish_pb());
+    _exit(0); // failure was reported; do not retry publication in the destructor
+  }
+  int pb_status = 0;
+  assert(waitpid(pb_child, &pb_status, 0) == pb_child);
+  assert(WIFEXITED(pb_status) && !WEXITSTATUS(pb_status));
   const pid_t child = fork();
   assert(child >= 0);
   if (!child) {
@@ -537,7 +545,34 @@ void test_automatic_certificate_boundary() {
   assert(WIFSIGNALED(status) && WTERMSIG(status) == SIGABRT);
 }
 
+static void test_all_formats_report_output_failure() {
+  for (auto format : {ProofFormat::DsrBinary, ProofFormat::DsrAscii,
+                      ProofFormat::DratBinary, ProofFormat::DratAscii,
+                      ProofFormat::Lrat, ProofFormat::Automatic})
+    for (bool explicit_flush : {false, true}) {
+      const pid_t child = fork();
+      assert(child >= 0);
+      if (!child) {
+        const struct rlimit no_core = {0, 0};
+        assert(setrlimit(RLIMIT_CORE, &no_core) == 0);
+        {
+          Proof failed;
+          assert(failed.open("/dev/full", format));
+          failed.finish_input_transaction();
+          failed.add_empty(1, nullptr, 0);
+          if (explicit_flush)
+            failed.flush();
+        }
+        _exit(0); // neither explicit nor destructor publication may succeed
+      }
+      int status = 0;
+      assert(waitpid(child, &status, 0) == child);
+      assert(WIFSIGNALED(status) && WTERMSIG(status) == SIGABRT);
+    }
+}
+
 int main() {
+  test_all_formats_report_output_failure();
   test_automatic_certificate_boundary();
   test_drat_binary_add();
   test_drat_binary_varint_boundary();

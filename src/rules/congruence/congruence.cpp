@@ -1415,7 +1415,8 @@ bool normalize_ite(Lit &cond, Lit &then_l, Lit &else_l); // defined below
 
 // A ladder lemma: RUP-checkable, cited by the level below it, dead once the
 // conclusion is in, and kept so the round can `del` it. LRAT deletes by id;
-// DRAT needs the literals.
+// DSR/DRAT need the literals. Proof-only clauses must not survive their use:
+// a later SR witness is validated against the live kernel, not these ladders.
 struct TransientLemma {
   uint64_t id;
   std::vector<Lit> lits;
@@ -1834,9 +1835,11 @@ bool add_xor_degeneracy_chain(Kernel &k, const std::vector<Lit> &cancelled,
         if (!normalize_proof_clause(lemma))
           return false;
         if (!lrat) {
-          if (k.proof)
+          if (k.proof) {
             k.proof->add_rup(0, lemma.data(),
                              static_cast<uint32_t>(lemma.size()), nullptr, 0);
+            transient.push_back({0, lemma});
+          }
           continue;
         }
         if (size == top) {
@@ -1907,9 +1910,11 @@ bool add_xor_matching_proof_chain(Kernel &k, const std::vector<Lit> &rhs, Lit a,
         if (!normalize_proof_clause(lemma))
           return false;
         if (!lrat) {
-          if (k.proof)
+          if (k.proof) {
             k.proof->add_rup(0, lemma.data(),
                              static_cast<uint32_t>(lemma.size()), nullptr, 0);
+            transient.push_back({0, lemma});
+          }
           continue;
         }
         if (size == top) {
@@ -2133,9 +2138,11 @@ bool add_ite_matching_proof_chain(Kernel &k, Lit cond, Lit a, Lit b,
     if (!normalize_proof_clause(lemma))
       return false;
     if (!lrat) {
-      if (k.proof)
+      if (k.proof) {
         k.proof->add_rup(0, lemma.data(),
                          static_cast<uint32_t>(lemma.size()), nullptr, 0);
+        transient.push_back({0, lemma});
+      }
       return true;
     }
     if (!congruence_rup_chain(k, lemma.data(),
@@ -3756,7 +3763,8 @@ ApplyResult congruence_apply(Kernel &k) {
       }
       if (!justified) {
         k.stats.congruence_unjustified++;
-        continue; // ladder did not replay — emit nothing, drop the inference
+        delete_transients(k, transient);
+        continue; // retire any partial ladder and drop the inference
       }
       const char *const degeneracy_site =
           gates[i].kind == GateKind::And
@@ -3897,7 +3905,8 @@ ApplyResult congruence_apply(Kernel &k) {
                                           transient);
       if (!ok) {
         k.stats.congruence_unjustified++;
-        continue; // no checkable chain — drop the inference, keep N2
+        delete_transients(k, transient);
+        continue; // no checkable chain — retire any partial ladder
       }
       const char *const matching_site =
           kind_i == GateKind::And ? "congruence-ite-to-and-matching-call"

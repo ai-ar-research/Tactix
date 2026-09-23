@@ -22,17 +22,20 @@ authorities, and Claude-owned default/random-policy fuzzing.
 
 ## Current checkpoint
 
-AM336 is an **ungated implementation checkpoint**, not a replacement for the
+AM337 is an **ungated repair checkpoint**, not a replacement for the
 AM333 authority below. Automatic startup PBP now has shared Lucky 19 (parity)
 and 20 (general signed count preservation); explicit clausal formats stay strict.
-Release `8aa84a97...`, Debug `dba05ba7...`, source `f0ad5a8e` + patch `6aa5af9a...`
-are frozen in `benchmarks/runs/20260923-am336-startup-count`. The Fmla diagnostic
-returned UNSAT in 3.322 s with a 388,840,230-byte PBP; checking remains pending.
+AM337 Release `40b0de22...`, Debug `52ee866b...`, source `26229c89` + patch
+`4f2a8b3b...` are frozen in `benchmarks/runs/20260923-am337-proof-lifetime-v2`.
+The AM336 Fmla diagnostic is now independently verified: UNSAT in 3.322 s,
+388,840,230-byte PBP, VeriPB + CakePB checking in 526.734 s.
 All three Tseitin diagnostics now pass VeriPB and CakePB on AM335 v1
-(`94cd4710...`); these are not combined-candidate gates. Claude's AM335 owner
-reports two pre-existing N2 failures with a bounded handoff: random-policy DSR
-rejection and text proof writers ignoring output failure. Both block promotion.
-Evidence: `benchmarks/reports/2026-09-23-am336-startup-count-checkpoint.md`.
+(`94cd4710...`); these are not combined-candidate gates. Both N2 failures from
+Claude's AM335 handoff have causal repairs and passing focused regressions:
+retire non-LRAT Congruence ladders before SR; detect all-format publication
+failure before CLI/API UNSAT. Combined Claude fuzz and four full gates remain
+due; no promotion. Evidence:
+`benchmarks/reports/2026-09-23-am337-proof-lifetime-checkpoint.md`.
 
 Solver/tooling authority: `10cd18c9` (certificate routing) on top of the
 AM333 solver source (`75487222`). The AM333 pin is the last gated binary:
@@ -70,7 +73,7 @@ repeat (AM331), Lucky 17 signed exact cover and Lucky 18 independent set
 
 | rows | disposition |
 |---|---|
-| `FmlaEquivChain_4_8_8` | AM336 shared count-preservation diagnostic solves in 3.322 s; independent PB checking pending, not gated |
+| `FmlaEquivChain_4_8_8` | AM336 shared count-preservation diagnostic independently verified (3.322 s solve, 526.734 s check); combined-candidate full gates due |
 | `tseitin_grid_n250_m250`, `tseitin_d3_n100000`, `tseitin_grid_n400_m400` | AM335 v1 startup PB diagnostics independently verified; combined-candidate full gates due |
 | `ncc_none_21015...` | solved; routed drat-trim timed out after 40,119.2 s; not verified |
 | `ramsey_4_4_19` | owner cut point + first-literal fix anchor solves it (290 s) but loses `ntil` SAT rows; kept declined by the user, typed for the learner (next section) |
@@ -113,13 +116,25 @@ internals. Its interim `REPORT.md` hands off `triage/reproducer/min.cnf` and
 `min.trace` (random seed 335110095; 17 variables/41 clauses), plus `/dev/full`
 text-writer failure. Other legs remain active. The old O0 Debug CTest still has
 the scripted-default demo running; its other tests pass after documented reruns.
-AM336 Fmla job `1715952` is active; full Debug-O1 CTest in `build/count-pb-dev`
-is running with immutable AM333 checker pins. Five focused tests pass, including
+AM336 Fmla job `1715952` ended verified; full Debug-O1 CTest in `build/count-pb-dev`
+still has its demo active (174/175 passed), with immutable AM333 checker pins.
+Five focused tests pass, including
 both-checker API/default proofs, SAT controls, strict declines, budget/interrupt
-and startup-boundary controls. A separate Claude owner is preparing focused
-count fuzz from `...-am336-startup-count/claude-fuzz-request.md`; monitor only
+and startup-boundary controls. A separate Claude owner submitted focused
+count fuzz jobs `1715955`--`1715968` from `...-am336-startup-count/claude-fuzz-request.md`; monitor only
 `...-am336-startup-count-claude-fuzz/OWNER_STATUS.md` and its report. It does not
 replace broad combined acceptance after repairs.
+
+AM337 combined Claude owner launched from
+`...-am337-proof-lifetime-v2/claude-fuzz-request.md` (PID `2484169`, log in that
+campaign's `logs/claude-owner.log`); read only
+`...-am337-proof-lifetime-claude-fuzz/OWNER_STATUS.md` and terminal `REPORT.md`.
+Six focused CTests pass, including the exact handoff in both DSR checker modes
+and all 30 C API output-failure controls. Full 178-entry Debug-O1 suite in
+`build/proof-repair-dev` has the demo active; 176 other entries passed and the
+initial API test fixture failed, then passed after correcting Probe closure in
+the fixture (no solver change). V2 refresh preserves corrected test provenance;
+V1 pins remain frozen, no jobs submitted from V1. All four full gates remain due.
 
 Routed re-check in `benchmarks/runs/20260922-am334-certificate-routing`:
 all checks ended; ncc and three Tseitin rows are NOT-VERIFIED after roughly
@@ -137,10 +152,11 @@ byte-identical solver pins remain in the AM333 gate campaigns.
    compares this with retaining clausal DSR for every refutation and specifies
    the original-input boundary, general structural recognition, N1/API scope,
    format locking, failure behavior, and validation. Plan §5 now owns the
-   approved contract. First repair the two N2 failures in Claude's bounded
-   AM335 handoff; preserve both active owner campaigns and immutable pins.
-   Finish Fmla's independent check and focused count fuzz, then have Claude
-   validate the repaired combined candidate and run all four routed gates.
+   approved contract. The four target diagnostics are independently verified;
+   AM337 repairs both bounded AM335 failures with focused regressions. Preserve
+   all active Claude owners and immutable pins. Consume their terminal reports,
+   debug any bounded handoff, and complete the repaired combined candidate's
+   fuzz acceptance and all four routed gates before promotion.
 2. **First gate campaign on the routed runner.** Whatever candidate lands next
    is the end-to-end test of `runtime_task.py`'s DRAT route; its staging must
    copy `pins/drat-trim` and `pins/cake_lpr` from

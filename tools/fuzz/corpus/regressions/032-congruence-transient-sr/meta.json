@@ -1,0 +1,10 @@
+{
+  "seed": 335110095,
+  "failure": "proof",
+  "solver_args": ["--random-policy=335110095"],
+  "solver_env": {},
+  "found_by": "Claude-owned AM335 v2 XOR random-policy focused fuzz; bounded handoff in benchmarks/runs/20260923-am335-startup-parity-claude-fuzz/REPORT.md",
+  "oracle": "Pinned dsr-trim 3b5c7737 rejects the later SR extension against a proof-only XOR ladder clause. Owner reproduces on AM333 and AM335; default startup PB is not involved.",
+  "diagnosis": "Congruence registers transient XOR/ITE ladders for deletion only in its LRAT branches. DSR/DRAT retain those clauses after the kernel moves on, so a later SR witness validated against the kernel does not repair every checker-visible clause.",
+  "fix": "Register each emitted ladder clause for exact newest-first retirement in all clausal formats, including partial-ladder failure paths. No formula, guard, schedule or proofless trajectory change."
+}

@@ -80,13 +80,9 @@ DsrWitnessPlan plan_dsr_witness(const Lit *lits, uint32_t size,
 }
 
 Proof::~Proof() {
-  if (automatic_pending_)
-    commit_dsr();
-  if (file_) {
-    flush_binary();
-    fflush(file_);
-    fclose(file_);
-  }
+  flush();
+  if (file_ && std::fclose(file_))
+    std::abort();
 }
 
 bool Proof::open(const char *path, ProofFormat format) {
@@ -613,7 +609,10 @@ void Proof::flush() {
     commit_dsr();
   if (file_) {
     flush_binary();
-    fflush(file_);
+    // Text serializers use stdio buffering. Both a previous short write and
+    // this publication flush must succeed before a caller may report UNSAT.
+    if (std::ferror(file_) || std::fflush(file_))
+      std::abort();
   }
 }
 

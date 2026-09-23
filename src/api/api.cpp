@@ -1180,6 +1180,8 @@ int tactix_solve(tactix_solver *s) {
   external_state_change(s);
   if (r == 10)
     prepare_external_model(s, /*materialize=*/true);
+  if (r == 20)
+    s->proof.flush();
   return r;
 }
 
@@ -1238,6 +1240,7 @@ static int result_code(tactix_solver *solver, ApplyResult res) {
     prepare_external_model(solver);
     return 10;
   case ApplyResult::Unsat:
+    solver->proof.flush();
     return 20;
   }
   return 1;
@@ -1411,6 +1414,8 @@ int tactix_online_advance(tactix_solver *s, tactix_online_result *result) {
   if (advanced.status == strategy::InvocationStatus::Sat) {
     prepare_external_model(s);
   }
+  if (advanced.status == strategy::InvocationStatus::Unsat)
+    s->proof.flush();
   online_result(advanced, *result);
   return 0;
 }
@@ -1636,8 +1641,10 @@ int tactix_status(tactix_solver *s) {
   // Also a verdict-reporting path: a caller that adds a contradictory input and
   // then only asks the status must still get the refutation written.
   input_complete(s);
-  if (s->kernel.inconsistent)
+  if (s->kernel.inconsistent) {
+    s->proof.flush();
     return 20;
+  }
   // SAT requires every active variable assigned at a propagation fixpoint,
   // with no conflict in flight. Retired, unassigned identities occur in no
   // live clause and kernel_extend_model supplies their external values. A

@@ -322,6 +322,10 @@ add_test(NAME count_preservation_check
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_count_preservation_check.py
                  $<TARGET_FILE:test_count_preservation> $<TARGET_FILE:tactix>)
+add_test(NAME congruence_sr_check
+         COMMAND ${CMAKE_COMMAND} -E env python3
+                 ${CMAKE_CURRENT_SOURCE_DIR}/test_congruence_sr_check.py
+                 $<TARGET_FILE:tactix>)
 
 add_executable(test_factor test_factor.cpp)
 target_link_libraries(test_factor PRIVATE tactix_lib)
