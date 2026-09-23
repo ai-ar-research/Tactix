@@ -219,15 +219,21 @@ learned clause in the checker's database.
 
 ## Exact next action
 
-Certificate routing (awaiting the user's `revise-plan` approval; evidence in
-`benchmarks/runs/20260922-oisc-drat-routing-probe` and memory): a witness-free binary DSR
-becomes binary DRAT by rewriting its line tags 0x01/0x02 to `a`/`d`; drat-trim + cake_lpr
-verify it (exact on `sgen1-unsat`), and drat-trim verifies `oisc` in 7,003 s, inside Kissat's
-own DRAT-check range. Job `1714724` measures the Tseitin row and `oisc` end to end. On
-approval: routing in `tools/bench/proof_oracle.py` (witness-free -> DRAT owner pipeline,
-witnessed -> Satsuma+Kissat DSR pipeline) with a unit test, the N2 acceptance sentence, and a
-re-verification of the five certificates. Remaining WV2-89 rows are dispositioned above; the
-only technique candidate left is a counting-invariant certificate for `FmlaEquivChain`.
+Certificate routing, APPROVED and implemented (uncommitted): `tools/bench/proof_oracle.py`
+routes acceptance by content (`certificate_route`, `dsr_proof_as_drat`, `check_routed`,
+CLI `check`); the gate runner follows it and its pin contract now needs `drat-trim` and
+`cake_lpr` (staging template copies the frozen baseline pins); DEVELOPMENT_PLAN R1/§5 and
+`docs/implementation-notes.md` carry the rule; unit tests in
+`tests/test_fuzz_proof_oracles.py` and `tools/bench/test_runtime_task.py` pass. Job
+`1714785` (`benchmarks/runs/20260922-am334-certificate-routing`) re-checks the five
+never-verifying certificates through the new route with the frozen checkers (up to 16 h).
+First finding: `oisc` passes drat-trim (7,253 s) but cake_lpr died under CakeML's default
+heap (job `1715196`: `CakeML heap space exhausted`, exit 1 in 19 s; with an enlarged heap
+`s VERIFIED UNSAT` in 55 s on the 1.64 GB LRAT); the route now carries the baseline's checker
+amendment (`CML_HEAP_SIZE=24576`), job `1715197` confirms it on `oisc` and `ncc`. `tseitin_grid_n250_m250` did not finish drat-trim in 30,000 s even as
+DRAT: the Tseitin rows are a proof-size problem (parity-native certificate), not a route problem.
+Then: report, stage explicit paths, ask to commit; the next gate campaign is the
+end-to-end test of the runner's route.
 
 ## Recent changes
 

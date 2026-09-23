@@ -48,10 +48,9 @@ native DSR → `dsr-trim` → LSR → Trestle path.
 
 ## 1. Goal and requirements
 
-- **R1:** emit one native DSR certificate for every UNSAT execution, elaborate
-  it forwards to LSR with pinned `dsr-trim`, and verify it with pinned Trestle;
-  reconstruct and validate models for SAT. Retain DRAT and native LRAT as
-  explicit compatibility outputs for the pre-existing proof vocabulary.
+- **R1:** emit one native DSR certificate for every UNSAT execution and check
+  it with the pipeline its content selects; reconstruct and validate models
+  for SAT. Retain DRAT and native LRAT as explicit compatibility outputs.
 - **R2:** implement competition DIMACS I/O, result lines, exit codes, proof-file
   handling, resource limits, and signal behavior.
 - **R3:** expose every applicable proof rule and legal instance through a public
@@ -179,8 +178,9 @@ The proof backend receives typed logical events. Its canonical serializer emits
 one streaming DSR certificate: ordinary RUP/RAT additions are witnessless DSR
 additions, deletions are DSR deletions, and substitution-redundancy additions
 carry their finite substitution witness directly. Binary DSR is the normal CLI
-output; ASCII DSR, DRAT and native LRAT remain explicit modes. Acceptance is the
-exact Satsuma+Kissat DSR pipeline; fuzzing also checks every line forward.
+output; ASCII DSR, DRAT and native LRAT remain explicit modes. Acceptance routes
+by content: a witnessed line selects the exact Satsuma+Kissat DSR pipeline; a
+witness-free one is DRAT and takes `drat-trim`, `cake_lpr`. Fuzzing checks every line.
 Format choice may not alter admission, scheduling, or state effects within the
 vocabulary a format supports. A direct-SR action in a DRAT/LRAT compatibility
 run reports `unsupported` before mutation; compatibility formats do not narrow
