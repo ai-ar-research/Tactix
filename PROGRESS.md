@@ -33,7 +33,7 @@ All three Tseitin diagnostics now pass VeriPB and CakePB on AM335 v1
 (`94cd4710...`); these are not combined-candidate gates. Both N2 failures from
 Claude's AM335 handoff have causal repairs and passing focused regressions:
 retire non-LRAT Congruence ladders before SR; detect all-format publication
-failure before CLI/API UNSAT. Combined Claude fuzz is quota-blocked; four full gates
+failure before CLI/API UNSAT. Combined Claude fuzz has resumed on Opus; four full gates
 are now in flight (`1715989`--`1715992`); no promotion. Repair evidence:
 `benchmarks/reports/2026-09-23-am337-proof-lifetime-checkpoint.md`.
 
@@ -45,21 +45,25 @@ elaborators still read the original file. Fixed positive/negative checks and
 the harness self-test pass. Frozen tooling: `...-am338-checker-spelling`, patch
 `95497870...`, archive `6bc6d112...`. Evidence:
 `benchmarks/reports/2026-09-23-am338-checker-spelling-checkpoint.md`.
-Claude Code's Fable quota is exhausted: all four owner processes exited 1,
-including the new AM338 owner before preparation. Existing SLURM jobs continue;
-combined AM337 and focused AM338 fuzz ownership/reporting need quota restoration
-or a user-selected available Claude model. No promotion and no waiver.
+Claude Code's Fable quota exhausted the earlier owners, including AM338 before
+preparation. The user requested non-Fable operation: explicit `--model opus`
+now resolves to `claude-opus-5-5` and works. Opus owners recover AM335/AM336 and
+prepare combined AM339 (including AM337 repairs and AM338 tooling). Preserve
+existing jobs and completed unchanged legs; no promotion and no waiver.
 
 AM339 is an **unaccepted parser repair checkpoint**, atop AM338. The temporary
 binary-liveness bitmap now falls back before advisory-header variable growth;
 late/repeated headers preserve the live-pair population and scoped owner.
 Parser tolerance and every rule/API boundary are unchanged. Debug/Release fixed
-regressions pass; combined Claude invocation again exited 1 at the Fable limit.
+regressions pass; the failed Fable invocation is replaced by an Opus owner.
 New immutable authority/request: `benchmarks/runs/20260923-am339-parser-liveness`
 (Release `cbe99910...`, Debug `c0320acb...`, patch `8a7e7101...`). Fresh Debug
-CTest has **177/178 passed**, only the demo active in `build/parser-liveness-dev`
-(CTest PID `2944685`, demo `2946772`); acceptance and successor gates remain due. Evidence:
+CTest ended **178/178 passed** in `build/parser-liveness-dev` (demo 3,165.24 s);
+fuzz acceptance and successor gates remain due. Evidence:
 `benchmarks/reports/2026-09-23-am339-parser-liveness-checkpoint.md`.
+Opus recovery requests/logs are in the AM339 authority directory; the combined
+owner has published PREPARING in `...-am339-parser-liveness-claude-fuzz/OWNER_STATUS.md`.
+All task-owned Claude invocations must explicitly select Opus, never Fable.
 
 Solver/tooling authority: `10cd18c9` (certificate routing) on top of the
 AM333 solver source (`75487222`). The AM333 pin is the last gated binary:
@@ -167,8 +171,8 @@ and all 30 C API output-failure controls. Full 178-entry Debug-O1 suite in
 `build/proof-repair-dev` ended: 177 passed, including the demo (3,367.30 s), and
 the initial API fixture failed. That fixture separately passed after correcting
 Probe closure (no solver change). V2 preserves corrected test provenance;
-V1 pins remain frozen, no jobs submitted from V1. AM339's fresh full suite uses
-the corrected fixture and immutable checker pins; do not rebuild its live tree.
+V1 pins remain frozen, no jobs submitted from V1. AM339's fresh full suite used
+the corrected fixture and immutable checker pins and has now passed all 178 tests.
 
 AM337 full routed gates `...-am337-proof-lifetime-{rank1-50,b28c5,wv100,wv2-89}`:
 jobs `1715989`, `1715990`, `1715991`, `1715992` respectively, 272 tasks total.
@@ -203,8 +207,8 @@ byte-identical solver pins remain in the AM333 gate campaigns.
    debug any bounded handoff, and complete the repaired combined candidate's
    fuzz acceptance and all four routed gates before promotion. A newly established
    solver defect stops dependent work; preserve exact failures and pins.
-   Restore Claude-owned execution/reporting after the reported Fable usage limit
-   (user direction requested). AM339's immutable `claude-fuzz-request.md` covers
+   Continue Claude-owned execution/reporting with explicit Opus (user requested
+   no Fable). AM339's immutable `claude-fuzz-request.md` covers
    the new combined candidate, AM338 tooling and the parser repair. Earlier
    campaigns must be resumed by their owner without repeating passing unchanged
    legs; no old gate is silently transferred to the new pin.
