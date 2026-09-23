@@ -477,7 +477,7 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
             if not check([CAKE_LPR, checker_cnf, proof]):
                 out.fail("proof", "cake_lpr did not verify the native LRAT")
         elif os.path.exists(proof) and explicit_drat:
-            if not check([DRAT_TRIM, cnf_path, proof]):
+            if not check([DRAT_TRIM, checker_cnf, proof]):
                 out.fail("proof", "drat-trim did not verify")
             elif lrat:
                 # On some degenerate-but-legal CNFs drat-trim and lrat-check
@@ -490,7 +490,7 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
                 else:
                     lrat_file = os.path.join(workdir, "proof.lrat")
                     out.proof_artifacts.append(lrat_file)
-                    if not check([DRAT_TRIM, cnf_path, proof, "-L", lrat_file]):
+                    if not check([DRAT_TRIM, checker_cnf, proof, "-L", lrat_file]):
                         out.fail("proof", "drat-trim -L (LRAT emission) failed")
                     else:
                         if not check([CAKE_LPR, checker_cnf, lrat_file]):

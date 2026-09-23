@@ -22,8 +22,9 @@ def canonical_checker_cnf(original, destination):
 
     No clause/literal/order/multiplicity changes are permitted. The only header
     change is 0 -> 1 variables: an unused identity, needed by pinned Trestle.
-    Elaboration still uses the original file. Reject malformed input rather
-    than silently repairing it into a different formula.
+    DRAT elaboration also needs this spelling: its reader interprets leading
+    zeros as octal and mishandles CNF comments with binary proofs. Reject
+    malformed input rather than silently repairing it into a different formula.
     """
     import hashlib
     if Path(destination).exists() and Path(original).samefile(destination):
@@ -419,7 +420,7 @@ def drat_stages(drat_trim, cake_lpr, cnf, drat, lrat, *, checker_cnf=None):
     """The DRAT owner's pipeline, as the baselines and the fuzz harness run
     it: drat-trim elaborates to LRAT, cake_lpr (under CAKE_LPR_ENVIRONMENT)
     is the authority."""
-    return [('drat-trim', [drat_trim, cnf, drat, '-L', lrat]),
+    return [('drat-trim', [drat_trim, checker_cnf or cnf, drat, '-L', lrat]),
             ('cake_lpr', [cake_lpr, checker_cnf or cnf, lrat])]
 
 
