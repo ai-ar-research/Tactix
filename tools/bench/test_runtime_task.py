@@ -91,6 +91,37 @@ class RuntimeTaskTests(unittest.TestCase):
                 (campaign/'pins'/n).write_text('x'); manifest['pin_sha256']['pins/' + n] = 'h'
             validate_runtime_pin_contract(campaign, manifest)
 
+            manifest['arms']['a']['certificate'] = 'auto'
+            with self.assertRaises(RuntimeError):
+                validate_runtime_pin_contract(campaign, manifest)
+            for name in ('veripb', 'cake-pb-cnf'):
+                (campaign/'pins'/name).write_text('x')
+                manifest['pin_sha256']['pins/' + name] = 'h'
+            validate_runtime_pin_contract(campaign, manifest)
+
+    def test_automatic_pb_route_requires_original_cnf_and_complete_pipeline(self):
+        from unittest.mock import patch
+        from runtime_task import check_unsat_proof
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            proof = work/'proof.out'
+            proof.write_text('pseudo-Boolean proof version 3.0\n')
+            cnf = work/'original.cnf'
+            calls = []
+            def stage(scratch, name, command, timeout, produced=None):
+                calls.append((name, command, produced))
+                return dict(name=name, result='verified', exit_code=0,
+                            timed_out=False, output_tail='s VERIFIED UNSAT')
+            with patch('runtime_task.proof_stage', side_effect=stage):
+                result = check_unsat_proof(work, 'auto', cnf, proof, work, 10)
+            self.assertEqual(result['result'], 'verified')
+            self.assertEqual(result['pipeline'], 'veripb-cake-pb')
+            self.assertEqual([c[0] for c in calls], ['veripb', 'cake-pb-cnf'])
+            self.assertEqual(calls[0][1][-2:], [cnf, proof])
+            self.assertEqual(calls[1][1][1:], [cnf, work/'proof.kernel.pbp'])
+            with self.assertRaisesRegex(RuntimeError, 'explicit DSR'):
+                check_unsat_proof(work, 'dsr', cnf, proof, work, 10)
+
     def test_manifest_timeouts_are_enforced(self):
         manifest = {'resource_contract': {'solve_timeout': 300,
                                           'checker_timeout': 16000}}
@@ -107,6 +138,24 @@ class RuntimeTaskTests(unittest.TestCase):
             manifest['resource_contract']['solve_timeout'] = value
             with self.assertRaises(RuntimeError):
                 positive_timeout(manifest, 'solve_timeout')
+
+    def test_pb_on_anonymous_scratch(self):
+        from anonymous_scratch import AnonymousScratch
+        from runtime_task import check_unsat_proof
+        root = Path(__file__).resolve().parents[2]
+        campaign = root/'benchmarks/baselines/sc24-26-32g-5000s'
+        scratch = AnonymousScratch()
+        try:
+            cnf, proof = scratch/'input.cnf', scratch/'proof.out'
+            cnf.write_text('p cnf 1 2\n1 0\n-1 0\n')
+            proof.write_text('pseudo-Boolean proof version 3.0\nrup >= 1 ;\n'
+                             'output NONE ;\nconclusion UNSAT : -1 ;\n'
+                             'end pseudo-Boolean proof ;\n')
+            (scratch/'proof.kernel.pbp').write_text('stale kernel must not survive')
+            checked = check_unsat_proof(campaign, 'auto', cnf, proof, scratch, 60)
+            self.assertEqual(checked['result'], 'verified', checked)
+        finally:
+            scratch.close()
 
     def test_solver_command_supports_validated_trailing_arguments(self):
         arm = {'arguments': ['--before'],

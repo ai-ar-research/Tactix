@@ -11,5 +11,7 @@ namespace tactix {
 // resource/proof-format decline.
 ApplyResult parity_refutation_apply(
     Kernel &, const strategy::ParityModelParameters &);
+RuleEligibility startup_parity_guard(const Kernel &);
+ApplyResult startup_parity_apply(Kernel &);
 
 } // namespace tactix

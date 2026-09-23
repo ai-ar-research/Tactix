@@ -13,31 +13,107 @@ import fuzz
 
 
 class FuzzProofOracles(unittest.TestCase):
+    def test_startup_pb_requires_both_pinned_checkers(self):
+        from proof_oracle import (certificate_route, check_routed,
+                                  proof_check_status, pb_stages,
+                                  stage_environment)
+        pins = ROOT/'benchmarks/baselines/sc24-26-32g-5000s/pins'
+        self.assertTrue((pins/'veripb').is_file())
+        self.assertTrue((pins/'cake-pb-cnf').is_file())
+        self.assertEqual(stage_environment('cake-pb-cnf')['CML_HEAP_SIZE'],
+                         '24576')
+        self.assertEqual(pb_stages('vp', 'cp', 'cnf', 'pbp', 'kernel'),
+                         [('veripb', ['vp', '-u', '--cnf', '--elaborate',
+                                      'kernel', 'cnf', 'pbp']),
+                          ('cake-pb-cnf', ['cp', 'cnf', 'kernel'])])
+        for checker, token in [('veripb', 's VERIFIED UNSATISFIABLE'),
+                               ('cake-pb-cnf', 's VERIFIED UNSAT')]:
+            self.assertEqual(proof_check_status(checker, 0, token, ''), 'verified')
+            for rc, output in [(1, token), (0, 'VERIFIED'),
+                               (0, token + '\ns INVALID')]:
+                self.assertNotEqual(proof_check_status(checker, rc, output, ''),
+                                    'verified')
+        with tempfile.TemporaryDirectory(prefix='pb-oracle-fixed-') as directory:
+            work = Path(directory)
+            cnf, proof = work/'i.cnf', work/'not-an-extension.pbp'
+            cnf.write_text('p cnf 1 2\n1 0\n-1 0\n')
+            text = ('pseudo-Boolean proof version 3.0\n'
+                    'rup >= 1 ;\noutput NONE ;\n'
+                    'conclusion UNSAT : -1 ;\nend pseudo-Boolean proof ;\n')
+            proof.write_text(text)
+            self.assertEqual(certificate_route(proof), 'pbp')
+            def check(**kwargs):
+                return check_routed(None, None, None, None, None,
+                                    cnf, proof, work, timeout=60, **kwargs)
+            self.assertFalse(check()[0], 'missing PB pins must fail closed')
+            accepted = check(veripb=pins/'veripb', cake_pb=pins/'cake-pb-cnf')
+            self.assertTrue(accepted[0], accepted)
+            # Success-looking elaboration is insufficient if CakePB rejects.
+            actual = __import__('subprocess').run
+            def reject_kernel(command, **kwargs):
+                if str(command[0]) == str(pins/'cake-pb-cnf'):
+                    return __import__('subprocess').CompletedProcess(
+                        command, 1, 's VERIFIED UNSAT\n', 'bad kernel')
+                return actual(command, **kwargs)
+            with patch('subprocess.run', side_effect=reject_kernel):
+                rejected = check(veripb=pins/'veripb', cake_pb=pins/'cake-pb-cnf')
+            self.assertFalse(rejected[0])
+            self.assertEqual(rejected[1], 'cake-pb-cnf')
+            # Original-CNF soundness, truncated proof, and a bad unused lemma.
+            cnf.write_text('p cnf 1 1\n1 0\n')
+            self.assertFalse(check(veripb=pins/'veripb',
+                                   cake_pb=pins/'cake-pb-cnf')[0])
+            proof.write_text(text.split('conclusion')[0])
+            self.assertFalse(check(veripb=pins/'veripb',
+                                   cake_pb=pins/'cake-pb-cnf')[0])
+            cnf.write_text('p cnf 3 4\n1 2 0\n1 -2 0\n-1 2 0\n-1 -2 0\n')
+            proof.write_text(text.replace('rup >= 1 ;',
+                                          'rup 1 x3 >= 1 ;\nrup >= 1 ;'))
+            self.assertFalse(check(veripb=pins/'veripb',
+                                   cake_pb=pins/'cake-pb-cnf')[0])
+
     def fixture(self, cnf_text, proof_text, lrat=True, checker_response=None,
-                convert=False, dsr=False):
+                convert=False, dsr=False, auto=False):
         with tempfile.TemporaryDirectory(prefix='fuzz-oracle-fixed-') as directory:
             work = Path(directory); cnf = work/'input.cnf'; cnf.write_text(cnf_text)
             actual = fuzz.run_cmd
-            def run(command, timeout):
+            def run(command, timeout, **kwargs):
                 if command[0] == 'fixed-proof-emitter':
                     Path(command[-1]).write_text(proof_text)
                     return 20, 's UNSATISFIABLE\n', ''
                 if checker_response is not None: return checker_response
-                return actual(command, timeout)
+                return actual(command, timeout, **kwargs)
             solver = ['fixed-proof-emitter'] + (
-                ['--dsr', '--no-binary'] if dsr else
+                ['--auto-proof'] if auto else ['--dsr', '--no-binary'] if dsr else
                 (['--lrat'] if lrat else ['--drat']))
             with patch.object(fuzz, 'run_cmd', side_effect=run):
                 result = fuzz.run_case(str(cnf), solver, None, 10, convert, str(work))
-            self.assertTrue(result.checker_runs)
+            self.assertTrue(result.checker_runs or
+                            any('explicit clausal' in detail for _, detail in result.failures))
             if result.failures:
                 bundle = Path(fuzz.save_bundle(str(work/'failures'), 0, 0, 'fixed-checker-control',
                                               str(cnf), result, solver, None, 10, convert, False))
-                proof_name = ('proof.dsr' if dsr else
+                proof_name = ('proof.dsr' if dsr or auto else
                               ('proof.lrat' if lrat else 'proof.drat'))
                 self.assertEqual((bundle/proof_name).read_text(), proof_text)
                 self.assertEqual(json.loads((bundle/'meta.json').read_text())['checker_runs'], result.checker_runs)
             return result
+
+    def test_fuzz_automatic_pb_and_strict_formats(self):
+        proof = ('pseudo-Boolean proof version 3.0\nrup >= 1 ;\n'
+                 'output NONE ;\nconclusion UNSAT : -1 ;\n'
+                 'end pseudo-Boolean proof ;\n')
+        cnf = 'p cnf 1 2\n1 0\n-1 0\n'
+        accepted = self.fixture(cnf, proof, auto=True)
+        self.assertFalse(accepted.failures, accepted.failures)
+        self.assertEqual([Path(run['command'][0]).name for run in accepted.checker_runs],
+                         ['veripb', 'cake-pb-cnf'])
+        for options in ({'dsr': True}, {'lrat': True}, {'lrat': False}):
+            rejected = self.fixture(cnf, proof, **options)
+            self.assertTrue(rejected.failures)
+            self.assertFalse(rejected.checker_runs)
+        self.assertTrue(self.fixture('p cnf 1 1\n1 0\n', proof, auto=True).failures)
+        self.assertTrue(self.fixture(cnf, proof.split('conclusion')[0], auto=True).failures)
 
     def test_native_nonconflicting_empty_lemma_rejected(self):
         r = self.fixture('p cnf 1 1\n1 0\n', '2 0 1 0\n')

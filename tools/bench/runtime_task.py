@@ -20,7 +20,7 @@ import time
 from proof_oracle import (bridge_trivial_input_binary_lsr,
                           bridge_trivial_input_lsr, dsr_compress_status,
                           proof_check_status, reference_dsr_stages,
-                          certificate_route, drat_stages,
+                          certificate_route, drat_stages, pb_stages,
                           dsr_proof_as_drat, stage_environment)
 
 
@@ -226,10 +226,12 @@ def validate_runtime_pin_contract(campaign, manifest):
         certificate = arm.get("certificate", "drat")
         if certificate == "drat":
             required.add("pins/drat-trim")
-        elif certificate == "dsr":
+        elif certificate in ("dsr", "auto"):
             required.update({"pins/dsr-trim", "pins/dsr-compress",
                              "pins/srcheck", "pins/drat-trim",
                              "pins/cake_lpr"})
+            if certificate == "auto":
+                required.update({"pins/veripb", "pins/cake-pb-cnf"})
         else:
             raise RuntimeError(f"unsupported proof certificate: {certificate}")
     if manifest.get("scratch_policy") == "anonymous-local-files-v1":
@@ -251,7 +253,7 @@ def proof_stage(scratch, name, command, timeout, produced=None):
                       environment=stage_environment(name))
     output = "\n".join(tail(stdout, 100) + tail(stderr, 100))
     if name not in ("drat-trim", "dsr-trim", "dsr-compress", "srcheck",
-                    "cake_lpr"):
+                    "cake_lpr", "veripb", "cake-pb-cnf"):
         raise RuntimeError(f"unsupported proof stage: {name}")
     if name == "dsr-compress":
         status = dsr_compress_status(result["exit_code"], output)
@@ -275,12 +277,31 @@ def check_unsat_proof(campaign, certificate, cnf, proof, scratch, timeout):
     def remaining():
         return max(1, timeout - int(time.monotonic() - started))
 
+    route = certificate_route(proof) if certificate in ("dsr", "auto") else None
+    if certificate == "dsr" and route == "pbp":
+        raise RuntimeError("explicit DSR arm emitted a PBP certificate")
     if certificate == "drat":
         stages.append(proof_stage(
             scratch, "drat-trim",
             [campaign / "pins/drat-trim", cnf, proof], remaining()))
         pipeline = "drat-trim"
-    elif certificate == "dsr" and certificate_route(proof) == "drat":
+    elif certificate == "auto" and route == "pbp":
+        kernel = scratch / "proof.kernel.pbp"
+        if kernel.exists():
+            # AnonymousScratch returns an already-open /proc/PID/fd/N path:
+            # it can be truncated but has no unlinkable directory entry.
+            # Clear stale elaboration in both scratch implementations.
+            with kernel.open("wb"):
+                pass
+        for name, command in pb_stages(
+                campaign / "pins/veripb", campaign / "pins/cake-pb-cnf",
+                cnf, proof, kernel):
+            made = kernel if name == "veripb" else None
+            stages.append(proof_stage(scratch, name, command, remaining(), made))
+            if stages[-1]["result"] != "verified":
+                break
+        pipeline = "veripb-cake-pb"
+    elif certificate in ("dsr", "auto") and route == "drat":
         # proof_oracle owns the routing: a witness-free certificate is a DRAT
         # proof and takes the DRAT owner's pipeline after the tag rewrite.
         drat, lrat = scratch / "proof.drat", scratch / "proof.lrat"
@@ -295,7 +316,7 @@ def check_unsat_proof(campaign, certificate, cnf, proof, scratch, timeout):
             if stages[-1]["result"] != "verified":
                 break
         pipeline = "witness-free-dsr-as-drat:drat-trim-cake_lpr"
-    elif certificate == "dsr":
+    elif certificate in ("dsr", "auto"):
         # proof_oracle.reference_dsr_stages owns the pipeline definition.
         binary_lsr = scratch / "proof.binary.lsr"
         text_lsr = scratch / "proof.lsr"
@@ -384,7 +405,8 @@ def main():
         scratch = Path(tempfile.mkdtemp(prefix=f"tactix-runtime-{task:03d}-",
                                        dir=scratch_root))
     cnf = scratch / "input.cnf"
-    proof = scratch / ("proof.dsr" if certificate == "dsr" else "proof.drat")
+    proof = scratch / ("proof.out" if certificate == "auto" else
+                       "proof.dsr" if certificate == "dsr" else "proof.drat")
     stdout = scratch / "solver.stdout"
     stderr = scratch / "solver.stderr"
     result = None

@@ -7,6 +7,7 @@
 #include <bit>
 #include <cassert>
 #include <cstdint>
+#include <cstdarg>
 #include <cstdlib>
 #include <limits>
 #include <unordered_map>
@@ -610,7 +611,165 @@ bool generate(Kernel &k, const std::vector<Equation> &equations,
   return ok;
 }
 
+// Threshold carry definitions represent floor(sum(x)/2). Unlike a clausal
+// running parity tree, both bounds can be summed and rounded in PB directly.
+// Local case splits have at most 2^arity leaves and cite no generator numbering.
+class PbParityCertificate {
+  Kernel &k_;
+  FILE *out_;
+  uint64_t initial_, id_, limit_;
+  uint32_t fresh_;
+
+  void text(const char *format, ...) {
+    if (!out_)
+      return;
+    va_list args;
+    va_start(args, format);
+    std::vfprintf(out_, format, args);
+    va_end(args);
+  }
+  void term(unsigned coefficient, int32_t literal) {
+    text("%u %sx%u ", coefficient, literal < 0 ? "~" : "",
+         static_cast<unsigned>(literal < 0 ? -literal : literal));
+  }
+  void block_assignments(const Equation &row, unsigned depth, unsigned mask) {
+    // A complete XOR encoding propagates its last variable after n-1 are
+    // fixed. The threshold definitions then force every carry, so the
+    // negated bound conflicts without splitting that final variable.
+    if (depth + 1 < row.size) {
+      block_assignments(row, depth + 1, mask);
+      block_assignments(row, depth + 1, mask | (1u << depth));
+    }
+    text("rup ");
+    for (unsigned j = 0; j < depth; ++j)
+      term(1, mask & (1u << j) ? -row.variables[j] : row.variables[j]);
+    text(">= 1 ;\n");
+    ++id_;
+  }
+  uint64_t bound(const Equation &row, const std::vector<int32_t> &carries,
+                 bool lower) {
+    text("pbc ");
+    for (unsigned j = 0; j < row.size; ++j)
+      term(1, lower ? row.variables[j] : -row.variables[j]);
+    for (const int32_t carry : carries)
+      term(2, lower ? -carry : carry);
+    const unsigned rhs = lower ? unsigned(row.rhs) + 2 * carries.size()
+                               : row.size - unsigned(row.rhs);
+    text(">= %u : subproof\n", rhs);
+    ++id_; // negated bound, local to the subproof
+    block_assignments(row, 0, 0);
+    text("qed pbc : -1 ;\n");
+    return ++id_;
+  }
+  uint64_t sum_and_round(const std::vector<uint64_t> &ids) {
+    text("pol %llu", static_cast<unsigned long long>(ids[0]));
+    for (size_t i = 1; i < ids.size(); ++i)
+      text(" %llu +", static_cast<unsigned long long>(ids[i]));
+    text(" 2 d ;\n");
+    return ++id_;
+  }
+
+public:
+  PbParityCertificate(Kernel &k, FILE *out, uint64_t limit)
+      : k_(k), out_(out),
+        initial_(k.input_unit_clause_count + k.input_nonunit_clause_count),
+        id_(initial_), limit_(limit),
+        fresh_(static_cast<uint32_t>(k.external_to_internal.size())) {}
+
+  uint64_t additions() const { return id_ - initial_; }
+
+  bool run(const std::vector<Equation> &equations) {
+    text("pseudo-Boolean proof version 3.0\n");
+    std::vector<uint64_t> lower, upper;
+    lower.reserve(equations.size());
+    upper.reserve(equations.size());
+    for (const Equation &row : equations) {
+      // Input arity is validated by the shared recognizer. Each threshold
+      // carry is defined by two inequalities, with an explicit repair proof
+      // for the first inequality when the second sets the carry to one.
+      std::vector<int32_t> carries;
+      for (unsigned threshold = 2; threshold <= row.size; threshold += 2) {
+        if (fresh_ == INT32_MAX)
+          return false;
+        const int32_t carry = static_cast<int32_t>(++fresh_);
+        carries.push_back(carry);
+        text("red ");
+        for (unsigned j = 0; j < row.size; ++j)
+          term(1, row.variables[j]);
+        term(threshold, -carry);
+        text(">= %u : x%d -> 0 ;\n", threshold, carry);
+        const uint64_t first = ++id_;
+        const unsigned complement = row.size - threshold + 1;
+        text("red ");
+        for (unsigned j = 0; j < row.size; ++j)
+          term(1, -row.variables[j]);
+        term(complement, carry);
+        text(">= %u : x%d -> 1 : subproof\n", complement, carry);
+        const uint64_t negated_second = ++id_;
+        text("proofgoal #1\nqed ;\n");
+        ++id_;
+        text("proofgoal %llu\n", static_cast<unsigned long long>(first));
+        const uint64_t negated_first = ++id_;
+        text("pol %llu %llu + ;\nqed : -1 ;\nqed ;\n",
+             static_cast<unsigned long long>(negated_second),
+             static_cast<unsigned long long>(negated_first));
+        id_ += 2; // contradiction and the completed second definition
+      }
+      lower.push_back(bound(row, carries, true));
+      upper.push_back(bound(row, carries, false));
+      if (additions() > limit_ ||
+          (!out_ && kernel_rule_interrupt(k_, k_.stats.parity_model_interrupted)))
+        return false;
+    }
+    const uint64_t lo = sum_and_round(lower), hi = sum_and_round(upper);
+    text("pol %llu %llu + ;\n", static_cast<unsigned long long>(lo),
+         static_cast<unsigned long long>(hi));
+    ++id_;
+    text("output NONE ;\nconclusion UNSAT : -1 ;\nend pseudo-Boolean proof ;\n");
+    return additions() <= limit_ && (!out_ || !std::ferror(out_));
+  }
+};
+
 } // namespace
+
+RuleEligibility startup_parity_guard(const Kernel &k) {
+  RuleEligibility result;
+  return result.fact("consistent", !k.inconsistent)
+      .fact("root", k.level == 0 && !k.conflict_valid)
+      .fact("original-input-boundary", k.startup_certificate_open);
+}
+
+ApplyResult startup_parity_apply(Kernel &k) {
+  if (!startup_parity_guard(k) ||
+      (k.proof && !k.proof->startup_pb_available()))
+    return ApplyResult::NoOp;
+  const auto parameters = strategy::ParityModelParameters::from_kernel(k);
+  if (!parameters.valid())
+    return ApplyResult::NoOp;
+  std::vector<Equation> equations;
+  if (!collect_equations(k, parameters, equations))
+    return ApplyResult::NoOp;
+  ++k.stats.parity_refutation_recognized;
+  PbParityCertificate preflight(k, nullptr,
+                                parameters.refutation_maximum_proof_additions);
+  if (!preflight.run(equations))
+    return ApplyResult::NoOp;
+  if (k.proof) {
+    FILE *out = k.proof->begin_pb();
+    if (!out)
+      return ApplyResult::NoOp;
+    PbParityCertificate proof(k, out,
+                              parameters.refutation_maximum_proof_additions);
+    if (!proof.run(equations) || proof.additions() != preflight.additions() ||
+        !k.proof->finish_pb())
+      std::abort(); // published but incomplete certificates never claim UNSAT
+  }
+  k.stats.parity_refutation_proof_additions += preflight.additions();
+  ++k.stats.parity_refutation_unsat;
+  k.startup_certificate_open = false;
+  k.inconsistent = true;
+  return ApplyResult::Unsat;
+}
 
 ApplyResult parity_refutation_apply(
     Kernel &k, const strategy::ParityModelParameters &parameters) {

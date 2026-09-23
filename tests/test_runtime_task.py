@@ -31,7 +31,8 @@ class RuntimeTaskTest(unittest.TestCase):
             (campaign / "pins/solver").write_bytes(b"pin")
             checker_names = ["checkmodel", "modelcheck.py"]
             checker_names += (["drat-trim"] if certificate == "drat" else
-                              ["dsr-trim", "dsr-compress", "srcheck"])
+                              ["dsr-trim", "dsr-compress", "srcheck",
+                               "drat-trim", "cake_lpr"])
             for name in checker_names:
                 (campaign / "pins" / name).write_bytes(b"pin")
             pin_sha256 = {
@@ -56,12 +57,15 @@ class RuntimeTaskTest(unittest.TestCase):
                 f"0\t1\t{arm}\tD\ttest.xz\t{verdict}\n")
             calls = []
 
-            def measured(command, stdout, stderr, metrics, timeout):
+            def measured(command, stdout, stderr, metrics, timeout, environment=None):
                 calls.append(command)
                 stderr.write_text("")
                 if len(calls) == 1:
                     stdout.write_text("s " + ("SATISFIABLE" if verdict == "SAT" else "UNSATISFIABLE") + "\n")
-                    Path(command[-1]).write_bytes(b"proof")
+                    # Binary DSR with a repeated pivot is a witnessed SR line;
+                    # witness-free DSR now deliberately routes through DRAT.
+                    Path(command[-1]).write_bytes(
+                        bytes([1, 2, 2, 0]) if certificate == "dsr" else b"proof")
                     code = solver_exit
                 else:
                     name = Path(command[0]).name

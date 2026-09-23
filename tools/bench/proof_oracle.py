@@ -9,8 +9,9 @@ Acceptance of a native DSR certificate routes by its content: DSR is a
 superset of DRAT, so a certificate without any witnessed line is a DRAT proof
 and is checked with the DRAT owner's pipeline (drat-trim -> cake_lpr), reached
 by rewriting the binary line tags; a certificate with a witnessed line takes
-the Satsuma+Kissat DSR pipeline with Trestle as the authority. The solver's
-output does not change; only the checker side reads it differently.
+the Satsuma+Kissat DSR pipeline with Trestle as the authority. Automatic startup
+certificates may instead carry PBP: VeriPB elaborates it and CakePB checks the
+result against the same original CNF. Both stages must verify.
 """
 from typing import Literal
 from pathlib import Path
@@ -58,7 +59,8 @@ def _at_most_three_integer_tokens(path):
 
 def proof_check_status(checker: str, returncode: int, stdout: str,
                        stderr: str) -> Literal['verified', 'rejected', 'error']:
-    if checker not in ('drat-trim', 'cake_lpr', 'dsr-trim', 'srcheck'):
+    if checker not in ('drat-trim', 'cake_lpr', 'dsr-trim', 'srcheck',
+                        'veripb', 'cake-pb-cnf'):
         raise ValueError('unsupported acceptance oracle: ' + checker)
     lines = [line.strip() for line in (stdout + '\n' + stderr).splitlines()]
     if ('s NOT VERIFIED' in lines or 's INVALID' in lines or
@@ -66,7 +68,8 @@ def proof_check_status(checker: str, returncode: int, stdout: str,
                 'empty clause not derived at end of proof' in line
                 for line in lines)):
         return 'rejected'
-    success = ('s VERIFIED' if checker == 'drat-trim'
+    success = ('s VERIFIED UNSATISFIABLE' if checker == 'veripb'
+               else 's VERIFIED' if checker == 'drat-trim'
                else 's VERIFIED UNSAT')
     # drat-trim's parse-time trivial-UNSAT branch prints the verified token but
     # does not update `sts` before returning `(sts != UNSAT)`, so that one exact
@@ -336,7 +339,7 @@ def stage_environment(name):
     """Extra environment for one pipeline stage, merged over os.environ."""
     import os
     environment = dict(os.environ)
-    if name == 'cake_lpr':
+    if name in ('cake_lpr', 'cake-pb-cnf'):
         environment.update(CAKE_LPR_ENVIRONMENT)
     return environment
 
@@ -349,8 +352,22 @@ def drat_stages(drat_trim, cake_lpr, cnf, drat, lrat):
             ('cake_lpr', [cake_lpr, cnf, lrat])]
 
 
-def certificate_route(proof) -> Literal['drat', 'dsr']:
-    """'drat' for a witness-free certificate, 'dsr' otherwise."""
+def pb_stages(veripb, cake_pb, cnf, proof, kernel):
+    """Pinned LymphoSAT pipeline; CakePB verifies the elaborated proof."""
+    return [('veripb', [veripb, '-u', '--cnf', '--elaborate', kernel,
+                        cnf, proof]),
+            ('cake-pb-cnf', [cake_pb, cnf, kernel])]
+
+
+def pb_proof_has_header(proof) -> bool:
+    with open(proof, 'rb') as source:
+        return source.read(32).startswith(b'pseudo-Boolean proof version ')
+
+
+def certificate_route(proof) -> Literal['drat', 'dsr', 'pbp']:
+    """Recognize PBP's header before parsing DSR; extension is irrelevant."""
+    if pb_proof_has_header(proof):
+        return 'pbp'
     return 'dsr' if dsr_proof_has_witness(proof) else 'drat'
 
 
@@ -395,10 +412,14 @@ def dsr_compress_status(returncode, output) -> Literal['verified', 'error']:
 
 
 def check_routed(dsr_trim, dsr_compress, srcheck, drat_trim, cake_lpr, cnf,
-                 proof, workdir, timeout=None):
+                 proof, workdir, timeout=None, *, veripb=None, cake_pb=None):
     """Acceptance by content: (verified, failing stage, output, route)."""
     import subprocess
     route = certificate_route(proof)
+    if route == 'pbp':
+        verified, stage, output = check_pb(
+            veripb, cake_pb, cnf, proof, workdir, timeout)
+        return verified, stage, output, route
     if route == 'dsr':
         verified, stage, output = check_dsr(
             dsr_trim, dsr_compress, srcheck, cnf, proof, workdir, timeout)
@@ -424,6 +445,40 @@ def check_routed(dsr_trim, dsr_compress, srcheck, drat_trim, cake_lpr, cnf,
         if name == 'drat-trim' and not (lrat.is_file() and lrat.stat().st_size):
             return False, name, 'no LRAT produced', route
     return True, None, '', route
+
+
+def check_pb(veripb, cake_pb, cnf, proof, workdir, timeout=None):
+    """Require both PB stages within one complete pipeline time allowance."""
+    import subprocess
+    import time
+    if veripb is None or cake_pb is None:
+        return False, 'pins', 'PBP requires pinned VeriPB and CakePB'
+    started = time.monotonic()
+    kernel = Path(workdir) / 'proof.kernel.pbp'
+    # Never accept a stale elaboration after a checker fails to produce one.
+    if kernel.exists():
+        kernel.unlink()
+    for name, command in pb_stages(veripb, cake_pb, cnf, proof, kernel):
+        remaining = (None if timeout is None else
+                     timeout - (time.monotonic() - started))
+        if remaining is not None and remaining <= 0:
+            return False, name, 'timed out'
+        try:
+            done = subprocess.run([str(part) for part in command],
+                                  capture_output=True, text=True,
+                                  errors='replace', timeout=remaining,
+                                  env=stage_environment(name))
+        except subprocess.TimeoutExpired:
+            return False, name, 'timed out'
+        except OSError as error:
+            return False, name, str(error)
+        output = done.stdout + '\n' + done.stderr
+        if proof_check_status(name, done.returncode, done.stdout,
+                              done.stderr) != 'verified':
+            return False, name, output
+        if name == 'veripb' and not (kernel.is_file() and kernel.stat().st_size):
+            return False, name, 'no kernel PBP produced'
+    return True, None, ''
 
 
 def check_dsr(dsr_trim, dsr_compress, srcheck, cnf, proof, workdir,
@@ -494,6 +549,9 @@ def _main(argv):
     parser.add_argument('--srcheck', default=str(here / 'srcheck'))
     parser.add_argument('--drat-trim', default=str(here / 'drat-trim'))
     parser.add_argument('--cake-lpr', default=str(here / 'cake_lpr'))
+    # No unpinned fallback: callers explicitly select the frozen PB tools.
+    parser.add_argument('--veripb')
+    parser.add_argument('--cake-pb')
     parser.add_argument('--workdir', default=None)
     parser.add_argument('--every-lemma', action='store_true',
                         help='also elaborate forward, checking every line')
@@ -503,7 +561,8 @@ def _main(argv):
             verified, stage, output, route = check_routed(
                 args.dsr_trim, args.dsr_compress, args.srcheck,
                 args.drat_trim, args.cake_lpr, args.cnf, args.proof,
-                args.workdir or temporary)
+                args.workdir or temporary, veripb=args.veripb,
+                cake_pb=args.cake_pb)
             print(f'c route {route}')
         else:
             verified, stage, output = check_dsr(

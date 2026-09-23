@@ -15,7 +15,8 @@
 
 namespace tactix {
 
-enum class ProofFormat { DsrBinary, DsrAscii, DratBinary, DratAscii, Lrat };
+enum class ProofFormat { DsrBinary, DsrAscii, DratBinary, DratAscii, Lrat,
+                         Automatic, Pbp };
 
 struct DsrLiteralMapping {
   Lit from = INVALID_LIT;
@@ -46,6 +47,16 @@ public:
   ~Proof();
 
   bool open(const char *path, ProofFormat format);
+  // Automatic output privately stages only input-normalization DSR events.
+  // At the original-input action boundary the caller may commit a complete
+  // PB refutation. The first subsequent clausal event commits DSR instead.
+  // Neither choice can be undone, and no published prefix is overwritten.
+  void finish_input_transaction() { input_transaction_ = false; }
+  bool startup_pb_available() const { return automatic_pending_ && !input_transaction_; }
+  bool commit_dsr();
+  FILE *begin_pb();
+  bool finish_pb();
+  bool pb() const { return format_ == ProofFormat::Pbp; }
   bool lrat() const { return format_ == ProofFormat::Lrat; }
   bool dsr() const {
     return format_ == ProofFormat::DsrBinary ||
@@ -171,6 +182,9 @@ private:
   void put_u64(uint64_t v);
   void end_line();
   FILE *file_ = nullptr;
+  FILE *automatic_output_ = nullptr;
+  bool automatic_pending_ = false;
+  bool input_transaction_ = false;
   ProofFormat format_ = ProofFormat::DsrBinary;
   std::array<unsigned char, 1 << 20> binary_buffer_{};
   size_t binary_buffer_size_ = 0;

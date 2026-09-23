@@ -80,6 +80,8 @@ DsrWitnessPlan plan_dsr_witness(const Lit *lits, uint32_t size,
 }
 
 Proof::~Proof() {
+  if (automatic_pending_)
+    commit_dsr();
   if (file_) {
     flush_binary();
     fflush(file_);
@@ -88,11 +90,71 @@ Proof::~Proof() {
 }
 
 bool Proof::open(const char *path, ProofFormat format) {
+  if (file_ || automatic_output_ || format == ProofFormat::Pbp)
+    return false;
   file_ = fopen(path, "wb");
   format_ = format;
+  if (file_ && format == ProofFormat::Automatic) {
+    automatic_output_ = file_;
+    file_ = std::tmpfile();
+    if (!file_) {
+      std::fclose(automatic_output_);
+      automatic_output_ = nullptr;
+      return false;
+    }
+    format_ = ProofFormat::DsrBinary;
+    automatic_pending_ = input_transaction_ = true;
+  }
   if (file_)
     setvbuf(file_, nullptr, binary() ? _IONBF : _IOFBF, 1 << 20);
   return file_ != nullptr;
+}
+
+bool Proof::commit_dsr() {
+  if (!automatic_pending_)
+    return !pb();
+  // Preserve the ordinary binary serializer's unbuffered stdio contract:
+  // binary_buffer_ owns buffering and every fwrite must observe I/O failure.
+  // The destination has not yet received any bytes, so setvbuf is still legal.
+  if (std::setvbuf(automatic_output_, nullptr, _IONBF, 0))
+    std::abort();
+  flush_binary();
+  if (std::fflush(file_) || std::fseek(file_, 0, SEEK_SET))
+    std::abort();
+  std::array<unsigned char, 65536> bytes{};
+  for (;;) {
+    const size_t count = std::fread(bytes.data(), 1, bytes.size(), file_);
+    if (count && std::fwrite(bytes.data(), 1, count, automatic_output_) != count)
+      std::abort();
+    if (count < bytes.size()) {
+      if (std::ferror(file_))
+        std::abort();
+      break;
+    }
+  }
+  std::fclose(file_);
+  file_ = automatic_output_;
+  automatic_output_ = nullptr;
+  automatic_pending_ = input_transaction_ = false;
+  return true;
+}
+
+FILE *Proof::begin_pb() {
+  if (!startup_pb_available())
+    return nullptr;
+  // The input DSR transaction was never published. Its facts are justified
+  // afresh from original CNF by the complete, prevalidated PB derivation.
+  std::fclose(file_);
+  binary_buffer_size_ = 0;
+  file_ = automatic_output_;
+  automatic_output_ = nullptr;
+  automatic_pending_ = false;
+  format_ = ProofFormat::Pbp;
+  return file_;
+}
+
+bool Proof::finish_pb() {
+  return pb() && file_ && !std::ferror(file_) && std::fflush(file_) == 0;
 }
 
 void Proof::put_byte(unsigned char byte) {
@@ -163,6 +225,8 @@ bool Proof::tautological(const Lit *lits, uint32_t size) {
 
 void Proof::add_rup(uint64_t id, const Lit *lits, uint32_t size,
                     const uint64_t *chain, uint32_t nchain) {
+  if (!input_transaction_ && !commit_dsr())
+    std::abort(); // a terminal PB stream cannot accept a clausal suffix
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
   rule_journal_note_rup(id, chain, nchain);
 #endif
@@ -212,6 +276,8 @@ void Proof::add_rup(uint64_t id, const Lit *lits, uint32_t size,
 
 void Proof::add_rat(uint64_t id, const Lit *lits, uint32_t size,
                     const int64_t *hints, uint32_t nhints) {
+  if (!input_transaction_ && !commit_dsr())
+    std::abort();
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
   rule_journal_note_rat(id, hints, nhints);
 #endif
@@ -254,6 +320,8 @@ bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
                    const Lit *true_lits, uint32_t ntrue,
                    const DsrLiteralMapping *mappings, uint32_t nmappings,
                    uint32_t external_variables, bool propagates) {
+  if (!input_transaction_ && !commit_dsr())
+    return false;
 #ifndef TACTIX_ENABLE_PROOF_SHADOW
   (void)id;
 #endif
@@ -420,6 +488,8 @@ void Proof::add_derived_unit(uint64_t id, Lit unit, const uint64_t *chain,
 
 void Proof::del(uint64_t line_id, uint64_t del_id, const Lit *lits,
                 uint32_t size) {
+  if (!input_transaction_ && !commit_dsr())
+    std::abort();
   if (!file_)
     return;
   if (format_ == ProofFormat::Lrat) {
@@ -466,6 +536,8 @@ bool external_tautological(const int32_t *lits, uint32_t size) {
 
 bool Proof::add_external_rup(uint64_t id, const int32_t *lits,
                              uint32_t size) {
+  if (!input_transaction_ && !commit_dsr())
+    return false;
   if (lrat())
     return false;
   assert(!size || lits);
@@ -504,6 +576,8 @@ bool Proof::add_external_rat(uint64_t id, const int32_t *lits,
 
 bool Proof::del_external(uint64_t line_id, uint64_t del_id,
                          const int32_t *lits, uint32_t size) {
+  if (!input_transaction_ && !commit_dsr())
+    return false;
   (void)line_id;
   if (lrat())
     return false;
@@ -535,6 +609,8 @@ bool Proof::del_external(uint64_t line_id, uint64_t del_id,
 }
 
 void Proof::flush() {
+  if (automatic_pending_)
+    commit_dsr();
   if (file_) {
     flush_binary();
     fflush(file_);

@@ -43,13 +43,13 @@ independently. A proof that only times out is rechecked with a 45,000-second
 pipeline ceiling before milestone acceptance. This is a local extended-check
 policy, consistent with the documented SC 2025 checker limit; the numerical
 SC 2026 checker limit remains unverified. This corrects the SC 2026 attribution
-in the historical audit above. Final acceptance still requires the complete
-native DSR → `dsr-trim` → LSR → Trestle path.
+in the historical audit above. Final acceptance requires the complete pipeline
+selected by the certificate under §5; checker success alone is never inferred.
 
 ## 1. Goal and requirements
 
-- **R1:** emit one native DSR certificate for every UNSAT execution and check
-  it with the pipeline its content selects; reconstruct and validate models
+- **R1:** emit one certificate for every UNSAT execution (startup PBP or DSR)
+  and check its complete pinned pipeline; reconstruct and validate models
   for SAT. Retain DRAT and native LRAT as explicit compatibility outputs.
 - **R2:** implement competition DIMACS I/O, result lines, exit codes, proof-file
   handling, resource limits, and signal behavior.
@@ -73,8 +73,8 @@ native DSR → `dsr-trim` → LSR → Trestle path.
 - **N2 — Proof/model correctness.** Every UNSAT policy/rule path produces a
   valid machine-checkable proof, and every SAT path produces a valid
   reconstructed model. Proof production is mandatory; the format is otherwise
-  negotiable. Tactix's canonical proof format is DSR, independently checked by
-  the `dsr-trim` to LSR to Trestle pipeline. New Satsuma-derived rules emit
+  negotiable. DSR is canonical for search; a complete startup refutation may
+  use PBP checked by VeriPB then CakePB (§5). New Satsuma-derived rules emit
   direct DSR witnesses and do not owe a DRAT/LRAT expansion.
 - **N3 — Competitive default.** A shipped DefaultPolicy reaches at least Kissat
   parity on Tier D. Flexibility never excuses a slow default.
@@ -159,11 +159,11 @@ and a proof delta. Abstract definitions and soundness are authoritative in
 `docs/calculus.md`; stronger implemented guards and their removal paths are in
 `docs/implementation-notes.md`.
 
-Rules compose six proof primitives: `add-RUP`, `add-RAT(pivot)`,
-`add-SR(substitution)`, `delete`, `restore`, and `push-witness`.
+Rules compose `add-RUP`, `add-RAT(pivot)`, `add-SR(substitution)`, `delete`,
+`restore`, `push-witness`, and terminal original-input PB refutation.
 Guidance-only operations change `H`, not the
 formula, but remain API-exposed under N1. Terminal UNSAT requires a checkable
-empty-clause derivation; terminal SAT requires an original-formula model after
+contradiction derivation; terminal SAT requires an original-formula model after
 reconstruction.
 
 ## 5. Architecture
@@ -174,17 +174,17 @@ limits, and statistics; it has no policy knowledge. DefaultPolicy uses a static
 micro loop and reference-strength macro scheduler. Scripted, replay, random, and
 learned policies drive the same public surfaces.
 
-The proof backend receives typed logical events. Its canonical serializer emits
-one streaming DSR certificate: ordinary RUP/RAT additions are witnessless DSR
-additions, deletions are DSR deletions, and substitution-redundancy additions
-carry their finite substitution witness directly. Binary DSR is the normal CLI
-output; ASCII DSR, DRAT and native LRAT remain explicit modes. Acceptance routes
-by content: a witnessed line selects the exact Satsuma+Kissat DSR pipeline; a
-witness-free one is DRAT and takes `drat-trim`, `cake_lpr`. Fuzzing checks every line.
-Format choice may not alter admission, scheduling, or state effects within the
-vocabulary a format supports. A direct-SR action in a DRAT/LRAT compatibility
-run reports `unsupported` before mutation; compatibility formats do not narrow
-its DSR N1 instance surface. The backend retains no whole-formula proof ledger.
+The proof backend streams typed events. Automatic mode selects PBP only for a complete original-input
+startup refutation before any proof event is published; otherwise it commits binary DSR before search.
+DSR carries witnessless RUP/RAT, deletions and finite SR witnesses. Explicit DSR/DRAT/LRAT keep their meanings; unsupported actions decline
+before mutation. No-proof runs choose the same logical actions. Startup actions are shared, typed,
+replayable and API-selectable; discovery is formula-neutral, bounded and interruptible. Preserve
+original CNF identities across input normalization; no mixed streams, format switching after publication,
+or hidden whole-run proof ledger. Interrupted/failed publication cannot claim UNSAT.
+Acceptance routes by content: PBP takes pinned VeriPB 3.0.2 elaboration then
+CakePB `6edb2f35` against original CNF (baseline pins, 24,576 MiB heap); witnessed
+DSR takes dsr-trim/LSR/Trestle; witness-free DSR takes drat-trim/cake_lpr. All
+stages must verify; fuzz audits every lemma and rejects corrupted certificates.
 
 Every level-zero fact used by a later proof rule belongs to the checker-visible
 proof state. LRAT records it with its reason chain; DSR records an explicit

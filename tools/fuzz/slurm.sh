@@ -73,6 +73,10 @@ cp -a "$HERE/run.sh" "$HERE/fuzz.py" "$HERE/generators.py" \
       "$HERE/modelcheck.py" "$HERE/shrink.py" "$HERE/stress.py" \
       "$HERE/corpus" "$HERE/stress-scenarios" "$PIN_FUZZ/"
 cp -a "$ROOT/tools/bench/proof_oracle.py" "$PIN_FUZZ/"
+mkdir -p "$PIN_FUZZ/checkers"
+cp -a "$ROOT/benchmarks/baselines/sc24-26-32g-5000s/pins/veripb" \
+      "$ROOT/benchmarks/baselines/sc24-26-32g-5000s/pins/cake-pb-cnf" \
+      "$PIN_FUZZ/checkers/"
 HARNESS_SHA=$(
     cd "$PIN_FUZZ"
     find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum | \

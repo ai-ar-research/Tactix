@@ -10,7 +10,7 @@ Soundness pipeline per DEVELOPMENT_PLAN.md §8.2 (workflow: the `fuzz` skill).
   P` changes all three coherently.  A worker count is parallelism within one
   fuzz campaign, not repeated fuzzing.  At submission it also creates a
   read-only `build/pin-fuzz-harness-*` snapshot of `run.sh`, the Python harness,
-  stress scenarios, and the regression corpus.  The batch job executes only
+  stress scenarios, the regression corpus, and pinned VeriPB/CakePB binaries. The batch job executes only
   that snapshot and logs its aggregate SHA-256; it removes the snapshot after
   success and retains it after failure for Claude-owned diagnosis. A small
   deduplicated copy under `failures/harnesses/<sha256>/` keeps successful-leg
@@ -25,7 +25,8 @@ Soundness pipeline per DEVELOPMENT_PLAN.md §8.2 (workflow: the `fuzz` skill).
   never fired fatal. A corpus entry that does not terminate is fatal too
   (`--allow-nonterminating N` pre-registers an exception).
 - `fuzz.py` — runner (subcommands `run`, `check-one`, `corpus`); oracles:
-  model (`checkmodel`), native DSR (`dsr-trim` to LSR to Trestle), explicit
+  model (`checkmodel`), startup PBP (VeriPB elaboration then CakePB against the
+  original CNF, both required), native DSR (`dsr-trim` to LSR to Trestle), explicit
   DRAT (`drat-trim`), explicit native LRAT (`cake_lpr`), differential verdict,
   and crash/I/O consistency. Legacy `lrat-check` is diagnostic only: it can
   accept an invalid empty lemma on a satisfiable input. Failed cases retain the

@@ -93,8 +93,8 @@ int main(int argc, char **argv) {
   const bool frontend_time = getenv("TACTIX_FRONTEND_TIME") != nullptr;
   const char *cnf_path = nullptr;
   const char *proof_path = nullptr;
-  enum class CliProofFamily { Dsr, Drat, Lrat };
-  CliProofFamily proof_family = CliProofFamily::Dsr;
+  enum class CliProofFamily { Automatic, Dsr, Drat, Lrat };
+  CliProofFamily proof_family = CliProofFamily::Automatic;
   bool binary_proof = true;
   bool quiet = false;
   bool random_policy = false;
@@ -121,6 +121,8 @@ int main(int argc, char **argv) {
       binary_proof = false;
     } else if (!strcmp(a, "--dsr")) {
       proof_family = CliProofFamily::Dsr;
+    } else if (!strcmp(a, "--auto-proof")) {
+      proof_family = CliProofFamily::Automatic;
     } else if (!strcmp(a, "--drat")) {
       proof_family = CliProofFamily::Drat;
     } else if (!strcmp(a, "--lrat")) {
@@ -178,7 +180,7 @@ int main(int argc, char **argv) {
     } else if (StressSolveFn fn = stress_policy_flag(a, &random_seed)) {
       stress_policy = fn;
     } else if (!strcmp(a, "-h") || !strcmp(a, "--help")) {
-      printf("usage: tactix [-q] [--dsr|--drat|--lrat] [--no-binary] "
+      printf("usage: tactix [-q] [--auto-proof|--dsr|--drat|--lrat] [--no-binary] "
              "[--mab] [--random-policy[=SEED]] "
              "[--bve-gates=all|none|equiv,andor,ite,xor,def] "
              "[--trace=FILE] [--replay=FILE] %s "
@@ -201,7 +203,9 @@ int main(int argc, char **argv) {
   }
 
   const ProofFormat proof_format =
-      proof_family == CliProofFamily::Lrat
+      proof_family == CliProofFamily::Automatic && binary_proof
+          ? ProofFormat::Automatic
+          : proof_family == CliProofFamily::Lrat
           ? ProofFormat::Lrat
           : proof_family == CliProofFamily::Drat
                 ? (binary_proof ? ProofFormat::DratBinary
@@ -343,6 +347,9 @@ int main(int argc, char **argv) {
   if (const char *tb = getenv("TACTIX_TUMBLE"))
     kernel.tumble = tb[0] != '0';
   Proof proof;
+  // --no-binary remains an explicit ASCII diagnostic selection; only the
+  // automatic binary mode admits startup PBP, with or without an output file.
+  kernel.startup_certificate_open = proof_format == ProofFormat::Automatic;
   if (proof_path) {
     if (!proof.open(proof_path, proof_format)) {
       fprintf(stderr, "tactix: cannot write proof to '%s'\n", proof_path);
