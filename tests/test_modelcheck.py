@@ -40,6 +40,14 @@ def main():
     ok, message = check("1 0\n", "v 1 0\n")
     assert not ok and message == "missing DIMACS header"
 
+    for cnf, model in [
+        ('p cnf 1 1\n1 c not a comment\n0\n', 'v 1 0\n'),
+        ('p cnf invalid 1\n1 0\n', 'v 1 0\n'),
+        ('p cnf 1 1\n1 0\n', 'v invalid 0\n'),
+    ]:
+        ok, message = check(cnf, model)
+        assert not ok and message.startswith('invalid DIMACS/model input:'), message
+
 
 if __name__ == "__main__":
     main()

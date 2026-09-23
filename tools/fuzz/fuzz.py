@@ -58,7 +58,7 @@ from proof_oracle import (bridge_trivial_input_binary_lsr,  # noqa: E402
                           bridge_trivial_input_lsr, dsr_compress_status,
                           every_lemma_dsr_stages, proof_check_status,
                           reference_dsr_stages, pb_proof_has_header, pb_stages,
-                          stage_environment)
+                          stage_environment, canonical_checker_cnf)
 
 DRAT_TRIM = os.path.join(ROOT, "tools", "checkers", "bin", "drat-trim")
 DSR_TRIM = os.path.join(ROOT, "tools", "checkers", "bin", "dsr-trim")
@@ -443,6 +443,13 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
             out.fail("model", msg)
 
     if verdict == "UNSAT":
+        checker_cnf = os.path.join(workdir, "checker.cnf")
+        out.proof_artifacts.append(checker_cnf)
+        try:
+            canonical_checker_cnf(cnf_path, checker_cnf)
+        except (OSError, ValueError) as error:
+            out.fail("proof", "invalid original DIMACS: " + str(error))
+            return out
         if not os.path.exists(proof) or os.path.getsize(proof) == 0:
             # empty proof file is legal iff the input itself contains the
             # empty clause; drat-trim handles that, so only flag absence
@@ -457,7 +464,8 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
                 if os.path.exists(kernel):
                     os.unlink(kernel)
                 for name, command in pb_stages(
-                        VERIPB, CAKE_PB, cnf_path, proof, kernel):
+                        VERIPB, CAKE_PB, cnf_path, proof, kernel,
+                        checker_cnf=checker_cnf):
                     if not check(command):
                         out.fail("proof", name + " did not verify startup PBP")
                         break
@@ -466,7 +474,7 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
                         out.fail("proof", "VeriPB produced no kernel proof")
                         break
         elif os.path.exists(proof) and native_lrat:
-            if not check([CAKE_LPR, cnf_path, proof]):
+            if not check([CAKE_LPR, checker_cnf, proof]):
                 out.fail("proof", "cake_lpr did not verify the native LRAT")
         elif os.path.exists(proof) and explicit_drat:
             if not check([DRAT_TRIM, cnf_path, proof]):
@@ -485,7 +493,7 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
                     if not check([DRAT_TRIM, cnf_path, proof, "-L", lrat_file]):
                         out.fail("proof", "drat-trim -L (LRAT emission) failed")
                     else:
-                        if not check([CAKE_LPR, cnf_path, lrat_file]):
+                        if not check([CAKE_LPR, checker_cnf, lrat_file]):
                             out.fail("proof", "cake_lpr did not verify the converted LRAT")
         elif os.path.exists(proof) and native_dsr:
             # proof_oracle.reference_dsr_stages owns the pipeline definition.
@@ -504,7 +512,7 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
                 failed = False
                 for name, command in stages(
                         DSR_TRIM, DSR_COMPRESS, SR_CHECK, cnf_path, proof,
-                        binary_lsr, text_lsr):
+                        binary_lsr, text_lsr, checker_cnf=checker_cnf):
                     if not check(command):
                         out.fail("proof", label + why[name])
                         failed = True

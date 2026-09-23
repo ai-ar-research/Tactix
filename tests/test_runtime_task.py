@@ -57,6 +57,11 @@ class RuntimeTaskTest(unittest.TestCase):
                 f"0\t1\t{arm}\tD\ttest.xz\t{verdict}\n")
             calls = []
 
+            def decompress(command, **kwargs):
+                self.assertEqual(command[:2], ['xz', '-dc'])
+                kwargs['stdout'].write(b'p cnf 1 2\n1 0\n-1 0\n' if verdict == 'UNSAT'
+                                       else b'p cnf 1 1\n1 0\n')
+
             def measured(command, stdout, stderr, metrics, timeout, environment=None):
                 calls.append(command)
                 stderr.write_text("")
@@ -85,7 +90,7 @@ class RuntimeTaskTest(unittest.TestCase):
             with patch.object(runner, "ROOT", root), patch.object(runner, "CAMPAIGN", campaign), \
                  patch.object(sys, "argv", ["runtime_task.py", str(campaign), "0"]), \
                  patch.dict(os.environ, {"SLURM_JOB_ID": "test", "SLURM_TMPDIR": temporary}), \
-                 patch.object(runner.subprocess, "run"), patch.object(runner, "measured", measured):
+                 patch.object(runner.subprocess, "run", side_effect=decompress), patch.object(runner, "measured", measured):
                 code = runner.main()
             result = json.loads((campaign / "results/000.json").read_text())
             self.assertTrue(result["artifact_deleted"])
@@ -153,6 +158,34 @@ class RuntimeTaskTest(unittest.TestCase):
         self.assertEqual(result["verdict"], "INFRA_ERROR")
         self.assertIn("modelcheck.py", result["error"])
         self.assertEqual(calls, [])
+
+    def test_pb_spelling_on_anonymous_scratch(self):
+        from anonymous_scratch import AnonymousScratch
+        campaign = ROOT / 'benchmarks/runs/20260923-am337-proof-lifetime-v2'
+        scratch = AnonymousScratch('/tmp')
+        try:
+            cnf, proof = scratch / 'original.cnf', scratch / 'proof.pbp'
+            original = 'c leading\np cnf 1 2\n1\n0 -1 0\n'
+            cnf.write_text(original)
+            proof.write_text('pseudo-Boolean proof version 3.0\nrup >= 1 ;\n'
+                             'output NONE ;\nconclusion UNSAT : -1 ;\n'
+                             'end pseudo-Boolean proof ;\n')
+            result = runner.check_unsat_proof(campaign, 'auto', cnf, proof,
+                                               scratch, 60)
+            self.assertEqual(result['result'], 'verified', result)
+            self.assertEqual(result['checker_input']['original_sha256'],
+                             runner.sha256(cnf))
+            self.assertEqual(cnf.read_text(), original)
+            self.assertEqual((scratch / 'checker.cnf').read_text(),
+                             'p cnf 1 2\n1 0\n-1 0\n')
+            self.assertEqual([stage['result'] for stage in result['stages']],
+                             ['verified', 'verified'])
+            cnf.write_text('p cnf 1 1\n1 0\n')
+            self.assertEqual(runner.check_unsat_proof(
+                campaign, 'auto', cnf, proof, scratch, 60)['result'], 'not-verified')
+        finally:
+            scratch.close()
+        self.assertFalse(scratch.exists())
 
 
 if __name__ == "__main__":

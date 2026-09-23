@@ -13,6 +13,97 @@ import fuzz
 
 
 class FuzzProofOracles(unittest.TestCase):
+    def test_checker_spelling_preserves_clause_sequence(self):
+        from proof_oracle import canonical_checker_cnf
+        import hashlib
+        with tempfile.TemporaryDirectory() as directory:
+            source, output = Path(directory)/'raw.cnf', Path(directory)/'checker.cnf'
+            raw = b' c before\r\n p\tcnf 3 3\r\n1 1\n c middle\n-2 0 -1 3 0\n0\n'
+            source.write_bytes(raw)
+            metadata = canonical_checker_cnf(source, output)
+            self.assertEqual(output.read_bytes(), b'p cnf 3 3\n1 1 -2 0\n-1 3 0\n0\n')
+            self.assertEqual(source.read_bytes(), raw)
+            self.assertEqual(metadata['original_sha256'], hashlib.sha256(raw).hexdigest())
+            self.assertEqual(metadata['checker_sha256'], hashlib.sha256(output.read_bytes()).hexdigest())
+            self.assertEqual(metadata['declared_variables'], metadata['checker_variables'])
+            with self.assertRaises(ValueError):
+                canonical_checker_cnf(source, source)
+            self.assertEqual(source.read_bytes(), raw)
+            source.write_text('p cnf 0 1\n0\n')
+            metadata = canonical_checker_cnf(source, output)
+            self.assertEqual(output.read_text(), 'p cnf 1 1\n0\n')
+            self.assertEqual((metadata['declared_variables'], metadata['checker_variables']), (0, 1))
+            source.write_text('p cnf 00000000000001 00000000000001\n00000000000001 -0000000\n')
+            canonical_checker_cnf(source, output)
+            self.assertEqual(output.read_text(), 'p cnf 1 1\n1 0\n')
+
+    def test_checker_spelling_rejects_malformed_original(self):
+        from proof_oracle import canonical_checker_cnf, check_pb
+        bad_inputs = ['', '1 0\n', 'p cnf -1 0\n', 'p cnf 1 2 extra\n',
+                      'p cnf 1 1\n2 0\n', 'p cnf 1 1\n1\n',
+                      'p cnf 1 2\n1 0\n', 'p cnf 1 1\n1 0 0\n',
+                      'p cnf 1 1\n1 c not a comment\n0\n',
+                      'p cnf 1 1\np cnf 1 1\n1 0\n', 'p cnf 0 1\n1 0\n',
+                      'p cnf 1 1\n--1 0\n', 'p cnf 1 1\n+1 0\n']
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            for bad in bad_inputs:
+                with self.subTest(bad=bad):
+                    source = work/'input.cnf'; source.write_text(bad)
+                    with self.assertRaises(ValueError):
+                        canonical_checker_cnf(source, work/'checker.cnf')
+                    with patch('subprocess.run') as checker:
+                        result = check_pb('veripb', 'cake', source, work/'p', work)
+                        self.assertFalse(result[0])
+                        self.assertEqual(result[1], 'cnf')
+                        checker.assert_not_called()
+
+    def test_pinned_checkers_accept_original_layout_variants(self):
+        from proof_oracle import check_dsr, check_pb
+        pins = ROOT/'benchmarks/runs/20260923-am337-proof-lifetime-v2/pins'
+        layouts = ['p cnf 1 2\n1\n0\n-1 0\n',
+                   'p cnf 1 2\n1 0 -1 0\n',
+                   'p cnf 1 2\n1 0\nc between clauses\n-1 0\n']
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            cnf, dsr, pbp = work/'input.cnf', work/'proof.dsr', work/'proof.pbp'
+            dsr.write_text('0\n')
+            pbp.write_text('pseudo-Boolean proof version 3.0\nrup >= 1 ;\n'
+                           'output NONE ;\nconclusion UNSAT : -1 ;\n'
+                           'end pseudo-Boolean proof ;\n')
+            for raw in layouts:
+                cnf.write_text(raw)
+                result = check_pb(pins/'veripb', pins/'cake-pb-cnf', cnf, pbp, work, 60)
+                self.assertTrue(result[0], result)
+                result = check_dsr(pins/'dsr-trim', pins/'dsr-compress', pins/'srcheck',
+                                   cnf, dsr, work, 60, every_lemma=True)
+                self.assertTrue(result[0], result)
+                self.assertEqual(cnf.read_text(), raw)
+            cnf.write_text('p cnf 0 1\n0\n')
+            dsr.write_bytes(b'\x01\x00')
+            result = check_dsr(pins/'dsr-trim', pins/'dsr-compress', pins/'srcheck',
+                               cnf, dsr, work, 60, every_lemma=True)
+            self.assertTrue(result[0], result)
+            # The unused header identity cannot justify an empty lemma on SAT.
+            for raw in ['p cnf 1 1\n1\n0\n', 'p cnf 0 0\n']:
+                cnf.write_text(raw)
+                self.assertFalse(check_dsr(pins/'dsr-trim', pins/'dsr-compress',
+                                          pins/'srcheck', cnf, dsr, work, 60,
+                                          every_lemma=True)[0])
+                self.assertFalse(check_pb(pins/'veripb', pins/'cake-pb-cnf',
+                                         cnf, pbp, work, 60)[0])
+
+    def test_fuzz_dispatch_spells_only_final_checker_input(self):
+        raw = 'p cnf 1 2\n1 0\nc between clauses\n-1 0\n'
+        result = self.fixture(raw, '0\n', dsr=True)
+        self.assertFalse(result.failures, result.failures)
+        for run in result.checker_runs:
+            if Path(run['command'][0]).name == 'srcheck':
+                self.assertEqual(Path(run['command'][1]).name, 'checker.cnf')
+            elif Path(run['command'][0]).name == 'dsr-trim':
+                self.assertIn('input.cnf', str(run['command']))
+        self.assertFalse(self.fixture('p cnf 0 1\n0\n', '0\n', dsr=True).failures)
+
     def test_startup_pb_requires_both_pinned_checkers(self):
         from proof_oracle import (certificate_route, check_routed,
                                   proof_check_status, pb_stages,

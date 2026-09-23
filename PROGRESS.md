@@ -33,9 +33,22 @@ All three Tseitin diagnostics now pass VeriPB and CakePB on AM335 v1
 (`94cd4710...`); these are not combined-candidate gates. Both N2 failures from
 Claude's AM335 handoff have causal repairs and passing focused regressions:
 retire non-LRAT Congruence ladders before SR; detect all-format publication
-failure before CLI/API UNSAT. Combined Claude fuzz is preparing; four full gates
+failure before CLI/API UNSAT. Combined Claude fuzz is quota-blocked; four full gates
 are now in flight (`1715989`--`1715992`); no promotion. Repair evidence:
 `benchmarks/reports/2026-09-23-am337-proof-lifetime-checkpoint.md`.
+
+AM338 is a **tooling-only, unaccepted checkpoint** on the same solver/checker
+pins. A validated final-checker DIMACS spelling preserves the exact original
+clause/literal sequence, IDs and multiplicities while removing reader-layout
+limitations; zero declared variables become one unused identity. Solvers and
+elaborators still read the original file. Fixed positive/negative checks and
+the harness self-test pass. Frozen tooling: `...-am338-checker-spelling`, patch
+`95497870...`, archive `6bc6d112...`. Evidence:
+`benchmarks/reports/2026-09-23-am338-checker-spelling-checkpoint.md`.
+Claude Code's Fable quota is exhausted: all four owner processes exited 1,
+including the new AM338 owner before preparation. Existing SLURM jobs continue;
+combined AM337 and focused AM338 fuzz ownership/reporting need quota restoration
+or a user-selected available Claude model. No promotion and no waiver.
 
 Solver/tooling authority: `10cd18c9` (certificate routing) on top of the
 AM333 solver source (`75487222`). The AM333 pin is the last gated binary:
@@ -109,7 +122,7 @@ test covers this. Retry `1715866` in `...-am335-startup-parity-retry` ended:
 all three rows verified by both stages (checks 152.775/366.783/1117.364 s).
 Claude's initial owner process was
 interrupted before visible fuzz job submission to refresh the I/O-fix candidate;
-a new owner process is resuming with `claude-fuzz-v2-request.md` in the base
+a replacement owner was launched with `claude-fuzz-v2-request.md` in the base
 campaign (log in `...-v2/logs/claude-owner.log`). Read only `OWNER_STATUS.md`,
 terminal reports and the explicitly handed-off bounded reproducer, not campaign
 internals. Its interim `REPORT.md` hands off `triage/reproducer/min.cnf` and
@@ -126,13 +139,18 @@ count fuzz jobs `1715955`--`1715968` from `...-am336-startup-count/claude-fuzz-r
 replace broad combined acceptance after repairs.
 The owner revised its generator after some intended firing fixtures closed by
 root propagation; replacement legs are `1715973`--`1715986`. Its interim status
-reports legal DIMACS-layout checker failures and malformed-input Debug assertions
-under classification; no bounded handoff yet. Do not reinterpret campaign internals.
+classifies layout/zero-header failures as checker-side, and malformed-input Debug
+assertions as pre-existing. AM338 repairs the checker-reader path, not those
+solver assertions. Further owner jobs include `1716000`, `1716004`, and
+replacement focused legs `1716006`--`1716008`; consume owner reports only.
 
-AM337 combined Claude owner launched from
+AM337 combined Claude owner was launched from
 `...-am337-proof-lifetime-v2/claude-fuzz-request.md` (PID `2484169`, log in that
 campaign's `logs/claude-owner.log`); read only
 `...-am337-proof-lifetime-claude-fuzz/OWNER_STATUS.md` and terminal `REPORT.md`.
+Its process has now exited 1 at the Fable usage limit while the last status
+still says PREPARING. AM335/AM336 owner processes also exited 1 at that limit.
+Do not infer completion or read campaign internals; preserve submitted jobs.
 Six focused CTests pass, including the exact handoff in both DSR checker modes
 and all 30 C API output-failure controls. Full 178-entry Debug-O1 suite in
 `build/proof-repair-dev` has the demo active; 176 other entries passed and the
@@ -174,6 +192,10 @@ byte-identical solver pins remain in the AM333 gate campaigns.
    debug any bounded handoff, and complete the repaired combined candidate's
    fuzz acceptance and all four routed gates before promotion. A newly established
    solver defect stops dependent work; preserve exact failures and pins.
+   Restore Claude-owned execution/reporting after the reported Fable usage limit
+   (user direction requested); AM338's immutable request is
+   `...-am338-checker-spelling/claude-fuzz-request.md`. Existing campaigns must be
+   resumed by the owner without rerunning completed unchanged legs.
 2. **Finish the first full routed gate campaign.** Inspect terminal results for
    jobs `1715989`--`1715992`, certificate cleanup, every original-CNF model/proof,
    coverage, time and memory. AM337 staging pins baseline `drat-trim`/`cake_lpr`,
