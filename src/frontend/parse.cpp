@@ -151,12 +151,11 @@ static void restate_input(Kernel &k, uint64_t id, const std::vector<Lit> &lits,
   k.stats.input_restated++;
   if (!k.proof)
     return;
-  // DSR substitutions need the checker and kernel to agree after later
-  // deletions. A retained, stronger input clause is harmless for RUP but can
-  // invalidate an SR witness after its normalized replacement is removed.
-  // Literal-addressed DSR can publish the replacement immediately; only LRAT
-  // needs to defer additions until the complete input id namespace is known.
-  if (k.proof->dsr()) {
+  // DSR and DRAT both delete by literals. A retained raw clause can make a
+  // later deletion retire the wrong copy or change a RAT/SR obligation. Both
+  // formats can publish the exact replacement and retire its raw predecessor
+  // immediately; only LRAT must wait for the complete input id namespace.
+  if (!k.proof->lrat()) {
     assert(!original.empty());
     k.proof->add_rup(id, lits.data(), static_cast<uint32_t>(lits.size()),
                      nullptr, 0);
@@ -236,8 +235,16 @@ static void propagate_input_unit(Kernel &k) {
   // rewrite. Unchanged input carries no extra allocation or literal copy.
   std::vector<Lit> original;
   const auto retain_original = [&] {
-    if (k.proof && k.proof->dsr() && original.empty())
+    if (k.proof && !k.proof->lrat() && original.empty())
       original = scratch;
+  };
+  const auto retire_unstored = [&] {
+    if (!k.proof || k.proof->lrat())
+      return;
+    retain_original();
+    const auto &raw = original.empty() ? scratch : original;
+    k.proof->del(k.next_clause_id, id, raw.data(),
+                 static_cast<uint32_t>(raw.size()));
   };
   for (const Lit lit : scratch)
     kernel_record_import(k, var_of(lit));
@@ -248,8 +255,10 @@ static void propagate_input_unit(Kernel &k) {
   // sorting storage here would change the initial watched pair and the order
   // of every affected watch list.
   if (file_size == 2) {
-    if (scratch[0] == negate(scratch[1]))
+    if (scratch[0] == negate(scratch[1])) {
+      retire_unstored();
       return;
+    }
     if (scratch[0] == scratch[1]) {
       retain_original();
       scratch.resize(1);
@@ -274,8 +283,10 @@ static void propagate_input_unit(Kernel &k) {
     }
     for (size_t i = 0; i < kept; i++)
       k.input_marks[scratch[i]] = 0;
-    if (tautology)
+    if (tautology) {
+      retire_unstored();
       return;
+    }
     scratch.resize(kept);
   }
   // Kissat internal.c:kissat_add normalizes every input clause against units
@@ -289,8 +300,10 @@ static void propagate_input_unit(Kernel &k) {
   auto out = scratch.begin();
   for (const Lit lit : scratch) {
     const int8_t value = k.values[lit];
-    if (value > 0)
+    if (value > 0) {
+      retire_unstored();
       return; // satisfied input clause: consume its id, activate/store nothing
+    }
     if (value < 0) {
       retain_original();
       if (native_lrat)
@@ -340,8 +353,10 @@ static void propagate_input_unit(Kernel &k) {
     k.input_refutation_units = root_units;
   } else if (scratch.size() == 1) {
     const Lit u = scratch[0];
-    if (k.values[u] > 0)
+    if (k.values[u] > 0) {
+      retire_unstored();
       return; // duplicate unit (its id is consumed, never referenced)
+    }
     if (k.values[u] < 0) { // contradicting unit: refuted at the root
       k.inconsistent = true;
       k.input_refuted = true;
@@ -368,7 +383,7 @@ static void propagate_input_unit(Kernel &k) {
     if (duplicate) {
       // Each raw duplicate still exists in the checker. Keep exactly the
       // one copy represented by the kernel so a later deletion removes it.
-      if (k.proof && k.proof->dsr()) {
+      if (k.proof && !k.proof->lrat()) {
         const auto &raw = original.empty() ? scratch : original;
         k.proof->del(k.next_clause_id, id, raw.data(),
                      static_cast<uint32_t>(raw.size()));
@@ -430,7 +445,7 @@ void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
                                  ? k.binary_ids.count(key)
                                  : kernel_binary_live(k, a, b);
       if (duplicate) {
-        if (k.proof && k.proof->dsr())
+        if (k.proof && !k.proof->lrat())
           k.proof->del(k.next_clause_id, id, scratch.data(), 2);
         return;
       }
@@ -457,8 +472,9 @@ void finish_input(Kernel &k) {
   // Input ids are now settled: next_clause_id equals the number of input
   // clauses, exactly the checker's numbering, because ingest_clause consumes
   // one id per clause and nothing else consumed any. Derived ids start here.
-  // Restatements are non-empty only when a proof was attached before the input;
-  // attaching one later cannot be repaired, the input ids are already spent.
+  // Restatements are non-empty only when a proof was attached during import.
+  // The C API's later attachment first replays the exact raw input into a
+  // proof-bearing kernel, then remaps the existing session's live identities.
   assert(k.input_restatements.empty() || k.proof);
   // A declared but unmentioned variable is absent from Kissat's import map and
   // active/search population.  Retire Tactix's header-reserved identity without

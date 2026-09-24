@@ -106,8 +106,8 @@ both gates in the shared proof ladder. No guard/schedule change. Debug/Release
 pass 192 fixed cases; 72 fixed certificates and 30 exact handoff runs verify.
 Authority `...-am346-xor-cancellation`, patch `4de87c93...`, archive `c6623309...`,
 Debug `7e2abefb...`, Release `4e8a5306...`; terminal fuzz FAIL (F1/F1-CLI/F2/F3/F4); full CTest 179/180, with the corrected micro-proof invocation passing separately.
-AM349 repairs general unary cancellation and full-cube LRAT replay; 192 fixed cases/build, 96 generated certificates and F1/F1-CLI verify. Authority `...-am349-unary-xor`, patch `8d9be604...`, archive `4bfd8427...`, Debug `33ac9374...`, Release `e9389c96...`; Opus `1325714`/session `95543` owns fuzz; full CTest `32404` is live. Late-attachment F2 still rejects; F3/F4 remain open.
-Evidence: `benchmarks/reports/2026-09-24-am349-unary-xor-checkpoint.md`; the AM346 checkpoint and terminal owner report remain frozen.
+AM349 repairs general unary cancellation/full-cube LRAT replay; fixed tests and F1/F1-CLI verify. Authority `...-am349-unary-xor`, Debug `33ac9374...`, Release `e9389c96...`; Opus fuzz and full CTest remain live.
+AM350 repairs legal late C-API proof attachment (F2) by deferred raw-input replay/live-id remapping and literal-addressed import population (F3). F2 exact/paired LRAT, F2 DSR, midstream DRAT/LRAT and 11/11 F3 audits pass; Debug full CTest is live. Debug `bff417f1...`, Release `bbadff02...`. F4 and combined acceptance remain open. Evidence: `benchmarks/reports/2026-09-24-am349-unary-xor-checkpoint.md` and `benchmarks/reports/2026-09-24-am350-late-proof-checkpoint.md`; AM346's terminal report is frozen.
 
 AM342 is an **unaccepted tooling-only repair** of AM340 F1/O3. Conversion
 eligibility uses numeric zero-terminated clauses on validated spelling; the
@@ -319,7 +319,7 @@ byte-identical solver pins remain in the AM333 gate campaigns.
    malformed DSR routing classification and DSR reader-layout limitations;
    preserve its owner. AM346 repairs the bounded XOR-matching DSR failure;
    preserve its owner and finish the remaining five-case check, fuzz and CTest.
-   AM347's terminal report validates H1/F1; A1 deadline handoff remains open. AM348 recovery owns affected fuzz. AM349's general proof repair is pending fuzz; next repair legal late-proof attachment (F2/F3), the F4 phase assertion, and other bounded handoffs before successor gates. Legal comment lines
+   AM347's terminal report validates H1/F1; A1 deadline handoff remains open. AM348 recovery owns affected fuzz. AM349/AM350 proof repairs remain pending combined fuzz; next repair the F4 phase assertion and other bounded handoffs before successor gates. Legal comment lines
    already pass both readers; obtain an exact bounded failing legal layout if
    the earlier owner finding persists rather than changing parser tolerance.
    Complete these oracle obligations before successor gates; no affected

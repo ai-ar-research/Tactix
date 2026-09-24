@@ -205,65 +205,71 @@ static void test_native_lrat_retains_binary_ids() {
 // Independently replay the literal-addressed import delta over the raw input.
 // After shortening and binary deduplication, later SR must see exactly the
 // represented clause population, including when a duplicate itself shrinks.
-static void test_dsr_import_retires_raw_replacements() {
+static void test_literal_proof_import_retires_raw_replacements() {
   const std::vector<std::vector<int>> raw = {
       {1}, {-1, 2, 2, 3}, {3, 2}, {2, -1, 3},
-      {4, 5, 4, -1, 6}, {7, -1, 7}};
+      {4, 5, 4, -1, 6}, {7, -1, 7}, {1, 8}, {9, -9}};
   std::ostringstream input;
-  input << "p cnf 7 " << raw.size() << '\n';
-  std::map<std::vector<int>, unsigned> population;
+  input << "p cnf 9 " << raw.size() << '\n';
+  std::map<std::vector<int>, unsigned> initial_population;
   for (auto clause : raw) {
     for (int lit : clause)
       input << lit << ' ';
     input << "0\n";
     std::sort(clause.begin(), clause.end());
-    ++population[clause];
+    ++initial_population[clause];
   }
-  const std::string path = "test-parse-dsr-" + std::to_string(getpid()) + ".dsr";
-  std::string proved_state;
-  {
-    Kernel k;
-    Proof proof;
-    assert(proof.open(path.c_str(), ProofFormat::DsrAscii));
-    k.proof = &proof;
-    FILE *file = dimacs_file(input.str().c_str());
-    assert(parse_dimacs(file, k) == nullptr);
-    std::fclose(file);
-    proved_state = import_fingerprint(k);
-    kernel_check_invariants(k);
-    k.proof = nullptr;
-  }
-  {
-    Kernel k;
-    FILE *file = dimacs_file(input.str().c_str());
-    assert(parse_dimacs(file, k) == nullptr);
-    std::fclose(file);
-    assert(import_fingerprint(k) == proved_state);
-  }
-  std::ifstream proof(path);
-  std::string line;
-  while (std::getline(proof, line)) {
-    std::istringstream record(line);
-    const bool deletion = record.peek() == 'd';
-    if (deletion)
-      record.get();
-    std::vector<int> clause;
-    for (int lit; record >> lit && lit;)
-      clause.push_back(lit);
-    std::sort(clause.begin(), clause.end());
-    if (deletion) {
-      auto found = population.find(clause);
-      assert(found != population.end() && found->second);
-      if (!--found->second)
-        population.erase(found);
-    } else {
-      ++population[clause];
+  for (const ProofFormat format : {ProofFormat::DsrAscii,
+                                   ProofFormat::DratAscii}) {
+    const std::string path = "test-parse-population-" +
+                             std::to_string(getpid()) +
+                             (format == ProofFormat::DsrAscii ? ".dsr" : ".drat");
+    std::string proved_state;
+    {
+      Kernel k;
+      Proof proof;
+      assert(proof.open(path.c_str(), format));
+      k.proof = &proof;
+      FILE *file = dimacs_file(input.str().c_str());
+      assert(parse_dimacs(file, k) == nullptr);
+      std::fclose(file);
+      proved_state = import_fingerprint(k);
+      kernel_check_invariants(k);
+      k.proof = nullptr;
     }
+    {
+      Kernel k;
+      FILE *file = dimacs_file(input.str().c_str());
+      assert(parse_dimacs(file, k) == nullptr);
+      std::fclose(file);
+      assert(import_fingerprint(k) == proved_state);
+    }
+    std::map<std::vector<int>, unsigned> population = initial_population;
+    std::ifstream proof(path);
+    std::string line;
+    while (std::getline(proof, line)) {
+      std::istringstream record(line);
+      const bool deletion = record.peek() == 'd';
+      if (deletion)
+        record.get();
+      std::vector<int> clause;
+      for (int lit; record >> lit && lit;)
+        clause.push_back(lit);
+      std::sort(clause.begin(), clause.end());
+      if (deletion) {
+        auto found = population.find(clause);
+        assert(found != population.end() && found->second);
+        if (!--found->second)
+          population.erase(found);
+      } else {
+        ++population[clause];
+      }
+    }
+    const std::map<std::vector<int>, unsigned> expected = {
+        {{1}, 1}, {{2, 3}, 1}, {{4, 5, 6}, 1}, {{7}, 1}};
+    assert(population == expected);
+    assert(std::remove(path.c_str()) == 0);
   }
-  const std::map<std::vector<int>, unsigned> expected = {
-      {{1}, 1}, {{2, 3}, 1}, {{4, 5, 6}, 1}, {{7}, 1}};
-  assert(population == expected);
-  assert(std::remove(path.c_str()) == 0);
 }
 
 static void test_tumble_preserves_file_literal_order() {
@@ -417,7 +423,7 @@ static void test_header_only_variables_are_not_search_variables() {
 int main() {
   test_compact_input_filter_grows_and_deduplicates_exactly();
   test_native_lrat_retains_binary_ids();
-  test_dsr_import_retires_raw_replacements();
+  test_literal_proof_import_retires_raw_replacements();
   test_tumble_preserves_file_literal_order();
   test_root_units_normalize_later_input_clauses();
   test_input_units_propagate_before_later_clauses();
