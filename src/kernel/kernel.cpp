@@ -824,7 +824,12 @@ void kernel_unwatch_large(Kernel &k, Lit l, Ref ref) {
     removed = true; // drop this entry's blocking word + ref word
     return false;
   });
-  assert(removed && "unwatch of a clause this literal does not watch");
+  // Sparse collection may already have flushed this entry from a root-fixed
+  // literal's list while retaining the unswept clause. Match the ordinary
+  // watch invariant: only a permanently assigned slot may be absent. Still
+  // remove an entry when present, including one attached after the flush.
+  assert((removed || kernel_root_value(k, l) != 0) &&
+         "unwatch of a clause this literal does not watch");
 }
 
 void kernel_swap_large_watch_refs(Kernel &k, Lit l, Ref first, Ref second,

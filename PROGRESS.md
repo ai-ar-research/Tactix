@@ -34,7 +34,7 @@ All three Tseitin diagnostics now pass VeriPB and CakePB on AM335 v1
 Claude's AM335 handoff have causal repairs and passing focused regressions:
 retire non-LRAT Congruence ladders before SR; detect all-format publication
 failure before CLI/API UNSAT. Combined Claude fuzz resumed on Opus; AM337 Rank
-and B/C are fully checked, WV2-89 is terminal and WV100 has one pending check.
+and B/C are fully checked; WV2-89 and WV100 are now terminal with coverage gaps.
 The full gate set is not accepted; no promotion. Repair evidence:
 `benchmarks/reports/2026-09-23-am337-proof-lifetime-checkpoint.md`.
 
@@ -62,23 +62,41 @@ New immutable authority/request: `benchmarks/runs/20260923-am339-parser-liveness
 CTest ended **178/178 passed** in `build/parser-liveness-dev` (demo 3,165.24 s);
 fuzz acceptance and successor gates remain due. Evidence:
 `benchmarks/reports/2026-09-23-am339-parser-liveness-checkpoint.md`.
-Opus recovery requests/logs are in the AM339 authority directory; the combined
-owner is classifying terminal jobs in `...-am339-parser-liveness-claude-fuzz/OWNER_STATUS.md`.
+Opus recovery requests/logs are in the AM339 authority directory; its terminal
+`...-am339-parser-liveness-claude-fuzz/REPORT.md` is FAILED, with bounded handoffs.
 All task-owned Claude invocations must explicitly select Opus, never Fable.
 
 AM340 is an **unaccepted tooling-only repair** on AM339's unchanged binaries.
 drat-trim now receives validated clause-preserving DIMACS in runtime, fuzz,
 routed elaboration and the tier runner, closing the false acceptance caused by
 binary-proof comments and octal reading of decimal leading-zero literals.
-Fixed tests and full harness self-test pass; Opus owns successor validation in
-`...-am340-drat-input-claude-fuzz`. Tooling authority: `...-am340-drat-input`,
+Fixed tests and full harness self-test pass; Opus validation ended FAILED in
+`...-am340-drat-input-claude-fuzz/REPORT.md`. Tooling authority: `...-am340-drat-input`,
 patch `005bf541...`, archive `eacd7ed7...`. Evidence and gate snapshot:
 `benchmarks/reports/2026-09-23-am340-drat-input-checkpoint.md`.
-AM339's published status now reports one Debug random-policy unwatch assertion
-(seed 340726072); its owner is preparing a bounded reproducer. This blocks
-promotion and dependent solver work. AM335/AM336 terminal reports are both
+AM340 rejects both original false proofs on all seven surfaces, but handed off
+F1 (optional conversion predicate reads original layout) and O3 (tier runner
+accepts success-looking checker output without strict status). Both remain open.
+AM335/AM336 terminal reports are both
 NOT clean acceptance; their coverage gaps remain unwaived. No new solver
 failure was handed off by AM336; its Propagate closure check was vacuous.
+
+AM341 is an **unaccepted Debug-assertion repair** for AM339 seed 340726072.
+Sparse collection legally drops root-fixed watches on unswept prefix clauses;
+unwatch now matches that existing invariant while missing non-root entries still
+assert. No rule, guard, schedule or Release behavior changes. Authority:
+`benchmarks/runs/20260923-am341-unwatch/manifest.json`, Debug `722f1eb5...`,
+Release byte-identical `cbe99910...`, patch `e5473fd3...`, archive `165e3608...`.
+Regression 037 and six-variable boundary/death tests preserve the cause; the
+owner-reported four-mode bounds defect in `test_random_online` is also repaired.
+Job `1716498`: 48 independently checked random/replay runs across six formats,
+Debug/Release proof-byte equality, two old-Debug abort controls. Focused tests
+pass. Fresh full Debug CTest is live (178/179 passed; demo pending), session
+`3825`, log `...-am341-unwatch/ctest-debug-all.log`; do not restart it.
+Explicit Opus owner PID `1934171`, session `34151`, request/log in the authority,
+owns affected validation and remaining combined coverage in
+`...-am341-unwatch-claude-fuzz`. Evidence:
+`benchmarks/reports/2026-09-24-am341-unwatch-checkpoint.md`.
 
 Solver/tooling authority: `10cd18c9` (certificate routing) on top of the
 AM333 solver source (`75487222`). The AM333 pin is the last gated binary:
@@ -116,9 +134,9 @@ repeat (AM331), Lucky 17 signed exact cover and Lucky 18 independent set
 
 | rows | disposition |
 |---|---|
-| `FmlaEquivChain_4_8_8` | AM336 shared count-preservation diagnostic independently verified (3.322 s solve, 526.734 s check); combined-candidate full gates due |
-| `tseitin_grid_n250_m250`, `tseitin_d3_n100000`, `tseitin_grid_n400_m400` | AM335 v1 startup PB diagnostics independently verified; combined-candidate full gates due |
-| `ncc_none_21015...` | solved; routed drat-trim timed out after 40,119.2 s; not verified |
+| `FmlaEquivChain_4_8_8` | combined AM337 PBP independently verified by both checkers; successor fuzz/full gates remain due |
+| `tseitin_grid_n250_m250`, `tseitin_d3_n100000`, `tseitin_grid_n400_m400` | all three combined AM337 PBP certificates independently verified; successor fuzz/full gates remain due |
+| `ncc_none_21015...` | AM337 solved in 162.181 s; drat-trim reached its internal 40,000 s default despite the 57,600 s outer window; not verified |
 | `ramsey_4_4_19` | owner cut point + first-literal fix anchor solves it (290 s) but loses `ntil` SAT rows; kept declined by the user, typed for the learner (next section) |
 | `hcp_CP18_18`, `6g_6color` | solved over 600 s on the large-domain program; per-rule time at matching work is the next measurement |
 | `snw_16_9`, `Circuit_multiplier24`, `ntil-90d-39`, `lockchart...L19` | plain CDCL; the shuffle probe (five renamed/flipped/shuffled copies per solver) shows trajectory luck, Tactix medians not worse |
@@ -196,11 +214,12 @@ Full width, no throttle/node constraint, 12 CPUs/32 GiB, 1,200-second observatio
 window; WV2-89 scores at 600 seconds by exact censoring. All checker windows are
 57,600 seconds (old 600-second exceptions removed). Independent Release and B/C
 builds match `40b0de22...`. Both DSR/Trestle and DRAT/LRAT routes have completed
-valid rows. At 2026-09-23 19:53 UTC: Rank 50/50 checked, 7,266.692 s;
+valid rows. All tasks are terminal (2026-09-24): Rank 50/50 checked, 7,266.692 s;
 B28+C5 33/33, 916.196 s. WV100 has 97 checked, two missing-LRAT failures
-on genuine empty-clause inputs, and ncc task `1715991_89` still checking.
+on genuine empty-clause inputs, and ncc task `1715991_89` NOT-VERIFIED after
+drat-trim's internal 40,000-second timeout (40,116.714 s total check).
 WV2-89 is terminal: 82 checked, 78 within 600 s, six solver timeouts and one
-CakeLPR DIMACS-reader failure (SCPC-500-1). All 271 final rows report complete
+CakeLPR DIMACS-reader failure (SCPC-500-1). All 272 final rows report complete
 certificate/scratch cleanup. All four target startup certificates verify on
 the combined AM337 pin. Fuzz, full coverage and successor gates remain due;
 do not transfer this evidence silently to AM339. Watchers use `tools/slurm/wait.py`.
@@ -230,17 +249,22 @@ byte-identical solver pins remain in the AM333 gate campaigns.
    fuzz acceptance and all four routed gates before promotion. A newly established
    solver defect stops dependent work; preserve exact failures and pins.
    Continue Claude-owned execution/reporting with explicit Opus (user requested
-   no Fable). First consume AM339's pending bounded unwatch-assertion handoff
-   and repair its cause. AM340's independent tooling owner validates the DRAT
-   reader repair; do not waive old random-policy reachability floors. Repair
-   genuine-empty-input missing LRAT before successor gates; SCPC's trailing
-   blank line requires the AM338 final-checker spelling. AM339's immutable `claude-fuzz-request.md` covers
+   no Fable). AM341 repairs the bounded unwatch assertion; preserve its live
+   full CTest and Opus owner, without waiving old random-policy reachability
+   floors. Next repair AM340's bounded F1/O3 oracle handoffs, model-reader
+   comment-inside-clause support, and genuine-empty-input missing LRAT.
+   Resolve routed repeated-literal LRAT rejection and propagate the requested
+   checker time window past drat-trim's internal default before successor gates;
+   malformed DSR classification and DSR-reader layout limits also remain open.
+   SCPC's trailing blank line requires the AM338 final-checker spelling.
+   AM339's immutable `claude-fuzz-request.md` covers
    the new combined candidate, AM338 tooling and the parser repair. Earlier
    campaigns must be resumed by their owner without repeating passing unchanged
    legs; no old gate is silently transferred to the new pin.
-2. **Finish the first full routed gate campaign.** Inspect terminal results for
-   jobs `1715989`--`1715992`, certificate cleanup, every original-CNF model/proof,
-   coverage, time and memory. AM337 staging pins baseline `drat-trim`/`cake_lpr`,
+2. **Preserve the terminal first routed gate campaign.** Jobs
+   `1715989`--`1715992` have 272 final results with complete cleanup; checked
+   coverage is 50/50, 33/33, 97/100 and 82/89 (78 within 600 s). These are not
+   full acceptance. AM337 staging pins baseline `drat-trim`/`cake_lpr`,
    DSR and PB checkers and the maintained runner. Do not re-run unchanged AM333
    gates or substitute partial coverage for acceptance.
 3. **`hcp_CP18_18` / `6g_6color` under 600 s.** Per-rule time at matching work

@@ -125,7 +125,8 @@ static void seeds_are_replayable_and_behavior_is_wide() {
   bool granularities[4] = {};
   bool repeats[3] = {};
   bool repetitions_by_granularity[4][3] = {};
-  bool sequence_repeats[3] = {};
+  bool sequence_repeats[
+      static_cast<unsigned>(RepeatMode::UntilSizeScaledFixpoint) + 1] = {};
   bool rule_work_budgets[3] = {};
   bool touch_filter_modes[3] = {};
   bool redundant_modes[3] = {};
