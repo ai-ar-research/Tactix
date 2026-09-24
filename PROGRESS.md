@@ -343,8 +343,8 @@ byte-identical solver pins remain in the AM333 gate campaigns.
 
 ## Recent changes
 
+- AM379: LSR/Cake edge matrix finds duplicate-input and empty-input bridges are required; both existing helpers pass fixed positive/negative controls, route approval pending.
 - AM378: exact ncc original-CNF DSR→LSR→CakeLPR diagnostic verifies in 10,005 checker seconds; general production-route decision is pending.
 - AM377: malformed online-X5 replay literals are rejected before signed conversion; fixed Release/Debug/ASan proof/model routes pass, successor fuzz due.
 - AM376: online-v3 carries real X5 `(C,W)` actions; Andrew's learning-readiness review finds two policy-layer refactors needed; Opus owner preparing.
 - AM375: independent overwrite oracle agrees on 1,080 small-domain X5 clause/cube cases in three build modes.
-- AM374: focused current-source N1/N2 audit passes 21/21 Release fixtures and 65/65 proof-oracle units, without claiming universal acceptance.
