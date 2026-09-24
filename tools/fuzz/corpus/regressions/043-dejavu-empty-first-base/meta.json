@@ -1,0 +1,10 @@
+{
+  "seed": 364800026,
+  "failure": "incomplete",
+  "solver_args": ["--random-policy=364800026"],
+  "solver_env": {},
+  "found_by": "AM364 Opus P1 bounded handoff",
+  "diagnosis": "DejaVu treated an initially empty base as a reusable previous base while its DFS level was still -1; decomposition disabled then threw vector::reserve and Tactix returned UNKNOWN.",
+  "fix": "Run paired DFS whenever the cached level is not initialized, even when the current and previous bases compare equal.",
+  "validation": "AM367 SLURM job 1717918 returned SAT and independent checkmodel accepted all 11 original clauses. The previous source returned UNKNOWN."
+}
