@@ -1,0 +1,29 @@
+Test project /home/hwu/SAT-solving/build/am363-release
+      Start  59: online_all_actions
+      Start  40: vivify_n1
+      Start  47: decide
+      Start  72: factor_n1
+ 1/12 Test  #59: online_all_actions ...............   Passed    0.02 sec
+ 2/12 Test  #40: vivify_n1 ........................   Passed    0.02 sec
+ 3/12 Test  #47: decide ...........................   Passed    0.01 sec
+      Start  57: api_instances
+      Start 143: n1_public_policy
+      Start  73: subsume_n1
+ 4/12 Test  #72: factor_n1 ........................   Passed    0.03 sec
+ 5/12 Test  #57: api_instances ....................   Passed    0.02 sec
+ 6/12 Test #143: n1_public_policy .................   Passed    0.01 sec
+      Start   4: proof
+      Start   5: sr_proof_encoding
+      Start  44: cce
+ 7/12 Test  #73: subsume_n1 .......................   Passed    0.02 sec
+ 8/12 Test   #5: sr_proof_encoding ................   Passed    0.01 sec
+      Start  48: reconstruct
+      Start 146: proof_output_failure
+ 9/12 Test  #44: cce ..............................   Passed    0.03 sec
+10/12 Test  #48: reconstruct ......................   Passed    0.03 sec
+11/12 Test   #4: proof ............................   Passed    2.52 sec
+12/12 Test #146: proof_output_failure .............   Passed    5.52 sec
+
+100% tests passed out of 12
+
+Total Test time (real) =   5.62 sec
