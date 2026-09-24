@@ -5,12 +5,14 @@
 #include "rules/substitution_redundancy/cut_orbit_index.hpp"
 #include "diagnostics/symmetry_trace.hpp"
 #include "components.h"
+#include "dejavu.h"
 
 #include <algorithm>
 #include <array>
 #include <cassert>
 #include <cstdlib>
 #include <cstdio>
+#include <utility>
 #include <vector>
 
 using namespace tactix::symmetry_backend;
@@ -48,6 +50,37 @@ void decomposition_prunes_singleton_bridge_edges() {
           assert(subgraph->e[subgraph->v[vertex]] == 1 - vertex);
       }
     }
+  }
+}
+
+// A root selector may return an empty first base even when preprocessing has
+// already found a nontrivial group. That is not a reusable DFS result yet.
+void empty_initial_base_runs_dfs_before_schreier_reuse() {
+  constexpr std::array<int, 14> colors = {0, 0, 0, 0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3};
+  constexpr std::array<std::pair<int, int>, 9> edges = {
+      {{1, 5}, {6, 7}, {6, 9}, {7, 8}, {8, 9},
+       {10, 11}, {10, 13}, {11, 12}, {12, 13}}};
+  std::array<int, colors.size()> degree{};
+  for (const auto &[u, v] : edges) {
+    ++degree[u];
+    ++degree[v];
+  }
+  dejavu::big_number expected;
+  expected.set(3.84L, 2); // S3 times the two four-cycle dihedral groups.
+  for (const bool decompose : {false, true}) {
+    dejavu::static_graph graph(colors.size(), edges.size());
+    for (size_t vertex = 0; vertex < colors.size(); ++vertex)
+      graph.add_vertex(colors[vertex], degree[vertex]);
+    for (const auto &[u, v] : edges)
+      graph.add_edge(u, v);
+    dejavu::solver solver;
+    solver.set_print(false);
+    solver.set_seed(0);
+    solver.set_decompose(decompose);
+    solver.automorphisms(&graph);
+    assert(solver.get_deterministic_termination());
+    assert(!solver.get_reached_limit());
+    assert(solver.get_automorphism_group_size() == expected);
   }
 }
 
@@ -1864,6 +1897,7 @@ void fixing_images_have_sr_direction_for_non_involutions() {
 
 int main() {
   decomposition_prunes_singleton_bridge_edges();
+  empty_initial_base_runs_dfs_before_schreier_reuse();
   symmetry_trace_levels_separate_campaign_and_generator_detail();
   row_images_ignore_untouched_root_cells();
   reduced_first_row_preserves_prefixes_and_stops();
