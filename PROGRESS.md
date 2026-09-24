@@ -105,8 +105,8 @@ AM346 repairs the bounded XOR-matching failure: quantify cancelled inputs from
 both gates in the shared proof ladder. No guard/schedule change. Debug/Release
 pass 192 fixed cases; 72 fixed certificates and 30 exact handoff runs verify.
 Authority `...-am346-xor-cancellation`, patch `4de87c93...`, archive `c6623309...`,
-Debug `7e2abefb...`, Release `4e8a5306...`; Opus `3831909`/session `82572` owns
-affected fuzz. Full CTest `77542` is live; the corrected micro-proof invocation
+Debug `7e2abefb...`, Release `4e8a5306...`; Opus recovery `4184596`/session `30412` owns
+the same campaign (two earlier owners exited without REPORT). New F1/F2/F3 proof findings remain open. Full CTest `77542` is live; the corrected micro-proof invocation
 passes. Evidence: `benchmarks/reports/2026-09-24-am346-xor-cancellation-checkpoint.md`.
 
 AM342 is an **unaccepted tooling-only repair** of AM340 F1/O3. Conversion
@@ -149,16 +149,16 @@ Both dsr-trim and Trestle now receive validated clause-preserving spelling,
 including the tier runner. No solver/checker binary changes. Fixed suites and
 full selftest pass. Authority `...-am344-dsr-routing`, patch `ec421484...`,
 archive `6ce9470d...`; terminal affected report records 8,000 cases without a scope failure, plus F1 PBP layout rejection, now repaired by AM347.
-AM347 fixed suites/selftest pass; Opus `3916573`/session `60027` owns affected validation, with unchanged AM346 solver/checker pins. Evidence:
+AM347 terminal owner report validates PBP spelling (641 fixed positives, 2,844 default PBPs) and 8,000 focused cases; H1 is repaired but A1 descendant-pipe timeout remains open. Solver/checker pins unchanged. Evidence:
 `benchmarks/reports/2026-09-24-am347-checker-boundaries-checkpoint.md` (AM344's earlier checkpoint report remains frozen).
 
 AM345 is an **unaccepted tooling-only LRAT repair**: explicit checked duplicate
 input restatements and ID remapping preserve original CNF multiplicities.
 Fixed suites/selftest pass. Authority `...-am345-lrat-restatement`, patch
 `fd429a27...`, archive `294251d9...`; Opus PID `3377189`/session `99280` owns
-affected fuzz; bounded `repro/g1271/HANDOFF.md` reports Debug OOM at seed 345501271: MAIN DEBUG NEXT. Sweep diagnostic `...-am345-sweep-diagnostic`: `1716608` verifies
-36/36; unpinned local dsr-trim causes failure. Pinned full CTest session `87252`.
-Evidence: `benchmarks/reports/2026-09-24-am345-lrat-restatement-checkpoint.md`.
+affected fuzz; its bounded OOM is repaired by unaccepted AM348: only Walk's reachable score prefix is stored. Authority `...-am348-walk-score-bound`, patch `bfbf2c58...`, archive `a8e33f23...`, Debug `f2d93302...`, Release `870b0314...`; Opus `4176120`/session `72394` owns affected fuzz.
+AM348 fixed Debug/Release tests pass; job `1716796`: 24 verified certificates / 28 executions, 1.55--2.90 s, peak 12,808 KiB. Full CTest `81331` is live. Earlier sweep diagnostic `1716608` verifies 36/36; pinned full CTest `87252` is terminal 179/179 PASS (unpinned dsr-trim caused the old failure).
+Evidence: `benchmarks/reports/2026-09-24-am348-walk-score-bound-checkpoint.md`; the AM345 LRAT-restatement checkpoint report remains frozen.
 
 Solver/tooling authority: `10cd18c9` (certificate routing) on top of the
 AM333 solver source (`75487222`). The AM333 pin is the last gated binary:
@@ -319,7 +319,7 @@ byte-identical solver pins remain in the AM333 gate campaigns.
    malformed DSR routing classification and DSR reader-layout limitations;
    preserve its owner. AM346 repairs the bounded XOR-matching DSR failure;
    preserve its owner and finish the remaining five-case check, fuzz and CTest.
-   AM347 repairs H1/F1; preserve its owner. Debug AM345's bounded memory runaway before successor gates. Legal comment lines
+   AM347's terminal report validates H1/F1; A1 deadline handoff remains open. AM348 repairs AM345's OOM, pending affected fuzz. Next debug AM346's bounded F1/F2/F3 proof failures before successor gates. Legal comment lines
    already pass both readers; obtain an exact bounded failing legal layout if
    the earlier owner finding persists rather than changing parser tolerance.
    Complete these oracle obligations before successor gates; no affected

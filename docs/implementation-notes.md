@@ -318,7 +318,7 @@ configurable; defaults warm search, save phases, backtrack neutrally, and restor
 large clauses. Its default `walkeffort=50‰` dose reads the Eliminate tick anchor: Kissat invokes Walk with `solver->probing ==
 false`, so `SET_EFFORT_LIMIT` selects `last.ticks.eliminate`. Walk has no private effort anchor and does not advance that shared
 anchor; only a completed Eliminate phase does. The ProbSAT average divides by `BINIRR_CLAUSES` as read after dense entry:
-root-satisfied and duplicate binaries are already deleted, root-satisfied large clauses still count.
+root-satisfied and duplicate binaries are already deleted, root-satisfied large clauses still count. Scores retain the reference recurrence but store only through the maximum literal occurrence count (the break-value bound), or its earlier underflow/fixed point; legal near-unit bases need no unreachable tail.
 
 The arena is collected only inside an Eliminate round (BVE's per-round collection, `eliminate.c:519`) and at Reduce
 (`reduce.c:202`); a Probe phase never collects, so the eager-subsumption register survives it as in Kissat. BVE schedules every
