@@ -542,6 +542,15 @@ def run_captured(command, timeout=None, **kwargs):
                               errors='replace', timeout=timeout, **kwargs)
     if not math.isfinite(timeout):
         raise ValueError('process timeout must be finite')
+
+    def partial_text(data, stream):
+        # TimeoutExpired retains bytes even with text=True. Do not reopen the
+        # pipe after the deadline: an orphaned descendant may still hold it.
+        if data is None or isinstance(data, str):
+            return data
+        decoded = data.decode(stream.encoding, errors=stream.errors)
+        return decoded.replace('\r\n', '\n').replace('\r', '\n')
+
     with subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                           text=True, errors='replace', **kwargs) as process:
         deadline = time.monotonic() + timeout
@@ -553,13 +562,17 @@ def run_captured(command, timeout=None, **kwargs):
                         timeout=min(remaining, MAX_CAPTURE_WAIT_SECONDS))
                     return subprocess.CompletedProcess(command, process.returncode,
                                                        stdout, stderr)
-                except subprocess.TimeoutExpired:
+                except subprocess.TimeoutExpired as expired:
                     if time.monotonic() < deadline:
                         continue
                     process.kill()
-                    stdout, stderr = process.communicate()
+                    # Reap only the direct child. A second unbounded
+                    # communicate can wait on inherited pipes until an
+                    # unrelated descendant exits, overrunning the deadline.
+                    process.wait()
                     raise subprocess.TimeoutExpired(command, timeout,
-                                                    output=stdout, stderr=stderr)
+                        output=partial_text(expired.output, process.stdout),
+                        stderr=partial_text(expired.stderr, process.stderr))
         except BaseException:
             process.kill()
             process.wait()

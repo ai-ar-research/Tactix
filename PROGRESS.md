@@ -149,7 +149,7 @@ Both dsr-trim and Trestle now receive validated clause-preserving spelling,
 including the tier runner. No solver/checker binary changes. Fixed suites and
 full selftest pass. Authority `...-am344-dsr-routing`, patch `ec421484...`,
 archive `6ce9470d...`; terminal affected report records 8,000 cases without a scope failure, plus F1 PBP layout rejection, now repaired by AM347.
-AM347 terminal owner report validates PBP spelling (641 fixed positives, 2,844 default PBPs) and 8,000 focused cases; H1 is repaired but A1 descendant-pipe timeout remains open. Solver/checker pins unchanged. Evidence:
+AM347 terminal owner report validates PBP spelling (641 fixed positives, 2,844 default PBPs) and 8,000 focused cases; its A1 descendant-pipe timeout is now repaired by unaccepted AM353: bounded capture reaps the direct child without reopening inherited pipes. The exact .5-second handoff returns at .52 seconds versus 6.03 before; 27 bench-oracle tests, 19 binary/runtime/anonymous tests, 7 runtime integration tests and full harness selftest pass. Opus validation remains due; solver/checker pins unchanged. Evidence:
 `benchmarks/reports/2026-09-24-am347-checker-boundaries-checkpoint.md` (AM344's earlier checkpoint report remains frozen).
 
 AM345 is an **unaccepted tooling-only LRAT repair**: explicit checked duplicate
@@ -319,7 +319,7 @@ byte-identical solver pins remain in the AM333 gate campaigns.
    malformed DSR routing classification and DSR reader-layout limitations;
    preserve its owner. AM346 repairs the bounded XOR-matching DSR failure;
    preserve its owner and finish the remaining five-case check, fuzz and CTest.
-   AM347's terminal report validates H1/F1; A1 deadline handoff remains open. AM348 recovery owns affected fuzz. AM351 repairs the F4 phase assertion; finish its full CTest/Opus matrix and investigate any bounded handoffs before successor gates. Legal comment lines
+   AM347's terminal report validates H1/F1; AM353 repairs A1 locally, with independent Opus validation due. AM348 recovery owns affected fuzz. AM351 repairs the F4 phase assertion; finish its full CTest/Opus matrix and investigate any bounded handoffs before successor gates. Legal comment lines
    already pass both readers; obtain an exact bounded failing legal layout if
    the earlier owner finding persists rather than changing parser tolerance.
    Complete these oracle obligations before successor gates; no affected
