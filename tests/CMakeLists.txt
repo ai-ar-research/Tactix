@@ -260,6 +260,13 @@ target_link_libraries(test_api_c PRIVATE tactix_lib)
 target_include_directories(test_api_c PRIVATE ${CMAKE_SOURCE_DIR}/include)
 add_test(NAME api_n1 COMMAND test_api_c)
 
+# External certificate-oracle fixture: invoked only by a pinned SLURM proof
+# job because it writes a proof and requires independent checker binaries.
+add_executable(condition_certificate_driver condition_certificate_driver.c)
+target_link_libraries(condition_certificate_driver PRIVATE tactix_lib)
+target_include_directories(condition_certificate_driver PRIVATE
+                           ${CMAKE_SOURCE_DIR}/include)
+
 # tactix_apply_instance on every registry entry (the §5.6 action space) plus the
 # no-payload-aliasing contract. A C client, so it also checks header/ABI sync.
 add_executable(test_api_instances test_api_instances.c)

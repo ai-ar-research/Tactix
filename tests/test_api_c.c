@@ -494,7 +494,7 @@ static void test_action_kind(void) {
       "Substitute", "SubstitutionRedundancy", "SubsumeForward", "Sweep",
       "SwitchMode",
       "TransitiveReduce",
-      "Vivify",     "Walk"};
+      "Vivify",     "Walk", "Condition"};
   const int n = (int)(sizeof(golden) / sizeof(golden[0]));
   assert(tactix_rule_count() == n);
   for (int i = 0; i < n; i++)
@@ -526,7 +526,30 @@ static void test_action_kind(void) {
   assert(tactix_action_kind(9999) == -1);
 }
 
+static void test_condition_cube_api(void) {
+  tactix *s = tactix_init();
+  add_clause(s, (const int[]){1, 2, 0});
+  add_clause(s, (const int[]){-1, 3, 0});
+  add_clause(s, (const int[]){-3, 4, 0});
+  const int clause[] = {1, 2};
+  const int incomplete[] = {1};
+  const int full[] = {1, 3, 4};
+  const int duplicate[] = {1, 1};
+  assert(tactix_apply_condition(s, NULL, 2, full, 3) == -1);
+  assert(tactix_apply_condition(s, clause, 2, NULL, 3) == -1);
+  assert(tactix_apply_condition(s, clause, 2, duplicate, 2) == -1);
+  assert(tactix_apply_condition(s, clause, 2, incomplete, 1) == -1);
+  assert(tactix_apply_condition(s, clause, 2, full, 3) == 0);
+  assert(tactix_apply_condition(s, clause, 2, full, 3) == -1);
+  assert(tactix_solve(s) == 10);
+  assert(tactix_value(s, 1) == 1 || tactix_value(s, 2) == 2);
+  assert(tactix_value(s, -1) == -1 || tactix_value(s, 3) == 3);
+  assert(tactix_value(s, -3) == -3 || tactix_value(s, 4) == 4);
+  tactix_release(s);
+}
+
 int main(void) {
+  test_condition_cube_api();
   test_solve_sat();
   test_discarded_only_variables_extend_model();
   test_lucky_model_status_after_inprocessing();

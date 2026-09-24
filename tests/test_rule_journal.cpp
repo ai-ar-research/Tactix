@@ -25,7 +25,7 @@ int main() {
     const RuleEligibility eligibility = rule.guard(k);
     assert(!eligibility.facts.empty());
   }
-  assert(proof_rules == 23); // X7 is a registered proof rule.
+  assert(proof_rules == 24); // X5 and X7 are registered proof rules.
   // Subrules may have more guard facts than the old fixed eight-entry buffer.
   const RuleEligibility cardinality = signed_cardinality_proof_guard(k);
   assert(cardinality.facts.size() == 9);
