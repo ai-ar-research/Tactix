@@ -4,6 +4,7 @@
 #include "symmetry_backend/group_input.hpp"
 #include "rules/substitution_redundancy/cut_orbit_index.hpp"
 #include "diagnostics/symmetry_trace.hpp"
+#include "components.h"
 
 #include <algorithm>
 #include <array>
@@ -15,6 +16,32 @@
 using namespace tactix::symmetry_backend;
 
 namespace {
+
+// Component adjacency must contain only translated component vertices. A
+// singleton-color bridge is omitted from both components and their degrees.
+void decomposition_prunes_singleton_bridge_edges() {
+  dejavu::static_graph graph(5, 4);
+  graph.add_vertex(0, 1);
+  graph.add_vertex(0, 1);
+  graph.add_vertex(1, 1);
+  graph.add_vertex(1, 1);
+  graph.add_vertex(2, 4);
+  for (unsigned vertex = 0; vertex < 4; ++vertex)
+    graph.add_edge(vertex, 4);
+  dejavu::sgraph *source = graph.get_sgraph();
+  int *colors = graph.get_coloring();
+  dejavu::ds::worklist membership(source->v_size);
+  const int count = dejavu::ir::quotient_components(source, colors, &membership);
+  assert(count == 2);
+  dejavu::ir::graph_decomposer decomposition;
+  decomposition.decompose(source, colors, membership, count);
+  for (int component = 0; component < count; ++component) {
+    const dejavu::sgraph *subgraph = decomposition.get_component(component);
+    assert(subgraph->v_size == 2);
+    for (int vertex = 0; vertex < subgraph->v_size; ++vertex)
+      assert(subgraph->d[vertex] == 0);
+  }
+}
 
 void symmetry_trace_levels_separate_campaign_and_generator_detail() {
   unsetenv("TACTIX_SR_TRACE");
@@ -1828,6 +1855,7 @@ void fixing_images_have_sr_direction_for_non_involutions() {
 } // namespace
 
 int main() {
+  decomposition_prunes_singleton_bridge_edges();
   symmetry_trace_levels_separate_campaign_and_generator_detail();
   row_images_ignore_untouched_root_cells();
   reduced_first_row_preserves_prefixes_and_stops();

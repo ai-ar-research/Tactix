@@ -197,6 +197,11 @@ namespace ir {
                         ++ept;
                     }
                 }
+                // The adjacency list above is compacted in place. A removed
+                // singleton-color or other-component neighbour must also be
+                // removed from its degree, or the component solver will read
+                // stale edge slots beyond this component's vertex domain.
+                g->d[v] = ept - vpt;
             }
 
             std::vector<int> original_v;

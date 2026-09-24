@@ -125,6 +125,9 @@ add_test(NAME symmetry_backend_build_boundary
                  ${CMAKE_SOURCE_DIR})
 add_executable(test_symmetry_backend test_symmetry_backend.cpp)
 target_include_directories(test_symmetry_backend PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_include_directories(test_symmetry_backend SYSTEM PRIVATE
+  ${CMAKE_SOURCE_DIR}/third_party/dejavu-4c275e9)
+target_compile_options(test_symmetry_backend PRIVATE -fexceptions -frtti)
 target_link_libraries(test_symmetry_backend PRIVATE tactix_symmetry_backend)
 add_test(NAME symmetry_backend COMMAND test_symmetry_backend)
 add_executable(test_symmetry_clause_multiset test_symmetry_clause_multiset.cpp)
