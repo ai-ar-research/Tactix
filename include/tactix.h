@@ -273,7 +273,9 @@ int tactix_rules_applicable(tactix *, int *out, int cap);
 /* Fill `out` with up to `cap` instance payloads of a rule, ranked with the
  * canonical instance first (encodings in the header comment). Returns the
  * count, or -1 if the rule is unknown or its guard does not hold. Rules without
- * per-application choice yield exactly TACTIX_INSTANCE_CANONICAL. */
+ * a uint64 choice yield TACTIX_INSTANCE_CANONICAL; X5's variable-length legal
+ * tuples are instead supplied to tactix_apply_condition below, and its
+ * canonical placeholder is a no-op. */
 int tactix_rule_instances(tactix *, int rule_id, uint64_t *out, int cap);
 
 /* apply a rule's canonical instance. Returns: 0 progress, 1 no-op,
@@ -282,7 +284,7 @@ int tactix_rule_instances(tactix *, int rule_id, uint64_t *out, int cap);
 int tactix_apply(tactix *, int rule_id);
 
 /* Apply a chosen instance; same returns as tactix_apply, plus -1 for a
- * non-canonical payload on a rule with no instance surface. Out-of-range
+ * non-canonical payload on a rule with no uint64 instance surface. Out-of-range
  * payloads on a rule that has one are clamped or no-ops per that rule's
  * documented encoding, never unsound. */
 int tactix_apply_instance(tactix *, int rule_id, uint64_t instance);

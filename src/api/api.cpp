@@ -1404,7 +1404,7 @@ int tactix_rule_instances(tactix_solver *s, int rule_id, uint64_t *out,
   const RuleVTable &r = rules[rule_id];
   if (!r.guard(s->kernel))
     return -1;
-  if (!r.instances) { // no per-application choice: canonical only
+  if (!r.instances) { // no uint64 choice; X5 has a separate structured tuple
     if (cap >= 1)
       out[0] = INSTANCE_CANONICAL;
     return cap >= 1 ? 1 : 0;
@@ -1421,10 +1421,9 @@ int tactix_apply_instance(tactix_solver *s, int rule_id, uint64_t instance) {
   const RuleVTable &r = rules[rule_id];
   if (!r.guard(s->kernel))
     return -1;
-  // A rule with no instance surface has exactly one application, so a
-  // non-canonical payload is an invalid argument. Running the canonical round
-  // instead would be payload aliasing: the caller asked for one instance and
-  // silently got a whole batch, with no way to notice
+  // A rule with no uint64 instance surface rejects a non-canonical payload.
+  // Running the canonical round instead would be payload aliasing: the caller
+  // asked for one instance and silently got another action, with no way to notice
   // (tests/test_api_instances.c).
   if (!r.apply_instance && instance != INSTANCE_CANONICAL)
     return -1;
