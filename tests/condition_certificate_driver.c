@@ -13,30 +13,45 @@ static void add(tactix *solver, const int *clause) {
   tactix_add(solver, 0);
 }
 
+static int rule_id(const char *name) {
+  for (int id = 0; id < tactix_rule_count(); ++id)
+    if (!strcmp(tactix_rule_name(id), name))
+      return id;
+  return -1;
+}
+
 int main(int argc, char **argv) {
   if (argc != 4 ||
       (strcmp(argv[3], "binary") && strcmp(argv[3], "large") &&
-       strcmp(argv[3], "sat")))
+       strcmp(argv[3], "root-binary") &&
+       strcmp(argv[3], "root-large") && strcmp(argv[3], "sat") &&
+       strcmp(argv[3], "root-sat")))
     return 2;
   char cnf[4096], proof[4096];
   if (snprintf(cnf, sizeof cnf, "%s.cnf", argv[1]) >= (int)sizeof cnf ||
       snprintf(proof, sizeof proof, "%s.proof", argv[1]) >=
           (int)sizeof proof)
     return 2;
-  const int large = !strcmp(argv[3], "large");
-  const int sat = !strcmp(argv[3], "sat");
+  const int root = !strncmp(argv[3], "root-", 5);
+  const int large = !strcmp(argv[3], "large") ||
+                    !strcmp(argv[3], "root-large");
+  const int sat = !strcmp(argv[3], "sat") ||
+                  !strcmp(argv[3], "root-sat");
   static const int binary_candidate[] = {1, 2, 0};
   static const int large_candidate[] = {1, 2, 7, 0};
   static const int d[] = {-1, 3, 0};
   static const int e[] = {-3, 4, 0};
+  static const int force_two[][3] = {{-2, 8, 0}, {-2, -8, 0}};
+  static const int force_seven[][3] = {{-7, 9, 0}, {-7, -9, 0}};
   static const int core[][3] = {
       {5, 6, 0}, {5, -6, 0}, {-5, 6, 0}, {-5, -6, 0}};
   const int *candidate = large ? large_candidate : binary_candidate;
   FILE *original = fopen(cnf, "w");
   if (!original)
     return 2;
-  fprintf(original, "p cnf %d %d\n", sat ? 4 : large ? 7 : 6,
-          sat ? 4 : 8);
+  fprintf(original, "p cnf %d %d\n", root ? (large ? 9 : 8) :
+          sat ? 4 : large ? 7 : 6,
+          (sat ? 4 : 8) + (root ? (large ? 4 : 2) : 0));
   for (int copy = 0; copy < 2; ++copy) {
     for (const int *p = candidate; *p; ++p)
       fprintf(original, "%d ", *p);
@@ -48,6 +63,14 @@ int main(int argc, char **argv) {
     for (const int *p = clause; *p; ++p)
       fprintf(original, "%d ", *p);
     fputs("0\n", original);
+  }
+  if (root) {
+    for (size_t i = 0; i < 2; ++i)
+      fprintf(original, "%d %d 0\n", force_two[i][0], force_two[i][1]);
+    if (large)
+      for (size_t i = 0; i < 2; ++i)
+        fprintf(original, "%d %d 0\n", force_seven[i][0],
+                force_seven[i][1]);
   }
   if (!sat)
     for (size_t i = 0; i < 4; ++i)
@@ -61,24 +84,49 @@ int main(int argc, char **argv) {
   add(solver, candidate);
   add(solver, d);
   add(solver, e);
+  if (root) {
+    for (size_t i = 0; i < 2; ++i)
+      add(solver, force_two[i]);
+    if (large)
+      for (size_t i = 0; i < 2; ++i)
+        add(solver, force_seven[i]);
+  }
   if (!sat)
     for (size_t i = 0; i < 4; ++i)
       add(solver, core[i]);
-  const int wrong[] = {1};
+  if (root) {
+    const int probe = rule_id("Probe");
+    assert(probe >= 0);
+    assert(tactix_apply_instance(solver, probe, 2) == 0);
+    if (large)
+      assert(tactix_apply_instance(solver, probe, 7) == 0);
+    const int propagated = tactix_apply(solver, rule_id("Propagate"));
+    assert(propagated == 0 || propagated == 1);
+  }
+  const int wrong[] = {-1};
   const int cube[] = {1, 3, 4};
+  const int root_cube[] = {1};
+  if (root)
+    assert(tactix_apply_condition(solver, candidate, large ? 3 : 2,
+                                  wrong, 1) == -1);
+  else {
+    const int insufficient[] = {1};
+    assert(tactix_apply_condition(solver, candidate, large ? 3 : 2,
+                                  insufficient, 1) == -1);
+  }
   assert(tactix_apply_condition(solver, candidate, large ? 3 : 2,
-                                wrong, 1) == -1);
-  assert(tactix_apply_condition(solver, candidate, large ? 3 : 2,
-                                cube, 3) == 0);
+                                root ? root_cube : cube,
+                                root ? 1 : 3) == 0);
   if (sat) {
-    assert(tactix_decide(solver, -1) == 0);
+    if (!root)
+      assert(tactix_decide(solver, -1) == 0);
     assert(tactix_solve(solver) == 10);
     assert(tactix_value(solver, 1) == 1);
     assert(tactix_value(solver, 3) == 3);
     assert(tactix_value(solver, 4) == 4);
     puts("s SATISFIABLE");
     fputs("v", stdout);
-    for (int v = 1; v <= 4; ++v)
+    for (int v = 1; v <= (root ? 8 : 4); ++v)
       printf(" %d", tactix_value(solver, v));
     puts(" 0");
   } else {

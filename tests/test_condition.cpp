@@ -126,10 +126,42 @@ static void test_root_false_candidate_literal() {
   assert(clause_at(k.arena, 0)->garbage());
 }
 
+static void test_root_true_reason_candidates() {
+  {
+    Kernel k;
+    kernel_reserve_vars(k, 2);
+    kernel_add_binary_clause(k, internalize(1), internalize(2));
+    kernel_assign_unit(k, internalize(-2));
+    assert(!kernel_propagate(k));
+    assert(k.values[internalize(1)] > 0);
+    assert(k.assigned[0].binary);
+    assert(condition_apply_explicit(k, cube({2, 1}, {1})));
+    assert(!kernel_binary_live(k, internalize(1), internalize(2)));
+    assert(k.assigned[0].reason == UNIT_REASON);
+    assert(k.values[internalize(1)] > 0);
+  }
+  {
+    Kernel k;
+    kernel_reserve_vars(k, 3);
+    const Lit c[] = {internalize(1), internalize(2), internalize(3)};
+    const Ref ref = kernel_add_large_clause(k, c, 3, false, 0);
+    kernel_assign_unit(k, internalize(-2));
+    kernel_assign_unit(k, internalize(-3));
+    assert(!kernel_propagate(k));
+    assert(k.values[internalize(1)] > 0);
+    assert(!k.assigned[0].binary && k.assigned[0].reason == ref);
+    assert(condition_apply_explicit(k, cube({3, 1, 2}, {1})));
+    assert(clause_at(k.arena, ref)->garbage());
+    assert(k.assigned[0].reason == UNIT_REASON);
+    assert(k.values[internalize(1)] > 0);
+  }
+}
+
 int main() {
   test_binary_cube_and_model();
   test_large_and_negative_cases();
   test_independent_local_implication_oracle();
   test_root_false_candidate_literal();
+  test_root_true_reason_candidates();
   std::puts("condition OK");
 }

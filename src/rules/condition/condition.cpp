@@ -87,11 +87,13 @@ bool condition_prepare(Kernel &k, const ConditionInstance &instance,
   std::sort(sorted.begin(), sorted.end());
   std::vector<int8_t> witness_values(k.nvars, 0);
   bool satisfies_candidate = false;
+  bool root_satisfies_candidate = false;
   for (size_t i = 0; i < sorted.size(); ++i) {
     const Lit lit = sorted[i];
-    if (var_of(lit) >= k.nvars || k.values[lit] > 0 ||
+    if (var_of(lit) >= k.nvars ||
         (i && var_of(sorted[i - 1]) == var_of(lit)))
       return false;
+    root_satisfies_candidate |= k.values[lit] > 0;
   }
   for (const Lit lit : witness) {
     const Var v = var_of(lit);
@@ -124,38 +126,45 @@ bool condition_prepare(Kernel &k, const ConditionInstance &instance,
       return false;
   }
 
-  std::vector<int8_t> forced(k.nvars, 0);
-  for (Var v = 0; v < k.nvars; ++v)
-    forced[v] = k.values[make_lit(v, false)];
-  for (const Lit lit : sorted)
-    forced[var_of(lit)] = -lit_value(lit);
-  std::vector<Var> temporary;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *current = clause_at(k.arena, ref);
-    // Learned clauses are entailed by the irredundant formula (F |= R).
-    // Overwriting a model that satisfies every irredundant clause, including
-    // the restored candidate, therefore satisfies R too. Checking each R
-    // clause locally would reject valid CaDiCaL-style conditional autarkies.
-    if (!current->garbage() && !current->redundant() &&
-        !preserved(current->lits, current->size, witness_values, forced,
-                   temporary))
-      return false;
-    if (k.stop && *k.stop)
-      return false;
-    ref += clause_actual_words(current);
-  }
-  for (Lit a = 0; a < 2 * k.nvars; ++a) {
-    for (const WatchEntry entry : k.watches.entries(a)) {
-      if (!entry.binary() || entry.other() <= a)
-        continue;
-      const Lit pair[2] = {a, entry.other()};
-      if (!preserved(pair, 2, witness_values, forced, temporary))
+  // A permanent root fact already satisfies C, so no model extending the
+  // roots can trigger its cube repair. Deletion still retires a possible root
+  // reason through the kernel primitive, publishing the DSR root unit first.
+  // In this case ¬C has no root-consistent assignment and the local implication
+  // scan is vacuous; forcing ¬C would overwrite a root value incorrectly.
+  if (!root_satisfies_candidate) {
+    std::vector<int8_t> forced(k.nvars, 0);
+    for (Var v = 0; v < k.nvars; ++v)
+      forced[v] = k.values[make_lit(v, false)];
+    for (const Lit lit : sorted)
+      forced[var_of(lit)] = -lit_value(lit);
+    std::vector<Var> temporary;
+    for (Ref ref = 0; ref < k.arena.size();) {
+      const Clause *current = clause_at(k.arena, ref);
+      // Learned clauses are entailed by the irredundant formula (F |= R).
+      // Overwriting a model that satisfies every irredundant clause, including
+      // the restored candidate, therefore satisfies R too. Checking each R
+      // clause locally would reject valid CaDiCaL-style conditional autarkies.
+      if (!current->garbage() && !current->redundant() &&
+          !preserved(current->lits, current->size, witness_values, forced,
+                     temporary))
         return false;
       if (k.stop && *k.stop)
         return false;
+      ref += clause_actual_words(current);
     }
-    if (k.stop && *k.stop)
-      return false;
+    for (Lit a = 0; a < 2 * k.nvars; ++a) {
+      for (const WatchEntry entry : k.watches.entries(a)) {
+        if (!entry.binary() || entry.other() <= a)
+          continue;
+        const Lit pair[2] = {a, entry.other()};
+        if (!preserved(pair, 2, witness_values, forced, temporary))
+          return false;
+        if (k.stop && *k.stop)
+          return false;
+      }
+      if (k.stop && *k.stop)
+        return false;
+    }
   }
   if (k.stop && *k.stop)
     return false;

@@ -827,7 +827,7 @@ add_rup(D,h_D); del(C)</div><p>The assumptions <span class="math">¬a∧¬b</spa
 ∀D∈F\{C}: (¬C ∧ D) ⇒ T_W(D)
 ──────────────────────────────── X5(C,W)
 F := F\{C}; ρ := ρ · (C,W); δ = del(C)</div><div class="formal-grid"><div class="formal-block"><h4>Effect</h4><p>Delete one live clause, or every physical copy of a selected binary, and record the complete cube for reverse model reconstruction.</p></div><div class="formal-block"><h4>Soundness</h4><p>If a residual model falsifies C, overwriting W satisfies C and preserves every other irredundant clause. Learned clauses follow from the restored irredundant formula. No proof lemma is added.</p></div></div></section>
-            <section class="panel" data-panel-content="plain"><p class="plain"><strong>A whole cube can repair the removed clause.</strong> Unlike BCE, its witness may contain variables outside that clause. The public caller supplies the complete finite clause/cube tuple; DefaultPolicy does not yet discover one.</p></section>
+            <section class="panel" data-panel-content="plain"><p class="plain"><strong>A whole cube can repair the removed clause.</strong> Unlike BCE, its witness may contain variables outside that clause. If a permanent root fact already satisfies the clause, repair is unnecessary; deletion first publishes any root reason needed by DSR. The public caller supplies the complete finite clause/cube tuple; DefaultPolicy does not yet discover one.</p></section>
             <section class="panel" data-panel-content="examples"><div class="examples"><div class="example"><h4>Two-variable repair</h4><div class="equation">C=(a∨b), D=(¬a∨c)
 W={a,c}; delete C
 M=(¬a,¬b,¬c) satisfies D

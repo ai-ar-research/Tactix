@@ -55,7 +55,7 @@ def main() -> int:
     work.mkdir(parents=True, exist_ok=True)
     pins = args.pins.resolve()
     results = []
-    for shape in ("binary", "large"):
+    for shape in ("binary", "large", "root-binary", "root-large"):
         for name, fmt in (("drat-binary", 0), ("drat-ascii", 1),
                           ("lrat", 2), ("dsr-binary", 3),
                           ("dsr-ascii", 4)):
@@ -114,26 +114,27 @@ def main() -> int:
             results.append({"shape": shape, "format": name,
                             "proof_bytes": proof.stat().st_size,
                             "verified": True, "empty_rejected": True})
-    sat_dir = work / "sat"
-    sat_dir.mkdir(exist_ok=True)
-    sat_prefix = sat_dir / "case"
-    run = subprocess.run([str(args.driver.resolve()), str(sat_prefix), "3",
-                          "sat"], capture_output=True, text=True,
-                         timeout=60)
-    if run.returncode or "v 1 -2 3 4 0" not in run.stdout:
-        raise RuntimeError(f"SAT reconstruction witness not reached: {run}")
-    model = sat_dir / "model.out"
-    model.write_text(run.stdout)
-    cnf = sat_prefix.with_suffix(".cnf")
-    checked = check_files(cnf, model)
-    if not checked[0]:
-        raise RuntimeError(f"original-CNF model rejected: {checked}")
-    bad_model = sat_dir / "bad-model.out"
-    bad_model.write_text(run.stdout.replace("v 1 ", "v -1 ", 1))
-    if check_files(cnf, bad_model)[0]:
-        raise RuntimeError("corrupted reconstructed model accepted")
-    results.append({"shape": "sat", "format": "model",
-                    "verified": True, "corrupted_rejected": True})
+    for shape in ("sat", "root-sat"):
+        sat_dir = work / shape
+        sat_dir.mkdir(exist_ok=True)
+        sat_prefix = sat_dir / "case"
+        run = subprocess.run([str(args.driver.resolve()), str(sat_prefix),
+                              "3", shape], capture_output=True, text=True,
+                             timeout=60)
+        if run.returncode or "v 1 -2 3 4" not in run.stdout:
+            raise RuntimeError(f"{shape} reconstruction/model not reached: {run}")
+        model = sat_dir / "model.out"
+        model.write_text(run.stdout)
+        cnf = sat_prefix.with_suffix(".cnf")
+        checked = check_files(cnf, model)
+        if not checked[0]:
+            raise RuntimeError(f"{shape} original-CNF model rejected: {checked}")
+        bad_model = sat_dir / "bad-model.out"
+        bad_model.write_text(run.stdout.replace("v 1 ", "v -1 ", 1))
+        if check_files(cnf, bad_model)[0]:
+            raise RuntimeError(f"{shape} corrupted model accepted")
+        results.append({"shape": shape, "format": "model",
+                        "verified": True, "corrupted_rejected": True})
     print(json.dumps(results, indent=2))
     return 0
 
