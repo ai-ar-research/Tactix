@@ -309,18 +309,38 @@ def bridge_trivial_input_binary_lsr(cnf_path, lsr_path) -> bool:
 # Trestle verifies the text LSR.
 
 def dsr_proof_is_binary(proof) -> bool:
-    """Binary DSR marks every addition with 'a'; ASCII DSR never contains it."""
+    """Native binary DSR uses control-byte tags absent from ASCII DSR."""
     try:
         with open(proof, 'rb') as source:
             head = source.read(4096)
     except OSError:
         return False
-    return any(byte not in b'0123456789- \n\rd' for byte in head)
+    return any(byte not in b'0123456789- \t\n\r\v\fd' for byte in head)
 
 
 # Binary DSR line tags (dsr-trim's encoding) and their binary DRAT equivalents.
 DSR_BINARY_ADD, DSR_BINARY_DELETE = 1, 2
 DRAT_BINARY_ADD, DRAT_BINARY_DELETE = ord('a'), ord('d')
+
+
+class DSRFormatError(ValueError):
+    """Malformed certificate bytes, distinct from runner or filesystem failure."""
+
+
+def _dsr_binary_token(data, index):
+    """Read one bounded uint32 literal encoding, preserving its original bytes."""
+    start, value, shift = index, 0, 0
+    while True:
+        if index == len(data):
+            raise DSRFormatError(f'truncated binary DSR token at byte {start}')
+        byte = data[index]
+        index += 1
+        value |= (byte & 127) << shift
+        if shift == 28 and (byte & 240):
+            raise DSRFormatError(f'oversized binary DSR token at byte {start}')
+        if not byte & 128:
+            return value, index
+        shift += 7
 
 
 def _dsr_lines(proof, binary):
@@ -340,24 +360,17 @@ def _dsr_lines(proof, binary):
             elif tag == DSR_BINARY_DELETE:
                 kind = 'd'
             else:
-                raise ValueError(f'invalid binary DSR tag {tag} at {index - 1}')
+                raise DSRFormatError(f'invalid binary DSR tag {tag} at {index - 1}')
             tokens = []
             while True:
-                value, shift = 0, 0
-                while True:
-                    byte = data[index]
-                    index += 1
-                    value |= (byte & 127) << shift
-                    shift += 7
-                    if not byte & 128:
-                        break
+                value, index = _dsr_binary_token(data, index)
                 if not value:
                     break
                 tokens.append(value)
             yield kind, tokens
         return
     with open(proof, 'r', errors='replace') as source:
-        for line in source:
+        for number, line in enumerate(source, 1):
             fields = line.split()
             if not fields:
                 continue
@@ -366,8 +379,12 @@ def _dsr_lines(proof, binary):
             else:
                 kind = 'a'
             if not fields or fields[-1] != '0':
-                raise ValueError('invalid ASCII DSR line')
-            yield kind, [int(field) for field in fields[:-1]]
+                raise DSRFormatError(f'unterminated ASCII DSR line {number}')
+            try:
+                tokens = [int(field) for field in fields[:-1]]
+            except ValueError as error:
+                raise DSRFormatError(f'invalid ASCII DSR token on line {number}') from error
+            yield kind, tokens
 
 
 def dsr_proof_has_witness(proof) -> bool:
@@ -406,18 +423,11 @@ def dsr_proof_as_drat(proof, drat):
         elif tag == DSR_BINARY_DELETE:
             data[index] = DRAT_BINARY_DELETE
         else:
-            raise ValueError(f'invalid binary DSR tag {tag} at {index}')
+            raise DSRFormatError(f'invalid binary DSR tag {tag} at {index}')
         index += 1
         first, count = None, 0
         while True:
-            value, shift = 0, 0
-            while True:
-                byte = data[index]
-                index += 1
-                value |= (byte & 127) << shift
-                shift += 7
-                if not byte & 128:
-                    break
+            value, index = _dsr_binary_token(data, index)
             if not value:
                 break
             if count == 0:
@@ -494,12 +504,13 @@ def reference_dsr_stages(dsr_trim, dsr_compress, srcheck, cnf, proof,
 
     dsr-trim mirrors its input encoding: the canonical binary DSR yields a
     binary LSR, which needs the expansion stage; a diagnostic ASCII DSR yields
-    the text LSR directly, so there is nothing to expand."""
+    the text LSR directly, so there is nothing to expand. Both CNF readers use
+    the validated clause-preserving spelling when supplied."""
     if not dsr_proof_is_binary(proof):
-        return [('dsr-trim', [dsr_trim, cnf, proof, text_lsr]),
+        return [('dsr-trim', [dsr_trim, checker_cnf or cnf, proof, text_lsr]),
                 ('srcheck', [srcheck, checker_cnf or cnf, text_lsr])]
     return [
-        ('dsr-trim', [dsr_trim, cnf, proof, binary_lsr]),
+        ('dsr-trim', [dsr_trim, checker_cnf or cnf, proof, binary_lsr]),
         ('dsr-compress', [dsr_compress, '-d', binary_lsr, text_lsr]),
         ('srcheck', [srcheck, checker_cnf or cnf, text_lsr]),
     ]
@@ -532,7 +543,10 @@ def check_routed(dsr_trim, dsr_compress, srcheck, drat_trim, cake_lpr, cnf,
                  proof, workdir, timeout=None, *, veripb=None, cake_pb=None):
     """Acceptance by content: (verified, failing stage, output, route)."""
     import subprocess
-    route = certificate_route(proof)
+    try:
+        route = certificate_route(proof)
+    except DSRFormatError as error:
+        return False, 'route', str(error), 'invalid-dsr'
     if route == 'pbp':
         verified, stage, output = check_pb(
             veripb, cake_pb, cnf, proof, workdir, timeout)

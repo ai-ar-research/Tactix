@@ -259,6 +259,11 @@ def check_proof(fmt, cnf, proof, budget):
             return max(0.001, budget - (time.monotonic() - started))
 
         with tempfile.TemporaryDirectory(prefix="tactix-dsr-check-") as scratch:
+            checker_cnf = os.path.join(scratch, "checker.cnf")
+            try:
+                canonical_checker_cnf(cnf, checker_cnf)
+            except (OSError, ValueError) as error:
+                return False, f"checker-error: invalid original DIMACS: {error}", CHK_ERROR, []
             binary_lsr = os.path.join(scratch, "proof.binary.lsr")
             text_lsr = os.path.join(scratch, "proof.lsr")
             # proof_oracle.reference_dsr_stages owns the pipeline definition.
@@ -266,7 +271,7 @@ def check_proof(fmt, cnf, proof, budget):
                 (name, argv, argv[-1] if name != "srcheck" else None)
                 for name, argv in reference_dsr_stages(
                     DSR_TRIM, DSR_COMPRESS, SR_CHECK, cnf, proof, binary_lsr,
-                    text_lsr)]
+                    text_lsr, checker_cnf=checker_cnf)]
             details = []
             for index, (name, argv, produced) in enumerate(stages):
                 if index == 1:

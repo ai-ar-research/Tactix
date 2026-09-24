@@ -23,7 +23,7 @@ from proof_oracle import (bridge_trivial_input_binary_lsr,
                           certificate_route, drat_stages, pb_stages,
                           dsr_proof_as_drat, stage_environment,
                           canonical_checker_cnf, bridge_trivial_input_lrat,
-                          drat_command_with_timeout)
+                          drat_command_with_timeout, DSRFormatError)
 
 
 CAMPAIGN = None
@@ -290,7 +290,16 @@ def check_unsat_proof(campaign, certificate, cnf, proof, scratch, timeout):
     def remaining():
         return max(1, timeout - int(time.monotonic() - started))
 
-    route = certificate_route(proof) if certificate in ("dsr", "auto") else None
+    try:
+        route = certificate_route(proof) if certificate in ("dsr", "auto") else None
+    except DSRFormatError as error:
+        stage = dict(name='route', result='rejected', exit_code=None,
+                     timed_out=False, output_tail=str(error))
+        return dict(pipeline='certificate-routing', checker_input=spelling,
+                    result='not-verified',
+                    wall_seconds=round(time.monotonic() - started, 3),
+                    exit_code=None, timed_out=False, output_tail=str(error),
+                    stages=[stage])
     if certificate == "dsr" and route == "pbp":
         raise RuntimeError("explicit DSR arm emitted a PBP certificate")
     if certificate == "drat":
