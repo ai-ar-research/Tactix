@@ -1,0 +1,21 @@
+# AM364: DejaVu component-degree memory-safety repair
+
+Date: 2026-09-24. Base source `6a8f8d0b`. This is a local affected-scope repair checkpoint, not an N1--N4 or performance-gate acceptance. No Tier D job was submitted.
+
+## Bounded failure and root cause
+
+AM355's terminal Opus campaign passed its terminal-LRAT invariant scope but classified its overall run **FAIL** after finding a separate, pre-existing B1 crash. Its bounded handoff is `benchmarks/runs/20260924-am355-terminal-lrat-claude-fuzz/triage/b1/HANDOFF.md`. The minimized input is a 30-clause CNF (SHA-256 `a46043955514608c923ff85cb212021a2e792374e5134fd621ae58f51bcd2dc5`); the 136-clause original has SHA-256 `c717a6d0490076a878f0a39226cbfa932184c891e64255eaf79c9d9cda153047`. The ordinary proofless CLI crashes in Release and ASan+UBSan. The owner reproduced the original with its public-API online driver in candidate and parent builds, so B1 is not caused by the AM355 Debug-only LRAT change.
+
+The old ASan CLI stack ends in `dejavu::ds::markset::get`, called from `cell_selector_factory::color_score` during DejaVu symmetry detection. An opt-in graph capture on the minimized CLI input records a valid simple source graph: 173 vertices, 112 edges, no duplicate, self-loop, out-of-domain endpoint, or isolated vertex; maximum degree is four. The capture is retained at `benchmarks/probes/scratch/am363-m1/b1-graph.txt` (SHA-256 `caad88816c8d09955383fe55669f8c6d44343dec6fd7789574c70daa48612652`). At the crash, GDB instead sees a *decomposed* two-vertex graph whose first vertex declares degree three, with one translated neighbor `1` followed by stale source-graph endpoints `11` and `4`. The later color lookup consequently indexes the markset outside the component domain.
+
+`third_party/dejavu-4c275e9/components.h::graph_decomposer::decompose` compacts each adjacency list in place when it omits singleton-color or other-component neighbors, but previously left `g->d[v]` at the pre-compaction degree. The component solver therefore read stale edge slots. The repair sets the degree to the compacted length, `ept - vpt`, for every vertex. It changes the shared graph decomposition semantics, not an input-specific route or exception handler. The public proof calculus and proof checker are unchanged.
+
+## Causal regression and local validation
+
+The new component-level test in `tests/test_symmetry_backend.cpp` builds two separate two-vertex color cells connected only through a singleton-color bridge. Quotient decomposition yields two components; each component must contain two vertices of degree zero. The test fails against the old vendored backend at the degree assertion and passes after the repair. Only this test target receives the vendored include path and exception/RTTI flags; production backend options are unchanged.
+
+The repaired ASan+UBSan CLI returns SAT on both the 30- and 136-clause inputs with no sanitizer report. The repaired Release CLI also returns SAT on both. The independent original-CNF model checker accepts all 30/30 and 136/136 clauses for both build types. The full `symmetry_backend` test passes, including 2,250 bounded first-refinement comparisons, 180,360 sparse group comparisons, 86,400 sparse detector comparisons and the cut-closure oracle. `symmetry_backend_build_boundary`, `symmetry_clause_multiset`, `sr_proof_encoding` and `comment_hygiene` pass. Diagnostic outputs are retained under `benchmarks/probes/scratch/am363-m1/`; those local CLI reproductions are fixed microtests, not a fuzz campaign or a performance measurement.
+
+## Remaining obligations
+
+Freeze this source and ask the explicit Opus owner to run an affected-scope SLURM fuzz campaign across old/new Release, Debug and ASan+UBSan builds, proofless and proof-attached public/online schedules, original-CNF SAT models and complete independent UNSAT proof routes. It must demonstrate old failure and candidate safety, watch for graph-decomposition regressions, and publish a terminal verdict. Until that verdict and the other pending owners, combined N1/N2, retained Rank/B+C/WV gates, N3/N4 and online-learning cleanup remain open. The same-proof ncc checker diagnostic `1717619` remains pending at this checkpoint; neither its outcome nor a Tier D result is inferred.
