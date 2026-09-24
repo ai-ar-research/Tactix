@@ -1,0 +1,9 @@
+{
+  "seed": 340726072,
+  "failure": "crash",
+  "solver_args": ["--random-policy=340726072"],
+  "solver_env": {},
+  "found_by": "Claude AM339 Debug random-policy leg 1716322; bounded triage/unwatch-assert/reproducer handoff. Reproduces on pre-AM339 AM337v2 Debug too.",
+  "diagnosis": "Sparse collection correctly removes a root-fixed literal's large watch while retaining an unswept prefix clause. A later ConflictAnalysis promotes that slot and kernel_unwatch_large wrongly asserts that the old watch must exist. GDB confirms literal 35 has value -1 and level 0; the ordinary kernel watch invariant already permits this absence.",
+  "fix": "Match the existing watch invariant: remove an entry when present; permit absence only for a root-assigned literal. Non-root/unassigned missing watches remain assertion failures. Release behavior, formula, proof and action boundaries are unchanged. A six-variable microtest constructs the exact sparse-collect/decision/conflict-repair sequence in both watched-slot positions."
+}

@@ -2030,6 +2030,8 @@ inline bool kernel_binary_live(const Kernel &k, Lit a, Lit b) {
   return kernel_binary_copies(k, a, b, 1) == 1;
 }
 
+// Remove one large entry; a root-fixed slot may already be absent after sparse
+// collection. A non-root/unassigned watched literal must still own its entry.
 void kernel_unwatch_large(Kernel &, Lit l, Ref ref);
 
 // Exchange two large-clause entries in one watch list without changing their

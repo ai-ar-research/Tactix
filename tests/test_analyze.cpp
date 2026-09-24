@@ -902,6 +902,49 @@ static void test_conflict_reuse_repairs_watches() {
   assert(k.stats.backjump_stale == 0);
 }
 
+static void test_conflict_repair_after_fixed_prefix_watch_flush() {
+  // Sparse collection preserves the unswept clause but drops its root-fixed
+  // watch. N1 permits decisions before propagation, so the other watch can
+  // then report a conflict that needs the absent watch promoted.
+  for (unsigned fixed_slot = 0; fixed_slot < 2; ++fixed_slot) {
+    Kernel k;
+    k.conflict_reuse = true;
+    kernel_reserve_vars(k, 6);
+    Lit prefix[3] = {internalize(-1), internalize(2), internalize(3)};
+    if (fixed_slot) std::swap(prefix[0], prefix[1]);
+    const Ref ref = kernel_add_large_clause(k, prefix, 3, false, 0);
+    const Lit tail[3] = {internalize(4), internalize(5), internalize(6)};
+    const Ref start = kernel_add_large_clause(k, tail, 3, true, 3);
+    kernel_assign_unit(k, internalize(1));
+    kernel_delete_clause(k, clause_at(k.arena, start));
+    kernel_collect_garbage(k, start);
+    assert(!watched_by(k, internalize(-1), ref));
+    assert(watched_by(k, internalize(2), ref));
+    kernel_check_invariants(k); // this singly watched prefix is legal
+
+    kernel_assign_decision(k, internalize(-2));
+    kernel_assign_decision(k, internalize(-3));
+    assert(propagate_apply(k) == ApplyResult::Conflict);
+    assert(k.conflict_ref == ref);
+    assert(analyze_apply(k) == ApplyResult::Ok);
+    assert(k.stats.conflict_reused == 1);
+    assert(k.stats.conflict_watch_repaired == 1);
+    assert(k.level == 1 && k.values[internalize(3)] > 0);
+    assert(watched_by(k, internalize(2), ref));
+    assert(watched_by(k, internalize(3), ref));
+    assert(!watched_by(k, internalize(-1), ref));
+    assert(propagate_apply(k) == ApplyResult::Ok);
+    kernel_check_invariants(k);
+
+    kernel_backtrack(k, 0);
+    assert(propagate_apply(k) == ApplyResult::Ok);
+    kernel_assign_decision(k, internalize(-2));
+    assert(propagate_apply(k) == ApplyResult::Ok);
+    assert(k.values[internalize(3)] > 0);
+    kernel_check_invariants(k);
+  }
+}
+
 static void test_binary_conflict_reuse_jumps_reason() {
   // Reusing a binary conflict uses Kissat's learned/reused assignment path,
   // where reason jumping is unconditional (not classification-gated).
@@ -1204,6 +1247,7 @@ int main(int argc, char **argv) {
   test_chrono_backjump_clamps_to_jump_level();
   test_backjump_target_clamps();
   test_conflict_reuse_repairs_watches();
+  test_conflict_repair_after_fixed_prefix_watch_flush();
   test_binary_conflict_reuse_jumps_reason();
   test_nonreusable_conflict_repairs_watches();
   test_forced_conflict_unwind_preserves_two_stage_heap_pose();

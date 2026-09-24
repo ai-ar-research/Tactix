@@ -358,8 +358,8 @@ deliberately untimed. Timers never control solver behavior.
 ## 12. Conflict reuse and watch repair
 
 Reuse, including OTFS, honors public targets clamped to `[jump,level−1]`; canonical is `jump`. DefaultPolicy separately chooses
-reference chronology. Repair level-ranked watches and clear the learn/backjump tail. At true level zero publish a named DRAT/LRAT
-unit and deactivate without learned counters or fresh analyzed bumps; otherwise the repaired conflict remains the reason.
+reference chronology. Repair level-ranked watches (root-fixed entries may already be sparse-flushed), then clear the learn/backjump
+tail. At true level zero publish a named DRAT/LRAT unit and deactivate without learned counters or fresh bumps; otherwise retain the repaired reason.
 
 ## 13. Scheduling parity
 
