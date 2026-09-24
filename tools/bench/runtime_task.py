@@ -22,7 +22,8 @@ from proof_oracle import (bridge_trivial_input_binary_lsr,
                           proof_check_status, reference_dsr_stages,
                           certificate_route, drat_stages, pb_stages,
                           dsr_proof_as_drat, stage_environment,
-                          canonical_checker_cnf)
+                          canonical_checker_cnf, bridge_trivial_input_lrat,
+                          drat_command_with_timeout)
 
 
 CAMPAIGN = None
@@ -247,10 +248,12 @@ def validate_runtime_pin_contract(campaign, manifest):
 
 
 def proof_stage(scratch, name, command, timeout, produced=None,
-                *, input_has_empty_clause=None):
+                *, input_has_empty_clause=None, trivial_lrat_spelling=None):
     """Run one proof stage and require its exact oracle/output contract."""
     stdout = scratch / f"{name}.stdout"
     stderr = scratch / f"{name}.stderr"
+    if name == 'drat-trim':
+        command = drat_command_with_timeout(command, timeout)
     result = measured(command, stdout, stderr, scratch / f"{name}.time", timeout,
                       environment=stage_environment(name))
     output = "\n".join(tail(stdout, 100) + tail(stderr, 100))
@@ -262,9 +265,14 @@ def proof_stage(scratch, name, command, timeout, produced=None,
     else:
         status = proof_check_status(name, result["exit_code"], output, "",
                                     input_has_empty_clause=input_has_empty_clause)
+    if (name == 'drat-trim' and status == 'verified' and produced is not None
+            and trivial_lrat_spelling is not None):
+        result['input_empty_lrat_bridge'] = bridge_trivial_input_lrat(
+            trivial_lrat_spelling, produced, result['exit_code'], output)
     if produced is not None and (not produced.is_file() or produced.stat().st_size == 0):
         status = "error"
-    result.update(name=name, result=status, output_tail=output[-12000:])
+    result.update(name=name, result=status, output_tail=output[-12000:],
+                  command=list(map(str, command)), timeout_seconds=timeout)
     if produced is not None:
         result["produced_bytes"] = (
             produced.stat().st_size if produced.is_file() else None
@@ -319,7 +327,8 @@ def check_unsat_proof(campaign, certificate, cnf, proof, scratch, timeout):
             made = lrat if name == "drat-trim" else None
             stages.append(proof_stage(scratch, name, command, remaining(),
                                       made, input_has_empty_clause=
-                                      spelling['first_empty_clause'] is not None))
+                                      spelling['first_empty_clause'] is not None,
+                                      trivial_lrat_spelling=spelling))
             if stages[-1]["result"] != "verified":
                 break
         pipeline = "witness-free-dsr-as-drat:drat-trim-cake_lpr"

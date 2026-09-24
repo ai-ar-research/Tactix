@@ -117,6 +117,22 @@ new positive/negative tests; no reader implementation was changed. The earlier
 reported reader failure needs an exact legal bounded case if it persists.
 Evidence: `benchmarks/reports/2026-09-24-am342-oracle-contracts-checkpoint.md`.
 
+AM343 is an **unaccepted tooling-only repair** of the genuine-empty-input LRAT
+gap and nested drat-trim timeout. Only exact parse-time trivial-UNSAT success
+with an existing zero-byte LRAT gets an original empty-clause hint; CakeLPR
+still independently verifies it. DRAT invocation layers pass the requested
+allowance to `-t`, without extending their outer wall timeout. Authority:
+`...-am343-empty-lrat`, patch `71a231a3...`, archive `dbf7d663...`; solver/checker
+pins unchanged. Fixed suites and full selftest pass, including corrupted-hint
+rejection and anonymous scratch. Explicit Opus owner PID `2249935`, session
+`23411`, prepares affected validation in `...-am343-empty-lrat-claude-fuzz`.
+Four-row diagnostic `...-am343-routed-diagnostic`, array `1716522` (watcher
+session `71694`): WV100 ranks 68/74 independently verified, solve 0.568/1.521 s,
+check 38.769/108.918 s; SCPC also verified (65.392 s solve, 112.357 s check).
+All three completed rows have complete cleanup. ncc is UNSAT in 242.680 s and
+still checking. This is not a full successor gate or a performance comparison.
+Evidence: `benchmarks/reports/2026-09-24-am343-empty-lrat-checkpoint.md`.
+
 Solver/tooling authority: `10cd18c9` (certificate routing) on top of the
 AM333 solver source (`75487222`). The AM333 pin is the last gated binary:
 Release `0ec66e12...` (build job `1714363`, retained in AM333 campaign pins),
@@ -271,12 +287,14 @@ byte-identical solver pins remain in the AM333 gate campaigns.
    no Fable). AM341 repairs the bounded unwatch assertion; preserve its live
    full CTest and Opus owner, without waiving old random-policy reachability
    floors. AM342 repairs the bounded F1/O3 oracle handoffs; preserve its owner.
-   Next repair genuine-empty-input missing LRAT. Legal separate comment lines
+   AM343 repairs genuine-empty-input missing LRAT and the inner DRAT timeout;
+   preserve its affected owner and live four-row diagnostic. Next repair the
+   malformed DSR routing classification and DSR reader-layout limitations,
+   then resolve the routed repeated-literal LRAT mismatch. Legal comment lines
    already pass both readers; obtain an exact bounded failing legal layout if
    the earlier owner finding persists rather than changing parser tolerance.
-   Resolve routed repeated-literal LRAT rejection and propagate the requested
-   checker time window past drat-trim's internal default before successor gates;
-   malformed DSR classification and DSR-reader layout limits also remain open.
+   Complete these oracle obligations before successor gates; no affected
+   surface or full-tier coverage requirement is waived.
    SCPC's trailing blank line requires the AM338 final-checker spelling.
    AM339's immutable `claude-fuzz-request.md` covers
    the new combined candidate, AM338 tooling and the parser repair. Earlier

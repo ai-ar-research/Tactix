@@ -9,6 +9,24 @@ from runtime_task import (atomic_json, checked_verdict_valid, checker_timeout_fo
 
 
 class RuntimeTaskTests(unittest.TestCase):
+    def test_drat_stage_sets_inner_timeout_without_extending_outer_window(self):
+        from unittest.mock import patch
+        from runtime_task import proof_stage
+        calls = []
+        def measured(command, stdout, stderr, metrics, timeout, environment=None):
+            calls.append((command, timeout))
+            stdout.write_text('s VERIFIED\n')
+            stderr.write_text('')
+            return dict(exit_code=0, wall_seconds=0, timed_out=False)
+        with tempfile.TemporaryDirectory() as directory, patch('runtime_task.measured', measured):
+            command = ['drat-trim', 'input.cnf', 'proof.drat', '-L', 'proof.lrat']
+            result = proof_stage(Path(directory), 'drat-trim', command, 57600)
+            expected = command[:3] + ['-t', '57600'] + command[3:]
+            self.assertEqual(calls, [(expected, 57600)])
+            self.assertEqual(result['command'], expected)
+            self.assertEqual(result['timeout_seconds'], 57600)
+            self.assertEqual(result['result'], 'verified')
+
     def test_atomic_json_creates_missing_output_directory(self):
         with tempfile.TemporaryDirectory() as root:
             path = Path(root) / "results" / "007.json"

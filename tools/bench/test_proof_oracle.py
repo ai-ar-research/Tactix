@@ -7,6 +7,46 @@ from proof_oracle import bridge_trivial_input_binary_lsr, proof_check_status
 
 
 class ProofOracleTests(unittest.TestCase):
+    def test_drat_internal_timeout_tracks_the_requested_window(self):
+        import proof_oracle
+        command = ['drat-trim', 'original.cnf', 'proof.drat', '-L', 'proof.lrat']
+        for seconds, value in ((57600, '57600'), (0.5, '1'), (31.1, '32')):
+            self.assertEqual(proof_oracle.drat_command_with_timeout(command, seconds),
+                             command[:3] + ['-t', value] + command[3:])
+        self.assertEqual(command, ['drat-trim', 'original.cnf', 'proof.drat', '-L', 'proof.lrat'])
+        self.assertEqual(proof_oracle.drat_command_with_timeout(command, None), command)
+        for invalid in (0, -1, float('inf'), float('nan'), True, 2147483648):
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                proof_oracle.drat_command_with_timeout(command, invalid)
+
+    def test_input_empty_lrat_bridge_is_narrow(self):
+        from proof_oracle import bridge_trivial_input_lrat, canonical_checker_cnf
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            cnf, lrat = work/'input.cnf', work/'proof.lrat'
+            cnf.write_text('p cnf 2 3\n1 2 0\n0\n-1 0\n')
+            spelling = canonical_checker_cnf(cnf, work/'checker.cnf')
+            success = 'c trivial UNSAT\ns VERIFIED\n'
+            self.assertFalse(bridge_trivial_input_lrat(spelling, lrat, 1, success))
+            self.assertFalse(lrat.exists(), 'must not fabricate a missing stage output')
+            for original in ('', '4 0 1 0\n'):
+                for code, output in ((0, success), (-9, success), (1, 's VERIFIED\n'),
+                                     (1, success + 's NOT VERIFIED\n')):
+                    lrat.write_text(original)
+                    self.assertFalse(bridge_trivial_input_lrat(spelling, lrat, code, output))
+                    self.assertEqual(lrat.read_text(), original)
+            lrat.write_text('4 0 1 0\n')
+            self.assertFalse(bridge_trivial_input_lrat(spelling, lrat, 1, success))
+            self.assertEqual(lrat.read_text(), '4 0 1 0\n')
+            lrat.write_text('')
+            self.assertTrue(bridge_trivial_input_lrat(spelling, lrat, 1, success))
+            self.assertEqual(lrat.read_text(), '4 0 2 0\n')
+            cnf.write_text('p cnf 1 2\n1 0\n-1 0\n')
+            spelling = canonical_checker_cnf(cnf, work/'checker.cnf')
+            lrat.write_text('')
+            self.assertFalse(bridge_trivial_input_lrat(spelling, lrat, 1, success))
+            self.assertEqual(lrat.read_text(), '')
+
     def test_exact_drat_success_with_carriage_return(self):
         self.assertEqual(proof_check_status('drat-trim', 0, '\rs VERIFIED\n', ''), 'verified')
 
