@@ -1024,6 +1024,8 @@ void tactix_add(tactix_solver *s, int lit) {
 // contract: their ids would land above already-derived ones, which no checker's
 // file numbering can match.
 static void input_complete(tactix_solver *s) {
+  if (s->input_completed)
+    return;
   if (s->pending_input_proof) {
     Kernel &current = s->kernel;
     // Replay the checker's exact input, not the clauses left after eager
