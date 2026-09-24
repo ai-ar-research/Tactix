@@ -13,6 +13,68 @@ import fuzz
 
 
 class FuzzProofOracles(unittest.TestCase):
+    def test_routed_empty_input_requires_checked_lrat_bridge(self):
+        from proof_oracle import check_routed
+        from runtime_task import check_unsat_proof
+        from anonymous_scratch import AnonymousScratch
+        campaign = ROOT/'benchmarks/runs/20260923-am341-unwatch'
+        pins = campaign/'pins'
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            cnf, proof = work/'input.cnf', work/'input.dsr'
+            for raw in ('p cnf 0 1\n0\n',
+                        'p cnf 2 3\n1\nc in clause\n2 0 000\n-1 0\n',
+                        'p cnf 1 3\n0 1 0 0\n'):
+                for payload in (b'0\n', b'\x01\x00', b''):
+                    with self.subTest(raw=raw, payload=payload):
+                        cnf.write_text(raw)
+                        proof.write_bytes(payload)
+                        result = check_routed(pins/'dsr-trim', pins/'dsr-compress',
+                                              pins/'srcheck', pins/'drat-trim', pins/'cake_lpr',
+                                              cnf, proof, work, 30)
+                        self.assertTrue(result[0], result)
+                        self.assertEqual(result[3], 'drat')
+                        for anonymous in (False, True):
+                            scratch = AnonymousScratch(directory) if anonymous else work
+                            try:
+                                result = check_unsat_proof(campaign, 'dsr', cnf, proof, scratch, 30)
+                                self.assertEqual(result['result'], 'verified', result)
+                                self.assertEqual([s['name'] for s in result['stages']],
+                                                 ['drat-trim', 'cake_lpr'])
+                                self.assertGreater(result['stages'][0]['produced_bytes'], 0)
+                                self.assertTrue(result['stages'][0]['input_empty_lrat_bridge'])
+                            finally:
+                                if anonymous: scratch.close()
+                        self.assertEqual(cnf.read_text(), raw)
+
+    def test_empty_input_bridge_does_not_bypass_cake_lpr(self):
+        import proof_oracle
+        import runtime_task
+        campaign = ROOT/'benchmarks/runs/20260923-am341-unwatch'
+        pins = campaign/'pins'
+        actual_bridge = proof_oracle.bridge_trivial_input_lrat
+        def corrupt_hint(spelling, lrat, code, stdout, stderr=''):
+            changed = actual_bridge(spelling, lrat, code, stdout, stderr)
+            self.assertTrue(changed)
+            Path(lrat).write_text('4 0 1 0\n')  # clause 1 is nonunit, not the empty clause 2
+            return changed
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            cnf, proof = work/'input.cnf', work/'input.dsr'
+            cnf.write_text('p cnf 2 3\n1 2 0\n0\n-1 0\n')
+            proof.write_text('0\n')
+            with patch.object(proof_oracle, 'bridge_trivial_input_lrat', side_effect=corrupt_hint):
+                result = proof_oracle.check_routed(
+                    pins/'dsr-trim', pins/'dsr-compress', pins/'srcheck', pins/'drat-trim',
+                    pins/'cake_lpr', cnf, proof, work, 30)
+            self.assertFalse(result[0])
+            self.assertEqual(result[1], 'cake_lpr', result)
+            with patch.object(runtime_task, 'bridge_trivial_input_lrat', side_effect=corrupt_hint):
+                result = runtime_task.check_unsat_proof(campaign, 'dsr', cnf, proof, work, 30)
+            self.assertEqual(result['result'], 'not-verified', result)
+            self.assertEqual(result['stages'][-1]['name'], 'cake_lpr')
+            self.assertEqual(result['stages'][-1]['result'], 'rejected')
+
     def test_conversion_predicate_uses_clause_values_not_layout(self):
         fixtures = [
             ('p cnf 1 2\n1 01 0\n-1 0\n', True),
@@ -339,9 +401,8 @@ class FuzzProofOracles(unittest.TestCase):
                 proof.write_bytes(b'\x01\x00')
                 result = check_routed(pins/'dsr-trim', pins/'dsr-compress', pins/'srcheck',
                                       pins/'drat-trim', pins/'cake_lpr', cnf, proof, work, 60)
-                # Empty-input LRAT elaboration has no output: fail closed.
-                if 'p cnf 0 1' not in raw:
-                    self.assertEqual(result[0], unsat, result)
+                # Genuine input emptiness now gets a checked LRAT input hint.
+                self.assertEqual(result[0], unsat, result)
         self.assertEqual(drat_stages('DT', 'CL', 'raw', 'p', 'l', checker_cnf='canonical'),
                          [('drat-trim', ['DT', 'canonical', 'p', '-L', 'l']),
                           ('cake_lpr', ['CL', 'canonical', 'l'])])

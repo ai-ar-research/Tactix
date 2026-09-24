@@ -58,7 +58,8 @@ from proof_oracle import (bridge_trivial_input_binary_lsr,  # noqa: E402
                           bridge_trivial_input_lsr, dsr_compress_status,
                           every_lemma_dsr_stages, proof_check_status,
                           reference_dsr_stages, pb_proof_has_header, pb_stages,
-                          stage_environment, canonical_checker_cnf)
+                          stage_environment, canonical_checker_cnf,
+                          drat_command_with_timeout)
 
 DRAT_TRIM = os.path.join(ROOT, "tools", "checkers", "bin", "drat-trim")
 DSR_TRIM = os.path.join(ROOT, "tools", "checkers", "bin", "dsr-trim")
@@ -392,6 +393,8 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
     out = CaseOutcome()
     def check(command):
         checker = os.path.basename(command[0])
+        if checker == 'drat-trim':
+            command = drat_command_with_timeout(command, 120)
         try:
             c, o, e = (run_cmd(command, 120, env=stage_environment(checker))
                        if checker == "cake-pb-cnf" else run_cmd(command, 120))

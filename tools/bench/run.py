@@ -83,7 +83,7 @@ sys.path.insert(0, HERE)
 from proof_oracle import (bridge_trivial_input_binary_lsr,  # noqa: E402
                           bridge_trivial_input_lsr, dsr_compress_status,
                           reference_dsr_stages, canonical_checker_cnf,
-                          proof_check_status)
+                          proof_check_status, drat_command_with_timeout)
 # Oracle 1 of the fuzz harness (§8.2), shared here since 2026-08-08: a SAT
 # verdict's v-lines are checked against the ORIGINAL formula. The wrong-SAT
 # exhibit was caught only by the expected-verdict column; an instance without
@@ -309,7 +309,7 @@ def check_proof(fmt, cnf, proof, budget):
         except (OSError, ValueError) as error:
             return False, f"checker-error: invalid original DIMACS: {error}", CHK_ERROR, []
         argv = ([CAKE_LPR, checker_cnf, proof] if fmt == "lrat"
-                else [DRAT_TRIM, checker_cnf, proof])
+                else drat_command_with_timeout([DRAT_TRIM, checker_cnf, proof], budget))
         try:
             c = subprocess.run(argv, capture_output=True, text=True,
                                errors="replace", timeout=budget)

@@ -168,6 +168,26 @@ def proof_check_status(checker: str, returncode: int, stdout: str,
     return 'error'
 
 
+def bridge_trivial_input_lrat(spelling, lrat_path, returncode, stdout, stderr=''):
+    """Complete only drat-trim's parse-time empty-input LRAT omission.
+
+    ``spelling`` must be metadata from canonical_checker_cnf on this input.
+    Pinned drat-trim opens -L but exits 1 without writing a hint when an input
+    clause is empty. Supply the exact original clause ID, then require CakeLPR
+    as usual. Never overwrite a nonempty derivation or create a missing output.
+    """
+    empty_id = spelling['first_empty_clause']
+    if (empty_id is None or returncode != 1 or
+            proof_check_status('drat-trim', returncode, stdout, stderr,
+                               input_has_empty_clause=True) != 'verified'):
+        return False
+    lrat = Path(lrat_path)
+    if not lrat.is_file() or lrat.stat().st_size != 0:
+        return False
+    lrat.write_text(f"{spelling['clauses'] + 1} 0 {empty_id} 0\n")
+    return True
+
+
 def _trivial_input_empty_id(cnf_path, derived_id):
     cnf_path = Path(cnf_path)
     declared = None
@@ -425,6 +445,22 @@ def stage_environment(name):
     return environment
 
 
+def drat_command_with_timeout(command, timeout):
+    """Do not let drat-trim's 40,000s default shorten an explicit allowance.
+
+    Its -t parser uses a signed C int. Round fractional seconds up; the caller's
+    original wall-clock timeout remains authoritative and is never enlarged.
+    Keep the input/proof arguments and final LRAT output position unchanged.
+    """
+    import math
+    if timeout is None:
+        return list(command)
+    if (isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or
+            timeout <= 0 or timeout > 2147483647 or not math.isfinite(timeout)):
+        raise ValueError('drat-trim timeout must fit a positive signed C int')
+    return list(command[:3]) + ['-t', str(math.ceil(timeout))] + list(command[3:])
+
+
 def drat_stages(drat_trim, cake_lpr, cnf, drat, lrat, *, checker_cnf=None):
     """The DRAT owner's pipeline, as the baselines and the fuzz harness run
     it: drat-trim elaborates to LRAT, cake_lpr (under CAKE_LPR_ENVIRONMENT)
@@ -519,6 +555,8 @@ def check_routed(dsr_trim, dsr_compress, srcheck, drat_trim, cake_lpr, cnf,
         return False, 'route', 'witnessed line met during rewrite', route
     for name, command in drat_stages(drat_trim, cake_lpr, cnf, drat, lrat,
                                      checker_cnf=checker_cnf):
+        if name == 'drat-trim':
+            command = drat_command_with_timeout(command, timeout)
         try:
             done = subprocess.run([str(part) for part in command],
                                   capture_output=True, text=True,
@@ -530,8 +568,11 @@ def check_routed(dsr_trim, dsr_compress, srcheck, drat_trim, cake_lpr, cnf,
                               done.stderr, input_has_empty_clause=
                               spelling['first_empty_clause'] is not None) != 'verified':
             return False, name, done.stdout + '\n' + done.stderr, route
-        if name == 'drat-trim' and not (lrat.is_file() and lrat.stat().st_size):
-            return False, name, 'no LRAT produced', route
+        if name == 'drat-trim':
+            bridge_trivial_input_lrat(spelling, lrat, done.returncode,
+                                      done.stdout, done.stderr)
+            if not (lrat.is_file() and lrat.stat().st_size):
+                return False, name, 'no LRAT produced', route
     return True, None, '', route
 
 
