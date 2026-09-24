@@ -1704,6 +1704,7 @@ bool congruence_rup_chain(Kernel &k, const Lit *lits, uint32_t n,
   kernel_probing_begin(k);
   bool conflict = false;
   Var implied = UINT32_MAX; // a lemma literal already true at the root
+  std::vector<uint64_t> cube_root_units;
   for (uint32_t i = 0; i < n && !conflict; i++) {
     const Lit neg = negate(lits[i]);
     const int8_t v = k.value(neg);
@@ -1714,8 +1715,18 @@ bool congruence_rup_chain(Kernel &k, const Lit *lits, uint32_t n,
       conflict = true;
       break;
     }
-    if (v > 0)
+    if (v > 0) {
+      // This root fact is already an assumption of the checker's complete
+      // negated lemma cube. A later reason walk may visit it, but citing its
+      // unit line as a hint would cite a satisfied clause, not a propagation.
+      const Var variable = var_of(neg);
+      if (lrat && k.assigned[variable].level == 0) {
+        const uint64_t id = k.unit_ids[variable];
+        if (id) // an unnamed root fact cannot occur in the reason chain
+          cube_root_units.push_back(id);
+      }
       continue; // root fact or duplicate assumption — nothing to assign
+    }
     k.level++;
     k.frames.push_back(static_cast<uint32_t>(k.trail.size()));
     kernel_assign(k, neg, k.level, DECISION_REASON, false);
@@ -1758,6 +1769,19 @@ bool congruence_rup_chain(Kernel &k, const Lit *lits, uint32_t n,
     return false;
   if (!lrat)
     return true; // the replay itself was the whole question
+  if (!cube_root_units.empty()) {
+    std::sort(cube_root_units.begin(), cube_root_units.end());
+    cube_root_units.erase(
+        std::unique(cube_root_units.begin(), cube_root_units.end()),
+        cube_root_units.end());
+    entries.erase(std::remove_if(entries.begin(), entries.end(),
+                                 [&](const auto &entry) {
+                                   return std::binary_search(
+                                       cube_root_units.begin(),
+                                       cube_root_units.end(), entry.second);
+                                 }),
+                  entries.end());
+  }
   // (trail position ascending, conflict last) — kernel.hpp's chain contract
   kernel_build_lrat_chain(entries, last, chain);
   // An empty chain is not a proof: a trivially true lemma conflicts against its
