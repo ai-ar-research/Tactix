@@ -140,7 +140,7 @@ WV100 ranks 68/74 independently verified, solve 0.568/1.521 s, check 38.769/108.
 SCPC also verified (65.392 s solve, 112.357 s check). ncc is expected UNSAT in
 242.680 s but NOT-VERIFIED: pinned drat-trim exhausted 57,459 s, and the 57,600 s
 checker window elapsed; all four rows have complete cleanup. The identical ncc proof also missed the AM324 native-DSR/Trestle window. This is not a full successor
-gate (`benchmarks/reports/2026-09-24-am361-lucky-and-ncc-terminal-audit.md`). A bounded same-proof dsr-trim/LSR/CakeLPR diagnostic is PENDING as hwulab job `1717619` (12 CPUs/32 GiB, 57,600 s checker window); a small original-CNF witness-free control passes CakeLPR and an invalid control rejects, but no ncc result or production-route approval exists.
+gate (`benchmarks/reports/2026-09-24-am361-lucky-and-ncc-terminal-audit.md`). A bounded same-proof dsr-trim/LSR/CakeLPR diagnostic is PENDING as hwulab job `1717619` (12 CPUs/32 GiB, 57,600 s checker window); fixed ASCII/binary witness-free controls pass CakeLPR and an invalid control rejects, but no ncc result or production-route approval exists. AM362's addendum corrects the AM361 report's displayed ncc proof SHA from the immutable result and records the format matrix (`benchmarks/reports/2026-09-24-am362-lsr-cake-route-matrix-addendum.md`).
 
 AM344 is an **unaccepted tooling-only repair** of malformed DSR classification
 and native DSR reader layouts. Bounded varint/ASCII diagnostics become proof
