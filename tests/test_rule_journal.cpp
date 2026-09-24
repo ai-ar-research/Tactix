@@ -1,6 +1,7 @@
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "diagnostics/rule_journal.hpp"
+#include "rules/lucky/signed_cardinality_proof.hpp"
 #include "rules/registry.hpp"
 
 #include <cassert>
@@ -22,10 +23,19 @@ int main() {
       continue;
     proof_rules++;
     const RuleEligibility eligibility = rule.guard(k);
-    assert(eligibility.fact_count > 0);
+    assert(!eligibility.facts.empty());
   }
   assert(proof_rules == 23); // X7 is a registered proof rule.
+  // Subrules may have more guard facts than the old fixed eight-entry buffer.
+  const RuleEligibility cardinality = signed_cardinality_proof_guard(k);
+  assert(cardinality.facts.size() == 9);
+  assert(std::string(cardinality.facts.back().name) == "proof-format");
 #endif
+  // A zero clause ID without an explicit selector is not a request for an
+  // unbracketed whole-formula diagnostic.
+  const Lit anonymous_clause[] = {internalize(1), internalize(-1),
+                                  internalize(2)};
+  rule_journal_note_large_add(k, anonymous_clause, 3, 0, false, 0);
   struct Case {
     const char *candidate;
     const char *outcome;

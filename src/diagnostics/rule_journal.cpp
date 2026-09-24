@@ -384,6 +384,12 @@ void rule_journal_note_binary_rewrite(const Kernel &k, uint32_t source_a,
 void rule_journal_note_large_add(const Kernel &k, const uint32_t *lits,
                                  uint32_t size, uint64_t id, bool redundant,
                                  uint32_t glue) {
+  // Outside a rule transaction, only an explicitly selected, nonzero clause
+  // id can request the unbracketed-mutation diagnostic. In particular, the
+  // default selector (zero) must not match every anonymous clause (id zero)
+  // and compute a whole-formula digest on each addition.
+  if (!transaction.active && (!state.clause_id || state.clause_id != id))
+    return;
   bool selected = (!state.literal && !state.clause_id) ||
                   id == state.clause_id;
   std::string external;
@@ -402,7 +408,7 @@ void rule_journal_note_large_add(const Kernel &k, const uint32_t *lits,
       ";glue=" + std::to_string(glue) + ";lits=" + external + ')';
   if (transaction.active) {
     transaction.deltas.push_back(delta);
-  } else if (state.clause_id == id) {
+  } else if (state.clause_id && state.clause_id == id) {
     // A selected mutation outside a registry bracket is itself actionable:
     // emit it rather than silently losing it, so the missing transaction
     // boundary can be repaired at the actual caller.
