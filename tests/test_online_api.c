@@ -4,7 +4,9 @@
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 static int rule(const char *name) {
   int i;
@@ -19,6 +21,67 @@ static void clause(tactix *solver, const int *literals) {
   while (*literals)
     tactix_add(solver, *literals++);
   tactix_add(solver, 0);
+}
+
+/* A late LRAT replay can finish the input refutation before the online
+ * executor runs. Its proof is complete even if the proofless kernel's root
+ * trail contains units for which the replay has no matching unit line. */
+static void late_lrat_root_refutation_is_terminal(void) {
+  /* Eager root propagation and native-LRAT replay can finish with
+   * different unit trails after the same input has been refuted. */
+  static const int input[] = {
+      25, 0, -30, 13, -25, 0, 7, -22, 21, 0, 22, -14, 9, 0,
+      -2, 21, 14, 0, -34, -24, -10, 0, -15, 2, -4, 0,
+      -33, -34, 15, 0, 6, 0, 10, 33, -32, 0, 34, 22, -13, 0,
+      7, -27, -32, 0, -26, 4, -32, 0, -8, -17, 7, 0,
+      8, 2, 32, 0, -17, -6, -7, 0, -6, 17, 0,
+      30, 22, 27, 0, -32, 26, 7, 0, -25, 24, 33, 0,
+      -25, -21, 0, 8, -9, -17, 0};
+  for (int late = 0; late <= 1; ++late) {
+    char path[512];
+    const char *proof_dir = getenv("TACTIX_F1_PROOF_DIR");
+    if (proof_dir)
+      snprintf(path, sizeof path, "%s/%s.lrat", proof_dir,
+               late ? "late" : "early");
+    else
+      snprintf(path, sizeof path, "/tmp/tactix-online-late-root-%ld-%d.lrat",
+               (long)getpid(), late);
+    tactix *solver = tactix_init();
+    if (!late)
+      assert(tactix_proof(solver, path, TACTIX_PROOF_LRAT) == 0);
+    int clauses = 0;
+    for (unsigned i = 0; i < sizeof input / sizeof input[0]; ++i) {
+      tactix_add(solver, input[i]);
+      if (!input[i] && ++clauses == 1 && late)
+        assert(tactix_proof(solver, path, TACTIX_PROOF_LRAT) == 0);
+    }
+    assert(clauses == 22);
+    tactix_online_step step;
+    memset(&step, 0, sizeof step);
+    step.step_id = 1;
+    step.rule_id = rule("Propagate");
+    step.granularity = TACTIX_ONLINE_GRANULARITY_CANONICAL;
+    step.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
+    step.repeat_limit = 1;
+    step.work_unit = TACTIX_ONLINE_WORK_PROPAGATIONS;
+    step.budget_unlimited = 1;
+    tactix_online_program program = {&step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
+    assert(tactix_online_configure(solver, &program, 1,
+                                   TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+    tactix_online_result result;
+    assert(tactix_online_advance(solver, &result) == 0);
+    assert(result.status == (late ? TACTIX_ONLINE_INAPPLICABLE
+                                  : TACTIX_ONLINE_UNSAT));
+    assert(tactix_status(solver) == 20);
+    tactix_release(solver);
+    FILE *proof = fopen(path, "rb");
+    assert(proof);
+    assert(fseek(proof, 0, SEEK_END) == 0);
+    assert(ftell(proof) > 0);
+    assert(fclose(proof) == 0);
+    if (!proof_dir)
+      assert(remove(path) == 0);
+  }
 }
 
 static void canonical_bve_reaches_a_real_fixpoint(void) {
@@ -1185,6 +1248,7 @@ static void independent_set_parameters_are_public_and_validated(void) {
 }
 
 int main(void) {
+  late_lrat_root_refutation_is_terminal();
   canonical_bve_reaches_a_real_fixpoint();
   status_reconstructs_bve_models_and_refreshes_after_restart();
   affine_model_parameters_are_copied();

@@ -1,0 +1,7 @@
+# AM354: post-goal Tier D resource-parity preparation
+
+The first winner campaign's frozen manifest (`benchmarks/baselines/sc24-26-32g-5000s/manifest.json`) records 1,166 distinct Tier D instances, `cpu-dense-hwulab-q`, four CPUs at 8 GiB per CPU (32 GiB), a 5,000-second solver limit, and a 45,000-second checker-pipeline allowance. Its 23-task array throttle is not a per-task resource limit; the current project submission rule requires full width without a throttle absent a documented constraint.
+
+Before AM354, `tools/bench/tactix_tierd.py` calculated four physical cores for 32 GiB and then requested **eight** logical CPUs per task. That differs from the original comparison allocation. The launcher now derives requested CPUs from the frozen memory-per-CPU contract, validates its consistency with the frozen baseline limit, and takes the partition from the same manifest. The default 32-GiB pass consequently requests **four CPUs**, no array throttle and no node constraint. Explicit alternative memory requests scale at 8 GiB per CPU; they are not the requested comparison pass.
+
+`tests/test_tierd_campaign_pinning.py` compares the launch shape against the actual frozen manifest and covers 16- and 33-GiB overrides. `tests/test_slurm_memory_enforcement.py`, Python compilation, and `git diff --check` pass. This is a launcher-only protocol correction, not an N1/N2 result or a solver-performance measurement. The full run remains deferred until the active goal and ordered correctness/performance gates are achieved; no Tier D task was submitted.
