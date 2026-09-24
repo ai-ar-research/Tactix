@@ -18,28 +18,36 @@ using namespace tactix::symmetry_backend;
 namespace {
 
 // Component adjacency must contain only translated component vertices. A
-// singleton-color bridge is omitted from both components and their degrees.
+// singleton-color bridge is omitted, while internal edges retain their degree.
 void decomposition_prunes_singleton_bridge_edges() {
-  dejavu::static_graph graph(5, 4);
-  graph.add_vertex(0, 1);
-  graph.add_vertex(0, 1);
-  graph.add_vertex(1, 1);
-  graph.add_vertex(1, 1);
-  graph.add_vertex(2, 4);
-  for (unsigned vertex = 0; vertex < 4; ++vertex)
-    graph.add_edge(vertex, 4);
-  dejavu::sgraph *source = graph.get_sgraph();
-  int *colors = graph.get_coloring();
-  dejavu::ds::worklist membership(source->v_size);
-  const int count = dejavu::ir::quotient_components(source, colors, &membership);
-  assert(count == 2);
-  dejavu::ir::graph_decomposer decomposition;
-  decomposition.decompose(source, colors, membership, count);
-  for (int component = 0; component < count; ++component) {
-    const dejavu::sgraph *subgraph = decomposition.get_component(component);
-    assert(subgraph->v_size == 2);
-    for (int vertex = 0; vertex < subgraph->v_size; ++vertex)
-      assert(subgraph->d[vertex] == 0);
+  for (const bool internal_edges : {false, true}) {
+    dejavu::static_graph graph(5, internal_edges ? 6 : 4);
+    for (int color = 0; color < 2; ++color)
+      for (int vertex = 0; vertex < 2; ++vertex)
+        graph.add_vertex(color, internal_edges ? 2 : 1);
+    graph.add_vertex(2, 4);
+    for (unsigned vertex = 0; vertex < 4; ++vertex)
+      graph.add_edge(vertex, 4);
+    if (internal_edges) {
+      graph.add_edge(0, 1);
+      graph.add_edge(2, 3);
+    }
+    dejavu::sgraph *source = graph.get_sgraph();
+    int *colors = graph.get_coloring();
+    dejavu::ds::worklist membership(source->v_size);
+    const int count = dejavu::ir::quotient_components(source, colors, &membership);
+    assert(count == 2);
+    dejavu::ir::graph_decomposer decomposition;
+    decomposition.decompose(source, colors, membership, count);
+    for (int component = 0; component < count; ++component) {
+      const dejavu::sgraph *subgraph = decomposition.get_component(component);
+      assert(subgraph->v_size == 2);
+      for (int vertex = 0; vertex < subgraph->v_size; ++vertex) {
+        assert(subgraph->d[vertex] == (internal_edges ? 1 : 0));
+        if (internal_edges)
+          assert(subgraph->e[subgraph->v[vertex]] == 1 - vertex);
+      }
+    }
   }
 }
 
