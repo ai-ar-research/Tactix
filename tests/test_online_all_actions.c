@@ -170,6 +170,30 @@ static void reaches_every_registered_action(void) {
       step.instances = &selected;
       step.instance_count = 1;
     }
+    if (!strcmp(name, "Condition")) {
+      const int clause[] = {24, 25, 26};
+      const int witness[] = {24};
+      const tactix_online_condition_instance cube = {
+          clause, 3, witness, 1};
+      tactix_online_step_v3 exact;
+      memset(&exact, 0, sizeof exact);
+      exact.base.base = step;
+      exact.base.base.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
+      exact.condition_instances = &cube;
+      exact.condition_instance_count = 1;
+      const tactix_online_program_v3 typed = {
+          &exact, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
+      tactix_online_result result;
+      assert(tactix_online_configure_v3(solver, &typed, 19,
+                                        TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+      assert(tactix_online_advance(solver, &result) == 0);
+      assert(result.rule_id == (uint32_t)id && result.applications == 1);
+      assert(result.made_rule_progress && result.instance == 0);
+      assert(result.after_strategy_epoch > result.before_strategy_epoch);
+      printf("  %-18s STRUCTURED\n", name);
+      tactix_release(solver);
+      continue;
+    }
     tactix_online_program program = {
         &step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
     assert(tactix_online_configure(solver, &program, 19,
@@ -421,6 +445,6 @@ int main(void) {
   parity_lucky_instance_is_public();
   onehot_lucky_instance_is_public();
   aba_transition_invalidates_a_pending_batch();
-  puts("test_online_all_actions: all 27 actions and ABA invalidation PASS");
+  puts("test_online_all_actions: all 29 actions and ABA invalidation PASS");
   return 0;
 }

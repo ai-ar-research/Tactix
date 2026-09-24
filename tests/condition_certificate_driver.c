@@ -21,7 +21,8 @@ static int rule_id(const char *name) {
 }
 
 int main(int argc, char **argv) {
-  if (argc != 4 ||
+  if ((argc != 4 && argc != 5) ||
+      (argc == 5 && strcmp(argv[4], "--online-v3")) ||
       (strcmp(argv[3], "binary") && strcmp(argv[3], "large") &&
        strcmp(argv[3], "root-binary") &&
        strcmp(argv[3], "root-large") && strcmp(argv[3], "sat") &&
@@ -114,9 +115,32 @@ int main(int argc, char **argv) {
     assert(tactix_apply_condition(solver, candidate, large ? 3 : 2,
                                   insufficient, 1) == -1);
   }
-  assert(tactix_apply_condition(solver, candidate, large ? 3 : 2,
-                                root ? root_cube : cube,
-                                root ? 1 : 3) == 0);
+  if (argc == 5) {
+    const tactix_online_condition_instance exact = {
+        candidate, large ? 3 : 2, root ? root_cube : cube, root ? 1 : 3};
+    tactix_online_step_v3 step;
+    memset(&step, 0, sizeof step);
+    step.base.base.step_id = 375;
+    step.base.base.rule_id = rule_id("Condition");
+    step.base.base.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
+    step.base.base.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
+    step.base.base.repeat_limit = 1;
+    step.base.base.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
+    step.base.base.budget_unlimited = 1;
+    step.condition_instances = &exact;
+    step.condition_instance_count = 1;
+    const tactix_online_program_v3 program = {
+        &step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
+    tactix_online_result applied;
+    assert(tactix_online_configure_v3(solver, &program, 375,
+                                      TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+    assert(tactix_online_advance(solver, &applied) == 0);
+    assert(applied.status == TACTIX_ONLINE_COMPLETED &&
+           applied.made_rule_progress && applied.applications == 1);
+  } else
+    assert(tactix_apply_condition(solver, candidate, large ? 3 : 2,
+                                  root ? root_cube : cube,
+                                  root ? 1 : 3) == 0);
   if (sat) {
     if (!root)
       assert(tactix_decide(solver, -1) == 0);

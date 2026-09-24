@@ -1241,6 +1241,38 @@ static void zero_victim_compaction_reports_semantic_progress() {
   }
 }
 
+static void condition_online_uses_external_clause_after_compaction() {
+  Kernel k;
+  kernel_reserve_vars(k, 5);
+  kernel_add_binary_clause(k, internalize(4), internalize(5));
+  kernel_add_binary_clause(k, internalize(-4), internalize(1));
+  kernel_add_binary_clause(k, internalize(-1), internalize(5));
+  k.var_status.assign(k.nvars, VarStatus::Active);
+  k.var_status[1] = VarStatus::Eliminated;
+  k.unassigned_active--;
+  assert(kernel_compact_variables(k));
+  assert(kernel_internalize(k, 4) != internalize(4));
+
+  OnlineInvocation step;
+  step.id = 376;
+  step.rule = "Condition";
+  step.granularity = InvocationGranularity::OneInstance;
+  ConditionInstance instance;
+  instance.clause = {internalize(4), internalize(5)};
+  instance.witness = {internalize(4), internalize(1), internalize(5)};
+  step.condition_instances.push_back(instance);
+  OnlineStrategyProgram program;
+  program.sequence.push_back(step);
+  OnlineStrategyExecutor executor;
+  assert(executor.configure(program, 376));
+  const InvocationResult result = executor.advance(k);
+  assert(result.status == InvocationStatus::Completed);
+  assert(result.made_rule_progress && result.applications == 1);
+  assert(!kernel_binary_live(k, kernel_internalize(k, 4),
+                             kernel_internalize(k, 5)));
+  kernel_check_invariants(k);
+}
+
 static void collection_does_not_age_the_search_database() {
   for (bool bookkeeping : {false, true}) {
     Kernel k;
@@ -4879,6 +4911,7 @@ int main(int argc, char **argv) {
   complete_pass_reenumerates_after_its_own_collection();
   sweep_parameters_are_exact_per_invocation();
   zero_victim_compaction_reports_semantic_progress();
+  condition_online_uses_external_clause_after_compaction();
   rule_parameters_are_scoped_per_call();
   collection_does_not_age_the_search_database();
   std::puts("Online sequence, granularity, fixpoint, budget and reconfigure PASS");
