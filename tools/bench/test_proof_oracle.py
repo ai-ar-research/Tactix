@@ -7,6 +7,30 @@ from proof_oracle import bridge_trivial_input_binary_lsr, proof_check_status
 
 
 class ProofOracleTests(unittest.TestCase):
+    def test_duplicate_restatement_preserves_noop_and_input_paths(self):
+        from proof_oracle import canonical_checker_cnf, restate_duplicate_input_lrat
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            cnf, checker, lrat, lifted = (work/name for name in ('in.cnf','check.cnf','p.lrat','lift.lrat'))
+            for text, duplicates in (('p cnf 1 2\n1 0\n-1 0\n', 0),
+                                     ('p cnf 1 3\n1 1 -1 0\n1 0\n-1 0\n', 1)):
+                cnf.write_text(text)
+                spelling = canonical_checker_cnf(cnf, checker)
+                self.assertEqual(spelling['duplicate_literal_clauses'], duplicates)
+                lrat.write_text('4 0 2 3 0\n')
+                self.assertEqual(restate_duplicate_input_lrat(checker, spelling, lrat, lifted), (lrat, 0))
+                self.assertEqual(lrat.read_text(), '4 0 2 3 0\n')
+            cnf.write_text('p cnf 1 2\n1 1 0\n-1 0\n')
+            spelling = canonical_checker_cnf(cnf, checker)
+            for target in (checker,lrat):
+                before=target.read_bytes()
+                with self.assertRaises(ValueError):
+                    restate_duplicate_input_lrat(checker, spelling, lrat, target)
+                self.assertEqual(target.read_bytes(),before)
+            lrat.write_text('3 0 1 2')
+            with self.assertRaises(ValueError):
+                restate_duplicate_input_lrat(checker, spelling, lrat, lifted)
+
     def test_routing_does_not_misclassify_missing_files_as_bad_proofs(self):
         import proof_oracle as oracle
         with tempfile.TemporaryDirectory() as directory:
