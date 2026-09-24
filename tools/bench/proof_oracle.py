@@ -521,6 +521,51 @@ def dsr_proof_as_drat(proof, drat):
 CAKE_LPR_ENVIRONMENT = {'CML_HEAP_SIZE': '24576'}
 
 
+# Python's poll selector converts seconds to signed-C-int milliseconds. Bound
+# each wait, not the caller's allowance (nor drat-trim's independent -t value).
+MAX_CAPTURE_WAIT_SECONDS = ((1 << 31) - 1) // 1000
+
+
+def run_captured(command, timeout=None, **kwargs):
+    """Capture a process like subprocess.run without overflowing poll's wait.
+
+    Ordinary allowances keep the existing subprocess.run path. Large ones use
+    repeated communicate calls under ONE monotonic deadline; communicate keeps
+    partially collected output between calls. Always reap on timeout or error.
+    Keyword arguments are Popen options, e.g. env and preexec_fn.
+    """
+    import math
+    import subprocess
+    import time
+    if timeout is None or timeout <= MAX_CAPTURE_WAIT_SECONDS:
+        return subprocess.run(command, capture_output=True, text=True,
+                              errors='replace', timeout=timeout, **kwargs)
+    if not math.isfinite(timeout):
+        raise ValueError('process timeout must be finite')
+    with subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                          text=True, errors='replace', **kwargs) as process:
+        deadline = time.monotonic() + timeout
+        try:
+            while True:
+                remaining = max(0, deadline - time.monotonic())
+                try:
+                    stdout, stderr = process.communicate(
+                        timeout=min(remaining, MAX_CAPTURE_WAIT_SECONDS))
+                    return subprocess.CompletedProcess(command, process.returncode,
+                                                       stdout, stderr)
+                except subprocess.TimeoutExpired:
+                    if time.monotonic() < deadline:
+                        continue
+                    process.kill()
+                    stdout, stderr = process.communicate()
+                    raise subprocess.TimeoutExpired(command, timeout,
+                                                    output=stdout, stderr=stderr)
+        except BaseException:
+            process.kill()
+            process.wait()
+            raise
+
+
 def stage_environment(name):
     """Extra environment for one pipeline stage, merged over os.environ."""
     import os
@@ -555,9 +600,12 @@ def drat_stages(drat_trim, cake_lpr, cnf, drat, lrat, *, checker_cnf=None):
 
 
 def pb_stages(veripb, cake_pb, cnf, proof, kernel, *, checker_cnf=None):
-    """Pinned LymphoSAT pipeline; CakePB verifies the elaborated proof."""
+    """Pinned LymphoSAT pipeline; both readers use clause-preserving spelling.
+
+    CakePB independently verifies VeriPB's elaborated proof.
+    """
     return [('veripb', [veripb, '-u', '--cnf', '--elaborate', kernel,
-                        cnf, proof]),
+                        checker_cnf or cnf, proof]),
             ('cake-pb-cnf', [cake_pb, checker_cnf or cnf, kernel])]
 
 
@@ -650,10 +698,8 @@ def check_routed(dsr_trim, dsr_compress, srcheck, drat_trim, cake_lpr, cnf,
         else:
             command = [*command[:-1], checked_lrat]
         try:
-            done = subprocess.run([str(part) for part in command],
-                                  capture_output=True, text=True,
-                                  errors='replace', timeout=timeout,
-                                  env=stage_environment(name))
+            done = run_captured([str(part) for part in command], timeout=timeout,
+                                env=stage_environment(name))
         except subprocess.TimeoutExpired:
             return False, name, 'timed out', route
         if proof_check_status(name, done.returncode, done.stdout,
@@ -696,10 +742,8 @@ def check_pb(veripb, cake_pb, cnf, proof, workdir, timeout=None):
         if remaining is not None and remaining <= 0:
             return False, name, 'timed out'
         try:
-            done = subprocess.run([str(part) for part in command],
-                                  capture_output=True, text=True,
-                                  errors='replace', timeout=remaining,
-                                  env=stage_environment(name))
+            done = run_captured([str(part) for part in command], timeout=remaining,
+                                env=stage_environment(name))
         except subprocess.TimeoutExpired:
             return False, name, 'timed out'
         except OSError as error:
@@ -748,9 +792,7 @@ def _run_dsr_stages(stages, dsr_trim, dsr_compress, srcheck, cnf, proof,
             dsr_trim, dsr_compress, srcheck, cnf, proof, binary_lsr, text_lsr,
             checker_cnf=checker_cnf):
         try:
-            done = subprocess.run([str(part) for part in command],
-                                  capture_output=True, text=True,
-                                  errors='replace', timeout=timeout)
+            done = run_captured([str(part) for part in command], timeout=timeout)
         except subprocess.TimeoutExpired:
             return False, name, 'timed out'
         output = done.stdout + '\n' + done.stderr
