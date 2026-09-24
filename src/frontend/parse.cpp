@@ -327,22 +327,22 @@ static void propagate_input_unit(Kernel &k) {
   // Placed after the tautology return and before the store so it matches
   // kissat's per-clause activation in `kissat_add`: a tautology activates
   // nothing, and first activation follows file-literal order rather than the
-  // canonical sorted storage order.  input_activated removes repeated
-  // literals in one clause and variables activated by an earlier clause.
+  // canonical sorted storage order. input_activated removes repeated
+  // literals in one clause and variables activated by an earlier clause; it
+  // also identifies variables in no surviving clause at input finalization.
   // The normalized clause holds the unassigned distinct literals in
   // first-occurrence file order, which is exactly the population and order
   // the raw file literals would activate: repeats are skipped by
   // input_activated and root-assigned variables are never activated.
-  if (k.tumble) {
-    if (k.input_activated.size() < k.nvars)
-      k.input_activated.resize(k.nvars, 0);
-    for (const Lit lit : scratch) {
-      const Var v = var_of(lit);
-      assert(k.values[make_lit(v, false)] == 0);
-      if (!k.input_activated[v]) {
-        k.input_activated[v] = 1;
+  if (k.input_activated.size() < k.nvars)
+    k.input_activated.resize(k.nvars, 0);
+  for (const Lit lit : scratch) {
+    const Var v = var_of(lit);
+    assert(k.values[make_lit(v, false)] == 0);
+    if (!k.input_activated[v]) {
+      k.input_activated[v] = 1;
+      if (k.tumble)
         k.input_activation_order.push_back(v);
-      }
     }
   }
 
@@ -428,15 +428,14 @@ void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
       kernel_record_import(k, var_of(a));
       kernel_record_import(k, var_of(b));
 
-      if (k.tumble) {
-        if (k.input_activated.size() < k.nvars)
-          k.input_activated.resize(k.nvars, 0);
-        for (const Lit lit : {a, b}) {
-          const Var v = var_of(lit);
-          if (!k.input_activated[v]) {
-            k.input_activated[v] = 1;
+      if (k.input_activated.size() < k.nvars)
+        k.input_activated.resize(k.nvars, 0);
+      for (const Lit lit : {a, b}) {
+        const Var v = var_of(lit);
+        if (!k.input_activated[v]) {
+          k.input_activated[v] = 1;
+          if (k.tumble)
             k.input_activation_order.push_back(v);
-          }
         }
       }
 
@@ -476,20 +475,16 @@ void finish_input(Kernel &k) {
   // The C API's later attachment first replays the exact raw input into a
   // proof-bearing kernel, then remaps the existing session's live identities.
   assert(k.input_restatements.empty() || k.proof);
-  // A declared but unmentioned variable is absent from Kissat's import map and
-  // active/search population.  Retire Tactix's header-reserved identity without
-  // a witness: it occurs in no input clause, so either value extends a model,
-  // and kernel_extend_model completes missing external values to false.
-  // Otherwise propagation-free decisions perturb every search clock on sparse
-  // headers.  Still rank the identity after real imports: permanent ranks also
-  // serve policy-neutral/debug enumeration, where preserving the old total
-  // order does not admit it to DefaultPolicy's decision population.
+  // An unassigned variable absent from every surviving normalized clause is
+  // outside Kissat's active/search population, even when a tautological or
+  // root-satisfied raw clause mentioned it. Retire that kernel identity
+  // without a witness: it occurs in no live constraint, so either value
+  // extends a model. Explicit Decide instances still retain the variable
+  // through the policy-neutral unassigned surface. Keep its import rank too:
+  // that order remains the stable API/debug identity image.
   for (Var v = 0; v < k.nvars; v++) {
-    const Var external = k.internal_to_external[v];
-    const bool imported =
-        external < k.external_import_rank.size() &&
-        k.external_import_rank[external] != UINT32_MAX;
-    if (!imported) {
+    const bool activated = v < k.input_activated.size() && k.input_activated[v];
+    if (!activated && k.values[make_lit(v, false)] == 0) {
       if (k.var_status.size() < k.nvars)
         k.var_status.resize(k.nvars, VarStatus::Active);
       if (k.var_status[v] == VarStatus::Active) {

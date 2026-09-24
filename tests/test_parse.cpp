@@ -306,7 +306,7 @@ static void test_tumble_preserves_file_literal_order() {
          kernel_import_lit_order(k, internalize(-5)));
 
   assert(k.stats.tumble_seeded == 6);
-  const std::vector<Var> expected_queue = {4, 2, 0, 1, 5, 3, 6};
+  const std::vector<Var> expected_queue = {2, 0, 1, 5, 3, 6};
   std::vector<Var> queue;
   for (Var v = k.h->queue_first; v != INVALID_VAR; v = k.h->links[v].next)
     queue.push_back(v);
@@ -420,6 +420,44 @@ static void test_header_only_variables_are_not_search_variables() {
   kernel_check_invariants(k);
 }
 
+static void test_discarded_only_variables_are_not_search_variables() {
+  const char *dimacs =
+      "p cnf 7 5\n"
+      "1 -1 3 0\n" // x1/x3 occur only in a tautology
+      "4 0\n"
+      "4 5 0\n"    // x5 occurs only in a root-satisfied clause
+      "2 6 0\n"
+      "-2 6 0\n";
+  for (const bool tumble : {true, false}) {
+    Kernel k;
+    k.tumble = tumble;
+    ScopedHeuristics hg(k);
+    FILE *file = dimacs_file(dimacs);
+    assert(parse_dimacs(file, k) == nullptr);
+    std::fclose(file);
+    assert(k.values[internalize(4)] > 0);
+    assert(k.unassigned_active == 2);
+    for (const Var v : {Var{0}, Var{2}, Var{4}, Var{6}}) {
+      assert(k.values[make_lit(v, false)] == 0);
+      assert(kernel_var_retired(k, v));
+      assert(!heuristics_var_active(k, v));
+    }
+    for (const Var v : {Var{1}, Var{5}})
+      assert(!kernel_var_retired(k, v));
+    if (tumble)
+      assert(k.compact_import_order == std::vector<Var>({3, 1, 5}));
+    assert(k.compact_import_order.size() >= k.unassigned_active);
+    k.h->stable = true;
+    heuristics_update_target_phases(k);
+    Lit candidates[7] = {};
+    const uint32_t count = decide_candidates(k, candidates, 7);
+    assert(count == 6); // explicit N1 Decide still exposes retired variables
+    assert(std::find(candidates, candidates + count, internalize(1)) !=
+           candidates + count);
+    kernel_check_invariants(k);
+  }
+}
+
 int main() {
   test_compact_input_filter_grows_and_deduplicates_exactly();
   test_native_lrat_retains_binary_ids();
@@ -428,6 +466,7 @@ int main() {
   test_root_units_normalize_later_input_clauses();
   test_input_units_propagate_before_later_clauses();
   test_header_only_variables_are_not_search_variables();
+  test_discarded_only_variables_are_not_search_variables();
   test_block_boundaries_do_not_change_the_import();
   test_advisory_headers_preserve_binary_liveness();
   puts("test_parse OK");

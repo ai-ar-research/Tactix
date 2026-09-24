@@ -488,8 +488,7 @@ SC2024 startup fast elimination is a typed composition after initial Probe: the 
   marks specified in §5.
 - Stable Reorder defaults to at most 100 open literals; equal-weight/score ordering uses first-import rank after score rescaling
   (§10).
-- Root-fixed variables are inactive immediately; compact random slots use first-import order filtered to active variables.
-  Activation order remains the separate queue/score-seeding authority.
+- Root-fixed variables are inactive immediately; at input completion an unassigned identity occurring only in tautological/root-satisfied raw clauses is retired just like a header-only identity, because it occurs in no stored clause. This closes the compact random-slot versus `unassigned_active` mismatch without hiding explicit N1 Decide instances, which still enumerate all unassigned variables. API input completion is one-shot, so subsequent status/action queries cannot repeat retirement after its parse-scoped bitmap is released. Compact random slots use first-import order filtered to activated variables; activation order remains the separate queue/score-seeding authority.
 - BVE occurrence cleanup stably compacts the inspected legal prefix once, preserving the oversized-clause boundary and untouched
   suffix. Ordered physical duplicates remain significant for gate membership.
 - TransitiveReduce commits failed-walk units with native-LRAT BFS chains, preserves earlier tombstones, and reaches root before the

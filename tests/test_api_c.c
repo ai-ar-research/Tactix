@@ -33,6 +33,25 @@ static void test_solve_sat(void) {
   tactix_release(s);
 }
 
+/* Discarded-only identities must not enter the default search population,
+ * while the returned model still satisfies every original input clause. */
+static void test_discarded_only_variables_extend_model(void) {
+  tactix *s = tactix_init();
+  add_clause(s, (const int[]){1, -1, 3, 0});
+  add_clause(s, (const int[]){4, 0});
+  add_clause(s, (const int[]){4, 5, 0});
+  add_clause(s, (const int[]){2, 6, 0});
+  add_clause(s, (const int[]){-2, 6, 0});
+  assert(tactix_solve(s) == 10);
+  assert(tactix_value(s, 4) == 4);
+  assert(tactix_value(s, 6) == 6);
+  assert(tactix_value(s, 1) == 1 || tactix_value(s, -1) == -1);
+  assert(tactix_value(s, 4) == 4 || tactix_value(s, 5) == 5);
+  assert(tactix_value(s, 2) == 2 || tactix_value(s, 6) == 6);
+  assert(tactix_value(s, -2) == -2 || tactix_value(s, 6) == 6);
+  tactix_release(s);
+}
+
 /* N1: the client is the branching policy, driving the registry directly. */
 static void test_external_branching(void) {
   tactix *s = tactix_init();
@@ -409,6 +428,7 @@ static void test_action_kind(void) {
 
 int main(void) {
   test_solve_sat();
+  test_discarded_only_variables_extend_model();
   test_external_branching();
   test_instance_surface();
   test_conflict_boundary_restart_and_reduce();
