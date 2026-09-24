@@ -6,6 +6,7 @@
 #include <cassert>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <initializer_list>
 
 using namespace tactix;
@@ -157,11 +158,67 @@ static void test_root_true_reason_candidates() {
   }
 }
 
-int main() {
+static void test_cube_on_compacted_external_identity(bool emit_model = false) {
+  Kernel k;
+  kernel_reserve_vars(k, 5);
+  kernel_add_binary_clause(k, internalize(1), internalize(2));
+  kernel_add_binary_clause(k, internalize(-1), internalize(4));
+  kernel_add_binary_clause(k, internalize(-4), internalize(5));
+  k.var_status.assign(k.nvars, VarStatus::Active);
+  k.var_status[2] = VarStatus::Eliminated;
+  k.unassigned_active--;
+  assert(kernel_compact_variables(k));
+  assert(k.external_to_internal[2] == INVALID_VAR);
+  assert(!condition_apply_explicit(k, cube({1, 2}, {1, 3, 4, 5, 5})));
+  assert(!condition_apply_explicit(k, cube({1, 2}, {1, 3, 4, 6})));
+  assert(condition_apply_explicit(k, cube({1, 2}, {1, 3, 4, 5})));
+  assert(!kernel_binary_live(k, internalize(1), internalize(2)));
+  kernel_assign_unit(k, internalize(-1));
+  kernel_assign_unit(k, internalize(-2));
+  kernel_assign_unit(k, kernel_internalize(k, -4));
+  kernel_assign_unit(k, kernel_internalize(k, -5));
+  kernel_extend_model(k, false);
+  assert(k.model_values[internalize(1)] > 0);
+  assert(k.model_values[internalize(3)] > 0);
+  assert(k.model_values[internalize(4)] > 0);
+  assert(k.model_values[internalize(5)] > 0);
+  if (emit_model) {
+    std::puts("s SATISFIABLE");
+    std::fputs("v", stdout);
+    for (int v = 1; v <= 5; ++v)
+      std::printf(" %d", k.model_values[internalize(v)] > 0 ? v : -v);
+    std::puts(" 0");
+  }
+}
+
+static void test_cube_respects_archived_root_value() {
+  Kernel k;
+  kernel_reserve_vars(k, 6);
+  kernel_add_binary_clause(k, internalize(1), internalize(2));
+  kernel_add_binary_clause(k, internalize(-1), internalize(4));
+  kernel_add_binary_clause(k, internalize(-4), internalize(5));
+  kernel_assign_unit(k, internalize(3));
+  kernel_assign_unit(k, internalize(6));
+  assert(!kernel_propagate(k));
+  assert(kernel_compact_variables(k, true));
+  assert(k.external_to_internal[5] == INVALID_VAR);
+  assert(k.fixed_external_values[5] > 0);
+  assert(!condition_apply_explicit(k, cube({1, 2}, {1, 4, 5, -6})));
+  assert(condition_apply_explicit(k, cube({1, 2}, {1, 4, 5, 6})));
+}
+
+int main(int argc, char **argv) {
+  if (argc == 2 && !std::strcmp(argv[1], "--compacted-model")) {
+    test_cube_on_compacted_external_identity(true);
+    return 0;
+  }
+  assert(argc == 1);
   test_binary_cube_and_model();
   test_large_and_negative_cases();
   test_independent_local_implication_oracle();
   test_root_false_candidate_literal();
   test_root_true_reason_candidates();
+  test_cube_on_compacted_external_identity();
+  test_cube_respects_archived_root_value();
   std::puts("condition OK");
 }

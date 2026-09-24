@@ -515,7 +515,14 @@ void rule_journal_note_cube_reconstruction(const Kernel &k,
     return result;
   };
   const std::string external_clause = external_literals(clause, nclause);
-  const std::string external_witness = external_literals(witness, nwitness);
+  std::string external_witness;
+  for (uint32_t i = 0; i < nwitness; i++) {
+    const int lit = externalize(witness[i]);
+    selected |= std::abs(lit) == std::abs(state.literal);
+    if (i)
+      external_witness.push_back(',');
+    external_witness += std::to_string(lit);
+  }
   if (selected)
     transaction.witnesses.push_back("reconstruct-cube(clause=" +
                                     external_clause + ";witness=" +

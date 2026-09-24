@@ -1459,9 +1459,12 @@ int tactix_apply_condition(tactix_solver *s, const int *clause,
   for (int i = 0; i < clause_count; ++i)
     if (!append(clause[i], instance.clause))
       return -1;
-  for (int i = 0; i < witness_count; ++i)
-    if (!append(witness[i], instance.witness))
+  for (int i = 0; i < witness_count; ++i) {
+    const int external = witness[i];
+    if (!external || external == INT32_MIN)
       return -1;
+    instance.witness.push_back(internalize(external));
+  }
   const RuleVTable &rule = tactix_rules()[tactix_rule_id("Condition")];
   ConditionPrepared prepared;
   const uint64_t validation_started = now_nanos();

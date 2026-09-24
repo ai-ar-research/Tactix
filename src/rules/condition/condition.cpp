@@ -86,6 +86,8 @@ bool condition_prepare(Kernel &k, const ConditionInstance &instance,
   std::vector<Lit> sorted = clause;
   std::sort(sorted.begin(), sorted.end());
   std::vector<int8_t> witness_values(k.nvars, 0);
+  std::vector<Var> witness_external_vars;
+  witness_external_vars.reserve(witness.size());
   bool satisfies_candidate = false;
   bool root_satisfies_candidate = false;
   for (size_t i = 0; i < sorted.size(); ++i) {
@@ -95,15 +97,29 @@ bool condition_prepare(Kernel &k, const ConditionInstance &instance,
       return false;
     root_satisfies_candidate |= k.values[lit] > 0;
   }
-  for (const Lit lit : witness) {
-    const Var v = var_of(lit);
-    if (v >= k.nvars || witness_values[v] ||
-        (k.values[lit] < 0))
+  for (const Lit external : witness) {
+    const Var ev = var_of(external);
+    if (ev >= k.external_to_internal.size())
+      return false;
+    witness_external_vars.push_back(ev);
+    if (ev < k.fixed_external_values.size() &&
+        k.fixed_external_values[ev] &&
+        k.fixed_external_values[ev] != lit_value(external))
+      return false;
+    const Var v = k.external_to_internal[ev];
+    if (v == INVALID_VAR)
+      continue; // no live clause can mention this compacted identity
+    const Lit lit = make_lit(v, negated(external));
+    if (k.values[lit] < 0)
       return false;
     witness_values[v] = lit_value(lit);
-    satisfies_candidate |=
-        std::binary_search(sorted.begin(), sorted.end(), lit);
+    satisfies_candidate |= std::binary_search(sorted.begin(), sorted.end(), lit);
   }
+  std::sort(witness_external_vars.begin(), witness_external_vars.end());
+  if (std::adjacent_find(witness_external_vars.begin(),
+                         witness_external_vars.end()) !=
+      witness_external_vars.end())
+    return false;
   if (!satisfies_candidate)
     return false;
 

@@ -4241,8 +4241,10 @@ void kernel_push_cube_witness(Kernel &k, const Lit *clause, uint32_t nclause,
 #endif
   for (uint32_t i = 0; i < nclause; i++)
     k.reconstruction.push_back(kernel_external_lit(k, clause[i]));
-  for (uint32_t i = 0; i < nwitness; i++)
-    k.reconstruction.push_back(kernel_external_lit(k, witness[i]));
+  for (uint32_t i = 0; i < nwitness; i++) {
+    assert(var_of(witness[i]) < k.external_to_internal.size());
+    k.reconstruction.push_back(witness[i]); // already a stable external literal
+  }
   k.reconstruction.push_back(static_cast<Lit>(nclause));
   k.reconstruction.push_back(static_cast<Lit>(nwitness));
   // Existing single-witness segments always end in a positive clause length.
