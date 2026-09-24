@@ -380,16 +380,21 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
     if (!step.substitution_redundancy_instances.empty() &&
         step.rule != "SubstitutionRedundancy")
       return reject("SR instances are attached to a different rule");
+    if (!step.condition_instances.empty() && step.rule != "Condition")
+      return reject("Condition instances are attached to a different rule");
     const unsigned structured_payload_kinds =
         !step.factor_grids.empty() +
-        !step.substitution_redundancy_instances.empty();
+        !step.substitution_redundancy_instances.empty() +
+        !step.condition_instances.empty();
     if (structured_payload_kinds && !step.instances.empty())
       return reject("scalar and structured selections cannot be mixed");
     if (structured_payload_kinds > 1)
       return reject("different structured selection kinds cannot be mixed");
     const size_t structured_size = !step.factor_grids.empty()
                                        ? step.factor_grids.size()
-                                       : step.substitution_redundancy_instances.size();
+                                       : !step.substitution_redundancy_instances.empty()
+                                             ? step.substitution_redundancy_instances.size()
+                                             : step.condition_instances.size();
     switch (step.granularity) {
     case InvocationGranularity::OneInstance:
       if ((structured_payload_kinds && structured_size != 1) ||
@@ -591,12 +596,15 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
     runtime.selection = {INSTANCE_CANONICAL};
   } else if (step.granularity != InvocationGranularity::CompleteCurrentPass) {
     if (step.factor_grids.empty() &&
-        step.substitution_redundancy_instances.empty()) {
+        step.substitution_redundancy_instances.empty() &&
+        step.condition_instances.empty()) {
       runtime.selection = step.instances;
     } else {
       const size_t size = !step.factor_grids.empty()
                               ? step.factor_grids.size()
-                              : step.substitution_redundancy_instances.size();
+                              : !step.substitution_redundancy_instances.empty()
+                                    ? step.substitution_redundancy_instances.size()
+                                    : step.condition_instances.size();
       runtime.selection.resize(size);
       for (size_t i = 0; i < runtime.selection.size(); ++i)
         runtime.selection[i] = i;
@@ -1284,8 +1292,33 @@ InvocationResult OnlineStrategyExecutor::advance(
       const bool enumerated_sr =
           generated_sr_pass;
       std::optional<SubstitutionRedundancyApplicationResult> sr_application;
+      bool condition_declined = false;
+      bool condition_interrupted = false;
       const ApplyResult result =
-          (!step.substitution_redundancy_instances.empty() || enumerated_sr)
+          !step.condition_instances.empty()
+              ? [&] {
+                  const ConditionInstance &request =
+                      step.condition_instances[payload];
+                  ConditionInstance selected = request;
+                  for (Lit &literal : selected.clause) {
+                    literal = kernel_internalize(k, externalize(literal));
+                    if (literal == INVALID_LIT) {
+                      condition_declined = true;
+                      return ApplyResult::NoOp;
+                    }
+                  }
+                  ConditionPrepared prepared;
+                  if (!condition_prepare(k, selected, prepared)) {
+                    condition_declined = true;
+                    condition_interrupted =
+                        (stop && *stop) || (k.stop && *k.stop);
+                    return ApplyResult::NoOp;
+                  }
+                  return apply_rule_structured(rule, k, "exact-condition", [&] {
+                    return condition_commit(k, selected, prepared);
+                  });
+                }()
+          : (!step.substitution_redundancy_instances.empty() || enumerated_sr)
               ? apply_rule_structured(rule, k, "exact-sr", [&] {
                   const auto *configured =
                       std::get_if<SubstitutionRedundancyParameters>(
@@ -1440,6 +1473,20 @@ InvocationResult OnlineStrategyExecutor::advance(
         if (preserve_affine_selection) out.selection_complete = false;
       }
       out.after = state_version(k);
+      if (condition_declined) {
+        // A selected cube is checked against the live formula at application
+        // time. A later batch member may lose its premise after earlier
+        // progress; never count or advance that stale selection.
+        out.status = condition_interrupted
+                         ? InvocationStatus::Interrupted
+                         : runtime.pass_progress
+                               ? InvocationStatus::StaleRequest
+                               : InvocationStatus::Inapplicable;
+        out.work = out.applications = 0;
+        out.selection_complete = false;
+        out.budget_status = BudgetStatus::Ready;
+        return out;
+      }
     }
     // Keep the selected follow-up inside the same executor transaction.  A
     // caller-side propagation here would change touch/strategy epochs after

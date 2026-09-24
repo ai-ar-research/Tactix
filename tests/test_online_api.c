@@ -23,6 +23,56 @@ static void clause(tactix *solver, const int *literals) {
   tactix_add(solver, 0);
 }
 
+static void condition_cube_v3_is_atomic_and_copied(void) {
+  tactix *solver = tactix_init();
+  clause(solver, (const int[]){1, 2, 0});
+  clause(solver, (const int[]){1, 2, 0});
+  clause(solver, (const int[]){-1, 3, 0});
+  clause(solver, (const int[]){-3, 4, 0});
+  int candidate[] = {1, 2};
+  int witness[] = {1, 3, 4};
+  tactix_online_condition_instance cubes[] = {
+      {candidate, 2, witness, 3}, {candidate, 2, witness, 3}};
+  tactix_online_step_v3 step;
+  memset(&step, 0, sizeof step);
+  step.base.base.step_id = 375;
+  step.base.base.rule_id = rule("Condition");
+  step.base.base.granularity = TACTIX_ONLINE_GRANULARITY_BATCH;
+  step.base.base.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
+  step.base.base.repeat_limit = 1;
+  step.base.base.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
+  step.base.base.budget_unlimited = 1;
+  step.condition_instances = cubes;
+  step.condition_instance_count = 2;
+  tactix_online_program_v3 program = {
+      &step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
+  step.base.base.rule_id = rule("BCE");
+  assert(tactix_online_configure_v3(solver, &program, 1,
+                                    TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  step.base.base.rule_id = rule("Condition");
+  assert(tactix_online_configure_v3(solver, &program, 2,
+                                    TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  /* The configured transaction owns both nested arrays after this call. */
+  candidate[0] = candidate[1] = 0;
+  witness[0] = witness[1] = witness[2] = 0;
+  tactix_online_result result;
+  assert(tactix_online_advance(solver, &result) == 0);
+  assert(result.status == TACTIX_ONLINE_COMPLETED);
+  assert(result.made_rule_progress && result.applications == 1);
+  assert(result.instance == 0 && result.configuration_revision == 2);
+  /* The second saved tuple names a clause the first action retired. */
+  assert(tactix_online_advance(solver, &result) == 0);
+  assert(result.status == TACTIX_ONLINE_STALE_REQUEST);
+  assert(result.applications == 0 && result.work == 0);
+  assert(tactix_decide(solver, -1) == 0);
+  assert(tactix_decide(solver, -2) == 0);
+  assert(tactix_solve(solver) == 10);
+  assert(tactix_value(solver, 1) == 1);
+  assert(tactix_value(solver, 3) == 3);
+  assert(tactix_value(solver, 4) == 4);
+  tactix_release(solver);
+}
+
 /* A late LRAT replay can finish the input refutation before the online
  * executor runs. Its proof is complete even if the proofless kernel's root
  * trail contains units for which the replay has no matching unit line. */
@@ -1248,6 +1298,7 @@ static void independent_set_parameters_are_public_and_validated(void) {
 }
 
 int main(void) {
+  condition_cube_v3_is_atomic_and_copied();
   late_lrat_root_refutation_is_terminal();
   canonical_bve_reaches_a_real_fixpoint();
   status_reconstructs_bve_models_and_refreshes_after_restart();

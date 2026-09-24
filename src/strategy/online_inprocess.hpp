@@ -1,6 +1,7 @@
 #pragma once
 
 #include "rules/factor/factor.hpp"
+#include "rules/condition/condition.hpp"
 #include "strategy/inprocess_program.hpp"
 #include "strategy/rule_invocation.hpp"
 #include "strategy/bve_occurrence_cache.hpp"
@@ -89,6 +90,8 @@ struct OnlineInvocation {
   // General SR payloads are likewise variable-sized semantic instances.
   std::vector<SubstitutionRedundancyInstance>
       substitution_redundancy_instances = {};
+  // Both vectors retain external literal identities until each atomic apply.
+  std::vector<ConditionInstance> condition_instances = {};
   RepeatSpec repeat;
   PostApplication post_application = PostApplication::None;
   RuleWorkBudget rule_work_budget;

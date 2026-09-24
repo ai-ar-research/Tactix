@@ -50,6 +50,7 @@ def main() -> int:
     parser.add_argument("driver", type=Path)
     parser.add_argument("pins", type=Path)
     parser.add_argument("work", type=Path)
+    parser.add_argument("--online-v3", action="store_true")
     args = parser.parse_args()
     work = args.work.resolve()
     work.mkdir(parents=True, exist_ok=True)
@@ -64,8 +65,11 @@ def main() -> int:
             (case / "good").mkdir(exist_ok=True)
             (case / "bad").mkdir(exist_ok=True)
             prefix = case / "case"
+            command = [str(args.driver.resolve()), str(prefix), str(fmt), shape]
+            if args.online_v3:
+                command.append("--online-v3")
             run = subprocess.run(
-                [str(args.driver.resolve()), str(prefix), str(fmt), shape],
+                command,
                 capture_output=True, text=True, timeout=60)
             if run.returncode or "UNSAT" not in run.stdout:
                 raise RuntimeError(f"{shape}/{name} driver failed: {run}")
@@ -118,8 +122,10 @@ def main() -> int:
         sat_dir = work / shape
         sat_dir.mkdir(exist_ok=True)
         sat_prefix = sat_dir / "case"
-        run = subprocess.run([str(args.driver.resolve()), str(sat_prefix),
-                              "3", shape], capture_output=True, text=True,
+        command = [str(args.driver.resolve()), str(sat_prefix), "3", shape]
+        if args.online_v3:
+            command.append("--online-v3")
+        run = subprocess.run(command, capture_output=True, text=True,
                              timeout=60)
         if run.returncode or "v 1 -2 3 4" not in run.stdout:
             raise RuntimeError(f"{shape} reconstruction/model not reached: {run}")

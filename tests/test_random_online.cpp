@@ -20,6 +20,31 @@
 using namespace tactix;
 using namespace tactix::strategy;
 
+static void condition_cube_replay_round_trips() {
+  OnlineStrategyProgram program;
+  program.repeat = {RepeatMode::Once, 1};
+  OnlineInvocation step;
+  step.id = 375;
+  step.rule = "Condition";
+  step.granularity = InvocationGranularity::OneInstance;
+  step.repeat = {RepeatMode::Once, 1};
+  ConditionInstance cube;
+  cube.clause = {internalize(1), internalize(2)};
+  cube.witness = {internalize(1), internalize(3), internalize(4)};
+  step.condition_instances.push_back(cube);
+  program.sequence.push_back(step);
+  std::string error;
+  assert(validate_online_strategy_program(program, &error));
+  const std::string wire = serialize_online_strategy_program(program);
+  assert(wire.find(":condition[") != std::string::npos);
+  OnlineStrategyProgram replay;
+  assert(deserialize_online_strategy_program(wire, replay, &error));
+  assert(serialize_online_strategy_program(replay) == wire);
+  const std::string bad = wire.substr(0, wire.find(":condition[")) +
+                          ":condition[3,0]";
+  assert(!deserialize_online_strategy_program(bad, replay, &error));
+}
+
 static Kernel broad_fixture() {
   Kernel k;
   kernel_reserve_vars(k, 42);
@@ -2116,6 +2141,7 @@ static void production_random_reaches_late_semantics_and_replays_them() {
 }
 
 int main() {
+  condition_cube_replay_round_trips();
   random_clausal_fixing_retains_known_orbit_targets();
   invalid_configuration_is_rejected();
   seeds_are_replayable_and_behavior_is_wide();

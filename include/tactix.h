@@ -914,6 +914,27 @@ typedef struct {
   uint64_t repeat_limit;
 } tactix_online_program_v2;
 
+/* Additive v3 payload for X5's variable-length (clause,cube) action. Clause
+ * and witness literals use stable external DIMACS identities, as in
+ * tactix_apply_condition. Nested storage is copied by configure_v3. */
+typedef struct {
+  const int *clause;
+  int clause_count;
+  const int *witness;
+  int witness_count;
+} tactix_online_condition_instance;
+typedef struct {
+  tactix_online_step_v2 base;
+  const tactix_online_condition_instance *condition_instances;
+  int condition_instance_count;
+} tactix_online_step_v3;
+typedef struct {
+  const tactix_online_step_v3 *steps;
+  int step_count;
+  int repeat_mode;
+  uint64_t repeat_limit;
+} tactix_online_program_v3;
+
 #define TACTIX_ONLINE_COMPLETED 0
 #define TACTIX_ONLINE_SCOPED_FIXPOINT 1
 #define TACTIX_ONLINE_NO_CHANGE 2
@@ -942,6 +963,8 @@ typedef struct {
 int tactix_online_configure(tactix *, const tactix_online_program *,
                             uint64_t revision, int reconfigure_mode);
 int tactix_online_configure_v2(tactix *, const tactix_online_program_v2 *,
+                               uint64_t revision, int reconfigure_mode);
+int tactix_online_configure_v3(tactix *, const tactix_online_program_v3 *,
                                uint64_t revision, int reconfigure_mode);
 int tactix_online_advance(tactix *, tactix_online_result *);
 uint64_t tactix_online_step_consumed(tactix *, uint64_t step_id);

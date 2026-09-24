@@ -1285,6 +1285,29 @@ bool parse_sr_instance(std::string_view text,
   return at == v.size();
 }
 
+bool parse_condition_instance(std::string_view text,
+                              ConditionInstance &instance) {
+  std::vector<uint64_t> values;
+  if (!comma_values(text, values))
+    return false;
+  size_t at = 0;
+  const auto literals = [&](std::vector<Lit> &out) {
+    if (at == values.size())
+      return false;
+    const uint64_t count = values[at++];
+    if (count > values.size() - at)
+      return false;
+    for (uint64_t i = 0; i < count; ++i) {
+      if (values[at] > UINT32_MAX)
+        return false;
+      out.push_back(static_cast<Lit>(values[at++]));
+    }
+    return true;
+  };
+  return literals(instance.clause) && literals(instance.witness) &&
+         at == values.size();
+}
+
 } // namespace
 
 bool random_online_strategy_program(Kernel &k, uint64_t seed,
@@ -1864,6 +1887,21 @@ std::string serialize_online_strategy_program(
         out << ',' << source << ',' << target;
     }
     out << ']';
+    if (!step.condition_instances.empty()) {
+      out << ":condition[";
+      for (size_t c = 0; c < step.condition_instances.size(); ++c) {
+        if (c)
+          out << ';';
+        const ConditionInstance &instance = step.condition_instances[c];
+        out << instance.clause.size();
+        for (const Lit lit : instance.clause)
+          out << ',' << lit;
+        out << ',' << instance.witness.size();
+        for (const Lit lit : instance.witness)
+          out << ',' << lit;
+      }
+      out << ']';
+    }
   }
   return out.str();
 }
@@ -1995,23 +2033,43 @@ bool deserialize_online_strategy_program(const std::string &encoded,
         grids.remove_prefix(semicolon + 1);
     }
     constexpr std::string_view sr_marker = ":sr[";
-    if (!text.empty()) {
-      if (!text.starts_with(sr_marker) || text.back() != ']')
+    if (text.starts_with(sr_marker)) {
+      const size_t end = text.find(']');
+      if (end == std::string_view::npos)
         return reject("online replay SR payload is malformed");
       text.remove_prefix(sr_marker.size());
+      std::string_view members = text.substr(0, end - sr_marker.size());
+      text.remove_prefix(end - sr_marker.size() + 1);
+      while (!members.empty()) {
+        const size_t semicolon = members.find(';');
+        SubstitutionRedundancyInstance instance;
+        if (!parse_sr_instance(members.substr(0, semicolon), instance))
+          return reject("online replay SR instance is malformed");
+        step.substitution_redundancy_instances.push_back(std::move(instance));
+        if (semicolon == std::string_view::npos)
+          members = {};
+        else
+          members.remove_prefix(semicolon + 1);
+      }
+    }
+    constexpr std::string_view condition_marker = ":condition[";
+    if (text.starts_with(condition_marker) && text.back() == ']') {
+      text.remove_prefix(condition_marker.size());
       text.remove_suffix(1);
       while (!text.empty()) {
         const size_t semicolon = text.find(';');
-        SubstitutionRedundancyInstance instance;
-        if (!parse_sr_instance(text.substr(0, semicolon), instance))
-          return reject("online replay SR instance is malformed");
-        step.substitution_redundancy_instances.push_back(std::move(instance));
+        ConditionInstance instance;
+        if (!parse_condition_instance(text.substr(0, semicolon), instance))
+          return reject("online replay Condition instance is malformed");
+        step.condition_instances.push_back(std::move(instance));
         if (semicolon == std::string_view::npos)
           text = {};
         else
           text.remove_prefix(semicolon + 1);
       }
     }
+    if (!text.empty())
+      return reject("online replay structured payload is malformed");
     parsed.sequence.push_back(std::move(step));
   }
   if (!input.eof())
