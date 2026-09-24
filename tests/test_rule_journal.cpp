@@ -24,7 +24,7 @@ int main() {
     const RuleEligibility eligibility = rule.guard(k);
     assert(eligibility.fact_count > 0);
   }
-  assert(proof_rules == 22);
+  assert(proof_rules == 23); // X7 is a registered proof rule.
 #endif
   struct Case {
     const char *candidate;
@@ -49,6 +49,9 @@ int main() {
       kernel_assign_unit(k, internalize(1));
       const Lit rest[] = {internalize(-2)};
       kernel_push_witness(k, internalize(1), rest, 1);
+      const Lit cube_clause[] = {internalize(1)};
+      const Lit cube_witness[] = {internalize(1), internalize(-2)};
+      kernel_push_cube_witness(k, cube_clause, 1, cube_witness, 2);
       rule_journal_note_variable_status(k, var_of(internalize(2)),
                                        "substituted");
       const uint64_t chain[] = {3, 5, 8};
@@ -60,6 +63,8 @@ int main() {
       // build reaches the same callback from kernel_add_binary_clause itself.
       rule_journal_note_binary_add(k, internalize(1), internalize(-2), 17);
       rule_journal_note_reconstruction(k, internalize(1), rest, 1);
+      rule_journal_note_cube_reconstruction(k, cube_clause, 1,
+                                            cube_witness, 2);
 #endif
     }
     RuleJournalRecord record;

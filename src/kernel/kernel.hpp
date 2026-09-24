@@ -1758,6 +1758,11 @@ inline uint64_t kernel_external_unit_id(const Kernel &k, Var external) {
 }
 
 void kernel_push_witness(Kernel &, Lit witness, const Lit *rest, uint32_t nrest);
+// A conditional-autarky segment stores the removed clause and every literal
+// to set true if that clause is false during reverse model reconstruction.
+// The rule validates the cube before publishing this proof-neutral record.
+void kernel_push_cube_witness(Kernel &, const Lit *clause, uint32_t nclause,
+                              const Lit *witness, uint32_t nwitness);
 // Reconstruct a total external model.  Terminal solver/output paths may also
 // mirror it into internal values for legacy white-box consumers.  Resumable
 // online paths pass false so model export cannot mutate solver state.
