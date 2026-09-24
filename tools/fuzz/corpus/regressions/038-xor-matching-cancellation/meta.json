@@ -1,0 +1,9 @@
+{
+  "seed": 343401436,
+  "failure": "proof",
+  "solver_args": ["--random-policy=343401436"],
+  "solver_env": {},
+  "found_by": "Claude-owned AM341 terminal bounded triage/dsr-reject/reproducer handoff",
+  "diagnosis": "Congruence's semantic XOR matching contradiction uses the reduced key but omits cancelled representatives still present in the original defining clauses. The resulting binary is not RUP, and native DSR checking rejects it.",
+  "fix": "Quantify over cancelled representatives from both matched gates in the shared canonical/semantic XOR ladder; output representatives already assigned by the negated conclusion do not require a split. Preserve action boundaries, scheduling and transient cleanup."
+}

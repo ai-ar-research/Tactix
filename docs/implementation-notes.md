@@ -101,7 +101,7 @@ or checker tasks never count as acceptance.
 - D-LEVEL/D-SPLIT: Decide may run off-fixpoint, M3 is atomic, and every inprocessing apply drains root closure with native-LRAT unit
   identities.
 - D-CONG-LRAT/UNIT/INPUT-UNIT/DELETE/ARITY/TAUT: canonical ladders, degeneracies, deletion order, and the 1,000,000-input AND scope
-  are covered. DSR/DRAT record the same transient ladder population as LRAT (literal multisets rather than IDs), including failed partial ladders, and retire it before later kernel-only SR validation. Otherwise a later witness can be valid for the live kernel yet fail against a leftover XOR/ITE lemma in the checker.
+  are covered. Matching XOR ladders quantify cancelled representatives from both immutable source gates as well as the shared-key prefix; canonicalization alone does not prove their removal. DSR/DRAT record the same transient population as LRAT (literal multisets rather than IDs), including failed partial ladders, and retire it before later kernel-only SR validation. Otherwise a later witness can be valid for the live kernel yet fail against a leftover XOR/ITE lemma in the checker.
 - D-CONG-SKIP: a BIG bridge may cross a root-true intermediate by citing its proved unit id, so native LRAT no longer loses that
   legal path. The focused chain regression and native Congruence proofs pass; a nonzero `congruence_unjustified` remains an alarm
   for a different missing proof path.

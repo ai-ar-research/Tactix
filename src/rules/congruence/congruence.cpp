@@ -1867,17 +1867,38 @@ bool add_xor_degeneracy_chain(Kernel &k, const std::vector<Lit> &cancelled,
 
 // XOR-match proof chain (kissat add_xor_matching_proof_chain): make the two
 // equivalence binaries checkable by a parity-elimination ladder, one rhs
-// variable per level, closing as the degeneracy ladder does. Returns false if
-// the top level does not replay. `rhs.back()` is absorbed by the gates'
-// clauses, so the ladder starts one short.
-bool add_xor_matching_proof_chain(Kernel &k, const std::vector<Lit> &rhs, Lit a,
+// variable per level, closing as the degeneracy ladder does. Original gates
+// still contain inputs cancelled by canonicalization: quantify over those
+// representatives from BOTH gates too. One unassigned shared rhs variable is
+// absorbed by the gates' clauses; output representatives are already assigned
+// by the negated conclusion. This is Kissat's shrinking + matching obligation
+// in one ladder, without materializing rewritten gate definitions.
+template <class Find>
+bool add_xor_matching_proof_chain(Kernel &k, const std::vector<Lit> &rhs,
+                                  const std::vector<Lit> &cancelled_a,
+                                  const std::vector<Lit> &cancelled_b,
+                                  Find &find, Lit a,
                                   Lit b, std::vector<uint64_t> &chain_fwd,
                                   std::vector<uint64_t> &chain_rev,
                                   std::vector<TransientLemma> &transient) {
   chain_fwd.clear();
   chain_rev.clear();
   const bool lrat = k.proof && k.proof->lrat(); // decided alike without a proof
-  const int top = static_cast<int>(rhs.size()) - 1;
+  const Var va = var_of(find(a)), vb = var_of(find(b));
+  std::vector<Lit> split;
+  for (Lit literal : rhs)
+    if (var_of(literal) != va && var_of(literal) != vb)
+      split.push_back(literal);
+  if (!split.empty())
+    split.pop_back(); // the remaining shared parity input propagates
+  for (const auto *cancelled : {&cancelled_a, &cancelled_b})
+    for (Lit literal : *cancelled)
+      if (var_of(literal) != va && var_of(literal) != vb)
+        split.push_back(literal);
+  std::sort(split.begin(), split.end());
+  split.erase(std::unique(split.begin(), split.end()), split.end());
+  assert(split.size() < 32); // bounded by the two extracted gate arities
+  const int top = static_cast<int>(split.size());
   if (top < 1) {
     // Nothing to eliminate; the binaries stand on the gates alone, which under
     // LRAT would mean empty hint chains. Replay each binary for its own chain
@@ -1898,7 +1919,7 @@ bool add_xor_matching_proof_chain(Kernel &k, const std::vector<Lit> &rhs, Lit a,
       for (int dir = 0; dir < 2; dir++) {
         lemma.clear();
         for (int i = 0; i < size; i++)
-          lemma.push_back(rhs[static_cast<size_t>(i)] ^
+          lemma.push_back(split[static_cast<size_t>(i)] ^
                           static_cast<Lit>((m >> i) & 1));
         if (dir == 0) {
           lemma.push_back(negate(a));
@@ -3866,7 +3887,8 @@ ApplyResult congruence_apply(Kernel &k) {
                     congruence_rup_chain(k, &positive, 1, positive_chain);
       } else if (kind_i == GateKind::Xor) {
         justified = add_xor_matching_proof_chain(
-            k, key, out_j, out_i, negative_chain, positive_chain, transient);
+            k, key, cancelled_j, cancelled, find, out_j, out_i,
+            negative_chain, positive_chain, transient);
       } else {
         justified = add_ite_matching_proof_chain(
             k, key[0], out_j, out_i, negative_chain, positive_chain,
@@ -3898,8 +3920,8 @@ ApplyResult congruence_apply(Kernel &k) {
         ok = congruence_rup_chain(k, forward, 2, cf) &&
              congruence_rup_chain(k, reverse, 2, cr);
       } else if (kind_i == GateKind::Xor)
-        ok = add_xor_matching_proof_chain(k, key, out_j, out_i, cf, cr,
-                                          transient);
+        ok = add_xor_matching_proof_chain(k, key, cancelled_j, cancelled,
+                                          find, out_j, out_i, cf, cr, transient);
       else
         ok = add_ite_matching_proof_chain(k, key[0], out_j, out_i, cf, cr,
                                           transient);
@@ -4035,6 +4057,7 @@ struct CongruenceSemanticAction {
   GateKind kind = GateKind::And;
   std::vector<Lit> key;
   std::vector<Lit> cancelled;
+  std::vector<Lit> second_cancelled;
   bool value_derived = false;
 };
 
@@ -4148,6 +4171,7 @@ void for_each_congruence_semantic_action(Kernel &k, Visitor visit) {
   struct Record {
     uint32_t gate;
     Lit output;
+    std::vector<Lit> cancelled;
   };
   using Key = std::pair<GateKind, std::vector<Lit>>;
   std::map<Key, std::vector<Record>> classes;
@@ -4202,7 +4226,7 @@ void for_each_congruence_semantic_action(Kernel &k, Visitor visit) {
     }
     if (canonical != Canon::Ok)
       continue;
-    classes[{kind, key}].push_back({gate, output});
+    classes[{kind, key}].push_back({gate, output, cancelled});
   }
 
   for (auto &[class_key, records] : classes)
@@ -4227,6 +4251,8 @@ void for_each_congruence_semantic_action(Kernel &k, Visitor visit) {
         action.second_output = b;
         action.kind = class_key.first;
         action.key = class_key.second;
+        action.cancelled = records[first].cancelled;
+        action.second_cancelled = records[second].cancelled;
         if (!visit(payload, action, find))
           return;
       }
@@ -4447,7 +4473,8 @@ ApplyResult congruence_apply_semantic_instance(Kernel &k, uint64_t instance) {
                         congruence_rup_chain(k, &second, 1, reverse);
           } else if (match.kind == GateKind::Xor) {
             justified = add_xor_matching_proof_chain(
-                k, match.key, match.first_output, match.second_output,
+                k, match.key, match.cancelled, match.second_cancelled,
+                find, match.first_output, match.second_output,
                 forward, reverse, transient);
           } else {
             justified = add_ite_matching_proof_chain(
@@ -4485,7 +4512,8 @@ ApplyResult congruence_apply_semantic_instance(Kernel &k, uint64_t instance) {
                                               RupReplay::Decide);
           } else if (match.kind == GateKind::Xor) {
             justified = add_xor_matching_proof_chain(
-                k, match.key, match.first_output, match.second_output,
+                k, match.key, match.cancelled, match.second_cancelled,
+                find, match.first_output, match.second_output,
                 forward, reverse, transient);
           } else {
             justified = add_ite_matching_proof_chain(
