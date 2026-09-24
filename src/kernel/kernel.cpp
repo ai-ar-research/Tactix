@@ -4233,6 +4233,23 @@ void kernel_push_witness(Kernel &k, Lit witness, const Lit *rest,
   k.reconstruction.push_back(static_cast<Lit>(nrest + 1));
 }
 
+void kernel_push_cube_witness(Kernel &k, const Lit *clause, uint32_t nclause,
+                              const Lit *witness, uint32_t nwitness) {
+  assert(nclause && nwitness && clause && witness);
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+  rule_journal_note_cube_reconstruction(k, clause, nclause, witness, nwitness);
+#endif
+  for (uint32_t i = 0; i < nclause; i++)
+    k.reconstruction.push_back(kernel_external_lit(k, clause[i]));
+  for (uint32_t i = 0; i < nwitness; i++)
+    k.reconstruction.push_back(kernel_external_lit(k, witness[i]));
+  k.reconstruction.push_back(static_cast<Lit>(nclause));
+  k.reconstruction.push_back(static_cast<Lit>(nwitness));
+  // Existing single-witness segments always end in a positive clause length.
+  // Zero is therefore a tag, not an external literal or an empty clause.
+  k.reconstruction.push_back(0);
+}
+
 void kernel_extend_model(Kernel &k, bool materialize_internal) {
   if (k.model_extended)
     return;
@@ -4263,14 +4280,36 @@ void kernel_extend_model(Kernel &k, bool materialize_internal) {
       k.model_values[negate(epos)] = k.values[negate(ipos)];
     }
   }
-  // Replay rho in reverse (Jarvisalo-Heule-Biere): for each witness segment
-  // whose clause is unsatisfied under the current assignment, force its
-  // witness literal true. Because a variable-eliminating rule removed all of
-  // the witness variable's clauses, its search-time value is meaningless;
-  // this re-derives it. Untouched variables keep their trail value.
+  // Replay rho in reverse. A single-witness segment forces its witness when
+  // its clause is false; a tagged cube segment sets every witness literal in
+  // that case. Both segment kinds use permanent external literal identities.
   size_t i = k.reconstruction.size();
   while (i > 0) {
     const uint32_t len = static_cast<uint32_t>(k.reconstruction[--i]);
+    if (len == 0) {
+      assert(i >= 2);
+      const uint32_t nwitness = static_cast<uint32_t>(k.reconstruction[--i]);
+      const uint32_t nclause = static_cast<uint32_t>(k.reconstruction[--i]);
+      assert(nwitness && nclause &&
+             i >= static_cast<size_t>(nwitness) + nclause);
+      const size_t witness_begin = i - nwitness;
+      const size_t clause_begin = witness_begin - nclause;
+      bool satisfied = false;
+      for (size_t j = clause_begin; j < witness_begin; j++)
+        if (k.model_values[k.reconstruction[j]] > 0) {
+          satisfied = true;
+          break;
+        }
+      if (!satisfied)
+        for (size_t j = witness_begin; j < i; j++) {
+          const Lit literal = k.reconstruction[j];
+          k.model_values[literal] = 1;
+          k.model_values[negate(literal)] = -1;
+        }
+      i = clause_begin;
+      continue;
+    }
+    assert(i >= len);
     const size_t begin = i - len;                // clause lits are [begin, i)
     const Lit witness = k.reconstruction[i - 1]; // pushed last before len
     bool satisfied = false;

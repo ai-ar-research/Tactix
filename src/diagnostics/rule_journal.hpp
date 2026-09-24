@@ -67,6 +67,10 @@ void rule_journal_note_variable_status(const Kernel &, uint32_t var,
                                        const char *status);
 void rule_journal_note_reconstruction(const Kernel &, uint32_t witness,
                                       const uint32_t *rest, uint32_t nrest);
+void rule_journal_note_cube_reconstruction(const Kernel &, const uint32_t *clause,
+                                           uint32_t nclause,
+                                           const uint32_t *witness,
+                                           uint32_t nwitness);
 void rule_journal_note_rup(uint64_t id, const uint64_t *chain,
                            uint32_t nchain);
 void rule_journal_note_rat(uint64_t id, const int64_t *hints,

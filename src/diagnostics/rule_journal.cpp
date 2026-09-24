@@ -489,6 +489,33 @@ void rule_journal_note_reconstruction(const Kernel &k, uint32_t witness,
       ";rest=" + external_rest + ')');
 }
 
+void rule_journal_note_cube_reconstruction(const Kernel &k,
+                                           const uint32_t *clause,
+                                           uint32_t nclause,
+                                           const uint32_t *witness,
+                                           uint32_t nwitness) {
+  if (!transaction.active)
+    return;
+  bool selected = !state.literal;
+  const auto external_literals = [&](const uint32_t *lits, uint32_t size) {
+    std::string result;
+    for (uint32_t i = 0; i < size; i++) {
+      const int lit = kernel_externalize(k, lits[i]);
+      selected |= std::abs(lit) == std::abs(state.literal);
+      if (i)
+        result.push_back(',');
+      result += std::to_string(lit);
+    }
+    return result;
+  };
+  const std::string external_clause = external_literals(clause, nclause);
+  const std::string external_witness = external_literals(witness, nwitness);
+  if (selected)
+    transaction.witnesses.push_back("reconstruct-cube(clause=" +
+                                    external_clause + ";witness=" +
+                                    external_witness + ')');
+}
+
 void rule_journal_note_rup(uint64_t id, const uint64_t *chain,
                            uint32_t nchain) {
   if (!transaction.active)

@@ -50,6 +50,57 @@ static void test_reverse_replay_order() {
   assert(k.values[x1] < 0); // completed to false, not left indefinite
 }
 
+// A conditional-autarky segment can repair a clause with multiple assignments
+// at once.  It must leave the cube alone if the clause is already true.
+static void test_cube_witness_replay() {
+  const Lit x = make_lit(0, false);
+  const Lit y = make_lit(1, false);
+  const Lit z = make_lit(2, false);
+  const Lit clause[] = {x, y};
+  const Lit cube[] = {x, z};
+  {
+    Kernel k;
+    kernel_reserve_vars(k, 3);
+    kernel_push_cube_witness(k, clause, 2, cube, 2);
+    kernel_extend_model(k);
+    assert(k.values[x] > 0 && k.values[z] > 0 && k.values[y] < 0);
+  }
+  {
+    Kernel k;
+    kernel_reserve_vars(k, 3);
+    k.values[y] = 1;
+    k.values[negate(y)] = -1;
+    kernel_push_cube_witness(k, clause, 2, cube, 2);
+    kernel_extend_model(k);
+    assert(k.values[y] > 0 && k.values[x] < 0 && k.values[z] < 0);
+  }
+  {
+    Kernel k;
+    kernel_reserve_vars(k, 3);
+    kernel_push_cube_witness(k, clause, 2, cube, 2);
+    kernel_extend_model(k, false); // public model access must not alter state
+    assert(k.model_values[x] > 0 && k.model_values[z] > 0);
+    assert(k.values[x] == 0 && k.values[z] == 0);
+  }
+}
+
+// A cube and an older single-literal segment share the same reverse stack:
+// the cube can satisfy the older clause before its witness is considered.
+static void test_cube_interleaves_with_single_witness() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  const Lit x = make_lit(0, false);
+  const Lit y = make_lit(1, false);
+  const Lit z = make_lit(2, false);
+  const Lit rest[] = {x};
+  kernel_push_witness(k, y, rest, 1); // older clause {x,y}
+  const Lit clause[] = {x};
+  const Lit cube[] = {x, z};
+  kernel_push_cube_witness(k, clause, 1, cube, 2);
+  kernel_extend_model(k);
+  assert(k.values[x] > 0 && k.values[z] > 0 && k.values[y] < 0);
+}
+
 // Extend must read a TOTAL assignment. A variable left value-0 (retired
 // without ever being assigned) reads false in BOTH polarities during replay,
 // which voids the tautological-resolvent exclusion: a pos- and a neg-side
@@ -119,6 +170,8 @@ int main() {
   test_unsatisfied_witness_forced();
   test_satisfied_witness_untouched();
   test_reverse_replay_order();
+  test_cube_witness_replay();
+  test_cube_interleaves_with_single_witness();
   test_extend_idempotent();
   test_frozen_partner_no_double_flip();
   test_substitute_repr_later_eliminated();
