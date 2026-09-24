@@ -1118,6 +1118,38 @@ static void test_canonical_literal_form_xor_ite_refutations() {
          !ite_kernel.stats.congruence_unjustified);
 }
 
+// A root unit already supplied by the negated lemma is not a unit hint:
+// under ~(1 v -2), literal 2 is an assumption, not a propagation. The
+// remaining two clauses still give a complete ordered LRAT refutation.
+static void test_lrat_replay_omits_root_unit_in_initial_cube() {
+  FILE *input = std::tmpfile(), *sink = std::tmpfile();
+  assert(input && sink);
+  // Put the unit last: input normalization must not strip -2 from the
+  // earlier ternary, or its root reason never enters the replay walk.
+  std::fputs("p cnf 3 3\n-2 1 3 0\n1 -3 0\n2 0\n", input);
+  std::rewind(input);
+  Kernel k;
+  Proof proof;
+  assert(proof.open(("/proc/self/fd/" + std::to_string(fileno(sink))).c_str(),
+                    ProofFormat::Lrat));
+  proof.bind_variable_map(&k.internal_to_external);
+  k.proof = &proof;
+  assert(!parse_dimacs(input, k));
+  const Lit root = kernel_internalize(k, 2);
+  const uint64_t root_id = k.unit_ids[var_of(root)];
+  assert(root_id);
+  const Lit lemma[] = {kernel_internalize(k, 1), kernel_internalize(k, -2)};
+  std::vector<uint64_t> chain;
+  assert(congruence_replay_rup(k, lemma, 2, chain));
+  assert(std::find(chain.begin(), chain.end(), root_id) == chain.end());
+  // Under the complete cube {-1, 2}, clause 1 propagates 3 and clause 2
+  // closes the refutation. The order is part of the LRAT hint contract.
+  assert((chain == std::vector<uint64_t>{1, 2}));
+  k.proof = nullptr;
+  std::fclose(input);
+  std::fclose(sink);
+}
+
 static int semantic_proof_witness(const char *input_path,
                                   const char *proof_path,
                                   const char *mode,
@@ -1237,6 +1269,7 @@ int main(int argc, char **argv) {
   test_individual_literal_form_xor_refutation();
   test_individual_literal_form_ite_refutation();
   test_canonical_literal_form_xor_ite_refutations();
+  test_lrat_replay_omits_root_unit_in_initial_cube();
   std::printf("test_congruence: all passed\n");
   return 0;
 }
