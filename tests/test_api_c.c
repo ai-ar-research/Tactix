@@ -222,6 +222,54 @@ static void test_stepwise_unsat(void) {
   tactix_release(s);
 }
 
+/* Proof attachment may follow completed input clauses and precede more input.
+ * The proof must still reserve every raw clause id before publishing derived
+ * ones; a root unit narrows a live binary before the attachment. */
+static void test_late_input_proof(void) {
+  const int formats[] = {TACTIX_PROOF_DRAT_BINARY, TACTIX_PROOF_DRAT_ASCII,
+                         TACTIX_PROOF_LRAT, TACTIX_PROOF_DSR_BINARY,
+                         TACTIX_PROOF_DSR_ASCII, TACTIX_PROOF_AUTOMATIC};
+  for (unsigned i = 0; i < sizeof formats / sizeof formats[0]; ++i) {
+    char proof_path[96];
+    snprintf(proof_path, sizeof proof_path, "/tmp/tactix-api-late-%ld-%u.proof",
+             (long)getpid(), i);
+    tactix *s = tactix_init();
+    add_clause(s, (const int[]){1, 0});
+    add_clause(s, (const int[]){-1, 3, 4, 0});
+    assert(tactix_proof(s, proof_path, formats[i]) == 0);
+    assert(tactix_proof(s, proof_path, formats[i]) == -1);
+    add_clause(s, (const int[]){2, 3, 0});
+    add_clause(s, (const int[]){2, -3, 0});
+    add_clause(s, (const int[]){-2, 3, 0});
+    add_clause(s, (const int[]){-2, -3, 0});
+    assert(tactix_solve(s) == 20);
+    tactix_release(s);
+    FILE *file = fopen(proof_path, "rb");
+    assert(file);
+    assert(fseek(file, 0, SEEK_END) == 0);
+    assert(ftell(file) > 0);
+    assert(fclose(file) == 0);
+    assert(remove(proof_path) == 0);
+  }
+  for (unsigned i = 0; i < sizeof formats / sizeof formats[0]; ++i) {
+    char proof_path[96];
+    snprintf(proof_path, sizeof proof_path,
+             "/tmp/tactix-api-late-root-%ld-%u.proof", (long)getpid(), i);
+    tactix *s = tactix_init();
+    add_clause(s, (const int[]){1, 0});
+    add_clause(s, (const int[]){-1, 0});
+    assert(tactix_proof(s, proof_path, formats[i]) == 0);
+    assert(tactix_status(s) == 20);
+    tactix_release(s);
+    FILE *file = fopen(proof_path, "rb");
+    assert(file);
+    assert(fseek(file, 0, SEEK_END) == 0);
+    assert(ftell(file) > 0);
+    assert(fclose(file) == 0);
+    assert(remove(proof_path) == 0);
+  }
+}
+
 /* N1: BVE gate-type selection through the public API. Var 1 eliminates only
  * via the gate reduction, so the setter flips one apply to a no-op. */
 static void test_bve_gate_selection(void) {
@@ -366,6 +414,7 @@ int main(void) {
   test_conflict_boundary_restart_and_reduce();
   test_empty_solver_rule_application();
   test_stepwise_unsat();
+  test_late_input_proof();
   test_bve_gate_selection();
   test_stats_and_config_surface();
   test_action_kind();
