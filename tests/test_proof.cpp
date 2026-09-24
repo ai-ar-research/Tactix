@@ -10,6 +10,7 @@
 #include <cstring>
 #include <string>
 #include <vector>
+#include <sys/prctl.h>
 #include <sys/resource.h>
 #include <sys/wait.h>
 
@@ -532,6 +533,7 @@ void test_automatic_certificate_boundary() {
   if (!child) {
     const struct rlimit no_core = {0, 0};
     assert(setrlimit(RLIMIT_CORE, &no_core) == 0);
+    assert(prctl(PR_SET_DUMPABLE, 0) == 0);
     Proof failed_dsr;
     assert(failed_dsr.open("/dev/full", ProofFormat::Automatic));
     failed_dsr.add_empty(1, nullptr, 0);
@@ -555,6 +557,7 @@ static void test_all_formats_report_output_failure() {
       if (!child) {
         const struct rlimit no_core = {0, 0};
         assert(setrlimit(RLIMIT_CORE, &no_core) == 0);
+        assert(prctl(PR_SET_DUMPABLE, 0) == 0);
         {
           Proof failed;
           assert(failed.open("/dev/full", format));
