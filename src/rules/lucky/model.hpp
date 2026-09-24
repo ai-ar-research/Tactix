@@ -125,6 +125,11 @@ inline void lucky_publish_model(Kernel &k,
   for (Var v = 0; v < k.nvars; ++v)
     if (!k.value(make_lit(v, false)) && !kernel_var_retired(k, v))
       kernel_assign_decision(k, make_lit(v, assignment[v] == 0));
+  // lucky_model_valid checked every live binary and large clause against this
+  // complete assignment. A binary-only probe may have left a large-watch scan
+  // debt below the old trail end; publishing the validated model discharges
+  // that debt as well as the ordinary propagation cursor.
   k.propagate_head = static_cast<uint32_t>(k.trail.size());
+  k.binary_only_head = UINT32_MAX;
 }
 }

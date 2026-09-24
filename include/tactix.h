@@ -941,7 +941,7 @@ int tactix_online_complete(tactix *);
 int tactix_decide_candidates(tactix *, int *lits, int cap);
 int tactix_decide(tactix *, int lit); /* 0 ok, -1 not applicable */
 
-/* solver status: 0 unknown/in progress, 10 all-assigned (SAT),
+/* solver status: 0 unknown/in progress, 10 active formula satisfied (SAT),
  * 20 refuted (UNSAT). SAT prepares the reconstructed original-formula model
  * for tactix_value without changing the resumable rule/search state. */
 int tactix_status(tactix *);

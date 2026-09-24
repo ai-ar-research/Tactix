@@ -27,7 +27,7 @@ static void check(Kernel &k) {
   std::vector<uint8_t> model(k.nvars);
   for(Var v=0;v<k.nvars;++v)model[v]=k.value(make_lit(v,false))>0;
   assert(lucky_model_valid(k,model));
-  assert(k.propagate_head==k.trail.size());
+  assert(kernel_propagation_fixpoint(k));
 }
 static OnlineStrategyProgram program(AffineModelParameters parameters) {
   OnlineInvocation step;step.id=1;step.rule="Lucky";
@@ -36,6 +36,19 @@ static OnlineStrategyProgram program(AffineModelParameters parameters) {
   OnlineStrategyProgram p;p.sequence.push_back(std::move(step));return p;
 }
 int main() {
+  // A validated Lucky model also settles binary-only propagation debt. The
+  // public status path requires the full fixpoint, not just propagate_head.
+  {
+    Kernel k; kernel_reserve_vars(k, 2);
+    kernel_add_binary_clause(k, internalize(1), internalize(2));
+    k.binary_only_head = 0;
+    const std::vector<uint8_t> model{1, 0};
+    assert(lucky_model_valid(k, model));
+    lucky_publish_model(k, model);
+    assert(k.unassigned_active == 0);
+    assert(kernel_propagation_fixpoint(k));
+    kernel_check_invariants(k);
+  }
   // A legal dense-BVE composition may retain an entailed redundant clause on
   // a retired pivot. Private completion must not count an unpublished value
   // as its only satisfying literal. The duplicate below is entailed by F.
