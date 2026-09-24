@@ -107,7 +107,7 @@ pass 192 fixed cases; 72 fixed certificates and 30 exact handoff runs verify.
 Authority `...-am346-xor-cancellation`, patch `4de87c93...`, archive `c6623309...`,
 Debug `7e2abefb...`, Release `4e8a5306...`; terminal fuzz FAIL (F1/F1-CLI/F2/F3/F4); full CTest 179/180, with the corrected micro-proof invocation passing separately.
 AM349 repairs general unary cancellation/full-cube LRAT replay; fixed tests and F1/F1-CLI verify. Authority `...-am349-unary-xor`, Debug `33ac9374...`, Release `e9389c96...`; Opus fuzz and full CTest remain live.
-AM350 repairs legal late C-API proof attachment (F2) and literal-addressed import population (F3). F2 LRAT/DSR, midstream DRAT/LRAT and 11/11 F3 audits pass; its pinned full proof sweep passes despite a dirty live checker rejecting an unchanged proof. Debug `bff417f1...`, Release `bbadff02...`; Opus fuzz is preparing. AM351 is an unaccepted general F4 candidate: input-completion retires discarded-only unassigned variables, preserves explicit Decide, and is one-shot in the C API. Debug/Release parse and API regressions pass; exact F4 SLURM proof/model replay and broad fuzz remain due. Combined acceptance remains open. Evidence: `benchmarks/reports/2026-09-24-am349-unary-xor-checkpoint.md` and `benchmarks/reports/2026-09-24-am350-late-proof-checkpoint.md`; AM346's terminal report is frozen.
+AM350 repairs legal late C-API proof attachment (F2) and literal-addressed import population (F3). F2 LRAT/DSR, midstream DRAT/LRAT and 11/11 F3 audits pass; its pinned full proof sweep passes despite a dirty live checker rejecting an unchanged proof. Debug `bff417f1...`, Release `bbadff02...`; Opus fuzz is preparing. AM351 is an unaccepted general F4 repair: discarded-only unassigned variables retire at one-shot input completion without hiding explicit Decide. Debug/Release parse and API regressions pass; hwulab 1717244 verifies 4/4 F4 DSR/LRAT proofs, 1717251 verifies H1/H4 canonical early/late LRAT 4/4, and 1717262 verifies 4/4 original-CNF SAT models. Full Debug CTest and Opus full-matrix fuzz are live; N1/N2 and combined acceptance remain open. Evidence: `benchmarks/reports/2026-09-24-am351-f4-population-and-rule-audit.md`; AM346's terminal report is frozen.
 
 AM342 is an **unaccepted tooling-only repair** of AM340 F1/O3. Conversion
 eligibility uses numeric zero-terminated clauses on validated spelling; the
@@ -319,7 +319,7 @@ byte-identical solver pins remain in the AM333 gate campaigns.
    malformed DSR routing classification and DSR reader-layout limitations;
    preserve its owner. AM346 repairs the bounded XOR-matching DSR failure;
    preserve its owner and finish the remaining five-case check, fuzz and CTest.
-   AM347's terminal report validates H1/F1; A1 deadline handoff remains open. AM348 recovery owns affected fuzz. AM349/AM350 proof repairs remain pending combined fuzz; next repair the F4 phase assertion and other bounded handoffs before successor gates. Legal comment lines
+   AM347's terminal report validates H1/F1; A1 deadline handoff remains open. AM348 recovery owns affected fuzz. AM351 repairs the F4 phase assertion; finish its full CTest/Opus matrix and investigate any bounded handoffs before successor gates. Legal comment lines
    already pass both readers; obtain an exact bounded failing legal layout if
    the earlier owner finding persists rather than changing parser tolerance.
    Complete these oracle obligations before successor gates; no affected
