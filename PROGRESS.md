@@ -149,14 +149,14 @@ Both dsr-trim and Trestle now receive validated clause-preserving spelling,
 including the tier runner. No solver/checker binary changes. Fixed suites and
 full selftest pass. Authority `...-am344-dsr-routing`, patch `ec421484...`,
 archive `6ce9470d...`; terminal affected report records 8,000 cases without a scope failure, plus F1 PBP layout rejection, now repaired by AM347.
-AM347 terminal owner report validates PBP spelling (641 fixed positives, 2,844 default PBPs) and 8,000 focused cases; its A1 descendant-pipe timeout is now repaired by AM353: bounded capture reaps the direct child without reopening inherited pipes. The exact .5-second handoff returns at .52 seconds versus 6.03 before; 27 bench-oracle tests, 19 binary/runtime/anonymous tests, 7 runtime integration tests and full harness selftest pass. Opus terminal report validates AM353 and closes A1 with zero failures across the affected timeout/proof surfaces; solver/checker pins are unchanged. AM354 corrects the future Tier D launcher's 8-CPU drift to the first winner run's 4 CPUs/32 GiB; no Tier D task is submitted. Evidence:
+AM347 terminal owner report validates PBP spelling (641 fixed positives, 2,844 default PBPs) and 8,000 focused cases; its A1 descendant-pipe timeout is now repaired by AM353: bounded capture reaps the direct child without reopening inherited pipes. The exact .5-second handoff returns at .52 seconds versus 6.03 before; 27 bench-oracle tests, 19 binary/runtime/anonymous tests, 7 runtime integration tests and full harness selftest pass. Opus terminal report validates AM353 and closes A1 with zero failures across the affected timeout/proof surfaces; solver/checker pins are unchanged. AM354 corrects the future Tier D launcher's 8-CPU drift to the first winner run's 4 CPUs/32 GiB; a mocked-submit dry run checks the full-width hwulab script. No Tier D task is submitted. Evidence:
 `benchmarks/reports/2026-09-24-am347-checker-boundaries-checkpoint.md` (AM344's earlier checkpoint report remains frozen).
 
 AM345 is an **unaccepted tooling-only LRAT repair**: explicit checked duplicate
 input restatements and ID remapping preserve original CNF multiplicities.
 Fixed suites/selftest pass. Authority `...-am345-lrat-restatement`, patch
 `fd429a27...`, archive `294251d9...`; Opus PID `3377189`/session `99280` owns
-affected fuzz; its bounded OOM is repaired by unaccepted AM348: only Walk's reachable score prefix is stored. Authority `...-am348-walk-score-bound`, patch `bfbf2c58...`, archive `a8e33f23...`, Debug `f2d93302...`, Release `870b0314...`; Opus recovery `1320361`/session `87977` owns the same affected campaign after the original owner exited without REPORT.
+affected fuzz; its bounded OOM is repaired by unaccepted AM348: only Walk's reachable score prefix is stored. Authority `...-am348-walk-score-bound`, patch `bfbf2c58...`, archive `a8e33f23...`, Debug `f2d93302...`, Release `870b0314...`; the recovery Opus terminal report gives scoped PASS with zero solver/proof/model failures and independently verifies all six checker-window timeout rows. No combined acceptance follows.
 AM348 fixed Debug/Release tests pass; job `1716796`: 24 verified certificates / 28 executions, 1.55--2.90 s, peak 12,808 KiB. Full CTest is terminal 180/180 PASS (3,181.33 s). Earlier sweep diagnostic `1716608` verifies 36/36; AM345 pinned full CTest is terminal 179/179 PASS (unpinned dsr-trim caused the old failure).
 Evidence: `benchmarks/reports/2026-09-24-am348-walk-score-bound-checkpoint.md`; the AM345 LRAT-restatement checkpoint report remains frozen.
 
@@ -319,7 +319,7 @@ byte-identical solver pins remain in the AM333 gate campaigns.
    malformed DSR routing classification and DSR reader-layout limitations;
    preserve its owner. AM346 repairs the bounded XOR-matching DSR failure;
    preserve its owner and finish the remaining five-case check, fuzz and CTest.
-   AM347's terminal report validates H1/F1; AM353's terminal Opus report closes A1. AM348 recovery owns affected fuzz. AM351 repairs the F4 phase assertion; finish its full CTest/Opus matrix and investigate any bounded handoffs before successor gates. Legal comment lines
+   AM347's terminal report validates H1/F1; AM353's terminal Opus report closes A1. AM348's affected Walk owner is terminal scoped PASS. AM351 repairs the F4 phase assertion; finish its full CTest/Opus matrix and investigate any bounded handoffs before successor gates. Legal comment lines
    already pass both readers; obtain an exact bounded failing legal layout if
    the earlier owner finding persists rather than changing parser tolerance.
    Complete these oracle obligations before successor gates; no affected
