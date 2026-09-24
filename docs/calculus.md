@@ -593,8 +593,8 @@ extend `C` until the extension is blocked, and then the ORIGINAL `C` is deleted.
 - **Termination:** each step adds at least one literal and never removes one, and no step may add a literal whose negation is
   already in the extension, so a chain over a fixed variable set is finite.
 
-**X5 Condition is deliberately absent.** Conditional autarky needs a witness cube, while `ρ` represents one in-clause witness
-literal. The rule is unimplemented; its reopening conditions are in `implementation-notes.md` §16.
+### X5 · Condition — conditional-autarky deletion
+**Precondition:** `C` is a live, non-tautological clause; `W` is any finite consistent cube which sets at least one literal of `C` true and never opposes a permanent root value. For every other irredundant `D`, every total assignment `M` extending the roots with `M ⊨ ¬C ∧ D` must satisfy `T_W(M) ⊨ D`, where `T_W` overwrites exactly the variables in `W`. **Effect:** delete `C`, append `(C,W)` to `ρ`, leave `τ` and learned `R` intact. **Proof δ:** `del(C)` only, with one deletion for every physical binary copy; no lemma is added. **Soundness:** a model of the residual already satisfying `C` is unchanged; otherwise `T_W` satisfies `C` and preserves each remaining irredundant clause by the precondition. Learned clauses follow from the restored irredundant formula (`F ⊨ R`), so reverse reconstruction restores an original-CNF model. The explicit instance is the unbounded tuple `(C,W)`; canonical discovery and scheduling are policy, not legality.
 
 ## 6d. Direct substitution redundancy (X7)
 ### X7 · SubstitutionRedundancy — add a clause with a finite DSR witness

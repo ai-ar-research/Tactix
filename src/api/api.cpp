@@ -12,6 +12,7 @@
 #include "diagnostics/rule_journal.hpp"
 #include "proof/proof.hpp"
 #include "rules/decide/decide.hpp"
+#include "rules/condition/condition.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/registry.hpp"
 #include "strategy/online_inprocess.hpp"
@@ -19,6 +20,7 @@
 #include <algorithm>
 #include <limits>
 #include <memory>
+#include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -1434,6 +1436,59 @@ int tactix_apply_instance(tactix_solver *s, int rule_id, uint64_t instance) {
   heuristics_discard_rule_events(s->kernel);
   kernel_check_invariants(s->kernel); // no-op in NDEBUG
   return result_code(s, res);
+}
+
+int tactix_apply_condition(tactix_solver *s, const int *clause,
+                           int clause_count, const int *witness,
+                           int witness_count) {
+  input_complete(s);
+  if (clause_count < 0 || witness_count < 0 ||
+      (clause_count && !clause) || (witness_count && !witness))
+    return -1;
+  ConditionInstance instance;
+  instance.clause.reserve(static_cast<size_t>(clause_count));
+  instance.witness.reserve(static_cast<size_t>(witness_count));
+  const auto append = [&](int external, std::vector<Lit> &destination) {
+    if (!external || external == INT32_MIN)
+      return false;
+    const Lit lit = kernel_internalize(s->kernel, external);
+    if (lit == INVALID_LIT)
+      return false;
+    destination.push_back(lit);
+    return true;
+  };
+  for (int i = 0; i < clause_count; ++i)
+    if (!append(clause[i], instance.clause))
+      return -1;
+  for (int i = 0; i < witness_count; ++i)
+    if (!append(witness[i], instance.witness))
+      return -1;
+  const RuleVTable &rule = tactix_rules()[tactix_rule_id("Condition")];
+  ConditionPrepared prepared;
+  const uint64_t validation_started = now_nanos();
+  const bool applicable = condition_prepare(s->kernel, instance, prepared);
+  if (rule.id < Stats::MAX_TIMED_RULES)
+    s->kernel.stats.rule_nanos[rule.id] += now_nanos() - validation_started;
+  if (!applicable)
+    return -1;
+  std::string candidate = "clause=";
+  for (int i = 0; i < clause_count; ++i) {
+    if (i)
+      candidate.push_back(',');
+    candidate += std::to_string(clause[i]);
+  }
+  candidate += ";witness=";
+  for (int i = 0; i < witness_count; ++i) {
+    if (i)
+      candidate.push_back(',');
+    candidate += std::to_string(witness[i]);
+  }
+  const ApplyResult result = apply_rule_structured(
+      rule, s->kernel, candidate.c_str(),
+      [&] { return condition_commit(s->kernel, instance, prepared); });
+  heuristics_discard_rule_events(s->kernel);
+  kernel_check_invariants(s->kernel);
+  return result_code(s, result);
 }
 
 int tactix_rule_semantic_instances(tactix_solver *s, int rule_id,

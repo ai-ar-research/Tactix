@@ -3305,7 +3305,8 @@ void DefaultInprocessScheduler::build(Kernel &k) {
     if (config().append_unlisted_rules)
       for (int i = 0; i < static_cast<int>(rules.size()); i++)
         if (rules[i].tier == RuleTier::Inprocess && !placed[i] &&
-            std::strcmp(rules[i].name, "SubstitutionRedundancy"))
+            std::strcmp(rules[i].name, "SubstitutionRedundancy") &&
+            std::strcmp(rules[i].name, "Condition"))
           add_entry(i);
     default_candidate_order_.arms.assign(rules.size(),
                                          CandidateOrder::Native);

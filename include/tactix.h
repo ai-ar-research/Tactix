@@ -287,6 +287,15 @@ int tactix_apply(tactix *, int rule_id);
  * documented encoding, never unsound. */
 int tactix_apply_instance(tactix *, int rule_id, uint64_t instance);
 
+/* X5 Condition: apply one explicit live-clause / finite witness-cube tuple.
+ * Literals use stable external DIMACS identities. The cube assigns every
+ * listed literal true if reconstruction later finds the deleted clause false.
+ * No cube-size limit or witness-in-clause restriction is imposed. Returns 0
+ * when deleted and -1 when malformed, inapplicable, or interrupted; invalid
+ * instance input publishes no X5 formula, proof, or reconstruction event. */
+int tactix_apply_condition(tactix *, const int *clause, int clause_count,
+                           const int *witness, int witness_count);
+
 /* Additive fine-grained action surface. Most rules delegate to the frozen v1
  * payloads. Rules whose v1 payload grouped multiple choices enumerate opaque
  * semantic payloads here; Instantiate, for example, exposes one payload per

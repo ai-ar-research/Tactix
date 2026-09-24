@@ -400,9 +400,9 @@ subsumed by the new learned clause, skips locked reasons, and uses normal proof/
 
 ## 16. X5 Condition disposition
 
-Condition is deliberately unimplemented: cube-conditioned reconstruction does not fit the one-literal witness stack and neither
-shipped reference requires it. Reopen only if reconstruction gains cube segments, a reference enables the rule by default, or a
-non-BCE form has a single-literal witness. Yield alone does not change the representation argument.
+X5 has an explicit variable-length `(C,W)` C API action and tagged cube segment in the ordinary reverse reconstruction stack. Its local implication guard scans every live irredundant large clause and binary copy; learned clauses follow from the `F ⊨ R` invariant. The public action accepts any consistent finite cube, including variables outside C, without a benchmark, size, or producer filter.
+The implementation additionally requires a quiescent root, a live non-root-satisfied candidate of length at least two, and currently materialized internal identities. Root-false literals are allowed; a root-true candidate is skipped because it may be a live reason. These restrictions protect reason/watch state and the public action boundary; they are stronger than the abstract precondition. Binary deletion retires all physical copies; large deletion chooses one exact live clause. Malformed, interrupted, or failed validation does not publish X5 proof or reconstruction events.
+DefaultPolicy has no Condition producer and omits X5 from its reference slot program pending N4 scheduling evidence. Canonical registry application is a no-op; `tactix_apply_condition` is the complete explicit action surface. This default-off choice does not constrain the public cube rule.
 
 ## 17. The rule-inventory disposition table
 
@@ -423,7 +423,7 @@ non-BCE form has a single-literal witness. Yield alone does not change the repre
 | E1 `BVE` | implemented; equivalence, AND/OR, ITE, XOR, and definition cores |
 | E2 `Factor` | implemented; seed surface, exact-grid application and exhaustive lazy grid enumeration complete |
 | X1 `BCE` · X2 `HyperTernaryRes` · X3 `CCE` · X4 `Instantiate` | implemented |
-| X5 `Condition` | reasoned no-implement; §16 reopening path |
+| X5 `Condition` | implemented explicit cube deletion; §16 boundary and default-off disposition |
 | X6 `HyperBinaryRes` | implemented; individual resolvent surface complete |
 | X7 `SubstitutionRedundancy` | implementation in progress; explicit/general/orbitopal surfaces and direct DSR micro proof pass, full acceptance pending |
 
