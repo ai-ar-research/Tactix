@@ -43,6 +43,15 @@ static void condition_cube_replay_round_trips() {
   const std::string bad = wire.substr(0, wire.find(":condition[")) +
                           ":condition[3,0]";
   assert(!deserialize_online_strategy_program(bad, replay, &error));
+  OnlineStrategyProgram malformed = program;
+  malformed.sequence[0].condition_instances[0].clause[0] = UINT32_MAX;
+  assert(!validate_online_strategy_program(malformed, &error) &&
+         "a replay literal with no external DIMACS spelling must be rejected");
+  assert(!deserialize_online_strategy_program(
+      serialize_online_strategy_program(malformed), replay, &error));
+  malformed.sequence[0].condition_instances[0].clause[0] = UINT32_MAX - 3;
+  assert(validate_online_strategy_program(malformed, &error) &&
+         "the largest legal external DIMACS variable must not be capped");
 }
 
 static Kernel broad_fixture() {

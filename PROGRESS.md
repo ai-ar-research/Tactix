@@ -343,8 +343,8 @@ byte-identical solver pins remain in the AM333 gate campaigns.
 
 ## Recent changes
 
-- AM334: certificate acceptance routed by content; `oisc` verified in 7,182 s; Tseitin is proof size.
-- AM333: Lucky 17 (signed exact cover, sgen owner) and 18 (independent set under exact-count encoding); per-instance checker-window overrides.
-- AM331: owner large-domain symmetry program (four coupled pieces), `PureClosure` scope, size-scaled repeat, generator-pass admission; AM330 gated and rejected.
-- AM329: owner negation fixing before FixAndCut, generic-entry generator floor, Debug cross-check of certified X7 rows; AM327 withdrawn as unsound.
-- Fixed the WV2-89 tranche (`benchmarks/tiers/WV2-89.tsv`, plan gate T4-WV2-89) as Phase 3.
+- AM377: malformed online-X5 replay literals are rejected before signed conversion; fixed Release/Debug/ASan proof/model routes pass, successor fuzz due.
+- AM376: online-v3 carries real X5 `(C,W)` actions; Andrew's learning-readiness review finds two policy-layer refactors needed; Opus owner preparing.
+- AM375: independent overwrite oracle agrees on 1,080 small-domain X5 clause/cube cases in three build modes.
+- AM374: focused current-source N1/N2 audit passes 21/21 Release fixtures and 65/65 proof-oracle units, without claiming universal acceptance.
+- AM373: stable external X5 cube identities survive compaction; its separate Opus owner remains live.

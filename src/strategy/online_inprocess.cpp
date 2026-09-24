@@ -382,6 +382,20 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
       return reject("SR instances are attached to a different rule");
     if (!step.condition_instances.empty() && step.rule != "Condition")
       return reject("Condition instances are attached to a different rule");
+    // These are external Lit encodings. UINT32_MAX has no DIMACS spelling:
+    // externalize() would overflow its signed result before a live-state
+    // check, even if the malformed tuple came only from replay text.
+    const auto representable = [](const std::vector<Lit> &literals) {
+      return std::all_of(literals.begin(), literals.end(), [](Lit literal) {
+        return var_of(literal) <
+               static_cast<Var>(std::numeric_limits<int>::max());
+      });
+    };
+    for (const ConditionInstance &instance : step.condition_instances) {
+      if (!representable(instance.clause) ||
+          !representable(instance.witness))
+        return reject("Condition instance has an invalid external literal");
+    }
     const unsigned structured_payload_kinds =
         !step.factor_grids.empty() +
         !step.substitution_redundancy_instances.empty() +
@@ -1301,11 +1315,14 @@ InvocationResult OnlineStrategyExecutor::advance(
                       step.condition_instances[payload];
                   ConditionInstance selected = request;
                   for (Lit &literal : selected.clause) {
-                    literal = kernel_internalize(k, externalize(literal));
-                    if (literal == INVALID_LIT) {
+                    const Var external = var_of(literal);
+                    if (external >= k.external_to_internal.size() ||
+                        k.external_to_internal[external] == INVALID_VAR) {
                       condition_declined = true;
                       return ApplyResult::NoOp;
                     }
+                    literal = make_lit(k.external_to_internal[external],
+                                       negated(literal));
                   }
                   ConditionPrepared prepared;
                   if (!condition_prepare(k, selected, prepared)) {
