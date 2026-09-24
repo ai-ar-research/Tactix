@@ -548,8 +548,28 @@ static void test_condition_cube_api(void) {
   tactix_release(s);
 }
 
+static void test_condition_cube_with_retired_external_variable(void) {
+  tactix *s = tactix_init();
+  add_clause(s, (const int[]){1, 2, 0});
+  add_clause(s, (const int[]){-1, 3, 0});
+  add_clause(s, (const int[]){-3, 4, 0});
+  /* Variable 5 belongs to the input universe but its only clause vanishes
+     during input normalization. It is still a legal, harmless cube member. */
+  add_clause(s, (const int[]){5, -5, 0});
+  const int clause[] = {1, 2};
+  const int cube[] = {1, 3, 4, 5};
+  assert(tactix_apply_condition(s, clause, 2, cube, 4) == 0);
+  assert(tactix_decide(s, -1) == 0);
+  assert(tactix_decide(s, -2) == 0);
+  assert(tactix_solve(s) == 10);
+  assert(tactix_value(s, 1) == 1);
+  assert(tactix_value(s, 5) == 5);
+  tactix_release(s);
+}
+
 int main(void) {
   test_condition_cube_api();
+  test_condition_cube_with_retired_external_variable();
   test_solve_sat();
   test_discarded_only_variables_extend_model();
   test_lucky_model_status_after_inprocessing();

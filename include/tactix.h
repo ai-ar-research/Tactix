@@ -290,8 +290,9 @@ int tactix_apply(tactix *, int rule_id);
 int tactix_apply_instance(tactix *, int rule_id, uint64_t instance);
 
 /* X5 Condition: apply one explicit live-clause / finite witness-cube tuple.
- * Literals use stable external DIMACS identities. The cube assigns every
- * listed literal true if reconstruction later finds the deleted clause false.
+ * Literals use stable external DIMACS identities, including input identities
+ * compacted out of the live formula. The cube assigns every listed literal
+ * true if reconstruction later finds the deleted clause false.
  * No cube-size limit or witness-in-clause restriction is imposed. Returns 0
  * when deleted and -1 when malformed, inapplicable, or interrupted; invalid
  * instance input publishes no X5 formula, proof, or reconstruction event. */

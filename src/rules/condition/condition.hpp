@@ -8,8 +8,8 @@
 namespace tactix {
 
 struct ConditionInstance {
-  std::vector<Lit> clause;
-  std::vector<Lit> witness;
+  std::vector<Lit> clause;  // current internal literals, used to name live C
+  std::vector<Lit> witness; // stable external literals, including compacted holes
 };
 
 RuleEligibility condition_guard(const Kernel &);

@@ -1761,6 +1761,8 @@ void kernel_push_witness(Kernel &, Lit witness, const Lit *rest, uint32_t nrest)
 // A conditional-autarky segment stores the removed clause and every literal
 // to set true if that clause is false during reverse model reconstruction.
 // The rule validates the cube before publishing this proof-neutral record.
+// The clause uses current internal literals; the cube uses stable external
+// literals so compaction never removes a legal witness variable.
 void kernel_push_cube_witness(Kernel &, const Lit *clause, uint32_t nclause,
                               const Lit *witness, uint32_t nwitness);
 // Reconstruct a total external model.  Terminal solver/output paths may also
