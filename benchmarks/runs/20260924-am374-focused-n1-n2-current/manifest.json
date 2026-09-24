@@ -1,0 +1,27 @@
+{
+  "campaign": "am374-focused-n1-n2-current",
+  "date_utc": "2026-09-24",
+  "source_commit": "71dd1966",
+  "checkout_audit_commit": "9f4bea73",
+  "source_delta_after_commit": "No changes under src/, include/, or tests/ between source_commit and checkout_audit_commit; the worktree was clean.",
+  "build": {
+    "directory": "build/am368-reconstruct-release",
+    "type": "Release",
+    "compiler": "GCC 13.1.0",
+    "test_binary_sha256": "hashes.txt"
+  },
+  "fixed_ctest": {
+    "command": "ctest --test-dir build/am368-reconstruct-release --output-on-failure -R '^(api_n1|api_instances|online_all_actions|n1_public_policy|decide|subsume_n1|vivify_n1|factor_n1|cce|reconstruct|proof|sr_proof_encoding|proof_output_failure|condition|condition_compacted_model|rule_journal|inventory|proof_rule_sync|doc_size|rule_policy_boundary|option_coverage)$' -O benchmarks/runs/20260924-am374-focused-n1-n2-current/ctest-release.log",
+    "passed": 21,
+    "total": 21,
+    "log_sha256": "a7d91e19d10b546febbca95e853e92955a72a88a8d281ffb3abc49a5f50b3719"
+  },
+  "proof_oracle_units": {
+    "command": "PYTHONPATH=tools/bench python3 -m unittest tools.bench.test_proof_oracle tools.bench.test_proof_oracle_binaries tests.test_fuzz_proof_oracles",
+    "passed": 65,
+    "total": 65,
+    "log_sha256": "8c1e82050a94d12b8a0d391356bf263fdc812827fe1cbc883c4cfc35f7db18d2"
+  },
+  "binary_hash_list_sha256": "69e5c7f99e166fba75cc3be395939c41a163838c4ec758eb7a99108d9621b0f8",
+  "scope_note": "Fixed local tests and oracle-unit contracts only. The AM373 original-CNF X5 certificate/model oracle is separate evidence; no new real-instance solve, SLURM job, Tier D run, universal N1/N2 acceptance, or N3/N4 claim is made."
+}
