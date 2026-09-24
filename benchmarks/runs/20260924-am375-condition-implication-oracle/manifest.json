@@ -1,0 +1,19 @@
+{
+  "campaign": "am375-condition-implication-oracle",
+  "date_utc": "2026-09-24",
+  "source_base": "be85b681",
+  "source_delta": "tests/test_condition.cpp only; no solver, header, or policy change",
+  "enumeration": "2 fixed candidates ({1,2}, {1,2,3}) x 20 non-unit signed three-variable other clauses x 27 consistent cubes = 1080",
+  "oracle": "Enumerate all 8 total assignments; check C false and D true before overwrite, and C and D true after overwrite",
+  "builds": {
+    "Release": "a4cd96ecaacb2db8f58029d4e3146aecbf99f14f05dc025eb15c2aab8c356d3c",
+    "Debug": "274e80e636d048ba8a851cbadb0398d36cf60897c902a0f1595e03a45891de41",
+    "ASan+UBSan": "8d06170073012cab83a116ae6c4ab848a6c883213d295587c11a421e7682e888"
+  },
+  "test": "ctest --test-dir BUILD --output-on-failure -R '^condition$'",
+  "test_result": "1/1 PASS in each of Release, Debug, ASan+UBSan",
+  "focused_release": "ctest --test-dir build/am368-reconstruct-release --output-on-failure -R '^(api_n1|api_instances|online_all_actions|n1_public_policy|decide|subsume_n1|vivify_n1|factor_n1|cce|reconstruct|proof|sr_proof_encoding|proof_output_failure|condition|condition_compacted_model|rule_journal|inventory|proof_rule_sync|doc_size|rule_policy_boundary|option_coverage)$' -O benchmarks/runs/20260924-am375-condition-implication-oracle/ctest-release.log",
+  "focused_result": "21/21 PASS",
+  "focused_log_sha256": "6d00437c4c7f5ac40f6412a1d31d465642d3b5b5f55490d6cca5e2f4370ef9d1",
+  "scope_note": "Fixed local guard oracle only; no new real-instance solve, SLURM job, generated certificate, universal N1/N2 claim, N3/N4 claim, or Tier D submission. The AM369/372/373 Claude-owned affected fuzz remains authoritative for those scopes."
+}
