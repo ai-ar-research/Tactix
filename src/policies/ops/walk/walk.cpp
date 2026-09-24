@@ -173,8 +173,15 @@ bool build_table(Walker &w, Kernel &k) {
   w.increasing_scores = base >= 1;
   if (w.increasing_scores)
     return true;
+  // break_value sums at most one per entry in the opposite literal's
+  // occurrence list. Scores above the largest such list cannot be queried.
+  // Bound the stored prefix by that structural maximum, not by a numerical
+  // underflow horizon: a legal fitted cb can be only one ULP above 1.
+  uint32_t maximum_breaks = 0;
+  for (uint32_t l = 0; l < nlits; ++l)
+    maximum_breaks = std::max(maximum_breaks, w.occ_beg[l + 1] - w.occ_beg[l]);
   double next = 1;
-  for (w.epsilon = 1; next;) {
+  for (w.epsilon = 1; next && w.table.size() <= maximum_breaks;) {
     w.table.push_back(w.epsilon = next);
     const double candidate = w.epsilon * base;
     // For bases in (0.5, 1), the smallest subnormal can round back to itself

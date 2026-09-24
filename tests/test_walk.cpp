@@ -90,6 +90,43 @@ static void test_break_base_domain_terminates() {
   }
 }
 
+// A valid curve interpolates to one ULP above 1 at the conflict-cover's
+// average 9/4. Precomputing until underflow then takes an astronomical number
+// of entries even though this three-variable formula has maximum break 2.
+// Do not reject/round the curve or reduce the caller's requested work.
+static void test_near_unit_interpolated_base() {
+  strategy::WalkParameters p;
+  p.score_curve = {{0, 136}, {3000, 1288}};
+  assert(p.valid());
+  const double cb = walk_break_base(p, 2.25, 1);
+  assert(cb == std::nextafter(1.0, 2.0));
+  const double base = 1 / cb;
+  assert(base < 1 && base > 0.999999999);
+  for (const uint64_t steps : {UINT64_C(0), UINT64_C(1), UINT64_C(1000000)}) {
+    Kernel k;
+    ScopedHeuristics heuristics(k);
+    build_conflict_cover(k, 3);
+    k.walk_score_curve = p.score_curve;
+    assert(walk_guard(k));
+    const auto result = walk_apply_steps(k, steps);
+    assert(k.stats.walks == 1);
+    if (!steps) {
+      assert(result == ApplyResult::NoOp);
+      assert(k.stats.walk_steps == 0 && k.stats.walk_flips == 0);
+    } else {
+      assert(result == ApplyResult::Ok);
+      assert(k.stats.walk_steps > 0 && k.stats.walk_flips > 0);
+      if (steps > 1) {
+        assert(k.stats.walk_minimum == 0);
+        unsigned trues = 0;
+        for (const int8_t phase : k.h->saved)
+          trues += phase > 0;
+        assert(trues == 1); // independently satisfies the conflict cover
+      }
+    }
+  }
+}
+
 // the walk finds the model and writes it into the saved phases
 static void test_finds_model() {
   Kernel k;
@@ -304,6 +341,7 @@ static void test_root_satisfied_binaries_do_not_reach_the_walk() {
 int main() {
   test_configurable_score_curve();
   test_break_base_domain_terminates();
+  test_near_unit_interpolated_base();
   test_finds_model();
   test_kernel_untouched();
   test_rejects_non_root();
