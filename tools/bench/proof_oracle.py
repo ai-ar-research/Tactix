@@ -33,6 +33,8 @@ def canonical_checker_cnf(original, destination):
     clauses = 0
     in_clause = False
     first_empty_clause = None
+    duplicate_literal_clauses = 0
+    seen_literals, repeated = set(), False
     digest = hashlib.sha256()
     spelled_digest = hashlib.sha256()
     with Path(original).open('rb') as source, Path(destination).open('wb') as target:
@@ -74,6 +76,8 @@ def canonical_checker_cnf(original, destination):
                 if abs(literal) > declared[0]:
                     raise ValueError(f'DIMACS literal exceeds header at line {line_number}')
                 if literal:
+                    repeated |= literal in seen_literals
+                    seen_literals.add(literal)
                     output.extend(str(literal).encode('ascii') + b' ')
                     in_clause = True
                 else:
@@ -81,6 +85,9 @@ def canonical_checker_cnf(original, destination):
                     clauses += 1
                     if not in_clause and first_empty_clause is None:
                         first_empty_clause = clauses
+                    duplicate_literal_clauses += repeated
+                    seen_literals.clear()
+                    repeated = False
                     in_clause = False
                 if clauses > declared[1]:
                     raise ValueError('DIMACS clause count exceeds header')
@@ -89,8 +96,76 @@ def canonical_checker_cnf(original, destination):
             raise ValueError('missing DIMACS header, clause terminator, or declared clauses')
     return dict(original_sha256=digest.hexdigest(), checker_sha256=spelled_digest.hexdigest(), clauses=clauses,
                 first_empty_clause=first_empty_clause,
+                duplicate_literal_clauses=duplicate_literal_clauses,
                 declared_variables=declared[0], checker_variables=max(1, declared[0]),
                 transformation='clause-sequence-preserving DIMACS spelling')
+
+
+def restate_duplicate_input_lrat(checker_cnf, spelling, lrat, destination):
+    """Lift drat-trim's duplicate-normalized input hints to the original CNF.
+
+    Each non-tautological repeated-literal input is restated by a fresh RUP
+    clause with its original ID as the sole hint, then the original is deleted.
+    Remap both RUP/RAT hints and deletions, shifting derived IDs past the prefix.
+    CakeLPR still checks the lifted proof against the unmodified original clauses.
+    The source LRAT is never overwritten. This is not used for native LRAT.
+    """
+    if not spelling['duplicate_literal_clauses']:
+        return Path(lrat), 0
+    for source in (checker_cnf, lrat):
+        if Path(destination).exists() and Path(source).samefile(destination):
+            raise ValueError('LRAT restatement must not overwrite its inputs')
+    count = spelling['clauses']
+    renamed = {}
+    with Path(destination).open('w') as target:
+        with Path(checker_cnf).open() as source:
+            next(source)  # validated canonical header
+            clause, identifier = [], 0
+            for line in source:
+                for token in line.split():
+                    literal = int(token)
+                    if literal:
+                        clause.append(literal)
+                        continue
+                    identifier += 1
+                    unique = dict.fromkeys(clause)
+                    # Tautologies never supply a unit/conflict hint. Do not
+                    # emit checker-divergent tautological RUP lemmas.
+                    if (len(unique) < len(clause) and
+                            not any(-lit in unique for lit in unique)):
+                        new_id = count + len(renamed) + 1
+                        renamed[identifier] = new_id
+                        target.write(f'{new_id} ' + ' '.join(map(str, unique)) +
+                                     f' 0 {identifier} 0\n')
+                    clause.clear()
+        if not renamed:
+            return Path(lrat), 0
+        offset = len(renamed)
+        target.write(f'{count + offset} d ' + ' '.join(map(str, renamed)) + ' 0\n')
+
+        def reference(token):
+            value = int(token)
+            index = abs(value)
+            mapped = renamed.get(index, index if index <= count else index + offset)
+            return str(-mapped if value < 0 else mapped)
+
+        with Path(lrat).open() as source:
+            for number, line in enumerate(source, 1):
+                fields = line.split()
+                if not fields:
+                    continue
+                if len(fields) < 3 or fields[-1] != '0':
+                    raise ValueError(f'invalid converted LRAT line {number}')
+                # A deletion's line label may repeat the last addition ID.
+                label = str(int(fields[0]) + offset)
+                if fields[1] == 'd':
+                    rewritten = [label, 'd', *(reference(x) for x in fields[2:-1]), '0']
+                else:
+                    boundary = fields.index('0', 1)
+                    rewritten = [label, *fields[1:boundary+1],
+                                 *(reference(x) for x in fields[boundary+1:-1]), '0']
+                target.write(' '.join(rewritten) + '\n')
+    return Path(destination), len(renamed)
 
 
 def _at_most_three_integer_tokens(path):
@@ -567,10 +642,13 @@ def check_routed(dsr_trim, dsr_compress, srcheck, drat_trim, cake_lpr, cnf,
             stale.unlink()
     if not dsr_proof_as_drat(proof, drat):
         return False, 'route', 'witnessed line met during rewrite', route
+    checked_lrat = lrat
     for name, command in drat_stages(drat_trim, cake_lpr, cnf, drat, lrat,
                                      checker_cnf=checker_cnf):
         if name == 'drat-trim':
             command = drat_command_with_timeout(command, timeout)
+        else:
+            command = [*command[:-1], checked_lrat]
         try:
             done = subprocess.run([str(part) for part in command],
                                   capture_output=True, text=True,
@@ -587,6 +665,11 @@ def check_routed(dsr_trim, dsr_compress, srcheck, drat_trim, cake_lpr, cnf,
                                       done.stdout, done.stderr)
             if not (lrat.is_file() and lrat.stat().st_size):
                 return False, name, 'no LRAT produced', route
+            try:
+                checked_lrat, _ = restate_duplicate_input_lrat(
+                    checker_cnf, spelling, lrat, workdir / 'proof.original-input.lrat')
+            except ValueError as error:
+                return False, 'input-restatement', str(error), route
     return True, None, '', route
 
 

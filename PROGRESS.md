@@ -92,8 +92,9 @@ Regression 037 and six-variable boundary/death tests preserve the cause; the
 owner-reported four-mode bounds defect in `test_random_online` is also repaired.
 Job `1716498`: 48 independently checked random/replay runs across six formats,
 Debug/Release proof-byte equality, two old-Debug abort controls. Focused tests
-pass. Fresh full Debug CTest is live (178/179 passed; demo pending), session
-`3825`, log `...-am341-unwatch/ctest-debug-all.log`; do not restart it.
+pass. Full Debug CTest is terminal: **178/179 passed**, `sweep_proofs` failed
+every-lemma Trestle on corpus 033. Earlier live summaries misread the completion
+counter as passing tests. Exact log: `...-am341-unwatch/ctest-debug-all.log`.
 Original Opus owner PID `1934171` exited 0 before terminal reporting; recovery
 PID `2078249`, session `81011`, owns the SAME live campaign through its terminal
 report, from `claude-owner-terminal-recovery.md` in the authority. Published
@@ -114,8 +115,9 @@ DRAT trivial-UNSAT exit 1 now requires a real input empty clause in runtime,
 routed and tier-runner callers. No solver/checker binary changes. Fixed suites
 and final full selftest pass; bounded job `1716501` reproduces both old defects
 and passes on the repair. Authority `...-am342-oracle-contracts`, patch
-`ab061e1f...`, archive `f429b329...`. Explicit Opus owner PID `2015745`, session
-`78542`, prepares affected validation in `...-am342-oracle-contracts-claude-fuzz`.
+`ab061e1f...`, archive `f429b329...`. Opus terminal report in
+`...-am342-oracle-contracts-claude-fuzz` is **scoped PASS**: 34,000 cases,
+zero scope discrepancies, 13,377 replay matches; known certificate debt unwaived.
 Legal separate comment lines inside clauses pass both maintained readers and
 new positive/negative tests; no reader implementation was changed. The earlier
 reported reader failure needs an exact legal bounded case if it persists.
@@ -148,6 +150,14 @@ full selftest pass. Authority `...-am344-dsr-routing`, patch `ec421484...`,
 archive `6ce9470d...`; explicit Opus owner PID `2591052`, session `74882`, owns
 affected validation in `...-am344-dsr-routing-claude-fuzz`. Evidence:
 `benchmarks/reports/2026-09-24-am344-dsr-routing-checkpoint.md`.
+
+AM345 is an **unaccepted tooling-only LRAT repair**: explicit checked duplicate
+input restatements and ID remapping preserve original CNF multiplicities.
+Fixed suites/selftest pass. Authority `...-am345-lrat-restatement`, patch
+`fd429a27...`, archive `294251d9...`; Opus PID `3377189`/session `99280` owns
+affected fuzz. Sweep diagnostic `...-am345-sweep-diagnostic`: `1716608` verifies
+36/36; unpinned local dsr-trim causes failure. Pinned full CTest session `87252`.
+Evidence: `benchmarks/reports/2026-09-24-am345-lrat-restatement-checkpoint.md`.
 
 Solver/tooling authority: `10cd18c9` (certificate routing) on top of the
 AM333 solver source (`75487222`). The AM333 pin is the last gated binary:
@@ -300,14 +310,15 @@ byte-identical solver pins remain in the AM333 gate campaigns.
    fuzz acceptance and all four routed gates before promotion. A newly established
    solver defect stops dependent work; preserve exact failures and pins.
    Continue Claude-owned execution/reporting with explicit Opus (user requested
-   no Fable). AM341 repairs the bounded unwatch assertion; preserve its live
-   full CTest and Opus owner, without waiving old random-policy reachability
-   floors. AM342 repairs the bounded F1/O3 oracle handoffs; preserve its owner.
+   no Fable). AM341 repairs the bounded unwatch assertion; preserve its failed
+   full CTest evidence and Opus owner, without waiving random-policy reachability
+   floors. AM342's owner reports scoped PASS, not combined-candidate acceptance.
    AM343 repairs genuine-empty-input missing LRAT and the inner DRAT timeout;
    preserve its affected owner and live four-row diagnostic. AM344 repairs
    malformed DSR routing classification and DSR reader-layout limitations;
    preserve its owner. Next consume AM341's bounded DSR-rejection handoff and
-   debug it, then resolve the routed repeated-literal LRAT mismatch. Legal comment lines
+   debug it and the sweep failure; AM345 repairs the repeated-literal LRAT path.
+   Preserve its affected owner. Legal comment lines
    already pass both readers; obtain an exact bounded failing legal layout if
    the earlier owner finding persists rather than changing parser tolerance.
    Complete these oracle obligations before successor gates; no affected

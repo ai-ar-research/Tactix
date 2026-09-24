@@ -23,7 +23,8 @@ from proof_oracle import (bridge_trivial_input_binary_lsr,
                           certificate_route, drat_stages, pb_stages,
                           dsr_proof_as_drat, stage_environment,
                           canonical_checker_cnf, bridge_trivial_input_lrat,
-                          drat_command_with_timeout, DSRFormatError)
+                          drat_command_with_timeout, DSRFormatError,
+                          restate_duplicate_input_lrat)
 
 
 CAMPAIGN = None
@@ -330,9 +331,12 @@ def check_unsat_proof(campaign, certificate, cnf, proof, scratch, timeout):
         drat, lrat = scratch / "proof.drat", scratch / "proof.lrat"
         if not dsr_proof_as_drat(proof, drat):
             raise RuntimeError("routing saw a witnessed line")
+        checked_lrat = lrat
         for name, command in drat_stages(
                 campaign / "pins/drat-trim", campaign / "pins/cake_lpr",
                 cnf, drat, lrat, checker_cnf=checker_cnf):
+            if name == 'cake_lpr':
+                command = [*command[:-1], checked_lrat]
             made = lrat if name == "drat-trim" else None
             stages.append(proof_stage(scratch, name, command, remaining(),
                                       made, input_has_empty_clause=
@@ -340,6 +344,15 @@ def check_unsat_proof(campaign, certificate, cnf, proof, scratch, timeout):
                                       trivial_lrat_spelling=spelling))
             if stages[-1]["result"] != "verified":
                 break
+            if name == 'drat-trim':
+                try:
+                    checked_lrat, restatements = restate_duplicate_input_lrat(
+                        checker_cnf, spelling, lrat, scratch / 'proof.original-input.lrat')
+                    stages[-1]['input_restatements'] = restatements
+                except ValueError as error:
+                    stages.append(dict(name='input-restatement', result='rejected',
+                                       exit_code=None, timed_out=False, output_tail=str(error)))
+                    break
         pipeline = "witness-free-dsr-as-drat:drat-trim-cake_lpr"
     elif certificate in ("dsr", "auto"):
         # proof_oracle.reference_dsr_stages owns the pipeline definition.

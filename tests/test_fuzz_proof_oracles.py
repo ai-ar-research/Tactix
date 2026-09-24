@@ -13,6 +13,93 @@ import fuzz
 
 
 class FuzzProofOracles(unittest.TestCase):
+    def test_input_restatement_maps_rat_hints_and_is_independently_checked(self):
+        from proof_oracle import canonical_checker_cnf, restate_duplicate_input_lrat
+        import subprocess
+        cake = ROOT/'benchmarks/runs/20260923-am341-unwatch/pins/cake_lpr'
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            cnf, spelling_path = work/'input.cnf', work/'checker.cnf'
+            raw, lifted = work/'raw.lrat', work/'lifted.lrat'
+            cnf.write_text('p cnf 5 7\n1 2 0\n1 -2 0\n-1 2 0\n-1 -2 0\n'
+                           '4 5 0\n4 -5 0\n-3 -3 4 0\n')
+            spelling = canonical_checker_cnf(cnf, spelling_path)
+            # RAT addition 3 requires the negative hint to input clause 7.
+            # Deletions name both input and derived clauses; labels repeat.
+            original = '8 3 0 -7 5 6 0\n8 d 7 8 0\n9 1 0 1 2 0\n10 0 9 3 4 0\n'
+            raw.write_text(original)
+            output, count = restate_duplicate_input_lrat(spelling_path, spelling, raw, lifted)
+            self.assertEqual(count, 1)
+            self.assertEqual(output, lifted)
+            expected = ('8 -3 4 0 7 0\n8 d 7 0\n9 3 0 -8 5 6 0\n9 d 8 9 0\n'
+                        '10 1 0 1 2 0\n11 0 10 3 4 0\n')
+            self.assertEqual(lifted.read_text(), expected)
+            self.assertEqual(raw.read_text(), original)
+            def check():
+                result = subprocess.run([str(cake), str(spelling_path), str(lifted)],
+                                        capture_output=True, text=True, timeout=10)
+                return 's VERIFIED UNSAT' in result.stdout and result.returncode == 0
+            self.assertTrue(check())
+            # Break the used final chain, not an irrelevant auxiliary lemma.
+            lifted.write_text(expected.replace('11 0 10 3 4 0', '11 0 9 3 4 0'))
+            self.assertFalse(check())
+
+    def test_routed_restatement_corruption_is_rejected_by_cake_lpr(self):
+        import proof_oracle as oracle
+        import runtime_task
+        campaign = ROOT/'benchmarks/runs/20260923-am341-unwatch'
+        pins = campaign/'pins'
+        actual = oracle.restate_duplicate_input_lrat
+        def corrupt(cnf, spelling, source, target):
+            path, count = actual(cnf, spelling, source, target)
+            self.assertEqual(count, 1)
+            path.write_text(path.read_text().replace('3 1 0 1 0', '3 1 0 2 0', 1))
+            return path, count
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            cnf, proof = work/'input.cnf', work/'proof.dsr'
+            cnf.write_text('p cnf 1 2\n1 1 0\n-1 0\n')
+            proof.write_text('0\n')
+            with patch.object(oracle, 'restate_duplicate_input_lrat', side_effect=corrupt):
+                result = oracle.check_routed(pins/'dsr-trim', pins/'dsr-compress', pins/'srcheck',
+                                             pins/'drat-trim', pins/'cake_lpr', cnf, proof, work, 10)
+            self.assertFalse(result[0], result)
+            self.assertEqual(result[1], 'cake_lpr')
+            with patch.object(runtime_task, 'restate_duplicate_input_lrat', side_effect=corrupt):
+                result = runtime_task.check_unsat_proof(campaign, 'auto', cnf, proof, work, 10)
+            self.assertEqual(result['result'], 'not-verified', result)
+            self.assertEqual(result['stages'][-1]['name'], 'cake_lpr')
+
+    def test_routed_duplicate_inputs_require_checked_restatements(self):
+        from proof_oracle import check_routed
+        from runtime_task import check_unsat_proof
+        from anonymous_scratch import AnonymousScratch
+        campaign = ROOT/'benchmarks/runs/20260923-am341-unwatch'
+        pins = campaign/'pins'
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            cnf, proof = work/'input.cnf', work/'proof.dsr'
+            for raw in ('p cnf 1 2\n1 1 0\n-1 0\n',
+                        'p cnf 3 5\n1\nc duplicate on next line\n01 0 -1 2 0\n-1 3 0\n-2 -3 0\n2 3 0\n',
+                        'p cnf 2 4\n1 1 -1 0\n2 2 0\n-2 -2 0\n1 1 -1 0\n'):
+                for payload in (b'0\n', b'\x01\x00'):
+                    with self.subTest(raw=raw, payload=payload):
+                        cnf.write_text(raw)
+                        proof.write_bytes(payload)
+                        result = check_routed(pins/'dsr-trim', pins/'dsr-compress', pins/'srcheck',
+                                              pins/'drat-trim', pins/'cake_lpr', cnf, proof, work, 10)
+                        self.assertTrue(result[0], result)
+                        self.assertEqual(result[3], 'drat')
+                        for anonymous in (False, True):
+                            scratch = AnonymousScratch(directory) if anonymous else work
+                            try:
+                                result = check_unsat_proof(campaign, 'auto', cnf, proof, scratch, 10)
+                                self.assertEqual(result['result'], 'verified', result)
+                                self.assertGreater(result['stages'][0]['input_restatements'], 0)
+                            finally:
+                                if anonymous: scratch.close()
+                        self.assertEqual(cnf.read_text(), raw)
+
     def test_native_dsr_legal_layouts_on_all_checker_surfaces(self):
         from proof_oracle import check_dsr
         from runtime_task import check_unsat_proof
