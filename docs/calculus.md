@@ -364,8 +364,8 @@ root closure at apply entry. V1/V2 Probe/Backbone additionally require `!conflic
   additions even if an identical binary is already live; the duplicate is RUP from that existing clause and has its own immutable
   proof identity. AND — each equivalence binary is RUP from the two gates’ clauses (bridged by the equivalence binaries added
   earlier in the closure; a root-true intermediate contributes its proved unit id). XOR — a parity-elimination **ladder**: eliminate
-  one rhs variable per level, at each level emit `{signed-prefix,¬a,b}` and `{signed-prefix,a,¬b}` for all sign patterns; every
-  lemma is RUP over the current DB, the two size-0 lemmas are the binaries. ITE — a fixed **6-clause case-split on cond**:
+  every cancelled representative from either original gate and all but one unassigned shared rhs variable, emitting `{signed-prefix,¬a,b}` and `{signed-prefix,a,¬b}` for all sign patterns; representatives assigned by the negated output conclusion need no split.
+  Every lemma is RUP over the current DB; the two size-0 lemmas are the binaries. ITE — a fixed **6-clause case-split on cond**:
   `{a,¬b,±cond}`, `{¬a,b,±cond}` then the two binaries. A **degeneracy** conclusion (output unit, input unit, or unary merge) is
   likewise not RUP on its own — the parity clauses propagate nothing until all but one of their literals is assigned — and needs its
   own ladder, quantified over the **cancelled** representatives rather than over a shared rhs: for `size = |cancelled| … 1`, every

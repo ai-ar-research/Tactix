@@ -95,18 +95,19 @@ Debug/Release proof-byte equality, two old-Debug abort controls. Focused tests
 pass. Full Debug CTest is terminal: **178/179 passed**, `sweep_proofs` failed
 every-lemma Trestle on corpus 033. Earlier live summaries misread the completion
 counter as passing tests. Exact log: `...-am341-unwatch/ctest-debug-all.log`.
-Original Opus owner PID `1934171` exited 0 before terminal reporting; recovery
-PID `2078249`, session `81011`, owns the SAME live campaign through its terminal
-report, from `claude-owner-terminal-recovery.md` in the authority. Published
-status records handoff matrix `1716499` and nonvacuous count-PB/tamper controls
-`1716502` passed. Preserve Debug random `1716500`, sanitizer `1716503` and Lucky
-floor arrays `1716504`/`1716512`; read only status/report/bounded handoffs in
-`...-am341-unwatch-claude-fuzz`. Evidence:
-`benchmarks/reports/2026-09-24-am341-unwatch-checkpoint.md`.
-Owner status now reports four native DSR rejections on xor-quad/dup/rename
-in traced run and replay (Release 342002803/342503593/342603177; Debug 343401436).
-Bounded triage `1716560` and Release firing-floor top-up `1716566` remain owned
-by Claude; obtain the explicit bounded handoff before inspecting artifacts.
+Original Opus owner `1934171` exited before reporting; recovery `2078249`
+finished the SAME campaign. Terminal `...-am341-unwatch-claude-fuzz/REPORT.md`
+is FAILED: assertion-focused coverage passes, but six native DSR proofs reject.
+Lucky floors are met (Release 68, Debug 16); Propagate boundary reach remains
+unproved. Evidence: `benchmarks/reports/2026-09-24-am341-unwatch-checkpoint.md`.
+
+AM346 repairs the bounded XOR-matching failure: quantify cancelled inputs from
+both gates in the shared proof ladder. No guard/schedule change. Debug/Release
+pass 192 fixed cases; 72 fixed certificates and 30 exact handoff runs verify.
+Authority `...-am346-xor-cancellation`, patch `4de87c93...`, archive `c6623309...`,
+Debug `7e2abefb...`, Release `4e8a5306...`; Opus `3831909`/session `82572` owns
+affected fuzz. Full CTest `77542` is live; the corrected micro-proof invocation
+passes. Evidence: `benchmarks/reports/2026-09-24-am346-xor-cancellation-checkpoint.md`.
 
 AM342 is an **unaccepted tooling-only repair** of AM340 F1/O3. Conversion
 eligibility uses numeric zero-terminated clauses on validated spelling; the
@@ -131,9 +132,9 @@ allowance to `-t`, without extending their outer wall timeout. Authority:
 `...-am343-empty-lrat`, patch `71a231a3...`, archive `dbf7d663...`; solver/checker
 pins unchanged. Fixed suites and full selftest pass, including corrupted-hint
 rejection and anonymous scratch. Original Opus owner `2249935` exited 0 without
-terminal reporting. Recovery PID `2470638`, session `88761`, preserves the SAME
-campaign/jobs via `claude-owner-terminal-recovery.md`; tooling `1716530` passed,
-oracle `1716565` and smokes `1716568`/`1716569` run before the focused matrix.
+terminal reporting. Recovery `2470638` finished the SAME campaign: terminal
+report records 8,320 cases without a new solver failure, 226 timeouts, and H1
+outer-wait overflow above 2,147,483.647 s; bounded handoff awaits repair.
 Four-row diagnostic `...-am343-routed-diagnostic`, array `1716522` (watcher
 session `71694`): WV100 ranks 68/74 independently verified, solve 0.568/1.521 s,
 check 38.769/108.918 s; SCPC also verified (65.392 s solve, 112.357 s check).
@@ -148,7 +149,7 @@ Both dsr-trim and Trestle now receive validated clause-preserving spelling,
 including the tier runner. No solver/checker binary changes. Fixed suites and
 full selftest pass. Authority `...-am344-dsr-routing`, patch `ec421484...`,
 archive `6ce9470d...`; explicit Opus owner PID `2591052`, session `74882`, owns
-affected validation in `...-am344-dsr-routing-claude-fuzz`. Evidence:
+affected validation in `...-am344-dsr-routing-claude-fuzz`; new F1 PBP blank-line reader rejection is open. Evidence:
 `benchmarks/reports/2026-09-24-am344-dsr-routing-checkpoint.md`.
 
 AM345 is an **unaccepted tooling-only LRAT repair**: explicit checked duplicate
@@ -316,9 +317,9 @@ byte-identical solver pins remain in the AM333 gate campaigns.
    AM343 repairs genuine-empty-input missing LRAT and the inner DRAT timeout;
    preserve its affected owner and live four-row diagnostic. AM344 repairs
    malformed DSR routing classification and DSR reader-layout limitations;
-   preserve its owner. Next consume AM341's bounded DSR-rejection handoff and
-   debug it and the sweep failure; AM345 repairs the repeated-literal LRAT path.
-   Preserve its affected owner. Legal comment lines
+   preserve its owner. AM346 repairs the bounded XOR-matching DSR failure;
+   preserve its owner and finish the remaining five-case check, fuzz and CTest.
+   Repair AM343 H1 and AM344 F1; preserve AM345's LRAT owner. Legal comment lines
    already pass both readers; obtain an exact bounded failing legal layout if
    the earlier owner finding persists rather than changing parser tolerance.
    Complete these oracle obligations before successor gates; no affected
