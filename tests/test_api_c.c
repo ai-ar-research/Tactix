@@ -81,6 +81,53 @@ static void test_lucky_model_status_after_inprocessing(void) {
   tactix_release(s);
 }
 
+static void check_cce_model(tactix *s, const int clauses[][6], size_t count,
+                            int stage) {
+  for (size_t i = 0; i < count; ++i) {
+    int satisfied = 0;
+    for (const int *lit = clauses[i]; *lit; ++lit)
+      satisfied |= tactix_value(s, *lit) == *lit;
+    if (!satisfied)
+      fprintf(stderr, "CCE model: stage %d clause %zu\n", stage, i);
+    assert(satisfied && "public model falsifies an original clause");
+  }
+}
+
+/* A reconstructed SAT model is a public result, not a mutation of the live
+ * trail. Normal and Lucky-first sessions must keep original-CNF models after
+ * repeated solve calls. */
+static void test_repeated_solve_after_cce(void) {
+  static const int clauses[][6] = {
+      {-17, 22, 0}, {-9, -3, 8, 11, 0}, {19, 16, 0},
+      {24, -11, 0}, {-23, 4, 0}, {4, 3, 0}, {-11, 21, 0},
+      {5, -15, 0}, {4, 9, 0}, {9, 19, 0},
+      {-19, -21, 1, -4, 0}, {-23, 9, 0}, {14, -15, 0},
+      {-2, 4, 0}, {14, 3, 0}, {-13, 12, 0},
+      {-22, 17, 2, 23, 0}, {22, -1, 0}, {4, -8, 0},
+      {24, 9, 0}, {12, 14, 0}, {19, -6, 0},
+      {9, 12, 0}, {21, -6, 0}, {-17, -1, 0},
+      {22, -23, 0}, {9, 21, 0}, {9, -2, 0},
+      {-1, -11, 0}, {-8, 14, 0}, {14, 24, 0},
+      {15, -24, -14, -12, 0}, {-15, -13, 0},
+      {-17, -2, 0}, {-18, 21, 0}, {22, -11, 0}};
+  for (int lucky_first = 0; lucky_first <= 1; ++lucky_first) {
+    tactix *s = tactix_init();
+    for (size_t i = 0; i < sizeof clauses / sizeof *clauses; ++i)
+      add_clause(s, clauses[i]);
+    assert(tactix_apply(s, rule_id("CCE")) == 0);
+    if (lucky_first) {
+      assert(tactix_apply_semantic_instance(s, rule_id("Lucky"), 5) == 10);
+      assert(tactix_status(s) == 10);
+      check_cce_model(s, clauses, sizeof clauses / sizeof *clauses, -1);
+    }
+    for (int pass = 0; pass < 2; ++pass) {
+      assert(tactix_solve(s) == 10);
+      check_cce_model(s, clauses, sizeof clauses / sizeof *clauses, pass);
+    }
+    tactix_release(s);
+  }
+}
+
 /* N1: the client is the branching policy, driving the registry directly. */
 static void test_external_branching(void) {
   tactix *s = tactix_init();
@@ -483,6 +530,7 @@ int main(void) {
   test_solve_sat();
   test_discarded_only_variables_extend_model();
   test_lucky_model_status_after_inprocessing();
+  test_repeated_solve_after_cce();
   test_external_branching();
   test_instance_surface();
   test_conflict_boundary_restart_and_reduce();

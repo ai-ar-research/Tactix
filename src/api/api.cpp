@@ -55,7 +55,7 @@ bool has_sat_assignment(const Kernel &kernel) {
          kernel_propagation_fixpoint(kernel);
 }
 
-void prepare_external_model(tactix_solver *solver, bool materialize = false) {
+void prepare_external_model(tactix_solver *solver) {
   Kernel &kernel = solver->kernel;
   if (kernel.model_extended &&
       solver->model_strategy_epoch == kernel.strategy_epoch)
@@ -64,7 +64,7 @@ void prepare_external_model(tactix_solver *solver, bool materialize = false) {
   // Any public rule/configuration transition changes strategy_epoch; an old
   // reconstructed assignment must not survive a restart and new decisions.
   kernel.model_extended = false;
-  kernel_extend_model(kernel, materialize);
+  kernel_extend_model(kernel, /*materialize_internal=*/false);
   solver->model_strategy_epoch = kernel.strategy_epoch;
 }
 
@@ -1308,7 +1308,11 @@ int tactix_solve(tactix_solver *s) {
   rule_journal_close();
   external_state_change(s);
   if (r == 10)
-    prepare_external_model(s, /*materialize=*/true);
+    // A public solver can be solved again. Replay of ρ belongs in the
+    // external model cache only: writing its repaired values into the live
+    // assignment would desynchronize values from trail/reasons and make the
+    // next solve start from a state that no longer models the live clauses.
+    prepare_external_model(s);
   if (r == 20)
     s->proof.flush();
   return r;

@@ -328,6 +328,33 @@ static void test_model_reconstruction_solved() {
            "every original clause satisfied by the extended model");
 }
 
+// After a CCE pass the default structured-root program may simplify again
+// before search. Its model must still replay the earlier witnesses against
+// every original clause, independent of a Lucky SAT probe.
+static void test_model_reconstruction_after_structured_root() {
+  const Cnf orig = {
+      {-17, 22}, {-9, -3, 8, 11}, {19, 16}, {24, -11}, {-23, 4},
+      {4, 3}, {-11, 21}, {5, -15}, {4, 9}, {9, 19},
+      {-19, -21, 1, -4}, {-23, 9}, {14, -15}, {-2, 4}, {14, 3},
+      {-13, 12}, {-22, 17, 2, 23}, {22, -1}, {4, -8}, {24, 9},
+      {12, 14}, {19, -6}, {9, 12}, {21, -6}, {-17, -1},
+      {22, -23}, {9, 21}, {9, -2}, {-1, -11}, {-8, 14},
+      {14, 24}, {15, -24, -14, -12}, {-15, -13}, {-17, -2},
+      {-18, 21}, {22, -11}};
+  Kernel k;
+  load(k, 24, orig);
+  assert(cce_apply(k) == ApplyResult::Ok);
+  assert(k.stats.cce_deleted > 0);
+  assert(default_solve(k) == 10);
+  kernel_extend_model(k);
+  for (const auto &cl : orig) {
+    bool sat = false;
+    for (const int e : cl)
+      sat |= k.model_values[internalize(e)] > 0;
+    assert(sat && "CCE plus structured-root returned a wrong original model");
+  }
+}
+
 static int binary_proof_witness(const char *input, const char *output,
                                 const char *format) {
   Kernel k;
@@ -378,6 +405,7 @@ int main(int argc, char **argv) {
   test_binary_semantic_instance();
   test_filter_and_resume();
   test_model_reconstruction_solved();
+  test_model_reconstruction_after_structured_root();
   test_reconstruction_exhaustive();
   std::printf("test_cce: all passed\n");
   return 0;
