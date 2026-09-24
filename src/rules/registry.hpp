@@ -124,9 +124,10 @@ struct RuleVTable {
   RuleTier tier;
   RuleEligibility (*guard)(const Kernel &);
   ApplyResult (*apply)(Kernel &); // canonical instance
-  // instance surface (null for rules with no per-application choice, whose only
-  // instance is the canonical one). instances() fills up to cap payloads ranked
-  // canonical-first and is lazy — never the whole space; apply_instance() must
+  // uint64 instance surface (null for rules with no such choice; Condition
+  // instead has a structured tuple through the C API). instances() fills cap
+  // payloads ranked canonical-first and is lazy — never the whole space;
+  // apply_instance() must
   // be total for every payload instances() may yield, and reject anything else.
   uint32_t (*instances)(Kernel &, uint64_t *out, uint32_t cap) = nullptr;
   ApplyResult (*apply_instance)(Kernel &, uint64_t inst) = nullptr;

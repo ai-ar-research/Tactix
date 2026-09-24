@@ -1,8 +1,7 @@
-/* Arm-space coverage: `tactix_apply_instance` reaches every registry entry,
- * and each entry answers a payload per its own surface — an entry without one
- * rejects it (-1), an entry with one interprets, clamps or no-ops it and never
- * returns -1, that return being reserved for a failed guard or unknown rule.
- * The instance surface is the learned policy's action space (plan §5.6). */
+/* Arm-space coverage: every registry entry is exercised through its declared
+ * public instance surface. Most use uint64 payloads; X5's variable-length
+ * (clause,cube) tuple necessarily uses tactix_apply_condition. A rule without
+ * a uint64 payload rejects an arbitrary payload (-1). */
 #undef NDEBUG
 #include "tactix.h"
 
@@ -13,10 +12,10 @@
 #define MAX_RULES 64
 #define NINST 64
 
-/* Entries with no instance surface: one application, so a payload is an
- * invalid argument. */
+/* Entries with no uint64 payload surface: a numeric payload is invalid.
+ * Condition instead has a structured public tuple surface below. */
 static const char *const NO_SURFACE[] = {"Propagate", "SubstitutionRedundancy",
-                                         "SwitchMode"};
+                                         "SwitchMode", "Condition"};
 
 /* Entries whose enumeration is exactly the canonical sentinel: an
  * `apply_instance` with nothing to choose between. Joining or leaving this set
@@ -115,6 +114,7 @@ static tactix *prepare(int id) {
 /* Per-rule coverage, accumulated across the fresh solvers below. */
 static int hit_canonical[MAX_RULES];
 static int hit_payload[MAX_RULES];
+static int hit_structured[MAX_RULES];
 static int enum_empty[MAX_RULES];
 static int progressed;
 
@@ -126,6 +126,18 @@ static void drive(tactix *s, int id) {
   assert(n >= 0 && "prepare() must reach a state where the guard holds");
 
   const int bare = (n == 1 && insts[0] == TACTIX_INSTANCE_CANONICAL);
+  if (!strcmp(name, "Condition")) {
+    const int clause[] = {24, 25, 26};
+    const int witness[] = {24};
+    assert(bare && "structured X5 has no uint64 tuple encoding");
+    assert(tactix_apply_instance(s, id, TACTIX_INSTANCE_CANONICAL) == 1 &&
+           "the X5 canonical placeholder must not guess a cube");
+    assert(tactix_apply_condition(s, clause, 3, witness, 1) == 0 &&
+           "the explicit X5 tuple must reach an effect");
+    hit_structured[id] = 1;
+    progressed++;
+    return;
+  }
   assert(bare == CANONICAL_ONLY_P(name) &&
          "the canonical-only set moved; see CANONICAL_ONLY");
   if (n == 0)
@@ -178,7 +190,7 @@ static void alias_contract(tactix *s, int id) {
 
 int main(void) {
   const int n = tactix_rule_count();
-  int id, reached = 0, payload = 0;
+  int id, reached = 0, payload = 0, structured = 0;
   assert(n <= MAX_RULES);
 
   for (id = 0; id < n; id++) {
@@ -190,24 +202,25 @@ int main(void) {
     tactix *t = prepare(id);
     alias_contract(t, id);
     tactix_release(t);
-    reached += (hit_canonical[id] || hit_payload[id]);
+    reached += (hit_canonical[id] || hit_payload[id] || hit_structured[id]);
     payload += hit_payload[id];
+    structured += hit_structured[id];
   }
 
-  /* per entry: the chosen-instance path ran, or only the sentinel did */
+  /* Per entry: the chosen payload, structured tuple, or sentinel path ran. */
   for (id = 0; id < n; id++)
     printf("  %-18s %s%s\n", tactix_rule_name(id),
-           hit_payload[id] ? "PAYLOAD" : "CANON  ",
+           hit_structured[id] ? "STRUCT "
+                              : hit_payload[id] ? "PAYLOAD" : "CANON  ",
            enum_empty[id] ? "  (enumeration empty here)" : "");
 
   assert(reached == n &&
-         "every registry entry must be reachable through tactix_apply_instance "
-         "— that surface IS the learned policy's action space (§5.6)");
+         "every registry entry must be reachable through its public action surface");
   assert(progressed > 0 &&
          "not one application made progress, so this run pinned the return "
          "convention and nothing else");
-  printf("test_api_instances: %d/%d entries applied via tactix_apply_instance "
-         "(%d through a chosen payload), %d made progress\n",
-         reached, n, payload, progressed);
+  printf("test_api_instances: %d/%d entries reached via public actions "
+         "(%d through a chosen uint64 payload, %d structured), %d made progress\n",
+         reached, n, payload, structured, progressed);
   return 0;
 }
