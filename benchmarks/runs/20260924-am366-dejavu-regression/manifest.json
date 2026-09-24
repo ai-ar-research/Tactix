@@ -1,0 +1,14 @@
+{
+  "campaign": "20260924-am366-dejavu-regression",
+  "scope": "test-only component adjacency preservation after AM364 degree repair",
+  "solver_source_commit": "2c42a6d5",
+  "test_source_sha256": "c6d668e735a36bd7426d9ce8c4be914fd173bf6243d42aaa26f9d0419b5b4504",
+  "debug_test_executable_sha256": "7212c7414e0d201193c21ea69d76203987a65eeee2753a4fe91d36bd0f177733",
+  "release_test_executable_sha256": "f5ee73c44f55dc878ecb3036de5b2504b4b499dfd6b1053113f7b52d2268ed25",
+  "release_ctest_log_sha256": "4d9c2544560fce67c668de8ce538539081d6f4005c1b3cc937ed9629264fb761",
+  "debug_result": "PASS: test_symmetry_backend direct full suite",
+  "release_result": "PASS: ctest symmetry_backend 48.33 s",
+  "other_results": "PASS: symmetry_backend_build_boundary and comment_hygiene on Debug",
+  "am364_owner_verdict": "pending",
+  "tier_d_submitted": false
+}
