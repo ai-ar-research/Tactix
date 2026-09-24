@@ -1,0 +1,9 @@
+{
+  "seed": 346019195,
+  "failure": "proof",
+  "solver_args": [],
+  "solver_env": {},
+  "found_by": "AM346 F1-CLI bounded case-9195.cnf handoff",
+  "diagnosis": "DefaultPolicy returns UNSAT with a rejected native DSR proof (dsr-trim line 12). AM348 Release reproduces the defect in SLURM job 1717165.",
+  "fix": "Shared unary-XOR cancellation ladders; candidate Debug DSR, DRAT and LRAT verify in job 1717167."
+}

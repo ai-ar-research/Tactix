@@ -1703,27 +1703,29 @@ bool congruence_rup_chain(Kernel &k, const Lit *lits, uint32_t n,
     return true;
   kernel_probing_begin(k);
   bool conflict = false;
-  Var implied = UINT32_MAX; // a lemma literal the assumptions already forced TRUE
+  Var implied = UINT32_MAX; // a lemma literal already true at the root
   for (uint32_t i = 0; i < n && !conflict; i++) {
     const Lit neg = negate(lits[i]);
     const int8_t v = k.value(neg);
     if (v < 0) {
-      // `lits[i]` is already true, so assuming its negation conflicts at once
-      // and the reason that forced it is the refutation. Not an optimisation:
-      // on a miter the ladder's own prefix propagates the conclusion, so
-      // treating this as "not RUP" loses what the ladder exists for.
+      // A root-true lemma literal immediately contradicts the complete
+      // negated cube; its named root unit is the refutation.
       implied = var_of(lits[i]);
       conflict = true;
       break;
     }
     if (v > 0)
-      continue; // already implied by an earlier assumption — nothing to assume
+      continue; // root fact or duplicate assumption — nothing to assign
     k.level++;
     k.frames.push_back(static_cast<uint32_t>(k.trail.size()));
     kernel_assign(k, neg, k.level, DECISION_REASON, false);
-    if (kernel_propagate_probing(k))
-      conflict = true;
   }
+  // LRAT starts with ALL negated lemma literals assigned. Propagating between
+  // assumptions can give a later assumption a reason; that reason is already
+  // satisfied in the checker's initial state and is not a legal unit hint.
+  // Install the complete cube first, then collect its propagation refutation.
+  if (!conflict)
+    conflict = kernel_propagate_probing(k);
   uint64_t last = 0;
   std::vector<std::pair<uint32_t, uint64_t>> entries;
   // Only LRAT has a chain to read, and only LRAT can read one: the walk cites
@@ -3746,7 +3748,7 @@ ApplyResult congruence_apply(Kernel &k) {
         std::vector<std::vector<uint64_t>> chains;
         transient.clear();
         bool justified;
-        if (value_derived_i) {
+        if (value_derived_i && cancelled.empty()) {
           chains.resize(2);
           justified = congruence_rup_chain(k, units[0].data(), 1,
                                            chains[0]) &&
@@ -3770,12 +3772,11 @@ ApplyResult congruence_apply(Kernel &k) {
       std::vector<std::vector<uint64_t>> cch;
       transient.clear();
       bool justified;
-      if (value_derived_i) {
+      if (value_derived_i && cancelled.empty()) {
         cch.resize(2);
-        // Canonical unary reductions come from one extracted gate whose
-        // complete definition is still live. LRAT replays them to collect
-        // antecedents; witnessless formats let their checkers perform that
-        // same RUP check without duplicating it inside the solver.
+        // Root values justify removing those inputs, not an independent
+        // cancelled pair. Such a pair still needs the ladder below before
+        // either unary equivalence binary is RUP, just as for gate units.
         justified = congruence_rup_chain(k, concl[0].data(), 2, cch[0]) &&
                     congruence_rup_chain(k, concl[1].data(), 2, cch[1]);
       } else {
@@ -4406,7 +4407,7 @@ ApplyResult congruence_apply_semantic_instance(Kernel &k, uint64_t instance) {
             std::vector<std::vector<uint64_t>> chains;
             std::vector<TransientLemma> transient;
             bool justified;
-            if (match.value_derived) {
+            if (match.value_derived && match.cancelled.empty()) {
               chains.resize(2);
               justified = congruence_rup_chain(k, units[0].data(), 1,
                                                chains[0]) &&
@@ -4430,7 +4431,7 @@ ApplyResult congruence_apply_semantic_instance(Kernel &k, uint64_t instance) {
           std::vector<std::vector<uint64_t>> chains;
           std::vector<TransientLemma> transient;
           bool justified;
-          if (match.value_derived) {
+          if (match.value_derived && match.cancelled.empty()) {
             chains.resize(2);
             justified = congruence_rup_chain(
                             k, conclusions[0].data(), 2, chains[0]) &&

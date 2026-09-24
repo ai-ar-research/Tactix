@@ -1,0 +1,9 @@
+{
+  "failure": "proof",
+  "solver_args": [],
+  "solver_env": {},
+  "found_by": "AM346 F1 bounded xite180/reproducer/min.cnf handoff",
+  "diagnosis": "Canonical Congruence omits the XOR cancellation ladder on a unary gate with another root-valued input. Root simplification does not prove cancellation of an independent equivalence pair.",
+  "reproduction": "Use the public C API to apply canonical Congruence before solve; the default CLI does not reach this failure on this minimized input. Exact driver and old/new commands are in benchmarks/runs/20260924-am349-congruence-diagnostic.",
+  "fix": "Keep cancellation ladders on every unary equivalence/contradiction path, independent of other root values."
+}

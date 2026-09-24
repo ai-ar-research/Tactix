@@ -31,10 +31,10 @@ evidence in frozen reports and runs. The solver is sequential and deterministic.
    Only afterward study restart-boundary SR benefit beyond startup preprocessing
    on B28+C5 and Rank 1--40, as specified in §8.3.
 
-Do not submit a new full Tier-D run after this symmetry increment. A future full
-Tier-D campaign requires a separate decision after focused WV100 evidence.
-Existing proof-checking jobs remain background checks and do not block
-independent work.
+The user authorizes a full Tier-D Tactix comparison after pending fuzz defects,
+baseline-rule coverage, N1--N4 verification, and online-learning cleanup are complete.
+Match the original winner resources and 5,000-second solver limit on the requested
+hwulab partition; resolve any resource ambiguity before submission.
 
 Historical checker evidence: [SC 2026 audit](benchmarks/reports/2026-09-15-sc2026-sr-checking-audit.md).
 Routine 57-row evaluations use a separate 3,600-second complete checker
