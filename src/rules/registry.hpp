@@ -9,6 +9,7 @@
 #include <functional>
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
 #include <string>
+#include <vector>
 #endif
 
 namespace tactix {
@@ -23,8 +24,8 @@ enum class RuleTier { Micro, Macro, Inprocess };
 // σ = ⟨F,R,τ,ρ,π⟩ is non-trivial, so it carries a proof obligation and a
 // docs/calculus.md entry — or a policy operation: H-only search guidance
 // (Rephase, SwitchMode, Walk, Reorder), a sub-policy with no proof delta. Both
-// live in this one name-sorted registry so ids never split; splitting into two
-// id spaces would renumber the frozen v1 API. The kind is metadata only: the
+// live in this one append-only ID registry so ids never split; splitting into
+// two id spaces would renumber the frozen v1 API. The kind is metadata only: the
 // kernel and DefaultPolicy never read it, and it is exposed via
 // tactix_action_kind and mirrored to C as TACTIX_ACTION_* (include/tactix.h).
 // Values are frozen (they cross the C ABI).
@@ -50,15 +51,13 @@ struct RuleEligibility {
     const char *name;
     bool value;
   };
-  Fact facts[8]{};
-  uint8_t fact_count = 0;
+  std::vector<Fact> facts;
 #endif
 
   RuleEligibility &fact(const char *name, bool value) {
     eligible = eligible && value;
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
-    assert(fact_count < sizeof facts / sizeof *facts);
-    facts[fact_count++] = {name, value};
+    facts.push_back({name, value});
 #else
     (void)name;
 #endif
@@ -141,8 +140,8 @@ struct RuleVTable {
   // than the brace-init so existing registration lines are unchanged.
   ActionKind kind = ActionKind::ProofRule;
   // This rule's id == its index in tactix_rules(), stamped there after the
-  // name-sort so a vtable reference can charge its own timing slot without the
-  // caller threading the id through. Not set by registration.
+  // frozen ID ordering so a vtable reference can charge its own timing slot
+  // without the caller threading the id through. Not set by registration.
   uint32_t id = 0;
   // Declares explicit instances belonging to the original-input certificate
   // boundary. Choosing any other action closes that boundary for this run.
@@ -182,8 +181,8 @@ ApplyResult journal_direct_rule(Kernel &, const char *name,
 // pass the ActionKind, which stamps the vtable before it is stored.
 int tactix_register_rule(ActionKind kind, const RuleVTable &);
 
-// stable view: sorted by name once all rules are registered, so rule ids
-// are deterministic regardless of link order
+// Stable view: the original name-sorted IDs are frozen, and new actions must
+// be appended to the explicit order in registry.cpp, regardless of link order.
 const std::vector<RuleVTable> &tactix_rules();
 int tactix_rule_id(const char *name); // -1 if unknown
 
@@ -195,7 +194,7 @@ int tactix_rule_id(const char *name); // -1 if unknown
           ::tactix::ActionKind::ProofRule, {#NAME, TIER, __VA_ARGS__})
 
 // A policy operation (plan §4): H-only search guidance, no proof obligation.
-// Same registry, same name-sorted id space, same guard/apply(/instance)
+// Same registry, same append-only id space, same guard/apply(/instance)
 // contract — only the ActionKind differs, so a rule reclassified in place
 // keeps its id.
 #define TACTIX_REGISTER_POLICY_OP(NAME, TIER, ...) \

@@ -481,7 +481,7 @@ static void test_stats_and_config_surface(void) {
 }
 
 /* Pin the frozen registry id/name assignment and each entry's ActionKind.
- * A new rule renumbers ids by name sort, so update this list with it. */
+ * A new action must append here without changing any earlier entry. */
 static void test_action_kind(void) {
   static const char *const golden[] = {
       "BCE",        "BVE",        "Backbone",         "CCE",

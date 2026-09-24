@@ -252,14 +252,14 @@ int tactix_value(tactix *, int lit);
 
 /* --- R3/N1: rule introspection and stepwise application ---------------- */
 
-/* number of registered rule families (stable ids: 0..count-1, sorted by
- * name) */
+/* number of registered rule families (stable ids: 0..count-1; the original
+ * names were sorted, and later actions append without renumbering them) */
 int tactix_rule_count(void);
 const char *tactix_rule_name(int rule_id);
 
 /* Action kind (plan §4): a proof rule, which affects the proof state and so
  * carries a proof obligation, or an H-only policy operation. Both share one
- * name-sorted id space. Returns TACTIX_ACTION_*, or -1 if rule_id is out of
+ * append-only id space. Returns TACTIX_ACTION_*, or -1 if rule_id is out of
  * range. */
 #define TACTIX_ACTION_PROOF_RULE 0
 #define TACTIX_ACTION_POLICY_OP 1

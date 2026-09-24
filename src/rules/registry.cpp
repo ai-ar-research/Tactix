@@ -4,6 +4,8 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <string>
 
@@ -48,19 +50,19 @@ void journal_dispatch(const RuleVTable &vt, const Kernel &k,
   record.root_epoch = root_epoch;
   record.pre_digest = pre_digest;
   record.guards.clear();
-  for (uint8_t i = 0; i < eligibility.fact_count; i++) {
+  for (const RuleEligibility::Fact &fact : eligibility.facts) {
     if (!record.guards.empty())
       record.guards.push_back(';');
-    record.guards += eligibility.facts[i].name;
+    record.guards += fact.name;
     record.guards.push_back('=');
-    record.guards.push_back(eligibility.facts[i].value ? '1' : '0');
+    record.guards.push_back(fact.value ? '1' : '0');
   }
   record.outcome = eligibility ? journal_outcome(result) : "declined";
   record.decline = "none";
   if (!eligibility) {
-    for (uint8_t i = 0; i < eligibility.fact_count; i++)
-      if (!eligibility.facts[i].value) {
-        record.decline = std::string("guard:") + eligibility.facts[i].name;
+    for (const RuleEligibility::Fact &fact : eligibility.facts)
+      if (!fact.value) {
+        record.decline = std::string("guard:") + fact.name;
         break;
       }
   }
@@ -92,18 +94,54 @@ int tactix_register_rule(ActionKind kind, const RuleVTable &vt) {
 }
 
 const std::vector<RuleVTable> &tactix_rules() {
-  static const std::vector<RuleVTable> sorted = [] {
-    auto rules = mutable_rules();
-    std::sort(rules.begin(), rules.end(),
-              [](const RuleVTable &a, const RuleVTable &b) {
-                return std::strcmp(a.name, b.name) < 0;
-              });
-    // id == index, stamped once the order is final (see RuleVTable::id)
-    for (size_t i = 0; i < rules.size(); i++)
-      rules[i].id = static_cast<uint32_t>(i);
+  static const std::vector<RuleVTable> ordered = [] {
+    // Public IDs 0..27 were originally assigned by name sort. They are now
+    // frozen: append each future action here instead of inserting it into
+    // alphabetical order and silently renumbering the C API.
+    static constexpr const char *names[] = {
+        "BCE",         "BVE",              "Backbone",
+        "CCE",         "ConflictAnalysis", "Congruence",
+        "Decide",      "Factor",           "HyperBinaryRes",
+        "HyperTernaryRes", "Instantiate",  "LocalSearchGuidance",
+        "Lucky",       "Probe",            "Propagate",
+        "Reduce",      "Reorder",          "Rephase",
+        "Restart",     "Strengthen",       "Substitute",
+        "SubstitutionRedundancy", "SubsumeForward", "Sweep",
+        "SwitchMode",  "TransitiveReduce", "Vivify",
+        "Walk"};
+    const auto &registered = mutable_rules();
+    constexpr size_t count = sizeof names / sizeof *names;
+    if (registered.size() != count) {
+      std::fprintf(stderr,
+                   "c ERROR: registry has %zu actions but %zu frozen IDs; "
+                   "append new action names to registry.cpp\n",
+                   registered.size(), count);
+      std::abort();
+    }
+    std::vector<RuleVTable> rules;
+    rules.reserve(count);
+    for (const char *name : names) {
+      const auto match = std::find_if(
+          registered.begin(), registered.end(),
+          [name](const RuleVTable &rule) {
+            return std::strcmp(rule.name, name) == 0;
+          });
+      if (match == registered.end() ||
+          std::find_if(match + 1, registered.end(),
+                       [name](const RuleVTable &rule) {
+                         return std::strcmp(rule.name, name) == 0;
+                       }) != registered.end()) {
+        std::fprintf(stderr,
+                     "c ERROR: registry action '%s' missing or duplicated\n",
+                     name);
+        std::abort();
+      }
+      rules.push_back(*match);
+      rules.back().id = static_cast<uint32_t>(rules.size() - 1);
+    }
     return rules;
   }();
-  return sorted;
+  return ordered;
 }
 
 uint64_t now_nanos() {
