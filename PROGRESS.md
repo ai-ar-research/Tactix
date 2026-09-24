@@ -134,7 +134,7 @@ pins unchanged. Fixed suites and full selftest pass, including corrupted-hint
 rejection and anonymous scratch. Original Opus owner `2249935` exited 0 without
 terminal reporting. Recovery `2470638` finished the SAME campaign: terminal
 report records 8,320 cases without a new solver failure, 226 timeouts, and H1
-outer-wait overflow above 2,147,483.647 s; bounded handoff awaits repair.
+outer-wait overflow above 2,147,483.647 s; AM347 repairs it (`...-am347-checker-boundaries`, patch `039885d2...`, archive `c5c8ae78...`).
 Four-row diagnostic `...-am343-routed-diagnostic`, array `1716522` (watcher
 session `71694`): WV100 ranks 68/74 independently verified, solve 0.568/1.521 s,
 check 38.769/108.918 s; SCPC also verified (65.392 s solve, 112.357 s check).
@@ -148,15 +148,15 @@ routing rejections, not infrastructure exceptions; missing files stay errors.
 Both dsr-trim and Trestle now receive validated clause-preserving spelling,
 including the tier runner. No solver/checker binary changes. Fixed suites and
 full selftest pass. Authority `...-am344-dsr-routing`, patch `ec421484...`,
-archive `6ce9470d...`; explicit Opus owner PID `2591052`, session `74882`, owns
-affected validation in `...-am344-dsr-routing-claude-fuzz`; new F1 PBP blank-line reader rejection is open. Evidence:
-`benchmarks/reports/2026-09-24-am344-dsr-routing-checkpoint.md`.
+archive `6ce9470d...`; terminal affected report records 8,000 cases without a scope failure, plus F1 PBP layout rejection, now repaired by AM347.
+AM347 fixed suites/selftest pass; Opus `3916573`/session `60027` owns affected validation, with unchanged AM346 solver/checker pins. Evidence:
+`benchmarks/reports/2026-09-24-am347-checker-boundaries-checkpoint.md` (AM344's earlier checkpoint report remains frozen).
 
 AM345 is an **unaccepted tooling-only LRAT repair**: explicit checked duplicate
 input restatements and ID remapping preserve original CNF multiplicities.
 Fixed suites/selftest pass. Authority `...-am345-lrat-restatement`, patch
 `fd429a27...`, archive `294251d9...`; Opus PID `3377189`/session `99280` owns
-affected fuzz. Sweep diagnostic `...-am345-sweep-diagnostic`: `1716608` verifies
+affected fuzz; bounded `repro/g1271/HANDOFF.md` reports Debug OOM at seed 345501271: MAIN DEBUG NEXT. Sweep diagnostic `...-am345-sweep-diagnostic`: `1716608` verifies
 36/36; unpinned local dsr-trim causes failure. Pinned full CTest session `87252`.
 Evidence: `benchmarks/reports/2026-09-24-am345-lrat-restatement-checkpoint.md`.
 
@@ -319,7 +319,7 @@ byte-identical solver pins remain in the AM333 gate campaigns.
    malformed DSR routing classification and DSR reader-layout limitations;
    preserve its owner. AM346 repairs the bounded XOR-matching DSR failure;
    preserve its owner and finish the remaining five-case check, fuzz and CTest.
-   Repair AM343 H1 and AM344 F1; preserve AM345's LRAT owner. Legal comment lines
+   AM347 repairs H1/F1; preserve its owner. Debug AM345's bounded memory runaway before successor gates. Legal comment lines
    already pass both readers; obtain an exact bounded failing legal layout if
    the earlier owner finding persists rather than changing parser tolerance.
    Complete these oracle obligations before successor gates; no affected

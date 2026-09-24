@@ -7,6 +7,94 @@ from proof_oracle import bridge_trivial_input_binary_lsr, proof_check_status
 
 
 class ProofOracleTests(unittest.TestCase):
+    def test_captured_wait_chunks_preserve_output_and_exit_status(self):
+        import proof_oracle as oracle
+        import subprocess
+        import sys
+        from unittest.mock import patch
+        calls = []
+        communicate = subprocess.Popen.communicate
+        def observed(process, *args, **kwargs):
+            calls.append(kwargs.get('timeout'))
+            return communicate(process, *args, **kwargs)
+        command = [sys.executable, '-c',
+                   'import os,sys,time; print("x"*100000,flush=True); '
+                   'print("before",file=sys.stderr,flush=True); time.sleep(.2); '
+                   'print(os.environ["TACTIX_WAIT_TEST"]); sys.exit(7)']
+        with patch.object(oracle, 'MAX_CAPTURE_WAIT_SECONDS', .04), \
+             patch.object(subprocess.Popen, 'communicate', observed):
+            result = oracle.run_captured(command, timeout=3,
+                                         env={**os.environ, 'TACTIX_WAIT_TEST':'after'})
+        self.assertEqual(result.returncode, 7)
+        self.assertEqual(result.stdout, 'x'*100000+'\nafter\n')
+        self.assertEqual(result.stderr, 'before\n')
+        self.assertGreater(len(calls), 1)
+        self.assertTrue(all(0 <= delay <= .04 for delay in calls), calls)
+
+    def test_captured_wait_timeout_kills_reaps_and_preserves_output(self):
+        import proof_oracle as oracle
+        import subprocess
+        import sys
+        import time
+        from unittest.mock import patch
+        children = []
+        popen = subprocess.Popen
+        def start(*args, **kwargs):
+            process = popen(*args, **kwargs)
+            children.append(process)
+            return process
+        started = time.monotonic()
+        with patch.object(oracle, 'MAX_CAPTURE_WAIT_SECONDS', .04), \
+             patch('subprocess.Popen', side_effect=start), \
+             self.assertRaises(subprocess.TimeoutExpired) as caught:
+            oracle.run_captured([sys.executable, '-c',
+                'import sys,time; print("partial",flush=True); '
+                'print("err",file=sys.stderr,flush=True); time.sleep(60)'], timeout=.4)
+        self.assertEqual(caught.exception.timeout, .4)
+        self.assertEqual(caught.exception.stdout, 'partial\n')
+        self.assertEqual(caught.exception.stderr, 'err\n')
+        self.assertLess(time.monotonic() - started, 5)
+        self.assertEqual(len(children), 1)
+        self.assertIsNotNone(children[0].returncode)
+        with self.assertRaises(ChildProcessError):
+            os.waitpid(children[0].pid, os.WNOHANG)
+
+    def test_captured_wait_preserves_normal_path_and_missing_command_errors(self):
+        import proof_oracle as oracle
+        import subprocess
+        from unittest.mock import patch
+        for timeout in (None, .1, 57600):
+            with patch('subprocess.run', return_value='delegated') as run:
+                self.assertEqual(oracle.run_captured(['checker'], timeout, env={}), 'delegated')
+                run.assert_called_once_with(['checker'], capture_output=True,
+                    text=True, errors='replace', timeout=timeout, env={})
+        with self.assertRaises(FileNotFoundError):
+            oracle.run_captured(['/no-such-tactix-checker'], 2147483647)
+
+    def test_large_allowance_reaches_real_routed_and_tier_checkers(self):
+        import importlib.util
+        import proof_oracle as oracle
+        from unittest.mock import patch
+        root = Path(__file__).resolve().parents[2]
+        pins = root/'benchmarks/runs/20260923-am341-unwatch/pins'
+        spec = importlib.util.spec_from_file_location('large_wait_runner', root/'tools/bench/run.py')
+        runner = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(runner)
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            cnf, proof = work/'in.cnf', work/'certificate.drat'
+            cnf.write_text('p cnf 2 4\n1 2 0\n1 -2 0\n-1 2 0\n-1 -2 0\n')
+            proof.write_text('1 0\n0\n')
+            for budget in (2147483.647, 2147484, 2147483647):
+                with self.subTest(budget=budget):
+                    checked = oracle.check_routed(*(pins/name for name in (
+                        'dsr-trim','dsr-compress','srcheck','drat-trim','cake_lpr')),
+                        cnf, proof, work, timeout=budget)
+                    self.assertTrue(checked[0], checked)
+                    with patch.object(runner, 'DRAT_TRIM', str(pins/'drat-trim')):
+                        checked = runner.check_proof('drat', str(cnf), str(proof), budget)
+                    self.assertTrue(checked[0], checked)
+
     def test_duplicate_restatement_preserves_noop_and_input_paths(self):
         from proof_oracle import canonical_checker_cnf, restate_duplicate_input_lrat
         with tempfile.TemporaryDirectory() as directory:

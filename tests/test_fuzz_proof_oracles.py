@@ -13,6 +13,51 @@ import fuzz
 
 
 class FuzzProofOracles(unittest.TestCase):
+    def test_pbp_leading_blanks_on_every_executing_surface(self):
+        from proof_oracle import check_routed
+        from runtime_task import check_unsat_proof
+        from anonymous_scratch import AnonymousScratch
+        campaign = ROOT/'benchmarks/runs/20260923-am341-unwatch'
+        pins = campaign/'pins'
+        text = ('pseudo-Boolean proof version 3.0\nrup >= 1 ;\n'
+                'output NONE ;\nconclusion UNSAT : -1 ;\n'
+                'end pseudo-Boolean proof ;\n')
+        for prefix in ('\n', ' \t\r\n', 'c leading comment\n\n'):
+            for valid in (False, True):
+                raw = prefix + ('p cnf 1 2\n1 0\n-1 0\n' if valid else 'p cnf 1 1\n1 0\n')
+                result = self.fixture(raw, text, auto=True)
+                self.assertEqual(not result.failures, valid, result.failures)
+                for stage in result.checker_runs:
+                    self.assertIn('checker.cnf', str(stage['command']))
+                with tempfile.TemporaryDirectory() as directory:
+                    work = Path(directory)
+                    cnf, proof = work/'original.cnf', work/'certificate.pbp'
+                    cnf.write_text(raw)
+                    proof.write_text(text)
+                    original = cnf.read_bytes()
+                    checked = check_routed(None, None, None, None, None,
+                        cnf, proof, work, 60, veripb=pins/'veripb', cake_pb=pins/'cake-pb-cnf')
+                    self.assertEqual(checked[0], valid, checked)
+                    for anonymous in (False, True):
+                        scratch = AnonymousScratch(directory) if anonymous else work
+                        try:
+                            checked = check_unsat_proof(campaign, 'auto', cnf, proof, scratch, 60)
+                            self.assertEqual(checked['result'] == 'verified', valid, checked)
+                        finally:
+                            if anonymous: scratch.close()
+                    self.assertEqual(cnf.read_bytes(), original)
+                    self.assertEqual(proof.read_text(), text)
+
+    def test_fuzz_large_wait_has_checked_verdict_and_timeout(self):
+        import proof_oracle
+        with patch.object(proof_oracle, 'MAX_CAPTURE_WAIT_SECONDS', .04):
+            result = fuzz.run_cmd([sys.executable, '-c', 'print("s VERIFIED")'], 2147483647)
+            self.assertEqual(result, (0, 's VERIFIED\n', ''))
+            result = fuzz.run_cmd([sys.executable, '-c',
+                'import time; print("partial",flush=True); time.sleep(60)'], .4)
+            self.assertIsNone(result[0])
+            self.assertEqual(result[1], 'partial\n')
+
     def test_input_restatement_maps_rat_hints_and_is_independently_checked(self):
         from proof_oracle import canonical_checker_cnf, restate_duplicate_input_lrat
         import subprocess
@@ -327,7 +372,9 @@ class FuzzProofOracles(unittest.TestCase):
         pins = ROOT/'benchmarks/runs/20260923-am337-proof-lifetime-v2/pins'
         layouts = ['p cnf 1 2\n1\n0\n-1 0\n',
                    'p cnf 1 2\n1 0 -1 0\n',
-                   'p cnf 1 2\n1 0\nc between clauses\n-1 0\n']
+                   'p cnf 1 2\n1 0\nc between clauses\n-1 0\n',
+                   '\np cnf 1 2\n1 0\n-1 0\n',
+                   'c prefix\r\n \t\r\np cnf 1 2\r\n1 0\r\n-1 0\r\n']
         with tempfile.TemporaryDirectory() as directory:
             work = Path(directory)
             cnf, dsr, pbp = work/'input.cnf', work/'proof.dsr', work/'proof.pbp'
@@ -342,7 +389,7 @@ class FuzzProofOracles(unittest.TestCase):
                 result = check_dsr(pins/'dsr-trim', pins/'dsr-compress', pins/'srcheck',
                                    cnf, dsr, work, 60, every_lemma=True)
                 self.assertTrue(result[0], result)
-                self.assertEqual(cnf.read_text(), raw)
+                self.assertEqual(cnf.read_bytes(), raw.encode())
             cnf.write_text('p cnf 0 1\n0\n')
             dsr.write_bytes(b'\x01\x00')
             result = check_dsr(pins/'dsr-trim', pins/'dsr-compress', pins/'srcheck',

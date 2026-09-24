@@ -83,7 +83,8 @@ sys.path.insert(0, HERE)
 from proof_oracle import (bridge_trivial_input_binary_lsr,  # noqa: E402
                           bridge_trivial_input_lsr, dsr_compress_status,
                           reference_dsr_stages, canonical_checker_cnf,
-                          proof_check_status, drat_command_with_timeout)
+                          proof_check_status, drat_command_with_timeout,
+                          run_captured)
 # Oracle 1 of the fuzz harness (§8.2), shared here since 2026-08-08: a SAT
 # verdict's v-lines are checked against the ORIGINAL formula. The wrong-SAT
 # exhibit was caught only by the expected-verdict column; an instance without
@@ -279,9 +280,7 @@ def check_proof(fmt, cnf, proof, budget):
                     (bridge_trivial_input_binary_lsr if made == binary_lsr
                      else bridge_trivial_input_lsr)(cnf, made)
                 try:
-                    checked = subprocess.run(
-                        argv, capture_output=True, text=True,
-                        errors="replace", timeout=remaining())
+                    checked = run_captured(argv, timeout=remaining())
                 except subprocess.TimeoutExpired:
                     return (False,
                             f"{CHECKER_TIMEOUT_PREFIX}{budget:g}s budget",
@@ -316,8 +315,7 @@ def check_proof(fmt, cnf, proof, budget):
         argv = ([CAKE_LPR, checker_cnf, proof] if fmt == "lrat"
                 else drat_command_with_timeout([DRAT_TRIM, checker_cnf, proof], budget))
         try:
-            c = subprocess.run(argv, capture_output=True, text=True,
-                               errors="replace", timeout=budget)
+            c = run_captured(argv, timeout=budget)
         except subprocess.TimeoutExpired:
             return (False, f"{CHECKER_TIMEOUT_PREFIX}{budget:g}s budget",
                     CHK_TIMEOUT, [])

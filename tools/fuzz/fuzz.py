@@ -59,7 +59,7 @@ from proof_oracle import (bridge_trivial_input_binary_lsr,  # noqa: E402
                           every_lemma_dsr_stages, proof_check_status,
                           reference_dsr_stages, pb_proof_has_header, pb_stages,
                           stage_environment, canonical_checker_cnf,
-                          drat_command_with_timeout)
+                          drat_command_with_timeout, run_captured)
 
 DRAT_TRIM = os.path.join(ROOT, "tools", "checkers", "bin", "drat-trim")
 DSR_TRIM = os.path.join(ROOT, "tools", "checkers", "bin", "dsr-trim")
@@ -112,9 +112,8 @@ def _cpu_backstop(timeout):
 def run_cmd(cmd, timeout, env=None):
     """Returns (exitcode, stdout, stderr); exitcode None on timeout."""
     try:
-        r = subprocess.run(cmd, capture_output=True, text=True,
-                           errors="replace", timeout=timeout,
-                           preexec_fn=_cpu_backstop(timeout), env=env)
+        r = run_captured(cmd, timeout=timeout,
+                         preexec_fn=_cpu_backstop(timeout), env=env)
         return r.returncode, r.stdout, r.stderr
     except subprocess.TimeoutExpired as e:
         def _txt(b):

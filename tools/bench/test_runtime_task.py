@@ -135,7 +135,7 @@ class RuntimeTaskTests(unittest.TestCase):
                 manifest['pin_sha256']['pins/' + name] = 'h'
             validate_runtime_pin_contract(campaign, manifest)
 
-    def test_automatic_pb_route_requires_original_cnf_and_complete_pipeline(self):
+    def test_automatic_pb_route_preserves_original_clauses_and_complete_pipeline(self):
         from unittest.mock import patch
         from runtime_task import check_unsat_proof
         with tempfile.TemporaryDirectory() as directory:
@@ -143,7 +143,8 @@ class RuntimeTaskTests(unittest.TestCase):
             proof = work/'proof.out'
             proof.write_text('pseudo-Boolean proof version 3.0\n')
             cnf = work/'original.cnf'
-            cnf.write_text('p cnf 1 2\n1 0\nc comment\n-1 0\n')
+            original = '\np cnf 1 2\n1 0\nc comment\n-1 0\n'
+            cnf.write_text(original)
             calls = []
             def stage(scratch, name, command, timeout, produced=None):
                 calls.append((name, command, produced))
@@ -154,8 +155,10 @@ class RuntimeTaskTests(unittest.TestCase):
             self.assertEqual(result['result'], 'verified')
             self.assertEqual(result['pipeline'], 'veripb-cake-pb')
             self.assertEqual([c[0] for c in calls], ['veripb', 'cake-pb-cnf'])
-            self.assertEqual(calls[0][1][-2:], [cnf, proof])
+            self.assertEqual(calls[0][1][-2:], [work/'checker.cnf', proof])
             self.assertEqual(calls[1][1][1:], [work/'checker.cnf', work/'proof.kernel.pbp'])
+            self.assertEqual(cnf.read_text(), original)
+            self.assertEqual((work/'checker.cnf').read_text(), 'p cnf 1 2\n1 0\n-1 0\n')
             with self.assertRaisesRegex(RuntimeError, 'explicit DSR'):
                 check_unsat_proof(work, 'dsr', cnf, proof, work, 10)
 
