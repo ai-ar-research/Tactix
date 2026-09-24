@@ -2,7 +2,7 @@
 
 ## Active ordered goal
 
-Complete the two acceptance phases in order. Phase 1 requires independently
+Fix pending fuzz bugs, audit all winner/CaDiCaL/Kissat rules and N1--N4, and clean up for online learning; report to Andrew periodically. Preserve these gates: Phase 1 requires independently
 checked Rank 1--50 at 50/50 below 8,115.735 solver seconds and B28+C5 at 33/33
 below 952.263 solver seconds, with every case within 1,200 seconds and 32 GiB.
 The general Rank 1/6 preprocessing repair must remain effective. Phase 2 then
@@ -12,7 +12,7 @@ WV2-89 instances (`benchmarks/tiers/WV2-89.tsv`, plan gate T4-WV2-89) within 600
 seconds and 32 GiB with checked models or proofs, by studying each row's owning
 solver and integrating its technique as a shared rule or strategy; rows that
 several Kissat configurations solve are a DefaultPolicy parity question, never
-per-instance tuning. Phases 1 and 2 stay preserved.
+per-instance tuning. After the goal is verified, submit full Tier D at 5,000 s with the original winner resources (4 CPUs, 32 GiB; partition clarification pending); Phases 1 and 2 stay preserved.
 
 All mechanisms must live in Tactix's shared typed rule and strategy surfaces.
 No sequential portfolio, external solving stage, benchmark/rank/filename
@@ -105,9 +105,9 @@ AM346 repairs the bounded XOR-matching failure: quantify cancelled inputs from
 both gates in the shared proof ladder. No guard/schedule change. Debug/Release
 pass 192 fixed cases; 72 fixed certificates and 30 exact handoff runs verify.
 Authority `...-am346-xor-cancellation`, patch `4de87c93...`, archive `c6623309...`,
-Debug `7e2abefb...`, Release `4e8a5306...`; Opus recovery `4184596`/session `30412` owns
-the same campaign (two earlier owners exited without REPORT). New F1/F2/F3 proof findings remain open. Full CTest `77542` is live; the corrected micro-proof invocation
-passes. Evidence: `benchmarks/reports/2026-09-24-am346-xor-cancellation-checkpoint.md`.
+Debug `7e2abefb...`, Release `4e8a5306...`; terminal fuzz FAIL (F1/F1-CLI/F2/F3/F4); full CTest 179/180, with the corrected micro-proof invocation passing separately.
+AM349 repairs general unary cancellation and full-cube LRAT replay; 192 fixed cases/build, 96 generated certificates and F1/F1-CLI verify. Authority `...-am349-unary-xor`, patch `8d9be604...`, archive `4bfd8427...`, Debug `33ac9374...`, Release `e9389c96...`; Opus `1325714`/session `95543` owns fuzz; full CTest `32404` is live. Late-attachment F2 still rejects; F3/F4 remain open.
+Evidence: `benchmarks/reports/2026-09-24-am349-unary-xor-checkpoint.md`; the AM346 checkpoint and terminal owner report remain frozen.
 
 AM342 is an **unaccepted tooling-only repair** of AM340 F1/O3. Conversion
 eligibility uses numeric zero-terminated clauses on validated spelling; the
@@ -156,8 +156,8 @@ AM345 is an **unaccepted tooling-only LRAT repair**: explicit checked duplicate
 input restatements and ID remapping preserve original CNF multiplicities.
 Fixed suites/selftest pass. Authority `...-am345-lrat-restatement`, patch
 `fd429a27...`, archive `294251d9...`; Opus PID `3377189`/session `99280` owns
-affected fuzz; its bounded OOM is repaired by unaccepted AM348: only Walk's reachable score prefix is stored. Authority `...-am348-walk-score-bound`, patch `bfbf2c58...`, archive `a8e33f23...`, Debug `f2d93302...`, Release `870b0314...`; Opus `4176120`/session `72394` owns affected fuzz.
-AM348 fixed Debug/Release tests pass; job `1716796`: 24 verified certificates / 28 executions, 1.55--2.90 s, peak 12,808 KiB. Full CTest `81331` is live. Earlier sweep diagnostic `1716608` verifies 36/36; pinned full CTest `87252` is terminal 179/179 PASS (unpinned dsr-trim caused the old failure).
+affected fuzz; its bounded OOM is repaired by unaccepted AM348: only Walk's reachable score prefix is stored. Authority `...-am348-walk-score-bound`, patch `bfbf2c58...`, archive `a8e33f23...`, Debug `f2d93302...`, Release `870b0314...`; Opus recovery `1320361`/session `87977` owns the same affected campaign after the original owner exited without REPORT.
+AM348 fixed Debug/Release tests pass; job `1716796`: 24 verified certificates / 28 executions, 1.55--2.90 s, peak 12,808 KiB. Full CTest is terminal 180/180 PASS (3,181.33 s). Earlier sweep diagnostic `1716608` verifies 36/36; AM345 pinned full CTest is terminal 179/179 PASS (unpinned dsr-trim caused the old failure).
 Evidence: `benchmarks/reports/2026-09-24-am348-walk-score-bound-checkpoint.md`; the AM345 LRAT-restatement checkpoint report remains frozen.
 
 Solver/tooling authority: `10cd18c9` (certificate routing) on top of the
@@ -319,7 +319,7 @@ byte-identical solver pins remain in the AM333 gate campaigns.
    malformed DSR routing classification and DSR reader-layout limitations;
    preserve its owner. AM346 repairs the bounded XOR-matching DSR failure;
    preserve its owner and finish the remaining five-case check, fuzz and CTest.
-   AM347's terminal report validates H1/F1; A1 deadline handoff remains open. AM348 repairs AM345's OOM, pending affected fuzz. Next debug AM346's bounded F1/F2/F3 proof failures before successor gates. Legal comment lines
+   AM347's terminal report validates H1/F1; A1 deadline handoff remains open. AM348 recovery owns affected fuzz. AM349's general proof repair is pending fuzz; next repair legal late-proof attachment (F2/F3), the F4 phase assertion, and other bounded handoffs before successor gates. Legal comment lines
    already pass both readers; obtain an exact bounded failing legal layout if
    the earlier owner finding persists rather than changing parser tolerance.
    Complete these oracle obligations before successor gates; no affected

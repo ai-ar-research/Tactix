@@ -368,7 +368,7 @@ root closure at apply entry. V1/V2 Probe/Backbone additionally require `!conflic
   Every lemma is RUP over the current DB; the two size-0 lemmas are the binaries. ITE — a fixed **6-clause case-split on cond**:
   `{a,¬b,±cond}`, `{¬a,b,±cond}` then the two binaries. A **degeneracy** conclusion (output unit, input unit, or unary merge) is
   likewise not RUP on its own — the parity clauses propagate nothing until all but one of their literals is assigned — and needs its
-  own ladder, quantified over the **cancelled** representatives rather than over a shared rhs: for `size = |cancelled| … 1`, every
+  own ladder, even with other root-fixed inputs, quantified over **cancelled** representatives rather than a shared rhs: for `size = |cancelled| … 1`, every
   sign pattern over `cancelled[0..size-1]` appended to each conclusion; the size-0 lemmas are the unit / the two binaries. **No
   `add_rat`.** Equivalence-preserving (no variable eliminated here), so no `ρ` witness — the outputs stay live until V3.
   *(Native-LRAT realization and transient-lemma deletion are closed ledger rows D-CONG-LRAT / D-CONG-DELETE / D-CONG-TAUT; the
