@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <initializer_list>
+#include <vector>
 
 using namespace tactix;
 
@@ -114,6 +115,86 @@ static void test_independent_local_implication_oracle() {
           }
 }
 
+// Exhaust the non-unit three-variable clause shapes and every finite cube on
+// those variables.  The oracle evaluates the overwrite on total assignments;
+// it does not reuse condition_prepare's local-implication calculation.
+static void test_exhaustive_cube_implication_oracle() {
+  const std::vector<std::vector<int>> candidates = {{1, 2}, {1, 2, 3}};
+  unsigned checked = 0;
+  for (const auto &candidate : candidates)
+    for (int da = -1; da <= 1; ++da)
+      for (int db = -1; db <= 1; ++db)
+        for (int dc = -1; dc <= 1; ++dc) {
+          const int signs[] = {da, db, dc};
+          std::vector<int> other;
+          for (int v = 1; v <= 3; ++v)
+            if (signs[v - 1])
+              other.push_back(signs[v - 1] * v);
+          if (other.size() < 2)
+            continue;
+          for (int wa = -1; wa <= 1; ++wa)
+            for (int wb = -1; wb <= 1; ++wb)
+              for (int wc = -1; wc <= 1; ++wc) {
+                const int witness_signs[] = {wa, wb, wc};
+                ConditionInstance instance;
+                for (const int lit : candidate)
+                  instance.clause.push_back(internalize(lit));
+                for (int v = 1; v <= 3; ++v)
+                  if (witness_signs[v - 1])
+                    instance.witness.push_back(
+                        internalize(witness_signs[v - 1] * v));
+
+                const auto holds = [](const std::vector<int> &clause,
+                                      unsigned assignment) {
+                  for (const int lit : clause) {
+                    const bool value = (assignment >> (std::abs(lit) - 1)) & 1u;
+                    if (lit > 0 ? value : !value)
+                      return true;
+                  }
+                  return false;
+                };
+                bool expected = false;
+                for (const int lit : candidate)
+                  if (witness_signs[lit - 1] > 0)
+                    expected = true;
+                if (expected)
+                  for (unsigned bits = 0; bits < 8; ++bits) {
+                    if (holds(candidate, bits) || !holds(other, bits))
+                      continue;
+                    unsigned after = bits;
+                    for (int v = 1; v <= 3; ++v) {
+                      if (witness_signs[v - 1] > 0)
+                        after |= 1u << (v - 1);
+                      else if (witness_signs[v - 1] < 0)
+                        after &= ~(1u << (v - 1));
+                    }
+                    expected &= holds(candidate, after) &&
+                                holds(other, after);
+                  }
+
+                Kernel k;
+                kernel_reserve_vars(k, 3);
+                const auto add = [&k](const std::vector<int> &clause) {
+                  std::vector<Lit> lits;
+                  for (const int lit : clause)
+                    lits.push_back(internalize(lit));
+                  if (lits.size() == 2)
+                    kernel_add_binary_clause(k, lits[0], lits[1]);
+                  else
+                    kernel_add_large_clause(k, lits.data(),
+                                            static_cast<uint32_t>(lits.size()),
+                                            false, 0);
+                };
+                add(candidate);
+                add(other);
+                ConditionPrepared prepared;
+                assert(condition_prepare(k, instance, prepared) == expected);
+                ++checked;
+              }
+        }
+  assert(checked == 1080);
+}
+
 static void test_root_false_candidate_literal() {
   Kernel k;
   kernel_reserve_vars(k, 4);
@@ -216,6 +297,7 @@ int main(int argc, char **argv) {
   test_binary_cube_and_model();
   test_large_and_negative_cases();
   test_independent_local_implication_oracle();
+  test_exhaustive_cube_implication_oracle();
   test_root_false_candidate_literal();
   test_root_true_reason_candidates();
   test_cube_on_compacted_external_identity();
