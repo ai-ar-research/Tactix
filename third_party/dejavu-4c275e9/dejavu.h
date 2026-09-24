@@ -721,9 +721,15 @@ namespace dejavu {
                     // we first perform a depth-first search, starting from the computed leaf in local_state
                     m_dfs.h_recent_cost_snapshot_limit  = s_long_base ? 0.33 : 0.25; // set up DFS heuristic
                     m_dfs.h_recent_cost_snapshot_limit  = h_prefer_dfs ? 1.0 : m_dfs.h_recent_cost_snapshot_limit;
-                    dfs_level = s_last_base_eq ? dfs_level : m_dfs.do_paired_dfs(hook, g, local_state_left, local_state,
-                                                                                 m_inprocess.inproc_maybe_individualize,
-                                                                                 base_size > 1 || s_restarts > 0);
+                    // An empty first base compares equal to the initially empty
+                    // previous base, but there is no DFS result to reuse yet.
+                    // In that case the -1 sentinel would reach Schreier reset
+                    // as a negative base length and become reserve(size_t(-1)).
+                    dfs_level = (s_last_base_eq && dfs_level >= 0)
+                                    ? dfs_level
+                                    : m_dfs.do_paired_dfs(hook, g, local_state_left, local_state,
+                                                          m_inprocess.inproc_maybe_individualize,
+                                                          base_size > 1 || s_restarts > 0);
 
                     m_printer.timer_print("dfs", std::to_string(base_size) + "-" + std::to_string(dfs_level),
                                    "~" + std::to_string(static_cast<int>(m_dfs.s_grp_sz.mantissa)) + "*10^" +
