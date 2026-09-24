@@ -216,6 +216,30 @@ static void test_conflict_boundary_restart_and_reduce(void) {
   tactix_release(s);
 }
 
+/* A public Propagate conflict may be the last action before handing control
+ * to DefaultPolicy. Its root transition must retire the now-stale conflict
+ * before any root inprocessor (including native-LRAT Congruence) runs. */
+static void test_solve_after_public_conflict(void) {
+  const int formats[] = {TACTIX_PROOF_LRAT, TACTIX_PROOF_DSR_BINARY};
+  for (unsigned i = 0; i < sizeof formats / sizeof formats[0]; ++i) {
+    char proof_path[96];
+    snprintf(proof_path, sizeof proof_path,
+             "/tmp/tactix-api-conflict-solve-%ld-%u.proof", (long)getpid(), i);
+    tactix *s = tactix_init();
+    assert(tactix_proof(s, proof_path, formats[i]) == 0);
+    add_clause(s, (const int[]){1, 2, 0});
+    add_clause(s, (const int[]){-1, 2, 0});
+    add_clause(s, (const int[]){1, -2, 0});
+    assert(tactix_decide(s, -1) == 0);
+    assert(tactix_apply(s, rule_id("Propagate")) == 2);
+    assert(tactix_solve(s) == 10);
+    assert(tactix_value(s, 1) == 1);
+    assert(tactix_value(s, 2) == 2);
+    tactix_release(s);
+    assert(remove(proof_path) == 0);
+  }
+}
+
 /* A solver that never saw a variable must survive rule application. */
 static void test_empty_solver_rule_application(void) {
   tactix *s = tactix_init();
@@ -432,6 +456,7 @@ int main(void) {
   test_external_branching();
   test_instance_surface();
   test_conflict_boundary_restart_and_reduce();
+  test_solve_after_public_conflict();
   test_empty_solver_rule_application();
   test_stepwise_unsat();
   test_late_input_proof();

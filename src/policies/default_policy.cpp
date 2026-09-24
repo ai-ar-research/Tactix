@@ -3407,11 +3407,13 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   ScopedArenaOrdering arena_ordered(k, arena_ordering);
   if (k.inconsistent)
     return 20;
-  // A solve always starts from the root closure.  Besides matching the
-  // reference lifecycle, this makes repeated/incremental calls independent of
-  // a caller's last search level before startup preprocessing inspects clauses.
-  if (k.level)
-    kernel_backtrack(k, 0);
+  // Solve-entry root normalization must retire an externally recorded conflict,
+  // not only discard its decision trail. S1 Restart owns that transition
+  // (docs/calculus.md §4); startup inprocessing requires !conflict_valid.
+  if (k.level || k.conflict_valid) {
+    if (restart_backtrack_to(k, 0) == ApplyResult::Unsat)
+      return 20;
+  }
   std::optional<ScopedHeuristics> owned_h;
   solves++;
   k.conflict_reuse_chrono_levels = chrono_levels;

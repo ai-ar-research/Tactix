@@ -299,7 +299,9 @@ static void exact_sr_instance_v2_is_copied_and_applied(void) {
 
 static void general_sr_producer_is_available_through_v1(void) {
   tactix *solver = tactix_init();
-  clause(solver, (const int[]){1, -1, 0}); /* reserve one external variable */
+  /* A discarded tautology no longer keeps an unassigned identity active.
+     Use a live clause so the public producer has a real variable domain. */
+  clause(solver, (const int[]){1, 2, 0});
   tactix_online_step step;
   tactix_online_program program;
   tactix_online_result result;
