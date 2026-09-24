@@ -2,6 +2,7 @@
 """Guard the Tier-D debug reservation and independent binary pin."""
 
 import importlib.util
+import json
 from pathlib import Path
 import stat
 import tempfile
@@ -15,6 +16,17 @@ SPEC.loader.exec_module(TIERD)
 
 assert TIERD.slurm_array_spec(1166, 89) == "0-1165%89"
 assert TIERD.slurm_array_spec(1166, None) == "0-1165"
+
+reference = json.loads((ROOT / "benchmarks/baselines/sc24-26-32g-5000s/manifest.json").read_text())
+slurm = TIERD.comparison_slurm(reference, 32, None, None)
+assert slurm["partition"] == "cpu-dense-hwulab-q"
+assert slurm["cpus_per_task"] == reference["slurm"]["cpus_per_task"] == 4
+assert slurm["memory_gib"] == reference["limits"]["process_memory_gib"] == 32
+assert slurm["array_throttle"] is None
+assert "physical_cores" not in slurm
+assert "mem_per_cpu_gib" not in slurm
+assert TIERD.comparison_slurm(reference, 16, None, None)["cpus_per_task"] == 2
+assert TIERD.comparison_slurm(reference, 33, None, None)["cpus_per_task"] == 5
 
 with tempfile.TemporaryDirectory(prefix="tactix-tierd-pin-") as tmp:
     base = Path(tmp)

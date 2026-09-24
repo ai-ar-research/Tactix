@@ -4019,13 +4019,12 @@ void kernel_check_invariants(const Kernel &k) {
     // completeness checks below are what actually catch propagation bugs.)
     assert(a.level == 0 || i >= k.frames[a.level]);
   }
-  // Native LRAT: a root-fixed literal must already carry its unit line's id.
-  // 0 is the format's line TERMINATOR, so a later chain citing the literal is
-  // truncated rather than wrong, and the defect surfaces only as a checker
-  // rejection thousands of lemmas downstream (corpus 011). Checked at every
-  // rule boundary so the abort names the rule that FIXED the literal instead
-  // of the one that later cites it.
-  if (k.proof && k.proof->lrat())
+  // Native LRAT: every root-fixed literal in a live derivation needs its unit
+  // line id. 0 is the format's line terminator, so a later chain citing it is
+  // truncated. Once an input replay has completed the refutation, however,
+  // its proof is closed and the proofless kernel may retain a different root
+  // trail. No later chain can cite those literals (as for DSR above).
+  if (k.proof && k.proof->lrat() && !k.inconsistent)
     for (const Lit lit : k.trail) {
       const Var v = var_of(lit);
       if (k.assigned[v].level != 0 || k.unit_ids[v] != 0)

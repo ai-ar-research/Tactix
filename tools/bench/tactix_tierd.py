@@ -12,7 +12,6 @@ import argparse
 import datetime as dt
 import hashlib
 import json
-import math
 import os
 from pathlib import Path
 import shutil
@@ -65,6 +64,25 @@ def copy_frozen_binary(source, target):
 def slurm_array_spec(count, throttle):
     spec = f"0-{count - 1}"
     return spec + (f"%{throttle}" if throttle else "")
+
+
+def comparison_slurm(reference, memory_gib, array_throttle, array_throttle_reason):
+    """Retain the first winner run's memory-per-CPU allocation shape."""
+    baseline = reference["slurm"]
+    memory_per_cpu = baseline["mem_per_cpu_gib"]
+    if (memory_per_cpu <= 0 or reference["limits"]["process_memory_gib"] !=
+            baseline["cpus_per_task"] * memory_per_cpu):
+        raise SystemExit("inconsistent frozen winner CPU/memory contract")
+    slurm = dict(baseline)
+    slurm.pop("mem_per_cpu_gib")
+    slurm["cpus_per_task"] = (memory_gib + memory_per_cpu - 1) // memory_per_cpu
+    slurm["memory_gib"] = memory_gib
+    slurm["array_throttle"] = array_throttle
+    if array_throttle_reason is None:
+        slurm.pop("array_throttle_reason", None)
+    else:
+        slurm["array_throttle_reason"] = array_throttle_reason
+    return slurm
 
 
 def pin_checker_bundle(reference, campaign, checkers):
@@ -130,17 +148,8 @@ def prepare(campaign, binary, source_commit, source_tree, solve_limit, memory_gi
     limits.pop("process_memory_gib", None)
     limits["scheduler_memory_gib"] = memory_gib
     limits["memory_enforcement"] = "slurm_task_cgroup"
-    slurm = dict(reference["slurm"])
-    physical_cores = math.ceil(memory_gib / 8)
-    slurm.pop("mem_per_cpu_gib", None)
-    slurm["physical_cores"] = physical_cores
-    slurm["cpus_per_task"] = 2 * physical_cores
-    slurm["memory_gib"] = memory_gib
-    slurm["array_throttle"] = array_throttle
-    if array_throttle_reason is None:
-        slurm.pop("array_throttle_reason", None)
-    else:
-        slurm["array_throttle_reason"] = array_throttle_reason
+    slurm = comparison_slurm(reference, memory_gib, array_throttle,
+                             array_throttle_reason)
     manifest = {
         "schema": 1,
         "campaign": campaign.name,
@@ -279,7 +288,7 @@ def submit(campaign):
     array = campaign / "array.sbatch"
     aggregate = campaign / "aggregate.sbatch"
     array.write_text(f"""#!/usr/bin/env bash
-#SBATCH --partition={frozen.PARTITION}
+#SBATCH --partition={slurm['partition']}
 #SBATCH --job-name=tactix-tierd-sc24-26
 #SBATCH --nodes=1 --ntasks=1 --cpus-per-task={slurm['cpus_per_task']}
 #SBATCH --mem={slurm['memory_gib']}G
@@ -291,7 +300,7 @@ export TACTIX_REPO_ROOT={ROOT}
 exec {sys.executable} {runner} --campaign {campaign} --run-one "$SLURM_ARRAY_TASK_ID"
 """)
     aggregate.write_text(f"""#!/usr/bin/env bash
-#SBATCH --partition={frozen.PARTITION}
+#SBATCH --partition={slurm['partition']}
 #SBATCH --job-name=tactix-tierd-aggregate
 #SBATCH --nodes=1 --ntasks=1 --cpus-per-task=1
 #SBATCH --mem-per-cpu=8G
