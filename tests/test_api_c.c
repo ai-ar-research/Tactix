@@ -52,6 +52,35 @@ static void test_discarded_only_variables_extend_model(void) {
   tactix_release(s);
 }
 
+/* A Lucky model may leave retired identities unassigned and may follow
+ * binary-only probing. Its SAT return must agree with the public status. */
+static void test_lucky_model_status_after_inprocessing(void) {
+  tactix *s = tactix_init();
+  add_clause(s, (const int[]){-24, -8, 0});
+  add_clause(s, (const int[]){13, 33, 0});
+  add_clause(s, (const int[]){-33, -13, 0});
+  add_clause(s, (const int[]){-31, -15, 0});
+  add_clause(s, (const int[]){8, 0});
+  add_clause(s, (const int[]){-15, 0});
+  add_clause(s, (const int[]){24, 15, -33, 0});
+  static const char *const steps[] = {
+      "SubstitutionRedundancy", "Reorder", "HyperTernaryRes", "Reduce",
+      "BCE", "CCE", "Backbone"};
+  static const int expected[] = {1, 0, 1, 1, 1, 1, 1};
+  for (size_t i = 0; i < sizeof steps / sizeof *steps; ++i)
+    assert(tactix_apply(s, rule_id(steps[i])) == expected[i]);
+  assert(tactix_apply_instance(s, rule_id("Lucky"), 8) == 10);
+  assert(tactix_status(s) == 10);
+  assert(tactix_value(s, -24) == -24 || tactix_value(s, -8) == -8);
+  assert(tactix_value(s, 13) == 13 || tactix_value(s, 33) == 33);
+  assert(tactix_value(s, -33) == -33 || tactix_value(s, -13) == -13);
+  assert(tactix_value(s, -31) == -31 || tactix_value(s, -15) == -15);
+  assert(tactix_value(s, 8) == 8 && tactix_value(s, -15) == -15);
+  assert(tactix_value(s, 24) == 24 || tactix_value(s, 15) == 15 ||
+         tactix_value(s, -33) == -33);
+  tactix_release(s);
+}
+
 /* N1: the client is the branching policy, driving the registry directly. */
 static void test_external_branching(void) {
   tactix *s = tactix_init();
@@ -453,6 +482,7 @@ static void test_action_kind(void) {
 int main(void) {
   test_solve_sat();
   test_discarded_only_variables_extend_model();
+  test_lucky_model_status_after_inprocessing();
   test_external_branching();
   test_instance_surface();
   test_conflict_boundary_restart_and_reduce();
