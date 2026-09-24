@@ -82,7 +82,8 @@ CAKE_LPR = os.path.join(ROOT, "tools", "checkers", "bin", "cake_lpr")
 sys.path.insert(0, HERE)
 from proof_oracle import (bridge_trivial_input_binary_lsr,  # noqa: E402
                           bridge_trivial_input_lsr, dsr_compress_status,
-                          reference_dsr_stages, canonical_checker_cnf)
+                          reference_dsr_stages, canonical_checker_cnf,
+                          proof_check_status)
 # Oracle 1 of the fuzz harness (§8.2), shared here since 2026-08-08: a SAT
 # verdict's v-lines are checked against the ORIGINAL formula. The wrong-SAT
 # exhibit was caught only by the expected-verdict column; an instance without
@@ -138,26 +139,25 @@ except Exception as _e:    # fuzz.py absent or unimportable
     _REACH_SPECS = []
 
 
-def classify_checker_output(stdout, stderr, returncode):
+def classify_checker_output(stdout, stderr, returncode, checker='drat-trim',
+                            *, input_has_empty_clause=None):
     """(kind, msg, detail) for one checker invocation.
 
-    drat-trim prints exactly one of `s VERIFIED` / `s NOT VERIFIED` /
-    `s DERIVATION` / `s MEMORY ALLOCATION ERROR`, each with a LEADING CARRIAGE
-    RETURN, and then always `c verification time: …`. So the verdict must be
-    matched as a SUBSTRING (a `^`-anchored match sees none of them) and the
-    NOT-form must be tested first. cake_lpr prints `s VERIFIED UNSAT`, and on
-    failure a `Checking failed at line: N. Reason: …` on stderr."""
+    Split lines recognize drat-trim's leading carriage return without accepting
+    embedded or wrong-checker tokens. The shared oracle owns exact successful
+    statuses and exits; diagnostic classification must never override it."""
     both = stdout + "\n" + stderr
-    if "s NOT VERIFIED" in both or "s INVALID" in both:
+    lines = [line.strip() for line in both.splitlines()]
+    status = proof_check_status(checker, returncode, stdout, stderr,
+                                input_has_empty_clause=input_has_empty_clause)
+    if status == 'rejected':
         kind = CHK_REJECTED
-    elif "s MEMORY ALLOCATION ERROR" in both:
+    elif "s MEMORY ALLOCATION ERROR" in lines:
         kind = CHK_RESOURCE
-    elif "s DERIVATION" in both:
+    elif "s DERIVATION" in lines:
         kind = CHK_DERIVATION
-    elif "s VERIFIED" in both:
+    elif status == 'verified':
         kind = CHK_VERIFIED
-    elif "Checking failed at" in both:      # cake_lpr's rejection
-        kind = CHK_REJECTED
     elif returncode is not None and returncode < 0:
         kind = CHK_RESOURCE                 # killed by a signal (OOM killer)
     else:
@@ -291,7 +291,7 @@ def check_proof(fmt, cnf, proof, budget):
                         (CHK_ERROR, "checker-error: dsr-compress failed", []))
                 else:
                     kind, msg, detail = classify_checker_output(
-                        checked.stdout, checked.stderr, checked.returncode)
+                        checked.stdout, checked.stderr, checked.returncode, name)
                 details.extend(detail)
                 if (kind != CHK_VERIFIED or
                         (produced is not None and
@@ -305,7 +305,7 @@ def check_proof(fmt, cnf, proof, budget):
     with tempfile.TemporaryDirectory(prefix="tactix-compat-check-") as scratch:
         checker_cnf = os.path.join(scratch, "checker.cnf")
         try:
-            canonical_checker_cnf(cnf, checker_cnf)
+            spelling = canonical_checker_cnf(cnf, checker_cnf)
         except (OSError, ValueError) as error:
             return False, f"checker-error: invalid original DIMACS: {error}", CHK_ERROR, []
         argv = ([CAKE_LPR, checker_cnf, proof] if fmt == "lrat"
@@ -317,7 +317,10 @@ def check_proof(fmt, cnf, proof, budget):
             return (False, f"{CHECKER_TIMEOUT_PREFIX}{budget:g}s budget",
                     CHK_TIMEOUT, [])
     kind, msg, detail = classify_checker_output(c.stdout, c.stderr,
-                                                c.returncode)
+                                                c.returncode,
+                                                'cake_lpr' if fmt == 'lrat' else 'drat-trim',
+                                                input_has_empty_clause=
+                                                spelling['first_empty_clause'] is not None)
     return kind == CHK_VERIFIED, msg, kind, detail
 
 

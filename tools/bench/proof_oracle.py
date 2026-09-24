@@ -32,6 +32,7 @@ def canonical_checker_cnf(original, destination):
     declared = None
     clauses = 0
     in_clause = False
+    first_empty_clause = None
     digest = hashlib.sha256()
     spelled_digest = hashlib.sha256()
     with Path(original).open('rb') as source, Path(destination).open('wb') as target:
@@ -78,6 +79,8 @@ def canonical_checker_cnf(original, destination):
                 else:
                     output.extend(b'0\n')
                     clauses += 1
+                    if not in_clause and first_empty_clause is None:
+                        first_empty_clause = clauses
                     in_clause = False
                 if clauses > declared[1]:
                     raise ValueError('DIMACS clause count exceeds header')
@@ -85,6 +88,7 @@ def canonical_checker_cnf(original, destination):
         if declared is None or in_clause or clauses != declared[1]:
             raise ValueError('missing DIMACS header, clause terminator, or declared clauses')
     return dict(original_sha256=digest.hexdigest(), checker_sha256=spelled_digest.hexdigest(), clauses=clauses,
+                first_empty_clause=first_empty_clause,
                 declared_variables=declared[0], checker_variables=max(1, declared[0]),
                 transformation='clause-sequence-preserving DIMACS spelling')
 
@@ -130,7 +134,8 @@ def _at_most_three_integer_tokens(path):
 
 
 def proof_check_status(checker: str, returncode: int, stdout: str,
-                       stderr: str) -> Literal['verified', 'rejected', 'error']:
+                       stderr: str, *, input_has_empty_clause=None
+                       ) -> Literal['verified', 'rejected', 'error']:
     if checker not in ('drat-trim', 'cake_lpr', 'dsr-trim', 'srcheck',
                         'veripb', 'cake-pb-cnf'):
         raise ValueError('unsupported acceptance oracle: ' + checker)
@@ -149,6 +154,10 @@ def proof_check_status(checker: str, returncode: int, stdout: str,
     # abnormal exit carrying success-looking text.
     trivial_drat = (checker == 'drat-trim' and returncode == 1 and
                     'c trivial UNSAT' in lines and success in lines)
+    # Callers with validated input metadata also enforce the semantic condition
+    # for this exceptional exit. A stand-in cannot invent an input empty clause.
+    if trivial_drat and input_has_empty_clause is False:
+        return 'rejected'
     # A recognized token from the wrong checker, a mere substring, or any other
     # success-looking message followed by an abnormal exit is not acceptance.
     if (returncode == 0 and success in lines) or trivial_drat:
@@ -500,7 +509,7 @@ def check_routed(dsr_trim, dsr_compress, srcheck, drat_trim, cake_lpr, cnf,
     drat, lrat = workdir / 'proof.drat', workdir / 'proof.lrat'
     checker_cnf = workdir / 'checker.cnf'
     try:
-        canonical_checker_cnf(cnf, checker_cnf)
+        spelling = canonical_checker_cnf(cnf, checker_cnf)
     except (OSError, ValueError) as error:
         return False, 'cnf', str(error), route
     for stale in (drat, lrat):
@@ -518,7 +527,8 @@ def check_routed(dsr_trim, dsr_compress, srcheck, drat_trim, cake_lpr, cnf,
         except subprocess.TimeoutExpired:
             return False, name, 'timed out', route
         if proof_check_status(name, done.returncode, done.stdout,
-                              done.stderr) != 'verified':
+                              done.stderr, input_has_empty_clause=
+                              spelling['first_empty_clause'] is not None) != 'verified':
             return False, name, done.stdout + '\n' + done.stderr, route
         if name == 'drat-trim' and not (lrat.is_file() and lrat.stat().st_size):
             return False, name, 'no LRAT produced', route
