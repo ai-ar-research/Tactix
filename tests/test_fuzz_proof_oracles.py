@@ -13,6 +13,81 @@ import fuzz
 
 
 class FuzzProofOracles(unittest.TestCase):
+    def test_conversion_predicate_uses_clause_values_not_layout(self):
+        fixtures = [
+            ('p cnf 1 2\n1 01 0\n-1 0\n', True),
+            ('p cnf 1 2\n1\nc inside clause\n1 0 -1 0\n', True),
+            ('p cnf 1 3\n1 0 1 0 -1 0\n', False),
+            ('p cnf 1 2\n1 0 000\n', True),
+            ('p cnf 1 2\n1\nc legal comment\n0 -1 0\n', False),
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            cnf = Path(directory)/'input.cnf'
+            for raw, must_skip in fixtures:
+                with self.subTest(raw=raw):
+                    cnf.write_text(raw)
+                    self.assertEqual(bool(fuzz.conversion_crosscheck_unsound(cnf)), must_skip)
+                    result = self.fixture(raw, '0\n', lrat=False, convert=True)
+                    self.assertFalse(result.failures, result.failures)
+                    self.assertEqual(bool(result.skips), must_skip)
+
+    def test_tier_runner_requires_exact_checker_specific_success_and_exit(self):
+        import importlib.util
+        import subprocess
+        spec = importlib.util.spec_from_file_location('strict_tier_runner', ROOT/'tools/bench/run.py')
+        runner = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(runner)
+        with tempfile.TemporaryDirectory() as directory:
+            cnf, proof = Path(directory)/'sat.cnf', Path(directory)/'false.proof'
+            cnf.write_text('p cnf 2 1\n1 2 0\n')
+            proof.write_text('0\n')
+            for fmt, token, wrong in [('drat', 's VERIFIED', 's VERIFIED UNSAT'),
+                                      ('lrat', 's VERIFIED UNSAT', 's VERIFIED')]:
+                for code, output, ok in [
+                    (0, token, True), (0, '\r' + token + '\n', True),
+                    (1, token, False), (-11, token, False), (0, 'x' + token, False),
+                    (0, wrong, False), (0, token + '\ns NOT VERIFIED', False),
+                    (0, token + '\nc Checking failed at line: 1', False),
+                    (0, '', False),
+                ]:
+                    with self.subTest(fmt=fmt, code=code, output=output):
+                        done = subprocess.CompletedProcess([], code, output, '')
+                        with patch.object(runner.subprocess, 'run', return_value=done):
+                            result = runner.check_proof(fmt, str(cnf), str(proof), 10)
+                        self.assertEqual(result[0], ok, result)
+
+    def test_trivial_drat_exit_requires_a_real_input_empty_clause(self):
+        import importlib.util
+        from runtime_task import check_unsat_proof
+        spec = importlib.util.spec_from_file_location('trivial_tier_runner', ROOT/'tools/bench/run.py')
+        runner = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(runner)
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            (work/'pins').mkdir()
+            checker = work/'pins/drat-trim'
+            checker.write_text("#!/bin/sh\nprintf 'c trivial UNSAT\\ns VERIFIED\\n'\nexit 1\n")
+            checker.chmod(0o755)
+            cnf, proof = work/'input.cnf', work/'proof.drat'
+            proof.write_text('0\n')
+            for raw, accepted in [
+                ('p cnf 1 1\n1 0\n', False),
+                ('p cnf 1 2\n1 0\n-1 0\n', False),
+                ('p cnf 1 1\n1\nc 0\n0\n', False),
+                ('p cnf 0 1\nc genuine empty\n000\n', True),
+                ('p cnf 1 2\n1 0 0\n', True),
+            ]:
+                with self.subTest(raw=raw):
+                    cnf.write_text(raw)
+                    with patch.object(runner, 'DRAT_TRIM', str(checker)):
+                        result = runner.check_proof('drat', str(cnf), str(proof), 10)
+                    self.assertEqual(result[0], accepted, result)
+                    result = check_unsat_proof(work, 'drat', cnf, proof, work, 10)
+                    self.assertEqual(result['result'] == 'verified', accepted, result)
+                    result = self.fixture(raw, '0\n', lrat=False,
+                                          checker_response=(1, 'c trivial UNSAT\ns VERIFIED\n', ''))
+                    self.assertEqual(not result.failures, accepted, result.failures)
+
     def test_checker_spelling_preserves_clause_sequence(self):
         from proof_oracle import canonical_checker_cnf
         import hashlib
@@ -26,6 +101,7 @@ class FuzzProofOracles(unittest.TestCase):
             self.assertEqual(metadata['original_sha256'], hashlib.sha256(raw).hexdigest())
             self.assertEqual(metadata['checker_sha256'], hashlib.sha256(output.read_bytes()).hexdigest())
             self.assertEqual(metadata['declared_variables'], metadata['checker_variables'])
+            self.assertEqual(metadata['first_empty_clause'], 3)
             with self.assertRaises(ValueError):
                 canonical_checker_cnf(source, source)
             self.assertEqual(source.read_bytes(), raw)

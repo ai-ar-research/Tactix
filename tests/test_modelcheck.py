@@ -9,6 +9,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools" / "fuzz"))
 
 from modelcheck import check_files  # noqa: E402
+from generators import parse_dimacs  # noqa: E402
 
 
 def check(cnf, model):
@@ -22,6 +23,21 @@ def check(cnf, model):
 
 
 def main():
+    # A comment line may interrupt a clause, but an inline 'c' token may not.
+    # Both readers must preserve the pending clause across the legal spelling.
+    for cnf in (
+        'p cnf 2 2\n1\nc inside clause\n2 0\n-2 0\n',
+        'p cnf 2 2\r\n01\r\n c\tinside clause\r\n2 0 -02 0\r\n',
+    ):
+        ok, message = check(cnf, 'v 1 -2 0\n')
+        assert ok, message
+        ok, message = check(cnf, 'v -1 -2 0\n')
+        assert not ok and message.startswith('clause 1 '), message
+        with tempfile.TemporaryDirectory(prefix='tactix-dimacs-comment-') as tmp:
+            path = pathlib.Path(tmp)/'input.cnf'
+            path.write_text(cnf)
+            assert parse_dimacs(path) == (2, [[1, 2], [-2]])
+
     # Clauses may share a line or span lines. Repeated model assignments retain
     # the final value, and variables beyond the declared universe are ignored.
     ok, message = check(

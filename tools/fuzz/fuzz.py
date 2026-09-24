@@ -191,19 +191,23 @@ def conversion_crosscheck_unsound(path):
     it passes on both classes."""
     dup = False
     empty = False
+    clause_literals = set()
     try:
         with open(path) as f:
             for line in f:
                 line = line.strip()
                 if not line or line[0] in "cp%":
                     continue
-                lits = line.split()
-                if lits and lits[-1] == "0":
-                    lits = lits[:-1]
-                if not lits:
-                    empty = True
-                elif len(set(lits)) != len(lits):
-                    dup = True
+                # DIMACS clauses end at numeric zero, not at a line boundary.
+                # Compare integer values: 81 and 0081 are the same literal.
+                for token in line.split():
+                    literal = int(token)
+                    if literal == 0:
+                        empty |= not clause_literals
+                        clause_literals.clear()
+                    else:
+                        dup |= literal in clause_literals
+                        clause_literals.add(literal)
     except OSError:
         return None
     if dup and empty:
@@ -484,7 +488,7 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
                 # disagree about the file itself, so the conversion cross-check
                 # is not an oracle for any solver. See
                 # conversion_crosscheck_unsound.
-                why = conversion_crosscheck_unsound(cnf_path)
+                why = conversion_crosscheck_unsound(checker_cnf)
                 if why:
                     out.skip("lrat-convert", why)
                 else:

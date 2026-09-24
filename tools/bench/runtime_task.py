@@ -246,7 +246,8 @@ def validate_runtime_pin_contract(campaign, manifest):
         raise RuntimeError(f"runtime pin files missing {absent}")
 
 
-def proof_stage(scratch, name, command, timeout, produced=None):
+def proof_stage(scratch, name, command, timeout, produced=None,
+                *, input_has_empty_clause=None):
     """Run one proof stage and require its exact oracle/output contract."""
     stdout = scratch / f"{name}.stdout"
     stderr = scratch / f"{name}.stderr"
@@ -259,7 +260,8 @@ def proof_stage(scratch, name, command, timeout, produced=None):
     if name == "dsr-compress":
         status = dsr_compress_status(result["exit_code"], output)
     else:
-        status = proof_check_status(name, result["exit_code"], output, "")
+        status = proof_check_status(name, result["exit_code"], output, "",
+                                    input_has_empty_clause=input_has_empty_clause)
     if produced is not None and (not produced.is_file() or produced.stat().st_size == 0):
         status = "error"
     result.update(name=name, result=status, output_tail=output[-12000:])
@@ -286,7 +288,8 @@ def check_unsat_proof(campaign, certificate, cnf, proof, scratch, timeout):
     if certificate == "drat":
         stages.append(proof_stage(
             scratch, "drat-trim",
-            [campaign / "pins/drat-trim", checker_cnf, proof], remaining()))
+            [campaign / "pins/drat-trim", checker_cnf, proof], remaining(),
+            input_has_empty_clause=spelling['first_empty_clause'] is not None))
         pipeline = "drat-trim"
     elif certificate == "auto" and route == "pbp":
         kernel = scratch / "proof.kernel.pbp"
@@ -315,7 +318,8 @@ def check_unsat_proof(campaign, certificate, cnf, proof, scratch, timeout):
                 cnf, drat, lrat, checker_cnf=checker_cnf):
             made = lrat if name == "drat-trim" else None
             stages.append(proof_stage(scratch, name, command, remaining(),
-                                      made))
+                                      made, input_has_empty_clause=
+                                      spelling['first_empty_clause'] is not None))
             if stages[-1]["result"] != "verified":
                 break
         pipeline = "witness-free-dsr-as-drat:drat-trim-cake_lpr"

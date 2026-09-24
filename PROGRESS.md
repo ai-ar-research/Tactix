@@ -76,7 +76,8 @@ patch `005bf541...`, archive `eacd7ed7...`. Evidence and gate snapshot:
 `benchmarks/reports/2026-09-23-am340-drat-input-checkpoint.md`.
 AM340 rejects both original false proofs on all seven surfaces, but handed off
 F1 (optional conversion predicate reads original layout) and O3 (tier runner
-accepts success-looking checker output without strict status). Both remain open.
+accepts success-looking checker output without strict status). AM342 repairs
+both; independent affected validation remains open.
 AM335/AM336 terminal reports are both
 NOT clean acceptance; their coverage gaps remain unwaived. No new solver
 failure was handed off by AM336; its Propagate closure check was vacuous.
@@ -93,10 +94,28 @@ Job `1716498`: 48 independently checked random/replay runs across six formats,
 Debug/Release proof-byte equality, two old-Debug abort controls. Focused tests
 pass. Fresh full Debug CTest is live (178/179 passed; demo pending), session
 `3825`, log `...-am341-unwatch/ctest-debug-all.log`; do not restart it.
-Explicit Opus owner PID `1934171`, session `34151`, request/log in the authority,
-owns affected validation and remaining combined coverage in
+Original Opus owner PID `1934171` exited 0 before terminal reporting; recovery
+PID `2078249`, session `81011`, owns the SAME live campaign through its terminal
+report, from `claude-owner-terminal-recovery.md` in the authority. Published
+status records handoff matrix `1716499` and nonvacuous count-PB/tamper controls
+`1716502` passed. Preserve Debug random `1716500`, sanitizer `1716503` and Lucky
+floor arrays `1716504`/`1716512`; read only status/report/bounded handoffs in
 `...-am341-unwatch-claude-fuzz`. Evidence:
 `benchmarks/reports/2026-09-24-am341-unwatch-checkpoint.md`.
+
+AM342 is an **unaccepted tooling-only repair** of AM340 F1/O3. Conversion
+eligibility uses numeric zero-terminated clauses on validated spelling; the
+tier runner uses exact checker-specific status/exit contracts. Exceptional
+DRAT trivial-UNSAT exit 1 now requires a real input empty clause in runtime,
+routed and tier-runner callers. No solver/checker binary changes. Fixed suites
+and final full selftest pass; bounded job `1716501` reproduces both old defects
+and passes on the repair. Authority `...-am342-oracle-contracts`, patch
+`ab061e1f...`, archive `f429b329...`. Explicit Opus owner PID `2015745`, session
+`78542`, prepares affected validation in `...-am342-oracle-contracts-claude-fuzz`.
+Legal separate comment lines inside clauses pass both maintained readers and
+new positive/negative tests; no reader implementation was changed. The earlier
+reported reader failure needs an exact legal bounded case if it persists.
+Evidence: `benchmarks/reports/2026-09-24-am342-oracle-contracts-checkpoint.md`.
 
 Solver/tooling authority: `10cd18c9` (certificate routing) on top of the
 AM333 solver source (`75487222`). The AM333 pin is the last gated binary:
@@ -251,8 +270,10 @@ byte-identical solver pins remain in the AM333 gate campaigns.
    Continue Claude-owned execution/reporting with explicit Opus (user requested
    no Fable). AM341 repairs the bounded unwatch assertion; preserve its live
    full CTest and Opus owner, without waiving old random-policy reachability
-   floors. Next repair AM340's bounded F1/O3 oracle handoffs, model-reader
-   comment-inside-clause support, and genuine-empty-input missing LRAT.
+   floors. AM342 repairs the bounded F1/O3 oracle handoffs; preserve its owner.
+   Next repair genuine-empty-input missing LRAT. Legal separate comment lines
+   already pass both readers; obtain an exact bounded failing legal layout if
+   the earlier owner finding persists rather than changing parser tolerance.
    Resolve routed repeated-literal LRAT rejection and propagate the requested
    checker time window past drat-trim's internal default before successor gates;
    malformed DSR classification and DSR-reader layout limits also remain open.
