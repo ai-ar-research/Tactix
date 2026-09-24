@@ -59,6 +59,41 @@ class ProofOracleTests(unittest.TestCase):
         with self.assertRaises(ChildProcessError):
             os.waitpid(children[0].pid, os.WNOHANG)
 
+    def test_captured_wait_deadline_ignores_descendant_held_pipes(self):
+        import proof_oracle as oracle
+        import signal
+        import subprocess
+        import sys
+        import time
+        from unittest.mock import patch
+        for parent_waits in (True, False):
+            with self.subTest(parent_waits=parent_waits), \
+                 tempfile.TemporaryDirectory() as directory:
+                pidfile = Path(directory) / 'descendant.pid'
+                command = [sys.executable, '-c',
+                    'import subprocess,sys,time; '
+                    'child=subprocess.Popen(["/bin/sleep","4"], '
+                    'stdout=sys.stdout,stderr=sys.stderr); '
+                    'open(sys.argv[1],"w").write(str(child.pid)); '
+                    'print("ready",flush=True); '
+                    'print("error-ready",file=sys.stderr,flush=True); ' +
+                    ('time.sleep(60)' if parent_waits else ''), str(pidfile)]
+                started = time.monotonic()
+                try:
+                    with patch.object(oracle, 'MAX_CAPTURE_WAIT_SECONDS', .04), \
+                         self.assertRaises(subprocess.TimeoutExpired) as caught:
+                        oracle.run_captured(command, timeout=.25)
+                    self.assertLess(time.monotonic() - started, 2)
+                    self.assertEqual(caught.exception.timeout, .25)
+                    self.assertEqual(caught.exception.stdout, 'ready\n')
+                    self.assertEqual(caught.exception.stderr, 'error-ready\n')
+                finally:
+                    if pidfile.exists():
+                        try:
+                            os.kill(int(pidfile.read_text()), signal.SIGKILL)
+                        except ProcessLookupError:
+                            pass
+
     def test_captured_wait_preserves_normal_path_and_missing_command_errors(self):
         import proof_oracle as oracle
         import subprocess
