@@ -13,6 +13,45 @@ import fuzz
 
 
 class FuzzProofOracles(unittest.TestCase):
+    def test_native_dsr_legal_layouts_on_all_checker_surfaces(self):
+        from proof_oracle import check_dsr
+        from runtime_task import check_unsat_proof
+        import run as tier
+        campaign = ROOT/'benchmarks/runs/20260923-am341-unwatch'
+        pins = campaign/'pins'
+        layouts = (
+            b'p cnf 1 2\r\n1 0\r\n-1 0\r\n',
+            b'c header\r\np cnf 1 2\n1\r\nc inside clause\r\n0 -1 0\n',
+            b'p cnf 1 2\n\t01\n  c indented comment\n0\n-01 0\n\n',
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            cnf, proof = work/'input.cnf', work/'input.dsr'
+            for raw in layouts:
+                for payload in (b'1 1 0\n0\n', b'\x01\x02\x02\x00\x01\x00'):
+                    with self.subTest(raw=raw, payload=payload):
+                        cnf.write_bytes(raw)
+                        proof.write_bytes(payload)
+                        result = check_dsr(pins/'dsr-trim', pins/'dsr-compress',
+                                           pins/'srcheck', cnf, proof, work, 10,
+                                           every_lemma=True)
+                        self.assertTrue(result[0], result)
+                        result = tier.check_proof('dsr', str(cnf), str(proof), 10)
+                        self.assertTrue(result[0], result)
+                        result = check_unsat_proof(campaign, 'auto', cnf, proof, work, 10)
+                        self.assertEqual(result['result'], 'verified', result)
+                        self.assertEqual(result['stages'][0]['name'], 'dsr-trim')
+                        self.assertEqual(Path(result['stages'][0]['command'][1]).name, 'checker.cnf')
+                        self.assertEqual(cnf.read_bytes(), raw)
+                        # Same proof and layout, but no contradictory input unit.
+                        cnf.write_bytes(raw.replace(b'-1', b'1').replace(b'-01', b'01'))
+                        self.assertFalse(check_dsr(pins/'dsr-trim', pins/'dsr-compress',
+                                                  pins/'srcheck', cnf, proof, work, 10,
+                                                  every_lemma=True)[0])
+                        self.assertFalse(tier.check_proof('dsr', str(cnf), str(proof), 10)[0])
+                        self.assertEqual(check_unsat_proof(campaign, 'auto', cnf, proof,
+                                                          work, 10)['result'], 'not-verified')
+
     def test_routed_empty_input_requires_checked_lrat_bridge(self):
         from proof_oracle import check_routed
         from runtime_task import check_unsat_proof
@@ -231,7 +270,7 @@ class FuzzProofOracles(unittest.TestCase):
                 self.assertFalse(check_pb(pins/'veripb', pins/'cake-pb-cnf',
                                          cnf, pbp, work, 60)[0])
 
-    def test_fuzz_dispatch_spells_only_final_checker_input(self):
+    def test_fuzz_dispatch_spells_all_dsr_checker_inputs(self):
         raw = 'p cnf 1 2\n1 0\nc between clauses\n-1 0\n'
         result = self.fixture(raw, '0\n', dsr=True)
         self.assertFalse(result.failures, result.failures)
@@ -239,7 +278,8 @@ class FuzzProofOracles(unittest.TestCase):
             if Path(run['command'][0]).name == 'srcheck':
                 self.assertEqual(Path(run['command'][1]).name, 'checker.cnf')
             elif Path(run['command'][0]).name == 'dsr-trim':
-                self.assertIn('input.cnf', str(run['command']))
+                self.assertIn('checker.cnf', str(run['command']))
+                self.assertNotIn('input.cnf', str(run['command']))
         self.assertFalse(self.fixture('p cnf 0 1\n0\n', '0\n', dsr=True).failures)
 
     def test_startup_pb_requires_both_pinned_checkers(self):

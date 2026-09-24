@@ -7,6 +7,53 @@ from proof_oracle import bridge_trivial_input_binary_lsr, proof_check_status
 
 
 class ProofOracleTests(unittest.TestCase):
+    def test_routing_does_not_misclassify_missing_files_as_bad_proofs(self):
+        import proof_oracle as oracle
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            with self.assertRaises(OSError):
+                oracle.check_routed(None, None, None, None, None,
+                                    work/'input.cnf', work/'absent.dsr', work)
+
+    def test_dsr_tabs_and_binary_token_boundaries(self):
+        import proof_oracle as oracle
+        with tempfile.TemporaryDirectory() as directory:
+            proof = Path(directory)/'proof.dsr'
+            proof.write_bytes(b'1\t2\t0\r\nd\t1 2 0\n0\n')
+            self.assertFalse(oracle.dsr_proof_is_binary(proof))
+            self.assertEqual(oracle.certificate_route(proof), 'drat')
+            for value in (2, 127, 128, 16383, 16384, (1 << 32) - 1):
+                encoded, rest = bytearray(), value
+                while rest >= 128:
+                    encoded.append((rest & 127) | 128)
+                    rest >>= 7
+                encoded.append(rest)
+                proof.write_bytes(b'\x01' + encoded + b'\x00')
+                self.assertEqual(list(oracle._dsr_lines(proof, True)), [('a', [value])])
+                self.assertTrue(oracle.dsr_proof_as_drat(proof, Path(directory)/'out.drat'))
+                self.assertEqual((Path(directory)/'out.drat').read_bytes(), b'a' + encoded + b'\x00')
+
+    def test_malformed_dsr_is_a_routing_rejection(self):
+        import proof_oracle as oracle
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            cnf, proof = work/'input.cnf', work/'proof.dsr'
+            cnf.write_text('p cnf 1 1\n1 0\n')
+            for data in (b'\x01', b'\x01\x80', b'\x02\x02', b'\x03\x00',
+                         b'\x01\x80\x80\x80\x80\x80\x00', b'1', b'd\n', b'--1 0\n'):
+                with self.subTest(data=data), patch('subprocess.run') as run:
+                    proof.write_bytes(data)
+                    result = oracle.check_routed(None, None, None, None, None,
+                                                 cnf, proof, work)
+                    self.assertFalse(result[0])
+                    self.assertEqual(result[1], 'route')
+                    self.assertIn('DSR', result[2])
+                    run.assert_not_called()
+                    with self.assertRaises(ValueError):
+                        oracle.dsr_proof_as_drat(proof, work/'out.drat')
+                    self.assertFalse((work/'out.drat').exists())
+
     def test_drat_internal_timeout_tracks_the_requested_window(self):
         import proof_oracle
         command = ['drat-trim', 'original.cnf', 'proof.drat', '-L', 'proof.lrat']

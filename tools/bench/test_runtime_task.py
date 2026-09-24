@@ -9,6 +9,24 @@ from runtime_task import (atomic_json, checked_verdict_valid, checker_timeout_fo
 
 
 class RuntimeTaskTests(unittest.TestCase):
+    def test_malformed_dsr_preserves_proof_failure_classification(self):
+        from unittest.mock import patch
+        from runtime_task import check_unsat_proof
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            cnf, proof = work/'input.cnf', work/'proof.dsr'
+            cnf.write_text('p cnf 1 1\n1 0\n')
+            for certificate in ('auto', 'dsr'):
+                for data in (b'\x01', b'\x01\x80', b'1', b'--1 0\n'):
+                    with self.subTest(certificate=certificate, data=data), patch('runtime_task.measured') as run:
+                        proof.write_bytes(data)
+                        result = check_unsat_proof(work, certificate, cnf, proof, work, 10)
+                        self.assertEqual(result['result'], 'not-verified')
+                        self.assertEqual(result['stages'][0]['name'], 'route')
+                        self.assertEqual(result['stages'][0]['result'], 'rejected')
+                        self.assertFalse(result['timed_out'])
+                        run.assert_not_called()
+
     def test_drat_stage_sets_inner_timeout_without_extending_outer_window(self):
         from unittest.mock import patch
         from runtime_task import proof_stage
