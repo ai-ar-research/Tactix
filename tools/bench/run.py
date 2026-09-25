@@ -58,6 +58,7 @@ benchmarks skill).
 import argparse
 import concurrent.futures
 import datetime
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -77,9 +78,12 @@ TIERS = os.path.join(ROOT, "benchmarks", "tiers")
 MANIFESTS = os.path.join(HERE, "manifests")
 RUNS = os.path.join(ROOT, "benchmarks", "runs")
 DRAT_TRIM = os.path.join(ROOT, "tools", "checkers", "bin", "drat-trim")
-DSR_TRIM = os.path.join(ROOT, "tools", "checkers", "bin", "dsr-trim")
-SR_CHECK = os.path.join(ROOT, "tools", "checkers", "bin", "srcheck")
-DSR_COMPRESS = os.path.join(ROOT, "tools", "checkers", "bin", "dsr-compress")
+DSR_TRIM = os.environ.get("TACTIX_DSR_TRIM", os.path.join(
+    ROOT, "tools", "checkers", "bin", "dsr-trim"))
+SR_CHECK = os.environ.get("TACTIX_SR_CHECK", os.path.join(
+    ROOT, "tools", "checkers", "bin", "srcheck"))
+DSR_COMPRESS = os.environ.get("TACTIX_DSR_COMPRESS", os.path.join(
+    ROOT, "tools", "checkers", "bin", "dsr-compress"))
 CAKE_LPR = os.path.join(ROOT, "tools", "checkers", "bin", "cake_lpr")
 PB_PINS = os.path.join(ROOT, "benchmarks", "baselines",
                        "sc24-26-32g-5000s", "pins")
@@ -1040,10 +1044,38 @@ def sbatch(script, *extra):
     return r.stdout.strip().split(";")[0]
 
 
+def dsr_checker_pins():
+    """Freeze the native-DSR checker route, including symlink targets."""
+    pins = {}
+    for name, path in (("dsr_trim", DSR_TRIM),
+                       ("dsr_compress", DSR_COMPRESS),
+                       ("srcheck", SR_CHECK)):
+        real = os.path.realpath(path)
+        with open(real, "rb") as binary:
+            digest = hashlib.sha256(binary.read()).hexdigest()
+        pins[name] = {"path": real, "sha256": digest}
+    return pins
+
+
+def use_dsr_checker_pins(pins):
+    """Use only the checker bytes selected at submission, not later symlinks."""
+    global DSR_TRIM, DSR_COMPRESS, SR_CHECK
+    for name, pin in pins.items():
+        with open(pin["path"], "rb") as binary:
+            actual = hashlib.sha256(binary.read()).hexdigest()
+        if actual != pin["sha256"]:
+            raise RuntimeError(f"{name} checker pin changed: {pin['path']}")
+    DSR_TRIM = pins["dsr_trim"]["path"]
+    DSR_COMPRESS = pins["dsr_compress"]["path"]
+    SR_CHECK = pins["srcheck"]["path"]
+
+
 def slurm_run_one(outdir, idx):
     """One array task: solve one (solver, instance) pair, write one JSON."""
     with open(os.path.join(outdir, "manifest.json")) as f:
         man = json.load(f)
+    if "dsr_checkers" in man:
+        use_dsr_checker_pins(man["dsr_checkers"])
     t = man["tasks"][idx]
     s = man["solvers"][t["solver"]]
     workdir = tempfile.mkdtemp(prefix="bench-")  # $TMPDIR: node-local
@@ -1265,6 +1297,7 @@ def slurm_submit(args, entries, solvers, paths, timeout, mem_gb, outdir,
            "slurm": {"partition": args.partition, "cpus_per_task": cpus,
                      "physical_cores": physical_cores,
                      "memory_gib": mem_gb, "throttle": args.throttle},
+           "dsr_checkers": dsr_checker_pins(),
            "solvers": [{"name": n, "cmd": resolve_cmd(c), "check_proofs": k,
                         "verify_proofs": v,
                         "score_proofs": sc}
