@@ -130,7 +130,7 @@ target in `[jump_level, level-1]` is sound.
 - **Precondition (abstract):** `F` not refuted; plus the standing invariant (enforced in `apply`, not the guard) that non-root and
   pending learned-clause reasons and a recorded conflict antecedent are never deleted; proved root units need no clause lock.
 - **Effect:** delete any legally unlocked subset of the *redundant* clauses; glue/usage tiers are policy advice. Compact the arena;
-  forward live reasons and retire deleted root reasons to proved units. `F` unchanged; `R` shrinks. Proof δ: `del` per deleted
+  forward live reasons and retire deleted root reasons to proved units. Collection with an unresolved conflict retains the live prefix watches needed for later root closure. `F` unchanged; `R` shrinks. Proof δ: `del` per deleted
   clause. Preparatory root closure is M1; consuming its roots into decision guidance belongs to policy, not S2's guard. Optional
   root compaction composes proved-root shortening and satisfied deletion, with their RUP additions/deletions; these can change
   `F` even for an empty learned-victim subset. Report those changes as progress and any resulting refutation as UNSAT.
