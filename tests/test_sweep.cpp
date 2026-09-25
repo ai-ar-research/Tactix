@@ -21,6 +21,16 @@
 
 using namespace tactix;
 
+// White-box proof-adapter regression: the public Sweep action deliberately
+// closes pending root propagation first, so this test names the existing
+// internal emission boundary without adding a new public rule action.
+namespace tactix {
+void sweep_capture_core_units_for_test(Kernel &, SweepDirProof &, SweepRound &,
+                                       const SweepLimits &);
+ApplyResult sweep_emit_round_for_test(Kernel &, SweepRound &, uint32_t,
+                                      const SweepLimits &);
+}
+
 static void test_effort_prices_embedded_and_representation_ticks() {
   Kernel k;
   k.stats.sweep_ticks_sub = 17;
@@ -378,6 +388,50 @@ static void test_equivalence_with_new_unit_forces_partner() {
   assert(k.trail.size() >= 2);
   assert(k.trail[0] == internalize(1));
   assert(k.trail[1] == internalize(2));
+}
+
+// At the saved-core boundary, an already-imported original can become unit
+// after earlier units in the same seed. Pose that core row directly: a clause
+// already unit at environment construction is correctly omitted by the
+// builder, and would not test this adapter at all.
+static SweepDirProof original_core_unit_proof(const Kernel &k) {
+  SweepDirProof proof;
+  proof.ok = true;
+  proof.vars = {0, 1, 2, 3};
+  proof.orig_ids = {1};
+  proof.strip_off = {0, 0};
+  proof.formula_epoch = k.touch_epoch;
+  proof.core_clauses.push_back(
+      {1, false, {sub_lit(0, true), sub_lit(1, false),
+                  sub_lit(2, false), sub_lit(3, false)}});
+  return proof;
+}
+
+static void test_original_core_unit_capture() {
+  Kernel not_unit;
+  build(not_unit, 4, {{-1, 2, 3, 4}, {-2}, {-3}});
+  SweepRound declined;
+  SweepLimits limits;
+  sweep_round_begin(not_unit, declined);
+  SweepDirProof not_unit_proof = original_core_unit_proof(not_unit);
+  sweep_capture_core_units_for_test(not_unit, not_unit_proof, declined, limits);
+  assert(declined.units.empty()); // -1 and 4 are both still non-false
+
+  Kernel k;
+  build(k, 4, {{-1, 2, 3, 4}, {-2}, {-3}, {-4}});
+  SweepRound round;
+  sweep_round_begin(k, round);
+  SweepDirProof proof = original_core_unit_proof(k);
+  sweep_capture_core_units_for_test(k, proof, round, limits);
+  assert(!round.units.empty());
+  const SweepUnitProof &unit = round.units.front();
+  assert(unit.unit == internalize(-1));
+  const auto steps = unit.proof.steps_view();
+  assert(steps.size() == 1);
+  assert(steps[0].chain.size() == 1 && steps[0].chain[0] == 1);
+  assert(sweep_emit_round_for_test(k, round, 0, limits) == ApplyResult::Ok);
+  assert(k.value(internalize(-1)) > 0);
+  assert(k.stats.sweep_units >= 1);
 }
 
 // --- 2. every claim is true --------------------------------------------------
@@ -1163,6 +1217,45 @@ static void emit_unit_case(const char *dir) {
   printf("emitted the Sweep-unit case to %s\n", dir);
 }
 
+// Independently check the exact original-core path above.  Root units 2--4
+// justify simplifying the saved original clause; the checker-only opposite
+// unit is outside the host kernel and closes the complete certificate.
+static void emit_original_core_unit_case(const char *dir) {
+  char path[512];
+  snprintf(path, sizeof path, "%s/original-core-unit.cnf", dir);
+  FILE *cnf = fopen(path, "w");
+  assert(cnf);
+  fprintf(cnf, "p cnf 4 5\n-1 2 3 4 0\n-2 0\n-3 0\n-4 0\n1 0\n");
+  fclose(cnf);
+
+  for (const ProofFormat format : {ProofFormat::DratAscii, ProofFormat::Lrat,
+                                   ProofFormat::DsrAscii}) {
+    const bool lrat = format == ProofFormat::Lrat;
+    const char *suffix = lrat ? "lrat" :
+                         format == ProofFormat::DsrAscii ? "dsr" : "drat";
+    snprintf(path, sizeof path, "%s/original-core-unit.%s", dir, suffix);
+    Proof proof;
+    assert(proof.open(path, format));
+    Kernel k;
+    build(k, 4, {{-1, 2, 3, 4}, {-2}, {-3}, {-4}});
+    k.next_clause_id = 5;
+    k.proof = &proof;
+    SweepRound round;
+    SweepLimits limits;
+    sweep_round_begin(k, round);
+    SweepDirProof captured = original_core_unit_proof(k);
+    sweep_capture_core_units_for_test(k, captured, round, limits);
+    assert(!round.units.empty() && round.units.front().unit == internalize(-1));
+    assert(sweep_emit_round_for_test(k, round, 0, limits) == ApplyResult::Ok);
+    const uint64_t unit_id = k.unit_ids[var_of(internalize(-1))];
+    assert(unit_id > 5 && k.value(internalize(-1)) > 0);
+    const uint64_t empty_chain[2] = {unit_id, 5};
+    proof.add_empty(++k.next_clause_id, empty_chain, 2);
+    proof.flush();
+  }
+  printf("emitted the original-core-unit case to %s\n", dir);
+}
+
 // A chained emission batch whose middle winner is named by no later pair: the
 // first pair's preserved bridge must carry the intermediate winner (the suffix
 // image of its emitted binary), and the following canonical Substitute owns
@@ -1339,6 +1432,7 @@ int main(int argc, char **argv) {
   if (argc > 2 && !strcmp(argv[1], "--emit")) {
     emit_se_case(argv[2]);
     emit_unit_case(argv[2]);
+    emit_original_core_unit_case(argv[2]);
     emit_bridge_chain_case(argv[2]);
     emit_bridge_two_hint_case(argv[2]);
     return 0;
@@ -1357,6 +1451,7 @@ int main(int argc, char **argv) {
   test_known_equivalence_still_substitutes();
   test_environment_skips_nonrepresentative_bridges();
   test_equivalence_with_new_unit_forces_partner();
+  test_original_core_unit_capture();
   test_env_provenance();
   test_equal_depth_binary_encounters();
   test_limits();

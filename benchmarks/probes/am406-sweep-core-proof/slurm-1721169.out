@@ -1,0 +1,17 @@
+  S-d: emitted 6 binaries (3 via the captured core)
+  S-d: non-RUP pairs declined, F unchanged
+  admission: no-proof agrees (non-RUP declined, RUP admitted)
+  admission: DRAT agrees (non-RUP declined, RUP admitted)
+  admission: DSR agrees (non-RUP declined, RUP admitted)
+  admission: LRAT agrees (non-RUP declined, RUP admitted)
+  S-e: general path emitted 2 binaries for a non-RUP equivalence
+  substitution without a dense session kept 10 binary watches whole
+  oracle: 86501 environments, 5344 claims (17 not RUP)
+test_sweep: all tests passed
+emitted 40 cases to /tmp/tmp.0uvKUlhiMK/test_subsolver (22 multi-step, longest 12 steps)
+emitted the S-e case to /tmp/tmp.0uvKUlhiMK/test_sweep
+emitted the Sweep-unit case to /tmp/tmp.0uvKUlhiMK/test_sweep
+emitted the original-core-unit case to /tmp/tmp.0uvKUlhiMK/test_sweep
+emitted the bridge-chain case to /tmp/tmp.0uvKUlhiMK/test_sweep
+emitted the bridge two-hint case to /tmp/tmp.0uvKUlhiMK/test_sweep
+sweep_proofs: 48 derivations verified by drat-trim + lrat-check + strict dsr-trim/Trestle (6 DSR cases)

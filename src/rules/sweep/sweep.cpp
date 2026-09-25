@@ -2857,6 +2857,19 @@ ApplyResult sweep_emit_round(Kernel &k, SweepRound &round, uint32_t found,
 }
 } // namespace
 
+// Test-only white-box seam for a captured core before the public Sweep action
+// drains pending root propagation. It does not add a registry action.
+void sweep_capture_core_units_for_test(Kernel &k, SweepDirProof &proof,
+                                       SweepRound &round,
+                                       const SweepLimits &lim) {
+  sweep_capture_core_units(k, proof, round, lim, false);
+}
+
+ApplyResult sweep_emit_round_for_test(Kernel &k, SweepRound &round,
+                                      uint32_t found, const SweepLimits &lim) {
+  return sweep_emit_round(k, round, found, lim);
+}
+
 void sweep_order_retirement_suffix(Kernel &k, size_t retired_begin,
                                    size_t substituted_begin) {
   // Kissat's inline Sweep rewrite only fills `sweeper->reprs`.  The single
