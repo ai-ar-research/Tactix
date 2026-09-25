@@ -33,6 +33,28 @@ static void test_solve_sat(void) {
   tactix_release(s);
 }
 
+/* Root-false literals can expose a failed probe through large clauses even
+ * when the probe literal has no binary watch. The public instance list must
+ * not inherit the canonical BIG-head scheduling filter. */
+static void test_probe_large_clause_instance(void) {
+  tactix *s = tactix_init();
+  add_clause(s, (const int[]){-1, 2, 3, 0});
+  add_clause(s, (const int[]){-1, 2, -3, 0});
+  add_clause(s, (const int[]){-2, 0});
+  const int probe = rule_id("Probe");
+  uint64_t insts[8];
+  const int n = tactix_rule_instances(s, probe, insts, 8);
+  assert(n > 0);
+  int offered = 0;
+  for (int i = 0; i < n; i++)
+    offered |= insts[i] == TACTIX_LIT_INSTANCE(1);
+  assert(offered);
+  assert(tactix_apply_instance(s, probe, TACTIX_LIT_INSTANCE(1)) == 0);
+  assert(tactix_solve(s) == 10);
+  assert(tactix_value(s, -1) == -1 && tactix_value(s, -2) == -2);
+  tactix_release(s);
+}
+
 /* Discarded-only identities must not enter the default search population,
  * while the returned model still satisfies every original input clause. */
 static void test_discarded_only_variables_extend_model(void) {
@@ -609,6 +631,7 @@ static void test_condition_cube_with_retired_external_variable(void) {
 }
 
 int main(void) {
+  test_probe_large_clause_instance();
   test_condition_cube_api();
   test_condition_cube_with_retired_external_variable();
   test_solve_sat();

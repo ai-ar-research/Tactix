@@ -1,7 +1,7 @@
-// V1 Probe (plan §5.2): failed-literal probing producing root units. For each
-// head literal of the binary implication graph — one whose negation carries a
-// binary watch, so assuming it propagates something — assume p at a fresh level
-// and propagate fully; a conflict proves p cannot hold, so {¬p} is a RUP unit.
+// V1 Probe (plan §5.2): failed-literal probing producing root units. The
+// canonical round schedules BIG heads; the public instance surface offers
+// every unassigned literal. Assume p at a fresh level and propagate fully; a
+// conflict proves p cannot hold, so {¬p} is a RUP unit.
 // Proof delta: add-RUP unit only, the LRAT chain being a reason walk of the
 // conflict. Derived units are asserted un-propagated at the root and the round
 // ends; M1 Propagate runs each unit's cascade, root-unit LRAT emission and any
@@ -22,12 +22,11 @@ namespace tactix {
 // reasoning assumes p atop a consistent trail.
 RuleEligibility probe_guard(const Kernel &);
 
-// Instance space (plan §5.1): payload = probe literal, sign-extended DIMACS
-// int. Canonical order: BIG-head literals, var-index ascending, positive phase
-// first. That restriction is complete for single-literal probing at a clean
-// root — a lone assumption can only cascade through a binary implication, since
-// a large clause keeps two unassigned literals until a binary forces one — but
-// it does not subsume V2 Backbone's units, a different regime.
+// Instance space (plan §5.1): payload = probe literal, zero-extended DIMACS
+// int. Public enumeration is var-index ascending, positive phase first, for
+// every unassigned literal. The canonical BIG-head schedule is only policy
+// advice: root-fixed literals can make large clauses propagate without a
+// physical binary watch. V2 Backbone is a different binary-only regime.
 void probe_candidates(const Kernel &, std::vector<Lit> &out);
 
 ApplyResult probe_try(Kernel &, Lit p); // one probe literal

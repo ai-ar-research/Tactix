@@ -222,7 +222,7 @@ root closure at apply entry. V1/V2 Probe/Backbone additionally require `!conflic
 `M` is a genuine abstract precondition — whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
 
 ### V1 · Probe — failed-literal probing (full propagation)
-- **Precondition (abstract):** ∃ an unassigned `p` with `F ∧ M ∧ p ⊢₁ ⊥`; then `F ∧ M ⊨ ¬p`, so `¬p` may be added as a root unit.
+- **Precondition (abstract):** ∃ an unassigned `p` with `F ∧ M ∧ p ⊢₁ ⊥`; then `F ∧ M ⊨ ¬p`, so `¬p` may be added as a root unit. Any unassigned literal may be probed explicitly; a nonfailed instance is NoOp. A binary-head filter is only a canonical schedule, not a soundness precondition.
 - **Effect:** collect-then-batch — assume each candidate, full-propagate, and on a conflict record `¬p`; assert the batch of derived
   units un-propagated (M1 owns the cascade). Proof δ: `add_rup` per unit (the reason-walk chain closed by the conflict id) — **not**
   `add_derived_unit`; a failed-literal unit is an explicit logical inference,
