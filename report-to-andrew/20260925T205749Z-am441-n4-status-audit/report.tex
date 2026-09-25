@@ -1,0 +1,36 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\title{Tactix interim audit: shipped N4 mechanisms versus open acceptance}
+\author{Codex for Andrew}
+\date{25 September 2026}
+\begin{document}
+\maketitle
+
+\paragraph{Outcome.} Six further scheduling-parity ledger entries lagged the
+production tree. Forward unit continuation, canonical root-mark admission,
+post-forward caller closure, Eliminate dense entry, and its resolution ceiling
+are present since \texttt{7a668e76}; same-conflict suppression after Reduce is
+present since \texttt{6d235f4a}. The ledger and engineering notes now distinguish
+\emph{implemented} from \emph{accepted}. No solver, policy, proof, checker,
+benchmark pin, or configuration changed. The source/test mapping and historical
+isolated evidence are in the AM441 report under \texttt{benchmarks/reports/}.
+
+\paragraph{Evidence and limitation.} Current-source Debug job 1723391 passed
+the focused \texttt{forward\_unit}, \texttt{strengthen}, \texttt{scheduling}, and
+\texttt{eliminate\_limit} tests. It had passed 186/187 tests when inspected; its
+last scripted demo was still running. The older isolated composition for the
+post-forward closure regressed full runtime by 1.176794 times and C by
+1.017340 times, so its incorporation in production is emphatically not a
+performance sign-off. Affected fuzz, reference trajectories, checked
+cumulative gates, and the full Debug result remain outstanding. All docs
+checks pass; six existing document-size warnings remain and no compaction was
+performed.
+
+\paragraph{Next actions.} Finish the full Debug and extended paired AES proof
+checks, close the general H2 no-option checker-state failure and remaining
+N1--N4/fuzz/benchmark gates, and then issue the final online-learning readiness
+assessment. The requested 1,166-instance Tier D comparison at 5,000 seconds,
+4 CPUs, and 32 GiB on \texttt{cpu-dense-hwulab-q} remains after those fixes,
+not launched by this audit.
+\end{document}
