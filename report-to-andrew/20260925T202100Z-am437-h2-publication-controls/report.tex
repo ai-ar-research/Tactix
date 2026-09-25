@@ -1,0 +1,53 @@
+\documentclass[10pt]{article}
+\usepackage[margin=0.78in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{hyperref}
+\title{Tactix: H2 Unit-Publication Controls}
+\author{Report to Andrew}
+\date{25 September 2026}
+\begin{document}
+\maketitle
+\vspace{-1.5em}
+\emergencystretch=1em
+
+\section*{Outcome}
+The new 16-clause, one-retained-reason H2 reproducer rules out another
+simple no-option DSR repair. Nine pinned checker-only variants tested
+publishing implied unit 19, publishing the local 18/19 closure, omitting the
+reason-clause deletion, and repeating that deletion. None verified under
+the frozen canonical no-option \texttt{dsr-trim}; all outcomes and raw logs
+are preserved in \href{../../benchmarks/reports/2026-09-25-am437-h2-unit-publication-controls.md}{AM437}.
+No solver, proof emitter, checker binary or acceptance route changed.
+
+\section*{What the result means}
+The exact ASCII re-encoding reproduces the binary baseline's backward
+watch-pointer failure and forward SR-obligation failure. Publishing unit 19
+before deleting input clause 15 can make that deletion effective in the
+checker: a second identical deletion then fails because there is no matching
+clause. But the explicit unit remains in the checked formula, and a later SR
+witness still fails against a different clause obligation. Omitting the
+deletion also leaves the baseline failure. Thus neither clause-population
+alignment by one publication nor this local closure is a complete proof
+derivation. These controls corroborate the earlier original-H2 results; they
+do not establish that the canonical contract is impossible in general.
+
+The diagnostic \texttt{--delete-implied-units} contract verifies this H2
+proof through Trestle, yet archived real-solver controls show it can also
+reject proofs accepted by the no-option contract. It is not a monotone
+relaxation. A production switch would require an explicit contract decision
+and broad positive/negative, original-CNF and cumulative gate revalidation.
+That choice has been put to the user; the no-option route remains canonical
+until decided.
+
+\section*{Next work}
+Design a checker-visible proof-state model or independent SR derivation that
+works across retained reasons and interleaved deletions without masking a
+public action. The current-source full Debug job \texttt{1723391} and paired
+AES extended-checker tasks \texttt{1723443} remain running on frozen pins.
+H2/N2, universal N1, N3/N4 and the retained Rank/B+C/WV gates remain open.
+The previously identified policy-layer refactors still precede production
+online learning, and the requested 5,000-second full Tier-D comparison
+remains post-goal.
+
+\end{document}
