@@ -7,6 +7,31 @@ from proof_oracle import bridge_trivial_input_binary_lsr, proof_check_status
 
 
 class ProofOracleTests(unittest.TestCase):
+    def test_tier_runner_freezes_native_dsr_checker_bytes(self):
+        import importlib.util
+        from unittest.mock import patch
+        root = Path(__file__).resolve().parents[2]
+        spec = importlib.util.spec_from_file_location(
+            'pinned_tier_runner', root/'tools/bench/run.py')
+        runner = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(runner)
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            binaries = []
+            for name in ('dsr-trim', 'dsr-compress', 'srcheck'):
+                binary = work/name
+                binary.write_bytes(name.encode())
+                binaries.append(binary)
+            with patch.object(runner, 'DSR_TRIM', str(binaries[0])), \
+                 patch.object(runner, 'DSR_COMPRESS', str(binaries[1])), \
+                 patch.object(runner, 'SR_CHECK', str(binaries[2])):
+                pins = runner.dsr_checker_pins()
+            runner.use_dsr_checker_pins(pins)
+            self.assertEqual(runner.DSR_TRIM, str(binaries[0]))
+            binaries[0].write_bytes(b'changed')
+            with self.assertRaisesRegex(RuntimeError, 'checker pin changed'):
+                runner.use_dsr_checker_pins(pins)
+
     def test_captured_wait_chunks_preserve_output_and_exit_status(self):
         import proof_oracle as oracle
         import subprocess
