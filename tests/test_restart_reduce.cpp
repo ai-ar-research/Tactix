@@ -140,6 +140,41 @@ static void test_reduce_preserves_recorded_large_conflict() {
   kernel_check_invariants(k);
 }
 
+static void test_conflict_reduce_preserves_root_fixed_prefix_watches() {
+  Kernel k;
+  ScopedHeuristics h(k);
+  kernel_reserve_vars(k, 6);
+  // The irredundant prefix is not swept by ordinary Reduce. It is unit under
+  // the retained roots, whose full propagation may still be pending while an
+  // explicit client has recorded a search conflict.
+  const Lit prefix[3] = {internalize(1), internalize(2), internalize(3)};
+  const Ref prefix_ref = kernel_add_large_clause(k, prefix, 3, false, 0, 801);
+  const Lit victim_lits[3] = {internalize(4), internalize(5), internalize(6)};
+  const Ref victim = kernel_add_large_clause(k, victim_lits, 3, true, 3, 802);
+  kernel_add_binary_clause(k, internalize(-4), internalize(-5));
+  kernel_assign_unit(k, internalize(-1));
+  kernel_assign_unit(k, internalize(-2));
+  kernel_assign_decision(k, internalize(4));
+  kernel_assign_decision(k, internalize(5));
+  k.conflict_valid = true;
+  k.conflict_ref = INVALID_REF;
+  k.conflict_bin[0] = internalize(-4);
+  k.conflict_bin[1] = internalize(-5);
+
+  assert(reduce_apply_refs(k, &victim, 1, false) == ApplyResult::Ok);
+  assert(k.conflict_valid && clause_at(k.arena, prefix_ref)->id() == 801);
+  for (const Lit watched : {prefix[0], prefix[1]}) {
+    bool found = false;
+    for (const WatchEntry entry : k.watches.entries(watched))
+      found |= !entry.binary() && entry.ref() == prefix_ref;
+    assert(found && "conflict-state Reduce dropped a live prefix watch");
+  }
+  assert(restart_apply(k) == ApplyResult::Ok);
+  assert(propagate_service(k) == ApplyResult::Ok);
+  assert(k.value(prefix[2]) > 0);
+  kernel_check_invariants(k);
+}
+
 static void test_reduce_strategy_parameters_control_canonical_selection() {
   assert(reduce_fractional_victims(101, 2, 5) == 40);
   Kernel k;
@@ -712,6 +747,7 @@ int main(int argc, char **argv) {
   test_reduce_prepare_propagates_root_before_collection();
   test_reduce_prepare_reports_root_conflict();
   test_reduce_preserves_recorded_large_conflict();
+  test_conflict_reduce_preserves_root_fixed_prefix_watches();
   test_reduce_strategy_parameters_control_canonical_selection();
   test_root_propagation_consumes_unflushed_marker();
   test_reduce_used_retention();

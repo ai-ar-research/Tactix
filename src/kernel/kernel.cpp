@@ -2668,7 +2668,14 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
     // Both are loop-invariant here, and when neither holds every large entry
     // is dropped, so the position lookup -- a hash probe plus two further
     // clause dereferences -- has nothing to decide.
-    if (sparse_collection && kernel_root_value(k, lit) == 0)
+    // Stripping a root-fixed watch is valid only after root collection has
+    // simplified every clause it can affect. An unresolved search conflict
+    // deliberately skips that root transition in Reduce: its live prefix
+    // clauses must keep both watches until the conflict is discharged and
+    // root propagation can rescan them. Otherwise a later Restart can expose
+    // a unit clause with no watch on either falsified literal.
+    if (sparse_collection &&
+        (k.conflict_valid || kernel_root_value(k, lit) == 0))
       k.watches.compact_map_large(lit, [&k, sparse_cut](WatchEntry w) {
         if (w.binary())
           return true;
