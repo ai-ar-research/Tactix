@@ -121,7 +121,7 @@ or checker tasks never count as acceptance.
   literal exactly like Kissat. Isolated5649 keeps a local cursor, publishing at exits (per scan for diagnostics). Backtrack owns
   rewinds; binary-only debt still forces every skipped large scan.
 - Binary-only propagation records its covered prefix in `binary_only_head` so later full propagation pays outstanding work.
-- Lucky's whole-CNF-validated model publication settles both propagation cursors: the validated assignment discharges any older binary-only large-watch debt, so `tactix_status` observes the same SAT fixpoint as the rule's return even when retired identities stay unassigned.
+- Lucky's whole-CNF-validated model publication settles both propagation cursors: the validated assignment discharges any older binary-only large-watch debt, so `tactix_status` observes the same SAT fixpoint as the rule's return even when retired identities stay unassigned. It also taints the trail for a later search backtrack: validation certifies the total model, not that each published decision is a BCP consequence. A keep-level Restart therefore rewinds to the start and repropagates after discarding later satisfying decisions.
 - Every root-fixed literal in a continuing native-LRAT derivation has a proof-unit id; a completed refutation has no later hints. Native DSR emits the same logical unit but tracks only its published
   polarity in proof-only state. All propagation entry points publish new root units; speculative retraction invalidates LRAT's cached
   unit ids so replay cannot cite the opposite polarity.

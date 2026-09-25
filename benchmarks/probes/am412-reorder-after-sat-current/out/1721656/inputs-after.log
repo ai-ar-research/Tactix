@@ -1,0 +1,3 @@
+/home/hwu/SAT-solving/build/pin-am412-reorder-debug/tests/xdrv-current: OK
+/home/hwu/SAT-solving/benchmarks/runs/20260925-am382-proof-import-claude-fuzz/handoffs/h2-reorder-after-sat-invariant/input.cnf: OK
+/home/hwu/SAT-solving/benchmarks/probes/am412-reorder-after-sat-current/minimal.prog: OK

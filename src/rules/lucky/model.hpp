@@ -122,6 +122,13 @@ inline bool lucky_complete_by_propagation(Kernel &k, uint64_t rounds,
 // admitted publication work. Do not poll or stop partway through publication.
 inline void lucky_publish_model(Kernel &k,
                                 const std::vector<uint8_t> &assignment) {
+  // A whole-CNF check certifies this total assignment as a model, but does
+  // not make its individual decisions BCP consequences. After a partial
+  // restart removes a later satisfying decision, a clause watched by an
+  // earlier false literal can become unit. Treat this trail like an
+  // off-fixpoint Decide sequence so search backtracking rescans the retained
+  // prefix before claiming another propagation fixpoint.
+  k.trail_tainted = true;
   for (Var v = 0; v < k.nvars; ++v)
     if (!k.value(make_lit(v, false)) && !kernel_var_retired(k, v))
       kernel_assign_decision(k, make_lit(v, assignment[v] == 0));
