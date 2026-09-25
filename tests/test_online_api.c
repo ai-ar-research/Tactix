@@ -73,9 +73,9 @@ static void condition_cube_v3_is_atomic_and_copied(void) {
   tactix_release(solver);
 }
 
-/* A late LRAT replay can finish the input refutation before the online
- * executor runs. Its proof is complete even if the proofless kernel's root
- * trail contains units for which the replay has no matching unit line. */
+/* Early and late LRAT attachment share eager import and can finish the input
+ * refutation before the online executor runs. The executor must not report a
+ * second UNSAT transition merely because proof attachment happened early. */
 static void late_lrat_root_refutation_is_terminal(void) {
   /* Eager root propagation and native-LRAT replay can finish with
    * different unit trails after the same input has been refuted. */
@@ -120,8 +120,7 @@ static void late_lrat_root_refutation_is_terminal(void) {
                                    TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
     tactix_online_result result;
     assert(tactix_online_advance(solver, &result) == 0);
-    assert(result.status == (late ? TACTIX_ONLINE_INAPPLICABLE
-                                  : TACTIX_ONLINE_UNSAT));
+    assert(result.status == TACTIX_ONLINE_INAPPLICABLE);
     assert(tactix_status(solver) == 20);
     tactix_release(solver);
     FILE *proof = fopen(path, "rb");
