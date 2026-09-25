@@ -1,0 +1,15 @@
+c CNF file path: /home/hwu/SAT-solving/benchmarks/probes/am436-h2-shrink/minimal.cnf
+c DSR file path: /home/hwu/SAT-solving/benchmarks/probes/am436-h2-shrink/minimal.dsr
+c LSR file path: /home/hwu/SAT-solving/benchmarks/probes/am436-h2-shrink/verify-djc1qvgi/no-option-backward-verbose.lsr
+c Using an EAGER parsing strategy.
+c Doing BACKWARDS proof checking.
+c The CNF formula has 16 clauses and 21 variables.
+c Parsing the CNF took 0.000 secs
+c Detected that the DSR proof is in binary format.
+c The emitted LSR proof will also be in binary format.
+c Parsed the empty clause after 70 proof lines (35 additions).
+c Empty clause detected on proof line 70.
+c [line 2] Ignoring deletion of (implied) unit clause 15.
+c The empty clause was derived after clause 37 (add'n line 21).
+c Checking proof...
+Fatal error: [line 21] Clause 37 not in watch pointers for literal 20
