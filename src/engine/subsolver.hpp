@@ -82,6 +82,7 @@ struct SubStep {
 struct SubDerivation {
   std::vector<SubStep> steps;
   std::vector<uint32_t> core;
+  bool resource_exhausted = false;
   // Kitten's clausal core: every clause reachable from the refuting lemma over
   // `antecedents`, each emitted once, in the post-order
   // `kitten_compute_clausal_core` produces (`kitten.c:1978-2008`). `learned`
@@ -153,8 +154,16 @@ public:
   // `Proof::add_rup`'s assert catches, DRAT accepting it for free.
   // `with_core` additionally fills `out.core_clauses` with Kitten's clausal
   // core; it costs one arena walk, so only the caller that consumes the core
-  // asks for it.
-  bool derivation(SubDerivation &out, bool with_core = false) const;
+  // asks for it. False with `out.resource_exhausted` means optional export
+  // could not allocate; no proof is valid and the caller must stop that
+  // environment rather than retry its oversized capture.
+  bool derivation(SubDerivation &out, bool with_core = false) const noexcept;
+
+  // Read the last refutation's final target without exporting its potentially
+  // enormous proof prefix. Intended for shape checks before capture.
+  const SubStep *refutation_target() const {
+    return have_derivation_ ? &target_ : nullptr;
+  }
 
   // Kitten definition-core refinement: retain only the original clauses in a
   // computed core, discard learned state, then deterministically shuffle the

@@ -620,6 +620,7 @@ void test_derivation_edge_cases() {
   const uint32_t e = s.add_clause({});
   assert(s.solve({}, 0) == SubResult::Unsat);
   assert(s.derivation(d) && d.steps.size() == 1 && d.steps[0].lits.empty());
+  assert(s.refutation_target() && s.refutation_target()->lits.empty());
   assert(d.core.size() == 1 && d.core[0] == e);
   // clashing units: the second one refutes at add time
   s.reset(2);
@@ -634,6 +635,8 @@ void test_derivation_edge_cases() {
   assert(s.solve({sub_lit(0, true)}, 0) == SubResult::Unsat);
   assert(s.derivation(d));
   assert(d.steps.back().lits == std::vector<SubLit>({sub_lit(0, false)}));
+  assert(s.refutation_target() &&
+         s.refutation_target()->lits == d.steps.back().lits);
   assert(d.core == std::vector<uint32_t>({u}));
   // directly contradictory assumptions: the formula proves nothing, so the
   // target would be the tautology x v ~x
@@ -641,6 +644,7 @@ void test_derivation_edge_cases() {
   s.add_clause({sub_lit(0, false), sub_lit(1, false)});
   assert(s.solve({sub_lit(0, false), sub_lit(0, true)}, 0) == SubResult::Unsat);
   assert(!s.derivation(d) && "contradictory assumptions derive nothing");
+  assert(!s.refutation_target());
 
   // Kitten keeps the clause learned from a failed assumption solve and reuses
   // it in later calls on the same environment.  Use a deliberately non-identity

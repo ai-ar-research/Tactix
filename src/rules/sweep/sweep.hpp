@@ -18,6 +18,8 @@
 #include "strategy/sweep_parameters.hpp"
 #include "engine/subsolver.hpp"
 
+#include <memory>
+#include <span>
 #include <vector>
 
 namespace tactix {
@@ -96,6 +98,22 @@ struct SweepDirProof {
   // silently swaps the two directions when the seed is the larger literal.
   Lit t0 = INVALID_LIT, t1 = INVALID_LIT;
   std::vector<SubStep> steps;
+  // A core can certify many units at different prefix lengths. Share the
+  // immutable derivation instead of copying each (potentially huge) prefix.
+  std::shared_ptr<const std::vector<SubStep>> shared_steps;
+  size_t shared_step_count = 0;
+  std::span<const SubStep> steps_view() const {
+    if (shared_steps)
+      return {shared_steps->data(), shared_step_count};
+    return steps;
+  }
+  void share_steps() {
+    if (!shared_steps) {
+      shared_step_count = steps.size();
+      shared_steps =
+          std::make_shared<const std::vector<SubStep>>(std::move(steps));
+    }
+  }
   // Saved at the query boundary; original eligibility does not change while
   // a later core commits units. This is separate from the LRAT proof prefix.
   std::vector<SubDerivation::CoreClause> core_clauses;

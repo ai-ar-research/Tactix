@@ -29,6 +29,24 @@ static void test_effort_prices_embedded_and_representation_ticks() {
   assert(sweep_semantic_effort(k) == 17);
 }
 
+static void test_core_prefixes_share_one_immutable_derivation() {
+  SweepDirProof parent;
+  parent.steps.push_back(SubStep{3, {0}, {1}, {}});
+  parent.steps.push_back(SubStep{4, {2}, {3}, {}});
+  parent.share_steps();
+  assert(parent.steps.empty());
+  assert(parent.steps_view().size() == 2);
+
+  SweepDirProof prefix;
+  prefix.shared_steps = parent.shared_steps;
+  prefix.shared_step_count = 1;
+  assert(prefix.steps_view().size() == 1);
+  assert(prefix.steps_view()[0].id == 3);
+  assert(parent.shared_steps.use_count() == 2);
+  parent = {};
+  assert(prefix.steps_view()[0].id == 3);
+}
+
 static void test_unbounded_clause_limit_sizes_from_formula() {
   Kernel k;
   kernel_reserve_vars(k, 3);
@@ -1328,6 +1346,7 @@ int main(int argc, char **argv) {
   const uint32_t rounds =
       argc > 1 ? static_cast<uint32_t>(strtoul(argv[1], nullptr, 10)) : 20000;
   test_effort_prices_embedded_and_representation_ticks();
+  test_core_prefixes_share_one_immutable_derivation();
   test_unbounded_clause_limit_sizes_from_formula();
   test_dense_entry_flushes_only_irredundant_satisfied_clauses();
   test_non_rup_equivalence();

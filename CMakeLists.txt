@@ -15,8 +15,9 @@ option(TACTIX_ENABLE_RULE_JOURNAL "Compile semantic rule journaling" OFF)
 # the checker still holds. Production pins compile none of it (the emission
 # sites are #ifdef-ed out and `Proof::population_shadow()` folds to false).
 option(TACTIX_ENABLE_PROOF_SHADOW "Compile the proof-population oracle" OFF)
-# Kernel discipline (plan §5): C-style core, no exceptions/RTTI anywhere in
-# the solver library or binary.
+# Kernel discipline (plan §5): C-style core, no exceptions/RTTI in the hot
+# solver. Two narrow exception islands catch failures before their noexcept
+# boundaries: the pinned graph backend and optional embedded-proof export.
 add_compile_options(-Wall -Wextra -fno-exceptions -fno-rtti)
 
 # DejaVu is a pinned graph-automorphism backend whose public implementation
@@ -48,6 +49,7 @@ add_library(tactix_lib OBJECT
   ${TACTIX_RULE_SOURCES}
   ${TACTIX_POLICY_OP_SOURCES}
   src/engine/subsolver.cpp
+  src/engine/subsolver_proof_export.cpp
   src/policies/heuristics.cpp
   src/policies/default_policy.cpp
   src/policies/structured_root_strategy.cpp
@@ -66,6 +68,11 @@ add_library(tactix_lib OBJECT
   src/frontend/parse.cpp
   src/api/api.cpp
 )
+
+# Proof export can copy a huge learned core. Only this translation unit may
+# catch allocation failure; `SubSolver::derivation` is noexcept to callers.
+set_source_files_properties(src/engine/subsolver_proof_export.cpp PROPERTIES
+  COMPILE_OPTIONS -fexceptions)
 if(TACTIX_ENABLE_EVENT_TRACE)
   target_sources(tactix_lib PRIVATE src/diagnostics/event_trace.cpp)
   target_compile_definitions(tactix_lib PUBLIC TACTIX_ENABLE_EVENT_TRACE=1)
