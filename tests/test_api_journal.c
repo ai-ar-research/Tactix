@@ -22,5 +22,8 @@ static void one_session(void) {
 int main(void) {
   one_session();
   one_session();
+  /* Intentionally leave the journal open: the exit callback must check replay
+   * exhaustion without touching a transaction whose thread-local lifetime
+   * may have ended first. ASan runs this fixture with journaling enabled. */
   return 0;
 }
