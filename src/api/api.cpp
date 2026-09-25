@@ -1886,6 +1886,7 @@ uint64_t tactix_config(tactix_solver *s, int cfg_id) {
 int tactix_decide_candidates(tactix_solver *s, int *lits, int cap) {
   if (cap <= 0)
     return 0;
+  input_complete(s);
   std::vector<Lit> buf(static_cast<size_t>(cap));
   const uint32_t n =
       heuristics_decide_candidates(s->kernel, buf.data(),
