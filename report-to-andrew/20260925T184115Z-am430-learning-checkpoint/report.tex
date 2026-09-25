@@ -1,0 +1,76 @@
+\documentclass[10pt]{article}
+\usepackage[margin=0.76in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{hyperref}
+\title{Tactix: Sweep Gate and Learning-Readiness Checkpoint}
+\author{Report to Andrew}
+\date{25 September 2026}
+\begin{document}
+\maketitle
+\vspace{-1.5em}
+\emergencystretch=1em
+
+\section*{Outcome}
+The AM427 Sweep scheduling candidate remains unaccepted. Matched Tier A and B
+are independently certificate-clean, but neither establishes N4 parity or a
+stable performance gain. Tier C is still running on the same pinned binaries;
+no Tier D comparison has been submitted. A source review confirms that
+production online learning needs policy/session refactoring, while the existing
+root-action executor supports bounded opt-in prototypes. The
+\href{../../benchmarks/reports/2026-09-25-am429-sweep-tier-b-and-slurm-lock.md}{AM429}
+and \href{../../benchmarks/reports/2026-09-25-am430-policy-lifetime-and-scheduling-fixture.md}{AM430}
+technical reports hold the detailed evidence.
+
+\section*{Verified evidence}
+Tier A: both arms solved 199/200, including 117 independently checked native
+DSR proofs each, with identical paired verdicts and proof sizes. AM427 took
+3.0 more solver seconds across 200 tasks. Tier B: both arms solved 28/28
+(14 SAT, 14 UNSAT), with all 14 proofs and all models checked; paired verdicts
+and proof sizes again matched. AM427 took 415.978 versus the parent's 427.866
+solver seconds over 28 tasks, a small, non-gating advantage. The first Tier C
+submission never started because the active B build lock refused acquisition;
+the general runner now holds an array until its locks and dependent aggregate
+are established. Its 31 focused runner/oracle tests pass.
+
+As of 18:41 UTC, corrected Tier C array \texttt{1723299} had 46/60 task
+records (23 complete pairs): 30 SAT and 16 UNSAT, no recorded model/proof
+failure or expected-verdict mismatch, and identical paired verdicts and proof
+sizes. The remaining tasks and aggregate \texttt{1723300} are active; these
+partial records are not an aggregate performance result. The checker bundle
+is frozen by SHA-256 in the run manifest. No mutable checker clone is used.
+
+The fixed ASan+UBSan public-action/online suite passed 10/10; a separately
+rebuilt six-test API/online subset and the scheduling test passed. The latter
+had a parent-identical stale witness: early Lucky refuted its old tiny binary
+formula before the collection boundary under test. A deeper independent
+UNSAT tail restores the test's intended path. \texttt{DefaultPolicy} and its
+scheduler are now non-copyable/non-movable because their arms borrow
+configuration or member addresses; this changes no solver schedule.
+
+\section*{Learning design and open gates}
+For inprocessing order/dose, the explicit online executor already has typed
+steps, limits and replay, but the mature default scheduler separately owns
+clocks, admission, cursors and follow-ups. A shared default-exact slot
+controller is the first major refactor. For branching and clause deletion,
+current sub-policy pointers are borrowed and cover only part of the decision;
+owned typed arms, safe switch boundaries, state migration and complete
+reduction-strategy control are the second. A third necessary seam is session
+lifetime: \texttt{tactix\_solve} is synchronous and constructs a fresh
+\texttt{DefaultPolicy} per call, so no live default-policy arm can yet be
+reconfigured through the C API. Preserve default action/proof traces and
+measure overhead before enabling a learner.
+
+N2 is still open: the frozen canonical no-option DSR checker rejects the
+separate H2 proof; the implied-unit deletion option is only a diagnostic
+alternative with a different proof-state contract. Broad affected fuzz,
+N1 completeness, N3/Tier-D competitiveness, N4 reference scheduling and the
+retained Rank/B+C/WV gates remain open. The proof-rule audit found a qualified
+winner gap in general live pseudo-Boolean arithmetic/redundancy/dominance;
+ordinary CaDiCaL/Kissat clausal emitter events map to existing RUP/RAT/delete.
+Finish Tier C and affected fuzz, settle and fully audit the H2 contract, then
+run the cumulative gates. Only after those fixes should the 1,166-instance
+Tier D pass use the frozen winner allocation: four CPUs, 32 GiB and 5,000
+solver seconds per task on \texttt{cpu-dense-hwulab-q}.
+
+\end{document}
