@@ -1,0 +1,27 @@
+\documentclass[11pt]{article}
+\usepackage[margin=0.82in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{hyperref}
+\newcommand{\code}[1]{\texttt{#1}}
+\title{Tactix: Competition-Winner Proof-Rule Audit Checkpoint}
+\author{Report to Andrew}
+\date{25 September 2026}
+\begin{document}
+\maketitle
+\vspace{-1.4em}
+
+\section*{Outcome}
+The frozen AM402 source audit gives a qualified yes to the missing-proof-rules question. The verified SC26 LymphoSAT bundle has listed specialized solvers whose UNSAT paths emit general pseudo-Boolean (PB) polynomial arithmetic, redundancy and subproof derivations. Its composite verifies a returned UNSAT certificate with VeriPB before publishing it. The pinned Satsuma source also has PB dominance/arithmetic output. Tactix can emit PB arithmetic in Lucky 19/20, but only for complete original-input terminal refutations at its startup proof boundary. It has no general live PB derivation action or event interface. The separate clausal vocabulary---RUP, RAT, finite substitution redundancy and deletion---appears represented; this source pass did not establish a missing clausal primitive.
+
+\section*{Evidence and interpretation}
+The LymphoSAT \code{order.json} and generated matcher registry include equivalence-chain, XOR-chain, Tseitin-formula and random-XOR solvers. Their source emits \code{pol} addition/scaling/division, \code{red} constraints and/or PB subproofs; the AM402 technical report gives exact source locations. A literal-source count finds \code{pol} in at least 15 family producers, \code{red} in at least seven and \code{pbc} in at least three; these are lower bounds, not measured competition usage. Tactix's Lucky parity and count emitters use some of the same PB commands, so the gap is general applicability and proof-stream integration, not total absence of the arithmetic syntax.
+
+This is a proof-calculus and proof-efficiency design gap, not automatically an N1 failure for the currently declared action catalog. Nor does PB dominance syntax alone prove a missing semantic symmetry action: Tactix's X7 can carry finite clausal substitution witnesses. A general fix would require a typed PB derivation interface, legality and resource bounds, original-CNF proof checking, and a deliberate choice about the present startup-PBP versus ordinary-DSR boundary. Splicing PB commands into a published DSR stream would not satisfy the current N2 contract. The remaining CaDiCaL/Kissat producer and public reachability audits still need to be completed.
+
+\section*{Current gates and next action}
+AM400 and AM401 full Debug jobs \code{1720786} and \code{1720898} were running during this audit, and both independent affected Opus owners lacked terminal verdicts. The canonical no-option DSR checker issue H2 and the post-finalization public-addition SAT-model behavior remain open. Therefore no combined N1/N2 pass is claimed; N3/N4 and Rank/B+C/WV performance gates also remain open. Online learning is still prototype-only: its root-pass dosing interface exists, but production use needs default-exact inprocessing slot control and safe-point strategy ownership. Next consume the running correctness evidence, repair any bounded handoff generally, decide the two open public/checker contracts, then complete the source-to-action audit and combined gates. The requested 5,000-second, 4-CPU, 32-GiB full Tier-D hwulab run remains conditional on achieving the goal.
+
+\noindent\textbf{Primary evidence:} AM402 technical report; AM398 winner proof-emitter report; pinned sources under \code{winners/}; \code{docs/calculus.md} and \code{DEVELOPMENT\_PLAN.md} \S4--5; current \code{PROGRESS.md}.
+\end{document}
