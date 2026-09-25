@@ -22,6 +22,9 @@ authorities, and Claude-owned default/random-policy fuzzing.
 
 ## Current checkpoint
 
+AM444 is an **unaccepted focused N2 repair** for AM442's plain-solve LRAT H1: Sweep normalizes shared raw prefixes under each unit target; old H1 rejects, patched jobs `1723631`/`1723643` verify both exact CNFs through CakeLPR, and `sweep`/`sweep_proofs` pass. Broader Opus fuzz, full Debug and cumulative gates remain due (`benchmarks/reports/2026-09-25-am444-sweep-lrat-core-target-repair.md`).
+Checker-only AM444 moves one H2 deletion before its implied root and verifies the reduced public X7 proof through no-option DSR→LSR→Trestle, but originally implied reasons lack that window; H2 remains open (`benchmarks/reports/2026-09-25-am444-h2-early-deletion-control.md`). AM442 Opus is terminal affected-scope PASS with H1 handed off; AM427 Opus arrays `1723596`--`1723603` are live. Old-pin Debug `1723391` has 186/187 passes and its last demo still runs. AES `1723443_0/1` verified, while matched 4,800-second Tier C remains unscorable (AM443 report).
+
 AM337 is an **ungated repair checkpoint**, not a replacement for the
 AM333 authority below. Automatic startup PBP now has shared Lucky 19 (parity)
 and 20 (general signed count preservation); explicit clausal formats stay strict.
@@ -296,7 +299,7 @@ byte-identical solver pins remain in the AM333 gate campaigns.
 
 ## Next steps
 
-1. **FmlaEquivChain / Tseitin certificate (chosen by the user, 2026-09-22).** Current worktree resumed clean at `92d3fc73`. Collect the terminal verdict of old-pin Debug job `1723391` (186/187 passed, final `demo3_scripted_default` running at last check). Paired AES array `1723443_0/1` is terminal: both original-CNF proofs verify through pinned no-option DSR→LSR→Trestle after 5,780/5,790 checker seconds; the frozen 4,800-second matched Tier-C results remain unscorable (`benchmarks/reports/2026-09-25-am443-aes-terminal-and-h2-contract-control.md`). Solve H2's checker-retained implied-reason mismatch without narrowing legal X7; the same report records a small satisfiable checker-state counterexample and the independent Trestle rejection of a misleading backward elaboration. The user has been asked to choose whether to keep pursuing a different no-option representation or audit the diagnostic option as a candidate contract; do not change the canonical route without explicit approval. AM442's focused tests/proofs pass; Claude/Opus affected-fuzz owners are preparing from `benchmarks/runs/20260925-am442-online-config-claude-fuzz/REQUEST.md` and `benchmarks/runs/20260925-am427-sweep-state-claude-fuzz/REQUEST.md`; inspect only their `OWNER_STATUS.md`, terminal `REPORT.md`, and bounded handoffs. Complete full N1--N4 gates, production online-learning readiness review and Andrew's report before the requested post-goal Tier D.
+1. **H2 and the current proof/fuzz gates.** The handoff at `92d3fc73` is historical; verify current pins and live jobs before continuing. Preserve the no-option DSR→LSR→Trestle route while finding a general H2 proof-state repair that keeps every legal public X7 action. AM444's early deletion is one bounded control, not a general solution. Keep the AM443 small satisfiable checker-state negative control and Trestle rejection in view. Complete AM444's affected Opus fuzz and full Debug; consume terminal AM427 Opus status and old-pin Debug job `1723391`. AM442 Opus is terminal affected-scope PASS but its pre-existing H1 handoff required the AM444 repair. Paired AES `1723443_0/1` independently verified in 5,780/5,790 checker seconds; the frozen 4,800-second matched Tier-C results remain unscorable. Finish all N1--N4 correctness and performance gates, review production online-learning readiness, and report to Andrew before post-goal Tier D.
    User approved `benchmarks/reports/2026-09-22-startup-certificate-proposal.md`:
    implement automatic startup PBP, checked by pinned VeriPB then CakePB,
    with DSR for all search paths and strict explicit format modes. The proposal
@@ -323,11 +326,7 @@ byte-identical solver pins remain in the AM333 gate campaigns.
    the earlier owner finding persists rather than changing parser tolerance.
    Complete these oracle obligations before successor gates; no affected
    surface or full-tier coverage requirement is waived.
-   SCPC's trailing blank line requires the AM338 final-checker spelling.
-   AM339's immutable `claude-fuzz-request.md` covers
-   the new combined candidate, AM338 tooling and the parser repair. Earlier
-   campaigns must be resumed by their owner without repeating passing unchanged
-   legs; no old gate is silently transferred to the new pin.
+   SCPC's trailing blank line requires the AM338 final-checker spelling. AM339's immutable request covers the combined candidate, tooling and parser repair; owners resume unchanged passing legs, and no old gate transfers to a new pin.
 2. **Preserve the terminal first routed gate campaign.** Jobs
    `1715989`--`1715992` have 272 final results with complete cleanup; checked
    coverage is 50/50, 33/33, 97/100 and 82/89 (78 within 600 s). These are not
