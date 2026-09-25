@@ -431,9 +431,9 @@ DefaultPolicy has no Condition producer and omits X5 from its reference slot pro
 
 The compile-time-only journal records solver, sequence, kind, rule, event, conflict, portable candidate, trigger/context,
 formula/root epochs, pre/post digests, guards, antecedents, outcome/decline, deltas, witnesses, effort, and budget. Literals use
-external identities; clauses use proof ids or stable creation ordinals. Selectors run before expensive digests and production builds
-contain no journal branch. Dynamic candidate descriptions are lazy: production does not construct or allocate them on the search hot
-path. Replay stops at the first field mismatch and never injects a transformation.
+external identities; clauses use proof ids or stable creation ordinals. Selectors precede expensive digests; production has no journal branch.
+Dynamic candidates are lazy. API solves flush, not close; exit checks replay using process-wide state only, since thread-local transactions
+may already be destroyed. Explicit close also resets TLS. Replay stops at the first field mismatch and never injects a transformation.
 
 Complete inprocessing coverage is still pending: budgeted Substitute emits schedule records but lacks per-round transactions.
 Unbudgeted composed calls record rewrites, reconstruction and final reconnection under the source meter; the full

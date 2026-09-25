@@ -48,6 +48,8 @@ struct TransactionState {
 thread_local TransactionState transaction;
 thread_local RuleJournalMeter effort_meter;
 
+static void close_journal_at_exit();
+
 static uint64_t mix(uint64_t hash, uint64_t value) {
   return (hash ^ value) * UINT64_C(1099511628211);
 }
@@ -73,7 +75,7 @@ static void open_journal() {
   // Public API sessions may solve repeatedly. Keep one stream across those
   // boundaries, but still detect a replay with unconsumed records at exit.
   if (!close_registered) {
-    std::atexit(rule_journal_close);
+    std::atexit(close_journal_at_exit);
     close_registered = true;
   }
   if (const char *limit = std::getenv("TACTIX_RULE_JOURNAL_LIMIT"))
@@ -611,7 +613,9 @@ void rule_journal_flush() {
     std::fflush(state.output);
 }
 
-void rule_journal_close() {
+namespace {
+
+void close_journal_streams() {
   if (!state.initialized)
     return;
   if (state.replay) {
@@ -628,6 +632,18 @@ void rule_journal_close() {
   if (state.output)
     std::fclose(state.output);
   state = JournalState{};
+}
+
+void close_journal_at_exit() {
+  // A thread_local transaction may already have been destroyed when atexit
+  // callbacks run. The process-wide replay/stream check needs no TLS state.
+  close_journal_streams();
+}
+
+} // namespace
+
+void rule_journal_close() {
+  close_journal_streams();
   transaction = TransactionState{};
 }
 
