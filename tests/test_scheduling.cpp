@@ -13,9 +13,19 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <type_traits>
 #include <vector>
 
 using namespace tactix;
+
+static_assert(!std::is_copy_constructible_v<DefaultPolicy>);
+static_assert(!std::is_copy_assignable_v<DefaultPolicy>);
+static_assert(!std::is_move_constructible_v<DefaultPolicy>);
+static_assert(!std::is_move_assignable_v<DefaultPolicy>);
+static_assert(!std::is_copy_constructible_v<DefaultInprocessScheduler>);
+static_assert(!std::is_copy_assignable_v<DefaultInprocessScheduler>);
+static_assert(!std::is_move_constructible_v<DefaultInprocessScheduler>);
+static_assert(!std::is_move_assignable_v<DefaultInprocessScheduler>);
 
 // --- the mode growth key ---------------------------------------------------
 // kissat scales modeint by kissat_nlogpown(count, 4) with
@@ -2036,7 +2046,7 @@ static void test_reorder_ships_in_both_modes(void) {
 
 static void test_startup_sparse_collection_precedes_probe(void) {
   Kernel k;
-  kernel_reserve_vars(k, 4);
+  kernel_reserve_vars(k, 7);
   kernel_assign_unit(k, internalize(1));
   const Lit satisfied[3] = {internalize(1), internalize(2),
                             internalize(4)};
@@ -2044,23 +2054,27 @@ static void test_startup_sparse_collection_precedes_probe(void) {
                             internalize(3), internalize(4)};
   kernel_add_large_clause(k, satisfied, 3, false, 0);
   kernel_add_large_clause(k, shortened, 4, false, 0);
-  const Lit unsat[4][2] = {
-      {internalize(2), internalize(3)},
-      {internalize(2), internalize(-3)},
-      {internalize(-2), internalize(3)},
-      {internalize(-2), internalize(-3)},
-  };
-  for (const auto &binary : unsat)
-    kernel_add_binary_clause(k, binary[0], binary[1]);
+  // Every assignment to 5,6,7 violates one clause. Unlike the old four
+  // binary clauses, a single Lucky assumption does not refute this cube, so
+  // the test reaches the initial sparse-collection boundary it is pinning.
+  for (int signs = 0; signs < 8; ++signs) {
+    const Lit clause[3] = {
+        internalize((signs & 1) ? -5 : 5),
+        internalize((signs & 2) ? -6 : 6),
+        internalize((signs & 4) ? -7 : 7),
+    };
+    kernel_add_large_clause(k, clause, 3, false, 0);
+  }
 
   DefaultStrategyConfig config;
   config.inprocess.structured_root_before_lucky = false; // reference collection boundary
   DefaultPolicy p(config);
   assert(p.solve(k) == 20);
-  assert(k.stats.sparse_collections == 1);
-  // The sparse collector removes the satisfied large clause, rewrites the
-  // shortened one, and drops the three root-satisfied binary pairs first.
-  assert(k.stats.sparse_collected == 5);
+  assert(k.stats.sparse_collections == 2);
+  // The sparse collector removes the satisfied large clause and rewrites the
+  // shortened one before Probe can refute the separate cube. The second
+  // collection is the later inprocessing closure.
+  assert(k.stats.sparse_collected == 2);
   assert(k.stats.strengthen_rounds == 0 &&
          "startup collection is scaffolding, not an authored C2 slot");
 }

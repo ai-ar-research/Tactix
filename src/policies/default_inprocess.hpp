@@ -117,6 +117,12 @@ public:
   explicit DefaultInprocessScheduler(
       const DefaultStrategyConfig::Inprocess *config)
       : config_(config), default_bve_ramp_(config) {}
+  // The configured default BVE arm borrows config_ and the other strategy
+  // pointers may refer to this scheduler's members. Rebinding is explicit.
+  DefaultInprocessScheduler(const DefaultInprocessScheduler &) = delete;
+  DefaultInprocessScheduler &operator=(const DefaultInprocessScheduler &) = delete;
+  DefaultInprocessScheduler(DefaultInprocessScheduler &&) = delete;
+  DefaultInprocessScheduler &operator=(DefaultInprocessScheduler &&) = delete;
   void set_config(const DefaultStrategyConfig::Inprocess *config) {
     config_ = config;
     default_bve_ramp_.set_config(config);

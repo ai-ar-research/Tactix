@@ -175,6 +175,12 @@ public:
 
   DefaultPolicy();
   explicit DefaultPolicy(const DefaultStrategyConfig &);
+  // The default arms and scheduler point into config_. A compiler-generated
+  // copy or move would leave those pointers attached to the old owner.
+  DefaultPolicy(const DefaultPolicy &) = delete;
+  DefaultPolicy &operator=(const DefaultPolicy &) = delete;
+  DefaultPolicy(DefaultPolicy &&) = delete;
+  DefaultPolicy &operator=(DefaultPolicy &&) = delete;
   const DefaultStrategyConfig &strategy_config() const { return config_; }
   std::string strategy_config_snapshot() const { return config_.serialize(); }
 
