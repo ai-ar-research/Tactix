@@ -449,8 +449,12 @@ root closure at apply entry. V1/V2 Probe/Backbone additionally require `!conflic
   fuzz-gated. `F′` is unchanged up to entailment, precondition/effect identical, fewer variables exceed
   the budget. Recognized kinds are configurable (`Kernel::bve_gate_mask`): a pure performance knob —
   every setting is sound (a disabled kind restores the full cross product), none touches the guard or
-  the abstract effect. **Nothing from the sub-solver enters the proof**: the core only selects which
-  resolvents are generated, and each of those is still a resolution of two clauses of `F`.
+  the abstract effect. For a two-sided core, **nothing from the sub-solver enters the proof**: the core only selects which
+  resolvents are generated, and each of those is still a resolution of two clauses of `F`. A one-sided core instead proves a
+  failed-pivot unit. Its sub-solver refutation is lifted stepwise to `(unit ∨ L)` and the proof-only prefix is retired after the
+  unit is installed. Native LRAT replays each captured chain under the complete lifted lemma cube, omitting hints already
+  satisfied by that cube or earlier propagation and closing at the first conflict. If this strict replay fails, BVE uses ordinary
+  full-cross-product resolution for the pivot; it does not publish an uncertified unit.
 - **Proof δ:** **RUP-only — no `add_rat`.** Write each live positive parent as `Cᵢ={x}∪Aᵢ`, each live negative parent as
   `Dⱼ={¬x}∪Bⱼ`, and each emitted non-tautological resolvent as `Qᵢⱼ=unique(Aᵢ∪Bⱼ)` after stripping root-false literals. Emit
   `add_rup(Qᵢⱼ,[distinct stripped-root-unit ids from Cᵢ and Dⱼ, Cᵢ.id, Dⱼ.id])`: under `¬Qᵢⱼ`, `Cᵢ` forces `x`, then `Dⱼ` conflicts. A

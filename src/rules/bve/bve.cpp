@@ -283,6 +283,7 @@ struct BveDefScratch {
   std::vector<Var> var_touched; // entries to restore in var_to_sub
   std::vector<SubLit> lits; // one reduced clause, being encoded
   SubDerivation deriv;
+  std::vector<std::vector<uint32_t>> definition_lrat_chains;
   SparseBinaryIndex pos_bin, neg_bin;
   // Per-candidate working sets of `bve_eliminate`.  Kept here so a
   // ten-million-candidate elimination phase allocates them once instead of
@@ -603,6 +604,112 @@ uint32_t bve_find_definition(const Kernel &k, Lit px,
   return BVE_GATE_DEFINITION;
 }
 
+// A one-sided core proves a pivot unit, but Kitten's complete LRAT walk may
+// still cite clauses from the other pivot side. Once the sub-lemmas are lifted
+// to (unit v L), the checker's cube already contains ~unit and those clauses
+// are satisfied hints, not propagations. Replay every captured chain under
+// the *lifted* complete cube before publishing any proof line. Drop satisfied
+// hints, stop at the first conflict, and fall back to ordinary BVE resolution
+// if a chain cannot be reconstructed strictly.
+static bool bve_plan_definition_lrat(const Kernel &k, Lit px,
+                                     const std::vector<MClause> &pos,
+                                     const std::vector<MClause> &neg,
+                                     BveDefScratch &s) {
+  s.definition_lrat_chains.clear();
+  const uint32_t np = static_cast<uint32_t>(pos.size());
+  const uint32_t originals = np + static_cast<uint32_t>(neg.size());
+  uint32_t max_id = originals;
+  for (const SubStep &step : s.deriv.steps)
+    max_id = std::max(max_id, step.id);
+  std::vector<std::vector<SubLit>> clauses(static_cast<size_t>(max_id) + 1);
+  std::vector<uint8_t> available(static_cast<size_t>(max_id) + 1, 0);
+  const Var pivot = var_of(px);
+  const auto import = [&](const MClause &m, uint32_t id) {
+    const auto add = [&](Lit lit) {
+      if (var_of(lit) == pivot)
+        return;
+      const uint32_t mapped = s.var_to_sub[var_of(lit)];
+      assert(mapped && mapped != UINT32_MAX);
+      clauses[id].push_back(sub_lit(mapped - 1, negated(lit)));
+    };
+    if (m.ref == INVALID_REF) {
+      for (const Lit lit : m.active)
+        add(lit);
+    } else {
+      const Clause *physical = clause_at(k.arena, m.ref);
+      assert(!physical->garbage());
+      for (const Lit lit : *physical)
+        add(lit);
+    }
+    available[id] = 1;
+  };
+  for (uint32_t i = 0; i < np; i++)
+    import(pos[i], i + 1);
+  for (uint32_t i = 0; i < neg.size(); i++)
+    import(neg[i], np + i + 1);
+
+  const bool unit_is_pos = s.unit == px;
+  assert(unit_is_pos || s.unit == negate(px));
+  for (const SubStep &step : s.deriv.steps) {
+    if (!step.id || step.id >= available.size() || available[step.id])
+      return false;
+    std::vector<int8_t> values(s.vars.size(), 0);
+    const auto value = [&](SubLit lit) {
+      const int8_t v = values[sub_var_of(lit)];
+      return (lit & 1u) ? static_cast<int8_t>(-v) : v;
+    };
+    const auto assign = [&](SubLit lit) {
+      values[sub_var_of(lit)] = (lit & 1u) ? -1 : 1;
+    };
+    for (const SubLit lit : step.lits) {
+      const SubLit assumed = sub_negate(lit);
+      if (value(assumed) != 0)
+        return false; // tautological or duplicate-carrying lifted lemma
+      assign(assumed);
+    }
+    std::vector<uint32_t> chain;
+    bool closed = false;
+    for (const uint32_t antecedent : step.chain) {
+      if (!antecedent || antecedent >= available.size() ||
+          !available[antecedent])
+        return false;
+      if (antecedent <= originals &&
+          ((antecedent <= np) != unit_is_pos))
+        continue; // opposite-side parent is satisfied by the cube's ~unit
+      bool satisfied = false;
+      uint32_t open = 0;
+      SubLit open_lit = 0;
+      for (const SubLit lit : clauses[antecedent]) {
+        const int8_t v = value(lit);
+        if (v > 0) {
+          satisfied = true;
+          break;
+        }
+        if (!v) {
+          ++open;
+          open_lit = lit;
+        }
+      }
+      if (satisfied)
+        continue; // an earlier propagation or cube assumption already did it
+      chain.push_back(antecedent);
+      if (!open) {
+        closed = true;
+        break;
+      }
+      if (open != 1)
+        return false;
+      assign(open_lit);
+    }
+    if (!closed)
+      return false;
+    s.definition_lrat_chains.push_back(std::move(chain));
+    clauses[step.id] = step.lits;
+    available[step.id] = 1;
+  }
+  return true;
+}
+
 // Lift the embedded refutation of one reduced pivot side into the main proof.
 // Each sub-lemma L becomes (unit v L). Original sub-clause ids map to the
 // corresponding live pivot clauses; LRAT additionally cites root units whose
@@ -652,8 +759,9 @@ static void bve_emit_definition_unit(Kernel &k, Lit unit,
     assert(!Proof::tautological(lifted.data(),
                                static_cast<uint32_t>(lifted.size())));
     chain.clear();
-    if (lrat)
-      for (const uint32_t antecedent : step.chain) {
+    if (lrat) {
+      assert(si < s.definition_lrat_chains.size());
+      for (const uint32_t antecedent : s.definition_lrat_chains[si]) {
         assert(antecedent < id_of.size() && id_of[antecedent]);
         // Definition Kitten imports the physical clause, including root-false
         // literals. Do not cite the root units that resolution would use to
@@ -661,6 +769,7 @@ static void bve_emit_definition_unit(Kernel &k, Lit unit,
         // literals and starts directly from the physical original.
         chain.push_back(id_of[antecedent]);
       }
+    }
     const uint64_t id = ++k.next_clause_id;
     if (k.proof)
       k.proof->add_rup(lrat ? id : 0, lifted.data(),
@@ -1727,15 +1836,26 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
     def->ticks = 0;
     def->unit = INVALID_LIT;
   }
-  const uint32_t gate_kind =
+  uint32_t gate_kind =
       pure ? 0 : bve_detect_gate(k, px, nx, pos, neg, pos_gate, neg_gate,
                                  resolve_gate, def);
-  const bool gate = gate_kind != 0;
   if (def && def->checked) {
     k.stats.bve_definitions_checked++;
     k.stats.bve_definition_ticks += def->ticks;
     k.stats.bve_definition_budget += def->exhausted ? 1 : 0;
   }
+  if (def->unit != INVALID_LIT && lrat &&
+      !bve_plan_definition_lrat(k, px, pos, neg, *def)) {
+    // The semantic one-sided core is sound, but an LRAT chain that cannot be
+    // replayed under the lifted cube is not publishable. Ordinary full-cross-
+    // product resolution remains a legal BVE application for this pivot.
+    def->unit = INVALID_LIT;
+    gate_kind = 0;
+    resolve_gate = false;
+    std::fill(pos_gate.begin(), pos_gate.end(), 0);
+    std::fill(neg_gate.begin(), neg_gate.end(), 0);
+  }
+  const bool gate = gate_kind != 0;
   if (def && def->unit != INVALID_LIT) {
     assert(gate_kind == BVE_GATE_DEFINITION);
     k.stats.bve_gates_definition++;
