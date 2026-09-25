@@ -1,9 +1,11 @@
-// Sub-policy surface (plan §5, §5.6): the uniform shape of a swappable
-// scheduling heuristic. A Policy composes sub-policies and may swap any of them
-// without touching a rule; the phase-6 learner treats each as an arm. Uniform
-// across them is identity plus swappability, never the choice signature.
-// Scheduling not yet a SubPolicy (restart triggers, mode switching, rephase,
-// inprocessing-slot effort budgets) is reparented here as it is formalized.
+// Sub-policy surface (plan §5, §5.6): the current injection seams for selected
+// scheduling heuristics. A policy can choose these before solving without
+// touching a rule. Live switching is not implemented: the injected pointers
+// are borrowed, and ownership, switch boundaries, and state migration still
+// need a policy-layer contract before a learner can treat them as online arms.
+// Uniform across these interfaces is identity, not the choice signature.
+// Restart, mode, rephase, and inprocessing-slot effort scheduling remain in
+// DefaultPolicy until that contract is implemented.
 #pragma once
 
 #include "kernel/kernel.hpp"
