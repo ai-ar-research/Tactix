@@ -254,6 +254,61 @@ class ProofOracleTests(unittest.TestCase):
                 self.assertTrue(oracle.dsr_proof_as_drat(proof, Path(directory)/'out.drat'))
                 self.assertEqual((Path(directory)/'out.drat').read_bytes(), b'a' + encoded + b'\x00')
 
+    def test_binary_dsr_routing_and_conversion_are_chunk_bounded(self):
+        import builtins
+        import proof_oracle as oracle
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as directory:
+            proof, drat = Path(directory)/'proof.dsr', Path(directory)/'proof.drat'
+            original = b'\x01\x02\x00\x01\x80\x01\x00\x02\x04\x00'
+            proof.write_bytes(original)
+            real_open = builtins.open
+
+            class BoundedSource:
+                def __init__(self, source):
+                    self.source = source
+
+                def __enter__(self):
+                    self.source.__enter__()
+                    return self
+
+                def __exit__(self, *args):
+                    return self.source.__exit__(*args)
+
+                def read(self, size=-1):
+                    self.assert_size(size)
+                    return self.source.read(size)
+
+                @staticmethod
+                def assert_size(size):
+                    assert 0 <= size <= 4096, 'unbounded binary proof read'
+
+            def guarded_open(path, mode='r', *args, **kwargs):
+                source = real_open(path, mode, *args, **kwargs)
+                return (BoundedSource(source) if str(path) == str(proof)
+                        and mode == 'rb' else source)
+
+            # The 5-byte scan boundary splits the 128 varint after 0x80.
+            with patch.object(oracle, 'BINARY_DSR_SCAN_CHUNK', 5), \
+                    patch('builtins.open', side_effect=guarded_open):
+                self.assertEqual(list(oracle._dsr_lines(proof, True)),
+                                 [('a', [2]), ('a', [128]), ('d', [4])])
+                self.assertEqual(oracle.certificate_route(proof), 'drat')
+                self.assertTrue(oracle.dsr_proof_as_drat(proof, drat))
+            self.assertEqual(drat.read_bytes(),
+                             b'a\x02\x00a\x80\x01\x00d\x04\x00')
+            drat.unlink()
+            proof.write_bytes(original + b'\x01\x02\x02\x00')
+            with patch.object(oracle, 'BINARY_DSR_SCAN_CHUNK', 5):
+                self.assertEqual(oracle.certificate_route(proof), 'dsr')
+                self.assertFalse(oracle.dsr_proof_as_drat(proof, drat))
+            self.assertFalse(drat.exists())
+            proof.write_bytes(original[:4] + b'\x80')
+            with patch.object(oracle, 'BINARY_DSR_SCAN_CHUNK', 5):
+                with self.assertRaises(oracle.DSRFormatError):
+                    oracle.dsr_proof_as_drat(proof, drat)
+            self.assertFalse(drat.exists())
+
     def test_malformed_dsr_is_a_routing_rejection(self):
         import proof_oracle as oracle
         from unittest.mock import patch

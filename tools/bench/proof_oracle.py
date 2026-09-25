@@ -396,26 +396,53 @@ def dsr_proof_is_binary(proof) -> bool:
 # Binary DSR line tags (dsr-trim's encoding) and their binary DRAT equivalents.
 DSR_BINARY_ADD, DSR_BINARY_DELETE = 1, 2
 DRAT_BINARY_ADD, DRAT_BINARY_DELETE = ord('a'), ord('d')
+BINARY_DSR_SCAN_CHUNK = 1 << 20
 
 
 class DSRFormatError(ValueError):
     """Malformed certificate bytes, distinct from runner or filesystem failure."""
 
 
-def _dsr_binary_token(data, index):
-    """Read one bounded uint32 literal encoding, preserving its original bytes."""
-    start, value, shift = index, 0, 0
-    while True:
-        if index == len(data):
-            raise DSRFormatError(f'truncated binary DSR token at byte {start}')
-        byte = data[index]
-        index += 1
-        value |= (byte & 127) << shift
-        if shift == 28 and (byte & 240):
-            raise DSRFormatError(f'oversized binary DSR token at byte {start}')
-        if not byte & 128:
-            return value, index
-        shift += 7
+def _dsr_binary_events(proof):
+    """Parse binary DSR in bounded chunks, without retaining a whole line.
+
+    The stream consists of ('start', kind), ('token', literal), and
+    ('end', None) events. The zero varint terminates a line and is not a token.
+    """
+    kind = None
+    value = shift = 0
+    token_start = offset = 0
+    with open(proof, 'rb') as source:
+        while data := source.read(BINARY_DSR_SCAN_CHUNK):
+            for byte in data:
+                if kind is None:
+                    if byte == DSR_BINARY_ADD:
+                        kind = 'a'
+                    elif byte == DSR_BINARY_DELETE:
+                        kind = 'd'
+                    else:
+                        raise DSRFormatError(
+                            f'invalid binary DSR tag {byte} at {offset}')
+                    token_start = offset + 1
+                    yield 'start', kind
+                else:
+                    if shift == 28 and byte & 240:
+                        raise DSRFormatError(
+                            f'oversized binary DSR token at byte {token_start}')
+                    value |= (byte & 127) << shift
+                    if byte & 128:
+                        shift += 7
+                    else:
+                        if value:
+                            yield 'token', value
+                        else:
+                            yield 'end', None
+                            kind = None
+                        value = shift = 0
+                        token_start = offset + 1
+                offset += 1
+    if kind is not None:
+        raise DSRFormatError(f'truncated binary DSR token at byte {token_start}')
 
 
 def _dsr_lines(proof, binary):
@@ -424,25 +451,14 @@ def _dsr_lines(proof, binary):
     ASCII integers). Only the first two tokens are needed by callers that
     detect a witness, but every line is delimited exactly."""
     if binary:
-        with open(proof, 'rb') as source:
-            data = source.read()
-        index, size = 0, len(data)
-        while index < size:
-            tag = data[index]
-            index += 1
-            if tag == DSR_BINARY_ADD:
-                kind = 'a'
-            elif tag == DSR_BINARY_DELETE:
-                kind = 'd'
+        kind, tokens = None, []
+        for event, item in _dsr_binary_events(proof):
+            if event == 'start':
+                kind, tokens = item, []
+            elif event == 'token':
+                tokens.append(item)
             else:
-                raise DSRFormatError(f'invalid binary DSR tag {tag} at {index - 1}')
-            tokens = []
-            while True:
-                value, index = _dsr_binary_token(data, index)
-                if not value:
-                    break
-                tokens.append(value)
-            yield kind, tokens
+                yield kind, tokens
         return
     with open(proof, 'r', errors='replace') as source:
         for number, line in enumerate(source, 1):
@@ -467,7 +483,18 @@ def dsr_proof_has_witness(proof) -> bool:
     literal (the pivot) reappears later in the line. A witnessed line is an SR
     step and is never a DRAT line; drat-trim would silently drop the repeated
     pivot as a duplicate literal, so routing must decide before drat-trim."""
-    for kind, tokens in _dsr_lines(proof, dsr_proof_is_binary(proof)):
+    if dsr_proof_is_binary(proof):
+        kind = first = None
+        for event, item in _dsr_binary_events(proof):
+            if event == 'start':
+                kind, first = item, None
+            elif event == 'token':
+                if first is None:
+                    first = item
+                elif kind == 'a' and item == first:
+                    return True
+        return False
+    for kind, tokens in _dsr_lines(proof, False):
         if kind == 'a' and len(tokens) > 1 and tokens[0] in tokens[1:]:
             return True
     return False
@@ -481,37 +508,34 @@ def dsr_proof_as_drat(proof, drat):
     the literal varints are identical, so the tags are rewritten in place and
     every other byte is copied. Returns False on a witnessed line."""
     binary = dsr_proof_is_binary(proof)
+    # Validate the entire stream before opening the destination. A witnessed
+    # or malformed proof must not leave a success-looking partial DRAT file.
+    if dsr_proof_has_witness(proof):
+        return False
     if not binary:
-        if dsr_proof_has_witness(proof):
-            return False
         with open(proof, 'rb') as source, open(drat, 'wb') as target:
             while chunk := source.read(1 << 24):
                 target.write(chunk)
         return True
-    with open(proof, 'rb') as source:
-        data = bytearray(source.read())
-    index, size = 0, len(data)
-    while index < size:
-        tag = data[index]
-        if tag == DSR_BINARY_ADD:
-            data[index] = DRAT_BINARY_ADD
-        elif tag == DSR_BINARY_DELETE:
-            data[index] = DRAT_BINARY_DELETE
-        else:
-            raise DSRFormatError(f'invalid binary DSR tag {tag} at {index}')
-        index += 1
-        first, count = None, 0
-        while True:
-            value, index = _dsr_binary_token(data, index)
-            if not value:
-                break
-            if count == 0:
-                first = value
-            elif tag == DSR_BINARY_ADD and value == first:
-                return False
-            count += 1
-    with open(drat, 'wb') as target:
-        target.write(data)
+    with open(proof, 'rb') as source, open(drat, 'wb') as target:
+        at_tag = True
+        value = shift = 0
+        while data := source.read(BINARY_DSR_SCAN_CHUNK):
+            rewritten = bytearray(data)
+            for index, byte in enumerate(data):
+                if at_tag:
+                    rewritten[index] = (DRAT_BINARY_ADD if byte == DSR_BINARY_ADD
+                                        else DRAT_BINARY_DELETE)
+                    at_tag = False
+                else:
+                    value |= (byte & 127) << shift
+                    if byte & 128:
+                        shift += 7
+                    else:
+                        if not value:
+                            at_tag = True
+                        value = shift = 0
+            target.write(rewritten)
     return True
 
 

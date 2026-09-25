@@ -1,0 +1,55 @@
+\documentclass[10pt]{article}
+\usepackage[margin=0.78in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{hyperref}
+\title{Tactix: Bounded-Memory Certificate Routing}
+\author{Report to Andrew}
+\date{25 September 2026}
+\begin{document}
+\maketitle
+\vspace{-1.5em}
+\emergencystretch=1em
+
+\section*{Outcome}
+The benchmark proof router and binary-DSR-to-DRAT adapter now process native
+binary DSR certificates in bounded 1-MiB chunks. Previously they loaded a
+whole certificate into Python memory, then copied it into a second mutable
+proof-sized allocation for conversion. This was a general resource risk for
+large Tier-D proofs under the 32-GiB task limit. The solver, proof emitter,
+checkers, canonical no-option DSR contract, and all active frozen pins are
+unchanged. The detailed technical record is
+\href{../../benchmarks/reports/2026-09-25-am435-bounded-binary-dsr-routing.md}{AM435}.
+
+\section*{Validation and limits}
+The new regression forces a varint across a chunk boundary and checks parsed
+lines, route selection, exact converted bytes, witnessed-line rejection,
+malformed-stream rejection, absence of partial output, and no unbounded proof
+read. Focused oracle/binary/runtime tests pass 46/46. The required fuzz
+harness self-test passes its 36 unit tests, both reference legs without
+unexpected failures, and the known-bad controls. Reference-leg timeouts are
+not verification and this tooling result does not establish N2 or a solver
+fuzz gate. Campaign-owned Claude/Opus fuzz remains separate; Fable is not used.
+
+The AM427 Sweep Tier-C comparison remains unscorable: 29/30 checked in each
+arm, with the shared AES proof reaching the original 4,800-second checker
+limit. The bounded extended-checker array \texttt{1723443} remains running on
+the old, immutable router pin and identical 238,948,969-byte AES proofs. Its
+45,000-second checker verdicts are pending, so proof identity is not proof
+verification. The current-source full Debug job \texttt{1723391} also remains
+running. Neither is altered by AM435.
+
+\section*{Next decisions and work}
+Read the terminal checker stages from both AES diagnostic tasks, then design
+a matched, fully checked successor Tier-C gate if they verify. Separately,
+repair the general H2 checker-visible proof-state gap under the canonical
+no-option DSR contract, or explicitly decide to audit a changed checker
+contract. N1--N4, the retained cumulative gates, and the live PB rule gap
+remain open. The learning-readiness review still calls for a shared
+default-exact inprocessing slot controller and owned, safe-point live
+branching/full-reduction strategy handles; this routing change does not
+remove those policy-layer refactors. Submit the requested full 5,000-second
+Tier-D comparison on \texttt{cpu-dense-hwulab-q} only after the goal's
+correctness and performance gates are satisfied.
+
+\end{document}
