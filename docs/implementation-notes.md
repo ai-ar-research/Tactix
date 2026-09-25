@@ -277,9 +277,9 @@ reason-locked clauses are never deleted. No policy observes pending half-analysi
 - Vivify's population census serves only schedules containing irredundant candidates; omitting it must preserve mixed/public-scope
   ordering.
 - Sweep uses exact inclusive embedded limits and strict enclosing limits, resumes its retained tail, and grows its 256/1024/2
-  environment bounds only on exhaustion toward 8192/32768/3. Retained-entry eligibility is the open `SP-SWEEP-3` restriction; it
-  must not become a public guard or per-pop filter.
-- The small-environment solve shortcut is tracked by `SP-SWEEP-SMALL-1`.
+  environment bounds only on exhaustion toward 8192/32768/3. Retained-entry eligibility is revalidated once per call; remaining
+  `SP-SWEEP-3` parity is the broader incomplete/fresh-admission/completion lifecycle. It must not become a public guard or per-pop filter.
+- Live empty and one-clause Sweep environments run the initial embedded solve; `SP-SWEEP-SMALL-1` still owes cumulative N4 acceptance.
 - Substitute's isolated policy repair publishes each round's roots, then its import-ordered retirements, before later rounds or
   watch reconnection; production's call-wide publication remains `SP-SUBSTITUTE-ROUND-1` debt.
 - Reduce begins at conflict 1,000, then uses `1000*sqrt(reductions)` and the dynamic tier/compaction lifecycle. Formula profiles may
