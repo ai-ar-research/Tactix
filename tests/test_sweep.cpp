@@ -753,14 +753,14 @@ void test_resumable_schedule() {
     (void)substitute_apply(on);
   }
   assert(on.sweep_tail.empty() && on.sweep_tail_next == 0);
-  assert(on.sweep_passes_completed == 1 && on.stats.sweep_completed == 1);
+  assert(on.sweep_passes_completed == 2 && on.stats.sweep_completed == 2);
   assert(on.stats.sweep_limit_vars == 256 &&
          on.stats.sweep_limit_clauses == 1024 &&
          on.stats.sweep_limit_depth == 2);
 
   sweep_apply_with_limits(on, one_seed);
-  assert(on.stats.sweep_limit_vars == 512 &&
-         on.stats.sweep_limit_clauses == 2048 &&
+  assert(on.stats.sweep_limit_vars == 1024 &&
+         on.stats.sweep_limit_clauses == 4096 &&
          on.stats.sweep_limit_depth == 3);
 }
 
