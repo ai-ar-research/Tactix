@@ -343,7 +343,7 @@ byte-identical solver pins remain in the AM333 gate campaigns.
 
 ## Recent changes
 
-- AM380: Decide-candidate enumeration now seals the original-input proof boundary; causal old-failing regression and Debug/Release/ASan focused tests pass, affected fuzz due.
+- AM380: Decide-candidate enumeration now seals the original-input proof boundary; causal old-failing regression and Debug/Release/ASan focused tests pass, Opus owner preparing.
 - AM379: LSR/Cake edge matrix finds duplicate-input and empty-input bridges are required; both existing helpers pass fixed positive/negative controls, route approval pending.
 - AM378: exact ncc original-CNF DSR→LSR→CakeLPR diagnostic verifies in 10,005 checker seconds; general production-route decision is pending.
 - AM377: malformed online-X5 replay literals are rejected before signed conversion; fixed Release/Debug/ASan proof/model routes pass, successor fuzz due.
