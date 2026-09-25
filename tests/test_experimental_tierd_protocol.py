@@ -1,0 +1,42 @@
+#!/usr/bin/env python3
+"""The full Tier-D preparer must pin the runtime's complete proof routes."""
+
+import importlib.util
+import json
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+SPEC = importlib.util.spec_from_file_location(
+    "experimental_tierd", ROOT / "tools/bench/experimental_tierd.py")
+TIERD = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(TIERD)
+
+REFERENCE = ROOT / "benchmarks/baselines/sc24-26-32g-5000s"
+baseline = json.loads((REFERENCE / "manifest.json").read_text())
+assert len(baseline["instances"]) == 1166
+
+auto = TIERD.checker_sources(REFERENCE, baseline, "auto")
+assert set(auto) == {
+    "checkmodel", "modelcheck.py", "drat-trim", "cake_lpr",
+    "dsr-trim", "dsr-compress", "srcheck", "veripb", "cake-pb-cnf",
+}
+assert all(path.is_file() for path in auto.values())
+for name in ("dsr-trim", "dsr-compress", "srcheck"):
+    assert TIERD.sha(auto[name]) == TIERD.FROZEN_DSR_HASHES[name]
+
+dsr = TIERD.checker_sources(REFERENCE, baseline, "dsr")
+assert set(dsr) == set(auto) - {"veripb", "cake-pb-cnf"}
+try:
+    TIERD.checker_sources(REFERENCE, baseline, "drat")
+    raise AssertionError("unsupported certificate mode was accepted")
+except ValueError:
+    pass
+
+wall = TIERD.scheduler_wall_seconds(5000, 45000)
+assert wall == 51300
+assert TIERD.slurm_time(wall) == "14:15:00"
+assert wall >= 5000 + 45000
+assert TIERD.scheduler_wall_seconds(1200, 16000) >= 18000
+
+print("Experimental Tier-D automatic-route protocol: PASS")
