@@ -343,7 +343,7 @@ byte-identical solver pins remain in the AM333 gate campaigns.
 
 ## Recent changes
 
-- AM381: candidate DefaultPolicy same-conflict Reduce suppression matches Kissat predicates in Debug/Release/ASan focused tests; N4 row remains open pending fuzz and checked scheduling gates.
+- AM381: candidate same-conflict Reduce suppression passes focused three-mode tests; Opus fuzz and matched checked A/B/C arrays 1718364/1718372/1718379 are live, N4 row open.
 - AM380: Decide-candidate enumeration now seals the original-input proof boundary; causal old-failing regression and Debug/Release/ASan focused tests pass, Opus owner preparing.
 - AM379: LSR/Cake edge matrix finds duplicate-input and empty-input bridges are required; both existing helpers pass fixed positive/negative controls, route approval pending.
 - AM378: exact ncc original-CNF DSR→LSR→CakeLPR diagnostic verifies in 10,005 checker seconds; general production-route decision is pending.
