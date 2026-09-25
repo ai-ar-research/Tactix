@@ -214,6 +214,7 @@ public:
   void configure();
   void build(Kernel &);
   void initialize_search_limits(const Kernel &);
+  void note_reduce(const Kernel &k) { last_reduce_conflicts_ = k.stats.conflicts; }
   bool want_phase(const Kernel &, SlotGroup);
   int run_phase(Kernel &, SlotGroup, volatile sig_atomic_t *stop);
   int run_initial_fast_elimination(Kernel &, volatile sig_atomic_t *stop);
@@ -295,6 +296,7 @@ private:
   bool structured_root_consumed_ = false;
   bool initialized_ = false;
   bool search_limits_initialized_ = false;
+  uint64_t last_reduce_conflicts_ = UINT64_MAX;
   const DefaultStrategyConfig::Inprocess *config_ = nullptr;
   DefaultBveBoundRamp default_bve_ramp_;
   DefaultFactorMatch default_factor_match_;

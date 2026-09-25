@@ -1,0 +1,9 @@
+# AM381: same-conflict Reduce boundary candidate (N4)
+
+Date: 2026-09-25. This is a source and fixed-test scheduling checkpoint, not a performance or combined N1–N4 acceptance result. No Tier D run was submitted.
+
+The existing `SP-SLOT-REDUCE-EDGE-1` ledger row and frozen 7085 actual-code fixture establish that Kissat declines both Probe and Eliminate at the conflict count of its latest Reduce, while Tactix previously admitted both when their other clocks/material gates passed. The prior Rank31 trace observed zero such phase entries among 96 starts; it did not prove the boundary unreachable elsewhere. Current-source inspection confirmed that DefaultPolicy still had no equivalent timestamp or guard.
+
+The candidate adds one scheduler-owned last-Reduce conflict marker. DefaultPolicy records it after its Reduce transaction completes, and `want_phase` declines Probe and Eliminate only while the conflict count is unchanged. Scheduler reset installs an impossible sentinel, so startup Probe and independent later phase clocks retain their existing behavior. The CaDiCaL-derived reduction-count watermark remains distinct and unchanged. No proof-rule guard, public instance, proof event, candidate order, or rule dose changes.
+
+The maintained fixed scheduling test poses due phases with both other invitations satisfied, checks admission before Reduce, checks both declines after the marker, checks readmission one conflict later, and checks reset. It passes in Debug, Release and ASan+UBSan. The policy call site is also present in the Reduce branch immediately before its `reduce_end` trace. These tests establish the local boundary, not an actual-workload frequency or cost claim. A frozen-source Claude-owned correctness campaign and matched checked Tier A/B/C scheduling comparison against the exact parent remain required before closing the ledger row or treating N4 as satisfied. Retained Rank/B+C/WV performance gates are separate and still open.

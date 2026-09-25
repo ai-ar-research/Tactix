@@ -1548,6 +1548,39 @@ static void test_slot_gates_decline_without_new_material(void) {
   std::printf("  slot gates: decline without new material, re-admit with it\n");
 }
 
+// Kissat's Reduce timestamp suppresses both phase predicates only at that
+// conflict. It is independent of Probe's reduction-count watermark and of
+// Eliminate's new-material watermark (SP-SLOT-REDUCE-EDGE-1).
+static void test_reduce_suppresses_same_conflict_phases(void) {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  DefaultPolicy p;
+  auto &s = p.inprocess();
+  s.pose_initialized();
+  k.stats.conflicts = 100;
+  k.stats.reductions = 1;
+  k.stats.bve_marks = 1;
+  s.probe_clock.rounds = s.elim_clock.rounds = 1;
+  s.probe_clock.next_conflicts = s.elim_clock.next_conflicts = 99;
+  assert(s.want_phase(k, SlotGroup::Probe));
+  assert(s.want_phase(k, SlotGroup::Eliminate));
+
+  s.note_reduce(k);
+  assert(!s.want_phase(k, SlotGroup::Probe));
+  assert(!s.want_phase(k, SlotGroup::Eliminate));
+  ++k.stats.conflicts;
+  assert(s.want_phase(k, SlotGroup::Probe));
+  assert(s.want_phase(k, SlotGroup::Eliminate));
+
+  s.reset(k);
+  s.pose_initialized();
+  s.probe_clock.rounds = s.elim_clock.rounds = 1;
+  s.probe_clock.next_conflicts = s.elim_clock.next_conflicts = 99;
+  assert(s.want_phase(k, SlotGroup::Probe));
+  assert(s.want_phase(k, SlotGroup::Eliminate));
+  std::printf("  Reduce edge: both phases suppressed only at its conflict\n");
+}
+
 // --- the effort budget is kissat's SET_EFFORT_LIMIT ------------------------
 // kimits.h:135-170, and nothing else: REFERENCE = search_ticks since THIS
 // PHASE's anchor, floored at mineffort*1e6; LIMIT = the technique's own counter
@@ -2149,6 +2182,7 @@ int main() {
   test_inprocess_scale_ignores_deleted_binary_ids();
   test_congruence_preprocess_bumps_first_search_delay();
   test_slot_gates_decline_without_new_material();
+  test_reduce_suppresses_same_conflict_phases();
   std::printf("test_scheduling: all passed\n");
   return 0;
 }
