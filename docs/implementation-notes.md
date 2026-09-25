@@ -28,6 +28,13 @@ Engineering companion to `docs/calculus.md`: guards, deviations and representati
 
 DefaultPolicy ships original-Kissat pipeline membership. Off-pipeline CaDiCaL rules remain registered, journaled, N1-reachable, and explicitly poseable.
 
+V5's native-LRAT general path normalizes each captured sub-solver chain while
+the local environment still owns the original clause literals. It replays the
+chain under the complete negated conditioned lemma (`L ∨ target`) and omits
+hints that the extra target assumptions or prior propagation already satisfy.
+A nonclosing chain declines the proof direction before any kernel mutation;
+no proofless, DRAT, or DSR trajectory is changed by this LRAT-only admission.
+
 ### Native DSR proof backend contract
 
 Automatic output privately stages input-normalization DSR events in an anonymous file. At the original-input boundary Lucky 19 (parity) or 20 (count preservation) can select terminal PBP; otherwise the first ordinary action commits the staged DSR prefix and locks that format. No published bytes are replaced. PBP must pass VeriPB and CakePB against original CNF; strict DSR/DRAT/LRAT decline PB before mutation. Instance 19 currently reuses complete arity-2--4 recognition with no input/root units, an engineering restriction shared with the existing clausal parity producer; root-conditioned PB recognition can remove it with original-CNF derivations and oracle coverage. Ordinary DSR still streams witnessless RUP/RAT, deletions and direct SR witnesses. Its retained-clause behavior relies on RUP and fresh Factor RAT ladders; arbitrary extensions require revisiting that invariant. `--no-binary` selects strict diagnostic ASCII DSR unless another explicit compatibility family is requested.

@@ -733,6 +733,107 @@ static inline Lit sweep_kernel_lit(const std::vector<Var> &vars, SubLit sl) {
   return make_lit(vars[sub_var_of(sl)], (sl & 1u) != 0);
 }
 
+// A general-path sub-lemma L is published as (L v target). Its LRAT check
+// starts with the complete negated lifted clause, not merely the sub-solver's
+// original ~L cube. Normalize the captured chain while the environment still
+// owns every original clause: a hint already satisfied by the extra target
+// assumptions (or by an earlier propagation) is redundant, not a legal hint.
+// A failed replay declines this proof direction before any kernel mutation.
+static bool sweep_normalize_lrat_capture(const SweepEnv &e,
+                                         SweepDirProof &proof) {
+  uint32_t max_id = e.nclauses();
+  for (const SubStep &step : proof.steps)
+    max_id = std::max(max_id, step.id);
+  std::vector<uint32_t> derived_at(static_cast<size_t>(max_id) + 1, 0);
+  std::vector<int8_t> values(e.vars.size(), 0);
+  const auto value = [&](SubLit lit) {
+    const int8_t v = values[sub_var_of(lit)];
+    return (lit & 1u) ? static_cast<int8_t>(-v) : v;
+  };
+  const auto assign = [&](SubLit lit) {
+    values[sub_var_of(lit)] = (lit & 1u) ? -1 : 1;
+  };
+  const auto target_sub = [&](Lit target) {
+    assert(target != INVALID_LIT);
+    const uint32_t v = e.sub_of_var[var_of(target)];
+    assert(v != SWEEP_NO_SUB_VAR);
+    return sub_lit(v, negated(target));
+  };
+  const SubLit targets[2] = {
+      target_sub(proof.t0),
+      proof.t1 == INVALID_LIT ? INVALID_LIT : target_sub(proof.t1)};
+  for (size_t si = 0; si < proof.steps.size(); si++) {
+    SubStep &step = proof.steps[si];
+    if (step.id <= e.nclauses() || step.id >= derived_at.size() ||
+        derived_at[step.id])
+      return false;
+    std::fill(values.begin(), values.end(), 0);
+    bool omitted = false;
+    const auto assume = [&](SubLit lit) {
+      const int8_t v = value(lit);
+      if (v < 0)
+        return false;
+      if (!v)
+        assign(lit);
+      return true;
+    };
+    for (const SubLit lit : step.lits)
+      if (!assume(sub_negate(lit)))
+        return false; // the sub-solver itself exported a tautological lemma
+    for (const SubLit target : targets)
+      if (target != INVALID_LIT && !assume(sub_negate(target)))
+        omitted = true; // (L v target) is tautological and is not published
+    if (omitted) {
+      derived_at[step.id] = static_cast<uint32_t>(si) + 1;
+      continue;
+    }
+    std::vector<uint32_t> normalized;
+    bool closed = false;
+    for (const uint32_t hint : step.chain) {
+      if (!hint || hint >= derived_at.size() ||
+          (hint > e.nclauses() && !derived_at[hint]))
+        return false;
+      bool satisfied = false;
+      uint32_t open = 0;
+      SubLit open_lit = 0;
+      const auto inspect = [&](SubLit lit) {
+        const int8_t v = value(lit);
+        if (v > 0)
+          satisfied = true;
+        else if (!v) {
+          ++open;
+          open_lit = lit;
+        }
+      };
+      if (hint <= e.nclauses()) {
+        for (uint32_t i = e.clause_off[hint - 1]; i < e.clause_off[hint]; i++) {
+          const Lit lit = e.clause_lits[i];
+          inspect(sub_lit(e.sub_of_var[var_of(lit)], negated(lit)));
+        }
+      } else {
+        const SubStep &earlier = proof.steps[derived_at[hint] - 1];
+        for (const SubLit lit : earlier.lits)
+          inspect(lit);
+      }
+      if (satisfied)
+        continue;
+      normalized.push_back(hint);
+      if (!open) {
+        closed = true;
+        break;
+      }
+      if (open != 1)
+        return false;
+      assign(open_lit);
+    }
+    if (!closed)
+      return false;
+    step.chain.swap(normalized);
+    derived_at[step.id] = static_cast<uint32_t>(si) + 1;
+  }
+  return true;
+}
+
 // Copy one direction's refutation out with the translation tables it will need:
 // `steps` names sub-solver clause ids, and the environment giving them meaning
 // is rebuilt for the next seed. Failure just means no general-path proof. The
@@ -760,6 +861,11 @@ static bool sweep_capture_dir(const Kernel &host, const SweepEnv &e,
   out.t0 = sweep_kernel_lit(e.vars, tl[0]);
   out.t1 = tl.size() == 2 ? sweep_kernel_lit(e.vars, tl[1]) : INVALID_LIT;
   out.steps = std::move(d.steps);
+  if (host.proof && host.proof->lrat() &&
+      !sweep_normalize_lrat_capture(e, out)) {
+    out.steps.clear();
+    return true;
+  }
   for (auto &cc : d.core_clauses) {
     bool drop = false;
     uint32_t non_false = 0;
