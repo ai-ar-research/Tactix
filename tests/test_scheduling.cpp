@@ -959,7 +959,7 @@ static void test_authored_slot_order_covers_registry(void) {
     if (r.tier != RuleTier::Inprocess)
       continue;
     // X5's only current owner is its explicit variable-length public action.
-    // It has no default producer, so no slot is inserted ahead of N4 review.
+    // The pinned reference also ships Condition off; no default slot exists.
     if (!std::strcmp(r.name, "Condition"))
       continue;
     bool found = false;
