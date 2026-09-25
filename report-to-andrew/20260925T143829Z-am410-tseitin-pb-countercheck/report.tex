@@ -1,0 +1,47 @@
+\documentclass[11pt]{article}
+\usepackage[margin=0.85in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{hyperref}
+\title{Tactix: Countercheck of the Winner PB Proof Gap}
+\author{Report to Andrew}
+\date{25 September 2026}
+\begin{document}
+\maketitle
+\vspace{-1.5em}
+
+\section*{Outcome}
+The exact Tseitin instance for which AM408 recovered a LymphoSAT PB proof is
+already certified by current Tactix. A pinned Release Tactix build returned
+UNSAT through Lucky's startup parity recognizer, emitted PBP, and passed both
+pinned VeriPB and CakePB against the original CNF. Thus that winner witness
+does not show a missing semantic refutation for this formula. The real
+architecture gap is narrower: Tactix has no general live PB derivation action
+or proof-event interface after the startup boundary.
+
+\section*{Evidence}
+Hwulab job \texttt{1721399} completed \texttt{0:0} with two CPUs and 8 GiB.
+The exact input SHA-256 matches AM408; source was \texttt{6c176683}, and the
+pinned binary SHA-256 begins \texttt{2f1d91b6}. Solver exit was 20. It
+reported one recognized parity refutation and emitted a 116,111-byte PBP
+(SHA-256 prefix \texttt{df5e3736}); VeriPB reported
+\texttt{s VERIFIED UNSATISFIABLE} and CakePB \texttt{s VERIFIED UNSAT} on the
+162,748-byte elaboration. LymphoSAT's exact baseline proof was 80,981 bytes.
+The different allocation and sub-centisecond Tactix timing prevent a valid
+speed comparison. The runner, full proof, checks, resource log and hashes are
+frozen in the AM410 probe under \texttt{benchmarks/probes/}; the AM410
+technical report gives the exact commands and interpretation.
+
+\section*{Decision and remaining work}
+Do not implement a family-specific Tseitin certificate or change canonical
+DSR on this evidence. A generally selectable PB surface may still be needed
+for winner techniques outside complete startup refutations; that requires an
+explicit format and proof-state contract. H2's frozen no-option DSR failure
+and the post-finalization C-API wrong-SAT model remain open. AM400/401 full
+Debug and Opus fuzz jobs are still active. N1--N4 and the retained
+Rank/B+C/WV gates are unaccepted, so the requested full Tier-D run at 5,000
+seconds, four CPUs and 32 GiB has not been submitted. Online learning remains
+prototype-only pending a default-exact slot controller and owned safe-point
+sub-strategy switching.
+
+\end{document}
