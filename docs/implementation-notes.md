@@ -28,15 +28,6 @@ Engineering companion to `docs/calculus.md`: guards, deviations and representati
 
 DefaultPolicy ships original-Kissat pipeline membership. Off-pipeline CaDiCaL rules remain registered, journaled, N1-reachable, and explicitly poseable.
 
-E1's one-sided definition core is a sound semantic unit, but native LRAT must
-justify every lifted `(unit ∨ L)` line under its **complete** negated cube.
-The BVE adapter strictly replays the captured sub-solver chain before writing
-any line, omits hints satisfied by the added pivot assumption or prior
-propagation, and stops at the first conflict. If any chain cannot close, the
-same public pivot takes ordinary full-cross-product resolution instead of an
-uncertified definition unit. This is proof-format admission, not an N1 guard
-or a restriction on the pivot instance surface.
-
 ### Native DSR proof backend contract
 
 Automatic output privately stages input-normalization DSR events in an anonymous file. At the original-input boundary Lucky 19 (parity) or 20 (count preservation) can select terminal PBP; otherwise the first ordinary action commits the staged DSR prefix and locks that format. No published bytes are replaced. PBP must pass VeriPB and CakePB against original CNF; strict DSR/DRAT/LRAT decline PB before mutation. Instance 19 currently reuses complete arity-2--4 recognition with no input/root units, an engineering restriction shared with the existing clausal parity producer; root-conditioned PB recognition can remove it with original-CNF derivations and oracle coverage. Ordinary DSR still streams witnessless RUP/RAT, deletions and direct SR witnesses. Its retained-clause behavior relies on RUP and fresh Factor RAT ladders; arbitrary extensions require revisiting that invariant. `--no-binary` selects strict diagnostic ASCII DSR unless another explicit compatibility family is requested.
