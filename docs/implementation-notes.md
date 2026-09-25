@@ -244,7 +244,7 @@ reason-locked clauses are never deleted. No policy observes pending half-analysi
   rule state and `ScopedHeuristics` consumes the parser-retained activation order before any later rule. Factor extensions receive
   the normal cumulative activation score on stable-heap insertion, then Factor demotes that score to zero exactly as Kissat does.
   Bare kernels, API clients, random/replay, stress, and supplied `H` stay eager.
-- Isolated7371 consumes either DefaultPolicy Lucky call's new roots before later guidance; raw Lucky remains guidance-independent and walks permanent maps.
+- Isolated7371 consumes either DefaultPolicy Lucky call's new roots before later guidance; raw Lucky remains guidance-independent and walks permanent maps. Either early or late Lucky refutation terminates at that call boundary, before journal guard checks or later policy phases can observe an already-inconsistent state.
   Fresh H preserves compact order: first late attach reconstructs extensions by external identity; later detached extension creation appends to the retained image, never restoring unactivated input identities.
 - Variable compaction remaps target/best phase arrays and recomputes assigned high-water counts. VMTF cursor, random permutation and
   import ranks are mapped; isolated6357 preserves detached stamps/links (SP-COMPACT-1). Isolated

@@ -269,6 +269,10 @@ add_executable(test_lucky test_lucky.cpp)
 target_link_libraries(test_lucky PRIVATE tactix_lib)
 add_test(NAME lucky COMMAND test_lucky)
 
+add_executable(test_lucky_terminal test_lucky_terminal.cpp)
+target_link_libraries(test_lucky_terminal PRIVATE tactix_lib)
+add_test(NAME lucky_terminal COMMAND test_lucky_terminal)
+
 add_executable(test_api_c test_api_c.c)
 target_link_libraries(test_api_c PRIVATE tactix_lib)
 target_include_directories(test_api_c PRIVATE ${CMAKE_SOURCE_DIR}/include)
