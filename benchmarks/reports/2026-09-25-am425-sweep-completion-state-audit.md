@@ -1,0 +1,15 @@
+# AM425: Sweep retained-tail completion-state audit
+
+Date: 2026-09-25. Current source `3ca9ec1b`. This is a read-only source comparison plus fixed-fixture validation, not a solver change, benchmark, or N4 acceptance claim.
+
+## Reproducible state transition
+
+Start an incomplete Sweep pass with a retained tail whose remaining identities are all unschedulable at the next call's entry, and with a distinct fresh eligible seed. `tests/test_sweep_retained.cpp::pure_seed` supplies the Tactix microstate: external seed 0 is now pure, while seed 1 remains eligible. Tactix indexes the retained tail, calls `sweep_revalidate_retained`, filters seed 0, does not fresh-schedule seed 1 in that same call, then `sweep_apply_resumable` observes `sweep_live == 0` and increments `sweep_passes_completed` and `stats.sweep_completed` once. The maintained fixture asserts the once-only count and no fresh scheduling. Current Release and ASan+UBSan binaries both print `retained entry eligibility: PASS` (0 exit).
+
+Both pinned references have a distinct two-phase completion state. In `kissat/src/sweep.c`, `reschedule_previously_remaining` clears the unschedulable variable's `f->sweep`; `schedule_all_other_not_scheduled_yet` admits only `f->sweep` variables while `solver->sweep_incomplete` is true. With no marked variables left, `schedule_sweeping` increments `sweep_completed` once for finishing the old pass and calls `mark_incomplete` even if it scheduled nothing. `unschedule_sweeping` then finds no incomplete variables, clears `sweep_incomplete`, and increments `sweep_completed` a second time. `cadical/src/sweep.cpp` has the same branches in `reschedule_previously_remaining`, `schedule_all_other_not_scheduled_yet`, `schedule_sweeping`, and `unschedule_sweeping`. This two-increment conclusion is a source-level inference for the specified state; no instrumented reference execution was made.
+
+At default starting count zero, the following call reads completion count 2 in either reference and 1 in Tactix. The pinned Kissat defaults and Tactix `SweepReferenceDefaults` are 256 variables, 1024 clauses, depth 2, with ceilings 8192/32768/3. Thus the next call's limits are 1024 variables, 4096 clauses and depth 3 for Kissat, versus 512 variables, 2048 clauses and depth 3 for Tactix. Pinned CaDiCaL uses the same starting defaults and depth cap but a 300000 clause ceiling, which does not affect this example. The count distinction becomes irrelevant to a given cap once that cap saturates.
+
+## Disposition
+
+This is a concrete native incomplete-flag/completion lifecycle gap in `SP-SWEEP-3`, not proof that the faster ramp is beneficial. No production scheduler change is justified by the fixed fixture alone. Next: reproduce the full lifecycle with instrumented reference and Tactix from a common formula/state; measure whether the filtered-tail branch occurs in the checked cumulative campaign, and compare the next-call seed/environment/proof outcomes before choosing a general policy repair or an explicitly measured deviation. Keep N4 and the cumulative performance gates open. Do not use this microstate to tune a benchmark-specific policy.
