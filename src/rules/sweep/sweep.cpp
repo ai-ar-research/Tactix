@@ -739,8 +739,7 @@ static inline Lit sweep_kernel_lit(const std::vector<Var> &vars, SubLit sl) {
 // owns every original clause: a hint already satisfied by the extra target
 // assumptions (or by an earlier propagation) is redundant, not a legal hint.
 // A failed replay declines this proof direction before any kernel mutation.
-static bool sweep_normalize_lrat_capture(const SweepEnv &e,
-                                         SweepDirProof &proof) {
+bool sweep_normalize_lrat_capture(const SweepEnv &e, SweepDirProof &proof) {
   uint32_t max_id = e.nclauses();
   for (const SubStep &step : proof.steps)
     max_id = std::max(max_id, step.id);
@@ -2374,7 +2373,19 @@ static bool sweep_apply_general_plan(Kernel &k,
       continue;
     chain = step->strip_ids;
     if (lrat)
-      k.stats.sweep_strip_cited += step->strip_ids.size();
+      for (const Lit lit : lifted)
+        if (k.value(lit) < 0 && k.assigned[var_of(lit)].level == 0) {
+          // The complete negated emitted lemma cube already assumes this
+          // root unit. Citing it from the environment strip ledger would be
+          // a satisfied hint, not a propagation (the same obligation as the
+          // captured sub-solver antecedents normalized above).
+          const uint64_t unit_id = k.unit_ids[var_of(lit)];
+          assert(unit_id);
+          chain.erase(std::remove(chain.begin(), chain.end(), unit_id),
+                      chain.end());
+        }
+    if (lrat)
+      k.stats.sweep_strip_cited += chain.size();
     for (const uint32_t antecedent : step->antecedents) {
       assert(antecedent < id_of.size());
       if (id_of[antecedent]) // zero: an omitted tautological lemma

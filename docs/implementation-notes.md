@@ -33,7 +33,9 @@ the local environment still owns the original clause literals. It replays the
 chain under the complete negated conditioned lemma (`L ∨ target`) and omits
 hints that the extra target assumptions or prior propagation already satisfy.
 A nonclosing chain declines the proof direction before any kernel mutation;
-no proofless, DRAT, or DSR trajectory is changed by this LRAT-only admission.
+environment-strip root units already assumed by the emitted lemma cube are
+also omitted from its LRAT prefix.
+No proofless, DRAT, or DSR trajectory is changed by this LRAT-only admission.
 
 ### Native DSR proof backend contract
 
