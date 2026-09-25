@@ -1060,6 +1060,10 @@ static void test_inline_bridge_refreshes_owned_occurrences(void) {
   // union in compact internal-index (first-import) order.
   k.sweep_tail = {k.internal_to_external[4], k.internal_to_external[0]};
   k.sweep_tail_next = 0;
+  k.sweep_incomplete = true;
+  k.sweep_marked.resize(k.external_to_internal.size(), 0);
+  for (const Var external : k.sweep_tail)
+    k.sweep_marked[external] = 1;
 
   SweepLimits limits;
   limits.force_general_proof = true;
@@ -1092,6 +1096,10 @@ static void test_dense_call_collects_once_across_productive_environments() {
   kernel_dense_connect(k, occ);
   k.sweep_tail = {k.internal_to_external[4], k.internal_to_external[0]};
   k.sweep_tail_next = 0;
+  k.sweep_incomplete = true;
+  k.sweep_marked.resize(k.external_to_internal.size(), 0);
+  for (const Var external : k.sweep_tail)
+    k.sweep_marked[external] = 1;
   const uint64_t generation = k.arena_generation;
   SweepLimits limits;
   limits.force_general_proof = true;

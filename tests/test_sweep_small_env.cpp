@@ -98,6 +98,10 @@ static void enclosing_budget() {
   OccIndex occ;
   kernel_dense_connect(k, occ); // Include the third, unwatched large occurrence.
   k.sweep_tail = {0, 1, 2};
+  k.sweep_incomplete = true;
+  k.sweep_marked.resize(k.external_to_internal.size(), 0);
+  for (const Var external : k.sweep_tail)
+    k.sweep_marked[external] = 1;
   SweepLimits lim;
   lim.round_ticks = 1;
   lim.env_ticks = 0;

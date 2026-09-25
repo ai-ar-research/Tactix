@@ -277,8 +277,8 @@ reason-locked clauses are never deleted. No policy observes pending half-analysi
 - Vivify's population census serves only schedules containing irredundant candidates; omitting it must preserve mixed/public-scope
   ordering.
 - Sweep uses exact inclusive embedded limits and strict enclosing limits, resumes its retained tail, and grows its 256/1024/2
-  environment bounds on completed passes toward 8192/32768/3. Retained-entry revalidation is once per call; an emptied old tail
-  closes both the old and new empty passes. `SP-SWEEP-3` still needs full lifecycle acceptance; this is neither a public guard nor a per-pop filter.
+  environment bounds on completed passes toward 8192/32768/3. Entry revalidation is once per call; persistent external-var marks
+  and a separate incomplete flag govern fresh admission and completion even with a retained tail. `SP-SWEEP-3` still needs cumulative acceptance; neither state is a public guard or per-pop filter.
 - Live empty and one-clause Sweep environments run the initial embedded solve; `SP-SWEEP-SMALL-1` still owes cumulative N4 acceptance.
 - Substitute's isolated policy repair publishes each round's roots, then its import-ordered retirements, before later rounds or
   watch reconnection; production's call-wide publication remains `SP-SUBSTITUTE-ROUND-1` debt.

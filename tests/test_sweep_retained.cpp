@@ -21,6 +21,17 @@ static SweepLimits bounded() {
   return lim;
 }
 
+static void mark_retained(Kernel &k) {
+  k.sweep_incomplete = true;
+  k.sweep_marked.resize(k.external_to_internal.size(), 0);
+  for (const Var external : k.sweep_tail)
+    if (external < k.sweep_marked.size())
+      k.sweep_marked[external] = 1;
+  for (const Var external : k.sweep_front)
+    if (external < k.sweep_marked.size())
+      k.sweep_marked[external] = 1;
+}
+
 static void pure_seed(bool old) {
   Kernel k;
   kernel_reserve_vars(k, 8);
@@ -28,6 +39,7 @@ static void pure_seed(bool old) {
   binary(k, 2, 7);
   binary(k, -2, 8); // A fresh eligible seed must not restart this call.
   k.sweep_tail = {0};
+  mark_retained(k);
   assert(sweep_apply_with_limits(k, bounded()) == ApplyResult::NoOp);
   assert(k.stats.sweep_swept == (old ? 1u : 0u));
   assert(k.stats.sweep_resumed == (old ? 1u : 0u));
@@ -42,6 +54,54 @@ static void pure_seed(bool old) {
   const auto before = k.stats.sweep_swept;
   (void)sweep_try(k, 0);
   assert(k.stats.sweep_swept == before + 1); // N1 still exposes pure seeds.
+}
+
+static void completed_tail_admits_fresh(bool filtered) {
+  Kernel k;
+  kernel_reserve_vars(k, 8);
+  binary(k, 1, 6);
+  if (!filtered)
+    binary(k, -1, 7);
+  binary(k, 2, 7);
+  binary(k, -2, 8);
+  // The saved representative was already swept in the preceding pass. Its
+  // unmarked tail is not evidence that the pass remains incomplete.
+  k.sweep_tail = {0};
+  (void)sweep_apply_with_limits(k, bounded());
+  assert(k.stats.sweep_scheduled == 1);
+  assert(k.stats.sweep_swept == 1);
+  if (filtered) {
+    assert(k.stats.sweep_resumed == 0);
+    assert(k.sweep_passes_completed == 1 && !k.sweep_incomplete);
+  } else {
+    assert(k.stats.sweep_resumed == 1);
+    assert(k.sweep_live == 1 && sweep_next_scheduled(k) == 1);
+    assert(k.sweep_passes_completed == 0 && k.sweep_incomplete);
+    assert(k.sweep_marked[1] == 1);
+  }
+}
+
+static void completed_pass_keeps_unmarked_representative() {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  binary(k, 1, 2);
+  binary(k, -1, 3);
+  binary(k, -2, 4);
+  binary(k, -3, -4);
+  k.sweep_tail = {0};
+  k.sweep_incomplete = true;
+  k.sweep_marked.resize(k.external_to_internal.size(), 0);
+  k.sweep_marked[0] = 1;
+  SweepLimits lim;
+  lim.max_seeds = 1;
+  (void)sweep_apply_with_limits(k, lim);
+  assert(k.stats.sweep_rescheduled > 0);
+  assert(k.sweep_live > 0 && sweep_next_scheduled(k) == 0);
+  assert(!k.sweep_incomplete && k.sweep_passes_completed == 1);
+  assert(k.sweep_marked[0] == 0);
+  const uint64_t scheduled = k.stats.sweep_scheduled;
+  (void)sweep_apply_with_limits(k, lim);
+  assert(k.stats.sweep_scheduled > scheduled);
 }
 
 static void front_tail_order() {
@@ -60,6 +120,7 @@ static void front_tail_order() {
   k.sweep_slot[1] = (1u << 31) + 1;
   k.sweep_slot[0] = (1u << 31) + 3;
   k.sweep_live = 2;
+  mark_retained(k);
   (void)sweep_apply_with_limits(k, bounded());
   assert(k.stats.sweep_swept == 1 && k.stats.sweep_resumed == 1);
   assert(k.sweep_front.empty());
@@ -83,6 +144,7 @@ static void occurrence_boundary() {
         for (uint32_t j = 0; j < count; j++)
           binary(k, negative ? -1 : 1, 8 + j);
         k.sweep_tail = {0};
+        mark_retained(k);
         k.sweep_passes_completed = completed;
         auto lim = bounded();
         lim.max_env_clauses = 2;
@@ -99,6 +161,7 @@ static void invalid_and_duplicate_entries() {
   binary(k, 1, 7);
   // All pure duplicates and unresolved external identities must drain once.
   k.sweep_tail = {0, INVALID_VAR, 0, 99};
+  mark_retained(k);
   (void)sweep_apply_with_limits(k, bounded());
   assert(k.stats.sweep_swept == 0 && k.sweep_live == 0);
   assert(k.sweep_slot.empty() && k.sweep_passes_completed == 2);
@@ -112,6 +175,7 @@ static void entry_not_pop() {
   OccIndex occ;
   kernel_dense_connect(k, occ);
   k.sweep_tail = {0};
+  mark_retained(k);
   SweepLimits lim;
   lim.max_seeds = 2;
   lim.max_env_clauses = 4;
@@ -135,6 +199,7 @@ static void fixed_and_retired() {
   k.var_status[1] = VarStatus::Eliminated;
   k.external_to_internal[2] = INVALID_VAR;
   k.sweep_tail = {0, 1, 2};
+  mark_retained(k);
   (void)sweep_apply_with_limits(k, bounded());
   assert(k.stats.sweep_swept == 0 && k.sweep_live == 0);
   assert(k.sweep_slot.empty() && k.stats.sweep_completed == 2);
@@ -157,6 +222,7 @@ static void large_occurrences() {
       if (dense)
         kernel_dense_connect(k, occ);
       k.sweep_tail = {0};
+      mark_retained(k);
       auto lim = bounded();
       // Existing fresh admission uses raw sparse watch words (two per large
       // watch), versus one occurrence in the connected dense representation.
@@ -176,6 +242,9 @@ int main(int argc, char **argv) {
     std::puts("old counterexample: retained pure seed attempted; public API legal");
     return 0;
   }
+  completed_tail_admits_fresh(false);
+  completed_tail_admits_fresh(true);
+  completed_pass_keeps_unmarked_representative();
   front_tail_order();
   occurrence_boundary();
   invalid_and_duplicate_entries();

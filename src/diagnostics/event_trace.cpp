@@ -134,7 +134,7 @@ void trace_slot_memory(const Kernel &k, const char *name, const char *stage,
       capacity_bytes(k.touched_levels) + capacity_bytes(k.eager_marks) +
       capacity_bytes(k.reason_walk_stack) + capacity_bytes(k.jump_pending) +
       capacity_bytes(k.sweep_tail) + capacity_bytes(k.sweep_front) +
-      capacity_bytes(k.sweep_slot);
+      capacity_bytes(k.sweep_slot) + capacity_bytes(k.sweep_marked);
   const size_t input_bytes =
       capacity_bytes(k.input_restatements) +
       capacity_bytes(k.input_restate_lits) +
