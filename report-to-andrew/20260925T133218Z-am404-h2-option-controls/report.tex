@@ -1,0 +1,27 @@
+\documentclass[11pt]{article}
+\usepackage[margin=0.82in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{hyperref}
+\newcommand{\code}[1]{\texttt{#1}}
+\title{Tactix: H2 Checker-Contract Diagnostic}
+\author{Report to Andrew}
+\date{25 September 2026}
+\begin{document}
+\maketitle
+\vspace{-1.4em}
+
+\section*{Outcome}
+AM404 expands the fixed controls for H2 without changing the solver or its canonical proof route. A checker-only SLURM job compared the historical no-option \code{dsr-trim} route with \code{--delete-implied-units} on seven exact proof/CNF pairs. All 14 predeclared mode outcomes matched. The H2 parent-identical proof still fails no-option at the clause-60 watch-pointer error, but with the option it passes backward and forward every-lemma elaboration and independent Trestle verification. Three additional archived DSR proofs pass in both modes.
+
+\section*{Soundness controls and provenance}
+The option deliberately honors deletion of an implied-unit reason. A proof whose later witnessed unit depends on that deletion is valid with the option and invalid without it. Removing only that deletion makes the same witness invalid again: Trestle reports \code{s INVALID} under the option. A separate five-variable bad-witness proof is likewise rejected by Trestle. These controls establish that the changed acceptance in this fixed set is caused by the specified proof-state semantics, not a blanket checker success. They are not a proof that every certificate accepted under the option is sound.
+
+Job \code{1721075} ran for three seconds on hwulab with two CPUs and 8 GiB. It used the AM369 pinned checker hashes, the repository's clause-preserving checker-CNF spelling, and both backward and forward proof elaboration; successful cases required Trestle. Exact inputs, wrapper, hashes, LSRs, logs and the 14-row result table are retained under \code{benchmarks/probes/am404-h2-option-corpus/}. The AM404 technical report records the case matrix and its limits.
+
+\section*{Decision and remaining gates}
+This makes the audited checker option a viable contract candidate, not an N2 fix. The user has been asked whether a fully audited option route may replace no-option, and whether post-finalization public clause additions should be supported or explicitly rejected. Until those choices and the associated broad proof/model checks are complete, the canonical route is unchanged. The AM400/401 full Debug suites and independent Opus affected fuzz remain active; X7 full acceptance, the source-to-action proof-rule audit, N1--N4 and the Rank/B+C/WV gates remain open. Production online learning still requires the default-exact inprocessing controller and safe-point branching/deletion strategy ownership identified earlier. The requested full Tier-D hwulab comparison at 5,000 seconds, four CPUs and 32 GiB is not submitted before goal completion.
+
+\noindent\textbf{Evidence:} AM404 technical report and frozen job \code{1721075}; AM390 checker-contract controls; current \code{PROGRESS.md}; \code{DEVELOPMENT\_PLAN.md} \S5 and \S8.
+\end{document}
