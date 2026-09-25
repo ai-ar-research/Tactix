@@ -1077,6 +1077,18 @@ static int act(Kernel &k, Ref *ref, const Partner &p, uint64_t *changed,
   if (k.proof) {
     if (lrat) {
       chain.insert(chain.end(), p.absorbed.begin(), p.absorbed.end());
+      // The victim and partner may contain the same root-false literal. Its
+      // unit is needed only once; a second citation is not a propagation in
+      // the checker's LRAT replay (AM358-v2 H3).
+      size_t kept = 0;
+      for (const uint64_t hint : chain) {
+        bool duplicate = false;
+        for (size_t i = 0; i < kept && !duplicate; i++)
+          duplicate = chain[i] == hint;
+        if (!duplicate)
+          chain[kept++] = hint;
+      }
+      chain.resize(kept);
       chain.push_back(p.id);    // partner propagates the flipped literal
       chain.push_back(c->id()); // then the original conflicts
       k.proof->add_rup(id, lits.data(), static_cast<uint32_t>(lits.size()),

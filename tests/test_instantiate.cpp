@@ -6,11 +6,16 @@
 #include "policies/default_policy.hpp"
 #include "rules/instantiate/instantiate.hpp"
 #include "rules/propagate/propagate.hpp"
+#include "proof/proof.hpp"
 
 #include <cassert>
 #include <csignal>
 #include <cstdio>
 #include <cstring>
+#include <fstream>
+#include <sstream>
+#include <string>
+#include <unistd.h>
 #include <vector>
 
 using namespace tactix;
@@ -91,6 +96,79 @@ static void test_ternary_becomes_binary() {
   assert(find_clause(k, 3) == nullptr);         // candidate gone from the arena
   assert(k.binary_ids.size() >= 1);             // ... and living as a binary
   assert(default_solve(k) == 10);
+}
+
+// The complete negated strengthened clause already assumes -3. Its named
+// root unit can occur in the probe's reason walk, but is not a legal LRAT
+// propagation hint for the new clause (AM358-v2 H3's Instantiate class).
+static void test_lrat_omits_root_unit_in_cube() {
+  const std::string path = "/tmp/tactix-instantiate-cube-" +
+                           std::to_string(static_cast<long>(getpid())) +
+                           ".lrat";
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  const Lit candidate[3] = {internalize(1), internalize(2),
+                            internalize(3)};
+  const Lit reason_pos[3] = {internalize(-1), internalize(3),
+                             internalize(4)};
+  const Lit reason_neg[3] = {internalize(-1), internalize(3),
+                             internalize(-4)};
+  kernel_add_large_clause(k, candidate, 3, false, 0, ++k.next_clause_id);
+  kernel_add_large_clause(k, reason_pos, 3, false, 0, ++k.next_clause_id);
+  kernel_add_large_clause(k, reason_neg, 3, false, 0, ++k.next_clause_id);
+  const uint64_t root_id = ++k.next_clause_id;
+  k.unit_ids[var_of(internalize(-3))] = root_id;
+  kernel_assign_unit(k, internalize(-3));
+  Proof proof;
+  assert(proof.open(path.c_str(), ProofFormat::Lrat));
+  proof.bind_variable_map(&k.internal_to_external);
+  k.proof = &proof;
+  assert(!kernel_propagate(k));
+  // Prove this fixture actually reaches the offending reason-walk path;
+  // otherwise an unchanged emitter would also pass the output assertion.
+  Kernel witness = k;
+  witness.proof = nullptr;
+  kernel_probing_begin(witness);
+  for (const Lit assumption : {internalize(1), internalize(-2)}) {
+    witness.level++;
+    witness.frames.push_back(static_cast<uint32_t>(witness.trail.size()));
+    kernel_assign(witness, assumption, witness.level, DECISION_REASON, false);
+  }
+  assert(kernel_propagate_probing(witness));
+  std::vector<uint8_t> seen(witness.nvars, 0);
+  std::vector<std::pair<uint32_t, uint64_t>> entries;
+  const uint64_t conflict_id =
+      kernel_conflict_reason_walk(witness, seen, entries);
+  assert(conflict_id != 0);
+  assert(std::any_of(entries.begin(), entries.end(),
+                     [&](const auto &entry) { return entry.second == root_id; }));
+  const Ref candidate_ref = find_ref(k, 3);
+  assert(candidate_ref != INVALID_REF);
+  assert(instantiate_try_literal(k, candidate_ref, internalize(1)) ==
+         ApplyResult::Ok);
+  proof.flush();
+  k.proof = nullptr;
+
+  std::ifstream input(path);
+  std::string line;
+  bool found = false;
+  while (std::getline(input, line)) {
+    std::istringstream fields(line);
+    uint64_t id;
+    if (!(fields >> id) || id != k.next_clause_id)
+      continue;
+    fields >> std::ws;
+    if (fields.peek() == 'd')
+      continue;
+    int literal;
+    while (fields >> literal && literal != 0) {}
+    uint64_t hint;
+    while (fields >> hint && hint != 0)
+      assert(hint != root_id);
+    found = true;
+  }
+  assert(found);
+  std::remove(path.c_str());
 }
 
 // Occurrence limit (cadical `instantiateocclim` = 1): nothing is rare enough.
@@ -319,6 +397,7 @@ int main() {
   test_removes_rare_literal();
   test_touch_filter_is_policy_only();
   test_ternary_becomes_binary();
+  test_lrat_omits_root_unit_in_cube();
   test_occurrence_limit_rejects();
   test_unit_avoidance();
   test_binary_not_a_candidate();

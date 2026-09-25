@@ -180,7 +180,9 @@ Inprocessing rules use the level-zero root formula `F|U` as their declared actio
 - **Effect:** replace `c` by `c′` (add-before-delete). Proof δ: `add_rup(c′)` + `del(c)`; a unit result is asserted (root unit), an
   empty result refutes. Derived root consequences may simplify later candidates, with proof support retained before reason deletion;
   caller closure uses M1 and root-satisfied deletion, not a stronger C2 guard. The round is *fused*, taking C1's inference when the
-  resolvent subsumes outright — that branch is **`del` with no add**.
+  resolvent subsumes outright — that branch is **`del` with no add**. In native LRAT, root units absorbed from both the victim and
+  partner are cited once each in their first-occurrence order before the partner and victim IDs; a repeated unit is not a second
+  propagation hint.
 - **Soundness:** `c′` is RUP from `c` and `d`; add-before-delete keeps the core entailed at every step. The fused SUBSUMED branch is
   C1's inference and inherits its argument (`implementation-notes.md` §14). Like C1 the precondition constrains only the PARTNER `d`
   — ledger `D-C1C2-VICTIM`. Canonical material flags and their round-consumption/cumulative invitation state are scheduling advice,
@@ -668,7 +670,8 @@ extend `C` until the extension is blocked, and then the ORIGINAL `C` is deleted.
   and append the conflict id last. If the conflict did not depend on `l`, omit `C.id`. `D` is RUP against `F` **alone** — worth
   spelling out, since the probe assumed something `¬D` does not: under `¬D` the clause `C = D ∨ l` is unit, so `C` itself propagates
   `l`, reproducing the probe's state and hence its conflict. The LRAT chain therefore contains `C` at the trail position where `l`
-  entered, ahead of the reasons walked from the conflict.
+  entered, ahead of the reasons walked from the conflict. A named root unit already assumed by the complete `¬D` cube is omitted
+  from that chain: citing it would be a satisfied hint, not a propagation.
 - **Soundness:** the refutation of `l ∧ ¬D` establishes `F ⊨ ¬l ∨ D`, which resolves with `C = l ∨ D` on `l` to give `F ⊨ D`. Adding
   an entailed clause and deleting a superset preserves the model set exactly — no witness, no reconstruction entry (contrast X1/E1).
 - **Termination:** every apply strictly shortens one clause and never adds a literal, so repeated application terminates.
