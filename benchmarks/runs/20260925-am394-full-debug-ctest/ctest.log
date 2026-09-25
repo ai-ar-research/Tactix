@@ -1,0 +1,87 @@
+Test project /home/hwu/SAT-solving/benchmarks/runs/20260925-am394-full-debug-ctest/build
+        Start   1: kernel
+  1/185 Test   #1: kernel ............................   Passed    0.22 sec
+        Start   2: clause_arena_replay
+  2/185 Test   #2: clause_arena_replay ...............   Passed    0.59 sec
+        Start   3: parse
+  3/185 Test   #3: parse .............................   Passed    0.22 sec
+        Start   4: proof
+  4/185 Test   #4: proof .............................   Passed    0.14 sec
+        Start   5: sr_proof_encoding
+  5/185 Test   #5: sr_proof_encoding .................   Passed    0.19 sec
+        Start   6: analyze
+  6/185 Test   #6: analyze ...........................   Passed    2.22 sec
+        Start   7: restart_reduce
+  7/185 Test   #7: restart_reduce ....................   Passed    0.15 sec
+        Start   8: switchmode
+  8/185 Test   #8: switchmode ........................   Passed    0.14 sec
+        Start   9: rephase
+  9/185 Test   #9: rephase ...........................   Passed    0.22 sec
+        Start  10: subsolver
+ 10/185 Test  #10: subsolver .........................   Passed    9.46 sec
+        Start  11: subsolver_export_resource
+ 11/185 Test  #11: subsolver_export_resource .........   Passed    0.15 sec
+        Start  12: sweep
+ 12/185 Test  #12: sweep .............................   Passed    2.59 sec
+        Start  13: scheduling
+ 13/185 Test  #13: scheduling ........................   Passed    0.21 sec
+        Start  14: strategy_config
+ 14/185 Test  #14: strategy_config ...................   Passed    0.42 sec
+        Start  15: event_trace
+ 15/185 Test  #15: event_trace .......................   Passed    0.20 sec
+        Start  16: event_trace_compare
+ 16/185 Test  #16: event_trace_compare ...............   Passed    0.59 sec
+        Start  17: reduce_trace_compare
+ 17/185 Test  #17: reduce_trace_compare ..............   Passed    0.06 sec
+        Start  18: modelcheck
+ 18/185 Test  #18: modelcheck ........................   Passed    0.09 sec
+        Start  19: runtime_task
+ 19/185 Test  #19: runtime_task ......................***Failed    0.22 sec
+.....F.
+======================================================================
+FAIL: test_pb_spelling_on_anonymous_scratch (__main__.RuntimeTaskTest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/hwu/SAT-solving/benchmarks/runs/20260925-am394-full-debug-ctest/source/tests/test_runtime_task.py", line 175, in test_pb_spelling_on_anonymous_scratch
+    self.assertEqual(result['result'], 'verified', result)
+AssertionError: 'not-verified' != 'verified'
+- not-verified
+? ----
++ verified
+ : {'pipeline': 'veripb-cake-pb', 'checker_input': {'original_sha256': '4e8fb34ddd8dd5ab8955e5e2fda3625d282cbc31546a01618d625357b5e2fc8a', 'checker_sha256': 'ac42a371b5a124286c410ed5dfa2e3be7ee7d5b1feac6f08e7e1715f0c3669a8', 'clauses': 2, 'first_empty_clause': None, 'duplicate_literal_clauses': 0, 'declared_variables': 1, 'checker_variables': 1, 'transformation': 'clause-sequence-preserving DIMACS spelling'}, 'result': 'not-verified', 'wall_seconds': 0.036, 'exit_code': 127, 'timed_out': False, 'output_tail': '/usr/bin/time: cannot run /home/hwu/SAT-solving/benchmarks/runs/20260925-am394-full-debug-ctest/source/benchmarks/runs/20260923-am337-proof-lifetime-v2/pins/veripb: No such file or directory', 'stages': [{'exit_code': 127, 'wall_seconds': 0.035, 'peak_rss_kb': 0, 'sampled_process_vm_peak_kb': None, 'timed_out': False, 'name': 'veripb', 'result': 'error', 'output_tail': '/usr/bin/time: cannot run /home/hwu/SAT-solving/benchmarks/runs/20260925-am394-full-debug-ctest/source/benchmarks/runs/20260923-am337-proof-lifetime-v2/pins/veripb: No such file or directory', 'command': ['/home/hwu/SAT-solving/benchmarks/runs/20260925-am394-full-debug-ctest/source/benchmarks/runs/20260923-am337-proof-lifetime-v2/pins/veripb', '-u', '--cnf', '--elaborate', '/proc/3280109/fd/7', '/proc/3280109/fd/6', '/proc/3280109/fd/5'], 'timeout_seconds': 60, 'produced_bytes': 0}]}
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.125s
+
+FAILED (failures=1)
+
+        Start  20: kissat_journal_overlay_static
+ 20/185 Test  #20: kissat_journal_overlay_static .....   Passed    0.08 sec
+        Start  21: rule_journal
+ 21/185 Test  #21: rule_journal ......................   Passed    0.40 sec
+        Start  22: api_journal
+ 22/185 Test  #22: api_journal .......................   Passed    0.43 sec
+        Start  23: default_policy_rule_journal
+ 23/185 Test  #23: default_policy_rule_journal .......   Passed    0.33 sec
+        Start  24: p4_fixtures
+ 24/185 Test  #24: p4_fixtures .......................   Passed    0.33 sec
+        Start  25: campaign_certificate_cleanup
+ 25/185 Test  #25: campaign_certificate_cleanup ......   Passed    0.85 sec
+        Start  26: tierd_campaign_pinning
+ 26/185 Test  #26: tierd_campaign_pinning ............***Failed    0.10 sec
+Traceback (most recent call last):
+  File "/home/hwu/SAT-solving/benchmarks/runs/20260925-am394-full-debug-ctest/source/tests/test_tierd_campaign_pinning.py", line 24, in <module>
+    winner = json.loads((ROOT / "benchmarks/baselines/sc24-26-32g-5000s/manifest.json").read_text())
+  File "/cm/local/apps/python3/lib/python3.9/pathlib.py", line 1194, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+  File "/cm/local/apps/python3/lib/python3.9/pathlib.py", line 1180, in open
+    return io.open(self, mode, buffering, encoding, errors, newline,
+  File "/cm/local/apps/python3/lib/python3.9/pathlib.py", line 1038, in _opener
+    return self._accessor.open(self, flags, mode)
+FileNotFoundError: [Errno 2] No such file or directory: '/home/hwu/SAT-solving/benchmarks/runs/20260925-am394-full-debug-ctest/source/benchmarks/baselines/sc24-26-32g-5000s/manifest.json'
+
+        Start  27: slurm_memory_enforcement
+ 27/185 Test  #27: slurm_memory_enforcement ..........   Passed    0.09 sec
+        Start  28: symmetry_backend_build_boundary
+ 28/185 Test  #28: symmetry_backend_build_boundary ...   Passed    0.11 sec
+        Start  29: symmetry_backend
