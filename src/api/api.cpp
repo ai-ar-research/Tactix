@@ -18,6 +18,7 @@
 #include "strategy/online_inprocess.hpp"
 
 #include <algorithm>
+#include <cstdlib>
 #include <limits>
 #include <memory>
 #include <string>
@@ -1066,7 +1067,12 @@ tactix_solver *tactix_init(void) { return new tactix_solver(); }
 
 void tactix_release(tactix_solver *s) { delete s; }
 
-void tactix_add(tactix_solver *s, int lit) {
+int tactix_add_checked(tactix_solver *s, int lit) {
+  // finish_input retires absent variables and fixes proof input ids. Until O7
+  // supplies a full incremental lifecycle, accepting a later clause would
+  // leave both the live population and the certificate input out of sync.
+  if (s->input_completed)
+    return -1;
   if (lit == 0) {
     ingest_clause(s->kernel, s->scratch);
     s->scratch.clear();
@@ -1074,15 +1080,21 @@ void tactix_add(tactix_solver *s, int lit) {
     s->scratch.push_back(internalize(lit));
   }
   external_state_change(s);
+  return 0;
+}
+
+void tactix_add(tactix_solver *s, int lit) {
+  if (tactix_add_checked(s, lit) != 0)
+    std::abort();
 }
 
 // The C API has no end of file, so "the input is complete" is the first call
 // that reasons about it. finish_input settles the proof id space (see
 // frontend/parse.hpp), so every entry point below that could consume a derived
 // id goes through here first. Idempotent, and free once nothing is pending.
-// With a proof attached, adding clauses after this point is outside the v1
-// contract: their ids would land above already-derived ones, which no checker's
-// file numbering can match.
+// Adding clauses after this point is outside the v1 contract: retired
+// variables are no longer in the active search population, and with a proof
+// attached their ids would also land above already-derived ones.
 static void input_complete(tactix_solver *s) {
   if (s->input_completed)
     return;

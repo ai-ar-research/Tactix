@@ -143,8 +143,12 @@ typedef struct tactix_solver tactix;
 tactix *tactix_init(void);
 void tactix_release(tactix *);
 
-/* IPASIR-style ingest: literals in DIMACS convention, 0 terminates a
- * clause. */
+/* Input ingest: literals in DIMACS convention, 0 terminates a clause.
+ * Input closes on the first status, enumeration, rule, or solve query.
+ * Incremental additions after that boundary are not supported in v1.
+ * The checked form returns -1 without changing state for a late addition;
+ * the original void form fails closed (SIGABRT) instead of accepting it. */
+int tactix_add_checked(tactix *, int lit);
 void tactix_add(tactix *, int lit);
 
 /* Proof logging (N2): attach exactly once, before the first operation that

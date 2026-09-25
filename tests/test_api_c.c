@@ -4,10 +4,14 @@
 #include "tactix.h"
 
 #include <assert.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#include <sys/prctl.h>
+#include <sys/resource.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 static int rule_id(const char *name) {
@@ -31,6 +35,65 @@ static void test_solve_sat(void) {
   assert(tactix_solve(s) == 10);
   assert(tactix_value(s, 2) == 2);
   tactix_release(s);
+}
+
+/* A query finalizes the input. A later addition must never enter a half-
+ * retired solver population and yield a model for the wrong formula. */
+static void finalize_with_query(tactix *s, int query) {
+  int buffer[8];
+  uint64_t instances[8];
+  switch (query) {
+  case 0:
+    (void)tactix_status(s);
+    break;
+  case 1:
+    (void)tactix_decide_candidates(s, buffer, 8);
+    break;
+  case 2:
+    (void)tactix_rules_applicable(s, buffer, 8);
+    break;
+  case 3:
+    (void)tactix_rule_instances(s, rule_id("Probe"), instances, 8);
+    break;
+  case 4:
+    assert(tactix_solve(s) == 10);
+    break;
+  default:
+    abort();
+  }
+}
+
+static void test_late_input_add_rejected(void) {
+  for (int query = 0; query < 5; ++query) {
+    tactix *s = tactix_init();
+    assert(tactix_add_checked(s, 3) == 0);
+    assert(tactix_add_checked(s, 0) == 0);
+    finalize_with_query(s, query);
+    assert(tactix_add_checked(s, 1) == -1);
+    assert(tactix_add_checked(s, 2) == -1);
+    assert(tactix_add_checked(s, 0) == -1);
+    assert(tactix_solve(s) == 10);
+    assert(tactix_value(s, 3) == 3);
+    tactix_release(s);
+  }
+
+  for (int query = 0; query < 5; ++query) {
+    const pid_t child = fork();
+    assert(child >= 0);
+    if (!child) {
+      const struct rlimit no_core = {0, 0};
+      assert(setrlimit(RLIMIT_CORE, &no_core) == 0);
+      assert(prctl(PR_SET_DUMPABLE, 0) == 0);
+      tactix *s = tactix_init();
+      add_clause(s, (const int[]){3, 0});
+      finalize_with_query(s, query);
+      tactix_add(s, 1);
+      _exit(0);
+    }
+    int status = 0;
+    assert(waitpid(child, &status, 0) == child);
+    assert(WIFSIGNALED(status) && WTERMSIG(status) == SIGABRT);
+  }
 }
 
 /* Root-false literals can expose a failed probe through large clauses even
@@ -635,6 +698,7 @@ int main(void) {
   test_condition_cube_api();
   test_condition_cube_with_retired_external_variable();
   test_solve_sat();
+  test_late_input_add_rejected();
   test_discarded_only_variables_extend_model();
   test_lucky_model_status_after_inprocessing();
   test_repeated_solve_after_cce();
