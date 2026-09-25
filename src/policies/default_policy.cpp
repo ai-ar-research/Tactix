@@ -3810,7 +3810,12 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   if (lucky_guard(k)) {
     event_trace.macro(k, "lucky_early_begin");
     k.stats.lucky_early_calls++;
-    if (default_lucky(k, "early") == ApplyResult::Sat) {
+    const ApplyResult lucky = default_lucky(k, "early");
+    if (lucky == ApplyResult::Unsat) {
+      event_trace.macro(k, "lucky_early_end", "unsat");
+      return finish(20);
+    }
+    if (lucky == ApplyResult::Sat) {
       event_trace.macro(k, "lucky_early_end", "sat");
       return finish(10);
     }
@@ -3958,7 +3963,12 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   if (lucky_late_ && lucky_guard(k)) {
     event_trace.macro(k, "lucky_late_begin");
     k.stats.lucky_late_calls++;
-    if (default_lucky(k, "late") == ApplyResult::Sat) {
+    const ApplyResult lucky = default_lucky(k, "late");
+    if (lucky == ApplyResult::Unsat) {
+      event_trace.macro(k, "lucky_late_end", "unsat");
+      return finish(20);
+    }
+    if (lucky == ApplyResult::Sat) {
       k.stats.lucky_late_sat++;
       event_trace.macro(k, "lucky_late_end", "sat");
       return finish(10);
