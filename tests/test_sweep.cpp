@@ -74,14 +74,47 @@ static void test_lrat_capture_replays_lifted_cube() {
   proof.steps.push_back(SubStep{4, {sub_lit(1, false)}, {1, 2}, {}});
   proof.steps.push_back(SubStep{5, {sub_lit(0, false)}, {3}, {}});
   assert(sweep_normalize_lrat_capture(env, proof));
-  assert((proof.steps[0].chain == std::vector<uint32_t>{2}));
-  assert((proof.steps[1].chain == std::vector<uint32_t>{3}));
+  assert((std::vector<uint32_t>(proof.chain_view(0).begin(),
+                                proof.chain_view(0).end()) ==
+          std::vector<uint32_t>{2}));
+  assert((std::vector<uint32_t>(proof.chain_view(1).begin(),
+                                proof.chain_view(1).end()) ==
+          std::vector<uint32_t>{3}));
 
   // A corrupted remaining antecedent cannot close; the proof direction must
   // decline before Sweep emits even its first temporary lemma.
   proof.steps[0].chain = {1, 2};
   env.clause_lits[3] = internalize(-2);
   assert(!sweep_normalize_lrat_capture(env, proof));
+}
+
+static void test_lrat_core_prefix_uses_its_own_target_cube() {
+  SweepEnv env;
+  env.vars = {0, 1, 2};
+  env.sub_of_var = {0, 1, 2};
+  env.clause_ids = {1, 2};
+  // Under -1, clause 1 propagates 2 and clause 2 conflicts. A direction
+  // also assuming -2 conflicts at clause 1 alone; a separate core unit 3
+  // still needs both hints. The same raw prefix can serve both targets only
+  // when each has its own normalized chain.
+  env.clause_lits = {internalize(1), internalize(2), internalize(-2)};
+  env.clause_off = {0, 2, 3};
+  SweepDirProof direction;
+  direction.t0 = internalize(2);
+  direction.steps.push_back(SubStep{3, {sub_lit(0, false)}, {1, 2}, {}});
+  assert(sweep_normalize_lrat_capture(env, direction));
+  assert(direction.chain_view(0).size() == 1);
+  assert(direction.chain_view(0)[0] == 1);
+  direction.share_steps();
+  SweepDirProof core;
+  core.t0 = internalize(3);
+  core.shared_steps = direction.shared_steps;
+  core.shared_step_count = 1;
+  assert(sweep_normalize_lrat_capture(env, core));
+  assert(core.chain_view(0).size() == 2);
+  assert(core.chain_view(0)[0] == 1 && core.chain_view(0)[1] == 2);
+  assert(direction.chain_view(0).size() == 1);
+  assert(direction.steps_view()[0].chain.size() == 2);
 }
 
 static void test_unbounded_clause_limit_sizes_from_formula() {
@@ -434,12 +467,23 @@ static SweepDirProof original_core_unit_proof(const Kernel &k) {
   return proof;
 }
 
+static void original_core_unit_env(SweepRound &round) {
+  SweepEnv &env = round.env;
+  env.vars = {0, 1, 2, 3};
+  env.sub_of_var = {0, 1, 2, 3};
+  env.clause_ids = {1};
+  env.clause_lits = {internalize(-1), internalize(2), internalize(3),
+                     internalize(4)};
+  env.clause_off = {0, 4};
+}
+
 static void test_original_core_unit_capture() {
   Kernel not_unit;
   build(not_unit, 4, {{-1, 2, 3, 4}, {-2}, {-3}});
   SweepRound declined;
   SweepLimits limits;
   sweep_round_begin(not_unit, declined);
+  original_core_unit_env(declined);
   SweepDirProof not_unit_proof = original_core_unit_proof(not_unit);
   sweep_capture_core_units_for_test(not_unit, not_unit_proof, declined, limits);
   assert(declined.units.empty()); // -1 and 4 are both still non-false
@@ -448,6 +492,7 @@ static void test_original_core_unit_capture() {
   build(k, 4, {{-1, 2, 3, 4}, {-2}, {-3}, {-4}});
   SweepRound round;
   sweep_round_begin(k, round);
+  original_core_unit_env(round);
   SweepDirProof proof = original_core_unit_proof(k);
   sweep_capture_core_units_for_test(k, proof, round, limits);
   assert(!round.units.empty());
@@ -1278,6 +1323,7 @@ static void emit_original_core_unit_case(const char *dir) {
     SweepRound round;
     SweepLimits limits;
     sweep_round_begin(k, round);
+    original_core_unit_env(round);
     SweepDirProof captured = original_core_unit_proof(k);
     sweep_capture_core_units_for_test(k, captured, round, limits);
     assert(!round.units.empty() && round.units.front().unit == internalize(-1));
@@ -1477,6 +1523,7 @@ int main(int argc, char **argv) {
   test_effort_prices_embedded_and_representation_ticks();
   test_core_prefixes_share_one_immutable_derivation();
   test_lrat_capture_replays_lifted_cube();
+  test_lrat_core_prefix_uses_its_own_target_cube();
   test_unbounded_clause_limit_sizes_from_formula();
   test_dense_entry_flushes_only_irredundant_satisfied_clauses();
   test_non_rup_equivalence();

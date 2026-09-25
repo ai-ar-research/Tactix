@@ -99,13 +99,23 @@ struct SweepDirProof {
   Lit t0 = INVALID_LIT, t1 = INVALID_LIT;
   std::vector<SubStep> steps;
   // A core can certify many units at different prefix lengths. Share the
-  // immutable derivation instead of copying each (potentially huge) prefix.
+  // immutable raw derivation instead of copying each (potentially huge)
+  // prefix. LRAT hint normalization depends on this proof's target; a core
+  // unit may need hints that the direction's target made redundant.
   std::shared_ptr<const std::vector<SubStep>> shared_steps;
   size_t shared_step_count = 0;
+  std::vector<std::vector<uint32_t>> normalized_chains;
   std::span<const SubStep> steps_view() const {
     if (shared_steps)
       return {shared_steps->data(), shared_step_count};
     return steps;
+  }
+  std::span<const uint32_t> chain_view(size_t step) const {
+    if (!normalized_chains.empty()) {
+      assert(normalized_chains.size() == steps_view().size());
+      return normalized_chains[step];
+    }
+    return steps_view()[step].chain;
   }
   void share_steps() {
     if (!shared_steps) {
