@@ -1989,7 +1989,8 @@ struct SweepGeneralPlan {
   // Validate every captured step before any proof write, but retain only the
   // final translation. Intermediate steps are immutable in `capture` and can
   // be translated one at a time during emission. A full translated copy of a
-  // large Kitten core made even proofless Sweep exhaust memory (AM363 S1).
+  // large Kitten core can exhaust memory even without proof output; see
+  // benchmarks/reports/2026-09-25-am388-sweep-core-allocation-boundary.md.
   SweepGeneralStepPlan final_step;
   size_t step_count = 0;
   bool eligible() const { return decline == SweepGeneralDecline::None; }
