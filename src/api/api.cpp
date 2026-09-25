@@ -1506,7 +1506,6 @@ int tactix_online_configure(tactix_solver *s,
       (reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RESET &&
        reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS))
     return -1;
-  input_complete(s);
   strategy::OnlineInprocessProgram program;
   if (!online_program(*source, s->kernel, program))
     return -1;
@@ -1524,6 +1523,10 @@ int tactix_online_configure(tactix_solver *s,
     return -1;
   if (replacement)
     s->online = std::move(replacement);
+  // A rejected request must not close the C input stream. Conversion and
+  // executor validation only read the stable external-to-internal map;
+  // finish_input retires unused variables but does not remap those literals.
+  input_complete(s);
   return 0;
 }
 
@@ -1534,7 +1537,6 @@ int tactix_online_configure_v2(tactix_solver *s,
       (reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RESET &&
        reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS))
     return -1;
-  input_complete(s);
   strategy::OnlineInprocessProgram program;
   if (!online_program_v2(*source, s->kernel, program))
     return -1;
@@ -1552,6 +1554,7 @@ int tactix_online_configure_v2(tactix_solver *s,
     return -1;
   if (replacement)
     s->online = std::move(replacement);
+  input_complete(s);
   return 0;
 }
 
@@ -1562,7 +1565,6 @@ int tactix_online_configure_v3(tactix_solver *s,
       (reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RESET &&
        reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS))
     return -1;
-  input_complete(s);
   strategy::OnlineInprocessProgram program;
   if (!online_program_v3(*source, s->kernel, program))
     return -1;
@@ -1580,6 +1582,7 @@ int tactix_online_configure_v3(tactix_solver *s,
     return -1;
   if (replacement)
     s->online = std::move(replacement);
+  input_complete(s);
   return 0;
 }
 

@@ -964,6 +964,9 @@ typedef struct {
   uint64_t configuration_revision;
 } tactix_online_result;
 
+/* A rejected configuration does not finalize input or replace the previous
+ * program. A successful configuration finalizes input; later additions fail
+ * through tactix_add_checked until incremental input is supported. */
 int tactix_online_configure(tactix *, const tactix_online_program *,
                             uint64_t revision, int reconfigure_mode);
 int tactix_online_configure_v2(tactix *, const tactix_online_program_v2 *,
