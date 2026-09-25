@@ -296,7 +296,7 @@ byte-identical solver pins remain in the AM333 gate campaigns.
 
 ## Next steps
 
-1. **FmlaEquivChain / Tseitin certificate (chosen by the user, 2026-09-22).**
+1. **FmlaEquivChain / Tseitin certificate (chosen by the user, 2026-09-22).** Immediate handoff at clean `b49d3b90`: first collect terminal verdicts for old-pin Debug job `1723391` (186/187 passed, final `demo3_scripted_default` running) and paired AES checker array `1723443_0/1` (both running); preserve their immutable run evidence. Then solve H2's checker-retained implied-reason mismatch under the canonical no-option DSR route without narrowing legal X7, obtain affected fuzz and full N1--N4 gates, and only after the goal is verified submit the requested full Tier D. AM442's online-configuration repair is focused-test/proof checked but its affected fuzz is pending; production online learning and the final Andrew readiness report are still due.
    User approved `benchmarks/reports/2026-09-22-startup-certificate-proposal.md`:
    implement automatic startup PBP, checked by pinned VeriPB then CakePB,
    with DSR for all search paths and strict explicit format modes. The proposal
