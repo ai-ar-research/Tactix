@@ -179,6 +179,19 @@ static void test_external_branching(void) {
   tactix_release(s);
 }
 
+/* Candidate enumeration reasons about the input just like rule enumeration.
+ * Once it has exposed a branching snapshot, proof attachment must not reopen
+ * the original-input clause-id boundary. */
+static void test_decide_candidates_close_input_boundary(void) {
+  tactix *s = tactix_init();
+  add_clause(s, (const int[]){1, 2, 0});
+  int candidates[4];
+  assert(tactix_decide_candidates(s, candidates, 4) == 2);
+  assert(tactix_proof(s, "/dev/null", TACTIX_PROOF_DSR_BINARY) == -1);
+  assert(tactix_decide(s, -1) == 0);
+  tactix_release(s);
+}
+
 /* Instance surface (plan §5.1): enumeration plus chosen-instance apply. */
 static void test_instance_surface(void) {
   tactix *s = tactix_init();
@@ -575,6 +588,7 @@ int main(void) {
   test_lucky_model_status_after_inprocessing();
   test_repeated_solve_after_cce();
   test_external_branching();
+  test_decide_candidates_close_input_boundary();
   test_instance_surface();
   test_conflict_boundary_restart_and_reduce();
   test_solve_after_public_conflict();
