@@ -1,0 +1,1 @@
+call applicable rc 8 solve 10 model -1 -2 3 -> MODEL-BAD
