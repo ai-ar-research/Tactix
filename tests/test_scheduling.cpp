@@ -1550,7 +1550,7 @@ static void test_slot_gates_decline_without_new_material(void) {
 
 // Kissat's Reduce timestamp suppresses both phase predicates only at that
 // conflict. It is independent of Probe's reduction-count watermark and of
-// Eliminate's new-material watermark (SP-SLOT-REDUCE-EDGE-1).
+// Eliminate's new-material watermark.
 static void test_reduce_suppresses_same_conflict_phases(void) {
   Kernel k;
   kernel_reserve_vars(k, 4);

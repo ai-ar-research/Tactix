@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Every scheduled inprocessing rule must have a governor.
 
-In the S4 arrangement, registering a rule is scheduling it: `DefaultPolicy`
-builds the inprocessing slot by walking the registry and taking every
-`RuleTier::Inprocess` entry. The effort ledger is a separate table,
-`EFFORT_SPECS`, keyed by rule name, and a slot entry whose name is absent from
+In the S4 arrangement, `DefaultPolicy` builds the inprocessing slot by walking
+the `RuleTier::Inprocess` registry. A rule with no canonical producer may be
+explicit-only and omitted from the default append path, but that exception
+must prove both the omission and its public API reachability. The effort ledger
+is a separate table, `EFFORT_SPECS`, keyed by rule name, and a slot entry absent from
 it gets `meter = nullptr, permille = 0` — one full canonical round on every
 inprocessing phase, with no meter and no budget.
 
@@ -20,6 +21,10 @@ rule is a performance regression, not a soundness one.
                         bounds its call frequency, named here, and that mechanism
                         must still be present in the source (`evidence`). A single
                         round remains structurally bounded by the finite formula.
+    EXPLICIT-ONLY       no default slot or CLI producer; a typed public action
+                        owns the tuple. The canonical registry apply is NoOp,
+                        and dedicated API tests replace an impossible CLI
+                        REACH_SPECS entry. This does not accept N4 scheduling.
 
 As in check-config-wiring.py, the second half matters as much as the first: a
 scheduled rule missing from the table fails, so classification happens when the
@@ -44,6 +49,7 @@ RULE_DIRS = [os.path.join(ROOT, "src")]
 
 METERED = "METERED"
 ALT = "ALTERNATE-GOVERNOR"
+EXPLICIT = "EXPLICIT-ONLY"
 
 # The named delay path is independent of the optional generic closure watermark.
 # Deleting a registered reference governor must fail here, but this checker must
@@ -59,9 +65,12 @@ EV_SR_ROOT_OWNER = r"run_structured_root\(k, stop\)"
 EV_SR_RUN_ONCE = r"structured_root_consumed_ \|\| k\.stats\.conflicts"
 EV_SR_SCOPED_FIXPOINT = (r"result\.repeat = \{strategy::RepeatMode::"
                          r"UntilSizeScaledFixpoint, 128\}")
+EV_CONDITION_SKIP = r'std::strcmp\(rules\[i\]\.name, "Condition"\)'
+EV_CONDITION_NOOP = (r'ApplyResult condition_apply\(Kernel &\) \{ '
+                     r'return ApplyResult::NoOp; \}')
 
-# Every rule the slot schedules, classified. The justification is the point of
-# the row — for ALTERNATE-GOVERNOR it must NAME the mechanism.
+# Every registered Inprocess rule, classified. The justification is the point
+# of the row — for ALTERNATE-GOVERNOR it must NAME the mechanism.
 TABLE = {
     # --- metered: an EFFORT_SPECS row is the governor ---------------------
     "BVE":              (METERED, "eliminateeffort 100 permille, resolution currency"),
@@ -94,12 +103,20 @@ TABLE = {
                               "sequence fixpoint",
                          [EV_SR_LEGACY_SKIP, EV_SR_ROOT_OWNER, EV_SR_RUN_ONCE,
                           EV_SR_SCOPED_FIXPOINT]),
+    "Condition":        (EXPLICIT, "typed (clause,cube) API; no default producer",
+                         [EV_CONDITION_SKIP],
+                         [("src/rules/condition/condition.cpp",
+                           EV_CONDITION_NOOP),
+                          ("src/api/api.cpp", r'int tactix_apply_condition\('),
+                          ("tests/test_api_c.c", r'test_condition_cube_api\('),
+                          ("tests/condition_certificate_driver.c",
+                           r'tactix_apply_condition\(')]),
 }
 
-# The slot's admission predicate. If this stops being how the slot is built,
-# "scheduled" no longer means "Inprocess-tier" and this checker is measuring
-# the wrong set — so its disappearance is itself a failure.
+# The slot's registry admission predicate. Explicit-only exclusions are checked
+# separately; if this predicate disappears, re-derive the scheduled set.
 SLOT_PREDICATE = r"rules\[i\]\.tier == RuleTier::Inprocess"
+PROGRAM_REL = "src/strategy/inprocess_program.hpp"
 
 
 def squash(s):
@@ -173,21 +190,21 @@ def main():
     if not re.search(SLOT_PREDICATE, src):
         fails.append(f"the slot's admission predicate `{SLOT_PREDICATE}` is gone "
                      f"from {POLICY_REL}. This checker classifies exactly the "
-                     f"Inprocess-tier rules BECAUSE that is how the slot is built; "
+                     f"Inprocess-tier rules BECAUSE the append path uses that tier; "
                      f"if that changed, re-derive the scheduled set here before "
                      f"trusting a green run.")
 
-    scheduled = sorted(n for n, (tier, _) in rules.items() if tier == "Inprocess")
+    inprocess_rules = sorted(n for n, (tier, _) in rules.items()
+                             if tier == "Inprocess")
 
-    # Every registered rule must be visible to the fuzz oracle. `fuzz.py`'s
-    # REACH_SPECS maps a rule to the stats counter that proves it fired, and
-    # `--require-reached` is part of the phase-3 exit (plan §9), so a rule with
-    # no spec is one no leg can be required to reach and whose green legs say
-    # nothing. The list is hand-maintained, hence the check.
+    # Every CLI-reachable rule needs a CLI reach counter. An explicit-only
+    # rule cannot fire from that harness; its typed public surface and fixed
+    # API driver are checked by the EXPLICIT row instead. Broad API fuzz remains
+    # an independent acceptance gate, never inferred from this static check.
     reach_src = open(os.path.join(ROOT, "tools/fuzz/fuzz.py")).read()
     reach = set(re.findall(r'^\s*\("([A-Za-z]+)",\s*r"', reach_src, re.M))
     for n in sorted(rules):
-        if n not in reach:
+        if n not in reach and not (n in TABLE and TABLE[n][0] == EXPLICIT):
             fails.append(
                 f"registered rule `{n}` ({rules[n][1]}) has no REACH_SPECS entry "
                 f"in tools/fuzz/fuzz.py, so no fuzz leg can be REQUIRED to reach "
@@ -195,15 +212,11 @@ def main():
                 f"proves it fired — and key it on a counter the DOSED path moves, "
                 f"not a round counter apply_instance never touches.")
 
-    for n in scheduled:
+    for n in inprocess_rules:
         if n not in TABLE:
-            fails.append(f"UNCLASSIFIED scheduled rule `{n}` ({rules[n][1]}) — it is "
-                         f"registered at RuleTier::Inprocess, so the slot RUNS it on "
-                         f"every inprocessing phase. Give it an EFFORT_SPECS row and "
-                         f"a METERED line in TABLE in "
-                         f"{os.path.relpath(__file__, ROOT)}, or classify it "
-                         f"ALTERNATE-GOVERNOR and name what bounds it. Registering an "
-                         f"Inprocess rule IS scheduling it.")
+            fails.append(f"UNCLASSIFIED Inprocess rule `{n}` ({rules[n][1]}) — "
+                         f"give it a METERED, ALTERNATE-GOVERNOR or evidenced "
+                         f"EXPLICIT-ONLY row in {os.path.relpath(__file__, ROOT)}.")
 
     for n, row in TABLE.items():
         kind, why = row[0], row[1]
@@ -247,7 +260,7 @@ def main():
                              f"{s['meter']}"
                              f"{', dosed' if s['dosed'] == 'true' else ''}"
                              f"{', budgeted' if s['budget_aware'] == 'true' else ''}")
-        else:  # ALTERNATE-GOVERNOR
+        elif kind == ALT:
             if n in specs:
                 fails.append(f"`{n}` is tagged ALTERNATE-GOVERNOR ({why}) but DOES "
                              f"have an EFFORT_SPECS row — the row is a governor, so "
@@ -264,6 +277,31 @@ def main():
                              f"every phase.")
             else:
                 notes.append(f"ALT-GOV {n:17} <- {why.split(';')[0].strip()}")
+        elif kind == EXPLICIT:  # No default slot or canonical work to meter.
+            if n in specs:
+                fails.append(f"explicit-only `{n}` unexpectedly has an effort "
+                             "row; it may now be scheduled")
+            missing = [e for e in row[2] if not re.search(e, src)]
+            for rel, pattern in row[3]:
+                content = squash(strip_comments(
+                    open(os.path.join(ROOT, rel)).read()))
+                if not re.search(pattern, content):
+                    missing.append(f"{rel}: {pattern}")
+            program = squash(strip_comments(
+                open(os.path.join(ROOT, PROGRAM_REL)).read()))
+            body = re.search(
+                r"reference_inprocess_program\(\)\s*\{(.*?)return result;",
+                program)
+            if not body or re.search(r'"' + re.escape(n) + r'"', body.group(1)):
+                missing.append(f"{PROGRAM_REL}: default program names {n} "
+                               "or cannot be inspected")
+            if missing:
+                fails.append(f"explicit-only `{n}` lost omission/NoOp/API "
+                             f"evidence: {missing}")
+            else:
+                notes.append(f"EXPLICIT {n:16} <- {why}")
+        else:
+            fails.append(f"`{n}` has unknown classification `{kind}`")
 
     for n in specs:
         if n not in rules:
@@ -278,7 +316,10 @@ def main():
     for f in fails:
         print(f"  FAIL  {f}")
     n_alt = sum(1 for r in TABLE.values() if r[0] == ALT)
-    print(f"check-effort-specs: {len(scheduled)} scheduled Inprocess rules, "
+    n_explicit = sum(1 for r in TABLE.values() if r[0] == EXPLICIT)
+    print(f"check-effort-specs: {len(inprocess_rules)} registered Inprocess rules "
+          f"({len(inprocess_rules) - n_explicit} default-scheduled, "
+          f"{n_explicit} explicit-only), "
           f"{len(specs)} EFFORT_SPECS rows, {n_alt} alternate-governor, "
           f"{len(fails)} failure(s)")
     return 1 if fails else 0

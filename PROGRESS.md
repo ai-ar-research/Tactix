@@ -343,8 +343,8 @@ byte-identical solver pins remain in the AM333 gate campaigns.
 
 ## Recent changes
 
+- AM383: documentation conformance now classifies X5 Condition as explicit-only with source-backed default omission, canonical NoOp and typed API evidence; 10/10 selected doc checks pass. N4 default-producer parity remains open for the scheduling audit.
 - AM382: native LRAT now shares eager live import with proofless/DRAT/DSR through post-input proof replay; causal parser/API regressions and three-mode fixed proof/model checks pass, Opus fuzz pending (`benchmarks/reports/2026-09-25-am382-proof-independent-lrat-import.md`).
 - AM381: candidate same-conflict Reduce suppression passes focused three-mode tests; Opus fuzz and matched checked A/B/C arrays 1718364/1718372/1718379 are live, N4 row open.
 - AM380: Decide-candidate enumeration now seals the original-input proof boundary; causal old-failing regression and Debug/Release/ASan focused tests pass, Opus owner preparing.
 - AM379: LSR/Cake edge matrix finds duplicate-input and empty-input bridges are required; both existing helpers pass fixed positive/negative controls, route approval pending.
-- AM377: malformed online-X5 replay literals are rejected before signed conversion; fixed Release/Debug/ASan proof/model routes pass, successor fuzz due.
