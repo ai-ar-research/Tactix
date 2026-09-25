@@ -1694,6 +1694,8 @@ void sweep_revalidate_retained(Kernel &k, const SweepLimits &lim) {
       return;
     if (external < k.sweep_slot.size() && k.sweep_slot[external] == slot)
       k.sweep_slot[external] = 0;
+    if (external < k.sweep_marked.size())
+      k.sweep_marked[external] = 0;
     external = INVALID_VAR;
     k.sweep_live--;
   };
@@ -1705,7 +1707,8 @@ void sweep_revalidate_retained(Kernel &k, const SweepLimits &lim) {
 
 // Pop the next live entry: the reschedule front first (last in, first out),
 // then the tail in order. INVALID_VAR when nothing live remains.
-Var sweep_take_next(Kernel &k) {
+Var sweep_take_next(Kernel &k, uint32_t old_front_end,
+                    uint32_t old_tail_end, bool &resumed) {
   while (!k.sweep_front.empty()) {
     const uint32_t j = static_cast<uint32_t>(k.sweep_front.size() - 1);
     const Var external = k.sweep_front.back();
@@ -1716,6 +1719,7 @@ Var sweep_take_next(Kernel &k) {
         k.sweep_slot[external] == ((j | SWEEP_FRONT_BIT) + 1))
       k.sweep_slot[external] = 0;
     k.sweep_live--;
+    resumed = j < old_front_end;
     return external;
   }
   while (k.sweep_tail_next < k.sweep_tail.size()) {
@@ -1726,6 +1730,7 @@ Var sweep_take_next(Kernel &k) {
     if (external < k.sweep_slot.size() && k.sweep_slot[external] == i + 1)
       k.sweep_slot[external] = 0;
     k.sweep_live--;
+    resumed = i < old_tail_end;
     return external;
   }
   return INVALID_VAR;
@@ -1760,6 +1765,37 @@ void sweep_schedule_clear(Kernel &k) {
   k.sweep_tail_next = 0;
   k.sweep_tail_indexed = 0;
   k.sweep_live = 0;
+}
+
+// Kissat/CaDiCaL keep pass marks independently of the saved schedule: a
+// previously swept representative may be retained even after the pass has
+// completed. External identities remain stable across kernel compaction.
+uint32_t sweep_incomplete_variables(const Kernel &k) {
+  uint32_t count = 0;
+  for (Var external = 0; external < k.sweep_marked.size(); external++) {
+    if (!k.sweep_marked[external] ||
+        external >= k.external_to_internal.size())
+      continue;
+    const Var v = k.external_to_internal[external];
+    if (v != INVALID_VAR && !root_fixed(k, v) && !kernel_var_retired(k, v))
+      count++;
+  }
+  return count;
+}
+
+void sweep_mark_incomplete(Kernel &k) {
+  auto mark = [&](Var external) {
+    if (external == INVALID_VAR)
+      return;
+    if (k.sweep_marked.size() <= external)
+      k.sweep_marked.resize(static_cast<size_t>(external) + 1, 0);
+    k.sweep_marked[external] = 1;
+  };
+  for (const Var external : k.sweep_front)
+    mark(external);
+  for (size_t i = k.sweep_tail_next; i < k.sweep_tail.size(); i++)
+    mark(k.sweep_tail[i]);
+  k.sweep_incomplete = true;
 }
 
 // Kissat's `schedule_inner` moves each newly substituted equivalence
@@ -1828,24 +1864,60 @@ static ApplyResult sweep_apply_resumable(Kernel &k, SweepLimits lim,
 
   sweep_index_tail(k);
   const bool retained = k.sweep_live > 0;
-  if (retained) {
+  if (retained)
     sweep_revalidate_retained(k, lim);
-    if (k.sweep_live == 0) {
-      // The retained schedule was an incomplete old pass. Both reference
-      // schedulers finish that pass at schedule entry, then start a new empty
-      // pass (without admitting fresh seeds while the old incomplete flag was
-      // set). The ordinary exit below completes the new pass separately.
+  if (k.sweep_live == 0)
+    sweep_schedule_clear(k);
+  const uint32_t old_front_end = static_cast<uint32_t>(k.sweep_front.size());
+  const uint32_t old_tail_end = static_cast<uint32_t>(k.sweep_tail.size());
+
+  // In an incomplete pass, only still-marked seeds may join the schedule.
+  // When the old pass is complete, a retained unmarked representative does
+  // not suppress fresh admission. Retained seeds stay ahead of fresh ones.
+  bool scan_fresh = !k.sweep_incomplete;
+  if (!scan_fresh) {
+    for (Var external = 0; external < k.sweep_marked.size(); external++) {
+      if (!k.sweep_marked[external] ||
+          (external < k.sweep_slot.size() && k.sweep_slot[external]) ||
+          external >= k.external_to_internal.size())
+        continue;
+      const Var v = k.external_to_internal[external];
+      if (v != INVALID_VAR && !root_fixed(k, v) &&
+          !kernel_var_retired(k, v)) {
+        scan_fresh = true;
+        break;
+      }
+    }
+  }
+  if (scan_fresh)
+    sweep_seeds(k, r.seeds);
+  uint32_t fresh = 0;
+  for (const Var v : r.seeds) {
+    const Var external = k.internal_to_external[v];
+    if (external < k.sweep_slot.size() && k.sweep_slot[external])
+      continue;
+    if (k.sweep_incomplete &&
+        (external >= k.sweep_marked.size() || !k.sweep_marked[external]))
+      continue;
+    if (!sweep_schedulable(k, v, lim)) {
+      if (external < k.sweep_marked.size())
+        k.sweep_marked[external] = 0;
+      continue;
+    }
+    k.sweep_tail.push_back(external);
+    fresh++;
+  }
+  k.stats.sweep_scheduled += fresh;
+  sweep_index_tail(k);
+  const uint32_t incomplete = sweep_incomplete_variables(k);
+  if (incomplete)
+    assert(k.sweep_incomplete);
+  else {
+    if (k.sweep_incomplete) {
       k.sweep_passes_completed++;
       k.stats.sweep_completed++;
     }
-  } else {
-    sweep_schedule_clear(k);
-    sweep_seeds(k, r.seeds);
-    for (const Var v : r.seeds)
-      if (sweep_schedulable(k, v, lim))
-        k.sweep_tail.push_back(k.internal_to_external[v]);
-    k.stats.sweep_scheduled += k.sweep_tail.size();
-    sweep_index_tail(k);
+    sweep_mark_incomplete(k);
   }
 
   const uint64_t start = sweep_semantic_effort(k);
@@ -1859,15 +1931,19 @@ static ApplyResult sweep_apply_resumable(Kernel &k, SweepLimits lim,
     if (lim.round_ticks &&
         sweep_semantic_effort(k) - start > lim.round_ticks)
       break;
-    const Var external = sweep_take_next(k);
+    bool resumed = false;
+    const Var external =
+        sweep_take_next(k, old_front_end, old_tail_end, resumed);
     if (external == INVALID_VAR)
       break;
+    if (external < k.sweep_marked.size())
+      k.sweep_marked[external] = 0;
     if (external >= k.external_to_internal.size())
       continue;
     const Var v = k.external_to_internal[external];
     if (v == INVALID_VAR || root_fixed(k, v) || kernel_var_retired(k, v))
       continue;
-    if (retained)
+    if (resumed)
       k.stats.sweep_resumed++;
     seeds++;
     k.stats.sweep_swept++;
@@ -1918,8 +1994,10 @@ static ApplyResult sweep_apply_resumable(Kernel &k, SweepLimits lim,
     r.units_emitted = 0;
     r.equivalences_emitted = 0;
   }
-  if (k.sweep_live == 0) {
+  if (k.sweep_live == 0)
     sweep_schedule_clear(k);
+  if (sweep_incomplete_variables(k) == 0) {
+    k.sweep_incomplete = false;
     k.sweep_passes_completed++;
     k.stats.sweep_completed++;
   }

@@ -1502,6 +1502,8 @@ struct Kernel {
   std::vector<uint32_t> sweep_slot; // by external var; 0 = no live entry
   uint32_t sweep_tail_indexed = 0;  // tail entries whose slot is recorded
   uint32_t sweep_live = 0;          // live unconsumed entries, front + tail
+  std::vector<uint8_t> sweep_marked; // external vars still in the current pass
+  bool sweep_incomplete = false;    // independent of a nonempty saved schedule
   uint32_t sweep_passes_completed = 0;
   // Policy choice: shipped frontends enable Kissat's
   // one_literal_on_conflict_level path; bare white-box kernels remain neutral.

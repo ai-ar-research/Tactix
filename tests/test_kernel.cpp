@@ -278,6 +278,8 @@ static void test_variable_compaction() {
   kernel_push_witness(k, internalize(2), nullptr, 0);
   const uint64_t stable_instance = lit_instance(k, internalize(5));
   k.sweep_tail = {1, 4}; // permanent external identities, including retired x2
+  k.sweep_marked = {0, 1, 0, 0, 1};
+  k.sweep_incomplete = true;
   k.var_status.assign(k.nvars, VarStatus::Active);
   for (const Var v : {Var{1}, Var{3}}) {
     k.var_status[v] = VarStatus::Eliminated;
@@ -338,6 +340,8 @@ static void test_variable_compaction() {
   assert(k.stats.variable_compactions == 1);
   assert(k.stats.compacted_variables == 2);
   assert(k.sweep_tail == std::vector<Var>({1, 4}));
+  assert((k.sweep_marked == std::vector<uint8_t>{0, 1, 0, 0, 1}));
+  assert(k.sweep_incomplete && k.external_to_internal[4] == 2);
   assert(k.level == 1 && k.frames.size() == 2);
   assert(k.trail.size() == 2 && k.propagate_head == 2);
   assert(k.value(kernel_internalize(k, 1)) > 0);
