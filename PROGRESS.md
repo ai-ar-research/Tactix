@@ -343,8 +343,8 @@ byte-identical solver pins remain in the AM333 gate campaigns.
 
 ## Recent changes
 
+- AM385: online-learning readiness remains provisional: shared slot control and owned live sub-strategy switching are major policy refactors; AM369 H2 is an open N2 proof-state gate, and the no-option DSR checker route is unchanged (`benchmarks/reports/2026-09-25-am385-learning-readiness-proof-gate.md`).
 - AM384: pinned CaDiCaL 3.0.0 ships Condition off, matching Tactix default omission; X5 default admission is source-closed, but its opt-in producer and overall N4 remain open (`benchmarks/reports/2026-09-25-am384-x5-default-scheduling-audit.md`).
 - AM383: documentation conformance classifies X5 Condition as explicit-only with source-backed omission, NoOp and typed API evidence; 13/13 selected doc checks pass.
 - AM382: native LRAT now shares eager live import with proofless/DRAT/DSR through post-input proof replay; causal parser/API regressions and three-mode fixed proof/model checks pass, Opus fuzz pending (`benchmarks/reports/2026-09-25-am382-proof-independent-lrat-import.md`).
 - AM381: candidate same-conflict Reduce suppression passes focused three-mode tests; Opus fuzz and matched checked A/B/C arrays 1718364/1718372/1718379 are live, N4 row open.
-- AM380: Decide-candidate enumeration now seals the original-input proof boundary; causal old-failing regression and Debug/Release/ASan focused tests pass, Opus owner preparing.
