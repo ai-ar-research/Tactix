@@ -1830,6 +1830,14 @@ static ApplyResult sweep_apply_resumable(Kernel &k, SweepLimits lim,
   const bool retained = k.sweep_live > 0;
   if (retained) {
     sweep_revalidate_retained(k, lim);
+    if (k.sweep_live == 0) {
+      // The retained schedule was an incomplete old pass. Both reference
+      // schedulers finish that pass at schedule entry, then start a new empty
+      // pass (without admitting fresh seeds while the old incomplete flag was
+      // set). The ordinary exit below completes the new pass separately.
+      k.sweep_passes_completed++;
+      k.stats.sweep_completed++;
+    }
   } else {
     sweep_schedule_clear(k);
     sweep_seeds(k, r.seeds);

@@ -33,7 +33,7 @@ static void pure_seed(bool old) {
   assert(k.stats.sweep_resumed == (old ? 1u : 0u));
   assert(k.stats.sweep_scheduled == 0);
   assert(k.sweep_live == 0 && k.sweep_slot.empty());
-  assert(k.sweep_passes_completed == 1 && k.stats.sweep_completed == 1);
+  assert(k.sweep_passes_completed == 2 && k.stats.sweep_completed == 2);
   std::vector<Var> seeds;
   sweep_seeds(k, seeds);
   assert(std::find(seeds.begin(), seeds.end(), 0) != seeds.end());
@@ -99,7 +99,7 @@ static void invalid_and_duplicate_entries() {
   k.sweep_tail = {0, INVALID_VAR, 0, 99};
   (void)sweep_apply_with_limits(k, bounded());
   assert(k.stats.sweep_swept == 0 && k.sweep_live == 0);
-  assert(k.sweep_slot.empty() && k.sweep_passes_completed == 1);
+  assert(k.sweep_slot.empty() && k.sweep_passes_completed == 2);
 }
 
 static void entry_not_pop() {
@@ -135,7 +135,7 @@ static void fixed_and_retired() {
   k.sweep_tail = {0, 1, 2};
   (void)sweep_apply_with_limits(k, bounded());
   assert(k.stats.sweep_swept == 0 && k.sweep_live == 0);
-  assert(k.sweep_slot.empty() && k.stats.sweep_completed == 1);
+  assert(k.sweep_slot.empty() && k.stats.sweep_completed == 2);
 }
 
 static void large_occurrences() {

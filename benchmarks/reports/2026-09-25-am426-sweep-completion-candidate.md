@@ -1,0 +1,15 @@
+# AM426: filtered retained-tail Sweep completion candidate
+
+Date: 2026-09-25. Parent `54edd3f4`; candidate source/docs patch SHA-256 `5cb08edcac072b602316f9abc3a979764c10b5d29d686890508c0536d3cba114`. This is an unaccepted N4 candidate, not a cumulative performance or N1--N4 gate.
+
+## General state transition
+
+The [AM425 source audit](2026-09-25-am425-sweep-completion-state-audit.md) isolates a reference two-phase transition when a resumed Sweep schedule is wholly filtered on entry: the old incomplete pass completes during scheduling, then the newly empty pass completes during unscheduling. Both pinned Kissat and CaDiCaL increment their completion counter twice and admit no fresh seed in that call. Tactix previously counted once. `sweep_apply_resumable` now increments the old pass immediately when retained-entry revalidation empties the live schedule; its existing empty-schedule exit increments the new pass. This uses the general retained-schedule state, not an instance, seed, benchmark name, or proof-format condition. Ordinary nonempty and fresh passes retain their one-completion path. Public pure-seed legality and no same-call fresh admission are unchanged.
+
+At starting count zero and default limits, the next call now sees 1024 environment variables, 4096 clauses and depth 3 rather than 512/2048/3. The revised `test_sweep::test_resumable_schedule` reaches this after a productive Sweep followed by Substitute, and `test_sweep_retained` covers pure, duplicate, invalid, fixed and retired retained identities. The latter still asserts that a fresh eligible seed is not newly scheduled in the filtered call. These are exact state-transition checks, not a claim that larger environments improve a real solve.
+
+## Checks and limits
+
+The parent Release `sweep` and `sweep_retained` tests passed before editing. Candidate Release `sweep`, `sweep_retained`, `sweep_proofs`, `api_instances`, `online_api`, `online_all_actions`, `n1_public_policy`, `sweep_cursor`, and `sweep_small_env` pass 9/9. Candidate Debug ASan+UBSan `sweep` and `sweep_retained` pass 2/2. Documentation option coverage, citations, section references, size, proof-rule sync, and rule/policy-boundary checks pass. The candidate Release solver SHA-256 is `ef05646360981f3e420865198881bc4ef070e24fd7b43c2c6515c071ead9977a`; the unchanged parent Release solver is `b34f079efc17bd6caf858c364ba19a5971bea4dcf36ffceed8265221e8c56242`. This scope does not prove broad N1/N2, fuzz correctness, or N3/N4 performance.
+
+Next compare both immutable binaries on Tier A/B/C with identical allocations and independent proof/model checks. The predeclared short-gate metric is exact completion/cap parity with the reference branch and no focused proof/model regression; the performance decision requires checked cumulative outcomes, individual regressions and full affected fuzz. If the faster ramp worsens cumulative results or produces a checker failure, do not promote the candidate on this state match alone. The current user-requested full Tier D remains downstream of N1--N4 acceptance.
