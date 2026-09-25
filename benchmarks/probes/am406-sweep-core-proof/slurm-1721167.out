@@ -1,0 +1,2 @@
+test_sweep: /home/hwu/SAT-solving/tests/test_sweep.cpp:401: void {anonymous}::test_original_core_unit_capture(): Assertion `!round.units.empty()' failed.
+/cm/local/apps/slurm/var/spool/job1721167/slurm_script: line 4: 3701336 Aborted                 (core dumped) build/am406-sweep-test/tests/test_sweep 0
