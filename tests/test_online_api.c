@@ -23,6 +23,94 @@ static void clause(tactix *solver, const int *literals) {
   tactix_add(solver, 0);
 }
 
+static int configure_version(tactix *solver, int version,
+                             const tactix_online_step *step,
+                             int bad_nested, uint64_t revision) {
+  const tactix_online_program v1 = {
+      step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
+  if (version == 1)
+    return tactix_online_configure(
+        solver, &v1, revision, TACTIX_ONLINE_RECONFIGURE_RESET);
+  tactix_online_step_v2 step2;
+  memset(&step2, 0, sizeof step2);
+  step2.base = *step;
+  if (version == 2) {
+    step2.sr_instance_count = bad_nested ? -1 : 0;
+    const tactix_online_program_v2 v2 = {
+        &step2, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
+    return tactix_online_configure_v2(
+        solver, &v2, revision, TACTIX_ONLINE_RECONFIGURE_RESET);
+  }
+  tactix_online_step_v3 step3;
+  memset(&step3, 0, sizeof step3);
+  step3.base = step2;
+  step3.condition_instance_count = bad_nested ? -1 : 0;
+  const tactix_online_program_v3 v3 = {
+      &step3, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
+  return tactix_online_configure_v3(
+      solver, &v3, revision, TACTIX_ONLINE_RECONFIGURE_RESET);
+}
+
+static void rejected_configuration_keeps_input_open(void) {
+  for (int version = 1; version <= 3; ++version)
+    for (int proof_mode = 0; proof_mode <= 2; ++proof_mode) {
+      tactix *solver = tactix_init();
+      char path[128];
+      const char *proof_dir = getenv("TACTIX_ONLINE_CONFIG_PROOF_DIR");
+      if (proof_dir)
+        snprintf(path, sizeof path, "%s/config-%d-%d.lrat",
+                 proof_dir, version, proof_mode);
+      else
+        snprintf(path, sizeof path,
+                 "/tmp/tactix-online-config-%ld-%d-%d.lrat",
+                 (long)getpid(), version, proof_mode);
+      if (proof_mode == 1)
+        assert(tactix_proof(solver, path, TACTIX_PROOF_LRAT) == 0);
+      clause(solver, (const int[]){1, 0});
+      assert(tactix_add_checked(solver, 2) == 0); /* unfinished clause */
+      tactix_online_step step;
+      memset(&step, 0, sizeof step);
+      step.rule_id = -1; /* converter rejection */
+      step.step_id = 1;
+      step.granularity = TACTIX_ONLINE_GRANULARITY_CANONICAL;
+      step.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
+      step.repeat_limit = 1;
+      step.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
+      step.budget_unlimited = 1;
+      assert(configure_version(solver, version, &step, 0, 1) == -1);
+      assert(tactix_online_complete(solver) == -1);
+      assert(tactix_add_checked(solver, 0) == 0);
+      if (proof_mode == 2)
+        assert(tactix_proof(solver, path, TACTIX_PROOF_LRAT) == 0);
+
+      step.rule_id = rule("Propagate");
+      step.work_unit = TACTIX_ONLINE_WORK_PROPAGATIONS;
+      step.step_id = 0; /* executor rejection after successful conversion */
+      assert(configure_version(solver, version, &step, 0, 2) == -1);
+      assert(tactix_online_complete(solver) == -1);
+      clause(solver, (const int[]){3, 0});
+
+      step.step_id = 1;
+      if (version != 1) {
+        assert(configure_version(solver, version, &step, 1, 3) == -1);
+        assert(tactix_online_complete(solver) == -1);
+        clause(solver, (const int[]){4, 0});
+      }
+      if (proof_mode)
+        clause(solver, (const int[]){-1, 0});
+      assert(configure_version(solver, version, &step, 0, 4) == 0);
+      assert(tactix_add_checked(solver, 5) == -1);
+      assert(tactix_solve(solver) == (proof_mode ? 20 : 10));
+      if (!proof_mode)
+        for (int variable = 1; variable <= (version == 1 ? 3 : 4);
+             ++variable)
+          assert(tactix_value(solver, variable) == variable);
+      tactix_release(solver);
+      if (proof_mode && !proof_dir)
+        assert(unlink(path) == 0);
+    }
+}
+
 static void condition_cube_v3_is_atomic_and_copied(void) {
   tactix *solver = tactix_init();
   clause(solver, (const int[]){1, 2, 0});
@@ -1297,6 +1385,7 @@ static void independent_set_parameters_are_public_and_validated(void) {
 }
 
 int main(void) {
+  rejected_configuration_keeps_input_open();
   condition_cube_v3_is_atomic_and_copied();
   late_lrat_root_refutation_is_terminal();
   canonical_bve_reaches_a_real_fixpoint();
