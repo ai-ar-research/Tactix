@@ -12,11 +12,14 @@ assert os.environ.get('SLURM_JOB_ID')
 m=json.loads((c/'manifest.json').read_text())
 arm=m['arms']['tactix']
 certificate=arm.get('certificate','drat')
+runtime.validate_runtime_pin_contract(c,m)
+for rel,expected in m['pin_sha256'].items():
+    assert runtime.sha256(c/rel)==expected,rel
 checks=[]
 for verdict,formula in [('SAT','p cnf 2 1\n1 2 0\n'),('UNSAT','p cnf 2 4\n1 2 0\n1 -2 0\n-1 2 0\n-1 -2 0\n')]:
     s=AnonymousScratch()
     try:
-        cnf=s/'input.cnf';proof=s/('proof.dsr' if certificate=='dsr' else 'proof.drat');out=s/'solver.stdout';err=s/'solver.stderr'
+        cnf=s/'input.cnf';proof=s/('proof.out' if certificate=='auto' else 'proof.dsr' if certificate=='dsr' else 'proof.drat');out=s/'solver.stdout';err=s/'solver.stderr'
         cnf.write_text(formula)
         result=runtime.measured([c/arm['path'],*arm['arguments'],cnf,proof],out,err,s/'time',30)
         assert result['exit_code']=={'SAT':10,'UNSAT':20}[verdict],result

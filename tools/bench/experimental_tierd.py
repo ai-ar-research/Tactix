@@ -11,6 +11,12 @@ import subprocess
 import sys
 
 ROOT=Path(__file__).resolve().parents[2]
+FROZEN_DSR=ROOT/'benchmarks/runs/20260924-am369-condition-explicit-claude-fuzz/pins'
+FROZEN_DSR_HASHES={
+    'dsr-trim':'3b5c773706dc4695f08115ce862e991bfa2e44e3388df80f40ae8b0823dfbdee',
+    'dsr-compress':'a44102ce11162a4687450a4c3a640d27a49703072dd29802bd259676eb668d55',
+    'srcheck':'19bf79f49e293bb0df82b1e4ec82ec45987c2791864598bada12525ef41a2945',
+}
 
 def sha(p):
     h=hashlib.sha256()
@@ -26,6 +32,35 @@ def verify(c):
     for rel,digest in m['pin_sha256'].items():
         if sha(c/rel)!=digest:raise ValueError('pin mismatch: '+rel)
     return m
+
+def checker_sources(reference, baseline, certificate):
+    if certificate not in ('dsr','auto'):
+        raise ValueError('unsupported certificate mode: '+certificate)
+    names={'checkmodel':'checkmodel','modelcheck.py':'modelcheck.py',
+           'drat-trim':'drat-trim','cake_lpr':'cake-lpr'}
+    if certificate=='auto':
+        names.update({'veripb':'veripb','cake-pb-cnf':'cake-pb-cnf'})
+    sources={}
+    for target,name in names.items():
+        source=reference/baseline['checkers'][name]
+        expected=baseline['provenance'][name]['sha256']
+        if not source.is_file() or sha(source)!=expected:
+            raise ValueError('frozen winner checker pin mismatch: '+name)
+        sources[target]=source
+    for name,expected in FROZEN_DSR_HASHES.items():
+        source=FROZEN_DSR/name
+        if not source.is_file() or sha(source)!=expected:
+            raise ValueError('frozen AM369 DSR checker pin mismatch: '+name)
+        sources[name]=source
+    return sources
+
+def scheduler_wall_seconds(solve_timeout,checker_timeout):
+    # Preserve the whole solve + checker allowance and one cleanup margin.
+    seconds=solve_timeout+checker_timeout+900
+    return ((seconds+899)//900)*900
+
+def slurm_time(seconds):
+    return f'{seconds//3600:02d}:{(seconds//60)%60:02d}:{seconds%60:02d}'
 
 def prepare(a):
     c=a.campaign.resolve(); ref=ROOT/'benchmarks/baselines/sc24-26-32g-5000s'
@@ -47,6 +82,7 @@ def prepare(a):
         raise ValueError('uncommitted source in build tree')
     manifest=json.loads((ref/'manifest.json').read_text())
     assert sha(ref/'manifest.json')==json.loads((ref/'launch.json').read_text())['manifest_sha256']
+    checkers=checker_sources(ref,manifest,a.certificate)
     assert sha(ref/'cache.sha256')==manifest['cache_manifest_sha256']
     inputs=dict((rel,digest) for digest,rel in (line.split() for line in (ref/'cache.sha256').read_text().splitlines()))
     source_rows=[dict(rank=i+1,arm='tactix',tier='D',instance=r['rel'],expected=r['expected']) for i,r in enumerate(manifest['instances'])]
@@ -93,12 +129,8 @@ def prepare(a):
     c.mkdir()
     for name in ['pins','logs','claims','provisional','results']:(c/name).mkdir()
     shutil.copy2(a.binary,c/'pins/tactix')
-    for name in ['checkmodel','modelcheck.py']:
-        shutil.copy2(ref/'pins'/name,c/'pins'/name)
-    for name in ['dsr-trim','srcheck']:
-        checker=ROOT/'tools/checkers/bin'/name
-        if not checker.is_file():raise ValueError('missing checker: '+str(checker))
-        shutil.copy2(checker,c/'pins'/name)
+    for name,checker_source in checkers.items():
+        shutil.copy2(checker_source,c/'pins'/name)
     for name in ['runtime_task.py','proof_oracle.py','anonymous_scratch.py','test_anonymous_scratch.py','validate_anonymous_runtime.py']:
         shutil.copy2(ROOT/'tools/bench'/name,c/'pins'/name)
     with (c/'matrix.tsv').open('x',newline='') as f:
@@ -111,8 +143,9 @@ def prepare(a):
 #SBATCH --no-requeue
 #SBATCH --output={c}/logs/%x-%A_%a.log
 '''
+    wall=scheduler_wall_seconds(a.solve_timeout,a.checker_timeout)
     (c/'array.sbatch').write_text(common+f'''#SBATCH --job-name=tierd-{commit[:8]}
-#SBATCH --time=05:00:00
+#SBATCH --time={slurm_time(wall)}
 #SBATCH --array=0-{len(rows)-1}
 set -euo pipefail
 ulimit -c 0
@@ -128,13 +161,16 @@ exec python3 {c}/pins/validate_anonymous_runtime.py {c}
     m=dict(schema='tactix-experimental-single-tierd-v3',created_at=dt.datetime.now(dt.timezone.utc).isoformat(),
         source_commit=commit,source_tree=str(source),source_files=sources,
         arms={'tactix':dict(path='pins/tactix',sha256=sha(c/'pins/tactix'),
-                           arguments=[],certificate='dsr')},
+                           arguments=['--auto-proof' if a.certificate=='auto' else '--dsr'],
+                           certificate=a.certificate)},
         input_sha256=inputs,scratch_policy='anonymous-local-files-v1',
         dataset_authority=dict(path=str(ref/'manifest.json'),sha256=sha(ref/'manifest.json')),
         selection_authority=selection_authority,
         resource_contract=dict(partition=a.partition,cpus_per_task=a.cpus_per_task,memory_mib=32768,solve_timeout=a.solve_timeout,
-            checker_timeout=a.checker_timeout,scheduler_wall_seconds=18000,array=f'0-{len(rows)-1}',throttle=None,node_constraint=None),
-        proof_contract='Native DSR checked and elaborated forwards by pinned dsr-trim to binary LSR and verified directly by pinned Trestle srcheck.',
+            checker_timeout=a.checker_timeout,scheduler_wall_seconds=wall,array=f'0-{len(rows)-1}',throttle=None,node_constraint=None),
+        proof_contract=('Automatic PBP / witnessed DSR / witness-free DSR routed by pinned VeriPB+CakePB, no-option dsr-trim+Trestle, or DRAT+CakeLPR against the original CNF.'
+                        if a.certificate=='auto' else
+                        'Explicit native DSR content-routed through pinned no-option dsr-trim+Trestle or witness-free DRAT+CakeLPR against the original CNF.'),
         cleanup_contract='O_TMPFILE on /tmp for input, DSR, LSR, model and checker scratch; no directory entries ever. Kernel releases storage at last close, including SIGKILL/OOM. Fail closed if unsupported. Only bounded JSON metadata and scheduler logs persist; core dumps disabled.',
         caveat='If the entire job dies, its result may be missing; never interpret missing as timeout or checked. Local disk may fill during a live run; no home-quota certificate storage or failure retention.',
         pin_sha256={str(p.relative_to(c)):sha(p) for p in [*(c/'pins').iterdir(),c/'matrix.tsv',c/'array.sbatch',c/'validate.sbatch']})
@@ -162,6 +198,7 @@ if __name__=='__main__':
     p.add_argument('--cpus-per-task',type=int,default=4)
     p.add_argument('--solve-timeout',type=int,default=1200)
     p.add_argument('--checker-timeout',type=int,default=16000)
+    p.add_argument('--certificate',choices=['dsr','auto'],default='dsr')
     p.add_argument('--instance',action='append',default=[])
     p.add_argument('--selection-table',type=Path)
     g=p.add_mutually_exclusive_group(required=True)
