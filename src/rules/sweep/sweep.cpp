@@ -738,21 +738,25 @@ static inline Lit sweep_kernel_lit(const std::vector<Var> &vars, SubLit sl) {
 // is rebuilt for the next seed. Failure just means no general-path proof. The
 // target is read off the derivation, never predicted from the assumptions — a
 // wrong prediction silently swaps the two directions.
-static void sweep_capture_dir(const Kernel &host, const SweepEnv &e,
+static bool sweep_capture_dir(const Kernel &host, const SweepEnv &e,
                               uint32_t max_proof_steps,
                               SweepDirProof &out) {
   out.ok = false;
   out.t0 = out.t1 = INVALID_LIT;
   out.steps.clear();
+  out.shared_steps.reset();
+  out.shared_step_count = 0;
   out.core_clauses.clear();
   SubDerivation d;
-  if (!e.solver.derivation(d, true) || d.steps.empty())
-    return; // no refutation to hand back (e.g. directly contradictory assumptions)
+  if (!e.solver.derivation(d, true))
+    return !d.resource_exhausted;
+  if (d.steps.empty())
+    return true; // e.g. directly contradictory assumptions
   if (max_proof_steps && d.steps.size() > max_proof_steps)
-    return; // pathological: decline rather than allocate without bound
+    return true; // caller explicitly limited proof export
   const std::vector<SubLit> &tl = d.steps.back().lits;
   if (tl.empty() || tl.size() > 2)
-    return;
+    return true;
   out.t0 = sweep_kernel_lit(e.vars, tl[0]);
   out.t1 = tl.size() == 2 ? sweep_kernel_lit(e.vars, tl[1]) : INVALID_LIT;
   out.steps = std::move(d.steps);
@@ -779,6 +783,7 @@ static void sweep_capture_dir(const Kernel &host, const SweepEnv &e,
   out.vars = e.vars;
   out.formula_epoch = e.formula_epoch;
   out.ok = true;
+  return true;
 }
 
 // Kissat's `save_add_clear_core` does not retain only the failed assumption's
@@ -789,17 +794,19 @@ static void sweep_capture_dir(const Kernel &host, const SweepEnv &e,
 // ordered semantic surface here: each unit gets the derivation prefix ending
 // at the lemma which proves it, rather than borrowing the final target's proof.
 static void sweep_capture_core_units(Kernel &k,
-                                     const SweepDirProof &proof,
+                                     SweepDirProof &proof,
                                      SweepRound &round,
                                      const SweepLimits &lim,
                                      bool commit_inline) {
   if (!proof.ok)
     return;
+  proof.share_steps();
+  const std::span<const SubStep> steps = proof.steps_view();
   bool committed = false;
   for (const auto &cc : proof.core_clauses) {
-    const auto step_at = std::lower_bound(proof.steps.begin(), proof.steps.end(), cc.id,
+    const auto step_at = std::lower_bound(steps.begin(), steps.end(), cc.id,
         [](const SubStep &step, uint32_t id) { return step.id < id; });
-    if (cc.learned && (step_at == proof.steps.end() || step_at->id != cc.id))
+    if (cc.learned && (step_at == steps.end() || step_at->id != cc.id))
       continue; // No independent proof prefix: do not borrow a different target.
     Lit unit = INVALID_LIT;
     bool satisfied = false;
@@ -838,9 +845,11 @@ static void sweep_capture_core_units(Kernel &k,
     captured.proof.strip_off = proof.strip_off;
     captured.proof.vars = proof.vars;
     captured.proof.formula_epoch = proof.formula_epoch;
-    if (cc.learned)
-      captured.proof.steps.assign(proof.steps.begin(), step_at + 1);
-    else {
+    if (cc.learned) {
+      captured.proof.shared_steps = proof.shared_steps;
+      captured.proof.shared_step_count =
+          static_cast<size_t>(step_at - steps.begin()) + 1;
+    } else {
       const uint32_t id = static_cast<uint32_t>(proof.orig_ids.size()) + 1;
       captured.proof.steps.assign(1, SubStep{id, cc.lits, {cc.id}, {}});
     }
@@ -1118,7 +1127,8 @@ static uint32_t detect_full_partition(
     }
     k.stats.sweep_dir_unsat++;
     SweepDirProof proof;
-    sweep_capture_dir(k, e, lim.max_proof_steps, proof);
+    if (!sweep_capture_dir(k, e, lim.max_proof_steps, proof))
+      return found;
     sweep_capture_core_units(k, proof, r, lim, commit_inline);
     if (k.inconsistent)
       return 0;
@@ -1212,7 +1222,8 @@ static uint32_t detect_full_partition(
     }
     k.stats.sweep_dir_unsat++;
     assert(!e.solver.inconsistent());
-    sweep_capture_dir(k, e, lim.max_proof_steps, pair.fwd);
+    if (!sweep_capture_dir(k, e, lim.max_proof_steps, pair.fwd))
+      return found;
 
     assumptions = {sub_lit(e.sub_of_var[var_of(a)], negated(a)),
                    sub_lit(e.sub_of_var[var_of(b)], !negated(b))};
@@ -1245,7 +1256,8 @@ static uint32_t detect_full_partition(
     }
     k.stats.sweep_dir_unsat++;
     assert(!e.solver.inconsistent());
-    sweep_capture_dir(k, e, lim.max_proof_steps, pair.rev);
+    if (!sweep_capture_dir(k, e, lim.max_proof_steps, pair.rev))
+      return found;
     sweep_capture_core_units(k, pair.fwd, r, lim, commit_inline);
     if (k.inconsistent)
       return found;
@@ -1446,14 +1458,15 @@ static uint32_t sweep_process_seed(Kernel &k, Var seed, const SweepLimits &lim,
     { // Emission depends on this: a refutation under assumptions must hand back a
       // derivation whose target clause is a sub-clause of the negated
       // assumptions. Checked here, where the assumptions are still in hand.
-      SubDerivation d;
-      assert(e.solver.derivation(d) && !d.steps.empty());
-      for (const SubLit tl : d.steps.back().lits)
+      const SubStep *target = e.solver.refutation_target();
+      assert(target);
+      for (const SubLit tl : target->lits)
         assert(tl == sub_negate(assumptions[0]) ||
                tl == sub_negate(assumptions[1]));
     }
 #endif
-    sweep_capture_dir(k, e, lim.max_proof_steps, pair.fwd);
+    if (!sweep_capture_dir(k, e, lim.max_proof_steps, pair.fwd))
+      break;
     // Direction 2: ¬x ∧ y unsatisfiable ⇔ F ⊨ (x ∨ ¬y).
     assumptions.clear();
     assumptions.push_back(sub_lit(e.sub_of_var[seed], true));
@@ -1474,7 +1487,8 @@ static uint32_t sweep_process_seed(Kernel &k, Var seed, const SweepLimits &lim,
     }
     k.stats.sweep_dir_unsat++;
     assert(!e.solver.inconsistent());
-    sweep_capture_dir(k, e, lim.max_proof_steps, pair.rev);
+    if (!sweep_capture_dir(k, e, lim.max_proof_steps, pair.rev))
+      break;
     // Both directions refuted over env ⊆ F, so F ⊨ x ≡ y.
     r.found.push_back({std::min(seed_lit, y), std::max(seed_lit, y)});
     r.proofs.push_back(std::move(pair));
@@ -1970,10 +1984,40 @@ struct SweepGeneralPlan {
   uint32_t fact = 0;
   Lit t0 = INVALID_LIT, t1 = INVALID_LIT;
   uint64_t formula_epoch = 0;
+  const SweepDirProof *capture = nullptr;
   std::vector<uint64_t> source_ids;
-  std::vector<SweepGeneralStepPlan> steps;
+  // Validate every captured step before any proof write, but retain only the
+  // final translation. Intermediate steps are immutable in `capture` and can
+  // be translated one at a time during emission. A full translated copy of a
+  // large Kitten core made even proofless Sweep exhaust memory (AM363 S1).
+  SweepGeneralStepPlan final_step;
+  size_t step_count = 0;
   bool eligible() const { return decline == SweepGeneralDecline::None; }
 };
+
+static SweepGeneralStepPlan sweep_translate_general_step(
+    const SweepDirProof &p, const SubStep &step) {
+  SweepGeneralStepPlan translated;
+  translated.sub_id = step.id;
+  for (const SubLit sub_lit : step.lits) {
+    assert(sub_var_of(sub_lit) < p.vars.size());
+    translated.lits.push_back(sweep_kernel_lit(p.vars, sub_lit));
+  }
+  for (const uint32_t antecedent : step.chain) {
+    if (antecedent == 0 || antecedent > p.orig_ids.size())
+      continue;
+    for (uint32_t s = p.strip_off[antecedent - 1];
+         s < p.strip_off[antecedent]; s++) {
+      const uint64_t unit_id = p.strip_ids[s];
+      if (std::find(translated.strip_ids.begin(),
+                    translated.strip_ids.end(), unit_id) ==
+          translated.strip_ids.end())
+        translated.strip_ids.push_back(unit_id);
+    }
+  }
+  translated.antecedents = step.chain;
+  return translated;
+}
 
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
 static const char *sweep_general_decline_name(SweepGeneralDecline decline) {
@@ -2018,24 +2062,27 @@ static SweepGeneralPlan sweep_plan_general(const Kernel &k,
   plan.t0 = t0;
   plan.t1 = t1;
   plan.formula_epoch = p.formula_epoch;
+  plan.capture = &p;
   plan.source_ids = p.orig_ids;
+  const std::span<const SubStep> steps = p.steps_view();
   const auto decline = [&](SweepGeneralDecline reason, uint32_t step = 0,
                            uint32_t fact = 0) {
     plan.decline = reason;
     plan.step = step;
     plan.fact = fact;
-    plan.steps.clear();
+    plan.step_count = 0;
+    plan.final_step = {};
     return plan;
   };
-  if (!p.ok || p.steps.empty())
+  if (!p.ok || steps.empty())
     return decline(SweepGeneralDecline::CaptureMissing, 0,
-                   static_cast<uint32_t>(p.steps.size()));
+                   static_cast<uint32_t>(steps.size()));
   if (p.strip_off.size() != p.orig_ids.size() + 1)
     return decline(SweepGeneralDecline::StripShape, 0,
                    static_cast<uint32_t>(p.strip_off.size()));
   const bool lrat = k.proof && k.proof->lrat();
   uint32_t max_id = static_cast<uint32_t>(p.orig_ids.size());
-  for (const SubStep &step : p.steps)
+  for (const SubStep &step : steps)
     max_id = std::max(max_id, step.id);
   std::vector<uint8_t> named(static_cast<size_t>(max_id) + 1, 0);
   // Only LRAT cites an antecedent by id; the other formats re-derive each
@@ -2043,19 +2090,17 @@ static SweepGeneralPlan sweep_plan_general(const Kernel &k,
   for (size_t i = 0; i < p.orig_ids.size(); i++)
     named[i + 1] = !lrat || p.orig_ids[i] != 0;
 
-  for (size_t si = 0; si < p.steps.size(); si++) {
+  for (size_t si = 0; si < steps.size(); si++) {
     if (kernel_terminating(k))
       return decline(SweepGeneralDecline::Interrupted,
                      static_cast<uint32_t>(si));
-    const SubStep &step = p.steps[si];
-    SweepGeneralStepPlan translated;
-    translated.sub_id = step.id;
+    const SubStep &step = steps[si];
     for (const SubLit sub_lit : step.lits) {
       if (sub_var_of(sub_lit) >= p.vars.size())
         return decline(SweepGeneralDecline::SubVariable,
                        static_cast<uint32_t>(si), sub_var_of(sub_lit));
-      translated.lits.push_back(sweep_kernel_lit(p.vars, sub_lit));
     }
+    SweepGeneralStepPlan translated = sweep_translate_general_step(p, step);
     if (translated.lits.empty())
       return decline(SweepGeneralDecline::EmptyStep,
                      static_cast<uint32_t>(si));
@@ -2064,24 +2109,11 @@ static SweepGeneralPlan sweep_plan_general(const Kernel &k,
       return decline(SweepGeneralDecline::TautologicalStep,
                      static_cast<uint32_t>(si));
     for (const uint32_t antecedent : step.chain) {
-      if (antecedent == 0 || antecedent > p.orig_ids.size())
-        continue;
-      for (uint32_t s = p.strip_off[antecedent - 1];
-           s < p.strip_off[antecedent]; s++) {
-        const uint64_t unit_id = p.strip_ids[s];
-        if (std::find(translated.strip_ids.begin(),
-                      translated.strip_ids.end(), unit_id) ==
-            translated.strip_ids.end())
-          translated.strip_ids.push_back(unit_id);
-      }
-    }
-    for (const uint32_t antecedent : step.chain) {
       if (antecedent >= named.size() || !named[antecedent])
         return decline(SweepGeneralDecline::AntecedentMissing,
                        static_cast<uint32_t>(si), antecedent);
-      translated.antecedents.push_back(antecedent);
     }
-    if (si + 1 == p.steps.size()) {
+    if (si + 1 == steps.size()) {
       const bool unit = t1 == INVALID_LIT;
       if (unit) {
         std::vector<Lit> remaining;
@@ -2136,40 +2168,79 @@ static SweepGeneralPlan sweep_plan_general(const Kernel &k,
     }
     if (step.id < named.size())
       named[step.id] = 1;
-    plan.steps.push_back(std::move(translated));
+    if (si + 1 == steps.size())
+      plan.final_step = std::move(translated);
   }
+  plan.step_count = steps.size();
   return plan;
 }
 
 static bool sweep_apply_general_plan(Kernel &k,
                                      const SweepGeneralPlan &plan) {
-  assert(plan.eligible() && !plan.steps.empty());
+  assert(plan.eligible() && plan.capture && plan.step_count);
+  const SweepDirProof &capture = *plan.capture;
+  const std::span<const SubStep> steps = capture.steps_view();
+  assert(plan.step_count == steps.size());
   const bool lrat = k.proof && k.proof->lrat();
   uint32_t max_id = static_cast<uint32_t>(plan.source_ids.size());
-  for (const SweepGeneralStepPlan &step : plan.steps)
-    max_id = std::max(max_id, step.sub_id);
+  for (const SubStep &step : steps)
+    max_id = std::max(max_id, step.id);
   std::vector<uint64_t> id_of(static_cast<size_t>(max_id) + 1, 0);
   for (size_t i = 0; i < plan.source_ids.size(); i++)
     id_of[i + 1] = plan.source_ids[i];
   std::vector<uint64_t> chain;
   std::vector<Lit> lifted;
-  struct Transient {
-    uint64_t id;
-    std::vector<Lit> lits;
-  };
   const bool delete_transient_rup = k.proof != nullptr;
-  std::vector<Transient> transients;
+  // The emitted prefix is named by `id_of`. Reconstruct its conditioned
+  // literals from the immutable capture for reverse deletion; retaining a
+  // second full vector of every temporary clause makes large proof cores grow
+  // by another O(core bytes), even after plan validation has been streamed.
+  size_t emitted_prefix = 0;
+  const auto condition_intermediate = [&](std::vector<Lit> &lits) {
+    bool tautology = false;
+    for (const Lit target : {plan.t0, plan.t1}) {
+      if (target == INVALID_LIT)
+        continue;
+      if (std::find(lits.begin(), lits.end(), negate(target)) != lits.end())
+        tautology = true;
+      else if (std::find(lits.begin(), lits.end(), target) == lits.end())
+        lits.push_back(target);
+    }
+    return !tautology;
+  };
   const auto delete_transients = [&]() {
-    if (delete_transient_rup)
-      for (size_t i = transients.size(); i-- > 0;)
-        k.proof->del(k.next_clause_id, lrat ? transients[i].id : 0,
-                     transients[i].lits.data(),
-                     static_cast<uint32_t>(transients[i].lits.size()));
-    transients.clear();
+    if (!delete_transient_rup)
+      return;
+    for (size_t si = emitted_prefix; si-- > 0;) {
+      if (si + 1 == plan.step_count)
+        continue; // the final clause belongs to the live kernel formula
+      const SubStep &source = steps[si];
+      const uint64_t id = id_of[source.id];
+      if (!id)
+        continue; // omitted tautological prefix
+      lifted.clear();
+      for (const SubLit lit : source.lits)
+        lifted.push_back(sweep_kernel_lit(capture.vars, lit));
+      const bool conditioned = condition_intermediate(lifted);
+      assert(conditioned);
+      (void)conditioned;
+      k.proof->del(k.next_clause_id, lrat ? id : 0, lifted.data(),
+                   static_cast<uint32_t>(lifted.size()));
+    }
   };
   uint64_t last_id = 0;
-  for (size_t si = 0; si < plan.steps.size(); si++) {
-    const SweepGeneralStepPlan &step = plan.steps[si];
+  for (size_t si = 0; si < plan.step_count; si++) {
+    // The final step's root simplification is frozen at plan admission. This
+    // matters when two plans are validated together and the first one commits
+    // a unit before the second is emitted.
+    SweepGeneralStepPlan translated;
+    const SweepGeneralStepPlan *step = nullptr;
+    if (si + 1 == plan.step_count)
+      step = &plan.final_step;
+    else {
+      translated = sweep_translate_general_step(capture, steps[si]);
+      step = &translated;
+    }
     // An interrupted plan has no kernel effect. Every format retires each
     // already-emitted proof-only prefix.
     if (sweep_stopping(k)) {
@@ -2188,28 +2259,16 @@ static bool sweep_apply_general_plan(Kernel &k,
     // the checker's.  A conditioned lemma can only ever propagate a target
     // literal, which the kernel itself holds once the target is installed.
     // Nothing here depends on whether a proof is being written.
-    const bool final_step = si + 1 == plan.steps.size();
-    lifted.assign(step.lits.begin(), step.lits.end());
-    bool tautology = false;
-    if (!final_step)
-      for (const Lit target : {plan.t0, plan.t1}) {
-        if (target == INVALID_LIT)
-          continue;
-        if (std::find(lifted.begin(), lifted.end(), negate(target)) !=
-            lifted.end())
-          tautology = true;
-        else if (std::find(lifted.begin(), lifted.end(), target) ==
-                 lifted.end())
-          lifted.push_back(target);
-      }
+    const bool final_step = si + 1 == plan.step_count;
+    lifted.assign(step->lits.begin(), step->lits.end());
     // A lemma holding a negated target literal is satisfied whenever the
     // target is assumed false, so no later conditioned check can use it.
-    if (tautology)
+    if (!final_step && !condition_intermediate(lifted))
       continue;
-    chain = step.strip_ids;
+    chain = step->strip_ids;
     if (lrat)
-      k.stats.sweep_strip_cited += step.strip_ids.size();
-    for (const uint32_t antecedent : step.antecedents) {
+      k.stats.sweep_strip_cited += step->strip_ids.size();
+    for (const uint32_t antecedent : step->antecedents) {
       assert(antecedent < id_of.size());
       if (id_of[antecedent]) // zero: an omitted tautological lemma
         chain.push_back(id_of[antecedent]);
@@ -2220,11 +2279,10 @@ static bool sweep_apply_general_plan(Kernel &k,
                        static_cast<uint32_t>(lifted.size()),
                        lrat ? chain.data() : nullptr,
                        lrat ? static_cast<uint32_t>(chain.size()) : 0);
-    if (step.sub_id < id_of.size())
-      id_of[step.sub_id] = id;
+    if (step->sub_id < id_of.size())
+      id_of[step->sub_id] = id;
     last_id = id;
-    if (delete_transient_rup && !final_step)
-      transients.push_back({id, lifted});
+    emitted_prefix = si + 1;
   }
   if (plan.t1 == INVALID_LIT) {
     k.unit_ids[var_of(plan.t0)] = last_id;
@@ -2279,7 +2337,7 @@ static void journal_sweep_general(const Kernel &k,
       std::to_string(plan.decline != SweepGeneralDecline::StripShape) +
       ";step=" + std::to_string(plan.step) +
       ";fact=" + std::to_string(plan.fact) +
-      ";steps=" + std::to_string(plan.steps.size());
+      ";steps=" + std::to_string(plan.step_count);
   record.antecedents = "source_clauses=" +
                        std::to_string(plan.source_ids.size());
   record.outcome = outcome;
@@ -2376,8 +2434,9 @@ ApplyResult sweep_emit_pending_units(Kernel &k, SweepRound &round,
   while (round.units_emitted < round.units.size()) {
     if (sweep_stopping(k))
       break;
-    const SweepUnitProof &unit = round.units[round.units_emitted];
+    SweepUnitProof &unit = round.units[round.units_emitted];
     if (k.value(unit.unit) != 0) {
+      unit.proof = {};
       round.units_emitted++;
       continue;
     }
@@ -2419,6 +2478,10 @@ ApplyResult sweep_emit_pending_units(Kernel &k, SweepRound &round,
       event_trace_sweep_unit(k, unit.unit);
 #endif
     }
+    // The unit identity remains for duplicate detection, but an emitted unit
+    // never needs its captured derivation again. Release that potentially
+    // massive core before the next embedded query allocates another one.
+    unit.proof = {};
     round.units_emitted++;
   }
   return any ? ApplyResult::Ok : ApplyResult::NoOp;

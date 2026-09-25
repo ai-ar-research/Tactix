@@ -42,6 +42,13 @@ add_executable(test_subsolver test_subsolver.cpp)
 target_link_libraries(test_subsolver PRIVATE tactix_lib)
 add_test(NAME subsolver COMMAND test_subsolver)
 
+add_executable(test_subsolver_export_resource test_subsolver_export_resource.cpp
+               failing_new.cpp)
+set_source_files_properties(failing_new.cpp PROPERTIES COMPILE_OPTIONS
+                            -fexceptions)
+target_link_libraries(test_subsolver_export_resource PRIVATE tactix_lib)
+add_test(NAME subsolver_export_resource COMMAND test_subsolver_export_resource)
+
 # Sweep: candidate selection + environment construction. An arg raises the
 # brute-force oracle's soak size.
 add_executable(test_sweep test_sweep.cpp)

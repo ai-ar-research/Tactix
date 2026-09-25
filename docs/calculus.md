@@ -313,7 +313,7 @@ root closure at apply entry. V1/V2 Probe/Backbone additionally require `!conflic
   environment's mutation epoch; inline substitution makes an old capture stale. Otherwise decline the pair and leave `F` unchanged.
   The final unit or binary becomes kernel material. Every format then retires the earlier proof-only RUP prefix newest first. Before
   retirement nothing else is owed, because each prefix lemma `L` is written as `L v target`, as the BVE definition lifter writes `(unit v L)`: the weakening stays RUP (each check assumes the target false, under which the earlier conditioned lemmas act as the originals), and a conditioned lemma can propagate only a target literal, which the kernel holds once the target is installed. A lemma containing a negated target literal would be a tautology and is omitted; it is satisfied whenever the target is assumed false, so no later check can use it.
-  The consequence is committed through this certified path with or without a proof; only the writes depend on one. See `implementation-notes.md`, `SP-SWEEP-8`.
+  A captured core is validated before its consequence is committed. If optional core export exhausts allocation, the incomplete capture is discarded and the current environment stops; earlier certified consequences remain valid and no uncertified consequence is added. The consequence is committed through this certified path with or without a proof; only the writes depend on one. See `implementation-notes.md`, `SP-SWEEP-8`.
 - **Soundness:** both directions must replay before either binary is added, so the rule never states an implication it has not
   justified; and a declined pair leaves `F` unchanged.
 
