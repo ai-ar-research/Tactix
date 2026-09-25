@@ -402,6 +402,34 @@ static void test_late_input_proof(void) {
   }
 }
 
+/* Early and late native-LRAT selection must leave the same eager input image
+ * as a proofless session. The third clause is already satisfied by a derived
+ * root unit; X5 must not find it live merely because a proof was requested. */
+static void test_lrat_import_liveness_parity(void) {
+  const int formats[] = {-1, TACTIX_PROOF_LRAT, TACTIX_PROOF_LRAT};
+  const int clause[] = {2, 3};
+  const int cube[] = {2};
+  for (unsigned i = 0; i < sizeof formats / sizeof formats[0]; ++i) {
+    char proof_path[96];
+    tactix *s = tactix_init();
+    snprintf(proof_path, sizeof proof_path,
+             "/tmp/tactix-api-import-parity-%ld-%u.lrat", (long)getpid(), i);
+    if (i == 1)
+      assert(tactix_proof(s, proof_path, formats[i]) == 0);
+    add_clause(s, (const int[]){-1, 2, 0});
+    if (i == 2)
+      assert(tactix_proof(s, proof_path, formats[i]) == 0);
+    add_clause(s, (const int[]){1, 0});
+    add_clause(s, (const int[]){2, 3, 0});
+    add_clause(s, (const int[]){3, 4, 0});
+    assert(tactix_status(s) == 0);
+    assert(tactix_apply_condition(s, clause, 2, cube, 1) == -1);
+    tactix_release(s);
+    if (i)
+      assert(remove(proof_path) == 0);
+  }
+}
+
 /* N1: BVE gate-type selection through the public API. Var 1 eliminates only
  * via the gate reduction, so the setter flips one apply to a no-op. */
 static void test_bve_gate_selection(void) {
@@ -595,6 +623,7 @@ int main(void) {
   test_empty_solver_rule_application();
   test_stepwise_unsat();
   test_late_input_proof();
+  test_lrat_import_liveness_parity();
   test_bve_gate_selection();
   test_stats_and_config_surface();
   test_action_kind();

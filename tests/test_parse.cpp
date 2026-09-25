@@ -392,6 +392,48 @@ static void test_input_units_propagate_before_later_clauses() {
   kernel_check_invariants(k);
 }
 
+// A proof serializer must not alter which input clauses the solver keeps.
+// The first binary forces 2 after the unit 1; the final clause is therefore
+// satisfied before it can enter the live database in every proof mode.
+static void test_proof_mode_preserves_import_liveness() {
+  const char *dimacs =
+      "p cnf 3 3\n"
+      "-1 2 0\n"
+      "1 0\n"
+      "2 3 0\n";
+  const auto import = [&](ProofFormat format, bool with_proof) {
+    Kernel k;
+    Proof proof;
+    std::string path;
+    if (with_proof) {
+      path = "/tmp/tactix-test-parse-proof-parity-" +
+             std::to_string(static_cast<long>(getpid())) + "-" +
+             std::to_string(static_cast<int>(format)) + ".proof";
+      assert(proof.open(path.c_str(), format));
+      k.proof = &proof;
+    }
+    FILE *file = dimacs_file(dimacs);
+    assert(parse_dimacs(file, k) == nullptr);
+    std::fclose(file);
+    if (k.propagate_head < k.trail.size())
+      assert(!kernel_propagate(k));
+    assert(k.values[internalize(2)] > 0);
+    const bool retained =
+        kernel_binary_live(k, internalize(2), internalize(3));
+    assert(!retained);
+    const std::string fingerprint = import_fingerprint(k);
+    kernel_check_invariants(k);
+    k.proof = nullptr;
+    if (with_proof)
+      assert(std::remove(path.c_str()) == 0);
+    return fingerprint;
+  };
+  const std::string baseline = import(ProofFormat::DratAscii, false);
+  assert(import(ProofFormat::DratAscii, true) == baseline);
+  assert(import(ProofFormat::DsrAscii, true) == baseline);
+  assert(import(ProofFormat::Lrat, true) == baseline);
+}
+
 static void test_header_only_variables_are_not_search_variables() {
   Kernel k;
   ScopedHeuristics hg(k);
@@ -465,6 +507,7 @@ int main() {
   test_tumble_preserves_file_literal_order();
   test_root_units_normalize_later_input_clauses();
   test_input_units_propagate_before_later_clauses();
+  test_proof_mode_preserves_import_liveness();
   test_header_only_variables_are_not_search_variables();
   test_discarded_only_variables_are_not_search_variables();
   test_block_boundaries_do_not_change_the_import();

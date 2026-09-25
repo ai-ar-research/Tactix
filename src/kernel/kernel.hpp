@@ -1251,6 +1251,9 @@ struct Kernel {
   // emitted polarity, 0 if none.  Never a unit the kernel does not hold.
   std::vector<int8_t> dsr_root_values;
   BinaryIdMap binary_ids;
+  // Eager input for later native-LRAT replay retains exact binary identities
+  // until the proof is attached; clause admission and root work remain eager.
+  bool replay_lrat_input = false;
   BinaryLivenessIndex *binary_liveness = nullptr; // scoped dense-rule index
   std::vector<std::pair<uint32_t, uint64_t>> lrat_entries;
   std::vector<uint64_t> lrat_chain; // built by kernel_lrat_chain below

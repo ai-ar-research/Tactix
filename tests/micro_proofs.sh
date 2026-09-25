@@ -92,9 +92,15 @@ EOF
   # A unit implication cascade is closed while DRAT input is still being read.
   # Its derived x3 shrinks a later ternary to binary, and the following units
   # refute during ingestion.  This exercises derived-root normalization without
-  # LRAT ids; native LRAT deliberately keeps the deferred-input path.
+  # LRAT ids; the proof replay deliberately keeps the deferred-input path,
+  # while the live solver uses the same eager import as proofless solving.
   printf 'p cnf 5 6\n-1 2 0\n-2 3 0\n1 0\n-3 4 5 0\n-4 0\n-5 0\n' \
     > "$T/rootcascade.cnf"
+  # The unit 1 forces 2 before the third clause is read; that satisfied
+  # clause must not enter the live solver merely because LRAT is requested.
+  # The independent 3/4 core makes the original-CNF proof nontrivial.
+  printf 'p cnf 4 7\n-1 2 0\n1 0\n2 3 0\n3 4 0\n3 -4 0\n-3 4 0\n-3 -4 0\n' \
+    > "$T/root-satisfied-lrat.cnf"
   # A later SR witness can fail if the checker retains the raw input clause
   # after pure elimination deletes its normalized replacement. Claude's two
   # minimized regressions cover root shortening and repeated literals.
@@ -285,6 +291,23 @@ for cnf in "$T"/*.cnf; do
       || { echo "FAIL: native LRAT of $cnf rejected"; cat "$T/check"; exit 1; }
     grep -q 'c VERIFIED' "$T/check" \
       || { echo "FAIL: lrat-check gave no verdict on $cnf"; cat "$T/check"; exit 1; }
+    if [ "$cnf" = "$T/root-satisfied-lrat.cnf" ] && [ -x "$CAKE_LPR" ]; then
+      CML_HEAP_SIZE=24576 "$CAKE_LPR" "$cnf" "$proof" \
+        > "$T/check-cake" 2>&1 \
+        || { echo "FAIL: cake_lpr rejected eager-import LRAT"; \
+             cat "$T/check-cake"; exit 1; }
+      grep -Eq '^s VERIFIED[[:space:]]+UNSAT$' "$T/check-cake" \
+        || { echo "FAIL: cake_lpr gave no eager-import verdict"; \
+             cat "$T/check-cake"; exit 1; }
+      : > "$T/root-satisfied-empty.lrat"
+      CML_HEAP_SIZE=24576 "$CAKE_LPR" "$cnf" \
+        "$T/root-satisfied-empty.lrat" > "$T/check-cake-bad" 2>&1 || true
+      if grep -Eq '^s VERIFIED[[:space:]]+UNSAT$' "$T/check-cake-bad"; then
+        echo "FAIL: cake_lpr accepted empty eager-import control"
+        cat "$T/check-cake-bad"
+        exit 1
+      fi
+    fi
   fi
 done
 
