@@ -2622,6 +2622,11 @@ bool DefaultInprocessScheduler::want_phase(const Kernel &k, SlotGroup g) {
     return false;
   if (k.stats.conflicts == 0 && g == SlotGroup::Eliminate)
     return false;
+  // Kissat declines both phases on the same conflict as its latest Reduce.
+  // The reduction-count Probe watermark below answers a different question:
+  // whether any Reduce happened since the preceding Probe round.
+  if (last_reduce_conflicts_ == k.stats.conflicts)
+    return false;
   SlotClock &c = g == SlotGroup::Probe ? probe_clock : elim_clock;
   // Kissat's two guards deliberately differ.  Probe tests
   // `limit < conflicts` (probe.c:kissat_probing), while Eliminate declines
@@ -3144,6 +3149,7 @@ void DefaultInprocessScheduler::configure() {
 void DefaultInprocessScheduler::reset(const Kernel &) {
   initialized_ = false;
   search_limits_initialized_ = false;
+  last_reduce_conflicts_ = UINT64_MAX;
   probe_clock = elim_clock = {};
   // Kissat initializes both `last.ticks.probe` and
   // `last.ticks.eliminate` to zero.  Input-unit closure already uses the
@@ -4179,6 +4185,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       update_reduce_limit(k);
       pose_vivify_tiers(k, config_.inprocess);
       update_formula_classification(k);
+      inprocess_.note_reduce(k);
       event_trace.macro(k, "reduce_end");
       continue;
     }
