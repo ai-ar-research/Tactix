@@ -80,9 +80,11 @@ std::string rule_journal_transaction_antecedents();
 std::string rule_journal_transaction_witnesses();
 void rule_journal_transaction_end();
 void rule_journal_close();
+void rule_journal_flush();
 
 #else
 inline void rule_journal_close() {}
+inline void rule_journal_flush() {}
 #endif
 
 } // namespace tactix

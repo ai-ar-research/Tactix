@@ -15,7 +15,12 @@ disabled = ("BCE,Backbone,BVE,CCE,Congruence,Factor,HyperBinaryRes,"
 
 
 def run(cnf, env):
-    result = subprocess.run([str(binary), str(cnf)], env=env, text=True,
+    # This fixture exercises search/inprocessing journal dispatch. A native
+    # DSR startup symmetry program can settle pigeonhole before search, so
+    # select the clausal compatibility path explicitly for this control.
+    result = subprocess.run([str(binary), "--drat", str(cnf),
+                             str(cnf.parent / "journal.drat")],
+                            env=env, text=True,
                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     assert result.returncode in (10, 20), result.stderr
     return result

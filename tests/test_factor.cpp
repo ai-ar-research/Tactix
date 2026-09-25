@@ -134,6 +134,102 @@ static void test_factoring_2x3() {
       assert(!has_binary(k, f, rr));
 }
 
+// An extension created before H attaches is part of the live compact/search
+// population. Late attachment must reconstruct the same activation rank as
+// attaching H before Factor, rather than reseeding from input variables only.
+static void test_late_heuristics_attach_keeps_factor_extension() {
+  const auto make_grid = [](Kernel &k) {
+    kernel_reserve_vars(k, 5);
+    k.input_activation_order = {0, 1, 2, 3, 4};
+    for (Var v = 0; v < 5; ++v)
+      kernel_record_import(k, v);
+    for (const Lit f : {make_lit(0, false), make_lit(1, false)})
+      for (const Lit r : {make_lit(2, false), make_lit(3, false),
+                          make_lit(4, false)})
+        kernel_add_binary_clause(k, f, r, ++k.next_clause_id);
+  };
+
+  Kernel early;
+  make_grid(early);
+  ScopedHeuristics early_h(early);
+  assert(factor_apply(early) == ApplyResult::Ok);
+
+  Kernel late;
+  make_grid(late);
+  assert(factor_apply(late) == ApplyResult::Ok);
+  ScopedHeuristics late_h(late);
+  assert(late.nvars == 6 && late.unassigned_active == 6);
+  assert(late.compact_import_order == early.compact_import_order);
+  assert(late.compact_import_order ==
+         std::vector<Var>({0, 1, 2, 3, 4, 5}));
+  assert(late.compact_import_position == early.compact_import_position);
+  assert(late.h->activation_count == early.h->activation_count);
+  assert(late.h->queue_stamp == early.h->queue_stamp);
+  assert(late.h->scores.score == early.h->scores.score);
+  for (Var v = 0; v < late.nvars; ++v)
+    assert(late.h->links[v].stamp == early.h->links[v].stamp);
+  late.h->stable = true;
+  heuristics_update_target_phases(late); // the old compact population asserts
+}
+
+static void test_late_heuristics_attach_after_extension_compaction() {
+  Kernel k;
+  kernel_reserve_vars(k, 6); // original 0 is absent from every grid clause
+  k.input_activation_order = {1, 2, 3, 4, 5};
+  for (Var v = 1; v < 6; ++v)
+    kernel_record_import(k, v);
+  kernel_record_import(k, 0); // input finalization records header-only IDs
+  for (const Lit f : {make_lit(1, false), make_lit(2, false)})
+    for (const Lit r : {make_lit(3, false), make_lit(4, false),
+                        make_lit(5, false)})
+      kernel_add_binary_clause(k, f, r, ++k.next_clause_id);
+  assert(factor_apply(k) == ApplyResult::Ok);
+  assert(k.nvars == 7 && k.first_extension_var == 6);
+  k.var_status.assign(k.nvars, VarStatus::Active);
+  k.var_status[0] = VarStatus::Eliminated;
+  --k.unassigned_active;
+  assert(kernel_compact_variables(k));
+  assert(k.nvars == 6 && k.external_to_internal[6] == 5);
+  ScopedHeuristics h(k);
+  assert(k.input_activation_order.empty());
+  assert(k.compact_import_order ==
+         std::vector<Var>({0, 1, 2, 3, 4, 5}));
+  assert(k.compact_import_order.size() == k.unassigned_active);
+  k.h->stable = true;
+  heuristics_update_target_phases(k);
+}
+
+static void test_detached_heuristics_compaction_remaps_extension() {
+  Kernel k;
+  kernel_reserve_vars(k, 6);
+  k.input_activation_order = {1, 2, 3, 4, 5};
+  for (Var v = 1; v < 6; ++v)
+    kernel_record_import(k, v);
+  kernel_record_import(k, 0);
+  for (const Lit f : {make_lit(1, false), make_lit(2, false)})
+    for (const Lit r : {make_lit(3, false), make_lit(4, false),
+                        make_lit(5, false)})
+      kernel_add_binary_clause(k, f, r, ++k.next_clause_id);
+  {
+    ScopedHeuristics h(k);
+    assert(factor_apply(k) == ApplyResult::Ok);
+    assert(k.compact_import_order.size() == 6);
+  }
+  k.var_status.assign(k.nvars, VarStatus::Active);
+  k.var_status[0] = VarStatus::Eliminated;
+  --k.unassigned_active;
+  assert(kernel_compact_variables(k));
+  {
+    ScopedHeuristics h(k);
+    assert(k.compact_import_order ==
+           std::vector<Var>({0, 1, 2, 3, 4, 5}));
+    assert(k.compact_import_position[5] == 5);
+    assert(k.compact_import_order.size() == k.unassigned_active);
+    k.h->stable = true;
+    heuristics_update_target_phases(k);
+  }
+}
+
 // Factor's effort currency is Kissat's dense-watch scan currency, and its
 // second quit point is checked after each current quotient occurrence.  A
 // budget of four therefore pays 3 ticks for first_factor, 2 for the quotient
@@ -725,6 +821,9 @@ int main() {
   // below-threshold grids factor through the rule's own surface.
   test_extension_var_boundary();
   test_factoring_2x3();
+  test_late_heuristics_attach_keeps_factor_extension();
+  test_late_heuristics_attach_after_extension_compaction();
+  test_detached_heuristics_compaction_remaps_extension();
   test_dense_scan_budget_boundary();
   test_next_factor_budget_check_follows_occurrence();
   test_next_factor_mark_precedes_match_scan();

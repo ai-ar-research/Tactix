@@ -3624,7 +3624,32 @@ bool kernel_compact_variables(Kernel &k, bool fold_fixed) {
   }
 
   const uint32_t old_touch_head = k.touch_fixed_head;
-  heuristics_compact_vars(k, old_to_new, new_nvars);
+  // The input activation seed can outlive parsing until a policy attaches H.
+  // It names current internal identities, so remap it even when no H exists
+  // yet. Otherwise a pre-attach extension/compaction makes the later seed
+  // omit live variables (or name an identity that was retired).
+  auto remap_pending_order = [&](std::vector<Var> &order) {
+    size_t kept = 0;
+    for (const Var old : order) {
+      assert(old < old_nvars);
+      const Var now = old_to_new[old];
+      if (now != INVALID_VAR)
+        order[kept++] = now;
+    }
+    order.resize(kept);
+  };
+  remap_pending_order(k.input_activation_order);
+  if (k.h) {
+    heuristics_compact_vars(k, old_to_new, new_nvars);
+  } else {
+    remap_pending_order(k.compact_import_order);
+    k.compact_import_position.assign(new_nvars, INVALID_VAR);
+    for (Var position = 0; position < k.compact_import_order.size(); ++position) {
+      const Var v = k.compact_import_order[position];
+      assert(k.compact_import_position[v] == INVALID_VAR);
+      k.compact_import_position[v] = position;
+    }
+  }
 
   k.nvars = new_nvars;
   k.internal_to_external.swap(internal_to_external);
