@@ -1,0 +1,15 @@
+# AM386: tier-runner certificate routing repair
+
+Date: 2026-09-25. Scope: maintained `tools/bench/run.py` checker dispatch only; no solver, rule, schedule, checker pin or tier list changed. The original AM381 A/B windows remain frozen and **not clean**.
+
+## Cause and repair
+
+AM381 A (`benchmarks/runs/20260924-201302-A-am381-reduce-candidate/CORRECTNESS-BUG`) records 20 `checker-error: Fatal error: Found a non-digit at start of line` rows, ten per matched arm, on startup XOR refutations. AM381 replacement B (`.../20260924-201702-B-am381-reduce-candidate/CORRECTNESS-BUG`) records the same error on FmlaEquivChain for both arms. The task runner computed `proof_format(cmd) == 'dsr'` from each Tactix command and sent every automatic certificate to `dsr-trim`, without inspecting its header. Automatic startup PBP begins `pseudo-Boolean proof version ...`, hence the parse error. The identical parent/candidate class implicates the maintained runner, not AM381's Reduce change. The former windows cannot be quoted as matched performance evidence.
+
+`run.py` now uses the shared `proof_oracle.certificate_route` for requested DSR/automatic output. PBP runs both pinned VeriPB and CakePB stages against validated original-CNF spelling; witnessed DSR keeps the existing no-option `dsr-trim`/LSR/Trestle route; witness-free DSR is translated to DRAT and must pass both `drat-trim -L` and CakeLPR, including the established duplicate-input restatement. Explicit `--dsr` rejects PBP. The result records `proof_format` (requested) and `proof_route` (observed). The complete-pipeline checker budget is shared across stages, and the runner still classifies timeout, rejection, resource failure and checker error separately. The PB binaries match the AM341 campaign pins byte-for-byte (SHA256 VeriPB `2e5fa5ef...`, CakePB `c859a9c9...`). No H2 implied-unit checker option was adopted.
+
+## Validation and limits
+
+The new fixed test in `tools/bench/test_proof_oracle.py` uses real pinned checkers: valid PBP and witness-free DSR verify; a corrupted PBP, a SAT-CNF false refutation, forced failure of either independent second checker, and explicit-DSR/PBP mismatch all reject. A mocked tier task confirms the actual PBP route is recorded and scored. The prior `tests/test_p4_fixtures.py` DSR fixture is now correctly marked as witnessed DSR. `tools/bench/test_proof_oracle.py` 28/28, `tests/test_fuzz_proof_oracles.py` 36/36, `tests/test_runtime_task.py` 7/7 and `tests/test_p4_fixtures.py` pass. `tools/fuzz/selftest.sh` ends `SELFTEST OK`, with known-bad model/proof wrappers caught; reference timeout coverage remains 145/150 Kissat and 96/100 CaDiCaL at the self-test's five-second bound.
+
+This validates checker dispatch and negative controls, **not** the frozen AM381 performance numbers. The matched A/B windows need rerunning from the same immutable solver pins using the repaired runner; the C array remains live and its final proof/model status is pending. N1/N2 combined acceptance, AM369 H2 and the user-requested full Tier D remain open.
