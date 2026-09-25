@@ -2,11 +2,13 @@
 
 #include "policies/heuristics.hpp"
 #include "proof/proof.hpp"
+#include "rules/propagate/propagate.hpp"
 #include "strategy/rule_parameters.hpp"
 
 #include <algorithm>
 #include <cstdlib>
 #include <memory>
+#include <unordered_map>
 #include <sys/resource.h>
 
 namespace tactix {
@@ -552,7 +554,7 @@ void finish_input(Kernel &k) {
   // it for every such input, independent of formula size or shape; size_ is
   // retained as the monotone material watermark and later exact liveness
   // checks use the mirrored watch lists.
-  if (!k.proof || !k.proof->lrat())
+  if ((!k.proof || !k.proof->lrat()) && !k.replay_lrat_input)
     k.binary_ids.discard_storage();
   if (k.proof && k.proof->population_shadow_available())
     k.proof->arm_population_shadow();
@@ -593,8 +595,141 @@ void finish_input(Kernel &k) {
     k.proof->finish_input_transaction();
 }
 
+void attach_replayed_input_proof(Kernel &current, Proof &proof) {
+  assert(!current.proof && current.startup_certificate_open);
+  assert(!proof.lrat() || current.binary_ids.tracks_values());
+  // Replay the checker's exact input, not the clauses left after eager
+  // proofless unit propagation. The C API may keep adding original clauses
+  // after proof selection, so LRAT-derived ids must follow all input ids.
+  Kernel replay;
+  replay.proof = &proof;
+  proof.bind_variable_map(&replay.internal_to_external);
+  std::vector<Lit> clause;
+  for (const int32_t external : current.startup_input) {
+    if (external) {
+      clause.push_back(internalize(external));
+    } else {
+      ingest_clause(replay, clause);
+      clause.clear();
+    }
+  }
+  assert(clause.empty());
+  finish_input(replay);
+  if (proof.lrat() && !replay.inconsistent)
+    propagate_service(replay);
+
+  if (proof.lrat() && !replay.inconsistent) {
+    // The eager import may have stored a smaller image than native LRAT's
+    // deferred import.  Original clause ids remain in the checker, so prove
+    // each live image from its raw clause and the replay's named root units.
+    // Re-point only proof identities; watches, assignments, reasons and H
+    // remain those of the existing solver session.
+    struct Live {
+      uint64_t key;
+      Ref ref;
+      std::vector<Lit> lits;
+    };
+    std::unordered_map<uint64_t, Live> live;
+    live.reserve(current.binary_ids.size() +
+                 current.live_irredundant_large);
+    current.binary_ids.for_each([&](uint64_t key, uint64_t id) {
+      live.emplace(id, Live{key, INVALID_REF,
+                            {static_cast<Lit>(key >> 32),
+                             static_cast<Lit>(key)}});
+    });
+    for (Ref ref = 0; ref < current.arena.size();) {
+      Clause *c = clause_at(current.arena, ref);
+      if (!c->garbage())
+        live.emplace(c->id(), Live{0, ref,
+                                   std::vector<Lit>(c->begin(), c->end())});
+      ref += clause_actual_words(c);
+    }
+    uint64_t raw_id = 0;
+    std::vector<Lit> raw;
+    std::vector<uint64_t> chain;
+    for (const int32_t external : current.startup_input) {
+      if (external) {
+        raw.push_back(internalize(external));
+        continue;
+      }
+      const auto found = live.find(++raw_id);
+      if (found != live.end()) {
+        Live &entry = found->second;
+        auto normalized = entry.lits;
+        auto original = raw;
+        std::sort(normalized.begin(), normalized.end());
+        std::sort(original.begin(), original.end());
+        if (normalized != original) {
+          chain.clear();
+          for (const Lit lit : raw) {
+            if (std::find(entry.lits.begin(), entry.lits.end(), lit) !=
+                entry.lits.end())
+              continue;
+            const Lit unit = negate(lit);
+            assert(replay.values[unit] > 0);
+            const uint64_t uid = replay.unit_ids[var_of(unit)];
+            assert(uid);
+            if (std::find(chain.begin(), chain.end(), uid) == chain.end())
+              chain.push_back(uid);
+          }
+          chain.push_back(raw_id);
+          const uint64_t replacement = ++replay.next_clause_id;
+          proof.add_rup(replacement, entry.lits.data(),
+                        static_cast<uint32_t>(entry.lits.size()), chain.data(),
+                        static_cast<uint32_t>(chain.size()));
+          if (entry.ref != INVALID_REF)
+            clause_at(current.arena, entry.ref)->set_id(replacement);
+          else
+            current.binary_ids.insert_or_assign_known(entry.key,
+                                                       replacement, false);
+        }
+      }
+      raw.clear();
+    }
+    assert(raw.empty() && raw_id == current.next_clause_id);
+    for (Var v = 0; v < current.nvars; v++) {
+      if (current.values[make_lit(v, false)] == 0)
+        continue;
+      assert(replay.values[make_lit(v, false)] ==
+             current.values[make_lit(v, false)]);
+      current.unit_ids[v] = replay.unit_ids[v];
+      assert(current.unit_ids[v]);
+    }
+  } else if (proof.dsr()) {
+    current.dsr_root_values = replay.dsr_root_values;
+  }
+  current.next_clause_id = std::max(current.next_clause_id,
+                                    replay.next_clause_id);
+  if (replay.inconsistent) {
+    // The replay already published the complete input refutation.  Do not
+    // let the ordinary finalizer publish it a second time with stale ids.
+    current.inconsistent = true;
+    current.input_refuted = false;
+    current.input_refutation_units.clear();
+  }
+  current.proof = &proof;
+  proof.bind_variable_map(&current.internal_to_external);
+  if (!proof.startup_pb_available())
+    current.close_startup_certificate();
+  current.replay_lrat_input = false;
+}
+
 const char *parse_dimacs_with_block(FILE *f, Kernel &k, size_t block_bytes) {
   assert(block_bytes > 0);
+  Proof *deferred_lrat = k.proof && k.proof->lrat() ? k.proof : nullptr;
+  if (deferred_lrat) {
+    assert(k.next_clause_id == 0 && k.startup_input.empty());
+    k.proof = nullptr;
+    k.replay_lrat_input = true;
+    k.startup_certificate_open = true;
+  }
+  const auto parse_error = [&](const char *reason) {
+    if (deferred_lrat) {
+      k.proof = deferred_lrat;
+      k.replay_lrat_input = false;
+    }
+    return reason;
+  };
   std::vector<Lit> scratch;
   ParseMemoryTrace memory_trace;
   memory_trace.emit(k, "begin");
@@ -700,7 +835,7 @@ const char *parse_dimacs_with_block(FILE *f, Kernel &k, size_t block_bytes) {
       if (p != e && is_digit(*p)) {
         uint64_t n = 0;
         if (!read_digits(n, true))
-          return "variable count out of range";
+          return parse_error("variable count out of range");
         kernel_reserve_vars(k, static_cast<uint32_t>(n));
         for (;;) {
           while (p != e && (*p == ' ' || *p == '\t' || *p == '\r'))
@@ -736,7 +871,7 @@ const char *parse_dimacs_with_block(FILE *f, Kernel &k, size_t block_bytes) {
         // proofless solving instead use a compact no-false-negative filter
         // backed by exact mirrored-watch confirmation during input.  The
         // filter grows by load, never by formula identity or a size gate.
-        if (!k.proof || !k.proof->lrat()) {
+        if ((!k.proof || !k.proof->lrat()) && !k.replay_lrat_input) {
           k.binary_ids.discard_storage();
           input_liveness.arm(static_cast<size_t>(predicted_binaries),
                              2 * k.nvars, clauses);
@@ -754,15 +889,15 @@ const char *parse_dimacs_with_block(FILE *f, Kernel &k, size_t block_bytes) {
       neg = true;
       ++p;
       if (p == e && !refill())
-        return "expected literal";
+        return parse_error("expected literal");
     }
     if (!is_digit(*p))
-      return "expected literal";
+      return parse_error("expected literal");
     uint64_t n = 0;
     if (!read_digits(n, true))
-      return "literal out of range";
+      return parse_error("literal out of range");
     if (p != e && !is_space(*p))
-      return "unexpected character after literal";
+      return parse_error("unexpected character after literal");
     if (n == 0) {
       ingest_clause(k, scratch);
       scratch.clear();
@@ -777,6 +912,8 @@ const char *parse_dimacs_with_block(FILE *f, Kernel &k, size_t block_bytes) {
     ingest_clause(k, scratch);
   memory_trace.emit(k, "finish-begin");
   finish_input(k);
+  if (deferred_lrat)
+    attach_replayed_input_proof(k, *deferred_lrat);
   memory_trace.emit(k, "finish-end");
   return nullptr;
 }

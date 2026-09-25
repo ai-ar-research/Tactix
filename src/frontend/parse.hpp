@@ -38,4 +38,11 @@ void ingest_clause(Kernel &, std::vector<Lit> &scratch);
 // the C API.
 void finish_input(Kernel &);
 
+// Attach a proof after eager import by replaying the exact original clauses
+// into a temporary proof kernel. Native LRAT needs this for proof-independent
+// input normalization: its derived ids may only follow all original ids.
+// The existing solver's assignments, watches, reasons and policy state stay
+// untouched; only their proof identities are mapped to the replay stream.
+void attach_replayed_input_proof(Kernel &, Proof &);
+
 } // namespace tactix
