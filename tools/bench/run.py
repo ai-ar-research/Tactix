@@ -1008,8 +1008,7 @@ def build_dirs_of(solvers):
 
 
 def _buildlock(*argv):
-    """Run buildlock.py. NEVER fatal: the lock is a safety net, and a safety
-    net that can abort a submission is a worse bug than the one it prevents."""
+    """Run buildlock.py; callers decide whether a failure is fatal."""
     try:
         r = subprocess.run([sys.executable, BUILDLOCK, *argv],
                            capture_output=True, text=True, timeout=300)
@@ -1019,7 +1018,7 @@ def _buildlock(*argv):
         return r.returncode
     except Exception as e:                                  # pragma: no cover
         print(f"buildlock: skipped ({e})", file=sys.stderr)
-        return 0
+        return 1
 
 
 def buildlock_gc():
@@ -1028,7 +1027,8 @@ def buildlock_gc():
 
 def buildlock_acquire(dirs, jobid, note):
     if dirs:
-        _buildlock("--acquire", *dirs, "--job", str(jobid), "--note", note)
+        return _buildlock("--acquire", *dirs, "--job", str(jobid), "--note", note)
+    return 0
 
 
 def buildlock_release(dirs):
@@ -1345,13 +1345,30 @@ exec {sys.executable} {me} --aggregate {outdir}
         print(f"dry run: wrote {apath} and {gpath}, nothing submitted")
         return 0
     buildlock_gc()            # reclaim anything a dead job left locked
-    jobid = sbatch(apath)
-    # The array now owns every build directory its arms point at. Locking runs
-    # after submission (the job id is needed) and is best-effort: a failure here
-    # must never cost a submission that already happened.
+    # Hold the array until its build pins are locked. Otherwise a second array
+    # can start after lock acquisition was refused, and the first aggregate can
+    # release the only lock while that second array still uses the binaries.
+    jobid = sbatch(apath, "--hold")
     owned = build_dirs_of(solvers)
-    buildlock_acquire(owned, jobid, f"bench {args.tier} {name} {stamp}")
-    aggid = sbatch(gpath, f"--dependency=afterany:{jobid}")
+    if buildlock_acquire(owned, jobid, f"bench {args.tier} {name} {stamp}"):
+        subprocess.run(["scancel", jobid], capture_output=True, text=True)
+        print(f"error: cancelled held array {jobid}: build-pin lock refused",
+              file=sys.stderr)
+        return 1
+    try:
+        aggid = sbatch(gpath, f"--dependency=afterany:{jobid}")
+    except SystemExit:
+        subprocess.run(["scancel", jobid], capture_output=True, text=True)
+        raise
+    released = subprocess.run(["scontrol", "release", jobid],
+                              capture_output=True, text=True)
+    if released.returncode:
+        subprocess.run(["scancel", jobid, aggid],
+                       capture_output=True, text=True)
+        print(f"error: cancelled held array {jobid} and aggregate {aggid}: "
+              f"could not release SLURM hold: {released.stderr.strip()}",
+              file=sys.stderr)
+        return 1
     print(f"submitted: array {jobid}, aggregate {aggid} (runs when the "
           f"array finishes)")
     if owned:
