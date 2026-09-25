@@ -284,6 +284,21 @@ Var kernel_new_extension_vars(Kernel &k, uint32_t count) {
         static_cast<uint32_t>(k.external_to_internal.size());
   }
   kernel_reserve_vars(k, k.nvars + count); // additive: grows all per-var state
+  // A first late H attachment reconstructs extensions from their stable
+  // external identities. After H has already attached once, however, its
+  // activation seed is consumed and the kernel retains the compact population
+  // image through detachment. Keep that image current while H is absent so a
+  // later attachment neither loses these new decision variables nor needs to
+  // reintroduce retired input identities to find them.
+  if (!k.h && !k.compact_import_order.empty()) {
+    k.compact_import_position.resize(k.nvars, INVALID_VAR);
+    for (Var v = first; v < first + count; ++v) {
+      assert(k.compact_import_position[v] == INVALID_VAR);
+      k.compact_import_position[v] =
+          static_cast<Var>(k.compact_import_order.size());
+      k.compact_import_order.push_back(v);
+    }
+  }
   for (Var v = first; v < first + count; v++)
     kernel_record_import(k, v);
   return first;

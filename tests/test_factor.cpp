@@ -199,6 +199,73 @@ static void test_late_heuristics_attach_after_extension_compaction() {
   heuristics_update_target_phases(k);
 }
 
+static void test_factor_extension_between_heuristics_attachments() {
+  Kernel k;
+  kernel_reserve_vars(k, 5);
+  k.input_activation_order = {0, 1, 2, 3, 4};
+  for (Var v = 0; v < 5; ++v)
+    kernel_record_import(k, v);
+  for (const Lit f : {make_lit(0, false), make_lit(1, false)})
+    for (const Lit r : {make_lit(2, false), make_lit(3, false),
+                        make_lit(4, false)})
+      kernel_add_binary_clause(k, f, r, ++k.next_clause_id);
+  {
+    ScopedHeuristics first(k);
+    assert(k.compact_import_order == std::vector<Var>({0, 1, 2, 3, 4}));
+    assert(k.input_activation_order.empty());
+  }
+  assert(!k.h);
+  assert(factor_apply(k) == ApplyResult::Ok);
+  assert(k.nvars == 6 && k.first_extension_var == 5);
+  assert(k.compact_import_order ==
+         std::vector<Var>({0, 1, 2, 3, 4, 5}));
+  assert(k.compact_import_position[5] == 5);
+  {
+    ScopedHeuristics second(k);
+    assert(k.compact_import_order ==
+           std::vector<Var>({0, 1, 2, 3, 4, 5}));
+    assert(k.compact_import_position[5] == 5);
+    assert(k.compact_import_order.size() == k.unassigned_active);
+    k.h->stable = true;
+    heuristics_update_target_phases(k);
+  }
+}
+
+static void test_detached_factor_after_input_compaction() {
+  Kernel k;
+  kernel_reserve_vars(k, 6);
+  k.input_activation_order = {1, 2, 3, 4, 5};
+  for (Var v = 1; v < 6; ++v)
+    kernel_record_import(k, v);
+  kernel_record_import(k, 0); // never activated by a live input clause
+  for (const Lit f : {make_lit(1, false), make_lit(2, false)})
+    for (const Lit r : {make_lit(3, false), make_lit(4, false),
+                        make_lit(5, false)})
+      kernel_add_binary_clause(k, f, r, ++k.next_clause_id);
+  {
+    ScopedHeuristics first(k);
+    assert(k.compact_import_order ==
+           std::vector<Var>({1, 2, 3, 4, 5}));
+  }
+  k.var_status.assign(k.nvars, VarStatus::Active);
+  k.var_status[0] = VarStatus::Eliminated;
+  --k.unassigned_active;
+  assert(kernel_compact_variables(k));
+  assert(k.compact_import_order ==
+         std::vector<Var>({0, 1, 2, 3, 4}));
+  assert(factor_apply(k) == ApplyResult::Ok);
+  assert(k.external_to_internal[6] == 5);
+  assert(k.compact_import_order ==
+         std::vector<Var>({0, 1, 2, 3, 4, 5}));
+  {
+    ScopedHeuristics second(k);
+    assert(k.compact_import_order.size() == k.unassigned_active);
+    assert(k.compact_import_position[5] == 5);
+    k.h->stable = true;
+    heuristics_update_target_phases(k);
+  }
+}
+
 static void test_detached_heuristics_compaction_remaps_extension() {
   Kernel k;
   kernel_reserve_vars(k, 6);
@@ -823,6 +890,8 @@ int main() {
   test_factoring_2x3();
   test_late_heuristics_attach_keeps_factor_extension();
   test_late_heuristics_attach_after_extension_compaction();
+  test_factor_extension_between_heuristics_attachments();
+  test_detached_factor_after_input_compaction();
   test_detached_heuristics_compaction_remaps_extension();
   test_dense_scan_budget_boundary();
   test_next_factor_budget_check_follows_occurrence();
