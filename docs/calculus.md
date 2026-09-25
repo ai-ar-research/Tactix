@@ -180,9 +180,7 @@ Inprocessing rules use the level-zero root formula `F|U` as their declared actio
 - **Effect:** replace `c` by `c′` (add-before-delete). Proof δ: `add_rup(c′)` + `del(c)`; a unit result is asserted (root unit), an
   empty result refutes. Derived root consequences may simplify later candidates, with proof support retained before reason deletion;
   caller closure uses M1 and root-satisfied deletion, not a stronger C2 guard. The round is *fused*, taking C1's inference when the
-  resolvent subsumes outright — that branch is **`del` with no add**. In native LRAT, root units absorbed from both the victim and
-  partner are cited once each in their first-occurrence order before the partner and victim IDs; a repeated unit is not a second
-  propagation hint.
+  resolvent subsumes outright — that branch is **`del` with no add**. In native LRAT, absorbed root units from both clauses are cited once each in first-occurrence order before the partner and victim IDs; a repeated unit is not a propagation hint.
 - **Soundness:** `c′` is RUP from `c` and `d`; add-before-delete keeps the core entailed at every step. The fused SUBSUMED branch is
   C1's inference and inherits its argument (`implementation-notes.md` §14). Like C1 the precondition constrains only the PARTNER `d`
   — ledger `D-C1C2-VICTIM`. Canonical material flags and their round-consumption/cumulative invitation state are scheduling advice,
@@ -311,10 +309,7 @@ root closure at apply entry. V1/V2 Probe/Backbone additionally require `!conflic
   `F`. Two strategies. **Fast path:** negate `B`, propagate the main formula, and let `h` be its reason clauses in propagation order
   followed by the conflict. **General path:** translate the sub-solver derivation `D₁,…,Dₘ=B`; emit each
   `add_rup(Dᵢ,[stripped-root-unit ids first, translated antecedent ids])` in derivation order. Both directions are validated without
-  mutation before either sequence is emitted. In native LRAT, each captured sub-solver chain is replayed under the complete
-  negated *lifted* clause cube before the environment disappears; hints already satisfied by the added target assumptions or
-  prior propagation are omitted, as are environment-strip unit ids already assumed by the emitted lemma cube. A chain that
-  cannot still close declines that direction. The fast path is tried first. A general derivation is admissible only at its
+  mutation before either sequence is emitted. In native LRAT, replay each captured chain under the complete negated *lifted* clause before the environment disappears; omit hints satisfied by target assumptions or prior propagation and strip-unit ids already assumed by the lemma cube. A chain that cannot close declines. The fast path is tried first. A general derivation is admissible only at its
   environment's mutation epoch; inline substitution makes an old capture stale. Otherwise decline the pair and leave `F` unchanged.
   The final unit or binary becomes kernel material. Every format then retires the earlier proof-only RUP prefix newest first. Before
   retirement nothing else is owed, because each prefix lemma `L` is written as `L v target`, as the BVE definition lifter writes `(unit v L)`: the weakening stays RUP (each check assumes the target false, under which the earlier conditioned lemmas act as the originals), and a conditioned lemma can propagate only a target literal, which the kernel holds once the target is installed. A lemma containing a negated target literal would be a tautology and is omitted; it is satisfied whenever the target is assumed false, so no later check can use it.
@@ -456,8 +451,7 @@ root closure at apply entry. V1/V2 Probe/Backbone additionally require `!conflic
   resolvents are generated, and each of those is still a resolution of two clauses of `F`.
 - **Proof δ:** **RUP-only — no `add_rat`.** Write each live positive parent as `Cᵢ={x}∪Aᵢ`, each live negative parent as
   `Dⱼ={¬x}∪Bⱼ`, and each emitted non-tautological resolvent as `Qᵢⱼ=unique(Aᵢ∪Bⱼ)` after stripping root-false literals. Emit
-  `add_rup(Qᵢⱼ,[distinct stripped-root-unit ids from Cᵢ and Dⱼ, Cᵢ.id, Dⱼ.id])`: under `¬Qᵢⱼ`, `Cᵢ` forces `x`, then `Dⱼ` conflicts. A
-  unit shared by both parents is cited once, in first-occurrence order. After
+  `add_rup(Qᵢⱼ,[distinct stripped-root-unit ids from Cᵢ and Dⱼ, Cᵢ.id, Dⱼ.id])`: under `¬Qᵢⱼ`, `Cᵢ` forces `x`, then `Dⱼ` conflicts; a shared unit is cited once, in first-occurrence order. After
   all resolvents are live, `del` every clause on `x`. For every removed live `Cᵢ`, append `({x}∪Aᵢ,witness x)` to `ρ`; for every
   removed live `Dⱼ`, append `({¬x}∪Bⱼ,witness ¬x)` (internal, no proof line). Empty → `add_empty`; contradictory units →
   `add_empty`. **Second variable-eliminating rule** (after V3) and second consumer of `ρ` — it reuses V3's entire proof + ρ +
@@ -674,8 +668,7 @@ extend `C` until the extension is blocked, and then the ORIGINAL `C` is deleted.
   and append the conflict id last. If the conflict did not depend on `l`, omit `C.id`. `D` is RUP against `F` **alone** — worth
   spelling out, since the probe assumed something `¬D` does not: under `¬D` the clause `C = D ∨ l` is unit, so `C` itself propagates
   `l`, reproducing the probe's state and hence its conflict. The LRAT chain therefore contains `C` at the trail position where `l`
-  entered, ahead of the reasons walked from the conflict. A named root unit already assumed by the complete `¬D` cube is omitted
-  from that chain: citing it would be a satisfied hint, not a propagation.
+  entered, ahead of the reasons walked from the conflict. Omit a named root unit already assumed by the complete `¬D` cube: citing it would be a satisfied hint, not a propagation.
 - **Soundness:** the refutation of `l ∧ ¬D` establishes `F ⊨ ¬l ∨ D`, which resolves with `C = l ∨ D` on `l` to give `F ⊨ D`. Adding
   an entailed clause and deleting a superset preserves the model set exactly — no witness, no reconstruction entry (contrast X1/E1).
 - **Termination:** every apply strictly shortens one clause and never adds a literal, so repeated application terminates.

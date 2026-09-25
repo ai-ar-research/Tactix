@@ -26,16 +26,7 @@ Engineering companion to `docs/calculus.md`: guards, deviations and representati
 | X6 HyperBinaryRes | `root && !conflict_valid` | root is the declared inprocessing boundary; conflict condition is abstract; semantic payloads completely enumerate stable `(d, clause, selected literal)` resolvents, including nonclosest dominators and unit-degenerate results |
 | X7 SubstitutionRedundancy | `root` | declared inprocessing boundary; explicit instances carry the candidate clause, witness literals, and finite literal substitution. The rule validates the complete DSR SR condition before mutation; strategy parameters own validation/enumeration/detection limits and producer selection. Direct SR requires native DSR output. |
 
-DefaultPolicy ships original-Kissat pipeline membership. Off-pipeline CaDiCaL rules remain registered, journaled, N1-reachable, and explicitly poseable.
-
-V5's native-LRAT general path normalizes each captured sub-solver chain while
-the local environment still owns the original clause literals. It replays the
-chain under the complete negated conditioned lemma (`L ∨ target`) and omits
-hints that the extra target assumptions or prior propagation already satisfy.
-A nonclosing chain declines the proof direction before any kernel mutation;
-environment-strip root units already assumed by the emitted lemma cube are
-also omitted from its LRAT prefix.
-No proofless, DRAT, or DSR trajectory is changed by this LRAT-only admission.
+DefaultPolicy ships original-Kissat pipeline membership. Off-pipeline CaDiCaL rules remain registered, journaled, N1-reachable, and explicitly poseable. V5's native-LRAT general path replays captured chains under the complete negated conditioned lemma while the environment still owns the original clauses; it omits already-satisfied hints and cube-assumed strip units, and declines a nonclosing chain before mutation. Proofless, DRAT, and DSR trajectories are unchanged.
 
 ### Native DSR proof backend contract
 
