@@ -34,6 +34,7 @@ struct JournalState {
 };
 
 JournalState state;
+bool close_registered = false;
 
 struct TransactionState {
   bool active = false;
@@ -69,6 +70,12 @@ static void open_journal() {
   if (state.initialized)
     return;
   state.initialized = true;
+  // Public API sessions may solve repeatedly. Keep one stream across those
+  // boundaries, but still detect a replay with unconsumed records at exit.
+  if (!close_registered) {
+    std::atexit(rule_journal_close);
+    close_registered = true;
+  }
   if (const char *limit = std::getenv("TACTIX_RULE_JOURNAL_LIMIT"))
     state.limit = std::strtoull(limit, nullptr, 10);
   if (const char *from =
@@ -598,6 +605,11 @@ std::string rule_journal_transaction_witnesses() {
 }
 
 void rule_journal_transaction_end() { transaction = TransactionState{}; }
+
+void rule_journal_flush() {
+  if (state.output)
+    std::fflush(state.output);
+}
 
 void rule_journal_close() {
   if (!state.initialized)

@@ -108,6 +108,13 @@ add_test(NAME rule_journal
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_rule_journal.py
                  $<TARGET_FILE:test_rule_journal>)
 if(TACTIX_ENABLE_RULE_JOURNAL)
+  add_executable(test_api_journal test_api_journal.c)
+  target_link_libraries(test_api_journal PRIVATE tactix_lib)
+  target_include_directories(test_api_journal PRIVATE ${CMAKE_SOURCE_DIR}/include)
+  add_test(NAME api_journal
+           COMMAND ${CMAKE_COMMAND} -E env python3
+                   ${CMAKE_CURRENT_SOURCE_DIR}/test_api_journal.py
+                   $<TARGET_FILE:test_api_journal>)
   add_test(NAME default_policy_rule_journal
            COMMAND ${CMAKE_COMMAND} -E env python3
                    ${CMAKE_CURRENT_SOURCE_DIR}/test_tactix_default_journal.py

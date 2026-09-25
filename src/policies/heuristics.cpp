@@ -273,6 +273,7 @@ void heuristics_compact_vars(Kernel &k, const std::vector<Var> &old_to_new,
 void heuristics_seed_activation_order(Kernel &k, const std::vector<Var> &order) {
   if (!k.h || order.empty())
     return;
+  std::vector<Var> activation_order(order);
   std::vector<uint8_t> activated(k.nvars, 0);
   for (const Var v : order) {
     assert(v < k.nvars);
@@ -281,17 +282,29 @@ void heuristics_seed_activation_order(Kernel &k, const std::vector<Var> &order) 
   }
   std::vector<Var> import_order;
   kernel_vars_in_import_order(k, import_order);
+  // H may attach after a proof rule has introduced fresh variables. They were
+  // activated after the input, but are absent from its retained activation
+  // list. Reconstruct that suffix by stable external identity, including
+  // surviving extensions after compaction; never reintroduce unactivated
+  // input/header identities into Kissat's compact population.
+  if (k.original_external_vars != UINT32_MAX)
+    for (const Var v : import_order)
+      if (!activated[v] &&
+          k.internal_to_external[v] >= k.original_external_vars) {
+        activated[v] = 1;
+        activation_order.push_back(v);
+      }
   k.compact_import_order.clear();
-  k.compact_import_order.reserve(order.size());
+  k.compact_import_order.reserve(activation_order.size());
   for (const Var v : import_order)
     if (activated[v])
       k.compact_import_order.push_back(v);
-  assert(k.compact_import_order.size() == order.size());
+  assert(k.compact_import_order.size() == activation_order.size());
   rebuild_compact_import_position(k, k.nvars);
   // Last activated ends at the queue tail, the most-preferred end. A variable
   // in no stored clause is never bumped and falls to the front; kissat never
   // imports one at all, so its position is unconstrained.
-  for (const Var v : order)
+  for (const Var v : activation_order)
     heuristics_queue_bump(k, v);
   // First activation is enqueueing, not a search bump. Rebuilding its order
   // above must not retain stamps from the provisional allocation queue:
@@ -301,7 +314,7 @@ void heuristics_seed_activation_order(Kernel &k, const std::vector<Var> &order) 
   for (Link &link : k.h->links)
     link.stamp = 0;
   uint32_t stamp = 0;
-  for (const Var v : order)
+  for (const Var v : activation_order)
     k.h->links[v].stamp = ++stamp;
   k.h->queue_stamp = stamp;
   k.h->search_stamp = k.h->search_idx == INVALID_VAR
@@ -318,10 +331,10 @@ void heuristics_seed_activation_order(Kernel &k, const std::vector<Var> &order) 
   // retained first-activation order here.
   std::fill(k.h->scores.score.begin(), k.h->scores.score.end(), 0.0);
   uint64_t rank = 0;
-  for (const Var v : order)
+  for (const Var v : activation_order)
     heuristics_score_set(k, v, 1.0 - 1.0 / static_cast<double>(++rank));
   k.h->activation_count = rank;
-  k.stats.tumble_seeded = order.size();
+  k.stats.tumble_seeded = activation_order.size();
 }
 
 size_t heuristics_prepare_residual_activation_order(Kernel &k) {

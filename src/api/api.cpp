@@ -1256,7 +1256,7 @@ int tactix_set_vivify_parameters(tactix_solver *s, unsigned scope, int reuse,
 int tactix_solve(tactix_solver *s) {
   input_complete(s);
   const int r = default_solve(s->kernel);
-  rule_journal_close();
+  rule_journal_flush();
   external_state_change(s);
   if (r == 10)
     // A public solver can be solved again. Replay of ρ belongs in the
