@@ -1,0 +1,57 @@
+{
+  "no-option-backward": {
+    "exit": 1,
+    "verified": false,
+    "first_error": "Fatal error: [line 21] Clause 37 not in watch pointers for literal 20"
+  },
+  "no-option-backward-verbose": {
+    "exit": 1,
+    "verified": false,
+    "first_error": "Fatal error: [line 21] Clause 37 not in watch pointers for literal 20"
+  },
+  "delete-implied-backward": {
+    "exit": 0,
+    "verified": true,
+    "first_error": ""
+  },
+  "delete-implied-backward-decode": {
+    "exit": 0,
+    "verified": false,
+    "first_error": ""
+  },
+  "delete-implied-backward-trestle": {
+    "exit": 0,
+    "verified": true,
+    "first_error": ""
+  },
+  "no-option-forward": {
+    "exit": 1,
+    "verified": false,
+    "first_error": "Error: [line 12] No UP contradiction for RAT clause 15."
+  },
+  "no-option-forward-verbose": {
+    "exit": 1,
+    "verified": false,
+    "first_error": "Error: [line 12] No UP contradiction for RAT clause 15."
+  },
+  "delete-implied-forward": {
+    "exit": 0,
+    "verified": true,
+    "first_error": ""
+  },
+  "delete-implied-forward-decode": {
+    "exit": 0,
+    "verified": false,
+    "first_error": ""
+  },
+  "delete-implied-forward-trestle": {
+    "exit": 0,
+    "verified": true,
+    "first_error": ""
+  },
+  "truncated-forward": {
+    "exit": 0,
+    "verified": false,
+    "first_error": ""
+  }
+}
