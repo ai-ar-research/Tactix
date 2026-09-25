@@ -24,9 +24,10 @@ Usage:
   paths relative to `benchmarks/cache/`.
 - For the solver under test, every UNSAT answer's proof is checked; a rejected
   (or missing) proof counts as UNSOLVED, competition-style. The arm's own
-  command picks the format: Tactix defaults to native DSR checked through
-  `dsr-trim` and Trestle, `--lrat` selects native LRAT, and `--drat` selects
-  compatibility DRAT. Other solver commands default to DRAT.
+  command picks the requested format: Tactix automatic output is routed by
+  certificate content (startup PBP, witnessed DSR, or witness-free DSR),
+  `--lrat` selects native LRAT, and `--drat` selects compatibility DRAT.
+  Other solver commands default to DRAT.
   A DRAT check that outruns its budget is not final: the arm is re-solved with
   `--lrat` and cake_lpr verifies that instead (§8.1, `lrat_rescue`). A checker
   that rejects still scores the instance unsolved — that is an N2 failure.
@@ -59,6 +60,7 @@ import concurrent.futures
 import datetime
 import json
 import os
+from pathlib import Path
 import re
 import resource
 import shlex
@@ -79,12 +81,20 @@ DSR_TRIM = os.path.join(ROOT, "tools", "checkers", "bin", "dsr-trim")
 SR_CHECK = os.path.join(ROOT, "tools", "checkers", "bin", "srcheck")
 DSR_COMPRESS = os.path.join(ROOT, "tools", "checkers", "bin", "dsr-compress")
 CAKE_LPR = os.path.join(ROOT, "tools", "checkers", "bin", "cake_lpr")
+PB_PINS = os.path.join(ROOT, "benchmarks", "baselines",
+                       "sc24-26-32g-5000s", "pins")
+VERIPB = os.path.join(PB_PINS, "veripb")
+CAKE_PB_CNF = os.path.join(PB_PINS, "cake-pb-cnf")
 sys.path.insert(0, HERE)
 from proof_oracle import (bridge_trivial_input_binary_lsr,  # noqa: E402
-                          bridge_trivial_input_lsr, dsr_compress_status,
+                          bridge_trivial_input_lrat, bridge_trivial_input_lsr,
+                          certificate_route, DSRFormatError,
+                          drat_stages, dsr_compress_status,
+                          dsr_proof_as_drat, pb_stages,
                           reference_dsr_stages, canonical_checker_cnf,
                           proof_check_status, drat_command_with_timeout,
-                          run_captured)
+                          restate_duplicate_input_lrat, run_captured,
+                          stage_environment)
 # Oracle 1 of the fuzz harness (§8.2), shared here since 2026-08-08: a SAT
 # verdict's v-lines are checked against the ORIGINAL formula. The wrong-SAT
 # exhibit was caught only by the expected-verdict column; an instance without
@@ -244,7 +254,7 @@ def checker_budget(timeout):
     return max(3600.0, 4 * timeout)
 
 
-def check_proof(fmt, cnf, proof, budget):
+def check_proof(fmt, cnf, proof, budget, *, allow_pbp=True, route=None):
     """Verify one certificate. Returns (ok, message, kind, detail).
 
     The KIND matters and used to be lost: a checker that OOMs or times out is
@@ -254,6 +264,20 @@ def check_proof(fmt, cnf, proof, budget):
     genuine `s NOT VERIFIED` taken for an OOM, is just as easy. See
     classify_checker_output."""
     if fmt == "dsr":
+        if route is None:
+            try:
+                route = certificate_route(proof)
+            except DSRFormatError as error:
+                return False, f"rejected: {error}", CHK_REJECTED, []
+        if route == "invalid-dsr":
+            return False, "rejected: malformed DSR", CHK_REJECTED, []
+        if route == "pbp":
+            if not allow_pbp:
+                return (False, "rejected: explicit DSR emitted PBP",
+                        CHK_REJECTED, [])
+            return check_pbp_proof(cnf, proof, budget)
+        if route == "drat":
+            return check_witness_free_dsr(cnf, proof, budget)
         started = time.monotonic()
 
         def remaining():
@@ -325,6 +349,96 @@ def check_proof(fmt, cnf, proof, budget):
                                                 input_has_empty_clause=
                                                 spelling['first_empty_clause'] is not None)
     return kind == CHK_VERIFIED, msg, kind, detail
+
+
+def check_pbp_proof(cnf, proof, budget):
+    """Check automatic startup PBP through both pinned PB authorities."""
+    started = time.monotonic()
+    with tempfile.TemporaryDirectory(prefix="tactix-pbp-check-") as scratch:
+        checker_cnf = os.path.join(scratch, "checker.cnf")
+        kernel = os.path.join(scratch, "proof.kernel.pbp")
+        try:
+            canonical_checker_cnf(cnf, checker_cnf)
+        except (OSError, ValueError) as error:
+            return False, f"checker-error: invalid original DIMACS: {error}", CHK_ERROR, []
+        details = []
+        for name, argv in pb_stages(VERIPB, CAKE_PB_CNF, cnf, proof, kernel,
+                                    checker_cnf=checker_cnf):
+            remaining = budget - (time.monotonic() - started)
+            if remaining <= 0:
+                return (False, f"{CHECKER_TIMEOUT_PREFIX}{budget:g}s budget",
+                        CHK_TIMEOUT, details)
+            try:
+                checked = run_captured([str(part) for part in argv],
+                                       timeout=remaining,
+                                       env=stage_environment(name))
+            except subprocess.TimeoutExpired:
+                return (False, f"{CHECKER_TIMEOUT_PREFIX}{budget:g}s budget",
+                        CHK_TIMEOUT, details)
+            except OSError as error:
+                return False, f"checker-error: {name}: {error}", CHK_ERROR, details
+            kind, msg, detail = classify_checker_output(
+                checked.stdout, checked.stderr, checked.returncode, name)
+            details.extend(detail)
+            if kind != CHK_VERIFIED:
+                return False, msg, kind, details
+            if name == "veripb" and (not os.path.isfile(kernel) or
+                                      os.path.getsize(kernel) == 0):
+                return False, "checker-error: no kernel PBP produced", CHK_ERROR, details
+        return True, "VERIFIED", CHK_VERIFIED, details
+
+
+def check_witness_free_dsr(cnf, proof, budget):
+    """Use the DRAT owner's complete route for a DSR without witnesses."""
+    started = time.monotonic()
+    with tempfile.TemporaryDirectory(prefix="tactix-dsr-drat-check-") as scratch:
+        checker_cnf = Path(scratch) / "checker.cnf"
+        drat, lrat = Path(scratch) / "proof.drat", Path(scratch) / "proof.lrat"
+        try:
+            spelling = canonical_checker_cnf(cnf, checker_cnf)
+        except (OSError, ValueError) as error:
+            return False, f"checker-error: invalid original DIMACS: {error}", CHK_ERROR, []
+        if not dsr_proof_as_drat(proof, drat):
+            return False, "rejected: witnessed line met during rewrite", CHK_REJECTED, []
+        checked_lrat = lrat
+        details = []
+        for name, command in drat_stages(DRAT_TRIM, CAKE_LPR, cnf, drat, lrat,
+                                         checker_cnf=checker_cnf):
+            remaining = budget - (time.monotonic() - started)
+            if remaining <= 0:
+                return (False, f"{CHECKER_TIMEOUT_PREFIX}{budget:g}s budget",
+                        CHK_TIMEOUT, details)
+            if name == "drat-trim":
+                command = drat_command_with_timeout(command, remaining)
+            else:
+                command = [*command[:-1], checked_lrat]
+            try:
+                checked = run_captured([str(part) for part in command],
+                                       timeout=remaining,
+                                       env=stage_environment(name))
+            except subprocess.TimeoutExpired:
+                return (False, f"{CHECKER_TIMEOUT_PREFIX}{budget:g}s budget",
+                        CHK_TIMEOUT, details)
+            except OSError as error:
+                return False, f"checker-error: {name}: {error}", CHK_ERROR, details
+            kind, msg, detail = classify_checker_output(
+                checked.stdout, checked.stderr, checked.returncode, name,
+                input_has_empty_clause=spelling['first_empty_clause'] is not None)
+            details.extend(detail)
+            if kind != CHK_VERIFIED:
+                return False, msg, kind, details
+            if name == "drat-trim":
+                bridge_trivial_input_lrat(spelling, lrat, checked.returncode,
+                                          checked.stdout, checked.stderr)
+                if not lrat.is_file() or lrat.stat().st_size == 0:
+                    return False, "checker-error: no LRAT produced", CHK_ERROR, details
+                try:
+                    checked_lrat, _ = restate_duplicate_input_lrat(
+                        checker_cnf, spelling, lrat,
+                        Path(scratch) / "proof.original-input.lrat")
+                except ValueError as error:
+                    return False, f"rejected: {error}", CHK_REJECTED, details
+        return True, "VERIFIED", CHK_VERIFIED, details
 
 
 def solve_once(argv, timeout):
@@ -457,6 +571,7 @@ def run_instance(cmd, rel, cnf, expected, timeout, check_proofs, workdir,
            "time": timeout, "solved": False, "mismatch": False,
            "proof_ok": None, "proof_bytes": None, "proof_check_time": None,
            "proof_format": fmt if check_proofs else None,
+           "proof_route": None,
            "proof_scored": bool(check_proofs and verify_proofs and score_proofs),
            "proof_msg": None,
            # The classified checker outcome (CHK_*) and the checker's own
@@ -523,12 +638,21 @@ def run_instance(cmd, rel, cnf, expected, timeout, check_proofs, workdir,
             else:
                 # size is free from a stat and is tracked for every arm
                 res["proof_bytes"] = os.path.getsize(proof)
+                if fmt == "dsr":
+                    try:
+                        res["proof_route"] = certificate_route(proof)
+                    except DSRFormatError:
+                        res["proof_route"] = "invalid-dsr"
+                else:
+                    res["proof_route"] = fmt
                 if not verify_proofs:
                     res["proof_msg"] = "written, not verified (§8.1: baseline)"
                 else:
                     t1 = time.monotonic()
                     ok, msg, kind, detail = check_proof(
-                        fmt, cnf, proof, checker_budget(timeout))
+                        fmt, cnf, proof, checker_budget(timeout),
+                        allow_pbp="--dsr" not in cmd,
+                        route=res["proof_route"])
                     res["proof_check_time"] = round(time.monotonic() - t1, 3)
                     res["proof_ok"] = ok
                     res["proof_msg"] = msg
@@ -966,7 +1090,8 @@ def slurm_aggregate(outdir):
                  "verdict": "MISSING", "time": man["timeout"],
                  "solved": False, "mismatch": False, "proof_ok": None,
                  "proof_bytes": None, "proof_check_time": None,
-                 "proof_format": None, "proof_scored": False,
+                 "proof_format": None, "proof_route": None,
+                 "proof_scored": False,
                  "proof_msg": None, "proof_rescue": None,
                  "proof_rescue_time": None,
                  "model_ok": None, "model_msg": None}

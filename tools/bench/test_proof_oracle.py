@@ -130,6 +130,55 @@ class ProofOracleTests(unittest.TestCase):
                         checked = runner.check_proof('drat', str(cnf), str(proof), budget)
                     self.assertTrue(checked[0], checked)
 
+    def test_tier_runner_routes_automatic_pbp_and_witness_free_dsr(self):
+        import importlib.util
+        from unittest.mock import patch
+        root = Path(__file__).resolve().parents[2]
+        pins = root/'benchmarks/runs/20260923-am341-unwatch/pins'
+        spec = importlib.util.spec_from_file_location('routed_tier_runner',
+                                                   root/'tools/bench/run.py')
+        runner = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(runner)
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            cnf, proof = work/'input.cnf', work/'proof.dsr'
+            cnf.write_text('p cnf 1 2\n1 0\n-1 0\n')
+            positive_pbp = ('pseudo-Boolean proof version 3.0\n'
+                            'rup >= 1 ;\noutput NONE ;\n'
+                            'conclusion UNSAT : -1 ;\n'
+                            'end pseudo-Boolean proof ;\n')
+            with patch.object(runner, 'VERIPB', str(pins/'veripb')), \
+                 patch.object(runner, 'CAKE_PB_CNF', str(pins/'cake-pb-cnf')), \
+                 patch.object(runner, 'DRAT_TRIM', str(pins/'drat-trim')), \
+                 patch.object(runner, 'CAKE_LPR', str(pins/'cake_lpr')):
+                proof.write_text(positive_pbp)
+                self.assertEqual(runner.check_proof('dsr', str(cnf), str(proof), 60)[:3],
+                                 (True, 'VERIFIED', runner.CHK_VERIFIED))
+                with patch.object(runner, 'CAKE_PB_CNF', '/bin/false'):
+                    self.assertFalse(runner.check_proof('dsr', str(cnf), str(proof), 60)[0])
+                self.assertEqual(runner.check_proof('dsr', str(cnf), str(proof), 60,
+                                                    allow_pbp=False)[2], runner.CHK_REJECTED)
+                proof.write_text(positive_pbp.replace('rup >= 1 ;\n', ''))
+                self.assertFalse(runner.check_proof('dsr', str(cnf), str(proof), 60)[0])
+                proof.write_text(positive_pbp)
+                def fake_solve(argv, timeout):
+                    Path(argv[-1]).write_text(positive_pbp)
+                    return 'UNSAT', .01, {}, 's UNSATISFIABLE\n'
+                with patch.object(runner, 'solve_once', side_effect=fake_solve):
+                    result = runner.run_instance(['tactix'], 'tiny.cnf', str(cnf),
+                                                 'UNSAT', 30, True, str(work))
+                self.assertTrue(result['proof_ok'], result)
+                self.assertEqual(result['proof_format'], 'dsr')
+                self.assertEqual(result['proof_route'], 'pbp')
+                proof.write_text('0\n')
+                self.assertEqual(runner.check_proof('dsr', str(cnf), str(proof), 60)[:3],
+                                 (True, 'VERIFIED', runner.CHK_VERIFIED))
+                with patch.object(runner, 'CAKE_LPR', '/bin/false'):
+                    self.assertFalse(runner.check_proof('dsr', str(cnf), str(proof), 60)[0])
+                cnf.write_text('p cnf 1 1\n1 0\n')
+                proof.write_text('0\n')
+                self.assertFalse(runner.check_proof('dsr', str(cnf), str(proof), 60)[0])
+
     def test_duplicate_restatement_preserves_noop_and_input_paths(self):
         from proof_oracle import canonical_checker_cnf, restate_duplicate_input_lrat
         with tempfile.TemporaryDirectory() as directory:

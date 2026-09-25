@@ -60,7 +60,7 @@ with tempfile.TemporaryDirectory(prefix="generic-dsr-proof-") as directory:
     directory = pathlib.Path(directory)
     cnf, proof = directory / "input.cnf", directory / "proof.dsr"
     cnf.write_text("p cnf 1 2\n1 0\n-1 0\n")
-    proof.write_bytes(b"proof")
+    proof.write_text("1 1 0\n0\n")  # witnessed DSR, not the DRAT route
 
     def fake_checker(argv, **kwargs):
         name = pathlib.Path(argv[0]).name
