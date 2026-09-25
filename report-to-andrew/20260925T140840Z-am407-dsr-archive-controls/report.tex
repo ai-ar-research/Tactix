@@ -1,0 +1,51 @@
+\documentclass[11pt]{article}
+\usepackage[margin=0.85in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{hyperref}
+\title{Tactix: DSR Checker-Contract Cross-Check}
+\author{Report to Andrew}
+\date{25 September 2026}
+\begin{document}
+\maketitle
+\vspace{-1.5em}
+
+\section*{Outcome}
+AM407 compared the historical no-option DSR checker route with
+\texttt{--delete-implied-units} on four archived, real Tactix CNF/proof pairs.
+All seven predeclared outcomes matched; the observation-only eighth also
+verified. One proof verifies only with the
+option; another verifies only without it; a known Sweep-retention regression
+is rejected by both; and its repaired exact case verifies under both. This
+is stronger contract evidence than hand-built controls alone, but neither
+mode has been promoted or proved universally sound.
+
+\section*{Verification}
+Job \texttt{1721174} completed \texttt{0:0} in three seconds on hwulab with
+two CPUs and 8 GiB. Both modes used the same frozen AM369
+\texttt{dsr-trim}, \texttt{dsr-compress} and Trestle pins. A pass required
+backward elaboration, independent Trestle verification, and then forward
+every-lemma elaboration and Trestle verification. The AM296 direct-SR proof
+under no-option shows why the independent stage matters: backward elaboration
+produces an LSR, but Trestle reports \texttt{s INVALID}. The opposite AM296
+proof under the option fails at its proof line 13 because the requested
+deletion removes an implied-unit reason it later needs.
+
+The exact runner, eight original inputs, per-stage logs, resulting LSRs and
+SHA-256 manifests are frozen in the \texttt{am407-dsr-archived-contract}
+probe under \texttt{benchmarks/probes/}. The AM407 technical report in
+\texttt{benchmarks/reports/} records the eight-row comparison and limits.
+No solver, production oracle, checker binary, or public API changed.
+
+\section*{Decision and remaining work}
+These results make the choice consequential: the option is not a monotone
+relaxation. The canonical no-option route remains unchanged while the user
+decides whether to adopt a fully audited option contract or require a
+general checker-visible proof-state repair. H2 still fails no-option;
+post-finalization public clause addition can still produce a wrong SAT model.
+The Opus-owned AM400/401 fuzz legs and two full Debug suites are in flight.
+N1--N4, the retained Rank/B+C/WV gates, and production online-learning
+readiness are not complete. The requested full Tier-D comparison at 5,000
+seconds, four CPUs and 32 GiB on hwulab is therefore not submitted.
+
+\end{document}
