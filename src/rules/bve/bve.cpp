@@ -1900,18 +1900,28 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
                                            const MClause &d, Lit d_pivot) {
     const size_t begin = def->resolvent_chains.size();
     if (lrat) {
-      def->resolvent_chains.insert(def->resolvent_chains.end(),
-                                   c.absorbed.begin(), c.absorbed.end());
-      def->resolvent_chains.insert(def->resolvent_chains.end(),
-                                   d.absorbed.begin(), d.absorbed.end());
+      // A root-false literal can occur on both resolution parents. Its named
+      // unit is a propagation hint exactly once, even when both parents need
+      // it before they become unit/conflicting (AM358-v2 H3).
+      const auto add_root_hint = [&](uint64_t id) {
+        assert(id != 0);
+        if (std::find(def->resolvent_chains.begin() + begin,
+                      def->resolvent_chains.end(), id) ==
+            def->resolvent_chains.end())
+          def->resolvent_chains.push_back(id);
+      };
+      for (const uint64_t id : c.absorbed)
+        add_root_hint(id);
+      for (const uint64_t id : d.absorbed)
+        add_root_hint(id);
       // These literals were unassigned when the antecedents were gathered but
       // became root-false through an earlier immediate resolvent unit.
       for (const Lit l : c.active)
         if (l != c_pivot && k.value(l) < 0)
-          def->resolvent_chains.push_back(k.unit_ids[var_of(l)]);
+          add_root_hint(k.unit_ids[var_of(l)]);
       for (const Lit l : d.active)
         if (l != d_pivot && k.value(l) < 0)
-          def->resolvent_chains.push_back(k.unit_ids[var_of(l)]);
+          add_root_hint(k.unit_ids[var_of(l)]);
       def->resolvent_chains.push_back(c.id);
       def->resolvent_chains.push_back(d.id);
     }

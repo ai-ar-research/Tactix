@@ -453,7 +453,8 @@ root closure at apply entry. V1/V2 Probe/Backbone additionally require `!conflic
   resolvents are generated, and each of those is still a resolution of two clauses of `F`.
 - **Proof δ:** **RUP-only — no `add_rat`.** Write each live positive parent as `Cᵢ={x}∪Aᵢ`, each live negative parent as
   `Dⱼ={¬x}∪Bⱼ`, and each emitted non-tautological resolvent as `Qᵢⱼ=unique(Aᵢ∪Bⱼ)` after stripping root-false literals. Emit
-  `add_rup(Qᵢⱼ,[stripped-root-unit ids from Cᵢ and Dⱼ, Cᵢ.id, Dⱼ.id])`: under `¬Qᵢⱼ`, `Cᵢ` forces `x`, then `Dⱼ` conflicts. After
+  `add_rup(Qᵢⱼ,[distinct stripped-root-unit ids from Cᵢ and Dⱼ, Cᵢ.id, Dⱼ.id])`: under `¬Qᵢⱼ`, `Cᵢ` forces `x`, then `Dⱼ` conflicts. A
+  unit shared by both parents is cited once, in first-occurrence order. After
   all resolvents are live, `del` every clause on `x`. For every removed live `Cᵢ`, append `({x}∪Aᵢ,witness x)` to `ρ`; for every
   removed live `Dⱼ`, append `({¬x}∪Bⱼ,witness ¬x)` (internal, no proof line). Empty → `add_empty`; contradictory units →
   `add_empty`. **Second variable-eliminating rule** (after V3) and second consumer of `ρ` — it reuses V3's entire proof + ρ +

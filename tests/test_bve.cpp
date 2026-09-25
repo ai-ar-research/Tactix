@@ -4,11 +4,16 @@
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "occurrence_test_utils.hpp"
+#include "proof/proof.hpp"
 #include "rules/bve/bve.hpp"
 
 #include <algorithm>
 #include <cassert>
 #include <cstdio>
+#include <fstream>
+#include <sstream>
+#include <string>
+#include <unistd.h>
 #include <vector>
 
 using namespace tactix;
@@ -24,6 +29,56 @@ static void test_guard() {
   assert(bve_guard(k));
   k.inconsistent = true;
   assert(!bve_guard(k)); // refuted
+}
+
+static void test_lrat_shared_parent_root_unit_once() {
+  const std::string path = "/tmp/tactix-bve-shared-root-" +
+                           std::to_string(static_cast<long>(getpid())) +
+                           ".lrat";
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  k.bve_gate_mask = 0;
+  const Lit positive[3] = {internalize(1), internalize(2),
+                           internalize(4)};
+  const Lit negative[3] = {internalize(-1), internalize(3),
+                           internalize(4)};
+  kernel_add_large_clause(k, positive, 3, false, 0, ++k.next_clause_id);
+  kernel_add_large_clause(k, negative, 3, false, 0, ++k.next_clause_id);
+  const uint64_t root_id = ++k.next_clause_id;
+  k.unit_ids[var_of(internalize(-4))] = root_id;
+  kernel_assign_unit(k, internalize(-4));
+  Proof proof;
+  assert(proof.open(path.c_str(), ProofFormat::Lrat));
+  proof.bind_variable_map(&k.internal_to_external);
+  k.proof = &proof;
+  const RuleVTable &bve = tactix_rules()[tactix_rule_id("BVE")];
+  assert(bve.apply_instance(k, lit_instance(internalize(1))) ==
+         ApplyResult::Ok);
+  proof.flush();
+  k.proof = nullptr;
+
+  std::ifstream input(path);
+  std::string line;
+  bool found = false;
+  while (std::getline(input, line)) {
+    std::istringstream fields(line);
+    uint64_t id;
+    if (!(fields >> id) || id != root_id + 1)
+      continue;
+    fields >> std::ws;
+    if (fields.peek() == 'd')
+      continue;
+    int literal;
+    while (fields >> literal && literal != 0) {}
+    uint64_t hint;
+    uint32_t root_count = 0;
+    while (fields >> hint && hint != 0)
+      root_count += hint == root_id;
+    assert(root_count == 1);
+    found = true;
+  }
+  assert(found);
+  std::remove(path.c_str());
 }
 
 // occurrence index: both polarities, large + binaries, active literals only.
@@ -1607,6 +1662,7 @@ static void test_backward_binary_victim_strengthen_to_unit() {
 
 int main() {
   test_guard();
+  test_lrat_shared_parent_root_unit_once();
   test_occurrences();
   test_schedule_occurrence_image_lifecycle();
   test_candidate_gather_compacts_garbage_occurrences();
