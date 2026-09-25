@@ -1,0 +1,27 @@
+\documentclass[11pt]{article}
+\usepackage[margin=0.82in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{hyperref}
+\newcommand{\code}[1]{\texttt{#1}}
+\title{Tactix: CaDiCaL and Kissat Proof-Event Boundary}
+\author{Report to Andrew}
+\date{25 September 2026}
+\begin{document}
+\maketitle
+\vspace{-1.4em}
+
+\section*{Outcome}
+AM403 completes the source-level \emph{emitter-interface} comparison for pinned CaDiCaL 3.0.0 and the SC24 Kissat/AE-Kissat-MAB fork. Their nonincremental solver proof events map to clausal additions (RUP or pivoted RAT), deletion, and restoration bookkeeping. Tactix has typed RUP/RAT/deletion events; CaDiCaL's VeriPB \code{pol} output is an elaboration of a derived clause's antecedent chain, not an extra general PB constraint inference performed by that solver. The two Kissat forks have byte-identical complete \code{proof.c} files. This narrows the open comparison but does not certify all producer algorithms or N1/N2.
+
+\section*{Evidence and distinction from winner PB}
+CaDiCaL's \code{Proof} dispatch and \code{Tracer} interface carry derived clauses, deletion, RAT pivots, strengthening/restoration metadata and separately tagged incremental queries. Its VeriPB tracer renders a pivoted derived clause as \code{red}, an antecedent chain as \code{pol}, or a witnessless derived clause as \code{rup}. Checked deletions use additional format commands. Kissat's exported emitter adds binaries, clauses, units and empty clauses, shortens by add-before-delete, and deletes clauses; the first literal carries RAT orientation in the ordinary proof line. Exact source locations and SHA-256 evidence are in the AM403 technical report.
+
+AM402's qualified winner gap remains: listed LymphoSAT family solvers and Satsuma VeriPB mode use general PB arithmetic, redundancy and dominance derivations, whereas Tactix's PB emitters are limited to complete terminal startup refutations. PB syntax alone should not be equated to a missing semantic clausal action. Any general PB extension needs a typed legality surface, proof-format lifetime design, independent original-CNF checks, and N1 reachability; a family-specific patch is not sufficient.
+
+\section*{Current gates and next action}
+The 30/30 catalog checker confirms dispositions exist, but explicitly does not test their truth or public reachability. X7 full acceptance and the producer-by-producer CaDiCaL/Kissat comparison remain due. The old AM386 matched A/B reruns are terminal checker-clean: each arm solves 199/200 A and 28/28 B, with near-equal totals and fragile/undecided deltas. They are older-pin evidence, not promotion or N3 acceptance. AM400 and AM401 full Debug suites and their Opus-owned affected fuzz campaigns remain live. H2's canonical DSR checker rejection and post-finalization public additions are separate N1/N2 blockers; contract choices were requested without pausing other work. N3/N4 and Rank/B+C/WV gates remain unaccepted. Next consume the terminal correctness evidence, repair any general handoff, finish source-to-action mapping and combined N1/N2 proof/model audits, then close the retained performance gates. The requested 5,000-second, 4-CPU, 32-GiB full Tier-D hwulab comparison is still downstream of actual goal completion.
+
+\noindent\textbf{Evidence:} AM403 and AM402 technical reports, pinned local source under \code{cadical/} and \code{winners/}, \code{docs/implementation-notes.md} \S17, \code{DEVELOPMENT\_PLAN.md} \S5, and current \code{PROGRESS.md}.
+\end{document}
