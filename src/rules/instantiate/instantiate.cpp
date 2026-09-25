@@ -211,6 +211,31 @@ static ApplyResult instantiate_one(Kernel &k, Ref cref,
     for (const Lit m : cand_lits)
       if (m != lit)
         next.push_back(m);
+    if (lrat) {
+      // The checker begins with the complete negated lemma cube. A root unit
+      // that already makes one of D's literals false is an assumption there,
+      // not a propagating hint, even if the probe's reason walk reached it.
+      std::vector<uint64_t> cube_root_units;
+      for (const Lit m : next)
+        if (k.value(m) < 0 && k.assigned[var_of(m)].level == 0) {
+          const uint64_t unit_id = k.unit_ids[var_of(m)];
+          if (unit_id)
+            cube_root_units.push_back(unit_id);
+        }
+      if (!cube_root_units.empty()) {
+        std::sort(cube_root_units.begin(), cube_root_units.end());
+        cube_root_units.erase(
+            std::unique(cube_root_units.begin(), cube_root_units.end()),
+            cube_root_units.end());
+        entries.erase(std::remove_if(entries.begin(), entries.end(),
+                                     [&](const auto &entry) {
+                                       return std::binary_search(
+                                           cube_root_units.begin(),
+                                           cube_root_units.end(), entry.second);
+                                     }),
+                      entries.end());
+      }
+    }
     unwind(k); // trail down + probing scope closed BEFORE the arena moves
     for (const Var tv : seen_touched)
       seen[tv] = 0;

@@ -13,7 +13,10 @@
 #include <cassert>
 #include <csignal>
 #include <cstdio>
+#include <fstream>
+#include <sstream>
 #include <string>
+#include <unistd.h>
 
 using namespace tactix;
 
@@ -103,6 +106,56 @@ static void test_binary_strengthens_large() {
   assert(kernel_binary_id(k, internalize(2), internalize(3)) == 0 ||
          true); // pair exists (id 0 in proof-less tests)
   assert(default_solve(k) == 10);
+}
+
+static void test_lrat_shared_absorbed_root_unit_once() {
+  // Both clauses retain the same root-false literal. C2 needs its unit once,
+  // before the partner and victim, not twice (AM358-v2 H3).
+  const std::string path = "/tmp/tactix-strengthen-shared-root-" +
+                           std::to_string(static_cast<long>(getpid())) +
+                           ".lrat";
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  const Lit partner[3] = {internalize(-1), internalize(2),
+                          internalize(4)};
+  const Lit victim[4] = {internalize(1), internalize(2),
+                         internalize(3), internalize(4)};
+  kernel_add_large_clause(k, partner, 3, false, 0, ++k.next_clause_id);
+  kernel_add_large_clause(k, victim, 4, false, 0, ++k.next_clause_id);
+  const uint64_t root_id = ++k.next_clause_id;
+  k.unit_ids[var_of(internalize(-4))] = root_id;
+  kernel_assign_unit(k, internalize(-4));
+  Proof proof;
+  assert(proof.open(path.c_str(), ProofFormat::Lrat));
+  proof.bind_variable_map(&k.internal_to_external);
+  k.proof = &proof;
+  assert(strengthen_apply(k) == ApplyResult::Ok);
+  assert(k.stats.strengthened == 1);
+  proof.flush();
+  k.proof = nullptr;
+
+  std::ifstream input(path);
+  std::string line;
+  bool found = false;
+  while (std::getline(input, line)) {
+    std::istringstream fields(line);
+    uint64_t id;
+    if (!(fields >> id) || id != k.next_clause_id)
+      continue;
+    fields >> std::ws;
+    if (fields.peek() == 'd')
+      continue;
+    int literal;
+    while (fields >> literal && literal != 0) {}
+    uint64_t hint;
+    uint32_t root_count = 0;
+    while (fields >> hint && hint != 0)
+      root_count += hint == root_id;
+    assert(root_count == 1);
+    found = true;
+  }
+  assert(found);
+  std::remove(path.c_str());
 }
 
 static void test_kissat_mixed_occurrence_limit_admits_binary_strengthener() {
@@ -706,6 +759,7 @@ int main(int argc, char **argv) {
   test_round_entry_deduplicates_binaries();
   test_round_entry_hyper_unary_binary_pair();
   test_binary_strengthens_large();
+  test_lrat_shared_absorbed_root_unit_once();
   test_kissat_mixed_occurrence_limit_admits_binary_strengthener();
   test_binary_partner_uses_kissat_last_strengthener();
   test_opposite_phase_binary_does_not_override_later_result();
