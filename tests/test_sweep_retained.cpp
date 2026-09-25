@@ -33,7 +33,9 @@ static void pure_seed(bool old) {
   assert(k.stats.sweep_resumed == (old ? 1u : 0u));
   assert(k.stats.sweep_scheduled == 0);
   assert(k.sweep_live == 0 && k.sweep_slot.empty());
-  assert(k.sweep_passes_completed == 2 && k.stats.sweep_completed == 2);
+  const uint32_t completed = old ? 1u : 2u;
+  assert(k.sweep_passes_completed == completed &&
+         k.stats.sweep_completed == completed);
   std::vector<Var> seeds;
   sweep_seeds(k, seeds);
   assert(std::find(seeds.begin(), seeds.end(), 0) != seeds.end());
