@@ -29,6 +29,7 @@ void sweep_capture_core_units_for_test(Kernel &, SweepDirProof &, SweepRound &,
                                        const SweepLimits &);
 ApplyResult sweep_emit_round_for_test(Kernel &, SweepRound &, uint32_t,
                                       const SweepLimits &);
+bool sweep_normalize_lrat_capture(const SweepEnv &, SweepDirProof &);
 }
 
 static void test_effort_prices_embedded_and_representation_ticks() {
@@ -55,6 +56,32 @@ static void test_core_prefixes_share_one_immutable_derivation() {
   assert(parent.shared_steps.use_count() == 2);
   parent = {};
   assert(prefix.steps_view()[0].id == 3);
+}
+
+static void test_lrat_capture_replays_lifted_cube() {
+  SweepEnv env;
+  env.vars = {0, 1};
+  env.sub_of_var = {0, 1};
+  env.clause_ids = {1, 2, 3};
+  env.clause_lits = {internalize(-1), internalize(2),
+                     internalize(1), internalize(2), internalize(1)};
+  env.clause_off = {0, 2, 4, 5};
+  SweepDirProof proof;
+  proof.t0 = internalize(1);
+  // Under the sub-solver's original -2 cube, hint 1 propagates -1 and hint 2
+  // conflicts. The lifted (+1 v +2) lemma also assumes -1: hint 1 is now
+  // satisfied and must be omitted, leaving hint 2 as the conflict.
+  proof.steps.push_back(SubStep{4, {sub_lit(1, false)}, {1, 2}, {}});
+  proof.steps.push_back(SubStep{5, {sub_lit(0, false)}, {3}, {}});
+  assert(sweep_normalize_lrat_capture(env, proof));
+  assert((proof.steps[0].chain == std::vector<uint32_t>{2}));
+  assert((proof.steps[1].chain == std::vector<uint32_t>{3}));
+
+  // A corrupted remaining antecedent cannot close; the proof direction must
+  // decline before Sweep emits even its first temporary lemma.
+  proof.steps[0].chain = {1, 2};
+  env.clause_lits[3] = internalize(-2);
+  assert(!sweep_normalize_lrat_capture(env, proof));
 }
 
 static void test_unbounded_clause_limit_sizes_from_formula() {
@@ -1441,6 +1468,7 @@ int main(int argc, char **argv) {
       argc > 1 ? static_cast<uint32_t>(strtoul(argv[1], nullptr, 10)) : 20000;
   test_effort_prices_embedded_and_representation_ticks();
   test_core_prefixes_share_one_immutable_derivation();
+  test_lrat_capture_replays_lifted_cube();
   test_unbounded_clause_limit_sizes_from_formula();
   test_dense_entry_flushes_only_irredundant_satisfied_clauses();
   test_non_rup_equivalence();

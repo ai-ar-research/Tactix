@@ -313,7 +313,8 @@ root closure at apply entry. V1/V2 Probe/Backbone additionally require `!conflic
   `add_rup(Dᵢ,[stripped-root-unit ids first, translated antecedent ids])` in derivation order. Both directions are validated without
   mutation before either sequence is emitted. In native LRAT, each captured sub-solver chain is replayed under the complete
   negated *lifted* clause cube before the environment disappears; hints already satisfied by the added target assumptions or
-  prior propagation are omitted, and a chain that cannot still close declines that direction. The fast path is tried first. A general derivation is admissible only at its
+  prior propagation are omitted, as are environment-strip unit ids already assumed by the emitted lemma cube. A chain that
+  cannot still close declines that direction. The fast path is tried first. A general derivation is admissible only at its
   environment's mutation epoch; inline substitution makes an old capture stale. Otherwise decline the pair and leave `F` unchanged.
   The final unit or binary becomes kernel material. Every format then retires the earlier proof-only RUP prefix newest first. Before
   retirement nothing else is owed, because each prefix lemma `L` is written as `L v target`, as the BVE definition lifter writes `(unit v L)`: the weakening stays RUP (each check assumes the target false, under which the earlier conditioned lemmas act as the originals), and a conditioned lemma can propagate only a target literal, which the kernel holds once the target is installed. A lemma containing a negated target literal would be a tautology and is omitted; it is satisfied whenever the target is assumed false, so no later check can use it.
