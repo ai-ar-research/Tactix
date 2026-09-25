@@ -121,6 +121,41 @@ static void test_instance_surface() {
          ApplyResult::NoOp);
 }
 
+// A root-false literal can make a physical large clause act as a binary
+// reason. Public enumeration must still offer the failed assumption.
+static void test_large_clause_failed_literal_instance() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  const Lit a[3] = {internalize(-1), internalize(2), internalize(3)};
+  const Lit b[3] = {internalize(-1), internalize(2), internalize(-3)};
+  kernel_add_large_clause(k, a, 3, false, 0);
+  kernel_add_large_clause(k, b, 3, false, 0);
+  kernel_assign_unit(k, internalize(-2));
+  assert(propagate_apply(k) == ApplyResult::Ok);
+  for (const WatchEntry w : k.watches.entries(internalize(-1)))
+    assert(!w.binary());
+  std::vector<Lit> scheduled;
+  probe_candidates(k, scheduled);
+  assert(std::find(scheduled.begin(), scheduled.end(), internalize(1)) ==
+         scheduled.end());
+
+  const int id = tactix_rule_id("Probe");
+  assert(id >= 0);
+  uint64_t insts[8];
+  const uint32_t n = tactix_rules()[id].instances(k, insts, 8);
+  assert(n == 4);
+  assert(insts[0] == static_cast<uint64_t>(1));
+  assert(insts[1] == lit_instance(k, internalize(-1)));
+  assert(insts[2] == static_cast<uint64_t>(3));
+  assert(insts[3] == lit_instance(k, internalize(-3)));
+  assert(tactix_rules()[id].instances(k, insts, 2) == 2);
+  assert(insts[0] == static_cast<uint64_t>(1));
+  assert(insts[1] == lit_instance(k, internalize(-1)));
+  assert(tactix_rules()[id].apply_instance(k, 1) == ApplyResult::Ok);
+  assert(k.value(internalize(-1)) > 0);
+  assert(default_solve(k) == 10);
+}
+
 int main() {
   test_failed_literal_derives_unit();
   test_both_polarities_fail_unsat();
@@ -128,6 +163,7 @@ int main() {
   test_failed_literal_through_large_clause();
   test_candidate_schedule();
   test_instance_surface();
+  test_large_clause_failed_literal_instance();
   puts("test_probe OK");
   return 0;
 }
