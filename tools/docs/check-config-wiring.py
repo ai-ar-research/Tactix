@@ -256,6 +256,9 @@ NOT_CONFIG = {"cold_state_deferred", "lvl", "transitive_cursor",
               # the arena's own relocation counter: whoever holds a Ref across
               # a possible collection compares it. Nothing configures it.
               "arena_generation",
+              # Sweep's resumable-pass latch is written and cleared by the
+              # rule's completion state machine, never configured by policy.
+              "sweep_incomplete",
               "touch_epoch", "touch_fixed_head",
               "subsume_touch_mark", "strengthen_touch_mark",
               "bce_touch_mark", "ternary_touch_mark",

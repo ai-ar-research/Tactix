@@ -1,0 +1,43 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\title{Tactix interim N4 audit: current implementation versus ledger}
+\author{Codex for Andrew}
+\date{25 September 2026}
+\begin{document}
+\maketitle
+
+\paragraph{Outcome.} Three high-severity scheduling-parity rows incorrectly
+said their mechanisms were absent from production. Current source, Git
+history, and focused current-source Debug tests show they shipped in commit
+\texttt{7a668e76}: Congruence's redundant-prefix cleanup, Reduce's newly
+derived-root guidance, and Vivify's learned-large BVE retry marks. The living
+ledger and implementation note now distinguish \emph{implemented} from
+\emph{accepted}. No solver code or schedule changed. The exact source/test
+mapping is in the AM440 technical report under \texttt{benchmarks/reports/}.
+
+\paragraph{Validation and limitation.} Current-source Debug tests
+\texttt{congruence}, \texttt{reduce\_root\_guidance}, \texttt{vivify}, and
+\texttt{vivify\_binary\_retry} have passed within job 1723391. The job had
+passed 186 of 187 tests and was still running its final scripted demo at this
+snapshot. Its partial status is not a full Debug gate. The historical
+Congruence and Reduce runtime experiments remain useful evidence but do not
+establish current-source cumulative Rank/B28+C5 or N4 acceptance. Required
+affected fuzz, full-trajectory comparison, and runtime attribution remain
+open for these mechanisms.
+
+\paragraph{Audit-tool repair.} The configuration-wiring check treated
+\texttt{sweep\_incomplete}, a Sweep-owned resumable-pass state latch, as an
+unclassified strategy setting. It is now explicitly excluded as lifecycle
+state, rather than given a fake policy writer. The check passes with 96 actual
+configuration fields and zero failures; the option-coverage check accounts
+for all 418 pinned reference options. Existing documentation-size warnings
+remain; no compaction was performed.
+
+\paragraph{Next actions.} Finish the running full Debug and paired AES
+certificate checks, resolve H2's general proof/checker-state mismatch,
+complete the N1--N4 and winner-rule gates, then prepare the final learning
+readiness report. The requested full 1,166-instance Tier D comparison at
+5,000 seconds, 4 CPUs and 32 GiB on hwulab remains deferred until the
+preceding goal is verified.
+\end{document}
