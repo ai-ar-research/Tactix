@@ -446,8 +446,8 @@ exact pair-to-id state. DRAT/proofless uses an exact triangular pair image when 
 no formula shape selects this. Dense AND extraction uses owner-style BIG partner marks, scanning each output's adjacency once and
 clearing the touched partners after that output; sparse extraction uses mirrored-watch confirmation. Root assignments requeue affected gates; header-only identities retire unwitnessed. Isolated5626
 deletes visited root-satisfied index clauses with native size/position scope; public extraction remains read-only. Production
-forward cleanup skips redundant clauses; Kissat includes live records through its last irredundant physical position, including
-interleaved redundant records; CaDiCaL filters them. Isolated `SP-CONG-PREFIX-1` uses generation-local positions; redundant never
+forward cleanup includes live records through the last irredundant logical position, including interleaved redundant records,
+matching Kissat's physical-prefix scope; CaDiCaL filters redundant candidates. `SP-CONG-PREFIX-1` uses generation-local positions; redundant never
 subsumes irredundant. Scope is not a guard.
 
 ## 20. BVE antecedent admission
