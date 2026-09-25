@@ -1,0 +1,52 @@
+\documentclass[11pt]{article}
+\usepackage[margin=0.82in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{hyperref}
+\title{Tactix: Sweep Pass-State Checkpoint}
+\author{Report to Andrew}
+\date{25 September 2026}
+\begin{document}
+\maketitle
+\vspace{-1.5em}
+
+\section*{Outcome}
+The current N4 Sweep candidate now models pass completion independently of
+the retained seed schedule, matching a source-level Kissat/CaDiCaL distinction
+that our prior narrow completion-count change missed. A previously swept
+representative can remain scheduled after the pass completes; the next call
+must admit fresh seeds alongside it. The candidate stores per-external-variable
+pass marks and an incomplete flag, preserves the existing public Sweep action
+surface, and does not change proof emission. This is a candidate, not N4
+acceptance. The \href{../../benchmarks/reports/2026-09-25-am427-sweep-state-machine-candidate.md}{AM427 technical report}
+owns the detailed transition and test evidence.
+
+\section*{Evidence}
+Formula-level tests exercise both the filtered-old-tail double completion and
+the completed-but-retained representative followed by fresh admission. Kernel
+compaction preserves external pass marks. On the candidate source, ten focused
+Release tests pass, including Sweep proofs and public API cases; four Debug
+ASan+UBSan tests pass. Documentation and rule/policy-boundary checks pass.
+The candidate Release solver SHA-256 is
+\texttt{c3eafb2bd382c2e1171f886f9cd9cf142dd92e3b538ce29e6accdce9597db2b8}.
+
+The preceding narrow AM426 experiment, run as unthrottled paired Tier A array
+\texttt{1722402} with independently checked models/DSRs, is terminal and
+checker-clean. Both arms solve 199/200 (82 SAT, 117 UNSAT); every verdict,
+recorded rule counter and proof size matches. Its 1.5-second aggregate timing
+advantage is fragile and does not establish that the branch occurred on Tier A.
+The broader AM427 paired Tier A array \texttt{1722828} and dependent aggregate
+\texttt{1722829} are active on immutable binaries, 8 logical CPUs/32 GiB per
+task, with no throttle or node constraint. No AM427 performance conclusion is
+available yet. Neither run is the requested post-goal Tier D comparison.
+
+\section*{Remaining gates and next action}
+Classify the AM427 Tier A model/proof and state-transition results, then run
+matched checked B/C if clean. Inspect individual regressions and seek
+affected-scope random-policy fuzz and reference trace evidence before N4
+promotion. The AM401/412/414 fuzz owners are still in flight; canonical H2
+no-option DSR checking, broad N1/N2, N3 competitiveness, other N4 rows and
+the production online-learning refactors remain open. Submit the full
+5,000-second Tier D Tactix run only after those goal gates are satisfied.
+
+\end{document}
