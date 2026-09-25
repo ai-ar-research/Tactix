@@ -1,0 +1,3394 @@
+pseudo-Boolean proof version 3.0
+f 752 ;
+red 1 x121 1 x201 1 x282 2 ~x283 >= 3 : x283 -> 0 ;
+red 1 ~x121 1 ~x201 1 ~x282 2 x283 >= 2 : x283 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 753
+    pol 754 742 + ;
+    pol 757 2 d ;
+    rup 1 x121 >= 1 ;
+    pol 754 743 + ;
+    pol 760 2 d ;
+    rup 1 x201 >= 1 ;
+    pol 754 744 + ;
+    pol 763 2 d ;
+    rup 1 x282 >= 1 ;
+    pol 759 762 + 765 + ;
+    pol 766 756 + ;
+  qed : 767 ;
+qed ;
+red 1 x75 1 x157 1 x192 2 ~x284 >= 3 : x284 -> 0 ;
+red 1 ~x75 1 ~x157 1 ~x192 2 x284 >= 2 : x284 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 769
+    pol 770 730 + ;
+    pol 773 2 d ;
+    rup 1 x75 >= 1 ;
+    pol 770 731 + ;
+    pol 776 2 d ;
+    rup 1 x157 >= 1 ;
+    pol 770 732 + ;
+    pol 779 2 d ;
+    rup 1 x192 >= 1 ;
+    pol 775 778 + 781 + ;
+    pol 782 772 + ;
+  qed : 783 ;
+qed ;
+red 1 x12 1 x186 1 x268 2 ~x285 >= 3 : x285 -> 0 ;
+red 1 ~x12 1 ~x186 1 ~x268 2 x285 >= 2 : x285 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 785
+    pol 786 726 + ;
+    pol 789 2 d ;
+    rup 1 x12 >= 1 ;
+    pol 786 727 + ;
+    pol 792 2 d ;
+    rup 1 x186 >= 1 ;
+    pol 786 728 + ;
+    pol 795 2 d ;
+    rup 1 x268 >= 1 ;
+    pol 791 794 + 797 + ;
+    pol 798 788 + ;
+  qed : 799 ;
+qed ;
+red 1 x133 1 x144 1 x280 2 ~x286 >= 2 : x286 -> 0 ;
+red 1 ~x133 1 ~x144 1 ~x280 2 x286 >= 3 : x286 -> 1 : subproof
+  proofgoal #1
+    pol 803 724 + ;
+  qed : 804 ;
+  proofgoal 801
+    pol 805 723 + ;
+    pol 806 2 d ;
+    rup 1 ~x133 >= 1 ;
+    pol 805 722 + ;
+    pol 809 2 d ;
+    rup 1 ~x144 >= 1 ;
+    pol 805 721 + ;
+    pol 812 2 d ;
+    rup 1 ~x280 >= 1 ;
+    pol 802 808 + 811 + 814 + ;
+  qed : 815 ;
+qed ;
+red 1 x156 1 x170 1 x253 2 ~x287 >= 2 : x287 -> 0 ;
+red 1 ~x156 1 ~x170 1 ~x253 2 x287 >= 3 : x287 -> 1 : subproof
+  proofgoal #1
+    pol 819 720 + ;
+  qed : 820 ;
+  proofgoal 817
+    pol 821 719 + ;
+    pol 822 2 d ;
+    rup 1 ~x156 >= 1 ;
+    pol 821 718 + ;
+    pol 825 2 d ;
+    rup 1 ~x170 >= 1 ;
+    pol 821 717 + ;
+    pol 828 2 d ;
+    rup 1 ~x253 >= 1 ;
+    pol 818 824 + 827 + 830 + ;
+  qed : 831 ;
+qed ;
+red 1 x185 1 x257 1 x275 2 ~x288 >= 2 : x288 -> 0 ;
+red 1 ~x185 1 ~x257 1 ~x275 2 x288 >= 3 : x288 -> 1 : subproof
+  proofgoal #1
+    pol 835 708 + ;
+  qed : 836 ;
+  proofgoal 833
+    pol 837 707 + ;
+    pol 838 2 d ;
+    rup 1 ~x185 >= 1 ;
+    pol 837 706 + ;
+    pol 841 2 d ;
+    rup 1 ~x257 >= 1 ;
+    pol 837 705 + ;
+    pol 844 2 d ;
+    rup 1 ~x275 >= 1 ;
+    pol 834 840 + 843 + 846 + ;
+  qed : 847 ;
+qed ;
+red 1 x182 1 x276 1 x282 2 ~x289 >= 3 : x289 -> 0 ;
+red 1 ~x182 1 ~x276 1 ~x282 2 x289 >= 2 : x289 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 849
+    pol 850 702 + ;
+    pol 853 2 d ;
+    rup 1 x182 >= 1 ;
+    pol 850 703 + ;
+    pol 856 2 d ;
+    rup 1 x276 >= 1 ;
+    pol 850 704 + ;
+    pol 859 2 d ;
+    rup 1 x282 >= 1 ;
+    pol 855 858 + 861 + ;
+    pol 862 852 + ;
+  qed : 863 ;
+qed ;
+red 1 x234 1 x277 1 x281 2 ~x290 >= 2 : x290 -> 0 ;
+red 1 ~x234 1 ~x277 1 ~x281 2 x290 >= 3 : x290 -> 1 : subproof
+  proofgoal #1
+    pol 867 700 + ;
+  qed : 868 ;
+  proofgoal 865
+    pol 869 699 + ;
+    pol 870 2 d ;
+    rup 1 ~x234 >= 1 ;
+    pol 869 698 + ;
+    pol 873 2 d ;
+    rup 1 ~x277 >= 1 ;
+    pol 869 697 + ;
+    pol 876 2 d ;
+    rup 1 ~x281 >= 1 ;
+    pol 866 872 + 875 + 878 + ;
+  qed : 879 ;
+qed ;
+red 1 x155 1 x212 1 x280 2 ~x291 >= 3 : x291 -> 0 ;
+red 1 ~x155 1 ~x212 1 ~x280 2 x291 >= 2 : x291 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 881
+    pol 882 682 + ;
+    pol 885 2 d ;
+    rup 1 x155 >= 1 ;
+    pol 882 683 + ;
+    pol 888 2 d ;
+    rup 1 x212 >= 1 ;
+    pol 882 684 + ;
+    pol 891 2 d ;
+    rup 1 x280 >= 1 ;
+    pol 887 890 + 893 + ;
+    pol 894 884 + ;
+  qed : 895 ;
+qed ;
+red 1 x60 1 x261 1 x267 2 ~x292 >= 3 : x292 -> 0 ;
+red 1 ~x60 1 ~x261 1 ~x267 2 x292 >= 2 : x292 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 897
+    pol 898 678 + ;
+    pol 901 2 d ;
+    rup 1 x60 >= 1 ;
+    pol 898 679 + ;
+    pol 904 2 d ;
+    rup 1 x261 >= 1 ;
+    pol 898 680 + ;
+    pol 907 2 d ;
+    rup 1 x267 >= 1 ;
+    pol 903 906 + 909 + ;
+    pol 910 900 + ;
+  qed : 911 ;
+qed ;
+red 1 x64 1 x238 1 x246 2 ~x293 >= 3 : x293 -> 0 ;
+red 1 ~x64 1 ~x238 1 ~x246 2 x293 >= 2 : x293 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 913
+    pol 914 674 + ;
+    pol 917 2 d ;
+    rup 1 x64 >= 1 ;
+    pol 914 675 + ;
+    pol 920 2 d ;
+    rup 1 x238 >= 1 ;
+    pol 914 676 + ;
+    pol 923 2 d ;
+    rup 1 x246 >= 1 ;
+    pol 919 922 + 925 + ;
+    pol 926 916 + ;
+  qed : 927 ;
+qed ;
+red 1 x123 1 x175 1 x241 2 ~x294 >= 2 : x294 -> 0 ;
+red 1 ~x123 1 ~x175 1 ~x241 2 x294 >= 3 : x294 -> 1 : subproof
+  proofgoal #1
+    pol 931 672 + ;
+  qed : 932 ;
+  proofgoal 929
+    pol 933 671 + ;
+    pol 934 2 d ;
+    rup 1 ~x123 >= 1 ;
+    pol 933 670 + ;
+    pol 937 2 d ;
+    rup 1 ~x175 >= 1 ;
+    pol 933 669 + ;
+    pol 940 2 d ;
+    rup 1 ~x241 >= 1 ;
+    pol 930 936 + 939 + 942 + ;
+  qed : 943 ;
+qed ;
+red 1 x27 1 x196 1 x216 2 ~x295 >= 3 : x295 -> 0 ;
+red 1 ~x27 1 ~x196 1 ~x216 2 x295 >= 2 : x295 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 945
+    pol 946 662 + ;
+    pol 949 2 d ;
+    rup 1 x27 >= 1 ;
+    pol 946 663 + ;
+    pol 952 2 d ;
+    rup 1 x196 >= 1 ;
+    pol 946 664 + ;
+    pol 955 2 d ;
+    rup 1 x216 >= 1 ;
+    pol 951 954 + 957 + ;
+    pol 958 948 + ;
+  qed : 959 ;
+qed ;
+red 1 x193 1 x206 1 x244 2 ~x296 >= 3 : x296 -> 0 ;
+red 1 ~x193 1 ~x206 1 ~x244 2 x296 >= 2 : x296 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 961
+    pol 962 650 + ;
+    pol 965 2 d ;
+    rup 1 x193 >= 1 ;
+    pol 962 651 + ;
+    pol 968 2 d ;
+    rup 1 x206 >= 1 ;
+    pol 962 652 + ;
+    pol 971 2 d ;
+    rup 1 x244 >= 1 ;
+    pol 967 970 + 973 + ;
+    pol 974 964 + ;
+  qed : 975 ;
+qed ;
+red 1 x126 1 x184 1 x271 2 ~x297 >= 3 : x297 -> 0 ;
+red 1 ~x126 1 ~x184 1 ~x271 2 x297 >= 2 : x297 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 977
+    pol 978 694 + ;
+    pol 981 2 d ;
+    rup 1 x126 >= 1 ;
+    pol 978 695 + ;
+    pol 984 2 d ;
+    rup 1 x184 >= 1 ;
+    pol 978 696 + ;
+    pol 987 2 d ;
+    rup 1 x271 >= 1 ;
+    pol 983 986 + 989 + ;
+    pol 990 980 + ;
+  qed : 991 ;
+qed ;
+red 1 x249 1 x256 1 x270 2 ~x298 >= 2 : x298 -> 0 ;
+red 1 ~x249 1 ~x256 1 ~x270 2 x298 >= 3 : x298 -> 1 : subproof
+  proofgoal #1
+    pol 995 640 + ;
+  qed : 996 ;
+  proofgoal 993
+    pol 997 639 + ;
+    pol 998 2 d ;
+    rup 1 ~x249 >= 1 ;
+    pol 997 638 + ;
+    pol 1001 2 d ;
+    rup 1 ~x256 >= 1 ;
+    pol 997 637 + ;
+    pol 1004 2 d ;
+    rup 1 ~x270 >= 1 ;
+    pol 994 1000 + 1003 + 1006 + ;
+  qed : 1007 ;
+qed ;
+red 1 x33 1 x132 1 x208 2 ~x299 >= 3 : x299 -> 0 ;
+red 1 ~x33 1 ~x132 1 ~x208 2 x299 >= 2 : x299 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 1009
+    pol 1010 630 + ;
+    pol 1013 2 d ;
+    rup 1 x33 >= 1 ;
+    pol 1010 631 + ;
+    pol 1016 2 d ;
+    rup 1 x132 >= 1 ;
+    pol 1010 632 + ;
+    pol 1019 2 d ;
+    rup 1 x208 >= 1 ;
+    pol 1015 1018 + 1021 + ;
+    pol 1022 1012 + ;
+  qed : 1023 ;
+qed ;
+red 1 x128 1 x233 1 x273 2 ~x300 >= 3 : x300 -> 0 ;
+red 1 ~x128 1 ~x233 1 ~x273 2 x300 >= 2 : x300 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 1025
+    pol 1026 618 + ;
+    pol 1029 2 d ;
+    rup 1 x128 >= 1 ;
+    pol 1026 619 + ;
+    pol 1032 2 d ;
+    rup 1 x233 >= 1 ;
+    pol 1026 620 + ;
+    pol 1035 2 d ;
+    rup 1 x273 >= 1 ;
+    pol 1031 1034 + 1037 + ;
+    pol 1038 1028 + ;
+  qed : 1039 ;
+qed ;
+red 1 x149 1 x252 1 x278 2 ~x301 >= 2 : x301 -> 0 ;
+red 1 ~x149 1 ~x252 1 ~x278 2 x301 >= 3 : x301 -> 1 : subproof
+  proofgoal #1
+    pol 1043 644 + ;
+  qed : 1044 ;
+  proofgoal 1041
+    pol 1045 643 + ;
+    pol 1046 2 d ;
+    rup 1 ~x149 >= 1 ;
+    pol 1045 642 + ;
+    pol 1049 2 d ;
+    rup 1 ~x252 >= 1 ;
+    pol 1045 641 + ;
+    pol 1052 2 d ;
+    rup 1 ~x278 >= 1 ;
+    pol 1042 1048 + 1051 + 1054 + ;
+  qed : 1055 ;
+qed ;
+red 1 x224 1 x273 1 x274 2 ~x302 >= 2 : x302 -> 0 ;
+red 1 ~x224 1 ~x273 1 ~x274 2 x302 >= 3 : x302 -> 1 : subproof
+  proofgoal #1
+    pol 1059 608 + ;
+  qed : 1060 ;
+  proofgoal 1057
+    pol 1061 607 + ;
+    pol 1062 2 d ;
+    rup 1 ~x224 >= 1 ;
+    pol 1061 606 + ;
+    pol 1065 2 d ;
+    rup 1 ~x273 >= 1 ;
+    pol 1061 605 + ;
+    pol 1068 2 d ;
+    rup 1 ~x274 >= 1 ;
+    pol 1058 1064 + 1067 + 1070 + ;
+  qed : 1071 ;
+qed ;
+red 1 x90 1 x112 1 x271 2 ~x303 >= 3 : x303 -> 0 ;
+red 1 ~x90 1 ~x112 1 ~x271 2 x303 >= 2 : x303 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 1073
+    pol 1074 598 + ;
+    pol 1077 2 d ;
+    rup 1 x90 >= 1 ;
+    pol 1074 599 + ;
+    pol 1080 2 d ;
+    rup 1 x112 >= 1 ;
+    pol 1074 600 + ;
+    pol 1083 2 d ;
+    rup 1 x271 >= 1 ;
+    pol 1079 1082 + 1085 + ;
+    pol 1086 1076 + ;
+  qed : 1087 ;
+qed ;
+red 1 x57 1 x230 1 x270 2 ~x304 >= 3 : x304 -> 0 ;
+red 1 ~x57 1 ~x230 1 ~x270 2 x304 >= 2 : x304 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 1089
+    pol 1090 594 + ;
+    pol 1093 2 d ;
+    rup 1 x57 >= 1 ;
+    pol 1090 595 + ;
+    pol 1096 2 d ;
+    rup 1 x230 >= 1 ;
+    pol 1090 596 + ;
+    pol 1099 2 d ;
+    rup 1 x270 >= 1 ;
+    pol 1095 1098 + 1101 + ;
+    pol 1102 1092 + ;
+  qed : 1103 ;
+qed ;
+red 1 x47 1 x94 1 x231 2 ~x305 >= 2 : x305 -> 0 ;
+red 1 ~x47 1 ~x94 1 ~x231 2 x305 >= 3 : x305 -> 1 : subproof
+  proofgoal #1
+    pol 1107 588 + ;
+  qed : 1108 ;
+  proofgoal 1105
+    pol 1109 587 + ;
+    pol 1110 2 d ;
+    rup 1 ~x47 >= 1 ;
+    pol 1109 586 + ;
+    pol 1113 2 d ;
+    rup 1 ~x94 >= 1 ;
+    pol 1109 585 + ;
+    pol 1116 2 d ;
+    rup 1 ~x231 >= 1 ;
+    pol 1106 1112 + 1115 + 1118 + ;
+  qed : 1119 ;
+qed ;
+red 1 x20 1 x266 1 x269 2 ~x306 >= 2 : x306 -> 0 ;
+red 1 ~x20 1 ~x266 1 ~x269 2 x306 >= 3 : x306 -> 1 : subproof
+  proofgoal #1
+    pol 1123 584 + ;
+  qed : 1124 ;
+  proofgoal 1121
+    pol 1125 583 + ;
+    pol 1126 2 d ;
+    rup 1 ~x20 >= 1 ;
+    pol 1125 582 + ;
+    pol 1129 2 d ;
+    rup 1 ~x266 >= 1 ;
+    pol 1125 581 + ;
+    pol 1132 2 d ;
+    rup 1 ~x269 >= 1 ;
+    pol 1122 1128 + 1131 + 1134 + ;
+  qed : 1135 ;
+qed ;
+red 1 x62 1 x215 1 x263 2 ~x307 >= 3 : x307 -> 0 ;
+red 1 ~x62 1 ~x215 1 ~x263 2 x307 >= 2 : x307 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 1137
+    pol 1138 562 + ;
+    pol 1141 2 d ;
+    rup 1 x62 >= 1 ;
+    pol 1138 563 + ;
+    pol 1144 2 d ;
+    rup 1 x215 >= 1 ;
+    pol 1138 564 + ;
+    pol 1147 2 d ;
+    rup 1 x263 >= 1 ;
+    pol 1143 1146 + 1149 + ;
+    pol 1150 1140 + ;
+  qed : 1151 ;
+qed ;
+red 1 x11 1 x221 1 x240 2 ~x308 >= 3 : x308 -> 0 ;
+red 1 ~x11 1 ~x221 1 ~x240 2 x308 >= 2 : x308 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 1153
+    pol 1154 558 + ;
+    pol 1157 2 d ;
+    rup 1 x11 >= 1 ;
+    pol 1154 559 + ;
+    pol 1160 2 d ;
+    rup 1 x221 >= 1 ;
+    pol 1154 560 + ;
+    pol 1163 2 d ;
+    rup 1 x240 >= 1 ;
+    pol 1159 1162 + 1165 + ;
+    pol 1166 1156 + ;
+  qed : 1167 ;
+qed ;
+red 1 x26 1 x122 1 x247 2 ~x309 >= 3 : x309 -> 0 ;
+red 1 ~x26 1 ~x122 1 ~x247 2 x309 >= 2 : x309 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 1169
+    pol 1170 554 + ;
+    pol 1173 2 d ;
+    rup 1 x26 >= 1 ;
+    pol 1170 555 + ;
+    pol 1176 2 d ;
+    rup 1 x122 >= 1 ;
+    pol 1170 556 + ;
+    pol 1179 2 d ;
+    rup 1 x247 >= 1 ;
+    pol 1175 1178 + 1181 + ;
+    pol 1182 1172 + ;
+  qed : 1183 ;
+qed ;
+red 1 x44 1 x81 1 x251 2 ~x310 >= 3 : x310 -> 0 ;
+red 1 ~x44 1 ~x81 1 ~x251 2 x310 >= 2 : x310 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 1185
+    pol 1186 550 + ;
+    pol 1189 2 d ;
+    rup 1 x44 >= 1 ;
+    pol 1186 551 + ;
+    pol 1192 2 d ;
+    rup 1 x81 >= 1 ;
+    pol 1186 552 + ;
+    pol 1195 2 d ;
+    rup 1 x251 >= 1 ;
+    pol 1191 1194 + 1197 + ;
+    pol 1198 1188 + ;
+  qed : 1199 ;
+qed ;
+red 1 x243 1 x254 1 x262 2 ~x311 >= 3 : x311 -> 0 ;
+red 1 ~x243 1 ~x254 1 ~x262 2 x311 >= 2 : x311 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 1201
+    pol 1202 542 + ;
+    pol 1205 2 d ;
+    rup 1 x243 >= 1 ;
+    pol 1202 543 + ;
+    pol 1208 2 d ;
+    rup 1 x254 >= 1 ;
+    pol 1202 544 + ;
+    pol 1211 2 d ;
+    rup 1 x262 >= 1 ;
+    pol 1207 1210 + 1213 + ;
+    pol 1214 1204 + ;
+  qed : 1215 ;
+qed ;
+red 1 x89 1 x235 1 x261 2 ~x312 >= 3 : x312 -> 0 ;
+red 1 ~x89 1 ~x235 1 ~x261 2 x312 >= 2 : x312 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 1217
+    pol 1218 534 + ;
+    pol 1221 2 d ;
+    rup 1 x89 >= 1 ;
+    pol 1218 535 + ;
+    pol 1224 2 d ;
+    rup 1 x235 >= 1 ;
+    pol 1218 536 + ;
+    pol 1227 2 d ;
+    rup 1 x261 >= 1 ;
+    pol 1223 1226 + 1229 + ;
+    pol 1230 1220 + ;
+  qed : 1231 ;
+qed ;
+red 1 x18 1 x41 1 x146 2 ~x313 >= 2 : x313 -> 0 ;
+red 1 ~x18 1 ~x41 1 ~x146 2 x313 >= 3 : x313 -> 1 : subproof
+  proofgoal #1
+    pol 1235 532 + ;
+  qed : 1236 ;
+  proofgoal 1233
+    pol 1237 531 + ;
+    pol 1238 2 d ;
+    rup 1 ~x18 >= 1 ;
+    pol 1237 530 + ;
+    pol 1241 2 d ;
+    rup 1 ~x41 >= 1 ;
+    pol 1237 529 + ;
+    pol 1244 2 d ;
+    rup 1 ~x146 >= 1 ;
+    pol 1234 1240 + 1243 + 1246 + ;
+  qed : 1247 ;
+qed ;
+red 1 x78 1 x165 1 x223 2 ~x314 >= 3 : x314 -> 0 ;
+red 1 ~x78 1 ~x165 1 ~x223 2 x314 >= 2 : x314 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 1249
+    pol 1250 514 + ;
+    pol 1253 2 d ;
+    rup 1 x78 >= 1 ;
+    pol 1250 515 + ;
+    pol 1256 2 d ;
+    rup 1 x165 >= 1 ;
+    pol 1250 516 + ;
+    pol 1259 2 d ;
+    rup 1 x223 >= 1 ;
+    pol 1255 1258 + 1261 + ;
+    pol 1262 1252 + ;
+  qed : 1263 ;
+qed ;
+red 1 x30 1 x204 1 x264 2 ~x315 >= 2 : x315 -> 0 ;
+red 1 ~x30 1 ~x204 1 ~x264 2 x315 >= 3 : x315 -> 1 : subproof
+  proofgoal #1
+    pol 1267 692 + ;
+  qed : 1268 ;
+  proofgoal 1265
+    pol 1269 691 + ;
+    pol 1270 2 d ;
+    rup 1 ~x30 >= 1 ;
+    pol 1269 690 + ;
+    pol 1273 2 d ;
+    rup 1 ~x204 >= 1 ;
+    pol 1269 689 + ;
+    pol 1276 2 d ;
+    rup 1 ~x264 >= 1 ;
+    pol 1266 1272 + 1275 + 1278 + ;
+  qed : 1279 ;
+qed ;
+red 1 x84 1 x256 1 x257 2 ~x316 >= 3 : x316 -> 0 ;
+red 1 ~x84 1 ~x256 1 ~x257 2 x316 >= 2 : x316 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 1281
+    pol 1282 510 + ;
+    pol 1285 2 d ;
+    rup 1 x84 >= 1 ;
+    pol 1282 511 + ;
+    pol 1288 2 d ;
+    rup 1 x256 >= 1 ;
+    pol 1282 512 + ;
+    pol 1291 2 d ;
+    rup 1 x257 >= 1 ;
+    pol 1287 1290 + 1293 + ;
+    pol 1294 1284 + ;
+  qed : 1295 ;
+qed ;
+red 1 x101 1 x105 1 x149 2 ~x317 >= 2 : x317 -> 0 ;
+red 1 ~x101 1 ~x105 1 ~x149 2 x317 >= 3 : x317 -> 1 : subproof
+  proofgoal #1
+    pol 1299 228 + ;
+  qed : 1300 ;
+  proofgoal 1297
+    pol 1301 227 + ;
+    pol 1302 2 d ;
+    rup 1 ~x101 >= 1 ;
+    pol 1301 226 + ;
+    pol 1305 2 d ;
+    rup 1 ~x105 >= 1 ;
+    pol 1301 225 + ;
+    pol 1308 2 d ;
+    rup 1 ~x149 >= 1 ;
+    pol 1298 1304 + 1307 + 1310 + ;
+  qed : 1311 ;
+qed ;
+red 1 x3 1 x143 1 x250 2 ~x318 >= 3 : x318 -> 0 ;
+red 1 ~x3 1 ~x143 1 ~x250 2 x318 >= 2 : x318 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 1313
+    pol 1314 490 + ;
+    pol 1317 2 d ;
+    rup 1 x3 >= 1 ;
+    pol 1314 491 + ;
+    pol 1320 2 d ;
+    rup 1 x143 >= 1 ;
+    pol 1314 492 + ;
+    pol 1323 2 d ;
+    rup 1 x250 >= 1 ;
+    pol 1319 1322 + 1325 + ;
+    pol 1326 1316 + ;
+  qed : 1327 ;
+qed ;
+red 1 x23 1 x127 1 x248 2 ~x319 >= 3 : x319 -> 0 ;
+red 1 ~x23 1 ~x127 1 ~x248 2 x319 >= 2 : x319 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 1329
+    pol 1330 546 + ;
+    pol 1333 2 d ;
+    rup 1 x23 >= 1 ;
+    pol 1330 547 + ;
+    pol 1336 2 d ;
+    rup 1 x127 >= 1 ;
+    pol 1330 548 + ;
+    pol 1339 2 d ;
+    rup 1 x248 >= 1 ;
+    pol 1335 1338 + 1341 + ;
+    pol 1342 1332 + ;
+  qed : 1343 ;
+qed ;
+red 1 x6 1 x254 1 x255 2 ~x320 >= 3 : x320 -> 0 ;
+red 1 ~x6 1 ~x254 1 ~x255 2 x320 >= 2 : x320 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 1345
+    pol 1346 502 + ;
+    pol 1349 2 d ;
+    rup 1 x6 >= 1 ;
+    pol 1346 503 + ;
+    pol 1352 2 d ;
+    rup 1 x254 >= 1 ;
+    pol 1346 504 + ;
+    pol 1355 2 d ;
+    rup 1 x255 >= 1 ;
+    pol 1351 1354 + 1357 + ;
+    pol 1358 1348 + ;
+  qed : 1359 ;
+qed ;
+red 1 x74 1 x129 1 x130 2 ~x321 >= 2 : x321 -> 0 ;
+red 1 ~x74 1 ~x129 1 ~x130 2 x321 >= 3 : x321 -> 1 : subproof
+  proofgoal #1
+    pol 1363 192 + ;
+  qed : 1364 ;
+  proofgoal 1361
+    pol 1365 191 + ;
+    pol 1366 2 d ;
+    rup 1 ~x74 >= 1 ;
+    pol 1365 190 + ;
+    pol 1369 2 d ;
+    rup 1 ~x129 >= 1 ;
+    pol 1365 189 + ;
+    pol 1372 2 d ;
+    rup 1 ~x130 >= 1 ;
+    pol 1362 1368 + 1371 + 1374 + ;
+  qed : 1375 ;
+qed ;
+red 1 x110 1 x118 1 x119 2 ~x322 >= 2 : x322 -> 0 ;
+red 1 ~x110 1 ~x118 1 ~x119 2 x322 >= 3 : x322 -> 1 : subproof
+  proofgoal #1
+    pol 1379 172 + ;
+  qed : 1380 ;
+  proofgoal 1377
+    pol 1381 171 + ;
+    pol 1382 2 d ;
+    rup 1 ~x110 >= 1 ;
+    pol 1381 170 + ;
+    pol 1385 2 d ;
+    rup 1 ~x118 >= 1 ;
+    pol 1381 169 + ;
+    pol 1388 2 d ;
+    rup 1 ~x119 >= 1 ;
+    pol 1378 1384 + 1387 + 1390 + ;
+  qed : 1391 ;
+qed ;
+red 1 x85 1 x116 1 x117 2 ~x323 >= 2 : x323 -> 0 ;
+red 1 ~x85 1 ~x116 1 ~x117 2 x323 >= 3 : x323 -> 1 : subproof
+  proofgoal #1
+    pol 1395 168 + ;
+  qed : 1396 ;
+  proofgoal 1393
+    pol 1397 167 + ;
+    pol 1398 2 d ;
+    rup 1 ~x85 >= 1 ;
+    pol 1397 166 + ;
+    pol 1401 2 d ;
+    rup 1 ~x116 >= 1 ;
+    pol 1397 165 + ;
+    pol 1404 2 d ;
+    rup 1 ~x117 >= 1 ;
+    pol 1394 1400 + 1403 + 1406 + ;
+  qed : 1407 ;
+qed ;
+red 1 x107 1 x108 1 x109 2 ~x324 >= 2 : x324 -> 0 ;
+red 1 ~x107 1 ~x108 1 ~x109 2 x324 >= 3 : x324 -> 1 : subproof
+  proofgoal #1
+    pol 1411 156 + ;
+  qed : 1412 ;
+  proofgoal 1409
+    pol 1413 155 + ;
+    pol 1414 2 d ;
+    rup 1 ~x107 >= 1 ;
+    pol 1413 154 + ;
+    pol 1417 2 d ;
+    rup 1 ~x108 >= 1 ;
+    pol 1413 153 + ;
+    pol 1420 2 d ;
+    rup 1 ~x109 >= 1 ;
+    pol 1410 1416 + 1419 + 1422 + ;
+  qed : 1423 ;
+qed ;
+red 1 x101 1 x102 1 x103 2 ~x325 >= 3 : x325 -> 0 ;
+red 1 ~x101 1 ~x102 1 ~x103 2 x325 >= 2 : x325 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 1425
+    pol 1426 146 + ;
+    pol 1429 2 d ;
+    rup 1 x101 >= 1 ;
+    pol 1426 147 + ;
+    pol 1432 2 d ;
+    rup 1 x102 >= 1 ;
+    pol 1426 148 + ;
+    pol 1435 2 d ;
+    rup 1 x103 >= 1 ;
+    pol 1431 1434 + 1437 + ;
+    pol 1438 1428 + ;
+  qed : 1439 ;
+qed ;
+red 1 x98 1 x99 1 x100 2 ~x326 >= 3 : x326 -> 0 ;
+red 1 ~x98 1 ~x99 1 ~x100 2 x326 >= 2 : x326 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 1441
+    pol 1442 142 + ;
+    pol 1445 2 d ;
+    rup 1 x98 >= 1 ;
+    pol 1442 143 + ;
+    pol 1448 2 d ;
+    rup 1 x99 >= 1 ;
+    pol 1442 144 + ;
+    pol 1451 2 d ;
+    rup 1 x100 >= 1 ;
+    pol 1447 1450 + 1453 + ;
+    pol 1454 1444 + ;
+  qed : 1455 ;
+qed ;
+red 1 x98 1 x135 1 x136 2 ~x327 >= 2 : x327 -> 0 ;
+red 1 ~x98 1 ~x135 1 ~x136 2 x327 >= 3 : x327 -> 1 : subproof
+  proofgoal #1
+    pol 1459 204 + ;
+  qed : 1460 ;
+  proofgoal 1457
+    pol 1461 203 + ;
+    pol 1462 2 d ;
+    rup 1 ~x98 >= 1 ;
+    pol 1461 202 + ;
+    pol 1465 2 d ;
+    rup 1 ~x135 >= 1 ;
+    pol 1461 201 + ;
+    pol 1468 2 d ;
+    rup 1 ~x136 >= 1 ;
+    pol 1458 1464 + 1467 + 1470 + ;
+  qed : 1471 ;
+qed ;
+red 1 x110 1 x111 1 x112 2 ~x328 >= 2 : x328 -> 0 ;
+red 1 ~x110 1 ~x111 1 ~x112 2 x328 >= 3 : x328 -> 1 : subproof
+  proofgoal #1
+    pol 1475 160 + ;
+  qed : 1476 ;
+  proofgoal 1473
+    pol 1477 159 + ;
+    pol 1478 2 d ;
+    rup 1 ~x110 >= 1 ;
+    pol 1477 158 + ;
+    pol 1481 2 d ;
+    rup 1 ~x111 >= 1 ;
+    pol 1477 157 + ;
+    pol 1484 2 d ;
+    rup 1 ~x112 >= 1 ;
+    pol 1474 1480 + 1483 + 1486 + ;
+  qed : 1487 ;
+qed ;
+red 1 x14 1 x104 1 x134 2 ~x329 >= 2 : x329 -> 0 ;
+red 1 ~x14 1 ~x104 1 ~x134 2 x329 >= 3 : x329 -> 1 : subproof
+  proofgoal #1
+    pol 1491 200 + ;
+  qed : 1492 ;
+  proofgoal 1489
+    pol 1493 199 + ;
+    pol 1494 2 d ;
+    rup 1 ~x14 >= 1 ;
+    pol 1493 198 + ;
+    pol 1497 2 d ;
+    rup 1 ~x104 >= 1 ;
+    pol 1493 197 + ;
+    pol 1500 2 d ;
+    rup 1 ~x134 >= 1 ;
+    pol 1490 1496 + 1499 + 1502 + ;
+  qed : 1503 ;
+qed ;
+red 1 x88 1 x89 1 x90 2 ~x330 >= 3 : x330 -> 0 ;
+red 1 ~x88 1 ~x89 1 ~x90 2 x330 >= 2 : x330 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 1505
+    pol 1506 126 + ;
+    pol 1509 2 d ;
+    rup 1 x88 >= 1 ;
+    pol 1506 127 + ;
+    pol 1512 2 d ;
+    rup 1 x89 >= 1 ;
+    pol 1506 128 + ;
+    pol 1515 2 d ;
+    rup 1 x90 >= 1 ;
+    pol 1511 1514 + 1517 + ;
+    pol 1518 1508 + ;
+  qed : 1519 ;
+qed ;
+red 1 x37 1 x38 1 x39 2 ~x331 >= 3 : x331 -> 0 ;
+red 1 ~x37 1 ~x38 1 ~x39 2 x331 >= 2 : x331 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 1521
+    pol 1522 50 + ;
+    pol 1525 2 d ;
+    rup 1 x37 >= 1 ;
+    pol 1522 51 + ;
+    pol 1528 2 d ;
+    rup 1 x38 >= 1 ;
+    pol 1522 52 + ;
+    pol 1531 2 d ;
+    rup 1 x39 >= 1 ;
+    pol 1527 1530 + 1533 + ;
+    pol 1534 1524 + ;
+  qed : 1535 ;
+qed ;
+red 1 x207 1 x262 1 x264 2 ~x332 >= 3 : x332 -> 0 ;
+red 1 ~x207 1 ~x262 1 ~x264 2 x332 >= 2 : x332 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 1537
+    pol 1538 566 + ;
+    pol 1541 2 d ;
+    rup 1 x207 >= 1 ;
+    pol 1538 567 + ;
+    pol 1544 2 d ;
+    rup 1 x262 >= 1 ;
+    pol 1538 568 + ;
+    pol 1547 2 d ;
+    rup 1 x264 >= 1 ;
+    pol 1543 1546 + 1549 + ;
+    pol 1550 1540 + ;
+  qed : 1551 ;
+qed ;
+red 1 x152 1 x153 1 x154 2 ~x333 >= 2 : x333 -> 0 ;
+red 1 ~x152 1 ~x153 1 ~x154 2 x333 >= 3 : x333 -> 1 : subproof
+  proofgoal #1
+    pol 1555 236 + ;
+  qed : 1556 ;
+  proofgoal 1553
+    pol 1557 235 + ;
+    pol 1558 2 d ;
+    rup 1 ~x152 >= 1 ;
+    pol 1557 234 + ;
+    pol 1561 2 d ;
+    rup 1 ~x153 >= 1 ;
+    pol 1557 233 + ;
+    pol 1564 2 d ;
+    rup 1 ~x154 >= 1 ;
+    pol 1554 1560 + 1563 + 1566 + ;
+  qed : 1567 ;
+qed ;
+red 1 x25 1 x26 1 x27 2 ~x334 >= 3 : x334 -> 0 ;
+red 1 ~x25 1 ~x26 1 ~x27 2 x334 >= 2 : x334 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 1569
+    pol 1570 34 + ;
+    pol 1573 2 d ;
+    rup 1 x25 >= 1 ;
+    pol 1570 35 + ;
+    pol 1576 2 d ;
+    rup 1 x26 >= 1 ;
+    pol 1570 36 + ;
+    pol 1579 2 d ;
+    rup 1 x27 >= 1 ;
+    pol 1575 1578 + 1581 + ;
+    pol 1582 1572 + ;
+  qed : 1583 ;
+qed ;
+red 1 x63 1 x116 1 x172 2 ~x335 >= 2 : x335 -> 0 ;
+red 1 ~x63 1 ~x116 1 ~x172 2 x335 >= 3 : x335 -> 1 : subproof
+  proofgoal #1
+    pol 1587 280 + ;
+  qed : 1588 ;
+  proofgoal 1585
+    pol 1589 279 + ;
+    pol 1590 2 d ;
+    rup 1 ~x63 >= 1 ;
+    pol 1589 278 + ;
+    pol 1593 2 d ;
+    rup 1 ~x116 >= 1 ;
+    pol 1589 277 + ;
+    pol 1596 2 d ;
+    rup 1 ~x172 >= 1 ;
+    pol 1586 1592 + 1595 + 1598 + ;
+  qed : 1599 ;
+qed ;
+red 1 x93 1 x94 1 x95 2 ~x336 >= 3 : x336 -> 0 ;
+red 1 ~x93 1 ~x94 1 ~x95 2 x336 >= 2 : x336 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 1601
+    pol 1602 134 + ;
+    pol 1605 2 d ;
+    rup 1 x93 >= 1 ;
+    pol 1602 135 + ;
+    pol 1608 2 d ;
+    rup 1 x94 >= 1 ;
+    pol 1602 136 + ;
+    pol 1611 2 d ;
+    rup 1 x95 >= 1 ;
+    pol 1607 1610 + 1613 + ;
+    pol 1614 1604 + ;
+  qed : 1615 ;
+qed ;
+red 1 x79 1 x122 1 x123 2 ~x337 >= 3 : x337 -> 0 ;
+red 1 ~x79 1 ~x122 1 ~x123 2 x337 >= 2 : x337 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 1617
+    pol 1618 178 + ;
+    pol 1621 2 d ;
+    rup 1 x79 >= 1 ;
+    pol 1618 179 + ;
+    pol 1624 2 d ;
+    rup 1 x122 >= 1 ;
+    pol 1618 180 + ;
+    pol 1627 2 d ;
+    rup 1 x123 >= 1 ;
+    pol 1623 1626 + 1629 + ;
+    pol 1630 1620 + ;
+  qed : 1631 ;
+qed ;
+red 1 x220 1 x221 1 x222 2 ~x338 >= 3 : x338 -> 0 ;
+red 1 ~x220 1 ~x221 1 ~x222 2 x338 >= 2 : x338 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 1633
+    pol 1634 382 + ;
+    pol 1637 2 d ;
+    rup 1 x220 >= 1 ;
+    pol 1634 383 + ;
+    pol 1640 2 d ;
+    rup 1 x221 >= 1 ;
+    pol 1634 384 + ;
+    pol 1643 2 d ;
+    rup 1 x222 >= 1 ;
+    pol 1639 1642 + 1645 + ;
+    pol 1646 1636 + ;
+  qed : 1647 ;
+qed ;
+red 1 x103 1 x169 1 x181 2 ~x339 >= 3 : x339 -> 0 ;
+red 1 ~x103 1 ~x169 1 ~x181 2 x339 >= 2 : x339 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 1649
+    pol 1650 342 + ;
+    pol 1653 2 d ;
+    rup 1 x103 >= 1 ;
+    pol 1650 343 + ;
+    pol 1656 2 d ;
+    rup 1 x169 >= 1 ;
+    pol 1650 344 + ;
+    pol 1659 2 d ;
+    rup 1 x181 >= 1 ;
+    pol 1655 1658 + 1661 + ;
+    pol 1662 1652 + ;
+  qed : 1663 ;
+qed ;
+red 1 x139 1 x263 1 x276 2 ~x340 >= 2 : x340 -> 0 ;
+red 1 ~x139 1 ~x263 1 ~x276 2 x340 >= 3 : x340 -> 1 : subproof
+  proofgoal #1
+    pol 1667 624 + ;
+  qed : 1668 ;
+  proofgoal 1665
+    pol 1669 623 + ;
+    pol 1670 2 d ;
+    rup 1 ~x139 >= 1 ;
+    pol 1669 622 + ;
+    pol 1673 2 d ;
+    rup 1 ~x263 >= 1 ;
+    pol 1669 621 + ;
+    pol 1676 2 d ;
+    rup 1 ~x276 >= 1 ;
+    pol 1666 1672 + 1675 + 1678 + ;
+  qed : 1679 ;
+qed ;
+red 1 x158 1 x159 1 x160 2 ~x341 >= 2 : x341 -> 0 ;
+red 1 ~x158 1 ~x159 1 ~x160 2 x341 >= 3 : x341 -> 1 : subproof
+  proofgoal #1
+    pol 1683 244 + ;
+  qed : 1684 ;
+  proofgoal 1681
+    pol 1685 243 + ;
+    pol 1686 2 d ;
+    rup 1 ~x158 >= 1 ;
+    pol 1685 242 + ;
+    pol 1689 2 d ;
+    rup 1 ~x159 >= 1 ;
+    pol 1685 241 + ;
+    pol 1692 2 d ;
+    rup 1 ~x160 >= 1 ;
+    pol 1682 1688 + 1691 + 1694 + ;
+  qed : 1695 ;
+qed ;
+red 1 x31 1 x32 1 x33 2 ~x342 >= 3 : x342 -> 0 ;
+red 1 ~x31 1 ~x32 1 ~x33 2 x342 >= 2 : x342 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 1697
+    pol 1698 42 + ;
+    pol 1701 2 d ;
+    rup 1 x31 >= 1 ;
+    pol 1698 43 + ;
+    pol 1704 2 d ;
+    rup 1 x32 >= 1 ;
+    pol 1698 44 + ;
+    pol 1707 2 d ;
+    rup 1 x33 >= 1 ;
+    pol 1703 1706 + 1709 + ;
+    pol 1710 1700 + ;
+  qed : 1711 ;
+qed ;
+red 1 x17 1 x69 1 x198 2 ~x343 >= 3 : x343 -> 0 ;
+red 1 ~x17 1 ~x69 1 ~x198 2 x343 >= 2 : x343 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 1713
+    pol 1714 330 + ;
+    pol 1717 2 d ;
+    rup 1 x17 >= 1 ;
+    pol 1714 331 + ;
+    pol 1720 2 d ;
+    rup 1 x69 >= 1 ;
+    pol 1714 332 + ;
+    pol 1723 2 d ;
+    rup 1 x198 >= 1 ;
+    pol 1719 1722 + 1725 + ;
+    pol 1726 1716 + ;
+  qed : 1727 ;
+qed ;
+red 1 x39 1 x179 1 x187 2 ~x344 >= 3 : x344 -> 0 ;
+red 1 ~x39 1 ~x179 1 ~x187 2 x344 >= 2 : x344 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 1729
+    pol 1730 746 + ;
+    pol 1733 2 d ;
+    rup 1 x39 >= 1 ;
+    pol 1730 747 + ;
+    pol 1736 2 d ;
+    rup 1 x179 >= 1 ;
+    pol 1730 748 + ;
+    pol 1739 2 d ;
+    rup 1 x187 >= 1 ;
+    pol 1735 1738 + 1741 + ;
+    pol 1742 1732 + ;
+  qed : 1743 ;
+qed ;
+red 1 x155 1 x156 1 x157 2 ~x345 >= 2 : x345 -> 0 ;
+red 1 ~x155 1 ~x156 1 ~x157 2 x345 >= 3 : x345 -> 1 : subproof
+  proofgoal #1
+    pol 1747 240 + ;
+  qed : 1748 ;
+  proofgoal 1745
+    pol 1749 239 + ;
+    pol 1750 2 d ;
+    rup 1 ~x155 >= 1 ;
+    pol 1749 238 + ;
+    pol 1753 2 d ;
+    rup 1 ~x156 >= 1 ;
+    pol 1749 237 + ;
+    pol 1756 2 d ;
+    rup 1 ~x157 >= 1 ;
+    pol 1746 1752 + 1755 + 1758 + ;
+  qed : 1759 ;
+qed ;
+red 1 x172 1 x191 1 x192 2 ~x346 >= 3 : x346 -> 0 ;
+red 1 ~x172 1 ~x191 1 ~x192 2 x346 >= 2 : x346 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 1761
+    pol 1762 314 + ;
+    pol 1765 2 d ;
+    rup 1 x172 >= 1 ;
+    pol 1762 315 + ;
+    pol 1768 2 d ;
+    rup 1 x191 >= 1 ;
+    pol 1762 316 + ;
+    pol 1771 2 d ;
+    rup 1 x192 >= 1 ;
+    pol 1767 1770 + 1773 + ;
+    pol 1774 1764 + ;
+  qed : 1775 ;
+qed ;
+red 1 x13 1 x14 1 x15 2 ~x347 >= 2 : x347 -> 0 ;
+red 1 ~x13 1 ~x14 1 ~x15 2 x347 >= 3 : x347 -> 1 : subproof
+  proofgoal #1
+    pol 1779 20 + ;
+  qed : 1780 ;
+  proofgoal 1777
+    pol 1781 19 + ;
+    pol 1782 2 d ;
+    rup 1 ~x13 >= 1 ;
+    pol 1781 18 + ;
+    pol 1785 2 d ;
+    rup 1 ~x14 >= 1 ;
+    pol 1781 17 + ;
+    pol 1788 2 d ;
+    rup 1 ~x15 >= 1 ;
+    pol 1778 1784 + 1787 + 1790 + ;
+  qed : 1791 ;
+qed ;
+red 1 x145 1 x226 1 x227 2 ~x348 >= 3 : x348 -> 0 ;
+red 1 ~x145 1 ~x226 1 ~x227 2 x348 >= 2 : x348 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 1793
+    pol 1794 394 + ;
+    pol 1797 2 d ;
+    rup 1 x145 >= 1 ;
+    pol 1794 395 + ;
+    pol 1800 2 d ;
+    rup 1 x226 >= 1 ;
+    pol 1794 396 + ;
+    pol 1803 2 d ;
+    rup 1 x227 >= 1 ;
+    pol 1799 1802 + 1805 + ;
+    pol 1806 1796 + ;
+  qed : 1807 ;
+qed ;
+red 1 x115 1 x176 1 x239 2 ~x349 >= 2 : x349 -> 0 ;
+red 1 ~x115 1 ~x176 1 ~x239 2 x349 >= 3 : x349 -> 1 : subproof
+  proofgoal #1
+    pol 1811 688 + ;
+  qed : 1812 ;
+  proofgoal 1809
+    pol 1813 687 + ;
+    pol 1814 2 d ;
+    rup 1 ~x115 >= 1 ;
+    pol 1813 686 + ;
+    pol 1817 2 d ;
+    rup 1 ~x176 >= 1 ;
+    pol 1813 685 + ;
+    pol 1820 2 d ;
+    rup 1 ~x239 >= 1 ;
+    pol 1810 1816 + 1819 + 1822 + ;
+  qed : 1823 ;
+qed ;
+red 1 x87 1 x95 1 x222 2 ~x350 >= 2 : x350 -> 0 ;
+red 1 ~x87 1 ~x95 1 ~x222 2 x350 >= 3 : x350 -> 1 : subproof
+  proofgoal #1
+    pol 1827 592 + ;
+  qed : 1828 ;
+  proofgoal 1825
+    pol 1829 591 + ;
+    pol 1830 2 d ;
+    rup 1 ~x87 >= 1 ;
+    pol 1829 590 + ;
+    pol 1833 2 d ;
+    rup 1 ~x95 >= 1 ;
+    pol 1829 589 + ;
+    pol 1836 2 d ;
+    rup 1 ~x222 >= 1 ;
+    pol 1826 1832 + 1835 + 1838 + ;
+  qed : 1839 ;
+qed ;
+red 1 x22 1 x23 1 x24 2 ~x351 >= 2 : x351 -> 0 ;
+red 1 ~x22 1 ~x23 1 ~x24 2 x351 >= 3 : x351 -> 1 : subproof
+  proofgoal #1
+    pol 1843 32 + ;
+  qed : 1844 ;
+  proofgoal 1841
+    pol 1845 31 + ;
+    pol 1846 2 d ;
+    rup 1 ~x22 >= 1 ;
+    pol 1845 30 + ;
+    pol 1849 2 d ;
+    rup 1 ~x23 >= 1 ;
+    pol 1845 29 + ;
+    pol 1852 2 d ;
+    rup 1 ~x24 >= 1 ;
+    pol 1842 1848 + 1851 + 1854 + ;
+  qed : 1855 ;
+qed ;
+red 1 x107 1 x217 1 x231 2 ~x352 >= 3 : x352 -> 0 ;
+red 1 ~x107 1 ~x217 1 ~x231 2 x352 >= 2 : x352 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 1857
+    pol 1858 418 + ;
+    pol 1861 2 d ;
+    rup 1 x107 >= 1 ;
+    pol 1858 419 + ;
+    pol 1864 2 d ;
+    rup 1 x217 >= 1 ;
+    pol 1858 420 + ;
+    pol 1867 2 d ;
+    rup 1 x231 >= 1 ;
+    pol 1863 1866 + 1869 + ;
+    pol 1870 1860 + ;
+  qed : 1871 ;
+qed ;
+red 1 x225 1 x227 1 x265 2 ~x353 >= 2 : x353 -> 0 ;
+red 1 ~x225 1 ~x227 1 ~x265 2 x353 >= 3 : x353 -> 1 : subproof
+  proofgoal #1
+    pol 1875 668 + ;
+  qed : 1876 ;
+  proofgoal 1873
+    pol 1877 667 + ;
+    pol 1878 2 d ;
+    rup 1 ~x225 >= 1 ;
+    pol 1877 666 + ;
+    pol 1881 2 d ;
+    rup 1 ~x227 >= 1 ;
+    pol 1877 665 + ;
+    pol 1884 2 d ;
+    rup 1 ~x265 >= 1 ;
+    pol 1874 1880 + 1883 + 1886 + ;
+  qed : 1887 ;
+qed ;
+red 1 x151 1 x177 1 x220 2 ~x354 >= 2 : x354 -> 0 ;
+red 1 ~x151 1 ~x177 1 ~x220 2 x354 >= 3 : x354 -> 1 : subproof
+  proofgoal #1
+    pol 1891 448 + ;
+  qed : 1892 ;
+  proofgoal 1889
+    pol 1893 447 + ;
+    pol 1894 2 d ;
+    rup 1 ~x151 >= 1 ;
+    pol 1893 446 + ;
+    pol 1897 2 d ;
+    rup 1 ~x177 >= 1 ;
+    pol 1893 445 + ;
+    pol 1900 2 d ;
+    rup 1 ~x220 >= 1 ;
+    pol 1890 1896 + 1899 + 1902 + ;
+  qed : 1903 ;
+qed ;
+red 1 x137 1 x138 1 x139 2 ~x355 >= 2 : x355 -> 0 ;
+red 1 ~x137 1 ~x138 1 ~x139 2 x355 >= 3 : x355 -> 1 : subproof
+  proofgoal #1
+    pol 1907 208 + ;
+  qed : 1908 ;
+  proofgoal 1905
+    pol 1909 207 + ;
+    pol 1910 2 d ;
+    rup 1 ~x137 >= 1 ;
+    pol 1909 206 + ;
+    pol 1913 2 d ;
+    rup 1 ~x138 >= 1 ;
+    pol 1909 205 + ;
+    pol 1916 2 d ;
+    rup 1 ~x139 >= 1 ;
+    pol 1906 1912 + 1915 + 1918 + ;
+  qed : 1919 ;
+qed ;
+red 1 x10 1 x11 1 x12 2 ~x356 >= 3 : x356 -> 0 ;
+red 1 ~x10 1 ~x11 1 ~x12 2 x356 >= 2 : x356 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 1921
+    pol 1922 14 + ;
+    pol 1925 2 d ;
+    rup 1 x10 >= 1 ;
+    pol 1922 15 + ;
+    pol 1928 2 d ;
+    rup 1 x11 >= 1 ;
+    pol 1922 16 + ;
+    pol 1931 2 d ;
+    rup 1 x12 >= 1 ;
+    pol 1927 1930 + 1933 + ;
+    pol 1934 1924 + ;
+  qed : 1935 ;
+qed ;
+red 1 x16 1 x17 1 x18 2 ~x357 >= 2 : x357 -> 0 ;
+red 1 ~x16 1 ~x17 1 ~x18 2 x357 >= 3 : x357 -> 1 : subproof
+  proofgoal #1
+    pol 1939 24 + ;
+  qed : 1940 ;
+  proofgoal 1937
+    pol 1941 23 + ;
+    pol 1942 2 d ;
+    rup 1 ~x16 >= 1 ;
+    pol 1941 22 + ;
+    pol 1945 2 d ;
+    rup 1 ~x17 >= 1 ;
+    pol 1941 21 + ;
+    pol 1948 2 d ;
+    rup 1 ~x18 >= 1 ;
+    pol 1938 1944 + 1947 + 1950 + ;
+  qed : 1951 ;
+qed ;
+red 1 x4 1 x150 1 x151 2 ~x358 >= 2 : x358 -> 0 ;
+red 1 ~x4 1 ~x150 1 ~x151 2 x358 >= 3 : x358 -> 1 : subproof
+  proofgoal #1
+    pol 1955 232 + ;
+  qed : 1956 ;
+  proofgoal 1953
+    pol 1957 231 + ;
+    pol 1958 2 d ;
+    rup 1 ~x4 >= 1 ;
+    pol 1957 230 + ;
+    pol 1961 2 d ;
+    rup 1 ~x150 >= 1 ;
+    pol 1957 229 + ;
+    pol 1964 2 d ;
+    rup 1 ~x151 >= 1 ;
+    pol 1954 1960 + 1963 + 1966 + ;
+  qed : 1967 ;
+qed ;
+red 1 x131 1 x132 1 x133 2 ~x359 >= 3 : x359 -> 0 ;
+red 1 ~x131 1 ~x132 1 ~x133 2 x359 >= 2 : x359 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 1969
+    pol 1970 194 + ;
+    pol 1973 2 d ;
+    rup 1 x131 >= 1 ;
+    pol 1970 195 + ;
+    pol 1976 2 d ;
+    rup 1 x132 >= 1 ;
+    pol 1970 196 + ;
+    pol 1979 2 d ;
+    rup 1 x133 >= 1 ;
+    pol 1975 1978 + 1981 + ;
+    pol 1982 1972 + ;
+  qed : 1983 ;
+qed ;
+red 1 x37 1 x143 1 x144 2 ~x360 >= 3 : x360 -> 0 ;
+red 1 ~x37 1 ~x143 1 ~x144 2 x360 >= 2 : x360 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 1985
+    pol 1986 214 + ;
+    pol 1989 2 d ;
+    rup 1 x37 >= 1 ;
+    pol 1986 215 + ;
+    pol 1992 2 d ;
+    rup 1 x143 >= 1 ;
+    pol 1986 216 + ;
+    pol 1995 2 d ;
+    rup 1 x144 >= 1 ;
+    pol 1991 1994 + 1997 + ;
+    pol 1998 1988 + ;
+  qed : 1999 ;
+qed ;
+red 1 x4 1 x5 1 x6 2 ~x361 >= 2 : x361 -> 0 ;
+red 1 ~x4 1 ~x5 1 ~x6 2 x361 >= 3 : x361 -> 1 : subproof
+  proofgoal #1
+    pol 2003 8 + ;
+  qed : 2004 ;
+  proofgoal 2001
+    pol 2005 7 + ;
+    pol 2006 2 d ;
+    rup 1 ~x4 >= 1 ;
+    pol 2005 6 + ;
+    pol 2009 2 d ;
+    rup 1 ~x5 >= 1 ;
+    pol 2005 5 + ;
+    pol 2012 2 d ;
+    rup 1 ~x6 >= 1 ;
+    pol 2002 2008 + 2011 + 2014 + ;
+  qed : 2015 ;
+qed ;
+red 1 x7 1 x8 1 x9 2 ~x362 >= 2 : x362 -> 0 ;
+red 1 ~x7 1 ~x8 1 ~x9 2 x362 >= 3 : x362 -> 1 : subproof
+  proofgoal #1
+    pol 2019 12 + ;
+  qed : 2020 ;
+  proofgoal 2017
+    pol 2021 11 + ;
+    pol 2022 2 d ;
+    rup 1 ~x7 >= 1 ;
+    pol 2021 10 + ;
+    pol 2025 2 d ;
+    rup 1 ~x8 >= 1 ;
+    pol 2021 9 + ;
+    pol 2028 2 d ;
+    rup 1 ~x9 >= 1 ;
+    pol 2018 2024 + 2027 + 2030 + ;
+  qed : 2031 ;
+qed ;
+red 1 x65 1 x66 1 x67 2 ~x363 >= 2 : x363 -> 0 ;
+red 1 ~x65 1 ~x66 1 ~x67 2 x363 >= 3 : x363 -> 1 : subproof
+  proofgoal #1
+    pol 2035 92 + ;
+  qed : 2036 ;
+  proofgoal 2033
+    pol 2037 91 + ;
+    pol 2038 2 d ;
+    rup 1 ~x65 >= 1 ;
+    pol 2037 90 + ;
+    pol 2041 2 d ;
+    rup 1 ~x66 >= 1 ;
+    pol 2037 89 + ;
+    pol 2044 2 d ;
+    rup 1 ~x67 >= 1 ;
+    pol 2034 2040 + 2043 + 2046 + ;
+  qed : 2047 ;
+qed ;
+red 1 x38 1 x142 1 x235 2 ~x364 >= 3 : x364 -> 0 ;
+red 1 ~x38 1 ~x142 1 ~x235 2 x364 >= 2 : x364 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 2049
+    pol 2050 426 + ;
+    pol 2053 2 d ;
+    rup 1 x38 >= 1 ;
+    pol 2050 427 + ;
+    pol 2056 2 d ;
+    rup 1 x142 >= 1 ;
+    pol 2050 428 + ;
+    pol 2059 2 d ;
+    rup 1 x235 >= 1 ;
+    pol 2055 2058 + 2061 + ;
+    pol 2062 2052 + ;
+  qed : 2063 ;
+qed ;
+red 1 x8 1 x70 1 x202 2 ~x365 >= 2 : x365 -> 0 ;
+red 1 ~x8 1 ~x70 1 ~x202 2 x365 >= 3 : x365 -> 1 : subproof
+  proofgoal #1
+    pol 2067 468 + ;
+  qed : 2068 ;
+  proofgoal 2065
+    pol 2069 467 + ;
+    pol 2070 2 d ;
+    rup 1 ~x8 >= 1 ;
+    pol 2069 466 + ;
+    pol 2073 2 d ;
+    rup 1 ~x70 >= 1 ;
+    pol 2069 465 + ;
+    pol 2076 2 d ;
+    rup 1 ~x202 >= 1 ;
+    pol 2066 2072 + 2075 + 2078 + ;
+  qed : 2079 ;
+qed ;
+red 1 x1 1 x2 1 x3 2 ~x366 >= 3 : x366 -> 0 ;
+red 1 ~x1 1 ~x2 1 ~x3 2 x366 >= 2 : x366 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 2081
+    pol 2082 2 + ;
+    pol 2085 2 d ;
+    rup 1 x1 >= 1 ;
+    pol 2082 3 + ;
+    pol 2088 2 d ;
+    rup 1 x2 >= 1 ;
+    pol 2082 4 + ;
+    pol 2091 2 d ;
+    rup 1 x3 >= 1 ;
+    pol 2087 2090 + 2093 + ;
+    pol 2094 2084 + ;
+  qed : 2095 ;
+qed ;
+red 1 x104 1 x105 1 x106 2 ~x367 >= 3 : x367 -> 0 ;
+red 1 ~x104 1 ~x105 1 ~x106 2 x367 >= 2 : x367 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 2097
+    pol 2098 150 + ;
+    pol 2101 2 d ;
+    rup 1 x104 >= 1 ;
+    pol 2098 151 + ;
+    pol 2104 2 d ;
+    rup 1 x105 >= 1 ;
+    pol 2098 152 + ;
+    pol 2107 2 d ;
+    rup 1 x106 >= 1 ;
+    pol 2103 2106 + 2109 + ;
+    pol 2110 2100 + ;
+  qed : 2111 ;
+qed ;
+red 1 x2 1 x229 1 x230 2 ~x368 >= 3 : x368 -> 0 ;
+red 1 ~x2 1 ~x229 1 ~x230 2 x368 >= 2 : x368 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 2113
+    pol 2114 406 + ;
+    pol 2117 2 d ;
+    rup 1 x2 >= 1 ;
+    pol 2114 407 + ;
+    pol 2120 2 d ;
+    rup 1 x229 >= 1 ;
+    pol 2114 408 + ;
+    pol 2123 2 d ;
+    rup 1 x230 >= 1 ;
+    pol 2119 2122 + 2125 + ;
+    pol 2126 2116 + ;
+  qed : 2127 ;
+qed ;
+red 1 x7 1 x63 1 x64 2 ~x369 >= 3 : x369 -> 0 ;
+red 1 ~x7 1 ~x63 1 ~x64 2 x369 >= 2 : x369 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 2129
+    pol 2130 86 + ;
+    pol 2133 2 d ;
+    rup 1 x7 >= 1 ;
+    pol 2130 87 + ;
+    pol 2136 2 d ;
+    rup 1 x63 >= 1 ;
+    pol 2130 88 + ;
+    pol 2139 2 d ;
+    rup 1 x64 >= 1 ;
+    pol 2135 2138 + 2141 + ;
+    pol 2142 2132 + ;
+  qed : 2143 ;
+qed ;
+red 1 x61 1 x91 1 x92 2 ~x370 >= 2 : x370 -> 0 ;
+red 1 ~x61 1 ~x91 1 ~x92 2 x370 >= 3 : x370 -> 1 : subproof
+  proofgoal #1
+    pol 2147 132 + ;
+  qed : 2148 ;
+  proofgoal 2145
+    pol 2149 131 + ;
+    pol 2150 2 d ;
+    rup 1 ~x61 >= 1 ;
+    pol 2149 130 + ;
+    pol 2153 2 d ;
+    rup 1 ~x91 >= 1 ;
+    pol 2149 129 + ;
+    pol 2156 2 d ;
+    rup 1 ~x92 >= 1 ;
+    pol 2146 2152 + 2155 + 2158 + ;
+  qed : 2159 ;
+qed ;
+red 1 x102 1 x169 1 x170 2 ~x371 >= 2 : x371 -> 0 ;
+red 1 ~x102 1 ~x169 1 ~x170 2 x371 >= 3 : x371 -> 1 : subproof
+  proofgoal #1
+    pol 2163 272 + ;
+  qed : 2164 ;
+  proofgoal 2161
+    pol 2165 271 + ;
+    pol 2166 2 d ;
+    rup 1 ~x102 >= 1 ;
+    pol 2165 270 + ;
+    pol 2169 2 d ;
+    rup 1 ~x169 >= 1 ;
+    pol 2165 269 + ;
+    pol 2172 2 d ;
+    rup 1 ~x170 >= 1 ;
+    pol 2162 2168 + 2171 + 2174 + ;
+  qed : 2175 ;
+qed ;
+red 1 x140 1 x141 1 x142 2 ~x372 >= 2 : x372 -> 0 ;
+red 1 ~x140 1 ~x141 1 ~x142 2 x372 >= 3 : x372 -> 1 : subproof
+  proofgoal #1
+    pol 2179 212 + ;
+  qed : 2180 ;
+  proofgoal 2177
+    pol 2181 211 + ;
+    pol 2182 2 d ;
+    rup 1 ~x140 >= 1 ;
+    pol 2181 210 + ;
+    pol 2185 2 d ;
+    rup 1 ~x141 >= 1 ;
+    pol 2181 209 + ;
+    pol 2188 2 d ;
+    rup 1 ~x142 >= 1 ;
+    pol 2178 2184 + 2187 + 2190 + ;
+  qed : 2191 ;
+qed ;
+red 1 x29 1 x74 1 x75 2 ~x373 >= 2 : x373 -> 0 ;
+red 1 ~x29 1 ~x74 1 ~x75 2 x373 >= 3 : x373 -> 1 : subproof
+  proofgoal #1
+    pol 2195 108 + ;
+  qed : 2196 ;
+  proofgoal 2193
+    pol 2197 107 + ;
+    pol 2198 2 d ;
+    rup 1 ~x29 >= 1 ;
+    pol 2197 106 + ;
+    pol 2201 2 d ;
+    rup 1 ~x74 >= 1 ;
+    pol 2197 105 + ;
+    pol 2204 2 d ;
+    rup 1 ~x75 >= 1 ;
+    pol 2194 2200 + 2203 + 2206 + ;
+  qed : 2207 ;
+qed ;
+red 1 x58 1 x59 1 x60 2 ~x374 >= 3 : x374 -> 0 ;
+red 1 ~x58 1 ~x59 1 ~x60 2 x374 >= 2 : x374 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 2209
+    pol 2210 78 + ;
+    pol 2213 2 d ;
+    rup 1 x58 >= 1 ;
+    pol 2210 79 + ;
+    pol 2216 2 d ;
+    rup 1 x59 >= 1 ;
+    pol 2210 80 + ;
+    pol 2219 2 d ;
+    rup 1 x60 >= 1 ;
+    pol 2215 2218 + 2221 + ;
+    pol 2222 2212 + ;
+  qed : 2223 ;
+qed ;
+red 1 x185 1 x186 1 x187 2 ~x375 >= 2 : x375 -> 0 ;
+red 1 ~x185 1 ~x186 1 ~x187 2 x375 >= 3 : x375 -> 1 : subproof
+  proofgoal #1
+    pol 2227 308 + ;
+  qed : 2228 ;
+  proofgoal 2225
+    pol 2229 307 + ;
+    pol 2230 2 d ;
+    rup 1 ~x185 >= 1 ;
+    pol 2229 306 + ;
+    pol 2233 2 d ;
+    rup 1 ~x186 >= 1 ;
+    pol 2229 305 + ;
+    pol 2236 2 d ;
+    rup 1 ~x187 >= 1 ;
+    pol 2226 2232 + 2235 + 2238 + ;
+  qed : 2239 ;
+qed ;
+red 1 x40 1 x41 1 x42 2 ~x376 >= 3 : x376 -> 0 ;
+red 1 ~x40 1 ~x41 1 ~x42 2 x376 >= 2 : x376 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 2241
+    pol 2242 54 + ;
+    pol 2245 2 d ;
+    rup 1 x40 >= 1 ;
+    pol 2242 55 + ;
+    pol 2248 2 d ;
+    rup 1 x41 >= 1 ;
+    pol 2242 56 + ;
+    pol 2251 2 d ;
+    rup 1 x42 >= 1 ;
+    pol 2247 2250 + 2253 + ;
+    pol 2254 2244 + ;
+  qed : 2255 ;
+qed ;
+red 1 x50 1 x269 1 x275 2 ~x377 >= 3 : x377 -> 0 ;
+red 1 ~x50 1 ~x269 1 ~x275 2 x377 >= 2 : x377 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 2257
+    pol 2258 610 + ;
+    pol 2261 2 d ;
+    rup 1 x50 >= 1 ;
+    pol 2258 611 + ;
+    pol 2264 2 d ;
+    rup 1 x269 >= 1 ;
+    pol 2258 612 + ;
+    pol 2267 2 d ;
+    rup 1 x275 >= 1 ;
+    pol 2263 2266 + 2269 + ;
+    pol 2270 2260 + ;
+  qed : 2271 ;
+qed ;
+red 1 x82 1 x120 1 x121 2 ~x378 >= 2 : x378 -> 0 ;
+red 1 ~x82 1 ~x120 1 ~x121 2 x378 >= 3 : x378 -> 1 : subproof
+  proofgoal #1
+    pol 2275 176 + ;
+  qed : 2276 ;
+  proofgoal 2273
+    pol 2277 175 + ;
+    pol 2278 2 d ;
+    rup 1 ~x82 >= 1 ;
+    pol 2277 174 + ;
+    pol 2281 2 d ;
+    rup 1 ~x120 >= 1 ;
+    pol 2277 173 + ;
+    pol 2284 2 d ;
+    rup 1 ~x121 >= 1 ;
+    pol 2274 2280 + 2283 + 2286 + ;
+  qed : 2287 ;
+qed ;
+red 1 x80 1 x147 1 x148 2 ~x379 >= 2 : x379 -> 0 ;
+red 1 ~x80 1 ~x147 1 ~x148 2 x379 >= 3 : x379 -> 1 : subproof
+  proofgoal #1
+    pol 2291 224 + ;
+  qed : 2292 ;
+  proofgoal 2289
+    pol 2293 223 + ;
+    pol 2294 2 d ;
+    rup 1 ~x80 >= 1 ;
+    pol 2293 222 + ;
+    pol 2297 2 d ;
+    rup 1 ~x147 >= 1 ;
+    pol 2293 221 + ;
+    pol 2300 2 d ;
+    rup 1 ~x148 >= 1 ;
+    pol 2290 2296 + 2299 + 2302 + ;
+  qed : 2303 ;
+qed ;
+red 1 x131 1 x252 1 x253 2 ~x380 >= 2 : x380 -> 0 ;
+red 1 ~x131 1 ~x252 1 ~x253 2 x380 >= 3 : x380 -> 1 : subproof
+  proofgoal #1
+    pol 2307 496 + ;
+  qed : 2308 ;
+  proofgoal 2305
+    pol 2309 495 + ;
+    pol 2310 2 d ;
+    rup 1 ~x131 >= 1 ;
+    pol 2309 494 + ;
+    pol 2313 2 d ;
+    rup 1 ~x252 >= 1 ;
+    pol 2309 493 + ;
+    pol 2316 2 d ;
+    rup 1 ~x253 >= 1 ;
+    pol 2306 2312 + 2315 + 2318 + ;
+  qed : 2319 ;
+qed ;
+red 1 x31 1 x127 1 x128 2 ~x381 >= 3 : x381 -> 0 ;
+red 1 ~x31 1 ~x127 1 ~x128 2 x381 >= 2 : x381 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 2321
+    pol 2322 186 + ;
+    pol 2325 2 d ;
+    rup 1 x31 >= 1 ;
+    pol 2322 187 + ;
+    pol 2328 2 d ;
+    rup 1 x127 >= 1 ;
+    pol 2322 188 + ;
+    pol 2331 2 d ;
+    rup 1 x128 >= 1 ;
+    pol 2327 2330 + 2333 + ;
+    pol 2334 2324 + ;
+  qed : 2335 ;
+qed ;
+red 1 x106 1 x191 1 x219 2 ~x382 >= 2 : x382 -> 0 ;
+red 1 ~x106 1 ~x191 1 ~x219 2 x382 >= 3 : x382 -> 1 : subproof
+  proofgoal #1
+    pol 2339 380 + ;
+  qed : 2340 ;
+  proofgoal 2337
+    pol 2341 379 + ;
+    pol 2342 2 d ;
+    rup 1 ~x106 >= 1 ;
+    pol 2341 378 + ;
+    pol 2345 2 d ;
+    rup 1 ~x191 >= 1 ;
+    pol 2341 377 + ;
+    pol 2348 2 d ;
+    rup 1 ~x219 >= 1 ;
+    pol 2338 2344 + 2347 + 2350 + ;
+  qed : 2351 ;
+qed ;
+red 1 x25 1 x32 1 x42 2 ~x383 >= 2 : x383 -> 0 ;
+red 1 ~x25 1 ~x32 1 ~x42 2 x383 >= 3 : x383 -> 1 : subproof
+  proofgoal #1
+    pol 2355 540 + ;
+  qed : 2356 ;
+  proofgoal 2353
+    pol 2357 539 + ;
+    pol 2358 2 d ;
+    rup 1 ~x25 >= 1 ;
+    pol 2357 538 + ;
+    pol 2361 2 d ;
+    rup 1 ~x32 >= 1 ;
+    pol 2357 537 + ;
+    pol 2364 2 d ;
+    rup 1 ~x42 >= 1 ;
+    pol 2354 2360 + 2363 + 2366 + ;
+  qed : 2367 ;
+qed ;
+red 1 x76 1 x96 1 x97 2 ~x384 >= 3 : x384 -> 0 ;
+red 1 ~x76 1 ~x96 1 ~x97 2 x384 >= 2 : x384 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 2369
+    pol 2370 138 + ;
+    pol 2373 2 d ;
+    rup 1 x76 >= 1 ;
+    pol 2370 139 + ;
+    pol 2376 2 d ;
+    rup 1 x96 >= 1 ;
+    pol 2370 140 + ;
+    pol 2379 2 d ;
+    rup 1 x97 >= 1 ;
+    pol 2375 2378 + 2381 + ;
+    pol 2382 2372 + ;
+  qed : 2383 ;
+qed ;
+red 1 x178 1 x179 1 x180 2 ~x385 >= 2 : x385 -> 0 ;
+red 1 ~x178 1 ~x179 1 ~x180 2 x385 >= 3 : x385 -> 1 : subproof
+  proofgoal #1
+    pol 2387 296 + ;
+  qed : 2388 ;
+  proofgoal 2385
+    pol 2389 295 + ;
+    pol 2390 2 d ;
+    rup 1 ~x178 >= 1 ;
+    pol 2389 294 + ;
+    pol 2393 2 d ;
+    rup 1 ~x179 >= 1 ;
+    pol 2389 293 + ;
+    pol 2396 2 d ;
+    rup 1 ~x180 >= 1 ;
+    pol 2386 2392 + 2395 + 2398 + ;
+  qed : 2399 ;
+qed ;
+red 1 x219 1 x266 1 x267 2 ~x386 >= 3 : x386 -> 0 ;
+red 1 ~x219 1 ~x266 1 ~x267 2 x386 >= 2 : x386 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 2401
+    pol 2402 574 + ;
+    pol 2405 2 d ;
+    rup 1 x219 >= 1 ;
+    pol 2402 575 + ;
+    pol 2408 2 d ;
+    rup 1 x266 >= 1 ;
+    pol 2402 576 + ;
+    pol 2411 2 d ;
+    rup 1 x267 >= 1 ;
+    pol 2407 2410 + 2413 + ;
+    pol 2414 2404 + ;
+  qed : 2415 ;
+qed ;
+red 1 x43 1 x44 1 x45 2 ~x387 >= 3 : x387 -> 0 ;
+red 1 ~x43 1 ~x44 1 ~x45 2 x387 >= 2 : x387 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 2417
+    pol 2418 58 + ;
+    pol 2421 2 d ;
+    rup 1 x43 >= 1 ;
+    pol 2418 59 + ;
+    pol 2424 2 d ;
+    rup 1 x44 >= 1 ;
+    pol 2418 60 + ;
+    pol 2427 2 d ;
+    rup 1 x45 >= 1 ;
+    pol 2423 2426 + 2429 + ;
+    pol 2430 2420 + ;
+  qed : 2431 ;
+qed ;
+red 1 x22 1 x88 1 x223 2 ~x388 >= 3 : x388 -> 0 ;
+red 1 ~x22 1 ~x88 1 ~x223 2 x388 >= 2 : x388 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 2433
+    pol 2434 386 + ;
+    pol 2437 2 d ;
+    rup 1 x22 >= 1 ;
+    pol 2434 387 + ;
+    pol 2440 2 d ;
+    rup 1 x88 >= 1 ;
+    pol 2434 388 + ;
+    pol 2443 2 d ;
+    rup 1 x223 >= 1 ;
+    pol 2439 2442 + 2445 + ;
+    pol 2446 2436 + ;
+  qed : 2447 ;
+qed ;
+red 1 x46 1 x47 1 x48 2 ~x389 >= 3 : x389 -> 0 ;
+red 1 ~x46 1 ~x47 1 ~x48 2 x389 >= 2 : x389 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 2449
+    pol 2450 62 + ;
+    pol 2453 2 d ;
+    rup 1 x46 >= 1 ;
+    pol 2450 63 + ;
+    pol 2456 2 d ;
+    rup 1 x47 >= 1 ;
+    pol 2450 64 + ;
+    pol 2459 2 d ;
+    rup 1 x48 >= 1 ;
+    pol 2455 2458 + 2461 + ;
+    pol 2462 2452 + ;
+  qed : 2463 ;
+qed ;
+red 1 x163 1 x258 1 x259 2 ~x390 >= 3 : x390 -> 0 ;
+red 1 ~x163 1 ~x258 1 ~x259 2 x390 >= 2 : x390 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 2465
+    pol 2466 518 + ;
+    pol 2469 2 d ;
+    rup 1 x163 >= 1 ;
+    pol 2466 519 + ;
+    pol 2472 2 d ;
+    rup 1 x258 >= 1 ;
+    pol 2466 520 + ;
+    pol 2475 2 d ;
+    rup 1 x259 >= 1 ;
+    pol 2471 2474 + 2477 + ;
+    pol 2478 2468 + ;
+  qed : 2479 ;
+qed ;
+red 1 x58 1 x161 1 x164 2 ~x391 >= 2 : x391 -> 0 ;
+red 1 ~x58 1 ~x161 1 ~x164 2 x391 >= 3 : x391 -> 1 : subproof
+  proofgoal #1
+    pol 2483 412 + ;
+  qed : 2484 ;
+  proofgoal 2481
+    pol 2485 411 + ;
+    pol 2486 2 d ;
+    rup 1 ~x58 >= 1 ;
+    pol 2485 410 + ;
+    pol 2489 2 d ;
+    rup 1 ~x161 >= 1 ;
+    pol 2485 409 + ;
+    pol 2492 2 d ;
+    rup 1 ~x164 >= 1 ;
+    pol 2482 2488 + 2491 + 2494 + ;
+  qed : 2495 ;
+qed ;
+red 1 x68 1 x71 1 x72 2 ~x392 >= 3 : x392 -> 0 ;
+red 1 ~x68 1 ~x71 1 ~x72 2 x392 >= 2 : x392 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 2497
+    pol 2498 98 + ;
+    pol 2501 2 d ;
+    rup 1 x68 >= 1 ;
+    pol 2498 99 + ;
+    pol 2504 2 d ;
+    rup 1 x71 >= 1 ;
+    pol 2498 100 + ;
+    pol 2507 2 d ;
+    rup 1 x72 >= 1 ;
+    pol 2503 2506 + 2509 + ;
+    pol 2510 2500 + ;
+  qed : 2511 ;
+qed ;
+red 1 x52 1 x53 1 x54 2 ~x393 >= 3 : x393 -> 0 ;
+red 1 ~x52 1 ~x53 1 ~x54 2 x393 >= 2 : x393 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 2513
+    pol 2514 70 + ;
+    pol 2517 2 d ;
+    rup 1 x52 >= 1 ;
+    pol 2514 71 + ;
+    pol 2520 2 d ;
+    rup 1 x53 >= 1 ;
+    pol 2514 72 + ;
+    pol 2523 2 d ;
+    rup 1 x54 >= 1 ;
+    pol 2519 2522 + 2525 + ;
+    pol 2526 2516 + ;
+  qed : 2527 ;
+qed ;
+red 1 x68 1 x69 1 x70 2 ~x394 >= 2 : x394 -> 0 ;
+red 1 ~x68 1 ~x69 1 ~x70 2 x394 >= 3 : x394 -> 1 : subproof
+  proofgoal #1
+    pol 2531 96 + ;
+  qed : 2532 ;
+  proofgoal 2529
+    pol 2533 95 + ;
+    pol 2534 2 d ;
+    rup 1 ~x68 >= 1 ;
+    pol 2533 94 + ;
+    pol 2537 2 d ;
+    rup 1 ~x69 >= 1 ;
+    pol 2533 93 + ;
+    pol 2540 2 d ;
+    rup 1 ~x70 >= 1 ;
+    pol 2530 2536 + 2539 + 2542 + ;
+  qed : 2543 ;
+qed ;
+red 1 x91 1 x207 1 x208 2 ~x395 >= 2 : x395 -> 0 ;
+red 1 ~x91 1 ~x207 1 ~x208 2 x395 >= 3 : x395 -> 1 : subproof
+  proofgoal #1
+    pol 2547 356 + ;
+  qed : 2548 ;
+  proofgoal 2545
+    pol 2549 355 + ;
+    pol 2550 2 d ;
+    rup 1 ~x91 >= 1 ;
+    pol 2549 354 + ;
+    pol 2553 2 d ;
+    rup 1 ~x207 >= 1 ;
+    pol 2549 353 + ;
+    pol 2556 2 d ;
+    rup 1 ~x208 >= 1 ;
+    pol 2546 2552 + 2555 + 2558 + ;
+  qed : 2559 ;
+qed ;
+red 1 x65 1 x145 1 x146 2 ~x396 >= 2 : x396 -> 0 ;
+red 1 ~x65 1 ~x145 1 ~x146 2 x396 >= 3 : x396 -> 1 : subproof
+  proofgoal #1
+    pol 2563 220 + ;
+  qed : 2564 ;
+  proofgoal 2561
+    pol 2565 219 + ;
+    pol 2566 2 d ;
+    rup 1 ~x65 >= 1 ;
+    pol 2565 218 + ;
+    pol 2569 2 d ;
+    rup 1 ~x145 >= 1 ;
+    pol 2565 217 + ;
+    pol 2572 2 d ;
+    rup 1 ~x146 >= 1 ;
+    pol 2562 2568 + 2571 + 2574 + ;
+  qed : 2575 ;
+qed ;
+red 1 x93 1 x150 1 x183 2 ~x397 >= 3 : x397 -> 0 ;
+red 1 ~x93 1 ~x150 1 ~x183 2 x397 >= 2 : x397 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 2577
+    pol 2578 438 + ;
+    pol 2581 2 d ;
+    rup 1 x93 >= 1 ;
+    pol 2578 439 + ;
+    pol 2584 2 d ;
+    rup 1 x150 >= 1 ;
+    pol 2578 440 + ;
+    pol 2587 2 d ;
+    rup 1 x183 >= 1 ;
+    pol 2583 2586 + 2589 + ;
+    pol 2590 2580 + ;
+  qed : 2591 ;
+qed ;
+red 1 x154 1 x178 1 x260 2 ~x398 >= 2 : x398 -> 0 ;
+red 1 ~x154 1 ~x178 1 ~x260 2 x398 >= 3 : x398 -> 1 : subproof
+  proofgoal #1
+    pol 2595 740 + ;
+  qed : 2596 ;
+  proofgoal 2593
+    pol 2597 739 + ;
+    pol 2598 2 d ;
+    rup 1 ~x154 >= 1 ;
+    pol 2597 738 + ;
+    pol 2601 2 d ;
+    rup 1 ~x178 >= 1 ;
+    pol 2597 737 + ;
+    pol 2604 2 d ;
+    rup 1 ~x260 >= 1 ;
+    pol 2594 2600 + 2603 + 2606 + ;
+  qed : 2607 ;
+qed ;
+red 1 x55 1 x56 1 x57 2 ~x399 >= 3 : x399 -> 0 ;
+red 1 ~x55 1 ~x56 1 ~x57 2 x399 >= 2 : x399 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 2609
+    pol 2610 74 + ;
+    pol 2613 2 d ;
+    rup 1 x55 >= 1 ;
+    pol 2610 75 + ;
+    pol 2616 2 d ;
+    rup 1 x56 >= 1 ;
+    pol 2610 76 + ;
+    pol 2619 2 d ;
+    rup 1 x57 >= 1 ;
+    pol 2615 2618 + 2621 + ;
+    pol 2622 2612 + ;
+  qed : 2623 ;
+qed ;
+red 1 x48 1 x130 1 x237 2 ~x400 >= 2 : x400 -> 0 ;
+red 1 ~x48 1 ~x130 1 ~x237 2 x400 >= 3 : x400 -> 1 : subproof
+  proofgoal #1
+    pol 2627 736 + ;
+  qed : 2628 ;
+  proofgoal 2625
+    pol 2629 735 + ;
+    pol 2630 2 d ;
+    rup 1 ~x48 >= 1 ;
+    pol 2629 734 + ;
+    pol 2633 2 d ;
+    rup 1 ~x130 >= 1 ;
+    pol 2629 733 + ;
+    pol 2636 2 d ;
+    rup 1 ~x237 >= 1 ;
+    pol 2626 2632 + 2635 + 2638 + ;
+  qed : 2639 ;
+qed ;
+red 1 x159 1 x173 1 x174 2 ~x401 >= 2 : x401 -> 0 ;
+red 1 ~x159 1 ~x173 1 ~x174 2 x401 >= 3 : x401 -> 1 : subproof
+  proofgoal #1
+    pol 2643 284 + ;
+  qed : 2644 ;
+  proofgoal 2641
+    pol 2645 283 + ;
+    pol 2646 2 d ;
+    rup 1 ~x159 >= 1 ;
+    pol 2645 282 + ;
+    pol 2649 2 d ;
+    rup 1 ~x173 >= 1 ;
+    pol 2645 281 + ;
+    pol 2652 2 d ;
+    rup 1 ~x174 >= 1 ;
+    pol 2642 2648 + 2651 + 2654 + ;
+  qed : 2655 ;
+qed ;
+red 1 x164 1 x165 1 x166 2 ~x402 >= 2 : x402 -> 0 ;
+red 1 ~x164 1 ~x165 1 ~x166 2 x402 >= 3 : x402 -> 1 : subproof
+  proofgoal #1
+    pol 2659 260 + ;
+  qed : 2660 ;
+  proofgoal 2657
+    pol 2661 259 + ;
+    pol 2662 2 d ;
+    rup 1 ~x164 >= 1 ;
+    pol 2661 258 + ;
+    pol 2665 2 d ;
+    rup 1 ~x165 >= 1 ;
+    pol 2661 257 + ;
+    pol 2668 2 d ;
+    rup 1 ~x166 >= 1 ;
+    pol 2658 2664 + 2667 + 2670 + ;
+  qed : 2671 ;
+qed ;
+red 1 x141 1 x209 1 x210 2 ~x403 >= 2 : x403 -> 0 ;
+red 1 ~x141 1 ~x209 1 ~x210 2 x403 >= 3 : x403 -> 1 : subproof
+  proofgoal #1
+    pol 2675 360 + ;
+  qed : 2676 ;
+  proofgoal 2673
+    pol 2677 359 + ;
+    pol 2678 2 d ;
+    rup 1 ~x141 >= 1 ;
+    pol 2677 358 + ;
+    pol 2681 2 d ;
+    rup 1 ~x209 >= 1 ;
+    pol 2677 357 + ;
+    pol 2684 2 d ;
+    rup 1 ~x210 >= 1 ;
+    pol 2674 2680 + 2683 + 2686 + ;
+  qed : 2687 ;
+qed ;
+red 1 x28 1 x46 1 x73 2 ~x404 >= 2 : x404 -> 0 ;
+red 1 ~x28 1 ~x46 1 ~x73 2 x404 >= 3 : x404 -> 1 : subproof
+  proofgoal #1
+    pol 2691 104 + ;
+  qed : 2692 ;
+  proofgoal 2689
+    pol 2693 103 + ;
+    pol 2694 2 d ;
+    rup 1 ~x28 >= 1 ;
+    pol 2693 102 + ;
+    pol 2697 2 d ;
+    rup 1 ~x46 >= 1 ;
+    pol 2693 101 + ;
+    pol 2700 2 d ;
+    rup 1 ~x73 >= 1 ;
+    pol 2690 2696 + 2699 + 2702 + ;
+  qed : 2703 ;
+qed ;
+red 1 x76 1 x77 1 x78 2 ~x405 >= 3 : x405 -> 0 ;
+red 1 ~x76 1 ~x77 1 ~x78 2 x405 >= 2 : x405 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 2705
+    pol 2706 110 + ;
+    pol 2709 2 d ;
+    rup 1 x76 >= 1 ;
+    pol 2706 111 + ;
+    pol 2712 2 d ;
+    rup 1 x77 >= 1 ;
+    pol 2706 112 + ;
+    pol 2715 2 d ;
+    rup 1 x78 >= 1 ;
+    pol 2711 2714 + 2717 + ;
+    pol 2718 2708 + ;
+  qed : 2719 ;
+qed ;
+red 1 x13 1 x61 1 x62 2 ~x406 >= 3 : x406 -> 0 ;
+red 1 ~x13 1 ~x61 1 ~x62 2 x406 >= 2 : x406 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 2721
+    pol 2722 82 + ;
+    pol 2725 2 d ;
+    rup 1 x13 >= 1 ;
+    pol 2722 83 + ;
+    pol 2728 2 d ;
+    rup 1 x61 >= 1 ;
+    pol 2722 84 + ;
+    pol 2731 2 d ;
+    rup 1 x62 >= 1 ;
+    pol 2727 2730 + 2733 + ;
+    pol 2734 2724 + ;
+  qed : 2735 ;
+qed ;
+red 1 x79 1 x80 1 x81 2 ~x407 >= 2 : x407 -> 0 ;
+red 1 ~x79 1 ~x80 1 ~x81 2 x407 >= 3 : x407 -> 1 : subproof
+  proofgoal #1
+    pol 2739 116 + ;
+  qed : 2740 ;
+  proofgoal 2737
+    pol 2741 115 + ;
+    pol 2742 2 d ;
+    rup 1 ~x79 >= 1 ;
+    pol 2741 114 + ;
+    pol 2745 2 d ;
+    rup 1 ~x80 >= 1 ;
+    pol 2741 113 + ;
+    pol 2748 2 d ;
+    rup 1 ~x81 >= 1 ;
+    pol 2738 2744 + 2747 + 2750 + ;
+  qed : 2751 ;
+qed ;
+red 1 x73 1 x100 1 x245 2 ~x408 >= 3 : x408 -> 0 ;
+red 1 ~x73 1 ~x100 1 ~x245 2 x408 >= 2 : x408 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 2753
+    pol 2754 626 + ;
+    pol 2757 2 d ;
+    rup 1 x73 >= 1 ;
+    pol 2754 627 + ;
+    pol 2760 2 d ;
+    rup 1 x100 >= 1 ;
+    pol 2754 628 + ;
+    pol 2763 2 d ;
+    rup 1 x245 >= 1 ;
+    pol 2759 2762 + 2765 + ;
+    pol 2766 2756 + ;
+  qed : 2767 ;
+qed ;
+red 1 x54 1 x258 1 x268 2 ~x409 >= 2 : x409 -> 0 ;
+red 1 ~x54 1 ~x258 1 ~x268 2 x409 >= 3 : x409 -> 1 : subproof
+  proofgoal #1
+    pol 2771 580 + ;
+  qed : 2772 ;
+  proofgoal 2769
+    pol 2773 579 + ;
+    pol 2774 2 d ;
+    rup 1 ~x54 >= 1 ;
+    pol 2773 578 + ;
+    pol 2777 2 d ;
+    rup 1 ~x258 >= 1 ;
+    pol 2773 577 + ;
+    pol 2780 2 d ;
+    rup 1 ~x268 >= 1 ;
+    pol 2770 2776 + 2779 + 2782 + ;
+  qed : 2783 ;
+qed ;
+red 1 x113 1 x124 1 x158 2 ~x410 >= 2 : x410 -> 0 ;
+red 1 ~x113 1 ~x124 1 ~x158 2 x410 >= 3 : x410 -> 1 : subproof
+  proofgoal #1
+    pol 2787 248 + ;
+  qed : 2788 ;
+  proofgoal 2785
+    pol 2789 247 + ;
+    pol 2790 2 d ;
+    rup 1 ~x113 >= 1 ;
+    pol 2789 246 + ;
+    pol 2793 2 d ;
+    rup 1 ~x124 >= 1 ;
+    pol 2789 245 + ;
+    pol 2796 2 d ;
+    rup 1 ~x158 >= 1 ;
+    pol 2786 2792 + 2795 + 2798 + ;
+  qed : 2799 ;
+qed ;
+red 1 x5 1 x161 1 x162 2 ~x411 >= 2 : x411 -> 0 ;
+red 1 ~x5 1 ~x161 1 ~x162 2 x411 >= 3 : x411 -> 1 : subproof
+  proofgoal #1
+    pol 2803 252 + ;
+  qed : 2804 ;
+  proofgoal 2801
+    pol 2805 251 + ;
+    pol 2806 2 d ;
+    rup 1 ~x5 >= 1 ;
+    pol 2805 250 + ;
+    pol 2809 2 d ;
+    rup 1 ~x161 >= 1 ;
+    pol 2805 249 + ;
+    pol 2812 2 d ;
+    rup 1 ~x162 >= 1 ;
+    pol 2802 2808 + 2811 + 2814 + ;
+  qed : 2815 ;
+qed ;
+red 1 x43 1 x135 1 x163 2 ~x412 >= 3 : x412 -> 0 ;
+red 1 ~x43 1 ~x135 1 ~x163 2 x412 >= 2 : x412 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 2817
+    pol 2818 254 + ;
+    pol 2821 2 d ;
+    rup 1 x43 >= 1 ;
+    pol 2818 255 + ;
+    pol 2824 2 d ;
+    rup 1 x135 >= 1 ;
+    pol 2818 256 + ;
+    pol 2827 2 d ;
+    rup 1 x163 >= 1 ;
+    pol 2823 2826 + 2829 + ;
+    pol 2830 2820 + ;
+  qed : 2831 ;
+qed ;
+red 1 x21 1 x51 1 x278 2 ~x413 >= 3 : x413 -> 0 ;
+red 1 ~x21 1 ~x51 1 ~x278 2 x413 >= 2 : x413 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 2833
+    pol 2834 710 + ;
+    pol 2837 2 d ;
+    rup 1 x21 >= 1 ;
+    pol 2834 711 + ;
+    pol 2840 2 d ;
+    rup 1 x51 >= 1 ;
+    pol 2834 712 + ;
+    pol 2843 2 d ;
+    rup 1 x278 >= 1 ;
+    pol 2839 2842 + 2845 + ;
+    pol 2846 2836 + ;
+  qed : 2847 ;
+qed ;
+red 1 x59 1 x92 1 x174 2 ~x414 >= 2 : x414 -> 0 ;
+red 1 ~x59 1 ~x92 1 ~x174 2 x414 >= 3 : x414 -> 1 : subproof
+  proofgoal #1
+    pol 2851 528 + ;
+  qed : 2852 ;
+  proofgoal 2849
+    pol 2853 527 + ;
+    pol 2854 2 d ;
+    rup 1 ~x59 >= 1 ;
+    pol 2853 526 + ;
+    pol 2857 2 d ;
+    rup 1 ~x92 >= 1 ;
+    pol 2853 525 + ;
+    pol 2860 2 d ;
+    rup 1 ~x174 >= 1 ;
+    pol 2850 2856 + 2859 + 2862 + ;
+  qed : 2863 ;
+qed ;
+red 1 x82 1 x83 1 x84 2 ~x415 >= 2 : x415 -> 0 ;
+red 1 ~x82 1 ~x83 1 ~x84 2 x415 >= 3 : x415 -> 1 : subproof
+  proofgoal #1
+    pol 2867 120 + ;
+  qed : 2868 ;
+  proofgoal 2865
+    pol 2869 119 + ;
+    pol 2870 2 d ;
+    rup 1 ~x82 >= 1 ;
+    pol 2869 118 + ;
+    pol 2873 2 d ;
+    rup 1 ~x83 >= 1 ;
+    pol 2869 117 + ;
+    pol 2876 2 d ;
+    rup 1 ~x84 >= 1 ;
+    pol 2866 2872 + 2875 + 2878 + ;
+  qed : 2879 ;
+qed ;
+red 1 x232 1 x243 1 x244 2 ~x416 >= 3 : x416 -> 0 ;
+red 1 ~x232 1 ~x243 1 ~x244 2 x416 >= 2 : x416 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 2881
+    pol 2882 470 + ;
+    pol 2885 2 d ;
+    rup 1 x232 >= 1 ;
+    pol 2882 471 + ;
+    pol 2888 2 d ;
+    rup 1 x243 >= 1 ;
+    pol 2882 472 + ;
+    pol 2891 2 d ;
+    rup 1 x244 >= 1 ;
+    pol 2887 2890 + 2893 + ;
+    pol 2894 2884 + ;
+  qed : 2895 ;
+qed ;
+red 1 x49 1 x140 1 x167 2 ~x417 >= 2 : x417 -> 0 ;
+red 1 ~x49 1 ~x140 1 ~x167 2 x417 >= 3 : x417 -> 1 : subproof
+  proofgoal #1
+    pol 2899 264 + ;
+  qed : 2900 ;
+  proofgoal 2897
+    pol 2901 263 + ;
+    pol 2902 2 d ;
+    rup 1 ~x49 >= 1 ;
+    pol 2901 262 + ;
+    pol 2905 2 d ;
+    rup 1 ~x140 >= 1 ;
+    pol 2901 261 + ;
+    pol 2908 2 d ;
+    rup 1 ~x167 >= 1 ;
+    pol 2898 2904 + 2907 + 2910 + ;
+  qed : 2911 ;
+qed ;
+red 1 x49 1 x50 1 x51 2 ~x418 >= 2 : x418 -> 0 ;
+red 1 ~x49 1 ~x50 1 ~x51 2 x418 >= 3 : x418 -> 1 : subproof
+  proofgoal #1
+    pol 2915 68 + ;
+  qed : 2916 ;
+  proofgoal 2913
+    pol 2917 67 + ;
+    pol 2918 2 d ;
+    rup 1 ~x49 >= 1 ;
+    pol 2917 66 + ;
+    pol 2921 2 d ;
+    rup 1 ~x50 >= 1 ;
+    pol 2917 65 + ;
+    pol 2924 2 d ;
+    rup 1 ~x51 >= 1 ;
+    pol 2914 2920 + 2923 + 2926 + ;
+  qed : 2927 ;
+qed ;
+red 1 x16 1 x137 1 x168 2 ~x419 >= 2 : x419 -> 0 ;
+red 1 ~x16 1 ~x137 1 ~x168 2 x419 >= 3 : x419 -> 1 : subproof
+  proofgoal #1
+    pol 2931 268 + ;
+  qed : 2932 ;
+  proofgoal 2929
+    pol 2933 267 + ;
+    pol 2934 2 d ;
+    rup 1 ~x16 >= 1 ;
+    pol 2933 266 + ;
+    pol 2937 2 d ;
+    rup 1 ~x137 >= 1 ;
+    pol 2933 265 + ;
+    pol 2940 2 d ;
+    rup 1 ~x168 >= 1 ;
+    pol 2930 2936 + 2939 + 2942 + ;
+  qed : 2943 ;
+qed ;
+red 1 x147 1 x167 1 x171 2 ~x420 >= 2 : x420 -> 0 ;
+red 1 ~x147 1 ~x167 1 ~x171 2 x420 >= 3 : x420 -> 1 : subproof
+  proofgoal #1
+    pol 2947 276 + ;
+  qed : 2948 ;
+  proofgoal 2945
+    pol 2949 275 + ;
+    pol 2950 2 d ;
+    rup 1 ~x147 >= 1 ;
+    pol 2949 274 + ;
+    pol 2953 2 d ;
+    rup 1 ~x167 >= 1 ;
+    pol 2949 273 + ;
+    pol 2956 2 d ;
+    rup 1 ~x171 >= 1 ;
+    pol 2946 2952 + 2955 + 2958 + ;
+  qed : 2959 ;
+qed ;
+red 1 x9 1 x200 1 x265 2 ~x421 >= 3 : x421 -> 0 ;
+red 1 ~x9 1 ~x200 1 ~x265 2 x421 >= 2 : x421 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 2961
+    pol 2962 570 + ;
+    pol 2965 2 d ;
+    rup 1 x9 >= 1 ;
+    pol 2962 571 + ;
+    pol 2968 2 d ;
+    rup 1 x200 >= 1 ;
+    pol 2962 572 + ;
+    pol 2971 2 d ;
+    rup 1 x265 >= 1 ;
+    pol 2967 2970 + 2973 + ;
+    pol 2974 2964 + ;
+  qed : 2975 ;
+qed ;
+red 1 x34 1 x175 1 x176 2 ~x422 >= 2 : x422 -> 0 ;
+red 1 ~x34 1 ~x175 1 ~x176 2 x422 >= 3 : x422 -> 1 : subproof
+  proofgoal #1
+    pol 2979 288 + ;
+  qed : 2980 ;
+  proofgoal 2977
+    pol 2981 287 + ;
+    pol 2982 2 d ;
+    rup 1 ~x34 >= 1 ;
+    pol 2981 286 + ;
+    pol 2985 2 d ;
+    rup 1 ~x175 >= 1 ;
+    pol 2981 285 + ;
+    pol 2988 2 d ;
+    rup 1 ~x176 >= 1 ;
+    pol 2978 2984 + 2987 + 2990 + ;
+  qed : 2991 ;
+qed ;
+red 1 x67 1 x119 1 x272 2 ~x423 >= 2 : x423 -> 0 ;
+red 1 ~x67 1 ~x119 1 ~x272 2 x423 >= 3 : x423 -> 1 : subproof
+  proofgoal #1
+    pol 2995 604 + ;
+  qed : 2996 ;
+  proofgoal 2993
+    pol 2997 603 + ;
+    pol 2998 2 d ;
+    rup 1 ~x67 >= 1 ;
+    pol 2997 602 + ;
+    pol 3001 2 d ;
+    rup 1 ~x119 >= 1 ;
+    pol 2997 601 + ;
+    pol 3004 2 d ;
+    rup 1 ~x272 >= 1 ;
+    pol 2994 3000 + 3003 + 3006 + ;
+  qed : 3007 ;
+qed ;
+red 1 x19 1 x138 1 x177 2 ~x424 >= 3 : x424 -> 0 ;
+red 1 ~x19 1 ~x138 1 ~x177 2 x424 >= 2 : x424 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 3009
+    pol 3010 290 + ;
+    pol 3013 2 d ;
+    rup 1 x19 >= 1 ;
+    pol 3010 291 + ;
+    pol 3016 2 d ;
+    rup 1 x138 >= 1 ;
+    pol 3010 292 + ;
+    pol 3019 2 d ;
+    rup 1 x177 >= 1 ;
+    pol 3015 3018 + 3021 + ;
+    pol 3022 3012 + ;
+  qed : 3023 ;
+qed ;
+red 1 x36 1 x180 1 x194 2 ~x425 >= 3 : x425 -> 0 ;
+red 1 ~x36 1 ~x180 1 ~x194 2 x425 >= 2 : x425 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 3025
+    pol 3026 750 + ;
+    pol 3029 2 d ;
+    rup 1 x36 >= 1 ;
+    pol 3026 751 + ;
+    pol 3032 2 d ;
+    rup 1 x180 >= 1 ;
+    pol 3026 752 + ;
+    pol 3035 2 d ;
+    rup 1 x194 >= 1 ;
+    pol 3031 3034 + 3037 + ;
+    pol 3038 3028 + ;
+  qed : 3039 ;
+qed ;
+red 1 x40 1 x181 1 x182 2 ~x426 >= 2 : x426 -> 0 ;
+red 1 ~x40 1 ~x181 1 ~x182 2 x426 >= 3 : x426 -> 1 : subproof
+  proofgoal #1
+    pol 3043 300 + ;
+  qed : 3044 ;
+  proofgoal 3041
+    pol 3045 299 + ;
+    pol 3046 2 d ;
+    rup 1 ~x40 >= 1 ;
+    pol 3045 298 + ;
+    pol 3049 2 d ;
+    rup 1 ~x181 >= 1 ;
+    pol 3045 297 + ;
+    pol 3052 2 d ;
+    rup 1 ~x182 >= 1 ;
+    pol 3042 3048 + 3051 + 3054 + ;
+  qed : 3055 ;
+qed ;
+red 1 x113 1 x114 1 x115 2 ~x427 >= 2 : x427 -> 0 ;
+red 1 ~x113 1 ~x114 1 ~x115 2 x427 >= 3 : x427 -> 1 : subproof
+  proofgoal #1
+    pol 3059 164 + ;
+  qed : 3060 ;
+  proofgoal 3057
+    pol 3061 163 + ;
+    pol 3062 2 d ;
+    rup 1 ~x113 >= 1 ;
+    pol 3061 162 + ;
+    pol 3065 2 d ;
+    rup 1 ~x114 >= 1 ;
+    pol 3061 161 + ;
+    pol 3068 2 d ;
+    rup 1 ~x115 >= 1 ;
+    pol 3058 3064 + 3067 + 3070 + ;
+  qed : 3071 ;
+qed ;
+red 1 x1 1 x183 1 x184 2 ~x428 >= 3 : x428 -> 0 ;
+red 1 ~x1 1 ~x183 1 ~x184 2 x428 >= 2 : x428 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 3073
+    pol 3074 302 + ;
+    pol 3077 2 d ;
+    rup 1 x1 >= 1 ;
+    pol 3074 303 + ;
+    pol 3080 2 d ;
+    rup 1 x183 >= 1 ;
+    pol 3074 304 + ;
+    pol 3083 2 d ;
+    rup 1 x184 >= 1 ;
+    pol 3079 3082 + 3085 + ;
+    pol 3086 3076 + ;
+  qed : 3087 ;
+qed ;
+red 1 x188 1 x189 1 x190 2 ~x429 >= 2 : x429 -> 0 ;
+red 1 ~x188 1 ~x189 1 ~x190 2 x429 >= 3 : x429 -> 1 : subproof
+  proofgoal #1
+    pol 3091 312 + ;
+  qed : 3092 ;
+  proofgoal 3089
+    pol 3093 311 + ;
+    pol 3094 2 d ;
+    rup 1 ~x188 >= 1 ;
+    pol 3093 310 + ;
+    pol 3097 2 d ;
+    rup 1 ~x189 >= 1 ;
+    pol 3093 309 + ;
+    pol 3100 2 d ;
+    rup 1 ~x190 >= 1 ;
+    pol 3090 3096 + 3099 + 3102 + ;
+  qed : 3103 ;
+qed ;
+red 1 x118 1 x125 1 x228 2 ~x430 >= 3 : x430 -> 0 ;
+red 1 ~x118 1 ~x125 1 ~x228 2 x430 >= 2 : x430 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 3105
+    pol 3106 402 + ;
+    pol 3109 2 d ;
+    rup 1 x118 >= 1 ;
+    pol 3106 403 + ;
+    pol 3112 2 d ;
+    rup 1 x125 >= 1 ;
+    pol 3106 404 + ;
+    pol 3115 2 d ;
+    rup 1 x228 >= 1 ;
+    pol 3111 3114 + 3117 + ;
+    pol 3118 3108 + ;
+  qed : 3119 ;
+qed ;
+red 1 x96 1 x193 1 x194 2 ~x431 >= 3 : x431 -> 0 ;
+red 1 ~x96 1 ~x193 1 ~x194 2 x431 >= 2 : x431 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 3121
+    pol 3122 318 + ;
+    pol 3125 2 d ;
+    rup 1 x96 >= 1 ;
+    pol 3122 319 + ;
+    pol 3128 2 d ;
+    rup 1 x193 >= 1 ;
+    pol 3122 320 + ;
+    pol 3131 2 d ;
+    rup 1 x194 >= 1 ;
+    pol 3127 3130 + 3133 + ;
+    pol 3134 3124 + ;
+  qed : 3135 ;
+qed ;
+red 1 x53 1 x224 1 x225 2 ~x432 >= 3 : x432 -> 0 ;
+red 1 ~x53 1 ~x224 1 ~x225 2 x432 >= 2 : x432 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 3137
+    pol 3138 390 + ;
+    pol 3141 2 d ;
+    rup 1 x53 >= 1 ;
+    pol 3138 391 + ;
+    pol 3144 2 d ;
+    rup 1 x224 >= 1 ;
+    pol 3138 392 + ;
+    pol 3147 2 d ;
+    rup 1 x225 >= 1 ;
+    pol 3143 3146 + 3149 + ;
+    pol 3150 3140 + ;
+  qed : 3151 ;
+qed ;
+red 1 x35 1 x136 1 x197 2 ~x433 >= 2 : x433 -> 0 ;
+red 1 ~x35 1 ~x136 1 ~x197 2 x433 >= 3 : x433 -> 1 : subproof
+  proofgoal #1
+    pol 3155 328 + ;
+  qed : 3156 ;
+  proofgoal 3153
+    pol 3157 327 + ;
+    pol 3158 2 d ;
+    rup 1 ~x35 >= 1 ;
+    pol 3157 326 + ;
+    pol 3161 2 d ;
+    rup 1 ~x136 >= 1 ;
+    pol 3157 325 + ;
+    pol 3164 2 d ;
+    rup 1 ~x197 >= 1 ;
+    pol 3154 3160 + 3163 + 3166 + ;
+  qed : 3167 ;
+qed ;
+red 1 x114 1 x195 1 x196 2 ~x434 >= 2 : x434 -> 0 ;
+red 1 ~x114 1 ~x195 1 ~x196 2 x434 >= 3 : x434 -> 1 : subproof
+  proofgoal #1
+    pol 3171 324 + ;
+  qed : 3172 ;
+  proofgoal 3169
+    pol 3173 323 + ;
+    pol 3174 2 d ;
+    rup 1 ~x114 >= 1 ;
+    pol 3173 322 + ;
+    pol 3177 2 d ;
+    rup 1 ~x195 >= 1 ;
+    pol 3173 321 + ;
+    pol 3180 2 d ;
+    rup 1 ~x196 >= 1 ;
+    pol 3170 3176 + 3179 + 3182 + ;
+  qed : 3183 ;
+qed ;
+red 1 x199 1 x200 1 x201 2 ~x435 >= 3 : x435 -> 0 ;
+red 1 ~x199 1 ~x200 1 ~x201 2 x435 >= 2 : x435 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 3185
+    pol 3186 334 + ;
+    pol 3189 2 d ;
+    rup 1 x199 >= 1 ;
+    pol 3186 335 + ;
+    pol 3192 2 d ;
+    rup 1 x200 >= 1 ;
+    pol 3186 336 + ;
+    pol 3195 2 d ;
+    rup 1 x201 >= 1 ;
+    pol 3191 3194 + 3197 + ;
+    pol 3198 3188 + ;
+  qed : 3199 ;
+qed ;
+red 1 x160 1 x166 1 x277 2 ~x436 >= 3 : x436 -> 0 ;
+red 1 ~x160 1 ~x166 1 ~x277 2 x436 >= 2 : x436 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 3201
+    pol 3202 634 + ;
+    pol 3205 2 d ;
+    rup 1 x160 >= 1 ;
+    pol 3202 635 + ;
+    pol 3208 2 d ;
+    rup 1 x166 >= 1 ;
+    pol 3202 636 + ;
+    pol 3211 2 d ;
+    rup 1 x277 >= 1 ;
+    pol 3207 3210 + 3213 + ;
+    pol 3214 3204 + ;
+  qed : 3215 ;
+qed ;
+red 1 x111 1 x134 1 x226 2 ~x437 >= 3 : x437 -> 0 ;
+red 1 ~x111 1 ~x134 1 ~x226 2 x437 >= 2 : x437 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 3217
+    pol 3218 450 + ;
+    pol 3221 2 d ;
+    rup 1 x111 >= 1 ;
+    pol 3218 451 + ;
+    pol 3224 2 d ;
+    rup 1 x134 >= 1 ;
+    pol 3218 452 + ;
+    pol 3227 2 d ;
+    rup 1 x226 >= 1 ;
+    pol 3223 3226 + 3229 + ;
+    pol 3230 3220 + ;
+  qed : 3231 ;
+qed ;
+red 1 x124 1 x125 1 x126 2 ~x438 >= 3 : x438 -> 0 ;
+red 1 ~x124 1 ~x125 1 ~x126 2 x438 >= 2 : x438 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 3233
+    pol 3234 182 + ;
+    pol 3237 2 d ;
+    rup 1 x124 >= 1 ;
+    pol 3234 183 + ;
+    pol 3240 2 d ;
+    rup 1 x125 >= 1 ;
+    pol 3234 184 + ;
+    pol 3243 2 d ;
+    rup 1 x126 >= 1 ;
+    pol 3239 3242 + 3245 + ;
+    pol 3246 3236 + ;
+  qed : 3247 ;
+qed ;
+red 1 x148 1 x202 1 x203 2 ~x439 >= 2 : x439 -> 0 ;
+red 1 ~x148 1 ~x202 1 ~x203 2 x439 >= 3 : x439 -> 1 : subproof
+  proofgoal #1
+    pol 3251 340 + ;
+  qed : 3252 ;
+  proofgoal 3249
+    pol 3253 339 + ;
+    pol 3254 2 d ;
+    rup 1 ~x148 >= 1 ;
+    pol 3253 338 + ;
+    pol 3257 2 d ;
+    rup 1 ~x202 >= 1 ;
+    pol 3253 337 + ;
+    pol 3260 2 d ;
+    rup 1 ~x203 >= 1 ;
+    pol 3250 3256 + 3259 + 3262 + ;
+  qed : 3263 ;
+qed ;
+red 1 x232 1 x233 1 x234 2 ~x440 >= 3 : x440 -> 0 ;
+red 1 ~x232 1 ~x233 1 ~x234 2 x440 >= 2 : x440 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 3265
+    pol 3266 422 + ;
+    pol 3269 2 d ;
+    rup 1 x232 >= 1 ;
+    pol 3266 423 + ;
+    pol 3272 2 d ;
+    rup 1 x233 >= 1 ;
+    pol 3266 424 + ;
+    pol 3275 2 d ;
+    rup 1 x234 >= 1 ;
+    pol 3271 3274 + 3277 + ;
+    pol 3278 3268 + ;
+  qed : 3279 ;
+qed ;
+red 1 x152 1 x168 1 x204 2 ~x441 >= 2 : x441 -> 0 ;
+red 1 ~x152 1 ~x168 1 ~x204 2 x441 >= 3 : x441 -> 1 : subproof
+  proofgoal #1
+    pol 3283 348 + ;
+  qed : 3284 ;
+  proofgoal 3281
+    pol 3285 347 + ;
+    pol 3286 2 d ;
+    rup 1 ~x152 >= 1 ;
+    pol 3285 346 + ;
+    pol 3289 2 d ;
+    rup 1 ~x168 >= 1 ;
+    pol 3285 345 + ;
+    pol 3292 2 d ;
+    rup 1 ~x204 >= 1 ;
+    pol 3282 3288 + 3291 + 3294 + ;
+  qed : 3295 ;
+qed ;
+red 1 x85 1 x86 1 x87 2 ~x442 >= 3 : x442 -> 0 ;
+red 1 ~x85 1 ~x86 1 ~x87 2 x442 >= 2 : x442 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 3297
+    pol 3298 122 + ;
+    pol 3301 2 d ;
+    rup 1 x85 >= 1 ;
+    pol 3298 123 + ;
+    pol 3304 2 d ;
+    rup 1 x86 >= 1 ;
+    pol 3298 124 + ;
+    pol 3307 2 d ;
+    rup 1 x87 >= 1 ;
+    pol 3303 3306 + 3309 + ;
+    pol 3310 3300 + ;
+  qed : 3311 ;
+qed ;
+red 1 x52 1 x205 1 x206 2 ~x443 >= 2 : x443 -> 0 ;
+red 1 ~x52 1 ~x205 1 ~x206 2 x443 >= 3 : x443 -> 1 : subproof
+  proofgoal #1
+    pol 3315 352 + ;
+  qed : 3316 ;
+  proofgoal 3313
+    pol 3317 351 + ;
+    pol 3318 2 d ;
+    rup 1 ~x52 >= 1 ;
+    pol 3317 350 + ;
+    pol 3321 2 d ;
+    rup 1 ~x205 >= 1 ;
+    pol 3317 349 + ;
+    pol 3324 2 d ;
+    rup 1 ~x206 >= 1 ;
+    pol 3314 3320 + 3323 + 3326 + ;
+  qed : 3327 ;
+qed ;
+red 1 x15 1 x211 1 x212 2 ~x444 >= 3 : x444 -> 0 ;
+red 1 ~x15 1 ~x211 1 ~x212 2 x444 >= 2 : x444 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 3329
+    pol 3330 362 + ;
+    pol 3333 2 d ;
+    rup 1 x15 >= 1 ;
+    pol 3330 363 + ;
+    pol 3336 2 d ;
+    rup 1 x211 >= 1 ;
+    pol 3330 364 + ;
+    pol 3339 2 d ;
+    rup 1 x212 >= 1 ;
+    pol 3335 3338 + 3341 + ;
+    pol 3342 3332 + ;
+  qed : 3343 ;
+qed ;
+red 1 x199 1 x217 1 x218 2 ~x445 >= 2 : x445 -> 0 ;
+red 1 ~x199 1 ~x217 1 ~x218 2 x445 >= 3 : x445 -> 1 : subproof
+  proofgoal #1
+    pol 3347 376 + ;
+  qed : 3348 ;
+  proofgoal 3345
+    pol 3349 375 + ;
+    pol 3350 2 d ;
+    rup 1 ~x199 >= 1 ;
+    pol 3349 374 + ;
+    pol 3353 2 d ;
+    rup 1 ~x217 >= 1 ;
+    pol 3349 373 + ;
+    pol 3356 2 d ;
+    rup 1 ~x218 >= 1 ;
+    pol 3346 3352 + 3355 + 3358 + ;
+  qed : 3359 ;
+qed ;
+red 1 x71 1 x129 1 x213 2 ~x446 >= 3 : x446 -> 0 ;
+red 1 ~x71 1 ~x129 1 ~x213 2 x446 >= 2 : x446 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 3361
+    pol 3362 366 + ;
+    pol 3365 2 d ;
+    rup 1 x71 >= 1 ;
+    pol 3362 367 + ;
+    pol 3368 2 d ;
+    rup 1 x129 >= 1 ;
+    pol 3362 368 + ;
+    pol 3371 2 d ;
+    rup 1 x213 >= 1 ;
+    pol 3367 3370 + 3373 + ;
+    pol 3374 3364 + ;
+  qed : 3375 ;
+qed ;
+red 1 x214 1 x215 1 x216 2 ~x447 >= 2 : x447 -> 0 ;
+red 1 ~x214 1 ~x215 1 ~x216 2 x447 >= 3 : x447 -> 1 : subproof
+  proofgoal #1
+    pol 3379 372 + ;
+  qed : 3380 ;
+  proofgoal 3377
+    pol 3381 371 + ;
+    pol 3382 2 d ;
+    rup 1 ~x214 >= 1 ;
+    pol 3381 370 + ;
+    pol 3385 2 d ;
+    rup 1 ~x215 >= 1 ;
+    pol 3381 369 + ;
+    pol 3388 2 d ;
+    rup 1 ~x216 >= 1 ;
+    pol 3378 3384 + 3387 + 3390 + ;
+  qed : 3391 ;
+qed ;
+red 1 x24 1 x228 1 x279 2 ~x448 >= 3 : x448 -> 0 ;
+red 1 ~x24 1 ~x228 1 ~x279 2 x448 >= 2 : x448 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 3393
+    pol 3394 658 + ;
+    pol 3397 2 d ;
+    rup 1 x24 >= 1 ;
+    pol 3394 659 + ;
+    pol 3400 2 d ;
+    rup 1 x228 >= 1 ;
+    pol 3394 660 + ;
+    pol 3403 2 d ;
+    rup 1 x279 >= 1 ;
+    pol 3399 3402 + 3405 + ;
+    pol 3406 3396 + ;
+  qed : 3407 ;
+qed ;
+red 1 x34 1 x35 1 x36 2 ~x449 >= 2 : x449 -> 0 ;
+red 1 ~x34 1 ~x35 1 ~x36 2 x449 >= 3 : x449 -> 1 : subproof
+  proofgoal #1
+    pol 3411 48 + ;
+  qed : 3412 ;
+  proofgoal 3409
+    pol 3413 47 + ;
+    pol 3414 2 d ;
+    rup 1 ~x34 >= 1 ;
+    pol 3413 46 + ;
+    pol 3417 2 d ;
+    rup 1 ~x35 >= 1 ;
+    pol 3413 45 + ;
+    pol 3420 2 d ;
+    rup 1 ~x36 >= 1 ;
+    pol 3410 3416 + 3419 + 3422 + ;
+  qed : 3423 ;
+qed ;
+red 1 x120 1 x205 1 x229 2 ~x450 >= 2 : x450 -> 0 ;
+red 1 ~x120 1 ~x205 1 ~x229 2 x450 >= 3 : x450 -> 1 : subproof
+  proofgoal #1
+    pol 3427 416 + ;
+  qed : 3428 ;
+  proofgoal 3425
+    pol 3429 415 + ;
+    pol 3430 2 d ;
+    rup 1 ~x120 >= 1 ;
+    pol 3429 414 + ;
+    pol 3433 2 d ;
+    rup 1 ~x205 >= 1 ;
+    pol 3429 413 + ;
+    pol 3436 2 d ;
+    rup 1 ~x229 >= 1 ;
+    pol 3426 3432 + 3435 + 3438 + ;
+  qed : 3439 ;
+qed ;
+red 1 x56 1 x171 1 x195 2 ~x451 >= 2 : x451 -> 0 ;
+red 1 ~x56 1 ~x171 1 ~x195 2 x451 >= 3 : x451 -> 1 : subproof
+  proofgoal #1
+    pol 3443 500 + ;
+  qed : 3444 ;
+  proofgoal 3441
+    pol 3445 499 + ;
+    pol 3446 2 d ;
+    rup 1 ~x56 >= 1 ;
+    pol 3445 498 + ;
+    pol 3449 2 d ;
+    rup 1 ~x171 >= 1 ;
+    pol 3445 497 + ;
+    pol 3452 2 d ;
+    rup 1 ~x195 >= 1 ;
+    pol 3442 3448 + 3451 + 3454 + ;
+  qed : 3455 ;
+qed ;
+red 1 x45 1 x190 1 x279 2 ~x452 >= 2 : x452 -> 0 ;
+red 1 ~x45 1 ~x190 1 ~x279 2 x452 >= 3 : x452 -> 1 : subproof
+  proofgoal #1
+    pol 3459 648 + ;
+  qed : 3460 ;
+  proofgoal 3457
+    pol 3461 647 + ;
+    pol 3462 2 d ;
+    rup 1 ~x45 >= 1 ;
+    pol 3461 646 + ;
+    pol 3465 2 d ;
+    rup 1 ~x190 >= 1 ;
+    pol 3461 645 + ;
+    pol 3468 2 d ;
+    rup 1 ~x279 >= 1 ;
+    pol 3458 3464 + 3467 + 3470 + ;
+  qed : 3471 ;
+qed ;
+red 1 x153 1 x214 1 x260 2 ~x453 >= 2 : x453 -> 0 ;
+red 1 ~x153 1 ~x214 1 ~x260 2 x453 >= 3 : x453 -> 1 : subproof
+  proofgoal #1
+    pol 3475 524 + ;
+  qed : 3476 ;
+  proofgoal 3473
+    pol 3477 523 + ;
+    pol 3478 2 d ;
+    rup 1 ~x153 >= 1 ;
+    pol 3477 522 + ;
+    pol 3481 2 d ;
+    rup 1 ~x214 >= 1 ;
+    pol 3477 521 + ;
+    pol 3484 2 d ;
+    rup 1 ~x260 >= 1 ;
+    pol 3474 3480 + 3483 + 3486 + ;
+  qed : 3487 ;
+qed ;
+red 1 x66 1 x83 1 x213 2 ~x454 >= 2 : x454 -> 0 ;
+red 1 ~x66 1 ~x83 1 ~x213 2 x454 >= 3 : x454 -> 1 : subproof
+  proofgoal #1
+    pol 3491 400 + ;
+  qed : 3492 ;
+  proofgoal 3489
+    pol 3493 399 + ;
+    pol 3494 2 d ;
+    rup 1 ~x66 >= 1 ;
+    pol 3493 398 + ;
+    pol 3497 2 d ;
+    rup 1 ~x83 >= 1 ;
+    pol 3493 397 + ;
+    pol 3500 2 d ;
+    rup 1 ~x213 >= 1 ;
+    pol 3490 3496 + 3499 + 3502 + ;
+  qed : 3503 ;
+qed ;
+red 1 x210 1 x274 1 x281 2 ~x455 >= 2 : x455 -> 0 ;
+red 1 ~x210 1 ~x274 1 ~x281 2 x455 >= 3 : x455 -> 1 : subproof
+  proofgoal #1
+    pol 3507 716 + ;
+  qed : 3508 ;
+  proofgoal 3505
+    pol 3509 715 + ;
+    pol 3510 2 d ;
+    rup 1 ~x210 >= 1 ;
+    pol 3509 714 + ;
+    pol 3513 2 d ;
+    rup 1 ~x274 >= 1 ;
+    pol 3509 713 + ;
+    pol 3516 2 d ;
+    rup 1 ~x281 >= 1 ;
+    pol 3506 3512 + 3515 + 3518 + ;
+  qed : 3519 ;
+qed ;
+red 1 x203 1 x242 1 x272 2 ~x456 >= 3 : x456 -> 0 ;
+red 1 ~x203 1 ~x242 1 ~x272 2 x456 >= 2 : x456 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 3521
+    pol 3522 614 + ;
+    pol 3525 2 d ;
+    rup 1 x203 >= 1 ;
+    pol 3522 615 + ;
+    pol 3528 2 d ;
+    rup 1 x242 >= 1 ;
+    pol 3522 616 + ;
+    pol 3531 2 d ;
+    rup 1 x272 >= 1 ;
+    pol 3527 3530 + 3533 + ;
+    pol 3534 3524 + ;
+  qed : 3535 ;
+qed ;
+red 1 x72 1 x236 1 x237 2 ~x457 >= 3 : x457 -> 0 ;
+red 1 ~x72 1 ~x236 1 ~x237 2 x457 >= 2 : x457 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 3537
+    pol 3538 430 + ;
+    pol 3541 2 d ;
+    rup 1 x72 >= 1 ;
+    pol 3538 431 + ;
+    pol 3544 2 d ;
+    rup 1 x236 >= 1 ;
+    pol 3538 432 + ;
+    pol 3547 2 d ;
+    rup 1 x237 >= 1 ;
+    pol 3543 3546 + 3549 + ;
+    pol 3550 3540 + ;
+  qed : 3551 ;
+qed ;
+red 1 x28 1 x29 1 x30 2 ~x458 >= 2 : x458 -> 0 ;
+red 1 ~x28 1 ~x29 1 ~x30 2 x458 >= 3 : x458 -> 1 : subproof
+  proofgoal #1
+    pol 3555 40 + ;
+  qed : 3556 ;
+  proofgoal 3553
+    pol 3557 39 + ;
+    pol 3558 2 d ;
+    rup 1 ~x28 >= 1 ;
+    pol 3557 38 + ;
+    pol 3561 2 d ;
+    rup 1 ~x29 >= 1 ;
+    pol 3557 37 + ;
+    pol 3564 2 d ;
+    rup 1 ~x30 >= 1 ;
+    pol 3554 3560 + 3563 + 3566 + ;
+  qed : 3567 ;
+qed ;
+red 1 x86 1 x198 1 x211 2 ~x459 >= 3 : x459 -> 0 ;
+red 1 ~x86 1 ~x198 1 ~x211 2 x459 >= 2 : x459 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 3569
+    pol 3570 442 + ;
+    pol 3573 2 d ;
+    rup 1 x86 >= 1 ;
+    pol 3570 443 + ;
+    pol 3576 2 d ;
+    rup 1 x198 >= 1 ;
+    pol 3570 444 + ;
+    pol 3579 2 d ;
+    rup 1 x211 >= 1 ;
+    pol 3575 3578 + 3581 + ;
+    pol 3582 3572 + ;
+  qed : 3583 ;
+qed ;
+red 1 x218 1 x240 1 x241 2 ~x460 >= 3 : x460 -> 0 ;
+red 1 ~x218 1 ~x240 1 ~x241 2 x460 >= 2 : x460 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 3585
+    pol 3586 454 + ;
+    pol 3589 2 d ;
+    rup 1 x218 >= 1 ;
+    pol 3586 455 + ;
+    pol 3592 2 d ;
+    rup 1 x240 >= 1 ;
+    pol 3586 456 + ;
+    pol 3595 2 d ;
+    rup 1 x241 >= 1 ;
+    pol 3591 3594 + 3597 + ;
+    pol 3598 3588 + ;
+  qed : 3599 ;
+qed ;
+red 1 x97 1 x188 1 x242 2 ~x461 >= 2 : x461 -> 0 ;
+red 1 ~x97 1 ~x188 1 ~x242 2 x461 >= 3 : x461 -> 1 : subproof
+  proofgoal #1
+    pol 3603 460 + ;
+  qed : 3604 ;
+  proofgoal 3601
+    pol 3605 459 + ;
+    pol 3606 2 d ;
+    rup 1 ~x97 >= 1 ;
+    pol 3605 458 + ;
+    pol 3609 2 d ;
+    rup 1 ~x188 >= 1 ;
+    pol 3605 457 + ;
+    pol 3612 2 d ;
+    rup 1 ~x242 >= 1 ;
+    pol 3602 3608 + 3611 + 3614 + ;
+  qed : 3615 ;
+qed ;
+red 1 x10 1 x55 1 x108 2 ~x462 >= 3 : x462 -> 0 ;
+red 1 ~x10 1 ~x55 1 ~x108 2 x462 >= 2 : x462 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 3617
+    pol 3618 462 + ;
+    pol 3621 2 d ;
+    rup 1 x10 >= 1 ;
+    pol 3618 463 + ;
+    pol 3624 2 d ;
+    rup 1 x55 >= 1 ;
+    pol 3618 464 + ;
+    pol 3627 2 d ;
+    rup 1 x108 >= 1 ;
+    pol 3623 3626 + 3629 + ;
+    pol 3630 3620 + ;
+  qed : 3631 ;
+qed ;
+red 1 x117 1 x238 1 x239 2 ~x463 >= 2 : x463 -> 0 ;
+red 1 ~x117 1 ~x238 1 ~x239 2 x463 >= 3 : x463 -> 1 : subproof
+  proofgoal #1
+    pol 3635 436 + ;
+  qed : 3636 ;
+  proofgoal 3633
+    pol 3637 435 + ;
+    pol 3638 2 d ;
+    rup 1 ~x117 >= 1 ;
+    pol 3637 434 + ;
+    pol 3641 2 d ;
+    rup 1 ~x238 >= 1 ;
+    pol 3637 433 + ;
+    pol 3644 2 d ;
+    rup 1 ~x239 >= 1 ;
+    pol 3634 3640 + 3643 + 3646 + ;
+  qed : 3647 ;
+qed ;
+red 1 x236 1 x245 1 x246 2 ~x464 >= 2 : x464 -> 0 ;
+red 1 ~x236 1 ~x245 1 ~x246 2 x464 >= 3 : x464 -> 1 : subproof
+  proofgoal #1
+    pol 3651 476 + ;
+  qed : 3652 ;
+  proofgoal 3649
+    pol 3653 475 + ;
+    pol 3654 2 d ;
+    rup 1 ~x236 >= 1 ;
+    pol 3653 474 + ;
+    pol 3657 2 d ;
+    rup 1 ~x245 >= 1 ;
+    pol 3653 473 + ;
+    pol 3660 2 d ;
+    rup 1 ~x246 >= 1 ;
+    pol 3650 3656 + 3659 + 3662 + ;
+  qed : 3663 ;
+qed ;
+red 1 x189 1 x209 1 x247 2 ~x465 >= 3 : x465 -> 0 ;
+red 1 ~x189 1 ~x209 1 ~x247 2 x465 >= 2 : x465 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 3665
+    pol 3666 478 + ;
+    pol 3669 2 d ;
+    rup 1 x189 >= 1 ;
+    pol 3666 479 + ;
+    pol 3672 2 d ;
+    rup 1 x209 >= 1 ;
+    pol 3666 480 + ;
+    pol 3675 2 d ;
+    rup 1 x247 >= 1 ;
+    pol 3671 3674 + 3677 + ;
+    pol 3678 3668 + ;
+  qed : 3679 ;
+qed ;
+red 1 x173 1 x248 1 x249 2 ~x466 >= 2 : x466 -> 0 ;
+red 1 ~x173 1 ~x248 1 ~x249 2 x466 >= 3 : x466 -> 1 : subproof
+  proofgoal #1
+    pol 3683 484 + ;
+  qed : 3684 ;
+  proofgoal 3681
+    pol 3685 483 + ;
+    pol 3686 2 d ;
+    rup 1 ~x173 >= 1 ;
+    pol 3685 482 + ;
+    pol 3689 2 d ;
+    rup 1 ~x248 >= 1 ;
+    pol 3685 481 + ;
+    pol 3692 2 d ;
+    rup 1 ~x249 >= 1 ;
+    pol 3682 3688 + 3691 + 3694 + ;
+  qed : 3695 ;
+qed ;
+red 1 x99 1 x250 1 x251 2 ~x467 >= 2 : x467 -> 0 ;
+red 1 ~x99 1 ~x250 1 ~x251 2 x467 >= 3 : x467 -> 1 : subproof
+  proofgoal #1
+    pol 3699 488 + ;
+  qed : 3700 ;
+  proofgoal 3697
+    pol 3701 487 + ;
+    pol 3702 2 d ;
+    rup 1 ~x99 >= 1 ;
+    pol 3701 486 + ;
+    pol 3705 2 d ;
+    rup 1 ~x250 >= 1 ;
+    pol 3701 485 + ;
+    pol 3708 2 d ;
+    rup 1 ~x251 >= 1 ;
+    pol 3698 3704 + 3707 + 3710 + ;
+  qed : 3711 ;
+qed ;
+red 1 x162 1 x255 1 x259 2 ~x468 >= 2 : x468 -> 0 ;
+red 1 ~x162 1 ~x255 1 ~x259 2 x468 >= 3 : x468 -> 1 : subproof
+  proofgoal #1
+    pol 3715 656 + ;
+  qed : 3716 ;
+  proofgoal 3713
+    pol 3717 655 + ;
+    pol 3718 2 d ;
+    rup 1 ~x162 >= 1 ;
+    pol 3717 654 + ;
+    pol 3721 2 d ;
+    rup 1 ~x255 >= 1 ;
+    pol 3717 653 + ;
+    pol 3724 2 d ;
+    rup 1 ~x259 >= 1 ;
+    pol 3714 3720 + 3723 + 3726 + ;
+  qed : 3727 ;
+qed ;
+red 1 x19 1 x20 1 x21 2 ~x469 >= 3 : x469 -> 0 ;
+red 1 ~x19 1 ~x20 1 ~x21 2 x469 >= 2 : x469 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 3729
+    pol 3730 26 + ;
+    pol 3733 2 d ;
+    rup 1 x19 >= 1 ;
+    pol 3730 27 + ;
+    pol 3736 2 d ;
+    rup 1 x20 >= 1 ;
+    pol 3730 28 + ;
+    pol 3739 2 d ;
+    rup 1 x21 >= 1 ;
+    pol 3735 3738 + 3741 + ;
+    pol 3742 3732 + ;
+  qed : 3743 ;
+qed ;
+red 1 x77 1 x109 1 x197 2 ~x470 >= 3 : x470 -> 0 ;
+red 1 ~x77 1 ~x109 1 ~x197 2 x470 >= 2 : x470 -> 1 : subproof
+  proofgoal #1
+  qed ;
+  proofgoal 3745
+    pol 3746 506 + ;
+    pol 3749 2 d ;
+    rup 1 x77 >= 1 ;
+    pol 3746 507 + ;
+    pol 3752 2 d ;
+    rup 1 x109 >= 1 ;
+    pol 3746 508 + ;
+    pol 3755 2 d ;
+    rup 1 x197 >= 1 ;
+    pol 3751 3754 + 3757 + ;
+    pol 3758 3748 + ;
+  qed : 3759 ;
+qed ;
+pol 753 769 + 785 + 801 + 817 + 833 + 849 + 865 + 881 + 897 + 913 + 929 + 945 + 961 + 977 + 993 + 1009 + 1025 + 1041 + 1057 + 1073 + 1089 + 1105 + 1121 + 1137 + 1153 + 1169 + 1185 + 1201 + 1217 + 1233 + 1249 + 1265 + 1281 + 1297 + 1313 + 1329 + 1345 + 1361 + 1377 + 1393 + 1409 + 1425 + 1441 + 1457 + 1473 + 1489 + 1505 + 1521 + 1537 + 1553 + 1569 + 1585 + 1601 + 1617 + 1633 + 1649 + 1665 + 1681 + 1697 + 1713 + 1729 + 1745 + 1761 + 1777 + 1793 + 1809 + 1825 + 1841 + 1857 + 1873 + 1889 + 1905 + 1921 + 1937 + 1953 + 1969 + 1985 + 2001 + 2017 + 2033 + 2049 + 2065 + 2081 + 2097 + 2113 + 2129 + 2145 + 2161 + 2177 + 2193 + 2209 + 2225 + 2241 + 2257 + 2273 + 2289 + 2305 + 2321 + 2337 + 2353 + 2369 + 2385 + 2401 + 2417 + 2433 + 2449 + 2465 + 2481 + 2497 + 2513 + 2529 + 2545 + 2561 + 2577 + 2593 + 2609 + 2625 + 2641 + 2657 + 2673 + 2689 + 2705 + 2721 + 2737 + 2753 + 2769 + 2785 + 2801 + 2817 + 2833 + 2849 + 2865 + 2881 + 2897 + 2913 + 2929 + 2945 + 2961 + 2977 + 2993 + 3009 + 3025 + 3041 + 3057 + 3073 + 3089 + 3105 + 3121 + 3137 + 3153 + 3169 + 3185 + 3201 + 3217 + 3233 + 3249 + 3265 + 3281 + 3297 + 3313 + 3329 + 3345 + 3361 + 3377 + 3393 + 3409 + 3425 + 3441 + 3457 + 3473 + 3489 + 3505 + 3521 + 3537 + 3553 + 3569 + 3585 + 3601 + 3617 + 3633 + 3649 + 3665 + 3681 + 3697 + 3713 + 3729 + 3745 + ;
+pol 3761 2 d ;
+pol 768 784 + 800 + 816 + 832 + 848 + 864 + 880 + 896 + 912 + 928 + 944 + 960 + 976 + 992 + 1008 + 1024 + 1040 + 1056 + 1072 + 1088 + 1104 + 1120 + 1136 + 1152 + 1168 + 1184 + 1200 + 1216 + 1232 + 1248 + 1264 + 1280 + 1296 + 1312 + 1328 + 1344 + 1360 + 1376 + 1392 + 1408 + 1424 + 1440 + 1456 + 1472 + 1488 + 1504 + 1520 + 1536 + 1552 + 1568 + 1584 + 1600 + 1616 + 1632 + 1648 + 1664 + 1680 + 1696 + 1712 + 1728 + 1744 + 1760 + 1776 + 1792 + 1808 + 1824 + 1840 + 1856 + 1872 + 1888 + 1904 + 1920 + 1936 + 1952 + 1968 + 1984 + 2000 + 2016 + 2032 + 2048 + 2064 + 2080 + 2096 + 2112 + 2128 + 2144 + 2160 + 2176 + 2192 + 2208 + 2224 + 2240 + 2256 + 2272 + 2288 + 2304 + 2320 + 2336 + 2352 + 2368 + 2384 + 2400 + 2416 + 2432 + 2448 + 2464 + 2480 + 2496 + 2512 + 2528 + 2544 + 2560 + 2576 + 2592 + 2608 + 2624 + 2640 + 2656 + 2672 + 2688 + 2704 + 2720 + 2736 + 2752 + 2768 + 2784 + 2800 + 2816 + 2832 + 2848 + 2864 + 2880 + 2896 + 2912 + 2928 + 2944 + 2960 + 2976 + 2992 + 3008 + 3024 + 3040 + 3056 + 3072 + 3088 + 3104 + 3120 + 3136 + 3152 + 3168 + 3184 + 3200 + 3216 + 3232 + 3248 + 3264 + 3280 + 3296 + 3312 + 3328 + 3344 + 3360 + 3376 + 3392 + 3408 + 3424 + 3440 + 3456 + 3472 + 3488 + 3504 + 3520 + 3536 + 3552 + 3568 + 3584 + 3600 + 3616 + 3632 + 3648 + 3664 + 3680 + 3696 + 3712 + 3728 + 3744 + 3760 + ;
+pol 3763 2 d ;
+pol 3762 3764 + ;
+output NONE ;
+conclusion UNSAT : 3765 ;
+end pseudo-Boolean proof ;

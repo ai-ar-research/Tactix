@@ -1,0 +1,49 @@
+\documentclass[11pt]{article}
+\usepackage[margin=0.85in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{hyperref}
+\title{Tactix: Winner-Used PB Proof-Rule Gap}
+\author{Report to Andrew}
+\date{25 September 2026}
+\begin{document}
+\maketitle
+\vspace{-1.5em}
+
+\section*{Outcome}
+An exact replay of a retained SC24--26 LymphoSAT result establishes that a
+competition-winner solver actually used general pseudo-Boolean proof operations
+outside Tactix's current action-level proof surface. The selected internal
+solver was \texttt{tseitin-formulas}; its checked proof uses \texttt{red}
+extensions, local subproofs, \texttt{pol} arithmetic (including division), and
+\texttt{rup}. This upgrades the earlier AM402 source audit from an active-path
+possibility to a byte-identical baseline certificate witness. It does not
+identify a missing clausal RUP/RAT/SR primitive or prove that this formula
+cannot also be certified by DSR.
+
+\section*{Verification and provenance}
+Baseline task 1659 recorded an 80,981-byte verified PBP for
+\texttt{tseitin\_n188\_d3}, but deleted the artifact and did not retain the
+internal producer label. AM408 job \texttt{1721206} replayed the cached original
+input through the same pinned LymphoSAT wrapper on hwulab (two CPUs, 8 GiB).
+The job completed \texttt{0:0}. The generated PBP has exactly the baseline
+SHA-256 \texttt{dd557484...22058bf1fd}; pinned VeriPB verified and elaborated
+it; pinned CakePB verified the elaboration, whose SHA-256 likewise matches the
+baseline. The baseline lists this UNSAT row as \texttt{SAT-only} for VBS
+eligibility; no VBS-score contribution is claimed. The exact script, input, full proofs, logs and hashes are frozen in
+the AM408 probe under \texttt{benchmarks/probes/}; the AM408 technical
+report in \texttt{benchmarks/reports/} gives the full hashes and limits.
+
+\section*{Architecture implication and remaining work}
+Tactix currently emits PB arithmetic only for complete Lucky 19/20 startup
+refutations. There is no general registered live PB derivation action or
+proof-event interface after that boundary. Supporting this winner technique
+generally would require a typed PB surface and deliberate proof-format/state
+contract; embedding family-specific certificate code would not meet the
+project's shared-rule requirement. Native DSR remains canonical for search.
+The H2 no-option checker issue and post-finalization public-API model bug
+remain open, as do the Opus-owned AM400/401 fuzz campaigns and full Debug
+checks. N1--N4 and Rank/B+C/WV acceptance have not been earned, so the
+requested full Tier-D 5,000-second run has not been submitted.
+
+\end{document}
