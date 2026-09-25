@@ -343,7 +343,7 @@ byte-identical solver pins remain in the AM333 gate campaigns.
 
 ## Recent changes
 
-- AM386: tier `run.py` now routes automatic PBP, witnessed DSR and witness-free DSR by content with full pinned checker chains; fixed positive/negative controls and harness self-test pass. AM381 A/B, including `benchmarks/runs/20260924-201702-B-am381-reduce-candidate`, remain not clean and need a matched rerun (`benchmarks/reports/2026-09-25-am386-tier-certificate-routing-checkpoint.md`).
+- AM386: tier `run.py` now routes automatic PBP, witnessed DSR and witness-free DSR by content with full pinned checker chains; fixed positive/negative controls and harness self-test pass. Old AM381 A/B, including `benchmarks/runs/20260924-201702-B-am381-reduce-candidate`, stay not clean; matched same-binary A/B reruns 1719169/1719173 (aggregates 1719170/1719174) are pending (`benchmarks/reports/2026-09-25-am386-tier-certificate-routing-checkpoint.md`).
 - AM385: online-learning readiness remains provisional: shared slot control and owned live sub-strategy switching are major policy refactors; AM369 H2 is an open N2 proof-state gate, and the no-option DSR checker route is unchanged (`benchmarks/reports/2026-09-25-am385-learning-readiness-proof-gate.md`).
 - AM384: pinned CaDiCaL 3.0.0 ships Condition off, matching Tactix default omission; X5 default admission is source-closed, but its opt-in producer and overall N4 remain open (`benchmarks/reports/2026-09-25-am384-x5-default-scheduling-audit.md`).
 - AM383: documentation conformance classifies X5 Condition as explicit-only with source-backed omission, NoOp and typed API evidence; 13/13 selected doc checks pass.
