@@ -29,7 +29,19 @@ leaving a later SR witness inconsistent with checker-retained roots. This
 does not prove that every DSR derivation or checker-visible transaction is
 impossible; no checker-option change or X7 restriction follows from it.
 
+As a separate checker-only countercheck, the archived DRAT-mode proof from
+the same public program, `min-rel.drat.txt`, is valid DSR ASCII syntax. Frozen
+no-option `dsr-trim` accepts it in both forward and backward directions, and
+pinned Trestle verifies each resulting LSR against the original CNF. That
+proof contains `6 0; 0` after the deletions and has no SR transactions. This
+shows the canonical checker can certify this UNSAT formula through a different
+search trajectory; it does **not** certify the three accepted X7 SR additions
+of the failing DSR-mode run or supply a general emitter repair. The legal
+public X7 surface remains unchanged.
+
 Reproduce with `python3 benchmarks/probes/scratch/am458-d1-order/sweep.py`.
+Recheck the DRAT-mode stream under the canonical no-option DSR/Trestle route
+with `bash benchmarks/probes/scratch/am458-d1-order/check-witnessless.sh`.
 The input is `benchmarks/runs/20260925-am455-latest-combined-claude-fuzz/handoffs/D1-dsr-probe-cce-unit-rejection/min.cnf`
 (SHA-256 `3cc012ce...`), the proof is adjacent `min-rel.dsr.txt`
 (`76ca9589...`), and the checker is
