@@ -27,10 +27,13 @@ The public X7 action remains legal. The canonical route uses no-option
 \texttt{dsr-trim}, then LSR and Trestle. On the
 reduced 16-clause H2 input, moving one deletion before the first derived unit
 produces a proof verified by both checker directions and Trestle. On the
-original 42-clause replay, moving six retained-reason deletions ahead of the
-first unit yields a backward elaboration independently verified by Trestle,
-but forward checking rejects the first unit: those clauses also support its
-derivation. Neither checker-only edit is a general emitter repair. AM443's
+original 42-clause replay, moving all six retained-reason deletions ahead of
+the first unit yields a backward elaboration independently verified by
+Trestle, but forward checking rejects the first unit. An exhaustive
+64-subset control then found that moving only three selected deletions lets
+both checker directions and Trestle verify the original proof. It exposes
+the proof dependencies an emitter must respect; choosing those lines for one
+CNF is not a general repair. AM443's
 two-variable negative control shows a reason can already be implied by the
 original input, leaving no earlier proof-line window. The diagnostic implied
 unit deletion option changes which proofs verify in both directions, so it
@@ -52,8 +55,10 @@ general interface gap remains a deliberate architecture question.
 The paired AES diagnostic is terminal: both original-CNF native DSR proofs
 verify after 5,780/5,790 checker seconds. Its frozen matched Tier-C pair is
 still unscorable at the 4,800-second checker limit. The older full Debug job
-1723391 had passed 186/187 tests, with its final scripted demo running at
-this checkpoint. AM427 Sweep lifecycle Opus arrays are live. No current
+1723391 completed 186/187: its only failure was a stale static classification
+of Sweep's lifecycle state; the final scripted demo passed. The current tree
+passes that audit, and fresh Debug job 1723644 is pending. AM427 Sweep
+lifecycle Opus arrays are live. No current
 combined Rank 1--50, B28+C5, WV100, WV2-89, N4 reference-parity or Tier-D
 result follows from these scoped checks. The existing online configuration
 supports prototyping dose and order, but production learning still needs a
@@ -74,6 +79,8 @@ the 1,166-instance Tier D comparison launch at 5,000 seconds, four CPUs and
 \url{benchmarks/reports/2026-09-25-am444-sweep-lrat-core-target-repair.md};
 \url{benchmarks/reports/2026-09-25-am444-h2-early-deletion-control.md};
 \url{benchmarks/reports/2026-09-25-am445-h2-original-deletion-order-control.md};
+\url{benchmarks/reports/2026-09-25-am448-h2-deletion-dependency-control.md};
+\url{benchmarks/reports/2026-09-25-am447-full-debug-terminal-triage.md};
 \url{benchmarks/reports/2026-09-25-am446-reference-proof-producer-crosswalk.md};
 the AM442 and AM427 owner status/report files under \url{benchmarks/runs/}.
 \end{document}
