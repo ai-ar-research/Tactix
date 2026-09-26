@@ -338,8 +338,9 @@ add_test(NAME sweep_proofs
                  $<TARGET_FILE:test_subsolver> $<TARGET_FILE:test_sweep>)
 set_tests_properties(sweep_proofs PROPERTIES SKIP_RETURN_CODE 77)
 
-# The AM444 C1 public replay is SAT, but its partial LRAT stream still contains
-# checked Sweep lemmas. CakeLPR must reach only the expected absent-empty end.
+# A satisfiable Sweep replay must still emit a checkable LRAT prefix. CakeLPR
+# must reach only the expected absent-empty end; see
+# benchmarks/reports/2026-09-25-am455-latest-source-fuzz-consolidation.md.
 add_test(NAME sweep_retarget_lrat
          COMMAND ${CMAKE_SOURCE_DIR}/tests/sweep_retarget_lrat.sh
                  ${CMAKE_SOURCE_DIR} $<TARGET_FILE:tactix>)
