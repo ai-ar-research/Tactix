@@ -1,0 +1,79 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{xurl}
+\setlength{\emergencystretch}{2em}
+\title{Tactix proof repair and readiness checkpoint}
+\author{Codex for Andrew}
+\date{25 September 2026}
+\begin{document}
+\maketitle
+
+\paragraph{Outcome.}
+The AM442 Claude Code campaign, run explicitly with Opus, finished its
+online-configuration affected scope successfully across 750,000 candidate
+executions. It also exposed a pre-existing native-LRAT proof defect in ordinary
+solving. Tactix Sweep had reused a derivation prefix whose hints had been
+normalized for a different unit target. Commit \texttt{421a38a1} retains the
+raw prefix and normalizes it separately for each target. The old exact proof
+rejects under CakeLPR; the patched reduced 28-clause and original 129-clause
+H1 proofs both return \texttt{s VERIFIED UNSAT}. The focused Sweep test and
+the complete Sweep DRAT/LRAT/native-DSR proof suite pass. This is a scoped
+repair, not combined N2 acceptance. The AM444 Opus owner is preparing its
+affected fuzz; full Debug job 1723644 is queued on the committed source.
+
+\paragraph{Canonical H2 proof.}
+The public X7 action remains legal. The canonical route uses no-option
+\texttt{dsr-trim}, then LSR and Trestle. On the
+reduced 16-clause H2 input, moving one deletion before the first derived unit
+produces a proof verified by both checker directions and Trestle. On the
+original 42-clause replay, moving six retained-reason deletions ahead of the
+first unit yields a backward elaboration independently verified by Trestle,
+but forward checking rejects the first unit: those clauses also support its
+derivation. Neither checker-only edit is a general emitter repair. AM443's
+two-variable negative control shows a reason can already be implied by the
+original input, leaving no earlier proof-line window. The diagnostic implied
+unit deletion option changes which proofs verify in both directions, so it
+has not been adopted as a checker contract.
+
+\paragraph{Reference rule coverage.}
+The AM446 source crosswalk maps the nonincremental CaDiCaL proof producers
+and SC24 Kissat/AE-Kissat-MAB clausal producer families to Tactix's typed
+actions. Their emitter interfaces expose RUP, RAT, deletion and finite
+substitution witnesses; this static mapping does not prove public reachability
+or correct current certificates. Satsuma's VeriPB mode and selected
+LymphoSAT winner paths use general pseudo-Boolean arithmetic,
+redundancy/dominance and subproofs. Tactix has terminal startup PBP for Lucky
+19/20 but no general live PB action or proof interface. Particular winner
+formulas have independently verified Tactix clausal/startup proofs; the
+general interface gap remains a deliberate architecture question.
+
+\paragraph{Gates and learning readiness.}
+The paired AES diagnostic is terminal: both original-CNF native DSR proofs
+verify after 5,780/5,790 checker seconds. Its frozen matched Tier-C pair is
+still unscorable at the 4,800-second checker limit. The older full Debug job
+1723391 had passed 186/187 tests, with its final scripted demo running at
+this checkpoint. AM427 Sweep lifecycle Opus arrays are live. No current
+combined Rank 1--50, B28+C5, WV100, WV2-89, N4 reference-parity or Tier-D
+result follows from these scoped checks. The existing online configuration
+supports prototyping dose and order, but production learning still needs a
+shared adjustable inprocessing controller and owned live switches for
+branching and clause deletion. The final readiness verdict must follow the
+correctness, fuzz and performance gates.
+
+\paragraph{Next actions.}
+Collect the two Debug suites and both Opus owners, repair any bounded handoff,
+and solve H2 without suppressing legal public X7 actions. Then check one
+combined pin against independent proofs/models, the required random-policy
+and default-policy fuzzing, and the full performance and reference-parity
+gates. Only after N1--N4 and the final learning-readiness review pass should
+the 1,166-instance Tier D comparison launch at 5,000 seconds, four CPUs and
+32 GiB per instance.
+
+\paragraph{Evidence.}
+\url{benchmarks/reports/2026-09-25-am444-sweep-lrat-core-target-repair.md};
+\url{benchmarks/reports/2026-09-25-am444-h2-early-deletion-control.md};
+\url{benchmarks/reports/2026-09-25-am445-h2-original-deletion-order-control.md};
+\url{benchmarks/reports/2026-09-25-am446-reference-proof-producer-crosswalk.md};
+the AM442 and AM427 owner status/report files under \url{benchmarks/runs/}.
+\end{document}
