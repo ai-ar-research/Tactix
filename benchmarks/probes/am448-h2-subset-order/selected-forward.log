@@ -1,0 +1,11 @@
+c CNF file path: /home/hwu/SAT-solving/benchmarks/probes/am448-h2-subset-order/checker.cnf
+c DSR file path: /tmp/am448-02f32ntp/proof.dsr
+c LSR file path: /tmp/am448-02f32ntp/forward.lsr
+c Using a STREAMING parsing strategy.
+c Doing FORWARDS proof checking.
+c The CNF formula has 42 clauses and 21 variables.
+c Parsing the CNF took 0.000 secs
+c Checking proof...
+c Proof checking took 0.000 secs
+s VERIFIED UNSAT
+c Total runtime took 0.000 secs
