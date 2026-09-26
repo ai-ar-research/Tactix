@@ -155,9 +155,10 @@ exec python3 {shlex.quote(str(campaign / 'pins/runtime_task.py'))} {shlex.quote(
     if runtime_target_seconds is not None:
         require(math.isfinite(runtime_target_seconds) and
                 runtime_target_seconds > 0, 'runtime target')
-    manifest = dict(schema='tactix-fixed-reference-runtime-v4', created_at=dt.datetime.now(dt.timezone.utc).isoformat(),
+    manifest = dict(schema='tactix-fixed-reference-runtime-v5', created_at=dt.datetime.now(dt.timezone.utc).isoformat(),
         arms=arms, input_sha256={r['instance']:r['input_sha256'] for r in ref['records']},
         resource_contract=contract, collect_runtime_context=True,
+        require_canonical_dsr=True,
         scratch_policy='anonymous-local-files-v1',
         scratch_contract='Linux O_TMPFILE under /tmp for CNF, proof, model and checker intermediates; kernel cleanup on exit, timeout, crash, OOM and cancellation.',
         candidate_authority=dict(path=str((authority / 'manifest.json').relative_to(ROOT)),sha256=sha(authority / 'manifest.json')),
@@ -169,7 +170,7 @@ exec python3 {shlex.quote(str(campaign / 'pins/runtime_task.py'))} {shlex.quote(
                  + 'no reference solver rerun.'),
         test_consideration=(a['test_consideration'] +
             ' Current runtime protocol checks binary-LSR DSR elaboration/Trestle, task identity and anonymous cleanup.'),
-        validation=f'Expected solves allow provisional development; all {len(rows)} candidate results, retained reference certificates, the companion B28+C5 gate, memory and Claude fuzz are required for acceptance.',
+        validation=f'Explicit DSR always requires the no-option DSR-to-LSR-to-Trestle chain; witness-free proofs additionally retain the established DRAT/CakeLPR check. Expected solves allow provisional development; all {len(rows)} candidate results, retained reference certificates, the companion B28+C5 gate, memory and Claude fuzz are required for acceptance.',
         limitation='Cross-window fixed reference; not isolated unit-cost attribution or promotion.')
     if runtime_target_seconds is not None:
         manifest['acceptance_runtime_seconds'] = runtime_target_seconds
@@ -188,7 +189,8 @@ def verify_campaign(campaign):
     manifest = json.loads(manifest_path.read_text())
     require(manifest.get('schema') in ('tactix-fixed-reference-runtime-v2',
                                        'tactix-fixed-reference-runtime-v3',
-                                       'tactix-fixed-reference-runtime-v4'),
+                                       'tactix-fixed-reference-runtime-v4',
+                                       'tactix-fixed-reference-runtime-v5'),
             'campaign schema')
     binding = manifest['fixed_reference']
     require(sha(ROOT / binding['path']) == binding['sha256'],
@@ -221,7 +223,8 @@ def submit(campaign):
     return record
 
 
-def score_records(ref, records, arm='tactix', runtime_target_seconds=None):
+def score_records(ref, records, arm='tactix', runtime_target_seconds=None,
+                  require_canonical_dsr=False):
     expected = {r['rank']:r for r in ref['records']}
     seen = set()
     total = 0.0
@@ -240,6 +243,13 @@ def score_records(ref, records, arm='tactix', runtime_target_seconds=None):
         clean_timeout = (s['timed_out'] and r.get('verdict') == 'UNKNOWN' and
                          r.get('proof_check') is None and r.get('model_check') is None)
         require('valid' not in r or r['valid'] or clean_timeout, 'rejected candidate certificate')
+        if require_canonical_dsr and arm == 'tactix-dsr' and base['expected'] == 'UNSAT' and r.get('valid'):
+            check = r.get('proof_check') or {}
+            names = [stage.get('name') for stage in check.get('stages', [])]
+            require(check.get('result') == 'verified' and
+                    check.get('pipeline', '').endswith('dsr-trim-dsr-compress-trestle') and
+                    names[-3:] == ['dsr-trim', 'dsr-compress', 'srcheck'],
+                    'explicit DSR gate requires canonical checker pipeline')
         ok = r['expected_match'] and not s['timed_out'] and s['exit_code'] == {'SAT':10,'UNSAT':20}[base['expected']]
         solved += ok
         checked += bool(r.get('valid') and r.get('artifact_deleted') and r.get('derived_artifacts_deleted') and not r.get('cleanup_pending'))
@@ -281,7 +291,8 @@ def score(campaign, comparison_reference=None, runtime_target_seconds=None):
     schema = m.get('schema')
     if schema in ('tactix-fixed-reference-runtime-v2',
                   'tactix-fixed-reference-runtime-v3',
-                  'tactix-fixed-reference-runtime-v4'):
+                  'tactix-fixed-reference-runtime-v4',
+                  'tactix-fixed-reference-runtime-v5'):
         expected_arms = tuple(m['arms'])
         require(expected_arms in (('tactix-dsr',),
                                   ('tactix-dsr', 'tactix-drat')),
@@ -295,6 +306,9 @@ def score(campaign, comparison_reference=None, runtime_target_seconds=None):
         for key, value in required.items():
             require(m['resource_contract'].get(key) == value,
                     'resource mismatch: ' + key)
+        if schema == 'tactix-fixed-reference-runtime-v5':
+            require(m.get('require_canonical_dsr') is True,
+                    'canonical DSR gate requirement missing')
         require(m.get('scratch_policy') == 'anonymous-local-files-v1',
                 'scratch policy mismatch')
         require(m['arms']['tactix-dsr'].get('certificate') == 'dsr' and
@@ -340,7 +354,9 @@ def score(campaign, comparison_reference=None, runtime_target_seconds=None):
               if runtime_target_seconds is None else runtime_target_seconds)
     arm_scores = {arm: score_records(
         ref, [record for (record_arm, _), record in records.items()
-              if record_arm == arm], arm, target) for arm in expected_arms}
+              if record_arm == arm], arm, target,
+        require_canonical_dsr=(schema == 'tactix-fixed-reference-runtime-v5'))
+        for arm in expected_arms}
     output = arm_scores[expected_arms[0]]
     if len(expected_arms) == 2:
         dsr = arm_scores['tactix-dsr']

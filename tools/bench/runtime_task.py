@@ -281,7 +281,8 @@ def proof_stage(scratch, name, command, timeout, produced=None,
     return result
 
 
-def check_unsat_proof(campaign, certificate, cnf, proof, scratch, timeout):
+def check_unsat_proof(campaign, certificate, cnf, proof, scratch, timeout,
+                      require_canonical_dsr=False):
     """Check one certificate, stopping at the first failed pipeline stage."""
     started = time.monotonic()
     stages = []
@@ -290,6 +291,22 @@ def check_unsat_proof(campaign, certificate, cnf, proof, scratch, timeout):
 
     def remaining():
         return max(1, timeout - int(time.monotonic() - started))
+
+    def append_canonical_dsr():
+        # One canonical no-option route for witnessed and witness-free DSR.
+        binary_lsr = scratch / 'proof.binary.lsr'
+        text_lsr = scratch / 'proof.lsr'
+        for name, command in reference_dsr_stages(
+                campaign / 'pins/dsr-trim', campaign / 'pins/dsr-compress',
+                campaign / 'pins/srcheck', cnf, proof, binary_lsr, text_lsr,
+                checker_cnf=checker_cnf):
+            made = command[-1] if name != 'srcheck' else None
+            stages.append(proof_stage(scratch, name, command, remaining(), made))
+            if stages[-1]['result'] != 'verified':
+                break
+            if name == 'dsr-trim':
+                (bridge_trivial_input_binary_lsr if made == binary_lsr
+                 else bridge_trivial_input_lsr)(cnf, made)
 
     try:
         route = certificate_route(proof) if certificate in ("dsr", "auto") else None
@@ -326,8 +343,9 @@ def check_unsat_proof(campaign, certificate, cnf, proof, scratch, timeout):
                 break
         pipeline = "veripb-cake-pb"
     elif certificate in ("dsr", "auto") and route == "drat":
-        # proof_oracle owns the routing: a witness-free certificate is a DRAT
-        # proof and takes the DRAT owner's pipeline after the tag rewrite.
+        # Preserve the content-routed DRAT check and its independent LRAT
+        # negative controls. Formal DSR gates additionally require the
+        # canonical DSR chain below before accepting witness-free proofs.
         drat, lrat = scratch / "proof.drat", scratch / "proof.lrat"
         if not dsr_proof_as_drat(proof, drat):
             raise RuntimeError("routing saw a witnessed line")
@@ -354,22 +372,12 @@ def check_unsat_proof(campaign, certificate, cnf, proof, scratch, timeout):
                                        exit_code=None, timed_out=False, output_tail=str(error)))
                     break
         pipeline = "witness-free-dsr-as-drat:drat-trim-cake_lpr"
+        if (require_canonical_dsr and certificate == 'dsr' and
+                all(stage['result'] == 'verified' for stage in stages)):
+            append_canonical_dsr()
+            pipeline += '+dsr-trim-dsr-compress-trestle'
     elif certificate in ("dsr", "auto"):
-        # proof_oracle.reference_dsr_stages owns the pipeline definition.
-        binary_lsr = scratch / "proof.binary.lsr"
-        text_lsr = scratch / "proof.lsr"
-        for name, command in reference_dsr_stages(
-                campaign / "pins/dsr-trim", campaign / "pins/dsr-compress",
-                campaign / "pins/srcheck", cnf, proof, binary_lsr, text_lsr,
-                checker_cnf=checker_cnf):
-            made = command[-1] if name != "srcheck" else None
-            stages.append(proof_stage(scratch, name, command, remaining(),
-                                      made))
-            if stages[-1]["result"] != "verified":
-                break
-            if name == "dsr-trim":
-                (bridge_trivial_input_binary_lsr if made == binary_lsr
-                 else bridge_trivial_input_lsr)(cnf, made)
+        append_canonical_dsr()
         pipeline = "dsr-trim-dsr-compress-trestle"
     else:
         raise RuntimeError(f"unsupported proof certificate: {certificate}")
@@ -521,7 +529,8 @@ def main():
             result, dt.datetime.now(dt.timezone.utc).isoformat()))
         if verdict == "UNSAT" and proof.is_file():
             checked = check_unsat_proof(
-                CAMPAIGN, certificate, cnf, proof, scratch, check_timeout)
+                CAMPAIGN, certificate, cnf, proof, scratch, check_timeout,
+                require_canonical_dsr=manifest.get('require_canonical_dsr', False))
             result["proof_check"] = checked
             result["valid"] = checked["result"] == "verified"
         elif verdict == "SAT":

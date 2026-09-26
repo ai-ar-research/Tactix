@@ -79,6 +79,8 @@ class FixedRuntimeTests(unittest.TestCase):
                                      reference_path=reference_path,
                                      checker_pins=root / 'checker-pins')
                 rt.validate_runtime_pin_contract(campaign, manifest)
+                self.assertEqual(manifest['schema'], 'tactix-fixed-reference-runtime-v5')
+                self.assertTrue(manifest['require_canonical_dsr'])
                 self.assertEqual(manifest['checker_authority']['sha256'],
                                  checker_hashes)
                 (root / 'checker-pins/dsr-trim').write_bytes(b'changed')
@@ -96,6 +98,24 @@ class FixedRuntimeTests(unittest.TestCase):
             self.ref, dsr, 'tactix-dsr')['runtime_target_met'])
         with self.assertRaisesRegex(ValueError, 'identity'):
             f.score_records(self.ref, dsr, 'tactix-drat')
+
+    def test_dsr_score_rejects_witness_free_drat_shortcut(self):
+        ref, rows = copy.deepcopy(self.ref), copy.deepcopy(self.records)
+        ref['records'][0]['expected'] = rows[0]['expected'] = 'UNSAT'
+        rows[0]['arm'] = 'tactix-dsr'
+        rows[0]['solve']['exit_code'] = 20
+        rows[0]['valid'] = True
+        rows[0]['proof_check'] = dict(pipeline='witness-free-dsr-as-drat:drat-trim-cake_lpr')
+        for row in rows[1:]:
+            row['arm'] = 'tactix-dsr'
+        with self.assertRaisesRegex(ValueError, 'canonical checker pipeline'):
+            f.score_records(ref, rows, 'tactix-dsr', require_canonical_dsr=True)
+        rows[0]['proof_check'].update(result='verified',
+            pipeline='witness-free-dsr-as-drat:drat-trim-cake_lpr+dsr-trim-dsr-compress-trestle',
+            stages=[dict(name=name) for name in
+                    ('drat-trim', 'cake_lpr', 'dsr-trim', 'dsr-compress', 'srcheck')])
+        self.assertTrue(f.score_records(ref, rows, 'tactix-dsr',
+                                        require_canonical_dsr=True)['runtime_target_met'])
 
     def test_complete_pending_score_not_verified(self):
         r = f.score_records(self.ref,self.records)
