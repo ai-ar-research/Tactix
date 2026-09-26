@@ -1,0 +1,26 @@
+Test project /home/hwu/SAT-solving/build/am452-h2-transaction
+    Start 66: sweep_proofs
+    Start  4: proof
+    Start 12: sweep
+    Start 67: sweep_retarget_lrat
+1/4 Test  #4: proof ............................   Passed    0.05 sec
+2/4 Test #67: sweep_retarget_lrat ..............   Passed    0.10 sec
+3/4 Test #12: sweep ............................   Passed    0.28 sec
+4/4 Test #66: sweep_proofs .....................   Passed    4.86 sec
+
+100% tests passed out of 4
+
+Total Test time (real) =   4.87 sec
+Test project /home/hwu/SAT-solving/build/am454-debug
+    Start  4: proof
+    Start 12: sweep
+    Start 66: sweep_proofs
+    Start 67: sweep_retarget_lrat
+1/4 Test  #4: proof ............................   Passed    0.13 sec
+2/4 Test #67: sweep_retarget_lrat ..............   Passed    0.59 sec
+3/4 Test #12: sweep ............................   Passed    2.56 sec
+4/4 Test #66: sweep_proofs .....................   Passed   15.71 sec
+
+100% tests passed out of 4
+
+Total Test time (real) =  15.76 sec

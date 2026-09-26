@@ -2186,6 +2186,11 @@ struct SweepGeneralPlan {
   uint32_t step = 0;
   uint32_t fact = 0;
   Lit t0 = INVALID_LIT, t1 = INVALID_LIT;
+  // When a captured binary is simplified to a unit by a root-fixed endpoint,
+  // retain that endpoint in temporary lemmas. Its LRAT chains were normalized
+  // under the original binary cube, so omitting this false-at-root literal
+  // would publish lemmas whose normalized chains can be empty or incomplete.
+  Lit intermediate_fixed_target = INVALID_LIT;
   uint64_t formula_epoch = 0;
   const SweepDirProof *capture = nullptr;
   std::vector<uint64_t> source_ids;
@@ -2266,6 +2271,8 @@ static SweepGeneralPlan sweep_plan_general(const Kernel &k,
   SweepGeneralPlan plan;
   plan.t0 = t0;
   plan.t1 = t1;
+  if (fixed != INVALID_LIT)
+    plan.intermediate_fixed_target = negate(fixed);
   plan.formula_epoch = p.formula_epoch;
   plan.capture = &p;
   plan.source_ids = p.orig_ids;
@@ -2404,7 +2411,8 @@ static bool sweep_apply_general_plan(Kernel &k,
   size_t emitted_prefix = 0;
   const auto condition_intermediate = [&](std::vector<Lit> &lits) {
     bool tautology = false;
-    for (const Lit target : {plan.t0, plan.t1}) {
+    for (const Lit target : {plan.t0, plan.t1,
+                             plan.intermediate_fixed_target}) {
       if (target == INVALID_LIT)
         continue;
       if (std::find(lits.begin(), lits.end(), negate(target)) != lits.end())
