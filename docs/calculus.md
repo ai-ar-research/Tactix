@@ -35,8 +35,8 @@ canonical serializer: RUP/RAT events are witnessless DSR additions, `del` is a
 DSR deletion, and `add_sr(C,σ)` writes the finite substitution witness directly
 on the addition of `C`. After the startup certificate boundary, one stream records ordinary reasoning and SR in their
 actual order. It is checked exactly as the Satsuma+Kissat reference checks DSR (`tools/bench/proof_oracle.py`): `dsr-trim` with no options elaborates it backwards and core-trimmed, `dsr-compress -d` expands the LSR, and pinned Trestle, the pipeline's authority, verifies it.
-A DRAT/DSR checker propagates every written clause and keeps a unit after its reason is deleted, so the proof must never give it a root unit the kernel lacks: before deleting a level-zero reason,
-the solver emits its consequence as a DSR RUP unit, `kernel_propagate` publishes every root literal it forces, and a lifted proof-only lemma is written conditioned on its target so that it can propagate nothing else.
+A DRAT/DSR checker propagates written clauses, so the proof must not give it a root unit the kernel lacks: before retiring a level-zero reason, the solver emits its consequence as a DSR RUP unit; `kernel_propagate` publishes every forced root literal, and a lifted proof-only lemma is conditioned on its target.
+That publication does not guarantee identical formula populations: pinned no-option `dsr-trim` can retain an implied-unit reason after its deletion, and a later SR witness may fail against that retained checker state. The public H2 trajectory does fail there (AM432/439/445 reports); N2 remains open.
 No proof write, and no decision that depends on whether a proof is written, may change kernel state: runs with and without a proof are identical.
 DRAT and native LRAT serialize the pre-existing event subset as compatibility
 formats. Factor alone currently uses `add_rat`; the Satsuma-derived SR rule will
