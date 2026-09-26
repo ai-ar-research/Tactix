@@ -19,6 +19,13 @@ import subprocess
 ROOT = Path(__file__).resolve().parents[2]
 REFERENCE = ROOT / 'benchmarks/baselines/rank1-50-kissat-12cpu-v1/manifest.json'
 MODEL_CHECKER_PINS = ROOT / 'benchmarks/baselines/sc24-26-32g-5000s/pins'
+CANONICAL_CHECKERS = {
+    'dsr-trim': '3b5c773706dc4695f08115ce862e991bfa2e44e3388df80f40ae8b0823dfbdee',
+    'dsr-compress': 'a44102ce11162a4687450a4c3a640d27a49703072dd29802bd259676eb668d55',
+    'srcheck': '19bf79f49e293bb0df82b1e4ec82ec45987c2791864598bada12525ef41a2945',
+    'drat-trim': 'f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a',
+    'cake_lpr': 'ab9dc6c43ad0f55bbaf336c5d898919ddb03d0bdb75e88dff48237fb06ba1f57',
+}
 
 
 def sha(path):
@@ -76,7 +83,8 @@ def reference_identity(ref):
 
 
 def prepare(campaign, authority, release, bc, reference_path=REFERENCE,
-            include_drat=False, runtime_target_seconds=None):
+            include_drat=False, runtime_target_seconds=None,
+            checker_pins=None):
     campaign = campaign.resolve()
     require(campaign.parent == ROOT / 'benchmarks/runs', 'campaign must be directly under benchmarks/runs')
     require(not campaign.exists(), 'campaign already exists')
@@ -87,6 +95,13 @@ def prepare(campaign, authority, release, bc, reference_path=REFERENCE,
     for binary in (release, bc):
         require(sha(binary) == a['binaries'][str(binary.resolve().relative_to(ROOT))], 'candidate pin changed')
     require(sha(release) == sha(bc), 'independent Release binaries differ')
+    require(checker_pins is not None, 'explicit canonical --checker-pins required')
+    checker_pins = checker_pins.resolve()
+    require(checker_pins.is_relative_to(ROOT), 'checker pins must be in repository')
+    for name, digest in CANONICAL_CHECKERS.items():
+        path = checker_pins / name
+        require(path.is_file() and sha(path) == digest,
+                'canonical checker missing or changed: ' + name)
     for r in ref['records']:
         require(sha(ROOT / 'benchmarks/cache' / r['instance']) == r['input_sha256'], 'input changed')
     campaign.mkdir()
@@ -96,10 +111,10 @@ def prepare(campaign, authority, release, bc, reference_path=REFERENCE,
         shutil.copy2(ROOT / 'tools/bench' / name, campaign / 'pins' / name)
     for name in ('checkmodel', 'modelcheck.py'):
         shutil.copy2(MODEL_CHECKER_PINS / name, campaign / 'pins' / name)
-    for name in ('drat-trim', 'dsr-trim', 'srcheck'):
-        source = ROOT / 'tools/checkers/bin' / name
-        require(source.is_file(), 'missing checker: ' + str(source))
-        shutil.copy2(source, campaign / 'pins' / name)
+    for name in CANONICAL_CHECKERS:
+        shutil.copy2(checker_pins / name, campaign / 'pins' / name)
+        require(sha(campaign / 'pins' / name) == CANONICAL_CHECKERS[name],
+                'copied canonical checker changed: ' + name)
     shutil.copy2(release, campaign / 'pins/tactix')
     shutil.copy2(authority / 'cumulative.patch', campaign / 'pins/candidate-source.patch')
     selected_arms = ('tactix-dsr', 'tactix-drat') if include_drat else ('tactix-dsr',)
@@ -146,6 +161,8 @@ exec python3 {shlex.quote(str(campaign / 'pins/runtime_task.py'))} {shlex.quote(
         scratch_policy='anonymous-local-files-v1',
         scratch_contract='Linux O_TMPFILE under /tmp for CNF, proof, model and checker intermediates; kernel cleanup on exit, timeout, crash, OOM and cancellation.',
         candidate_authority=dict(path=str((authority / 'manifest.json').relative_to(ROOT)),sha256=sha(authority / 'manifest.json')),
+        checker_authority=dict(path=str(checker_pins.relative_to(ROOT)),
+                               sha256=CANONICAL_CHECKERS),
         fixed_reference=dict(path=str(reference_path.relative_to(ROOT)),sha256=sha(reference_path)),
         purpose=(f'{len(ref["records"])} native-DSR solves against the retained reference vector; '
                  + ('same-source DRAT controls included; ' if include_drat else '')
@@ -373,6 +390,8 @@ def main():
     p.add_argument('--reference', type=Path, default=REFERENCE)
     p.add_argument('--same-source-drat', action='store_true')
     p.add_argument('--runtime-target-seconds', type=float)
+    p.add_argument('--checker-pins', type=Path, required=True,
+                   help='frozen canonical DSR/DRAT checker bundle')
     p = sub.add_parser('score')
     p.add_argument('campaign', type=Path)
     p.add_argument('--reference', type=Path)
@@ -384,7 +403,7 @@ def main():
         prepare(args.campaign.resolve(), args.authority.resolve(),
                 args.release.resolve(), args.bc.resolve(),
                 args.reference.resolve(), args.same_source_drat,
-                args.runtime_target_seconds)
+                args.runtime_target_seconds, args.checker_pins.resolve())
         print(args.campaign)
     elif args.command == 'score':
         print(json.dumps(score(

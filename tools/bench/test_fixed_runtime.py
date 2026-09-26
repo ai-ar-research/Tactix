@@ -5,10 +5,12 @@ import contextlib
 import io
 import json
 from pathlib import Path
+import shutil
 import tempfile
 import unittest
 from unittest.mock import Mock, patch
 import fixed_runtime as f
+import runtime_task as rt
 
 
 class FixedRuntimeTests(unittest.TestCase):
@@ -33,6 +35,58 @@ class FixedRuntimeTests(unittest.TestCase):
         self.assertEqual([r['task'] for r in rows], list(range(40)))
         self.assertEqual({r['arm'] for r in rows}, {'tactix-dsr'})
         self.assertEqual([r['rank'] for r in rows], list(range(1,41)))
+
+    def test_prepared_dsr_bundle_satisfies_runtime_contract(self):
+        real_root = f.ROOT
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            for rel in ('benchmarks/runs', 'benchmarks/cache', 'tools/bench',
+                        'baseline/pins', 'source', 'authority', 'checker-pins'):
+                (root / rel).mkdir(parents=True)
+            for name in ('runtime_task.py', 'proof_oracle.py',
+                         'anonymous_scratch.py'):
+                shutil.copy2(real_root / 'tools/bench' / name,
+                             root / 'tools/bench' / name)
+            for name in ('checkmodel', 'modelcheck.py'):
+                (root / 'baseline/pins' / name).write_text(name)
+            input_file = root / 'benchmarks/cache/one.cnf.xz'
+            input_file.write_bytes(b'input')
+            (root / 'source/marker').write_bytes(b'source')
+            (root / 'authority/cumulative.patch').write_bytes(b'patch')
+            release, bc = root / 'release', root / 'bc'
+            release.write_bytes(b'solver')
+            bc.write_bytes(b'solver')
+            checker_hashes = {}
+            for name in f.CANONICAL_CHECKERS:
+                path = root / 'checker-pins' / name
+                path.write_bytes(name.encode())
+                checker_hashes[name] = f.sha(path)
+            authority = dict(source='source', files={'marker':f.sha(root / 'source/marker')},
+                             binaries={str(path.relative_to(root)):f.sha(path)
+                                       for path in (release, bc)},
+                             production='test-source', test_consideration='fixture')
+            (root / 'authority/manifest.json').write_text(json.dumps(authority))
+            ref = dict(records=[dict(rank=1, instance='one.cnf.xz',
+                                     input_sha256=f.sha(input_file), expected='SAT')])
+            reference_path = root / 'reference.json'
+            reference_path.write_text('{}')
+            campaign = root / 'benchmarks/runs/canonical-checkers'
+            with patch.object(f, 'ROOT', root), \
+                 patch.object(f, 'MODEL_CHECKER_PINS', root / 'baseline/pins'), \
+                 patch.object(f, 'CANONICAL_CHECKERS', checker_hashes), \
+                 patch.object(f, 'reference', return_value=ref):
+                manifest = f.prepare(campaign, root / 'authority', release, bc,
+                                     reference_path=reference_path,
+                                     checker_pins=root / 'checker-pins')
+                rt.validate_runtime_pin_contract(campaign, manifest)
+                self.assertEqual(manifest['checker_authority']['sha256'],
+                                 checker_hashes)
+                (root / 'checker-pins/dsr-trim').write_bytes(b'changed')
+                with self.assertRaisesRegex(ValueError, 'canonical checker'):
+                    f.prepare(root / 'benchmarks/runs/changed-checker',
+                              root / 'authority', release, bc,
+                              reference_path=reference_path,
+                              checker_pins=root / 'checker-pins')
 
     def test_each_control_score_requires_its_named_arm(self):
         dsr = copy.deepcopy(self.records)
