@@ -226,7 +226,7 @@ root closure at apply entry. V1/V2 Probe/Backbone additionally require `!conflic
 - **Effect:** collect-then-batch — assume each candidate, full-propagate, and on a conflict record `¬p`; assert the batch of derived
   units un-propagated (M1 owns the cascade). Proof δ: `add_rup` per unit (the reason-walk chain closed by the conflict id) — **not**
   `add_derived_unit`; a failed-literal unit is an explicit logical inference,
-  while `add_derived_unit` publishes an ordinary propagation consequence. Native DSR uses the shared split-unit transaction when deletions follow; rule legality is unchanged.
+  while `add_derived_unit` publishes an ordinary propagation consequence. Native DSR batches consecutive RUP units into a shared split transaction when deletions follow; rule legality is unchanged.
 - **Soundness:** `¬p` is RUP: assume `p`, the recorded reason chain propagates to the conflict.
 
 ### V2 · Backbone — binary-only failed-literal probing

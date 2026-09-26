@@ -194,6 +194,24 @@ void test_dsr_unit_deletion_transaction() {
                      "\x01\x02\x00\x02\x02\x0c\x00"
                      "\x02\x02\x0d\x00", 27),
          "binary DSR preserves the same split transaction");
+  const Lit second = lit(6);
+  expect(emitted("dsr-transaction-unit-batch", ProofFormat::DsrAscii,
+                 [&](Proof &p) {
+                   p.add_rup(10, &unit, 1, nullptr, 0);
+                   p.add_rup(11, &second, 1, nullptr, 0);
+                   p.del(12, 7, support, 2);
+                 }),
+         "1 7 0\n1 -7 0\n6 7 0\n6 -7 0\nd 2 -3 0\n"
+         "1 0\n6 0\nd 1 7 0\nd 1 -7 0\nd 6 7 0\nd 6 -7 0\n",
+         "consecutive RUP units share one proof-only split before deletion");
+  expect(emitted("dsr-transaction-earlier-unit-delete", ProofFormat::DsrAscii,
+                 [&](Proof &p) {
+                   p.add_rup(10, &unit, 1, nullptr, 0);
+                   p.add_rup(11, &second, 1, nullptr, 0);
+                   p.del(12, 10, &unit, 1);
+                 }),
+         "1 0\n6 0\nd 1 0\n",
+         "a deletion of any staged unit first publishes the full batch");
   const std::vector<Var> map{5, 6, 7, 8, 9};
   expect(emitted("dsr-transaction-mapped", ProofFormat::DsrAscii,
                  [&](Proof &p) {

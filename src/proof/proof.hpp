@@ -11,6 +11,7 @@
 #include <cstdio>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace tactix {
@@ -73,8 +74,8 @@ public:
 
   // --- proof-delta vocabulary (subset live in phase 2) ---
   // add-RUP: LRAT uses `id` and `chain` (ids in checker-propagation order).
-  // Native DSR stages RUP units so a following deletion block can be ordered
-  // before the unit with a proof-only split. DRAT writes the literals.
+  // Native DSR stages consecutive RUP units so a following deletion block can
+  // be ordered before the batch with a shared proof-only split.
   void add_rup(uint64_t id, const Lit *lits, uint32_t size,
                const uint64_t *chain, uint32_t nchain);
   // add-RAT: `lits` MUST be pivot-first (the RAT pivot is the first literal, both
@@ -170,14 +171,16 @@ public:
 #endif
 
 private:
-  // A RUP unit followed by deletions is published as a split transaction:
-  // two fresh-variable RUP clauses preserve the unit's derivation while all
-  // deferred deletions precede it. The helpers are retired immediately after
-  // the unit, and the deletion bytes are spooled rather than held in memory.
-  void flush_pending_dsr_unit();
+  // Consecutive RUP units and their following deletion block form one split
+  // transaction. Two RUP helpers per unit use a shared fresh variable; each
+  // prior pair supplies its unit under either assumption on that variable.
+  // Deletion bytes are spooled; helpers are retired before a later SR step.
+  void flush_pending_dsr_units();
   uint32_t external_variable_bound() const;
-  int32_t pending_unit_external_ = 0;
-  uint64_t pending_unit_id_ = 0;
+  struct PendingDsrUnit { int32_t external; uint64_t id; };
+  std::vector<PendingDsrUnit> pending_units_;
+  std::unordered_set<int32_t> pending_unit_literals_;
+  std::unordered_set<uint64_t> pending_unit_ids_;
   uint32_t pending_max_external_ = 0;
   uint32_t proof_external_max_ = 0;
   FILE *pending_deletions_ = nullptr;
