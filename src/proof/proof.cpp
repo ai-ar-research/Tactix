@@ -622,7 +622,8 @@ bool external_tautological(const int32_t *lits, uint32_t size) {
     if (!lits[i] || lits[i] == INT32_MIN)
       return true;
     for (uint32_t j = i + 1; j < size; ++j)
-      if (lits[i] == lits[j] || lits[i] == -lits[j])
+      if (lits[i] == lits[j] ||
+          static_cast<int64_t>(lits[i]) == -static_cast<int64_t>(lits[j]))
         return true;
   }
   return false;
