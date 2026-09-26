@@ -1,0 +1,15 @@
+c CNF file path: /home/hwu/SAT-solving/benchmarks/probes/am449-h2-rup-support-order/reduced.cnf
+c DSR file path: /home/hwu/SAT-solving/benchmarks/probes/am449-h2-rup-support-order/reduced-support-order.dsr
+c LSR file path: /home/hwu/SAT-solving/benchmarks/probes/am449-h2-rup-support-order/reduced-backward.lsr
+c Using an EAGER parsing strategy.
+c Doing BACKWARDS proof checking.
+c The CNF formula has 16 clauses and 21 variables.
+c Parsing the CNF took 0.000 secs
+c Parsed the empty clause after 70 proof lines (35 additions).
+c Empty clause detected on proof line 70.
+c The empty clause was derived after clause 49 (add'n line 33).
+c Checking proof...
+c Proof checking took 0.000 secs
+s VERIFIED UNSAT
+c Printing the LSR proof took 0.000 secs
+c Total runtime took 0.000 secs
