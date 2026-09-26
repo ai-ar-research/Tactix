@@ -12,3 +12,5 @@ After the AM468 preparer repair, both campaign manifests passed `fixed_runtime.v
 | `benchmarks/runs/20260926-am469-b28c5/` | `1728693` | 33 | frozen B28+C5 Tactix reference | below 952.263 s |
 
 Acceptance still requires all 83 rows to finish with independently checked original-CNF models or canonical proofs, the per-case resource limits, both aggregate time bounds, and the remaining N1--N4, fuzz and Debug gates. The latest-source AM465 Opus campaign and full Debug `1728137` are running independently. No Tier D launch follows from this preparatory checkpoint.
+
+Later checkpoint: both AM469 arrays were stopped after a completed witness-free Rank UNSAT row showed the frozen v4 runtime used only DRAT/CakeLPR for that proof, despite this goal's canonical DSR requirement. These runs are diagnostic, not accepted gates. [AM470](2026-09-26-am470-fixed-gate-dual-proof.md) records the v5 dual-oracle correction and fresh gate preparation.

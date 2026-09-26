@@ -9,6 +9,58 @@ from runtime_task import (atomic_json, checked_verdict_valid, checker_timeout_fo
 
 
 class RuntimeTaskTests(unittest.TestCase):
+    def test_explicit_witness_free_dsr_uses_canonical_pipeline(self):
+        from unittest.mock import patch
+        from runtime_task import check_unsat_proof
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            cnf, proof = work/'input.cnf', work/'proof.dsr'
+            cnf.write_text('p cnf 1 2\n1 0\n-1 0\n')
+            proof.write_bytes(b'\x01\x00')  # binary DSR empty-clause addition
+            names = []
+            def stage(scratch, name, command, timeout, produced=None, **kwargs):
+                names.append(name)
+                return dict(name=name, result='verified', exit_code=0,
+                            timed_out=False, output_tail='s VERIFIED UNSAT')
+            with patch('runtime_task.proof_stage', side_effect=stage), \
+                 patch('runtime_task.restate_duplicate_input_lrat',
+                       return_value=(work/'proof.lrat', 0)):
+                result = check_unsat_proof(work, 'dsr', cnf, proof, work, 10,
+                                           require_canonical_dsr=True)
+            self.assertEqual(result['result'], 'verified')
+            self.assertTrue(result['pipeline'].endswith(
+                '+dsr-trim-dsr-compress-trestle'))
+            self.assertEqual(names, ['drat-trim', 'cake_lpr',
+                                     'dsr-trim', 'dsr-compress', 'srcheck'])
+            names.clear()
+            def reject_cake(scratch, name, command, timeout, produced=None,
+                            **kwargs):
+                record = stage(scratch, name, command, timeout, produced, **kwargs)
+                if name == 'cake_lpr':
+                    record['result'] = 'rejected'
+                return record
+            with patch('runtime_task.proof_stage', side_effect=reject_cake), \
+                 patch('runtime_task.restate_duplicate_input_lrat',
+                       return_value=(work/'proof.lrat', 0)):
+                rejected = check_unsat_proof(work, 'dsr', cnf, proof, work, 10,
+                                             require_canonical_dsr=True)
+            self.assertEqual(rejected['result'], 'not-verified')
+            self.assertEqual(names, ['drat-trim', 'cake_lpr'])
+            names.clear()
+            def reject_trestle(scratch, name, command, timeout, produced=None,
+                               **kwargs):
+                record = stage(scratch, name, command, timeout, produced, **kwargs)
+                if name == 'srcheck':
+                    record['result'] = 'rejected'
+                return record
+            with patch('runtime_task.proof_stage', side_effect=reject_trestle), \
+                 patch('runtime_task.restate_duplicate_input_lrat',
+                       return_value=(work/'proof.lrat', 0)):
+                rejected = check_unsat_proof(work, 'dsr', cnf, proof, work, 10,
+                                             require_canonical_dsr=True)
+            self.assertEqual(rejected['result'], 'not-verified')
+            self.assertEqual(names[-1], 'srcheck')
+
     def test_malformed_dsr_preserves_proof_failure_classification(self):
         from unittest.mock import patch
         from runtime_task import check_unsat_proof
