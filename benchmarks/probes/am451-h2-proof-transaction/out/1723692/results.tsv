@@ -1,0 +1,3 @@
+direction	dsr_exit	trestle
+backward	1	not-run
+forward	1	not-run

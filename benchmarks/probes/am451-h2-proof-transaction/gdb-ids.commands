@@ -1,0 +1,17 @@
+set pagination off
+set confirm off
+break *0x42e170
+commands
+silent
+if $rcx == 1
+  printf "ADD_UNIT id=%lu lit=%u chain=%u\n", $rsi, *(unsigned int*)$rdx, $r9d
+end
+continue
+end
+break *0x430080
+commands
+silent
+printf "DEL id=%lu pending=%lu unit=%d size=%u\n", $rdx, *(unsigned long*)($rdi+8), *(int*)$rdi, $r8d
+continue
+end
+run

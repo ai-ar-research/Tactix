@@ -171,6 +171,51 @@ void test_dsr_ascii() {
          "1 0\n", "dsr-ascii derived root unit");
 }
 
+void test_dsr_unit_deletion_transaction() {
+  const auto lit = [](int e) { return make_lit(std::abs(e) - 1, e < 0); };
+  const Lit unit = lit(1);
+  const Lit support[2] = {lit(2), lit(-3)};
+  const Lit support_reordered[2] = {lit(-3), lit(2)};
+  const Lit unrelated[2] = {lit(4), lit(5)};
+  const std::vector<std::vector<Lit>> cone{{support[0], support[1]}};
+  const auto emit = [&](Proof &p) {
+    p.add_rup(10, &unit, 1, nullptr, 0, &cone);
+    p.del(11, 7, support_reordered, 2);
+    p.del(12, 8, unrelated, 2);
+    p.flush();
+  };
+  expect(emitted("dsr-transaction-ascii", ProofFormat::DsrAscii, emit),
+         "d 4 5 0\n1 0\nd -3 2 0\n",
+         "DSR preserves a root unit's exact RUP support across deletions");
+  expect(emitted("dsr-transaction-binary", ProofFormat::DsrBinary, emit),
+         std::string("\x02\x08\x0a\x00\x01\x02\x00\x02\x07\x04\x00", 11),
+         "binary DSR preserves the same support order");
+  const std::vector<Var> map{5, 6, 7, 8, 9};
+  expect(emitted("dsr-transaction-mapped", ProofFormat::DsrAscii,
+                 [&](Proof &p) {
+                   p.bind_variable_map(&map);
+                   emit(p);
+                 }),
+         "d 9 10 0\n6 0\nd -8 7 0\n",
+         "DSR support identity survives external variable mapping");
+  const Lit next = lit(6);
+  expect(emitted("dsr-transaction-next-add", ProofFormat::DsrAscii,
+                 [&](Proof &p) {
+                   p.add_rup(10, &unit, 1, nullptr, 0, &cone);
+                   p.del(11, 7, support, 2);
+                   p.add_rup(12, &next, 1, nullptr, 0);
+                 }),
+         "1 0\nd 2 -3 0\n6 0\n",
+         "next addition closes the pending unit transaction");
+  expect(emitted("dsr-transaction-delete-unit", ProofFormat::DsrAscii,
+                 [&](Proof &p) {
+                   p.add_rup(10, &unit, 1, nullptr, 0, &cone);
+                   p.del(11, 10, &unit, 1);
+                 }),
+         "1 0\nd 1 0\n",
+         "a pending unit is published before its own deletion");
+}
+
 void test_dsr_substitution() {
   const Lit clause[2] = {make_lit(0, false), make_lit(1, true)};
   const Lit true_lits[1] = {make_lit(2, false)};
@@ -584,6 +629,7 @@ int main() {
   test_drat_ascii();
   test_dsr_binary();
   test_dsr_ascii();
+  test_dsr_unit_deletion_transaction();
   test_dsr_substitution();
   test_dsr_pivot_mapping_forms();
   test_external_variable_map();

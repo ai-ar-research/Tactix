@@ -1,0 +1,11 @@
+set pagination off
+set confirm off
+break *0x42dcc0
+commands
+silent
+printf "FIRST_PENDING_FLUSH unit=%d\n", *(int*)$rdi
+bt 8
+disable 1
+continue
+end
+run

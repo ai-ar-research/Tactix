@@ -1,0 +1,326 @@
+diff --git a/src/proof/proof.cpp b/src/proof/proof.cpp
+index a9e993a4..c5bc2ea8 100644
+--- a/src/proof/proof.cpp
++++ b/src/proof/proof.cpp
+@@ -3,11 +3,11 @@
+ #include "diagnostics/rule_journal.hpp"
+ #endif
+ 
++#include <algorithm>
+ #include <cassert>
+ #include <cinttypes>
+ #include <cstdlib>
+ #ifdef TACTIX_ENABLE_PROOF_SHADOW
+-#include <algorithm>
+ #include <execinfo.h>
+ #endif
+ 
+@@ -209,6 +209,62 @@ void Proof::end_line() {
+     fputs("0\n", file_);
+ }
+ 
++std::vector<int32_t> Proof::external_clause_key(const Lit *lits,
++                                                 uint32_t size) const {
++  std::vector<int32_t> key;
++  key.reserve(size);
++  for (uint32_t i = 0; i < size; ++i) {
++    Lit external = lits[i];
++    if (variable_map_) {
++      assert(var_of(external) < variable_map_->size());
++      external = make_lit((*variable_map_)[var_of(external)], negated(external));
++    }
++    key.push_back(externalize(external));
++  }
++  std::sort(key.begin(), key.end());
++  return key;
++}
++
++bool Proof::pending_supports(const Lit *lits, uint32_t size) const {
++  const auto key = external_clause_key(lits, size);
++  return std::binary_search(pending_unit_support_.begin(),
++                            pending_unit_support_.end(), key);
++}
++
++void Proof::flush_pending_dsr_unit() {
++  if (!pending_unit_external_)
++    return;
++  assert(file_ && dsr());
++  if (format_ == ProofFormat::DsrBinary)
++    put_byte(1);
++  put_external_dimacs(pending_unit_external_);
++  end_line();
++  if (pending_support_deletions_) {
++    flush_binary();
++    if (std::fflush(pending_support_deletions_) ||
++        std::fseek(pending_support_deletions_, 0, SEEK_SET))
++      std::abort();
++    std::array<unsigned char, 65536> bytes{};
++    for (;;) {
++      const size_t count = std::fread(bytes.data(), 1, bytes.size(),
++                                      pending_support_deletions_);
++      if (count && std::fwrite(bytes.data(), 1, count, file_) != count)
++        std::abort();
++      if (count < bytes.size()) {
++        if (std::ferror(pending_support_deletions_))
++          std::abort();
++        break;
++      }
++    }
++    if (std::fclose(pending_support_deletions_))
++      std::abort();
++    pending_support_deletions_ = nullptr;
++  }
++  pending_unit_external_ = 0;
++  pending_unit_id_ = 0;
++  pending_unit_support_.clear();
++}
++
+ // Duplicate/complementary-literal scan. Small clauses only reach here, so the
+ // quadratic form beats any scratch allocation; it runs in debug builds only.
+ bool Proof::tautological(const Lit *lits, uint32_t size) {
+@@ -220,9 +276,11 @@ bool Proof::tautological(const Lit *lits, uint32_t size) {
+ }
+ 
+ void Proof::add_rup(uint64_t id, const Lit *lits, uint32_t size,
+-                    const uint64_t *chain, uint32_t nchain) {
++                    const uint64_t *chain, uint32_t nchain,
++                    const std::vector<std::vector<Lit>> *dsr_support) {
+   if (!input_transaction_ && !commit_dsr())
+     std::abort(); // a terminal PB stream cannot accept a clausal suffix
++  flush_pending_dsr_unit();
+ #ifdef TACTIX_ENABLE_RULE_JOURNAL
+   rule_journal_note_rup(id, chain, nchain);
+ #endif
+@@ -245,6 +303,28 @@ void Proof::add_rup(uint64_t id, const Lit *lits, uint32_t size,
+ #endif
+   if (!file_)
+     return;
++  if (dsr() && size == 1 && id && dsr_support && !dsr_support->empty()) {
++    Lit external = lits[0];
++    if (variable_map_) {
++      assert(var_of(external) < variable_map_->size());
++      external = make_lit((*variable_map_)[var_of(external)], negated(external));
++    }
++    pending_unit_external_ = externalize(external);
++    pending_unit_id_ = id;
++    pending_unit_support_.clear();
++    pending_unit_support_.reserve(dsr_support->size());
++    for (const auto &clause : *dsr_support)
++      pending_unit_support_.push_back(external_clause_key(
++          clause.data(), static_cast<uint32_t>(clause.size())));
++    std::sort(pending_unit_support_.begin(), pending_unit_support_.end());
++    pending_unit_support_.erase(
++        std::unique(pending_unit_support_.begin(), pending_unit_support_.end()),
++        pending_unit_support_.end());
++#ifdef TACTIX_ENABLE_PROOF_SHADOW
++    population_add(id, lits, size);
++#endif
++    return;
++  }
+   if (format_ == ProofFormat::Lrat) {
+     put_u64(id);
+     for (uint32_t i = 0; i < size; i++)
+@@ -274,6 +354,7 @@ void Proof::add_rat(uint64_t id, const Lit *lits, uint32_t size,
+                     const int64_t *hints, uint32_t nhints) {
+   if (!input_transaction_ && !commit_dsr())
+     std::abort();
++  flush_pending_dsr_unit();
+ #ifdef TACTIX_ENABLE_RULE_JOURNAL
+   rule_journal_note_rat(id, hints, nhints);
+ #endif
+@@ -318,6 +399,7 @@ bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
+                    uint32_t external_variables, bool propagates) {
+   if (!input_transaction_ && !commit_dsr())
+     return false;
++  flush_pending_dsr_unit();
+ #ifndef TACTIX_ENABLE_PROOF_SHADOW
+   (void)id;
+ #endif
+@@ -488,6 +570,18 @@ void Proof::del(uint64_t line_id, uint64_t del_id, const Lit *lits,
+     std::abort();
+   if (!file_)
+     return;
++  if (pending_unit_external_ && del_id == pending_unit_id_)
++    flush_pending_dsr_unit();
++  const bool defer = pending_unit_external_ && pending_supports(lits, size);
++  FILE *main_file = nullptr;
++  if (defer) {
++    flush_binary();
++    if (!pending_support_deletions_ &&
++        !(pending_support_deletions_ = std::tmpfile()))
++      std::abort();
++    main_file = file_;
++    file_ = pending_support_deletions_;
++  }
+   if (format_ == ProofFormat::Lrat) {
+     put_u64(line_id);
+     fputs("d ", file_);
+@@ -510,6 +604,10 @@ void Proof::del(uint64_t line_id, uint64_t del_id, const Lit *lits,
+   for (uint32_t i = 0; i < size; i++)
+     put_lit(lits[i]);
+   end_line();
++  if (defer) {
++    flush_binary();
++    file_ = main_file;
++  }
+ #ifdef TACTIX_ENABLE_PROOF_SHADOW
+   population_del(del_id, lits, size);
+ #endif
+@@ -534,6 +632,7 @@ bool Proof::add_external_rup(uint64_t id, const int32_t *lits,
+                              uint32_t size) {
+   if (!input_transaction_ && !commit_dsr())
+     return false;
++  flush_pending_dsr_unit();
+   if (lrat())
+     return false;
+   assert(!size || lits);
+@@ -574,6 +673,7 @@ bool Proof::del_external(uint64_t line_id, uint64_t del_id,
+                          const int32_t *lits, uint32_t size) {
+   if (!input_transaction_ && !commit_dsr())
+     return false;
++  flush_pending_dsr_unit();
+   (void)line_id;
+   if (lrat())
+     return false;
+@@ -607,6 +707,7 @@ bool Proof::del_external(uint64_t line_id, uint64_t del_id,
+ void Proof::flush() {
+   if (automatic_pending_)
+     commit_dsr();
++  flush_pending_dsr_unit();
+   if (file_) {
+     flush_binary();
+     // Text serializers use stdio buffering. Both a previous short write and
+diff --git a/src/proof/proof.hpp b/src/proof/proof.hpp
+index 5ba52e44..79553d32 100644
+--- a/src/proof/proof.hpp
++++ b/src/proof/proof.hpp
+@@ -72,7 +72,8 @@ public:
+   // add-RUP: `id` and the antecedent `chain` (ids, checker-propagation
+   // order) are used by LRAT only; DRAT writes the literals
+   void add_rup(uint64_t id, const Lit *lits, uint32_t size,
+-               const uint64_t *chain, uint32_t nchain);
++               const uint64_t *chain, uint32_t nchain,
++               const std::vector<std::vector<Lit>> *dsr_support = nullptr);
+   // add-RAT: `lits` MUST be pivot-first (the RAT pivot is the first literal, both
+   // for LRAT and for the checker's first-literal inference on DRAT). LRAT writes
+   // `<id> <lits> 0 <hints> 0` where `hints` is the flat SIGNED antecedent stream:
+@@ -166,6 +167,18 @@ public:
+ #endif
+ 
+ private:
++  // A named RUP unit may be followed by clause retirements from another rule.
++  // Keep the unit and deletions of its RUP antecedents until the next
++  // addition; unrelated deletions can then precede the unit without breaking
++  // that derivation. The deferred bytes live in a temporary file, so a large
++  // deletion batch does not accumulate in memory.
++  void flush_pending_dsr_unit();
++  std::vector<int32_t> external_clause_key(const Lit *, uint32_t) const;
++  bool pending_supports(const Lit *, uint32_t) const;
++  int32_t pending_unit_external_ = 0;
++  uint64_t pending_unit_id_ = 0;
++  std::vector<std::vector<int32_t>> pending_unit_support_;
++  FILE *pending_support_deletions_ = nullptr;
+ #ifdef TACTIX_ENABLE_PROOF_SHADOW
+   std::string population_key(uint64_t id, const Lit *lits, uint32_t size) const;
+   void population_add(uint64_t id, const Lit *lits, uint32_t size);
+diff --git a/src/rules/support/failed_literal.cpp b/src/rules/support/failed_literal.cpp
+index 0bac5227..4bd0b14f 100644
+--- a/src/rules/support/failed_literal.cpp
++++ b/src/rules/support/failed_literal.cpp
+@@ -8,6 +8,65 @@
+ 
+ namespace tactix {
+ 
++// Native DSR names deletions by literals, and its binary index intentionally
++// discards proof ids. Capture the failed-literal UP cone by clause literals
++// while it is still live; the proof backend can preserve exactly this support
++// when it retimes later deletions from another rule.
++static bool dsr_conflict_support(const Kernel &k,
++                                 std::vector<std::vector<Lit>> &out) {
++  out.clear();
++  std::vector<uint8_t> seen(k.nvars, 0);
++  std::vector<Var> todo;
++  const auto add = [&](const Lit *lits, size_t size) {
++    out.emplace_back(lits, lits + size);
++  };
++  if (k.conflict_ref == INVALID_REF) {
++    add(k.conflict_bin, 2);
++    todo.push_back(var_of(k.conflict_bin[0]));
++    todo.push_back(var_of(k.conflict_bin[1]));
++  } else {
++    const Clause *c = clause_at(k.arena, k.conflict_ref);
++    add(c->begin(), c->size);
++    for (const Lit lit : *c)
++      todo.push_back(var_of(lit));
++  }
++  while (!todo.empty()) {
++    const Var v = todo.back();
++    todo.pop_back();
++    if (seen[v])
++      continue;
++    seen[v] = 1;
++    const Assigned &a = k.assigned[v];
++    const Lit pos = make_lit(v, false);
++    const Lit assigned = k.value(pos) > 0 ? pos : negate(pos);
++    if (a.reason == DECISION_REASON) {
++      if (!a.level)
++        return false; // an unnamed root decision is not proof support
++      continue; // the failed-literal assumption
++    }
++    const bool published_dsr = v < k.dsr_root_values.size() &&
++        k.dsr_root_values[v] == (negated(assigned) ? -1 : 1);
++    if (a.reason == UNIT_REASON ||
++        (!a.level && (k.unit_ids[v] || published_dsr))) {
++      add(&assigned, 1);
++      continue;
++    }
++    if (a.binary) {
++      const Lit next = a.jumped ? k.jumped_over[v] : a.reason;
++      const Lit pair[2] = {assigned, next};
++      add(pair, 2);
++      todo.push_back(var_of(next));
++    } else {
++      const Clause *c = clause_at(k.arena, a.reason);
++      add(c->begin(), c->size);
++      for (const Lit lit : *c)
++        if (var_of(lit) != v)
++          todo.push_back(var_of(lit));
++    }
++  }
++  return !out.empty();
++}
++
+ #ifdef TACTIX_ENABLE_EVENT_TRACE
+ static uint64_t backbone_candidate_hash(const Kernel &k,
+                                         const std::vector<Lit> &candidates) {
+@@ -80,6 +139,7 @@ static bool probe_one(Kernel &k, Lit p, Lit *unit_out,
+                       FailedLiteralPropagation propagation,
+                       const FailedLiteralStats &stats) {
+   const bool lrat = k.proof && k.proof->lrat();
++  const bool dsr = k.proof && k.proof->dsr();
+   k.stats.*stats.probed += 1;
+   if (propagation == FailedLiteralPropagation::Full)
+     kernel_probing_begin(k);
+@@ -95,10 +155,13 @@ static bool probe_one(Kernel &k, Lit p, Lit *unit_out,
+   const Lit unit = negate(p);
+   uint64_t last = 0;
+   std::vector<std::pair<uint32_t, uint64_t>> entries;
++  std::vector<std::vector<Lit>> dsr_support;
+   if (lrat) {
+     std::vector<uint8_t> seen(k.nvars, 0);
+     last = kernel_conflict_reason_walk(k, seen, entries);
+   }
++  if (dsr && !dsr_conflict_support(k, dsr_support))
++    dsr_support.clear();
+   unwind(k, propagation);
+   const uint64_t id = ++k.next_clause_id;
+   if (k.proof) {
+@@ -106,6 +169,8 @@ static bool probe_one(Kernel &k, Lit p, Lit *unit_out,
+       kernel_build_lrat_chain(entries, last, k.lrat_chain);
+       k.proof->add_rup(id, &unit, 1, k.lrat_chain.data(),
+                        static_cast<uint32_t>(k.lrat_chain.size()));
++    } else if (dsr && !dsr_support.empty()) {
++      k.proof->add_rup(id, &unit, 1, nullptr, 0, &dsr_support);
+     } else {
+       k.proof->add_rup(0, &unit, 1, nullptr, 0);
+     }

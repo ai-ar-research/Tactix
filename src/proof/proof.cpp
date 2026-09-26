@@ -3,11 +3,11 @@
 #include "diagnostics/rule_journal.hpp"
 #endif
 
+#include <algorithm>
 #include <cassert>
 #include <cinttypes>
 #include <cstdlib>
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
-#include <algorithm>
 #include <execinfo.h>
 #endif
 
@@ -209,6 +209,62 @@ void Proof::end_line() {
     fputs("0\n", file_);
 }
 
+std::vector<int32_t> Proof::external_clause_key(const Lit *lits,
+                                                 uint32_t size) const {
+  std::vector<int32_t> key;
+  key.reserve(size);
+  for (uint32_t i = 0; i < size; ++i) {
+    Lit external = lits[i];
+    if (variable_map_) {
+      assert(var_of(external) < variable_map_->size());
+      external = make_lit((*variable_map_)[var_of(external)], negated(external));
+    }
+    key.push_back(externalize(external));
+  }
+  std::sort(key.begin(), key.end());
+  return key;
+}
+
+bool Proof::pending_supports(const Lit *lits, uint32_t size) const {
+  const auto key = external_clause_key(lits, size);
+  return std::binary_search(pending_unit_support_.begin(),
+                            pending_unit_support_.end(), key);
+}
+
+void Proof::flush_pending_dsr_unit() {
+  if (!pending_unit_external_)
+    return;
+  assert(file_ && dsr());
+  if (format_ == ProofFormat::DsrBinary)
+    put_byte(1);
+  put_external_dimacs(pending_unit_external_);
+  end_line();
+  if (pending_support_deletions_) {
+    flush_binary();
+    if (std::fflush(pending_support_deletions_) ||
+        std::fseek(pending_support_deletions_, 0, SEEK_SET))
+      std::abort();
+    std::array<unsigned char, 65536> bytes{};
+    for (;;) {
+      const size_t count = std::fread(bytes.data(), 1, bytes.size(),
+                                      pending_support_deletions_);
+      if (count && std::fwrite(bytes.data(), 1, count, file_) != count)
+        std::abort();
+      if (count < bytes.size()) {
+        if (std::ferror(pending_support_deletions_))
+          std::abort();
+        break;
+      }
+    }
+    if (std::fclose(pending_support_deletions_))
+      std::abort();
+    pending_support_deletions_ = nullptr;
+  }
+  pending_unit_external_ = 0;
+  pending_unit_id_ = 0;
+  pending_unit_support_.clear();
+}
+
 // Duplicate/complementary-literal scan. Small clauses only reach here, so the
 // quadratic form beats any scratch allocation; it runs in debug builds only.
 bool Proof::tautological(const Lit *lits, uint32_t size) {
@@ -220,9 +276,11 @@ bool Proof::tautological(const Lit *lits, uint32_t size) {
 }
 
 void Proof::add_rup(uint64_t id, const Lit *lits, uint32_t size,
-                    const uint64_t *chain, uint32_t nchain) {
+                    const uint64_t *chain, uint32_t nchain,
+                    const std::vector<std::vector<Lit>> *dsr_support) {
   if (!input_transaction_ && !commit_dsr())
     std::abort(); // a terminal PB stream cannot accept a clausal suffix
+  flush_pending_dsr_unit();
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
   rule_journal_note_rup(id, chain, nchain);
 #endif
@@ -245,6 +303,28 @@ void Proof::add_rup(uint64_t id, const Lit *lits, uint32_t size,
 #endif
   if (!file_)
     return;
+  if (dsr() && size == 1 && id && dsr_support && !dsr_support->empty()) {
+    Lit external = lits[0];
+    if (variable_map_) {
+      assert(var_of(external) < variable_map_->size());
+      external = make_lit((*variable_map_)[var_of(external)], negated(external));
+    }
+    pending_unit_external_ = externalize(external);
+    pending_unit_id_ = id;
+    pending_unit_support_.clear();
+    pending_unit_support_.reserve(dsr_support->size());
+    for (const auto &clause : *dsr_support)
+      pending_unit_support_.push_back(external_clause_key(
+          clause.data(), static_cast<uint32_t>(clause.size())));
+    std::sort(pending_unit_support_.begin(), pending_unit_support_.end());
+    pending_unit_support_.erase(
+        std::unique(pending_unit_support_.begin(), pending_unit_support_.end()),
+        pending_unit_support_.end());
+#ifdef TACTIX_ENABLE_PROOF_SHADOW
+    population_add(id, lits, size);
+#endif
+    return;
+  }
   if (format_ == ProofFormat::Lrat) {
     put_u64(id);
     for (uint32_t i = 0; i < size; i++)
@@ -274,6 +354,7 @@ void Proof::add_rat(uint64_t id, const Lit *lits, uint32_t size,
                     const int64_t *hints, uint32_t nhints) {
   if (!input_transaction_ && !commit_dsr())
     std::abort();
+  flush_pending_dsr_unit();
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
   rule_journal_note_rat(id, hints, nhints);
 #endif
@@ -318,6 +399,7 @@ bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
                    uint32_t external_variables, bool propagates) {
   if (!input_transaction_ && !commit_dsr())
     return false;
+  flush_pending_dsr_unit();
 #ifndef TACTIX_ENABLE_PROOF_SHADOW
   (void)id;
 #endif
@@ -488,6 +570,18 @@ void Proof::del(uint64_t line_id, uint64_t del_id, const Lit *lits,
     std::abort();
   if (!file_)
     return;
+  if (pending_unit_external_ && del_id == pending_unit_id_)
+    flush_pending_dsr_unit();
+  const bool defer = pending_unit_external_ && pending_supports(lits, size);
+  FILE *main_file = nullptr;
+  if (defer) {
+    flush_binary();
+    if (!pending_support_deletions_ &&
+        !(pending_support_deletions_ = std::tmpfile()))
+      std::abort();
+    main_file = file_;
+    file_ = pending_support_deletions_;
+  }
   if (format_ == ProofFormat::Lrat) {
     put_u64(line_id);
     fputs("d ", file_);
@@ -510,6 +604,10 @@ void Proof::del(uint64_t line_id, uint64_t del_id, const Lit *lits,
   for (uint32_t i = 0; i < size; i++)
     put_lit(lits[i]);
   end_line();
+  if (defer) {
+    flush_binary();
+    file_ = main_file;
+  }
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
   population_del(del_id, lits, size);
 #endif
@@ -534,6 +632,7 @@ bool Proof::add_external_rup(uint64_t id, const int32_t *lits,
                              uint32_t size) {
   if (!input_transaction_ && !commit_dsr())
     return false;
+  flush_pending_dsr_unit();
   if (lrat())
     return false;
   assert(!size || lits);
@@ -574,6 +673,7 @@ bool Proof::del_external(uint64_t line_id, uint64_t del_id,
                          const int32_t *lits, uint32_t size) {
   if (!input_transaction_ && !commit_dsr())
     return false;
+  flush_pending_dsr_unit();
   (void)line_id;
   if (lrat())
     return false;
@@ -607,6 +707,7 @@ bool Proof::del_external(uint64_t line_id, uint64_t del_id,
 void Proof::flush() {
   if (automatic_pending_)
     commit_dsr();
+  flush_pending_dsr_unit();
   if (file_) {
     flush_binary();
     // Text serializers use stdio buffering. Both a previous short write and

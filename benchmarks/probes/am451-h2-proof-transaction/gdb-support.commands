@@ -1,0 +1,19 @@
+set pagination off
+set confirm off
+break *0x42e170
+commands
+silent
+if $rcx == 1
+  python
+import gdb, struct
+n = int(gdb.parse_and_eval('$r9'))
+ptr = int(gdb.parse_and_eval('$r8'))
+raw = gdb.selected_inferior().read_memory(ptr, 8 * n)
+print('FIRST_UNIT_SUPPORT', list(struct.unpack('<' + 'Q' * n, raw)))
+  end
+  bt 4
+  disable 1
+end
+continue
+end
+run
