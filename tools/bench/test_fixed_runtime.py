@@ -25,18 +25,18 @@ class FixedRuntimeTests(unittest.TestCase):
         rows = f.candidate_rows(self.ref)
         self.assertEqual([r['task'] for r in rows], list(range(80)))
         self.assertEqual({r['arm'] for r in rows},
-                         {'tactix-dsr', 'tactix-drat'})
+                         {'tactix-auto', 'tactix-drat'})
         self.assertEqual([r['rank'] for r in rows[::2]], list(range(1,41)))
         self.assertEqual([r['rank'] for r in rows[1::2]], list(range(1,41)))
 
-    def test_native_dsr_only_matrix(self):
-        rows = f.candidate_rows(self.ref, ('tactix-dsr',))
+    def test_automatic_only_matrix(self):
+        rows = f.candidate_rows(self.ref, ('tactix-auto',))
         self.assertEqual(len(rows), 40)
         self.assertEqual([r['task'] for r in rows], list(range(40)))
-        self.assertEqual({r['arm'] for r in rows}, {'tactix-dsr'})
+        self.assertEqual({r['arm'] for r in rows}, {'tactix-auto'})
         self.assertEqual([r['rank'] for r in rows], list(range(1,41)))
 
-    def test_prepared_dsr_bundle_satisfies_runtime_contract(self):
+    def test_prepared_automatic_bundle_satisfies_runtime_contract(self):
         real_root = f.ROOT
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
@@ -79,8 +79,9 @@ class FixedRuntimeTests(unittest.TestCase):
                                      reference_path=reference_path,
                                      checker_pins=root / 'checker-pins')
                 rt.validate_runtime_pin_contract(campaign, manifest)
-                self.assertEqual(manifest['schema'], 'tactix-fixed-reference-runtime-v5')
-                self.assertTrue(manifest['require_canonical_dsr'])
+                self.assertEqual(manifest['schema'], 'tactix-fixed-reference-runtime-v6')
+                self.assertEqual(manifest['arms']['tactix-auto']['certificate'], 'auto')
+                self.assertEqual(manifest['arms']['tactix-auto']['arguments'], ['--auto-proof'])
                 self.assertEqual(manifest['checker_authority']['sha256'],
                                  checker_hashes)
                 (root / 'checker-pins/dsr-trim').write_bytes(b'changed')
@@ -116,6 +117,28 @@ class FixedRuntimeTests(unittest.TestCase):
                     ('drat-trim', 'cake_lpr', 'dsr-trim', 'dsr-compress', 'srcheck')])
         self.assertTrue(f.score_records(ref, rows, 'tactix-dsr',
                                         require_canonical_dsr=True)['runtime_target_met'])
+
+    def test_automatic_score_requires_each_approved_proof_route(self):
+        ref, rows = copy.deepcopy(self.ref), copy.deepcopy(self.records)
+        for index, (pipeline, stages) in enumerate((
+                ('veripb-cake-pb', ('veripb', 'cake-pb-cnf')),
+                ('dsr-trim-dsr-compress-trestle',
+                 ('dsr-trim', 'dsr-compress', 'srcheck')),
+                ('witness-free-dsr-as-drat:drat-trim-cake_lpr',
+                 ('drat-trim', 'cake_lpr')))):
+            ref['records'][index]['expected'] = rows[index]['expected'] = 'UNSAT'
+            rows[index].update(verdict='UNSAT', valid=True, expected_match=True,
+                               proof_check=dict(result='verified', pipeline=pipeline,
+                                   stages=[dict(name=name, result='verified')
+                                           for name in stages]))
+            rows[index]['solve']['exit_code'] = 20
+        for row in rows:
+            row['arm'] = 'tactix-auto'
+        self.assertTrue(f.score_records(ref, rows, 'tactix-auto',
+            require_automatic_routes=True)['runtime_target_met'])
+        rows[2]['proof_check']['pipeline'] = 'unapproved-shortcut'
+        with self.assertRaisesRegex(ValueError, 'plan section 5'):
+            f.score_records(ref, rows, 'tactix-auto', require_automatic_routes=True)
 
     def test_complete_pending_score_not_verified(self):
         r = f.score_records(self.ref,self.records)
