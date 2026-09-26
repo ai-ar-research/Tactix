@@ -1,0 +1,43 @@
+Breakpoint 1 at 0x42da30
+Error in re-setting breakpoint 1: Function "tactix::Proof::add_rup" not defined.
+warning: File "/cm/local/apps/gcc/13.1.0/lib64/libstdc++.so.6.0.31-gdb.py" auto-loading has been declined by your `auto-load safe-path' set to "$debugdir:$datadir/auto-load".
+To enable execution of this file add
+	add-auto-load-safe-path /cm/local/apps/gcc/13.1.0/lib64/libstdc++.so.6.0.31-gdb.py
+line to your configuration file "/home/hwu/.config/gdb/gdbinit".
+To completely disable this security protection add
+	set auto-load safe-path /
+line to your configuration file "/home/hwu/.config/gdb/gdbinit".
+For more information about this security protection see the
+"Auto-loading safe path" section in the GDB manual.  E.g., run from the shell:
+	info "(gdb)Auto-loading safe path"
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib64/libthread_db.so.1".
+attach 0
+op 0 applicable n 27 condition 1
+op 1 apply Propagate rc -1 os -100
+op 2 applicable n 27 condition 1
+op 3 cond -1
+op 4 cond -1
+op 5 cond -1
+op 6 cond -1
+op 7 cond -1
+op 8 cond -1
+op 9 cond -1
+op 10 cond -1
+op 11 applicable n 27 condition 1
+op 12 apply LocalSearchGuidance rc 1 os -100
+op 13 apply Walk rc 1 os -100
+op 14 exact Backbone 4294967279 rc 0
+op 15 apply CCE rc 0 os -100
+op 16 exact Instantiate 240518168580 rc 0
+op 17 apply Restart rc 0 os -100
+op 18 cond -1
+op 19 cond -1
+op 20 cond -1
+op 21 solve 20
+term 21 rc 20 status 20
+op 22 status 20
+final 20
+stats conflicts 1 decisions 0 irredundant 4 fixed 21 bce 0 elim 0
+released
+[Inferior 1 (process 3558137) exited normally]
