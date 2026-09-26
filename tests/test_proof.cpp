@@ -178,39 +178,44 @@ void test_dsr_unit_deletion_transaction() {
   const Lit support[2] = {lit(2), lit(-3)};
   const Lit support_reordered[2] = {lit(-3), lit(2)};
   const Lit unrelated[2] = {lit(4), lit(5)};
-  const std::vector<std::vector<Lit>> cone{{support[0], support[1]}};
   const auto emit = [&](Proof &p) {
-    p.add_rup(10, &unit, 1, nullptr, 0, &cone);
+    p.add_rup(10, &unit, 1, nullptr, 0);
     p.del(11, 7, support_reordered, 2);
     p.del(12, 8, unrelated, 2);
     p.flush();
   };
   expect(emitted("dsr-transaction-ascii", ProofFormat::DsrAscii, emit),
-         "d 4 5 0\n1 0\nd -3 2 0\n",
-         "DSR preserves a root unit's exact RUP support across deletions");
+         "1 6 0\n1 -6 0\nd -3 2 0\nd 4 5 0\n1 0\n"
+         "d 1 6 0\nd 1 -6 0\n",
+         "DSR split preserves a root unit across all following deletions");
   expect(emitted("dsr-transaction-binary", ProofFormat::DsrBinary, emit),
-         std::string("\x02\x08\x0a\x00\x01\x02\x00\x02\x07\x04\x00", 11),
-         "binary DSR preserves the same support order");
+         std::string("\x01\x02\x0c\x00\x01\x02\x0d\x00"
+                     "\x02\x07\x04\x00\x02\x08\x0a\x00"
+                     "\x01\x02\x00\x02\x02\x0c\x00"
+                     "\x02\x02\x0d\x00", 27),
+         "binary DSR preserves the same split transaction");
   const std::vector<Var> map{5, 6, 7, 8, 9};
   expect(emitted("dsr-transaction-mapped", ProofFormat::DsrAscii,
                  [&](Proof &p) {
                    p.bind_variable_map(&map);
                    emit(p);
                  }),
-         "d 9 10 0\n6 0\nd -8 7 0\n",
-         "DSR support identity survives external variable mapping");
+         "6 11 0\n6 -11 0\nd -8 7 0\nd 9 10 0\n6 0\n"
+         "d 6 11 0\nd 6 -11 0\n",
+         "DSR split identity respects the external variable mapping");
   const Lit next = lit(6);
   expect(emitted("dsr-transaction-next-add", ProofFormat::DsrAscii,
                  [&](Proof &p) {
-                   p.add_rup(10, &unit, 1, nullptr, 0, &cone);
+                   p.add_rup(10, &unit, 1, nullptr, 0);
                    p.del(11, 7, support, 2);
                    p.add_rup(12, &next, 1, nullptr, 0);
                  }),
-         "1 0\nd 2 -3 0\n6 0\n",
+         "1 4 0\n1 -4 0\nd 2 -3 0\n1 0\n"
+         "d 1 4 0\nd 1 -4 0\n6 0\n",
          "next addition closes the pending unit transaction");
   expect(emitted("dsr-transaction-delete-unit", ProofFormat::DsrAscii,
                  [&](Proof &p) {
-                   p.add_rup(10, &unit, 1, nullptr, 0, &cone);
+                   p.add_rup(10, &unit, 1, nullptr, 0);
                    p.del(11, 10, &unit, 1);
                  }),
          "1 0\nd 1 0\n",
@@ -220,27 +225,29 @@ void test_dsr_unit_deletion_transaction() {
       {lit(1), lit(3)}, {lit(2), lit(4)}};
   expect(emitted("dsr-transaction-declined-sr", ProofFormat::DsrAscii,
                  [&](Proof &p) {
-                   p.add_rup(10, &unit, 1, nullptr, 0, &cone);
+                   p.add_rup(10, &unit, 1, nullptr, 0);
                    assert(!p.add_sr(11, open_pair, 2, nullptr, 0, open_maps, 2,
                                     INT32_MAX));
                    p.del(12, 8, unrelated, 2);
                  }),
-         "d 4 5 0\n1 0\n",
+         "1 6 0\n1 -6 0\nd 4 5 0\n1 0\n"
+         "d 1 6 0\nd 1 -6 0\n",
          "a declined SR addition does not close a pending unit transaction");
   const int32_t tautology[2] = {6, -6};
   expect(emitted("dsr-transaction-declined-external", ProofFormat::DsrAscii,
                  [&](Proof &p) {
-                   p.add_rup(10, &unit, 1, nullptr, 0, &cone);
+                   p.add_rup(10, &unit, 1, nullptr, 0);
                    assert(!p.add_external_rup(11, tautology, 2));
                    p.del(12, 8, unrelated, 2);
                  }),
-         "d 4 5 0\n1 0\n",
+         "1 6 0\n1 -6 0\nd 4 5 0\n1 0\n"
+         "d 1 6 0\nd 1 -6 0\n",
          "a declined external addition preserves the pending unit order");
   const DsrLiteralMapping rup_maps[2] = {
       {lit(1), lit(2)}, {lit(2), lit(1)}};
   expect(emitted("dsr-transaction-accepted-sr", ProofFormat::DsrAscii,
                  [&](Proof &p) {
-                   p.add_rup(10, &unit, 1, nullptr, 0, &cone);
+                   p.add_rup(10, &unit, 1, nullptr, 0);
                    assert(p.add_sr(11, open_pair, 2, nullptr, 0, rup_maps, 2,
                                    6));
                  }),

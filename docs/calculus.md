@@ -36,7 +36,7 @@ DSR deletion, and `add_sr(C,σ)` writes the finite substitution witness directly
 on the addition of `C`. After the startup certificate boundary, one stream records ordinary reasoning and SR in their
 actual order. It is checked exactly as the Satsuma+Kissat reference checks DSR (`tools/bench/proof_oracle.py`): `dsr-trim` with no options elaborates it backwards and core-trimmed, `dsr-compress -d` expands the LSR, and pinned Trestle, the pipeline's authority, verifies it.
 A DRAT/DSR checker propagates written clauses, so the proof must not give it a root unit the kernel lacks: before retiring a level-zero reason, the solver emits its consequence as a DSR RUP unit; `kernel_propagate` publishes every forced root literal, and a lifted proof-only lemma is conditioned on its target.
-That publication does not guarantee identical formula populations: pinned no-option `dsr-trim` can retain an implied-unit reason after its deletion, and a later SR witness may fail against that retained checker state. The public H2 trajectory does fail there (AM432/439/445 reports); N2 remains open.
+When a DSR RUP unit is followed by deletions, the serializer may add `(u∨a)` and `(u∨¬a)` first, move the deletions before `u`, then add `u` and delete both helpers. Each helper is RUP while `u` is RUP; after the deletions, the pair makes `u` RUP under `¬u`. The proof-only identity is retired before a later SR witness uses it. This preserves the canonical no-option checker route and does not restrict any public rule; complete N2 acceptance remains gated.
 No proof write, and no decision that depends on whether a proof is written, may change kernel state: runs with and without a proof are identical.
 DRAT and native LRAT serialize the pre-existing event subset as compatibility
 formats. Factor alone currently uses `add_rat`; the Satsuma-derived SR rule will
@@ -226,7 +226,7 @@ root closure at apply entry. V1/V2 Probe/Backbone additionally require `!conflic
 - **Effect:** collect-then-batch — assume each candidate, full-propagate, and on a conflict record `¬p`; assert the batch of derived
   units un-propagated (M1 owns the cascade). Proof δ: `add_rup` per unit (the reason-walk chain closed by the conflict id) — **not**
   `add_derived_unit`; a failed-literal unit is an explicit logical inference,
-  while `add_derived_unit` publishes an ordinary propagation consequence. Native DSR retains the exact literal-clause reason cone: later non-support deletions may precede the unit, while support deletions follow it; rule legality is unchanged.
+  while `add_derived_unit` publishes an ordinary propagation consequence. Native DSR uses the shared split-unit transaction when deletions follow; rule legality is unchanged.
 - **Soundness:** `¬p` is RUP: assume `p`, the recorded reason chain propagates to the conflict.
 
 ### V2 · Backbone — binary-only failed-literal probing

@@ -288,8 +288,8 @@ reason-locked clauses are never deleted. No policy observes pending half-analysi
 
 - Input position is checker id. Normalization preserves id consumption for tautologies, duplicates, refuted tails, and root
   simplification.
-- Shared proof primitives own addition, replacement, deletion, empty emission, and root-unit naming. Garbage marking and proof
-  deletion are inseparable.
+- Shared proof primitives own addition, replacement, deletion, empty emission, and root-unit naming. Native DSR stages a RUP unit
+  through following deletions using two temporary RUP split clauses, then retires them; garbage marking and proof deletion remain inseparable.
 - The optional proof shadow checks raw/add/delete/Y1 premises and representative values; production compiles it out.
 
 ## 6. BVE retry advice
