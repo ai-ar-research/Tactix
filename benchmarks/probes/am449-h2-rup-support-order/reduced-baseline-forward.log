@@ -1,0 +1,10 @@
+c CNF file path: /home/hwu/SAT-solving/benchmarks/probes/am449-h2-rup-support-order/reduced.cnf
+c DSR file path: /home/hwu/SAT-solving/benchmarks/probes/am449-h2-rup-support-order/reduced-baseline.dsr
+c LSR file path: /home/hwu/SAT-solving/benchmarks/probes/am449-h2-rup-support-order/reduced-baseline-forward.lsr
+c Using a STREAMING parsing strategy.
+c Doing FORWARDS proof checking.
+c The CNF formula has 16 clauses and 21 variables.
+c Parsing the CNF took 0.000 secs
+c Checking proof...
+Error: [line 12] No UP contradiction for RAT clause 15.
+c (For more information about this error, run with the `-V` option.)

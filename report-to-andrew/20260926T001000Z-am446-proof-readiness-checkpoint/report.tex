@@ -31,9 +31,11 @@ original 42-clause replay, moving all six retained-reason deletions ahead of
 the first unit yields a backward elaboration independently verified by
 Trestle, but forward checking rejects the first unit. An exhaustive
 64-subset control then found that moving only three selected deletions lets
-both checker directions and Trestle verify the original proof. It exposes
-the proof dependencies an emitter must respect; choosing those lines for one
-CNF is not a general repair. AM443's
+both checker directions and Trestle verify the original proof. A second
+control uses the first unit's RUP hint chain to move only non-support
+deletions; it verifies both the reduced and original replays in both checker
+directions and Trestle. This exposes proof dependencies a general emitter
+must preserve; the two bounded controls are not a production repair. AM443's
 two-variable negative control shows a reason can already be implied by the
 original input, leaving no earlier proof-line window. The diagnostic implied
 unit deletion option changes which proofs verify in both directions, so it
@@ -80,6 +82,7 @@ the 1,166-instance Tier D comparison launch at 5,000 seconds, four CPUs and
 \url{benchmarks/reports/2026-09-25-am444-h2-early-deletion-control.md};
 \url{benchmarks/reports/2026-09-25-am445-h2-original-deletion-order-control.md};
 \url{benchmarks/reports/2026-09-25-am448-h2-deletion-dependency-control.md};
+\url{benchmarks/reports/2026-09-25-am449-h2-rup-support-order-control.md};
 \url{benchmarks/reports/2026-09-25-am447-full-debug-terminal-triage.md};
 \url{benchmarks/reports/2026-09-25-am446-reference-proof-producer-crosswalk.md};
 the AM442 and AM427 owner status/report files under \url{benchmarks/runs/}.
