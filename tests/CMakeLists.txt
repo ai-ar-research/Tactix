@@ -54,6 +54,10 @@ add_test(NAME subsolver_export_resource COMMAND test_subsolver_export_resource)
 add_executable(test_sweep test_sweep.cpp)
 target_link_libraries(test_sweep PRIVATE tactix_lib)
 add_test(NAME sweep COMMAND test_sweep)
+add_test(NAME sweep_interrupted_direction
+         COMMAND ${CMAKE_COMMAND} -E env python3
+                 ${CMAKE_CURRENT_SOURCE_DIR}/test_sweep_interrupted_direction.py
+                 $<TARGET_FILE:tactix>)
 
 add_executable(test_scheduling test_scheduling.cpp)
 target_link_libraries(test_scheduling PRIVATE tactix_lib)

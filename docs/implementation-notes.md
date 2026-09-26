@@ -192,9 +192,8 @@ reason-locked clauses are never deleted. No policy observes pending half-analysi
   cutover](../benchmarks/reports/2026-09-11-occurrence-cutover-checkpoint-7258.md) migrates Kernel and rule consumers to one mixed
   owner plus exact large counts and filtered views; Probe stays direct-large and forward stays partial. Fixed actual-parent
   order/proof/model/sanitizer gates and the final refactor runtime/RSS consolidation gates pass.
-- Attached dense views change together: large promotion/removal uses paired kernel primitives, including Sweep's eager session
-  erases. Canonical Substitute republishes an attached mixed stream at its boundary after bulk watch rewrites. Free N1 schedules may
-  attach it outside DefaultPolicy's Eliminate group; a stale mirror is not an admissible scheduling deviation.
+- Attached dense views change together: large promotion/removal uses paired kernel primitives, including Sweep's eager session erases. Canonical Substitute republishes an attached mixed stream after bulk watch rewrites. Free N1 schedules may attach it outside DefaultPolicy's Eliminate group; a stale mirror is not an admissible scheduling deviation.
+  If Sweep's second certified general direction is interrupted after the first binary commits, its session reconciles primed mixed streams from physical watches before publication, reports the one-direction consequence as progress, and leaves the pair queued without an equivalence rewrite.
 - Dense mode forbids sparse large-watch publication, including new clauses. Production since `7a668e76` enters Eliminate with `kernel_flush_large_watches`, suppresses sparse publication while disconnected, and restores sparse watches at exit; affected fuzz and cumulative runtime acceptance remain open. Ledger `SP-ELIM-DENSE-ENTRY-1` owns the gate.
 - DIMACS import uses that same clause-by-clause lifecycle; it has no parse-only packing exception. During the deletion-free scope,
   the retained binary-id key map remains the exact live-set image, so known-new binary insertion does not rescan a high-degree watch

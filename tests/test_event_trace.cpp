@@ -221,7 +221,10 @@ int main() {
     k.stats.factorings = 7;
     trace.factor_fresh(k, internalize(-2), 2, factor_members, 3, 4, 5, 0, 0,
                        0, 0, 0);
-    kernel_mark_factor_literal(k, internalize(-2), "fixture");
+    // This fixture links the trace-enabled recorder to a trace-disabled
+    // production library. Call the recorder directly: the inline kernel hook
+    // has different definitions in those two translation units at -O0.
+    trace.factor_mark_transition(k, internalize(-2), true, "fixture");
     trace.substitute_map(k, internalize(2), internalize(2));
     trace.substitute_map(k, internalize(2), internalize(-3));
     trace.detail(k, "analysis_begin", 2);
@@ -1203,7 +1206,12 @@ int main() {
     watch_kernel.bve_retry.resize(watch_kernel.nvars, 0);
     watch_kernel.bve_retry[0] = 0;
     event_trace_bve_candidate(watch_kernel, 0, "end", 9, 11, false);
-    kernel_mark_bve_retry(watch_kernel, 0, "unit-test-source");
+    // As above, exercise the diagnostic producer without resolving the
+    // header-inline hook against the trace-disabled production library.
+    watch_kernel.bve_retry[0] = 1;
+    watch_kernel.stats.bve_marks++;
+    event_trace_bve_retry_mark(watch_kernel, 0, "unit-test-source", false,
+                               true, nullptr);
     _exit(99);
   }
   int bve_retry_status = 0;

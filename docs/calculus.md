@@ -294,8 +294,7 @@ root closure at apply entry. V1/V2 Probe/Backbone additionally require `!conflic
   into a candidate class; every later model splits each class by truth value, and singleton classes disappear. Before a SAT call, a
   literal may be removed when flipping only its value preserves every environment clause. Such a flip is only a countermodel filter:
   failure proves nothing, and a pair becomes an equivalence only after both opposing assumptions are refuted as above.
-- **Effect:** for `B→={¬a,b}` and `B←={a,¬b}`, add both binaries. Proof δ is an all-or-nothing pair: `add_rup(B→,h→) ·
-  add_rup(B←,h←)`, with no deletion; `F` grows and `R/τ/ρ` are untouched. A pair the formula already states is skipped. Consequences
+- **Effect:** for `B→={¬a,b}` and `B←={a,¬b}`, add both binaries; a completed pair has proof δ `add_rup(B→,h→) · add_rup(B←,h←)` with no deletion. `F` grows; `R/τ/ρ` are untouched. If interrupted after a certified first general-path direction, retain that entailed binary as progress and retry the pair without rewriting an equivalence. A pair already stated is skipped. Consequences
   from one environment are committed before constructing the next. The connected rewrite keeps the proved binary pair (rewritten
   only by later same-batch merges) and leaves its class active; the mandatory following V3 pass consumes the complete union,
   residual redundant clauses, reconstruction, and retirement. Thus V5 itself still has no reconstruction effect. Tactix's connected
@@ -310,12 +309,11 @@ root closure at apply entry. V1/V2 Probe/Backbone additionally require `!conflic
   followed by the conflict. **General path:** translate the sub-solver derivation `D₁,…,Dₘ=B`; emit each
   `add_rup(Dᵢ,[stripped-root-unit ids first, translated antecedent ids])` in derivation order. Both directions are validated without
   mutation before either sequence is emitted. In native LRAT, replay each captured chain under the complete negated *lifted* clause before the environment disappears; omit hints satisfied by target assumptions or prior propagation and strip-unit ids already assumed by the lemma cube. A chain that cannot close declines. The fast path is tried first. A general derivation is admissible only at its
-  environment's mutation epoch; inline substitution makes an old capture stale. Otherwise decline the pair and leave `F` unchanged.
+  environment's mutation epoch; inline substitution makes an old capture stale. Pre-admission decline leaves `F` unchanged.
   The final unit or binary becomes kernel material. Every format then retires the earlier proof-only RUP prefix newest first. Before
   retirement nothing else is owed, because each prefix lemma `L` is written as `L v target`, retaining a captured binary's other endpoint when root fixing turns it into a unit. As with the BVE definition lifter's `(unit v L)`, the weakening stays RUP: each check assumes the original captured target cube, under which the earlier conditioned lemmas act as the originals. A conditioned lemma can propagate only a target literal, which the kernel holds once the target is installed; the retained endpoint is already false at root. A lemma containing a negated target literal would be a tautology and is omitted; it is satisfied whenever the target is assumed false, so no later check can use it.
   A captured core is validated before its consequence is committed. If optional core export exhausts allocation, the incomplete capture is discarded and the current environment stops; earlier certified consequences remain valid and no uncertified consequence is added. The consequence is committed through this certified path with or without a proof; only the writes depend on one. See `implementation-notes.md`, `SP-SWEEP-8`.
-- **Soundness:** both directions must replay before either binary is added, so the rule never states an implication it has not
-  justified; and a declined pair leaves `F` unchanged.
+- **Soundness:** both directions are validated before addition; each committed direction has its own completed RUP derivation. An interrupted second derivation retires its proof-only prefix, while no equivalence substitution occurs until both directions commit.
 
 ### V6 · Congruence — gate congruence closure (AND/XOR/ITE)
 - **Precondition (abstract):** two gates of the same kind with the same inputs compute the same function, so their outputs are

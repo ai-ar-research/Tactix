@@ -2955,6 +2955,14 @@ ApplyResult sweep_emit_round(Kernel &k, SweepRound &round, uint32_t found,
             begin_journal_sweep_general(k, rev, rev_pre_digest);
 #endif
         if (!sweep_apply_general_plan(k, rev)) {
+          // The forward clause is already live. An interruption during the
+          // reverse proof leaves that valid one-direction consequence in the
+          // formula, while the session's pre-pair ledger still predates it.
+          // Reconcile before the round publishes its initialized streams, and
+          // report the committed clause as progress even though the complete
+          // equivalence remains queued for a later attempt.
+          round.substitution.sync_new_binaries(k, {});
+          any = true;
           round.equivalences_emitted = idx;
           break;
         }
