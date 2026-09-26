@@ -43,7 +43,10 @@ def check_symbols(text, allow_stubs):
         assert allow_stubs and match and match[1] == "W", "diagnostic implementation linked"
         symbol = match[2]
         method = re.match(r"tactix::EventTrace::([a-z_]+)\(", symbol)
-        assert (method and method[1] in stub_methods) or symbol == "tactix::rule_journal_close()", \
+        assert (method and method[1] in stub_methods) or symbol in {
+            "tactix::rule_journal_close()",
+            "tactix::rule_journal_flush()",
+        }, \
             "unrecognized diagnostic symbol"
 
 for allowed in (False, True):
