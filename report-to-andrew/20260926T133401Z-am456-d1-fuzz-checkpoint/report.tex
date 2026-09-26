@@ -1,0 +1,52 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{xurl}
+\setlength{\emergencystretch}{2em}
+\title{Tactix latest-source fuzz: D1 proof handoff}
+\author{Codex for Andrew}
+\date{26 September 2026}
+\begin{document}
+\maketitle
+
+\paragraph{Current outcome.}
+The combined Opus fuzz owner is running on Tactix source commit
+\texttt{66fed7e5}. Fixed controls have verified the earlier Sweep C1 API
+UNSAT cases through CakeLPR on every current build, together with H1 and H2
+controls. Counted CLI legs were resubmitted after a launch-argument error;
+their terminal report remains due. No N1--N4 acceptance is claimed.
+
+\paragraph{New N2 failure.}
+Opus retained a 29-variable, 27-clause public Probe--CCE--solve reproducer.
+The same UNSAT program emits byte-identical native DSR on current and parent
+sources, and pinned no-option dsr-trim rejects it in both backward and forward
+modes. Explicit LRAT and DRAT from the same program independently verify.
+The DSR stream emits a Probe unit, ten deferred support deletions, later root
+units, then a witnessed auxiliary addition. The checker's diagnostic state
+has root \texttt{21} and \texttt{-30} when checking \texttt{30 -21}; the
+auxiliary transaction is rejected. This points to a DSR proof-order and
+root-closure mismatch. The cause and general repair still require proof, and
+the canonical checker contract is unchanged.
+
+\paragraph{Debug gate.}
+The latest full Debug allocation executed all 187 tests; 184 passed. Two
+event-trace tests need causal investigation. The third failure was a CMake
+comment containing an internal ticket label; that comment now states the
+invariant and cites the AM455 report, and the standalone hygiene check passes.
+The long scripted-default demo itself passed in 15,926.71 seconds, resolving
+the earlier timeout's uncertainty about that test.
+
+\paragraph{Next actions.}
+Repair D1 without narrowing legal X7 actions or changing the DSR checker
+flags. Add the exact public regression, rerun original-CNF DSR-to-LSR-to-
+Trestle, LRAT/DRAT and model checks, and consume the Opus terminal report.
+Resolve the two Debug event-trace failures and separate parent-identical
+sanitizer/Debug findings. The performance and online-learning gates remain
+open. The 1,166-instance Tier D run stays after verified completion, at
+5,000 seconds, four CPUs and 32 GiB per instance.
+
+\paragraph{Evidence.}
+\url{benchmarks/reports/2026-09-26-am456-d1-fuzz-checkpoint.md};
+\url{benchmarks/reports/2026-09-25-am455-latest-source-fuzz-consolidation.md};
+\url{benchmarks/runs/20260925-am455-latest-combined-claude-fuzz/handoffs/D1-dsr-probe-cce-unit-rejection/README.md}.
+\end{document}
