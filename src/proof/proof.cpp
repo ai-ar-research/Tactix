@@ -143,8 +143,9 @@ FILE *Proof::begin_pb() {
   if (pending_deletions_ && std::fclose(pending_deletions_))
     std::abort();
   pending_deletions_ = nullptr;
-  pending_unit_external_ = 0;
-  pending_unit_id_ = 0;
+  pending_units_.clear();
+  pending_unit_literals_.clear();
+  pending_unit_ids_.clear();
   pending_max_external_ = 0;
   std::fclose(file_);
   binary_buffer_size_ = 0;
@@ -226,34 +227,38 @@ uint32_t Proof::external_variable_bound() const {
   return bound;
 }
 
-void Proof::flush_pending_dsr_unit() {
-  if (!pending_unit_external_)
+void Proof::flush_pending_dsr_units() {
+  if (pending_units_.empty())
     return;
   assert(file_ && dsr());
   const bool split = pending_deletions_ &&
                      external_variable_bound() < static_cast<uint32_t>(INT32_MAX);
   const int32_t auxiliary = split ?
       static_cast<int32_t>(external_variable_bound() + 1) : 0;
-  const auto emit = [&](bool deletion, int32_t companion) {
+  const auto emit = [&](int32_t unit, bool deletion, int32_t companion) {
     if (format_ == ProofFormat::DsrBinary)
       put_byte(deletion ? 2 : 1);
     else if (deletion)
       fputs("d ", file_);
-    put_external_dimacs(pending_unit_external_);
+    put_external_dimacs(unit);
     if (companion)
       put_external_dimacs(companion);
     end_line();
   };
   if (split) {
-    // Both clauses are RUP because negating either also negates the pending
-    // RUP unit. Under that negation they later force opposite auxiliary units,
-    // preserving the unit's RUP derivation after any intervening deletions.
-    emit(false, auxiliary);
-    emit(false, -auxiliary);
+    // Under either assumption on the shared auxiliary, every earlier pair
+    // propagates its unit. Thus both helpers for the next RUP unit see the
+    // same preceding units as the original stream. The pair also makes each
+    // unit RUP after the deferred deletions, under an assumption of its negation.
+    for (const auto &unit : pending_units_) {
+      emit(unit.external, false, auxiliary);
+      emit(unit.external, false, -auxiliary);
+    }
   } else {
     // No deletion needs moving, or the external literal representation has
     // no spare identity; preserve the original direct-unit serialization.
-    emit(false, 0);
+    for (const auto &unit : pending_units_)
+      emit(unit.external, false, 0);
   }
   if (pending_deletions_) {
     flush_binary();
@@ -277,12 +282,16 @@ void Proof::flush_pending_dsr_unit() {
     pending_deletions_ = nullptr;
   }
   if (split) {
-    emit(false, 0);
-    emit(true, auxiliary);
-    emit(true, -auxiliary);
+    for (const auto &unit : pending_units_)
+      emit(unit.external, false, 0);
+    for (const auto &unit : pending_units_) {
+      emit(unit.external, true, auxiliary);
+      emit(unit.external, true, -auxiliary);
+    }
   }
-  pending_unit_external_ = 0;
-  pending_unit_id_ = 0;
+  pending_units_.clear();
+  pending_unit_literals_.clear();
+  pending_unit_ids_.clear();
   pending_max_external_ = 0;
 }
 
@@ -300,7 +309,10 @@ void Proof::add_rup(uint64_t id, const Lit *lits, uint32_t size,
                     const uint64_t *chain, uint32_t nchain) {
   if (!input_transaction_ && !commit_dsr())
     std::abort(); // a terminal PB stream cannot accept a clausal suffix
-  flush_pending_dsr_unit();
+  // A new unit extends a consecutive batch. A deletion block or a nonunit
+  // addition ends it, so later RUP checks still see the earlier units.
+  if (!dsr() || size != 1 || pending_deletions_)
+    flush_pending_dsr_units();
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
   rule_journal_note_rup(id, chain, nchain);
 #endif
@@ -329,11 +341,14 @@ void Proof::add_rup(uint64_t id, const Lit *lits, uint32_t size,
       assert(var_of(external) < variable_map_->size());
       external = make_lit((*variable_map_)[var_of(external)], negated(external));
     }
-    pending_unit_external_ = externalize(external);
-    pending_unit_id_ = id;
+    const int32_t unit = externalize(external);
+    pending_units_.push_back({unit, id});
+    pending_unit_literals_.insert(unit);
+    if (id)
+      pending_unit_ids_.insert(id);
     pending_max_external_ = static_cast<uint32_t>(
-        pending_unit_external_ < 0 ? -int64_t(pending_unit_external_)
-                                    : int64_t(pending_unit_external_));
+        std::max<int64_t>(pending_max_external_,
+            unit < 0 ? -int64_t(unit) : int64_t(unit)));
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
     population_add(id, lits, size);
 #endif
@@ -368,7 +383,7 @@ void Proof::add_rat(uint64_t id, const Lit *lits, uint32_t size,
                     const int64_t *hints, uint32_t nhints) {
   if (!input_transaction_ && !commit_dsr())
     std::abort();
-  flush_pending_dsr_unit();
+  flush_pending_dsr_units();
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
   rule_journal_note_rat(id, hints, nhints);
 #endif
@@ -456,7 +471,7 @@ bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
   if (needs_auxiliary &&
       external_variables >= static_cast<uint32_t>(INT32_MAX))
     return false;
-  flush_pending_dsr_unit();
+  flush_pending_dsr_units();
   if (needs_auxiliary) {
     const Lit auxiliary = make_lit(external_variables, false);
     const auto temporary = [&](bool deletion, bool negative) {
@@ -590,11 +605,10 @@ void Proof::del(uint64_t line_id, uint64_t del_id, const Lit *lits,
   if (size == 1 && variable_map_)
     external_unit = make_lit((*variable_map_)[var_of(external_unit)],
                              negated(external_unit));
-  if (pending_unit_external_ &&
-      ((pending_unit_id_ && del_id == pending_unit_id_) ||
-       (size == 1 && externalize(external_unit) == pending_unit_external_)))
-    flush_pending_dsr_unit();
-  const bool defer = pending_unit_external_ != 0;
+  if ((del_id && pending_unit_ids_.count(del_id)) ||
+      (size == 1 && pending_unit_literals_.count(externalize(external_unit))))
+    flush_pending_dsr_units();
+  const bool defer = !pending_units_.empty();
   FILE *main_file = nullptr;
   if (defer) {
     flush_binary();
@@ -666,7 +680,7 @@ bool Proof::add_external_rup(uint64_t id, const int32_t *lits,
     return false;
   if (!file_)
     return true;
-  flush_pending_dsr_unit();
+  flush_pending_dsr_units();
   if (format_ == ProofFormat::DsrBinary)
     put_byte(1);
   else if (format_ == ProofFormat::DratBinary)
@@ -710,10 +724,10 @@ bool Proof::del_external(uint64_t line_id, uint64_t del_id,
   assert(!size || lits);
   if (!file_)
     return true;
-  if (pending_unit_external_ && size == 1 &&
-      lits[0] == pending_unit_external_)
-    flush_pending_dsr_unit();
-  const bool defer = pending_unit_external_ != 0;
+  if ((del_id && pending_unit_ids_.count(del_id)) ||
+      (size == 1 && pending_unit_literals_.count(lits[0])))
+    flush_pending_dsr_units();
+  const bool defer = !pending_units_.empty();
   FILE *main_file = nullptr;
   if (defer) {
     flush_binary();
@@ -759,7 +773,7 @@ bool Proof::del_external(uint64_t line_id, uint64_t del_id,
 void Proof::flush() {
   if (automatic_pending_)
     commit_dsr();
-  flush_pending_dsr_unit();
+  flush_pending_dsr_units();
   if (file_) {
     flush_binary();
     // Text serializers use stdio buffering. Both a previous short write and
