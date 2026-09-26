@@ -8,65 +8,6 @@
 
 namespace tactix {
 
-// Native DSR names deletions by literals, and its binary index intentionally
-// discards proof ids. Capture the failed-literal UP cone by clause literals
-// while it is still live; the proof backend can preserve exactly this support
-// when it retimes later deletions from another rule.
-static bool dsr_conflict_support(const Kernel &k,
-                                 std::vector<std::vector<Lit>> &out) {
-  out.clear();
-  std::vector<uint8_t> seen(k.nvars, 0);
-  std::vector<Var> todo;
-  const auto add = [&](const Lit *lits, size_t size) {
-    out.emplace_back(lits, lits + size);
-  };
-  if (k.conflict_ref == INVALID_REF) {
-    add(k.conflict_bin, 2);
-    todo.push_back(var_of(k.conflict_bin[0]));
-    todo.push_back(var_of(k.conflict_bin[1]));
-  } else {
-    const Clause *c = clause_at(k.arena, k.conflict_ref);
-    add(c->begin(), c->size);
-    for (const Lit lit : *c)
-      todo.push_back(var_of(lit));
-  }
-  while (!todo.empty()) {
-    const Var v = todo.back();
-    todo.pop_back();
-    if (seen[v])
-      continue;
-    seen[v] = 1;
-    const Assigned &a = k.assigned[v];
-    const Lit pos = make_lit(v, false);
-    const Lit assigned = k.value(pos) > 0 ? pos : negate(pos);
-    if (a.reason == DECISION_REASON) {
-      if (!a.level)
-        return false; // an unnamed root decision is not proof support
-      continue; // the failed-literal assumption
-    }
-    const bool published_dsr = v < k.dsr_root_values.size() &&
-        k.dsr_root_values[v] == (negated(assigned) ? -1 : 1);
-    if (a.reason == UNIT_REASON ||
-        (!a.level && (k.unit_ids[v] || published_dsr))) {
-      add(&assigned, 1);
-      continue;
-    }
-    if (a.binary) {
-      const Lit next = a.jumped ? k.jumped_over[v] : a.reason;
-      const Lit pair[2] = {assigned, next};
-      add(pair, 2);
-      todo.push_back(var_of(next));
-    } else {
-      const Clause *c = clause_at(k.arena, a.reason);
-      add(c->begin(), c->size);
-      for (const Lit lit : *c)
-        if (var_of(lit) != v)
-          todo.push_back(var_of(lit));
-    }
-  }
-  return !out.empty();
-}
-
 #ifdef TACTIX_ENABLE_EVENT_TRACE
 static uint64_t backbone_candidate_hash(const Kernel &k,
                                         const std::vector<Lit> &candidates) {
@@ -139,7 +80,6 @@ static bool probe_one(Kernel &k, Lit p, Lit *unit_out,
                       FailedLiteralPropagation propagation,
                       const FailedLiteralStats &stats) {
   const bool lrat = k.proof && k.proof->lrat();
-  const bool dsr = k.proof && k.proof->dsr();
   k.stats.*stats.probed += 1;
   if (propagation == FailedLiteralPropagation::Full)
     kernel_probing_begin(k);
@@ -155,13 +95,10 @@ static bool probe_one(Kernel &k, Lit p, Lit *unit_out,
   const Lit unit = negate(p);
   uint64_t last = 0;
   std::vector<std::pair<uint32_t, uint64_t>> entries;
-  std::vector<std::vector<Lit>> dsr_support;
   if (lrat) {
     std::vector<uint8_t> seen(k.nvars, 0);
     last = kernel_conflict_reason_walk(k, seen, entries);
   }
-  if (dsr && !dsr_conflict_support(k, dsr_support))
-    dsr_support.clear();
   unwind(k, propagation);
   const uint64_t id = ++k.next_clause_id;
   if (k.proof) {
@@ -169,10 +106,8 @@ static bool probe_one(Kernel &k, Lit p, Lit *unit_out,
       kernel_build_lrat_chain(entries, last, k.lrat_chain);
       k.proof->add_rup(id, &unit, 1, k.lrat_chain.data(),
                        static_cast<uint32_t>(k.lrat_chain.size()));
-    } else if (dsr && !dsr_support.empty()) {
-      k.proof->add_rup(id, &unit, 1, nullptr, 0, &dsr_support);
     } else {
-      k.proof->add_rup(0, &unit, 1, nullptr, 0);
+      k.proof->add_rup(id, &unit, 1, nullptr, 0);
     }
   }
   k.unit_ids[var_of(unit)] = id;

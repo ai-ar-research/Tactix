@@ -67,14 +67,16 @@ public:
            format_ == ProofFormat::DratBinary;
   }
   void bind_variable_map(const std::vector<Var> *map) { variable_map_ = map; }
+  void bind_external_variable_map(const std::vector<Var> *map) {
+    external_variable_map_ = map;
+  }
 
   // --- proof-delta vocabulary (subset live in phase 2) ---
   // add-RUP: LRAT uses `id` and `chain` (ids in checker-propagation order).
-  // Native DSR may also use a named unit's exact clause-literal support to
-  // order later deletions before proof publication. DRAT writes the literals.
+  // Native DSR stages RUP units so a following deletion block can be ordered
+  // before the unit with a proof-only split. DRAT writes the literals.
   void add_rup(uint64_t id, const Lit *lits, uint32_t size,
-               const uint64_t *chain, uint32_t nchain,
-               const std::vector<std::vector<Lit>> *dsr_support = nullptr);
+               const uint64_t *chain, uint32_t nchain);
   // add-RAT: `lits` MUST be pivot-first (the RAT pivot is the first literal, both
   // for LRAT and for the checker's first-literal inference on DRAT). LRAT writes
   // `<id> <lits> 0 <hints> 0` where `hints` is the flat SIGNED antecedent stream:
@@ -168,18 +170,17 @@ public:
 #endif
 
 private:
-  // A named RUP unit may be followed by clause retirements from another rule.
-  // Keep the unit and deletions of its RUP antecedents until the next
-  // addition; unrelated deletions can then precede the unit without breaking
-  // that derivation. The deferred bytes live in a temporary file, so a large
-  // deletion batch does not accumulate in memory.
+  // A RUP unit followed by deletions is published as a split transaction:
+  // two fresh-variable RUP clauses preserve the unit's derivation while all
+  // deferred deletions precede it. The helpers are retired immediately after
+  // the unit, and the deletion bytes are spooled rather than held in memory.
   void flush_pending_dsr_unit();
-  std::vector<int32_t> external_clause_key(const Lit *, uint32_t) const;
-  bool pending_supports(const Lit *, uint32_t) const;
+  uint32_t external_variable_bound() const;
   int32_t pending_unit_external_ = 0;
   uint64_t pending_unit_id_ = 0;
-  std::vector<std::vector<int32_t>> pending_unit_support_;
-  FILE *pending_support_deletions_ = nullptr;
+  uint32_t pending_max_external_ = 0;
+  uint32_t proof_external_max_ = 0;
+  FILE *pending_deletions_ = nullptr;
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
   std::string population_key(uint64_t id, const Lit *lits, uint32_t size) const;
   void population_add(uint64_t id, const Lit *lits, uint32_t size);
@@ -203,6 +204,7 @@ private:
   std::array<unsigned char, 1 << 20> binary_buffer_{};
   size_t binary_buffer_size_ = 0;
   const std::vector<Var> *variable_map_ = nullptr;
+  const std::vector<Var> *external_variable_map_ = nullptr;
 };
 
 } // namespace tactix

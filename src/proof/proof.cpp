@@ -140,6 +140,12 @@ FILE *Proof::begin_pb() {
     return nullptr;
   // The input DSR transaction was never published. Its facts are justified
   // afresh from original CNF by the complete, prevalidated PB derivation.
+  if (pending_deletions_ && std::fclose(pending_deletions_))
+    std::abort();
+  pending_deletions_ = nullptr;
+  pending_unit_external_ = 0;
+  pending_unit_id_ = 0;
+  pending_max_external_ = 0;
   std::fclose(file_);
   binary_buffer_size_ = 0;
   file_ = automatic_output_;
@@ -209,60 +215,75 @@ void Proof::end_line() {
     fputs("0\n", file_);
 }
 
-std::vector<int32_t> Proof::external_clause_key(const Lit *lits,
-                                                 uint32_t size) const {
-  std::vector<int32_t> key;
-  key.reserve(size);
-  for (uint32_t i = 0; i < size; ++i) {
-    Lit external = lits[i];
-    if (variable_map_) {
-      assert(var_of(external) < variable_map_->size());
-      external = make_lit((*variable_map_)[var_of(external)], negated(external));
-    }
-    key.push_back(externalize(external));
-  }
-  std::sort(key.begin(), key.end());
-  return key;
-}
-
-bool Proof::pending_supports(const Lit *lits, uint32_t size) const {
-  const auto key = external_clause_key(lits, size);
-  return std::binary_search(pending_unit_support_.begin(),
-                            pending_unit_support_.end(), key);
+uint32_t Proof::external_variable_bound() const {
+  uint32_t bound = std::max(pending_max_external_, proof_external_max_);
+  if (external_variable_map_)
+    bound = std::max(bound,
+                     static_cast<uint32_t>(external_variable_map_->size()));
+  else if (variable_map_)
+    for (const Var external : *variable_map_)
+      bound = std::max(bound, external + 1);
+  return bound;
 }
 
 void Proof::flush_pending_dsr_unit() {
   if (!pending_unit_external_)
     return;
   assert(file_ && dsr());
-  if (format_ == ProofFormat::DsrBinary)
-    put_byte(1);
-  put_external_dimacs(pending_unit_external_);
-  end_line();
-  if (pending_support_deletions_) {
+  const bool split = pending_deletions_ &&
+                     external_variable_bound() < static_cast<uint32_t>(INT32_MAX);
+  const int32_t auxiliary = split ?
+      static_cast<int32_t>(external_variable_bound() + 1) : 0;
+  const auto emit = [&](bool deletion, int32_t companion) {
+    if (format_ == ProofFormat::DsrBinary)
+      put_byte(deletion ? 2 : 1);
+    else if (deletion)
+      fputs("d ", file_);
+    put_external_dimacs(pending_unit_external_);
+    if (companion)
+      put_external_dimacs(companion);
+    end_line();
+  };
+  if (split) {
+    // Both clauses are RUP because negating either also negates the pending
+    // RUP unit. Under that negation they later force opposite auxiliary units,
+    // preserving the unit's RUP derivation after any intervening deletions.
+    emit(false, auxiliary);
+    emit(false, -auxiliary);
+  } else {
+    // No deletion needs moving, or the external literal representation has
+    // no spare identity; preserve the original direct-unit serialization.
+    emit(false, 0);
+  }
+  if (pending_deletions_) {
     flush_binary();
-    if (std::fflush(pending_support_deletions_) ||
-        std::fseek(pending_support_deletions_, 0, SEEK_SET))
+    if (std::fflush(pending_deletions_) ||
+        std::fseek(pending_deletions_, 0, SEEK_SET))
       std::abort();
     std::array<unsigned char, 65536> bytes{};
     for (;;) {
       const size_t count = std::fread(bytes.data(), 1, bytes.size(),
-                                      pending_support_deletions_);
+                                      pending_deletions_);
       if (count && std::fwrite(bytes.data(), 1, count, file_) != count)
         std::abort();
       if (count < bytes.size()) {
-        if (std::ferror(pending_support_deletions_))
+        if (std::ferror(pending_deletions_))
           std::abort();
         break;
       }
     }
-    if (std::fclose(pending_support_deletions_))
+    if (std::fclose(pending_deletions_))
       std::abort();
-    pending_support_deletions_ = nullptr;
+    pending_deletions_ = nullptr;
+  }
+  if (split) {
+    emit(false, 0);
+    emit(true, auxiliary);
+    emit(true, -auxiliary);
   }
   pending_unit_external_ = 0;
   pending_unit_id_ = 0;
-  pending_unit_support_.clear();
+  pending_max_external_ = 0;
 }
 
 // Duplicate/complementary-literal scan. Small clauses only reach here, so the
@@ -276,8 +297,7 @@ bool Proof::tautological(const Lit *lits, uint32_t size) {
 }
 
 void Proof::add_rup(uint64_t id, const Lit *lits, uint32_t size,
-                    const uint64_t *chain, uint32_t nchain,
-                    const std::vector<std::vector<Lit>> *dsr_support) {
+                    const uint64_t *chain, uint32_t nchain) {
   if (!input_transaction_ && !commit_dsr())
     std::abort(); // a terminal PB stream cannot accept a clausal suffix
   flush_pending_dsr_unit();
@@ -303,7 +323,7 @@ void Proof::add_rup(uint64_t id, const Lit *lits, uint32_t size,
 #endif
   if (!file_)
     return;
-  if (dsr() && size == 1 && id && dsr_support && !dsr_support->empty()) {
+  if (dsr() && size == 1) {
     Lit external = lits[0];
     if (variable_map_) {
       assert(var_of(external) < variable_map_->size());
@@ -311,15 +331,9 @@ void Proof::add_rup(uint64_t id, const Lit *lits, uint32_t size,
     }
     pending_unit_external_ = externalize(external);
     pending_unit_id_ = id;
-    pending_unit_support_.clear();
-    pending_unit_support_.reserve(dsr_support->size());
-    for (const auto &clause : *dsr_support)
-      pending_unit_support_.push_back(external_clause_key(
-          clause.data(), static_cast<uint32_t>(clause.size())));
-    std::sort(pending_unit_support_.begin(), pending_unit_support_.end());
-    pending_unit_support_.erase(
-        std::unique(pending_unit_support_.begin(), pending_unit_support_.end()),
-        pending_unit_support_.end());
+    pending_max_external_ = static_cast<uint32_t>(
+        pending_unit_external_ < 0 ? -int64_t(pending_unit_external_)
+                                    : int64_t(pending_unit_external_));
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
     population_add(id, lits, size);
 #endif
@@ -572,17 +586,27 @@ void Proof::del(uint64_t line_id, uint64_t del_id, const Lit *lits,
     std::abort();
   if (!file_)
     return;
-  if (pending_unit_external_ && del_id == pending_unit_id_)
+  Lit external_unit = size == 1 ? lits[0] : INVALID_LIT;
+  if (size == 1 && variable_map_)
+    external_unit = make_lit((*variable_map_)[var_of(external_unit)],
+                             negated(external_unit));
+  if (pending_unit_external_ &&
+      ((pending_unit_id_ && del_id == pending_unit_id_) ||
+       (size == 1 && externalize(external_unit) == pending_unit_external_)))
     flush_pending_dsr_unit();
-  const bool defer = pending_unit_external_ && pending_supports(lits, size);
+  const bool defer = pending_unit_external_ != 0;
   FILE *main_file = nullptr;
   if (defer) {
     flush_binary();
-    if (!pending_support_deletions_ &&
-        !(pending_support_deletions_ = std::tmpfile()))
+    if (!pending_deletions_ && !(pending_deletions_ = std::tmpfile()))
       std::abort();
     main_file = file_;
-    file_ = pending_support_deletions_;
+    file_ = pending_deletions_;
+    for (uint32_t i = 0; i < size; ++i) {
+      const Var external = variable_map_ ? (*variable_map_)[var_of(lits[i])]
+                                          : var_of(lits[i]);
+      pending_max_external_ = std::max(pending_max_external_, external + 1);
+    }
   }
   if (format_ == ProofFormat::Lrat) {
     put_u64(line_id);
@@ -647,8 +671,12 @@ bool Proof::add_external_rup(uint64_t id, const int32_t *lits,
     put_byte(1);
   else if (format_ == ProofFormat::DratBinary)
     put_byte('a');
-  for (uint32_t i = 0; i < size; ++i)
+  for (uint32_t i = 0; i < size; ++i) {
+    proof_external_max_ = std::max(proof_external_max_,
+                                   static_cast<uint32_t>(
+                                       lits[i] < 0 ? -int64_t(lits[i]) : lits[i]));
     put_external_dimacs(lits[i]);
+  }
   end_line();
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
   std::vector<Lit> external;
@@ -676,22 +704,43 @@ bool Proof::del_external(uint64_t line_id, uint64_t del_id,
                          const int32_t *lits, uint32_t size) {
   if (!input_transaction_ && !commit_dsr())
     return false;
-  flush_pending_dsr_unit();
   (void)line_id;
   if (lrat())
     return false;
   assert(!size || lits);
   if (!file_)
     return true;
+  if (pending_unit_external_ && size == 1 &&
+      lits[0] == pending_unit_external_)
+    flush_pending_dsr_unit();
+  const bool defer = pending_unit_external_ != 0;
+  FILE *main_file = nullptr;
+  if (defer) {
+    flush_binary();
+    if (!pending_deletions_ && !(pending_deletions_ = std::tmpfile()))
+      std::abort();
+    main_file = file_;
+    file_ = pending_deletions_;
+  }
   if (format_ == ProofFormat::DsrBinary)
     put_byte(2);
   else if (format_ == ProofFormat::DratBinary)
     put_byte('d');
   else
     fputs("d ", file_);
-  for (uint32_t i = 0; i < size; ++i)
+  for (uint32_t i = 0; i < size; ++i) {
+    const uint32_t variable = static_cast<uint32_t>(
+        lits[i] < 0 ? -int64_t(lits[i]) : lits[i]);
+    proof_external_max_ = std::max(proof_external_max_, variable);
+    if (defer)
+      pending_max_external_ = std::max(pending_max_external_, variable);
     put_external_dimacs(lits[i]);
+  }
   end_line();
+  if (defer) {
+    flush_binary();
+    file_ = main_file;
+  }
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
   std::vector<Lit> external;
   external.reserve(size);

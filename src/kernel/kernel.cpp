@@ -3738,8 +3738,10 @@ bool kernel_compact_variables(Kernel &k, bool fold_fixed) {
     ref = INVALID_REF;
   k.model_values.clear();
   k.model_extended = false;
-  if (k.proof)
+  if (k.proof) {
     k.proof->bind_variable_map(&k.internal_to_external);
+    k.proof->bind_external_variable_map(&k.external_to_internal);
+  }
   k.stats.variable_compactions++;
   k.stats.compacted_variables += old_nvars - new_nvars;
   kernel_check_invariants(k);

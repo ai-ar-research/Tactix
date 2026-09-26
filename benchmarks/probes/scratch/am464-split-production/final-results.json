@@ -1,0 +1,132 @@
+{
+  "job": 1728109,
+  "checks": "pinned AM369 dsr-trim no-option backward and -f forward, dsr-compress -d for binary LSR, pinned Trestle srcheck",
+  "rows": [
+    {
+      "task": 0,
+      "build": "release",
+      "case": "d1-min",
+      "proofs": {
+        "3": {
+          "bytes": 168,
+          "sha256": "3e21585277d458a21e186072b8b2b2e61258d039341894bb69a00d786f0e5122"
+        },
+        "4": {
+          "bytes": 403,
+          "sha256": "6db242aad4015331ab82c43097bed2b057120de05b4a2750ed2be6c07a5a2cdd"
+        }
+      },
+      "chains": [
+        "3\tbackward\tverified\tverified",
+        "3\tforward\tverified\tverified",
+        "4\tbackward\tverified\tverified",
+        "4\tforward\tverified\tverified"
+      ]
+    },
+    {
+      "task": 1,
+      "build": "release",
+      "case": "d1-original",
+      "proofs": {
+        "3": {
+          "bytes": 1068,
+          "sha256": "29ec424d58eb6e02186049f34615de7c410a4ed0b3f4794396cda34eefe28d5b"
+        },
+        "4": {
+          "bytes": 2774,
+          "sha256": "197fff37424c96e3d6cb3978d02a71cc0ef856e0cde88d159418e1d1593ec1f6"
+        }
+      },
+      "chains": [
+        "3\tbackward\tverified\tverified",
+        "3\tforward\tverified\tverified",
+        "4\tbackward\tverified\tverified",
+        "4\tforward\tverified\tverified"
+      ]
+    },
+    {
+      "task": 2,
+      "build": "release",
+      "case": "h2-original",
+      "proofs": {
+        "3": {
+          "bytes": 712,
+          "sha256": "705da4b24230765595813a8fe5a054c392a7decc3edad888b4e0995b703473aa"
+        },
+        "4": {
+          "bytes": 1786,
+          "sha256": "e3ab25ec85e4c58b39512d827761520d29bde86ba2384eccf4018e5db13e31c5"
+        }
+      },
+      "chains": [
+        "3\tbackward\tverified\tverified",
+        "3\tforward\tverified\tverified",
+        "4\tbackward\tverified\tverified",
+        "4\tforward\tverified\tverified"
+      ]
+    },
+    {
+      "task": 3,
+      "build": "debug",
+      "case": "d1-min",
+      "proofs": {
+        "3": {
+          "bytes": 168,
+          "sha256": "3e21585277d458a21e186072b8b2b2e61258d039341894bb69a00d786f0e5122"
+        },
+        "4": {
+          "bytes": 403,
+          "sha256": "6db242aad4015331ab82c43097bed2b057120de05b4a2750ed2be6c07a5a2cdd"
+        }
+      },
+      "chains": [
+        "3\tbackward\tverified\tverified",
+        "3\tforward\tverified\tverified",
+        "4\tbackward\tverified\tverified",
+        "4\tforward\tverified\tverified"
+      ]
+    },
+    {
+      "task": 4,
+      "build": "debug",
+      "case": "d1-original",
+      "proofs": {
+        "3": {
+          "bytes": 1068,
+          "sha256": "29ec424d58eb6e02186049f34615de7c410a4ed0b3f4794396cda34eefe28d5b"
+        },
+        "4": {
+          "bytes": 2774,
+          "sha256": "197fff37424c96e3d6cb3978d02a71cc0ef856e0cde88d159418e1d1593ec1f6"
+        }
+      },
+      "chains": [
+        "3\tbackward\tverified\tverified",
+        "3\tforward\tverified\tverified",
+        "4\tbackward\tverified\tverified",
+        "4\tforward\tverified\tverified"
+      ]
+    },
+    {
+      "task": 5,
+      "build": "debug",
+      "case": "h2-original",
+      "proofs": {
+        "3": {
+          "bytes": 712,
+          "sha256": "705da4b24230765595813a8fe5a054c392a7decc3edad888b4e0995b703473aa"
+        },
+        "4": {
+          "bytes": 1786,
+          "sha256": "e3ab25ec85e4c58b39512d827761520d29bde86ba2384eccf4018e5db13e31c5"
+        }
+      },
+      "chains": [
+        "3\tbackward\tverified\tverified",
+        "3\tforward\tverified\tverified",
+        "4\tbackward\tverified\tverified",
+        "4\tforward\tverified\tverified"
+      ]
+    }
+  ]
+}

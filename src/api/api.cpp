@@ -1149,6 +1149,7 @@ int tactix_proof(tactix_solver *s, const char *path, int format) {
   if (f != ProofFormat::Automatic)
     s->kernel.close_startup_certificate();
   s->proof.bind_variable_map(&s->kernel.internal_to_external);
+  s->proof.bind_external_variable_map(&s->kernel.external_to_internal);
   external_state_change(s);
   return 0;
 }

@@ -604,6 +604,7 @@ void attach_replayed_input_proof(Kernel &current, Proof &proof) {
   Kernel replay;
   replay.proof = &proof;
   proof.bind_variable_map(&replay.internal_to_external);
+  proof.bind_external_variable_map(&replay.external_to_internal);
   std::vector<Lit> clause;
   for (const int32_t external : current.startup_input) {
     if (external) {
@@ -709,6 +710,7 @@ void attach_replayed_input_proof(Kernel &current, Proof &proof) {
   }
   current.proof = &proof;
   proof.bind_variable_map(&current.internal_to_external);
+  proof.bind_external_variable_map(&current.external_to_internal);
   if (!proof.startup_pb_available())
     current.close_startup_certificate();
   current.replay_lrat_input = false;
