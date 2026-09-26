@@ -1,0 +1,13 @@
+set pagination off
+set confirm off
+set print frame-arguments none
+break *0x42da30
+commands
+silent
+if $rcx == 1
+  printf "UNIT add_rup at %p, literal-internal=%u\n", $pc, *(unsigned int*)$rdx
+  bt 12
+end
+continue
+end
+run
