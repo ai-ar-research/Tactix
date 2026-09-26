@@ -5,6 +5,7 @@
 #include "proof/proof.hpp"
 
 #include <cassert>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -392,6 +393,12 @@ void test_external_variable_map() {
 void test_proof_only_external_clauses() {
   const int32_t gate[3] = {70001, -2, 4};
   const int32_t unit[1] = {-70001};
+  expect(emitted("external-invalid-min", ProofFormat::DsrAscii, [&](Proof &p) {
+           const int32_t min_second[2] = {1, INT32_MIN};
+           const int32_t min_first[2] = {INT32_MIN, 1};
+           assert(!p.add_external_rup(1, min_second, 2));
+           assert(!p.add_external_rat(2, min_first, 2));
+         }), "", "out-of-range external literals decline without signed overflow");
   expect(emitted("external-ascii", ProofFormat::DsrAscii, [&](Proof &p) {
            const std::vector<Var> map = {8, 9, 10, 11};
            p.bind_variable_map(&map);
