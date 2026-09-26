@@ -214,6 +214,37 @@ void test_dsr_unit_deletion_transaction() {
                  }),
          "1 0\nd 1 0\n",
          "a pending unit is published before its own deletion");
+  const Lit open_pair[2] = {lit(1), lit(2)};
+  const DsrLiteralMapping open_maps[2] = {
+      {lit(1), lit(3)}, {lit(2), lit(4)}};
+  expect(emitted("dsr-transaction-declined-sr", ProofFormat::DsrAscii,
+                 [&](Proof &p) {
+                   p.add_rup(10, &unit, 1, nullptr, 0, &cone);
+                   assert(!p.add_sr(11, open_pair, 2, nullptr, 0, open_maps, 2,
+                                    INT32_MAX));
+                   p.del(12, 8, unrelated, 2);
+                 }),
+         "d 4 5 0\n1 0\n",
+         "a declined SR addition does not close a pending unit transaction");
+  const int32_t tautology[2] = {6, -6};
+  expect(emitted("dsr-transaction-declined-external", ProofFormat::DsrAscii,
+                 [&](Proof &p) {
+                   p.add_rup(10, &unit, 1, nullptr, 0, &cone);
+                   assert(!p.add_external_rup(11, tautology, 2));
+                   p.del(12, 8, unrelated, 2);
+                 }),
+         "d 4 5 0\n1 0\n",
+         "a declined external addition preserves the pending unit order");
+  const DsrLiteralMapping rup_maps[2] = {
+      {lit(1), lit(2)}, {lit(2), lit(1)}};
+  expect(emitted("dsr-transaction-accepted-sr", ProofFormat::DsrAscii,
+                 [&](Proof &p) {
+                   p.add_rup(10, &unit, 1, nullptr, 0, &cone);
+                   assert(p.add_sr(11, open_pair, 2, nullptr, 0, rup_maps, 2,
+                                   6));
+                 }),
+         "1 0\n1 2 0\n",
+         "an accepted SR addition closes the pending unit transaction");
 }
 
 void test_dsr_substitution() {

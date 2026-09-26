@@ -1,0 +1,141 @@
+c stress-dense 0
+c tactix 0.1.0
+c count-pb    0 calls, 0 stars, 0 UNSAT, 0 work, 0 interrupted, 0 additions
+c input       0 clauses restated (normalized literals)
+c decisions   46 (41 via API)
+c conflicts   1
+c propagations 2654 (2654 search, 0 inprocess)
+c learned     1 (0 units)
+c learnedsize 3.00 avg lits, 2.00 avg glue
+c reduction   0.0% of resolved lits removed by minimize+shrink
+c minimized   0 lits
+c min-depth   0 cutoffs
+c shrunken    0 lits
+c reasonbump  0 vars in 1 rounds (0 depth2, 0 aborted)
+c otfs        0 strengthened (0 conflicts subsumed)
+c eagersub    0 subsumed of 0 tried (0 kept as reason), register 4
+c shrinkglue  2 promoted (clamp size-1)
+c tumble      60 vars seeded (activation order)
+c warmup      0 warmups, 0 decisions, 0 propagations
+c denseocc    0 slice moves, 0 defrags
+c sparsecol   19 runs, 0 clauses
+c vivify      2 rounds, 22 vivified, 3 deleted, 0 flushed, 90 checked
+c vivify2     0 reused, 276 probes, 0 full, 0 tier3, 0 prio, 0 rearm, 0 polls, 0 term
+c vivify3     3 subsumed, 0 promoted, 13 shrunken, 0 implied, 1 asym, 9 instantiated, 53 noop
+c probe       4 rounds, 67 probed, 0 failed
+c backbone    6 rounds, 245 probed, 0 failed
+c transitive  0 rounds, 4 checked, 0 deleted, 0 units, 245 ticks, 4 polls, 0 terminated
+c substitute  9 rounds, 2332 ticks, 8 non-trivial SCCs (8 lits), 0 vars substituted, 0 rounds skipped / 0 partial (0 lits poisoned) on the hazard check
+c bce         0 rounds, 0 deleted, 326 ticks
+c cce         0 rounds, 75 tried, 1 deleted (0 blocked / 1 ata), 75 ala, 14 cla, 6020 ticks
+c cce2        0 skipped / 0 advances / 0 rearmed
+c instantiate 0 rounds, 6 literals removed, 115 probed
+c sweep       8 rounds, 356 swept, 352 environments (30268 clauses), 839 solves, 281 candidates, 11 equivalences, 7 units (5 already binary), 0 env-unsat, 0 budget, 774092 ticks
+c sweepdiag   85888 env-lits, 1546 root-false (0 stripped, 0 FREE), 343 units, 10860 cand-seeded, 4862 refined, 439 dir-sat, 48 dir-unsat
+c sweepflip   591 attempts, 417 successful
+c sweepback   909 candidates, 664 flipped
+c sweepcost   66924 dedup ticks, 260793 sub-solver ticks, 0 representation words; closure 2025/14627 occurrences, 58/1221 vars whole
+c sweepemit   10 binaries, 0 not-rup, 8 general pairs, 1 strip units cited
+c sweepsched  57 scheduled, 0 rescheduled, 0 resumed, 3 completed, 0 tail; limits 1024 vars, 1 clauses, depth 2
+c ternary     0 rounds, 20 resolvents, 0 binaries, 122 ticks
+c hbr         10 rounds, 108 probes, 25 binaries, 9 subsumed, 0 declined, 296 ticks
+c chrono      0 chronological, 0 stale backjumps, 1 propagation re-arms
+c reuse       0 conflicts reused, 1 needed watch repair
+c jumpreason  0 binary reasons jumped, 0 classifications, 0 big-binary; gate off
+c binprop     299 scans, 291 flagged, 382 words, 1908 skipped, 0 residual-ordered, 48 residual-large
+c inprocess   0 phases
+c conggates   0 and, 0 xor, 0 ite
+c congruence  9 rounds, 9 binary rebuilds, 0 gates, 9 merges, 0 units, 0 unjustified, 8593 ticks, 0 budget stops
+c congy1      0 found, 0 units, 9 binary equivalences, 2914 ticks
+c retired     4 vars (0 substituted, 4 eliminated) of 61
+c compact     0 passes removed 0 internal variables
+c deactivate  27 deactivations, 0 repeated reports, 0 re-bumps of retired vars
+c substdec    0 decisions on substituted vars (0.00% of 46)
+c extension   1 vars added, 0 decisions on them (0.00% of 46)
+c interrupt   0 rule applications aborted on the stop flag (0 stress fires)
+c extbumps    0 of 3 bumps on extension vars (0.00%), 0 reason-side only (0.00% of those)
+c factor      1 factorings, 708 large remainders offered, 6415 ticks
+c factor-rem  708 materialized, 0 reused
+c factor-bnd  0 grids rejected by the coupled bound
+c factor-dem  0 demotions, 0 fresh vars demoted
+c sr          0 applications, 0 applied, 0 validation ticks, 0 witness literals, 0 unique-literal AMO binaries
+c sr-life     0 post-AMO nonhelper consequences, 0 graph root units
+c sr-admit    0 nonforcing cut batches declined, 0 cuts; 0 singleton forcing batches declined, 0 rows
+c handoff     0 residual seeds, 0 variables, 0.000 seconds
+c bve         8 rounds, 4 eliminated, 79 resolutions
+c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 0 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds
+c bve-bwd     0 subsumers, 0 subsumed, 0 strengthened, 0 units
+c bve-gates   0 equiv, 0 andor, 0 ite, 0 xor, 0 definition; 0 resolvent pairs saved
+c bve-def     33 checked, 1018 ticks, 0 hit the tick ceiling, 0 units
+c restarts    71 (7 reused a trail prefix)
+c mab         0 stable restarts, 0 switches, 0/0 EVSIDS/CHB selections, 0 CHB updates; activation limit 0, 0 delayed, 0 activated, 0 SR-suppressed, 0 FastEl-accelerated
+c reductions  16 (13 clauses deleted, 1 promoted)
+c tiers       2/6 live after 0 retiers (retention band 36 clause-visits dynamic vs 36 static)
+c redscan     11 scans, 20184 arena words walked, 20088 skippable by a first_reducible watermark (99.52%)
+c mode        stable after 65 switches (37660 ticks, 1 target phases saved)
+c rephased    93 (1 best phases saved)
+c reordered   0 eligible, 21 decision re-rankings
+c lucky       0 early, 0 late (0 SAT), 6 probes
+c parity     0 calls, 0 equations, rank 0, 0 candidates, 0 SAT, 0 interrupted
+c parity-ref 0 probe declines, 0 recognized, 0 UNSAT, 0 proof additions, 0 proof deletions
+c affine     1 calls, 1 equations, 0 coordinates, 0 entries, 0 candidates, 0 SAT, 2299 work, 0 budgets, 0 unavailable, 0 interrupted
+c onehot     1 calls, 0 domains, 0 equations, rank 0, 0 candidates, 0 SAT, 0 interrupted
+c directcsp  0 calls, 0 domains, 0 edges, 0 restarts, 0 infeasible, 0 work, best 0, 0 SAT
+c exact-one  1 calls, 0 recognized, 0 equations, 0 UNSAT, 0 interrupted, 0 proof additions, 0 proof deletions
+c balance    0 calls, 0 recognized, 0 candidates, 0 restarts, 0 steps, 0 completion rounds, 0 SAT, 0 interrupted
+c fermat     1 calls, 0 recognized, 0 candidates, 0 factor iterations, 0 completion rounds, 0 SAT, 0 interrupted
+c cerny      1 calls, 0 recognized, 0 states, 0 length, 0 SAT, 0 interrupted
+c lookup     0 calls, 0 recognized, 0 gates, 0 support, 0 vector gate evaluations, 0 CSP work, 0 SAT, 0 interrupted
+c simon      0 calls, 0 recognized, 0 rounds, 0 candidates, 0 SAT, 0 interrupted
+c stconn     0 calls, 0 recognized, width 0, 0 columns, 0 RUP clauses, 0 budget stops, 0 UNSAT, 0 interrupted
+c signedcard 0 calls, 0 recognized, 0 groups, 0 BDD nodes, 0 proof additions, 0 budget stops, 0 UNSAT, 0 interrupted
+c exactcover 0 calls, 0 recognized, 0 blocks, 0 nodes, 0 restarts, 0 budget stops, 0 SAT, 0 interrupted
+c indepset   0 calls, 0 recognized, 0 vertices, 0 target, 0 greedy, 0 found, 0 steps, 0 completion rounds, 0 SAT, 0 interrupted
+c localsearch 0 hints offered, 0 applied
+c walk        11 walks (2 improved, 976 flips, 35339 steps)
+c randec      0 sequences, 0 random decisions
+c subsume     0 rounds (21 checked, 280 visits, 0 subsumed)
+c strengthen  6 rounds (452 checked, 6930 visits, 3 strengthened, 3 subsumed)
+c budgetstop  0 C1 rounds, 0 C2 rounds stopped mid-round
+c touch       1802 marks, 1817 epoch; C1 0 skipped / 0 advances / 0 rearmed, C2 224 skipped / 5 advances / 0 rearmed
+c subhold     0 elimination rounds held open by C1/C2
+c touch3      BCE 0 skipped / 0 rearmed, X2 15 skipped / 0 rearmed, X4 0 skipped / 0 rearmed
+c interrupt3  BCE 0, X2 0, X4 0 aborts
+c interrupt2  C1 0, C2 0 aborts
+c touchred    5 redundant creations in scope (dynamic) vs 5 (static tier2=6), 15 band marks; band off
+c f7band      C2 0 band candidates checked / 0 skipped, 0 subsumed / 0 strengthened
+c touch4      Factor 351 seeds skipped / 0 rearmed
+c timing      34 ms solve
+c timing      0 ms (0.0%) inprocessing slot, 34 ms (100.0%) search+scaffolding outside it
+c phasecost   structured 0 ms, entry 0 ms, dense-connect 0 ms, slot-loop 0 ms, exit 0 ms
+c timing        HyperTernaryRes          2 ms (  7.1%) in 27 applications
+c timing        BVE                      0 ms (  1.2%) in 64 applications
+c timing        Factor                   0 ms (  1.1%) in 9 applications
+c timing        CCE                      0 ms (  1.1%) in 77 applications
+c timing        Walk                     0 ms (  0.8%) in 11 applications
+c timing        BCE                      0 ms (  0.7%) in 50 applications
+c timing        Congruence               0 ms (  0.7%) in 9 applications
+c timing        Reorder                  0 ms (  0.5%) in 21 applications
+c timing        Vivify                   0 ms (  0.5%) in 95 applications
+c timing        Instantiate              0 ms (  0.5%) in 120 applications
+c timing        Reduce                   0 ms (  0.4%) in 27 applications
+c timing        Strengthen               0 ms (  0.4%) in 16 applications
+c timing        Substitute               0 ms (  0.4%) in 5 applications
+c timing        HyperBinaryRes           0 ms (  0.3%) in 52 applications
+c timing        Lucky                    0 ms (  0.3%) in 11 applications
+c timing        Probe                    0 ms (  0.1%) in 23 applications
+c timing        Propagate                0 ms (  0.0%) in 13 applications
+c timing        SwitchMode               0 ms (  0.0%) in 65 applications
+c timing        Backbone                 0 ms (  0.0%) in 23 applications
+c timing        TransitiveReduce         0 ms (  0.0%) in 120 applications
+c timing        ConflictAnalysis         0 ms (  0.0%) in 1 applications
+c timing        SubsumeForward           0 ms (  0.0%) in 21 applications
+c timing        Rephase                  0 ms (  0.0%) in 82 applications
+c timing        Decide                   0 ms (  0.0%) in 74 applications
+c timing        Restart                  0 ms (  0.0%) in 71 applications
+c timing        Condition                0 ms (  0.0%) in 18 applications
+c timing        LocalSearchGuidance         0 ms (  0.0%) in 6 applications
+c timing        SubstitutionRedundancy         0 ms (  0.0%) in 2 applications
+c timing        (unattributed)          -5 ms (-16.3%)
+s SATISFIABLE
+v -1 -2 3 4 -5 -6 7 8 -9 10 11 -12 13 -14 -15 16 -17 -18 19 -20 -21 22 -23 -24 -25 26 -27 -28 -29 -30 31 -32 -33 34 35 36 37 -38 39 40 -41 -42 -43 -44 45 -46 47 48 -49 50 -51 -52 -53 54 -55 -56 -57 -58 59 -60 0

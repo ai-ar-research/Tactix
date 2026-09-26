@@ -338,6 +338,12 @@ add_test(NAME sweep_proofs
                  $<TARGET_FILE:test_subsolver> $<TARGET_FILE:test_sweep>)
 set_tests_properties(sweep_proofs PROPERTIES SKIP_RETURN_CODE 77)
 
+# The AM444 C1 public replay is SAT, but its partial LRAT stream still contains
+# checked Sweep lemmas. CakeLPR must reach only the expected absent-empty end.
+add_test(NAME sweep_retarget_lrat
+         COMMAND ${CMAKE_SOURCE_DIR}/tests/sweep_retarget_lrat.sh
+                 ${CMAKE_SOURCE_DIR} $<TARGET_FILE:tactix>)
+
 # V4 exhaustive model-equivalence oracle: 4 modes x 50k random 5-var formulas,
 # model sets compared by enumeration -- the only direct check that V4's deletions
 # preserve equivalence, since a proof checker accepts any delete line.

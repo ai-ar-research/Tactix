@@ -399,7 +399,6 @@ bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
                    uint32_t external_variables, bool propagates) {
   if (!input_transaction_ && !commit_dsr())
     return false;
-  flush_pending_dsr_unit();
 #ifndef TACTIX_ENABLE_PROOF_SHADOW
   (void)id;
 #endif
@@ -438,10 +437,13 @@ bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
   // A pivot without an explicit mapping has the default image true; the
   // general encoding moves the pivot to the auxiliary, so it states that image.
   const bool default_pivot = plan.form == DsrWitnessForm::Direct;
-  if (plan.form == DsrWitnessForm::Extension ||
-      (propagates && plan.form != DsrWitnessForm::Rup)) {
-    if (external_variables >= static_cast<uint32_t>(INT32_MAX))
-      return false;
+  const bool needs_auxiliary = plan.form == DsrWitnessForm::Extension ||
+                               (propagates && plan.form != DsrWitnessForm::Rup);
+  if (needs_auxiliary &&
+      external_variables >= static_cast<uint32_t>(INT32_MAX))
+    return false;
+  flush_pending_dsr_unit();
+  if (needs_auxiliary) {
     const Lit auxiliary = make_lit(external_variables, false);
     const auto temporary = [&](bool deletion, bool negative) {
       if (format_ == ProofFormat::DsrBinary)
@@ -632,7 +634,6 @@ bool Proof::add_external_rup(uint64_t id, const int32_t *lits,
                              uint32_t size) {
   if (!input_transaction_ && !commit_dsr())
     return false;
-  flush_pending_dsr_unit();
   if (lrat())
     return false;
   assert(!size || lits);
@@ -640,6 +641,7 @@ bool Proof::add_external_rup(uint64_t id, const int32_t *lits,
     return false;
   if (!file_)
     return true;
+  flush_pending_dsr_unit();
   if (format_ == ProofFormat::DsrBinary)
     put_byte(1);
   else if (format_ == ProofFormat::DratBinary)
