@@ -281,8 +281,7 @@ def proof_stage(scratch, name, command, timeout, produced=None,
     return result
 
 
-def check_unsat_proof(campaign, certificate, cnf, proof, scratch, timeout,
-                      require_canonical_dsr=False):
+def check_unsat_proof(campaign, certificate, cnf, proof, scratch, timeout):
     """Check one certificate, stopping at the first failed pipeline stage."""
     started = time.monotonic()
     stages = []
@@ -343,9 +342,8 @@ def check_unsat_proof(campaign, certificate, cnf, proof, scratch, timeout,
                 break
         pipeline = "veripb-cake-pb"
     elif certificate in ("dsr", "auto") and route == "drat":
-        # Preserve the content-routed DRAT check and its independent LRAT
-        # negative controls. Formal DSR gates additionally require the
-        # canonical DSR chain below before accepting witness-free proofs.
+        # A witness-free DSR certificate takes the established DRAT owner's
+        # pipeline after the tag rewrite, including its LRAT negative controls.
         drat, lrat = scratch / "proof.drat", scratch / "proof.lrat"
         if not dsr_proof_as_drat(proof, drat):
             raise RuntimeError("routing saw a witnessed line")
@@ -372,10 +370,6 @@ def check_unsat_proof(campaign, certificate, cnf, proof, scratch, timeout,
                                        exit_code=None, timed_out=False, output_tail=str(error)))
                     break
         pipeline = "witness-free-dsr-as-drat:drat-trim-cake_lpr"
-        if (require_canonical_dsr and certificate == 'dsr' and
-                all(stage['result'] == 'verified' for stage in stages)):
-            append_canonical_dsr()
-            pipeline += '+dsr-trim-dsr-compress-trestle'
     elif certificate in ("dsr", "auto"):
         append_canonical_dsr()
         pipeline = "dsr-trim-dsr-compress-trestle"
@@ -529,8 +523,7 @@ def main():
             result, dt.datetime.now(dt.timezone.utc).isoformat()))
         if verdict == "UNSAT" and proof.is_file():
             checked = check_unsat_proof(
-                CAMPAIGN, certificate, cnf, proof, scratch, check_timeout,
-                require_canonical_dsr=manifest.get('require_canonical_dsr', False))
+                CAMPAIGN, certificate, cnf, proof, scratch, check_timeout)
             result["proof_check"] = checked
             result["valid"] = checked["result"] == "verified"
         elif verdict == "SAT":
