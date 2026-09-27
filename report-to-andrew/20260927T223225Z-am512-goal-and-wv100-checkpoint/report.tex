@@ -1,0 +1,82 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{xurl}
+\setlength{\emergencystretch}{2em}
+\title{Tactix: current checker route and goal-exit checkpoint}
+\author{Codex for Andrew}
+\date{27 September 2026, 22:32 UTC}
+\begin{document}
+\maketitle
+
+\paragraph{Current outcome.}
+The user-approved native DSR contract is implemented and pushed on solver
+source \texttt{0a906338}: every native DSR first passes no-option
+\texttt{dsr-trim}, then a solver-declared final checker, CakeLPR for a
+witness-free elaboration and Trestle for a witnessed one. The production runner
+uses the solver declaration and scans proof content only to reject a mismatch.
+No legal X7 action or certificate requirement was narrowed. Full WV100 array
+\texttt{1731686\_0-99} now has 99/100 final valid records: all 33 SAT models
+checked against the original CNF and 66 of 67 UNSAT proofs completely checked.
+The only open row is the current-source \texttt{ncc\_none\_21015} proof.
+Dependent scorer \texttt{1731826} waits for all 100 terminal tasks. This is an
+interim result, not Phase 2 acceptance or N1--N4 verification.
+
+\paragraph{Evidence and resource contract.}
+The array uses a frozen 100-row matrix, hashed inputs, one plain Release binary,
+seven checker pins, 12 CPUs and 32 GiB per task, a 1,200-second solver limit,
+and a 57,600-second checker window without overrides. No array throttle or
+node constraint was used. The long \texttt{snw\_16\_9} SAT tail passed in
+973.254 seconds with a verified model. The 273 MB grid startup PBP passed
+VeriPB and CakePB. \texttt{miles1500.72} passed the full DSR-trim/LSR/Trestle
+route in 2,290.537 seconds, close to its older 2,299.631-second check. The
+current \texttt{ncc} proof is a different SHA from the archived 10,005-second
+DSR-trim/CakeLPR diagnostic; that old check does not certify this row. The
+113 Python route/runtime/fuzz-protocol tests, focused Release/Debug proof
+serializer tests and current-source Debug \texttt{micro\_proofs} passed.
+Current-source full Debug job \texttt{1731798} has 187/188 reported passes and
+the long scripted-default demonstration still running. The pre-route full
+Debug job passed 188/188 but is not substituted for the current-source job.
+
+\paragraph{Goal-exit decisions.}
+The user accepted complete Phase 1 Rank 50/50 and B28+C5 33/33 checked
+coverage with a 5\% allowance on their aggregate solver-time targets: exact
+ceilings 8,521.52175 and 999.87615 seconds. The per-case 1,200-second/32-GiB
+limits remain. The older pre-route totals, 7,553.134 and 905.892 seconds,
+pass even the original stricter targets. The user also accepted WV100 100/100
+and WV2--89 89/89 checked coverage at their 1,200-second and 600-second
+limits, respectively; the N1/N2 public reach and proof/model audit; and a
+separate online-learning readiness review. The Debug/fuzz/D2F acceptance item
+is parked while the user asks questions. The proposed per-tier Tier B/C parity
+and zero-open-N4-ledger gate is too strict for this deliverable; the user wants
+overall performance. A concrete full-union solved-count/PAR-2 replacement has
+been proposed for decision. No waived or unrun condition is called passed.
+
+\paragraph{Next work and limitations.}
+The held current-source WV2--89 bundle AM511 has all 89 input hashes, 17 pins,
+resource limits and scorer validated. It remains unsubmitted until AM507's
+terminal result is assessed. The last older-pin WV2--89 campaign covered only
+78/89 within 600 seconds; an already-repaired checker failure accounts for one
+old miss, while the remaining rows include SAT runtime gaps and winner-specific
+technique questions. The current-source full Debug run, the public D2F reach
+boundary, broad N1/N2 evidence, and the exact overall-performance threshold
+remain open. A prior learning architecture audit found opt-in inprocessing
+order/dose available, but production online learning not yet ready: a
+default-exact shared slot controller and owned safe live branching/deletion
+strategy handles are missing. A final readiness verdict belongs after the
+agreed gates, and can be ``not ready'' without invalidating the review.
+
+After the preflight contract is settled and passed, the requested Tier D run
+must cover all 1,166 unique instances on \texttt{cpu-dense-hwulab-q}, at 5,000
+solver seconds, four CPUs and 32 GiB per instance, with complete independent
+checking and cleanup. It has not been submitted. Full Tier D performance is a
+separate final measurement, not something that can be proved before that run.
+
+\paragraph{Primary evidence.}
+\url{benchmarks/reports/2026-09-27-am506-dsr-trim-first-gate.md};
+\url{benchmarks/reports/2026-09-27-am507-wv100-dsr-trim-first-launched.md};
+\url{benchmarks/reports/2026-09-27-am510-exit-gate-user-direction.md};
+\url{benchmarks/reports/2026-09-27-am511-current-route-wv2-89-prepared.md};
+\url{benchmarks/reports/2026-09-27-am512-wv100-dependent-score.md};
+\url{benchmarks/reports/2026-09-25-am391-learning-readiness-current-source.md}.
+\end{document}
