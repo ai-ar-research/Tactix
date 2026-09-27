@@ -147,6 +147,8 @@ FILE *Proof::begin_pb() {
   pending_unit_literals_.clear();
   pending_unit_ids_.clear();
   pending_max_external_ = 0;
+  pending_deletion_bytes_.clear();
+  spooling_deletions_ = false;
   std::fclose(file_);
   binary_buffer_size_ = 0;
   file_ = automatic_output_;
@@ -169,8 +171,26 @@ void Proof::put_byte(unsigned char byte) {
 void Proof::flush_binary() {
   if (!file_ || !binary_buffer_size_)
     return;
+  if (spooling_deletions_ && !pending_deletions_ &&
+      pending_deletion_bytes_.size() + binary_buffer_size_ <= 65536) {
+    pending_deletion_bytes_.insert(pending_deletion_bytes_.end(),
+                                   binary_buffer_.data(),
+                                   binary_buffer_.data() + binary_buffer_size_);
+    binary_buffer_size_ = 0;
+    return;
+  }
+  if (spooling_deletions_ && !pending_deletions_) {
+    pending_deletions_ = std::tmpfile();
+    if (!pending_deletions_ ||
+        std::fwrite(pending_deletion_bytes_.data(), 1,
+                    pending_deletion_bytes_.size(), pending_deletions_) !=
+            pending_deletion_bytes_.size())
+      std::abort();
+    pending_deletion_bytes_.clear();
+  }
+  FILE *destination = spooling_deletions_ ? pending_deletions_ : file_;
   const size_t written =
-      fwrite(binary_buffer_.data(), 1, binary_buffer_size_, file_);
+      fwrite(binary_buffer_.data(), 1, binary_buffer_size_, destination);
   if (written != binary_buffer_size_)
     std::abort();
   binary_buffer_size_ = 0;
@@ -231,7 +251,7 @@ void Proof::flush_pending_dsr_units() {
   if (pending_units_.empty())
     return;
   assert(file_ && dsr());
-  const bool split = pending_deletions_ &&
+  const bool split = (pending_deletions_ || !pending_deletion_bytes_.empty()) &&
                      external_variable_bound() < static_cast<uint32_t>(INT32_MAX);
   const int32_t auxiliary = split ?
       static_cast<int32_t>(external_variable_bound() + 1) : 0;
@@ -260,26 +280,33 @@ void Proof::flush_pending_dsr_units() {
     for (const auto &unit : pending_units_)
       emit(unit.external, false, 0);
   }
-  if (pending_deletions_) {
-    flush_binary();
-    if (std::fflush(pending_deletions_) ||
-        std::fseek(pending_deletions_, 0, SEEK_SET))
-      std::abort();
-    std::array<unsigned char, 65536> bytes{};
-    for (;;) {
-      const size_t count = std::fread(bytes.data(), 1, bytes.size(),
-                                      pending_deletions_);
-      if (count && std::fwrite(bytes.data(), 1, count, file_) != count)
+  if (pending_deletions_ || !pending_deletion_bytes_.empty()) {
+    // Keep short binary blocks in the existing 1 MiB stream buffer. Only a
+    // spilled block needs the main stream flushed before copying its file.
+    for (const unsigned char byte : pending_deletion_bytes_)
+      put_byte(byte);
+    pending_deletion_bytes_.clear();
+    if (pending_deletions_) {
+      flush_binary();
+      if (std::fflush(pending_deletions_) ||
+          std::fseek(pending_deletions_, 0, SEEK_SET))
         std::abort();
-      if (count < bytes.size()) {
-        if (std::ferror(pending_deletions_))
+      std::array<unsigned char, 65536> bytes{};
+      for (;;) {
+        const size_t count = std::fread(bytes.data(), 1, bytes.size(),
+                                        pending_deletions_);
+        if (count && std::fwrite(bytes.data(), 1, count, file_) != count)
           std::abort();
-        break;
+        if (count < bytes.size()) {
+          if (std::ferror(pending_deletions_))
+            std::abort();
+          break;
+        }
       }
+      if (std::fclose(pending_deletions_))
+        std::abort();
+      pending_deletions_ = nullptr;
     }
-    if (std::fclose(pending_deletions_))
-      std::abort();
-    pending_deletions_ = nullptr;
   }
   if (split) {
     for (const auto &unit : pending_units_)
@@ -311,7 +338,8 @@ void Proof::add_rup(uint64_t id, const Lit *lits, uint32_t size,
     std::abort(); // a terminal PB stream cannot accept a clausal suffix
   // A new unit extends a consecutive batch. A deletion block or a nonunit
   // addition ends it, so later RUP checks still see the earlier units.
-  if (!dsr() || size != 1 || pending_deletions_)
+  if (!dsr() || size != 1 || pending_deletions_ ||
+      !pending_deletion_bytes_.empty())
     flush_pending_dsr_units();
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
   rule_journal_note_rup(id, chain, nchain);
@@ -612,10 +640,14 @@ void Proof::del(uint64_t line_id, uint64_t del_id, const Lit *lits,
   FILE *main_file = nullptr;
   if (defer) {
     flush_binary();
-    if (!pending_deletions_ && !(pending_deletions_ = std::tmpfile()))
-      std::abort();
-    main_file = file_;
-    file_ = pending_deletions_;
+    if (binary())
+      spooling_deletions_ = true;
+    else {
+      if (!pending_deletions_ && !(pending_deletions_ = std::tmpfile()))
+        std::abort();
+      main_file = file_;
+      file_ = pending_deletions_;
+    }
     for (uint32_t i = 0; i < size; ++i) {
       const Var external = variable_map_ ? (*variable_map_)[var_of(lits[i])]
                                           : var_of(lits[i]);
@@ -646,7 +678,10 @@ void Proof::del(uint64_t line_id, uint64_t del_id, const Lit *lits,
   end_line();
   if (defer) {
     flush_binary();
-    file_ = main_file;
+    if (binary())
+      spooling_deletions_ = false;
+    else
+      file_ = main_file;
   }
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
   population_del(del_id, lits, size);
@@ -731,10 +766,14 @@ bool Proof::del_external(uint64_t line_id, uint64_t del_id,
   FILE *main_file = nullptr;
   if (defer) {
     flush_binary();
-    if (!pending_deletions_ && !(pending_deletions_ = std::tmpfile()))
-      std::abort();
-    main_file = file_;
-    file_ = pending_deletions_;
+    if (binary())
+      spooling_deletions_ = true;
+    else {
+      if (!pending_deletions_ && !(pending_deletions_ = std::tmpfile()))
+        std::abort();
+      main_file = file_;
+      file_ = pending_deletions_;
+    }
   }
   if (format_ == ProofFormat::DsrBinary)
     put_byte(2);
@@ -753,7 +792,10 @@ bool Proof::del_external(uint64_t line_id, uint64_t del_id,
   end_line();
   if (defer) {
     flush_binary();
-    file_ = main_file;
+    if (binary())
+      spooling_deletions_ = false;
+    else
+      file_ = main_file;
   }
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
   std::vector<Lit> external;

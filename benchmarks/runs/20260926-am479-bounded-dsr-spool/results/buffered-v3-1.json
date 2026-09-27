@@ -1,0 +1,68 @@
+{
+  "schema": "am479-buffered-backend-pair-v3",
+  "task": 1,
+  "node": "node017",
+  "input_sha256": "95b11c4ece1727b5ef1486f093f3237e91cd6717b4ff52ebffb82a59d82c8c4d",
+  "binary_sha256": {
+    "current": "c57482f1551e48b6f460398790b605b75cb9149e96d38e8406e2b1f2b5315631",
+    "ablation": "09cd3e2f1c8fee62309fe89cc616e0b8a5892ddd879d6d23b788e7b4fb53c112"
+  },
+  "order": [
+    "current",
+    "ablation"
+  ],
+  "rows": [
+    {
+      "name": "current",
+      "wall_seconds": 23.26150286756456,
+      "exit_code": 20,
+      "timed_out": false,
+      "proof_sha256": "c794f8d973045fecd759d3b64fade0e7e42a9bcc1eeaaa3d156a9ec9303620f8",
+      "proof_bytes": 133019634,
+      "timing": [
+        "c timing      22335 ms solve",
+        "c timing      20156 ms (90.2%) inprocessing slot, 2179 ms (9.8%) search+scaffolding outside it",
+        "c phasecost   structured 2187 ms, entry 0 ms, dense-connect 94 ms, slot-loop 17873 ms, exit 0 ms",
+        "c timing        Congruence           17861 ms ( 80.0%) in 1 applications",
+        "c timing        Lucky                    0 ms (  0.0%) in 1 applications",
+        "c timing        (unattributed)        2294 ms ( 10.3%)"
+      ],
+      "counters": [
+        "c decisions   0 (0 via API)",
+        "c conflicts   1",
+        "c conggates   274608 and, 544188 xor, 1418054 ite",
+        "c congruence  1 rounds, 1 binary rebuilds, 2236850 gates, 902498 merges, 177234 units, 0 unjustified, 307525725 ticks, 0 budget stops"
+      ],
+      "verdict": [
+        "s UNSATISFIABLE"
+      ],
+      "stderr_tail": ""
+    },
+    {
+      "name": "ablation",
+      "wall_seconds": 12.337896404787898,
+      "exit_code": 20,
+      "timed_out": false,
+      "proof_sha256": "c794f8d973045fecd759d3b64fade0e7e42a9bcc1eeaaa3d156a9ec9303620f8",
+      "proof_bytes": 133019634,
+      "timing": [
+        "c timing      11446 ms solve",
+        "c timing      9284 ms (81.1%) inprocessing slot, 2162 ms (18.9%) search+scaffolding outside it",
+        "c phasecost   structured 2186 ms, entry 0 ms, dense-connect 93 ms, slot-loop 7002 ms, exit 0 ms",
+        "c timing        Congruence            6989 ms ( 61.1%) in 1 applications",
+        "c timing        Lucky                    0 ms (  0.0%) in 1 applications",
+        "c timing        (unattributed)        2294 ms ( 20.0%)"
+      ],
+      "counters": [
+        "c decisions   0 (0 via API)",
+        "c conflicts   1",
+        "c conggates   274608 and, 544188 xor, 1418054 ite",
+        "c congruence  1 rounds, 1 binary rebuilds, 2236850 gates, 902498 merges, 177234 units, 0 unjustified, 307525725 ticks, 0 budget stops"
+      ],
+      "verdict": [
+        "s UNSATISFIABLE"
+      ],
+      "stderr_tail": ""
+    }
+  ]
+}

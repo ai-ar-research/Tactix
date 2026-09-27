@@ -1,0 +1,59 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{xurl}
+\setlength{\emergencystretch}{2em}
+\title{Tactix: Rank 12 proof-production recovery}
+\author{Codex for Andrew}
+\date{26 September 2026}
+\begin{document}
+\maketitle
+
+\paragraph{Outcome.}
+The Rank 12 proof-enabled slowdown is substantially repaired without changing
+Tactix's native DSR certificate. In balanced, same-node pairs, the current
+backend took 23.356 and 23.262 seconds; the bounded-spool candidate took
+12.188 and 12.338 seconds. Both candidate runs emitted exactly the same
+133,019,634-byte proof (SHA-256 \texttt{c794f8d973045fecd759d3b64fade0e7e42a9bcc1eeaaa3d156a9ec9303620f8})
+as the previously independent DRAT-trim/CakeLPR-verified current run. The
+AM337 Rank 12 baseline remains about 11.0 seconds. A full current-source
+Rank/B28+C5 certificate gate is still blocked by the separate D2F proof
+failure; this focused performance result does not promote Phase 1.
+
+\paragraph{Cause and repair.}
+Current and AM337 solver work counts are identical on this case, and paired
+proofless solves are both about 10.6 seconds. An old-Congruence-object
+ablation left current proof bytes and runtime unchanged. An old-proof-backend
+ablation restored about 11.1 seconds, locating the cost in proof serialization.
+A direct counter run measured 177,233 split-unit transactions and exactly
+177,233 temporary-file creations, with 9.188 seconds accumulated in the
+transaction flush routine. The general split-unit transaction is needed to
+preserve prior D1/H2 native DSR correctness, so the repair keeps its emitted
+proof events and buffers short deletion blocks in memory. Blocks over 64 KiB
+still spill to a temporary file. The buffered bytes are appended to the
+existing binary stream buffer, avoiding a separate write per block.
+
+The first implementation had a 160-byte proof difference: a following RUP
+unit did not close a deletion block once that block lived in memory rather
+than a file. That boundary was corrected and added as a byte-exact serializer
+regression. The final certificate now matches the checked parent byte for
+byte. Serializer tests also cover the exceptional file-spill path and an
+external deletion. The public X7 action set, checker options and proof route
+are unchanged.
+
+\paragraph{Remaining work.}
+Opus AM473 remains the owner of latest-proof-source fuzzing; its terminal
+public-policy report is still due. The published AM465 D2F internal API
+reproducer remains a native DSR rejection on current source, and a public
+control on that CNF follows a different, fully checked path. A general N2
+repair must be based on checker-visible proof state and proven public reach,
+then the full Debug, Opus fuzz, Rank/B28+C5, WV100 and WV2-89 gates must be
+rerun. N1--N4 and online-learning readiness remain open. The 1,166-instance
+Tier D run at 5,000 seconds, 4 CPUs and 32 GiB has not been submitted.
+
+\paragraph{Evidence.}
+\url{benchmarks/reports/2026-09-26-am479-bounded-dsr-spool-rank12.md};
+\url{benchmarks/runs/20260926-am479-bounded-dsr-spool/MANIFEST.md};
+\url{benchmarks/runs/20260926-am475-rank5-12-diagnostic/results/011.json};
+\url{benchmarks/reports/2026-09-26-am476-d2f-current-source-boundary.md}.
+\end{document}

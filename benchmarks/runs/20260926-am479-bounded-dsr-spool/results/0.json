@@ -1,0 +1,123 @@
+{
+  "schema": "am478-rank12-sequential-pair-v1",
+  "task": 0,
+  "node": "node017",
+  "job_id": "1729831",
+  "input_sha256": "95b11c4ece1727b5ef1486f093f3237e91cd6717b4ff52ebffb82a59d82c8c4d",
+  "order": [
+    "old_auto",
+    "new_auto",
+    "old_none",
+    "new_none"
+  ],
+  "rows": [
+    {
+      "label": "old_auto",
+      "binary_sha256": "40b0de228744fb878d6e9cb478babd3fc589eb944b01b52f93e59475516df40c",
+      "wall_seconds": 11.08782708644867,
+      "exit_code": 20,
+      "timed_out": false,
+      "proof_sha256": "c4a0f1fd2f42de9857df99eb7e107ae373e301ecf4787f0ecd0f9ac586363913",
+      "proof_bytes": 119421468,
+      "timing": [
+        "c timing      10156 ms solve",
+        "c timing      8005 ms (78.8%) inprocessing slot, 2151 ms (21.2%) search+scaffolding outside it",
+        "c phasecost   structured 2205 ms, entry 0 ms, dense-connect 95 ms, slot-loop 5704 ms, exit 0 ms",
+        "c timing        Congruence            5693 ms ( 56.1%) in 1 applications",
+        "c timing        Lucky                    0 ms (  0.0%) in 1 applications",
+        "c timing        (unattributed)        2312 ms ( 22.8%)"
+      ],
+      "counters": [
+        "c decisions   0 (0 via API)",
+        "c conflicts   1",
+        "c conggates   274608 and, 544188 xor, 1418054 ite",
+        "c congruence  1 rounds, 1 binary rebuilds, 2236850 gates, 902498 merges, 177234 units, 0 unjustified, 307525725 ticks, 0 budget stops"
+      ],
+      "verdict_lines": [
+        "s UNSATISFIABLE"
+      ],
+      "stderr_tail": ""
+    },
+    {
+      "label": "new_auto",
+      "binary_sha256": "c57482f1551e48b6f460398790b605b75cb9149e96d38e8406e2b1f2b5315631",
+      "wall_seconds": 25.76871103607118,
+      "exit_code": 20,
+      "timed_out": false,
+      "proof_sha256": "c794f8d973045fecd759d3b64fade0e7e42a9bcc1eeaaa3d156a9ec9303620f8",
+      "proof_bytes": 133019634,
+      "timing": [
+        "c timing      24861 ms solve",
+        "c timing      22682 ms (91.2%) inprocessing slot, 2179 ms (8.8%) search+scaffolding outside it",
+        "c phasecost   structured 2209 ms, entry 0 ms, dense-connect 94 ms, slot-loop 20376 ms, exit 0 ms",
+        "c timing        Congruence           20365 ms ( 81.9%) in 1 applications",
+        "c timing        Lucky                    0 ms (  0.0%) in 1 applications",
+        "c timing        (unattributed)        2317 ms (  9.3%)"
+      ],
+      "counters": [
+        "c decisions   0 (0 via API)",
+        "c conflicts   1",
+        "c conggates   274608 and, 544188 xor, 1418054 ite",
+        "c congruence  1 rounds, 1 binary rebuilds, 2236850 gates, 902498 merges, 177234 units, 0 unjustified, 307525725 ticks, 0 budget stops"
+      ],
+      "verdict_lines": [
+        "s UNSATISFIABLE"
+      ],
+      "stderr_tail": ""
+    },
+    {
+      "label": "old_none",
+      "binary_sha256": "40b0de228744fb878d6e9cb478babd3fc589eb944b01b52f93e59475516df40c",
+      "wall_seconds": 10.586284674704075,
+      "exit_code": 20,
+      "timed_out": false,
+      "proof_sha256": null,
+      "proof_bytes": null,
+      "timing": [
+        "c timing      9670 ms solve",
+        "c timing      7537 ms (77.9%) inprocessing slot, 2134 ms (22.1%) search+scaffolding outside it",
+        "c phasecost   structured 2180 ms, entry 0 ms, dense-connect 97 ms, slot-loop 5258 ms, exit 0 ms",
+        "c timing        Congruence            5247 ms ( 54.3%) in 1 applications",
+        "c timing        Lucky                    0 ms (  0.0%) in 1 applications",
+        "c timing        (unattributed)        2290 ms ( 23.7%)"
+      ],
+      "counters": [
+        "c decisions   0 (0 via API)",
+        "c conflicts   1",
+        "c conggates   274608 and, 544188 xor, 1418054 ite",
+        "c congruence  1 rounds, 1 binary rebuilds, 2236850 gates, 902498 merges, 177234 units, 0 unjustified, 307525725 ticks, 0 budget stops"
+      ],
+      "verdict_lines": [
+        "s UNSATISFIABLE"
+      ],
+      "stderr_tail": ""
+    },
+    {
+      "label": "new_none",
+      "binary_sha256": "c57482f1551e48b6f460398790b605b75cb9149e96d38e8406e2b1f2b5315631",
+      "wall_seconds": 10.636876095086336,
+      "exit_code": 20,
+      "timed_out": false,
+      "proof_sha256": null,
+      "proof_bytes": null,
+      "timing": [
+        "c timing      9725 ms solve",
+        "c timing      7576 ms (77.9%) inprocessing slot, 2149 ms (22.1%) search+scaffolding outside it",
+        "c phasecost   structured 2176 ms, entry 0 ms, dense-connect 94 ms, slot-loop 5305 ms, exit 0 ms",
+        "c timing        Congruence            5293 ms ( 54.4%) in 1 applications",
+        "c timing        Lucky                    0 ms (  0.0%) in 1 applications",
+        "c timing        (unattributed)        2283 ms ( 23.5%)"
+      ],
+      "counters": [
+        "c decisions   0 (0 via API)",
+        "c conflicts   1",
+        "c conggates   274608 and, 544188 xor, 1418054 ite",
+        "c congruence  1 rounds, 1 binary rebuilds, 2236850 gates, 902498 merges, 177234 units, 0 unjustified, 307525725 ticks, 0 budget stops"
+      ],
+      "verdict_lines": [
+        "s UNSATISFIABLE"
+      ],
+      "stderr_tail": ""
+    }
+  ]
+}
