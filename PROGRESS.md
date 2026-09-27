@@ -298,7 +298,7 @@ requested. `1714785_4` was the superseded first ncc pass. The temporary
 `build/am333-release-1714363` was deleted as requested (513,033,589 bytes);
 byte-identical solver pins remain in the AM333 gate campaigns.
 
-## Next steps
+## Historical AM474 next steps (superseded by the current checkpoint above)
 
 1. **Current gates after AM474.** Preserve the general AM472 no-option DSR batch repair (48/48 D1/H2/D2 chains); the one-line CLI map binding clears the profiled Rank 7 DSR/AUTO cost (1729380) without changing the proof contract. Consume Opus-owned AM473 latest-proof-source fuzz (owner `7bdbd8b7`) and pinned full Debug `1729059`; older AM464 Debug `1728137` runs and AM457 `1727702` passed 188/188. Prepare and score full repaired-source Phase 1 Rank/B28+C5 arrays with the canonical automatic content route, then complete N1--N4 proof/model/performance gates, winner/CaDiCaL/Kissat producer audit, online-learning readiness and Andrew reports before Tier D. Old-source AM465 remaining fuzz jobs were canceled as redundant. The AM443 satisfiable checker-state negative control and Trestle rejection remain required.
    User approved `benchmarks/reports/2026-09-22-startup-certificate-proposal.md`:
