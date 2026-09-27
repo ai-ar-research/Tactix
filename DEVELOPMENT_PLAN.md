@@ -534,8 +534,8 @@ deeply as general Tactix root-start preprocessing rules through the
 shared typed application interface. Extend the calculus and emit direct native
 DSR witnesses when the mechanism requires substitution redundancy. Never use a sequential
 portfolio, invoke another solver as a solving stage, or dispatch by benchmark
-identity. AE-Kissat-MAB's seven rows require mechanism study, but adopting MAB
-scheduling itself remains open.
+identity. AE-Kissat-MAB's seven rows require mechanism study; the evaluated
+bandit integration was removed at the user's direction.
 
 For Satsuma-style symmetry, separate colored-CNF generator detection from
 seeded stabilizer-chain group fixing. A fixing permutation may be a derived
@@ -694,7 +694,7 @@ independently checkable native proofs and must earn a measured time/memory gain.
 ### 9.2 Phase 5 — tuning, bindings, and extensibility
 
 - Complete any PR/SR-learning proof work not required by WV100.
-- Add reviewed policy presets/MAB scheduling, Python bindings, and
+- Add reviewed policy presets, Python bindings, and
   external-branching demonstrations.
 - Pass the at-most-5% hardcoded-twin overhead gate and CCE pure-plugin test.
 
@@ -732,7 +732,7 @@ Resolve through `revise-plan` concretize mode and record only the minimum needed
 | O8 | retain FRAT only if a consumer appears | phase 6 |
 | O12 | contextual features and learned-state persistence | phase 7 RL2 |
 | O13 | distill stable learned schedules into DefaultPolicy | phase-7 exit |
-| O17 | whether and how to integrate MAB scheduling for the seven WV100 AE-Kissat-MAB signatures | before claiming those rows mechanism-complete |
+| O17 | attribute the seven WV100 AE-Kissat-MAB signatures using the frozen owner; the evaluated bandit was removed at the user's direction | before claiming those rows mechanism-complete |
 | O18 | adapt SR discovery effort from useful producer output per unit work, separately from conditional cleanup; preserve explicit per-call budgets and replay | after the Rank17 repair and full preservation gates |
 
 Closed decisions have their current contracts in the owning sections; Git

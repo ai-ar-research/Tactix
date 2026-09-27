@@ -208,27 +208,6 @@ int main() {
     assert(compositional.stats.fastel_rounds > 0);
     assert(compositional.stats.fastel_root_suppressed == 0);
   }
-  assert(default_mab_stagnation_conflict_budget(0) == 0);
-  assert(default_mab_stagnation_conflict_budget(1) == 1);
-  assert(default_mab_stagnation_conflict_budget(2) == 2);
-  assert(default_mab_stagnation_conflict_budget(3) == 6);
-  assert(default_mab_stagnation_conflict_budget(5) == 15);
-  assert(default_mab_stagnation_conflict_budget(5, true) == 0);
-  assert(!default_fast_elimination_material_progress(0, 100));
-  assert(!default_fast_elimination_material_progress(14, 100));
-  assert(default_fast_elimination_material_progress(15, 100));
-  assert(!default_fast_elimination_admits_mab_at_entry(14, 100));
-  assert(default_fast_elimination_admits_mab_at_entry(15, 100));
-  assert(!default_fast_elimination_admits_mab_at_entry(15, 100, false));
-  assert(!default_fast_elimination_admits_mab_at_entry(100, 100));
-  assert(!default_fast_elimination_admits_mab_at_entry(101, 100));
-  assert(!default_mab_stagnation_reached(14, 15));
-  assert(default_mab_stagnation_reached(15, 15));
-  assert(default_mab_stagnation_reached(16, 15));
-  assert(default_should_schedule_delayed_mab(true, true, 0));
-  assert(!default_should_schedule_delayed_mab(false, true, 0));
-  assert(!default_should_schedule_delayed_mab(true, false, 0));
-  assert(!default_should_schedule_delayed_mab(true, true, 1));
   {
     // Generic graph symmetry consumes the completed BIG and fixes a root.
     // That outcome suppresses the optional cleanup in both configurations.
@@ -339,10 +318,6 @@ int main() {
   assert(defaults.reduction.victim_denominator == 4);
   assert(defaults.reduction.protect_tiers);
   assert(defaults.branching.random_seed == 0);
-  assert(defaults.branching.mab);
-  assert(defaults.branching.mab_after_search_stagnation);
-  assert(defaults.branching.mab_exploration == 4.0);
-  assert(defaults.branching.chb_step == 0.4);
   assert(defaults.rephase.rotation.size() == 6);
   assert(defaults.rephase.rotation[0] == DefaultRephaseSlot::Best &&
          defaults.rephase.rotation[1] == DefaultRephaseSlot::Walk &&
@@ -434,9 +409,6 @@ int main() {
   {
     DefaultStrategyConfig invalid = defaults;
     invalid.branching.focused_phase_pattern.clear();
-    assert(!invalid.valid(&validation_error));
-    invalid = defaults;
-    invalid.branching.chb_step_min = invalid.branching.chb_step + 0.1;
     assert(!invalid.valid(&validation_error));
     invalid = defaults;
     invalid.inprocess.bve_bounds.clear();
