@@ -358,6 +358,7 @@ int main(int argc, char **argv) {
     }
     kernel.proof = &proof;
     proof.bind_variable_map(&kernel.internal_to_external);
+    proof.bind_external_variable_map(&kernel.external_to_internal);
   }
 
   bool piped = false;
