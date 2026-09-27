@@ -1,0 +1,7 @@
+# AM505: latest-source proofless Rank parity is terminal
+
+Date: 2026-09-27. The frozen AM497 proofless Rank 1–50 array `1731588_0-49` is terminal: all 50 tasks completed `0:0`. The pinned scorer `benchmarks/runs/20260927-am497-rank1-50-proofless-diagnostic/score.py` completed without assertion failure against the independently checked AM487 automatic-proof Rank gate. Its immutable manifest pins source `0ed8b564`, binary SHA-256 `e69d256257975e949360f4e0d9276662318f691fe94b64dec6aaca6aa9c4512f`, the exact 50-row matrix and inputs, and the launch and scorer hashes.
+
+The scorer reports **50/50 verdict parity**, including 25 SAT and 25 UNSAT cases, on the same binary with proof production disabled. All 25 proofless SAT models pass the original-CNF model checker. Total proofless solver time is **7,394.063 seconds**, compared with 7,553.134 seconds for the separately checked automatic-proof gate. Each proofless solve stays within the frozen 1,200-second limit. The paired automatic-proof gate has 25 independently checked UNSAT certificates; the proofless runs themselves have no UNSAT certificates and do not replace that proof gate.
+
+This closes the requested same-source proofless result/model parity diagnostic. Full repaired-source Debug job `1731003` and current-source canonical WV100 remain open. The current ncc proof is different from the archived one and has not been checked. No solver, checker, route or acceptance contract changed, and Tier D was not submitted.

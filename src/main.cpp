@@ -1188,6 +1188,8 @@ int main(int argc, char **argv) {
               (tactix::now_nanos() - print_t0) / 1e6);
     }
   } else if (res == 20) {
+    if (proof_path)
+      printf("c proof-route %s\n", proof.verification_route());
     printf("s UNSATISFIABLE\n");
   } else {
     printf("s UNKNOWN\n");

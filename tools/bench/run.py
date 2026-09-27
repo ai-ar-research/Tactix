@@ -91,14 +91,14 @@ VERIPB = os.path.join(PB_PINS, "veripb")
 CAKE_PB_CNF = os.path.join(PB_PINS, "cake-pb-cnf")
 sys.path.insert(0, HERE)
 from proof_oracle import (bridge_trivial_input_binary_lsr,  # noqa: E402
-                          bridge_trivial_input_lrat, bridge_trivial_input_lsr,
+                          bridge_trivial_input_lsr,
                           certificate_route, DSRFormatError,
-                          drat_stages, dsr_compress_status,
-                          dsr_proof_as_drat, pb_stages,
-                          reference_dsr_stages, canonical_checker_cnf,
+                          dsr_compress_status, pb_stages,
+                          routed_dsr_stages, canonical_checker_cnf,
                           proof_check_status, drat_command_with_timeout,
                           restate_duplicate_input_lrat, run_captured,
-                          stage_environment)
+                          stage_environment, solver_reported_route_text,
+                          REPORTED_DSR_ROUTES)
 # Oracle 1 of the fuzz harness (§8.2), shared here since 2026-08-08: a SAT
 # verdict's v-lines are checked against the ORIGINAL formula. The wrong-SAT
 # exhibit was caught only by the expected-verdict column; an instance without
@@ -268,20 +268,19 @@ def check_proof(fmt, cnf, proof, budget, *, allow_pbp=True, route=None):
     genuine `s NOT VERIFIED` taken for an OOM, is just as easy. See
     classify_checker_output."""
     if fmt == "dsr":
-        if route is None:
-            try:
-                route = certificate_route(proof)
-            except DSRFormatError as error:
-                return False, f"rejected: {error}", CHK_REJECTED, []
-        if route == "invalid-dsr":
-            return False, "rejected: malformed DSR", CHK_REJECTED, []
+        if route not in REPORTED_DSR_ROUTES:
+            return False, "rejected: missing solver proof-route", CHK_REJECTED, []
+        try:
+            if certificate_route(proof) != REPORTED_DSR_ROUTES[route]:
+                return False, "rejected: solver proof-route/content mismatch", CHK_REJECTED, []
+        except DSRFormatError as error:
+            return False, f"rejected: {error}", CHK_REJECTED, []
         if route == "pbp":
             if not allow_pbp:
                 return (False, "rejected: explicit DSR emitted PBP",
                         CHK_REJECTED, [])
             return check_pbp_proof(cnf, proof, budget)
-        if route == "drat":
-            return check_witness_free_dsr(cnf, proof, budget)
+        witness_free = route == 'dsr-cake_lpr'
         started = time.monotonic()
 
         def remaining():
@@ -290,25 +289,32 @@ def check_proof(fmt, cnf, proof, budget, *, allow_pbp=True, route=None):
         with tempfile.TemporaryDirectory(prefix="tactix-dsr-check-") as scratch:
             checker_cnf = os.path.join(scratch, "checker.cnf")
             try:
-                canonical_checker_cnf(cnf, checker_cnf)
+                spelling = canonical_checker_cnf(cnf, checker_cnf)
             except (OSError, ValueError) as error:
                 return False, f"checker-error: invalid original DIMACS: {error}", CHK_ERROR, []
             binary_lsr = os.path.join(scratch, "proof.binary.lsr")
             text_lsr = os.path.join(scratch, "proof.lsr")
-            # proof_oracle.reference_dsr_stages owns the pipeline definition.
+            final_checker = CAKE_LPR if witness_free else SR_CHECK
             stages = [
-                (name, argv, argv[-1] if name != "srcheck" else None)
-                for name, argv in reference_dsr_stages(
-                    DSR_TRIM, DSR_COMPRESS, SR_CHECK, cnf, proof, binary_lsr,
-                    text_lsr, checker_cnf=checker_cnf)]
+                (name, argv, argv[-1] if name in ('dsr-trim', 'dsr-compress') else None)
+                for name, argv in routed_dsr_stages(
+                    DSR_TRIM, DSR_COMPRESS, final_checker, cnf, proof,
+                    binary_lsr, text_lsr, checker_cnf=checker_cnf,
+                    witness_free=witness_free)]
             details = []
-            for index, (name, argv, produced) in enumerate(stages):
-                if index == 1:
-                    made = stages[0][2]
-                    (bridge_trivial_input_binary_lsr if made == binary_lsr
-                     else bridge_trivial_input_lsr)(cnf, made)
+            for name, argv, produced in stages:
+                if name == 'cake_lpr':
+                    try:
+                        checked_lsr, _ = restate_duplicate_input_lrat(
+                            checker_cnf, spelling, text_lsr,
+                            Path(scratch) / 'proof.original-input.lsr')
+                    except ValueError as error:
+                        return False, f'rejected: {error}', CHK_REJECTED, details
+                    argv = [CAKE_LPR, checker_cnf, checked_lsr]
                 try:
-                    checked = run_captured(argv, timeout=remaining())
+                    checked = run_captured([str(part) for part in argv],
+                                           timeout=remaining(),
+                                           env=stage_environment(name))
                 except subprocess.TimeoutExpired:
                     return (False,
                             f"{CHECKER_TIMEOUT_PREFIX}{budget:g}s budget",
@@ -332,6 +338,9 @@ def check_proof(fmt, cnf, proof, budget, *, allow_pbp=True, route=None):
                     if kind == CHK_VERIFIED:
                         kind, msg = CHK_ERROR, "checker-error: empty DSR stage output"
                     return False, msg, kind, details
+                if name == 'dsr-trim':
+                    (bridge_trivial_input_binary_lsr if produced == binary_lsr
+                     else bridge_trivial_input_lsr)(cnf, produced)
             return True, "VERIFIED", CHK_VERIFIED, details
 
     with tempfile.TemporaryDirectory(prefix="tactix-compat-check-") as scratch:
@@ -389,59 +398,6 @@ def check_pbp_proof(cnf, proof, budget):
             if name == "veripb" and (not os.path.isfile(kernel) or
                                       os.path.getsize(kernel) == 0):
                 return False, "checker-error: no kernel PBP produced", CHK_ERROR, details
-        return True, "VERIFIED", CHK_VERIFIED, details
-
-
-def check_witness_free_dsr(cnf, proof, budget):
-    """Use the DRAT owner's complete route for a DSR without witnesses."""
-    started = time.monotonic()
-    with tempfile.TemporaryDirectory(prefix="tactix-dsr-drat-check-") as scratch:
-        checker_cnf = Path(scratch) / "checker.cnf"
-        drat, lrat = Path(scratch) / "proof.drat", Path(scratch) / "proof.lrat"
-        try:
-            spelling = canonical_checker_cnf(cnf, checker_cnf)
-        except (OSError, ValueError) as error:
-            return False, f"checker-error: invalid original DIMACS: {error}", CHK_ERROR, []
-        if not dsr_proof_as_drat(proof, drat):
-            return False, "rejected: witnessed line met during rewrite", CHK_REJECTED, []
-        checked_lrat = lrat
-        details = []
-        for name, command in drat_stages(DRAT_TRIM, CAKE_LPR, cnf, drat, lrat,
-                                         checker_cnf=checker_cnf):
-            remaining = budget - (time.monotonic() - started)
-            if remaining <= 0:
-                return (False, f"{CHECKER_TIMEOUT_PREFIX}{budget:g}s budget",
-                        CHK_TIMEOUT, details)
-            if name == "drat-trim":
-                command = drat_command_with_timeout(command, remaining)
-            else:
-                command = [*command[:-1], checked_lrat]
-            try:
-                checked = run_captured([str(part) for part in command],
-                                       timeout=remaining,
-                                       env=stage_environment(name))
-            except subprocess.TimeoutExpired:
-                return (False, f"{CHECKER_TIMEOUT_PREFIX}{budget:g}s budget",
-                        CHK_TIMEOUT, details)
-            except OSError as error:
-                return False, f"checker-error: {name}: {error}", CHK_ERROR, details
-            kind, msg, detail = classify_checker_output(
-                checked.stdout, checked.stderr, checked.returncode, name,
-                input_has_empty_clause=spelling['first_empty_clause'] is not None)
-            details.extend(detail)
-            if kind != CHK_VERIFIED:
-                return False, msg, kind, details
-            if name == "drat-trim":
-                bridge_trivial_input_lrat(spelling, lrat, checked.returncode,
-                                          checked.stdout, checked.stderr)
-                if not lrat.is_file() or lrat.stat().st_size == 0:
-                    return False, "checker-error: no LRAT produced", CHK_ERROR, details
-                try:
-                    checked_lrat, _ = restate_duplicate_input_lrat(
-                        checker_cnf, spelling, lrat,
-                        Path(scratch) / "proof.original-input.lrat")
-                except ValueError as error:
-                    return False, f"rejected: {error}", CHK_REJECTED, details
         return True, "VERIFIED", CHK_VERIFIED, details
 
 
@@ -643,10 +599,7 @@ def run_instance(cmd, rel, cnf, expected, timeout, check_proofs, workdir,
                 # size is free from a stat and is tracked for every arm
                 res["proof_bytes"] = os.path.getsize(proof)
                 if fmt == "dsr":
-                    try:
-                        res["proof_route"] = certificate_route(proof)
-                    except DSRFormatError:
-                        res["proof_route"] = "invalid-dsr"
+                    res["proof_route"] = solver_reported_route_text(stdout)
                 else:
                     res["proof_route"] = fmt
                 if not verify_proofs:

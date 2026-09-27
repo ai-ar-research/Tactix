@@ -264,9 +264,11 @@ void test_dsr_unit_deletion_transaction() {
       {lit(1), lit(3)}, {lit(2), lit(4)}};
   expect(emitted("dsr-transaction-declined-sr", ProofFormat::DsrAscii,
                  [&](Proof &p) {
+                   assert(std::string(p.verification_route()) == "dsr-cake_lpr");
                    p.add_rup(10, &unit, 1, nullptr, 0);
                    assert(!p.add_sr(11, open_pair, 2, nullptr, 0, open_maps, 2,
                                     INT32_MAX));
+                   assert(std::string(p.verification_route()) == "dsr-cake_lpr");
                    p.del(12, 8, unrelated, 2);
                  }),
          "1 6 0\n1 -6 0\nd 4 5 0\n1 0\n"
@@ -289,6 +291,7 @@ void test_dsr_unit_deletion_transaction() {
                    p.add_rup(10, &unit, 1, nullptr, 0);
                    assert(p.add_sr(11, open_pair, 2, nullptr, 0, rup_maps, 2,
                                    6));
+                   assert(std::string(p.verification_route()) == "dsr-cake_lpr");
                  }),
          "1 0\n1 2 0\n",
          "an accepted SR addition closes the pending unit transaction");
@@ -338,7 +341,9 @@ void test_dsr_substitution() {
       {make_lit(3, false), make_lit(4, true)}};
 
   expect(emitted("dsr-asc-sr", ProofFormat::DsrAscii, [&](Proof &p) {
+           assert(std::string(p.verification_route()) == "dsr-cake_lpr");
            assert(p.add_sr(11, clause, 2, true_lits, 1, mappings, 1, 5));
+           assert(std::string(p.verification_route()) == "dsr-trestle");
          }),
          "1 -2 1 3 1 4 -5 0\n", "dsr-ascii add_sr");
   expect(emitted("dsr-bin-sr", ProofFormat::DsrBinary, [&](Proof &p) {

@@ -181,10 +181,9 @@ before mutation. No-proof runs choose the same logical actions. Startup actions 
 replayable and API-selectable; discovery is formula-neutral, bounded and interruptible. Preserve
 original CNF identities across input normalization; no mixed streams, format switching after publication,
 or hidden whole-run proof ledger. Interrupted/failed publication cannot claim UNSAT.
-Acceptance routes by content: PBP takes pinned VeriPB 3.0.2 elaboration then
-CakePB `6edb2f35` against original CNF (baseline pins, 24,576 MiB heap); witnessed
-DSR takes dsr-trim/LSR/Trestle; witness-free DSR takes drat-trim/cake_lpr. All
-stages must verify; fuzz audits every lemma and rejects corrupted certificates.
+The solver declares its UNSAT route; the runner rejects a certificate mismatch. PBP takes pinned VeriPB 3.0.2 then CakePB `6edb2f35` against original CNF (24,576 MiB heap).
+Every native DSR takes no-option `dsr-trim` to LSR, decoding binary LSR as needed. Witness-free LSR takes pinned CakeLPR with original-CNF duplicate/empty-input bridges; witnessed SR takes Trestle.
+Explicit DRAT/LRAT retain their routes. All stages must verify within the checker allowance; fuzz audits every lemma and rejects corrupted certificates.
 
 Every level-zero fact used by a later proof rule belongs to the checker-visible
 proof state. LRAT records it with its reason chain; DSR records an explicit

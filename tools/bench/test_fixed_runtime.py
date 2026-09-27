@@ -100,7 +100,7 @@ class FixedRuntimeTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'identity'):
             f.score_records(self.ref, dsr, 'tactix-drat')
 
-    def test_dsr_score_rejects_witness_free_drat_shortcut(self):
+    def test_dsr_score_requires_dsr_trim_before_either_final_checker(self):
         ref, rows = copy.deepcopy(self.ref), copy.deepcopy(self.records)
         ref['records'][0]['expected'] = rows[0]['expected'] = 'UNSAT'
         rows[0]['arm'] = 'tactix-dsr'
@@ -112,23 +112,25 @@ class FixedRuntimeTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'canonical checker pipeline'):
             f.score_records(ref, rows, 'tactix-dsr', require_canonical_dsr=True)
         rows[0]['proof_check'].update(result='verified',
-            pipeline='witness-free-dsr-as-drat:drat-trim-cake_lpr+dsr-trim-dsr-compress-trestle',
-            stages=[dict(name=name) for name in
-                    ('drat-trim', 'cake_lpr', 'dsr-trim', 'dsr-compress', 'srcheck')])
+            solver_reported_route='dsr-cake_lpr',
+            pipeline='dsr-trim-dsr-compress-cake_lpr',
+            stages=[dict(name=name, result='verified') for name in
+                    ('dsr-trim', 'dsr-compress', 'cake_lpr')])
         self.assertTrue(f.score_records(ref, rows, 'tactix-dsr',
                                         require_canonical_dsr=True)['runtime_target_met'])
 
     def test_automatic_score_requires_each_approved_proof_route(self):
         ref, rows = copy.deepcopy(self.ref), copy.deepcopy(self.records)
-        for index, (pipeline, stages) in enumerate((
-                ('veripb-cake-pb', ('veripb', 'cake-pb-cnf')),
-                ('dsr-trim-dsr-compress-trestle',
+        for index, (pipeline, route, stages) in enumerate((
+                ('veripb-cake-pb', 'pbp', ('veripb', 'cake-pb-cnf')),
+                ('dsr-trim-dsr-compress-trestle', 'dsr-trestle',
                  ('dsr-trim', 'dsr-compress', 'srcheck')),
-                ('witness-free-dsr-as-drat:drat-trim-cake_lpr',
-                 ('drat-trim', 'cake_lpr')))):
+                ('dsr-trim-dsr-compress-cake_lpr', 'dsr-cake_lpr',
+                 ('dsr-trim', 'dsr-compress', 'cake_lpr')))):
             ref['records'][index]['expected'] = rows[index]['expected'] = 'UNSAT'
             rows[index].update(verdict='UNSAT', valid=True, expected_match=True,
                                proof_check=dict(result='verified', pipeline=pipeline,
+                                   solver_reported_route=route,
                                    stages=[dict(name=name, result='verified')
                                            for name in stages]))
             rows[index]['solve']['exit_code'] = 20

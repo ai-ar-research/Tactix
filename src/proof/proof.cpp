@@ -90,6 +90,7 @@ bool Proof::open(const char *path, ProofFormat format) {
     return false;
   file_ = fopen(path, "wb");
   format_ = format;
+  has_sr_witness_ = false;
   if (file_ && format == ProofFormat::Automatic) {
     automatic_output_ = file_;
     file_ = std::tmpfile();
@@ -542,8 +543,9 @@ bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
     temporary(true, true);
     end_line();
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
-    population_add(id, lits, size);
+  population_add(id, lits, size);
 #endif
+    has_sr_witness_ = true;
     return true;
   }
   const Lit emitted_pivot = lits[plan.pivot];
@@ -596,6 +598,8 @@ bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
     }
   }
   end_line();
+  if (plan.form != DsrWitnessForm::Rup)
+    has_sr_witness_ = true;
   if (plan.form == DsrWitnessForm::Lemma)
     put_lemma_deletion();
 #ifdef TACTIX_ENABLE_PROOF_SHADOW

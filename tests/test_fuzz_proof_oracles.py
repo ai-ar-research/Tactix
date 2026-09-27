@@ -12,6 +12,12 @@ sys.path.insert(0, str(ROOT/'tools/fuzz'))
 import fuzz
 
 
+def synthetic_route_hint(proof):
+    from proof_oracle import certificate_route
+    return {'pbp': 'pbp', 'drat': 'dsr-cake_lpr',
+            'dsr': 'dsr-trestle'}[certificate_route(proof)]
+
+
 class FuzzProofOracles(unittest.TestCase):
     def test_pbp_leading_blanks_on_every_executing_surface(self):
         from proof_oracle import check_routed
@@ -41,7 +47,8 @@ class FuzzProofOracles(unittest.TestCase):
                     for anonymous in (False, True):
                         scratch = AnonymousScratch(directory) if anonymous else work
                         try:
-                            checked = check_unsat_proof(campaign, 'auto', cnf, proof, scratch, 60)
+                            checked = check_unsat_proof(campaign, 'auto', cnf, proof,
+                                                        scratch, 60, 'pbp')
                             self.assertEqual(checked['result'] == 'verified', valid, checked)
                         finally:
                             if anonymous: scratch.close()
@@ -111,7 +118,8 @@ class FuzzProofOracles(unittest.TestCase):
             self.assertFalse(result[0], result)
             self.assertEqual(result[1], 'cake_lpr')
             with patch.object(runtime_task, 'restate_duplicate_input_lrat', side_effect=corrupt):
-                result = runtime_task.check_unsat_proof(campaign, 'auto', cnf, proof, work, 10)
+                result = runtime_task.check_unsat_proof(campaign, 'auto', cnf, proof,
+                                                        work, 10, synthetic_route_hint(proof))
             self.assertEqual(result['result'], 'not-verified', result)
             self.assertEqual(result['stages'][-1]['name'], 'cake_lpr')
 
@@ -138,9 +146,11 @@ class FuzzProofOracles(unittest.TestCase):
                         for anonymous in (False, True):
                             scratch = AnonymousScratch(directory) if anonymous else work
                             try:
-                                result = check_unsat_proof(campaign, 'auto', cnf, proof, scratch, 10)
+                                result = check_unsat_proof(campaign, 'auto', cnf, proof,
+                                                           scratch, 10, synthetic_route_hint(proof))
                                 self.assertEqual(result['result'], 'verified', result)
-                                self.assertGreater(result['stages'][0]['input_restatements'], 0)
+                                self.assertGreater(sum(s.get('input_restatements', 0)
+                                                       for s in result['stages']), 0)
                             finally:
                                 if anonymous: scratch.close()
                         self.assertEqual(cnf.read_text(), raw)
@@ -168,9 +178,11 @@ class FuzzProofOracles(unittest.TestCase):
                                            pins/'srcheck', cnf, proof, work, 10,
                                            every_lemma=True)
                         self.assertTrue(result[0], result)
-                        result = tier.check_proof('dsr', str(cnf), str(proof), 10)
+                        result = tier.check_proof('dsr', str(cnf), str(proof), 10,
+                                                  route=synthetic_route_hint(proof))
                         self.assertTrue(result[0], result)
-                        result = check_unsat_proof(campaign, 'auto', cnf, proof, work, 10)
+                        result = check_unsat_proof(campaign, 'auto', cnf, proof, work,
+                                                   10, synthetic_route_hint(proof))
                         self.assertEqual(result['result'], 'verified', result)
                         self.assertEqual(result['stages'][0]['name'], 'dsr-trim')
                         self.assertEqual(Path(result['stages'][0]['command'][1]).name, 'checker.cnf')
@@ -180,9 +192,10 @@ class FuzzProofOracles(unittest.TestCase):
                         self.assertFalse(check_dsr(pins/'dsr-trim', pins/'dsr-compress',
                                                   pins/'srcheck', cnf, proof, work, 10,
                                                   every_lemma=True)[0])
-                        self.assertFalse(tier.check_proof('dsr', str(cnf), str(proof), 10)[0])
+                        self.assertFalse(tier.check_proof('dsr', str(cnf), str(proof), 10,
+                                                          route=synthetic_route_hint(proof))[0])
                         self.assertEqual(check_unsat_proof(campaign, 'auto', cnf, proof,
-                                                          work, 10)['result'], 'not-verified')
+                                                          work, 10, synthetic_route_hint(proof))['result'], 'not-verified')
 
     def test_routed_empty_input_requires_checked_lrat_bridge(self):
         from proof_oracle import check_routed
@@ -208,12 +221,14 @@ class FuzzProofOracles(unittest.TestCase):
                         for anonymous in (False, True):
                             scratch = AnonymousScratch(directory) if anonymous else work
                             try:
-                                result = check_unsat_proof(campaign, 'dsr', cnf, proof, scratch, 30)
+                                result = check_unsat_proof(campaign, 'dsr', cnf, proof,
+                                                           scratch, 30, synthetic_route_hint(proof))
                                 self.assertEqual(result['result'], 'verified', result)
                                 self.assertEqual([s['name'] for s in result['stages']],
-                                                 ['drat-trim', 'cake_lpr'])
+                                                 (['dsr-trim', 'dsr-compress', 'cake_lpr']
+                                                  if payload == b'\x01\x00' else
+                                                  ['dsr-trim', 'cake_lpr']))
                                 self.assertGreater(result['stages'][0]['produced_bytes'], 0)
-                                self.assertTrue(result['stages'][0]['input_empty_lrat_bridge'])
                             finally:
                                 if anonymous: scratch.close()
                         self.assertEqual(cnf.read_text(), raw)
@@ -223,25 +238,26 @@ class FuzzProofOracles(unittest.TestCase):
         import runtime_task
         campaign = ROOT/'benchmarks/runs/20260923-am341-unwatch'
         pins = campaign/'pins'
-        actual_bridge = proof_oracle.bridge_trivial_input_lrat
-        def corrupt_hint(spelling, lrat, code, stdout, stderr=''):
-            changed = actual_bridge(spelling, lrat, code, stdout, stderr)
+        actual_bridge = proof_oracle.bridge_trivial_input_lsr
+        def corrupt_hint(cnf, lsr):
+            changed = actual_bridge(cnf, lsr)
             self.assertTrue(changed)
-            Path(lrat).write_text('4 0 1 0\n')  # clause 1 is nonunit, not the empty clause 2
+            Path(lsr).write_text('4 0 1 0\n')  # clause 1 is nonunit, not the empty clause 2
             return changed
         with tempfile.TemporaryDirectory() as directory:
             work = Path(directory)
             cnf, proof = work/'input.cnf', work/'input.dsr'
             cnf.write_text('p cnf 2 3\n1 2 0\n0\n-1 0\n')
             proof.write_text('0\n')
-            with patch.object(proof_oracle, 'bridge_trivial_input_lrat', side_effect=corrupt_hint):
+            with patch.object(proof_oracle, 'bridge_trivial_input_lsr', side_effect=corrupt_hint):
                 result = proof_oracle.check_routed(
                     pins/'dsr-trim', pins/'dsr-compress', pins/'srcheck', pins/'drat-trim',
                     pins/'cake_lpr', cnf, proof, work, 30)
             self.assertFalse(result[0])
             self.assertEqual(result[1], 'cake_lpr', result)
-            with patch.object(runtime_task, 'bridge_trivial_input_lrat', side_effect=corrupt_hint):
-                result = runtime_task.check_unsat_proof(campaign, 'dsr', cnf, proof, work, 30)
+            with patch.object(runtime_task, 'bridge_trivial_input_lsr', side_effect=corrupt_hint):
+                result = runtime_task.check_unsat_proof(campaign, 'dsr', cnf, proof,
+                                                        work, 30, synthetic_route_hint(proof))
             self.assertEqual(result['result'], 'not-verified', result)
             self.assertEqual(result['stages'][-1]['name'], 'cake_lpr')
             self.assertEqual(result['stages'][-1]['result'], 'rejected')
