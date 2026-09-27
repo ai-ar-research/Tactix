@@ -1,0 +1,5 @@
+# AM509: current-route full Debug regression launched
+
+Pinned full Debug CTest job `1731798` was submitted on `cpu-dense-hwulab-q` after the DSR-trim-first source commit `0a90633874488baeffc5ab4d3630017f6f46e71e`. Its frozen script is `benchmarks/probes/scratch/am509-route-full-debug/full-debug.sbatch`, SHA-256 `16ee72bbc6183f289b8674f275485afbccdc5202226524f7ab173f542d3d6b4b`. The script verifies that solver/test source is unchanged from that commit, checks the Debug Tactix binary SHA-256 `e264a23e57336cae75b98134c9e1fd9988906f7e02ef26f6b4e25dcba7776e05`, `test_proof` SHA-256 `cf2f5cab6a3971c29e990f3d0af2f58b372543549a954047c2f7c17c8fcf0310`, and pinned independent checker hashes. It runs all 188 CTests with four-way parallelism, 4 CPUs, 32 GiB and an 8-hour allocation. No submitted build directory is rebuilt.
+
+At launch, AM507 WV100 had 96/100 valid final records (32 SAT, 64 UNSAT) and four running tasks, including `ncc` rank 90. The pre-route full Debug job `1731003` passed 188/188, but does not replace this current-route run. AM509 is in flight; its SLURM state and CTest log must be consumed before claiming the current-source Debug gate.
