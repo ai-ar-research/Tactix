@@ -601,7 +601,7 @@ extend `C` until the extension is blocked, and then the ORIGINAL `C` is deleted.
   witness has no explicit mapping for the pivot; an explicit pivot mapping overrides that default. For every `D ∈ F ∪ {C}`, either
   `D|σ` is satisfied or unit propagation refutes `F ∧ ¬C ∧ ¬(D|σ)`. The candidate-image obligation is essential when the pivot is explicitly mapped. Discovery, work limits and producers are strategy choices.
 - **Effect:** add `C`, then perform ordinary root propagation; existing clauses and reconstruction state stay unchanged. An
-  already-present/true candidate is a no-op, and a unit may close the root formula.
+  already-present/true candidate or a validated candidate whose root-simplified clause is already present is a format-neutral no-op with no proof line; a unit may close the root formula.
 - **Proof δ / soundness:** `add_sr(C,p,σ)` joins the combined DSR stream; mapping sources are positive variables with signed images.
   The serializer preserves the semantic witness using direct, repivoted, RUP or lemma forms. The general form chooses fresh
   proof-only `z`, adds `E=(¬z∨C)` by vacuous RAT and `K=(z∨C)` by SR with `z=true` and `σ`, derives `C` by RUP, then deletes `K,E`.
