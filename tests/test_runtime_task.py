@@ -66,9 +66,11 @@ class RuntimeTaskTest(unittest.TestCase):
                 calls.append(command)
                 stderr.write_text("")
                 if len(calls) == 1:
-                    stdout.write_text("s " + ("SATISFIABLE" if verdict == "SAT" else "UNSATISFIABLE") + "\n")
+                    stdout.write_text(("c proof-route dsr-trestle\n"
+                                       if verdict == "UNSAT" and certificate == "dsr" else "") +
+                                      "s " + ("SATISFIABLE" if verdict == "SAT" else "UNSATISFIABLE") + "\n")
                     # Binary DSR with a repeated pivot is a witnessed SR line;
-                    # witness-free DSR now deliberately routes through DRAT.
+                    # the solver declares the Trestle route for this proof.
                     Path(command[-1]).write_bytes(
                         bytes([1, 2, 2, 0]) if certificate == "dsr" else b"proof")
                     code = solver_exit
@@ -171,7 +173,7 @@ class RuntimeTaskTest(unittest.TestCase):
                              'output NONE ;\nconclusion UNSAT : -1 ;\n'
                              'end pseudo-Boolean proof ;\n')
             result = runner.check_unsat_proof(campaign, 'auto', cnf, proof,
-                                               scratch, 60)
+                                               scratch, 60, 'pbp')
             self.assertEqual(result['result'], 'verified', result)
             self.assertEqual(result['checker_input']['original_sha256'],
                              runner.sha256(cnf))
@@ -182,7 +184,7 @@ class RuntimeTaskTest(unittest.TestCase):
                              ['verified', 'verified'])
             cnf.write_text('p cnf 1 1\n1 0\n')
             self.assertEqual(runner.check_unsat_proof(
-                campaign, 'auto', cnf, proof, scratch, 60)['result'], 'not-verified')
+                campaign, 'auto', cnf, proof, scratch, 60, 'pbp')['result'], 'not-verified')
         finally:
             scratch.close()
         self.assertFalse(scratch.exists())

@@ -177,18 +177,21 @@ class ProofOracleTests(unittest.TestCase):
                  patch.object(runner, 'DRAT_TRIM', str(pins/'drat-trim')), \
                  patch.object(runner, 'CAKE_LPR', str(pins/'cake_lpr')):
                 proof.write_text(positive_pbp)
-                self.assertEqual(runner.check_proof('dsr', str(cnf), str(proof), 60)[:3],
+                self.assertEqual(runner.check_proof('dsr', str(cnf), str(proof), 60,
+                                                    route='pbp')[:3],
                                  (True, 'VERIFIED', runner.CHK_VERIFIED))
                 with patch.object(runner, 'CAKE_PB_CNF', '/bin/false'):
-                    self.assertFalse(runner.check_proof('dsr', str(cnf), str(proof), 60)[0])
+                    self.assertFalse(runner.check_proof('dsr', str(cnf), str(proof), 60,
+                                                        route='pbp')[0])
                 self.assertEqual(runner.check_proof('dsr', str(cnf), str(proof), 60,
-                                                    allow_pbp=False)[2], runner.CHK_REJECTED)
+                                                    allow_pbp=False, route='pbp')[2], runner.CHK_REJECTED)
                 proof.write_text(positive_pbp.replace('rup >= 1 ;\n', ''))
-                self.assertFalse(runner.check_proof('dsr', str(cnf), str(proof), 60)[0])
+                self.assertFalse(runner.check_proof('dsr', str(cnf), str(proof), 60,
+                                                    route='pbp')[0])
                 proof.write_text(positive_pbp)
                 def fake_solve(argv, timeout):
                     Path(argv[-1]).write_text(positive_pbp)
-                    return 'UNSAT', .01, {}, 's UNSATISFIABLE\n'
+                    return 'UNSAT', .01, {}, 'c proof-route pbp\ns UNSATISFIABLE\n'
                 with patch.object(runner, 'solve_once', side_effect=fake_solve):
                     result = runner.run_instance(['tactix'], 'tiny.cnf', str(cnf),
                                                  'UNSAT', 30, True, str(work))
@@ -196,13 +199,16 @@ class ProofOracleTests(unittest.TestCase):
                 self.assertEqual(result['proof_format'], 'dsr')
                 self.assertEqual(result['proof_route'], 'pbp')
                 proof.write_text('0\n')
-                self.assertEqual(runner.check_proof('dsr', str(cnf), str(proof), 60)[:3],
+                self.assertEqual(runner.check_proof('dsr', str(cnf), str(proof), 60,
+                                                    route='dsr-cake_lpr')[:3],
                                  (True, 'VERIFIED', runner.CHK_VERIFIED))
                 with patch.object(runner, 'CAKE_LPR', '/bin/false'):
-                    self.assertFalse(runner.check_proof('dsr', str(cnf), str(proof), 60)[0])
+                    self.assertFalse(runner.check_proof('dsr', str(cnf), str(proof), 60,
+                                                        route='dsr-cake_lpr')[0])
                 cnf.write_text('p cnf 1 1\n1 0\n')
                 proof.write_text('0\n')
-                self.assertFalse(runner.check_proof('dsr', str(cnf), str(proof), 60)[0])
+                self.assertFalse(runner.check_proof('dsr', str(cnf), str(proof), 60,
+                                                    route='dsr-cake_lpr')[0])
 
     def test_duplicate_restatement_preserves_noop_and_input_paths(self):
         from proof_oracle import canonical_checker_cnf, restate_duplicate_input_lrat
@@ -235,6 +241,14 @@ class ProofOracleTests(unittest.TestCase):
             with self.assertRaises(OSError):
                 oracle.check_routed(None, None, None, None, None,
                                     work/'input.cnf', work/'absent.dsr', work)
+
+    def test_solver_route_comment_is_unique_and_exact(self):
+        from proof_oracle import solver_reported_route_text
+        self.assertEqual(solver_reported_route_text(
+            'c proof-route dsr-cake_lpr\ns UNSATISFIABLE\n'), 'dsr-cake_lpr')
+        self.assertIsNone(solver_reported_route_text('s UNSATISFIABLE\n'))
+        self.assertIsNone(solver_reported_route_text(
+            'c proof-route dsr-cake_lpr\nc proof-route dsr-trestle\n'))
 
     def test_dsr_tabs_and_binary_token_boundaries(self):
         import proof_oracle as oracle

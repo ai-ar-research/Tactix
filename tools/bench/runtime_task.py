@@ -19,12 +19,12 @@ import time
 
 from proof_oracle import (bridge_trivial_input_binary_lsr,
                           bridge_trivial_input_lsr, dsr_compress_status,
-                          proof_check_status, reference_dsr_stages,
-                          certificate_route, drat_stages, pb_stages,
-                          dsr_proof_as_drat, stage_environment,
+                          proof_check_status, routed_dsr_stages,
+                          certificate_route, pb_stages, stage_environment,
                           canonical_checker_cnf, bridge_trivial_input_lrat,
                           drat_command_with_timeout, DSRFormatError,
-                          restate_duplicate_input_lrat)
+                          restate_duplicate_input_lrat,
+                          REPORTED_DSR_ROUTES, solver_reported_route)
 
 
 CAMPAIGN = None
@@ -231,8 +231,7 @@ def validate_runtime_pin_contract(campaign, manifest):
             required.add("pins/drat-trim")
         elif certificate in ("dsr", "auto"):
             required.update({"pins/dsr-trim", "pins/dsr-compress",
-                             "pins/srcheck", "pins/drat-trim",
-                             "pins/cake_lpr"})
+                             "pins/srcheck", "pins/cake_lpr"})
             if certificate == "auto":
                 required.update({"pins/veripb", "pins/cake-pb-cnf"})
         else:
@@ -281,7 +280,8 @@ def proof_stage(scratch, name, command, timeout, produced=None,
     return result
 
 
-def check_unsat_proof(campaign, certificate, cnf, proof, scratch, timeout):
+def check_unsat_proof(campaign, certificate, cnf, proof, scratch, timeout,
+                      reported_route=None):
     """Check one certificate, stopping at the first failed pipeline stage."""
     started = time.monotonic()
     stages = []
@@ -291,15 +291,29 @@ def check_unsat_proof(campaign, certificate, cnf, proof, scratch, timeout):
     def remaining():
         return max(1, timeout - int(time.monotonic() - started))
 
-    def append_canonical_dsr():
-        # One canonical no-option route for witnessed and witness-free DSR.
+    def append_canonical_dsr(witness_free):
+        # Every native DSR takes no-option elaboration before its final checker.
         binary_lsr = scratch / 'proof.binary.lsr'
         text_lsr = scratch / 'proof.lsr'
-        for name, command in reference_dsr_stages(
+        final_checker = (campaign / 'pins/cake_lpr' if witness_free
+                         else campaign / 'pins/srcheck')
+        for name, command in routed_dsr_stages(
                 campaign / 'pins/dsr-trim', campaign / 'pins/dsr-compress',
-                campaign / 'pins/srcheck', cnf, proof, binary_lsr, text_lsr,
-                checker_cnf=checker_cnf):
-            made = command[-1] if name != 'srcheck' else None
+                final_checker, cnf, proof, binary_lsr, text_lsr,
+                checker_cnf=checker_cnf, witness_free=witness_free):
+            if name == 'cake_lpr':
+                try:
+                    checked_lsr, restatements = restate_duplicate_input_lrat(
+                        checker_cnf, spelling, text_lsr,
+                        scratch / 'proof.original-input.lsr')
+                except ValueError as error:
+                    stages.append(dict(name='input-restatement', result='rejected',
+                                       exit_code=None, timed_out=False,
+                                       output_tail=str(error)))
+                    break
+                command = [*command[:-1], checked_lsr]
+                stages[-1]['input_restatements'] = restatements
+            made = command[-1] if name in ('dsr-trim', 'dsr-compress') else None
             stages.append(proof_stage(scratch, name, command, remaining(), made))
             if stages[-1]['result'] != 'verified':
                 break
@@ -307,8 +321,18 @@ def check_unsat_proof(campaign, certificate, cnf, proof, scratch, timeout):
                 (bridge_trivial_input_binary_lsr if made == binary_lsr
                  else bridge_trivial_input_lsr)(cnf, made)
 
+    if certificate in ("dsr", "auto") and reported_route not in REPORTED_DSR_ROUTES:
+        message = 'missing or invalid solver-reported proof route'
+        stage = dict(name='route', result='rejected', exit_code=None,
+                     timed_out=False, output_tail=message)
+        return dict(pipeline='certificate-routing', checker_input=spelling,
+                    result='not-verified', wall_seconds=round(time.monotonic()-started, 3),
+                    exit_code=None, timed_out=False, output_tail=message, stages=[stage])
+    route = REPORTED_DSR_ROUTES.get(reported_route)
     try:
-        route = certificate_route(proof) if certificate in ("dsr", "auto") else None
+        audited_route = certificate_route(proof) if certificate in ("dsr", "auto") else None
+        if route != audited_route:
+            raise DSRFormatError('solver-reported route disagrees with certificate content')
     except DSRFormatError as error:
         stage = dict(name='route', result='rejected', exit_code=None,
                      timed_out=False, output_tail=str(error))
@@ -341,42 +365,16 @@ def check_unsat_proof(campaign, certificate, cnf, proof, scratch, timeout):
             if stages[-1]["result"] != "verified":
                 break
         pipeline = "veripb-cake-pb"
-    elif certificate in ("dsr", "auto") and route == "drat":
-        # A witness-free DSR certificate takes the established DRAT owner's
-        # pipeline after the tag rewrite, including its LRAT negative controls.
-        drat, lrat = scratch / "proof.drat", scratch / "proof.lrat"
-        if not dsr_proof_as_drat(proof, drat):
-            raise RuntimeError("routing saw a witnessed line")
-        checked_lrat = lrat
-        for name, command in drat_stages(
-                campaign / "pins/drat-trim", campaign / "pins/cake_lpr",
-                cnf, drat, lrat, checker_cnf=checker_cnf):
-            if name == 'cake_lpr':
-                command = [*command[:-1], checked_lrat]
-            made = lrat if name == "drat-trim" else None
-            stages.append(proof_stage(scratch, name, command, remaining(),
-                                      made, input_has_empty_clause=
-                                      spelling['first_empty_clause'] is not None,
-                                      trivial_lrat_spelling=spelling))
-            if stages[-1]["result"] != "verified":
-                break
-            if name == 'drat-trim':
-                try:
-                    checked_lrat, restatements = restate_duplicate_input_lrat(
-                        checker_cnf, spelling, lrat, scratch / 'proof.original-input.lrat')
-                    stages[-1]['input_restatements'] = restatements
-                except ValueError as error:
-                    stages.append(dict(name='input-restatement', result='rejected',
-                                       exit_code=None, timed_out=False, output_tail=str(error)))
-                    break
-        pipeline = "witness-free-dsr-as-drat:drat-trim-cake_lpr"
     elif certificate in ("dsr", "auto"):
-        append_canonical_dsr()
-        pipeline = "dsr-trim-dsr-compress-trestle"
+        append_canonical_dsr(route == 'drat')
+        pipeline = ('dsr-trim-dsr-compress-cake_lpr' if route == 'drat'
+                    else 'dsr-trim-dsr-compress-trestle')
     else:
         raise RuntimeError(f"unsupported proof certificate: {certificate}")
     return {
         "pipeline": pipeline,
+        "solver_reported_route": reported_route,
+        "certificate_content_route": audited_route,
         "checker_input": spelling,
         "result": ("verified" if stages and
                    all(stage["result"] == "verified" for stage in stages)
@@ -523,7 +521,8 @@ def main():
             result, dt.datetime.now(dt.timezone.utc).isoformat()))
         if verdict == "UNSAT" and proof.is_file():
             checked = check_unsat_proof(
-                CAMPAIGN, certificate, cnf, proof, scratch, check_timeout)
+                CAMPAIGN, certificate, cnf, proof, scratch, check_timeout,
+                reported_route=solver_reported_route(stdout))
             result["proof_check"] = checked
             result["valid"] = checked["result"] == "verified"
         elif verdict == "SAT":

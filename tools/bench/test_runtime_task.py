@@ -20,12 +20,29 @@ class RuntimeTaskTests(unittest.TestCase):
                 for data in (b'\x01', b'\x01\x80', b'1', b'--1 0\n'):
                     with self.subTest(certificate=certificate, data=data), patch('runtime_task.measured') as run:
                         proof.write_bytes(data)
-                        result = check_unsat_proof(work, certificate, cnf, proof, work, 10)
+                        result = check_unsat_proof(work, certificate, cnf, proof,
+                                                   work, 10, 'dsr-cake_lpr')
                         self.assertEqual(result['result'], 'not-verified')
                         self.assertEqual(result['stages'][0]['name'], 'route')
                         self.assertEqual(result['stages'][0]['result'], 'rejected')
                         self.assertFalse(result['timed_out'])
                         run.assert_not_called()
+
+    def test_declared_dsr_route_must_match_finished_certificate(self):
+        from unittest.mock import patch
+        from runtime_task import check_unsat_proof
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            cnf, proof = work/'input.cnf', work/'proof.dsr'
+            cnf.write_text('p cnf 1 2\n1 0\n-1 0\n')
+            proof.write_bytes(b'\x01\x00')
+            for route in (None, 'dsr-trestle', 'unrecognized'):
+                with self.subTest(route=route), patch('runtime_task.measured') as run:
+                    checked = check_unsat_proof(work, 'dsr', cnf, proof,
+                                                work, 10, route)
+                    self.assertEqual(checked['result'], 'not-verified')
+                    self.assertEqual(checked['stages'][0]['name'], 'route')
+                    run.assert_not_called()
 
     def test_drat_stage_sets_inner_timeout_without_extending_outer_window(self):
         from unittest.mock import patch
@@ -112,7 +129,7 @@ class RuntimeTaskTests(unittest.TestCase):
                             self.assertEqual(checked_verdict_valid(expected, verdict,
                                 dict(exit_code=code, timed_out=timeout), checked), want)
 
-    def test_dsr_pin_contract_requires_the_drat_owner_checkers(self):
+    def test_dsr_pin_contract_requires_both_possible_final_checkers(self):
         import tempfile
         from runtime_task import validate_runtime_pin_contract
         with tempfile.TemporaryDirectory() as d:
@@ -123,7 +140,7 @@ class RuntimeTaskTests(unittest.TestCase):
                         'pin_sha256': {'pins/' + n: 'h' for n in names}}
             with self.assertRaises(RuntimeError):
                 validate_runtime_pin_contract(campaign, manifest)
-            for n in ('drat-trim', 'cake_lpr'):
+            for n in ('cake_lpr',):
                 (campaign/'pins'/n).write_text('x'); manifest['pin_sha256']['pins/' + n] = 'h'
             validate_runtime_pin_contract(campaign, manifest)
 
@@ -151,7 +168,7 @@ class RuntimeTaskTests(unittest.TestCase):
                 return dict(name=name, result='verified', exit_code=0,
                             timed_out=False, output_tail='s VERIFIED UNSAT')
             with patch('runtime_task.proof_stage', side_effect=stage):
-                result = check_unsat_proof(work, 'auto', cnf, proof, work, 10)
+                result = check_unsat_proof(work, 'auto', cnf, proof, work, 10, 'pbp')
             self.assertEqual(result['result'], 'verified')
             self.assertEqual(result['pipeline'], 'veripb-cake-pb')
             self.assertEqual([c[0] for c in calls], ['veripb', 'cake-pb-cnf'])
@@ -160,7 +177,7 @@ class RuntimeTaskTests(unittest.TestCase):
             self.assertEqual(cnf.read_text(), original)
             self.assertEqual((work/'checker.cnf').read_text(), 'p cnf 1 2\n1 0\n-1 0\n')
             with self.assertRaisesRegex(RuntimeError, 'explicit DSR'):
-                check_unsat_proof(work, 'dsr', cnf, proof, work, 10)
+                check_unsat_proof(work, 'dsr', cnf, proof, work, 10, 'pbp')
 
     def test_manifest_timeouts_are_enforced(self):
         manifest = {'resource_contract': {'solve_timeout': 300,
@@ -192,7 +209,8 @@ class RuntimeTaskTests(unittest.TestCase):
                              'output NONE ;\nconclusion UNSAT : -1 ;\n'
                              'end pseudo-Boolean proof ;\n')
             (scratch/'proof.kernel.pbp').write_text('stale kernel must not survive')
-            checked = check_unsat_proof(campaign, 'auto', cnf, proof, scratch, 60)
+            checked = check_unsat_proof(campaign, 'auto', cnf, proof, scratch, 60,
+                                        'pbp')
             self.assertEqual(checked['result'], 'verified', checked)
         finally:
             scratch.close()

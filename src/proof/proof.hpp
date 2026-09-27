@@ -63,6 +63,14 @@ public:
     return format_ == ProofFormat::DsrBinary ||
            format_ == ProofFormat::DsrAscii;
   }
+  // Published proof feature, used only to choose an independent final checker.
+  // The runner also scans the finished certificate and rejects disagreement.
+  const char *verification_route() const {
+    if (pb()) return "pbp";
+    if (dsr()) return has_sr_witness_ ? "dsr-trestle" : "dsr-cake_lpr";
+    if (lrat()) return "lrat";
+    return "drat";
+  }
   bool binary() const {
     return format_ == ProofFormat::DsrBinary ||
            format_ == ProofFormat::DratBinary;
@@ -207,6 +215,7 @@ private:
   FILE *automatic_output_ = nullptr;
   bool automatic_pending_ = false;
   bool input_transaction_ = false;
+  bool has_sr_witness_ = false;
   ProofFormat format_ = ProofFormat::DsrBinary;
   std::array<unsigned char, 1 << 20> binary_buffer_{};
   size_t binary_buffer_size_ = 0;

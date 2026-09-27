@@ -171,7 +171,7 @@ exec python3 {shlex.quote(str(campaign / 'pins/runtime_task.py'))} {shlex.quote(
                  + 'no reference solver rerun.'),
         test_consideration=(a['test_consideration'] +
             ' Current runtime protocol checks routed PBP/DSR certificates, task identity and anonymous cleanup.'),
-        validation=f'Plan §5 routes startup PBP to VeriPB/CakePB, witnessed DSR to no-option dsr-trim/LSR/Trestle, and witness-free DSR to drat-trim/CakeLPR; every stage must verify. Expected solves allow provisional development; all {len(rows)} candidate results, retained reference certificates, the companion B28+C5 gate, memory and Claude fuzz are required for acceptance.',
+        validation=f'Plan §5 routes startup PBP to VeriPB/CakePB and every native DSR through no-option dsr-trim/LSR, then CakeLPR for witness-free output or Trestle for witnessed output; every stage must verify. Expected solves allow provisional development; all {len(rows)} candidate results, retained reference certificates, the companion B28+C5 gate, memory and Claude fuzz are required for acceptance.',
         limitation='Cross-window fixed reference; not isolated unit-cost attribution or promotion.')
     if runtime_target_seconds is not None:
         manifest['acceptance_runtime_seconds'] = runtime_target_seconds
@@ -248,19 +248,29 @@ def score_records(ref, records, arm='tactix', runtime_target_seconds=None,
         if require_canonical_dsr and arm == 'tactix-dsr' and base['expected'] == 'UNSAT' and r.get('valid'):
             check = r.get('proof_check') or {}
             names = [stage.get('name') for stage in check.get('stages', [])]
+            final = {'dsr-cake_lpr': 'cake_lpr', 'dsr-trestle': 'srcheck'}.get(
+                check.get('solver_reported_route'))
             require(check.get('result') == 'verified' and
-                    check.get('pipeline', '').endswith('dsr-trim-dsr-compress-trestle') and
-                    names[-3:] == ['dsr-trim', 'dsr-compress', 'srcheck'],
+                    final is not None and names[:1] == ['dsr-trim'] and
+                    names[-1:] == [final] and
+                    names in (['dsr-trim', final],
+                              ['dsr-trim', 'dsr-compress', final]) and
+                    all(stage.get('result') == 'verified' for stage in check['stages']),
                     'explicit DSR gate requires canonical checker pipeline')
         if require_automatic_routes and arm == 'tactix-auto' and base['expected'] == 'UNSAT' and r.get('valid'):
             check = r.get('proof_check') or {}
             routes = {
                 'veripb-cake-pb': ['veripb', 'cake-pb-cnf'],
                 'dsr-trim-dsr-compress-trestle': ['dsr-trim', 'dsr-compress', 'srcheck'],
-                'witness-free-dsr-as-drat:drat-trim-cake_lpr': ['drat-trim', 'cake_lpr'],
+                'dsr-trim-dsr-compress-cake_lpr': ['dsr-trim', 'dsr-compress', 'cake_lpr'],
             }
             names = [stage.get('name') for stage in check.get('stages', [])]
+            expected_route = {'veripb-cake-pb': 'pbp',
+                              'dsr-trim-dsr-compress-trestle': 'dsr-trestle',
+                              'dsr-trim-dsr-compress-cake_lpr': 'dsr-cake_lpr'}.get(
+                                  check.get('pipeline'))
             require(check.get('result') == 'verified' and
+                    check.get('solver_reported_route') == expected_route and
                     names == routes.get(check.get('pipeline')) and
                     all(stage.get('result') == 'verified' for stage in check['stages']),
                     'automatic proof route differs from plan section 5')
