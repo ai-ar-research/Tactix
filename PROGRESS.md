@@ -165,15 +165,15 @@ AM348 fixed Debug/Release tests pass; job `1716796`: 24 verified certificates / 
 Evidence: `benchmarks/reports/2026-09-24-am348-walk-score-bound-checkpoint.md`; the AM345 LRAT-restatement checkpoint report remains frozen.
 
 Solver/tooling authority: `10cd18c9` (certificate routing) on top of the
-AM333 solver source (`75487222`). The AM333 pin is the last gated binary:
+AM333 solver source (`75487222`). The AM333 pin was the last measured solver-stage candidate at that checkpoint:
 Release `0ec66e12...` (build job `1714363`, retained in AM333 campaign pins),
 checker pins unchanged (`dsr-trim 3b5c7737...`, `dsr-compress a44102ce...`,
 Trestle `19bf79f4...`), plus the frozen baseline's `drat-trim f2cb7d45...` and
-`cake_lpr` for the DRAT route. Its gates
+`cake_lpr` for the DRAT route. Its solver-stage arrays
 (`benchmarks/runs/20260921-am333-lymphosat-models-*`, jobs `1714420`--`1714423`)
 against AM331: Rank 1--50 50/50 (+0.1%), B28+C5 33/33 (-0.4%), WV100 100/100
 (+1.8%), zero conflict-count changes; WV2-89 83 solved, 78 within 600 s, no lost
-row. Fuzz matrix `...-am333-lymphosat-models-claude-fuzz` (`1714364`--`1714381`):
+row. Rank and WV100 have only 49/50 and 96/100 final checked records: one/four UNSAT certificate checks were canceled after solving (`benchmarks/runs/20260921-am333-lymphosat-models-wv100/NOTE-cancelled-checks.txt`), so that exact pin was not a complete independent-proof gate. Fuzz matrix `...-am333-lymphosat-models-claude-fuzz` (`1714364`--`1714381`):
 0 failures, failure-seeds PASS, controls OK. Storage guard 700 GiB. Evidence:
 `benchmarks/reports/2026-09-21-am333-lymphosat-model-constructors.md`; the
 narrative this replaces is archived verbatim in
