@@ -2,7 +2,7 @@
 
 ## Active ordered goal
 
-Fix pending fuzz bugs, audit winner/CaDiCaL/Kissat rules and N1--N4, prepare online learning, and report to Andrew. Phase 1 requires independently checked Rank 1--50 at 50/50 below 8,115.735 solver seconds and B28+C5 at 33/33 below 952.263 solver seconds,
+Fix pending fuzz bugs, audit winner/CaDiCaL/Kissat rules and N1--N4, prepare online learning, and report to Andrew. Phase 1 requires independently checked Rank 1--50 at 50/50 and B28+C5 at 33/33; the user accepted 5% aggregate leeway over the original 8,115.735/952.263-second targets (ceilings 8,521.52175/999.87615),
 with every case within 1,200 seconds and 32 GiB.
 The general Rank 1/6 preprocessing repair must remain effective. Phase 2 requires independently checked WV100 100/100 under the same per-case limits while preserving Phase 1.
 Phase 3 (user, 2026-09-20): solve each of the 89 fixed

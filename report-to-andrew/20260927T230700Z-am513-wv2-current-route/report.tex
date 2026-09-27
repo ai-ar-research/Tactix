@@ -1,0 +1,72 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{xurl}
+\setlength{\emergencystretch}{2em}
+\title{Tactix: WV2--89 current-route launch and gate status}
+\author{Codex for Andrew}
+\date{27 September 2026, 23:07 UTC}
+\begin{document}
+\maketitle
+
+\paragraph{Outcome.}
+The user directed us to proceed assuming the remaining WV100 proof check will
+pass. This authorizes the next gate but does not certify that proof. We
+submitted the frozen current-source WV2--89 array \texttt{1731864\_0-88} on
+\texttt{cpu-dense-hwulab-q}. At 23:07 UTC, 74/89 final rows were valid: 48
+original-CNF SAT models and 26 complete independent UNSAT proof routes. No
+wrong verdict, bad certificate, or cleanup failure was observed in these final
+rows. The other 15 rows are in progress. The accepted WV2--89 gate remains
+89/89 within 600 solver seconds and 32 GiB per row.
+
+\paragraph{Frozen route and reporting correction.}
+The array uses solver source \texttt{0a906338} and Release binary SHA-256
+\texttt{cab44387ea47f3ed5d74cbf1a9bb702f321cf9164a3df791ef4b07d760c08656}.
+Each task has 12 CPUs, 32 GiB, 600 seconds for solving, and 57,600 seconds for
+independent checking. There is no throttle, node constraint, or checker
+override. Native DSR first passes no-option \texttt{dsr-trim}; the solver's
+declared route chooses CakeLPR or Trestle. SAT models are checked against the
+original CNF. Manifest, matrix, all 89 inputs, solver, runner, and checkers are
+hashed. The dependent scorer runs only after the full array is terminal.
+
+The frozen WV2 scorer validates all 89 records but mistakenly prints
+\texttt{checked\_clean: 100}. The first pending scorer \texttt{1731931} was
+canceled before execution. Its replacement \texttt{1731971} runs that unchanged
+pinned scorer, asserts the required 57 SAT plus 32 UNSAT checks and the known
+display typo, then publishes \texttt{checked\_clean: 89} while retaining the
+raw value and explicit correction in its JSON. This fixes only the reported
+count; no gate, checker contract, solver, or frozen manifest changed.
+
+\paragraph{Other validation.}
+The WV100 array \texttt{1731686\_0-99} has 99/100 valid final rows: all 33 SAT
+models and 66 UNSAT proofs are independently checked. The remaining
+\texttt{ncc\_none\_21015} proof checker is running on a current-source proof
+whose SHA differs from the archived slow certificate. Dependent scorer
+\texttt{1731826} awaits it. Current-route full Debug job \texttt{1731798}
+has 187/188 passing tests; the long scripted-default demonstration is still
+running. The earlier pre-route Debug suite passed 188/188 but is not a
+substitute. The repaired-source Phase 1 Rank 50/50 and B28+C5 33/33 are
+independently checked at 7,553.134 and 905.892 solver seconds. These totals
+meet even their original targets; the user accepted 5\% aggregate leeway.
+
+\paragraph{Open decisions and next work.}
+The user parked the full Debug/fuzz/public-D2F acceptance item pending
+questions. A proposed replacement for the old per-tier performance and N4
+ledger criterion awaits a precise overall-performance threshold. Neither is
+silently counted as passed. The next action is to consume terminal WV2,
+WV100, scorer and Debug records, diagnose any 600-second or checker failure
+as a general rule/strategy issue, and rerun only affected gates on a new
+immutable pin. The public D2F boundary and complete N1--N4 verification
+remain open. The online-learning readiness review is due after the agreed
+gates; production learning has unresolved inprocessing slot ownership and
+switchable branching/deletion handles. No full 1,166-instance Tier D campaign
+has been submitted.
+
+\paragraph{Primary evidence.}
+\url{benchmarks/reports/2026-09-27-am506-dsr-trim-first-gate.md};
+\url{benchmarks/reports/2026-09-27-am510-exit-gate-user-direction.md};
+\url{benchmarks/reports/2026-09-27-am511-current-route-wv2-89-prepared.md};
+\url{benchmarks/reports/2026-09-27-am513-wv2-current-route-launched.md};
+\url{benchmarks/reports/2026-09-27-am512-wv100-dependent-score.md};
+\url{benchmarks/reports/2026-09-25-am391-learning-readiness-current-source.md}.
+\end{document}
