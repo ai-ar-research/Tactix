@@ -208,63 +208,6 @@ bool default_should_run_fast_elimination_after_structured(
 }
 
 namespace {
-uint32_t binary_scale(uint64_t active) {
-  if (!active)
-    return 0;
-  uint32_t result = 0;
-  for (uint64_t bound = 1; bound < active;) {
-    ++result;
-    if (bound > UINT64_MAX / 2)
-      break;
-    bound <<= 1;
-  }
-  return std::max(result, uint32_t{1});
-}
-} // namespace
-
-bool default_fast_elimination_material_progress(uint64_t eliminated,
-                                                uint64_t active) {
-  if (!eliminated || !active)
-    return false;
-  const uint64_t scale = binary_scale(active);
-  return eliminated >= active / scale + !!(active % scale);
-}
-
-bool default_fast_elimination_admits_mab_at_entry(uint64_t eliminated,
-                                                  uint64_t residual_active,
-                                                  bool producer_complete) {
-  // A material minority reduction changes the residual enough to admit the
-  // owner's two-arm search immediately.  If elimination removed at least half
-  // of the entry domain, preserve a baseline opportunity on the compact
-  // residual instead.  Both boundaries derive from producer outcomes.
-  return producer_complete && eliminated < residual_active &&
-         default_fast_elimination_material_progress(eliminated,
-                                                    residual_active);
-}
-
-uint64_t default_mab_stagnation_conflict_budget(uint64_t active,
-                                                bool accelerated) {
-  if (!active)
-    return 0;
-  if (accelerated)
-    return 0;
-  const uint64_t scale = binary_scale(active);
-  return active > UINT64_MAX / scale
-             ? UINT64_MAX
-             : active * scale;
-}
-
-bool default_mab_stagnation_reached(uint64_t conflicts,
-                                    uint64_t activation_conflict) {
-  return conflicts >= activation_conflict;
-}
-
-bool default_should_schedule_delayed_mab(bool enabled, bool delayed,
-                                         uint64_t sr_applications) {
-  return enabled && delayed && !sr_applications;
-}
-
-namespace {
 // Unit conversions and protocol values, not strategy parameters.
 constexpr uint64_t PERMILLE_SCALE = 1000;
 
@@ -470,15 +413,6 @@ bool DefaultStrategyConfig::valid(std::string *error) const {
       return reject("branching phase pattern contains an invalid phase");
   if (!positive_finite(branching.logarithm_offset))
     return reject("branching logarithm offset must be positive and finite");
-  if (!positive_finite(branching.mab_exploration) ||
-      !positive_finite(branching.chb_step) ||
-      !std::isfinite(branching.chb_step_min) ||
-      branching.chb_step_min < 0.0 ||
-      !std::isfinite(branching.chb_step_decay) ||
-      branching.chb_step_decay < 0.0 ||
-      branching.chb_step > 1.0 ||
-      branching.chb_step_min > branching.chb_step)
-    return reject("branching MAB/CHB parameters are invalid");
   if (!std::isfinite(analysis.bump_reason_rate) ||
       analysis.bump_reason_rate < 0.0)
     return reject("analysis reason-bump rate must be finite and nonnegative");
@@ -723,14 +657,7 @@ std::string DefaultStrategyConfig::serialize() const {
       << " branching.logarithm_offset=" << branching.logarithm_offset
       << " branching.focused_phase_switch_span="
       << branching.focused_phase_switch_span
-      << " branching.random_sequences=" << branching.random_sequences
-      << " branching.mab=" << branching.mab
-      << " branching.mab_after_search_stagnation="
-      << branching.mab_after_search_stagnation
-      << " branching.mab_exploration=" << branching.mab_exploration
-      << " branching.chb_step=" << branching.chb_step
-      << " branching.chb_step_min=" << branching.chb_step_min
-      << " branching.chb_step_decay=" << branching.chb_step_decay;
+      << " branching.random_sequences=" << branching.random_sequences;
   for (size_t i = 0; i < branching.focused_phase_pattern.size(); ++i)
     out << " branching.focused_phase" << i << '='
         << static_cast<int>(branching.focused_phase_pattern[i]);
@@ -1986,11 +1913,6 @@ uint32_t lit_occurrences(const Kernel &k, Lit l, bool binary_only) {
 }
 
 double transitive_activity(const Kernel &k, Var v) {
-  // AE-kissat-MAB routes transitive.c through kissat_get_scores: when CHB is
-  // the selected stable arm, its ordering is part of that arm too.  Other
-  // Kissat inprocessors retain their original EVSIDS coupling.
-  if (k.h->mab_enabled && k.h->stable_heuristic == 1)
-    return k.h->chb_scores.score[v];
   return k.h->scores.score[v];
 }
 
@@ -2811,7 +2733,6 @@ Lit DefaultBranching::pick_impl(Kernel &k, bool restart_reuse) {
     }
   }
   const Var v = heuristics_next_active_decision_var(k);
-  heuristics_mab_note_decision(k);
   return decide_lit(k, v);
 }
 
@@ -2918,10 +2839,6 @@ void DefaultPolicy::configure_from_env(const Kernel &) {
         strategy::AnalyzeParameters::EAGER_SUBSUME_CAPACITY);
   if (const char *rd = std::getenv("TACTIX_RANDEC"))
     config_.branching.random_sequences = *rd != '0';
-  if (const char *value = std::getenv("TACTIX_MAB")) {
-    config_.branching.mab = *value != '0';
-    config_.branching.mab_after_search_stagnation = false;
-  }
   if (const char *wp = std::getenv("TACTIX_WALK_PERMILLE"))
     config_.rephase.walk_permille = std::strtoull(wp, nullptr, 10);
   if (const char *bc = std::getenv("TACTIX_BVE_RAMP_MAX"))
@@ -3391,18 +3308,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       k,
       [](Kernel &kernel, void *state) {
         DefaultPolicy *policy = static_cast<DefaultPolicy *>(state);
-        if (policy->strategy_config().branching.mab)
-          heuristics_mab_note_conflict(kernel);
         policy->update_tiers_after_analysis(kernel);
       },
-      this);
-  KernelAnalysisLearnedPublisher analysis_learned_published(
-      k,
-      config_.branching.mab
-          ? +[](Kernel &kernel, void *) {
-              heuristics_chb_mark_analyzed(kernel);
-            }
-          : nullptr,
       this);
   // Kissat creation order is production state.  CaDiCaL's VMTF/phase arena
   // permutation remains available only through the explicit typed/environment
@@ -3858,13 +3765,6 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   }
   if (!k.h)
     owned_h.emplace(k);
-  // Defer the optional second ranking until startup feedback decides whether
-  // this residual search state should leave the baseline EVSIDS trajectory.
-  heuristics_configure_mab(k, false,
-                           config_.branching.mab_exploration,
-                           config_.branching.chb_step,
-                           config_.branching.chb_step_min,
-                           config_.branching.chb_step_decay);
   if (!residual_import_order.empty())
     heuristics_seed_residual_import_order(k, residual_import_order);
   event_trace.macro(k, "preprocess_begin");
@@ -3928,38 +3828,6 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   startup = default_propagate(k, "post-preprocess");
   if (startup != ApplyResult::Ok)
     return finish(20);
-  bool mab_activation_pending = false;
-  uint64_t mab_activation_conflict = UINT64_MAX;
-  if (config_.branching.mab) {
-    if (!config_.branching.mab_after_search_stagnation) {
-      heuristics_configure_mab(k, true,
-                               config_.branching.mab_exploration,
-                               config_.branching.chb_step,
-                               config_.branching.chb_step_min,
-                               config_.branching.chb_step_decay);
-      ++k.stats.mab_activations;
-    } else if (default_should_schedule_delayed_mab(
-                   config_.branching.mab,
-                   config_.branching.mab_after_search_stagnation,
-                   k.stats.sr_applications)) {
-      const bool accelerated =
-          default_fast_elimination_admits_mab_at_entry(
-              k.stats.fastel_eliminated, active_variables(k),
-              !k.stats.fastel_budget_stops);
-      const uint64_t budget = default_mab_stagnation_conflict_budget(
-          active_variables(k), accelerated);
-      k.stats.mab_activation_fastel_accelerated += accelerated;
-      k.stats.mab_activation_limit = budget;
-      mab_activation_conflict =
-          budget > UINT64_MAX - k.stats.conflicts
-              ? UINT64_MAX
-              : k.stats.conflicts + budget;
-      mab_activation_pending = true;
-      ++k.stats.mab_activation_delayed;
-    } else {
-      ++k.stats.mab_activation_sr_suppressed;
-    }
-  }
   if (lucky_late_ && lucky_guard(k)) {
     event_trace.macro(k, "lucky_late_begin");
     k.stats.lucky_late_calls++;
@@ -4027,17 +3895,6 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   mode.ticks_at_focus_entry = search_ticks(k);
 
   for (;;) {
-    if (mab_activation_pending && default_mab_stagnation_reached(
-                                      k.stats.conflicts,
-                                      mab_activation_conflict)) {
-      heuristics_configure_mab(k, true,
-                               config_.branching.mab_exploration,
-                               config_.branching.chb_step,
-                               config_.branching.chb_step_min,
-                               config_.branching.chb_step_decay);
-      mab_activation_pending = false;
-      ++k.stats.mab_activations;
-    }
     event_trace.checkpoint(k);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
     if (k.propagate_head < k.trail.size()) {
@@ -4050,16 +3907,12 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
 #endif
     const size_t trace_trail_begin = k.trail.size();
     const ApplyResult r = default_propagate(k, "search");
-    if (config_.branching.mab)
-      heuristics_chb_update_after_propagation(k, r == ApplyResult::Conflict);
     event_trace.implications(k, trace_trail_begin);
     if (r == ApplyResult::Unsat)
       return finish(20);
     if (r == ApplyResult::Conflict) {
       BranchingPolicy &bp = branching ? *branching : default_branching_;
       bp.on_search_propagation_conflict();
-      if (config_.branching.mab)
-        heuristics_mab_note_conflict(k);
       event_trace.conflict(k);
       event_trace.detail(k, "analysis_begin", k.level);
       event_trace.mode_clock(k, "pre_analyze", mode.ticks_limit,
@@ -4238,29 +4091,15 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       // post-restart decision.  Route through the active branching subpolicy,
       // then hand only its variable to the policy-neutral Restart rule.
       BranchingPolicy &bp = branching ? *branching : default_branching_;
-      const uint8_t old_heuristic = k.h->stable_heuristic;
-      const bool changed_heuristic =
-          config_.branching.mab && heuristics_mab_restart(k);
-      const uint8_t new_heuristic = k.h->stable_heuristic;
-      uint32_t keep = 0;
-      if (!changed_heuristic) {
-        const Lit next = bp.pick_for_restart_reuse(k);
-        keep = heuristics_restart_reuse_level_for(k, var_of(next));
-      } else {
-        // AE-kissat backtracks with the old ranking active, then repairs the
-        // newly selected heap before its next decision.
-        k.h->stable_heuristic = old_heuristic;
-      }
+      const Lit next = bp.pick_for_restart_reuse(k);
+      const uint32_t keep =
+          heuristics_restart_reuse_level_for(k, var_of(next));
       if (keep < k.level)
         heuristics_update_target_phases(k);
       (void)default_direct_rule_lazy(
           k, "Restart",
           [&] { return "keep-level=" + std::to_string(keep); },
           [&] { return restart_apply_to(k, keep); });
-      if (changed_heuristic) {
-        k.h->stable_heuristic = new_heuristic;
-        heuristics_mab_update_selected_scores(k);
-      }
       reluctant.trigger = false; // consumed (kissat reluctant.h)
       if (!k.h->stable) // kissat restart.c: focused-only limit update
         update_restart_limit(k);

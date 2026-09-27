@@ -19,8 +19,9 @@ Tactix will absorb general mechanisms that explain these wins. It will not run
 external solvers as stages, sequence internal solver personalities as a
 portfolio, or select behavior from a benchmark name, path, hash, family label
 or position in WV100. Formula structure may select a sound rule instance in the
-same way that any ordinary rule guard does. MAB scheduling remains an open
-design choice until the seven AE rows are attributed.
+same way that any ordinary rule guard does. The AE MAB scheduler was evaluated
+and removed from Tactix at the user's direction; the seven AE rows remain
+mechanism-attribution targets without a bandit integration requirement.
 
 ## Experimental loop
 
@@ -241,9 +242,8 @@ For the two SC24 rows, isolate the causal preprocessing, search or scheduling
 delta from the official source against the retained Tactix/Kissat lineage. For
 the seven AE rows, distinguish MAB arm selection from the underlying VSIDS/CHB
 mechanisms and all other source changes. Integrate any general causal mechanism
-through the typed strategy interface. Decide whether MAB itself belongs in
-Tactix only after an ablation shows that arm selection, rather than another
-delta, owns useful coverage.
+through the typed strategy interface. The evaluated MAB arm-selection path was
+removed at the user's direction; retain the frozen owner as a comparator.
 
 ### S4: convergence and default promotion
 

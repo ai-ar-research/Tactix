@@ -6,7 +6,6 @@
 
 #include <algorithm> // std::max (rescale_scores)
 #include <cassert>
-#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <limits>
@@ -108,11 +107,6 @@ void heuristics_reserve_vars(Kernel &k, uint32_t old, uint32_t nvars) {
   k.h->links.resize(nvars);
   k.h->scores.pos.resize(nvars, UINT32_MAX);
   k.h->scores.score.resize(nvars, 0.0);
-  if (k.h->mab_enabled) {
-    k.h->chb_scores.pos.resize(nvars, UINT32_MAX);
-    k.h->chb_scores.score.resize(nvars, 0.0);
-    k.h->chb_conflicted.resize(nvars, 0);
-  }
   k.h->target.resize(nvars, 0);
   k.h->best.resize(nvars, 0);
   // enqueue new vars into the VMTF queue (most recent = preferred)
@@ -134,7 +128,7 @@ void heuristics_reserve_vars(Kernel &k, uint32_t old, uint32_t nvars) {
     // created during stable must join here or the heap can drain while
     // unassigned vars remain.
     if (k.h->stable)
-      heuristics_activate_stable_var(k, v);
+      heuristics_heap_push(k, v);
   }
   heuristics_reset_queue_search(k);
   k.h->nvars = nvars; // heuristics_check asserts this tracks Kernel::nvars
@@ -163,10 +157,6 @@ void heuristics_compact_vars(Kernel &k, const std::vector<Var> &old_to_new,
   compact_values(h.target, int8_t{0});
   compact_values(h.best, int8_t{0});
   compact_values(h.scores.score, 0.0);
-  if (h.mab_enabled) {
-    compact_values(h.chb_scores.score, 0.0);
-    compact_values(h.chb_conflicted, uint64_t{0});
-  }
 
   std::vector<Var> compact_import_order;
   compact_import_order.reserve(k.compact_import_order.size());
@@ -232,22 +222,6 @@ void heuristics_compact_vars(Kernel &k, const std::vector<Var> &old_to_new,
     h.scores.pos.shrink_to_fit();
   for (uint32_t i = 0; i < h.scores.stack.size(); i++)
     h.scores.pos[h.scores.stack[i]] = i;
-
-  if (h.mab_enabled) {
-    std::vector<Var> chb_heap;
-    chb_heap.reserve(h.chb_scores.stack.size());
-    for (const Var old : h.chb_scores.stack) {
-      const Var now = old_to_new[old];
-      if (now != INVALID_VAR)
-        chb_heap.push_back(now);
-    }
-    h.chb_scores.stack.swap(chb_heap);
-    h.chb_scores.pos.assign(new_nvars, INVALID_VAR);
-    if (k.fixed_external_count)
-      h.chb_scores.pos.shrink_to_fit();
-    for (uint32_t i = 0; i < h.chb_scores.stack.size(); i++)
-      h.chb_scores.pos[h.chb_scores.stack[i]] = i;
-  }
 
   h.nvars = new_nvars;
   // Kissat compact.c:compact_best_and_target_values recomputes both
@@ -517,11 +491,7 @@ uint32_t heuristics_decide_candidates(const Kernel &k, Lit *out,
         scratch.push_back(v);
     std::stable_sort(scratch.begin(), scratch.end(),
                      [&](Var a, Var b) {
-                       const auto &scores =
-                           k.h->mab_enabled && k.h->stable_heuristic == 1
-                               ? k.h->chb_scores.score
-                               : k.h->scores.score;
-                       return scores[a] > scores[b];
+                       return k.h->scores.score[a] > k.h->scores.score[b];
                      });
     for (const Var v : scratch) {
       if (n >= cap)
@@ -542,13 +512,10 @@ uint32_t heuristics_restart_reuse_level_for(Kernel &k, Var next) {
   assert(k.values[make_lit(next, false)] == 0);
   uint32_t level = 0;
   if (k.h->stable) {
-    const auto &scores = k.h->mab_enabled && k.h->stable_heuristic == 1
-                             ? k.h->chb_scores.score
-                             : k.h->scores.score;
-    const double limit = scores[next];
+    const double limit = k.h->scores.score[next];
     while (level < k.level) {
       const Lit decision = k.trail[k.frames[level + 1]];
-      if (scores[var_of(decision)] <= limit)
+      if (k.h->scores.score[var_of(decision)] <= limit)
         break;
       level++;
     }
@@ -652,7 +619,6 @@ void heuristics_demote_fresh_vars(Kernel &k, Var first, Var end) {
 }
 
 static void heap_remove(Kernel &k, Var v); // defined with the heap, below
-static void chb_heap_remove(Kernel &k, Var v);
 
 void heuristics_deactivate_var(Kernel &k, Var v) {
   if (!k.h || v >= k.h->nvars)
@@ -664,7 +630,6 @@ void heuristics_deactivate_var(Kernel &k, Var v) {
   if (!heuristics_queue_contains(k, v)) {
     k.stats.deactivation_repeats++;
     heap_remove(k, v);
-    chb_heap_remove(k, v);
     if (k.h->search_idx == v)
       heuristics_reset_queue_search(k);
     return;
@@ -672,7 +637,6 @@ void heuristics_deactivate_var(Kernel &k, Var v) {
   k.stats.deactivations++;
   queue_dequeue(k, v);            // out of the VMTF queue
   heap_remove(k, v);              // out of the EVSIDS heap, if present
-  chb_heap_remove(k, v);          // out of the CHB heap, if present
   // The queue search hint may have pointed AT v; re-seat it on the queue tail
   // so the next decision starts from a live link (kissat resets the same way).
   if (k.h->search_idx == v)
@@ -832,10 +796,10 @@ void heuristics_reset_queue_search(Kernel &k) {
 static constexpr double MAX_SCORE = 1e150;
 static constexpr double SCORE_DECAY = 0.05; // kissat decay=50 per mille
 
-static void heap_bubble_up(Heuristics::ScoreHeap &heap, Var v) {
-  uint32_t *stack = heap.stack.data();
-  uint32_t *pos = heap.pos.data();
-  const double *score = heap.score.data();
+static void heap_bubble_up(Kernel &k, Var v) {
+  uint32_t *stack = k.h->scores.stack.data();
+  uint32_t *pos = k.h->scores.pos.data();
+  const double *score = k.h->scores.score.data();
   uint32_t vpos = pos[v];
   const double vscore = score[v];
   while (vpos > 0) {
@@ -851,12 +815,11 @@ static void heap_bubble_up(Heuristics::ScoreHeap &heap, Var v) {
   pos[v] = vpos;
 }
 
-static void heap_bubble_down(Kernel &k, Heuristics::ScoreHeap &heap, Var v,
-                             bool trace) {
-  uint32_t *stack = heap.stack.data();
-  uint32_t *pos = heap.pos.data();
-  const double *score = heap.score.data();
-  const uint32_t end = static_cast<uint32_t>(heap.stack.size());
+static void heap_bubble_down(Kernel &k, Var v) {
+  uint32_t *stack = k.h->scores.stack.data();
+  uint32_t *pos = k.h->scores.pos.data();
+  const double *score = k.h->scores.score.data();
+  const uint32_t end = static_cast<uint32_t>(k.h->scores.stack.size());
   uint32_t vpos = pos[v];
   const double vscore = score[v];
   for (;;) {
@@ -876,8 +839,7 @@ static void heap_bubble_down(Kernel &k, Heuristics::ScoreHeap &heap, Var v,
     }
     if (child_score <= vscore)
       break;
-    if (trace)
-      event_trace_heap_pop(k, "move", v, child, child_pos, vpos);
+    event_trace_heap_pop(k, "move", v, child, child_pos, vpos);
     stack[vpos] = child;
     pos[child] = vpos;
     vpos = child_pos;
@@ -891,16 +853,8 @@ void heuristics_heap_push(Kernel &k, Var v) {
   const uint32_t from = static_cast<uint32_t>(k.h->scores.stack.size());
   k.h->scores.pos[v] = from;
   k.h->scores.stack.push_back(v);
-  heap_bubble_up(k.h->scores, v);
+  heap_bubble_up(k, v);
   event_trace_heap_insert(k, v, from, k.h->scores.pos[v]);
-}
-
-static void chb_heap_push(Kernel &k, Var v) {
-  Heuristics::ScoreHeap &heap = k.h->chb_scores;
-  assert(heap.pos[v] == UINT32_MAX);
-  heap.pos[v] = static_cast<uint32_t>(heap.stack.size());
-  heap.stack.push_back(v);
-  heap_bubble_up(heap, v);
 }
 
 // Remove an arbitrary element (kissat inlineheap.h kissat_pop_heap): swap the
@@ -923,26 +877,10 @@ static void heap_remove(Kernel &k, Var v) {
   k.h->scores.pos[last] = vpos;
   // `last` may belong either above or below vpos — try both, each is a no-op
   // when the invariant already holds.
-  heap_bubble_up(k.h->scores, last);
-  heap_bubble_down(k, k.h->scores, last, true);
+  heap_bubble_up(k, last);
+  heap_bubble_down(k, last);
   event_trace_heap_remove(k, v, last, vpos, last_pos,
                           k.h->scores.pos[last]);
-}
-
-static void chb_heap_remove(Kernel &k, Var v) {
-  Heuristics::ScoreHeap &heap = k.h->chb_scores;
-  if (v >= heap.pos.size() || heap.pos[v] == UINT32_MAX)
-    return;
-  const uint32_t vpos = heap.pos[v];
-  const Var last = heap.stack.back();
-  heap.stack.pop_back();
-  heap.pos[v] = UINT32_MAX;
-  if (last == v)
-    return;
-  heap.stack[vpos] = last;
-  heap.pos[last] = vpos;
-  heap_bubble_up(heap, last);
-  heap_bubble_down(k, heap, last, false);
 }
 
 static void heap_pop_max(Kernel &k) {
@@ -957,23 +895,9 @@ static void heap_pop_max(Kernel &k) {
   if (last != max) {
     k.h->scores.pos[last] = 0;
     k.h->scores.stack[0] = last;
-    heap_bubble_down(k, k.h->scores, last, true);
+    heap_bubble_down(k, last);
     event_trace_heap_pop(k, "end", last, last, k.h->scores.pos[last],
                          k.h->scores.pos[last]);
-  }
-}
-
-static void chb_heap_pop_max(Kernel &k) {
-  Heuristics::ScoreHeap &heap = k.h->chb_scores;
-  assert(!heap.stack.empty());
-  const Var max = heap.stack[0];
-  const Var last = heap.stack.back();
-  heap.stack.pop_back();
-  heap.pos[max] = UINT32_MAX;
-  if (last != max) {
-    heap.pos[last] = 0;
-    heap.stack[0] = last;
-    heap_bubble_down(k, heap, last, false);
   }
 }
 
@@ -999,7 +923,7 @@ void heuristics_score_bump(Kernel &k, Var v) {
   const double new_score = k.h->scores.score[v] + k.h->scinc;
   k.h->scores.score[v] = new_score;
   if (heuristics_heap_contains(k, v))
-    heap_bubble_up(k.h->scores, v);
+    heap_bubble_up(k, v);
   if (new_score > MAX_SCORE)
     rescale_scores(k);
 }
@@ -1011,9 +935,9 @@ void heuristics_score_set(Kernel &k, Var v, double score) {
   k.h->scores.score[v] = score;
   if (heuristics_heap_contains(k, v)) {
     if (score > old)
-      heap_bubble_up(k.h->scores, v);
+      heap_bubble_up(k, v);
     else
-      heap_bubble_down(k, k.h->scores, v, true);
+      heap_bubble_down(k, v);
   }
   if (score > MAX_SCORE)
     rescale_scores(k);
@@ -1041,206 +965,14 @@ void heuristics_update_scores(Kernel &k) {
   // ranks emulate the same current internal-index order here.
   std::vector<Var> import_order;
   kernel_vars_in_import_order(k, import_order);
-  for (const Var v : import_order) {
-    if (!heuristics_queue_contains(k, v) ||
-        (k.assigned[v].level == 0 && k.values[make_lit(v, false)] != 0))
-      continue;
-    if (k.h->mab_enabled && k.h->stable_heuristic == 1) {
-      if (!heuristics_chb_heap_contains(k, v))
-        chb_heap_push(k, v);
-    } else if (!heuristics_heap_contains(k, v)) {
+  for (const Var v : import_order)
+    if (heuristics_queue_contains(k, v) && !heuristics_heap_contains(k, v) &&
+        (k.assigned[v].level != 0 ||
+         k.values[make_lit(v, false)] == 0))
       heuristics_heap_push(k, v);
-    }
-  }
-}
-
-void heuristics_configure_mab(Kernel &k, bool enabled, double exploration,
-                              double step, double step_min,
-                              double step_decay) {
-  assert(k.h);
-  Heuristics &h = *k.h;
-  h.mab_enabled = enabled;
-  h.mab_exploration = exploration;
-  h.chb_step = step;
-  h.chb_step_min = step_min;
-  h.chb_step_decay = step_decay;
-  h.stable_heuristic = 0;
-  h.mab_reward[0] = h.mab_reward[1] = 0.0;
-  h.mab_select[0] = 1;
-  h.mab_select[1] = 0;
-  h.mab_decisions = 0.0;
-  h.mab_conflicts = 0;
-  std::fill(std::begin(h.mab_recent_gains), std::end(h.mab_recent_gains), 0.0);
-  h.mab_gain_index = 0;
-  h.mab_momentum = 1.0;
-  if (!enabled) {
-    h.chb_scores.stack.clear();
-    h.chb_scores.pos.clear();
-    h.chb_scores.score.clear();
-    h.chb_conflicted.clear();
-    return;
-  }
-  h.chb_scores.stack.clear();
-  h.chb_scores.pos.assign(h.nvars, UINT32_MAX);
-  h.chb_scores.score.assign(h.nvars, 0.0);
-  h.chb_conflicted.assign(h.nvars, 0);
-  if (h.stable)
-    for (Var v = 0; v < h.nvars; ++v)
-      if (heuristics_var_active(k, v) && !k.values[make_lit(v, false)])
-        chb_heap_push(k, v);
-}
-
-void heuristics_reinsert_stable_var(Kernel &k, Var v) {
-  if (k.h->mab_enabled && k.h->stable_heuristic == 1) {
-    if (!heuristics_chb_heap_contains(k, v))
-      chb_heap_push(k, v);
-  } else if (!heuristics_heap_contains(k, v)) {
-    heuristics_heap_push(k, v);
-  }
-}
-
-void heuristics_activate_stable_var(Kernel &k, Var v) {
-  if (!heuristics_heap_contains(k, v))
-    heuristics_heap_push(k, v);
-  if (k.h->mab_enabled && !heuristics_chb_heap_contains(k, v))
-    chb_heap_push(k, v);
-}
-
-void heuristics_mab_update_selected_scores(Kernel &k) {
-  assert(k.h && k.h->stable && k.h->mab_enabled);
-  std::vector<Var> order;
-  kernel_vars_in_import_order(k, order);
-  for (const Var v : order) {
-    if (!heuristics_queue_contains(k, v) ||
-        (k.assigned[v].level == 0 && k.values[make_lit(v, false)] != 0))
-      continue;
-    if (k.h->stable_heuristic == 0) {
-      if (!heuristics_heap_contains(k, v))
-        heuristics_heap_push(k, v);
-    } else if (!heuristics_chb_heap_contains(k, v)) {
-      chb_heap_push(k, v);
-    }
-  }
-}
-
-void heuristics_mab_note_decision(Kernel &k) {
-  if (!k.h || !k.h->stable || !k.h->mab_enabled)
-    return;
-  k.h->mab_decisions += 1.0;
-}
-
-void heuristics_mab_note_conflict(Kernel &k) {
-  if (k.h && k.h->stable && k.h->mab_enabled)
-    ++k.h->mab_conflicts;
-}
-
-void heuristics_chb_update_after_propagation(Kernel &k, bool conflict) {
-  if (!k.h || !k.h->stable || !k.h->mab_enabled ||
-      k.h->stable_heuristic != 1)
-    return;
-  Heuristics &h = *k.h;
-  // AE-kissat-MAB scores the current-level suffix plus the first literal at
-  // its lower-level boundary (propsearch.c).  That one-literal lookback is
-  // observable heuristic state: it gives CHB the implication context that
-  // entered the level, so preserve it rather than normalizing the loop to a
-  // strict same-level suffix.
-  bool saw_current_level = false;
-  for (size_t i = k.trail.size(); i > 0;) {
-    const Lit lit = k.trail[--i];
-    const Var v = var_of(lit);
-    const bool at_current_level = k.var_level(v) == k.level;
-    if (!at_current_level && !saw_current_level)
-      break;
-    if (heuristics_var_active(k, v)) {
-      const uint64_t age = k.stats.conflicts - h.chb_conflicted[v] + 1;
-      const double reward = (conflict ? 1.0 : 0.9) / static_cast<double>(age);
-      const double old = h.chb_scores.score[v];
-      const double now = h.chb_step * reward + (1.0 - h.chb_step) * old;
-      h.chb_scores.score[v] = now;
-      if (heuristics_chb_heap_contains(k, v)) {
-        if (now > old)
-          heap_bubble_up(h.chb_scores, v);
-        else
-          heap_bubble_down(k, h.chb_scores, v, false);
-      }
-      ++k.stats.chb_updates;
-    }
-    if (!at_current_level)
-      break;
-    saw_current_level = true;
-  }
-  if (conflict && h.chb_step > h.chb_step_min)
-    h.chb_step -= h.chb_step_decay;
-}
-
-void heuristics_chb_mark_analyzed(Kernel &k) {
-  if (!k.h || !k.h->stable || !k.h->mab_enabled ||
-      k.h->stable_heuristic != 1)
-    return;
-  for (const Var v : k.analyzed)
-    if (heuristics_var_active(k, v))
-      k.h->chb_conflicted[v] = k.stats.conflicts;
-}
-
-bool heuristics_mab_restart(Kernel &k) {
-  if (!k.h || !k.h->stable || !k.h->mab_enabled)
-    return false;
-  Heuristics &h = *k.h;
-  const uint8_t old = h.stable_heuristic;
-  // The owner formula is undefined before either counter reaches two.  Stable
-  // restarts normally have both; a guarded zero gain preserves totality for
-  // custom policies and tiny unit tests.
-  if (h.mab_decisions > 1.0 && h.mab_conflicts > 1)
-    h.mab_reward[old] +=
-        std::log2(h.mab_decisions) / std::log2(double(h.mab_conflicts));
-  h.mab_decisions = 0.0;
-  h.mab_conflicts = 0;
-  const uint64_t restarts = h.mab_select[0] + h.mab_select[1];
-  const double gain = h.mab_reward[old] / double(h.mab_select[old]);
-  h.mab_recent_gains[h.mab_gain_index] = gain;
-  h.mab_gain_index = (h.mab_gain_index + 1) % 10;
-  double average = 0.0;
-  for (const double recent : h.mab_recent_gains)
-    average += recent;
-  average /= 10.0;
-  h.mab_momentum *= gain > average ? 1.1 : 0.9;
-  if (restarts < 2) {
-    h.stable_heuristic = old ? 0 : 1;
-  } else {
-    const double adaptive =
-        h.mab_exploration / (h.mab_momentum * double(restarts + 1));
-    double best = -std::numeric_limits<double>::infinity();
-    uint8_t selected = 0;
-    for (uint8_t arm = 0; arm < 2; ++arm) {
-      const double ucb = h.mab_reward[arm] / double(h.mab_select[arm]) +
-                         std::sqrt(adaptive * std::log(double(restarts + 1)) /
-                                   double(h.mab_select[arm]));
-      if (ucb > best) {
-        best = ucb;
-        selected = arm;
-      }
-    }
-    h.stable_heuristic = selected;
-  }
-  ++h.mab_select[h.stable_heuristic];
-  ++k.stats.mab_restarts;
-  ++(h.stable_heuristic ? k.stats.mab_chb_selections
-                        : k.stats.mab_evsids_selections);
-  const bool changed = h.stable_heuristic != old;
-  k.stats.mab_switches += changed;
-  return changed;
 }
 
 Var heuristics_heap_next_unassigned(Kernel &k) {
-  if (k.h->mab_enabled && k.h->stable_heuristic == 1) {
-    while (!k.h->chb_scores.stack.empty()) {
-      const Var v = k.h->chb_scores.stack[0];
-      if (k.values[make_lit(v, false)] == 0)
-        return v;
-      chb_heap_pop_max(k);
-    }
-    return heuristics_any_unassigned(k);
-  }
   while (!k.h->scores.stack.empty()) {
     const Var v = k.h->scores.stack[0];
     if (k.values[make_lit(v, false)] == 0)
@@ -1253,16 +985,6 @@ Var heuristics_heap_next_unassigned(Kernel &k) {
 
 Var heuristics_heap_next_active_unassigned(Kernel &k) {
   assert(k.unassigned_active > 0);
-  if (k.h->mab_enabled && k.h->stable_heuristic == 1) {
-    assert(!k.h->chb_scores.stack.empty());
-    Var v = k.h->chb_scores.stack[0];
-    while (k.values[make_lit(v, false)] != 0) {
-      chb_heap_pop_max(k);
-      assert(!k.h->chb_scores.stack.empty());
-      v = k.h->chb_scores.stack[0];
-    }
-    return v;
-  }
   assert(!k.h->scores.stack.empty());
   Var v = k.h->scores.stack[0];
   while (k.values[make_lit(v, false)] != 0) {
@@ -1334,11 +1056,6 @@ void heuristics_check(const Kernel &k) {
   assert(k.h->links.size() == k.nvars);
   assert(k.h->scores.pos.size() == k.nvars);
   assert(k.h->scores.score.size() == k.nvars);
-  if (k.h->mab_enabled) {
-    assert(k.h->chb_scores.pos.size() == k.nvars);
-    assert(k.h->chb_scores.score.size() == k.nvars);
-    assert(k.h->chb_conflicted.size() == k.nvars);
-  }
   assert(k.h->target.size() == k.nvars);
   assert(k.h->best.size() == k.nvars);
 
@@ -1366,14 +1083,6 @@ void heuristics_check(const Kernel &k) {
     assert(v < k.nvars);
     assert(!heaped[v]);
     assert(k.h->scores.pos[v] == pos);
-    heaped[v] = 1;
-  }
-  std::fill(heaped.begin(), heaped.end(), 0);
-  for (uint32_t pos = 0; pos < k.h->chb_scores.stack.size(); pos++) {
-    const Var v = k.h->chb_scores.stack[pos];
-    assert(v < k.nvars);
-    assert(!heaped[v]);
-    assert(k.h->chb_scores.pos[v] == pos);
     heaped[v] = 1;
   }
 }

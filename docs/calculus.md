@@ -19,7 +19,7 @@ Following the formal model in `DEVELOPMENT_PLAN.md` §4:
       R,   redundant/learned clauses    ρ,   witness-labelled reconstruction stack
       π ⟩  proof-log cursor
 
-H          heuristic/policy state (scores, phases, limits, MAB), outside σ
+H          heuristic/policy state (scores, phases, limits), outside σ
 ```
 
 `dl` is the decision count on `τ`; `M` is its partial assignment; `U ⊆ M` is the root part; `F ∧ M ⊢₁ ⊥` denotes a unit-propagation

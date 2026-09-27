@@ -98,20 +98,13 @@ in the source diff; those are not strategy improvements.
 ## Stage C — AE-Kissat-MAB
 
 AE adds a second stable-mode CHB heap and selects EVSIDS versus CHB at stable
-restarts. Tactix now has the same typed two-arm strategy: EVSIDS keeps learning
-while CHB is selected; CHB uses the owner's age-weighted propagation rewards;
-and restart reward, momentum, adaptive exploration, UCB selection and
-root-restart-on-switch follow `restart.c:113–205`. Unit replay pins the first
-exploration switch, reward arithmetic and the following UCB choice.
-
-The state is per solver, zero/one reward counts are total, and the selected heap
-is repaired in import order after a switch. The owner's unused per-variable
-`mab_chosen` bookkeeping is omitted: it never affects a reward or arm choice but
-would clear O(variables) memory at every stable restart. Disabled MAB allocates
-no CHB per-variable state and installs no learned-conflict callback. The frozen
-AM177 mechanism test independently verifies WV87 in 1.620s versus its retained
-29.358s AE owner time; default promotion still depends on the remaining owner
-rows and the Rank/B28+C5 gates.
+restarts. Its CHB uses age-weighted propagation rewards; restart reward,
+momentum, adaptive exploration, UCB selection, and root restart on arm switches
+are visible in `restart.c:113–205`. Tactix tested this mechanism in AM177:
+WV87 verified in 1.620s versus the retained AE owner time of 29.358s. Later
+broader evidence did not justify keeping the two-arm implementation, so the
+user directed its removal. The frozen AE binary and measurements remain
+reference material; Tactix stable search uses EVSIDS alone.
 
 ## Stage D — Satsuma+Kissat
 

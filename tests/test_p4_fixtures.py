@@ -79,7 +79,8 @@ with tempfile.TemporaryDirectory(prefix="generic-dsr-proof-") as directory:
         return subprocess.CompletedProcess(argv, 0, "s VERIFIED UNSAT\n", "")
 
     with mock.patch.object(runner.subprocess, "run", side_effect=fake_checker):
-        checked = runner.check_proof("dsr", str(cnf), str(proof), 30)
+        checked = runner.check_proof("dsr", str(cnf), str(proof), 30,
+                                     route="dsr-trestle")
     assert checked[:3] == (True, "VERIFIED", runner.CHK_VERIFIED)
 assert runner.classify_checker_output("s INVALID\n", "", 0)[0] == runner.CHK_REJECTED
 

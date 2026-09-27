@@ -1,0 +1,61 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{xurl}
+\setlength{\emergencystretch}{2em}
+\title{Tactix: removal of the MAB integration}
+\author{Codex for Andrew}
+\date{27 September 2026, 23:53 UTC}
+\begin{document}
+\maketitle
+
+\paragraph{Outcome and decision.}
+The user directed us to purge MAB from Tactix. The production two-arm
+EVSIDS/CHB implementation, restart rewards, search-progress admission,
+configuration and CLI controls, statistics, and dedicated tests have been
+removed. Stable search now uses EVSIDS. Later independent proof, API,
+preprocessing and performance fixes remain; in particular the post-MAB late
+Factor activation-order fix was preserved when restoring the heuristic code.
+Frozen AE-Kissat-MAB source and benchmark data remain reference evidence, not
+an active Tactix strategy.
+
+The frozen Tier D cross-binary reference solves 875/1,166 instances for
+AE-Kissat-MAB versus 881/1,166 for Kissat 4.0.4 under the same 5,000-second,
+four-CPU, 32-GiB limits. This does not isolate MAB's causal effect, but it gives
+no basis for keeping a costly default integration. A four-row immediate-MAB
+diagnostic verified two SAT models in 70.474 and 195.117 seconds and timed out
+twice at 600 seconds. The wider AM517 diagnostic was canceled by user direction;
+partial results were retained.
+
+\paragraph{Validation and limits.}
+Fresh Debug and Release builds succeed. Fourteen focused Release tests pass,
+including strategy, scheduling, restart, public API, random-policy and proof
+checks. The Debug sweep has passed 186/187 selected tests with the long
+\texttt{lucky} case still running at this report time; a prior Debug gate took
+1,606.58 seconds for that case. The stale P4 fixture was updated to pass the
+already-required \texttt{dsr-trestle} route to the checker; the checker contract
+itself did not change. Documentation and config checks pass. Tiny SAT and UNSAT
+formulas return the same verdicts with and without proof output, and the
+automatic UNSAT proof independently verifies through its declared
+\texttt{dsr-cake\_lpr} route. These checks establish bounded functionality,
+not performance or full N1--N4 acceptance.
+
+\paragraph{Gate state and next actions.}
+Old-pin WV100 has 99/100 valid final rows; its final \texttt{ncc} checker and
+dependent scorer are pending. Old-pin WV2 has already failed coverage on ten
+600-second solver timeouts; one large UNSAT checker and its scorer remain
+active. Old-pin full Debug is also still running. Those outcomes belong to
+source \texttt{0a906338}, before this purge, and cannot certify the new pin.
+Next we will consume their terminal records, complete the new Debug check,
+then rerun affected independent proof/model, fuzz and performance gates on an
+immutable no-MAB pin. Public D2F reach and the user's overall-performance
+threshold remain open. The learning-readiness review and full 1,166-instance
+Tier D production run remain gated on verified N1--N4; no Tier D submission
+has occurred.
+
+\paragraph{Evidence.}
+\url{benchmarks/reports/2026-09-27-am518-mab-purge-checkpoint.md};
+\url{benchmarks/reports/2026-09-27-am514-wv2-current-pin-performance-gap.md};
+\url{benchmarks/reports/2026-09-27-am516-immediate-mab-cdcl-screen-terminal.md};
+\url{benchmarks/baselines/sc24-26-32g-5000s/results.json}.
+\end{document}
