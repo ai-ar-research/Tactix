@@ -1,0 +1,75 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{xurl}
+\setlength{\emergencystretch}{2em}
+\title{Tactix: DSR proof-state boundary and producer-source audit}
+\author{Codex for Andrew}
+\date{26 September 2026}
+\begin{document}
+\maketitle
+
+\paragraph{Current result.}
+The full repaired-source proofless Rank 1--50 diagnostic remains terminal
+50/50, with 25 independently checked SAT models and 25 matching UNSAT
+verdicts. This is verdict/model parity against the historically checked
+automatic-proof reference, not a proof certificate for its proofless UNSAT
+runs. The five SAT cases lost under the old source are recovered on the
+repaired binary in both automatic-proof and proofless targeted arrays. The
+current-source full automatic-proof Rank/B28+C5 gate remains unsubmitted
+while the native DSR proof failure is resolved.
+
+\paragraph{General DSR boundary.}
+The published AM465 internal Proof API D2F handoff was rebuilt against
+the current serializer, whose source is unchanged since the AM472 batch
+repair. Job \texttt{1729601} reproduced byte-identical DSR proofs for both
+bounded seeds. The input-root-reason case rejects in both no-option
+\texttt{dsr-trim} directions; the deleted-unit case rejects forward, and its
+backward elaboration is rejected by Trestle (\texttt{1729708}). A separate
+control \texttt{1729623} inserted the root-unit materialization that the
+production kernel would perform before deleting the input reason. The
+general split transaction appeared, but both checker directions still
+rejected the later witnessed line. The input's own unit propagation had
+already made the deleted clause a checker root reason; moving deletion ahead
+of newly emitted units cannot undo that input state. This identifies a
+proof-state boundary, not a new one-case serializer patch.
+
+The internal program is not itself a public-rule failure. A current-binary
+control using public Probe, BCE, and explicit X7 on the same CNF (\texttt{1729650}) took
+a different path: BCE declined and X7 reached UNSAT. Its complete proof
+verified in both no-option DSR directions and Trestle (\texttt{1729665}).
+Current-proof-source Opus AM473 still owns the broader public-policy fuzz
+handoff. No public X7 guard, checker option, or plan section~5 route was
+changed. Earlier fixed-corpus controls show that
+\texttt{--delete-implied-units} is not a monotone checker relaxation, so it
+cannot be silently substituted for the canonical no-option contract.
+
+\paragraph{Winner producer-source audit.}
+A read-only scan of the pinned SC24 Kissat, AE-Kissat-MAB, and CaDiCaL 3.0.0
+producer call sites maps nonincremental learned/unit/empty additions,
+strengthening, blocked/covered/autarky deletions, equivalence rewrites,
+fresh-variable Factor RAT clauses, and model-extension records to Tactix's
+declared RUP/RAT/delete/reconstruction action catalog. This extends the
+prior emitter-interface audit to direct source producers; it does not verify
+every public Tactix instance or certificate, or scheduling parity. CaDiCaL's
+incremental query protocol remains deferred. The separate active winner
+gap is general live pseudo-Boolean arithmetic, redundancy and dominance in
+listed LymphoSAT paths and Satsuma's VeriPB mode; Tactix's PB path is
+startup-refutation-only. No general PB action was added here.
+
+\newpage
+\paragraph{Next decision.}
+Obtain AM473's bounded public-policy result and design a general checker-visible
+proof-state or certificate-construction repair that preserves legal X7
+instances. Then rerun current-source Opus fuzz, full Debug, independent
+proof/model controls, Rank/B28+C5, WV100, and WV2-89 gates. Only after N1--N4
+and learning readiness are verified should the 1,166-instance Tier D run be
+submitted at 5,000 seconds, 4 CPUs and 32 GiB on
+\texttt{cpu-dense-hwulab-q}. It has not been submitted.
+
+\paragraph{Evidence.}
+\url{benchmarks/reports/2026-09-26-am476-d2f-current-source-boundary.md};
+\url{benchmarks/reports/2026-09-26-am477-cadical-kissat-proof-producer-map.md};
+\url{benchmarks/reports/2026-09-26-am475-five-sat-recovery.md};
+\url{benchmarks/reports/2026-09-25-am407-archived-dsr-contract-crosscheck.md}.
+\end{document}
