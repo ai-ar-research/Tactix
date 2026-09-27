@@ -572,11 +572,6 @@ substitution_redundancy_apply_detailed_impl(
     outcome.status = SubstitutionRedundancyApplicationStatus::NoChange;
     return outcome;
   }
-  if (k.proof && !k.proof->dsr()) {
-    outcome.status =
-        SubstitutionRedundancyApplicationStatus::UnsupportedProofFormat;
-    return outcome;
-  }
   // The general serializer needs one temporary external literal. This is a
   // representation limit, independent of whether proof output is enabled.
   if (plan_dsr_witness(candidate.data(), candidate.size(),
@@ -638,6 +633,14 @@ substitution_redundancy_apply_detailed_impl(
       kept.push_back(lit);
   if (kept != candidate && kernel_contains_clause(k, kept)) {
     outcome.status = SubstitutionRedundancyApplicationStatus::NoChange;
+    return outcome;
+  }
+  // A fully validated tuple can be a no-op after root simplification. That
+  // requires no SR line in any proof format, so classify it before refusing a
+  // format that cannot serialize a formula-changing direct SR step.
+  if (k.proof && !k.proof->dsr()) {
+    outcome.status =
+        SubstitutionRedundancyApplicationStatus::UnsupportedProofFormat;
     return outcome;
   }
   const uint64_t required_ids = kept.size() == candidate.size() ? 1 : 2;

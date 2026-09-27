@@ -4121,6 +4121,49 @@ static void repeated_nonunit_sr_is_a_semantic_noop() {
   kernel_check_invariants(k);
 }
 
+static void root_simplified_sr_noop_is_format_independent() {
+  for (const auto format : {ProofFormat::DsrAscii, ProofFormat::Lrat,
+                            ProofFormat::DratAscii}) {
+    Kernel k;
+    kernel_reserve_vars(k, 3);
+    k.unit_ids[2] = ++k.next_clause_id;
+    kernel_assign_unit(k, internalize(-3));
+    kernel_add_binary_clause(k, internalize(1), internalize(2),
+                             ++k.next_clause_id);
+    SubstitutionRedundancyInstance instance;
+    instance.clause = {internalize(1), internalize(3), internalize(2)};
+    instance.witness = {internalize(1)};
+    const auto without_proof = substitution_redundancy_apply_detailed(k, instance);
+    assert(without_proof.status == SubstitutionRedundancyApplicationStatus::NoChange);
+
+    char path[] = "/tmp/tactix-sr-noop-XXXXXX";
+    const int descriptor = mkstemp(path);
+    assert(descriptor >= 0);
+    close(descriptor);
+    {
+      Proof proof;
+      assert(proof.open(path, format));
+      proof.bind_variable_map(&k.internal_to_external);
+      k.proof = &proof;
+      const StateVersion before = state_version(k);
+      const uint64_t clause_id_before = k.next_clause_id;
+      const auto with_proof = substitution_redundancy_apply_detailed(k, instance);
+      assert(with_proof.status == without_proof.status);
+      assert(k.next_clause_id == clause_id_before);
+      const StateVersion after = state_version(k);
+      assert(after.arena_generation == before.arena_generation &&
+             after.touch_epoch == before.touch_epoch);
+      proof.flush();
+      k.proof = nullptr;
+    }
+    FILE *written = fopen(path, "rb");
+    assert(written && fgetc(written) == EOF);
+    fclose(written);
+    unlink(path);
+    kernel_check_invariants(k);
+  }
+}
+
 // A program may retire a variable before its later explicit SR step begins.
 // The immutable payload remains syntactically valid, but is no longer live.
 static void retired_sr_payload_is_inapplicable_and_reconfigurable() {
@@ -4901,6 +4944,7 @@ int main(int argc, char **argv) {
   direct_binary_edges_encode_repeated_binary_clauses();
   general_sr_cursor_is_lazy_complete_and_resumable();
   repeated_nonunit_sr_is_a_semantic_noop();
+  root_simplified_sr_noop_is_format_independent();
   retired_sr_payload_is_inapplicable_and_reconfigurable();
   root_fixing_after_amo_completion_is_recorded();
   malformed_sr_is_rejected_before_true_clause_noop();
