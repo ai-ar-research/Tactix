@@ -1,0 +1,9 @@
+# AM484: current-source Phase 1 automatic-proof gates prepared
+
+The candidate is the exact Opus AM483 fuzzed production source, commit `3eb9a8707bcbeb5e18f2147327db2c0f8e6a9b8e`. The source authority at `benchmarks/runs/20260927-am484-phase1-source-authority/` contains 395 files copied from `git archive` and independently byte-hash compared with a fresh archive. Its manifest SHA-256 is `4b4d9270c801466cde6461f7d0fbae84df66f0433dde73264f9749f40a6e31c5`; its cumulative source patch from handoff `92d3fc73` has SHA-256 `9a24991830087d09ae5d35a75db5a9e78168c4017cdc0f6c8de498a17d475034`.
+
+SLURM build job `1730900` completed successfully. Two separate plain Release builds from the frozen source are byte-identical at tactix SHA-256 `acbfbb72e92e139b7b3bfdbef99b14dec30fd254a8c8465d7b4e73572a9bbda2`. Neither build enables the proof shadow, rule journal, or event trace.
+
+The frozen, **unsubmitted** campaigns are `benchmarks/runs/20260927-am484-rank1-50/` (50 rows, manifest SHA-256 `1eca813fc5209acb5fc6817b06f230177139d9400f2c9a8955c59febe7115e35`) and `benchmarks/runs/20260927-am484-b28c5/` (33 rows, manifest SHA-256 `3ffd7548a0ee9714a3f0e8adbec5e862c9817e2a21b0ce7334ea6ce221078481`). Both passed `fixed_runtime.verify_campaign` and `runtime_task.validate_runtime_pin_contract`. They retain the original 12-CPU/32-GiB/1,200-second solver and 16,000-second checker windows, the 8,115.735/952.263-second aggregate targets, and plan §5's automatic PBP→VeriPB→CakePB, native DSR→LSR→Trestle, and witness-free DRAT→CakeLPR checks. The canonical AM369 checker bytes are unchanged.
+
+These pins do not imply acceptance or authorization to submit. Opus AM483's public D2F reach and affected fuzz verdict are pending; if they require a source repair, the candidate, authority, and both campaigns must be rebuilt. Pinned full Debug job `1730590` remains in progress. No Tier D job was submitted.
