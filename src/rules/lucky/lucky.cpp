@@ -307,14 +307,13 @@ ApplyResult lucky_apply(Kernel &k) {
 }
 
 static uint32_t lucky_instances(Kernel &k, uint64_t *out, uint32_t cap) {
-  uint32_t n = cap < 19 ? cap : 19;
+  (void)k;
+  // Public instance identities do not depend on whether a proof writer is
+  // attached. Startup-only instances decline in apply when the original-input
+  // boundary is closed or the selected proof format cannot certify them.
+  uint32_t n = cap < 21 ? cap : 21;
   for (uint32_t i = 0; i < n; i++)
     out[i] = i;
-  if (n < cap && startup_parity_guard(k)) {
-    out[n++] = LUCKY_STARTUP_PARITY;
-  }
-  if (n < cap && count_preservation_guard(k))
-    out[n++] = LUCKY_STARTUP_COUNT;
   return n;
 }
 
