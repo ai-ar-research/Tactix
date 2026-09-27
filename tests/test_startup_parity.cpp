@@ -128,9 +128,49 @@ int main(int argc, char **argv) {
            (decide ? -1 : 20));
     tactix_release(solver);
   }
+  if (argc > 1) {
+    const int lucky_id = tactix_rule_id("Lucky");
+    tactix_handle *proofless = tactix_init();
+    tactix_handle *strict = tactix_init();
+    const std::string path = std::string(argv[1]) + "/lucky-strict.dsr";
+    assert(tactix_proof(strict, path.c_str(), TACTIX_PROOF_DSR_BINARY) == 0);
+    uint64_t no_proof_instances[21], strict_instances[21];
+    const int no_proof_count =
+        tactix_rule_instances(proofless, lucky_id, no_proof_instances, 21);
+    const int strict_count =
+        tactix_rule_instances(strict, lucky_id, strict_instances, 21);
+    assert(no_proof_count == 21 && strict_count == no_proof_count);
+    for (int i = 0; i < strict_count; ++i)
+      assert(no_proof_instances[i] == strict_instances[i] &&
+             strict_instances[i] == static_cast<uint64_t>(i));
+    assert(tactix_apply_instance(strict, lucky_id, LUCKY_STARTUP_PARITY) == 1);
+    assert(tactix_apply_instance(strict, lucky_id, LUCKY_STARTUP_COUNT) == 1);
+    tactix_release(strict);
+    FILE *stream = std::fopen(path.c_str(), "rb");
+    assert(stream && std::fseek(stream, 0, SEEK_END) == 0);
+    assert(std::ftell(stream) == 0); // both unsupported actions are byte-invisible
+    std::fclose(stream);
+    tactix_release(proofless);
+  }
   Kernel closed;
   parse(graph_formula(4, true, false), closed);
   apply_rule(tactix_rules()[tactix_rule_id("Propagate")], closed);
   assert(!startup_parity_guard(closed));
+  // An explicit clausal writer closes the PB boundary, but it must not
+  // renumber the public Lucky action space seen by replay/random policies.
+  const auto &lucky = tactix_rules()[tactix_rule_id("Lucky")];
+  uint64_t available[21];
+  Kernel clausal;
+  clausal.close_startup_certificate();
+  for (Kernel *state : {&closed, &clausal}) {
+    assert(lucky.instances(*state, available, 21) == 21);
+    for (uint64_t id = 0; id < 21; ++id)
+      assert(available[id] == id);
+    assert(lucky.instances(*state, available, 19) == 19);
+    assert(apply_rule_instance(lucky, *state, LUCKY_STARTUP_PARITY) ==
+           ApplyResult::NoOp);
+    assert(apply_rule_instance(lucky, *state, LUCKY_STARTUP_COUNT) ==
+           ApplyResult::NoOp);
+  }
   std::puts("startup parity: arity 2/3/4, signed renaming, SAT controls, boundary OK");
 }
