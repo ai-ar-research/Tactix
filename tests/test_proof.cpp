@@ -194,6 +194,16 @@ void test_dsr_unit_deletion_transaction() {
                      "\x01\x02\x00\x02\x02\x0c\x00"
                      "\x02\x02\x0d\x00", 27),
          "binary DSR preserves the same split transaction");
+  const int32_t external_support[2] = {2, 3};
+  expect(emitted("dsr-transaction-external-delete", ProofFormat::DsrBinary,
+                 [&](Proof &p) {
+                   p.add_rup(10, &unit, 1, nullptr, 0);
+                   assert(p.del_external(11, 7, external_support, 2));
+                 }),
+         std::string("\x01\x02\x08\x00\x01\x02\x09\x00"
+                     "\x02\x04\x06\x00\x01\x02\x00"
+                     "\x02\x02\x08\x00\x02\x02\x09\x00", 23),
+         "external deletion uses the same bounded binary spool");
   const Lit second = lit(6);
   expect(emitted("dsr-transaction-unit-batch", ProofFormat::DsrAscii,
                  [&](Proof &p) {
@@ -231,6 +241,17 @@ void test_dsr_unit_deletion_transaction() {
          "1 4 0\n1 -4 0\nd 2 -3 0\n1 0\n"
          "d 1 4 0\nd 1 -4 0\n6 0\n",
          "next addition closes the pending unit transaction");
+  expect(emitted("dsr-transaction-next-binary-unit", ProofFormat::DsrBinary,
+                 [&](Proof &p) {
+                   p.add_rup(10, &unit, 1, nullptr, 0);
+                   p.del(11, 7, support, 2);
+                   p.add_rup(12, &next, 1, nullptr, 0);
+                 }),
+         std::string("\x01\x02\x08\x00\x01\x02\x09\x00"
+                     "\x02\x04\x07\x00\x01\x02\x00"
+                     "\x02\x02\x08\x00\x02\x02\x09\x00"
+                     "\x01\x0c\x00", 26),
+         "binary deletion buffer closes before the next unit");
   expect(emitted("dsr-transaction-delete-unit", ProofFormat::DsrAscii,
                  [&](Proof &p) {
                    p.add_rup(10, &unit, 1, nullptr, 0);
@@ -271,6 +292,43 @@ void test_dsr_unit_deletion_transaction() {
                  }),
          "1 0\n1 2 0\n",
          "an accepted SR addition closes the pending unit transaction");
+}
+
+void test_dsr_deletion_spill() {
+  // One large deletion block must cross the bounded memory spool without
+  // changing the order or encoding of the split transaction.
+  const Lit unit = make_lit(0, false);
+  constexpr int deletions = 16000;
+  const int auxiliary = deletions + 3;
+  const auto line = [](unsigned char tag, std::initializer_list<int> lits) {
+    std::string bytes(1, static_cast<char>(tag));
+    for (int literal : lits) {
+      uint32_t token = (static_cast<uint32_t>(std::abs(literal)) << 1) |
+                       (literal < 0);
+      while (token >= 128) {
+        bytes.push_back(static_cast<char>(128 | (token & 127)));
+        token >>= 7;
+      }
+      bytes.push_back(static_cast<char>(token));
+    }
+    bytes.push_back(0);
+    return bytes;
+  };
+  const std::string got = emitted("dsr-deletion-spill", ProofFormat::DsrBinary,
+                                  [&](Proof &p) {
+    p.add_rup(1, &unit, 1, nullptr, 0);
+    for (int i = 0; i < deletions; ++i) {
+      const Lit clause[2] = {make_lit(1, false), make_lit(i + 2, false)};
+      p.del(2 + i, 2 + i, clause, 2);
+    }
+  });
+  std::string want = line(1, {1, auxiliary}) + line(1, {1, -auxiliary});
+  for (int i = 0; i < deletions; ++i)
+    want += line(2, {2, i + 3});
+  want += line(1, {1}) + line(2, {1, auxiliary}) +
+          line(2, {1, -auxiliary});
+  assert(want.size() > 65536);
+  expect(got, want, "large binary DSR deletion block spills intact");
 }
 
 void test_dsr_substitution() {
@@ -693,6 +751,7 @@ int main() {
   test_dsr_binary();
   test_dsr_ascii();
   test_dsr_unit_deletion_transaction();
+  test_dsr_deletion_spill();
   test_dsr_substitution();
   test_dsr_pivot_mapping_forms();
   test_external_variable_map();

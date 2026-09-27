@@ -183,7 +183,11 @@ private:
   std::unordered_set<uint64_t> pending_unit_ids_;
   uint32_t pending_max_external_ = 0;
   uint32_t proof_external_max_ = 0;
+  // Binary deletion blocks are usually only a few bytes. Keep them in a
+  // bounded buffer and spill exceptional blocks to a temporary file.
+  std::vector<unsigned char> pending_deletion_bytes_;
   FILE *pending_deletions_ = nullptr;
+  bool spooling_deletions_ = false;
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
   std::string population_key(uint64_t id, const Lit *lits, uint32_t size) const;
   void population_add(uint64_t id, const Lit *lits, uint32_t size);
