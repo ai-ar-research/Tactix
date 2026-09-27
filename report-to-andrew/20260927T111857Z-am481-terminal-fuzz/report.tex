@@ -1,0 +1,56 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{xurl}
+\setlength{\emergencystretch}{2em}
+\title{Tactix: terminal fuzz and Debug checkpoint}
+\author{Codex for Andrew}
+\date{27 September 2026}
+\begin{document}
+\maketitle
+
+\paragraph{Verified outcome.}
+The AM479 bounded DSR deletion spool is pushed in \texttt{454e1cbb}; the
+current-source public D1/H2/D2 controls verify 24/24 complete no-option
+DSR-to-LSR-to-Trestle chains. The pinned full Debug CTest job
+\texttt{1729972} has now finished, passing 188/188 tests in 14,986 seconds.
+
+Claude Opus completed all 25 counted AM473 jobs on the earlier AM472 source
+\texttt{ab879129}. It found no public-program, Sweep or stock-CLI proof
+rejection, invalid model, SAT/UNSAT contradiction, crash or sanitizer report.
+Its 2.95 million internal Proof API rows had zero batch-transaction model
+failures. The fixed D1/H2/D2 public proofs verified across its tested builds
+and formats.
+
+\paragraph{Open correctness question.}
+The frozen AM473 affected-scope acceptance was \emph{not met}: 30 internal
+Proof API rows rejected native DSR because the no-option checker retained a
+deleted unit or root reason. The same DSR rows fail on the pre-batch pin, so
+this is not caused by the root-unit batch repair. The current AM476 direct
+replays also reject, while a public control on the same CNF takes a different
+verified path. The remaining direct scripts' reachability through legal
+public actions has not been established. We have not narrowed X7 or changed
+the canonical checker contract.
+
+Opus also found eight DSR/AUTO versus proofless random-program divergences
+whose first difference is Lucky's 19 versus 21 enumerated instances. Source
+inspection confirms that explicit clausal proof mode closes the original-input
+PBP boundary, hiding startup instances 19 and 20; direct application already
+declines them before mutation under an unsupported format. This is an N1
+action-enumeration question, not an observed SAT/UNSAT contradiction. The
+separate Rank 1--50 proofless diagnostic remains 50/50 with 25 checked SAT
+models, but cannot certify its 25 UNSAT outputs.
+
+\paragraph{Next actions.}
+Classify D2F production reach and repair any reachable failure generally;
+resolve Lucky's proof-mode action enumeration while preserving format
+capabilities. Then run a fresh Opus campaign on the resulting source and the
+independently checked automatic-proof Rank/B28+C5, WV100 and WV2-89 gates.
+N1--N4 and online-learning production readiness remain open. The 1,166-row
+Tier D run has not been submitted.
+
+\paragraph{Evidence.}
+\url{benchmarks/reports/2026-09-27-am481-opus-terminal-debug-checkpoint.md};
+\url{benchmarks/runs/20260926-am473-batch-root-claude-fuzz/REPORT.md};
+\url{benchmarks/reports/2026-09-26-am480-public-dsr-replay-after-spool.md}.
+\end{document}
