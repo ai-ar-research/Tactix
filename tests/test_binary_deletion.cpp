@@ -236,9 +236,9 @@ static void test_reason_binary_retired_to_unit() {
   assert(k.values[b] > 0);                      // b stays assigned
 }
 
-// Strict DSR deletion semantics require the derived unit to be written while
-// its binary reason is still present. This pins both the content and ordering
-// of that transition instead of relying on a later propagation drain.
+// Native DSR protects a derived root unit with two proof-only RUP helpers,
+// then moves the deletion ahead of the unit so the checker cannot retain the
+// deleted binary as an implied-unit reason.
 static void test_dsr_materializes_root_reason_before_binary_delete() {
   Kernel k;
   kernel_reserve_vars(k, 3);
@@ -253,6 +253,8 @@ static void test_dsr_materializes_root_reason_before_binary_delete() {
   close(fd);
   Proof proof;
   assert(proof.open(path, ProofFormat::DsrAscii));
+  proof.bind_variable_map(&k.internal_to_external);
+  proof.bind_external_variable_map(&k.external_to_internal);
   k.proof = &proof;
   assert(kernel_delete_binary(k, a, b));
   proof.flush();
@@ -264,7 +266,8 @@ static void test_dsr_materializes_root_reason_before_binary_delete() {
     bytes.push_back(static_cast<char>(c));
   assert(!std::ferror(input));
   std::fclose(input);
-  assert(bytes == "2 0\nd 1 2 0\n");
+  assert(bytes == "2 4 0\n2 -4 0\nd 1 2 0\n2 0\n"
+                  "d 2 4 0\nd 2 -4 0\n");
   assert(k.assigned[var_of(b)].reason == UNIT_REASON);
   assert(std::remove(path) == 0);
 }
@@ -285,6 +288,8 @@ static void test_dsr_materializes_root_reason_before_large_delete() {
   close(fd);
   Proof proof;
   assert(proof.open(path, ProofFormat::DsrAscii));
+  proof.bind_variable_map(&k.internal_to_external);
+  proof.bind_external_variable_map(&k.external_to_internal);
   k.proof = &proof;
   kernel_delete_clause(k, clause_at(k.arena, ref));
   proof.flush();
@@ -296,7 +301,8 @@ static void test_dsr_materializes_root_reason_before_large_delete() {
     bytes.push_back(static_cast<char>(ch));
   assert(!std::ferror(input));
   std::fclose(input);
-  assert(bytes == "3 0\nd 1 2 3 0\n");
+  assert(bytes == "3 5 0\n3 -5 0\nd 1 2 3 0\n3 0\n"
+                  "d 3 5 0\nd 3 -5 0\n");
   assert(k.assigned[var_of(c)].reason == UNIT_REASON);
   assert(std::remove(path) == 0);
 }
