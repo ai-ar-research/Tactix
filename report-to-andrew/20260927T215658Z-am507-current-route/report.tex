@@ -1,0 +1,96 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{xurl}
+\setlength{\emergencystretch}{2em}
+\title{Tactix: DSR checker-route gate and WV100 launch}
+\author{Codex for Andrew}
+\date{27 September 2026, 21:56 UTC}
+\begin{document}
+\maketitle
+
+\paragraph{Objective and outcome.}
+The immediate objective was to make the newly approved native-DSR verification
+contract operational, then submit the full 100-instance winner-vs-Tactix
+(WV100) Phase 2 gate. This increment is implemented and pushed as source commit
+\texttt{0a906338}; pinned array \texttt{1731686\_0-99} is running. At the
+report timestamp, 91/100 final records are independently checked and valid:
+30 original-CNF SAT models and 61 complete UNSAT proof routes. Nine rows,
+including \texttt{ncc\_none\_21015}, remain. The full Phase 2 gate has not
+been accepted, and no Tier D job has been submitted.
+
+\paragraph{Checker contract.}
+Every native DSR proof now goes first through pinned no-option
+\texttt{dsr-trim}. A witness-free LSR elaboration finishes with CakeLPR;
+one containing an SR witness finishes with Trestle. The solver writes one
+\texttt{c proof-route} declaration on an UNSAT proof-producing run based on
+whether its proof writer actually emitted an SR witness. The production
+runtime follows that declaration and scans the certificate only to reject a
+mismatch. The independent checkers still see a clause-sequence-preserving
+spelling of the original CNF. Startup PBP remains VeriPB then CakePB; explicit
+DRAT/LRAT remain compatibility paths. No legal public X7 action or proof rule
+was narrowed, and no row-specific checker setting was introduced. This change
+replaces the earlier witness-free DRAT-trim route because the user explicitly
+selected the general DSR-trim-first contract after the archived \texttt{ncc}
+diagnostic; the current-source \texttt{ncc} certificate is a different proof,
+so the archived timing cannot certify this campaign.
+
+\paragraph{Correctness evidence.}
+The checker/runtime/fuzz protocol suite passed 113 Python tests; Release and
+Debug proof serializer tests and the current-source Debug \texttt{micro\_proofs}
+suite passed against independent checkers. The previous repaired-source full
+Debug sweep completed 188/188 but predates this route edit. The accepted
+pre-route Phase 1 arrays checked Rank 1--50 at 50/50 (25 SAT models, 25 UNSAT
+proofs, 7,553.134 solver seconds versus a strict 8,115.735-second target) and
+B28+C5 at 33/33 (17 models, 16 proofs, 905.892 versus 952.263 seconds).
+Latest-source proofless Rank finished 50/50 with all 25 SAT models checked;
+proof-producing performance and proof checks under the new route still need
+current-source confirmation. At 21:56 UTC, the 91 AM507 final records had
+matching verdicts, complete independent checks and cleanup; 30 were SAT, 61
+UNSAT. This is interim evidence only: the pinned scorer requires exactly 100
+final records, 33 SAT models and 67 UNSAT proofs. Early UNSAT routes include
+both CakeLPR and Trestle after \texttt{dsr-trim}.
+
+\paragraph{Resource and provenance boundary.}
+The submitted bundle freezes source \texttt{0a906338}, Release binary SHA-256
+\texttt{cab44387ea47f3ed5d74cbf1a9bb702f321cf9164a3df791ef4b07d760c08656},
+all 100 input hashes, and seven checker pins. The full manifest digest is
+recorded in the AM507 launch report. The unthrottled 100-row array requests
+\texttt{cpu-dense-hwulab-q},
+12 CPUs and 32 GiB per task, a 1,200-second solve window and a 57,600-second
+checker window without overrides. The older AM500 old-route bundle is frozen
+and unsubmitted. These limits belong to WV100, not the eventual Tier D run.
+
+\paragraph{Unresolved obligations.}
+The exact two-stage exit definition is proposed in the AM508 acceptance
+report. Stage A is the finite, independently checked preflight that authorizes
+the full Tier D submission; Stage B scores that run and decides N3. This avoids
+requiring Tier D evidence before Tier D can be launched. The proposal is not a
+waiver or an accepted change to the plan.
+
+First, finish AM507 and investigate any timeout or rejected proof generally.
+Then reconfirm current-source Phase 1 and full Debug coverage, run fresh
+Opus-owned default/random-policy fuzzing, establish public reach of the
+direct-Proof-API D2F retained-deletion failure, and close broad N1/N2
+proof/model and rule-action coverage. The CaDiCaL/Kissat clausal emitter map
+is structurally complete, while the general live pseudo-Boolean arithmetic and
+redundancy interface used by LymphoSAT/Satsuma remains a documented gap.
+N3 still needs matched Rank attribution, checked WV2--89 at its 600-second
+limit, Tier B/C parity and Tier D Kissat/VBS performance. N4 still needs its
+scheduling parity ledger closed or explicitly accepted. An online-learning
+readiness review must address adjustable inprocessing dose/order and
+switchable branching and clause-deletion strategies with correctness and
+overhead evidence. Only after the agreed gates are verified or explicitly
+revised should the full 1,166-instance Tier D array be submitted at 5,000
+seconds, four CPUs and 32 GiB per instance. Any relaxed gate must be reported
+as unverified, not passed.
+
+\paragraph{Primary evidence.}
+\url{benchmarks/reports/2026-09-27-am506-dsr-trim-first-gate.md};
+\url{benchmarks/reports/2026-09-27-am507-wv100-dsr-trim-first-launched.md};
+\url{benchmarks/reports/2026-09-27-am508-goal-exit-contract-proposal.md};
+\url{benchmarks/reports/2026-09-27-am502-repaired-phase1-terminal.md};
+\url{benchmarks/reports/2026-09-27-am505-proofless-rank-terminal.md};
+\url{benchmarks/reports/2026-09-27-am493-proof-rule-coverage-current-pin.md};
+\url{benchmarks/reports/2026-09-25-am391-learning-readiness-current-source.md}.
+\end{document}
