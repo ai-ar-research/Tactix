@@ -1,0 +1,31 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{xurl}
+\setlength{\emergencystretch}{2em}
+\title{Tactix: proof repair and native-DSR Rank performance}
+\author{Codex for Andrew}
+\date{26 September 2026}
+\begin{document}
+\maketitle
+
+\paragraph{Verified repair.}
+Pushed commit \texttt{ab879129} extends the shared native DSR proof transaction from one internal RUP root unit to a consecutive batch. The AM465 Opus D2 handoff showed an older checker-retained reason clause after Probe and BCE, followed by a failing SR witness; older pins also reject it. The batch publishes two temporary RUP helpers per unit on a shared auxiliary, moves the following deletion block before the units, then retires the helpers. Final pinned Release and Debug public replays verify 48 of 48 D1/H2 binary/text and D2 binary/text/AUTO, backward/forward DSR--LSR--Trestle chains. Negative certificates reject 4 of 4; focused Debug proof and neighboring-rule tests pass 6 of 6. This is bounded N2 evidence, not universal proof acceptance. Full Debug job \texttt{1729059} and newer-proof-source Opus owner \texttt{7bdbd8b7} remain open. The older AM465 fuzz source already found D2; its 13 remaining overlapping jobs were canceled while completed evidence was retained. Public X7 legality and the no-option checker contract are unchanged.
+
+\paragraph{Requested terminal handoff jobs.}
+Debug job \texttt{1723391} finished 186/187: its 15,259-second scripted solver demo passed, and only a stale \texttt{config\_wiring} audit classification failed; that classification was subsequently repaired. Paired AES checker tasks \texttt{1723443\_0/1} both verified the same 238,948,969-byte original-CNF DSR proof via no-option \texttt{dsr-trim}, decoded LSR and Trestle, taking 5,780.266 and 5,789.923 checker seconds. The earlier 4,800-second Tier C checker window was insufficient; the matched Tier C campaign remains unscorable rather than retroactively accepted.
+
+\paragraph{Performance gate.}
+Old-source automatic-proof Phase 1 arrays are terminal: Rank 1--50 checked 45/50, with five 1,200-second SAT timeouts and PAR2 19,148.160 above 8,115.735; B28+C5 checked 33/33 at 920.163 seconds, below 952.263. A matched Rank 7 diagnostic on the original 29-million-variable input gave checked SAT in 62.6 seconds without proof and 59.5 seconds with DRAT, while AUTO and native DSR each timed out at 300 seconds. A 12,000-sample CPU profile attributed 99.24\% of sampled user cycles to a full-map scan in proof auxiliary-bound lookup: the CLI omitted the reverse external-variable map binding already used by the API. Binding it changes neither proof rules nor checker routing. The pinned repaired CLI solved Rank 7 in 76.443 seconds with DSR and 75.495 seconds with AUTO; both original-CNF models were independently checked, and the two proof artifacts were byte-identical. Full repaired-source Phase 1 remains due. No full Tier D job has been submitted.
+
+\paragraph{Coverage and readiness.}
+The reference option ledger accounts for 418 Kissat/CaDiCaL options and all twelve historically high-severity scheduling rows have code or accepted-deviation dispositions, but many cumulative N4 acceptances remain open. N1 public reach, all N2 paths, Phase 1, WV100, WV2-89 and learning readiness remain unverified. Online learning can prototype root-boundary inprocessing dose/order; production switching of branch and deletion strategies still needs live policy-layer ownership and gate preservation. The final learning-readiness decision belongs after the proof/model, fuzz, and performance gates.
+
+\paragraph{Evidence.}
+\url{benchmarks/reports/2026-09-26-am474-rank7-dsr-map-bound.md};\newline
+\url{benchmarks/reports/2026-09-26-am472-root-unit-batch-checkpoint.md};
+\url{benchmarks/reports/2026-09-25-am447-full-debug-terminal-triage.md};
+\url{benchmarks/reports/2026-09-25-am443-aes-terminal-and-h2-contract-control.md};
+\url{benchmarks/probes/scratch/am474-rank7-regression/};
+\url{benchmarks/reports/2026-09-24-am376-online-learning-readiness.md}.
+\end{document}
