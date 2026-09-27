@@ -1,0 +1,15 @@
+c CNF file path: /home/hwu/SAT-solving/benchmarks/probes/scratch/am479-d2-public/out/1729988_1/checker.cnf
+c DSR file path: /home/hwu/SAT-solving/benchmarks/probes/scratch/am479-d2-public/out/1729988_1/fmt4.dsr
+c LSR file path: /home/hwu/SAT-solving/benchmarks/probes/scratch/am479-d2-public/out/1729988_1/fmt4-backward.lsr
+c Using an EAGER parsing strategy.
+c Doing BACKWARDS proof checking.
+c The CNF formula has 94 clauses and 31 variables.
+c Parsing the CNF took 0.000 secs
+c Parsed the empty clause after 197 proof lines (76 additions).
+c Empty clause detected on proof line 197.
+c The empty clause was derived after clause 166 (add'n line 72).
+c Checking proof...
+c Proof checking took 0.000 secs
+s VERIFIED UNSAT
+c Printing the LSR proof took 0.000 secs
+c Total runtime took 0.000 secs
