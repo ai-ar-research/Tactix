@@ -1,0 +1,13 @@
+c CNF file path: /home/hwu/SAT-solving/benchmarks/probes/scratch/am479-public-replay/out/1729949_0/checker.cnf
+c DSR file path: /home/hwu/SAT-solving/benchmarks/probes/scratch/am479-public-replay/out/1729949_0/fmt3.dsr
+c LSR file path: /home/hwu/SAT-solving/benchmarks/probes/scratch/am479-public-replay/out/1729949_0/fmt3-forward.lsr
+c Using a STREAMING parsing strategy.
+c Doing FORWARDS proof checking.
+c The CNF formula has 27 clauses and 29 variables.
+c Parsing the CNF took 0.000 secs
+c Detected that the DSR proof is in binary format.
+c The emitted LSR proof will also be in binary format.
+c Checking proof...
+c Proof checking took 0.000 secs
+s VERIFIED UNSAT
+c Total runtime took 0.000 secs
