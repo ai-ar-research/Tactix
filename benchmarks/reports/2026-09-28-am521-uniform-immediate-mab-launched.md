@@ -1,0 +1,16 @@
+# AM521: uniform immediate MAB regression gates launched
+
+The user directed restoring the pre-purge AE-Kissat-MAB owner and running it from the start of every residual search, with no stagnation delay, FastEliminate admission threshold, or structured-SR suppression. Local source commit `38796762876d72dd64c4402012d49d5444cbdbdc` makes that policy unconditional at search entry. It removes the redundant `--mab`/`TACTIX_MAB` switches and delayed-admission telemetry while retaining the owner's concurrent EVSIDS/CHB scores and restart controller. No public X7 action or proof/checker route changed. **No push** was performed, as directed.
+
+Two independent Release builds, `build/am521-immediate-mab-release/tactix` and `build/am521-immediate-mab-release-b/tactix`, match at SHA-256 `6643ecb4409f086bffe94288ca4ab0126f013ce3e2727c06b98889a7129eb717`. The 395-file source snapshot, cumulative patch from `92d3fc73`, and binary identities are frozen in `benchmarks/runs/20260928-am521-immediate-mab-source-authority/manifest.json` (SHA-256 `f1e0d707ff876d4cb62a72187cd2de55a08ad4ecf01475a10cee4af79566e7ff`). Focused Release proof/model/runtime/strategy checks pass 12/12, including `micro_proofs` and `sweep_proofs`; focused Debug strategy checks pass 3/3, and Debug analysis/solve-reset pass 2/2. Full current-source Debug job `1732496` is submitted with 188 CTests on the frozen Debug build; its batch script SHA-256 is `8d864adbb68ea4b0b806f032ba6b19ce4d6a6f46603bd7b4a57bd80011586ba5`. Claude Code Opus background session `89639956` owns the affected-scope AM522 fuzz request (`benchmarks/runs/20260928-am522-immediate-mab-opus/REQUEST.md`); its terminal report remains due.
+
+| Gate | Array | Rows | Solve limit | Manifest SHA-256 | Dependent scorer |
+|---|---:|---:|---:|---|---:|
+| Rank 1–50 | `1732443` | 50 | 1,200 s | `2c5116e6ded77b2efa1d77488e5a2e3ef2940e02bc7659cccc0e0007630ab8e9` | `1732457` |
+| B28+C5 | `1732444` | 33 | 1,200 s | `47e4c1e65d40b2b497efbf534bbfc441230447034e2caf93910d7dbb9d4ca879` | `1732458` |
+| WV100 | `1732445` | 100 | 1,200 s | `fb69f2cf923faa786360e0f07a4c0d83066d8d3e45b805b6ee34d9517782fc04` | `1732459` |
+| WV2–89 | `1732446` | 89 | 600 s | `d05bcbaa46db1f6970f15b9d1317a5393b6e48ea9935479ba71b039d69484450` | `1732461` |
+
+Each row is one solver task on `cpu-dense-hwulab-q`, 12 CPUs, 32 GiB, with no array throttle or node constraint. All campaigns retain the same frozen row sets and original-CNF model and automatic-proof checks as the no-MAB and delayed-MAB comparisons. Native DSR goes through no-option `dsr-trim`, then the declared CakeLPR or Trestle final route; startup PBP goes through VeriPB then CakePB. The scorer scripts are frozen at `benchmarks/probes/scratch/am521-immediate-mab-scorers/score_gate.py` (SHA-256 `ea4fc1d86f11c834c919445a8adfd82048b0a1e1254fb27b6f8498f33a2f00b2`). The known WV2 scorer display typo is corrected only after its frozen 89-row assertions; no checker acceptance contract changed.
+
+At submission all four arrays were pending for priority/resources with zero current-candidate results. The no-MAB B28+C5 comparator is already terminal at 33/33 checked and 968.588 solver seconds, within its 999.876-second leeway ceiling. No immediate-MAB speedup, regression, or N1–N4 acceptance is claimed until terminal independent scores and validation arrive.
