@@ -936,13 +936,10 @@ template <bool HasH> static void kernel_unassign_literal(Kernel &k, Lit lit) {
     if (kernel_var_retired(k, v)) {
       // leave both structures alone; it stays out for good
     } else if (k.h->stable) {
-      const bool ranked = k.h->mab_enabled && k.h->stable_heuristic == 1
-                              ? heuristics_chb_heap_contains(k, v)
-                              : heuristics_heap_contains(k, v);
-      if (!ranked) {
+      if (!heuristics_heap_contains(k, v)) {
         event_trace_detail(k, "heap_reinsert",
                            kernel_externalize(k, make_lit(v, false)));
-        heuristics_reinsert_stable_var(k, v);
+        heuristics_heap_push(k, v);
       }
     } else if (k.h->links[v].stamp > k.h->search_stamp) {
       k.h->search_idx = v;

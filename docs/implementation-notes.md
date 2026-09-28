@@ -333,10 +333,10 @@ positive-side binary (`equivalences.c`), and the AND/OR sweep never flags a larg
 Reason-side bumping and dynamic tiers are H-only and default on jointly. Bumps are one-level, capped, and all-or-nothing. Tier
 quantiles are 50%/90% with explicit empty fallbacks; policy reanchors on mode switch and reposes focused tiers before every Vivify
 dose.
-DefaultPolicy enables AE-Kissat-MAB's EVSIDS/CHB two-arm bandit at every residual
-search entry. Both rankings learn concurrently and the owner restart controller
-selects the active arm. There is no stagnation delay, FastEl admission threshold,
-structured-SR suppression, or CLI/environment switch for this mechanism.
+DefaultPolicy uses the EVSIDS ranking in stable search. The full immediate
+AE-Kissat-MAB EVSIDS/CHB owner was tested on the four fixed regression tranches;
+it failed Rank, B28+C5, WV100 and WV2--89 acceptance. The earlier delayed and
+suppressed admission was rejected, so the working policy has no MAB branch.
 Structured SR suppresses the later startup FastEliminate pass only when it grows the root trail and rebuilds the residual search seed; clause-only SR retains that opportunity.
 ## 10. Reorder
 
