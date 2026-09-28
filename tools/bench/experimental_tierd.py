@@ -146,7 +146,7 @@ def prepare(a):
     wall=scheduler_wall_seconds(a.solve_timeout,a.checker_timeout)
     (c/'array.sbatch').write_text(common+f'''#SBATCH --job-name=tierd-{commit[:8]}
 #SBATCH --time={slurm_time(wall)}
-#SBATCH --array=0-{len(rows)-1}
+#SBATCH --array=0-{len(rows)-1}{f'%{a.array_throttle}' if a.array_throttle else ''}
 set -euo pipefail
 ulimit -c 0
 exec python3 {c}/pins/runtime_task.py {c} "$SLURM_ARRAY_TASK_ID"
@@ -167,7 +167,9 @@ exec python3 {c}/pins/validate_anonymous_runtime.py {c}
         dataset_authority=dict(path=str(ref/'manifest.json'),sha256=sha(ref/'manifest.json')),
         selection_authority=selection_authority,
         resource_contract=dict(partition=a.partition,cpus_per_task=a.cpus_per_task,memory_mib=32768,solve_timeout=a.solve_timeout,
-            checker_timeout=a.checker_timeout,scheduler_wall_seconds=wall,array=f'0-{len(rows)-1}',throttle=None,node_constraint=None),
+            checker_timeout=a.checker_timeout,scheduler_wall_seconds=wall,
+            array=f'0-{len(rows)-1}{f"%{a.array_throttle}" if a.array_throttle else ""}',
+            throttle=a.array_throttle,node_constraint=None),
         proof_contract=('Automatic PBP / witnessed DSR / witness-free DSR routed by pinned VeriPB+CakePB, or no-option dsr-trim followed by Trestle for witnessed LSR and CakeLPR for witness-free LSR against the original CNF.'
                         if a.certificate=='auto' else
                         'Explicit native DSR uses pinned no-option dsr-trim, then Trestle for witnessed LSR or CakeLPR for witness-free LSR against the original CNF.'),
@@ -198,6 +200,7 @@ if __name__=='__main__':
     p.add_argument('--cpus-per-task',type=int,default=4)
     p.add_argument('--solve-timeout',type=int,default=1200)
     p.add_argument('--checker-timeout',type=int,default=16000)
+    p.add_argument('--array-throttle',type=int)
     p.add_argument('--certificate',choices=['dsr','auto'],default='dsr')
     p.add_argument('--instance',action='append',default=[])
     p.add_argument('--selection-table',type=Path)
@@ -207,4 +210,6 @@ if __name__=='__main__':
     if a.cpus_per_task < 1:p.error('--cpus-per-task must be positive')
     if a.solve_timeout < 1:p.error('--solve-timeout must be positive')
     if a.checker_timeout < 1:p.error('--checker-timeout must be positive')
+    if a.array_throttle is not None and a.array_throttle < 1:
+        p.error('--array-throttle must be positive')
     prepare(a) if a.prepare else submit(a)
