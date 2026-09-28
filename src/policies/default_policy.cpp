@@ -413,15 +413,6 @@ bool DefaultStrategyConfig::valid(std::string *error) const {
       return reject("branching phase pattern contains an invalid phase");
   if (!positive_finite(branching.logarithm_offset))
     return reject("branching logarithm offset must be positive and finite");
-  if (!positive_finite(branching.mab_exploration) ||
-      !positive_finite(branching.chb_step) ||
-      !std::isfinite(branching.chb_step_min) ||
-      branching.chb_step_min < 0.0 ||
-      !std::isfinite(branching.chb_step_decay) ||
-      branching.chb_step_decay < 0.0 ||
-      branching.chb_step > 1.0 ||
-      branching.chb_step_min > branching.chb_step)
-    return reject("branching MAB/CHB parameters are invalid");
   if (!std::isfinite(analysis.bump_reason_rate) ||
       analysis.bump_reason_rate < 0.0)
     return reject("analysis reason-bump rate must be finite and nonnegative");
@@ -666,11 +657,7 @@ std::string DefaultStrategyConfig::serialize() const {
       << " branching.logarithm_offset=" << branching.logarithm_offset
       << " branching.focused_phase_switch_span="
       << branching.focused_phase_switch_span
-      << " branching.random_sequences=" << branching.random_sequences
-      << " branching.mab_exploration=" << branching.mab_exploration
-      << " branching.chb_step=" << branching.chb_step
-      << " branching.chb_step_min=" << branching.chb_step_min
-      << " branching.chb_step_decay=" << branching.chb_step_decay;
+      << " branching.random_sequences=" << branching.random_sequences;
   for (size_t i = 0; i < branching.focused_phase_pattern.size(); ++i)
     out << " branching.focused_phase" << i << '='
         << static_cast<int>(branching.focused_phase_pattern[i]);
@@ -1926,11 +1913,6 @@ uint32_t lit_occurrences(const Kernel &k, Lit l, bool binary_only) {
 }
 
 double transitive_activity(const Kernel &k, Var v) {
-  // AE-kissat-MAB routes transitive.c through kissat_get_scores: when CHB is
-  // the selected stable arm, its ordering is part of that arm too.  Other
-  // Kissat inprocessors retain their original EVSIDS coupling.
-  if (k.h->mab_enabled && k.h->stable_heuristic == 1)
-    return k.h->chb_scores.score[v];
   return k.h->scores.score[v];
 }
 
@@ -2751,7 +2733,6 @@ Lit DefaultBranching::pick_impl(Kernel &k, bool restart_reuse) {
     }
   }
   const Var v = heuristics_next_active_decision_var(k);
-  heuristics_mab_note_decision(k);
   return decide_lit(k, v);
 }
 
@@ -3327,14 +3308,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       k,
       [](Kernel &kernel, void *state) {
         DefaultPolicy *policy = static_cast<DefaultPolicy *>(state);
-        heuristics_mab_note_conflict(kernel);
         policy->update_tiers_after_analysis(kernel);
-      },
-      this);
-  KernelAnalysisLearnedPublisher analysis_learned_published(
-      k,
-      +[](Kernel &kernel, void *) {
-        heuristics_chb_mark_analyzed(kernel);
       },
       this);
   // Kissat creation order is production state.  CaDiCaL's VMTF/phase arena
@@ -3791,13 +3765,6 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   }
   if (!k.h)
     owned_h.emplace(k);
-  // Reset owner state before preprocessing. Every residual search enters with
-  // both bandit arms enabled after startup transformations finish.
-  heuristics_configure_mab(k, false,
-                           config_.branching.mab_exploration,
-                           config_.branching.chb_step,
-                           config_.branching.chb_step_min,
-                           config_.branching.chb_step_decay);
   if (!residual_import_order.empty())
     heuristics_seed_residual_import_order(k, residual_import_order);
   event_trace.macro(k, "preprocess_begin");
@@ -3861,12 +3828,6 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   startup = default_propagate(k, "post-preprocess");
   if (startup != ApplyResult::Ok)
     return finish(20);
-  heuristics_configure_mab(k, true,
-                           config_.branching.mab_exploration,
-                           config_.branching.chb_step,
-                           config_.branching.chb_step_min,
-                           config_.branching.chb_step_decay);
-  ++k.stats.mab_activations;
   if (lucky_late_ && lucky_guard(k)) {
     event_trace.macro(k, "lucky_late_begin");
     k.stats.lucky_late_calls++;
@@ -3946,14 +3907,12 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
 #endif
     const size_t trace_trail_begin = k.trail.size();
     const ApplyResult r = default_propagate(k, "search");
-    heuristics_chb_update_after_propagation(k, r == ApplyResult::Conflict);
     event_trace.implications(k, trace_trail_begin);
     if (r == ApplyResult::Unsat)
       return finish(20);
     if (r == ApplyResult::Conflict) {
       BranchingPolicy &bp = branching ? *branching : default_branching_;
       bp.on_search_propagation_conflict();
-      heuristics_mab_note_conflict(k);
       event_trace.conflict(k);
       event_trace.detail(k, "analysis_begin", k.level);
       event_trace.mode_clock(k, "pre_analyze", mode.ticks_limit,
@@ -4132,28 +4091,15 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       // post-restart decision.  Route through the active branching subpolicy,
       // then hand only its variable to the policy-neutral Restart rule.
       BranchingPolicy &bp = branching ? *branching : default_branching_;
-      const uint8_t old_heuristic = k.h->stable_heuristic;
-      const bool changed_heuristic = heuristics_mab_restart(k);
-      const uint8_t new_heuristic = k.h->stable_heuristic;
-      uint32_t keep = 0;
-      if (!changed_heuristic) {
-        const Lit next = bp.pick_for_restart_reuse(k);
-        keep = heuristics_restart_reuse_level_for(k, var_of(next));
-      } else {
-        // AE-kissat backtracks with the old ranking active, then repairs the
-        // newly selected heap before its next decision.
-        k.h->stable_heuristic = old_heuristic;
-      }
+      const Lit next = bp.pick_for_restart_reuse(k);
+      const uint32_t keep =
+          heuristics_restart_reuse_level_for(k, var_of(next));
       if (keep < k.level)
         heuristics_update_target_phases(k);
       (void)default_direct_rule_lazy(
           k, "Restart",
           [&] { return "keep-level=" + std::to_string(keep); },
           [&] { return restart_apply_to(k, keep); });
-      if (changed_heuristic) {
-        k.h->stable_heuristic = new_heuristic;
-        heuristics_mab_update_selected_scores(k);
-      }
       reluctant.trigger = false; // consumed (kissat reluctant.h)
       if (!k.h->stable) // kissat restart.c: focused-only limit update
         update_restart_limit(k);
