@@ -186,8 +186,11 @@ def submit(a):
     assert not (c/name).exists()
     if not a.validate:assert json.loads((c/'validation.json').read_text())['passed']
     script=c/('validate.sbatch' if a.validate else 'array.sbatch')
-    job=subprocess.check_output(['sbatch','--parsable',str(script)],text=True).strip().split(';')[0]
-    save(c/name,dict(job_id=job,manifest_sha256=sha(c/'manifest.json'),submitted_at=dt.datetime.now(dt.timezone.utc).isoformat()))
+    command=['sbatch','--parsable']
+    if a.afterany is not None:command.append(f'--dependency=afterany:{a.afterany}')
+    job=subprocess.check_output([*command,str(script)],text=True).strip().split(';')[0]
+    save(c/name,dict(job_id=job,manifest_sha256=sha(c/'manifest.json'),submitted_at=dt.datetime.now(dt.timezone.utc).isoformat(),
+                     dependency_afterany=a.afterany))
     print(job)
 
 if __name__=='__main__':
@@ -201,6 +204,7 @@ if __name__=='__main__':
     p.add_argument('--solve-timeout',type=int,default=1200)
     p.add_argument('--checker-timeout',type=int,default=16000)
     p.add_argument('--array-throttle',type=int)
+    p.add_argument('--afterany',type=int,help='submit only after this SLURM job or array terminates')
     p.add_argument('--certificate',choices=['dsr','auto'],default='dsr')
     p.add_argument('--instance',action='append',default=[])
     p.add_argument('--selection-table',type=Path)
@@ -212,4 +216,6 @@ if __name__=='__main__':
     if a.checker_timeout < 1:p.error('--checker-timeout must be positive')
     if a.array_throttle is not None and a.array_throttle < 1:
         p.error('--array-throttle must be positive')
+    if a.afterany is not None and (a.afterany < 1 or a.prepare):
+        p.error('--afterany requires a positive job id and --submit or --validate')
     prepare(a) if a.prepare else submit(a)
