@@ -28,7 +28,9 @@ for verdict,formula in [('SAT','p cnf 2 1\n1 2 0\n'),('UNSAT','p cnf 2 4\n1 2 0\
             checked=runtime.measured([c/'pins/checkmodel',cnf,out],s/'checker.out',s/'checker.err',s/'check.time',30)
             assert checked['exit_code']==0,(checked,runtime.tail(s/'checker.out'))
         else:
-            checked=runtime.check_unsat_proof(c,certificate,cnf,proof,s,30)
+            checked=runtime.check_unsat_proof(
+                c,certificate,cnf,proof,s,30,
+                reported_route=runtime.solver_reported_route(out))
             assert checked['result']=='verified',checked
         assert all(os.fstat(fd).st_nlink==0 for fd in s.handles.values())
         checks.append(dict(verdict=verdict,solve=result,check=checked))
