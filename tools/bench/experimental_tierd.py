@@ -170,9 +170,9 @@ exec python3 {c}/pins/validate_anonymous_runtime.py {c}
             checker_timeout=a.checker_timeout,scheduler_wall_seconds=wall,
             array=f'0-{len(rows)-1}{f"%{a.array_throttle}" if a.array_throttle else ""}',
             throttle=a.array_throttle,node_constraint=None),
-        proof_contract=('Automatic PBP / witnessed DSR / witness-free DSR routed by pinned VeriPB+CakePB, or no-option dsr-trim followed by Trestle for witnessed LSR and CakeLPR for witness-free LSR against the original CNF.'
+        proof_contract=('Automatic PBP / witnessed DSR / witness-free DSR routed by pinned VeriPB+CakePB, no-option dsr-trim→Trestle for witnessed SR, or validated DSR→DRAT→drat-trim→CakeLPR for witness-free DSR against the original CNF.'
                         if a.certificate=='auto' else
-                        'Explicit native DSR uses pinned no-option dsr-trim, then Trestle for witnessed LSR or CakeLPR for witness-free LSR against the original CNF.'),
+                        'Explicit native DSR uses pinned no-option dsr-trim→Trestle for witnessed SR, or validated DSR→DRAT→drat-trim→CakeLPR for witness-free DSR against the original CNF.'),
         cleanup_contract='O_TMPFILE on /tmp for input, DSR, LSR, model and checker scratch; no directory entries ever. Kernel releases storage at last close, including SIGKILL/OOM. Fail closed if unsupported. Only bounded JSON metadata and scheduler logs persist; core dumps disabled.',
         caveat='If the entire job dies, its result may be missing; never interpret missing as timeout or checked. Local disk may fill during a live run; no home-quota certificate storage or failure retention.',
         pin_sha256={str(p.relative_to(c)):sha(p) for p in [*(c/'pins').iterdir(),c/'matrix.tsv',c/'array.sbatch',c/'validate.sbatch']})

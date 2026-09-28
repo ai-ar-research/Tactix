@@ -61,7 +61,6 @@ import datetime
 import hashlib
 import json
 import os
-from pathlib import Path
 import re
 import resource
 import shlex
@@ -96,7 +95,8 @@ from proof_oracle import (bridge_trivial_input_binary_lsr,  # noqa: E402
                           dsr_compress_status, pb_stages,
                           routed_dsr_stages, canonical_checker_cnf,
                           proof_check_status, drat_command_with_timeout,
-                          restate_duplicate_input_lrat, run_captured,
+                          run_captured,
+                          check_witness_free_dsr_as_drat,
                           stage_environment, solver_reported_route_text,
                           REPORTED_DSR_ROUTES)
 # Oracle 1 of the fuzz harness (§8.2), shared here since 2026-08-08: a SAT
@@ -281,6 +281,25 @@ def check_proof(fmt, cnf, proof, budget, *, allow_pbp=True, route=None):
                         CHK_REJECTED, [])
             return check_pbp_proof(cnf, proof, budget)
         witness_free = route == 'dsr-cake_lpr'
+        if witness_free:
+            with tempfile.TemporaryDirectory(prefix="tactix-dsr-as-drat-") as scratch:
+                verified, stage, output = check_witness_free_dsr_as_drat(
+                    DRAT_TRIM, CAKE_LPR, cnf, proof, scratch, budget)
+            if verified:
+                return True, "VERIFIED", CHK_VERIFIED, []
+            if output == 'timed out':
+                return (False, f"{CHECKER_TIMEOUT_PREFIX}{budget:g}s budget",
+                        CHK_TIMEOUT, [])
+            if 's MEMORY ALLOCATION ERROR' in output:
+                kind = CHK_RESOURCE
+            elif (stage in ('route', 'input-restatement') or
+                  any(marker in output for marker in ('s NOT VERIFIED', 's INVALID',
+                                                     'Checking failed at',
+                                                     'empty clause not derived'))):
+                kind = CHK_REJECTED
+            else:
+                kind = CHK_ERROR
+            return False, f"{kind}: {stage}: {output[-160:]}", kind, [output[-400:]]
         started = time.monotonic()
 
         def remaining():
@@ -294,23 +313,14 @@ def check_proof(fmt, cnf, proof, budget, *, allow_pbp=True, route=None):
                 return False, f"checker-error: invalid original DIMACS: {error}", CHK_ERROR, []
             binary_lsr = os.path.join(scratch, "proof.binary.lsr")
             text_lsr = os.path.join(scratch, "proof.lsr")
-            final_checker = CAKE_LPR if witness_free else SR_CHECK
             stages = [
                 (name, argv, argv[-1] if name in ('dsr-trim', 'dsr-compress') else None)
                 for name, argv in routed_dsr_stages(
-                    DSR_TRIM, DSR_COMPRESS, final_checker, cnf, proof,
+                    DSR_TRIM, DSR_COMPRESS, SR_CHECK, cnf, proof,
                     binary_lsr, text_lsr, checker_cnf=checker_cnf,
-                    witness_free=witness_free)]
+                    witness_free=False)]
             details = []
             for name, argv, produced in stages:
-                if name == 'cake_lpr':
-                    try:
-                        checked_lsr, _ = restate_duplicate_input_lrat(
-                            checker_cnf, spelling, text_lsr,
-                            Path(scratch) / 'proof.original-input.lsr')
-                    except ValueError as error:
-                        return False, f'rejected: {error}', CHK_REJECTED, details
-                    argv = [CAKE_LPR, checker_cnf, checked_lsr]
                 try:
                     checked = run_captured([str(part) for part in argv],
                                            timeout=remaining(),

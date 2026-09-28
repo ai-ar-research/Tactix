@@ -21,7 +21,7 @@ ARMS = (
      'pbp-veripb-cakepb'),
     ('ae-kissat-mab', 'pins/ae-kissat-mab', 'positional', 'drat-cake-lpr'),
     ('satsuma-kissat', 'pins/satsuma-kissat/solver/kissat/build/kissat',
-     'satsuma-anonymous', 'dsr-dsrtrim-trestle'),
+     'satsuma-anonymous', 'dsr-hybrid'),
 )
 CHECKERS = ('drat-trim', 'cake-lpr', 'veripb', 'cake-pb-cnf',
             'dsr-trim', 'dsr-compress', 'srcheck', 'checkmodel', 'modelcheck.py')
@@ -47,7 +47,7 @@ def write_json(path, value):
         target.write('\n')
 
 
-def prepare(campaign):
+def prepare(campaign, selected_arms=None):
     campaign = campaign.resolve()
     if campaign.exists():
         raise SystemExit(f'campaign already exists: {campaign}')
@@ -58,11 +58,14 @@ def prepare(campaign):
     if len(original['instances']) != 1166:
         raise SystemExit('archived Tier D union is not 1,166 rows')
     original_arms = {arm['name']: arm for arm in original['solvers']}
+    chosen = [arm for arm in ARMS if selected_arms is None or arm[0] in selected_arms]
+    if not chosen or (selected_arms is not None and
+                      set(selected_arms) != {arm[0] for arm in chosen}):
+        raise SystemExit('unknown or empty arm selection')
     campaign.mkdir(parents=True)
     for name in ('pins', 'claims', 'results', 'logs'):
         (campaign / name).mkdir()
-    source_pin_names = {'kissat-sc2024', 'lymphosat', 'ae-kissat-mab',
-                        'satsuma-kissat', *CHECKERS}
+    source_pin_names = {arm[0] for arm in chosen} | set(CHECKERS)
     for name in sorted(source_pin_names):
         prior.copy_pin(REFERENCE / 'pins' / name, campaign / 'pins' / name)
     for name in source_pin_names - {'modelcheck.py'}:
@@ -70,14 +73,15 @@ def prepare(campaign):
         if record and prior.source_digest(campaign / record['path']) != record['sha256']:
             raise SystemExit(f'archived pin differs: {name}')
     for name in ('anonymous_scratch.py', 'portfolio_rerun.py',
-                 'experimental_winner_task.py', 'procfd_realpath.c'):
+                 'experimental_winner_task.py', 'procfd_realpath.c',
+                 'proof_oracle.py'):
         shutil.copy2(ROOT / 'tools/bench' / name, campaign / 'pins' / name)
     shim = campaign / 'pins/procfd_realpath.so'
     subprocess.run(['cc', '-shared', '-fPIC', '-O2', '-Wall', '-Wextra', '-Werror',
                     '-o', str(shim), str(campaign / 'pins/procfd_realpath.c'), '-ldl'],
                    check=True)
     arms = {}
-    for name, path, kind, route in ARMS:
+    for name, path, kind, route in chosen:
         archived = original_arms[name]
         if not (campaign / path).is_file():
             raise SystemExit(f'missing winner entrypoint: {path}')
@@ -93,9 +97,9 @@ def prepare(campaign):
         if name == 'satsuma-kissat':
             arms[name]['transport_shim'] = 'pins/procfd_realpath.so'
     instances = original['instances']
-    matrix = [{'task': len(ARMS) * rank + arm_index, 'rank': rank + 1,
+    matrix = [{'task': len(chosen) * rank + arm_index, 'rank': rank + 1,
                'arm': arm[0], 'instance': row['rel'], 'expected': row['expected']}
-              for rank, row in enumerate(instances) for arm_index, arm in enumerate(ARMS)]
+              for rank, row in enumerate(instances) for arm_index, arm in enumerate(chosen)]
     inputs = dict(line.split() for line in (REFERENCE / 'cache.sha256').read_text().splitlines())
     input_hashes = {rel: digest for digest, rel in inputs.items()}
     if set(input_hashes) != {row['rel'] for row in instances}:
@@ -106,14 +110,13 @@ def prepare(campaign):
     pins = {str(path.relative_to(campaign)): sha(path)
             for path in (campaign / 'pins').rglob('*') if path.is_file()}
     manifest = {
-        'schema': 'experimental-four-winner-tierd-v1',
+        'schema': 'experimental-winner-tierd-v2',
         'created_utc': dt.datetime.now(dt.timezone.utc).isoformat(),
         'baseline_authority': {'path': str(REFERENCE / 'manifest.json'),
                                'sha256': original_sha},
         'dataset_sha256': original['dataset_sha256'],
         'source_pins': {name: original['provenance'][name]
-                        for name in ('kissat-sc2024', 'lymphosat',
-                                     'ae-kissat-mab', 'satsuma-kissat')},
+                        for name in (arm[0] for arm in chosen)},
         'cache_root': str(cache_root), 'input_sha256': input_hashes,
         'arms': arms, 'matrix': matrix,
         'pin_sha256': pins,
@@ -129,12 +132,12 @@ def prepare(campaign):
                                'LD_PRELOAD': str(shim)},
         'runner_sha256': sha(campaign / 'pins/experimental_winner_task.py'),
         'scratch_policy': 'anonymous-local-files-v1',
-        'proof_contract': {
+        'proof_contract': {name: contract for name, contract in {
             'kissat-sc2024': 'DRAT→drat-trim LRAT→CakeLPR',
             'ae-kissat-mab': 'DRAT→drat-trim LRAT→CakeLPR',
             'lymphosat': 'PBP→VeriPB kernel PBP→CakePB',
-            'satsuma-kissat': 'DSR→no-option dsr-trim LSR→Trestle',
-        },
+            'satsuma-kissat': 'Witness-free DSR→DRAT→drat-trim→CakeLPR; witnessed DSR→no-option dsr-trim→Trestle',
+        }.items() if name in arms},
         'resource_contract': {'partition': PARTITION, 'cpus_per_task': CPUS,
                               'memory_mib': MEMORY_GIB * 1024,
                               'solve_timeout': SOLVE_SECONDS,
@@ -172,10 +175,11 @@ def prepare(campaign):
                       'manifest_sha256': sha(campaign / 'manifest.json')}, indent=2))
 
 
-def submit(campaign, validate):
+def submit(campaign, validate, afterany=None):
     campaign = campaign.resolve()
     manifest = json.loads((campaign / 'manifest.json').read_text())
-    if manifest['resource_contract']['array'] != '0-4663%120':
+    expected_array = f"0-{len(manifest['matrix'])-1}%{THROTTLE}"
+    if manifest['resource_contract']['array'] != expected_array:
         raise SystemExit('winner array contract changed')
     if manifest['resource_contract']['checker_timeout'] != CHECK_SECONDS:
         raise SystemExit('checker limit changed')
@@ -189,26 +193,36 @@ def submit(campaign, validate):
         validation = json.loads((campaign / 'validation.json').read_text())
         if not validation['passed'] or validation['manifest_sha256'] != sha(campaign / 'manifest.json'):
             raise SystemExit('four-arm compute-node validation is missing or stale')
+    command = ['sbatch', '--parsable']
+    if afterany is not None and not validate:
+        command.append(f'--dependency=afterany:{afterany}')
     job = subprocess.check_output(
-        ['sbatch', '--parsable', str(campaign / ('validate.sbatch' if validate else 'array.sbatch'))],
+        [*command, str(campaign / ('validate.sbatch' if validate else 'array.sbatch'))],
         text=True).strip().split(';')[0]
     write_json(marker, {'job_id': job, 'manifest_sha256': sha(campaign / 'manifest.json'),
-                        'submitted_utc': dt.datetime.now(dt.timezone.utc).isoformat()})
+                        'submitted_utc': dt.datetime.now(dt.timezone.utc).isoformat(),
+                        'dependency_afterany': afterany})
     print(job)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--campaign', required=True, type=Path)
+    parser.add_argument('--arm', action='append', choices=[arm[0] for arm in ARMS],
+                        help='limit a new campaign to the named arm')
+    parser.add_argument('--afterany', type=int,
+                        help='start the submitted array only after this job ends')
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('--prepare', action='store_true')
     group.add_argument('--validate', action='store_true')
     group.add_argument('--submit', action='store_true')
     args = parser.parse_args()
+    if args.afterany is not None and (args.afterany < 1 or args.prepare or args.validate):
+        parser.error('--afterany requires a positive job id and --submit')
     if args.prepare:
-        prepare(args.campaign)
+        prepare(args.campaign, args.arm)
     else:
-        submit(args.campaign, args.validate)
+        submit(args.campaign, args.validate, args.afterany)
 
 
 if __name__ == '__main__':

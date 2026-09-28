@@ -3,9 +3,9 @@
 
 Oracles enforced on every case:
   1. model     — SAT verdicts: `checkmodel` verifies the v-line assignment
-  2. proof     — UNSAT verdicts: native DSR elaborated by dsr-trim and checked
-                 as LSR by Trestle; explicit DRAT/LRAT compatibility checked
-                 by drat-trim/cake_lpr
+  2. proof     — UNSAT verdicts: witness-free DSR converted to DRAT and checked
+                 by drat-trim/CakeLPR; witnessed DSR elaborated by no-option
+                 dsr-trim and checked by Trestle
   3. differential — verdict must agree with the oracle solver
   4. crash/io  — clean exit (10/20), s-line consistent with exit code,
                  no sanitizer reports on stderr
@@ -55,7 +55,10 @@ from shrink import minimize  # noqa: E402
 # The fallback is only for the maintained tools/fuzz checkout.
 sys.path.append(os.path.join(ROOT, "tools", "bench"))
 from proof_oracle import (bridge_trivial_input_binary_lsr,  # noqa: E402
-                          bridge_trivial_input_lsr, dsr_compress_status,
+                          bridge_trivial_input_lsr, bridge_trivial_input_lrat,
+                          certificate_route, dsr_proof_as_drat, drat_stages,
+                          restate_duplicate_input_lrat, DSRFormatError,
+                          dsr_compress_status,
                           every_lemma_dsr_stages, proof_check_status,
                           reference_dsr_stages, pb_proof_has_header, pb_stages,
                           stage_environment, canonical_checker_cnf,
@@ -391,12 +394,14 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
     accepts a non-conflicting empty-lemma chain on a SAT input."""
     out = CaseOutcome()
     def check(command):
+        command = list(map(str, command))
         checker = os.path.basename(command[0])
         if checker == 'drat-trim':
             command = drat_command_with_timeout(command, 120)
         try:
             c, o, e = (run_cmd(command, 120, env=stage_environment(checker))
-                       if checker == "cake-pb-cnf" else run_cmd(command, 120))
+                       if checker in ("cake-pb-cnf", "cake_lpr")
+                       else run_cmd(command, 120))
         except OSError as error:
             c, o, e = -1, "", str(error)
         status = (dsr_compress_status(c, o + "\n" + e)
@@ -452,7 +457,7 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
         checker_cnf = os.path.join(workdir, "checker.cnf")
         out.proof_artifacts.append(checker_cnf)
         try:
-            canonical_checker_cnf(cnf_path, checker_cnf)
+            checker_spelling = canonical_checker_cnf(cnf_path, checker_cnf)
         except (OSError, ValueError) as error:
             out.fail("proof", "invalid original DIMACS: " + str(error))
             return out
@@ -502,6 +507,44 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
                         if not check([CAKE_LPR, checker_cnf, lrat_file]):
                             out.fail("proof", "cake_lpr did not verify the converted LRAT")
         elif os.path.exists(proof) and native_dsr:
+            try:
+                route = certificate_route(proof)
+            except DSRFormatError as error:
+                out.fail('proof', 'invalid DSR stream: ' + str(error))
+                route = None
+            if route == 'pbp':
+                out.fail('proof', 'unexpected PBP in native DSR branch')
+            if route == 'drat':
+                converted = os.path.join(workdir, 'proof.as-drat')
+                lrat_file = os.path.join(workdir, 'proof.lrat')
+                lifted = os.path.join(workdir, 'proof.original-input.lrat')
+                out.proof_artifacts += [converted, lrat_file, lifted]
+                try:
+                    converted_ok = dsr_proof_as_drat(proof, converted)
+                except DSRFormatError as error:
+                    converted_ok = False
+                    out.fail('proof', 'invalid DSR conversion: ' + str(error))
+                if not converted_ok:
+                    out.fail('proof', 'witnessed DSR cannot use DRAT route')
+                else:
+                    if not check([DRAT_TRIM, checker_cnf, converted, '-L', lrat_file]):
+                        out.fail('proof', 'drat-trim did not elaborate witness-free DSR')
+                    else:
+                        record = out.checker_runs[-1]
+                        bridge_trivial_input_lrat(
+                            checker_spelling, lrat_file, record['exit_code'],
+                            record['stdout'], record['stderr'])
+                        if not os.path.isfile(lrat_file) or not os.path.getsize(lrat_file):
+                            out.fail('proof', 'drat-trim produced no LRAT')
+                        else:
+                            try:
+                                checked_lrat, _ = restate_duplicate_input_lrat(
+                                    checker_cnf, checker_spelling, lrat_file, lifted)
+                            except ValueError as error:
+                                out.fail('proof', 'input restatement: ' + str(error))
+                            else:
+                                if not check([CAKE_LPR, checker_cnf, checked_lrat]):
+                                    out.fail('proof', 'CakeLPR rejected witness-free DSR')
             # proof_oracle.reference_dsr_stages owns the pipeline definition.
             binary_lsr = os.path.join(workdir, "proof.binary.lsr")
             text_lsr = os.path.join(workdir, "proof.lsr")
@@ -512,9 +555,13 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
             # The reference pipeline is the authority; it elaborates backward
             # and so examines only the lemmas the refutation uses.  Fuzz proofs
             # are small, so every line is then checked by forward elaboration.
-            for label, stages in (("", reference_dsr_stages),
-                                  ("every-lemma audit: ",
-                                   every_lemma_dsr_stages)):
+            audited_stages = (("", reference_dsr_stages),
+                              ("every-lemma audit: ", every_lemma_dsr_stages))
+            if route == 'drat':
+                audited_stages = audited_stages[1:]
+            if route not in ('drat', 'dsr'):
+                audited_stages = ()
+            for label, stages in audited_stages:
                 failed = False
                 for name, command in stages(
                         DSR_TRIM, DSR_COMPRESS, SR_CHECK, cnf_path, proof,

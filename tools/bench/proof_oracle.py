@@ -2,12 +2,12 @@
 
 The legacy lrat-check executable is deliberately not an acceptance oracle:
 6906 demonstrated false acceptance of an empty lemma on a satisfiable input.
-Use cake_lpr for native LRAT, drat-trim for native DRAT, and pinned no-option
-dsr-trim for every native DSR certificate.
+Use cake_lpr for native LRAT and drat-trim for native DRAT. A witness-free
+native DSR has a validated DRAT spelling and takes drat-trim then CakeLPR;
+a witnessed DSR takes pinned no-option dsr-trim then Trestle.
 
-Acceptance of a native DSR certificate routes its elaborated LSR by content:
-a witness-free proof is LRAT-compatible and takes CakeLPR; a proof with an SR
-witness takes Trestle. Automatic startup
+Acceptance of a native DSR certificate is declared by the solver and audited
+against its complete content. Automatic startup
 certificates may instead carry PBP: VeriPB elaborates it and CakePB checks the
 result against the same original CNF. Both stages must verify.
 """
@@ -374,11 +374,9 @@ def bridge_trivial_input_binary_lsr(cnf_path, lsr_path) -> bool:
 
 
 # --- the DSR checking pipeline ------------------------------------------------
-# One home for native-DSR elaboration. dsr-trim takes no options, so it checks
-# backward and trims to the core; binary DSR yields binary LSR, decoded by
-# `dsr-compress -d`. The final verified checker is CakeLPR for the witness-free
-# fragment and Trestle for witnessed SR. The Satsuma+Kissat reference's full
-# Trestle route remains available as a direct diagnostic.
+# One home for native-DSR parsing and route selection. Witness-free DSR has a
+# lossless DRAT spelling; witnessed SR uses no-option dsr-trim, dsr-compress -d
+# for binary LSR, and Trestle. The full DSR route remains a diagnostic.
 
 def dsr_proof_is_binary(proof) -> bool:
     """Native binary DSR uses control-byte tags absent from ASCII DSR."""
@@ -390,7 +388,8 @@ def dsr_proof_is_binary(proof) -> bool:
     return any(byte not in b'0123456789- \t\n\r\v\fd' for byte in head)
 
 
-# Binary DSR line tags (dsr-trim's encoding) and their binary DRAT equivalents.
+# Binary DSR line tags and the CaDiCaL-style tags also accepted by dsr-trim.
+# Satsuma+Kissat uses the latter, and a composed proof may mix both spellings.
 DSR_BINARY_ADD, DSR_BINARY_DELETE = 1, 2
 DRAT_BINARY_ADD, DRAT_BINARY_DELETE = ord('a'), ord('d')
 BINARY_DSR_SCAN_CHUNK = 1 << 20
@@ -413,9 +412,9 @@ def _dsr_binary_events(proof):
         while data := source.read(BINARY_DSR_SCAN_CHUNK):
             for byte in data:
                 if kind is None:
-                    if byte == DSR_BINARY_ADD:
+                    if byte in (DSR_BINARY_ADD, DRAT_BINARY_ADD):
                         kind = 'a'
-                    elif byte == DSR_BINARY_DELETE:
+                    elif byte in (DSR_BINARY_DELETE, DRAT_BINARY_DELETE):
                         kind = 'd'
                     else:
                         raise DSRFormatError(
@@ -521,7 +520,8 @@ def dsr_proof_as_drat(proof, drat):
             rewritten = bytearray(data)
             for index, byte in enumerate(data):
                 if at_tag:
-                    rewritten[index] = (DRAT_BINARY_ADD if byte == DSR_BINARY_ADD
+                    rewritten[index] = (DRAT_BINARY_ADD
+                                        if byte in (DSR_BINARY_ADD, DRAT_BINARY_ADD)
                                         else DRAT_BINARY_DELETE)
                     at_tag = False
                 else:
@@ -737,12 +737,68 @@ def check_routed(dsr_trim, dsr_compress, srcheck, drat_trim, cake_lpr, cnf,
         verified, stage, output = check_pb(
             veripb, cake_pb, cnf, proof, workdir, timeout)
         return verified, stage, output, route
-    if route in ('dsr', 'drat'):
+    if route == 'drat':
+        verified, stage, output = check_witness_free_dsr_as_drat(
+            drat_trim, cake_lpr, cnf, proof, workdir, timeout)
+        return verified, stage, output, route
+    if route == 'dsr':
         verified, stage, output = check_dsr(
-            dsr_trim, dsr_compress, srcheck, cnf, proof, workdir, timeout,
-            cake_lpr=cake_lpr, witness_free=route == 'drat')
+            dsr_trim, dsr_compress, srcheck, cnf, proof, workdir, timeout)
         return verified, stage, output, route
     raise AssertionError('unrecognized certificate route')
+
+
+def check_witness_free_dsr_as_drat(drat_trim, cake_lpr, cnf, proof, workdir,
+                                   timeout=None):
+    """Validate the DSR conversion, then require drat-trim and CakeLPR."""
+    import subprocess
+    import time
+    if drat_trim is None or cake_lpr is None:
+        return False, 'pins', 'DRAT and CakeLPR pins are required'
+    started = time.monotonic()
+    workdir = Path(workdir)
+    checker_cnf, drat, lrat = (workdir / 'checker.cnf', workdir / 'proof.drat',
+                               workdir / 'proof.lrat')
+    try:
+        spelling = canonical_checker_cnf(cnf, checker_cnf)
+        if not dsr_proof_as_drat(proof, drat):
+            return False, 'route', 'witnessed DSR cannot use the DRAT route'
+    except (OSError, ValueError) as error:
+        return False, 'route', str(error)
+    if lrat.exists():
+        lrat.unlink()
+    for name, command in drat_stages(drat_trim, cake_lpr, cnf, drat, lrat,
+                                     checker_cnf=checker_cnf):
+        if name == 'cake_lpr':
+            try:
+                checked_lrat, _ = restate_duplicate_input_lrat(
+                    checker_cnf, spelling, lrat,
+                    workdir / 'proof.original-input.lrat')
+            except ValueError as error:
+                return False, 'input-restatement', str(error)
+            command[-1] = checked_lrat
+        remaining = None if timeout is None else timeout - (time.monotonic() - started)
+        if remaining is not None and remaining <= 0:
+            return False, name, 'timed out'
+        if name == 'drat-trim' and remaining is not None:
+            command = drat_command_with_timeout(command, remaining)
+        try:
+            done = run_captured([str(part) for part in command], timeout=remaining,
+                                env=stage_environment(name))
+        except subprocess.TimeoutExpired:
+            return False, name, 'timed out'
+        except OSError as error:
+            return False, name, str(error)
+        output = done.stdout + '\n' + done.stderr
+        if proof_check_status(name, done.returncode, done.stdout, done.stderr,
+                              input_has_empty_clause=spelling['first_empty_clause'] is not None
+                              ) != 'verified':
+            return False, name, output
+        if name == 'drat-trim':
+            bridge_trivial_input_lrat(spelling, lrat, done.returncode, output)
+            if not lrat.is_file() or not lrat.stat().st_size:
+                return False, name, 'no LRAT produced'
+    return True, None, ''
 
 
 def check_pb(veripb, cake_pb, cnf, proof, workdir, timeout=None):
@@ -868,8 +924,9 @@ def _main(argv):
     here = Path(__file__).resolve().parents[2] / 'tools/checkers/bin'
     parser = argparse.ArgumentParser(
         description='check-dsr: the reference dsr-trim | dsr-compress -d | '
-                    'Trestle diagnostic. check: DSR is elaborated by dsr-trim '
-                    'and ends at CakeLPR if witness-free, Trestle otherwise.')
+                    'Trestle diagnostic. check: witness-free DSR takes validated '
+                    'DRAT/drat-trim/CakeLPR; witnessed DSR takes no-option '
+                    'dsr-trim/Trestle.')
     parser.add_argument('command', choices=['check-dsr', 'check'])
     parser.add_argument('cnf')
     parser.add_argument('proof')

@@ -10,7 +10,7 @@ import runtime_task as runtime
 c=Path(sys.argv[1]).resolve()
 assert os.environ.get('SLURM_JOB_ID')
 m=json.loads((c/'manifest.json').read_text())
-arm=m['arms']['tactix']
+arm=next(iter(m['arms'].values()))
 certificate=arm.get('certificate','drat')
 runtime.validate_runtime_pin_contract(c,m)
 for rel,expected in m['pin_sha256'].items():

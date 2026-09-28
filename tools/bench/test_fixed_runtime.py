@@ -100,7 +100,7 @@ class FixedRuntimeTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'identity'):
             f.score_records(self.ref, dsr, 'tactix-drat')
 
-    def test_dsr_score_requires_dsr_trim_before_either_final_checker(self):
+    def test_dsr_score_requires_the_declared_hybrid_branch(self):
         ref, rows = copy.deepcopy(self.ref), copy.deepcopy(self.records)
         ref['records'][0]['expected'] = rows[0]['expected'] = 'UNSAT'
         rows[0]['arm'] = 'tactix-dsr'
@@ -109,13 +109,13 @@ class FixedRuntimeTests(unittest.TestCase):
         rows[0]['proof_check'] = dict(pipeline='witness-free-dsr-as-drat:drat-trim-cake_lpr')
         for row in rows[1:]:
             row['arm'] = 'tactix-dsr'
-        with self.assertRaisesRegex(ValueError, 'canonical checker pipeline'):
+        with self.assertRaisesRegex(ValueError, 'hybrid checker pipeline'):
             f.score_records(ref, rows, 'tactix-dsr', require_canonical_dsr=True)
         rows[0]['proof_check'].update(result='verified',
             solver_reported_route='dsr-cake_lpr',
-            pipeline='dsr-trim-dsr-compress-cake_lpr',
+            pipeline='dsr-as-drat-drat-trim-cake_lpr',
             stages=[dict(name=name, result='verified') for name in
-                    ('dsr-trim', 'dsr-compress', 'cake_lpr')])
+                    ('drat-trim', 'cake_lpr')])
         self.assertTrue(f.score_records(ref, rows, 'tactix-dsr',
                                         require_canonical_dsr=True)['runtime_target_met'])
 
@@ -125,8 +125,8 @@ class FixedRuntimeTests(unittest.TestCase):
                 ('veripb-cake-pb', 'pbp', ('veripb', 'cake-pb-cnf')),
                 ('dsr-trim-dsr-compress-trestle', 'dsr-trestle',
                  ('dsr-trim', 'dsr-compress', 'srcheck')),
-                ('dsr-trim-dsr-compress-cake_lpr', 'dsr-cake_lpr',
-                 ('dsr-trim', 'dsr-compress', 'cake_lpr')))):
+                ('dsr-as-drat-drat-trim-cake_lpr', 'dsr-cake_lpr',
+                 ('drat-trim', 'cake_lpr')))):
             ref['records'][index]['expected'] = rows[index]['expected'] = 'UNSAT'
             rows[index].update(verdict='UNSAT', valid=True, expected_match=True,
                                proof_check=dict(result='verified', pipeline=pipeline,

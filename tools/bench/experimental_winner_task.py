@@ -59,6 +59,42 @@ def validate(campaign):
                 check = {'arm': arm, 'expected': expected,
                          'passed': False, 'error': repr(error)}
             checks.append(check)
+    if 'satsuma-kissat' in manifest['arms']:
+        controls = (
+            ('witness-free', 'p cnf 1 2\n1 0\n-1 0\n', bytes([1, 0]),
+             ['drat-trim', 'cake-lpr'], True),
+            ('cadical-tags', 'p cnf 1 2\n1 0\n-1 0\n',
+             bytes([ord('a'), 0]), ['drat-trim', 'cake-lpr'], True),
+            ('witnessed', 'p cnf 1 2\n1 0\n-1 0\n',
+             bytes([ord('a'), 2, 2, 0, 1, 0]),
+             ['dsr-trim', 'dsr-compress', 'srcheck'], True),
+            ('false-proof', 'p cnf 1 1\n1 0\n', bytes([1, 0]),
+             ['drat-trim'], False),
+        )
+        for label, formula, certificate, stages, expected in controls:
+            scratch = AnonymousScratch('/tmp')
+            try:
+                cnf, proof = scratch / 'control.cnf', scratch / 'control.dsr'
+                cnf.write_text(formula)
+                proof.write_bytes(certificate)
+                checked = prior.check_proof(
+                    campaign, manifest, 'dsr', cnf, proof, scratch, 120,
+                    route_contract='dsr-hybrid')
+                names = [stage['name'] for stage in checked['stages']]
+                passed = (names == stages and
+                          (checked['result'] == 'verified') == expected)
+                if label == 'witnessed' and passed:
+                    passed = len(checked['stages'][0]['command']) == 4
+                checks.append({'control': label, 'proof_check': checked,
+                               'passed': passed})
+            except Exception as error:
+                checks.append({'control': label, 'error': repr(error),
+                               'passed': False})
+            finally:
+                scratch.close()
+            if scratch.exists():
+                checks[-1]['passed'] = False
+                checks[-1]['cleanup'] = False
     for code in ('import os; os._exit(7)', 'import time; time.sleep(60)'):
         scratch = AnonymousScratch('/tmp')
         try:
@@ -76,7 +112,7 @@ def validate(campaign):
         'node': os.environ.get('SLURMD_NODENAME', os.uname().nodename),
         'manifest_sha256': prior.sha256(campaign / 'manifest.json'),
         'checks': checks}, exclusive=True)
-    print('PASS' if passed else 'FAIL', 'four-winner anonymous validation')
+    print('PASS' if passed else 'FAIL', 'winner anonymous validation')
     return 0 if passed else 1
 
 
@@ -99,7 +135,7 @@ def run_task(campaign, task):
     except Exception as error:
         result = {'verdict': 'INFRA_ERROR', 'valid': False, 'error': repr(error),
                   'solve': None, 'proof_check': None, 'model_check': None}
-    result.update({'schema': 'experimental-four-winner-tierd-v1',
+    result.update({'schema': 'experimental-winner-tierd-v2',
                    'task': task, 'rank': row['rank'], 'arm': row['arm'],
                    'instance': row['instance'], 'expected': row['expected'],
                    'node': os.environ.get('SLURMD_NODENAME', os.uname().nodename),

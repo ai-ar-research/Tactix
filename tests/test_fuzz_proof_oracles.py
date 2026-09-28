@@ -225,9 +225,7 @@ class FuzzProofOracles(unittest.TestCase):
                                                            scratch, 30, synthetic_route_hint(proof))
                                 self.assertEqual(result['result'], 'verified', result)
                                 self.assertEqual([s['name'] for s in result['stages']],
-                                                 (['dsr-trim', 'dsr-compress', 'cake_lpr']
-                                                  if payload == b'\x01\x00' else
-                                                  ['dsr-trim', 'cake_lpr']))
+                                                 ['drat-trim', 'cake_lpr'])
                                 self.assertGreater(result['stages'][0]['produced_bytes'], 0)
                             finally:
                                 if anonymous: scratch.close()
@@ -238,24 +236,24 @@ class FuzzProofOracles(unittest.TestCase):
         import runtime_task
         campaign = ROOT/'benchmarks/runs/20260923-am341-unwatch'
         pins = campaign/'pins'
-        actual_bridge = proof_oracle.bridge_trivial_input_lsr
-        def corrupt_hint(cnf, lsr):
-            changed = actual_bridge(cnf, lsr)
+        actual_bridge = proof_oracle.bridge_trivial_input_lrat
+        def corrupt_hint(spelling, lrat, returncode, stdout, stderr=''):
+            changed = actual_bridge(spelling, lrat, returncode, stdout, stderr)
             self.assertTrue(changed)
-            Path(lsr).write_text('4 0 1 0\n')  # clause 1 is nonunit, not the empty clause 2
+            Path(lrat).write_text('4 0 1 0\n')  # clause 1 is nonunit, not the empty clause 2
             return changed
         with tempfile.TemporaryDirectory() as directory:
             work = Path(directory)
             cnf, proof = work/'input.cnf', work/'input.dsr'
             cnf.write_text('p cnf 2 3\n1 2 0\n0\n-1 0\n')
             proof.write_text('0\n')
-            with patch.object(proof_oracle, 'bridge_trivial_input_lsr', side_effect=corrupt_hint):
+            with patch.object(proof_oracle, 'bridge_trivial_input_lrat', side_effect=corrupt_hint):
                 result = proof_oracle.check_routed(
                     pins/'dsr-trim', pins/'dsr-compress', pins/'srcheck', pins/'drat-trim',
                     pins/'cake_lpr', cnf, proof, work, 30)
             self.assertFalse(result[0])
             self.assertEqual(result[1], 'cake_lpr', result)
-            with patch.object(runtime_task, 'bridge_trivial_input_lsr', side_effect=corrupt_hint):
+            with patch.object(runtime_task, 'bridge_trivial_input_lrat', side_effect=corrupt_hint):
                 result = runtime_task.check_unsat_proof(campaign, 'dsr', cnf, proof,
                                                         work, 30, synthetic_route_hint(proof))
             self.assertEqual(result['result'], 'not-verified', result)
@@ -638,19 +636,13 @@ class FuzzProofOracles(unittest.TestCase):
         self.assertFalse(r.failures)
         self.assertEqual([Path(run['command'][0]).name
                          for run in r.checker_runs],
-                         ['dsr-trim', 'srcheck', 'dsr-trim', 'srcheck'])
-        # reference pipeline first, then the every-lemma forward audit
+                         ['drat-trim', 'cake_lpr', 'dsr-trim', 'srcheck'])
+        # Hybrid acceptance first, then the every-lemma forward DSR audit.
         self.assertNotIn('-f', r.checker_runs[0]['command'])
         self.assertIn('-f', r.checker_runs[2]['command'])
-        # The Satsuma+Kissat reference invocation: dsr-trim takes no options
-        # and Trestle reads a text LSR.  This fixture is diagnostic ASCII DSR,
-        # for which dsr-trim writes that text LSR itself; a binary certificate
-        # adds the `dsr-compress -d` expansion (test_reference_dsr_stages).
-        self.assertFalse([arg for arg in r.checker_runs[0]['command'][1:]
-                          if str(arg).startswith('-')])
         self.assertEqual(len(r.checker_runs[-1]['command']), 3)
         self.assertEqual(r.checker_runs[-1]['command'][-1],
-                         r.checker_runs[0]['command'][-1])
+                         r.checker_runs[2]['command'][-1])
 
     def test_certificate_routing_by_witness(self):
         sys.path.insert(0, str(ROOT/'tools/bench'))
@@ -673,6 +665,11 @@ class FuzzProofOracles(unittest.TestCase):
             self.assertTrue(oracle.dsr_proof_has_witness(bin_witness))
             drat = work/'plain.drat'
             self.assertTrue(oracle.dsr_proof_as_drat(bin_plain, drat))
+            self.assertEqual(drat.read_bytes(), bytes([ord('a'), 2, 4, 0, ord('d'), 2, 4, 0, ord('a'), 0]))
+            cadical = work/'cadical.bin'
+            cadical.write_bytes(bytes([ord('a'), 2, 4, 0, ord('d'), 2, 4, 0, 1, 0]))
+            self.assertEqual(oracle.certificate_route(cadical), 'drat')
+            self.assertTrue(oracle.dsr_proof_as_drat(cadical, drat))
             self.assertEqual(drat.read_bytes(), bytes([ord('a'), 2, 4, 0, ord('d'), 2, 4, 0, ord('a'), 0]))
             self.assertFalse(oracle.dsr_proof_as_drat(bin_witness, work/'never.drat'))
             copied = work/'plain.ascii.drat'
@@ -744,7 +741,7 @@ class FuzzProofOracles(unittest.TestCase):
         r = self.fixture('p cnf 1 1\n1 0\n', '0\n', dsr=True)
         self.assertIn('proof', [kind for kind, _ in r.failures])
         self.assertEqual(Path(r.checker_runs[0]['command'][0]).name,
-                         'dsr-trim')
+                         'drat-trim')
 
     def test_conversion_dispatches_to_cake(self):
         r = self.fixture('p cnf 1 2\n1 0\n-1 0\n', '0\n', lrat=False, convert=True)
