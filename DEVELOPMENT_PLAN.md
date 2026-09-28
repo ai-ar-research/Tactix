@@ -182,7 +182,7 @@ replayable and API-selectable; discovery is formula-neutral, bounded and interru
 original CNF identities across input normalization; no mixed streams, format switching after publication,
 or hidden whole-run proof ledger. Interrupted/failed publication cannot claim UNSAT.
 The solver declares its UNSAT route; the runner rejects a certificate mismatch. PBP takes pinned VeriPB 3.0.2 then CakePB `6edb2f35` against original CNF (24,576 MiB heap).
-Every native DSR takes no-option `dsr-trim` to LSR, decoding binary LSR as needed. Witness-free LSR takes pinned CakeLPR with original-CNF duplicate/empty-input bridges; witnessed SR takes Trestle.
+Native DSR takes one content-declared hybrid route: a witness-free stream is validated and converted to DRAT, then drat-trim elaborates LRAT for pinned CakeLPR with original-CNF duplicate/empty-input bridges; a witnessed stream takes no-option `dsr-trim` to LSR, decoding binary LSR as needed, then Trestle. The route is fixed before checking, never retried after rejection, and both branches check against the original CNF.
 Explicit DRAT/LRAT retain their routes. All stages must verify within the checker allowance; fuzz audits every lemma and rejects corrupted certificates.
 
 Every level-zero fact used by a later proof rule belongs to the checker-visible

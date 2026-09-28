@@ -24,6 +24,11 @@ import subprocess
 import sys
 import time
 
+from proof_oracle import (DSRFormatError, bridge_trivial_input_lrat,
+                          canonical_checker_cnf, certificate_route,
+                          drat_command_with_timeout, dsr_proof_as_drat,
+                          proof_check_status, restate_duplicate_input_lrat)
+
 
 SOURCE_ROOT = Path(__file__).resolve().parents[2]
 SOLVE_SECONDS = 1200
@@ -981,12 +986,54 @@ def proof_specs(campaign, manifest, certificate, cnf, proof, scratch):
     raise ValueError(f"unsupported certificate format: {certificate}")
 
 
-def check_proof(campaign, manifest, certificate, cnf, proof, scratch, timeout):
+def check_proof(campaign, manifest, certificate, cnf, proof, scratch, timeout,
+                route_contract=None):
     started, stages = time.monotonic(), []
-    for number, (name, command) in enumerate(
-        proof_specs(campaign, manifest, certificate, cnf, proof, scratch), 1
-    ):
+    content_route = None
+    checker_input = None
+    spelling = None
+    if certificate == 'dsr' and route_contract == 'dsr-hybrid':
+        try:
+            content_route = certificate_route(proof)
+            if content_route not in ('drat', 'dsr'):
+                raise DSRFormatError('Satsuma DSR arm emitted a PBP certificate')
+            checker_input = scratch / 'checker.cnf'
+            spelling = canonical_checker_cnf(cnf, checker_input)
+            if content_route == 'drat':
+                converted = scratch / 'proof.drat'
+                if not dsr_proof_as_drat(proof, converted):
+                    raise DSRFormatError('witnessed DSR cannot use DRAT route')
+                lrat = scratch / 'proof.lrat'
+                specs = proof_specs(campaign, manifest, 'drat', checker_input,
+                                    converted, scratch)
+            else:
+                specs = proof_specs(campaign, manifest, 'dsr', checker_input,
+                                    proof, scratch)
+        except (DSRFormatError, ValueError) as error:
+            return {'pipeline': 'dsr-hybrid', 'certificate_content_route': None,
+                    'result': 'not-verified', 'stages': [],
+                    'route_error': str(error), 'wall_seconds': round(time.monotonic()-started, 3),
+                    'peak_rss_kb': 0, 'timed_out': False}
+        pipeline = ('dsr-as-drat-drat-trim-cake-lpr' if content_route == 'drat'
+                    else 'dsr-trim-dsr-compress-trestle')
+    else:
+        specs = proof_specs(campaign, manifest, certificate, cnf, proof, scratch)
+        pipeline = certificate
+    for number, (name, command) in enumerate(specs, 1):
+        if content_route == 'drat' and name == 'cake-lpr':
+            try:
+                checked_lrat, restatements = restate_duplicate_input_lrat(
+                    checker_input, spelling, lrat, scratch / 'proof.original-input.lrat')
+            except ValueError as error:
+                stages.append({'name': 'input-restatement', 'result': 'not-verified',
+                               'error': str(error), 'timed_out': False,
+                               'wall_seconds': 0, 'peak_rss_kb': 0})
+                break
+            command = [*command[:-1], checked_lrat]
+            stages[-1]['input_restatements'] = restatements
         remaining = max(1, timeout - int(time.monotonic() - started))
+        if name == 'drat-trim':
+            command = drat_command_with_timeout(command, remaining)
         stdout, stderr = (
             scratch / f"checker-{number}.stdout",
             scratch / f"checker-{number}.stderr",
@@ -1004,8 +1051,21 @@ def check_proof(campaign, manifest, certificate, cnf, proof, scratch, timeout):
             remaining,
             environment,
         )
+        verified = checker_ok(name, result, stdout, stderr)
+        if content_route == 'drat' and name == 'drat-trim':
+            output = '\n'.join(tail(stdout, 120) + tail(stderr, 120))
+            verified = proof_check_status(
+                name, result['exit_code'], output, '',
+                input_has_empty_clause=spelling['first_empty_clause'] is not None
+            ) == 'verified'
+            if verified:
+                result['input_empty_lrat_bridge'] = bridge_trivial_input_lrat(
+                    spelling, lrat, result['exit_code'], output)
+                verified = lrat.is_file() and lrat.stat().st_size > 0
         result.update(
             name=name,
+            command=list(map(str, command)),
+            timeout_seconds=remaining,
             checker={
                 "path": str(command[0]),
                 "sha256": manifest["pin_digests"][
@@ -1013,9 +1073,7 @@ def check_proof(campaign, manifest, certificate, cnf, proof, scratch, timeout):
                 ],
             },
             environment=stage_environment,
-            result="verified"
-            if checker_ok(name, result, stdout, stderr)
-            else "not-verified",
+            result="verified" if verified else "not-verified",
             stdout_tail=tail(stdout),
             stderr_tail=tail(stderr),
         )
@@ -1023,11 +1081,13 @@ def check_proof(campaign, manifest, certificate, cnf, proof, scratch, timeout):
         if result["result"] != "verified":
             break
     return {
-        "pipeline": certificate,
+        "pipeline": pipeline,
+        "certificate_content_route": content_route,
+        "checker_input": spelling,
         "stages": stages,
         "result": "verified"
         if len(stages)
-        == len(proof_specs(campaign, manifest, certificate, cnf, proof, scratch))
+        == len(specs)
         and all(stage["result"] == "verified" for stage in stages)
         else "not-verified",
         "wall_seconds": round(sum(stage["wall_seconds"] for stage in stages), 3),
@@ -1153,6 +1213,7 @@ def execute_case(
             proof,
             scratch,
             check_timeout,
+            route_contract=manifest["arms"][arm_name].get("route"),
         )
         certificate_ok = result["proof_check"]["result"] == "verified"
     elif verdict == "SAT":

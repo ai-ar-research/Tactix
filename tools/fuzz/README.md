@@ -26,7 +26,8 @@ Soundness pipeline per DEVELOPMENT_PLAN.md §8.2 (workflow: the `fuzz` skill).
   (`--allow-nonterminating N` pre-registers an exception).
 - `fuzz.py` — runner (subcommands `run`, `check-one`, `corpus`); oracles:
   model (`checkmodel`), startup PBP (VeriPB elaboration then CakePB against the
-  original CNF, both required), native DSR (`dsr-trim` to LSR to Trestle), explicit
+  original CNF, both required), witness-free native DSR (validated DRAT to
+  drat-trim and CakeLPR), witnessed DSR (no-option `dsr-trim` to LSR to Trestle), explicit
   DRAT (`drat-trim`), explicit native LRAT (`cake_lpr`), differential verdict,
   and crash/I/O consistency. Legacy `lrat-check` is diagnostic only: it can
   accept an invalid empty lemma on a satisfiable input. Failed cases retain the

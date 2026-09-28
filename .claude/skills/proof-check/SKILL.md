@@ -6,12 +6,13 @@ description: Verify and debug Tactix proof certificates with the checker require
 # Proof checking
 
 `DEVELOPMENT_PLAN.md` §5 and `tools/bench/proof_oracle.py` own the current
-certificate route. Every native DSR proof uses pinned **no-option**
+certificate route. A declared witness-free native DSR proof is validated and
+converted losslessly to DRAT, elaborated by drat-trim and independently checked
+by CakeLPR. A witnessed DSR proof uses pinned **no-option**
 `dsr-trim <checker-cnf> <dsr> <lsr>` (backward/core-trimmed), binary-LSR
-decoding with `dsr-compress -d` when needed, and a verified final checker:
-CakeLPR for witness-free LRAT-compatible elaborations, Trestle `srcheck` for
-witnessed SR. Forward `dsr-trim -f` is an additional every-lemma diagnostic,
-not the canonical acceptance command; `--delete-implied-units` is not enabled.
+decoding with `dsr-compress -d` when needed, and Trestle `srcheck`.
+Forward `dsr-trim -f` is an additional every-lemma diagnostic, not the
+canonical acceptance command; `--delete-implied-units` is not enabled.
 A complete
 startup PBP takes VeriPB then CakePB. Explicit DRAT/LRAT are compatibility
 outputs. Verify competition-specific requirements separately.

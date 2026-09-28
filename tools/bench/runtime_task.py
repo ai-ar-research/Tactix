@@ -20,7 +20,8 @@ import time
 from proof_oracle import (bridge_trivial_input_binary_lsr,
                           bridge_trivial_input_lsr, dsr_compress_status,
                           proof_check_status, routed_dsr_stages,
-                          certificate_route, pb_stages, stage_environment,
+                          certificate_route, dsr_proof_as_drat, drat_stages,
+                          pb_stages, stage_environment,
                           canonical_checker_cnf, bridge_trivial_input_lrat,
                           drat_command_with_timeout, DSRFormatError,
                           restate_duplicate_input_lrat,
@@ -231,7 +232,8 @@ def validate_runtime_pin_contract(campaign, manifest):
             required.add("pins/drat-trim")
         elif certificate in ("dsr", "auto"):
             required.update({"pins/dsr-trim", "pins/dsr-compress",
-                             "pins/srcheck", "pins/cake_lpr"})
+                             "pins/srcheck", "pins/drat-trim",
+                             "pins/cake_lpr"})
             if certificate == "auto":
                 required.update({"pins/veripb", "pins/cake-pb-cnf"})
         else:
@@ -291,28 +293,14 @@ def check_unsat_proof(campaign, certificate, cnf, proof, scratch, timeout,
     def remaining():
         return max(1, timeout - int(time.monotonic() - started))
 
-    def append_canonical_dsr(witness_free):
-        # Every native DSR takes no-option elaboration before its final checker.
+    def append_canonical_dsr():
+        # Witnessed SR requires no-option DSR elaboration and Trestle.
         binary_lsr = scratch / 'proof.binary.lsr'
         text_lsr = scratch / 'proof.lsr'
-        final_checker = (campaign / 'pins/cake_lpr' if witness_free
-                         else campaign / 'pins/srcheck')
         for name, command in routed_dsr_stages(
                 campaign / 'pins/dsr-trim', campaign / 'pins/dsr-compress',
-                final_checker, cnf, proof, binary_lsr, text_lsr,
-                checker_cnf=checker_cnf, witness_free=witness_free):
-            if name == 'cake_lpr':
-                try:
-                    checked_lsr, restatements = restate_duplicate_input_lrat(
-                        checker_cnf, spelling, text_lsr,
-                        scratch / 'proof.original-input.lsr')
-                except ValueError as error:
-                    stages.append(dict(name='input-restatement', result='rejected',
-                                       exit_code=None, timed_out=False,
-                                       output_tail=str(error)))
-                    break
-                command = [*command[:-1], checked_lsr]
-                stages[-1]['input_restatements'] = restatements
+                campaign / 'pins/srcheck', cnf, proof, binary_lsr, text_lsr,
+                checker_cnf=checker_cnf, witness_free=False):
             made = command[-1] if name in ('dsr-trim', 'dsr-compress') else None
             stages.append(proof_stage(scratch, name, command, remaining(), made))
             if stages[-1]['result'] != 'verified':
@@ -320,6 +308,39 @@ def check_unsat_proof(campaign, certificate, cnf, proof, scratch, timeout,
             if name == 'dsr-trim':
                 (bridge_trivial_input_binary_lsr if made == binary_lsr
                  else bridge_trivial_input_lsr)(cnf, made)
+
+    def append_witness_free_drat():
+        # The audited, witness-free DSR stream has a lossless DRAT spelling.
+        # A witnessed or malformed stream must never reach drat-trim.
+        drat = scratch / 'proof.drat'
+        lrat = scratch / 'proof.lrat'
+        if not dsr_proof_as_drat(proof, drat):
+            stages.append(dict(name='dsr-to-drat', result='rejected',
+                               exit_code=None, timed_out=False,
+                               output_tail='DSR proof contains an SR witness'))
+            return
+        for name, command in drat_stages(
+                campaign / 'pins/drat-trim', campaign / 'pins/cake_lpr',
+                cnf, drat, lrat, checker_cnf=checker_cnf):
+            if name == 'cake_lpr':
+                try:
+                    checked_lrat, restatements = restate_duplicate_input_lrat(
+                        checker_cnf, spelling, lrat,
+                        scratch / 'proof.original-input.lrat')
+                except ValueError as error:
+                    stages.append(dict(name='input-restatement', result='rejected',
+                                       exit_code=None, timed_out=False,
+                                       output_tail=str(error)))
+                    break
+                command = [*command[:-1], checked_lrat]
+                stages[-1]['input_restatements'] = restatements
+            stages.append(proof_stage(
+                scratch, name, command, remaining(),
+                lrat if name == 'drat-trim' else None,
+                input_has_empty_clause=spelling['first_empty_clause'] is not None,
+                trivial_lrat_spelling=spelling if name == 'drat-trim' else None))
+            if stages[-1]['result'] != 'verified':
+                break
 
     if certificate in ("dsr", "auto") and reported_route not in REPORTED_DSR_ROUTES:
         message = 'missing or invalid solver-reported proof route'
@@ -366,9 +387,12 @@ def check_unsat_proof(campaign, certificate, cnf, proof, scratch, timeout,
                 break
         pipeline = "veripb-cake-pb"
     elif certificate in ("dsr", "auto"):
-        append_canonical_dsr(route == 'drat')
-        pipeline = ('dsr-trim-dsr-compress-cake_lpr' if route == 'drat'
-                    else 'dsr-trim-dsr-compress-trestle')
+        if route == 'drat':
+            append_witness_free_drat()
+            pipeline = 'dsr-as-drat-drat-trim-cake_lpr'
+        else:
+            append_canonical_dsr()
+            pipeline = 'dsr-trim-dsr-compress-trestle'
     else:
         raise RuntimeError(f"unsupported proof certificate: {certificate}")
     return {
