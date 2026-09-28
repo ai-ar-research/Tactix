@@ -106,6 +106,12 @@ struct DefaultStrategyConfig {
     uint32_t focused_phase_switch_span = 2;
     std::vector<int8_t> focused_phase_pattern{0, 1, 0, -1, 0, 0, 0, 0};
     bool random_sequences = true;
+    // AE-kissat-MAB's stable-search two-arm bandit. Both rankings learn
+    // concurrently and the owner restart controller selects the active arm.
+    double mab_exploration = 4.0;
+    double chb_step = 0.4;
+    double chb_step_min = 0.06;
+    double chb_step_decay = 0.000001;
   } branching;
 
   struct Analysis {

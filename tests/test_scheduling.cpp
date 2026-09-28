@@ -498,6 +498,23 @@ static void test_order_arms_reorder(void) {
            "TransitiveReduce must resolve IDX through the compact import "
            "permutation before reading activity");
 
+    // AE-kissat-MAB changes transitive.c itself to consult the selected stable
+    // heap.  Give CHB a deliberately different maximum and require the same
+    // compact-index/second-IDX pose to follow that arm.
+    heuristics_configure_mab(k, true, 4.0, 0.4, 0.06, 0.000001);
+    k.h->stable_heuristic = 1;
+    Lit chb_target_lit;
+    assert(lit_of_instance(k, before[3], &chb_target_lit));
+    const Var chb_owner =
+        compact_order[compact_position[var_of(chb_target_lit)] >> 1];
+    k.h->chb_scores.score[chb_owner] = 1000.0;
+    out = before;
+    q.inprocess().order_candidates(k, qe, out.data(), n);
+    Lit chb_out_lit;
+    assert(lit_of_instance(k, out.front(), &chb_out_lit));
+    const Var chb_out_compact = compact_position[var_of(chb_out_lit)];
+    assert(compact_order[chb_out_compact >> 1] == chb_owner &&
+           "TransitiveReduce must use the selected MAB stable heap");
   }
   {
     DefaultPolicy q; // no attached policy, arm stays Native

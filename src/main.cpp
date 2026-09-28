@@ -834,6 +834,14 @@ int main(int argc, char **argv) {
     printf("c restarts    %llu (%llu reused a trail prefix)\n",
            (unsigned long long)kernel.stats.restarts,
            (unsigned long long)kernel.stats.restarts_reused);
+    printf("c mab         %llu stable restarts, %llu switches, %llu/%llu "
+           "EVSIDS/CHB selections, %llu CHB updates, %llu search activations\n",
+           (unsigned long long)kernel.stats.mab_restarts,
+           (unsigned long long)kernel.stats.mab_switches,
+           (unsigned long long)kernel.stats.mab_evsids_selections,
+           (unsigned long long)kernel.stats.mab_chb_selections,
+           (unsigned long long)kernel.stats.chb_updates,
+           (unsigned long long)kernel.stats.mab_activations);
     printf("c reductions  %llu (%llu clauses deleted, %llu promoted)\n",
            (unsigned long long)kernel.stats.reductions,
            (unsigned long long)kernel.stats.deleted,
