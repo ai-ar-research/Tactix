@@ -1,0 +1,845 @@
+{
+  "schema": "tactix-tierd-saved-checker-analysis-v1",
+  "method": "Existing JSON outputs, SLURM accounting, cached CNF and source inspection only; no checker or solver execution.",
+  "counts": {
+    "kissat-sc2024": {
+      "cgroup_memory_exhaustion": 4,
+      "trivial_unsat_exit_status_handling": 2,
+      "dimacs_parse_failure": 1
+    },
+    "lymphosat": {
+      "veripb_assumption_elaboration_error": 5,
+      "cakeml_heap_exhaustion": 3,
+      "dimacs_parse_failure": 1,
+      "cgroup_memory_exhaustion": 1
+    },
+    "ae-kissat-mab": {
+      "cgroup_memory_exhaustion": 1,
+      "trivial_unsat_exit_status_handling": 2,
+      "dimacs_parse_failure": 1
+    },
+    "satsuma-kissat": {
+      "dsr_allocation_failure": 3,
+      "cgroup_memory_exhaustion": 3,
+      "checker_segmentation_fault": 2,
+      "explicit_invalid_result": 1
+    },
+    "tactix": {
+      "cgroup_memory_exhaustion": 1,
+      "dsr_allocation_failure": 4,
+      "checker_segmentation_fault": 1
+    }
+  },
+  "timeout_stages": {
+    "kissat-sc2024": {
+      "drat-trim": 23
+    },
+    "lymphosat": {
+      "veripb": 64,
+      "cake-pb-cnf": 7
+    },
+    "ae-kissat-mab": {
+      "drat-trim": 24
+    },
+    "satsuma-kissat": {
+      "dsr-trim": 5,
+      "srcheck": 4,
+      "drat-trim": 6
+    },
+    "tactix": {
+      "drat-trim": 10,
+      "srcheck": 2,
+      "dsr-trim": 1
+    }
+  },
+  "cases": [
+    {
+      "arm": "kissat-sc2024",
+      "rank": 273,
+      "instance": "tierD24-26/3598c10125496ad7218852effc5c711f-SGI_30_70_22_70_7-dir.shuffled-as.sat03-154.cnf.xz",
+      "cause": "cgroup_memory_exhaustion",
+      "stage": "drat-trim",
+      "exit_code": 137,
+      "peak_rss_kb": 33447700,
+      "slurm_state": "OUT_OF_MEMORY",
+      "evidence": "",
+      "checker": {
+        "path": "/home/hwu/SAT-solving/benchmarks/runs/20260928-am540-four-winner-tierd-cpuq/pins/drat-trim",
+        "sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a"
+      },
+      "command": null,
+      "certificate_bytes": 8622435246,
+      "certificate_sha256": "4adfc712ec9f4be7949a0695d5dae0ad4de30729878d688a4bb8e09c7a9af274",
+      "artifact_deleted": true,
+      "source": "benchmarks/runs/20260928-am540-four-winner-tierd-cpuq/results/01088.json"
+    },
+    {
+      "arm": "kissat-sc2024",
+      "rank": 322,
+      "instance": "tierD24-26/40ae60a61929b6bfa2ac99ab4b9a0f7e-grs-96-192.cnf.xz",
+      "cause": "cgroup_memory_exhaustion",
+      "stage": "drat-trim",
+      "exit_code": 137,
+      "peak_rss_kb": 33458096,
+      "slurm_state": "OUT_OF_MEMORY",
+      "evidence": "",
+      "checker": {
+        "path": "/home/hwu/SAT-solving/benchmarks/runs/20260928-am540-four-winner-tierd-cpuq/pins/drat-trim",
+        "sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a"
+      },
+      "command": null,
+      "certificate_bytes": 3989105843,
+      "certificate_sha256": "fea695f09431084d61555a8bc1f55448d3b444ce329242a79b0ecededc319f46",
+      "artifact_deleted": true,
+      "source": "benchmarks/runs/20260928-am540-four-winner-tierd-cpuq/results/01284.json"
+    },
+    {
+      "arm": "kissat-sc2024",
+      "rank": 415,
+      "instance": "tierD24-26/54d496c14fd2461642ef6be5341b297b-hwmcc17miters-xits-iso-6s163.sanitized.cnf.xz",
+      "cause": "trivial_unsat_exit_status_handling",
+      "stage": "drat-trim",
+      "exit_code": 1,
+      "peak_rss_kb": 429884,
+      "slurm_state": "FAILED",
+      "evidence": "c turning on binary mode checking\n\nc parsing input formula with 1565652 variables and 5591569 clauses\n\nc finished parsing, read 237274 bytes from proof file\n\nc trivial UNSAT\ns VERIFIED\n\nc verification time: 2.641 seconds",
+      "checker": {
+        "path": "/home/hwu/SAT-solving/benchmarks/runs/20260928-am540-four-winner-tierd-cpuq/pins/drat-trim",
+        "sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a"
+      },
+      "command": null,
+      "certificate_bytes": 237274,
+      "certificate_sha256": "d7471d92f0d2898043b9ad6b342e6339bbdc9d28629b1e15c1ae3bbea0f897bb",
+      "artifact_deleted": true,
+      "source": "benchmarks/runs/20260928-am540-four-winner-tierd-cpuq/results/01656.json"
+    },
+    {
+      "arm": "kissat-sc2024",
+      "rank": 510,
+      "instance": "tierD24-26/69ad7473757d30d55fabab7882268483-BubbleVsPancakeSort_9_4.cnf.xz",
+      "cause": "cgroup_memory_exhaustion",
+      "stage": "drat-trim",
+      "exit_code": 137,
+      "peak_rss_kb": 33445140,
+      "slurm_state": "OUT_OF_MEMORY",
+      "evidence": "",
+      "checker": {
+        "path": "/home/hwu/SAT-solving/benchmarks/runs/20260928-am540-four-winner-tierd-cpuq/pins/drat-trim",
+        "sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a"
+      },
+      "command": null,
+      "certificate_bytes": 9445697276,
+      "certificate_sha256": "944834a7eef7cdf1b008d78565607aa73e846f99eb91a02f077fc72ee707b055",
+      "artifact_deleted": true,
+      "source": "benchmarks/runs/20260928-am540-four-winner-tierd-cpuq/results/02036.json"
+    },
+    {
+      "arm": "kissat-sc2024",
+      "rank": 565,
+      "instance": "tierD24-26/768956cc8d1f2d18ae1929f6bb26557a-cliquecolouring_n13_k8_c7.sanitized.cnf.xz",
+      "cause": "cgroup_memory_exhaustion",
+      "stage": "drat-trim",
+      "exit_code": 137,
+      "peak_rss_kb": 33443356,
+      "slurm_state": "OUT_OF_MEMORY",
+      "evidence": "",
+      "checker": {
+        "path": "/home/hwu/SAT-solving/benchmarks/runs/20260928-am540-four-winner-tierd-cpuq/pins/drat-trim",
+        "sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a"
+      },
+      "command": null,
+      "certificate_bytes": 10844769892,
+      "certificate_sha256": "79cbe14a347ee7140669db7959374963f2c5ac5b9e5aca236898e94e3a8b0a37",
+      "artifact_deleted": true,
+      "source": "benchmarks/runs/20260928-am540-four-winner-tierd-cpuq/results/02256.json"
+    },
+    {
+      "arm": "kissat-sc2024",
+      "rank": 641,
+      "instance": "tierD24-26/873786afab7757a9f216da0724d91ecd-hwmcc17miters-xits-iso-6s299b685.sanitized.cnf.xz",
+      "cause": "trivial_unsat_exit_status_handling",
+      "stage": "drat-trim",
+      "exit_code": 1,
+      "peak_rss_kb": 1916024,
+      "slurm_state": "FAILED",
+      "evidence": "c turning on binary mode checking\n\nc parsing input formula with 7904143 variables and 23796556 clauses\n\nc finished parsing, read 4016730 bytes from proof file\n\nc trivial UNSAT\ns VERIFIED\n\nc verification time: 10.862 seconds",
+      "checker": {
+        "path": "/home/hwu/SAT-solving/benchmarks/runs/20260928-am540-four-winner-tierd-cpuq/pins/drat-trim",
+        "sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a"
+      },
+      "command": null,
+      "certificate_bytes": 4016730,
+      "certificate_sha256": "752fc689c3b68556872155be03f727ad91deeced2416e8444b73ef2c5b881658",
+      "artifact_deleted": true,
+      "source": "benchmarks/runs/20260928-am540-four-winner-tierd-cpuq/results/02560.json"
+    },
+    {
+      "arm": "kissat-sc2024",
+      "rank": 689,
+      "instance": "tierD24-26/918d9e7c2e197312517736421d728958-SCPC-500-1.cnf.xz",
+      "cause": "dimacs_parse_failure",
+      "stage": "cake-lpr",
+      "exit_code": 0,
+      "peak_rss_kb": 56948,
+      "slurm_state": "FAILED",
+      "evidence": "c DIMACS parse failed at line: 15462. Reason: failed to parse line",
+      "checker": {
+        "path": "/home/hwu/SAT-solving/benchmarks/runs/20260928-am540-four-winner-tierd-cpuq/pins/cake-lpr",
+        "sha256": "ab9dc6c43ad0f55bbaf336c5d898919ddb03d0bdb75e88dff48237fb06ba1f57"
+      },
+      "command": null,
+      "certificate_bytes": 75670148,
+      "certificate_sha256": "1cc3d4fbb1ccf2562f1d751aa31ae6bc82f302e990af06dff050541cd8097f87",
+      "artifact_deleted": true,
+      "source": "benchmarks/runs/20260928-am540-four-winner-tierd-cpuq/results/02752.json"
+    },
+    {
+      "arm": "lymphosat",
+      "rank": 26,
+      "instance": "tierD24-26/062f58e44eb73f9274b57af5092cad90-rook-51-0-0.cnf.xz",
+      "cause": "veripb_assumption_elaboration_error",
+      "stage": "veripb",
+      "exit_code": 1,
+      "peak_rss_kb": 379060,
+      "slurm_state": "FAILED",
+      "evidence": "Running VeriPB version 3.0.2\nError: Elaboration error: Assumption cannot be elaborated.\n\nCaused by:\n    Assumption cannot be elaborated.",
+      "checker": {
+        "path": "/home/hwu/SAT-solving/benchmarks/runs/20260928-am540-four-winner-tierd-cpuq/pins/veripb",
+        "sha256": "2e5fa5ef07c655640e6fff0d3f41561eab1502ec2e48766cca60287625935674"
+      },
+      "command": null,
+      "certificate_bytes": 111,
+      "certificate_sha256": "54f918cf9e479b4ec66fb249bf155ce12775d4c8d8d641461b409ab71cebf001",
+      "artifact_deleted": true,
+      "source": "benchmarks/runs/20260928-am540-four-winner-tierd-cpuq/results/00101.json"
+    },
+    {
+      "arm": "lymphosat",
+      "rank": 146,
+      "instance": "tierD24-26/1b3c7ac17705be94daaddb5f5ae4816b-rook-56-0-0.cnf.xz",
+      "cause": "veripb_assumption_elaboration_error",
+      "stage": "veripb",
+      "exit_code": 1,
+      "peak_rss_kb": 485564,
+      "slurm_state": "FAILED",
+      "evidence": "Running VeriPB version 3.0.2\nError: Elaboration error: Assumption cannot be elaborated.\n\nCaused by:\n    Assumption cannot be elaborated.",
+      "checker": {
+        "path": "/home/hwu/SAT-solving/benchmarks/runs/20260928-am540-four-winner-tierd-cpuq/pins/veripb",
+        "sha256": "2e5fa5ef07c655640e6fff0d3f41561eab1502ec2e48766cca60287625935674"
+      },
+      "command": null,
+      "certificate_bytes": 111,
+      "certificate_sha256": "979e904a753a96c3eaaff52aa21d5cce02c4522cf6080749c57dc088fb5e84c5",
+      "artifact_deleted": true,
+      "source": "benchmarks/runs/20260928-am540-four-winner-tierd-cpuq/results/00581.json"
+    },
+    {
+      "arm": "lymphosat",
+      "rank": 173,
+      "instance": "tierD24-26/2115182958f6cfb5a172a24f989b86dd-rook-42-0-1.cnf.xz",
+      "cause": "veripb_assumption_elaboration_error",
+      "stage": "veripb",
+      "exit_code": 1,
+      "peak_rss_kb": 217268,
+      "slurm_state": "FAILED",
+      "evidence": "Running VeriPB version 3.0.2\nError: Elaboration error: Assumption cannot be elaborated.\n\nCaused by:\n    Assumption cannot be elaborated.",
+      "checker": {
+        "path": "/home/hwu/SAT-solving/benchmarks/runs/20260928-am540-four-winner-tierd-cpuq/pins/veripb",
+        "sha256": "2e5fa5ef07c655640e6fff0d3f41561eab1502ec2e48766cca60287625935674"
+      },
+      "command": null,
+      "certificate_bytes": 111,
+      "certificate_sha256": "ba044c6452ac732d300a62f68c65da1869b720dac429fe1f1ed5f481792b2ce2",
+      "artifact_deleted": true,
+      "source": "benchmarks/runs/20260928-am540-four-winner-tierd-cpuq/results/00689.json"
+    },
+    {
+      "arm": "lymphosat",
+      "rank": 307,
+      "instance": "tierD24-26/3c0db78733bb05b9d1e9d7627b2e8f38-rook-52-0-1.cnf.xz",
+      "cause": "veripb_assumption_elaboration_error",
+      "stage": "veripb",
+      "exit_code": 1,
+      "peak_rss_kb": 399540,
+      "slurm_state": "FAILED",
+      "evidence": "Running VeriPB version 3.0.2\nError: Elaboration error: Assumption cannot be elaborated.\n\nCaused by:\n    Assumption cannot be elaborated.",
+      "checker": {
+        "path": "/home/hwu/SAT-solving/benchmarks/runs/20260928-am540-four-winner-tierd-cpuq/pins/veripb",
+        "sha256": "2e5fa5ef07c655640e6fff0d3f41561eab1502ec2e48766cca60287625935674"
+      },
+      "command": null,
+      "certificate_bytes": 111,
+      "certificate_sha256": "2a41378df94a78b93f69ba815525207fe1eb33187c77ac3fc37b44b581739925",
+      "artifact_deleted": true,
+      "source": "benchmarks/runs/20260928-am540-four-winner-tierd-cpuq/results/01225.json"
+    },
+    {
+      "arm": "lymphosat",
+      "rank": 423,
+      "instance": "tierD24-26/573cc82ec61e01fd6e6308493ee56289-linked_list_swap_contents_safety_unwind80.cnf.xz",
+      "cause": "cakeml_heap_exhaustion",
+      "stage": "cake-pb-cnf",
+      "exit_code": 1,
+      "peak_rss_kb": 26527348,
+      "slurm_state": "FAILED",
+      "evidence": "CakeML heap space exhausted.",
+      "checker": {
+        "path": "/home/hwu/SAT-solving/benchmarks/runs/20260928-am540-four-winner-tierd-cpuq/pins/cake-pb-cnf",
+        "sha256": "c859a9c926ca8c63dac3317930ea8dbe3732a6fc24faa6e28ed740fadd67dc47"
+      },
+      "command": null,
+      "certificate_bytes": 27234117,
+      "certificate_sha256": "58eedfc2ba3eca05ab3b6f52b950efa0329fb3ea110abc230ca12f3e684c2cf8",
+      "artifact_deleted": true,
+      "source": "benchmarks/runs/20260928-am540-four-winner-tierd-cpuq/results/01689.json"
+    },
+    {
+      "arm": "lymphosat",
+      "rank": 472,
+      "instance": "tierD24-26/6008b958ff6877f32c26b72728df4523-linked_list_swap_contents_safety_unwind76.cnf.xz",
+      "cause": "cakeml_heap_exhaustion",
+      "stage": "cake-pb-cnf",
+      "exit_code": 1,
+      "peak_rss_kb": 26404468,
+      "slurm_state": "FAILED",
+      "evidence": "CakeML heap space exhausted.",
+      "checker": {
+        "path": "/home/hwu/SAT-solving/benchmarks/runs/20260928-am540-four-winner-tierd-cpuq/pins/cake-pb-cnf",
+        "sha256": "c859a9c926ca8c63dac3317930ea8dbe3732a6fc24faa6e28ed740fadd67dc47"
+      },
+      "command": null,
+      "certificate_bytes": 24655961,
+      "certificate_sha256": "bbca535c038a44fc6ac1768a8e7e86ffa9090ef9bc048edf6ad14c1956de40bf",
+      "artifact_deleted": true,
+      "source": "benchmarks/runs/20260928-am540-four-winner-tierd-cpuq/results/01885.json"
+    },
+    {
+      "arm": "lymphosat",
+      "rank": 531,
+      "instance": "tierD24-26/6f0e236c999de0a5e3c46fd3463b1d0d-rook-56-1-1.cnf.xz",
+      "cause": "veripb_assumption_elaboration_error",
+      "stage": "veripb",
+      "exit_code": 1,
+      "peak_rss_kb": 485520,
+      "slurm_state": "FAILED",
+      "evidence": "Running VeriPB version 3.0.2\nError: Elaboration error: Assumption cannot be elaborated.\n\nCaused by:\n    Assumption cannot be elaborated.",
+      "checker": {
+        "path": "/home/hwu/SAT-solving/benchmarks/runs/20260928-am540-four-winner-tierd-cpuq/pins/veripb",
+        "sha256": "2e5fa5ef07c655640e6fff0d3f41561eab1502ec2e48766cca60287625935674"
+      },
+      "command": null,
+      "certificate_bytes": 111,
+      "certificate_sha256": "c15de81a9866a40e93109bbca73fc5a8f697b095d65c598b98b5889e7c7d7482",
+      "artifact_deleted": true,
+      "source": "benchmarks/runs/20260928-am540-four-winner-tierd-cpuq/results/02121.json"
+    },
+    {
+      "arm": "lymphosat",
+      "rank": 689,
+      "instance": "tierD24-26/918d9e7c2e197312517736421d728958-SCPC-500-1.cnf.xz",
+      "cause": "dimacs_parse_failure",
+      "stage": "cake-pb-cnf",
+      "exit_code": 0,
+      "peak_rss_kb": 56948,
+      "slurm_state": "FAILED",
+      "evidence": "c DIMACS parse failed at line: 15462. Reason: failed to parse line",
+      "checker": {
+        "path": "/home/hwu/SAT-solving/benchmarks/runs/20260928-am540-four-winner-tierd-cpuq/pins/cake-pb-cnf",
+        "sha256": "c859a9c926ca8c63dac3317930ea8dbe3732a6fc24faa6e28ed740fadd67dc47"
+      },
+      "command": null,
+      "certificate_bytes": 16788134,
+      "certificate_sha256": "94e2a793e2eb8569f05b40bbedc547f4ae66e9161ba6a395a4e01e9b8f768b5a",
+      "artifact_deleted": true,
+      "source": "benchmarks/runs/20260928-am540-four-winner-tierd-cpuq/results/02753.json"
+    },
+    {
+      "arm": "lymphosat",
+      "rank": 935,
+      "instance": "tierD24-26/c8b129b9e4835b8a40d5ef0d27a45bef-linked_list_swap_contents_safety_unwind78.cnf.xz",
+      "cause": "cakeml_heap_exhaustion",
+      "stage": "cake-pb-cnf",
+      "exit_code": 1,
+      "peak_rss_kb": 26465908,
+      "slurm_state": "FAILED",
+      "evidence": "CakeML heap space exhausted.",
+      "checker": {
+        "path": "/home/hwu/SAT-solving/benchmarks/runs/20260928-am540-four-winner-tierd-cpuq/pins/cake-pb-cnf",
+        "sha256": "c859a9c926ca8c63dac3317930ea8dbe3732a6fc24faa6e28ed740fadd67dc47"
+      },
+      "command": null,
+      "certificate_bytes": 25918401,
+      "certificate_sha256": "75c28b0e1e6ac795f83bfb0b6077106366b1da8a5e6e4df963bc3833740a35c8",
+      "artifact_deleted": true,
+      "source": "benchmarks/runs/20260928-am540-four-winner-tierd-cpuq/results/03737.json"
+    },
+    {
+      "arm": "lymphosat",
+      "rank": 1085,
+      "instance": "tierD24-26/ee57608ea4b74f25aebca809d59711c9-oisc-subrv-sll-nested-13.cnf.xz",
+      "cause": "cgroup_memory_exhaustion",
+      "stage": "veripb",
+      "exit_code": 137,
+      "peak_rss_kb": 33435328,
+      "slurm_state": "OUT_OF_MEMORY",
+      "evidence": "Running VeriPB version 3.0.2",
+      "checker": {
+        "path": "/home/hwu/SAT-solving/benchmarks/runs/20260928-am540-four-winner-tierd-cpuq/pins/veripb",
+        "sha256": "2e5fa5ef07c655640e6fff0d3f41561eab1502ec2e48766cca60287625935674"
+      },
+      "command": null,
+      "certificate_bytes": 13533401241,
+      "certificate_sha256": "e90becb55238f6c51a58dcbda32e77dd276f547c7a5a7cd4c9bd23f6f7180d62",
+      "artifact_deleted": true,
+      "source": "benchmarks/runs/20260928-am540-four-winner-tierd-cpuq/results/04337.json"
+    },
+    {
+      "arm": "ae-kissat-mab",
+      "rank": 273,
+      "instance": "tierD24-26/3598c10125496ad7218852effc5c711f-SGI_30_70_22_70_7-dir.shuffled-as.sat03-154.cnf.xz",
+      "cause": "cgroup_memory_exhaustion",
+      "stage": "drat-trim",
+      "exit_code": 137,
+      "peak_rss_kb": 33453000,
+      "slurm_state": "OUT_OF_MEMORY",
+      "evidence": "",
+      "checker": {
+        "path": "/home/hwu/SAT-solving/benchmarks/runs/20260928-am540-four-winner-tierd-cpuq/pins/drat-trim",
+        "sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a"
+      },
+      "command": null,
+      "certificate_bytes": 10066280263,
+      "certificate_sha256": "247eca509dcfb398d04a10e78818016c2c591346e7a1342434c75aba4fbbd430",
+      "artifact_deleted": true,
+      "source": "benchmarks/runs/20260928-am540-four-winner-tierd-cpuq/results/01090.json"
+    },
+    {
+      "arm": "ae-kissat-mab",
+      "rank": 415,
+      "instance": "tierD24-26/54d496c14fd2461642ef6be5341b297b-hwmcc17miters-xits-iso-6s163.sanitized.cnf.xz",
+      "cause": "trivial_unsat_exit_status_handling",
+      "stage": "drat-trim",
+      "exit_code": 1,
+      "peak_rss_kb": 429884,
+      "slurm_state": "FAILED",
+      "evidence": "c turning on binary mode checking\n\nc parsing input formula with 1565652 variables and 5591569 clauses\n\nc finished parsing, read 237274 bytes from proof file\n\nc trivial UNSAT\ns VERIFIED\n\nc verification time: 2.648 seconds",
+      "checker": {
+        "path": "/home/hwu/SAT-solving/benchmarks/runs/20260928-am540-four-winner-tierd-cpuq/pins/drat-trim",
+        "sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a"
+      },
+      "command": null,
+      "certificate_bytes": 237274,
+      "certificate_sha256": "d7471d92f0d2898043b9ad6b342e6339bbdc9d28629b1e15c1ae3bbea0f897bb",
+      "artifact_deleted": true,
+      "source": "benchmarks/runs/20260928-am540-four-winner-tierd-cpuq/results/01658.json"
+    },
+    {
+      "arm": "ae-kissat-mab",
+      "rank": 641,
+      "instance": "tierD24-26/873786afab7757a9f216da0724d91ecd-hwmcc17miters-xits-iso-6s299b685.sanitized.cnf.xz",
+      "cause": "trivial_unsat_exit_status_handling",
+      "stage": "drat-trim",
+      "exit_code": 1,
+      "peak_rss_kb": 1916024,
+      "slurm_state": "FAILED",
+      "evidence": "c turning on binary mode checking\n\nc parsing input formula with 7904143 variables and 23796556 clauses\n\nc finished parsing, read 4016730 bytes from proof file\n\nc trivial UNSAT\ns VERIFIED\n\nc verification time: 12.325 seconds",
+      "checker": {
+        "path": "/home/hwu/SAT-solving/benchmarks/runs/20260928-am540-four-winner-tierd-cpuq/pins/drat-trim",
+        "sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a"
+      },
+      "command": null,
+      "certificate_bytes": 4016730,
+      "certificate_sha256": "752fc689c3b68556872155be03f727ad91deeced2416e8444b73ef2c5b881658",
+      "artifact_deleted": true,
+      "source": "benchmarks/runs/20260928-am540-four-winner-tierd-cpuq/results/02562.json"
+    },
+    {
+      "arm": "ae-kissat-mab",
+      "rank": 689,
+      "instance": "tierD24-26/918d9e7c2e197312517736421d728958-SCPC-500-1.cnf.xz",
+      "cause": "dimacs_parse_failure",
+      "stage": "cake-lpr",
+      "exit_code": 0,
+      "peak_rss_kb": 56948,
+      "slurm_state": "FAILED",
+      "evidence": "c DIMACS parse failed at line: 15462. Reason: failed to parse line",
+      "checker": {
+        "path": "/home/hwu/SAT-solving/benchmarks/runs/20260928-am540-four-winner-tierd-cpuq/pins/cake-lpr",
+        "sha256": "ab9dc6c43ad0f55bbaf336c5d898919ddb03d0bdb75e88dff48237fb06ba1f57"
+      },
+      "command": null,
+      "certificate_bytes": 120251048,
+      "certificate_sha256": "2f746f61926824a1caf4cc026d04e4fe2f0c45902be4a88fb2129dfd3fd22e13",
+      "artifact_deleted": true,
+      "source": "benchmarks/runs/20260928-am540-four-winner-tierd-cpuq/results/02754.json"
+    },
+    {
+      "arm": "satsuma-kissat",
+      "rank": 226,
+      "instance": "tierD24-26/2b8a711debc3a6edd01e7b4e305342d9-REGRandom-K4-L2-Seed35.sanitized.cnf.xz",
+      "cause": "dsr_allocation_failure",
+      "stage": "dsr-trim",
+      "exit_code": 255,
+      "peak_rss_kb": 3413716,
+      "slurm_state": "FAILED",
+      "evidence": "c CNF file path: /proc/1358571/fd/9\nc DSR file path: /proc/1358571/fd/4\nc LSR file path: /proc/1358571/fd/10\nc Using an EAGER parsing strategy.\nc Doing BACKWARDS proof checking.\nc The CNF formula has 3306240 clauses and 10240 variables.\nc Parsing the CNF took 1.146 secs\nc Detected that the DSR proof is in binary format.\nc The emitted LSR proof will also be in binary format.\nRan out of memory on xrealloc()",
+      "checker": {
+        "path": "/home/hwu/SAT-solving/benchmarks/runs/20260928-am547-satsuma-hybrid-tierd-cpuq/pins/dsr-trim",
+        "sha256": "0a2ecdae6d244dde4a7f6ff11ad59e2e0d2650c0b1b07a36bca2fda81c714030"
+      },
+      "command": [
+        "/home/hwu/SAT-solving/benchmarks/runs/20260928-am547-satsuma-hybrid-tierd-cpuq/pins/dsr-trim",
+        "/proc/1358571/fd/9",
+        "/proc/1358571/fd/4",
+        "/proc/1358571/fd/10"
+      ],
+      "certificate_bytes": 11878565289,
+      "certificate_sha256": "a11f2a9457f64ca66ff8747a57a18b1132650d9157ac6fc13e9c4a44d5be8ad2",
+      "artifact_deleted": true,
+      "source": "benchmarks/runs/20260928-am547-satsuma-hybrid-tierd-cpuq/results/00225.json"
+    },
+    {
+      "arm": "satsuma-kissat",
+      "rank": 273,
+      "instance": "tierD24-26/3598c10125496ad7218852effc5c711f-SGI_30_70_22_70_7-dir.shuffled-as.sat03-154.cnf.xz",
+      "cause": "cgroup_memory_exhaustion",
+      "stage": "drat-trim",
+      "exit_code": 137,
+      "peak_rss_kb": 33437972,
+      "slurm_state": "OUT_OF_MEMORY",
+      "evidence": "",
+      "checker": {
+        "path": "/home/hwu/SAT-solving/benchmarks/runs/20260928-am547-satsuma-hybrid-tierd-cpuq/pins/drat-trim",
+        "sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a"
+      },
+      "command": [
+        "/home/hwu/SAT-solving/benchmarks/runs/20260928-am547-satsuma-hybrid-tierd-cpuq/pins/drat-trim",
+        "/proc/1729079/fd/9",
+        "/proc/1729079/fd/10",
+        "-t",
+        "9460",
+        "-L",
+        "/proc/1729079/fd/11"
+      ],
+      "certificate_bytes": 8267923946,
+      "certificate_sha256": "71b6c35f0aaf3629107d415d6d9a6dcbcc6559b117cfb639fc42386dd040b483",
+      "artifact_deleted": true,
+      "source": "benchmarks/runs/20260928-am547-satsuma-hybrid-tierd-cpuq/results/00272.json"
+    },
+    {
+      "arm": "satsuma-kissat",
+      "rank": 322,
+      "instance": "tierD24-26/40ae60a61929b6bfa2ac99ab4b9a0f7e-grs-96-192.cnf.xz",
+      "cause": "cgroup_memory_exhaustion",
+      "stage": "drat-trim",
+      "exit_code": 137,
+      "peak_rss_kb": 33456512,
+      "slurm_state": "OUT_OF_MEMORY",
+      "evidence": "c WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -653404 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -653595 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -654183 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -654575 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -655052 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -655243 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -655831 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -656223 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -656700 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -656891 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -657479 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -657871 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -658348 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -658539 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -659127 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -659519 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -659996 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -660187 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -660775 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -661167 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -661644 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -661835 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -662427 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -663389 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -663977 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -664369 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -666712 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -668467 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -669060 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -669452 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -669844 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -670040 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -670328 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -670708 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -670918 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -670919 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -671983 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -672271 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -672745 0\n\nc WARNING: backward mode ignores deletion of",
+      "checker": {
+        "path": "/home/hwu/SAT-solving/benchmarks/runs/20260928-am547-satsuma-hybrid-tierd-cpuq/pins/drat-trim",
+        "sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a"
+      },
+      "command": [
+        "/home/hwu/SAT-solving/benchmarks/runs/20260928-am547-satsuma-hybrid-tierd-cpuq/pins/drat-trim",
+        "/proc/2878682/fd/9",
+        "/proc/2878682/fd/10",
+        "-t",
+        "12075",
+        "-L",
+        "/proc/2878682/fd/11"
+      ],
+      "certificate_bytes": 4363590352,
+      "certificate_sha256": "0b4e97aeac2e06abc374827f025b0b027e251cd886da94e89887fd738c22622d",
+      "artifact_deleted": true,
+      "source": "benchmarks/runs/20260928-am547-satsuma-hybrid-tierd-cpuq/results/00321.json"
+    },
+    {
+      "arm": "satsuma-kissat",
+      "rank": 510,
+      "instance": "tierD24-26/69ad7473757d30d55fabab7882268483-BubbleVsPancakeSort_9_4.cnf.xz",
+      "cause": "cgroup_memory_exhaustion",
+      "stage": "drat-trim",
+      "exit_code": 137,
+      "peak_rss_kb": 33433308,
+      "slurm_state": "OUT_OF_MEMORY",
+      "evidence": "c WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -2549 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -2585 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -2586 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -2588 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -2591 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -2657 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -2658 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -2660 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -2663 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -2738 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -2739 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -2741 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -2744 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -2870 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -2871 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -2873 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -2876 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -3003 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -3004 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -3006 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -3009 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -3148 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -3149 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -3151 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -3154 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -3190 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -3191 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -3193 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -3196 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -3262 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -3263 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -3265 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -3268 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -3343 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -3344 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -3346 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -3349 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -3458 0\n\nc WARNING: backward mode ignores deletion of (pseudo) unit clause [0] -3459 0\n\nc WARNING: backward mode ignores deletion of (pseud",
+      "checker": {
+        "path": "/home/hwu/SAT-solving/benchmarks/runs/20260928-am547-satsuma-hybrid-tierd-cpuq/pins/drat-trim",
+        "sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a"
+      },
+      "command": [
+        "/home/hwu/SAT-solving/benchmarks/runs/20260928-am547-satsuma-hybrid-tierd-cpuq/pins/drat-trim",
+        "/proc/2435965/fd/9",
+        "/proc/2435965/fd/10",
+        "-t",
+        "8904",
+        "-L",
+        "/proc/2435965/fd/11"
+      ],
+      "certificate_bytes": 9387797559,
+      "certificate_sha256": "85cd6857001f862bf4850811407a1b95e1ffc47ece432ba1a445a94aa667b6a7",
+      "artifact_deleted": true,
+      "source": "benchmarks/runs/20260928-am547-satsuma-hybrid-tierd-cpuq/results/00509.json"
+    },
+    {
+      "arm": "satsuma-kissat",
+      "rank": 511,
+      "instance": "tierD24-26/69e34d0f49c71a7e145d8104ebe0273f-sokoban-p16.sas.ex.15-sc2016.cnf.xz",
+      "cause": "dsr_allocation_failure",
+      "stage": "dsr-trim",
+      "exit_code": 255,
+      "peak_rss_kb": 3747756,
+      "slurm_state": "FAILED",
+      "evidence": "c CNF file path: /proc/3200183/fd/9\nc DSR file path: /proc/3200183/fd/4\nc LSR file path: /proc/3200183/fd/10\nc Using an EAGER parsing strategy.\nc Doing BACKWARDS proof checking.\nc The CNF formula has 5048581 clauses and 2343808 variables.\nc Parsing the CNF took 3.703 secs\nc Detected that the DSR proof is in binary format.\nc The emitted LSR proof will also be in binary format.\nRan out of memory on xrealloc()",
+      "checker": {
+        "path": "/home/hwu/SAT-solving/benchmarks/runs/20260928-am547-satsuma-hybrid-tierd-cpuq/pins/dsr-trim",
+        "sha256": "0a2ecdae6d244dde4a7f6ff11ad59e2e0d2650c0b1b07a36bca2fda81c714030"
+      },
+      "command": [
+        "/home/hwu/SAT-solving/benchmarks/runs/20260928-am547-satsuma-hybrid-tierd-cpuq/pins/dsr-trim",
+        "/proc/3200183/fd/9",
+        "/proc/3200183/fd/4",
+        "/proc/3200183/fd/10"
+      ],
+      "certificate_bytes": 5682395347,
+      "certificate_sha256": "23064cc1fe03009545ace24e6b65e93e596abf750f8e7613a9b7278ba42329c1",
+      "artifact_deleted": true,
+      "source": "benchmarks/runs/20260928-am547-satsuma-hybrid-tierd-cpuq/results/00510.json"
+    },
+    {
+      "arm": "satsuma-kissat",
+      "rank": 627,
+      "instance": "tierD24-26/83dc8f675657b3e6d148ef5cf897fb82-openstacks-sequencedstrips-nonadl-nonnegated-os-sequencedstrips-p30_3.025-NOTKNOWN.cnf.xz",
+      "cause": "checker_segmentation_fault",
+      "stage": "dsr-trim",
+      "exit_code": 139,
+      "peak_rss_kb": 15575412,
+      "slurm_state": "FAILED",
+      "evidence": "",
+      "checker": {
+        "path": "/home/hwu/SAT-solving/benchmarks/runs/20260928-am547-satsuma-hybrid-tierd-cpuq/pins/dsr-trim",
+        "sha256": "0a2ecdae6d244dde4a7f6ff11ad59e2e0d2650c0b1b07a36bca2fda81c714030"
+      },
+      "command": [
+        "/home/hwu/SAT-solving/benchmarks/runs/20260928-am547-satsuma-hybrid-tierd-cpuq/pins/dsr-trim",
+        "/proc/1293624/fd/9",
+        "/proc/1293624/fd/4",
+        "/proc/1293624/fd/10"
+      ],
+      "certificate_bytes": 4224393658,
+      "certificate_sha256": "6f25d261c336ffdeb992617ad37c79fcf144b07ed863a75749d49466297fb368",
+      "artifact_deleted": true,
+      "source": "benchmarks/runs/20260928-am547-satsuma-hybrid-tierd-cpuq/results/00626.json"
+    },
+    {
+      "arm": "satsuma-kissat",
+      "rank": 641,
+      "instance": "tierD24-26/873786afab7757a9f216da0724d91ecd-hwmcc17miters-xits-iso-6s299b685.sanitized.cnf.xz",
+      "cause": "explicit_invalid_result",
+      "stage": "srcheck",
+      "exit_code": 0,
+      "peak_rss_kb": 1630516,
+      "slurm_state": "FAILED",
+      "evidence": "c Error or invalid proof\ns INVALID\nParsing formula with 7904143 variables, 23796556 clauses\nParsed formula",
+      "checker": {
+        "path": "/home/hwu/SAT-solving/benchmarks/runs/20260928-am547-satsuma-hybrid-tierd-cpuq/pins/srcheck",
+        "sha256": "f0eef5c48e2378c6fb5dfee4c7dc68ad0ff96d359067483fbf484d266f3aeb18"
+      },
+      "command": [
+        "/home/hwu/SAT-solving/benchmarks/runs/20260928-am547-satsuma-hybrid-tierd-cpuq/pins/srcheck",
+        "/proc/3861777/fd/9",
+        "/proc/3861777/fd/11"
+      ],
+      "certificate_bytes": 33310902,
+      "certificate_sha256": "fa96868be7f133ff5f2f1a436f2dbb2ab863b30ee3d9090e29842896f68e563f",
+      "artifact_deleted": true,
+      "source": "benchmarks/runs/20260928-am547-satsuma-hybrid-tierd-cpuq/results/00640.json"
+    },
+    {
+      "arm": "satsuma-kissat",
+      "rank": 661,
+      "instance": "tierD24-26/8bf63d50ebdb645b75a24370b8f94d31-sokoban-p20.sas.cr.25.cnf.xz",
+      "cause": "checker_segmentation_fault",
+      "stage": "dsr-trim",
+      "exit_code": 139,
+      "peak_rss_kb": 15142740,
+      "slurm_state": "FAILED",
+      "evidence": "",
+      "checker": {
+        "path": "/home/hwu/SAT-solving/benchmarks/runs/20260928-am547-satsuma-hybrid-tierd-cpuq/pins/dsr-trim",
+        "sha256": "0a2ecdae6d244dde4a7f6ff11ad59e2e0d2650c0b1b07a36bca2fda81c714030"
+      },
+      "command": [
+        "/home/hwu/SAT-solving/benchmarks/runs/20260928-am547-satsuma-hybrid-tierd-cpuq/pins/dsr-trim",
+        "/proc/133985/fd/9",
+        "/proc/133985/fd/4",
+        "/proc/133985/fd/10"
+      ],
+      "certificate_bytes": 4126652071,
+      "certificate_sha256": "ee01cae6542c064e5db9c638c01f4130b24a28cb7bb167abbec0bc51cc0e7431",
+      "artifact_deleted": true,
+      "source": "benchmarks/runs/20260928-am547-satsuma-hybrid-tierd-cpuq/results/00660.json"
+    },
+    {
+      "arm": "satsuma-kissat",
+      "rank": 1004,
+      "instance": "tierD24-26/dacb03ea801d459ef08db23a8b1d104f-lec_mult_DvW_12x12.sanitized.cnf.xz",
+      "cause": "dsr_allocation_failure",
+      "stage": "dsr-trim",
+      "exit_code": 255,
+      "peak_rss_kb": 4529300,
+      "slurm_state": "FAILED",
+      "evidence": "c CNF file path: /proc/2465068/fd/9\nc DSR file path: /proc/2465068/fd/4\nc LSR file path: /proc/2465068/fd/10\nc Using an EAGER parsing strategy.\nc Doing BACKWARDS proof checking.\nc The CNF formula has 9412 clauses and 3153 variables.\nc Parsing the CNF took 0.003 secs\nc Detected that the DSR proof is in binary format.\nc The emitted LSR proof will also be in binary format.\nRan out of memory on xrealloc()",
+      "checker": {
+        "path": "/home/hwu/SAT-solving/benchmarks/runs/20260928-am547-satsuma-hybrid-tierd-cpuq/pins/dsr-trim",
+        "sha256": "0a2ecdae6d244dde4a7f6ff11ad59e2e0d2650c0b1b07a36bca2fda81c714030"
+      },
+      "command": [
+        "/home/hwu/SAT-solving/benchmarks/runs/20260928-am547-satsuma-hybrid-tierd-cpuq/pins/dsr-trim",
+        "/proc/2465068/fd/9",
+        "/proc/2465068/fd/4",
+        "/proc/2465068/fd/10"
+      ],
+      "certificate_bytes": 4784285076,
+      "certificate_sha256": "4275b6274a65f811479a2e29ec74a66927a52d4679b621bc3a927abcae786333",
+      "artifact_deleted": true,
+      "source": "benchmarks/runs/20260928-am547-satsuma-hybrid-tierd-cpuq/results/01003.json"
+    },
+    {
+      "arm": "tactix",
+      "rank": 273,
+      "instance": "tierD24-26/3598c10125496ad7218852effc5c711f-SGI_30_70_22_70_7-dir.shuffled-as.sat03-154.cnf.xz",
+      "cause": "cgroup_memory_exhaustion",
+      "stage": "drat-trim",
+      "exit_code": 137,
+      "peak_rss_kb": 33436072,
+      "slurm_state": "OUT_OF_MEMORY",
+      "evidence": "",
+      "checker": null,
+      "command": [
+        "/home/hwu/SAT-solving/benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/pins/drat-trim",
+        "/proc/4021068/fd/9",
+        "/proc/4021068/fd/10",
+        "-t",
+        "9389",
+        "-L",
+        "/proc/4021068/fd/11"
+      ],
+      "certificate_bytes": 8514041490,
+      "certificate_sha256": "930bcff28a6b08a6d1869e2339235a28fbbd1035831cc2e1910b9a9e9856e496",
+      "artifact_deleted": true,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/272.json"
+    },
+    {
+      "arm": "tactix",
+      "rank": 346,
+      "instance": "tierD24-26/4517202fdd0ccc8a97d83684b021ea96-VanDerWaerden_2-3-14_186.cnf.xz",
+      "cause": "dsr_allocation_failure",
+      "stage": "dsr-trim",
+      "exit_code": 255,
+      "peak_rss_kb": 5004540,
+      "slurm_state": "FAILED",
+      "evidence": "c CNF file path: /proc/296084/fd/9\nc DSR file path: /proc/296084/fd/4\nc LSR file path: /proc/296084/fd/10\nc Using an EAGER parsing strategy.\nc Doing BACKWARDS proof checking.\nc The CNF formula has 9795 clauses and 186 variables.\nc Parsing the CNF took 0.004 secs\nc Detected that the DSR proof is in binary format.\nc The emitted LSR proof will also be in binary format.\nRan out of memory on xrealloc()",
+      "checker": null,
+      "command": [
+        "/home/hwu/SAT-solving/benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/pins/dsr-trim",
+        "/proc/296084/fd/9",
+        "/proc/296084/fd/4",
+        "/proc/296084/fd/10"
+      ],
+      "certificate_bytes": 6573355530,
+      "certificate_sha256": "76e4e6124a89dcf86c57f374d01a6919a17686b4c9f049fea9f52b4641a8e38f",
+      "artifact_deleted": true,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/345.json"
+    },
+    {
+      "arm": "tactix",
+      "rank": 569,
+      "instance": "tierD24-26/778e0fd8f034b7cfd539b1b523ed4c4a-lec_mult_CvW_12x12.sanitized.cnf.xz",
+      "cause": "checker_segmentation_fault",
+      "stage": "dsr-trim",
+      "exit_code": 139,
+      "peak_rss_kb": 18861392,
+      "slurm_state": "FAILED",
+      "evidence": "",
+      "checker": null,
+      "command": [
+        "/home/hwu/SAT-solving/benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/pins/dsr-trim",
+        "/proc/2647889/fd/9",
+        "/proc/2647889/fd/4",
+        "/proc/2647889/fd/10"
+      ],
+      "certificate_bytes": 3165736883,
+      "certificate_sha256": "95c66529f257bb81e9ab764505fc3db45b9275c6436027dd37be9f25d2ea6bf2",
+      "artifact_deleted": true,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/568.json"
+    },
+    {
+      "arm": "tactix",
+      "rank": 627,
+      "instance": "tierD24-26/83dc8f675657b3e6d148ef5cf897fb82-openstacks-sequencedstrips-nonadl-nonnegated-os-sequencedstrips-p30_3.025-NOTKNOWN.cnf.xz",
+      "cause": "dsr_allocation_failure",
+      "stage": "dsr-trim",
+      "exit_code": 255,
+      "peak_rss_kb": 4026048,
+      "slurm_state": "FAILED",
+      "evidence": "c CNF file path: /proc/2656970/fd/9\nc DSR file path: /proc/2656970/fd/4\nc LSR file path: /proc/2656970/fd/10\nc Using an EAGER parsing strategy.\nc Doing BACKWARDS proof checking.\nc The CNF formula has 483561 clauses and 95456 variables.\nc Parsing the CNF took 0.117 secs\nc Detected that the DSR proof is in binary format.\nc The emitted LSR proof will also be in binary format.\nRan out of memory on xrealloc()",
+      "checker": null,
+      "command": [
+        "/home/hwu/SAT-solving/benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/pins/dsr-trim",
+        "/proc/2656970/fd/9",
+        "/proc/2656970/fd/4",
+        "/proc/2656970/fd/10"
+      ],
+      "certificate_bytes": 5567655309,
+      "certificate_sha256": "dc166cb7c5623b9d835f4bf0465026bac2b76370aa695847587a1202134a6e09",
+      "artifact_deleted": true,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/626.json"
+    },
+    {
+      "arm": "tactix",
+      "rank": 654,
+      "instance": "tierD24-26/8aa9ffb211d1cba850be2ee9d173b7e1-adv_gc_n300_k12_UNSAT_s42.sanitized.cnf.xz",
+      "cause": "dsr_allocation_failure",
+      "stage": "dsr-trim",
+      "exit_code": 255,
+      "peak_rss_kb": 4506176,
+      "slurm_state": "FAILED",
+      "evidence": "c CNF file path: /proc/4093128/fd/9\nc DSR file path: /proc/4093128/fd/4\nc LSR file path: /proc/4093128/fd/10\nc Using an EAGER parsing strategy.\nc Doing BACKWARDS proof checking.\nc The CNF formula has 64260 clauses and 6900 variables.\nc Parsing the CNF took 0.013 secs\nc Detected that the DSR proof is in binary format.\nc The emitted LSR proof will also be in binary format.\nRan out of memory on xrealloc()",
+      "checker": null,
+      "command": [
+        "/home/hwu/SAT-solving/benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/pins/dsr-trim",
+        "/proc/4093128/fd/9",
+        "/proc/4093128/fd/4",
+        "/proc/4093128/fd/10"
+      ],
+      "certificate_bytes": 12812827060,
+      "certificate_sha256": "e65cee58fc4aad455da00f3c1c121cb4c9edac640d8cdba5359d5b23551d056b",
+      "artifact_deleted": true,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/653.json"
+    },
+    {
+      "arm": "tactix",
+      "rank": 1004,
+      "instance": "tierD24-26/dacb03ea801d459ef08db23a8b1d104f-lec_mult_DvW_12x12.sanitized.cnf.xz",
+      "cause": "dsr_allocation_failure",
+      "stage": "dsr-trim",
+      "exit_code": 255,
+      "peak_rss_kb": 4528336,
+      "slurm_state": "FAILED",
+      "evidence": "c CNF file path: /proc/3452655/fd/9\nc DSR file path: /proc/3452655/fd/4\nc LSR file path: /proc/3452655/fd/10\nc Using an EAGER parsing strategy.\nc Doing BACKWARDS proof checking.\nc The CNF formula has 9412 clauses and 3153 variables.\nc Parsing the CNF took 0.003 secs\nc Detected that the DSR proof is in binary format.\nc The emitted LSR proof will also be in binary format.\nRan out of memory on xrealloc()",
+      "checker": null,
+      "command": [
+        "/home/hwu/SAT-solving/benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/pins/dsr-trim",
+        "/proc/3452655/fd/9",
+        "/proc/3452655/fd/4",
+        "/proc/3452655/fd/10"
+      ],
+      "certificate_bytes": 4750744327,
+      "certificate_sha256": "4eee97f2683ab4f255a9e718040edbfb47a0d335da2c4899a3d5cb558719bb7c",
+      "artifact_deleted": true,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/1003.json"
+    }
+  ]
+}

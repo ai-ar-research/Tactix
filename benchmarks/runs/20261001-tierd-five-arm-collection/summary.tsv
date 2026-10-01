@@ -1,0 +1,6 @@
+arm	raw_solved	verified	SAT	UNSAT	solver_timeouts	checker_timeouts	checker_stage_failures	scorer_verdict_mismatch	raw_par2_sum_seconds	verified_par2_sum_seconds	verified_par2_mean_seconds
+kissat-sc2024	890	860	450	410	275	23	7	1	3250448.821	3514292.628	3013.973
+lymphosat	944	863	477	386	221	71	10	1	2646058.696	3302637.585	2832.451
+ae-kissat-mab	877	849	464	385	288	24	4	1	3325766.174	3582277.002	3072.279
+satsuma-kissat	965	941	449	492	199	15	9	2	2466923.703	2676143.361	2295.149
+tactix	1005	986	484	502	160	13	6	1	2072826.888	2230497.937	1912.948
