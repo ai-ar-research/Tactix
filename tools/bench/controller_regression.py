@@ -23,6 +23,33 @@ CEILINGS = {'rank1-50': 8521.52175, 'b28c5': 999.87615}
 CHECK_TIMEOUT = 1800
 
 
+def proof_cost_comparison(candidate, baseline):
+    """Describe the measured comparison without inventing censored completion."""
+    elapsed = (candidate or {}).get('wall_seconds')
+    original = (baseline or {}).get('wall_seconds')
+    comparable = bool(baseline and baseline.get('result') == 'verified' and
+                      not baseline.get('timed_out'))
+    limit = original + max(0.30 * original, 20) if comparable else None
+    if not candidate:
+        status = 'missing'
+    elif not isinstance(elapsed, (int, float)) or not math.isfinite(elapsed):
+        status = 'invalid-measurement'
+    elif proof_disposition(candidate, None)[0] == 'failed':
+        status = 'checker-failure'
+    elif not comparable:
+        status = 'inconclusive'
+    elif elapsed > limit:
+        status = 'significant-slowdown'
+    elif candidate.get('timed_out'):
+        status = 'censored-within-bound'
+    else:
+        status = 'completed-within-bound'
+    return dict(status=status, baseline_wall_seconds=original,
+                candidate_wall_seconds=elapsed, allowed_completion_seconds=limit,
+                baseline_censored=bool(baseline and baseline.get('timed_out')),
+                candidate_censored=bool(candidate and candidate.get('timed_out')))
+
+
 def prepare(prefix, release):
     require(release.is_relative_to(ROOT), 'candidate must be in repository')
     pin = json.loads((release.parent / 'PIN.json').read_text())
@@ -183,7 +210,7 @@ def score(campaign):
         matrix = list(csv.DictReader(stream, delimiter='\t'))
     require(len(matrix) == accepted['expected_rows'], 'matrix row count')
     by_instance = {row['instance']: row for row in accepted['rows']}
-    counts, failures, missing, times = Counter(), [], [], []
+    counts, failures, missing, times, comparisons = Counter(), [], [], [], []
     for task, expected in enumerate(matrix):
         path = campaign / 'results' / f'{task:03d}.json'
         if not path.exists():
@@ -195,6 +222,11 @@ def score(campaign):
         require(row['binary_sha256'] == manifest['arms'][expected['arm']]['sha256'], 'result binary mismatch')
         disposition, errors = score_row(row, by_instance[row['instance']], manifest['resource_contract'])
         counts[disposition] += 1
+        if row.get('proof_check'):
+            comparison = proof_cost_comparison(row['proof_check'],
+                by_instance[row['instance']].get('proof_check'))
+            comparison.update(task=task, instance=row['instance'])
+            comparisons.append(comparison)
         if errors:
             failures.append(dict(task=task, instance=row['instance'], errors=errors))
         if not row.get('solve', {}).get('timed_out') and isinstance(row.get('solve', {}).get('wall_seconds'), (int, float)):
@@ -212,6 +244,8 @@ def score(campaign):
                 solver_seconds=total, solver_seconds_ceiling=ceiling,
                 independently_verified=counts['model-verified'] + counts['verified'],
                 censored_proofs=counts['censored'],
+                proof_cost_dispositions=dict(Counter(c['status'] for c in comparisons)),
+                proof_cost_comparisons=comparisons,
                 limitation='Bounded regression acceptance does not certify censored proofs.')
 
 

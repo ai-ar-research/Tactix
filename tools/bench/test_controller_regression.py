@@ -1,6 +1,6 @@
 """Acceptance boundaries for the user-defined bounded regression protocol."""
 import unittest
-from controller_regression import proof_disposition, score_row
+from controller_regression import proof_disposition, proof_cost_comparison, score_row
 
 
 def proof(elapsed, timeout=False):
@@ -30,6 +30,35 @@ class RegressionGateTests(unittest.TestCase):
 
     def test_censored_baseline_supplies_no_completion_cost_claim(self):
         self.assertEqual(proof_disposition(proof(1800, True), proof(57600, True)), ('censored', []))
+
+    def test_censored_baseline_cost_comparison_is_explicitly_inconclusive(self):
+        for candidate in (proof(30), proof(1800, True)):
+            comparison = proof_cost_comparison(candidate, proof(57600, True))
+            self.assertEqual(comparison['status'], 'inconclusive')
+            self.assertIsNone(comparison['allowed_completion_seconds'])
+            self.assertTrue(comparison['baseline_censored'])
+
+    def test_cost_dispositions_distinguish_completion_censoring_and_slowdown(self):
+        for candidate, baseline, expected in (
+                (proof(130), proof(100), 'completed-within-bound'),
+                (proof(1800, True), proof(1500), 'censored-within-bound'),
+                (proof(1800, True), proof(100), 'significant-slowdown')):
+            comparison = proof_cost_comparison(candidate, baseline)
+            self.assertEqual(comparison['status'], expected)
+            self.assertEqual(comparison['candidate_censored'], candidate['timed_out'])
+
+    def test_missing_baseline_is_inconclusive_even_for_fast_completed_check(self):
+        comparison = proof_cost_comparison(proof(1), None)
+        self.assertEqual(comparison['status'], 'inconclusive')
+        self.assertIsNone(comparison['allowed_completion_seconds'])
+
+    def test_cost_disposition_does_not_compare_checker_failure_as_fast_completion(self):
+        failed = proof(1)
+        failed['result'] = 'not-verified'
+        self.assertEqual(proof_cost_comparison(failed, proof(100))['status'], 'checker-failure')
+        failed = proof(1800, True)
+        failed['stages'][0]['result'] = 'rejected'
+        self.assertEqual(proof_cost_comparison(failed, proof(1500))['status'], 'checker-failure')
 
     def test_recorded_rejection_dominates_later_deadline(self):
         rejected = proof(1800, True)
