@@ -26,11 +26,32 @@ Cover each changed surface with a risk matrix:
 | SAT semantics or reconstruction | independent original-CNF model check |
 | UNSAT reasoning or proof emission | native proof checker and negative proof |
 | rule scheduling or guards | debug invariants, random policy, targeted scenario |
+| controller-foundation stage | DefaultPolicy and the new controller-driven random policy; plan §8.2 acceptance |
 | parser/frontend | malformed and adversarial DIMACS corpus |
 | harness/oracle/setup | `tools/fuzz/selftest.sh` with known-bad artifacts |
 
 Differential verdicts against pinned reference solvers supplement, but never
 replace, independent model and proof validation.
+
+## Controller-foundation campaigns
+
+Use `DEVELOPMENT_PLAN.md` §5.6 as the action-space authority and §8.2 as the
+acceptance authority; do not duplicate the action catalog in this skill.
+Include separate, explicitly named DefaultPolicy and new-random-policy legs on
+the candidate pin. Existing public-action random/stress legs are supplementary,
+not substitutes for the new controller's restart loop.
+
+Before launch, attach the action-space version, policy configuration, seed
+schedule and coverage matrix with declared minimums to the owner request.
+Use targeted scenarios where unconstrained randomness cannot reliably reach a
+required path. Counters/traces must distinguish requests, eligible execution,
+effective changes and stop outcomes. Report each policy's proof/model and
+invariant results separately, plus replay/observation checks and achieved versus
+required coverage. A zero-failure run with missing required reach is incomplete.
+After a repair, validate affected cases and rerun the affected legs/coverage;
+retain passing unchanged evidence only when its snapshot and scope still apply.
+The terminal owner report must explicitly disposition both policy legs and any
+coverage gaps before controller-foundation acceptance.
 
 ## Procedure
 

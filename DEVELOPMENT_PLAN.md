@@ -318,6 +318,8 @@ Build a controller that owns strategy objects and accepts policy action requests
 
 **Actions and effort.** Expose eligible root proof-rule instances and guidance operations through the shared typed surface; this controller's root action set does not narrow N1's public search actions. Each work action has a fixed configurable effort allowance; the policy initially chooses the action, not its allowance. Record actual work, any overshoot, completion/progress and stop reason at supported atomic boundaries. There is no global root-loop effort budget, forced search resumption, solver-state rollback, or automatic fallback to another policy. Ordinary interruption/resource handling remains explicit. Sampling separates action-versus-`ResumeSearch` choice from configuration selection; initial policy is random, with probability tuning deferred to O19.
 
+Before controller implementation, define a versioned action-space specification: stable action/configuration identities, root eligibility and instance-selection rules, typed parameter domains, allowance units/defaults, continuation/invalidation behavior, and seeded sampling/replay semantics. Root choices are eligible inprocessing instances, rephasing operations and `ResumeSearch`; after resumption the selected configuration drives ordinary search until the next full restart or terminal result. Enumerate every named legal search combination and explicitly account for excluded or unavailable actions without narrowing the public N1 surface. This specification, rather than the older unrestricted public-action random harness, defines the new random policy's scope.
+
 **Unfinished work.** Keep completed changes and each rule's existing continuation behavior; do not promise that every action can resume at an exact cursor. Preserve valid continuation state, validate it against intervening changes, and refresh scopes when the executor reports stale requests. Distinguish exhaustion, no change, fixpoint, inapplicability, interruption, resource/error and terminal results; none implies rollback or fallback. Re-selecting an action supplies its configured per-call allowance while preserving relevant native progress.
 
 **Observation and feedback.** `observe()` is read-only and callable at any safe single-threaded action/search boundary, including after every application. Expose current formula/root state, cumulative work and fixed-variable counters, search statistics (including conflicts and learned-clause LBD), selected strategies, eligibility and action execution results. Repeated reads do not consume feedback or reset solver, accounting or reward history. Action requests/results carry identities, typed parameters, allowance/work and state versions for replay; seeded random choices must also be reproducible. No reward formula, attribution window or credit assignment is committed: DynamicSAT LBD and fixed variables per effort are candidates, not prescribed rewards (O6).
@@ -403,6 +405,8 @@ performance, crash, sanitizer, proof/model or soundness failure, add a causal
 regression, and rerun affected independent oracles before dependent work resumes.
 Claude receives debugging or repair review only by explicit user request; a
 repair alone does not close its fuzz gate.
+
+**Controller-foundation acceptance.** Fuzz both DefaultPolicy and the new controller-driven random policy on the candidate snapshot; old-policy regressions alone do not replace its fuzz leg. Use §5.6's action-space specification to require demonstrated execution of every declared root action family and named search configuration, repeated root actions, strategy changes across restarts, state retention, allowance exhaustion, continuation/stale scopes and interruption. Check read-only observation and seeded deterministic replay. Record coverage targets before launch and prove reach with counters/traces, including effective transitions rather than mostly inapplicable calls or NoOps. Independently check UNSAT proofs and original-CNF SAT models for both policies. Fix candidate-related failures and obtain a passing terminal Claude-owned report covering both legs before declaring stage 7a complete; disclose unmet coverage rather than infer acceptance from zero observed failures. Operational reporting belongs in the fuzz skill.
 
 ### 8.3 Performance gates
 
@@ -598,6 +602,8 @@ proof cost, memory and regressions. T4-K and final exact T4-VBS remain required;
 
 ### 8.4 Flexibility
 
+Controller foundations also require DefaultPolicy regression runs on all four fixed sets: B28+C5, Rank 1--50, WV100 and WV2--89. Retain every previously independently checked row under its accepted solver/checker, memory and runtime contract, including the exact Rank/B28 aggregate ceilings. Freeze the accepted checkpoint's pins and per-instance results as comparison authorities before implementation; do not substitute aggregate solved counts for row retention. Existing WV coverage/checker exceptions stay explicit and need not be closed merely to accept this interface stage. These regressions complement §8.2's DefaultPolicy/new-random-policy fuzz legs; the initial random policy does not inherit DefaultPolicy's performance gate.
+
 Periodic refactor checkpoints retain the full B28+C5 and Rank 1–50 gates,
 resources and frozen controls in §8.1–§8.3. Focused correctness/API validation
 alone does not authorize a new Tier-D campaign.
@@ -689,7 +695,7 @@ independently checkable native proofs and must earn a measured time/memory gain.
 
 ### 9.4 Phase 7 — learned scheduling
 
-- **Controller foundations (7a):** implement §5.6 with read-only observation and a seeded random policy, without reward computation or learning. Validate legal action execution, root-only switching, retained state, per-action accounting, stale-scope handling, deterministic replay and proof/model correctness, including interruption. Exact allowance units and lifecycle decisions in O19 precede implementation of those interfaces.
+- **Controller foundations (7a):** specify the action space and implement §5.6 with read-only observation and a seeded random policy, without reward computation or learning. Complete §8.2's two-policy fuzz acceptance, §8.4's four-set DefaultPolicy regression gates and focused interface checks. Exact allowance units and lifecycle decisions in O19 precede implementation of those interfaces.
 - The accepted stabilization and completed Tier-D comparison permit this interface stage despite unmet formal benchmark targets and deferred Tier-D checker-failure investigation; these obligations remain recorded and no N1--N4 or performance gate is relabeled complete. This stage is not a claim of learned improvement.
 - **Reward and learning:** decide O6, validate reward proxies/attribution offline, then replace random selection with a feedback-informed policy on the same controller. Include it in proof/model fuzzing; pass L-safe before expanding learned context or composed actions, and L-win before claiming improvement. Retain arbitrary-interruption validation and decide schedule distillation (O13).
 
@@ -715,7 +721,7 @@ Resolve through `revise-plan` concretize mode and record only the minimum needed
 | O13 | distill stable learned schedules into DefaultPolicy | phase-7 exit |
 | O17 | attribute the seven WV100 AE-Kissat-MAB signatures using the frozen owner; the always-on integrated bandit failed the fixed gates and was removed | before claiming those rows mechanism-complete |
 | O18 | adapt SR discovery effort from useful producer output per unit work, separately from conditional cleanup; preserve explicit per-call budgets and replay | after the Rank17 repair and full preservation gates |
-| O19 | per-action allowance units/defaults and interval semantics, initial sampling probabilities, phase-state/rotation lifecycle, and exact observation/request/result schema | owning controller-foundation increment; probability tuning may follow the initial random policy |
+| O19 | concrete §5.6 action-space specification, per-action allowance units/defaults and interval semantics, initial sampling probabilities, phase-state/rotation lifecycle, and exact observation/request/result schema | owning controller-foundation increment; probability tuning may follow the initial random policy |
 
 Closed decisions have their current contracts in the owning sections; Git
 history preserves the decisions they replaced.

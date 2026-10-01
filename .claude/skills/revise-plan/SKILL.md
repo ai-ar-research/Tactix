@@ -7,8 +7,10 @@ description: Modify DEVELOPMENT_PLAN.md when stable scope, architecture, contrac
 
 1. Read the affected sections, N1–N4, gates, open decisions, and current
    PROGRESS. Search all forward references that the change could invalidate.
-2. Explain the proposed contract, scope, or gate change and obtain explicit user
-   approval before editing. Never weaken N1–N4 without an informed decision.
+2. Explain the proposed contract, scope, or gate change. Existing explicit user
+   directions authorize the corresponding edits; do not ask again. For an
+   unsettled substantive change, obtain approval before editing. Never weaken
+   N1–N4 without an informed decision.
 3. Make the smallest stable edit. Keep operational details in skills, current
    status in PROGRESS, exact rule semantics in the calculus, and evidence in
    reports.

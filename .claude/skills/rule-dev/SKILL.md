@@ -21,8 +21,9 @@ build-list edits.
   returns structured progress, and emits a proof delta from the established
   vocabulary.
 - Reconstruction restores a complete original-formula model.
-- Options, statistics, and budgets live with the rule; scheduling decisions live
-  in policies. Register the family once through the static registry.
+- Rules own semantics, validated parameter interfaces and statistics. Policies
+  own parameter choices, scheduling and execution budgets; caller limits do not
+  narrow the legal rule surface. Register the family once through the registry.
 
 ## Definition of done
 
@@ -37,4 +38,5 @@ build-list edits.
    apparently small guard changes, then the benchmark gate dictated by risk.
 
 If a rule needs a new kernel primitive, proof vocabulary, or global contract,
-stop and route the design through `revamp` or `revise-plan`.
+route the design through `revamp` or `revise-plan` before proceeding within the
+authorized scope.

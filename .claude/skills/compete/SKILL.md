@@ -18,9 +18,11 @@ tested.
   model on `v` lines ending in `0`; UNSAT uses exit 20 and a valid proof;
   unresolved or malformed input uses another exit status.
 - Keep diagnostic output on `c` lines. Flush output and proofs on termination.
-- Validate SAT models independently. For UNSAT, emit LRAT-compatible evidence
-  and validate the official pipeline chosen for this project: DPR/LPR with
-  `cake_lpr`.
+- Validate SAT models independently. For UNSAT, validate the project certificate
+  pipeline owned by `DEVELOPMENT_PLAN.md` §5 through `proof-check`; native DSR
+  and complete startup PBP are not restricted to LRAT-compatible output.
+  Verify target-year official acceptance separately; project checker success
+  alone does not establish competition compliance.
 
 `tools/compete/check.sh` is the executable specification. Add a regression to
 it for every compliance bug and keep a visible list of official requirements
@@ -37,5 +39,6 @@ Package from a clean checkout in a private GitHub repository with:
 - a 1–2 page IEEE-style system description including required AI disclosures.
 
 Make packaging year-parameterized even though this skill is pinned to 2026.
-Rehearse the wrapper, output checks, model checker, and `cake_lpr` under the
-official 32 GB constraint. Run solver measurements through `slurm-jobs`.
+Rehearse the wrapper, output checks, model checker, and the selected complete
+proof pipeline under the official 32 GB constraint. Run solver measurements
+through `slurm-jobs`.

@@ -13,10 +13,14 @@ only defines how to obtain trustworthy evidence.
 - **A:** correctness-adjacent smoke and gross regression detection.
 - **A + B:** every meaningful implementation change and development comparison.
 - **A + B + C:** scheduling, heuristic, or performance-sensitive changes.
-- **A + B + C + D:** milestone gates and external competitiveness claims.
+- **A + B + C + D:** tier-based performance milestones and external competitiveness claims.
 
 Use the cheapest level that can decide the stated question. Never tune defaults
 on A, and never promote an A/B result to a competitiveness claim.
+When the plan names a stage-specific gate, use that contract: controller
+foundations require the four fixed DefaultPolicy regression sets in §8.4,
+in addition to the two-policy fuzz acceptance in §8.2. Pin the accepted
+checkpoint and compare per-instance retention; retain declared exceptions.
 
 ## Protocol
 
@@ -28,8 +32,10 @@ on A, and never promote an A/B result to a competitiveness claim.
    and record commit SHA, binary hash, tier-list hash, timeout, memory, throttle,
    seeds, and solver arguments. Submit to the partition without selecting a
    node; task order is instance-major so paired arms are not node-correlated.
-4. Validate every SAT model and UNSAT proof. Exclude only harness failures, and
-   report exclusions explicitly.
+4. Validate every SAT model and UNSAT proof. Keep every frozen instance in the
+   denominator. A harness failure or missing final result makes the affected
+   task incomplete and unscorable; report it and repair the evidence rather
+   than silently excluding the row or claiming a complete gate.
 5. Report solved counts, SAT/UNSAT splits, PAR-2, paired runtime ratios, timeout
    transitions, and uncertainty or repeat spread where it could change the
    decision. A subset is a scoring view of the parent run, not a separate run.
