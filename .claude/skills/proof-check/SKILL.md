@@ -11,8 +11,10 @@ converted losslessly to DRAT, elaborated by drat-trim and independently checked
 by CakeLPR. A witnessed DSR proof uses pinned **no-option**
 `dsr-trim <checker-cnf> <dsr> <lsr>` (backward/core-trimmed), binary-LSR
 decoding with `dsr-compress -d` when needed, and Trestle `srcheck`.
-Forward `dsr-trim -f` is an additional every-lemma diagnostic, not the
-canonical acceptance command; `--delete-implied-units` is not enabled.
+The additional every-lemma audit follows `tools/bench/proof_oracle.py`: validated
+witness-free DSR uses losslessly converted DRAT with `drat-trim -f`; witnessed
+DSR retains forward `dsr-trim -f`, expansion and Trestle. These supplement the
+canonical checks; `--delete-implied-units` is not enabled.
 A complete
 startup PBP takes VeriPB then CakePB. Explicit DRAT/LRAT are compatibility
 outputs. Verify competition-specific requirements separately.
