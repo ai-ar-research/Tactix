@@ -5,13 +5,19 @@
 # reserve one physical core.  Results are identical at any worker count — only
 # wall-clock changes.
 #
-#   slurm.sh [--physical-cores P] [--time T] [--name NAME] [--wait] -- <run.sh args...>
+#   slurm.sh [--physical-cores P] [--time T] [--name NAME] [--checkers DIR] [--wait] -- <run.sh args...>
 #
 # Examples (default: 50 physical cores, 100 logical CPUs, 50 workers):
 #   slurm.sh --name quick   -- --quick   --solver build/debug/tactix
 #   slurm.sh --name nightly -- --nightly --solver "build/release/tactix --random-policy"
 #
 # The job cd's to the repo root, so solver paths may be repo-relative.
+# --checkers DIR freezes the core clausal checkers: DIR holds exactly
+# cake_lpr, drat-trim, dsr-compress, dsr-trim, lrat-check and srcheck plus a
+# SHA256SUMS manifest.  Submission verifies it, installs a content-addressed
+# read-only copy under failures/checkers/, and records that path and manifest
+# in the snapshot; the job re-verifies it before running.  Without the flag the
+# harness uses the mutable tools/checkers/bin links.
 # Submission snapshots every harness input used by run.sh.  The batch job never
 # executes a live repository script, so later edits cannot shift Bash's saved
 # file offset while a long-running child process is active.
@@ -30,15 +36,17 @@ TIME=24:00:00
 NAME=fuzz
 PARTITION=cpu-dense-hwulab-q
 WAIT=0
+CHECKERS=""
 while [ $# -gt 0 ]; do
     case "$1" in
         --physical-cores) PHYSICAL_CORES="$2"; shift 2 ;;
         --time) TIME="$2"; shift 2 ;;
         --name) NAME="$2"; shift 2 ;;
         --partition) PARTITION="$2"; shift 2 ;;
+        --checkers) CHECKERS="$2"; shift 2 ;;
         --wait) WAIT=1; shift ;;
         --) shift; break ;;
-        *) echo "usage: slurm.sh [--physical-cores P] [--time T] [--name NAME] -- <run.sh args>" >&2; exit 2 ;;
+        *) echo "usage: slurm.sh [--physical-cores P] [--time T] [--name NAME] [--checkers DIR] -- <run.sh args>" >&2; exit 2 ;;
     esac
 done
 [ $# -gt 0 ] || { echo "error: no run.sh args after --" >&2; exit 2; }
@@ -77,6 +85,44 @@ mkdir -p "$PIN_FUZZ/checkers"
 cp -a "$ROOT/benchmarks/baselines/sc24-26-32g-5000s/pins/veripb" \
       "$ROOT/benchmarks/baselines/sc24-26-32g-5000s/pins/cake-pb-cnf" \
       "$PIN_FUZZ/checkers/"
+CHECKERS_ROOT=""
+if [ -n "$CHECKERS" ]; then
+    CHECKERS="$(cd "$CHECKERS" && pwd)"
+    LISTED=$(awk '{print $2}' "$CHECKERS/SHA256SUMS" | LC_ALL=C sort | tr '\n' ' ')
+    [ "$LISTED" = "cake_lpr drat-trim dsr-compress dsr-trim lrat-check srcheck " ] || {
+        echo "error: $CHECKERS/SHA256SUMS must list exactly the six core checkers" >&2
+        exit 2
+    }
+    (cd "$CHECKERS" && sha256sum --strict --quiet -c SHA256SUMS) || {
+        echo "error: $CHECKERS does not match its SHA256SUMS" >&2
+        exit 2
+    }
+    CHECKERS_SHA=$(sha256sum < "$CHECKERS/SHA256SUMS" | cut -d' ' -f1)
+    CHECKERS_PARENT="$HERE/failures/checkers"
+    CHECKERS_ROOT="$CHECKERS_PARENT/$CHECKERS_SHA"
+    mkdir -p "$CHECKERS_PARENT"
+    if [ ! -d "$CHECKERS_ROOT" ]; then
+        CHECKERS_TMP=$(mktemp -d "$CHECKERS_PARENT/.install-XXXXXX")
+        for name in cake_lpr drat-trim dsr-compress dsr-trim lrat-check srcheck; do
+            cp -L "$CHECKERS/$name" "$CHECKERS_TMP/$name"
+        done
+        cp "$CHECKERS/SHA256SUMS" "$CHECKERS_TMP/"
+        [ ! -f "$CHECKERS/PROVENANCE.json" ] ||
+            cp "$CHECKERS/PROVENANCE.json" "$CHECKERS_TMP/"
+        (cd "$CHECKERS_TMP" && sha256sum --strict --quiet -c SHA256SUMS)
+        chmod -R a-w "$CHECKERS_TMP"
+        if ! mv -T "$CHECKERS_TMP" "$CHECKERS_ROOT" 2>/dev/null; then
+            chmod -R u+w "$CHECKERS_TMP"
+            rm -rf "$CHECKERS_TMP"
+        fi
+    fi
+    (cd "$CHECKERS_ROOT" && sha256sum --strict --quiet -c "$CHECKERS/SHA256SUMS") || {
+        echo "error: installed checkers $CHECKERS_ROOT do not match $CHECKERS" >&2
+        exit 2
+    }
+    printf '%s\n' "$CHECKERS_ROOT" > "$PIN_FUZZ/core-checkers"
+    cp "$CHECKERS/SHA256SUMS" "$PIN_FUZZ/core-checkers.sha256"
+fi
 HARNESS_SHA=$(
     cd "$PIN_FUZZ"
     find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum | \
@@ -116,6 +162,9 @@ export TACTIX_REPO_ROOT="$ROOT"
 export TACTIX_FUZZ_OUTPUT_ROOT="$HERE/failures"
 export TACTIX_FUZZ_REPLAY_HARNESS="$REPLAY_ROOT/fuzz"
 export TACTIX_FUZZ_HARNESS_SHA256="$HARNESS_SHA"
+if [ -f "$PIN_FUZZ/core-checkers" ]; then
+    (cd "$CHECKERS_ROOT" && sha256sum --strict -c "$PIN_FUZZ/core-checkers.sha256")
+fi
 cleanup_fuzz_job() {
     status=\$?
     rm -rf "\$TMPDIR"
@@ -130,7 +179,7 @@ cleanup_fuzz_job() {
     fi
 }
 trap cleanup_fuzz_job EXIT
-echo "== fuzz job \$SLURM_JOB_ID: node=\$SLURMD_NODENAME logical-cpus=\$SLURM_CPUS_PER_TASK physical-cores=$PHYSICAL_CORES workers=$PHYSICAL_CORES mem=${MEM_MIB}M harness-sha256=$HARNESS_SHA =="
+echo "== fuzz job \$SLURM_JOB_ID: node=\$SLURMD_NODENAME logical-cpus=\$SLURM_CPUS_PER_TASK physical-cores=$PHYSICAL_CORES workers=$PHYSICAL_CORES mem=${MEM_MIB}M harness-sha256=$HARNESS_SHA core-checkers=${CHECKERS_ROOT:-tools/checkers/bin} =="
 "$PIN_FUZZ/run.sh" $ARGS --jobs "$PHYSICAL_CORES"
 EOF
 )
@@ -138,6 +187,7 @@ trap - EXIT
 echo "submitted: $JID"
 echo "log: $HERE/slurm-$NAME-$JID.log"
 echo "harness: $HARNESS_SHA ($PIN_ROOT)"
+echo "core checkers: ${CHECKERS_ROOT:-tools/checkers/bin (unfrozen)}"
 if [ "$WAIT" -eq 1 ]; then
     exec python3 "$ROOT/tools/slurm/wait.py" --job "$JID" \
          --log "$HERE/slurm-$NAME-$JID.log"

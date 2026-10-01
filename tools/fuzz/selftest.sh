@@ -8,14 +8,26 @@ ROOT="$(cd "$HERE/../.." && pwd)"
 KISSAT="$ROOT/tools/solvers/bin/kissat"
 CADICAL="$ROOT/tools/solvers/bin/cadical"
 [ -x "$KISSAT" ] && [ -x "$CADICAL" ] || "$ROOT/tools/solvers/setup.sh"
-[ -x "$ROOT/tools/checkers/bin/drat-trim" ] || "$ROOT/tools/checkers/setup.sh"
-[ -x "$ROOT/tools/checkers/bin/cake_lpr" ] || "$ROOT/tools/checkers/setup.sh"
-[ -x "$ROOT/tools/checkers/bin/dsr-trim" ] || "$ROOT/tools/checkers/setup.sh"
-[ -x "$ROOT/tools/checkers/bin/srcheck" ] || "$ROOT/tools/checkers/setup.sh"
+# TACTIX_FUZZ_CHECKERS selects a frozen core-checker collection (see
+# slurm.sh --checkers); fuzz.py verifies it against its SHA256SUMS.
+CHECKERS="${TACTIX_FUZZ_CHECKERS:-$ROOT/tools/checkers/bin}"
+if [ -z "${TACTIX_FUZZ_CHECKERS:-}" ]; then
+    [ -x "$CHECKERS/drat-trim" ] || "$ROOT/tools/checkers/setup.sh"
+    [ -x "$CHECKERS/cake_lpr" ] || "$ROOT/tools/checkers/setup.sh"
+    [ -x "$CHECKERS/dsr-trim" ] || "$ROOT/tools/checkers/setup.sh"
+    [ -x "$CHECKERS/srcheck" ] || "$ROOT/tools/checkers/setup.sh"
+fi
+python3 "$HERE/fuzz.py" checkers
+python3 "$HERE/controls/checker_collection_controls.py"
 
 # Fixed native/conversion dispatch, invalid-empty-lemma, strict status and
 # failure-artifact retention controls use the actual acceptance checkers.
 python3 "$ROOT/tests/test_fuzz_proof_oracles.py"
+# Every-lemma audits: forward drat-trim (witness-free) and forward dsr-trim
+# (witnessed) reject unused invalid lemmas the backward routes accept, Trestle
+# rejects the retained historical mis-elaborations, and the configured
+# checkers accept the valid F2/F2w proofs.
+python3 "$HERE/controls/every_lemma_controls.py"
 
 TMP="$(mktemp -d)"
 cleanup_selftest() {
@@ -101,9 +113,9 @@ grep -q "failures=\[\]" "$TMP/dup-conv.log" \
          cat "$TMP/dup-conv.log"; exit 1; }
 # (b) the raw pipeline really does reject here -- otherwise (a) is vacuous
 "$KISSAT" -q "$TMP/dup.cnf" "$TMP/dup.drat" > /dev/null 2>&1 || true
-"$ROOT/tools/checkers/bin/drat-trim" "$TMP/dup.cnf" "$TMP/dup.drat" \
+"$CHECKERS/drat-trim" "$TMP/dup.cnf" "$TMP/dup.drat" \
     -L "$TMP/dup.lrat" > /dev/null 2>&1 || true
-"$ROOT/tools/checkers/bin/lrat-check" "$TMP/dup.cnf" "$TMP/dup.lrat" \
+"$CHECKERS/lrat-check" "$TMP/dup.cnf" "$TMP/dup.lrat" \
     > "$TMP/dup-raw.log" 2>&1 || true
 grep -q "NOT VERIFIED" "$TMP/dup-raw.log" \
     || { echo "SELFTEST FAILED: the drat-trim -L / lrat-check disagreement is"; \
@@ -111,8 +123,11 @@ grep -q "NOT VERIFIED" "$TMP/dup-raw.log" \
          cat "$TMP/dup-raw.log"; exit 1; }
 echo "conversion cross-check skipped, and the disagreement it dodges is real — OK"
 # (c) the native-LRAT oracle still runs and passes on the same CNF
-TACTIX="$ROOT/build/debug/tactix"
-if [ -x "$TACTIX" ]; then
+# TACTIX_FUZZ_SELFTEST_TACTIX names the pinned candidate build to use here.
+TACTIX="${TACTIX_FUZZ_SELFTEST_TACTIX:-$ROOT/build/debug/tactix}"
+if [ ! -x "$TACTIX" ]; then
+    echo "native-LRAT control NOT RUN: no executable $TACTIX"
+else
     $FUZZ check-one --solver "$TACTIX --lrat" --timeout 10 "$TMP/dup.cnf" \
         > "$TMP/dup-native.log" 2>&1 || true
     grep -q "failures=\[\]" "$TMP/dup-native.log" \

@@ -4,8 +4,9 @@
 Oracles enforced on every case:
   1. model     — SAT verdicts: `checkmodel` verifies the v-line assignment
   2. proof     — UNSAT verdicts: witness-free DSR converted to DRAT and checked
-                 by drat-trim/CakeLPR; witnessed DSR elaborated by no-option
-                 dsr-trim and checked by Trestle
+                 by drat-trim/CakeLPR, every lemma audited by forward drat-trim;
+                 witnessed DSR elaborated by no-option dsr-trim and checked by
+                 Trestle, every lemma audited by forward dsr-trim
   3. differential — verdict must agree with the oracle solver
   4. crash/io  — clean exit (10/20), s-line consistent with exit code,
                  no sanitizer reports on stderr
@@ -29,6 +30,7 @@ A leg's strength is the number of cases an oracle actually ran on, which is not
 
 import argparse
 import concurrent.futures
+import hashlib
 import json
 import os
 import re
@@ -59,17 +61,77 @@ from proof_oracle import (bridge_trivial_input_binary_lsr,  # noqa: E402
                           certificate_route, dsr_proof_as_drat, drat_stages,
                           restate_duplicate_input_lrat, DSRFormatError,
                           dsr_compress_status,
-                          every_lemma_dsr_stages, proof_check_status,
+                          every_lemma_drat_stages, every_lemma_dsr_stages,
+                          proof_check_status,
                           reference_dsr_stages, pb_proof_has_header, pb_stages,
                           stage_environment, canonical_checker_cnf,
                           drat_command_with_timeout, run_captured)
 
-DRAT_TRIM = os.path.join(ROOT, "tools", "checkers", "bin", "drat-trim")
-DSR_TRIM = os.path.join(ROOT, "tools", "checkers", "bin", "dsr-trim")
-DSR_COMPRESS = os.path.join(ROOT, "tools", "checkers", "bin", "dsr-compress")
-SR_CHECK = os.path.join(ROOT, "tools", "checkers", "bin", "srcheck")
-LRAT_CHECK = os.path.join(ROOT, "tools", "checkers", "bin", "lrat-check")
-CAKE_LPR = os.path.join(ROOT, "tools", "checkers", "bin", "cake_lpr")
+# Core clausal checkers.  A frozen collection is a directory holding exactly
+# these basenames plus a SHA256SUMS manifest: `slurm.sh --checkers DIR` records
+# its content-addressed copy in the harness snapshot (core-checkers and
+# core-checkers.sha256), and TACTIX_FUZZ_CHECKERS selects one for a live
+# checkout.  Without either, the mutable tools/checkers/bin links are used.
+CORE_CHECKERS = ("cake_lpr", "drat-trim", "dsr-compress", "dsr-trim",
+                 "lrat-check", "srcheck")
+
+
+def _checker_collection():
+    pinned = os.path.join(HERE, "core-checkers")
+    selected = os.environ.get("TACTIX_FUZZ_CHECKERS")
+    if os.path.isfile(pinned):
+        with open(pinned) as f:
+            directory = f.read().strip()
+        if selected and os.path.realpath(selected) != os.path.realpath(directory):
+            sys.exit(f"error: TACTIX_FUZZ_CHECKERS={selected} conflicts with "
+                     f"this snapshot's frozen checkers {directory}")
+        return directory, pinned + ".sha256"
+    if selected:
+        directory = os.path.abspath(selected)
+        return directory, os.path.join(directory, "SHA256SUMS")
+    return os.path.join(ROOT, "tools", "checkers", "bin"), None
+
+
+CHECKER_DIR, CHECKER_MANIFEST = _checker_collection()
+
+
+def verify_checker_collection():
+    """Fail unless a frozen collection's binaries match its manifest exactly.
+
+    Returns {basename: sha256}, or None for the unfrozen default links."""
+    if CHECKER_MANIFEST is None:
+        return None
+    want = {}
+    with open(CHECKER_MANIFEST) as f:
+        for line in f:
+            digest, name = line.split()
+            name = name.lstrip("*")
+            if name in want:
+                sys.exit(f"error: duplicate checker {name} in {CHECKER_MANIFEST}")
+            want[name] = digest
+    if sorted(want) != sorted(CORE_CHECKERS):
+        sys.exit(f"error: {CHECKER_MANIFEST} lists {sorted(want)}, "
+                 f"expected {sorted(CORE_CHECKERS)}")
+    for name, digest in want.items():
+        path = os.path.join(CHECKER_DIR, name)
+        if os.path.islink(path) or not os.path.isfile(path):
+            sys.exit(f"error: frozen checker {path} is not a regular file")
+        h = hashlib.sha256()
+        with open(path, "rb") as f:
+            for block in iter(lambda: f.read(1 << 20), b""):
+                h.update(block)
+        if h.hexdigest() != digest:
+            sys.exit(f"error: frozen checker {path} has sha256 "
+                     f"{h.hexdigest()}, manifest says {digest}")
+    return want
+
+
+DRAT_TRIM = os.path.join(CHECKER_DIR, "drat-trim")
+DSR_TRIM = os.path.join(CHECKER_DIR, "dsr-trim")
+DSR_COMPRESS = os.path.join(CHECKER_DIR, "dsr-compress")
+SR_CHECK = os.path.join(CHECKER_DIR, "srcheck")
+LRAT_CHECK = os.path.join(CHECKER_DIR, "lrat-check")
+CAKE_LPR = os.path.join(CHECKER_DIR, "cake_lpr")
 PB_PINS = (os.path.join(HERE, "checkers") if
            os.path.isdir(os.path.join(HERE, "checkers")) else
            os.path.join(ROOT, "benchmarks", "baselines", "sc24-26-32g-5000s", "pins"))
@@ -354,6 +416,48 @@ _REACH_RES = [(label, re.compile(pat, re.M)) for label, pat in REACH_SPECS]
 _STATS_BANNER_RE = re.compile(r"^c tactix ", re.M)
 
 
+# Restart-controller coverage (docs/controller-interface.md): the policy prints
+# one line per root family, one per named search configuration and one loop
+# summary at every terminal, so requests, applications, effective changes,
+# stop outcomes and search intervals are read at the source.
+_CONTROLLER_LINE_RE = re.compile(
+    r"^c controller-(?:(rule|search) (\S+)|(loop)) ((?:\S+=\d+ ?)+)$", re.M)
+
+
+def controller_coverage(stdout):
+    """{'rule': {name: fields}, 'search': {name: fields}, 'loop': fields}, or
+    None when the case printed no controller coverage."""
+    found = None
+    for m in _CONTROLLER_LINE_RE.finditer(stdout or ""):
+        found = found or {"rule": {}, "search": {}, "loop": {}}
+        fields = {key: int(value) for key, value in
+                  (item.split("=") for item in m.group(4).split())}
+        if m.group(3):
+            found["loop"] = fields
+        else:
+            found[m.group(1)][m.group(2)] = fields
+    return found
+
+
+def merge_controller_coverage(total, case, verdict):
+    """Accumulate field sums and the number of cases with a non-zero field."""
+    total["cases"] += 1
+    total["verdicts"][verdict] = total["verdicts"].get(verdict, 0) + 1
+    for kind in ("rule", "search"):
+        for name, fields in case[kind].items():
+            entry = total[kind].setdefault(name, {"sum": {}, "cases": {}})
+            for key, value in fields.items():
+                entry["sum"][key] = entry["sum"].get(key, 0) + value
+                entry["cases"][key] = entry["cases"].get(key, 0) + (value > 0)
+    loop = total["loop"]
+    for key, value in case["loop"].items():
+        loop["sum"][key] = loop["sum"].get(key, 0) + value
+        loop["cases"][key] = loop["cases"].get(key, 0) + (value > 0)
+        loop["max"][key] = max(loop["max"].get(key, 0), value)
+    loop["cases_root_sequence_ge2"] += (
+        case["loop"].get("maximum-root-actions", 0) >= 2)
+
+
 def rule_reachability(stdout):
     """(stats_present, {label: count}, {label: line_present}) for one case.
 
@@ -440,6 +544,11 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
 
     if "Sanitizer" in stderr or "runtime error" in stderr:
         out.fail("crash", "sanitizer report on stderr")
+    # A policy that stops on an internal error prints `c ERROR:` and exits
+    # with UNKNOWN; that is a failed run, not a non-terminating case.
+    error_line = re.search(r"^c ERROR:.*$", stderr or "", re.M)
+    if error_line:
+        out.fail("crash", "solver error: " + error_line.group(0)[:200])
     if verdict == "CRASH":
         out.fail("crash", f"exit code {code}, s-line {sline!r}")
     elif verdict == "IO-MISMATCH":
@@ -545,6 +654,16 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
                             else:
                                 if not check([CAKE_LPR, checker_cnf, checked_lrat]):
                                     out.fail('proof', 'CakeLPR rejected witness-free DSR')
+                    # Backward elaboration above examines only the lemmas the
+                    # refutation uses; forward drat-trim then checks every line
+                    # of the lossless conversion, unused additions included.
+                    for name, command in every_lemma_drat_stages(
+                            DRAT_TRIM, cnf_path, converted,
+                            checker_cnf=checker_cnf):
+                        if not check(command):
+                            out.fail('proof', 'every-lemma audit: forward '
+                                     'drat-trim rejected witness-free DSR')
+                            break
             # proof_oracle.reference_dsr_stages owns the pipeline definition.
             binary_lsr = os.path.join(workdir, "proof.binary.lsr")
             text_lsr = os.path.join(workdir, "proof.lsr")
@@ -552,15 +671,16 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
             why = {"dsr-trim": "dsr-trim did not verify and elaborate DSR",
                    "dsr-compress": "dsr-compress did not expand the LSR",
                    "srcheck": "Trestle did not verify elaborated LSR"}
-            # The reference pipeline is the authority; it elaborates backward
-            # and so examines only the lemmas the refutation uses.  Fuzz proofs
-            # are small, so every line is then checked by forward elaboration.
-            audited_stages = (("", reference_dsr_stages),
-                              ("every-lemma audit: ", every_lemma_dsr_stages))
-            if route == 'drat':
-                audited_stages = audited_stages[1:]
-            if route not in ('drat', 'dsr'):
-                audited_stages = ()
+            # The reference pipeline is the authority for witnessed DSR; it
+            # elaborates backward and so examines only the lemmas the
+            # refutation uses.  Fuzz proofs are small, so every line is then
+            # checked by forward elaboration.  Witness-free DSR takes the
+            # DRAT owner's route instead and was audited forward above by
+            # drat-trim on its lossless conversion (selftest controls cover
+            # both every-lemma routes; see controls/every_lemma_controls.py).
+            audited_stages = ((("", reference_dsr_stages),
+                               ("every-lemma audit: ", every_lemma_dsr_stages))
+                              if route == 'dsr' else ())
             for label, stages in audited_stages:
                 failed = False
                 for name, command in stages(
@@ -726,6 +846,9 @@ def cmd_run(args):
     reach_spec_seen = {label: 0 for label, _ in REACH_SPECS}
     stats_cases = 0
     stress_fires = 0
+    controller = {"cases": 0, "verdicts": {}, "rule": {}, "search": {},
+                  "loop": {"sum": {}, "cases": {}, "max": {},
+                           "cases_root_sequence_ge2": 0}}
     # Non-termination is lost coverage and must be as visible as a failure: a
     # case that reaches no verdict exercises no semantic oracle (model, proof
     # and differential all need SAT or UNSAT), so "N cases, 0 failures" really
@@ -791,7 +914,11 @@ def cmd_run(args):
         dense = stress_dense_connected(outcome.solver_out)
         target_fires = stress_target_fires(outcome.solver_out)
         stats_present, rcounts, rseen = rule_reachability(outcome.solver_out)
+        controller_case = controller_coverage(outcome.solver_out)
         with lock:
+            if controller_case:
+                merge_controller_coverage(controller, controller_case,
+                                          outcome.verdict)
             verdicts[outcome.verdict] = verdicts.get(outcome.verdict, 0) + 1
             if outcome.verdict in ("TIMEOUT", "UNKNOWN"):
                 nonterm.append({"index": i, "seed": seed, "generator": name,
@@ -877,6 +1004,21 @@ def cmd_run(args):
             for label, _ in REACH_SPECS)
         print(f"fuzz: reached (cases firing each rule, of {stats_cases} with "
               f"stats; ! = never fired, ? = counter line missing): {cols}")
+    if controller["cases"]:
+        with open(os.path.join(outdir, "controller-coverage.json"), "w") as f:
+            json.dump(controller, f, indent=2, sort_keys=True)
+        def zero(kind, key):
+            return sorted(name for name, entry in controller[kind].items()
+                          if not entry["cases"].get(key, 0))
+        print(f"fuzz: controller coverage over {controller['cases']} cases "
+              f"{controller['verdicts']}: families never applied "
+              f"{zero('rule', 'applications')}, never effective "
+              f"{zero('rule', 'effective')}; configurations without an "
+              f"interval {zero('search', 'intervals')}, without a decision "
+              f"{zero('search', 'decisions')}; loop "
+              f"{controller['loop']['cases']} root-sequence>=2 in "
+              f"{controller['loop']['cases_root_sequence_ge2']} cases "
+              f"(detail: controller-coverage.json)")
     missing_spec = [label for label, _ in REACH_SPECS
                     if stats_cases and reach_spec_seen[label] == 0]
     if missing_spec:
@@ -921,6 +1063,10 @@ def cmd_check_one(args):
     return 0 if kinds else 1
 
 
+LEGACY_POLICY_ARGS = ("--random-policy", "--stress-policy", "--replay=",
+                      "--trace=", "--no-heuristics")
+
+
 def cmd_corpus(args):
     corpus = os.path.join(HERE, "corpus", "regressions")
     solver = substitute_seed(shlex.split(args.solver), CORPUS_SEED)
@@ -950,8 +1096,18 @@ def cmd_corpus(args):
             if os.path.exists(meta_path):
                 with open(meta_path) as f:
                     meta = json.load(f)
-            entry_solver = solver + list(meta.get("solver_args", []))
-            entry_env = meta.get("solver_env", {})
+            entry_args = list(meta.get("solver_args", []))
+            entry_env = meta.get("solver_env") or {}
+            if args.replace_entry_policy:
+                # The leg's own policy replaces an entry's legacy schedule
+                # (the CLI rejects combining two policies); proof-format
+                # arguments stay, and the legacy replay belongs to the
+                # DefaultPolicy leg, which applies solver_args unchanged.
+                entry_args = [a for a in entry_args
+                              if not a.startswith(LEGACY_POLICY_ARGS)]
+                entry_env = {k: v for k, v in entry_env.items()
+                             if not k.startswith("TACTIX_STRESS_")}
+            entry_solver = solver + entry_args
             saved = {k: os.environ.get(k) for k in entry_env}
             os.environ.update({k: str(v) for k, v in entry_env.items()})
             try:
@@ -1009,6 +1165,17 @@ def cmd_corpus(args):
     return 1 if nfail else 0
 
 
+def cmd_checkers(args):
+    hashes = verify_checker_collection()
+    if hashes is None:
+        print(f"core checkers: {CHECKER_DIR} (unfrozen default links)")
+    else:
+        print(f"core checkers: {CHECKER_DIR} (manifest {CHECKER_MANIFEST})")
+        for name in CORE_CHECKERS:
+            print(f"  {name} {hashes[name]}")
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -1022,8 +1189,8 @@ def main() -> int:
         p.add_argument("--timeout", type=float, default=5.0)
         p.add_argument("--lrat", action="store_true",
                        help="also convert explicit DRAT to LRAT and check it "
-                            "with cake_lpr (native DSR always runs its full "
-                            "dsr-trim/Trestle pipeline)")
+                        "with cake_lpr (native DSR always runs its required "
+                        "proof pipeline)")
 
     p = sub.add_parser("run")
     common(p)
@@ -1073,9 +1240,18 @@ def main() -> int:
     p.add_argument("--allow-nonterminating", type=int, default=0,
                    help="entries allowed to not reach a verdict (they replay "
                         "no oracle); default 0 = any is fatal")
+    p.add_argument("--replace-entry-policy", action="store_true",
+                   help="drop an entry's legacy policy arguments/stress "
+                        "environment so the leg's own policy (e.g. "
+                        "--controller-policy) replays it")
     p.set_defaults(func=cmd_corpus)
 
+    p = sub.add_parser("checkers",
+                       help="print and verify the core checker collection")
+    p.set_defaults(func=cmd_checkers)
+
     args = ap.parse_args()
+    verify_checker_collection()
     return args.func(args)
 
 

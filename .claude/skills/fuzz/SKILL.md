@@ -57,6 +57,8 @@ coverage gaps before controller-foundation acceptance.
 
 1. Record SHA, build mode, seed range, generator distribution, policy/scenario,
    timeout, and checker versions.
+   Acceptance legs freeze the core checkers with `slurm.sh --checkers DIR`;
+   `tools/fuzz/README.md` owns the collection format and replay selection.
 2. Prove reachability with direct counters or traces for the changed rule/path.
    Similar verdict distributions are not reachability evidence.
 3. Treat a crash, sanitizer finding, invariant failure, model rejection, proof

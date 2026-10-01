@@ -636,13 +636,14 @@ class FuzzProofOracles(unittest.TestCase):
         self.assertFalse(r.failures)
         self.assertEqual([Path(run['command'][0]).name
                          for run in r.checker_runs],
-                         ['drat-trim', 'cake_lpr', 'dsr-trim', 'srcheck'])
-        # Hybrid acceptance first, then the every-lemma forward DSR audit.
+                         ['drat-trim', 'cake_lpr', 'drat-trim'])
+        # Hybrid acceptance first, then the every-lemma forward audit of the
+        # same lossless DRAT conversion; witness-free DSR never takes the
+        # forward dsr-trim elaboration (F2).
         self.assertNotIn('-f', r.checker_runs[0]['command'])
         self.assertIn('-f', r.checker_runs[2]['command'])
-        self.assertEqual(len(r.checker_runs[-1]['command']), 3)
-        self.assertEqual(r.checker_runs[-1]['command'][-1],
-                         r.checker_runs[2]['command'][-1])
+        self.assertEqual(r.checker_runs[2]['command'][2],
+                         r.checker_runs[0]['command'][2])
 
     def test_certificate_routing_by_witness(self):
         sys.path.insert(0, str(ROOT/'tools/bench'))
