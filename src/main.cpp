@@ -7,6 +7,7 @@
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/random_policy.hpp"
+#include "policies/random_controller_policy.hpp"
 #include "diagnostics/rule_journal.hpp"
 #include "policies/trace.hpp"
 // The stress policies reach `main` only as a StressSolveFn from this table, so
@@ -20,6 +21,8 @@
 #include <charconv>
 #include <utility>
 #include <vector>
+#include <fstream>
+#include <iterator>
 
 #include <csignal>
 #include <cstdlib>
@@ -98,6 +101,13 @@ int main(int argc, char **argv) {
   bool binary_proof = true;
   bool quiet = false;
   bool random_policy = false;
+  bool controller_policy = false;
+  bool controller_effort_set = false;
+  bool controller_period_set = false;
+  const char *controller_actions_path = nullptr;
+  const char *controller_trace_path = nullptr;
+  const char *controller_replay_path = nullptr;
+  RandomControllerConfig controller_config;
   // EVERY stress policy lives in stress_registry.cpp's table, so it reaches
   // `main` as this one pointer: one parse branch, one dispatch arm, and one
   // thing for the `--replay` / `--no-heuristics` guards to test. Each policy is
@@ -126,6 +136,38 @@ int main(int argc, char **argv) {
       proof_family = CliProofFamily::Drat;
     } else if (!strcmp(a, "--lrat")) {
       proof_family = CliProofFamily::Lrat; // native LRAT compatibility
+    } else if (!strcmp(a, "--controller-policy") ||
+               !strncmp(a, "--controller-policy=", 20)) {
+      controller_policy = true;
+      if (a[19] == '=')
+        random_seed = strtoull(a + 20, nullptr, 10);
+    } else if (!strncmp(a, "--controller-trace=", 19)) {
+      controller_trace_path = a + 19;
+    } else if (!strncmp(a, "--controller-replay=", 20)) {
+      controller_replay_path = a + 20;
+    } else if (!strncmp(a, "--controller-actions=", 21)) {
+      controller_actions_path = a + 21;
+    } else if (!strncmp(a, "--controller-restart-period=", 28)) {
+      const char *value = a + 28;
+      uint64_t amount = 0;
+      const auto parsed = std::from_chars(value, value + strlen(value), amount);
+      if (parsed.ec != std::errc() || *parsed.ptr || !amount) {
+        fprintf(stderr, "tactix: invalid --controller-restart-period\n");
+        return 1;
+      }
+      controller_config.search.restart.reluctant_period = amount;
+      controller_period_set = true;
+    } else if (!strncmp(a, "--controller-effort=", 20)) {
+      const char *value = a + 20;
+      uint64_t amount = 0;
+      const auto parsed = std::from_chars(value, value + strlen(value), amount);
+      if (parsed.ec != std::errc() || *parsed.ptr) {
+        fprintf(stderr, "tactix: invalid --controller-effort\n");
+        return 1;
+      }
+      controller_config.default_allowance.native = {
+          strategy::RuleWorkBudgetMode::Bounded, amount};
+      controller_effort_set = true;
     } else if (!strncmp(a, "--random-policy", 15)) {
       random_policy = true;
       if (a[15] == '=')
@@ -179,6 +221,9 @@ int main(int argc, char **argv) {
     } else if (!strcmp(a, "-h") || !strcmp(a, "--help")) {
       printf("usage: tactix [-q] [--auto-proof|--dsr|--drat|--lrat] [--no-binary] "
              "[--random-policy[=SEED]] "
+             "[--controller-policy[=SEED] [--controller-effort=N]] "
+             "[--controller-trace=FILE | --controller-replay=FILE] "
+             "[--controller-actions=FILE] [--controller-restart-period=N] "
              "[--bve-gates=all|none|equiv,andor,ite,xor,def] "
              "[--trace=FILE] [--replay=FILE] %s "
              "<cnf[.xz|.gz]> [proof]\n",
@@ -227,6 +272,32 @@ int main(int argc, char **argv) {
   // the dispatch below is a precedence chain with the stress policies above
   // random_policy — the only policy that tolerates a null H and, with replay,
   // the only one expressible as a (rule, instance) sequence (trace.hpp).
+  const bool controller_selected = controller_policy || controller_replay_path;
+  if ((controller_selected &&
+       (random_policy || stress_policy || replay_path || no_heuristics || trace_path)) ||
+      (controller_replay_path && (controller_policy || controller_trace_path)) ||
+      (controller_trace_path && !controller_policy) ||
+      ((controller_effort_set || controller_period_set || controller_actions_path) &&
+       !controller_selected)) {
+    fprintf(stderr, "tactix: --controller-policy selects an attached controller "
+                    "and cannot be combined with another policy or legacy trace; "
+                    "controller settings require it\n");
+    printf("s UNKNOWN\n");
+    return 1;
+  }
+  if (controller_actions_path) {
+    std::ifstream input(controller_actions_path);
+    strategy::OnlineStrategyProgram program;
+    std::string error;
+    const std::string source((std::istreambuf_iterator<char>(input)), {});
+    if (!input || !strategy::deserialize_online_strategy_program(source, program, &error) ||
+        !controller_config.configure_actions(program, &error)) {
+      fprintf(stderr, "tactix: invalid controller action collection '%s': %s\n",
+              controller_actions_path, error.c_str());
+      printf("s UNKNOWN\n");
+      return 1;
+    }
+  }
   if (trace_path && !random_policy) {
     fprintf(stderr, "tactix: --trace requires --random-policy; DefaultPolicy's "
                     "schedule is not a (rule, instance) sequence (trace.hpp)\n");
@@ -251,7 +322,7 @@ int main(int argc, char **argv) {
   }
   Kernel kernel;
   const bool default_frontend =
-      !random_policy && !stress_policy && !replay_path;
+      !random_policy && !controller_selected && !stress_policy && !replay_path;
   if (default_frontend)
     kernel_defer_cold_state(kernel);
   Heuristics heuristics; // the session owns H, the kernel holds a non-owning
@@ -384,9 +455,25 @@ int main(int argc, char **argv) {
   const uint64_t solve_t0 = tactix::now_nanos();
   DefaultStrategyConfig default_config;
   DefaultPolicy default_policy(default_config);
+  ControllerTrace controller_transcript;
+  ControllerTrace *controller_trace = nullptr;
+  if (controller_trace_path || controller_replay_path) {
+    const auto configuration = controller_configuration(controller_config);
+    const bool opened = controller_trace_path
+        ? controller_transcript.write(controller_trace_path, random_seed, configuration)
+        : controller_transcript.replay(controller_replay_path, configuration);
+    if (!opened) {
+      fprintf(stderr, "tactix: %s\n", controller_transcript.error().c_str());
+      printf("s UNKNOWN\n");
+      return 1;
+    }
+    controller_trace = &controller_transcript;
+  }
+  RandomControllerPolicy random_controller(random_seed, controller_config, controller_trace);
   const int res =
       replay_path
           ? replay_solve(kernel, replay_path, &caught_signal)
+      : controller_selected ? random_controller.solve(kernel, &caught_signal)
       : stress_policy ? stress_policy(kernel, random_seed, &caught_signal)
       : random_policy
           ? random_solve(kernel, random_seed, &caught_signal,

@@ -996,10 +996,7 @@ Var heuristics_heap_next_active_unassigned(Kernel &k) {
   return v;
 }
 
-void heuristics_update_target_phases(Kernel &k) {
-  // kissat backtrack.c kissat_update_target_and_best_phases, stable only
-  if (!k.h->stable)
-    return;
+static void capture_target_phases(Kernel &k) {
   // Kissat's high-water currency is `kissat_assigned = VARS - unassigned`
   // (internal.h:261-264).  Its `kissat_mark_eliminated_variable` removes an
   // unassigned retired identity from `unassigned` immediately, even though
@@ -1028,6 +1025,17 @@ void heuristics_update_target_phases(Kernel &k) {
       k.h->best[var_of(lit)] = negated(lit) ? -1 : 1;
     k.stats.best_saved++;
   }
+}
+
+void heuristics_update_target_phases(Kernel &k) {
+  // Preserve DefaultPolicy's stable-only capture boundary.
+  if (k.h->stable)
+    capture_target_phases(k);
+}
+
+void heuristics_capture_target_phases(Kernel &k) {
+  assert(k.h);
+  capture_target_phases(k);
 }
 
 #ifndef NDEBUG

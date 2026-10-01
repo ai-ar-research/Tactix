@@ -2,9 +2,9 @@
 
 ## Current stage and next action
 
-The accepted no-MAB stabilization checkpoint and completed five-arm Tier-D comparison permit the controller-foundation stage in [DEVELOPMENT_PLAN.md §9.4](DEVELOPMENT_PLAN.md#94-phase-7--learned-scheduling). Its design contract has one home: [plan §5.6](DEVELOPMENT_PLAN.md#56-learned-proof-rule-scheduling). The agreed design is documented; the new controller/observation interface and its initial random policy have not been implemented. Reward design and feedback-informed learning are deferred.
+The accepted no-MAB stabilization checkpoint and completed five-arm Tier-D comparison permit the controller-foundation stage in [DEVELOPMENT_PLAN.md §9.4](DEVELOPMENT_PLAN.md#94-phase-7--learned-scheduling). Architecture is owned by [plan §5.6](DEVELOPMENT_PLAN.md#56-learned-proof-rule-scheduling); the concrete v1 specification is in [controller-interface.md](docs/controller-interface.md). The active two-day goal authorizes implementation, required validation, both-policy Claude-owned fuzz and the four regression campaigns. The typed catalog, owned heuristic attachment, read-only observation, one-atomic-rule execution and ResumeSearch lifecycle have focused Debug tests passing. Independent restart clocks, all 20 configuration installations and VMTF target capture are covered; the opt-in seeded policy and ordinary search loop build and pass small SAT/UNSAT/interruption tests. Fixed profiles, offered payloads, retained pending scopes, coverage counters and controller transcript verification now have focused tests, including an effective Condition action and stale/exhausted/interrupted scopes. Full campaign coverage and acceptance remain unverified. Reward design and feedback-informed learning are deferred.
 
-Next: concretize the versioned action-space specification and observation/action/result schema (plan O19), freeze the accepted regression comparison authorities, then implement the smallest controller-foundation increment. Both policies owe the [plan's fuzz acceptance](DEVELOPMENT_PLAN.md#82-correctness), executed through the [fuzz skill](.claude/skills/fuzz/SKILL.md); DefaultPolicy also owes the [four-set regression gates and bounded proof-checking protocol](DEVELOPMENT_PLAN.md#84-flexibility). These new validation runs are pending. The current request authorizes documentation only; no new experiments and no push per user. Preserve the tested no-MAB solver and existing DefaultPolicy behavior.
+Next: finish review/configuration checks, pin the candidate and run full Debug validation; request Claude-owned two-policy fuzz with declared coverage, and run the four bounded-checker DefaultPolicy regressions. [Frozen regression authorities](benchmarks/baselines/controller-foundations-v1/results.json) bind all 272 AM549 rows and 261 checked retention targets; regenerate only for verification with `tools/bench/freeze_controller_baseline.py --verify`. Both policies owe the [plan's fuzz acceptance](DEVELOPMENT_PLAN.md#82-correctness), executed through the [fuzz skill](.claude/skills/fuzz/SKILL.md); DefaultPolicy also owes the [four-set regression gates and bounded proof-checking protocol](DEVELOPMENT_PLAN.md#84-flexibility). Those validation runs remain pending. No push or unrelated benchmark campaign is authorized.
 
 NOTHING IN FLIGHT for benchmark campaigns. Tier-D checker failures are parked for later saved-evidence review; unmet formal benchmark targets remain visible below and do not block this interface-design stage.
 
@@ -12,11 +12,11 @@ NOTHING IN FLIGHT for benchmark campaigns. Tier-D checker failures are parked fo
 
 | Authority | Evidence |
 |---|---|
-| Working solver | no-MAB `d170b4a5`; AM519 binary pins, unchanged solver source in the collected campaign |
+| Accepted solver baseline | no-MAB `d170b4a5`; AM519 binary pins, unchanged solver source in the collected campaign |
 | Accepted stabilization checkpoint | [AM551 milestone](benchmarks/reports/2026-09-28-am551-no-mab-hybrid-milestone-accepted.md) and [AM552 terminal WV evidence](benchmarks/reports/2026-09-29-am552-wv100-terminal-tierd-progress.md) |
 | Full Tier-D comparison and checker analysis | [terminal five-arm report](benchmarks/reports/2026-10-01-tierd-five-arm-terminal-results.md); [per-instance collection](benchmarks/runs/20261001-tierd-five-arm-collection/) |
 | Andrew results report | [TeX/PDF directory](report-to-andrew/20261001T125514Z-tierd-five-arm-results/) |
-| Full Debug suite | immutable no-MAB job `1732906`, 188/188 passed |
+| Baseline full Debug suite | immutable no-MAB job `1732906`, 188/188 passed |
 | Latest no-MAB fuzz | [AM531 terminal report](benchmarks/runs/20260928-am531-no-mab-opus/REPORT.md): no solver/proof/model failures; acceptance and reach limits remain below |
 | Existing controller seams | [AM533 code audit](benchmarks/reports/2026-09-28-am533-learning-readiness-code-audit.md); historical readiness verdict predates the newly agreed design |
 

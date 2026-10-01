@@ -11,6 +11,7 @@ preserve evidence and history.
 | Rule model | `docs/calculus.md` | abstract preconditions, effects, proof deltas, soundness |
 | Rule guide | `docs/proof-rules.html` | manually maintained companion view; its rule-card inventory is checked against the calculus |
 | Engineering | `docs/implementation-notes.md` | guards, deviations, durable design decisions |
+| Controller interface | `docs/controller-interface.md` | concrete versioned controller choices and request/observation contract; plan §5.6 owns architecture |
 | Scheduling parity | `docs/scheduling-parity-ledger.md` | the N4 register: per-mechanism dispositions, accepted scheduling deviations, reference-option coverage. Machine-parsed by `check-option-coverage.py`; its section and row identifiers are cited from frozen artifacts, so do not renumber them |
 | Working lessons | `docs/lessons.md` | revisable evidence-backed findings; never cite by number |
 | Design snapshots | `docs/design/` | frozen historical context; present-tense status is not current authority |

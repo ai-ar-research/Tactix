@@ -560,6 +560,26 @@ uint64_t OnlineStrategyExecutor::step_consumed(StepId id) const {
   return 0;
 }
 
+bool OnlineStrategyExecutor::pending_atomic_scope() const {
+  if (!configured_ || complete_ || step_index_ >= runtime_.size())
+    return false;
+  const auto &runtime = runtime_[step_index_];
+  return runtime.cursor < runtime.selection.size() ||
+         (runtime.sr_general_mode && !runtime.sr_general_cursor.complete);
+}
+
+bool OnlineStrategyExecutor::renew_atomic_dose(WorkLimit allowance,
+                                              uint64_t revision) {
+  if (!pending_atomic_scope() || program_.sequence.size() != 1 ||
+      program_.repeat.mode != RepeatMode::Once ||
+      program_.sequence[0].repeat.mode != RepeatMode::Once)
+    return false;
+  program_.sequence[0].budget = allowance;
+  runtime_[0].consumed = 0;
+  revision_ = revision;
+  return true;
+}
+
 bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
                                                const OnlineInvocation &step,
                                                Runtime &runtime,
