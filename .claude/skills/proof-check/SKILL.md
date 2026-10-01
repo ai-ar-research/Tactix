@@ -22,6 +22,10 @@ outputs. Verify competition-specific requirements separately.
 ## Acceptance
 
 - Match the checker's documented success status and exit code exactly.
+- Before building dsr-trim, verify the source is the pinned upstream plus
+  exactly the maintained patch, as enforced by `tools/checkers/setup.sh`.
+  Preserve additional root-clone changes; use a separately verified build
+  when needed. An existing executable or symlink does not prove source provenance.
 - Demonstrate rejection with a known-bad or truncated proof whenever checker
   setup, invocation, parsing, or acceptance logic changes.
 - A valid UNSAT verdict with a rejected proof is a correctness failure.
