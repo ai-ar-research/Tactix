@@ -1,5 +1,6 @@
 #undef NDEBUG
 #include "policies/random_controller_policy.hpp"
+#include "rules/decide/decide.hpp"
 
 #include <cassert>
 #include <fstream>
@@ -148,6 +149,41 @@ int main() {
   RandomControllerPolicy policy(1);
   assert(policy.solve(stopped, &stop) == 0);
   assert(!stopped.h && !stopped.saved_phases && !stopped.stop);
+  for (const bool conflict_boundary : {false, true}) {
+    Kernel k = fixture(false);
+    if (conflict_boundary)
+      kernel_add_binary_clause(k, internalize(-1), internalize(-2));
+    ScopedHeuristics embedding(k);
+    kernel_reserve_vars(k, 3);
+    kernel_assign_unit(k, internalize(3));
+    apply_rule(tactix_rules()[tactix_rule_id("Propagate")], k);
+    assert(decide_apply(k, internalize(1), false) == ApplyResult::Ok);
+    if (conflict_boundary) {
+      apply_rule(tactix_rules()[tactix_rule_id("Propagate")], k);
+      assert(k.conflict_valid);
+    }
+    const auto level = k.level;
+    const auto binaries = k.watches.binary_clauses();
+    const auto restarts = k.stats.restarts;
+    RandomControllerConfig config;
+    config.parameters.rules = {"Rephase"};
+    RandomControllerPolicy interrupted(17, config);
+    volatile sig_atomic_t stop = 1;
+    assert(interrupted.solve(k, &stop) == 0);
+    assert(k.level == level && k.stats.restarts == restarts);
+    stop = 0;
+    assert(interrupted.solve(k, &stop) == 10);
+    assert(k.stats.restarts > restarts);
+    assert(interrupted.coverage().full_restarts == 1);
+    assert(interrupted.coverage().configuration_changes == 0);
+    assert(k.watches.binary_clauses() >= binaries);
+    assert(k.value(internalize(3)) > 0 &&
+           k.assigned[var_of(internalize(3))].level == 0);
+    kernel_extend_model(k);
+    assert(k.value(internalize(2)) > 0);
+    if (conflict_boundary)
+      assert(k.value(internalize(1)) < 0);
+  }
   {
     char path[] = "/tmp/tactix-controller-transcript-XXXXXX";
     const int fd = mkstemp(path);

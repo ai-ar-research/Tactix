@@ -30,6 +30,7 @@ struct Observation {
   bool conflict = false;
   bool propagation_fixpoint = false;
   bool searching = false;
+  bool have_search_configuration = false;
   SearchConfiguration search;
   uint64_t rotation_intervals = 0;
   uint64_t next_restart_conflicts = 0;
@@ -91,6 +92,7 @@ public:
     result.conflict = k.conflict_valid;
     result.propagation_fixpoint = kernel_propagation_fixpoint(k);
     result.searching = searching_;
+    result.have_search_configuration = have_search_;
     result.search = search_;
     result.rotation_intervals = rotation_intervals_;
     result.next_restart_conflicts = restarts_.restart.next_conflicts;
@@ -195,9 +197,11 @@ public:
   }
 
   ApplyResult full_restart() {
-    if (!searching_ || !restart_guard(kernel_))
+    // A stopped solve may leave a non-root trail before this new controller
+    // session has installed any configuration. Its entry still uses Restart.
+    if ((!searching_ && !kernel_.level) || !restart_guard(kernel_))
       return ApplyResult::NoOp;
-    capture_before_backtrack();
+    heuristics_capture_target_phases(kernel_);
     const auto result = restart_apply_to(kernel_, 0);
     ++kernel_.strategy_epoch;
     searching_ = false;
