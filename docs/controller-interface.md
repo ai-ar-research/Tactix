@@ -84,12 +84,21 @@ composition currencies; their fixed ceilings come from the configured profile.
 Other families default to one application. Selection chooses families and
 semantic instances, while parameter/effort profiles stay fixed. A matching
 unfinished executor scope retains its cursor across doses. An external state
-change reports StaleRequest and drops that selection; the next request creates
-a fresh scope. Native kernel progress and all completed changes remain intact.
+change, or an earlier application invalidating the rest of its own batch, can
+report StaleRequest and drop that selection; the next request creates a fresh
+scope. Native kernel progress and all completed changes remain intact.
+
+A stopped policy invocation leaves a valid kernel, possibly above level zero.
+A new `solve()` invocation first explicitly Restarts that non-root state to root
+before selecting actions. Formula changes, learned clauses and root assignments
+remain committed. This starts a new controller/sampler session; use a separate
+transcript per invocation rather than append beyond a prior terminal record.
 
 Observation is a read-only snapshot at a safe boundary: state versions, root
 and formula population, selected configuration, cumulative work/search counters,
 root assignments, conflicts, learned clauses/glue, and the last action result.
+`have_search_configuration` distinguishes an installed interval configuration
+from the initial placeholder; the last installed choice remains visible at root.
 It neither enumerates instances nor advances random, scheduler or reward state.
 Use typed action requests/results with schema version, sequence and expected
 state version. Results retain native status, work, actual elapsed time and

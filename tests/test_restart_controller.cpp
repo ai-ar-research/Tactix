@@ -35,6 +35,7 @@ int main() {
     assert(first.state.touch_epoch == second.state.touch_epoch);
     assert(first.sequence == second.sequence && first.sequence == 0);
     assert(!first.last_action && !first.searching);
+    assert(!first.have_search_configuration);
     assert(k.touch_epoch == touch && k.strategy_epoch == strategy);
     assert(k.stats.rule_calls[0] == calls);
     assert(k.h->saved == phases && k.h->scores.score == scores);

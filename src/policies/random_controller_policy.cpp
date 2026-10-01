@@ -337,6 +337,14 @@ int RandomControllerPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   const auto &analysis = tactix_rules()[tactix_rule_id("ConflictAnalysis")];
   const auto &propagation = tactix_rules()[tactix_rule_id("Propagate")];
   uint64_t actions = 0;
+  if (k.level && !k.inconsistent && !(stop && *stop)) {
+    const auto result = controller.full_restart();
+    ++coverage_.full_restarts;
+    if (trace_ && !emit(service_record(k, "Restart", 0, result)))
+      return -1;
+    if (result == ApplyResult::Unsat || k.inconsistent)
+      return finish(20);
+  }
   for (;;) {
     if (stop && *stop)
       return finish(0);
@@ -425,7 +433,8 @@ int RandomControllerPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     if (result.resumed_search) {
       ++coverage_.search[name(request.search)].intervals;
       coverage_.configuration_changes +=
-          coverage_.full_restarts && observation.search != request.search;
+          observation.have_search_configuration &&
+          observation.search != request.search;
       root_actions = 0;
     } else if (request.type == ActionType::Rule) {
       auto &counts = coverage_.rules[request.invocation.rule];
