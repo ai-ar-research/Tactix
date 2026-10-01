@@ -65,8 +65,8 @@ Setup runs the minimized 24-clause reproducer through `dsr-trim` and Trestle, so
 
 Accepted source `20223134` contains binary/ASCII DSR serialization, the typed
 `add_sr` event, public CLI/C API format selection, pinned checker setup, and the
-anonymous-scratch runtime checker pipeline. Active benchmark and fuzz launchers
-select that pipeline by default; explicit DRAT/LRAT compatibility paths remain.
+anonymous-scratch runtime checker pipeline. Current benchmark and fuzz launchers
+use the certificate-routing contract in `DEVELOPMENT_PLAN.md` §5; explicit DRAT/LRAT compatibility paths remain.
 Unit, proof-oracle, runtime, full Release and sanitizer suites pass. The first
 Claude-owned fuzz checkpoint exposed the pinned checker defect; its replacement
 passed with identical solver binaries and the patched checker. B28+C5 and Rank1--50 are the current mandatory regression gates; pending solver

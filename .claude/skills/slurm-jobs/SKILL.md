@@ -9,9 +9,11 @@ All real solver execution uses `sbatch`; fixed micro-tests and builds may run in
 the session shell. The runner owns partition, memory, time, array shape, log
 paths, and other cluster parameters—do not duplicate cluster facts here.
 
-Submit to the `cpu-dense-hwulab-q` partition without a node constraint. Let
-SLURM place array tasks across eligible nodes; do not pass `--nodelist` or add a
-`#SBATCH --nodelist` directive.
+Use the partition selected by the owning runner and the user, subject to the
+plan's allocation contract. Let SLURM place array tasks across eligible nodes;
+do not pass `--nodelist` or add a `#SBATCH --nodelist` directive unless the user
+explicitly authorizes a constraint or a documented correctness/resource need
+requires it, as permitted by `CLAUDE.md`.
 
 Submit arrays at full width by default. Do not pass an array throttle (`%N` or
 the runner's `--throttle`) merely to reduce contention or out of habit: make
@@ -29,7 +31,9 @@ reason in the run manifest/report.
    narrowly quoted `sbatch --wrap`). Capture the parsable job ID and log paths.
 3. For a task that must finish before Claude continues, launch the wrapper's
    `--wait` command in the background and use the tool-owned watcher
-   `tools/slurm/wait.py <job-id>` rather than hand-written polling loops.
+   `tools/slurm/wait.py --job <job-id>` rather than hand-written polling loops.
+   Record the submission timestamp and pass `--since` when needed to
+   disambiguate recycled job IDs.
 4. Inspect terminal state and logs. Success means the expected artifacts and
    validations exist, not merely that SLURM reports COMPLETED.
 5. Cancel obsolete jobs, remove only explicitly identified temporary job

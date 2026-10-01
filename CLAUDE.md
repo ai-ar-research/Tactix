@@ -33,6 +33,8 @@ capability, not DefaultPolicy's choice to decline an offered action.
 
 ## Repository rules
 
+- User-authorized scope and constraints govern every skill, including validation,
+  experiments, reports and pushes. Skills do not expand that authorization.
 - Keep everything under this repository. Work directly in the root checkout
   unless the user explicitly requests an isolated worktree; never leave
   authoritative changes under `.claude/worktrees/`. Reference clones are

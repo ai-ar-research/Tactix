@@ -4,7 +4,7 @@
 
 The accepted no-MAB stabilization checkpoint and completed five-arm Tier-D comparison permit the controller-foundation stage in [DEVELOPMENT_PLAN.md §9.4](DEVELOPMENT_PLAN.md#94-phase-7--learned-scheduling). Its design contract has one home: [plan §5.6](DEVELOPMENT_PLAN.md#56-learned-proof-rule-scheduling). The agreed design is documented; the new controller/observation interface and its initial random policy have not been implemented. Reward design and feedback-informed learning are deferred.
 
-Next: concretize the typed observation/action/result schema and per-action effort units/defaults (plan O19), then implement the smallest controller-foundation increment with replay and proof/model validation. The current request authorizes documentation only; no new experiments and no push per user. Preserve the tested no-MAB solver and existing DefaultPolicy behavior.
+Next: concretize the versioned action-space specification and observation/action/result schema (plan O19), freeze the accepted regression comparison authorities, then implement the smallest controller-foundation increment. Both policies owe the [plan's fuzz acceptance](DEVELOPMENT_PLAN.md#82-correctness), executed through the [fuzz skill](.claude/skills/fuzz/SKILL.md); DefaultPolicy also owes the [four-set regression gates](DEVELOPMENT_PLAN.md#84-flexibility). These new validation runs are pending. The current request authorizes documentation only; no new experiments and no push per user. Preserve the tested no-MAB solver and existing DefaultPolicy behavior.
 
 NOTHING IN FLIGHT for benchmark campaigns. Tier-D checker failures are parked for later saved-evidence review; unmet formal benchmark targets remain visible below and do not block this interface-design stage.
 
@@ -38,6 +38,8 @@ The [verbatim pre-controller snapshot](docs/log/2026-10-01-pre-controller-progre
 
 ## Recent changes
 
+- Required explicit controller action-space specification, two-policy fuzz acceptance and four-set DefaultPolicy regression gates; aligned workflows with the plan.
+- Reconciled project skills with current proof routing, allocation, ownership, measurement and user-authorization contracts.
 - Documented the controller-foundation stage and moved completed/superseded progress history out of the resume surface.
 - Collected the terminal five-arm cpu-q comparison and saved checker-failure analysis; generated Andrew's results report.
 - Accepted the no-MAB stabilization checkpoint with the recorded WV coverage/checker exceptions.

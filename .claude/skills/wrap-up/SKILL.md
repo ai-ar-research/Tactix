@@ -5,8 +5,9 @@ description: Finish every Tactix development session by validating the completed
 
 # Wrap up
 
-1. Finish a coherent increment or record an intentional checkpoint. Inspect
-   relevant jobs and preserve user work.
+1. Finish a coherent increment or record an intentional checkpoint. Follow the
+   user's active scope and constraints; do not launch prohibited experiments or
+   pushes to satisfy this workflow. Inspect relevant jobs and preserve user work.
 2. Audit `benchmarks/` before landing. First map every active/pending SLURM job
    to its campaign and inspect launch files, manifests, predecessors, and
    inbound references. Preserve baselines, cache/tier authorities, reports,
@@ -38,9 +39,10 @@ description: Finish every Tactix development session by validating the completed
 6. Invoke `generate-report`; both TeX and PDF are mandatory.
 7. Review the diff and repository status. Require the session's owned paths to
    be clean after landing, not a globally clean worktree. Stage explicit paths,
-   commit coherent completed work, and push.
-8. If push fails, hand off the commit SHA and exact error; do not rewrite history
-   or conceal the failure.
+   commit coherent completed work, and push when within the authorized scope.
+   A user-directed no-push handoff ends with local commits.
+8. If an authorized push fails, hand off the commit SHA and exact error; do not
+   rewrite history or conceal the failure. Report intentional no-push separately.
 9. Summarize outcome, validation, benchmark cleanup, report path, commit/push
    state, remaining jobs,
    and next action.

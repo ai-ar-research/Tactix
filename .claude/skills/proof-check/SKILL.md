@@ -34,7 +34,7 @@ outputs. Verify competition-specific requirements separately.
 3. Correlate the failing proof line or byte range with the emitting rule and
    application. The current solver does **not** provide this mapping; implementing
    proof-event correlation is a required phase 4.5 prerequisite recorded in the
-   plan/PROGRESS, not an optional debugging convenience.
+   plan, not an optional debugging convenience.
 4. Inspect that rule's proof delta, antecedents, deletion timing, and state
    transition. Add a negative regression that fails before the fix.
 5. Re-run the focused checker, fuzz self-test when applicable, and the broader
