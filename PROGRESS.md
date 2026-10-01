@@ -6,7 +6,7 @@ The accepted no-MAB stabilization checkpoint and completed five-arm Tier-D compa
 
 Next: finish review/configuration checks, pin the candidate and run full Debug validation; request Claude-owned two-policy fuzz with declared coverage, and run the four bounded-checker DefaultPolicy regressions. [Frozen regression authorities](benchmarks/baselines/controller-foundations-v1/results.json) bind all 272 AM549 rows and 261 checked retention targets; regenerate only for verification with `tools/bench/freeze_controller_baseline.py --verify`. Both policies owe the [plan's fuzz acceptance](DEVELOPMENT_PLAN.md#82-correctness), executed through the [fuzz skill](.claude/skills/fuzz/SKILL.md); DefaultPolicy also owes the [four-set regression gates and bounded proof-checking protocol](DEVELOPMENT_PLAN.md#84-flexibility). Those validation runs remain pending. No push or unrelated benchmark campaign is authorized.
 
-NOTHING IN FLIGHT for benchmark campaigns. Tier-D checker failures are parked for later saved-evidence review; unmet formal benchmark targets remain visible below and do not block this interface-design stage.
+NOTHING IN FLIGHT for benchmark campaigns. Local Debug pin build `build/pin-controller-foundations-debug-eba47800` is running; the matching Release directory is configured but not built. Implementation checkpoint is local commit `eba47800`; full validation and promotion remain pending. Tier-D checker failures are parked for later saved-evidence review; unmet formal benchmark targets remain visible below and do not block this interface-design stage.
 
 ## Current authorities
 
