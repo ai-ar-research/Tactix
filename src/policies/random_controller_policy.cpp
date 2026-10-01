@@ -260,8 +260,13 @@ bool RandomControllerSelector::choose(
           return false;
         }
         if (count) {
-          request.invocation.granularity = InvocationGranularity::OneInstance;
-          request.invocation.instances = {instances[draw(count)]};
+          const auto selected = instances[draw(count)];
+          // Native callbacks may advertise the canonical whole-rule choice.
+          // It has its own typed form, not an explicit semantic instance.
+          if (selected != INSTANCE_CANONICAL) {
+            request.invocation.granularity = InvocationGranularity::OneInstance;
+            request.invocation.instances = {selected};
+          }
         }
       }
     }
