@@ -702,6 +702,16 @@ def routed_dsr_stages(dsr_trim, dsr_compress, final_checker, cnf, proof,
     return stages
 
 
+def every_lemma_drat_stages(drat_trim, cnf, proof, *, checker_cnf=None):
+    """Audit every DRAT lemma forward, including unused additions.
+
+    Native witness-free DSR must first pass the lossless DRAT converter. Keep
+    the backward DRAT/CakeLPR certificate route separate: this additional audit
+    rejects an invalid lemma even when the final refutation does not use it.
+    """
+    return [('drat-trim', [drat_trim, checker_cnf or cnf, proof, '-f'])]
+
+
 def every_lemma_dsr_stages(dsr_trim, dsr_compress, srcheck, cnf, proof,
                            binary_lsr, text_lsr, *, checker_cnf=None):
     """The audit pipeline: the reference stages with forward elaboration.
