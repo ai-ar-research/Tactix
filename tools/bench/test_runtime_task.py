@@ -13,6 +13,29 @@ from runtime_task import (atomic_json, checked_verdict_valid, checker_timeout_fo
 
 
 class RuntimeTaskTests(unittest.TestCase):
+    def test_recorded_route_rejection_is_not_hidden_by_deadline_during_return(self):
+        from runtime_task import check_unsat_proof, ProofPipelineDeadline
+        for reported in (None, 'dsr-trestle'):
+            with self.subTest(reported=reported), tempfile.TemporaryDirectory() as directory:
+                work = Path(directory)
+                cnf, proof = work/'cnf', work/'proof'
+                cnf.write_text('p cnf 1 1\n0\n')
+                # Witness-free DSR conflicts with a reported witnessed route;
+                # None independently exercises the missing-route rejection.
+                proof.write_bytes(b'\x01\x00')
+                calls = iter([0.0, 0.0, ProofPipelineDeadline('cut during rejected return'), 0.5])
+                def clock():
+                    value = next(calls)
+                    if isinstance(value, Exception):
+                        raise value
+                    return value
+                with patch('runtime_task.time.monotonic', clock):
+                    result = check_unsat_proof(work, 'auto', cnf, proof, work, 1800, reported)
+                self.assertFalse(result['timed_out'], 'a recorded rejection must dominate a later deadline')
+                self.assertEqual(result['stages'][0]['name'], 'route')
+                self.assertEqual(result['stages'][0]['result'], 'rejected')
+                self.assertTrue(result['deadline_expired'])
+
     def test_whole_deadline_includes_python_conversion_and_restores_signal(self):
         from runtime_task import check_unsat_proof
         before = signal.getsignal(signal.SIGALRM)

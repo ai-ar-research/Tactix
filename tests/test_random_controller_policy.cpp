@@ -55,9 +55,35 @@ int main() {
       assert(ra.invocation.budget.amount() == allowance.amount);
       assert(ra.invocation.rule_work_budget.amount ==
              config.default_allowance.native.amount);
+      // The controller supplies the executor's internal step identity and
+      // once-only repetition; generated semantic payloads must then preflight.
+      pa.sequence[0].id = 1;
+      pa.sequence[0].repeat = {RepeatMode::Once, 1};
+      std::string validation_error;
+      assert(validate_online_strategy_program(pa, &validation_error));
     }
   }
   assert(saw_rule && saw_resume);
+  {
+    Kernel k = fixture(false);
+    RestartController controller(k);
+    RandomControllerConfig walk_only;
+    walk_only.parameters.rules = {"Walk"};
+    RandomControllerSelector chooser(17);
+    unsigned walks = 0;
+    for (unsigned i = 0; i < 100; ++i) {
+      ActionRequest request;
+      std::string error;
+      assert(chooser.choose(k, controller.observe(), walk_only, request, error));
+      if (request.type == ActionType::ResumeSearch)
+        continue;
+      ++walks;
+      assert(request.invocation.rule == "Walk");
+      assert(request.invocation.granularity == InvocationGranularity::CanonicalApplication);
+      assert(request.invocation.instances.empty());
+    }
+    assert(walks);
+  }
   {
     Kernel k = fixture(false);
     RestartController controller(k);

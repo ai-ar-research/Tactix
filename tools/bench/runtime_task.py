@@ -432,9 +432,10 @@ def check_unsat_proof_until_deadline(campaign, certificate, cnf, proof, scratch,
         message = 'missing or invalid solver-reported proof route'
         stage = dict(name='route', result='rejected', exit_code=None,
                      timed_out=False, output_tail=message)
+        stages.append(stage)
         return dict(pipeline='certificate-routing', checker_input=spelling,
                     result='not-verified', wall_seconds=round(time.monotonic()-started, 3),
-                    exit_code=None, timed_out=False, output_tail=message, stages=[stage])
+                    exit_code=None, timed_out=False, output_tail=message, stages=stages)
     route = REPORTED_DSR_ROUTES.get(reported_route)
     try:
         audited_route = certificate_route(proof) if certificate in ("dsr", "auto") else None
@@ -443,11 +444,12 @@ def check_unsat_proof_until_deadline(campaign, certificate, cnf, proof, scratch,
     except DSRFormatError as error:
         stage = dict(name='route', result='rejected', exit_code=None,
                      timed_out=False, output_tail=str(error))
+        stages.append(stage)
         return dict(pipeline='certificate-routing', checker_input=spelling,
                     result='not-verified',
                     wall_seconds=round(time.monotonic() - started, 3),
                     exit_code=None, timed_out=False, output_tail=str(error),
-                    stages=[stage])
+                    stages=stages)
     if certificate == "dsr" and route == "pbp":
         raise RuntimeError("explicit DSR arm emitted a PBP certificate")
     if certificate == "drat":
