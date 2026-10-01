@@ -16,6 +16,15 @@ Soundness pipeline per DEVELOPMENT_PLAN.md §8.2 (workflow: the `fuzz` skill).
   deduplicated copy under `failures/harnesses/<sha256>/` keeps successful-leg
   timeout controls replayable after the transient snapshot is gone. Never make
   a fuzz job execute a live repository script.
+- Core clausal checkers (`cake_lpr`, `drat-trim`, `dsr-compress`, `dsr-trim`,
+  `lrat-check`, `srcheck`) default to the mutable `tools/checkers/bin` links.
+  `slurm.sh --checkers DIR` freezes them instead: `DIR` holds exactly those
+  basenames and a `SHA256SUMS` manifest; submission verifies it, installs a
+  read-only content-addressed copy under `failures/checkers/<sha256>/`, and
+  records that path and manifest in the snapshot (so failure `repro.sh` files
+  use the same checkers); the job re-verifies it. For a live checkout,
+  `TACTIX_FUZZ_CHECKERS=DIR` selects the same kind of collection, and
+  `fuzz.py checkers` prints and verifies whichever is in effect.
 - **Read a leg by its `coverage:` and `reached:` fields, not by `--n`.**
   `coverage:` counts cases that reached a verdict — a case that times out runs
   NO oracle, and the non-terminating population is printed on its own line,
@@ -26,8 +35,11 @@ Soundness pipeline per DEVELOPMENT_PLAN.md §8.2 (workflow: the `fuzz` skill).
   (`--allow-nonterminating N` pre-registers an exception).
 - `fuzz.py` — runner (subcommands `run`, `check-one`, `corpus`); oracles:
   model (`checkmodel`), startup PBP (VeriPB elaboration then CakePB against the
-  original CNF, both required), witness-free native DSR (validated DRAT to
-  drat-trim and CakeLPR), witnessed DSR (no-option `dsr-trim` to LSR to Trestle), explicit
+  original CNF, both required), witness-free native DSR (validated lossless
+  DRAT conversion to backward drat-trim and CakeLPR, plus a forward
+  `drat-trim -f` every-lemma audit of that conversion), witnessed DSR
+  (no-option `dsr-trim` to LSR to Trestle, plus a forward `dsr-trim -f`
+  every-lemma audit), explicit
   DRAT (`drat-trim`), explicit native LRAT (`cake_lpr`), differential verdict,
   and crash/I/O consistency. Legacy `lrat-check` is diagnostic only: it can
   accept an invalid empty lemma on a satisfiable input. Failed cases retain the
@@ -39,7 +51,13 @@ Soundness pipeline per DEVELOPMENT_PLAN.md §8.2 (workflow: the `fuzz` skill).
   proof).
 - `corpus/regressions/` — tracked, monotonically growing regression corpus.
 - `selftest.sh` — end-to-end validation against Kissat/CaDiCaL stand-ins;
-  runs in the weekly and manually dispatched CI workflow.
+  runs in the weekly and manually dispatched CI workflow. It honours
+  `TACTIX_FUZZ_CHECKERS` and `TACTIX_FUZZ_SELFTEST_TACTIX` (the pinned build
+  for its native-LRAT control, otherwise `build/debug/tactix`).
+- `controls/every_lemma_controls.py` — causal controls for both every-lemma
+  audits on retained fixtures (`controls/every-lemma/PROVENANCE.md`). They
+  require the configured `dsr-trim` to elaborate the F2/F2w proofs forward
+  correctly, so they fail with the historical root-clone build 02824056.
 
 - `retention.py` — which tracked per-job artifact is still cited as evidence
   (job id, id range, or name — never the basename), for this directory's

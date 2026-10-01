@@ -33,6 +33,9 @@ while [ $# -gt 0 ]; do
         # with --max-nonterminating-frac instead, and rejects this flag
         --allow-nonterminating)
             CORPUS_EXTRA+=("$1" "$2"); shift 2 ;;
+        # corpus-only: the leg's policy replaces entries' legacy schedules
+        --replace-entry-policy)
+            CORPUS_EXTRA+=("$1"); shift ;;
         *) EXTRA+=("$1"); shift ;;
     esac
 done
@@ -50,9 +53,14 @@ echo "== regression corpus =="
 # slow, and since a replay that does not reach a verdict re-runs no oracle,
 # fuzz.py counts that as a failure rather than a pass. Raise this, or pass
 # --allow-nonterminating with a reason, before weakening either side.
+# A corpus failure must not hide the seeded phase: run both, then fail.
+CORPUS_STATUS=0
 python3 "$HERE/fuzz.py" corpus --solver "$SOLVER" --oracle "$ORACLE" \
-    --timeout 60 ${CORPUS_EXTRA[@]+"${CORPUS_EXTRA[@]}"}
+    --timeout 60 ${CORPUS_EXTRA[@]+"${CORPUS_EXTRA[@]}"} || CORPUS_STATUS=$?
 
 echo "== fuzz: $N cases, solver=$SOLVER oracle=$ORACLE =="
+RUN_STATUS=0
 python3 "$HERE/fuzz.py" run --solver "$SOLVER" --oracle "$ORACLE" --n "$N" \
-    ${EXTRA[@]+"${EXTRA[@]}"}
+    ${EXTRA[@]+"${EXTRA[@]}"} || RUN_STATUS=$?
+echo "== corpus status $CORPUS_STATUS, fuzz status $RUN_STATUS =="
+[ "$CORPUS_STATUS" -eq 0 ] && [ "$RUN_STATUS" -eq 0 ]
