@@ -7,34 +7,9 @@ open decisions. Status belongs in PROGRESS; rule semantics in
 `docs/calculus.md`; guards and deviations in `docs/implementation-notes.md`;
 evidence in frozen reports and runs. The solver is sequential and deterministic.
 
-### Active execution order
+### Engineering order
 
-1. Preserve accepted native DSR and the typed direct-SR API, with proof, test,
-   fuzz, B27+C5/Rank 1--40 and B28+C5/Rank 1--50 evidence.
-2. Complete general root-start Satsuma symmetry preprocessing through that API:
-   signed colored-CNF detection, exact validation of untrusted automorphisms,
-   seeded group-element clause fixing, and re-detection after strengthening.
-   Preserve direct-generator involutions through X7. Type representation,
-   traversal, fixing, batching, repetition, seed, budgets, stop and resumption;
-   version replay while retaining old readers. Defer restart-boundary SR scheduling.
-3. Close all **57 permanently frozen Satsuma+Kissat-owned WV100 rows** with
-   independently checked native DSR, matching the retained winner's useful
-   preprocessing and efficient complete solve. Attack the 51 structured cases,
-   five Johnson cases and one general automorphism/Schreier case; overlapping
-   mechanisms do not reduce the denominator. Screen each coherent increment on
-   all 57 at c8/32 GiB/300 seconds; use 10-second screens for quick iteration.
-   Judge efficiency against retained end-to-end winner times, not a universal
-   10-second target. Final coverage remains 1,200 seconds/32 GiB for all 57.
-4. Freeze checked 57/57 as the SR-preprocessing regression set. Recover B28+C5
-   and Rank 1--50 without losing solves, proofs, effective preprocessing or
-   material efficiency on those 57. Complete the Rank/B28 performance and independent-validation gates before further WV100 coverage expansion; then integrate the other owning-baseline techniques while preserving those gates.
-   Only afterward study restart-boundary SR benefit beyond startup preprocessing
-   on B28+C5 and Rank 1--40, as specified in §8.3.
-
-The user authorizes a full Tier-D Tactix comparison after pending fuzz defects,
-baseline-rule coverage, N1--N4 verification, and online-learning cleanup are complete.
-Match the original winner resources and 5,000-second solver limit on the requested
-hwulab partition; resolve any resource ambiguity before submission.
+Preserve native DSR, the typed direct-SR API, checked models/proofs and regression evidence. The winner-integration sequence and its preservation gates are owned by §8.3; resources and checker protocols by §8.1. Controller development is staged separately in §9.4. Current authorizations, completed campaigns and the next action belong in PROGRESS.
 
 Historical checker evidence: [SC 2026 audit](benchmarks/reports/2026-09-15-sc2026-sr-checking-audit.md).
 Routine 57-row evaluations use a separate 3,600-second complete checker
@@ -333,11 +308,19 @@ capability or N1–N4 for simplicity.
 
 ### 5.6 Learned proof-rule scheduling
 
-Phase 7 learns rule/batch choice online within one run, with DefaultPolicy a
-permanent arm. It never re-solves or discards state. Start with replay-validated
-reward proxies and windowed UCB, then tabular context and composed batches under
-kill criteria. LearnedPolicy joins proof/model fuzzing and remains anytime;
-gates are in §8.5 and sequencing in §9.4.
+Build a controller that owns strategy objects and accepts policy action requests; first use a random policy, then a feedback-informed learner. Both drive the same execution interface within one solve. DefaultPolicy remains the comparison baseline, not a mandatory learner arm or fallback. Gates are in §8.5; development stages are in §9.4.
+
+**Restart loop.** Live strategy changes occur only after explicit full Restart to decision level zero. Retain learned clauses, formula transformations and root assignments; the initial controller does not reuse a non-root trail. At root: observe, request an eligible action, apply it, observe its result, recompute eligibility, and repeat until explicit `ResumeSearch` or a terminal result. Multiple inprocessing actions may precede search. Search configuration selection belongs to `ResumeSearch(configuration)` and takes effect immediately before search begins, not as a separate repeated root action.
+
+**Search configurations.** Decouple branching, restart scheduling and phase guidance. A collection with stable names initially contains every legal combination of VMTF/EVSIDS, adaptive glue/reluctant-sequence restart scheduling, and saved/target/positive/negative phase selection. Target selection uses saved phases when a target is absent. Later manual pruning is allowed. Existing focused phase rotation and target collection must be separated from mode coupling rather than silently lost. Rephasing remains an immediate, separate root action: Best, Original (all positive), Inverted (all negative), or Walk guidance. Atomic bundles may be added later.
+
+**Strategy state.** Update only the active brancher's conflict history; retain inactive VMTF/EVSIDS history and synchronize live-variable eligibility on activation. Adaptive restart averages persist and update only while selected; start a fresh minimum conflict interval when search resumes. Reluctant scheduling continues its sequence over consecutive selected restarts, but entering from another scheduler starts a fresh sequence. Changing branching or phase selection alone does not reset restart history. Search-interval accounting starts at `ResumeSearch`, excluding root-action work. Preserve shared saved/target/best phase information; exact phase-state and rotation-clock lifecycle remains O19.
+
+**Actions and effort.** Expose eligible root proof-rule instances and guidance operations through the shared typed surface; this controller's root action set does not narrow N1's public search actions. Each work action has a fixed configurable effort allowance; the policy initially chooses the action, not its allowance. Record actual work, any overshoot, completion/progress and stop reason at supported atomic boundaries. There is no global root-loop effort budget, forced search resumption, solver-state rollback, or automatic fallback to another policy. Ordinary interruption/resource handling remains explicit. Sampling separates action-versus-`ResumeSearch` choice from configuration selection; initial policy is random, with probability tuning deferred to O19.
+
+**Unfinished work.** Keep completed changes and each rule's existing continuation behavior; do not promise that every action can resume at an exact cursor. Preserve valid continuation state, validate it against intervening changes, and refresh scopes when the executor reports stale requests. Distinguish exhaustion, no change, fixpoint, inapplicability, interruption, resource/error and terminal results; none implies rollback or fallback. Re-selecting an action supplies its configured per-call allowance while preserving relevant native progress.
+
+**Observation and feedback.** `observe()` is read-only and callable at any safe single-threaded action/search boundary, including after every application. Expose current formula/root state, cumulative work and fixed-variable counters, search statistics (including conflicts and learned-clause LBD), selected strategies, eligibility and action execution results. Repeated reads do not consume feedback or reset solver, accounting or reward history. Action requests/results carry identities, typed parameters, allowance/work and state versions for replay; seeded random choices must also be reproducible. No reward formula, attribution window or credit assignment is committed: DynamicSAT LBD and fixed variables per effort are candidates, not prescribed rewards (O6).
 
 ## 6. Competition compliance
 
@@ -655,6 +638,7 @@ Ablations use configuration, not forks; test online reconfiguration and replay.
 | 4.5 | proof-event correlation and novel engineering | proof ranges map to emitting rule/application |
 | 5 | tuning, bindings, extensibility proof | ≤5% overhead + CCE test |
 | 6 | competition packaging | T5/best effort + submission ready |
+| 7a | controller and read-only observation with a random policy | §9.4 interface, execution and replay validation |
 | 7 | learned scheduling | L-safe then L-win |
 
 Phase 4.20 owns the two surveys in `docs/design/`. A reviewed proof-rule
@@ -705,12 +689,9 @@ independently checkable native proofs and must earn a measured time/memory gain.
 
 ### 9.4 Phase 7 — learned scheduling
 
-- Validate replay and reward proxies offline, then implement RL1 windowed UCB
-  with DefaultPolicy as a permanent arm and LearnedPolicy in proof/model fuzzing.
-- Pass L-safe before contextual RL2 or composed-batch RL3; retain kill criteria
-  and an arbitrary-interruption anytime test.
-- Add offline per-family presets, measure L-win across at least two Tier-D
-  families, and decide whether to distill stable schedules (O13).
+- **Controller foundations (7a):** implement §5.6 with read-only observation and a seeded random policy, without reward computation or learning. Validate legal action execution, root-only switching, retained state, per-action accounting, stale-scope handling, deterministic replay and proof/model correctness, including interruption. Exact allowance units and lifecycle decisions in O19 precede implementation of those interfaces.
+- The accepted stabilization and completed Tier-D comparison permit this interface stage despite unmet formal benchmark targets and deferred Tier-D checker-failure investigation; these obligations remain recorded and no N1--N4 or performance gate is relabeled complete. This stage is not a claim of learned improvement.
+- **Reward and learning:** decide O6, validate reward proxies/attribution offline, then replace random selection with a feedback-informed policy on the same controller. Include it in proof/model fuzzing; pass L-safe before expanding learned context or composed actions, and L-win before claiming improvement. Retain arbitrary-interruption validation and decide schedule distillation (O13).
 
 ## 10. Risks and mitigations
 
@@ -727,13 +708,14 @@ Resolve through `revise-plan` concretize mode and record only the minimum needed
 | # | Decision | Decide by |
 |---|---|---|
 | O4 | LRAT hint strategy for each remaining inprocessing rule | rule implementation |
-| O6 | learned scheduler arm sets and UCB constants | phase 7 |
+| O6 | reward function, measurement window, credit assignment and learning algorithm; DynamicSAT LBD and fixed variables per effort are only candidates | after random-controller validation, before feedback-informed learning |
 | O7 | incremental/IPASIR proof interaction | phase-6 entry |
 | O8 | retain FRAT only if a consumer appears | phase 6 |
-| O12 | contextual features and learned-state persistence | phase 7 RL2 |
+| O12 | contextual features and learned-state persistence | before expanding learned context |
 | O13 | distill stable learned schedules into DefaultPolicy | phase-7 exit |
 | O17 | attribute the seven WV100 AE-Kissat-MAB signatures using the frozen owner; the always-on integrated bandit failed the fixed gates and was removed | before claiming those rows mechanism-complete |
 | O18 | adapt SR discovery effort from useful producer output per unit work, separately from conditional cleanup; preserve explicit per-call budgets and replay | after the Rank17 repair and full preservation gates |
+| O19 | per-action allowance units/defaults and interval semantics, initial sampling probabilities, phase-state/rotation lifecycle, and exact observation/request/result schema | owning controller-foundation increment; probability tuning may follow the initial random policy |
 
 Closed decisions have their current contracts in the owning sections; Git
 history preserves the decisions they replaced.
