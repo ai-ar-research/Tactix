@@ -157,6 +157,11 @@ public:
   uint64_t sequence_passes() const { return sequence_passes_; }
   uint64_t step_consumed(StepId) const;
   bool complete() const { return complete_; }
+  // Restart-controller atomic doses can renew composition allowance while
+  // retaining an unfinished native selection/discovery cursor. This never
+  // changes the bound solver state or silently refreshes a stale selection.
+  bool pending_atomic_scope() const;
+  bool renew_atomic_dose(WorkLimit allowance, uint64_t revision);
 
 private:
   struct Runtime {

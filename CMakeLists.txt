@@ -54,6 +54,8 @@ add_library(tactix_lib OBJECT
   src/policies/default_policy.cpp
   src/policies/structured_root_strategy.cpp
   src/policies/random_policy.cpp
+  src/policies/random_controller_policy.cpp
+  src/policies/controller_trace.cpp
   src/policies/trace.cpp
   src/policies/stress_registry.cpp
   src/strategy/analyze_parameters.cpp

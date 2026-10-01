@@ -197,6 +197,9 @@ inline bool heuristics_heap_contains(const Kernel &k, Var v) {
 // kissat_update_target_and_best_phases). Stable mode only; S3 Rephase consumes
 // best and resets the watermarks.
 void heuristics_update_target_phases(Kernel &);
+// Controller capture independent of the active branch ranking. DefaultPolicy
+// continues to use the stable-only wrapper above.
+void heuristics_capture_target_phases(Kernel &);
 
 // --- decision ranking dispatch (§5.1) ---------------------------------------
 Var heuristics_queue_next_active_unassigned(Kernel &);
