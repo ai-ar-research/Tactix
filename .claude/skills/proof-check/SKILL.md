@@ -25,6 +25,12 @@ outputs. Verify competition-specific requirements separately.
 - A valid UNSAT verdict with a rejected proof is a correctness failure.
 - Validate proofs against the exact original CNF and preserve the command,
   checker version, stdout/stderr, and first failing proof location.
+- For routine regression runs, apply `DEVELOPMENT_PLAN.md` §8.4's bounded
+  checking contract. Give the complete pipeline one shared deadline, preserve
+  stage outcomes and distinguish clean exhaustion from rejection/error. Use
+  comparable baseline evidence for check-cost review; do not relabel censored
+  checking as verified or automatically launch an extended recheck. Full
+  verification and fuzz acceptance keep their own requirements.
 
 ## Diagnose a rejection
 

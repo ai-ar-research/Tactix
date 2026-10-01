@@ -32,7 +32,11 @@ checkpoint and compare per-instance retention; retain declared exceptions.
    and record commit SHA, binary hash, tier-list hash, timeout, memory, throttle,
    seeds, and solver arguments. Submit to the partition without selecting a
    node; task order is instance-major so paired arms are not node-correlated.
-4. Validate every SAT model and UNSAT proof. Keep every frozen instance in the
+4. Independently validate every SAT model and attempt each UNSAT proof's
+   selected checker pipeline. For routine regression proof checks, use the
+   bounded protocol in plan §8.4 and distinguish completed verification from
+   censored checking; formal gates still require their full verification.
+   Keep every frozen instance in the
    denominator. A harness failure or missing final result makes the affected
    task incomplete and unscorable; report it and repair the evidence rather
    than silently excluding the row or claiming a complete gate.
