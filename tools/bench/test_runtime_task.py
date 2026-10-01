@@ -3,12 +3,78 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+import time
+import signal
+import sys
+from unittest.mock import patch
 from runtime_task import (atomic_json, checked_verdict_valid, checker_timeout_for,
                           expected_matches,
                           positive_timeout, provisional_result, solver_command)
 
 
 class RuntimeTaskTests(unittest.TestCase):
+    def test_whole_deadline_includes_python_conversion_and_restores_signal(self):
+        from runtime_task import check_unsat_proof
+        before = signal.getsignal(signal.SIGALRM)
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            with patch('runtime_task.canonical_checker_cnf',
+                       side_effect=lambda *_: time.sleep(1)), \
+                 patch('runtime_task.proof_stage') as stage:
+                started = time.monotonic()
+                result = check_unsat_proof(work, 'drat', work/'cnf', work/'proof',
+                                           work, 0.05)
+                self.assertLess(time.monotonic() - started, 0.8)
+                self.assertTrue(result['timed_out'])
+                self.assertEqual(result['stages'][-1]['name'], 'pipeline-deadline')
+                stage.assert_not_called()
+        self.assertIs(signal.getsignal(signal.SIGALRM), before)
+        self.assertEqual(signal.getitimer(signal.ITIMER_REAL)[0], 0)
+
+    def test_whole_deadline_kills_a_term_ignoring_checker_group_without_grace(self):
+        from runtime_task import check_unsat_proof, measured
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            cnf, proof, pid = work/'cnf', work/'proof', work/'checker.pid'
+            cnf.write_text('p cnf 1 1\n0\n')
+            proof.write_text('0\n')
+            script = ('import os, signal, time; '
+                      'signal.signal(signal.SIGTERM, signal.SIG_IGN); '
+                      f'open({str(pid)!r}, "w").write(str(os.getpid())); '
+                      'time.sleep(60)')
+            def hanging_stage(scratch, _name, _command, timeout, *_args, **_kwargs):
+                return measured([sys.executable, '-c', script], work/'stdout',
+                                work/'stderr', work/'metrics', timeout)
+            with patch('runtime_task.proof_stage', hanging_stage):
+                started = time.monotonic()
+                result = check_unsat_proof(work, 'drat', cnf, proof, work, 0.2)
+                self.assertLess(time.monotonic() - started, 1)
+            self.assertTrue(result['timed_out'])
+            self.assertTrue(pid.exists(), 'helper must actually reach its hanging body')
+            status = Path('/proc') / pid.read_text() / 'stat'
+            until = time.monotonic() + 0.2
+            while status.exists() and status.read_text().split()[2] != 'Z':
+                self.assertLess(time.monotonic(), until, 'checker survived pipeline deadline')
+                time.sleep(0.01)
+
+    def test_stage_windows_share_precise_remaining_pipeline_allowance(self):
+        from runtime_task import check_unsat_proof
+        windows = []
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            cnf, proof = work/'cnf', work/'proof'
+            cnf.write_text('p cnf 1 1\n0\n')
+            proof.write_text('pseudo-Boolean proof version 1.2\n')
+            def stage(_scratch, _name, _command, timeout, *_args, **_kwargs):
+                windows.append(timeout)
+                time.sleep(0.04)
+                return dict(result='verified', exit_code=0, timed_out=False, output_tail='')
+            with patch('runtime_task.proof_stage', stage):
+                result = check_unsat_proof(work, 'auto', cnf, proof, work, 0.4, 'pbp')
+            self.assertEqual(result['result'], 'verified')
+            self.assertEqual(len(windows), 2)
+            self.assertLess(windows[0], 0.4)
+            self.assertGreater(windows[0] - windows[1], 0.03)
     def test_malformed_dsr_preserves_proof_failure_classification(self):
         from unittest.mock import patch
         from runtime_task import check_unsat_proof
@@ -140,7 +206,7 @@ class RuntimeTaskTests(unittest.TestCase):
                         'pin_sha256': {'pins/' + n: 'h' for n in names}}
             with self.assertRaises(RuntimeError):
                 validate_runtime_pin_contract(campaign, manifest)
-            for n in ('cake_lpr',):
+            for n in ('cake_lpr', 'drat-trim'):
                 (campaign/'pins'/n).write_text('x'); manifest['pin_sha256']['pins/' + n] = 'h'
             validate_runtime_pin_contract(campaign, manifest)
 

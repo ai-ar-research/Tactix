@@ -16,6 +16,7 @@ import sys
 import tempfile
 import threading
 import time
+from contextlib import contextmanager
 
 from proof_oracle import (bridge_trivial_input_binary_lsr,
                           bridge_trivial_input_lsr, dsr_compress_status,
@@ -30,6 +31,38 @@ from proof_oracle import (bridge_trivial_input_binary_lsr,
 
 CAMPAIGN = None
 ROOT = None
+
+
+class ProofPipelineDeadline(TimeoutError):
+    """The one whole-pipeline wall allowance expired."""
+
+
+def proof_deadline_signal(_signal, _frame):
+    raise ProofPipelineDeadline("proof pipeline wall deadline expired")
+
+
+@contextmanager
+def proof_pipeline_deadline(timeout):
+    # Runtime array tasks check proofs on their main thread. A real-time alarm
+    # also bounds Python conversion/bridging, not just external checker waits.
+    if threading.current_thread() is not threading.main_thread():
+        raise RuntimeError("proof deadline requires the runtime task main thread")
+    if timeout <= 0:
+        raise ValueError("proof pipeline timeout must be positive")
+    previous_handler = signal.getsignal(signal.SIGALRM)
+    previous_timer = signal.getitimer(signal.ITIMER_REAL)
+    started = time.monotonic()
+    signal.signal(signal.SIGALRM, proof_deadline_signal)
+    signal.setitimer(signal.ITIMER_REAL, timeout)
+    try:
+        yield
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, previous_handler)
+        if previous_timer[0]:
+            signal.setitimer(signal.ITIMER_REAL,
+                             max(1e-6, previous_timer[0] -
+                                 (time.monotonic() - started)), previous_timer[1])
 
 
 def positive_timeout(manifest, name):
@@ -73,7 +106,9 @@ def sha256(path):
     return digest.hexdigest()
 
 
-def process_group():
+def process_group(signal_mask=None):
+    if signal_mask is not None:
+        signal.pthread_sigmask(signal.SIG_SETMASK, signal_mask)
     os.setsid()
 
 
@@ -130,26 +165,45 @@ def measured(command, stdout, stderr, metrics, timeout, environment=None):
     timed_out = False
     vm_peak = [0]
     with open(stdout, "wb") as out, open(stderr, "wb") as err:
-        process = subprocess.Popen(wrapped, stdout=out, stderr=err,
-                                   preexec_fn=process_group,
-                                   env=environment)
+        process = None
         stop = threading.Event()
         sampler = None
-        if os.environ.get("TACTIX_RUNTIME_SAMPLE_VM") == "1":
-            sampler = threading.Thread(target=sample_vm_peak,
-                                       args=(process.pid, stop, vm_peak), daemon=True)
-            sampler.start()
         try:
-            exit_code = process.wait(timeout=timeout)
-        except subprocess.TimeoutExpired:
-            timed_out = True
-            os.killpg(process.pid, signal.SIGTERM)
+            # Keep the process handle available before a pending wall alarm
+            # can raise. Children restore the original mask, so checker-native
+            # signals retain their normal behavior.
+            mask = signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGALRM})
             try:
-                process.wait(timeout=10)
+                process = subprocess.Popen(
+                    wrapped, stdout=out, stderr=err,
+                    preexec_fn=lambda: process_group(mask), env=environment)
+            finally:
+                signal.pthread_sigmask(signal.SIG_SETMASK, mask)
+            if os.environ.get("TACTIX_RUNTIME_SAMPLE_VM") == "1":
+                sampler = threading.Thread(target=sample_vm_peak,
+                                           args=(process.pid, stop, vm_peak), daemon=True)
+                sampler.start()
+            try:
+                exit_code = process.wait(timeout=timeout)
             except subprocess.TimeoutExpired:
-                os.killpg(process.pid, signal.SIGKILL)
+                timed_out = True
+                os.killpg(process.pid, signal.SIGTERM)
+                try:
+                    process.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    os.killpg(process.pid, signal.SIGKILL)
+                    process.wait()
+                exit_code = None
+        except BaseException:
+            # In particular, the pipeline alarm must not abandon a checker
+            # process group, nor grant another ten seconds after its deadline.
+            if process is not None:
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
                 process.wait()
-            exit_code = None
+            raise
         finally:
             stop.set()
             if sampler:
@@ -284,14 +338,46 @@ def proof_stage(scratch, name, command, timeout, produced=None,
 
 def check_unsat_proof(campaign, certificate, cnf, proof, scratch, timeout,
                       reported_route=None):
-    """Check one certificate, stopping at the first failed pipeline stage."""
     started = time.monotonic()
     stages = []
+    try:
+        with proof_pipeline_deadline(timeout):
+            return check_unsat_proof_until_deadline(
+                campaign, certificate, cnf, proof, scratch, timeout,
+                reported_route, started, stages)
+    except ProofPipelineDeadline:
+        # Conversion is also inside the allowance. Keep completed stage
+        # evidence and never hide an already-recorded rejection behind a TO.
+        prior_failure = any(stage.get('result') != 'verified' and
+                            not stage.get('timed_out', False) for stage in stages)
+        route = REPORTED_DSR_ROUTES.get(reported_route)
+        pipeline = ('drat-trim' if certificate == 'drat' else
+                    'veripb-cake-pb' if route == 'pbp' else
+                    'dsr-as-drat-drat-trim-cake_lpr' if route == 'drat' else
+                    'dsr-trim-dsr-compress-trestle' if route == 'dsr' else
+                    'certificate-routing')
+        stages.append(dict(name='pipeline-deadline', result='timeout',
+                           exit_code=None, timed_out=True,
+                           output_tail='whole proof-pipeline wall allowance exhausted'))
+        return dict(pipeline=pipeline, result='not-verified',
+                    solver_reported_route=reported_route,
+                    wall_seconds=round(time.monotonic() - started, 3),
+                    exit_code=None, timed_out=not prior_failure,
+                    deadline_expired=True, timeout_seconds=timeout,
+                    output_tail=stages[-1]['output_tail'], stages=stages)
+
+
+def check_unsat_proof_until_deadline(campaign, certificate, cnf, proof, scratch,
+                                    timeout, reported_route, started, stages):
+    """Check one certificate, stopping at the first failed pipeline stage."""
     checker_cnf = scratch / 'checker.cnf'
     spelling = canonical_checker_cnf(cnf, checker_cnf)
 
     def remaining():
-        return max(1, timeout - int(time.monotonic() - started))
+        amount = timeout - (time.monotonic() - started)
+        if amount <= 0:
+            raise ProofPipelineDeadline("proof pipeline wall deadline expired")
+        return amount
 
     def append_canonical_dsr():
         # Witnessed SR requires no-option DSR elaboration and Trestle.
