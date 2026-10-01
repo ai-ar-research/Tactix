@@ -19,6 +19,7 @@ VALIDATION: All four repaired-source DefaultPolicy campaigns pass their frozen r
 | Baseline full Debug suite | immutable no-MAB job `1732906`, 188/188 passed |
 | Latest no-MAB fuzz | [AM531 terminal report](benchmarks/runs/20260928-am531-no-mab-opus/REPORT.md): no solver/proof/model failures; acceptance and reach limits remain below |
 | Latest controller checkpoint for Andrew | [accepted fuzz and regression TeX/PDF](report-to-andrew/20261001T214115Z-controller-fuzz-accepted/); full Debug and final acceptance still pending |
+| Individual-instance controller regressions | [saved-counter analysis](benchmarks/reports/2026-10-01-controller-instance-regressions.md) and [Andrew TeX/PDF](report-to-andrew/20261001T234955Z-controller-instance-timings/): unchanged completed work/certificates; memory/throughput leads, no new experiments |
 | Existing controller seams | [AM533 code audit](benchmarks/reports/2026-09-28-am533-learning-readiness-code-audit.md); historical readiness verdict predates the newly agreed design |
 
 ## Acceptance and outstanding obligations
