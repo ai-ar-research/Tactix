@@ -1,0 +1,104 @@
+{
+  "cases": [
+    {
+      "policy": "default",
+      "arm": "repaired",
+      "record_exit": 10,
+      "replay_exit": 10,
+      "models_checked": 2,
+      "stdout_equal": true,
+      "disabled_setting_values": "A versus B",
+      "commands": [
+        [
+          "/home/hwu/SAT-solving/build/staged-debug-repair-v2-7e2c5eb1-runtime/tactix",
+          "-q",
+          "--feedback=/home/hwu/SAT-solving/benchmarks/runs/20261002-shared-policy-staged-repair-v4-7e2c5eb1/work/default-repaired.jsonl",
+          "/home/hwu/SAT-solving/benchmarks/runs/20261002-shared-policy-staged-repair-v4-7e2c5eb1/work/metadata.cnf"
+        ],
+        [
+          "/home/hwu/SAT-solving/build/staged-debug-repair-v2-7e2c5eb1-runtime/tactix",
+          "-q",
+          "--feedback-replay=/home/hwu/SAT-solving/benchmarks/runs/20261002-shared-policy-staged-repair-v4-7e2c5eb1/work/default-repaired.jsonl",
+          "/home/hwu/SAT-solving/benchmarks/runs/20261002-shared-policy-staged-repair-v4-7e2c5eb1/work/metadata.cnf"
+        ]
+      ]
+    },
+    {
+      "policy": "default",
+      "arm": "original-negative",
+      "record_exit": 10,
+      "replay_exit": 1,
+      "models_checked": 2,
+      "stdout_equal": true,
+      "disabled_setting_values": "A versus B",
+      "commands": [
+        [
+          "/home/hwu/SAT-solving/build/staged-debug-repair-v2-7e2c5eb1-runtime/control-tactix",
+          "-q",
+          "--feedback=/home/hwu/SAT-solving/benchmarks/runs/20261002-shared-policy-staged-repair-v4-7e2c5eb1/work/default-original-negative.jsonl",
+          "/home/hwu/SAT-solving/benchmarks/runs/20261002-shared-policy-staged-repair-v4-7e2c5eb1/work/metadata.cnf"
+        ],
+        [
+          "/home/hwu/SAT-solving/build/staged-debug-repair-v2-7e2c5eb1-runtime/control-tactix",
+          "-q",
+          "--feedback-replay=/home/hwu/SAT-solving/benchmarks/runs/20261002-shared-policy-staged-repair-v4-7e2c5eb1/work/default-original-negative.jsonl",
+          "/home/hwu/SAT-solving/benchmarks/runs/20261002-shared-policy-staged-repair-v4-7e2c5eb1/work/metadata.cnf"
+        ]
+      ]
+    },
+    {
+      "policy": "controller",
+      "arm": "repaired",
+      "record_exit": 10,
+      "replay_exit": 10,
+      "models_checked": 2,
+      "stdout_equal": true,
+      "disabled_setting_values": "A versus B",
+      "commands": [
+        [
+          "/home/hwu/SAT-solving/build/staged-debug-repair-v2-7e2c5eb1-runtime/tactix",
+          "-q",
+          "--controller-policy=7",
+          "--feedback=/home/hwu/SAT-solving/benchmarks/runs/20261002-shared-policy-staged-repair-v4-7e2c5eb1/work/controller-repaired.jsonl",
+          "/home/hwu/SAT-solving/benchmarks/runs/20261002-shared-policy-staged-repair-v4-7e2c5eb1/work/metadata.cnf"
+        ],
+        [
+          "/home/hwu/SAT-solving/build/staged-debug-repair-v2-7e2c5eb1-runtime/tactix",
+          "-q",
+          "--controller-policy=7",
+          "--feedback-replay=/home/hwu/SAT-solving/benchmarks/runs/20261002-shared-policy-staged-repair-v4-7e2c5eb1/work/controller-repaired.jsonl",
+          "/home/hwu/SAT-solving/benchmarks/runs/20261002-shared-policy-staged-repair-v4-7e2c5eb1/work/metadata.cnf"
+        ]
+      ]
+    },
+    {
+      "policy": "controller",
+      "arm": "original-negative",
+      "record_exit": 10,
+      "replay_exit": 1,
+      "models_checked": 2,
+      "stdout_equal": true,
+      "disabled_setting_values": "A versus B",
+      "commands": [
+        [
+          "/home/hwu/SAT-solving/build/staged-debug-repair-v2-7e2c5eb1-runtime/control-tactix",
+          "-q",
+          "--controller-policy=7",
+          "--feedback=/home/hwu/SAT-solving/benchmarks/runs/20261002-shared-policy-staged-repair-v4-7e2c5eb1/work/controller-original-negative.jsonl",
+          "/home/hwu/SAT-solving/benchmarks/runs/20261002-shared-policy-staged-repair-v4-7e2c5eb1/work/metadata.cnf"
+        ],
+        [
+          "/home/hwu/SAT-solving/build/staged-debug-repair-v2-7e2c5eb1-runtime/control-tactix",
+          "-q",
+          "--controller-policy=7",
+          "--feedback-replay=/home/hwu/SAT-solving/benchmarks/runs/20261002-shared-policy-staged-repair-v4-7e2c5eb1/work/controller-original-negative.jsonl",
+          "/home/hwu/SAT-solving/benchmarks/runs/20261002-shared-policy-staged-repair-v4-7e2c5eb1/work/metadata.cnf"
+        ]
+      ]
+    }
+  ],
+  "models_checked": 8,
+  "repaired_pairs": 2,
+  "original_causal_negative_pairs": 2,
+  "scope": "Disabled-feature environment settings only; no broad fuzz, all-configuration or full Debug acceptance."
+}

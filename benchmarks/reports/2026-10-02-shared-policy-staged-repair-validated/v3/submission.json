@@ -1,0 +1,6 @@
+{
+  "job_id": 1746478,
+  "submitted_at_utc": "2026-10-02T21:31:03.610182+00:00",
+  "scope": "Remaining staged comparison and independent oracles; eight focused checks retained from job1746477",
+  "manifest": "benchmarks/runs/20261002-shared-policy-staged-repair-v3-7e2c5eb1/manifest.json"
+}

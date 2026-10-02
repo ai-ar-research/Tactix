@@ -1,0 +1,115 @@
+{
+  "pairs": [
+    {
+      "profile_case": "profile-0-pigeons-4",
+      "proof_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "independent_oracle": "model",
+      "both_checked": true,
+      "deterministic_feedback_equal_after_only_description_renames": true
+    },
+    {
+      "profile_case": "profile-0-pigeons-6",
+      "proof_sha256": "dee72c8f6ca992f144b002675f3291dd6ba4b0c421ac4dc99468ab0470fb668a",
+      "independent_oracle": "drat-trim+CakeLPR",
+      "both_checked": true,
+      "deterministic_feedback_equal_after_only_description_renames": true
+    },
+    {
+      "profile_case": "profile-1-pigeons-4",
+      "proof_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "independent_oracle": "model",
+      "both_checked": true,
+      "deterministic_feedback_equal_after_only_description_renames": true
+    },
+    {
+      "profile_case": "profile-1-pigeons-6",
+      "proof_sha256": "bc2ec86281d21e88982e1a95a51eaa5cfdf8c165cbfb89b9c15e578eafc8cee5",
+      "independent_oracle": "drat-trim+CakeLPR",
+      "both_checked": true,
+      "deterministic_feedback_equal_after_only_description_renames": true
+    },
+    {
+      "profile_case": "profile-2-pigeons-4",
+      "proof_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "independent_oracle": "model",
+      "both_checked": true,
+      "deterministic_feedback_equal_after_only_description_renames": true
+    },
+    {
+      "profile_case": "profile-2-pigeons-6",
+      "proof_sha256": "87a46b8220089c0f368d27e012c8429098dd79662131ed1197d2c592ce94eb65",
+      "independent_oracle": "drat-trim+CakeLPR",
+      "both_checked": true,
+      "deterministic_feedback_equal_after_only_description_renames": true
+    },
+    {
+      "profile_case": "profile-3-pigeons-4",
+      "proof_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "independent_oracle": "model",
+      "both_checked": true,
+      "deterministic_feedback_equal_after_only_description_renames": true
+    },
+    {
+      "profile_case": "profile-3-pigeons-6",
+      "proof_sha256": "5e69cdb9917cd9ef5f80eabf31505d93224551e8197da9255bfa64db4c356ed8",
+      "independent_oracle": "drat-trim+CakeLPR",
+      "both_checked": true,
+      "deterministic_feedback_equal_after_only_description_renames": true
+    },
+    {
+      "profile_case": "profile-4-pigeons-4",
+      "proof_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "independent_oracle": "model",
+      "both_checked": true,
+      "deterministic_feedback_equal_after_only_description_renames": true
+    },
+    {
+      "profile_case": "profile-4-pigeons-6",
+      "proof_sha256": "ba0f60727bddbe08d69d3bf8bcf06728fc07def8a4857e8438d6b37e90a20f8c",
+      "independent_oracle": "drat-trim+CakeLPR",
+      "both_checked": true,
+      "deterministic_feedback_equal_after_only_description_renames": true
+    },
+    {
+      "profile_case": "profile-5-pigeons-4",
+      "proof_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "independent_oracle": "model",
+      "both_checked": true,
+      "deterministic_feedback_equal_after_only_description_renames": true
+    },
+    {
+      "profile_case": "profile-5-pigeons-6",
+      "proof_sha256": "6444d584c77cc6caf5f7085f08bdfaa9610c66be9ccdc15f3c1e7bfb3a44185e",
+      "independent_oracle": "drat-trim+CakeLPR",
+      "both_checked": true,
+      "deterministic_feedback_equal_after_only_description_renames": true
+    },
+    {
+      "profile_case": "profile-6-pigeons-4",
+      "proof_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "independent_oracle": "model",
+      "both_checked": true,
+      "deterministic_feedback_equal_after_only_description_renames": true
+    },
+    {
+      "profile_case": "profile-6-pigeons-6",
+      "proof_sha256": "c5e2d74475ea5062439473dfdc7100244601bb1e1d62bcab741a47a7b89f604f",
+      "independent_oracle": "drat-trim+CakeLPR",
+      "both_checked": true,
+      "deterministic_feedback_equal_after_only_description_renames": true
+    }
+  ],
+  "count": 14,
+  "models_checked": 14,
+  "proofs_checked": 14,
+  "changed_description_records_reached": {
+    "Reduce": 82,
+    "Restart": 25
+  },
+  "normalized_fields": [
+    "elapsed_nanos rows excluded",
+    "description: two intentional cold label renames"
+  ],
+  "printed_work_state_phase_score_and_certificate_signatures": "byte-identical",
+  "scope": "Fourteen preserved productive fixture profiles, not universal runtime or full Debug acceptance."
+}
