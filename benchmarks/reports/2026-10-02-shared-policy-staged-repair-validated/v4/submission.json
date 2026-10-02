@@ -1,0 +1,6 @@
+{
+  "job_id": 1746479,
+  "submitted_at_utc": "2026-10-02T21:33:30.568407+00:00",
+  "manifest": "benchmarks/runs/20261002-shared-policy-staged-repair-v4-7e2c5eb1/manifest.json",
+  "scope": "Corrected metadata-only remaining validation; unchanged candidate/source and staged binaries."
+}

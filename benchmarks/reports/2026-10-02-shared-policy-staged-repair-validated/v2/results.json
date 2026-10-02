@@ -1,0 +1,114 @@
+[
+  {
+    "name": "event_trace_zero_overhead",
+    "command": [
+      "/cm/local/apps/python3/bin/python3",
+      "/home/hwu/SAT-solving/tests/test_no_event_trace_symbols.py",
+      "/home/hwu/SAT-solving/build/staged-debug-repair-v2-7e2c5eb1-runtime/tactix",
+      "--debug-stubs"
+    ],
+    "expected_exit": 0,
+    "actual_exit": 0,
+    "seconds": 0.3731436524540186,
+    "passed": true
+  },
+  {
+    "name": "execution_support",
+    "command": [
+      "/home/hwu/SAT-solving/build/staged-debug-repair-v2-7e2c5eb1-runtime/test_execution_support"
+    ],
+    "expected_exit": 0,
+    "actual_exit": 0,
+    "seconds": 0.005102360621094704,
+    "passed": true
+  },
+  {
+    "name": "feedback_provenance-e0-j0",
+    "command": [
+      "/home/hwu/SAT-solving/build/staged-debug-repair-v2-7e2c5eb1-runtime/test_feedback_provenance-e0-j0"
+    ],
+    "expected_exit": 0,
+    "actual_exit": 0,
+    "seconds": 1.026417599990964,
+    "passed": true
+  },
+  {
+    "name": "feedback_provenance-e1-j0",
+    "command": [
+      "/home/hwu/SAT-solving/build/staged-debug-repair-v2-7e2c5eb1-runtime/test_feedback_provenance-e1-j0"
+    ],
+    "expected_exit": 0,
+    "actual_exit": 0,
+    "seconds": 1.0179083999246359,
+    "passed": true
+  },
+  {
+    "name": "feedback_provenance-e0-j1",
+    "command": [
+      "/home/hwu/SAT-solving/build/staged-debug-repair-v2-7e2c5eb1-runtime/test_feedback_provenance-e0-j1"
+    ],
+    "expected_exit": 0,
+    "actual_exit": 0,
+    "seconds": 1.053961157798767,
+    "passed": true
+  },
+  {
+    "name": "feedback_provenance-e1-j1",
+    "command": [
+      "/home/hwu/SAT-solving/build/staged-debug-repair-v2-7e2c5eb1-runtime/test_feedback_provenance-e1-j1"
+    ],
+    "expected_exit": 0,
+    "actual_exit": 0,
+    "seconds": 0.9611868895590305,
+    "passed": true
+  },
+  {
+    "name": "inspect_policy_feedback",
+    "command": [
+      "/cm/local/apps/python3/bin/python3",
+      "/home/hwu/SAT-solving/benchmarks/runs/20261002-shared-policy-staged-repair-v2-7e2c5eb1/inspect-wrapper.py",
+      "/home/hwu/SAT-solving/build/pin-shared-policy-feedback-debug-0531c2f1/tests/test_feedback_trace",
+      "/home/hwu/SAT-solving/build/staged-debug-repair-v2-7e2c5eb1-runtime/test_default_execution_signature"
+    ],
+    "expected_exit": 0,
+    "actual_exit": 0,
+    "seconds": 13.141972815617919,
+    "passed": true
+  },
+  {
+    "name": "feedback_frontend",
+    "command": [
+      "/cm/local/apps/python3/bin/python3",
+      "/home/hwu/SAT-solving/tests/test_feedback_frontend.py",
+      "/home/hwu/SAT-solving/build/staged-debug-repair-v2-7e2c5eb1-runtime/tactix"
+    ],
+    "expected_exit": 0,
+    "actual_exit": 0,
+    "seconds": 97.33690965361893,
+    "passed": true
+  },
+  {
+    "name": "original_default_signatures",
+    "command": [
+      "/home/hwu/SAT-solving/build/pin-shared-policy-feedback-debug-0531c2f1/tests/test_default_execution_signature",
+      "/home/hwu/SAT-solving/benchmarks/runs/20261002-shared-policy-staged-repair-v2-7e2c5eb1/work/original-default",
+      "feedback"
+    ],
+    "expected_exit": 0,
+    "actual_exit": 0,
+    "seconds": 1.8571384605020285,
+    "passed": true
+  },
+  {
+    "name": "repaired_default_signatures",
+    "command": [
+      "/home/hwu/SAT-solving/build/staged-debug-repair-v2-7e2c5eb1-runtime/test_default_execution_signature",
+      "/home/hwu/SAT-solving/benchmarks/runs/20261002-shared-policy-staged-repair-v2-7e2c5eb1/work/repaired-default",
+      "feedback"
+    ],
+    "expected_exit": 0,
+    "actual_exit": 0,
+    "seconds": 1.8806103318929672,
+    "passed": true
+  }
+]

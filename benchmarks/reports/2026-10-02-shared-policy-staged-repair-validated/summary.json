@@ -1,0 +1,29 @@
+{
+  "schema": "tactix-staged-repair-focused-acceptance-v1",
+  "original_candidate": "0531c2f1fb153f0d6be240041eda41fa835427a8",
+  "root_proposal_applied": false,
+  "original_tactix_sha256": "9998afedeaf9836489f65a97a805a24feeaadf12b21a447c32b93ec3afd8ad99",
+  "staged_tactix_sha256": "c40d05c2df37654d9e2457a22a526a0a45c4d8f7e5f65df33a2fac5d30aecd26",
+  "proposal_diff_sha256": "e022f6c4a1c357c3e27adf42e074fbf1266308d6fe14a54807580c4e8f097f74",
+  "focused_checks": 8,
+  "correspondence_pairs": 14,
+  "independent_model_checks": 24,
+  "independent_proof_pipeline_checks": 16,
+  "reach": {
+    "reduce_description": 82,
+    "reduce_nonempty_victim_list": 41,
+    "scheduled_restart_description": 25,
+    "scheduled_restart_positive_prefix": 18
+  },
+  "staged_fixed_acceptance": "PASSED",
+  "whole_goal_acceptance": "NOT ACCEPTED",
+  "scope": "Exactly eight fixed checks, fourteen preserved productive default fixture pairs and both-policy disabled-feature metadata controls. Applied-source full Debug, affected fuzz/regressions/measurement and terminal owner report remain required.",
+  "prior_failure_dispositions": {
+    "1746475": "Cold Reduce feedback label collides with unchanged no-journal string gate. Added cold-only label changes.",
+    "1746477": "Eight focused checks and two fixture producers passed. Harness compared elapsed_nanos by filtering nonexistent elapsed.",
+    "1746478": "Fourteen correspondence pairs and independent oracles passed. Metadata negative harness required nonexistent SAT_EVENT_TRACE_WATCH_VALUES key.",
+    "1746479": "Corrected remaining metadata controls passed; all 1188 input bindings verified before/after."
+  },
+  "preserved_root_sources": 795,
+  "created_utc": "2026-10-02T21:35:38.007830+00:00"
+}
