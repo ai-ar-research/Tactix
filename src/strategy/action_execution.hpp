@@ -8,6 +8,16 @@
 
 namespace tactix::execution {
 
+// End the original-input certificate opportunity before ordinary actions.
+// Explicit startup instances remain responsible for their own publication.
+struct CloseStartupCertificateRequest {};
+
+inline void execute_action(Kernel &k, CloseStartupCertificateRequest) {
+  k.close_startup_certificate();
+  if (k.proof && k.proof->startup_pb_available())
+    k.proof->commit_dsr();
+}
+
 enum class RestartPurpose : uint8_t { Scheduled, Preparation };
 
 struct RestartRequest {

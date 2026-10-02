@@ -17,6 +17,11 @@ namespace tactix {
 RuleEligibility analyze_guard(const Kernel &);
 ApplyResult analyze_apply(Kernel &);
 
+// Internal analysis sub-step for an explicit ConflictAnalysis request. The
+// shared executor consumes any pending clause before returning an action;
+// this is not an independently selectable public rule.
+ApplyResult analyze_apply_with_target(Kernel &, uint32_t target_level);
+
 // Eager subsumption (kissat `eagersubsume`): the learn-time half of the fused
 // rule's clause maintenance — garbage every recently-learned clause the
 // pending clause strictly subsumes, then enrol the pending clause itself.

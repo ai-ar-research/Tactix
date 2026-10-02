@@ -1,5 +1,6 @@
 #include "policies/default_policy.hpp"
-#include "policies/action_execution.hpp"
+#include "strategy/action_execution.hpp"
+#include "strategy/conflict_analysis_execution.hpp"
 #include "diagnostics/event_trace.hpp"
 #include "diagnostics/rule_journal.hpp"
 #include "policies/heuristics.hpp"
@@ -3480,9 +3481,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     if (counting == ApplyResult::Unsat)
       return finish(20);
   }
-  k.close_startup_certificate();
-  if (k.proof && k.proof->startup_pb_available())
-    k.proof->commit_dsr();
+  execution::execute_action(k, execution::CloseStartupCertificateRequest{});
   ApplyResult startup = default_propagate(k, "startup");
   if (startup != ApplyResult::Ok)
     return finish(20); // startup is at root: a conflict is a refutation
@@ -3937,64 +3936,74 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       const uint64_t learned_before = k.stats.learned;
       const uint64_t br_rounds = k.stats.reason_bump_rounds;
       const uint64_t br_aborted = k.stats.reason_bump_aborted;
-      const ApplyResult ar = default_direct_rule_lazy(
-          k, "ConflictAnalysis",
-          [&] { return "conflict=" + std::to_string(k.stats.conflicts); },
-          [&] { return analyze_apply(k); });
-      k.bump_reason_limit = 0;
-      k.bump_reason_depth = 1;
-      // Kissat calls DELAYING(bumpreasons) inside
-      // analyze_reason_side_literals, after ordinary analysis has produced a
-      // final clause.  Reused conflicts, failed-literal unit batches, and
-      // other early analysis exits must not consume this countdown.
-      if (k.pending.valid && k.stats.learned != learned_before)
-        bump_reasons_delay_.reached_gate(
-            k.stats.reason_bump_rounds != br_rounds,
-            k.stats.reason_bump_aborted != br_aborted);
-      if (ar == ApplyResult::Unsat) {
-        event_trace.detail(k, "analysis_end", -1);
+      const auto analysis = execution::execute_action(
+          k, execution::NativeConflictAnalysisRequest{},
+          [&](auto &&apply) {
+            return default_direct_rule_lazy(
+                k, "ConflictAnalysis",
+                [&] { return "conflict=" + std::to_string(k.stats.conflicts); },
+                apply);
+          },
+          [&](ApplyResult ar) -> uint32_t {
+            k.bump_reason_limit = 0;
+            k.bump_reason_depth = 1;
+            // Kissat calls DELAYING(bumpreasons) inside
+            // analyze_reason_side_literals, after ordinary analysis has produced a
+            // final clause.  Reused conflicts, failed-literal unit batches, and
+            // other early analysis exits must not consume this countdown.
+            if (k.pending.valid && k.stats.learned != learned_before)
+              bump_reasons_delay_.reached_gate(
+                  k.stats.reason_bump_rounds != br_rounds,
+                  k.stats.reason_bump_aborted != br_aborted);
+            if (ar == ApplyResult::Unsat) {
+              event_trace.detail(k, "analysis_end", -1);
+              return 0;
+            }
+            update_tiers_after_analysis(k);
+            if (!k.pending.valid) { // reused conflict or direct level-one unit batch
+              // Level-one failed-literal analysis owns its root-unit batch inside
+              // the atomic M3 transition, so it has no pending clause for policy to
+              // observe. Kissat still updates the glue averages and reluctant clock
+              // once for that size-one/glue-zero conflict result (learn.c:120-130).
+              if (k.stats.learned != learned_before) {
+                observe_glue(k, 0);
+                if (k.h->stable)
+                  tick_reluctant();
+              }
+              event_trace.detail(k, "analysis_end", k.level);
+              event_trace_analysis_deletions(k);
+              event_trace.mode_clock(k, "post_analyze", mode.ticks_limit,
+                                     mode.ticks_at_focus_entry, mode.count);
+              return 0;
+            }
+            event_trace.learned(k, k.pending.lits);
+            event_trace.detail(k, "analysis_tail_learned_emitted",
+                               k.pending.lits.size());
+            observe_glue(k, k.pending.glue); // policy observes; Analyze is pure
+            if (k.h->stable)
+              tick_reluctant(); // per learned clause (kissat learn.c)
+            event_trace.detail(k, "analysis_tail_policy_updated", k.pending.glue);
+            {
+              const uint32_t jump = k.pending.jump_level;
+              const uint32_t back = k.level - 1;
+              uint32_t target = jump;
+              if (back - jump > chrono_levels) {
+                k.stats.chronological++;
+                target = back;
+              } else if (chrono_reuse_trail_ && chrono_levels != UINT32_MAX &&
+                         jump < back) {
+                target = reuse_trail_level(k, jump);
+                if (target != jump)
+                  k.stats.chronological++;
+              }
+              event_trace.detail(k, "analysis_tail_target", target);
+              return target;
+            }
+          });
+      if (analysis.analysis == ApplyResult::Unsat)
         return finish(20);
-      }
-      update_tiers_after_analysis(k);
-      if (!k.pending.valid) { // reused conflict or direct level-one unit batch
-        // Level-one failed-literal analysis owns its root-unit batch inside
-        // the atomic M3 transition, so it has no pending clause for policy to
-        // observe. Kissat still updates the glue averages and reluctant clock
-        // once for that size-one/glue-zero conflict result (learn.c:120-130).
-        if (k.stats.learned != learned_before) {
-          observe_glue(k, 0);
-          if (k.h->stable)
-            tick_reluctant();
-        }
-        event_trace.detail(k, "analysis_end", k.level);
-        event_trace_analysis_deletions(k);
-        event_trace.mode_clock(k, "post_analyze", mode.ticks_limit,
-                               mode.ticks_at_focus_entry, mode.count);
+      if (!analysis.backjumped)
         continue;
-      }
-      event_trace.learned(k, k.pending.lits);
-      event_trace.detail(k, "analysis_tail_learned_emitted",
-                         k.pending.lits.size());
-      observe_glue(k, k.pending.glue); // policy observes; Analyze is pure
-      if (k.h->stable)
-        tick_reluctant(); // per learned clause (kissat learn.c)
-      event_trace.detail(k, "analysis_tail_policy_updated", k.pending.glue);
-      {
-        const uint32_t jump = k.pending.jump_level;
-        const uint32_t back = k.level - 1;
-        uint32_t target = jump;
-        if (back - jump > chrono_levels) {
-          k.stats.chronological++;
-          target = back;
-        } else if (chrono_reuse_trail_ && chrono_levels != UINT32_MAX &&
-                   jump < back) {
-          target = reuse_trail_level(k, jump);
-          if (target != jump)
-            k.stats.chronological++;
-        }
-        event_trace.detail(k, "analysis_tail_target", target);
-        backjump_apply_to(k, target);
-      }
       event_trace.detail(k, "analysis_tail_backjump_return", k.level);
       event_trace.heap_scores(k);
       event_trace.detail(k, "analysis_propagate_head", k.propagate_head);
