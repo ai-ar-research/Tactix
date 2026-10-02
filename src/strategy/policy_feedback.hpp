@@ -136,6 +136,7 @@ public:
   bool enabled() const { return receiver_ != nullptr && !finished_; }
   uint64_t sequence() const { return sequence_; }
   void pause_measurement() { pause_interval(); }
+  void resume_measurement() { resume_interval(); }
   void begin(const Observation &observation) {
     if (receiver_) receiver_->session_begin(observation);
   }
@@ -162,9 +163,11 @@ public:
     const auto end = Clock::now();
     record->duration_nanos = nanos(end - start);
     if (interval_) interval_->duration_nanos += record->duration_nanos;
-    record->after = observe();
     record->outcome = describe(result);
+    record->after = observe();
     if (native_request) record->native_request = *native_request;
+    if (native_request && record->outcome.invocation.rule_id != UINT32_MAX)
+      record->instance = record->outcome.invocation.instance;
     record->outcome.invocation.before = record->before.state;
     record->outcome.invocation.after = record->after.state;
     record->stop = stop_reason(record->outcome.invocation.status);

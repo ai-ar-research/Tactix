@@ -7,6 +7,25 @@
 
 namespace tactix::execution {
 
+inline strategy::controller::FeedbackOutcome native_rule_outcome(
+    const Kernel &k, const char *rule, ApplyResult result) {
+  auto out = strategy::controller::feedback_outcome(result);
+  if (result == ApplyResult::Sat || result == ApplyResult::Unsat ||
+      result == ApplyResult::Conflict) return out;
+  const std::string_view name(rule);
+  const bool incomplete = (name == "Factor" && !k.factor_completed) ||
+      (name == "Strengthen" && !k.strengthen_complete) ||
+      (name == "SubsumeForward" && !k.subsume_complete) ||
+      (name == "Sweep" && k.sweep_incomplete);
+  out.invocation.selection_complete = !incomplete;
+  if (kernel_terminating(k)) out.invocation.status = strategy::InvocationStatus::Interrupted;
+  else if (incomplete) {
+    out.invocation.status = strategy::InvocationStatus::BudgetExhausted;
+    out.invocation.budget_status = strategy::BudgetStatus::Exhausted;
+  }
+  return out;
+}
+
 // Describe the live profile without installing it or enumerating instances.
 // Native-only composed payloads (victim lists, warm-up, rotation) are supplied
 // by the caller; this helper describes registered atomic rule requests.

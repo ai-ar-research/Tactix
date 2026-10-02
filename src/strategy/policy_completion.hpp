@@ -3,6 +3,7 @@
 #include "strategy/policy_feedback.hpp"
 
 #include <type_traits>
+#include <vector>
 
 namespace tactix::execution {
 
@@ -22,15 +23,47 @@ struct NativeFeedbackSpec {
 // observer or change to native accounting. Owners provide a pure snapshot and
 // lazy request descriptions, keeping their own scheduling and execution order.
 class PolicyCompletion {
+  class PublicationReceiver final : public strategy::controller::FeedbackReceiver {
+  public:
+    explicit PublicationReceiver(strategy::controller::FeedbackReceiver *receiver)
+        : receiver_(receiver) {}
+    void session_begin(const Observation &value) override { receiver_->session_begin(value); }
+    void after_action(const strategy::controller::ActionFeedback &value) override {
+      if (depth_) pending_.push_back(value);
+      else receiver_->after_action(value);
+    }
+    void search_interval(const strategy::controller::SearchIntervalFeedback &value) override {
+      assert(!depth_);
+      receiver_->search_interval(value);
+    }
+    void session_end(const Observation &value, int verdict, StopReason reason) override {
+      assert(!depth_);
+      receiver_->session_end(value, verdict, reason);
+    }
+    void begin_publication() { ++depth_; }
+    void end_publication() {
+      assert(depth_);
+      if (--depth_) return;
+      for (const auto &record : pending_) receiver_->after_action(record);
+      pending_.clear();
+    }
+  private:
+    strategy::controller::FeedbackReceiver *receiver_;
+    unsigned depth_ = 0;
+    std::vector<strategy::controller::ActionFeedback> pending_;
+  };
 public:
   using Observe = Observation (*)(const Kernel &, const void *);
   PolicyCompletion(Kernel &k, strategy::controller::FeedbackReceiver *receiver,
                    Observe observe, const void *owner)
-      : kernel_(k), session_(receiver), observe_(observe), owner_(owner) {}
+      : kernel_(k), receiver_(receiver), session_(receiver ? &receiver_ : nullptr),
+        observe_(observe), owner_(owner) {}
   bool enabled() const { return session_.enabled(); }
   bool searching() const { return searching_; }
   bool have_search_configuration() const { return have_search_configuration_; }
   uint64_t sequence() const { return session_.sequence(); }
+  const std::optional<strategy::controller::ActionResult> &last_action() const { return last_action_; }
+  const std::string &last_native_measurement() const { return last_native_measurement_; }
   void begin() { if (enabled()) session_.begin(observe()); }
 
   template <class Build, class Apply,
@@ -41,6 +74,8 @@ public:
     session_.pause_measurement();
     NativeFeedbackSpec spec = build();
     const uint64_t before = spec.meter ? spec.meter(kernel_) : 0;
+    const auto before_state = strategy::state_version(kernel_);
+    const uint64_t ticks = kernel_.stats.ticks, roots = kernel_.stats.root_assignments;
     return session_.execute(kind, identity, instance, [&] { return observe(); },
         std::forward<Apply>(apply), nullptr, nullptr, [&](const auto &result) {
           auto outcome = describe(result);
@@ -50,14 +85,44 @@ public:
             native.accounting_overflow = after < before;
             native.work = native.accounting_overflow ? 0 : after - before;
           } else {
-            native.effort_currency = "applications";
-            native.work = outcome.invocation.applications;
+            static constexpr const char *currencies[] = {
+                "applications", "bve-ticks", "propagations", "sr-discovery-ticks"};
+            const unsigned unit = static_cast<unsigned>(outcome.invocation.work_unit);
+            native.effort_currency = unit < 4 ? currencies[unit] : "invalid-work-unit";
+            native.work = outcome.invocation.work;
           }
           if (!native.effort_allowance.is_unlimited() &&
               native.work > native.effort_allowance.amount())
             native.overshoot = native.work - native.effort_allowance.amount();
+          auto &last = last_action_.emplace();
+          last.sequence = sequence();
+          last.type = kind == FeedbackKind::ResumeSearch ? strategy::controller::ActionType::ResumeSearch
+                                                        : strategy::controller::ActionType::Rule;
+          last.before = before_state;
+          last.after = strategy::state_version(kernel_);
+          last.invocation = outcome.invocation;
+          last.invocation.before = last.before;
+          last.invocation.after = last.after;
+          last.composition_overshoot = outcome.composition_overshoot;
+          last.resumed_search = outcome.resumed_search;
+          last.propagation_ticks = kernel_.stats.ticks - ticks;
+          last.root_assignments = kernel_.stats.root_assignments - roots;
+          last_native_measurement_ = std::string(identity) + ':' + std::to_string(instance) + ':' +
+              native.effort_currency + ':' + std::to_string(native.work) + ':' +
+              std::to_string(native.overshoot) + ':' + std::to_string(native.accounting_overflow);
           return outcome;
         }, &spec.description);
+  }
+
+  // Native composed calls may publish advice or restore parameters only after
+  // several leaf applications. Retain each leaf's immutable measurements,
+  // delivering them at that existing safe boundary without moving publication.
+  void begin_publication() { if (enabled()) receiver_.begin_publication(); }
+  void end_publication() {
+    if (!enabled()) return;
+    session_.pause_measurement();
+    receiver_.end_publication();
+    session_.resume_measurement();
   }
 
   void end_interval(StopReason reason) {
@@ -99,11 +164,26 @@ public:
 private:
   Observation observe() const { return observe_(kernel_, owner_); }
   Kernel &kernel_;
+  PublicationReceiver receiver_;
   strategy::controller::FeedbackSession session_;
   Observe observe_;
   const void *owner_;
   bool searching_ = false;
   bool have_search_configuration_ = false;
+  std::optional<strategy::controller::ActionResult> last_action_;
+  std::string last_native_measurement_;
+};
+
+class CompletionPublication {
+public:
+  explicit CompletionPublication(PolicyCompletion *completion) : completion_(completion) {
+    if (completion_) completion_->begin_publication();
+  }
+  ~CompletionPublication() { if (completion_) completion_->end_publication(); }
+  CompletionPublication(const CompletionPublication &) = delete;
+  CompletionPublication &operator=(const CompletionPublication &) = delete;
+private:
+  PolicyCompletion *completion_;
 };
 
 // Native hot calls remain statically dispatched. A null completion pointer

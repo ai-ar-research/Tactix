@@ -130,7 +130,54 @@ static void before_progress_admission() {
   assert(sequence.consumed(1) == 1 && k.arena.empty());
 }
 
+static void decorated_dispatch_preserves_sequence() {
+  OnlineStrategyStage stage;
+  stage.on_budget_exhaustion = BudgetExhaustionPolicy::Continue;
+  stage.program.sequence = {producer(), cleanup(2), cleanup(3)};
+  stage.progress_followups = {2, 3};
+  Kernel original = fixture(false), decorated = fixture(false);
+  OnlineStrategySequence first, second;
+  assert(first.configure(stage) && second.configure(stage));
+  std::vector<StepId> dispatched;
+  auto dispatch = [&](const OnlineInvocation &step, auto &&apply) {
+    dispatched.push_back(step.id);
+    assert(step.rule == stage.program.sequence[step.id - 1].rule);
+    if (step.id == 1) {
+      assert(step.substitution_redundancy_instances.size() == 1);
+      assert(step.substitution_redundancy_instances.front().clause ==
+             std::vector<Lit>{internalize(1)});
+    }
+    return apply();
+  };
+  volatile sig_atomic_t stop = 1;
+  assert(second.advance_with(decorated, dispatch, &stop).status == InvocationStatus::Interrupted);
+  assert(dispatched.empty());
+  stop = 0;
+  unsigned calls = 0;
+  while (!first.complete()) {
+    assert(++calls < 20);
+    const auto before = first.advance(original);
+    const auto after = second.advance_with(decorated, dispatch);
+    assert(before.status == after.status && before.step_id == after.step_id);
+    assert(before.work_unit == after.work_unit && before.work == after.work);
+    assert(before.applications == after.applications);
+    assert(before.made_rule_progress == after.made_rule_progress);
+    assert(before.selection_complete == after.selection_complete);
+    assert(first.complete() == second.complete());
+  }
+  assert(dispatched.size() == second.dispatches(0) + second.dispatches(1));
+  assert(second.dispatches(0) && second.dispatches(1) && !second.dispatches(2));
+  assert(std::find(dispatched.begin(), dispatched.end(), 3) == dispatched.end());
+  assert(original.trail.size() == decorated.trail.size());
+  assert(std::equal(original.trail.begin(), original.trail.end(), decorated.trail.begin()));
+  assert(original.arena.empty() && decorated.arena.empty());
+  assert(original.stats.sr_applied == decorated.stats.sr_applied);
+  kernel_check_invariants(original);
+  kernel_check_invariants(decorated);
+}
+
 int main() {
+  decorated_dispatch_preserves_sequence();
   before_progress_admission();
   OnlineStrategyStage stage;
   stage.on_budget_exhaustion = BudgetExhaustionPolicy::Continue;

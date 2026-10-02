@@ -157,6 +157,14 @@ details in their description. Optional `native_policy_state` preserves native
 scheduling state; absent optional fields leave existing controller streams
 unchanged. The inspector reports native work using its recorded currency.
 
+Composed native batches may defer leaf-record delivery until their enclosing
+parameter, watch and publication scopes finish. Records retain each leaf's
+completion snapshots and measurements; receivers get them in sequence at the
+existing safe publication boundary. This does not move heuristic publication
+or turn scheduler skips into rule applications. Structured dispatch retains
+the exact typed step and native result currency. Native after-observations
+include the current action result; before-observations retain the previous one.
+
 Successful ResumeSearch starts an interval after root work. Restart closes it;
 partial continuation starts a linked interval under the same configuration.
 Native continuation also links intervals after ordinary full restarts, root

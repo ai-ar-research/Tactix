@@ -5,8 +5,16 @@
 #include <algorithm>
 #include <cassert>
 #include <optional>
+#include <utility>
 
 namespace tactix::strategy {
+
+struct DirectSequenceDispatch {
+  template <class Apply>
+  InvocationResult operator()(const OnlineInvocation &, Apply &&apply) const {
+    return apply();
+  }
+};
 
 enum class BudgetExhaustionPolicy : uint8_t {
   Stop,                 // Keep the pending scope until caller reconfiguration.
@@ -175,6 +183,17 @@ public:
   InvocationResult advance(Kernel &k, volatile sig_atomic_t *stop = nullptr,
                            Allowance *sr_discovery_allowance = nullptr,
                            DiscoveryFeedbackPolicy discovery_feedback = {}) {
+    return advance_with(k, DirectSequenceDispatch{}, stop,
+                        sr_discovery_allowance, discovery_feedback);
+  }
+
+  // Dispatch only actual executor advances. Admission/skip/round policy stays
+  // here, and the statically typed seam sees the exact immutable step request.
+  template <class Dispatch>
+  InvocationResult advance_with(Kernel &k, Dispatch &&dispatch,
+                           volatile sig_atomic_t *stop = nullptr,
+                           Allowance *sr_discovery_allowance = nullptr,
+                           DiscoveryFeedbackPolicy discovery_feedback = {}) {
     if (!configured_) {
       InvocationResult out;
       out.before = out.after = state_version(k);
@@ -252,9 +271,9 @@ public:
           return skipped;
         }
         ++dispatches_[current_];
-        InvocationResult out =
-            executor.advance(k, stop, sr_discovery_allowance,
-                             discovery_feedback);
+        InvocationResult out = dispatch(program_.sequence[current_], [&] {
+          return executor.advance(k, stop, sr_discovery_allowance, discovery_feedback);
+        });
         expected_ = out.after;
         // A producer can prove that its affordable deterministic prefix is
         // still growing without publishing an arbitrary subgroup. Keep the
