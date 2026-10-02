@@ -1,4 +1,5 @@
 #include "policies/default_policy.hpp"
+#include "policies/action_execution.hpp"
 #include "diagnostics/event_trace.hpp"
 #include "diagnostics/rule_journal.hpp"
 #include "policies/heuristics.hpp"
@@ -1410,7 +1411,11 @@ ApplyResult DefaultPolicy::prepare_rephase_root(Kernel &k) {
   if (k.level > 0 && restart_guard(k)) {
     heuristics_update_target_phases(k);
     (void)default_direct_rule(k, "Restart", "keep-level=0;rephase=1",
-                              [&] { return restart_backtrack_to(k, 0); });
+                              [&] {
+                                return execution::execute_action(
+                                    k, execution::RestartRequest{
+                                           0, execution::RestartPurpose::Preparation});
+                              });
   }
   // Kissat rephase.c backtracks, propagates and flushes the root trail before
   // changing phases. Chronological backtracking can retain out-of-order root
@@ -3325,7 +3330,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   // not only discard its decision trail. S1 Restart owns that transition
   // (docs/calculus.md §4); startup inprocessing requires !conflict_valid.
   if (k.level || k.conflict_valid) {
-    if (restart_backtrack_to(k, 0) == ApplyResult::Unsat)
+    if (execution::execute_action(k, execution::RestartRequest{
+            0, execution::RestartPurpose::Preparation}) == ApplyResult::Unsat)
       return 20;
   }
   std::optional<ScopedHeuristics> owned_h;
@@ -4099,7 +4105,9 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       (void)default_direct_rule_lazy(
           k, "Restart",
           [&] { return "keep-level=" + std::to_string(keep); },
-          [&] { return restart_apply_to(k, keep); });
+          [&] {
+            return execution::execute_action(k, execution::RestartRequest{keep});
+          });
       reluctant.trigger = false; // consumed (kissat reluctant.h)
       if (!k.h->stable) // kissat restart.c: focused-only limit update
         update_restart_limit(k);
@@ -4216,7 +4224,9 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           return "literal=" +
                  std::to_string(kernel_externalize(k, decision));
         },
-        [&] { return decide_apply(k, decision, false); });
+        [&] {
+          return execution::execute_action(k, execution::DecisionRequest{decision});
+        });
     event_trace.detail(k, "decision", kernel_externalize(k, decision));
     event_trace.heap_after_decision(k);
     event_trace.heap_scores(k);
@@ -5475,7 +5485,11 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
     // `kissat_restart`: entering an inprocessing phase must not advance the
     // focused-restart count or its logarithmic cadence.
     (void)default_direct_rule(k, "Restart", "keep-level=0;inprocess=1",
-                              [&] { return restart_backtrack_to(k, 0); });
+                              [&] {
+                                return execution::execute_action(
+                                    k, execution::RestartRequest{
+                                           0, execution::RestartPurpose::Preparation});
+                              });
   }
   // Retained out-of-order root assignments must be rescanned after their
   // transient blockers disappear, before dense construction or rule admission.

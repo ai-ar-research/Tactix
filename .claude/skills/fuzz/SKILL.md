@@ -26,7 +26,7 @@ Cover each changed surface with a risk matrix:
 | SAT semantics or reconstruction | independent original-CNF model check |
 | UNSAT reasoning or proof emission | native proof checker and negative proof |
 | rule scheduling or guards | debug invariants, random policy, targeted scenario |
-| controller-foundation stage | DefaultPolicy and the new controller-driven random policy; plan §8.2 acceptance |
+| controller foundations or shared execution/feedback preparation | DefaultPolicy and the controller-driven random policy; plan §§8.2/9.4 acceptance |
 | parser/frontend | malformed and adversarial DIMACS corpus |
 | harness/oracle/setup | `tools/fuzz/selftest.sh` with known-bad artifacts |
 
@@ -40,6 +40,11 @@ acceptance authority; do not duplicate the action catalog in this skill.
 Include separate, explicitly named DefaultPolicy and new-random-policy legs on
 the candidate pin. Existing public-action random/stress legs are supplementary,
 not substitutes for the new controller's restart loop.
+
+For shared execution/feedback preparation, use §9.4's fresh seed minimums and
+targeted partial/full restart, continuation, interruption, feedback and replay
+requirements. Verify logging/feedback leaves seeded requests and solver effects
+unchanged; retained old reports alone do not accept a changed executor.
 
 Before launch, attach the action-space version, policy configuration, seed
 schedule and coverage matrix with declared minimums to the owner request.

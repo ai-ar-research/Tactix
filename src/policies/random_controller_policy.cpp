@@ -397,7 +397,7 @@ int RandomControllerPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       }
       const auto literal = controller.next_decision();
       const auto identity = lit_instance(k, literal);
-      const auto result = decide_apply(k, literal, false);
+      const auto result = execution::execute_action(k, execution::DecisionRequest{literal});
       if (result != ApplyResult::Ok) {
         std::fprintf(stderr, "c ERROR: controller ranked an invalid decision\n");
         return finish(0);

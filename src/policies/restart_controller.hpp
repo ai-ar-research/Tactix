@@ -1,6 +1,7 @@
 #pragma once
 
 #include "policies/heuristics.hpp"
+#include "policies/action_execution.hpp"
 #include "policies/default_restart.hpp"
 #include "rules/restart/restart.hpp"
 #include "strategy/controller_action_space.hpp"
@@ -202,7 +203,8 @@ public:
     if ((!searching_ && !kernel_.level) || !restart_guard(kernel_))
       return ApplyResult::NoOp;
     heuristics_capture_target_phases(kernel_);
-    const auto result = restart_apply_to(kernel_, 0);
+    const auto result =
+        execution::execute_action(kernel_, execution::RestartRequest{0});
     ++kernel_.strategy_epoch;
     searching_ = false;
     return result;
