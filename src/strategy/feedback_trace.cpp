@@ -76,6 +76,21 @@ void allowance(std::ostream &out, const ActionAllowance &value) {
       << ",\"native_amount\":" << value.native.amount << '}';
 }
 
+void native_request(std::ostream &out, const NativeActionDescription &value) {
+  out << "{\"version\":" << value.version
+      << ",\"description\":" << quote(value.description) << ",\"invocation\":";
+  if (value.invocation) {
+    OnlineStrategyProgram program;
+    program.sequence.push_back(*value.invocation);
+    out << quote(serialize_online_strategy_program(program));
+  } else out << "null";
+  out << ",\"currency\":" << quote(value.effort_currency)
+      << ",\"unlimited\":" << value.effort_allowance.is_unlimited()
+      << ",\"amount\":" << value.effort_allowance.amount()
+      << ",\"work\":" << value.work << ",\"overshoot\":" << value.overshoot
+      << ",\"accounting_overflow\":" << value.accounting_overflow << '}';
+}
+
 std::ostringstream stream() {
   std::ostringstream out;
   out.imbue(std::locale::classic());
@@ -132,7 +147,10 @@ std::string serialize_observation(const Observation &value) {
 #include "strategy/feedback_statistics.inc"
 #undef TACTIX_FEEDBACK_SCALAR
 #undef TACTIX_FEEDBACK_ARRAY
-  out << "}}";
+  out << '}';
+  if (!value.native_policy_state.empty())
+    out << ",\"native_policy_state\":" << quote(value.native_policy_state);
+  out << '}';
   return out.str();
 }
 
@@ -145,6 +163,10 @@ std::string serialize_feedback(const ActionFeedback &value) {
   if (value.request) request(out, *value.request); else out << "null";
   out << ",\"allowance\":";
   if (value.allowance) allowance(out, *value.allowance); else out << "null";
+  if (value.native_request) {
+    out << ",\"native_request\":";
+    native_request(out, *value.native_request);
+  }
   out << ",\"before\":" << serialize_observation(value.before)
       << ",\"after\":" << serialize_observation(value.after) << ",\"outcome\":";
   outcome(out, value.outcome);
@@ -235,8 +257,8 @@ void FeedbackTrace::after_action(const ActionFeedback &value) {
 void FeedbackTrace::search_interval(const SearchIntervalFeedback &value) {
   if (!begun_ || value.version != FEEDBACK_VERSION ||
       value.sequence != ++interval_sequence_ ||
-      (value.start == IntervalStart::PartialContinuation && interval_sequence_ == 1) ||
-      value.preceding_interval != (value.start == IntervalStart::PartialContinuation
+      (value.start != IntervalStart::ResumeSearch && interval_sequence_ == 1) ||
+      value.preceding_interval != (value.start != IntervalStart::ResumeSearch
                                       ? interval_sequence_ - 1 : 0)) {
     fail("invalid feedback interval lifecycle"); return;
   }

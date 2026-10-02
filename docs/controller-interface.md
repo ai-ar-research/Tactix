@@ -137,6 +137,12 @@ immutable value records, without access to the mutable kernel or selector.
 `ControllerSelection` is the replaceable root-selection interface; the initial
 implementation remains the same seeded random chooser.
 
+`PolicyCompletion` in `strategy/policy_completion.hpp` gives native policies an
+explicit completion lifetime with lazy request descriptions and existing work
+meters. DefaultPolicy embeddings attach a receiver through `set_feedback()`;
+its pure `observe(kernel)` adds native clocks, histories and slot cursors.
+Completion ends before owned heuristic detachment, including early terminals.
+
 After each requested rule, ResumeSearch or atomic search service, feedback
 binds its independent sequence, stable identity, instance, optional complete
 request/allowance, before/after observations, outcome, composition overshoot,
@@ -144,9 +150,19 @@ stop reason and elapsed nanoseconds. Rejected requests and zero-work actions
 are recorded too. Native progress and effort retain their declared currencies;
 no scalar reward or common currency is inferred. Receivers run after the
 atomic transaction and its heuristic publication, never inside pending M3.
+Optional v1 `native_request` records retain the dispatched transaction's
+description, typed parameter snapshot, effort currency/allowance, actual work,
+overshoot and accounting-overflow flag. Native-only compositions retain request
+details in their description. Optional `native_policy_state` preserves native
+scheduling state; absent optional fields leave existing controller streams
+unchanged. The inspector reports native work using its recorded currency.
 
 Successful ResumeSearch starts an interval after root work. Restart closes it;
 partial continuation starts a linked interval under the same configuration.
+Native continuation also links intervals after ordinary full restarts, root
+preparation or native mode transitions. Preparation and strategy-change stop
+reasons separate those boundaries; native schedules retain their existing
+transitions, while learner-selected changes keep the explicit root requirement.
 Termination/interruption closes any open interval and ends the session once.
 Native action and interval durations exclude added observation and receiver
 work. A disabled receiver performs no feedback snapshots, timer reads or

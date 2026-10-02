@@ -32,6 +32,9 @@ struct Observation {
   double fast_glue = 0, slow_glue = 0;
   Stats cumulative;
   std::optional<ActionResult> last_action;
+  // Optional native-policy scheduling state. Root-controller snapshots keep
+  // their named configuration fields; other policies can retain native clocks.
+  std::string native_policy_state;
 };
 
 // Shared kernel half of the observation. Controller/policy scheduling fields

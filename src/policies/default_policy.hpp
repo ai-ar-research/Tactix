@@ -4,6 +4,7 @@
 #include "policies/default_periodic.hpp"
 #include "policies/default_restart.hpp"
 #include "policies/policy.hpp"
+#include "strategy/policy_completion.hpp"
 
 namespace tactix {
 
@@ -171,6 +172,10 @@ public:
   DefaultPolicy &operator=(DefaultPolicy &&) = delete;
   const DefaultStrategyConfig &strategy_config() const { return config_; }
   std::string strategy_config_snapshot() const { return config_.serialize(); }
+  void set_feedback(strategy::controller::FeedbackReceiver *receiver) {
+    feedback_receiver_ = receiver;
+  }
+  strategy::controller::Observation observe(const Kernel &) const;
 
   int solve(Kernel &, volatile sig_atomic_t *stop = nullptr) override;
   void reset_schedule(const Kernel &);
@@ -256,6 +261,8 @@ private:
   GlueTieredReduction default_reduction_;
   DefaultInprocessScheduler inprocess_;
   std::vector<Ref> reduce_scratch_;
+  strategy::controller::FeedbackReceiver *feedback_receiver_ = nullptr;
+  execution::PolicyCompletion *completion_ = nullptr;
 };
 
 int default_solve(Kernel &, volatile sig_atomic_t *stop = nullptr);

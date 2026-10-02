@@ -2,6 +2,7 @@
 #include "diagnostics/rule_journal.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
+#include "strategy/feedback_trace.hpp"
 
 #include <cassert>
 #include <cstdio>
@@ -40,9 +41,11 @@ static std::string pigeonhole(Kernel &k, unsigned pigeons, unsigned holes) {
 int main(int argc, char **argv) {
   char temporary[] = "/tmp/tactix-default-signature-XXXXXX";
   if (argc == 1) assert(mkdtemp(temporary));
-  assert(argc == 1 || argc == 2 ||
-         (argc == 3 && std::string(argv[2]) == "diagnostics"));
-  const bool diagnostics = argc == 3;
+  const std::string mode = argc == 3 ? argv[2] : "";
+  assert(argc == 1 || argc == 2 || (argc == 3 &&
+         (mode == "diagnostics" || mode == "feedback" || mode == "diagnostics-feedback")));
+  const bool diagnostics = mode == "diagnostics" || mode == "diagnostics-feedback";
+  const bool feedback = mode == "feedback" || mode == "diagnostics-feedback";
 #if !defined(TACTIX_ENABLE_EVENT_TRACE) || !defined(TACTIX_ENABLE_RULE_JOURNAL)
   assert(!diagnostics);
 #endif
@@ -104,7 +107,14 @@ int main(int argc, char **argv) {
         }
       }
       DefaultPolicy policy(config);
+      strategy::controller::FeedbackTrace receiver;
+      if (feedback) {
+        assert(receiver.write((stem + ".feedback.jsonl").c_str(),
+            "default-profile=" + std::to_string(profile) + ' ' + policy.strategy_config_snapshot()));
+        policy.set_feedback(&receiver);
+      }
       const int verdict = policy.solve(k);
+      if (feedback) assert(receiver.terminal() && receiver.error().empty());
       if (diagnostics) rule_journal_close();
       assert(verdict == (pigeons == 6 ? 20 : 10));
       assert(!k.pending.valid && !k.conflict_valid);
