@@ -86,8 +86,12 @@
     {
       "requirement": "docs-and-skills-local-commits",
       "authority": "PROGRESS.md",
-      "verification": "Architecture/interface/status/evidence retain separate homes. Final accepted status replaces pendingqueue. Existing code/harness/analysis localcommits12e3c4f0,a44db45e,399604f3 preserved;finaldocumentation checks andlanding next.",
-      "status": "pending-final-checks-and-local-commit"
+      "verification": "Architecture, interface, status and evidence have separate homes. All 13 documentation checks and fuzz skill-format validation pass (six existing doc-size warnings, zero errors). Source/harness/analysis commits 12e3c4f0, a44db45e, 399604f3 and final acceptance commit b94d9444 are local; no push. Final current-state audit verified pinned source, current helper hashes, Debug artifacts, accepted scores, selected checkers, preserved historical clone and Andrew report.",
+      "status": "verified",
+      "terminal_evidence": [
+        "benchmarks/reports/2026-10-02-controller-foundations-acceptance/docs-checks.json",
+        "benchmarks/reports/2026-10-02-controller-foundations-acceptance/current-state.json"
+      ]
     },
     {
       "requirement": "andrew-final-report",
@@ -121,5 +125,7 @@
       "authority": "docs/controller-interface.md",
       "verification": "Current source matches reviewed12e3c4f0;seeded policy samples without rewards, learning, forcedresume, automaticpolicyfallback, rollback or globalroot-loopallowance. Required validation jobs only;per-instanceinvestigation reads existingresults;activation uses fixedproofchecker-onlycontrols. Root clone and unrelatedinteractive preserved;no push."
     }
-  ]
+  ],
+  "acceptance_commit": "b94d9444248efd220ff9b88565f887611d823aa6",
+  "final_current_state_audit": "PASS: all14requirements verified; 17current/source/owner/report hashes,6Debug artifact hashes,191JUnit cases,4accepted frozen scores,6selected core checkers and historical clone preservation rechecked; no source change, no new experiment, no push."
 }
