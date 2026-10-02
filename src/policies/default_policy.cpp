@@ -3093,25 +3093,25 @@ void DefaultInprocessScheduler::reset(const Kernel &) {
   forward_pair_limit_ = 0;
 }
 
-void DefaultInprocessScheduler::install_parameters(Kernel &k) const {
+void DefaultInprocessScheduler::install_parameters(Kernel &k, PolicyCompletion *completion) const {
   execution::execute_action(k, execution::ParameterInstallationRequest{
-                                   config().congruence_parameters});
+                                   config().congruence_parameters}, completion, "Congruence");
   execution::execute_action(k, execution::ParameterInstallationRequest{
-                                   config().instantiate_parameters});
+                                   config().instantiate_parameters}, completion, "Instantiate");
   execution::execute_action(k, execution::ParameterInstallationRequest{
-                                   config().backbone_parameters});
+                                   config().backbone_parameters}, completion, "Backbone");
   execution::execute_action(k, execution::ParameterInstallationRequest{
-                                   config().bce_parameters});
+                                   config().bce_parameters}, completion, "BCE");
   execution::execute_action(k, execution::ParameterInstallationRequest{
-                                   config().ternary_parameters});
+                                   config().ternary_parameters}, completion, "HyperTernaryRes");
   execution::execute_action(k, execution::ParameterInstallationRequest{
-                                   config().factor_parameters});
+                                   config().factor_parameters}, completion, "Factor");
   execution::execute_action(k, execution::ParameterInstallationRequest{
-                                   config().transitive_parameters});
+                                   config().transitive_parameters}, completion, "TransitiveReduce");
   execution::execute_action(k, execution::ParameterInstallationRequest{
-                                   config().substitute_parameters});
+                                   config().substitute_parameters}, completion, "Substitute");
   execution::execute_action(k, execution::ParameterInstallationRequest{
-                                   config().vivify_parameters});
+                                   config().vivify_parameters}, completion, "Vivify");
   // The scheduler owns these limits, while gate mask, growth ramp and physical
   // traversal retain the installed caller profile until their native occasion.
   strategy::BveParameters bve = strategy::BveParameters::from_kernel(k);
@@ -3125,10 +3125,10 @@ void DefaultInprocessScheduler::install_parameters(Kernel &k) const {
   bve.definition_cores = config().bve_definition_cores;
   bve.definition_core_budget_multiplier = config().bve_definition_core_budget_multiplier;
   bve.backward = config().bve_backward;
-  execution::execute_action(k, execution::ParameterInstallationRequest{bve});
+  execution::execute_action(k, execution::ParameterInstallationRequest{bve}, completion, "BVE");
 }
 
-void DefaultInprocessScheduler::build(Kernel &k) {
+void DefaultInprocessScheduler::build(Kernel &k, PolicyCompletion *completion) {
   configure();
   if (entries.empty()) {
     const std::vector<RuleVTable> &rules = tactix_rules();
@@ -3267,7 +3267,7 @@ void DefaultInprocessScheduler::build(Kernel &k) {
   // action surface and may be consulted before the first phase, and the
   // kernel's unlimited default squares to a magnitude that cancels every
   // score difference in `kissat_bve_variable_score`.
-  install_parameters(k);
+  install_parameters(k, completion);
   execution::execute_action(k, execution::MaterialSettingsRequest{
                                    config().touch_filter,
                                    config().likely_kept_redundant});
@@ -3281,6 +3281,10 @@ void DefaultInprocessScheduler::build(Kernel &k) {
     probe_clock.next_conflicts = k.stats.conflicts;
     elim_clock.next_conflicts = UINT64_MAX;
   }
+}
+
+void DefaultInprocessScheduler::build(Kernel &k) {
+  build(k, nullptr);
 }
 
 void DefaultInprocessScheduler::initialize_search_limits(const Kernel &k) {
@@ -3419,39 +3423,39 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   analysis.shrink_glue_promote = config_.analysis.shrink_glue_promote;
   analysis.bump_extension_reasons = config_.analysis.bump_extension_reasons;
   analysis.eager_subsume = config_.analysis.eager_subsume;
-  execution::execute_action(k, execution::ParameterInstallationRequest{analysis});
+  execution::execute_action(k, execution::ParameterInstallationRequest{analysis}, completion_, "ConflictAnalysis");
   execution::execute_action(k, execution::ParameterInstallationRequest{
-                                   config_.reorder.parameters});
+                                   config_.reorder.parameters}, completion_, "Reorder");
   execution::execute_action(k, execution::ParameterInstallationRequest{
-                                   config_.parity_model.parameters});
+                                   config_.parity_model.parameters}, completion_, "Lucky", LUCKY_STARTUP_PARITY);
   execution::execute_action(k, execution::ParameterInstallationRequest{
-                                   config_.onehot_model.parameters});
+                                   config_.onehot_model.parameters}, completion_, "Lucky", 7);
   execution::execute_action(k, execution::ParameterInstallationRequest{
-                                   config_.balanced_signature_model.parameters});
+                                   config_.balanced_signature_model.parameters}, completion_, "Lucky", 10);
   execution::execute_action(k, execution::ParameterInstallationRequest{
-                                   config_.fermat_model.parameters});
+                                   config_.fermat_model.parameters}, completion_, "Lucky", 11);
   execution::execute_action(k, execution::ParameterInstallationRequest{
-                                   config_.lookup_circuit_model.parameters});
+                                   config_.lookup_circuit_model.parameters}, completion_, "Lucky", 13);
   execution::execute_action(k, execution::ParameterInstallationRequest{
-                                   config_.simon_model.parameters});
+                                   config_.simon_model.parameters}, completion_, "Lucky", 14);
   execution::execute_action(k, execution::ParameterInstallationRequest{
-                                   config_.stconn_proof.parameters});
+                                   config_.stconn_proof.parameters}, completion_, "Lucky", 15);
   execution::execute_action(k, execution::ParameterInstallationRequest{
-                                   config_.signed_cardinality_proof.parameters});
+                                   config_.signed_cardinality_proof.parameters}, completion_, "Lucky", 16);
   execution::execute_action(k, execution::ParameterInstallationRequest{
-                                   config_.exact_cover_model.parameters});
+                                   config_.exact_cover_model.parameters}, completion_, "Lucky", 17);
   execution::execute_action(k, execution::ParameterInstallationRequest{
-                                   config_.independent_set_model.parameters});
+                                   config_.independent_set_model.parameters}, completion_, "Lucky", 18);
   strategy::ReduceParameters reduce = strategy::ReduceParameters::from_kernel(k);
   reduce.victim_numerator = config_.reduction.victim_numerator;
   reduce.victim_denominator = config_.reduction.victim_denominator;
   reduce.protect_tiers = config_.reduction.protect_tiers;
   reduce.compact_collection = config_.reduction.canonical_compact_collection;
   reduce.reduction_bookkeeping = config_.reduction.bookkeeping;
-  execution::execute_action(k, execution::ParameterInstallationRequest{reduce});
+  execution::execute_action(k, execution::ParameterInstallationRequest{reduce}, completion_, "Reduce");
   execution::execute_action(k, execution::WalkGuidanceInstallationRequest{
                                    config_.rephase.walk_even_break_base_milli,
-                                   config_.rephase.walk_score_curve});
+                                   config_.rephase.walk_score_curve}, completion_);
   if (reset_schedule_per_solve) {
     for (uint32_t mode = 0; mode != 2; ++mode) {
       k.tier1_by_mode[mode] = config_.reduction.tier1_default;
@@ -3461,7 +3465,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     pose_vivify_tiers(k, config_.inprocess);
     reset_schedule(k);
   }
-  inprocess_.build(k);
+  inprocess_.build(k, completion_);
   EventTrace event_trace;
   event_trace.open_from_env(k);
   // Paired search-time deletion counters on every analysis_end row: the
@@ -5689,7 +5693,7 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   // sequence instead of restarting it at each BVE slot visit.
   if (group == SlotGroup::Eliminate && !initial_fast_elimination_active_)
     k.bve_definition_session = k.bve_definition_session + 1;
-  install_parameters(k);
+  install_parameters(k, completion);
   factor_bound_snapshot_ =
       couple_factor_bound_ ? bve_level_ : 0;
   const uint64_t phase_props_at_entry = k.stats.propagations;
@@ -5728,12 +5732,25 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   // a later followup or phase exit. Deliver immutable leaf records only after
   // the enclosing native scope and all of that publication have finished.
   execution::CompletionPublication phase_published(completion);
-  InprocessScope inprocess_scope(k);
+  std::optional<InprocessScope> inprocess_scope;
+  uint32_t sparse_resume_trail = 0;
+  (void)execution::complete_action(completion, FeedbackKind::Support,
+      "InprocessPhaseEntry", INSTANCE_CANONICAL, [&] {
+        execution::NativeFeedbackSpec spec;
+        spec.description.description = std::string("group=") +
+            (group == SlotGroup::Probe ? "probe" : "eliminate") +
+            ";factor-selection=" + (factor_match ? "injected" : "default") +
+            ";factor-bound=" + std::to_string(factor_match ? factor_bound_snapshot_ :
+                std::max(k.factor_bound, factor_bound_snapshot_));
+        spec.description.effort_currency = "ticks";
+        spec.meter = [](const Kernel &kernel) { return kernel.stats.ticks; };
+        return spec;
+      }, [&] {
+  inprocess_scope.emplace(k);
   // Kissat has physically cleared the previously propagated root trail at
   // this point. Preserve Tactix's immutable prefix but remember the equivalent
   // beginning for its sparse-resume reset below.
-  const uint32_t sparse_resume_trail =
-      static_cast<uint32_t>(k.trail.size());
+  sparse_resume_trail = static_cast<uint32_t>(k.trail.size());
   if (group == SlotGroup::Eliminate)
     event_trace_eliminate_cleanup(k, "entry");
   // Only the Eliminate pipeline contains BVE, the sole consumer of Kissat's
@@ -5749,9 +5766,16 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
     execution::execute_action(k, execution::DisconnectLargeWatchesRequest{});
   k.stats.inprocess_entry_nanos += now_nanos() - phase_nanos_at_entry;
   default_factor_match_.bound = std::max(k.factor_bound, factor_bound_snapshot_); // see DefaultFactorMatch
-  k.factor_selection = factor_match ? factor_match : &default_factor_match_;
-  if (factor_match)
-    factor_match->set_bound(factor_bound_snapshot_);
+  execution::execute_action(k, execution::FactorSelectionInstallationRequest{
+      factor_match ? *factor_match : default_factor_match_,
+      factor_match ? std::optional<uint32_t>{factor_bound_snapshot_} : std::nullopt});
+    return ApplyResult::Ok;
+      }, [](ApplyResult result) {
+        auto outcome = strategy::controller::feedback_outcome(result);
+        outcome.invocation.applications = 0;
+        outcome.invocation.made_rule_progress = false;
+        return outcome;
+      });
   // Structured startup owns rule-local occurrence scopes. Construct the
   // ordinary Probe index only after it finishes, so every SR insertion and
   // collection does not maintain an index that no startup consumer needs.
@@ -5760,9 +5784,24 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   if (structured_result == 10) {
     // No pipeline occurrence image has been attached yet. Preserve the
     // terminal model and release only the phase-owned guidance handoff.
-    k.factor_selection = nullptr;
-    k.stats.inprocess_propagations += k.stats.propagations - phase_props_at_entry;
-    k.stats.inprocess_nanos += now_nanos() - phase_nanos_at_entry;
+    (void)execution::complete_action(completion, FeedbackKind::Support,
+        "InprocessPhaseExit", INSTANCE_CANONICAL, [] {
+          execution::NativeFeedbackSpec spec;
+          spec.description.description = "structured-terminal=sat;no-occurrence-session";
+          spec.description.effort_currency = "ticks";
+          spec.meter = [](const Kernel &kernel) { return kernel.stats.ticks; };
+          return spec;
+        }, [&] {
+          execution::execute_action(k, execution::ClearFactorSelectionRequest{});
+          k.stats.inprocess_propagations += k.stats.propagations - phase_props_at_entry;
+          k.stats.inprocess_nanos += now_nanos() - phase_nanos_at_entry;
+          return ApplyResult::Sat;
+        }, [](ApplyResult result) {
+          auto outcome = strategy::controller::feedback_outcome(result);
+          outcome.invocation.applications = 0;
+          outcome.invocation.made_rule_progress = false;
+          return outcome;
+        });
     return 10;
   }
   const bool structured_unsat = structured_result == 20;
@@ -6055,13 +6094,18 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   }
   if (group == SlotGroup::Eliminate && !ctx.phase_unsat)
     event_trace_eliminate_cleanup(k, "after");
-  k.factor_selection = nullptr;
+  execution::execute_action(k, execution::ClearFactorSelectionRequest{});
   k.stats.inprocess_propagations +=
       k.stats.propagations - phase_props_at_entry;
   const uint64_t phase_finished = now_nanos();
   k.stats.inprocess_exit_nanos += phase_finished - phase_exit_started;
   k.stats.inprocess_nanos += phase_finished - phase_nanos_at_entry;
   return ctx.phase_unsat ? ApplyResult::Unsat : ApplyResult::Ok;
+  }, [](ApplyResult result) {
+    auto outcome = strategy::controller::feedback_outcome(result);
+    outcome.invocation.applications = 0;
+    outcome.invocation.made_rule_progress = false;
+    return outcome;
   });
   if (group == SlotGroup::Eliminate && bve_ran_this_phase_ &&
       !initial_fast_elimination_active_ && !ctx.phase_unsat) {

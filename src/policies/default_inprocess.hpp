@@ -220,6 +220,7 @@ public:
   void reset(const Kernel &);
   void configure();
   void build(Kernel &);
+  void build(Kernel &, execution::PolicyCompletion *);
   void initialize_search_limits(const Kernel &);
   void note_reduce(const Kernel &k) { last_reduce_conflicts_ = k.stats.conflicts; }
   bool want_phase(const Kernel &, SlotGroup);
@@ -254,7 +255,7 @@ public:
 
 private:
   const DefaultStrategyConfig::Inprocess &config() const;
-  void install_parameters(Kernel &) const;
+  void install_parameters(Kernel &, execution::PolicyCompletion * = nullptr) const;
   struct SlotPhaseCtx {
     SlotGroup group;
     volatile sig_atomic_t *stop;

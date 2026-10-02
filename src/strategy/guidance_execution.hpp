@@ -6,6 +6,7 @@
 #include "policies/ops/switchmode/switchmode.hpp"
 #include "policies/ops/walk/walk.hpp"
 #include "strategy/work_execution.hpp"
+#include "rules/factor/factor.hpp"
 
 namespace tactix::execution {
 
@@ -13,6 +14,11 @@ struct ReorderRequest { uint64_t target = INSTANCE_CANONICAL; };
 struct RephaseRequest { uint64_t type = REPHASE_BEST; };
 struct SwitchModeRequest {};
 struct CompactRandomOrderRequest {};
+struct FactorSelectionInstallationRequest {
+  FactorSelection &selection;
+  std::optional<uint32_t> bound;
+};
+struct ClearFactorSelectionRequest {};
 struct LocalSearchRotationRequest {
   const std::vector<strategy::LocalSearchKind> &rotation;
   uint64_t &cursor;
@@ -34,6 +40,13 @@ inline ApplyResult execute_action(Kernel &k, SwitchModeRequest) {
 }
 inline void execute_action(Kernel &k, CompactRandomOrderRequest) {
   heuristics_compact_random_order_fixed(k);
+}
+inline void execute_action(Kernel &k, const FactorSelectionInstallationRequest &request) {
+  k.factor_selection = &request.selection;
+  if (request.bound) request.selection.set_bound(*request.bound);
+}
+inline void execute_action(Kernel &k, ClearFactorSelectionRequest) {
+  k.factor_selection = nullptr;
 }
 inline ApplyResult execute_action(Kernel &k,
                                   const LocalSearchRotationRequest &request) {

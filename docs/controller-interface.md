@@ -191,6 +191,26 @@ an unrelated pending activation seed is not consumed. Controller feedback
 begins after attachment and ends before transfer back, preserving the existing
 session bootstrap boundary.
 
+Permanent rule-profile installation uses the same typed setters as scoped
+execution and optionally records `InstallRuleParameters` with the selected
+typed profile. `InstallWalkGuidance` changes only the curve and fixed base;
+the record retains inherited seed/budget values. These are support completions,
+with native ticks and zero proof-rule applications/formula-progress claims.
+The original scheduler `build(kernel)` keeps its receiver-free entry point;
+an explicit completion overload exposes its profile installations. Temporary
+overrides retain their existing native save/restore lifetime inside the atomic
+rule record; receivers run after restoration rather than observing an extra
+temporary-profile selection action.
+
+`InprocessPhaseEntry` records the native simplifier-context, sparse-watch and
+Factor-selection handoff. Shared typed selection requests install the chosen
+matcher and optional bound, then explicitly clear the handoff at native exit.
+The default owns its bound calculation; injected matchers receive the existing
+phase snapshot. Entry/exit receipts remain queued until enclosing context and
+occurrence scopes restore. A structured-root SAT terminal still skips building
+occurrences and now records that early exit explicitly. Phase support does not
+claim individual rule applications or formula progress.
+
 Default residual guidance retains its native admission predicate and order:
 prepare the residual activation seed, attach fresh H, then seed residual import
 order. `PrepareResidualGuidance`, `AttachHeuristics` and

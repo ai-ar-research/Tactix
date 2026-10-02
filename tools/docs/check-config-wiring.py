@@ -222,6 +222,9 @@ POLICY_BINDINGS["walk_even_break_base_milli"] = [
     (RULE_PARAMETERS, r"k\.walk_even_break_base_milli\s*=\s*even_break_base_milli")]
 
 
+PROFILE_CALL = r"\binstall_parameters\(\s*k\s*(?:,\s*completion\s*)?\);"
+
+
 def profile_call_errors(sources):
     code = re.sub(r"//[^\n]*|/\*.*?\*/", "", sources[POLICY[0]], flags=re.S)
     failures = []
@@ -233,7 +236,7 @@ def profile_call_errors(sources):
         following = code[start.end():]
         end = re.search(r"\n(?:void|int|bool|ApplyResult)\s+\w+::", following)
         body = following[:end.start()] if end else following
-        if not re.search(r"\binstall_parameters\(k\);", body):
+        if not re.search(PROFILE_CALL, body):
             failures.append(f"UNWIRED: {name} does not install its rule profile")
     return failures
 
@@ -268,7 +271,7 @@ def binding_self_test():
             assert any(f"`{field}`" in failure
                        for failure in adapter_binding_errors(changed))
             count += 1
-    for match in re.finditer(r"\binstall_parameters\(k\);", sources[POLICY[0]]):
+    for match in re.finditer(PROFILE_CALL, sources[POLICY[0]]):
         changed = dict(sources)
         changed[POLICY[0]] = sources[POLICY[0]][:match.start()] + sources[POLICY[0]][match.end():]
         assert profile_call_errors(changed)

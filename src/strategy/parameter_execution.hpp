@@ -2,6 +2,7 @@
 
 #include "kernel/kernel.hpp"
 #include "strategy/bve_invocation.hpp"
+#include "strategy/policy_completion.hpp"
 
 #include <type_traits>
 #include <variant>
@@ -19,6 +20,39 @@ void execute_action(Kernel &k,
   strategy::install_rule_parameters(k, request.parameters);
 }
 
+// Parameter installation is support, not an application of the named rule.
+// Record the selected typed profile; disabled completion avoids its copy.
+template <class Parameters>
+void execute_action(Kernel &k,
+                    const ParameterInstallationRequest<Parameters> &request,
+                    PolicyCompletion *completion, const char *rule,
+                    uint64_t instance = INSTANCE_CANONICAL) {
+  (void)complete_action(completion, FeedbackKind::Support,
+      "InstallRuleParameters", instance, [&] {
+        NativeFeedbackSpec spec;
+        spec.description.description = "install-permanent-profile";
+        spec.description.effort_currency = "ticks";
+        spec.meter = [](const Kernel &kernel) { return kernel.stats.ticks; };
+        auto &inv = spec.description.invocation.emplace();
+        inv.rule = rule;
+        inv.parameters = request.parameters;
+        inv.granularity = strategy::InvocationGranularity::CanonicalApplication;
+        if (instance != INSTANCE_CANONICAL) {
+          inv.granularity = strategy::InvocationGranularity::OneInstance;
+          inv.instances.push_back(instance);
+        }
+        return spec;
+      }, [&] {
+        execute_action(k, request);
+        return ApplyResult::Ok;
+      }, [](ApplyResult result) {
+        auto outcome = strategy::controller::feedback_outcome(result);
+        outcome.invocation.applications = 0;
+        outcome.invocation.made_rule_progress = false;
+        return outcome;
+      });
+}
+
 // The persistent phase profile owns only guidance, leaving the caller's Walk
 // seed and native work ceiling intact. Borrow the curve without an extra copy.
 struct WalkGuidanceInstallationRequest {
@@ -29,6 +63,33 @@ inline void execute_action(Kernel &k,
                            const WalkGuidanceInstallationRequest &request) {
   strategy::install_walk_guidance(k, request.even_break_base_milli,
                                   request.score_curve);
+}
+
+inline void execute_action(Kernel &k,
+                           const WalkGuidanceInstallationRequest &request,
+                           PolicyCompletion *completion) {
+  (void)complete_action(completion, FeedbackKind::Support,
+      "InstallWalkGuidance", INSTANCE_CANONICAL, [&] {
+        NativeFeedbackSpec spec;
+        spec.description.description = "install-guidance-only;inherit-seed-and-budget";
+        spec.description.effort_currency = "ticks";
+        spec.meter = [](const Kernel &kernel) { return kernel.stats.ticks; };
+        auto &inv = spec.description.invocation.emplace();
+        inv.rule = "Walk";
+        auto selected = strategy::WalkParameters::from_kernel(k);
+        selected.even_break_base_milli = request.even_break_base_milli;
+        selected.score_curve = request.score_curve;
+        inv.parameters = std::move(selected);
+        return spec;
+      }, [&] {
+        execute_action(k, request);
+        return ApplyResult::Ok;
+      }, [](ApplyResult result) {
+        auto outcome = strategy::controller::feedback_outcome(result);
+        outcome.invocation.applications = 0;
+        outcome.invocation.made_rule_progress = false;
+        return outcome;
+      });
 }
 
 // Most parameter families already use the same native save/install/restore
