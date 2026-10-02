@@ -6,6 +6,9 @@
 #include "strategy/bve_invocation.hpp"
 #include "strategy/rule_execution.hpp"
 #include "strategy/work_execution.hpp"
+#include "strategy/parameter_execution.hpp"
+#include "strategy/publication_execution.hpp"
+#include "policies/rule_publication.hpp"
 
 #include <cmath>
 #include <algorithm>
@@ -1114,20 +1117,22 @@ InvocationResult OnlineStrategyExecutor::advance(
       const BveParameters parameters =
           configured ? *configured : BveParameters::from_kernel(k);
       BveInvocationSession session(rule, k, parameters, budget, revision_);
-      out = payload == INSTANCE_CANONICAL ? session.apply_canonical()
-                                          : session.apply_one(payload);
-      heuristics_consume_rule_advice(k);
-      heuristics_consume_retirements(k);
+      (void)execution::execute_action(
+          k, execution::RuleApplicationRequest{}, [&] {
+            out = payload == INSTANCE_CANONICAL ? session.apply_canonical()
+                                                : session.apply_one(payload);
+            return out.rule_result;
+          }, HeuristicRulePublisher{});
     } else if (step.rule == "Sweep" &&
                std::holds_alternative<SweepParameters>(step.parameters)) {
       ScopedRuleWorkBudget rule_work_budget(k, step.rule_work_budget);
       const SweepParameters &limits = std::get<SweepParameters>(step.parameters);
-      const ApplyResult result =
-          payload == INSTANCE_CANONICAL
-              ? sweep_apply_exact_limits(k, limits)
-              : sweep_try_with_limits(k, static_cast<Var>(payload), limits);
-      heuristics_consume_rule_advice(k);
-      heuristics_consume_retirements(k);
+      const ApplyResult result = execution::execute_action(
+          k, execution::RuleApplicationRequest{}, [&] {
+            return payload == INSTANCE_CANONICAL
+                       ? sweep_apply_exact_limits(k, limits)
+                       : sweep_try_with_limits(k, static_cast<Var>(payload), limits);
+          }, HeuristicRulePublisher{}).result;
       out.before = out.after;
       out.configuration_revision = revision_;
       out.work_unit = WorkUnit::Applications;
@@ -1147,110 +1152,18 @@ InvocationResult OnlineStrategyExecutor::advance(
       out.after = state_version(k);
     } else {
       const uint64_t propagations_before = k.stats.propagations;
-      std::optional<ScopedAnalyzeParameters> analyze;
-      std::optional<ScopedSubsumeForwardParameters> c1;
-      std::optional<ScopedStrengthenParameters> c2;
-      std::optional<ScopedCongruenceParameters> congruence;
-      std::optional<ScopedInstantiateParameters> instantiate;
-      std::optional<ScopedBackboneParameters> backbone;
-      std::optional<ScopedVivifyParameters> vivify;
-      std::optional<ScopedBceParameters> bce;
-      std::optional<ScopedTernaryParameters> ternary;
-      std::optional<ScopedFactorParameters> factor;
-      std::optional<ScopedTransitiveReduceParameters> transitive;
-      std::optional<ScopedSubstituteParameters> substitute;
-      std::optional<ScopedReduceParameters> reduce;
-      std::optional<ScopedWalkParameters> walk;
-      std::optional<ScopedReorderParameters> reorder;
-      std::optional<ScopedParityModelParameters> parity_model;
-      std::optional<ScopedOnehotModelParameters> onehot_model;
-      std::optional<ScopedBalancedSignatureModelParameters>
-          balanced_signature_model;
-      std::optional<ScopedFermatModelParameters> fermat_model;
-      std::optional<ScopedLookupCircuitModelParameters> lookup_circuit_model;
-      std::optional<ScopedSimonModelParameters> simon_model;
-      std::optional<ScopedStconnProofParameters> stconn_proof;
-      std::optional<ScopedSignedCardinalityProofParameters>
-          signed_cardinality_proof;
-      std::optional<ScopedExactCoverModelParameters> exact_cover_model;
-      std::optional<ScopedIndependentSetModelParameters> independent_set_model;
-      std::optional<ScopedAffineModelParameters> affine_model;
-      if (const auto *p = std::get_if<AnalyzeParameters>(&step.parameters))
-        analyze.emplace(k, *p);
-      else if (const auto *p =
-              std::get_if<SubsumeForwardParameters>(&step.parameters))
-        c1.emplace(k, *p);
-      else if (const auto *p =
-                   std::get_if<StrengthenParameters>(&step.parameters))
-        c2.emplace(k, *p);
-      else if (const auto *p =
-                   std::get_if<CongruenceParameters>(&step.parameters))
-        congruence.emplace(k, *p);
-      else if (const auto *p =
-                   std::get_if<InstantiateParameters>(&step.parameters))
-        instantiate.emplace(k, *p);
-      else if (const auto *p =
-                   std::get_if<BackboneParameters>(&step.parameters))
-        backbone.emplace(k, *p);
-      else if (const auto *p =
-                   std::get_if<VivifyParameters>(&step.parameters))
-        vivify.emplace(k, *p);
-      else if (const auto *p = std::get_if<BceParameters>(&step.parameters))
-        bce.emplace(k, *p);
-      else if (const auto *p =
-                   std::get_if<TernaryParameters>(&step.parameters))
-        ternary.emplace(k, *p);
-      else if (const auto *p =
-                   std::get_if<FactorParameters>(&step.parameters))
-        factor.emplace(k, *p);
-      else if (const auto *p =
-                   std::get_if<TransitiveReduceParameters>(&step.parameters))
-        transitive.emplace(k, *p);
-      else if (const auto *p =
-                   std::get_if<SubstituteParameters>(&step.parameters))
-        substitute.emplace(k, *p);
-      else if (const auto *p =
-                   std::get_if<ReduceParameters>(&step.parameters))
-        reduce.emplace(k, *p);
-      else if (const auto *p =
-                   std::get_if<WalkParameters>(&step.parameters))
-        walk.emplace(k, *p);
-      else if (const auto *p =
-                   std::get_if<ReorderParameters>(&step.parameters))
-        reorder.emplace(k, *p);
-      else if (const auto *p =
-                   std::get_if<ParityModelParameters>(&step.parameters))
-        parity_model.emplace(k, *p);
-      else if (const auto *p =
-                   std::get_if<OnehotModelParameters>(&step.parameters))
-        onehot_model.emplace(k, *p);
-      else if (const auto *p = std::get_if<
-                   BalancedSignatureModelParameters>(&step.parameters))
-        balanced_signature_model.emplace(k, *p);
-      else if (const auto *p =
-                   std::get_if<FermatModelParameters>(&step.parameters))
-        fermat_model.emplace(k, *p);
-      else if (const auto *p =
-                   std::get_if<LookupCircuitModelParameters>(&step.parameters))
-        lookup_circuit_model.emplace(k, *p);
-      else if (const auto *p =
-                   std::get_if<SimonModelParameters>(&step.parameters))
-        simon_model.emplace(k, *p);
-      else if (const auto *p =
-                   std::get_if<StconnProofParameters>(&step.parameters))
-        stconn_proof.emplace(k, *p);
-      else if (const auto *p =
-                   std::get_if<SignedCardinalityProofParameters>(
-                       &step.parameters))
-        signed_cardinality_proof.emplace(k, *p);
-      else if (const auto *p =
-                   std::get_if<ExactCoverModelParameters>(&step.parameters))
-        exact_cover_model.emplace(k, *p);
-      else if (const auto *p =
-                   std::get_if<IndependentSetModelParameters>(&step.parameters))
-        independent_set_model.emplace(k, *p);
-      else if (const auto *p = std::get_if<AffineModelParameters>(&step.parameters))
-        affine_model.emplace(k, *p);
+      execution::ParameterExecutionScope<
+          AnalyzeParameters, SubsumeForwardParameters, StrengthenParameters,
+          CongruenceParameters, InstantiateParameters, BackboneParameters,
+          VivifyParameters, BceParameters, TernaryParameters, FactorParameters,
+          TransitiveReduceParameters, SubstituteParameters, ReduceParameters,
+          WalkParameters, ReorderParameters, ParityModelParameters,
+          OnehotModelParameters, BalancedSignatureModelParameters,
+          FermatModelParameters, LookupCircuitModelParameters,
+          SimonModelParameters, StconnProofParameters,
+          SignedCardinalityProofParameters, ExactCoverModelParameters,
+          IndependentSetModelParameters, AffineModelParameters>
+          parameters(k, step.parameters);
       // Invocation-level native work limits override a rule parameter which
       // happens to share the legacy Kernel::work_budget handoff (Walk).  Both
       // scopes still unwind to the caller profile after this atomic apply.
@@ -1263,7 +1176,8 @@ InvocationResult OnlineStrategyExecutor::advance(
       std::optional<SubstitutionRedundancyApplicationResult> sr_application;
       bool condition_declined = false;
       bool condition_interrupted = false;
-      const ApplyResult result =
+      const ApplyResult result = execution::execute_action(
+          k, execution::RuleApplicationRequest{}, [&] { return
           !step.condition_instances.empty()
               ? [&] {
                   const ConditionInstance &request =
@@ -1341,12 +1255,11 @@ InvocationResult OnlineStrategyExecutor::advance(
                 })
           : execution::execute_action(
                 k, execution::RegisteredRuleRequest{rule, payload});
+          }, HeuristicRulePublisher{}).result;
       // Factor/Substitute parameter scopes control how their newly published
       // ranking advice is consumed. Drain it before those scopes restore the
       // caller's profile; retirement itself is representation state and is
       // always reflected in H.
-      heuristics_consume_rule_advice(k);
-      heuristics_consume_retirements(k);
       out.before = out.after;
       out.configuration_revision = revision_;
       out.work_unit = step.work_unit;

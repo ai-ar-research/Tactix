@@ -1,8 +1,10 @@
 #pragma once
 
 #include "strategy/rule_invocation.hpp"
+#include "strategy/occurrence_execution.hpp"
 
 #include <memory>
+#include <optional>
 
 namespace tactix::strategy {
 
@@ -24,6 +26,7 @@ public:
   class Scope {
     Kernel &kernel_;
     Image *attached_ = nullptr;
+    std::optional<execution::OccurrenceSession> session_;
 
   public:
     Scope(BveOccurrenceCache &cache, Kernel &k) : kernel_(k) {
@@ -52,10 +55,12 @@ public:
           ref += clause_actual_words(c);
         }
         if (cache.image_->usable)
-          kernel_dense_connect(k, cache.image_->occurrences, false);
+          session_.emplace(k, execution::OccurrenceSessionRequest{
+                                  cache.image_->occurrences});
       } else if (image->usable) {
-        assert(!k.bve_occurrence_count_image);
-        k.dense = &image->occurrences;
+        session_.emplace(k, execution::OccurrenceSessionRequest{
+                                image->occurrences,
+                                execution::OccurrenceAttachment::Retained});
       }
       attached_ = cache.image_.get();
     }
@@ -70,8 +75,7 @@ public:
                                                 : nullptr));
       attached_->owner = &kernel_;
       attached_->version = state_version(kernel_);
-      if (attached_->usable)
-        kernel_dense_disconnect(kernel_);
+      session_.reset();
     }
   };
 };
