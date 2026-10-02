@@ -1,0 +1,28 @@
+{
+  "observed_at_utc": "2026-10-02T17:25:21.077638+00:00",
+  "debug_job": 1746172,
+  "debug_watcher_session": 86645,
+  "debug_expected_tests": 212,
+  "debug_latest_passed_observed": 211,
+  "regression_jobs": {
+    "b28c5": 1746173,
+    "rank1-50": 1746174,
+    "wv100": 1746175,
+    "wv2-89": 1746176
+  },
+  "overhead_job": 1746397,
+  "fuzz_owner_cli_session": 33289,
+  "fuzz_owner_response": "build/shared-policy-feedback-fuzz-owner-0531c2f1-response.json",
+  "fuzz_observed_queue_jobs": {
+    "default": 1746357,
+    "controller": 1746358,
+    "targeted": 1746454
+  },
+  "fuzz_scope": "Private Claude-owned campaigns not inspected; queue metadata only. Owner terminal report required.",
+  "acceptance": "Whole goal pending: full Debug terminal evidence, Claude fresh fuzz/targeted purity/replay coverage and final full-objective audit/handoff.",
+  "overhead_watcher_session": 69614,
+  "regression_acceptance": "All four terminal scores pass on candidate 0531c2f1; 249 independently verified, 13 checker-censored, 10 retained solver timeouts.",
+  "overhead_acceptance": "Measurement complete: 128 runs, all deterministic signatures equal, full frontend recording adds 17.443-64.384 ms median on small inputs.",
+  "completed_evidence": "benchmarks/reports/2026-10-02-shared-policy-regression-feedback.md",
+  "overhead_watcher_terminal_exit": 0
+}

@@ -1,0 +1,12 @@
+{
+  "job_id": 1746175,
+  "set": "wv100",
+  "submitted_at_utc": "2026-10-02T16:04:41.932023+00:00",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20261002-shared-feedback-0531c2f1-wv100/array.sbatch"
+  ],
+  "sbatch_stdout": "1746175\n",
+  "sbatch_stderr": ""
+}
