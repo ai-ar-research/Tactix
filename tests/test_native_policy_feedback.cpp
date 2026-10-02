@@ -239,6 +239,24 @@ static void test_native_batches(bool vivify, bool budgeted) {
     const auto snapshot = serialize_observation(policy.observe(k));
     if (!feedback) preserved = snapshot;
     else assert(snapshot == preserved);
+    if (feedback) {
+      std::vector<std::string> installed;
+      unsigned entered = 0, exited = 0;
+      for (const auto &record : capture.actions) {
+        if (record.identity == "InstallRuleParameters") {
+          assert(record.native_request->invocation);
+          installed.push_back(record.native_request->invocation->rule);
+          assert(!record.outcome.invocation.applications && !record.outcome.invocation.made_rule_progress);
+        } else if (record.identity == "InprocessPhaseEntry" || record.identity == "InprocessPhaseExit") {
+          assert(!record.outcome.invocation.applications && !record.outcome.invocation.made_rule_progress);
+          entered += record.identity == "InprocessPhaseEntry";
+          exited += record.identity == "InprocessPhaseExit";
+        }
+      }
+      assert((installed == std::vector<std::string>{"Congruence", "Instantiate", "Backbone", "BCE",
+          "HyperTernaryRes", "Factor", "TransitiveReduce", "Substitute", "Vivify", "BVE"}));
+      assert(entered == 1 && exited == 1);
+    }
     if (vivify) {
       assert(k.stats.vivify_rounds == 3 && k.stats.vivify_checked == 8);
       if (feedback) {

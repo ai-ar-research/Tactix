@@ -13,7 +13,7 @@ using namespace tactix::strategy;
 
 static std::string fixture(Kernel &k, unsigned scenario) {
   std::vector<std::vector<int>> clauses;
-  if (scenario == 0 || scenario >= 3) {
+  if (scenario == 0 || scenario == 3 || scenario == 4) {
     kernel_defer_cold_state(k);
     kernel_reserve_vars(k, scenario >= 3 ? 22 : 20);
     for (unsigned pigeon = 0; pigeon < 5; ++pigeon) {
@@ -27,8 +27,8 @@ static std::string fixture(Kernel &k, unsigned scenario) {
       clauses.push_back({21, 22});
       clauses.push_back({21, -22});
     }
-  } else if (scenario == 1) {
-    kernel_defer_cold_state(k);
+  } else if (scenario == 1 || scenario == 5) {
+    if (scenario == 1) kernel_defer_cold_state(k);
     kernel_reserve_vars(k, 2);
     clauses = {{1, 2}};
   } else {
@@ -75,7 +75,7 @@ static DefaultStrategyConfig profile(unsigned scenario) {
     program.sequence = {complete, added};
     config.inprocess.structured_root_stages = {{program, BudgetExhaustionPolicy::Continue}};
     config.inprocess.structured_root_before_lucky = true;
-  } else if (scenario >= 3) {
+  } else if (scenario == 3 || scenario == 4) {
     OnlineInvocation fixing;
     fixing.id = 1; fixing.rule = "SubstitutionRedundancy";
     fixing.parameters = SubstitutionRedundancyParameters{};
@@ -88,6 +88,13 @@ static DefaultStrategyConfig profile(unsigned scenario) {
     program.sequence = {fixing};
     config.inprocess.structured_root_stages = {{program, BudgetExhaustionPolicy::Continue}};
     config.inprocess.structured_root_before_lucky = true;
+  } else if (scenario == 5) {
+    OnlineInvocation lucky;
+    lucky.id = 1; lucky.rule = "Lucky";
+    OnlineStrategyProgram program;
+    program.sequence = {lucky};
+    config.inprocess.structured_root_stages = {{program, BudgetExhaustionPolicy::Continue}};
+    config.inprocess.structured_root_before_lucky = false;
   }
   return config;
 }
@@ -97,12 +104,12 @@ int main(int argc, char **argv) {
   assert(argc == 1 || argc == 2 || (argc == 3 && std::string(argv[2]) == "feedback"));
   if (argc == 1) assert(mkdtemp(temporary));
   const std::string directory = argc > 1 ? argv[1] : temporary;
-  for (unsigned scenario = 0; scenario < 5; ++scenario) {
+  for (unsigned scenario = 0; scenario < 6; ++scenario) {
     const std::string stem = directory + "/scenario-" + std::to_string(scenario);
     Kernel k;
     const std::string cnf = fixture(k, scenario);
     std::optional<ScopedHeuristics> embedding;
-    if (scenario == 4) embedding.emplace(k);
+    if (scenario >= 4) embedding.emplace(k);
     std::ofstream(stem + ".cnf") << cnf;
     Proof proof;
     assert(proof.open((stem + ".dsr").c_str(), ProofFormat::DsrAscii));
@@ -115,13 +122,30 @@ int main(int argc, char **argv) {
           "startup-scenario=" + std::to_string(scenario) + policy.strategy_config_snapshot()));
       policy.set_feedback(&feedback);
     }
-    const int result = policy.solve(k);
-    assert(result == (scenario == 1 || scenario == 2 ? 10 : 20));
-    assert(bool(k.h) == (scenario == 4) && bool(k.saved_phases) == (scenario == 4));
+    int result;
+    if (scenario == 5) {
+      policy.inprocess().build(k);
+      execution::PolicyCompletion *active = nullptr;
+      execution::PolicyCompletion completion(k, argc == 3 ? &feedback : nullptr,
+          [](const Kernel &kernel, const void *owner) {
+            auto value = strategy::controller::observe_kernel(kernel);
+            const auto *current = *static_cast<execution::PolicyCompletion *const *>(owner);
+            if (current) { value.sequence = current->sequence(); value.last_action = current->last_action(); }
+            return value;
+          }, &active);
+      active = &completion;
+      completion.begin();
+      result = policy.inprocess().run_phase(k, SlotGroup::Probe, nullptr, &completion);
+      completion.finish(result, strategy::controller::StopReason::Sat);
+      assert(!k.factor_selection && !k.dense && !k.inprocessing && !k.phase_saving_suppressed);
+      assert(policy.inprocess().structured_root.terminal == InvocationStatus::Sat);
+    } else result = policy.solve(k);
+    assert(result == (scenario == 1 || scenario == 2 || scenario == 5 ? 10 : 20));
+    assert(bool(k.h) == (scenario >= 4) && bool(k.saved_phases) == (scenario >= 4));
     assert(!k.pending.valid && !k.conflict_valid);
     assert(scenario == 1 ? k.cold_state_deferred : !k.cold_state_deferred);
     if (scenario == 2) assert(k.stats.bce_deleted && k.stats.sr_post_amo_nonhelper_applied);
-    if (scenario >= 3) {
+    if (scenario == 3 || scenario == 4) {
       assert(k.value(internalize(21)) > 0 && k.stats.sr_applications);
       assert(bool(k.stats.residual_handoff_calls) == (scenario == 3));
     }

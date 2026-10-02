@@ -9,6 +9,7 @@
 #include "strategy/publication_execution.hpp"
 #include "strategy/root_execution.hpp"
 #include "strategy/work_execution.hpp"
+#include "strategy/guidance_execution.hpp"
 
 #include <cassert>
 #include <optional>
@@ -17,6 +18,67 @@
 using namespace tactix;
 using namespace tactix::execution;
 using namespace tactix::strategy;
+
+static void test_parameter_completion() {
+  struct Receiver final : strategy::controller::FeedbackReceiver {
+    unsigned begun = 0, ended = 0;
+    std::vector<strategy::controller::ActionFeedback> actions;
+    void session_begin(const strategy::controller::Observation &) override { ++begun; }
+    void session_end(const strategy::controller::Observation &, int,
+                     strategy::controller::StopReason) override { ++ended; }
+    void search_interval(const strategy::controller::SearchIntervalFeedback &) override { assert(false); }
+    void after_action(const strategy::controller::ActionFeedback &value) override {
+      assert(!value.outcome.invocation.applications && !value.outcome.invocation.made_rule_progress);
+      assert(value.native_request && value.native_request->effort_currency == "ticks");
+      assert(value.native_request->work == 0);
+      actions.push_back(value);
+    }
+  } receiver;
+  Kernel k;
+  unsigned reads = 0;
+  auto observe = [](const Kernel &kernel, const void *owner) {
+    ++*static_cast<unsigned *>(const_cast<void *>(owner));
+    return strategy::controller::observe_kernel(kernel);
+  };
+  PolicyCompletion disabled(k, nullptr, observe, &reads);
+  FactorParameters first{5, 9, 2, false, true};
+  execute_action(k, ParameterInstallationRequest{first}, &disabled, "Factor");
+  assert(!reads && k.factor_bound == 9 && k.factor_demote_fresh);
+  k.work_budget = 83; k.walk_random_seed = 31;
+  k.walk_even_break_base_milli = 2000;
+  std::vector<WalkParameters::ScorePoint> curve{{0, 2100}, {3000, 2500}};
+  PolicyCompletion completion(k, &receiver, observe, &reads);
+  completion.begin();
+  FactorParameters selected{4, 7, 3, true, false};
+  execute_action(k, ParameterInstallationRequest{selected}, &completion, "Factor");
+  assert(k.factor_bound == 7 && !k.factor_demote_fresh && receiver.actions.size() == 1);
+  const auto &recorded = std::get<FactorParameters>(receiver.actions[0].native_request->invocation->parameters);
+  assert(recorded.growth_bound == 7 && !recorded.demote_fresh && recorded.composite);
+  execute_action(k, WalkGuidanceInstallationRequest{2200, curve}, &completion);
+  assert(k.work_budget == 83 && k.walk_random_seed == 31 && k.walk_even_break_base_milli == 2200);
+  const auto &walk = std::get<WalkParameters>(receiver.actions[1].native_request->invocation->parameters);
+  assert(walk.step_budget == 83 && walk.random_seed == 31 && walk.score_curve == curve);
+  completion.finish(0, strategy::controller::StopReason::Completed);
+  assert(receiver.begun == 1 && receiver.ended == 1 && receiver.actions.size() == 2);
+}
+
+static void test_factor_selection_handoff() {
+  struct Selection final : FactorSelection {
+    unsigned calls = 0;
+    uint32_t bound = 0;
+    void set_bound(uint32_t value) override { ++calls; bound = value; }
+    double seed_score(const Kernel &, Lit, double score) override { return score; }
+    double next_factor_score(const Kernel &, Lit, uint32_t, Lit, double score) override { return score; }
+    bool accept(uint32_t, uint32_t, int) override { return true; }
+  } selected;
+  Kernel k;
+  execute_action(k, FactorSelectionInstallationRequest{selected, std::nullopt});
+  assert(k.factor_selection == &selected && !selected.calls);
+  execute_action(k, FactorSelectionInstallationRequest{selected, 11});
+  assert(k.factor_selection == &selected && selected.calls == 1 && selected.bound == 11);
+  execute_action(k, ClearFactorSelectionRequest{});
+  assert(!k.factor_selection && selected.calls == 1);
+}
 
 static void test_parameter_lifetime() {
   Kernel k;
@@ -246,6 +308,8 @@ static void test_candidate_publication(RootPublication roots, bool retirements) 
 }
 
 int main() {
+  test_parameter_completion();
+  test_factor_selection_handoff();
   test_parameter_lifetime();
   test_walk_budget_precedence();
   for (bool probing : {false, true})
