@@ -11,6 +11,7 @@ STOP_NAMES = (
     "completed", "fixpoint", "no-change", "inapplicable", "budget",
     "interrupted", "conflict", "sat", "unsat", "invalid", "stale",
     "resource", "accounting", "restart", "error", "detached",
+    "root-preparation", "strategy-change",
 )
 KIND_NAMES = ("rule", "resume-search", "search-service", "support")
 WORK_NAMES = ("applications", "bve-ticks", "propagations", "sr-discovery-ticks")
@@ -27,8 +28,9 @@ def integer(value, label, maximum=UINT64_MAX):
     return value
 
 
-def keys(value, expected, label):
-    require(type(value) is dict and set(value) == set(expected.split()),
+def keys(value, expected, label, optional=""):
+    required, allowed = set(expected.split()), set(optional.split())
+    require(type(value) is dict and required <= set(value) <= required | allowed,
             f"invalid {label} fields")
 
 
@@ -69,7 +71,10 @@ def observation(value):
     keys(value, "version state sequence variables unassigned active_unassigned level trail "
          "root_population irredundant_clauses inconsistent conflict fixpoint searching "
          "have_configuration configuration rotation_intervals next_restart_conflicts "
-         "reluctant fast_glue slow_glue last_action native", "observation")
+         "reluctant fast_glue slow_glue last_action native", "observation",
+         optional="native_policy_state")
+    if "native_policy_state" in value:
+        require(type(value["native_policy_state"]) is str, "invalid native policy state")
     require(integer(value["version"], "observation version") == 1,
             "unsupported observation version")
     state(value["state"])
@@ -181,16 +186,17 @@ def inspect(path):
                     interval_sequence += 1
                     require(integer(row["sequence"], "interval sequence") == interval_sequence,
                             "interval sequence gap")
-                    integer(row["start"], "interval start", 1)
+                    integer(row["start"], "interval start", 2)
                     integer(row["preceding"], "preceding interval")
                     require(row["preceding"] == (interval_sequence - 1 if row["start"] else 0)
                             and (not row["start"] or interval_sequence > 1),
-                            "invalid partial continuation link")
-                    intervals["partial-continuation" if row["start"] else "resume-search"] += 1
+                            "invalid continuation link")
+                    intervals[("resume-search", "partial-continuation",
+                               "native-continuation")[row["start"]]] += 1
                     pending = (kind, None)
                     continue
                 keys(row, "type version sequence kind identity instance request allowance "
-                     "before after outcome stop", "action")
+                     "before after outcome stop", "action", optional="native_request")
                 action_sequence += 1
                 require(integer(row["sequence"], "action sequence") == action_sequence,
                         "action sequence gap")
@@ -227,8 +233,31 @@ def inspect(path):
                 entry["applications"] += result["applications"]
                 entry["progress"] += result["progress"]
                 unit = WORK_NAMES[result["unit"]]
-                entry["work_by_native_unit"][unit] += result["work"]
-                entry["overshoot_by_native_unit"][unit] += result["composition_overshoot"]
+                work, overshoot = result["work"], result["composition_overshoot"]
+                if "native_request" in row:
+                    desc = row["native_request"]
+                    keys(desc, "version description invocation currency unlimited amount work "
+                         "overshoot accounting_overflow", "native request")
+                    require(integer(desc["version"], "native request version") == 1,
+                            "unsupported native request version")
+                    for key in ("description", "currency"):
+                        require(type(desc[key]) is str, f"invalid native {key}")
+                    require(desc["currency"], "missing native currency")
+                    require(desc["invocation"] is None or type(desc["invocation"]) is str,
+                            "invalid native invocation")
+                    for key in ("unlimited", "accounting_overflow"):
+                        require(type(desc[key]) is bool, f"invalid native {key}")
+                    for key in ("amount", "work", "overshoot"):
+                        integer(desc[key], f"native {key}")
+                    require(not desc["unlimited"] or desc["amount"] == 0,
+                            "invalid unlimited native allowance")
+                    require(desc["overshoot"] == (0 if desc["unlimited"] else
+                            max(desc["work"] - desc["amount"], 0)), "native overshoot mismatch")
+                    require(not desc["accounting_overflow"] or desc["work"] == 0,
+                            "invalid overflow measurement")
+                    unit, work, overshoot = desc["currency"], desc["work"], desc["overshoot"]
+                entry["work_by_native_unit"][unit] += work
+                entry["overshoot_by_native_unit"][unit] += overshoot
                 entry["kinds"][KIND_NAMES[row["kind"]]] += 1
                 entry["stop"][STOP_NAMES[row["stop"]]] += 1
                 pending = (kind, row["identity"])

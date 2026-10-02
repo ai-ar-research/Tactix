@@ -361,7 +361,8 @@ endforeach()
 add_test(NAME inspect_policy_feedback
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_inspect_policy_feedback.py
-                 $<TARGET_FILE:test_feedback_trace>)
+                 $<TARGET_FILE:test_feedback_trace>
+                 $<TARGET_FILE:test_default_execution_signature>)
 
 add_test(NAME startup_parity_check
          COMMAND ${CMAKE_COMMAND} -E env python3

@@ -15,9 +15,10 @@ inline constexpr uint32_t FEEDBACK_VERSION = 1;
 enum class FeedbackKind : uint8_t { Rule, ResumeSearch, SearchService, Support };
 enum class StopReason : uint8_t {
   Completed, Fixpoint, NoChange, Inapplicable, Budget, Interrupted, Conflict,
-  Sat, Unsat, Invalid, Stale, Resource, Accounting, Restart, Error, Detached
+  Sat, Unsat, Invalid, Stale, Resource, Accounting, Restart, Error, Detached,
+  RootPreparation, StrategyChange
 };
-enum class IntervalStart : uint8_t { ResumeSearch, PartialContinuation };
+enum class IntervalStart : uint8_t { ResumeSearch, PartialContinuation, NativeContinuation };
 
 inline StopReason stop_reason(InvocationStatus status) {
   switch (status) {
@@ -47,6 +48,9 @@ struct FeedbackOutcome {
 inline FeedbackOutcome feedback_outcome(const ActionResult &result) {
   return {result.invocation, result.composition_overshoot, result.resumed_search};
 }
+inline FeedbackOutcome feedback_outcome(const InvocationResult &result) {
+  return {result, 0, false};
+}
 inline FeedbackOutcome feedback_outcome(ApplyResult result) {
   FeedbackOutcome out;
   out.invocation.rule_result = result;
@@ -66,6 +70,16 @@ inline FeedbackOutcome feedback_outcome(ApplyResult result) {
 // Observations retain every raw native Stats field. Their differences have no
 // chosen scalar reward or cross-rule currency. Native composition work and its
 // allowance/overshoot are explicit alongside those independent raw counters.
+struct NativeActionDescription {
+  uint32_t version = 1;
+  std::string description;
+  std::optional<OnlineInvocation> invocation;
+  std::string effort_currency;
+  WorkLimit effort_allowance = WorkLimit::unlimited();
+  uint64_t work = 0, overshoot = 0;
+  bool accounting_overflow = false;
+};
+
 struct ActionFeedback {
   uint32_t version = FEEDBACK_VERSION;
   uint64_t sequence = 0;
@@ -74,6 +88,7 @@ struct ActionFeedback {
   uint64_t instance = INSTANCE_CANONICAL;
   std::optional<ActionRequest> request;
   std::optional<ActionAllowance> allowance;
+  std::optional<NativeActionDescription> native_request;
   Observation before, after;
   FeedbackOutcome outcome;
   StopReason stop = StopReason::Completed;
@@ -119,6 +134,7 @@ public:
   FeedbackSession(const FeedbackSession &) = delete;
   FeedbackSession &operator=(const FeedbackSession &) = delete;
   bool enabled() const { return receiver_ != nullptr && !finished_; }
+  uint64_t sequence() const { return sequence_; }
   void pause_measurement() { pause_interval(); }
   void begin(const Observation &observation) {
     if (receiver_) receiver_->session_begin(observation);
@@ -129,7 +145,8 @@ public:
                Observe &&observe, Apply &&apply,
                const ActionRequest *request = nullptr,
                const ActionAllowance *allowance = nullptr,
-               Describe &&describe = Describe{}) {
+               Describe &&describe = Describe{},
+               const NativeActionDescription *native_request = nullptr) {
     if (!enabled()) return apply();
     pause_interval();
     auto record = std::make_unique<ActionFeedback>();
@@ -147,6 +164,7 @@ public:
     if (interval_) interval_->duration_nanos += record->duration_nanos;
     record->after = observe();
     record->outcome = describe(result);
+    if (native_request) record->native_request = *native_request;
     record->outcome.invocation.before = record->before.state;
     record->outcome.invocation.after = record->after.state;
     record->stop = stop_reason(record->outcome.invocation.status);
@@ -161,7 +179,7 @@ public:
     interval_ = std::make_unique<SearchIntervalFeedback>();
     interval_->sequence = ++interval_sequence_;
     interval_->preceding_interval =
-        start == IntervalStart::PartialContinuation ? interval_sequence_ - 1 : 0;
+        start != IntervalStart::ResumeSearch ? interval_sequence_ - 1 : 0;
     interval_->start = start;
     interval_->before = observation;
     resume_interval();

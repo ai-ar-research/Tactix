@@ -13,6 +13,7 @@
 #include "strategy/guidance_execution.hpp"
 #include "strategy/reduction_execution.hpp"
 #include "strategy/sweep_execution.hpp"
+#include "strategy/native_feedback.hpp"
 #include "policies/rule_publication.hpp"
 #include "diagnostics/event_trace.hpp"
 #include "diagnostics/rule_journal.hpp"
@@ -62,12 +63,18 @@
 #include <cstdlib>
 #include <cstring>
 #include <optional>
+#include <iomanip>
+#include <locale>
 #include <sstream>
 #include <utility>
 
 namespace tactix {
 
 using execution::LuckyOpportunity;
+using execution::PolicyCompletion;
+using strategy::controller::FeedbackKind;
+using strategy::controller::IntervalStart;
+using strategy::controller::StopReason;
 
 double kissat_bve_variable_score(double relevance, uint64_t positive,
                                  uint64_t negative,
@@ -122,45 +129,64 @@ ApplyResult default_direct_rule_lazy(
 #endif
 }
 
-ApplyResult default_propagate(Kernel &k, const char *candidate) {
-  const size_t trail_begin = k.trail.size();
-  const uint64_t root_assignments = k.stats.root_assignments;
-  const ApplyResult result = default_direct_rule(
-      k, "Propagate", candidate, [&] { return propagate_apply(k); },
-      ApplyResult::Ok);
-  // Kissat marks every true-level-zero assignment fixed in its assignment
-  // primitive. Keep the proof rule independent of policy state, but consume
-  // the same lifecycle transition before DefaultPolicy next chooses a rule or
-  // decision. This includes root implications discovered above level zero.
-  if (k.stats.root_assignments != root_assignments)
-    heuristics_consume_root_assignments(k, trail_begin);
-  return result;
-}
-
-template <LuckyOpportunity Opportunity>
-ApplyResult default_lucky_opportunity(Kernel &k, const char *candidate) {
-  return default_direct_rule(k, "Lucky", candidate, [&] {
-    return execution::execute_action(k, execution::LuckyRequest<Opportunity>{});
+ApplyResult default_propagate(Kernel &k, const char *candidate,
+                              PolicyCompletion *completion = nullptr) {
+  return execution::complete_action(completion, FeedbackKind::Rule, "Propagate",
+      INSTANCE_CANONICAL, [&] {
+        return execution::native_rule_feedback(k, "Propagate", INSTANCE_CANONICAL,
+            candidate, [](const Kernel &kernel) { return kernel.stats.propagations; },
+            "propagations");
+      }, [&] {
+    const size_t trail_begin = k.trail.size();
+    const uint64_t root_assignments = k.stats.root_assignments;
+    const ApplyResult result = default_direct_rule(
+        k, "Propagate", candidate, [&] { return propagate_apply(k); },
+        ApplyResult::Ok);
+    // Kissat marks every true-level-zero assignment fixed in its assignment
+    // primitive. Keep the proof rule independent of policy state, but consume
+    // the same lifecycle transition before DefaultPolicy next chooses a rule or
+    // decision. This includes root implications discovered above level zero.
+    if (k.stats.root_assignments != root_assignments)
+      heuristics_consume_root_assignments(k, trail_begin);
+    return result;
   });
 }
 
-ApplyResult default_lucky(Kernel &k, const char *candidate) {
-  const size_t trail_begin = k.trail.size();
-  const uint64_t roots_before = k.stats.root_assignments;
-  const ApplyResult result = default_direct_rule(
-      k, "Lucky", candidate, [&] {
-        return execution::execute_action(
-            k, execution::LuckyRequest<LuckyOpportunity::Cascade>{});
-      });
-  // Lucky can prove failed-literal units even when every model probe fails.
-  // Its root entry prefix survives speculative backtracking, so consume the
-  // appended roots in assignment order before any later policy consumer.
-  // Kissat deactivates these identities in assignment; raw Lucky stays
-  // independent of guidance here. The deferred early call still has no H:
-  // its subsequent attachment reconstructs the same fixed-variable image.
-  if (k.stats.root_assignments != roots_before)
-    heuristics_consume_root_assignments(k, trail_begin);
-  return result;
+template <LuckyOpportunity Opportunity>
+ApplyResult default_lucky_opportunity(Kernel &k, const char *candidate,
+                                      PolicyCompletion *completion = nullptr) {
+  constexpr uint64_t instance = execution::lucky_feedback_instance<Opportunity>();
+  return execution::complete_action(completion, FeedbackKind::Rule, "Lucky", instance,
+      [&] { return execution::native_rule_feedback(k, "Lucky", instance, candidate); }, [&] {
+    return default_direct_rule(k, "Lucky", candidate, [&] {
+      return execution::execute_action(k, execution::LuckyRequest<Opportunity>{});
+    });
+  });
+}
+
+ApplyResult default_lucky(Kernel &k, const char *candidate,
+                          PolicyCompletion *completion = nullptr) {
+  return execution::complete_action(completion, FeedbackKind::Rule, "Lucky",
+      INSTANCE_CANONICAL, [&] {
+        return execution::native_rule_feedback(k, "Lucky", INSTANCE_CANONICAL, candidate);
+      }, [&] {
+    const size_t trail_begin = k.trail.size();
+    const uint64_t roots_before = k.stats.root_assignments;
+    const ApplyResult result = default_direct_rule(
+        k, "Lucky", candidate, [&] {
+          return execution::execute_action(
+              k, execution::LuckyRequest<LuckyOpportunity::Cascade>{});
+        });
+    // Lucky can prove failed-literal units even when every model probe fails.
+    // Its root entry prefix survives speculative backtracking, so consume the
+    // appended roots in assignment order before any later policy consumer.
+    // Kissat deactivates these identities in assignment; raw Lucky stays
+    // independent of guidance here. The deferred early call still has no H:
+    // its subsequent attachment reconstructs the same fixed-variable image.
+    if (k.stats.root_assignments != roots_before)
+      heuristics_consume_root_assignments(k, trail_begin);
+    return result;
+  });
 }
 } // namespace
 
@@ -1423,12 +1449,18 @@ ApplyResult DefaultPolicy::prepare_rephase_root(Kernel &k) {
   // changing phases. Chronological backtracking can retain out-of-order root
   // assignments that must be rescanned after their transient blockers vanish.
   // Warm-up must not defer those scans until after its first decision.
-  return execution::execute_action(k, execution::RootPreparationRequest{false, true},
+  return execution::complete_action(completion_, FeedbackKind::Support, "RootPreparation",
+      INSTANCE_CANONICAL, [] {
+        execution::NativeFeedbackSpec spec;
+        spec.description.description = "probing=0;clear-unflushed-root=1;restart-purpose=preparation";
+        return spec;
+      }, [&] { return execution::execute_action(k, execution::RootPreparationRequest{false, true},
       [&] { heuristics_update_target_phases(k); },
       [&](const execution::RestartRequest &request) {
         return default_direct_rule(k, "Restart", "keep-level=0;rephase=1",
             [&] { return execution::execute_action(k, request); });
       }, [&] { return default_propagate(k, "rephase-root"); });
+  });
 }
 
 bool DefaultPolicy::want_reorder(const Kernel &k) const {
@@ -3237,9 +3269,84 @@ void DefaultInprocessScheduler::initialize_search_limits(const Kernel &k) {
   search_limits_initialized_ = true;
 }
 
+strategy::controller::Observation DefaultPolicy::observe(const Kernel &k) const {
+  using namespace strategy::controller;
+  auto result = observe_kernel(k);
+  const bool stable = k.h && k.h->stable;
+  result.sequence = completion_ ? completion_->sequence() : 0;
+  result.searching = completion_ && completion_->searching();
+  result.have_search_configuration = !branching && completion_ &&
+      completion_->have_search_configuration();
+  result.search.branching = stable ? Branching::Evsids : Branching::Vmtf;
+  result.search.restart = stable ? Restart::Reluctant : Restart::AdaptiveGlue;
+  result.search.phase = stable ? Phase::Target
+      : config_.branching.focused_phase_switch_span &&
+        !config_.branching.focused_phase_pattern.empty() ? Phase::FocusedRotation : Phase::Saved;
+  result.next_restart_conflicts = restart.next_conflicts;
+  result.reluctant_u = reluctant.u;
+  result.reluctant_v = reluctant.v;
+  result.reluctant_wait = reluctant.wait;
+  result.fast_glue = averages[stable].fast_glue.value;
+  result.slow_glue = averages[stable].slow_glue.value;
+  std::ostringstream native;
+  native.imbue(std::locale::classic());
+  native << std::setprecision(17) << "version=1 stable=" << stable
+         << " external_branching=" << bool(branching)
+         << " mode=" << mode.count << ':' << mode.conflicts_limit << ':'
+         << mode.ticks_limit << ':' << mode.ticks_at_focus_entry
+         << " reluctant_trigger=" << reluctant.trigger
+         << " reduce=" << reduce.next_conflicts
+         << " rephase=" << rephase.count << ':' << rephase.next_conflicts
+         << " reorder=" << reorder.count << ':' << reorder.next_conflicts
+         << " randec=" << default_branching_.randec_remaining << ':'
+         << default_branching_.randec_next << ':' << default_branching_.randec_sequences
+         << ':' << default_branching_.randec_rng
+         << " bump_delay=" << bump_reasons_delay_.count << ':' << bump_reasons_delay_.current
+         << " retier=" << retier_.next_conflicts << ':' << retier_.interval
+         << " structural_seed=" << structural_seed_cursor_;
+  for (const auto &average : averages) {
+    native << " average=" << average.initialized << ':' << average.saved_decisions;
+    for (const auto *smooth : {&average.fast_glue, &average.slow_glue,
+                               &average.decision_rate})
+      native << ':' << smooth->value << ':' << smooth->biased << ':' << smooth->alpha
+             << ':' << smooth->beta << ':' << smooth->exp;
+  }
+  for (const auto *clock : {&inprocess_.probe_clock, &inprocess_.elim_clock})
+    native << " inprocess_clock=" << clock->next_conflicts << ':' << clock->rounds
+           << ':' << clock->reductions_mark << ':' << clock->marks_mark << ':'
+           << clock->fixed_mark << ':' << clock->material_mark << ':' << clock->blocked
+           << ':' << clock->blocked_episodes << ':' << clock->anchor;
+  native << " inprocess_initialized=" << inprocess_.initialized();
+  for (const auto &entry : inprocess_.entries)
+    native << " slot=" << entry.step_id << ':' << entry.enabled << ':' << entry.limit
+           << ':' << entry.applies << ':' << entry.cursor << ':' << entry.arena_mark
+           << ':' << entry.binaries_mark << ':' << entry.root_fixed_mark << ':'
+           << entry.doses << ':' << entry.delay_count << ':' << entry.delay_current;
+  result.native_policy_state = native.str();
+  return result;
+}
+
 int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   KernelStopPublisher stop_published(k, stop);
   configure_from_env(k);
+  // Completion ends while owned heuristic state is still attached, including
+  // solve-entry and startup terminal paths. No mutable Kernel hook is installed.
+  std::optional<ScopedHeuristics> owned_h;
+  PolicyCompletion feedback(k, feedback_receiver_,
+      [](const Kernel &kernel, const void *owner) {
+        return static_cast<const DefaultPolicy *>(owner)->observe(kernel);
+      }, this);
+  struct CompletionLifetime {
+    PolicyCompletion &feedback;
+    PolicyCompletion *&slot;
+    PolicyCompletion *previous;
+    ~CompletionLifetime() {
+      feedback.finish(0, StopReason::Detached);
+      slot = previous;
+    }
+  } feedback_lifetime{feedback, completion_, completion_};
+  completion_ = feedback.enabled() ? &feedback : nullptr;
+  feedback.begin();
   KernelAnalysisConflictPublisher analysis_conflict_published(
       k,
       [](Kernel &kernel, void *state) {
@@ -3255,17 +3362,22 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           ? inprocess_.cadical_arena_ordering()
           : nullptr;
   ScopedArenaOrdering arena_ordered(k, arena_ordering);
-  if (k.inconsistent)
+  if (k.inconsistent) {
+    feedback.finish(20, StopReason::Unsat);
     return 20;
+  }
   // Solve-entry root normalization must retire an externally recorded conflict,
   // not only discard its decision trail. S1 Restart owns that transition
   // (docs/calculus.md §4); startup inprocessing requires !conflict_valid.
   if (k.level || k.conflict_valid) {
-    if (execution::execute_action(k, execution::RestartRequest{
-            0, execution::RestartPurpose::Preparation}) == ApplyResult::Unsat)
-      return 20;
+    if (execution::complete_action(completion_, FeedbackKind::Support, "Restart", 0,
+            [&] { return execution::native_rule_feedback(k, "Restart", 0,
+                "keep-level=0;purpose=preparation;solve-entry=1"); }, [&] {
+              return execution::execute_action(k, execution::RestartRequest{
+                  0, execution::RestartPurpose::Preparation});
+            }) == ApplyResult::Unsat)
+      { feedback.finish(20, StopReason::Unsat); return 20; }
   }
-  std::optional<ScopedHeuristics> owned_h;
   solves++;
   strategy::AnalyzeParameters analysis = strategy::AnalyzeParameters::from_kernel(k);
   analysis.chronological_levels = chrono_levels;
@@ -3341,6 +3453,9 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     std::snprintf(payload, sizeof payload, "%d", verdict);
     event_trace.macro(k, "terminate", payload);
     event_trace.close();
+    feedback.finish(verdict, verdict == 10 ? StopReason::Sat
+                            : verdict == 20 ? StopReason::Unsat
+                                            : StopReason::Interrupted);
     return verdict;
   };
 
@@ -3352,25 +3467,33 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   // a later inprocessing phase.
   if (config_.parity_model.enabled && startup_parity_guard(k)) {
     const ApplyResult pb = default_lucky_opportunity<LuckyOpportunity::StartupParity>(
-        k, "startup-parity-pb");
+        k, "startup-parity-pb", completion_);
     if (pb == ApplyResult::Unsat)
       return finish(20);
   }
   if (count_preservation_guard(k)) {
     const ApplyResult counting = default_lucky_opportunity<LuckyOpportunity::StartupCount>(
-        k, "startup-count-pb");
+        k, "startup-count-pb", completion_);
     if (counting == ApplyResult::Unsat)
       return finish(20);
   }
-  execution::execute_action(k, execution::CloseStartupCertificateRequest{});
-  ApplyResult startup = default_propagate(k, "startup");
+  (void)execution::complete_action(completion_, FeedbackKind::Support,
+      "CloseStartupCertificate", INSTANCE_CANONICAL, [] {
+        execution::NativeFeedbackSpec spec;
+        spec.description.description = "close-original-input-opportunity;commit-native-dsr";
+        return spec;
+      }, [&] {
+        execution::execute_action(k, execution::CloseStartupCertificateRequest{});
+        return ApplyResult::NoOp;
+      });
+  ApplyResult startup = default_propagate(k, "startup", completion_);
   if (startup != ApplyResult::Ok)
     return finish(20); // startup is at root: a conflict is a refutation
   if (config_.signed_cardinality_proof.enabled &&
       signed_cardinality_proof_guard(k)) {
     event_trace.macro(k, "signed_cardinality_proof_begin");
     const ApplyResult counting = default_lucky_opportunity<LuckyOpportunity::SignedCardinality>(
-        k, "signed-cardinality-proof");
+        k, "signed-cardinality-proof", completion_);
     if (counting == ApplyResult::Unsat) {
       event_trace.macro(k, "signed_cardinality_proof_end", "unsat");
       return finish(20);
@@ -3383,7 +3506,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   if (config_.exact_cover_model.enabled && exact_cover_model_guard(k)) {
     event_trace.macro(k, "exact_cover_model_begin");
     const ApplyResult cover = default_lucky_opportunity<LuckyOpportunity::ExactCover>(
-        k, "exact-cover-model");
+        k, "exact-cover-model", completion_);
     if (cover == ApplyResult::Sat) {
       event_trace.macro(k, "exact_cover_model_end", "sat");
       return finish(10);
@@ -3397,7 +3520,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       independent_set_model_guard(k)) {
     event_trace.macro(k, "independent_set_model_begin");
     const ApplyResult independent = default_lucky_opportunity<LuckyOpportunity::IndependentSet>(
-        k, "independent-set-model");
+        k, "independent-set-model", completion_);
     if (independent == ApplyResult::Sat) {
       event_trace.macro(k, "independent_set_model_end", "sat");
       return finish(10);
@@ -3409,7 +3532,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   if (config_.fermat_model.enabled && fermat_model_guard(k)) {
     event_trace.macro(k, "fermat_model_begin");
     const ApplyResult fermat = default_lucky_opportunity<LuckyOpportunity::Fermat>(
-        k, "fermat-model");
+        k, "fermat-model", completion_);
     if (fermat == ApplyResult::Sat) {
       event_trace.macro(k, "fermat_model_end", "sat");
       return finish(10);
@@ -3419,7 +3542,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   if (config_.cerny_model.enabled && cerny_model_guard(k)) {
     event_trace.macro(k, "cerny_model_begin");
     const ApplyResult cerny = default_lucky_opportunity<LuckyOpportunity::Cerny>(
-        k, "cerny-model");
+        k, "cerny-model", completion_);
     if (cerny == ApplyResult::Sat) {
       event_trace.macro(k, "cerny_model_end", "sat");
       return finish(10);
@@ -3430,7 +3553,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       lookup_circuit_model_guard(k)) {
     event_trace.macro(k, "lookup_circuit_model_begin");
     const ApplyResult circuit = default_lucky_opportunity<LuckyOpportunity::LookupCircuit>(
-        k, "lookup-circuit-model");
+        k, "lookup-circuit-model", completion_);
     if (circuit == ApplyResult::Sat) {
       event_trace.macro(k, "lookup_circuit_model_end", "sat");
       return finish(10);
@@ -3440,7 +3563,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   if (config_.simon_model.enabled && simon_model_guard(k)) {
     event_trace.macro(k, "simon_model_begin");
     const ApplyResult simon = default_lucky_opportunity<LuckyOpportunity::Simon>(
-        k, "simon-model");
+        k, "simon-model", completion_);
     if (simon == ApplyResult::Sat) {
       event_trace.macro(k, "simon_model_end", "sat");
       return finish(10);
@@ -3450,7 +3573,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   if (config_.stconn_proof.enabled && stconn_proof_guard(k)) {
     event_trace.macro(k, "stconn_proof_begin");
     const ApplyResult stconn = default_lucky_opportunity<LuckyOpportunity::Stconn>(
-        k, "stconn-proof");
+        k, "stconn-proof", completion_);
     if (stconn == ApplyResult::Unsat) {
       event_trace.macro(k, "stconn_proof_end", "unsat");
       return finish(20);
@@ -3464,7 +3587,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       balanced_signature_model_guard(k)) {
     event_trace.macro(k, "balanced_signature_model_begin");
     const ApplyResult balanced = default_lucky_opportunity<LuckyOpportunity::BalancedSignature>(
-        k, "balanced-signature-model");
+        k, "balanced-signature-model", completion_);
     if (balanced == ApplyResult::Sat) {
       event_trace.macro(k, "balanced_signature_model_end", "sat");
       return finish(10);
@@ -3480,7 +3603,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   if (config_.parity_model.enabled && parity_model_guard(k)) {
     event_trace.macro(k, "parity_model_begin");
     const ApplyResult parity = default_lucky_opportunity<LuckyOpportunity::Parity>(
-        k, "parity-model");
+        k, "parity-model", completion_);
     if (parity == ApplyResult::Sat) {
       event_trace.macro(k, "parity_model_end", "sat");
       return finish(10);
@@ -3497,12 +3620,15 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   // clauses. Its count-only preflight keeps every decline proof-atomic.
   if (config_.onehot_model.enabled && onehot_model_guard(k)) {
     event_trace.macro(k, "exact_one_refutation_begin");
-    const ApplyResult exact_one = default_direct_rule(
+    const ApplyResult exact_one = execution::complete_action(completion_, FeedbackKind::Rule,
+        "Lucky", 7, [&] { return execution::native_rule_feedback(k, "Lucky", 7,
+            "native-exact-one-refutation-opportunity"); }, [&] { return default_direct_rule(
         k, "Lucky", "exact-one-refutation", [&] {
           return execution::execute_action(
               k, execution::ExactOneRefutationRequest{
                      strategy::OnehotModelParameters::from_kernel(k)});
         });
+    });
     if (exact_one == ApplyResult::Unsat) {
       event_trace.macro(k, "exact_one_refutation_end", "unsat");
       return finish(20);
@@ -3584,7 +3710,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   if (config_.onehot_model.enabled && onehot_model_guard(k)) {
     event_trace.macro(k, "direct_csp_model_begin");
     const ApplyResult direct_csp = default_lucky_opportunity<LuckyOpportunity::DirectCsp>(
-        k, "direct-csp-model");
+        k, "direct-csp-model", completion_);
     if (direct_csp == ApplyResult::Sat) {
       event_trace.macro(k, "direct_csp_model_end", "sat");
       return finish(10);
@@ -3599,7 +3725,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   if (lucky_guard(k)) {
     event_trace.macro(k, "lucky_early_begin");
     k.stats.lucky_early_calls++;
-    const ApplyResult lucky = default_lucky(k, "early");
+    const ApplyResult lucky = default_lucky(k, "early", completion_);
     if (lucky == ApplyResult::Unsat) {
       event_trace.macro(k, "lucky_early_end", "unsat");
       return finish(20);
@@ -3613,7 +3739,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   if (config_.onehot_model.enabled && onehot_model_guard(k)) {
     event_trace.macro(k, "onehot_model_begin");
     const ApplyResult onehot = default_lucky_opportunity<LuckyOpportunity::Onehot>(
-        k, "onehot-model");
+        k, "onehot-model", completion_);
     if (onehot == ApplyResult::Sat) {
       event_trace.macro(k, "onehot_model_end", "sat");
       return finish(10);
@@ -3665,7 +3791,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     if (collected == RootCollectOutcome::Refuted)
       return finish(20);
     if (collected == RootCollectOutcome::Unit) {
-      const ApplyResult root_result = default_propagate(k, "root-collect");
+      const ApplyResult root_result = default_propagate(k, "root-collect", completion_);
       if (root_result == ApplyResult::Unsat)
         return finish(20);
     }
@@ -3707,13 +3833,13 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     ++k.stats.fastel_root_suppressed;
   }
   event_trace.macro(k, "preprocess_end");
-  startup = default_propagate(k, "post-preprocess");
+  startup = default_propagate(k, "post-preprocess", completion_);
   if (startup != ApplyResult::Ok)
     return finish(20);
   if (lucky_late_ && lucky_guard(k)) {
     event_trace.macro(k, "lucky_late_begin");
     k.stats.lucky_late_calls++;
-    const ApplyResult lucky = default_lucky(k, "late");
+    const ApplyResult lucky = default_lucky(k, "late", completion_);
     if (lucky == ApplyResult::Unsat) {
       event_trace.macro(k, "lucky_late_end", "unsat");
       return finish(20);
@@ -3775,6 +3901,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   // rebase this one clock so startup work cannot lengthen the first stable
   // interval.  Later anchors are maintained by `update_mode_limits`.
   mode.ticks_at_focus_entry = search_ticks(k);
+  feedback.resume(IntervalStart::ResumeSearch, "native-start-search");
 
   for (;;) {
     event_trace.checkpoint(k);
@@ -3788,7 +3915,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     }
 #endif
     const size_t trace_trail_begin = k.trail.size();
-    const ApplyResult r = default_propagate(k, "search");
+    const ApplyResult r = default_propagate(k, "search", completion_);
     event_trace.implications(k, trace_trail_begin);
     if (r == ApplyResult::Unsat)
       return finish(20);
@@ -3813,7 +3940,11 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       const uint64_t learned_before = k.stats.learned;
       const uint64_t br_rounds = k.stats.reason_bump_rounds;
       const uint64_t br_aborted = k.stats.reason_bump_aborted;
-      const auto analysis = execution::execute_action(
+      const auto analysis = execution::complete_action(
+          completion_, FeedbackKind::SearchService, "ConflictAnalysis", INSTANCE_CANONICAL,
+          [&] { return execution::native_rule_feedback(k, "ConflictAnalysis",
+              INSTANCE_CANONICAL, "native-target-after-learning"); }, [&] {
+        return execution::execute_action(
           k, execution::NativeConflictAnalysisRequest{},
           [&](auto &&apply) {
             return default_direct_rule_lazy(
@@ -3877,6 +4008,9 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
               return target;
             }
           });
+      }, [](const execution::ConflictAnalysisExecutionResult &result) {
+        return strategy::controller::feedback_outcome(result.result);
+      });
       if (analysis.analysis == ApplyResult::Unsat)
         return finish(20);
       if (!analysis.backjumped)
@@ -3895,7 +4029,16 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       return finish(10);
     if (want_reduce(k) && reduce_guard(k)) {
       event_trace.macro(k, "reduce_begin");
-      default_prepare_reduction(k);
+      feedback.end_interval(StopReason::RootPreparation);
+      (void)execution::complete_action(completion_, FeedbackKind::Support,
+          "ReductionPreparation", INSTANCE_CANONICAL, [] {
+            execution::NativeFeedbackSpec spec;
+            spec.description.description = "native-reduce-root-preparation";
+            return spec;
+          }, [&] {
+            default_prepare_reduction(k);
+            return k.inconsistent ? ApplyResult::Unsat : ApplyResult::Ok;
+          });
       if (k.inconsistent)
         return finish(20);
       ReductionPolicy &rp = reduction ? *reduction : default_reduction_;
@@ -3919,19 +4062,36 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           std::min(rp.victims(k, reduce_scratch_.size()),
                    reduce_scratch_.size());
       event_trace.reduction(k, reduce_scratch_, reduce_victims);
-      (void)default_direct_rule_lazy(
+      (void)execution::complete_action(completion_, FeedbackKind::Rule, "Reduce",
+          INSTANCE_CANONICAL, [&] {
+            std::string description = "compact=" + std::to_string(compact_due) + ";victims=";
+            for (size_t i = 0; i < reduce_victims; ++i)
+              description += std::to_string(clause_at(k.arena, reduce_scratch_[i])->id()) + ',';
+            return execution::native_rule_feedback(k, "Reduce", INSTANCE_CANONICAL,
+                                                   std::move(description));
+          }, [&] { return default_direct_rule_lazy(
           k, "Reduce",
           [&] { return "victims=" + std::to_string(reduce_victims); }, [&] {
             return execution::execute_action(k, execution::ReductionRequest{
                 std::span<const Ref>(reduce_scratch_.data(), reduce_victims), compact_due});
           });
+      });
       if (compact_due)
         event_trace_target_state(
             k, "reduce-compact-pre",
             static_cast<uint32_t>(k.compact_import_order.size() -
                                   k.unassigned_active));
-      if (compact_due && execution::execute_action(k, execution::CompactVariablesRequest{true}))
-        heuristics_compact_random_order_fixed(k);
+      if (compact_due)
+        (void)execution::complete_action(completion_, FeedbackKind::Support,
+            "CompactVariables", INSTANCE_CANONICAL, [] {
+              execution::NativeFeedbackSpec spec;
+              spec.description.description = "fold-fixed=1;publish-random-order=1";
+              return spec;
+            }, [&] {
+              const bool compacted = execution::execute_action(k, execution::CompactVariablesRequest{true});
+              if (compacted) heuristics_compact_random_order_fixed(k);
+              return compacted ? ApplyResult::Ok : ApplyResult::NoOp;
+            });
       if (compact_due)
         event_trace_target_state(
             k, "reduce-compact-post",
@@ -3941,6 +4101,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       pose_vivify_tiers(k, config_.inprocess);
       update_formula_classification(k);
       inprocess_.note_reduce(k);
+      feedback.resume(IntervalStart::NativeContinuation, "native-reduce-search-continuation");
       event_trace.macro(k, "reduce_end");
       continue;
     }
@@ -3948,18 +4109,25 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         force_mode_ == 1 || (force_mode_ == 2 && k.h->stable);
     if (!pin_mode && want_switch_mode(k) && switchmode_guard(k)) {
       event_trace.macro(k, "switch_begin");
-      execution::execute_action(k, execution::SwitchModeRequest{});
-      mode.count++;
-      averages[k.h->stable].saved_decisions = k.stats.decisions;
-      if (k.h->stable) // entering stable: fresh reluctant sequence
-        reluctant = {};
-      update_mode_limits(k);
-      // Kissat mode.c calls `kissat_start_random_sequence` after every mode
-      // transition.  It is a no-op on stable entry and starts (or continues)
-      // a focused sequence regardless of decision level or its ordinary
-      // conflict deadline.
-      if (!branching)
-        default_branching_.start_random_sequence(k);
+      feedback.end_interval(StopReason::StrategyChange);
+      (void)execution::complete_action(completion_, FeedbackKind::Rule, "SwitchMode",
+          INSTANCE_CANONICAL, [&] { return execution::native_rule_feedback(
+              k, "SwitchMode", INSTANCE_CANONICAL, "native-mode-transition"); }, [&] {
+        execution::execute_action(k, execution::SwitchModeRequest{});
+        mode.count++;
+        averages[k.h->stable].saved_decisions = k.stats.decisions;
+        if (k.h->stable) // entering stable: fresh reluctant sequence
+          reluctant = {};
+        update_mode_limits(k);
+        // Kissat mode.c calls `kissat_start_random_sequence` after every mode
+        // transition.  It is a no-op on stable entry and starts (or continues)
+        // a focused sequence regardless of decision level or its ordinary
+        // conflict deadline.
+        if (!branching)
+          default_branching_.start_random_sequence(k);
+        return ApplyResult::Ok;
+      });
+      feedback.resume(IntervalStart::NativeContinuation, "native-mode-search-continuation");
       event_trace.macro(k, "switch_end");
       event_trace.heap_scores(k);
       event_trace.mode_clock(k, "post_switch", mode.ticks_limit,
@@ -3986,17 +4154,25 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       const Lit next = bp.pick_for_restart_reuse(k);
       const uint32_t keep =
           heuristics_restart_reuse_level_for(k, var_of(next));
-      if (keep < k.level)
-        heuristics_update_target_phases(k);
-      (void)default_direct_rule_lazy(
-          k, "Restart",
-          [&] { return "keep-level=" + std::to_string(keep); },
-          [&] {
-            return execution::execute_action(k, execution::RestartRequest{keep});
-          });
-      reluctant.trigger = false; // consumed (kissat reluctant.h)
-      if (!k.h->stable) // kissat restart.c: focused-only limit update
-        update_restart_limit(k);
+      (void)execution::complete_action(completion_, FeedbackKind::SearchService,
+          "Restart", keep, [&] { return execution::native_rule_feedback(
+              k, "Restart", keep, "keep-level=" + std::to_string(keep) + ";purpose=scheduled"); }, [&] {
+        if (keep < k.level)
+          heuristics_update_target_phases(k);
+        const ApplyResult restarted = default_direct_rule_lazy(
+            k, "Restart",
+            [&] { return "keep-level=" + std::to_string(keep); },
+            [&] {
+              return execution::execute_action(k, execution::RestartRequest{keep});
+            });
+        reluctant.trigger = false; // consumed (kissat reluctant.h)
+        if (!k.h->stable) // kissat restart.c: focused-only limit update
+          update_restart_limit(k);
+        return restarted;
+      });
+      feedback.end_interval(StopReason::Restart);
+      feedback.continue_search(keep ? IntervalStart::PartialContinuation
+                                    : IntervalStart::NativeContinuation);
       event_trace.macro(k, "restart_end");
       continue;
     }
@@ -4008,15 +4184,20 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                                     ? REORDER_QUEUE
                                 : config_.reorder.target == DefaultReorderTarget::Heap
                                     ? REORDER_HEAP : INSTANCE_CANONICAL;
-        execution::execute_action(k, execution::ReorderRequest{target});
-        reorder.count++;
-        update_reorder_limit(k);
+        (void)execution::complete_action(completion_, FeedbackKind::Rule, "Reorder", target,
+            [&] { return execution::native_rule_feedback(k, "Reorder", target, "native-reorder"); }, [&] {
+          const ApplyResult reordered = execution::execute_action(k, execution::ReorderRequest{target});
+          reorder.count++;
+          update_reorder_limit(k);
+          return reordered;
+        });
         event_trace.reorder_end(k);
         continue;
       }
     }
     if (want_rephase(k) && rephase_guard(k)) {
       event_trace.macro(k, "rephase_begin");
+      feedback.end_interval(StopReason::RootPreparation);
       if (prepare_rephase_root(k) == ApplyResult::Unsat)
         return finish(20);
       const DefaultRephaseSlot slot = current_rephase_slot();
@@ -4028,12 +4209,25 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         // trail is then discarded without undoing it.
         if (config_.rephase.walk_warmup) {
           BranchingPolicy &bp = branching ? *branching : default_branching_;
-          (void)execution::execute_action(k, execution::WarmupRequest{},
+          (void)execution::complete_action(completion_, FeedbackKind::Support,
+              "Warmup", INSTANCE_CANONICAL, [] {
+                execution::NativeFeedbackSpec spec;
+                spec.meter = [](const Kernel &kernel) { return kernel.stats.ticks; };
+                spec.description.effort_currency = "ticks";
+                spec.description.description = "native-assignment-phase-warmup";
+                return spec;
+              }, [&] { return execution::execute_action(k, execution::WarmupRequest{},
               [&] { return bp.pick(k); }, [&](Lit decision) {
             event_trace.detail(k, "decision", kernel_externalize(k, decision));
             event_trace.heap_after_decision(k);
             event_trace.heap_scores(k);
           }, [&](size_t begin) { event_trace.implications(k, begin); });
+          }, [](const execution::WarmupResult &result) {
+            auto out = strategy::controller::feedback_outcome(ApplyResult::Ok);
+            if (result.interrupted) out.invocation.status = strategy::InvocationStatus::Interrupted;
+            out.invocation.made_rule_progress = false;
+            return out;
+          });
         }
         // Structural searches retain their best complete assignment even when
         // it is not a model.  Import one source in a typed round-robin before
@@ -4041,8 +4235,15 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         // result through the ordinary saved/target phase mechanism.
         if (config_.rephase.structural_walk_seed &&
             local_search_guidance_guard(k))
-          (void)execution::execute_action(k, execution::LocalSearchRotationRequest{
-              config_.rephase.structural_seed_rotation, structural_seed_cursor_});
+          (void)execution::complete_action(completion_, FeedbackKind::Rule,
+              "LocalSearchGuidance", INSTANCE_CANONICAL, [&] {
+                auto spec = execution::native_rule_feedback(k, "LocalSearchGuidance",
+                    INSTANCE_CANONICAL, "cursor=" + std::to_string(structural_seed_cursor_) + ";rotation=");
+                for (const auto kind : config_.rephase.structural_seed_rotation)
+                  spec.description.description += std::to_string(static_cast<unsigned>(kind)) + ',';
+                return spec;
+              }, [&] { return execution::execute_action(k, execution::LocalSearchRotationRequest{
+                  config_.rephase.structural_seed_rotation, structural_seed_cursor_}); });
         const uint64_t reference = walk_effort_reference(k);
         // Kissat seeds the walker from the search policy's shared generator.
         // DefaultBranching owns that generator in Tactix; snapshot it here so
@@ -4050,8 +4251,18 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         const uint64_t seed = config_.rephase.walk_use_branch_seed
                                   ? default_branching_.randec_rng
                                   : config_.rephase.walk_random_seed;
-        (void)execution::execute_action(k, execution::WalkRequest{
-            scale_permille(reference, config_.rephase.walk_permille), seed});
+        const uint64_t allowance = scale_permille(reference, config_.rephase.walk_permille);
+        (void)execution::complete_action(completion_, FeedbackKind::Rule, "Walk", INSTANCE_CANONICAL,
+            [&] {
+              auto spec = execution::native_rule_feedback(k, "Walk", INSTANCE_CANONICAL,
+                  "native-walk", [](const Kernel &kernel) { return kernel.stats.walk_steps; },
+                  "walk-steps", strategy::WorkLimit::bounded(allowance));
+              auto parameters = strategy::WalkParameters::from_kernel(k);
+              parameters.step_budget = allowance;
+              parameters.random_seed = seed;
+              spec.description.invocation->parameters = std::move(parameters);
+              return spec;
+            }, [&] { return execution::execute_action(k, execution::WalkRequest{allowance, seed}); });
       } else {
         const DefaultRephaseSlot effective =
             slot == DefaultRephaseSlot::Walk
@@ -4062,25 +4273,32 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           type = REPHASE_INVERTED;
         else if (effective == DefaultRephaseSlot::Original)
           type = REPHASE_ORIGINAL;
-        execution::execute_action(k, execution::RephaseRequest{type});
+        (void)execution::complete_action(completion_, FeedbackKind::Rule, "Rephase", type,
+            [&] { return execution::native_rule_feedback(k, "Rephase", type, "native-rephase"); },
+            [&] { return execution::execute_action(k, execution::RephaseRequest{type}); });
       }
       update_rephase_limit(k);
+      feedback.resume(IntervalStart::NativeContinuation, "native-rephase-search-continuation");
       event_trace.macro(k, "rephase_end");
       continue;
     }
     if (inprocess_.want_phase(k, SlotGroup::Probe)) {
       event_trace.macro(k, "probe_begin");
+      feedback.end_interval(StopReason::RootPreparation);
       const int phase_result = inprocess_.run_phase(k, SlotGroup::Probe, stop);
       if (phase_result == 10 || phase_result == 20) return finish(phase_result);
       update_formula_classification(k);
+      feedback.resume(IntervalStart::NativeContinuation, "native-probe-search-continuation");
       event_trace.macro(k, "probe_end");
       continue;
     }
     if (inprocess_.want_phase(k, SlotGroup::Eliminate)) {
       event_trace.macro(k, "eliminate_begin");
+      feedback.end_interval(StopReason::RootPreparation);
       const int phase_result = inprocess_.run_phase(k, SlotGroup::Eliminate, stop);
       if (phase_result == 10 || phase_result == 20) return finish(phase_result);
       update_formula_classification(k);
+      feedback.resume(IntervalStart::NativeContinuation, "native-eliminate-search-continuation");
       event_trace.macro(k, "eliminate_end");
       continue;
     }
@@ -4088,7 +4306,11 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       return finish(0);
     BranchingPolicy &bp = branching ? *branching : default_branching_;
     const Lit decision = bp.pick(k);
-    (void)default_direct_rule_lazy(
+    (void)execution::complete_action(completion_, FeedbackKind::SearchService,
+        "Decide", lit_instance(k, decision), [&] {
+          return execution::native_rule_feedback(k, "Decide", lit_instance(k, decision),
+              "literal=" + std::to_string(kernel_externalize(k, decision)));
+        }, [&] { return default_direct_rule_lazy(
         k, "Decide",
         [&] {
           return "literal=" +
@@ -4097,6 +4319,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         [&] {
           return execution::execute_action(k, execution::DecisionRequest{decision});
         });
+    });
     event_trace.detail(k, "decision", kernel_externalize(k, decision));
     event_trace.heap_after_decision(k);
     event_trace.heap_scores(k);

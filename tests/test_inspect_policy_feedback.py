@@ -84,6 +84,29 @@ def main():
         rejected_rows = [json.loads(line) for line in path.read_text().splitlines()]
         bad_request = rejected_rows[2]["request"]
         assert bad_request["version"] == 7 and bad_request["search_components"][0] == 255
+
+        subprocess.run([sys.argv[2], directory, "feedback"], check=True, timeout=30,
+                       stdout=subprocess.DEVNULL)
+        default_records = sorted(pathlib.Path(directory).glob("profile-*.feedback.jsonl"))
+        assert len(default_records) == 10
+        for default_path in default_records:
+            default_summary = inspector.inspect(default_path)
+            assert default_summary["terminal"]["verdict"] in (10, 20)
+        default_rows = [json.loads(line) for line in default_records[-1].read_text().splitlines()]
+        native_action = next(i for i, row in enumerate(default_rows)
+                             if row["type"] == "action" and "native_request" in row)
+        changed = json.loads(json.dumps(default_rows))
+        changed[native_action]["native_request"]["overshoot"] += 1
+        rejected(encode(changed), "native overshoot mismatch")
+        changed = json.loads(json.dumps(default_rows))
+        changed[native_action]["native_request"]["unlimited"] = 1
+        rejected(encode(changed), "native unlimited")
+        changed = json.loads(json.dumps(default_rows))
+        changed[native_action]["native_request"]["version"] = 2
+        rejected(encode(changed), "unsupported native request version")
+        changed = json.loads(json.dumps(default_rows))
+        changed[native_action]["before"]["native_policy_state"] = 7
+        rejected(encode(changed), "native policy state")
     print("native feedback inspection and corruption controls passed")
 
 
