@@ -33,8 +33,9 @@ struct Capture final : FeedbackReceiver {
   void session_end(const Observation &, int, StopReason) override { ++ended; }
 };
 
-static Kernel pigeonhole() {
+static Kernel pigeonhole(bool cold = false) {
   Kernel k;
+  if (cold) kernel_defer_cold_state(k);
   constexpr unsigned pigeons = 5, holes = 4;
   kernel_reserve_vars(k, pigeons * holes);
   auto cell = [](unsigned p, unsigned h) { return make_lit(p * holes + h, false); };
@@ -524,6 +525,110 @@ static void test_interrupted_entry_and_fresh_session() {
   assert(resumed.actions.front().sequence == 1);
 }
 
+static void test_startup_support_feedback() {
+  std::string preserved;
+  for (bool feedback : {false, true}) {
+    Kernel k = pigeonhole(true);
+    DefaultPolicy policy(search_profile());
+    Capture capture;
+    if (feedback) policy.set_feedback(&capture);
+    assert(policy.solve(k) == 20);
+    assert(!k.h && !k.saved_phases && !k.cold_state_deferred);
+    const auto state = serialize_observation(observe_kernel(k));
+    if (!feedback) preserved = state;
+    else {
+      assert(state == preserved);
+      std::vector<std::string> startup;
+      for (const auto &record : capture.actions)
+        if (record.identity == "MaterializeColdState" || record.identity == "SparseCollect" ||
+            record.identity == "CompactRandomOrder") {
+          startup.push_back(record.identity);
+          assert(!record.before.searching && !record.after.searching);
+          assert(!record.outcome.invocation.applications);
+        }
+      assert((startup == std::vector<std::string>{"MaterializeColdState", "SparseCollect", "CompactRandomOrder"}));
+      assert(capture.begun == 1 && capture.ended == 1);
+    }
+  }
+  // A completed cold Lucky opportunity never reaches the support consumer.
+  Kernel early;
+  kernel_defer_cold_state(early);
+  kernel_reserve_vars(early, 2);
+  kernel_add_binary_clause(early, internalize(1), internalize(2));
+  Capture capture;
+  DefaultPolicy policy(search_profile());
+  policy.set_feedback(&capture);
+  assert(policy.solve(early) == 10 && early.cold_state_deferred);
+  assert(!early.h && !early.saved_phases);
+  for (const auto &record : capture.actions)
+    assert(record.identity != "MaterializeColdState" && record.identity != "SparseCollect" &&
+           record.identity != "CompactRandomOrder");
+}
+
+static void test_post_structured_bce_feedback() {
+  std::string preserved;
+  for (bool feedback : {false, true}) {
+    Kernel k;
+    kernel_reserve_vars(k, 7);
+    const Lit source[] = {internalize(1), internalize(2), internalize(3)};
+    kernel_add_large_clause(k, source, 3, false, 0, ++k.next_clause_id);
+    kernel_add_binary_clause(k, internalize(4), internalize(6), ++k.next_clause_id);
+    kernel_add_binary_clause(k, internalize(-4), internalize(7), ++k.next_clause_id);
+    auto config = search_profile();
+    OnlineInvocation complete;
+    complete.id = 1;
+    complete.rule = "SubstitutionRedundancy";
+    SubstitutionRedundancyParameters ulc;
+    ulc.producer = SubstitutionRedundancyProducer::Orbitopal;
+    ulc.maximum_orbitopal_matrices = 0;
+    ulc.complete_unique_literal_amos = true;
+    complete.parameters = ulc;
+    complete.granularity = InvocationGranularity::CompleteCurrentPass;
+    OnlineInvocation added;
+    added.id = 2;
+    added.rule = complete.rule;
+    added.parameters = SubstitutionRedundancyParameters{};
+    added.granularity = InvocationGranularity::OneInstance;
+    // Positive 5 has no opposite occurrence, so this is a valid blocked
+    // addition with no graph-fixing/root consequence. It triggers cleanup.
+    added.substitution_redundancy_instances = {{{internalize(5), internalize(7)}, {}, {}}};
+    OnlineStrategyProgram program;
+    program.sequence = {complete, added};
+    config.inprocess.structured_root_stages = {{program, BudgetExhaustionPolicy::Continue}};
+    config.inprocess.structured_root_before_lucky = true;
+    Capture capture;
+    capture.check = [&] {
+      if (!capture.actions.empty() && capture.actions.back().identity == "BCE")
+        // Startup still owns tick attribution; only BCE's nested speculative
+        // phase suppression and occurrence attachment must have been restored.
+        assert(k.inprocessing && !k.phase_saving_suppressed && !k.dense);
+    };
+    DefaultPolicy policy(config);
+    if (feedback) policy.set_feedback(&capture);
+    assert(policy.solve(k) == 10);
+    assert(k.stats.sr_unique_literal_amo_binaries && k.stats.sr_post_amo_nonhelper_applied);
+    assert(!k.stats.sr_post_amo_graph_root_units && k.stats.bce_deleted);
+    const auto state = serialize_observation(observe_kernel(k));
+    if (!feedback) preserved = state;
+    else {
+      assert(state == preserved);
+      unsigned calls = 0;
+      for (const auto &record : capture.actions)
+        if (record.identity == "BCE") {
+          ++calls;
+          assert(record.native_request->description == "post-structured-amo");
+          assert(record.native_request->effort_currency == "bce-ticks");
+          assert(record.after.cumulative.bce_deleted > record.before.cumulative.bce_deleted);
+        }
+      assert(calls == 1);
+    }
+    kernel_extend_model(k, false);
+    assert(k.model_values[internalize(1)] > 0 || k.model_values[internalize(2)] > 0 || k.model_values[internalize(3)] > 0);
+    assert(k.model_values[internalize(4)] > 0 || k.model_values[internalize(6)] > 0);
+    assert(k.model_values[internalize(-4)] > 0 || k.model_values[internalize(7)] > 0);
+  }
+}
+
 int main() {
   char temporary[] = "/tmp/tactix-native-feedback-XXXXXX";
   const int fd = mkstemp(temporary);
@@ -540,5 +645,7 @@ int main() {
   test_default_observation_and_replay(temporary);
   test_early_terminal();
   test_interrupted_entry_and_fresh_session();
+  test_startup_support_feedback();
+  test_post_structured_bce_feedback();
   assert(unlink(temporary) == 0);
 }

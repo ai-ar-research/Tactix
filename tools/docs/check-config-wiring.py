@@ -51,8 +51,11 @@ ROOT_EXECUTION = "src/strategy/root_execution.hpp"
 EXECUTION_SCOPE = "src/strategy/execution_scope.hpp"
 POLICY_ADAPTERS["inprocessing"] = [ROOT_EXECUTION, EXECUTION_SCOPE]
 VIVIFY_EXECUTION = "src/strategy/vivify_execution.hpp"
-VIVIFY_BAND = (r"execution::VivifyBandRequest\{[^{}]*"
-               r"e\.meter\(k\) - dose_start")
+VIVIFY_BAND = (r"execution::VivifyBandRequest\{\s*band_scope,\s*cumulative,\s*"
+               r"spent,\s*e\.tick_counter,\s*e\.meter\}")
+WALK_ALLOWANCE = (r"const uint64_t allowance = scale_permille\("
+                  r"reference, config_\.rephase\.walk_permille\)")
+WALK_REQUEST = r"execution::WalkRequest\{allowance, seed\}"
 MATERIAL_REQUEST = (r"execution::MaterialSettingsRequest\{\s*"
                     r"config\(\)\.touch_filter,\s*"
                     r"config\(\)\.likely_kept_redundant")
@@ -67,19 +70,20 @@ POLICY_BINDINGS = {
     ],
     "work_budget": [
         (POLICY[0], r"execution::WorkSettingsRequest\{\s*handed,"),
-        (POLICY[0], r"execution::WalkRequest\{\s*"
-                    r"scale_permille\(reference, config_\.rephase\.walk_permille\), seed"),
+        (POLICY[0], WALK_ALLOWANCE),
+        (POLICY[0], WALK_REQUEST),
         (GUIDANCE_EXECUTION, r"WorkSettingsScope work\(k, \{request\.allowance,"),
         (WORK_EXECUTION, r"k\.work_budget\s*=\s*\*request\.budget"),
     ],
     "walk_random_seed": [
         (POLICY[0], r"const uint64_t seed = config_\.rephase\.walk_use_branch_seed\s*"
                     r"\? default_branching_\.randec_rng\s*:\s*config_\.rephase\.walk_random_seed"),
-        (POLICY[0], r"execution::WalkRequest\{\s*"
-                    r"scale_permille\(reference, config_\.rephase\.walk_permille\), seed"),
+        (POLICY[0], WALK_ALLOWANCE),
+        (POLICY[0], WALK_REQUEST),
         (GUIDANCE_EXECUTION, r"k\.walk_random_seed\s*=\s*request\.seed"),
     ],
     "work_budget_offset": [
+        (POLICY[0], r"const uint64_t spent = e\.meter\(k\) - dose_start"),
         (POLICY[0], VIVIFY_BAND),
         (VIVIFY_EXECUTION, r"WorkSettingsRequest\{request\.cumulative_budget,\s*"
                           r"request\.spent_offset"),

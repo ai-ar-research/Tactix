@@ -171,6 +171,16 @@ scopes. `InprocessPhaseExit` records the shared cleanup transaction. Interruptio
 metadata reads native event counters and external stop state, never an extra
 interruption-fuzz poll.
 
+Startup support records distinguish cold-state materialization, sparse root
+collection and compaction of the random brancher's index order. Representation
+and guidance support are not counted as proof-rule applications; materialization
+and branch-order compaction do not claim formula progress. Sparse collection
+retains its native NoChange/Changed/Unit/Refuted return and raw root/formula
+counters. The producer-dependent post-structured BCE opportunity records its
+native BCE profile/work after the nested phase-saving scope restores the
+enclosing startup context. Early terminal opportunities still bypass unused
+support work.
+
 Successful ResumeSearch starts an interval after root work. Restart closes it;
 partial continuation starts a linked interval under the same configuration.
 Native continuation also links intervals after ordinary full restarts, root

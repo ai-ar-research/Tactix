@@ -3679,7 +3679,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   if (config_.inprocess.structured_root_before_lucky &&
       !config_.inprocess.structured_root_stages.empty() &&
       (!k.proof || k.proof->dsr())) {
-    execution::execute_action(k, execution::MaterializeColdStateRequest{});
+    execution::execute_action(k, execution::MaterializeColdStateRequest{}, completion_);
     const uint64_t amo_binaries_before =
         k.stats.sr_unique_literal_amo_binaries;
     const uint64_t post_amo_progress_before =
@@ -3723,10 +3723,19 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       if (inprocess_reach_root(k))
         return finish(20);
       if (bce_guard(k)) {
-        InprocessScope scope(k);
-        const ApplyResult bce = default_direct_rule(
-            k, "BCE", "post-structured-amo",
-            [&] { return bce_apply(k); });
+        const ApplyResult bce = execution::complete_action(completion_,
+            FeedbackKind::Rule, "BCE", INSTANCE_CANONICAL, [&] {
+              return execution::native_rule_feedback(k, "BCE", INSTANCE_CANONICAL,
+                  "post-structured-amo", [](const Kernel &kernel) {
+                    return kernel.stats.bce_ticks;
+                  }, "bce-ticks");
+            }, [&] {
+              InprocessScope scope(k);
+              return default_direct_rule(k, "BCE", "post-structured-amo",
+                  [&] { return bce_apply(k); });
+            }, [&](ApplyResult result) {
+              return execution::native_rule_outcome(k, "BCE", result);
+            });
         if (bce == ApplyResult::Unsat)
           return finish(20);
       }
@@ -3781,7 +3790,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   // The shipped frontend postpones state that neither root propagation nor
   // early Lucky can read. A failed opportunity crosses the first consumer
   // boundary: materialize before sparse collection and every authored rule.
-  execution::execute_action(k, execution::MaterializeColdStateRequest{});
+  execution::execute_action(k, execution::MaterializeColdStateRequest{}, completion_);
   // Search guidance is likewise unobservable to startup propagation and Lucky.
   // Attach it only after the early opportunity fails. ScopedHeuristics consumes
   // the parser's retained activation order, preserving the exact first-search
@@ -3818,7 +3827,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       event_trace_substitute_map(k, l, l);
 #endif
     event_trace_slot_boundary(k, "SparseCollect", "begin");
-    collected = execution::execute_action(k, execution::SparseCollectRequest{});
+    collected = execution::execute_action(k, execution::SparseCollectRequest{}, completion_);
     event_trace_slot_boundary(k, "SparseCollect", "end");
     if (collected == RootCollectOutcome::Refuted)
       return finish(20);
@@ -3834,7 +3843,22 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   // policy state and must use the same compacted population and ordering.
   event_trace_target_state(k, "startup-compact-pre",
                            static_cast<uint32_t>(k.trail.size()));
-  heuristics_compact_random_order_fixed(k);
+  (void)execution::complete_action(completion_, FeedbackKind::Support,
+      "CompactRandomOrder", INSTANCE_CANONICAL, [] {
+        execution::NativeFeedbackSpec spec;
+        spec.description.description = "fold-root-fixed-branching-population";
+        spec.description.effort_currency = "ticks";
+        spec.meter = [](const Kernel &kernel) { return kernel.stats.ticks; };
+        return spec;
+      }, [&] {
+        execution::execute_action(k, execution::CompactRandomOrderRequest{});
+        return ApplyResult::Ok;
+      }, [](ApplyResult result) {
+        auto outcome = strategy::controller::feedback_outcome(result);
+        outcome.invocation.applications = 0;
+        outcome.invocation.made_rule_progress = false;
+        return outcome;
+      });
   event_trace_target_state(
       k, "startup-compact-post",
       static_cast<uint32_t>(k.compact_import_order.size() -

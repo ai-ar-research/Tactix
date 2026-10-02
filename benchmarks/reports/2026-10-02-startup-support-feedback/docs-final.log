@@ -1,0 +1,37 @@
+Test project /home/hwu/SAT-solving/build/shared-policy-prep-debug
+      Start  27: symmetry_backend_build_boundary
+ 1/16 Test  #27: symmetry_backend_build_boundary ...   Passed    0.10 sec
+      Start  81: config_wiring
+ 2/16 Test  #81: config_wiring .....................   Passed    1.15 sec
+      Start  82: effort_specs
+ 3/16 Test  #82: effort_specs ......................   Passed    0.11 sec
+      Start  83: option_coverage
+ 4/16 Test  #83: option_coverage ...................   Passed    0.83 sec
+      Start  84: stat_ids
+ 5/16 Test  #84: stat_ids ..........................   Passed    0.07 sec
+      Start  85: feedback_statistics
+ 6/16 Test  #85: feedback_statistics ...............   Passed    0.06 sec
+      Start  86: citations
+ 7/16 Test  #86: citations .........................   Passed   11.02 sec
+      Start  87: section_refs
+ 8/16 Test  #87: section_refs ......................   Passed    0.11 sec
+      Start  88: inventory
+ 9/16 Test  #88: inventory .........................   Passed    0.07 sec
+      Start  89: comment_hygiene
+10/16 Test  #89: comment_hygiene ...................   Passed    3.41 sec
+      Start  90: doc_size
+11/16 Test  #90: doc_size ..........................   Passed    0.07 sec
+      Start  91: proof_rule_sync
+12/16 Test  #91: proof_rule_sync ...................   Passed    0.06 sec
+      Start  92: default_strategy_config_check
+13/16 Test  #92: default_strategy_config_check .....   Passed    0.09 sec
+      Start  94: kernel_h_boundary
+14/16 Test  #94: kernel_h_boundary .................   Passed    0.01 sec
+      Start  95: rule_policy_boundary
+15/16 Test  #95: rule_policy_boundary ..............   Passed    0.23 sec
+      Start 188: startup_support_signature
+16/16 Test #188: startup_support_signature .........   Passed    0.01 sec
+
+100% tests passed out of 16
+
+Total Test time (real) =  17.40 sec
