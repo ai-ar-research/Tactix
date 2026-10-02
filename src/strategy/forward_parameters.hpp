@@ -34,6 +34,9 @@ struct StrengthenParameters {
   constexpr bool valid() const { return true; }
 };
 
+void install_rule_parameters(Kernel &, const SubsumeForwardParameters &);
+void install_rule_parameters(Kernel &, const StrengthenParameters &);
+
 class ScopedSubsumeForwardParameters {
 public:
   ScopedSubsumeForwardParameters(Kernel &, const SubsumeForwardParameters &);

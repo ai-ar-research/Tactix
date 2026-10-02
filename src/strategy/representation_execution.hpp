@@ -5,6 +5,11 @@
 namespace tactix::execution {
 
 struct MaterializeColdStateRequest {};
+struct DisconnectLargeWatchesRequest {};
+struct ReconnectLargeWatchesRequest {
+  bool arena_order = false;
+};
+struct FlushRetiredRedundantRequest {};
 struct SparseCollectRequest {
   Ref start = 0;
 };
@@ -19,6 +24,15 @@ struct CollectGarbageRequest {
 
 inline void execute_action(Kernel &k, MaterializeColdStateRequest) {
   kernel_materialize_cold_state(k);
+}
+inline void execute_action(Kernel &k, DisconnectLargeWatchesRequest) {
+  kernel_flush_large_watches(k);
+}
+inline void execute_action(Kernel &k, const ReconnectLargeWatchesRequest &request) {
+  kernel_rebuild_large_watches(k, request.arena_order);
+}
+inline void execute_action(Kernel &k, FlushRetiredRedundantRequest) {
+  kernel_flush_retired_redundant(k);
 }
 inline RootCollectOutcome execute_action(Kernel &k,
                                          const SparseCollectRequest &request) {

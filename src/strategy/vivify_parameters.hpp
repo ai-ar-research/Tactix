@@ -32,6 +32,8 @@ inline bool vivify_skip_global_order(uint64_t irredundant,
   return irredundant / parameters.irredundant_sort_ratio > redundant;
 }
 
+void install_rule_parameters(Kernel &, const VivifyParameters &);
+
 class ScopedVivifyParameters {
 public:
   ScopedVivifyParameters(Kernel &, const VivifyParameters &);
@@ -40,7 +42,6 @@ public:
   ~ScopedVivifyParameters();
 
 private:
-  void install(const VivifyParameters &);
   Kernel &kernel_;
   VivifyParameters saved_;
 };

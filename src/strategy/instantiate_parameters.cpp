@@ -4,14 +4,18 @@
 
 namespace tactix::strategy {
 
+void install_rule_parameters(Kernel &k, const InstantiateParameters &parameters) {
+  k.instantiate_parameters = parameters;
+}
+
 ScopedInstantiateParameters::ScopedInstantiateParameters(
     Kernel &kernel, const InstantiateParameters &parameters)
     : kernel_(kernel), saved_(kernel.instantiate_parameters) {
-  kernel_.instantiate_parameters = parameters;
+  install_rule_parameters(kernel_, parameters);
 }
 
 ScopedInstantiateParameters::~ScopedInstantiateParameters() {
-  kernel_.instantiate_parameters = saved_;
+  install_rule_parameters(kernel_, saved_);
 }
 
 } // namespace tactix::strategy

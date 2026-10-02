@@ -10,6 +10,9 @@
 #include "strategy/root_execution.hpp"
 #include "strategy/occurrence_execution.hpp"
 #include "strategy/publication_execution.hpp"
+#include "strategy/guidance_execution.hpp"
+#include "strategy/reduction_execution.hpp"
+#include "strategy/sweep_execution.hpp"
 #include "policies/rule_publication.hpp"
 #include "diagnostics/event_trace.hpp"
 #include "diagnostics/rule_journal.hpp"
@@ -164,35 +167,20 @@ ApplyResult default_lucky(Kernel &k, const char *candidate) {
 ApplyResult default_resume_sparse_propagation(Kernel &k,
                                               uint32_t trail_begin,
                                               bool charge_search_ticks) {
-  assert(k.level == 0);
-  assert(trail_begin <= k.trail.size());
   // Kissat clears its old root trail on phase entry, then resets propagation
   // to the beginning of the suffix produced by the simplifier after sparse
   // watches are rebuilt. Tactix retains immutable root identities, so the
   // equivalent cursor is the saved suffix boundary, not literal trail zero.
-  k.propagate_head = trail_begin;
-  k.binary_only_head = UINT32_MAX;
-  const bool saved_inprocessing = k.inprocessing;
-  if (charge_search_ticks)
-    k.inprocessing = false;
-  const ApplyResult result =
-      default_propagate(k, charge_search_ticks ? "eliminate-sparse-resume"
-                                               : "probe-sparse-resume");
-  k.inprocessing = saved_inprocessing;
-  return result;
+  return execution::execute_action(
+      k, execution::SparseResumeRequest{trail_begin, charge_search_ticks}, [&] {
+        return default_propagate(k, charge_search_ticks ? "eliminate-sparse-resume"
+                                                       : "probe-sparse-resume");
+      });
 }
 
 void default_prepare_reduction(Kernel &k) {
-  const uint64_t roots_before = k.stats.root_assignments;
-  reduce_prepare(k);
-  const uint64_t new_roots = k.stats.root_assignments - roots_before;
-  if (new_roots) {
-    // Preparation backtracks before its root-only propagation. The incoming
-    // trail length is not a valid suffix cursor after that truncation; every
-    // new root is instead in the final appended suffix, including on conflict.
-    assert(new_roots <= k.trail.size());
-    heuristics_consume_root_assignments(k, k.trail.size() - new_roots);
-  }
+  execution::execute_action(k, execution::ReductionPreparationRequest{},
+      [&](size_t begin) { heuristics_consume_root_assignments(k, begin); });
 }
 
 bool default_should_cleanup_unique_literal_amo(
@@ -1431,25 +1419,16 @@ bool DefaultPolicy::want_rephase(const Kernel &k) const {
 ApplyResult DefaultPolicy::prepare_rephase_root(Kernel &k) {
   // Restart is publicly applicable as a level-zero no-op, but this helper
   // preserves the shipped policy's old root-preparation schedule.
-  if (k.level > 0 && restart_guard(k)) {
-    heuristics_update_target_phases(k);
-    (void)default_direct_rule(k, "Restart", "keep-level=0;rephase=1",
-                              [&] {
-                                return execution::execute_action(
-                                    k, execution::RestartRequest{
-                                           0, execution::RestartPurpose::Preparation});
-                              });
-  }
   // Kissat rephase.c backtracks, propagates and flushes the root trail before
   // changing phases. Chronological backtracking can retain out-of-order root
   // assignments that must be rescanned after their transient blockers vanish.
   // Warm-up must not defer those scans until after its first decision.
-  const ApplyResult result = default_propagate(k, "rephase-root");
-  if (result == ApplyResult::Ok) {
-    assert(k.level == 0 && kernel_propagation_fixpoint(k));
-    k.unflushed_root = 0;
-  }
-  return result;
+  return execution::execute_action(k, execution::RootPreparationRequest{false, true},
+      [&] { heuristics_update_target_phases(k); },
+      [&](const execution::RestartRequest &request) {
+        return default_direct_rule(k, "Restart", "keep-level=0;rephase=1",
+            [&] { return execution::execute_action(k, request); });
+      }, [&] { return default_propagate(k, "rephase-root"); });
 }
 
 bool DefaultPolicy::want_reorder(const Kernel &k) const {
@@ -3057,6 +3036,41 @@ void DefaultInprocessScheduler::reset(const Kernel &) {
   forward_pair_limit_ = 0;
 }
 
+void DefaultInprocessScheduler::install_parameters(Kernel &k) const {
+  execution::execute_action(k, execution::ParameterInstallationRequest{
+                                   config().congruence_parameters});
+  execution::execute_action(k, execution::ParameterInstallationRequest{
+                                   config().instantiate_parameters});
+  execution::execute_action(k, execution::ParameterInstallationRequest{
+                                   config().backbone_parameters});
+  execution::execute_action(k, execution::ParameterInstallationRequest{
+                                   config().bce_parameters});
+  execution::execute_action(k, execution::ParameterInstallationRequest{
+                                   config().ternary_parameters});
+  execution::execute_action(k, execution::ParameterInstallationRequest{
+                                   config().factor_parameters});
+  execution::execute_action(k, execution::ParameterInstallationRequest{
+                                   config().transitive_parameters});
+  execution::execute_action(k, execution::ParameterInstallationRequest{
+                                   config().substitute_parameters});
+  execution::execute_action(k, execution::ParameterInstallationRequest{
+                                   config().vivify_parameters});
+  // The scheduler owns these limits, while gate mask, growth ramp and physical
+  // traversal retain the installed caller profile until their native occasion.
+  strategy::BveParameters bve = strategy::BveParameters::from_kernel(k);
+  bve.occurrence_limit = config().bve_occurrence_limit;
+  bve.clause_size_limit = config().bve_clause_size_limit;
+  bve.resolvent_count_limit = UINT32_MAX;
+  bve.xor_arity_limit = config().bve_xor_arity_limit;
+  bve.resolvent_size_limit = config().bve_resolvent_size_limit;
+  bve.backward_occurrence_limit = config().bve_backward_occurrence_limit;
+  bve.definition_budget = config().bve_definition_budget;
+  bve.definition_cores = config().bve_definition_cores;
+  bve.definition_core_budget_multiplier = config().bve_definition_core_budget_multiplier;
+  bve.backward = config().bve_backward;
+  execution::execute_action(k, execution::ParameterInstallationRequest{bve});
+}
+
 void DefaultInprocessScheduler::build(Kernel &k) {
   configure();
   if (entries.empty()) {
@@ -3196,43 +3210,10 @@ void DefaultInprocessScheduler::build(Kernel &k) {
   // action surface and may be consulted before the first phase, and the
   // kernel's unlimited default squares to a magnitude that cancels every
   // score difference in `kissat_bve_variable_score`.
-  k.bve_occurrence_limit = config().bve_occurrence_limit;
-  k.congruence_parameters = config().congruence_parameters;
-  k.instantiate_parameters = config().instantiate_parameters;
-  k.backbone_parameters = config().backbone_parameters;
-  k.bce_occ_limit = config().bce_parameters.occurrence_limit;
-  k.ternary_occ_limit = config().ternary_parameters.occurrence_limit;
-  k.ternary_max_add_percent =
-      config().ternary_parameters.maximum_add_percent;
-  k.factor_size = config().factor_parameters.maximum_clause_size;
-  k.factor_bound = config().factor_parameters.growth_bound;
-  k.factor_cand_rounds = config().factor_parameters.candidate_rounds;
-  k.factor_composite = config().factor_parameters.composite;
-  k.factor_demote_fresh = config().factor_parameters.demote_fresh;
-  k.transitive_early_exit = config().transitive_parameters.early_exit;
-  k.transitive_live_meter = config().transitive_parameters.live_meter;
-  k.transitive_budget_checked =
-      config().transitive_parameters.checked_budget_meter;
-  k.subst_demote = config().substitute_parameters.demote_substituted;
-  k.vivify_scope = config().vivify_parameters.scope;
-  k.vivify_reuse = config().vivify_parameters.reuse;
-  k.vivify_flush = config().vivify_parameters.flush;
-  k.vivify_irredundant_sort_ratio =
-      config().vivify_parameters.irredundant_sort_ratio;
+  install_parameters(k);
   execution::execute_action(k, execution::MaterialSettingsRequest{
                                    config().touch_filter,
                                    config().likely_kept_redundant});
-  k.bve_clause_size_limit = config().bve_clause_size_limit;
-  k.bve_resolvent_count_limit = UINT32_MAX;
-  k.bve_xor_arity_limit = config().bve_xor_arity_limit;
-  k.bve_resolvent_size_limit = config().bve_resolvent_size_limit;
-  k.bve_backward_occurrence_limit =
-      config().bve_backward_occurrence_limit;
-  k.bve_definition_budget = config().bve_definition_budget;
-  k.bve_definition_cores = config().bve_definition_cores;
-  k.bve_definition_core_budget_multiplier =
-      config().bve_definition_core_budget_multiplier;
-  k.bve_backward = config().bve_backward;
   if (!initialized_) {
     initialized_ = true;
     // Probe is due immediately because it owns initial preprocessing.
@@ -3286,96 +3267,47 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   }
   std::optional<ScopedHeuristics> owned_h;
   solves++;
-  k.conflict_reuse_chrono_levels = chrono_levels;
-  k.analyze_parameters.minimize_depth_limit =
-      config_.analysis.minimize_depth_limit;
-  k.conflict_reuse = config_.analysis.conflict_reuse;
-  k.jump_reasons = config_.analysis.jump_reasons;
-  k.shrink_glue_promote = config_.analysis.shrink_glue_promote;
-  k.no_ext_reason_bump = !config_.analysis.bump_extension_reasons;
-  k.eager_subsume = config_.analysis.eager_subsume;
-  k.reorder_maximum_clause_size =
-      config_.reorder.parameters.maximum_clause_size;
-  k.reorder_clause_decay_milli =
-      config_.reorder.parameters.clause_decay_milli;
-  k.reorder_binary_weight_milli =
-      config_.reorder.parameters.binary_weight_milli;
-  k.reorder_balanced_polarity_milli =
-      config_.reorder.parameters.balanced_polarity_milli;
-  k.parity_model_maximum_variables =
-      config_.parity_model.parameters.maximum_variables;
-  k.parity_model_maximum_groups = config_.parity_model.parameters.maximum_groups;
-  k.parity_model_maximum_constraints =
-      config_.parity_model.parameters.maximum_constraints;
-  k.parity_model_minimum_group_clauses =
-      config_.parity_model.parameters.minimum_group_clauses;
-  k.parity_model_minimum_equations =
-      config_.parity_model.parameters.minimum_equations;
-  k.parity_model_maximum_free_variables =
-      config_.parity_model.parameters.maximum_free_variables;
-  k.parity_model_candidate_budget =
-      config_.parity_model.parameters.candidate_budget;
-  k.parity_refutation_maximum_variables =
-      config_.parity_model.parameters.refutation_maximum_variables;
-  k.parity_refutation_maximum_groups =
-      config_.parity_model.parameters.refutation_maximum_groups;
-  k.parity_refutation_maximum_constraints =
-      config_.parity_model.parameters.refutation_maximum_constraints;
-  k.parity_refutation_maximum_arity =
-      config_.parity_model.parameters.refutation_maximum_arity;
-  k.parity_refutation_probe_constraints =
-      config_.parity_model.parameters.refutation_probe_constraints;
-  k.parity_refutation_minimum_probe_repeats =
-      config_.parity_model.parameters.refutation_minimum_probe_repeats;
-  k.parity_refutation_maximum_proof_additions =
-      config_.parity_model.parameters.refutation_maximum_proof_additions;
-  k.onehot_model_maximum_variables =
-      config_.onehot_model.parameters.maximum_variables;
-  k.onehot_model_maximum_domains =
-      config_.onehot_model.parameters.maximum_domains;
-  k.onehot_model_maximum_constraints =
-      config_.onehot_model.parameters.maximum_constraints;
-  k.onehot_model_maximum_equation_arity =
-      config_.onehot_model.parameters.maximum_equation_arity;
-  k.onehot_model_minimum_domains =
-      config_.onehot_model.parameters.minimum_domains;
-  k.onehot_model_minimum_equations =
-      config_.onehot_model.parameters.minimum_equations;
-  k.onehot_model_maximum_free_domains =
-      config_.onehot_model.parameters.maximum_free_domains;
-  k.onehot_model_candidate_budget =
-      config_.onehot_model.parameters.candidate_budget;
-  k.exact_one_refutation_maximum_variables =
-      config_.onehot_model.parameters.refutation_maximum_variables;
-  k.exact_one_refutation_maximum_groups =
-      config_.onehot_model.parameters.refutation_maximum_groups;
-  k.exact_one_refutation_maximum_constraints =
-      config_.onehot_model.parameters.refutation_maximum_constraints;
-  k.exact_one_refutation_maximum_arity =
-      config_.onehot_model.parameters.refutation_maximum_arity;
-  k.exact_one_refutation_maximum_proof_additions =
-      config_.onehot_model.parameters.refutation_maximum_proof_additions;
-  k.balanced_signature_model_parameters =
-      config_.balanced_signature_model.parameters;
-  k.fermat_model_parameters = config_.fermat_model.parameters;
-  k.lookup_circuit_model_parameters =
-      config_.lookup_circuit_model.parameters;
-  k.simon_model_parameters = config_.simon_model.parameters;
-  k.stconn_proof_parameters = config_.stconn_proof.parameters;
-  k.signed_cardinality_proof_parameters =
-      config_.signed_cardinality_proof.parameters;
-  k.exact_cover_model_parameters = config_.exact_cover_model.parameters;
-  k.independent_set_model_parameters =
-      config_.independent_set_model.parameters;
-  k.reduce_victim_numerator = config_.reduction.victim_numerator;
-  k.reduce_victim_denominator = config_.reduction.victim_denominator;
-  k.reduce_protect_tiers = config_.reduction.protect_tiers;
-  k.reduce_compact_collection =
-      config_.reduction.canonical_compact_collection;
-  k.reduce_bookkeeping = config_.reduction.bookkeeping;
-  k.walk_even_break_base_milli =
-      config_.rephase.walk_even_break_base_milli;
-  k.walk_score_curve = config_.rephase.walk_score_curve;
+  strategy::AnalyzeParameters analysis = strategy::AnalyzeParameters::from_kernel(k);
+  analysis.chronological_levels = chrono_levels;
+  analysis.minimize_depth_limit = config_.analysis.minimize_depth_limit;
+  analysis.conflict_reuse = config_.analysis.conflict_reuse;
+  analysis.jump_reasons = config_.analysis.jump_reasons;
+  analysis.shrink_glue_promote = config_.analysis.shrink_glue_promote;
+  analysis.bump_extension_reasons = config_.analysis.bump_extension_reasons;
+  analysis.eager_subsume = config_.analysis.eager_subsume;
+  execution::execute_action(k, execution::ParameterInstallationRequest{analysis});
+  execution::execute_action(k, execution::ParameterInstallationRequest{
+                                   config_.reorder.parameters});
+  execution::execute_action(k, execution::ParameterInstallationRequest{
+                                   config_.parity_model.parameters});
+  execution::execute_action(k, execution::ParameterInstallationRequest{
+                                   config_.onehot_model.parameters});
+  execution::execute_action(k, execution::ParameterInstallationRequest{
+                                   config_.balanced_signature_model.parameters});
+  execution::execute_action(k, execution::ParameterInstallationRequest{
+                                   config_.fermat_model.parameters});
+  execution::execute_action(k, execution::ParameterInstallationRequest{
+                                   config_.lookup_circuit_model.parameters});
+  execution::execute_action(k, execution::ParameterInstallationRequest{
+                                   config_.simon_model.parameters});
+  execution::execute_action(k, execution::ParameterInstallationRequest{
+                                   config_.stconn_proof.parameters});
+  execution::execute_action(k, execution::ParameterInstallationRequest{
+                                   config_.signed_cardinality_proof.parameters});
+  execution::execute_action(k, execution::ParameterInstallationRequest{
+                                   config_.exact_cover_model.parameters});
+  execution::execute_action(k, execution::ParameterInstallationRequest{
+                                   config_.independent_set_model.parameters});
+  strategy::ReduceParameters reduce = strategy::ReduceParameters::from_kernel(k);
+  reduce.victim_numerator = config_.reduction.victim_numerator;
+  reduce.victim_denominator = config_.reduction.victim_denominator;
+  reduce.protect_tiers = config_.reduction.protect_tiers;
+  reduce.compact_collection = config_.reduction.canonical_compact_collection;
+  reduce.reduction_bookkeeping = config_.reduction.bookkeeping;
+  execution::execute_action(k, execution::ParameterInstallationRequest{reduce});
+  execution::execute_action(k, execution::WalkGuidanceInstallationRequest{
+                                   config_.rephase.walk_even_break_base_milli,
+                                   config_.rephase.walk_score_curve});
   if (reset_schedule_per_solve) {
     for (uint32_t mode = 0; mode != 2; ++mode) {
       k.tier1_by_mode[mode] = config_.reduction.tier1_default;
@@ -3990,8 +3922,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       (void)default_direct_rule_lazy(
           k, "Reduce",
           [&] { return "victims=" + std::to_string(reduce_victims); }, [&] {
-            return reduce_apply_refs(k, reduce_scratch_.data(), reduce_victims,
-                                     compact_due);
+            return execution::execute_action(k, execution::ReductionRequest{
+                std::span<const Ref>(reduce_scratch_.data(), reduce_victims), compact_due});
           });
       if (compact_due)
         event_trace_target_state(
@@ -4016,7 +3948,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         force_mode_ == 1 || (force_mode_ == 2 && k.h->stable);
     if (!pin_mode && want_switch_mode(k) && switchmode_guard(k)) {
       event_trace.macro(k, "switch_begin");
-      switchmode_apply(k);
+      execution::execute_action(k, execution::SwitchModeRequest{});
       mode.count++;
       averages[k.h->stable].saved_decisions = k.stats.decisions;
       if (k.h->stable) // entering stable: fresh reluctant sequence
@@ -4072,12 +4004,11 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       k.stats.reorder_eligible++;
       if (reorder_guard(k)) {
         event_trace.reorder_begin(k);
-        if (config_.reorder.target == DefaultReorderTarget::Queue)
-          reorder_apply_target(k, REORDER_QUEUE);
-        else if (config_.reorder.target == DefaultReorderTarget::Heap)
-          reorder_apply_target(k, REORDER_HEAP);
-        else
-          reorder_apply(k);
+        const uint64_t target = config_.reorder.target == DefaultReorderTarget::Queue
+                                    ? REORDER_QUEUE
+                                : config_.reorder.target == DefaultReorderTarget::Heap
+                                    ? REORDER_HEAP : INSTANCE_CANONICAL;
+        execution::execute_action(k, execution::ReorderRequest{target});
         reorder.count++;
         update_reorder_limit(k);
         event_trace.reorder_end(k);
@@ -4097,25 +4028,12 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         // trail is then discarded without undoing it.
         if (config_.rephase.walk_warmup) {
           BranchingPolicy &bp = branching ? *branching : default_branching_;
-          assert(k.level == 0 && kernel_propagation_fixpoint(k));
-          k.warming = true;
-          k.stats.warmups++;
-          while (k.unassigned_active) {
-            if (kernel_terminating(k))
-              break;
-            const Lit decision = bp.pick(k);
-            kernel_assign_decision(k, decision);
-            k.stats.warming_decisions++;
+          (void)execution::execute_action(k, execution::WarmupRequest{},
+              [&] { return bp.pick(k); }, [&](Lit decision) {
             event_trace.detail(k, "decision", kernel_externalize(k, decision));
             event_trace.heap_after_decision(k);
             event_trace.heap_scores(k);
-            const size_t warmup_trail_begin = k.trail.size();
-            kernel_propagate_beyond_conflicts(k);
-            event_trace.implications(k, warmup_trail_begin);
-          }
-          if (k.level)
-            kernel_backtrack(k, 0);
-          k.warming = false;
+          }, [&](size_t begin) { event_trace.implications(k, begin); });
         }
         // Structural searches retain their best complete assignment even when
         // it is not a model.  Import one source in a typed round-robin before
@@ -4123,19 +4041,17 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         // result through the ordinary saved/target phase mechanism.
         if (config_.rephase.structural_walk_seed &&
             local_search_guidance_guard(k))
-          (void)local_search_guidance_apply_next(
-              k, config_.rephase.structural_seed_rotation,
-              structural_seed_cursor_);
+          (void)execution::execute_action(k, execution::LocalSearchRotationRequest{
+              config_.rephase.structural_seed_rotation, structural_seed_cursor_});
         const uint64_t reference = walk_effort_reference(k);
-        k.work_budget = scale_permille(reference, config_.rephase.walk_permille);
         // Kissat seeds the walker from the search policy's shared generator.
         // DefaultBranching owns that generator in Tactix; snapshot it here so
         // the H-only Walk operation need not reach back into its caller.
-        k.walk_random_seed = config_.rephase.walk_use_branch_seed
-                                 ? default_branching_.randec_rng
-                                 : config_.rephase.walk_random_seed;
-        walk_apply(k);
-        k.work_budget = 0;
+        const uint64_t seed = config_.rephase.walk_use_branch_seed
+                                  ? default_branching_.randec_rng
+                                  : config_.rephase.walk_random_seed;
+        (void)execution::execute_action(k, execution::WalkRequest{
+            scale_permille(reference, config_.rephase.walk_permille), seed});
       } else {
         const DefaultRephaseSlot effective =
             slot == DefaultRephaseSlot::Walk
@@ -4146,7 +4062,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           type = REPHASE_INVERTED;
         else if (effective == DefaultRephaseSlot::Original)
           type = REPHASE_ORIGINAL;
-        rephase_apply_type(k, type);
+        execution::execute_action(k, execution::RephaseRequest{type});
       }
       update_rephase_limit(k);
       event_trace.macro(k, "rephase_end");
@@ -4879,7 +4795,7 @@ ApplyResult DefaultInprocessScheduler::run_budgeted_batch(Kernel &k, SlotEntry &
       const auto *posed = std::get_if<SweepLimits>(&e.parameters);
       const SweepLimits lim = posed ? *posed : configured_sweep_limits(config());
       const uint64_t t0 = now_nanos();
-      ar = sweep_apply_exact_limits(k, lim);
+      ar = execution::execute_action(k, execution::SweepRequest{lim});
       if (r.id < Stats::MAX_TIMED_RULES) {
         k.stats.rule_nanos[r.id] += now_nanos() - t0;
         k.stats.rule_calls[r.id]++;
@@ -5350,40 +5266,7 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   // sequence instead of restarting it at each BVE slot visit.
   if (group == SlotGroup::Eliminate && !initial_fast_elimination_active_)
     k.bve_definition_session = k.bve_definition_session + 1;
-  k.bve_occurrence_limit = config().bve_occurrence_limit;
-  k.congruence_parameters = config().congruence_parameters;
-  k.instantiate_parameters = config().instantiate_parameters;
-  k.backbone_parameters = config().backbone_parameters;
-  k.bce_occ_limit = config().bce_parameters.occurrence_limit;
-  k.ternary_occ_limit = config().ternary_parameters.occurrence_limit;
-  k.ternary_max_add_percent =
-      config().ternary_parameters.maximum_add_percent;
-  k.factor_size = config().factor_parameters.maximum_clause_size;
-  k.factor_bound = config().factor_parameters.growth_bound;
-  k.factor_cand_rounds = config().factor_parameters.candidate_rounds;
-  k.factor_composite = config().factor_parameters.composite;
-  k.factor_demote_fresh = config().factor_parameters.demote_fresh;
-  k.transitive_early_exit = config().transitive_parameters.early_exit;
-  k.transitive_live_meter = config().transitive_parameters.live_meter;
-  k.transitive_budget_checked =
-      config().transitive_parameters.checked_budget_meter;
-  k.subst_demote = config().substitute_parameters.demote_substituted;
-  k.vivify_scope = config().vivify_parameters.scope;
-  k.vivify_reuse = config().vivify_parameters.reuse;
-  k.vivify_flush = config().vivify_parameters.flush;
-  k.vivify_irredundant_sort_ratio =
-      config().vivify_parameters.irredundant_sort_ratio;
-  k.bve_clause_size_limit = config().bve_clause_size_limit;
-  k.bve_resolvent_count_limit = UINT32_MAX;
-  k.bve_xor_arity_limit = config().bve_xor_arity_limit;
-  k.bve_resolvent_size_limit = config().bve_resolvent_size_limit;
-  k.bve_backward_occurrence_limit =
-      config().bve_backward_occurrence_limit;
-  k.bve_definition_budget = config().bve_definition_budget;
-  k.bve_definition_cores = config().bve_definition_cores;
-  k.bve_definition_core_budget_multiplier =
-      config().bve_definition_core_budget_multiplier;
-  k.bve_backward = config().bve_backward;
+  install_parameters(k);
   factor_bound_snapshot_ =
       couple_factor_bound_ ? bve_level_ : 0;
   const uint64_t phase_props_at_entry = k.stats.propagations;
@@ -5427,7 +5310,7 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   // retain their own entry/exit transitions. Keeping sparse watches throughout
   // Eliminate otherwise publishes and scans a second, obsolete large image.
   if (group == SlotGroup::Eliminate)
-    kernel_flush_large_watches(k);
+    execution::execute_action(k, execution::DisconnectLargeWatchesRequest{});
   k.stats.inprocess_entry_nanos += now_nanos() - phase_nanos_at_entry;
   default_factor_match_.bound = std::max(k.factor_bound, factor_bound_snapshot_); // see DefaultFactorMatch
   k.factor_selection = factor_match ? factor_match : &default_factor_match_;
@@ -5694,7 +5577,7 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   // arena-order collection of every root-satisfied or retired-variable large
   // clause.  Other groups retain the generic redundant-retirement safeguard.
   if (!ctx.phase_unsat && group != SlotGroup::Eliminate)
-    kernel_flush_retired_redundant(k);
+    execution::execute_action(k, execution::FlushRetiredRedundantRequest{});
   heuristics_consume_retirements(k);
   occurrences.close();
   // Only Eliminate reconnects at the pipeline level (eliminate.c:587-589).
@@ -5709,7 +5592,8 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   // Packed Tactix replacements replay their persistent source positions, as
   // every rule-local reconnect does, until collection materializes the order.
   if (group == SlotGroup::Eliminate || !k.large_watches_connected)
-    kernel_rebuild_large_watches(k, group == SlotGroup::Eliminate);
+    execution::execute_action(k, execution::ReconnectLargeWatchesRequest{
+        group == SlotGroup::Eliminate});
   if (group == SlotGroup::Eliminate && !ctx.phase_unsat) {
     // dense.c::kissat_resume_sparse_mode resets propagation after reconnecting
     // and, because Eliminate is not a probing scope, deliberately uses

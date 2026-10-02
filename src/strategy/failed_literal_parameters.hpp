@@ -18,6 +18,8 @@ struct BackboneParameters {
   constexpr bool valid() const { return true; }
 };
 
+void install_rule_parameters(Kernel &, const BackboneParameters &);
+
 class ScopedBackboneParameters {
 public:
   ScopedBackboneParameters(Kernel &, const BackboneParameters &);

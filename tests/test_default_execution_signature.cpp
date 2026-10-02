@@ -1,9 +1,11 @@
 #undef NDEBUG
+#include "diagnostics/rule_journal.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
 
 #include <cassert>
 #include <cstdio>
+#include <cstdlib>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -36,8 +38,14 @@ static std::string pigeonhole(Kernel &k, unsigned pigeons, unsigned holes) {
 }
 
 int main(int argc, char **argv) {
+  assert(argc == 1 || argc == 2 ||
+         (argc == 3 && std::string(argv[2]) == "diagnostics"));
+  const bool diagnostics = argc == 3;
+#if !defined(TACTIX_ENABLE_EVENT_TRACE) || !defined(TACTIX_ENABLE_RULE_JOURNAL)
+  assert(!diagnostics);
+#endif
   uint64_t search_conflicts = 0, search_learned = 0;
-  for (unsigned profile : {0u, 1u, 2u})
+  for (unsigned profile : {0u, 1u, 2u, 3u, 4u})
     for (unsigned pigeons : {4u, 6u}) {
       Kernel k;
       ScopedHeuristics h(k);
@@ -48,6 +56,11 @@ int main(int argc, char **argv) {
                 "-pigeons-" + std::to_string(pigeons)
           : "/tmp/tactix-default-signature-" + std::to_string(getpid());
       const std::string path = stem + ".drat";
+      if (diagnostics) {
+        rule_journal_close();
+        assert(setenv("TACTIX_RULE_JOURNAL", (stem + ".journal").c_str(), 1) == 0);
+        assert(setenv("TACTIX_EVENT_TRACE", (stem + ".events").c_str(), 1) == 0);
+      }
       Proof proof;
       assert(proof.open(path.c_str(), ProofFormat::DratAscii));
       proof.bind_variable_map(&k.internal_to_external);
@@ -64,19 +77,41 @@ int main(int argc, char **argv) {
         config.inprocess.initial_fast_elimination = false;
         config.rephase.walk_warmup = false;
         config.rephase.late_lucky = false;
-        config.mode.force = profile;
+        config.mode.force = profile <= 2 ? profile : 2;
         config.analysis.chronological_levels = profile == 2 ? 0 : 100;
         config.analysis.reuse_ranked_trail_suffix = profile == 1;
         config.restart.reluctant_period = 2;
         config.reduction.initial_interval = 5;
         config.rephase.initial_interval = 10;
         config.reorder.initial_interval = 10;
+        if (profile >= 3) {
+          // Exercise support transactions that ordinary short fixtures do not
+          // reach: complete warm-up, Walk handoff and automatic mode changes.
+          config.rephase.walk_warmup = true;
+          config.rephase.structural_walk_seed = false;
+          config.rephase.stable_only = false;
+          config.rephase.initial_interval = 1;
+          config.rephase.interval = 1;
+          config.rephase.rotation = {DefaultRephaseSlot::Walk};
+          config.rephase.walk_permille = 1;
+          if (profile == 4) {
+            config.mode.force = 0;
+            config.mode.initial_conflicts = 1;
+            config.mode.interval = 1;
+          }
+        }
       }
       DefaultPolicy policy(config);
       const int verdict = policy.solve(k);
+      if (diagnostics) rule_journal_close();
       assert(verdict == (pigeons == 6 ? 20 : 10));
       assert(!k.pending.valid && !k.conflict_valid);
       kernel_check_invariants(k);
+      if (profile >= 3 && verdict == 20) {
+        assert(k.stats.warmups && k.stats.warming_decisions);
+        assert(k.stats.walks && k.stats.walk_steps);
+        if (profile == 4) assert(k.stats.switched);
+      }
       if (verdict == 10) {
         kernel_extend_model(k, false);
         for (unsigned p = 0; p < pigeons; ++p) {
@@ -115,6 +150,10 @@ int main(int argc, char **argv) {
                 << s.search_ticks << ':' << s.learned << ':' << s.learned_units
                 << ':' << s.conflict_reused << ':' << s.chronological << ':'
                 << s.restarts << ':' << s.restarts_reused << ':' << s.reductions
+                << ':' << s.warmups << ':' << s.warming_decisions << ':'
+                << s.warming_propagations << ':' << s.warming_conflicts << ':'
+                << s.switched << ':' << s.walks << ':' << s.walk_steps << ':'
+                << s.walk_improved << ':' << s.reordered << ':' << s.rephased
                 << " state=" << k.level << ':' << k.propagate_head << ':'
                 << k.next_clause_id;
       for (Lit lit : k.trail) std::cout << ':' << lit;
