@@ -126,6 +126,44 @@ evidence and are not compared as deterministic state. Coverage output separates
 requests, applications, effective changes, exhaustion/staleness/interruption,
 search intervals/decisions/conflicts and full-restart configuration changes.
 
+## Completion and feedback records
+
+`strategy/controller_observation.hpp` owns the common pure kernel snapshot;
+the policy owner supplies its selected configuration and scheduling history.
+`FeedbackSession` in `strategy/policy_feedback.hpp` owns completion delivery
+and search-interval measurement. Embeddings supply a non-owning
+`FeedbackReceiver*` to the controller or random policy. Its callbacks receive
+immutable value records, without access to the mutable kernel or selector.
+`ControllerSelection` is the replaceable root-selection interface; the initial
+implementation remains the same seeded random chooser.
+
+After each requested rule, ResumeSearch or atomic search service, feedback
+binds its independent sequence, stable identity, instance, optional complete
+request/allowance, before/after observations, outcome, composition overshoot,
+stop reason and elapsed nanoseconds. Rejected requests and zero-work actions
+are recorded too. Native progress and effort retain their declared currencies;
+no scalar reward or common currency is inferred. Receivers run after the
+atomic transaction and its heuristic publication, never inside pending M3.
+
+Successful ResumeSearch starts an interval after root work. Restart closes it;
+partial continuation starts a linked interval under the same configuration.
+Termination/interruption closes any open interval and ends the session once.
+Native action and interval durations exclude added observation and receiver
+work. A disabled receiver performs no feedback snapshots, timer reads or
+record allocation.
+
+`FeedbackTrace` records a separate JSON-lines feedback-v1 stream and replays
+every deterministic event. The header metadata must identify the immutable
+build, original input, policy/seed and full configuration. Snapshots retain raw
+Stats; deterministic serialization includes scalar counters, rule-call counts
+and glue-use arrays, while excluding native wall timers. Separate elapsed rows
+are validated but not compared during replay. Truncation, changed provenance,
+divergence and trailing events remain out-of-band receiver errors and cannot
+change solver execution. Use one receiver/transcript per solve invocation.
+`tools/bench/inspect_policy_feedback.py` validates completed records and reports
+per-action native work, progress, statuses and durations without computing a
+reward. This stream does not replace the existing controller transcript.
+
 ## Initial sampling and validation
 
 Sample uniformly over eligible root families plus one ResumeSearch choice, then

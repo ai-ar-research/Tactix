@@ -72,15 +72,26 @@ struct ControllerCoverage {
   uint64_t maximum_root_actions = 0;
 };
 
+// Selection may perform bounded native discovery; observation and feedback
+// remain value-only. This seam is called at root, outside static search dispatch.
+class ControllerSelection {
+public:
+  virtual ~ControllerSelection() = default;
+  virtual bool choose(Kernel &, const strategy::controller::Observation &,
+                      const RandomControllerConfig &,
+                      strategy::controller::ActionRequest &, std::string &error,
+                      volatile sig_atomic_t *stop = nullptr) = 0;
+};
+
 // Seeded root-action chooser. Action generation is separate from observation:
 // semantic instance enumeration may perform discovery and consume randomness.
-class RandomControllerSelector {
+class RandomControllerSelector final : public ControllerSelection {
 public:
   explicit RandomControllerSelector(uint64_t seed) : rng_(seed ? seed : 1) {}
   bool choose(Kernel &, const strategy::controller::Observation &,
               const RandomControllerConfig &,
               strategy::controller::ActionRequest &, std::string &error,
-              volatile sig_atomic_t *stop = nullptr);
+              volatile sig_atomic_t *stop = nullptr) override;
 
 private:
   uint64_t draw(uint64_t bound);
@@ -91,8 +102,11 @@ class RandomControllerPolicy final : public Policy {
 public:
   explicit RandomControllerPolicy(uint64_t seed,
                                  RandomControllerConfig config = {},
-                                 ControllerTrace *trace = nullptr)
-      : seed_(seed), config_(std::move(config)), trace_(trace) {}
+                                 ControllerTrace *trace = nullptr,
+                                 ControllerSelection *selection = nullptr,
+                                 strategy::controller::FeedbackReceiver *feedback = nullptr)
+      : seed_(seed), config_(std::move(config)), trace_(trace),
+        selection_(selection), feedback_(feedback) {}
   int solve(Kernel &, volatile sig_atomic_t *stop = nullptr) override;
   const ControllerCoverage &coverage() const { return coverage_; }
 
@@ -101,6 +115,8 @@ private:
   RandomControllerConfig config_;
   ControllerTrace *trace_;
   ControllerCoverage coverage_;
+  ControllerSelection *selection_;
+  strategy::controller::FeedbackReceiver *feedback_;
 };
 
 } // namespace tactix

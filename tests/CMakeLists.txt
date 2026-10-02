@@ -358,6 +358,11 @@ foreach(mode 0 1 2 3)
   add_test(NAME tr_bruteforce_${mode} COMMAND test_tr_bruteforce ${mode})
 endforeach()
 
+add_test(NAME inspect_policy_feedback
+         COMMAND ${CMAKE_COMMAND} -E env python3
+                 ${CMAKE_CURRENT_SOURCE_DIR}/test_inspect_policy_feedback.py
+                 $<TARGET_FILE:test_feedback_trace>)
+
 add_test(NAME startup_parity_check
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_startup_parity_check.py
@@ -410,6 +415,12 @@ add_test(NAME option_coverage
 add_test(NAME stat_ids
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_SOURCE_DIR}/tools/docs/check-stat-ids.py)
+
+# Adding a native statistic must not silently omit it from deterministic
+# feedback. Native timers are present in observations but excluded from replay.
+add_test(NAME feedback_statistics
+         COMMAND ${CMAKE_COMMAND} -E env python3
+                 ${CMAKE_SOURCE_DIR}/tools/docs/check-feedback-statistics.py)
 
 # Source citations in the living docs must resolve; a stale one still reads
 # correct. Narrow on purpose: it prints what it skipped, so green is not

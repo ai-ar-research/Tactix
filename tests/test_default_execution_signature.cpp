@@ -38,6 +38,8 @@ static std::string pigeonhole(Kernel &k, unsigned pigeons, unsigned holes) {
 }
 
 int main(int argc, char **argv) {
+  char temporary[] = "/tmp/tactix-default-signature-XXXXXX";
+  if (argc == 1) assert(mkdtemp(temporary));
   assert(argc == 1 || argc == 2 ||
          (argc == 3 && std::string(argv[2]) == "diagnostics"));
   const bool diagnostics = argc == 3;
@@ -54,7 +56,7 @@ int main(int argc, char **argv) {
       const std::string stem = retain
           ? std::string(argv[1]) + "/profile-" + std::to_string(profile) +
                 "-pigeons-" + std::to_string(pigeons)
-          : "/tmp/tactix-default-signature-" + std::to_string(getpid());
+          : std::string(temporary) + "/case";
       const std::string path = stem + ".drat";
       if (diagnostics) {
         rule_journal_close();
@@ -166,4 +168,5 @@ int main(int argc, char **argv) {
       search_learned += profile ? s.learned : 0;
     }
   assert(search_conflicts && search_learned);
+  if (argc == 1) assert(rmdir(temporary) == 0);
 }
