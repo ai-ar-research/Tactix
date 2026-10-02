@@ -4,6 +4,8 @@
 #include "rules/propagate/propagate.hpp"
 #include "rules/sweep/sweep.hpp"
 #include "strategy/bve_invocation.hpp"
+#include "strategy/rule_execution.hpp"
+#include "strategy/work_execution.hpp"
 
 #include <cmath>
 #include <algorithm>
@@ -93,73 +95,6 @@ bool valid_post_application(PostApplication value) {
   }
   return false;
 }
-
-class ScopedRuleMaterialSettings {
-public:
-  ScopedRuleMaterialSettings(Kernel &kernel,
-                             const RuleMaterialSettings &settings)
-      : kernel_(kernel), saved_touch_filter_(kernel.touch_filter),
-        saved_redundant_(kernel.touch_redundant) {
-    install(settings.touch_filter, kernel_.touch_filter);
-    install(settings.likely_kept_redundant, kernel_.touch_redundant);
-  }
-  ScopedRuleMaterialSettings(const ScopedRuleMaterialSettings &) = delete;
-  ScopedRuleMaterialSettings &
-  operator=(const ScopedRuleMaterialSettings &) = delete;
-  ~ScopedRuleMaterialSettings() {
-    kernel_.touch_filter = saved_touch_filter_;
-    kernel_.touch_redundant = saved_redundant_;
-  }
-
-private:
-  static void install(SettingOverride value, bool &target) {
-    if (value == SettingOverride::Disable)
-      target = false;
-    else if (value == SettingOverride::Enable)
-      target = true;
-  }
-  Kernel &kernel_;
-  bool saved_touch_filter_;
-  bool saved_redundant_;
-};
-
-class ScopedRuleWorkBudget {
-public:
-  ScopedRuleWorkBudget(Kernel &kernel, const RuleWorkBudget &budget)
-      : kernel_(kernel), saved_budget_(kernel.work_budget),
-        saved_offset_(kernel.work_budget_offset),
-        saved_bounded_(kernel.work_budget_bounded),
-        saved_midround_(kernel.midround_budget), posed_(
-            budget.mode != RuleWorkBudgetMode::Inherit) {
-    if (!posed_)
-      return;
-    kernel_.work_budget = budget.mode == RuleWorkBudgetMode::Bounded
-                              ? budget.amount
-                              : 0;
-    kernel_.work_budget_offset = 0;
-    kernel_.work_budget_bounded =
-        budget.mode == RuleWorkBudgetMode::Bounded;
-    kernel_.midround_budget = budget.mode == RuleWorkBudgetMode::Bounded;
-  }
-  ScopedRuleWorkBudget(const ScopedRuleWorkBudget &) = delete;
-  ScopedRuleWorkBudget &operator=(const ScopedRuleWorkBudget &) = delete;
-  ~ScopedRuleWorkBudget() {
-    if (!posed_)
-      return;
-    kernel_.work_budget = saved_budget_;
-    kernel_.work_budget_offset = saved_offset_;
-    kernel_.work_budget_bounded = saved_bounded_;
-    kernel_.midround_budget = saved_midround_;
-  }
-
-private:
-  Kernel &kernel_;
-  uint64_t saved_budget_;
-  uint64_t saved_offset_;
-  bool saved_bounded_;
-  bool saved_midround_;
-  bool posed_;
-};
 
 bool parameter_matches(const OnlineInvocation &step) {
   if (std::holds_alternative<std::monostate>(step.parameters))
@@ -1404,12 +1339,8 @@ InvocationResult OnlineStrategyExecutor::advance(
                                                      [payload];
                   return factor_apply_grid(k, grid);
                 })
-          : payload == INSTANCE_CANONICAL ||
-                    (!rule.apply_semantic_instance && !rule.apply_instance)
-              ? apply_rule(rule, k)
-          : rule.apply_semantic_instance
-              ? apply_rule_semantic_instance(rule, k, payload)
-              : apply_rule_instance(rule, k, payload);
+          : execution::execute_action(
+                k, execution::RegisteredRuleRequest{rule, payload});
       // Factor/Substitute parameter scopes control how their newly published
       // ranking advice is consumed. Drain it before those scopes restore the
       // caller's profile; retirement itself is representation state and is
@@ -1540,7 +1471,9 @@ InvocationResult OnlineStrategyExecutor::advance(
       const int propagation_id = tactix_rule_id("Propagate");
       assert(propagation_id >= 0);
       const ApplyResult propagated =
-          apply_rule(tactix_rules()[static_cast<size_t>(propagation_id)], k);
+          execution::execute_action(
+              k, execution::RegisteredRuleRequest{
+                     tactix_rules()[static_cast<size_t>(propagation_id)]});
       if (propagated == ApplyResult::Unsat) {
         out.status = InvocationStatus::Unsat;
         out.rule_result = propagated;

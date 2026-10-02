@@ -3,6 +3,7 @@
 #include "rules/factor/factor.hpp"
 #include "rules/condition/condition.hpp"
 #include "strategy/inprocess_program.hpp"
+#include "strategy/work_settings.hpp"
 #include "strategy/rule_invocation.hpp"
 #include "strategy/bve_occurrence_cache.hpp"
 
@@ -40,23 +41,6 @@ struct RepeatSpec {
 // The round ceiling a fixpoint repeat applies now; zero is unbounded.
 uint64_t repeat_round_limit(const Kernel &, const RepeatSpec &);
 
-enum class RuleWorkBudgetMode : uint8_t {
-  Inherit,
-  Unlimited,
-  Bounded,
-};
-
-// A rule's native internal effort ceiling is separate from the composition
-// budget below, which counts completed semantic applications. Inherit keeps a
-// caller profile; Unlimited explicitly clears it; Bounded also represents
-// zero. The executor poses this only for one atomic application.
-struct RuleWorkBudget {
-  RuleWorkBudgetMode mode = RuleWorkBudgetMode::Inherit;
-  uint64_t amount = 0;
-};
-
-enum class SettingOverride : uint8_t { Inherit, Disable, Enable };
-
 // A typed atomic follow-up owned by the composition layer.  Propagation is a
 // separate proof rule, but CompleteCurrentPass may contain many semantic
 // applications before the surrounding sequence regains control.  Selecting
@@ -66,14 +50,6 @@ enum class SettingOverride : uint8_t { Inherit, Disable, Enable };
 enum class PostApplication : uint8_t {
   None,
   Propagate,
-};
-
-// Canonical round admission shared by the touched-material rules. Explicit
-// semantic instances remain unfiltered; these settings affect only discovery
-// inside a canonical application and restore after that application.
-struct RuleMaterialSettings {
-  SettingOverride touch_filter = SettingOverride::Inherit;
-  SettingOverride likely_kept_redundant = SettingOverride::Inherit;
 };
 
 struct OnlineInvocation {

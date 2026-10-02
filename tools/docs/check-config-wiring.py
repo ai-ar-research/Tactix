@@ -11,7 +11,7 @@ it (`bve_level_`) lives four lines away in the policy, unconnected.
 
 A reader cannot see that. A test can:
 
-    POLICY   the scheduler must write it. No writer in default_policy.* fails.
+    POLICY   the scheduler selects it; direct or named typed wiring is required.
     RULE     a rule computes it; the policy may read it.
     ENV      A/B or diagnostic knob, main.cpp only. The shipped default is the
              value in kernel.hpp, so "nothing writes it" is correct here.
@@ -37,7 +37,86 @@ POLICY = ["src/policies/default_policy.cpp", "src/policies/default_policy.hpp",
 # broad strategy code cannot accidentally satisfy a POLICY row.
 POLICY_ADAPTERS = {
     "bve_fastel_traversal": ["src/strategy/bve_invocation.hpp"],
+    **{field: ["src/strategy/work_execution.hpp"] for field in (
+        "work_budget", "work_budget_offset", "work_budget_bounded",
+        "midround_budget", "touch_filter", "touch_redundant")},
 }
+
+# A shared setter alone must not certify scheduling. Bind each moved wire to
+# the actual policy request and its installation, even if a direct reset would
+# otherwise satisfy writers(). Keep these paths and expressions explicit.
+WORK_EXECUTION = "src/strategy/work_execution.hpp"
+VIVIFY_EXECUTION = "src/strategy/vivify_execution.hpp"
+VIVIFY_BAND = (r"execution::VivifyBandRequest\{[^{}]*"
+               r"e\.meter\(k\) - dose_start")
+MATERIAL_REQUEST = (r"execution::MaterialSettingsRequest\{\s*"
+                    r"config\(\)\.touch_filter,\s*"
+                    r"config\(\)\.likely_kept_redundant")
+POLICY_BINDINGS = {
+    "work_budget": [
+        (POLICY[0], r"execution::WorkSettingsRequest\{\s*handed,"),
+        (WORK_EXECUTION, r"k\.work_budget\s*=\s*\*request\.budget"),
+    ],
+    "work_budget_offset": [
+        (POLICY[0], VIVIFY_BAND),
+        (VIVIFY_EXECUTION, r"WorkSettingsRequest\{request\.cumulative_budget,\s*"
+                          r"request\.spent_offset"),
+        (WORK_EXECUTION, r"k\.work_budget_offset\s*=\s*\*request\.offset"),
+    ],
+    "work_budget_bounded": [
+        (POLICY[0], r"execution::VivifyDoseScope dose\(k\)"),
+        (VIVIFY_EXECUTION, r"work_\(k, \{k\.work_budget, k\.work_budget_offset, true,"),
+        (WORK_EXECUTION, r"k\.work_budget_bounded\s*=\s*\*request\.bounded"),
+    ],
+    "midround_budget": [
+        (POLICY[0], r"execution::WorkSettingsRequest\{\s*handed,\s*"
+                    r"std::nullopt,\s*std::nullopt,\s*"
+                    r"config\(\)\.forward_midround_budget"),
+        (WORK_EXECUTION, r"k\.midround_budget\s*=\s*\*request\.midround"),
+    ],
+    "touch_filter": [
+        (POLICY[0], MATERIAL_REQUEST),
+        (WORK_EXECUTION, r"k\.touch_filter\s*=\s*\*request\.touch_filter"),
+    ],
+    "touch_redundant": [
+        (POLICY[0], MATERIAL_REQUEST),
+        (WORK_EXECUTION, r"k\.touch_redundant\s*=\s*\*request\.likely_kept_redundant"),
+    ],
+}
+
+
+def adapter_binding_errors(sources):
+    failures = []
+    for field, bindings in POLICY_BINDINGS.items():
+        for path, pattern in bindings:
+            # Comments cannot provide request/installation evidence.
+            code = re.sub(r"//[^\n]*|/\*.*?\*/", "", sources[path], flags=re.S)
+            if not re.search(pattern, code, re.S):
+                failures.append(f"UNWIRED: `{field}` lacks its named typed "
+                                f"request/installation binding in {path}")
+    return failures
+
+
+def binding_sources():
+    return {path: open(os.path.join(ROOT, path)).read()
+            for bindings in POLICY_BINDINGS.values() for path, _ in bindings}
+
+
+def binding_self_test():
+    sources = binding_sources()
+    assert not adapter_binding_errors(sources)
+    count = 0
+    for field, bindings in POLICY_BINDINGS.items():
+        for path, pattern in bindings:
+            changed = dict(sources)
+            # Remove all copies so a second band cannot mask a missing wire.
+            changed[path], replacements = re.subn(pattern, "", sources[path], flags=re.S)
+            assert replacements
+            assert any(f"`{field}`" in failure
+                       for failure in adapter_binding_errors(changed))
+            count += 1
+    print(f"check-config-wiring self-test: {count}/{count} missing-request/"
+          "installation controls rejected")
 
 # The config surface, classified. Everything from `bve_bound` down in
 # kernel.hpp — the fields that steer scheduling rather than record state.
@@ -328,6 +407,8 @@ def main():
             else:
                 notes.append(f"POLICY {f:26} <- {', '.join(w[:3])}")
 
+    fails.extend(adapter_binding_errors(binding_sources()))
+
     for n in notes:
         print(f"  ok    {n}")
     for f in fails:
@@ -339,4 +420,6 @@ def main():
 
 
 if __name__ == "__main__":
+    if "--self-test" in sys.argv:
+        binding_self_test()
     sys.exit(main())
