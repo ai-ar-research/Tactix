@@ -4138,7 +4138,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       event_trace.reduction(k, reduce_scratch_, reduce_victims);
       (void)execution::complete_action(completion_, FeedbackKind::Rule, "Reduce",
           INSTANCE_CANONICAL, [&] {
-            std::string description = "compact=" + std::to_string(compact_due) + ";victims=";
+            std::string description = "compact=" + std::to_string(compact_due) + ";victim-ids=";
             for (size_t i = 0; i < reduce_victims; ++i)
               description += std::to_string(clause_at(k.arena, reduce_scratch_[i])->id()) + ',';
             return execution::native_rule_feedback(k, "Reduce", INSTANCE_CANONICAL,
@@ -4230,7 +4230,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           heuristics_restart_reuse_level_for(k, var_of(next));
       (void)execution::complete_action(completion_, FeedbackKind::SearchService,
           "Restart", keep, [&] { return execution::native_rule_feedback(
-              k, "Restart", keep, "keep-level=" + std::to_string(keep) + ";purpose=scheduled"); }, [&] {
+              k, "Restart", keep, "retained-level=" + std::to_string(keep) + ";purpose=scheduled"); }, [&] {
         if (keep < k.level)
           heuristics_update_target_phases(k);
         const ApplyResult restarted = default_direct_rule_lazy(

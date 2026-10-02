@@ -88,7 +88,11 @@ def main():
         subprocess.run([sys.argv[2], directory, "feedback"], check=True, timeout=30,
                        stdout=subprocess.DEVNULL)
         default_records = sorted(pathlib.Path(directory).glob("profile-*.feedback.jsonl"))
-        assert len(default_records) == 10
+        expected_records = {
+            f"profile-{profile}-pigeons-{pigeons}.feedback.jsonl"
+            for profile in range(7) for pigeons in (4, 6)
+        }
+        assert {record.name for record in default_records} == expected_records
         for default_path in default_records:
             default_summary = inspector.inspect(default_path)
             assert default_summary["terminal"]["verdict"] in (10, 20)

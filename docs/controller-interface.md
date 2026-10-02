@@ -255,6 +255,8 @@ including compressed containers, plus policy, seed, configuration, proof mode,
 BVE gate mask and declared solver environment settings. Keep builds/inputs
 immutable; feedback/proof/transcript destinations are not identity fields. The environment inventory
 is audited against source literals; per-rule cursor/order keys are included too.
+Event-trace and rule-journal settings are included only when their respective
+features are compiled in.
 Controller transcripts and feedback can be recorded/replayed independently.
 Conflicting policy flags or aliased input/proof/transcript paths are rejected
 before opening outputs. Feedback opening, provenance, replay or write errors
