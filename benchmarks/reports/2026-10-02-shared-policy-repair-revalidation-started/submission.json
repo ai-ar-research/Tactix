@@ -1,0 +1,19 @@
+{
+  "job_id": 1746628,
+  "submitted_at_utc": "2026-10-02T22:18:19.396017+00:00",
+  "source_commit": "f6f01982e08bfce6a8ef6dfcde1f439ce8ef81f0",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--partition=cpu-dense-hwulab-q",
+    "--ntasks=1",
+    "--cpus-per-task=12",
+    "--mem=32768M",
+    "--time=06:00:00",
+    "--no-requeue",
+    "--job-name=shared-feedback-full-debug-f6f01982",
+    "benchmarks/runs/20261002-shared-policy-feedback-f6f01982-preparation/job.sh"
+  ],
+  "sbatch_stdout": "1746628\n",
+  "slurm_submit_local": "2026-10-02T18:16:12"
+}
