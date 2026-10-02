@@ -1,0 +1,143 @@
+--- a/src/main.cpp
++++ b/src/main.cpp
+@@ -123,9 +123,11 @@
+   field("configuration", controller ? controller_configuration(controller_config)
+                                     : default_config.serialize());
+   static constexpr const char *environment[] = {
++#define TACTIX_FEEDBACK_RUNTIME_ENVIRONMENT
+ #define TACTIX_FEEDBACK_ENVIRONMENT(name) #name,
+ #include "strategy/feedback_environment.inc"
+ #undef TACTIX_FEEDBACK_ENVIRONMENT
++#undef TACTIX_FEEDBACK_RUNTIME_ENVIRONMENT
+   };
+   std::vector<std::pair<std::string, std::string>> values;
+   const auto environment_field = [&](const std::string &name) {
+--- a/src/strategy/feedback_environment.inc
++++ b/src/strategy/feedback_environment.inc
+@@ -20,6 +20,7 @@
+ TACTIX_FEEDBACK_ENVIRONMENT(SAT_DECISION_PREFIX_CONFLICT)
+ TACTIX_FEEDBACK_ENVIRONMENT(SAT_DECISION_PREFIX_STOP)
+ TACTIX_FEEDBACK_ENVIRONMENT(SAT_DECISION_STREAM_CONFLICT_FROM)
++#if !defined(TACTIX_FEEDBACK_RUNTIME_ENVIRONMENT) || defined(TACTIX_ENABLE_EVENT_TRACE)
+ TACTIX_FEEDBACK_ENVIRONMENT(SAT_EVENT_TRACE_ALL_ROOTS)
+ TACTIX_FEEDBACK_ENVIRONMENT(SAT_EVENT_TRACE_ASSIGNMENT_HASH_CONFLICT)
+ TACTIX_FEEDBACK_ENVIRONMENT(SAT_EVENT_TRACE_ASSIGNMENT_HASH_FROM_DECISION)
+@@ -98,6 +99,7 @@
+ TACTIX_FEEDBACK_ENVIRONMENT(SAT_EVENT_TRACE_WATCH_ORDER)
+ TACTIX_FEEDBACK_ENVIRONMENT(SAT_EVENT_TRACE_WATCH_ORDER_DUMP)
+ TACTIX_FEEDBACK_ENVIRONMENT(SAT_EVENT_TRACE_WATCH_TARGETS)
++#endif
+ TACTIX_FEEDBACK_ENVIRONMENT(SAT_FACTOR_MATCH_CONFLICT)
+ TACTIX_FEEDBACK_ENVIRONMENT(SAT_FACTOR_MATCH_PAIR)
+ TACTIX_FEEDBACK_ENVIRONMENT(SAT_INPROCESS_BOUNDARY_CONFLICT_FROM)
+@@ -126,7 +128,9 @@
+ TACTIX_FEEDBACK_ENVIRONMENT(SAT_RETRY_PRODUCER_EXTERNAL)
+ TACTIX_FEEDBACK_ENVIRONMENT(SAT_RETRY_PRODUCER_FROM)
+ TACTIX_FEEDBACK_ENVIRONMENT(SAT_RETRY_PRODUCER_TO)
++#if !defined(TACTIX_FEEDBACK_RUNTIME_ENVIRONMENT) || defined(TACTIX_ENABLE_RULE_JOURNAL)
+ TACTIX_FEEDBACK_ENVIRONMENT(SAT_RULE_JOURNAL_SKIP_DIGEST)
++#endif
+ TACTIX_FEEDBACK_ENVIRONMENT(SAT_SEARCH_CHECKPOINT_CONFLICT_FROM)
+ TACTIX_FEEDBACK_ENVIRONMENT(SAT_SEARCH_CHECKPOINT_INTERVAL)
+ TACTIX_FEEDBACK_ENVIRONMENT(SAT_SUBSTITUTE_MAP_TRACE_CONFLICT)
+@@ -174,6 +178,7 @@
+ TACTIX_FEEDBACK_ENVIRONMENT(TACTIX_DUMP_FACTORED)
+ TACTIX_FEEDBACK_ENVIRONMENT(TACTIX_DUMP_PREFACTOR)
+ TACTIX_FEEDBACK_ENVIRONMENT(TACTIX_EAGER_SUBSUME)
++#if !defined(TACTIX_FEEDBACK_RUNTIME_ENVIRONMENT) || defined(TACTIX_ENABLE_EVENT_TRACE)
+ TACTIX_FEEDBACK_ENVIRONMENT(TACTIX_EVENT_TRACE)
+ TACTIX_FEEDBACK_ENVIRONMENT(TACTIX_EVENT_TRACE_ASSIGNMENT)
+ TACTIX_FEEDBACK_ENVIRONMENT(TACTIX_EVENT_TRACE_BINARY_ASSIGNMENT)
+@@ -251,6 +256,7 @@
+ TACTIX_FEEDBACK_ENVIRONMENT(TACTIX_EVENT_TRACE_WATCH_SCAN_LITERAL)
+ TACTIX_FEEDBACK_ENVIRONMENT(TACTIX_EVENT_TRACE_WATCH_VALUES)
+ TACTIX_FEEDBACK_ENVIRONMENT(TACTIX_EVENT_TRACE_WATCH_WITHIN_VIVIFY)
++#endif
+ TACTIX_FEEDBACK_ENVIRONMENT(TACTIX_FACTOR_BOUND)
+ TACTIX_FEEDBACK_ENVIRONMENT(TACTIX_FACTOR_CAND_ROUNDS)
+ TACTIX_FEEDBACK_ENVIRONMENT(TACTIX_FACTOR_COUPLE)
+@@ -302,6 +308,7 @@
+ TACTIX_FEEDBACK_ENVIRONMENT(TACTIX_REORDER)
+ TACTIX_FEEDBACK_ENVIRONMENT(TACTIX_REPHASE_BOTH_MODES)
+ TACTIX_FEEDBACK_ENVIRONMENT(TACTIX_RETRY_PRODUCER_TRACE)
++#if !defined(TACTIX_FEEDBACK_RUNTIME_ENVIRONMENT) || defined(TACTIX_ENABLE_RULE_JOURNAL)
+ TACTIX_FEEDBACK_ENVIRONMENT(TACTIX_RULE_JOURNAL)
+ TACTIX_FEEDBACK_ENVIRONMENT(TACTIX_RULE_JOURNAL_CANDIDATE)
+ TACTIX_FEEDBACK_ENVIRONMENT(TACTIX_RULE_JOURNAL_CANDIDATE_CONTAINS)
+@@ -313,6 +320,7 @@
+ TACTIX_FEEDBACK_ENVIRONMENT(TACTIX_RULE_JOURNAL_LITERAL)
+ TACTIX_FEEDBACK_ENVIRONMENT(TACTIX_RULE_JOURNAL_REPLAY)
+ TACTIX_FEEDBACK_ENVIRONMENT(TACTIX_RULE_JOURNAL_RULE)
++#endif
+ TACTIX_FEEDBACK_ENVIRONMENT(TACTIX_SHRINK_GLUE)
+ TACTIX_FEEDBACK_ENVIRONMENT(TACTIX_SLOT_CLOCKS)
+ TACTIX_FEEDBACK_ENVIRONMENT(TACTIX_SLOT_DISABLE)
+--- a/tests/test_inspect_policy_feedback.py
++++ b/tests/test_inspect_policy_feedback.py
+@@ -88,7 +88,11 @@
+         subprocess.run([sys.argv[2], directory, "feedback"], check=True, timeout=30,
+                        stdout=subprocess.DEVNULL)
+         default_records = sorted(pathlib.Path(directory).glob("profile-*.feedback.jsonl"))
+-        assert len(default_records) == 10
++        expected_records = {
++            f"profile-{profile}-pigeons-{pigeons}.feedback.jsonl"
++            for profile in range(7) for pigeons in (4, 6)
++        }
++        assert {record.name for record in default_records} == expected_records
+         for default_path in default_records:
+             default_summary = inspector.inspect(default_path)
+             assert default_summary["terminal"]["verdict"] in (10, 20)
+--- a/tests/test_execution_support.cpp
++++ b/tests/test_execution_support.cpp
+@@ -109,7 +109,10 @@
+       assert(record.after.cumulative.sparse_collections == record.before.cumulative.sparse_collections + 1);
+       assert(!record.outcome.invocation.applications);
+       assert(record.stop == (fixed == 3 ? StopReason::Unsat : fixed ? StopReason::Completed : StopReason::NoChange));
+-      assert(record.outcome.invocation.made_rule_progress == (fixed == 1 || fixed == 2));
++      assert(!record.outcome.invocation.made_rule_progress);
++      assert(!record.outcome.invocation.work && !record.outcome.composition_overshoot);
++      assert(record.after.cumulative.root_assignments ==
++             record.before.cumulative.root_assignments + (fixed == 2 ? 1 : 0));
+     }
+     }
+   }
+--- a/tests/test_feedback_provenance.cpp
++++ b/tests/test_feedback_provenance.cpp
+@@ -38,6 +38,26 @@
+ #define TACTIX_FEEDBACK_ENVIRONMENT(name) declared.insert(#name);
+ #include "strategy/feedback_environment.inc"
+ #undef TACTIX_FEEDBACK_ENVIRONMENT
++  // The source audit includes every declared name. Runtime provenance must
++  // omit event/journal settings when their implementations are compiled out.
++  std::set<std::string> runtime_declared;
++#define TACTIX_FEEDBACK_RUNTIME_ENVIRONMENT
++#define TACTIX_FEEDBACK_ENVIRONMENT(name) runtime_declared.insert(#name);
++#include "strategy/feedback_environment.inc"
++#undef TACTIX_FEEDBACK_ENVIRONMENT
++#undef TACTIX_FEEDBACK_RUNTIME_ENVIRONMENT
++  for (const auto &name : declared) {
++    bool expected = true;
++#ifndef TACTIX_ENABLE_EVENT_TRACE
++    if (name.find("TACTIX_EVENT_TRACE") == 0 || name.find("SAT_EVENT_TRACE") == 0)
++      expected = false;
++#endif
++#ifndef TACTIX_ENABLE_RULE_JOURNAL
++    if (name.find("TACTIX_RULE_JOURNAL") == 0 || name.find("SAT_RULE_JOURNAL") == 0)
++      expected = false;
++#endif
++    assert(bool(runtime_declared.count(name)) == expected);
++  }
+   const std::filesystem::path root = std::filesystem::path(__FILE__).parent_path().parent_path();
+   const std::regex pattern("\"((?:TACTIX|SAT)_[A-Z0-9_]+)\"");
+   for (const auto &entry : std::filesystem::recursive_directory_iterator(root / "src")) {
+--- a/docs/controller-interface.md
++++ b/docs/controller-interface.md
+@@ -255,6 +255,8 @@
+ BVE gate mask and declared solver environment settings. Keep builds/inputs
+ immutable; feedback/proof/transcript destinations are not identity fields. The environment inventory
+ is audited against source literals; per-rule cursor/order keys are included too.
++Event-trace and rule-journal settings are included only when their respective
++features are compiled in.
+ Controller transcripts and feedback can be recorded/replayed independently.
+ Conflicting policy flags or aliased input/proof/transcript paths are rejected
+ before opening outputs. Feedback opening, provenance, replay or write errors

@@ -1,0 +1,25 @@
+{
+  "source_commit": "0531c2f1fb153f0d6be240041eda41fa835427a8",
+  "job": 1746172,
+  "slurm_state": "FAILED",
+  "exit_code": "8:0",
+  "watcher_exit": 1,
+  "registered": 212,
+  "completed": 212,
+  "passed": 209,
+  "failed": 3,
+  "skipped": 0,
+  "disabled": 0,
+  "exact_registry_names_match": true,
+  "ctest_real_seconds": 15197.46,
+  "demo3_scripted_default_seconds": 15173.87,
+  "failed_tests": {
+    "event_trace_zero_overhead": "Traceback (most recent call last):\n  File \"/home/hwu/SAT-solving/tests/test_no_event_trace_symbols.py\", line 18, in <module>\n    assert marker not in data, f\"production binary contains {marker!r}\"\nAssertionError: production binary contains b'TACTIX_EVENT_TRACE'\n",
+    "inspect_policy_feedback": "Traceback (most recent call last):\n  File \"/home/hwu/SAT-solving/tests/test_inspect_policy_feedback.py\", line 114, in <module>\n    main()\n  File \"/home/hwu/SAT-solving/tests/test_inspect_policy_feedback.py\", line 91, in main\n    assert len(default_records) == 10\nAssertionError\n",
+    "execution_support": "test_execution_support: /home/hwu/SAT-solving/tests/test_execution_support.cpp:112: void test_collection_outcomes(): Assertion `record.outcome.invocation.made_rule_progress == (fixed == 1 || fixed == 2)' failed.\n"
+  },
+  "terminal_pin_postflight_count": 976,
+  "current_original_source_hashes_verified": 795,
+  "proposal_applied": false,
+  "proposal_runtime_accepted": false
+}
