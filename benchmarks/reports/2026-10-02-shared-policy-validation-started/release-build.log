@@ -1,0 +1,101 @@
+[  0%] Building CXX object CMakeFiles/tactix_symmetry_backend.dir/src/symmetry_backend/dejavu_backend.cpp.o
+[  0%] Linking CXX static library libtactix_symmetry_backend.a
+[  0%] Built target tactix_symmetry_backend
+[  0%] Building CXX object CMakeFiles/tactix_lib.dir/src/proof/proof.cpp.o
+[  0%] Building CXX object CMakeFiles/tactix_lib.dir/src/kernel/kernel.cpp.o
+[  5%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/registry.cpp.o
+[  5%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/analyze/analyze.cpp.o
+[  5%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/backbone/backbone.cpp.o
+[  5%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/backjump/backjump.cpp.o
+[  5%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/bce/bce.cpp.o
+[ 10%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/bve/bve.cpp.o
+[ 10%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/cce/cce.cpp.o
+[ 10%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/condition/condition.cpp.o
+[ 10%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/congruence/congruence.cpp.o
+[ 15%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/decide/decide.cpp.o
+[ 15%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/factor/factor.cpp.o
+[ 15%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/factor/factor_enumeration.cpp.o
+[ 15%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/hyperbinary/hyperbinary.cpp.o
+[ 21%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/instantiate/instantiate.cpp.o
+[ 21%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/lucky/affine_model.cpp.o
+[ 21%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/lucky/balanced_signature_model.cpp.o
+[ 21%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/lucky/cerny_model.cpp.o
+[ 21%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/lucky/count_preservation.cpp.o
+[ 26%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/lucky/exact_cover_model.cpp.o
+[ 26%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/lucky/exact_one_refutation.cpp.o
+[ 26%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/lucky/fermat_model.cpp.o
+[ 26%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/lucky/independent_set_model.cpp.o
+[ 31%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/lucky/lookup_circuit_model.cpp.o
+[ 31%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/lucky/lucky.cpp.o
+[ 31%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/lucky/onehot_model.cpp.o
+[ 31%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/lucky/parity_model.cpp.o
+[ 36%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/lucky/parity_refutation.cpp.o
+[ 36%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/lucky/signed_cardinality_proof.cpp.o
+[ 36%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/lucky/simon_model.cpp.o
+[ 36%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/lucky/stconn_proof.cpp.o
+[ 36%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/probe/probe.cpp.o
+[ 42%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/propagate/propagate.cpp.o
+[ 42%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/reduce/reduce.cpp.o
+[ 42%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/restart/restart.cpp.o
+[ 42%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/strengthen/strengthen.cpp.o
+[ 47%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/substitute/substitute.cpp.o
+[ 47%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/substitution_redundancy/orbitopal.cpp.o
+[ 47%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/substitution_redundancy/orbitopal_group.cpp.o
+[ 47%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/substitution_redundancy/orbitopal_word.cpp.o
+[ 52%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/substitution_redundancy/substitution_redundancy.cpp.o
+[ 52%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/substitution_redundancy/symmetry.cpp.o
+[ 52%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/subsume_forward/subsume_forward.cpp.o
+[ 52%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/support/failed_literal.cpp.o
+[ 52%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/support/flat_occurrence.cpp.o
+[ 57%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/sweep/sweep.cpp.o
+[ 57%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/ternary/ternary.cpp.o
+[ 57%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/transitive_reduce/transitive_reduce.cpp.o
+[ 57%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/vivify/vivify.cpp.o
+[ 63%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/ops/local_search/local_search.cpp.o
+/home/hwu/SAT-solving/src/rules/vivify/vivify.cpp: In function ‘tactix::ApplyResult tactix::rewrite(Kernel&, Ref, const std::vector<unsigned int>&, std::vector<std::pair<unsigned int, long unsigned int> >&, uint64_t, uint64_t, bool)’:
+/home/hwu/SAT-solving/src/rules/vivify/vivify.cpp:1045:52: warning: unused parameter ‘candidate_ordinal’ [-Wunused-parameter]
+ 1045 |                            uint64_t last, uint64_t candidate_ordinal,
+      |                                           ~~~~~~~~~^~~~~~~~~~~~~~~~~
+[ 63%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/ops/reorder/reorder.cpp.o
+[ 63%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/ops/rephase/rephase.cpp.o
+[ 63%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/ops/switchmode/switchmode.cpp.o
+[ 68%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/ops/walk/walk.cpp.o
+[ 68%] Building CXX object CMakeFiles/tactix_lib.dir/src/engine/subsolver.cpp.o
+[ 68%] Building CXX object CMakeFiles/tactix_lib.dir/src/engine/subsolver_proof_export.cpp.o
+/home/hwu/SAT-solving/src/engine/subsolver.cpp: In member function ‘void tactix::SubSolver::fail_assumptions(const std::vector<unsigned int>&)’:
+/home/hwu/SAT-solving/src/engine/subsolver.cpp:823:35: warning: missing initializer for member ‘tactix::SubStep::antecedents’ [-Wmissing-field-initializers]
+  823 |                {clause_id(reason)}};
+      |                                   ^
+/home/hwu/SAT-solving/src/engine/subsolver.cpp: In instantiation of ‘tactix::SubResult tactix::SubSolver::solve_impl(const std::vector<unsigned int>&, uint64_t, tactix::SubTickMode, const volatile sig_atomic_t*) [with bool Interruptible = false; uint64_t = long unsigned int; sig_atomic_t = int]’:
+/home/hwu/SAT-solving/src/engine/subsolver.cpp:1072:27:   required from here
+/home/hwu/SAT-solving/src/engine/subsolver.cpp:1043:19: warning: missing initializer for member ‘tactix::SubStep::antecedents’ [-Wmissing-field-initializers]
+ 1043 |           target_ = {target_id, export_literals(lits), chain};
+      |           ~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/hwu/SAT-solving/src/engine/subsolver.cpp: In instantiation of ‘tactix::SubResult tactix::SubSolver::solve_impl(const std::vector<unsigned int>&, uint64_t, tactix::SubTickMode, const volatile sig_atomic_t*) [with bool Interruptible = true; uint64_t = long unsigned int; sig_atomic_t = int]’:
+/home/hwu/SAT-solving/src/engine/subsolver.cpp:1078:26:   required from here
+/home/hwu/SAT-solving/src/engine/subsolver.cpp:1043:19: warning: missing initializer for member ‘tactix::SubStep::antecedents’ [-Wmissing-field-initializers]
+[ 68%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/heuristics.cpp.o
+[ 73%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/default_policy.cpp.o
+[ 73%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/structured_root_strategy.cpp.o
+[ 73%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/random_policy.cpp.o
+[ 73%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/random_controller_policy.cpp.o
+[ 73%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/controller_trace.cpp.o
+[ 78%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/trace.cpp.o
+[ 78%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/stress_registry.cpp.o
+[ 78%] Building CXX object CMakeFiles/tactix_lib.dir/src/strategy/analyze_parameters.cpp.o
+[ 78%] Building CXX object CMakeFiles/tactix_lib.dir/src/strategy/congruence_parameters.cpp.o
+[ 84%] Building CXX object CMakeFiles/tactix_lib.dir/src/strategy/failed_literal_parameters.cpp.o
+[ 84%] Building CXX object CMakeFiles/tactix_lib.dir/src/strategy/feedback_trace.cpp.o
+[ 84%] Building CXX object CMakeFiles/tactix_lib.dir/src/strategy/forward_parameters.cpp.o
+[ 84%] Building CXX object CMakeFiles/tactix_lib.dir/src/strategy/heuristic_execution.cpp.o
+[ 89%] Building CXX object CMakeFiles/tactix_lib.dir/src/strategy/instantiate_parameters.cpp.o
+[ 89%] Building CXX object CMakeFiles/tactix_lib.dir/src/strategy/online_inprocess.cpp.o
+[ 89%] Building CXX object CMakeFiles/tactix_lib.dir/src/strategy/random_online.cpp.o
+[ 89%] Building CXX object CMakeFiles/tactix_lib.dir/src/strategy/rule_parameters.cpp.o
+[ 89%] Building CXX object CMakeFiles/tactix_lib.dir/src/strategy/vivify_parameters.cpp.o
+[ 94%] Building CXX object CMakeFiles/tactix_lib.dir/src/frontend/parse.cpp.o
+[ 94%] Building CXX object CMakeFiles/tactix_lib.dir/src/api/api.cpp.o
+[ 94%] Built target tactix_lib
+[100%] Building CXX object CMakeFiles/tactix.dir/src/main.cpp.o
+[100%] Linking CXX executable tactix
+[100%] Built target tactix

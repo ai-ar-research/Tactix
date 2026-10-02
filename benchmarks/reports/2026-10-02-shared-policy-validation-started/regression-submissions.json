@@ -1,0 +1,50 @@
+[
+  {
+    "job_id": 1746173,
+    "set": "b28c5",
+    "submitted_at_utc": "2026-10-02T16:04:41.870807+00:00",
+    "command": [
+      "sbatch",
+      "--parsable",
+      "/home/hwu/SAT-solving/benchmarks/runs/20261002-shared-feedback-0531c2f1-b28c5/array.sbatch"
+    ],
+    "sbatch_stdout": "1746173\n",
+    "sbatch_stderr": ""
+  },
+  {
+    "job_id": 1746174,
+    "set": "rank1-50",
+    "submitted_at_utc": "2026-10-02T16:04:41.891484+00:00",
+    "command": [
+      "sbatch",
+      "--parsable",
+      "/home/hwu/SAT-solving/benchmarks/runs/20261002-shared-feedback-0531c2f1-rank1-50/array.sbatch"
+    ],
+    "sbatch_stdout": "1746174\n",
+    "sbatch_stderr": ""
+  },
+  {
+    "job_id": 1746175,
+    "set": "wv100",
+    "submitted_at_utc": "2026-10-02T16:04:41.932023+00:00",
+    "command": [
+      "sbatch",
+      "--parsable",
+      "/home/hwu/SAT-solving/benchmarks/runs/20261002-shared-feedback-0531c2f1-wv100/array.sbatch"
+    ],
+    "sbatch_stdout": "1746175\n",
+    "sbatch_stderr": ""
+  },
+  {
+    "job_id": 1746176,
+    "set": "wv2-89",
+    "submitted_at_utc": "2026-10-02T16:04:41.967255+00:00",
+    "command": [
+      "sbatch",
+      "--parsable",
+      "/home/hwu/SAT-solving/benchmarks/runs/20261002-shared-feedback-0531c2f1-wv2-89/array.sbatch"
+    ],
+    "sbatch_stdout": "1746176\n",
+    "sbatch_stderr": ""
+  }
+]

@@ -1,0 +1,23 @@
+{
+  "observed_at_utc": "2026-10-02T16:28:07.542892+00:00",
+  "debug_job": 1746172,
+  "debug_watcher_session": 86645,
+  "debug_expected_tests": 212,
+  "debug_latest_passed_observed": 210,
+  "regression_jobs": {
+    "b28c5": 1746173,
+    "rank1-50": 1746174,
+    "wv100": 1746175,
+    "wv2-89": 1746176
+  },
+  "overhead_job": 1746397,
+  "fuzz_owner_cli_session": 33289,
+  "fuzz_owner_response": "build/shared-policy-feedback-fuzz-owner-0531c2f1-response.json",
+  "fuzz_observed_queue_jobs": {
+    "default": 1746357,
+    "controller": 1746358
+  },
+  "fuzz_scope": "Private Claude-owned campaigns not inspected; queue metadata only. Owner terminal report required.",
+  "acceptance": "Pending: no whole-goal or gate acceptance claimed.",
+  "overhead_watcher_session": 69614
+}

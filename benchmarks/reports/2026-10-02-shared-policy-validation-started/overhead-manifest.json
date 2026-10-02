@@ -1,0 +1,76 @@
+{
+  "schema": "tactix-feedback-frontend-overhead-plan-v1",
+  "source_commit": "0531c2f1fb153f0d6be240041eda41fa835427a8",
+  "solver": "/home/hwu/SAT-solving/build/pin-shared-policy-feedback-release-0531c2f1/tactix",
+  "checker_campaign": "/home/hwu/SAT-solving/benchmarks/runs/20261002-shared-feedback-0531c2f1-b28c5",
+  "sha256": {
+    "/home/hwu/SAT-solving/benchmarks/runs/20261002-shared-feedback-0531c2f1-overhead/measure.py": "e52126a1463b6a29243453c2f95b86dd317a37eaf6a110b82719b1bf75445059",
+    "/home/hwu/SAT-solving/benchmarks/runs/20261002-shared-feedback-0531c2f1-overhead/pins/proof_oracle.py": "020bfcef6f4382e9b3136442a253bb7eb4fcfa1091be9d692ddd438161a3b8b2",
+    "/home/hwu/SAT-solving/benchmarks/runs/20261002-shared-feedback-0531c2f1-overhead/pins/anonymous_scratch.py": "2f5d15eb8ef19d3ea2a1b7f69a0affecaec6d469421b9bf6d8cb6c22f3888787",
+    "/home/hwu/SAT-solving/benchmarks/runs/20261002-shared-feedback-0531c2f1-overhead/pins/runtime_task.py": "5c903c4fa88baec6a7c43e13eaecc211badfe1605c36674914a081571105aa5e",
+    "/home/hwu/SAT-solving/benchmarks/runs/20261002-shared-feedback-0531c2f1-overhead/pins/inspect_policy_feedback.py": "ff41f4dba97c4b82a15cfadfce87095350413109719b29a51e0f66a41640f701",
+    "/home/hwu/SAT-solving/benchmarks/runs/20261002-shared-feedback-0531c2f1-overhead/pins/modelcheck.py": "023d06f8f4016ced484897a4a6aeadf2fdb45e16dbf929661b1c6e92ec0ea9d4",
+    "/home/hwu/SAT-solving/benchmarks/runs/20261002-shared-feedback-0531c2f1-b28c5/pins/tactix": "f263a6afb42ecefba8003634295c191d4ff501f37eb451d72ee20db95ef38769",
+    "/home/hwu/SAT-solving/benchmarks/runs/20261002-shared-feedback-0531c2f1-b28c5/pins/veripb": "2e5fa5ef07c655640e6fff0d3f41561eab1502ec2e48766cca60287625935674",
+    "/home/hwu/SAT-solving/benchmarks/runs/20261002-shared-feedback-0531c2f1-b28c5/pins/dsr-compress": "a44102ce11162a4687450a4c3a640d27a49703072dd29802bd259676eb668d55",
+    "/home/hwu/SAT-solving/benchmarks/runs/20261002-shared-feedback-0531c2f1-b28c5/pins/proof_oracle.py": "020bfcef6f4382e9b3136442a253bb7eb4fcfa1091be9d692ddd438161a3b8b2",
+    "/home/hwu/SAT-solving/benchmarks/runs/20261002-shared-feedback-0531c2f1-b28c5/pins/dsr-trim": "3b5c773706dc4695f08115ce862e991bfa2e44e3388df80f40ae8b0823dfbdee",
+    "/home/hwu/SAT-solving/benchmarks/runs/20261002-shared-feedback-0531c2f1-b28c5/pins/anonymous_scratch.py": "2f5d15eb8ef19d3ea2a1b7f69a0affecaec6d469421b9bf6d8cb6c22f3888787",
+    "/home/hwu/SAT-solving/benchmarks/runs/20261002-shared-feedback-0531c2f1-b28c5/pins/cake-pb-cnf": "c859a9c926ca8c63dac3317930ea8dbe3732a6fc24faa6e28ed740fadd67dc47",
+    "/home/hwu/SAT-solving/benchmarks/runs/20261002-shared-feedback-0531c2f1-b28c5/pins/runtime_task.py": "5c903c4fa88baec6a7c43e13eaecc211badfe1605c36674914a081571105aa5e",
+    "/home/hwu/SAT-solving/benchmarks/runs/20261002-shared-feedback-0531c2f1-b28c5/pins/drat-trim": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+    "/home/hwu/SAT-solving/benchmarks/runs/20261002-shared-feedback-0531c2f1-b28c5/pins/checkmodel": "5fde6bbc7be305f6b6166ef75dc4788e2cf40180317ab1ec9a38a3d6071676cf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20261002-shared-feedback-0531c2f1-b28c5/pins/modelcheck.py": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+    "/home/hwu/SAT-solving/benchmarks/runs/20261002-shared-feedback-0531c2f1-b28c5/pins/srcheck": "19bf79f49e293bb0df82b1e4ec82ec45987c2791864598bada12525ef41a2945",
+    "/home/hwu/SAT-solving/benchmarks/runs/20261002-shared-feedback-0531c2f1-b28c5/pins/baseline.json": "ef81cf019675a79a91ee431ab54e2c59630d9d069a03c2a55e44bd446c37bc9d",
+    "/home/hwu/SAT-solving/benchmarks/runs/20261002-shared-feedback-0531c2f1-b28c5/pins/candidate-pin.json": "65177197a3f100e494ab0d722f4d1fb3463ff704a2fdfd944d41eb1d930ee057",
+    "/home/hwu/SAT-solving/benchmarks/runs/20261002-shared-feedback-0531c2f1-b28c5/pins/cake_lpr": "ab9dc6c43ad0f55bbaf336c5d898919ddb03d0bdb75e88dff48237fb06ba1f57",
+    "/home/hwu/SAT-solving/build/pin-shared-policy-feedback-release-0531c2f1/tactix": "f263a6afb42ecefba8003634295c191d4ff501f37eb451d72ee20db95ef38769",
+    "/home/hwu/SAT-solving/build/pin-shared-policy-feedback-release-0531c2f1/PIN.json": "65177197a3f100e494ab0d722f4d1fb3463ff704a2fdfd944d41eb1d930ee057"
+  },
+  "fixtures": [
+    {
+      "name": "binary-chain-sat",
+      "expected_exit": 10,
+      "input_sha256": "61f51595c9f8a17402bda60f9ae6e36d99027f4bd7fb83665551d142cbaa545a"
+    },
+    {
+      "name": "planted-3sat",
+      "expected_exit": 10,
+      "input_sha256": "97aab5ecd57e8fbd485ea69f8b4b52931c7a35b6a0d26280864a12fc11ac2611"
+    },
+    {
+      "name": "php-4-5",
+      "expected_exit": 10,
+      "input_sha256": "0195dbe57eaec78af0872cc45fe6a3e38835b4e6f21c210e541506721da5e380"
+    },
+    {
+      "name": "php-6-5",
+      "expected_exit": 20,
+      "input_sha256": "da1fafb33216d191b655ddde865d59e5757bfc2a062cb8042026b43dd77cec2e"
+    }
+  ],
+  "policies": {
+    "DefaultPolicy": [],
+    "RandomControllerPolicy": [
+      "--controller-policy=37",
+      "--controller-restart-period=2"
+    ]
+  },
+  "pairs_per_case": 7,
+  "warmup_pairs_per_case": 1,
+  "solver_timeout_seconds": 30,
+  "checker_timeout_seconds": 1800,
+  "solver_environment": {
+    "TACTIX_STATS_TIMING": "1",
+    "other_TACTIX_environment": "cleared for both arms"
+  },
+  "resource_contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "cpus": 12,
+    "memory_mib": 32768,
+    "time": "01:00:00"
+  },
+  "scope": "End-to-end frontend feedback recording cost on four fixed synthetic inputs, both policies, alternating arm order within one allocation. Includes provenance hashing, observation, serialization and anonymous-file writes; not isolated in-process callback cost or large-instance competitiveness. No scalar reward is computed.",
+  "correctness_contract": "All completed runs retain equal deterministic printed statistics/model tokens and proof hashes per input/policy; every SAT model independently checked, each distinct UNSAT certificate independently checked; enabled streams inspected strictly. No timeouts/failures may be accepted as a completed measurement."
+}
