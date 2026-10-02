@@ -31,6 +31,8 @@ struct AnalyzeParameters {
   static AnalyzeParameters from_kernel(const Kernel &);
 };
 
+void install_rule_parameters(Kernel &, const AnalyzeParameters &);
+
 class ScopedAnalyzeParameters {
 public:
   ScopedAnalyzeParameters(Kernel &, const AnalyzeParameters &);

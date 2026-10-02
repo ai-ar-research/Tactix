@@ -249,35 +249,35 @@ struct BveInvocationRequest {
   uint64_t configuration_revision = 0;
 };
 
+inline void install_rule_parameters(Kernel &k, const BveParameters &p) {
+  k.bve_gate_mask = p.gate_mask;
+  k.bve_bound = p.growth_bound;
+  k.bve_occurrence_limit = p.occurrence_limit;
+  k.bve_clause_size_limit = p.clause_size_limit;
+  k.bve_resolvent_count_limit = p.resolvent_count_limit;
+  k.bve_xor_arity_limit = p.xor_arity_limit;
+  k.bve_resolvent_size_limit = p.resolvent_size_limit;
+  k.bve_backward_occurrence_limit = p.backward_occurrence_limit;
+  k.bve_definition_budget = p.definition_budget;
+  k.bve_definition_cores = p.definition_cores;
+  k.bve_definition_core_budget_multiplier = p.definition_core_budget_multiplier;
+  k.bve_backward = p.backward;
+  k.bve_fastel_traversal = p.traversal == BveTraversal::FastEliminate;
+}
+
 namespace detail {
 
 class ScopedBveParameters {
 public:
   ScopedBveParameters(Kernel &k, const BveParameters &p)
       : k_(k), saved_(BveParameters::from_kernel(k)) {
-    install(p);
+    install_rule_parameters(k_, p);
   }
   ScopedBveParameters(const ScopedBveParameters &) = delete;
   ScopedBveParameters &operator=(const ScopedBveParameters &) = delete;
-  ~ScopedBveParameters() { install(saved_); }
+  ~ScopedBveParameters() { install_rule_parameters(k_, saved_); }
 
 private:
-  void install(const BveParameters &p) {
-    k_.bve_gate_mask = p.gate_mask;
-    k_.bve_bound = p.growth_bound;
-    k_.bve_occurrence_limit = p.occurrence_limit;
-    k_.bve_clause_size_limit = p.clause_size_limit;
-    k_.bve_resolvent_count_limit = p.resolvent_count_limit;
-    k_.bve_xor_arity_limit = p.xor_arity_limit;
-    k_.bve_resolvent_size_limit = p.resolvent_size_limit;
-    k_.bve_backward_occurrence_limit = p.backward_occurrence_limit;
-    k_.bve_definition_budget = p.definition_budget;
-    k_.bve_definition_cores = p.definition_cores;
-    k_.bve_definition_core_budget_multiplier =
-        p.definition_core_budget_multiplier;
-    k_.bve_backward = p.backward;
-    k_.bve_fastel_traversal = p.traversal == BveTraversal::FastEliminate;
-  }
   Kernel &k_;
   BveParameters saved_;
 };

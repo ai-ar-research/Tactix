@@ -204,8 +204,14 @@ void install_rule_parameters(Kernel &k, const WalkParameters &p) {
   k.work_budget = p.step_budget;
   k.work_budget_bounded = true;
   k.walk_random_seed = p.random_seed;
-  k.walk_even_break_base_milli = p.even_break_base_milli;
-  k.walk_score_curve = p.score_curve;
+  install_walk_guidance(k, p.even_break_base_milli, p.score_curve);
+}
+
+void install_walk_guidance(
+    Kernel &k, uint32_t even_break_base_milli,
+    const std::vector<WalkParameters::ScorePoint> &score_curve) {
+  k.walk_even_break_base_milli = even_break_base_milli;
+  k.walk_score_curve = score_curve;
 }
 
 ScopedWalkParameters::ScopedWalkParameters(

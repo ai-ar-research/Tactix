@@ -4,24 +4,32 @@
 
 namespace tactix::strategy {
 
+void install_rule_parameters(Kernel &k, const SubsumeForwardParameters &parameters) {
+  k.subsume_forward_parameters = parameters;
+}
+
+void install_rule_parameters(Kernel &k, const StrengthenParameters &parameters) {
+  k.strengthen_parameters = parameters;
+}
+
 ScopedSubsumeForwardParameters::ScopedSubsumeForwardParameters(
     Kernel &kernel, const SubsumeForwardParameters &parameters)
     : kernel_(kernel), saved_(kernel.subsume_forward_parameters) {
-  kernel_.subsume_forward_parameters = parameters;
+  install_rule_parameters(kernel_, parameters);
 }
 
 ScopedSubsumeForwardParameters::~ScopedSubsumeForwardParameters() {
-  kernel_.subsume_forward_parameters = saved_;
+  install_rule_parameters(kernel_, saved_);
 }
 
 ScopedStrengthenParameters::ScopedStrengthenParameters(
     Kernel &kernel, const StrengthenParameters &parameters)
     : kernel_(kernel), saved_(kernel.strengthen_parameters) {
-  kernel_.strengthen_parameters = parameters;
+  install_rule_parameters(kernel_, parameters);
 }
 
 ScopedStrengthenParameters::~ScopedStrengthenParameters() {
-  kernel_.strengthen_parameters = saved_;
+  install_rule_parameters(kernel_, saved_);
 }
 
 } // namespace tactix::strategy

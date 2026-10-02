@@ -4,14 +4,18 @@
 
 namespace tactix::strategy {
 
+void install_rule_parameters(Kernel &k, const CongruenceParameters &parameters) {
+  k.congruence_parameters = parameters;
+}
+
 ScopedCongruenceParameters::ScopedCongruenceParameters(
     Kernel &kernel, const CongruenceParameters &parameters)
     : kernel_(kernel), saved_(kernel.congruence_parameters) {
-  kernel_.congruence_parameters = parameters;
+  install_rule_parameters(kernel_, parameters);
 }
 
 ScopedCongruenceParameters::~ScopedCongruenceParameters() {
-  kernel_.congruence_parameters = saved_;
+  install_rule_parameters(kernel_, saved_);
 }
 
 } // namespace tactix::strategy

@@ -28,6 +28,8 @@ struct InstantiateParameters {
   constexpr bool valid() const { return true; }
 };
 
+void install_rule_parameters(Kernel &, const InstantiateParameters &);
+
 class ScopedInstantiateParameters {
 public:
   ScopedInstantiateParameters(Kernel &, const InstantiateParameters &);

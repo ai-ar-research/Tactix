@@ -441,6 +441,8 @@ void install_rule_parameters(Kernel &, const TransitiveReduceParameters &);
 void install_rule_parameters(Kernel &, const SubstituteParameters &);
 void install_rule_parameters(Kernel &, const ReduceParameters &);
 void install_rule_parameters(Kernel &, const WalkParameters &);
+void install_walk_guidance(Kernel &, uint32_t even_break_base_milli,
+                           const std::vector<WalkParameters::ScorePoint> &);
 void install_rule_parameters(Kernel &, const ReorderParameters &);
 void install_rule_parameters(Kernel &, const ParityModelParameters &);
 void install_rule_parameters(Kernel &, const OnehotModelParameters &);

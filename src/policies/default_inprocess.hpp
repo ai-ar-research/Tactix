@@ -250,6 +250,7 @@ public:
 
 private:
   const DefaultStrategyConfig::Inprocess &config() const;
+  void install_parameters(Kernel &) const;
   struct SlotPhaseCtx {
     SlotGroup group;
     volatile sig_atomic_t *stop;

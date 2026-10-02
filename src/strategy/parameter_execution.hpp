@@ -1,11 +1,35 @@
 #pragma once
 
 #include "kernel/kernel.hpp"
+#include "strategy/bve_invocation.hpp"
 
 #include <type_traits>
 #include <variant>
 
 namespace tactix::execution {
+
+// Policies choose complete or inherited profiles; permanent and scoped
+// installation use the same native family setters without changing validation.
+template <class Parameters> struct ParameterInstallationRequest {
+  const Parameters &parameters;
+};
+template <class Parameters>
+void execute_action(Kernel &k,
+                    const ParameterInstallationRequest<Parameters> &request) {
+  strategy::install_rule_parameters(k, request.parameters);
+}
+
+// The persistent phase profile owns only guidance, leaving the caller's Walk
+// seed and native work ceiling intact. Borrow the curve without an extra copy.
+struct WalkGuidanceInstallationRequest {
+  uint32_t even_break_base_milli;
+  const std::vector<strategy::WalkParameters::ScorePoint> &score_curve;
+};
+inline void execute_action(Kernel &k,
+                           const WalkGuidanceInstallationRequest &request) {
+  strategy::install_walk_guidance(k, request.even_break_base_milli,
+                                  request.score_curve);
+}
 
 // Most parameter families already use the same native save/install/restore
 // implementation. Specialized families retain their existing scopes.

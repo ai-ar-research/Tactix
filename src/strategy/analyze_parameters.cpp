@@ -17,7 +17,7 @@ AnalyzeParameters AnalyzeParameters::from_kernel(const Kernel &k) {
           !k.no_ext_reason_bump};
 }
 
-static void install(Kernel &k, const AnalyzeParameters &p) {
+void install_rule_parameters(Kernel &k, const AnalyzeParameters &p) {
   k.analyze_parameters.minimize_depth_limit = p.minimize_depth_limit;
   k.conflict_reuse = p.conflict_reuse;
   k.conflict_reuse_chrono_levels = p.chronological_levels;
@@ -33,11 +33,11 @@ static void install(Kernel &k, const AnalyzeParameters &p) {
 ScopedAnalyzeParameters::ScopedAnalyzeParameters(
     Kernel &kernel, const AnalyzeParameters &parameters)
     : kernel_(kernel), saved_(AnalyzeParameters::from_kernel(kernel)) {
-  install(kernel_, parameters);
+  install_rule_parameters(kernel_, parameters);
 }
 
 ScopedAnalyzeParameters::~ScopedAnalyzeParameters() {
-  install(kernel_, saved_);
+  install_rule_parameters(kernel_, saved_);
 }
 
 } // namespace tactix::strategy

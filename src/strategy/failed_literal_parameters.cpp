@@ -4,14 +4,18 @@
 
 namespace tactix::strategy {
 
+void install_rule_parameters(Kernel &k, const BackboneParameters &parameters) {
+  k.backbone_parameters = parameters;
+}
+
 ScopedBackboneParameters::ScopedBackboneParameters(
     Kernel &kernel, const BackboneParameters &parameters)
     : kernel_(kernel), saved_(kernel.backbone_parameters) {
-  kernel_.backbone_parameters = parameters;
+  install_rule_parameters(kernel_, parameters);
 }
 
 ScopedBackboneParameters::~ScopedBackboneParameters() {
-  kernel_.backbone_parameters = saved_;
+  install_rule_parameters(kernel_, saved_);
 }
 
 } // namespace tactix::strategy

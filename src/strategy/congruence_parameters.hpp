@@ -38,6 +38,8 @@ struct CongruenceParameters {
   }
 };
 
+void install_rule_parameters(Kernel &, const CongruenceParameters &);
+
 class ScopedCongruenceParameters {
 public:
   ScopedCongruenceParameters(Kernel &, const CongruenceParameters &);

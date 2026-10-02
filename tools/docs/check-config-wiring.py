@@ -46,6 +46,10 @@ POLICY_ADAPTERS = {
 # the actual policy request and its installation, even if a direct reset would
 # otherwise satisfy writers(). Keep these paths and expressions explicit.
 WORK_EXECUTION = "src/strategy/work_execution.hpp"
+GUIDANCE_EXECUTION = "src/strategy/guidance_execution.hpp"
+ROOT_EXECUTION = "src/strategy/root_execution.hpp"
+EXECUTION_SCOPE = "src/strategy/execution_scope.hpp"
+POLICY_ADAPTERS["inprocessing"] = [ROOT_EXECUTION, EXECUTION_SCOPE]
 VIVIFY_EXECUTION = "src/strategy/vivify_execution.hpp"
 VIVIFY_BAND = (r"execution::VivifyBandRequest\{[^{}]*"
                r"e\.meter\(k\) - dose_start")
@@ -53,9 +57,27 @@ MATERIAL_REQUEST = (r"execution::MaterialSettingsRequest\{\s*"
                     r"config\(\)\.touch_filter,\s*"
                     r"config\(\)\.likely_kept_redundant")
 POLICY_BINDINGS = {
+    "inprocessing": [
+        (POLICY[0], r"execution::SparseResumeRequest\{trail_begin, charge_search_ticks\}"),
+        (ROOT_EXECUTION, r"if \(request\.charge_search_ticks\) k\.inprocessing = false"),
+        (ROOT_EXECUTION, r"k\.inprocessing = inprocessing"),
+        (POLICY[0], r"execution::ExecutionScope<execution::ExecutionContext::Inprocessing>"),
+        (EXECUTION_SCOPE, r"kernel_\.inprocessing = true"),
+        (EXECUTION_SCOPE, r"kernel_\.inprocessing = previous_inprocessing_"),
+    ],
     "work_budget": [
         (POLICY[0], r"execution::WorkSettingsRequest\{\s*handed,"),
+        (POLICY[0], r"execution::WalkRequest\{\s*"
+                    r"scale_permille\(reference, config_\.rephase\.walk_permille\), seed"),
+        (GUIDANCE_EXECUTION, r"WorkSettingsScope work\(k, \{request\.allowance,"),
         (WORK_EXECUTION, r"k\.work_budget\s*=\s*\*request\.budget"),
+    ],
+    "walk_random_seed": [
+        (POLICY[0], r"const uint64_t seed = config_\.rephase\.walk_use_branch_seed\s*"
+                    r"\? default_branching_\.randec_rng\s*:\s*config_\.rephase\.walk_random_seed"),
+        (POLICY[0], r"execution::WalkRequest\{\s*"
+                    r"scale_permille\(reference, config_\.rephase\.walk_permille\), seed"),
+        (GUIDANCE_EXECUTION, r"k\.walk_random_seed\s*=\s*request\.seed"),
     ],
     "work_budget_offset": [
         (POLICY[0], VIVIFY_BAND),
@@ -84,9 +106,136 @@ POLICY_BINDINGS = {
     ],
 }
 
+# Permanent profiles use the same native family installers as temporary
+# invocations. These are named field-to-profile paths, not a blanket strategy
+# writer exemption. Every moved field needs its policy value and actual setter.
+PARAMETER_EXECUTION = "src/strategy/parameter_execution.hpp"
+PARAMETER_INSTALL = (PARAMETER_EXECUTION,
+                     r"strategy::install_rule_parameters\(k, request\.parameters\)")
+RULE_PARAMETERS = "src/strategy/rule_parameters.cpp"
+PROFILE_FAMILIES = [
+    ("config().bce_parameters", RULE_PARAMETERS, {"bce_occ_limit": "occurrence_limit"}),
+    ("config().ternary_parameters", RULE_PARAMETERS, {
+        "ternary_occ_limit": "occurrence_limit",
+        "ternary_max_add_percent": "maximum_add_percent"}),
+    ("config().factor_parameters", RULE_PARAMETERS, {
+        "factor_size": "maximum_clause_size", "factor_bound": "growth_bound",
+        "factor_cand_rounds": "candidate_rounds", "factor_composite": "composite",
+        "factor_demote_fresh": "demote_fresh"}),
+    ("config().transitive_parameters", RULE_PARAMETERS, {
+        "transitive_early_exit": "early_exit", "transitive_live_meter": "live_meter",
+        "transitive_budget_checked": "checked_budget_meter"}),
+    ("config().substitute_parameters", RULE_PARAMETERS, {"subst_demote": "demote_substituted"}),
+    ("config().vivify_parameters", "src/strategy/vivify_parameters.cpp", {
+        "vivify_scope": "scope", "vivify_reuse": "reuse", "vivify_flush": "flush",
+        "vivify_irredundant_sort_ratio": "irredundant_sort_ratio"}),
+    ("config_.reorder.parameters", RULE_PARAMETERS, {
+        "reorder_maximum_clause_size": "maximum_clause_size",
+        "reorder_clause_decay_milli": "clause_decay_milli",
+        "reorder_binary_weight_milli": "binary_weight_milli",
+        "reorder_balanced_polarity_milli": "balanced_polarity_milli"}),
+    ("config_.parity_model.parameters", RULE_PARAMETERS, {
+        "parity_model_maximum_variables": "maximum_variables",
+        "parity_model_maximum_groups": "maximum_groups",
+        "parity_model_maximum_constraints": "maximum_constraints",
+        "parity_model_minimum_group_clauses": "minimum_group_clauses",
+        "parity_model_minimum_equations": "minimum_equations",
+        "parity_model_maximum_free_variables": "maximum_free_variables",
+        "parity_model_candidate_budget": "candidate_budget",
+        "parity_refutation_maximum_variables": "refutation_maximum_variables",
+        "parity_refutation_maximum_groups": "refutation_maximum_groups",
+        "parity_refutation_maximum_constraints": "refutation_maximum_constraints",
+        "parity_refutation_maximum_arity": "refutation_maximum_arity",
+        "parity_refutation_probe_constraints": "refutation_probe_constraints",
+        "parity_refutation_minimum_probe_repeats": "refutation_minimum_probe_repeats",
+        "parity_refutation_maximum_proof_additions": "refutation_maximum_proof_additions"}),
+    ("config_.onehot_model.parameters", RULE_PARAMETERS, {
+        "onehot_model_maximum_variables": "maximum_variables",
+        "onehot_model_maximum_domains": "maximum_domains",
+        "onehot_model_maximum_constraints": "maximum_constraints",
+        "onehot_model_maximum_equation_arity": "maximum_equation_arity",
+        "onehot_model_minimum_domains": "minimum_domains",
+        "onehot_model_minimum_equations": "minimum_equations",
+        "onehot_model_maximum_free_domains": "maximum_free_domains",
+        "onehot_model_candidate_budget": "candidate_budget",
+        "exact_one_refutation_maximum_variables": "refutation_maximum_variables",
+        "exact_one_refutation_maximum_groups": "refutation_maximum_groups",
+        "exact_one_refutation_maximum_constraints": "refutation_maximum_constraints",
+        "exact_one_refutation_maximum_arity": "refutation_maximum_arity",
+        "exact_one_refutation_maximum_proof_additions": "refutation_maximum_proof_additions"}),
+]
+for profile, installer, fields in PROFILE_FAMILIES:
+    request = (POLICY[0], r"execution::ParameterInstallationRequest\{\s*" + re.escape(profile))
+    for field, member in fields.items():
+        POLICY_ADAPTERS.setdefault(field, []).append(installer)
+        POLICY_BINDINGS[field] = [request, PARAMETER_INSTALL,
+                                 (installer, r"k\." + field + r"\s*=\s*(?:p|parameters)\." + member)]
+
+# Partial scalar profiles inherit unowned fields from the kernel, then pose
+# selected values. Explicit constants retain the old scheduler's profile.
+PARTIAL_PROFILES = [
+    ("bve", "src/strategy/bve_invocation.hpp", {
+        "bve_occurrence_limit": ("occurrence_limit", "config().bve_occurrence_limit"),
+        "bve_clause_size_limit": ("clause_size_limit", "config().bve_clause_size_limit"),
+        "bve_resolvent_count_limit": ("resolvent_count_limit", "UINT32_MAX"),
+        "bve_xor_arity_limit": ("xor_arity_limit", "config().bve_xor_arity_limit"),
+        "bve_resolvent_size_limit": ("resolvent_size_limit", "config().bve_resolvent_size_limit"),
+        "bve_backward_occurrence_limit": ("backward_occurrence_limit", "config().bve_backward_occurrence_limit"),
+        "bve_definition_budget": ("definition_budget", "config().bve_definition_budget"),
+        "bve_definition_cores": ("definition_cores", "config().bve_definition_cores"),
+        "bve_definition_core_budget_multiplier": ("definition_core_budget_multiplier", "config().bve_definition_core_budget_multiplier"),
+        "bve_backward": ("backward", "config().bve_backward")}),
+    ("analysis", "src/strategy/analyze_parameters.cpp", {
+        "conflict_reuse_chrono_levels": ("chronological_levels", "chrono_levels"),
+        "conflict_reuse": ("conflict_reuse", "config_.analysis.conflict_reuse"),
+        "jump_reasons": ("jump_reasons", "config_.analysis.jump_reasons"),
+        "shrink_glue_promote": ("shrink_glue_promote", "config_.analysis.shrink_glue_promote"),
+        "eager_subsume": ("eager_subsume", "config_.analysis.eager_subsume")}),
+    ("reduce", RULE_PARAMETERS, {
+        "reduce_victim_numerator": ("victim_numerator", "config_.reduction.victim_numerator"),
+        "reduce_victim_denominator": ("victim_denominator", "config_.reduction.victim_denominator"),
+        "reduce_protect_tiers": ("protect_tiers", "config_.reduction.protect_tiers"),
+        "reduce_compact_collection": ("compact_collection", "config_.reduction.canonical_compact_collection"),
+        "reduce_bookkeeping": ("reduction_bookkeeping", "config_.reduction.bookkeeping")}),
+]
+for profile, installer, fields in PARTIAL_PROFILES:
+    request = (POLICY[0], r"execution::ParameterInstallationRequest\{" + profile + r"\}")
+    for field, (member, value) in fields.items():
+        POLICY_ADAPTERS.setdefault(field, []).append(installer)
+        POLICY_BINDINGS[field] = [
+            (POLICY[0], profile + r"\." + member + r"\s*=\s*" + re.escape(value)),
+            request, PARAMETER_INSTALL, (installer, r"k\." + field + r"\s*=\s*p\." + member)]
+
+POLICY_ADAPTERS["no_ext_reason_bump"] = ["src/strategy/analyze_parameters.cpp"]
+POLICY_BINDINGS["no_ext_reason_bump"] = [
+    (POLICY[0], r"analysis\.bump_extension_reasons\s*=\s*config_\.analysis\.bump_extension_reasons"),
+    (POLICY[0], r"execution::ParameterInstallationRequest\{analysis\}"), PARAMETER_INSTALL,
+    ("src/strategy/analyze_parameters.cpp", r"k\.no_ext_reason_bump\s*=\s*!p\.bump_extension_reasons")]
+POLICY_ADAPTERS["walk_even_break_base_milli"] = [RULE_PARAMETERS]
+POLICY_BINDINGS["walk_even_break_base_milli"] = [
+    (POLICY[0], r"execution::WalkGuidanceInstallationRequest\{\s*config_\.rephase\.walk_even_break_base_milli"),
+    (PARAMETER_EXECUTION, r"strategy::install_walk_guidance\(k, request\.even_break_base_milli"),
+    (RULE_PARAMETERS, r"k\.walk_even_break_base_milli\s*=\s*even_break_base_milli")]
+
+
+def profile_call_errors(sources):
+    code = re.sub(r"//[^\n]*|/\*.*?\*/", "", sources[POLICY[0]], flags=re.S)
+    failures = []
+    for name in ("build", "run_phase"):
+        start = re.search(r"DefaultInprocessScheduler::" + name + r"\([^{}]*\)\s*\{", code)
+        if not start:
+            failures.append(f"UNWIRED: missing profile owner {name}")
+            continue
+        following = code[start.end():]
+        end = re.search(r"\n(?:void|int|bool|ApplyResult)\s+\w+::", following)
+        body = following[:end.start()] if end else following
+        if not re.search(r"\binstall_parameters\(k\);", body):
+            failures.append(f"UNWIRED: {name} does not install its rule profile")
+    return failures
+
 
 def adapter_binding_errors(sources):
-    failures = []
+    failures = profile_call_errors(sources)
     for field, bindings in POLICY_BINDINGS.items():
         for path, pattern in bindings:
             # Comments cannot provide request/installation evidence.
@@ -115,6 +264,11 @@ def binding_self_test():
             assert any(f"`{field}`" in failure
                        for failure in adapter_binding_errors(changed))
             count += 1
+    for match in re.finditer(r"\binstall_parameters\(k\);", sources[POLICY[0]]):
+        changed = dict(sources)
+        changed[POLICY[0]] = sources[POLICY[0]][:match.start()] + sources[POLICY[0]][match.end():]
+        assert profile_call_errors(changed)
+        count += 1
     print(f"check-config-wiring self-test: {count}/{count} missing-request/"
           "installation controls rejected")
 

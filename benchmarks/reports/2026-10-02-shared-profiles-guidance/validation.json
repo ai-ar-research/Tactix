@@ -1,0 +1,786 @@
+{
+  "predecessor_commit": "5da1a178a89f23fa3b7d5a76fb74b07833acb393",
+  "sources": {
+    "src/policies/default_inprocess.hpp": "3220a26d33119df3b454f9d43f5a93b3bcd5f8bc28adbfea4ac51ceae9d90270",
+    "src/policies/default_policy.cpp": "3aee6a0093d31458a11c447ac50a8a6840eb40ceb1911bf1441e448cbbe91b63",
+    "src/strategy/analyze_parameters.cpp": "9aeaa3b3aaf2d1cc33d74867c5d7d811801d4ab983f7f7688cffe0f1cab75e12",
+    "src/strategy/analyze_parameters.hpp": "cc973f8b9d3aa085230bbe57d0554ea99ef2b981d87337c8d774765cd5e69c6d",
+    "src/strategy/bve_invocation.hpp": "0eefcd9f0c26a11df692a973ac74febb223e0d8224dacbb741336bbed0eb5326",
+    "src/strategy/congruence_parameters.cpp": "f5887f20e4d5e573554bd1fb6304e12447919c9c4c194891c0e6736fdeabbb3d",
+    "src/strategy/congruence_parameters.hpp": "5ab8a140605c3f13e29ac3d968b7063f080e6873c1d047eb0ff685bb98f564ed",
+    "src/strategy/failed_literal_parameters.cpp": "95dc12ffad7ef9dce73d7ac5b6864d8dd0f1572c2070280d564e9c430c6dd46a",
+    "src/strategy/failed_literal_parameters.hpp": "4812630ade99362921800ab1050be3552df0f4bd99d7f59b4f7d0f35e176c480",
+    "src/strategy/forward_parameters.cpp": "db1182f50478ec4e341cba355f2ebca3ab7c145846502494ea4265180f20ce6b",
+    "src/strategy/forward_parameters.hpp": "212d80fbc706e9af104264a65a8f158ac796470f5e3059d163953b54793337d3",
+    "src/strategy/guidance_execution.hpp": "9381fa34e1181e8444ade76512002d9a06a1e021233ea5e9aff1181b352ee2db",
+    "src/strategy/instantiate_parameters.cpp": "03ec92bb4f8a458058a68a6c843bc848066d9b3ca951731a71595b04b0098e46",
+    "src/strategy/instantiate_parameters.hpp": "241359c218f55bbae653ef337618b052a8a044d870b0270551a3b47994475941",
+    "src/strategy/online_inprocess.cpp": "b8b607562597ce80e6bed68891139088a4e5b767bbccc78f2b6832a13ae55fad",
+    "src/strategy/parameter_execution.hpp": "f8685e2adf7eaa5afbe39c8937afd9ba75cae9168b899810af4e8a87a5298e72",
+    "src/strategy/reduction_execution.hpp": "61b9e543030a2f4167091b91f13d8dea3af3db15342098d997415ddf2d9800c5",
+    "src/strategy/representation_execution.hpp": "961beb91b2f4a90358d678dc49586cd2f0382b365cf9d047679e4a25720f3264",
+    "src/strategy/root_execution.hpp": "d38cc3c38db50fbae33f5fc26eccec9845382cb6971b173317e0c6c0d3deb30a",
+    "src/strategy/rule_parameters.cpp": "18374fd9ca0a03b41fb2eca59658d5af5438105d202dfbed87d333ba537d2b69",
+    "src/strategy/rule_parameters.hpp": "4a30c19c0565953def8cd94f2f7c3dc1a344176b39ef274048dc242b210b235a",
+    "src/strategy/sweep_execution.hpp": "11f19e1ed52901c0114d2bf3e7f9b956ba2a590f8a2d4c0abdacc0b1366eb640",
+    "src/strategy/vivify_parameters.cpp": "fb1d74c68e3250408c150af91d7375c7042d070362129e3dfbb99210599c2b56",
+    "src/strategy/vivify_parameters.hpp": "f308128b8f4baabd4d32c306ef37b54415eff7e39c3f258c65b704ea15de9331",
+    "tests/test_default_execution_signature.cpp": "e089dd75815603ad19cabb4e8efa44ef431147ed318e1423709be9b992daa18f",
+    "tests/test_guidance_execution.cpp": "f8f477e09d94377fa3178be56fa120b5d2063122b4236eb94e6147e58e71e0ed",
+    "tests/test_profile_execution.cpp": "4772de2f51634bd73cbfcc000e97dc7759a99520a04fba7eed151e7ef0a3b981",
+    "tools/docs/check-config-wiring.py": "57c024aad9f0d43765ce1381b8b6d8c3b6643656cff2482a8df0b3dae84dced0"
+  },
+  "preserved_authorities": {
+    "build/pin-controller-foundations-debug-canonical-repair/tactix": "8ae7478107a340ee5b53261f76ffbb1034b90e4f7e7acc2a8123ea300e1267f3",
+    "build/pin-controller-foundations-release-canonical-repair/tactix": "ad7e4da8fb0801b15c5916c94a536176f69f2def2a8fd477d59953d5409dfe41",
+    "benchmarks/baselines/controller-foundations-v1/results.json": "ef81cf019675a79a91ee431ab54e2c59630d9d069a03c2a55e44bd446c37bc9d"
+  },
+  "checks": {
+    "normal_focused": {
+      "log": "build/shared-policy-prep-guidance-final-focused.log",
+      "sha256": "65aecaa0d67f6261a79dfc367b8060dd96cac4c242c22a540c5a22992deda364",
+      "passed": 33,
+      "elapsed_seconds": 20.43
+    },
+    "diagnostic_focused": {
+      "log": "build/shared-policy-prep-guidance-diagnostic-focused.log",
+      "sha256": "e4df86c1de39f9a118b0671bc3fb9c7d785b2d0bebc259174838d779f4ce957e",
+      "passed": 11,
+      "elapsed_seconds": 10.4
+    },
+    "final_signature": {
+      "log": "build/shared-policy-prep-guidance-signature-focused.log",
+      "sha256": "a4808de6e62dc52d4fc8d1cf2c57581def54e1e953d31e452eea3d11cfd5daaf",
+      "passed": 1,
+      "elapsed_seconds": 0.11
+    },
+    "documentation": {
+      "log": "build/shared-policy-prep-guidance-docs.log",
+      "sha256": "6ac124d6f430251491b8deaebb510d2cd6039d9ee76994703b238b9ff5ad1b15",
+      "passed": 13,
+      "elapsed_seconds": 11.13
+    },
+    "wiring": {
+      "log": "build/shared-policy-prep-guidance-wiring.log",
+      "sha256": "d37c53d2d7655a63e769f20c872ab65081b9f1ebf028bceeb682e4409e2387f6",
+      "output": "check-config-wiring self-test: 255/255 missing-request/installation controls rejected\n  ok    POLICY bve_bound                  <- src/policies/default_policy.cpp:4294, src/policies/default_policy.cpp:4416\n  ok    POLICY bve_occurrence_limit       <- src/policies/default_policy.cpp:1088, src/strategy/bve_invocation.hpp:255\n  ok    POLICY bve_clause_size_limit      <- src/policies/default_policy.cpp:1090, src/strategy/bve_invocation.hpp:256\n  ok    POLICY bve_xor_arity_limit        <- src/policies/default_policy.cpp:1092, src/strategy/bve_invocation.hpp:258\n  ok    POLICY bve_resolvent_size_limit   <- src/policies/default_policy.cpp:1094, src/strategy/bve_invocation.hpp:259\n  ok    POLICY bve_resolvent_count_limit  <- src/strategy/bve_invocation.hpp:257\n  ok    POLICY bve_fastel_traversal       <- src/strategy/bve_invocation.hpp:265\n  ok    POLICY bve_backward_occurrence_limit <- src/policies/default_policy.cpp:1096, src/strategy/bve_invocation.hpp:260\n  ok    POLICY bve_definition_session     <- src/policies/default_policy.cpp:5268\n  ok    POLICY factor_composite           <- src/policies/default_policy.cpp:981, src/policies/default_policy.cpp:4661, src/policies/default_policy.cpp:4858\n  ok    POLICY work_budget                <- src/strategy/work_execution.hpp:19, src/strategy/work_execution.hpp:40\n  ok    POLICY work_budget_offset         <- src/strategy/work_execution.hpp:20, src/strategy/work_execution.hpp:41\n  ok    POLICY work_budget_bounded        <- src/strategy/work_execution.hpp:21, src/strategy/work_execution.hpp:42\n  ok    POLICY vivify_scope               <- src/policies/default_policy.cpp:963, src/strategy/vivify_parameters.cpp:23\n  ok    POLICY vivify_irredundant_sort_ratio <- src/policies/default_policy.cpp:967, src/strategy/vivify_parameters.cpp:26\n  ok    POLICY bump_reason_limit          <- src/policies/default_policy.cpp:677, src/policies/default_policy.cpp:2726, src/policies/default_policy.cpp:2728\n  ok    POLICY bump_reason_depth          <- src/policies/default_policy.cpp:3812, src/policies/default_policy.cpp:3826\n  ok    POLICY inprocessing               <- src/strategy/root_execution.hpp:26, src/strategy/root_execution.hpp:27, src/strategy/root_execution.hpp:29\n  ok    POLICY jump_reasons_bigbig        <- src/policies/default_policy.cpp:2605\n  ok    POLICY conflict_reuse_chrono_levels <- src/strategy/analyze_parameters.cpp:23\n  ok    POLICY bve_backward               <- src/policies/default_policy.cpp:1104, src/policies/default_policy.cpp:2789, src/strategy/bve_invocation.hpp:264\n  ok    POLICY bce_occ_limit              <- src/strategy/rule_parameters.cpp:166\n  ok    POLICY midround_budget            <- src/strategy/work_execution.hpp:22, src/strategy/work_execution.hpp:43\n  ok    POLICY factor_size                <- src/strategy/rule_parameters.cpp:175\n  ok    POLICY transitive_early_exit      <- src/policies/default_policy.cpp:985, src/strategy/rule_parameters.cpp:184\n  ok    POLICY transitive_live_meter      <- src/policies/default_policy.cpp:987, src/strategy/rule_parameters.cpp:185\n  ok    POLICY transitive_budget_checked  <- src/strategy/rule_parameters.cpp:186\n  ok    POLICY bve_definition_budget      <- src/policies/default_policy.cpp:1098, src/policies/default_policy.cpp:2781, src/strategy/bve_invocation.hpp:261\n  ok    POLICY bve_definition_cores       <- src/policies/default_policy.cpp:1100, src/policies/default_policy.cpp:2783, src/strategy/bve_invocation.hpp:262\n  ok    POLICY bve_definition_core_budget_multiplier <- src/policies/default_policy.cpp:1102, src/policies/default_policy.cpp:2786, src/strategy/bve_invocation.hpp:263\n  ok    POLICY ternary_occ_limit          <- src/strategy/rule_parameters.cpp:170\n  ok    POLICY ternary_max_add_percent    <- src/strategy/rule_parameters.cpp:171\n  ok    POLICY touch_filter               <- src/policies/default_policy.cpp:993, src/policies/default_policy.cpp:2832, src/strategy/work_execution.hpp:61\n  ok    POLICY touch_redundant            <- src/strategy/work_execution.hpp:63, src/strategy/work_execution.hpp:128\n  ok    POLICY vivify_reuse               <- src/policies/default_policy.cpp:965, src/strategy/vivify_parameters.cpp:24\n  ok    POLICY vivify_flush               <- src/policies/default_policy.cpp:966, src/strategy/vivify_parameters.cpp:25\n  ok    POLICY factor_demote_fresh        <- src/policies/default_policy.cpp:983, src/strategy/rule_parameters.cpp:179\n  ok    POLICY factor_cand_rounds         <- src/strategy/rule_parameters.cpp:177\n  ok    POLICY no_ext_reason_bump         <- src/strategy/analyze_parameters.cpp:30\n  ok    POLICY subst_demote               <- src/strategy/rule_parameters.cpp:190\n  ok    POLICY eager_subsume              <- src/policies/default_policy.cpp:688, src/policies/default_policy.cpp:2770, src/policies/default_policy.cpp:3277\n  ok    POLICY conflict_reuse             <- src/policies/default_policy.cpp:683, src/policies/default_policy.cpp:2762, src/policies/default_policy.cpp:3273\n  ok    POLICY jump_reasons               <- src/policies/default_policy.cpp:684, src/policies/default_policy.cpp:2764, src/policies/default_policy.cpp:3274\n  ok    POLICY shrink_glue_promote        <- src/policies/default_policy.cpp:685, src/policies/default_policy.cpp:2766, src/policies/default_policy.cpp:3275\n  ok    POLICY factor_bound               <- src/strategy/rule_parameters.cpp:176\n  ok    POLICY walk_even_break_base_milli <- src/policies/default_policy.cpp:743, src/strategy/rule_parameters.cpp:213, src/strategy/rule_parameters.cpp:230\n  ok    POLICY reorder_maximum_clause_size <- src/strategy/rule_parameters.cpp:236\n  ok    POLICY reorder_clause_decay_milli <- src/strategy/rule_parameters.cpp:237\n  ok    POLICY reorder_binary_weight_milli <- src/strategy/rule_parameters.cpp:238\n  ok    POLICY reorder_balanced_polarity_milli <- src/strategy/rule_parameters.cpp:239\n  ok    POLICY parity_model_maximum_variables <- src/strategy/rule_parameters.cpp:243\n  ok    POLICY parity_model_maximum_groups <- src/strategy/rule_parameters.cpp:244\n  ok    POLICY parity_model_maximum_constraints <- src/strategy/rule_parameters.cpp:245\n  ok    POLICY parity_model_minimum_group_clauses <- src/strategy/rule_parameters.cpp:246\n  ok    POLICY parity_model_minimum_equations <- src/strategy/rule_parameters.cpp:247\n  ok    POLICY parity_model_maximum_free_variables <- src/strategy/rule_parameters.cpp:248\n  ok    POLICY parity_model_candidate_budget <- src/strategy/rule_parameters.cpp:249\n  ok    POLICY parity_refutation_maximum_variables <- src/strategy/rule_parameters.cpp:250\n  ok    POLICY parity_refutation_maximum_groups <- src/strategy/rule_parameters.cpp:251\n  ok    POLICY parity_refutation_maximum_constraints <- src/strategy/rule_parameters.cpp:252\n  ok    POLICY parity_refutation_maximum_arity <- src/strategy/rule_parameters.cpp:253\n  ok    POLICY parity_refutation_probe_constraints <- src/strategy/rule_parameters.cpp:254\n  ok    POLICY parity_refutation_minimum_probe_repeats <- src/strategy/rule_parameters.cpp:255\n  ok    POLICY parity_refutation_maximum_proof_additions <- src/strategy/rule_parameters.cpp:257\n  ok    POLICY onehot_model_maximum_variables <- src/strategy/rule_parameters.cpp:262\n  ok    POLICY onehot_model_maximum_domains <- src/strategy/rule_parameters.cpp:263\n  ok    POLICY onehot_model_maximum_constraints <- src/strategy/rule_parameters.cpp:264\n  ok    POLICY onehot_model_maximum_equation_arity <- src/strategy/rule_parameters.cpp:265\n  ok    POLICY onehot_model_minimum_domains <- src/strategy/rule_parameters.cpp:266\n  ok    POLICY onehot_model_minimum_equations <- src/strategy/rule_parameters.cpp:267\n  ok    POLICY onehot_model_maximum_free_domains <- src/strategy/rule_parameters.cpp:268\n  ok    POLICY onehot_model_candidate_budget <- src/strategy/rule_parameters.cpp:269\n  ok    POLICY exact_one_refutation_maximum_variables <- src/strategy/rule_parameters.cpp:270\n  ok    POLICY exact_one_refutation_maximum_groups <- src/strategy/rule_parameters.cpp:271\n  ok    POLICY exact_one_refutation_maximum_constraints <- src/strategy/rule_parameters.cpp:272\n  ok    POLICY exact_one_refutation_maximum_arity <- src/strategy/rule_parameters.cpp:274\n  ok    POLICY exact_one_refutation_maximum_proof_additions <- src/strategy/rule_parameters.cpp:275\n  ok    POLICY reduce_victim_numerator    <- src/strategy/rule_parameters.cpp:196\n  ok    POLICY reduce_victim_denominator  <- src/strategy/rule_parameters.cpp:197\n  ok    POLICY reduce_protect_tiers       <- src/strategy/rule_parameters.cpp:198\n  ok    POLICY reduce_compact_collection  <- src/strategy/rule_parameters.cpp:199\n  ok    POLICY reduce_bookkeeping         <- src/strategy/rule_parameters.cpp:200\ncheck-config-wiring: 96 config fields, 82 POLICY-tagged, 0 failure(s)\n"
+    },
+    "doc_size": {
+      "log": "build/shared-policy-prep-guidance-doc-size.log",
+      "sha256": "7cd926048f7348d34ca4f220363b026958dbd69bb1848b2fb2b2ac0855241409",
+      "output": "  warn  CLAUDE.md: 74 of 80 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\n  warn  DEVELOPMENT_PLAN.md: 742 of 750 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\n  warn  docs/calculus.md: 678 of 680 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\n  warn  docs/implementation-notes.md: 559 of 560 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\n  warn  docs/scheduling-parity-ledger.md: 600 of 600 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\n  warn  docs/proof-rules.html: 924 of 1000 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\ncheck-doc-size: 0 error(s), 6 warning(s), 30 file budget(s) checked\n"
+    },
+    "progress": {
+      "log": "build/shared-policy-prep-guidance-progress.log",
+      "sha256": "6000d8265ccef2e4fbcbdcee2f54cdceed74acf9a0f685793b6e929bd53c727b",
+      "output": "  note  build dirs newer than newest source: NONE  (total pin-* dirs: 69)\n  note  newest completed tier run: 20260926-163543-B-am466-split-paired\ncheck-progress: 0 error(s), 0 warning(s)\n"
+    }
+  },
+  "normal_correspondence": {
+    "baseline_commit": "5da1a178",
+    "replaced_translation_units": [
+      "src/policies/default_policy.cpp",
+      "src/strategy/online_inprocess.cpp",
+      "src/strategy/analyze_parameters.cpp",
+      "src/strategy/congruence_parameters.cpp",
+      "src/strategy/forward_parameters.cpp",
+      "src/strategy/failed_literal_parameters.cpp",
+      "src/strategy/instantiate_parameters.cpp",
+      "src/strategy/vivify_parameters.cpp",
+      "src/strategy/rule_parameters.cpp"
+    ],
+    "preserved_headers": {
+      "src/policies/default_inprocess.hpp": "2dc5349c030842020e04613498a10e3da2bae73bdcda6e6bbfad5db327b925e2",
+      "src/strategy/analyze_parameters.hpp": "b8b5ac5549cf95601d758a67979ea7b0259a6bcc69e7e8f6f4806238f473c425",
+      "src/strategy/congruence_parameters.hpp": "1335f7c60fb508d30c9befcbb0c5df2aaf444005c878b8215a6796a46c08b9b1",
+      "src/strategy/forward_parameters.hpp": "a559ae06c7621a69cba43b833afd1be0a3e3750c646672bd802f5d11ca4a9d79",
+      "src/strategy/failed_literal_parameters.hpp": "38ff97c4defd76233a77337de1174570067ec1b4745ab25efdd5abc64c870917",
+      "src/strategy/instantiate_parameters.hpp": "d02b5de49b713c09a5e87f16e11b1717bade922c07d7a1953b940cbeedbeaa84",
+      "src/strategy/vivify_parameters.hpp": "60fffe5b2a07457f078da4d170bba69ae7bb4e0a577e41e09994537e1c3b4ff4",
+      "src/strategy/rule_parameters.hpp": "cd9fd6a96a71c1d826e530a679e4df77d60685d5567552df767d9bf259d88b48",
+      "src/strategy/bve_invocation.hpp": "e1c0a2e3e0e55287303ff32b3e1333aba04aa676dcdc35245d7467680f2d2a00",
+      "src/strategy/parameter_execution.hpp": "0aa2a54f8062f9edcc5e3b7d7bb0a9e4ec2135e3c8525e178702ed624429e0be"
+    },
+    "adaptations": [],
+    "before_sources": {
+      "src/policies/default_policy.cpp": "1fc4d12973da696baa2064a52e698190f1d9b62fc1e3fe0fc2e91baddf625241",
+      "src/strategy/online_inprocess.cpp": "5aab19572288cbf72be1a9a7ab2ea0e9c23ec682a8a3f9d1c59906e624df2890",
+      "src/strategy/analyze_parameters.cpp": "2712e166a1dc59be4c9b2d95732f4180b77f3fbcd984fdeec7b8cca74bc06b0d",
+      "src/strategy/congruence_parameters.cpp": "0a8ff1195026132850f3921ea1e857dee5c6e4fbf435f8919b54f65b73064841",
+      "src/strategy/forward_parameters.cpp": "c016fa9450c054ee016161d688fa0abe40da0adce9062d1c8e5a2095f2223a44",
+      "src/strategy/failed_literal_parameters.cpp": "268d132c8dfc99fcbb2f0074b48b56fb3e59a03f1ead7d78fbf0d5c6d4fdcc90",
+      "src/strategy/instantiate_parameters.cpp": "294dee72bf0250f7033177832a69dce50a47996eeb5a5a4bd0791118dd2c136a",
+      "src/strategy/vivify_parameters.cpp": "4885ea7e72889bb08a061198f8984632a948fb4d3c4834bd4bfa1a2d2111d47a",
+      "src/strategy/rule_parameters.cpp": "9726c9d10696170e8657631262bfdb924ba4108e5312e1696ae8bc0ffd284e0d"
+    },
+    "comparisons": [
+      {
+        "target": "test_default_execution_signature",
+        "signatures_equal": true,
+        "files_byte_equal": true,
+        "files": {
+          "profile-0-pigeons-4.cnf": "4cf15626db79506ececd3ee41bb9489e26aac82c3526e7383ea3b3b4305125c3",
+          "profile-0-pigeons-4.drat": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "profile-0-pigeons-4.model": "0f2669e7e3ed57ebcdaebd13be398537afab7519256b6eb9373682c3ba3f28e3",
+          "profile-0-pigeons-6.cnf": "05763358a94b1a979c8f2979408450f60557830878726dba7c92ff108b070f5d",
+          "profile-0-pigeons-6.drat": "dee72c8f6ca992f144b002675f3291dd6ba4b0c421ac4dc99468ab0470fb668a",
+          "profile-1-pigeons-4.cnf": "4cf15626db79506ececd3ee41bb9489e26aac82c3526e7383ea3b3b4305125c3",
+          "profile-1-pigeons-4.drat": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "profile-1-pigeons-4.model": "0f2669e7e3ed57ebcdaebd13be398537afab7519256b6eb9373682c3ba3f28e3",
+          "profile-1-pigeons-6.cnf": "05763358a94b1a979c8f2979408450f60557830878726dba7c92ff108b070f5d",
+          "profile-1-pigeons-6.drat": "bc2ec86281d21e88982e1a95a51eaa5cfdf8c165cbfb89b9c15e578eafc8cee5",
+          "profile-2-pigeons-4.cnf": "4cf15626db79506ececd3ee41bb9489e26aac82c3526e7383ea3b3b4305125c3",
+          "profile-2-pigeons-4.drat": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "profile-2-pigeons-4.model": "0f2669e7e3ed57ebcdaebd13be398537afab7519256b6eb9373682c3ba3f28e3",
+          "profile-2-pigeons-6.cnf": "05763358a94b1a979c8f2979408450f60557830878726dba7c92ff108b070f5d",
+          "profile-2-pigeons-6.drat": "87a46b8220089c0f368d27e012c8429098dd79662131ed1197d2c592ce94eb65",
+          "profile-3-pigeons-4.cnf": "4cf15626db79506ececd3ee41bb9489e26aac82c3526e7383ea3b3b4305125c3",
+          "profile-3-pigeons-4.drat": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "profile-3-pigeons-4.model": "0f2669e7e3ed57ebcdaebd13be398537afab7519256b6eb9373682c3ba3f28e3",
+          "profile-3-pigeons-6.cnf": "05763358a94b1a979c8f2979408450f60557830878726dba7c92ff108b070f5d",
+          "profile-3-pigeons-6.drat": "5e69cdb9917cd9ef5f80eabf31505d93224551e8197da9255bfa64db4c356ed8",
+          "profile-4-pigeons-4.cnf": "4cf15626db79506ececd3ee41bb9489e26aac82c3526e7383ea3b3b4305125c3",
+          "profile-4-pigeons-4.drat": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "profile-4-pigeons-4.model": "0f2669e7e3ed57ebcdaebd13be398537afab7519256b6eb9373682c3ba3f28e3",
+          "profile-4-pigeons-6.cnf": "05763358a94b1a979c8f2979408450f60557830878726dba7c92ff108b070f5d",
+          "profile-4-pigeons-6.drat": "ba0f60727bddbe08d69d3bf8bcf06728fc07def8a4857e8438d6b37e90a20f8c"
+        },
+        "output_sha256": "d788c182c82e5d928a4ccca612410287a4676240d0d640fb646e2a8bd5a9b9a4",
+        "output": "profile=0 pigeons=4 verdict=10 proof=14695981039346656037:0 work=0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0 state=20:20:34:1:3:5:7:8:11:13:14:17:19:21:22:25:27:29:30:33:35:37:39 phases=-1,-1,-1,-1,1,-1,-1,1,-1,-1,-1,1,-1,-1,-1,1,-1,-1,-1,-1, scores=0,0.5,0.66666666666666674,0.75,0.80000000000000004,0.83333333333333337,0.85714285714285721,0.875,0.88888888888888884,0.90000000000000002,0.90909090909090906,0.91666666666666663,0.92307692307692313,0.9285714285714286,0.93333333333333335,0.9375,0.94117647058823528,0.94444444444444442,0.94736842105263164,0.94999999999999996,\nprofile=0 pigeons=6 verdict=20 proof=11116815066249832632:4519 work=140:107:1609:7673:6240:104:5:1:0:2:1:0:0:0:0:0:0:0:0:0:0:0 state=0:25:252:59:61:48:9:39:63:29:19:4:45:55:69:35:25:15:32:3:64:26:13:53:7:37:66:17:47:57 phases=0,-1,1,-1,-1,0,-1,-1,-1,-1,0,0,-1,1,-1,0,1,-1,-1,-1,0,0,-1,-1,1,0,-1,-1,-1,-1,-1,-1,1,1,-1, scores=0,0.5,0.66666666666666674,0.75,0.80000000000000004,0.83333333333333337,0.85714285714285721,0.875,0.88888888888888884,0.90000000000000002,0.90909090909090906,0.91666666666666663,0.92307692307692313,0.9285714285714286,0.93333333333333335,0.9375,0.94117647058823528,0.94444444444444442,0.94736842105263164,0.94999999999999996,0.95238095238095233,0.95454545454545459,0.95652173913043481,0.95833333333333337,0.95999999999999996,0.96153846153846156,0.96296296296296302,0.9642857142857143,0.96551724137931039,0.96666666666666667,0,0,0,0,0,\nprofile=1 pigeons=4 verdict=10 proof=14695981039346656037:0 work=0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0 state=20:20:34:1:3:5:7:8:11:13:14:17:19:21:22:25:27:29:30:33:35:37:39 phases=-1,-1,-1,-1,1,-1,-1,1,-1,-1,-1,1,-1,-1,-1,1,-1,-1,-1,-1, scores=0,0.5,0.66666666666666674,0.75,0.80000000000000004,0.83333333333333337,0.85714285714285721,0.875,0.88888888888888884,0.90000000000000002,0.90909090909090906,0.91666666666666663,0.92307692307692313,0.9285714285714286,0.93333333333333335,0.9375,0.94117647058823528,0.94444444444444442,0.94736842105263164,0.94999999999999996,\nprofile=1 pigeons=6 verdict=20 proof=18128233694468603772:4953 work=190:156:1743:6980:6402:155:9:0:48:1:1:12:0:0:0:0:0:0:0:0:1:0 state=1:20:242:7:32:9:17:25:41:29:13:15:10:1:19:27:35:37:38:5:23:31:2:20 phases=-1,1,-1,-1,-1,1,-1,-1,-1,-1,1,-1,-1,-1,-1,-1,1,-1,-1,1,-1, scores=0,0.5,0.66666666666666674,0.75,0.80000000000000004,0.83333333333333337,0.85714285714285721,0.875,0.90000000000000002,0.90909090909090906,0.91666666666666663,0.92307692307692313,0.93333333333333335,0.9375,0.94117647058823528,0.94444444444444442,0.94999999999999996,0.95238095238095233,0.95454545454545459,0.95652173913043481,0.95999999999999996,\nprofile=2 pigeons=4 verdict=10 proof=14695981039346656037:0 work=0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0 state=20:20:34:1:3:5:7:8:11:13:14:17:19:21:22:25:27:29:30:33:35:37:39 phases=-1,-1,-1,-1,1,-1,-1,1,-1,-1,-1,1,-1,-1,-1,1,-1,-1,-1,-1, scores=0,0.5,0.66666666666666674,0.75,0.80000000000000004,0.83333333333333337,0.85714285714285721,0.875,0.88888888888888884,0.90000000000000002,0.90909090909090906,0.91666666666666663,0.92307692307692313,0.9285714285714286,0.93333333333333335,0.9375,0.94117647058823528,0.94444444444444442,0.94736842105263164,0.94999999999999996,\nprofile=2 pigeons=6 verdict=20 proof=11355529929544556385:4837 work=173:152:1775:7226:6648:149:9:1:35:2:2:12:0:0:0:0:0:0:0:0:1:0 state=0:18:238:7:34:1:11:19:27:16:9:25:33:41:37:23:20:3:13:29:4:30:15 phases=-1,-1,1,-1,-1,-1,-1,-1,1,-1,1,-1,-1,-1,-1,1,-1,1,-1,-1,-1, scores=0,0.5,0.66666666666666674,0.75,0.80000000000000004,0.83333333333333337,0.85714285714285721,0.875,0.90000000000000002,0.90909090909090906,0.91666666666666663,0.92307692307692313,0.93333333333333335,0.9375,0.94117647058823528,0.94444444444444442,0.94999999999999996,0.95238095238095233,0.95454545454545459,0.95652173913043481,0.95999999999999996,\nprofile=3 pigeons=4 verdict=10 proof=14695981039346656037:0 work=0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0 state=20:20:34:1:3:5:7:8:11:13:14:17:19:21:22:25:27:29:30:33:35:37:39 phases=-1,-1,-1,-1,1,-1,-1,1,-1,-1,-1,1,-1,-1,-1,1,-1,-1,-1,-1, scores=0,0.5,0.66666666666666674,0.75,0.80000000000000004,0.83333333333333337,0.85714285714285721,0.875,0.88888888888888884,0.90000000000000002,0.90909090909090906,0.91666666666666663,0.92307692307692313,0.9285714285714286,0.93333333333333335,0.9375,0.94117647058823528,0.94444444444444442,0.94736842105263164,0.94999999999999996,\nprofile=3 pigeons=6 verdict=20 proof=13087853719210882125:5551 work=234:154:2511:9919:8275:143:8:4:0:7:4:12:12:66:345:29:0:12:120187:2:1:12 state=0:18:251:1:20:3:9:29:37:25:33:39:40:5:17:6:13:19:27:35:14:30:11:23 phases=-1,-1,-1,1,-1,-1,-1,1,-1,-1,1,-1,-1,-1,-1,1,-1,-1,-1,-1,1, scores=0,0.5,0.75,0.80000000000000004,0.85714285714285721,0.875,0.90000000000000002,0.92307692307692313,0.9285714285714286,0.93333333333333335,0.94117647058823528,0.94444444444444442,0.94736842105263164,0.94999999999999996,0.95454545454545459,0.95652173913043481,0.95833333333333337,0.95999999999999996,0.96296296296296302,0.9642857142857143,0.96551724137931039,\nprofile=4 pigeons=4 verdict=10 proof=14695981039346656037:0 work=0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0 state=20:20:34:1:3:5:7:8:11:13:14:17:19:21:22:25:27:29:30:33:35:37:39 phases=-1,-1,-1,-1,1,-1,-1,1,-1,-1,-1,1,-1,-1,-1,1,-1,-1,-1,-1, scores=0,0.5,0.66666666666666674,0.75,0.80000000000000004,0.83333333333333337,0.85714285714285721,0.875,0.88888888888888884,0.90000000000000002,0.90909090909090906,0.91666666666666663,0.92307692307692313,0.9285714285714286,0.93333333333333335,0.9375,0.94117647058823528,0.94444444444444442,0.94736842105263164,0.94999999999999996,\nprofile=4 pigeons=6 verdict=20 proof=16010962440287006447:8604 work=351:213:3123:14045:12013:202:6:5:0:0:0:15:14:98:409:33:21:14:140157:8:1:14 state=0:15:334:9:51:14:7:25:35:43:33:37:26:17:45:53:31:41:39:28 phases=1,-1,-1,-1,-1,-1,-1,1,-1,-1,-1,-1,-1,1,1,-1,-1,-1,-1,-1,-1,-1,-1,1,-1,-1,-1, scores=255.21999534546038,278.82389837830203,267.06919014263383,320.63689652641773,83.917399607262581,176.9479334411846,350.32583904088051,329.76820272087258,320.30330307042414,252.98724385098245,248.03728549358732,267.75507146924292,308.91224426786982,404.7964257072374,245.85929753648279,237.94312202033726,389.52713389196794,388.27026798327688,390.61884867354883,318.06952803054537,261.18379922669362,304.73528384189012,274.02979438077091,253.3168141768335,230.6809408774412,409.93510756120389,251.44732004651493,\n",
+        "binaries": {
+          "build/shared-policy-prep-debug/tests/test_default_execution_signature_before_profile": "9fbe3d7774fe66c4eba430a4d9cbb9c57c7c425fd23f416dce599542090e2532",
+          "build/shared-policy-prep-debug/tests/test_default_execution_signature": "74aa022cb3a586e97d1915efbd1f20b6e4d71930847a297247260141e65e9e79"
+        }
+      },
+      {
+        "target": "test_controller_execution_signature",
+        "signatures_equal": true,
+        "files_byte_equal": true,
+        "files": {
+          "seed-1-sat.cnf": "228e775c23d0ced0aa3ea3ea7f7ae75b905ffb1578c75b11ad24276675bab986",
+          "seed-1-sat.deterministic": "f93bc9ae1f9b864d555103d006d3cc30dc58cf8f280855b42862b97a31175498",
+          "seed-1-sat.drat": "dfa4df10bfdd6caecab05228f1fc63fd044e41ae4960306f1fcc839618e733e9",
+          "seed-1-sat.model": "12c4296eeef8789d40ef97b4d7ce30bec18dc704d6ba00066d0118b6452e0402",
+          "seed-1-unsat.cnf": "1a3311f0289a2e1ac6f33e317f1d4cdcdfe545ddfa37380d8440731dff5be94c",
+          "seed-1-unsat.deterministic": "8efcb44922f869c52eefbf88f69a2108e4bca141c3aacc57cacb0b59b0cb8cbb",
+          "seed-1-unsat.drat": "8a8df8664479f48f8d6e3a0ea56b8a104cfd0b0611511addc38149985faf7450",
+          "seed-17-sat.cnf": "228e775c23d0ced0aa3ea3ea7f7ae75b905ffb1578c75b11ad24276675bab986",
+          "seed-17-sat.deterministic": "a7644046b26fe3cfd89f1f8f924e9065d17a0048c8ac13c73d5f15e023df1f21",
+          "seed-17-sat.drat": "3eba955e4fbf38091fe2ccfdfadde2ab28499690c05f9d98dc628113e50ed144",
+          "seed-17-sat.model": "2d08fd1565c6c509a09b1eae8b45b27b632222467ae1cf46c9edda2cd510c6ee",
+          "seed-17-unsat.cnf": "1a3311f0289a2e1ac6f33e317f1d4cdcdfe545ddfa37380d8440731dff5be94c",
+          "seed-17-unsat.deterministic": "bd0b2ffcf6b1d6431fd3b395e7c8101e393efee43721052a1da56ad61cb8fcde",
+          "seed-17-unsat.drat": "5b70bfeea610870aed165d29364cf2c994eae2194bacecfce805e801ccb55234",
+          "seed-29-sat.cnf": "228e775c23d0ced0aa3ea3ea7f7ae75b905ffb1578c75b11ad24276675bab986",
+          "seed-29-sat.deterministic": "e6636b6bdcc881527c9bee50f7013a8201daf73d8d4652c631d0a820da399466",
+          "seed-29-sat.drat": "55aa24337506d2d54721520a9b7cd10e7445240b0c7ca7e95101be7e1af0f0fc",
+          "seed-29-sat.model": "12c4296eeef8789d40ef97b4d7ce30bec18dc704d6ba00066d0118b6452e0402",
+          "seed-29-unsat.cnf": "1a3311f0289a2e1ac6f33e317f1d4cdcdfe545ddfa37380d8440731dff5be94c",
+          "seed-29-unsat.deterministic": "24c71c7cce8dcef139700e464a7b9c92b5a2771727398e791c164d4061f57945",
+          "seed-29-unsat.drat": "ccd5ddd25d8ba1e6e5c64798b16278a0e5f234845c39314340a83c8bf5d5e29f",
+          "seed-41-sat.cnf": "228e775c23d0ced0aa3ea3ea7f7ae75b905ffb1578c75b11ad24276675bab986",
+          "seed-41-sat.deterministic": "18198255016b6e726953a66313d87aaa52ea00c7b2528a2c475012b25e17910a",
+          "seed-41-sat.drat": "e5fcada4e8df84b5044672cc669ca82e1d693b04d26dbdf5bed29dd7d71b5d73",
+          "seed-41-sat.model": "2d08fd1565c6c509a09b1eae8b45b27b632222467ae1cf46c9edda2cd510c6ee",
+          "seed-41-unsat.cnf": "1a3311f0289a2e1ac6f33e317f1d4cdcdfe545ddfa37380d8440731dff5be94c",
+          "seed-41-unsat.deterministic": "a4e9bfe9678938370bcb4ee679869f1938e27796889d5d8f3571604e65b84c74",
+          "seed-41-unsat.drat": "ccd5ddd25d8ba1e6e5c64798b16278a0e5f234845c39314340a83c8bf5d5e29f",
+          "seed-53-sat.cnf": "228e775c23d0ced0aa3ea3ea7f7ae75b905ffb1578c75b11ad24276675bab986",
+          "seed-53-sat.deterministic": "9f0436d557282ca83f86679d83b49c883b604dc1c073155277160735078e76ed",
+          "seed-53-sat.drat": "3eba955e4fbf38091fe2ccfdfadde2ab28499690c05f9d98dc628113e50ed144",
+          "seed-53-sat.model": "2d08fd1565c6c509a09b1eae8b45b27b632222467ae1cf46c9edda2cd510c6ee",
+          "seed-53-unsat.cnf": "1a3311f0289a2e1ac6f33e317f1d4cdcdfe545ddfa37380d8440731dff5be94c",
+          "seed-53-unsat.deterministic": "cab0b83e6c9de839740d34be4a520a6735c914bfe3938f1455773f3de58534f6",
+          "seed-53-unsat.drat": "5f1aff329a9feb1b96b54b61cb92e79bfe703965607f05959a5f23c681440169",
+          "seed-67-sat.cnf": "228e775c23d0ced0aa3ea3ea7f7ae75b905ffb1578c75b11ad24276675bab986",
+          "seed-67-sat.deterministic": "ebcb87e9ce740e25500dc2038da6e7799b1e93ed70e992e25b6a00370ce1f649",
+          "seed-67-sat.drat": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "seed-67-sat.model": "2d08fd1565c6c509a09b1eae8b45b27b632222467ae1cf46c9edda2cd510c6ee",
+          "seed-67-unsat.cnf": "1a3311f0289a2e1ac6f33e317f1d4cdcdfe545ddfa37380d8440731dff5be94c",
+          "seed-67-unsat.deterministic": "b6749e8e27e7a0f23be25951208bcb480065cd6a5b4bca22fc15cad69deea308",
+          "seed-67-unsat.drat": "5f1aff329a9feb1b96b54b61cb92e79bfe703965607f05959a5f23c681440169",
+          "seed-7-sat.cnf": "228e775c23d0ced0aa3ea3ea7f7ae75b905ffb1578c75b11ad24276675bab986",
+          "seed-7-sat.deterministic": "4507d49951cdca98cfd1280b0558d2bb37a6d695baae99d8258d87e7c9b91ffe",
+          "seed-7-sat.drat": "55aa24337506d2d54721520a9b7cd10e7445240b0c7ca7e95101be7e1af0f0fc",
+          "seed-7-sat.model": "2d08fd1565c6c509a09b1eae8b45b27b632222467ae1cf46c9edda2cd510c6ee",
+          "seed-7-unsat.cnf": "1a3311f0289a2e1ac6f33e317f1d4cdcdfe545ddfa37380d8440731dff5be94c",
+          "seed-7-unsat.deterministic": "854d14fea3e0a502e6cf5cb0219d6f5387ed74f1c35424cd480245976306a1d9",
+          "seed-7-unsat.drat": "ccd5ddd25d8ba1e6e5c64798b16278a0e5f234845c39314340a83c8bf5d5e29f",
+          "seed-79-sat.cnf": "228e775c23d0ced0aa3ea3ea7f7ae75b905ffb1578c75b11ad24276675bab986",
+          "seed-79-sat.deterministic": "325b13f744a40ef4d34f812ce84b1622b51e141839a22d4b9e4b89b96b79e9c4",
+          "seed-79-sat.drat": "4516f6eaaa675488778d6ca333df14bc68c27fb7d7b8015073220d4571aa9c51",
+          "seed-79-sat.model": "12c4296eeef8789d40ef97b4d7ce30bec18dc704d6ba00066d0118b6452e0402",
+          "seed-79-unsat.cnf": "1a3311f0289a2e1ac6f33e317f1d4cdcdfe545ddfa37380d8440731dff5be94c",
+          "seed-79-unsat.deterministic": "1208b6e3d33dd220bdc1c5c6b3c9e6a1c943ff5438c6d4ec00a0ba31e90ea3e3",
+          "seed-79-unsat.drat": "8a8df8664479f48f8d6e3a0ea56b8a104cfd0b0611511addc38149985faf7450"
+        },
+        "output_sha256": "fd0e0e1bbd6f07c8e7407a82cade18238ef6e6e3bf49431e23127839c0f3f9dc",
+        "output": "c controller-rule BCE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule BVE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Backbone requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule CCE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Condition requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Congruence requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Factor requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule HyperBinaryRes requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule HyperTernaryRes requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Instantiate requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule LocalSearchGuidance requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Lucky requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Probe requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Propagate requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Reduce requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Reorder requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Rephase requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Strengthen requests=2 applications=2 effective=1 exhausted=0 stale=0 interrupted=0 work=2 overshoot=0\nc controller-rule Substitute requests=3 applications=3 effective=0 exhausted=0 stale=0 interrupted=0 work=3 overshoot=0\nc controller-rule SubstitutionRedundancy requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule SubsumeForward requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Sweep requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule TransitiveReduce requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Vivify requests=1 applications=1 effective=0 exhausted=0 stale=0 interrupted=0 work=1 overshoot=0\nc controller-rule Walk requests=1 applications=1 effective=0 exhausted=0 stale=0 interrupted=0 work=1 overshoot=0\nc controller-search evsids/adaptive-glue/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/negative requests=1 intervals=1 decisions=2 conflicts=1 continuations=0\nc controller-search evsids/adaptive-glue/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/negative requests=1 intervals=1 decisions=2 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-loop full-restarts=1 partial-restarts=0 configuration-changes=1 maximum-root-actions=5\nseed=1 verdict=10 transcript=12127013581736646185 proof=12283159715516416283\nc controller-rule BCE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule BVE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Backbone requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule CCE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Condition requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Congruence requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Factor requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule HyperBinaryRes requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule HyperTernaryRes requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Instantiate requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule LocalSearchGuidance requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Lucky requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Probe requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Propagate requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Reduce requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Reorder requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Rephase requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Strengthen requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Substitute requests=1 applications=1 effective=0 exhausted=0 stale=0 interrupted=0 work=1 overshoot=0\nc controller-rule SubstitutionRedundancy requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule SubsumeForward requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Sweep requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule TransitiveReduce requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Vivify requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Walk requests=1 applications=1 effective=0 exhausted=0 stale=0 interrupted=0 work=1 overshoot=0\nc controller-search evsids/adaptive-glue/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-loop full-restarts=0 partial-restarts=0 configuration-changes=0 maximum-root-actions=2\nseed=1 verdict=20 transcript=16942622356047589881 proof=8444510598837131818\nc controller-rule BCE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule BVE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Backbone requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule CCE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Condition requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Congruence requests=4 applications=4 effective=0 exhausted=0 stale=0 interrupted=0 work=4 overshoot=0\nc controller-rule Factor requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule HyperBinaryRes requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule HyperTernaryRes requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Instantiate requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule LocalSearchGuidance requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Lucky requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Probe requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Propagate requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Reduce requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Reorder requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Rephase requests=1 applications=1 effective=1 exhausted=0 stale=0 interrupted=0 work=1 overshoot=0\nc controller-rule Strengthen requests=1 applications=1 effective=1 exhausted=0 stale=0 interrupted=0 work=1 overshoot=0\nc controller-rule Substitute requests=1 applications=1 effective=0 exhausted=0 stale=0 interrupted=0 work=1 overshoot=0\nc controller-rule SubstitutionRedundancy requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule SubsumeForward requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Sweep requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule TransitiveReduce requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Vivify requests=1 applications=1 effective=1 exhausted=0 stale=0 interrupted=0 work=1 overshoot=0\nc controller-rule Walk requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-search evsids/adaptive-glue/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/saved requests=1 intervals=1 decisions=2 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-loop full-restarts=0 partial-restarts=0 configuration-changes=0 maximum-root-actions=8\nseed=7 verdict=10 transcript=10153418663931000652 proof=9705179183669270724\nc controller-rule BCE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule BVE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Backbone requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule CCE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Condition requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Congruence requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Factor requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule HyperBinaryRes requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule HyperTernaryRes requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Instantiate requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule LocalSearchGuidance requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Lucky requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Probe requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Propagate requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Reduce requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Reorder requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Rephase requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Strengthen requests=1 applications=1 effective=0 exhausted=0 stale=0 interrupted=0 work=1 overshoot=0\nc controller-rule Substitute requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule SubstitutionRedundancy requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule SubsumeForward requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Sweep requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule TransitiveReduce requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Vivify requests=1 applications=1 effective=1 exhausted=0 stale=0 interrupted=0 work=1 overshoot=0\nc controller-rule Walk requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-search evsids/adaptive-glue/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-loop full-restarts=0 partial-restarts=0 configuration-changes=0 maximum-root-actions=2\nseed=7 verdict=20 transcript=4877747762911601865 proof=17746927195642158386\nc controller-rule BCE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule BVE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Backbone requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule CCE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Condition requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Congruence requests=2 applications=2 effective=0 exhausted=0 stale=0 interrupted=0 work=2 overshoot=0\nc controller-rule Factor requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule HyperBinaryRes requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule HyperTernaryRes requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Instantiate requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule LocalSearchGuidance requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Lucky requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Probe requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Propagate requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Reduce requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Reorder requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Rephase requests=3 applications=3 effective=3 exhausted=0 stale=0 interrupted=0 work=3 overshoot=0\nc controller-rule Strengthen requests=2 applications=2 effective=1 exhausted=0 stale=0 interrupted=0 work=2 overshoot=0\nc controller-rule Substitute requests=2 applications=2 effective=0 exhausted=0 stale=0 interrupted=0 work=2 overshoot=0\nc controller-rule SubstitutionRedundancy requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule SubsumeForward requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Sweep requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule TransitiveReduce requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Vivify requests=2 applications=2 effective=0 exhausted=0 stale=0 interrupted=0 work=2 overshoot=0\nc controller-rule Walk requests=3 applications=3 effective=0 exhausted=0 stale=0 interrupted=0 work=3 overshoot=0\nc controller-search evsids/adaptive-glue/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/focused-rotation requests=1 intervals=1 decisions=2 conflicts=0 continuations=0\nc controller-search evsids/reluctant/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-loop full-restarts=0 partial-restarts=0 configuration-changes=0 maximum-root-actions=14\nseed=17 verdict=10 transcript=2201237530555061841 proof=6611093408187894724\nc controller-rule BCE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule BVE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Backbone requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule CCE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Condition requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Congruence requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Factor requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule HyperBinaryRes requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule HyperTernaryRes requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Instantiate requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule LocalSearchGuidance requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Lucky requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Probe requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Propagate requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Reduce requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Reorder requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Rephase requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Strengthen requests=1 applications=1 effective=0 exhausted=0 stale=0 interrupted=0 work=1 overshoot=0\nc controller-rule Substitute requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule SubstitutionRedundancy requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule SubsumeForward requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Sweep requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule TransitiveReduce requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Vivify requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Walk requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-search evsids/adaptive-glue/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-loop full-restarts=0 partial-restarts=0 configuration-changes=0 maximum-root-actions=1\nseed=17 verdict=20 transcript=4520202468079919740 proof=16500820006202409388\nc controller-rule BCE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule BVE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Backbone requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule CCE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Condition requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Congruence requests=1 applications=1 effective=0 exhausted=0 stale=0 interrupted=0 work=1 overshoot=0\nc controller-rule Factor requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule HyperBinaryRes requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule HyperTernaryRes requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Instantiate requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule LocalSearchGuidance requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Lucky requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Probe requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Propagate requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Reduce requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Reorder requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Rephase requests=2 applications=2 effective=2 exhausted=0 stale=0 interrupted=0 work=2 overshoot=0\nc controller-rule Strengthen requests=3 applications=3 effective=2 exhausted=0 stale=0 interrupted=0 work=3 overshoot=0\nc controller-rule Substitute requests=1 applications=1 effective=0 exhausted=0 stale=0 interrupted=0 work=1 overshoot=0\nc controller-rule SubstitutionRedundancy requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule SubsumeForward requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Sweep requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule TransitiveReduce requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Vivify requests=3 applications=3 effective=0 exhausted=0 stale=0 interrupted=0 work=3 overshoot=0\nc controller-rule Walk requests=6 applications=6 effective=0 exhausted=0 stale=0 interrupted=0 work=6 overshoot=0\nc controller-search evsids/adaptive-glue/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/target requests=1 intervals=1 decisions=2 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-loop full-restarts=0 partial-restarts=0 configuration-changes=0 maximum-root-actions=16\nseed=29 verdict=10 transcript=8371022376094139040 proof=9705179183669270724\nc controller-rule BCE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule BVE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Backbone requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule CCE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Condition requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Congruence requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Factor requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule HyperBinaryRes requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule HyperTernaryRes requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Instantiate requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule LocalSearchGuidance requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Lucky requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Probe requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Propagate requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Reduce requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Reorder requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Rephase requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Strengthen requests=2 applications=2 effective=1 exhausted=0 stale=0 interrupted=0 work=2 overshoot=0\nc controller-rule Substitute requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule SubstitutionRedundancy requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule SubsumeForward requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Sweep requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule TransitiveReduce requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Vivify requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Walk requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-search evsids/adaptive-glue/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-loop full-restarts=0 partial-restarts=0 configuration-changes=0 maximum-root-actions=2\nseed=29 verdict=20 transcript=10231393156033910456 proof=17746927195642158386\nc controller-rule BCE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule BVE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Backbone requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule CCE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Condition requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Congruence requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Factor requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule HyperBinaryRes requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule HyperTernaryRes requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Instantiate requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule LocalSearchGuidance requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Lucky requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Probe requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Propagate requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Reduce requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Reorder requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Rephase requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Strengthen requests=1 applications=1 effective=1 exhausted=0 stale=0 interrupted=0 work=1 overshoot=0\nc controller-rule Substitute requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule SubstitutionRedundancy requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule SubsumeForward requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Sweep requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule TransitiveReduce requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Vivify requests=1 applications=1 effective=1 exhausted=0 stale=0 interrupted=0 work=1 overshoot=0\nc controller-rule Walk requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-search evsids/adaptive-glue/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/saved requests=1 intervals=1 decisions=2 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-loop full-restarts=0 partial-restarts=0 configuration-changes=0 maximum-root-actions=2\nseed=41 verdict=10 transcript=10286435373663263273 proof=10483733184712671259\nc controller-rule BCE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule BVE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Backbone requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule CCE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Condition requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Congruence requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Factor requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule HyperBinaryRes requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule HyperTernaryRes requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Instantiate requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule LocalSearchGuidance requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Lucky requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Probe requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Propagate requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Reduce requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Reorder requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Rephase requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Strengthen requests=1 applications=1 effective=0 exhausted=0 stale=0 interrupted=0 work=1 overshoot=0\nc controller-rule Substitute requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule SubstitutionRedundancy requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule SubsumeForward requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Sweep requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule TransitiveReduce requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Vivify requests=1 applications=1 effective=1 exhausted=0 stale=0 interrupted=0 work=1 overshoot=0\nc controller-rule Walk requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-search evsids/adaptive-glue/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-loop full-restarts=0 partial-restarts=0 configuration-changes=0 maximum-root-actions=2\nseed=41 verdict=20 transcript=6255013175784513065 proof=17746927195642158386\nc controller-rule BCE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule BVE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Backbone requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule CCE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Condition requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Congruence requests=2 applications=2 effective=1 exhausted=0 stale=0 interrupted=0 work=2 overshoot=0\nc controller-rule Factor requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule HyperBinaryRes requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule HyperTernaryRes requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Instantiate requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule LocalSearchGuidance requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Lucky requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Probe requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Propagate requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Reduce requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Reorder requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Rephase requests=1 applications=1 effective=1 exhausted=0 stale=0 interrupted=0 work=1 overshoot=0\nc controller-rule Strengthen requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Substitute requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule SubstitutionRedundancy requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule SubsumeForward requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Sweep requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule TransitiveReduce requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Vivify requests=1 applications=1 effective=1 exhausted=0 stale=0 interrupted=0 work=1 overshoot=0\nc controller-rule Walk requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-search evsids/adaptive-glue/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/saved requests=1 intervals=1 decisions=2 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-loop full-restarts=0 partial-restarts=0 configuration-changes=0 maximum-root-actions=4\nseed=53 verdict=10 transcript=2792512555902350627 proof=6611093408187894724\nc controller-rule BCE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule BVE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Backbone requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule CCE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Condition requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Congruence requests=1 applications=1 effective=0 exhausted=0 stale=0 interrupted=0 work=1 overshoot=0\nc controller-rule Factor requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule HyperBinaryRes requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule HyperTernaryRes requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Instantiate requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule LocalSearchGuidance requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Lucky requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Probe requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Propagate requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Reduce requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Reorder requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Rephase requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Strengthen requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Substitute requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule SubstitutionRedundancy requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule SubsumeForward requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Sweep requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule TransitiveReduce requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Vivify requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Walk requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-search evsids/adaptive-glue/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-loop full-restarts=0 partial-restarts=0 configuration-changes=0 maximum-root-actions=1\nseed=53 verdict=20 transcript=2657108988575241011 proof=15999997356749034474\nc controller-rule BCE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule BVE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Backbone requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule CCE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Condition requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Congruence requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Factor requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule HyperBinaryRes requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule HyperTernaryRes requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Instantiate requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule LocalSearchGuidance requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Lucky requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Probe requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Propagate requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Reduce requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Reorder requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Rephase requests=1 applications=1 effective=1 exhausted=0 stale=0 interrupted=0 work=1 overshoot=0\nc controller-rule Strengthen requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Substitute requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule SubstitutionRedundancy requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule SubsumeForward requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Sweep requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule TransitiveReduce requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Vivify requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Walk requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-search evsids/adaptive-glue/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/positive requests=1 intervals=1 decisions=3 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-loop full-restarts=0 partial-restarts=0 configuration-changes=0 maximum-root-actions=1\nseed=67 verdict=10 transcript=11932760793030774565 proof=14695981039346656037\nc controller-rule BCE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule BVE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Backbone requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule CCE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Condition requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Congruence requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Factor requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule HyperBinaryRes requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule HyperTernaryRes requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Instantiate requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule LocalSearchGuidance requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Lucky requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Probe requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Propagate requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Reduce requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Reorder requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Rephase requests=1 applications=1 effective=1 exhausted=0 stale=0 interrupted=0 work=1 overshoot=0\nc controller-rule Strengthen requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Substitute requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule SubstitutionRedundancy requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule SubsumeForward requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Sweep requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule TransitiveReduce requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Vivify requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Walk requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-search evsids/adaptive-glue/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/positive requests=1 intervals=1 decisions=2 conflicts=1 continuations=0\nc controller-search vmtf/adaptive-glue/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-loop full-restarts=0 partial-restarts=0 configuration-changes=0 maximum-root-actions=1\nseed=67 verdict=20 transcript=3580888343045917889 proof=15999997356749034474\nc controller-rule BCE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule BVE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Backbone requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule CCE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Condition requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Congruence requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Factor requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule HyperBinaryRes requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule HyperTernaryRes requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Instantiate requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule LocalSearchGuidance requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Lucky requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Probe requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Propagate requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Reduce requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Reorder requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Rephase requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Strengthen requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Substitute requests=1 applications=1 effective=0 exhausted=0 stale=0 interrupted=0 work=1 overshoot=0\nc controller-rule SubstitutionRedundancy requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule SubsumeForward requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Sweep requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule TransitiveReduce requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Vivify requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Walk requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-search evsids/adaptive-glue/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/negative requests=1 intervals=1 decisions=4 conflicts=1 continuations=0\nc controller-search evsids/reluctant/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-loop full-restarts=0 partial-restarts=0 configuration-changes=0 maximum-root-actions=1\nseed=79 verdict=10 transcript=8197392786186901971 proof=11764114759692592869\nc controller-rule BCE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule BVE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Backbone requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule CCE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Condition requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Congruence requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Factor requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule HyperBinaryRes requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule HyperTernaryRes requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Instantiate requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule LocalSearchGuidance requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Lucky requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Probe requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Propagate requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Reduce requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Reorder requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Rephase requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Strengthen requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Substitute requests=1 applications=1 effective=0 exhausted=0 stale=0 interrupted=0 work=1 overshoot=0\nc controller-rule SubstitutionRedundancy requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule SubsumeForward requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Sweep requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule TransitiveReduce requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Vivify requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-rule Walk requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\nc controller-search evsids/adaptive-glue/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/adaptive-glue/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search evsids/reluctant/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/adaptive-glue/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-search vmtf/reluctant/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0\nc controller-loop full-restarts=0 partial-restarts=0 configuration-changes=0 maximum-root-actions=1\nseed=79 verdict=20 transcript=4150781004496299436 proof=8444510598837131818\n",
+        "binaries": {
+          "build/shared-policy-prep-debug/tests/test_controller_execution_signature_before_profile": "369f29b854eda6130b593d5ffcc618802ce869955ebf75a5cbb1d91828c0b330",
+          "build/shared-policy-prep-debug/tests/test_controller_execution_signature": "b4f08d5ce7249f7b0079b0253f30a3203edc476750eb1f067d00ae5fe87d93c5"
+        }
+      },
+      {
+        "target": "test_scheduling",
+        "signatures_equal": true,
+        "files_byte_equal": true,
+        "files": {},
+        "output_sha256": "8a4fbc9e38d6571eda11fd4eaf934f46241f92d2351c22aadb95ea4cd0603acf",
+        "output": "  eliminate entry: sparse watches flushed, dense image only, restored at exit\n  mode growth key: matches kissat's (switched+1)/2 ladder\n  reason bump: Kissat direct reasons in both modes\n  reason bump delay: consumed only at finalized-clause gate\n  analysis trail reuse: Kissat default off, CaDiCaL arm retained\n  factor material gate: cumulative Kissat watermark\n  factor large-formula gate: latched for the solve\n  retier cadence: only OTFS re-analysis advances glue limit\n  effort limit: kissat's formula, phase anchor, no clamps\n  initial effort anchors: input propagation remains priced\n  Eliminate sparse resume: root suffix replay uses search ticks\n  preprocess: one reduced probe pipeline, 10m tick reference\n  fastel: typed local subsumption plus bounded BVE only\n  fastel discovery: mandatory scan declines before mutation\n  fastel candidate order: owner score survives BVE dispatch\n  preprocess followups: all four producer outcomes covered\n  preprocess followups: neither-producer path takes final once\n  inprocess phases: probe assignments leave saved phases unset\n  probe entry: root restart suppresses target/best snapshots\n  jump reasons: Kissat small/bigbig classification gates search\n  preprocess followups: typed arm calls both entries\n  reorder default: both modes, policy trigger remains root-only\n  slot cursor: resumes past the consumed prefix, wraps, permutes\n  cursor N1: instances() unchanged, apply_instance cursor-independent, all 7 arms permute\n  order arms: 6 arms reorder, native is the identity\n  subsume meter: 1392 visits vs 70 candidates\n  vivify scope: tier2=2 -> 1 candidates, tier2=10 -> 9\n  vivify tiers: stable retier -> focused 20/38 at dose entry\n  vivify tier merge: rounds=3 checked=8\n  vivify cumulative tiers: checked=8 tier3=8 ticks=632\n  substitute effort: fresh per-call, round-local 10-permille gate\n  substitute overshoot: mandatory first round, optional second\n  rule lifecycle: root fixed before substituted heap removal\n  authored slot/root programs: 18 slot rows, registry-complete\n  slot membership/order: exact Kissat startup/search Probe; seven extra rules poseable\n  structured root telemetry: runs=1 applications=4 effective=2 passes=1 terminal=8\n  structured root: typed SR sequence reaches checked state\n  structured root telemetry: runs=1 applications=4 effective=2 passes=1 terminal=8\n  structured root: typed SR sequence reaches checked state\n  structured root boundary: propagation and H published once\n  slot clocks: probe next=81674 < eliminate next=492178 at 8 phases\n  initial elimination: post-preprocess due at conflict 46478\n  BVE ordering: structural score plus search relevancy\n  BVE score: Kissat named-intermediate binary64 pose\n  inprocess scale: Kissat C+1 then logn(+9) boundary\n  slot gates: decline without new material, re-admit with it\n  Reduce edge: both phases suppressed only at its conflict\ntest_scheduling: all passed\n",
+        "binaries": {
+          "build/shared-policy-prep-debug/tests/test_scheduling_before_profile": "4e5882c2dc7692bc7ec0f3278098f917b2f6a993847edef640b152369917a06d",
+          "build/shared-policy-prep-debug/tests/test_scheduling": "ce9383e0a87b6ab770ef69ad2284d5bc82522d2200d658513d0bfcc24214d768"
+        }
+      },
+      {
+        "target": "test_online_inprocess",
+        "signatures_equal": true,
+        "files_byte_equal": true,
+        "files": {},
+        "output_sha256": "c9142910c4911ec3d3dfb4de651c4ced8c8217669defd4d82bb49d4d8fc5ac86",
+        "output": "Online sequence, granularity, fixpoint, budget and reconfigure PASS\n",
+        "binaries": {
+          "build/shared-policy-prep-debug/tests/test_online_inprocess_before_profile": "606c34f5d037eeb14ce4b124ee45dda779bd9c95120f1b1743fea752e75594bb",
+          "build/shared-policy-prep-debug/tests/test_online_inprocess": "6a2f1a531db740e366782f1ac4acd74314854c59d3582127f9c4de5b71557822"
+        }
+      }
+    ],
+    "oracles": [
+      {
+        "case": "profile-0-pigeons-4",
+        "kind": "SAT",
+        "verified": true,
+        "message": "34 clauses satisfied, 20 vars assigned"
+      },
+      {
+        "case": "profile-0-pigeons-6",
+        "kind": "UNSAT",
+        "verified": true,
+        "route": "drat",
+        "message": ""
+      },
+      {
+        "case": "profile-1-pigeons-4",
+        "kind": "SAT",
+        "verified": true,
+        "message": "34 clauses satisfied, 20 vars assigned"
+      },
+      {
+        "case": "profile-1-pigeons-6",
+        "kind": "UNSAT",
+        "verified": true,
+        "route": "drat",
+        "message": ""
+      },
+      {
+        "case": "profile-2-pigeons-4",
+        "kind": "SAT",
+        "verified": true,
+        "message": "34 clauses satisfied, 20 vars assigned"
+      },
+      {
+        "case": "profile-2-pigeons-6",
+        "kind": "UNSAT",
+        "verified": true,
+        "route": "drat",
+        "message": ""
+      },
+      {
+        "case": "profile-3-pigeons-4",
+        "kind": "SAT",
+        "verified": true,
+        "message": "34 clauses satisfied, 20 vars assigned"
+      },
+      {
+        "case": "profile-3-pigeons-6",
+        "kind": "UNSAT",
+        "verified": true,
+        "route": "drat",
+        "message": ""
+      },
+      {
+        "case": "profile-4-pigeons-4",
+        "kind": "SAT",
+        "verified": true,
+        "message": "34 clauses satisfied, 20 vars assigned"
+      },
+      {
+        "case": "profile-4-pigeons-6",
+        "kind": "UNSAT",
+        "verified": true,
+        "route": "drat",
+        "message": ""
+      },
+      {
+        "case": "seed-1-sat",
+        "kind": "SAT",
+        "verified": true,
+        "message": "3 clauses satisfied, 3 vars assigned"
+      },
+      {
+        "case": "seed-1-unsat",
+        "kind": "UNSAT",
+        "verified": true,
+        "route": "drat",
+        "message": ""
+      },
+      {
+        "case": "seed-17-sat",
+        "kind": "SAT",
+        "verified": true,
+        "message": "3 clauses satisfied, 3 vars assigned"
+      },
+      {
+        "case": "seed-17-unsat",
+        "kind": "UNSAT",
+        "verified": true,
+        "route": "drat",
+        "message": ""
+      },
+      {
+        "case": "seed-29-sat",
+        "kind": "SAT",
+        "verified": true,
+        "message": "3 clauses satisfied, 3 vars assigned"
+      },
+      {
+        "case": "seed-29-unsat",
+        "kind": "UNSAT",
+        "verified": true,
+        "route": "drat",
+        "message": ""
+      },
+      {
+        "case": "seed-41-sat",
+        "kind": "SAT",
+        "verified": true,
+        "message": "3 clauses satisfied, 3 vars assigned"
+      },
+      {
+        "case": "seed-41-unsat",
+        "kind": "UNSAT",
+        "verified": true,
+        "route": "drat",
+        "message": ""
+      },
+      {
+        "case": "seed-53-sat",
+        "kind": "SAT",
+        "verified": true,
+        "message": "3 clauses satisfied, 3 vars assigned"
+      },
+      {
+        "case": "seed-53-unsat",
+        "kind": "UNSAT",
+        "verified": true,
+        "route": "drat",
+        "message": ""
+      },
+      {
+        "case": "seed-67-sat",
+        "kind": "SAT",
+        "verified": true,
+        "message": "3 clauses satisfied, 3 vars assigned"
+      },
+      {
+        "case": "seed-67-unsat",
+        "kind": "UNSAT",
+        "verified": true,
+        "route": "drat",
+        "message": ""
+      },
+      {
+        "case": "seed-7-sat",
+        "kind": "SAT",
+        "verified": true,
+        "message": "3 clauses satisfied, 3 vars assigned"
+      },
+      {
+        "case": "seed-7-unsat",
+        "kind": "UNSAT",
+        "verified": true,
+        "route": "drat",
+        "message": ""
+      },
+      {
+        "case": "seed-79-sat",
+        "kind": "SAT",
+        "verified": true,
+        "message": "3 clauses satisfied, 3 vars assigned"
+      },
+      {
+        "case": "seed-79-unsat",
+        "kind": "UNSAT",
+        "verified": true,
+        "route": "drat",
+        "message": ""
+      }
+    ]
+  },
+  "diagnostic_correspondence": {
+    "baseline_commit": "5da1a178",
+    "replaced_translation_units": [
+      "src/policies/default_policy.cpp",
+      "src/strategy/online_inprocess.cpp",
+      "src/strategy/analyze_parameters.cpp",
+      "src/strategy/congruence_parameters.cpp",
+      "src/strategy/forward_parameters.cpp",
+      "src/strategy/failed_literal_parameters.cpp",
+      "src/strategy/instantiate_parameters.cpp",
+      "src/strategy/vivify_parameters.cpp",
+      "src/strategy/rule_parameters.cpp"
+    ],
+    "preserved_headers": {
+      "src/policies/default_inprocess.hpp": "2dc5349c030842020e04613498a10e3da2bae73bdcda6e6bbfad5db327b925e2",
+      "src/strategy/analyze_parameters.hpp": "b8b5ac5549cf95601d758a67979ea7b0259a6bcc69e7e8f6f4806238f473c425",
+      "src/strategy/congruence_parameters.hpp": "1335f7c60fb508d30c9befcbb0c5df2aaf444005c878b8215a6796a46c08b9b1",
+      "src/strategy/forward_parameters.hpp": "a559ae06c7621a69cba43b833afd1be0a3e3750c646672bd802f5d11ca4a9d79",
+      "src/strategy/failed_literal_parameters.hpp": "38ff97c4defd76233a77337de1174570067ec1b4745ab25efdd5abc64c870917",
+      "src/strategy/instantiate_parameters.hpp": "d02b5de49b713c09a5e87f16e11b1717bade922c07d7a1953b940cbeedbeaa84",
+      "src/strategy/vivify_parameters.hpp": "60fffe5b2a07457f078da4d170bba69ae7bb4e0a577e41e09994537e1c3b4ff4",
+      "src/strategy/rule_parameters.hpp": "cd9fd6a96a71c1d826e530a679e4df77d60685d5567552df767d9bf259d88b48",
+      "src/strategy/bve_invocation.hpp": "e1c0a2e3e0e55287303ff32b3e1333aba04aa676dcdc35245d7467680f2d2a00",
+      "src/strategy/parameter_execution.hpp": "0aa2a54f8062f9edcc5e3b7d7bb0a9e4ec2135e3c8525e178702ed624429e0be"
+    },
+    "adaptations": [],
+    "before_sources": {
+      "src/policies/default_policy.cpp": "1fc4d12973da696baa2064a52e698190f1d9b62fc1e3fe0fc2e91baddf625241",
+      "src/strategy/online_inprocess.cpp": "5aab19572288cbf72be1a9a7ab2ea0e9c23ec682a8a3f9d1c59906e624df2890",
+      "src/strategy/analyze_parameters.cpp": "2712e166a1dc59be4c9b2d95732f4180b77f3fbcd984fdeec7b8cca74bc06b0d",
+      "src/strategy/congruence_parameters.cpp": "0a8ff1195026132850f3921ea1e857dee5c6e4fbf435f8919b54f65b73064841",
+      "src/strategy/forward_parameters.cpp": "c016fa9450c054ee016161d688fa0abe40da0adce9062d1c8e5a2095f2223a44",
+      "src/strategy/failed_literal_parameters.cpp": "268d132c8dfc99fcbb2f0074b48b56fb3e59a03f1ead7d78fbf0d5c6d4fdcc90",
+      "src/strategy/instantiate_parameters.cpp": "294dee72bf0250f7033177832a69dce50a47996eeb5a5a4bd0791118dd2c136a",
+      "src/strategy/vivify_parameters.cpp": "4885ea7e72889bb08a061198f8984632a948fb4d3c4834bd4bfa1a2d2111d47a",
+      "src/strategy/rule_parameters.cpp": "9726c9d10696170e8657631262bfdb924ba4108e5312e1696ae8bc0ffd284e0d"
+    },
+    "comparisons": [
+      {
+        "target": "test_default_execution_signature",
+        "signatures_equal": true,
+        "files_byte_equal": true,
+        "files": {
+          "profile-0-pigeons-4.cnf": "4cf15626db79506ececd3ee41bb9489e26aac82c3526e7383ea3b3b4305125c3",
+          "profile-0-pigeons-4.drat": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "profile-0-pigeons-4.events": "74b2ac2b6bff3be13800e78d6e151424b560876bf633baf2fde07140eaa913ea",
+          "profile-0-pigeons-4.journal": "b7fa5d433a00de5a3ab829de8eed789f9f0c7e2d7d320c3cce7c952b8cf25faf",
+          "profile-0-pigeons-4.model": "0f2669e7e3ed57ebcdaebd13be398537afab7519256b6eb9373682c3ba3f28e3",
+          "profile-0-pigeons-6.cnf": "05763358a94b1a979c8f2979408450f60557830878726dba7c92ff108b070f5d",
+          "profile-0-pigeons-6.drat": "dee72c8f6ca992f144b002675f3291dd6ba4b0c421ac4dc99468ab0470fb668a",
+          "profile-0-pigeons-6.events": "dbce5ef40f2e0a0528398588e308c606e37ac62163dba8612efe54fa8c38a023",
+          "profile-0-pigeons-6.journal": "dee939d63b3d019d4a0653844ad1b7d86916ead64297526e4b06bbb64127b004",
+          "profile-1-pigeons-4.cnf": "4cf15626db79506ececd3ee41bb9489e26aac82c3526e7383ea3b3b4305125c3",
+          "profile-1-pigeons-4.drat": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "profile-1-pigeons-4.events": "74b2ac2b6bff3be13800e78d6e151424b560876bf633baf2fde07140eaa913ea",
+          "profile-1-pigeons-4.journal": "b7fa5d433a00de5a3ab829de8eed789f9f0c7e2d7d320c3cce7c952b8cf25faf",
+          "profile-1-pigeons-4.model": "0f2669e7e3ed57ebcdaebd13be398537afab7519256b6eb9373682c3ba3f28e3",
+          "profile-1-pigeons-6.cnf": "05763358a94b1a979c8f2979408450f60557830878726dba7c92ff108b070f5d",
+          "profile-1-pigeons-6.drat": "bc2ec86281d21e88982e1a95a51eaa5cfdf8c165cbfb89b9c15e578eafc8cee5",
+          "profile-1-pigeons-6.events": "620e2240d23a2e2c62418c229ec7573703f7710762f7689b1e45ae8d173438fb",
+          "profile-1-pigeons-6.journal": "5f62f5f8a7fab25dc83042919475fa63539107b78298b4d4fe195cb4ac5cb2c3",
+          "profile-2-pigeons-4.cnf": "4cf15626db79506ececd3ee41bb9489e26aac82c3526e7383ea3b3b4305125c3",
+          "profile-2-pigeons-4.drat": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "profile-2-pigeons-4.events": "74b2ac2b6bff3be13800e78d6e151424b560876bf633baf2fde07140eaa913ea",
+          "profile-2-pigeons-4.journal": "b7fa5d433a00de5a3ab829de8eed789f9f0c7e2d7d320c3cce7c952b8cf25faf",
+          "profile-2-pigeons-4.model": "0f2669e7e3ed57ebcdaebd13be398537afab7519256b6eb9373682c3ba3f28e3",
+          "profile-2-pigeons-6.cnf": "05763358a94b1a979c8f2979408450f60557830878726dba7c92ff108b070f5d",
+          "profile-2-pigeons-6.drat": "87a46b8220089c0f368d27e012c8429098dd79662131ed1197d2c592ce94eb65",
+          "profile-2-pigeons-6.events": "5824cbacb2500ce60fd55857c182a6cab8ce11e385707af4730304d6eedfb79e",
+          "profile-2-pigeons-6.journal": "5ea4d6e31b48e7bddbf95be0cf32a1fb3bfb2dfa006ee0a242b790581ef90b64",
+          "profile-3-pigeons-4.cnf": "4cf15626db79506ececd3ee41bb9489e26aac82c3526e7383ea3b3b4305125c3",
+          "profile-3-pigeons-4.drat": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "profile-3-pigeons-4.events": "74b2ac2b6bff3be13800e78d6e151424b560876bf633baf2fde07140eaa913ea",
+          "profile-3-pigeons-4.journal": "b7fa5d433a00de5a3ab829de8eed789f9f0c7e2d7d320c3cce7c952b8cf25faf",
+          "profile-3-pigeons-4.model": "0f2669e7e3ed57ebcdaebd13be398537afab7519256b6eb9373682c3ba3f28e3",
+          "profile-3-pigeons-6.cnf": "05763358a94b1a979c8f2979408450f60557830878726dba7c92ff108b070f5d",
+          "profile-3-pigeons-6.drat": "5e69cdb9917cd9ef5f80eabf31505d93224551e8197da9255bfa64db4c356ed8",
+          "profile-3-pigeons-6.events": "371ddd1285f7d6fb59340e75d18d2b5a62f8849a6604c73fb7eaa914f1ee8a58",
+          "profile-3-pigeons-6.journal": "bc0a56bdbdf688c838eb4f24672d624995573e6a031dc8035762e57d84a4a30c",
+          "profile-4-pigeons-4.cnf": "4cf15626db79506ececd3ee41bb9489e26aac82c3526e7383ea3b3b4305125c3",
+          "profile-4-pigeons-4.drat": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "profile-4-pigeons-4.events": "74b2ac2b6bff3be13800e78d6e151424b560876bf633baf2fde07140eaa913ea",
+          "profile-4-pigeons-4.journal": "b7fa5d433a00de5a3ab829de8eed789f9f0c7e2d7d320c3cce7c952b8cf25faf",
+          "profile-4-pigeons-4.model": "0f2669e7e3ed57ebcdaebd13be398537afab7519256b6eb9373682c3ba3f28e3",
+          "profile-4-pigeons-6.cnf": "05763358a94b1a979c8f2979408450f60557830878726dba7c92ff108b070f5d",
+          "profile-4-pigeons-6.drat": "ba0f60727bddbe08d69d3bf8bcf06728fc07def8a4857e8438d6b37e90a20f8c",
+          "profile-4-pigeons-6.events": "3999b81cd07992454db7516dda5517d48c4b64df4dc35978844c680002f97005",
+          "profile-4-pigeons-6.journal": "58b4c77084491d293e4fbed6752a767e68ec051dfe34b48d34ab87e46335bc05"
+        },
+        "output_sha256": "d788c182c82e5d928a4ccca612410287a4676240d0d640fb646e2a8bd5a9b9a4",
+        "output": "profile=0 pigeons=4 verdict=10 proof=14695981039346656037:0 work=0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0 state=20:20:34:1:3:5:7:8:11:13:14:17:19:21:22:25:27:29:30:33:35:37:39 phases=-1,-1,-1,-1,1,-1,-1,1,-1,-1,-1,1,-1,-1,-1,1,-1,-1,-1,-1, scores=0,0.5,0.66666666666666674,0.75,0.80000000000000004,0.83333333333333337,0.85714285714285721,0.875,0.88888888888888884,0.90000000000000002,0.90909090909090906,0.91666666666666663,0.92307692307692313,0.9285714285714286,0.93333333333333335,0.9375,0.94117647058823528,0.94444444444444442,0.94736842105263164,0.94999999999999996,\nprofile=0 pigeons=6 verdict=20 proof=11116815066249832632:4519 work=140:107:1609:7673:6240:104:5:1:0:2:1:0:0:0:0:0:0:0:0:0:0:0 state=0:25:252:59:61:48:9:39:63:29:19:4:45:55:69:35:25:15:32:3:64:26:13:53:7:37:66:17:47:57 phases=0,-1,1,-1,-1,0,-1,-1,-1,-1,0,0,-1,1,-1,0,1,-1,-1,-1,0,0,-1,-1,1,0,-1,-1,-1,-1,-1,-1,1,1,-1, scores=0,0.5,0.66666666666666674,0.75,0.80000000000000004,0.83333333333333337,0.85714285714285721,0.875,0.88888888888888884,0.90000000000000002,0.90909090909090906,0.91666666666666663,0.92307692307692313,0.9285714285714286,0.93333333333333335,0.9375,0.94117647058823528,0.94444444444444442,0.94736842105263164,0.94999999999999996,0.95238095238095233,0.95454545454545459,0.95652173913043481,0.95833333333333337,0.95999999999999996,0.96153846153846156,0.96296296296296302,0.9642857142857143,0.96551724137931039,0.96666666666666667,0,0,0,0,0,\nprofile=1 pigeons=4 verdict=10 proof=14695981039346656037:0 work=0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0 state=20:20:34:1:3:5:7:8:11:13:14:17:19:21:22:25:27:29:30:33:35:37:39 phases=-1,-1,-1,-1,1,-1,-1,1,-1,-1,-1,1,-1,-1,-1,1,-1,-1,-1,-1, scores=0,0.5,0.66666666666666674,0.75,0.80000000000000004,0.83333333333333337,0.85714285714285721,0.875,0.88888888888888884,0.90000000000000002,0.90909090909090906,0.91666666666666663,0.92307692307692313,0.9285714285714286,0.93333333333333335,0.9375,0.94117647058823528,0.94444444444444442,0.94736842105263164,0.94999999999999996,\nprofile=1 pigeons=6 verdict=20 proof=18128233694468603772:4953 work=190:156:1743:6980:6402:155:9:0:48:1:1:12:0:0:0:0:0:0:0:0:1:0 state=1:20:242:7:32:9:17:25:41:29:13:15:10:1:19:27:35:37:38:5:23:31:2:20 phases=-1,1,-1,-1,-1,1,-1,-1,-1,-1,1,-1,-1,-1,-1,-1,1,-1,-1,1,-1, scores=0,0.5,0.66666666666666674,0.75,0.80000000000000004,0.83333333333333337,0.85714285714285721,0.875,0.90000000000000002,0.90909090909090906,0.91666666666666663,0.92307692307692313,0.93333333333333335,0.9375,0.94117647058823528,0.94444444444444442,0.94999999999999996,0.95238095238095233,0.95454545454545459,0.95652173913043481,0.95999999999999996,\nprofile=2 pigeons=4 verdict=10 proof=14695981039346656037:0 work=0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0 state=20:20:34:1:3:5:7:8:11:13:14:17:19:21:22:25:27:29:30:33:35:37:39 phases=-1,-1,-1,-1,1,-1,-1,1,-1,-1,-1,1,-1,-1,-1,1,-1,-1,-1,-1, scores=0,0.5,0.66666666666666674,0.75,0.80000000000000004,0.83333333333333337,0.85714285714285721,0.875,0.88888888888888884,0.90000000000000002,0.90909090909090906,0.91666666666666663,0.92307692307692313,0.9285714285714286,0.93333333333333335,0.9375,0.94117647058823528,0.94444444444444442,0.94736842105263164,0.94999999999999996,\nprofile=2 pigeons=6 verdict=20 proof=11355529929544556385:4837 work=173:152:1775:7226:6648:149:9:1:35:2:2:12:0:0:0:0:0:0:0:0:1:0 state=0:18:238:7:34:1:11:19:27:16:9:25:33:41:37:23:20:3:13:29:4:30:15 phases=-1,-1,1,-1,-1,-1,-1,-1,1,-1,1,-1,-1,-1,-1,1,-1,1,-1,-1,-1, scores=0,0.5,0.66666666666666674,0.75,0.80000000000000004,0.83333333333333337,0.85714285714285721,0.875,0.90000000000000002,0.90909090909090906,0.91666666666666663,0.92307692307692313,0.93333333333333335,0.9375,0.94117647058823528,0.94444444444444442,0.94999999999999996,0.95238095238095233,0.95454545454545459,0.95652173913043481,0.95999999999999996,\nprofile=3 pigeons=4 verdict=10 proof=14695981039346656037:0 work=0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0 state=20:20:34:1:3:5:7:8:11:13:14:17:19:21:22:25:27:29:30:33:35:37:39 phases=-1,-1,-1,-1,1,-1,-1,1,-1,-1,-1,1,-1,-1,-1,1,-1,-1,-1,-1, scores=0,0.5,0.66666666666666674,0.75,0.80000000000000004,0.83333333333333337,0.85714285714285721,0.875,0.88888888888888884,0.90000000000000002,0.90909090909090906,0.91666666666666663,0.92307692307692313,0.9285714285714286,0.93333333333333335,0.9375,0.94117647058823528,0.94444444444444442,0.94736842105263164,0.94999999999999996,\nprofile=3 pigeons=6 verdict=20 proof=13087853719210882125:5551 work=234:154:2511:9919:8275:143:8:4:0:7:4:12:12:66:345:29:0:12:120187:2:1:12 state=0:18:251:1:20:3:9:29:37:25:33:39:40:5:17:6:13:19:27:35:14:30:11:23 phases=-1,-1,-1,1,-1,-1,-1,1,-1,-1,1,-1,-1,-1,-1,1,-1,-1,-1,-1,1, scores=0,0.5,0.75,0.80000000000000004,0.85714285714285721,0.875,0.90000000000000002,0.92307692307692313,0.9285714285714286,0.93333333333333335,0.94117647058823528,0.94444444444444442,0.94736842105263164,0.94999999999999996,0.95454545454545459,0.95652173913043481,0.95833333333333337,0.95999999999999996,0.96296296296296302,0.9642857142857143,0.96551724137931039,\nprofile=4 pigeons=4 verdict=10 proof=14695981039346656037:0 work=0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0 state=20:20:34:1:3:5:7:8:11:13:14:17:19:21:22:25:27:29:30:33:35:37:39 phases=-1,-1,-1,-1,1,-1,-1,1,-1,-1,-1,1,-1,-1,-1,1,-1,-1,-1,-1, scores=0,0.5,0.66666666666666674,0.75,0.80000000000000004,0.83333333333333337,0.85714285714285721,0.875,0.88888888888888884,0.90000000000000002,0.90909090909090906,0.91666666666666663,0.92307692307692313,0.9285714285714286,0.93333333333333335,0.9375,0.94117647058823528,0.94444444444444442,0.94736842105263164,0.94999999999999996,\nprofile=4 pigeons=6 verdict=20 proof=16010962440287006447:8604 work=351:213:3123:14045:12013:202:6:5:0:0:0:15:14:98:409:33:21:14:140157:8:1:14 state=0:15:334:9:51:14:7:25:35:43:33:37:26:17:45:53:31:41:39:28 phases=1,-1,-1,-1,-1,-1,-1,1,-1,-1,-1,-1,-1,1,1,-1,-1,-1,-1,-1,-1,-1,-1,1,-1,-1,-1, scores=255.21999534546038,278.82389837830203,267.06919014263383,320.63689652641773,83.917399607262581,176.9479334411846,350.32583904088051,329.76820272087258,320.30330307042414,252.98724385098245,248.03728549358732,267.75507146924292,308.91224426786982,404.7964257072374,245.85929753648279,237.94312202033726,389.52713389196794,388.27026798327688,390.61884867354883,318.06952803054537,261.18379922669362,304.73528384189012,274.02979438077091,253.3168141768335,230.6809408774412,409.93510756120389,251.44732004651493,\n",
+        "binaries": {
+          "build/shared-policy-prep-diagnostic/tests/test_default_execution_signature_before_profile_diagnostic": "fc303c052387f5d02d0a80e930dfa2dc265329068b5b1c4ee3be4226572fbe43",
+          "build/shared-policy-prep-diagnostic/tests/test_default_execution_signature": "0ca491c677701892c53bf579bac5293e354d6429c5c28c0841cce3783c6e682b"
+        }
+      }
+    ],
+    "oracles": [
+      {
+        "case": "profile-0-pigeons-4",
+        "kind": "SAT",
+        "verified": true,
+        "message": "34 clauses satisfied, 20 vars assigned"
+      },
+      {
+        "case": "profile-0-pigeons-6",
+        "kind": "UNSAT",
+        "verified": true,
+        "route": "drat",
+        "message": ""
+      },
+      {
+        "case": "profile-1-pigeons-4",
+        "kind": "SAT",
+        "verified": true,
+        "message": "34 clauses satisfied, 20 vars assigned"
+      },
+      {
+        "case": "profile-1-pigeons-6",
+        "kind": "UNSAT",
+        "verified": true,
+        "route": "drat",
+        "message": ""
+      },
+      {
+        "case": "profile-2-pigeons-4",
+        "kind": "SAT",
+        "verified": true,
+        "message": "34 clauses satisfied, 20 vars assigned"
+      },
+      {
+        "case": "profile-2-pigeons-6",
+        "kind": "UNSAT",
+        "verified": true,
+        "route": "drat",
+        "message": ""
+      },
+      {
+        "case": "profile-3-pigeons-4",
+        "kind": "SAT",
+        "verified": true,
+        "message": "34 clauses satisfied, 20 vars assigned"
+      },
+      {
+        "case": "profile-3-pigeons-6",
+        "kind": "UNSAT",
+        "verified": true,
+        "route": "drat",
+        "message": ""
+      },
+      {
+        "case": "profile-4-pigeons-4",
+        "kind": "SAT",
+        "verified": true,
+        "message": "34 clauses satisfied, 20 vars assigned"
+      },
+      {
+        "case": "profile-4-pigeons-6",
+        "kind": "UNSAT",
+        "verified": true,
+        "route": "drat",
+        "message": ""
+      }
+    ]
+  },
+  "native_diagnostic_trace_summary": {
+    "profile-0-pigeons-4": {
+      "terminal": true,
+      "event_records": 47,
+      "journal_records": 15,
+      "journal_rules": [
+        "Lucky",
+        "Propagate"
+      ],
+      "event_sha256": "74b2ac2b6bff3be13800e78d6e151424b560876bf633baf2fde07140eaa913ea",
+      "journal_sha256": "b7fa5d433a00de5a3ab829de8eed789f9f0c7e2d7d320c3cce7c952b8cf25faf"
+    },
+    "profile-0-pigeons-6": {
+      "terminal": true,
+      "event_records": 16954,
+      "journal_records": 777,
+      "journal_rules": [
+        "BVE",
+        "Backbone",
+        "ConflictAnalysis",
+        "Congruence",
+        "Decide",
+        "Factor",
+        "Lucky",
+        "Propagate",
+        "Restart",
+        "Substitute",
+        "SubsumeForward",
+        "Sweep"
+      ],
+      "event_sha256": "dbce5ef40f2e0a0528398588e308c606e37ac62163dba8612efe54fa8c38a023",
+      "journal_sha256": "dee939d63b3d019d4a0653844ad1b7d86916ead64297526e4b06bbb64127b004"
+    },
+    "profile-1-pigeons-4": {
+      "terminal": true,
+      "event_records": 47,
+      "journal_records": 15,
+      "journal_rules": [
+        "Lucky",
+        "Propagate"
+      ],
+      "event_sha256": "74b2ac2b6bff3be13800e78d6e151424b560876bf633baf2fde07140eaa913ea",
+      "journal_sha256": "b7fa5d433a00de5a3ab829de8eed789f9f0c7e2d7d320c3cce7c952b8cf25faf"
+    },
+    "profile-1-pigeons-6": {
+      "terminal": true,
+      "event_records": 13342,
+      "journal_records": 738,
+      "journal_rules": [
+        "ConflictAnalysis",
+        "Decide",
+        "Lucky",
+        "Propagate",
+        "Reduce",
+        "Restart"
+      ],
+      "event_sha256": "620e2240d23a2e2c62418c229ec7573703f7710762f7689b1e45ae8d173438fb",
+      "journal_sha256": "5f62f5f8a7fab25dc83042919475fa63539107b78298b4d4fe195cb4ac5cb2c3"
+    },
+    "profile-2-pigeons-4": {
+      "terminal": true,
+      "event_records": 47,
+      "journal_records": 15,
+      "journal_rules": [
+        "Lucky",
+        "Propagate"
+      ],
+      "event_sha256": "74b2ac2b6bff3be13800e78d6e151424b560876bf633baf2fde07140eaa913ea",
+      "journal_sha256": "b7fa5d433a00de5a3ab829de8eed789f9f0c7e2d7d320c3cce7c952b8cf25faf"
+    },
+    "profile-2-pigeons-6": {
+      "terminal": true,
+      "event_records": 13546,
+      "journal_records": 695,
+      "journal_rules": [
+        "ConflictAnalysis",
+        "Decide",
+        "Lucky",
+        "Propagate",
+        "Reduce",
+        "Restart"
+      ],
+      "event_sha256": "5824cbacb2500ce60fd55857c182a6cab8ce11e385707af4730304d6eedfb79e",
+      "journal_sha256": "5ea4d6e31b48e7bddbf95be0cf32a1fb3bfb2dfa006ee0a242b790581ef90b64"
+    },
+    "profile-3-pigeons-4": {
+      "terminal": true,
+      "event_records": 47,
+      "journal_records": 15,
+      "journal_rules": [
+        "Lucky",
+        "Propagate"
+      ],
+      "event_sha256": "74b2ac2b6bff3be13800e78d6e151424b560876bf633baf2fde07140eaa913ea",
+      "journal_sha256": "b7fa5d433a00de5a3ab829de8eed789f9f0c7e2d7d320c3cce7c952b8cf25faf"
+    },
+    "profile-3-pigeons-6": {
+      "terminal": true,
+      "event_records": 14957,
+      "journal_records": 855,
+      "journal_rules": [
+        "ConflictAnalysis",
+        "Decide",
+        "Lucky",
+        "Propagate",
+        "Reduce",
+        "Restart"
+      ],
+      "event_sha256": "371ddd1285f7d6fb59340e75d18d2b5a62f8849a6604c73fb7eaa914f1ee8a58",
+      "journal_sha256": "bc0a56bdbdf688c838eb4f24672d624995573e6a031dc8035762e57d84a4a30c"
+    },
+    "profile-4-pigeons-4": {
+      "terminal": true,
+      "event_records": 47,
+      "journal_records": 15,
+      "journal_rules": [
+        "Lucky",
+        "Propagate"
+      ],
+      "event_sha256": "74b2ac2b6bff3be13800e78d6e151424b560876bf633baf2fde07140eaa913ea",
+      "journal_sha256": "b7fa5d433a00de5a3ab829de8eed789f9f0c7e2d7d320c3cce7c952b8cf25faf"
+    },
+    "profile-4-pigeons-6": {
+      "terminal": true,
+      "event_records": 23571,
+      "journal_records": 1229,
+      "journal_rules": [
+        "ConflictAnalysis",
+        "Decide",
+        "Lucky",
+        "Propagate",
+        "Reduce",
+        "Restart"
+      ],
+      "event_sha256": "3999b81cd07992454db7516dda5517d48c4b64df4dc35978844c680002f97005",
+      "journal_sha256": "58b4c77084491d293e4fbed6752a767e68ec051dfe34b48d34ab87e46335bc05"
+    }
+  },
+  "native_diagnostic_purity": {
+    "same_diagnostic_build": true,
+    "stdout_state_signatures_equal": true,
+    "artifact_count": 25,
+    "files_byte_equal": true,
+    "output_sha256": "d788c182c82e5d928a4ccca612410287a4676240d0d640fb646e2a8bd5a9b9a4",
+    "scope": "existing journal/event tracing, not the still-pending feedback interface"
+  },
+  "build_logs": {
+    "build/shared-policy-prep-guidance-focused-build.log": "f9e18c9828a206563664be738e80ccf89776b0a47377c3f3336e09e094fbe18a",
+    "build/shared-policy-prep-guidance-diagnostic-build.log": "3bb0b8ecec3e0870d75b1c49f11a8eb878ca96310286ea64e5ca59f43d4e4144",
+    "build/shared-policy-prep-guidance-signature-build.log": "79ec04e0e9106eccd8ab5a8924a652b274519d5c7f44c0a136d752f0801fe8eb",
+    "build/shared-policy-prep-guidance-diagnostic-signature-build.log": "f6bae4eeaf1ab02f664029b8190ee54c85835f7c964a9fc0f2dcb9bb8d8dcd92",
+    "build/shared-policy-prep-profile-correspondence.log": "4c3debb688b3e8b4b5d4232cfbf2224f822e9e628f82ee48a848efffb931bcf8",
+    "build/shared-policy-prep-guidance-diagnostic-correspondence.log": "0a314298871f04ec30fcf44a3422d0b7bfbb1b1b28385de4d34059d1dd4f13bb",
+    "build/shared-policy-prep-profile-baseline-build.log": "d6ee9b5a958a08bce56411a831369bd50cd9de1ff85160900a7f0d49f913747a"
+  },
+  "full_debug_inventory": 202,
+  "new_slurm_campaigns": [],
+  "unrelated_live_job": {
+    "id": 1745040,
+    "state": "RUNNING",
+    "command": "/bin/bash",
+    "workdir": "/home/hwu/sdsl/taco",
+    "left_untouched": true
+  },
+  "scope": "Focused migration checkpoint; full goal acceptance and feedback interfaces remain incomplete",
+  "build_provenance": {
+    "normal": {
+      "compile_commands_sha256": "4561484fc5ef266bea4dee1cfec5875edc3057a66fd28ac68647718f5367b8aa",
+      "cmake_cache_sha256": "5b8410f18aac4acd09a2e76e69f1671f059673f29109d1be804c34d283c10c4c",
+      "candidate_binary_sha256": "33cdb64251bdbaa9ff7d1842f2dd50ac9ad388c9e23080931044acea026f62ca",
+      "preserved_objects": {
+        "src/policies/default_policy.cpp": "788c79521e9eab68710312f8a38e990ddba8dfc81fef5b17aac8a3db104fe2c7",
+        "src/strategy/online_inprocess.cpp": "db88d6259aa2112505b1bcd0d466509a7eff3df0c996cc5f9584848a81041671",
+        "src/strategy/analyze_parameters.cpp": "6f7c964cac5194c0740878293bb9bbcc9ff86e8b2f130f93ce886a92fc0211fb",
+        "src/strategy/congruence_parameters.cpp": "816c4863bcf391dd08210bea5160ce03d57c442c10cb8be916ae6fe89e295034",
+        "src/strategy/forward_parameters.cpp": "f0971cb571b6b0772c48a0f7b7fea3693aa71e799d2e1d6fa40b7e10978a3144",
+        "src/strategy/failed_literal_parameters.cpp": "c945323e9a07588319ba333b5bc599841a36a85bd301690eda9359b5112ccdfa",
+        "src/strategy/instantiate_parameters.cpp": "942c7949f9d4e8856c5cd87a966493b0794e64df603aa9b786599615bfede298",
+        "src/strategy/vivify_parameters.cpp": "278236f86c3d6f799593e7ec1938b21ab4dadfbbf2c19d30ace90d19f297952f",
+        "src/strategy/rule_parameters.cpp": "fde0d3e4587cbb70eaf616673c6a100f737eca16566e8b82279fdd21a14f7c4b"
+      }
+    },
+    "diagnostic": {
+      "compile_commands_sha256": "2720b4b063b080a92e0a32fd69b1bf77e20eea6efaf76147bbc94c1c4b1bf462",
+      "cmake_cache_sha256": "1edcaf8245b979d181e0679af05dd202fa8246e1438a13710f9da721db2d0b43",
+      "candidate_binary_sha256": "0e8f7b6dc99e02bcd519f7d00fea1a5f5bd7c2c3a576b919b526c7569d7e7d05",
+      "preserved_objects": {
+        "src/policies/default_policy.cpp": "1b1bbeea91c45010e6d586803d1194df5f1b5802a874b1bd658ff0fad5611e0e",
+        "src/strategy/online_inprocess.cpp": "1fa572ae69076b9ad7d47b73410f86f21ce63b7ad11a4447b2f393abc63e677b",
+        "src/strategy/analyze_parameters.cpp": "a977109968511f404fc67c75c13a6de9e19b28dea28108e37b1961e672f98241",
+        "src/strategy/congruence_parameters.cpp": "92707e21d7d73103b3fc785660cb3fe3c7683adfef31055433a3e704788196be",
+        "src/strategy/forward_parameters.cpp": "ec5ea2861873000d4b67ab5bc1b9f73b832d1ab55af1c9fa4672319078257335",
+        "src/strategy/failed_literal_parameters.cpp": "0bab8140d09754c76f1437e0087599ff2cc0b80128f5bcfe4e48c7ff863a54fe",
+        "src/strategy/instantiate_parameters.cpp": "aaa0db3d309d98cac9367e5b8509dd6ba63850b47ed3d82f0d709317cf7b1ceb",
+        "src/strategy/vivify_parameters.cpp": "e01ec4a62d66974df164d062f1c8d87c59df3454e1719421900729a8147dd89f",
+        "src/strategy/rule_parameters.cpp": "1982fbdaaec925050def84df25afdd26be9e10eec4f2a9ac2a724ea7c8024682"
+      }
+    },
+    "compiler": "c++ (GCC) 13.1.0"
+  }
+}

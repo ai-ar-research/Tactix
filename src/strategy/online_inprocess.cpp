@@ -8,6 +8,7 @@
 #include "strategy/work_execution.hpp"
 #include "strategy/parameter_execution.hpp"
 #include "strategy/publication_execution.hpp"
+#include "strategy/sweep_execution.hpp"
 #include "policies/rule_publication.hpp"
 
 #include <cmath>
@@ -1129,9 +1130,7 @@ InvocationResult OnlineStrategyExecutor::advance(
       const SweepParameters &limits = std::get<SweepParameters>(step.parameters);
       const ApplyResult result = execution::execute_action(
           k, execution::RuleApplicationRequest{}, [&] {
-            return payload == INSTANCE_CANONICAL
-                       ? sweep_apply_exact_limits(k, limits)
-                       : sweep_try_with_limits(k, static_cast<Var>(payload), limits);
+            return execution::execute_action(k, execution::SweepRequest{limits, payload});
           }, HeuristicRulePublisher{}).result;
       out.before = out.after;
       out.configuration_revision = revision_;
