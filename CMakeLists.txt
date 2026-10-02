@@ -41,6 +41,8 @@ file(GLOB_RECURSE TACTIX_RULE_SOURCES CONFIGURE_DEPENDS
   "${CMAKE_CURRENT_SOURCE_DIR}/src/rules/*/*.cpp")
 file(GLOB_RECURSE TACTIX_POLICY_OP_SOURCES CONFIGURE_DEPENDS
   "${CMAKE_CURRENT_SOURCE_DIR}/src/policies/ops/*/*.cpp")
+file(GLOB_RECURSE TACTIX_STRATEGY_SOURCES CONFIGURE_DEPENDS
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/strategy/*.cpp")
 
 add_library(tactix_lib OBJECT
   src/kernel/kernel.cpp
@@ -58,15 +60,7 @@ add_library(tactix_lib OBJECT
   src/policies/controller_trace.cpp
   src/policies/trace.cpp
   src/policies/stress_registry.cpp
-  src/strategy/analyze_parameters.cpp
-  src/strategy/forward_parameters.cpp
-  src/strategy/failed_literal_parameters.cpp
-  src/strategy/congruence_parameters.cpp
-  src/strategy/instantiate_parameters.cpp
-  src/strategy/vivify_parameters.cpp
-  src/strategy/online_inprocess.cpp
-  src/strategy/random_online.cpp
-  src/strategy/rule_parameters.cpp
+  ${TACTIX_STRATEGY_SOURCES}
   src/frontend/parse.cpp
   src/api/api.cpp
 )

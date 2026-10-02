@@ -2,6 +2,7 @@
 // native objects. Timings are excluded; requests, observations and work stay.
 #undef NDEBUG
 #include "policies/random_controller_policy.hpp"
+#include "strategy/feedback_trace.hpp"
 
 #include <cassert>
 #include <fstream>
@@ -47,6 +48,8 @@ static uint64_t hash(const std::string &text) {
 }
 
 int main(int argc, char **argv) {
+  char temporary[] = "/tmp/tactix-controller-signature-XXXXXX";
+  if (argc == 1) assert(mkdtemp(temporary));
   for (uint64_t seed : {1ull, 7ull, 17ull, 29ull, 41ull, 53ull, 67ull, 79ull})
     for (bool unsat : {false, true}) {
       Kernel k;
@@ -55,7 +58,7 @@ int main(int argc, char **argv) {
       const std::string stem = retain
           ? std::string(argv[1]) + "/seed-" + std::to_string(seed) +
                 (unsat ? "-unsat" : "-sat")
-          : "/tmp/tactix-controller-signature-" + std::to_string(getpid());
+          : std::string(temporary) + "/case";
       Proof proof;
       assert(proof.open((stem + ".drat").c_str(), ProofFormat::DratAscii));
       proof.bind_variable_map(&k.internal_to_external);
@@ -66,12 +69,20 @@ int main(int argc, char **argv) {
       config.default_allowance.native.amount = 256;
       int verdict;
       {
+        strategy::controller::FeedbackTrace feedback;
+        const bool observed = argc > 2 && std::string(argv[2]) == "feedback";
+        if (observed)
+          assert(feedback.write((stem + ".feedback.jsonl").c_str(),
+              "controller-signature seed=" + std::to_string(seed) + " " +
+              controller_configuration(config)));
         ControllerTrace trace;
         assert(trace.write((stem + ".trace").c_str(), seed,
                            controller_configuration(config)));
-        RandomControllerPolicy policy(seed, config, &trace);
+        RandomControllerPolicy policy(seed, config, &trace, nullptr,
+                                      observed ? &feedback : nullptr);
         verdict = policy.solve(k);
         assert(trace.error().empty());
+        if (observed) assert(feedback.error().empty() && feedback.terminal());
       }
       assert(verdict == (unsat ? 20 : 10));
       kernel_check_invariants(k);
@@ -107,4 +118,5 @@ int main(int argc, char **argv) {
         unlink((stem + ".drat").c_str());
       }
     }
+  if (argc == 1) assert(rmdir(temporary) == 0);
 }

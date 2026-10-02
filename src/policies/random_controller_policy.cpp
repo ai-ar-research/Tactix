@@ -297,15 +297,24 @@ int RandomControllerPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     coverage_.search.emplace(name(configuration), ControllerSearchCoverage{});
   uint64_t root_actions = 0;
   KernelStopPublisher publish_stop(k, stop);
-  RestartController controller(k, config_.search);
+  RestartController controller(k, config_.search, feedback_);
   RandomControllerSelector selector(trace_ && trace_->replaying() ? trace_->seed() : seed_);
+  ControllerSelection &selection = selection_ ? *selection_ : selector;
+  struct FeedbackEnd {
+    RestartController &controller;
+    int verdict = -1;
+    std::optional<StopReason> reason = std::nullopt;
+    ~FeedbackEnd() { controller.finish_feedback(verdict, reason); }
+  } feedback_end{controller};
   const auto emit = [&](const std::string &event) {
     if (!trace_ || trace_->event(event))
       return true;
     std::fprintf(stderr, "c ERROR: %s\n", trace_->error().c_str());
     return false;
   };
-  const auto finish = [&](int verdict) {
+  const auto finish = [&](int verdict, std::optional<StopReason> reason = std::nullopt) {
+    feedback_end.verdict = verdict;
+    feedback_end.reason = reason;
     for (const auto &[rule, counts] : coverage_.rules)
       std::printf("c controller-rule %s requests=%llu applications=%llu "
                   "effective=%llu exhausted=%llu stale=%llu interrupted=%llu "
@@ -333,6 +342,8 @@ int RandomControllerPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                 (unsigned long long)coverage_.configuration_changes,
                 (unsigned long long)coverage_.maximum_root_actions);
     if (trace_ && !trace_->finish(verdict)) {
+      feedback_end.verdict = -1;
+      feedback_end.reason = StopReason::Error;
       std::fprintf(stderr, "c ERROR: %s\n", trace_->error().c_str());
       return -1;
     }
@@ -363,10 +374,13 @@ int RandomControllerPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         controller.capture_before_backtrack();
       // The registered ConflictAnalysis boundary fuses learning and backjump;
       // Analyze's internal primitive alone leaves a pending assertion.
-      const auto result = apply_rule(analysis, k);
-      heuristics_consume_root_assignments(k, 0);
-      heuristics_consume_rule_advice(k);
-      heuristics_consume_retirements(k);
+      const auto result = controller.search_service("ConflictAnalysis", INSTANCE_CANONICAL, [&] {
+        const auto native = apply_rule(analysis, k);
+        heuristics_consume_root_assignments(k, 0);
+        heuristics_consume_rule_advice(k);
+        heuristics_consume_retirements(k);
+        return native;
+      });
       if (trace_ && !emit(service_record(k, "ConflictAnalysis", 0, result)))
         return -1;
       if (result == ApplyResult::Unsat || k.inconsistent)
@@ -384,8 +398,11 @@ int RandomControllerPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     if (observation.searching) {
       if (!kernel_propagation_fixpoint(k)) {
         const size_t trail = k.trail.size();
-        const auto result = apply_rule(propagation, k);
-        heuristics_consume_root_assignments(k, trail);
+        const auto result = controller.search_service("Propagate", INSTANCE_CANONICAL, [&] {
+          const auto native = apply_rule(propagation, k);
+          heuristics_consume_root_assignments(k, trail);
+          return native;
+        });
         if (trace_ && !emit(service_record(k, "Propagate", 0, result)))
           return -1;
         continue;
@@ -411,12 +428,15 @@ int RandomControllerPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       }
       const auto literal = controller.next_decision();
       const auto identity = lit_instance(k, literal);
-      const auto result = execution::execute_action(k, execution::DecisionRequest{literal});
+      const auto result = controller.search_service("Decide", identity, [&] {
+        const auto native = execution::execute_action(k, execution::DecisionRequest{literal});
+        if (native == ApplyResult::Ok) ++k.strategy_epoch;
+        return native;
+      });
       if (result != ApplyResult::Ok) {
         std::fprintf(stderr, "c ERROR: controller ranked an invalid decision\n");
-        return finish(0);
+        return finish(0, StopReason::Error);
       }
-      ++k.strategy_epoch;
       ++coverage_.search[name(observation.search)].decisions;
       if (trace_ && !emit(service_record(k, "Decide", identity, result)))
         return -1;
@@ -424,10 +444,10 @@ int RandomControllerPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     }
     ActionRequest request;
     std::string error;
-    if (!selector.choose(k, observation, config_, request, error, stop)) {
+    if (!selection.choose(k, observation, config_, request, error, stop)) {
       if (!(stop && *stop))
         std::fprintf(stderr, "c ERROR: controller selection: %s\n", error.c_str());
-      return finish(0);
+      return finish(0, stop && *stop ? StopReason::Interrupted : StopReason::Error);
     }
     if (trace_ && !emit(request_record(request)))
       return -1;
@@ -474,14 +494,14 @@ int RandomControllerPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     if (result.invocation.status == InvocationStatus::Sat)
       return finish(10);
     if (result.invocation.status == InvocationStatus::Interrupted)
-      return finish(0);
+      return finish(0, StopReason::Interrupted);
     if (result.invocation.status == InvocationStatus::InvalidRequest ||
         result.invocation.status == InvocationStatus::AccountingError) {
       std::fprintf(stderr, "c ERROR: controller execution status=%u action=%s\n",
                    static_cast<unsigned>(result.invocation.status),
                    request.type == ActionType::ResumeSearch
                        ? "ResumeSearch" : request.invocation.rule.c_str());
-      return finish(0);
+      return finish(0, StopReason::Error);
     }
     // Completed work stays committed. Stale scopes and native interrupted
     // progress are reselected at their existing boundaries, with no fallback.

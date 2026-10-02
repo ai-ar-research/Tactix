@@ -4,7 +4,8 @@
 #include "strategy/action_execution.hpp"
 #include "policies/default_restart.hpp"
 #include "rules/restart/restart.hpp"
-#include "strategy/controller_action_space.hpp"
+#include "strategy/controller_observation.hpp"
+#include "strategy/policy_feedback.hpp"
 
 #include <optional>
 #include <chrono>
@@ -13,34 +14,6 @@
 
 namespace tactix::strategy::controller {
 
-// A value snapshot: acquiring it never enumerates instances, drains advice,
-// changes scheduler state or consumes a random draw. Stats remain cumulative;
-// consumers can choose their own measurement windows without resetting them.
-struct Observation {
-  uint32_t version = ACTION_SPACE_VERSION;
-  StateVersion state;
-  uint64_t sequence = 0;
-  uint32_t variables = 0;
-  uint32_t unassigned = 0;
-  uint32_t active_unassigned = 0;
-  uint32_t level = 0;
-  uint64_t trail_assignments = 0;
-  uint64_t root_population = 0;
-  uint64_t irredundant_clauses = 0;
-  bool inconsistent = false;
-  bool conflict = false;
-  bool propagation_fixpoint = false;
-  bool searching = false;
-  bool have_search_configuration = false;
-  SearchConfiguration search;
-  uint64_t rotation_intervals = 0;
-  uint64_t next_restart_conflicts = 0;
-  uint64_t reluctant_u = 1, reluctant_v = 1, reluctant_wait = 0;
-  double fast_glue = 0, slow_glue = 0;
-  Stats cumulative;
-  std::optional<ActionResult> last_action;
-};
-
 // Single-threaded owner attached for one controller lifetime. An embedding's
 // previously attached H is transferred in and returned on detach, including
 // variable growth and rule advice effects; restoring an old copy would lose
@@ -48,9 +21,11 @@ struct Observation {
 class RestartController {
 public:
   explicit RestartController(Kernel &kernel,
-                             DefaultStrategyConfig settings = {})
+                             DefaultStrategyConfig settings = {},
+                             FeedbackReceiver *feedback = nullptr)
       : kernel_(kernel), previous_(kernel.h),
-        previous_saved_(kernel.saved_phases), settings_(std::move(settings)) {
+        previous_saved_(kernel.saved_phases), settings_(std::move(settings)),
+        feedback_(feedback) {
     if (previous_)
       heuristics_ = std::move(*previous_);
     kernel_.h = &heuristics_;
@@ -64,9 +39,14 @@ public:
       }
       heuristics_deactivate_inactive_vars(kernel_);
     }
+    if (feedback_.enabled()) feedback_.begin(observe());
   }
 
   ~RestartController() {
+    if (feedback_.enabled()) {
+      feedback_.pause_measurement();
+      feedback_.finish(observe(), 0, StopReason::Detached);
+    }
     if (previous_)
       *previous_ = std::move(heuristics_);
     kernel_.h = previous_;
@@ -78,20 +58,8 @@ public:
 
   Observation observe() const {
     const Kernel &k = kernel_;
-    Observation result;
-    result.state = state_version(k);
+    Observation result = observe_kernel(k);
     result.sequence = sequence_;
-    result.variables = k.nvars;
-    result.unassigned = k.unassigned;
-    result.active_unassigned = k.unassigned_active;
-    result.level = k.level;
-    result.trail_assignments = k.trail.size();
-    for (const Lit lit : k.trail)
-      result.root_population += k.assigned[var_of(lit)].level == 0;
-    result.irredundant_clauses = kernel_irredundant_clauses(k);
-    result.inconsistent = k.inconsistent;
-    result.conflict = k.conflict_valid;
-    result.propagation_fixpoint = kernel_propagation_fixpoint(k);
     result.searching = searching_;
     result.have_search_configuration = have_search_;
     result.search = search_;
@@ -102,12 +70,21 @@ public:
     result.reluctant_wait = restarts_.reluctant.wait;
     result.fast_glue = restarts_.averages[0].fast_glue.value;
     result.slow_glue = restarts_.averages[0].slow_glue.value;
-    result.cumulative = k.stats;
     result.last_action = last_action_;
     return result;
   }
 
   ActionResult resume_search(const ActionRequest &request) {
+    const auto result = feedback_.execute(
+        FeedbackKind::ResumeSearch, "ResumeSearch", INSTANCE_CANONICAL,
+        [&] { return observe(); }, [&] { return resume_search_impl(request); }, &request);
+    if (result.resumed_search && feedback_.enabled())
+      feedback_.begin_interval(observe(), IntervalStart::ResumeSearch);
+    return result;
+  }
+
+private:
+  ActionResult resume_search_impl(const ActionRequest &request) {
     ActionResult result;
     result.type = request.type;
     result.sequence = request.sequence;
@@ -163,6 +140,7 @@ public:
     return result;
   }
 
+public:
   // Search services run only after ResumeSearch. Root work never advances a
   // restart clock, and switching branch or phase never resets its history.
   void search_conflict(uint32_t glue) {
@@ -198,6 +176,32 @@ public:
   }
 
   ApplyResult restart(uint32_t keep_level) {
+    const bool interval = searching_;
+    bool applied = false;
+    const auto result = feedback_.execute(
+        FeedbackKind::SearchService, "Restart", keep_level,
+        [&] { return observe(); }, [&] { return restart_impl(keep_level, applied); },
+        nullptr, nullptr, [&](ApplyResult native) {
+          auto outcome = feedback_outcome(native);
+          if (!applied) {
+            outcome.invocation.applications = outcome.invocation.work = 0;
+            outcome.invocation.status = InvocationStatus::Inapplicable;
+          }
+          return outcome;
+        });
+    if (interval && feedback_.enabled() && result != ApplyResult::NoOp) {
+      feedback_.pause_measurement();
+      const auto after = observe();
+      feedback_.end_interval(after, result == ApplyResult::Unsat
+                                          ? StopReason::Unsat : StopReason::Restart);
+      if (searching_)
+        feedback_.begin_interval(after, IntervalStart::PartialContinuation);
+    }
+    return result;
+  }
+
+private:
+  ApplyResult restart_impl(uint32_t keep_level, bool &applied) {
     // A stopped solve may leave a non-root trail before this new controller
     // session has installed any configuration. Its entry still uses Restart.
     if ((!searching_ && !kernel_.level) || !restart_guard(kernel_) ||
@@ -206,6 +210,7 @@ public:
     keep_level = std::min(keep_level, kernel_.level);
     if (!keep_level || keep_level < kernel_.level)
       heuristics_capture_target_phases(kernel_);
+    applied = true;
     const auto result =
         execution::execute_action(kernel_, execution::RestartRequest{keep_level});
     ++kernel_.strategy_epoch;
@@ -220,7 +225,23 @@ public:
     return result;
   }
 
+public:
   ApplyResult full_restart() { return restart(0); }
+
+  template <class Apply>
+  ApplyResult search_service(const char *identity, uint64_t instance, Apply &&apply) {
+    return feedback_.execute(FeedbackKind::SearchService, identity, instance,
+        [&] { return observe(); }, std::forward<Apply>(apply));
+  }
+
+  void finish_feedback(int verdict, std::optional<StopReason> reason = std::nullopt) {
+    if (feedback_.enabled()) {
+      feedback_.pause_measurement();
+      feedback_.finish(observe(), verdict, reason.value_or(verdict == 10 ? StopReason::Sat
+          : verdict == 20 ? StopReason::Unsat
+          : verdict == 0 ? StopReason::Interrupted : StopReason::Error));
+    }
+  }
 
   Lit next_decision() {
     assert(searching_ && kernel_.unassigned_active);
@@ -244,6 +265,17 @@ public:
   ActionResult apply_rule(const ActionRequest &request,
                           const ActionAllowance &allowance,
                           volatile sig_atomic_t *stop = nullptr) {
+    return feedback_.execute(FeedbackKind::Rule, request.invocation.rule.c_str(),
+        request.invocation.instances.size() == 1 ? request.invocation.instances[0]
+                                               : INSTANCE_CANONICAL,
+        [&] { return observe(); },
+        [&] { return apply_rule_impl(request, allowance, stop); }, &request, &allowance);
+  }
+
+private:
+  ActionResult apply_rule_impl(const ActionRequest &request,
+                              const ActionAllowance &allowance,
+                              volatile sig_atomic_t *stop) {
     ActionResult result;
     result.sequence = request.sequence;
     result.type = request.type;
@@ -334,6 +366,7 @@ private:
     OnlineStrategyExecutor executor;
   };
   std::map<std::string, Pending> pending_;
+  FeedbackSession feedback_;
 };
 
 } // namespace tactix::strategy::controller
