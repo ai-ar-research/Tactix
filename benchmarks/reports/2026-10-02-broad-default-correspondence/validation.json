@@ -1,0 +1,417 @@
+{
+  "schema": "tactix-broad-default-correspondence-v1",
+  "parent_commit": "9a6cdf945b805d84d159f74c12cc68722ce48c0a",
+  "accepted_checkpoint": "12e3c4f0e7098af15e855f995da23f6317cd0d58",
+  "scope": "Fixed-fixture preservation/coverage increment; production unchanged; full acceptance incomplete.",
+  "source_sha256": {
+    "DEVELOPMENT_PLAN.md": "c58cf34b24d026f1525741d1285c4714e805ae340332e5cd6cbd9ae971b04dcd",
+    "PROGRESS.md": "f6abcc5efa6fd19f164ec20c48be265180277cf32efdebc226ceadd5b8083363",
+    "docs/controller-interface.md": "c523ad33344e61233bfdca09131c9c512fb9575ac211e9732e01316903e7c470",
+    "src/kernel/kernel.hpp": "1cebb5a8f898e703f0865d0e0460a1d8a4209164016c8ec27750b91d1b4d1b21",
+    "src/policies/default_policy.cpp": "8906478d98cab4e9d904f8df183c1ea9a55043e871518db130f4f63323bb32e6",
+    "src/policies/random_controller_policy.cpp": "0043adde517872e2ae3c90ce069c5ceb04205299987a8ba58e6940d7d95a206d",
+    "src/policies/restart_controller.hpp": "8aa9219d923035ea12505b726337ed56e5bbbff412611b7bae3a8aaec0a1e555",
+    "src/rules/bce/bce.cpp": "b68e6743353ce4998ce8603f2efa3de9d6078150240ecb2ef8e6934dcf0131e7",
+    "src/rules/propagate/propagate.cpp": "3549f4f4b60971bb4deee4acfb93c50fc3e96e4e64511e0fb61910f3f2506399",
+    "src/strategy/action_execution.hpp": "f15ca0270c5d5cdde42d9e2d32a9243914d9b5b3b3e2a951d682adb3b910b388",
+    "src/strategy/bve_invocation.hpp": "0eefcd9f0c26a11df692a973ac74febb223e0d8224dacbb741336bbed0eb5326",
+    "src/strategy/conflict_analysis_execution.hpp": "bacd8d06fd21cb64e4bcc29b85a7d9665dcf111ae1dd50e1d8fa002f960a1af5",
+    "src/strategy/execution_budget.hpp": "12cb85ef65a27818e15efa660ae74eb4fe9b048a38b31379a65c51516a48ac91",
+    "src/strategy/execution_scope.hpp": "6c3a54637d2f4d63907266070f399d80b5faf4b39bfef03f22f4f00443da8d30",
+    "src/strategy/guidance_execution.hpp": "f085770ce3df87542e7eeecb834e959a96f39615d96b3d68f1d23fa4b413b684",
+    "src/strategy/heuristic_execution.cpp": "04e46a3ee3fe4de019d23e18b11448f79b4f5373339e2827eb29d81ce51399a1",
+    "src/strategy/heuristic_execution.hpp": "b929642df2da9fae45370fa206cef77bb4c267d321aaf9e33b01b00dd0481aad",
+    "src/strategy/lucky_execution.hpp": "aa4aa369bcf9c444a71dbf59a5b082db18603c61557daf59d66f02f704941b7f",
+    "src/strategy/occurrence_execution.hpp": "5beb7172d4a0ed22d0dac10061652830549afcf95be99f4c731f2daf04eaa922",
+    "src/strategy/online_inprocess.cpp": "b8b607562597ce80e6bed68891139088a4e5b767bbccc78f2b6832a13ae55fad",
+    "src/strategy/online_sequence.hpp": "bbd4799e4384c092b78b662ff45566c585cc4182d463272bd6750575dd598c43",
+    "src/strategy/parameter_execution.hpp": "b13482e9c92404f1c0414dfb58206045646f1fe05daa4ddf7bfbccb85e36ee85",
+    "src/strategy/policy_completion.hpp": "3c0c985e058952568579789304512fdbc25a0752df855110b5b7ab7f87e8db2c",
+    "src/strategy/policy_feedback.hpp": "6b82c8b77c68b011c96050de1a42769b826e6d629f6fb3cc9e7711b2c38b8908",
+    "src/strategy/publication_execution.hpp": "eaac6f77837c02ffc38996f44f2118587ec0f2bebe2edeed38c94298246dfe03",
+    "src/strategy/reduction_execution.hpp": "61b9e543030a2f4167091b91f13d8dea3af3db15342098d997415ddf2d9800c5",
+    "src/strategy/representation_execution.hpp": "fa6349d51e9e83189899d3837f49e6d122c1d987dfe25df55ba0fdc43b6af5c4",
+    "src/strategy/root_execution.hpp": "d38cc3c38db50fbae33f5fc26eccec9845382cb6971b173317e0c6c0d3deb30a",
+    "src/strategy/rule_execution.hpp": "285a018c6a44a5fd811da546c28c9c435f8b8af3e2d5897bdd475011c4804ee0",
+    "src/strategy/substitute_execution.hpp": "bf51ba440c88585c3c89725047b49d8fb870d6393a55be01f79328a4c590be96",
+    "src/strategy/sweep_execution.hpp": "11f19e1ed52901c0114d2bf3e7f9b956ba2a590f8a2d4c0abdacc0b1366eb640",
+    "src/strategy/vivify_execution.hpp": "6e0af68cf55e9b07f25f31c5ba826d5284c08d28b311a5fd9ad1193e99995876",
+    "src/strategy/work_execution.hpp": "8c1bfddacf0ce4c1594d1d7e93c1d5ddbbc282188ffa5588d4b119fc80a22a46",
+    "tests/test_default_execution_signature.cpp": "79615d18ff70378f9b3a56fa91e77c61080c462e4ac61e6951ae2fb3de596bd3",
+    "tests/test_inprocess_execution_signature.cpp": "698db301d286149ca7590305a6cc56c64457d6289bb577ef5a17e77309f0004c",
+    "tests/test_native_policy_feedback.cpp": "c4b5878f5c6abb982413cccff4de44c0239f1778bdf852e3abaf93e89422d678",
+    "tests/test_preparation_execution.cpp": "61b7afd5d7a70fbe2bbaabf85bce83aa661dd02a9be09e53e97311ab268fa0c2",
+    "tools/docs/check-config-wiring.py": "8901498e909c6bb8f8e1c6a8cf6483915a6fc18ad76962006fb77e4c0877a6b7"
+  },
+  "accepted_authorities_sha256": {
+    "build/pin-controller-foundations-debug-canonical-repair/tactix": "8ae7478107a340ee5b53261f76ffbb1034b90e4f7e7acc2a8123ea300e1267f3",
+    "build/pin-controller-foundations-release-canonical-repair/tactix": "ad7e4da8fb0801b15c5916c94a536176f69f2def2a8fd477d59953d5409dfe41",
+    "benchmarks/baselines/controller-foundations-v1/results.json": "ef81cf019675a79a91ee431ab54e2c59630d9d069a03c2a55e44bd446c37bc9d"
+  },
+  "checker_and_inspector_sha256": {
+    "tools/checkers/bin/drat-trim": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+    "tools/checkers/bin/cake_lpr": "ab9dc6c43ad0f55bbaf336c5d898919ddb03d0bdb75e88dff48237fb06ba1f57",
+    "tools/checkers/bin/dsr-trim": "3b5c773706dc4695f08115ce862e991bfa2e44e3388df80f40ae8b0823dfbdee",
+    "tools/checkers/bin/dsr-compress": "6bc416a0df73f16911a0b16d85aa4bed4d15e4915d309407ff1e80b07d19d676",
+    "tools/checkers/bin/srcheck": "19bf79f49e293bb0df82b1e4ec82ec45987c2791864598bada12525ef41a2945",
+    "tools/bench/proof_oracle.py": "020bfcef6f4382e9b3136442a253bb7eb4fcfa1091be9d692ddd438161a3b8b2",
+    "tools/fuzz/modelcheck.py": "023d06f8f4016ced484897a4a6aeadf2fdb45e16dbf929661b1c6e92ec0ea9d4",
+    "tools/bench/inspect_policy_feedback.py": "ff41f4dba97c4b82a15cfadfce87095350413109719b29a51e0f66a41640f701"
+  },
+  "artifact_sha256": {
+    "compare-broad-phase.py": "6df23b556c635c03cd78c33b785efe4a0866309b49e37e0766c2aff0d49582cb",
+    "compare-broad-search.py": "5fa115174ea245d97388921e8a7d5f1db7a18aca5e181d3c5bf189173306e491",
+    "current-source-snapshot-members.json": "a1256244b7cb7adb21eff031d0996c58e7030347a3b2f5bd23bd5ebb051bf022",
+    "current-source-snapshot.tar.gz": "0077fee7aedb300690bf606f52d4d1991ab17c9fd1a936443fde4cdd51e3a701",
+    "debug-CMakeCache.txt": "5b8410f18aac4acd09a2e76e69f1671f059673f29109d1be804c34d283c10c4c",
+    "debug-checked-artifacts-members.json": "d299701c6f0ca813b6d06d809169a5d5d6eb92c96f8b37e050bc74aeeee11f4c",
+    "debug-checked-artifacts.tar.gz": "37c4175afa7cb5adea23e305efa8736c6ab43240f424dae36e9414665576f88b",
+    "debug-compile_commands.json": "2ce734c1a3fb790949f72e8ace9af821896a7edf57ad283f2ea91cde4e550623",
+    "debug-phase-correspondence.json": "ec30889074d10ef4672ffb5e95da4e2f680be970c3da1f9d1942987977019d9b",
+    "debug-search-controls.json": "0a48fb6937c7e8f4ead9c5caeb5cecedbb58cd577376453cb111b009db14b324",
+    "debug-search-correspondence.json": "55cf4d0ecec8b7713a8aed11a5af9419998a97b7e58aa9860d8786346f377ba0",
+    "diagnostic-CMakeCache.txt": "1edcaf8245b979d181e0679af05dd202fa8246e1438a13710f9da721db2d0b43",
+    "diagnostic-checked-artifacts-members.json": "63de8d4efadfcbcc0b078d8ab1f232233755d4ef1e65d1684d29802edd6f5477",
+    "diagnostic-checked-artifacts.tar.gz": "1621fd0aea3b61b563c9dc3d47ee74759344aebc40b500f36f99ad79f9f97d21",
+    "diagnostic-compile_commands.json": "4e0802a8346a6115c8ee61e1c3fe40280bb2fd62660ea147eb767d7de411a757",
+    "diagnostic-phase-correspondence.json": "6b780f78b443e57943795238bcfbec1c08bb7016031c75144fdde1d555903026",
+    "diagnostic-search-controls.json": "0a48fb6937c7e8f4ead9c5caeb5cecedbb58cd577376453cb111b009db14b324",
+    "diagnostic-search-correspondence.json": "ca1c08c425727273c8882ffb72f21e2b88c49c65d22d0d036195e48a36b7cb11",
+    "doc-size.log": "7cd926048f7348d34ca4f220363b026958dbd69bb1848b2fb2b2ac0855241409",
+    "docs-final.log": "d033de02570dbd36fd67a2dc074708a2b809377b501712a22957897633498c1d",
+    "docs.log": "2bd8604b966482962c966dffe55279063b88d0779b3af3ba32db450d775117ab",
+    "final-debug-focused.log": "42efe05e374e4ee296fa45acaa1b7a8a88379df20d60531c2fcb594520193ff4",
+    "final-diagnostic-focused.log": "eac41e72fe9d597c2aacc01fba6ea53574c393965b825a3cd32748b525704ef1",
+    "freeze-broad-correspondence.py": "74b049dedcec5ac2fe4d2255e64453a56e31cb95c19d5d00ae2c79f3aeec5fce",
+    "freeze.log": "b78625e5b1df311573e1ab6590c384d35cd5fa508c0b9d1b0ffdfed5654c7c82",
+    "phase-abi-bridge.cpp": "15970f3f13e9b1a89bb039d191d8bba2127b37eac57ac14c2e6dcea5df297c3c",
+    "phase-build.log": "737f4e0916350804933a644bb8dd90b884f7a963ea5289a3b4d6bb06a59dcd62",
+    "phase-configure.log": "17bbb9f7d9a7a58ffce58efbc559f2848c378c7f8ecdbd0c7c54813cf8f837c9",
+    "phase-debug-comparison.log": "9ad1c1539eb3d734a0aff99d685484592a934d88c6b087ae17f03ef39daeb429",
+    "phase-debug-focused.log": "b264ff8072179456ba3ef1b10f8f3afa8a5deed6baa6497f198b2898f0dd0743",
+    "phase-diagnostic-comparison.log": "06b0162612363cf135668928ea57d90ae082bef8df87bab35195e704d0f0be58",
+    "phase-diagnostic-configure.log": "fa2a4031da26043486e326dac01553e586e63189a83d77badd82dfd539792ce5",
+    "phase-diagnostic-focused.log": "38aae787d443d4bace9136e5571dd631f9cbaeb4268e25c053da6989f520a9f9",
+    "phase-final-debug-build.log": "737f4e0916350804933a644bb8dd90b884f7a963ea5289a3b4d6bb06a59dcd62",
+    "phase-final-diagnostic-build.log": "12be39a38b56407b6e8c1b86e13751881c55fc563627f2b9125770861e61c424",
+    "phase-fixture-repair-build.log": "737f4e0916350804933a644bb8dd90b884f7a963ea5289a3b4d6bb06a59dcd62",
+    "phase-premise-details-build.log": "737f4e0916350804933a644bb8dd90b884f7a963ea5289a3b4d6bb06a59dcd62",
+    "phase-premise-details.log": "0370536601cd272c7c44447e6c639bc2707bc9fa0c4fd35a46e3f3f0adb0dbda",
+    "phase-premise.log": "aeb8fd63f027481f3e94aa22bf83363e8caacebb65841cad47a3f6bdf0873ee6",
+    "phase-repaired-premise.log": "ae2a101e68435909df3b6d8a2707bca8d59d929b588dda19a2aa9e7dc285882c",
+    "preserved-foundation-members.json": "9d48d27adfbd6f4f894862f67a1a808e2f1d68ddc38a3d4fa8b55255758cda52",
+    "preserved-foundation-sources.tar.gz": "2aa0966e9edae84c0afef560c07eff894dff6322f059a215ab6f072d18913c5c",
+    "progress.log": "0e60e27efd39336ca765e4701bbc4f7517fc10dc7ecc348c510dc37d4c8b7e95",
+    "queue.log": "01de128a46e23a85707ab4dc550e33101ac05546c2697f6a337628827b9d6c9a",
+    "search-debug-build.log": "0611597328d6ad44adb990de66789f6546a55c6e77d8f45a7644c42eef9b360d",
+    "search-debug-comparison.log": "4b3fff6a27cbbfd73dccdb5b8382a2b144cb9c90145e9f4204a29585d76ec020",
+    "search-debug-controls.log": "b9ccea4fad3596b757cb21bf4dccbb02b90224c517ffe51d0c18ca582085993e",
+    "search-diagnostic-build.log": "61dfa506c8ef44584fe94329463dd18b6b7c8b5dba71d816172bc9d73345bb79",
+    "search-diagnostic-comparison.log": "bef867c423f30d4b708214cd7f3fddfe9970975ab80c4df840c189294e5679eb",
+    "search-diagnostic-controls.log": "b9ccea4fad3596b757cb21bf4dccbb02b90224c517ffe51d0c18ca582085993e",
+    "search-premise.log": "9271400453408960aed07461462d509b064d154d22ee90b350cfa3e9ffb17287",
+    "unrelated-job.log": "55e12435ce2d65f03b88085ec6cb9f06193f666817f4c92abff691c157cbca9c",
+    "validate-broad-search-controls.py": "f907a9d355920d0b9484642393831e575698d8b3c0fa5d5cb5640808229d7263"
+  },
+  "report_sha256": "9dd37f21af3b530ba9a4243788ab025b75993fe5dfb1cf59c88ed1a4574344e6",
+  "builds": {
+    "debug": {
+      "tactix_sha256": "b4761d24c51df57855148763e9468aa81cf12cc7fceedac9d48914cacdac8b46",
+      "focused_passed": 8,
+      "focused_total": 8,
+      "focused_seconds": 1.63,
+      "distinct_fixture_profiles": 26,
+      "proofs_verified": 13,
+      "models_verified": 13,
+      "groups": {
+        "phase": {
+          "distinct_fixture_profiles": 12,
+          "artifacts_per_arm": 30,
+          "proofs_verified": 6,
+          "models_verified": 6,
+          "strict_streams": 24,
+          "productive_controls": [
+            {
+              "file": "family-0-sat.phase.feedback.jsonl",
+              "family": "Vivify",
+              "target_calls": 4,
+              "effective_receipts": 1,
+              "native_work": 9,
+              "definition_sessions": 0
+            },
+            {
+              "file": "family-0-unsat.phase.feedback.jsonl",
+              "family": "Vivify",
+              "target_calls": 4,
+              "effective_receipts": 1,
+              "native_work": 135,
+              "definition_sessions": 0
+            },
+            {
+              "file": "family-1-sat.phase.feedback.jsonl",
+              "family": "Congruence",
+              "target_calls": 1,
+              "effective_receipts": 1,
+              "native_work": 150,
+              "definition_sessions": 0
+            },
+            {
+              "file": "family-1-unsat.phase.feedback.jsonl",
+              "family": "Congruence",
+              "target_calls": 1,
+              "effective_receipts": 1,
+              "native_work": 465,
+              "definition_sessions": 0
+            },
+            {
+              "file": "family-2-sat.phase.feedback.jsonl",
+              "family": "Backbone",
+              "target_calls": 2,
+              "effective_receipts": 1,
+              "native_work": 19,
+              "definition_sessions": 0
+            },
+            {
+              "file": "family-2-unsat.phase.feedback.jsonl",
+              "family": "Backbone",
+              "target_calls": 2,
+              "effective_receipts": 1,
+              "native_work": 339,
+              "definition_sessions": 0
+            },
+            {
+              "file": "family-3-sat.phase.feedback.jsonl",
+              "family": "Sweep",
+              "target_calls": 1,
+              "effective_receipts": 1,
+              "native_work": 108,
+              "definition_sessions": 0
+            },
+            {
+              "file": "family-3-unsat.phase.feedback.jsonl",
+              "family": "Sweep",
+              "target_calls": 1,
+              "effective_receipts": 1,
+              "native_work": 559,
+              "definition_sessions": 0
+            },
+            {
+              "file": "family-4-sat.phase.feedback.jsonl",
+              "family": "Substitute",
+              "target_calls": 2,
+              "effective_receipts": 1,
+              "native_work": 68,
+              "definition_sessions": 0
+            },
+            {
+              "file": "family-4-unsat.phase.feedback.jsonl",
+              "family": "Substitute",
+              "target_calls": 2,
+              "effective_receipts": 1,
+              "native_work": 468,
+              "definition_sessions": 0
+            },
+            {
+              "file": "family-5-sat.phase.feedback.jsonl",
+              "family": "BVE",
+              "target_calls": 5,
+              "effective_receipts": 5,
+              "native_work": 2,
+              "definition_sessions": 1
+            },
+            {
+              "file": "family-5-unsat.phase.feedback.jsonl",
+              "family": "BVE",
+              "target_calls": 25,
+              "effective_receipts": 10,
+              "native_work": 202,
+              "definition_sessions": 1
+            }
+          ]
+        },
+        "search": {
+          "distinct_fixture_profiles": 14,
+          "artifacts_per_arm": 35,
+          "proofs_verified": 7,
+          "models_verified": 7,
+          "strict_streams": 14
+        }
+      },
+      "feedback_coverage": {
+        "streams": 38,
+        "actions": 9461,
+        "support_receipts": 1241,
+        "intervals": 195
+      },
+      "checked_archive_members": 142
+    },
+    "diagnostic": {
+      "tactix_sha256": "891639699647389e28d9d8b2dcce4805482161f8a6fd5267fc8738389725ed3a",
+      "focused_passed": 8,
+      "focused_total": 8,
+      "focused_seconds": 1.59,
+      "distinct_fixture_profiles": 26,
+      "proofs_verified": 13,
+      "models_verified": 13,
+      "groups": {
+        "phase": {
+          "distinct_fixture_profiles": 12,
+          "artifacts_per_arm": 54,
+          "proofs_verified": 6,
+          "models_verified": 6,
+          "strict_streams": 24,
+          "productive_controls": [
+            {
+              "file": "family-0-sat.phase.feedback.jsonl",
+              "family": "Vivify",
+              "target_calls": 4,
+              "effective_receipts": 1,
+              "native_work": 9,
+              "definition_sessions": 0
+            },
+            {
+              "file": "family-0-unsat.phase.feedback.jsonl",
+              "family": "Vivify",
+              "target_calls": 4,
+              "effective_receipts": 1,
+              "native_work": 135,
+              "definition_sessions": 0
+            },
+            {
+              "file": "family-1-sat.phase.feedback.jsonl",
+              "family": "Congruence",
+              "target_calls": 1,
+              "effective_receipts": 1,
+              "native_work": 150,
+              "definition_sessions": 0
+            },
+            {
+              "file": "family-1-unsat.phase.feedback.jsonl",
+              "family": "Congruence",
+              "target_calls": 1,
+              "effective_receipts": 1,
+              "native_work": 465,
+              "definition_sessions": 0
+            },
+            {
+              "file": "family-2-sat.phase.feedback.jsonl",
+              "family": "Backbone",
+              "target_calls": 2,
+              "effective_receipts": 1,
+              "native_work": 19,
+              "definition_sessions": 0
+            },
+            {
+              "file": "family-2-unsat.phase.feedback.jsonl",
+              "family": "Backbone",
+              "target_calls": 2,
+              "effective_receipts": 1,
+              "native_work": 339,
+              "definition_sessions": 0
+            },
+            {
+              "file": "family-3-sat.phase.feedback.jsonl",
+              "family": "Sweep",
+              "target_calls": 1,
+              "effective_receipts": 1,
+              "native_work": 108,
+              "definition_sessions": 0
+            },
+            {
+              "file": "family-3-unsat.phase.feedback.jsonl",
+              "family": "Sweep",
+              "target_calls": 1,
+              "effective_receipts": 1,
+              "native_work": 559,
+              "definition_sessions": 0
+            },
+            {
+              "file": "family-4-sat.phase.feedback.jsonl",
+              "family": "Substitute",
+              "target_calls": 2,
+              "effective_receipts": 1,
+              "native_work": 68,
+              "definition_sessions": 0
+            },
+            {
+              "file": "family-4-unsat.phase.feedback.jsonl",
+              "family": "Substitute",
+              "target_calls": 2,
+              "effective_receipts": 1,
+              "native_work": 468,
+              "definition_sessions": 0
+            },
+            {
+              "file": "family-5-sat.phase.feedback.jsonl",
+              "family": "BVE",
+              "target_calls": 5,
+              "effective_receipts": 5,
+              "native_work": 2,
+              "definition_sessions": 1
+            },
+            {
+              "file": "family-5-unsat.phase.feedback.jsonl",
+              "family": "BVE",
+              "target_calls": 25,
+              "effective_receipts": 10,
+              "native_work": 202,
+              "definition_sessions": 1
+            }
+          ]
+        },
+        "search": {
+          "distinct_fixture_profiles": 14,
+          "artifacts_per_arm": 63,
+          "proofs_verified": 7,
+          "models_verified": 7,
+          "strict_streams": 14
+        }
+      },
+      "feedback_coverage": {
+        "streams": 38,
+        "actions": 9461,
+        "support_receipts": 1241,
+        "intervals": 195
+      },
+      "checked_archive_members": 194
+    }
+  },
+  "documentation_gates": {
+    "passed": 15,
+    "total": 15,
+    "seconds": 10.14
+  },
+  "initial_failures": [
+    "Sweep fixture cap 4 admitted too few clauses; nonvacuous progress assertion failed.",
+    "Cap 5 admits the four-variable equivalence; no solver change."
+  ],
+  "queue": {
+    "task_campaigns_submitted": false,
+    "unrelated_interactive_job": "1745040",
+    "untouched": true
+  },
+  "benchmark_cleanup": {
+    "deleted": false
+  },
+  "remaining": [
+    "Candidate contract audit and immutable validation snapshot",
+    "New full Debug suite",
+    "Fresh Claude-owned >=100000 seeds per policy plus retained/targeted coverage",
+    "All four default regression gates",
+    "Both-policy purity and measured feedback overhead",
+    "Whole-goal terminal acceptance and final Andrew handoff"
+  ],
+  "andrew": {
+    "directory": "report-to-andrew/20261002T154030Z-broad-default-correspondence",
+    "sha256": {
+      "report.aux": "44aefb37505e9eb08bfeb1284f43e14a08529270d3adc95d28f905032b291e27",
+      "report.log": "d954b3026e59055344e9835ff831e515610ad3e63b7140b32b950dd055350bf0",
+      "report.out": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "report.pdf": "8c34e57566146a5149bdd0a253992964a12df6fec7d9a017ec4dcaf8e0edc17b",
+      "report.tex": "f349a3a253a10e4bb04a23f10c61fb0ad2b1f144e93b17294862884c39988948",
+      "report.txt": "962eb91184fa1c6d05ef95b68001ad9a23d2dff79e66aedbb536a36f88888d88",
+      "tex-pass-1.log": "12c6b2b383e6ecbd45bd12c2db0f976e35fccf9a2d9fba3a7bc6e13c0a9c5834",
+      "tex-pass-2.log": "12c6b2b383e6ecbd45bd12c2db0f976e35fccf9a2d9fba3a7bc6e13c0a9c5834"
+    }
+  }
+}

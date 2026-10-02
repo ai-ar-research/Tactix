@@ -50,7 +50,7 @@ int main(int argc, char **argv) {
   assert(!diagnostics);
 #endif
   uint64_t search_conflicts = 0, search_learned = 0;
-  for (unsigned profile : {0u, 1u, 2u, 3u, 4u})
+  for (unsigned profile : {0u, 1u, 2u, 3u, 4u, 5u, 6u})
     for (unsigned pigeons : {4u, 6u}) {
       Kernel k;
       ScopedHeuristics h(k);
@@ -104,6 +104,18 @@ int main(int argc, char **argv) {
             config.mode.initial_conflicts = 1;
             config.mode.interval = 1;
           }
+          if (profile == 5) {
+            config.rephase.rotation = {DefaultRephaseSlot::Best,
+                DefaultRephaseSlot::Original, DefaultRephaseSlot::Inverted};
+          }
+          if (profile == 6) {
+            // An explicit embedding-supplied advisory hint exercises native
+            // guidance consumption without depending on a model producer.
+            kernel_offer_local_search_hint(k, strategy::LocalSearchKind::Parity,
+                                          std::vector<uint8_t>(k.nvars, 0));
+            config.rephase.structural_walk_seed = true;
+            config.rephase.structural_seed_rotation = {strategy::LocalSearchKind::Parity};
+          }
         }
       }
       DefaultPolicy policy(config);
@@ -119,11 +131,13 @@ int main(int argc, char **argv) {
       assert(verdict == (pigeons == 6 ? 20 : 10));
       assert(!k.pending.valid && !k.conflict_valid);
       kernel_check_invariants(k);
-      if (profile >= 3 && verdict == 20) {
+      if (profile >= 3 && profile != 5 && verdict == 20) {
         assert(k.stats.warmups && k.stats.warming_decisions);
         assert(k.stats.walks && k.stats.walk_steps);
         if (profile == 4) assert(k.stats.switched);
+        if (profile == 6) assert(k.stats.local_search_hints_applied);
       }
+      if (profile == 5 && verdict == 20) assert(k.stats.rephased >= 3);
       if (verdict == 10) {
         kernel_extend_model(k, false);
         for (unsigned p = 0; p < pigeons; ++p) {
@@ -165,7 +179,8 @@ int main(int argc, char **argv) {
                 << ':' << s.warmups << ':' << s.warming_decisions << ':'
                 << s.warming_propagations << ':' << s.warming_conflicts << ':'
                 << s.switched << ':' << s.walks << ':' << s.walk_steps << ':'
-                << s.walk_improved << ':' << s.reordered << ':' << s.rephased
+                << s.walk_improved << ':' << s.reordered << ':' << s.rephased << ':'
+                << s.local_search_hints_offered << ':' << s.local_search_hints_applied
                 << " state=" << k.level << ':' << k.propagate_head << ':'
                 << k.next_clause_id;
       for (Lit lit : k.trail) std::cout << ':' << lit;

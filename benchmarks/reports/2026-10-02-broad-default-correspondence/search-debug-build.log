@@ -1,0 +1,5 @@
+[  0%] Built target tactix_symmetry_backend
+[ 94%] Built target tactix_lib
+[ 94%] Building CXX object tests/CMakeFiles/test_default_execution_signature.dir/test_default_execution_signature.cpp.o
+[100%] Linking CXX executable test_default_execution_signature
+[100%] Built target test_default_execution_signature
