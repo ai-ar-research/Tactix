@@ -13,15 +13,19 @@ using namespace tactix::strategy;
 
 static std::string fixture(Kernel &k, unsigned scenario) {
   std::vector<std::vector<int>> clauses;
-  if (scenario == 0) {
+  if (scenario == 0 || scenario >= 3) {
     kernel_defer_cold_state(k);
-    kernel_reserve_vars(k, 20);
+    kernel_reserve_vars(k, scenario >= 3 ? 22 : 20);
     for (unsigned pigeon = 0; pigeon < 5; ++pigeon) {
       clauses.push_back({int(4 * pigeon + 1), int(4 * pigeon + 2),
                          int(4 * pigeon + 3), int(4 * pigeon + 4)});
       for (unsigned next = pigeon + 1; next < 5; ++next)
         for (unsigned hole = 0; hole < 4; ++hole)
           clauses.push_back({-int(4 * pigeon + hole + 1), -int(4 * next + hole + 1)});
+    }
+    if (scenario >= 3) {
+      clauses.push_back({21, 22});
+      clauses.push_back({21, -22});
     }
   } else if (scenario == 1) {
     kernel_defer_cold_state(k);
@@ -71,6 +75,19 @@ static DefaultStrategyConfig profile(unsigned scenario) {
     program.sequence = {complete, added};
     config.inprocess.structured_root_stages = {{program, BudgetExhaustionPolicy::Continue}};
     config.inprocess.structured_root_before_lucky = true;
+  } else if (scenario >= 3) {
+    OnlineInvocation fixing;
+    fixing.id = 1; fixing.rule = "SubstitutionRedundancy";
+    fixing.parameters = SubstitutionRedundancyParameters{};
+    fixing.granularity = InvocationGranularity::OneInstance;
+    // The two disconnected binaries entail 21. Root fixing makes the
+    // preserved residual handoff effective before the hard search residual.
+    fixing.substitution_redundancy_instances = {{{internalize(21)}, {}, {}}};
+    fixing.post_application = PostApplication::Propagate;
+    OnlineStrategyProgram program;
+    program.sequence = {fixing};
+    config.inprocess.structured_root_stages = {{program, BudgetExhaustionPolicy::Continue}};
+    config.inprocess.structured_root_before_lucky = true;
   }
   return config;
 }
@@ -80,10 +97,12 @@ int main(int argc, char **argv) {
   assert(argc == 1 || argc == 2 || (argc == 3 && std::string(argv[2]) == "feedback"));
   if (argc == 1) assert(mkdtemp(temporary));
   const std::string directory = argc > 1 ? argv[1] : temporary;
-  for (unsigned scenario = 0; scenario < 3; ++scenario) {
+  for (unsigned scenario = 0; scenario < 5; ++scenario) {
     const std::string stem = directory + "/scenario-" + std::to_string(scenario);
     Kernel k;
     const std::string cnf = fixture(k, scenario);
+    std::optional<ScopedHeuristics> embedding;
+    if (scenario == 4) embedding.emplace(k);
     std::ofstream(stem + ".cnf") << cnf;
     Proof proof;
     assert(proof.open((stem + ".dsr").c_str(), ProofFormat::DsrAscii));
@@ -97,16 +116,21 @@ int main(int argc, char **argv) {
       policy.set_feedback(&feedback);
     }
     const int result = policy.solve(k);
-    assert(result == (scenario ? 10 : 20));
-    assert(!k.h && !k.saved_phases && !k.pending.valid && !k.conflict_valid);
+    assert(result == (scenario == 1 || scenario == 2 ? 10 : 20));
+    assert(bool(k.h) == (scenario == 4) && bool(k.saved_phases) == (scenario == 4));
+    assert(!k.pending.valid && !k.conflict_valid);
     assert(scenario == 1 ? k.cold_state_deferred : !k.cold_state_deferred);
     if (scenario == 2) assert(k.stats.bce_deleted && k.stats.sr_post_amo_nonhelper_applied);
+    if (scenario >= 3) {
+      assert(k.value(internalize(21)) > 0 && k.stats.sr_applications);
+      assert(bool(k.stats.residual_handoff_calls) == (scenario == 3));
+    }
     if (argc == 3) assert(feedback.terminal() && feedback.error().empty());
     proof.flush();
     kernel_check_invariants(k);
     std::cout << "scenario=" << scenario << " verdict=" << result << ' '
               << strategy::controller::serialize_observation(strategy::controller::observe_kernel(k)) << '\n';
-    if (scenario) {
+    if (result == 10) {
       kernel_extend_model(k, false);
       std::ofstream model(stem + ".model");
       model << "v ";
@@ -117,7 +141,7 @@ int main(int argc, char **argv) {
     if (argc == 1) {
       assert(unlink((stem + ".cnf").c_str()) == 0);
       assert(unlink((stem + ".dsr").c_str()) == 0);
-      if (scenario) assert(unlink((stem + ".model").c_str()) == 0);
+      if (result == 10) assert(unlink((stem + ".model").c_str()) == 0);
     }
   }
   if (argc == 1) assert(rmdir(temporary) == 0);

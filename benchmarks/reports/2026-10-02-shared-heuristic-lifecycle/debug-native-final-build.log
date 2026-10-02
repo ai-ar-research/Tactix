@@ -1,0 +1,92 @@
+[  0%] Built target tactix_symmetry_backend
+[  0%] Building CXX object CMakeFiles/tactix_lib.dir/src/kernel/kernel.cpp.o
+[  0%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/analyze/analyze.cpp.o
+[  0%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/backjump/backjump.cpp.o
+[  5%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/ops/local_search/local_search.cpp.o
+[  5%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/ops/reorder/reorder.cpp.o
+[  5%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/ops/rephase/rephase.cpp.o
+[  5%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/ops/switchmode/switchmode.cpp.o
+[ 10%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/ops/walk/walk.cpp.o
+[ 10%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/heuristics.cpp.o
+[ 15%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/default_policy.cpp.o
+[ 15%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/random_policy.cpp.o
+[ 15%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/random_controller_policy.cpp.o
+[ 15%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/trace.cpp.o
+[ 15%] Building CXX object CMakeFiles/tactix_lib.dir/src/strategy/heuristic_execution.cpp.o
+[ 15%] Building CXX object CMakeFiles/tactix_lib.dir/src/strategy/online_inprocess.cpp.o
+[ 15%] Building CXX object CMakeFiles/tactix_lib.dir/src/frontend/parse.cpp.o
+[ 15%] Building CXX object CMakeFiles/tactix_lib.dir/src/api/api.cpp.o
+[ 94%] Built target tactix_lib
+[100%] Building CXX object CMakeFiles/tactix.dir/src/main.cpp.o
+[100%] Linking CXX executable tactix
+[100%] Built target tactix
+[  0%] Built target tactix_symmetry_backend
+[ 94%] Built target tactix_lib
+[100%] Building CXX object tests/CMakeFiles/test_heuristic_execution.dir/test_heuristic_execution.cpp.o
+[100%] Linking CXX executable test_heuristic_execution
+[100%] Built target test_heuristic_execution
+[  0%] Built target tactix_symmetry_backend
+[100%] Built target tactix_lib
+[100%] Building CXX object tests/CMakeFiles/test_heuristics_reattach.dir/test_heuristics_reattach.cpp.o
+[100%] Linking CXX executable test_heuristics_reattach
+[100%] Built target test_heuristics_reattach
+[  0%] Built target tactix_symmetry_backend
+[ 94%] Built target tactix_lib
+[100%] Building CXX object tests/CMakeFiles/test_restart_controller.dir/test_restart_controller.cpp.o
+[100%] Linking CXX executable test_restart_controller
+[100%] Built target test_restart_controller
+[  0%] Built target tactix_symmetry_backend
+[100%] Built target tactix_lib
+[100%] Building CXX object tests/CMakeFiles/test_native_policy_feedback.dir/test_native_policy_feedback.cpp.o
+[100%] Linking CXX executable test_native_policy_feedback
+[100%] Built target test_native_policy_feedback
+[  0%] Built target tactix_symmetry_backend
+[ 94%] Built target tactix_lib
+[100%] Building CXX object tests/CMakeFiles/test_default_execution_signature.dir/test_default_execution_signature.cpp.o
+[100%] Linking CXX executable test_default_execution_signature
+[100%] Built target test_default_execution_signature
+[  0%] Built target tactix_symmetry_backend
+[100%] Built target tactix_lib
+[100%] Building CXX object tests/CMakeFiles/test_startup_support_signature.dir/test_startup_support_signature.cpp.o
+[100%] Linking CXX executable test_startup_support_signature
+[100%] Built target test_startup_support_signature
+[  0%] Built target tactix_symmetry_backend
+[ 94%] Built target tactix_lib
+[100%] Building CXX object tests/CMakeFiles/test_controller_execution_signature.dir/test_controller_execution_signature.cpp.o
+[100%] Linking CXX executable test_controller_execution_signature
+[100%] Built target test_controller_execution_signature
+[  0%] Built target tactix_symmetry_backend
+[100%] Built target tactix_lib
+[100%] Building CXX object tests/CMakeFiles/test_solve_reset.dir/test_solve_reset.cpp.o
+[100%] Linking CXX executable test_solve_reset
+[100%] Built target test_solve_reset
+[  0%] Built target tactix_symmetry_backend
+[ 94%] Built target tactix_lib
+[100%] Building CXX object tests/CMakeFiles/test_no_heuristics.dir/test_no_heuristics.cpp.o
+[100%] Linking CXX executable test_no_heuristics
+[100%] Built target test_no_heuristics
+[  0%] Built target tactix_symmetry_backend
+[ 94%] Built target tactix_lib
+[100%] Building CXX object tests/CMakeFiles/test_preparation_execution.dir/test_preparation_execution.cpp.o
+[100%] Linking CXX executable test_preparation_execution
+[100%] Built target test_preparation_execution
+[  0%] Built target tactix_symmetry_backend
+[100%] Built target tactix_lib
+[100%] Building CXX object tests/CMakeFiles/test_policy_feedback.dir/test_policy_feedback.cpp.o
+[100%] Linking CXX executable test_policy_feedback
+[100%] Built target test_policy_feedback
+[  0%] Built target tactix_symmetry_backend
+[ 94%] Built target tactix_lib
+[ 94%] Building CXX object tests/CMakeFiles/test_feedback_trace.dir/test_feedback_trace.cpp.o
+[100%] Linking CXX executable test_feedback_trace
+[100%] Built target test_feedback_trace
+[  0%] Built target tactix_symmetry_backend
+[100%] Built target tactix_lib
+[100%] Building CXX object tests/CMakeFiles/test_scheduling.dir/test_scheduling.cpp.o
+[100%] Linking CXX executable test_scheduling
+[100%] Built target test_scheduling
+[  0%] Built target tactix_symmetry_backend
+[100%] Built target tactix_lib
+[100%] Building CXX object tests/CMakeFiles/test_online_inprocess.dir/test_online_inprocess.cpp.o
+[100%] Linking CXX executable test_online_inprocess
+[100%] Built target test_online_inprocess
