@@ -1,0 +1,32 @@
+{
+  "root_harness_matches_terminal_helper": true,
+  "root_harness_sha256": {
+    "tools/fuzz/fuzz.py": "125a71bd6f0c04e98dc27014ac4dd902c5432c5e3e225d951ee4c5bd76f36bbc",
+    "tools/fuzz/slurm.sh": "2705face8ed3f0d965f1baf270fc18c0bf50ee98b4ba2e0de2f43bfff5595bcb",
+    "tools/fuzz/selftest.sh": "7dee7d47f9e169cc9edaf9adfa2d5f86e9a3e204fdf15a1b5d29746c37fb31a1",
+    "tools/fuzz/run.sh": "009992182aa78b6057c1937501791d4a63cb26bac55330bc62e60ed5bdb42cf6",
+    "tools/fuzz/README.md": "93f406f7576e70aab13cfa1ffdfc47e9819ed42c57bf612752079799d9ae645e",
+    "tools/fuzz/controls/checker_collection_controls.py": "799e8a293de248885f7503e86cc58108c78981534e6a31ce3dcccd6c9681602f",
+    "tests/test_fuzz_proof_oracles.py": "ae9b73a0995a14d848ccc329a395304da3bbca69981e62bc482410d54148b018"
+  },
+  "source_and_interface_sha256": {
+    "src/strategy/controller_action_space.hpp": "086cafd300bb29c1fbb33fe3817ec1f0f0428b2f43b76672aa70fdfd799a78d4",
+    "src/policies/restart_controller.hpp": "4158984c0b5985821599512eb61e84d0f7280ef57f829f2a8fde88d5efe0bc99",
+    "src/policies/random_controller_policy.cpp": "a8d636d95c33fa4f31eda42b09a1dee06cddf16fbc48a3f662fe88cfa9750d8c",
+    "src/policies/controller_trace.cpp": "95a91a9d8e5f26539f2765882b33f0966e06b4d3aa3d4622ca983128efac93bf",
+    "docs/controller-interface.md": "d39c51323bc0d93973b5b7b96b0ba56d0c79629a1166223800931fe729c82691",
+    "DEVELOPMENT_PLAN.md": "42d5f3855f2e00c0cd22058dfc717e2102ea9211adb3a64d78aa50fc7282ba0b"
+  },
+  "owner_reports": {
+    "benchmarks/runs/20261001-controller-fuzz-owner-12e-clean-checker/FINAL_REPORT.md": "d905d2d2ec2890c99f642903e4740a41e3cddb64be8557fe0626a44e201ad654",
+    "benchmarks/runs/20261001-controller-fuzz-owner-12e-manifest-validation/FINAL_REPORT.md": "e9bab4279bbcda5ff6dc80fdccf46a8282358152472f4572678134226fb38903"
+  },
+  "default_policy_transcript": "not supported;50deterministic repeats and50unsupportedCLI rejections retained; controller replay validated",
+  "r1_to_r15": "MET per terminal owner with explicit retention and67witnessedcases recertified",
+  "source_unchanged_from_12e3c4f0": true,
+  "remaining_test_change": "ae9b73a0 proof-oracle assertion; full Debug and helper cover current byte hash",
+  "andrew_final_report_sha256": {
+    "report-to-andrew/20261002T010526Z-controller-foundations-accepted/report.tex": "b70dbc6c3c4ae222e9316437080178df780fcdd059bb2ac83b4f9edafc169e7b",
+    "report-to-andrew/20261002T010526Z-controller-foundations-accepted/report.pdf": "9484f9e6358a14ffeabe2c37c106966beff456492d047570e4848549150fce04"
+  }
+}

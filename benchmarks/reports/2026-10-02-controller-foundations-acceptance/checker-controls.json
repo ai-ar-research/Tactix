@@ -1,0 +1,332 @@
+{
+  "scope": "checker-only fixed-proof activation checks; no solver executed",
+  "selected_dsr_sha256": "3b5c773706dc4695f08115ce862e991bfa2e44e3388df80f40ae8b0823dfbdee",
+  "cases": [
+    {
+      "case": "f2",
+      "cnf_sha256": "e81598c4f4c80f6add03f8c82cc04c05a1fe7b40c4b8db641483fac8bbc59925",
+      "proof_sha256": "93e5ad15bf98def9a43757ed827b864f00b292f54011943640e3c88263a3d44f",
+      "passed": true,
+      "stages": [
+        {
+          "stage": "canonical-dsr",
+          "command": [
+            "/home/hwu/SAT-solving/tools/checkers/bin/dsr-trim",
+            "-q",
+            "-c",
+            "/home/hwu/SAT-solving/tools/fuzz/controls/every-lemma/f2-forward-elaboration.cnf",
+            "/home/hwu/SAT-solving/tools/fuzz/controls/every-lemma/f2-forward-elaboration.dsr",
+            "/home/hwu/SAT-solving/benchmarks/probes/scratch/checker-activation-nnmao6st/f2-canonical.bin.lsr"
+          ],
+          "exit": 0,
+          "expected": "VERIFIED\\s+UNSAT",
+          "stdout_tail": "s VERIFIED UNSAT\n",
+          "stderr_tail": ""
+        },
+        {
+          "stage": "canonical-expand",
+          "command": [
+            "/home/hwu/SAT-solving/tools/checkers/bin/dsr-compress",
+            "-d",
+            "/home/hwu/SAT-solving/benchmarks/probes/scratch/checker-activation-nnmao6st/f2-canonical.bin.lsr",
+            "/home/hwu/SAT-solving/benchmarks/probes/scratch/checker-activation-nnmao6st/f2-canonical.lsr"
+          ],
+          "exit": 0,
+          "expected": null,
+          "stdout_tail": "",
+          "stderr_tail": ""
+        },
+        {
+          "stage": "canonical-trestle",
+          "command": [
+            "/home/hwu/SAT-solving/tools/checkers/bin/srcheck",
+            "/home/hwu/SAT-solving/tools/fuzz/controls/every-lemma/f2-forward-elaboration.cnf",
+            "/home/hwu/SAT-solving/benchmarks/probes/scratch/checker-activation-nnmao6st/f2-canonical.lsr"
+          ],
+          "exit": 0,
+          "expected": "VERIFIED\\s+UNSAT",
+          "stdout_tail": "c Proof derived the empty clause\ns VERIFIED UNSAT\n",
+          "stderr_tail": "Parsing formula with 26 variables, 367 clauses\nParsed formula\n"
+        },
+        {
+          "stage": "forward-dsr",
+          "command": [
+            "/home/hwu/SAT-solving/tools/checkers/bin/dsr-trim",
+            "-q",
+            "-c",
+            "-f",
+            "/home/hwu/SAT-solving/tools/fuzz/controls/every-lemma/f2-forward-elaboration.cnf",
+            "/home/hwu/SAT-solving/tools/fuzz/controls/every-lemma/f2-forward-elaboration.dsr",
+            "/home/hwu/SAT-solving/benchmarks/probes/scratch/checker-activation-nnmao6st/f2-forward.bin.lsr"
+          ],
+          "exit": 0,
+          "expected": "VERIFIED\\s+UNSAT",
+          "stdout_tail": "s VERIFIED UNSAT\n",
+          "stderr_tail": ""
+        },
+        {
+          "stage": "forward-expand",
+          "command": [
+            "/home/hwu/SAT-solving/tools/checkers/bin/dsr-compress",
+            "-d",
+            "/home/hwu/SAT-solving/benchmarks/probes/scratch/checker-activation-nnmao6st/f2-forward.bin.lsr",
+            "/home/hwu/SAT-solving/benchmarks/probes/scratch/checker-activation-nnmao6st/f2-forward.lsr"
+          ],
+          "exit": 0,
+          "expected": null,
+          "stdout_tail": "",
+          "stderr_tail": ""
+        },
+        {
+          "stage": "forward-trestle",
+          "command": [
+            "/home/hwu/SAT-solving/tools/checkers/bin/srcheck",
+            "/home/hwu/SAT-solving/tools/fuzz/controls/every-lemma/f2-forward-elaboration.cnf",
+            "/home/hwu/SAT-solving/benchmarks/probes/scratch/checker-activation-nnmao6st/f2-forward.lsr"
+          ],
+          "exit": 0,
+          "expected": "VERIFIED\\s+UNSAT",
+          "stdout_tail": "c Proof derived the empty clause\ns VERIFIED UNSAT\n",
+          "stderr_tail": "Parsing formula with 26 variables, 367 clauses\nParsed formula\n"
+        }
+      ]
+    },
+    {
+      "case": "f2w",
+      "cnf_sha256": "2fab28864d19e911e718a2c800fbc1f1b7cb4263b1094124ad47a1c32df139c4",
+      "proof_sha256": "ef2c118c0507e0c0a1317241fc3f26fa2d2ab3cdefe0fa8b1c2f30948b5a72d3",
+      "passed": true,
+      "stages": [
+        {
+          "stage": "canonical-dsr",
+          "command": [
+            "/home/hwu/SAT-solving/tools/checkers/bin/dsr-trim",
+            "-q",
+            "-c",
+            "/home/hwu/SAT-solving/tools/fuzz/controls/every-lemma/f2w-witnessed.cnf",
+            "/home/hwu/SAT-solving/tools/fuzz/controls/every-lemma/f2w-witnessed.dsr",
+            "/home/hwu/SAT-solving/benchmarks/probes/scratch/checker-activation-nnmao6st/f2w-canonical.bin.lsr"
+          ],
+          "exit": 0,
+          "expected": "VERIFIED\\s+UNSAT",
+          "stdout_tail": "s VERIFIED UNSAT\n",
+          "stderr_tail": ""
+        },
+        {
+          "stage": "canonical-expand",
+          "command": [
+            "/home/hwu/SAT-solving/tools/checkers/bin/dsr-compress",
+            "-d",
+            "/home/hwu/SAT-solving/benchmarks/probes/scratch/checker-activation-nnmao6st/f2w-canonical.bin.lsr",
+            "/home/hwu/SAT-solving/benchmarks/probes/scratch/checker-activation-nnmao6st/f2w-canonical.lsr"
+          ],
+          "exit": 0,
+          "expected": null,
+          "stdout_tail": "",
+          "stderr_tail": ""
+        },
+        {
+          "stage": "canonical-trestle",
+          "command": [
+            "/home/hwu/SAT-solving/tools/checkers/bin/srcheck",
+            "/home/hwu/SAT-solving/tools/fuzz/controls/every-lemma/f2w-witnessed.cnf",
+            "/home/hwu/SAT-solving/benchmarks/probes/scratch/checker-activation-nnmao6st/f2w-canonical.lsr"
+          ],
+          "exit": 0,
+          "expected": "VERIFIED\\s+UNSAT",
+          "stdout_tail": "c Proof derived the empty clause\ns VERIFIED UNSAT\n",
+          "stderr_tail": "Parsing formula with 35 variables, 53 clauses\nParsed formula\n"
+        },
+        {
+          "stage": "forward-dsr",
+          "command": [
+            "/home/hwu/SAT-solving/tools/checkers/bin/dsr-trim",
+            "-q",
+            "-c",
+            "-f",
+            "/home/hwu/SAT-solving/tools/fuzz/controls/every-lemma/f2w-witnessed.cnf",
+            "/home/hwu/SAT-solving/tools/fuzz/controls/every-lemma/f2w-witnessed.dsr",
+            "/home/hwu/SAT-solving/benchmarks/probes/scratch/checker-activation-nnmao6st/f2w-forward.bin.lsr"
+          ],
+          "exit": 0,
+          "expected": "VERIFIED\\s+UNSAT",
+          "stdout_tail": "s VERIFIED UNSAT\n",
+          "stderr_tail": ""
+        },
+        {
+          "stage": "forward-expand",
+          "command": [
+            "/home/hwu/SAT-solving/tools/checkers/bin/dsr-compress",
+            "-d",
+            "/home/hwu/SAT-solving/benchmarks/probes/scratch/checker-activation-nnmao6st/f2w-forward.bin.lsr",
+            "/home/hwu/SAT-solving/benchmarks/probes/scratch/checker-activation-nnmao6st/f2w-forward.lsr"
+          ],
+          "exit": 0,
+          "expected": null,
+          "stdout_tail": "",
+          "stderr_tail": ""
+        },
+        {
+          "stage": "forward-trestle",
+          "command": [
+            "/home/hwu/SAT-solving/tools/checkers/bin/srcheck",
+            "/home/hwu/SAT-solving/tools/fuzz/controls/every-lemma/f2w-witnessed.cnf",
+            "/home/hwu/SAT-solving/benchmarks/probes/scratch/checker-activation-nnmao6st/f2w-forward.lsr"
+          ],
+          "exit": 0,
+          "expected": "VERIFIED\\s+UNSAT",
+          "stdout_tail": "c Proof derived the empty clause\ns VERIFIED UNSAT\n",
+          "stderr_tail": "Parsing formula with 35 variables, 53 clauses\nParsed formula\n"
+        }
+      ]
+    },
+    {
+      "case": "truncated-witnessed-lsr",
+      "passed": true,
+      "stages": [
+        {
+          "stage": "trestle",
+          "command": [
+            "/home/hwu/SAT-solving/tools/checkers/bin/srcheck",
+            "/home/hwu/SAT-solving/tools/fuzz/controls/every-lemma/f2w-witnessed.cnf",
+            "/home/hwu/SAT-solving/benchmarks/probes/scratch/checker-activation-nnmao6st/truncated.lsr",
+            "c"
+          ],
+          "exit": 0,
+          "expected": "INVALID",
+          "stdout_tail": "c Error or invalid proof\ns INVALID\n",
+          "stderr_tail": "Parsing formula with 35 variables, 53 clauses\nParsed formula\n"
+        }
+      ]
+    },
+    {
+      "case": "bitmask",
+      "cnf_sha256": "cc499bdd6a18d129552b76b5ffa35aa00075db3de6b3fdd8210f5f808ec8e3b7",
+      "proof_sha256": "d5fe503f4542a37090c2f5f649b709e4e12d7eaff6ef7a57bfede9aaeb6427c8",
+      "passed": true,
+      "stages": [
+        {
+          "stage": "canonical-dsr",
+          "command": [
+            "/home/hwu/SAT-solving/tools/checkers/bin/dsr-trim",
+            "-q",
+            "-c",
+            "/home/hwu/SAT-solving/tools/checkers/tests/dsr-trim-bitmask-growth/reproducer.cnf",
+            "/home/hwu/SAT-solving/tools/checkers/tests/dsr-trim-bitmask-growth/reproducer.dsr",
+            "/home/hwu/SAT-solving/benchmarks/probes/scratch/checker-activation-nnmao6st/bitmask-canonical.bin.lsr"
+          ],
+          "exit": 0,
+          "expected": "VERIFIED\\s+UNSAT",
+          "stdout_tail": "s VERIFIED UNSAT\n",
+          "stderr_tail": ""
+        },
+        {
+          "stage": "canonical-expand",
+          "command": [
+            "/home/hwu/SAT-solving/tools/checkers/bin/dsr-compress",
+            "-d",
+            "/home/hwu/SAT-solving/benchmarks/probes/scratch/checker-activation-nnmao6st/bitmask-canonical.bin.lsr",
+            "/home/hwu/SAT-solving/benchmarks/probes/scratch/checker-activation-nnmao6st/bitmask-canonical.lsr"
+          ],
+          "exit": 0,
+          "expected": null,
+          "stdout_tail": "",
+          "stderr_tail": ""
+        },
+        {
+          "stage": "canonical-trestle",
+          "command": [
+            "/home/hwu/SAT-solving/tools/checkers/bin/srcheck",
+            "/home/hwu/SAT-solving/tools/checkers/tests/dsr-trim-bitmask-growth/reproducer.cnf",
+            "/home/hwu/SAT-solving/benchmarks/probes/scratch/checker-activation-nnmao6st/bitmask-canonical.lsr"
+          ],
+          "exit": 0,
+          "expected": "VERIFIED\\s+UNSAT",
+          "stdout_tail": "c Proof derived the empty clause\ns VERIFIED UNSAT\n",
+          "stderr_tail": "Parsing formula with 8 variables, 24 clauses\nParsed formula\n"
+        },
+        {
+          "stage": "forward-dsr",
+          "command": [
+            "/home/hwu/SAT-solving/tools/checkers/bin/dsr-trim",
+            "-q",
+            "-c",
+            "-f",
+            "/home/hwu/SAT-solving/tools/checkers/tests/dsr-trim-bitmask-growth/reproducer.cnf",
+            "/home/hwu/SAT-solving/tools/checkers/tests/dsr-trim-bitmask-growth/reproducer.dsr",
+            "/home/hwu/SAT-solving/benchmarks/probes/scratch/checker-activation-nnmao6st/bitmask-forward.bin.lsr"
+          ],
+          "exit": 0,
+          "expected": "VERIFIED\\s+UNSAT",
+          "stdout_tail": "s VERIFIED UNSAT\n",
+          "stderr_tail": ""
+        },
+        {
+          "stage": "forward-expand",
+          "command": [
+            "/home/hwu/SAT-solving/tools/checkers/bin/dsr-compress",
+            "-d",
+            "/home/hwu/SAT-solving/benchmarks/probes/scratch/checker-activation-nnmao6st/bitmask-forward.bin.lsr",
+            "/home/hwu/SAT-solving/benchmarks/probes/scratch/checker-activation-nnmao6st/bitmask-forward.lsr"
+          ],
+          "exit": 0,
+          "expected": null,
+          "stdout_tail": "",
+          "stderr_tail": ""
+        },
+        {
+          "stage": "forward-trestle",
+          "command": [
+            "/home/hwu/SAT-solving/tools/checkers/bin/srcheck",
+            "/home/hwu/SAT-solving/tools/checkers/tests/dsr-trim-bitmask-growth/reproducer.cnf",
+            "/home/hwu/SAT-solving/benchmarks/probes/scratch/checker-activation-nnmao6st/bitmask-forward.lsr"
+          ],
+          "exit": 0,
+          "expected": "VERIFIED\\s+UNSAT",
+          "stdout_tail": "c Proof derived the empty clause\ns VERIFIED UNSAT\n",
+          "stderr_tail": "Parsing formula with 8 variables, 24 clauses\nParsed formula\n"
+        }
+      ]
+    },
+    {
+      "case": "f2-historical-invalid-lsr",
+      "passed": true,
+      "proof_sha256": "3329b2e9d31ca55057838c087ed3896be652030dee787240656ca17ef81307ea",
+      "stages": [
+        {
+          "stage": "trestle",
+          "command": [
+            "/home/hwu/SAT-solving/tools/checkers/bin/srcheck",
+            "/home/hwu/SAT-solving/tools/fuzz/controls/every-lemma/f2-forward-elaboration.cnf",
+            "/home/hwu/SAT-solving/tools/fuzz/controls/every-lemma/f2-historical-forward.lsr"
+          ],
+          "exit": 0,
+          "expected": "INVALID",
+          "stdout_tail": "c Error or invalid proof\ns INVALID\n",
+          "stderr_tail": "Parsing formula with 26 variables, 367 clauses\nParsed formula\n"
+        }
+      ]
+    },
+    {
+      "case": "f2w-historical-invalid-lsr",
+      "passed": true,
+      "proof_sha256": "819bbe34cee9b855f7be5479582781338f14b2d63fa8266f3d664939737c994a",
+      "stages": [
+        {
+          "stage": "trestle",
+          "command": [
+            "/home/hwu/SAT-solving/tools/checkers/bin/srcheck",
+            "/home/hwu/SAT-solving/tools/fuzz/controls/every-lemma/f2w-witnessed.cnf",
+            "/home/hwu/SAT-solving/tools/fuzz/controls/every-lemma/f2w-historical-forward.lsr"
+          ],
+          "exit": 0,
+          "expected": "INVALID",
+          "stdout_tail": "c Error or invalid proof\ns INVALID\n",
+          "stderr_tail": "Parsing formula with 35 variables, 53 clauses\nParsed formula\n"
+        }
+      ]
+    }
+  ],
+  "all_passed": true,
+  "derived_proofs_removed": true
+}

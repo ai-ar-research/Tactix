@@ -1,0 +1,43 @@
+{
+  "job": 1745860,
+  "state": "COMPLETED",
+  "slurm_exit": "0:0",
+  "ctest_exit": 0,
+  "expected_tests": 191,
+  "passed_tests": 191,
+  "failures": 0,
+  "errors": 0,
+  "skips": 0,
+  "registry_matched": true,
+  "preflight_and_postflight_hashes": 692,
+  "current_hashes_verified": 692,
+  "ctest_seconds": 16410.29,
+  "scripted_default_seconds": 16391.15,
+  "source": "12e3c4f0e7098af15e855f995da23f6317cd0d58",
+  "artifacts": {
+    "manifest.json": {
+      "path": "benchmarks/runs/20261001-controller-debug-12e3c4f0-proof-audit/manifest.json",
+      "sha256": "e589904381be2215287570e01bba229bd7916b3ec90a8d676e05871fbb1b5dd2"
+    },
+    "tests.json": {
+      "path": "benchmarks/runs/20261001-controller-debug-12e3c4f0-proof-audit/tests.json",
+      "sha256": "e85ca3b1028045af2986f9c601dfdf705d47bf3213f7cc0349ae218fac25c48f"
+    },
+    "junit.xml": {
+      "path": "benchmarks/runs/20261001-controller-debug-12e3c4f0-proof-audit/junit.xml",
+      "sha256": "dd916554098c111362a200bf68ca12aa27122f06703159b7f2414b468fc91712"
+    },
+    "exit-code.txt": {
+      "path": "benchmarks/runs/20261001-controller-debug-12e3c4f0-proof-audit/exit-code.txt",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    "slurm-1745860.log": {
+      "path": "benchmarks/runs/20261001-controller-debug-12e3c4f0-proof-audit/slurm-1745860.log",
+      "sha256": "b43f55030d8d2e3c0f8b44277aca2ec6e9b71f7fbcd1410b53c995fe9f99718a"
+    },
+    "ctest.log": {
+      "path": "benchmarks/runs/20261001-controller-debug-12e3c4f0-proof-audit/ctest.log",
+      "sha256": "22e5f32a11a5ad391c19e52b4eb508df147d88c63ae567332ab5fccefa569c92"
+    }
+  }
+}
