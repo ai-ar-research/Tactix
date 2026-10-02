@@ -1,0 +1,95 @@
+{
+  "source_commit": "f6f01982e08bfce6a8ef6dfcde1f439ce8ef81f0",
+  "goal_acceptance": "NOT ACCEPTED: new candidate validation pending",
+  "regression_jobs": {
+    "b28c5": 1746500,
+    "rank1-50": 1746531,
+    "wv100": 1746534,
+    "wv2-89": 1746535
+  },
+  "debug_build_terminal_exit": 0,
+  "release_build_terminal_exit": 0,
+  "debug_pin_freeze_session": 4270,
+  "original_owner_disposition": "ACCEPTED on oldpin0531c2f1; new source/binary acceptance pending",
+  "live_sessions": {
+    "debug_watcher": 17575,
+    "fuzz_owner_cli": 37989
+  },
+  "debug_pin_sha256": "7dcbbec3d13c9b3e06b9cd2a5ff82d47ccc96561a95aa3547de4ae2aae3bfc08",
+  "release_pin_sha256": "6283ba9b1936e3f9a690ae1b2cd26db0f0834c3e5461cb3cbf4dc857dc2c3e8a",
+  "overhead_job": 1746565,
+  "prepared_fuzz_request": "/home/hwu/SAT-solving/benchmarks/runs/20261002-shared-policy-feedback-f6f01982-preparation/fuzz-owner-request.txt",
+  "observed_at_utc": "2026-10-02T22:59:38.361781+00:00",
+  "debug_job": 1746628,
+  "debug_expected_tests": 212,
+  "fuzz_owner_cli_session": 37989,
+  "fuzz_owner_response": "build/shared-policy-feedback-fuzz-owner-f6f01982-response.json",
+  "fuzz_scope": "Private Claude-owned final-pin campaign not inspected; status metadata only. Owner terminal report required.",
+  "debug_watcher_session": 17575,
+  "overhead_watcher_terminal_exit": 0,
+  "overhead_acceptance": {
+    "accepted": true,
+    "scheduler_state": "COMPLETED",
+    "scheduler_exit": "0:0",
+    "elapsed": "00:00:12",
+    "completed_runs": 128,
+    "sat_models_checked_per_run": 96,
+    "unsat_runs": 32,
+    "distinct_unsat_certificates_checked": 2,
+    "strict_enabled_streams": 64,
+    "deterministic_signatures_equal": true,
+    "pins_verified_before_after": true,
+    "current_manifest_bindings_verified": 9,
+    "additional_median_ms_range": [
+      17.839000000000002,
+      64.57000000000001
+    ],
+    "median_ratio_range": [
+      2.6466897888401513,
+      6.730346947738252
+    ],
+    "scope": "End-to-end frontend feedback recording cost on four fixed synthetic inputs, both policies, alternating arm order within one allocation. Includes provenance hashing, observation, serialization and anonymous-file writes; not isolated in-process callback cost or large-instance competitiveness. No scalar reward is computed.",
+    "results_sha256": "68310234e8eba8b4ef6cd74cf3cf929f7da19c103f3d6cf8012d22c7707914f7"
+  },
+  "regression_scores": {
+    "b28c5": {
+      "accepted": true,
+      "score": "benchmarks/runs/20261002-shared-feedback-f6f01982-b28c5/score.json",
+      "solver_seconds": 955.943,
+      "dispositions": {
+        "model-verified": 17,
+        "verified": 15,
+        "censored": 1
+      }
+    },
+    "rank1-50": {
+      "accepted": true,
+      "score": "benchmarks/runs/20261002-shared-feedback-f6f01982-rank1-50/score.json",
+      "solver_seconds": 7531.4710000000005,
+      "dispositions": {
+        "verified": 17,
+        "model-verified": 25,
+        "censored": 8
+      }
+    },
+    "wv100": {
+      "accepted": true,
+      "score": "benchmarks/runs/20261002-shared-feedback-f6f01982-wv100/score.json",
+      "solver_seconds": 2760.257,
+      "dispositions": {
+        "verified": 65,
+        "model-verified": 33,
+        "censored": 2
+      }
+    }
+  },
+  "fuzz_jobs_observed": [
+    {
+      "job": 1746774,
+      "name": "spf-f6-smoke",
+      "state": "COMPLETED",
+      "exit": "0:0",
+      "scope": "scheduler metadata only; not owner acceptance"
+    }
+  ]
+}

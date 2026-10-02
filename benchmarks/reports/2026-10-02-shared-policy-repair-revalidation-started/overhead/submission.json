@@ -1,0 +1,7 @@
+{
+  "job_id": 1746565,
+  "submitted_at_utc": "2026-10-02T22:18:19.396017+00:00",
+  "source_commit": "f6f01982e08bfce6a8ef6dfcde1f439ce8ef81f0",
+  "scope": "Fresh repaired candidate paired feedback measurement.",
+  "slurm_submit_local": "2026-10-02T18:11:57"
+}

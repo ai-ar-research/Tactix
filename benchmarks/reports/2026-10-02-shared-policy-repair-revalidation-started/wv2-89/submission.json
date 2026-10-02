@@ -1,0 +1,10 @@
+{
+  "job_id": 1746535,
+  "submitted_at_utc": "2026-10-02T22:11:57.421948+00:00",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20261002-shared-feedback-f6f01982-wv2-89/array.sbatch"
+  ],
+  "sbatch_stdout": "1746535\n"
+}
