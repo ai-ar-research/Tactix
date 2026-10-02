@@ -8,6 +8,7 @@
 #include <optional>
 
 namespace tactix {
+namespace execution { class PolicyCompletion; }
 
 class DefaultBveBoundRamp final : public BveBoundPolicy {
 public:
@@ -222,9 +223,12 @@ public:
   void initialize_search_limits(const Kernel &);
   void note_reduce(const Kernel &k) { last_reduce_conflicts_ = k.stats.conflicts; }
   bool want_phase(const Kernel &, SlotGroup);
-  int run_phase(Kernel &, SlotGroup, volatile sig_atomic_t *stop);
-  int run_initial_fast_elimination(Kernel &, volatile sig_atomic_t *stop);
-  int run_structured_root(Kernel &, volatile sig_atomic_t *);
+  int run_phase(Kernel &, SlotGroup, volatile sig_atomic_t *stop,
+                execution::PolicyCompletion *completion = nullptr);
+  int run_initial_fast_elimination(Kernel &, volatile sig_atomic_t *stop,
+                                  execution::PolicyCompletion *completion = nullptr);
+  int run_structured_root(Kernel &, volatile sig_atomic_t *,
+                          execution::PolicyCompletion *completion = nullptr);
   void update_limit(const Kernel &, SlotGroup);
   void order_candidates(const Kernel &, SlotEntry &, uint64_t *, uint32_t);
   void set_entry_limit(SlotEntry &, Kernel &);
@@ -254,6 +258,7 @@ private:
   struct SlotPhaseCtx {
     SlotGroup group;
     volatile sig_atomic_t *stop;
+    execution::PolicyCompletion *completion = nullptr;
     int outer = 0;
     bool phase_unsat = false;
     bool round_changed = false;
@@ -274,9 +279,9 @@ private:
   bool factor_entry_declines(const Kernel &, SlotEntry &);
   void factor_dose_config(Kernel &, SlotEntry &);
   ApplyResult run_budgeted_batch(Kernel &, SlotEntry &, const RuleVTable &,
-                                 uint64_t, bool);
+                                 uint64_t, bool, execution::PolicyCompletion *);
   ApplyResult run_vivify_dose(Kernel &, SlotEntry &, const RuleVTable &,
-                              uint64_t);
+                              uint64_t, execution::PolicyCompletion *);
   uint64_t search_ticks(const Kernel &k) const { return k.stats.search_ticks; }
 
   uint32_t bve_rounds_run_ = 0;

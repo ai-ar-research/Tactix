@@ -1734,7 +1734,6 @@ const EffortSpec *effort_spec(const char *name) {
   return nullptr; // all-or-nothing rule: no titration, no meter
 }
 
-#ifdef TACTIX_ENABLE_RULE_JOURNAL
 const char *effort_currency(const char *name) {
   if (!std::strcmp(name, "BVE"))
     return "resolutions";
@@ -1752,6 +1751,7 @@ const char *effort_currency(const char *name) {
   return "probing-rule-ticks";
 }
 
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
 const char *journal_result(ApplyResult result) {
   switch (result) {
   case ApplyResult::Ok:
@@ -1768,6 +1768,31 @@ const char *journal_result(ApplyResult result) {
   return "unknown";
 }
 #endif
+
+execution::NativeFeedbackSpec slot_feedback(
+    const Kernel &k, const DefaultInprocessScheduler::SlotEntry &entry,
+    const RuleVTable &rule, uint64_t instance, strategy::WorkLimit allowance,
+    const char *operation) {
+  auto meter = entry.meter;
+  if (!meter && !std::strcmp(rule.name, "Congruence"))
+    meter = [](const Kernel &kernel) { return kernel.stats.congruence_ticks; };
+  auto spec = execution::native_rule_feedback(k, rule.name, instance,
+      std::string(operation) + ";step=" + std::to_string(entry.step_id) +
+      ";limit=" + std::to_string(entry.limit) + ";work-budget=" +
+      std::to_string(k.work_budget) + ";work-offset=" + std::to_string(k.work_budget_offset) +
+      ";work-bounded=" + std::to_string(k.work_budget_bounded),
+      meter, meter ? effort_currency(rule.name) : "applications", allowance);
+  spec.description.invocation->id = entry.step_id;
+  spec.description.invocation->rule_work_budget = {
+      kernel_has_work_budget(k) ? strategy::RuleWorkBudgetMode::Bounded
+                               : strategy::RuleWorkBudgetMode::Unlimited,
+      k.work_budget};
+  spec.description.invocation->material.touch_filter = k.touch_filter
+      ? strategy::SettingOverride::Enable : strategy::SettingOverride::Disable;
+  spec.description.invocation->material.likely_kept_redundant = k.touch_redundant
+      ? strategy::SettingOverride::Enable : strategy::SettingOverride::Disable;
+  return spec;
+}
 
 // The meter the compile-time journal prices an entry in.  For every metered
 // rule this is the ledger meter; Congruence has none, so the journal alone
@@ -3275,6 +3300,7 @@ strategy::controller::Observation DefaultPolicy::observe(const Kernel &k) const 
   const bool stable = k.h && k.h->stable;
   result.sequence = completion_ ? completion_->sequence() : 0;
   result.searching = completion_ && completion_->searching();
+  if (completion_) result.last_action = completion_->last_action();
   result.have_search_configuration = !branching && completion_ &&
       completion_->have_search_configuration();
   result.search.branching = stable ? Branching::Evsids : Branching::Vmtf;
@@ -3303,7 +3329,12 @@ strategy::controller::Observation DefaultPolicy::observe(const Kernel &k) const 
          << ':' << default_branching_.randec_rng
          << " bump_delay=" << bump_reasons_delay_.count << ':' << bump_reasons_delay_.current
          << " retier=" << retier_.next_conflicts << ':' << retier_.interval
-         << " structural_seed=" << structural_seed_cursor_;
+         << " structural_seed=" << structural_seed_cursor_
+         << " rule-state=" << k.factor_completed << ':' << k.subsume_complete << ':'
+         << k.strengthen_complete << ':' << k.sweep_incomplete
+         << " material=" << k.touch_filter << ':' << k.touch_redundant
+         << " work=" << k.work_budget << ':' << k.work_budget_offset << ':' << k.work_budget_bounded
+         << " watches=" << k.large_watches_connected;
   for (const auto &average : averages) {
     native << " average=" << average.initialized << ':' << average.saved_decisions;
     for (const auto *smooth : {&average.fast_glue, &average.slow_glue,
@@ -3317,6 +3348,7 @@ strategy::controller::Observation DefaultPolicy::observe(const Kernel &k) const 
            << clock->fixed_mark << ':' << clock->material_mark << ':' << clock->blocked
            << ':' << clock->blocked_episodes << ':' << clock->anchor;
   native << " inprocess_initialized=" << inprocess_.initialized();
+  if (completion_) native << " last-native=" << completion_->last_native_measurement();
   for (const auto &entry : inprocess_.entries)
     native << " slot=" << entry.step_id << ':' << entry.enabled << ':' << entry.limit
            << ':' << entry.applies << ':' << entry.cursor << ':' << entry.arena_mark
@@ -3656,7 +3688,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         k.stats.sr_post_amo_graph_root_units;
     const size_t structured_trail_before = k.trail.size();
     const uint64_t structured_started = now_nanos();
-    const int structured_result = inprocess_.run_structured_root(k, stop);
+    const int structured_result = inprocess_.run_structured_root(k, stop, completion_);
     const uint64_t structured_elapsed = now_nanos() - structured_started;
     k.stats.structured_root_nanos += structured_elapsed;
     k.stats.inprocess_nanos += structured_elapsed;
@@ -3817,7 +3849,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   }
 #endif
   if (inprocess_.want_phase(k, SlotGroup::Probe)) {
-    const int phase_result = inprocess_.run_phase(k, SlotGroup::Probe, stop);
+    const int phase_result = inprocess_.run_phase(k, SlotGroup::Probe, stop, completion_);
     if (phase_result == 10 || phase_result == 20) return finish(phase_result);
   }
   if (config_.inprocess.initial_fast_elimination &&
@@ -3825,7 +3857,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           structured_root_grew_trail)) {
     event_trace.macro(k, "initial_fast_eliminate_begin");
     const int phase_result =
-        inprocess_.run_initial_fast_elimination(k, stop);
+        inprocess_.run_initial_fast_elimination(k, stop, completion_);
     event_trace.macro(k, "initial_fast_eliminate_end");
     if (phase_result == 10 || phase_result == 20)
       return finish(phase_result);
@@ -4285,7 +4317,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     if (inprocess_.want_phase(k, SlotGroup::Probe)) {
       event_trace.macro(k, "probe_begin");
       feedback.end_interval(StopReason::RootPreparation);
-      const int phase_result = inprocess_.run_phase(k, SlotGroup::Probe, stop);
+      const int phase_result = inprocess_.run_phase(k, SlotGroup::Probe, stop, completion_);
       if (phase_result == 10 || phase_result == 20) return finish(phase_result);
       update_formula_classification(k);
       feedback.resume(IntervalStart::NativeContinuation, "native-probe-search-continuation");
@@ -4295,7 +4327,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     if (inprocess_.want_phase(k, SlotGroup::Eliminate)) {
       event_trace.macro(k, "eliminate_begin");
       feedback.end_interval(StopReason::RootPreparation);
-      const int phase_result = inprocess_.run_phase(k, SlotGroup::Eliminate, stop);
+      const int phase_result = inprocess_.run_phase(k, SlotGroup::Eliminate, stop, completion_);
       if (phase_result == 10 || phase_result == 20) return finish(phase_result);
       update_formula_classification(k);
       feedback.resume(IntervalStart::NativeContinuation, "native-eliminate-search-continuation");
@@ -4409,7 +4441,8 @@ static size_t fastel_flush_occurrences(Kernel &k, Lit lit,
                                        const RuleVTable &subsume,
                                        std::vector<uint8_t> &marks,
   uint32_t occurrence_limit,
-  uint32_t clause_size_limit) {
+  uint32_t clause_size_limit, PolicyCompletion *completion = nullptr) {
+  execution::CompletionPublication published(completion);
   assert(k.dense && k.dense->track_order);
   size_t count = 0;
   // Kissat compacts the inspected prefix in place.  Delay publication until
@@ -4453,12 +4486,22 @@ static size_t fastel_flush_occurrences(Kernel &k, Lit lit,
         ++at;
         continue;
       }
-      const ApplyResult cleaned = apply_rule_structured(
+      const ApplyResult cleaned = execution::complete_action(completion, FeedbackKind::Rule,
+          "SubsumeForward", ref, [&] {
+            auto spec = execution::native_rule_feedback(k, "SubsumeForward", ref,
+                "fastel-occurrence;clause-id=" + std::to_string(clause->id()) +
+                ";literal=" + std::to_string(kernel_externalize(k, lit)) +
+                ";occurrence-limit=" + std::to_string(occurrence_limit) +
+                ";clause-size-limit=" + std::to_string(clause_size_limit),
+                meter_forward_pair, "forward-plus-strengthen-visits");
+            return spec;
+          }, [&] { return apply_rule_structured(
           subsume, k, "fastel-occurrence",
           [&] {
             return subsume_forward_try_fastel(k, ref, occurrence_limit,
                                               marks);
           });
+      });
       if (cleaned == ApplyResult::Ok) {
         keep[at++] = 0;
         continue;
@@ -4592,7 +4635,7 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
         const size_t pos = fastel_flush_occurrences(
             k, positive, subsume, initial_fast_elimination_marks_,
             parameters.occurrence_limit,
-            parameters.clause_size_limit);
+            parameters.clause_size_limit, ctx.completion);
         if (pos > parameters.occurrence_limit)
           continue;
         // Preserve the shipped owner's observable gather bug: both terms use
@@ -4600,7 +4643,7 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
         const size_t neg = fastel_flush_occurrences(
             k, positive, subsume, initial_fast_elimination_marks_,
             parameters.occurrence_limit,
-            parameters.clause_size_limit);
+            parameters.clause_size_limit, ctx.completion);
         if (neg > parameters.occurrence_limit ||
             pos + neg > parameters.occurrence_limit)
           continue;
@@ -4679,11 +4722,11 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
         const size_t pos = fastel_flush_occurrences(
             k, make_lit(variable, false), subsume,
             initial_fast_elimination_marks_,
-            parameters.occurrence_limit, parameters.clause_size_limit);
+            parameters.occurrence_limit, parameters.clause_size_limit, ctx.completion);
         const size_t neg = fastel_flush_occurrences(
             k, make_lit(variable, true), subsume,
             initial_fast_elimination_marks_,
-            parameters.occurrence_limit, parameters.clause_size_limit);
+            parameters.occurrence_limit, parameters.clause_size_limit, ctx.completion);
         if (pos > parameters.occurrence_limit ||
             neg > parameters.occurrence_limit ||
             pos + neg > parameters.occurrence_limit)
@@ -4736,7 +4779,14 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
       Var trace_bve_var = INVALID_VAR;
       const uint64_t trace_bve_eliminated_before = k.stats.bve_eliminated;
 #endif
-      const auto applied = execution::execute_action(
+      const auto applied = execution::complete_action(ctx.completion, FeedbackKind::Rule,
+          r.name, payload, [&] {
+            const uint64_t spent = e.meter ? e.meter(k) : 0;
+            return slot_feedback(k, e, r, payload,
+                e.meter ? strategy::WorkLimit::bounded(limit >= spent ? limit - spent : 0)
+                        : strategy::WorkLimit::unlimited(), "native-dosed-candidate");
+          }, [&] {
+        auto published = execution::execute_action(
           k, execution::RuleApplicationRequest{
                  execution::RootPublication::NewAssignments, bve_entry}, [&] {
         TickSinkScope sink(k, e.tick_counter);
@@ -4773,8 +4823,12 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
         ctx.last_result = result;
         return result;
       }, HeuristicRulePublisher{});
+        candidate_work.reset();
+        return published;
+      }, [](const execution::RuleApplicationResult &published) {
+        return strategy::controller::feedback_outcome(published.result);
+      });
       const ApplyResult ar = applied.result;
-      candidate_work.reset();
       if (ar == ApplyResult::Unsat || k.inconsistent) {
         ctx.phase_unsat = true;
         break;
@@ -4791,7 +4845,7 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
       // as a state change, so root propagation follows it here as well.
       const size_t propagation_trail_before = k.trail.size();
       const ApplyResult propagation =
-          default_propagate(k, "inprocess-candidate");
+          default_propagate(k, "inprocess-candidate", ctx.completion);
       if (propagation == ApplyResult::Unsat) {
         ctx.phase_unsat = true;
         break;
@@ -4826,7 +4880,15 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
     // elimination round; deferring its lazy garbage until phase exit carries
     // a much larger arena into the following Strengthen round and changes the
     // physical state from which that common consumer reconstructs.
-    execution::execute_action(k, execution::CollectGarbageRequest{});
+    (void)execution::complete_action(ctx.completion, FeedbackKind::Support,
+        "CollectGarbage", INSTANCE_CANONICAL, [] {
+          execution::NativeFeedbackSpec spec;
+          spec.description.description = "completed-bve-round;watch-start=0;sparse=0;preserve-eager=0";
+          return spec;
+        }, [&] {
+          execution::execute_action(k, execution::CollectGarbageRequest{});
+          return ApplyResult::NoOp;
+        });
     // The resolution ceiling belongs to the whole Eliminate phase.  Finish
     // this round's cleanup, but do not start another forward round after
     // exhausting it (Kissat eliminate.c::eliminate_variables).  Equality still
@@ -4886,7 +4948,7 @@ void DefaultInprocessScheduler::factor_dose_config(Kernel &k, SlotEntry &) {
 
 ApplyResult DefaultInprocessScheduler::run_vivify_dose(Kernel &k, SlotEntry &e,
                                            const RuleVTable &r,
-                                           uint64_t limit) {
+                                           uint64_t limit, PolicyCompletion *completion) {
   // `vivifyfocusedtiers=1` is Kissat's shipped policy: every Vivify band reads
   // the focused-mode tier snapshot, independent of the current search mode.
   // A stable OTFS retier legitimately poses the stable snapshot for the
@@ -4913,6 +4975,23 @@ ApplyResult DefaultInprocessScheduler::run_vivify_dose(Kernel &k, SlotEntry &e,
   };
   uint64_t cumulative_budget = 0;
   execution::VivifyDoseScope dose(k);
+  const auto apply_band = [&](uint32_t band_scope, uint64_t cumulative) {
+    const uint64_t spent = e.meter(k) - dose_start;
+    return execution::complete_action(completion, FeedbackKind::Rule, r.name,
+        INSTANCE_CANONICAL, [&] {
+          auto spec = slot_feedback(k, e, r, INSTANCE_CANONICAL,
+              strategy::WorkLimit::bounded(cumulative >= spent ? cumulative - spent : 0),
+              "native-vivify-band");
+          auto parameters = strategy::VivifyParameters::from_kernel(k);
+          parameters.scope = band_scope;
+          spec.description.invocation->parameters = parameters;
+          spec.description.description += ";scope=" + std::to_string(band_scope) +
+              ";cumulative=" + std::to_string(cumulative) + ";offset=" + std::to_string(spent);
+          return spec;
+        }, [&] { return execution::execute_action(k, r,
+            execution::VivifyBandRequest{band_scope, cumulative, spent, e.tick_counter, e.meter}); },
+        [&](ApplyResult result) { return execution::native_rule_outcome(k, r.name, result); });
+  };
   const uint32_t passes =
       static_cast<uint32_t>(cfg.vivify_tier_scopes.size());
   // Equal focused tier-1 and tier-2 glue limits leave tier 2 empty.  Kissat
@@ -4930,11 +5009,7 @@ ApplyResult DefaultInprocessScheduler::run_vivify_dose(Kernel &k, SlotEntry &e,
     if (tier_shares[p] == 0)
       continue; // a band without a share is not a round
     cumulative_budget += share(tier_shares[p]);
-    const ApplyResult a = execution::execute_action(
-        k, r, execution::VivifyBandRequest{cfg.vivify_tier_scopes[p],
-                                           cumulative_budget,
-                                           e.meter(k) - dose_start,
-                                           e.tick_counter, e.meter});
+    const ApplyResult a = apply_band(cfg.vivify_tier_scopes[p], cumulative_budget);
     if (a == ApplyResult::Unsat ||
         (a == ApplyResult::Ok && ar != ApplyResult::Unsat))
       ar = a;
@@ -4952,10 +5027,7 @@ ApplyResult DefaultInprocessScheduler::run_vivify_dose(Kernel &k, SlotEntry &e,
              k.stats.vivify_instantiated;
     };
     const uint64_t produced_before = produced();
-    const ApplyResult ar2 = execution::execute_action(
-        k, r, execution::VivifyBandRequest{2, cumulative_budget,
-                                           e.meter(k) - dose_start,
-                                           e.tick_counter, e.meter});
+    const ApplyResult ar2 = apply_band(2, cumulative_budget);
     if (ar2 == ApplyResult::Unsat)
       ar = ar2;
     else if (ar2 == ApplyResult::Ok && ar != ApplyResult::Ok)
@@ -4981,7 +5053,7 @@ ApplyResult DefaultInprocessScheduler::run_vivify_dose(Kernel &k, SlotEntry &e,
 ApplyResult DefaultInprocessScheduler::run_budgeted_batch(Kernel &k, SlotEntry &e,
                                               const RuleVTable &r,
                                               uint64_t limit,
-                                              bool factor_entry) {
+                                              bool factor_entry, PolicyCompletion *completion) {
   const uint64_t remaining0 = ledger_remaining(e, k, limit);
   const bool substitute = !std::strcmp(r.name, "Substitute");
   // Substitute's effort is tested after an indivisible productive round.
@@ -5011,6 +5083,19 @@ ApplyResult DefaultInprocessScheduler::run_budgeted_batch(Kernel &k, SlotEntry &
                  (!std::strcmp(r.name, "SubsumeForward") ||
                   !std::strcmp(r.name, "Strengthen"))},
       execution::WorkSettingsExit::ClearBudget);
+  const ApplyResult ar = execution::complete_action(completion, FeedbackKind::Rule,
+      r.name, INSTANCE_CANONICAL, [&] {
+        auto spec = slot_feedback(k, e, r, INSTANCE_CANONICAL,
+            strategy::WorkLimit::bounded(handed), substitute
+                ? "native-substitute-rounds" : "native-budgeted-batch");
+        if (!std::strcmp(r.name, "Sweep")) {
+          const auto *posed = std::get_if<SweepLimits>(&e.parameters);
+          spec.description.invocation->parameters = posed ? *posed : configured_sweep_limits(config());
+        }
+        if (substitute) spec.description.description += ";max-rounds=" +
+            std::to_string(config().substitute_rounds) + ";complete=" + std::to_string(k.stats.conflicts == 0);
+        return spec;
+      }, [&] {
   ApplyResult ar;
   {
     TickSinkScope sink(k, e.tick_counter);
@@ -5079,6 +5164,8 @@ ApplyResult DefaultInprocessScheduler::run_budgeted_batch(Kernel &k, SlotEntry &
     factor_marked_watermark_ = k.factor_literals_marked;
   work.reset();
   k.factor_composite = false;
+  return ar;
+  }, [&](ApplyResult result) { return execution::native_rule_outcome(k, r.name, result); });
   const uint64_t spent = e.meter(k) - spent_before;
   e.tm.handed += handed;
   e.tm.spent += spent;
@@ -5140,6 +5227,7 @@ DefaultInprocessScheduler::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVT
   // application and restored before the scheduler advances. The reference
   // program carries monostate, so its legacy Kernel values and hot path remain
   // unchanged.
+  execution::CompletionPublication published(ctx.completion);
   execution::ParameterExecutionScope<
       strategy::SubsumeForwardParameters, strategy::StrengthenParameters,
       strategy::CongruenceParameters, strategy::InstantiateParameters,
@@ -5156,10 +5244,20 @@ DefaultInprocessScheduler::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVT
   const uint32_t forward_trail_from = k.propagate_head;
   ApplyResult ar;
   if (vivify_dose) {
-    ar = run_vivify_dose(k, e, r, limit);
+    ar = run_vivify_dose(k, e, r, limit, ctx.completion);
   } else if (budgeted) {
-    ar = run_budgeted_batch(k, e, r, limit, factor_entry);
+    ar = run_budgeted_batch(k, e, r, limit, factor_entry, ctx.completion);
   } else {
+    ar = execution::complete_action(ctx.completion, FeedbackKind::Rule, r.name,
+        INSTANCE_CANONICAL, [&] {
+          auto spec = slot_feedback(k, e, r, INSTANCE_CANONICAL,
+              strategy::WorkLimit::unlimited(), "native-unbudgeted-batch");
+          if (substitute) spec.description.description += ";max-rounds=" +
+              std::to_string(k.stats.conflicts == 0 ? config().substitute_rounds
+                                                   : config().substitute_search_rounds);
+          return spec;
+        }, [&] {
+    ApplyResult result;
     TickSinkScope sink(k, e.tick_counter);
     // Kissat's two preprocessing follow-ups call substitute with
     // `complete=true`: a productive rewrite can expose another binary SCC,
@@ -5172,7 +5270,7 @@ DefaultInprocessScheduler::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVT
       // This policy-composed call no longer passes through apply_rule. Keep
       // its complete proof/reconstruction transaction and source currency,
       // including the final watch reconnection, in diagnostic builds only.
-      ar = metered_rule_apply(k, journal_effort_meter(e, r), [&] {
+      result = metered_rule_apply(k, journal_effort_meter(e, r), [&] {
         return journal_direct_rule(
             k, r.name,
             std::string("policy-complete-rounds=") +
@@ -5187,7 +5285,7 @@ DefaultInprocessScheduler::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVT
             });
       });
 #else
-      ar = default_substitute_complete(
+      result = default_substitute_complete(
           k, k.stats.conflicts == 0 ? config().substitute_rounds
                                     : config().substitute_search_rounds);
 #endif
@@ -5196,11 +5294,13 @@ DefaultInprocessScheduler::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVT
         k.stats.rule_calls[r.id]++;
       }
     } else {
-      ar = metered_rule_apply(k, journal_effort_meter(e, r),
+      result = metered_rule_apply(k, journal_effort_meter(e, r),
                               [&] {
         return execution::execute_action(k, execution::RegisteredRuleRequest{r});
       });
     }
+    return result;
+    }, [&](ApplyResult result) { return execution::native_rule_outcome(k, r.name, result); });
   }
   ctx.last_result = ar;
   if (factor_entry)
@@ -5257,9 +5357,18 @@ DefaultInprocessScheduler::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVT
     // then close the reconnected suffix before any following slot observes it.
     heuristics_consume_root_assignments(k, forward_trail_from);
     const size_t closure_trail_from = k.trail.size();
-    const ApplyResult closure =
-        strengthen_reconnect_and_flush(k, forward_trail_from);
-    heuristics_consume_root_assignments(k, closure_trail_from);
+    const ApplyResult closure = execution::complete_action(ctx.completion,
+        FeedbackKind::Support, "ForwardClosure", INSTANCE_CANONICAL, [&] {
+          execution::NativeFeedbackSpec spec;
+          spec.description.description = "trail-from=" + std::to_string(forward_trail_from);
+          spec.description.effort_currency = "propagations";
+          spec.meter = [](const Kernel &kernel) { return kernel.stats.propagations; };
+          return spec;
+        }, [&] {
+          const ApplyResult result = strengthen_reconnect_and_flush(k, forward_trail_from);
+          heuristics_consume_root_assignments(k, closure_trail_from);
+          return result;
+        });
     if (closure == ApplyResult::Unsat) {
       ctx.phase_unsat = true;
       return SlotStep::Stop;
@@ -5268,7 +5377,7 @@ DefaultInprocessScheduler::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVT
   if (ar != ApplyResult::Ok)
     return SlotStep::Next;
   ctx.round_changed = true;
-  const ApplyResult propagation = default_propagate(k, "inprocess-batch");
+  const ApplyResult propagation = default_propagate(k, "inprocess-batch", ctx.completion);
   if (propagation == ApplyResult::Unsat) {
     ctx.phase_unsat = true;
     return SlotStep::Stop;
@@ -5277,7 +5386,7 @@ DefaultInprocessScheduler::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVT
 }
 
 int DefaultInprocessScheduler::run_structured_root(
-    Kernel &k, volatile sig_atomic_t *stop) {
+    Kernel &k, volatile sig_atomic_t *stop, PolicyCompletion *completion) {
   using strategy::InvocationStatus;
   if (structured_root_consumed_ || k.stats.conflicts)
     return 0;
@@ -5363,8 +5472,30 @@ int DefaultInprocessScheduler::run_structured_root(
       // collection may relocate clauses at the following atomic boundary.
       assert(k.level == 0 && !k.probing.recording && !k.bve_occurrence_count_image);
       const auto advanced =
-          executor.advance(
-              k, stop, &sr_discovery_allowance,
+          executor.advance_with(
+              k, [&](const strategy::OnlineInvocation &step, auto &&apply) {
+                return execution::complete_action(completion, FeedbackKind::Rule,
+                    step.rule.c_str(), INSTANCE_CANONICAL, [&] {
+                      execution::NativeFeedbackSpec spec;
+                      spec.description.description = "structured-stage=" + std::to_string(index) +
+                          ";revision=1;step=" + std::to_string(step.id) +
+                          ";discovery-consumed=" + std::to_string(sr_discovery_allowance.consumed()) +
+                          ";discovery-limit=" + std::to_string(granted_discovery_limit);
+                      spec.description.invocation = step;
+                      if (step.budget.is_unlimited())
+                        spec.description.effort_allowance = step.budget;
+                      else {
+                        size_t position = 0;
+                        while (position < stage.program.sequence.size() &&
+                               stage.program.sequence[position].id != step.id) ++position;
+                        assert(position < stage.program.sequence.size());
+                        const uint64_t consumed = executor.consumed(position);
+                        spec.description.effort_allowance = strategy::WorkLimit::bounded(
+                            step.budget.amount() >= consumed ? step.budget.amount() - consumed : 0);
+                      }
+                      return spec;
+                    }, std::forward<decltype(apply)>(apply));
+              }, stop, &sr_discovery_allowance,
               strategy::DiscoveryFeedbackPolicy{
                   progress_window,
                   hard_discovery_limit.is_unlimited()
@@ -5452,7 +5583,7 @@ int DefaultInprocessScheduler::run_structured_root(
 }
 
 int DefaultInprocessScheduler::run_initial_fast_elimination(
-    Kernel &k, volatile sig_atomic_t *stop) {
+    Kernel &k, volatile sig_atomic_t *stop, PolicyCompletion *completion) {
   assert(config().initial_fast_elimination);
   assert(!initial_fast_elimination_active_);
   initial_fast_elimination_active_ = true;
@@ -5463,7 +5594,7 @@ int DefaultInprocessScheduler::run_initial_fast_elimination(
   const uint64_t eliminated_before = k.stats.bve_eliminated;
   const uint64_t resolutions_before = k.stats.bve_resolutions;
   const uint64_t started = now_nanos();
-  const int result = run_phase(k, SlotGroup::Eliminate, stop);
+  const int result = run_phase(k, SlotGroup::Eliminate, stop, completion);
   k.stats.fastel_nanos += now_nanos() - started;
   k.stats.fastel_eliminated += k.stats.bve_eliminated - eliminated_before;
   k.stats.fastel_resolutions += k.stats.bve_resolutions - resolutions_before;
@@ -5474,7 +5605,7 @@ int DefaultInprocessScheduler::run_initial_fast_elimination(
 }
 
 int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
-                                  volatile sig_atomic_t *stop) {
+                                  volatile sig_atomic_t *stop, PolicyCompletion *completion) {
   SlotClock &clock = group == SlotGroup::Probe ? probe_clock : elim_clock;
   clock.reductions_mark = k.stats.reductions;
   clock.marks_mark = k.stats.bve_marks;
@@ -5499,7 +5630,15 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   // still uses ordinary search propagation here. Enter the common simplifier
   // scope only after that boundary so Eliminate credits search ticks and
   // saves phases for any newly exposed root implications.
-  const ApplyResult root_result = execution::execute_action(
+  const ApplyResult root_result = execution::complete_action(completion,
+      FeedbackKind::Support, "RootPreparation", INSTANCE_CANONICAL, [&] {
+        execution::NativeFeedbackSpec spec;
+        spec.description.description = std::string("probing=") +
+            std::to_string(group == SlotGroup::Probe) + ";clear-unflushed-root=1;purpose=preparation";
+        spec.description.effort_currency = "propagations";
+        spec.meter = [](const Kernel &kernel) { return kernel.stats.propagations; };
+        return spec;
+      }, [&] { return execution::execute_action(
       k, execution::RootPreparationRequest{group == SlotGroup::Probe, true},
       [&] {
         // Probe's bracket suppresses target capture; Eliminate retains it.
@@ -5514,6 +5653,7 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
         return default_propagate(
             k, group == SlotGroup::Probe ? "probe-root" : "eliminate-root");
       });
+  });
   if (root_result == ApplyResult::Unsat) return 20;
   InprocessScope inprocess_scope(k);
   // Kissat has physically cleared the previously propagated root trail at
@@ -5543,7 +5683,7 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   // ordinary Probe index only after it finishes, so every SR insertion and
   // collection does not maintain an index that no startup consumer needs.
   const int structured_result = group == SlotGroup::Probe
-                                    ? run_structured_root(k, stop) : 0;
+                                    ? run_structured_root(k, stop, completion) : 0;
   if (structured_result == 10) {
     // No pipeline occurrence image has been attached yet. Preserve the
     // terminal model and release only the phase-owned guidance handoff.
@@ -5560,7 +5700,7 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
              group == SlotGroup::Eliminate});
   k.stats.inprocess_dense_connect_nanos +=
       now_nanos() - dense_connect_started;
-  SlotPhaseCtx ctx{group, stop};
+  SlotPhaseCtx ctx{group, stop, completion};
   ctx.phase_unsat = structured_unsat;
   const std::vector<RuleVTable> &rules = tactix_rules();
   uint64_t active_before = active_variables(k);

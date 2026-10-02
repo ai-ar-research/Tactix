@@ -1,0 +1,29 @@
+Test project /home/hwu/SAT-solving/build/shared-policy-prep-debug
+      Start  14: scheduling
+ 1/12 Test  #14: scheduling .......................   Passed    0.10 sec
+      Start  73: inspect_policy_feedback
+ 2/12 Test  #73: inspect_policy_feedback ..........   Passed   10.50 sec
+      Start  95: solve_reset
+ 3/12 Test  #95: solve_reset ......................   Passed    3.10 sec
+      Start 130: controller_execution_signature
+ 4/12 Test #130: controller_execution_signature ...   Passed    0.05 sec
+      Start 133: default_execution_signature
+ 5/12 Test #133: default_execution_signature ......   Passed    0.05 sec
+      Start 139: feedback_trace
+ 6/12 Test #139: feedback_trace ...................   Passed    0.75 sec
+      Start 160: native_policy_feedback
+ 7/12 Test #160: native_policy_feedback ...........   Passed    0.46 sec
+      Start 162: online_inprocess
+ 8/12 Test #162: online_inprocess .................   Passed    6.26 sec
+      Start 164: policy_feedback
+ 9/12 Test #164: policy_feedback ..................   Passed    0.05 sec
+      Start 165: preparation_execution
+10/12 Test #165: preparation_execution ............   Passed    0.02 sec
+      Start 181: sequence_followups
+11/12 Test #181: sequence_followups ...............   Passed    0.04 sec
+      Start 190: substitute_publication
+12/12 Test #190: substitute_publication ...........   Passed    0.03 sec
+
+100% tests passed out of 12
+
+Total Test time (real) =  21.44 sec
