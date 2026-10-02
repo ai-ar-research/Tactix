@@ -104,6 +104,7 @@ int main(int argc, char **argv) {
   bool controller_policy = false;
   bool controller_effort_set = false;
   bool controller_period_set = false;
+  bool controller_retention_set = false;
   const char *controller_actions_path = nullptr;
   const char *controller_trace_path = nullptr;
   const char *controller_replay_path = nullptr;
@@ -147,6 +148,17 @@ int main(int argc, char **argv) {
       controller_replay_path = a + 20;
     } else if (!strncmp(a, "--controller-actions=", 21)) {
       controller_actions_path = a + 21;
+    } else if (!strncmp(a, "--controller-trail-retention=", 29)) {
+      const char *value = a + 29;
+      if (!strcmp(value, "full"))
+        controller_config.reuse_search_trail = false;
+      else if (!strcmp(value, "ranked-prefix"))
+        controller_config.reuse_search_trail = true;
+      else {
+        fprintf(stderr, "tactix: invalid --controller-trail-retention\n");
+        return 1;
+      }
+      controller_retention_set = true;
     } else if (!strncmp(a, "--controller-restart-period=", 28)) {
       const char *value = a + 28;
       uint64_t amount = 0;
@@ -224,6 +236,7 @@ int main(int argc, char **argv) {
              "[--controller-policy[=SEED] [--controller-effort=N]] "
              "[--controller-trace=FILE | --controller-replay=FILE] "
              "[--controller-actions=FILE] [--controller-restart-period=N] "
+             "[--controller-trail-retention=full|ranked-prefix] "
              "[--bve-gates=all|none|equiv,andor,ite,xor,def] "
              "[--trace=FILE] [--replay=FILE] %s "
              "<cnf[.xz|.gz]> [proof]\n",
@@ -277,7 +290,7 @@ int main(int argc, char **argv) {
        (random_policy || stress_policy || replay_path || no_heuristics || trace_path)) ||
       (controller_replay_path && (controller_policy || controller_trace_path)) ||
       (controller_trace_path && !controller_policy) ||
-      ((controller_effort_set || controller_period_set || controller_actions_path) &&
+      ((controller_effort_set || controller_period_set || controller_retention_set || controller_actions_path) &&
        !controller_selected)) {
     fprintf(stderr, "tactix: --controller-policy selects an attached controller "
                     "and cannot be combined with another policy or legacy trace; "
