@@ -8,6 +8,8 @@
 #include "policies/default_policy.hpp"
 #include "policies/random_policy.hpp"
 #include "policies/random_controller_policy.hpp"
+#include "strategy/feedback_trace.hpp"
+#include "strategy/feedback_provenance.hpp"
 #include "diagnostics/rule_journal.hpp"
 #include "policies/trace.hpp"
 // The stress policies reach `main` only as a StressSolveFn from this table, so
@@ -19,6 +21,9 @@
 
 #include <algorithm>
 #include <charconv>
+#include <cctype>
+#include <filesystem>
+#include <optional>
 #include <utility>
 #include <vector>
 #include <fstream>
@@ -91,6 +96,55 @@ static void print_model(const Kernel &k) {
   flush_line();
 }
 
+// Build provenance only when feedback is requested. File content identities
+// permit relocated immutable inputs/builds; destination paths are not choices.
+static bool feedback_metadata(const char *input, bool controller,
+                              uint64_t seed, uint32_t bve_gates,
+                              ProofFormat format, bool have_proof,
+                              const DefaultStrategyConfig &default_config,
+                              const RandomControllerConfig &controller_config,
+                              std::string &metadata) {
+  using namespace strategy::controller;
+  std::string build_sha, input_sha;
+  if (!feedback_file_sha256("/proc/self/exe", build_sha) ||
+      !feedback_file_sha256(input, input_sha)) return false;
+  metadata = "tactix-frontend-feedback-v1\n";
+  const auto field = [&](std::string_view name, std::string_view value) {
+    metadata += std::string(name) + '=' + std::to_string(value.size()) + ':' +
+                std::string(value) + '\n';
+  };
+  field("build-sha256", build_sha);
+  field("input-sha256", input_sha);
+  field("policy", controller ? "random-controller" : "default");
+  if (controller) field("seed", std::to_string(seed));
+  field("bve-gates", std::to_string(bve_gates));
+  field("proof-format", std::to_string(static_cast<unsigned>(format)));
+  field("proof-enabled", have_proof ? "1" : "0");
+  field("configuration", controller ? controller_configuration(controller_config)
+                                    : default_config.serialize());
+  static constexpr const char *environment[] = {
+#define TACTIX_FEEDBACK_ENVIRONMENT(name) #name,
+#include "strategy/feedback_environment.inc"
+#undef TACTIX_FEEDBACK_ENVIRONMENT
+  };
+  std::vector<std::pair<std::string, std::string>> values;
+  const auto environment_field = [&](const std::string &name) {
+    if (const char *value = std::getenv(name.c_str())) values.emplace_back(name, value);
+  };
+  for (const char *name : environment) environment_field(name);
+  // DefaultPolicy's per-rule environment keys are constructed dynamically.
+  for (const auto &rule : tactix_rules()) {
+    std::string name(rule.name);
+    for (char &c : name) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+    environment_field("TACTIX_CURSOR_" + name);
+    environment_field("TACTIX_ORDER_" + name);
+  }
+  std::sort(values.begin(), values.end());
+  values.erase(std::unique(values.begin(), values.end()), values.end());
+  for (const auto &[name, value] : values) field(name, value);
+  return true;
+}
+
 int main(int argc, char **argv) {
   setvbuf(stdout, nullptr, _IOFBF, 1 << 20);
   const bool frontend_time = getenv("TACTIX_FRONTEND_TIME") != nullptr;
@@ -108,6 +162,8 @@ int main(int argc, char **argv) {
   const char *controller_actions_path = nullptr;
   const char *controller_trace_path = nullptr;
   const char *controller_replay_path = nullptr;
+  const char *feedback_path = nullptr;
+  const char *feedback_replay_path = nullptr;
   RandomControllerConfig controller_config;
   // EVERY stress policy lives in stress_registry.cpp's table, so it reaches
   // `main` as this one pointer: one parse branch, one dispatch arm, and one
@@ -180,6 +236,10 @@ int main(int argc, char **argv) {
       controller_config.default_allowance.native = {
           strategy::RuleWorkBudgetMode::Bounded, amount};
       controller_effort_set = true;
+    } else if (!strncmp(a, "--feedback=", 11)) {
+      feedback_path = a + 11;
+    } else if (!strncmp(a, "--feedback-replay=", 18)) {
+      feedback_replay_path = a + 18;
     } else if (!strncmp(a, "--random-policy", 15)) {
       random_policy = true;
       if (a[15] == '=')
@@ -237,6 +297,7 @@ int main(int argc, char **argv) {
              "[--controller-trace=FILE | --controller-replay=FILE] "
              "[--controller-actions=FILE] [--controller-restart-period=N] "
              "[--controller-trail-retention=full|ranked-prefix] "
+             "[--feedback=FILE | --feedback-replay=FILE] "
              "[--bve-gates=all|none|equiv,andor,ite,xor,def] "
              "[--trace=FILE] [--replay=FILE] %s "
              "<cnf[.xz|.gz]> [proof]\n",
@@ -286,6 +347,34 @@ int main(int argc, char **argv) {
   // random_policy — the only policy that tolerates a null H and, with replay,
   // the only one expressible as a (rule, instance) sequence (trace.hpp).
   const bool controller_selected = controller_policy || controller_replay_path;
+  if ((feedback_path && feedback_replay_path) ||
+      ((feedback_path || feedback_replay_path) &&
+       (random_policy || stress_policy || replay_path || no_heuristics)) ||
+      (feedback_path && !*feedback_path) ||
+      (feedback_replay_path && !*feedback_replay_path)) {
+    fprintf(stderr, "tactix: feedback requires DefaultPolicy or the random controller; "
+                    "choose one nonempty recording or replay path\n");
+    printf("s UNKNOWN\n");
+    return 1;
+  }
+  if (feedback_path || feedback_replay_path) {
+    // A feedback destination must never truncate an input, proof or transcript.
+    // Replay input must likewise survive opening the requested proof output.
+    const char *record = feedback_path ? feedback_path : feedback_replay_path;
+    for (const char *other : {cnf_path, proof_path, controller_trace_path,
+                              controller_replay_path, trace_path, replay_path}) {
+      if (!other) continue;
+      std::error_code first_error, second_error, equivalent_error;
+      const auto first = std::filesystem::weakly_canonical(record, first_error);
+      const auto second = std::filesystem::weakly_canonical(other, second_error);
+      if ((!first_error && !second_error && first == second) ||
+          std::filesystem::equivalent(record, other, equivalent_error)) {
+        fprintf(stderr, "tactix: feedback path aliases input, proof or transcript\n");
+        printf("s UNKNOWN\n");
+        return 1;
+      }
+    }
+  }
   if ((controller_selected &&
        (random_policy || stress_policy || replay_path || no_heuristics || trace_path)) ||
       (controller_replay_path && (controller_policy || controller_trace_path)) ||
@@ -483,6 +572,25 @@ int main(int argc, char **argv) {
     controller_trace = &controller_transcript;
   }
   RandomControllerPolicy random_controller(random_seed, controller_config, controller_trace);
+  std::optional<strategy::controller::FeedbackTrace> feedback;
+  std::string feedback_setup_error;
+  if (feedback_path || feedback_replay_path) {
+    std::string metadata;
+    if (!feedback_metadata(cnf_path, controller_selected,
+            controller_replay_path ? controller_transcript.seed() : random_seed,
+            bve_gate_mask, proof_format, proof_path != nullptr,
+            default_config, controller_config, metadata)) {
+      feedback_setup_error = "cannot read immutable feedback build/input provenance";
+    } else {
+      feedback.emplace();
+      // Opening/provenance errors stay in the receiver. Even a rejected header
+      // must not steer the selected policy or suppress its certificate/verdict.
+      if (feedback_path) (void)feedback->write(feedback_path, metadata);
+      else (void)feedback->replay(feedback_replay_path, metadata);
+      if (controller_selected) random_controller.set_feedback(&*feedback);
+      else default_policy.set_feedback(&*feedback);
+    }
+  }
   const int res =
       replay_path
           ? replay_solve(kernel, replay_path, &caught_signal)
@@ -503,6 +611,12 @@ int main(int argc, char **argv) {
   }
 
   proof.flush();
+  const bool feedback_failed = !feedback_setup_error.empty() ||
+      (feedback && (!feedback->error().empty() || !feedback->terminal()));
+  if (feedback_failed)
+    fprintf(stderr, "tactix: feedback verification: %s\n",
+            !feedback_setup_error.empty() ? feedback_setup_error.c_str() :
+            feedback->error().empty() ? "incomplete session" : feedback->error().c_str());
   if (!quiet) {
     // Every registered rule gets a stats line, and most pair a yield with a
     // reachability witness: a zero on the witness means the mechanism never
@@ -1267,5 +1381,6 @@ int main(int argc, char **argv) {
     printf("s UNKNOWN\n");
   }
   fflush(stdout);
+  if (feedback_failed) return 1; // Solver verdict and certificate remain intact.
   return res == 10 ? 10 : res == 20 ? 20 : 0;
 }

@@ -142,6 +142,7 @@ explicit completion lifetime with lazy request descriptions and existing work
 meters. DefaultPolicy embeddings attach a receiver through `set_feedback()`;
 its pure `observe(kernel)` adds native clocks, histories and slot cursors.
 Completion ends before owned heuristic detachment, including early terminals.
+RandomControllerPolicy also accepts receiver replacement through `set_feedback()`.
 
 After each requested rule, ResumeSearch or atomic search service, feedback
 binds its independent sequence, stable identity, instance, optional complete
@@ -164,6 +165,11 @@ existing safe publication boundary. This does not move heuristic publication
 or turn scheduler skips into rule applications. Structured dispatch retains
 the exact typed step and native result currency. Native after-observations
 include the current action result; before-observations retain the previous one.
+Inprocessing slots can defer retirement publication to a followup or phase exit;
+their records remain queued until the full phase restores its occurrence/context
+scopes. `InprocessPhaseExit` records the shared cleanup transaction. Interruption
+metadata reads native event counters and external stop state, never an extra
+interruption-fuzz poll.
 
 Successful ResumeSearch starts an interval after root work. Restart closes it;
 partial continuation starts a linked interval under the same configuration.
@@ -187,6 +193,22 @@ change solver execution. Use one receiver/transcript per solve invocation.
 `tools/bench/inspect_policy_feedback.py` validates completed records and reports
 per-action native work, progress, statuses and durations without computing a
 reward. This stream does not replace the existing controller transcript.
+
+The frontend exposes `--feedback=FILE` and `--feedback-replay=FILE` for
+DefaultPolicy and the controller-driven random policy. Replay uses the chosen
+policy/seed/configuration and verifies its regenerated stream. Metadata binds
+SHA-256 identities of the running executable and original input file bytes,
+including compressed containers, plus policy, seed, configuration, proof mode,
+BVE gate mask and declared solver environment settings. Keep builds/inputs
+immutable; feedback/proof/transcript destinations are not identity fields. The environment inventory
+is audited against source literals; per-rule cursor/order keys are included too.
+Controller transcripts and feedback can be recorded/replayed independently.
+Conflicting policy flags or aliased input/proof/transcript paths are rejected
+before opening outputs. Feedback opening, provenance, replay or write errors
+remain out of band: the selected solver finishes and emits its actual verdict,
+model/proof, then the frontend exits 1 and reports the feedback error on stderr.
+Ordinary successful runs retain solver exit codes. With neither flag, no
+feedback receiver or provenance hashing is constructed.
 
 ## Initial sampling and validation
 

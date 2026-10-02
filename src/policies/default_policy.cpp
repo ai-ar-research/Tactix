@@ -5655,6 +5655,10 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
       });
   });
   if (root_result == ApplyResult::Unsat) return 20;
+  // Slots can defer H publication (notably Sweep's import-ordered union) to
+  // a later followup or phase exit. Deliver immutable leaf records only after
+  // the enclosing native scope and all of that publication have finished.
+  execution::CompletionPublication phase_published(completion);
   InprocessScope inprocess_scope(k);
   // Kissat has physically cleared the previously propagated root trail at
   // this point. Preserve Tactix's immutable prefix but remember the equivalent
@@ -5929,6 +5933,16 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   }
   k.stats.inprocess_slot_loop_nanos += now_nanos() - slot_loop_started;
   const uint64_t phase_exit_started = now_nanos();
+  (void)execution::complete_action(completion, FeedbackKind::Support,
+      "InprocessPhaseExit", INSTANCE_CANONICAL, [&] {
+        execution::NativeFeedbackSpec spec;
+        spec.description.description = std::string("group=") +
+            (group == SlotGroup::Probe ? "probe" : "eliminate") +
+            ";sparse-resume-trail=" + std::to_string(sparse_resume_trail);
+        spec.description.effort_currency = "ticks";
+        spec.meter = [](const Kernel &kernel) { return kernel.stats.ticks; };
+        return spec;
+      }, [&] {
   if (group == SlotGroup::Eliminate && !ctx.phase_unsat)
     event_trace_eliminate_cleanup(k, "before");
   // Kissat collects the arena only inside an Eliminate round (eliminate.c:519,
@@ -5978,6 +5992,8 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   const uint64_t phase_finished = now_nanos();
   k.stats.inprocess_exit_nanos += phase_finished - phase_exit_started;
   k.stats.inprocess_nanos += phase_finished - phase_nanos_at_entry;
+  return ctx.phase_unsat ? ApplyResult::Unsat : ApplyResult::Ok;
+  });
   if (group == SlotGroup::Eliminate && bve_ran_this_phase_ &&
       !initial_fast_elimination_active_ && !ctx.phase_unsat) {
     BveBoundPolicy &bramp = bve_bound ? *bve_bound : default_bve_ramp_;

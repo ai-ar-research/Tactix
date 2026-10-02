@@ -229,6 +229,7 @@ static void test_native_batches(bool vivify, bool budgeted) {
     capture.check = [&] {
       assert(k.vivify_scope == 0 && !k.work_budget && !k.work_budget_offset);
       assert(k.large_watches_connected && !k.pending.valid && !k.warming);
+      assert(!k.factor_selection && !k.dense && !k.inprocessing);
     };
     completion.begin();
     assert(policy.inprocess().run_phase(k, SlotGroup::Probe, nullptr, &completion) == 0);
@@ -284,6 +285,42 @@ static void test_partial_native_outcomes() {
          InvocationStatus::Interrupted);
   assert(execution::native_rule_outcome(k, "Factor", ApplyResult::Unsat).invocation.status ==
          InvocationStatus::Unsat);
+  k.stop = nullptr;
+  k.stop_fuzz = 1;
+  const auto state = k.stop_fuzz_state;
+  const auto fires = k.stats.stop_fuzz_fires;
+  for (unsigned read = 0; read < 3; ++read)
+    assert(execution::native_rule_outcome(k, "Factor", ApplyResult::Ok).invocation.status ==
+           InvocationStatus::BudgetExhausted);
+  assert(k.stop_fuzz_state == state && k.stats.stop_fuzz_fires == fires);
+}
+
+static void test_native_interruption_feedback_purity() {
+  // Poll inside the actual native body. Describing its result must not add a
+  // draw, even when stop-fuzz fires every time or when an action is terminal.
+  Kernel original, observed;
+  original.stop_fuzz = observed.stop_fuzz = 1;
+  Capture capture;
+  execution::PolicyCompletion completion(observed, &capture,
+      [](const Kernel &kernel, const void *) { return observe_kernel(kernel); }, nullptr);
+  completion.begin();
+  auto operation = [](Kernel &kernel, ApplyResult result) {
+    assert(kernel_terminating(kernel));
+    return result;
+  };
+  for (const auto result : {ApplyResult::NoOp, ApplyResult::Ok, ApplyResult::Unsat}) {
+    assert(operation(original, result) == result);
+    assert(completion.execute(FeedbackKind::Rule, "Vivify", INSTANCE_CANONICAL,
+        [] { return execution::NativeFeedbackSpec{}; },
+        [&] { return operation(observed, result); },
+        [&](ApplyResult value) { return execution::native_rule_outcome(observed, "Vivify", value); }) == result);
+    assert(original.stop_fuzz_state == observed.stop_fuzz_state);
+    assert(serialize_observation(observe_kernel(original)) ==
+           serialize_observation(observe_kernel(observed)));
+    assert(capture.actions.back().stop ==
+           (result == ApplyResult::Unsat ? StopReason::Unsat : StopReason::Interrupted));
+  }
+  completion.finish(20, StopReason::Unsat);
 }
 
 static void test_dosed_bve_publication() {
@@ -497,6 +534,7 @@ int main() {
   test_native_batches(false, true);
   test_native_batches(false, false);
   test_partial_native_outcomes();
+  test_native_interruption_feedback_purity();
   test_dosed_bve_publication();
   test_structured_root_feedback();
   test_default_observation_and_replay(temporary);

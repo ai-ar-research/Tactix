@@ -108,6 +108,7 @@ public:
       : seed_(seed), config_(std::move(config)), trace_(trace),
         selection_(selection), feedback_(feedback) {}
   int solve(Kernel &, volatile sig_atomic_t *stop = nullptr) override;
+  void set_feedback(strategy::controller::FeedbackReceiver *feedback) { feedback_ = feedback; }
   const ControllerCoverage &coverage() const { return coverage_; }
 
 private:

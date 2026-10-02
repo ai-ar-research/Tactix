@@ -1,0 +1,9 @@
+{
+  "preserved_commit": "a4cfabe3",
+  "old_function_sha256": "c1f4fd23c8192d912ca08429335a01fb52ff86021f5a3da8ed71af1baed89eaa",
+  "old_adaptation": "Rename helper only; function body unchanged.",
+  "source_sha256": "c4ec65afc0b41c85eef77dfd75c171d833b887f4fa7bc17677c16647d4eaa6f5",
+  "binary_sha256": "814ac5536e79caa31c64c6705fe8d2effb2fa3b121f6c6a0149c8176de76f03c",
+  "result": "old-fires=3 current-fires=0 old-state-changed=1 current-state-changed=0",
+  "verified": true
+}
