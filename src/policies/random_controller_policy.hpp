@@ -11,6 +11,9 @@ namespace tactix {
 
 struct RandomControllerConfig {
   DefaultStrategyConfig search;
+  // The native ranked-prefix mechanism is shared with DefaultPolicy. Full
+  // restart remains an explicit profile for root-boundary coverage/embeddings.
+  bool reuse_search_trail = true;
   strategy::RandomOnlineConfig parameters;
   // Caller-provided semantic choices, including structured Condition/SR/Factor
   // payloads. These supplement native producers without hiding API capability.
@@ -59,11 +62,13 @@ struct ControllerRuleCoverage {
 };
 struct ControllerSearchCoverage {
   uint64_t requests = 0, intervals = 0, decisions = 0, conflicts = 0;
+  uint64_t continuations = 0;
 };
 struct ControllerCoverage {
   std::map<std::string, ControllerRuleCoverage> rules;
   std::map<std::string, ControllerSearchCoverage> search;
   uint64_t full_restarts = 0, configuration_changes = 0;
+  uint64_t partial_restarts = 0;
   uint64_t maximum_root_actions = 0;
 };
 

@@ -128,7 +128,9 @@ std::string controller_configuration(const RandomControllerConfig &config) {
       << config.search.branching.focused_phase_switch_span;
   for (const auto phase : config.search.branching.focused_phase_pattern)
     out << ',' << static_cast<int>(phase);
-  out << " window " << config.parameters.maximum_selected_batch;
+  out << " trail-retention "
+      << (config.reuse_search_trail ? "ranked-prefix" : "full")
+      << " window " << config.parameters.maximum_selected_batch;
   for (const auto &rule : config.parameters.rules)
     out << " family " << std::quoted(rule);
   Kernel reference;
@@ -318,14 +320,16 @@ int RandomControllerPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                   (unsigned long long)counts.overshoot);
     for (const auto &[configuration, counts] : coverage_.search)
       std::printf("c controller-search %s requests=%llu intervals=%llu "
-                  "decisions=%llu conflicts=%llu\n", configuration.c_str(),
+                  "decisions=%llu conflicts=%llu continuations=%llu\n", configuration.c_str(),
                   (unsigned long long)counts.requests,
                   (unsigned long long)counts.intervals,
                   (unsigned long long)counts.decisions,
-                  (unsigned long long)counts.conflicts);
-    std::printf("c controller-loop full-restarts=%llu configuration-changes=%llu "
+                  (unsigned long long)counts.conflicts,
+                  (unsigned long long)counts.continuations);
+    std::printf("c controller-loop full-restarts=%llu partial-restarts=%llu configuration-changes=%llu "
                 "maximum-root-actions=%llu\n",
                 (unsigned long long)coverage_.full_restarts,
+                (unsigned long long)coverage_.partial_restarts,
                 (unsigned long long)coverage_.configuration_changes,
                 (unsigned long long)coverage_.maximum_root_actions);
     if (trace_ && !trace_->finish(verdict)) {
@@ -387,9 +391,19 @@ int RandomControllerPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         continue;
       }
       if (controller.restart_due()) {
-        const auto result = controller.full_restart();
-        ++coverage_.full_restarts;
-        if (trace_ && !emit(service_record(k, "Restart", 0, result)))
+        const uint32_t keep_level =
+            config_.reuse_search_trail && k.level && k.unassigned_active
+                ? heuristics_restart_reuse_level_for(
+                      k, var_of(controller.next_decision()))
+                : 0;
+        const auto result = controller.restart(keep_level);
+        if (keep_level) {
+          ++coverage_.partial_restarts;
+          ++coverage_.search[name(observation.search)].continuations;
+        } else {
+          ++coverage_.full_restarts;
+        }
+        if (trace_ && !emit(service_record(k, "Restart", keep_level, result)))
           return -1;
         if (result == ApplyResult::Unsat)
           return finish(20);

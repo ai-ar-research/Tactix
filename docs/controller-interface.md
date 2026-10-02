@@ -22,6 +22,17 @@ canonical NoOp. Other unavailable/excluded choices have explicit reasons from
 family with a native producer. `--controller-restart-period=N` configures the
 reluctant period for focused lifecycle/coverage validation.
 
+`--controller-trail-retention=ranked-prefix|full` selects ordinary search
+restart retention; ranked-prefix is the default. The active branch ranking
+chooses a valid keep-level using the shared native reuse mechanism. Positive
+keep-level continues the installed configuration without entering the root
+action loop; it consumes the restart trigger and refreshes the minimum conflict
+interval without reinstalling branching/phase or resetting reluctant history.
+Zero keep-level enters the root action loop. Explicit full restart remains
+mandatory before root inprocessing or learner configuration changes. Transcript
+configuration records the profile and Restart service records carry keep-level;
+coverage separates full restarts, partial restarts and continuation intervals.
+
 ## Search collection
 
 `src/strategy/controller_action_space.hpp` defines the enum values and the

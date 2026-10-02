@@ -197,18 +197,30 @@ public:
     heuristics_capture_target_phases(kernel_);
   }
 
-  ApplyResult full_restart() {
+  ApplyResult restart(uint32_t keep_level) {
     // A stopped solve may leave a non-root trail before this new controller
     // session has installed any configuration. Its entry still uses Restart.
-    if ((!searching_ && !kernel_.level) || !restart_guard(kernel_))
+    if ((!searching_ && !kernel_.level) || !restart_guard(kernel_) ||
+        (!searching_ && keep_level))
       return ApplyResult::NoOp;
-    heuristics_capture_target_phases(kernel_);
+    keep_level = std::min(keep_level, kernel_.level);
+    if (!keep_level || keep_level < kernel_.level)
+      heuristics_capture_target_phases(kernel_);
     const auto result =
-        execution::execute_action(kernel_, execution::RestartRequest{0});
+        execution::execute_action(kernel_, execution::RestartRequest{keep_level});
     ++kernel_.strategy_epoch;
-    searching_ = false;
+    if (!keep_level || result == ApplyResult::Unsat) {
+      searching_ = false;
+    } else {
+      // Continuing the installed configuration consumes the due restart,
+      // without reinstalling branch/phase state or entering the root loop.
+      restarts_.reluctant.trigger = false;
+      restarts_.update_restart_limit(kernel_, settings_.restart);
+    }
     return result;
   }
+
+  ApplyResult full_restart() { return restart(0); }
 
   Lit next_decision() {
     assert(searching_ && kernel_.unassigned_active);
