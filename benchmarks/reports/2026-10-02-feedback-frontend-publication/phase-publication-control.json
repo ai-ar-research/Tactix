@@ -1,0 +1,10 @@
+{
+  "preserved_commit": "a4cfabe3",
+  "adaptations": "None to preserved DefaultPolicy source/headers; current fixture and common machinery shared.",
+  "baseline_source_sha256": "3f2913d6c0924300f2d8775f05f0e0a663429875c5dbddfa8547a0536a7424f8",
+  "fixture_source_sha256": "adc71dc38fe5b78c16ed433da6e16c295dafc5415b5885191b7c2d114f4742a4",
+  "binary_sha256": "e2ff8147943498585172b786d74616fae74b14ebdd2daa090e81459618a9ea2a",
+  "returncode": -6,
+  "stderr": "feedback_phase_publication_before: /home/hwu/SAT-solving/tests/test_native_policy_feedback.cpp:232: test_native_batches(bool, bool)::<lambda()>: Assertion `!k.factor_selection && !k.dense && !k.inprocessing' failed.\n",
+  "expected_rejection": true
+}

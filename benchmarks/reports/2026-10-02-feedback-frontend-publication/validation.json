@@ -1,0 +1,90 @@
+{
+  "baseline_commit": "a4cfabe3389faaebc3af056661994037d116fce5",
+  "source_sha256": {
+    "src/main.cpp": "a112fed88f25b4b4733d30c7936e8cf789e31e6d1ba83d04f5af12d084ebb654",
+    "src/policies/default_policy.cpp": "aaf3a7c231fd031feb7ad30f9477d6640a885ce8ebac0bf53e06d12a4ae60e58",
+    "src/policies/random_controller_policy.hpp": "f3fada062d1fe659cc9812ddecd2d3ca002831bce868acbdd897f79e76b845b0",
+    "src/strategy/native_feedback.hpp": "8c0770b8c15983350fc07e18bad6fba0b979269754fe22803202567d2478fcdb",
+    "src/strategy/policy_completion.hpp": "18ed52fcbb674a8ef503a72732bc4423560596b2b239615cced5c559c617cfb3",
+    "src/strategy/feedback_environment.inc": "0be99f319b7da455956d40036340654864a6bb7556d0100332ec272e10e8654b",
+    "src/strategy/feedback_provenance.hpp": "146d8bd08e252ad965daf230ff58d6942bb97d3500155fd0f9f65cf69768d3c5",
+    "tests/test_feedback_frontend.py": "f22481b3ac8b01d38037d263dec952fbcac5ed33951cf8237d924e9a7cdd52dd",
+    "tests/test_feedback_provenance.cpp": "aef92e01cdc4dd52a70546be56f68a51432af80d643a1f79c2bf16744cb47b68",
+    "tests/test_native_policy_feedback.cpp": "adc71dc38fe5b78c16ed433da6e16c295dafc5415b5885191b7c2d114f4742a4",
+    "tests/CMakeLists.txt": "9e82fc5da60b7bf4d31cc129c946717584593702287dcf965b7e519d0f078961"
+  },
+  "accepted_authorities_sha256": {
+    "build/pin-controller-foundations-debug-canonical-repair/tactix": "8ae7478107a340ee5b53261f76ffbb1034b90e4f7e7acc2a8123ea300e1267f3",
+    "build/pin-controller-foundations-release-canonical-repair/tactix": "ad7e4da8fb0801b15c5916c94a536176f69f2def2a8fd477d59953d5409dfe41",
+    "benchmarks/baselines/controller-foundations-v1/results.json": "ef81cf019675a79a91ee431ab54e2c59630d9d069a03c2a55e44bd446c37bc9d"
+  },
+  "artifact_sha256": {
+    "debug-focused.log": "819b3ca61421837c80351ae0d9bc3d569c4f6db95a26e87bd23895cfc816f6d4",
+    "diagnostic-focused.log": "ebe859cfd1ddeb6b2b55a3f64e2ac2812b5d176bb12633f293368c6f1c8b4f76",
+    "debug-build.log": "1a6d36d236b26281f513026e594fd1dfafd9dd6c27bea649da7408f22792f829",
+    "diagnostic-build.log": "66526b680fe0b50d09e9e297a556a6f2be0cc6315077060b412867f953d4dced",
+    "debug-main-build.log": "19751f991392b3ec73dede8d836d3336748da7d03539e75c6f875ace9a782c49",
+    "diagnostic-main-build.log": "3b2123e738772058ccad44f19aa9a2f93b85a44f5c7e0e96e5f0fcd0f1e771f3",
+    "debug-comparison.log": "e8097084076fd85bcb7475de44cba533b9be656105bee3ccf7dc4f37f621910f",
+    "diagnostic-comparison.log": "e430790bf80058ca8ce4b7a031132dc2c2ea3f508a2a9e6aa7872d63493eee58",
+    "debug-correspondence.json": "589b41d28db108dff374c20719ea05cdf5a2ab96e64751bae5812abad2f050e3",
+    "diagnostic-correspondence.json": "64999525b4c1ac8a3410339a36b4eeb653da031138f36ebb3c2918dc41da701b",
+    "compare.py": "5a13c90f744f3f5f7233d45c1d917345d1141b0c824ad71e66af62d087995da9",
+    "stop-purity-control.py": "e670aa51727213cb97be9f3313ed877602733cc0364bdd60e5a654084f7f054d",
+    "stop-purity-control.log": "e69f2cf679c8f2cea9fc4f6883d317a0fd7fa894e736088f9db677333d0ea689",
+    "stop-purity-control.json": "825be7ca5c2d1d9c5e765caa3bb20fb94dc87bc0ff2019819dc91469941e86b3",
+    "phase-publication-control.py": "05036a7b339021189cbc1f7869910b89a2889e422d04561f2bff7ec78affa7b4",
+    "phase-publication-control.log": "b8e17b1efb2b567e339bd14c8fd3be9df0fee32e1e7c16f9f8efa51b63f585a0",
+    "phase-publication-control.json": "b8563a3fb866a1c431ff992f96ea75dfa41816ee5409c6b834d29989b453cf0f",
+    "docs.log": "e3c85492a72922db0af27205eb6a1e4cd8bcc41516b8c10825360b36b6f4e3c4",
+    "progress.log": "6000d8265ccef2e4fbcbdcee2f54cdceed74acf9a0f685793b6e929bd53c727b"
+  },
+  "frontend_binary_sha256": {
+    "debug": "d13fe79a4bfe5c6f5200a759bb53548754ecc7a24078773c6a78e0241e14af1d",
+    "diagnostic": "c7c1b08c55e1ecca07cc7bc0061ee06d0459aa6ac39db97b8f559d8833a848f4"
+  },
+  "focused": {
+    "debug": {
+      "passed": 14,
+      "seconds": 128.42
+    },
+    "diagnostic": {
+      "passed": 14,
+      "seconds": 134.04
+    }
+  },
+  "frontend_oracles_per_build": {
+    "proofs": 2,
+    "models": 2,
+    "distinct_inputs": 2,
+    "policy_input_combinations": 4
+  },
+  "documentation_gates": {
+    "passed": 13,
+    "seconds": 21.03
+  },
+  "progress_check": {
+    "errors": 0,
+    "warnings": 0
+  },
+  "queue": {
+    "task_campaigns": [],
+    "unrelated_job": 1745040
+  },
+  "whole_goal_accepted": false,
+  "fresh_fuzz_submitted": false,
+  "regressions_submitted": false,
+  "overhead_measured": false,
+  "no_push": true,
+  "andrew_report": {
+    "directory": "report-to-andrew/20261002T122023Z-feedback-frontend-publication",
+    "pages": 2,
+    "pdf_bytes": 144189,
+    "sha256": {
+      "report.tex": "6ef482ce79ddd29e3236ae2ae9d124e7adcbdf28c972215f70e6f3dd8ff8c447",
+      "report.pdf": "22ca932fe7ef596eea2a15ebe8d19ce2c7c856333a31b4b0274ece0c72dc583e"
+    },
+    "tex_passes": 2,
+    "overfull_or_latex_warnings": false
+  }
+}

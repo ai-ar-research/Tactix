@@ -18,7 +18,9 @@ inline strategy::controller::FeedbackOutcome native_rule_outcome(
       (name == "SubsumeForward" && !k.subsume_complete) ||
       (name == "Sweep" && k.sweep_incomplete);
   out.invocation.selection_complete = !incomplete;
-  if (kernel_terminating(k)) out.invocation.status = strategy::InvocationStatus::Interrupted;
+  // Reading completion metadata must never poll kernel_terminating(): the
+  // interruption-fuzz mode deliberately advances state at each native poll.
+  if (k.stop && *k.stop) out.invocation.status = strategy::InvocationStatus::Interrupted;
   else if (incomplete) {
     out.invocation.status = strategy::InvocationStatus::BudgetExhausted;
     out.invocation.budget_status = strategy::BudgetStatus::Exhausted;

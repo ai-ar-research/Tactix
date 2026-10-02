@@ -76,9 +76,24 @@ public:
     const uint64_t before = spec.meter ? spec.meter(kernel_) : 0;
     const auto before_state = strategy::state_version(kernel_);
     const uint64_t ticks = kernel_.stats.ticks, roots = kernel_.stats.root_assignments;
+    const uint64_t interrupted = kernel_.stats.rule_interrupted;
+    const uint64_t stop_fires = kernel_.stats.stop_fuzz_fires;
     return session_.execute(kind, identity, instance, [&] { return observe(); },
         std::forward<Apply>(apply), nullptr, nullptr, [&](const auto &result) {
           auto outcome = describe(result);
+          // Observe native interruption events without introducing another
+          // poll (and therefore another fuzz RNG draw). Preserve terminal,
+          // conflict and rejected-request outcomes unchanged.
+          using strategy::InvocationStatus;
+          if ((kernel_.stats.rule_interrupted != interrupted ||
+               kernel_.stats.stop_fuzz_fires != stop_fires) &&
+              (outcome.invocation.status == InvocationStatus::Completed ||
+               outcome.invocation.status == InvocationStatus::ScopedFixpoint ||
+               outcome.invocation.status == InvocationStatus::NoChange ||
+               outcome.invocation.status == InvocationStatus::BudgetExhausted)) {
+            outcome.invocation.status = InvocationStatus::Interrupted;
+            outcome.invocation.selection_complete = false;
+          }
           auto &native = spec.description;
           if (spec.meter) {
             const uint64_t after = spec.meter(kernel_);
