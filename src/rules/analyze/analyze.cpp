@@ -13,6 +13,7 @@
 
 #include "proof/proof.hpp"
 #include "rules/backjump/backjump.hpp" // backjump_apply: the fused rule's 2nd step
+#include "strategy/conflict_analysis_execution.hpp"
 
 #include <algorithm>
 #include <cstdlib>
@@ -1656,6 +1657,10 @@ ApplyResult analyze_apply(Kernel &k) {
   return analyze_apply_internal<false>(k, 0);
 }
 
+ApplyResult analyze_apply_with_target(Kernel &k, uint32_t target_level) {
+  return analyze_apply_internal<true>(k, target_level);
+}
+
 // ConflictAnalysis — the atomic learn+backjump rule (docs/calculus.md §3 M3).
 // One transition from a recorded conflict: derive and emit the learned clause,
 // then, unless that was a root refutation, assert it by backjumping. Fusing
@@ -1663,13 +1668,8 @@ ApplyResult analyze_apply(Kernel &k) {
 // boundary, so no guard needs a ¬pending.valid conjunct. The step functions
 // stay internal, driven white-box by DefaultPolicy and the analyze tests.
 static ApplyResult conflictanalysis_apply_to(Kernel &k, uint32_t target) {
-  const ApplyResult r = analyze_apply_internal<true>(k, target);
-  if (r != ApplyResult::Ok)
-    return r; // root refutation (Unsat) — analyze set no pending clause
-  if (!k.pending.valid)
-    return ApplyResult::Ok; // conflict reused as its own driver: the implied
-                            // literal is already assigned
-  return backjump_apply_to(k, target); // same selected target when learning
+  return execution::execute_action(
+      k, execution::ExplicitConflictAnalysisRequest{target});
 }
 
 static ApplyResult conflictanalysis_apply(Kernel &k) {

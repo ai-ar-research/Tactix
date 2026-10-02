@@ -1,6 +1,7 @@
 #include "rules/registry.hpp"
 #include "diagnostics/event_trace.hpp"
 #include "diagnostics/rule_journal.hpp"
+#include "strategy/action_execution.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -212,9 +213,7 @@ ApplyResult dispatch_rule(const RuleVTable &vt, Kernel &k,
 } // namespace
 
 ApplyResult apply_rule(const RuleVTable &vt, Kernel &k) {
-  k.close_startup_certificate();
-  if (k.proof && k.proof->startup_pb_available())
-    k.proof->commit_dsr();
+  execution::execute_action(k, execution::CloseStartupCertificateRequest{});
   return dispatch_rule(vt, k, [] { return std::string("canonical"); },
                        [&] { return vt.apply(k); });
 }
@@ -222,9 +221,7 @@ ApplyResult apply_rule(const RuleVTable &vt, Kernel &k) {
 ApplyResult apply_rule_instance(const RuleVTable &vt, Kernel &k,
                                 uint64_t inst) {
   if (!vt.startup_instance || !vt.startup_instance(inst)) {
-    k.close_startup_certificate();
-    if (k.proof && k.proof->startup_pb_available())
-      k.proof->commit_dsr();
+    execution::execute_action(k, execution::CloseStartupCertificateRequest{});
   }
   return dispatch_rule(vt, k,
                        [&] {
@@ -238,9 +235,7 @@ ApplyResult apply_rule_instance(const RuleVTable &vt, Kernel &k,
 ApplyResult apply_rule_semantic_instance(const RuleVTable &vt, Kernel &k,
                                          uint64_t inst) {
   if (!vt.startup_instance || !vt.startup_instance(inst)) {
-    k.close_startup_certificate();
-    if (k.proof && k.proof->startup_pb_available())
-      k.proof->commit_dsr();
+    execution::execute_action(k, execution::CloseStartupCertificateRequest{});
   }
   return dispatch_rule(vt, k,
                        [&] {
@@ -254,9 +249,7 @@ ApplyResult apply_rule_semantic_instance(const RuleVTable &vt, Kernel &k,
 ApplyResult apply_rule_structured(const RuleVTable &vt, Kernel &k,
                                   const char *description,
                                   const std::function<ApplyResult()> &apply) {
-  k.close_startup_certificate();
-  if (k.proof && k.proof->startup_pb_available())
-    k.proof->commit_dsr();
+  execution::execute_action(k, execution::CloseStartupCertificateRequest{});
   return dispatch_rule(vt, k, [description] { return std::string(description); },
                        apply);
 }

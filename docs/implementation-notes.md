@@ -133,9 +133,9 @@ or checker tasks never count as acceptance.
 
 ## 4. Analyze and Backjump are atomic
 
-M3 learns, chooses any legal chronological target, truncates, and asserts in one public operation. Level-one failed-literal analysis
-publishes its complete root batch before bumping survivors. Eager subsumption runs after backtrack and before propagation;
-reason-locked clauses are never deleted. No policy observes pending half-analysis or schedules Backjump independently.
+M3 learns, truncates, and asserts through one shared atomic executor. Explicit targets enter before analysis; native DefaultPolicy advice selects after learning, preserving tier/glue updates and diagnostic scope.
+Internal scheduler advice is not a learner observation or selection boundary; pending clauses are consumed before external publication. Backjump is not independently selectable.
+Level-one failed-literal batches publish before survivor bumps. Eager subsumption follows backtrack before propagation; reason-locked clauses are never deleted.
 
 ## 5. Representation, ordering, and scope
 

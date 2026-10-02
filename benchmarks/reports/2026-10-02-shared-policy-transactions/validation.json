@@ -1,0 +1,224 @@
+{
+  "scope": "shared certificate closure and atomic ConflictAnalysis increment, not whole-goal acceptance",
+  "baseline_commit": "2458f45c",
+  "sources": {
+    "src/strategy/action_execution.hpp": "f15ca0270c5d5cdde42d9e2d32a9243914d9b5b3b3e2a951d682adb3b910b388",
+    "src/strategy/conflict_analysis_execution.hpp": "bacd8d06fd21cb64e4bcc29b85a7d9665dcf111ae1dd50e1d8fa002f960a1af5",
+    "src/policies/default_policy.cpp": "614c4d45a533cfecdc7e592e89817def335bc3c7ee9913ce2e85741e7c71c7e9",
+    "src/policies/restart_controller.hpp": "4ffd9faf55dd7b06ea3b34061f9d694d30b32c29b1922e73308316c2a15bceb3",
+    "src/rules/registry.cpp": "67ba056e648efd2a0e28a47a1ea29865a7c3dea731bf7099ed0e60ae09e02a27",
+    "src/rules/analyze/analyze.cpp": "a31028959d943ed4ee25f92e536ba838dfffa6eaf0ca3ce341766e9599a2de62",
+    "src/rules/analyze/analyze.hpp": "213639e7bf0647638cd66cb9fa5af231499deb5e522165ac78eb11f55baf1135",
+    "tests/test_policy_action_execution.cpp": "9e73d9fe63e9d80b57ca189870e1b4f86c54ed4516d0ad71c2b87ec2224d1ba2",
+    "tests/test_shared_policy_transactions.cpp": "9765a47e3ac63ef17c0a36562c82679ce1ef16b798628df166ef61ea2cc48546",
+    "tests/test_default_execution_signature.cpp": "7c7ee92b47376ea4c6acbb09b84348e3f0861eb14adeeb065829a2a7b1b3ab5d"
+  },
+  "focused_tests": {
+    "passed": 13,
+    "total": 13,
+    "seconds": 5.65
+  },
+  "native_transaction_pairs": 64,
+  "default_correspondence": {
+    "comparison": "preserved DefaultPolicy translation unit against candidate, both using current remaining objects",
+    "baseline_commit": "2458f45c",
+    "fixtures": 6,
+    "equal": true,
+    "output": "profile=0 pigeons=4 verdict=10 proof=14695981039346656037:0 work=0:0:0:0:0:0:0:0:0:0:0:0 state=20:20:34:1:3:5:7:8:11:13:14:17:19:21:22:25:27:29:30:33:35:37:39 phases=-1,-1,-1,-1,1,-1,-1,1,-1,-1,-1,1,-1,-1,-1,1,-1,-1,-1,-1, scores=0,0.5,0.66666666666666674,0.75,0.80000000000000004,0.83333333333333337,0.85714285714285721,0.875,0.88888888888888884,0.90000000000000002,0.90909090909090906,0.91666666666666663,0.92307692307692313,0.9285714285714286,0.93333333333333335,0.9375,0.94117647058823528,0.94444444444444442,0.94736842105263164,0.94999999999999996,\nprofile=0 pigeons=6 verdict=20 proof=11116815066249832632:4519 work=140:107:1609:7673:6240:104:5:1:0:2:1:0 state=0:25:252:59:61:48:9:39:63:29:19:4:45:55:69:35:25:15:32:3:64:26:13:53:7:37:66:17:47:57 phases=0,-1,1,-1,-1,0,-1,-1,-1,-1,0,0,-1,1,-1,0,1,-1,-1,-1,0,0,-1,-1,1,0,-1,-1,-1,-1,-1,-1,1,1,-1, scores=0,0.5,0.66666666666666674,0.75,0.80000000000000004,0.83333333333333337,0.85714285714285721,0.875,0.88888888888888884,0.90000000000000002,0.90909090909090906,0.91666666666666663,0.92307692307692313,0.9285714285714286,0.93333333333333335,0.9375,0.94117647058823528,0.94444444444444442,0.94736842105263164,0.94999999999999996,0.95238095238095233,0.95454545454545459,0.95652173913043481,0.95833333333333337,0.95999999999999996,0.96153846153846156,0.96296296296296302,0.9642857142857143,0.96551724137931039,0.96666666666666667,0,0,0,0,0,\nprofile=1 pigeons=4 verdict=10 proof=14695981039346656037:0 work=0:0:0:0:0:0:0:0:0:0:0:0 state=20:20:34:1:3:5:7:8:11:13:14:17:19:21:22:25:27:29:30:33:35:37:39 phases=-1,-1,-1,-1,1,-1,-1,1,-1,-1,-1,1,-1,-1,-1,1,-1,-1,-1,-1, scores=0,0.5,0.66666666666666674,0.75,0.80000000000000004,0.83333333333333337,0.85714285714285721,0.875,0.88888888888888884,0.90000000000000002,0.90909090909090906,0.91666666666666663,0.92307692307692313,0.9285714285714286,0.93333333333333335,0.9375,0.94117647058823528,0.94444444444444442,0.94736842105263164,0.94999999999999996,\nprofile=1 pigeons=6 verdict=20 proof=18128233694468603772:4953 work=190:156:1743:6980:6402:155:9:0:48:1:1:12 state=1:20:242:7:32:9:17:25:41:29:13:15:10:1:19:27:35:37:38:5:23:31:2:20 phases=-1,1,-1,-1,-1,1,-1,-1,-1,-1,1,-1,-1,-1,-1,-1,1,-1,-1,1,-1, scores=0,0.5,0.66666666666666674,0.75,0.80000000000000004,0.83333333333333337,0.85714285714285721,0.875,0.90000000000000002,0.90909090909090906,0.91666666666666663,0.92307692307692313,0.93333333333333335,0.9375,0.94117647058823528,0.94444444444444442,0.94999999999999996,0.95238095238095233,0.95454545454545459,0.95652173913043481,0.95999999999999996,\nprofile=2 pigeons=4 verdict=10 proof=14695981039346656037:0 work=0:0:0:0:0:0:0:0:0:0:0:0 state=20:20:34:1:3:5:7:8:11:13:14:17:19:21:22:25:27:29:30:33:35:37:39 phases=-1,-1,-1,-1,1,-1,-1,1,-1,-1,-1,1,-1,-1,-1,1,-1,-1,-1,-1, scores=0,0.5,0.66666666666666674,0.75,0.80000000000000004,0.83333333333333337,0.85714285714285721,0.875,0.88888888888888884,0.90000000000000002,0.90909090909090906,0.91666666666666663,0.92307692307692313,0.9285714285714286,0.93333333333333335,0.9375,0.94117647058823528,0.94444444444444442,0.94736842105263164,0.94999999999999996,\nprofile=2 pigeons=6 verdict=20 proof=11355529929544556385:4837 work=173:152:1775:7226:6648:149:9:1:35:2:2:12 state=0:18:238:7:34:1:11:19:27:16:9:25:33:41:37:23:20:3:13:29:4:30:15 phases=-1,-1,1,-1,-1,-1,-1,-1,1,-1,1,-1,-1,-1,-1,1,-1,1,-1,-1,-1, scores=0,0.5,0.66666666666666674,0.75,0.80000000000000004,0.83333333333333337,0.85714285714285721,0.875,0.90000000000000002,0.90909090909090906,0.91666666666666663,0.92307692307692313,0.93333333333333335,0.9375,0.94117647058823528,0.94444444444444442,0.94999999999999996,0.95238095238095233,0.95454545454545459,0.95652173913043481,0.95999999999999996,\n",
+    "output_sha256": "eb63122fdd832ba0aa79795e66d763ea4f597d9b18ec82c64aa9200b48b4c33d",
+    "before_binary_sha256": "e3909577f9cf89fd42d1c8216b098ef78c13e25e760a555c442bb69f51cb5640",
+    "after_binary_sha256": "7578716ee68ddd111df767098c2c918e9e375294810ca2b8c541e98ed968c2f0",
+    "adaptation": "only include path policies/action_execution.hpp replaced by strategy/action_execution.hpp in preserved source",
+    "baseline_source_sha256": "3ab9169f32c4596df2dbde802b711c1dbc7248e5e9af1e8410b6f7d95493b303",
+    "oracles": [
+      {
+        "case": "profile-0-pigeons-4",
+        "kind": "SAT",
+        "verified": true,
+        "message": "34 clauses satisfied, 20 vars assigned"
+      },
+      {
+        "case": "profile-0-pigeons-6",
+        "kind": "UNSAT",
+        "verified": true,
+        "stage": null,
+        "route": "drat",
+        "message": ""
+      },
+      {
+        "case": "profile-1-pigeons-4",
+        "kind": "SAT",
+        "verified": true,
+        "message": "34 clauses satisfied, 20 vars assigned"
+      },
+      {
+        "case": "profile-1-pigeons-6",
+        "kind": "UNSAT",
+        "verified": true,
+        "stage": null,
+        "route": "drat",
+        "message": ""
+      },
+      {
+        "case": "profile-2-pigeons-4",
+        "kind": "SAT",
+        "verified": true,
+        "message": "34 clauses satisfied, 20 vars assigned"
+      },
+      {
+        "case": "profile-2-pigeons-6",
+        "kind": "UNSAT",
+        "verified": true,
+        "stage": null,
+        "route": "drat",
+        "message": ""
+      }
+    ],
+    "retained_original_inputs_proof_bytes_and_models_equal": true,
+    "compared_files": [
+      "profile-0-pigeons-4.cnf",
+      "profile-0-pigeons-4.drat",
+      "profile-0-pigeons-4.model",
+      "profile-0-pigeons-6.cnf",
+      "profile-0-pigeons-6.drat",
+      "profile-1-pigeons-4.cnf",
+      "profile-1-pigeons-4.drat",
+      "profile-1-pigeons-4.model",
+      "profile-1-pigeons-6.cnf",
+      "profile-1-pigeons-6.drat",
+      "profile-2-pigeons-4.cnf",
+      "profile-2-pigeons-4.drat",
+      "profile-2-pigeons-4.model",
+      "profile-2-pigeons-6.cnf",
+      "profile-2-pigeons-6.drat"
+    ]
+  },
+  "evidence": {
+    "build/shared-policy-prep-transactions-final.log": {
+      "sha256": "1eeba7410358a7ac08e2e714502cd6c0b01d18f9046d71df6fcf02c03aeaf806",
+      "text": "Test project /home/hwu/SAT-solving/build/shared-policy-prep-debug\n      Start   6: analyze\n 1/13 Test   #6: analyze ..........................   Passed    2.10 sec\n      Start  14: scheduling\n 2/13 Test  #14: scheduling .......................   Passed    0.05 sec\n      Start  59: api_n1\n 3/13 Test  #59: api_n1 ...........................   Passed    0.05 sec\n      Start  93: solve_reset\n 4/13 Test  #93: solve_reset ......................   Passed    2.41 sec\n      Start 114: conflict_reuse_targets\n 5/13 Test #114: conflict_reuse_targets ...........   Passed    0.51 sec\n      Start 128: controller_trail_retention\n 6/13 Test #128: controller_trail_retention .......   Passed    0.05 sec\n      Start 129: count_preservation\n 7/13 Test #129: count_preservation ...............   Passed    0.01 sec\n      Start 130: default_execution_signature\n 8/13 Test #130: default_execution_signature ......   Passed    0.02 sec\n      Start 156: policy_action_execution\n 9/13 Test #156: policy_action_execution ..........   Passed    0.00 sec\n      Start 159: random_controller_policy\n10/13 Test #159: random_controller_policy .........   Passed    0.31 sec\n      Start 167: root_conflict_reuse\n11/13 Test #167: root_conflict_reuse ..............   Passed    0.06 sec\n      Start 172: shared_policy_transactions\n12/13 Test #172: shared_policy_transactions .......   Passed    0.02 sec\n      Start 175: startup_parity\n13/13 Test #175: startup_parity ...................   Passed    0.01 sec\n\n100% tests passed out of 13\n\nTotal Test time (real) =   5.65 sec\n"
+    },
+    "build/shared-policy-prep-startup-independent-checks.log": {
+      "sha256": "17eb603b14d26f66d96c9e2b11f4b4a452562a7aa4309e0b0c08e27e42d5db7e",
+      "text": "Test project /home/hwu/SAT-solving/build/shared-policy-prep-debug\n    Start 73: startup_parity_check\n1/2 Test #73: startup_parity_check .............   Passed    0.20 sec\n    Start 74: count_preservation_check\n2/2 Test #74: count_preservation_check .........   Passed    0.20 sec\n\n100% tests passed out of 2\n\nTotal Test time (real) =   0.40 sec\n"
+    },
+    "build/shared-policy-prep-startup-independent-detail.log": {
+      "sha256": "4074a9e3abc9df40059236087ddd1e8fdd4602e570e9400134e73af981f23021",
+      "text": "Start testing: Oct 02 00:27 EDT\n----------------------------------------------------------\n73/195 Testing: startup_parity_check\n73/195 Test: startup_parity_check\nCommand: \"/home/hwu/.local/lib/python3.9/site-packages/cmake/data/bin/cmake\" \"-E\" \"env\" \"python3\" \"/home/hwu/SAT-solving/tests/test_startup_parity_check.py\" \"/home/hwu/SAT-solving/build/shared-policy-prep-debug/tests/test_startup_parity\" \"/home/hwu/SAT-solving/build/shared-policy-prep-debug/tactix\"\nDirectory: /home/hwu/SAT-solving/build/shared-policy-prep-debug/tests\n\"startup_parity_check\" start time: Oct 02 00:27 EDT\nOutput:\n----------------------------------------------------------\nstartup parity: arity 2/3/4, signed renaming, SAT controls, boundary OK\nk3.pbp VeriPB + CakePB verified\nk3r.pbp VeriPB + CakePB verified\nk4.pbp VeriPB + CakePB verified\nk4r.pbp VeriPB + CakePB verified\nk5.pbp VeriPB + CakePB verified\nk5r.pbp VeriPB + CakePB verified\nnormalized.pbp VeriPB + CakePB verified against raw duplicates/tautology\n<end of output>\nTest time =   0.20 sec\n----------------------------------------------------------\nTest Passed.\n\"startup_parity_check\" end time: Oct 02 00:27 EDT\n\"startup_parity_check\" time elapsed: 00:00:00\n----------------------------------------------------------\n\n74/195 Testing: count_preservation_check\n74/195 Test: count_preservation_check\nCommand: \"/home/hwu/.local/lib/python3.9/site-packages/cmake/data/bin/cmake\" \"-E\" \"env\" \"python3\" \"/home/hwu/SAT-solving/tests/test_count_preservation_check.py\" \"/home/hwu/SAT-solving/build/shared-policy-prep-debug/tests/test_count_preservation\" \"/home/hwu/SAT-solving/build/shared-policy-prep-debug/tactix\"\nDirectory: /home/hwu/SAT-solving/build/shared-policy-prep-debug/tests\n\"count_preservation_check\" start time: Oct 02 00:27 EDT\nOutput:\n----------------------------------------------------------\ncount preservation: signed/permuted two-layer networks and SAT controls OK\ncount3.pbp API + default VeriPB/CakePB verified; no-proof agrees\ncount3r.pbp API + default VeriPB/CakePB verified; no-proof agrees\ncount4.pbp API + default VeriPB/CakePB verified; no-proof agrees\ncount4r.pbp API + default VeriPB/CakePB verified; no-proof agrees\nraw-normalization proof verified; missing-derivation control rejected\n<end of output>\nTest time =   0.20 sec\n----------------------------------------------------------\nTest Passed.\n\"count_preservation_check\" end time: Oct 02 00:27 EDT\n\"count_preservation_check\" time elapsed: 00:00:00\n----------------------------------------------------------\n\nEnd testing: Oct 02 00:27 EDT\n"
+    },
+    "build/shared-policy-prep-transactions-diagnostic-syntax.log": {
+      "sha256": "c5d3797008f37c1edb00dc95dbb93e243964088638b4c10403b0c8173a587121",
+      "text": "{\"source\": \"src/policies/default_policy.cpp\", \"exit_code\": 0, \"stdout\": \"\", \"stderr\": \"\"}\n{\"source\": \"src/rules/registry.cpp\", \"exit_code\": 0, \"stdout\": \"\", \"stderr\": \"\"}\n{\"source\": \"src/rules/analyze/analyze.cpp\", \"exit_code\": 0, \"stdout\": \"\", \"stderr\": \"\"}\n"
+    },
+    "build/shared-policy-prep-default-correspondence-check.log": {
+      "sha256": "00a25f1a151829df4c3099e3bee945bd887d615933585cd88b3d89c30e865d1d",
+      "text": "{\"case\": \"profile-0-pigeons-4\", \"kind\": \"SAT\", \"verified\": true, \"message\": \"34 clauses satisfied, 20 vars assigned\"}\n{\"case\": \"profile-0-pigeons-6\", \"kind\": \"UNSAT\", \"verified\": true, \"stage\": null, \"route\": \"drat\", \"message\": \"\"}\n{\"case\": \"profile-1-pigeons-4\", \"kind\": \"SAT\", \"verified\": true, \"message\": \"34 clauses satisfied, 20 vars assigned\"}\n{\"case\": \"profile-1-pigeons-6\", \"kind\": \"UNSAT\", \"verified\": true, \"stage\": null, \"route\": \"drat\", \"message\": \"\"}\n{\"case\": \"profile-2-pigeons-4\", \"kind\": \"SAT\", \"verified\": true, \"message\": \"34 clauses satisfied, 20 vars assigned\"}\n{\"case\": \"profile-2-pigeons-6\", \"kind\": \"UNSAT\", \"verified\": true, \"stage\": null, \"route\": \"drat\", \"message\": \"\"}\nPASS: six full DefaultPolicy signatures match; three proofs and three original-CNF models independently checked\n"
+    }
+  },
+  "preserved_authorities": {
+    "build/pin-controller-foundations-debug-canonical-repair/tactix": "8ae7478107a340ee5b53261f76ffbb1034b90e4f7e7acc2a8123ea300e1267f3",
+    "build/pin-controller-foundations-release-canonical-repair/tactix": "ad7e4da8fb0801b15c5916c94a536176f69f2def2a8fd477d59953d5409dfe41",
+    "benchmarks/baselines/controller-foundations-v1/results.json": "ef81cf019675a79a91ee431ab54e2c59630d9d069a03c2a55e44bd446c37bc9d"
+  },
+  "remaining": [
+    "remaining shared startup/support/inprocessing migration",
+    "replaceable selection/feedback and offline inspection",
+    "full new Debug",
+    "broader deterministic action/state correspondence and instrumentation purity",
+    "100000 fresh Claude-owned seeds per policy plus corpus/targeted coverage",
+    "four DefaultPolicy regressions",
+    "instrumentation overhead",
+    "final Andrew TeX/PDF"
+  ],
+  "documentation_checks": [
+    {
+      "script": "tools/docs/check-citations.py",
+      "exit_code": 0,
+      "stdout": "  ok    45 citation(s) resolved and in range\n  note  200 skipped (200 ambiguous basename, 0 not in our tree, 0 resolve to a reference clone, 0 unjudged: no reference clone on disk)\ncheck-citations: 0 error(s)\n",
+      "stderr": ""
+    },
+    {
+      "script": "tools/docs/check-comment-hygiene.py",
+      "exit_code": 0,
+      "stdout": "check-comment-hygiene: 0 hit(s)\n",
+      "stderr": ""
+    },
+    {
+      "script": "tools/docs/check-config-wiring.py",
+      "exit_code": 0,
+      "stdout": "  ok    POLICY bve_bound                  <- src/policies/default_policy.cpp:4433, src/policies/default_policy.cpp:4555\n  ok    POLICY bve_occurrence_limit       <- src/policies/default_policy.cpp:1078, src/policies/default_policy.cpp:3251, src/policies/default_policy.cpp:5440\n  ok    POLICY bve_clause_size_limit      <- src/policies/default_policy.cpp:1080, src/policies/default_policy.cpp:3276, src/policies/default_policy.cpp:5463\n  ok    POLICY bve_xor_arity_limit        <- src/policies/default_policy.cpp:1082, src/policies/default_policy.cpp:3278, src/policies/default_policy.cpp:5465\n  ok    POLICY bve_resolvent_size_limit   <- src/policies/default_policy.cpp:1084, src/policies/default_policy.cpp:3279, src/policies/default_policy.cpp:5466\n  ok    POLICY bve_resolvent_count_limit  <- src/policies/default_policy.cpp:3277, src/policies/default_policy.cpp:5464\n  ok    POLICY bve_fastel_traversal       <- src/strategy/bve_invocation.hpp:279\n  ok    POLICY bve_backward_occurrence_limit <- src/policies/default_policy.cpp:1086, src/policies/default_policy.cpp:3280, src/policies/default_policy.cpp:5467\n  ok    POLICY bve_definition_session     <- src/policies/default_policy.cpp:5439\n  ok    POLICY factor_composite           <- src/policies/default_policy.cpp:971, src/policies/default_policy.cpp:3262, src/policies/default_policy.cpp:4807\n  ok    POLICY work_budget                <- src/policies/default_policy.cpp:4185, src/policies/default_policy.cpp:4193, src/policies/default_policy.cpp:4635\n  ok    POLICY work_budget_offset         <- src/policies/default_policy.cpp:4858, src/policies/default_policy.cpp:4881, src/policies/default_policy.cpp:4908\n  ok    POLICY work_budget_bounded        <- src/policies/default_policy.cpp:4838, src/policies/default_policy.cpp:4909\n  ok    POLICY vivify_scope               <- src/policies/default_policy.cpp:953, src/policies/default_policy.cpp:3269, src/policies/default_policy.cpp:4855\n  ok    POLICY vivify_irredundant_sort_ratio <- src/policies/default_policy.cpp:957, src/policies/default_policy.cpp:3272, src/policies/default_policy.cpp:5461\n  ok    POLICY bump_reason_limit          <- src/policies/default_policy.cpp:667, src/policies/default_policy.cpp:2799, src/policies/default_policy.cpp:2801\n  ok    POLICY bump_reason_depth          <- src/policies/default_policy.cpp:3935, src/policies/default_policy.cpp:3949\n  ok    POLICY inprocessing               <- src/policies/default_policy.cpp:155, src/policies/default_policy.cpp:159, src/policies/default_policy.cpp:1620\n  ok    POLICY jump_reasons_bigbig        <- src/policies/default_policy.cpp:2678\n  ok    POLICY conflict_reuse_chrono_levels <- src/policies/default_policy.cpp:3340\n  ok    POLICY bve_backward               <- src/policies/default_policy.cpp:1094, src/policies/default_policy.cpp:2862, src/policies/default_policy.cpp:3286\n  ok    POLICY bce_occ_limit              <- src/policies/default_policy.cpp:3255, src/policies/default_policy.cpp:5444\n  ok    POLICY midround_budget            <- src/policies/default_policy.cpp:4940, src/policies/default_policy.cpp:5010\n  ok    POLICY factor_size                <- src/policies/default_policy.cpp:3259, src/policies/default_policy.cpp:5448\n  ok    POLICY transitive_early_exit      <- src/policies/default_policy.cpp:975, src/policies/default_policy.cpp:3264, src/policies/default_policy.cpp:5453\n  ok    POLICY transitive_live_meter      <- src/policies/default_policy.cpp:977, src/policies/default_policy.cpp:3265, src/policies/default_policy.cpp:5454\n  ok    POLICY transitive_budget_checked  <- src/policies/default_policy.cpp:3266, src/policies/default_policy.cpp:5455\n  ok    POLICY bve_definition_budget      <- src/policies/default_policy.cpp:1088, src/policies/default_policy.cpp:2854, src/policies/default_policy.cpp:3282\n  ok    POLICY bve_definition_cores       <- src/policies/default_policy.cpp:1090, src/policies/default_policy.cpp:2856, src/policies/default_policy.cpp:3283\n  ok    POLICY bve_definition_core_budget_multiplier <- src/policies/default_policy.cpp:1092, src/policies/default_policy.cpp:2859, src/policies/default_policy.cpp:3284\n  ok    POLICY ternary_occ_limit          <- src/policies/default_policy.cpp:3256, src/policies/default_policy.cpp:5445\n  ok    POLICY ternary_max_add_percent    <- src/policies/default_policy.cpp:3257, src/policies/default_policy.cpp:5446\n  ok    POLICY touch_filter               <- src/policies/default_policy.cpp:983, src/policies/default_policy.cpp:2905, src/policies/default_policy.cpp:3274\n  ok    POLICY touch_redundant            <- src/policies/default_policy.cpp:3275\n  ok    POLICY vivify_reuse               <- src/policies/default_policy.cpp:955, src/policies/default_policy.cpp:3270, src/policies/default_policy.cpp:5459\n  ok    POLICY vivify_flush               <- src/policies/default_policy.cpp:956, src/policies/default_policy.cpp:3271, src/policies/default_policy.cpp:5460\n  ok    POLICY factor_demote_fresh        <- src/policies/default_policy.cpp:973, src/policies/default_policy.cpp:3263, src/policies/default_policy.cpp:5452\n  ok    POLICY factor_cand_rounds         <- src/policies/default_policy.cpp:3261, src/policies/default_policy.cpp:5450\n  ok    POLICY no_ext_reason_bump         <- src/policies/default_policy.cpp:3346\n  ok    POLICY subst_demote               <- src/policies/default_policy.cpp:3268, src/policies/default_policy.cpp:5457\n  ok    POLICY eager_subsume              <- src/policies/default_policy.cpp:678, src/policies/default_policy.cpp:2843, src/policies/default_policy.cpp:3347\n  ok    POLICY conflict_reuse             <- src/policies/default_policy.cpp:673, src/policies/default_policy.cpp:2835, src/policies/default_policy.cpp:3343\n  ok    POLICY jump_reasons               <- src/policies/default_policy.cpp:674, src/policies/default_policy.cpp:2837, src/policies/default_policy.cpp:3344\n  ok    POLICY shrink_glue_promote        <- src/policies/default_policy.cpp:675, src/policies/default_policy.cpp:2839, src/policies/default_policy.cpp:3345\n  ok    POLICY factor_bound               <- src/policies/default_policy.cpp:3260, src/policies/default_policy.cpp:5449\n  ok    POLICY walk_even_break_base_milli <- src/policies/default_policy.cpp:733, src/policies/default_policy.cpp:3427\n  ok    POLICY reorder_maximum_clause_size <- src/policies/default_policy.cpp:3348\n  ok    POLICY reorder_clause_decay_milli <- src/policies/default_policy.cpp:3350\n  ok    POLICY reorder_binary_weight_milli <- src/policies/default_policy.cpp:3352\n  ok    POLICY reorder_balanced_polarity_milli <- src/policies/default_policy.cpp:3354\n  ok    POLICY parity_model_maximum_variables <- src/policies/default_policy.cpp:3356\n  ok    POLICY parity_model_maximum_groups <- src/policies/default_policy.cpp:3358\n  ok    POLICY parity_model_maximum_constraints <- src/policies/default_policy.cpp:3359\n  ok    POLICY parity_model_minimum_group_clauses <- src/policies/default_policy.cpp:3361\n  ok    POLICY parity_model_minimum_equations <- src/policies/default_policy.cpp:3363\n  ok    POLICY parity_model_maximum_free_variables <- src/policies/default_policy.cpp:3365\n  ok    POLICY parity_model_candidate_budget <- src/policies/default_policy.cpp:3367\n  ok    POLICY parity_refutation_maximum_variables <- src/policies/default_policy.cpp:3369\n  ok    POLICY parity_refutation_maximum_groups <- src/policies/default_policy.cpp:3371\n  ok    POLICY parity_refutation_maximum_constraints <- src/policies/default_policy.cpp:3373\n  ok    POLICY parity_refutation_maximum_arity <- src/policies/default_policy.cpp:3375\n  ok    POLICY parity_refutation_probe_constraints <- src/policies/default_policy.cpp:3377\n  ok    POLICY parity_refutation_minimum_probe_repeats <- src/policies/default_policy.cpp:3379\n  ok    POLICY parity_refutation_maximum_proof_additions <- src/policies/default_policy.cpp:3381\n  ok    POLICY onehot_model_maximum_variables <- src/policies/default_policy.cpp:3383\n  ok    POLICY onehot_model_maximum_domains <- src/policies/default_policy.cpp:3385\n  ok    POLICY onehot_model_maximum_constraints <- src/policies/default_policy.cpp:3387\n  ok    POLICY onehot_model_maximum_equation_arity <- src/policies/default_policy.cpp:3389\n  ok    POLICY onehot_model_minimum_domains <- src/policies/default_policy.cpp:3391\n  ok    POLICY onehot_model_minimum_equations <- src/policies/default_policy.cpp:3393\n  ok    POLICY onehot_model_maximum_free_domains <- src/policies/default_policy.cpp:3395\n  ok    POLICY onehot_model_candidate_budget <- src/policies/default_policy.cpp:3397\n  ok    POLICY exact_one_refutation_maximum_variables <- src/policies/default_policy.cpp:3399\n  ok    POLICY exact_one_refutation_maximum_groups <- src/policies/default_policy.cpp:3401\n  ok    POLICY exact_one_refutation_maximum_constraints <- src/policies/default_policy.cpp:3403\n  ok    POLICY exact_one_refutation_maximum_arity <- src/policies/default_policy.cpp:3405\n  ok    POLICY exact_one_refutation_maximum_proof_additions <- src/policies/default_policy.cpp:3407\n  ok    POLICY reduce_victim_numerator    <- src/policies/default_policy.cpp:3421\n  ok    POLICY reduce_victim_denominator  <- src/policies/default_policy.cpp:3422\n  ok    POLICY reduce_protect_tiers       <- src/policies/default_policy.cpp:3423\n  ok    POLICY reduce_compact_collection  <- src/policies/default_policy.cpp:3424\n  ok    POLICY reduce_bookkeeping         <- src/policies/default_policy.cpp:3426\ncheck-config-wiring: 96 config fields, 82 POLICY-tagged, 0 failure(s)\n",
+      "stderr": ""
+    },
+    {
+      "script": "tools/docs/check-default-strategy-config.py",
+      "exit_code": 0,
+      "stdout": "default-strategy-config: permanent rule and use sites OK\n",
+      "stderr": ""
+    },
+    {
+      "script": "tools/docs/check-doc-size.py",
+      "exit_code": 0,
+      "stdout": "  warn  CLAUDE.md: 74 of 80 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\n  warn  DEVELOPMENT_PLAN.md: 742 of 750 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\n  warn  docs/calculus.md: 678 of 680 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\n  warn  docs/implementation-notes.md: 559 of 560 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\n  warn  docs/scheduling-parity-ledger.md: 600 of 600 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\n  warn  docs/proof-rules.html: 924 of 1000 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\ncheck-doc-size: 0 error(s), 6 warning(s), 30 file budget(s) checked\n",
+      "stderr": ""
+    },
+    {
+      "script": "tools/docs/check-effort-specs.py",
+      "exit_code": 0,
+      "stdout": "  ok    METERED BVE               <- 100 permille (&DefaultStrategyConfig::Inprocess::bve_permille), meter_bve, dosed\n  ok    METERED Probe             <- 8 permille (&DefaultStrategyConfig::Inprocess::probe_permille), meter_probe, dosed\n  ok    METERED Backbone          <- 20 permille (&DefaultStrategyConfig::Inprocess::backbone_permille), meter_backbone, budgeted\n  ok    METERED TransitiveReduce  <- 20 permille (&DefaultStrategyConfig::Inprocess::transitive_permille), meter_transitive, dosed, budgeted\n  ok    METERED Vivify            <- 100 permille (&DefaultStrategyConfig::Inprocess::vivify_permille), meter_vivify, budgeted\n  ok    METERED Strengthen        <- 100 permille (&DefaultStrategyConfig::Inprocess::strengthen_permille), meter_forward_pair, budgeted\n  ok    METERED SubsumeForward    <- 100 permille (&DefaultStrategyConfig::Inprocess::subsume_forward_permille), meter_forward_pair, budgeted\n  ok    METERED Factor            <- 50 permille (&DefaultStrategyConfig::Inprocess::factor_permille), meter_factor, budgeted\n  ok    METERED HyperTernaryRes   <- 8 permille (&DefaultStrategyConfig::Inprocess::hyper_ternary_permille), meter_ternary, budgeted\n  ok    METERED HyperBinaryRes    <- 8 permille (&DefaultStrategyConfig::Inprocess::hyper_binary_permille), meter_hbr, dosed, budgeted\n  ok    METERED BCE               <- 20 permille (&DefaultStrategyConfig::Inprocess::bce_permille), meter_bce, budgeted\n  ok    METERED CCE               <- 4 permille (&DefaultStrategyConfig::Inprocess::cce_permille), meter_cce, budgeted\n  ok    METERED Instantiate       <- 20 permille (&DefaultStrategyConfig::Inprocess::instantiate_permille), meter_instantiate, budgeted\n  ok    METERED Sweep             <- 100 permille (&DefaultStrategyConfig::Inprocess::sweep_permille), meter_sweep, budgeted\n  ok    ALT-GOV Congruence        <- the exact Kissat productivity delay ladder\n  ok    METERED Substitute        <- 10 permille (&DefaultStrategyConfig::Inprocess::substitute_permille), meter_substitute, budgeted\n  ok    ALT-GOV SubstitutionRedundancy <- the root-only structured program's run-once ownership, typed producer limits and semantic sequence fixpoint\n  ok    EXPLICIT Condition        <- typed (clause,cube) API; no default producer\ncheck-effort-specs: 18 registered Inprocess rules (17 default-scheduled, 1 explicit-only), 15 EFFORT_SPECS rows, 2 alternate-governor, 0 failure(s)\n",
+      "stderr": ""
+    },
+    {
+      "script": "tools/docs/check-inventory.py",
+      "exit_code": 0,
+      "stdout": "  ok    30/30 catalog families have a disposition\ncheck-inventory: 0 error(s)\n",
+      "stderr": ""
+    },
+    {
+      "script": "tools/docs/check-option-coverage.py",
+      "exit_code": 0,
+      "stdout": "  ok    kissat  161 options  \u00b7  cadical 257\n  ok    dismissed  83 (roster, parsed from \u00a713.6)\n  ok    carried   125 (23 roster entries, anchors re-checked)\n  ok    cited     208 (named in the ledger corpus)\n  ok    exempt      2 (named in EXEMPT, with a reason)\ncheck-option-coverage: 418 reference options, 0 unaccounted, 0 failure(s)\n",
+      "stderr": ""
+    },
+    {
+      "script": "tools/docs/check-progress.py",
+      "exit_code": 0,
+      "stdout": "  note  build dirs newer than newest source: NONE  (total pin-* dirs: 69)\n  note  newest completed tier run: 20260926-163543-B-am466-split-paired\n  WARN  squeue unavailable \u2014 in-flight claim not checked\ncheck-progress: 0 error(s), 1 warning(s)\n",
+      "stderr": ""
+    },
+    {
+      "script": "tools/docs/check-proof-rule-sync.py",
+      "exit_code": 0,
+      "stdout": "check-proof-rule-sync: 0 error(s), 25 calculus rule(s), 26 guide card(s)\n",
+      "stderr": ""
+    },
+    {
+      "script": "tools/docs/check-rule-policy-boundary.py",
+      "exit_code": 0,
+      "stdout": "check-rule-policy-boundary: rule/policy imports and data flows are clean\n",
+      "stderr": ""
+    },
+    {
+      "script": "tools/docs/check-section-refs.py",
+      "exit_code": 0,
+      "stdout": "  ok    73/73 section references resolve\ncheck-section-refs: 0 error(s)\n",
+      "stderr": ""
+    },
+    {
+      "script": "tools/docs/check-stat-ids.py",
+      "exit_code": 0,
+      "stdout": "check-stat-ids: 52 ids, 52 cases, 16 rule pairs (0 proxy, 1 diagnostic) \u2014 0 failure(s)\n",
+      "stderr": ""
+    }
+  ],
+  "queue_validation": {
+    "command": "python3 tools/docs/check-progress.py",
+    "sandbox": "escalated read-only queue access",
+    "exit_code": 0,
+    "errors": 0,
+    "warnings": 0
+  },
+  "binaries": {
+    "build/shared-policy-prep-debug/tactix": "138f81e74078cf63db4238e0392e50493d846acf01864e2c237a7892f2e7f74f",
+    "build/shared-policy-prep-debug/tests/test_shared_policy_transactions": "c40745640a0a7cafb17ebd43919280afe30dc38f1f0dfd254ddd42f79840d6b8"
+  }
+}
