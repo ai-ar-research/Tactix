@@ -1,0 +1,13 @@
+Test project /home/hwu/SAT-solving/build/shared-policy-prep-debug
+    Start 141: feedback_trace
+1/4 Test #141: feedback_trace ...................   Passed    0.72 sec
+    Start 163: native_policy_feedback
+2/4 Test #163: native_policy_feedback ...........   Passed    0.32 sec
+    Start 167: policy_feedback
+3/4 Test #167: policy_feedback ..................   Passed    0.03 sec
+    Start 168: preparation_execution
+4/4 Test #168: preparation_execution ............   Passed    0.02 sec
+
+100% tests passed out of 4
+
+Total Test time (real) =   1.10 sec

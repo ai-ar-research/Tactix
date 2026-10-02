@@ -1383,18 +1383,6 @@ void CadicalArenaOrder::order(const Kernel &k, std::vector<Ref> &refs) {
   refs.swap(ordered);
 }
 
-namespace {
-struct ScopedArenaOrdering {
-  Kernel &k;
-  ArenaOrdering *saved;
-  ScopedArenaOrdering(Kernel &kernel, ArenaOrdering *ordering)
-      : k(kernel), saved(kernel.arena_ordering) {
-    k.arena_ordering = ordering;
-  }
-  ~ScopedArenaOrdering() { k.arena_ordering = saved; }
-};
-} // namespace
-
 void DefaultPolicy::observe_glue(const Kernel &k, uint32_t glue) {
   DefaultRestartControl::observe_glue(k, config_.restart, glue);
 }
@@ -3270,7 +3258,7 @@ void DefaultInprocessScheduler::build(Kernel &k, PolicyCompletion *completion) {
   install_parameters(k, completion);
   execution::execute_action(k, execution::MaterialSettingsRequest{
                                    config().touch_filter,
-                                   config().likely_kept_redundant});
+                                   config().likely_kept_redundant}, completion);
   if (!initialized_) {
     initialized_ = true;
     // Probe is due immediately because it owns initial preprocessing.
@@ -3397,7 +3385,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       config_.inprocess.cadical_arena_ordering_enabled
           ? inprocess_.cadical_arena_ordering()
           : nullptr;
-  ScopedArenaOrdering arena_ordered(k, arena_ordering);
+  execution::ArenaOrderingScope arena_ordered(
+      k, execution::ArenaOrderingInstallationRequest{arena_ordering});
   if (k.inconsistent) {
     feedback.finish(20, StopReason::Unsat);
     return 20;
@@ -3824,11 +3813,6 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           k.stats.residual_handoff_nanos += now_nanos() - started;
           ++k.stats.residual_handoff_calls;
           return ApplyResult::Ok;
-        }, [](ApplyResult result) {
-          auto outcome = strategy::controller::feedback_outcome(result);
-          outcome.invocation.applications = 0;
-          outcome.invocation.made_rule_progress = false;
-          return outcome;
         });
   }
   if (!k.h)
@@ -3842,11 +3826,6 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         }, [&] {
           owned_h.emplace(k);
           return ApplyResult::Ok;
-        }, [](ApplyResult result) {
-          auto outcome = strategy::controller::feedback_outcome(result);
-          outcome.invocation.applications = 0;
-          outcome.invocation.made_rule_progress = false;
-          return outcome;
         });
   if (!residual_import_order.empty())
     (void)execution::complete_action(completion_, FeedbackKind::Support,
@@ -3859,11 +3838,6 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         }, [&] {
           execution::execute_action(k, execution::ResidualImportRequest{residual_import_order});
           return ApplyResult::Ok;
-        }, [](ApplyResult result) {
-          auto outcome = strategy::controller::feedback_outcome(result);
-          outcome.invocation.applications = 0;
-          outcome.invocation.made_rule_progress = false;
-          return outcome;
         });
   event_trace.macro(k, "preprocess_begin");
   // Kissat preprocess.c initially propagates, then consumes those root units
@@ -3902,11 +3876,6 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       }, [&] {
         execution::execute_action(k, execution::CompactRandomOrderRequest{});
         return ApplyResult::Ok;
-      }, [](ApplyResult result) {
-        auto outcome = strategy::controller::feedback_outcome(result);
-        outcome.invocation.applications = 0;
-        outcome.invocation.made_rule_progress = false;
-        return outcome;
       });
   event_trace_target_state(
       k, "startup-compact-post",
@@ -4330,7 +4299,6 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           }, [](const execution::WarmupResult &result) {
             auto out = strategy::controller::feedback_outcome(ApplyResult::Ok);
             if (result.interrupted) out.invocation.status = strategy::InvocationStatus::Interrupted;
-            out.invocation.made_rule_progress = false;
             return out;
           });
         }
@@ -5692,7 +5660,7 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   // its outer fixpoint rounds must reuse the same deterministic generator
   // sequence instead of restarting it at each BVE slot visit.
   if (group == SlotGroup::Eliminate && !initial_fast_elimination_active_)
-    k.bve_definition_session = k.bve_definition_session + 1;
+    execution::execute_action(k, execution::BeginBveDefinitionSessionRequest{}, completion);
   install_parameters(k, completion);
   factor_bound_snapshot_ =
       couple_factor_bound_ ? bve_level_ : 0;
@@ -5770,11 +5738,6 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
       factor_match ? *factor_match : default_factor_match_,
       factor_match ? std::optional<uint32_t>{factor_bound_snapshot_} : std::nullopt});
     return ApplyResult::Ok;
-      }, [](ApplyResult result) {
-        auto outcome = strategy::controller::feedback_outcome(result);
-        outcome.invocation.applications = 0;
-        outcome.invocation.made_rule_progress = false;
-        return outcome;
       });
   // Structured startup owns rule-local occurrence scopes. Construct the
   // ordinary Probe index only after it finishes, so every SR insertion and
@@ -5796,11 +5759,6 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
           k.stats.inprocess_propagations += k.stats.propagations - phase_props_at_entry;
           k.stats.inprocess_nanos += now_nanos() - phase_nanos_at_entry;
           return ApplyResult::Sat;
-        }, [](ApplyResult result) {
-          auto outcome = strategy::controller::feedback_outcome(result);
-          outcome.invocation.applications = 0;
-          outcome.invocation.made_rule_progress = false;
-          return outcome;
         });
     return 10;
   }
@@ -6101,11 +6059,6 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   k.stats.inprocess_exit_nanos += phase_finished - phase_exit_started;
   k.stats.inprocess_nanos += phase_finished - phase_nanos_at_entry;
   return ctx.phase_unsat ? ApplyResult::Unsat : ApplyResult::Ok;
-  }, [](ApplyResult result) {
-    auto outcome = strategy::controller::feedback_outcome(result);
-    outcome.invocation.applications = 0;
-    outcome.invocation.made_rule_progress = false;
-    return outcome;
   });
   if (group == SlotGroup::Eliminate && bve_ran_this_phase_ &&
       !initial_fast_elimination_active_ && !ctx.phase_unsat) {

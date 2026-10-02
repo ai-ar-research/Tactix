@@ -1,0 +1,1 @@
+test_native_policy_feedback: /home/hwu/SAT-solving/tests/test_native_policy_feedback.cpp:101: void test_completion_accounting(): Assertion `!support.invocation.applications && !support.invocation.work' failed.

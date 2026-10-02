@@ -22,6 +22,11 @@ struct Capture final : FeedbackReceiver {
   void after_action(const ActionFeedback &value) override {
     assert(value.sequence == actions.size() + 1);
     assert(value.native_request && !value.native_request->effort_currency.empty());
+    if (value.kind == FeedbackKind::Support) {
+      assert(!value.outcome.invocation.applications && !value.outcome.invocation.made_rule_progress);
+      if (value.outcome.invocation.work_unit == WorkUnit::Applications)
+        assert(!value.outcome.invocation.work && !value.outcome.composition_overshoot);
+    }
     actions.push_back(value);
     if (check) check();
   }
@@ -97,10 +102,55 @@ static void test_completion_accounting() {
       [&] { k.stats.ticks += 7; return ApplyResult::Ok; });
   const auto &request = *capture.actions.back().native_request;
   assert(request.work == 7 && request.overshoot == 5 && !request.accounting_overflow);
+  const auto &support = capture.actions.back().outcome;
+  assert(!support.invocation.applications && !support.invocation.work);
+  assert(!support.invocation.made_rule_progress && !support.composition_overshoot);
+  assert(capture.actions.back().stop == StopReason::Completed);
+  assert(capture.actions.back().after.cumulative.ticks -
+         capture.actions.back().before.cumulative.ticks == 7);
   enabled.execute(FeedbackKind::Support, "overflow", 0, build,
       [&] { k.stats.ticks = 0; return ApplyResult::NoOp; });
   assert(capture.actions.back().native_request->accounting_overflow);
   assert(capture.actions.back().native_request->work == 0);
+  enabled.execute(FeedbackKind::Support, "without-meter", 0,
+      [] { return execution::NativeFeedbackSpec{}; },
+      [&] { k.stats.ticks += 3; return ApplyResult::Ok; });
+  const auto &unmetered = capture.actions.back();
+  assert(unmetered.native_request->effort_currency == "ticks" &&
+         unmetered.native_request->work == 3);
+  assert(!unmetered.outcome.invocation.work && !unmetered.outcome.invocation.applications &&
+         !unmetered.outcome.invocation.made_rule_progress);
+  enabled.execute(FeedbackKind::Support, "native-composition", 0,
+      [] { return execution::NativeFeedbackSpec{}; }, [] {
+        InvocationResult result;
+        result.work_unit = WorkUnit::Propagations;
+        result.work = 5;
+        result.applications = 1;
+        result.made_rule_progress = true;
+        result.status = InvocationStatus::BudgetExhausted;
+        return result;
+      });
+  const auto &composed = capture.actions.back();
+  assert(composed.outcome.invocation.work == 5 && !composed.outcome.invocation.applications &&
+         !composed.outcome.invocation.made_rule_progress);
+  assert(composed.native_request->effort_currency == "propagations" &&
+         composed.native_request->work == 5 && composed.stop == StopReason::Budget);
+  enabled.execute(FeedbackKind::Rule, "rule-control", 0,
+      [] { return execution::NativeFeedbackSpec{}; }, [] { return ApplyResult::Ok; });
+  const auto &rule = capture.actions.back();
+  assert(rule.outcome.invocation.work == 1 && rule.outcome.invocation.applications == 1 &&
+         rule.outcome.invocation.made_rule_progress);
+  assert(rule.native_request->effort_currency == "applications" && rule.native_request->work == 1);
+  for (const auto result : {ApplyResult::NoOp, ApplyResult::Conflict, ApplyResult::Sat, ApplyResult::Unsat}) {
+    enabled.execute(FeedbackKind::Support, "status-control", 0,
+        [] { return execution::NativeFeedbackSpec{}; }, [=] { return result; });
+    const auto &record = capture.actions.back();
+    assert(record.outcome.invocation.rule_result == result);
+    assert(record.stop == stop_reason(feedback_outcome(result).invocation.status));
+    assert(!record.outcome.invocation.work && !record.outcome.invocation.applications &&
+           !record.outcome.invocation.made_rule_progress);
+    assert(record.native_request->work == 0 && record.native_request->effort_currency == "ticks");
+  }
   enabled.resume(IntervalStart::ResumeSearch, "initial");
   enabled.end_interval(StopReason::Restart);
   const auto count = capture.actions.size();
@@ -243,6 +293,11 @@ static void test_native_batches(bool vivify, bool budgeted) {
       std::vector<std::string> installed;
       unsigned entered = 0, exited = 0;
       for (const auto &record : capture.actions) {
+        if (record.kind == FeedbackKind::Support) {
+          assert(!record.outcome.invocation.applications && !record.outcome.invocation.made_rule_progress);
+          if (record.outcome.invocation.work_unit == WorkUnit::Applications)
+            assert(!record.outcome.invocation.work && !record.outcome.composition_overshoot);
+        }
         if (record.identity == "InstallRuleParameters") {
           assert(record.native_request->invocation);
           installed.push_back(record.native_request->invocation->rule);
@@ -376,6 +431,7 @@ static void test_dosed_bve_publication() {
     assert(policy.inprocess().run_phase(k, SlotGroup::Eliminate, nullptr, &completion) == 0);
     completion.finish(0, StopReason::Completed);
     assert(k.stats.bve_eliminated > 0);
+    assert(k.bve_definition_session == 1);
     kernel_check_invariants(k);
     const auto snapshot = serialize_observation(policy.observe(k));
     if (!feedback) preserved = snapshot;
@@ -383,7 +439,13 @@ static void test_dosed_bve_publication() {
       assert(snapshot == preserved);
       bool changed = false;
       unsigned calls = 0;
+      unsigned sessions = 0;
       for (const auto &record : capture.actions) {
+        if (record.identity == "BeginBveDefinitionSession") {
+          ++sessions;
+          assert(record.native_request->description == "session=0;next=1");
+          assert(record.sequence == 1);
+        }
         if (record.identity != "BVE") continue;
         ++calls;
         changed |= record.after.cumulative.bve_eliminated > record.before.cumulative.bve_eliminated;
@@ -391,7 +453,7 @@ static void test_dosed_bve_publication() {
         assert(record.native_request->effort_currency == "resolutions");
         assert(!record.native_request->effort_allowance.is_unlimited());
       }
-      assert(calls && changed);
+      assert(calls && changed && sessions == 1);
     }
   }
 }

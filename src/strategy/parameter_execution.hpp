@@ -3,11 +3,49 @@
 #include "kernel/kernel.hpp"
 #include "strategy/bve_invocation.hpp"
 #include "strategy/policy_completion.hpp"
+#include "strategy/work_execution.hpp"
 
 #include <type_traits>
 #include <variant>
 
 namespace tactix::execution {
+
+// Native definition discovery retains one generator session across all BVE
+// rounds of the enclosing phase. The policy chooses that boundary, not doses.
+struct BeginBveDefinitionSessionRequest {};
+inline void execute_action(Kernel &k, BeginBveDefinitionSessionRequest) {
+  k.bve_definition_session = k.bve_definition_session + 1;
+}
+inline void execute_action(Kernel &k, BeginBveDefinitionSessionRequest request,
+                           PolicyCompletion *completion) {
+  (void)complete_action(completion, FeedbackKind::Support,
+      "BeginBveDefinitionSession", INSTANCE_CANONICAL, [&] {
+        NativeFeedbackSpec spec;
+        spec.description.description = "session=" + std::to_string(k.bve_definition_session) +
+            ";next=" + std::to_string(k.bve_definition_session + 1);
+        return spec;
+      }, [&] {
+        execute_action(k, request);
+        return ApplyResult::Ok;
+      });
+}
+
+inline void execute_action(Kernel &k, const MaterialSettingsRequest &request,
+                           PolicyCompletion *completion) {
+  (void)complete_action(completion, FeedbackKind::Support,
+      "InstallMaterialSettings", INSTANCE_CANONICAL, [&] {
+        NativeFeedbackSpec spec;
+        const auto selected = [](std::optional<bool> value) {
+          return value ? (*value ? "1" : "0") : "inherit";
+        };
+        spec.description.description = std::string("touch-filter=") + selected(request.touch_filter) +
+            ";likely-kept-redundant=" + selected(request.likely_kept_redundant);
+        return spec;
+      }, [&] {
+        execute_action(k, request);
+        return ApplyResult::Ok;
+      });
+}
 
 // Policies choose complete or inherited profiles; permanent and scoped
 // installation use the same native family setters without changing validation.
@@ -45,11 +83,6 @@ void execute_action(Kernel &k,
       }, [&] {
         execute_action(k, request);
         return ApplyResult::Ok;
-      }, [](ApplyResult result) {
-        auto outcome = strategy::controller::feedback_outcome(result);
-        outcome.invocation.applications = 0;
-        outcome.invocation.made_rule_progress = false;
-        return outcome;
       });
 }
 
@@ -84,11 +117,6 @@ inline void execute_action(Kernel &k,
       }, [&] {
         execute_action(k, request);
         return ApplyResult::Ok;
-      }, [](ApplyResult result) {
-        auto outcome = strategy::controller::feedback_outcome(result);
-        outcome.invocation.applications = 0;
-        outcome.invocation.made_rule_progress = false;
-        return outcome;
       });
 }
 
