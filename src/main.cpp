@@ -123,9 +123,11 @@ static bool feedback_metadata(const char *input, bool controller,
   field("configuration", controller ? controller_configuration(controller_config)
                                     : default_config.serialize());
   static constexpr const char *environment[] = {
+#define TACTIX_FEEDBACK_RUNTIME_ENVIRONMENT
 #define TACTIX_FEEDBACK_ENVIRONMENT(name) #name,
 #include "strategy/feedback_environment.inc"
 #undef TACTIX_FEEDBACK_ENVIRONMENT
+#undef TACTIX_FEEDBACK_RUNTIME_ENVIRONMENT
   };
   std::vector<std::pair<std::string, std::string>> values;
   const auto environment_field = [&](const std::string &name) {

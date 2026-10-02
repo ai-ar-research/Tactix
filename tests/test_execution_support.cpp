@@ -109,7 +109,10 @@ static void test_collection_outcomes() {
       assert(record.after.cumulative.sparse_collections == record.before.cumulative.sparse_collections + 1);
       assert(!record.outcome.invocation.applications);
       assert(record.stop == (fixed == 3 ? StopReason::Unsat : fixed ? StopReason::Completed : StopReason::NoChange));
-      assert(record.outcome.invocation.made_rule_progress == (fixed == 1 || fixed == 2));
+      assert(!record.outcome.invocation.made_rule_progress);
+      assert(!record.outcome.invocation.work && !record.outcome.composition_overshoot);
+      assert(record.after.cumulative.root_assignments ==
+             record.before.cumulative.root_assignments + (fixed == 2 ? 1 : 0));
     }
     }
   }

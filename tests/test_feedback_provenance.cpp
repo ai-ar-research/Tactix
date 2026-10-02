@@ -38,6 +38,26 @@ int main() {
 #define TACTIX_FEEDBACK_ENVIRONMENT(name) declared.insert(#name);
 #include "strategy/feedback_environment.inc"
 #undef TACTIX_FEEDBACK_ENVIRONMENT
+  // The source audit includes every declared name. Runtime provenance must
+  // omit event/journal settings when their implementations are compiled out.
+  std::set<std::string> runtime_declared;
+#define TACTIX_FEEDBACK_RUNTIME_ENVIRONMENT
+#define TACTIX_FEEDBACK_ENVIRONMENT(name) runtime_declared.insert(#name);
+#include "strategy/feedback_environment.inc"
+#undef TACTIX_FEEDBACK_ENVIRONMENT
+#undef TACTIX_FEEDBACK_RUNTIME_ENVIRONMENT
+  for (const auto &name : declared) {
+    bool expected = true;
+#ifndef TACTIX_ENABLE_EVENT_TRACE
+    if (name.find("TACTIX_EVENT_TRACE") == 0 || name.find("SAT_EVENT_TRACE") == 0)
+      expected = false;
+#endif
+#ifndef TACTIX_ENABLE_RULE_JOURNAL
+    if (name.find("TACTIX_RULE_JOURNAL") == 0 || name.find("SAT_RULE_JOURNAL") == 0)
+      expected = false;
+#endif
+    assert(bool(runtime_declared.count(name)) == expected);
+  }
   const std::filesystem::path root = std::filesystem::path(__FILE__).parent_path().parent_path();
   const std::regex pattern("\"((?:TACTIX|SAT)_[A-Z0-9_]+)\"");
   for (const auto &entry : std::filesystem::recursive_directory_iterator(root / "src")) {
