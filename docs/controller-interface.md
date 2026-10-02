@@ -171,11 +171,16 @@ scopes. `InprocessPhaseExit` records the shared cleanup transaction. Interruptio
 metadata reads native event counters and external stop state, never an extra
 interruption-fuzz poll.
 
+Native support receipts count no registered-rule applications or application
+composition work and do not claim rule progress. Raw state deltas and measured
+native effort remain available. Application-unit support without a dedicated
+meter records the actual native tick delta, including overflow detection.
+Explicit native composition currencies and stop outcomes are preserved.
+
 Startup support records distinguish cold-state materialization, sparse root
 collection and compaction of the random brancher's index order. Representation
-and guidance support are not counted as proof-rule applications; materialization
-and branch-order compaction do not claim formula progress. Sparse collection
-retains its native NoChange/Changed/Unit/Refuted return and raw root/formula
+and guidance effects retain their raw measurements. Sparse collection retains
+its native NoChange/Changed/Unit/Refuted return and raw root/formula
 counters. The producer-dependent post-structured BCE opportunity records its
 native BCE profile/work after the nested phase-saving scope restores the
 enclosing startup context. Early terminal opportunities still bypass unused

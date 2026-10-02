@@ -4,6 +4,29 @@
 
 namespace tactix::execution {
 
+struct ArenaOrderingInstallationRequest {
+  ArenaOrdering *ordering;
+};
+inline void execute_action(Kernel &k, const ArenaOrderingInstallationRequest &request) {
+  k.arena_ordering = request.ordering;
+}
+
+// The policy chooses the ordering and solve lifetime. Restore the caller's
+// exact wire, including nested null installations and early terminal exits.
+class ArenaOrderingScope {
+public:
+  ArenaOrderingScope(Kernel &k, ArenaOrderingInstallationRequest request)
+      : kernel_(k), saved_(k.arena_ordering) { execute_action(k, request); }
+  ~ArenaOrderingScope() {
+    execute_action(kernel_, ArenaOrderingInstallationRequest{saved_});
+  }
+  ArenaOrderingScope(const ArenaOrderingScope &) = delete;
+  ArenaOrderingScope &operator=(const ArenaOrderingScope &) = delete;
+private:
+  Kernel &kernel_;
+  ArenaOrdering *saved_;
+};
+
 enum class ExecutionContext : uint8_t {
   Startup,      // exclude work from search ticks, preserve phase saving
   Inprocessing, // exclude search ticks and suppress speculative phase saving

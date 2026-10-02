@@ -81,6 +81,19 @@ public:
     return session_.execute(kind, identity, instance, [&] { return observe(); },
         std::forward<Apply>(apply), nullptr, nullptr, [&](const auto &result) {
           auto outcome = describe(result);
+          // Support transactions prepare/publish native execution; they are
+          // not additional registered-rule applications. Keep their measured
+          // work and state deltas, without inheriting the generic Ok result's
+          // synthetic application or proof-rule progress. Explicit native
+          // composition currencies remain independent of application counts.
+          if (kind == FeedbackKind::Support) {
+            outcome.invocation.applications = 0;
+            outcome.invocation.made_rule_progress = false;
+            if (outcome.invocation.work_unit == strategy::WorkUnit::Applications) {
+              outcome.invocation.work = 0;
+              outcome.composition_overshoot = 0;
+            }
+          }
           // Observe native interruption events without introducing another
           // poll (and therefore another fuzz RNG draw). Preserve terminal,
           // conflict and rejected-request outcomes unchanged.
@@ -99,6 +112,14 @@ public:
             const uint64_t after = spec.meter(kernel_);
             native.accounting_overflow = after < before;
             native.work = native.accounting_overflow ? 0 : after - before;
+          } else if (kind == FeedbackKind::Support &&
+                     outcome.invocation.work_unit == strategy::WorkUnit::Applications) {
+            // A support call without its own meter still has the already
+            // captured native tick counter. Zero counted applications does
+            // not imply zero effort; preserve measured ticks separately.
+            native.effort_currency = "ticks";
+            native.accounting_overflow = kernel_.stats.ticks < ticks;
+            native.work = native.accounting_overflow ? 0 : kernel_.stats.ticks - ticks;
           } else {
             static constexpr const char *currencies[] = {
                 "applications", "bve-ticks", "propagations", "sr-discovery-ticks"};

@@ -58,8 +58,60 @@ static void test_parameter_completion() {
   assert(k.work_budget == 83 && k.walk_random_seed == 31 && k.walk_even_break_base_milli == 2200);
   const auto &walk = std::get<WalkParameters>(receiver.actions[1].native_request->invocation->parameters);
   assert(walk.step_budget == 83 && walk.random_seed == 31 && walk.score_curve == curve);
+  k.touch_filter = true;
+  k.touch_redundant = false;
+  execute_action(k, MaterialSettingsRequest{false, std::nullopt}, &completion);
+  assert(!k.touch_filter && !k.touch_redundant);
+  assert(receiver.actions.back().native_request->description ==
+         "touch-filter=0;likely-kept-redundant=inherit");
+  execute_action(k, MaterialSettingsRequest{std::nullopt, true}, &completion);
+  assert(!k.touch_filter && k.touch_redundant);
+  assert(receiver.actions.back().native_request->description ==
+         "touch-filter=inherit;likely-kept-redundant=1");
+  k.bve_definition_session = 7;
+  execute_action(k, BeginBveDefinitionSessionRequest{}, &completion);
+  assert(k.bve_definition_session == 8 && receiver.actions.back().native_request->description ==
+         "session=7;next=8");
+  assert(k.work_budget == 83 && k.walk_random_seed == 31);
   completion.finish(0, strategy::controller::StopReason::Completed);
-  assert(receiver.begun == 1 && receiver.ended == 1 && receiver.actions.size() == 2);
+  assert(receiver.begun == 1 && receiver.ended == 1 && receiver.actions.size() == 5);
+  const auto before = reads;
+  k.bve_definition_session = UINT64_MAX;
+  execute_action(k, BeginBveDefinitionSessionRequest{}, &disabled);
+  execute_action(k, MaterialSettingsRequest{true, false}, &disabled);
+  assert(!k.bve_definition_session && k.touch_filter && !k.touch_redundant && reads == before);
+}
+
+static void test_arena_ordering_lifetime() {
+  struct Ordering final : ArenaOrdering {
+    void order(const Kernel &, std::vector<Ref> &) override { assert(false); }
+  } caller, selected;
+  struct PreservedScope {
+    Kernel &k;
+    ArenaOrdering *saved;
+    PreservedScope(Kernel &kernel, ArenaOrdering *ordering)
+        : k(kernel), saved(kernel.arena_ordering) { k.arena_ordering = ordering; }
+    ~PreservedScope() { k.arena_ordering = saved; }
+  };
+  Kernel native, shared;
+  native.arena_ordering = shared.arena_ordering = &caller;
+  {
+    PreservedScope before(native, &selected);
+    ArenaOrderingScope after(shared, {&selected});
+    assert(native.arena_ordering == shared.arena_ordering && shared.arena_ordering == &selected);
+    {
+      PreservedScope nested_before(native, nullptr);
+      ArenaOrderingScope nested_after(shared, {nullptr});
+      assert(!native.arena_ordering && !shared.arena_ordering);
+    }
+    assert(native.arena_ordering == shared.arena_ordering && shared.arena_ordering == &selected);
+  }
+  assert(native.arena_ordering == shared.arena_ordering && shared.arena_ordering == &caller);
+  const auto terminal = [&](Kernel &k) {
+    ArenaOrderingScope scope(k, {nullptr});
+    return 20;
+  };
+  assert(terminal(shared) == 20 && shared.arena_ordering == &caller);
 }
 
 static void test_factor_selection_handoff() {
@@ -309,6 +361,7 @@ static void test_candidate_publication(RootPublication roots, bool retirements) 
 
 int main() {
   test_parameter_completion();
+  test_arena_ordering_lifetime();
   test_factor_selection_handoff();
   test_parameter_lifetime();
   test_walk_budget_precedence();

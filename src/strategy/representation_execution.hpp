@@ -65,11 +65,6 @@ inline void execute_action(Kernel &k, MaterializeColdStateRequest request,
         const bool deferred = k.cold_state_deferred;
         execute_action(k, request);
         return deferred ? ApplyResult::Ok : ApplyResult::NoOp;
-      }, [](ApplyResult result) {
-        auto outcome = strategy::controller::feedback_outcome(result);
-        outcome.invocation.applications = 0;
-        outcome.invocation.made_rule_progress = false;
-        return outcome;
       });
 }
 
@@ -88,7 +83,6 @@ inline RootCollectOutcome execute_action(Kernel &k,
         auto outcome = feedback_outcome(result == RootCollectOutcome::Refuted
             ? ApplyResult::Unsat : result == RootCollectOutcome::NoChange
                 ? ApplyResult::NoOp : ApplyResult::Ok);
-        outcome.invocation.applications = 0;
         return outcome;
       });
 }

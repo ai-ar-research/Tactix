@@ -1,0 +1,119 @@
+Test project /home/hwu/SAT-solving/build/shared-policy-prep-debug
+      Start 81: config_wiring
+ 1/13 Test #81: config_wiring ....................***Failed    0.80 sec
+  ok    POLICY bve_bound                  <- src/policies/default_policy.cpp:4601, src/policies/default_policy.cpp:4723
+  ok    POLICY bve_occurrence_limit       <- src/policies/default_policy.cpp:1114, src/strategy/bve_invocation.hpp:255
+  ok    POLICY bve_clause_size_limit      <- src/policies/default_policy.cpp:1116, src/strategy/bve_invocation.hpp:256
+  ok    POLICY bve_xor_arity_limit        <- src/policies/default_policy.cpp:1118, src/strategy/bve_invocation.hpp:258
+  ok    POLICY bve_resolvent_size_limit   <- src/policies/default_policy.cpp:1120, src/strategy/bve_invocation.hpp:259
+  ok    POLICY bve_resolvent_count_limit  <- src/strategy/bve_invocation.hpp:257
+  ok    POLICY bve_fastel_traversal       <- src/strategy/bve_invocation.hpp:265
+  ok    POLICY bve_backward_occurrence_limit <- src/policies/default_policy.cpp:1122, src/strategy/bve_invocation.hpp:260
+  ok    POLICY factor_composite           <- src/policies/default_policy.cpp:1007, src/policies/default_policy.cpp:4987, src/policies/default_policy.cpp:5207
+  ok    POLICY work_budget                <- src/strategy/work_execution.hpp:19, src/strategy/work_execution.hpp:40
+  ok    POLICY work_budget_offset         <- src/strategy/work_execution.hpp:20, src/strategy/work_execution.hpp:41
+  ok    POLICY work_budget_bounded        <- src/strategy/work_execution.hpp:21, src/strategy/work_execution.hpp:42
+  ok    POLICY vivify_scope               <- src/policies/default_policy.cpp:989, src/strategy/vivify_parameters.cpp:23
+  ok    POLICY vivify_irredundant_sort_ratio <- src/policies/default_policy.cpp:993, src/strategy/vivify_parameters.cpp:26
+  ok    POLICY bump_reason_limit          <- src/policies/default_policy.cpp:703, src/policies/default_policy.cpp:2771, src/policies/default_policy.cpp:2773
+  ok    POLICY bump_reason_depth          <- src/policies/default_policy.cpp:4013, src/policies/default_policy.cpp:4031
+  ok    POLICY inprocessing               <- src/strategy/root_execution.hpp:26, src/strategy/root_execution.hpp:27, src/strategy/root_execution.hpp:29
+  ok    POLICY jump_reasons_bigbig        <- src/policies/default_policy.cpp:2650
+  ok    POLICY conflict_reuse_chrono_levels <- src/strategy/analyze_parameters.cpp:23
+  ok    POLICY bve_backward               <- src/policies/default_policy.cpp:1130, src/policies/default_policy.cpp:2834, src/strategy/bve_invocation.hpp:264
+  ok    POLICY bce_occ_limit              <- src/strategy/rule_parameters.cpp:166
+  ok    POLICY midround_budget            <- src/strategy/work_execution.hpp:22, src/strategy/work_execution.hpp:43
+  ok    POLICY factor_size                <- src/strategy/rule_parameters.cpp:175
+  ok    POLICY transitive_early_exit      <- src/policies/default_policy.cpp:1011, src/strategy/rule_parameters.cpp:184
+  ok    POLICY transitive_live_meter      <- src/policies/default_policy.cpp:1013, src/strategy/rule_parameters.cpp:185
+  ok    POLICY transitive_budget_checked  <- src/strategy/rule_parameters.cpp:186
+  ok    POLICY bve_definition_budget      <- src/policies/default_policy.cpp:1124, src/policies/default_policy.cpp:2826, src/strategy/bve_invocation.hpp:261
+  ok    POLICY bve_definition_cores       <- src/policies/default_policy.cpp:1126, src/policies/default_policy.cpp:2828, src/strategy/bve_invocation.hpp:262
+  ok    POLICY bve_definition_core_budget_multiplier <- src/policies/default_policy.cpp:1128, src/policies/default_policy.cpp:2831, src/strategy/bve_invocation.hpp:263
+  ok    POLICY ternary_occ_limit          <- src/strategy/rule_parameters.cpp:170
+  ok    POLICY ternary_max_add_percent    <- src/strategy/rule_parameters.cpp:171
+  ok    POLICY touch_filter               <- src/policies/default_policy.cpp:1019, src/policies/default_policy.cpp:1778, src/policies/default_policy.cpp:2877
+  ok    POLICY touch_redundant            <- src/strategy/work_execution.hpp:63, src/strategy/work_execution.hpp:128
+  ok    POLICY vivify_reuse               <- src/policies/default_policy.cpp:991, src/strategy/vivify_parameters.cpp:24
+  ok    POLICY vivify_flush               <- src/policies/default_policy.cpp:992, src/strategy/vivify_parameters.cpp:25
+  ok    POLICY factor_demote_fresh        <- src/policies/default_policy.cpp:1009, src/strategy/rule_parameters.cpp:179
+  ok    POLICY factor_cand_rounds         <- src/strategy/rule_parameters.cpp:177
+  ok    POLICY no_ext_reason_bump         <- src/strategy/analyze_parameters.cpp:30
+  ok    POLICY subst_demote               <- src/strategy/rule_parameters.cpp:190
+  ok    POLICY eager_subsume              <- src/policies/default_policy.cpp:714, src/policies/default_policy.cpp:2815, src/policies/default_policy.cpp:3414
+  ok    POLICY conflict_reuse             <- src/policies/default_policy.cpp:709, src/policies/default_policy.cpp:2807, src/policies/default_policy.cpp:3410
+  ok    POLICY jump_reasons               <- src/policies/default_policy.cpp:710, src/policies/default_policy.cpp:2809, src/policies/default_policy.cpp:3411
+  ok    POLICY shrink_glue_promote        <- src/policies/default_policy.cpp:711, src/policies/default_policy.cpp:2811, src/policies/default_policy.cpp:3412
+  ok    POLICY factor_bound               <- src/strategy/rule_parameters.cpp:176
+  ok    POLICY walk_even_break_base_milli <- src/policies/default_policy.cpp:769, src/strategy/rule_parameters.cpp:213, src/strategy/rule_parameters.cpp:230
+  ok    POLICY reorder_maximum_clause_size <- src/strategy/rule_parameters.cpp:236
+  ok    POLICY reorder_clause_decay_milli <- src/strategy/rule_parameters.cpp:237
+  ok    POLICY reorder_binary_weight_milli <- src/strategy/rule_parameters.cpp:238
+  ok    POLICY reorder_balanced_polarity_milli <- src/strategy/rule_parameters.cpp:239
+  ok    POLICY parity_model_maximum_variables <- src/strategy/rule_parameters.cpp:243
+  ok    POLICY parity_model_maximum_groups <- src/strategy/rule_parameters.cpp:244
+  ok    POLICY parity_model_maximum_constraints <- src/strategy/rule_parameters.cpp:245
+  ok    POLICY parity_model_minimum_group_clauses <- src/strategy/rule_parameters.cpp:246
+  ok    POLICY parity_model_minimum_equations <- src/strategy/rule_parameters.cpp:247
+  ok    POLICY parity_model_maximum_free_variables <- src/strategy/rule_parameters.cpp:248
+  ok    POLICY parity_model_candidate_budget <- src/strategy/rule_parameters.cpp:249
+  ok    POLICY parity_refutation_maximum_variables <- src/strategy/rule_parameters.cpp:250
+  ok    POLICY parity_refutation_maximum_groups <- src/strategy/rule_parameters.cpp:251
+  ok    POLICY parity_refutation_maximum_constraints <- src/strategy/rule_parameters.cpp:252
+  ok    POLICY parity_refutation_maximum_arity <- src/strategy/rule_parameters.cpp:253
+  ok    POLICY parity_refutation_probe_constraints <- src/strategy/rule_parameters.cpp:254
+  ok    POLICY parity_refutation_minimum_probe_repeats <- src/strategy/rule_parameters.cpp:255
+  ok    POLICY parity_refutation_maximum_proof_additions <- src/strategy/rule_parameters.cpp:257
+  ok    POLICY onehot_model_maximum_variables <- src/strategy/rule_parameters.cpp:262
+  ok    POLICY onehot_model_maximum_domains <- src/strategy/rule_parameters.cpp:263
+  ok    POLICY onehot_model_maximum_constraints <- src/strategy/rule_parameters.cpp:264
+  ok    POLICY onehot_model_maximum_equation_arity <- src/strategy/rule_parameters.cpp:265
+  ok    POLICY onehot_model_minimum_domains <- src/strategy/rule_parameters.cpp:266
+  ok    POLICY onehot_model_minimum_equations <- src/strategy/rule_parameters.cpp:267
+  ok    POLICY onehot_model_maximum_free_domains <- src/strategy/rule_parameters.cpp:268
+  ok    POLICY onehot_model_candidate_budget <- src/strategy/rule_parameters.cpp:269
+  ok    POLICY exact_one_refutation_maximum_variables <- src/strategy/rule_parameters.cpp:270
+  ok    POLICY exact_one_refutation_maximum_groups <- src/strategy/rule_parameters.cpp:271
+  ok    POLICY exact_one_refutation_maximum_constraints <- src/strategy/rule_parameters.cpp:272
+  ok    POLICY exact_one_refutation_maximum_arity <- src/strategy/rule_parameters.cpp:274
+  ok    POLICY exact_one_refutation_maximum_proof_additions <- src/strategy/rule_parameters.cpp:275
+  ok    POLICY reduce_victim_numerator    <- src/strategy/rule_parameters.cpp:196
+  ok    POLICY reduce_victim_denominator  <- src/strategy/rule_parameters.cpp:197
+  ok    POLICY reduce_protect_tiers       <- src/strategy/rule_parameters.cpp:198
+  ok    POLICY reduce_compact_collection  <- src/strategy/rule_parameters.cpp:199
+  ok    POLICY reduce_bookkeeping         <- src/strategy/rule_parameters.cpp:200
+  FAIL  UNWIRED: `bve_definition_session` is tagged POLICY (embedded Kitten create/release lifetime; advanced once per BVE slot) but NOTHING in default_policy.* or its named typed adapter writes it. This is the N4 failure shape — we own the mechanism and never connect it.
+check-config-wiring: 96 config fields, 82 POLICY-tagged, 1 failure(s)
+
+      Start 82: effort_specs
+ 2/13 Test #82: effort_specs .....................   Passed    0.29 sec
+      Start 83: option_coverage
+ 3/13 Test #83: option_coverage ..................   Passed    0.57 sec
+      Start 84: stat_ids
+ 4/13 Test #84: stat_ids .........................   Passed    0.05 sec
+      Start 85: feedback_statistics
+ 5/13 Test #85: feedback_statistics ..............   Passed    0.04 sec
+      Start 86: citations
+ 6/13 Test #86: citations ........................   Passed   17.36 sec
+      Start 87: section_refs
+ 7/13 Test #87: section_refs .....................   Passed    0.08 sec
+      Start 88: inventory
+ 8/13 Test #88: inventory ........................   Passed    0.05 sec
+      Start 89: comment_hygiene
+ 9/13 Test #89: comment_hygiene ..................   Passed    3.24 sec
+      Start 90: doc_size
+10/13 Test #90: doc_size .........................   Passed    0.05 sec
+      Start 91: proof_rule_sync
+11/13 Test #91: proof_rule_sync ..................   Passed    0.04 sec
+      Start 92: default_strategy_config_check
+12/13 Test #92: default_strategy_config_check ....   Passed    0.06 sec
+      Start 95: rule_policy_boundary
+13/13 Test #95: rule_policy_boundary .............   Passed    0.16 sec
+
+92% tests passed, 1 tests failed out of 13
+
+Total Test time (real) =  22.81 sec
+
+The following tests FAILED:
+	 81 - config_wiring (Failed)
+Errors while running CTest

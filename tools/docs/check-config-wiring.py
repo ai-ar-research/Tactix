@@ -114,6 +114,12 @@ POLICY_BINDINGS = {
 # invocations. These are named field-to-profile paths, not a blanket strategy
 # writer exemption. Every moved field needs its policy value and actual setter.
 PARAMETER_EXECUTION = "src/strategy/parameter_execution.hpp"
+POLICY_ADAPTERS["bve_definition_session"] = [PARAMETER_EXECUTION]
+POLICY_BINDINGS["bve_definition_session"] = [
+    (POLICY[0], r"if \(group == SlotGroup::Eliminate && !initial_fast_elimination_active_\)\s*"
+                r"execution::execute_action\(k, execution::BeginBveDefinitionSessionRequest\{\}, completion\)"),
+    (PARAMETER_EXECUTION, r"k\.bve_definition_session\s*=\s*k\.bve_definition_session\s*\+\s*1"),
+]
 PARAMETER_INSTALL = (PARAMETER_EXECUTION,
                      r"strategy::install_rule_parameters\(k, request\.parameters\)")
 RULE_PARAMETERS = "src/strategy/rule_parameters.cpp"
@@ -303,7 +309,7 @@ TABLE = {
     "bve_backward_occurrence_limit":
                                 ("POLICY", "typed backward elimination occurrence limit"),
     "bve_definition_session":  ("POLICY", "embedded Kitten create/release lifetime; "
-                                           "advanced once per BVE slot"),
+                                           "advanced once per ordinary Eliminate phase"),
     "factor_composite":        ("POLICY", "S2b composite grids, per-occasion"),
     "work_budget":             ("POLICY", "per-round budget handed to budget-aware rules"),
     "work_budget_offset":      ("POLICY", "work already charged against a cumulative "
