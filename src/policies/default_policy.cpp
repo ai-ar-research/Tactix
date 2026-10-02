@@ -5,6 +5,7 @@
 #include "strategy/lucky_execution.hpp"
 #include "strategy/representation_execution.hpp"
 #include "strategy/substitute_execution.hpp"
+#include "strategy/vivify_execution.hpp"
 #include "diagnostics/event_trace.hpp"
 #include "diagnostics/rule_journal.hpp"
 #include "policies/heuristics.hpp"
@@ -1590,26 +1591,8 @@ uint32_t reuse_trail_level(const Kernel &k, uint32_t jump) {
 }
 
 
-struct TickSinkScope {
-  Kernel &k;
-  TickSinkScope(Kernel &kk, uint64_t Stats::*ctr) : k(kk) {
-    k.tick_sink = ctr ? &(k.stats.*ctr) : nullptr;
-  }
-  ~TickSinkScope() { k.tick_sink = nullptr; }
-  TickSinkScope(const TickSinkScope &) = delete;
-  TickSinkScope &operator=(const TickSinkScope &) = delete;
-};
-
-#ifdef TACTIX_ENABLE_RULE_JOURNAL
-struct RuleJournalMeterScope {
-  explicit RuleJournalMeterScope(RuleJournalMeter meter) {
-    rule_journal_set_effort_meter(meter);
-  }
-  ~RuleJournalMeterScope() { rule_journal_set_effort_meter(nullptr); }
-  RuleJournalMeterScope(const RuleJournalMeterScope &) = delete;
-  RuleJournalMeterScope &operator=(const RuleJournalMeterScope &) = delete;
-};
-#endif
+using execution::TickSinkScope;
+using execution::metered_rule_apply;
 
 using InprocessScope =
     execution::ExecutionScope<execution::ExecutionContext::Inprocessing>;
@@ -1769,19 +1752,6 @@ const char *journal_result(ApplyResult result) {
   return "unknown";
 }
 #endif
-
-template <class Apply>
-ApplyResult metered_rule_apply(Kernel &k,
-                               uint64_t (*meter)(const Kernel &),
-                               Apply &&apply) {
-#ifdef TACTIX_ENABLE_RULE_JOURNAL
-  RuleJournalMeterScope journal_meter(meter);
-#else
-  (void)meter;
-#endif
-  (void)k;
-  return apply();
-}
 
 // The meter the compile-time journal prices an entry in.  For every metered
 // rule this is the ledger meter; Congruence has none, so the journal alone
@@ -3244,8 +3214,9 @@ void DefaultInprocessScheduler::build(Kernel &k) {
   k.vivify_flush = config().vivify_parameters.flush;
   k.vivify_irredundant_sort_ratio =
       config().vivify_parameters.irredundant_sort_ratio;
-  k.touch_filter = config().touch_filter;
-  k.touch_redundant = config().likely_kept_redundant;
+  execution::execute_action(k, execution::MaterialSettingsRequest{
+                                   config().touch_filter,
+                                   config().likely_kept_redundant});
   k.bve_clause_size_limit = config().bve_clause_size_limit;
   k.bve_resolvent_count_limit = UINT32_MAX;
   k.bve_xor_arity_limit = config().bve_xor_arity_limit;
@@ -4599,9 +4570,14 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
         e.ord.advanced++;
       }
       const bool hand_residual = e.budget_aware && e.meter;
+      std::optional<execution::WorkSettingsScope> candidate_work;
       if (hand_residual) {
         const uint64_t remaining = ledger_remaining(e, k, limit);
-        k.work_budget = remaining ? remaining : 1;
+        candidate_work.emplace(
+            k, execution::WorkSettingsRequest{remaining ? remaining : 1,
+                                              std::nullopt, std::nullopt,
+                                              std::nullopt},
+            execution::WorkSettingsExit::ClearBudget);
       }
       // Kissat mutates H at the same points as each BVE candidate: units
       // produced while generating/connecting resolvents become fixed first,
@@ -4665,8 +4641,7 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
       if (bve_entry) {
         heuristics_consume_retirements(k);
       }
-      if (hand_residual)
-        k.work_budget = 0;
+      candidate_work.reset();
       if (ar == ApplyResult::Unsat || k.inconsistent) {
         ctx.phase_unsat = true;
         break;
@@ -4804,7 +4779,7 @@ ApplyResult DefaultInprocessScheduler::run_vivify_dose(Kernel &k, SlotEntry &e,
            remaining % denominator * weight / denominator;
   };
   uint64_t cumulative_budget = 0;
-  k.work_budget_bounded = true;
+  execution::VivifyDoseScope dose(k);
   const uint32_t passes =
       static_cast<uint32_t>(cfg.vivify_tier_scopes.size());
   // Equal focused tier-1 and tier-2 glue limits leave tier 2 empty.  Kissat
@@ -4821,13 +4796,12 @@ ApplyResult DefaultInprocessScheduler::run_vivify_dose(Kernel &k, SlotEntry &e,
        p++) {
     if (tier_shares[p] == 0)
       continue; // a band without a share is not a round
-    k.vivify_scope = cfg.vivify_tier_scopes[p];
     cumulative_budget += share(tier_shares[p]);
-    k.work_budget = cumulative_budget;
-    k.work_budget_offset = e.meter(k) - dose_start;
-    TickSinkScope sink(k, e.tick_counter);
-    const ApplyResult a =
-        metered_rule_apply(k, e.meter, [&] { return apply_rule(r, k); });
+    const ApplyResult a = execution::execute_action(
+        k, r, execution::VivifyBandRequest{cfg.vivify_tier_scopes[p],
+                                           cumulative_budget,
+                                           e.meter(k) - dose_start,
+                                           e.tick_counter, e.meter});
     if (a == ApplyResult::Unsat ||
         (a == ApplyResult::Ok && ar != ApplyResult::Unsat))
       ar = a;
@@ -4845,14 +4819,10 @@ ApplyResult DefaultInprocessScheduler::run_vivify_dose(Kernel &k, SlotEntry &e,
              k.stats.vivify_instantiated;
     };
     const uint64_t produced_before = produced();
-    k.vivify_scope = 2;
-    k.work_budget = cumulative_budget;
-    k.work_budget_offset = e.meter(k) - dose_start;
-    const ApplyResult ar2 = [&] {
-      TickSinkScope sink(k, e.tick_counter);
-      return metered_rule_apply(k, e.meter,
-                                [&] { return apply_rule(r, k); });
-    }();
+    const ApplyResult ar2 = execution::execute_action(
+        k, r, execution::VivifyBandRequest{2, cumulative_budget,
+                                           e.meter(k) - dose_start,
+                                           e.tick_counter, e.meter});
     if (ar2 == ApplyResult::Unsat)
       ar = ar2;
     else if (ar2 == ApplyResult::Ok && ar != ApplyResult::Ok)
@@ -4872,10 +4842,6 @@ ApplyResult DefaultInprocessScheduler::run_vivify_dose(Kernel &k, SlotEntry &e,
       }
     }
   }
-  k.vivify_scope = 0;
-  k.work_budget = 0;
-  k.work_budget_offset = 0;
-  k.work_budget_bounded = false;
   return ar;
 }
 
@@ -4900,15 +4866,18 @@ ApplyResult DefaultInprocessScheduler::run_budgeted_batch(Kernel &k, SlotEntry &
 #endif
   if (factor_entry)
     factor_dose_config(k, e);
-  k.work_budget = handed;
   // The fused Strengthen pass reproduces Kissat's forward-step ceiling at the
   // only reference cut point: strictly between complete candidates.  The
   // standalone C1 decomposition retains its diagnostic per-partner budget.
   // Both cuts are resumable through the touched-variable substrate.
-  const bool previous_midround_budget = k.midround_budget;
-  k.midround_budget = config().forward_midround_budget &&
-                      (!std::strcmp(r.name, "SubsumeForward") ||
-                       !std::strcmp(r.name, "Strengthen"));
+  std::optional<execution::WorkSettingsScope> work;
+  work.emplace(
+      k, execution::WorkSettingsRequest{
+             handed, std::nullopt, std::nullopt,
+             config().forward_midround_budget &&
+                 (!std::strcmp(r.name, "SubsumeForward") ||
+                  !std::strcmp(r.name, "Strengthen"))},
+      execution::WorkSettingsExit::ClearBudget);
   ApplyResult ar;
   {
     TickSinkScope sink(k, e.tick_counter);
@@ -4968,13 +4937,14 @@ ApplyResult DefaultInprocessScheduler::run_budgeted_batch(Kernel &k, SlotEntry &
         k.stats.rule_calls[r.id]++;
       }
     } else {
-      ar = metered_rule_apply(k, e.meter, [&] { return apply_rule(r, k); });
+      ar = metered_rule_apply(k, e.meter, [&] {
+        return execution::execute_action(k, execution::RegisteredRuleRequest{r});
+      });
     }
   }
   if (factor_entry && k.factor_completed)
     factor_marked_watermark_ = k.factor_literals_marked;
-  k.midround_budget = previous_midround_budget;
-  k.work_budget = 0;
+  work.reset();
   k.factor_composite = false;
   const uint64_t spent = e.meter(k) - spent_before;
   e.tm.handed += handed;
@@ -5113,7 +5083,9 @@ DefaultInprocessScheduler::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVT
       }
     } else {
       ar = metered_rule_apply(k, journal_effort_meter(e, r),
-                              [&] { return apply_rule(r, k); });
+                              [&] {
+        return execution::execute_action(k, execution::RegisteredRuleRequest{r});
+      });
     }
   }
   ctx.last_result = ar;
