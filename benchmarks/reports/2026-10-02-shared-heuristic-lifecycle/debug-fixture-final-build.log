@@ -1,0 +1,5 @@
+[  0%] Built target tactix_symmetry_backend
+[ 94%] Built target tactix_lib
+[100%] Building CXX object tests/CMakeFiles/test_heuristic_execution.dir/test_heuristic_execution.cpp.o
+[100%] Linking CXX executable test_heuristic_execution
+[100%] Built target test_heuristic_execution

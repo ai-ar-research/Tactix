@@ -5,6 +5,7 @@
 #pragma once
 
 #include "kernel/kernel.hpp"
+#include "strategy/heuristic_execution.hpp"
 
 namespace tactix {
 
@@ -105,25 +106,10 @@ struct ScopedHeuristics {
   Heuristics h;
   Kernel &kref;
   explicit ScopedHeuristics(Kernel &k) : kref(k) {
-    k.h = &h;
-    k.saved_phases = &h.saved;
-    if (k.nvars)
-      heuristics_reserve_vars(k, 0, k.nvars);
-    if (!k.input_activation_order.empty()) {
-      heuristics_seed_activation_order(k, k.input_activation_order);
-      k.input_activation_order.clear();
-      k.input_activation_order.shrink_to_fit();
-    }
-    // Identities already inactive at attach (input units fixed during load,
-    // or retired variables on a re-attached kernel) leave the ranking
-    // structures immediately, as kissat deactivated them when they became
-    // inactive.  See heuristics_deactivate_inactive_vars for the stamp-slot
-    // contract.
-    heuristics_deactivate_inactive_vars(k);
+    execution::execute_action(k, execution::HeuristicAttachmentRequest{h});
   }
   ~ScopedHeuristics() {
-    kref.saved_phases = nullptr;
-    kref.h = nullptr;
+    execution::execute_action(kref, execution::HeuristicDetachmentRequest{h});
   }
   ScopedHeuristics(const ScopedHeuristics &) = delete;
   ScopedHeuristics &operator=(const ScopedHeuristics &) = delete;

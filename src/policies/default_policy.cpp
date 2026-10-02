@@ -3805,17 +3805,62 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           structured_root_amo_binaries_added,
           structured_root_graph_root_progress) &&
       config_.inprocess.structured_root_residual_search_handoff) {
-    const uint64_t started = now_nanos();
-    k.stats.residual_handoff_variables +=
-        heuristics_prepare_residual_activation_order(k);
-    residual_import_order = k.input_activation_order;
-    k.stats.residual_handoff_nanos += now_nanos() - started;
-    ++k.stats.residual_handoff_calls;
+    (void)execution::complete_action(completion_, FeedbackKind::Support,
+        "PrepareResidualGuidance", INSTANCE_CANONICAL, [] {
+          execution::NativeFeedbackSpec spec;
+          spec.description.description = "prepare-first-search-activation-seed";
+          spec.description.effort_currency = "activation-variables";
+          spec.meter = [](const Kernel &kernel) { return kernel.stats.residual_handoff_variables; };
+          return spec;
+        }, [&] {
+          const uint64_t started = now_nanos();
+          k.stats.residual_handoff_variables +=
+              execution::execute_action(k, execution::ResidualActivationRequest{});
+          residual_import_order = k.input_activation_order;
+          k.stats.residual_handoff_nanos += now_nanos() - started;
+          ++k.stats.residual_handoff_calls;
+          return ApplyResult::Ok;
+        }, [](ApplyResult result) {
+          auto outcome = strategy::controller::feedback_outcome(result);
+          outcome.invocation.applications = 0;
+          outcome.invocation.made_rule_progress = false;
+          return outcome;
+        });
   }
   if (!k.h)
-    owned_h.emplace(k);
+    (void)execution::complete_action(completion_, FeedbackKind::Support,
+        "AttachHeuristics", INSTANCE_CANONICAL, [] {
+          execution::NativeFeedbackSpec spec;
+          spec.description.description = "fresh;activation-storage=shrink";
+          spec.description.effort_currency = "ticks";
+          spec.meter = [](const Kernel &kernel) { return kernel.stats.ticks; };
+          return spec;
+        }, [&] {
+          owned_h.emplace(k);
+          return ApplyResult::Ok;
+        }, [](ApplyResult result) {
+          auto outcome = strategy::controller::feedback_outcome(result);
+          outcome.invocation.applications = 0;
+          outcome.invocation.made_rule_progress = false;
+          return outcome;
+        });
   if (!residual_import_order.empty())
-    heuristics_seed_residual_import_order(k, residual_import_order);
+    (void)execution::complete_action(completion_, FeedbackKind::Support,
+        "SeedResidualImportOrder", INSTANCE_CANONICAL, [&] {
+          execution::NativeFeedbackSpec spec;
+          spec.description.description = "variables=" + std::to_string(residual_import_order.size());
+          spec.description.effort_currency = "ticks";
+          spec.meter = [](const Kernel &kernel) { return kernel.stats.ticks; };
+          return spec;
+        }, [&] {
+          execution::execute_action(k, execution::ResidualImportRequest{residual_import_order});
+          return ApplyResult::Ok;
+        }, [](ApplyResult result) {
+          auto outcome = strategy::controller::feedback_outcome(result);
+          outcome.invocation.applications = 0;
+          outcome.invocation.made_rule_progress = false;
+          return outcome;
+        });
   event_trace.macro(k, "preprocess_begin");
   // Kissat preprocess.c initially propagates, then consumes those root units
   // by sparse-collecting the whole large-clause arena before the first Probe

@@ -26,19 +26,8 @@ public:
       : kernel_(kernel), previous_(kernel.h),
         previous_saved_(kernel.saved_phases), settings_(std::move(settings)),
         feedback_(feedback) {
-    if (previous_)
-      heuristics_ = std::move(*previous_);
-    kernel_.h = &heuristics_;
-    kernel_.saved_phases = &heuristics_.saved;
-    if (!previous_) {
-      if (kernel_.nvars)
-        heuristics_reserve_vars(kernel_, 0, kernel_.nvars);
-      if (!kernel_.input_activation_order.empty()) {
-        heuristics_seed_activation_order(kernel_, kernel_.input_activation_order);
-        kernel_.input_activation_order.clear();
-      }
-      heuristics_deactivate_inactive_vars(kernel_);
-    }
+    execution::execute_action(kernel_, execution::HeuristicAttachmentRequest{
+        heuristics_, previous_, execution::ActivationStorage::Retain});
     if (feedback_.enabled()) feedback_.begin(observe());
   }
 
@@ -47,10 +36,8 @@ public:
       feedback_.pause_measurement();
       feedback_.finish(observe(), 0, StopReason::Detached);
     }
-    if (previous_)
-      *previous_ = std::move(heuristics_);
-    kernel_.h = previous_;
-    kernel_.saved_phases = previous_saved_;
+    execution::execute_action(kernel_, execution::HeuristicDetachmentRequest{
+        heuristics_, previous_, previous_saved_});
   }
 
   RestartController(const RestartController &) = delete;

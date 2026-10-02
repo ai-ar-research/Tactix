@@ -540,13 +540,13 @@ static void test_startup_support_feedback() {
       assert(state == preserved);
       std::vector<std::string> startup;
       for (const auto &record : capture.actions)
-        if (record.identity == "MaterializeColdState" || record.identity == "SparseCollect" ||
+        if (record.identity == "MaterializeColdState" || record.identity == "AttachHeuristics" || record.identity == "SparseCollect" ||
             record.identity == "CompactRandomOrder") {
           startup.push_back(record.identity);
           assert(!record.before.searching && !record.after.searching);
           assert(!record.outcome.invocation.applications);
         }
-      assert((startup == std::vector<std::string>{"MaterializeColdState", "SparseCollect", "CompactRandomOrder"}));
+      assert((startup == std::vector<std::string>{"MaterializeColdState", "AttachHeuristics", "SparseCollect", "CompactRandomOrder"}));
       assert(capture.begun == 1 && capture.ended == 1);
     }
   }
@@ -561,7 +561,7 @@ static void test_startup_support_feedback() {
   assert(policy.solve(early) == 10 && early.cold_state_deferred);
   assert(!early.h && !early.saved_phases);
   for (const auto &record : capture.actions)
-    assert(record.identity != "MaterializeColdState" && record.identity != "SparseCollect" &&
+    assert(record.identity != "MaterializeColdState" && record.identity != "AttachHeuristics" && record.identity != "SparseCollect" &&
            record.identity != "CompactRandomOrder");
 }
 

@@ -181,6 +181,24 @@ native BCE profile/work after the nested phase-saving scope restores the
 enclosing startup context. Early terminal opportunities still bypass unused
 support work.
 
+Heuristic attachment and detachment use shared typed support requests while
+the policy owns storage and lifetime. DefaultPolicy retains its delayed fresh
+attachment and native nonbinding activation-storage shrink request; the
+controller attaches immediately and retains seed capacity. A borrowed H moves
+into the controller and back on exit, including later variable growth and
+saved/target/best state. Its original saved-phase pointer is restored exactly;
+an unrelated pending activation seed is not consumed. Controller feedback
+begins after attachment and ends before transfer back, preserving the existing
+session bootstrap boundary.
+
+Default residual guidance retains its native admission predicate and order:
+prepare the residual activation seed, attach fresh H, then seed residual import
+order. `PrepareResidualGuidance`, `AttachHeuristics` and
+`SeedResidualImportOrder` record these support completions without claiming
+proof-rule applications or formula progress. Preparation reports its native
+activation-variable count; attachment/import retain native ticks, including
+zero work. Existing borrowed H and early terminals still bypass unused setup.
+
 Successful ResumeSearch starts an interval after root work. Restart closes it;
 partial continuation starts a linked interval under the same configuration.
 Native continuation also links intervals after ordinary full restarts, root
