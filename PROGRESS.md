@@ -61,6 +61,6 @@ The [verbatim pre-controller snapshot](docs/log/2026-10-01-pre-controller-progre
 
 - Applied shared-policy repair passes all four default gates and feedback measurement; 262 completed pairs retain recorded work/certificates. Full Debug and fresh fuzz remain pending.
 - Accepted controller foundations: full Debug, both-policy fuzz and all four regressions pass; repaired checker installed and per-instance timing analyzed.
-- Reconciled project skills with current proof routing, allocation, ownership, measurement and user-authorization contracts.
+- Reconciled project skills with proof routing, allocation, measurement and authorization; shared-file ownership now names the primary agent for either Claude or Codex.
 - Documented the controller-foundation stage and moved completed/superseded progress history out of the resume surface.
 - Collected the terminal five-arm cpu-q comparison and saved checker-failure analysis; generated Andrew's results report.

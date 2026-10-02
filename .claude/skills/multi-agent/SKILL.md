@@ -14,7 +14,7 @@ required scoped commit. Do not leave authoritative work under `.claude/worktrees
 
 - Writes are disjoint. Shared files such as `PROGRESS.md`, the plan, calculus,
   implementation notes, registries, and build lists have one owner: the primary
-  Claude agent unless ownership is explicitly transferred.
+  agent unless ownership is explicitly transferred.
 - Agents stage explicit paths; never use `git add -A`, `git add .`, or
   `git commit -a`.
 - Each agent reports commit SHA, changed paths, validation, assumptions, and
