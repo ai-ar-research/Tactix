@@ -1,0 +1,1664 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="(empty)"
+	tests="212"
+	failures="3"
+	disabled="0"
+	skipped="0"
+	hostname=""
+	time="15197"
+	timestamp="2026-10-02T12:00:36"
+	>
+	<testcase name="kernel" classname="kernel" time="0.0368392" status="run">
+		<properties/>
+		<system-out>test_kernel OK
+</system-out>
+	</testcase>
+	<testcase name="clause_arena_replay" classname="clause_arena_replay" time="0.403744" status="run">
+		<properties/>
+		<system-out>clause-arena clauses=32768 growth_boundaries=58 collection_rounds=32 digest=c499b64fb8e67383
+</system-out>
+	</testcase>
+	<testcase name="parse" classname="parse" time="0.0509637" status="run">
+		<properties/>
+		<system-out>test_parse OK
+</system-out>
+	</testcase>
+	<testcase name="proof" classname="proof" time="0.0473677" status="run">
+		<properties/>
+		<system-out>test_proof: all proof-backend serializer cases passed
+</system-out>
+	</testcase>
+	<testcase name="sr_proof_encoding" classname="sr_proof_encoding" time="0.00415419" status="run">
+		<properties/>
+		<system-out>general SR encoding: legal applications, compaction and extensions pass
+</system-out>
+	</testcase>
+	<testcase name="analyze" classname="analyze" time="2.32827" status="run">
+		<properties/>
+		<system-out>test_analyze OK
+</system-out>
+	</testcase>
+	<testcase name="restart_reduce" classname="restart_reduce" time="0.00892637" status="run">
+		<properties/>
+		<system-out>test_restart_reduce OK
+</system-out>
+	</testcase>
+	<testcase name="switchmode" classname="switchmode" time="0.00589684" status="run">
+		<properties/>
+		<system-out>test_switchmode: all passed
+</system-out>
+	</testcase>
+	<testcase name="rephase" classname="rephase" time="0.00648218" status="run">
+		<properties/>
+		<system-out>test_rephase OK
+</system-out>
+	</testcase>
+	<testcase name="subsolver" classname="subsolver" time="10.0412" status="run">
+		<properties/>
+		<system-out>  brute force: 100000 iterations, 34428 SAT / 65572 UNSAT, 33300 with assumptions
+  fixed derivations: 20688 refutations checked (5683 over assumptions, 15005 empty), 2.7 steps / 11.1 core clauses each, 11913 multi-step (max 44)
+  Kitten derivations: 8281 refutations checked (2287 over assumptions, 5994 empty), 5.1 steps / 10.9 core clauses each, 5863 multi-step (max 45)
+test_subsolver: all passed
+</system-out>
+	</testcase>
+	<testcase name="subsolver_export_resource" classname="subsolver_export_resource" time="0.00262549" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="sweep" classname="sweep" time="2.57379" status="run">
+		<properties/>
+		<system-out>  S-d: emitted 6 binaries (3 via the captured core)
+  S-d: non-RUP pairs declined, F unchanged
+  admission: no-proof agrees (non-RUP declined, RUP admitted)
+  admission: DRAT agrees (non-RUP declined, RUP admitted)
+  admission: DSR agrees (non-RUP declined, RUP admitted)
+  admission: LRAT agrees (non-RUP declined, RUP admitted)
+  S-e: general path emitted 2 binaries for a non-RUP equivalence
+  substitution without a dense session kept 10 binary watches whole
+  oracle: 86501 environments, 5344 claims (17 not RUP)
+test_sweep: all tests passed
+</system-out>
+	</testcase>
+	<testcase name="sweep_interrupted_direction" classname="sweep_interrupted_direction" time="0.22938" status="run">
+		<properties/>
+		<system-out>test_sweep_interrupted_direction OK
+</system-out>
+	</testcase>
+	<testcase name="scheduling" classname="scheduling" time="0.0683301" status="run">
+		<properties/>
+		<system-out>  eliminate entry: sparse watches flushed, dense image only, restored at exit
+  mode growth key: matches kissat's (switched+1)/2 ladder
+  reason bump: Kissat direct reasons in both modes
+  reason bump delay: consumed only at finalized-clause gate
+  analysis trail reuse: Kissat default off, CaDiCaL arm retained
+  factor material gate: cumulative Kissat watermark
+  factor large-formula gate: latched for the solve
+  retier cadence: only OTFS re-analysis advances glue limit
+  effort limit: kissat's formula, phase anchor, no clamps
+  initial effort anchors: input propagation remains priced
+  Eliminate sparse resume: root suffix replay uses search ticks
+  preprocess: one reduced probe pipeline, 10m tick reference
+  fastel: typed local subsumption plus bounded BVE only
+  fastel discovery: mandatory scan declines before mutation
+  fastel candidate order: owner score survives BVE dispatch
+  preprocess followups: all four producer outcomes covered
+  preprocess followups: neither-producer path takes final once
+  inproce...
+[This part of the test output was removed since it exceeds the threshold of 1024 bytes.]
+</system-out>
+	</testcase>
+	<testcase name="strategy_config" classname="strategy_config" time="0.299465" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="event_trace" classname="event_trace" time="0.0189016" status="run">
+		<properties/>
+		<system-out>test_event_trace OK
+</system-out>
+	</testcase>
+	<testcase name="event_trace_compare" classname="event_trace_compare" time="0.6876" status="run">
+		<properties/>
+		<system-out>test_compare_event_trace OK
+</system-out>
+	</testcase>
+	<testcase name="reduce_trace_compare" classname="reduce_trace_compare" time="0.0728622" status="run">
+		<properties/>
+		<system-out>compare-reduce-trace: ok
+</system-out>
+	</testcase>
+	<testcase name="modelcheck" classname="modelcheck" time="0.0705895" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="runtime_task" classname="runtime_task" time="0.318529" status="run">
+		<properties/>
+		<system-out>.......
+----------------------------------------------------------------------
+Ran 7 tests in 0.166s
+
+OK
+</system-out>
+	</testcase>
+	<testcase name="kissat_journal_overlay_static" classname="kissat_journal_overlay_static" time="0.0564608" status="run">
+		<properties/>
+		<system-out>test_kissat_journal_overlay_static OK
+</system-out>
+	</testcase>
+	<testcase name="rule_journal" classname="rule_journal" time="0.0743066" status="run">
+		<properties/>
+		<system-out>test_rule_journal OK
+</system-out>
+	</testcase>
+	<testcase name="p4_fixtures" classname="p4_fixtures" time="0.365931" status="run">
+		<properties/>
+		<system-out>test_p4_fixtures OK
+</system-out>
+	</testcase>
+	<testcase name="campaign_certificate_cleanup" classname="campaign_certificate_cleanup" time="0.775741" status="run">
+		<properties/>
+		<system-out>{
+  "passed": false,
+  "node": "node018"
+}
+campaign certificate cleanup: PASS
+</system-out>
+	</testcase>
+	<testcase name="tierd_campaign_pinning" classname="tierd_campaign_pinning" time="0.0954127" status="run">
+		<properties/>
+		<system-out>Tier-D campaign pinning: PASS
+</system-out>
+	</testcase>
+	<testcase name="slurm_memory_enforcement" classname="slurm_memory_enforcement" time="0.10176" status="run">
+		<properties/>
+		<system-out>SLURM memory enforcement: PASS
+</system-out>
+	</testcase>
+	<testcase name="symmetry_backend_build_boundary" classname="symmetry_backend_build_boundary" time="0.199068" status="run">
+		<properties/>
+		<system-out>DejaVu exception/RTTI boundary PASS
+</system-out>
+	</testcase>
+	<testcase name="symmetry_backend" classname="symmetry_backend" time="193.339" status="run">
+		<properties/>
+		<system-out>first-refinement reuse: 2250 bounded/stop/prefix comparisons PASS
+sparse group oracle: 180360 comparisons, 56 productive, 180312 incomplete PASS
+sparse detector oracle: 720 captures, 86400 comparisons, 18760 pair-order negatives PASS
+cut-closure oracle: 57344 accepts, 229376 moved-base rejects, 8192 orbit-escape rejects; conflict and huge-level controls PASS
+DejaVu backend boundary, ownership and fixing PASS
+</system-out>
+	</testcase>
+	<testcase name="symmetry_clause_multiset" classname="symmetry_clause_multiset" time="3.5842" status="run">
+		<properties/>
+		<system-out>generator accounting oracle: 5983 comparisons, 321 accepts, 639 semantic rejects, 5023 budget stops PASS
+Clause multiset: 16512 signed-permutation oracle comparisons PASS
+</system-out>
+	</testcase>
+	<testcase name="orbitopal_group" classname="orbitopal_group" time="0.13345" status="run">
+		<properties/>
+		<system-out>Orbitopal product-kernel traversal PASS
+</system-out>
+	</testcase>
+	<testcase name="fuzz_slurm_snapshot" classname="fuzz_slurm_snapshot" time="0.711694" status="run">
+		<properties/>
+		<system-out>fuzz SLURM immutable harness snapshot: PASS
+</system-out>
+	</testcase>
+	<testcase name="event_trace_zero_overhead" classname="event_trace_zero_overhead" time="0.0851402" status="fail">
+		<failure message="Failed"/>
+		<properties/>
+		<system-out>Traceback (most recent call last):
+  File "/home/hwu/SAT-solving/tests/test_no_event_trace_symbols.py", line 18, in &lt;module&gt;
+    assert marker not in data, f"production binary contains {marker!r}"
+AssertionError: production binary contains b'TACTIX_EVENT_TRACE'
+</system-out>
+	</testcase>
+	<testcase name="slot_pose" classname="slot_pose" time="0.0238763" status="run">
+		<properties/>
+		<system-out>  BVE zero-yield round collects exactly once
+  productive BVE round collects exactly once
+  declined BVE candidate flushes its immediate unit
+  BVE default ladder: terminal watermark only after bound 16
+  BVE dynamic heap: all candidates rearmed at bound 16
+  cut BVE phase advances and rearms
+  SP-FACTOR-1: posed BVE ladder 0,3,5,13,13 reached Factor
+  pose/disable: 1 merges enabled, 0 disabled; 1 occasions all declined as DISABLED
+  TACTIX_SLOT_DISABLE=Congruence: entry off, 0 merges
+  TACTIX_SLOT_ENABLE overrides TACTIX_NO_BVE
+  TACTIX_SLOT_ENABLE exposes default-off SubsumeForward
+  PERMILLE / MAX_APPLIES / CURSOR_* / ORDER_* all land on the posed entry
+test_slot_pose: all passed
+</system-out>
+	</testcase>
+	<testcase name="reorder" classname="reorder" time="0.00534048" status="run">
+		<properties/>
+		<system-out>test_reorder: all passed
+</system-out>
+	</testcase>
+	<testcase name="walk" classname="walk" time="0.00467831" status="run">
+		<properties/>
+		<system-out>test_walk: all passed
+</system-out>
+	</testcase>
+	<testcase name="parity_model" classname="parity_model" time="0.00627537" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="onehot_model" classname="onehot_model" time="0.237545" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="subsume" classname="subsume" time="0.00679613" status="run">
+		<properties/>
+		<system-out>test_subsume: all ok
+</system-out>
+	</testcase>
+	<testcase name="strengthen" classname="strengthen" time="0.0625967" status="run">
+		<properties/>
+		<system-out>test_strengthen OK
+</system-out>
+	</testcase>
+	<testcase name="instantiate" classname="instantiate" time="0.0176127" status="run">
+		<properties/>
+		<system-out>test_instantiate: all passed
+</system-out>
+	</testcase>
+	<testcase name="vivify" classname="vivify" time="0.0393797" status="run">
+		<properties/>
+		<system-out>test_vivify OK
+</system-out>
+	</testcase>
+	<testcase name="vivify_n1" classname="vivify_n1" time="0.00324784" status="run">
+		<properties/>
+		<system-out>  scope 0: tier3 candidate enumerated and applied
+  scope 5: tier3 candidate enumerated and applied
+  bands 1/3/4/5 unchanged, scope 0 spans all three tiers
+  semantic clause selection bypasses and restores scope
+  API setter stores scopes 0-5, ignores out-of-range
+test_vivify_n1: all passed
+</system-out>
+	</testcase>
+	<testcase name="probe" classname="probe" time="0.00846126" status="run">
+		<properties/>
+		<system-out>test_probe OK
+</system-out>
+	</testcase>
+	<testcase name="backbone" classname="backbone" time="0.00703171" status="run">
+		<properties/>
+		<system-out>test_backbone OK
+</system-out>
+	</testcase>
+	<testcase name="bce" classname="bce" time="0.177" status="run">
+		<properties/>
+		<system-out>test_bce: all passed
+</system-out>
+	</testcase>
+	<testcase name="cce" classname="cce" time="0.189511" status="run">
+		<properties/>
+		<system-out>test_cce: 5338 deletions (3904 blocked / 1434 ata), 2018 covered literals added; 28926 models checked, 18926 of them needed ρ
+test_cce: all passed
+</system-out>
+	</testcase>
+	<testcase name="ternary" classname="ternary" time="0.00878483" status="run">
+		<properties/>
+		<system-out>test_ternary: all passed
+</system-out>
+	</testcase>
+	<testcase name="hyperbinary" classname="hyperbinary" time="0.0602477" status="run">
+		<properties/>
+		<system-out>test_hyperbinary: all passed
+</system-out>
+	</testcase>
+	<testcase name="decide" classname="decide" time="0.00357129" status="run">
+		<properties/>
+		<system-out>test_decide OK
+</system-out>
+	</testcase>
+	<testcase name="reconstruct" classname="reconstruct" time="0.0034421" status="run">
+		<properties/>
+		<system-out>test_reconstruct OK
+</system-out>
+	</testcase>
+	<testcase name="substitute" classname="substitute" time="0.00882684" status="run">
+		<properties/>
+		<system-out>test_substitute OK
+</system-out>
+	</testcase>
+	<testcase name="congruence" classname="congruence" time="0.0172144" status="run">
+		<properties/>
+		<system-out>test_congruence: all passed
+</system-out>
+	</testcase>
+	<testcase name="binary_deletion" classname="binary_deletion" time="0.00741012" status="run">
+		<properties/>
+		<system-out>test_binary_deletion OK
+</system-out>
+	</testcase>
+	<testcase name="transitive_reduce" classname="transitive_reduce" time="0.00444549" status="run">
+		<properties/>
+		<system-out>test_transitive_reduce OK
+</system-out>
+	</testcase>
+	<testcase name="bve" classname="bve" time="0.285153" status="run">
+		<properties/>
+		<system-out>  definition reconstruction: 391 trials, 420 gates, 2772 eliminated, 70754 models (63349 needed repair)
+test_bve OK
+</system-out>
+	</testcase>
+	<testcase name="bve_invocation" classname="bve_invocation" time="0.00493281" status="run">
+		<properties/>
+		<system-out>test_bve_invocation OK
+</system-out>
+	</testcase>
+	<testcase name="lucky" classname="lucky" time="787.88" status="run">
+		<properties/>
+		<system-out>test_lucky OK
+</system-out>
+	</testcase>
+	<testcase name="lucky_terminal" classname="lucky_terminal" time="0.00373619" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="api_n1" classname="api_n1" time="0.052087" status="run">
+		<properties/>
+		<system-out>test_api_c OK
+</system-out>
+	</testcase>
+	<testcase name="condition_compacted_model" classname="condition_compacted_model" time="0.107029" status="run">
+		<properties/>
+		<system-out>condition compacted external model: original CNF verified; bad model rejected
+</system-out>
+	</testcase>
+	<testcase name="api_instances" classname="api_instances" time="0.0119536" status="run">
+		<properties/>
+		<system-out>  BCE                PAYLOAD
+  BVE                PAYLOAD
+  Backbone           PAYLOAD
+  CCE                PAYLOAD
+  ConflictAnalysis   PAYLOAD
+  Congruence         CANON  
+  Decide             PAYLOAD
+  Factor             PAYLOAD
+  HyperBinaryRes     PAYLOAD
+  HyperTernaryRes    PAYLOAD
+  Instantiate        PAYLOAD
+  LocalSearchGuidance CANON    (enumeration empty here)
+  Lucky              PAYLOAD
+  Probe              PAYLOAD
+  Propagate          CANON  
+  Reduce             PAYLOAD
+  Reorder            PAYLOAD
+  Rephase            PAYLOAD
+  Restart            PAYLOAD
+  Strengthen         PAYLOAD
+  Substitute         CANON    (enumeration empty here)
+  SubstitutionRedundancy CANON  
+  SubsumeForward     PAYLOAD
+  Sweep              PAYLOAD
+  SwitchMode         CANON  
+  TransitiveReduce   PAYLOAD
+  Vivify             PAYLOAD
+  Walk               CANON  
+  Condition          STRUCT 
+test_api_instances: 29/29 entries reached via public actions (21 through a chosen uint64 payload, 1 structured), 13 made progr...
+[This part of the test output was removed since it exceeds the threshold of 1024 bytes.]
+</system-out>
+	</testcase>
+	<testcase name="online_api" classname="online_api" time="0.0173653" status="run">
+		<properties/>
+		<system-out>C online configuration, advance, revision and transaction PASS
+</system-out>
+	</testcase>
+	<testcase name="online_all_actions" classname="online_all_actions" time="0.00961302" status="run">
+		<properties/>
+		<system-out>  BCE                INSTANCE
+  BVE                INSTANCE
+  Backbone           INSTANCE
+  CCE                INSTANCE
+  ConflictAnalysis   INSTANCE
+  Congruence         INSTANCE
+  Decide             INSTANCE
+  Factor             INSTANCE
+  HyperBinaryRes     INSTANCE
+  HyperTernaryRes    INSTANCE
+  Instantiate        INSTANCE
+  LocalSearchGuidance CANON
+  Lucky              INSTANCE
+  Probe              INSTANCE
+  Propagate          CANON
+  Reduce             CANON
+  Reorder            INSTANCE
+  Rephase            INSTANCE
+  Restart            INSTANCE
+  Strengthen         INSTANCE
+  Substitute         CANON
+  SubstitutionRedundancy CANON
+  SubsumeForward     INSTANCE
+  Sweep              INSTANCE
+  SwitchMode         CANON
+  TransitiveReduce   INSTANCE
+  Vivify             INSTANCE
+  Walk               CANON
+  Condition          STRUCTURED
+test_online_all_actions: all 29 actions and ABA invalidation PASS
+</system-out>
+	</testcase>
+	<testcase name="random_policy" classname="random_policy" time="0.587411" status="run">
+		<properties/>
+		<system-out>random-policy sat-chain: 50 seeds OK
+random-policy unsat-enum: 50 seeds OK
+random-policy unsat-php2: 50 seeds OK
+random-policy sat-amo: 50 seeds OK
+random-policy unsat-xor3: 50 seeds OK
+random-policy sat-units: 50 seeds OK
+test_random_policy OK
+</system-out>
+	</testcase>
+	<testcase name="trace_replay" classname="trace_replay" time="0.608458" status="run">
+		<properties/>
+		<system-out>  unsat/drat: verdict 20, 1 typed programs, proof + counters identical, seed reproducible
+  unsat/lrat: verdict 20, 1 typed programs, proof + counters identical, seed reproducible
+  unsat/drat seed 23: verdict 20, 1 typed programs, proof + counters identical, seed reproducible
+  sat/drat: verdict 10, 1 typed programs, proof + counters identical, seed reproducible
+  sat/lrat: verdict 10, 1 typed programs, proof + counters identical, seed reproducible
+  sat/zero-program: parsing verdict replays
+  negative: a truncated trace fails the verdict check
+  compatibility: a historical v2 action trace still replays
+  negative: an unknown rule name is rejected
+  negative: a malformed online program is rejected
+  negative: --trace refuses a non-traceable policy
+trace_replay: all passed
+</system-out>
+	</testcase>
+	<testcase name="micro_proofs" classname="micro_proofs" time="35.0296" status="run">
+		<properties/>
+		<system-out>PROOF SHADOW: Congruence unit -6 origin=y1
+PROOF SHADOW: Congruence unit -6 origin=y1
+PROOF SHADOW: Congruence unit -6 origin=y1
+PROOF SHADOW: Congruence unit -6 origin=y1
+PROOF SHADOW: Congruence unit -6 origin=y1
+PROOF SHADOW: Congruence unit -6 origin=y1
+PROOF SHADOW: Congruence unit -6 origin=y1
+PROOF SHADOW: Congruence unit -6 origin=y1
+PROOF SHADOW: Congruence unit -6 origin=y1
+PROOF SHADOW: Congruence unit -6 origin=y1
+PROOF SHADOW: Congruence unit -6 origin=y1
+PROOF SHADOW: Congruence unit -6 origin=y1
+PROOF SHADOW: Congruence unit -8 origin=gate-degeneracy
+PROOF SHADOW: Congruence unit -1 origin=contradictory-first
+PROOF SHADOW: Congruence unit -1 origin=contradictory-first
+PROOF SHADOW: Congruence unit -7 origin=literal-clash-first
+PROOF SHADOW: Congruence unit 7 origin=literal-clash-second
+PROOF SHADOW: Congruence unit -7 origin=literal-clash-first
+PROOF SHADOW: Congruence unit 7 origin=literal-clash-second
+checkmodel: OK — 4 clauses satisfied, 4 vars assigned
+PROOF SHADOW: Congruence unit 5 orig...
+[This part of the test output was removed since it exceeds the threshold of 1024 bytes.]
+</system-out>
+	</testcase>
+	<testcase name="sweep_proofs" classname="sweep_proofs" time="17.0419" status="run">
+		<properties/>
+		<system-out>emitted 40 cases to /tmp/tmp.mOgYSwMrZs/test_subsolver (22 multi-step, longest 12 steps)
+emitted the S-e case to /tmp/tmp.mOgYSwMrZs/test_sweep
+emitted the Sweep-unit case to /tmp/tmp.mOgYSwMrZs/test_sweep
+emitted the original-core-unit case to /tmp/tmp.mOgYSwMrZs/test_sweep
+emitted the bridge-chain case to /tmp/tmp.mOgYSwMrZs/test_sweep
+emitted the bridge two-hint case to /tmp/tmp.mOgYSwMrZs/test_sweep
+sweep_proofs: 48 derivations verified by drat-trim + lrat-check + strict dsr-trim/Trestle (6 DSR cases)
+</system-out>
+	</testcase>
+	<testcase name="sweep_retarget_lrat" classname="sweep_retarget_lrat" time="0.445055" status="run">
+		<properties/>
+		<system-out>checkmodel: OK — 237 clauses satisfied, 60 vars assigned
+sweep_retarget_lrat: SAT path and every emitted LRAT addition checked
+</system-out>
+	</testcase>
+	<testcase name="tr_bruteforce_0" classname="tr_bruteforce_0" time="1.74672" status="run">
+		<properties/>
+		<system-out>test_tr_bruteforce mode=0 OK (ran=49708, del_instances=14225, deleted=18447)
+</system-out>
+	</testcase>
+	<testcase name="tr_bruteforce_1" classname="tr_bruteforce_1" time="1.55725" status="run">
+		<properties/>
+		<system-out>test_tr_bruteforce mode=1 OK (ran=47268, del_instances=9051, deleted=11477)
+</system-out>
+	</testcase>
+	<testcase name="tr_bruteforce_2" classname="tr_bruteforce_2" time="1.53177" status="run">
+		<properties/>
+		<system-out>test_tr_bruteforce mode=2 OK (ran=47286, del_instances=9001, deleted=11327)
+</system-out>
+	</testcase>
+	<testcase name="tr_bruteforce_3" classname="tr_bruteforce_3" time="1.61729" status="run">
+		<properties/>
+		<system-out>test_tr_bruteforce mode=3 OK (ran=46993, del_instances=8869, deleted=11249)
+</system-out>
+	</testcase>
+	<testcase name="inspect_policy_feedback" classname="inspect_policy_feedback" time="2.22076" status="fail">
+		<failure message="Failed"/>
+		<properties/>
+		<system-out>Traceback (most recent call last):
+  File "/home/hwu/SAT-solving/tests/test_inspect_policy_feedback.py", line 114, in &lt;module&gt;
+    main()
+  File "/home/hwu/SAT-solving/tests/test_inspect_policy_feedback.py", line 91, in main
+    assert len(default_records) == 10
+AssertionError
+</system-out>
+	</testcase>
+	<testcase name="feedback_frontend" classname="feedback_frontend" time="98.3561" status="run">
+		<properties/>
+		<system-out>Both-policy frontend purity/replay and rejection controls passed; 2 proofs + 2 models checked.
+</system-out>
+	</testcase>
+	<testcase name="startup_parity_check" classname="startup_parity_check" time="0.224885" status="run">
+		<properties/>
+		<system-out>startup parity: arity 2/3/4, signed renaming, SAT controls, boundary OK
+k3.pbp VeriPB + CakePB verified
+k3r.pbp VeriPB + CakePB verified
+k4.pbp VeriPB + CakePB verified
+k4r.pbp VeriPB + CakePB verified
+k5.pbp VeriPB + CakePB verified
+k5r.pbp VeriPB + CakePB verified
+normalized.pbp VeriPB + CakePB verified against raw duplicates/tautology
+</system-out>
+	</testcase>
+	<testcase name="count_preservation_check" classname="count_preservation_check" time="0.215805" status="run">
+		<properties/>
+		<system-out>count preservation: signed/permuted two-layer networks and SAT controls OK
+count3.pbp API + default VeriPB/CakePB verified; no-proof agrees
+count3r.pbp API + default VeriPB/CakePB verified; no-proof agrees
+count4.pbp API + default VeriPB/CakePB verified; no-proof agrees
+count4r.pbp API + default VeriPB/CakePB verified; no-proof agrees
+raw-normalization proof verified; missing-derivation control rejected
+</system-out>
+	</testcase>
+	<testcase name="congruence_sr_check" classname="congruence_sr_check" time="1.02712" status="run">
+		<properties/>
+		<system-out>[] --random-policy backward + forward DSR/Trestle verified
+[] --replay backward + forward DSR/Trestle verified
+['--dsr'] --random-policy backward + forward DSR/Trestle verified
+['--dsr'] --replay backward + forward DSR/Trestle verified
+['--no-binary'] --random-policy backward + forward DSR/Trestle verified
+['--no-binary'] --replay backward + forward DSR/Trestle verified
+all CLI formats reject failed publication before UNSAT
+</system-out>
+	</testcase>
+	<testcase name="factor" classname="factor" time="0.732141" status="run">
+		<properties/>
+		<system-out>test_factor: all passed
+</system-out>
+	</testcase>
+	<testcase name="factor_n1" classname="factor_n1" time="0.00438002" status="run">
+		<properties/>
+		<system-out>test_factor_n1: all passed (1 factorings on a formula at 0.054 binaries/var)
+</system-out>
+	</testcase>
+	<testcase name="subsume_n1" classname="subsume_n1" time="0.00311974" status="run">
+		<properties/>
+		<system-out>test_subsume_n1: all passed
+</system-out>
+	</testcase>
+	<testcase name="config_wiring" classname="config_wiring" time="1.18353" status="run">
+		<properties/>
+		<system-out>  ok    POLICY bve_bound                  &lt;- src/policies/default_policy.cpp:4601, src/policies/default_policy.cpp:4723
+  ok    POLICY bve_occurrence_limit       &lt;- src/policies/default_policy.cpp:1114, src/strategy/bve_invocation.hpp:255
+  ok    POLICY bve_clause_size_limit      &lt;- src/policies/default_policy.cpp:1116, src/strategy/bve_invocation.hpp:256
+  ok    POLICY bve_xor_arity_limit        &lt;- src/policies/default_policy.cpp:1118, src/strategy/bve_invocation.hpp:258
+  ok    POLICY bve_resolvent_size_limit   &lt;- src/policies/default_policy.cpp:1120, src/strategy/bve_invocation.hpp:259
+  ok    POLICY bve_resolvent_count_limit  &lt;- src/strategy/bve_invocation.hpp:257
+  ok    POLICY bve_fastel_traversal       &lt;- src/strategy/bve_invocation.hpp:265
+  ok    POLICY bve_backward_occurrence_limit &lt;- src/policies/default_policy.cpp:1122, src/strategy/bve_invocation.hpp:260
+  ok    POLICY bve_definition_session     &lt;- src/strategy/parameter_execution.hpp:17
+  ok    POLICY factor_composite           &lt;- src/policies/d...
+[This part of the test output was removed since it exceeds the threshold of 1024 bytes.]
+</system-out>
+	</testcase>
+	<testcase name="effort_specs" classname="effort_specs" time="0.0865685" status="run">
+		<properties/>
+		<system-out>  ok    METERED BVE               &lt;- 100 permille (&amp;DefaultStrategyConfig::Inprocess::bve_permille), meter_bve, dosed
+  ok    METERED Probe             &lt;- 8 permille (&amp;DefaultStrategyConfig::Inprocess::probe_permille), meter_probe, dosed
+  ok    METERED Backbone          &lt;- 20 permille (&amp;DefaultStrategyConfig::Inprocess::backbone_permille), meter_backbone, budgeted
+  ok    METERED TransitiveReduce  &lt;- 20 permille (&amp;DefaultStrategyConfig::Inprocess::transitive_permille), meter_transitive, dosed, budgeted
+  ok    METERED Vivify            &lt;- 100 permille (&amp;DefaultStrategyConfig::Inprocess::vivify_permille), meter_vivify, budgeted
+  ok    METERED Strengthen        &lt;- 100 permille (&amp;DefaultStrategyConfig::Inprocess::strengthen_permille), meter_forward_pair, budgeted
+  ok    METERED SubsumeForward    &lt;- 100 permille (&amp;DefaultStrategyConfig::Inprocess::subsume_forward_permille), meter_forward_pair, budgeted
+  ok    METERED Factor            &lt;- 50 permille (&amp;DefaultStrategyConfig::Inprocess::factor_permille), meter_...
+[This part of the test output was removed since it exceeds the threshold of 1024 bytes.]
+</system-out>
+	</testcase>
+	<testcase name="option_coverage" classname="option_coverage" time="0.547444" status="run">
+		<properties/>
+		<system-out>  ok    kissat  161 options  ·  cadical 257
+  ok    dismissed  83 (roster, parsed from §13.6)
+  ok    carried   125 (23 roster entries, anchors re-checked)
+  ok    cited     208 (named in the ledger corpus)
+  ok    exempt      2 (named in EXEMPT, with a reason)
+check-option-coverage: 418 reference options, 0 unaccounted, 0 failure(s)
+</system-out>
+	</testcase>
+	<testcase name="stat_ids" classname="stat_ids" time="0.0530886" status="run">
+		<properties/>
+		<system-out>check-stat-ids: 52 ids, 52 cases, 16 rule pairs (0 proxy, 1 diagnostic) — 0 failure(s)
+</system-out>
+	</testcase>
+	<testcase name="feedback_statistics" classname="feedback_statistics" time="0.0461543" status="run">
+		<properties/>
+		<system-out>feedback statistics inventory: 435 native fields, no wall timers
+</system-out>
+	</testcase>
+	<testcase name="citations" classname="citations" time="13.5637" status="run">
+		<properties/>
+		<system-out>  ok    45 citation(s) resolved and in range
+  note  200 skipped (200 ambiguous basename, 0 not in our tree, 0 resolve to a reference clone, 0 unjudged: no reference clone on disk)
+check-citations: 0 error(s)
+</system-out>
+	</testcase>
+	<testcase name="section_refs" classname="section_refs" time="0.148112" status="run">
+		<properties/>
+		<system-out>  ok    73/73 section references resolve
+check-section-refs: 0 error(s)
+</system-out>
+	</testcase>
+	<testcase name="inventory" classname="inventory" time="0.0680309" status="run">
+		<properties/>
+		<system-out>  ok    30/30 catalog families have a disposition
+check-inventory: 0 error(s)
+</system-out>
+	</testcase>
+	<testcase name="comment_hygiene" classname="comment_hygiene" time="8.4005" status="run">
+		<properties/>
+		<system-out>check-comment-hygiene: 0 hit(s)
+</system-out>
+	</testcase>
+	<testcase name="doc_size" classname="doc_size" time="0.0720471" status="run">
+		<properties/>
+		<system-out>  warn  CLAUDE.md: 74 of 80 lines — under 10% reserve left, compact it before the next addition needs the room
+  warn  DEVELOPMENT_PLAN.md: 742 of 750 lines — under 10% reserve left, compact it before the next addition needs the room
+  warn  docs/calculus.md: 678 of 680 lines — under 10% reserve left, compact it before the next addition needs the room
+  warn  docs/implementation-notes.md: 559 of 560 lines — under 10% reserve left, compact it before the next addition needs the room
+  warn  docs/scheduling-parity-ledger.md: 600 of 600 lines — under 10% reserve left, compact it before the next addition needs the room
+  warn  docs/proof-rules.html: 924 of 1000 lines — under 10% reserve left, compact it before the next addition needs the room
+check-doc-size: 0 error(s), 6 warning(s), 30 file budget(s) checked
+</system-out>
+	</testcase>
+	<testcase name="proof_rule_sync" classname="proof_rule_sync" time="0.0439076" status="run">
+		<properties/>
+		<system-out>check-proof-rule-sync: 0 error(s), 25 calculus rule(s), 26 guide card(s)
+</system-out>
+	</testcase>
+	<testcase name="default_strategy_config_check" classname="default_strategy_config_check" time="0.0661363" status="run">
+		<properties/>
+		<system-out>default-strategy-config: permanent rule and use sites OK
+</system-out>
+	</testcase>
+	<testcase name="no_heuristics" classname="no_heuristics" time="0.00337702" status="run">
+		<properties/>
+		<system-out>test_no_heuristics OK
+</system-out>
+	</testcase>
+	<testcase name="kernel_h_boundary" classname="kernel_h_boundary" time="0.00552989" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="rule_policy_boundary" classname="rule_policy_boundary" time="0.203589" status="run">
+		<properties/>
+		<system-out>check-rule-policy-boundary: rule/policy imports and data flows are clean
+</system-out>
+	</testcase>
+	<testcase name="solve_reset" classname="solve_reset" time="2.91823" status="run">
+		<properties/>
+		<system-out>  reused#2  res=20 confl=4520 dec=5532 props=149817 ticks=2601021 restart=58 reduce=3 del=436 learn=4451 switch=4 rephase=2 walk=1 retier=13 randseq=4 band=0 proof=389786B
+  fresh#1   res=20 confl=4520 dec=5532 props=149817 ticks=2601021 restart=58 reduce=3 del=436 learn=4451 switch=4 rephase=2 walk=1 retier=13 randseq=4 band=0 proof=389786B
+  state groups dirty after a solve: 11/11
+test_solve_reset: OK
+</system-out>
+	</testcase>
+	<testcase name="activation_stamp" classname="activation_stamp" time="0.00541707" status="run">
+		<properties/>
+		<system-out>activation-stamp cases=16 observations=64 missing=0
+</system-out>
+	</testcase>
+	<testcase name="affine_model" classname="affine_model" time="0.0641532" status="run">
+		<properties/>
+		<system-out>Affine model, 428 exact budget boundaries, root negatives, replay, random configuration and structured SAT composition PASS
+</system-out>
+	</testcase>
+	<testcase name="affine_projection" classname="affine_projection" time="0.0238213" status="run">
+		<properties/>
+		<system-out>720 independent exhaustive affine images; 1930 reconstructed extensions; root/polarity/130-coordinate/budget/stop controls PASS
+</system-out>
+	</testcase>
+	<testcase name="affine_search" classname="affine_search" time="0.0248773" status="run">
+		<properties/>
+		<system-out>512 exact two-word syndrome/brute-force comparisons; duplicate supports,70coordinates,budget/stop PASS
+</system-out>
+	</testcase>
+	<testcase name="analyze_parameters_api" classname="analyze_parameters_api" time="0.00329219" status="run">
+		<properties/>
+		<system-out>Analyze per-call depth pose/readback boundaries PASS
+</system-out>
+	</testcase>
+	<testcase name="assignment_level_bound" classname="assignment_level_bound" time="0.178926" status="run">
+		<properties/>
+		<system-out>PASS: 3288 assignment-level fixtures; state digest af23481afdb9aa83
+</system-out>
+	</testcase>
+	<testcase name="backbone_parameters" classname="backbone_parameters" time="0.0031714" status="run">
+		<properties/>
+		<system-out>Backbone strategy parameters PASS
+</system-out>
+	</testcase>
+	<testcase name="balanced_signature_model" classname="balanced_signature_model" time="0.00286122" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="bve_active_pop" classname="bve_active_pop" time="0.0312703" status="run">
+		<properties/>
+		<system-out>sides=1 negative=0 reverse=0 stable=0 refute=0 eliminated=2 retired=2 model/proof-path PASS
+sides=1 negative=0 reverse=0 stable=1 refute=0 eliminated=2 retired=2 model/proof-path PASS
+sides=1 negative=0 reverse=1 stable=0 refute=0 eliminated=2 retired=2 model/proof-path PASS
+sides=1 negative=0 reverse=1 stable=1 refute=0 eliminated=2 retired=2 model/proof-path PASS
+sides=1 negative=1 reverse=0 stable=0 refute=0 eliminated=2 retired=2 model/proof-path PASS
+sides=1 negative=1 reverse=0 stable=1 refute=0 eliminated=2 retired=2 model/proof-path PASS
+sides=1 negative=1 reverse=1 stable=0 refute=0 eliminated=2 retired=2 model/proof-path PASS
+sides=1 negative=1 reverse=1 stable=1 refute=0 eliminated=2 retired=2 model/proof-path PASS
+sides=2 negative=0 reverse=0 stable=0 refute=0 eliminated=2 retired=2 model/proof-path PASS
+sides=2 negative=0 reverse=0 stable=1 refute=0 eliminated=2 retired=2 model/proof-path PASS
+sides=2 negative=0 reverse=1 stable=0 refute=0 eliminated=2 retired=2 model/proof-path PASS
+sides=2 nega...
+[This part of the test output was removed since it exceeds the threshold of 1024 bytes.]
+</system-out>
+	</testcase>
+	<testcase name="bve_bound_cut" classname="bve_bound_cut" time="0.00417944" status="run">
+		<properties/>
+		<system-out>terminal=0 after-cut Factor bound=3 retry7=1 retry8=1
+terminal=1 after-cut Factor bound=0 retry7=1 retry8=1
+BVE cut-bound lifecycle: PASS
+</system-out>
+	</testcase>
+	<testcase name="bve_memory" classname="bve_memory" time="0.00260365" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="bve_occurrence_cache" classname="bve_occurrence_cache" time="0.00313437" status="run">
+		<properties/>
+		<system-out>BVE occurrence cache: lifetime, invalidation, borrowing and sparse boundaries passed
+</system-out>
+	</testcase>
+	<testcase name="cce_public_budget" classname="cce_public_budget" time="0.736348" status="run">
+		<properties/>
+		<system-out>CCE caller-budget reachability, unbounded and overflow controls PASS
+</system-out>
+	</testcase>
+	<testcase name="cerny_model" classname="cerny_model" time="0.00414794" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="collect_connection" classname="collect_connection" time="0.0215575" status="run">
+		<properties/>
+		<system-out>collect-connection: 8 connection/cache/cut combinations, repeated GC and models PASS
+</system-out>
+	</testcase>
+	<testcase name="collect_memory" classname="collect_memory" time="0.00318215" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="collect_retry" classname="collect_retry" time="0.00311489" status="run">
+		<properties/>
+		<system-out>collect retry cases=40 parent differences=0 PASS
+</system-out>
+	</testcase>
+	<testcase name="compact_stamp" classname="compact_stamp" time="0.00407732" status="run">
+		<properties/>
+		<system-out>compact-stamp cases=24 observations=144 missing=0
+</system-out>
+	</testcase>
+	<testcase name="condition" classname="condition" time="0.0187782" status="run">
+		<properties/>
+		<system-out>condition OK
+</system-out>
+	</testcase>
+	<testcase name="conditional_index" classname="conditional_index" time="0.162391" status="run">
+		<properties/>
+		<system-out>Conditional index preserves exact pair order and sparse lookup
+</system-out>
+	</testcase>
+	<testcase name="conflict_reuse_targets" classname="conflict_reuse_targets" time="0.478915" status="run">
+		<properties/>
+		<system-out>POLICY 0 2 0 7 0 0 1 0 0 1 0 0
+POLICY 0 2 0 7 0 0 1 0 0 1 0 0
+POLICY 0 2 0 7 0 1 1 0 0 1 0 0
+POLICY 0 2 0 7 0 1 1 0 0 1 0 0
+POLICY 0 2 0 7 1 0 1 0 0 1 0 0
+POLICY 0 2 0 7 1 0 1 0 0 1 0 0
+POLICY 0 2 0 7 1 1 1 0 0 1 0 0
+POLICY 0 2 0 7 1 1 1 0 0 1 0 0
+POLICY 0 2 0 7 2 0 1 0 0 0 0 0
+POLICY 0 2 0 7 2 0 1 0 0 0 0 0
+POLICY 0 2 0 7 2 1 1 0 0 0 0 0
+POLICY 0 2 0 7 2 1 1 0 0 0 0 0
+POLICY 0 2 0 103 0 0 1 102 0 1 0 0
+POLICY 0 2 0 103 0 0 1 102 0 1 0 0
+POLICY 0 2 0 103 0 1 1 102 0 1 0 0
+POLICY 0 2 0 103 0 1 1 102 0 1 0 0
+POLICY 0 2 0 103 1 0 1 102 0 1 0 0
+POLICY 0 2 0 103 1 0 1 102 0 1 0 0
+POLICY 0 2 0 103 1 1 1 102 0 1 0 0
+POLICY 0 2 0 103 1 1 1 102 0 1 0 0
+POLICY 0 2 0 103 2 0 1 102 0 0 0 0
+POLICY 0 2 0 103 2 0 1 102 0 0 0 0
+POLICY 0 2 0 103 2 1 1 102 0 0 0 0
+POLICY 0 2 0 103 2 1 1 102 0 0 0 0
+POLICY 0 2 1 7 0 0 1 1 1 1 0 0
+POLICY 0 2 1 7 0 0 1 1 1 1 0 0
+POLICY 0 2 1 7 0 1 1 1 1 1 0 0
+POLICY 0 2 1 7 0 1 1 1 1 1 0 0
+POLICY 0 2 1 7 1 0 1 1 1 1 0 0
+POLICY 0 2 1 7 1 0 1 1 1 1 0 0
+POLICY 0 2 1 7 1 1 1 1 1 1 0 0
+POLICY 0 2 1 7 ...
+[This part of the test output was removed since it exceeds the threshold of 1024 bytes.]
+</system-out>
+	</testcase>
+	<testcase name="congruence_empty_gates" classname="congruence_empty_gates" time="0.0149596" status="run">
+		<properties/>
+		<system-out>PASS:64 binary-only Congruence cases, public/direct, proof modes, copies, import order and lazy-unit controls
+</system-out>
+	</testcase>
+	<testcase name="congruence_forward_root" classname="congruence_forward_root" time="0.032236" status="run">
+		<properties/>
+		<system-out>Congruence forward cleanup preserves root closure and every model
+</system-out>
+	</testcase>
+	<testcase name="congruence_index_cleanup" classname="congruence_index_cleanup" time="0.260359" status="run">
+		<properties/>
+		<system-out>3 0 -1 0
+3 0 0 0
+3 0 1 1
+3 1 -1 0
+3 1 0 0
+3 1 1 1
+3 2 -1 0
+3 2 0 0
+3 2 1 1
+4 0 -1 0
+4 0 0 0
+4 0 1 1
+4 1 -1 0
+4 1 0 0
+4 1 1 1
+4 2 -1 0
+4 2 0 0
+4 2 1 1
+4 3 -1 0
+4 3 0 0
+4 3 1 1
+5 0 -1 0
+5 0 0 0
+5 0 1 1
+5 1 -1 0
+5 1 0 0
+5 1 1 1
+5 2 -1 0
+5 2 0 0
+5 2 1 1
+5 3 -1 0
+5 3 0 0
+5 3 1 1
+5 4 -1 0
+5 4 0 0
+5 4 1 1
+6 0 -1 0
+6 0 0 0
+6 0 1 1
+6 1 -1 0
+6 1 0 0
+6 1 1 1
+6 2 -1 0
+6 2 0 0
+6 2 1 1
+6 3 -1 0
+6 3 0 0
+6 3 1 1
+6 4 -1 0
+6 4 0 0
+6 4 1 1
+6 5 -1 0
+6 5 0 0
+6 5 1 1
+7 0 -1 0
+7 0 0 0
+7 0 1 1
+7 1 -1 0
+7 1 0 0
+7 1 1 1
+7 2 -1 0
+7 2 0 0
+7 2 1 1
+7 3 -1 0
+7 3 0 0
+7 3 1 1
+7 4 -1 0
+7 4 0 0
+7 4 1 1
+7 5 -1 0
+7 5 0 0
+7 5 1 1
+7 6 -1 0
+7 6 0 0
+7 6 1 0
+PASS:1200 actual Congruence cleanup cases, pure extraction and exact proof deletions
+</system-out>
+	</testcase>
+	<testcase name="congruence_ite_collapse" classname="congruence_ite_collapse" time="0.857638" status="run">
+		<properties/>
+		<system-out>ITE closure: 3584 cases; all 458752 original/final assignments agree\n
+</system-out>
+	</testcase>
+	<testcase name="congruence_ite_unit_proof" classname="congruence_ite_unit_proof" time="0.424913" status="run">
+		<properties/>
+		<system-out>PROOF SHADOW: Congruence unit -6 origin=gate-degeneracy
+PROOF SHADOW: Congruence unit -6 origin=gate-degeneracy
+PROOF SHADOW: Congruence unit -6 origin=gate-degeneracy
+PROOF SHADOW: Congruence unit -6 origin=gate-degeneracy
+PROOF SHADOW: Congruence unit -6 origin=gate-degeneracy
+PROOF SHADOW: Congruence unit -6 origin=gate-degeneracy
+PROOF SHADOW: Congruence unit 6 origin=gate-degeneracy
+PROOF SHADOW: Congruence unit 6 origin=gate-degeneracy
+PROOF SHADOW: Congruence unit 6 origin=gate-degeneracy
+PROOF SHADOW: Congruence unit 6 origin=gate-degeneracy
+PROOF SHADOW: Congruence unit 6 origin=gate-degeneracy
+PROOF SHADOW: Congruence unit 6 origin=gate-degeneracy
+PROOF SHADOW: Congruence unit -6 origin=gate-degeneracy
+PROOF SHADOW: Congruence unit -6 origin=gate-degeneracy
+PROOF SHADOW: Congruence unit -6 origin=gate-degeneracy
+PROOF SHADOW: Congruence unit -6 origin=gate-degeneracy
+PROOF SHADOW: Congruence unit -6 origin=gate-degeneracy
+PROOF SHADOW: Congruence unit -6 origin=gate-degeneracy
+PROOF SHADOW: Congruen...
+[This part of the test output was removed since it exceeds the threshold of 1024 bytes.]
+</system-out>
+	</testcase>
+	<testcase name="congruence_ite_valued_sides" classname="congruence_ite_valued_sides" time="0.558123" status="run">
+		<properties/>
+		<system-out>ITE valued-side representation: 2048 cases; all 262144 original/final assignments agree
+</system-out>
+	</testcase>
+	<testcase name="congruence_ite_values" classname="congruence_ite_values" time="0.545629" status="run">
+		<properties/>
+		<system-out>ITE value closure: 2048 cases; all 262144 original/final assignments agree\n
+</system-out>
+	</testcase>
+	<testcase name="congruence_ladder_lifetime" classname="congruence_ladder_lifetime" time="0.00748901" status="run">
+		<properties/>
+		<system-out>PROOF SHADOW: Congruence unit -5 origin=gate-degeneracy
+PROOF SHADOW: Congruence unit -5 origin=gate-degeneracy
+</system-out>
+	</testcase>
+	<testcase name="congruence_parameters" classname="congruence_parameters" time="0.00606258" status="run">
+		<properties/>
+		<system-out>Congruence typed discovery limits and unbounded paths PASS
+</system-out>
+	</testcase>
+	<testcase name="congruence_unary_cancellation" classname="congruence_unary_cancellation" time="0.118689" status="run">
+		<properties/>
+		<system-out>PROOF SHADOW: Congruence unit 1 origin=literal-clash-first
+PROOF SHADOW: Congruence unit -1 origin=literal-clash-second
+PROOF SHADOW: Congruence unit 1 origin=literal-clash-first
+PROOF SHADOW: Congruence unit -1 origin=literal-clash-second
+PROOF SHADOW: Congruence unit 1 origin=literal-clash-first
+PROOF SHADOW: Congruence unit -1 origin=literal-clash-second
+PROOF SHADOW: Congruence unit 1 origin=literal-clash-first
+PROOF SHADOW: Congruence unit -1 origin=literal-clash-second
+PROOF SHADOW: Congruence unit 1 origin=literal-clash-first
+PROOF SHADOW: Congruence unit -1 origin=literal-clash-second
+PROOF SHADOW: Congruence unit 1 origin=literal-clash-first
+PROOF SHADOW: Congruence unit -1 origin=literal-clash-second
+PROOF SHADOW: Congruence unit 1 origin=literal-clash-first
+PROOF SHADOW: Congruence unit -1 origin=literal-clash-second
+PROOF SHADOW: Congruence unit 1 origin=literal-clash-first
+PROOF SHADOW: Congruence unit -1 origin=literal-clash-second
+PROOF SHADOW: Congruence unit 1 origin=literal-clash-first
+PROOF...
+[This part of the test output was removed since it exceeds the threshold of 1024 bytes.]
+</system-out>
+	</testcase>
+	<testcase name="congruence_xor_cancellation" classname="congruence_xor_cancellation" time="0.266728" status="run">
+		<properties/>
+		<system-out>PROOF SHADOW: Congruence unit -1 origin=literal-clash-first
+PROOF SHADOW: Congruence unit 1 origin=literal-clash-second
+PROOF SHADOW: Congruence unit -1 origin=literal-clash-first
+PROOF SHADOW: Congruence unit 1 origin=literal-clash-second
+PROOF SHADOW: Congruence unit -1 origin=literal-clash-first
+PROOF SHADOW: Congruence unit 1 origin=literal-clash-second
+PROOF SHADOW: Congruence unit -1 origin=literal-clash-first
+PROOF SHADOW: Congruence unit 1 origin=literal-clash-second
+PROOF SHADOW: Congruence unit -1 origin=literal-clash-first
+PROOF SHADOW: Congruence unit 1 origin=literal-clash-second
+PROOF SHADOW: Congruence unit -1 origin=literal-clash-first
+PROOF SHADOW: Congruence unit 1 origin=literal-clash-second
+PROOF SHADOW: Congruence unit -1 origin=literal-clash-first
+PROOF SHADOW: Congruence unit 1 origin=literal-clash-second
+PROOF SHADOW: Congruence unit -1 origin=literal-clash-first
+PROOF SHADOW: Congruence unit 1 origin=literal-clash-second
+PROOF SHADOW: Congruence unit -1 origin=literal-clash-first
+PROO...
+[This part of the test output was removed since it exceeds the threshold of 1024 bytes.]
+</system-out>
+	</testcase>
+	<testcase name="connected_occurrence" classname="connected_occurrence" time="3.83823" status="run">
+		<properties/>
+		<system-out>connected occurrence storage: 21845 sequences, 16 stable filters each, erases/replacements, first-duplicate deletion, growth/pack/reuse PASS
+</system-out>
+	</testcase>
+	<testcase name="controller_action_space" classname="controller_action_space" time="0.0035448" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="controller_execution_signature" classname="controller_execution_signature" time="0.0350508" status="run">
+		<properties/>
+		<system-out>c controller-rule BCE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule BVE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Backbone requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule CCE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Condition requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Congruence requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Factor requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule HyperBinaryRes requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule HyperTernaryRes requests=0 applications=0 effective=0 exhausted=0 stal...
+[This part of the test output was removed since it exceeds the threshold of 1024 bytes.]
+</system-out>
+	</testcase>
+	<testcase name="controller_trail_retention" classname="controller_trail_retention" time="0.0583337" status="run">
+		<properties/>
+		<system-out>c controller-rule BCE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule BVE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Backbone requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule CCE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Condition requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Congruence requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Factor requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule HyperBinaryRes requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule HyperTernaryRes requests=0 applications=0 effective=0 exhausted=0 stal...
+[This part of the test output was removed since it exceeds the threshold of 1024 bytes.]
+</system-out>
+	</testcase>
+	<testcase name="count_preservation" classname="count_preservation" time="0.012532" status="run">
+		<properties/>
+		<system-out>count preservation: signed/permuted two-layer networks and SAT controls OK
+</system-out>
+	</testcase>
+	<testcase name="default_execution_signature" classname="default_execution_signature" time="0.0689763" status="run">
+		<properties/>
+		<system-out>profile=0 pigeons=4 verdict=10 proof=14695981039346656037:0 work=0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0 state=20:20:34:1:3:5:7:8:11:13:14:17:19:21:22:25:27:29:30:33:35:37:39 phases=-1,-1,-1,-1,1,-1,-1,1,-1,-1,-1,1,-1,-1,-1,1,-1,-1,-1,-1, scores=0,0.5,0.66666666666666674,0.75,0.80000000000000004,0.83333333333333337,0.85714285714285721,0.875,0.88888888888888884,0.90000000000000002,0.90909090909090906,0.91666666666666663,0.92307692307692313,0.9285714285714286,0.93333333333333335,0.9375,0.94117647058823528,0.94444444444444442,0.94736842105263164,0.94999999999999996,
+profile=0 pigeons=6 verdict=20 proof=11116815066249832632:4519 work=140:107:1609:7673:6240:104:5:1:0:2:1:0:0:0:0:0:0:0:0:0:0:0:0:0 state=0:25:252:59:61:48:9:39:63:29:19:4:45:55:69:35:25:15:32:3:64:26:13:53:7:37:66:17:47:57 phases=0,-1,1,-1,-1,0,-1,-1,-1,-1,0,0,-1,1,-1,0,1,-1,-1,-1,0,0,-1,-1,1,0,-1,-1,-1,-1,-1,-1,1,1,-1, scores=0,0.5,0.66666666666666674,0.75,0.80000000000000004,0.83333333333333337,0.85714285714285721,0.875,0.88888888888888884,...
+[This part of the test output was removed since it exceeds the threshold of 1024 bytes.]
+</system-out>
+	</testcase>
+	<testcase name="eliminate_limit" classname="eliminate_limit" time="0.0120242" status="run">
+		<properties/>
+		<system-out>allowance=3 forward=0 enabled=0 resolutions=0 ceiling=0 bve=1 admitted=0 strengthen=1 eliminated=0
+  fresh phase: ceiling=0 bve=2 strengthen=2 resolutions=0 eliminated=0
+allowance=3 forward=0 enabled=1 resolutions=4 ceiling=3 bve=1 admitted=1 strengthen=1 eliminated=1
+  fresh phase: ceiling=7 bve=3 strengthen=3 resolutions=4 eliminated=5
+allowance=3 forward=1 enabled=0 resolutions=0 ceiling=0 bve=1 admitted=0 strengthen=1 eliminated=0
+  fresh phase: ceiling=0 bve=2 strengthen=2 resolutions=0 eliminated=0
+allowance=3 forward=1 enabled=1 resolutions=4 ceiling=3 bve=1 admitted=1 strengthen=1 eliminated=1
+  fresh phase: ceiling=7 bve=3 strengthen=3 resolutions=4 eliminated=5
+allowance=4 forward=0 enabled=0 resolutions=0 ceiling=0 bve=1 admitted=0 strengthen=1 eliminated=0
+  fresh phase: ceiling=0 bve=2 strengthen=2 resolutions=0 eliminated=0
+allowance=4 forward=0 enabled=1 resolutions=4 ceiling=4 bve=2 admitted=2 strengthen=2 eliminated=5
+  fresh phase: ceiling=8 bve=3 strengthen=3 resolutions=4 eliminated=5
+allo...
+[This part of the test output was removed since it exceeds the threshold of 1024 bytes.]
+</system-out>
+	</testcase>
+	<testcase name="exact_cover_model" classname="exact_cover_model" time="0.00501381" status="run">
+		<properties/>
+		<system-out>test_exact_cover_model OK
+</system-out>
+	</testcase>
+	<testcase name="execution_budget" classname="execution_budget" time="0.00382871" status="run">
+		<properties/>
+		<system-out>execution budgets: 891 exhaustive finite fixtures plus scope/resume/configuration/currency/overflow controls PASS
+</system-out>
+	</testcase>
+	<testcase name="execution_support" classname="execution_support" time="0.0133311" status="fail">
+		<failure message="Subprocess aborted"/>
+		<properties/>
+		<system-out>test_execution_support: /home/hwu/SAT-solving/tests/test_execution_support.cpp:112: void test_collection_outcomes(): Assertion `record.outcome.invocation.made_rule_progress == (fixed == 1 || fixed == 2)' failed.
+</system-out>
+	</testcase>
+	<testcase name="factor_root_support" classname="factor_root_support" time="0.00719627" status="run">
+		<properties/>
+		<system-out>0 0 0 0 0 2
+0 0 0 0 1 2
+0 0 0 1 0 2
+0 0 0 1 1 2
+0 0 0 2 0 2
+0 0 0 2 1 2
+0 0 1 0 0 2
+0 0 1 0 1 2
+0 0 1 1 0 1
+0 0 1 1 1 1
+0 0 1 2 0 1
+0 0 1 2 1 1
+0 1 0 0 0 2
+0 1 0 0 1 2
+0 1 0 1 0 2
+0 1 0 1 1 2
+0 1 0 2 0 2
+0 1 0 2 1 2
+0 1 1 0 0 2
+0 1 1 0 1 2
+0 1 1 1 0 1
+0 1 1 1 1 1
+0 1 1 2 0 1
+0 1 1 2 1 1
+0 2 0 0 0 2
+0 2 0 0 1 2
+0 2 0 1 0 2
+0 2 0 1 1 2
+0 2 0 2 0 2
+0 2 0 2 1 2
+0 2 1 0 0 2
+0 2 1 0 1 2
+0 2 1 1 0 1
+0 2 1 1 1 1
+0 2 1 2 0 1
+0 2 1 2 1 1
+0 3 0 0 0 2
+0 3 0 0 1 2
+0 3 0 1 0 2
+0 3 0 1 1 2
+0 3 0 2 0 2
+0 3 0 2 1 2
+0 3 1 0 0 2
+0 3 1 0 1 2
+0 3 1 1 0 1
+0 3 1 1 1 1
+0 3 1 2 0 1
+0 3 1 2 1 1
+1 0 0 0 0 2
+1 0 0 0 1 2
+1 0 0 1 0 2
+1 0 0 1 1 2
+1 0 0 2 0 2
+1 0 0 2 1 2
+1 0 1 0 0 2
+1 0 1 0 1 2
+1 0 1 1 0 2
+1 0 1 1 1 2
+1 0 1 2 0 2
+1 0 1 2 1 2
+1 1 0 0 0 2
+1 1 0 0 1 2
+1 1 0 1 0 2
+1 1 0 1 1 2
+1 1 0 2 0 2
+1 1 0 2 1 2
+1 1 1 0 0 2
+1 1 1 0 1 2
+1 1 1 1 0 2
+1 1 1 1 1 2
+1 1 1 2 0 2
+1 1 1 2 1 2
+1 2 0 0 0 2
+1 2 0 0 1 2
+1 2 0 1 0 2
+1 2 0 1 1 2
+1 2 0 2 0 2
+1 2 0 2 1 2
+1 2 1 0 0 2
+1 2 1 0 1 2
+1 2 1 1 0 2
+1 2 1 1 1 2
+1 2 1 2 0 2
+1 2 1 2 1 2
+1 3 0 0 0 2
+1 3 ...
+[This part of the test output was removed since it exceeds the threshold of 1024 bytes.]
+</system-out>
+	</testcase>
+	<testcase name="feedback_provenance" classname="feedback_provenance" time="1.4657" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="feedback_trace" classname="feedback_trace" time="0.840257" status="run">
+		<properties/>
+		<system-out>c controller-rule BCE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule BVE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Backbone requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule CCE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Condition requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Congruence requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Factor requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule HyperBinaryRes requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule HyperTernaryRes requests=0 applications=0 effective=0 exhausted=0 stal...
+[This part of the test output was removed since it exceeds the threshold of 1024 bytes.]
+</system-out>
+	</testcase>
+	<testcase name="fermat_model" classname="fermat_model" time="0.00476048" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="flat_payload_replay" classname="flat_payload_replay" time="0.0481665" status="run">
+		<properties/>
+		<system-out>flat-payload boundaries=272 state=57c2870f2e24f933
+</system-out>
+	</testcase>
+	<testcase name="forward_caller" classname="forward_caller" time="0.0138635" status="run">
+		<properties/>
+		<system-out>PASS: actual next-slot closure, dense chain, empty suffix, six conflict proof cases
+</system-out>
+	</testcase>
+	<testcase name="forward_marks" classname="forward_marks" time="0.0159801" status="run">
+		<properties/>
+		<system-out>Forward admission: eight fixed state/public-action/model cases PASS
+</system-out>
+	</testcase>
+	<testcase name="forward_parameter_scope" classname="forward_parameter_scope" time="0.00358282" status="run">
+		<properties/>
+		<system-out>Scoped per-occurrence C1/C2 parameter restoration PASS
+</system-out>
+	</testcase>
+	<testcase name="forward_parameters" classname="forward_parameters" time="0.0940667" status="run">
+		<properties/>
+		<system-out>Strategy forward limits and uncapped explicit C1/C2 surface PASS
+</system-out>
+	</testcase>
+	<testcase name="forward_unit" classname="forward_unit" time="0.183537" status="run">
+		<properties/>
+		<system-out>PASS forward units: 17 state/model cases and16 proof cases
+</system-out>
+	</testcase>
+	<testcase name="guidance_execution" classname="guidance_execution" time="0.0046555" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="heuristic_execution" classname="heuristic_execution" time="0.0143991" status="run">
+		<properties/>
+		<system-out>Heuristic lifecycle: 19 controls preserve complete state and growth.
+</system-out>
+	</testcase>
+	<testcase name="heuristics_reattach" classname="heuristics_reattach" time="0.00411323" status="run">
+		<properties/>
+		<system-out>guidance reattach: cases=8 changed-images=0
+</system-out>
+	</testcase>
+	<testcase name="independent_set_model" classname="independent_set_model" time="0.00410107" status="run">
+		<properties/>
+		<system-out>test_independent_set_model OK
+</system-out>
+	</testcase>
+	<testcase name="inprocess_execution_signature" classname="inprocess_execution_signature" time="0.0321595" status="run">
+		<properties/>
+		<system-out>phase:0:0:{"version":1,"state":{"arena":1,"touch":15,"strategy":4},"sequence":0,"variables":5,"unassigned":5,"active_unassigned":5,"level":0,"trail":0,"root_population":0,"irredundant_clauses":3,"inconsistent":false,"conflict":false,"fixpoint":true,"searching":false,"have_configuration":false,"configuration":"vmtf/adaptive-glue/saved","rotation_intervals":0,"next_restart_conflicts":0,"reluctant":[1,1,0],"fast_glue":0,"slow_glue":0,"last_action":null,"native":{"decisions":0,"conflicts":1,"propagations":4,"ticks":9,"search_ticks":1000000000,"inprocess_propagations":4,"root_assignments":0,"propagation_rearms":0,"rule_calls":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"sr_applications":0,"sr_applied":0,"sr_unique_literal_amo_binaries":0,"sr_post_amo_nonhelper_applied":0,"sr_post_amo_graph_root_units":0,"sr_nonforcing_cut_batches_declined":0,"sr_nonforcing_cuts_declined":0,"sr_singleton_forcing_batches_declined":0,"sr_singleton_f...
+[This part of the test output was removed since it exceeds the threshold of 1024 bytes.]
+</system-out>
+	</testcase>
+	<testcase name="inprocess_program" classname="inprocess_program" time="0.0045566" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="inprocess_root" classname="inprocess_root" time="0.00523313" status="run">
+		<properties/>
+		<system-out>probe entry: root value 1, propagated 3, search ticks 0
+eliminate entry: root value 1, propagated 3, search ticks 6
+</system-out>
+	</testcase>
+	<testcase name="instantiate_parameters_api" classname="instantiate_parameters_api" time="0.00406409" status="run">
+		<properties/>
+		<system-out>Instantiate typed parameters and semantic C API PASS
+</system-out>
+	</testcase>
+	<testcase name="learned_sort" classname="learned_sort" time="0.0294437" status="run">
+		<properties/>
+		<system-out>learned sort: 433 fixed stable-order cases PASS
+</system-out>
+	</testcase>
+	<testcase name="local_search_guidance" classname="local_search_guidance" time="0.00319201" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="lookup_circuit_model" classname="lookup_circuit_model" time="0.00435998" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="lucky_resume" classname="lucky_resume" time="0.00267395" status="run">
+		<properties/>
+		<system-out>test_lucky_resume OK
+</system-out>
+	</testcase>
+	<testcase name="lucky_roots" classname="lucky_roots" time="0.0132531" status="run">
+		<properties/>
+		<system-out>Lucky root consumer: cases=12 stale=0 expected-old=140
+</system-out>
+	</testcase>
+	<testcase name="material_schedule" classname="material_schedule" time="0.0045197" status="run">
+		<properties/>
+		<system-out>budget fixture band=0 filter=0 checked=1 stops=1 visits=3
+budget fixture band=0 filter=1 checked=1 stops=1 visits=3
+budget fixture band=1 filter=0 checked=1 stops=1 visits=3
+budget fixture band=1 filter=1 checked=1 stops=1 visits=3
+PASS actual material scheduling predicates, lifecycle and admission
+</system-out>
+	</testcase>
+	<testcase name="n1_public_policy" classname="n1_public_policy" time="0.00492141" status="run">
+		<properties/>
+		<system-out>N1 public Sweep disable and Reduce protection/reason-lock controls PASS
+</system-out>
+	</testcase>
+	<testcase name="native_policy_feedback" classname="native_policy_feedback" time="0.348914" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="occurrence_cutover" classname="occurrence_cutover" time="0.014418" status="run">
+		<properties/>
+		<system-out>occurrence-cutover cases=52 boundaries=364 state=6da9d99c105a60e1
+</system-out>
+	</testcase>
+	<testcase name="online_inprocess" classname="online_inprocess" time="7.13697" status="run">
+		<properties/>
+		<system-out>Online sequence, granularity, fixpoint, budget and reconfigure PASS
+</system-out>
+	</testcase>
+	<testcase name="policy_action_execution" classname="policy_action_execution" time="0.00406202" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="policy_feedback" classname="policy_feedback" time="0.00679688" status="run">
+		<properties/>
+		<system-out>c controller-rule BCE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule BVE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Backbone requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule CCE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Condition requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Congruence requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Factor requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule HyperBinaryRes requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule HyperTernaryRes requests=0 applications=0 effective=0 exhausted=0 stal...
+[This part of the test output was removed since it exceeds the threshold of 1024 bytes.]
+</system-out>
+	</testcase>
+	<testcase name="preparation_execution" classname="preparation_execution" time="0.00444522" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="profile_execution" classname="profile_execution" time="0.00526109" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="proof_output_failure" classname="proof_output_failure" time="0.0419796" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="propagation_cursor" classname="propagation_cursor" time="0.025338" status="run">
+		<properties/>
+		<system-out>propagation-cursor: 224 fixed cases, digest=f82475e400a7f62b
+</system-out>
+	</testcase>
+	<testcase name="random_controller_policy" classname="random_controller_policy" time="0.338904" status="run">
+		<properties/>
+		<system-out>c controller-rule BCE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule BVE requests=1 applications=1 effective=1 exhausted=0 stale=0 interrupted=0 work=1 overshoot=0
+c controller-rule Backbone requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule CCE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Condition requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Congruence requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Factor requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule HyperBinaryRes requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule HyperTernaryRes requests=0 applications=0 effective=0 exhausted=0 stal...
+[This part of the test output was removed since it exceeds the threshold of 1024 bytes.]
+</system-out>
+	</testcase>
+	<testcase name="random_online" classname="random_online" time="1.77622" status="run">
+		<properties/>
+		<system-out>c stress-dense 1
+c stress-dense 0
+c stress-dense 1
+c stress-dense 1
+Random online strategy breadth and replay PASS
+</system-out>
+	</testcase>
+	<testcase name="realloc_words" classname="realloc_words" time="0.0400165" status="run">
+		<properties/>
+		<system-out>realloc-words operations=35815 exact size/capacity/value replay
+realloc-words forced-move/failure/overflow/tagged/copy/move/zero PASS
+</system-out>
+	</testcase>
+	<testcase name="reduce_root_guidance" classname="reduce_root_guidance" time="0.00878277" status="run">
+		<properties/>
+		<system-out>policy=1 retained-chain roots=2 original SAT model PASS
+policy=0 retained-chain roots=2 original SAT model PASS
+PASS: Reduce root guidance, truncated suffix, policy neutrality, no-op and six proof cases
+</system-out>
+	</testcase>
+	<testcase name="reduce_root_lock" classname="reduce_root_lock" time="0.0158025" status="run">
+		<properties/>
+		<system-out>protected pending=0 stale payload PASS
+protected pending=1 stale payload PASS
+root elevated=0 compact=0 unsat=0 lrat=0 candidates=1 deleted=1 PASS
+root elevated=0 compact=0 unsat=0 lrat=1 candidates=1 deleted=1 PASS
+root elevated=0 compact=0 unsat=1 lrat=0 candidates=1 deleted=1 PASS
+root elevated=0 compact=0 unsat=1 lrat=1 candidates=1 deleted=1 PASS
+root elevated=0 compact=1 unsat=0 lrat=0 candidates=1 deleted=1 PASS
+root elevated=0 compact=1 unsat=0 lrat=1 candidates=1 deleted=1 PASS
+root elevated=0 compact=1 unsat=1 lrat=0 candidates=1 deleted=1 PASS
+root elevated=0 compact=1 unsat=1 lrat=1 candidates=1 deleted=1 PASS
+root elevated=1 compact=0 unsat=0 lrat=0 candidates=1 deleted=1 PASS
+root elevated=1 compact=0 unsat=0 lrat=1 candidates=1 deleted=1 PASS
+root elevated=1 compact=0 unsat=1 lrat=0 candidates=1 deleted=1 PASS
+root elevated=1 compact=0 unsat=1 lrat=1 candidates=1 deleted=1 PASS
+root elevated=1 compact=1 unsat=0 lrat=0 candidates=1 deleted=1 PASS
+root elevated=1 compact=1 unsat=0 lrat=1 candidat...
+[This part of the test output was removed since it exceeds the threshold of 1024 bytes.]
+</system-out>
+	</testcase>
+	<testcase name="reduce_watermark" classname="reduce_watermark" time="0.0169321" status="run">
+		<properties/>
+		<system-out>watermark cases=288 historical-boundary failures=0 expected-parent=0 PASS
+</system-out>
+	</testcase>
+	<testcase name="replacement_cursor" classname="replacement_cursor" time="0.411811" status="run">
+		<properties/>
+		<system-out>replacement-cursor cases=840 state=f86da0be45055db3
+</system-out>
+	</testcase>
+	<testcase name="restart_controller" classname="restart_controller" time="0.00432541" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="root_conflict_reuse" classname="root_conflict_reuse" time="0.0568699" status="run">
+		<properties/>
+		<system-out>PARITY 2 1 0 0 0 1 0 1 0 0 0 1 0 0
+PARITY 2 1 0 1 0 1 0 1 0 0 0 1 0 0
+PARITY 2 1 1 0 0 1 0 1 0 0 0 1 0 0
+PARITY 2 1 1 1 0 1 0 1 0 0 0 1 0 0
+PARITY 2 7 0 0 0 1 0 1 0 0 0 1 0 0
+PARITY 2 7 0 1 0 1 0 1 0 0 0 1 0 0
+PARITY 2 7 1 0 0 1 0 1 0 0 0 1 0 0
+PARITY 2 7 1 1 0 1 0 1 0 0 0 1 0 0
+PARITY 2 103 0 0 102 1 0 1 0 0 0 1 0 1
+PARITY 2 103 0 1 102 1 0 1 0 0 0 1 0 1
+PARITY 2 103 1 0 102 1 0 1 0 0 0 1 0 1
+PARITY 2 103 1 1 102 1 0 1 0 0 0 1 0 1
+PARITY 4 1 0 0 0 1 0 1 0 0 0 1 0 0
+PARITY 4 1 0 1 0 1 0 1 0 0 0 1 0 0
+PARITY 4 1 1 0 0 1 0 1 0 0 0 1 0 0
+PARITY 4 1 1 1 0 1 0 1 0 0 0 1 0 0
+PARITY 4 7 0 0 0 1 0 1 0 0 0 1 0 0
+PARITY 4 7 0 1 0 1 0 1 0 0 0 1 0 0
+PARITY 4 7 1 0 0 1 0 1 0 0 0 1 0 0
+PARITY 4 7 1 1 0 1 0 1 0 0 0 1 0 0
+PARITY 4 103 0 0 102 1 0 1 0 0 0 1 0 1
+PARITY 4 103 0 1 102 1 0 1 0 0 0 1 0 1
+PARITY 4 103 1 0 102 1 0 1 0 0 0 1 0 1
+PARITY 4 103 1 1 102 1 0 1 0 0 0 1 0 1
+PASS: 288 root-conflict fixtures; reference zero-jump reuse transition
+</system-out>
+	</testcase>
+	<testcase name="root_fold" classname="root_fold" time="0.0233912" status="run">
+		<properties/>
+		<system-out>root-fold: physical shrink, values/units, live ordering/actions, repeated compaction, extensions and model PASS
+</system-out>
+	</testcase>
+	<testcase name="root_watermark" classname="root_watermark" time="0.00390186" status="run">
+		<properties/>
+		<system-out>root-watermark: actual Eliminate admission and late-root compaction PASS
+</system-out>
+	</testcase>
+	<testcase name="row_feasibility" classname="row_feasibility" time="0.13776" status="run">
+		<properties/>
+		<system-out>row feasibility: 39366 independent prefix oracles and every work prefix PASS
+</system-out>
+	</testcase>
+	<testcase name="sequence_followups" classname="sequence_followups" time="0.00563168" status="run">
+		<properties/>
+		<system-out>sequence followups: neutral, effective, interruption, reconfiguration and N1 controls passed
+</system-out>
+	</testcase>
+	<testcase name="shared_policy_transactions" classname="shared_policy_transactions" time="0.0228992" status="run">
+		<properties/>
+		<system-out>PASS: five certificate paths and 64 native state/proof pairs
+</system-out>
+	</testcase>
+	<testcase name="signed_cardinality_proof" classname="signed_cardinality_proof" time="0.00478675" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="simon_model" classname="simon_model" time="0.00866108" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="startup_parity" classname="startup_parity" time="0.00654092" status="run">
+		<properties/>
+		<system-out>startup parity: arity 2/3/4, signed renaming, SAT controls, boundary OK
+</system-out>
+	</testcase>
+	<testcase name="startup_support_signature" classname="startup_support_signature" time="0.0101585" status="run">
+		<properties/>
+		<system-out>scenario=0 verdict=20 {"version":1,"state":{"arena":1,"touch":144,"strategy":0},"sequence":0,"variables":20,"unassigned":0,"active_unassigned":0,"level":0,"trail":20,"root_population":20,"irredundant_clauses":57,"inconsistent":true,"conflict":false,"fixpoint":false,"searching":false,"have_configuration":false,"configuration":"vmtf/adaptive-glue/saved","rotation_intervals":0,"next_restart_conflicts":0,"reluctant":[1,1,0],"fast_glue":0,"slow_glue":0,"last_action":null,"native":{"decisions":42,"conflicts":34,"propagations":444,"ticks":1692,"search_ticks":1272,"inprocess_propagations":0,"root_assignments":20,"propagation_rearms":0,"rule_calls":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"sr_applications":0,"sr_applied":0,"sr_unique_literal_amo_binaries":0,"sr_post_amo_nonhelper_applied":0,"sr_post_amo_graph_root_units":0,"sr_nonforcing_cut_batches_declined":0,"sr_nonforcing_cuts_declined":0,"sr_singleton_forcing_batches_declined...
+[This part of the test output was removed since it exceeds the threshold of 1024 bytes.]
+</system-out>
+	</testcase>
+	<testcase name="stconn_proof" classname="stconn_proof" time="0.00787671" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="structured_handoff" classname="structured_handoff" time="0.0124207" status="run">
+		<properties/>
+		<system-out>inexact row control: status 0 failures 2 reuse 2 matrices 0
+inexact row control: status 0 failures 3 reuse 1 matrices 0
+structured handoff: PASS
+</system-out>
+	</testcase>
+	<testcase name="substitute_collapse" classname="substitute_collapse" time="0.162275" status="run">
+		<properties/>
+		<system-out>PASS: 72 collapse/large/redundancy/public/proof/model fixtures; missing=0
+</system-out>
+	</testcase>
+	<testcase name="substitute_execution" classname="substitute_execution" time="0.00486627" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="substitute_publication" classname="substitute_publication" time="0.00982109" status="run">
+		<properties/>
+		<system-out>PASS: budgeted=1 preprocessing=0 cap=1 actual_rounds=1
+PASS: budgeted=1 preprocessing=0 cap=2 actual_rounds=2
+PASS: budgeted=1 preprocessing=1 cap=1 actual_rounds=1
+PASS: budgeted=1 preprocessing=1 cap=2 actual_rounds=2
+PASS: budgeted=0 preprocessing=0 cap=1 actual_rounds=1
+PASS: budgeted=0 preprocessing=0 cap=2 actual_rounds=1
+PASS: budgeted=0 preprocessing=1 cap=1 actual_rounds=1
+PASS: budgeted=0 preprocessing=1 cap=2 actual_rounds=2
+</system-out>
+	</testcase>
+	<testcase name="substitute_retry" classname="substitute_retry" time="0.0296012" status="run">
+		<properties/>
+		<system-out>PASS: 36 canonical/public DRAT/LRAT retry fixtures
+</system-out>
+	</testcase>
+	<testcase name="subsume_material" classname="subsume_material" time="0.00406151" status="run">
+		<properties/>
+		<system-out>PASS separate subsumption material state and producer isolation
+</system-out>
+	</testcase>
+	<testcase name="sweep_cursor" classname="sweep_cursor" time="0.11375" status="run">
+		<properties/>
+		<system-out>sweep-cursor cases=588 state=b15f97a272f9abef
+</system-out>
+	</testcase>
+	<testcase name="sweep_retained" classname="sweep_retained" time="0.00630325" status="run">
+		<properties/>
+		<system-out>retained entry eligibility: PASS
+</system-out>
+	</testcase>
+	<testcase name="sweep_small_env" classname="sweep_small_env" time="0.00602534" status="run">
+		<properties/>
+		<system-out>single clause vars=2 ticks=8
+single clause vars=3 ticks=12
+single clause vars=17 ticks=56
+single clause vars=270 ticks=815
+small-environment solve/model/effort: PASS
+</system-out>
+	</testcase>
+	<testcase name="unwatch_fixed" classname="unwatch_fixed" time="0.0294766" status="run">
+		<properties/>
+		<system-out>test_unwatch_fixed OK
+</system-out>
+	</testcase>
+	<testcase name="vivify_binary_retry" classname="vivify_binary_retry" time="0.0450758" status="run">
+		<properties/>
+		<system-out>PASS: 48 public binary-Vivify retry fixtures
+</system-out>
+	</testcase>
+	<testcase name="vivify_compact_contract" classname="vivify_compact_contract" time="12.2668" status="run">
+		<properties/>
+		<system-out>vivify-compact-contract cases=1728 digest=11603ba2e1d600bb proof-bytes=39624 subsumed=1872
+</system-out>
+	</testcase>
+	<testcase name="vivify_count_cache" classname="vivify_count_cache" time="4.22794" status="run">
+		<properties/>
+		<system-out>vivify-count-cache cases=432 digest=fb0f8be6d21838ed proof-bytes=9804 subsumed=432
+</system-out>
+	</testcase>
+	<testcase name="vivify_max" classname="vivify_max" time="0.0496238" status="run">
+		<properties/>
+		<system-out>vivify-max cases=144 order-and-pose=a223a06d79fb69dd
+</system-out>
+	</testcase>
+	<testcase name="vivify_order_contract" classname="vivify_order_contract" time="0.814274" status="run">
+		<properties/>
+		<system-out>vivify-order-contract cases=96 digest=c67723e59482dad7
+</system-out>
+	</testcase>
+	<testcase name="vivify_parameters" classname="vivify_parameters" time="0.00347321" status="run">
+		<properties/>
+		<system-out>Vivify typed parameters, threshold boundary and scope restore PASS
+</system-out>
+	</testcase>
+	<testcase name="watch_pair" classname="watch_pair" time="0.00523952" status="run">
+		<properties/>
+		<system-out>watch-pair: 180 fixed cases, spare=732 boundary=708 digest=fce3246c046c23bf
+</system-out>
+	</testcase>
+	<testcase name="work_execution" classname="work_execution" time="0.00362049" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="demo1_dpll" classname="demo1_dpll" time="0.00369981" status="run">
+		<properties/>
+		<system-out>demo1_dpll OK
+</system-out>
+	</testcase>
+	<testcase name="demo2_no_restarts" classname="demo2_no_restarts" time="0.00823653" status="run">
+		<properties/>
+		<system-out>demo2_no_restarts OK
+</system-out>
+	</testcase>
+	<testcase name="demo3_scripted_default" classname="demo3_scripted_default" time="15173.9" status="run">
+		<properties/>
+		<system-out>demo3: verdict 20 — builtin{confl 7987 rst 163 red 5 sw 5 rp 3}  scripted{confl 75327 rst 1735 red 17 sw 12 rp 7}
+demo3_scripted_default OK
+</system-out>
+	</testcase>
+</testsuite>

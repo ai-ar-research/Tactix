@@ -1,0 +1,39 @@
+{
+  "source_audit_inventory": 366,
+  "runtime_feature_cases": [
+    {
+      "event_trace": false,
+      "rule_journal": false,
+      "declared": 199,
+      "passed": true
+    },
+    {
+      "event_trace": false,
+      "rule_journal": true,
+      "declared": 211,
+      "passed": true
+    },
+    {
+      "event_trace": true,
+      "rule_journal": false,
+      "declared": 354,
+      "passed": true
+    },
+    {
+      "event_trace": true,
+      "rule_journal": true,
+      "declared": 366,
+      "passed": true
+    }
+  ],
+  "original_negative_control": "Original table retains both forbidden runtime markers with both features disabled.",
+  "patch_check": "git apply --check passed",
+  "python_syntax": "passed",
+  "original_and_staged_source_hashes": "verified",
+  "scope": "Preprocessor, syntax and applicability checks only; no repaired solver binary or full Debug acceptance.",
+  "cxx_syntax": [
+    "src/main.cpp",
+    "tests/test_execution_support.cpp",
+    "tests/test_feedback_provenance.cpp"
+  ]
+}
