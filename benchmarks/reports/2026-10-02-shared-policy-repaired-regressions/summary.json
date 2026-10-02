@@ -1,0 +1,95 @@
+{
+  "schema": "tactix-repaired-policy-four-gate-summary-v1",
+  "source_commit": "f6f01982e08bfce6a8ef6dfcde1f439ce8ef81f0",
+  "release_sha256": "6283ba9b1936e3f9a690ae1b2cd26db0f0834c3e5461cb3cbf4dc857dc2c3e8a",
+  "all_four_gates_accepted": true,
+  "total_rows": 272,
+  "independently_verified": 249,
+  "censored_proofs": 13,
+  "solver_timeout_exceptions": 10,
+  "proof_cost_dispositions": {
+    "completed-within-bound": 126,
+    "censored-within-bound": 12,
+    "inconclusive": 1
+  },
+  "paired_solved": 262,
+  "baseline_work_and_certificate_equal": 262,
+  "foundation_work_and_certificate_equal": 262,
+  "analysis_summary": {
+    "b28c5": {
+      "rows": 33,
+      "paired_solved": 33,
+      "baseline_seconds": 960.046,
+      "candidate_seconds": 955.943,
+      "median_ratio": 0.9982394366197183,
+      "normalized_statistics_equal": 33,
+      "certificate_equal": 33,
+      "added_seconds": 0.552,
+      "saved_seconds": 4.655,
+      "timeout_transitions": 0
+    },
+    "rank1-50": {
+      "rows": 50,
+      "paired_solved": 50,
+      "baseline_seconds": 7658.828,
+      "candidate_seconds": 7531.471,
+      "median_ratio": 0.997838082926976,
+      "normalized_statistics_equal": 50,
+      "certificate_equal": 50,
+      "added_seconds": 32.587,
+      "saved_seconds": 159.944,
+      "timeout_transitions": 0
+    },
+    "wv100": {
+      "rows": 100,
+      "paired_solved": 100,
+      "baseline_seconds": 2747.495,
+      "candidate_seconds": 2760.257,
+      "median_ratio": 1.0,
+      "normalized_statistics_equal": 100,
+      "certificate_equal": 100,
+      "added_seconds": 50.893,
+      "saved_seconds": 38.131,
+      "timeout_transitions": 0
+    },
+    "wv2-89": {
+      "rows": 89,
+      "paired_solved": 79,
+      "baseline_seconds": 4047.45,
+      "candidate_seconds": 4021.675,
+      "median_ratio": 1.0,
+      "normalized_statistics_equal": 79,
+      "certificate_equal": 79,
+      "added_seconds": 40.752,
+      "saved_seconds": 66.527,
+      "timeout_transitions": 0
+    }
+  },
+  "scheduler_task_states": {
+    "1746500": {
+      "COMPLETED": 32,
+      "FAILED": 1
+    },
+    "1746531": {
+      "COMPLETED": 42,
+      "FAILED": 8
+    },
+    "1746534": {
+      "COMPLETED": 98,
+      "FAILED": 2
+    },
+    "1746535": {
+      "COMPLETED": 77,
+      "FAILED": 12
+    }
+  },
+  "scheduler_failure_interpretation": "Twenty-three task exit1 outcomes are thirteen bounded checker censorings and ten retained solver timeouts, not proof rejections. Maintained row scorer accepts all four sets.",
+  "new_experiments": 0,
+  "goal_complete": false,
+  "pending": [
+    "Terminal full Debug exact212 tests and984 bindings",
+    "Claude-owned fresh both-policy fuzz/corpus/coverage/purity/replay report",
+    "Final requirement audit and whole-goal Andrew handoff"
+  ],
+  "created_utc": "2026-10-02T23:09:14.601006+00:00"
+}
