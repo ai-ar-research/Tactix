@@ -1,0 +1,13 @@
+{
+  "scope": "four owned completed regression directories only; private fuzz evidence and unrelated work not traversed",
+  "files_preserved": {
+    "b28c5": 155,
+    "rank1-50": 223,
+    "wv100": 423,
+    "wv2-89": 379
+  },
+  "certificate_or_input_residue": [],
+  "cleanup_pending": [],
+  "removed_bytes": 0,
+  "activation_temporary_certificates_removed": true
+}
