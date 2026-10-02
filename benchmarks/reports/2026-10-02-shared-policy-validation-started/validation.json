@@ -1,0 +1,95 @@
+{
+  "schema": "tactix-shared-policy-validation-started-v1",
+  "source_commit": "0531c2f1fb153f0d6be240041eda41fa835427a8",
+  "scope": "Reviewed immutable candidate and submitted validation. All fresh gates and whole-goal acceptance pending.",
+  "artifact_sha256": {
+    "b28c5-array.sbatch": "9b206c1ca75e199cabeb36bfc27a9278b68b0baf845a1af4e052430b5bb035d7",
+    "b28c5-manifest.json": "4a3def3e8212ee7f109b9c73414a5bfbace8a13f6f42600bdc317f303f0c61d9",
+    "b28c5-submission.json": "ad64de2fb1acfd37cfa3df91d257200a77366de9ba34c1a12f117c308201a76d",
+    "candidate-audit.json": "1597528e51cfe0069f96c711ab33481fdc3badd3396154b888d446d2fa4f1a01",
+    "debug-build.log": "1cc700379fc4d204adcfc054ffef5374528ea56b4eb49ea8aa7cfd4ca4e30d1b",
+    "debug-configure.log": "36ba4fceea1bffd84f8033d651750b206e4407507ccee56994a8bc6de2b5e76a",
+    "debug-pin.json": "22dba2a2c0c6029d45a7b12d849f1d1f1445bdfb09bab097c4fcba797c20c42f",
+    "doc-size.log": "7cd926048f7348d34ca4f220363b026958dbd69bb1848b2fb2b2ac0855241409",
+    "docs.log": "e4884d2c87ed0b058578b6fc42465bccf0dbd829ef8a2424f868f3be8179a5e7",
+    "fuzz-owner-request.txt": "94b71c5dffd3af6a8e43b37a08e29f2010323311430baaaa4e7ef9e26b2c9bf4",
+    "job.sh": "bb70fe1986431049e0fed0224f93cad4c53b99c0c990274fb541003c2209237a",
+    "manifest.json": "7e81e3c07242c586436d7c7c65e49f18e31915bc35b20738fcaf1969aaf437f0",
+    "overhead-job.sh": "a7cfbe5d646c101889496b73cecd2fb804f0919c2316b8770b21fa6bc1643112",
+    "overhead-manifest.json": "63bb071b6b3bdafa957190e8a4c99da21692b0ca722f386c69cf23121e799d58",
+    "overhead-measure.py": "e52126a1463b6a29243453c2f95b86dd317a37eaf6a110b82719b1bf75445059",
+    "overhead-submission.json": "30032f674078bd6424f98b974c0c5e646d3dbcc06965f381c9c5d0a5b406d0a4",
+    "progress-authoritative.log": "e91586d700ce49f36dde5fd30d2372198750d9850822721e666eadae645dcd2c",
+    "progress.log": "6dbd6431fe3f6d6491eb2d8e0b8d4ee600b0eafaa0fe6835ace9917d2a624edf",
+    "queue-observation.log": "5b45afd922aee3ff6096976cb40067e1746cb9e9a090a7c2e734c478223426ea",
+    "rank1-50-array.sbatch": "326642684afb2dc0be84356106847ff765a5df43fac882e6d95437ff14a91619",
+    "rank1-50-manifest.json": "98e2e4329b3ec14bcdd8f3b02d5d7fece65a7929400b27ba4c9428893e6e7859",
+    "rank1-50-submission.json": "71bb69358739912ec06275dabb131cae947ec6cc6bf24877cee6818f287c3578",
+    "regression-submissions.json": "59f59dd920b4694c03561b568012447361ca2a54a9aa661bb96f265ce482b047",
+    "release-build.log": "2e086fd23a3bc58713ec4be94098a16331f62b5ac8780d83a8ab1e72e659ffd1",
+    "release-configure.log": "91ea87b27423b66ee784fda43144aecd10bf785fda3c5b9d7d507819150f138b",
+    "release-pin.json": "65177197a3f100e494ab0d722f4d1fb3463ff704a2fdfd944d41eb1d930ee057",
+    "resume-state.json": "6c60d848511fcd7f5ff7083c041f618a1145846caa913e28adaf4d6113e1cf9a",
+    "submission.json": "f6e793975c03dac623f791961aedc5a233bd7b83c8bcec21eaade6cd9ec6b2c9",
+    "tests.json": "1f3261f52828241c44e8ef0ae056659e7848d7b02db703a39000917ff1c690b8",
+    "verify.py": "566c0eb0ba3eb1028eb8543612b6a26f6fe5282967c52a9b38ca618ecdac70b8",
+    "watcher-correction.json": "1d72ee478ea92bed88a7cf88311abf7be3a699c9af2a79c7960e620ad54cbd78",
+    "wv100-array.sbatch": "f53b60a6ca9c24a1986606df934335fcb980afdd4a99a219d69ec02b98f8a7e8",
+    "wv100-manifest.json": "a4b4b0efd701db58325e42987fe91b233be42d1881fe1c337509a43665784f27",
+    "wv100-submission.json": "a6b8b0498284841d3780ec35e020ce818ae8f413932307f9196b9fe266f84dfa",
+    "wv2-89-array.sbatch": "865961d235db0926df28e0efb5e49a927a60e34a19fc681ad605cdc0701ad65f",
+    "wv2-89-manifest.json": "c0a9e6bd53e2694c13dabbfa9ea7c7477207127364e27ef9c6a1efdd4d2ddc5d",
+    "wv2-89-submission.json": "f72bcecb2ea7d2f3d275109e8e596aae17a82c9a3dd22860e137843b05ef1ac4"
+  },
+  "report_sha256": "b2be31864d358eaa30aced74635bea4cbaeaca2fb8a3e056ddbe673b0513f425",
+  "current_status_sha256": "f6334d88e51e3500c20a21ca508d85815cd1697d46b298082c44ff55e8e9c924",
+  "accepted_authorities_sha256": {
+    "build/pin-controller-foundations-debug-canonical-repair/tactix": "8ae7478107a340ee5b53261f76ffbb1034b90e4f7e7acc2a8123ea300e1267f3",
+    "build/pin-controller-foundations-release-canonical-repair/tactix": "ad7e4da8fb0801b15c5916c94a536176f69f2def2a8fd477d59953d5409dfe41",
+    "benchmarks/baselines/controller-foundations-v1/results.json": "ef81cf019675a79a91ee431ab54e2c59630d9d069a03c2a55e44bd446c37bc9d"
+  },
+  "checker_and_inspector_sha256": {
+    "tools/checkers/bin/drat-trim": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+    "tools/checkers/bin/cake_lpr": "ab9dc6c43ad0f55bbaf336c5d898919ddb03d0bdb75e88dff48237fb06ba1f57",
+    "tools/checkers/bin/dsr-trim": "3b5c773706dc4695f08115ce862e991bfa2e44e3388df80f40ae8b0823dfbdee",
+    "tools/checkers/bin/dsr-compress": "6bc416a0df73f16911a0b16d85aa4bed4d15e4915d309407ff1e80b07d19d676",
+    "tools/checkers/bin/srcheck": "19bf79f49e293bb0df82b1e4ec82ec45987c2791864598bada12525ef41a2945",
+    "tools/bench/proof_oracle.py": "020bfcef6f4382e9b3136442a253bb7eb4fcfa1091be9d692ddd438161a3b8b2",
+    "tools/fuzz/modelcheck.py": "023d06f8f4016ced484897a4a6aeadf2fdb45e16dbf929661b1c6e92ec0ea9d4",
+    "tools/bench/inspect_policy_feedback.py": "ff41f4dba97c4b82a15cfadfce87095350413109719b29a51e0f66a41640f701"
+  },
+  "jobs": {
+    "full_debug": 1746172,
+    "b28c5": 1746173,
+    "rank1-50": 1746174,
+    "wv100": 1746175,
+    "wv2-89": 1746176,
+    "fuzz_queue_observed_default": 1746357,
+    "fuzz_queue_observed_controller": 1746358,
+    "feedback_overhead": 1746397
+  },
+  "fuzz_ownership": "Claude-owned private campaign not inspected; owner terminal report required.",
+  "documentation_gates": {
+    "passed": 15,
+    "total": 15,
+    "seconds": 16.89
+  },
+  "benchmark_cleanup": {
+    "deleted": false,
+    "active_pins_rebuilt": false
+  },
+  "andrew": {
+    "directory": "report-to-andrew/20261002T163400Z-shared-policy-validation-started",
+    "sha256": {
+      "report.aux": "44aefb37505e9eb08bfeb1284f43e14a08529270d3adc95d28f905032b291e27",
+      "report.log": "3ed03f431dbb7dca503c9e57f3bf22cbd549d55dcaca07d08f5d77ad8bea380a",
+      "report.out": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "report.pdf": "343c9eca8327cfbb9f2b09a3faa42bf38ca21d947746385a7adc033e262b0468",
+      "report.tex": "de45f56f3f1a9a3623304efcb2b20d7b2e26ceb4ec6dfd0a0a6ea946d0925e89",
+      "report.txt": "4281a2f44c8aae5577a9c99ae3d772d6d1512df04d6f2f7b3e01b92bc7cbcb41",
+      "tex-pass-1.log": "084aabf4bdb085cb0a2a522d447e9c22c01c1fc158789db4e6861bf03129a03d",
+      "tex-pass-2.log": "084aabf4bdb085cb0a2a522d447e9c22c01c1fc158789db4e6861bf03129a03d"
+    }
+  },
+  "acceptance": "Pending; prior accepted foundation and scoped correspondence are not fresh acceptance."
+}
