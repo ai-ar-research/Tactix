@@ -12,6 +12,7 @@ namespace tactix::execution {
 struct ReorderRequest { uint64_t target = INSTANCE_CANONICAL; };
 struct RephaseRequest { uint64_t type = REPHASE_BEST; };
 struct SwitchModeRequest {};
+struct CompactRandomOrderRequest {};
 struct LocalSearchRotationRequest {
   const std::vector<strategy::LocalSearchKind> &rotation;
   uint64_t &cursor;
@@ -30,6 +31,9 @@ inline ApplyResult execute_action(Kernel &k, const RephaseRequest &request) {
 }
 inline ApplyResult execute_action(Kernel &k, SwitchModeRequest) {
   return switchmode_apply(k);
+}
+inline void execute_action(Kernel &k, CompactRandomOrderRequest) {
+  heuristics_compact_random_order_fixed(k);
 }
 inline ApplyResult execute_action(Kernel &k,
                                   const LocalSearchRotationRequest &request) {

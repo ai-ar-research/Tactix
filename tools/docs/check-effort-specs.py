@@ -61,7 +61,9 @@ EV_CONGRUENCE_LADDER = (r'\{"Congruence", \[\]\(const Kernel &k\) '
                         r'\{ return k\.stats\.congruence_merges; \}')
 EV_SR_LEGACY_SKIP = (r'std::strcmp\(rules\[i\]\.name, '
                      r'"SubstitutionRedundancy"\)')
-EV_SR_ROOT_OWNER = r"run_structured_root\(k, stop\)"
+# Completion is an optional third argument; the same named root owner must
+# still receive the native kernel and stop publisher.
+EV_SR_ROOT_OWNER = r"run_structured_root\(k, stop(?:, completion_?)?\)"
 EV_SR_RUN_ONCE = r"structured_root_consumed_ \|\| k\.stats\.conflicts"
 EV_SR_SCOPED_FIXPOINT = (r"result\.repeat = \{strategy::RepeatMode::"
                          r"UntilSizeScaledFixpoint, 128\}")

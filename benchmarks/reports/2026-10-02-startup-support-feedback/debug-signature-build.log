@@ -1,0 +1,5 @@
+[  0%] Built target tactix_symmetry_backend
+[100%] Built target tactix_lib
+[100%] Building CXX object tests/CMakeFiles/test_startup_support_signature.dir/test_startup_support_signature.cpp.o
+[100%] Linking CXX executable test_startup_support_signature
+[100%] Built target test_startup_support_signature
