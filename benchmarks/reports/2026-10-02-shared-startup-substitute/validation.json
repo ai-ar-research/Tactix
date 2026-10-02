@@ -1,0 +1,267 @@
+{
+  "predecessor_commit": "d6531a65f034657de26925e379df02c524a7810b",
+  "sources": {
+    "src/policies/default_policy.cpp": "d5d31e5977ab44695c3c0f0147b8c7aa672dcb690889f7f36f175722fa113c2a",
+    "src/rules/lucky/lucky.cpp": "598179cdb807ba502220235ed8b06a67d6d7035b816bed0ec2e437ded6c3e59e",
+    "src/rules/lucky/onehot_model.cpp": "02d1f59d5c0e7710f68804ed25499c7deb89b765361db89e6a01633c3c4461b6",
+    "src/rules/reduce/reduce.cpp": "67a62ea2c07289d8ca3cc3842628fd670d481cb88f83bacafd21d668ca4ecf6f",
+    "src/rules/substitute/substitute.cpp": "14cf97a14a27a4d4b9a1a2e5b03b562463ff58f9c7f7993b16d5cfa388e184e0",
+    "src/strategy/execution_scope.hpp": "a22787b91511ae7cf8a8d8bf659f4c6218e060210f14397f8e0038b810606351",
+    "src/strategy/lucky_execution.hpp": "aa4aa369bcf9c444a71dbf59a5b082db18603c61557daf59d66f02f704941b7f",
+    "src/strategy/representation_execution.hpp": "eb8bb8b3cb8e23109da8ce18a6bac4ffd733dae88ac7d59c25a25db96a6dc650",
+    "src/strategy/substitute_execution.hpp": "bf51ba440c88585c3c89725047b49d8fb870d6393a55be01f79328a4c590be96",
+    "tests/test_execution_support.cpp": "0740b51bff45fdadd8b76a87c7b5ca63842224d5d563bad370ebabfb7713c4ce",
+    "tests/test_substitute_execution.cpp": "654343d643f6c1a0fe4805cbbe617adc27cc8aa773668d3cfddb33ea15df11fb"
+  },
+  "preserved_authorities": {
+    "build/pin-controller-foundations-debug-canonical-repair/tactix": "8ae7478107a340ee5b53261f76ffbb1034b90e4f7e7acc2a8123ea300e1267f3",
+    "build/pin-controller-foundations-release-canonical-repair/tactix": "ad7e4da8fb0801b15c5916c94a536176f69f2def2a8fd477d59953d5409dfe41",
+    "benchmarks/baselines/controller-foundations-v1/results.json": "ef81cf019675a79a91ee431ab54e2c59630d9d069a03c2a55e44bd446c37bc9d"
+  },
+  "current_focused": {
+    "count": 30,
+    "passed": 30,
+    "seconds": 1.45,
+    "log": "build/shared-policy-prep-startup-current-focused.log"
+  },
+  "earlier_startup_support_focused": {
+    "count": 26,
+    "passed": 26,
+    "seconds": 804.66,
+    "includes_long_lucky": true,
+    "scope": "before Substitute cutover",
+    "log": "build/shared-policy-prep-lucky-focused.log"
+  },
+  "complete_default_correspondence": {
+    "baseline_commit": "d6531a65",
+    "replaced_translation_units": [
+      "src/policies/default_policy.cpp",
+      "src/rules/lucky/lucky.cpp",
+      "src/rules/lucky/onehot_model.cpp",
+      "src/rules/reduce/reduce.cpp",
+      "src/rules/substitute/substitute.cpp"
+    ],
+    "adaptations": [],
+    "compared_files": [
+      "profile-0-pigeons-4.cnf",
+      "profile-0-pigeons-4.drat",
+      "profile-0-pigeons-4.model",
+      "profile-0-pigeons-6.cnf",
+      "profile-0-pigeons-6.drat",
+      "profile-1-pigeons-4.cnf",
+      "profile-1-pigeons-4.drat",
+      "profile-1-pigeons-4.model",
+      "profile-1-pigeons-6.cnf",
+      "profile-1-pigeons-6.drat",
+      "profile-2-pigeons-4.cnf",
+      "profile-2-pigeons-4.drat",
+      "profile-2-pigeons-4.model",
+      "profile-2-pigeons-6.cnf",
+      "profile-2-pigeons-6.drat"
+    ],
+    "files_byte_equal": true,
+    "signatures_equal": true,
+    "output": "profile=0 pigeons=4 verdict=10 proof=14695981039346656037:0 work=0:0:0:0:0:0:0:0:0:0:0:0 state=20:20:34:1:3:5:7:8:11:13:14:17:19:21:22:25:27:29:30:33:35:37:39 phases=-1,-1,-1,-1,1,-1,-1,1,-1,-1,-1,1,-1,-1,-1,1,-1,-1,-1,-1, scores=0,0.5,0.66666666666666674,0.75,0.80000000000000004,0.83333333333333337,0.85714285714285721,0.875,0.88888888888888884,0.90000000000000002,0.90909090909090906,0.91666666666666663,0.92307692307692313,0.9285714285714286,0.93333333333333335,0.9375,0.94117647058823528,0.94444444444444442,0.94736842105263164,0.94999999999999996,\nprofile=0 pigeons=6 verdict=20 proof=11116815066249832632:4519 work=140:107:1609:7673:6240:104:5:1:0:2:1:0 state=0:25:252:59:61:48:9:39:63:29:19:4:45:55:69:35:25:15:32:3:64:26:13:53:7:37:66:17:47:57 phases=0,-1,1,-1,-1,0,-1,-1,-1,-1,0,0,-1,1,-1,0,1,-1,-1,-1,0,0,-1,-1,1,0,-1,-1,-1,-1,-1,-1,1,1,-1, scores=0,0.5,0.66666666666666674,0.75,0.80000000000000004,0.83333333333333337,0.85714285714285721,0.875,0.88888888888888884,0.90000000000000002,0.90909090909090906,0.91666666666666663,0.92307692307692313,0.9285714285714286,0.93333333333333335,0.9375,0.94117647058823528,0.94444444444444442,0.94736842105263164,0.94999999999999996,0.95238095238095233,0.95454545454545459,0.95652173913043481,0.95833333333333337,0.95999999999999996,0.96153846153846156,0.96296296296296302,0.9642857142857143,0.96551724137931039,0.96666666666666667,0,0,0,0,0,\nprofile=1 pigeons=4 verdict=10 proof=14695981039346656037:0 work=0:0:0:0:0:0:0:0:0:0:0:0 state=20:20:34:1:3:5:7:8:11:13:14:17:19:21:22:25:27:29:30:33:35:37:39 phases=-1,-1,-1,-1,1,-1,-1,1,-1,-1,-1,1,-1,-1,-1,1,-1,-1,-1,-1, scores=0,0.5,0.66666666666666674,0.75,0.80000000000000004,0.83333333333333337,0.85714285714285721,0.875,0.88888888888888884,0.90000000000000002,0.90909090909090906,0.91666666666666663,0.92307692307692313,0.9285714285714286,0.93333333333333335,0.9375,0.94117647058823528,0.94444444444444442,0.94736842105263164,0.94999999999999996,\nprofile=1 pigeons=6 verdict=20 proof=18128233694468603772:4953 work=190:156:1743:6980:6402:155:9:0:48:1:1:12 state=1:20:242:7:32:9:17:25:41:29:13:15:10:1:19:27:35:37:38:5:23:31:2:20 phases=-1,1,-1,-1,-1,1,-1,-1,-1,-1,1,-1,-1,-1,-1,-1,1,-1,-1,1,-1, scores=0,0.5,0.66666666666666674,0.75,0.80000000000000004,0.83333333333333337,0.85714285714285721,0.875,0.90000000000000002,0.90909090909090906,0.91666666666666663,0.92307692307692313,0.93333333333333335,0.9375,0.94117647058823528,0.94444444444444442,0.94999999999999996,0.95238095238095233,0.95454545454545459,0.95652173913043481,0.95999999999999996,\nprofile=2 pigeons=4 verdict=10 proof=14695981039346656037:0 work=0:0:0:0:0:0:0:0:0:0:0:0 state=20:20:34:1:3:5:7:8:11:13:14:17:19:21:22:25:27:29:30:33:35:37:39 phases=-1,-1,-1,-1,1,-1,-1,1,-1,-1,-1,1,-1,-1,-1,1,-1,-1,-1,-1, scores=0,0.5,0.66666666666666674,0.75,0.80000000000000004,0.83333333333333337,0.85714285714285721,0.875,0.88888888888888884,0.90000000000000002,0.90909090909090906,0.91666666666666663,0.92307692307692313,0.9285714285714286,0.93333333333333335,0.9375,0.94117647058823528,0.94444444444444442,0.94736842105263164,0.94999999999999996,\nprofile=2 pigeons=6 verdict=20 proof=11355529929544556385:4837 work=173:152:1775:7226:6648:149:9:1:35:2:2:12 state=0:18:238:7:34:1:11:19:27:16:9:25:33:41:37:23:20:3:13:29:4:30:15 phases=-1,-1,1,-1,-1,-1,-1,-1,1,-1,1,-1,-1,-1,-1,1,-1,1,-1,-1,-1, scores=0,0.5,0.66666666666666674,0.75,0.80000000000000004,0.83333333333333337,0.85714285714285721,0.875,0.90000000000000002,0.90909090909090906,0.91666666666666663,0.92307692307692313,0.93333333333333335,0.9375,0.94117647058823528,0.94444444444444442,0.94999999999999996,0.95238095238095233,0.95454545454545459,0.95652173913043481,0.95999999999999996,\n",
+    "output_sha256": "eb63122fdd832ba0aa79795e66d763ea4f597d9b18ec82c64aa9200b48b4c33d",
+    "oracles": [
+      {
+        "case": "profile-0-pigeons-4",
+        "kind": "SAT",
+        "verified": true,
+        "message": "34 clauses satisfied, 20 vars assigned"
+      },
+      {
+        "case": "profile-0-pigeons-6",
+        "kind": "UNSAT",
+        "verified": true,
+        "stage": null,
+        "route": "drat",
+        "message": ""
+      },
+      {
+        "case": "profile-1-pigeons-4",
+        "kind": "SAT",
+        "verified": true,
+        "message": "34 clauses satisfied, 20 vars assigned"
+      },
+      {
+        "case": "profile-1-pigeons-6",
+        "kind": "UNSAT",
+        "verified": true,
+        "stage": null,
+        "route": "drat",
+        "message": ""
+      },
+      {
+        "case": "profile-2-pigeons-4",
+        "kind": "SAT",
+        "verified": true,
+        "message": "34 clauses satisfied, 20 vars assigned"
+      },
+      {
+        "case": "profile-2-pigeons-6",
+        "kind": "UNSAT",
+        "verified": true,
+        "stage": null,
+        "route": "drat",
+        "message": ""
+      }
+    ],
+    "before_sources": {
+      "src/policies/default_policy.cpp": "614c4d45a533cfecdc7e592e89817def335bc3c7ee9913ce2e85741e7c71c7e9",
+      "src/rules/lucky/lucky.cpp": "d46cd5d99620ccb5d50fe27037c0e1555f080c2c43807b3b4e71ccc879c7b90d",
+      "src/rules/lucky/onehot_model.cpp": "e8dd88c652b7b1e77dffbf94c1715a9e377479f503dddba47b5aff4aeebbcab2",
+      "src/rules/reduce/reduce.cpp": "6d07adeee475d9b672401e195b2e1d79a82adcddef769d791f71c30c14503d46",
+      "src/rules/substitute/substitute.cpp": "3abb6014a55bc77142ecddc8e5c08a9ab871fb0e852e35ba5cc0fe73e90c607e"
+    },
+    "binaries": {
+      "build/shared-policy-prep-debug/tests/test_default_execution_signature_before_substitute": "6e2aaa505cb3f2a7acd0a78f22eab1d52f7313db5de3bd689cc33de71cb06d36",
+      "build/shared-policy-prep-debug/tests/test_default_execution_signature": "1edf953766050e239121bc8c51f6ee236da94b1245e4c122ffa94bbf6de21de4"
+    }
+  },
+  "native_pairs": {
+    "targets": [
+      "test_substitute",
+      "test_substitute_publication",
+      "test_scheduling"
+    ],
+    "all_five_original_objects": true,
+    "output_equal": true,
+    "log": "build/shared-policy-prep-substitute-native-pairs.log"
+  },
+  "diagnostic_syntax": {
+    "defines": [
+      "TACTIX_ENABLE_RULE_JOURNAL",
+      "TACTIX_ENABLE_EVENT_TRACE"
+    ],
+    "translation_units": [
+      "src/policies/default_policy.cpp",
+      "src/rules/lucky/lucky.cpp",
+      "src/rules/lucky/onehot_model.cpp",
+      "src/rules/reduce/reduce.cpp",
+      "src/rules/substitute/substitute.cpp"
+    ],
+    "passed": 5,
+    "log": "build/shared-policy-prep-startup-diagnostic-syntax.log"
+  },
+  "retained_logs": {
+    "build/shared-policy-prep-startup-current-build.log": {
+      "sha256": "6b9574368db1f327d6f1a8c05086403499d416cd29b87e43c7d3943d66b8db70",
+      "text": "[  0%] Built target tactix_symmetry_backend\n[ 95%] Built target tactix_lib\n[ 95%] Linking CXX executable tactix\n[100%] Built target tactix\n[  0%] Built target tactix_symmetry_backend\n[ 95%] Built target tactix_lib\n[ 95%] Linking CXX executable test_restart_reduce\n[100%] Built target test_restart_reduce\n[  0%] Built target tactix_symmetry_backend\n[100%] Built target tactix_lib\n[100%] Built target test_scheduling\n[  0%] Built target tactix_symmetry_backend\n[100%] Built target tactix_lib\n[100%] Linking CXX executable test_parity_model\n[100%] Built target test_parity_model\n[  0%] Built target tactix_symmetry_backend\n[ 95%] Built target tactix_lib\n[ 95%] Linking CXX executable test_onehot_model\n[100%] Built target test_onehot_model\n[  0%] Built target tactix_symmetry_backend\n[100%] Built target tactix_lib\n[100%] Linking CXX executable test_lucky_terminal\n[100%] Built target test_lucky_terminal\n[  0%] Built target tactix_symmetry_backend\n[100%] Built target tactix_lib\n[100%] Linking CXX executable test_affine_model\n[100%] Built target test_affine_model\n[  0%] Built target tactix_symmetry_backend\n[100%] Built target tactix_lib\n[100%] Linking CXX executable test_balanced_signature_model\n[100%] Built target test_balanced_signature_model\n[  0%] Built target tactix_symmetry_backend\n[ 95%] Built target tactix_lib\n[100%] Linking CXX executable test_cerny_model\n[100%] Built target test_cerny_model\n[  0%] Built target tactix_symmetry_backend\n[ 95%] Built target tactix_lib\n[100%] Linking CXX executable test_collect_connection\n[100%] Built target test_collect_connection\n[  0%] Built target tactix_symmetry_backend\n[ 95%] Built target tactix_lib\n[100%] Linking CXX executable test_collect_retry\n[100%] Built target test_collect_retry\n[  0%] Built target tactix_symmetry_backend\n[100%] Built target tactix_lib\n[100%] Linking CXX executable test_count_preservation\n[100%] Built target test_count_preservation\n[  0%] Built target tactix_symmetry_backend\n[100%] Built target tactix_lib\n[100%] Built target test_default_execution_signature\n[  0%] Built target tactix_symmetry_backend\n[100%] Built target tactix_lib\n[100%] Linking CXX executable test_exact_cover_model\n[100%] Built target test_exact_cover_model\n[  0%] Built target tactix_symmetry_backend\n[100%] Built target tactix_lib\n[100%] Linking CXX executable test_execution_support\n[100%] Built target test_execution_support\n[  0%] Built target tactix_symmetry_backend\n[100%] Built target tactix_lib\n[100%] Linking CXX executable test_fermat_model\n[100%] Built target test_fermat_model\n[  0%] Built target tactix_symmetry_backend\n[ 95%] Built target tactix_lib\n[100%] Linking CXX executable test_independent_set_model\n[100%] Built target test_independent_set_model\n[  0%] Built target tactix_symmetry_backend\n[ 95%] Built target tactix_lib\n[100%] Linking CXX executable test_lookup_circuit_model\n[100%] Built target test_lookup_circuit_model\n[  0%] Built target tactix_symmetry_backend\n[ 95%] Built target tactix_lib\n[100%] Built target test_random_controller_policy\n[  0%] Built target tactix_symmetry_backend\n[100%] Built target tactix_lib\n[100%] Linking CXX executable test_shared_policy_transactions\n[100%] Built target test_shared_policy_transactions\n[  0%] Built target tactix_symmetry_backend\n[ 95%] Built target tactix_lib\n[100%] Linking CXX executable test_signed_cardinality_proof\n[100%] Built target test_signed_cardinality_proof\n[  0%] Built target tactix_symmetry_backend\n[100%] Built target tactix_lib\n[100%] Linking CXX executable test_simon_model\n[100%] Built target test_simon_model\n[  0%] Built target tactix_symmetry_backend\n[ 95%] Built target tactix_lib\n[ 95%] Linking CXX executable test_startup_parity\n[100%] Built target test_startup_parity\n[  0%] Built target tactix_symmetry_backend\n[100%] Built target tactix_lib\n[100%] Linking CXX executable test_stconn_proof\n[100%] Built target test_stconn_proof\n"
+    },
+    "build/shared-policy-prep-startup-current-focused.log": {
+      "sha256": "e6546323146d9e639adbe2743e86be2d66f411a218d6fa56500cbaf58a896722",
+      "text": "Test project /home/hwu/SAT-solving/build/shared-policy-prep-debug\n      Start   7: restart_reduce\n 1/30 Test   #7: restart_reduce ...................   Passed    0.02 sec\n      Start  14: scheduling\n 2/30 Test  #14: scheduling .......................   Passed    0.05 sec\n      Start  36: parity_model\n 3/30 Test  #36: parity_model .....................   Passed    0.01 sec\n      Start  37: onehot_model\n 4/30 Test  #37: onehot_model .....................   Passed    0.23 sec\n      Start  51: substitute\n 5/30 Test  #51: substitute .......................   Passed    0.01 sec\n      Start  58: lucky_terminal\n 6/30 Test  #58: lucky_terminal ...................   Passed    0.01 sec\n      Start  73: startup_parity_check\n 7/30 Test  #73: startup_parity_check .............   Passed    0.19 sec\n      Start  74: count_preservation_check\n 8/30 Test  #74: count_preservation_check .........   Passed    0.19 sec\n      Start  95: affine_model\n 9/30 Test  #95: affine_model .....................   Passed    0.07 sec\n      Start 101: balanced_signature_model\n10/30 Test #101: balanced_signature_model .........   Passed    0.01 sec\n      Start 107: cerny_model\n11/30 Test #107: cerny_model ......................   Passed    0.01 sec\n      Start 108: collect_connection\n12/30 Test #108: collect_connection ...............   Passed    0.03 sec\n      Start 110: collect_retry\n13/30 Test #110: collect_retry ....................   Passed    0.01 sec\n      Start 129: count_preservation\n14/30 Test #129: count_preservation ...............   Passed    0.01 sec\n      Start 130: default_execution_signature\n15/30 Test #130: default_execution_signature ......   Passed    0.02 sec\n      Start 132: exact_cover_model\n16/30 Test #132: exact_cover_model ................   Passed    0.01 sec\n      Start 134: execution_support\n17/30 Test #134: execution_support ................   Passed    0.01 sec\n      Start 136: fermat_model\n18/30 Test #136: fermat_model .....................   Passed    0.01 sec\n      Start 144: independent_set_model\n19/30 Test #144: independent_set_model ............   Passed    0.01 sec\n      Start 150: lookup_circuit_model\n20/30 Test #150: lookup_circuit_model .............   Passed    0.01 sec\n      Start 160: random_controller_policy\n21/30 Test #160: random_controller_policy .........   Passed    0.29 sec\n      Start 173: shared_policy_transactions\n22/30 Test #173: shared_policy_transactions .......   Passed    0.03 sec\n      Start 174: signed_cardinality_proof\n23/30 Test #174: signed_cardinality_proof .........   Passed    0.01 sec\n      Start 175: simon_model\n24/30 Test #175: simon_model ......................   Passed    0.01 sec\n      Start 176: startup_parity\n25/30 Test #176: startup_parity ...................   Passed    0.01 sec\n      Start 177: stconn_proof\n26/30 Test #177: stconn_proof .....................   Passed    0.01 sec\n      Start 179: substitute_collapse\n27/30 Test #179: substitute_collapse ..............   Passed    0.13 sec\n      Start 180: substitute_execution\n28/30 Test #180: substitute_execution .............   Passed    0.00 sec\n      Start 181: substitute_publication\n29/30 Test #181: substitute_publication ...........   Passed    0.01 sec\n      Start 182: substitute_retry\n30/30 Test #182: substitute_retry .................   Passed    0.02 sec\n\n100% tests passed out of 30\n\nTotal Test time (real) =   1.45 sec\n"
+    },
+    "build/shared-policy-prep-lucky-focused.log": {
+      "sha256": "8b912c19865f7ad45cde95fc900accf8088c4aded0c47c7b919d44d82a917ab9",
+      "text": "Test project /home/hwu/SAT-solving/build/shared-policy-prep-debug\n      Start   7: restart_reduce\n 1/26 Test   #7: restart_reduce ...................   Passed    0.01 sec\n      Start  14: scheduling\n 2/26 Test  #14: scheduling .......................   Passed    0.06 sec\n      Start  36: parity_model\n 3/26 Test  #36: parity_model .....................   Passed    0.01 sec\n      Start  37: onehot_model\n 4/26 Test  #37: onehot_model .....................   Passed    0.22 sec\n      Start  57: lucky\n 5/26 Test  #57: lucky ............................   Passed  801.93 sec\n      Start  58: lucky_terminal\n 6/26 Test  #58: lucky_terminal ...................   Passed    0.09 sec\n      Start  73: startup_parity_check\n 7/26 Test  #73: startup_parity_check .............   Passed    0.25 sec\n      Start  74: count_preservation_check\n 8/26 Test  #74: count_preservation_check .........   Passed    0.27 sec\n      Start  95: affine_model\n 9/26 Test  #95: affine_model .....................   Passed    0.15 sec\n      Start 101: balanced_signature_model\n10/26 Test #101: balanced_signature_model .........   Passed    0.16 sec\n      Start 107: cerny_model\n11/26 Test #107: cerny_model ......................   Passed    0.08 sec\n      Start 108: collect_connection\n12/26 Test #108: collect_connection ...............   Passed    0.17 sec\n      Start 110: collect_retry\n13/26 Test #110: collect_retry ....................   Passed    0.12 sec\n      Start 129: count_preservation\n14/26 Test #129: count_preservation ...............   Passed    0.02 sec\n      Start 130: default_execution_signature\n15/26 Test #130: default_execution_signature ......   Passed    0.02 sec\n      Start 132: exact_cover_model\n16/26 Test #132: exact_cover_model ................   Passed    0.06 sec\n      Start 134: execution_support\n17/26 Test #134: execution_support ................   Passed    0.00 sec\n      Start 136: fermat_model\n18/26 Test #136: fermat_model .....................   Passed    0.09 sec\n      Start 144: independent_set_model\n19/26 Test #144: independent_set_model ............   Passed    0.08 sec\n      Start 150: lookup_circuit_model\n20/26 Test #150: lookup_circuit_model .............   Passed    0.09 sec\n      Start 160: random_controller_policy\n21/26 Test #160: random_controller_policy .........   Passed    0.35 sec\n      Start 173: shared_policy_transactions\n22/26 Test #173: shared_policy_transactions .......   Passed    0.17 sec\n      Start 174: signed_cardinality_proof\n23/26 Test #174: signed_cardinality_proof .........   Passed    0.04 sec\n      Start 175: simon_model\n24/26 Test #175: simon_model ......................   Passed    0.04 sec\n      Start 176: startup_parity\n25/26 Test #176: startup_parity ...................   Passed    0.01 sec\n      Start 177: stconn_proof\n26/26 Test #177: stconn_proof .....................   Passed    0.14 sec\n\n100% tests passed out of 26\n\nTotal Test time (real) = 804.66 sec\n"
+    },
+    "build/shared-policy-prep-lucky-baseline-test.log": {
+      "sha256": "6b29a53415f10096610d732990d0c7b8affd63d80d5198c38cecc706a1a8600d",
+      "text": "test_lucky OK\n"
+    },
+    "build/shared-policy-prep-startup-diagnostic-syntax.log": {
+      "sha256": "a61dfebbbe0bee3d345d92b1d80025e8623603685fdcb250bc36c326d88b0610",
+      "text": "src/policies/default_policy.cpp 0\nsrc/rules/lucky/lucky.cpp 0\nsrc/rules/lucky/onehot_model.cpp 0\nsrc/rules/reduce/reduce.cpp 0\nsrc/rules/substitute/substitute.cpp 0\n"
+    },
+    "build/shared-policy-prep-substitute-native-pairs.log": {
+      "sha256": "580c0747f777f2810559ab8aa5ece0781d5ca79abd00652f174ea46cc5f40ac0",
+      "text": "test_substitute_publication: preserved/shared output equality\nPASS: budgeted=1 preprocessing=0 cap=1 actual_rounds=1\nPASS: budgeted=1 preprocessing=0 cap=2 actual_rounds=2\nPASS: budgeted=1 preprocessing=1 cap=1 actual_rounds=1\nPASS: budgeted=1 preprocessing=1 cap=2 actual_rounds=2\nPASS: budgeted=0 preprocessing=0 cap=1 actual_rounds=1\nPASS: budgeted=0 preprocessing=0 cap=2 actual_rounds=1\nPASS: budgeted=0 preprocessing=1 cap=1 actual_rounds=1\nPASS: budgeted=0 preprocessing=1 cap=2 actual_rounds=2\ntest_substitute: preserved/shared output equality\ntest_substitute OK\ntest_scheduling: preserved/shared output equality\n  eliminate entry: sparse watches flushed, dense image only, restored at exit\n  mode growth key: matches kissat's (switched+1)/2 ladder\n  reason bump: Kissat direct reasons in both modes\n  reason bump delay: consumed only at finalized-clause gate\n  analysis trail reuse: Kissat default off, CaDiCaL arm retained\n  factor material gate: cumulative Kissat watermark\n  factor large-formula gate: latched for the solve\n  retier cadence: only OTFS re-analysis advances glue limit\n  effort limit: kissat's formula, phase anchor, no clamps\n  initial effort anchors: input propagation remains priced\n  Eliminate sparse resume: root suffix replay uses search ticks\n  preprocess: one reduced probe pipeline, 10m tick reference\n  fastel: typed local subsumption plus bounded BVE only\n  fastel discovery: mandatory scan declines before mutation\n  fastel candidate order: owner score survives BVE dispatch\n  preprocess followups: all four producer outcomes covered\n  preprocess followups: neither-producer path takes final once\n  inprocess phases: probe assignments leave saved phases unset\n  probe entry: root restart suppresses target/best snapshots\n  jump reasons: Kissat small/bigbig classification gates search\n  preprocess followups: typed arm calls both entries\n  reorder default: both modes, policy trigger remains root-only\n  slot cursor: resumes past the consumed prefix, wraps, permutes\n  cursor N1: instances() unchanged, apply_instance cursor-independent, all 7 arms permute\n  order arms: 6 arms reorder, native is the identity\n  subsume meter: 1392 visits vs 70 candidates\n  vivify scope: tier2=2 -> 1 candidates, tier2=10 -> 9\n  vivify tiers: stable retier -> focused 20/38 at dose entry\n  vivify tier merge: rounds=3 checked=8\n  vivify cumulative tiers: checked=8 tier3=8 ticks=632\n  substitute effort: fresh per-call, round-local 10-permille gate\n  substitute overshoot: mandatory first round, optional second\n  rule lifecycle: root fixed before substituted heap removal\n  authored slot/root programs: 18 slot rows, registry-complete\n  slot membership/order: exact Kissat startup/search Probe; seven extra rules poseable\n  structured root telemetry: runs=1 applications=4 effective=2 passes=1 terminal=8\n  structured root: typed SR sequence reaches checked state\n  structured root telemetry: runs=1 applications=4 effective=2 passes=1 terminal=8\n  structured root: typed SR sequence reaches checked state\n  structured root boundary: propagation and H published once\n  slot clocks: probe next=81674 < eliminate next=492178 at 8 phases\n  initial elimination: post-preprocess due at conflict 46478\n  BVE ordering: structural score plus search relevancy\n  BVE score: Kissat named-intermediate binary64 pose\n  inprocess scale: Kissat C+1 then logn(+9) boundary\n  slot gates: decline without new material, re-admit with it\n  Reduce edge: both phases suppressed only at its conflict\ntest_scheduling: all passed\n"
+    },
+    "build/shared-policy-prep-substitute-oracles.log": {
+      "sha256": "f06ad6965a46073c528d8969ef7de6e944e3941f852fbf6478c0f58b4174581d",
+      "text": "{\"case\": \"profile-0-pigeons-4\", \"kind\": \"SAT\", \"verified\": true, \"message\": \"34 clauses satisfied, 20 vars assigned\"}\n{\"case\": \"profile-0-pigeons-6\", \"kind\": \"UNSAT\", \"verified\": true, \"stage\": null, \"route\": \"drat\", \"message\": \"\"}\n{\"case\": \"profile-1-pigeons-4\", \"kind\": \"SAT\", \"verified\": true, \"message\": \"34 clauses satisfied, 20 vars assigned\"}\n{\"case\": \"profile-1-pigeons-6\", \"kind\": \"UNSAT\", \"verified\": true, \"stage\": null, \"route\": \"drat\", \"message\": \"\"}\n{\"case\": \"profile-2-pigeons-4\", \"kind\": \"SAT\", \"verified\": true, \"message\": \"34 clauses satisfied, 20 vars assigned\"}\n{\"case\": \"profile-2-pigeons-6\", \"kind\": \"UNSAT\", \"verified\": true, \"stage\": null, \"route\": \"drat\", \"message\": \"\"}\nPASS: independently checked three proofs and three models on byte-identical correspondence outputs\n"
+    },
+    "build/shared-policy-prep-diagnostic-focused.log": {
+      "sha256": "89647ad4b422e40162e9e4c7dd8977e1124bb74c55b16f02c144ee7747b40881",
+      "text": "Test project /home/hwu/SAT-solving/build/shared-policy-prep-diagnostic\n    Start  14: scheduling\n1/3 Test  #14: scheduling .......................   Passed    0.06 sec\n    Start 181: substitute_execution\n2/3 Test #181: substitute_execution .............   Passed    0.01 sec\n    Start 182: substitute_publication\n3/3 Test #182: substitute_publication ...........   Passed    0.02 sec\n\n100% tests passed out of 3\n\nTotal Test time (real) =   0.10 sec\n"
+    }
+  },
+  "full_preparation_acceptance": "pending",
+  "new_slurm_campaigns": [],
+  "residue_removed_bytes": 0,
+  "documentation_checks": [
+    {
+      "check": "check-citations.py",
+      "exit_code": 0,
+      "output": "  ok    45 citation(s) resolved and in range\n  note  200 skipped (200 ambiguous basename, 0 not in our tree, 0 resolve to a reference clone, 0 unjudged: no reference clone on disk)\ncheck-citations: 0 error(s)\n"
+    },
+    {
+      "check": "check-comment-hygiene.py",
+      "exit_code": 0,
+      "output": "check-comment-hygiene: 0 hit(s)\n"
+    },
+    {
+      "check": "check-config-wiring.py",
+      "exit_code": 0,
+      "output": "  ok    POLICY bve_bound                  <- src/policies/default_policy.cpp:4402, src/policies/default_policy.cpp:4524\n  ok    POLICY bve_occurrence_limit       <- src/policies/default_policy.cpp:1094, src/policies/default_policy.cpp:3224, src/policies/default_policy.cpp:5406\n  ok    POLICY bve_clause_size_limit      <- src/policies/default_policy.cpp:1096, src/policies/default_policy.cpp:3249, src/policies/default_policy.cpp:5429\n  ok    POLICY bve_xor_arity_limit        <- src/policies/default_policy.cpp:1098, src/policies/default_policy.cpp:3251, src/policies/default_policy.cpp:5431\n  ok    POLICY bve_resolvent_size_limit   <- src/policies/default_policy.cpp:1100, src/policies/default_policy.cpp:3252, src/policies/default_policy.cpp:5432\n  ok    POLICY bve_resolvent_count_limit  <- src/policies/default_policy.cpp:3250, src/policies/default_policy.cpp:5430\n  ok    POLICY bve_fastel_traversal       <- src/strategy/bve_invocation.hpp:279\n  ok    POLICY bve_backward_occurrence_limit <- src/policies/default_policy.cpp:1102, src/policies/default_policy.cpp:3253, src/policies/default_policy.cpp:5433\n  ok    POLICY bve_definition_session     <- src/policies/default_policy.cpp:5405\n  ok    POLICY factor_composite           <- src/policies/default_policy.cpp:987, src/policies/default_policy.cpp:3235, src/policies/default_policy.cpp:4776\n  ok    POLICY work_budget                <- src/policies/default_policy.cpp:4154, src/policies/default_policy.cpp:4162, src/policies/default_policy.cpp:4604\n  ok    POLICY work_budget_offset         <- src/policies/default_policy.cpp:4827, src/policies/default_policy.cpp:4850, src/policies/default_policy.cpp:4877\n  ok    POLICY work_budget_bounded        <- src/policies/default_policy.cpp:4807, src/policies/default_policy.cpp:4878\n  ok    POLICY vivify_scope               <- src/policies/default_policy.cpp:969, src/policies/default_policy.cpp:3242, src/policies/default_policy.cpp:4824\n  ok    POLICY vivify_irredundant_sort_ratio <- src/policies/default_policy.cpp:973, src/policies/default_policy.cpp:3245, src/policies/default_policy.cpp:5427\n  ok    POLICY bump_reason_limit          <- src/policies/default_policy.cpp:683, src/policies/default_policy.cpp:2772, src/policies/default_policy.cpp:2774\n  ok    POLICY bump_reason_depth          <- src/policies/default_policy.cpp:3904, src/policies/default_policy.cpp:3918\n  ok    POLICY inprocessing               <- src/policies/default_policy.cpp:171, src/policies/default_policy.cpp:175\n  ok    POLICY jump_reasons_bigbig        <- src/policies/default_policy.cpp:2651\n  ok    POLICY conflict_reuse_chrono_levels <- src/policies/default_policy.cpp:3313\n  ok    POLICY bve_backward               <- src/policies/default_policy.cpp:1110, src/policies/default_policy.cpp:2835, src/policies/default_policy.cpp:3259\n  ok    POLICY bce_occ_limit              <- src/policies/default_policy.cpp:3228, src/policies/default_policy.cpp:5410\n  ok    POLICY midround_budget            <- src/policies/default_policy.cpp:4909, src/policies/default_policy.cpp:4976\n  ok    POLICY factor_size                <- src/policies/default_policy.cpp:3232, src/policies/default_policy.cpp:5414\n  ok    POLICY transitive_early_exit      <- src/policies/default_policy.cpp:991, src/policies/default_policy.cpp:3237, src/policies/default_policy.cpp:5419\n  ok    POLICY transitive_live_meter      <- src/policies/default_policy.cpp:993, src/policies/default_policy.cpp:3238, src/policies/default_policy.cpp:5420\n  ok    POLICY transitive_budget_checked  <- src/policies/default_policy.cpp:3239, src/policies/default_policy.cpp:5421\n  ok    POLICY bve_definition_budget      <- src/policies/default_policy.cpp:1104, src/policies/default_policy.cpp:2827, src/policies/default_policy.cpp:3255\n  ok    POLICY bve_definition_cores       <- src/policies/default_policy.cpp:1106, src/policies/default_policy.cpp:2829, src/policies/default_policy.cpp:3256\n  ok    POLICY bve_definition_core_budget_multiplier <- src/policies/default_policy.cpp:1108, src/policies/default_policy.cpp:2832, src/policies/default_policy.cpp:3257\n  ok    POLICY ternary_occ_limit          <- src/policies/default_policy.cpp:3229, src/policies/default_policy.cpp:5411\n  ok    POLICY ternary_max_add_percent    <- src/policies/default_policy.cpp:3230, src/policies/default_policy.cpp:5412\n  ok    POLICY touch_filter               <- src/policies/default_policy.cpp:999, src/policies/default_policy.cpp:2878, src/policies/default_policy.cpp:3247\n  ok    POLICY touch_redundant            <- src/policies/default_policy.cpp:3248\n  ok    POLICY vivify_reuse               <- src/policies/default_policy.cpp:971, src/policies/default_policy.cpp:3243, src/policies/default_policy.cpp:5425\n  ok    POLICY vivify_flush               <- src/policies/default_policy.cpp:972, src/policies/default_policy.cpp:3244, src/policies/default_policy.cpp:5426\n  ok    POLICY factor_demote_fresh        <- src/policies/default_policy.cpp:989, src/policies/default_policy.cpp:3236, src/policies/default_policy.cpp:5418\n  ok    POLICY factor_cand_rounds         <- src/policies/default_policy.cpp:3234, src/policies/default_policy.cpp:5416\n  ok    POLICY no_ext_reason_bump         <- src/policies/default_policy.cpp:3319\n  ok    POLICY subst_demote               <- src/policies/default_policy.cpp:3241, src/policies/default_policy.cpp:5423\n  ok    POLICY eager_subsume              <- src/policies/default_policy.cpp:694, src/policies/default_policy.cpp:2816, src/policies/default_policy.cpp:3320\n  ok    POLICY conflict_reuse             <- src/policies/default_policy.cpp:689, src/policies/default_policy.cpp:2808, src/policies/default_policy.cpp:3316\n  ok    POLICY jump_reasons               <- src/policies/default_policy.cpp:690, src/policies/default_policy.cpp:2810, src/policies/default_policy.cpp:3317\n  ok    POLICY shrink_glue_promote        <- src/policies/default_policy.cpp:691, src/policies/default_policy.cpp:2812, src/policies/default_policy.cpp:3318\n  ok    POLICY factor_bound               <- src/policies/default_policy.cpp:3233, src/policies/default_policy.cpp:5415\n  ok    POLICY walk_even_break_base_milli <- src/policies/default_policy.cpp:749, src/policies/default_policy.cpp:3400\n  ok    POLICY reorder_maximum_clause_size <- src/policies/default_policy.cpp:3321\n  ok    POLICY reorder_clause_decay_milli <- src/policies/default_policy.cpp:3323\n  ok    POLICY reorder_binary_weight_milli <- src/policies/default_policy.cpp:3325\n  ok    POLICY reorder_balanced_polarity_milli <- src/policies/default_policy.cpp:3327\n  ok    POLICY parity_model_maximum_variables <- src/policies/default_policy.cpp:3329\n  ok    POLICY parity_model_maximum_groups <- src/policies/default_policy.cpp:3331\n  ok    POLICY parity_model_maximum_constraints <- src/policies/default_policy.cpp:3332\n  ok    POLICY parity_model_minimum_group_clauses <- src/policies/default_policy.cpp:3334\n  ok    POLICY parity_model_minimum_equations <- src/policies/default_policy.cpp:3336\n  ok    POLICY parity_model_maximum_free_variables <- src/policies/default_policy.cpp:3338\n  ok    POLICY parity_model_candidate_budget <- src/policies/default_policy.cpp:3340\n  ok    POLICY parity_refutation_maximum_variables <- src/policies/default_policy.cpp:3342\n  ok    POLICY parity_refutation_maximum_groups <- src/policies/default_policy.cpp:3344\n  ok    POLICY parity_refutation_maximum_constraints <- src/policies/default_policy.cpp:3346\n  ok    POLICY parity_refutation_maximum_arity <- src/policies/default_policy.cpp:3348\n  ok    POLICY parity_refutation_probe_constraints <- src/policies/default_policy.cpp:3350\n  ok    POLICY parity_refutation_minimum_probe_repeats <- src/policies/default_policy.cpp:3352\n  ok    POLICY parity_refutation_maximum_proof_additions <- src/policies/default_policy.cpp:3354\n  ok    POLICY onehot_model_maximum_variables <- src/policies/default_policy.cpp:3356\n  ok    POLICY onehot_model_maximum_domains <- src/policies/default_policy.cpp:3358\n  ok    POLICY onehot_model_maximum_constraints <- src/policies/default_policy.cpp:3360\n  ok    POLICY onehot_model_maximum_equation_arity <- src/policies/default_policy.cpp:3362\n  ok    POLICY onehot_model_minimum_domains <- src/policies/default_policy.cpp:3364\n  ok    POLICY onehot_model_minimum_equations <- src/policies/default_policy.cpp:3366\n  ok    POLICY onehot_model_maximum_free_domains <- src/policies/default_policy.cpp:3368\n  ok    POLICY onehot_model_candidate_budget <- src/policies/default_policy.cpp:3370\n  ok    POLICY exact_one_refutation_maximum_variables <- src/policies/default_policy.cpp:3372\n  ok    POLICY exact_one_refutation_maximum_groups <- src/policies/default_policy.cpp:3374\n  ok    POLICY exact_one_refutation_maximum_constraints <- src/policies/default_policy.cpp:3376\n  ok    POLICY exact_one_refutation_maximum_arity <- src/policies/default_policy.cpp:3378\n  ok    POLICY exact_one_refutation_maximum_proof_additions <- src/policies/default_policy.cpp:3380\n  ok    POLICY reduce_victim_numerator    <- src/policies/default_policy.cpp:3394\n  ok    POLICY reduce_victim_denominator  <- src/policies/default_policy.cpp:3395\n  ok    POLICY reduce_protect_tiers       <- src/policies/default_policy.cpp:3396\n  ok    POLICY reduce_compact_collection  <- src/policies/default_policy.cpp:3397\n  ok    POLICY reduce_bookkeeping         <- src/policies/default_policy.cpp:3399\ncheck-config-wiring: 96 config fields, 82 POLICY-tagged, 0 failure(s)\n"
+    },
+    {
+      "check": "check-default-strategy-config.py",
+      "exit_code": 0,
+      "output": "default-strategy-config: permanent rule and use sites OK\n"
+    },
+    {
+      "check": "check-doc-size.py",
+      "exit_code": 0,
+      "output": "  warn  CLAUDE.md: 74 of 80 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\n  warn  DEVELOPMENT_PLAN.md: 742 of 750 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\n  warn  docs/calculus.md: 678 of 680 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\n  warn  docs/implementation-notes.md: 559 of 560 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\n  warn  docs/scheduling-parity-ledger.md: 600 of 600 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\n  warn  docs/proof-rules.html: 924 of 1000 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\ncheck-doc-size: 0 error(s), 6 warning(s), 30 file budget(s) checked\n"
+    },
+    {
+      "check": "check-effort-specs.py",
+      "exit_code": 0,
+      "output": "  ok    METERED BVE               <- 100 permille (&DefaultStrategyConfig::Inprocess::bve_permille), meter_bve, dosed\n  ok    METERED Probe             <- 8 permille (&DefaultStrategyConfig::Inprocess::probe_permille), meter_probe, dosed\n  ok    METERED Backbone          <- 20 permille (&DefaultStrategyConfig::Inprocess::backbone_permille), meter_backbone, budgeted\n  ok    METERED TransitiveReduce  <- 20 permille (&DefaultStrategyConfig::Inprocess::transitive_permille), meter_transitive, dosed, budgeted\n  ok    METERED Vivify            <- 100 permille (&DefaultStrategyConfig::Inprocess::vivify_permille), meter_vivify, budgeted\n  ok    METERED Strengthen        <- 100 permille (&DefaultStrategyConfig::Inprocess::strengthen_permille), meter_forward_pair, budgeted\n  ok    METERED SubsumeForward    <- 100 permille (&DefaultStrategyConfig::Inprocess::subsume_forward_permille), meter_forward_pair, budgeted\n  ok    METERED Factor            <- 50 permille (&DefaultStrategyConfig::Inprocess::factor_permille), meter_factor, budgeted\n  ok    METERED HyperTernaryRes   <- 8 permille (&DefaultStrategyConfig::Inprocess::hyper_ternary_permille), meter_ternary, budgeted\n  ok    METERED HyperBinaryRes    <- 8 permille (&DefaultStrategyConfig::Inprocess::hyper_binary_permille), meter_hbr, dosed, budgeted\n  ok    METERED BCE               <- 20 permille (&DefaultStrategyConfig::Inprocess::bce_permille), meter_bce, budgeted\n  ok    METERED CCE               <- 4 permille (&DefaultStrategyConfig::Inprocess::cce_permille), meter_cce, budgeted\n  ok    METERED Instantiate       <- 20 permille (&DefaultStrategyConfig::Inprocess::instantiate_permille), meter_instantiate, budgeted\n  ok    METERED Sweep             <- 100 permille (&DefaultStrategyConfig::Inprocess::sweep_permille), meter_sweep, budgeted\n  ok    ALT-GOV Congruence        <- the exact Kissat productivity delay ladder\n  ok    METERED Substitute        <- 10 permille (&DefaultStrategyConfig::Inprocess::substitute_permille), meter_substitute, budgeted\n  ok    ALT-GOV SubstitutionRedundancy <- the root-only structured program's run-once ownership, typed producer limits and semantic sequence fixpoint\n  ok    EXPLICIT Condition        <- typed (clause,cube) API; no default producer\ncheck-effort-specs: 18 registered Inprocess rules (17 default-scheduled, 1 explicit-only), 15 EFFORT_SPECS rows, 2 alternate-governor, 0 failure(s)\n"
+    },
+    {
+      "check": "check-inventory.py",
+      "exit_code": 0,
+      "output": "  ok    30/30 catalog families have a disposition\ncheck-inventory: 0 error(s)\n"
+    },
+    {
+      "check": "check-option-coverage.py",
+      "exit_code": 0,
+      "output": "  ok    kissat  161 options  \u00b7  cadical 257\n  ok    dismissed  83 (roster, parsed from \u00a713.6)\n  ok    carried   125 (23 roster entries, anchors re-checked)\n  ok    cited     208 (named in the ledger corpus)\n  ok    exempt      2 (named in EXEMPT, with a reason)\ncheck-option-coverage: 418 reference options, 0 unaccounted, 0 failure(s)\n"
+    },
+    {
+      "check": "check-proof-rule-sync.py",
+      "exit_code": 0,
+      "output": "check-proof-rule-sync: 0 error(s), 25 calculus rule(s), 26 guide card(s)\n"
+    },
+    {
+      "check": "check-rule-policy-boundary.py",
+      "exit_code": 0,
+      "output": "check-rule-policy-boundary: rule/policy imports and data flows are clean\n"
+    },
+    {
+      "check": "check-section-refs.py",
+      "exit_code": 0,
+      "output": "  ok    73/73 section references resolve\ncheck-section-refs: 0 error(s)\n"
+    },
+    {
+      "check": "check-stat-ids.py",
+      "exit_code": 0,
+      "output": "check-stat-ids: 52 ids, 52 cases, 16 rule pairs (0 proxy, 1 diagnostic) \u2014 0 failure(s)\n"
+    },
+    {
+      "check": "check-progress.py",
+      "exit_code": 0,
+      "output": "check-progress: 0 error(s), 0 warning(s); real SLURM queue"
+    }
+  ],
+  "diagnostic_runtime": {
+    "count": 3,
+    "passed": 3,
+    "seconds": 0.1,
+    "journal": true,
+    "event_trace": true,
+    "log": "build/shared-policy-prep-diagnostic-focused.log",
+    "binary_sha256": {
+      "build/shared-policy-prep-diagnostic/tests/test_substitute_publication": "1971023650b0524106b06b15c862309d73f428c42e30865fce163785aa115324",
+      "build/shared-policy-prep-diagnostic/tests/test_substitute_execution": "c304f79d4b54cedb4392da0dbc452b5cecb3bbfa98df674a68cd3b009952a91c"
+    }
+  },
+  "andrew_checkpoint": {
+    "report-to-andrew/20261002T052830Z-shared-startup-substitute/report.tex": "53b537f52ef2175f790c0acb9c57da721927813d229baca4a595bd071b179496",
+    "report-to-andrew/20261002T052830Z-shared-startup-substitute/report.pdf": "102901a51095920c7b5b07da3ec30c83ac3d3a79e14c4a37a75e107ab7c0f9c2"
+  }
+}

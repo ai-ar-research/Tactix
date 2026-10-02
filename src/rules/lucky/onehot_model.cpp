@@ -1,4 +1,5 @@
 #include "rules/lucky/onehot_model.hpp"
+#include "strategy/lucky_execution.hpp"
 #include "rules/lucky/exact_one_refutation.hpp"
 #include "rules/lucky/model.hpp"
 
@@ -704,7 +705,8 @@ ApplyResult onehot_model_apply(Kernel &k) {
   ++k.stats.onehot_model_calls;
   const strategy::OnehotModelParameters parameters =
       strategy::OnehotModelParameters::from_kernel(k);
-  const ApplyResult refutation = exact_one_refutation_apply(k, parameters);
+  const ApplyResult refutation = execution::execute_action(
+      k, execution::ExactOneRefutationRequest{parameters});
   if (refutation == ApplyResult::Unsat)
     return refutation;
   if (!parameters.valid() || !k.nvars ||
