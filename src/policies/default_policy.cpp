@@ -1,6 +1,10 @@
 #include "policies/default_policy.hpp"
 #include "strategy/action_execution.hpp"
 #include "strategy/conflict_analysis_execution.hpp"
+#include "strategy/execution_scope.hpp"
+#include "strategy/lucky_execution.hpp"
+#include "strategy/representation_execution.hpp"
+#include "strategy/substitute_execution.hpp"
 #include "diagnostics/event_trace.hpp"
 #include "diagnostics/rule_journal.hpp"
 #include "policies/heuristics.hpp"
@@ -53,6 +57,8 @@
 #include <utility>
 
 namespace tactix {
+
+using execution::LuckyOpportunity;
 
 double kissat_bve_variable_score(double relevance, uint64_t positive,
                                  uint64_t negative,
@@ -122,11 +128,21 @@ ApplyResult default_propagate(Kernel &k, const char *candidate) {
   return result;
 }
 
+template <LuckyOpportunity Opportunity>
+ApplyResult default_lucky_opportunity(Kernel &k, const char *candidate) {
+  return default_direct_rule(k, "Lucky", candidate, [&] {
+    return execution::execute_action(k, execution::LuckyRequest<Opportunity>{});
+  });
+}
+
 ApplyResult default_lucky(Kernel &k, const char *candidate) {
   const size_t trail_begin = k.trail.size();
   const uint64_t roots_before = k.stats.root_assignments;
   const ApplyResult result = default_direct_rule(
-      k, "Lucky", candidate, [&] { return lucky_apply(k); });
+      k, "Lucky", candidate, [&] {
+        return execution::execute_action(
+            k, execution::LuckyRequest<LuckyOpportunity::Cascade>{});
+      });
   // Lucky can prove failed-literal units even when every model probe fails.
   // Its root entry prefix survives speculative backtracking, so consume the
   // appended roots in assignment order before any later policy consumer.
@@ -1498,40 +1514,25 @@ static uint64_t active_variables(const Kernel &k) {
 // Consume each Substitute round before a later round or watch reconnection
 // derives more roots: native substitute_round retires its representatives at
 // that boundary. Call-wide root-first batching changes arbitrary heap removals.
-static ApplyResult default_substitute_round(Kernel &k) {
-  const size_t trail_begin = k.trail.size();
-  const ApplyResult result =
-      substitute_apply_round(k, /*reconnect_large_watches=*/false);
+static void default_publish_substitute_round(Kernel &k, size_t trail_begin) {
   heuristics_consume_root_assignments(k, trail_begin);
   heuristics_consume_retirements(k);
-  return result;
 }
 
 static ApplyResult default_substitute_complete(Kernel &k, uint32_t max_rounds) {
-  // Keep the unbudgeted public complete helper's productivity/cap contract;
-  // only DefaultPolicy's publication points differ from the rule-only API.
-  const auto active = [&] {
-    const uint64_t retired = static_cast<uint64_t>(kernel_root_fixed(k)) +
-                            k.stats.bve_eliminated + k.stats.substitute_vars;
-    return uint64_t{k.nvars} > retired ? uint64_t{k.nvars} - retired : 0;
-  };
-  const bool connected_at_entry = k.large_watches_connected;
-  const uint32_t trail_at_entry = static_cast<uint32_t>(k.trail.size());
-  ApplyResult result = ApplyResult::NoOp;
-  for (uint32_t round = 0; round < max_rounds; ++round) {
-    const uint64_t active_before = active();
-    const ApplyResult current = default_substitute_round(k);
-    if (current == ApplyResult::Unsat)
-      return current;
-    if (current == ApplyResult::Ok)
-      result = current;
-    if (active() == active_before)
-      break;
-  }
-  if (connected_at_entry && !k.large_watches_connected &&
-      substitute_reconnect_large_watches(k, trail_at_entry) == ApplyResult::Unsat)
-    return ApplyResult::Unsat;
-  return result;
+  // Keep the public complete helper's continuation profile, with native
+  // DefaultPolicy publication after each round and before reconnection.
+  return execution::execute_action(
+             k, execution::SubstituteBatchRequest{max_rounds},
+             [&] { return execution::substitute_complete_active_count(k); },
+             [&](size_t trail_begin) {
+               default_publish_substitute_round(k, trail_begin);
+             },
+             [&](uint64_t active_before, ApplyResult current) {
+               return current != ApplyResult::Unsat &&
+                      execution::substitute_complete_active_count(k) != active_before;
+             })
+      .result;
 }
 
 static uint64_t scale_inprocessing_delta(
@@ -1610,27 +1611,8 @@ struct RuleJournalMeterScope {
 };
 #endif
 
-struct InprocessScope {
-  Kernel &k;
-  bool previous_inprocessing;
-  bool previous_phase_saving_suppressed;
-  explicit InprocessScope(Kernel &kk)
-      : k(kk), previous_inprocessing(kk.inprocessing),
-        previous_phase_saving_suppressed(kk.phase_saving_suppressed) {
-    k.inprocessing = true;
-    // Kissat keeps `solver->probing` set across the complete Probe pipeline.
-    // All speculative and learned assignments in that scope therefore leave
-    // `phases.saved` untouched.  Individual Tactix rules may use different
-    // propagation engines, so the strategy scope owns the equivalent wire.
-    k.phase_saving_suppressed = true;
-  }
-  ~InprocessScope() {
-    k.phase_saving_suppressed = previous_phase_saving_suppressed;
-    k.inprocessing = previous_inprocessing;
-  }
-  InprocessScope(const InprocessScope &) = delete;
-  InprocessScope &operator=(const InprocessScope &) = delete;
-};
+using InprocessScope =
+    execution::ExecutionScope<execution::ExecutionContext::Inprocessing>;
 
 // Kissat's `search_ticks` is charged only by the ordinary CDCL search
 // propagator.  Startup propagation, both Lucky trials, sparse root collection,
@@ -1638,17 +1620,8 @@ struct InprocessScope {
 // or inprocessing effort references.  This scope suppresses only that tick
 // currency; unlike `InprocessScope` it deliberately leaves assignment-time
 // phase saving unchanged outside the actual Probe pipeline.
-struct PreSearchTickScope {
-  Kernel &k;
-  bool previous_inprocessing;
-  explicit PreSearchTickScope(Kernel &kk)
-      : k(kk), previous_inprocessing(kk.inprocessing) {
-    k.inprocessing = true;
-  }
-  ~PreSearchTickScope() { k.inprocessing = previous_inprocessing; }
-  PreSearchTickScope(const PreSearchTickScope &) = delete;
-  PreSearchTickScope &operator=(const PreSearchTickScope &) = delete;
-};
+using PreSearchTickScope =
+    execution::ExecutionScope<execution::ExecutionContext::Startup>;
 
 uint64_t meter_probe(const Kernel &k) { return k.stats.probe_ticks; }
 uint64_t meter_backbone(const Kernel &k) { return k.stats.backbone_ticks; }
@@ -3470,14 +3443,14 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   // preprocessing. Keep them out of the CDCL loop so neither can repeat after
   // a later inprocessing phase.
   if (config_.parity_model.enabled && startup_parity_guard(k)) {
-    const ApplyResult pb = default_direct_rule(
-        k, "Lucky", "startup-parity-pb", [&] { return startup_parity_apply(k); });
+    const ApplyResult pb = default_lucky_opportunity<LuckyOpportunity::StartupParity>(
+        k, "startup-parity-pb");
     if (pb == ApplyResult::Unsat)
       return finish(20);
   }
   if (count_preservation_guard(k)) {
-    const ApplyResult counting = default_direct_rule(
-        k, "Lucky", "startup-count-pb", [&] { return count_preservation_apply(k); });
+    const ApplyResult counting = default_lucky_opportunity<LuckyOpportunity::StartupCount>(
+        k, "startup-count-pb");
     if (counting == ApplyResult::Unsat)
       return finish(20);
   }
@@ -3488,9 +3461,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   if (config_.signed_cardinality_proof.enabled &&
       signed_cardinality_proof_guard(k)) {
     event_trace.macro(k, "signed_cardinality_proof_begin");
-    const ApplyResult counting = default_direct_rule(
-        k, "Lucky", "signed-cardinality-proof",
-        [&] { return signed_cardinality_proof_apply(k); });
+    const ApplyResult counting = default_lucky_opportunity<LuckyOpportunity::SignedCardinality>(
+        k, "signed-cardinality-proof");
     if (counting == ApplyResult::Unsat) {
       event_trace.macro(k, "signed_cardinality_proof_end", "unsat");
       return finish(20);
@@ -3502,9 +3474,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   // randomized restarts; a completed cover is validated as a total model.
   if (config_.exact_cover_model.enabled && exact_cover_model_guard(k)) {
     event_trace.macro(k, "exact_cover_model_begin");
-    const ApplyResult cover = default_direct_rule(
-        k, "Lucky", "exact-cover-model",
-        [&] { return exact_cover_model_apply(k); });
+    const ApplyResult cover = default_lucky_opportunity<LuckyOpportunity::ExactCover>(
+        k, "exact-cover-model");
     if (cover == ApplyResult::Sat) {
       event_trace.macro(k, "exact_cover_model_end", "sat");
       return finish(10);
@@ -3517,9 +3488,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   if (config_.independent_set_model.enabled &&
       independent_set_model_guard(k)) {
     event_trace.macro(k, "independent_set_model_begin");
-    const ApplyResult independent = default_direct_rule(
-        k, "Lucky", "independent-set-model",
-        [&] { return independent_set_model_apply(k); });
+    const ApplyResult independent = default_lucky_opportunity<LuckyOpportunity::IndependentSet>(
+        k, "independent-set-model");
     if (independent == ApplyResult::Sat) {
       event_trace.macro(k, "independent_set_model_end", "sat");
       return finish(10);
@@ -3530,8 +3500,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   // structural summary, then independently validates any completed model.
   if (config_.fermat_model.enabled && fermat_model_guard(k)) {
     event_trace.macro(k, "fermat_model_begin");
-    const ApplyResult fermat = default_direct_rule(
-        k, "Lucky", "fermat-model", [&] { return fermat_model_apply(k); });
+    const ApplyResult fermat = default_lucky_opportunity<LuckyOpportunity::Fermat>(
+        k, "fermat-model");
     if (fermat == ApplyResult::Sat) {
       event_trace.macro(k, "fermat_model_end", "sat");
       return finish(10);
@@ -3540,8 +3510,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   }
   if (config_.cerny_model.enabled && cerny_model_guard(k)) {
     event_trace.macro(k, "cerny_model_begin");
-    const ApplyResult cerny = default_direct_rule(
-        k, "Lucky", "cerny-model", [&] { return cerny_model_apply(k); });
+    const ApplyResult cerny = default_lucky_opportunity<LuckyOpportunity::Cerny>(
+        k, "cerny-model");
     if (cerny == ApplyResult::Sat) {
       event_trace.macro(k, "cerny_model_end", "sat");
       return finish(10);
@@ -3551,9 +3521,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   if (config_.lookup_circuit_model.enabled &&
       lookup_circuit_model_guard(k)) {
     event_trace.macro(k, "lookup_circuit_model_begin");
-    const ApplyResult circuit = default_direct_rule(
-        k, "Lucky", "lookup-circuit-model",
-        [&] { return lookup_circuit_model_apply(k); });
+    const ApplyResult circuit = default_lucky_opportunity<LuckyOpportunity::LookupCircuit>(
+        k, "lookup-circuit-model");
     if (circuit == ApplyResult::Sat) {
       event_trace.macro(k, "lookup_circuit_model_end", "sat");
       return finish(10);
@@ -3562,8 +3531,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   }
   if (config_.simon_model.enabled && simon_model_guard(k)) {
     event_trace.macro(k, "simon_model_begin");
-    const ApplyResult simon = default_direct_rule(
-        k, "Lucky", "simon-model", [&] { return simon_model_apply(k); });
+    const ApplyResult simon = default_lucky_opportunity<LuckyOpportunity::Simon>(
+        k, "simon-model");
     if (simon == ApplyResult::Sat) {
       event_trace.macro(k, "simon_model_end", "sat");
       return finish(10);
@@ -3572,8 +3541,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   }
   if (config_.stconn_proof.enabled && stconn_proof_guard(k)) {
     event_trace.macro(k, "stconn_proof_begin");
-    const ApplyResult stconn = default_direct_rule(
-        k, "Lucky", "stconn-proof", [&] { return stconn_proof_apply(k); });
+    const ApplyResult stconn = default_lucky_opportunity<LuckyOpportunity::Stconn>(
+        k, "stconn-proof");
     if (stconn == ApplyResult::Unsat) {
       event_trace.macro(k, "stconn_proof_end", "unsat");
       return finish(20);
@@ -3586,9 +3555,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   if (config_.balanced_signature_model.enabled &&
       balanced_signature_model_guard(k)) {
     event_trace.macro(k, "balanced_signature_model_begin");
-    const ApplyResult balanced = default_direct_rule(
-        k, "Lucky", "balanced-signature-model",
-        [&] { return balanced_signature_model_apply(k); });
+    const ApplyResult balanced = default_lucky_opportunity<LuckyOpportunity::BalancedSignature>(
+        k, "balanced-signature-model");
     if (balanced == ApplyResult::Sat) {
       event_trace.macro(k, "balanced_signature_model_end", "sat");
       return finish(10);
@@ -3603,8 +3571,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   // public parity parameters.
   if (config_.parity_model.enabled && parity_model_guard(k)) {
     event_trace.macro(k, "parity_model_begin");
-    const ApplyResult parity = default_direct_rule(
-        k, "Lucky", "parity-model", [&] { return parity_model_apply(k); });
+    const ApplyResult parity = default_lucky_opportunity<LuckyOpportunity::Parity>(
+        k, "parity-model");
     if (parity == ApplyResult::Sat) {
       event_trace.macro(k, "parity_model_end", "sat");
       return finish(10);
@@ -3623,8 +3591,9 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     event_trace.macro(k, "exact_one_refutation_begin");
     const ApplyResult exact_one = default_direct_rule(
         k, "Lucky", "exact-one-refutation", [&] {
-          return exact_one_refutation_apply(
-              k, strategy::OnehotModelParameters::from_kernel(k));
+          return execution::execute_action(
+              k, execution::ExactOneRefutationRequest{
+                     strategy::OnehotModelParameters::from_kernel(k)});
         });
     if (exact_one == ApplyResult::Unsat) {
       event_trace.macro(k, "exact_one_refutation_end", "unsat");
@@ -3644,7 +3613,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   if (config_.inprocess.structured_root_before_lucky &&
       !config_.inprocess.structured_root_stages.empty() &&
       (!k.proof || k.proof->dsr())) {
-    kernel_materialize_cold_state(k);
+    execution::execute_action(k, execution::MaterializeColdStateRequest{});
     const uint64_t amo_binaries_before =
         k.stats.sr_unique_literal_amo_binaries;
     const uint64_t post_amo_progress_before =
@@ -3706,8 +3675,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   // admission; this scheduling order is independent of names and families.
   if (config_.onehot_model.enabled && onehot_model_guard(k)) {
     event_trace.macro(k, "direct_csp_model_begin");
-    const ApplyResult direct_csp = default_direct_rule(
-        k, "Lucky", "direct-csp-model", [&] { return direct_csp_model_apply(k); });
+    const ApplyResult direct_csp = default_lucky_opportunity<LuckyOpportunity::DirectCsp>(
+        k, "direct-csp-model");
     if (direct_csp == ApplyResult::Sat) {
       event_trace.macro(k, "direct_csp_model_end", "sat");
       return finish(10);
@@ -3735,8 +3704,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   }
   if (config_.onehot_model.enabled && onehot_model_guard(k)) {
     event_trace.macro(k, "onehot_model_begin");
-    const ApplyResult onehot = default_direct_rule(
-        k, "Lucky", "onehot-model", [&] { return onehot_model_apply(k); });
+    const ApplyResult onehot = default_lucky_opportunity<LuckyOpportunity::Onehot>(
+        k, "onehot-model");
     if (onehot == ApplyResult::Sat) {
       event_trace.macro(k, "onehot_model_end", "sat");
       return finish(10);
@@ -3746,7 +3715,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   // The shipped frontend postpones state that neither root propagation nor
   // early Lucky can read. A failed opportunity crosses the first consumer
   // boundary: materialize before sparse collection and every authored rule.
-  kernel_materialize_cold_state(k);
+  execution::execute_action(k, execution::MaterializeColdStateRequest{});
   // Search guidance is likewise unobservable to startup propagation and Lucky.
   // Attach it only after the early opportunity fails. ScopedHeuristics consumes
   // the parser's retained activation order, preserving the exact first-search
@@ -3783,7 +3752,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       event_trace_substitute_map(k, l, l);
 #endif
     event_trace_slot_boundary(k, "SparseCollect", "begin");
-    collected = kernel_sparse_collect_root(k);
+    collected = execution::execute_action(k, execution::SparseCollectRequest{});
     event_trace_slot_boundary(k, "SparseCollect", "end");
     if (collected == RootCollectOutcome::Refuted)
       return finish(20);
@@ -4053,7 +4022,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
             k, "reduce-compact-pre",
             static_cast<uint32_t>(k.compact_import_order.size() -
                                   k.unassigned_active));
-      if (compact_due && kernel_compact_variables(k, true))
+      if (compact_due && execution::execute_action(k, execution::CompactVariablesRequest{true}))
         heuristics_compact_random_order_fixed(k);
       if (compact_due)
         event_trace_target_state(
@@ -4749,7 +4718,7 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
     // elimination round; deferring its lazy garbage until phase exit carries
     // a much larger arena into the following Strengthen round and changes the
     // physical state from which that common consumer reconstructs.
-    kernel_collect_garbage(k);
+    execution::execute_action(k, execution::CollectGarbageRequest{});
     // The resolution ceiling belongs to the whole Eliminate phase.  Finish
     // this round's cleanup, but do not start another forward round after
     // exhausting it (Kissat eliminate.c::eliminate_variables).  Equality still
@@ -4961,42 +4930,39 @@ ApplyResult DefaultInprocessScheduler::run_budgeted_batch(Kernel &k, SlotEntry &
       const uint64_t t0 = now_nanos();
       ar = ApplyResult::NoOp;
       const bool complete = k.stats.conflicts == 0;
-      // The large watches leave in round one and come back once after the
-      // call's last round (substitute.c `substitute_rounds`).
-      const bool watches_at_entry = k.large_watches_connected;
-      const uint32_t trail_at_entry = static_cast<uint32_t>(k.trail.size());
-      for (uint32_t round = 0; round < config().substitute_rounds; round++) {
-        const uint64_t active_before = active_variables(k);
-        const uint64_t round_entry = e.meter(k);
-        const ApplyResult current = default_substitute_round(k);
-        const uint64_t round_spent = e.meter(k) - round_entry;
+      // The executor retains one watch session across the selected rounds.
+      // Continuation and the native per-round ceiling remain policy choices.
+      struct RoundSnapshot {
+        uint64_t active;
+        uint64_t effort;
+      };
+      ar = execution::execute_action(
+               k, execution::SubstituteBatchRequest{config().substitute_rounds},
+               [&] { return RoundSnapshot{active_variables(k), e.meter(k)}; },
+               [&](size_t trail_begin) {
+                 default_publish_substitute_round(k, trail_begin);
+               },
+               [&](const RoundSnapshot &before, ApplyResult current) {
+                 const uint64_t round_spent = e.meter(k) - before.effort;
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
-        substitute_rounds_run++;
-        e.journal_rounds = substitute_rounds_run;
-        e.journal_last_round_spent = round_spent;
+                 substitute_rounds_run++;
+                 e.journal_rounds = substitute_rounds_run;
+                 e.journal_last_round_spent = round_spent;
 #endif
-        if (current == ApplyResult::Unsat) {
-          ar = current;
-          break;
-        }
-        if (current == ApplyResult::Ok)
-          ar = current;
-        const bool productive = active_variables(k) < active_before;
-        if (!productive)
-          break;
-        if (!complete && round_spent > handed) {
-          substitute_round_budget_break = true;
+                 if (current == ApplyResult::Unsat)
+                   return false;
+                 if (active_variables(k) >= before.active)
+                   return false;
+                 if (!complete && round_spent > handed) {
+                   substitute_round_budget_break = true;
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
-          e.journal_round_budget_break = true;
+                   e.journal_round_budget_break = true;
 #endif
-          break;
-        }
-      }
-      if (watches_at_entry && !k.large_watches_connected &&
-          ar != ApplyResult::Unsat &&
-          substitute_reconnect_large_watches(k, trail_at_entry) ==
-              ApplyResult::Unsat)
-        ar = ApplyResult::Unsat;
+                   return false;
+                 }
+                 return true;
+               })
+               .result;
       if (r.id < Stats::MAX_TIMED_RULES) {
         k.stats.rule_nanos[r.id] += now_nanos() - t0;
         k.stats.rule_calls[r.id]++;

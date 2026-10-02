@@ -4,6 +4,7 @@
 // max_scc_depth early-return silently drops deep SCCs, a completeness loss,
 // whereas an explicit work stack survives arbitrarily deep chains.
 #include "rules/substitute/substitute.hpp"
+#include "strategy/substitute_execution.hpp"
 
 #include "diagnostics/event_trace.hpp"
 #include "diagnostics/rule_journal.hpp"
@@ -2884,7 +2885,7 @@ ApplyResult substitute_reconnect_large_watches(Kernel &k,
 }
 
 ApplyResult substitute_apply(Kernel &k) {
-  return substitute_apply_round(k, /*reconnect_large_watches=*/true);
+  return execution::execute_action(k, execution::SubstituteRoundRequest{});
 }
 
 ApplyResult substitute_apply_round(Kernel &k, bool reconnect_large_watches) {
@@ -2945,34 +2946,15 @@ ApplyResult substitute_apply_round(Kernel &k, bool reconnect_large_watches) {
 }
 
 ApplyResult substitute_apply_complete(Kernel &k, uint32_t max_rounds) {
-  const auto active = [&] {
-    const uint64_t retired = static_cast<uint64_t>(kernel_root_fixed(k)) +
-                             k.stats.bve_eliminated +
-                             k.stats.substitute_vars;
-    return uint64_t{k.nvars} > retired ? uint64_t{k.nvars} - retired : 0;
-  };
-  ApplyResult result = ApplyResult::NoOp;
-  const bool connected_at_entry = k.large_watches_connected;
-  const uint32_t trail_at_entry = static_cast<uint32_t>(k.trail.size());
-  for (uint32_t round = 0; round < max_rounds; round++) {
-    const uint64_t active_before = active();
-    const ApplyResult current =
-        substitute_apply_round(k, /*reconnect_large_watches=*/false);
-    if (current == ApplyResult::Unsat)
-      return current;
-    if (current == ApplyResult::Ok)
-      result = current;
-    // Kissat's `substitute_round` continues only when this round actually
-    // removed variables. Other root/formula cleanup can still report Ok, but
-    // does not justify another whole SCC pass.
-    if (active() == active_before)
-      break;
-  }
-  if (connected_at_entry && !k.large_watches_connected &&
-      substitute_reconnect_large_watches(k, trail_at_entry) ==
-          ApplyResult::Unsat)
-    return ApplyResult::Unsat;
-  return result;
+  return execution::execute_action(
+             k, execution::SubstituteBatchRequest{max_rounds},
+             [&] { return execution::substitute_complete_active_count(k); },
+             [](size_t) {},
+             [&](uint64_t active_before, ApplyResult current) {
+               return current != ApplyResult::Unsat &&
+                      execution::substitute_complete_active_count(k) != active_before;
+             })
+      .result;
 }
 
 static ApplyResult substitute_apply_equivalences_impl(

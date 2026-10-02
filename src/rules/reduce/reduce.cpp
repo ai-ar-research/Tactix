@@ -4,6 +4,7 @@
 // (glue, size). The rule owns the ranking and every soundness filter; how much
 // of the ranked list dies, and when, is the policy's.
 #include "rules/reduce/reduce.hpp"
+#include "strategy/representation_execution.hpp"
 #include "rules/propagate/propagate.hpp"
 
 #include "proof/proof.hpp"
@@ -286,9 +287,11 @@ ApplyResult reduce_apply_refs(Kernel &k, const Ref *refs, size_t n,
     // Kissat instead sets start=0 before sparse collection, so root-satisfied
     // irredundant clauses and root-false literals are swept too.
     if (kernel_has_root_assignment(k) && !k.conflict_valid)
-      root_outcome = kernel_sparse_collect_root(k, collect_start);
+      root_outcome = execution::execute_action(
+          k, execution::SparseCollectRequest{collect_start});
     else
-      kernel_collect_garbage(k, collect_start, /*sparse_collection=*/true);
+      execution::execute_action(
+          k, execution::CollectGarbageRequest{collect_start, true});
   }
   // Kissat keeps every live trail reason marked throughout sparse collection:
   // root-false stripping may relocate a large reason or turn it into a binary.
