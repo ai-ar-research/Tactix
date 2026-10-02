@@ -6,6 +6,11 @@
 #include "strategy/representation_execution.hpp"
 #include "strategy/substitute_execution.hpp"
 #include "strategy/vivify_execution.hpp"
+#include "strategy/parameter_execution.hpp"
+#include "strategy/root_execution.hpp"
+#include "strategy/occurrence_execution.hpp"
+#include "strategy/publication_execution.hpp"
+#include "policies/rule_publication.hpp"
 #include "diagnostics/event_trace.hpp"
 #include "diagnostics/rule_journal.hpp"
 #include "policies/heuristics.hpp"
@@ -4588,15 +4593,13 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
       // Deferring all BVE retirements to the slot boundary batches hundreds
       // of arbitrary score-heap removals and changes the physical heap even
       // when the final formula and scores are identical.
-      const size_t candidate_trail_before = k.trail.size();
-      const uint64_t candidate_roots_before = k.stats.root_assignments;
-      const uint64_t candidate_eliminated_before = k.stats.bve_eliminated;
-      const uint32_t bve_flush_from = k.propagate_head;
 #ifdef TACTIX_ENABLE_EVENT_TRACE
       Var trace_bve_var = INVALID_VAR;
       const uint64_t trace_bve_eliminated_before = k.stats.bve_eliminated;
 #endif
-      const ApplyResult ar = [&] {
+      const auto applied = execution::execute_action(
+          k, execution::RuleApplicationRequest{
+                 execution::RootPublication::NewAssignments, bve_entry}, [&] {
         TickSinkScope sink(k, e.tick_counter);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
         if (bve_entry) {
@@ -4628,19 +4631,10 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
                                     k.stats.bve_eliminated !=
                                         trace_bve_eliminated_before);
 #endif
+        ctx.last_result = result;
         return result;
-      }();
-      ctx.last_result = ar;
-      heuristics_consume_rule_advice(k);
-      // Every dosed Kissat rule which learns a root unit fixes/removes that
-      // variable from H before its ensuing propagation.  BVE was the first
-      // producer wired here; TransitiveReduce's failed-source unit uses the
-      // same general lifecycle rather than waiting for the whole slot.
-      if (k.stats.root_assignments != candidate_roots_before)
-        heuristics_consume_root_assignments(k, candidate_trail_before);
-      if (bve_entry) {
-        heuristics_consume_retirements(k);
-      }
+      }, HeuristicRulePublisher{});
+      const ApplyResult ar = applied.result;
       candidate_work.reset();
       if (ar == ApplyResult::Unsat || k.inconsistent) {
         ctx.phase_unsat = true;
@@ -4650,7 +4644,7 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
         continue; // this candidate changed nothing; try the next
       // Kissat's round repeats on eliminations (`last_round_eliminated`), not
       // on a unit a declined candidate happened to learn.
-      if (!bve_entry || k.stats.bve_eliminated != candidate_eliminated_before)
+      if (!bve_entry || k.stats.bve_eliminated != applied.eliminated_before)
         ctx.round_changed = true;
       // resolve.c can learn a unit immediately and then reject the same BVE
       // candidate on its later growth bound.  eliminate.c nevertheless flushes
@@ -4666,7 +4660,7 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
       if (bve_entry && k.trail.size() != propagation_trail_before)
         heuristics_consume_root_assignments(k, propagation_trail_before);
       if (bve_entry)
-        bve_flush_units_while_connected(k, bve_flush_from);
+        bve_flush_units_while_connected(k, applied.propagation_begin);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
       if (trace_bve_var != INVALID_VAR)
         event_trace_bve_candidate(
@@ -5007,30 +5001,11 @@ DefaultInprocessScheduler::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVT
   // application and restored before the scheduler advances. The reference
   // program carries monostate, so its legacy Kernel values and hot path remain
   // unchanged.
-  std::optional<strategy::ScopedSubsumeForwardParameters> c1_parameters;
-  std::optional<strategy::ScopedStrengthenParameters> c2_parameters;
-  std::optional<strategy::ScopedCongruenceParameters> congruence_parameters;
-  std::optional<strategy::ScopedInstantiateParameters> instantiate_parameters;
-  std::optional<strategy::ScopedBackboneParameters> backbone_parameters;
-  std::optional<strategy::ScopedVivifyParameters> vivify_parameters;
-  if (const auto *p =
-          std::get_if<strategy::SubsumeForwardParameters>(&e.parameters))
-    c1_parameters.emplace(k, *p);
-  else if (const auto *p =
-               std::get_if<strategy::StrengthenParameters>(&e.parameters))
-    c2_parameters.emplace(k, *p);
-  else if (const auto *p =
-               std::get_if<strategy::CongruenceParameters>(&e.parameters))
-    congruence_parameters.emplace(k, *p);
-  else if (const auto *p =
-               std::get_if<strategy::InstantiateParameters>(&e.parameters))
-    instantiate_parameters.emplace(k, *p);
-  else if (const auto *p =
-               std::get_if<strategy::BackboneParameters>(&e.parameters))
-    backbone_parameters.emplace(k, *p);
-  else if (const auto *p =
-               std::get_if<strategy::VivifyParameters>(&e.parameters))
-    vivify_parameters.emplace(k, *p);
+  execution::ParameterExecutionScope<
+      strategy::SubsumeForwardParameters, strategy::StrengthenParameters,
+      strategy::CongruenceParameters, strategy::InstantiateParameters,
+      strategy::BackboneParameters, strategy::VivifyParameters>
+      parameters(k, e.parameters);
   e.tm.admitted++;
   const DelaySpec *const dspec = delay_spec(r.name);
   const uint64_t yield_before = dspec ? dspec->yield(k) : 0;
@@ -5418,37 +5393,22 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   // still uses ordinary search propagation here. Enter the common simplifier
   // scope only after that boundary so Eliminate credits search ticks and
   // saves phases for any newly exposed root implications.
-  std::optional<InprocessScope> entry_probe_scope;
-  if (group == SlotGroup::Probe)
-    entry_probe_scope.emplace(k);
-  if (k.level > 0 && restart_guard(k)) {
-    // `kissat_probe` sets `solver->probing` before `probe` enters
-    // `kissat_backtrack_propagate_and_flush_trail`; the target/best updater
-    // explicitly returns in probing mode.  Eliminate enters the same root
-    // restart without that flag and therefore retains the snapshot.
-    if (group != SlotGroup::Probe)
-      heuristics_update_target_phases(k);
-    // Probe and Eliminate use Kissat's shared root-backtrack primitive, not
-    // `kissat_restart`: entering an inprocessing phase must not advance the
-    // focused-restart count or its logarithmic cadence.
-    (void)default_direct_rule(k, "Restart", "keep-level=0;inprocess=1",
-                              [&] {
-                                return execution::execute_action(
-                                    k, execution::RestartRequest{
-                                           0, execution::RestartPurpose::Preparation});
-                              });
-  }
-  // Retained out-of-order root assignments must be rescanned after their
-  // transient blockers disappear, before dense construction or rule admission.
-  // Reuse the rule's root proof path, including a possible terminal conflict.
-  const ApplyResult root_result = default_propagate(
-      k, group == SlotGroup::Probe ? "probe-root" : "eliminate-root");
-  if (root_result == ApplyResult::Unsat)
-    return 20;
-  assert(root_result == ApplyResult::Ok && k.level == 0 &&
-         kernel_propagation_fixpoint(k));
-  k.unflushed_root = 0;
-  entry_probe_scope.reset();
+  const ApplyResult root_result = execution::execute_action(
+      k, execution::RootPreparationRequest{group == SlotGroup::Probe, true},
+      [&] {
+        // Probe's bracket suppresses target capture; Eliminate retains it.
+        if (group != SlotGroup::Probe) heuristics_update_target_phases(k);
+      },
+      [&](const execution::RestartRequest &request) {
+        return default_direct_rule(k, "Restart", "keep-level=0;inprocess=1", [&] {
+          return execution::execute_action(k, request);
+        });
+      },
+      [&] {
+        return default_propagate(
+            k, group == SlotGroup::Probe ? "probe-root" : "eliminate-root");
+      });
+  if (root_result == ApplyResult::Unsat) return 20;
   InprocessScope inprocess_scope(k);
   // Kissat has physically cleared the previously propagated root trail at
   // this point. Preserve Tactix's immutable prefix but remember the equivalent
@@ -5488,7 +5448,10 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   }
   const bool structured_unsat = structured_result == 20;
   const uint64_t dense_connect_started = now_nanos();
-  kernel_dense_connect(k, occurrence_index_, group == SlotGroup::Eliminate);
+  execution::OccurrenceSession occurrences(
+      k, execution::OccurrenceSessionRequest{
+             occurrence_index_, execution::OccurrenceAttachment::Build,
+             group == SlotGroup::Eliminate});
   k.stats.inprocess_dense_connect_nanos +=
       now_nanos() - dense_connect_started;
   SlotPhaseCtx ctx{group, stop};
@@ -5733,7 +5696,7 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   if (!ctx.phase_unsat && group != SlotGroup::Eliminate)
     kernel_flush_retired_redundant(k);
   heuristics_consume_retirements(k);
-  kernel_dense_disconnect(k);
+  occurrences.close();
   // Only Eliminate reconnects at the pipeline level (eliminate.c:587-589).
   // `probe.c` has no rewatch of its own: each dense-mode rule flushes large
   // watches on entry and reconnects on exit (vivify.c:1265/1276,
