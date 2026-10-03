@@ -71,7 +71,7 @@ goals. A soundness regression is never staged.
 ## 2. Landscape and reference policy
 
 The frozen SC24–26 performance set is Kissat 4.0.4, kissat-sc2024,
-AE-Kissat-MAB, Satsuma+Kissat and SAT-only LymphoSAT. CaDiCaL, Glucose and
+AE-Kissat-MAB, Satsuma+Kissat and LymphoSAT (checked SAT and UNSAT). CaDiCaL, Glucose and
 CryptoMiniSat are mechanism references, not Tier-D arms.
 
 DefaultPolicy transliterates mechanisms and effects, never source code. Read
@@ -580,11 +580,8 @@ unassigned variables by new short-clause propagation fanout and advise VMTF and
 EVSIDS. Type and replay its mode, order, measure, cap and strength; compare with
 advice off under the identical proof/formula transition. Rules never touch scores.
 
-Deferred until 57/57: ask whether later restart-to-root SR adds useful work beyond
-complete startup preprocessing. Compare later SR off/on with identical rules and
-seeds on B28+C5 and Rank 1--40, retaining all 57. If useful, design typed cadence
-and atomic resumption; otherwise keep startup only. A bounded evidence/schedule
-report requires Claude review before Codex implements or promotes restart-boundary SR.
+Restart-time SR investigation and its scheduling/proof obligations now belong to
+§9.5's linked subplan; retain all 57 and the Claude schedule/evidence review before implementation or promotion.
 
 For row-by-column generator actions, use a bounded typed Schreier transversal
 to compute the kernel of the column action. Its exact automorphism words may
@@ -703,6 +700,10 @@ independently checkable native proofs and must earn a measured time/memory gain.
 - The accepted stabilization and completed Tier-D comparison permit this interface stage despite unmet formal benchmark targets and deferred Tier-D checker-failure investigation; these obligations remain recorded and no N1--N4 or performance gate is relabeled complete. This stage is not a claim of learned improvement.
 - **Shared execution and feedback preparation:** realize §5.6's shared-policy contract, preserve default action/state correspondence and integrate ordinary partial trail retention without moving learner changes away from root. Add feedback and offline inspection while selection stays random; no scalar reward or learning is implemented. Complete full Debug and fresh Claude-owned campaigns of at least 100,000 seeds per policy plus retained corpus and targeted nonvacuous action/configuration, partial/full restart, continuation/staleness, interruption, observation/feedback and replay coverage. Require independent completed proofs/models, separate timeout reporting and passing terminal reports, all four §8.4 default regression gates and instrumentation-overhead evidence; retain existing exceptions and no fallback/rollback/forced-resumption/global-loop-budget constraints.
 - **Reward and learning:** decide O6, validate reward proxies/attribution offline, then replace random selection with a feedback-informed policy on the same controller. Include it in proof/model fuzzing; pass L-safe before expanding learned context or composed actions, and L-win before claiming improvement. Retain arbitrary-interruption validation and decide schedule distillation (O13).
+
+### 9.5 Organic winner-technique integration
+
+Aim to solve substantially more than LymphoSAT, Satsuma+Kissat, Kissat-sc2024 and AE-Kissat-MAB combined. The [winner-integration subplan](docs/winner-integration-plan.md) owns the fixed 36-instance intermediate target, the eight additional MAB-only misses, organic SAT/UNSAT technique integration, lightweight scheduled symmetry, constructor-to-Walk/CDCL guidance, default DSR with justified rule-specific PBP support, preservation gates, and unresolved design choices. Use the saved `d170b4a5` comparison as the approved approximation while developing current source; do not rerun it. Engineering convergence precedes reward/learning. This workstream permits reviewed improvements beyond reference preprocessing before formal T4-VBS; it does not accept Phase 4.5 or weaken its standing gates.
 
 ## 10. Risks and mitigations
 
