@@ -1,0 +1,33 @@
+{
+  "scope": "Fixed parity consequence proof, not production implementation or a target result",
+  "models": 8,
+  "derived_binary_equivalence": [
+    [
+      -1,
+      2
+    ],
+    [
+      -2,
+      1
+    ]
+  ],
+  "prefix_additions": 30,
+  "proof_bytes": 346,
+  "canonical_verified": true,
+  "all_addition_cake_verified": true,
+  "forward_drat_verified": true,
+  "negative_rejected": true,
+  "incomplete_xor_countermodel": [
+    1,
+    0,
+    1,
+    1,
+    0,
+    0,
+    0
+  ],
+  "checkers": {
+    "/home/hwu/SAT-solving/benchmarks/runs/20261003-ramsey-degree-dsr-feasibility/checkers/drat-trim": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+    "/home/hwu/SAT-solving/benchmarks/runs/20261003-ramsey-degree-dsr-feasibility/checkers/cake_lpr": "ab9dc6c43ad0f55bbaf336c5d898919ddb03d0bdb75e88dff48237fb06ba1f57"
+  }
+}

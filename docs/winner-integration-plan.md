@@ -126,7 +126,7 @@ budget is introduced. Direct guidance and Walk seeding need separate attribution
 
 ## SAT/UNSAT reasoning and proof production
 
-For LymphoSAT, the primary integration is theory-to-Boolean translation: useful
+Review existing LymphoSAT-derived integrations as well as missing techniques. The primary integration is theory-to-Boolean translation: useful
 implied constraints, certified auxiliary definitions and justified symmetry breaking
 that strengthen continuing CDCL. Distinguish model-preserving
 consequences, conservative extensions with model projection, and restrictions

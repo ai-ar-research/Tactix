@@ -1,0 +1,1 @@
+probe: /home/hwu/SAT-solving/benchmarks/runs/20261003-parity-congruence-overlap/probe.cpp:27: void run(bool): Assertion `result==ApplyResult::Ok' failed.
