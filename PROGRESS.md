@@ -25,7 +25,7 @@ VALIDATION: Accepted 7a evidence remains frozen at source `12e3c4f0`: Debug `174
 - [Candidate validation preparation](benchmarks/reports/2026-10-02-shared-policy-validation-started.md) reviews unchanged 28-group/49-site bindings and concrete selection, execution, feedback and retention boundaries; fresh Debug/Release pins and declared acceptance/measurement plans are submitted. This source review is not universal runtime coverage or whole-goal acceptance.
 - [Terminal regressions and frontend measurement](benchmarks/reports/2026-10-02-shared-policy-regression-feedback.md) pass all four default gates with explicit censoring; all 262 completed baseline/foundation pairs retain exact certificate hashes and normalized work statistics. Paired full feedback recording preserves signatures and adds 17–64 ms on four small inputs; broader purity and fresh fuzz coverage remain pending.
 - Remaining implementation: the exact validated terminal Substitute watch-restoration proposal is applied. Close any further demonstrated gaps on the new pins; O6 reward decisions remain deferred.
-- Remaining acceptance: new-pin full Debug, both fresh Claude-owned fuzz legs and targeted purity/replay coverage, all four default regressions, overhead, the complete objective audit and final Andrew TeX/PDF. Prior evidence remains a comparison authority, not a substitute for repaired-pin acceptance.
+- Remaining acceptance: new-pin full Debug, delivered Claude-owned acceptance of both fresh fuzz legs and targeted purity/replay coverage, the complete objective audit and final Andrew TeX/PDF. Prior evidence remains a comparison authority, not a substitute for repaired-pin acceptance.
 
 ## Current authorities
 
