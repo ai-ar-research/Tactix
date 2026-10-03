@@ -1,0 +1,20 @@
+{
+  "base_source": "f6f01982e08bfce6a8ef6dfcde1f439ce8ef81f0",
+  "applied_to_root": false,
+  "validated_production_proposal": "/home/hwu/SAT-solving/build/shared-policy-terminal-substitute-f6f01982-staging/proposal.json",
+  "base_sha256": {
+    "src/rules/substitute/substitute.cpp": "14cf97a14a27a4d4b9a1a2e5b03b562463ff58f9c7f7993b16d5cfa388e184e0",
+    "src/strategy/substitute_execution.hpp": "bf51ba440c88585c3c89725047b49d8fb870d6393a55be01f79328a4c590be96",
+    "tests/test_substitute_execution.cpp": "654343d643f6c1a0fe4805cbbe617adc27cc8aa773668d3cfddb33ea15df11fb",
+    "tests/test_policy_feedback.cpp": "c527ebb68682403208fac588306a1a0ed0480c254060893667afc1d9d886de2d"
+  },
+  "staged_sha256": {
+    "src/rules/substitute/substitute.cpp": "25ccd1672afda05a793188fa87e63d4bd1279d9332abf101b7ea5241475e60b0",
+    "src/strategy/substitute_execution.hpp": "af0fcd5ec24d8c73b4ce4bfe4e1bfd29d7d7d9f2ec7eb34df447894976f345d4",
+    "tests/test_substitute_execution.cpp": "70996ffb76863646c51bac3ba85f86f1760cfc55d94797736601223651ed157f",
+    "tests/test_policy_feedback.cpp": "8f6f569978705815292040a9026ef7d6a9e292e39cd742285bb168d139fd18d5"
+  },
+  "patch_sha256": "2eaeb6b0b9de5910a72e728cb32b781e12e47f30a39491022142aa8841ddb884",
+  "production_source_changes": 2,
+  "regression_source_changes": 2
+}

@@ -1,0 +1,16 @@
+/home/hwu/SAT-solving/build/shared-policy-terminal-substitute-f6f01982-staging/terminal_feedback.cpp: In function ‘int main(int, char**)’:
+/home/hwu/SAT-solving/build/shared-policy-terminal-substitute-f6f01982-staging/terminal_feedback.cpp:49:12: error: cannot declare variable ‘receiver’ to be of abstract type ‘Receiver’
+   49 |   Receiver receiver(k);
+      |            ^~~~~~~~
+/home/hwu/SAT-solving/build/shared-policy-terminal-substitute-f6f01982-staging/terminal_feedback.cpp:12:8: note:   because the following virtual functions are pure within ‘Receiver’:
+   12 | struct Receiver final : FeedbackReceiver {
+      |        ^~~~~~~~
+In file included from /home/hwu/SAT-solving/src/policies/restart_controller.hpp:8,
+                 from /home/hwu/SAT-solving/src/policies/random_controller_policy.hpp:5,
+                 from /home/hwu/SAT-solving/build/shared-policy-terminal-substitute-f6f01982-staging/terminal_feedback.cpp:3:
+/home/hwu/SAT-solving/src/strategy/policy_feedback.hpp:116:16: note:     ‘virtual void tactix::strategy::controller::FeedbackReceiver::search_interval(const tactix::strategy::controller::SearchIntervalFeedback&)’
+  116 |   virtual void search_interval(const SearchIntervalFeedback &) = 0;
+      |                ^~~~~~~~~~~~~~~
+/home/hwu/SAT-solving/build/shared-policy-terminal-substitute-f6f01982-staging/terminal_feedback.cpp:56:9: error: ‘class tactix::Proof’ has no member named ‘close’
+   56 |   proof.close();
+      |         ^~~~~

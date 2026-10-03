@@ -1,0 +1,8 @@
+PASS: budgeted=1 preprocessing=0 cap=1 actual_rounds=1
+PASS: budgeted=1 preprocessing=0 cap=2 actual_rounds=2
+PASS: budgeted=1 preprocessing=1 cap=1 actual_rounds=1
+PASS: budgeted=1 preprocessing=1 cap=2 actual_rounds=2
+PASS: budgeted=0 preprocessing=0 cap=1 actual_rounds=1
+PASS: budgeted=0 preprocessing=0 cap=2 actual_rounds=1
+PASS: budgeted=0 preprocessing=1 cap=1 actual_rounds=1
+PASS: budgeted=0 preprocessing=1 cap=2 actual_rounds=2

@@ -1,0 +1,15 @@
+{
+  "source_commit": "f6f01982e08bfce6a8ef6dfcde1f439ce8ef81f0",
+  "applied_to_root": false,
+  "reason": "Owned Substitute watches must restore before public terminal feedback; caller-owned disconnected sessions remain borrowed.",
+  "patch_sha256": "7cd0fe38d6fc726f01f653ce1baf65423096d69f27f164f39fa1b9c6ddcaa62e",
+  "base_sources": {
+    "src/rules/substitute/substitute.cpp": "14cf97a14a27a4d4b9a1a2e5b03b562463ff58f9c7f7993b16d5cfa388e184e0",
+    "src/strategy/substitute_execution.hpp": "bf51ba440c88585c3c89725047b49d8fb870d6393a55be01f79328a4c590be96"
+  },
+  "staged_sources": {
+    "src/rules/substitute/substitute.cpp": "25ccd1672afda05a793188fa87e63d4bd1279d9332abf101b7ea5241475e60b0",
+    "src/strategy/substitute_execution.hpp": "af0fcd5ec24d8c73b4ce4bfe4e1bfd29d7d7d9f2ec7eb34df447894976f345d4"
+  },
+  "live_root_source_owner": 1746628
+}

@@ -1,0 +1,156 @@
+--- a/src/rules/substitute/substitute.cpp
++++ b/src/rules/substitute/substitute.cpp
+@@ -2893,8 +2893,10 @@
+   const bool connected_at_entry = k.large_watches_connected;
+   const uint32_t trail_at_entry = static_cast<uint32_t>(k.trail.size());
+   const auto finish = [&](ApplyResult result) {
++    // Restore an owned watch session before publishing even a refutation.
++    // The root service recognizes inconsistent state without further reasoning.
+     if (!connected_at_entry || !reconnect_large_watches ||
+-        result == ApplyResult::Unsat || k.large_watches_connected)
++        k.large_watches_connected)
+       return result;
+     const ApplyResult closure =
+         substitute_reconnect_large_watches(k, trail_at_entry);
+--- a/src/strategy/substitute_execution.hpp
++++ b/src/strategy/substitute_execution.hpp
+@@ -58,7 +58,7 @@
+     const bool more = advise(before, current);
+     if (current == ApplyResult::Unsat) {
+       out.result = current;
+-      return out;
++      break; // An owned disconnected session still needs its final restoration.
+     }
+     if (current == ApplyResult::Ok)
+       out.result = current;
+--- a/tests/test_substitute_execution.cpp
++++ b/tests/test_substitute_execution.cpp
+@@ -69,7 +69,7 @@
+   kernel_check_invariants(k);
+ }
+ 
+-static void test_refutation_does_not_reconnect(bool borrowed) {
++static void test_refutation_before_disconnection(bool borrowed) {
+   Kernel k;
+   kernel_reserve_vars(k, 3);
+   kernel_add_binary_clause(k, internalize(-1), internalize(2));
+@@ -99,11 +99,47 @@
+   assert(k.large_watches_connected == connected_at_publication);
+ }
+ 
++
++// A rewrite can refute after dropping large watches: equivalence collapses
++// the two large clauses to opposite units. Owned single-round and batch calls
++// restore their watch session; an enclosing disconnected caller retains it.
++static void test_rewrite_refutation_restores_owned_session(bool batch, bool borrowed) {
++  Kernel k;
++  kernel_reserve_vars(k, 3);
++  kernel_add_binary_clause(k, internalize(-1), internalize(2));
++  kernel_add_binary_clause(k, internalize(-2), internalize(1));
++  const Lit a[] = {internalize(1), internalize(2), internalize(3)};
++  const Lit b[] = {internalize(-1), internalize(-2), internalize(3)};
++  kernel_add_large_clause(k, a, 3, false, 0);
++  kernel_add_large_clause(k, b, 3, false, 0);
++  kernel_assign_unit(k, internalize(-3));
++  if (borrowed) kernel_drop_large_watches(k);
++  if (batch) {
++    unsigned published = 0, advised = 0;
++    const auto out = execute_action(k, SubstituteBatchRequest{2}, [] { return 0; },
++        [&](size_t) { ++published; assert(!k.large_watches_connected); },
++        [&](int, ApplyResult result) {
++          ++advised;
++          assert(result == ApplyResult::Unsat);
++          return true; // Terminal cleanup overrides permissive continuation.
++        });
++    assert(out.result == ApplyResult::Unsat && out.rounds == 1);
++    assert(published == 1 && advised == 1);
++    assert(out.reconnected == !borrowed);
++  } else {
++    assert(execute_action(k, SubstituteRoundRequest{}) == ApplyResult::Unsat);
++  }
++  assert(k.inconsistent && k.large_watches_connected == !borrowed);
++}
++
+ int main() {
+   for (bool borrowed : {false, true})
+     for (uint32_t cap : {0u, 1u, 2u})
+       for (bool more : {false, true})
+         test_session(borrowed, cap, more);
+   for (bool borrowed : {false, true})
+-    test_refutation_does_not_reconnect(borrowed);
++    test_refutation_before_disconnection(borrowed);
++  for (bool batch : {false, true})
++    for (bool borrowed : {false, true})
++      test_rewrite_refutation_restores_owned_session(batch, borrowed);
+ }
+--- a/tests/test_policy_feedback.cpp
++++ b/tests/test_policy_feedback.cpp
+@@ -1,5 +1,7 @@
+ #undef NDEBUG
+ #include "policies/random_controller_policy.hpp"
++#include "frontend/parse.hpp"
++#include "proof/proof.hpp"
+ #include "policies/ops/rephase/rephase.hpp"
+ #include "rules/propagate/propagate.hpp"
+ 
+@@ -252,10 +254,59 @@
+   controller.finish_feedback(0);
+ }
+ 
++
++// Retained corpus 009 with the owner-reported seed refutes at Substitute,
++// after BVE and LocalSearchGuidance. Neither action nor session-end callbacks
++// may observe the round's temporary disconnected watch representation.
++static void test_terminal_substitute_publication() {
++  for (bool reuse : {false, true}) {
++    Kernel k;
++    Proof proof;
++    assert(proof.open("/dev/null", ProofFormat::DsrAscii));
++    k.proof = &proof;
++    proof.bind_variable_map(&k.internal_to_external);
++    proof.bind_external_variable_map(&k.external_to_internal);
++    FILE *input = std::tmpfile();
++    assert(input);
++    std::fputs("p cnf 5 11\n-3 1 0\n-3 2 0\n3 -1 -2 0\n"
++               "-4 1 0\n-4 2 0\n4 -1 -2 0\n-5 3 0\n-5 4 0\n"
++               "5 -3 -4 0\n5 3 0\n-5 -3 0\n", input);
++    std::rewind(input);
++    assert(!parse_dimacs(input, k));
++    std::fclose(input);
++    struct TerminalReceiver final : FeedbackReceiver {
++      Kernel &kernel;
++      unsigned refutations = 0, ended = 0;
++      explicit TerminalReceiver(Kernel &k) : kernel(k) {}
++      void after_action(const ActionFeedback &record) override {
++        assert(kernel.large_watches_connected);
++        if (record.identity == "Substitute" &&
++            record.outcome.invocation.rule_result == ApplyResult::Unsat)
++          ++refutations;
++      }
++      void search_interval(const SearchIntervalFeedback &) override {
++        assert(kernel.large_watches_connected);
++      }
++      void session_end(const Observation &, int verdict, StopReason reason) override {
++        assert(kernel.large_watches_connected);
++        assert(verdict == 20 && reason == StopReason::Unsat);
++        ++ended;
++      }
++    } receiver(k);
++    RandomControllerConfig config;
++    config.reuse_search_trail = reuse;
++    RandomControllerPolicy policy(2032000128, config, nullptr, nullptr, &receiver);
++    assert(policy.solve(k) == 20);
++    assert(receiver.refutations == 1 && receiver.ended == 1);
++    assert(k.large_watches_connected);
++  }
++}
++
+ int main() {
+   test_disabled_and_read_only();
+   test_outcomes_and_intervals();
+   test_selection_and_terminal();
+   test_stop_and_execution_error();
+   test_native_effort_and_interruption();
+-}
++  test_terminal_substitute_publication();
++}

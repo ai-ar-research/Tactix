@@ -1,0 +1,25 @@
+--- a/src/rules/substitute/substitute.cpp
++++ b/src/rules/substitute/substitute.cpp
+@@ -2893,8 +2893,10 @@
+   const bool connected_at_entry = k.large_watches_connected;
+   const uint32_t trail_at_entry = static_cast<uint32_t>(k.trail.size());
+   const auto finish = [&](ApplyResult result) {
++    // Restore an owned watch session before publishing even a refutation.
++    // The root service recognizes inconsistent state without further reasoning.
+     if (!connected_at_entry || !reconnect_large_watches ||
+-        result == ApplyResult::Unsat || k.large_watches_connected)
++        k.large_watches_connected)
+       return result;
+     const ApplyResult closure =
+         substitute_reconnect_large_watches(k, trail_at_entry);
+--- a/src/strategy/substitute_execution.hpp
++++ b/src/strategy/substitute_execution.hpp
+@@ -58,7 +58,7 @@
+     const bool more = advise(before, current);
+     if (current == ApplyResult::Unsat) {
+       out.result = current;
+-      return out;
++      break; // An owned disconnected session still needs its final restoration.
+     }
+     if (current == ApplyResult::Ok)
+       out.result = current;
