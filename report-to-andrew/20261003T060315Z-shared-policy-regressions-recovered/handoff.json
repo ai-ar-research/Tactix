@@ -1,0 +1,39 @@
+{
+  "schema": "tactix-andrew-recovered-default-gates-checkpoint-v1",
+  "observed_at_utc": "2026-10-03T06:15:11.493004+00:00",
+  "source_commit": "375b621ba6677600f3e77bf8383af25d256d7b67",
+  "goal_complete": false,
+  "tex_passes": 2,
+  "pages": 2,
+  "pdf_bytes": 168499,
+  "final_layout_warnings": 0,
+  "extracted_text_reviewed": true,
+  "frozen_artifact_bindings_verified": 31,
+  "raw_result_bindings_verified": 272,
+  "selected_gates_accepted": 4,
+  "independently_checked": 248,
+  "checker_censors": 14,
+  "retained_solver_timeouts": 10,
+  "original_failed_gate_preserved": true,
+  "single_registered_recovery_used": true,
+  "docs": {
+    "size_errors": 0,
+    "size_warnings": 6,
+    "section_refs": 73,
+    "progress_errors": 0,
+    "progress_warnings": 0
+  },
+  "cleanup_performed": false,
+  "push": false,
+  "remaining_acceptance": [
+    "Full current-source Debug exact212 with984terminal bindings",
+    "Delivered current-source Claude-owned both-policyR1-R13 terminal acceptance",
+    "Final whole-objective audit and handoff"
+  ],
+  "file_sha256": {
+    "report-to-andrew/20261003T060315Z-shared-policy-regressions-recovered/report.tex": "10c845ec3d65f9e3ae6c819d3a8c8bd1bb9b53463fee56a8d86bd08e2730e7bc",
+    "report-to-andrew/20261003T060315Z-shared-policy-regressions-recovered/report.pdf": "f41fe8af2a3ce9b4c11387b26b24bb5da69f7eabcedc21f62d0d27b5aa806853",
+    "benchmarks/reports/2026-10-03-shared-policy-regressions-recovered.md": "8dc5658a300e297b53e926dd70611d371345d21f119ea181ba634edcc7c96ee1",
+    "benchmarks/reports/2026-10-03-shared-policy-regressions-recovered/validation.json": "e8b4d8d44da4979f991fd59d7bc1321123176c111b02626e6497fea7cded29b3"
+  }
+}
