@@ -1,0 +1,8 @@
+{
+  "status": "voluntarily_censored",
+  "reason": "Superseded pre-reflection diagnostic: changed-source probe 1747584 completed with independently checked original-CNF SAT. Stop continuing obsolete CDCL search; this voluntarily censored predecessor is not a solver timeout or full-budget performance result.",
+  "solver_timeout": false,
+  "full_budget_result": false,
+  "graph_counters_available": false,
+  "target_closed": false
+}
