@@ -1,0 +1,31 @@
+[
+  {
+    "case": {
+      "vertices": 9,
+      "degree": 3
+    },
+    "job_id": "1747615",
+    "generator_returncode": 0,
+    "verified": true,
+    "generation": {
+      "vertices": 9,
+      "degree": 3,
+      "variables": 36,
+      "clauses": 210,
+      "bdd_nodes": 39062,
+      "proof_additions": 216798,
+      "seconds": 0.0814813
+    },
+    "proof_bytes": 3872140,
+    "checker_stage": null,
+    "check_seconds": 103.87554438225925,
+    "every_lemma": true,
+    "negative_rejected": true,
+    "negative_stage": "drat-trim",
+    "total_seconds": 216.36892527900636,
+    "hashes": {
+      "degree.cnf": "211cfdb838c97a8c98533a7d6d3a8710c99010ab330b725076ef43c91b8fa729",
+      "degree.dsr": "9ae9a7a51ff1759df8b12a99281ffc5eeb114633e4d0c6330e825f95a3fcd502"
+    }
+  }
+]
