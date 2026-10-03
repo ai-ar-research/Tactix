@@ -1,0 +1,30 @@
+{
+  "rank": 630,
+  "scope": "Full original-CNF DSR feasibility using direct R33 resolution, shared BDD counting and post-symmetry database reduction; compare tail with independently checked compact R34 proof.",
+  "job_id": "1747624",
+  "generator_returncode": 0,
+  "verified": true,
+  "checked_subproof_tail_matches": true,
+  "added_deletions": 7626,
+  "generation": {
+    "vertices": 19,
+    "degree": 3,
+    "variables": 171,
+    "clauses": 7752,
+    "deleted_original_clauses": 7626,
+    "retained_original_clauses": 126,
+    "bdd_nodes": 9192,
+    "proof_additions": 74782,
+    "seconds": 0.0268828
+  },
+  "proof_bytes": 1650212,
+  "input_sha256": "9c8ddd5ad86590ef636f46a61ecf4732abf42dadee70fd2be3c0783c08e7160f",
+  "checker_stage": null,
+  "checker_output": "",
+  "check_seconds": 82.71344294399023,
+  "negative_rejected": true,
+  "negative_stage": "dsr-trim",
+  "negative_output": "c CNF file path: /home/hwu/SAT-solving/benchmarks/runs/20261003-ramsey-r44-compact-dsr-feasibility/case-00/negative-check/checker.cnf\nc DSR file path: /home/hwu/SAT-solving/benchmarks/runs/20261003-ramsey-r44-compact-dsr-feasibility/case-00/negative.dsr\nc LSR file path: /home/hwu/SAT-solving/benchmarks/runs/20261003-ramsey-r44-compact-dsr-feasibility/case-00/negative-check/proof.lsr\nc Using an EAGER parsing strategy.\nc Doing BACKWARDS proof checking.\nc The CNF formula has 1 clauses and 1 variables.\nc Parsing the CNF took 0.000 secs\n\nFatal error: Number of HT buckets must be positive.\n",
+  "total_seconds": 83.01077724248171,
+  "proof_sha256": "109277dd17dce86e90b659bc87784f8eab6aa08ab80fdef66cf2cebaaea200cd"
+}

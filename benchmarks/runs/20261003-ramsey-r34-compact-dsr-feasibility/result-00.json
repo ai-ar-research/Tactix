@@ -1,0 +1,31 @@
+{
+  "case": {
+    "vertices": 9,
+    "degree": 3
+  },
+  "job_id": "1747623",
+  "generator_returncode": 0,
+  "verified": true,
+  "generation": {
+    "vertices": 9,
+    "degree": 3,
+    "variables": 36,
+    "clauses": 210,
+    "bdd_nodes": 9192,
+    "proof_additions": 74689,
+    "seconds": 0.0250468
+  },
+  "proof_bytes": 1372963,
+  "checker_stage": null,
+  "checker_output": "",
+  "check_seconds": 11.299366779625416,
+  "every_lemma": true,
+  "negative_rejected": true,
+  "negative_stage": "drat-trim",
+  "negative_output": "\nc parsing input formula with 1 variables and 1 clauses\n\nc finished parsing\n\nc conflict claimed, but not detected\n\ns NOT VERIFIED\n\nc verification time: 0.047 seconds\n\n",
+  "total_seconds": 26.156538778916,
+  "hashes": {
+    "degree.cnf": "211cfdb838c97a8c98533a7d6d3a8710c99010ab330b725076ef43c91b8fa729",
+    "degree.dsr": "330a5b8ccf0b4a4e679c405fa30074d3bf99331491f1bbc9caaee1c2a00df092"
+  }
+}

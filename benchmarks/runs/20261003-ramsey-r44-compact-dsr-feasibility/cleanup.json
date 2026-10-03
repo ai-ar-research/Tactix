@@ -1,0 +1,29 @@
+{
+  "removed": [
+    {
+      "path": "case-00/check/checker.cnf",
+      "bytes": 195447,
+      "sha256": "9c8ddd5ad86590ef636f46a61ecf4732abf42dadee70fd2be3c0783c08e7160f",
+      "reason": "Regenerable checker intermediate after terminal independent verification and negative control; original CNF/native proof/checker pins retained."
+    },
+    {
+      "path": "case-00/check/proof.lsr",
+      "bytes": 4819821,
+      "sha256": "7a50b40db986f4921139f0a19aeb34aee245f8fb7d8f9cc409dc89d9219be0ef",
+      "reason": "Regenerable checker intermediate after terminal independent verification and negative control; original CNF/native proof/checker pins retained."
+    },
+    {
+      "path": "case-00/negative-check/checker.cnf",
+      "bytes": 14,
+      "sha256": "6642f3ff4fae6f869a53f303bc768802cec0a16af731686c6bf03f342cf0489e",
+      "reason": "Regenerable checker intermediate after terminal independent verification and negative control; original CNF/native proof/checker pins retained."
+    },
+    {
+      "path": "case-00/negative-check/proof.lsr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "reason": "Regenerable checker intermediate after terminal independent verification and negative control; original CNF/native proof/checker pins retained."
+    }
+  ],
+  "total_bytes": 5015282
+}

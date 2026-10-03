@@ -1,0 +1,37 @@
+{
+  "status": "COMPLETED",
+  "created_utc": "2026-10-03T20:09:57.370069+00:00",
+  "binary": "build/pin-ramsey-r44-dsr-bcf71ced-01/probe",
+  "input": "benchmarks/cache/tierD24-26/847c8843ee292b9b31f0c346574af260-ramsey_4_4_19.normalised.cnf.xz",
+  "rank": 630,
+  "partition": "cpu-q",
+  "cpus": 1,
+  "memory_gib": 32,
+  "wall_minutes": 40,
+  "generator_seconds": 300,
+  "checker_seconds": 1800,
+  "scope": "Full original-CNF DSR certificate feasibility with startup symmetry and counting. Standalone prototype, no shared-action integration or cumulative target acceptance.",
+  "checker_sources": {
+    "dsr-trim": "/home/hwu/SAT-solving/build/pin-dsr-checker-controller-clean-patch/dsr-trim",
+    "dsr-compress": "/home/hwu/SAT-solving/dsr-trim-sr/bin/compress",
+    "srcheck": "/home/hwu/SAT-solving/trestle/.lake/build/bin/srcheck"
+  },
+  "bindings": {
+    "benchmarks/runs/20261003-ramsey-r44-dsr-feasibility/job.sh": "8697e113bfbb3d5a28d54fca9f2aa6b318439b3f62195dd2363ec1e8d36e0582",
+    "benchmarks/runs/20261003-ramsey-r44-dsr-feasibility/checkers/dsr-trim": "3b5c773706dc4695f08115ce862e991bfa2e44e3388df80f40ae8b0823dfbdee",
+    "benchmarks/runs/20261003-ramsey-r44-dsr-feasibility/checkers/dsr-compress": "6bc416a0df73f16911a0b16d85aa4bed4d15e4915d309407ff1e80b07d19d676",
+    "benchmarks/runs/20261003-ramsey-r44-dsr-feasibility/checkers/srcheck": "19bf79f49e293bb0df82b1e4ec82ec45987c2791864598bada12525ef41a2945",
+    "benchmarks/runs/20261003-ramsey-r44-dsr-feasibility/dsr-checker-authority.json": "3a25660a12a1d2e1545f28a7d518b9f875cb44b79d0eadb19bf318820b0de8bb",
+    "benchmarks/cache/tierD24-26/847c8843ee292b9b31f0c346574af260-ramsey_4_4_19.normalised.cnf.xz": "4b08084266ffd1cda075b3942bc7e83d334fd6b5f23fa0c839da8b2b4351e08e",
+    "tools/bench/proof_oracle.py": "020bfcef6f4382e9b3136442a253bb7eb4fcfa1091be9d692ddd438161a3b8b2",
+    "benchmarks/probes/scratch/run_ramsey_r44_dsr_probe.py": "026d4740a015b7f4ff7a23c0c3be8155b9625f91ae000f5e37761e4065c60ae5",
+    "build/pin-ramsey-r44-dsr-bcf71ced-01/probe": "f4bc0a833777d0de80503b785b77f3dd78777f7b67112a39d3d6b77d1be2124a",
+    "build/pin-ramsey-r44-dsr-bcf71ced-01/manifest.json": "2403ee4052a9b4359c74defdc570c9a5b22d5258ae6226eee99ac383ae0181b1"
+  },
+  "job_id": "1747619",
+  "submitted_recorded_utc": "2026-10-03T20:10:19.745665+00:00",
+  "checker_limit_scope": "1800 seconds for canonical pipeline and separately 1800 seconds for every-lemma pipeline; allocation wall limit 40 minutes. This is feasibility, not the regression gate.",
+  "verified": true,
+  "every_lemma_requested_and_passed": true,
+  "every_lemma_passed": true
+}
