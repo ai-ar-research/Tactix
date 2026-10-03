@@ -1,0 +1,19 @@
+{
+  "job_id": 1746924,
+  "submitted_at_utc": "2026-10-03T03:21:32.667271+00:00",
+  "source_commit": "375b621ba6677600f3e77bf8383af25d256d7b67",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--partition=cpu-dense-hwulab-q",
+    "--ntasks=1",
+    "--cpus-per-task=12",
+    "--mem=32768M",
+    "--time=06:00:00",
+    "--no-requeue",
+    "--job-name=shared-feedback-full-debug-375b621b",
+    "--output=/home/hwu/SAT-solving/benchmarks/runs/20261002-shared-policy-feedback-375b621b-preparation/slurm-%j.log",
+    "/home/hwu/SAT-solving/benchmarks/runs/20261002-shared-policy-feedback-375b621b-preparation/job.sh"
+  ],
+  "sbatch_stdout": "1746924\n"
+}
