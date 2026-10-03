@@ -1,0 +1,6437 @@
+[
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 0,
+    "auxiliary": 56512,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 13787,
+        "row": 0,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 252
+      },
+      {
+        "output": 13885,
+        "row": 0,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 449
+      },
+      {
+        "output": 14015,
+        "row": 0,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 714
+      }
+    ],
+    "clauses": [
+      [
+        56512,
+        13787
+      ],
+      [
+        56512,
+        13885
+      ],
+      [
+        56512,
+        14015
+      ],
+      [
+        -56512,
+        -13787,
+        -13885,
+        -14015
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 1,
+    "auxiliary": 56513,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 14113,
+        "row": 1,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 915
+      },
+      {
+        "output": 14211,
+        "row": 1,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 1112
+      },
+      {
+        "output": 14341,
+        "row": 1,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 1377
+      }
+    ],
+    "clauses": [
+      [
+        56513,
+        14113
+      ],
+      [
+        56513,
+        14211
+      ],
+      [
+        56513,
+        14341
+      ],
+      [
+        -56513,
+        -14113,
+        -14211,
+        -14341
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 2,
+    "auxiliary": 56514,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 14439,
+        "row": 2,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 1578
+      },
+      {
+        "output": 14537,
+        "row": 2,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 1775
+      },
+      {
+        "output": 14667,
+        "row": 2,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 2040
+      }
+    ],
+    "clauses": [
+      [
+        56514,
+        14439
+      ],
+      [
+        56514,
+        14537
+      ],
+      [
+        56514,
+        14667
+      ],
+      [
+        -56514,
+        -14439,
+        -14537,
+        -14667
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 3,
+    "auxiliary": 56515,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 14765,
+        "row": 3,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 2241
+      },
+      {
+        "output": 14863,
+        "row": 3,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 2438
+      },
+      {
+        "output": 14993,
+        "row": 3,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 2703
+      }
+    ],
+    "clauses": [
+      [
+        56515,
+        14765
+      ],
+      [
+        56515,
+        14863
+      ],
+      [
+        56515,
+        14993
+      ],
+      [
+        -56515,
+        -14765,
+        -14863,
+        -14993
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 4,
+    "auxiliary": 56516,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 15091,
+        "row": 4,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 2904
+      },
+      {
+        "output": 15189,
+        "row": 4,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 3101
+      },
+      {
+        "output": 15319,
+        "row": 4,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 3366
+      }
+    ],
+    "clauses": [
+      [
+        56516,
+        15091
+      ],
+      [
+        56516,
+        15189
+      ],
+      [
+        56516,
+        15319
+      ],
+      [
+        -56516,
+        -15091,
+        -15189,
+        -15319
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 5,
+    "auxiliary": 56517,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 15417,
+        "row": 5,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 3567
+      },
+      {
+        "output": 15515,
+        "row": 5,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 3764
+      },
+      {
+        "output": 15645,
+        "row": 5,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 4029
+      }
+    ],
+    "clauses": [
+      [
+        56517,
+        15417
+      ],
+      [
+        56517,
+        15515
+      ],
+      [
+        56517,
+        15645
+      ],
+      [
+        -56517,
+        -15417,
+        -15515,
+        -15645
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 6,
+    "auxiliary": 56518,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 15743,
+        "row": 6,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 4230
+      },
+      {
+        "output": 15841,
+        "row": 6,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 4427
+      },
+      {
+        "output": 15971,
+        "row": 6,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 4692
+      }
+    ],
+    "clauses": [
+      [
+        56518,
+        15743
+      ],
+      [
+        56518,
+        15841
+      ],
+      [
+        56518,
+        15971
+      ],
+      [
+        -56518,
+        -15743,
+        -15841,
+        -15971
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 7,
+    "auxiliary": 56519,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 16069,
+        "row": 7,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 4893
+      },
+      {
+        "output": 16167,
+        "row": 7,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 5090
+      },
+      {
+        "output": 16297,
+        "row": 7,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 5355
+      }
+    ],
+    "clauses": [
+      [
+        56519,
+        16069
+      ],
+      [
+        56519,
+        16167
+      ],
+      [
+        56519,
+        16297
+      ],
+      [
+        -56519,
+        -16069,
+        -16167,
+        -16297
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 8,
+    "auxiliary": 56520,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 16395,
+        "row": 8,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 5556
+      },
+      {
+        "output": 16493,
+        "row": 8,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 5753
+      },
+      {
+        "output": 16623,
+        "row": 8,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 6018
+      }
+    ],
+    "clauses": [
+      [
+        56520,
+        16395
+      ],
+      [
+        56520,
+        16493
+      ],
+      [
+        56520,
+        16623
+      ],
+      [
+        -56520,
+        -16395,
+        -16493,
+        -16623
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 9,
+    "auxiliary": 56521,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 16721,
+        "row": 9,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 6219
+      },
+      {
+        "output": 16819,
+        "row": 9,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 6416
+      },
+      {
+        "output": 16949,
+        "row": 9,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 6681
+      }
+    ],
+    "clauses": [
+      [
+        56521,
+        16721
+      ],
+      [
+        56521,
+        16819
+      ],
+      [
+        56521,
+        16949
+      ],
+      [
+        -56521,
+        -16721,
+        -16819,
+        -16949
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 10,
+    "auxiliary": 56522,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 17047,
+        "row": 10,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 6882
+      },
+      {
+        "output": 17145,
+        "row": 10,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 7079
+      },
+      {
+        "output": 17275,
+        "row": 10,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 7344
+      }
+    ],
+    "clauses": [
+      [
+        56522,
+        17047
+      ],
+      [
+        56522,
+        17145
+      ],
+      [
+        56522,
+        17275
+      ],
+      [
+        -56522,
+        -17047,
+        -17145,
+        -17275
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 11,
+    "auxiliary": 56523,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 17373,
+        "row": 11,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 7545
+      },
+      {
+        "output": 17471,
+        "row": 11,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 7742
+      },
+      {
+        "output": 17601,
+        "row": 11,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 8007
+      }
+    ],
+    "clauses": [
+      [
+        56523,
+        17373
+      ],
+      [
+        56523,
+        17471
+      ],
+      [
+        56523,
+        17601
+      ],
+      [
+        -56523,
+        -17373,
+        -17471,
+        -17601
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 12,
+    "auxiliary": 56524,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 17699,
+        "row": 12,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 8208
+      },
+      {
+        "output": 17797,
+        "row": 12,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 8405
+      },
+      {
+        "output": 17927,
+        "row": 12,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 8670
+      }
+    ],
+    "clauses": [
+      [
+        56524,
+        17699
+      ],
+      [
+        56524,
+        17797
+      ],
+      [
+        56524,
+        17927
+      ],
+      [
+        -56524,
+        -17699,
+        -17797,
+        -17927
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 13,
+    "auxiliary": 56525,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 18025,
+        "row": 13,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 8871
+      },
+      {
+        "output": 18123,
+        "row": 13,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 9068
+      },
+      {
+        "output": 18253,
+        "row": 13,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 9333
+      }
+    ],
+    "clauses": [
+      [
+        56525,
+        18025
+      ],
+      [
+        56525,
+        18123
+      ],
+      [
+        56525,
+        18253
+      ],
+      [
+        -56525,
+        -18025,
+        -18123,
+        -18253
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 14,
+    "auxiliary": 56526,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 18351,
+        "row": 14,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 9534
+      },
+      {
+        "output": 18449,
+        "row": 14,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 9731
+      },
+      {
+        "output": 18579,
+        "row": 14,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 9996
+      }
+    ],
+    "clauses": [
+      [
+        56526,
+        18351
+      ],
+      [
+        56526,
+        18449
+      ],
+      [
+        56526,
+        18579
+      ],
+      [
+        -56526,
+        -18351,
+        -18449,
+        -18579
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 15,
+    "auxiliary": 56527,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 18677,
+        "row": 15,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 10197
+      },
+      {
+        "output": 18775,
+        "row": 15,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 10394
+      },
+      {
+        "output": 18905,
+        "row": 15,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 10659
+      }
+    ],
+    "clauses": [
+      [
+        56527,
+        18677
+      ],
+      [
+        56527,
+        18775
+      ],
+      [
+        56527,
+        18905
+      ],
+      [
+        -56527,
+        -18677,
+        -18775,
+        -18905
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 16,
+    "auxiliary": 56528,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 19003,
+        "row": 16,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 10860
+      },
+      {
+        "output": 19101,
+        "row": 16,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 11057
+      },
+      {
+        "output": 19231,
+        "row": 16,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 11322
+      }
+    ],
+    "clauses": [
+      [
+        56528,
+        19003
+      ],
+      [
+        56528,
+        19101
+      ],
+      [
+        56528,
+        19231
+      ],
+      [
+        -56528,
+        -19003,
+        -19101,
+        -19231
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 17,
+    "auxiliary": 56529,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 19329,
+        "row": 17,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 11523
+      },
+      {
+        "output": 19427,
+        "row": 17,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 11720
+      },
+      {
+        "output": 19557,
+        "row": 17,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 11985
+      }
+    ],
+    "clauses": [
+      [
+        56529,
+        19329
+      ],
+      [
+        56529,
+        19427
+      ],
+      [
+        56529,
+        19557
+      ],
+      [
+        -56529,
+        -19329,
+        -19427,
+        -19557
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 18,
+    "auxiliary": 56530,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 19655,
+        "row": 18,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 12186
+      },
+      {
+        "output": 19753,
+        "row": 18,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 12383
+      },
+      {
+        "output": 19883,
+        "row": 18,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 12648
+      }
+    ],
+    "clauses": [
+      [
+        56530,
+        19655
+      ],
+      [
+        56530,
+        19753
+      ],
+      [
+        56530,
+        19883
+      ],
+      [
+        -56530,
+        -19655,
+        -19753,
+        -19883
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 19,
+    "auxiliary": 56531,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 19981,
+        "row": 19,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 12849
+      },
+      {
+        "output": 20079,
+        "row": 19,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 13046
+      },
+      {
+        "output": 20209,
+        "row": 19,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 13311
+      }
+    ],
+    "clauses": [
+      [
+        56531,
+        19981
+      ],
+      [
+        56531,
+        20079
+      ],
+      [
+        56531,
+        20209
+      ],
+      [
+        -56531,
+        -19981,
+        -20079,
+        -20209
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 20,
+    "auxiliary": 56532,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 20307,
+        "row": 20,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 13512
+      },
+      {
+        "output": 20405,
+        "row": 20,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 13709
+      },
+      {
+        "output": 20535,
+        "row": 20,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 13974
+      }
+    ],
+    "clauses": [
+      [
+        56532,
+        20307
+      ],
+      [
+        56532,
+        20405
+      ],
+      [
+        56532,
+        20535
+      ],
+      [
+        -56532,
+        -20307,
+        -20405,
+        -20535
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 21,
+    "auxiliary": 56533,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 20633,
+        "row": 21,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 14175
+      },
+      {
+        "output": 20731,
+        "row": 21,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 14372
+      },
+      {
+        "output": 20861,
+        "row": 21,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 14637
+      }
+    ],
+    "clauses": [
+      [
+        56533,
+        20633
+      ],
+      [
+        56533,
+        20731
+      ],
+      [
+        56533,
+        20861
+      ],
+      [
+        -56533,
+        -20633,
+        -20731,
+        -20861
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 22,
+    "auxiliary": 56534,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 20959,
+        "row": 22,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 14838
+      },
+      {
+        "output": 21057,
+        "row": 22,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 15035
+      },
+      {
+        "output": 21187,
+        "row": 22,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 15300
+      }
+    ],
+    "clauses": [
+      [
+        56534,
+        20959
+      ],
+      [
+        56534,
+        21057
+      ],
+      [
+        56534,
+        21187
+      ],
+      [
+        -56534,
+        -20959,
+        -21057,
+        -21187
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 23,
+    "auxiliary": 56535,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 21285,
+        "row": 23,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 15501
+      },
+      {
+        "output": 21383,
+        "row": 23,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 15698
+      },
+      {
+        "output": 21513,
+        "row": 23,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 15963
+      }
+    ],
+    "clauses": [
+      [
+        56535,
+        21285
+      ],
+      [
+        56535,
+        21383
+      ],
+      [
+        56535,
+        21513
+      ],
+      [
+        -56535,
+        -21285,
+        -21383,
+        -21513
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 24,
+    "auxiliary": 56536,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 21611,
+        "row": 24,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 16164
+      },
+      {
+        "output": 21709,
+        "row": 24,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 16361
+      },
+      {
+        "output": 21839,
+        "row": 24,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 16626
+      }
+    ],
+    "clauses": [
+      [
+        56536,
+        21611
+      ],
+      [
+        56536,
+        21709
+      ],
+      [
+        56536,
+        21839
+      ],
+      [
+        -56536,
+        -21611,
+        -21709,
+        -21839
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 25,
+    "auxiliary": 56537,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 21937,
+        "row": 25,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 16827
+      },
+      {
+        "output": 22035,
+        "row": 25,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 17024
+      },
+      {
+        "output": 22165,
+        "row": 25,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 17289
+      }
+    ],
+    "clauses": [
+      [
+        56537,
+        21937
+      ],
+      [
+        56537,
+        22035
+      ],
+      [
+        56537,
+        22165
+      ],
+      [
+        -56537,
+        -21937,
+        -22035,
+        -22165
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 26,
+    "auxiliary": 56538,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 22263,
+        "row": 26,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 17490
+      },
+      {
+        "output": 22361,
+        "row": 26,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 17687
+      },
+      {
+        "output": 22491,
+        "row": 26,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 17952
+      }
+    ],
+    "clauses": [
+      [
+        56538,
+        22263
+      ],
+      [
+        56538,
+        22361
+      ],
+      [
+        56538,
+        22491
+      ],
+      [
+        -56538,
+        -22263,
+        -22361,
+        -22491
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 27,
+    "auxiliary": 56539,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 22589,
+        "row": 27,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 18153
+      },
+      {
+        "output": 22687,
+        "row": 27,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 18350
+      },
+      {
+        "output": 22817,
+        "row": 27,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 18615
+      }
+    ],
+    "clauses": [
+      [
+        56539,
+        22589
+      ],
+      [
+        56539,
+        22687
+      ],
+      [
+        56539,
+        22817
+      ],
+      [
+        -56539,
+        -22589,
+        -22687,
+        -22817
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 28,
+    "auxiliary": 56540,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 22915,
+        "row": 28,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 18816
+      },
+      {
+        "output": 23013,
+        "row": 28,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 19013
+      },
+      {
+        "output": 23143,
+        "row": 28,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 19278
+      }
+    ],
+    "clauses": [
+      [
+        56540,
+        22915
+      ],
+      [
+        56540,
+        23013
+      ],
+      [
+        56540,
+        23143
+      ],
+      [
+        -56540,
+        -22915,
+        -23013,
+        -23143
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 29,
+    "auxiliary": 56541,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 23241,
+        "row": 29,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 19479
+      },
+      {
+        "output": 23339,
+        "row": 29,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 19676
+      },
+      {
+        "output": 23469,
+        "row": 29,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 19941
+      }
+    ],
+    "clauses": [
+      [
+        56541,
+        23241
+      ],
+      [
+        56541,
+        23339
+      ],
+      [
+        56541,
+        23469
+      ],
+      [
+        -56541,
+        -23241,
+        -23339,
+        -23469
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 30,
+    "auxiliary": 56542,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 23567,
+        "row": 30,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 20142
+      },
+      {
+        "output": 23665,
+        "row": 30,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 20339
+      },
+      {
+        "output": 23795,
+        "row": 30,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 20604
+      }
+    ],
+    "clauses": [
+      [
+        56542,
+        23567
+      ],
+      [
+        56542,
+        23665
+      ],
+      [
+        56542,
+        23795
+      ],
+      [
+        -56542,
+        -23567,
+        -23665,
+        -23795
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 31,
+    "auxiliary": 56543,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 23893,
+        "row": 31,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 20805
+      },
+      {
+        "output": 23991,
+        "row": 31,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 21002
+      },
+      {
+        "output": 24121,
+        "row": 31,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 21267
+      }
+    ],
+    "clauses": [
+      [
+        56543,
+        23893
+      ],
+      [
+        56543,
+        23991
+      ],
+      [
+        56543,
+        24121
+      ],
+      [
+        -56543,
+        -23893,
+        -23991,
+        -24121
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 32,
+    "auxiliary": 56544,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 24219,
+        "row": 32,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 21468
+      },
+      {
+        "output": 24317,
+        "row": 32,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 21665
+      },
+      {
+        "output": 24447,
+        "row": 32,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 21930
+      }
+    ],
+    "clauses": [
+      [
+        56544,
+        24219
+      ],
+      [
+        56544,
+        24317
+      ],
+      [
+        56544,
+        24447
+      ],
+      [
+        -56544,
+        -24219,
+        -24317,
+        -24447
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 33,
+    "auxiliary": 56545,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 24545,
+        "row": 33,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 22131
+      },
+      {
+        "output": 24643,
+        "row": 33,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 22328
+      },
+      {
+        "output": 24773,
+        "row": 33,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 22593
+      }
+    ],
+    "clauses": [
+      [
+        56545,
+        24545
+      ],
+      [
+        56545,
+        24643
+      ],
+      [
+        56545,
+        24773
+      ],
+      [
+        -56545,
+        -24545,
+        -24643,
+        -24773
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 34,
+    "auxiliary": 56546,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 24871,
+        "row": 34,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 22794
+      },
+      {
+        "output": 24969,
+        "row": 34,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 22991
+      },
+      {
+        "output": 25099,
+        "row": 34,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 23256
+      }
+    ],
+    "clauses": [
+      [
+        56546,
+        24871
+      ],
+      [
+        56546,
+        24969
+      ],
+      [
+        56546,
+        25099
+      ],
+      [
+        -56546,
+        -24871,
+        -24969,
+        -25099
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 35,
+    "auxiliary": 56547,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 25197,
+        "row": 35,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 23457
+      },
+      {
+        "output": 25295,
+        "row": 35,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 23654
+      },
+      {
+        "output": 25425,
+        "row": 35,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 23919
+      }
+    ],
+    "clauses": [
+      [
+        56547,
+        25197
+      ],
+      [
+        56547,
+        25295
+      ],
+      [
+        56547,
+        25425
+      ],
+      [
+        -56547,
+        -25197,
+        -25295,
+        -25425
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 36,
+    "auxiliary": 56548,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 25523,
+        "row": 36,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 24120
+      },
+      {
+        "output": 25621,
+        "row": 36,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 24317
+      },
+      {
+        "output": 25751,
+        "row": 36,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 24582
+      }
+    ],
+    "clauses": [
+      [
+        56548,
+        25523
+      ],
+      [
+        56548,
+        25621
+      ],
+      [
+        56548,
+        25751
+      ],
+      [
+        -56548,
+        -25523,
+        -25621,
+        -25751
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 37,
+    "auxiliary": 56549,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 25849,
+        "row": 37,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 24783
+      },
+      {
+        "output": 25947,
+        "row": 37,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 24980
+      },
+      {
+        "output": 26077,
+        "row": 37,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 25245
+      }
+    ],
+    "clauses": [
+      [
+        56549,
+        25849
+      ],
+      [
+        56549,
+        25947
+      ],
+      [
+        56549,
+        26077
+      ],
+      [
+        -56549,
+        -25849,
+        -25947,
+        -26077
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 38,
+    "auxiliary": 56550,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 26175,
+        "row": 38,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 25446
+      },
+      {
+        "output": 26273,
+        "row": 38,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 25643
+      },
+      {
+        "output": 26403,
+        "row": 38,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 25908
+      }
+    ],
+    "clauses": [
+      [
+        56550,
+        26175
+      ],
+      [
+        56550,
+        26273
+      ],
+      [
+        56550,
+        26403
+      ],
+      [
+        -56550,
+        -26175,
+        -26273,
+        -26403
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 39,
+    "auxiliary": 56551,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 26501,
+        "row": 39,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 26109
+      },
+      {
+        "output": 26599,
+        "row": 39,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 26306
+      },
+      {
+        "output": 26729,
+        "row": 39,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 26571
+      }
+    ],
+    "clauses": [
+      [
+        56551,
+        26501
+      ],
+      [
+        56551,
+        26599
+      ],
+      [
+        56551,
+        26729
+      ],
+      [
+        -56551,
+        -26501,
+        -26599,
+        -26729
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 40,
+    "auxiliary": 56552,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 26827,
+        "row": 40,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 26772
+      },
+      {
+        "output": 26925,
+        "row": 40,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 26969
+      },
+      {
+        "output": 27055,
+        "row": 40,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 27234
+      }
+    ],
+    "clauses": [
+      [
+        56552,
+        26827
+      ],
+      [
+        56552,
+        26925
+      ],
+      [
+        56552,
+        27055
+      ],
+      [
+        -56552,
+        -26827,
+        -26925,
+        -27055
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 41,
+    "auxiliary": 56553,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 27153,
+        "row": 41,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 27435
+      },
+      {
+        "output": 27251,
+        "row": 41,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 27632
+      },
+      {
+        "output": 27381,
+        "row": 41,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 27897
+      }
+    ],
+    "clauses": [
+      [
+        56553,
+        27153
+      ],
+      [
+        56553,
+        27251
+      ],
+      [
+        56553,
+        27381
+      ],
+      [
+        -56553,
+        -27153,
+        -27251,
+        -27381
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 42,
+    "auxiliary": 56554,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 27479,
+        "row": 42,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 28098
+      },
+      {
+        "output": 27577,
+        "row": 42,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 28295
+      },
+      {
+        "output": 27707,
+        "row": 42,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 28560
+      }
+    ],
+    "clauses": [
+      [
+        56554,
+        27479
+      ],
+      [
+        56554,
+        27577
+      ],
+      [
+        56554,
+        27707
+      ],
+      [
+        -56554,
+        -27479,
+        -27577,
+        -27707
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 43,
+    "auxiliary": 56555,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 27805,
+        "row": 43,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 28761
+      },
+      {
+        "output": 27903,
+        "row": 43,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 28958
+      },
+      {
+        "output": 28033,
+        "row": 43,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 29223
+      }
+    ],
+    "clauses": [
+      [
+        56555,
+        27805
+      ],
+      [
+        56555,
+        27903
+      ],
+      [
+        56555,
+        28033
+      ],
+      [
+        -56555,
+        -27805,
+        -27903,
+        -28033
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 44,
+    "auxiliary": 56556,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 28131,
+        "row": 44,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 29424
+      },
+      {
+        "output": 28229,
+        "row": 44,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 29621
+      },
+      {
+        "output": 28359,
+        "row": 44,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 29886
+      }
+    ],
+    "clauses": [
+      [
+        56556,
+        28131
+      ],
+      [
+        56556,
+        28229
+      ],
+      [
+        56556,
+        28359
+      ],
+      [
+        -56556,
+        -28131,
+        -28229,
+        -28359
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 45,
+    "auxiliary": 56557,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 28457,
+        "row": 45,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 30087
+      },
+      {
+        "output": 28555,
+        "row": 45,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 30284
+      },
+      {
+        "output": 28685,
+        "row": 45,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 30549
+      }
+    ],
+    "clauses": [
+      [
+        56557,
+        28457
+      ],
+      [
+        56557,
+        28555
+      ],
+      [
+        56557,
+        28685
+      ],
+      [
+        -56557,
+        -28457,
+        -28555,
+        -28685
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 46,
+    "auxiliary": 56558,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 28783,
+        "row": 46,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 30750
+      },
+      {
+        "output": 28881,
+        "row": 46,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 30947
+      },
+      {
+        "output": 29011,
+        "row": 46,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 31212
+      }
+    ],
+    "clauses": [
+      [
+        56558,
+        28783
+      ],
+      [
+        56558,
+        28881
+      ],
+      [
+        56558,
+        29011
+      ],
+      [
+        -56558,
+        -28783,
+        -28881,
+        -29011
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 47,
+    "auxiliary": 56559,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 29109,
+        "row": 47,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 31413
+      },
+      {
+        "output": 29207,
+        "row": 47,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 31610
+      },
+      {
+        "output": 29337,
+        "row": 47,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 31875
+      }
+    ],
+    "clauses": [
+      [
+        56559,
+        29109
+      ],
+      [
+        56559,
+        29207
+      ],
+      [
+        56559,
+        29337
+      ],
+      [
+        -56559,
+        -29109,
+        -29207,
+        -29337
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 48,
+    "auxiliary": 56560,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 29435,
+        "row": 48,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 32076
+      },
+      {
+        "output": 29533,
+        "row": 48,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 32273
+      },
+      {
+        "output": 29663,
+        "row": 48,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 32538
+      }
+    ],
+    "clauses": [
+      [
+        56560,
+        29435
+      ],
+      [
+        56560,
+        29533
+      ],
+      [
+        56560,
+        29663
+      ],
+      [
+        -56560,
+        -29435,
+        -29533,
+        -29663
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 49,
+    "auxiliary": 56561,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 29761,
+        "row": 49,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 32739
+      },
+      {
+        "output": 29859,
+        "row": 49,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 32936
+      },
+      {
+        "output": 29989,
+        "row": 49,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 33201
+      }
+    ],
+    "clauses": [
+      [
+        56561,
+        29761
+      ],
+      [
+        56561,
+        29859
+      ],
+      [
+        56561,
+        29989
+      ],
+      [
+        -56561,
+        -29761,
+        -29859,
+        -29989
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 50,
+    "auxiliary": 56562,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 30087,
+        "row": 50,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 33402
+      },
+      {
+        "output": 30185,
+        "row": 50,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 33599
+      },
+      {
+        "output": 30315,
+        "row": 50,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 33864
+      }
+    ],
+    "clauses": [
+      [
+        56562,
+        30087
+      ],
+      [
+        56562,
+        30185
+      ],
+      [
+        56562,
+        30315
+      ],
+      [
+        -56562,
+        -30087,
+        -30185,
+        -30315
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 51,
+    "auxiliary": 56563,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 30413,
+        "row": 51,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 34065
+      },
+      {
+        "output": 30511,
+        "row": 51,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 34262
+      },
+      {
+        "output": 30641,
+        "row": 51,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 34527
+      }
+    ],
+    "clauses": [
+      [
+        56563,
+        30413
+      ],
+      [
+        56563,
+        30511
+      ],
+      [
+        56563,
+        30641
+      ],
+      [
+        -56563,
+        -30413,
+        -30511,
+        -30641
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 52,
+    "auxiliary": 56564,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 30739,
+        "row": 52,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 34728
+      },
+      {
+        "output": 30837,
+        "row": 52,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 34925
+      },
+      {
+        "output": 30967,
+        "row": 52,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 35190
+      }
+    ],
+    "clauses": [
+      [
+        56564,
+        30739
+      ],
+      [
+        56564,
+        30837
+      ],
+      [
+        56564,
+        30967
+      ],
+      [
+        -56564,
+        -30739,
+        -30837,
+        -30967
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 53,
+    "auxiliary": 56565,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 31065,
+        "row": 53,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 35391
+      },
+      {
+        "output": 31163,
+        "row": 53,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 35588
+      },
+      {
+        "output": 31293,
+        "row": 53,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 35853
+      }
+    ],
+    "clauses": [
+      [
+        56565,
+        31065
+      ],
+      [
+        56565,
+        31163
+      ],
+      [
+        56565,
+        31293
+      ],
+      [
+        -56565,
+        -31065,
+        -31163,
+        -31293
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 54,
+    "auxiliary": 56566,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 31391,
+        "row": 54,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 36054
+      },
+      {
+        "output": 31489,
+        "row": 54,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 36251
+      },
+      {
+        "output": 31619,
+        "row": 54,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 36516
+      }
+    ],
+    "clauses": [
+      [
+        56566,
+        31391
+      ],
+      [
+        56566,
+        31489
+      ],
+      [
+        56566,
+        31619
+      ],
+      [
+        -56566,
+        -31391,
+        -31489,
+        -31619
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 55,
+    "auxiliary": 56567,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 31717,
+        "row": 55,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 36717
+      },
+      {
+        "output": 31815,
+        "row": 55,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 36914
+      },
+      {
+        "output": 31945,
+        "row": 55,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 37179
+      }
+    ],
+    "clauses": [
+      [
+        56567,
+        31717
+      ],
+      [
+        56567,
+        31815
+      ],
+      [
+        56567,
+        31945
+      ],
+      [
+        -56567,
+        -31717,
+        -31815,
+        -31945
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 56,
+    "auxiliary": 56568,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 32043,
+        "row": 56,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 37380
+      },
+      {
+        "output": 32141,
+        "row": 56,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 37577
+      },
+      {
+        "output": 32271,
+        "row": 56,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 37842
+      }
+    ],
+    "clauses": [
+      [
+        56568,
+        32043
+      ],
+      [
+        56568,
+        32141
+      ],
+      [
+        56568,
+        32271
+      ],
+      [
+        -56568,
+        -32043,
+        -32141,
+        -32271
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 57,
+    "auxiliary": 56569,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 32369,
+        "row": 57,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 38043
+      },
+      {
+        "output": 32467,
+        "row": 57,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 38240
+      },
+      {
+        "output": 32597,
+        "row": 57,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 38505
+      }
+    ],
+    "clauses": [
+      [
+        56569,
+        32369
+      ],
+      [
+        56569,
+        32467
+      ],
+      [
+        56569,
+        32597
+      ],
+      [
+        -56569,
+        -32369,
+        -32467,
+        -32597
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 58,
+    "auxiliary": 56570,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 32695,
+        "row": 58,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 38706
+      },
+      {
+        "output": 32793,
+        "row": 58,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 38903
+      },
+      {
+        "output": 32923,
+        "row": 58,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 39168
+      }
+    ],
+    "clauses": [
+      [
+        56570,
+        32695
+      ],
+      [
+        56570,
+        32793
+      ],
+      [
+        56570,
+        32923
+      ],
+      [
+        -56570,
+        -32695,
+        -32793,
+        -32923
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 59,
+    "auxiliary": 56571,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 33021,
+        "row": 59,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 39369
+      },
+      {
+        "output": 33119,
+        "row": 59,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 39566
+      },
+      {
+        "output": 33249,
+        "row": 59,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 39831
+      }
+    ],
+    "clauses": [
+      [
+        56571,
+        33021
+      ],
+      [
+        56571,
+        33119
+      ],
+      [
+        56571,
+        33249
+      ],
+      [
+        -56571,
+        -33021,
+        -33119,
+        -33249
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 60,
+    "auxiliary": 56572,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 33347,
+        "row": 60,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 40032
+      },
+      {
+        "output": 33445,
+        "row": 60,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 40229
+      },
+      {
+        "output": 33575,
+        "row": 60,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 40494
+      }
+    ],
+    "clauses": [
+      [
+        56572,
+        33347
+      ],
+      [
+        56572,
+        33445
+      ],
+      [
+        56572,
+        33575
+      ],
+      [
+        -56572,
+        -33347,
+        -33445,
+        -33575
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 61,
+    "auxiliary": 56573,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 33673,
+        "row": 61,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 40695
+      },
+      {
+        "output": 33771,
+        "row": 61,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 40892
+      },
+      {
+        "output": 33901,
+        "row": 61,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 41157
+      }
+    ],
+    "clauses": [
+      [
+        56573,
+        33673
+      ],
+      [
+        56573,
+        33771
+      ],
+      [
+        56573,
+        33901
+      ],
+      [
+        -56573,
+        -33673,
+        -33771,
+        -33901
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 62,
+    "auxiliary": 56574,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 33999,
+        "row": 62,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 41358
+      },
+      {
+        "output": 34097,
+        "row": 62,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 41555
+      },
+      {
+        "output": 34227,
+        "row": 62,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 41820
+      }
+    ],
+    "clauses": [
+      [
+        56574,
+        33999
+      ],
+      [
+        56574,
+        34097
+      ],
+      [
+        56574,
+        34227
+      ],
+      [
+        -56574,
+        -33999,
+        -34097,
+        -34227
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 63,
+    "auxiliary": 56575,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 34325,
+        "row": 63,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 42021
+      },
+      {
+        "output": 34423,
+        "row": 63,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 42218
+      },
+      {
+        "output": 34553,
+        "row": 63,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 42483
+      }
+    ],
+    "clauses": [
+      [
+        56575,
+        34325
+      ],
+      [
+        56575,
+        34423
+      ],
+      [
+        56575,
+        34553
+      ],
+      [
+        -56575,
+        -34325,
+        -34423,
+        -34553
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 64,
+    "auxiliary": 56576,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 34651,
+        "row": 64,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 42684
+      },
+      {
+        "output": 34749,
+        "row": 64,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 42881
+      },
+      {
+        "output": 34879,
+        "row": 64,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 43146
+      }
+    ],
+    "clauses": [
+      [
+        56576,
+        34651
+      ],
+      [
+        56576,
+        34749
+      ],
+      [
+        56576,
+        34879
+      ],
+      [
+        -56576,
+        -34651,
+        -34749,
+        -34879
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 65,
+    "auxiliary": 56577,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 34977,
+        "row": 65,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 43347
+      },
+      {
+        "output": 35075,
+        "row": 65,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 43544
+      },
+      {
+        "output": 35205,
+        "row": 65,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 43809
+      }
+    ],
+    "clauses": [
+      [
+        56577,
+        34977
+      ],
+      [
+        56577,
+        35075
+      ],
+      [
+        56577,
+        35205
+      ],
+      [
+        -56577,
+        -34977,
+        -35075,
+        -35205
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 66,
+    "auxiliary": 56578,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 35303,
+        "row": 66,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 44010
+      },
+      {
+        "output": 35401,
+        "row": 66,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 44207
+      },
+      {
+        "output": 35531,
+        "row": 66,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 44472
+      }
+    ],
+    "clauses": [
+      [
+        56578,
+        35303
+      ],
+      [
+        56578,
+        35401
+      ],
+      [
+        56578,
+        35531
+      ],
+      [
+        -56578,
+        -35303,
+        -35401,
+        -35531
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 67,
+    "auxiliary": 56579,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 35629,
+        "row": 67,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 44673
+      },
+      {
+        "output": 35727,
+        "row": 67,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 44870
+      },
+      {
+        "output": 35857,
+        "row": 67,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 45135
+      }
+    ],
+    "clauses": [
+      [
+        56579,
+        35629
+      ],
+      [
+        56579,
+        35727
+      ],
+      [
+        56579,
+        35857
+      ],
+      [
+        -56579,
+        -35629,
+        -35727,
+        -35857
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 68,
+    "auxiliary": 56580,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 35955,
+        "row": 68,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 45336
+      },
+      {
+        "output": 36053,
+        "row": 68,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 45533
+      },
+      {
+        "output": 36183,
+        "row": 68,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 45798
+      }
+    ],
+    "clauses": [
+      [
+        56580,
+        35955
+      ],
+      [
+        56580,
+        36053
+      ],
+      [
+        56580,
+        36183
+      ],
+      [
+        -56580,
+        -35955,
+        -36053,
+        -36183
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 69,
+    "auxiliary": 56581,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 36281,
+        "row": 69,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 45999
+      },
+      {
+        "output": 36379,
+        "row": 69,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 46196
+      },
+      {
+        "output": 36509,
+        "row": 69,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 46461
+      }
+    ],
+    "clauses": [
+      [
+        56581,
+        36281
+      ],
+      [
+        56581,
+        36379
+      ],
+      [
+        56581,
+        36509
+      ],
+      [
+        -56581,
+        -36281,
+        -36379,
+        -36509
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 70,
+    "auxiliary": 56582,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 36607,
+        "row": 70,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 46662
+      },
+      {
+        "output": 36705,
+        "row": 70,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 46859
+      },
+      {
+        "output": 36835,
+        "row": 70,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 47124
+      }
+    ],
+    "clauses": [
+      [
+        56582,
+        36607
+      ],
+      [
+        56582,
+        36705
+      ],
+      [
+        56582,
+        36835
+      ],
+      [
+        -56582,
+        -36607,
+        -36705,
+        -36835
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 71,
+    "auxiliary": 56583,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 36933,
+        "row": 71,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 47325
+      },
+      {
+        "output": 37031,
+        "row": 71,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 47522
+      },
+      {
+        "output": 37161,
+        "row": 71,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 47787
+      }
+    ],
+    "clauses": [
+      [
+        56583,
+        36933
+      ],
+      [
+        56583,
+        37031
+      ],
+      [
+        56583,
+        37161
+      ],
+      [
+        -56583,
+        -36933,
+        -37031,
+        -37161
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 72,
+    "auxiliary": 56584,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 37259,
+        "row": 72,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 47988
+      },
+      {
+        "output": 37357,
+        "row": 72,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 48185
+      },
+      {
+        "output": 37487,
+        "row": 72,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 48450
+      }
+    ],
+    "clauses": [
+      [
+        56584,
+        37259
+      ],
+      [
+        56584,
+        37357
+      ],
+      [
+        56584,
+        37487
+      ],
+      [
+        -56584,
+        -37259,
+        -37357,
+        -37487
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 73,
+    "auxiliary": 56585,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 37585,
+        "row": 73,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 48651
+      },
+      {
+        "output": 37683,
+        "row": 73,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 48848
+      },
+      {
+        "output": 37813,
+        "row": 73,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 49113
+      }
+    ],
+    "clauses": [
+      [
+        56585,
+        37585
+      ],
+      [
+        56585,
+        37683
+      ],
+      [
+        56585,
+        37813
+      ],
+      [
+        -56585,
+        -37585,
+        -37683,
+        -37813
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 74,
+    "auxiliary": 56586,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 37911,
+        "row": 74,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 49314
+      },
+      {
+        "output": 38009,
+        "row": 74,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 49511
+      },
+      {
+        "output": 38139,
+        "row": 74,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 49776
+      }
+    ],
+    "clauses": [
+      [
+        56586,
+        37911
+      ],
+      [
+        56586,
+        38009
+      ],
+      [
+        56586,
+        38139
+      ],
+      [
+        -56586,
+        -37911,
+        -38009,
+        -38139
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 75,
+    "auxiliary": 56587,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 38237,
+        "row": 75,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 49977
+      },
+      {
+        "output": 38335,
+        "row": 75,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 50174
+      },
+      {
+        "output": 38465,
+        "row": 75,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 50439
+      }
+    ],
+    "clauses": [
+      [
+        56587,
+        38237
+      ],
+      [
+        56587,
+        38335
+      ],
+      [
+        56587,
+        38465
+      ],
+      [
+        -56587,
+        -38237,
+        -38335,
+        -38465
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 76,
+    "auxiliary": 56588,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 38563,
+        "row": 76,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 50640
+      },
+      {
+        "output": 38661,
+        "row": 76,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 50837
+      },
+      {
+        "output": 38791,
+        "row": 76,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 51102
+      }
+    ],
+    "clauses": [
+      [
+        56588,
+        38563
+      ],
+      [
+        56588,
+        38661
+      ],
+      [
+        56588,
+        38791
+      ],
+      [
+        -56588,
+        -38563,
+        -38661,
+        -38791
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 77,
+    "auxiliary": 56589,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 38889,
+        "row": 77,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 51303
+      },
+      {
+        "output": 38987,
+        "row": 77,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 51500
+      },
+      {
+        "output": 39117,
+        "row": 77,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 51765
+      }
+    ],
+    "clauses": [
+      [
+        56589,
+        38889
+      ],
+      [
+        56589,
+        38987
+      ],
+      [
+        56589,
+        39117
+      ],
+      [
+        -56589,
+        -38889,
+        -38987,
+        -39117
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 78,
+    "auxiliary": 56590,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 39215,
+        "row": 78,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 51966
+      },
+      {
+        "output": 39313,
+        "row": 78,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 52163
+      },
+      {
+        "output": 39443,
+        "row": 78,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 52428
+      }
+    ],
+    "clauses": [
+      [
+        56590,
+        39215
+      ],
+      [
+        56590,
+        39313
+      ],
+      [
+        56590,
+        39443
+      ],
+      [
+        -56590,
+        -39215,
+        -39313,
+        -39443
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 79,
+    "auxiliary": 56591,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 39541,
+        "row": 79,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 52629
+      },
+      {
+        "output": 39639,
+        "row": 79,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 52826
+      },
+      {
+        "output": 39769,
+        "row": 79,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 53091
+      }
+    ],
+    "clauses": [
+      [
+        56591,
+        39541
+      ],
+      [
+        56591,
+        39639
+      ],
+      [
+        56591,
+        39769
+      ],
+      [
+        -56591,
+        -39541,
+        -39639,
+        -39769
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 80,
+    "auxiliary": 56592,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 39867,
+        "row": 80,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 53292
+      },
+      {
+        "output": 39965,
+        "row": 80,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 53489
+      },
+      {
+        "output": 40095,
+        "row": 80,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 53754
+      }
+    ],
+    "clauses": [
+      [
+        56592,
+        39867
+      ],
+      [
+        56592,
+        39965
+      ],
+      [
+        56592,
+        40095
+      ],
+      [
+        -56592,
+        -39867,
+        -39965,
+        -40095
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 81,
+    "auxiliary": 56593,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 40193,
+        "row": 81,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 53955
+      },
+      {
+        "output": 40291,
+        "row": 81,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 54152
+      },
+      {
+        "output": 40421,
+        "row": 81,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 54417
+      }
+    ],
+    "clauses": [
+      [
+        56593,
+        40193
+      ],
+      [
+        56593,
+        40291
+      ],
+      [
+        56593,
+        40421
+      ],
+      [
+        -56593,
+        -40193,
+        -40291,
+        -40421
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 82,
+    "auxiliary": 56594,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 40519,
+        "row": 82,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 54618
+      },
+      {
+        "output": 40617,
+        "row": 82,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 54815
+      },
+      {
+        "output": 40747,
+        "row": 82,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 55080
+      }
+    ],
+    "clauses": [
+      [
+        56594,
+        40519
+      ],
+      [
+        56594,
+        40617
+      ],
+      [
+        56594,
+        40747
+      ],
+      [
+        -56594,
+        -40519,
+        -40617,
+        -40747
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 83,
+    "auxiliary": 56595,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 40845,
+        "row": 83,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 55281
+      },
+      {
+        "output": 40943,
+        "row": 83,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 55478
+      },
+      {
+        "output": 41073,
+        "row": 83,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 55743
+      }
+    ],
+    "clauses": [
+      [
+        56595,
+        40845
+      ],
+      [
+        56595,
+        40943
+      ],
+      [
+        56595,
+        41073
+      ],
+      [
+        -56595,
+        -40845,
+        -40943,
+        -41073
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 84,
+    "auxiliary": 56596,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 41171,
+        "row": 84,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 55944
+      },
+      {
+        "output": 41269,
+        "row": 84,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 56141
+      },
+      {
+        "output": 41399,
+        "row": 84,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 56406
+      }
+    ],
+    "clauses": [
+      [
+        56596,
+        41171
+      ],
+      [
+        56596,
+        41269
+      ],
+      [
+        56596,
+        41399
+      ],
+      [
+        -56596,
+        -41171,
+        -41269,
+        -41399
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 85,
+    "auxiliary": 56597,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 41497,
+        "row": 85,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 56607
+      },
+      {
+        "output": 41595,
+        "row": 85,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 56804
+      },
+      {
+        "output": 41725,
+        "row": 85,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 57069
+      }
+    ],
+    "clauses": [
+      [
+        56597,
+        41497
+      ],
+      [
+        56597,
+        41595
+      ],
+      [
+        56597,
+        41725
+      ],
+      [
+        -56597,
+        -41497,
+        -41595,
+        -41725
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 86,
+    "auxiliary": 56598,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 41823,
+        "row": 86,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 57270
+      },
+      {
+        "output": 41921,
+        "row": 86,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 57467
+      },
+      {
+        "output": 42051,
+        "row": 86,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 57732
+      }
+    ],
+    "clauses": [
+      [
+        56598,
+        41823
+      ],
+      [
+        56598,
+        41921
+      ],
+      [
+        56598,
+        42051
+      ],
+      [
+        -56598,
+        -41823,
+        -41921,
+        -42051
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 87,
+    "auxiliary": 56599,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 42149,
+        "row": 87,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 57933
+      },
+      {
+        "output": 42247,
+        "row": 87,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 58130
+      },
+      {
+        "output": 42377,
+        "row": 87,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 58395
+      }
+    ],
+    "clauses": [
+      [
+        56599,
+        42149
+      ],
+      [
+        56599,
+        42247
+      ],
+      [
+        56599,
+        42377
+      ],
+      [
+        -56599,
+        -42149,
+        -42247,
+        -42377
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 88,
+    "auxiliary": 56600,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 42475,
+        "row": 88,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 58596
+      },
+      {
+        "output": 42573,
+        "row": 88,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 58793
+      },
+      {
+        "output": 42703,
+        "row": 88,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 59058
+      }
+    ],
+    "clauses": [
+      [
+        56600,
+        42475
+      ],
+      [
+        56600,
+        42573
+      ],
+      [
+        56600,
+        42703
+      ],
+      [
+        -56600,
+        -42475,
+        -42573,
+        -42703
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 89,
+    "auxiliary": 56601,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 42801,
+        "row": 89,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 59259
+      },
+      {
+        "output": 42899,
+        "row": 89,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 59456
+      },
+      {
+        "output": 43029,
+        "row": 89,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 59721
+      }
+    ],
+    "clauses": [
+      [
+        56601,
+        42801
+      ],
+      [
+        56601,
+        42899
+      ],
+      [
+        56601,
+        43029
+      ],
+      [
+        -56601,
+        -42801,
+        -42899,
+        -43029
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 90,
+    "auxiliary": 56602,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 43127,
+        "row": 90,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 59922
+      },
+      {
+        "output": 43225,
+        "row": 90,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 60119
+      },
+      {
+        "output": 43355,
+        "row": 90,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 60384
+      }
+    ],
+    "clauses": [
+      [
+        56602,
+        43127
+      ],
+      [
+        56602,
+        43225
+      ],
+      [
+        56602,
+        43355
+      ],
+      [
+        -56602,
+        -43127,
+        -43225,
+        -43355
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 91,
+    "auxiliary": 56603,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 43453,
+        "row": 91,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 60585
+      },
+      {
+        "output": 43551,
+        "row": 91,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 60782
+      },
+      {
+        "output": 43681,
+        "row": 91,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 61047
+      }
+    ],
+    "clauses": [
+      [
+        56603,
+        43453
+      ],
+      [
+        56603,
+        43551
+      ],
+      [
+        56603,
+        43681
+      ],
+      [
+        -56603,
+        -43453,
+        -43551,
+        -43681
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 92,
+    "auxiliary": 56604,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 43779,
+        "row": 92,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 61248
+      },
+      {
+        "output": 43877,
+        "row": 92,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 61445
+      },
+      {
+        "output": 44007,
+        "row": 92,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 61710
+      }
+    ],
+    "clauses": [
+      [
+        56604,
+        43779
+      ],
+      [
+        56604,
+        43877
+      ],
+      [
+        56604,
+        44007
+      ],
+      [
+        -56604,
+        -43779,
+        -43877,
+        -44007
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 93,
+    "auxiliary": 56605,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 44105,
+        "row": 93,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 61911
+      },
+      {
+        "output": 44203,
+        "row": 93,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 62108
+      },
+      {
+        "output": 44333,
+        "row": 93,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 62373
+      }
+    ],
+    "clauses": [
+      [
+        56605,
+        44105
+      ],
+      [
+        56605,
+        44203
+      ],
+      [
+        56605,
+        44333
+      ],
+      [
+        -56605,
+        -44105,
+        -44203,
+        -44333
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 94,
+    "auxiliary": 56606,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 44431,
+        "row": 94,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 62574
+      },
+      {
+        "output": 44529,
+        "row": 94,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 62771
+      },
+      {
+        "output": 44659,
+        "row": 94,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 63036
+      }
+    ],
+    "clauses": [
+      [
+        56606,
+        44431
+      ],
+      [
+        56606,
+        44529
+      ],
+      [
+        56606,
+        44659
+      ],
+      [
+        -56606,
+        -44431,
+        -44529,
+        -44659
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 95,
+    "auxiliary": 56607,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 44757,
+        "row": 95,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 63237
+      },
+      {
+        "output": 44855,
+        "row": 95,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 63434
+      },
+      {
+        "output": 44985,
+        "row": 95,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 63699
+      }
+    ],
+    "clauses": [
+      [
+        56607,
+        44757
+      ],
+      [
+        56607,
+        44855
+      ],
+      [
+        56607,
+        44985
+      ],
+      [
+        -56607,
+        -44757,
+        -44855,
+        -44985
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 96,
+    "auxiliary": 56608,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 45083,
+        "row": 96,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 63900
+      },
+      {
+        "output": 45181,
+        "row": 96,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 64097
+      },
+      {
+        "output": 45311,
+        "row": 96,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 64362
+      }
+    ],
+    "clauses": [
+      [
+        56608,
+        45083
+      ],
+      [
+        56608,
+        45181
+      ],
+      [
+        56608,
+        45311
+      ],
+      [
+        -56608,
+        -45083,
+        -45181,
+        -45311
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 97,
+    "auxiliary": 56609,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 45409,
+        "row": 97,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 64563
+      },
+      {
+        "output": 45507,
+        "row": 97,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 64760
+      },
+      {
+        "output": 45637,
+        "row": 97,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 65025
+      }
+    ],
+    "clauses": [
+      [
+        56609,
+        45409
+      ],
+      [
+        56609,
+        45507
+      ],
+      [
+        56609,
+        45637
+      ],
+      [
+        -56609,
+        -45409,
+        -45507,
+        -45637
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 98,
+    "auxiliary": 56610,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 45735,
+        "row": 98,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 65226
+      },
+      {
+        "output": 45833,
+        "row": 98,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 65423
+      },
+      {
+        "output": 45963,
+        "row": 98,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 65688
+      }
+    ],
+    "clauses": [
+      [
+        56610,
+        45735
+      ],
+      [
+        56610,
+        45833
+      ],
+      [
+        56610,
+        45963
+      ],
+      [
+        -56610,
+        -45735,
+        -45833,
+        -45963
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 99,
+    "auxiliary": 56611,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 46061,
+        "row": 99,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 65889
+      },
+      {
+        "output": 46159,
+        "row": 99,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 66086
+      },
+      {
+        "output": 46289,
+        "row": 99,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 66351
+      }
+    ],
+    "clauses": [
+      [
+        56611,
+        46061
+      ],
+      [
+        56611,
+        46159
+      ],
+      [
+        56611,
+        46289
+      ],
+      [
+        -56611,
+        -46061,
+        -46159,
+        -46289
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 100,
+    "auxiliary": 56612,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 46387,
+        "row": 100,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 66552
+      },
+      {
+        "output": 46485,
+        "row": 100,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 66749
+      },
+      {
+        "output": 46615,
+        "row": 100,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 67014
+      }
+    ],
+    "clauses": [
+      [
+        56612,
+        46387
+      ],
+      [
+        56612,
+        46485
+      ],
+      [
+        56612,
+        46615
+      ],
+      [
+        -56612,
+        -46387,
+        -46485,
+        -46615
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 101,
+    "auxiliary": 56613,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 46713,
+        "row": 101,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 67215
+      },
+      {
+        "output": 46811,
+        "row": 101,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 67412
+      },
+      {
+        "output": 46941,
+        "row": 101,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 67677
+      }
+    ],
+    "clauses": [
+      [
+        56613,
+        46713
+      ],
+      [
+        56613,
+        46811
+      ],
+      [
+        56613,
+        46941
+      ],
+      [
+        -56613,
+        -46713,
+        -46811,
+        -46941
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 102,
+    "auxiliary": 56614,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 47039,
+        "row": 102,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 67878
+      },
+      {
+        "output": 47137,
+        "row": 102,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 68075
+      },
+      {
+        "output": 47267,
+        "row": 102,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 68340
+      }
+    ],
+    "clauses": [
+      [
+        56614,
+        47039
+      ],
+      [
+        56614,
+        47137
+      ],
+      [
+        56614,
+        47267
+      ],
+      [
+        -56614,
+        -47039,
+        -47137,
+        -47267
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 103,
+    "auxiliary": 56615,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 47365,
+        "row": 103,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 68541
+      },
+      {
+        "output": 47463,
+        "row": 103,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 68738
+      },
+      {
+        "output": 47593,
+        "row": 103,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 69003
+      }
+    ],
+    "clauses": [
+      [
+        56615,
+        47365
+      ],
+      [
+        56615,
+        47463
+      ],
+      [
+        56615,
+        47593
+      ],
+      [
+        -56615,
+        -47365,
+        -47463,
+        -47593
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 104,
+    "auxiliary": 56616,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 47691,
+        "row": 104,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 69204
+      },
+      {
+        "output": 47789,
+        "row": 104,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 69401
+      },
+      {
+        "output": 47919,
+        "row": 104,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 69666
+      }
+    ],
+    "clauses": [
+      [
+        56616,
+        47691
+      ],
+      [
+        56616,
+        47789
+      ],
+      [
+        56616,
+        47919
+      ],
+      [
+        -56616,
+        -47691,
+        -47789,
+        -47919
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 105,
+    "auxiliary": 56617,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 48017,
+        "row": 105,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 69867
+      },
+      {
+        "output": 48115,
+        "row": 105,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 70064
+      },
+      {
+        "output": 48245,
+        "row": 105,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 70329
+      }
+    ],
+    "clauses": [
+      [
+        56617,
+        48017
+      ],
+      [
+        56617,
+        48115
+      ],
+      [
+        56617,
+        48245
+      ],
+      [
+        -56617,
+        -48017,
+        -48115,
+        -48245
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 106,
+    "auxiliary": 56618,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 48343,
+        "row": 106,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 70530
+      },
+      {
+        "output": 48441,
+        "row": 106,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 70727
+      },
+      {
+        "output": 48571,
+        "row": 106,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 70992
+      }
+    ],
+    "clauses": [
+      [
+        56618,
+        48343
+      ],
+      [
+        56618,
+        48441
+      ],
+      [
+        56618,
+        48571
+      ],
+      [
+        -56618,
+        -48343,
+        -48441,
+        -48571
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 107,
+    "auxiliary": 56619,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 48669,
+        "row": 107,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 71193
+      },
+      {
+        "output": 48767,
+        "row": 107,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 71390
+      },
+      {
+        "output": 48897,
+        "row": 107,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 71655
+      }
+    ],
+    "clauses": [
+      [
+        56619,
+        48669
+      ],
+      [
+        56619,
+        48767
+      ],
+      [
+        56619,
+        48897
+      ],
+      [
+        -56619,
+        -48669,
+        -48767,
+        -48897
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 108,
+    "auxiliary": 56620,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 48995,
+        "row": 108,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 71856
+      },
+      {
+        "output": 49093,
+        "row": 108,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 72053
+      },
+      {
+        "output": 49223,
+        "row": 108,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 72318
+      }
+    ],
+    "clauses": [
+      [
+        56620,
+        48995
+      ],
+      [
+        56620,
+        49093
+      ],
+      [
+        56620,
+        49223
+      ],
+      [
+        -56620,
+        -48995,
+        -49093,
+        -49223
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 109,
+    "auxiliary": 56621,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 49321,
+        "row": 109,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 72519
+      },
+      {
+        "output": 49419,
+        "row": 109,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 72716
+      },
+      {
+        "output": 49549,
+        "row": 109,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 72981
+      }
+    ],
+    "clauses": [
+      [
+        56621,
+        49321
+      ],
+      [
+        56621,
+        49419
+      ],
+      [
+        56621,
+        49549
+      ],
+      [
+        -56621,
+        -49321,
+        -49419,
+        -49549
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 110,
+    "auxiliary": 56622,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 49647,
+        "row": 110,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 73182
+      },
+      {
+        "output": 49745,
+        "row": 110,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 73379
+      },
+      {
+        "output": 49875,
+        "row": 110,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 73644
+      }
+    ],
+    "clauses": [
+      [
+        56622,
+        49647
+      ],
+      [
+        56622,
+        49745
+      ],
+      [
+        56622,
+        49875
+      ],
+      [
+        -56622,
+        -49647,
+        -49745,
+        -49875
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 111,
+    "auxiliary": 56623,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 49973,
+        "row": 111,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 73845
+      },
+      {
+        "output": 50071,
+        "row": 111,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 74042
+      },
+      {
+        "output": 50201,
+        "row": 111,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 74307
+      }
+    ],
+    "clauses": [
+      [
+        56623,
+        49973
+      ],
+      [
+        56623,
+        50071
+      ],
+      [
+        56623,
+        50201
+      ],
+      [
+        -56623,
+        -49973,
+        -50071,
+        -50201
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 112,
+    "auxiliary": 56624,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 50299,
+        "row": 112,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 74508
+      },
+      {
+        "output": 50397,
+        "row": 112,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 74705
+      },
+      {
+        "output": 50527,
+        "row": 112,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 74970
+      }
+    ],
+    "clauses": [
+      [
+        56624,
+        50299
+      ],
+      [
+        56624,
+        50397
+      ],
+      [
+        56624,
+        50527
+      ],
+      [
+        -56624,
+        -50299,
+        -50397,
+        -50527
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 113,
+    "auxiliary": 56625,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 50625,
+        "row": 113,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 75171
+      },
+      {
+        "output": 50723,
+        "row": 113,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 75368
+      },
+      {
+        "output": 50853,
+        "row": 113,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 75633
+      }
+    ],
+    "clauses": [
+      [
+        56625,
+        50625
+      ],
+      [
+        56625,
+        50723
+      ],
+      [
+        56625,
+        50853
+      ],
+      [
+        -56625,
+        -50625,
+        -50723,
+        -50853
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 114,
+    "auxiliary": 56626,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 50951,
+        "row": 114,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 75834
+      },
+      {
+        "output": 51049,
+        "row": 114,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 76031
+      },
+      {
+        "output": 51179,
+        "row": 114,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 76296
+      }
+    ],
+    "clauses": [
+      [
+        56626,
+        50951
+      ],
+      [
+        56626,
+        51049
+      ],
+      [
+        56626,
+        51179
+      ],
+      [
+        -56626,
+        -50951,
+        -51049,
+        -51179
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 115,
+    "auxiliary": 56627,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 51277,
+        "row": 115,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 76497
+      },
+      {
+        "output": 51375,
+        "row": 115,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 76694
+      },
+      {
+        "output": 51505,
+        "row": 115,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 76959
+      }
+    ],
+    "clauses": [
+      [
+        56627,
+        51277
+      ],
+      [
+        56627,
+        51375
+      ],
+      [
+        56627,
+        51505
+      ],
+      [
+        -56627,
+        -51277,
+        -51375,
+        -51505
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  },
+  {
+    "action": "row-occupancy-review",
+    "kind": "conservative-extension",
+    "row": 116,
+    "auxiliary": 56628,
+    "meaning": "some original primary selection in this row",
+    "boolean_form": "p iff OR(not absence_i)",
+    "certified_blocks": [
+      {
+        "output": 51603,
+        "row": 116,
+        "first": 0,
+        "last": 49,
+        "defining_clause": 77160
+      },
+      {
+        "output": 51701,
+        "row": 116,
+        "first": 50,
+        "last": 99,
+        "defining_clause": 77357
+      },
+      {
+        "output": 51831,
+        "row": 116,
+        "first": 100,
+        "last": 116,
+        "defining_clause": 77622
+      }
+    ],
+    "clauses": [
+      [
+        56628,
+        51603
+      ],
+      [
+        56628,
+        51701
+      ],
+      [
+        56628,
+        51831
+      ],
+      [
+        -56628,
+        -51603,
+        -51701,
+        -51831
+      ]
+    ],
+    "proof": "positive-pivot fresh clauses, then negative-pivot tautological resolvents",
+    "reconstruction": "project p; unique extension p=OR(not absence_i)",
+    "phase_advice": "positive is a branch choice, not an asserted unit",
+    "lifetime": "proposed live definition; not installed"
+  }
+]

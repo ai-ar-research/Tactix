@@ -1,0 +1,38 @@
+{
+  "job": "1747979",
+  "definition_additions": 468,
+  "outcomes": [
+    {
+      "name": "all-addition",
+      "command": [
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-ramsey-degree-dsr-feasibility/checkers/cake_lpr",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-row-occupancy-prefix-check/audit.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-row-occupancy-prefix-check/all-addition.lrat"
+      ],
+      "status": "verified",
+      "seconds": 0.1684773899614811
+    },
+    {
+      "name": "forward",
+      "command": [
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-ramsey-degree-dsr-feasibility/checkers/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-row-occupancy-prefix-check/audit.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-row-occupancy-prefix-check/audit.dsr",
+        "-f"
+      ],
+      "status": "verified",
+      "seconds": 0.39178792387247086
+    },
+    {
+      "name": "negative",
+      "command": [
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-ramsey-degree-dsr-feasibility/checkers/cake_lpr",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-row-occupancy-prefix-check/audit.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-row-occupancy-prefix-check/negative.lrat"
+      ],
+      "status": "rejected",
+      "seconds": 0.16477613523602486
+    }
+  ],
+  "scope": "Every-addition certificate validation of conservative definitions over actual target CNF; no solve or proof of row-cover units"
+}

@@ -1,0 +1,4 @@
+{
+  "anchor": "Startup-only certificates remain at their declared boundary until a live-formula derivation is established.",
+  "addition": " **Planned row-occupancy extension:** if certified absence literals `a_i` cover an exact partition of a row, introduce fresh `p` with `(p \u2228 a_i)` for every block and `(\u00acp \u2228 \u00aca_1 \u2228 ... \u2228 \u00aca_k)`. These RAT definitions give the unique extension `p = OR_i \u00aca_i`; project `p` during model reconstruction. Reuse existing certified interval variables before adding helpers. Positive phase/priority on `p` is only a controller-owned branch choice: asserting `p` as a unit or claiming a row-cover deduction still requires its own proof. This planned conservative extension changes the Boolean search vocabulary, not the set of projected models."
+}
