@@ -1,0 +1,11 @@
+{
+  "status": "requested, not accepted",
+  "created_utc": "2026-10-03T19:16:24.326595+00:00",
+  "base_commit": "d85b30b44bf2b54b6efdfb65b5d810ca707165e7",
+  "snapshot_sha256": "1f2a3b98c423afa5c5cff40f48500e31d95cb685a353b072f124b25c86566ffb",
+  "source_count": 446,
+  "action_space_version": 2,
+  "post_reflection_fix": true,
+  "owner_campaign": "benchmarks/runs/20261003-winner-graph-claude-fuzz",
+  "report_to_codex": "benchmarks/runs/20261003-winner-graph-fuzz-handoff/OWNER_REPORT.md"
+}

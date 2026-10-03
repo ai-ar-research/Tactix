@@ -1,0 +1,15 @@
+Test project /home/hwu/SAT-solving/build/dev-winner-guidance-debug
+    Start  62: online_api
+1/5 Test  #62: online_api .......................   Passed    0.07 sec
+    Start 150: graph_labeling_model
+2/5 Test #150: graph_labeling_model .............   Passed    0.04 sec
+    Start 152: graph_labeling_repair
+3/5 Test #152: graph_labeling_repair ............   Passed    0.13 sec
+    Start 153: graph_labeling_search
+4/5 Test #153: graph_labeling_search ............   Passed    0.04 sec
+    Start 171: online_inprocess
+5/5 Test #171: online_inprocess .................   Passed   12.74 sec
+
+100% tests passed out of 5
+
+Total Test time (real) =  13.04 sec
