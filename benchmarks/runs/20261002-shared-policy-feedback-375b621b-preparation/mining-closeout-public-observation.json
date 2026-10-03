@@ -1,0 +1,40 @@
+{
+  "schema": "tactix-mining-closeout-public-observation-v1",
+  "observed_at_utc": "2026-10-03T12:04:05.716389+00:00",
+  "goal_complete": false,
+  "owner_accepted": false,
+  "production_source": "375b621ba6677600f3e77bf8383af25d256d7b67",
+  "public_status_path": "benchmarks/runs/20261002-shared-policy-feedback-fuzz-owner-375b621b/OWNER_CLOSEOUT_STATUS.md",
+  "public_status_sha256": "d82709fa9dcd3858350db02e43f7a407b0fd99d6c4d8a3e386b45b559d28ce8f",
+  "public_status_snapshot": "# Owner closeout status \u2014 375b621b (public; scheduler metadata only)\n\nPlan: CLOSEOUT_PLAN.md (sha256 9f4da453\u2026); closeout snapshot c1 047864a8818335eebd6a3c1779c64069c5e125badb80b64a05d4a24447597a20.\nDisposition remains NOT ACCEPTED until FINAL_REPORT_CLOSEOUT.md.\n\n| Job | Role | Allocation | Submitted |\n|---|---|---|---|\n| 1747298 | C1 labelled smoke (remine-smoke, i=10..33; not counted in the 20,000) | 8 phys / 16 CPU / 64000M, 4h | 2026-10-03T06:37:33-04:00 |\n| 1747299 | C3 d2 graded reruns (d2re, sequential) | 4 CPU / 16000M, 12h | 2026-10-03T06:37:33-04:00 |\n| 1747300 | C1 full graded mining replay (remine, 20,000 cases, A+B graded) | 50 phys / 100 CPU / 400000M / 50 workers, 24h | 2026-10-03T06:39:47-04:00 |\n- 1747298 smoke COMPLETED status 0: 24/24 pass, all resolved (labelled, not counted)\n- 1747300 remine COMPLETED status 0: 19,096 pass / 904 timeout rows, 0 failures; 4 original completions unresolved at 30 s -> stage 2\n| 1747314 | C1 stage 2 (remine-followup, 4 unresolved original completions, 600 s; resource: 4 tasks need only 4 workers, 8 CPU/32000M) | 4 phys / 8 CPU / 32000M, 3h | 2026-10-03T07:50:52-04:00 |\n",
+  "scheduler": {
+    "1747300": {
+      "state": "COMPLETED",
+      "exit_code": "0:0",
+      "elapsed": "01:10:41",
+      "end_local": "2026-10-03T07:50:28"
+    },
+    "1747314": {
+      "state": "COMPLETED",
+      "exit_code": "0:0",
+      "elapsed": "00:02:20",
+      "end_local": "2026-10-03T07:53:13"
+    },
+    "1747299": {
+      "state": "RUNNING",
+      "elapsed": "01:24:00"
+    }
+  },
+  "owner_cli": {
+    "session": 39538,
+    "live": true,
+    "bounded_poll_seconds": 50
+  },
+  "owner_preliminary_rows": {
+    "passing": 19096,
+    "timeout": 904,
+    "failures": 0,
+    "original_completions_unresolved_at_stage1": 4
+  },
+  "scope": "Public status/scheduler observation only. Stage2 oracle dispositions, raw diagnosis grading, complete old/new correspondence, terminal checker/snapshot provenance and whole-goal acceptance remain unproven. No private campaign inspection, source/pin change, benchmark retry or fresh credit."
+}
