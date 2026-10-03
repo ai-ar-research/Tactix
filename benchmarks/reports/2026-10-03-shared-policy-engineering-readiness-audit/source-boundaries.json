@@ -1,0 +1,843 @@
+{
+  "schema": "tactix-final-source-boundary-and-acceptance-review-v1",
+  "reviewed_at_utc": "2026-10-03T05:15:51.398127+00:00",
+  "source_commit": "375b621ba6677600f3e77bf8383af25d256d7b67",
+  "goal_complete": false,
+  "objective_sha256": "93e3ad59a4612910a4af2b9a939cb5c6a31d20dde30b4664ea2a2e44a43538fe",
+  "operation_map_origin": {
+    "path": "benchmarks/reports/2026-10-02-native-support-audit/operation-reconciliation.json",
+    "sha256": "9303986406ced57b62ac2f7fb6245bdaf0b917b9755e4be62053faa0e7035e59",
+    "groups": 28,
+    "original_sites": 49,
+    "reviewed_sources": 30,
+    "unchanged_source_hashes": 28
+  },
+  "groups": [
+    {
+      "operation_group": "Solve entry and session ownership",
+      "source_bindings": [
+        {
+          "path": "src/strategy/execution_scope.hpp",
+          "sha256": "6c3a54637d2f4d63907266070f399d80b5faf4b39bfef03f22f4f00443da8d30",
+          "anchor": "ArenaOrderingScope",
+          "current_lines": [
+            16,
+            18,
+            20,
+            23,
+            24
+          ]
+        },
+        {
+          "path": "src/strategy/heuristic_execution.hpp",
+          "sha256": "b929642df2da9fae45370fa206cef77bb4c267d321aaf9e33b01b00dd0481aad",
+          "anchor": "HeuristicAttachmentRequest",
+          "current_lines": [
+            12,
+            28
+          ]
+        },
+        {
+          "path": "src/strategy/policy_completion.hpp",
+          "sha256": "3c0c985e058952568579789304512fdbc25a0752df855110b5b7ab7f87e8db2c",
+          "anchor": "PolicyCompletion",
+          "current_lines": [
+            25,
+            57,
+            215,
+            222,
+            229
+          ]
+        },
+        {
+          "path": "src/kernel/kernel.hpp",
+          "sha256": "1cebb5a8f898e703f0865d0e0460a1d8a4209164016c8ec27750b91d1b4d1b21",
+          "anchor": "KernelStopPublisher",
+          "current_lines": [
+            2345,
+            2348,
+            2352,
+            2353,
+            2354
+          ]
+        }
+      ],
+      "scope": "Inspected shared mechanism; locator presence is not runtime reach."
+    },
+    {
+      "operation_group": "Entry trail normalization",
+      "source_bindings": [
+        {
+          "path": "src/strategy/action_execution.hpp",
+          "sha256": "f15ca0270c5d5cdde42d9e2d32a9243914d9b5b3b3e2a951d682adb3b910b388",
+          "anchor": "RestartPurpose",
+          "current_lines": [
+            21,
+            27,
+            38
+          ]
+        }
+      ],
+      "scope": "Inspected shared mechanism; locator presence is not runtime reach."
+    },
+    {
+      "operation_group": "Startup certificate selection",
+      "source_bindings": [
+        {
+          "path": "src/strategy/action_execution.hpp",
+          "sha256": "f15ca0270c5d5cdde42d9e2d32a9243914d9b5b3b3e2a951d682adb3b910b388",
+          "anchor": "CloseStartupCertificateRequest",
+          "current_lines": [
+            13,
+            15
+          ]
+        },
+        {
+          "path": "src/strategy/lucky_execution.hpp",
+          "sha256": "aa4aa369bcf9c444a71dbf59a5b082db18603c61557daf59d66f02f704941b7f",
+          "anchor": "LuckyRequest",
+          "current_lines": [
+            31,
+            34
+          ]
+        }
+      ],
+      "scope": "Inspected shared mechanism; locator presence is not runtime reach."
+    },
+    {
+      "operation_group": "Structural startup model/proof actions",
+      "source_bindings": [
+        {
+          "path": "src/strategy/lucky_execution.hpp",
+          "sha256": "aa4aa369bcf9c444a71dbf59a5b082db18603c61557daf59d66f02f704941b7f",
+          "anchor": "LuckyOpportunity",
+          "current_lines": [
+            25,
+            31,
+            33,
+            35,
+            37,
+            39,
+            41,
+            43,
+            45,
+            47,
+            49,
+            51,
+            53,
+            55,
+            57,
+            59,
+            61,
+            63,
+            66
+          ]
+        },
+        {
+          "path": "src/strategy/parameter_execution.hpp",
+          "sha256": "b13482e9c92404f1c0414dfb58206045646f1fe05daa4ddf7bfbccb85e36ee85",
+          "anchor": "ParameterInstallationRequest",
+          "current_lines": [
+            52,
+            57,
+            65
+          ]
+        }
+      ],
+      "scope": "Inspected shared mechanism; locator presence is not runtime reach."
+    },
+    {
+      "operation_group": "Early/late ordinary Lucky",
+      "source_bindings": [
+        {
+          "path": "src/strategy/lucky_execution.hpp",
+          "sha256": "aa4aa369bcf9c444a71dbf59a5b082db18603c61557daf59d66f02f704941b7f",
+          "anchor": "LuckyOpportunity",
+          "current_lines": [
+            25,
+            31,
+            33,
+            35,
+            37,
+            39,
+            41,
+            43,
+            45,
+            47,
+            49,
+            51,
+            53,
+            55,
+            57,
+            59,
+            61,
+            63,
+            66
+          ]
+        }
+      ],
+      "scope": "Inspected shared mechanism; locator presence is not runtime reach."
+    },
+    {
+      "operation_group": "Structured root program",
+      "source_bindings": [
+        {
+          "path": "src/strategy/online_sequence.hpp",
+          "sha256": "bbd4799e4384c092b78b662ff45566c585cc4182d463272bd6750575dd598c43",
+          "anchor": "OnlineStrategySequence",
+          "current_lines": [
+            48
+          ]
+        },
+        {
+          "path": "src/strategy/online_inprocess.cpp",
+          "sha256": "b8b607562597ce80e6bed68891139088a4e5b767bbccc78f2b6832a13ae55fad",
+          "anchor": "OnlineStrategyExecutor",
+          "current_lines": [
+            430,
+            487,
+            495,
+            502,
+            510,
+            522,
+            854,
+            900,
+            950
+          ]
+        }
+      ],
+      "scope": "Inspected shared mechanism; locator presence is not runtime reach."
+    },
+    {
+      "operation_group": "Startup BCE cleanup",
+      "source_bindings": [
+        {
+          "path": "src/policies/default_policy.cpp",
+          "sha256": "606d8d0633adc9970f4be7a0b3e3446ab03a4d907004a98ca542e30c9df9118a",
+          "anchor": "post-structured-amo",
+          "current_lines": [
+            3722,
+            3727
+          ]
+        },
+        {
+          "path": "src/rules/bce/bce.cpp",
+          "sha256": "b68e6743353ce4998ce8603f2efa3de9d6078150240ecb2ef8e6934dcf0131e7",
+          "anchor": "bce_apply",
+          "current_lines": [
+            366,
+            438,
+            443,
+            466,
+            470,
+            484,
+            485,
+            487
+          ]
+        },
+        {
+          "path": "src/strategy/publication_execution.hpp",
+          "sha256": "eaac6f77837c02ffc38996f44f2118587ec0f2bebe2edeed38c94298246dfe03",
+          "anchor": "RuleApplicationRequest",
+          "current_lines": [
+            9,
+            28
+          ]
+        }
+      ],
+      "scope": "Inspected shared mechanism; locator presence is not runtime reach."
+    },
+    {
+      "operation_group": "Cold-state/residual guidance setup",
+      "source_bindings": [
+        {
+          "path": "src/strategy/representation_execution.hpp",
+          "sha256": "fa6349d51e9e83189899d3837f49e6d122c1d987dfe25df55ba0fdc43b6af5c4",
+          "anchor": "MaterializeColdStateRequest",
+          "current_lines": [
+            8,
+            26,
+            53
+          ]
+        },
+        {
+          "path": "src/strategy/heuristic_execution.hpp",
+          "sha256": "b929642df2da9fae45370fa206cef77bb4c267d321aaf9e33b01b00dd0481aad",
+          "anchor": "ResidualActivationRequest",
+          "current_lines": [
+            23,
+            30
+          ]
+        },
+        {
+          "path": "src/strategy/heuristic_execution.hpp",
+          "sha256": "b929642df2da9fae45370fa206cef77bb4c267d321aaf9e33b01b00dd0481aad",
+          "anchor": "ResidualImportRequest",
+          "current_lines": [
+            24,
+            31
+          ]
+        }
+      ],
+      "scope": "Inspected shared mechanism; locator presence is not runtime reach."
+    },
+    {
+      "operation_group": "Sparse root collection",
+      "source_bindings": [
+        {
+          "path": "src/strategy/representation_execution.hpp",
+          "sha256": "fa6349d51e9e83189899d3837f49e6d122c1d987dfe25df55ba0fdc43b6af5c4",
+          "anchor": "SparseCollectRequest",
+          "current_lines": [
+            14,
+            39,
+            72
+          ]
+        }
+      ],
+      "scope": "Inspected shared mechanism; locator presence is not runtime reach."
+    },
+    {
+      "operation_group": "Propagate",
+      "source_bindings": [
+        {
+          "path": "src/rules/propagate/propagate.cpp",
+          "sha256": "3549f4f4b60971bb4deee4acfb93c50fc3e96e4e64511e0fb61910f3f2506399",
+          "anchor": "propagate_apply",
+          "current_lines": [
+            79,
+            82
+          ]
+        },
+        {
+          "path": "src/strategy/publication_execution.hpp",
+          "sha256": "eaac6f77837c02ffc38996f44f2118587ec0f2bebe2edeed38c94298246dfe03",
+          "anchor": "RuleApplicationRequest",
+          "current_lines": [
+            9,
+            28
+          ]
+        }
+      ],
+      "scope": "Inspected shared mechanism; locator presence is not runtime reach."
+    },
+    {
+      "operation_group": "ConflictAnalysis",
+      "source_bindings": [
+        {
+          "path": "src/strategy/conflict_analysis_execution.hpp",
+          "sha256": "bacd8d06fd21cb64e4bcc29b85a7d9665dcf111ae1dd50e1d8fa002f960a1af5",
+          "anchor": "NativeConflictAnalysisRequest",
+          "current_lines": [
+            10,
+            22
+          ]
+        }
+      ],
+      "scope": "Inspected shared mechanism; locator presence is not runtime reach."
+    },
+    {
+      "operation_group": "Reduce",
+      "source_bindings": [
+        {
+          "path": "src/strategy/reduction_execution.hpp",
+          "sha256": "61b9e543030a2f4167091b91f13d8dea3af3db15342098d997415ddf2d9800c5",
+          "anchor": "ReductionPreparationRequest",
+          "current_lines": [
+            9,
+            16
+          ]
+        },
+        {
+          "path": "src/strategy/reduction_execution.hpp",
+          "sha256": "61b9e543030a2f4167091b91f13d8dea3af3db15342098d997415ddf2d9800c5",
+          "anchor": "ReductionRequest",
+          "current_lines": [
+            10,
+            29
+          ]
+        }
+      ],
+      "scope": "Inspected shared mechanism; locator presence is not runtime reach."
+    },
+    {
+      "operation_group": "Mode/configuration",
+      "source_bindings": [
+        {
+          "path": "src/strategy/guidance_execution.hpp",
+          "sha256": "f085770ce3df87542e7eeecb834e959a96f39615d96b3d68f1d23fa4b413b684",
+          "anchor": "SwitchModeRequest",
+          "current_lines": [
+            15,
+            38
+          ]
+        },
+        {
+          "path": "src/policies/restart_controller.hpp",
+          "sha256": "8aa9219d923035ea12505b726337ed56e5bbbff412611b7bae3a8aaec0a1e555",
+          "anchor": "resume_search",
+          "current_lines": [
+            64,
+            67,
+            74
+          ]
+        }
+      ],
+      "scope": "Inspected shared mechanism; locator presence is not runtime reach."
+    },
+    {
+      "operation_group": "Scheduled Restart",
+      "source_bindings": [
+        {
+          "path": "src/strategy/action_execution.hpp",
+          "sha256": "f15ca0270c5d5cdde42d9e2d32a9243914d9b5b3b3e2a951d682adb3b910b388",
+          "anchor": "RestartRequest",
+          "current_lines": [
+            23,
+            37
+          ]
+        },
+        {
+          "path": "src/policies/restart_controller.hpp",
+          "sha256": "8aa9219d923035ea12505b726337ed56e5bbbff412611b7bae3a8aaec0a1e555",
+          "anchor": "PartialContinuation",
+          "current_lines": [
+            185
+          ]
+        }
+      ],
+      "scope": "Inspected shared mechanism; locator presence is not runtime reach."
+    },
+    {
+      "operation_group": "Root preparation backtrack",
+      "source_bindings": [
+        {
+          "path": "src/strategy/root_execution.hpp",
+          "sha256": "d38cc3c38db50fbae33f5fc26eccec9845382cb6971b173317e0c6c0d3deb30a",
+          "anchor": "RootPreparationRequest",
+          "current_lines": [
+            10,
+            38
+          ]
+        }
+      ],
+      "scope": "Inspected shared mechanism; locator presence is not runtime reach."
+    },
+    {
+      "operation_group": "Reorder",
+      "source_bindings": [
+        {
+          "path": "src/strategy/guidance_execution.hpp",
+          "sha256": "f085770ce3df87542e7eeecb834e959a96f39615d96b3d68f1d23fa4b413b684",
+          "anchor": "ReorderRequest",
+          "current_lines": [
+            13,
+            31
+          ]
+        }
+      ],
+      "scope": "Inspected shared mechanism; locator presence is not runtime reach."
+    },
+    {
+      "operation_group": "Rephase",
+      "source_bindings": [
+        {
+          "path": "src/strategy/guidance_execution.hpp",
+          "sha256": "f085770ce3df87542e7eeecb834e959a96f39615d96b3d68f1d23fa4b413b684",
+          "anchor": "RephaseRequest",
+          "current_lines": [
+            14,
+            35
+          ]
+        },
+        {
+          "path": "src/strategy/root_execution.hpp",
+          "sha256": "d38cc3c38db50fbae33f5fc26eccec9845382cb6971b173317e0c6c0d3deb30a",
+          "anchor": "RootPreparationRequest",
+          "current_lines": [
+            10,
+            38
+          ]
+        }
+      ],
+      "scope": "Inspected shared mechanism; locator presence is not runtime reach."
+    },
+    {
+      "operation_group": "Warm-up",
+      "source_bindings": [
+        {
+          "path": "src/strategy/guidance_execution.hpp",
+          "sha256": "f085770ce3df87542e7eeecb834e959a96f39615d96b3d68f1d23fa4b413b684",
+          "anchor": "WarmupRequest",
+          "current_lines": [
+            64,
+            77
+          ]
+        }
+      ],
+      "scope": "Inspected shared mechanism; locator presence is not runtime reach."
+    },
+    {
+      "operation_group": "Walk and local search guidance",
+      "source_bindings": [
+        {
+          "path": "src/strategy/guidance_execution.hpp",
+          "sha256": "f085770ce3df87542e7eeecb834e959a96f39615d96b3d68f1d23fa4b413b684",
+          "anchor": "WalkRequest",
+          "current_lines": [
+            26,
+            55
+          ]
+        },
+        {
+          "path": "src/strategy/guidance_execution.hpp",
+          "sha256": "f085770ce3df87542e7eeecb834e959a96f39615d96b3d68f1d23fa4b413b684",
+          "anchor": "LocalSearchRotationRequest",
+          "current_lines": [
+            22,
+            52
+          ]
+        }
+      ],
+      "scope": "Inspected shared mechanism; locator presence is not runtime reach."
+    },
+    {
+      "operation_group": "Probe/Eliminate entry/exit",
+      "source_bindings": [
+        {
+          "path": "src/strategy/execution_scope.hpp",
+          "sha256": "6c3a54637d2f4d63907266070f399d80b5faf4b39bfef03f22f4f00443da8d30",
+          "anchor": "ExecutionScope",
+          "current_lines": [
+            38,
+            40,
+            48,
+            54,
+            55
+          ]
+        },
+        {
+          "path": "src/strategy/occurrence_execution.hpp",
+          "sha256": "5beb7172d4a0ed22d0dac10061652830549afcf95be99f4c731f2daf04eaa922",
+          "anchor": "OccurrenceSession",
+          "current_lines": [
+            9,
+            18,
+            20,
+            29,
+            30,
+            31
+          ]
+        },
+        {
+          "path": "src/policies/default_policy.cpp",
+          "sha256": "606d8d0633adc9970f4be7a0b3e3446ab03a4d907004a98ca542e30c9df9118a",
+          "anchor": "InprocessPhaseExit",
+          "current_lines": [
+            5751,
+            6003
+          ]
+        }
+      ],
+      "scope": "Inspected shared mechanism; locator presence is not runtime reach."
+    },
+    {
+      "operation_group": "Dosed rule instances",
+      "source_bindings": [
+        {
+          "path": "src/strategy/bve_invocation.hpp",
+          "sha256": "0eefcd9f0c26a11df692a973ac74febb223e0d8224dacbb741336bbed0eb5326",
+          "anchor": "BveInvocationSession",
+          "current_lines": [
+            310,
+            312,
+            324,
+            325,
+            508,
+            525
+          ]
+        },
+        {
+          "path": "src/strategy/parameter_execution.hpp",
+          "sha256": "b13482e9c92404f1c0414dfb58206045646f1fe05daa4ddf7bfbccb85e36ee85",
+          "anchor": "BeginBveDefinitionSessionRequest",
+          "current_lines": [
+            15,
+            16,
+            19
+          ]
+        },
+        {
+          "path": "src/strategy/publication_execution.hpp",
+          "sha256": "eaac6f77837c02ffc38996f44f2118587ec0f2bebe2edeed38c94298246dfe03",
+          "anchor": "RuleApplicationRequest",
+          "current_lines": [
+            9,
+            28
+          ]
+        }
+      ],
+      "scope": "Inspected shared mechanism; locator presence is not runtime reach."
+    },
+    {
+      "operation_group": "Vivify",
+      "source_bindings": [
+        {
+          "path": "src/strategy/vivify_execution.hpp",
+          "sha256": "6e0af68cf55e9b07f25f31c5ba826d5284c08d28b311a5fd9ad1193e99995876",
+          "anchor": "VivifyBandRequest",
+          "current_lines": [
+            10,
+            33
+          ]
+        },
+        {
+          "path": "src/strategy/vivify_execution.hpp",
+          "sha256": "6e0af68cf55e9b07f25f31c5ba826d5284c08d28b311a5fd9ad1193e99995876",
+          "anchor": "VivifyDoseScope",
+          "current_lines": [
+            18,
+            20,
+            23,
+            24,
+            25
+          ]
+        }
+      ],
+      "scope": "Inspected shared mechanism; locator presence is not runtime reach."
+    },
+    {
+      "operation_group": "Sweep",
+      "source_bindings": [
+        {
+          "path": "src/strategy/sweep_execution.hpp",
+          "sha256": "11f19e1ed52901c0114d2bf3e7f9b956ba2a590f8a2d4c0abdacc0b1366eb640",
+          "anchor": "SweepRequest",
+          "current_lines": [
+            9,
+            14
+          ]
+        }
+      ],
+      "scope": "Inspected shared mechanism; locator presence is not runtime reach."
+    },
+    {
+      "operation_group": "Substitute",
+      "source_bindings": [
+        {
+          "path": "src/strategy/substitute_execution.hpp",
+          "sha256": "af0fcd5ec24d8c73b4ce4bfe4e1bfd29d7d7d9f2ec7eb34df447894976f345d4",
+          "anchor": "SubstituteBatchRequest",
+          "current_lines": [
+            13,
+            46
+          ]
+        }
+      ],
+      "scope": "Inspected shared mechanism; locator presence is not runtime reach."
+    },
+    {
+      "operation_group": "Strengthen/forward closure",
+      "source_bindings": [
+        {
+          "path": "src/strategy/work_execution.hpp",
+          "sha256": "8c1bfddacf0ce4c1594d1d7e93c1d5ddbbc282188ffa5588d4b119fc80a22a46",
+          "anchor": "WorkSettingsScope",
+          "current_lines": [
+            29,
+            31,
+            38,
+            45,
+            46,
+            151
+          ]
+        },
+        {
+          "path": "src/policies/default_policy.cpp",
+          "sha256": "606d8d0633adc9970f4be7a0b3e3446ab03a4d907004a98ca542e30c9df9118a",
+          "anchor": "ForwardClosure",
+          "current_lines": [
+            5402
+          ]
+        },
+        {
+          "path": "src/strategy/root_execution.hpp",
+          "sha256": "d38cc3c38db50fbae33f5fc26eccec9845382cb6971b173317e0c6c0d3deb30a",
+          "anchor": "SparseResumeRequest",
+          "current_lines": [
+            15,
+            21
+          ]
+        }
+      ],
+      "scope": "Inspected shared mechanism; locator presence is not runtime reach."
+    },
+    {
+      "operation_group": "Dense/garbage/variable support",
+      "source_bindings": [
+        {
+          "path": "src/strategy/representation_execution.hpp",
+          "sha256": "fa6349d51e9e83189899d3837f49e6d122c1d987dfe25df55ba0fdc43b6af5c4",
+          "anchor": "CollectGarbageRequest",
+          "current_lines": [
+            20,
+            45
+          ]
+        },
+        {
+          "path": "src/strategy/representation_execution.hpp",
+          "sha256": "fa6349d51e9e83189899d3837f49e6d122c1d987dfe25df55ba0fdc43b6af5c4",
+          "anchor": "CompactVariablesRequest",
+          "current_lines": [
+            17,
+            42
+          ]
+        },
+        {
+          "path": "src/strategy/parameter_execution.hpp",
+          "sha256": "b13482e9c92404f1c0414dfb58206045646f1fe05daa4ddf7bfbccb85e36ee85",
+          "anchor": "InstallMaterialSettings",
+          "current_lines": [
+            36
+          ]
+        }
+      ],
+      "scope": "Inspected shared mechanism; locator presence is not runtime reach."
+    },
+    {
+      "operation_group": "Decide",
+      "source_bindings": [
+        {
+          "path": "src/strategy/action_execution.hpp",
+          "sha256": "f15ca0270c5d5cdde42d9e2d32a9243914d9b5b3b3e2a951d682adb3b910b388",
+          "anchor": "DecisionRequest",
+          "current_lines": [
+            32,
+            43
+          ]
+        }
+      ],
+      "scope": "Inspected shared mechanism; locator presence is not runtime reach."
+    },
+    {
+      "operation_group": "Termination/interruption",
+      "source_bindings": [
+        {
+          "path": "src/strategy/policy_completion.hpp",
+          "sha256": "3c0c985e058952568579789304512fdbc25a0752df855110b5b7ab7f87e8db2c",
+          "anchor": "finish",
+          "current_lines": [
+            193,
+            197
+          ]
+        },
+        {
+          "path": "src/strategy/heuristic_execution.hpp",
+          "sha256": "b929642df2da9fae45370fa206cef77bb4c267d321aaf9e33b01b00dd0481aad",
+          "anchor": "HeuristicDetachmentRequest",
+          "current_lines": [
+            18,
+            29
+          ]
+        },
+        {
+          "path": "src/strategy/policy_feedback.hpp",
+          "sha256": "6b82c8b77c68b011c96050de1a42769b826e6d629f6fb3cc9e7711b2c38b8908",
+          "anchor": "finish",
+          "current_lines": [
+            136,
+            198,
+            199,
+            202,
+            225
+          ]
+        }
+      ],
+      "scope": "Inspected shared mechanism; locator presence is not runtime reach."
+    }
+  ],
+  "current_source_sha256": {
+    "src/kernel/kernel.hpp": "1cebb5a8f898e703f0865d0e0460a1d8a4209164016c8ec27750b91d1b4d1b21",
+    "src/policies/default_policy.cpp": "606d8d0633adc9970f4be7a0b3e3446ab03a4d907004a98ca542e30c9df9118a",
+    "src/policies/random_controller_policy.cpp": "0043adde517872e2ae3c90ce069c5ceb04205299987a8ba58e6940d7d95a206d",
+    "src/policies/restart_controller.hpp": "8aa9219d923035ea12505b726337ed56e5bbbff412611b7bae3a8aaec0a1e555",
+    "src/rules/bce/bce.cpp": "b68e6743353ce4998ce8603f2efa3de9d6078150240ecb2ef8e6934dcf0131e7",
+    "src/rules/propagate/propagate.cpp": "3549f4f4b60971bb4deee4acfb93c50fc3e96e4e64511e0fb61910f3f2506399",
+    "src/strategy/action_execution.hpp": "f15ca0270c5d5cdde42d9e2d32a9243914d9b5b3b3e2a951d682adb3b910b388",
+    "src/strategy/bve_invocation.hpp": "0eefcd9f0c26a11df692a973ac74febb223e0d8224dacbb741336bbed0eb5326",
+    "src/strategy/conflict_analysis_execution.hpp": "bacd8d06fd21cb64e4bcc29b85a7d9665dcf111ae1dd50e1d8fa002f960a1af5",
+    "src/strategy/execution_budget.hpp": "12cb85ef65a27818e15efa660ae74eb4fe9b048a38b31379a65c51516a48ac91",
+    "src/strategy/execution_scope.hpp": "6c3a54637d2f4d63907266070f399d80b5faf4b39bfef03f22f4f00443da8d30",
+    "src/strategy/guidance_execution.hpp": "f085770ce3df87542e7eeecb834e959a96f39615d96b3d68f1d23fa4b413b684",
+    "src/strategy/heuristic_execution.cpp": "04e46a3ee3fe4de019d23e18b11448f79b4f5373339e2827eb29d81ce51399a1",
+    "src/strategy/heuristic_execution.hpp": "b929642df2da9fae45370fa206cef77bb4c267d321aaf9e33b01b00dd0481aad",
+    "src/strategy/lucky_execution.hpp": "aa4aa369bcf9c444a71dbf59a5b082db18603c61557daf59d66f02f704941b7f",
+    "src/strategy/occurrence_execution.hpp": "5beb7172d4a0ed22d0dac10061652830549afcf95be99f4c731f2daf04eaa922",
+    "src/strategy/online_inprocess.cpp": "b8b607562597ce80e6bed68891139088a4e5b767bbccc78f2b6832a13ae55fad",
+    "src/strategy/online_sequence.hpp": "bbd4799e4384c092b78b662ff45566c585cc4182d463272bd6750575dd598c43",
+    "src/strategy/parameter_execution.hpp": "b13482e9c92404f1c0414dfb58206045646f1fe05daa4ddf7bfbccb85e36ee85",
+    "src/strategy/policy_completion.hpp": "3c0c985e058952568579789304512fdbc25a0752df855110b5b7ab7f87e8db2c",
+    "src/strategy/policy_feedback.hpp": "6b82c8b77c68b011c96050de1a42769b826e6d629f6fb3cc9e7711b2c38b8908",
+    "src/strategy/publication_execution.hpp": "eaac6f77837c02ffc38996f44f2118587ec0f2bebe2edeed38c94298246dfe03",
+    "src/strategy/reduction_execution.hpp": "61b9e543030a2f4167091b91f13d8dea3af3db15342098d997415ddf2d9800c5",
+    "src/strategy/representation_execution.hpp": "fa6349d51e9e83189899d3837f49e6d122c1d987dfe25df55ba0fdc43b6af5c4",
+    "src/strategy/root_execution.hpp": "d38cc3c38db50fbae33f5fc26eccec9845382cb6971b173317e0c6c0d3deb30a",
+    "src/strategy/rule_execution.hpp": "285a018c6a44a5fd811da546c28c9c435f8b8af3e2d5897bdd475011c4804ee0",
+    "src/strategy/substitute_execution.hpp": "af0fcd5ec24d8c73b4ce4bfe4e1bfd29d7d7d9f2ec7eb34df447894976f345d4",
+    "src/strategy/sweep_execution.hpp": "11f19e1ed52901c0114d2bf3e7f9b956ba2a590f8a2d4c0abdacc0b1366eb640",
+    "src/strategy/vivify_execution.hpp": "6e0af68cf55e9b07f25f31c5ba826d5284c08d28b311a5fd9ad1193e99995876",
+    "src/strategy/work_execution.hpp": "8c1bfddacf0ce4c1594d1d7e93c1d5ddbbc282188ffa5588d4b119fc80a22a46"
+  },
+  "source_delta": {
+    "changed_paths": [
+      "src/policies/default_policy.cpp",
+      "src/strategy/substitute_execution.hpp"
+    ],
+    "inspected_diff": "diff --git a/src/policies/default_policy.cpp b/src/policies/default_policy.cpp\nindex 65f79eb9..6505433a 100644\n--- a/src/policies/default_policy.cpp\n+++ b/src/policies/default_policy.cpp\n@@ -4138,7 +4138,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {\n       event_trace.reduction(k, reduce_scratch_, reduce_victims);\n       (void)execution::complete_action(completion_, FeedbackKind::Rule, \"Reduce\",\n           INSTANCE_CANONICAL, [&] {\n-            std::string description = \"compact=\" + std::to_string(compact_due) + \";victims=\";\n+            std::string description = \"compact=\" + std::to_string(compact_due) + \";victim-ids=\";\n             for (size_t i = 0; i < reduce_victims; ++i)\n               description += std::to_string(clause_at(k.arena, reduce_scratch_[i])->id()) + ',';\n             return execution::native_rule_feedback(k, \"Reduce\", INSTANCE_CANONICAL,\n@@ -4230,7 +4230,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {\n           heuristics_restart_reuse_level_for(k, var_of(next));\n       (void)execution::complete_action(completion_, FeedbackKind::SearchService,\n           \"Restart\", keep, [&] { return execution::native_rule_feedback(\n-              k, \"Restart\", keep, \"keep-level=\" + std::to_string(keep) + \";purpose=scheduled\"); }, [&] {\n+              k, \"Restart\", keep, \"retained-level=\" + std::to_string(keep) + \";purpose=scheduled\"); }, [&] {\n         if (keep < k.level)\n           heuristics_update_target_phases(k);\n         const ApplyResult restarted = default_direct_rule_lazy(\ndiff --git a/src/strategy/substitute_execution.hpp b/src/strategy/substitute_execution.hpp\nindex 51dbdb8c..9330ad95 100644\n--- a/src/strategy/substitute_execution.hpp\n+++ b/src/strategy/substitute_execution.hpp\n@@ -58,7 +58,7 @@ SubstituteBatchResult execute_action(Kernel &k,\n     const bool more = advise(before, current);\n     if (current == ApplyResult::Unsat) {\n       out.result = current;\n-      return out;\n+      break; // An owned disconnected session still needs its final restoration.\n     }\n     if (current == ApplyResult::Ok)\n       out.result = current;\n",
+    "interpretation": {
+      "src/policies/default_policy.cpp": "Two feedback description key disambiguations only; native scheduling/execution bodies unchanged.",
+      "src/strategy/substitute_execution.hpp": "Terminal outcome breaks through owned watch cleanup instead of returning early; borrowed-disconnected ownership preserved."
+    }
+  },
+  "contract_review": {
+    "path": "benchmarks/reports/2026-10-02-shared-policy-contract-review/source-contract-review.json",
+    "sha256": "0d0532d64277edc07c396d84476768be7697e8f6b62e7024a8896bc4d0dd6d72",
+    "unchanged_source_contract_bindings": 12,
+    "unchanged_skill_bindings": 17,
+    "scope": "Hashes and prior inspected contracts; not fresh runtime acceptance."
+  },
+  "owner_request": {
+    "path": "benchmarks/runs/20261002-shared-policy-feedback-375b621b-preparation/fuzz-owner-request.txt",
+    "sha256": "ae1bf36a56495bbc8040f34088f74984ca9eaf7ce1bb3bbb3c6aa56a08277e89",
+    "exact_coverage_requirements": {
+      "R1": "Both legs reach completed SAT and UNSAT, with every completed semantic result independently checked, debug invariants active, timeout totals explicit. Report each policy separately; at least100000 fresh seeds each, and all retained corpus entries dispositioned.",
+      "R2": "All declared root families have at least one eligible successful application through controller execution. Each family needing semantic effects has at least one family-specific effective counter/state transition; calls/NoOps alone are insufficient. Disposition unavailable producers and supplied payloads explicitly; do not quietly exclude a family.",
+      "R3": "All20 named branching/restart/phase combinations have at least one entered search interval with a real decision or conflict; list achieved counts by name.",
+      "R4": "At least one sequence with >=2 eligible root actions before ResumeSearch, and effective configuration changes across full restarts in both branching directions, preserving inactive brancher histories and root-fixed eligibility synchronization.",
+      "R5": "At least one positive keep-level ordinary restart and one full restart per policy. Random partial continuation retains installed search configuration, consumes restart trigger and refreshes minimum interval without reinstalling phase/branch or resetting reluctant history. Root inprocessing/strategy changes require explicit full root. Prove clocks/counters and transcript keep-level, not just a restarted flag.",
+      "R6": "Fixed per-call allowances, zero-work/exhaustion, actual native effort and at least one nonzero atomic overshoot; fresh doses preserve compatible pending/native progress. No global action-loop budget.",
+      "R7": "At least one effective continuation and one stale-scope refresh; stale/rejected requests do not undo completed formula changes. Cover scope invalidation by intervening changes and native publication/retirement boundaries.",
+      "R8": "Interruption before root work, within bounded rule work and during search; stopped/re-entered solve retains committed state, normalizes non-root trail explicitly, restores heuristic ownership and ends feedback sessions once. Completed resumed semantic results must check independently. Use real targeted stop-fuzz events without adding observation/receiver polls that consume interruption RNG.",
+      "R9": "Read-only repeated observation leaves solver/accounting/RNG state unchanged. At least50 paired cases per policy with feedback off/on, plus extra-observation controls, compare deterministic effects, native counters, proof/model bytes and random requests/controller transcript as applicable. Native timers and elapsed durations are excluded from equality. Include default productive inprocessing/support and random partial-continuation cases.",
+      "R10": "Positive deterministic feedback replay for both policies (>=50 paired cases each); controller transcript replay for random policy. Negative provenance/change, deterministic-event corruption, truncation and trailing-event controls reject for intended reason. Feedback error remains out of band: actual solving/model/proof matches without feedback; do not demand a DefaultPolicy controller-transcript interface.",
+      "R11": "Versioned after-action records contain identity/request/allowance, before/after snapshots, progress, actual currency/work/overshoot, duration, status and stop reason. Cover support zero-app/progress normalization, native measured/zero work, interruption and early terminal lifetimes, and no callback inside pending conflict-analysis transaction.",
+      "R12": "Linked ResumeSearch -> restart/terminal/interruption intervals; partial and native continuation linkage, full-root preparation and strategy-change distinctions. Receivers observe only restored safe publication boundaries; root work is outside search intervals.",
+      "R13": "Harness selftest and known-bad proof/model/checker/replay controls pass for intended failure classes; setup must not quietly accept missing oracle reach. Capture exact checker hashes and commands. If extending harness accept logic, selftest and causal controls are mandatory before relying on it."
+    },
+    "acceptance_minima": {
+      "unique_fresh_seeds_each": 100000,
+      "purity_pairs_each": 50,
+      "feedback_replay_pairs_each": 50,
+      "entered_search_configurations": 20,
+      "retained_corpus_required": true
+    },
+    "status": "Terminal owner report missing; no private contents inspected."
+  },
+  "pending": [
+    "Full Debug exact212 and984 terminal postflight",
+    "Both fresh100000-seed legs/corpus plus everyR1-R13 effective targeted/purity/replay/oracle minimum",
+    "Registered reverse pair and completeWV100 recovery under unchanged contracts",
+    "Final whole-objective audit and Andrew handoff"
+  ],
+  "scope": "Final-source boundary review and exact acceptance checklist. No new runtime test or promotion; current native watch repair already has separately frozen causal controls."
+}
