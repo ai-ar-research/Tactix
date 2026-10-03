@@ -1,0 +1,27 @@
+{
+  "schema": "tactix-user-approved-historical-replay-replacement-v1",
+  "recorded_at_utc": "2026-10-03T16:29:48.531545+00:00",
+  "source_commit": "375b621ba6677600f3e77bf8383af25d256d7b67",
+  "question": "Can we accept the independently checked reruns as replacements for the historical mining and diagnosis runs whose original proofs/models were not saved? The reruns passed, but we cannot prove their outputs match the lost originals. Completed results from the fresh fuzz campaigns were independently checked. I recommend accepting the reruns, while permanently documenting that limitation. With your agreement, I can finish the final acceptance report and handoff.",
+  "user_answer": "of course.",
+  "approved": true,
+  "applies_only_to": {
+    "historical_mining_completed": 19084,
+    "historical_raw_d2_completed": 6,
+    "graded_replay_total_executions": 40062,
+    "graded_replay_completed": 38258,
+    "graded_replay_solver_timeouts": 1804
+  },
+  "preserved_limitations": [
+    "Original artifacts were never independently checked or retained.",
+    "No retained original proof/model fingerprint proves equality to checked reruns.",
+    "Original d1/d2 in-job pin/checker/snapshot gates remain absent; terminal postflight does not invent historical checks.",
+    "Frozen strict NOT ACCEPTED reports and all earlier negative evidence are preserved."
+  ],
+  "does_not_change": [
+    "Fresh minimum100000 per policy, independent completed-run proof/model oracles and effective coverage requirements.",
+    "Future campaign oracle/provenance requirements.",
+    "Four default regression gates and checker censoring/cost contract.",
+    "No scalar reward/learning, fallback, rollback, forced resumption or global loop budget."
+  ]
+}

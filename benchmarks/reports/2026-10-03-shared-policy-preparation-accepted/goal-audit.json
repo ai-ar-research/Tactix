@@ -1,0 +1,129 @@
+{
+  "schema": "tactix-shared-policy-preparation-final-original-goal-audit-v1",
+  "source_commit": "375b621ba6677600f3e77bf8383af25d256d7b67",
+  "objective_path": "/home/hwu/.codex/attachments/d8a2850a-463c-45c9-90fb-82c17c8ae202/pasted-text-1.txt",
+  "objective_sha256": "93e3ad59a4612910a4af2b9a939cb5c6a31d20dde30b4664ea2a2e44a43538fe",
+  "recorded_at_utc": "2026-10-03T16:33:46.353627+00:00",
+  "goal_complete": true,
+  "all_engineering_and_validation_requirements_accepted": true,
+  "final_handoff_pending": false,
+  "replay_replacement_approval": "benchmarks/reports/2026-10-03-shared-policy-preparation-accepted/replay-approval.json",
+  "requirements": [
+    {
+      "id": "shared-stateful-policy-execution",
+      "requirement": "Shared stateful policies and typed mechanical execution",
+      "status": "accepted within stated scope",
+      "evidence_finding": "Shared startup/root/search/support execution separates policy scheduling from application, preparation, publication, continuation, accounting and cleanup. Static native hot dispatch remains.",
+      "primary_evidence": "benchmarks/reports/2026-10-03-shared-policy-engineering-readiness-audit.md",
+      "limits": "28 operation groups/49 original sites plus current source and scoped runtime controls; locator presence alone is not behavior evidence."
+    },
+    {
+      "id": "default-faithfulness",
+      "requirement": "Faithful DefaultPolicy scheduling, state, proofs and reconstructed models",
+      "status": "accepted within stated scope",
+      "evidence_finding": "Preserved-source action/state and byte correspondence, productive family profiles, native lifecycle checks, current Debug and baseline/work/certificate comparisons support preservation.",
+      "primary_evidence": "benchmarks/reports/2026-10-02-broad-default-correspondence.md",
+      "limits": "26 fixture profiles plus native support controls/current runtime evidence; not universal equivalence or a whole historical-binary comparison."
+    },
+    {
+      "id": "partial-full-restart-native-continuation-state",
+      "requirement": "Ordinary partial retention, explicit root transitions and native continuation",
+      "status": "accepted within stated scope",
+      "evidence_finding": "Both policies exercise valid retained prefixes and full transitions; current guards/lifecycles preserve installed configuration, heuristic ownership and restart/interval counters.",
+      "primary_evidence": "benchmarks/reports/2026-10-03-shared-policy-engineering-readiness-audit.md",
+      "limits": "Learner-selected changes/root work require full root transition; native level-independent search services remain legal."
+    },
+    {
+      "id": "all20-configurations-repeated-eligible-actions-fixed-per-call-effort",
+      "requirement": "Complete named search collection, repeated eligible actions and fixed random effort",
+      "status": "accepted within stated scope",
+      "evidence_finding": "All20 combinations, repeated uncapped root loop, fixed configurable per-call allowances, overshoot, continuation and stale-scope refresh are implemented and effectively covered.",
+      "primary_evidence": "docs/controller-interface.md",
+      "limits": "Unavailable native producers and offered payloads remain explicit; fixed random allowances do not replace adaptive default doses."
+    },
+    {
+      "id": "replaceable-selection-versioned-after-action-and-linked-interval-feedback",
+      "requirement": "Replaceable selection and versioned after-action/linked search feedback",
+      "status": "accepted within stated scope",
+      "evidence_finding": "Selection and immutable receivers are separate; records retain identity/request, before/after state, progress, actual effort/currency, overshoot, duration, status/reason. Publication/cleanup lifetimes and linked intervals are checked.",
+      "primary_evidence": "benchmarks/reports/2026-10-03-shared-policy-engineering-readiness-audit.md",
+      "limits": "Support records do not claim registered-rule applications/progress. Composed records can be delivered after enclosing safe restoration."
+    },
+    {
+      "id": "pure-observation-feedback-offline-inspection-deterministic-replay",
+      "requirement": "Read-only observation, feedback purity, offline inspection and deterministic replay",
+      "status": "accepted within stated scope",
+      "evidence_finding": "Pure source snapshots, checked extra-observation/feedback comparisons, positive/negative replay and out-of-band receiver error handling support deterministic behavior preservation.",
+      "primary_evidence": "benchmarks/reports/2026-10-03-shared-policy-terminal-closeout-review.md",
+      "limits": "Timing is validated recorded evidence and excluded from deterministic equality; not every native duration/work value was independently remeasured."
+    },
+    {
+      "id": "raw-result-and-actual-effort-without-reward-or-learning",
+      "requirement": "Raw result/actual-effort preparation without reward or learning",
+      "status": "accepted within stated scope",
+      "evidence_finding": "Raw native counters/currencies/results and replaceable interfaces are available. No scalar reward or learned selection is introduced.",
+      "primary_evidence": "DEVELOPMENT_PLAN.md",
+      "limits": "O6 numerator/common currency/zero-terminal/ResumeSearch attribution choices remain intentionally deferred."
+    },
+    {
+      "id": "full-debug-exact212",
+      "requirement": "Full current-source Debug suite",
+      "status": "accepted within stated scope",
+      "evidence_finding": "Exact212 frozen-registry/JUnit tests executed/passed, no failure/error/skip/disabled, zero terminal exits and984 pre/post bindings.",
+      "primary_evidence": "benchmarks/reports/2026-10-03-shared-policy-full-debug-accepted.md",
+      "limits": "Current source375b621b; historical old-pin success alone is not used as current acceptance."
+    },
+    {
+      "id": "fresh100000-each-corpus-effective-coverage-independent-oracles",
+      "requirement": "Fresh100000 each, corpus/effective coverage, independent oracles and terminal owner acceptance",
+      "status": "accepted within stated scope",
+      "evidence_finding": "Both independent fresh legs, retained corpus, R1-R13/TW coverage, fully graded new reruns and terminal provenance pass within reported scopes; user approves scoped historical replay replacement.",
+      "primary_evidence": "benchmarks/reports/2026-10-03-shared-policy-terminal-closeout-review.md",
+      "limits": "Lost original19084 mining and6 rawd2 outputs were not checked/retained or linked by artifact fingerprint. Accepted only under explicit approval, not called original-artifact verification. No replay fresh credit."
+    },
+    {
+      "id": "feedback-overhead",
+      "requirement": "Measured feedback overhead",
+      "status": "accepted within stated scope",
+      "evidence_finding": "Paired end-to-end frontend measurement and large Debug CLI diagnosis quantify recording cost with purity/artifact controls.",
+      "primary_evidence": "benchmarks/reports/2026-10-03-terminal-substitute-regression-loss.md",
+      "limits": "Four small inputs add17.597-63.084ms; large Debug68-88x/about50GB. Two TF timeouts undiagnosed; no cheap or Release claim."
+    },
+    {
+      "id": "four-default-regressions-bounded-checker-contract",
+      "requirement": "B28+C5, Rank1-50, WV100, WV2-89 and bounded checking",
+      "status": "accepted within stated scope",
+      "evidence_finding": "Selected272 rows retain resource/verdict/aggregate contracts; all completed comparable proof-cost checks pass; independent SAT checking, clean censored proofs and retained solver timeouts are explicit.",
+      "primary_evidence": "benchmarks/reports/2026-10-03-shared-policy-regressions-recovered.md",
+      "limits": "Whole pipeline1800s; baseline+max(30%baseline,20s);14 censors not verified; original WV100 failure preserved with single preregistered recovery."
+    },
+    {
+      "id": "consistent-docs-skills-preserved-authorities",
+      "requirement": "Consistent docs/skills, onefactonehome, preserved pins/evidence/user work",
+      "status": "accepted within stated scope",
+      "evidence_finding": "Stable plan/interface and17skills retain reviewed bindings; PROGRESS reconciles approved acceptance without editing frozen reports or broad milestone claims.",
+      "primary_evidence": "benchmarks/reports/2026-10-03-shared-policy-engineering-readiness-audit.md",
+      "limits": "No source/contract/skill edits at final closeout; no deletion/private campaign inspection/unrelated work/push."
+    },
+    {
+      "id": "local-commits-and-andrew-tex-pdf",
+      "requirement": "Local commits and reviewed Andrew TeX/PDF final handoff",
+      "status": "accepted within stated scope",
+      "evidence_finding": "Final acceptance report and two-pass reviewed Andrew TeX/PDF produced; earlier implementation/evidence commits are local. Final closing commit is verified at landing before goal completion.",
+      "primary_evidence": "benchmarks/reports/2026-10-03-shared-policy-preparation-accepted.md",
+      "limits": "No push; future Andrew directory remains local/untracked per reporting skill. Original-goal completion follows successful local landing verification."
+    }
+  ],
+  "constraints_preserved": [
+    "No scalar reward or learning",
+    "No policy fallback, rollback, forced ResumeSearch or global loop budget",
+    "No push or unrelated experiments",
+    "Frozen pins/baselines/negative evidence and unrelated work preserved"
+  ],
+  "user_approved_exception": "Scoped graded replay replacement for irretrievably lost historical mining/d2 artifacts only; original artifact verification remains unproven.",
+  "stage_accepted": true,
+  "final_checks": "benchmarks/reports/2026-10-03-shared-policy-preparation-accepted/final-checks.json",
+  "final_andrew_tex": "/home/hwu/SAT-solving/report-to-andrew/20261003T163643Z-shared-policy-preparation-accepted/report.tex",
+  "final_andrew_pdf": "/home/hwu/SAT-solving/report-to-andrew/20261003T163643Z-shared-policy-preparation-accepted/report.pdf",
+  "completion_scope": "Full original preparation objective, with explicitly user-approved scoped historical replay replacement; no reward/learning or broader formal benchmark completion claim."
+}
