@@ -1,0 +1,61 @@
+{
+  "checks": [
+    {
+      "command": "python3 tools/docs/check-doc-size.py",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 tools/docs/check-progress.py",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 tools/docs/check-proof-rule-sync.py",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 tools/docs/check-section-refs.py",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 tools/docs/check-citations.py",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 tools/docs/check-config-wiring.py",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 tools/docs/check-effort-specs.py",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 tools/docs/check-feedback-statistics.py",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 tools/docs/check-inventory.py",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 tools/docs/check-option-coverage.py",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 tools/docs/check-default-strategy-config.py",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 tools/docs/check-rule-policy-boundary.py",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 tools/docs/check-stat-ids.py",
+      "exit_code": 0
+    }
+  ],
+  "warnings": [
+    "doc-size: seven existing near-capacity documents; no compaction performed",
+    "check-progress inferred no queued jobs; authoritative escalated sacct checkpoint records running and pending jobs, so no NOTHING IN FLIGHT claim is made"
+  ],
+  "scope": "current worktree documentation validation, not immutable candidate full acceptance"
+}

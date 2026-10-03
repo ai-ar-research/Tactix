@@ -1,0 +1,41 @@
+{
+  "case": 1,
+  "job": "1747900",
+  "stats": {
+    "vertices": 19,
+    "variables": 517,
+    "clauses": 7752,
+    "work": 606490,
+    "nodes": 9871,
+    "physical_additions": 87413,
+    "physical_deletions": 7628,
+    "reserved_helpers": 9872,
+    "inequalities": 36,
+    "sr_events": 17,
+    "fingerprint": 11690255201743411914,
+    "preflight_matches": true,
+    "bounded_declines": 4,
+    "interrupted_phases": 7,
+    "seconds": 0.102329
+  },
+  "command": [
+    "/home/hwu/SAT-solving/build/pin-ramsey-preflight-47726643-01/probe",
+    "/home/hwu/SAT-solving/benchmarks/runs/20261003-ramsey-certificate-preflight-launch-repair/case-1/preflight",
+    "/home/hwu/SAT-solving/benchmarks/runs/20261003-ramsey-recognized-certificate-v2/case-1/original.cnf"
+  ],
+  "seconds": 0.7245410792529583,
+  "proof_byte_equal": true,
+  "input_byte_equal": true,
+  "physical_event_counts_match": true,
+  "semantic_record_counts": {
+    "sr": 17,
+    "witness": 17,
+    "add": 87394,
+    "delete": 7626,
+    "define-ite": 9871,
+    "inequality": 36
+  },
+  "source_provenance_authority": "benchmarks/runs/20261003-ramsey-recognized-certificate-v2/case-1/certificate.recognition.jsonl",
+  "proof_sha256": "cbac706a69613a450e0d05fb75eab526a92daebad663344b47f968e7860bcb83",
+  "scope": "Pure complete derivation preflight with research output adapter; no native action or production acceptance"
+}
