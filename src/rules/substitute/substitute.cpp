@@ -2893,8 +2893,10 @@ ApplyResult substitute_apply_round(Kernel &k, bool reconnect_large_watches) {
   const bool connected_at_entry = k.large_watches_connected;
   const uint32_t trail_at_entry = static_cast<uint32_t>(k.trail.size());
   const auto finish = [&](ApplyResult result) {
+    // Restore an owned watch session before publishing even a refutation.
+    // The root service recognizes inconsistent state without further reasoning.
     if (!connected_at_entry || !reconnect_large_watches ||
-        result == ApplyResult::Unsat || k.large_watches_connected)
+        k.large_watches_connected)
       return result;
     const ApplyResult closure =
         substitute_reconnect_large_watches(k, trail_at_entry);
