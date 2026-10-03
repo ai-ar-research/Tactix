@@ -1,6 +1,6 @@
 # Tactix implementation notes — guards, deviations, and durable design
 
-Engineering companion to `docs/calculus.md`: guards, deviations and representation invariants live here; scheduling parity and dated evidence live in the ledger and frozen reports.
+Engineering companion to `docs/calculus.md`: guards, deviations and representation invariants live here; scheduling parity and dated evidence live in the ledger and frozen reports. The internal `parity_certificate.hpp` refactor shares the existing terminal engine with proof-only nonterminal export (support at most four variables); it changes no public instance or eligibility. Its single-use accumulator requires certified source equations and a collision-free caller-owned proof namespace. Export does not install clauses or make helpers branchable; failed export may leave a valid proof prefix, so a future caller must preflight and publish only completed deductions with provenance.
 
 ## 1. Implemented guards, per rule
 
