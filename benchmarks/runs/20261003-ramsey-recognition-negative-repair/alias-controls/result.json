@@ -1,0 +1,42 @@
+{
+  "binary_sha256": "54d4b62a82622b9c5240735d65d29129f1ee006e0262051939baab3102c67223",
+  "scope": "Fixed alias rejection only, not positive certificate acceptance on this new pin",
+  "controls": [
+    {
+      "kind": "direct",
+      "exit": 2,
+      "command": [
+        "/home/hwu/SAT-solving/build/pin-ramsey-recognized-dsr-8ff48dd1-02/probe",
+        "benchmarks/runs/20261003-ramsey-recognition-negative-repair/alias-controls/direct/input",
+        "benchmarks/runs/20261003-ramsey-recognition-negative-repair/alias-controls/direct/input.cnf"
+      ],
+      "input_sha256": "a15a927961ce6c683ab0f707b3e22d29519abfce22f6bbdb08a69d629db96b6d",
+      "input_preserved": true,
+      "proof_absent": true
+    },
+    {
+      "kind": "symlink",
+      "exit": 2,
+      "command": [
+        "/home/hwu/SAT-solving/build/pin-ramsey-recognized-dsr-8ff48dd1-02/probe",
+        "benchmarks/runs/20261003-ramsey-recognition-negative-repair/alias-controls/symlink/output",
+        "benchmarks/runs/20261003-ramsey-recognition-negative-repair/alias-controls/symlink/input.cnf"
+      ],
+      "input_sha256": "a15a927961ce6c683ab0f707b3e22d29519abfce22f6bbdb08a69d629db96b6d",
+      "input_preserved": true,
+      "proof_absent": true
+    },
+    {
+      "kind": "hardlink",
+      "exit": 2,
+      "command": [
+        "/home/hwu/SAT-solving/build/pin-ramsey-recognized-dsr-8ff48dd1-02/probe",
+        "benchmarks/runs/20261003-ramsey-recognition-negative-repair/alias-controls/hardlink/output",
+        "benchmarks/runs/20261003-ramsey-recognition-negative-repair/alias-controls/hardlink/input.cnf"
+      ],
+      "input_sha256": "a15a927961ce6c683ab0f707b3e22d29519abfce22f6bbdb08a69d629db96b6d",
+      "input_preserved": true,
+      "proof_absent": true
+    }
+  ]
+}

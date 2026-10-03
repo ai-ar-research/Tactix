@@ -1,0 +1,3 @@
+Request keys: ['source_commit', 'scope', 'build_type', 'proof_shadow', 'source_sha256', 'pin']
+PIN keys: ['source_commit', 'scope', 'build_type', 'proof_shadow', 'source_sha256', 'pin', 'binaries', 'commands']
+Built /home/hwu/SAT-solving/build/pin-ramsey-recognized-dsr-8ff48dd1-01

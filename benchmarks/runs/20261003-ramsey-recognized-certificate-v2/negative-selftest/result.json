@@ -1,0 +1,25 @@
+[
+  {
+    "name": "canonical",
+    "command": [
+      "benchmarks/runs/20261003-ramsey-recognized-certificate-v2/checkers/dsr-trim",
+      "benchmarks/runs/20261003-ramsey-recognized-certificate-v2/negative-selftest/sat.cnf",
+      "benchmarks/runs/20261003-ramsey-recognized-certificate-v2/negative-selftest/false.dsr",
+      "benchmarks/runs/20261003-ramsey-recognized-certificate-v2/negative-selftest/canonical.lsr"
+    ],
+    "returncode": 1,
+    "semantic_rejection": true
+  },
+  {
+    "name": "forward",
+    "command": [
+      "benchmarks/runs/20261003-ramsey-recognized-certificate-v2/checkers/dsr-trim",
+      "-f",
+      "benchmarks/runs/20261003-ramsey-recognized-certificate-v2/negative-selftest/sat.cnf",
+      "benchmarks/runs/20261003-ramsey-recognized-certificate-v2/negative-selftest/false.dsr",
+      "benchmarks/runs/20261003-ramsey-recognized-certificate-v2/negative-selftest/forward.lsr"
+    ],
+    "returncode": 1,
+    "semantic_rejection": true
+  }
+]

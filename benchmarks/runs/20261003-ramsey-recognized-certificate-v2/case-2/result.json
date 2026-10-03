@@ -1,0 +1,33 @@
+{
+  "case": {
+    "variant": "signed-sparse",
+    "vertices": 18,
+    "seed": 941631
+  },
+  "job": "1747733",
+  "verified": true,
+  "generator_exit": 0,
+  "input_sha256": "5d370ec7884b99f57423491a738966d66cbcd7979ada47185c062195b073c6cc",
+  "generation": {
+    "vertices": 18,
+    "degree": 3,
+    "variables": 463,
+    "clauses": 6120,
+    "deleted_original_clauses": 5994,
+    "retained_original_clauses": 126,
+    "bdd_nodes": 9696,
+    "proof_additions": 85696,
+    "seconds": 0.0311595
+  },
+  "source_occurrences_checked": 6120,
+  "checker_stage": null,
+  "checker_output": "",
+  "check_seconds": 102.74821772612631,
+  "proof_bytes": 1941251,
+  "proof_sha256": "2e56bc5db42bc65aac44fc1faf0290f9455387731b9633e10995ca59dede951b",
+  "negative_rejected": true,
+  "negative_stage": "dsr-trim",
+  "negative_output": "c CNF file path: /home/hwu/SAT-solving/benchmarks/runs/20261003-ramsey-recognized-certificate-v2/case-2/negative-check/checker.cnf\nc DSR file path: /home/hwu/SAT-solving/benchmarks/runs/20261003-ramsey-recognized-certificate-v2/case-2/negative.dsr\nc LSR file path: /home/hwu/SAT-solving/benchmarks/runs/20261003-ramsey-recognized-certificate-v2/case-2/negative-check/proof.lsr\nc Using an EAGER parsing strategy.\nc Doing BACKWARDS proof checking.\nc The CNF formula has 6 clauses and 4 variables.\nc Parsing the CNF took 0.000 secs\nc Parsed the empty clause after 1 proof lines (1 additions).\nc Empty clause detected on proof line 1.\n\nError: Could not derive the empty clause during backwards checking.\nIf the proof is instead a proof of equisatisfiability or a proof of symmetry breaking, use forwards checking (-f).\n",
+  "recognition_negative_controls": 3,
+  "total_seconds": 102.96988217160106
+}

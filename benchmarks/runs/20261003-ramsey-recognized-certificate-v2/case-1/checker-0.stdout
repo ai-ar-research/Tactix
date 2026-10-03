@@ -1,0 +1,15 @@
+c CNF file path: /home/hwu/SAT-solving/benchmarks/runs/20261003-ramsey-recognized-certificate-v2/case-1/check/checker.cnf
+c DSR file path: /home/hwu/SAT-solving/benchmarks/runs/20261003-ramsey-recognized-certificate-v2/case-1/certificate.dsr
+c LSR file path: /home/hwu/SAT-solving/benchmarks/runs/20261003-ramsey-recognized-certificate-v2/case-1/check/proof.lsr
+c Using an EAGER parsing strategy.
+c Doing BACKWARDS proof checking.
+c The CNF formula has 7752 clauses and 517 variables.
+c Parsing the CNF took 0.005 secs
+c Parsed the empty clause after 95041 proof lines (87384 additions).
+c Empty clause detected on proof line 95041.
+c The empty clause was derived after clause 95089 (add'n line 87337).
+c Checking proof...
+c Proof checking took 1.909 secs
+s VERIFIED UNSAT
+c Printing the LSR proof took 0.054 secs
+c Total runtime took 2.014 secs
