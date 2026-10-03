@@ -1,0 +1,69 @@
+{
+  "scope": "Fixed registered public action; not full-policy fuzz or production acceptance",
+  "canonical_verified": true,
+  "published": [
+    [
+      -1,
+      2
+    ],
+    [
+      1,
+      -2
+    ]
+  ],
+  "all_helpers_retired": true,
+  "commands": [
+    {
+      "name": "elaborate",
+      "command": [
+        "/cm/local/apps/python3/bin/python3",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-parity-public-action/elaborate.py",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-parity-public-action/audit.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-parity-public-action/audit.dsr",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-parity-public-action/audit.lrat"
+      ],
+      "returncode": 0,
+      "status": null
+    },
+    {
+      "name": "all-addition",
+      "command": [
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-ramsey-degree-dsr-feasibility/checkers/cake_lpr",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-parity-public-action/audit.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-parity-public-action/audit.lrat"
+      ],
+      "returncode": 0,
+      "status": "verified"
+    },
+    {
+      "name": "forward",
+      "command": [
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-ramsey-degree-dsr-feasibility/checkers/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-parity-public-action/audit.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-parity-public-action/canonical/proof.drat",
+        "-f"
+      ],
+      "returncode": 0,
+      "status": "verified"
+    },
+    {
+      "name": "negative",
+      "command": [
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-ramsey-degree-dsr-feasibility/checkers/cake_lpr",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-parity-public-action/audit.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-parity-public-action/invalid.lrat"
+      ],
+      "returncode": 0,
+      "status": "rejected"
+    }
+  ],
+  "proof_bytes": 7033,
+  "bindings": {
+    "benchmarks/runs/20261003-parity-public-action/check.py": "5ca1785b2f843fd9691ef165b809f2baeea2543d69da7da19e18337d282e6714",
+    "benchmarks/runs/20261003-parity-public-action/elaborate.py": "622930c61023b6f257a172fde797d875680a5f17214077bd4a2591dfbc14a0b3",
+    "benchmarks/runs/20261003-parity-public-action/public.dsr": "35d3e02c8022517a14fb02f8b1fcc876b3e50cb64774bac46634a3d678ab2fab",
+    "benchmarks/runs/20261003-parity-public-action/public-feedback.jsonl.provenance": "e53bbe5a55068dadfa7ac139fe410abc43d43282e9ba8c786ba33d54aac3b09a",
+    "benchmarks/runs/20261003-ramsey-degree-dsr-feasibility/checkers/cake_lpr": "ab9dc6c43ad0f55bbaf336c5d898919ddb03d0bdb75e88dff48237fb06ba1f57",
+    "benchmarks/runs/20261003-ramsey-degree-dsr-feasibility/checkers/drat-trim": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a"
+  }
+}
