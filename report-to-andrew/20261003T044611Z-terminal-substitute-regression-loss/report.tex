@@ -1,0 +1,118 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[hidelinks]{hyperref}
+\usepackage{booktabs}
+\usepackage{microtype}
+\title{Tactix: repaired-source validation and a lost WV100 solve}
+\author{Tactix Development Project}
+\date{October 3, 2026}
+\begin{document}
+\maketitle
+Source \texttt{375b621b} passes B28+C5, Rank 1--50 and WV2--89, but
+\textbf{WV100 is NOT ACCEPTED}: rank 96, \texttt{snw\_16\_9\_CCSpre}, loses a
+retained SAT solve at the unchanged 1,200-second deadline. Whole-goal
+acceptance remains pending. The Substitute watch-restoration repair is
+unchanged; this checkpoint adds validation evidence, not solver behavior.
+
+\section*{Terminal regression evidence}
+\begin{center}
+\begin{tabular}{lrrrr}
+\toprule
+Set & Solver seconds & Checked & Checker TO & Solver TO \\
+\midrule
+B28+C5 & 956.934 & 32 & 1 & 0 \\
+Rank 1--50 & 7,580.783 & 41 & 9 & 0 \\
+WV100 & 1,743.200 & 97 & 2 & 1 lost \\
+WV2--89 & 4,092.871 & 77 & 2 & 10 retained \\
+\midrule
+Total & --- & 247 & 14 & 11 \\
+\bottomrule
+\end{tabular}
+\end{center}
+All 272 rows are present; 122 SAT models and 125 UNSAT proofs are independently
+accepted, with no checker rejection. Solver sums exclude timeouts: WV100's
+smaller sum excludes the lost row and is not an improvement. Fourteen checker
+timeouts remain censored, not verified. Ten WV2 solver timeouts remain accepted
+checkpoint exceptions; the additional WV100 timeout rejects its gate.
+
+Arrays preserve full-width submission without throttle/node constraints,
+12 logical CPUs, 32,768 MiB and the original solver caps. B28/Rank retain
+aggregate ceilings 999.87615/8,521.52175 seconds. Each complete proof pipeline
+has one 1,800-second deadline. Comparable baseline time $t$ allows candidate
+completion by $t+\max(0.30t,20\,\mathrm{s})$. All 125 completed comparisons
+satisfy this bound. Thirteen censored comparisons remain within declared
+bounds; one already-censored baseline makes its comparison inconclusive.
+No extended checking campaign was used to claim verification.
+
+The Release solver SHA256 is the concatenation of these two lines:
+\begin{center}
+\small\ttfamily
+b766be0145f7dbc9fd50c03db45ee7e2e\\
+3855933faaa84c30865064acd6337ed
+\end{center}
+The technical companion binds the baseline, both PIN.json files, manifests,
+scores, all raw row hashes and terminal scheduler metadata.
+
+\section*{Individual instances and the decision-relevant loss}
+All 261 completed baseline/candidate pairs retain equal normalized printed
+work counters and certificate hashes, also equal to foundation source
+\texttt{12e3c4f0}. SAT model bytes are not compared in this analysis; candidate
+models are independently checked. The lost timeout is excluded from completed
+correspondence. These facts support recorded default behavior on completed
+cases, not universal internal-state equivalence.
+
+Completed increases include Rank 8, 79.089 to 98.941 seconds; WV2 rank 245,
+29.058 to 47.541; and WV2 rank 244, 23.346 to 39.780. Their page-fault counts
+increase while recorded solver work stays equal. This suggests execution-cost
+variation but does not establish page faults as the cause; the rows still pass
+their actual gates.
+
+The lost WV100 row timed out at 1,200.005 seconds, versus predecessor
+\texttt{f6f01982} SAT in 1,008.042 and baseline SAT in 958.118. All 32 selected
+inprocessing work rows agree, including 35 phases and 171 Vivify rounds.
+Inprocessing time rises from 246.544 to 293.898 seconds, Vivify from 141.963
+to 181.880. Current final search/certificate and hardware counters are
+incomplete. Full trajectory equality and CPU/page-fault attribution remain
+unproved.
+
+SLURM 1747087 runs one sequential predecessor/current pair in the same
+12-CPU/32-GiB allocation, same immutable input/arguments, unchanged caps and
+independent oracles. The predecessor is independently model-verified SAT in
+1,046.445 seconds, retaining complete work counters and certificate hash.
+The candidate remains running at this checkpoint. Order, cache and occupancy
+variation limit one pair; it cannot replace the original failed full gate.
+
+\section*{Feedback overhead and remaining acceptance}
+Paired feedback job 1746812 completes with exit 0. Its 128 runs cover four fixed
+synthetics and both policies, one warm-up plus seven measured pairs per group,
+with alternating arm order. Deterministic signatures agree; 96 SAT models are
+checked per run, two distinct independently checked certificates cover 32
+UNSAT runs, and 64 enabled feedback streams pass strict inspection.
+Additional median time is 17.597--63.084 milliseconds; enabled/disabled median
+ratios range from 2.630583 to 8.010679. These are complete frontend costs,
+including provenance hashing, snapshots, serialization and anonymous-file
+writes on short inputs. They do not isolate callbacks or establish
+large-instance overhead. No scalar reward or learning is implemented.
+
+Full Debug 1746924 remains live with 211 passing names and the long
+scripted-default test outstanding. Exact 212-test JUnit, terminal exits and
+984 pre/post bindings remain required; all 984 currently verify. Claude CLI
+3818 is live; both fresh fuzz legs are running and targeted jobs queued.
+No private campaign files were inspected: parent access remains metadata and
+terminal deliveries. The 100,000-fresh-seed requirement per policy, corpus,
+effective coverage, purity/replay and negative-oracle acceptance remain pending.
+
+Next: collect the matched candidate/postflight, determine evidence-based WV100
+recovery without relaxing the contract, complete Debug and owner acceptance,
+then run the required recovery gate and whole-objective audit. Preserve all
+795 active source bindings, immutable evidence and unrelated job 1745040.
+No cleanup or push occurred. A metadata-only exporter mistake was corrected
+before final validation; its aborted unpublished copy is preserved.
+
+See the
+\href{../../benchmarks/reports/2026-10-03-terminal-substitute-regression-loss.md}{technical report}
+and its hashed companion for exact scores, correspondence, measurement and
+interim audit. This report is a checkpoint, not milestone acceptance.
+\end{document}

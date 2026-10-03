@@ -1,0 +1,13 @@
+{
+  "initial_file_copy_failed": "Encountered generated __pycache__ directory; no solver or scheduled job ran.",
+  "initial_submission_failed": "Attempted submission after failed preparation; missing job script; no job created.",
+  "correction": "Resume same unsubmitted scaffold, validate existing copied bytes, copy files only, require complete manifest preflight before submission.",
+  "source_or_solver_changes": false,
+  "incorrect_read_only_watcher_query": {
+    "queried_id": 1747200,
+    "tool_exit": 2,
+    "discarded": true,
+    "actual_submitted_job": 1747087,
+    "solver_or_scheduler_mutation": false
+  }
+}
