@@ -1,0 +1,39 @@
+{
+  "status": "COMPLETED",
+  "created_utc": "2026-10-03T20:28:42.783634+00:00",
+  "binary": "build/pin-ramsey-r44-compact-dsr-f9364a95-01/probe",
+  "input": "benchmarks/cache/tierD24-26/847c8843ee292b9b31f0c346574af260-ramsey_4_4_19.normalised.cnf.xz",
+  "rank": 630,
+  "partition": "cpu-q",
+  "cpus": 1,
+  "memory_gib": 32,
+  "wall_minutes": 40,
+  "generator_seconds": 300,
+  "checker_seconds": 1800,
+  "scope": "Full original-CNF DSR feasibility using direct R33 resolution, shared BDD counting and post-symmetry database reduction; compare tail with independently checked compact R34 proof.",
+  "checker_sources": {
+    "dsr-trim": "/home/hwu/SAT-solving/build/pin-dsr-checker-controller-clean-patch/dsr-trim",
+    "dsr-compress": "/home/hwu/SAT-solving/dsr-trim-sr/bin/compress",
+    "srcheck": "/home/hwu/SAT-solving/trestle/.lake/build/bin/srcheck"
+  },
+  "bindings": {
+    "benchmarks/runs/20261003-ramsey-r44-compact-dsr-feasibility/job.sh": "b78cb91d0fe76465faffa6ed8e648fb85302abb6d5f005e1770e9a318a69e45a",
+    "benchmarks/runs/20261003-ramsey-r44-compact-dsr-feasibility/checkers/dsr-trim": "3b5c773706dc4695f08115ce862e991bfa2e44e3388df80f40ae8b0823dfbdee",
+    "benchmarks/runs/20261003-ramsey-r44-compact-dsr-feasibility/checkers/dsr-compress": "6bc416a0df73f16911a0b16d85aa4bed4d15e4915d309407ff1e80b07d19d676",
+    "benchmarks/runs/20261003-ramsey-r44-compact-dsr-feasibility/checkers/srcheck": "19bf79f49e293bb0df82b1e4ec82ec45987c2791864598bada12525ef41a2945",
+    "benchmarks/runs/20261003-ramsey-r44-compact-dsr-feasibility/dsr-checker-authority.json": "3a25660a12a1d2e1545f28a7d518b9f875cb44b79d0eadb19bf318820b0de8bb",
+    "benchmarks/runs/20261003-ramsey-r44-compact-dsr-feasibility/checker-source-review.json": "2ff0bc27bf3ef92c06bc09fb3dc737def4ac03873d15af6b2b3da7db88754a39",
+    "benchmarks/cache/tierD24-26/847c8843ee292b9b31f0c346574af260-ramsey_4_4_19.normalised.cnf.xz": "4b08084266ffd1cda075b3942bc7e83d334fd6b5f23fa0c839da8b2b4351e08e",
+    "tools/bench/proof_oracle.py": "020bfcef6f4382e9b3136442a253bb7eb4fcfa1091be9d692ddd438161a3b8b2",
+    "benchmarks/probes/scratch/run_ramsey_r44_compact_dsr_probe.py": "94eaacf30459eed3c0bb9c0458d0557c3c7b335c4257f8224d8ec43e717cfde4",
+    "build/pin-ramsey-r44-compact-dsr-f9364a95-01/probe": "6d82bf2327eff15af51ef1e0940fdbdf48187d213439c6feec0e9877169fcc8e",
+    "build/pin-ramsey-r44-compact-dsr-f9364a95-01/manifest.json": "c00e21140bf82c159e2445265f7107fb551295ede1f3761791afef62a329f462",
+    "benchmarks/runs/20261003-ramsey-r34-compact-dsr-feasibility/case-00/degree.dsr": "330a5b8ccf0b4a4e679c405fa30074d3bf99331491f1bbc9caaee1c2a00df092"
+  },
+  "checker_limit_scope": "1800 seconds for canonical pipeline and separately 1800 seconds for every-lemma pipeline; allocation wall limit 40 minutes. This is feasibility, not the regression gate.",
+  "r34_compact_proof": "benchmarks/runs/20261003-ramsey-r34-compact-dsr-feasibility/case-00/degree.dsr",
+  "job_id": "1747624",
+  "submitted_recorded_utc": "2026-10-03T20:30:09.786172+00:00",
+  "verified": true,
+  "every_lemma_passed": true
+}
