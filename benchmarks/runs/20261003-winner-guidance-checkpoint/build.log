@@ -1,0 +1,48 @@
+[  0%] Built target tactix_symmetry_backend
+[100%] Built target tactix_lib
+[100%] Built target test_local_search_guidance
+[  0%] Built target tactix_symmetry_backend
+[ 94%] Built target tactix_lib
+[100%] Built target test_walk
+[  0%] Built target tactix_symmetry_backend
+[ 94%] Built target tactix_lib
+[ 94%] Building CXX object tests/CMakeFiles/test_random_online.dir/test_random_online.cpp.o
+[100%] Linking CXX executable test_random_online
+[100%] Built target test_random_online
+[  0%] Built target tactix_symmetry_backend
+[100%] Built target tactix_lib
+[100%] Building CXX object tests/CMakeFiles/test_restart_controller.dir/test_restart_controller.cpp.o
+[100%] Linking CXX executable test_restart_controller
+[100%] Built target test_restart_controller
+[  0%] Built target tactix_symmetry_backend
+[ 94%] Built target tactix_lib
+[100%] Building CXX object tests/CMakeFiles/test_policy_feedback.dir/test_policy_feedback.cpp.o
+[100%] Linking CXX executable test_policy_feedback
+[100%] Built target test_policy_feedback
+[  0%] Built target tactix_symmetry_backend
+[100%] Built target tactix_lib
+[100%] Building CXX object tests/CMakeFiles/test_random_controller_policy.dir/test_random_controller_policy.cpp.o
+[100%] Linking CXX executable test_random_controller_policy
+[100%] Built target test_random_controller_policy
+[  0%] Built target tactix_symmetry_backend
+[ 94%] Built target tactix_lib
+[ 94%] Building CXX object tests/CMakeFiles/test_online_inprocess.dir/test_online_inprocess.cpp.o
+[100%] Linking CXX executable test_online_inprocess
+[100%] Built target test_online_inprocess
+[  0%] Built target tactix_symmetry_backend
+[100%] Built target tactix_lib
+[100%] Built target test_online_api
+[  0%] Built target tactix_symmetry_backend
+[100%] Built target tactix_lib
+[100%] Built target test_default_execution_signature
+[  0%] Built target tactix_symmetry_backend
+[100%] Built target tactix_lib
+[100%] Building CXX object tests/CMakeFiles/test_feedback_trace.dir/test_feedback_trace.cpp.o
+[100%] Linking CXX executable test_feedback_trace
+[100%] Built target test_feedback_trace
+[  0%] Built target tactix_symmetry_backend
+[ 94%] Built target tactix_lib
+[100%] Built target test_graph_labeling_recognition
+[  0%] Built target tactix_symmetry_backend
+[100%] Built target tactix_lib
+[100%] Built target test_graph_labeling_search

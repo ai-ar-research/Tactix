@@ -10,9 +10,13 @@ Current workstream: organic winner-technique integration under [plan §9.5](DEVE
 
 The [saved-evidence attribution and mechanism review](benchmarks/reports/2026-10-03-winner-integration-attribution.md) verifies all 220 selected records and their campaign pins, retains all 44 targets, and distinguishes historical handler evidence from checked results. It owns the source findings, certificate-side diagnosis and first-increment review; [Andrew's TeX/PDF](report-to-andrew/20261003T180244Z-winner-integration-attribution/) carries the handoff. No target is closed by this audit.
 
-**Next action:** implement the general graph-labeling constructor and shared candidate-consumption increment reviewed there. Begin with typed candidate identity/provenance and independent private-Walk/target-only consumers, then integrate bounded native construction/repair and partial guidance publication; an API-only or terminal-SAT-only subset does not complete the increment. Validate both-policy reach/replay, proof/model correctness and all preservation gates before promotion. Hypergraph construction, Ramsey certification and certificate-cost investigation remain in scope.
+**Active implementation, not accepted:** the root worktree contains shared exact candidate identities/provenance, private Walk seeding, target-only import, partial publication, observation/serialization and focused tests. Native graph helpers recover indexed signed column mappings, generate all 24 ordering seeds and perform bounded window DFS. They are not yet wired into a public/default/random constructor action. The accepted production source remains `375b621b`; old acceptance does not cover these edits.
 
-**NOTHING IN FLIGHT** for this stage; the queue contains only the unrelated interactive `bash` allocation. The attribution audit ran no solver/checker and submitted no experiments. Preserve immutable pins, frozen baselines/evidence and unrelated user work. Solver source has not changed since `375b621b`; no deletion or push is queued.
+The [WIP checkpoint](benchmarks/reports/2026-10-03-winner-guidance-checkpoint.md) owns the reversible 43-file patch/manifest, 12 passing focused tests, small-graph oracle checks and 13/14 unchanged native microcontrol signatures (the selected structural Walk case intentionally changes). [Andrew's report](report-to-andrew/20261003T183414Z-winner-guidance-checkpoint/) carries the handoff. Full acceptance evidence is still pending; source and coupled interface docs remain intentionally uncommitted.
+
+**Next action:** finish native pair-swap repair/annealing, metered Boolean completion and whole-model validation; expose the complete constructor through typed Lucky parameters/instances and shared default/random execution with partial guidance publication. Reconcile native/online decline feedback, source-backed scheduling/effort profiles and parity documentation. Then run independent oracles, effective both-policy fuzz/replay, full Debug and all four preservation gates before promotion. Hypergraph construction, Ramsey certification and certificate-cost investigation remain in scope; neither consumer APIs nor internal graph helpers complete the increment.
+
+**NOTHING IN FLIGHT for this stage.** No solver/checker/fuzz campaigns were submitted for this WIP. The queue inspection found only unrelated interactive `bash` allocation `1747502`. Local mutable `build/dev-winner-guidance-debug` is for fixed microtests, not an immutable acceptance pin. Preserve all immutable pins, frozen evidence and unrelated user work; no deletion or push is queued.
 
 ## Preparation evidence and remaining acceptance
 
@@ -30,7 +34,7 @@ The [saved-evidence attribution and mechanism review](benchmarks/reports/2026-10
 
 The [original WV100 loss](benchmarks/reports/2026-10-03-terminal-substitute-regression-loss.md) remains rejected; the selected gate uses the single preregistered complete recovery, with no additional retry allowance. [Matched retention diagnosis](benchmarks/reports/2026-10-03-snw16-matched-retention-diagnosis.md) and the recovery report retain unchanged completed work/certificates and timing-attribution limits. Passing old-pin evidence does not accept changed source. Earlier migration details and failed/repaired checkpoints remain in their primary reports and Git history.
 
-The preparation stage is complete within its declared evidence scopes and approved replay exception. No fallback, rollback, forced ResumeSearch or global root-loop budget is introduced. Winner attribution is complete, but native integration is not implemented; broader obligations below remain open.
+The preparation stage is complete within its declared evidence scopes and approved replay exception. No fallback, rollback, forced ResumeSearch or global root-loop budget is introduced. Winner attribution is complete; native integration is WIP and all 44 targets remain open.
 
 ## Established authorities
 
@@ -64,8 +68,8 @@ The [verbatim pre-controller snapshot](docs/log/2026-10-01-pre-controller-progre
 
 ## Recent changes
 
+- Recorded unaccepted shared-guidance and graph-search WIP with exact patch, focused tests and next implementation/acceptance steps.
 - Completed saved winner attribution and selected the general graph-labeling/guidance increment; preserved source findings, certificate limits and all 44 open targets.
 - Recorded joint portfolio-convergence/learning-readiness plan: symmetry/guidance, DSR with justified PBP, four-suite regressions, continued both-policy fuzz and N1–N4 compliance.
 - Accepted shared execution/feedback preparation with the user's scoped historical replay approval; preserved lost-original and frozen negative evidence.
 - Completed the original thirteen-group audit and reviewed final Andrew TeX/PDF handoff; reward/learning remain deferred.
-- Accepted current-pin full Debug: exact 212/212 and all 984 pre/post bindings.

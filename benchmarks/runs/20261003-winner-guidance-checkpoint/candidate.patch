@@ -1,0 +1,2306 @@
+diff --git a/docs/calculus.md b/docs/calculus.md
+index 668eb9f1..bba49bb2 100644
+--- a/docs/calculus.md
++++ b/docs/calculus.md
+@@ -27,7 +27,7 @@ conflict. Formula-neutral storage compaction may keep fixed facts outside hot ar
+ identities and reconstruction effects remain in the abstract state; no proof delta.
+ 
+ Invariants: `F₀ ≡SAT (F ∪ ρ)`; `F ⊨ R` is proof-justified; every transition emits a checker-accepted delta. Rules may change `H`
+-without proof. Only operations changing `σ` belong here; Rephase, SwitchMode, Walk, Reorder, and LocalSearchGuidance are H-only policy operations.
++without proof. Only operations changing `σ` belong here; Rephase, SwitchMode, Walk, Reorder, and LocalSearchGuidance are H-only policy operations. Constructor candidates are heuristic advice, never logical premises; target initialization and private Walk seeding have no inference or reconstruction effect.
+ Recorded-conflict/pending flags are engineering state, so guards mentioning them are deviations rather than abstract preconditions.
+ 
+ The logical proof-event vocabulary is `add_rup`, `add_derived_unit`, `add_empty`, `del`, `add_rat`, `add_sr`, terminal original-input PB refutation, and internal `kernel_push_witness` (changes `ρ` without a proof line). Native DSR is the
+diff --git a/docs/controller-interface.md b/docs/controller-interface.md
+index 955395ec..9eb516bd 100644
+--- a/docs/controller-interface.md
++++ b/docs/controller-interface.md
+@@ -1,4 +1,4 @@
+-# Restart controller interface v1
++# Restart controller interface v2
+ 
+ Concrete specification for DEVELOPMENT_PLAN.md §5.6. That section owns the
+ architecture; this document owns the versioned interface and choice identities.
+@@ -11,6 +11,12 @@ for per-family allowances and search/reference profiles. Legacy random-policy
+ trace/replay flags belong to their existing format; controller replay uses its
+ own versioned records.
+ 
++Action-space/observation version 2 adds explicit constructor candidates and
++changes LocalSearchGuidance to target-only initialization. The transcript
++container and feedback envelope retain their existing formats; request and
++observation versions identify these semantics. Old controller trajectories are
++not claimed equivalent. The feedback inspector accepts old v1 observations.
++
+ `--controller-actions=FILE` reads the existing serialized OnlineStrategyProgram
+ syntax as a collection of offered alternatives, not an ordered sequence. It
+ selects those families and supplies their typed payloads and fixed allowances;
+@@ -33,6 +39,62 @@ mandatory before root inprocessing or learner configuration changes. Transcript
+ configuration records the profile and Restart service records carry keep-level;
+ coverage separates full restarts, partial restarts and continuation intervals.
+ 
++## Constructor candidates and phase consumers
++
++Each producer retains its own latest published assignment under stable external
++variable identities. Publication never installs phases. A candidate carries
++an exact identity `(publication << 8) | producer`, formula touch/root-assignment
++stamps, external-domain size, producer objective/exactness and effort/currency.
++Publications start at one independently of telemetry counters and never wrap;
++zero means an explicitly unseeded Walk. Partial candidates leave unknown entries
++zero; malformed or wholly unspecified publications are declined atomically. The bounded
++metadata vector is part of pure observation and deterministic feedback, without
++copying assignment vectors. Producer IDs retain enum order (DirectCsp, Affine,
++Parity, Onehot, BalancedSignature). Effort units are Unspecified, CspWork,
++AffineWork, CandidateChecks, SignatureSteps and GraphWork; these are raw scoped
++producer measurements, not comparable rewards or claims of total action cost.
++
++Producers select their within-search best before publication. The channel does
++not compare scores across invocations, whose decoded objectives may differ
++even on an unchanged CNF. Replacing a publication invalidates its old identity.
++Formula changes alone do not prohibit heuristic advice: consumers map surviving
++external identities, honor root assignments and skip retired/unspecified ones.
++Stored scores never certify SAT and never authorize formula transformations.
++
++`LocalSearchGuidance` enumerates exact identities and initializes only known
++target phases at a propagated root. It preserves saved/best, resets the target
++high-water mark only when targets change, and permits ordinary target capture
++to supersede the advice. Focused saved-phase behavior is unaffected. Legacy
++kind-only instance payloads remain explicit aliases for that producer's current
++publication; new random requests bind the observed exact identity.
++
++`WalkParameters.seed_candidate` and the appended C field of the same name
++select a publication for private Walk seeding. Zero retains the native path.
++The `walk2(step,random,identity,base,count,curve...)` tuple serializes a seeded
++request; old `walk(...)` syntax retains unseeded semantics. A missing/replaced
++identity declines rather than silently changing source. DefaultPolicy rotates
++available candidates for its ordinary Walk slots without a preceding target
++import; the random controller chooses either an observed candidate or unseeded
++Walk while retaining the configured allowance.
++
++Seed preparation charges the Walk allowance for each ordinary phase slot,
++candidate identity slot and literal evaluated in the ordinary/candidate copies
++of the same current walkable CNF. Native occurrence scans consume the remainder.
++The producer's objective is not used in this comparison. Walk exports only a
++strict improvement over its ordinary starting phases, including a seed already
++at the improved minimum without flips. Saved/best are untouched during import;
++normal Walk export owns saved/target effects. Insufficient preparation allowance,
++zero allowance, no walkable objective, interrupted preparation or a stale identity
++leaves phase memories untouched. Existing root-clause/watch normalization may
++already have occurred; no solver-state rollback is introduced. Ordinary unseeded
++Walk retains its reference behavior and effort/cadence.
++
++Raw feedback separates target imports, stale requests, successful private seed
++imports, seed work, budget/interruption stops and the two evaluated unsatisfied
++counts. `walk_steps` includes seed preparation for seeded calls; `walk_seed_steps`
++isolates that overhead. This interface work alone does not accept the planned
++graph-labeling constructor increment; current validation belongs to PROGRESS.
++
+ ## Search collection
+ 
+ `src/strategy/controller_action_space.hpp` defines the enum values and the
+diff --git a/docs/implementation-notes.md b/docs/implementation-notes.md
+index 0771cb16..aabd03cd 100644
+--- a/docs/implementation-notes.md
++++ b/docs/implementation-notes.md
+@@ -15,7 +15,7 @@ Engineering companion to `docs/calculus.md`: guards, deviations and representati
+ | S2 Reduce | `!inconsistent` | pure; pending/non-root reasons and a recorded large conflict are locked through deletion and collection, with live Refs forwarded. Conflict-state sparse collection retains root-fixed watches of the live prefix because root shortening is deferred; the later root closure must still see them. Proved root units need no clause lock. Isolated7448 adds opaque individual-victim payloads independent of tier/recency protection, retaining canonical/count selection. M1 names LRAT units before deletion; GC retires root reasons. Preparation-root guidance remains policy-owned. |
+ | S5 Lucky | `root && !conflict_valid` | root-phase model/proof strategy; instances 0–5 restore root state on failure. Structural instances 6 (GF(2) model and exact even-incidence refutation), 7 (one-hot GF(3) model and bipartite exact-one refutation), 8 (projected GF(2)), 9 (finite-domain CSP), 10 (balanced signatures), 11 (factorized arithmetic circuit), 12 (Černý automaton), 13 (lookup-table circuit), 14 (SIMON32 round circuit), 15 (st-connectivity RUP), 16 (signed-cardinality BDD proof), 17 (signed at-most-one block exact cover) and 18 (independent set under a layered exact-count encoding) run at the sparse, connected, non-probing root boundary. Instance 6 accepts complete arity-2--4 XOR groups after repeated-scope feedback; instance 7 accepts complete arity-2--4 ALO/pairwise-AMO groups with degree-two bipartite incidence and unequal color classes modulo three. Both perform count-only preflight before any proof byte, emit fresh definitional RAT gates, local RUP transitions and exact deletions, expose typed certificate bounds without a target-shaped default cutoff, and decline LRAT. Raw-summary strategies and instance 7's proof run at the untouched imported-root closure; structured-root proof work still precedes DirectCSP. Instance 10 checks its complete diagonal/boundary signature before owner-equivalent annealing. Instance 11 retains exact long-clause shape and an 80-clause raw tail, recognizes two ordered input blocks and a complemented comparator pair, then applies the owner's deterministic Miller–Rabin/Pollard-Rho bounds and productive completion fixpoint. Instance 12 derives states/word length from parser counts, recovers every transition and the initial image from live clauses, accepts only the two-letter cycle-plus-one-compression structure, and constructs the general Černý word. Instance 13 uses constant-time parser summaries to admit only uniform truth-table blocks, then recovers every ordered gate and missing output tuple before structural-support SIMD enumeration or occurrence-queued GAC with minimum-row/lookahead branching. AVX-512 evaluates 64 assignments per batch and AVX2 evaluates 32 with the same table semantics, support projection, work bound, interruption contract, and scalar model reconstruction; unsupported hardware retains the CSP path. Its work limits are typed and it declines after identity-changing compaction. Instance 14 admits the exact round-family census, recovers the secondary-key permutation and each round key half from clauses, runs the owner numeric word-level key scan under typed round/candidate limits, and reconstructs all state and gate auxiliaries. Instance 15 admits the exact owner variable and clause-width census before scanning the live database, verifies the complete generated clause multiset, and emits the owner's bounded-width crossing-sequence refutation as native RUP additions. Instance 16 requires an exact partition of every signed literal into complete ternary groups, validates the owner's cardinality inequalities with reduced BDDs, and eliminates variables by a minimum-fill order. Its count-only replay bounds BDD nodes and proof additions before atomic native DSR emission. Both proof strategies decline LRAT because they do not construct antecedent chains. DirectCSP also declines a witnessed oversized all-different clique without claiming UNSAT. SAT strategies publish only whole-CNF/root-validated models; failed structural search may retain only H advice where declared. Recognition failure, interruption, or exhausted bounded work returns NoOp without an UNSAT claim. | Instance 17 is LymphoSAT's sgen owner: exact recognition on the live clause set (blocks are the connected components of the at-most-one edges), the owner's deterministic minimum-remaining-rows DFS with its row order, then randomized restarts reseeded by the owner's stride; the node bounds are the owner's per-attempt node limit, restarts default to none because the owner's later phases are wall-clock bounded, and its bounded local-repair phase is not ported. Instance 18 keeps only the owner's recognition (its count equation over the exact-count encoding); the owner then solves family-specific graphs (transposition, Z-channel) by Hamming-weight decomposition and clique search, whereas Tactix uses a generic minimum-degree greedy with swap local search, so no graph family is recognized and the same code serves any instance of the encoding; auxiliaries complete by the shared propagation helper in `model.hpp`.
+ | S6 Walk | `root && H && nvars > 0` | root-phase policy operation; the dense-entry/sparse-resume representation transition is not exposed on a live decision trail |
+-| S8 LocalSearchGuidance | `root && propagated && H` | H-only import of one retained structural assignment into saved/target phases. Instances select DirectCSP, affine, parity, one-hot, or balanced-signature advice independently. DefaultPolicy rotates available sources immediately before a Walk slot, so the generic walker refines the selected structural candidate before CDCL consumes it. |
++| S8 LocalSearchGuidance | `root && propagated && H` | Target-only initialization from an exact retained candidate; saved/best, fixed/retired identities and unspecified phases are preserved. Instances bind producer/publication; kind-only aliases select its current publication. DefaultPolicy independently selects a private Walk seed through typed Walk parameters. Candidate provenance, charged common evaluation, staleness and replay belong to [controller interface](controller-interface.md#constructor-candidates-and-phase-consumers). |
+ | C1 SubsumeForward, C2 Strengthen, C3 Vivify | `root` | declared inprocessing boundary. C1 exposes every live victim. C2 additionally exposes each distinct `(victim, removed literal)` result plus its fused C1 deletion; proper C2 strengthening may use redundant partners, while C1 deletion still requires an irredundant or binary subsumer. |
+ | V1 Probe, V2 Backbone | `root && !conflict_valid` | root is the declared inprocessing boundary; conflict condition is abstract. V1 enumerates both phases of every unassigned variable; its canonical round alone keeps the reference BIG-head schedule. V2 remains binary-only. |
+ | V3 Substitute, V4 TransitiveReduce, V5 Sweep | `root` | declared inprocessing boundary; isolated7448 moves `TACTIX_NO_SWEEP` to scheduling only, preserving explicit and canonical public V5 calls. |
+diff --git a/include/tactix.h b/include/tactix.h
+index 4b374dec..25fb1cb1 100644
+--- a/include/tactix.h
++++ b/include/tactix.h
+@@ -562,6 +562,10 @@ typedef struct {
+   uint32_t even_break_base_milli;
+   const tactix_online_walk_score_point *score_curve;
+   int score_curve_count;
++  /* Exact LocalSearchGuidance instance identity, or zero for ordinary phases.
++   * Generation-bearing instances are returned by that action's enumeration.
++   * A stale/missing identity declines the Walk; it never substitutes a seed. */
++  uint64_t seed_candidate;
+ } tactix_online_walk_parameters;
+ typedef struct {
+   uint32_t maximum_clause_size;
+diff --git a/src/api/api.cpp b/src/api/api.cpp
+index 5366e72a..cff3c448 100644
+--- a/src/api/api.cpp
++++ b/src/api/api.cpp
+@@ -499,6 +499,7 @@ bool online_parameters(const tactix_online_parameters &source,
+     strategy::WalkParameters walk;
+     walk.step_budget = source_walk.step_budget;
+     walk.random_seed = source_walk.random_seed;
++    walk.seed_candidate = source_walk.seed_candidate;
+     if (source_walk.even_break_base_milli)
+       walk.even_break_base_milli = source_walk.even_break_base_milli;
+     if (source_walk.score_curve_count) {
+diff --git a/src/kernel/kernel.cpp b/src/kernel/kernel.cpp
+index 0e0f28f2..76f49273 100644
+--- a/src/kernel/kernel.cpp
++++ b/src/kernel/kernel.cpp
+@@ -21,30 +21,73 @@ void kernel_update_target_phases(Kernel &k) {
+     heuristics_update_target_phases(k);
+ }
+ 
+-void kernel_offer_local_search_hint(
++namespace {
++template<class Assignment, class Polarity>
++void publish_local_search_hint(
+     Kernel &k, strategy::LocalSearchKind kind,
+-    const std::vector<uint8_t> &assignment, uint64_t objective,
+-    bool objective_exact) {
+-  if (assignment.size() != k.nvars ||
+-      !strategy::valid_local_search_kind(kind))
+-    return;
+-  if (std::any_of(assignment.begin(), assignment.end(),
+-                  [](uint8_t value) { return value > 1; }))
++    const Assignment &assignment, Polarity polarity, uint64_t objective,
++    bool objective_exact, strategy::LocalSearchEffort effort) {
++  if (k.local_search_publication == strategy::LOCAL_SEARCH_GENERATION_MAX)
+     return;
+   auto &hint = k.local_search_hints[static_cast<size_t>(kind)];
+-  if (hint.available() && hint.objective_exact && objective_exact &&
+-      hint.objective <= objective)
+-    return;
++  // Each producer owns its within-search best. Scores from different calls
++  // need not describe the same decoded objective, even on an unchanged CNF.
++  // Publish the new candidate without making an ungrounded cross-call ranking.
+   hint.external_phases.assign(k.external_to_internal.size(), 0);
+   for (Var internal = 0; internal < k.nvars; ++internal) {
+     const Var external = k.internal_to_external[internal];
+     if (external >= hint.external_phases.size())
+       hint.external_phases.resize(static_cast<size_t>(external) + 1, 0);
+-    hint.external_phases[external] = assignment[internal] ? 1 : -1;
++    hint.external_phases[external] = polarity(assignment[internal]);
+   }
+   hint.objective = objective;
+   hint.objective_exact = objective_exact;
+   ++k.stats.local_search_hints_offered;
++  hint.id = (++k.local_search_publication << 8) |
++            static_cast<uint64_t>(kind);
++  hint.formula_touch_epoch = k.touch_epoch;
++  hint.formula_root_assignments = k.stats.root_assignments;
++  hint.external_variables = k.external_to_internal.size();
++  hint.effort = effort;
++}
++} // namespace
++
++void kernel_offer_local_search_hint(
++    Kernel &k, strategy::LocalSearchKind kind,
++    const std::vector<uint8_t> &assignment, uint64_t objective,
++    bool objective_exact, strategy::LocalSearchEffort effort) {
++  if (assignment.empty() || assignment.size() != k.nvars ||
++      !strategy::valid_local_search_kind(kind) ||
++      std::any_of(assignment.begin(), assignment.end(),
++                  [](uint8_t value) { return value > 1; }))
++    return;
++  publish_local_search_hint(k, kind, assignment,
++      [](uint8_t value) { return int8_t(value ? 1 : -1); },
++      objective, objective_exact, effort);
++}
++
++void kernel_offer_local_search_partial_hint(
++    Kernel &k, strategy::LocalSearchKind kind,
++    const std::vector<int8_t> &assignment, uint64_t objective,
++    bool objective_exact, strategy::LocalSearchEffort effort) {
++  if (assignment.size() != k.nvars ||
++      !strategy::valid_local_search_kind(kind) ||
++      std::any_of(assignment.begin(), assignment.end(),
++                  [](int8_t value) { return value < -1 || value > 1; }) ||
++      std::none_of(assignment.begin(), assignment.end(),
++                   [](int8_t value) { return value != 0; }))
++    return;
++  publish_local_search_hint(k, kind, assignment,
++      [](int8_t value) { return value; }, objective, objective_exact, effort);
++}
++
++const strategy::LocalSearchHint *kernel_local_search_hint(const Kernel &k,
++                                                         uint64_t candidate) {
++  if (!strategy::valid_local_search_candidate(candidate))
++    return nullptr;
++  const auto &hint = k.local_search_hints[static_cast<size_t>(
++      strategy::local_search_candidate_kind(candidate))];
++  return hint.available() && hint.id == candidate ? &hint : nullptr;
+ }
+ 
+ // The kernel does NOT own `H`: it is a non-owning `Heuristics *`
+diff --git a/src/kernel/kernel.hpp b/src/kernel/kernel.hpp
+index 67ebd028..7e7aabf7 100644
+--- a/src/kernel/kernel.hpp
++++ b/src/kernel/kernel.hpp
+@@ -620,9 +620,16 @@ struct Stats {
+   uint64_t signed_cardinality_proof_interrupted = 0;
+   uint64_t local_search_hints_offered = 0;
+   uint64_t local_search_hints_applied = 0;
++  uint64_t local_search_hints_stale = 0;
++  uint64_t walk_seed_imports = 0;
++  uint64_t walk_seed_steps = 0;
++  uint64_t walk_seed_budget_exhausted = 0;
++  uint64_t walk_seed_interrupted = 0;
++  uint64_t walk_seed_ordinary_unsat = UINT64_MAX;
++  uint64_t walk_seed_candidate_unsat = UINT64_MAX;
+   uint64_t walks = 0;         // S6 Walk applications (policy op)
+   uint64_t walk_flips = 0;    // literal flips
+-  uint64_t walk_steps = 0;    // occurrence entries scanned (kissat walk_steps)
++  uint64_t walk_steps = 0;    // native occurrence visits plus explicit seed work
+   uint64_t walk_improved = 0; // walks that lowered the unsatisfied count
+   uint64_t walk_minimum = UINT64_MAX;
+   uint64_t warmups = 0; // root decision/propagation sweeps before Walk
+@@ -1467,6 +1474,9 @@ struct Kernel {
+   // advice: failed model searches never alter F, the trail, or proof state.
+   std::array<strategy::LocalSearchHint, strategy::LOCAL_SEARCH_KIND_COUNT>
+       local_search_hints;
++  // Publication identity is solver state, independent of resettable telemetry.
++  uint64_t local_search_publication = 0;
++  uint64_t walk_seed_candidate = 0;
+   uint64_t work_budget = 0;
+   // Work already charged before a rule call against a cumulative dose.
+   // Vivify uses this to pose Kissat's successive absolute tier ceilings.
+@@ -1697,7 +1707,15 @@ void kernel_update_target_phases(Kernel &);
+ void kernel_offer_local_search_hint(Kernel &, strategy::LocalSearchKind,
+                                     const std::vector<uint8_t> &assignment,
+                                     uint64_t objective = UINT64_MAX,
+-                                    bool objective_exact = false);
++                                    bool objective_exact = false,
++                                    strategy::LocalSearchEffort effort = {});
++// Signed internal-variable assignment: zero leaves that variable unspecified.
++void kernel_offer_local_search_partial_hint(
++    Kernel &, strategy::LocalSearchKind, const std::vector<int8_t> &assignment,
++    uint64_t objective = UINT64_MAX, bool objective_exact = false,
++    strategy::LocalSearchEffort effort = {});
++const strategy::LocalSearchHint *kernel_local_search_hint(const Kernel &,
++                                                         uint64_t candidate);
+ 
+ Var kernel_new_extension_vars(Kernel &, uint32_t count);
+ 
+diff --git a/src/main.cpp b/src/main.cpp
+index ec4ff93f..9f1f5fc9 100644
+--- a/src/main.cpp
++++ b/src/main.cpp
+@@ -1249,6 +1249,12 @@ int main(int argc, char **argv) {
+            (unsigned long long)kernel.stats.walk_improved,
+            (unsigned long long)kernel.stats.walk_flips,
+            (unsigned long long)kernel.stats.walk_steps);
++    printf("c walkseed    %llu imports, %llu steps, %llu budget stops, %llu interrupted, %llu stale hints\n",
++           (unsigned long long)kernel.stats.walk_seed_imports,
++           (unsigned long long)kernel.stats.walk_seed_steps,
++           (unsigned long long)kernel.stats.walk_seed_budget_exhausted,
++           (unsigned long long)kernel.stats.walk_seed_interrupted,
++           (unsigned long long)kernel.stats.local_search_hints_stale);
+     printf("c randec      %llu sequences, %llu random decisions\n",
+            (unsigned long long)kernel.stats.random_sequences,
+            (unsigned long long)kernel.stats.random_decisions);
+diff --git a/src/policies/default_policy.cpp b/src/policies/default_policy.cpp
+index 6505433a..c828b044 100644
+--- a/src/policies/default_policy.cpp
++++ b/src/policies/default_policy.cpp
+@@ -4302,21 +4302,12 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
+             return out;
+           });
+         }
+-        // Structural searches retain their best complete assignment even when
+-        // it is not a model.  Import one source in a typed round-robin before
+-        // generic Walk so Walk can refine it and CDCL later consumes the best
+-        // result through the ordinary saved/target phase mechanism.
+-        if (config_.rephase.structural_walk_seed &&
+-            local_search_guidance_guard(k))
+-          (void)execution::complete_action(completion_, FeedbackKind::Rule,
+-              "LocalSearchGuidance", INSTANCE_CANONICAL, [&] {
+-                auto spec = execution::native_rule_feedback(k, "LocalSearchGuidance",
+-                    INSTANCE_CANONICAL, "cursor=" + std::to_string(structural_seed_cursor_) + ";rotation=");
+-                for (const auto kind : config_.rephase.structural_seed_rotation)
+-                  spec.description.description += std::to_string(static_cast<unsigned>(kind)) + ',';
+-                return spec;
+-              }, [&] { return execution::execute_action(k, execution::LocalSearchRotationRequest{
+-                  config_.rephase.structural_seed_rotation, structural_seed_cursor_}); });
++        // Select an exact retained publication. Walk imports it privately;
++        // constructor advice never overwrites saved/best phases at this boundary.
++        const uint64_t candidate = config_.rephase.structural_walk_seed
++            ? local_search_guidance_select_next(k,
++                config_.rephase.structural_seed_rotation, structural_seed_cursor_)
++            : 0;
+         const uint64_t reference = walk_effort_reference(k);
+         // Kissat seeds the walker from the search policy's shared generator.
+         // DefaultBranching owns that generator in Tactix; snapshot it here so
+@@ -4333,9 +4324,10 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
+               auto parameters = strategy::WalkParameters::from_kernel(k);
+               parameters.step_budget = allowance;
+               parameters.random_seed = seed;
++              parameters.seed_candidate = candidate;
+               spec.description.invocation->parameters = std::move(parameters);
+               return spec;
+-            }, [&] { return execution::execute_action(k, execution::WalkRequest{allowance, seed}); });
++            }, [&] { return execution::execute_action(k, execution::WalkRequest{allowance, seed, candidate}); });
+       } else {
+         const DefaultRephaseSlot effective =
+             slot == DefaultRephaseSlot::Walk
+diff --git a/src/policies/ops/local_search/local_search.cpp b/src/policies/ops/local_search/local_search.cpp
+index 1bd3b410..97814412 100644
+--- a/src/policies/ops/local_search/local_search.cpp
++++ b/src/policies/ops/local_search/local_search.cpp
+@@ -14,14 +14,14 @@ RuleEligibility local_search_guidance_guard(const Kernel &k) {
+       .fact("heuristics-attached", k.h != nullptr);
+ }
+ 
+-ApplyResult local_search_guidance_apply_kind(
+-    Kernel &k, strategy::LocalSearchKind kind) {
++ApplyResult local_search_guidance_apply_candidate(Kernel &k, uint64_t candidate) {
+   assert(local_search_guidance_guard(k));
+-  if (!strategy::valid_local_search_kind(kind))
+-    return ApplyResult::NoOp;
+-  const auto &hint = k.local_search_hints[static_cast<size_t>(kind)];
+-  if (!hint.available())
++  const auto *selected = kernel_local_search_hint(k, candidate);
++  if (!selected) {
++    ++k.stats.local_search_hints_stale;
+     return ApplyResult::NoOp;
++  }
++  const auto &hint = *selected;
+   bool changed = false;
+   for (Var external = 0; external < hint.external_phases.size(); ++external) {
+     const int8_t phase = hint.external_phases[external];
+@@ -32,21 +32,29 @@ ApplyResult local_search_guidance_apply_kind(
+         kernel_var_retired(k, internal) ||
+         k.value(make_lit(internal, false)))
+       continue;
+-    changed |= k.h->saved[internal] != phase;
+-    k.h->saved[internal] = phase;
++    changed |= k.h->target[internal] != phase;
++    k.h->target[internal] = phase;
+   }
+   if (!changed)
+     return ApplyResult::NoOp;
+-  std::copy(k.h->saved.begin(), k.h->saved.end(), k.h->target.begin());
+   k.h->target_assigned = 0;
+   ++k.stats.local_search_hints_applied;
+   return ApplyResult::Ok;
+ }
+ 
+-ApplyResult local_search_guidance_apply_next(
+-    Kernel &k, const std::vector<strategy::LocalSearchKind> &rotation,
+-    uint64_t &cursor) {
++ApplyResult local_search_guidance_apply_kind(
++    Kernel &k, strategy::LocalSearchKind kind) {
+   assert(local_search_guidance_guard(k));
++  if (!strategy::valid_local_search_kind(kind))
++    return ApplyResult::NoOp;
++  const auto &hint = k.local_search_hints[static_cast<size_t>(kind)];
++  return hint.available() ? local_search_guidance_apply_candidate(k, hint.id)
++                          : ApplyResult::NoOp;
++}
++
++uint64_t local_search_guidance_select_next(
++    const Kernel &k, const std::vector<strategy::LocalSearchKind> &rotation,
++    uint64_t &cursor) {
+   for (size_t tried = 0; tried < rotation.size(); ++tried) {
+     const strategy::LocalSearchKind kind =
+         rotation[cursor++ % rotation.size()];
+@@ -54,9 +62,18 @@ ApplyResult local_search_guidance_apply_next(
+       continue;
+     const auto &hint = k.local_search_hints[static_cast<size_t>(kind)];
+     if (hint.available())
+-      return local_search_guidance_apply_kind(k, kind);
++      return hint.id;
+   }
+-  return ApplyResult::NoOp;
++  return 0;
++}
++
++ApplyResult local_search_guidance_apply_next(
++    Kernel &k, const std::vector<strategy::LocalSearchKind> &rotation,
++    uint64_t &cursor) {
++  assert(local_search_guidance_guard(k));
++  const uint64_t candidate = local_search_guidance_select_next(k, rotation, cursor);
++  return candidate ? local_search_guidance_apply_candidate(k, candidate)
++                   : ApplyResult::NoOp;
+ }
+ 
+ ApplyResult local_search_guidance_apply(Kernel &k) {
+@@ -73,7 +90,7 @@ static uint32_t local_search_guidance_instances(Kernel &k, uint64_t *out,
+   uint32_t n = 0;
+   for (size_t i = 0; i < strategy::LOCAL_SEARCH_KIND_COUNT && n < cap; ++i)
+     if (k.local_search_hints[i].available())
+-      out[n++] = i;
++      out[n++] = k.local_search_hints[i].id;
+   return n;
+ }
+ 
+@@ -82,7 +99,7 @@ static ApplyResult local_search_guidance_apply_instance(Kernel &k,
+   if (instance == INSTANCE_CANONICAL)
+     return local_search_guidance_apply(k);
+   if (instance >= strategy::LOCAL_SEARCH_KIND_COUNT)
+-    return ApplyResult::NoOp;
++    return local_search_guidance_apply_candidate(k, instance);
+   return local_search_guidance_apply_kind(
+       k, static_cast<strategy::LocalSearchKind>(instance));
+ }
+diff --git a/src/policies/ops/local_search/local_search.hpp b/src/policies/ops/local_search/local_search.hpp
+index f6c009a1..1df08632 100644
+--- a/src/policies/ops/local_search/local_search.hpp
++++ b/src/policies/ops/local_search/local_search.hpp
+@@ -9,6 +9,9 @@ RuleEligibility local_search_guidance_guard(const Kernel &);
+ ApplyResult local_search_guidance_apply(Kernel &);
+ ApplyResult local_search_guidance_apply_kind(Kernel &,
+                                              strategy::LocalSearchKind);
++ApplyResult local_search_guidance_apply_candidate(Kernel &, uint64_t);
++uint64_t local_search_guidance_select_next(
++    const Kernel &, const std::vector<strategy::LocalSearchKind> &, uint64_t &cursor);
+ ApplyResult local_search_guidance_apply_next(
+     Kernel &, const std::vector<strategy::LocalSearchKind> &, uint64_t &cursor);
+ 
+diff --git a/src/policies/ops/walk/walk.cpp b/src/policies/ops/walk/walk.cpp
+index 9b78a83b..77c29cf0 100644
+--- a/src/policies/ops/walk/walk.cpp
++++ b/src/policies/ops/walk/walk.cpp
+@@ -228,6 +228,80 @@ void init_counters(Walker &w) {
+     w.initial_binary_unsat += w.count[c] == 0;
+ }
+ 
++// The same walkable current CNF evaluates ordinary phases and imported advice.
++// Producer scores are intentionally ignored. Seed work shares the explicit
++// allowance: one item per phase/identity visited and per evaluated literal.
++// Nothing in this preparation writes CDCL phase memory.
++bool seed_candidate(Walker &w, Kernel &k,
++                    const strategy::LocalSearchHint &hint, uint64_t limit,
++                    uint32_t &ordinary_unsat) {
++  const auto charge = [&] {
++    if (kernel_rule_interrupt(k, k.stats.walk_seed_interrupted))
++      return false;
++    if (w.steps == limit) {
++      ++k.stats.walk_seed_budget_exhausted;
++      return false;
++    }
++    ++w.steps;
++    return true;
++  };
++  w.values.resize(2 * k.nvars);
++  w.best_values.resize(k.nvars);
++  for (Var v = 0; v < k.nvars; ++v) {
++    if (!charge()) return false;
++    const Lit lit = make_lit(v, false);
++    int8_t value = k.value(lit);
++    if (!value) value = negated(heuristics_decide_lit(k, v)) ? -1 : 1;
++    w.values[lit] = value;
++    w.values[lit ^ 1] = static_cast<int8_t>(-value);
++    w.best_values[v] = value;
++  }
++  ordinary_unsat = 0;
++  for (uint32_t c = 0; c < w.nclauses; ++c) {
++    bool satisfied = false;
++    for (uint32_t i = w.cl_beg[c]; i < w.cl_beg[c + 1]; ++i) {
++      if (!charge()) return false;
++      satisfied |= w.values[w.cl_lits[i]] > 0;
++    }
++    ordinary_unsat += !satisfied;
++  }
++  bool imported = false;
++  for (size_t external = 0; external < hint.external_phases.size(); ++external) {
++    if (!charge()) return false;
++    const int8_t phase = hint.external_phases[external];
++    if (!phase || external >= k.external_to_internal.size()) continue;
++    const Var v = k.external_to_internal[external];
++    if (v == INVALID_VAR || v >= k.nvars || kernel_var_retired(k, v) ||
++        k.value(make_lit(v, false))) continue;
++    imported = true;
++    w.values[make_lit(v, false)] = phase;
++    w.values[make_lit(v, true)] = static_cast<int8_t>(-phase);
++    w.best_values[v] = phase;
++  }
++  if (!imported) return false;
++  w.count.assign(w.nclauses, 0);
++  w.pos.assign(w.nclauses, 0);
++  for (uint32_t c = 0; c < w.nclauses; ++c) {
++    uint32_t satisfied = 0;
++    for (uint32_t i = w.cl_beg[c]; i < w.cl_beg[c + 1]; ++i) {
++      if (!charge()) return false;
++      satisfied += w.values[w.cl_lits[i]] > 0;
++    }
++    w.count[c] = satisfied;
++    if (!satisfied) {
++      w.pos[c] = static_cast<uint32_t>(w.unsat.size());
++      w.unsat.push_back(c);
++    }
++  }
++  w.initial = w.minimum = static_cast<uint32_t>(w.unsat.size());
++  for (uint32_t c = 0; c < w.binary_clauses; ++c)
++    w.initial_binary_unsat += w.count[c] == 0;
++  ++k.stats.walk_seed_imports;
++  k.stats.walk_seed_ordinary_unsat = ordinary_unsat;
++  k.stats.walk_seed_candidate_unsat = w.initial;
++  return true;
++}
++
+ // --- the flip loop ---------------------------------------------------------
+ 
+ inline void push_unsat(Walker &w, uint32_t c) {
+@@ -417,6 +491,17 @@ RuleEligibility walk_guard(const Kernel &k) {
+ 
+ static ApplyResult walk_apply_exact_steps(Kernel &k, uint64_t steps) {
+   assert(walk_guard(k));
++  const auto *hint = kernel_local_search_hint(k, k.walk_seed_candidate);
++  if (k.walk_seed_candidate && !hint) {
++    ++k.stats.local_search_hints_stale;
++    return ApplyResult::NoOp;
++  }
++  if (hint && !steps) {
++    ++k.stats.walk_seed_budget_exhausted;
++    return ApplyResult::NoOp;
++  }
++  if (hint && kernel_rule_interrupt(k, k.stats.walk_seed_interrupted))
++    return ApplyResult::NoOp;
+   k.stats.walks++;
+   // Kissat's non-null dense entry removes repeated binary watches before it
+   // saves the irredundant pairs consumed by Walk.  Deduplicate at the same
+@@ -428,8 +513,20 @@ static ApplyResult walk_apply_exact_steps(Kernel &k, uint64_t steps) {
+   w.rng = k.walk_random_seed ^ k.stats.walks;
+   bool improved = false;
+   if (build_table(w, k)) {
+-    seed_values(w, k);
+-    init_counters(w);
++    uint32_t export_threshold = 0;
++    if (hint) {
++      const bool ready = seed_candidate(w, k, *hint, steps, export_threshold);
++      k.stats.walk_seed_steps += w.steps;
++      if (!ready) {
++        kernel_resume_walk_watches(k);
++        k.stats.walk_steps += w.steps;
++        return ApplyResult::NoOp;
++      }
++    } else {
++      seed_values(w, k);
++      init_counters(w);
++      export_threshold = w.initial;
++    }
+     local_search(w, steps);
+     // Kissat's walker temporarily repurposes every large-watch list as an
+     // occurrence index.  Leaving dense mode consequently reconnects all large
+@@ -442,14 +539,21 @@ static ApplyResult walk_apply_exact_steps(Kernel &k, uint64_t steps) {
+     k.stats.walk_flips += w.flips;
+     k.stats.walk_steps += w.steps;
+     k.stats.walk_minimum = w.minimum;
+-    if (w.minimum < w.initial) {
++    if (w.minimum < export_threshold) {
+       sync_best(w); // materialise the winning prefix into best_values
+       for (Var v = 0; v < k.nvars; v++)
+-        if (!k.value(make_lit(v, false))) // fixed literals keep their phase
++        if (!k.value(make_lit(v, false)) &&
++            (!hint || !kernel_var_retired(k, v)))
+           k.h->saved[v] = w.best_values[v];
+       k.stats.walk_improved++;
+       improved = true;
+     }
++  } else if (hint) {
++    // No current walkable objective exists on which to compare the advice.
++    // Dense-entry cleanup may have retired clauses; restore sparse watches,
++    // but decline the seeded request without touching phase memory.
++    kernel_resume_walk_watches(k);
++    return ApplyResult::NoOp;
+   }
+   // The rephase tail every type runs (kissat reset_phases): the fresh saved
+   // phases become the target ones. `best` is not consumed here — kissat resets
+diff --git a/src/policies/ops/walk/walk.hpp b/src/policies/ops/walk/walk.hpp
+index 1f1f4620..09dcee32 100644
+--- a/src/policies/ops/walk/walk.hpp
++++ b/src/policies/ops/walk/walk.hpp
+@@ -21,6 +21,11 @@ namespace tactix {
+ // occurrence-list entries scanned (kissat's `walk_steps`). INSTANCE_CANONICAL
+ // takes a bounded budget from `Kernel::work_budget`, otherwise the typed
+ // reference default. Every explicit payload, including zero, is exact.
++// A typed seed_candidate names an exact retained publication. Seeded calls
++// additionally charge phase/identity visits and two evaluations of the same
++// current Walk CNF; export requires improvement over ordinary starting phases,
++// even when the candidate itself required zero flips. An incomplete import,
++// stale identity or zero seed allowance leaves all phase memories untouched.
+ 
+ RuleEligibility walk_guard(const Kernel &);
+ ApplyResult walk_apply(Kernel &);                 // canonical: budgeted round
+diff --git a/src/policies/random_controller_policy.cpp b/src/policies/random_controller_policy.cpp
+index 2bb644f1..4bf221f9 100644
+--- a/src/policies/random_controller_policy.cpp
++++ b/src/policies/random_controller_policy.cpp
+@@ -271,6 +271,21 @@ bool RandomControllerSelector::choose(
+           }
+         }
+       }
++      // Guidance is a policy choice over the pure candidate snapshot. Bind
++      // the exact publication in the request, including an explicit unseeded
++      // Walk choice, so replacement cannot silently change a queued action.
++      if (!observation.local_search_candidates.empty()) {
++        if (request.invocation.rule == "Walk") {
++          auto &parameters = std::get<WalkParameters>(request.invocation.parameters);
++          const auto selected = draw(observation.local_search_candidates.size() + 1);
++          parameters.seed_candidate = selected < observation.local_search_candidates.size()
++              ? observation.local_search_candidates[selected].id : 0;
++        } else if (request.invocation.rule == "LocalSearchGuidance") {
++          request.invocation.granularity = InvocationGranularity::OneInstance;
++          request.invocation.instances = {observation.local_search_candidates[
++              draw(observation.local_search_candidates.size())].id};
++        }
++      }
+     }
+     if (stop && *stop) {
+       error = "controller selection interrupted";
+diff --git a/src/rules/lucky/affine_model.cpp b/src/rules/lucky/affine_model.cpp
+index 45d2a8be..b9fcdf52 100644
+--- a/src/rules/lucky/affine_model.cpp
++++ b/src/rules/lucky/affine_model.cpp
+@@ -53,7 +53,8 @@ ApplyResult affine_model_apply(Kernel &k) {
+     k.stats.affine_model_budget += meter.exhausted() || admission_failed;
+     if (result != ApplyResult::Sat && !guidance.empty())
+       kernel_offer_local_search_hint(k, strategy::LocalSearchKind::Affine,
+-                                     guidance);
++                                     guidance, UINT64_MAX, false,
++                                     {meter.used(), strategy::LocalSearchEffortUnit::AffineWork});
+     return result;
+   };
+   const auto budget_exit = [&] {
+diff --git a/src/rules/lucky/balanced_signature_model.cpp b/src/rules/lucky/balanced_signature_model.cpp
+index f537ab65..ea1f0772 100644
+--- a/src/rules/lucky/balanced_signature_model.cpp
++++ b/src/rules/lucky/balanced_signature_model.cpp
+@@ -430,6 +430,7 @@ RuleEligibility balanced_signature_model_guard(const Kernel &k) {
+ }
+ 
+ ApplyResult balanced_signature_model_apply(Kernel &k) {
++  const uint64_t steps_before = k.stats.balanced_signature_steps;
+   assert(balanced_signature_model_guard(k));
+   ++k.stats.balanced_signature_calls;
+   const strategy::BalancedSignatureModelParameters parameters =
+@@ -452,7 +453,9 @@ ApplyResult balanced_signature_model_apply(Kernel &k) {
+   std::vector<uint8_t> hint = boolean_assignment(signed_assignment);
+   kernel_offer_local_search_hint(k,
+                                  strategy::LocalSearchKind::BalancedSignature,
+-                                 hint, solution.objective, true);
++                                 hint, solution.objective, true,
++                                 {k.stats.balanced_signature_steps - steps_before,
++                                  strategy::LocalSearchEffortUnit::SignatureSteps});
+   if (!solved)
+     return ApplyResult::NoOp;
+ 
+diff --git a/src/rules/lucky/onehot_model.cpp b/src/rules/lucky/onehot_model.cpp
+index 30ffd4f4..62e9b054 100644
+--- a/src/rules/lucky/onehot_model.cpp
++++ b/src/rules/lucky/onehot_model.cpp
+@@ -656,7 +656,8 @@ bool direct_csp_model(Kernel &k,
+     std::vector<uint8_t> assignment =
+         direct_csp_boolean_assignment(csp, best_value, k.nvars);
+     kernel_offer_local_search_hint(k, strategy::LocalSearchKind::DirectCsp,
+-                                   assignment, best_seen, true);
++                                   assignment, best_seen, true,
++                                   {work, strategy::LocalSearchEffortUnit::CspWork});
+   }
+   direct_csp_trace_row("stopped", best_seen, work, work_limit);
+   return false;
+@@ -701,6 +702,7 @@ ApplyResult direct_csp_model_apply(Kernel &k) {
+ }
+ 
+ ApplyResult onehot_model_apply(Kernel &k) {
++  const uint64_t candidates_before = k.stats.onehot_model_candidates;
+   assert(onehot_model_guard(k));
+   ++k.stats.onehot_model_calls;
+   const strategy::OnehotModelParameters parameters =
+@@ -963,13 +965,17 @@ ApplyResult onehot_model_apply(Kernel &k) {
+     if (kernel_rule_interrupt(k, k.stats.onehot_model_interrupted)) {
+       if (!guidance.empty())
+         kernel_offer_local_search_hint(k, strategy::LocalSearchKind::Onehot,
+-                                       guidance);
++                                       guidance, UINT64_MAX, false,
++                                       {k.stats.onehot_model_candidates - candidates_before,
++                                        strategy::LocalSearchEffortUnit::CandidateChecks});
+       return ApplyResult::NoOp;
+     }
+   }
+   if (!guidance.empty())
+     kernel_offer_local_search_hint(k, strategy::LocalSearchKind::Onehot,
+-                                   guidance);
++                                   guidance, UINT64_MAX, false,
++                                   {k.stats.onehot_model_candidates - candidates_before,
++                                    strategy::LocalSearchEffortUnit::CandidateChecks});
+   return ApplyResult::NoOp;
+ }
+ 
+diff --git a/src/rules/lucky/parity_model.cpp b/src/rules/lucky/parity_model.cpp
+index be36594e..1b37c493 100644
+--- a/src/rules/lucky/parity_model.cpp
++++ b/src/rules/lucky/parity_model.cpp
+@@ -84,6 +84,7 @@ RuleEligibility parity_model_guard(const Kernel &k) {
+ }
+ 
+ ApplyResult parity_model_apply(Kernel &k) {
++  const uint64_t candidates_before = k.stats.parity_model_candidates;
+   assert(parity_model_guard(k));
+   ++k.stats.parity_model_calls;
+   const strategy::ParityModelParameters parameters =
+@@ -248,13 +249,17 @@ ApplyResult parity_model_apply(Kernel &k) {
+       guidance = assignment;
+     if (kernel_rule_interrupt(k, k.stats.parity_model_interrupted)) {
+       kernel_offer_local_search_hint(k, strategy::LocalSearchKind::Parity,
+-                                     guidance);
++                                     guidance, UINT64_MAX, false,
++                                     {k.stats.parity_model_candidates - candidates_before,
++                                      strategy::LocalSearchEffortUnit::CandidateChecks});
+       return ApplyResult::NoOp;
+     }
+   }
+   if (!guidance.empty())
+     kernel_offer_local_search_hint(k, strategy::LocalSearchKind::Parity,
+-                                   guidance);
++                                   guidance, UINT64_MAX, false,
++                                   {k.stats.parity_model_candidates - candidates_before,
++                                    strategy::LocalSearchEffortUnit::CandidateChecks});
+   return ApplyResult::NoOp;
+ }
+ 
+diff --git a/src/strategy/controller_action_space.hpp b/src/strategy/controller_action_space.hpp
+index d1b4761a..464af327 100644
+--- a/src/strategy/controller_action_space.hpp
++++ b/src/strategy/controller_action_space.hpp
+@@ -11,7 +11,7 @@
+ 
+ namespace tactix::strategy::controller {
+ 
+-inline constexpr uint32_t ACTION_SPACE_VERSION = 1;
++inline constexpr uint32_t ACTION_SPACE_VERSION = 2;
+ 
+ enum class Branching : uint8_t { Vmtf, Evsids };
+ enum class Restart : uint8_t { AdaptiveGlue, Reluctant };
+diff --git a/src/strategy/controller_observation.hpp b/src/strategy/controller_observation.hpp
+index 2f297392..7cc6cb38 100644
+--- a/src/strategy/controller_observation.hpp
++++ b/src/strategy/controller_observation.hpp
+@@ -31,6 +31,7 @@ struct Observation {
+   uint64_t reluctant_u = 1, reluctant_v = 1, reluctant_wait = 0;
+   double fast_glue = 0, slow_glue = 0;
+   Stats cumulative;
++  std::vector<LocalSearchCandidateInfo> local_search_candidates;
+   std::optional<ActionResult> last_action;
+   // Optional native-policy scheduling state. Root-controller snapshots keep
+   // their named configuration fields; other policies can retain native clocks.
+@@ -54,6 +55,8 @@ inline Observation observe_kernel(const Kernel &k) {
+   result.conflict = k.conflict_valid;
+   result.propagation_fixpoint = kernel_propagation_fixpoint(k);
+   result.cumulative = k.stats;
++  for (const auto &hint : k.local_search_hints)
++    if (hint.available()) result.local_search_candidates.push_back(hint);
+   return result;
+ }
+ 
+diff --git a/src/strategy/feedback_statistics.inc b/src/strategy/feedback_statistics.inc
+index d315d4c8..24513655 100644
+--- a/src/strategy/feedback_statistics.inc
++++ b/src/strategy/feedback_statistics.inc
+@@ -153,6 +153,13 @@ TACTIX_FEEDBACK_SCALAR(signed_cardinality_proof_unsat)
+ TACTIX_FEEDBACK_SCALAR(signed_cardinality_proof_interrupted)
+ TACTIX_FEEDBACK_SCALAR(local_search_hints_offered)
+ TACTIX_FEEDBACK_SCALAR(local_search_hints_applied)
++TACTIX_FEEDBACK_SCALAR(local_search_hints_stale)
++TACTIX_FEEDBACK_SCALAR(walk_seed_imports)
++TACTIX_FEEDBACK_SCALAR(walk_seed_steps)
++TACTIX_FEEDBACK_SCALAR(walk_seed_budget_exhausted)
++TACTIX_FEEDBACK_SCALAR(walk_seed_interrupted)
++TACTIX_FEEDBACK_SCALAR(walk_seed_ordinary_unsat)
++TACTIX_FEEDBACK_SCALAR(walk_seed_candidate_unsat)
+ TACTIX_FEEDBACK_SCALAR(walks)
+ TACTIX_FEEDBACK_SCALAR(walk_flips)
+ TACTIX_FEEDBACK_SCALAR(walk_steps)
+diff --git a/src/strategy/feedback_trace.cpp b/src/strategy/feedback_trace.cpp
+index d40eddeb..9081e249 100644
+--- a/src/strategy/feedback_trace.cpp
++++ b/src/strategy/feedback_trace.cpp
+@@ -150,6 +150,21 @@ std::string serialize_observation(const Observation &value) {
+   out << '}';
+   if (!value.native_policy_state.empty())
+     out << ",\"native_policy_state\":" << quote(value.native_policy_state);
++  out << ",\"local_search_candidates\":[";
++  bool first_candidate = true;
++  for (const auto &candidate : value.local_search_candidates) {
++    if (!first_candidate) out << ',';
++    first_candidate = false;
++    out << "{\"id\":" << candidate.id
++        << ",\"formula_touch_epoch\":" << candidate.formula_touch_epoch
++        << ",\"formula_root_assignments\":" << candidate.formula_root_assignments
++        << ",\"external_variables\":" << candidate.external_variables
++        << ",\"objective\":" << candidate.objective
++        << ",\"objective_exact\":" << candidate.objective_exact
++        << ",\"effort\":" << candidate.effort.amount
++        << ",\"effort_unit\":" << unsigned(candidate.effort.unit) << '}';
++  }
++  out << ']';
+   out << '}';
+   return out.str();
+ }
+diff --git a/src/strategy/guidance_execution.hpp b/src/strategy/guidance_execution.hpp
+index c627c832..2e5cdb6a 100644
+--- a/src/strategy/guidance_execution.hpp
++++ b/src/strategy/guidance_execution.hpp
+@@ -26,6 +26,7 @@ struct LocalSearchRotationRequest {
+ struct WalkRequest {
+   uint64_t allowance;
+   uint64_t seed;
++  uint64_t seed_candidate = 0;
+ };
+ 
+ inline ApplyResult execute_action(Kernel &k, const ReorderRequest &request) {
+@@ -58,7 +59,11 @@ inline ApplyResult execute_action(Kernel &k, const WalkRequest &request) {
+   WorkSettingsScope work(k, {request.allowance, std::nullopt, std::nullopt,
+                             std::nullopt}, WorkSettingsExit::ClearBudget);
+   k.walk_random_seed = request.seed;
+-  return walk_apply(k);
++  const uint64_t previous_candidate = k.walk_seed_candidate;
++  k.walk_seed_candidate = request.seed_candidate;
++  const auto result = walk_apply(k);
++  k.walk_seed_candidate = previous_candidate;
++  return result;
+ }
+ 
+ struct WarmupRequest {};
+diff --git a/src/strategy/local_search.hpp b/src/strategy/local_search.hpp
+index 969f39af..a1ee2739 100644
+--- a/src/strategy/local_search.hpp
++++ b/src/strategy/local_search.hpp
+@@ -1,12 +1,13 @@
+ #pragma once
+ 
+ #include <cstdint>
++#include <cstddef>
+ #include <vector>
+ 
+ namespace tactix::strategy {
+ 
+ // A structural model search can either finish with a verified model or leave
+-// its best complete assignment as search guidance.  Kinds stay distinct so a
++// its best partial or complete assignment as search guidance. Kinds stay distinct so a
+ // policy can tune, rotate, or compose them without comparing unlike objective
+ // functions (violated CSP edges, affine residuals, and CNF clauses).
+ enum class LocalSearchKind : uint8_t {
+@@ -25,12 +26,40 @@ constexpr bool valid_local_search_kind(LocalSearchKind kind) {
+   return static_cast<size_t>(kind) < LOCAL_SEARCH_KIND_COUNT;
+ }
+ 
+-struct LocalSearchHint {
++// Public candidate payload: low eight bits name the producer, the remaining
++// bits name one publication. Zero is reserved for an explicitly unseeded Walk.
++// Old kind-only LocalSearchGuidance payloads remain aliases for the latest
++// candidate; enumerated identities always bind an exact publication.
++constexpr uint64_t LOCAL_SEARCH_GENERATION_MAX = UINT64_MAX >> 8;
++constexpr LocalSearchKind local_search_candidate_kind(uint64_t id) {
++  return static_cast<LocalSearchKind>(id & 255);
++}
++constexpr bool valid_local_search_candidate(uint64_t id) {
++  return (id >> 8) && valid_local_search_kind(local_search_candidate_kind(id));
++}
++
++enum class LocalSearchEffortUnit : uint8_t {
++  Unspecified, CspWork, AffineWork, CandidateChecks, SignatureSteps, GraphWork
++};
++struct LocalSearchEffort {
++  uint64_t amount = 0;
++  LocalSearchEffortUnit unit = LocalSearchEffortUnit::Unspecified;
++};
++
++struct LocalSearchCandidateInfo {
++  uint64_t id = 0;
++  uint64_t formula_touch_epoch = 0;
++  uint64_t formula_root_assignments = 0;
++  uint64_t external_variables = 0;
++  uint64_t objective = UINT64_MAX;
++  bool objective_exact = false;
++  LocalSearchEffort effort;
++};
++
++struct LocalSearchHint : LocalSearchCandidateInfo {
+   // Indexed by stable external variable identity.  Preprocessing may compact
+   // internal variables after the hint is produced.
+   std::vector<int8_t> external_phases;
+-  uint64_t objective = UINT64_MAX;
+-  bool objective_exact = false;
+ 
+   bool available() const { return !external_phases.empty(); }
+ };
+diff --git a/src/strategy/online_inprocess.cpp b/src/strategy/online_inprocess.cpp
+index fc928afb..a5f00a23 100644
+--- a/src/strategy/online_inprocess.cpp
++++ b/src/strategy/online_inprocess.cpp
+@@ -1151,6 +1151,9 @@ InvocationResult OnlineStrategyExecutor::advance(
+       out.after = state_version(k);
+     } else {
+       const uint64_t propagations_before = k.stats.propagations;
++      const uint64_t stale_hints_before = k.stats.local_search_hints_stale;
++      const uint64_t seed_budget_before = k.stats.walk_seed_budget_exhausted;
++      const uint64_t seed_interrupt_before = k.stats.walk_seed_interrupted;
+       execution::ParameterExecutionScope<
+           AnalyzeParameters, SubsumeForwardParameters, StrengthenParameters,
+           CongruenceParameters, InstantiateParameters, BackboneParameters,
+@@ -1277,6 +1280,12 @@ InvocationResult OnlineStrategyExecutor::advance(
+                        : result == ApplyResult::Ok
+                              ? InvocationStatus::Completed
+                              : detail::terminal_status(result);
++      if (k.stats.local_search_hints_stale != stale_hints_before)
++        out.status = InvocationStatus::StaleRequest;
++      else if (k.stats.walk_seed_interrupted != seed_interrupt_before)
++        out.status = InvocationStatus::Interrupted;
++      else if (k.stats.walk_seed_budget_exhausted != seed_budget_before)
++        out.status = InvocationStatus::BudgetExhausted;
+       if (sr_application) {
+         switch (sr_application->status) {
+         case SubstitutionRedundancyApplicationStatus::Invalid:
+diff --git a/src/strategy/random_online.cpp b/src/strategy/random_online.cpp
+index 74bd0fe7..61434d21 100644
+--- a/src/strategy/random_online.cpp
++++ b/src/strategy/random_online.cpp
+@@ -791,20 +791,24 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
+       if (v.size() == 7 && !boolean(v[6], p.reduction_bookkeeping)) return false;
+     }
+     parameters = p;
+-  } else if (tuple(text, "walk", v) && v.size() >= 2) {
++  } else if ((tuple(text, "walk", v) || tuple(text, "walk2", v)) &&
++             v.size() >= 2) {
+     WalkParameters p;
+     p.step_budget = v[0];
+     p.random_seed = v[1];
+-    if (v.size() != 2) {
+-      if (v.size() < 4 || v[2] > UINT32_MAX ||
+-          v[3] > (v.size() - 4) / 2 || v.size() != 4 + 2 * v[3])
+-        return false;
+-      p.even_break_base_milli = static_cast<uint32_t>(v[2]);
++    const size_t offset = text.starts_with("walk2(") ? 1 : 0;
++    if (offset && v.size() < 5) return false;
++    if (offset) p.seed_candidate = v[2];
++    if (offset || v.size() != 2) {
++      const size_t head = 4 + offset;
++      if (v.size() < head || v[2 + offset] > UINT32_MAX ||
++          v[3 + offset] > (v.size() - head) / 2 ||
++          v.size() != head + 2 * v[3 + offset]) return false;
++      p.even_break_base_milli = static_cast<uint32_t>(v[2 + offset]);
+       p.score_curve.clear();
+-      for (size_t i = 0; i < v[3]; ++i) {
+-        const uint64_t x = v[4 + 2 * i], y = v[5 + 2 * i];
+-        if (x > UINT32_MAX || y > UINT32_MAX)
+-          return false;
++      for (size_t i = 0; i < v[3 + offset]; ++i) {
++        const uint64_t x = v[head + 2 * i], y = v[head + 2 * i + 1];
++        if (x > UINT32_MAX || y > UINT32_MAX) return false;
+         p.score_curve.push_back(
+             {static_cast<uint32_t>(x), static_cast<uint32_t>(y)});
+       }
+@@ -1659,8 +1663,10 @@ std::string serialize_online_strategy_program(
+           << p->protect_tiers << ',' << p->compact_collection << ','
+           << p->reduction_bookkeeping << ')';
+     else if (const auto *p = std::get_if<WalkParameters>(&step.parameters)) {
+-      out << ":walk(" << p->step_budget << ',' << p->random_seed << ','
+-          << p->even_break_base_milli << ',' << p->score_curve.size();
++      out << (p->seed_candidate ? ":walk2(" : ":walk(")
++          << p->step_budget << ',' << p->random_seed << ',';
++      if (p->seed_candidate) out << p->seed_candidate << ',';
++      out << p->even_break_base_milli << ',' << p->score_curve.size();
+       for (const WalkParameters::ScorePoint point : p->score_curve)
+         out << ',' << point.average_clause_size_milli << ','
+             << point.break_base_milli;
+diff --git a/src/strategy/rule_parameters.cpp b/src/strategy/rule_parameters.cpp
+index 9f96b94a..7a15846a 100644
+--- a/src/strategy/rule_parameters.cpp
++++ b/src/strategy/rule_parameters.cpp
+@@ -38,6 +38,8 @@ WalkParameters::reference_score_curve() {
+ }
+ 
+ bool WalkParameters::valid() const {
++  if (seed_candidate && !valid_local_search_candidate(seed_candidate))
++    return false;
+   if (!even_break_base_milli || score_curve.size() < 2 ||
+       score_curve.front().average_clause_size_milli != 0)
+     return false;
+@@ -60,6 +62,7 @@ WalkParameters WalkParameters::from_kernel(const Kernel &k) {
+   result.random_seed = k.walk_random_seed;
+   result.even_break_base_milli = k.walk_even_break_base_milli;
+   result.score_curve = k.walk_score_curve;
++  result.seed_candidate = k.walk_seed_candidate;
+   return result;
+ }
+ ReorderParameters ReorderParameters::from_kernel(const Kernel &k) {
+@@ -204,6 +207,7 @@ void install_rule_parameters(Kernel &k, const WalkParameters &p) {
+   k.work_budget = p.step_budget;
+   k.work_budget_bounded = true;
+   k.walk_random_seed = p.random_seed;
++  k.walk_seed_candidate = p.seed_candidate;
+   install_walk_guidance(k, p.even_break_base_milli, p.score_curve);
+ }
+ 
+@@ -218,6 +222,7 @@ ScopedWalkParameters::ScopedWalkParameters(
+     Kernel &kernel, const WalkParameters &parameters)
+     : kernel_(kernel), saved_budget_(kernel.work_budget),
+       saved_seed_(kernel.walk_random_seed),
++      saved_candidate_(kernel.walk_seed_candidate),
+       saved_even_break_base_milli_(kernel.walk_even_break_base_milli),
+       saved_score_curve_(kernel.walk_score_curve),
+       saved_bounded_(kernel.work_budget_bounded) {
+@@ -227,6 +232,7 @@ ScopedWalkParameters::ScopedWalkParameters(
+ ScopedWalkParameters::~ScopedWalkParameters() {
+   kernel_.work_budget = saved_budget_;
+   kernel_.walk_random_seed = saved_seed_;
++  kernel_.walk_seed_candidate = saved_candidate_;
+   kernel_.walk_even_break_base_milli = saved_even_break_base_milli_;
+   kernel_.walk_score_curve = std::move(saved_score_curve_);
+   kernel_.work_budget_bounded = saved_bounded_;
+diff --git a/src/strategy/rule_parameters.hpp b/src/strategy/rule_parameters.hpp
+index 1224673a..dfb30631 100644
+--- a/src/strategy/rule_parameters.hpp
++++ b/src/strategy/rule_parameters.hpp
+@@ -2,6 +2,7 @@
+ 
+ #include <cstdint>
+ #include <vector>
++#include "strategy/local_search.hpp"
+ 
+ namespace tactix {
+ struct Kernel;
+@@ -76,8 +77,8 @@ struct WalkParameters {
+ 
+   static std::vector<ScorePoint> reference_score_curve();
+ 
+-  // Exact occurrence-list entries to scan. Zero is an explicit zero-work
+-  // request; omitting WalkParameters retains the canonical reference default.
++  // Native occurrence-list allowance, also charged for seeded preparation's
++  // phase/identity visits and evaluated literals. Zero requests no seed work.
+   uint64_t step_budget = STEP_BUDGET_DEFAULT;
+   uint64_t random_seed = 0;
+   // Kissat alternates this fixed base with the fitted curve on successive
+@@ -85,6 +86,8 @@ struct WalkParameters {
+   // surface owns them rather than the Walk implementation.
+   uint32_t even_break_base_milli = EVEN_BREAK_BASE_DEFAULT;
+   std::vector<ScorePoint> score_curve = reference_score_curve();
++  // Exact retained candidate identity, or zero for native phase seeding.
++  uint64_t seed_candidate = 0;
+   bool valid() const;
+   static WalkParameters from_kernel(const Kernel &);
+ };
+@@ -507,6 +510,7 @@ private:
+   Kernel &kernel_;
+   uint64_t saved_budget_;
+   uint64_t saved_seed_;
++  uint64_t saved_candidate_;
+   uint32_t saved_even_break_base_milli_;
+   std::vector<WalkParameters::ScorePoint> saved_score_curve_;
+   bool saved_bounded_;
+diff --git a/tests/test_default_execution_signature.cpp b/tests/test_default_execution_signature.cpp
+index 60f1a8b3..eaa53115 100644
+--- a/tests/test_default_execution_signature.cpp
++++ b/tests/test_default_execution_signature.cpp
+@@ -135,7 +135,7 @@ int main(int argc, char **argv) {
+         assert(k.stats.warmups && k.stats.warming_decisions);
+         assert(k.stats.walks && k.stats.walk_steps);
+         if (profile == 4) assert(k.stats.switched);
+-        if (profile == 6) assert(k.stats.local_search_hints_applied);
++        if (profile == 6) assert(k.stats.walk_seed_imports);
+       }
+       if (profile == 5 && verdict == 20) assert(k.stats.rephased >= 3);
+       if (verdict == 10) {
+diff --git a/tests/test_inspect_policy_feedback.py b/tests/test_inspect_policy_feedback.py
+index a16fe79b..370ed93c 100644
+--- a/tests/test_inspect_policy_feedback.py
++++ b/tests/test_inspect_policy_feedback.py
+@@ -57,6 +57,15 @@ def main():
+         changed[action + 1]["value"] = -1
+         rejected(encode(changed), "elapsed nanos")
+         changed = json.loads(json.dumps(rows))
++        del changed[action]["before"]["local_search_candidates"]
++        rejected(encode(changed), "missing candidate observation")
++        changed = json.loads(json.dumps(rows))
++        changed[action]["before"]["local_search_candidates"] = [{
++            "id": 0, "formula_touch_epoch": 0, "formula_root_assignments": 0,
++            "external_variables": 2, "objective": 0, "objective_exact": True,
++            "effort": 1, "effort_unit": 0}]
++        rejected(encode(changed), "candidate identity")
++        changed = json.loads(json.dumps(rows))
+         changed[action]["before"]["native"]["solve_nanos"] = 1
+         rejected(encode(changed), "native timing")
+         rejected(original.replace('"type":"header"', '"type":"header","type":"header"', 1),
+diff --git a/tests/test_local_search_guidance.cpp b/tests/test_local_search_guidance.cpp
+index 51c0aa1e..8d15d00b 100644
+--- a/tests/test_local_search_guidance.cpp
++++ b/tests/test_local_search_guidance.cpp
+@@ -2,61 +2,135 @@
+ #include "kernel/kernel.hpp"
+ #include "policies/heuristics.hpp"
+ #include "policies/ops/local_search/local_search.hpp"
++#include "strategy/controller_observation.hpp"
+ #include "rules/registry.hpp"
+ 
+ #include <cassert>
+ 
+ using namespace tactix;
+ 
+-int main() {
++static void publication_and_selection() {
+   Kernel k;
+   ScopedHeuristics heuristics(k);
+   kernel_reserve_vars(k, 3);
+-
+-  kernel_offer_local_search_hint(
+-      k, strategy::LocalSearchKind::DirectCsp, {1, 0, 1}, 2, true);
++  k.h->saved = {1, 1, -1};
++  k.h->best = {-1, 1, 1};
++  const auto saved = k.h->saved, best = k.h->best;
++  kernel_offer_local_search_hint(k, strategy::LocalSearchKind::DirectCsp,
++      {1, 0, 1}, 2, true, {19, strategy::LocalSearchEffortUnit::CspWork});
++  assert(k.h->saved == saved && k.h->best == best);
+   assert(k.stats.local_search_hints_offered == 1);
+-  assert(local_search_guidance_guard(k));
+-
+-  const int id = tactix_rule_id("LocalSearchGuidance");
+-  assert(id >= 0);
+-  const RuleVTable &op = tactix_rules()[static_cast<size_t>(id)];
++  const auto observed = strategy::controller::observe_kernel(k);
++  assert(observed.local_search_candidates.size() == 1);
++  const auto info = observed.local_search_candidates.front();
++  assert(info.id == 256 && info.effort.amount == 19);
++  assert(info.formula_touch_epoch == k.touch_epoch && info.external_variables == 3);
++  const RuleVTable &op = tactix_rules()[tactix_rule_id("LocalSearchGuidance")];
+   assert(op.kind == ActionKind::PolicyOp && op.guard(k));
+   uint64_t instances[4]{};
+-  assert(op.instances(k, instances, 4) == 1);
+-  assert(instances[0] ==
+-         static_cast<uint64_t>(strategy::LocalSearchKind::DirectCsp));
+-  assert(op.apply_instance(k, instances[0]) == ApplyResult::Ok);
+-  assert((k.h->saved == std::vector<int8_t>{1, -1, 1}));
+-  assert(k.h->target == k.h->saved);
++  assert(op.instances(k, instances, 4) == 1 && instances[0] == info.id);
++  assert(op.apply_instance(k, info.id) == ApplyResult::Ok);
++  assert((k.h->target == std::vector<int8_t>{1, -1, 1}));
++  assert(k.h->saved == saved && k.h->best == best);
+   assert(k.stats.local_search_hints_applied == 1);
+-
+-  // Invalid candidate data is rejected atomically and cannot partially
+-  // replace a previously retained assignment.
+-  kernel_offer_local_search_hint(
+-      k, strategy::LocalSearchKind::DirectCsp, {0, 2, 0}, 1, true);
++  kernel_offer_local_search_hint(k, strategy::LocalSearchKind::DirectCsp,
++      {0, 2, 0}, 1, true);
+   assert(k.stats.local_search_hints_offered == 1);
+-  const auto &direct = k.local_search_hints[static_cast<size_t>(
+-      strategy::LocalSearchKind::DirectCsp)];
+-  assert((direct.external_phases == std::vector<int8_t>{1, -1, 1}));
+-  assert(direct.objective == 2 && direct.objective_exact);
++  assert(kernel_local_search_hint(k, info.id));
+ 
+-  // A worse exact candidate from the same strategy does not replace its best
+-  // result. A different strategy remains independently selectable.
+-  kernel_offer_local_search_hint(
+-      k, strategy::LocalSearchKind::DirectCsp, {0, 1, 0}, 3, true);
+-  kernel_offer_local_search_hint(
+-      k, strategy::LocalSearchKind::Affine, {0, 1, 0});
+-  assert(k.stats.local_search_hints_offered == 2);
++  // Exact means the score is known, not that another invocation has the same
++  // objective. The producer owns its best; replacement receives a new identity.
++  kernel_add_binary_clause(k, internalize(1), internalize(2));
++  kernel_offer_local_search_hint(k, strategy::LocalSearchKind::DirectCsp,
++      {0, 1, 0}, 3, true);
++  assert(!kernel_local_search_hint(k, info.id));
++  const auto target = k.h->target;
++  assert(op.apply_instance(k, info.id) == ApplyResult::NoOp);
++  assert(k.h->target == target && k.stats.local_search_hints_stale == 1);
++  kernel_offer_local_search_hint(k, strategy::LocalSearchKind::Affine, {0, 1, 0});
++  assert(k.stats.local_search_hints_offered == 3);
+   uint64_t cursor = 0;
+   const std::vector<strategy::LocalSearchKind> rotation{
+-      strategy::LocalSearchKind::Parity,
+-      strategy::LocalSearchKind::Affine,
++      strategy::LocalSearchKind::Parity, strategy::LocalSearchKind::Affine,
+       strategy::LocalSearchKind::DirectCsp};
+-  assert(local_search_guidance_apply_next(k, rotation, cursor) ==
+-         ApplyResult::Ok);
+-  assert((k.h->saved == std::vector<int8_t>{-1, 1, -1}));
+-  assert(cursor == 2); // skipped unavailable Parity, consumed Affine
+-
++  const auto selected = local_search_guidance_select_next(k, rotation, cursor);
++  assert(cursor == 2 && k.h->target == target); // selection does not import
++  assert(op.apply_instance(k, selected) == ApplyResult::Ok);
++  assert((k.h->target == std::vector<int8_t>{-1, 1, -1}));
++  assert(k.h->saved == saved && k.h->best == best);
+   assert(op.apply_instance(k, 99) == ApplyResult::NoOp);
++  // Historical kind-only payload still has an explicitly current meaning.
++  assert(op.apply_instance(k, 0) == ApplyResult::NoOp); // identical target
++}
++
++static void identity_and_phase_lifecycle() {
++  Kernel k;
++  ScopedHeuristics h(k);
++  kernel_reserve_vars(k, 4);
++  kernel_offer_local_search_hint(k, strategy::LocalSearchKind::Parity, {0, 0, 0, 0});
++  const uint64_t candidate = k.local_search_hints[2].id;
++  kernel_assign_unit(k, internalize(1));
++  assert(!kernel_propagate(k));
++  k.var_status.assign(k.nvars, VarStatus::Active);
++  k.var_status[1] = VarStatus::Eliminated;
++  heuristics_deactivate_var(k, 1);
++  --k.unassigned_active;
++  assert(kernel_compact_variables(k));
++  kernel_reserve_vars(k, 4); // new external identity, no candidate polarity
++  k.h->saved.assign(4, 1);
++  k.h->best.assign(4, 1);
++  k.h->target.assign(4, 1);
++  assert(local_search_guidance_apply_candidate(k, candidate) == ApplyResult::Ok);
++  assert((k.h->target == std::vector<int8_t>{1, -1, -1, 1}));
++  assert((k.h->saved == std::vector<int8_t>(4, 1)) && k.h->saved == k.h->best);
++  assert(k.h->target_assigned == 0);
++  k.h->stable = false;
++  assert(!negated(heuristics_decide_lit(k, 1))); // focused saved phase preserved
++  k.h->stable = true;
++  assert(negated(heuristics_decide_lit(k, 1))); // target-consuming configuration
++  kernel_assign_decision(k, make_lit(1, false));
++  assert(!local_search_guidance_guard(k));
++  kernel_update_target_phases(k);
++  assert(k.h->target[1] == 1); // native capture supersedes the advice
++  kernel_backtrack(k, 0);
++  kernel_check_invariants(k);
++}
++
++static void partial_publication_and_identity_lifetime() {
++  Kernel k;
++  ScopedHeuristics h(k);
++  kernel_reserve_vars(k, 3);
++  const auto kind = strategy::LocalSearchKind::Affine;
++  kernel_offer_local_search_partial_hint(k, kind, {1, 0, -1}, 4, true);
++  const auto first = k.local_search_hints[1].id;
++  k.h->saved.assign(3, -1);
++  k.h->best.assign(3, 1);
++  k.h->target = {-1, -1, 1};
++  assert(local_search_guidance_apply_candidate(k, first) == ApplyResult::Ok);
++  assert((k.h->target == std::vector<int8_t>{1, -1, -1}));
++  assert((k.h->saved == std::vector<int8_t>(3, -1)));
++  assert((k.h->best == std::vector<int8_t>(3, 1)));
++  for (const std::vector<int8_t> invalid :
++       {std::vector<int8_t>{0, 0, 0}, {1, 2, 0}, {-2, 0, 1}, {1}}) {
++    kernel_offer_local_search_partial_hint(k, kind, invalid);
++    assert(k.local_search_hints[1].id == first);
++    assert(k.local_search_publication == 1);
++  }
++  // Resetting instrumentation cannot make an old replay identity current again.
++  k.stats.local_search_hints_offered = 0;
++  kernel_offer_local_search_partial_hint(k, kind, {0, 1, 0});
++  assert(k.local_search_hints[1].id != first);
++  assert(!kernel_local_search_hint(k, first));
++  const auto second = k.local_search_hints[1].id;
++  k.local_search_publication = strategy::LOCAL_SEARCH_GENERATION_MAX;
++  kernel_offer_local_search_partial_hint(k, kind, {-1, 0, 0});
++  kernel_offer_local_search_hint(k, kind, {1, 1, 1});
++  assert(k.local_search_hints[1].id == second);
++  assert(k.stats.local_search_hints_offered == 1);
++}
++
++int main() {
++  publication_and_selection();
++  identity_and_phase_lifecycle();
++  partial_publication_and_identity_lifetime();
+ }
+diff --git a/tests/test_online_api.c b/tests/test_online_api.c
+index 3a40227f..52d85aa9 100644
+--- a/tests/test_online_api.c
++++ b/tests/test_online_api.c
+@@ -1043,6 +1043,19 @@ static void walk_scoring_is_validated_and_copied(void) {
+   assert(tactix_online_advance(solver, &result) == 0);
+   assert(result.status == TACTIX_ONLINE_COMPLETED ||
+          result.status == TACTIX_ONLINE_NO_CHANGE);
++  curve[1].break_base_milli = 2700;
++  step.parameters.value.walk.seed_candidate = 1; /* kind-only is not an identity */
++  assert(tactix_online_configure(solver, &program, 17,
++                                 TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
++  step.parameters.value.walk.seed_candidate = 511; /* unknown producer */
++  assert(tactix_online_configure(solver, &program, 18,
++                                 TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
++  step.parameters.value.walk.seed_candidate = 256; /* well-formed, unpublished */
++  assert(tactix_online_configure(solver, &program, 19,
++                                 TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
++  step.parameters.value.walk.seed_candidate = 0; /* configured request owns copy */
++  assert(tactix_online_advance(solver, &result) == 0);
++  assert(result.status == TACTIX_ONLINE_STALE_REQUEST);
+   tactix_release(solver);
+ }
+ 
+diff --git a/tests/test_online_inprocess.cpp b/tests/test_online_inprocess.cpp
+index 3def1d66..b9cbb06b 100644
+--- a/tests/test_online_inprocess.cpp
++++ b/tests/test_online_inprocess.cpp
+@@ -4861,7 +4861,36 @@ static int proof_witness(const char *input, const char *output,
+   return result;
+ }
+ 
++static void seeded_walk_reports_exact_failure_status() {
++  Kernel k;
++  ScopedHeuristics h(k);
++  kernel_reserve_vars(k, 2);
++  kernel_add_binary_clause(k, internalize(-1), internalize(-2));
++  kernel_offer_local_search_hint(k, LocalSearchKind::DirectCsp, {1, 0});
++  WalkParameters p;
++  p.seed_candidate = k.local_search_hints[0].id;
++  p.step_budget = 0;
++  OnlineInvocation step;
++  step.id = 1;
++  step.rule = "Walk";
++  step.parameters = p;
++  step.granularity = InvocationGranularity::CanonicalApplication;
++  OnlineStrategyProgram program;
++  program.sequence = {step};
++  OnlineStrategyExecutor executor;
++  assert(executor.configure(program, 1));
++  const auto saved = k.h->saved, target = k.h->target;
++  assert(executor.advance(k).status == InvocationStatus::BudgetExhausted);
++  assert(k.h->saved == saved && k.h->target == target);
++  assert(k.walk_seed_candidate == 0);
++  kernel_offer_local_search_hint(k, LocalSearchKind::DirectCsp, {0, 1});
++  assert(executor.configure(program, 2));
++  assert(executor.advance(k).status == InvocationStatus::StaleRequest);
++  assert(k.h->saved == saved && k.h->target == target);
++}
++
+ int main(int argc, char **argv) {
++  seeded_walk_reports_exact_failure_status();
+   std::optional<uint64_t> generator_cap;
+   std::optional<bool> root_stabilizer;
+   if (argc == 8 || argc == 9) {
+diff --git a/tests/test_random_controller_policy.cpp b/tests/test_random_controller_policy.cpp
+index a4f9b065..52455b01 100644
+--- a/tests/test_random_controller_policy.cpp
++++ b/tests/test_random_controller_policy.cpp
+@@ -23,7 +23,44 @@ static Kernel fixture(bool unsat) {
+   return k;
+ }
+ 
++static void random_guidance_uses_observed_identities() {
++  Kernel k;
++  kernel_reserve_vars(k, 3);
++  RestartController controller(k);
++  kernel_offer_local_search_hint(k, LocalSearchKind::DirectCsp, {1, 0, 0});
++  kernel_offer_local_search_hint(k, LocalSearchKind::Affine, {0, 1, 0});
++  const auto observation = controller.observe();
++  assert(observation.local_search_candidates.size() == 2);
++  const auto first = observation.local_search_candidates[0].id;
++  const auto second = observation.local_search_candidates[1].id;
++  RandomControllerConfig config;
++  config.parameters.rules = {"Walk", "LocalSearchGuidance"};
++  RandomControllerSelector selector(17);
++  bool plain = false, seeded_first = false, seeded_second = false, target = false;
++  for (unsigned i = 0; i < 200; ++i) {
++    ActionRequest request;
++    std::string error;
++    assert(selector.choose(k, controller.observe(), config, request, error));
++    if (request.type != ActionType::Rule) continue;
++    if (request.invocation.rule == "Walk") {
++      const auto candidate = std::get<WalkParameters>(request.invocation.parameters).seed_candidate;
++      assert(candidate == 0 || candidate == first || candidate == second);
++      plain |= !candidate;
++      seeded_first |= candidate == first;
++      seeded_second |= candidate == second;
++    } else {
++      assert(request.invocation.rule == "LocalSearchGuidance");
++      assert(request.invocation.instances.size() == 1);
++      const auto candidate = request.invocation.instances[0];
++      assert(candidate == first || candidate == second);
++      target = true;
++    }
++  }
++  assert(plain && seeded_first && seeded_second && target);
++}
++
+ int main() {
++  random_guidance_uses_observed_identities();
+   Kernel a = fixture(false), b = fixture(false);
+   RestartController ca(a), cb(b);
+   RandomControllerSelector sa(17), sb(17);
+diff --git a/tests/test_random_online.cpp b/tests/test_random_online.cpp
+index 3874d790..2eef3660 100644
+--- a/tests/test_random_online.cpp
++++ b/tests/test_random_online.cpp
+@@ -2149,7 +2149,34 @@ static void production_random_reaches_late_semantics_and_replays_them() {
+   kernel_check_invariants(replay);
+ }
+ 
++static void seeded_walk_parameters_round_trip() {
++  OnlineInvocation step;
++  step.id = 1;
++  step.rule = "Walk";
++  step.granularity = InvocationGranularity::CanonicalApplication;
++  WalkParameters p;
++  p.step_budget = 24;
++  p.random_seed = 19;
++  p.seed_candidate = 256;
++  step.parameters = p;
++  OnlineStrategyProgram program, decoded;
++  program.sequence = {step};
++  const auto wire = serialize_online_strategy_program(program);
++  assert(wire.find(":walk2(") != std::string::npos);
++  std::string error;
++  assert(deserialize_online_strategy_program(wire, decoded, &error));
++  assert(serialize_online_strategy_program(decoded) == wire);
++  const auto &copy = std::get<WalkParameters>(decoded.sequence[0].parameters);
++  assert(copy.seed_candidate == 256 && copy.step_budget == 24 && copy.random_seed == 19);
++  p.seed_candidate = 1; // kind-only aliases are not exact Walk identities
++  assert(!p.valid());
++  step.parameters = p;
++  program.sequence = {step};
++  assert(!validate_online_strategy_program(program, &error));
++}
++
+ int main() {
++  seeded_walk_parameters_round_trip();
+   condition_cube_replay_round_trips();
+   random_clausal_fixing_retains_known_orbit_targets();
+   invalid_configuration_is_rejected();
+diff --git a/tests/test_restart_controller.cpp b/tests/test_restart_controller.cpp
+index 17fefbbe..e77f7020 100644
+--- a/tests/test_restart_controller.cpp
++++ b/tests/test_restart_controller.cpp
+@@ -30,7 +30,7 @@ int main() {
+     const auto calls = k.stats.rule_calls[0];
+     const auto first = controller.observe();
+     const auto second = controller.observe();
+-    assert(first.version == 1 && first.variables == 3);
++    assert(first.version == ACTION_SPACE_VERSION && first.variables == 3);
+     assert(first.irredundant_clauses == 1);
+     assert(first.state.touch_epoch == second.state.touch_epoch);
+     assert(first.sequence == second.sequence && first.sequence == 0);
+diff --git a/tests/test_walk.cpp b/tests/test_walk.cpp
+index 5a3c0bcb..779791cc 100644
+--- a/tests/test_walk.cpp
++++ b/tests/test_walk.cpp
+@@ -338,7 +338,106 @@ static void test_root_satisfied_binaries_do_not_reach_the_walk() {
+     assert(plain.h->saved[v] == extra.h->saved[v]);
+ }
+ 
++static void test_private_seed_budget_and_export() {
++  // Three binary exclusions and a ternary cover: nine evaluated literals.
++  // Seed preparation costs 3 phase slots + 3 identity slots + 2*9 literals.
++  constexpr uint64_t preparation = 24;
++  for (uint64_t allowance = 0; allowance <= preparation; ++allowance) {
++    Kernel k;
++    ScopedHeuristics h(k);
++    build_conflict_cover(k, 3);
++    k.h->saved = {1, 1, 1};
++    k.h->target = {-1, -1, -1};
++    k.h->best = {-1, 1, -1};
++    kernel_offer_local_search_hint(k, strategy::LocalSearchKind::DirectCsp, {1, 0, 0});
++    strategy::WalkParameters p;
++    p.seed_candidate = k.local_search_hints[0].id;
++    p.step_budget = allowance;
++    const auto saved = k.h->saved, target = k.h->target, best = k.h->best;
++    {
++      strategy::ScopedWalkParameters scope(k, p);
++      const auto result = walk_apply(k);
++      if (allowance < preparation) {
++        assert(result == ApplyResult::NoOp);
++        assert(k.h->saved == saved && k.h->target == target && k.h->best == best);
++        assert(k.stats.walk_seed_budget_exhausted == 1);
++      } else {
++        assert(result == ApplyResult::Ok);
++        assert((k.h->saved == std::vector<int8_t>{1, -1, -1}));
++        assert(k.h->target == k.h->saved && k.h->best == best);
++        assert(k.stats.walk_seed_ordinary_unsat == 3);
++        assert(k.stats.walk_seed_candidate_unsat == 0);
++        assert(k.stats.walk_seed_imports == 1);
++        assert(k.stats.walk_flips == 0); // an already-good seed must export
++      }
++    }
++    assert(k.walk_seed_candidate == 0);
++    assert(k.stats.walk_steps == allowance);
++    assert(k.stats.walk_seed_steps == allowance);
++    assert(k.level == 0 && k.trail.empty());
++    kernel_check_invariants(k);
++  }
++  Kernel k;
++  ScopedHeuristics h(k);
++  build_conflict_cover(k, 3);
++  k.h->saved = {1, -1, -1}; // ordinary phases are already a model
++  k.h->best = {-1, -1, 1};
++  const auto saved = k.h->saved, best = k.h->best;
++  kernel_offer_local_search_hint(k, strategy::LocalSearchKind::DirectCsp, {1, 1, 1});
++  k.walk_seed_candidate = k.local_search_hints[0].id;
++  assert(walk_apply_steps(k, preparation) == ApplyResult::NoOp);
++  assert(k.h->saved == saved && k.h->best == best);
++  assert(k.stats.walk_seed_ordinary_unsat == 0 && k.stats.walk_seed_candidate_unsat == 3);
++  const auto walks = k.stats.walks;
++  kernel_offer_local_search_hint(k, strategy::LocalSearchKind::DirectCsp, {0, 1, 0});
++  assert(walk_apply_steps(k, 1000) == ApplyResult::NoOp); // exact old identity is stale
++  assert(k.stats.walks == walks && k.stats.local_search_hints_stale == 1);
++  assert(k.h->saved == saved && k.h->best == best);
++  k.walk_seed_candidate = k.local_search_hints[0].id;
++  volatile sig_atomic_t stop = 1;
++  k.stop = &stop;
++  const auto target = k.h->target;
++  assert(walk_apply_steps(k, 1000) == ApplyResult::NoOp);
++  assert(k.h->saved == saved && k.h->target == target && k.h->best == best);
++  assert(k.stats.walk_seed_interrupted == 1);
++}
++
++static void test_partial_seed_and_empty_objective() {
++  Kernel k;
++  ScopedHeuristics h(k);
++  build_conflict_cover(k, 3);
++  k.h->saved = {-1, -1, -1};
++  k.h->best = {1, 1, -1};
++  k.h->target = {-1, 1, 1};
++  kernel_offer_local_search_partial_hint(k, strategy::LocalSearchKind::DirectCsp,
++                                        {1, 0, 0});
++  k.walk_seed_candidate = k.local_search_hints[0].id;
++  const auto best = k.h->best;
++  assert(walk_apply_steps(k, 24) == ApplyResult::Ok);
++  assert((k.h->saved == std::vector<int8_t>{1, -1, -1}));
++  assert(k.h->best == best && k.stats.walk_flips == 0);
++
++  Kernel empty;
++  ScopedHeuristics empty_h(empty);
++  kernel_reserve_vars(empty, 3);
++  empty.h->saved = {1, -1, 1};
++  empty.h->best = {-1, -1, 1};
++  empty.h->target = {-1, 1, -1};
++  kernel_offer_local_search_partial_hint(empty, strategy::LocalSearchKind::Affine,
++                                        {-1, 0, 0});
++  empty.walk_seed_candidate = empty.local_search_hints[1].id;
++  const auto saved = empty.h->saved, target = empty.h->target;
++  const auto empty_best = empty.h->best;
++  assert(walk_apply_steps(empty, 100) == ApplyResult::NoOp);
++  assert(empty.h->saved == saved && empty.h->target == target &&
++         empty.h->best == empty_best);
++  assert(empty.stats.rephased == 0 && empty.stats.walk_seed_imports == 0);
++  kernel_check_invariants(empty);
++}
++
+ int main() {
++  test_partial_seed_and_empty_objective();
++  test_private_seed_budget_and_export();
+   test_configurable_score_curve();
+   test_break_base_domain_terminates();
+   test_near_unit_interpolated_base();
+diff --git a/tools/bench/inspect_policy_feedback.py b/tools/bench/inspect_policy_feedback.py
+index 1b6d58de..039af280 100644
+--- a/tools/bench/inspect_policy_feedback.py
++++ b/tools/bench/inspect_policy_feedback.py
+@@ -72,11 +72,28 @@ def observation(value):
+          "root_population irredundant_clauses inconsistent conflict fixpoint searching "
+          "have_configuration configuration rotation_intervals next_restart_conflicts "
+          "reluctant fast_glue slow_glue last_action native", "observation",
+-         optional="native_policy_state")
++         optional="native_policy_state local_search_candidates")
+     if "native_policy_state" in value:
+         require(type(value["native_policy_state"]) is str, "invalid native policy state")
+-    require(integer(value["version"], "observation version") == 1,
++    require(integer(value["version"], "observation version") in (1, 2),
+             "unsupported observation version")
++    if value["version"] == 2:
++        require("local_search_candidates" in value, "missing candidate observation")
++    if "local_search_candidates" in value:
++        candidates = value["local_search_candidates"]
++        require(type(candidates) is list, "invalid candidate observation")
++        ids = set()
++        for candidate in candidates:
++            keys(candidate, "id formula_touch_epoch formula_root_assignments "
++                 "external_variables objective objective_exact effort effort_unit", "candidate")
++            for key in ("id", "formula_touch_epoch", "formula_root_assignments",
++                        "external_variables", "objective", "effort"):
++                integer(candidate[key], "candidate " + key)
++            identity = candidate["id"]
++            require(identity >> 8 and identity not in ids, "invalid/repeated candidate identity")
++            ids.add(identity)
++            integer(candidate["effort_unit"], "candidate effort unit", 5)
++            require(type(candidate["objective_exact"]) is bool, "invalid candidate objective flag")
+     state(value["state"])
+     for key in ("sequence", "variables", "unassigned", "active_unassigned", "level", "trail",
+                 "root_population", "irredundant_clauses", "rotation_intervals",
+diff --git a/tools/docs/check-config-wiring.py b/tools/docs/check-config-wiring.py
+index 02629552..978d75dd 100644
+--- a/tools/docs/check-config-wiring.py
++++ b/tools/docs/check-config-wiring.py
+@@ -55,7 +55,7 @@ VIVIFY_BAND = (r"execution::VivifyBandRequest\{\s*band_scope,\s*cumulative,\s*"
+                r"spent,\s*e\.tick_counter,\s*e\.meter\}")
+ WALK_ALLOWANCE = (r"const uint64_t allowance = scale_permille\("
+                   r"reference, config_\.rephase\.walk_permille\)")
+-WALK_REQUEST = r"execution::WalkRequest\{allowance, seed\}"
++WALK_REQUEST = r"execution::WalkRequest\{allowance, seed, candidate\}"
+ MATERIAL_REQUEST = (r"execution::MaterialSettingsRequest\{\s*"
+                     r"config\(\)\.touch_filter,\s*"
+                     r"config\(\)\.likely_kept_redundant")
+@@ -82,6 +82,14 @@ POLICY_BINDINGS = {
+         (POLICY[0], WALK_REQUEST),
+         (GUIDANCE_EXECUTION, r"k\.walk_random_seed\s*=\s*request\.seed"),
+     ],
++    "walk_seed_candidate": [
++        (POLICY[0], r"const uint64_t candidate = config_\.rephase\.structural_walk_seed\s*"
++                    r"\? local_search_guidance_select_next\(k,\s*"
++                    r"config_\.rephase\.structural_seed_rotation, structural_seed_cursor_\)\s*:\s*0"),
++        (POLICY[0], WALK_REQUEST),
++        (GUIDANCE_EXECUTION, r"k\.walk_seed_candidate\s*=\s*request\.seed_candidate"),
++        (GUIDANCE_EXECUTION, r"k\.walk_seed_candidate\s*=\s*previous_candidate"),
++    ],
+     "work_budget_offset": [
+         (POLICY[0], r"const uint64_t spent = e\.meter\(k\) - dose_start"),
+         (POLICY[0], VIVIFY_BAND),
+@@ -222,6 +230,7 @@ POLICY_BINDINGS["no_ext_reason_bump"] = [
+     (POLICY[0], r"execution::ParameterInstallationRequest\{analysis\}"), PARAMETER_INSTALL,
+     ("src/strategy/analyze_parameters.cpp", r"k\.no_ext_reason_bump\s*=\s*!p\.bump_extension_reasons")]
+ POLICY_ADAPTERS["walk_even_break_base_milli"] = [RULE_PARAMETERS]
++POLICY_ADAPTERS["walk_seed_candidate"] = [GUIDANCE_EXECUTION, RULE_PARAMETERS]
+ POLICY_BINDINGS["walk_even_break_base_milli"] = [
+     (POLICY[0], r"execution::WalkGuidanceInstallationRequest\{\s*config_\.rephase\.walk_even_break_base_milli"),
+     (PARAMETER_EXECUTION, r"strategy::install_walk_guidance\(k, request\.even_break_base_milli"),
+@@ -312,6 +321,7 @@ TABLE = {
+                                            "advanced once per ordinary Eliminate phase"),
+     "factor_composite":        ("POLICY", "S2b composite grids, per-occasion"),
+     "work_budget":             ("POLICY", "per-round budget handed to budget-aware rules"),
++    "walk_seed_candidate":     ("POLICY", "exact structural publication selected for private Walk seeding"),
+     "work_budget_offset":      ("POLICY", "work already charged against a cumulative "
+                                           "Vivify tier ceiling"),
+     "work_budget_bounded":     ("POLICY", "distinguishes a zero cumulative Vivify "
+@@ -489,6 +499,9 @@ CONFIG_START = "cold_state_deferred"
+ # per-rule resumption watermarks (`*_touch_mark`) — the `transitive_cursor`
+ # category, which a policy may reset but never "configures".
+ NOT_CONFIG = {"cold_state_deferred", "lvl", "transitive_cursor",
++              # Candidate publication lifetime; deliberately independent of
++              # resettable statistics and never set by a policy profile.
++              "local_search_publication",
+               "warming",
+               "strategy_epoch", "subsume_material_count",
+               "fixed_external_count",
+diff --git a/src/rules/lucky/graph_labeling_recognition.hpp b/src/rules/lucky/graph_labeling_recognition.hpp
+new file mode 100644
+index 00000000..17a3c791
+--- /dev/null
++++ b/src/rules/lucky/graph_labeling_recognition.hpp
+@@ -0,0 +1,147 @@
++#pragma once
++
++#include "kernel/kernel.hpp"
++
++#include <algorithm>
++#include <cstdint>
++#include <utility>
++#include <vector>
++
++namespace tactix::graph_labeling {
++
++// A heuristic projection, never a logical certificate. The indexed rectangle
++// follows the reference encoding: external identity row*N+column selects the
++// vertex at that label. Signs are recovered from the column-cover clauses.
++// Arbitrary renamings without this rectangle are conservatively unsupported.
++struct Shape {
++  uint32_t vertices = 0;
++  uint32_t separation = 0;
++  std::vector<Lit> primary;
++  std::vector<std::pair<uint32_t, uint32_t>> edges;
++  std::vector<std::vector<uint32_t>> adjacency;
++};
++
++// Charge includes clause/watch inspection, mapping/element initialization and
++// graph materialization. maximum_bytes bounds logical workspace payload,
++// excluding allocator overhead and the caller's already-owned Kernel/output.
++// Failure publishes no partial shape and never changes Kernel or proof state.
++template<class Charge>
++bool recognize(const Kernel &k, uint32_t maximum_vertices,
++               uint64_t maximum_bytes, Charge &&charge, Shape &out) {
++  out = {};
++  Shape shape;
++  uint32_t n = 0;
++  const uint64_t external_variables = k.external_to_internal.size();
++  // A cheap first pass selects a possible dimension from an indexed column.
++  // Full coverage and distinct rows are checked before the result is exposed.
++  for (Ref ref = 0; ref < k.arena.size();) {
++    const Clause *clause = clause_at(k.arena, ref);
++    if (!charge(1)) return false;
++    const uint32_t width = clause->size;
++    if (!clause->garbage() && !clause->redundant() && width >= 3 &&
++        width > n && width <= maximum_vertices &&
++        uint64_t(width) * width <= external_variables) {
++      uint32_t column = UINT32_MAX;
++      bool plausible = true;
++      for (Lit lit : *clause) {
++        if (!charge(1)) return false;
++        const Var external = k.internal_to_external[var_of(lit)];
++        if (uint64_t(external) >= uint64_t(width) * width ||
++            (column != UINT32_MAX && external % width != column)) {
++          plausible = false;
++          break;
++        }
++        column = external % width;
++      }
++      if (plausible) n = width;
++    }
++    ref += clause_actual_words(clause);
++  }
++  if (!n) return false;
++  const uint64_t square = uint64_t(n) * n;
++  // Primary literals, edge bitmap, fully reserved edge/adjacency vectors,
++  // row/column marks, and vector descriptors fit this conservative bound.
++  if (square > (UINT64_MAX - uint64_t(n) * 64) / 16 ||
++      square * 16 + uint64_t(n) * 64 > maximum_bytes ||
++      square > SIZE_MAX / sizeof(Lit) || !charge(square + 2 * uint64_t(n)))
++    return false;
++  shape.primary.assign(static_cast<size_t>(square), INVALID_LIT);
++  std::vector<uint8_t> columns(n, 0), rows(n, 0);
++  for (Ref ref = 0; ref < k.arena.size();) {
++    const Clause *clause = clause_at(k.arena, ref);
++    if (!charge(1)) return false;
++    if (!clause->garbage() && !clause->redundant() && clause->size == n) {
++      if (!charge(n)) return false;
++      std::fill(rows.begin(), rows.end(), 0);
++      uint32_t column = UINT32_MAX;
++      bool indexed = true;
++      for (Lit lit : *clause) {
++        if (!charge(1)) return false;
++        const Var external = k.internal_to_external[var_of(lit)];
++        if (external >= square || rows[external / n] ||
++            (column != UINT32_MAX && external % n != column)) {
++          indexed = false;
++          break;
++        }
++        rows[external / n] = 1;
++        column = external % n;
++      }
++      if (indexed) {
++        for (Lit lit : *clause) {
++          if (!charge(1)) return false;
++          const Var external = k.internal_to_external[var_of(lit)];
++          Lit &entry = shape.primary[external];
++          if (kernel_var_retired(k, var_of(lit)) ||
++              (entry != INVALID_LIT && entry != lit))
++            return false;
++          entry = lit;
++        }
++        columns[column] = 1;
++      }
++    }
++    ref += clause_actual_words(clause);
++  }
++  for (uint8_t present : columns) {
++    if (!charge(1) || !present) return false;
++  }
++  if (!charge(square)) return false;
++  std::vector<uint8_t> connected(static_cast<size_t>(square), 0);
++  uint32_t separation = n + 1;
++  for (Lit lit = 0; lit < 2 * k.nvars; ++lit) {
++    if (!charge(1)) return false;
++    const Var first = k.internal_to_external[var_of(lit)];
++    if (first >= square || lit != negate(shape.primary[first])) continue;
++    for (WatchEntry watch : k.watches.entries(lit)) {
++      if (!charge(1)) return false;
++      if (!watch.binary() || lit >= watch.other()) continue;
++      const Var second = k.internal_to_external[var_of(watch.other())];
++      if (second >= square ||
++          watch.other() != negate(shape.primary[second]) ||
++          first % n != second % n || first / n == second / n)
++        continue;
++      const uint32_t a = std::min(first / n, second / n);
++      const uint32_t b = std::max(first / n, second / n);
++      connected[uint64_t(a) * n + b] = 1;
++      separation = std::min(separation, first % n + 1);
++    }
++  }
++  if (separation > n || !charge(square + n)) return false;
++  shape.edges.reserve(static_cast<size_t>(square - n) / 2);
++  shape.adjacency.resize(n);
++  for (auto &row : shape.adjacency) row.reserve(n - 1);
++  for (uint32_t a = 0; a < n; ++a) {
++    for (uint32_t b = a + 1; b < n; ++b) {
++      if (!charge(1)) return false;
++      if (!connected[uint64_t(a) * n + b]) continue;
++      shape.edges.emplace_back(a, b);
++      shape.adjacency[a].push_back(b);
++      shape.adjacency[b].push_back(a);
++    }
++  }
++  shape.vertices = n;
++  shape.separation = separation;
++  out = std::move(shape);
++  return true;
++}
++
++} // namespace tactix::graph_labeling
+diff --git a/src/rules/lucky/graph_labeling_search.hpp b/src/rules/lucky/graph_labeling_search.hpp
+new file mode 100644
+index 00000000..f7fcb585
+--- /dev/null
++++ b/src/rules/lucky/graph_labeling_search.hpp
+@@ -0,0 +1,273 @@
++#pragma once
++
++#include "rules/lucky/graph_labeling_recognition.hpp"
++
++#include <numeric>
++#include <random>
++
++namespace tactix::graph_labeling {
++
++using Score = std::pair<uint64_t, uint64_t>; // violated edges, squared deficits
++struct Candidate {
++  // Zero-based label for each vertex. No Boolean auxiliary values are implied.
++  std::vector<uint32_t> labels;
++  Score score{UINT64_MAX, UINT64_MAX};
++};
++
++// Stable metered insertion sorting keeps interruption outside a standard-library
++// comparator. Its degree/index ordering is the reference BFS tie break.
++template<class Less, class Charge>
++bool order_vertices(std::vector<uint32_t> &vertices, Less &&less, Charge &charge) {
++  for (size_t i = 1; i < vertices.size(); ++i) {
++    const uint32_t vertex = vertices[i];
++    size_t j = i;
++    while (j) {
++      if (!charge(1)) return false;
++      if (!less(vertex, vertices[j - 1])) break;
++      vertices[j] = vertices[j - 1];
++      --j;
++    }
++    vertices[j] = vertex;
++  }
++  return true;
++}
++
++template<class Charge>
++bool breadth_first_order(const Shape &shape, bool high_start, Charge &charge,
++                         std::vector<uint32_t> &order) {
++  const uint32_t n = shape.vertices;
++  if (!charge(3 * uint64_t(n))) return false;
++  std::vector<uint32_t> starts(n), pending;
++  std::vector<uint8_t> seen(n, 0);
++  pending.reserve(n);
++  order.clear();
++  order.reserve(n);
++  std::iota(starts.begin(), starts.end(), 0);
++  const auto degree_less = [&](uint32_t a, uint32_t b, bool high) {
++    const size_t da = shape.adjacency[a].size(), db = shape.adjacency[b].size();
++    return da == db ? a < b : high ? da > db : da < db;
++  };
++  if (!order_vertices(starts, [&](uint32_t a, uint32_t b) {
++        return degree_less(a, b, high_start);
++      }, charge)) return false;
++  std::vector<uint32_t> neighbors;
++  for (uint32_t start : starts) {
++    if (!charge(1)) return false;
++    if (seen[start]) continue;
++    pending.clear();
++    pending.push_back(start);
++    seen[start] = 1;
++    for (size_t head = 0; head < pending.size(); ++head) {
++      if (!charge(1)) return false;
++      const uint32_t vertex = pending[head];
++      order.push_back(vertex);
++      neighbors.clear();
++      for (uint32_t other : shape.adjacency[vertex]) {
++        if (!charge(1)) return false;
++        if (!seen[other]) neighbors.push_back(other);
++      }
++      if (!order_vertices(neighbors, [&](uint32_t a, uint32_t b) {
++            return degree_less(a, b, false);
++          }, charge)) return false;
++      for (uint32_t other : neighbors) {
++        if (!charge(1)) return false;
++        seen[other] = 1;
++        pending.push_back(other);
++      }
++    }
++  }
++  return true;
++}
++
++template<class Charge>
++bool score_labels(const Shape &shape, const std::vector<uint32_t> &labels,
++                  Charge &charge, Score &out) {
++  Score score{0, 0};
++  for (const auto [a, b] : shape.edges) {
++    if (!charge(1)) return false;
++    const uint32_t distance = labels[a] > labels[b] ? labels[a] - labels[b]
++                                                         : labels[b] - labels[a];
++    if (distance < shape.separation) {
++      ++score.first;
++      const uint64_t deficit = shape.separation - distance;
++      score.second += deficit * deficit;
++    }
++  }
++  out = score;
++  return true;
++}
++
++// The reference's complete 2*2*3*2 construction family: low/high-degree BFS
++// starts, forward/reverse order, alternating ends/two-at-a-time/straight labels,
++// and reflection. A bounded stop retains only fully scored candidates.
++// Shape must come from recognize (or an equivalently validated internal graph).
++// Caller separately admits workspace: O(vertices+edges), no kernel mutation.
++template<class Charge>
++bool order_seeds(const Shape &shape, Charge &&charge, Candidate &best,
++                 uint32_t &completed) {
++  best = {};
++  completed = 0;
++  const uint32_t n = shape.vertices;
++  if (!n || shape.adjacency.size() != n) return false;
++  for (bool high : {false, true}) {
++    std::vector<uint32_t> order;
++    if (!breadth_first_order(shape, high, charge, order)) return false;
++    for (bool reverse : {false, true}) {
++      for (uint32_t mode = 0; mode < 3; ++mode) {
++        for (bool flip : {false, true}) {
++          if (!charge(n)) return false;
++          std::vector<uint32_t> labels(n);
++          uint32_t low = 0, high_label = n - 1;
++          for (uint32_t i = 0; i < n; ++i) {
++            const uint32_t vertex = order[reverse ? n - 1 - i : i];
++            if (mode == 2) labels[vertex] = flip ? n - 1 - i : i;
++            else {
++              const bool from_low = (((mode == 0 ? i : i / 2) & 1) == 0) != flip;
++              labels[vertex] = from_low ? low++ : high_label--;
++            }
++          }
++          if (labels[0] + 1 > n / 2) {
++            if (!charge(n)) return false;
++            for (auto &label : labels) label = n - 1 - label;
++          }
++          Score score;
++          if (!score_labels(shape, labels, charge, score)) return false;
++          ++completed;
++          if (score < best.score) {
++            best.labels = std::move(labels);
++            best.score = score;
++          }
++        }
++      }
++    }
++  }
++  return true;
++}
++
++struct WindowLimits {
++  uint64_t nodes;
++  uint32_t starts;
++  uint32_t early_choices;
++  uint64_t seed;
++};
++enum class WindowStatus { Found, NoCandidate, Limited };
++
++// Place one vertex at each successive label, excluding neighbors of the last
++// separation-1 vertices. Explicit frames avoid recursion on a caller-sized
++// graph. A frame ranks candidates by remaining degree times the number of
++// recent vertices, then descending total degree, matching the reference key
++// without re-counting the same neighbors for each recent vertex. Random ties
++// are stable in shuffled order. Caps/seed belong to the caller's typed profile.
++// On a bounded stop the prior fully scored construction remains available.
++template<class Charge>
++WindowStatus window_search(const Shape &shape, const WindowLimits &limits,
++                           Charge &&charge, Candidate &best, uint64_t &nodes) {
++  nodes = 0;
++  const uint32_t n = shape.vertices;
++  if (!n || !shape.separation || shape.adjacency.size() != n)
++    return WindowStatus::NoCandidate;
++  if (!limits.nodes || !limits.starts || !limits.early_choices)
++    return WindowStatus::Limited;
++  const uint64_t words = (uint64_t(n) + 63) / 64;
++  if (!charge(uint64_t(n) * words + 3 * uint64_t(n)))
++    return WindowStatus::Limited;
++  std::vector<std::vector<uint64_t>> adjacent(n, std::vector<uint64_t>(words, 0));
++  std::vector<uint32_t> starts(n), order;
++  std::vector<uint8_t> used(n, 0);
++  std::iota(starts.begin(), starts.end(), 0);
++  order.reserve(n);
++  for (uint32_t v = 0; v < n; ++v)
++    for (uint32_t u : shape.adjacency[v]) {
++      if (!charge(1)) return WindowStatus::Limited;
++      adjacent[v][u / 64] |= uint64_t{1} << (u % 64);
++    }
++  if (!order_vertices(starts, [&](uint32_t a, uint32_t b) {
++        const size_t da = shape.adjacency[a].size(), db = shape.adjacency[b].size();
++        return da == db ? a < b : da > db;
++      }, charge)) return WindowStatus::Limited;
++  struct Frame { std::vector<uint32_t> choices; size_t next = 0; };
++  std::vector<Frame> frames;
++  frames.reserve(n);
++  std::mt19937_64 random(limits.seed);
++  std::vector<uint64_t> forbidden(words), remaining_degree(n);
++  for (uint32_t si = 0; si < std::min(n, limits.starts); ++si) {
++    if (!charge(n)) return WindowStatus::Limited;
++    std::fill(used.begin(), used.end(), 0);
++    order.assign(1, starts[si]);
++    used[starts[si]] = 1;
++    frames.clear();
++    bool enter = true;
++    while (!order.empty()) {
++      if (enter) {
++        if (nodes == limits.nodes || !charge(1)) return WindowStatus::Limited;
++        ++nodes;
++        const uint32_t depth = static_cast<uint32_t>(order.size());
++        if (depth == n) {
++          if (!charge(n)) return WindowStatus::Limited;
++          Candidate candidate;
++          candidate.labels.resize(n);
++          for (uint32_t i = 0; i < n; ++i) candidate.labels[order[i]] = i;
++          if (candidate.labels[0] + 1 > n / 2) {
++            if (!charge(n)) return WindowStatus::Limited;
++            for (auto &label : candidate.labels) label = n - 1 - label;
++          }
++          if (!score_labels(shape, candidate.labels, charge, candidate.score))
++            return WindowStatus::Limited;
++          best = std::move(candidate);
++          return WindowStatus::Found;
++        }
++        if (!charge(words)) return WindowStatus::Limited;
++        std::fill(forbidden.begin(), forbidden.end(), 0);
++        const uint32_t first = depth >= shape.separation
++                                   ? depth - shape.separation + 1 : 0;
++        for (uint32_t i = first; i < depth; ++i)
++          for (uint64_t word = 0; word < words; ++word) {
++            if (!charge(1)) return WindowStatus::Limited;
++            forbidden[word] |= adjacent[order[i]][word];
++          }
++        Frame frame;
++        for (uint32_t v = 0; v < n; ++v) {
++          if (!charge(1)) return WindowStatus::Limited;
++          if (used[v] || (forbidden[v / 64] & (uint64_t{1} << (v % 64)))) continue;
++          frame.choices.push_back(v);
++          remaining_degree[v] = 0;
++          for (uint32_t u : shape.adjacency[v]) {
++            if (!charge(1)) return WindowStatus::Limited;
++            remaining_degree[v] += !used[u];
++          }
++        }
++        // Fisher-Yates with an explicit draw per choice keeps replay stable.
++        for (size_t i = frame.choices.size(); i > 1; --i) {
++          if (!charge(1)) return WindowStatus::Limited;
++          std::swap(frame.choices[i - 1], frame.choices[random() % i]);
++        }
++        const uint32_t recent = std::min(depth, shape.separation >= 2
++                                                     ? shape.separation - 2 : 0);
++        if (!order_vertices(frame.choices, [&](uint32_t a, uint32_t b) {
++              const uint64_t ra = remaining_degree[a] * recent;
++              const uint64_t rb = remaining_degree[b] * recent;
++              return ra != rb ? ra < rb
++                             : shape.adjacency[a].size() > shape.adjacency[b].size();
++            }, charge)) return WindowStatus::Limited;
++        if (depth < n / 3 && frame.choices.size() > limits.early_choices)
++          frame.choices.resize(limits.early_choices);
++        frames.push_back(std::move(frame));
++        enter = false;
++      }
++      Frame &frame = frames.back();
++      if (frame.next < frame.choices.size()) {
++        const uint32_t vertex = frame.choices[frame.next++];
++        order.push_back(vertex);
++        used[vertex] = 1;
++        enter = true;
++      } else {
++        frames.pop_back();
++        used[order.back()] = 0;
++        order.pop_back();
++      }
++    }
++  }
++  return WindowStatus::NoCandidate;
++}
++
++} // namespace tactix::graph_labeling
+diff --git a/tests/test_graph_labeling_recognition.cpp b/tests/test_graph_labeling_recognition.cpp
+new file mode 100644
+index 00000000..a57d7cfc
+--- /dev/null
++++ b/tests/test_graph_labeling_recognition.cpp
+@@ -0,0 +1,92 @@
++#undef NDEBUG
++#include "rules/lucky/graph_labeling_recognition.hpp"
++#include "policies/heuristics.hpp"
++
++#include <cassert>
++#include <vector>
++
++using namespace tactix;
++
++// Indexed column covers with a sign-renamed Boolean encoding. The graph
++// exclusions begin in column two (one-based separation three), as in the
++// reference's interval encoding. This is only a recognition fixture, not a
++// full Boolean encoding of graph labeling.
++static void rectangle(Kernel &k, bool signed_encoding, bool malformed = false) {
++  constexpr uint32_t n = 4;
++  kernel_reserve_vars(k, n * n + 2);
++  const auto primary = [&](Var v) {
++    return make_lit(v, signed_encoding && (v % 3 == 0));
++  };
++  for (uint32_t column = 0; column < n; ++column) {
++    std::vector<Lit> cover;
++    for (uint32_t row = 0; row < n; ++row)
++      cover.push_back(primary(row * n + column));
++    if (malformed && column == 1) cover[0] = primary(2);
++    std::reverse(cover.begin(), cover.end());
++    kernel_add_large_clause(k, cover.data(), cover.size(), false, 0);
++  }
++  for (uint32_t column = 2; column < n; ++column) {
++    kernel_add_binary_clause(k, negate(primary(column)),
++                             negate(primary(n + column)));
++    kernel_add_binary_clause(k, negate(primary(n + column)),
++                             negate(primary(2 * n + column)));
++  }
++}
++
++int main() {
++  for (bool signs : {false, true}) {
++    Kernel k;
++    rectangle(k, signs);
++    const auto trail = k.trail;
++    uint64_t work = 0;
++    graph_labeling::Shape shape;
++    const auto count = [&](uint64_t amount) { work += amount; return true; };
++    assert(graph_labeling::recognize(k, 4, 1024, count, shape));
++    assert(shape.vertices == 4 && shape.separation == 3);
++    assert((shape.edges == std::vector<std::pair<uint32_t, uint32_t>>{
++                               {0, 1}, {1, 2}}));
++    assert((shape.adjacency[1] == std::vector<uint32_t>{0, 2}));
++    for (Var v = 0; v < 16; ++v)
++      assert(shape.primary[v] == make_lit(v, signs && v % 3 == 0));
++    const uint64_t complete_work = work;
++    for (uint64_t limit = 0; limit < complete_work; ++limit) {
++      uint64_t used = 0;
++      const auto bounded = [&](uint64_t amount) {
++        if (amount > limit - used) return false;
++        used += amount;
++        return true;
++      };
++      assert(!graph_labeling::recognize(k, 4, 1024, bounded, shape));
++      assert(!shape.vertices && shape.primary.empty() && shape.edges.empty());
++      assert(used <= limit && k.trail == trail);
++    }
++    assert(!graph_labeling::recognize(k, 3, 1024, count, shape));
++    assert(!graph_labeling::recognize(k, 4, 1, count, shape));
++    assert(k.trail == trail);
++  }
++  {
++    Kernel k;
++    rectangle(k, false, true);
++    graph_labeling::Shape shape;
++    assert(!graph_labeling::recognize(k, 4, 1024,
++                                      [](uint64_t) { return true; }, shape));
++  }
++  {
++    Kernel k;
++    ScopedHeuristics h(k);
++    rectangle(k, true);
++    k.var_status.assign(k.nvars, VarStatus::Active);
++    k.var_status[16] = VarStatus::Eliminated;
++    heuristics_deactivate_var(k, 16);
++    --k.unassigned_active;
++    assert(kernel_compact_variables(k));
++    graph_labeling::Shape shape;
++    const auto charge = [](uint64_t) { return true; };
++    assert(graph_labeling::recognize(k, 4, 1024, charge, shape));
++    k.var_status.resize(k.nvars, VarStatus::Active);
++    const Var internal = k.external_to_internal[2];
++    assert(internal < k.nvars);
++    k.var_status[internal] = VarStatus::Eliminated;
++    assert(!graph_labeling::recognize(k, 4, 1024, charge, shape));
++  }
++}
+diff --git a/tests/test_graph_labeling_search.cpp b/tests/test_graph_labeling_search.cpp
+new file mode 100644
+index 00000000..4008cda3
+--- /dev/null
++++ b/tests/test_graph_labeling_search.cpp
+@@ -0,0 +1,107 @@
++#undef NDEBUG
++#include "rules/lucky/graph_labeling_search.hpp"
++
++#include <cassert>
++#include <numeric>
++
++using namespace tactix::graph_labeling;
++
++static Score independent_score(const Shape &shape, const Candidate &candidate) {
++  auto sorted = candidate.labels;
++  std::sort(sorted.begin(), sorted.end());
++  for (uint32_t i = 0; i < shape.vertices; ++i) assert(sorted[i] == i);
++  uint64_t bad = 0, penalty = 0;
++  for (uint32_t v = 0; v < shape.vertices; ++v)
++    for (uint32_t u : shape.adjacency[v]) {
++      if (u <= v) continue;
++      const int64_t distance = std::abs(int64_t(candidate.labels[v]) -
++                                       int64_t(candidate.labels[u]));
++      if (distance >= shape.separation) continue;
++      ++bad;
++      const uint64_t deficit = shape.separation - distance;
++      penalty += deficit * deficit;
++    }
++  return {bad, penalty};
++}
++
++int main() {
++  // Exhaust every simple four-vertex graph, including disconnected graphs and
++  // an impossible separation. Check complete permutations and objective values
++  // independently of the constructor's edge scorer, plus deterministic replay.
++  for (uint32_t mask = 0; mask < 64; ++mask) {
++    Shape shape;
++    shape.vertices = 4;
++    shape.separation = 3;
++    shape.adjacency.resize(4);
++    uint32_t bit = 0;
++    for (uint32_t a = 0; a < 4; ++a)
++      for (uint32_t b = a + 1; b < 4; ++b, ++bit)
++        if (mask & (1u << bit)) {
++          shape.edges.emplace_back(a, b);
++          shape.adjacency[a].push_back(b);
++          shape.adjacency[b].push_back(a);
++        }
++    Candidate candidate;
++    uint64_t work = 0;
++    const auto charge = [&](uint64_t amount) { work += amount; return true; };
++    uint32_t completed = 0;
++    assert(order_seeds(shape, charge, candidate, completed));
++    assert(completed == 24 && candidate.score == independent_score(shape, candidate));
++    Candidate replay;
++    assert(order_seeds(shape, charge, replay, completed));
++    assert(replay.labels == candidate.labels && replay.score == candidate.score);
++    // With all starts/choices allowed this finite search must agree with a
++    // brute-force permutation oracle, even when the seed family misses a model.
++    Candidate brute;
++    brute.labels = {0, 1, 2, 3};
++    bool exists = false;
++    do {
++      exists |= independent_score(shape, brute).first == 0;
++    } while (std::next_permutation(brute.labels.begin(), brute.labels.end()));
++    Candidate searched = candidate;
++    uint64_t nodes = 0;
++    const WindowLimits limits{1000, 4, 4, 123};
++    const auto unbounded = [](uint64_t) { return true; };
++    const auto status = window_search(shape, limits, unbounded, searched, nodes);
++    assert((status == WindowStatus::Found) == exists);
++    assert(status != WindowStatus::Limited && nodes <= limits.nodes);
++    if (exists) {
++      assert(searched.score.first == 0);
++      assert(searched.score == independent_score(shape, searched));
++    } else assert(searched.labels == candidate.labels);
++    if (!mask) {
++      uint64_t dfs_work = 0;
++      const auto dfs_count = [&](uint64_t amount) { dfs_work += amount; return true; };
++      assert(window_search(shape, limits, dfs_count, searched, nodes) == WindowStatus::Found);
++      for (uint64_t limit = 0; limit < dfs_work; ++limit) {
++        uint64_t used = 0;
++        const auto bounded = [&](uint64_t amount) {
++          if (amount > limit - used) return false;
++          used += amount;
++          return true;
++        };
++        searched = candidate;
++        assert(window_search(shape, limits, bounded, searched, nodes) == WindowStatus::Limited);
++        assert(searched.labels == candidate.labels && searched.score == candidate.score);
++      }
++    }
++    if (mask == 0) assert(candidate.score.first == 0);
++    if (mask != 63) continue;
++    // Every possible early stop retains an evaluated permutation, never an
++    // interrupted sort or a half-built assignment.
++    const uint64_t full_work = work / 2;
++    for (uint64_t limit = 0; limit < full_work; ++limit) {
++      uint64_t used = 0;
++      const auto bounded = [&](uint64_t amount) {
++        if (amount > limit - used) return false;
++        used += amount;
++        return true;
++      };
++      Candidate partial;
++      assert(!order_seeds(shape, bounded, partial, completed));
++      assert(used <= limit && completed < 24);
++      if (completed) assert(partial.score == independent_score(shape, partial));
++      else assert(partial.labels.empty());
++    }
++  }
++}
