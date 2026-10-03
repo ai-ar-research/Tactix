@@ -1,0 +1,25 @@
+{
+  "scope": "Nonterminal prefix audit with disjoint unit-free gadget; no target proof or production acceptance",
+  "cases": [
+    {
+      "n": 3,
+      "prefix_lines": 422,
+      "proof_bytes": 6920,
+      "canonical_verified": true,
+      "forward_drat_verified": true,
+      "forward_cake_verified": true,
+      "negative_returncode": 1,
+      "negative_semantically_rejected": true
+    },
+    {
+      "n": 4,
+      "prefix_lines": 1434,
+      "proof_bytes": 29845,
+      "canonical_verified": true,
+      "forward_drat_verified": true,
+      "forward_cake_verified": true,
+      "negative_returncode": 1,
+      "negative_semantically_rejected": true
+    }
+  ]
+}
