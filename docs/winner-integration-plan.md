@@ -12,8 +12,11 @@ The ultimate goal is to solve substantially more instances than the virtual
 portfolio of **LymphoSAT, Satsuma+Kissat, Kissat-sc2024 and AE-Kissat-MAB combined**.
 Integrate their useful techniques into Tactix's continuing solver state, then
 improve the algorithms and their composition beyond the references where useful.
-Parity is an intermediate milestone, not the final success criterion. Preserve
-the formal T4/T5 targets and N1–N4; this workstream does not declare them passed.
+Performance convergence and learning readiness are joint acceptance criteria:
+each capability must be usable by DefaultPolicy, random and future learned selection.
+Parity is an intermediate milestone, not the final success criterion. Each
+increment must respect N1–N4 under plan §1.1; retain the formal T4/T5 targets.
+Use the owning API/proof/parity checks and ledger; no blanket N1–N4 pass is claimed.
 
 Use the historical no-MAB `d170b4a5` full Tier-D campaign as the user-approved
 performance approximation for the current implementation (`375b621b` at entry).
@@ -55,8 +58,8 @@ does not establish superiority beyond the virtual portfolio.
 4. Establish proof/model feasibility and a bounded mechanism review before
    implementation. Integrate one complete increment at a time, with faithful
    reference controls, targeted causal validation and cumulative preservation.
-   Engineering convergence takes priority over reward/online-learning work;
-   O6 remains deferred and selection stays random where the controller is used.
+   Build learning-ready capabilities from the start; performance alone does not
+   accept an increment. O6/reward/training remain deferred; selection stays random.
 
 ## Lightweight symmetry during inprocessing
 
@@ -165,6 +168,23 @@ before implementing mixed reasoning; exact architecture remains a design decisio
 Preserve replay, interruption, public applicability and model reconstruction;
 an unsupported proof mode must decline before mutation, never execute unverified.
 
+## Learning-ready acceptance
+
+New reasoning, construction and guidance must use the shared typed execution and
+eligible-action interfaces, with DefaultPolicy an explicit scheduling instantiation.
+Do not hide useful capabilities, ordering or budgets inside a default-only solver
+path. Keep legal guards and proof/reconstruction in rules; policy owns admission,
+intervals, order, candidate selection and effort. Preserve repeated eligible
+actions at full root and ordinary partial-trail continuation during search.
+Version/serialize new actions, instances, parameters, candidate references and
+continuation/stale/interruption behavior; replay selection and results deterministically.
+Extend pure observation and after-action feedback with relevant raw state,
+actual effort/currency, yield, status/reason, overshoot and linked search intervals.
+Selection sees current measurements without invented retrospective credit or a
+fixed reward formula. Measure instrumentation cost as well as solver/proof cost.
+Demonstrate each new capability through both default and random selection with
+effective reach; performance-only private paths are incomplete integration.
+
 ## Verification, completion and remaining decisions
 
 The 36-instance checkpoint requires all 36 independently checked on a candidate,
@@ -175,15 +195,16 @@ the 13 certificate-side misses separately, retaining their frozen classification
 The next checkpoint includes all eight MAB-only misses, while retaining prior
 checked coverage. Existing broader WV/T4 requirements remain distinct.
 
-Changed code requires meaningful API/eligibility, identity/compaction, repeated
-actions, interruption, allowance/overshoot, stale candidate, phase-memory and
-deterministic replay checks, plus full Debug at acceptance and Claude-owned
-DefaultPolicy/random-policy proof/model fuzz under the owning protocols.
+Every integration increment and cumulative candidate requires continued
+Claude-owned DefaultPolicy/random-policy proof/model fuzz under plan §8.2,
+with effective action reach, negative controls and failures resolved before promotion.
+Require API/eligibility, identity/compaction, repeated actions, interruption,
+allowance/overshoot, stale candidate, phase-memory and replay checks, and full Debug at acceptance.
 For symmetry, include learned/checker-retained clauses and earlier breaking;
 for guidance, test private seeding, saved/best preservation, target supersession,
 fixed/retired/new variables, and unsupported phase profiles without hidden override.
-Retain B28+C5, Rank1–50, WV100 and WV2–89 regressions, exact existing ceilings,
-memory/coverage exceptions and bounded regression checking from plan §8.4:
+Keep B28+C5, Rank1–50, WV100 and WV2–89 as regression gates for accepted increments;
+retain exact ceilings, memory/coverage exceptions and bounded checking from plan §8.4:
 1,800 seconds for the whole pipeline and at most `max(30% of baseline,20s)`
 extra completed check time. This regression exception never verifies a target.
 
