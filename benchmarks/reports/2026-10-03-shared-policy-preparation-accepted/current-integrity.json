@@ -1,0 +1,16 @@
+{
+  "schema": "tactix-final-preparation-integrity-v1",
+  "observed_at_utc": "2026-10-03T16:36:43.775804+00:00",
+  "source_commit": "375b621ba6677600f3e77bf8383af25d256d7b67",
+  "immutable_parent_manifest_sha256": "3fc95f53d1c5dcd5befdbe310602603e23d1a426409c53d3c99aac43d86fa56a",
+  "current984_bindings_verified": true,
+  "verify_command": "python3 benchmarks/runs/20261002-shared-policy-feedback-375b621b-preparation/verify.py",
+  "verify_exit": 0,
+  "verify_stdout": "Verified 984 binary/support pins",
+  "source_delta_from_production_empty": true,
+  "engineering_audit35_source_evidence_bindings_verified": true,
+  "frozen_debug14_regression31_closeout8_companion_bindings_verified": true,
+  "user_approval_required_and_received": true,
+  "private_campaign_inspection": false,
+  "scope": "Read-only current pin/source and parent-owned frozen evidence; no new solver execution or reinterpretation of lost original artifact verification."
+}
