@@ -3,8 +3,7 @@
 This living subplan owns the portfolio-convergence workstream linked from
 [DEVELOPMENT_PLAN.md](../DEVELOPMENT_PLAN.md#95-organic-winner-technique-integration).
 Current implementation status and the next action belong to PROGRESS.md;
-concrete versioned controller contracts remain in controller-interface.md.
-The mechanisms below are planned changes, not claims of implementation.
+concrete controller contracts remain in controller-interface.md. Mechanisms below are planned, not implemented.
 
 ## Objective and fixed targets
 
@@ -51,10 +50,10 @@ does not establish superiority beyond the virtual portfolio.
    Use structural recognition and explicit applicability, never filename/rank
    dispatch, hardcoded answers or external solver stages. Share clauses, root
    assignments, learned information, reconstruction and heuristic state with CDCL.
-3. Assess certified Boolean reasoning for each technique before choosing its
-   implementation form, following the mechanism review below. Add or extend
-   native passes, proof rules, constructors or local search as justified;
-   expose useful intermediate consequences, guidance and eligible actions to both
+3. Translate LymphoSAT structural/theory-level information into certified Boolean
+   constraints, auxiliary definitions and deductions for continuing CDCL; dedicated
+   LymphoSAT local search is not a planned integration path. Expose these native
+   passes/proof rules and their useful intermediate consequences to both
    DefaultPolicy and the random controller through shared typed execution.
 4. Establish proof/model feasibility and a bounded mechanism review before
    implementation. Integrate one complete increment at a time, with faithful
@@ -102,7 +101,8 @@ by that review, with source-backed or derived defaults rather than guessed const
 
 ## General constructor guidance and CDCL phases
 
-Eligible structural searches/model constructors publish a separately owned
+The shared guidance interface remains available for existing eligible producers;
+it does not authorize dedicated LymphoSAT local-search integration. Such producers publish an owned
 candidate with stable external variable identities, known polarities, producer,
 formula provenance and actual effort. Complete validated models finish SAT;
 unsuccessful bounded searches may retain useful candidates. Recognition or an
@@ -136,9 +136,9 @@ budget is introduced. Direct guidance and Walk seeding need separate attribution
 
 ## SAT/UNSAT reasoning and proof production
 
-For every imported technique, first assess useful implied constraints, certified
-auxiliary definitions and symmetry breaking that strengthen continuing CDCL.
-Local search is not the presumed implementation. Distinguish model-preserving
+For LymphoSAT, the primary integration is theory-to-Boolean translation: useful
+implied constraints, certified auxiliary definitions and justified symmetry breaking
+that strengthen continuing CDCL. Distinguish model-preserving
 consequences, conservative extensions with model projection, and restrictions
 requiring their own satisfiability-preservation proof. Chosen assignments are not implied facts.
 
@@ -147,12 +147,12 @@ choices or a combination. Consider selective/lazy consequences; Boolean encoding
 alone does not establish efficient search. Assess generation effort, formula growth, propagation,
 memory, proof/checking cost and checked SAT/UNSAT outcomes. Share structural
 recognition between certified reasoning and constructive guidance where useful.
-Retain construction when its assignment-finding advantage warrants it; compare
-reasoning, construction and combinations in bounded experiments when uncertain.
-Preserve checked candidate gains while assessing alternatives.
+Keep existing constructors as diagnostic/reference evidence, not the destination
+for LymphoSAT integration. If a mechanism cannot be translated efficiently, record
+the limitation and discuss it before substituting dedicated local search.
 
-Investigate LymphoSAT's constructive/local-search SAT techniques and its UNSAT
-reasoning together. Candidates include equivalence-chain, XOR/parity, Tseitin
+Extract structural information from LymphoSAT SAT constructors and UNSAT
+reasoning alike. Candidates include equivalence-chain, XOR/parity, Tseitin
 and counting mechanisms identified by the existing
 [PB surface audit](../benchmarks/reports/2026-09-25-am402-winner-pb-rule-surface-audit.md);
 their relevance to a particular miss must be established, not inferred from names.
