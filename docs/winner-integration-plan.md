@@ -11,11 +11,8 @@ Integrate useful techniques into continuing solver state, improving algorithms a
 Performance and learning readiness are joint acceptance criteria: every capability serves DefaultPolicy, random and future learned selection.
 Parity is intermediate; each increment respects N1–N4 under plan §1.1 and retains formal T4/T5 targets.
 Use the owning API/proof/parity checks and ledger; no blanket N1–N4 pass is claimed.
-Use the historical no-MAB `d170b4a5` full Tier-D campaign as the user-approved
-performance approximation for the current implementation (`375b621b` at entry).
-Do not rerun that baseline, the full comparison, or unchanged Tactix merely to
-refresh this approximation. Develop against current source; the approximation
-does not transfer correctness acceptance to changed code.
+Use the historical no-MAB `d170b4a5` full Tier-D campaign as the approved performance approximation (`375b621b` at entry).
+Do not rerun that baseline, the full comparison or unchanged Tactix to refresh it. Develop current source; historical correctness acceptance does not transfer.
 
 The [saved portfolio report](../report-to-andrew/20261003T164617Z-tierd-portfolio-misses/report.pdf)
 and its CSV/manifest identify the target inputs and original result records.
@@ -29,8 +26,7 @@ timeouts and four checker failures**. Their frozen ranks are
 1075, 1129, 1144, 1161 and 1163. These ranks identify evidence, never solver controls.
 The full four-arm gap additionally contains ranks 97, 410, 499, 557, 1009,
 1040, 1085 and 1118, checked only by AE-Kissat-MAB among the reference arms.
-They remain in scope after the 36-instance checkpoint; solving all 44 still
-does not establish superiority beyond the virtual portfolio.
+They remain in scope after the 36-instance checkpoint; solving all 44 does not establish superiority beyond the portfolio.
 
 ## Integration and investigation order
 
@@ -184,6 +180,13 @@ Track later deletion/replacement and per-action counts, effort and proof volume.
 Use a streamed derivation record linked to replay; do not retain an unbounded
 in-memory ledger. A certificate alone does not replace semantic provenance.
 
+Investigate policy-controlled branching on introduced or recovered semantic variables,
+distinguishing useful search choices from proof-only helpers. Assess EVSIDS boosts,
+VMTF promotion or explicit Decide selection through shared public/replayable controls;
+producers publish identities/meaning, never silently change rankings. Compare constraints
+alone against added guidance; measure actual decisions, propagation and solve/proof cost.
+No boost strength, repetition schedule or default is chosen without evidence.
+
 ## Learning-ready acceptance
 
 New reasoning, construction and guidance must use the shared typed execution and
@@ -196,10 +199,8 @@ Version/serialize new actions, instances, parameters, candidate references and
 continuation/stale/interruption behavior; replay selection and results deterministically.
 Extend pure observation and after-action feedback with relevant raw state,
 actual effort/currency, yield, status/reason, overshoot and linked search intervals.
-Selection sees current measurements without invented retrospective credit or a
-fixed reward formula. Measure instrumentation cost as well as solver/proof cost.
-Demonstrate each new capability through both default and random selection with
-effective reach; performance-only private paths are incomplete integration.
+Selection sees current measurements without invented retrospective credit or a fixed reward. Measure instrumentation and solver/proof costs.
+Demonstrate effective default/random reach for every capability; performance-only private paths are incomplete integration.
 
 ## Verification, completion and remaining decisions
 
@@ -208,8 +209,7 @@ under the saved 5,000-second solve/32-GiB envelope; use the historical complete
 14,400-second checker pipeline for comparable target acceptance. Raw UNSAT,
 checker crashes and clean deadline censors do not close a target. Investigate
 the 13 certificate-side misses separately, retaining their frozen classifications.
-The next checkpoint includes all eight MAB-only misses, while retaining prior
-checked coverage. Existing broader WV/T4 requirements remain distinct.
+The next checkpoint includes all eight MAB-only misses and retains prior checked coverage. Broader WV/T4 requirements remain distinct.
 
 Every integration increment and cumulative candidate requires continued
 Claude-owned DefaultPolicy/random-policy proof/model fuzz under plan §8.2,

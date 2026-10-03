@@ -1,0 +1,57 @@
+{
+  "scope": "Fixed microproofs under explicit negated row cover; not a target proof or unconditioned inprocessing derivation",
+  "cases": [
+    {
+      "n": 2,
+      "generation": {
+        "n": 2,
+        "bdd_nodes": 19,
+        "additions": 102
+      },
+      "proof_bytes": 985,
+      "canonical_verified": true,
+      "every_lemma_verified": true,
+      "cnf_sha256": "0ac95d36d0e2a1e4c9fb4faaeca73851008bb1af8da40f52bfd75868a36baf7f",
+      "proof_sha256": "5696321b4fbd0f108462ae2232c254a0f0d1ecc66438b95c0c968d41065ab045"
+    },
+    {
+      "n": 3,
+      "generation": {
+        "n": 3,
+        "bdd_nodes": 88,
+        "additions": 504
+      },
+      "proof_bytes": 5528,
+      "canonical_verified": true,
+      "every_lemma_verified": true,
+      "cnf_sha256": "10db51658a42ecc132f5f23d2d6bb264ef12bed508e31306d25a4c12f2063211",
+      "proof_sha256": "b0329c9a39d1cfa19b7d2f4dd2aedc691842c60815aba1e0619fd343ca0deb09"
+    },
+    {
+      "n": 4,
+      "generation": {
+        "n": 4,
+        "bdd_nodes": 264,
+        "additions": 1610
+      },
+      "proof_bytes": 21088,
+      "canonical_verified": true,
+      "every_lemma_verified": true,
+      "cnf_sha256": "cab65ad562077aad0b20aef95536a1243421e3a6335747afaa39f99058ba9c9f",
+      "proof_sha256": "d655dbc6bb4e32b0d6c44a394f2459a981fa7b1238028cfd12a899a140bc62d1"
+    },
+    {
+      "n": 6,
+      "generation": {
+        "n": 6,
+        "bdd_nodes": 1245,
+        "additions": 8356
+      },
+      "proof_bytes": 122947,
+      "canonical_verified": true,
+      "every_lemma_verified": true,
+      "cnf_sha256": "0eebb708ec26b095482aa7427761fdeb4eed6a6210e47b723b053ebb6c7441e6",
+      "proof_sha256": "e2b9bf688eccf3654422bfc959da4ea13af5f46701af3ad13effcf5a04f0bed0"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+
+c parsing input formula with 99 variables and 16 clauses
+
+c finished parsing
+
+c start forward verification
+
+c conflict claimed, but not detected
+
+s NOT VERIFIED
+
+c verification time: 0.045 seconds
