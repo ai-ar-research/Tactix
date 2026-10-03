@@ -2,21 +2,15 @@
 
 This living subplan owns the portfolio-convergence workstream linked from
 [DEVELOPMENT_PLAN.md](../DEVELOPMENT_PLAN.md#95-organic-winner-technique-integration).
-Current implementation status and the next action belong to PROGRESS.md;
-concrete controller contracts remain in controller-interface.md. Mechanisms below are planned, not implemented.
+Status and next actions belong to PROGRESS.md; controller contracts to controller-interface.md. Mechanisms below are planned, not implemented.
 
 ## Objective and fixed targets
 
-The ultimate goal is to solve substantially more instances than the virtual
-portfolio of **LymphoSAT, Satsuma+Kissat, Kissat-sc2024 and AE-Kissat-MAB combined**.
-Integrate their useful techniques into Tactix's continuing solver state, then
-improve the algorithms and their composition beyond the references where useful.
-Performance convergence and learning readiness are joint acceptance criteria:
-each capability must be usable by DefaultPolicy, random and future learned selection.
-Parity is an intermediate milestone, not the final success criterion. Each
-increment must respect N1–N4 under plan §1.1; retain the formal T4/T5 targets.
+The ultimate goal is to solve substantially more than the virtual portfolio of **LymphoSAT, Satsuma+Kissat, Kissat-sc2024 and AE-Kissat-MAB combined**.
+Integrate useful techniques into continuing solver state, improving algorithms and composition beyond references where useful.
+Performance and learning readiness are joint acceptance criteria: every capability serves DefaultPolicy, random and future learned selection.
+Parity is intermediate; each increment respects N1–N4 under plan §1.1 and retains formal T4/T5 targets.
 Use the owning API/proof/parity checks and ledger; no blanket N1–N4 pass is claimed.
-
 Use the historical no-MAB `d170b4a5` full Tier-D campaign as the user-approved
 performance approximation for the current implementation (`375b621b` at entry).
 Do not rerun that baseline, the full comparison, or unchanged Tactix merely to
@@ -181,8 +175,14 @@ including preceding/following clausal work and transformations. PB commands cann
 be spliced into DSR or cause an undeclared format switch after publication.
 Choose a coherent PB-capable whole-run certificate or a formally checked bridge
 before implementing mixed reasoning; exact architecture remains a design decision.
-Preserve replay, interruption, public applicability and model reconstruction;
-an unsupported proof mode must decline before mutation, never execute unverified.
+Preserve replay, interruption, public applicability and model reconstruction; unsupported proof modes decline before mutation.
+
+Record every added constraint/auxiliary definition: stable identity, Boolean formula
+and theory meaning, source clauses/structural premises, generating action and
+parameters, variable mapping/model projection, and linked proof event or range.
+Track later deletion/replacement and per-action counts, effort and proof volume.
+Use a streamed derivation record linked to replay; do not retain an unbounded
+in-memory ledger. A certificate alone does not replace semantic provenance.
 
 ## Learning-ready acceptance
 
