@@ -1,0 +1,758 @@
+[
+  {
+    "case": 0,
+    "vertices": 64,
+    "kind": "planted_sparse",
+    "arm": "reference",
+    "seconds": 11.158009207,
+    "bad": 0,
+    "cost": 0,
+    "stages": []
+  },
+  {
+    "case": 0,
+    "vertices": 64,
+    "kind": "planted_sparse",
+    "arm": "native",
+    "seconds": 8.636293883,
+    "bad": 0,
+    "cost": 0,
+    "stages": [
+      {
+        "name": "construction",
+        "work": 6125,
+        "cap": 100000000,
+        "exhausted": false,
+        "seconds": 2.2291e-05
+      },
+      {
+        "name": "window",
+        "work": 4432955971,
+        "cap": 5000000000,
+        "exhausted": false,
+        "seconds": 8.635864566
+      },
+      {
+        "name": "repair",
+        "work": 74457,
+        "cap": 1000000000,
+        "exhausted": false,
+        "seconds": 0.000406355
+      },
+      {
+        "name": "anneal",
+        "work": 0,
+        "cap": 500000000,
+        "exhausted": false,
+        "seconds": 3e-08
+      },
+      {
+        "name": "final_repair",
+        "work": 0,
+        "cap": 1000000000,
+        "exhausted": false,
+        "seconds": 3e-08
+      },
+      {
+        "name": "reflection",
+        "work": 0,
+        "cap": 1000000,
+        "exhausted": false,
+        "seconds": 2.01e-07
+      }
+    ]
+  },
+  {
+    "case": 1,
+    "vertices": 64,
+    "kind": "planted_dense",
+    "arm": "native",
+    "seconds": 8.790215136,
+    "bad": 0,
+    "cost": 0,
+    "stages": [
+      {
+        "name": "construction",
+        "work": 11275,
+        "cap": 100000000,
+        "exhausted": false,
+        "seconds": 4.1683e-05
+      },
+      {
+        "name": "window",
+        "work": 4668718142,
+        "cap": 5000000000,
+        "exhausted": false,
+        "seconds": 8.738201975
+      },
+      {
+        "name": "repair",
+        "work": 6500713,
+        "cap": 1000000000,
+        "exhausted": false,
+        "seconds": 0.051970788
+      },
+      {
+        "name": "anneal",
+        "work": 0,
+        "cap": 500000000,
+        "exhausted": false,
+        "seconds": 3e-08
+      },
+      {
+        "name": "final_repair",
+        "work": 0,
+        "cap": 1000000000,
+        "exhausted": false,
+        "seconds": 2e-08
+      },
+      {
+        "name": "reflection",
+        "work": 64,
+        "cap": 1000000,
+        "exhausted": false,
+        "seconds": 1.8e-07
+      }
+    ]
+  },
+  {
+    "case": 1,
+    "vertices": 64,
+    "kind": "planted_dense",
+    "arm": "reference",
+    "seconds": 17.365558572,
+    "bad": 0,
+    "cost": 0,
+    "stages": []
+  },
+  {
+    "case": 2,
+    "vertices": 64,
+    "kind": "complete_graph",
+    "arm": "reference",
+    "seconds": 72.000227568,
+    "bad": 63,
+    "cost": 63,
+    "stages": []
+  },
+  {
+    "case": 2,
+    "vertices": 64,
+    "kind": "complete_graph",
+    "arm": "native",
+    "seconds": 15.200161468,
+    "bad": 63,
+    "cost": 63,
+    "stages": [
+      {
+        "name": "construction",
+        "work": 59768,
+        "cap": 100000000,
+        "exhausted": false,
+        "seconds": 0.000102811
+      },
+      {
+        "name": "window",
+        "work": 5923,
+        "cap": 5000000000,
+        "exhausted": false,
+        "seconds": 1.5669e-05
+      },
+      {
+        "name": "repair",
+        "work": 1000000000,
+        "cap": 1000000000,
+        "exhausted": true,
+        "seconds": 6.047367969
+      },
+      {
+        "name": "anneal",
+        "work": 500000000,
+        "cap": 500000000,
+        "exhausted": true,
+        "seconds": 3.1003448
+      },
+      {
+        "name": "final_repair",
+        "work": 1000000000,
+        "cap": 1000000000,
+        "exhausted": true,
+        "seconds": 6.052328958
+      },
+      {
+        "name": "reflection",
+        "work": 0,
+        "cap": 1000000,
+        "exhausted": false,
+        "seconds": 8.41e-07
+      }
+    ]
+  },
+  {
+    "case": 3,
+    "vertices": 128,
+    "kind": "planted_sparse",
+    "arm": "native",
+    "seconds": 9.159896919,
+    "bad": 0,
+    "cost": 0,
+    "stages": [
+      {
+        "name": "construction",
+        "work": 20174,
+        "cap": 100000000,
+        "exhausted": false,
+        "seconds": 7.0731e-05
+      },
+      {
+        "name": "window",
+        "work": 5000000000,
+        "cap": 5000000000,
+        "exhausted": true,
+        "seconds": 9.11768516
+      },
+      {
+        "name": "repair",
+        "work": 4985427,
+        "cap": 1000000000,
+        "exhausted": false,
+        "seconds": 0.042140006
+      },
+      {
+        "name": "anneal",
+        "work": 0,
+        "cap": 500000000,
+        "exhausted": false,
+        "seconds": 6e-08
+      },
+      {
+        "name": "final_repair",
+        "work": 0,
+        "cap": 1000000000,
+        "exhausted": false,
+        "seconds": 3e-08
+      },
+      {
+        "name": "reflection",
+        "work": 0,
+        "cap": 1000000,
+        "exhausted": false,
+        "seconds": 3.71e-07
+      }
+    ]
+  },
+  {
+    "case": 3,
+    "vertices": 128,
+    "kind": "planted_sparse",
+    "arm": "reference",
+    "seconds": 26.516898608,
+    "bad": 0,
+    "cost": 0,
+    "stages": []
+  },
+  {
+    "case": 4,
+    "vertices": 128,
+    "kind": "planted_dense",
+    "arm": "reference",
+    "seconds": 46.170372733,
+    "bad": 0,
+    "cost": 0,
+    "stages": []
+  },
+  {
+    "case": 4,
+    "vertices": 128,
+    "kind": "planted_dense",
+    "arm": "native",
+    "seconds": 10.082463328,
+    "bad": 0,
+    "cost": 0,
+    "stages": [
+      {
+        "name": "construction",
+        "work": 40529,
+        "cap": 100000000,
+        "exhausted": false,
+        "seconds": 0.000162442
+      },
+      {
+        "name": "window",
+        "work": 5000000000,
+        "cap": 5000000000,
+        "exhausted": true,
+        "seconds": 9.202433284
+      },
+      {
+        "name": "repair",
+        "work": 117806431,
+        "cap": 1000000000,
+        "exhausted": false,
+        "seconds": 0.87986631
+      },
+      {
+        "name": "anneal",
+        "work": 0,
+        "cap": 500000000,
+        "exhausted": false,
+        "seconds": 3.4e-07
+      },
+      {
+        "name": "final_repair",
+        "work": 0,
+        "cap": 1000000000,
+        "exhausted": false,
+        "seconds": 3e-08
+      },
+      {
+        "name": "reflection",
+        "work": 0,
+        "cap": 1000000,
+        "exhausted": false,
+        "seconds": 4.21e-07
+      }
+    ]
+  },
+  {
+    "case": 5,
+    "vertices": 128,
+    "kind": "complete_graph",
+    "arm": "native",
+    "seconds": 13.907897035,
+    "bad": 127,
+    "cost": 127,
+    "stages": [
+      {
+        "name": "construction",
+        "work": 234232,
+        "cap": 100000000,
+        "exhausted": false,
+        "seconds": 0.000326036
+      },
+      {
+        "name": "window",
+        "work": 20155,
+        "cap": 5000000000,
+        "exhausted": false,
+        "seconds": 4.1647e-05
+      },
+      {
+        "name": "repair",
+        "work": 1000000000,
+        "cap": 1000000000,
+        "exhausted": true,
+        "seconds": 5.703665295
+      },
+      {
+        "name": "anneal",
+        "work": 500000000,
+        "cap": 500000000,
+        "exhausted": true,
+        "seconds": 2.784853573
+      },
+      {
+        "name": "final_repair",
+        "work": 1000000000,
+        "cap": 1000000000,
+        "exhausted": true,
+        "seconds": 5.419009222
+      },
+      {
+        "name": "reflection",
+        "work": 0,
+        "cap": 1000000,
+        "exhausted": false,
+        "seconds": 7.71e-07
+      }
+    ]
+  },
+  {
+    "case": 5,
+    "vertices": 128,
+    "kind": "complete_graph",
+    "arm": "reference",
+    "seconds": 72.136626767,
+    "bad": 127,
+    "cost": 127,
+    "stages": []
+  },
+  {
+    "case": 6,
+    "vertices": 256,
+    "kind": "planted_sparse",
+    "arm": "reference",
+    "seconds": 9.815131622,
+    "bad": 0,
+    "cost": 0,
+    "stages": []
+  },
+  {
+    "case": 6,
+    "vertices": 256,
+    "kind": "planted_sparse",
+    "arm": "native",
+    "seconds": 0.677349086,
+    "bad": 0,
+    "cost": 0,
+    "stages": [
+      {
+        "name": "construction",
+        "work": 68772,
+        "cap": 100000000,
+        "exhausted": false,
+        "seconds": 0.000237049
+      },
+      {
+        "name": "window",
+        "work": 0,
+        "cap": 5000000000,
+        "exhausted": false,
+        "seconds": 3e-08
+      },
+      {
+        "name": "repair",
+        "work": 106610980,
+        "cap": 1000000000,
+        "exhausted": false,
+        "seconds": 0.677110593
+      },
+      {
+        "name": "anneal",
+        "work": 0,
+        "cap": 500000000,
+        "exhausted": false,
+        "seconds": 4.21e-07
+      },
+      {
+        "name": "final_repair",
+        "work": 0,
+        "cap": 1000000000,
+        "exhausted": false,
+        "seconds": 3e-08
+      },
+      {
+        "name": "reflection",
+        "work": 256,
+        "cap": 1000000,
+        "exhausted": false,
+        "seconds": 5.31e-07
+      }
+    ]
+  },
+  {
+    "case": 7,
+    "vertices": 256,
+    "kind": "planted_dense",
+    "arm": "native",
+    "seconds": 5.636133922,
+    "bad": 0,
+    "cost": 0,
+    "stages": [
+      {
+        "name": "construction",
+        "work": 149729,
+        "cap": 100000000,
+        "exhausted": false,
+        "seconds": 0.000441169
+      },
+      {
+        "name": "window",
+        "work": 0,
+        "cap": 5000000000,
+        "exhausted": false,
+        "seconds": 3e-08
+      },
+      {
+        "name": "repair",
+        "work": 999999983,
+        "cap": 1000000000,
+        "exhausted": true,
+        "seconds": 5.53841028
+      },
+      {
+        "name": "anneal",
+        "work": 14800048,
+        "cap": 500000000,
+        "exhausted": false,
+        "seconds": 0.097281913
+      },
+      {
+        "name": "final_repair",
+        "work": 0,
+        "cap": 1000000000,
+        "exhausted": false,
+        "seconds": 4e-08
+      },
+      {
+        "name": "reflection",
+        "work": 0,
+        "cap": 1000000,
+        "exhausted": false,
+        "seconds": 1.4e-07
+      }
+    ]
+  },
+  {
+    "case": 7,
+    "vertices": 256,
+    "kind": "planted_dense",
+    "arm": "reference",
+    "seconds": 4.008050275,
+    "bad": 0,
+    "cost": 0,
+    "stages": []
+  },
+  {
+    "case": 8,
+    "vertices": 256,
+    "kind": "complete_graph",
+    "arm": "reference",
+    "seconds": 36.059871557,
+    "bad": 255,
+    "cost": 255,
+    "stages": []
+  },
+  {
+    "case": 8,
+    "vertices": 256,
+    "kind": "complete_graph",
+    "arm": "native",
+    "seconds": 11.116943541,
+    "bad": 255,
+    "cost": 255,
+    "stages": [
+      {
+        "name": "construction",
+        "work": 927224,
+        "cap": 100000000,
+        "exhausted": false,
+        "seconds": 0.001086106
+      },
+      {
+        "name": "window",
+        "work": 0,
+        "cap": 5000000000,
+        "exhausted": false,
+        "seconds": 4e-08
+      },
+      {
+        "name": "repair",
+        "work": 1000000000,
+        "cap": 1000000000,
+        "exhausted": true,
+        "seconds": 4.205190702
+      },
+      {
+        "name": "anneal",
+        "work": 500000000,
+        "cap": 500000000,
+        "exhausted": true,
+        "seconds": 2.36175961
+      },
+      {
+        "name": "final_repair",
+        "work": 1000000000,
+        "cap": 1000000000,
+        "exhausted": true,
+        "seconds": 4.548906241
+      },
+      {
+        "name": "reflection",
+        "work": 0,
+        "cap": 1000000,
+        "exhausted": false,
+        "seconds": 2.31e-07
+      }
+    ]
+  },
+  {
+    "case": 9,
+    "vertices": 384,
+    "kind": "planted_sparse",
+    "arm": "native",
+    "seconds": 0.572658426,
+    "bad": 0,
+    "cost": 0,
+    "stages": [
+      {
+        "name": "construction",
+        "work": 144848,
+        "cap": 100000000,
+        "exhausted": false,
+        "seconds": 0.000379164
+      },
+      {
+        "name": "window",
+        "work": 0,
+        "cap": 5000000000,
+        "exhausted": false,
+        "seconds": 3e-08
+      },
+      {
+        "name": "repair",
+        "work": 118568845,
+        "cap": 1000000000,
+        "exhausted": false,
+        "seconds": 0.57227843
+      },
+      {
+        "name": "anneal",
+        "work": 0,
+        "cap": 500000000,
+        "exhausted": false,
+        "seconds": 1.3e-07
+      },
+      {
+        "name": "final_repair",
+        "work": 0,
+        "cap": 1000000000,
+        "exhausted": false,
+        "seconds": 3e-08
+      },
+      {
+        "name": "reflection",
+        "work": 384,
+        "cap": 1000000,
+        "exhausted": false,
+        "seconds": 2.9e-07
+      }
+    ]
+  },
+  {
+    "case": 9,
+    "vertices": 384,
+    "kind": "planted_sparse",
+    "arm": "reference",
+    "seconds": 1.159116108,
+    "bad": 0,
+    "cost": 0,
+    "stages": []
+  },
+  {
+    "case": 10,
+    "vertices": 384,
+    "kind": "planted_dense",
+    "arm": "reference",
+    "seconds": 54.032047384,
+    "bad": 421,
+    "cost": 1773506,
+    "stages": []
+  },
+  {
+    "case": 10,
+    "vertices": 384,
+    "kind": "planted_dense",
+    "arm": "native",
+    "seconds": 13.788504017,
+    "bad": 318,
+    "cost": 1392146,
+    "stages": [
+      {
+        "name": "construction",
+        "work": 329261,
+        "cap": 100000000,
+        "exhausted": false,
+        "seconds": 0.001052453
+      },
+      {
+        "name": "window",
+        "work": 0,
+        "cap": 5000000000,
+        "exhausted": false,
+        "seconds": 4.1e-08
+      },
+      {
+        "name": "repair",
+        "work": 1000000000,
+        "cap": 1000000000,
+        "exhausted": true,
+        "seconds": 5.35294705
+      },
+      {
+        "name": "anneal",
+        "work": 500000000,
+        "cap": 500000000,
+        "exhausted": true,
+        "seconds": 3.431399193
+      },
+      {
+        "name": "final_repair",
+        "work": 1000000000,
+        "cap": 1000000000,
+        "exhausted": true,
+        "seconds": 5.003103688
+      },
+      {
+        "name": "reflection",
+        "work": 384,
+        "cap": 1000000,
+        "exhausted": false,
+        "seconds": 3.9e-07
+      }
+    ]
+  },
+  {
+    "case": 11,
+    "vertices": 384,
+    "kind": "complete_graph",
+    "arm": "native",
+    "seconds": 10.885852716,
+    "bad": 383,
+    "cost": 383,
+    "stages": [
+      {
+        "name": "construction",
+        "work": 2078968,
+        "cap": 100000000,
+        "exhausted": false,
+        "seconds": 0.002405629
+      },
+      {
+        "name": "window",
+        "work": 0,
+        "cap": 5000000000,
+        "exhausted": false,
+        "seconds": 4e-08
+      },
+      {
+        "name": "repair",
+        "work": 1000000000,
+        "cap": 1000000000,
+        "exhausted": true,
+        "seconds": 4.094231976
+      },
+      {
+        "name": "anneal",
+        "work": 500000000,
+        "cap": 500000000,
+        "exhausted": true,
+        "seconds": 2.309610786
+      },
+      {
+        "name": "final_repair",
+        "work": 1000000000,
+        "cap": 1000000000,
+        "exhausted": true,
+        "seconds": 4.479603595
+      },
+      {
+        "name": "reflection",
+        "work": 0,
+        "cap": 1000000,
+        "exhausted": false,
+        "seconds": 2.2e-07
+      }
+    ]
+  },
+  {
+    "case": 11,
+    "vertices": 384,
+    "kind": "complete_graph",
+    "arm": "reference",
+    "seconds": 54.328517084,
+    "bad": 383,
+    "cost": 383,
+    "stages": []
+  }
+]
