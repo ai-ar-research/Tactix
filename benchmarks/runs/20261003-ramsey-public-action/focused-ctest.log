@@ -1,0 +1,13 @@
+Test project /home/hwu/SAT-solving/build/ramsey-public-dev
+    Start  62: online_api
+    Start 187: ramsey_public_action
+    Start 189: random_controller_policy
+    Start 190: random_online
+1/4 Test #187: ramsey_public_action .............   Passed    0.01 sec
+2/4 Test  #62: online_api .......................   Passed    0.03 sec
+3/4 Test #189: random_controller_policy .........   Passed    0.61 sec
+4/4 Test #190: random_online ....................   Passed    1.56 sec
+
+100% tests passed out of 4
+
+Total Test time (real) =   1.57 sec

@@ -1,0 +1,114 @@
+{
+  "PROGRESS.md": {
+    "before": "7b4eec0e1182b9ae2d9949269482308571f63b8373558e20ae585fe14c1726bc",
+    "after": "ff83b22f993bc4a836562ccf9b92b5d889ea59f01b8597a7cb802d5d90f429f1"
+  },
+  "docs/calculus.md": {
+    "before": "f142508f3d568bc857faee0002972a94a093eaad2c2d7e82b230c6a5656bb06b",
+    "after": "305abc47ea781d7dd4a575daaf7d024991a0df2aea989c78e053e253fadb3662"
+  },
+  "docs/controller-interface.md": {
+    "before": "010cf1dede00ef035a9427b0beca9d7738b9e121aebcc763aa7a29771ace3413",
+    "after": "7193312ce221ebdc2afeb9870562c5b2e02e82d1f45eadc1cb5d796b7d552207"
+  },
+  "docs/implementation-notes.md": {
+    "before": "0f682edb9840175a561424b052c40cd51f714607a76e435ba266cbd4f8b36d4b",
+    "after": "f0c909e0125f2c91014f897cd3833d255e2abd9badc5354c9ae6ade763c62396"
+  },
+  "docs/proof-rules.html": {
+    "before": "1dfd50a39867aaade5659f1b6d1789e5cd958260f07fa3d7cf8f3919014c191b",
+    "after": "cf22a575bd34c40f0fc50214e1a64a66fdcfd131be2ee9181e2c470534ecbd97"
+  },
+  "include/tactix.h": {
+    "before": "76e77118c7d79d1c048c8f6c4199443e2d25db6b00b984a73d803b353ef2987e",
+    "after": "831680088c1fb24ab762e10365b6f9beb3e7dcd117eb4434b5171dde9331e325"
+  },
+  "src/api/api.cpp": {
+    "before": "48e05c1f92f9a55913cfb6d0af8c3fc9ffc3866c52b2e1c2af68eb3896bcfc3a",
+    "after": "6bd9960de998a98a99c5da1941ba7839a97a28b5b319bc04b77bb3bbd49d40c3"
+  },
+  "src/kernel/kernel.hpp": {
+    "before": "6549d690142908079042a46c72729eb906296b758356a05f55b7a24dbe6369cd",
+    "after": "efc9c203e3e32726ab7a9e6c954260a24f7f7d24462f177589474b7bb2411671"
+  },
+  "src/policies/default_policy.cpp": {
+    "before": "217ba0862b11dc8412945b6e77d80a30aa940289a2e3bd0268016d0c02ab2f70",
+    "after": "e69f2ffd893616897d5acd01d66ebf33b5462a4797d26a92fa4e61b370e19bf1"
+  },
+  "src/policies/default_strategy_config.hpp": {
+    "before": "5756c6b63194d1b6f67bfae340dca41be8b42d243d6674bd163fd463d58029cc",
+    "after": "360e387822749345bd27c89bd0c1f5bedd51726c350d15b6a67894d2d1b85058"
+  },
+  "src/policies/random_controller_policy.cpp": {
+    "before": "c4ad50002a5b5b15e00d20ed9d6f2486ab75a292c6d7d18c50ae5927cccd904c",
+    "after": "f4a5baaf0fb803e1a4a843dfb01a51888a6aebd2e2b3d78cab60854ad273e811"
+  },
+  "src/rules/lucky/lucky.cpp": {
+    "before": "2bacee7a0b6ddecec19309947edccf9ca189721db2e125f11131f19cd82c0729",
+    "after": "19b61f39750ad9446c16a0555a1d54c5d0f52f26098bcf4534f1fa21c3b28725"
+  },
+  "src/rules/lucky/lucky.hpp": {
+    "before": "1e16ac8ce15fddfbaf914e3a8adc1aa5b3bf9cf3813969def6dc39cde4174c02",
+    "after": "ee87efe511efd748d5a026a327e4c63b5b3a8a29782b124b84aab62101c131da"
+  },
+  "src/rules/lucky/ramsey_startup.cpp": {
+    "before": "1a165ad59c4c20efd4d47e908aaaf44209ec38d09eb97c4c08127f53cefd6a16",
+    "after": "5464643c14047674480595a1c35037ff14ab5e4cac3b03cdd1f155b431681ef9"
+  },
+  "src/rules/lucky/ramsey_startup.hpp": {
+    "before": "e84809ae80c9368902fae3a89f3369cad9fa2402e02a8830231fc7eb00a9d002",
+    "after": "34115b964e7732a5402d0bd2426fd714b56c2a34c126b29f8bcbaaccb25c24d0"
+  },
+  "src/strategy/feedback_statistics.inc": {
+    "before": "7d6a18020546062fd0d54068eb9cdbbe11b8dcb5da0b30d0aa76e5461cbd9fca",
+    "after": "b04856bf3106ec27f831caf02360b51be4efb0bb3c6139d0516ba7a2b8c9d9c8"
+  },
+  "src/strategy/guidance_outcome.hpp": {
+    "before": "4f0d7c54f3a3ef5e53036ca6908b67399efa6db9ce869e6718b12b2382afba71",
+    "after": "94da7dd750b5b3eb4f125fc2dc87770a832812f62c1c88a2d7387b28437c6f3c"
+  },
+  "src/strategy/inprocess_program.hpp": {
+    "before": "8ffd34f0ee5dd76673ea32d127663301566d482ba3b1dd778b77603cc7da2b5b",
+    "after": "d529a1bdf72ef4d75a1b5b17fddfccb0168bd1628551da029d01cedf89f174f3"
+  },
+  "src/strategy/lucky_execution.hpp": {
+    "before": "cabedbd606804f25c0a109c20f05f89fb8fa39583e4e5154f34d92966daa1562",
+    "after": "5b396a225c2b4d22d7de46a0958542ed7f0112e3d16fef185cebebda9c9167ed"
+  },
+  "src/strategy/native_feedback.hpp": {
+    "before": "6d7e894b5ccd55b7d3271c01c774bfb008444782779a1b48159cef7abb68a1e1",
+    "after": "1a6f48166587afe9120c489d2fa59eb78e30b060b89bc24ebe707fb675d8c783"
+  },
+  "src/strategy/online_inprocess.cpp": {
+    "before": "06b1491e8d0778aa6621d43b60abd118c2c316e7ddf2ffbd3ad8f4cd97c0eb5b",
+    "after": "4000e40c8022feb87ca09cae888b2b70e75053d8712b67d5eecc446cc0390d84"
+  },
+  "src/strategy/random_online.cpp": {
+    "before": "aecbfe10c4c0550391168d81618e3a27ccd78e69996e85850f90a91f72b484a1",
+    "after": "f2c197dd45df0594221a978982e644f4f9a42619efe31139a2c6c7c74027ac50"
+  },
+  "src/strategy/random_online.hpp": {
+    "before": "3dcf84502e43056d9ab6e2baa053d168b44f6769a1807b29a8b60c40bbeecfb3",
+    "after": "737b0b65882db9bab4fae6f46b629126bee5636dafb03ffc9d7f0420da266137"
+  },
+  "src/strategy/rule_parameters.hpp": {
+    "before": "803df0f53021d2285c97cf7c822bf0c3b1b93d6eef6d45ef9d0a355d17f911a1",
+    "after": "a7c404c0f6f95f74ed7835c19f264d6653a762326eccbe750fa81ad56cf9848a"
+  },
+  "tests/test_ramsey_startup.cpp": {
+    "before": "24df84daf6c66ee7e3fe04e63667f67240dcb62fe0aec991898c9e232b8f398a",
+    "after": "6a3d080afdd21730364a9547bfa144b157ae922502ea4fb37e4171b02395fce3"
+  },
+  "src/strategy/ramsey_startup_parameters.hpp": {
+    "before": null,
+    "after": "e39e18e1c8dd892d825b621651d1bc1a560f267790ebebc374ae9e9bc58e9fd8"
+  },
+  "src/strategy/ramsey_startup_parameters.cpp": {
+    "before": null,
+    "after": "fda4cef0b74f5fbb348c442bd96375dd834557417f99ee756094b101150ae521"
+  },
+  "tests/test_ramsey_public_action.cpp": {
+    "before": null,
+    "after": "29d8989b9024a779171666ab85f035b5dab0b6ae761d30acf12f1350dd8c2b58"
+  }
+}
