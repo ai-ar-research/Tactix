@@ -1,0 +1,39 @@
+{
+  "status": "COMPLETED",
+  "created_utc": "2026-10-03T20:04:40.159464+00:00",
+  "binary": "build/pin-ramsey-degree-dsr-bcf71ced-01/probe",
+  "cases": [
+    {
+      "vertices": 5,
+      "degree": 1
+    },
+    {
+      "vertices": 9,
+      "degree": 3
+    }
+  ],
+  "partition": "cpu-q",
+  "cpus": 1,
+  "memory_gib": 32,
+  "wall_minutes": 30,
+  "array": "0-1 unthrottled",
+  "generator_seconds": 300,
+  "checker_seconds": 600,
+  "scope": "Native DSR feasibility for the odd-degree counting sublemma; no original Ramsey recognition or full target claim.",
+  "checker_sources": {
+    "drat-trim": "/home/hwu/SAT-solving/drat-trim/drat-trim",
+    "cake_lpr": "/home/hwu/SAT-solving/cake_lpr/cake_lpr"
+  },
+  "bindings": {
+    "benchmarks/runs/20261003-ramsey-degree-dsr-feasibility/job.sh": "a0fc00f67c6165280040061a0ed89ba408a4b8e4604ab34293f68d6fd928d621",
+    "benchmarks/runs/20261003-ramsey-degree-dsr-feasibility/checkers/drat-trim": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+    "benchmarks/runs/20261003-ramsey-degree-dsr-feasibility/checkers/cake_lpr": "ab9dc6c43ad0f55bbaf336c5d898919ddb03d0bdb75e88dff48237fb06ba1f57",
+    "tools/bench/proof_oracle.py": "020bfcef6f4382e9b3136442a253bb7eb4fcfa1091be9d692ddd438161a3b8b2",
+    "benchmarks/probes/scratch/run_ramsey_degree_dsr_probe.py": "0139b33e60f136458036641f909fef894a34a6e9e58f54bfc8ef1d4dcc7f0ae3",
+    "build/pin-ramsey-degree-dsr-bcf71ced-01/probe": "e5949483954ecae6e454de52b0a5890b647bf34923b02218a18f887041a6fd25",
+    "build/pin-ramsey-degree-dsr-bcf71ced-01/manifest.json": "c40c49e83ecb66f80d85535f48a242cf30d76914ac792eafd8076f83445332cd"
+  },
+  "job_id": "1747611",
+  "submitted_recorded_utc": "2026-10-03T20:04:55.256998+00:00",
+  "verified_cases": 2
+}

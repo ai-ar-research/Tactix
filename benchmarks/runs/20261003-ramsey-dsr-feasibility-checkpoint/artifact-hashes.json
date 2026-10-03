@@ -1,0 +1,15 @@
+{
+  "build_ramsey_degree_dsr_probe.py": "61cbc7c4772b770ca2c5203b141bc9cbdfd04ae4a5310121caadef93bfbae599",
+  "build_ramsey_r34_dsr_probe.py": "bf789327d50471faa3b05eca761f7ad36da579e37ea5ad9bc536b1ccf79c4a5d",
+  "build_ramsey_r44_dsr_probe.py": "1f3a45a76ebed137982611ab159b134b9be6b5fa055e0c94992c1f3a950f7b3f",
+  "degree-build-manifest.json": "c40c49e83ecb66f80d85535f48a242cf30d76914ac792eafd8076f83445332cd",
+  "r34-build-manifest.json": "41d1b4f42291248ed9587c850f423cae79aa18a09b473de090316c600ed500ba",
+  "r44-build-manifest.json": "2403ee4052a9b4359c74defdc570c9a5b22d5258ae6226eee99ac383ae0181b1",
+  "r44-submission.json": "599c388c37d9b1ee1e96f1778e39e8fd1570831a659db2c24972c20e482063bd",
+  "ramsey_degree_dsr_probe.cpp": "de2000de0ae0b8c2026d8983eec974b081ae7e317e8da929c52cc06de5baf476",
+  "ramsey_r34_dsr_probe.cpp": "e5f4ed56e92c00d34e356282afef4a0032e773d74049fbdaf14207b79d427aae",
+  "ramsey_r44_dsr_probe.cpp": "e6013b5d1eb5b9725a0928d8acc0a3a789dc42c7cf4ba187ee1848d0e57cff44",
+  "run_ramsey_degree_dsr_probe.py": "0139b33e60f136458036641f909fef894a34a6e9e58f54bfc8ef1d4dcc7f0ae3",
+  "run_ramsey_r34_dsr_probe.py": "59ec3b5505e3806e15331c1480d636056c73095f14762236ecc1f3c9ee5cf5f8",
+  "run_ramsey_r44_dsr_probe.py": "026d4740a015b7f4ff7a23c0c3be8155b9625f91ae000f5e37761e4065c60ae5"
+}
