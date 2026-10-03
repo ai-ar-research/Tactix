@@ -1,0 +1,505 @@
+{
+  "equations": [
+    [
+      1,
+      3,
+      4
+    ],
+    [
+      4,
+      5,
+      6
+    ],
+    [
+      6,
+      7,
+      3
+    ],
+    [
+      2,
+      5,
+      7
+    ]
+  ],
+  "rhs": 0,
+  "records": [
+    {
+      "id": 21,
+      "clause": [
+        -4,
+        1,
+        6,
+        7
+      ],
+      "rule": "resolution",
+      "pivot": 3,
+      "parents": [
+        1,
+        9
+      ],
+      "meaning": "Intermediate XOR-system consequence"
+    },
+    {
+      "id": 22,
+      "clause": [
+        -7,
+        -6,
+        -4,
+        1
+      ],
+      "rule": "resolution",
+      "pivot": 3,
+      "parents": [
+        1,
+        12
+      ],
+      "meaning": "Intermediate XOR-system consequence"
+    },
+    {
+      "id": 23,
+      "clause": [
+        -1,
+        4,
+        6,
+        7
+      ],
+      "rule": "resolution",
+      "pivot": 3,
+      "parents": [
+        3,
+        9
+      ],
+      "meaning": "Intermediate XOR-system consequence"
+    },
+    {
+      "id": 24,
+      "clause": [
+        -7,
+        -6,
+        -1,
+        4
+      ],
+      "rule": "resolution",
+      "pivot": 3,
+      "parents": [
+        3,
+        12
+      ],
+      "meaning": "Intermediate XOR-system consequence"
+    },
+    {
+      "id": 25,
+      "clause": [
+        -7,
+        1,
+        4,
+        6
+      ],
+      "rule": "resolution",
+      "pivot": 3,
+      "parents": [
+        10,
+        2
+      ],
+      "meaning": "Intermediate XOR-system consequence"
+    },
+    {
+      "id": 26,
+      "clause": [
+        -7,
+        -4,
+        -1,
+        6
+      ],
+      "rule": "resolution",
+      "pivot": 3,
+      "parents": [
+        10,
+        4
+      ],
+      "meaning": "Intermediate XOR-system consequence"
+    },
+    {
+      "id": 27,
+      "clause": [
+        -6,
+        1,
+        4,
+        7
+      ],
+      "rule": "resolution",
+      "pivot": 3,
+      "parents": [
+        11,
+        2
+      ],
+      "meaning": "Intermediate XOR-system consequence"
+    },
+    {
+      "id": 28,
+      "clause": [
+        -6,
+        -4,
+        -1,
+        7
+      ],
+      "rule": "resolution",
+      "pivot": 3,
+      "parents": [
+        11,
+        4
+      ],
+      "meaning": "Intermediate XOR-system consequence"
+    },
+    {
+      "id": 29,
+      "clause": [
+        -7,
+        -6,
+        1,
+        5
+      ],
+      "rule": "resolution",
+      "pivot": 4,
+      "parents": [
+        5,
+        22
+      ],
+      "meaning": "Intermediate XOR-system consequence"
+    },
+    {
+      "id": 30,
+      "clause": [
+        -6,
+        -1,
+        5,
+        7
+      ],
+      "rule": "resolution",
+      "pivot": 4,
+      "parents": [
+        5,
+        28
+      ],
+      "meaning": "Intermediate XOR-system consequence"
+    },
+    {
+      "id": 31,
+      "clause": [
+        -5,
+        1,
+        6,
+        7
+      ],
+      "rule": "resolution",
+      "pivot": 4,
+      "parents": [
+        6,
+        21
+      ],
+      "meaning": "Intermediate XOR-system consequence"
+    },
+    {
+      "id": 32,
+      "clause": [
+        -7,
+        -5,
+        -1,
+        6
+      ],
+      "rule": "resolution",
+      "pivot": 4,
+      "parents": [
+        6,
+        26
+      ],
+      "meaning": "Intermediate XOR-system consequence"
+    },
+    {
+      "id": 33,
+      "clause": [
+        -1,
+        5,
+        6,
+        7
+      ],
+      "rule": "resolution",
+      "pivot": 4,
+      "parents": [
+        23,
+        7
+      ],
+      "meaning": "Intermediate XOR-system consequence"
+    },
+    {
+      "id": 34,
+      "clause": [
+        -7,
+        -6,
+        -5,
+        -1
+      ],
+      "rule": "resolution",
+      "pivot": 4,
+      "parents": [
+        24,
+        8
+      ],
+      "meaning": "Intermediate XOR-system consequence"
+    },
+    {
+      "id": 35,
+      "clause": [
+        -7,
+        1,
+        5,
+        6
+      ],
+      "rule": "resolution",
+      "pivot": 4,
+      "parents": [
+        25,
+        7
+      ],
+      "meaning": "Intermediate XOR-system consequence"
+    },
+    {
+      "id": 36,
+      "clause": [
+        -6,
+        -5,
+        1,
+        7
+      ],
+      "rule": "resolution",
+      "pivot": 4,
+      "parents": [
+        27,
+        8
+      ],
+      "meaning": "Intermediate XOR-system consequence"
+    },
+    {
+      "id": 37,
+      "clause": [
+        -7,
+        -1,
+        2,
+        6
+      ],
+      "rule": "resolution",
+      "pivot": 5,
+      "parents": [
+        13,
+        32
+      ],
+      "meaning": "Intermediate XOR-system consequence"
+    },
+    {
+      "id": 38,
+      "clause": [
+        -7,
+        -6,
+        -1,
+        2
+      ],
+      "rule": "resolution",
+      "pivot": 5,
+      "parents": [
+        13,
+        34
+      ],
+      "meaning": "Intermediate XOR-system consequence"
+    },
+    {
+      "id": 39,
+      "clause": [
+        -2,
+        1,
+        6,
+        7
+      ],
+      "rule": "resolution",
+      "pivot": 5,
+      "parents": [
+        15,
+        31
+      ],
+      "meaning": "Intermediate XOR-system consequence"
+    },
+    {
+      "id": 40,
+      "clause": [
+        -6,
+        -2,
+        1,
+        7
+      ],
+      "rule": "resolution",
+      "pivot": 5,
+      "parents": [
+        15,
+        36
+      ],
+      "meaning": "Intermediate XOR-system consequence"
+    },
+    {
+      "id": 41,
+      "clause": [
+        -7,
+        -6,
+        -2,
+        1
+      ],
+      "rule": "resolution",
+      "pivot": 5,
+      "parents": [
+        29,
+        16
+      ],
+      "meaning": "Intermediate XOR-system consequence"
+    },
+    {
+      "id": 42,
+      "clause": [
+        -6,
+        -1,
+        2,
+        7
+      ],
+      "rule": "resolution",
+      "pivot": 5,
+      "parents": [
+        30,
+        14
+      ],
+      "meaning": "Intermediate XOR-system consequence"
+    },
+    {
+      "id": 43,
+      "clause": [
+        -1,
+        2,
+        6,
+        7
+      ],
+      "rule": "resolution",
+      "pivot": 5,
+      "parents": [
+        33,
+        14
+      ],
+      "meaning": "Intermediate XOR-system consequence"
+    },
+    {
+      "id": 44,
+      "clause": [
+        -7,
+        -2,
+        1,
+        6
+      ],
+      "rule": "resolution",
+      "pivot": 5,
+      "parents": [
+        35,
+        16
+      ],
+      "meaning": "Intermediate XOR-system consequence"
+    },
+    {
+      "id": 45,
+      "clause": [
+        -7,
+        -1,
+        2
+      ],
+      "rule": "resolution",
+      "pivot": 6,
+      "parents": [
+        37,
+        38
+      ],
+      "meaning": "Intermediate XOR-system consequence"
+    },
+    {
+      "id": 46,
+      "clause": [
+        -2,
+        1,
+        7
+      ],
+      "rule": "resolution",
+      "pivot": 6,
+      "parents": [
+        39,
+        40
+      ],
+      "meaning": "Intermediate XOR-system consequence"
+    },
+    {
+      "id": 47,
+      "clause": [
+        -1,
+        2,
+        7
+      ],
+      "rule": "resolution",
+      "pivot": 6,
+      "parents": [
+        43,
+        42
+      ],
+      "meaning": "Intermediate XOR-system consequence"
+    },
+    {
+      "id": 48,
+      "clause": [
+        -7,
+        -2,
+        1
+      ],
+      "rule": "resolution",
+      "pivot": 6,
+      "parents": [
+        44,
+        41
+      ],
+      "meaning": "Intermediate XOR-system consequence"
+    },
+    {
+      "id": 49,
+      "clause": [
+        -2,
+        1
+      ],
+      "rule": "resolution",
+      "pivot": 7,
+      "parents": [
+        46,
+        48
+      ],
+      "meaning": "One direction of x iff y derived by cancellation of four XOR equations"
+    },
+    {
+      "id": 50,
+      "clause": [
+        -1,
+        2
+      ],
+      "rule": "resolution",
+      "pivot": 7,
+      "parents": [
+        47,
+        45
+      ],
+      "meaning": "One direction of x iff y derived by cancellation of four XOR equations"
+    }
+  ],
+  "gadget_clause_ids": [
+    17,
+    18,
+    19,
+    20
+  ]
+}

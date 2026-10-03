@@ -1,0 +1,2 @@
+{"case":"identical_inputs","xor_gates":6,"merges":1,"equivalence_added":true,"inconsistent":false}
+{"case":"four_equation_cancellation","xor_gates":12,"merges":0,"equivalence_added":false,"inconsistent":false}
