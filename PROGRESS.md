@@ -6,7 +6,7 @@ Controller foundations (7a) remain accepted at `12e3c4f0`; **shared execution an
 
 The user approved checked replay replacement for lost historical mining/d2 outputs. Original bytes were never checked or retained; no artifact fingerprint proves equality to reruns. This limitation and all frozen strict NOT ACCEPTED/negative evidence remain explicit in the final report. Fresh candidate completions and new completed replays have independent oracle dispositions. No universal architectural equivalence or broader formal milestone is claimed.
 
-Next workstream: organic winner-technique integration under [plan §9.5](DEVELOPMENT_PLAN.md#95-organic-winner-technique-integration) and its [detailed subplan](docs/winner-integration-plan.md). Ultimately exceed the four-arm virtual portfolio; the fixed 36-instance gap is the first checkpoint, with the eight MAB-only misses retained. Start by attributing the saved misses to reference reasoning, scheduling/execution cost or certificate verification and reviewing the first complete mechanism. Use current source and the approved historical performance approximation; no baseline/full-comparison refresh. O6 reward and learning remain deferred; observation/feedback expose raw measurements and controller selection stays random.
+Next workstream: organic winner-technique integration under [plan §9.5](DEVELOPMENT_PLAN.md#95-organic-winner-technique-integration) and its [detailed subplan](docs/winner-integration-plan.md). Ultimately exceed the four-arm virtual portfolio; the fixed 36-instance gap is the first checkpoint, with the eight MAB-only misses retained. Performance and learning readiness are joint requirements, with N1–N4, continued both-policy fuzz and all four regressions retained. Start by attributing saved misses and reviewing the first complete mechanism. Use current source and the approved historical approximation; no baseline/full-comparison refresh. O6/reward/training remain deferred; build shared learner-selectable capabilities and raw feedback while selection stays random.
 
 **NOTHING IN FLIGHT** for this stage. All owner and parent validation jobs/sessions are terminal. Preserve immutable pins, frozen baselines/evidence and unrelated user work. No source change, further regression retry, experiment, deletion or push is queued. Solver source has not changed since `375b621b`.
 
@@ -60,7 +60,7 @@ The [verbatim pre-controller snapshot](docs/log/2026-10-01-pre-controller-progre
 
 ## Recent changes
 
-- Recorded organic four-arm portfolio convergence: fixed 36-instance checkpoint, bounded symmetry, constructor guidance and default DSR with justified rule-specific PBP support.
+- Recorded joint portfolio-convergence/learning-readiness plan: symmetry/guidance, DSR with justified PBP, four-suite regressions, continued both-policy fuzz and N1–N4 compliance.
 - Accepted shared execution/feedback preparation with the user's scoped historical replay approval; preserved lost-original and frozen negative evidence.
 - Completed the original thirteen-group audit and reviewed final Andrew TeX/PDF handoff; reward/learning remain deferred.
 - Accepted current-pin full Debug: exact 212/212 and all 984 pre/post bindings.

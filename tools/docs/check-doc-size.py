@@ -11,8 +11,9 @@ LIMITS = {
     "CLAUDE.md": 80,
     "DEVELOPMENT_PLAN.md": 750,
     # Dedicated living workstream keeps the main plan within its existing cap;
-    # this budget covers objective, architecture, verification and open decisions.
-    "docs/winner-integration-plan.md": 200,
+    # Covers four-arm convergence, symmetry/guidance, optional PB certification
+    # and joint performance/learning-readiness acceptance, including open decisions.
+    "docs/winner-integration-plan.md": 240,
     "PROGRESS.md": 350,
     "docs/README.md": 100,
     # Raised 2026-08-12 for the same reason the split below records: calculus
