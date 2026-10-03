@@ -1,0 +1,2227 @@
+diff --git a/include/tactix.h b/include/tactix.h
+index 4b374dec..57cf8703 100644
+--- a/include/tactix.h
++++ b/include/tactix.h
+@@ -379,6 +379,7 @@ int tactix_apply_semantic_instance(tactix *, int rule_id, uint64_t instance);
+ #define TACTIX_ONLINE_PARAMETERS_SIGNED_CARDINALITY_PROOF 27
+ #define TACTIX_ONLINE_PARAMETERS_EXACT_COVER_MODEL 28
+ #define TACTIX_ONLINE_PARAMETERS_INDEPENDENT_SET_MODEL 29
++#define TACTIX_ONLINE_PARAMETERS_GRAPH_LABELING 30
+ #define TACTIX_ONLINE_BVE_TRAVERSAL_ELIMINATE 0
+ #define TACTIX_ONLINE_BVE_TRAVERSAL_FAST_ELIMINATE 1
+ #define TACTIX_ONLINE_AFFINE_BOUNDARY 0
+@@ -562,6 +563,10 @@ typedef struct {
+   uint32_t even_break_base_milli;
+   const tactix_online_walk_score_point *score_curve;
+   int score_curve_count;
++  /* Exact LocalSearchGuidance instance identity, or zero for ordinary phases.
++   * Generation-bearing instances are returned by that action's enumeration.
++   * A stale/missing identity declines the Walk; it never substitutes a seed. */
++  uint64_t seed_candidate;
+ } tactix_online_walk_parameters;
+ typedef struct {
+   uint32_t maximum_clause_size;
+@@ -650,6 +655,27 @@ typedef struct {
+   uint32_t maximum_vertices;
+   uint64_t maximum_steps, completion_rounds, seed;
+ } tactix_online_independent_set_model_parameters;
++#define TACTIX_GRAPH_RECOGNITION 0
++#define TACTIX_GRAPH_CONSTRUCTION 1
++#define TACTIX_GRAPH_WINDOW 2
++#define TACTIX_GRAPH_REPAIR 3
++#define TACTIX_GRAPH_ANNEAL 4
++#define TACTIX_GRAPH_FINAL_REPAIR 5
++#define TACTIX_GRAPH_COMPLETION 6
++#define TACTIX_GRAPH_PUBLICATION 7
++#define TACTIX_GRAPH_STAGES 8
++typedef struct {
++  /* Lucky instance 21. Each stage has an explicit work allowance; zero disables
++   * it. The sum must fit uint64_t. Publication allowance is reserved so bounded
++   * search can still return advice. No field requests an implicit default. */
++  uint32_t maximum_vertices;
++  uint64_t workspace_bytes;
++  uint64_t work[TACTIX_GRAPH_STAGES];
++  uint32_t maximum_dfs_vertices;
++  uint64_t maximum_dfs_nodes;
++  uint32_t maximum_dfs_starts, early_dfs_choices;
++  uint64_t repair_rounds, anneal_iterations, stall_anneal_iterations, seed;
++} tactix_online_graph_labeling_parameters;
+ typedef struct {
+   /* UINT64_MAX selects half of the current coordinate count. */
+   uint64_t left_size, left_weight, right_weight, total_weight;
+@@ -855,6 +881,7 @@ typedef struct {
+     tactix_online_exact_cover_model_parameters exact_cover_model;
+     tactix_online_independent_set_model_parameters independent_set_model;
+     tactix_online_affine_model_parameters affine_model;
++    tactix_online_graph_labeling_parameters graph_labeling;
+     tactix_online_sr_parameters substitution_redundancy;
+   } value;
+ } tactix_online_parameters;
+diff --git a/src/api/api.cpp b/src/api/api.cpp
+index 5366e72a..0b530d8d 100644
+--- a/src/api/api.cpp
++++ b/src/api/api.cpp
+@@ -499,6 +499,7 @@ bool online_parameters(const tactix_online_parameters &source,
+     strategy::WalkParameters walk;
+     walk.step_budget = source_walk.step_budget;
+     walk.random_seed = source_walk.random_seed;
++    walk.seed_candidate = source_walk.seed_candidate;
+     if (source_walk.even_break_base_milli)
+       walk.even_break_base_milli = source_walk.even_break_base_milli;
+     if (source_walk.score_curve_count) {
+@@ -665,6 +666,25 @@ bool online_parameters(const tactix_online_parameters &source,
+     target = independent_set;
+     return true;
+   }
++  case TACTIX_ONLINE_PARAMETERS_GRAPH_LABELING: {
++    const auto &p = source.value.graph_labeling;
++    strategy::GraphLabelingParameters graph;
++    graph.maximum_vertices = p.maximum_vertices;
++    graph.workspace_bytes = p.workspace_bytes;
++    static_assert(TACTIX_GRAPH_STAGES == strategy::GRAPH_LABELING_STAGES);
++    std::copy(std::begin(p.work), std::end(p.work), graph.work.begin());
++    graph.maximum_dfs_vertices = p.maximum_dfs_vertices;
++    graph.maximum_dfs_nodes = p.maximum_dfs_nodes;
++    graph.maximum_dfs_starts = p.maximum_dfs_starts;
++    graph.early_dfs_choices = p.early_dfs_choices;
++    graph.repair_rounds = p.repair_rounds;
++    graph.anneal_iterations = p.anneal_iterations;
++    graph.stall_anneal_iterations = p.stall_anneal_iterations;
++    graph.seed = p.seed;
++    if (!graph.valid()) return false;
++    target = graph;
++    return true;
++  }
+   case TACTIX_ONLINE_PARAMETERS_AFFINE_MODEL: {
+     const auto &p = source.value.affine_model;
+     if (p.projection_count < 0 || p.scope_count < 0 ||
+diff --git a/src/kernel/kernel.cpp b/src/kernel/kernel.cpp
+index 0e0f28f2..76f49273 100644
+--- a/src/kernel/kernel.cpp
++++ b/src/kernel/kernel.cpp
+@@ -21,30 +21,73 @@ void kernel_update_target_phases(Kernel &k) {
+     heuristics_update_target_phases(k);
+ }
+ 
+-void kernel_offer_local_search_hint(
++namespace {
++template<class Assignment, class Polarity>
++void publish_local_search_hint(
+     Kernel &k, strategy::LocalSearchKind kind,
+-    const std::vector<uint8_t> &assignment, uint64_t objective,
+-    bool objective_exact) {
+-  if (assignment.size() != k.nvars ||
+-      !strategy::valid_local_search_kind(kind))
+-    return;
+-  if (std::any_of(assignment.begin(), assignment.end(),
+-                  [](uint8_t value) { return value > 1; }))
++    const Assignment &assignment, Polarity polarity, uint64_t objective,
++    bool objective_exact, strategy::LocalSearchEffort effort) {
++  if (k.local_search_publication == strategy::LOCAL_SEARCH_GENERATION_MAX)
+     return;
+   auto &hint = k.local_search_hints[static_cast<size_t>(kind)];
+-  if (hint.available() && hint.objective_exact && objective_exact &&
+-      hint.objective <= objective)
+-    return;
++  // Each producer owns its within-search best. Scores from different calls
++  // need not describe the same decoded objective, even on an unchanged CNF.
++  // Publish the new candidate without making an ungrounded cross-call ranking.
+   hint.external_phases.assign(k.external_to_internal.size(), 0);
+   for (Var internal = 0; internal < k.nvars; ++internal) {
+     const Var external = k.internal_to_external[internal];
+     if (external >= hint.external_phases.size())
+       hint.external_phases.resize(static_cast<size_t>(external) + 1, 0);
+-    hint.external_phases[external] = assignment[internal] ? 1 : -1;
++    hint.external_phases[external] = polarity(assignment[internal]);
+   }
+   hint.objective = objective;
+   hint.objective_exact = objective_exact;
+   ++k.stats.local_search_hints_offered;
++  hint.id = (++k.local_search_publication << 8) |
++            static_cast<uint64_t>(kind);
++  hint.formula_touch_epoch = k.touch_epoch;
++  hint.formula_root_assignments = k.stats.root_assignments;
++  hint.external_variables = k.external_to_internal.size();
++  hint.effort = effort;
++}
++} // namespace
++
++void kernel_offer_local_search_hint(
++    Kernel &k, strategy::LocalSearchKind kind,
++    const std::vector<uint8_t> &assignment, uint64_t objective,
++    bool objective_exact, strategy::LocalSearchEffort effort) {
++  if (assignment.empty() || assignment.size() != k.nvars ||
++      !strategy::valid_local_search_kind(kind) ||
++      std::any_of(assignment.begin(), assignment.end(),
++                  [](uint8_t value) { return value > 1; }))
++    return;
++  publish_local_search_hint(k, kind, assignment,
++      [](uint8_t value) { return int8_t(value ? 1 : -1); },
++      objective, objective_exact, effort);
++}
++
++void kernel_offer_local_search_partial_hint(
++    Kernel &k, strategy::LocalSearchKind kind,
++    const std::vector<int8_t> &assignment, uint64_t objective,
++    bool objective_exact, strategy::LocalSearchEffort effort) {
++  if (assignment.size() != k.nvars ||
++      !strategy::valid_local_search_kind(kind) ||
++      std::any_of(assignment.begin(), assignment.end(),
++                  [](int8_t value) { return value < -1 || value > 1; }) ||
++      std::none_of(assignment.begin(), assignment.end(),
++                   [](int8_t value) { return value != 0; }))
++    return;
++  publish_local_search_hint(k, kind, assignment,
++      [](int8_t value) { return value; }, objective, objective_exact, effort);
++}
++
++const strategy::LocalSearchHint *kernel_local_search_hint(const Kernel &k,
++                                                         uint64_t candidate) {
++  if (!strategy::valid_local_search_candidate(candidate))
++    return nullptr;
++  const auto &hint = k.local_search_hints[static_cast<size_t>(
++      strategy::local_search_candidate_kind(candidate))];
++  return hint.available() && hint.id == candidate ? &hint : nullptr;
+ }
+ 
+ // The kernel does NOT own `H`: it is a non-owning `Heuristics *`
+diff --git a/src/kernel/kernel.hpp b/src/kernel/kernel.hpp
+index 67ebd028..794edda8 100644
+--- a/src/kernel/kernel.hpp
++++ b/src/kernel/kernel.hpp
+@@ -578,6 +578,19 @@ struct Stats {
+   uint64_t exact_cover_model_budget_exhausted = 0;
+   uint64_t exact_cover_model_sat = 0;
+   uint64_t exact_cover_model_interrupted = 0;
++  uint64_t graph_labeling_calls = 0;
++  uint64_t graph_labeling_recognized = 0;
++  uint64_t graph_labeling_vertices = 0;
++  uint64_t graph_labeling_separation = 0;
++  uint64_t graph_labeling_seeds = 0;
++  uint64_t graph_labeling_nodes = 0;
++  uint64_t graph_labeling_repairs = 0;
++  uint64_t graph_labeling_anneal_attempts = 0;
++  uint64_t graph_labeling_work = 0;
++  uint64_t graph_labeling_budget = 0;
++  uint64_t graph_labeling_interrupted = 0;
++  uint64_t graph_labeling_models_rejected = 0;
++  uint64_t graph_labeling_sat = 0;
+   uint64_t independent_set_model_calls = 0;
+   uint64_t independent_set_model_recognized = 0;
+   uint64_t independent_set_model_vertices = 0;
+@@ -620,9 +633,16 @@ struct Stats {
+   uint64_t signed_cardinality_proof_interrupted = 0;
+   uint64_t local_search_hints_offered = 0;
+   uint64_t local_search_hints_applied = 0;
++  uint64_t local_search_hints_stale = 0;
++  uint64_t walk_seed_imports = 0;
++  uint64_t walk_seed_steps = 0;
++  uint64_t walk_seed_budget_exhausted = 0;
++  uint64_t walk_seed_interrupted = 0;
++  uint64_t walk_seed_ordinary_unsat = UINT64_MAX;
++  uint64_t walk_seed_candidate_unsat = UINT64_MAX;
+   uint64_t walks = 0;         // S6 Walk applications (policy op)
+   uint64_t walk_flips = 0;    // literal flips
+-  uint64_t walk_steps = 0;    // occurrence entries scanned (kissat walk_steps)
++  uint64_t walk_steps = 0;    // native occurrence visits plus explicit seed work
+   uint64_t walk_improved = 0; // walks that lowered the unsatisfied count
+   uint64_t walk_minimum = UINT64_MAX;
+   uint64_t warmups = 0; // root decision/propagation sweeps before Walk
+@@ -1467,6 +1487,9 @@ struct Kernel {
+   // advice: failed model searches never alter F, the trail, or proof state.
+   std::array<strategy::LocalSearchHint, strategy::LOCAL_SEARCH_KIND_COUNT>
+       local_search_hints;
++  // Publication identity is solver state, independent of resettable telemetry.
++  uint64_t local_search_publication = 0;
++  uint64_t walk_seed_candidate = 0;
+   uint64_t work_budget = 0;
+   // Work already charged before a rule call against a cumulative dose.
+   // Vivify uses this to pose Kissat's successive absolute tier ceilings.
+@@ -1551,6 +1574,7 @@ struct Kernel {
+   strategy::SimonModelParameters simon_model_parameters;
+   strategy::ExactCoverModelParameters exact_cover_model_parameters;
+   strategy::IndependentSetModelParameters independent_set_model_parameters;
++  strategy::GraphLabelingParameters graph_labeling_parameters;
+   strategy::StconnProofParameters stconn_proof_parameters;
+   strategy::SignedCardinalityProofParameters signed_cardinality_proof_parameters;
+   uint32_t onehot_model_maximum_variables =
+@@ -1697,7 +1721,15 @@ void kernel_update_target_phases(Kernel &);
+ void kernel_offer_local_search_hint(Kernel &, strategy::LocalSearchKind,
+                                     const std::vector<uint8_t> &assignment,
+                                     uint64_t objective = UINT64_MAX,
+-                                    bool objective_exact = false);
++                                    bool objective_exact = false,
++                                    strategy::LocalSearchEffort effort = {});
++// Signed internal-variable assignment: zero leaves that variable unspecified.
++void kernel_offer_local_search_partial_hint(
++    Kernel &, strategy::LocalSearchKind, const std::vector<int8_t> &assignment,
++    uint64_t objective = UINT64_MAX, bool objective_exact = false,
++    strategy::LocalSearchEffort effort = {});
++const strategy::LocalSearchHint *kernel_local_search_hint(const Kernel &,
++                                                         uint64_t candidate);
+ 
+ Var kernel_new_extension_vars(Kernel &, uint32_t count);
+ 
+diff --git a/src/main.cpp b/src/main.cpp
+index ec4ff93f..48eb7b9a 100644
+--- a/src/main.cpp
++++ b/src/main.cpp
+@@ -1241,6 +1241,22 @@ int main(int argc, char **argv) {
+                kernel.stats.independent_set_model_completion_rounds,
+            (unsigned long long)kernel.stats.independent_set_model_sat,
+            (unsigned long long)kernel.stats.independent_set_model_interrupted);
++    printf("c graphlabel %llu calls, %llu recognized, %llu vertices, %llu separation, "
++           "%llu seeds, %llu nodes, %llu repairs, %llu anneal attempts, "
++           "%llu work, %llu budget stops, %llu interrupted, %llu models rejected, %llu SAT\n",
++           (unsigned long long)kernel.stats.graph_labeling_calls,
++           (unsigned long long)kernel.stats.graph_labeling_recognized,
++           (unsigned long long)kernel.stats.graph_labeling_vertices,
++           (unsigned long long)kernel.stats.graph_labeling_separation,
++           (unsigned long long)kernel.stats.graph_labeling_seeds,
++           (unsigned long long)kernel.stats.graph_labeling_nodes,
++           (unsigned long long)kernel.stats.graph_labeling_repairs,
++           (unsigned long long)kernel.stats.graph_labeling_anneal_attempts,
++           (unsigned long long)kernel.stats.graph_labeling_work,
++           (unsigned long long)kernel.stats.graph_labeling_budget,
++           (unsigned long long)kernel.stats.graph_labeling_interrupted,
++           (unsigned long long)kernel.stats.graph_labeling_models_rejected,
++           (unsigned long long)kernel.stats.graph_labeling_sat);
+     printf("c localsearch %llu hints offered, %llu applied\n",
+            (unsigned long long)kernel.stats.local_search_hints_offered,
+            (unsigned long long)kernel.stats.local_search_hints_applied);
+@@ -1249,6 +1265,12 @@ int main(int argc, char **argv) {
+            (unsigned long long)kernel.stats.walk_improved,
+            (unsigned long long)kernel.stats.walk_flips,
+            (unsigned long long)kernel.stats.walk_steps);
++    printf("c walkseed    %llu imports, %llu steps, %llu budget stops, %llu interrupted, %llu stale hints\n",
++           (unsigned long long)kernel.stats.walk_seed_imports,
++           (unsigned long long)kernel.stats.walk_seed_steps,
++           (unsigned long long)kernel.stats.walk_seed_budget_exhausted,
++           (unsigned long long)kernel.stats.walk_seed_interrupted,
++           (unsigned long long)kernel.stats.local_search_hints_stale);
+     printf("c randec      %llu sequences, %llu random decisions\n",
+            (unsigned long long)kernel.stats.random_sequences,
+            (unsigned long long)kernel.stats.random_decisions);
+diff --git a/src/policies/default_policy.cpp b/src/policies/default_policy.cpp
+index 6505433a..cf63cbfc 100644
+--- a/src/policies/default_policy.cpp
++++ b/src/policies/default_policy.cpp
+@@ -14,6 +14,7 @@
+ #include "strategy/reduction_execution.hpp"
+ #include "strategy/sweep_execution.hpp"
+ #include "strategy/native_feedback.hpp"
++#include "strategy/guidance_outcome.hpp"
+ #include "policies/rule_publication.hpp"
+ #include "diagnostics/event_trace.hpp"
+ #include "diagnostics/rule_journal.hpp"
+@@ -156,11 +157,27 @@ template <LuckyOpportunity Opportunity>
+ ApplyResult default_lucky_opportunity(Kernel &k, const char *candidate,
+                                       PolicyCompletion *completion = nullptr) {
+   constexpr uint64_t instance = execution::lucky_feedback_instance<Opportunity>();
++  const strategy::GuidanceOutcomeSnapshot before(k);
+   return execution::complete_action(completion, FeedbackKind::Rule, "Lucky", instance,
+-      [&] { return execution::native_rule_feedback(k, "Lucky", instance, candidate); }, [&] {
++      [&] {
++        auto spec = execution::native_rule_feedback(k, "Lucky", instance, candidate);
++        if constexpr (Opportunity == LuckyOpportunity::GraphLabeling) {
++          spec.meter = [](const Kernel &kernel) { return kernel.stats.graph_labeling_work; };
++          spec.description.effort_currency = "graph-work";
++          uint64_t allowance = 0;
++          for (uint64_t dose : k.graph_labeling_parameters.work) allowance += dose;
++          if (kernel_has_work_budget(k)) allowance = std::min(allowance, k.work_budget);
++          spec.description.effort_allowance = strategy::WorkLimit::bounded(allowance);
++        }
++        return spec;
++      }, [&] {
+     return default_direct_rule(k, "Lucky", candidate, [&] {
+       return execution::execute_action(k, execution::LuckyRequest<Opportunity>{});
+     });
++  }, [&](ApplyResult result) {
++    auto out = strategy::controller::feedback_outcome(result);
++    out.invocation.status = before.refine(k, result, out.invocation.status);
++    return out;
+   });
+ }
+ 
+@@ -542,6 +559,8 @@ bool DefaultStrategyConfig::valid(std::string *error) const {
+     return reject("signed-cardinality-proof settings are invalid");
+   if (!exact_cover_model.parameters.valid())
+     return reject("exact-cover-model settings are invalid");
++  if (!graph_labeling_model.parameters.valid())
++    return reject("graph-labeling settings are invalid");
+   if (!independent_set_model.parameters.valid())
+     return reject("independent-set-model settings are invalid");
+ 
+@@ -926,7 +945,21 @@ std::string DefaultStrategyConfig::serialize() const {
+       << independent_set_model.parameters.maximum_steps
+       << " independent_set_model.completion_rounds="
+       << independent_set_model.parameters.completion_rounds
+-      << " independent_set_model.seed=" << independent_set_model.parameters.seed
++      << " independent_set_model.seed=" << independent_set_model.parameters.seed;
++  out << " graph_labeling_model.enabled=" << graph_labeling_model.enabled;
++  {
++    strategy::OnlineStrategyProgram graph;
++    strategy::OnlineInvocation invocation;
++    invocation.id = 1;
++    invocation.rule = "Lucky";
++    invocation.parameters = graph_labeling_model.parameters;
++    invocation.granularity = strategy::InvocationGranularity::OneInstance;
++    invocation.instances = {LUCKY_GRAPH_LABELING};
++    graph.sequence.push_back(std::move(invocation));
++    out << " graph_labeling_model.parameters="
++        << strategy::serialize_online_strategy_program(graph);
++  }
++  out
+       << " inprocess.bve_enabled=" << inprocess.bve_enabled
+       << " inprocess.vivify_enabled=" << inprocess.vivify_enabled
+       << " inprocess.factor_enabled=" << inprocess.factor_enabled
+@@ -3435,6 +3468,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
+                                    config_.exact_cover_model.parameters}, completion_, "Lucky", 17);
+   execution::execute_action(k, execution::ParameterInstallationRequest{
+                                    config_.independent_set_model.parameters}, completion_, "Lucky", 18);
++  execution::execute_action(k, execution::ParameterInstallationRequest{
++                                   config_.graph_labeling_model.parameters}, completion_, "Lucky", LUCKY_GRAPH_LABELING);
+   strategy::ReduceParameters reduce = strategy::ReduceParameters::from_kernel(k);
+   reduce.victim_numerator = config_.reduction.victim_numerator;
+   reduce.victim_denominator = config_.reduction.victim_denominator;
+@@ -3525,6 +3560,11 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
+     }
+     event_trace.macro(k, "signed_cardinality_proof_end", "unknown");
+   }
++  if (config_.graph_labeling_model.enabled && graph_labeling_model_guard(k)) {
++    const ApplyResult graph = default_lucky_opportunity<LuckyOpportunity::GraphLabeling>(
++        k, "graph-labeling", completion_);
++    if (graph == ApplyResult::Sat) return finish(10);
++  }
+   // Signed at-most-one block exact cover (the sgen owner): exact recognition
+   // on the live clause set, then the owner's deterministic DFS and dosed
+   // randomized restarts; a completed cover is validated as a total model.
+@@ -4302,21 +4342,12 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
+             return out;
+           });
+         }
+-        // Structural searches retain their best complete assignment even when
+-        // it is not a model.  Import one source in a typed round-robin before
+-        // generic Walk so Walk can refine it and CDCL later consumes the best
+-        // result through the ordinary saved/target phase mechanism.
+-        if (config_.rephase.structural_walk_seed &&
+-            local_search_guidance_guard(k))
+-          (void)execution::complete_action(completion_, FeedbackKind::Rule,
+-              "LocalSearchGuidance", INSTANCE_CANONICAL, [&] {
+-                auto spec = execution::native_rule_feedback(k, "LocalSearchGuidance",
+-                    INSTANCE_CANONICAL, "cursor=" + std::to_string(structural_seed_cursor_) + ";rotation=");
+-                for (const auto kind : config_.rephase.structural_seed_rotation)
+-                  spec.description.description += std::to_string(static_cast<unsigned>(kind)) + ',';
+-                return spec;
+-              }, [&] { return execution::execute_action(k, execution::LocalSearchRotationRequest{
+-                  config_.rephase.structural_seed_rotation, structural_seed_cursor_}); });
++        // Select an exact retained publication. Walk imports it privately;
++        // constructor advice never overwrites saved/best phases at this boundary.
++        const uint64_t candidate = config_.rephase.structural_walk_seed
++            ? local_search_guidance_select_next(k,
++                config_.rephase.structural_seed_rotation, structural_seed_cursor_)
++            : 0;
+         const uint64_t reference = walk_effort_reference(k);
+         // Kissat seeds the walker from the search policy's shared generator.
+         // DefaultBranching owns that generator in Tactix; snapshot it here so
+@@ -4325,6 +4356,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
+                                   ? default_branching_.randec_rng
+                                   : config_.rephase.walk_random_seed;
+         const uint64_t allowance = scale_permille(reference, config_.rephase.walk_permille);
++        const strategy::GuidanceOutcomeSnapshot before_walk(k);
+         (void)execution::complete_action(completion_, FeedbackKind::Rule, "Walk", INSTANCE_CANONICAL,
+             [&] {
+               auto spec = execution::native_rule_feedback(k, "Walk", INSTANCE_CANONICAL,
+@@ -4333,9 +4365,15 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
+               auto parameters = strategy::WalkParameters::from_kernel(k);
+               parameters.step_budget = allowance;
+               parameters.random_seed = seed;
++              parameters.seed_candidate = candidate;
+               spec.description.invocation->parameters = std::move(parameters);
+               return spec;
+-            }, [&] { return execution::execute_action(k, execution::WalkRequest{allowance, seed}); });
++            }, [&] { return execution::execute_action(k, execution::WalkRequest{allowance, seed, candidate}); },
++            [&](ApplyResult result) {
++              auto out = strategy::controller::feedback_outcome(result);
++              out.invocation.status = before_walk.refine(k, result, out.invocation.status);
++              return out;
++            });
+       } else {
+         const DefaultRephaseSlot effective =
+             slot == DefaultRephaseSlot::Walk
+diff --git a/src/policies/default_strategy_config.hpp b/src/policies/default_strategy_config.hpp
+index ddcd2a3e..ea2a8882 100644
+--- a/src/policies/default_strategy_config.hpp
++++ b/src/policies/default_strategy_config.hpp
+@@ -207,7 +207,8 @@ struct DefaultStrategyConfig {
+         strategy::LocalSearchKind::Affine,
+         strategy::LocalSearchKind::Parity,
+         strategy::LocalSearchKind::Onehot,
+-        strategy::LocalSearchKind::BalancedSignature};
++        strategy::LocalSearchKind::BalancedSignature,
++        strategy::LocalSearchKind::GraphLabeling};
+     bool stable_only = true;
+     bool late_lucky = true;
+   } rephase;
+@@ -275,6 +276,12 @@ struct DefaultStrategyConfig {
+     strategy::IndependentSetModelParameters parameters;
+   } independent_set_model;
+ 
++  struct GraphLabelingModel {
++    // WIP until a measured, source-backed effort profile and all gates pass.
++    bool enabled = false;
++    strategy::GraphLabelingParameters parameters;
++  } graph_labeling_model;
++
+   struct Inprocess {
+     // Production values are formula-shape invariant. These typed switches
+     // remain explicit diagnostic arms and are never selected by classification.
+diff --git a/src/policies/ops/local_search/local_search.cpp b/src/policies/ops/local_search/local_search.cpp
+index 1bd3b410..97814412 100644
+--- a/src/policies/ops/local_search/local_search.cpp
++++ b/src/policies/ops/local_search/local_search.cpp
+@@ -14,14 +14,14 @@ RuleEligibility local_search_guidance_guard(const Kernel &k) {
+       .fact("heuristics-attached", k.h != nullptr);
+ }
+ 
+-ApplyResult local_search_guidance_apply_kind(
+-    Kernel &k, strategy::LocalSearchKind kind) {
++ApplyResult local_search_guidance_apply_candidate(Kernel &k, uint64_t candidate) {
+   assert(local_search_guidance_guard(k));
+-  if (!strategy::valid_local_search_kind(kind))
+-    return ApplyResult::NoOp;
+-  const auto &hint = k.local_search_hints[static_cast<size_t>(kind)];
+-  if (!hint.available())
++  const auto *selected = kernel_local_search_hint(k, candidate);
++  if (!selected) {
++    ++k.stats.local_search_hints_stale;
+     return ApplyResult::NoOp;
++  }
++  const auto &hint = *selected;
+   bool changed = false;
+   for (Var external = 0; external < hint.external_phases.size(); ++external) {
+     const int8_t phase = hint.external_phases[external];
+@@ -32,21 +32,29 @@ ApplyResult local_search_guidance_apply_kind(
+         kernel_var_retired(k, internal) ||
+         k.value(make_lit(internal, false)))
+       continue;
+-    changed |= k.h->saved[internal] != phase;
+-    k.h->saved[internal] = phase;
++    changed |= k.h->target[internal] != phase;
++    k.h->target[internal] = phase;
+   }
+   if (!changed)
+     return ApplyResult::NoOp;
+-  std::copy(k.h->saved.begin(), k.h->saved.end(), k.h->target.begin());
+   k.h->target_assigned = 0;
+   ++k.stats.local_search_hints_applied;
+   return ApplyResult::Ok;
+ }
+ 
+-ApplyResult local_search_guidance_apply_next(
+-    Kernel &k, const std::vector<strategy::LocalSearchKind> &rotation,
+-    uint64_t &cursor) {
++ApplyResult local_search_guidance_apply_kind(
++    Kernel &k, strategy::LocalSearchKind kind) {
+   assert(local_search_guidance_guard(k));
++  if (!strategy::valid_local_search_kind(kind))
++    return ApplyResult::NoOp;
++  const auto &hint = k.local_search_hints[static_cast<size_t>(kind)];
++  return hint.available() ? local_search_guidance_apply_candidate(k, hint.id)
++                          : ApplyResult::NoOp;
++}
++
++uint64_t local_search_guidance_select_next(
++    const Kernel &k, const std::vector<strategy::LocalSearchKind> &rotation,
++    uint64_t &cursor) {
+   for (size_t tried = 0; tried < rotation.size(); ++tried) {
+     const strategy::LocalSearchKind kind =
+         rotation[cursor++ % rotation.size()];
+@@ -54,9 +62,18 @@ ApplyResult local_search_guidance_apply_next(
+       continue;
+     const auto &hint = k.local_search_hints[static_cast<size_t>(kind)];
+     if (hint.available())
+-      return local_search_guidance_apply_kind(k, kind);
++      return hint.id;
+   }
+-  return ApplyResult::NoOp;
++  return 0;
++}
++
++ApplyResult local_search_guidance_apply_next(
++    Kernel &k, const std::vector<strategy::LocalSearchKind> &rotation,
++    uint64_t &cursor) {
++  assert(local_search_guidance_guard(k));
++  const uint64_t candidate = local_search_guidance_select_next(k, rotation, cursor);
++  return candidate ? local_search_guidance_apply_candidate(k, candidate)
++                   : ApplyResult::NoOp;
+ }
+ 
+ ApplyResult local_search_guidance_apply(Kernel &k) {
+@@ -73,7 +90,7 @@ static uint32_t local_search_guidance_instances(Kernel &k, uint64_t *out,
+   uint32_t n = 0;
+   for (size_t i = 0; i < strategy::LOCAL_SEARCH_KIND_COUNT && n < cap; ++i)
+     if (k.local_search_hints[i].available())
+-      out[n++] = i;
++      out[n++] = k.local_search_hints[i].id;
+   return n;
+ }
+ 
+@@ -82,7 +99,7 @@ static ApplyResult local_search_guidance_apply_instance(Kernel &k,
+   if (instance == INSTANCE_CANONICAL)
+     return local_search_guidance_apply(k);
+   if (instance >= strategy::LOCAL_SEARCH_KIND_COUNT)
+-    return ApplyResult::NoOp;
++    return local_search_guidance_apply_candidate(k, instance);
+   return local_search_guidance_apply_kind(
+       k, static_cast<strategy::LocalSearchKind>(instance));
+ }
+diff --git a/src/policies/ops/local_search/local_search.hpp b/src/policies/ops/local_search/local_search.hpp
+index f6c009a1..1df08632 100644
+--- a/src/policies/ops/local_search/local_search.hpp
++++ b/src/policies/ops/local_search/local_search.hpp
+@@ -9,6 +9,9 @@ RuleEligibility local_search_guidance_guard(const Kernel &);
+ ApplyResult local_search_guidance_apply(Kernel &);
+ ApplyResult local_search_guidance_apply_kind(Kernel &,
+                                              strategy::LocalSearchKind);
++ApplyResult local_search_guidance_apply_candidate(Kernel &, uint64_t);
++uint64_t local_search_guidance_select_next(
++    const Kernel &, const std::vector<strategy::LocalSearchKind> &, uint64_t &cursor);
+ ApplyResult local_search_guidance_apply_next(
+     Kernel &, const std::vector<strategy::LocalSearchKind> &, uint64_t &cursor);
+ 
+diff --git a/src/policies/ops/walk/walk.cpp b/src/policies/ops/walk/walk.cpp
+index 9b78a83b..77c29cf0 100644
+--- a/src/policies/ops/walk/walk.cpp
++++ b/src/policies/ops/walk/walk.cpp
+@@ -228,6 +228,80 @@ void init_counters(Walker &w) {
+     w.initial_binary_unsat += w.count[c] == 0;
+ }
+ 
++// The same walkable current CNF evaluates ordinary phases and imported advice.
++// Producer scores are intentionally ignored. Seed work shares the explicit
++// allowance: one item per phase/identity visited and per evaluated literal.
++// Nothing in this preparation writes CDCL phase memory.
++bool seed_candidate(Walker &w, Kernel &k,
++                    const strategy::LocalSearchHint &hint, uint64_t limit,
++                    uint32_t &ordinary_unsat) {
++  const auto charge = [&] {
++    if (kernel_rule_interrupt(k, k.stats.walk_seed_interrupted))
++      return false;
++    if (w.steps == limit) {
++      ++k.stats.walk_seed_budget_exhausted;
++      return false;
++    }
++    ++w.steps;
++    return true;
++  };
++  w.values.resize(2 * k.nvars);
++  w.best_values.resize(k.nvars);
++  for (Var v = 0; v < k.nvars; ++v) {
++    if (!charge()) return false;
++    const Lit lit = make_lit(v, false);
++    int8_t value = k.value(lit);
++    if (!value) value = negated(heuristics_decide_lit(k, v)) ? -1 : 1;
++    w.values[lit] = value;
++    w.values[lit ^ 1] = static_cast<int8_t>(-value);
++    w.best_values[v] = value;
++  }
++  ordinary_unsat = 0;
++  for (uint32_t c = 0; c < w.nclauses; ++c) {
++    bool satisfied = false;
++    for (uint32_t i = w.cl_beg[c]; i < w.cl_beg[c + 1]; ++i) {
++      if (!charge()) return false;
++      satisfied |= w.values[w.cl_lits[i]] > 0;
++    }
++    ordinary_unsat += !satisfied;
++  }
++  bool imported = false;
++  for (size_t external = 0; external < hint.external_phases.size(); ++external) {
++    if (!charge()) return false;
++    const int8_t phase = hint.external_phases[external];
++    if (!phase || external >= k.external_to_internal.size()) continue;
++    const Var v = k.external_to_internal[external];
++    if (v == INVALID_VAR || v >= k.nvars || kernel_var_retired(k, v) ||
++        k.value(make_lit(v, false))) continue;
++    imported = true;
++    w.values[make_lit(v, false)] = phase;
++    w.values[make_lit(v, true)] = static_cast<int8_t>(-phase);
++    w.best_values[v] = phase;
++  }
++  if (!imported) return false;
++  w.count.assign(w.nclauses, 0);
++  w.pos.assign(w.nclauses, 0);
++  for (uint32_t c = 0; c < w.nclauses; ++c) {
++    uint32_t satisfied = 0;
++    for (uint32_t i = w.cl_beg[c]; i < w.cl_beg[c + 1]; ++i) {
++      if (!charge()) return false;
++      satisfied += w.values[w.cl_lits[i]] > 0;
++    }
++    w.count[c] = satisfied;
++    if (!satisfied) {
++      w.pos[c] = static_cast<uint32_t>(w.unsat.size());
++      w.unsat.push_back(c);
++    }
++  }
++  w.initial = w.minimum = static_cast<uint32_t>(w.unsat.size());
++  for (uint32_t c = 0; c < w.binary_clauses; ++c)
++    w.initial_binary_unsat += w.count[c] == 0;
++  ++k.stats.walk_seed_imports;
++  k.stats.walk_seed_ordinary_unsat = ordinary_unsat;
++  k.stats.walk_seed_candidate_unsat = w.initial;
++  return true;
++}
++
+ // --- the flip loop ---------------------------------------------------------
+ 
+ inline void push_unsat(Walker &w, uint32_t c) {
+@@ -417,6 +491,17 @@ RuleEligibility walk_guard(const Kernel &k) {
+ 
+ static ApplyResult walk_apply_exact_steps(Kernel &k, uint64_t steps) {
+   assert(walk_guard(k));
++  const auto *hint = kernel_local_search_hint(k, k.walk_seed_candidate);
++  if (k.walk_seed_candidate && !hint) {
++    ++k.stats.local_search_hints_stale;
++    return ApplyResult::NoOp;
++  }
++  if (hint && !steps) {
++    ++k.stats.walk_seed_budget_exhausted;
++    return ApplyResult::NoOp;
++  }
++  if (hint && kernel_rule_interrupt(k, k.stats.walk_seed_interrupted))
++    return ApplyResult::NoOp;
+   k.stats.walks++;
+   // Kissat's non-null dense entry removes repeated binary watches before it
+   // saves the irredundant pairs consumed by Walk.  Deduplicate at the same
+@@ -428,8 +513,20 @@ static ApplyResult walk_apply_exact_steps(Kernel &k, uint64_t steps) {
+   w.rng = k.walk_random_seed ^ k.stats.walks;
+   bool improved = false;
+   if (build_table(w, k)) {
+-    seed_values(w, k);
+-    init_counters(w);
++    uint32_t export_threshold = 0;
++    if (hint) {
++      const bool ready = seed_candidate(w, k, *hint, steps, export_threshold);
++      k.stats.walk_seed_steps += w.steps;
++      if (!ready) {
++        kernel_resume_walk_watches(k);
++        k.stats.walk_steps += w.steps;
++        return ApplyResult::NoOp;
++      }
++    } else {
++      seed_values(w, k);
++      init_counters(w);
++      export_threshold = w.initial;
++    }
+     local_search(w, steps);
+     // Kissat's walker temporarily repurposes every large-watch list as an
+     // occurrence index.  Leaving dense mode consequently reconnects all large
+@@ -442,14 +539,21 @@ static ApplyResult walk_apply_exact_steps(Kernel &k, uint64_t steps) {
+     k.stats.walk_flips += w.flips;
+     k.stats.walk_steps += w.steps;
+     k.stats.walk_minimum = w.minimum;
+-    if (w.minimum < w.initial) {
++    if (w.minimum < export_threshold) {
+       sync_best(w); // materialise the winning prefix into best_values
+       for (Var v = 0; v < k.nvars; v++)
+-        if (!k.value(make_lit(v, false))) // fixed literals keep their phase
++        if (!k.value(make_lit(v, false)) &&
++            (!hint || !kernel_var_retired(k, v)))
+           k.h->saved[v] = w.best_values[v];
+       k.stats.walk_improved++;
+       improved = true;
+     }
++  } else if (hint) {
++    // No current walkable objective exists on which to compare the advice.
++    // Dense-entry cleanup may have retired clauses; restore sparse watches,
++    // but decline the seeded request without touching phase memory.
++    kernel_resume_walk_watches(k);
++    return ApplyResult::NoOp;
+   }
+   // The rephase tail every type runs (kissat reset_phases): the fresh saved
+   // phases become the target ones. `best` is not consumed here — kissat resets
+diff --git a/src/policies/ops/walk/walk.hpp b/src/policies/ops/walk/walk.hpp
+index 1f1f4620..09dcee32 100644
+--- a/src/policies/ops/walk/walk.hpp
++++ b/src/policies/ops/walk/walk.hpp
+@@ -21,6 +21,11 @@ namespace tactix {
+ // occurrence-list entries scanned (kissat's `walk_steps`). INSTANCE_CANONICAL
+ // takes a bounded budget from `Kernel::work_budget`, otherwise the typed
+ // reference default. Every explicit payload, including zero, is exact.
++// A typed seed_candidate names an exact retained publication. Seeded calls
++// additionally charge phase/identity visits and two evaluations of the same
++// current Walk CNF; export requires improvement over ordinary starting phases,
++// even when the candidate itself required zero flips. An incomplete import,
++// stale identity or zero seed allowance leaves all phase memories untouched.
+ 
+ RuleEligibility walk_guard(const Kernel &);
+ ApplyResult walk_apply(Kernel &);                 // canonical: budgeted round
+diff --git a/src/policies/random_controller_policy.cpp b/src/policies/random_controller_policy.cpp
+index 2bb644f1..7d4106f9 100644
+--- a/src/policies/random_controller_policy.cpp
++++ b/src/policies/random_controller_policy.cpp
+@@ -2,6 +2,7 @@
+ 
+ #include "policies/stress_common.hpp"
+ #include "rules/decide/decide.hpp"
++#include "rules/lucky/lucky.hpp"
+ 
+ #include <cstdio>
+ #include <algorithm>
+@@ -148,6 +149,14 @@ std::string controller_configuration(const RandomControllerConfig &config) {
+     invocation.budget = WorkLimit::bounded(allowance.amount);
+     invocation.rule_work_budget = allowance.native;
+     profiles.sequence.push_back(std::move(invocation));
++    if (std::string_view(rule.name) == "Lucky") {
++      auto graph = profiles.sequence.back();
++      graph.id = profiles.sequence.size() + 1;
++      graph.granularity = InvocationGranularity::OneInstance;
++      graph.instances = {LUCKY_GRAPH_LABELING};
++      graph.parameters = config.parameters.graph_labeling_reference;
++      profiles.sequence.push_back(std::move(graph));
++    }
+   }
+   out << " profiles " << std::quoted(serialize_online_strategy_program(profiles));
+   for (const auto &[family, choices] : config.offered_actions) {
+@@ -254,7 +263,10 @@ bool RandomControllerSelector::choose(
+       // still accepts any explicit legal identity or structured payload.
+       const auto enumerate = rule.semantic_instances ? rule.semantic_instances : rule.instances;
+       if (enumerate && config.parameters.maximum_selected_batch && draw(2)) {
+-        const auto cap = config.parameters.maximum_selected_batch;
++        // Lucky's finite constructor catalog is not a prefix of a potentially
++        // huge semantic candidate space. Keep every constructor selectable.
++        const auto cap = std::string_view(rule.name) == "Lucky"
++            ? LUCKY_INSTANCE_COUNT : config.parameters.maximum_selected_batch;
+         std::vector<uint64_t> instances(cap);
+         const auto count = enumerate(k, instances.data(), cap);
+         if (count > cap) {
+@@ -271,6 +283,24 @@ bool RandomControllerSelector::choose(
+           }
+         }
+       }
++      if (request.invocation.rule == "Lucky" &&
++          request.invocation.instances == std::vector<uint64_t>{LUCKY_GRAPH_LABELING})
++        request.invocation.parameters = config.parameters.graph_labeling_reference;
++      // Guidance is a policy choice over the pure candidate snapshot. Bind
++      // the exact publication in the request, including an explicit unseeded
++      // Walk choice, so replacement cannot silently change a queued action.
++      if (!observation.local_search_candidates.empty()) {
++        if (request.invocation.rule == "Walk") {
++          auto &parameters = std::get<WalkParameters>(request.invocation.parameters);
++          const auto selected = draw(observation.local_search_candidates.size() + 1);
++          parameters.seed_candidate = selected < observation.local_search_candidates.size()
++              ? observation.local_search_candidates[selected].id : 0;
++        } else if (request.invocation.rule == "LocalSearchGuidance") {
++          request.invocation.granularity = InvocationGranularity::OneInstance;
++          request.invocation.instances = {observation.local_search_candidates[
++              draw(observation.local_search_candidates.size())].id};
++        }
++      }
+     }
+     if (stop && *stop) {
+       error = "controller selection interrupted";
+diff --git a/src/rules/lucky/affine_model.cpp b/src/rules/lucky/affine_model.cpp
+index 45d2a8be..b9fcdf52 100644
+--- a/src/rules/lucky/affine_model.cpp
++++ b/src/rules/lucky/affine_model.cpp
+@@ -53,7 +53,8 @@ ApplyResult affine_model_apply(Kernel &k) {
+     k.stats.affine_model_budget += meter.exhausted() || admission_failed;
+     if (result != ApplyResult::Sat && !guidance.empty())
+       kernel_offer_local_search_hint(k, strategy::LocalSearchKind::Affine,
+-                                     guidance);
++                                     guidance, UINT64_MAX, false,
++                                     {meter.used(), strategy::LocalSearchEffortUnit::AffineWork});
+     return result;
+   };
+   const auto budget_exit = [&] {
+diff --git a/src/rules/lucky/balanced_signature_model.cpp b/src/rules/lucky/balanced_signature_model.cpp
+index f537ab65..ea1f0772 100644
+--- a/src/rules/lucky/balanced_signature_model.cpp
++++ b/src/rules/lucky/balanced_signature_model.cpp
+@@ -430,6 +430,7 @@ RuleEligibility balanced_signature_model_guard(const Kernel &k) {
+ }
+ 
+ ApplyResult balanced_signature_model_apply(Kernel &k) {
++  const uint64_t steps_before = k.stats.balanced_signature_steps;
+   assert(balanced_signature_model_guard(k));
+   ++k.stats.balanced_signature_calls;
+   const strategy::BalancedSignatureModelParameters parameters =
+@@ -452,7 +453,9 @@ ApplyResult balanced_signature_model_apply(Kernel &k) {
+   std::vector<uint8_t> hint = boolean_assignment(signed_assignment);
+   kernel_offer_local_search_hint(k,
+                                  strategy::LocalSearchKind::BalancedSignature,
+-                                 hint, solution.objective, true);
++                                 hint, solution.objective, true,
++                                 {k.stats.balanced_signature_steps - steps_before,
++                                  strategy::LocalSearchEffortUnit::SignatureSteps});
+   if (!solved)
+     return ApplyResult::NoOp;
+ 
+diff --git a/src/rules/lucky/lucky.cpp b/src/rules/lucky/lucky.cpp
+index 9364cb98..f946df2c 100644
+--- a/src/rules/lucky/lucky.cpp
++++ b/src/rules/lucky/lucky.cpp
+@@ -310,7 +310,7 @@ static uint32_t lucky_instances(Kernel &k, uint64_t *out, uint32_t cap) {
+   // Public instance identities do not depend on whether a proof writer is
+   // attached. Startup-only instances decline in apply when the original-input
+   // boundary is closed or the selected proof format cannot certify them.
+-  uint32_t n = cap < 21 ? cap : 21;
++  uint32_t n = std::min(cap, LUCKY_INSTANCE_COUNT);
+   for (uint32_t i = 0; i < n; i++)
+     out[i] = i;
+   return n;
+@@ -397,6 +397,10 @@ static ApplyResult lucky_apply_instance(Kernel &k, uint64_t inst) {
+                ? execution::execute_action(k,
+                                            execution::LuckyRequest<LuckyOpportunity::IndependentSet>{})
+                : ApplyResult::NoOp;
++  if (inst == LUCKY_GRAPH_LABELING)
++    return graph_labeling_model_guard(k)
++        ? execution::execute_action(k, execution::LuckyRequest<LuckyOpportunity::GraphLabeling>{})
++        : ApplyResult::NoOp;
+   return execution::execute_action(k, execution::LuckyProbeRequest{inst});
+ }
+ 
+diff --git a/src/rules/lucky/lucky.hpp b/src/rules/lucky/lucky.hpp
+index 135405a6..a83e9d7d 100644
+--- a/src/rules/lucky/lucky.hpp
++++ b/src/rules/lucky/lucky.hpp
+@@ -25,6 +25,8 @@ constexpr uint64_t LUCKY_BACKWARD_FALSE = 4;
+ constexpr uint64_t LUCKY_BACKWARD_TRUE = 5;
+ constexpr uint64_t LUCKY_STARTUP_PARITY = 19;
+ constexpr uint64_t LUCKY_STARTUP_COUNT = 20;
++constexpr uint64_t LUCKY_GRAPH_LABELING = 21;
++constexpr uint32_t LUCKY_INSTANCE_COUNT = 22;
+ 
+ RuleEligibility lucky_guard(const Kernel &);
+ ApplyResult lucky_apply_probe(Kernel &, uint64_t probe);
+diff --git a/src/rules/lucky/onehot_model.cpp b/src/rules/lucky/onehot_model.cpp
+index 30ffd4f4..62e9b054 100644
+--- a/src/rules/lucky/onehot_model.cpp
++++ b/src/rules/lucky/onehot_model.cpp
+@@ -656,7 +656,8 @@ bool direct_csp_model(Kernel &k,
+     std::vector<uint8_t> assignment =
+         direct_csp_boolean_assignment(csp, best_value, k.nvars);
+     kernel_offer_local_search_hint(k, strategy::LocalSearchKind::DirectCsp,
+-                                   assignment, best_seen, true);
++                                   assignment, best_seen, true,
++                                   {work, strategy::LocalSearchEffortUnit::CspWork});
+   }
+   direct_csp_trace_row("stopped", best_seen, work, work_limit);
+   return false;
+@@ -701,6 +702,7 @@ ApplyResult direct_csp_model_apply(Kernel &k) {
+ }
+ 
+ ApplyResult onehot_model_apply(Kernel &k) {
++  const uint64_t candidates_before = k.stats.onehot_model_candidates;
+   assert(onehot_model_guard(k));
+   ++k.stats.onehot_model_calls;
+   const strategy::OnehotModelParameters parameters =
+@@ -963,13 +965,17 @@ ApplyResult onehot_model_apply(Kernel &k) {
+     if (kernel_rule_interrupt(k, k.stats.onehot_model_interrupted)) {
+       if (!guidance.empty())
+         kernel_offer_local_search_hint(k, strategy::LocalSearchKind::Onehot,
+-                                       guidance);
++                                       guidance, UINT64_MAX, false,
++                                       {k.stats.onehot_model_candidates - candidates_before,
++                                        strategy::LocalSearchEffortUnit::CandidateChecks});
+       return ApplyResult::NoOp;
+     }
+   }
+   if (!guidance.empty())
+     kernel_offer_local_search_hint(k, strategy::LocalSearchKind::Onehot,
+-                                   guidance);
++                                   guidance, UINT64_MAX, false,
++                                   {k.stats.onehot_model_candidates - candidates_before,
++                                    strategy::LocalSearchEffortUnit::CandidateChecks});
+   return ApplyResult::NoOp;
+ }
+ 
+diff --git a/src/rules/lucky/parity_model.cpp b/src/rules/lucky/parity_model.cpp
+index be36594e..1b37c493 100644
+--- a/src/rules/lucky/parity_model.cpp
++++ b/src/rules/lucky/parity_model.cpp
+@@ -84,6 +84,7 @@ RuleEligibility parity_model_guard(const Kernel &k) {
+ }
+ 
+ ApplyResult parity_model_apply(Kernel &k) {
++  const uint64_t candidates_before = k.stats.parity_model_candidates;
+   assert(parity_model_guard(k));
+   ++k.stats.parity_model_calls;
+   const strategy::ParityModelParameters parameters =
+@@ -248,13 +249,17 @@ ApplyResult parity_model_apply(Kernel &k) {
+       guidance = assignment;
+     if (kernel_rule_interrupt(k, k.stats.parity_model_interrupted)) {
+       kernel_offer_local_search_hint(k, strategy::LocalSearchKind::Parity,
+-                                     guidance);
++                                     guidance, UINT64_MAX, false,
++                                     {k.stats.parity_model_candidates - candidates_before,
++                                      strategy::LocalSearchEffortUnit::CandidateChecks});
+       return ApplyResult::NoOp;
+     }
+   }
+   if (!guidance.empty())
+     kernel_offer_local_search_hint(k, strategy::LocalSearchKind::Parity,
+-                                   guidance);
++                                   guidance, UINT64_MAX, false,
++                                   {k.stats.parity_model_candidates - candidates_before,
++                                    strategy::LocalSearchEffortUnit::CandidateChecks});
+   return ApplyResult::NoOp;
+ }
+ 
+diff --git a/src/strategy/controller_action_space.hpp b/src/strategy/controller_action_space.hpp
+index d1b4761a..464af327 100644
+--- a/src/strategy/controller_action_space.hpp
++++ b/src/strategy/controller_action_space.hpp
+@@ -11,7 +11,7 @@
+ 
+ namespace tactix::strategy::controller {
+ 
+-inline constexpr uint32_t ACTION_SPACE_VERSION = 1;
++inline constexpr uint32_t ACTION_SPACE_VERSION = 2;
+ 
+ enum class Branching : uint8_t { Vmtf, Evsids };
+ enum class Restart : uint8_t { AdaptiveGlue, Reluctant };
+diff --git a/src/strategy/controller_observation.hpp b/src/strategy/controller_observation.hpp
+index 2f297392..7cc6cb38 100644
+--- a/src/strategy/controller_observation.hpp
++++ b/src/strategy/controller_observation.hpp
+@@ -31,6 +31,7 @@ struct Observation {
+   uint64_t reluctant_u = 1, reluctant_v = 1, reluctant_wait = 0;
+   double fast_glue = 0, slow_glue = 0;
+   Stats cumulative;
++  std::vector<LocalSearchCandidateInfo> local_search_candidates;
+   std::optional<ActionResult> last_action;
+   // Optional native-policy scheduling state. Root-controller snapshots keep
+   // their named configuration fields; other policies can retain native clocks.
+@@ -54,6 +55,8 @@ inline Observation observe_kernel(const Kernel &k) {
+   result.conflict = k.conflict_valid;
+   result.propagation_fixpoint = kernel_propagation_fixpoint(k);
+   result.cumulative = k.stats;
++  for (const auto &hint : k.local_search_hints)
++    if (hint.available()) result.local_search_candidates.push_back(hint);
+   return result;
+ }
+ 
+diff --git a/src/strategy/feedback_statistics.inc b/src/strategy/feedback_statistics.inc
+index d315d4c8..a1b11389 100644
+--- a/src/strategy/feedback_statistics.inc
++++ b/src/strategy/feedback_statistics.inc
+@@ -111,6 +111,19 @@ TACTIX_FEEDBACK_SCALAR(exact_cover_model_restarts)
+ TACTIX_FEEDBACK_SCALAR(exact_cover_model_budget_exhausted)
+ TACTIX_FEEDBACK_SCALAR(exact_cover_model_sat)
+ TACTIX_FEEDBACK_SCALAR(exact_cover_model_interrupted)
++TACTIX_FEEDBACK_SCALAR(graph_labeling_calls)
++TACTIX_FEEDBACK_SCALAR(graph_labeling_recognized)
++TACTIX_FEEDBACK_SCALAR(graph_labeling_vertices)
++TACTIX_FEEDBACK_SCALAR(graph_labeling_separation)
++TACTIX_FEEDBACK_SCALAR(graph_labeling_seeds)
++TACTIX_FEEDBACK_SCALAR(graph_labeling_nodes)
++TACTIX_FEEDBACK_SCALAR(graph_labeling_repairs)
++TACTIX_FEEDBACK_SCALAR(graph_labeling_anneal_attempts)
++TACTIX_FEEDBACK_SCALAR(graph_labeling_work)
++TACTIX_FEEDBACK_SCALAR(graph_labeling_budget)
++TACTIX_FEEDBACK_SCALAR(graph_labeling_interrupted)
++TACTIX_FEEDBACK_SCALAR(graph_labeling_models_rejected)
++TACTIX_FEEDBACK_SCALAR(graph_labeling_sat)
+ TACTIX_FEEDBACK_SCALAR(independent_set_model_calls)
+ TACTIX_FEEDBACK_SCALAR(independent_set_model_recognized)
+ TACTIX_FEEDBACK_SCALAR(independent_set_model_vertices)
+@@ -153,6 +166,13 @@ TACTIX_FEEDBACK_SCALAR(signed_cardinality_proof_unsat)
+ TACTIX_FEEDBACK_SCALAR(signed_cardinality_proof_interrupted)
+ TACTIX_FEEDBACK_SCALAR(local_search_hints_offered)
+ TACTIX_FEEDBACK_SCALAR(local_search_hints_applied)
++TACTIX_FEEDBACK_SCALAR(local_search_hints_stale)
++TACTIX_FEEDBACK_SCALAR(walk_seed_imports)
++TACTIX_FEEDBACK_SCALAR(walk_seed_steps)
++TACTIX_FEEDBACK_SCALAR(walk_seed_budget_exhausted)
++TACTIX_FEEDBACK_SCALAR(walk_seed_interrupted)
++TACTIX_FEEDBACK_SCALAR(walk_seed_ordinary_unsat)
++TACTIX_FEEDBACK_SCALAR(walk_seed_candidate_unsat)
+ TACTIX_FEEDBACK_SCALAR(walks)
+ TACTIX_FEEDBACK_SCALAR(walk_flips)
+ TACTIX_FEEDBACK_SCALAR(walk_steps)
+diff --git a/src/strategy/feedback_trace.cpp b/src/strategy/feedback_trace.cpp
+index d40eddeb..9081e249 100644
+--- a/src/strategy/feedback_trace.cpp
++++ b/src/strategy/feedback_trace.cpp
+@@ -150,6 +150,21 @@ std::string serialize_observation(const Observation &value) {
+   out << '}';
+   if (!value.native_policy_state.empty())
+     out << ",\"native_policy_state\":" << quote(value.native_policy_state);
++  out << ",\"local_search_candidates\":[";
++  bool first_candidate = true;
++  for (const auto &candidate : value.local_search_candidates) {
++    if (!first_candidate) out << ',';
++    first_candidate = false;
++    out << "{\"id\":" << candidate.id
++        << ",\"formula_touch_epoch\":" << candidate.formula_touch_epoch
++        << ",\"formula_root_assignments\":" << candidate.formula_root_assignments
++        << ",\"external_variables\":" << candidate.external_variables
++        << ",\"objective\":" << candidate.objective
++        << ",\"objective_exact\":" << candidate.objective_exact
++        << ",\"effort\":" << candidate.effort.amount
++        << ",\"effort_unit\":" << unsigned(candidate.effort.unit) << '}';
++  }
++  out << ']';
+   out << '}';
+   return out.str();
+ }
+diff --git a/src/strategy/guidance_execution.hpp b/src/strategy/guidance_execution.hpp
+index c627c832..2e5cdb6a 100644
+--- a/src/strategy/guidance_execution.hpp
++++ b/src/strategy/guidance_execution.hpp
+@@ -26,6 +26,7 @@ struct LocalSearchRotationRequest {
+ struct WalkRequest {
+   uint64_t allowance;
+   uint64_t seed;
++  uint64_t seed_candidate = 0;
+ };
+ 
+ inline ApplyResult execute_action(Kernel &k, const ReorderRequest &request) {
+@@ -58,7 +59,11 @@ inline ApplyResult execute_action(Kernel &k, const WalkRequest &request) {
+   WorkSettingsScope work(k, {request.allowance, std::nullopt, std::nullopt,
+                             std::nullopt}, WorkSettingsExit::ClearBudget);
+   k.walk_random_seed = request.seed;
+-  return walk_apply(k);
++  const uint64_t previous_candidate = k.walk_seed_candidate;
++  k.walk_seed_candidate = request.seed_candidate;
++  const auto result = walk_apply(k);
++  k.walk_seed_candidate = previous_candidate;
++  return result;
+ }
+ 
+ struct WarmupRequest {};
+diff --git a/src/strategy/inprocess_program.hpp b/src/strategy/inprocess_program.hpp
+index eed6e2cd..f78e6756 100644
+--- a/src/strategy/inprocess_program.hpp
++++ b/src/strategy/inprocess_program.hpp
+@@ -61,7 +61,7 @@ using ActionParameters =
+                  SignedCardinalityProofParameters, ExactCoverModelParameters,
+                  IndependentSetModelParameters,
+                  AffineModelParameters,
+-                 SubstitutionRedundancyParameters>;
++                 SubstitutionRedundancyParameters, GraphLabelingParameters>;
+ 
+ // Compatibility name for the inprocessing scheduler. Online composition uses
+ // the same typed parameter vocabulary for every registered action.
+diff --git a/src/strategy/local_search.hpp b/src/strategy/local_search.hpp
+index 969f39af..eb30e842 100644
+--- a/src/strategy/local_search.hpp
++++ b/src/strategy/local_search.hpp
+@@ -1,12 +1,13 @@
+ #pragma once
+ 
+ #include <cstdint>
++#include <cstddef>
+ #include <vector>
+ 
+ namespace tactix::strategy {
+ 
+ // A structural model search can either finish with a verified model or leave
+-// its best complete assignment as search guidance.  Kinds stay distinct so a
++// its best partial or complete assignment as search guidance. Kinds stay distinct so a
+ // policy can tune, rotate, or compose them without comparing unlike objective
+ // functions (violated CSP edges, affine residuals, and CNF clauses).
+ enum class LocalSearchKind : uint8_t {
+@@ -15,6 +16,7 @@ enum class LocalSearchKind : uint8_t {
+   Parity,
+   Onehot,
+   BalancedSignature,
++  GraphLabeling,
+   Count,
+ };
+ 
+@@ -25,12 +27,40 @@ constexpr bool valid_local_search_kind(LocalSearchKind kind) {
+   return static_cast<size_t>(kind) < LOCAL_SEARCH_KIND_COUNT;
+ }
+ 
+-struct LocalSearchHint {
++// Public candidate payload: low eight bits name the producer, the remaining
++// bits name one publication. Zero is reserved for an explicitly unseeded Walk.
++// Old kind-only LocalSearchGuidance payloads remain aliases for the latest
++// candidate; enumerated identities always bind an exact publication.
++constexpr uint64_t LOCAL_SEARCH_GENERATION_MAX = UINT64_MAX >> 8;
++constexpr LocalSearchKind local_search_candidate_kind(uint64_t id) {
++  return static_cast<LocalSearchKind>(id & 255);
++}
++constexpr bool valid_local_search_candidate(uint64_t id) {
++  return (id >> 8) && valid_local_search_kind(local_search_candidate_kind(id));
++}
++
++enum class LocalSearchEffortUnit : uint8_t {
++  Unspecified, CspWork, AffineWork, CandidateChecks, SignatureSteps, GraphWork
++};
++struct LocalSearchEffort {
++  uint64_t amount = 0;
++  LocalSearchEffortUnit unit = LocalSearchEffortUnit::Unspecified;
++};
++
++struct LocalSearchCandidateInfo {
++  uint64_t id = 0;
++  uint64_t formula_touch_epoch = 0;
++  uint64_t formula_root_assignments = 0;
++  uint64_t external_variables = 0;
++  uint64_t objective = UINT64_MAX;
++  bool objective_exact = false;
++  LocalSearchEffort effort;
++};
++
++struct LocalSearchHint : LocalSearchCandidateInfo {
+   // Indexed by stable external variable identity.  Preprocessing may compact
+   // internal variables after the hint is produced.
+   std::vector<int8_t> external_phases;
+-  uint64_t objective = UINT64_MAX;
+-  bool objective_exact = false;
+ 
+   bool available() const { return !external_phases.empty(); }
+ };
+diff --git a/src/strategy/lucky_execution.hpp b/src/strategy/lucky_execution.hpp
+index 5b490101..5cae47b6 100644
+--- a/src/strategy/lucky_execution.hpp
++++ b/src/strategy/lucky_execution.hpp
+@@ -8,6 +8,7 @@
+ #include "rules/lucky/exact_one_refutation.hpp"
+ #include "rules/lucky/fermat_model.hpp"
+ #include "rules/lucky/independent_set_model.hpp"
++#include "rules/lucky/graph_labeling_model.hpp"
+ #include "rules/lucky/lookup_circuit_model.hpp"
+ #include "rules/lucky/lucky.hpp"
+ #include "rules/lucky/onehot_model.hpp"
+@@ -25,7 +26,7 @@ namespace tactix::execution {
+ enum class LuckyOpportunity : uint8_t {
+   Cascade, Parity, Onehot, Affine, DirectCsp, BalancedSignature, Fermat, Cerny,
+   LookupCircuit, Simon, Stconn, SignedCardinality, ExactCover, IndependentSet,
+-  StartupParity, StartupCount,
++  StartupParity, StartupCount, GraphLabeling,
+ };
+ 
+ template <LuckyOpportunity Opportunity> struct LuckyRequest {};
+@@ -60,6 +61,8 @@ ApplyResult execute_action(Kernel &k, LuckyRequest<Opportunity>) {
+     return exact_cover_model_apply(k);
+   else if constexpr (Opportunity == LuckyOpportunity::IndependentSet)
+     return independent_set_model_apply(k);
++  else if constexpr (Opportunity == LuckyOpportunity::GraphLabeling)
++    return graph_labeling_model_apply(k);
+   else if constexpr (Opportunity == LuckyOpportunity::StartupParity)
+     return startup_parity_apply(k);
+   else {
+diff --git a/src/strategy/native_feedback.hpp b/src/strategy/native_feedback.hpp
+index 258ade70..bb091bc9 100644
+--- a/src/strategy/native_feedback.hpp
++++ b/src/strategy/native_feedback.hpp
+@@ -80,6 +80,7 @@ inline NativeFeedbackSpec native_rule_feedback(
+     else if (instance == 16) inv.parameters = SignedCardinalityProofParameters::from_kernel(k);
+     else if (instance == 17) inv.parameters = ExactCoverModelParameters::from_kernel(k);
+     else if (instance == 18) inv.parameters = IndependentSetModelParameters::from_kernel(k);
++    else if (instance == 21) inv.parameters = GraphLabelingParameters::from_kernel(k);
+   }
+   return spec;
+ }
+diff --git a/src/strategy/online_inprocess.cpp b/src/strategy/online_inprocess.cpp
+index fc928afb..ce83a0c8 100644
+--- a/src/strategy/online_inprocess.cpp
++++ b/src/strategy/online_inprocess.cpp
+@@ -6,6 +6,7 @@
+ #include "strategy/bve_invocation.hpp"
+ #include "strategy/rule_execution.hpp"
+ #include "strategy/work_execution.hpp"
++#include "strategy/guidance_outcome.hpp"
+ #include "strategy/parameter_execution.hpp"
+ #include "strategy/publication_execution.hpp"
+ #include "strategy/sweep_execution.hpp"
+@@ -157,6 +158,8 @@ bool parameter_matches(const OnlineInvocation &step) {
+     return step.rule == "Lucky";
+   if (std::holds_alternative<IndependentSetModelParameters>(step.parameters))
+     return step.rule == "Lucky";
++  if (std::holds_alternative<GraphLabelingParameters>(step.parameters))
++    return step.rule == "Lucky";
+   if (std::holds_alternative<AffineModelParameters>(step.parameters))
+     return step.rule == "Lucky";
+   if (std::holds_alternative<SubstitutionRedundancyParameters>(step.parameters))
+@@ -305,6 +308,9 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
+             std::get_if<IndependentSetModelParameters>(&step.parameters);
+         p && !p->valid())
+       return reject("Lucky independent-set-model parameters are invalid");
++    if (const auto *p = std::get_if<GraphLabelingParameters>(&step.parameters);
++        p && !p->valid())
++      return reject("Lucky graph-labeling parameters are invalid");
+     if (const auto *p = std::get_if<AffineModelParameters>(&step.parameters);
+         p && !p->valid())
+       return reject("Lucky affine-model parameters are invalid");
+@@ -1151,6 +1157,7 @@ InvocationResult OnlineStrategyExecutor::advance(
+       out.after = state_version(k);
+     } else {
+       const uint64_t propagations_before = k.stats.propagations;
++      const GuidanceOutcomeSnapshot guidance_before(k);
+       execution::ParameterExecutionScope<
+           AnalyzeParameters, SubsumeForwardParameters, StrengthenParameters,
+           CongruenceParameters, InstantiateParameters, BackboneParameters,
+@@ -1161,7 +1168,7 @@ InvocationResult OnlineStrategyExecutor::advance(
+           FermatModelParameters, LookupCircuitModelParameters,
+           SimonModelParameters, StconnProofParameters,
+           SignedCardinalityProofParameters, ExactCoverModelParameters,
+-          IndependentSetModelParameters, AffineModelParameters>
++          IndependentSetModelParameters, AffineModelParameters, GraphLabelingParameters>
+           parameters(k, step.parameters);
+       // Invocation-level native work limits override a rule parameter which
+       // happens to share the legacy Kernel::work_budget handoff (Walk).  Both
+@@ -1277,6 +1284,7 @@ InvocationResult OnlineStrategyExecutor::advance(
+                        : result == ApplyResult::Ok
+                              ? InvocationStatus::Completed
+                              : detail::terminal_status(result);
++      out.status = guidance_before.refine(k, result, out.status);
+       if (sr_application) {
+         switch (sr_application->status) {
+         case SubstitutionRedundancyApplicationStatus::Invalid:
+diff --git a/src/strategy/random_online.cpp b/src/strategy/random_online.cpp
+index 74bd0fe7..15440ba1 100644
+--- a/src/strategy/random_online.cpp
++++ b/src/strategy/random_online.cpp
+@@ -254,7 +254,17 @@ ActionParameters random_parameters(const Kernel &k, uint64_t &state, const std::
+     return p;
+   }
+   if (rule == "Lucky") {
+-    const uint64_t lucky_kind = bounded(state, 9);
++    const bool graph_dosed = std::any_of(config.graph_labeling_reference.work.begin(),
++        config.graph_labeling_reference.work.end(), [](uint64_t work) { return work != 0; });
++    const uint64_t lucky_kind = bounded(state, graph_dosed ? 10 : 9);
++    if (lucky_kind == 9) {
++      GraphLabelingParameters p = config.graph_labeling_reference;
++      p.maximum_vertices = 3 + inclusive_u32(state, p.maximum_vertices - 3);
++      for (auto &allowance : p.work)
++        allowance = allowance ? bounded(state, allowance) : 0;
++      p.seed = state;
++      return p;
++    }
+     // A derived stream: the draws above and every later one stay unchanged.
+     uint64_t exact_cover_state = state ^ 0x4558414354434f56ull;
+     if (lucky_kind == 7 && bounded(exact_cover_state, 4) == 0) {
+@@ -791,20 +801,24 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
+       if (v.size() == 7 && !boolean(v[6], p.reduction_bookkeeping)) return false;
+     }
+     parameters = p;
+-  } else if (tuple(text, "walk", v) && v.size() >= 2) {
++  } else if ((tuple(text, "walk", v) || tuple(text, "walk2", v)) &&
++             v.size() >= 2) {
+     WalkParameters p;
+     p.step_budget = v[0];
+     p.random_seed = v[1];
+-    if (v.size() != 2) {
+-      if (v.size() < 4 || v[2] > UINT32_MAX ||
+-          v[3] > (v.size() - 4) / 2 || v.size() != 4 + 2 * v[3])
+-        return false;
+-      p.even_break_base_milli = static_cast<uint32_t>(v[2]);
++    const size_t offset = text.starts_with("walk2(") ? 1 : 0;
++    if (offset && v.size() < 5) return false;
++    if (offset) p.seed_candidate = v[2];
++    if (offset || v.size() != 2) {
++      const size_t head = 4 + offset;
++      if (v.size() < head || v[2 + offset] > UINT32_MAX ||
++          v[3 + offset] > (v.size() - head) / 2 ||
++          v.size() != head + 2 * v[3 + offset]) return false;
++      p.even_break_base_milli = static_cast<uint32_t>(v[2 + offset]);
+       p.score_curve.clear();
+-      for (size_t i = 0; i < v[3]; ++i) {
+-        const uint64_t x = v[4 + 2 * i], y = v[5 + 2 * i];
+-        if (x > UINT32_MAX || y > UINT32_MAX)
+-          return false;
++      for (size_t i = 0; i < v[3 + offset]; ++i) {
++        const uint64_t x = v[head + 2 * i], y = v[head + 2 * i + 1];
++        if (x > UINT32_MAX || y > UINT32_MAX) return false;
+         p.score_curve.push_back(
+             {static_cast<uint32_t>(x), static_cast<uint32_t>(y)});
+       }
+@@ -919,6 +933,20 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
+     p.completion_rounds = v[2];
+     p.seed = v[3];
+     parameters = p;
++  } else if (tuple(text, "graph-labeling1", v) && v.size() == 18) {
++    GraphLabelingParameters p;
++    U32_AT(0, p.maximum_vertices);
++    p.workspace_bytes = v[1];
++    U32_AT(2, p.maximum_dfs_vertices);
++    p.maximum_dfs_nodes = v[3];
++    U32_AT(4, p.maximum_dfs_starts);
++    U32_AT(5, p.early_dfs_choices);
++    p.repair_rounds = v[6];
++    p.anneal_iterations = v[7];
++    p.stall_anneal_iterations = v[8];
++    p.seed = v[9];
++    for (size_t i = 0; i < p.work.size(); ++i) p.work[i] = v[10 + i];
++    parameters = p;
+   } else if (tuple(text, "affine1", v) && v.size() >= 20) {
+     AffineModelParameters p;
+     p.maximum_variables=v[0]; p.maximum_constraints=v[1]; p.maximum_arity=v[2];
+@@ -1358,6 +1386,7 @@ bool random_online_strategy_program(Kernel &k, uint64_t seed,
+       !config.signed_cardinality_proof_reference.valid() ||
+       !config.exact_cover_model_reference.valid() ||
+       !config.independent_set_model_reference.valid() ||
++      !config.graph_labeling_reference.valid() ||
+       !config.affine_model_reference.valid() ||
+       !config.affine_joint_positive_denominator ||
+       config.affine_joint_positive_numerator > config.affine_joint_positive_denominator ||
+@@ -1659,8 +1688,10 @@ std::string serialize_online_strategy_program(
+           << p->protect_tiers << ',' << p->compact_collection << ','
+           << p->reduction_bookkeeping << ')';
+     else if (const auto *p = std::get_if<WalkParameters>(&step.parameters)) {
+-      out << ":walk(" << p->step_budget << ',' << p->random_seed << ','
+-          << p->even_break_base_milli << ',' << p->score_curve.size();
++      out << (p->seed_candidate ? ":walk2(" : ":walk(")
++          << p->step_budget << ',' << p->random_seed << ',';
++      if (p->seed_candidate) out << p->seed_candidate << ',';
++      out << p->even_break_base_milli << ',' << p->score_curve.size();
+       for (const WalkParameters::ScorePoint point : p->score_curve)
+         out << ',' << point.average_clause_size_milli << ','
+             << point.break_base_milli;
+@@ -1737,6 +1768,15 @@ std::string serialize_online_strategy_program(
+       out << ":independent-set-model(" << p->maximum_vertices << ','
+           << p->maximum_steps << ',' << p->completion_rounds << ',' << p->seed
+           << ')';
++    else if (const auto *p = std::get_if<GraphLabelingParameters>(&step.parameters)) {
++      out << ":graph-labeling1(" << p->maximum_vertices << ',' << p->workspace_bytes
++          << ',' << p->maximum_dfs_vertices << ',' << p->maximum_dfs_nodes
++          << ',' << p->maximum_dfs_starts << ',' << p->early_dfs_choices
++          << ',' << p->repair_rounds << ',' << p->anneal_iterations
++          << ',' << p->stall_anneal_iterations << ',' << p->seed;
++      for (uint64_t allowance : p->work) out << ',' << allowance;
++      out << ')';
++    }
+     else if (const auto *p = std::get_if<AffineModelParameters>(&step.parameters)) {
+       out << ":affine1(" << p->maximum_variables << ',' << p->maximum_constraints
+           << ',' << p->maximum_arity << ',' << p->maximum_projection << ','
+diff --git a/src/strategy/random_online.hpp b/src/strategy/random_online.hpp
+index 7d348a65..bf48d17e 100644
+--- a/src/strategy/random_online.hpp
++++ b/src/strategy/random_online.hpp
+@@ -116,6 +116,7 @@ struct RandomOnlineConfig {
+   SignedCardinalityProofParameters signed_cardinality_proof_reference;
+   ExactCoverModelParameters exact_cover_model_reference;
+   IndependentSetModelParameters independent_set_model_reference;
++  GraphLabelingParameters graph_labeling_reference;
+   AffineModelParameters affine_model_reference;
+   uint32_t maximum_affine_projection_coordinates = 32;
+   uint32_t maximum_affine_scopes = 8;
+diff --git a/src/strategy/rule_parameters.cpp b/src/strategy/rule_parameters.cpp
+index 9f96b94a..7c40c564 100644
+--- a/src/strategy/rule_parameters.cpp
++++ b/src/strategy/rule_parameters.cpp
+@@ -38,6 +38,8 @@ WalkParameters::reference_score_curve() {
+ }
+ 
+ bool WalkParameters::valid() const {
++  if (seed_candidate && !valid_local_search_candidate(seed_candidate))
++    return false;
+   if (!even_break_base_milli || score_curve.size() < 2 ||
+       score_curve.front().average_clause_size_milli != 0)
+     return false;
+@@ -60,6 +62,7 @@ WalkParameters WalkParameters::from_kernel(const Kernel &k) {
+   result.random_seed = k.walk_random_seed;
+   result.even_break_base_milli = k.walk_even_break_base_milli;
+   result.score_curve = k.walk_score_curve;
++  result.seed_candidate = k.walk_seed_candidate;
+   return result;
+ }
+ ReorderParameters ReorderParameters::from_kernel(const Kernel &k) {
+@@ -116,6 +119,13 @@ ExactCoverModelParameters
+ ExactCoverModelParameters::from_kernel(const Kernel &k) {
+   return k.exact_cover_model_parameters;
+ }
++GraphLabelingParameters GraphLabelingParameters::from_kernel(const Kernel &k) {
++  return k.graph_labeling_parameters;
++}
++void install_rule_parameters(Kernel &k, const GraphLabelingParameters &p) {
++  k.graph_labeling_parameters = p;
++}
++
+ IndependentSetModelParameters
+ IndependentSetModelParameters::from_kernel(const Kernel &k) {
+   return k.independent_set_model_parameters;
+@@ -204,6 +214,7 @@ void install_rule_parameters(Kernel &k, const WalkParameters &p) {
+   k.work_budget = p.step_budget;
+   k.work_budget_bounded = true;
+   k.walk_random_seed = p.random_seed;
++  k.walk_seed_candidate = p.seed_candidate;
+   install_walk_guidance(k, p.even_break_base_milli, p.score_curve);
+ }
+ 
+@@ -218,6 +229,7 @@ ScopedWalkParameters::ScopedWalkParameters(
+     Kernel &kernel, const WalkParameters &parameters)
+     : kernel_(kernel), saved_budget_(kernel.work_budget),
+       saved_seed_(kernel.walk_random_seed),
++      saved_candidate_(kernel.walk_seed_candidate),
+       saved_even_break_base_milli_(kernel.walk_even_break_base_milli),
+       saved_score_curve_(kernel.walk_score_curve),
+       saved_bounded_(kernel.work_budget_bounded) {
+@@ -227,6 +239,7 @@ ScopedWalkParameters::ScopedWalkParameters(
+ ScopedWalkParameters::~ScopedWalkParameters() {
+   kernel_.work_budget = saved_budget_;
+   kernel_.walk_random_seed = saved_seed_;
++  kernel_.walk_seed_candidate = saved_candidate_;
+   kernel_.walk_even_break_base_milli = saved_even_break_base_milli_;
+   kernel_.walk_score_curve = std::move(saved_score_curve_);
+   kernel_.work_budget_bounded = saved_bounded_;
+diff --git a/src/strategy/rule_parameters.hpp b/src/strategy/rule_parameters.hpp
+index 1224673a..5a938109 100644
+--- a/src/strategy/rule_parameters.hpp
++++ b/src/strategy/rule_parameters.hpp
+@@ -2,6 +2,8 @@
+ 
+ #include <cstdint>
+ #include <vector>
++#include "strategy/local_search.hpp"
++#include "strategy/graph_labeling_parameters.hpp"
+ 
+ namespace tactix {
+ struct Kernel;
+@@ -76,8 +78,8 @@ struct WalkParameters {
+ 
+   static std::vector<ScorePoint> reference_score_curve();
+ 
+-  // Exact occurrence-list entries to scan. Zero is an explicit zero-work
+-  // request; omitting WalkParameters retains the canonical reference default.
++  // Native occurrence-list allowance, also charged for seeded preparation's
++  // phase/identity visits and evaluated literals. Zero requests no seed work.
+   uint64_t step_budget = STEP_BUDGET_DEFAULT;
+   uint64_t random_seed = 0;
+   // Kissat alternates this fixed base with the fitted curve on successive
+@@ -85,6 +87,8 @@ struct WalkParameters {
+   // surface owns them rather than the Walk implementation.
+   uint32_t even_break_base_milli = EVEN_BREAK_BASE_DEFAULT;
+   std::vector<ScorePoint> score_curve = reference_score_curve();
++  // Exact retained candidate identity, or zero for native phase seeding.
++  uint64_t seed_candidate = 0;
+   bool valid() const;
+   static WalkParameters from_kernel(const Kernel &);
+ };
+@@ -452,6 +456,7 @@ void install_rule_parameters(Kernel &, const LookupCircuitModelParameters &);
+ void install_rule_parameters(Kernel &, const SimonModelParameters &);
+ void install_rule_parameters(Kernel &, const ExactCoverModelParameters &);
+ void install_rule_parameters(Kernel &, const IndependentSetModelParameters &);
++void install_rule_parameters(Kernel &, const GraphLabelingParameters &);
+ void install_rule_parameters(Kernel &, const StconnProofParameters &);
+ void install_rule_parameters(Kernel &, const SignedCardinalityProofParameters &);
+ void install_rule_parameters(Kernel &, const AffineModelParameters &);
+@@ -507,6 +512,7 @@ private:
+   Kernel &kernel_;
+   uint64_t saved_budget_;
+   uint64_t saved_seed_;
++  uint64_t saved_candidate_;
+   uint32_t saved_even_break_base_milli_;
+   std::vector<WalkParameters::ScorePoint> saved_score_curve_;
+   bool saved_bounded_;
+diff --git a/tests/test_default_execution_signature.cpp b/tests/test_default_execution_signature.cpp
+index 60f1a8b3..eaa53115 100644
+--- a/tests/test_default_execution_signature.cpp
++++ b/tests/test_default_execution_signature.cpp
+@@ -135,7 +135,7 @@ int main(int argc, char **argv) {
+         assert(k.stats.warmups && k.stats.warming_decisions);
+         assert(k.stats.walks && k.stats.walk_steps);
+         if (profile == 4) assert(k.stats.switched);
+-        if (profile == 6) assert(k.stats.local_search_hints_applied);
++        if (profile == 6) assert(k.stats.walk_seed_imports);
+       }
+       if (profile == 5 && verdict == 20) assert(k.stats.rephased >= 3);
+       if (verdict == 10) {
+diff --git a/tests/test_inspect_policy_feedback.py b/tests/test_inspect_policy_feedback.py
+index a16fe79b..370ed93c 100644
+--- a/tests/test_inspect_policy_feedback.py
++++ b/tests/test_inspect_policy_feedback.py
+@@ -57,6 +57,15 @@ def main():
+         changed[action + 1]["value"] = -1
+         rejected(encode(changed), "elapsed nanos")
+         changed = json.loads(json.dumps(rows))
++        del changed[action]["before"]["local_search_candidates"]
++        rejected(encode(changed), "missing candidate observation")
++        changed = json.loads(json.dumps(rows))
++        changed[action]["before"]["local_search_candidates"] = [{
++            "id": 0, "formula_touch_epoch": 0, "formula_root_assignments": 0,
++            "external_variables": 2, "objective": 0, "objective_exact": True,
++            "effort": 1, "effort_unit": 0}]
++        rejected(encode(changed), "candidate identity")
++        changed = json.loads(json.dumps(rows))
+         changed[action]["before"]["native"]["solve_nanos"] = 1
+         rejected(encode(changed), "native timing")
+         rejected(original.replace('"type":"header"', '"type":"header","type":"header"', 1),
+diff --git a/tests/test_local_search_guidance.cpp b/tests/test_local_search_guidance.cpp
+index 51c0aa1e..8d15d00b 100644
+--- a/tests/test_local_search_guidance.cpp
++++ b/tests/test_local_search_guidance.cpp
+@@ -2,61 +2,135 @@
+ #include "kernel/kernel.hpp"
+ #include "policies/heuristics.hpp"
+ #include "policies/ops/local_search/local_search.hpp"
++#include "strategy/controller_observation.hpp"
+ #include "rules/registry.hpp"
+ 
+ #include <cassert>
+ 
+ using namespace tactix;
+ 
+-int main() {
++static void publication_and_selection() {
+   Kernel k;
+   ScopedHeuristics heuristics(k);
+   kernel_reserve_vars(k, 3);
+-
+-  kernel_offer_local_search_hint(
+-      k, strategy::LocalSearchKind::DirectCsp, {1, 0, 1}, 2, true);
++  k.h->saved = {1, 1, -1};
++  k.h->best = {-1, 1, 1};
++  const auto saved = k.h->saved, best = k.h->best;
++  kernel_offer_local_search_hint(k, strategy::LocalSearchKind::DirectCsp,
++      {1, 0, 1}, 2, true, {19, strategy::LocalSearchEffortUnit::CspWork});
++  assert(k.h->saved == saved && k.h->best == best);
+   assert(k.stats.local_search_hints_offered == 1);
+-  assert(local_search_guidance_guard(k));
+-
+-  const int id = tactix_rule_id("LocalSearchGuidance");
+-  assert(id >= 0);
+-  const RuleVTable &op = tactix_rules()[static_cast<size_t>(id)];
++  const auto observed = strategy::controller::observe_kernel(k);
++  assert(observed.local_search_candidates.size() == 1);
++  const auto info = observed.local_search_candidates.front();
++  assert(info.id == 256 && info.effort.amount == 19);
++  assert(info.formula_touch_epoch == k.touch_epoch && info.external_variables == 3);
++  const RuleVTable &op = tactix_rules()[tactix_rule_id("LocalSearchGuidance")];
+   assert(op.kind == ActionKind::PolicyOp && op.guard(k));
+   uint64_t instances[4]{};
+-  assert(op.instances(k, instances, 4) == 1);
+-  assert(instances[0] ==
+-         static_cast<uint64_t>(strategy::LocalSearchKind::DirectCsp));
+-  assert(op.apply_instance(k, instances[0]) == ApplyResult::Ok);
+-  assert((k.h->saved == std::vector<int8_t>{1, -1, 1}));
+-  assert(k.h->target == k.h->saved);
++  assert(op.instances(k, instances, 4) == 1 && instances[0] == info.id);
++  assert(op.apply_instance(k, info.id) == ApplyResult::Ok);
++  assert((k.h->target == std::vector<int8_t>{1, -1, 1}));
++  assert(k.h->saved == saved && k.h->best == best);
+   assert(k.stats.local_search_hints_applied == 1);
+-
+-  // Invalid candidate data is rejected atomically and cannot partially
+-  // replace a previously retained assignment.
+-  kernel_offer_local_search_hint(
+-      k, strategy::LocalSearchKind::DirectCsp, {0, 2, 0}, 1, true);
++  kernel_offer_local_search_hint(k, strategy::LocalSearchKind::DirectCsp,
++      {0, 2, 0}, 1, true);
+   assert(k.stats.local_search_hints_offered == 1);
+-  const auto &direct = k.local_search_hints[static_cast<size_t>(
+-      strategy::LocalSearchKind::DirectCsp)];
+-  assert((direct.external_phases == std::vector<int8_t>{1, -1, 1}));
+-  assert(direct.objective == 2 && direct.objective_exact);
++  assert(kernel_local_search_hint(k, info.id));
+ 
+-  // A worse exact candidate from the same strategy does not replace its best
+-  // result. A different strategy remains independently selectable.
+-  kernel_offer_local_search_hint(
+-      k, strategy::LocalSearchKind::DirectCsp, {0, 1, 0}, 3, true);
+-  kernel_offer_local_search_hint(
+-      k, strategy::LocalSearchKind::Affine, {0, 1, 0});
+-  assert(k.stats.local_search_hints_offered == 2);
++  // Exact means the score is known, not that another invocation has the same
++  // objective. The producer owns its best; replacement receives a new identity.
++  kernel_add_binary_clause(k, internalize(1), internalize(2));
++  kernel_offer_local_search_hint(k, strategy::LocalSearchKind::DirectCsp,
++      {0, 1, 0}, 3, true);
++  assert(!kernel_local_search_hint(k, info.id));
++  const auto target = k.h->target;
++  assert(op.apply_instance(k, info.id) == ApplyResult::NoOp);
++  assert(k.h->target == target && k.stats.local_search_hints_stale == 1);
++  kernel_offer_local_search_hint(k, strategy::LocalSearchKind::Affine, {0, 1, 0});
++  assert(k.stats.local_search_hints_offered == 3);
+   uint64_t cursor = 0;
+   const std::vector<strategy::LocalSearchKind> rotation{
+-      strategy::LocalSearchKind::Parity,
+-      strategy::LocalSearchKind::Affine,
++      strategy::LocalSearchKind::Parity, strategy::LocalSearchKind::Affine,
+       strategy::LocalSearchKind::DirectCsp};
+-  assert(local_search_guidance_apply_next(k, rotation, cursor) ==
+-         ApplyResult::Ok);
+-  assert((k.h->saved == std::vector<int8_t>{-1, 1, -1}));
+-  assert(cursor == 2); // skipped unavailable Parity, consumed Affine
+-
++  const auto selected = local_search_guidance_select_next(k, rotation, cursor);
++  assert(cursor == 2 && k.h->target == target); // selection does not import
++  assert(op.apply_instance(k, selected) == ApplyResult::Ok);
++  assert((k.h->target == std::vector<int8_t>{-1, 1, -1}));
++  assert(k.h->saved == saved && k.h->best == best);
+   assert(op.apply_instance(k, 99) == ApplyResult::NoOp);
++  // Historical kind-only payload still has an explicitly current meaning.
++  assert(op.apply_instance(k, 0) == ApplyResult::NoOp); // identical target
++}
++
++static void identity_and_phase_lifecycle() {
++  Kernel k;
++  ScopedHeuristics h(k);
++  kernel_reserve_vars(k, 4);
++  kernel_offer_local_search_hint(k, strategy::LocalSearchKind::Parity, {0, 0, 0, 0});
++  const uint64_t candidate = k.local_search_hints[2].id;
++  kernel_assign_unit(k, internalize(1));
++  assert(!kernel_propagate(k));
++  k.var_status.assign(k.nvars, VarStatus::Active);
++  k.var_status[1] = VarStatus::Eliminated;
++  heuristics_deactivate_var(k, 1);
++  --k.unassigned_active;
++  assert(kernel_compact_variables(k));
++  kernel_reserve_vars(k, 4); // new external identity, no candidate polarity
++  k.h->saved.assign(4, 1);
++  k.h->best.assign(4, 1);
++  k.h->target.assign(4, 1);
++  assert(local_search_guidance_apply_candidate(k, candidate) == ApplyResult::Ok);
++  assert((k.h->target == std::vector<int8_t>{1, -1, -1, 1}));
++  assert((k.h->saved == std::vector<int8_t>(4, 1)) && k.h->saved == k.h->best);
++  assert(k.h->target_assigned == 0);
++  k.h->stable = false;
++  assert(!negated(heuristics_decide_lit(k, 1))); // focused saved phase preserved
++  k.h->stable = true;
++  assert(negated(heuristics_decide_lit(k, 1))); // target-consuming configuration
++  kernel_assign_decision(k, make_lit(1, false));
++  assert(!local_search_guidance_guard(k));
++  kernel_update_target_phases(k);
++  assert(k.h->target[1] == 1); // native capture supersedes the advice
++  kernel_backtrack(k, 0);
++  kernel_check_invariants(k);
++}
++
++static void partial_publication_and_identity_lifetime() {
++  Kernel k;
++  ScopedHeuristics h(k);
++  kernel_reserve_vars(k, 3);
++  const auto kind = strategy::LocalSearchKind::Affine;
++  kernel_offer_local_search_partial_hint(k, kind, {1, 0, -1}, 4, true);
++  const auto first = k.local_search_hints[1].id;
++  k.h->saved.assign(3, -1);
++  k.h->best.assign(3, 1);
++  k.h->target = {-1, -1, 1};
++  assert(local_search_guidance_apply_candidate(k, first) == ApplyResult::Ok);
++  assert((k.h->target == std::vector<int8_t>{1, -1, -1}));
++  assert((k.h->saved == std::vector<int8_t>(3, -1)));
++  assert((k.h->best == std::vector<int8_t>(3, 1)));
++  for (const std::vector<int8_t> invalid :
++       {std::vector<int8_t>{0, 0, 0}, {1, 2, 0}, {-2, 0, 1}, {1}}) {
++    kernel_offer_local_search_partial_hint(k, kind, invalid);
++    assert(k.local_search_hints[1].id == first);
++    assert(k.local_search_publication == 1);
++  }
++  // Resetting instrumentation cannot make an old replay identity current again.
++  k.stats.local_search_hints_offered = 0;
++  kernel_offer_local_search_partial_hint(k, kind, {0, 1, 0});
++  assert(k.local_search_hints[1].id != first);
++  assert(!kernel_local_search_hint(k, first));
++  const auto second = k.local_search_hints[1].id;
++  k.local_search_publication = strategy::LOCAL_SEARCH_GENERATION_MAX;
++  kernel_offer_local_search_partial_hint(k, kind, {-1, 0, 0});
++  kernel_offer_local_search_hint(k, kind, {1, 1, 1});
++  assert(k.local_search_hints[1].id == second);
++  assert(k.stats.local_search_hints_offered == 1);
++}
++
++int main() {
++  publication_and_selection();
++  identity_and_phase_lifecycle();
++  partial_publication_and_identity_lifetime();
+ }
+diff --git a/tests/test_online_api.c b/tests/test_online_api.c
+index 3a40227f..fac8fa34 100644
+--- a/tests/test_online_api.c
++++ b/tests/test_online_api.c
+@@ -1043,6 +1043,19 @@ static void walk_scoring_is_validated_and_copied(void) {
+   assert(tactix_online_advance(solver, &result) == 0);
+   assert(result.status == TACTIX_ONLINE_COMPLETED ||
+          result.status == TACTIX_ONLINE_NO_CHANGE);
++  curve[1].break_base_milli = 2700;
++  step.parameters.value.walk.seed_candidate = 1; /* kind-only is not an identity */
++  assert(tactix_online_configure(solver, &program, 17,
++                                 TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
++  step.parameters.value.walk.seed_candidate = 511; /* unknown producer */
++  assert(tactix_online_configure(solver, &program, 18,
++                                 TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
++  step.parameters.value.walk.seed_candidate = 256; /* well-formed, unpublished */
++  assert(tactix_online_configure(solver, &program, 19,
++                                 TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
++  step.parameters.value.walk.seed_candidate = 0; /* configured request owns copy */
++  assert(tactix_online_advance(solver, &result) == 0);
++  assert(result.status == TACTIX_ONLINE_STALE_REQUEST);
+   tactix_release(solver);
+ }
+ 
+@@ -1384,7 +1397,68 @@ static void independent_set_parameters_are_public_and_validated(void) {
+   tactix_release(solver);
+ }
+ 
++static void graph_labeling_is_public_and_copied(void) {
++  tactix *solver = tactix_init();
++  clause(solver, (const int[]){-4, 0}); /* parser-shortened final column */
++  for (int column = 0; column < 4; ++column) {
++    int cover[5];
++    for (int row = 0; row < 4; ++row) cover[row] = 4 * row + column + 1;
++    cover[4] = 0;
++    clause(solver, cover);
++  }
++  for (int row = 0; row < 4; ++row)
++    for (int a = 0; a < 4; ++a)
++      for (int b = a + 1; b < 4; ++b)
++        clause(solver, (const int[]){-(4 * row + a + 1), -(4 * row + b + 1), 0});
++  for (int a = 0; a < 4; ++a)
++    for (int b = a + 1; b < 4; ++b)
++      clause(solver, (const int[]){-(4 * a + 1), -(4 * b + 1), 0});
++  tactix_online_step step;
++  memset(&step, 0, sizeof step);
++  step.step_id = 21;
++  step.rule_id = rule("Lucky");
++  step.parameters.kind = TACTIX_ONLINE_PARAMETERS_GRAPH_LABELING;
++  tactix_online_graph_labeling_parameters *p = &step.parameters.value.graph_labeling;
++  p->maximum_vertices = 4;
++  p->workspace_bytes = 1000000;
++  for (int i = 0; i < TACTIX_GRAPH_STAGES; ++i) p->work[i] = 10000;
++  p->maximum_dfs_vertices = 4;
++  p->maximum_dfs_nodes = 100;
++  p->maximum_dfs_starts = 4;
++  p->early_dfs_choices = 4;
++  p->repair_rounds = 3;
++  p->anneal_iterations = 20;
++  p->stall_anneal_iterations = 3;
++  uint64_t instance = 21;
++  step.instances = &instance;
++  step.instance_count = 1;
++  step.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
++  step.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
++  step.repeat_limit = 1;
++  step.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
++  step.budget_unlimited = 1;
++  tactix_online_program program = {&step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
++  assert(tactix_online_configure(solver, &program, 1, TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
++  p->work[0] = UINT64_MAX; /* sum overflow must reject transactionally */
++  assert(tactix_online_configure(solver, &program, 2, TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
++  memset(p->work, 0, sizeof p->work); /* earlier successful configuration owns its copy */
++  tactix_online_result result;
++  assert(tactix_online_advance(solver, &result) == 0);
++  assert(result.status == TACTIX_ONLINE_SAT && result.instance == 21);
++  assert(tactix_value(solver, 4) == -4);
++  for (int i = 0; i < 4; ++i) {
++    int row_true = 0, column_true = 0;
++    for (int j = 0; j < 4; ++j) {
++      row_true += tactix_value(solver, 4 * i + j + 1) > 0;
++      column_true += tactix_value(solver, 4 * j + i + 1) > 0;
++    }
++    assert(row_true == 1 && column_true == 1);
++  }
++  tactix_release(solver);
++}
++
+ int main(void) {
++  graph_labeling_is_public_and_copied();
+   rejected_configuration_keeps_input_open();
+   condition_cube_v3_is_atomic_and_copied();
+   late_lrat_root_refutation_is_terminal();
+diff --git a/tests/test_online_inprocess.cpp b/tests/test_online_inprocess.cpp
+index 3def1d66..b9cbb06b 100644
+--- a/tests/test_online_inprocess.cpp
++++ b/tests/test_online_inprocess.cpp
+@@ -4861,7 +4861,36 @@ static int proof_witness(const char *input, const char *output,
+   return result;
+ }
+ 
++static void seeded_walk_reports_exact_failure_status() {
++  Kernel k;
++  ScopedHeuristics h(k);
++  kernel_reserve_vars(k, 2);
++  kernel_add_binary_clause(k, internalize(-1), internalize(-2));
++  kernel_offer_local_search_hint(k, LocalSearchKind::DirectCsp, {1, 0});
++  WalkParameters p;
++  p.seed_candidate = k.local_search_hints[0].id;
++  p.step_budget = 0;
++  OnlineInvocation step;
++  step.id = 1;
++  step.rule = "Walk";
++  step.parameters = p;
++  step.granularity = InvocationGranularity::CanonicalApplication;
++  OnlineStrategyProgram program;
++  program.sequence = {step};
++  OnlineStrategyExecutor executor;
++  assert(executor.configure(program, 1));
++  const auto saved = k.h->saved, target = k.h->target;
++  assert(executor.advance(k).status == InvocationStatus::BudgetExhausted);
++  assert(k.h->saved == saved && k.h->target == target);
++  assert(k.walk_seed_candidate == 0);
++  kernel_offer_local_search_hint(k, LocalSearchKind::DirectCsp, {0, 1});
++  assert(executor.configure(program, 2));
++  assert(executor.advance(k).status == InvocationStatus::StaleRequest);
++  assert(k.h->saved == saved && k.h->target == target);
++}
++
+ int main(int argc, char **argv) {
++  seeded_walk_reports_exact_failure_status();
+   std::optional<uint64_t> generator_cap;
+   std::optional<bool> root_stabilizer;
+   if (argc == 8 || argc == 9) {
+diff --git a/tests/test_random_controller_policy.cpp b/tests/test_random_controller_policy.cpp
+index a4f9b065..f575c110 100644
+--- a/tests/test_random_controller_policy.cpp
++++ b/tests/test_random_controller_policy.cpp
+@@ -1,6 +1,8 @@
+ #undef NDEBUG
+ #include "policies/random_controller_policy.hpp"
+ #include "rules/decide/decide.hpp"
++#include "rules/lucky/lucky.hpp"
++#include <set>
+ 
+ #include <cassert>
+ #include <fstream>
+@@ -23,7 +25,71 @@ static Kernel fixture(bool unsat) {
+   return k;
+ }
+ 
++static void random_guidance_uses_observed_identities() {
++  Kernel k;
++  kernel_reserve_vars(k, 3);
++  RestartController controller(k);
++  kernel_offer_local_search_hint(k, LocalSearchKind::DirectCsp, {1, 0, 0});
++  kernel_offer_local_search_hint(k, LocalSearchKind::Affine, {0, 1, 0});
++  const auto observation = controller.observe();
++  assert(observation.local_search_candidates.size() == 2);
++  const auto first = observation.local_search_candidates[0].id;
++  const auto second = observation.local_search_candidates[1].id;
++  RandomControllerConfig config;
++  config.parameters.rules = {"Walk", "LocalSearchGuidance"};
++  RandomControllerSelector selector(17);
++  bool plain = false, seeded_first = false, seeded_second = false, target = false;
++  for (unsigned i = 0; i < 200; ++i) {
++    ActionRequest request;
++    std::string error;
++    assert(selector.choose(k, controller.observe(), config, request, error));
++    if (request.type != ActionType::Rule) continue;
++    if (request.invocation.rule == "Walk") {
++      const auto candidate = std::get<WalkParameters>(request.invocation.parameters).seed_candidate;
++      assert(candidate == 0 || candidate == first || candidate == second);
++      plain |= !candidate;
++      seeded_first |= candidate == first;
++      seeded_second |= candidate == second;
++    } else {
++      assert(request.invocation.rule == "LocalSearchGuidance");
++      assert(request.invocation.instances.size() == 1);
++      const auto candidate = request.invocation.instances[0];
++      assert(candidate == first || candidate == second);
++      target = true;
++    }
++  }
++  assert(plain && seeded_first && seeded_second && target);
++}
++
++static void finite_lucky_catalog_is_reachable() {
++  Kernel k = fixture(false);
++  RestartController controller(k);
++  RandomControllerConfig config;
++  config.parameters.rules = {"Lucky"};
++  config.parameters.graph_labeling_reference.work.fill(1000);
++  const auto original_config = controller_configuration(config);
++  RandomControllerSelector selector(23);
++  std::set<uint64_t> seen;
++  for (unsigned i = 0; i < 4096; ++i) {
++    ActionRequest request;
++    std::string error;
++    assert(selector.choose(k, controller.observe(), config, request, error));
++    if (request.type != ActionType::Rule || request.invocation.instances.empty()) continue;
++    const uint64_t instance = request.invocation.instances.front();
++    seen.insert(instance);
++    if (instance == LUCKY_GRAPH_LABELING) {
++      const auto &p = std::get<GraphLabelingParameters>(request.invocation.parameters);
++      assert(p.work == config.parameters.graph_labeling_reference.work);
++    }
++  }
++  assert(seen.size() == LUCKY_INSTANCE_COUNT);
++  config.parameters.graph_labeling_reference.work[0]++;
++  assert(controller_configuration(config) != original_config);
++}
++
+ int main() {
++  finite_lucky_catalog_is_reachable();
++  random_guidance_uses_observed_identities();
+   Kernel a = fixture(false), b = fixture(false);
+   RestartController ca(a), cb(b);
+   RandomControllerSelector sa(17), sb(17);
+diff --git a/tests/test_random_online.cpp b/tests/test_random_online.cpp
+index 3874d790..6427c6c9 100644
+--- a/tests/test_random_online.cpp
++++ b/tests/test_random_online.cpp
+@@ -2149,7 +2149,68 @@ static void production_random_reaches_late_semantics_and_replays_them() {
+   kernel_check_invariants(replay);
+ }
+ 
++static void seeded_walk_parameters_round_trip() {
++  OnlineInvocation step;
++  step.id = 1;
++  step.rule = "Walk";
++  step.granularity = InvocationGranularity::CanonicalApplication;
++  WalkParameters p;
++  p.step_budget = 24;
++  p.random_seed = 19;
++  p.seed_candidate = 256;
++  step.parameters = p;
++  OnlineStrategyProgram program, decoded;
++  program.sequence = {step};
++  const auto wire = serialize_online_strategy_program(program);
++  assert(wire.find(":walk2(") != std::string::npos);
++  std::string error;
++  assert(deserialize_online_strategy_program(wire, decoded, &error));
++  assert(serialize_online_strategy_program(decoded) == wire);
++  const auto &copy = std::get<WalkParameters>(decoded.sequence[0].parameters);
++  assert(copy.seed_candidate == 256 && copy.step_budget == 24 && copy.random_seed == 19);
++  p.seed_candidate = 1; // kind-only aliases are not exact Walk identities
++  assert(!p.valid());
++  step.parameters = p;
++  program.sequence = {step};
++  assert(!validate_online_strategy_program(program, &error));
++}
++
++static void graph_labeling_parameters_round_trip() {
++  OnlineStrategyProgram program;
++  OnlineInvocation step;
++  step.id = 1;
++  step.rule = "Lucky";
++  step.granularity = InvocationGranularity::OneInstance;
++  step.instances = {21};
++  GraphLabelingParameters parameters;
++  parameters.maximum_vertices = 200;
++  parameters.workspace_bytes = 1000000;
++  for (size_t i = 0; i < parameters.work.size(); ++i) parameters.work[i] = 1000 + i;
++  parameters.stall_anneal_iterations = 19;
++  parameters.seed = 123;
++  step.parameters = parameters;
++  program.sequence.push_back(step);
++  std::string error;
++  assert(validate_online_strategy_program(program, &error));
++  const auto wire = serialize_online_strategy_program(program);
++  assert(wire.find("graph-labeling1(") != std::string::npos);
++  OnlineStrategyProgram replay;
++  assert(deserialize_online_strategy_program(wire, replay, &error));
++  assert(serialize_online_strategy_program(replay) == wire);
++  const auto &copied = std::get<GraphLabelingParameters>(replay.sequence[0].parameters);
++  assert(copied.work == parameters.work && copied.seed == parameters.seed);
++  assert(copied.stall_anneal_iterations == 19);
++  parameters.work[0] = UINT64_MAX;
++  program.sequence[0].parameters = parameters;
++  assert(!validate_online_strategy_program(program, &error));
++  program.sequence[0].parameters = copied;
++  program.sequence[0].rule = "Walk";
++  assert(!validate_online_strategy_program(program, &error));
++}
++
+ int main() {
++  graph_labeling_parameters_round_trip();
++  seeded_walk_parameters_round_trip();
+   condition_cube_replay_round_trips();
+   random_clausal_fixing_retains_known_orbit_targets();
+   invalid_configuration_is_rejected();
+diff --git a/tests/test_restart_controller.cpp b/tests/test_restart_controller.cpp
+index 17fefbbe..e77f7020 100644
+--- a/tests/test_restart_controller.cpp
++++ b/tests/test_restart_controller.cpp
+@@ -30,7 +30,7 @@ int main() {
+     const auto calls = k.stats.rule_calls[0];
+     const auto first = controller.observe();
+     const auto second = controller.observe();
+-    assert(first.version == 1 && first.variables == 3);
++    assert(first.version == ACTION_SPACE_VERSION && first.variables == 3);
+     assert(first.irredundant_clauses == 1);
+     assert(first.state.touch_epoch == second.state.touch_epoch);
+     assert(first.sequence == second.sequence && first.sequence == 0);
+diff --git a/tests/test_walk.cpp b/tests/test_walk.cpp
+index 5a3c0bcb..779791cc 100644
+--- a/tests/test_walk.cpp
++++ b/tests/test_walk.cpp
+@@ -338,7 +338,106 @@ static void test_root_satisfied_binaries_do_not_reach_the_walk() {
+     assert(plain.h->saved[v] == extra.h->saved[v]);
+ }
+ 
++static void test_private_seed_budget_and_export() {
++  // Three binary exclusions and a ternary cover: nine evaluated literals.
++  // Seed preparation costs 3 phase slots + 3 identity slots + 2*9 literals.
++  constexpr uint64_t preparation = 24;
++  for (uint64_t allowance = 0; allowance <= preparation; ++allowance) {
++    Kernel k;
++    ScopedHeuristics h(k);
++    build_conflict_cover(k, 3);
++    k.h->saved = {1, 1, 1};
++    k.h->target = {-1, -1, -1};
++    k.h->best = {-1, 1, -1};
++    kernel_offer_local_search_hint(k, strategy::LocalSearchKind::DirectCsp, {1, 0, 0});
++    strategy::WalkParameters p;
++    p.seed_candidate = k.local_search_hints[0].id;
++    p.step_budget = allowance;
++    const auto saved = k.h->saved, target = k.h->target, best = k.h->best;
++    {
++      strategy::ScopedWalkParameters scope(k, p);
++      const auto result = walk_apply(k);
++      if (allowance < preparation) {
++        assert(result == ApplyResult::NoOp);
++        assert(k.h->saved == saved && k.h->target == target && k.h->best == best);
++        assert(k.stats.walk_seed_budget_exhausted == 1);
++      } else {
++        assert(result == ApplyResult::Ok);
++        assert((k.h->saved == std::vector<int8_t>{1, -1, -1}));
++        assert(k.h->target == k.h->saved && k.h->best == best);
++        assert(k.stats.walk_seed_ordinary_unsat == 3);
++        assert(k.stats.walk_seed_candidate_unsat == 0);
++        assert(k.stats.walk_seed_imports == 1);
++        assert(k.stats.walk_flips == 0); // an already-good seed must export
++      }
++    }
++    assert(k.walk_seed_candidate == 0);
++    assert(k.stats.walk_steps == allowance);
++    assert(k.stats.walk_seed_steps == allowance);
++    assert(k.level == 0 && k.trail.empty());
++    kernel_check_invariants(k);
++  }
++  Kernel k;
++  ScopedHeuristics h(k);
++  build_conflict_cover(k, 3);
++  k.h->saved = {1, -1, -1}; // ordinary phases are already a model
++  k.h->best = {-1, -1, 1};
++  const auto saved = k.h->saved, best = k.h->best;
++  kernel_offer_local_search_hint(k, strategy::LocalSearchKind::DirectCsp, {1, 1, 1});
++  k.walk_seed_candidate = k.local_search_hints[0].id;
++  assert(walk_apply_steps(k, preparation) == ApplyResult::NoOp);
++  assert(k.h->saved == saved && k.h->best == best);
++  assert(k.stats.walk_seed_ordinary_unsat == 0 && k.stats.walk_seed_candidate_unsat == 3);
++  const auto walks = k.stats.walks;
++  kernel_offer_local_search_hint(k, strategy::LocalSearchKind::DirectCsp, {0, 1, 0});
++  assert(walk_apply_steps(k, 1000) == ApplyResult::NoOp); // exact old identity is stale
++  assert(k.stats.walks == walks && k.stats.local_search_hints_stale == 1);
++  assert(k.h->saved == saved && k.h->best == best);
++  k.walk_seed_candidate = k.local_search_hints[0].id;
++  volatile sig_atomic_t stop = 1;
++  k.stop = &stop;
++  const auto target = k.h->target;
++  assert(walk_apply_steps(k, 1000) == ApplyResult::NoOp);
++  assert(k.h->saved == saved && k.h->target == target && k.h->best == best);
++  assert(k.stats.walk_seed_interrupted == 1);
++}
++
++static void test_partial_seed_and_empty_objective() {
++  Kernel k;
++  ScopedHeuristics h(k);
++  build_conflict_cover(k, 3);
++  k.h->saved = {-1, -1, -1};
++  k.h->best = {1, 1, -1};
++  k.h->target = {-1, 1, 1};
++  kernel_offer_local_search_partial_hint(k, strategy::LocalSearchKind::DirectCsp,
++                                        {1, 0, 0});
++  k.walk_seed_candidate = k.local_search_hints[0].id;
++  const auto best = k.h->best;
++  assert(walk_apply_steps(k, 24) == ApplyResult::Ok);
++  assert((k.h->saved == std::vector<int8_t>{1, -1, -1}));
++  assert(k.h->best == best && k.stats.walk_flips == 0);
++
++  Kernel empty;
++  ScopedHeuristics empty_h(empty);
++  kernel_reserve_vars(empty, 3);
++  empty.h->saved = {1, -1, 1};
++  empty.h->best = {-1, -1, 1};
++  empty.h->target = {-1, 1, -1};
++  kernel_offer_local_search_partial_hint(empty, strategy::LocalSearchKind::Affine,
++                                        {-1, 0, 0});
++  empty.walk_seed_candidate = empty.local_search_hints[1].id;
++  const auto saved = empty.h->saved, target = empty.h->target;
++  const auto empty_best = empty.h->best;
++  assert(walk_apply_steps(empty, 100) == ApplyResult::NoOp);
++  assert(empty.h->saved == saved && empty.h->target == target &&
++         empty.h->best == empty_best);
++  assert(empty.stats.rephased == 0 && empty.stats.walk_seed_imports == 0);
++  kernel_check_invariants(empty);
++}
++
+ int main() {
++  test_partial_seed_and_empty_objective();
++  test_private_seed_budget_and_export();
+   test_configurable_score_curve();
+   test_break_base_domain_terminates();
+   test_near_unit_interpolated_base();
+diff --git a/tools/bench/inspect_policy_feedback.py b/tools/bench/inspect_policy_feedback.py
+index 1b6d58de..039af280 100644
+--- a/tools/bench/inspect_policy_feedback.py
++++ b/tools/bench/inspect_policy_feedback.py
+@@ -72,11 +72,28 @@ def observation(value):
+          "root_population irredundant_clauses inconsistent conflict fixpoint searching "
+          "have_configuration configuration rotation_intervals next_restart_conflicts "
+          "reluctant fast_glue slow_glue last_action native", "observation",
+-         optional="native_policy_state")
++         optional="native_policy_state local_search_candidates")
+     if "native_policy_state" in value:
+         require(type(value["native_policy_state"]) is str, "invalid native policy state")
+-    require(integer(value["version"], "observation version") == 1,
++    require(integer(value["version"], "observation version") in (1, 2),
+             "unsupported observation version")
++    if value["version"] == 2:
++        require("local_search_candidates" in value, "missing candidate observation")
++    if "local_search_candidates" in value:
++        candidates = value["local_search_candidates"]
++        require(type(candidates) is list, "invalid candidate observation")
++        ids = set()
++        for candidate in candidates:
++            keys(candidate, "id formula_touch_epoch formula_root_assignments "
++                 "external_variables objective objective_exact effort effort_unit", "candidate")
++            for key in ("id", "formula_touch_epoch", "formula_root_assignments",
++                        "external_variables", "objective", "effort"):
++                integer(candidate[key], "candidate " + key)
++            identity = candidate["id"]
++            require(identity >> 8 and identity not in ids, "invalid/repeated candidate identity")
++            ids.add(identity)
++            integer(candidate["effort_unit"], "candidate effort unit", 5)
++            require(type(candidate["objective_exact"]) is bool, "invalid candidate objective flag")
+     state(value["state"])
+     for key in ("sequence", "variables", "unassigned", "active_unassigned", "level", "trail",
+                 "root_population", "irredundant_clauses", "rotation_intervals",
+diff --git a/tools/docs/check-config-wiring.py b/tools/docs/check-config-wiring.py
+index 02629552..978d75dd 100644
+--- a/tools/docs/check-config-wiring.py
++++ b/tools/docs/check-config-wiring.py
+@@ -55,7 +55,7 @@ VIVIFY_BAND = (r"execution::VivifyBandRequest\{\s*band_scope,\s*cumulative,\s*"
+                r"spent,\s*e\.tick_counter,\s*e\.meter\}")
+ WALK_ALLOWANCE = (r"const uint64_t allowance = scale_permille\("
+                   r"reference, config_\.rephase\.walk_permille\)")
+-WALK_REQUEST = r"execution::WalkRequest\{allowance, seed\}"
++WALK_REQUEST = r"execution::WalkRequest\{allowance, seed, candidate\}"
+ MATERIAL_REQUEST = (r"execution::MaterialSettingsRequest\{\s*"
+                     r"config\(\)\.touch_filter,\s*"
+                     r"config\(\)\.likely_kept_redundant")
+@@ -82,6 +82,14 @@ POLICY_BINDINGS = {
+         (POLICY[0], WALK_REQUEST),
+         (GUIDANCE_EXECUTION, r"k\.walk_random_seed\s*=\s*request\.seed"),
+     ],
++    "walk_seed_candidate": [
++        (POLICY[0], r"const uint64_t candidate = config_\.rephase\.structural_walk_seed\s*"
++                    r"\? local_search_guidance_select_next\(k,\s*"
++                    r"config_\.rephase\.structural_seed_rotation, structural_seed_cursor_\)\s*:\s*0"),
++        (POLICY[0], WALK_REQUEST),
++        (GUIDANCE_EXECUTION, r"k\.walk_seed_candidate\s*=\s*request\.seed_candidate"),
++        (GUIDANCE_EXECUTION, r"k\.walk_seed_candidate\s*=\s*previous_candidate"),
++    ],
+     "work_budget_offset": [
+         (POLICY[0], r"const uint64_t spent = e\.meter\(k\) - dose_start"),
+         (POLICY[0], VIVIFY_BAND),
+@@ -222,6 +230,7 @@ POLICY_BINDINGS["no_ext_reason_bump"] = [
+     (POLICY[0], r"execution::ParameterInstallationRequest\{analysis\}"), PARAMETER_INSTALL,
+     ("src/strategy/analyze_parameters.cpp", r"k\.no_ext_reason_bump\s*=\s*!p\.bump_extension_reasons")]
+ POLICY_ADAPTERS["walk_even_break_base_milli"] = [RULE_PARAMETERS]
++POLICY_ADAPTERS["walk_seed_candidate"] = [GUIDANCE_EXECUTION, RULE_PARAMETERS]
+ POLICY_BINDINGS["walk_even_break_base_milli"] = [
+     (POLICY[0], r"execution::WalkGuidanceInstallationRequest\{\s*config_\.rephase\.walk_even_break_base_milli"),
+     (PARAMETER_EXECUTION, r"strategy::install_walk_guidance\(k, request\.even_break_base_milli"),
+@@ -312,6 +321,7 @@ TABLE = {
+                                            "advanced once per ordinary Eliminate phase"),
+     "factor_composite":        ("POLICY", "S2b composite grids, per-occasion"),
+     "work_budget":             ("POLICY", "per-round budget handed to budget-aware rules"),
++    "walk_seed_candidate":     ("POLICY", "exact structural publication selected for private Walk seeding"),
+     "work_budget_offset":      ("POLICY", "work already charged against a cumulative "
+                                           "Vivify tier ceiling"),
+     "work_budget_bounded":     ("POLICY", "distinguishes a zero cumulative Vivify "
+@@ -489,6 +499,9 @@ CONFIG_START = "cold_state_deferred"
+ # per-rule resumption watermarks (`*_touch_mark`) — the `transitive_cursor`
+ # category, which a policy may reset but never "configures".
+ NOT_CONFIG = {"cold_state_deferred", "lvl", "transitive_cursor",
++              # Candidate publication lifetime; deliberately independent of
++              # resettable statistics and never set by a policy profile.
++              "local_search_publication",
+               "warming",
+               "strategy_epoch", "subsume_material_count",
+               "fixed_external_count",

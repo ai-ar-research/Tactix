@@ -1,0 +1,35 @@
+Test project /home/hwu/SAT-solving/build/dev-winner-guidance-debug
+      Start  35: walk
+ 1/15 Test  #35: walk .............................   Passed    0.04 sec
+      Start  62: online_api
+ 2/15 Test  #62: online_api .......................   Passed    0.11 sec
+      Start  73: inspect_policy_feedback
+ 3/15 Test  #73: inspect_policy_feedback ..........   Passed   47.03 sec
+      Start 134: default_execution_signature
+ 4/15 Test #134: default_execution_signature ......   Passed    0.21 sec
+      Start 149: graph_labeling_completion
+ 5/15 Test #149: graph_labeling_completion ........   Passed    0.02 sec
+      Start 150: graph_labeling_model
+ 6/15 Test #150: graph_labeling_model .............   Passed    0.02 sec
+      Start 151: graph_labeling_recognition
+ 7/15 Test #151: graph_labeling_recognition .......   Passed    0.03 sec
+      Start 152: graph_labeling_repair
+ 8/15 Test #152: graph_labeling_repair ............   Passed    0.09 sec
+      Start 153: graph_labeling_search
+ 9/15 Test #153: graph_labeling_search ............   Passed    0.04 sec
+      Start 163: local_search_guidance
+10/15 Test #163: local_search_guidance ............   Passed    0.02 sec
+      Start 171: online_inprocess
+11/15 Test #171: online_inprocess .................   Passed   15.05 sec
+      Start 173: policy_feedback
+12/15 Test #173: policy_feedback ..................   Passed    0.03 sec
+      Start 178: random_controller_policy
+13/15 Test #178: random_controller_policy .........   Passed    1.16 sec
+      Start 179: random_online
+14/15 Test #179: random_online ....................   Passed    2.73 sec
+      Start 185: restart_controller
+15/15 Test #185: restart_controller ...............   Passed    0.03 sec
+
+100% tests passed out of 15
+
+Total Test time (real) =  66.66 sec
