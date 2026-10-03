@@ -1,0 +1,11 @@
+{
+  "job": "1747845",
+  "submitted_utc": "2026-10-03T22:37:53.201706+00:00",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "benchmarks/runs/20261003-cardinality-shared-differential/job.sh"
+  ],
+  "stdout": "1747845\n",
+  "stderr": ""
+}

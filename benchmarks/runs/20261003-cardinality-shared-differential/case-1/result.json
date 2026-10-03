@@ -1,0 +1,29 @@
+{
+  "case": 1,
+  "job": "1747848",
+  "generation": {
+    "vertices": 19,
+    "degree": 3,
+    "variables": 517,
+    "clauses": 7752,
+    "deleted_original_clauses": 7626,
+    "retained_original_clauses": 126,
+    "bdd_nodes": 9871,
+    "bdd_work": 89974,
+    "definition_records": 9871,
+    "proof_additions": 87394,
+    "seconds": 0.0343064
+  },
+  "command": [
+    "/home/hwu/SAT-solving/build/pin-cardinality-shared-47726643-02/probe",
+    "/home/hwu/SAT-solving/benchmarks/runs/20261003-cardinality-shared-differential/case-1/shared",
+    "/home/hwu/SAT-solving/benchmarks/runs/20261003-ramsey-recognized-certificate-v2/case-1/original.cnf"
+  ],
+  "seconds": 0.1006473433226347,
+  "proof_byte_equal": true,
+  "input_byte_equal": true,
+  "recognition_provenance_byte_equal": true,
+  "definition_dependencies_checked": 9871,
+  "proof_sha256": "cbac706a69613a450e0d05fb75eab526a92daebad663344b47f968e7860bcb83",
+  "scope": "Exact-byte correspondence to independently checked prior proof; no checker rerun or public-action acceptance"
+}

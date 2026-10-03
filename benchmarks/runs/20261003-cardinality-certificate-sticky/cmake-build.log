@@ -1,0 +1,11 @@
+[0/2] Re-checking globbed directories...
+-- GLOB mismatch!
+The following files were added:
+  +/home/hwu/SAT-solving/tests/test_cardinality_certificate.cpp
+[1/2] Re-running CMake...
+-- Configuring done (0.2s)
+-- Generating done (1.9s)
+-- Build files have been written to: /home/hwu/SAT-solving/build/parity-public-dev
+[0/4] Re-checking globbed directories...
+[1/5] Building CXX object tests/CMakeFiles/test_cardinality_certificate.dir/test_cardinality_certificate.cpp.o
+[2/5] Linking CXX executable tests/test_cardinality_certificate
