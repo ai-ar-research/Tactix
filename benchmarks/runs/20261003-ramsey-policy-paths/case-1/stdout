@@ -1,0 +1,142 @@
+c controller-rule BCE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule BVE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Backbone requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule CCE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Condition requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Congruence requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Factor requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule HyperBinaryRes requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule HyperTernaryRes requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Instantiate requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule LocalSearchGuidance requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Lucky requests=2 applications=2 effective=0 exhausted=0 stale=0 interrupted=0 work=2 overshoot=0
+c controller-rule ParityConsequence requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Probe requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Propagate requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Reduce requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Reorder requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Rephase requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Strengthen requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Substitute requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule SubstitutionRedundancy requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule SubsumeForward requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Sweep requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule TransitiveReduce requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Vivify requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Walk requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-search evsids/adaptive-glue/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search evsids/adaptive-glue/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search evsids/adaptive-glue/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search evsids/adaptive-glue/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search evsids/adaptive-glue/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search evsids/reluctant/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search evsids/reluctant/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search evsids/reluctant/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search evsids/reluctant/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search evsids/reluctant/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search vmtf/adaptive-glue/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search vmtf/adaptive-glue/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search vmtf/adaptive-glue/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search vmtf/adaptive-glue/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search vmtf/adaptive-glue/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search vmtf/reluctant/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search vmtf/reluctant/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search vmtf/reluctant/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search vmtf/reluctant/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search vmtf/reluctant/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-loop full-restarts=0 partial-restarts=0 configuration-changes=0 maximum-root-actions=2
+c controller-rule BCE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule BVE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Backbone requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule CCE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Condition requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Congruence requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Factor requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule HyperBinaryRes requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule HyperTernaryRes requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Instantiate requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule LocalSearchGuidance requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Lucky requests=2 applications=2 effective=0 exhausted=0 stale=0 interrupted=0 work=2 overshoot=0
+c controller-rule ParityConsequence requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Probe requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Propagate requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Reduce requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Reorder requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Rephase requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Strengthen requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Substitute requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule SubstitutionRedundancy requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule SubsumeForward requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Sweep requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule TransitiveReduce requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Vivify requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Walk requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-search evsids/adaptive-glue/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search evsids/adaptive-glue/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search evsids/adaptive-glue/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search evsids/adaptive-glue/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search evsids/adaptive-glue/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search evsids/reluctant/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search evsids/reluctant/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search evsids/reluctant/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search evsids/reluctant/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search evsids/reluctant/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search vmtf/adaptive-glue/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search vmtf/adaptive-glue/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search vmtf/adaptive-glue/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search vmtf/adaptive-glue/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search vmtf/adaptive-glue/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search vmtf/reluctant/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search vmtf/reluctant/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search vmtf/reluctant/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search vmtf/reluctant/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search vmtf/reluctant/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-loop full-restarts=0 partial-restarts=0 configuration-changes=0 maximum-root-actions=2
+c controller-rule BCE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule BVE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Backbone requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule CCE requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Condition requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Congruence requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Factor requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule HyperBinaryRes requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule HyperTernaryRes requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Instantiate requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule LocalSearchGuidance requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Lucky requests=2 applications=2 effective=0 exhausted=0 stale=0 interrupted=0 work=2 overshoot=0
+c controller-rule ParityConsequence requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Probe requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Propagate requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Reduce requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Reorder requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Rephase requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Strengthen requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Substitute requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule SubstitutionRedundancy requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule SubsumeForward requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Sweep requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule TransitiveReduce requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Vivify requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-rule Walk requests=0 applications=0 effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0
+c controller-search evsids/adaptive-glue/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search evsids/adaptive-glue/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search evsids/adaptive-glue/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search evsids/adaptive-glue/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search evsids/adaptive-glue/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search evsids/reluctant/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search evsids/reluctant/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search evsids/reluctant/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search evsids/reluctant/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search evsids/reluctant/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search vmtf/adaptive-glue/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search vmtf/adaptive-glue/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search vmtf/adaptive-glue/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search vmtf/adaptive-glue/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search vmtf/adaptive-glue/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search vmtf/reluctant/focused-rotation requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search vmtf/reluctant/negative requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search vmtf/reluctant/positive requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search vmtf/reluctant/saved requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-search vmtf/reluctant/target requests=0 intervals=0 decisions=0 conflicts=0 continuations=0
+c controller-loop full-restarts=0 partial-restarts=0 configuration-changes=0 maximum-root-actions=2
+{"policy_paths_verified":true,"random_seed":16,"logical_id":102789,"additions":87413}
