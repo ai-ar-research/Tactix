@@ -1,0 +1,12 @@
+{
+  "job_id": 1747089,
+  "submitted_at_utc": "2026-10-03T05:00:15.484992+00:00",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20261003-shared-feedback-375b621b-wv100-recovery/array.sbatch"
+  ],
+  "sbatch_stdout": "1747089\n",
+  "preregistration_sha256": "f76cbdbf594da5ad342911d2ea9b3bd73123d0b6d4f60446d1618367835230b6",
+  "source_commit": "375b621ba6677600f3e77bf8383af25d256d7b67"
+}

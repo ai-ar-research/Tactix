@@ -1,0 +1,32 @@
+{
+  "schema": "tactix-andrew-matched-diagnosis-checkpoint-v1",
+  "observed_at_utc": "2026-10-03T05:07:09.437425+00:00",
+  "source_commit": "375b621ba6677600f3e77bf8383af25d256d7b67",
+  "goal_complete": false,
+  "tex_passes": 2,
+  "pages": 2,
+  "final_layout_warnings": 0,
+  "extracted_text_reviewed": true,
+  "frozen_evidence_verified": 19,
+  "first_pair_terminal_models": 2,
+  "original_failed_gate_preserved": true,
+  "followup_jobs": [
+    1747088,
+    1747089
+  ],
+  "docs": {
+    "size_errors": 0,
+    "size_warnings": 6,
+    "section_refs": 73,
+    "progress_errors": 0,
+    "progress_warnings": 0
+  },
+  "cleanup_performed": false,
+  "push": false,
+  "file_sha256": {
+    "report-to-andrew/20261003T050344Z-snw16-matched-retention-diagnosis/report.tex": "0f21b1a894bc00e876d0ab47c4c62a34b0b0bd86395b69ef39c8781a35040c83",
+    "report-to-andrew/20261003T050344Z-snw16-matched-retention-diagnosis/report.pdf": "55f3b3754803409e12397376768e27c7a1ad7e241d2728c4c2067fd41661f23d",
+    "benchmarks/reports/2026-10-03-snw16-matched-retention-diagnosis.md": "95a06d019f4d2876cd873a363199a0e5b97dacf90af8202fcfc88bc4efd212bf",
+    "benchmarks/reports/2026-10-03-snw16-matched-retention-diagnosis/validation.json": "6b5b9cc5fe1e1908263ae7fa52240e1a2868e0394cdfe9a4be868ca4e02fa959"
+  }
+}

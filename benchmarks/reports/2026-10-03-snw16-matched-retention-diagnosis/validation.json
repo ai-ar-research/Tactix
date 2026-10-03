@@ -1,0 +1,124 @@
+{
+  "schema": "tactix-terminal-matched-retention-checkpoint-v1",
+  "observed_at_utc": "2026-10-03T05:02:00.045912+00:00",
+  "source_copy_bindings": [
+    {
+      "source": "benchmarks/runs/20261003-snw16-retention-matched-diagnosis/manifest.json",
+      "copy": "manifest.json",
+      "sha256": "1435561cef98f7a35c39acdbd13c0c63d542bfcb16b65dedbf3404ba8471d348"
+    },
+    {
+      "source": "benchmarks/runs/20261003-snw16-retention-matched-diagnosis/submission.json",
+      "copy": "submission.json",
+      "sha256": "2b5927fee80abfce752eb8279b77a6b376a7caeaf74f6dbffb6d30df8b116235"
+    },
+    {
+      "source": "benchmarks/runs/20261003-snw16-retention-matched-diagnosis/analysis.json",
+      "copy": "analysis.json",
+      "sha256": "bc8230e39fb3eb040971c188345b4953516f50c4ea64c60f93295eb682d1d045"
+    },
+    {
+      "source": "benchmarks/runs/20261003-snw16-retention-matched-diagnosis/exit-codes.txt",
+      "copy": "exit-codes.txt",
+      "sha256": "0ccdb5a77ba5bf7687f2565a8ed97dfb9c1af45503c496fb646312239fab5101"
+    },
+    {
+      "source": "benchmarks/runs/20261003-snw16-retention-matched-diagnosis/logs/slurm-1747087.log",
+      "copy": "matched-slurm.log",
+      "sha256": "488ca57850262b19a9d44100014401e4c076988770a1913d891dd16b11d6c64c"
+    },
+    {
+      "source": "benchmarks/runs/20261003-snw16-retention-matched-diagnosis/results/000.json",
+      "copy": "predecessor.json",
+      "sha256": "5162c5615b8c16e7a4ed22152ffcfc6266c49bd73c3856302961e721dd5d8df4"
+    },
+    {
+      "source": "benchmarks/runs/20261003-snw16-retention-matched-diagnosis/results/001.json",
+      "copy": "candidate.json",
+      "sha256": "dca3d2f0496c029fa86f2b8c2e465ac50df89b4208d2cc7af02938f41e3b560c"
+    },
+    {
+      "source": "benchmarks/runs/20261002-shared-policy-feedback-375b621b-preparation/retention-followup-preregistration.json",
+      "copy": "retention-followup-preregistration.json",
+      "sha256": "f76cbdbf594da5ad342911d2ea9b3bd73123d0b6d4f60446d1618367835230b6"
+    },
+    {
+      "source": "benchmarks/runs/20261002-shared-policy-feedback-375b621b-preparation/retention-followup-preflight.json",
+      "copy": "retention-followup-preflight.json",
+      "sha256": "77a5c34188b728f8b0199e55386e1b29a8b185141c8c9e2c3e058440a4c9d4f9"
+    },
+    {
+      "source": "benchmarks/runs/20261002-shared-policy-feedback-375b621b-preparation/prepare-retention-followup.py",
+      "copy": "prepare-retention-followup.py",
+      "sha256": "a12f68fe8b9a9e80831f3f427e14461deafbbccaac12fd185f45f866b377d78c"
+    },
+    {
+      "source": "benchmarks/runs/20261003-snw16-retention-reverse-diagnosis/manifest.json",
+      "copy": "reverse-manifest.json",
+      "sha256": "5f58bed92c14550d1613c53b0e2fb421a0ea6347f19f67d3c075ac40332c821e"
+    },
+    {
+      "source": "benchmarks/runs/20261003-snw16-retention-reverse-diagnosis/submission.json",
+      "copy": "reverse-submission.json",
+      "sha256": "7c5a69a69b6d0ad9cf1394e974a59763bb48926b065180bea417134a37a79ea9"
+    },
+    {
+      "source": "benchmarks/runs/20261003-snw16-retention-reverse-diagnosis/matrix.tsv",
+      "copy": "reverse-matrix.tsv",
+      "sha256": "2d13b36e2897b3fbccc5b32c43e7e4481cac48bc1199a9d6b93d75c2db55d520"
+    },
+    {
+      "source": "benchmarks/runs/20261003-snw16-retention-reverse-diagnosis/job.sh",
+      "copy": "reverse-job.sh",
+      "sha256": "7e188283e8cc177b34dba7d3d984e83423a6336816e6cf73b708497d08f882a3"
+    },
+    {
+      "source": "benchmarks/runs/20261003-shared-feedback-375b621b-wv100-recovery/manifest.json",
+      "copy": "recovery-manifest.json",
+      "sha256": "418d9f6b203b00471233d8948077ac7b0302a1fc3b136f763b6bc9f70fb78ea8"
+    },
+    {
+      "source": "benchmarks/runs/20261003-shared-feedback-375b621b-wv100-recovery/submission.json",
+      "copy": "recovery-submission.json",
+      "sha256": "69e39aa0cc37b6a49d70a306c41affdf4a36225ca552f138b13d5b8bdad796f8"
+    },
+    {
+      "source": "benchmarks/runs/20261003-shared-feedback-375b621b-wv100-recovery/matrix.tsv",
+      "copy": "recovery-matrix.tsv",
+      "sha256": "9ac57b78a41bc3312ebd84cde0903cb9ab12d19d69bd298489032e808d3de5e3"
+    },
+    {
+      "source": "benchmarks/runs/20261003-shared-feedback-375b621b-wv100-recovery/array.sbatch",
+      "copy": "recovery-array.sbatch",
+      "sha256": "4cb3b78b155374793356b619b4a275854a594e67cf284bf47cf1b8f51bf9cecc"
+    }
+  ],
+  "artifact_sha256": {
+    "reverse-matrix.tsv": "2d13b36e2897b3fbccc5b32c43e7e4481cac48bc1199a9d6b93d75c2db55d520",
+    "scheduler-metadata.txt": "12104a9c4ad05d07bfa7d54ac2ee5d7241ff12e60c666b4f1985037d5b35918c",
+    "reverse-manifest.json": "5f58bed92c14550d1613c53b0e2fb421a0ea6347f19f67d3c075ac40332c821e",
+    "submission.json": "2b5927fee80abfce752eb8279b77a6b376a7caeaf74f6dbffb6d30df8b116235",
+    "predecessor.json": "5162c5615b8c16e7a4ed22152ffcfc6266c49bd73c3856302961e721dd5d8df4",
+    "candidate.json": "dca3d2f0496c029fa86f2b8c2e465ac50df89b4208d2cc7af02938f41e3b560c",
+    "reverse-job.sh": "7e188283e8cc177b34dba7d3d984e83423a6336816e6cf73b708497d08f882a3",
+    "manifest.json": "1435561cef98f7a35c39acdbd13c0c63d542bfcb16b65dedbf3404ba8471d348",
+    "analysis.json": "bc8230e39fb3eb040971c188345b4953516f50c4ea64c60f93295eb682d1d045",
+    "reverse-submission.json": "7c5a69a69b6d0ad9cf1394e974a59763bb48926b065180bea417134a37a79ea9",
+    "prepare-retention-followup.py": "a12f68fe8b9a9e80831f3f427e14461deafbbccaac12fd185f45f866b377d78c",
+    "recovery-matrix.tsv": "9ac57b78a41bc3312ebd84cde0903cb9ab12d19d69bd298489032e808d3de5e3",
+    "retention-followup-preflight.json": "77a5c34188b728f8b0199e55386e1b29a8b185141c8c9e2c3e058440a4c9d4f9",
+    "recovery-submission.json": "69e39aa0cc37b6a49d70a306c41affdf4a36225ca552f138b13d5b8bdad796f8",
+    "recovery-array.sbatch": "4cb3b78b155374793356b619b4a275854a594e67cf284bf47cf1b8f51bf9cecc",
+    "recovery-manifest.json": "418d9f6b203b00471233d8948077ac7b0302a1fc3b136f763b6bc9f70fb78ea8",
+    "exit-codes.txt": "0ccdb5a77ba5bf7687f2565a8ed97dfb9c1af45503c496fb646312239fab5101",
+    "matched-slurm.log": "488ca57850262b19a9d44100014401e4c076988770a1913d891dd16b11d6c64c",
+    "retention-followup-preregistration.json": "f76cbdbf594da5ad342911d2ea9b3bd73123d0b6d4f60446d1618367835230b6"
+  },
+  "terminal_first_pair_models_verified": 2,
+  "terminal_first_pair_scheduler": "COMPLETED 0:0",
+  "terminal_first_pair_pre_post_pin_checks": 2,
+  "current_first_pair_pins_verified": 20,
+  "original_failed_gate_preserved": true,
+  "recovery_gate_accepted": false,
+  "goal_complete": false
+}
