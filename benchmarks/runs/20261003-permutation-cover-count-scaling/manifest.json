@@ -1,0 +1,38 @@
+{
+  "scope": "Bounded count-only BDD construction on synthetic matrices; no proof verification, target solve or historical rerun",
+  "cases": [
+    8,
+    16,
+    32,
+    117
+  ],
+  "binary": "build/pin-permutation-cover-count-aeb1e04e-01/probe",
+  "bindings": {
+    "build/pin-permutation-cover-count-aeb1e04e-01/probe": "ed110f04f53477724476f9a1d0c81b87f2705144add31d251fdfae3e0d69683e",
+    "build/pin-permutation-cover-count-aeb1e04e-01/manifest.json": "5b2e83f08c4288e8b17de7a7fe7ac6efa943a0cef1fcf5a0b80cbe7fc74b70e2",
+    "benchmarks/runs/20261003-permutation-cover-count-scaling/probe.cpp": "f512012943390ba1eb0ce71e39fd4dd6757829957306ebcb71d6901ce70da749",
+    "benchmarks/runs/20261003-permutation-cover-count-scaling/run.py": "2550f21ebfb456e98819ca22339408fbcae5f981f889fb4a458fa6cbcb372978",
+    "benchmarks/runs/20261003-permutation-cover-count-scaling/job.sh": "f1295de0b64416dfa3e3bde08ecdf34d625fa253c51bce08c42a88ad878895ea"
+  },
+  "limits": {
+    "bdd_nodes": 1000000,
+    "proof_additions": 10000000,
+    "per_process_seconds": 300,
+    "memory_gib": 32,
+    "cpus_per_task": 1,
+    "allocation_minutes": 10
+  },
+  "status": "COMPLETED",
+  "created_utc": "2026-10-03T20:58:14.498181+00:00",
+  "job_id": "1747634",
+  "submitted_utc": "2026-10-03T20:58:26.353103+00:00",
+  "terminal_observed_utc": "2026-10-03T21:00:25.468792+00:00",
+  "slurm_exit_codes": [
+    "0:0",
+    "0:0",
+    "0:0",
+    "0:0"
+  ],
+  "watcher": "18412 collected terminal COMPLETED",
+  "acceptance": "count-only feasibility, not certificates or solver results"
+}
