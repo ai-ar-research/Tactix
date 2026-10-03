@@ -7,7 +7,7 @@ Status and next actions belong to PROGRESS.md; controller contracts to controlle
 ## Objective and fixed targets
 
 The ultimate goal is to solve substantially more than the virtual portfolio of **LymphoSAT, Satsuma+Kissat, Kissat-sc2024 and AE-Kissat-MAB combined**.
-**Primary technical goal:** translate non-Boolean theory/structural information into compact Boolean constraints and new auxiliary variables that expose reusable reasoning to continuing CDCL on both SAT and UNSAT. Refactor existing SAT-only integrations as well as missing techniques; compact formula and proof representations, not merely successful model construction, are the intended outcome.
+**Primary technical goal:** translate non-Boolean theory/structural information into compact Boolean constraints and new auxiliary variables that expose reusable reasoning to continuing CDCL on both SAT and UNSAT. Refactor existing SAT-only integrations as well as missing techniques; compact formula and proof representations, not merely successful model construction, are the intended outcome. **Replacement acceptance:** eventually remove the dedicated LymphoSAT-derived local-search/constructor implementations from the active solver and recover the LymphoSAT-owned target instances through their Boolean-reasoning replacements. Demonstrate recovery with the corresponding constructors disabled, then remove the production paths after independent SAT/UNSAT certification, both-policy fuzzing and all preservation gates pass. Frozen implementations/results may remain as reference controls; continued dependence on them does not satisfy this goal. Retire or version their public selections explicitly without renumbering unrelated actions or silently redirecting old replays. This requirement does not remove the general Kissat-style Walk/phase mechanism.
 Performance and learning readiness are joint acceptance criteria: every capability serves DefaultPolicy, random and future learned selection.
 Parity is intermediate; each increment respects N1–N4 under plan §1.1 and retains formal T4/T5 targets.
 Use the owning API/proof/parity checks and ledger; no blanket N1–N4 pass is claimed.
@@ -137,7 +137,7 @@ choices or a combination. Consider selective/lazy consequences; Boolean encoding
 alone does not establish efficient search. Assess generation effort, formula growth, propagation,
 memory, proof/checking cost and checked SAT/UNSAT outcomes. Share structural
 recognition between certified reasoning and constructive guidance where useful.
-Keep existing constructors as diagnostic/reference evidence, not the destination
+Keep existing constructors temporarily as diagnostic/reference controls, not the destination
 for LymphoSAT integration. If a mechanism cannot be translated efficiently, record
 the limitation and discuss it before substituting dedicated local search.
 
