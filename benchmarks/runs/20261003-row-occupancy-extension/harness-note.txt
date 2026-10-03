@@ -1,0 +1,1 @@
+Initial static admission compared the compressed file hash to the recorded uncompressed CNF hash and stopped before proof checking. Corrected to hash decompressed bytes, matching the source recovery tool. No solver experiment was run.

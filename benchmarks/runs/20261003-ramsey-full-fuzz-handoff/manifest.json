@@ -1,0 +1,9 @@
+{
+  "bindings": {
+    "benchmarks/runs/20261003-ramsey-full-fuzz-handoff/REQUEST.md": "306c295ab72b70ddbba8791ffafc7a78b70b844d0703aa31752e712583f60440",
+    "benchmarks/runs/20261003-ramsey-full-fuzz-handoff/source-snapshot.tar.gz": "e4a92954d932abdd1ac3d3954df2bc77396a0d5e10ef19f9f25f5e5a9741abca",
+    "build/pin-ramsey-full-fb174175-debug-01/PIN.json": "dba7236b4f8a8bc92e1b4a9021e44eaade457fadb789c4eeb4085846f60a7cac",
+    "build/pin-ramsey-full-fb174175-debug-01/tactix": "610a7ac489220926fe30158c1e07ce0dba073ae53f78c276d921a93b49b343ec"
+  },
+  "scope": "fresh both-policy and effective Ramsey/X8 coverage on full Debug snapshot"
+}

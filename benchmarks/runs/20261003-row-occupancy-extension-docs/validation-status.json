@@ -1,0 +1,14 @@
+{
+  "full_debug_job": 1747977,
+  "passed_so_far": 227,
+  "total": 229,
+  "full_debug_complete": false,
+  "fuzz_owner_session": 9899,
+  "fuzz_jobs": [
+    1747985,
+    1747986
+  ],
+  "owner_report": "benchmarks/runs/20261003-ramsey-full-fuzz-handoff/OWNER_REPORT.md",
+  "prefix_proof_job": 1747979,
+  "prefix_proof_terminal": "COMPLETED"
+}

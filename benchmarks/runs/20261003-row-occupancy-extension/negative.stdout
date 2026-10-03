@@ -1,0 +1,14 @@
+
+c parsing input formula with 5 variables and 4 clauses
+
+c finished parsing
+
+c start forward verification
+
+c WARNING: RAT check on proof pivot failed : [18] 6 0
+c RAT check failed on all possible pivots
+c failed at proof line 5 (modulo deletion errors)
+
+s NOT VERIFIED
+
+c verification time: 0.040 seconds

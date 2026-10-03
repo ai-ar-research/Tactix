@@ -1,0 +1,10 @@
+{
+  "job": 1747977,
+  "pin": "build/pin-ramsey-full-fb174175-debug-01",
+  "tests": 229,
+  "executables": 191,
+  "source_files": 832,
+  "runtime_bindings": 565,
+  "watcher_session": 7908,
+  "scope": "Full current compiled-source Debug/proof-shadow snapshot, not future source acceptance"
+}

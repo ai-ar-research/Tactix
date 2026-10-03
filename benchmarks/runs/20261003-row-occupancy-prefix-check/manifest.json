@@ -1,0 +1,27 @@
+{
+  "input_sha256": "30ff5b99bc373ab5486789be475e7e7a984dd72a58e437304a3344f4004e58eb",
+  "original_clauses": 178213,
+  "definition_additions": 468,
+  "gadget_clause_ids": [
+    178214,
+    178215,
+    178216,
+    178217
+  ],
+  "bindings": {
+    "benchmarks/cache/tierD24-26/d8225a58e2ca7c2fb93c533f406c02d5-abw-K-dwt__234.mtx-w50.cnf.xz": "a12f681de4000a95988891fe1951c6494a3eb9d605765d54cab042269eb0b050",
+    "benchmarks/runs/20261003-row-occupancy-extension/proposed-definitions.json": "16a8100eff9ebe878b54d922cc58b54da463b69a84009500738859ca37d8d456",
+    "benchmarks/runs/20261003-row-occupancy-extension/SHA256.json": "36da3839ce3e8008b3948e1270f9f882b8d27a01e0677ea77c2ea5faf06865bc",
+    "benchmarks/runs/20261003-row-occupancy-prefix-check/prepare.py": "a584de2b857e107552e1599b77c367d5c7244a1d82e1cb102af45b2df8ec5bec",
+    "benchmarks/runs/20261003-row-occupancy-prefix-check/run.py": "52d5a6b61960a3bc89464deb511eb969a5fbd3ba39254f2caaf2aef6049df465",
+    "benchmarks/runs/20261003-row-occupancy-prefix-check/job.sh": "a19626f9033c63d5899edeb6921e1a24bf310cec1ae80c374d8d6b3d7d5b239e",
+    "benchmarks/runs/20261003-row-occupancy-prefix-check/audit.cnf": "c2dd7cc02081376f447f971fc03389bddcf87eb1d33cc701ba6f489e9477efd1",
+    "benchmarks/runs/20261003-row-occupancy-prefix-check/all-addition.lrat": "211f055bedeb4e8f6b2d570fe79c9ec8ffcc493ea9d9e4c22085b9cd76355790",
+    "benchmarks/runs/20261003-row-occupancy-prefix-check/audit.dsr": "92f1a0c0345861261a5d71d9012668c67c624bd11b845a5bd8a1e75973882069",
+    "benchmarks/runs/20261003-row-occupancy-prefix-check/negative.lrat": "dff44217dc86c67deea5c01bff67e9f282222bfaa35b96e3be6893c8f1a2870b",
+    "benchmarks/runs/20261003-ramsey-degree-dsr-feasibility/checkers/drat-trim": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+    "benchmarks/runs/20261003-ramsey-degree-dsr-feasibility/checkers/cake_lpr": "ab9dc6c43ad0f55bbaf336c5d898919ddb03d0bdb75e88dff48237fb06ba1f57",
+    "tools/bench/proof_oracle.py": "020bfcef6f4382e9b3136442a253bb7eb4fcfa1091be9d692ddd438161a3b8b2"
+  },
+  "scope": "Every-addition certificate validation of conservative definitions over actual target CNF; no solve or proof of row-cover units"
+}
