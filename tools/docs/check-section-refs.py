@@ -28,6 +28,7 @@ ROOT = subprocess.run(["git", "rev-parse", "--show-toplevel"],
 # living docs only: a frozen report is allowed to cite the numbering of its day
 DOCS = {
     "DEVELOPMENT_PLAN.md": "DEVELOPMENT_PLAN.md",
+    "docs/winner-integration-plan.md": "docs/winner-integration-plan.md",
     "PROGRESS.md": "PROGRESS.md",
     "CLAUDE.md": "CLAUDE.md",
     "docs/implementation-notes.md": "docs/implementation-notes.md",

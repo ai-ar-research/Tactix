@@ -7,6 +7,7 @@ preserve evidence and history.
 |---|---|---|
 | Contract | `CLAUDE.md` | brief invariants, routing, work loop |
 | Plan | `DEVELOPMENT_PLAN.md` | stable scope, architecture, roadmap, gates, open decisions |
+| Winner-integration subplan | `docs/winner-integration-plan.md` | detailed portfolio-convergence objective, planned mechanisms, sequencing and acceptance; linked from the main plan |
 | Status | `PROGRESS.md` | current phase, in-flight work, next actions, active checklist |
 | Rule model | `docs/calculus.md` | abstract preconditions, effects, proof deltas, soundness |
 | Rule guide | `docs/proof-rules.html` | manually maintained companion view; its rule-card inventory is checked against the calculus |
