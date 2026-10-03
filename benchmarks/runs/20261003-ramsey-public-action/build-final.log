@@ -1,0 +1,26 @@
+ninja: warning: premature end of file; recovering
+[0/2] Re-checking globbed directories...
+[1/24] Building CXX object CMakeFiles/tactix_lib.dir/src/strategy/instantiate_parameters.cpp.o
+[2/24] Building CXX object CMakeFiles/tactix_lib.dir/src/strategy/parity_consequence_parameters.cpp.o
+[3/24] Building CXX object CMakeFiles/tactix_lib.dir/src/strategy/ramsey_startup_parameters.cpp.o
+[4/24] Building CXX object CMakeFiles/tactix_lib.dir/src/strategy/feedback_trace.cpp.o
+[5/24] Building CXX object CMakeFiles/tactix_lib.dir/src/strategy/rule_parameters.cpp.o
+[6/24] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/structured_root_strategy.cpp.o
+[7/24] Building CXX object CMakeFiles/tactix_lib.dir/src/strategy/vivify_parameters.cpp.o
+[8/24] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/random_controller_policy.cpp.o
+[9/24] Building C object tests/CMakeFiles/test_online_api.dir/test_online_api.c.o
+cc1: warning: command-line option ‘-fno-rtti’ is valid for C++/D/ObjC++ but not for C
+[10/24] Building CXX object CMakeFiles/tactix_lib.dir/src/strategy/online_inprocess.cpp.o
+[11/24] Building CXX object CMakeFiles/tactix_lib.dir/src/frontend/parse.cpp.o
+[12/24] Building CXX object CMakeFiles/tactix_lib.dir/src/strategy/random_online.cpp.o
+[13/24] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/default_policy.cpp.o
+[14/24] Building CXX object CMakeFiles/tactix_lib.dir/src/api/api.cpp.o
+[15/24] Building CXX object tests/CMakeFiles/test_ramsey_public_action.dir/test_ramsey_public_action.cpp.o
+[16/24] Building CXX object tests/CMakeFiles/test_ramsey_startup.dir/test_ramsey_startup.cpp.o
+[17/24] Building CXX object tests/CMakeFiles/test_random_online.dir/test_random_online.cpp.o
+[18/24] Building CXX object tests/CMakeFiles/test_random_controller_policy.dir/test_random_controller_policy.cpp.o
+[19/24] Linking CXX executable tests/test_online_api
+[20/24] Linking CXX executable tests/test_ramsey_public_action
+[21/24] Linking CXX executable tests/test_ramsey_startup
+[22/24] Linking CXX executable tests/test_random_online
+[23/24] Linking CXX executable tests/test_random_controller_policy

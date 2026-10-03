@@ -1,0 +1,126 @@
+[0/2] Re-checking globbed directories...
+[1/97] Building CXX object CMakeFiles/tactix_lib.dir/src/proof/proof.cpp.o
+[2/97] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/backbone/backbone.cpp.o
+[3/97] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/analyze/analyze.cpp.o
+[4/97] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/backjump/backjump.cpp.o
+[5/97] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/registry.cpp.o
+[6/97] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/bce/bce.cpp.o
+[7/97] Building CXX object CMakeFiles/tactix_lib.dir/src/kernel/kernel.cpp.o
+[8/97] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/cce/cce.cpp.o
+[9/97] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/condition/condition.cpp.o
+[10/97] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/decide/decide.cpp.o
+[11/97] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/bve/bve.cpp.o
+[12/97] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/instantiate/instantiate.cpp.o
+[13/97] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/hyperbinary/hyperbinary.cpp.o
+[14/97] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/factor/factor_enumeration.cpp.o
+[15/97] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/factor/factor.cpp.o
+[16/97] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/lucky/balanced_signature_model.cpp.o
+[17/97] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/lucky/cerny_model.cpp.o
+[18/97] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/congruence/congruence.cpp.o
+[19/97] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/lucky/affine_model.cpp.o
+[20/97] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/lucky/count_preservation.cpp.o
+[21/97] Building CXX object CMakeFiles/tactix_symmetry_backend.dir/src/symmetry_backend/dejavu_backend.cpp.o
+[22/97] Linking CXX static library libtactix_symmetry_backend.a
+[23/97] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/lucky/fermat_model.cpp.o
+[24/97] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/lucky/exact_cover_model.cpp.o
+[25/97] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/lucky/independent_set_model.cpp.o
+[26/97] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/lucky/exact_one_refutation.cpp.o
+[27/97] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/lucky/graph_labeling_model.cpp.o
+In file included from /home/hwu/SAT-solving/src/rules/lucky/graph_labeling_repair.hpp:3,
+                 from /home/hwu/SAT-solving/src/rules/lucky/graph_labeling_model.cpp:4:
+/home/hwu/SAT-solving/src/rules/lucky/graph_labeling_search.hpp: In instantiation of ‘bool tactix::graph_labeling::score_labels(const Shape&, const std::vector<unsigned int>&, Charge&, Score&) [with Charge = tactix::graph_labeling_model_apply(Kernel&)::<lambda(Stage)>::<lambda(uint64_t)>; Score = std::pair<long unsigned int, long unsigned int>]’:
+/home/hwu/SAT-solving/src/rules/lucky/graph_labeling_search.hpp:146:28:   required from ‘bool tactix::graph_labeling::order_seeds(const Shape&, Charge&&, Candidate&, uint32_t&) [with Charge = tactix::graph_labeling_model_apply(Kernel&)::<lambda(Stage)>::<lambda(uint64_t)>&; uint32_t = unsigned int]’
+/home/hwu/SAT-solving/src/rules/lucky/graph_labeling_model.cpp:75:20:   required from here
+/home/hwu/SAT-solving/src/rules/lucky/graph_labeling_search.hpp:98:19: warning: loop variable ‘<structured bindings>’ creates a copy from type ‘const std::pair<unsigned int, unsigned int>’ [-Wrange-loop-construct]
+   98 |   for (const auto [a, b] : shape.edges) {
+      |                   ^~~~~~
+/home/hwu/SAT-solving/src/rules/lucky/graph_labeling_search.hpp:98:19: note: use reference type to prevent copying
+   98 |   for (const auto [a, b] : shape.edges) {
+      |                   ^~~~~~
+      |                   &
+[28/97] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/lucky/lucky.cpp.o
+[29/97] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/lucky/lookup_circuit_model.cpp.o
+[30/97] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/lucky/parity_model.cpp.o
+[31/97] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/lucky/onehot_model.cpp.o
+[32/97] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/lucky/parity_refutation.cpp.o
+[33/97] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/lucky/parity_live.cpp.o
+[34/97] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/lucky/simon_model.cpp.o
+[35/97] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/parity_consequence/parity_consequence.cpp.o
+[36/97] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/probe/probe.cpp.o
+[37/97] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/lucky/signed_cardinality_proof.cpp.o
+[38/97] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/propagate/propagate.cpp.o
+[39/97] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/lucky/ramsey_startup.cpp.o
+[40/97] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/restart/restart.cpp.o
+[41/97] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/lucky/stconn_proof.cpp.o
+[42/97] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/strengthen/strengthen.cpp.o
+[43/97] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/substitution_redundancy/orbitopal_group.cpp.o
+[44/97] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/substitution_redundancy/orbitopal_word.cpp.o
+[45/97] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/reduce/reduce.cpp.o
+[46/97] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/subsume_forward/subsume_forward.cpp.o
+[47/97] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/substitute/substitute.cpp.o
+[48/97] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/substitution_redundancy/substitution_redundancy.cpp.o
+[49/97] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/support/flat_occurrence.cpp.o
+[50/97] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/substitution_redundancy/orbitopal.cpp.o
+[51/97] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/support/failed_literal.cpp.o
+[52/97] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/ternary/ternary.cpp.o
+[53/97] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/transitive_reduce/transitive_reduce.cpp.o
+[54/97] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/ops/local_search/local_search.cpp.o
+[55/97] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/vivify/vivify.cpp.o
+/home/hwu/SAT-solving/src/rules/vivify/vivify.cpp: In function ‘tactix::ApplyResult tactix::rewrite(Kernel&, Ref, const std::vector<unsigned int>&, std::vector<std::pair<unsigned int, long unsigned int> >&, uint64_t, uint64_t, bool)’:
+/home/hwu/SAT-solving/src/rules/vivify/vivify.cpp:1045:52: warning: unused parameter ‘candidate_ordinal’ [-Wunused-parameter]
+ 1045 |                            uint64_t last, uint64_t candidate_ordinal,
+      |                                           ~~~~~~~~~^~~~~~~~~~~~~~~~~
+[56/97] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/substitution_redundancy/symmetry.cpp.o
+[57/97] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/ops/reorder/reorder.cpp.o
+[58/97] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/sweep/sweep.cpp.o
+[59/97] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/ops/rephase/rephase.cpp.o
+[60/97] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/ops/switchmode/switchmode.cpp.o
+[61/97] Building CXX object CMakeFiles/tactix_lib.dir/src/engine/subsolver_proof_export.cpp.o
+[62/97] Building CXX object CMakeFiles/tactix_lib.dir/src/engine/subsolver.cpp.o
+/home/hwu/SAT-solving/src/engine/subsolver.cpp: In member function ‘void tactix::SubSolver::fail_assumptions(const std::vector<unsigned int>&)’:
+/home/hwu/SAT-solving/src/engine/subsolver.cpp:823:35: warning: missing initializer for member ‘tactix::SubStep::antecedents’ [-Wmissing-field-initializers]
+  823 |                {clause_id(reason)}};
+      |                                   ^
+/home/hwu/SAT-solving/src/engine/subsolver.cpp: In instantiation of ‘tactix::SubResult tactix::SubSolver::solve_impl(const std::vector<unsigned int>&, uint64_t, tactix::SubTickMode, const volatile sig_atomic_t*) [with bool Interruptible = false; uint64_t = long unsigned int; sig_atomic_t = int]’:
+/home/hwu/SAT-solving/src/engine/subsolver.cpp:1072:27:   required from here
+/home/hwu/SAT-solving/src/engine/subsolver.cpp:1043:19: warning: missing initializer for member ‘tactix::SubStep::antecedents’ [-Wmissing-field-initializers]
+ 1043 |           target_ = {target_id, export_literals(lits), chain};
+      |           ~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/hwu/SAT-solving/src/engine/subsolver.cpp: In instantiation of ‘tactix::SubResult tactix::SubSolver::solve_impl(const std::vector<unsigned int>&, uint64_t, tactix::SubTickMode, const volatile sig_atomic_t*) [with bool Interruptible = true; uint64_t = long unsigned int; sig_atomic_t = int]’:
+/home/hwu/SAT-solving/src/engine/subsolver.cpp:1078:26:   required from here
+/home/hwu/SAT-solving/src/engine/subsolver.cpp:1043:19: warning: missing initializer for member ‘tactix::SubStep::antecedents’ [-Wmissing-field-initializers]
+[63/97] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/ops/walk/walk.cpp.o
+[64/97] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/heuristics.cpp.o
+[65/97] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/controller_trace.cpp.o
+[66/97] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/stress_registry.cpp.o
+[67/97] Building CXX object CMakeFiles/tactix_lib.dir/src/strategy/analyze_parameters.cpp.o
+[68/97] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/trace.cpp.o
+[69/97] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/random_policy.cpp.o
+[70/97] Building CXX object CMakeFiles/tactix_lib.dir/src/strategy/congruence_parameters.cpp.o
+[71/97] Building CXX object CMakeFiles/tactix_lib.dir/src/strategy/failed_literal_parameters.cpp.o
+[72/97] Building CXX object CMakeFiles/tactix_lib.dir/src/strategy/forward_parameters.cpp.o
+[73/97] Building CXX object CMakeFiles/tactix_lib.dir/src/strategy/heuristic_execution.cpp.o
+[74/97] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/structured_root_strategy.cpp.o
+[75/97] Building CXX object CMakeFiles/tactix_lib.dir/src/strategy/instantiate_parameters.cpp.o
+[76/97] Building CXX object CMakeFiles/tactix_lib.dir/src/strategy/parity_consequence_parameters.cpp.o
+[77/97] Building CXX object CMakeFiles/tactix_lib.dir/src/strategy/ramsey_startup_parameters.cpp.o
+[78/97] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/random_controller_policy.cpp.o
+[79/97] Building CXX object CMakeFiles/tactix_lib.dir/src/strategy/rule_parameters.cpp.o
+[80/97] Building CXX object CMakeFiles/tactix_lib.dir/src/strategy/vivify_parameters.cpp.o
+[81/97] Building CXX object CMakeFiles/tactix_lib.dir/src/strategy/feedback_trace.cpp.o
+[82/97] Building CXX object CMakeFiles/tactix_lib.dir/src/frontend/parse.cpp.o
+[83/97] Building C object tests/CMakeFiles/test_online_api.dir/test_online_api.c.o
+cc1: warning: command-line option ‘-fno-rtti’ is valid for C++/D/ObjC++ but not for C
+[84/97] Building CXX object tests/CMakeFiles/test_ramsey_startup.dir/test_ramsey_startup.cpp.o
+[85/97] Building CXX object CMakeFiles/tactix_lib.dir/src/strategy/random_online.cpp.o
+[86/97] Building CXX object CMakeFiles/tactix_lib.dir/src/api/api.cpp.o
+[87/97] Building CXX object CMakeFiles/tactix_lib.dir/src/strategy/online_inprocess.cpp.o
+[88/97] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/default_policy.cpp.o
+[89/97] Building CXX object CMakeFiles/tactix.dir/src/main.cpp.o
+[90/97] Linking CXX executable tests/test_online_api
+[91/97] Linking CXX executable tests/test_ramsey_startup
+[92/97] Building CXX object tests/CMakeFiles/test_random_controller_policy.dir/test_random_controller_policy.cpp.o
+[93/97] Building CXX object tests/CMakeFiles/test_random_online.dir/test_random_online.cpp.o
+[94/97] Linking CXX executable tactix
+[95/97] Linking CXX executable tests/test_random_controller_policy
+[96/97] Linking CXX executable tests/test_random_online

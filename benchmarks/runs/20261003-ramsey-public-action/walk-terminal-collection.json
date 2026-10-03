@@ -1,0 +1,298 @@
+[
+  {
+    "arm": "saved0-keep0",
+    "certificate_bytes": 388841131,
+    "certificate_sha256": "2052c1e16da4854ee0df13f650e2ca61664733fa88ede44159fdd0c776a0cdc5",
+    "solve": {
+      "exit_code": 20,
+      "peak_rss_kb": 66124,
+      "sampled_process_vm_peak_kb": 80992,
+      "timed_out": false,
+      "wall_seconds": 83.485
+    },
+    "proof_check": {
+      "certificate_content_route": "drat",
+      "checker_input": {
+        "checker_sha256": "7e9d896a8d31789b009b3b5ac6c6938aefe0aaa0990e854279db9211a212303f",
+        "checker_variables": 5322,
+        "clauses": 105988,
+        "declared_variables": 5322,
+        "duplicate_literal_clauses": 0,
+        "first_empty_clause": null,
+        "original_sha256": "7e9d896a8d31789b009b3b5ac6c6938aefe0aaa0990e854279db9211a212303f",
+        "transformation": "clause-sequence-preserving DIMACS spelling"
+      },
+      "exit_code": 0,
+      "output_tail": "\nc turning on binary mode checking\n\nc parsing input formula with 5322 variables and 105988 clauses\n\nc finished parsing, read 388841131 bytes from proof file\n\nc detected empty clause; start verification via backward checking\n\nc 1916 of 105988 clauses in core                            \n\nc 1553889 of 4238101 lemmas in core using 96098480 resolution steps\n\nc 2060 RAT lemmas in core; 227 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 104.577 seconds\ns VERIFIED UNSAT",
+      "pipeline": "dsr-as-drat-drat-trim-cake_lpr",
+      "result": "verified",
+      "solver_reported_route": "dsr-cake_lpr",
+      "stages": [
+        {
+          "command": [
+            "/home/hwu/SAT-solving/benchmarks/runs/20261003-walk-import-regression-factorial/pins/drat-trim",
+            "/proc/1031572/fd/9",
+            "/proc/1031572/fd/10",
+            "-t",
+            "1554",
+            "-L",
+            "/proc/1031572/fd/11"
+          ],
+          "exit_code": 0,
+          "input_empty_lrat_bridge": false,
+          "input_restatements": 0,
+          "name": "drat-trim",
+          "output_tail": "\nc turning on binary mode checking\n\nc parsing input formula with 5322 variables and 105988 clauses\n\nc finished parsing, read 388841131 bytes from proof file\n\nc detected empty clause; start verification via backward checking\n\nc 1916 of 105988 clauses in core                            \n\nc 1553889 of 4238101 lemmas in core using 96098480 resolution steps\n\nc 2060 RAT lemmas in core; 227 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 104.577 seconds",
+          "peak_rss_kb": 1107900,
+          "produced_bytes": 836409091,
+          "result": "verified",
+          "sampled_process_vm_peak_kb": null,
+          "timed_out": false,
+          "timeout_seconds": 1553.945756584406,
+          "wall_seconds": 104.65
+        },
+        {
+          "command": [
+            "/home/hwu/SAT-solving/benchmarks/runs/20261003-walk-import-regression-factorial/pins/cake_lpr",
+            "/proc/1031572/fd/9",
+            "/proc/1031572/fd/11"
+          ],
+          "exit_code": 0,
+          "name": "cake_lpr",
+          "output_tail": "s VERIFIED UNSAT",
+          "peak_rss_kb": 22187636,
+          "result": "verified",
+          "sampled_process_vm_peak_kb": null,
+          "timed_out": false,
+          "timeout_seconds": 1449.2948939166963,
+          "wall_seconds": 25.102
+        }
+      ],
+      "timed_out": false,
+      "wall_seconds": 375.808
+    },
+    "valid": true
+  },
+  {
+    "arm": "saved0-keep1",
+    "certificate_bytes": 45521729,
+    "certificate_sha256": "c3a454442735eb25d91e20124334d5bcce5e172cbc1068ea7d6e8fdd6c600938",
+    "solve": {
+      "exit_code": 20,
+      "peak_rss_kb": 37412,
+      "sampled_process_vm_peak_kb": 75644,
+      "timed_out": false,
+      "wall_seconds": 11.889
+    },
+    "proof_check": {
+      "certificate_content_route": "drat",
+      "checker_input": {
+        "checker_sha256": "7e9d896a8d31789b009b3b5ac6c6938aefe0aaa0990e854279db9211a212303f",
+        "checker_variables": 5322,
+        "clauses": 105988,
+        "declared_variables": 5322,
+        "duplicate_literal_clauses": 0,
+        "first_empty_clause": null,
+        "original_sha256": "7e9d896a8d31789b009b3b5ac6c6938aefe0aaa0990e854279db9211a212303f",
+        "transformation": "clause-sequence-preserving DIMACS spelling"
+      },
+      "exit_code": 0,
+      "output_tail": "\nc turning on binary mode checking\n\nc parsing input formula with 5322 variables and 105988 clauses\n\nc finished parsing, read 45521729 bytes from proof file\n\nc detected empty clause; start verification via backward checking\n\nc 2025 of 105988 clauses in core                            \n\nc 368611 of 604387 lemmas in core using 21262040 resolution steps\n\nc 2235 RAT lemmas in core; 247 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 15.243 seconds\ns VERIFIED UNSAT",
+      "pipeline": "dsr-as-drat-drat-trim-cake_lpr",
+      "result": "verified",
+      "solver_reported_route": "dsr-cake_lpr",
+      "stages": [
+        {
+          "command": [
+            "/home/hwu/SAT-solving/benchmarks/runs/20261003-walk-import-regression-factorial/pins/drat-trim",
+            "/proc/1031573/fd/9",
+            "/proc/1031573/fd/10",
+            "-t",
+            "1774",
+            "-L",
+            "/proc/1031573/fd/11"
+          ],
+          "exit_code": 0,
+          "input_empty_lrat_bridge": false,
+          "input_restatements": 0,
+          "name": "drat-trim",
+          "output_tail": "\nc turning on binary mode checking\n\nc parsing input formula with 5322 variables and 105988 clauses\n\nc finished parsing, read 45521729 bytes from proof file\n\nc detected empty clause; start verification via backward checking\n\nc 2025 of 105988 clauses in core                            \n\nc 368611 of 604387 lemmas in core using 21262040 resolution steps\n\nc 2235 RAT lemmas in core; 247 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 15.243 seconds",
+          "peak_rss_kb": 229588,
+          "produced_bytes": 189989568,
+          "result": "verified",
+          "sampled_process_vm_peak_kb": null,
+          "timed_out": false,
+          "timeout_seconds": 1773.8232475034893,
+          "wall_seconds": 15.289
+        },
+        {
+          "command": [
+            "/home/hwu/SAT-solving/benchmarks/runs/20261003-walk-import-regression-factorial/pins/cake_lpr",
+            "/proc/1031573/fd/9",
+            "/proc/1031573/fd/11"
+          ],
+          "exit_code": 0,
+          "name": "cake_lpr",
+          "output_tail": "s VERIFIED UNSAT",
+          "peak_rss_kb": 5539444,
+          "result": "verified",
+          "sampled_process_vm_peak_kb": null,
+          "timed_out": false,
+          "timeout_seconds": 1758.5327250994742,
+          "wall_seconds": 5.775
+        }
+      ],
+      "timed_out": false,
+      "wall_seconds": 47.243
+    },
+    "valid": true
+  },
+  {
+    "arm": "saved1-keep0",
+    "certificate_bytes": 322521460,
+    "certificate_sha256": "cddb978e09c03aba6499756ad8ff149e1724e2021b76f41e84af301e61041e60",
+    "solve": {
+      "exit_code": 20,
+      "peak_rss_kb": 85568,
+      "sampled_process_vm_peak_kb": 102356,
+      "timed_out": false,
+      "wall_seconds": 67.608
+    },
+    "proof_check": {
+      "certificate_content_route": "drat",
+      "checker_input": {
+        "checker_sha256": "7e9d896a8d31789b009b3b5ac6c6938aefe0aaa0990e854279db9211a212303f",
+        "checker_variables": 5322,
+        "clauses": 105988,
+        "declared_variables": 5322,
+        "duplicate_literal_clauses": 0,
+        "first_empty_clause": null,
+        "original_sha256": "7e9d896a8d31789b009b3b5ac6c6938aefe0aaa0990e854279db9211a212303f",
+        "transformation": "clause-sequence-preserving DIMACS spelling"
+      },
+      "exit_code": 0,
+      "output_tail": "\nc turning on binary mode checking\n\nc parsing input formula with 5322 variables and 105988 clauses\n\nc finished parsing, read 322521460 bytes from proof file\n\nc detected empty clause; start verification via backward checking\n\nc 2679 of 105988 clauses in core                            \n\nc 1124337 of 3535456 lemmas in core using 68977524 resolution steps\n\nc 2879 RAT lemmas in core; 425 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 74.216 seconds\ns VERIFIED UNSAT",
+      "pipeline": "dsr-as-drat-drat-trim-cake_lpr",
+      "result": "verified",
+      "solver_reported_route": "dsr-cake_lpr",
+      "stages": [
+        {
+          "command": [
+            "/home/hwu/SAT-solving/benchmarks/runs/20261003-walk-import-regression-factorial/pins/drat-trim",
+            "/proc/1033023/fd/9",
+            "/proc/1033023/fd/10",
+            "-t",
+            "1610",
+            "-L",
+            "/proc/1033023/fd/11"
+          ],
+          "exit_code": 0,
+          "input_empty_lrat_bridge": false,
+          "input_restatements": 0,
+          "name": "drat-trim",
+          "output_tail": "\nc turning on binary mode checking\n\nc parsing input formula with 5322 variables and 105988 clauses\n\nc finished parsing, read 322521460 bytes from proof file\n\nc detected empty clause; start verification via backward checking\n\nc 2679 of 105988 clauses in core                            \n\nc 1124337 of 3535456 lemmas in core using 68977524 resolution steps\n\nc 2879 RAT lemmas in core; 425 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 74.216 seconds",
+          "peak_rss_kb": 877928,
+          "produced_bytes": 605271819,
+          "result": "verified",
+          "sampled_process_vm_peak_kb": null,
+          "timed_out": false,
+          "timeout_seconds": 1609.4468257147819,
+          "wall_seconds": 74.264
+        },
+        {
+          "command": [
+            "/home/hwu/SAT-solving/benchmarks/runs/20261003-walk-import-regression-factorial/pins/cake_lpr",
+            "/proc/1033023/fd/9",
+            "/proc/1033023/fd/11"
+          ],
+          "exit_code": 0,
+          "name": "cake_lpr",
+          "output_tail": "s VERIFIED UNSAT",
+          "peak_rss_kb": 16424564,
+          "result": "verified",
+          "sampled_process_vm_peak_kb": null,
+          "timed_out": false,
+          "timeout_seconds": 1535.181054648012,
+          "wall_seconds": 18.093
+        }
+      ],
+      "timed_out": false,
+      "wall_seconds": 282.913
+    },
+    "valid": true
+  },
+  {
+    "arm": "saved1-keep1",
+    "certificate_bytes": 300450048,
+    "certificate_sha256": "4b89087a87bcef7582b284627d6378da7e2d3c335b490d771c950dccbb582e56",
+    "solve": {
+      "exit_code": 20,
+      "peak_rss_kb": 82512,
+      "sampled_process_vm_peak_kb": 99312,
+      "timed_out": false,
+      "wall_seconds": 66.873
+    },
+    "proof_check": {
+      "certificate_content_route": "drat",
+      "checker_input": {
+        "checker_sha256": "7e9d896a8d31789b009b3b5ac6c6938aefe0aaa0990e854279db9211a212303f",
+        "checker_variables": 5322,
+        "clauses": 105988,
+        "declared_variables": 5322,
+        "duplicate_literal_clauses": 0,
+        "first_empty_clause": null,
+        "original_sha256": "7e9d896a8d31789b009b3b5ac6c6938aefe0aaa0990e854279db9211a212303f",
+        "transformation": "clause-sequence-preserving DIMACS spelling"
+      },
+      "exit_code": 0,
+      "output_tail": "\nc turning on binary mode checking\n\nc parsing input formula with 5322 variables and 105988 clauses\n\nc finished parsing, read 300450048 bytes from proof file\n\nc detected empty clause; start verification via backward checking\n\nc 2065 of 105988 clauses in core                            \n\nc 980602 of 3335237 lemmas in core using 59465461 resolution steps\n\nc 2245 RAT lemmas in core; 280 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 72.155 seconds\ns VERIFIED UNSAT",
+      "pipeline": "dsr-as-drat-drat-trim-cake_lpr",
+      "result": "verified",
+      "solver_reported_route": "dsr-cake_lpr",
+      "stages": [
+        {
+          "command": [
+            "/home/hwu/SAT-solving/benchmarks/runs/20261003-walk-import-regression-factorial/pins/drat-trim",
+            "/proc/1038231/fd/9",
+            "/proc/1038231/fd/10",
+            "-t",
+            "1627",
+            "-L",
+            "/proc/1038231/fd/11"
+          ],
+          "exit_code": 0,
+          "input_empty_lrat_bridge": false,
+          "input_restatements": 0,
+          "name": "drat-trim",
+          "output_tail": "\nc turning on binary mode checking\n\nc parsing input formula with 5322 variables and 105988 clauses\n\nc finished parsing, read 300450048 bytes from proof file\n\nc detected empty clause; start verification via backward checking\n\nc 2065 of 105988 clauses in core                            \n\nc 980602 of 3335237 lemmas in core using 59465461 resolution steps\n\nc 2245 RAT lemmas in core; 280 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 72.155 seconds",
+          "peak_rss_kb": 801616,
+          "produced_bytes": 522145816,
+          "result": "verified",
+          "sampled_process_vm_peak_kb": null,
+          "timed_out": false,
+          "timeout_seconds": 1626.2207475360483,
+          "wall_seconds": 72.206
+        },
+        {
+          "command": [
+            "/home/hwu/SAT-solving/benchmarks/runs/20261003-walk-import-regression-factorial/pins/cake_lpr",
+            "/proc/1038231/fd/9",
+            "/proc/1038231/fd/11"
+          ],
+          "exit_code": 0,
+          "name": "cake_lpr",
+          "output_tail": "s VERIFIED UNSAT",
+          "peak_rss_kb": 14208628,
+          "result": "verified",
+          "sampled_process_vm_peak_kb": null,
+          "timed_out": false,
+          "timeout_seconds": 1554.0135028026998,
+          "wall_seconds": 15.587
+        }
+      ],
+      "timed_out": false,
+      "wall_seconds": 261.575
+    },
+    "valid": true
+  }
+]

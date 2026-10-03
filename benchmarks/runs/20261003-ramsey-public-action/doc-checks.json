@@ -1,0 +1,30 @@
+[
+  [
+    "check-default-strategy-config.py",
+    0
+  ],
+  [
+    "check-config-wiring.py",
+    0
+  ],
+  [
+    "check-feedback-statistics.py",
+    1
+  ],
+  [
+    "check-stat-ids.py",
+    0
+  ],
+  [
+    "check-effort-specs.py",
+    0
+  ],
+  [
+    "check-proof-rule-sync.py",
+    0
+  ],
+  [
+    "check-doc-size.py",
+    0
+  ]
+]
