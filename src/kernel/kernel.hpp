@@ -1699,6 +1699,11 @@ void kernel_offer_local_search_hint(Kernel &, strategy::LocalSearchKind,
                                     uint64_t objective = UINT64_MAX,
                                     bool objective_exact = false);
 
+// Reserve permanent external IDs for proof-only helpers, without creating
+// internal/search variables. Use after input import and before proof emission,
+// identically with/without a proof writer. first is a zero-based external ID.
+// No namespace rollback/reuse; deleted proof units can remain checker-visible.
+bool kernel_reserve_proof_variables(Kernel &, uint32_t count, Var &first);
 Var kernel_new_extension_vars(Kernel &, uint32_t count);
 
 inline uint32_t kernel_num_output_vars(const Kernel &k) {

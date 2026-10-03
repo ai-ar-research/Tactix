@@ -276,12 +276,28 @@ void kernel_vars_in_external_order(const Kernel &k, std::vector<Var> &order) {
   assert(order.size() == k.nvars);
 }
 
+bool kernel_reserve_proof_variables(Kernel &k, uint32_t count, Var &first) {
+  const uint64_t begin = k.external_to_internal.size();
+  if (begin + count > static_cast<uint64_t>(INT32_MAX))
+    return false;
+  first = static_cast<Var>(begin);
+  if (!count)
+    return true;
+  // Freeze the original-model boundary before adding namespace-only holes.
+  if (k.original_external_vars == UINT32_MAX)
+    k.original_external_vars = static_cast<uint32_t>(begin);
+  k.external_to_internal.resize(static_cast<size_t>(begin + count), INVALID_VAR);
+  k.external_import_rank.resize(k.external_to_internal.size(), UINT32_MAX);
+  return true;
+}
+
 Var kernel_new_extension_vars(Kernel &k, uint32_t count) {
   const Var first = k.nvars;
   if (k.first_extension_var == UINT32_MAX) {
     k.first_extension_var = first; // boundary = first non-original var
-    k.original_external_vars =
-        static_cast<uint32_t>(k.external_to_internal.size());
+    if (k.original_external_vars == UINT32_MAX)
+      k.original_external_vars =
+          static_cast<uint32_t>(k.external_to_internal.size());
   }
   kernel_reserve_vars(k, k.nvars + count); // additive: grows all per-var state
   // A first late H attachment reconstructs extensions from their stable
