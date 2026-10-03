@@ -1,0 +1,21 @@
+{
+  "raw_check_exit": 2,
+  "raw_artifact_paths": [
+    "benchmarks/reports/2026-10-02-terminal-substitute-repair-applied/previous-debug-junit.xml",
+    "benchmarks/reports/2026-10-02-terminal-substitute-repair-applied/previous-debug-tests.json"
+  ],
+  "scoped_check_command": [
+    "git",
+    "show",
+    "--format=",
+    "--check",
+    "375b621ba6677600f3e77bf8383af25d256d7b67",
+    "--",
+    ".",
+    ":(exclude)benchmarks/reports/2026-10-02-terminal-substitute-repair-applied/previous-debug-junit.xml",
+    ":(exclude)benchmarks/reports/2026-10-02-terminal-substitute-repair-applied/previous-debug-tests.json"
+  ],
+  "scoped_check_exit": 0,
+  "raw_bytes_preserved": true,
+  "note": "Raw generated registry/JUnit whitespace only; no code or prose exception."
+}

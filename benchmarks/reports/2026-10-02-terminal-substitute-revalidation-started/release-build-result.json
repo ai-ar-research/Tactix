@@ -1,0 +1,32 @@
+{
+  "mode": "release",
+  "source_commit": "375b621ba6677600f3e77bf8383af25d256d7b67",
+  "pin": "/home/hwu/SAT-solving/build/pin-shared-policy-feedback-release-375b621b",
+  "tactix_sha256": "b766be0145f7dbc9fd50c03db45ee7e2e3855933faaa84c30865064acd6337ed",
+  "source_bindings": 240,
+  "executables": 1,
+  "build_exit": 0,
+  "configuration": [
+    "cmake",
+    "-S",
+    "/home/hwu/SAT-solving",
+    "-B",
+    "/home/hwu/SAT-solving/build/pin-shared-policy-feedback-release-375b621b",
+    "-DCMAKE_BUILD_TYPE=Release",
+    "-DCMAKE_C_COMPILER=/cm/local/apps/gcc/13.1.0/bin/gcc",
+    "-DCMAKE_CXX_COMPILER=/cm/local/apps/gcc/13.1.0/bin/c++",
+    "-DTACTIX_ENABLE_PROOF_SHADOW=OFF",
+    "-DTACTIX_ENABLE_EVENT_TRACE=OFF",
+    "-DTACTIX_ENABLE_RULE_JOURNAL=OFF"
+  ],
+  "build": [
+    "cmake",
+    "--build",
+    "/home/hwu/SAT-solving/build/pin-shared-policy-feedback-release-375b621b",
+    "-j",
+    "8",
+    "--target",
+    "tactix"
+  ],
+  "pin_metadata_sha256": "7b742cb2a8adce07e53d7db37952528d0bf2bc355d4384d49cd38513bbc6d5a1"
+}

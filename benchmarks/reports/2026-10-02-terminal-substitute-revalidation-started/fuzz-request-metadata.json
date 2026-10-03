@@ -1,0 +1,12 @@
+{
+  "source_commit": "375b621ba6677600f3e77bf8383af25d256d7b67",
+  "debug_binary_sha256": "95197f8c9f468bd3b121b1cd66d65457b9d5baade62bffb27f95e82caff593c2",
+  "debug_expected_tests": 212,
+  "request_sha256": "ae1bf36a56495bbc8040f34088f74984ca9eaf7ce1bb3bbb3c6aa56a08277e89",
+  "parent_template": "/home/hwu/SAT-solving/benchmarks/runs/20261002-shared-policy-feedback-f6f01982-preparation/next-fuzz-owner-request.template.txt",
+  "template_sha256": "eb280608ae8f7f761360bc6568a392c1c4dcb91620878e631a5fcd1ff93e0c48",
+  "new_campaign": true,
+  "old_owner_resume": false,
+  "private_predecessor_accounting_requested": false,
+  "claude_invoked": false
+}

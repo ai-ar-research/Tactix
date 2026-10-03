@@ -1,0 +1,161 @@
+{
+  "schema": "tactix-terminal-substitute-final-source-interim-goal-audit-v1",
+  "source_commit": "375b621ba6677600f3e77bf8383af25d256d7b67",
+  "objective_path": "/home/hwu/.codex/attachments/d8a2850a-463c-45c9-90fb-82c17c8ae202/pasted-text-1.txt",
+  "objective_sha256": "93e3ad59a4612910a4af2b9a939cb5c6a31d20dde30b4664ea2a2e44a43538fe",
+  "goal_complete": false,
+  "requirements": [
+    {
+      "id": "shared-stateful-policy-execution",
+      "status": "Final-source acceptance pending",
+      "prior_scoped_evidence": [
+        "benchmarks/reports/2026-10-02-native-support-audit.md",
+        "benchmarks/reports/2026-10-02-shared-policy-validation-started.md"
+      ],
+      "required_scope": "28 operation groups and 49 lexical sites; locators alone do not establish runtime coverage."
+    },
+    {
+      "id": "default-faithfulness",
+      "status": "Final-source acceptance pending",
+      "prior_scoped_evidence": [
+        "benchmarks/reports/2026-10-02-broad-default-correspondence.md",
+        "benchmarks/reports/2026-10-02-shared-policy-staged-repair-validated.md",
+        "benchmarks/reports/2026-10-02-shared-policy-repaired-regressions.md"
+      ],
+      "required_scope": "26 productive foundation fixture profiles and fourteen paired repair fixtures; not universal semantic equivalence."
+    },
+    {
+      "id": "partial-full-restart-native-continuation-state",
+      "status": "Final-source acceptance pending",
+      "prior_scoped_evidence": [
+        "docs/controller-interface.md",
+        "benchmarks/reports/2026-10-02-controller-trail-retention.md"
+      ],
+      "required_scope": "Original objective and its owning plan/interface requirements"
+    },
+    {
+      "id": "all20-configurations-repeated-eligible-actions-fixed-per-call-effort",
+      "status": "Final-source acceptance pending",
+      "prior_scoped_evidence": [
+        "src/strategy/controller_action_space.hpp",
+        "src/policies/restart_controller.hpp",
+        "src/policies/random_controller_policy.cpp",
+        "docs/controller-interface.md"
+      ],
+      "required_scope": "Original objective and its owning plan/interface requirements"
+    },
+    {
+      "id": "replaceable-selection-versioned-after-action-and-linked-interval-feedback",
+      "status": "Final-source acceptance pending",
+      "prior_scoped_evidence": [
+        "src/strategy/policy_feedback.hpp",
+        "src/strategy/policy_completion.hpp",
+        "src/strategy/controller_observation.hpp",
+        "benchmarks/reports/2026-10-02-feedback-frontend-publication.md"
+      ],
+      "required_scope": "Original objective and its owning plan/interface requirements",
+      "repair": "Exact causal Substitute restoration proposal applied; current-pin lifecycle/purity/replay acceptance still required.",
+      "prior_failure": "f6f01982 NOT ACCEPTED; never reinterpreted as passing"
+    },
+    {
+      "id": "pure-observation-feedback-offline-inspection-deterministic-replay",
+      "status": "Final-source acceptance pending",
+      "prior_scoped_evidence": [
+        "tools/bench/inspect_policy_feedback.py",
+        "src/strategy/feedback_trace.cpp",
+        "overhead/results.json"
+      ],
+      "required_scope": "Original objective and its owning plan/interface requirements",
+      "repair": "Exact causal Substitute restoration proposal applied; current-pin lifecycle/purity/replay acceptance still required.",
+      "prior_failure": "f6f01982 NOT ACCEPTED; never reinterpreted as passing"
+    },
+    {
+      "id": "raw-result-and-actual-effort-without-reward-or-learning",
+      "status": "Owning contracts unchanged and source delta inspected; O6 remains deferred",
+      "prior_scoped_evidence": [
+        "DEVELOPMENT_PLAN.md",
+        "docs/controller-interface.md",
+        "benchmarks/reports/2026-10-02-shared-policy-contract-review.md"
+      ],
+      "required_scope": "No common currency, scalar numerator, zero/terminal handling or learning algorithm selected.",
+      "required": "Raw native currencies and result/effort measurements; no scalar choice, retrospective attribution or feedback-informed learner."
+    },
+    {
+      "id": "full-debug-exact212",
+      "status": "Submitted; terminal evidence missing",
+      "prior_scoped_evidence": [],
+      "required_scope": "Partial live log evidence only; exact terminal JUnit and postflight still required.",
+      "job": 1746924,
+      "required": "Exact212 frozen registry/JUnit plus zero CTest/scheduler exits and all984 pre/post bindings."
+    },
+    {
+      "id": "fresh100000-each-corpus-effective-coverage-independent-oracles",
+      "status": "New owner invoked; terminal report missing; no private campaign evidence inspected",
+      "prior_scoped_evidence": [],
+      "required_scope": "Original-pin terminal report accepted; not automatically new-binary evidence. No private campaign inspection.",
+      "owner_cli_session": 3818,
+      "request": "benchmarks/runs/20261002-shared-policy-feedback-375b621b-preparation/fuzz-owner-request.txt",
+      "required": ">=100000 unique fresh seeds each; retained corpus; all R1-R13 minimums; completed independent proofs/models; timeout categories separate; passing terminal owner report."
+    },
+    {
+      "id": "feedback-overhead",
+      "status": "Submitted; terminal result missing",
+      "prior_scoped_evidence": [
+        "overhead/results.json",
+        "overhead/acceptance-summary.json"
+      ],
+      "required_scope": "End-to-end frontend feedback recording cost on four fixed synthetic inputs, both policies, alternating arm order within one allocation. Includes provenance hashing, observation, serialization and anonymous-file writes; not isolated in-process callback cost or large-instance competitiveness. No scalar reward is computed.",
+      "job": 1746812,
+      "required": "Same declared paired protocol, strict enabled streams, equal deterministic outcomes/proofs/models, completed oracles and measured end-to-end cost."
+    },
+    {
+      "id": "four-default-regressions-bounded-checker-contract",
+      "status": "All four arrays submitted; complete scores missing",
+      "prior_scoped_evidence": [
+        "benchmarks/reports/2026-10-02-shared-policy-repaired-regressions/summary.json",
+        "benchmarks/reports/2026-10-02-shared-policy-repaired-regressions/analysis.json"
+      ],
+      "required_scope": "Clean checker censoring stays incomplete verification; comparable cost threshold and 1800-second whole-pipeline deadline retained.",
+      "jobs": {
+        "b28c5": 1746808,
+        "rank1-50": 1746809,
+        "wv100": 1746810,
+        "wv2-89": 1746811
+      },
+      "required": "All272 final rows, per-row retention/resources and aggregate ceilings, independent SAT models, bounded whole-pipeline proof checks, no rejection, no significant comparable checker slowdown."
+    },
+    {
+      "id": "consistent-docs-skills-preserved-authorities",
+      "status": "Twelve existing source/contract bindings and exact source delta verified; current PROGRESS updated; final stage reconciliation pending",
+      "prior_scoped_evidence": [
+        "CLAUDE.md",
+        "docs/README.md",
+        "PROGRESS.md",
+        ".claude/skills/fuzz/SKILL.md",
+        ".claude/skills/slurm-jobs/SKILL.md",
+        ".claude/skills/wrap-up/SKILL.md",
+        ".claude/skills/generate-report/SKILL.md",
+        "benchmarks/reports/2026-10-02-shared-policy-contract-review.md"
+      ],
+      "required_scope": "Original objective and its owning plan/interface requirements"
+    },
+    {
+      "id": "local-commits-and-andrew-tex-pdf",
+      "status": "Applied repair checkpoint375b621b and two-pass reviewed TeX/PDF complete; final whole-goal handoff pending",
+      "prior_scoped_evidence": [],
+      "required_scope": "Original objective and its owning plan/interface requirements",
+      "checkpoint_report": "report-to-andrew/20261003T030624Z-terminal-substitute-repair-applied/report.pdf"
+    }
+  ],
+  "source_review": "candidate-audit.json",
+  "prior_failure_preserved": true,
+  "constraints": [
+    "No scalar reward or learning",
+    "No fallback, rollback, forced ResumeSearch or global root-loop budget",
+    "No push, unrelated experiments or subagents",
+    "Preserve immutable active source/binary/checker pins and unrelated user work"
+  ],
+  "updated_utc": "2026-10-03T03:27:07.399863+00:00",
+  "next_action": "Retain all795 root source bindings through final-source Debug/fuzz postflight. Monitor fullDebug1746924, regression arrays1746808/09/10/11, overhead1746812 and Claude owner CLI3818. Require terminal acceptance artifacts, complete objective audit and final handoff before whole-goal promotion.",
+  "scope": "Requirement-by-requirement interim audit, not promotion. Final-source execution evidence is unproven until terminal acceptance artifacts exist."
+}
