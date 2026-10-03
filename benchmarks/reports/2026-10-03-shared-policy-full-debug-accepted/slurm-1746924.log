@@ -1,0 +1,431 @@
+Verified 984 binary/support pins
+Test project /home/hwu/SAT-solving/build/pin-shared-policy-feedback-debug-375b621b
+        Start   1: kernel
+        Start   2: clause_arena_replay
+        Start   3: parse
+        Start   4: proof
+        Start   5: sr_proof_encoding
+        Start   6: analyze
+        Start   7: restart_reduce
+        Start   8: switchmode
+  1/212 Test   #5: sr_proof_encoding .................   Passed    0.00 sec
+        Start   9: rephase
+  2/212 Test   #8: switchmode ........................   Passed    0.01 sec
+        Start  10: subsolver
+  3/212 Test   #9: rephase ...........................   Passed    0.01 sec
+        Start  11: subsolver_export_resource
+  4/212 Test   #7: restart_reduce ....................   Passed    0.01 sec
+        Start  12: sweep
+  5/212 Test  #11: subsolver_export_resource .........   Passed    0.00 sec
+        Start  13: sweep_interrupted_direction
+  6/212 Test   #1: kernel ............................   Passed    0.04 sec
+        Start  14: scheduling
+  7/212 Test   #3: parse .............................   Passed    0.04 sec
+        Start  15: strategy_config
+  8/212 Test   #4: proof .............................   Passed    0.05 sec
+        Start  16: event_trace
+  9/212 Test  #16: event_trace .......................   Passed    0.02 sec
+        Start  17: event_trace_compare
+ 10/212 Test  #14: scheduling ........................   Passed    0.06 sec
+        Start  18: reduce_trace_compare
+ 11/212 Test  #18: reduce_trace_compare ..............   Passed    0.06 sec
+        Start  19: modelcheck
+ 12/212 Test  #19: modelcheck ........................   Passed    0.05 sec
+        Start  20: runtime_task
+ 13/212 Test  #13: sweep_interrupted_direction .......   Passed    0.29 sec
+        Start  21: kissat_journal_overlay_static
+ 14/212 Test   #2: clause_arena_replay ...............   Passed    0.36 sec
+        Start  22: rule_journal
+ 15/212 Test  #21: kissat_journal_overlay_static .....   Passed    0.06 sec
+        Start  23: p4_fixtures
+ 16/212 Test  #15: strategy_config ...................   Passed    0.33 sec
+        Start  24: campaign_certificate_cleanup
+ 17/212 Test  #20: runtime_task ......................   Passed    0.22 sec
+        Start  25: tierd_campaign_pinning
+ 18/212 Test  #22: rule_journal ......................   Passed    0.11 sec
+        Start  26: slurm_memory_enforcement
+ 19/212 Test  #25: tierd_campaign_pinning ............   Passed    0.10 sec
+        Start  27: symmetry_backend_build_boundary
+ 20/212 Test  #26: slurm_memory_enforcement ..........   Passed    0.12 sec
+        Start  28: symmetry_backend
+ 21/212 Test  #27: symmetry_backend_build_boundary ...   Passed    0.12 sec
+        Start  29: symmetry_clause_multiset
+ 22/212 Test  #23: p4_fixtures .......................   Passed    0.33 sec
+        Start  30: orbitopal_group
+ 23/212 Test  #17: event_trace_compare ...............   Passed    0.64 sec
+        Start  31: fuzz_slurm_snapshot
+ 24/212 Test  #30: orbitopal_group ...................   Passed    0.10 sec
+        Start  32: event_trace_zero_overhead
+ 25/212 Test  #24: campaign_certificate_cleanup ......   Passed    0.78 sec
+        Start  33: slot_pose
+ 26/212 Test  #31: fuzz_slurm_snapshot ...............   Passed    0.46 sec
+        Start  34: reorder
+ 27/212 Test  #34: reorder ...........................   Passed    0.01 sec
+        Start  35: walk
+ 28/212 Test  #33: slot_pose .........................   Passed    0.02 sec
+        Start  36: parity_model
+ 29/212 Test  #35: walk ..............................   Passed    0.01 sec
+        Start  37: onehot_model
+ 30/212 Test  #36: parity_model ......................   Passed    0.01 sec
+        Start  38: subsume
+ 31/212 Test  #38: subsume ...........................   Passed    0.01 sec
+        Start  39: strengthen
+ 32/212 Test  #32: event_trace_zero_overhead .........   Passed    0.41 sec
+        Start  40: instantiate
+ 33/212 Test  #40: instantiate .......................   Passed    0.01 sec
+        Start  41: vivify
+ 34/212 Test  #41: vivify ............................   Passed    0.03 sec
+        Start  42: vivify_n1
+ 35/212 Test  #39: strengthen ........................   Passed    0.06 sec
+        Start  43: probe
+ 36/212 Test  #42: vivify_n1 .........................   Passed    0.00 sec
+        Start  44: backbone
+ 37/212 Test  #43: probe .............................   Passed    0.01 sec
+ 38/212 Test  #44: backbone ..........................   Passed    0.01 sec
+        Start  45: bce
+        Start  46: cce
+ 39/212 Test  #37: onehot_model ......................   Passed    0.24 sec
+        Start  47: ternary
+ 40/212 Test  #47: ternary ...........................   Passed    0.01 sec
+        Start  48: hyperbinary
+ 41/212 Test  #45: bce ...............................   Passed    0.18 sec
+        Start  49: decide
+ 42/212 Test  #49: decide ............................   Passed    0.00 sec
+        Start  50: reconstruct
+ 43/212 Test  #50: reconstruct .......................   Passed    0.00 sec
+        Start  51: substitute
+ 44/212 Test  #46: cce ...............................   Passed    0.19 sec
+        Start  52: congruence
+ 45/212 Test  #51: substitute ........................   Passed    0.01 sec
+        Start  53: binary_deletion
+ 46/212 Test  #52: congruence ........................   Passed    0.01 sec
+        Start  54: transitive_reduce
+ 47/212 Test  #53: binary_deletion ...................   Passed    0.01 sec
+        Start  55: bve
+ 48/212 Test  #54: transitive_reduce .................   Passed    0.00 sec
+        Start  56: bve_invocation
+ 49/212 Test  #56: bve_invocation ....................   Passed    0.01 sec
+        Start  57: lucky
+ 50/212 Test  #48: hyperbinary .......................   Passed    0.06 sec
+        Start  58: lucky_terminal
+ 51/212 Test  #58: lucky_terminal ....................   Passed    0.00 sec
+        Start  59: api_n1
+ 52/212 Test  #59: api_n1 ............................   Passed    0.05 sec
+        Start  60: condition_compacted_model
+ 53/212 Test  #60: condition_compacted_model .........   Passed    0.06 sec
+        Start  61: api_instances
+ 54/212 Test  #61: api_instances .....................   Passed    0.01 sec
+        Start  62: online_api
+ 55/212 Test  #62: online_api ........................   Passed    0.02 sec
+        Start  63: online_all_actions
+ 56/212 Test  #63: online_all_actions ................   Passed    0.01 sec
+        Start  64: random_policy
+ 57/212 Test  #55: bve ...............................   Passed    0.28 sec
+        Start  65: trace_replay
+ 58/212 Test   #6: analyze ...........................   Passed    2.22 sec
+        Start  66: micro_proofs
+ 59/212 Test  #64: random_policy .....................   Passed    0.61 sec
+        Start  67: sweep_proofs
+ 60/212 Test  #65: trace_replay ......................   Passed    0.57 sec
+        Start  68: sweep_retarget_lrat
+ 61/212 Test  #68: sweep_retarget_lrat ...............   Passed    0.40 sec
+        Start  69: tr_bruteforce_0
+ 62/212 Test  #12: sweep .............................   Passed    3.37 sec
+        Start  70: tr_bruteforce_1
+ 63/212 Test  #69: tr_bruteforce_0 ...................   Passed    1.72 sec
+        Start  71: tr_bruteforce_2
+ 64/212 Test  #29: symmetry_clause_multiset ..........   Passed    3.91 sec
+        Start  72: tr_bruteforce_3
+ 65/212 Test  #70: tr_bruteforce_1 ...................   Passed    1.89 sec
+        Start  73: inspect_policy_feedback
+ 66/212 Test  #71: tr_bruteforce_2 ...................   Passed    1.56 sec
+        Start  74: feedback_frontend
+ 67/212 Test  #72: tr_bruteforce_3 ...................   Passed    1.64 sec
+        Start  75: startup_parity_check
+ 68/212 Test  #75: startup_parity_check ..............   Passed    1.00 sec
+        Start  76: count_preservation_check
+ 69/212 Test  #76: count_preservation_check ..........   Passed    0.26 sec
+        Start  77: congruence_sr_check
+ 70/212 Test  #77: congruence_sr_check ...............   Passed    1.10 sec
+        Start  78: factor
+ 71/212 Test  #78: factor ............................   Passed    1.00 sec
+        Start  79: factor_n1
+ 72/212 Test  #79: factor_n1 .........................   Passed    0.01 sec
+        Start  80: subsume_n1
+ 73/212 Test  #80: subsume_n1 ........................   Passed    0.00 sec
+        Start  81: config_wiring
+ 74/212 Test  #81: config_wiring .....................   Passed    1.18 sec
+        Start  82: effort_specs
+ 75/212 Test  #82: effort_specs ......................   Passed    0.12 sec
+        Start  83: option_coverage
+ 76/212 Test  #83: option_coverage ...................   Passed    0.82 sec
+        Start  84: stat_ids
+ 77/212 Test  #84: stat_ids ..........................   Passed    0.07 sec
+        Start  85: feedback_statistics
+ 78/212 Test  #85: feedback_statistics ...............   Passed    0.05 sec
+        Start  86: citations
+ 79/212 Test  #10: subsolver .........................   Passed   12.10 sec
+        Start  87: section_refs
+ 80/212 Test  #87: section_refs ......................   Passed    0.08 sec
+        Start  88: inventory
+ 81/212 Test  #88: inventory .........................   Passed    0.06 sec
+        Start  89: comment_hygiene
+ 82/212 Test  #89: comment_hygiene ...................   Passed    5.15 sec
+        Start  90: doc_size
+ 83/212 Test  #90: doc_size ..........................   Passed    0.13 sec
+        Start  91: proof_rule_sync
+ 84/212 Test  #91: proof_rule_sync ...................   Passed    0.04 sec
+        Start  92: default_strategy_config_check
+ 85/212 Test  #92: default_strategy_config_check .....   Passed    0.06 sec
+        Start  93: no_heuristics
+ 86/212 Test  #93: no_heuristics .....................   Passed    0.00 sec
+        Start  94: kernel_h_boundary
+ 87/212 Test  #94: kernel_h_boundary .................   Passed    0.01 sec
+        Start  95: rule_policy_boundary
+ 88/212 Test  #95: rule_policy_boundary ..............   Passed    0.19 sec
+        Start  96: solve_reset
+ 89/212 Test  #86: citations .........................   Passed    8.13 sec
+        Start  97: activation_stamp
+ 90/212 Test  #97: activation_stamp ..................   Passed    0.01 sec
+        Start  98: affine_model
+ 91/212 Test  #98: affine_model ......................   Passed    0.06 sec
+        Start  99: affine_projection
+ 92/212 Test  #99: affine_projection .................   Passed    0.02 sec
+        Start 100: affine_search
+ 93/212 Test #100: affine_search .....................   Passed    0.03 sec
+        Start 101: analyze_parameters_api
+ 94/212 Test #101: analyze_parameters_api ............   Passed    0.00 sec
+        Start 102: assignment_level_bound
+ 95/212 Test #102: assignment_level_bound ............   Passed    0.30 sec
+        Start 103: backbone_parameters
+ 96/212 Test #103: backbone_parameters ...............   Passed    0.00 sec
+        Start 104: balanced_signature_model
+ 97/212 Test #104: balanced_signature_model ..........   Passed    0.00 sec
+        Start 105: bve_active_pop
+ 98/212 Test #105: bve_active_pop ....................   Passed    0.04 sec
+        Start 106: bve_bound_cut
+ 99/212 Test #106: bve_bound_cut .....................   Passed    0.01 sec
+        Start 107: bve_memory
+100/212 Test #107: bve_memory ........................   Passed    0.00 sec
+        Start 108: bve_occurrence_cache
+101/212 Test #108: bve_occurrence_cache ..............   Passed    0.00 sec
+        Start 109: cce_public_budget
+102/212 Test  #96: solve_reset .......................   Passed    3.04 sec
+        Start 110: cerny_model
+103/212 Test #110: cerny_model .......................   Passed    0.00 sec
+        Start 111: collect_connection
+104/212 Test #111: collect_connection ................   Passed    0.02 sec
+        Start 112: collect_memory
+105/212 Test #112: collect_memory ....................   Passed    0.00 sec
+        Start 113: collect_retry
+106/212 Test #113: collect_retry .....................   Passed    0.00 sec
+        Start 114: compact_stamp
+107/212 Test #114: compact_stamp .....................   Passed    0.00 sec
+        Start 115: condition
+108/212 Test #115: condition .........................   Passed    0.02 sec
+        Start 116: conditional_index
+109/212 Test  #73: inspect_policy_feedback ...........   Passed   15.77 sec
+        Start 117: conflict_reuse_targets
+110/212 Test #116: conditional_index .................   Passed    0.22 sec
+        Start 118: congruence_empty_gates
+111/212 Test #118: congruence_empty_gates ............   Passed    0.02 sec
+        Start 119: congruence_forward_root
+112/212 Test #119: congruence_forward_root ...........   Passed    0.05 sec
+        Start 120: congruence_index_cleanup
+113/212 Test #109: cce_public_budget .................   Passed    0.86 sec
+        Start 121: congruence_ite_collapse
+114/212 Test #120: congruence_index_cleanup ..........   Passed    0.33 sec
+        Start 122: congruence_ite_unit_proof
+115/212 Test #117: conflict_reuse_targets ............   Passed    0.67 sec
+        Start 123: congruence_ite_valued_sides
+116/212 Test  #67: sweep_proofs ......................   Passed   19.52 sec
+        Start 124: congruence_ite_values
+117/212 Test #122: congruence_ite_unit_proof .........   Passed    0.46 sec
+        Start 125: congruence_ladder_lifetime
+118/212 Test #125: congruence_ladder_lifetime ........   Passed    0.01 sec
+        Start 126: congruence_parameters
+119/212 Test #126: congruence_parameters .............   Passed    0.01 sec
+        Start 127: congruence_unary_cancellation
+120/212 Test #127: congruence_unary_cancellation .....   Passed    0.14 sec
+        Start 128: congruence_xor_cancellation
+121/212 Test #121: congruence_ite_collapse ...........   Passed    0.97 sec
+        Start 129: connected_occurrence
+122/212 Test #124: congruence_ite_values .............   Passed    0.53 sec
+        Start 130: controller_action_space
+123/212 Test #130: controller_action_space ...........   Passed    0.00 sec
+        Start 131: controller_execution_signature
+124/212 Test #131: controller_execution_signature ....   Passed    0.03 sec
+        Start 132: controller_trail_retention
+125/212 Test #128: congruence_xor_cancellation .......   Passed    0.24 sec
+        Start 133: count_preservation
+126/212 Test #132: controller_trail_retention ........   Passed    0.08 sec
+        Start 134: default_execution_signature
+127/212 Test #123: congruence_ite_valued_sides .......   Passed    0.71 sec
+        Start 135: eliminate_limit
+128/212 Test #133: count_preservation ................   Passed    0.01 sec
+        Start 136: exact_cover_model
+129/212 Test #136: exact_cover_model .................   Passed    0.00 sec
+        Start 137: execution_budget
+130/212 Test #135: eliminate_limit ...................   Passed    0.01 sec
+        Start 138: execution_support
+131/212 Test #137: execution_budget ..................   Passed    0.00 sec
+        Start 139: factor_root_support
+132/212 Test #138: execution_support .................   Passed    0.00 sec
+        Start 140: feedback_provenance
+133/212 Test #139: factor_root_support ...............   Passed    0.01 sec
+        Start 141: feedback_trace
+134/212 Test #134: default_execution_signature .......   Passed    0.08 sec
+        Start 142: fermat_model
+135/212 Test #142: fermat_model ......................   Passed    0.00 sec
+        Start 143: flat_payload_replay
+136/212 Test #143: flat_payload_replay ...............   Passed    0.03 sec
+        Start 144: forward_caller
+137/212 Test #144: forward_caller ....................   Passed    0.01 sec
+        Start 145: forward_marks
+138/212 Test #145: forward_marks .....................   Passed    0.01 sec
+        Start 146: forward_parameter_scope
+139/212 Test #146: forward_parameter_scope ...........   Passed    0.00 sec
+        Start 147: forward_parameters
+140/212 Test #147: forward_parameters ................   Passed    0.06 sec
+        Start 148: forward_unit
+141/212 Test #148: forward_unit ......................   Passed    0.15 sec
+        Start 149: guidance_execution
+142/212 Test #149: guidance_execution ................   Passed    0.00 sec
+        Start 150: heuristic_execution
+143/212 Test #150: heuristic_execution ...............   Passed    0.02 sec
+        Start 151: heuristics_reattach
+144/212 Test #151: heuristics_reattach ...............   Passed    0.00 sec
+        Start 152: independent_set_model
+145/212 Test #152: independent_set_model .............   Passed    0.00 sec
+        Start 153: inprocess_execution_signature
+146/212 Test #153: inprocess_execution_signature .....   Passed    0.03 sec
+        Start 154: inprocess_program
+147/212 Test #154: inprocess_program .................   Passed    0.01 sec
+        Start 155: inprocess_root
+148/212 Test #155: inprocess_root ....................   Passed    0.01 sec
+        Start 156: instantiate_parameters_api
+149/212 Test #156: instantiate_parameters_api ........   Passed    0.00 sec
+        Start 157: learned_sort
+150/212 Test #157: learned_sort ......................   Passed    0.03 sec
+        Start 158: local_search_guidance
+151/212 Test #158: local_search_guidance .............   Passed    0.00 sec
+        Start 159: lookup_circuit_model
+152/212 Test #159: lookup_circuit_model ..............   Passed    0.01 sec
+        Start 160: lucky_resume
+153/212 Test #160: lucky_resume ......................   Passed    0.00 sec
+        Start 161: lucky_roots
+154/212 Test #161: lucky_roots .......................   Passed    0.02 sec
+        Start 162: material_schedule
+155/212 Test #162: material_schedule .................   Passed    0.01 sec
+        Start 163: n1_public_policy
+156/212 Test #163: n1_public_policy ..................   Passed    0.01 sec
+        Start 164: native_policy_feedback
+157/212 Test #164: native_policy_feedback ............   Passed    0.36 sec
+        Start 165: occurrence_cutover
+158/212 Test #165: occurrence_cutover ................   Passed    0.01 sec
+        Start 166: online_inprocess
+159/212 Test #141: feedback_trace ....................   Passed    1.23 sec
+        Start 167: policy_action_execution
+160/212 Test #167: policy_action_execution ...........   Passed    0.00 sec
+        Start 168: policy_feedback
+161/212 Test #168: policy_feedback ...................   Passed    0.01 sec
+        Start 169: preparation_execution
+162/212 Test #169: preparation_execution .............   Passed    0.00 sec
+        Start 170: profile_execution
+163/212 Test #170: profile_execution .................   Passed    0.00 sec
+        Start 171: proof_output_failure
+164/212 Test #171: proof_output_failure ..............   Passed    0.05 sec
+        Start 172: propagation_cursor
+165/212 Test #172: propagation_cursor ................   Passed    0.03 sec
+        Start 173: random_controller_policy
+166/212 Test #140: feedback_provenance ...............   Passed    1.45 sec
+        Start 174: random_online
+167/212 Test #173: random_controller_policy ..........   Passed    0.44 sec
+        Start 175: realloc_words
+168/212 Test #175: realloc_words .....................   Passed    0.06 sec
+        Start 176: reduce_root_guidance
+169/212 Test #176: reduce_root_guidance ..............   Passed    0.01 sec
+        Start 177: reduce_root_lock
+170/212 Test #177: reduce_root_lock ..................   Passed    0.02 sec
+        Start 178: reduce_watermark
+171/212 Test #178: reduce_watermark ..................   Passed    0.02 sec
+        Start 179: replacement_cursor
+172/212 Test #179: replacement_cursor ................   Passed    0.42 sec
+        Start 180: restart_controller
+173/212 Test #180: restart_controller ................   Passed    0.01 sec
+        Start 181: root_conflict_reuse
+174/212 Test #181: root_conflict_reuse ...............   Passed    0.07 sec
+        Start 182: root_fold
+175/212 Test #182: root_fold .........................   Passed    0.04 sec
+        Start 183: root_watermark
+176/212 Test #183: root_watermark ....................   Passed    0.01 sec
+        Start 184: row_feasibility
+177/212 Test #184: row_feasibility ...................   Passed    0.21 sec
+        Start 185: sequence_followups
+178/212 Test #185: sequence_followups ................   Passed    0.01 sec
+        Start 186: shared_policy_transactions
+179/212 Test #186: shared_policy_transactions ........   Passed    0.03 sec
+        Start 187: signed_cardinality_proof
+180/212 Test #187: signed_cardinality_proof ..........   Passed    0.01 sec
+        Start 188: simon_model
+181/212 Test #188: simon_model .......................   Passed    0.01 sec
+        Start 189: startup_parity
+182/212 Test #189: startup_parity ....................   Passed    0.01 sec
+        Start 190: startup_support_signature
+183/212 Test #190: startup_support_signature .........   Passed    0.01 sec
+        Start 191: stconn_proof
+184/212 Test #191: stconn_proof ......................   Passed    0.01 sec
+        Start 192: structured_handoff
+185/212 Test #192: structured_handoff ................   Passed    0.02 sec
+        Start 193: substitute_collapse
+186/212 Test #193: substitute_collapse ...............   Passed    0.18 sec
+        Start 194: substitute_execution
+187/212 Test #194: substitute_execution ..............   Passed    0.00 sec
+        Start 195: substitute_publication
+188/212 Test #195: substitute_publication ............   Passed    0.01 sec
+        Start 196: substitute_retry
+189/212 Test #196: substitute_retry ..................   Passed    0.03 sec
+        Start 197: subsume_material
+190/212 Test #197: subsume_material ..................   Passed    0.00 sec
+        Start 198: sweep_cursor
+191/212 Test #198: sweep_cursor ......................   Passed    0.11 sec
+        Start 199: sweep_retained
+192/212 Test #199: sweep_retained ....................   Passed    0.01 sec
+        Start 200: sweep_small_env
+193/212 Test #174: random_online .....................   Passed    1.66 sec
+        Start 201: unwatch_fixed
+194/212 Test #200: sweep_small_env ...................   Passed    0.01 sec
+        Start 202: vivify_binary_retry
+195/212 Test #201: unwatch_fixed .....................   Passed    0.03 sec
+        Start 203: vivify_compact_contract
+196/212 Test #202: vivify_binary_retry ...............   Passed    0.03 sec
+        Start 204: vivify_count_cache
+197/212 Test #129: connected_occurrence ..............   Passed    4.21 sec
+        Start 205: vivify_max
+198/212 Test #205: vivify_max ........................   Passed    0.06 sec
+        Start 206: vivify_order_contract
+199/212 Test #206: vivify_order_contract .............   Passed    0.92 sec
+        Start 207: vivify_parameters
+200/212 Test #207: vivify_parameters .................   Passed    0.01 sec
+        Start 208: watch_pair
+201/212 Test #208: watch_pair ........................   Passed    0.01 sec
+        Start 209: work_execution
+202/212 Test #209: work_execution ....................   Passed    0.00 sec
+        Start 210: demo1_dpll
+203/212 Test #210: demo1_dpll ........................   Passed    0.00 sec
+        Start 211: demo2_no_restarts
+204/212 Test #211: demo2_no_restarts .................   Passed    0.01 sec
+        Start 212: demo3_scripted_default
+205/212 Test #166: online_inprocess ..................   Passed    6.26 sec
+206/212 Test #204: vivify_count_cache ................   Passed    4.05 sec
+207/212 Test #203: vivify_compact_contract ...........   Passed   11.74 sec
+208/212 Test  #66: micro_proofs ......................   Passed   40.64 sec
+209/212 Test  #74: feedback_frontend .................   Passed   98.91 sec
+210/212 Test  #28: symmetry_backend ..................   Passed  191.00 sec
+211/212 Test  #57: lucky .............................   Passed  800.37 sec
+212/212 Test #212: demo3_scripted_default ............   Passed  15186.45 sec
+
+100% tests passed out of 212
+
+Total Test time (real) = 15213.98 sec
+Verified 984 binary/support pins

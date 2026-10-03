@@ -1,0 +1,14 @@
+{
+  "schema": "tactix-generated-ctest-whitespace-preservation-v1",
+  "original_bytes_preserved": true,
+  "exception_paths": [
+    "benchmarks/reports/2026-10-03-shared-policy-full-debug-accepted/junit.xml",
+    "benchmarks/reports/2026-10-03-shared-policy-full-debug-accepted/tests.json"
+  ],
+  "diagnostic_count": 436,
+  "reason": "Generated CTest exports preserve exact original bytes. All staged authored files and other evidence pass git diff --cached --check; only these exact raw exports are excluded from that whitespace check.",
+  "source_copy_sha256": {
+    "junit.xml": "2ae336071984b50ae00cf2fbdd2b9f0f64d37244bd067786883f028e6341bad0",
+    "tests.json": "1677b5e84069bb8b66f0fb6c5bf7950edc7075cc8d6eece44ea5fa163f031749"
+  }
+}

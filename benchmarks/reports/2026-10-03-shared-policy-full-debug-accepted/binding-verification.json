@@ -1,0 +1,12 @@
+{
+  "schema": "tactix-debug-terminal-binding-verification-v1",
+  "observed_at_utc": "2026-10-03T08:07:44.087274+00:00",
+  "manifest_bindings": 984,
+  "verified_before": true,
+  "verified_after": true,
+  "scheduler_log_verification_markers": 2,
+  "current_parent_reverification": 984,
+  "root_source_bindings": 795,
+  "root_source_provenance": "PIN.json source_sha256: all795 entries match submitted manifest and current reverified files",
+  "scope": "Exact Debug snapshot; no fuzz acceptance or universal architecture claim inferred."
+}

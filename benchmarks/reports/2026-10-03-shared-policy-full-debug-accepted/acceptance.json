@@ -1,0 +1,18 @@
+{
+  "registered": 212,
+  "executed": 212,
+  "passed": 212,
+  "failed": 0,
+  "errors": 0,
+  "skipped": 0,
+  "disabled": 0,
+  "failed_names": [],
+  "error_names": [],
+  "skipped_names": [],
+  "tests_accepted": true,
+  "ctest_exit": "0",
+  "scheduler_state": "COMPLETED",
+  "scheduler_exit": "0:0",
+  "accepted": true,
+  "scope": "Exact test completion and terminal exits only; not pin verification or whole-goal acceptance."
+}
