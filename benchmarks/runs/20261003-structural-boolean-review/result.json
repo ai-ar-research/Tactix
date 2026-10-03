@@ -1,0 +1,136 @@
+{
+  "scope": "Static scan and fixed microcontrols; no target solver/proof run or performance claim",
+  "input": "benchmarks/cache/tierD24-26/d8225a58e2ca7c2fb93c533f406c02d5-abw-K-dwt__234.mtx-w50.cnf.xz",
+  "input_sha256": "30ff5b99bc373ab5486789be475e7e7a984dd72a58e437304a3344f4004e58eb",
+  "clause_widths": {
+    "1": 15970,
+    "2": 123867,
+    "3": 38259,
+    "117": 117
+  },
+  "certified_fragment": {
+    "source_clause_occurrences": [
+      59,
+      60,
+      61,
+      62
+    ],
+    "clauses": [
+      [
+        -49,
+        -50
+      ],
+      [
+        49,
+        50,
+        13739
+      ],
+      [
+        49,
+        -50,
+        -13739
+      ],
+      [
+        -49,
+        -13739
+      ]
+    ],
+    "models": [
+      {
+        "49": false,
+        "50": false,
+        "13739": true
+      },
+      {
+        "49": false,
+        "50": true,
+        "13739": false
+      },
+      {
+        "49": true,
+        "50": false,
+        "13739": false
+      }
+    ],
+    "meaning": "13739 iff neither 49 nor 50; fragment also forbids selecting both",
+    "proposed_constraint": [
+      -50,
+      -13739
+    ],
+    "rup_parent_order": [
+      59,
+      61
+    ],
+    "already_explicit": false,
+    "limitation": "Only this fragment is certified here; no claim that all rows are permutations or all interval gates match"
+  },
+  "heuristic_countermodel": {
+    "clauses": [
+      [
+        1,
+        5,
+        9,
+        13
+      ],
+      [
+        2,
+        6,
+        10,
+        14
+      ],
+      [
+        3,
+        7,
+        11,
+        15
+      ],
+      [
+        4,
+        8,
+        12,
+        16
+      ],
+      [
+        -3,
+        -7
+      ],
+      [
+        -7,
+        -11
+      ],
+      [
+        -4,
+        -8
+      ],
+      [
+        -8,
+        -12
+      ]
+    ],
+    "model": {
+      "1": false,
+      "2": false,
+      "3": false,
+      "4": false,
+      "5": false,
+      "6": false,
+      "7": false,
+      "8": false,
+      "9": false,
+      "10": false,
+      "11": false,
+      "12": false,
+      "13": true,
+      "14": true,
+      "15": true,
+      "16": true
+    },
+    "row_counts": [
+      0,
+      0,
+      0,
+      4
+    ],
+    "consequence": "Heuristic rectangle/edge recognition does not certify per-row exactly-one"
+  }
+}
