@@ -51,9 +51,10 @@ does not establish superiority beyond the virtual portfolio.
    Use structural recognition and explicit applicability, never filename/rank
    dispatch, hardcoded answers or external solver stages. Share clauses, root
    assignments, learned information, reconstruction and heuristic state with CDCL.
-3. Add or extend native passes, certified proof rules, model constructors and
-   local-search procedures. Prefer useful intermediate consequences and
-   guidance as well as complete solutions; expose eligible actions to both
+3. Assess certified Boolean reasoning for each technique before choosing its
+   implementation form, following the mechanism review below. Add or extend
+   native passes, proof rules, constructors or local search as justified;
+   expose useful intermediate consequences, guidance and eligible actions to both
    DefaultPolicy and the random controller through shared typed execution.
 4. Establish proof/model feasibility and a bounded mechanism review before
    implementation. Integrate one complete increment at a time, with faithful
@@ -135,6 +136,21 @@ budget is introduced. Direct guidance and Walk seeding need separate attribution
 
 ## SAT/UNSAT reasoning and proof production
 
+For every imported technique, first assess useful implied constraints, certified
+auxiliary definitions and symmetry breaking that strengthen continuing CDCL.
+Local search is not the presumed implementation. Distinguish model-preserving
+consequences, conservative extensions with model projection, and restrictions
+requiring their own satisfiability-preservation proof. Chosen assignments are not implied facts.
+
+Explain whether the advantage comes from deductions, representation, coordinated
+choices or a combination. Consider selective/lazy consequences; Boolean encoding
+alone does not establish efficient search. Assess generation effort, formula growth, propagation,
+memory, proof/checking cost and checked SAT/UNSAT outcomes. Share structural
+recognition between certified reasoning and constructive guidance where useful.
+Retain construction when its assignment-finding advantage warrants it; compare
+reasoning, construction and combinations in bounded experiments when uncertain.
+Preserve checked candidate gains while assessing alternatives.
+
 Investigate LymphoSAT's constructive/local-search SAT techniques and its UNSAT
 reasoning together. Candidates include equivalence-chain, XOR/parity, Tseitin
 and counting mechanisms identified by the existing
@@ -204,7 +220,11 @@ For symmetry, include learned/checker-retained clauses and earlier breaking;
 for guidance, test private seeding, saved/best preservation, target supersession,
 fixed/retired/new variables, and unsupported phase profiles without hidden override.
 Keep B28+C5, Rank1–50, WV100 and WV2–89 as regression gates for accepted increments;
-retain exact ceilings, memory/coverage exceptions and bounded checking from plan §8.4:
+rerun all four for behavior-changing integrations, including Boolean constraints,
+auxiliary variables and scheduling changes. Acceptance covers the intended
+enabled DefaultPolicy configuration; passing with a new mechanism disabled
+establishes compatibility only, not its performance acceptance.
+Retain exact ceilings, memory/coverage exceptions and bounded checking from plan §8.4:
 1,800 seconds for the whole pipeline and at most `max(30% of baseline,20s)`
 extra completed check time. This regression exception never verifies a target.
 
