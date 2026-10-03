@@ -1,0 +1,8 @@
+{
+  "scope": "Rejected helper-ID reuse after clause cleanup",
+  "canonical_passed": true,
+  "all_addition_cake_passed": true,
+  "forward_drat_passed": false,
+  "failure_line_reported": 523,
+  "next_action": "Retire clauses but keep monotonically increasing proof helper IDs; bind live allocator before integration"
+}

@@ -218,6 +218,10 @@ template <class Sink> class Certificate {
   bool emitted_empty_ = false;
   bool started_ = false;
   bool completed_ = false;
+  bool export_started_ = false;
+  bool exported_ = false;
+  bool retirement_started_ = false;
+  bool retired_ = false;
   uint32_t variables_;
 
   bool erase(const Clauses &clauses) {
@@ -383,7 +387,7 @@ public:
   // The caller owns the width choice, live installation, and helper retirement.
   bool export_small_consequence(uint32_t maximum_width, Clauses &output) {
     output.clear();
-    if (!completed_ || emitted_empty_ || maximum_width > 4)
+    if (!completed_ || emitted_empty_ || export_started_ || maximum_width > 4)
       return false;
     std::array<External, 4> residue{};
     uint32_t size = 0;
@@ -395,8 +399,11 @@ public:
         return false;
       residue[size++] = leaf;
     }
-    if (!size)
+    export_started_ = true;
+    if (!size) {
+      exported_ = true;
       return true; // 0 = 0 has no clauses.
+    }
     Clauses premises = current_unit_;
     for (const Clauses &definition : definitions_)
       premises.insert(premises.end(), definition.begin(), definition.end());
@@ -408,6 +415,36 @@ public:
         return false;
       output.push_back(kept);
     }
+    exported_ = true;
+    return true;
+  }
+
+  // Retire clauses only, never the variable namespace: some checkers retain
+  // deleted helper-unit assignments. The caller must keep fresh IDs monotone.
+  // Retire only after a complete export. Original-variable units are retained:
+  // deleting one by content could erase the exported unit as well. No helper
+  // appears in an exported clause. Once retirement starts, failed sinks cannot
+  // be retried or reported safe; the caller must handle proof-output failure.
+  bool retire_helpers() {
+    if (retirement_started_)
+      return retired_;
+    if (!exported_)
+      return false;
+    retirement_started_ = true;
+    for (const SmallClause &unit : current_unit_) {
+      assert(unit.size == 1);
+      const External lit = unit.lits[0];
+      const uint32_t variable = static_cast<uint32_t>(lit < 0 ? -lit : lit);
+      if (variable > variables_ && !sink_.erase(unit))
+        return false;
+    }
+    for (const Clauses &definition : definitions_)
+      if (!erase(definition))
+        return false;
+    current_unit_.clear();
+    for (Clauses &definition : definitions_)
+      definition.clear();
+    retired_ = true;
     return true;
   }
 };

@@ -1,0 +1,18 @@
+{
+  "command": [
+    "/cm/local/apps/gcc/13.1.0/bin/c++",
+    "-std=c++20",
+    "-Wall",
+    "-Wextra",
+    "-I/home/hwu/SAT-solving/src",
+    "benchmarks/runs/20261003-parity-helper-retirement-monotone/native.cpp",
+    "/home/hwu/SAT-solving/build/pin-winner-graph-probe-d85b30b4-01/CMakeFiles/tactix_lib.dir/src/proof/proof.cpp.o",
+    "-o",
+    "/home/hwu/SAT-solving/build/pin-parity-helper-retirement-6792bdb7-02/native"
+  ],
+  "proof_object_sha256": "3cf4fe03110e8b0337160d27abb539209f60f3f27f8c34a98bff16889f662474",
+  "source_sha256": "b6e1a77b6fded5caa92cf8f81c00af2015ae80d5109c7c7b4032aa068e7707a3",
+  "binary_sha256": "db749cc68ac05464565220034232f9664eb63b5572958a63c3754a0cf39259f7",
+  "proof_source_sha256": "df0a7ede7b004eb604d3b0c3d57ec912c5e559184bc69c5849519616023fc944",
+  "proof_header_sha256": "6dee2f204b8781ff842d1d6b2bc1c8f1b8c021f18c888ba67441af9b8b213fa9"
+}
