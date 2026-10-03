@@ -7,7 +7,7 @@ Status and next actions belong to PROGRESS.md; controller contracts to controlle
 ## Objective and fixed targets
 
 The ultimate goal is to solve substantially more than the virtual portfolio of **LymphoSAT, Satsuma+Kissat, Kissat-sc2024 and AE-Kissat-MAB combined**.
-Integrate useful techniques into continuing solver state, improving algorithms and composition beyond references where useful.
+**Primary technical goal:** translate non-Boolean theory/structural information into compact Boolean constraints and new auxiliary variables that expose reusable reasoning to continuing CDCL on both SAT and UNSAT. Refactor existing SAT-only integrations as well as missing techniques; compact formula and proof representations, not merely successful model construction, are the intended outcome.
 Performance and learning readiness are joint acceptance criteria: every capability serves DefaultPolicy, random and future learned selection.
 Parity is intermediate; each increment respects N1–N4 under plan §1.1 and retains formal T4/T5 targets.
 Use the owning API/proof/parity checks and ledger; no blanket N1–N4 pass is claimed.
