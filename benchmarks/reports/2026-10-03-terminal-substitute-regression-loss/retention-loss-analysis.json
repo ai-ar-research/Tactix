@@ -1,0 +1,62 @@
+{
+  "schema": "tactix-snw16-retention-loss-saved-evidence-v1",
+  "source_commit": "375b621ba6677600f3e77bf8383af25d256d7b67",
+  "observed_at_utc": "2026-10-03T04:34:40.169086+00:00",
+  "candidate_source": "benchmarks/runs/20261002-shared-feedback-375b621b-wv100/results/095.json",
+  "candidate_sha256": "bb661ae22c52cf3aca306088cc382f60ef26738a84eff485524fa8f6eafbaf00",
+  "predecessor_source": "benchmarks/runs/20261002-shared-feedback-f6f01982-wv100/results/095.json",
+  "predecessor_sha256": "fdc47e7f0229d1c7e8199dad654f5d07281d78bb43deb19b692d51b4958d2d83",
+  "full_work_correspondence": false,
+  "completed_selected_inprocess_work_equal": {
+    "warmup": true,
+    "denseocc": true,
+    "vivify": true,
+    "vivify2": true,
+    "vivify3": true,
+    "backbone": true,
+    "transitive": true,
+    "substitute": true,
+    "sweep": true,
+    "sweepdiag": true,
+    "sweepflip": true,
+    "sweepback": true,
+    "sweepcost": true,
+    "sweepemit": true,
+    "sweepsched": true,
+    "binprop": true,
+    "inprocess": true,
+    "conggates": true,
+    "congruence": true,
+    "congy1": true,
+    "retired": true,
+    "factor": true,
+    "factor-rem": true,
+    "factor-bnd": true,
+    "factor-dem": true,
+    "bve": true,
+    "bve-bwd": true,
+    "bve-gates": true,
+    "bve-def": true,
+    "walk": true,
+    "subsume": true,
+    "strengthen": true
+  },
+  "candidate_timeout_seconds": 1200.005,
+  "predecessor_complete_seconds": 1008.042,
+  "inprocess_slot_seconds": {
+    "candidate": 293.898,
+    "predecessor": 246.544
+  },
+  "vivify_seconds": {
+    "candidate": 181.88,
+    "predecessor": 141.963
+  },
+  "candidate_hardware_perf_statistics_missing": true,
+  "page_fault_or_cpu_attribution": "Not established: candidate terminal hardware counters missing.",
+  "hypotheses": [
+    "Cross-window placement/contention/unit-cost variation",
+    "Current-pin instruction/layout cost or trajectory effect not ruled out by censored final search"
+  ],
+  "diagnostic_job": 1747087,
+  "diagnostic_scope": "One ordered predecessor/current pair under original1200s caps, same12CPU/32768MiB allocation, independent completed models/proofs; originalfailedgate preserved."
+}
