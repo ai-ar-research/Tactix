@@ -1,0 +1,22 @@
+{
+  "policy_paths_verified": true,
+  "random_seed": 16,
+  "logical_id": 102789,
+  "additions": 87413,
+  "case": 1,
+  "array": "1747971",
+  "job": "1747973",
+  "command": [
+    "/home/hwu/SAT-solving/build/pin-ramsey-policy-fb174175-debug-01/probe",
+    "/home/hwu/SAT-solving/benchmarks/runs/20261003-ramsey-recognized-certificate-v2/case-1/original.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20261003-ramsey-policy-paths/case-1/policy"
+  ],
+  "seconds": 8.034617830067873,
+  "certificate_sha256": {
+    "policy-default.dsr": "cbac706a69613a450e0d05fb75eab526a92daebad663344b47f968e7860bcb83",
+    "policy-default-replay.dsr": "cbac706a69613a450e0d05fb75eab526a92daebad663344b47f968e7860bcb83",
+    "policy-random.dsr": "cbac706a69613a450e0d05fb75eab526a92daebad663344b47f968e7860bcb83",
+    "policy-random-replay.dsr": "cbac706a69613a450e0d05fb75eab526a92daebad663344b47f968e7860bcb83"
+  },
+  "scope": "Both actual policy loops, no-proof namespace parity, deterministic feedback replay and random choice replay; byte equality to independent prior checks, no new checker run"
+}
