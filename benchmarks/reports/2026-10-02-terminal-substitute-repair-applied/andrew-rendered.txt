@@ -1,0 +1,49 @@
+Tactix: terminal Substitute repair applied
+Tactix Development Project
+October 2, 2026
+
+The validated four-file repair is now applied to the root checkout. It restores Substitute’s owned
+watch representation before public return, including a rewrite refutation. Shared execution and
+feedback preparation remain unaccepted pending validation of fresh final-source pins.
+
+Implementation
+The canonical single-round path no longer exempts UNSAT from owned-session restoration. The
+shared batch path breaks to its existing final cleanup instead of returning early. Callers that entered
+with disconnected watches retain their cleanup ownership. Restoration rebuilds the physical watch
+image; an inconsistent kernel returns UNSAT before further reasoning. Two regression files cover
+single-round/batch ownership and the reported corpus-009 sequence at controller seed 2032000128
+under full and ranked-prefix retention.
+This implements the existing public-boundary contract. It adds no scheduling, allowance, guard,
+proof-vocabulary, rollback, fallback or reward decision. Root hashes exactly match the staged
+proposal; whitespace validation passes.
+
+Evidence and scope
+Old-pin full Debug job 1746628 completed with scheduler exit 0:0 and CTest exit zero. All 212
+registered tests passed with no failure, error, skip or disabled test; exact JUnit names match the
+frozen registry. CTest took 15,232.35 seconds, including 15,203.54 seconds for the scripted/default
+demo. Job postflight and parent pre-application verification passed all 984 bindings. Only then
+were 795 root source bindings released and the proposal applied.
+Staged jobs 1746784 and 1746788 establish causal rejection on original code, seven positive
+focused tests, and eight independently checked original/patched certificates against the original
+CNF. Paired certificates and counters are identical. These controls concern one retained refutation
+and do not replace final-pin full-suite, fuzz or performance acceptance. The prior Claude campaign
+remains NOT ACCEPTED; its report is preserved. Parent access stayed within terminal deliveries
+and the bounded failure handoff.
+
+Next steps and retained limits
+Freeze new Debug and Release pins. Complete full Debug; Claude-owned campaigns of at least
+100,000 fresh seeds per policy plus corpus and complete targeted coverage; B28+C5, Rank 1–50,
+WV100 and WV2–89 default regressions; and feedback purity/overhead measurement. Require
+separate fresh, fixed-control, corpus and targeted accounting. Regression proof checking retains the
+
+1
+
+1,800-second whole pipeline cap and the baseline plus max(30%, 20 seconds) slowdown allowance.
+Censored certificates are not independently verified.
+O6 scalar reward choices, formal Tier-D targets and existing checker issues remain separate. No
+frozen artifact was changed, cleanup performed, unrelated job cancelled or change pushed. See the
+application evidence and staged causal evidence in benchmarks/reports/.
+
+2
+
+

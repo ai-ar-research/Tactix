@@ -69,7 +69,7 @@ static void test_session(bool borrowed, uint32_t cap, bool continue_rounds) {
   kernel_check_invariants(k);
 }
 
-static void test_refutation_does_not_reconnect(bool borrowed) {
+static void test_refutation_before_disconnection(bool borrowed) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
@@ -99,11 +99,47 @@ static void test_refutation_does_not_reconnect(bool borrowed) {
   assert(k.large_watches_connected == connected_at_publication);
 }
 
+
+// A rewrite can refute after dropping large watches: equivalence collapses
+// the two large clauses to opposite units. Owned single-round and batch calls
+// restore their watch session; an enclosing disconnected caller retains it.
+static void test_rewrite_refutation_restores_owned_session(bool batch, bool borrowed) {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  kernel_add_binary_clause(k, internalize(-1), internalize(2));
+  kernel_add_binary_clause(k, internalize(-2), internalize(1));
+  const Lit a[] = {internalize(1), internalize(2), internalize(3)};
+  const Lit b[] = {internalize(-1), internalize(-2), internalize(3)};
+  kernel_add_large_clause(k, a, 3, false, 0);
+  kernel_add_large_clause(k, b, 3, false, 0);
+  kernel_assign_unit(k, internalize(-3));
+  if (borrowed) kernel_drop_large_watches(k);
+  if (batch) {
+    unsigned published = 0, advised = 0;
+    const auto out = execute_action(k, SubstituteBatchRequest{2}, [] { return 0; },
+        [&](size_t) { ++published; assert(!k.large_watches_connected); },
+        [&](int, ApplyResult result) {
+          ++advised;
+          assert(result == ApplyResult::Unsat);
+          return true; // Terminal cleanup overrides permissive continuation.
+        });
+    assert(out.result == ApplyResult::Unsat && out.rounds == 1);
+    assert(published == 1 && advised == 1);
+    assert(out.reconnected == !borrowed);
+  } else {
+    assert(execute_action(k, SubstituteRoundRequest{}) == ApplyResult::Unsat);
+  }
+  assert(k.inconsistent && k.large_watches_connected == !borrowed);
+}
+
 int main() {
   for (bool borrowed : {false, true})
     for (uint32_t cap : {0u, 1u, 2u})
       for (bool more : {false, true})
         test_session(borrowed, cap, more);
   for (bool borrowed : {false, true})
-    test_refutation_does_not_reconnect(borrowed);
+    test_refutation_before_disconnection(borrowed);
+  for (bool batch : {false, true})
+    for (bool borrowed : {false, true})
+      test_rewrite_refutation_restores_owned_session(batch, borrowed);
 }

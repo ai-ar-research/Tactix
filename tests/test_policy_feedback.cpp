@@ -1,5 +1,7 @@
 #undef NDEBUG
 #include "policies/random_controller_policy.hpp"
+#include "frontend/parse.hpp"
+#include "proof/proof.hpp"
 #include "policies/ops/rephase/rephase.hpp"
 #include "rules/propagate/propagate.hpp"
 
@@ -252,10 +254,59 @@ static void test_native_effort_and_interruption() {
   controller.finish_feedback(0);
 }
 
+
+// Retained corpus 009 with the owner-reported seed refutes at Substitute,
+// after BVE and LocalSearchGuidance. Neither action nor session-end callbacks
+// may observe the round's temporary disconnected watch representation.
+static void test_terminal_substitute_publication() {
+  for (bool reuse : {false, true}) {
+    Kernel k;
+    Proof proof;
+    assert(proof.open("/dev/null", ProofFormat::DsrAscii));
+    k.proof = &proof;
+    proof.bind_variable_map(&k.internal_to_external);
+    proof.bind_external_variable_map(&k.external_to_internal);
+    FILE *input = std::tmpfile();
+    assert(input);
+    std::fputs("p cnf 5 11\n-3 1 0\n-3 2 0\n3 -1 -2 0\n"
+               "-4 1 0\n-4 2 0\n4 -1 -2 0\n-5 3 0\n-5 4 0\n"
+               "5 -3 -4 0\n5 3 0\n-5 -3 0\n", input);
+    std::rewind(input);
+    assert(!parse_dimacs(input, k));
+    std::fclose(input);
+    struct TerminalReceiver final : FeedbackReceiver {
+      Kernel &kernel;
+      unsigned refutations = 0, ended = 0;
+      explicit TerminalReceiver(Kernel &k) : kernel(k) {}
+      void after_action(const ActionFeedback &record) override {
+        assert(kernel.large_watches_connected);
+        if (record.identity == "Substitute" &&
+            record.outcome.invocation.rule_result == ApplyResult::Unsat)
+          ++refutations;
+      }
+      void search_interval(const SearchIntervalFeedback &) override {
+        assert(kernel.large_watches_connected);
+      }
+      void session_end(const Observation &, int verdict, StopReason reason) override {
+        assert(kernel.large_watches_connected);
+        assert(verdict == 20 && reason == StopReason::Unsat);
+        ++ended;
+      }
+    } receiver(k);
+    RandomControllerConfig config;
+    config.reuse_search_trail = reuse;
+    RandomControllerPolicy policy(2032000128, config, nullptr, nullptr, &receiver);
+    assert(policy.solve(k) == 20);
+    assert(receiver.refutations == 1 && receiver.ended == 1);
+    assert(k.large_watches_connected);
+  }
+}
+
 int main() {
   test_disabled_and_read_only();
   test_outcomes_and_intervals();
   test_selection_and_terminal();
   test_stop_and_execution_error();
   test_native_effort_and_interruption();
+  test_terminal_substitute_publication();
 }

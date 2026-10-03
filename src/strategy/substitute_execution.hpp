@@ -58,7 +58,7 @@ SubstituteBatchResult execute_action(Kernel &k,
     const bool more = advise(before, current);
     if (current == ApplyResult::Unsat) {
       out.result = current;
-      return out;
+      break; // An owned disconnected session still needs its final restoration.
     }
     if (current == ApplyResult::Ok)
       out.result = current;
