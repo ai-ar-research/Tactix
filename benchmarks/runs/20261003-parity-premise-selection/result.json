@@ -1,0 +1,135 @@
+{
+  "scope": "Fixed clause-backed XOR recognition/selection/proof pipeline; no live action or target acceptance",
+  "commands": [
+    {
+      "name": "test_parity_premises-compile",
+      "command": [
+        "/cm/local/apps/gcc/13.1.0/bin/c++",
+        "-std=c++20",
+        "-Wall",
+        "-Wextra",
+        "-I/home/hwu/SAT-solving/src",
+        "/home/hwu/SAT-solving/tests/test_parity_premises.cpp",
+        "-o",
+        "/home/hwu/SAT-solving/build/pin-parity-premise-selection-426832f4-01/test_parity_premises"
+      ],
+      "returncode": 0,
+      "status": null
+    },
+    {
+      "name": "test_parity_premises",
+      "command": [
+        "/home/hwu/SAT-solving/build/pin-parity-premise-selection-426832f4-01/test_parity_premises"
+      ],
+      "returncode": 0,
+      "status": null
+    },
+    {
+      "name": "test_parity_selection-compile",
+      "command": [
+        "/cm/local/apps/gcc/13.1.0/bin/c++",
+        "-std=c++20",
+        "-Wall",
+        "-Wextra",
+        "-I/home/hwu/SAT-solving/src",
+        "/home/hwu/SAT-solving/tests/test_parity_selection.cpp",
+        "-o",
+        "/home/hwu/SAT-solving/build/pin-parity-premise-selection-426832f4-01/test_parity_selection"
+      ],
+      "returncode": 0,
+      "status": null
+    },
+    {
+      "name": "test_parity_selection",
+      "command": [
+        "/home/hwu/SAT-solving/build/pin-parity-premise-selection-426832f4-01/test_parity_selection"
+      ],
+      "returncode": 0,
+      "status": null
+    },
+    {
+      "name": "probe-compile",
+      "command": [
+        "/cm/local/apps/gcc/13.1.0/bin/c++",
+        "-std=c++20",
+        "-Wall",
+        "-Wextra",
+        "-I/home/hwu/SAT-solving/src",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-parity-premise-selection/probe.cpp",
+        "-o",
+        "/home/hwu/SAT-solving/build/pin-parity-premise-selection-426832f4-01/probe"
+      ],
+      "returncode": 0,
+      "status": null
+    },
+    {
+      "name": "probe",
+      "command": [
+        "/home/hwu/SAT-solving/build/pin-parity-premise-selection-426832f4-01/probe",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-parity-premise-selection/audit.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-parity-premise-selection/proof.dsr",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-parity-premise-selection/premises.jsonl"
+      ],
+      "returncode": 0,
+      "status": null
+    },
+    {
+      "name": "elaborate",
+      "command": [
+        "/cm/local/apps/python3/bin/python3",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-parity-nonterminal-module/elaborate.py",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-parity-premise-selection/audit.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-parity-premise-selection/proof.dsr",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-parity-premise-selection/proof.lrat"
+      ],
+      "returncode": 0,
+      "status": null
+    },
+    {
+      "name": "all-addition",
+      "command": [
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-ramsey-degree-dsr-feasibility/checkers/cake_lpr",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-parity-premise-selection/audit.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-parity-premise-selection/proof.lrat"
+      ],
+      "returncode": 0,
+      "status": "verified"
+    },
+    {
+      "name": "forward",
+      "command": [
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-ramsey-degree-dsr-feasibility/checkers/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-parity-premise-selection/audit.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-parity-premise-selection/canonical/proof.drat",
+        "-f"
+      ],
+      "returncode": 0,
+      "status": "verified"
+    },
+    {
+      "name": "negative",
+      "command": [
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-ramsey-degree-dsr-feasibility/checkers/cake_lpr",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-parity-premise-selection/audit.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-parity-premise-selection/invalid.lrat"
+      ],
+      "returncode": 0,
+      "status": "rejected"
+    }
+  ],
+  "canonical_verified": true,
+  "proof_bytes": 7086,
+  "bindings": {
+    "src/rules/lucky/parity_premises.hpp": "ca596e08b084e4a352bb4ea2d1c7f151ec6350d9f26064d597f1176dae8d789b",
+    "src/rules/lucky/parity_selection.hpp": "a9614f50582d81cfa261347b40f0fbb08b6887cacdf7f62df798ed9b8259fd8e",
+    "src/rules/lucky/parity_certificate.hpp": "cce8d6fcb5113b622a290c95a040ddedda00b723c8d2b2c25b1c1918767b2e8d",
+    "tests/test_parity_premises.cpp": "9d4e5b0aa9d68862ae6e4f3304490b8e703c0dbc6156e7a71dc16b37428236e4",
+    "tests/test_parity_selection.cpp": "ab1674c833f0abd1a7b51a788712f010d609b74ede1b4784d3d59b2252cd9660",
+    "benchmarks/runs/20261003-parity-premise-selection/run.py": "23d03397b678b3c01596a2e38e801d163ae1b234fb5fb4b5d64b3fe2857df634",
+    "benchmarks/runs/20261003-parity-premise-selection/probe.cpp": "8f39c5c87eef02dcbdbdf85048f07170ec42272a223ce02c076722c10eb196e0",
+    "benchmarks/runs/20261003-parity-nonterminal-module/elaborate.py": "e65a3bbb5fd03e8806eb55e35ab01324cf72a5abacbe6c65e02d3923a57cbee5",
+    "benchmarks/runs/20261003-ramsey-degree-dsr-feasibility/checkers/cake_lpr": "ab9dc6c43ad0f55bbaf336c5d898919ddb03d0bdb75e88dff48237fb06ba1f57",
+    "benchmarks/runs/20261003-ramsey-degree-dsr-feasibility/checkers/drat-trim": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+    "build/pin-parity-premise-selection-426832f4-01/probe": "050ae2fc8ca473c6760a5f8387f6ce41c32b0f62740057a57c3081da555098f8"
+  }
+}
