@@ -1,0 +1,14 @@
+{
+  "parent": "benchmarks/runs/20261003-ramsey-recognized-certificate-v2",
+  "binary": "build/pin-ramsey-recognized-dsr-8ff48dd1-01/probe",
+  "reason": "Parent negative generator prefix aliased its corrupt input: no intended recognition evidence from those three counts. Preserve original artifacts and repair only affected controls.",
+  "bindings": {
+    "build/pin-ramsey-recognized-dsr-8ff48dd1-01/probe": "75e3b7b2a8ef825cac0ca16fed84b539c91bcf32e5aa496280ff1a354decff96",
+    "benchmarks/runs/20261003-ramsey-recognition-negative-repair/run.py": "21ed213eed66a88c8e8cb0aa14cab5e79b6203c5b9f6c64e140b0a3493ee27be",
+    "benchmarks/runs/20261003-ramsey-recognition-negative-repair/job.sh": "38ced5e1015763ab4cf0620e2681617c4b19358d8ca61e2ff328a1c919502f03",
+    "benchmarks/runs/20261003-ramsey-recognized-certificate-v2/manifest.json": "4de7326d19b341d90a4fc436b677901eaa4d2c8758232b6bfdcc8f61e8c0c7c0",
+    "benchmarks/runs/20261003-ramsey-recognized-certificate-v2/case-0/original.cnf": "9c8ddd5ad86590ef636f46a61ecf4732abf42dadee70fd2be3c0783c08e7160f",
+    "benchmarks/runs/20261003-ramsey-recognized-certificate-v2/case-1/original.cnf": "57b8b132b63789f2bb899ff5e9116ed5272d75f66f3227faf976c64f00c8cd7f",
+    "benchmarks/runs/20261003-ramsey-recognized-certificate-v2/case-2/original.cnf": "5d370ec7884b99f57423491a738966d66cbcd7979ada47185c062195b073c6cc"
+  }
+}

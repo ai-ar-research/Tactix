@@ -1,0 +1,132 @@
+{
+  "job": "1747738",
+  "scope": "Corrected admission controls only; does not rerun positive certificates",
+  "controls": [
+    {
+      "case": 0,
+      "corruption": "missing",
+      "command": [
+        "/home/hwu/SAT-solving/build/pin-ramsey-recognized-dsr-8ff48dd1-01/probe",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-ramsey-recognition-negative-repair/0-missing/output",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-ramsey-recognition-negative-repair/0-missing/input.cnf"
+      ],
+      "input_sha256": "317d0133b7bd0f5cabc326333744d2afacd0cc385cf4edcbce3896083812344e",
+      "input_preserved": true,
+      "copied_input_equal": true,
+      "exit": 2,
+      "proof_absent": true
+    },
+    {
+      "case": 0,
+      "corruption": "duplicate",
+      "command": [
+        "/home/hwu/SAT-solving/build/pin-ramsey-recognized-dsr-8ff48dd1-01/probe",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-ramsey-recognition-negative-repair/0-duplicate/output",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-ramsey-recognition-negative-repair/0-duplicate/input.cnf"
+      ],
+      "input_sha256": "6c6806d98d396c5aed24942fbcc9af17eb851d42f85344378b64817371f4a1b7",
+      "input_preserved": true,
+      "copied_input_equal": true,
+      "exit": 2,
+      "proof_absent": true
+    },
+    {
+      "case": 0,
+      "corruption": "sign",
+      "command": [
+        "/home/hwu/SAT-solving/build/pin-ramsey-recognized-dsr-8ff48dd1-01/probe",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-ramsey-recognition-negative-repair/0-sign/output",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-ramsey-recognition-negative-repair/0-sign/input.cnf"
+      ],
+      "input_sha256": "007934eaa1e010baae55433d167fd9c4628770e46d4ed1ffdc2335255cb0c679",
+      "input_preserved": true,
+      "copied_input_equal": true,
+      "exit": 2,
+      "proof_absent": true
+    },
+    {
+      "case": 1,
+      "corruption": "missing",
+      "command": [
+        "/home/hwu/SAT-solving/build/pin-ramsey-recognized-dsr-8ff48dd1-01/probe",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-ramsey-recognition-negative-repair/1-missing/output",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-ramsey-recognition-negative-repair/1-missing/input.cnf"
+      ],
+      "input_sha256": "6de3ec602d756a1280c493345bec3ca3f0cbf6cf471d53b5055feaa3ddd1ec3a",
+      "input_preserved": true,
+      "copied_input_equal": true,
+      "exit": 2,
+      "proof_absent": true
+    },
+    {
+      "case": 1,
+      "corruption": "duplicate",
+      "command": [
+        "/home/hwu/SAT-solving/build/pin-ramsey-recognized-dsr-8ff48dd1-01/probe",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-ramsey-recognition-negative-repair/1-duplicate/output",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-ramsey-recognition-negative-repair/1-duplicate/input.cnf"
+      ],
+      "input_sha256": "7b97e323104cb947a5587289363f03506166dc58be5a6771e9cfa13b1004e5ea",
+      "input_preserved": true,
+      "copied_input_equal": true,
+      "exit": 2,
+      "proof_absent": true
+    },
+    {
+      "case": 1,
+      "corruption": "sign",
+      "command": [
+        "/home/hwu/SAT-solving/build/pin-ramsey-recognized-dsr-8ff48dd1-01/probe",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-ramsey-recognition-negative-repair/1-sign/output",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-ramsey-recognition-negative-repair/1-sign/input.cnf"
+      ],
+      "input_sha256": "7d4cf60f65c9dcc39bd034871dcdc34e37a37e775df3fb599dbfda3fbb212a21",
+      "input_preserved": true,
+      "copied_input_equal": true,
+      "exit": 2,
+      "proof_absent": true
+    },
+    {
+      "case": 2,
+      "corruption": "missing",
+      "command": [
+        "/home/hwu/SAT-solving/build/pin-ramsey-recognized-dsr-8ff48dd1-01/probe",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-ramsey-recognition-negative-repair/2-missing/output",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-ramsey-recognition-negative-repair/2-missing/input.cnf"
+      ],
+      "input_sha256": "28788727cd68b1086926ddce949401f711497bc9bc6f0af9512fab4792f83d11",
+      "input_preserved": true,
+      "copied_input_equal": true,
+      "exit": 2,
+      "proof_absent": true
+    },
+    {
+      "case": 2,
+      "corruption": "duplicate",
+      "command": [
+        "/home/hwu/SAT-solving/build/pin-ramsey-recognized-dsr-8ff48dd1-01/probe",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-ramsey-recognition-negative-repair/2-duplicate/output",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-ramsey-recognition-negative-repair/2-duplicate/input.cnf"
+      ],
+      "input_sha256": "db5965bb3449706c9ea237dd4946a09c117e6f14ed9bd33bb421828ab5f8338f",
+      "input_preserved": true,
+      "copied_input_equal": true,
+      "exit": 2,
+      "proof_absent": true
+    },
+    {
+      "case": 2,
+      "corruption": "sign",
+      "command": [
+        "/home/hwu/SAT-solving/build/pin-ramsey-recognized-dsr-8ff48dd1-01/probe",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-ramsey-recognition-negative-repair/2-sign/output",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-ramsey-recognition-negative-repair/2-sign/input.cnf"
+      ],
+      "input_sha256": "65744df29df9521e2355511713471cec3c2ee302a77afba351c6a8687476104e",
+      "input_preserved": true,
+      "copied_input_equal": true,
+      "exit": 2,
+      "proof_absent": true
+    }
+  ]
+}

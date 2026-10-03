@@ -1,0 +1,6 @@
+{
+  "job": "1747729",
+  "state": "all three tasks CANCELLED while pending",
+  "reason": "Replace initialization-failing unit-CNF negative with six-clause satisfiable fixture; require exact backward and forward semantic rejection messages.",
+  "replacement": "benchmarks/runs/20261003-ramsey-recognized-certificate-v2"
+}

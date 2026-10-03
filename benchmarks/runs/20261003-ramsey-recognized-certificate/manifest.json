@@ -1,0 +1,38 @@
+{
+  "created_utc": "2026-10-03T22:20:04.117958+00:00",
+  "scope": "Recognized full Ramsey DSR under signed/sparse renaming; isolated proof-engine integration, not public action or regression gate",
+  "binary": "build/pin-ramsey-recognized-dsr-8ff48dd1-01/probe",
+  "input": "benchmarks/cache/tierD24-26/847c8843ee292b9b31f0c346574af260-ramsey_4_4_19.normalised.cnf.xz",
+  "cases": [
+    {
+      "variant": "original",
+      "vertices": 19
+    },
+    {
+      "variant": "signed-sparse",
+      "vertices": 19,
+      "seed": 941630
+    },
+    {
+      "variant": "signed-sparse",
+      "vertices": 18,
+      "seed": 941631
+    }
+  ],
+  "generator_seconds": 300,
+  "canonical_pipeline_seconds": 1800,
+  "every_lemma_pipeline_seconds": 1800,
+  "wall_minutes": 70,
+  "bindings": {
+    "build/pin-ramsey-recognized-dsr-8ff48dd1-01/manifest.json": "9ae6d932b5184079becf06a90ba2f4b97647c15bf15f7f454435c13a0490f36b",
+    "build/pin-ramsey-recognized-dsr-8ff48dd1-01/probe": "75e3b7b2a8ef825cac0ca16fed84b539c91bcf32e5aa496280ff1a354decff96",
+    "benchmarks/runs/20261003-ramsey-recognized-certificate/run.py": "0f95622a92422befd17cad2b1f0a3f5a38bbdf6cb1d88f4a213e99b956bbbbee",
+    "benchmarks/runs/20261003-ramsey-recognized-certificate/job.sh": "e4545bc4fb2613441078e26d7d9b98433122a5c22084bd31fc9330204972a401",
+    "benchmarks/cache/tierD24-26/847c8843ee292b9b31f0c346574af260-ramsey_4_4_19.normalised.cnf.xz": "4b08084266ffd1cda075b3942bc7e83d334fd6b5f23fa0c839da8b2b4351e08e",
+    "tools/bench/proof_oracle.py": "020bfcef6f4382e9b3136442a253bb7eb4fcfa1091be9d692ddd438161a3b8b2",
+    "benchmarks/runs/20261003-ramsey-r44-compact-dsr-feasibility/manifest.json": "60ccb1d39fb9f423982511d826dfdfa3247f8b53f2375699ec3abcc4d3ea9c0a",
+    "benchmarks/runs/20261003-ramsey-recognized-certificate/checkers/srcheck": "19bf79f49e293bb0df82b1e4ec82ec45987c2791864598bada12525ef41a2945",
+    "benchmarks/runs/20261003-ramsey-recognized-certificate/checkers/dsr-compress": "6bc416a0df73f16911a0b16d85aa4bed4d15e4915d309407ff1e80b07d19d676",
+    "benchmarks/runs/20261003-ramsey-recognized-certificate/checkers/dsr-trim": "3b5c773706dc4695f08115ce862e991bfa2e44e3388df80f40ae8b0823dfbdee"
+  }
+}
