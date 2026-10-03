@@ -1,0 +1,29 @@
+{
+  "removed": [
+    {
+      "path": "benchmarks/runs/20261003-permutation-cover-count-scaling/n32/matrix.cnf",
+      "bytes": 192168,
+      "sha256": "2bc7921d441f4c07e3694567a63ecf308912865ada2b09ff8af2f798072d4b27",
+      "reason": "Regenerable synthetic input; terminal count-only task, no proof or downstream reference"
+    },
+    {
+      "path": "benchmarks/runs/20261003-permutation-cover-count-scaling/n8/matrix.cnf",
+      "bytes": 2429,
+      "sha256": "2d4abc627ec50d9ff3d9db8b4e3fa99c8f43d6e91ba2e3b032cde6ac01e9e16b",
+      "reason": "Regenerable synthetic input; terminal count-only task, no proof or downstream reference"
+    },
+    {
+      "path": "benchmarks/runs/20261003-permutation-cover-count-scaling/n117/matrix.cnf",
+      "bytes": 11487088,
+      "sha256": "a1be225e25277f8b05510b64ed8bb17ede027e07c42acd8d25b23c549522d568",
+      "reason": "Regenerable synthetic input; terminal count-only task, no proof or downstream reference"
+    },
+    {
+      "path": "benchmarks/runs/20261003-permutation-cover-count-scaling/n16/matrix.cnf",
+      "bytes": 22470,
+      "sha256": "2e44d0d04f54e29aabd03c23faeee0cecec3e2824b062f2ad9e422298df113f7",
+      "reason": "Regenerable synthetic input; terminal count-only task, no proof or downstream reference"
+    }
+  ],
+  "bytes": 11704155
+}
