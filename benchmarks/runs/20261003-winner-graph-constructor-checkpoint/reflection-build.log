@@ -1,0 +1,78 @@
+[  0%] Built target tactix_symmetry_backend
+[  0%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/lucky/graph_labeling_model.cpp.o
+In file included from /home/hwu/SAT-solving/src/rules/lucky/graph_labeling_repair.hpp:3,
+                 from /home/hwu/SAT-solving/src/rules/lucky/graph_labeling_model.cpp:4:
+/home/hwu/SAT-solving/src/rules/lucky/graph_labeling_search.hpp: In instantiation of ‘bool tactix::graph_labeling::score_labels(const Shape&, const std::vector<unsigned int>&, Charge&, Score&) [with Charge = tactix::graph_labeling_model_apply(Kernel&)::<lambda(Stage)>::<lambda(uint64_t)>; Score = std::pair<long unsigned int, long unsigned int>]’:
+/home/hwu/SAT-solving/src/rules/lucky/graph_labeling_search.hpp:146:28:   required from ‘bool tactix::graph_labeling::order_seeds(const Shape&, Charge&&, Candidate&, uint32_t&) [with Charge = tactix::graph_labeling_model_apply(Kernel&)::<lambda(Stage)>::<lambda(uint64_t)>&; uint32_t = unsigned int]’
+/home/hwu/SAT-solving/src/rules/lucky/graph_labeling_model.cpp:75:20:   required from here
+/home/hwu/SAT-solving/src/rules/lucky/graph_labeling_search.hpp:98:19: warning: loop variable ‘<structured bindings>’ creates a copy from type ‘const std::pair<unsigned int, unsigned int>’ [-Wrange-loop-construct]
+   98 |   for (const auto [a, b] : shape.edges) {
+      |                   ^~~~~~
+/home/hwu/SAT-solving/src/rules/lucky/graph_labeling_search.hpp:98:19: note: use reference type to prevent copying
+   98 |   for (const auto [a, b] : shape.edges) {
+      |                   ^~~~~~
+      |                   &
+[ 94%] Built target tactix_lib
+[100%] Building CXX object tests/CMakeFiles/test_graph_labeling_search.dir/test_graph_labeling_search.cpp.o
+In file included from /home/hwu/SAT-solving/tests/test_graph_labeling_search.cpp:2:
+/home/hwu/SAT-solving/src/rules/lucky/graph_labeling_search.hpp: In instantiation of ‘bool tactix::graph_labeling::score_labels(const Shape&, const std::vector<unsigned int>&, Charge&, Score&) [with Charge = const main()::<lambda(uint64_t)>; Score = std::pair<long unsigned int, long unsigned int>]’:
+/home/hwu/SAT-solving/src/rules/lucky/graph_labeling_search.hpp:146:28:   required from ‘bool tactix::graph_labeling::order_seeds(const Shape&, Charge&&, Candidate&, uint32_t&) [with Charge = const main()::<lambda(uint64_t)>&; uint32_t = unsigned int]’
+/home/hwu/SAT-solving/tests/test_graph_labeling_search.cpp:77:5:   required from here
+/home/hwu/SAT-solving/src/rules/lucky/graph_labeling_search.hpp:98:19: warning: loop variable ‘<structured bindings>’ creates a copy from type ‘const std::pair<unsigned int, unsigned int>’ [-Wrange-loop-construct]
+   98 |   for (const auto [a, b] : shape.edges) {
+      |                   ^~~~~~
+/home/hwu/SAT-solving/src/rules/lucky/graph_labeling_search.hpp:98:19: note: use reference type to prevent copying
+   98 |   for (const auto [a, b] : shape.edges) {
+      |                   ^~~~~~
+      |                   &
+/home/hwu/SAT-solving/src/rules/lucky/graph_labeling_search.hpp: In instantiation of ‘bool tactix::graph_labeling::score_labels(const Shape&, const std::vector<unsigned int>&, Charge&, Score&) [with Charge = const main()::<lambda(uint64_t)>; Score = std::pair<long unsigned int, long unsigned int>]’:
+/home/hwu/SAT-solving/src/rules/lucky/graph_labeling_search.hpp:226:28:   required from ‘tactix::graph_labeling::WindowStatus tactix::graph_labeling::window_search(const Shape&, const WindowLimits&, Charge&&, Candidate&, uint64_t&) [with Charge = const main()::<lambda(uint64_t)>&; uint64_t = long unsigned int]’
+/home/hwu/SAT-solving/tests/test_graph_labeling_search.cpp:94:38:   required from here
+/home/hwu/SAT-solving/src/rules/lucky/graph_labeling_search.hpp:98:19: warning: loop variable ‘<structured bindings>’ creates a copy from type ‘const std::pair<unsigned int, unsigned int>’ [-Wrange-loop-construct]
+/home/hwu/SAT-solving/src/rules/lucky/graph_labeling_search.hpp:98:19: note: use reference type to prevent copying
+   98 |   for (const auto [a, b] : shape.edges) {
+      |                   ^~~~~~
+      |                   &
+/home/hwu/SAT-solving/src/rules/lucky/graph_labeling_search.hpp: In instantiation of ‘bool tactix::graph_labeling::score_labels(const Shape&, const std::vector<unsigned int>&, Charge&, Score&) [with Charge = const main()::<lambda(uint64_t)>; Score = std::pair<long unsigned int, long unsigned int>]’:
+/home/hwu/SAT-solving/src/rules/lucky/graph_labeling_search.hpp:226:28:   required from ‘tactix::graph_labeling::WindowStatus tactix::graph_labeling::window_search(const Shape&, const WindowLimits&, Charge&&, Candidate&, uint64_t&) [with Charge = const main()::<lambda(uint64_t)>&; uint64_t = long unsigned int]’
+/home/hwu/SAT-solving/tests/test_graph_labeling_search.cpp:104:7:   required from here
+/home/hwu/SAT-solving/src/rules/lucky/graph_labeling_search.hpp:98:19: warning: loop variable ‘<structured bindings>’ creates a copy from type ‘const std::pair<unsigned int, unsigned int>’ [-Wrange-loop-construct]
+/home/hwu/SAT-solving/src/rules/lucky/graph_labeling_search.hpp:98:19: note: use reference type to prevent copying
+   98 |   for (const auto [a, b] : shape.edges) {
+      |                   ^~~~~~
+      |                   &
+/home/hwu/SAT-solving/src/rules/lucky/graph_labeling_search.hpp: In instantiation of ‘bool tactix::graph_labeling::score_labels(const Shape&, const std::vector<unsigned int>&, Charge&, Score&) [with Charge = const main()::<lambda(uint64_t)>; Score = std::pair<long unsigned int, long unsigned int>]’:
+/home/hwu/SAT-solving/src/rules/lucky/graph_labeling_search.hpp:226:28:   required from ‘tactix::graph_labeling::WindowStatus tactix::graph_labeling::window_search(const Shape&, const WindowLimits&, Charge&&, Candidate&, uint64_t&) [with Charge = const main()::<lambda(uint64_t)>&; uint64_t = long unsigned int]’
+/home/hwu/SAT-solving/tests/test_graph_labeling_search.cpp:113:9:   required from here
+/home/hwu/SAT-solving/src/rules/lucky/graph_labeling_search.hpp:98:19: warning: loop variable ‘<structured bindings>’ creates a copy from type ‘const std::pair<unsigned int, unsigned int>’ [-Wrange-loop-construct]
+/home/hwu/SAT-solving/src/rules/lucky/graph_labeling_search.hpp:98:19: note: use reference type to prevent copying
+   98 |   for (const auto [a, b] : shape.edges) {
+      |                   ^~~~~~
+      |                   &
+/home/hwu/SAT-solving/src/rules/lucky/graph_labeling_search.hpp: In instantiation of ‘bool tactix::graph_labeling::score_labels(const Shape&, const std::vector<unsigned int>&, Charge&, Score&) [with Charge = const main()::<lambda(uint64_t)>; Score = std::pair<long unsigned int, long unsigned int>]’:
+/home/hwu/SAT-solving/src/rules/lucky/graph_labeling_search.hpp:146:28:   required from ‘bool tactix::graph_labeling::order_seeds(const Shape&, Charge&&, Candidate&, uint32_t&) [with Charge = const main()::<lambda(uint64_t)>&; uint32_t = unsigned int]’
+/home/hwu/SAT-solving/tests/test_graph_labeling_search.cpp:130:7:   required from here
+/home/hwu/SAT-solving/src/rules/lucky/graph_labeling_search.hpp:98:19: warning: loop variable ‘<structured bindings>’ creates a copy from type ‘const std::pair<unsigned int, unsigned int>’ [-Wrange-loop-construct]
+/home/hwu/SAT-solving/src/rules/lucky/graph_labeling_search.hpp:98:19: note: use reference type to prevent copying
+   98 |   for (const auto [a, b] : shape.edges) {
+      |                   ^~~~~~
+      |                   &
+[100%] Linking CXX executable test_graph_labeling_search
+[100%] Built target test_graph_labeling_search
+[  0%] Built target tactix_symmetry_backend
+[ 94%] Built target tactix_lib
+[100%] Linking CXX executable test_graph_labeling_model
+[100%] Built target test_graph_labeling_model
+[  0%] Built target tactix_symmetry_backend
+[100%] Built target tactix_lib
+[100%] Building CXX object tests/CMakeFiles/test_graph_labeling_repair.dir/test_graph_labeling_repair.cpp.o
+[100%] Linking CXX executable test_graph_labeling_repair
+[100%] Built target test_graph_labeling_repair
+[  0%] Built target tactix_symmetry_backend
+[ 94%] Built target tactix_lib
+[100%] Linking CXX executable test_online_api
+[100%] Built target test_online_api
+[  0%] Built target tactix_symmetry_backend
+[100%] Built target tactix_lib
+[100%] Linking CXX executable test_online_inprocess
+[100%] Built target test_online_inprocess
