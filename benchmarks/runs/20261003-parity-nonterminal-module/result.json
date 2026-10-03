@@ -1,0 +1,85 @@
+{
+  "scope": "Reusable proof-only module, not a live action or target acceptance",
+  "proof_bytes": 6310,
+  "canonical_verified": true,
+  "commands": [
+    {
+      "name": "compile",
+      "command": [
+        "/cm/local/apps/gcc/13.1.0/bin/c++",
+        "-std=c++20",
+        "-Wall",
+        "-Wextra",
+        "-I/home/hwu/SAT-solving/src",
+        "/home/hwu/SAT-solving/tests/test_parity_certificate.cpp",
+        "-o",
+        "/home/hwu/SAT-solving/build/pin-parity-nonterminal-proof-c6dd5f8f-01/test"
+      ],
+      "exitcode": 0,
+      "status": null
+    },
+    {
+      "name": "test",
+      "command": [
+        "/home/hwu/SAT-solving/build/pin-parity-nonterminal-proof-c6dd5f8f-01/test",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-parity-nonterminal-module/audit.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-parity-nonterminal-module/proof.dsr"
+      ],
+      "exitcode": 0,
+      "status": null
+    },
+    {
+      "name": "elaborate",
+      "command": [
+        "/cm/local/apps/python3/bin/python3",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-parity-nonterminal-module/elaborate.py",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-parity-nonterminal-module/audit.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-parity-nonterminal-module/proof.dsr",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-parity-nonterminal-module/proof.lrat"
+      ],
+      "exitcode": 0,
+      "status": null
+    },
+    {
+      "name": "all-addition",
+      "command": [
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-ramsey-degree-dsr-feasibility/checkers/cake_lpr",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-parity-nonterminal-module/audit.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-parity-nonterminal-module/proof.lrat"
+      ],
+      "exitcode": 0,
+      "status": "verified"
+    },
+    {
+      "name": "forward",
+      "command": [
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-ramsey-degree-dsr-feasibility/checkers/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-parity-nonterminal-module/audit.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-parity-nonterminal-module/canonical/proof.drat",
+        "-f"
+      ],
+      "exitcode": 0,
+      "status": "verified"
+    },
+    {
+      "name": "negative",
+      "command": [
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-ramsey-degree-dsr-feasibility/checkers/cake_lpr",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-parity-nonterminal-module/audit.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261003-parity-nonterminal-module/invalid.lrat"
+      ],
+      "exitcode": 0,
+      "status": "rejected"
+    }
+  ],
+  "bindings": {
+    "src/rules/lucky/parity_certificate.hpp": "cce8d6fcb5113b622a290c95a040ddedda00b723c8d2b2c25b1c1918767b2e8d",
+    "src/rules/lucky/parity_refutation.cpp": "8d14c42ff111cc9294831c0d675db87fcc1550c071f85add1a9abff7b7030560",
+    "tests/test_parity_certificate.cpp": "73718ec06c3b8e553af62d9cb3bc1f97e7ab03a5a3ab974e437bb84bafa064aa",
+    "benchmarks/runs/20261003-parity-nonterminal-module/check.py": "d1e97d1f6fe4a45a14e81b12a14be81b6ed40c751a93a6dc992469849d08ed9a",
+    "benchmarks/runs/20261003-parity-nonterminal-module/elaborate.py": "e65a3bbb5fd03e8806eb55e35ab01324cf72a5abacbe6c65e02d3923a57cbee5",
+    "benchmarks/runs/20261003-ramsey-degree-dsr-feasibility/checkers/drat-trim": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+    "benchmarks/runs/20261003-ramsey-degree-dsr-feasibility/checkers/cake_lpr": "ab9dc6c43ad0f55bbaf336c5d898919ddb03d0bdb75e88dff48237fb06ba1f57"
+  },
+  "test_binary_sha256": "0b9eab741e3c8d6729740df3927855527949f1aadf424fb3bc61e81759b29bbf"
+}

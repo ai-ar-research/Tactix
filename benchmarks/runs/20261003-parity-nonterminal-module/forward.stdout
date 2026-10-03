@@ -1,0 +1,18 @@
+
+c parsing input formula with 9 variables and 20 clauses
+
+c finished parsing
+
+c start forward verification
+
+c 20 of 20 clauses in core                            
+
+c 154 of 253 lemmas in core using 490 resolution steps
+
+c 56 RAT lemmas in core; 0 redundant literals in core lemmas
+
+c optimized proofs are not supported for forward checking
+
+s VERIFIED
+
+c verification time: 0.044 seconds
