@@ -1,0 +1,3 @@
+Request keys: ['source_commit', 'scope', 'build_type', 'proof_shadow', 'source_sha256', 'pin']
+PIN keys: ['source_commit', 'scope', 'build_type', 'proof_shadow', 'source_sha256', 'pin', 'binaries', 'repair']
+Built /home/hwu/SAT-solving/build/pin-ramsey-native-e5f5d656-debug-01

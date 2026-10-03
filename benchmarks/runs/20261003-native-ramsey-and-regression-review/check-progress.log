@@ -1,0 +1,4 @@
+  note  build dirs newer than newest source: NONE  (total pin-* dirs: 124)
+  note  newest completed tier run: 20260926-163543-B-am466-split-paired
+  WARN  squeue unavailable — in-flight claim not checked
+check-progress: 0 error(s), 1 warning(s)

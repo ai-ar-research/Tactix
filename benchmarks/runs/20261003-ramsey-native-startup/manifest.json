@@ -1,0 +1,21 @@
+{
+  "parent": "benchmarks/runs/20261003-ramsey-recognized-certificate-v2",
+  "binary": "build/pin-ramsey-native-e5f5d656-02/probe",
+  "bindings": {
+    "benchmarks/runs/20261003-ramsey-native-startup/run.py": "25bd4ca841be1eca33bd994c7ef45f39714a3b5904fd7ee0d3b16163ef7532f4",
+    "benchmarks/runs/20261003-ramsey-native-startup/job.sh": "d6158e2d900c803aa3612a84a6262c02ebc9cea2a3b241d68432c9edb20ae8f3",
+    "build/pin-ramsey-native-e5f5d656-02/probe": "b8da673ce5be5dfcc057e012af18edd85f1a48d7d5398f024dded07f49b7093b",
+    "build/pin-ramsey-native-e5f5d656-02/manifest.json": "9fe67857df0d33cce9a88103c9449b32f5d4926901ae6b9effc07562fb1c3392",
+    "benchmarks/runs/20261003-ramsey-recognized-certificate-v2/collection.json": "60bbec08b743e280b0944749d4282145c537feb4b97ea3f52c70fcda1c92c6ac",
+    "benchmarks/runs/20261003-ramsey-recognized-certificate-v2/case-0/original.cnf": "9c8ddd5ad86590ef636f46a61ecf4732abf42dadee70fd2be3c0783c08e7160f",
+    "benchmarks/runs/20261003-ramsey-recognized-certificate-v2/case-0/certificate.dsr": "962261ca8cb6018c6ff0eef11d58fd6e5334bdcbd29a7ffcd98d65f9e86fe77a",
+    "benchmarks/runs/20261003-ramsey-recognized-certificate-v2/case-0/result.json": "bf80c0edece3fc6836ae491d10b4eb2aeddf9e4c910f89c9dd552dcf74663a16",
+    "benchmarks/runs/20261003-ramsey-recognized-certificate-v2/case-1/original.cnf": "57b8b132b63789f2bb899ff5e9116ed5272d75f66f3227faf976c64f00c8cd7f",
+    "benchmarks/runs/20261003-ramsey-recognized-certificate-v2/case-1/certificate.dsr": "cbac706a69613a450e0d05fb75eab526a92daebad663344b47f968e7860bcb83",
+    "benchmarks/runs/20261003-ramsey-recognized-certificate-v2/case-1/result.json": "32d8d146782fe129e5ad22f2396ebf3d961e88a1fe17792aebda200b6868bb36",
+    "benchmarks/runs/20261003-ramsey-recognized-certificate-v2/case-2/original.cnf": "5d370ec7884b99f57423491a738966d66cbcd7979ada47185c062195b073c6cc",
+    "benchmarks/runs/20261003-ramsey-recognized-certificate-v2/case-2/certificate.dsr": "2e56bc5db42bc65aac44fc1faf0290f9455387731b9633e10995ca59dede951b",
+    "benchmarks/runs/20261003-ramsey-recognized-certificate-v2/case-2/result.json": "b131d8089155c274191cb65ed862a0b4cc612d37873f42c7e7ac2e6379c4204b"
+  },
+  "scope": "Native startup admission, actual formula equality, count-only preflight, namespace reservation and action-linked streaming provenance; no public action"
+}
