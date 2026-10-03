@@ -1,0 +1,62 @@
+{
+  "scope": "Two causal removal controls and seven staged focused tests, not final candidate acceptance",
+  "root_solver_modified": false,
+  "controls": [
+    {
+      "name": "negative-substitute_execution",
+      "exit": -6,
+      "expected": "SIGABRT at watch-boundary assertion",
+      "accepted": true
+    },
+    {
+      "name": "negative-policy_feedback",
+      "exit": -6,
+      "expected": "SIGABRT at watch-boundary assertion",
+      "accepted": true
+    },
+    {
+      "name": "patched-substitute_execution",
+      "exit": 0,
+      "expected": "0",
+      "accepted": true
+    },
+    {
+      "name": "patched-policy_feedback",
+      "exit": 0,
+      "expected": "0",
+      "accepted": true
+    },
+    {
+      "name": "patched-substitute",
+      "exit": 0,
+      "expected": "0",
+      "accepted": true
+    },
+    {
+      "name": "patched-substitute_publication",
+      "exit": 0,
+      "expected": "0",
+      "accepted": true
+    },
+    {
+      "name": "patched-native_policy_feedback",
+      "exit": 0,
+      "expected": "0",
+      "accepted": true
+    },
+    {
+      "name": "patched-default_execution_signature",
+      "exit": 0,
+      "expected": "0",
+      "accepted": true
+    },
+    {
+      "name": "patched-inprocess_execution_signature",
+      "exit": 0,
+      "expected": "0",
+      "accepted": true
+    }
+  ],
+  "accepted": true,
+  "preflight_postflight_verified": true
+}

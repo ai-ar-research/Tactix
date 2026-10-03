@@ -1,0 +1,11 @@
+Verified 984 binary/support pins
+negative-substitute_execution -6 True
+negative-policy_feedback -6 True
+patched-substitute_execution 0 True
+patched-policy_feedback 0 True
+patched-substitute 0 True
+patched-substitute_publication 0 True
+patched-native_policy_feedback 0 True
+patched-default_execution_signature 0 True
+patched-inprocess_execution_signature 0 True
+Verified 984 binary/support pins

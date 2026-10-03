@@ -1,0 +1,9 @@
+Verified 984 binary/support pins
+Verified 984 binary/support pins
+{
+  "scope": "Staged causal execution/public-feedback repair; not final-pin or whole-goal acceptance.",
+  "root_solver_modified": false,
+  "all_certificate_hashes_equal": true,
+  "preflight_postflight_verified": true,
+  "accepted_within_scope": true
+}
