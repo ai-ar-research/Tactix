@@ -1,0 +1,37 @@
+{
+  "observed_at_utc": "2026-10-03T12:55:38.888473+00:00",
+  "source_commit": "375b621ba6677600f3e77bf8383af25d256d7b67",
+  "checks": {
+    "mapped_source": {
+      "bindings": 30,
+      "mismatches": []
+    },
+    "reviewed_contracts": {
+      "bindings": 12,
+      "mismatches": []
+    },
+    "project_skills": {
+      "bindings": 17,
+      "mismatches": []
+    },
+    "full_debug": {
+      "bindings": 14,
+      "mismatches": []
+    },
+    "selected_regressions": {
+      "bindings": 31,
+      "mismatches": []
+    }
+  },
+  "scope": "Current parent-owned source/contract/skill and frozen Debug/regression companion integrity only; no private owner campaign inspection or full acceptance claim.",
+  "immutable_parent_manifest": {
+    "path": "benchmarks/runs/20261002-shared-policy-feedback-375b621b-preparation/manifest.json",
+    "sha256": "3fc95f53d1c5dcd5befdbe310602603e23d1a426409c53d3c99aac43d86fa56a",
+    "bindings": 984,
+    "verified": true,
+    "command": "python3 benchmarks/runs/20261002-shared-policy-feedback-375b621b-preparation/verify.py",
+    "terminal_exit": 0,
+    "stdout": "Verified 984 binary/support pins",
+    "scope": "All parent manifest bindings rehashed after last owner job; no private owner snapshot inspection."
+  }
+}
