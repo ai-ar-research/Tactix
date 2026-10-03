@@ -1,0 +1,71 @@
+{
+  "schema": "tactix-retention-matched-diagnostic-v1",
+  "created_at": "2026-10-03T04:18:08.126071+00:00",
+  "arms": {
+    "predecessor": {
+      "path": "pins/tactix-predecessor",
+      "sha256": "6283ba9b1936e3f9a690ae1b2cd26db0f0834c3e5461cb3cbf4dc857dc2c3e8a",
+      "source_commit": "f6f01982e08bfce6a8ef6dfcde1f439ce8ef81f0",
+      "source_build": "build/pin-shared-policy-feedback-release-f6f01982",
+      "arguments": [
+        "--auto-proof"
+      ],
+      "certificate": "auto"
+    },
+    "candidate": {
+      "path": "pins/tactix-candidate",
+      "sha256": "b766be0145f7dbc9fd50c03db45ee7e2e3855933faaa84c30865064acd6337ed",
+      "source_commit": "375b621ba6677600f3e77bf8383af25d256d7b67",
+      "source_build": "build/pin-shared-policy-feedback-release-375b621b",
+      "arguments": [
+        "--auto-proof"
+      ],
+      "certificate": "auto"
+    }
+  },
+  "resource_contract": {
+    "checker_timeout": 1800,
+    "checker_timeout_overrides": {},
+    "cpus_per_task": 12,
+    "memory_mib": 32768,
+    "node_constraint": null,
+    "one_solver_per_task": true,
+    "partition": "cpu-dense-hwulab-q",
+    "proof_mode": "automatic startup PBP; solver-declared native DSR final route after no-option dsr-trim",
+    "solve_timeout": 1200,
+    "throttle": null,
+    "sequential_pairs": 1
+  },
+  "input_sha256": {
+    "tierD24-26/626c368587dd880086afc7b3fa1e6f27-snw_16_9_CCSpre.cnf.xz": "25787e9ebc8f8ade1369be66a32139eace3d6a1eda795c824806b5a8c68fd7fe"
+  },
+  "collect_runtime_context": true,
+  "scratch_policy": "anonymous-local-files-v1",
+  "failed_campaign": "benchmarks/runs/20261002-shared-feedback-375b621b-wv100",
+  "failed_row_sha256": "bb661ae22c52cf3aca306088cc382f60ef26738a84eff485524fa8f6eafbaf00",
+  "hypothesis": "Distinguish current-pin unit-cost/trajectory regression from cross-window allocation variation on the lost retained SAT row.",
+  "decision": "WV100 remains NOT ACCEPTED; no failed row discarded or resource/time/checker cap relaxed.",
+  "scope": "One ordered predecessor/candidate pair in one12CPU/32768MiB allocation, same immutable input/args/1200s cap/oracles. Diagnostic only, not a replacement complete gate. Order/cache/occupancy variability remains disclosed.",
+  "pin_sha256": {
+    "pins/drat-trim": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+    "pins/predecessor-pin.json": "1cc1bda1038fe309d62c3f986e61590515168650684302ba06827968603de203",
+    "pins/checkmodel": "5fde6bbc7be305f6b6166ef75dc4788e2cf40180317ab1ec9a38a3d6071676cf",
+    "pins/srcheck": "19bf79f49e293bb0df82b1e4ec82ec45987c2791864598bada12525ef41a2945",
+    "pins/runtime_task.py": "5c903c4fa88baec6a7c43e13eaecc211badfe1605c36674914a081571105aa5e",
+    "pins/dsr-compress": "a44102ce11162a4687450a4c3a640d27a49703072dd29802bd259676eb668d55",
+    "pins/dsr-trim": "3b5c773706dc4695f08115ce862e991bfa2e44e3388df80f40ae8b0823dfbdee",
+    "pins/cake-pb-cnf": "c859a9c926ca8c63dac3317930ea8dbe3732a6fc24faa6e28ed740fadd67dc47",
+    "pins/veripb": "2e5fa5ef07c655640e6fff0d3f41561eab1502ec2e48766cca60287625935674",
+    "pins/tactix-candidate": "b766be0145f7dbc9fd50c03db45ee7e2e3855933faaa84c30865064acd6337ed",
+    "pins/candidate-pin.json": "7b742cb2a8adce07e53d7db37952528d0bf2bc355d4384d49cd38513bbc6d5a1",
+    "pins/tactix-predecessor": "6283ba9b1936e3f9a690ae1b2cd26db0f0834c3e5461cb3cbf4dc857dc2c3e8a",
+    "pins/cake_lpr": "ab9dc6c43ad0f55bbaf336c5d898919ddb03d0bdb75e88dff48237fb06ba1f57",
+    "pins/anonymous_scratch.py": "2f5d15eb8ef19d3ea2a1b7f69a0affecaec6d469421b9bf6d8cb6c22f3888787",
+    "pins/baseline.json": "ef81cf019675a79a91ee431ab54e2c59630d9d069a03c2a55e44bd446c37bc9d",
+    "pins/proof_oracle.py": "020bfcef6f4382e9b3136442a253bb7eb4fcfa1091be9d692ddd438161a3b8b2",
+    "pins/modelcheck.py": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+    "matrix.tsv": "89e2afa20980ff372a7da891801a2bb9a78b5962de2d22f994f389aaa07a3198",
+    "job.sh": "a2014ac921131d984f7fe3277a62d18476b63ba82f4fb22091be8a8218e65dae",
+    "verify.py": "dba9ff6be54cfe56d74faa48c6b12d60eb9fc2ec2807dd376ad260826ed49d75"
+  }
+}

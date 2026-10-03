@@ -1,0 +1,36 @@
+{
+  "schema": "tactix-retention-bounded-followup-preregistration-v1",
+  "created_at_utc": "2026-10-03T04:59:32.203790+00:00",
+  "source_commit": "375b621ba6677600f3e77bf8383af25d256d7b67",
+  "first_pair_analysis": {
+    "path": "benchmarks/runs/20261003-snw16-retention-matched-diagnosis/analysis.json",
+    "sha256": "bc8230e39fb3eb040971c188345b4953516f50c4ea64c60f93295eb682d1d045"
+  },
+  "original_failed_campaign": "benchmarks/runs/20261002-shared-feedback-375b621b-wv100",
+  "original_failed_score_sha256": "268dcb01ffc9340aa2622ba5c5e6cb578ace1be5565cf36d35c8b3057d15a14b",
+  "original_gate_status": "NOT ACCEPTED; never rewritten",
+  "hypothesis": "The original lost solve may reflect cross-window unit-cost variation; first ordered pair does not show a candidate slowdown. Causation remains unproved.",
+  "recovery": {
+    "path": "benchmarks/runs/20261003-shared-feedback-375b621b-wv100-recovery",
+    "maximum_new_campaigns": 1,
+    "criterion": "Complete original100-row WV100 set, unchanged baseline/input/binary/checker/resource/cap/retention/censoring contracts; maintained scorer must accept, no missing rows or rejection. Failed original remains evidence."
+  },
+  "confirmation": {
+    "path": "benchmarks/runs/20261003-snw16-retention-reverse-diagnosis",
+    "maximum_new_pairs": 1,
+    "order": [
+      "candidate",
+      "predecessor"
+    ],
+    "criterion": "Both legs under original1200s caps, independent completed models/proofs, full work/certificate comparison and measured repeat spread. If timeout/counter divergence/material candidate slowdown occurs, investigate rather than repeat until passing."
+  },
+  "limits": [
+    "No automatic retry loop",
+    "No source or default tuning",
+    "No node constraint or array throttle",
+    "No solver/checker allowance increase",
+    "No single-row retry substituted for the full gate",
+    "No broad causal claim from one pair",
+    "No private fuzz inspection"
+  ]
+}
