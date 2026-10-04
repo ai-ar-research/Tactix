@@ -57,6 +57,10 @@ esac
     echo "error: --physical-cores must be between 1 and 96" >&2
     exit 2
 }
+# NAME becomes both a log filename component and the private artifact leg.
+# Reject shell/path punctuation before interpolating it into the batch script.
+python3 "$HERE/artifact_layout.py" "$HERE/failures" validation "$NAME" \
+    >/dev/null
 
 ALLOC_CPUS=$((PHYSICAL_CORES * THREADS_PER_CORE))
 MEM_MIB=$((PHYSICAL_CORES * MEM_MIB_PER_PHYSICAL_CORE))
@@ -79,7 +83,7 @@ PIN_FUZZ="$PIN_ROOT/fuzz"
 mkdir -p "$PIN_FUZZ"
 cp -a "$HERE/run.sh" "$HERE/fuzz.py" "$HERE/generators.py" \
       "$HERE/modelcheck.py" "$HERE/shrink.py" "$HERE/stress.py" \
-      "$HERE/controller_v5.py" "$HERE/corpus" \
+      "$HERE/controller_v5.py" "$HERE/artifact_layout.py" "$HERE/corpus" \
       "$HERE/stress-scenarios" "$PIN_FUZZ/"
 mkdir -p "$PIN_FUZZ/controls"
 cp -a "$HERE/controls/controller-v5" "$PIN_FUZZ/controls/"
@@ -163,6 +167,8 @@ cd "$ROOT"
 export TMPDIR=\$(mktemp -d /tmp/fuzz-\$SLURM_JOB_ID-XXXXXX)
 export TACTIX_REPO_ROOT="$ROOT"
 export TACTIX_FUZZ_OUTPUT_ROOT="$HERE/failures"
+export TACTIX_FUZZ_RUN_ID="slurm-\$SLURM_JOB_ID"
+export TACTIX_FUZZ_LEG_ID="$NAME"
 export TACTIX_FUZZ_REPLAY_HARNESS="$REPLAY_ROOT/fuzz"
 export TACTIX_FUZZ_HARNESS_SHA256="$HARNESS_SHA"
 if [ -f "$PIN_FUZZ/core-checkers" ]; then
