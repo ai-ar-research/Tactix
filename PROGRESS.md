@@ -30,7 +30,7 @@ rule-specific derivation and measured clausal proof/check cost establish need.
 | Certified theory actions v5 | [technical report](benchmarks/reports/2026-10-04-certified-theory-actions-v5.md) | Public GF(3)/DirectCSP consequences and random offerers implemented but unaccepted; ordinary fuzz had incomplete verdict coverage and no effective v5 reach |
 | Certified UNSAT verticals | [technical checkpoint](benchmarks/reports/2026-10-04-public-tseitin-cycle-breaking-action.md), [Andrew report](report-to-andrew/20261004T210026Z-public-tseitin-cycle-action/report.pdf) | Direct PHP is public and terminal; GF(3) has a public authenticated Gaussian batch through C v6; Tseitin X16 is public at registry 38/disabled StepId 27/C v7 tag 41 with exact `tcx2:` component replay, repeated propagated-root discovery, DSR/no-proof, random production and raw feedback. Independent fresh Debug is 10/10; ASan/UBSan action/discovery plus ASCII, binary and repeated-root DSR checks pass. Fuzz, targets and gates remain open |
 | Focused controller configuration | current checkpoint | CLI selection can enable any subset of the four native structured producers and independently restrict canonical root-action families. Both choices are replay-fingerprinted; malformed, excluded and ambiguous action collections fail closed. Focused frontend/action/API validation passes 9/9; effective campaign evidence remains open |
-| Public controller full Debug | [conformance report](benchmarks/reports/2026-10-04-public-controller-full-debug.md) | Current source passes 285/285 Debug tests in 957.60 s. Terminal Direct-PHP random programs cannot acquire a bundled follow-up; append-only Tseitin registry contracts and restored Lucky/8 lifecycle tests are synchronized. Effective both-policy fuzz, targets and gates remain open |
+| Public controller full Debug | [conformance report](benchmarks/reports/2026-10-04-public-controller-full-debug.md) | `ec7e0ac86` passes 285/285 Debug tests in 957.60 s. Terminal Direct-PHP random programs cannot acquire a bundled follow-up; append-only Tseitin registry contracts and restored Lucky/8 lifecycle tests are synchronized. Fresh immutable ASan+UBSan pin `build/pin-public-theory-ec7e0ac86-sanitize-01` passes its focused checks; effective both-policy fuzz, targets and gates remain open |
 | Naive target row-cover proof | [checker-censor report](benchmarks/reports/2026-10-04-row-cover-target-checker-censor.md) | Rejected: 6,783,269 additions and 187,733,915 bytes reached the 1,800-second checker cap |
 
 The corrected guidance fuzz jobs are terminal. Default job `1748417` found zero
@@ -52,8 +52,12 @@ then permits a fresh root-aware census. Every constraint still retains Boolean
 form, theory meaning, exact premises, parameters, mapping, proof link,
 projection/deletion state and exact effort/yield/proof cost. Native-producer and
 root-family CLI selection now makes focused reach observable without a static
-payload suppressing discovery. Next freeze a sanitizer pin and require
-Claude-owned both-policy fuzz: disabled DefaultPolicy is the zero-reach
+payload suppressing discovery. Fresh immutable sanitizer pin
+`build/pin-public-theory-ec7e0ac86-sanitize-01` binds source
+`ec7e0ac86c7afde5f7c9288d45272e2b465f1581` to binary SHA-256
+`76090ca862ba7ed07a20140289e398638966ebed8a177cdf7c059d4bcc35b6c2`.
+Its controller CLI check and Direct-PHP/random/Tseitin ASan+UBSan matrix pass.
+Require Claude-owned both-policy fuzz: disabled DefaultPolicy is the zero-reach
 compatibility control, while controller-random must show producer calls/offers
 and effective applications for every enabled structured family. The Tier-D
 preparer now records repeatable immutable solver arguments without permitting a
@@ -80,7 +84,7 @@ plus `max(30%, 20s)` completed-proof slowdown rule.
 - The [five-arm Tier-D report](benchmarks/reports/2026-10-01-tierd-five-arm-terminal-results.md) owns 986 checked Tactix solves, the 36 checker failures/146 checker timeouts, and the saved portfolio comparison.
 - The newest retained Tier-B window, [AM466 split paired](benchmarks/runs/20260926-163543-B-am466-split-paired/), predates the no-MAB checkpoint and is historical diagnostic evidence only.
 - Accepted regression references: Rank1--50 50/50 and B28+C5 33/33, with aggregate solver ceilings 8,521.52175 and 999.87615 seconds; WV100 is 99 checked plus one checker timeout, WV2--89 is 79 checked plus ten solver timeouts.
-- Full acceptance still requires current-source full Debug; B28+C5, Rank1--50, WV100, and WV2--89; both-policy fuzz with effective new-action reach; all 44 independently checked targets; and a current N1--N4 audit.
+- Current-source full Debug is satisfied at `ec7e0ac86`; full acceptance still requires B28+C5, Rank1--50, WV100, and WV2--89; both-policy fuzz with effective new-action reach; all 44 independently checked targets; and a current N1--N4 audit.
 - Formal T4-K/T4-VBS targets and universal N1--N4 verification remain unmet. The broader objective is to substantially exceed LymphoSAT, Satsuma+Kissat, Kissat-sc2024, and AE-Kissat-MAB combined.
 
 ## Recent changes
@@ -89,6 +93,8 @@ plus `max(30%, 20s)` completed-proof slowdown rule.
   append-only public registry tests; the complete Debug suite passes 285/285.
   The scripted-policy fixture retains all schedule transitions while reducing
   its externally stepped conflict path from about 75,000 to about 4,000.
+- The replacement `ec7e0ac86` ASan+UBSan pin is immutable and hash-verified;
+  the fuzz handoff rejects the superseded pre-repair pin.
 - The current controller checkpoint exposes replay-fingerprinted native-producer and root-family selection for non-vacuous focused fuzz.
 - `46a7db1cd` exposed public X16 with exact component choice, C v7, repeated-root DSR, random reach and raw feedback; `2921c784d` fixed native structured pending settlement.
 - `cd956aea` exposed the authenticated complete GF(3) Gaussian closure as public X14 with C v6, replay, random reach and raw feedback.
