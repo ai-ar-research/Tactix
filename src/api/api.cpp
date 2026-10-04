@@ -22,6 +22,7 @@
 #include "rules/semantic_extension/direct_csp_support_action.hpp"
 #include "rules/direct_php/direct_php_action.hpp"
 #include "rules/semantic_extension/gf3_gaussian_action.hpp"
+#include "rules/lucky/tseitin_cycle_action.hpp"
 #include "strategy/online_inprocess.hpp"
 
 #include <algorithm>
@@ -48,6 +49,7 @@ struct tactix_solver {
   DirectCspSupportActionSession direct_csp_support_action_session;
   DirectPhpActionSession direct_php_action_session;
   Gf3GaussianActionSession gf3_gaussian_action_session;
+  TseitinCycleBreakingSession tseitin_cycle_breaking_session;
   std::vector<Lit> scratch;
   bool input_completed = false;
   bool pending_input_proof = false;
@@ -68,6 +70,7 @@ struct tactix_solver {
         &direct_csp_support_action_session;
     kernel.direct_php_action_session = &direct_php_action_session;
     kernel.gf3_gaussian_action_session = &gf3_gaussian_action_session;
+    kernel.tseitin_cycle_breaking_session = &tseitin_cycle_breaking_session;
     // Match the CLI/reference default; rule-level fixtures using a bare Kernel
     // can still exercise the non-reuse path explicitly.
     kernel.conflict_reuse = true;
@@ -589,6 +592,27 @@ bool online_parameters(const tactix_online_parameters &source,
         p.maximum_journal_bytes, p.maximum_identity_bytes,
         p.maximum_external_extent, p.maximum_session_keys,
         p.maximum_session_work, p.maximum_session_identity_bytes};
+    if (!converted.valid()) return false;
+    target = converted;
+    return true;
+  }
+  case TACTIX_ONLINE_PARAMETERS_TSEITIN_CYCLE_BREAKING: {
+    const auto &p = source.value.tseitin_cycle_breaking;
+    strategy::TseitinCycleBreakingParameters converted{
+        p.maximum_snapshot_clauses, p.maximum_snapshot_literals,
+        p.maximum_snapshot_work, p.maximum_snapshot_variables,
+        p.maximum_discovery_work, p.maximum_discovery_clauses,
+        p.maximum_discovery_groups, p.maximum_discovery_retained_bytes,
+        p.maximum_admission_work, p.maximum_planning_work,
+        p.maximum_witness_length, p.maximum_planning_additions,
+        p.maximum_transaction_work, p.maximum_transaction_additions,
+        p.maximum_transaction_deletions, p.maximum_transaction_helpers,
+        p.maximum_transaction_witness_literals, p.maximum_validation_ticks,
+        p.maximum_components, p.maximum_identity_bytes,
+        p.maximum_total_identity_bytes, p.maximum_identity_work,
+        p.maximum_journal_bytes,
+        p.maximum_session_keys, p.maximum_session_work,
+        p.maximum_session_identity_bytes};
     if (!converted.valid()) return false;
     target = converted;
     return true;
@@ -1393,7 +1417,8 @@ bool online_program_v5(const tactix_online_program_v5 &source,
 
 bool online_program_v6(const tactix_online_program_v6 &source,
                        const Kernel &kernel,
-                       strategy::OnlineInprocessProgram &target) {
+                       strategy::OnlineInprocessProgram &target,
+                       bool validate = true) {
   if (source.step_count < 0 || (source.step_count && !source.steps))
     return false;
   std::vector<tactix_online_step_v5> base_steps;
@@ -1416,6 +1441,45 @@ bool online_program_v6(const tactix_online_program_v6 &source,
       if (!identity) return false;
       const auto *p = std::get_if<strategy::Gf3GaussianConsequenceParameters>(
           &target.sequence[i].parameters);
+      if (!p) return false;
+      const size_t maximum = static_cast<size_t>(std::min<uint64_t>(
+          p->maximum_identity_bytes, std::numeric_limits<size_t>::max() - 1));
+      const size_t length = strnlen(identity, maximum + 1);
+      if (length > maximum) return false;
+      output.emplace_back(identity, length);
+    }
+  }
+  return !validate || strategy::validate_online_strategy_program(target);
+}
+
+bool online_program_v7(const tactix_online_program_v7 &source,
+                       const Kernel &kernel,
+                       strategy::OnlineInprocessProgram &target) {
+  if (source.step_count < 0 || (source.step_count && !source.steps))
+    return false;
+  std::vector<tactix_online_step_v6> base_steps;
+  base_steps.reserve(static_cast<size_t>(source.step_count));
+  for (int i = 0; i < source.step_count; ++i)
+    base_steps.push_back(source.steps[i].base);
+  const tactix_online_program_v6 base_program = {
+      base_steps.data(), source.step_count, source.repeat_mode,
+      source.repeat_limit};
+  if (!online_program_v6(base_program, kernel, target, false)) return false;
+  for (int i = 0; i < source.step_count; ++i) {
+    const auto &input = source.steps[i];
+    if (input.tseitin_cycle_instance_count < 0 ||
+        input.tseitin_cycle_instance_count > 1 ||
+        (input.tseitin_cycle_instance_count &&
+         !input.tseitin_cycle_instances))
+      return false;
+    auto &output = target.sequence[i].tseitin_cycle_instances;
+    output.reserve(static_cast<size_t>(input.tseitin_cycle_instance_count));
+    for (int j = 0; j < input.tseitin_cycle_instance_count; ++j) {
+      const char *identity = input.tseitin_cycle_instances[j].identity;
+      if (!identity) return false;
+      const auto *p =
+          std::get_if<strategy::TseitinCycleBreakingParameters>(
+              &target.sequence[i].parameters);
       if (!p) return false;
       const size_t maximum = static_cast<size_t>(std::min<uint64_t>(
           p->maximum_identity_bytes, std::numeric_limits<size_t>::max() - 1));
@@ -2045,6 +2109,31 @@ int tactix_online_configure_v6(tactix_solver *s,
     return -1;
   strategy::OnlineInprocessProgram program;
   if (!online_program_v6(*source, s->kernel, program)) return -1;
+  std::unique_ptr<strategy::OnlineInprocessExecutor> replacement;
+  strategy::OnlineInprocessExecutor *executor = s->online.get();
+  if (!executor) {
+    replacement = std::make_unique<strategy::OnlineInprocessExecutor>();
+    executor = replacement.get();
+  }
+  const strategy::ReconfigureMode mode =
+      reconfigure_mode == TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS
+          ? strategy::ReconfigureMode::RetainMatchingStepBudgets
+          : strategy::ReconfigureMode::ResetRuntime;
+  if (!executor->configure(program, revision, mode)) return -1;
+  if (replacement) s->online = std::move(replacement);
+  input_complete(s);
+  return 0;
+}
+
+int tactix_online_configure_v7(tactix_solver *s,
+                               const tactix_online_program_v7 *source,
+                               uint64_t revision, int reconfigure_mode) {
+  if (!s || !source ||
+      (reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RESET &&
+       reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS))
+    return -1;
+  strategy::OnlineInprocessProgram program;
+  if (!online_program_v7(*source, s->kernel, program)) return -1;
   std::unique_ptr<strategy::OnlineInprocessExecutor> replacement;
   strategy::OnlineInprocessExecutor *executor = s->online.get();
   if (!executor) {

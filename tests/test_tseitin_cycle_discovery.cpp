@@ -223,6 +223,48 @@ void rejects_even_disconnected_ambiguous_and_incomplete() {
   }
 }
 
+void quarantines_ambiguity_and_enumerates_atomically() {
+  {
+    Kernel kernel = formula(odd_triangle);
+    // Both XOR right-hand sides on this disjoint scope are complete.  This
+    // region is contradictory/ambiguous, but it must not hide the clean
+    // component on variables 1..3.
+    for (int first : {-4, 4})
+      for (int second : {-5, 5})
+        kernel_add_binary_clause(kernel, internalize(first),
+                                 internalize(second),
+                                 ++kernel.next_clause_id);
+    std::vector<discovery::Plan> plans;
+    const auto result = discovery::enumerate(snapshot(kernel),
+                                             discovery_limits(), plans);
+    assert(result.discovered());
+    assert(plans.size() == 1 && plans[0].groups().size() == 3);
+    for (const auto &group : plans[0].groups())
+      for (uint32_t i = 0; i < group.certified.equation.size; ++i)
+        assert(group.certified.equation.variables[i] <= 3);
+  }
+  {
+    std::vector<Equation> equations = odd_triangle;
+    equations.insert(equations.end(),
+                     {{true, {4, 6}}, {false, {4, 5}},
+                      {false, {5, 6}}});
+    Kernel kernel = formula(equations);
+    const auto captured = snapshot(kernel);
+    std::vector<discovery::Plan> complete_plans;
+    const auto complete = discovery::enumerate(
+        captured, discovery_limits(), complete_plans);
+    assert(complete.discovered() && complete_plans.size() == 2 &&
+           complete.work > 1);
+    auto limits = discovery_limits();
+    limits.work = complete.work - 1;
+    std::vector<discovery::Plan> incomplete{{}};
+    const auto exhausted = discovery::enumerate(captured, limits, incomplete);
+    assert(exhausted.status == discovery::Status::ResourceExhausted);
+    assert(exhausted.components >= 1);
+    assert(incomplete.empty());
+  }
+}
+
 void rejects_residual_and_bad_degree() {
   {
     Kernel kernel = formula(odd_triangle);
@@ -376,6 +418,7 @@ void capture_prepare_apply_and_proof_replay() {
 int main() {
   positive_and_no_mutation();
   rejects_even_disconnected_ambiguous_and_incomplete();
+  quarantines_ambiguity_and_enumerates_atomically();
   rejects_residual_and_bad_degree();
   bounded_and_interruptible();
   deterministic_order_and_stale_plan();

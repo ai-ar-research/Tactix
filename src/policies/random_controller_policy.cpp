@@ -71,7 +71,8 @@ controller_action_availability(const Kernel &k, const RandomControllerConfig &co
               std::string_view(rule.name) == "IndependentSetCover" ||
               std::string_view(rule.name) == "Gf3AffineConsequence" ||
               std::string_view(rule.name) == "DirectCspSupport" ||
-              std::string_view(rule.name) == "Gf3GaussianConsequence") &&
+              std::string_view(rule.name) == "Gf3GaussianConsequence" ||
+              std::string_view(rule.name) == "TseitinCycleBreaking") &&
              (!config.offered_actions.contains(rule.name) ||
               config.offered_actions.at(rule.name).empty()))
       entry.reason = "structured-witness-not-offered";
@@ -105,6 +106,7 @@ static ActionParameters reference_parameters(const Kernel &k,
   CONTROLLER_REFERENCE("DirectCspSupport", direct_csp_support_reference);
   CONTROLLER_REFERENCE("DirectPhpRefutation", direct_php_refutation_reference);
   CONTROLLER_REFERENCE("Gf3GaussianConsequence", gf3_gaussian_consequence_reference);
+  CONTROLLER_REFERENCE("TseitinCycleBreaking", tseitin_cycle_breaking_reference);
   CONTROLLER_REFERENCE("SemanticVariableAdvice", semantic_variable_advice_reference);
   CONTROLLER_REFERENCE("Instantiate", instantiate_reference);
   CONTROLLER_REFERENCE("Backbone", backbone_reference);
@@ -259,6 +261,14 @@ std::string controller_configuration(const RandomControllerConfig &config) {
     profile.parameters = config.parameters.gf3_gaussian_consequence_reference;
     profile.granularity = InvocationGranularity::OneInstance;
     profile.gf3_gaussian_instances = {"g3b1:00"};
+    out << " producer " << std::quoted(profile.rule) << ' '
+        << std::quoted(serialize_online_strategy_program({{profile}, {}}));
+  }
+  if (config.tseitin_cycle_action_producer.enabled) {
+    OnlineInvocation profile;
+    profile.rule = "TseitinCycleBreaking";
+    profile.parameters = config.parameters.tseitin_cycle_breaking_reference;
+    profile.granularity = InvocationGranularity::OneInstance;
     out << " producer " << std::quoted(profile.rule) << ' '
         << std::quoted(serialize_online_strategy_program({{profile}, {}}));
   }
@@ -456,6 +466,45 @@ bool RandomControllerSelector::choose(
           observation.last_action->invocation.after;
     }
   }
+  if (tseitin_cycle_discovery_.pending && observation.last_action &&
+      observation.last_action->sequence ==
+          tseitin_cycle_discovery_.pending_sequence) {
+    const NativeSettlement settlement =
+        native_settlement(observation.last_action->invocation);
+    if (settlement == NativeSettlement::Consume) {
+      const std::string pending = *tseitin_cycle_discovery_.pending;
+      tseitin_cycle_discovery_.offers.erase(
+          std::remove(tseitin_cycle_discovery_.offers.begin(),
+                      tseitin_cycle_discovery_.offers.end(), pending),
+          tseitin_cycle_discovery_.offers.end());
+      tseitin_cycle_discovery_.pending.reset();
+      tseitin_cycle_discovery_.pending_sequence = 0;
+      tseitin_cycle_discovery_.state =
+          observation.last_action->invocation.after;
+      if (observation.last_action->invocation.made_rule_progress) {
+        tseitin_cycle_discovery_.offers.clear();
+        // The installed unit invalidates every old exact payload.  A later
+        // separately selected propagation changes the root context and may
+        // expose a newly authenticated component census.
+        tseitin_cycle_discovery_.terminal = false;
+      } else if (tseitin_cycle_discovery_.offers.empty()) {
+        tseitin_cycle_discovery_.terminal = true;
+      }
+    } else if (settlement == NativeSettlement::DiscardUntilContextChange) {
+      tseitin_cycle_discovery_.pending.reset();
+      tseitin_cycle_discovery_.offers.clear();
+      tseitin_cycle_discovery_.pending_sequence = 0;
+      tseitin_cycle_discovery_.terminal = true;
+      tseitin_cycle_discovery_.state =
+          observation.last_action->invocation.after;
+    } else if (settlement ==
+               NativeSettlement::RetainUntilReconfiguration) {
+      tseitin_cycle_discovery_.pending_sequence = 0;
+      tseitin_cycle_discovery_.reconfiguration_required = true;
+      tseitin_cycle_discovery_.state =
+          observation.last_action->invocation.after;
+    }
+  }
   std::vector<ActionProducerEffort> producer_effort;
   const auto saturated_add = [](uint64_t left, uint64_t right) {
     return right > UINT64_MAX - left ? UINT64_MAX : left + right;
@@ -526,6 +575,48 @@ bool RandomControllerSelector::choose(
         p.maximum_journal_bytes, p.maximum_identity_bytes,
         p.maximum_external_extent, p.maximum_session_keys,
         p.maximum_session_work, p.maximum_session_identity_bytes};
+  };
+
+  const auto tseitin_profile = [&] {
+    OnlineInvocation invocation;
+    invocation.rule = "TseitinCycleBreaking";
+    invocation.parameters = config.parameters.tseitin_cycle_breaking_reference;
+    invocation.granularity = InvocationGranularity::OneInstance;
+    return serialize_online_strategy_program({{invocation}, {}});
+  };
+
+  const auto tseitin_limits = [&] {
+    const auto &p = config.parameters.tseitin_cycle_breaking_reference;
+    TseitinCycleBreakingLimits result;
+    result.snapshot = {p.maximum_snapshot_clauses,
+                       p.maximum_snapshot_literals,
+                       p.maximum_snapshot_work,
+                       p.maximum_snapshot_variables, nullptr, nullptr};
+    result.discovery = {p.maximum_discovery_work,
+                        p.maximum_discovery_clauses,
+                        p.maximum_discovery_groups,
+                        4, nullptr, nullptr,
+                        p.maximum_components,
+                        p.maximum_discovery_retained_bytes};
+    result.admission = {p.maximum_admission_work, nullptr, nullptr};
+    result.planning = {p.maximum_planning_work, p.maximum_witness_length,
+                       p.maximum_planning_additions};
+    result.transaction = {p.maximum_transaction_work,
+                          p.maximum_transaction_additions,
+                          p.maximum_transaction_deletions,
+                          p.maximum_transaction_helpers,
+                          p.maximum_transaction_witness_literals,
+                          nullptr, nullptr};
+    result.maximum_validation_ticks = p.maximum_validation_ticks;
+    result.maximum_components = p.maximum_components;
+    result.maximum_identity_bytes = p.maximum_identity_bytes;
+    result.maximum_total_identity_bytes = p.maximum_total_identity_bytes;
+    result.maximum_identity_work = p.maximum_identity_work;
+    result.maximum_journal_bytes = p.maximum_journal_bytes;
+    result.maximum_session_keys = p.maximum_session_keys;
+    result.maximum_session_work = p.maximum_session_work;
+    result.maximum_session_identity_bytes = p.maximum_session_identity_bytes;
+    return result;
   };
 
   const auto discover_gf3 = [&]() -> bool {
@@ -804,7 +895,94 @@ bool RandomControllerSelector::choose(
     return true;
   };
 
-  enum class NativeOffer : uint8_t { None, Gf3, DirectCsp, Gf3Gaussian };
+  const auto discover_tseitin = [&]() -> bool {
+    if (!config.tseitin_cycle_action_producer.enabled ||
+        has_static_offer("TseitinCycleBreaking") ||
+        !k.tseitin_cycle_breaking_session)
+      return false;
+    const auto &session = *k.tseitin_cycle_breaking_session;
+    const auto profile = tseitin_profile();
+    const auto state = state_version(k);
+    const bool owner_changed = tseitin_cycle_discovery_.owner != &k ||
+                               tseitin_cycle_discovery_.session != &session;
+    const bool profile_changed =
+        tseitin_cycle_discovery_.profile != profile;
+    const bool state_or_session_changed =
+        owner_changed ||
+        !same_version(tseitin_cycle_discovery_.state, state) ||
+        tseitin_cycle_discovery_.session_keys != session.keys().size();
+    if (state_or_session_changed ||
+        (profile_changed &&
+         (!tseitin_cycle_discovery_.reconfiguration_required ||
+          !tseitin_cycle_discovery_.pending))) {
+      tseitin_cycle_discovery_ = {};
+      tseitin_cycle_discovery_.owner = &k;
+      tseitin_cycle_discovery_.session = &session;
+      tseitin_cycle_discovery_.state = state;
+      tseitin_cycle_discovery_.session_keys = session.keys().size();
+      tseitin_cycle_discovery_.profile = profile;
+    } else if (tseitin_cycle_discovery_.reconfiguration_required &&
+               profile_changed) {
+      tseitin_cycle_discovery_.state = state;
+      tseitin_cycle_discovery_.session_keys = session.keys().size();
+      tseitin_cycle_discovery_.profile = profile;
+      tseitin_cycle_discovery_.reconfiguration_required = false;
+    }
+    if (tseitin_cycle_discovery_.reconfiguration_required) return false;
+    if (tseitin_cycle_discovery_.pending ||
+        !tseitin_cycle_discovery_.offers.empty())
+      return true;
+    if (tseitin_cycle_discovery_.terminal) return false;
+    const auto limits = tseitin_limits();
+    if (!limits.valid()) {
+      error = "Tseitin cycle action producer parameters are invalid";
+      return false;
+    }
+    const auto offered =
+        tseitin_cycle_breaking_offer(k, session, limits);
+    const auto &e = offered.effort;
+    uint64_t preparation = e.snapshot_work;
+    preparation = saturated_add(preparation, e.recapture_work);
+    preparation = saturated_add(preparation, e.admission_work);
+    preparation = saturated_add(preparation, e.planning_work);
+    preparation = saturated_add(preparation, e.transaction_work);
+    preparation = saturated_add(preparation, e.validation_ticks);
+    preparation = saturated_add(preparation, e.identity_work);
+    preparation = saturated_add(preparation, e.session_work);
+    const bool complete =
+        offered.status == TseitinCycleBreakingStatus::Applied ||
+        offered.status == TseitinCycleBreakingStatus::AlreadyApplied ||
+        offered.status == TseitinCycleBreakingStatus::NoStructure;
+    producer_effort.push_back(
+        {"TseitinCycleBreaking", static_cast<uint8_t>(offered.status),
+         complete, preparation, e.discovery_work,
+         saturated_add(preparation, e.discovery_work), e.candidates,
+         offered.offers.size()});
+    if (offered.status == TseitinCycleBreakingStatus::Interrupted) {
+      tseitin_cycle_discovery_.reconfiguration_required = true;
+      error = "controller selection interrupted";
+      return false;
+    }
+    if (offered.status == TseitinCycleBreakingStatus::ResourceExhausted) {
+      tseitin_cycle_discovery_.reconfiguration_required = true;
+      return false;
+    }
+    if (offered.status != TseitinCycleBreakingStatus::Applied ||
+        offered.offers.empty()) {
+      tseitin_cycle_discovery_.terminal = true;
+      return false;
+    }
+    tseitin_cycle_discovery_.offers = offered.offers;
+    return true;
+  };
+
+  enum class NativeOffer : uint8_t {
+    None,
+    Gf3,
+    DirectCsp,
+    Gf3Gaussian,
+    TseitinCycle
+  };
   struct Eligible {
     const RuleVTable *rule = nullptr;
     NativeOffer native = NativeOffer::None;
@@ -827,6 +1005,10 @@ bool RandomControllerSelector::choose(
                discover_gaussian()) {
       eligible.push_back({&tactix_rules()[tactix_rule_id(entry.rule.c_str())],
                           NativeOffer::Gf3Gaussian});
+    } else if (entry.reason == "structured-witness-not-offered" &&
+               entry.rule == "TseitinCycleBreaking" && discover_tseitin()) {
+      eligible.push_back({&tactix_rules()[tactix_rule_id(entry.rule.c_str())],
+                          NativeOffer::TseitinCycle});
     } else if (!error.empty()) {
       return false;
     }
@@ -886,6 +1068,17 @@ bool RandomControllerSelector::choose(
       request.invocation.granularity = InvocationGranularity::OneInstance;
       request.invocation.gf3_gaussian_instances = {
           *gf3_gaussian_discovery_.pending};
+    } else if (selected_action.native == NativeOffer::TseitinCycle) {
+      if (!tseitin_cycle_discovery_.pending)
+        tseitin_cycle_discovery_.pending = tseitin_cycle_discovery_.offers[
+            draw(tseitin_cycle_discovery_.offers.size())];
+      tseitin_cycle_discovery_.pending_sequence = request.sequence;
+      request.invocation.rule = rule.name;
+      request.invocation.parameters =
+          config.parameters.tseitin_cycle_breaking_reference;
+      request.invocation.granularity = InvocationGranularity::OneInstance;
+      request.invocation.tseitin_cycle_instances = {
+          *tseitin_cycle_discovery_.pending};
     } else {
       request.invocation.rule = rule.name;
       request.invocation.parameters = reference_parameters(k, rule.name, config.parameters);

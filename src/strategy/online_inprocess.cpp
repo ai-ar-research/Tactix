@@ -137,6 +137,8 @@ bool parameter_matches(const OnlineInvocation &step) {
     return step.rule == "DirectPhpRefutation";
   if (std::holds_alternative<Gf3GaussianConsequenceParameters>(step.parameters))
     return step.rule == "Gf3GaussianConsequence";
+  if (std::holds_alternative<TseitinCycleBreakingParameters>(step.parameters))
+    return step.rule == "TseitinCycleBreaking";
   if (std::holds_alternative<SemanticVariableAdviceParameters>(step.parameters))
     return step.rule == "SemanticVariableAdvice";
   if (std::holds_alternative<CongruenceParameters>(step.parameters))
@@ -295,6 +297,40 @@ Gf3GaussianActionLimits gf3_gaussian_limits(
           p.maximum_session_work, p.maximum_session_identity_bytes};
 }
 
+TseitinCycleBreakingLimits tseitin_cycle_limits(
+    const TseitinCycleBreakingParameters &p) {
+  TseitinCycleBreakingLimits result;
+  result.snapshot = {p.maximum_snapshot_clauses,
+                     p.maximum_snapshot_literals,
+                     p.maximum_snapshot_work,
+                     p.maximum_snapshot_variables, nullptr, nullptr};
+  result.discovery = {p.maximum_discovery_work,
+                      p.maximum_discovery_clauses,
+                      p.maximum_discovery_groups,
+                      4, nullptr, nullptr,
+                      p.maximum_components,
+                      p.maximum_discovery_retained_bytes};
+  result.admission = {p.maximum_admission_work, nullptr, nullptr};
+  result.planning = {p.maximum_planning_work, p.maximum_witness_length,
+                     p.maximum_planning_additions};
+  result.transaction = {p.maximum_transaction_work,
+                        p.maximum_transaction_additions,
+                        p.maximum_transaction_deletions,
+                        p.maximum_transaction_helpers,
+                        p.maximum_transaction_witness_literals,
+                        nullptr, nullptr};
+  result.maximum_validation_ticks = p.maximum_validation_ticks;
+  result.maximum_components = p.maximum_components;
+  result.maximum_identity_bytes = p.maximum_identity_bytes;
+  result.maximum_total_identity_bytes = p.maximum_total_identity_bytes;
+  result.maximum_identity_work = p.maximum_identity_work;
+  result.maximum_journal_bytes = p.maximum_journal_bytes;
+  result.maximum_session_keys = p.maximum_session_keys;
+  result.maximum_session_work = p.maximum_session_work;
+  result.maximum_session_identity_bytes = p.maximum_session_identity_bytes;
+  return result;
+}
+
 void record_gf3_affine_feedback(Kernel &k,
                                 const Gf3AffineActionResult &result,
                                 size_t keys_before) {
@@ -424,6 +460,10 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
     if (step.rule == "DirectPhpRefutation" &&
         step.post_application != PostApplication::None)
       return reject("DirectPhpRefutation is terminal and has no follow-up");
+    if (step.rule == "TseitinCycleBreaking" &&
+        step.post_application != PostApplication::None)
+      return reject(
+          "TseitinCycleBreaking requires separately selected propagation");
     if (!valid_rule_work_budget(step.rule_work_budget))
       return reject("rule work budget is invalid");
     if (!valid_setting_override(step.material.touch_filter) ||
@@ -539,6 +579,10 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
         p && !p->valid())
       return reject("Gf3GaussianConsequence parameters are invalid");
     if (const auto *p =
+            std::get_if<TseitinCycleBreakingParameters>(&step.parameters);
+        p && !p->valid())
+      return reject("TseitinCycleBreaking parameters are invalid");
+    if (const auto *p =
             std::get_if<SemanticVariableAdviceParameters>(&step.parameters);
         p && !p->valid())
       return reject("SemanticVariableAdvice parameters are invalid");
@@ -652,6 +696,9 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
     if (!step.gf3_gaussian_instances.empty() &&
         step.rule != "Gf3GaussianConsequence")
       return reject("GF3 Gaussian identities are attached to a different rule");
+    if (!step.tseitin_cycle_instances.empty() &&
+        step.rule != "TseitinCycleBreaking")
+      return reject("Tseitin cycle identities are attached to a different rule");
     if (step.rule == "Gf3AffineConsequence" &&
         (step.gf3_affine_instances.empty() || !step.instances.empty()))
       return reject("GF3 affine action requires typed equation-pair payloads");
@@ -662,6 +709,10 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
         (step.gf3_gaussian_instances.size() != 1 || !step.instances.empty() ||
          step.granularity != InvocationGranularity::OneInstance))
       return reject("GF3 Gaussian action requires exact identity payloads");
+    if (step.rule == "TseitinCycleBreaking" &&
+        (step.tseitin_cycle_instances.size() != 1 || !step.instances.empty() ||
+         step.granularity != InvocationGranularity::OneInstance))
+      return reject("Tseitin cycle action requires one exact identity payload");
     for (const std::string &identity : step.gf3_gaussian_instances)
       if (identity.size() <= 5 || identity.rfind("g3b1:", 0) ||
           (identity.size() - 5) % 2 ||
@@ -681,6 +732,27 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
           return reject("GF3 Gaussian identity exceeds byte limits");
         bytes += identity.size();
       }
+    }
+    for (const std::string &identity : step.tseitin_cycle_instances) {
+      const size_t split = identity.find(':', 5);
+      if (identity.size() <= 7 || identity.rfind("tcx2:", 0) ||
+          split == std::string::npos || split == 5 ||
+          split + 1 == identity.size() ||
+          identity.find(':', split + 1) != std::string::npos ||
+          (split - 5) % 2 || (identity.size() - split - 1) % 2 ||
+          !std::all_of(identity.begin() + 5, identity.end(), [](char ch) {
+            return ch == ':' || (ch >= '0' && ch <= '9') ||
+                   (ch >= 'a' && ch <= 'f');
+          }))
+        return reject("Tseitin cycle identity is malformed");
+    }
+    if (!step.tseitin_cycle_instances.empty()) {
+      const auto *p =
+          std::get_if<TseitinCycleBreakingParameters>(&step.parameters);
+      if (!p) return reject("Tseitin cycle identity has no typed limits");
+      if (step.tseitin_cycle_instances.front().size() >
+          p->maximum_identity_bytes)
+        return reject("Tseitin cycle identity exceeds byte limits");
     }
     for (const auto &cover : step.independent_set_cover_instances)
       if (cover.size() < 2 || !cover.front() ||
@@ -747,7 +819,8 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
         !step.independent_set_cover_instances.empty() +
         !step.gf3_affine_instances.empty() +
         !step.direct_csp_support_instances.empty() +
-        !step.gf3_gaussian_instances.empty();
+        !step.gf3_gaussian_instances.empty() +
+        !step.tseitin_cycle_instances.empty();
     if (structured_payload_kinds && !step.instances.empty())
       return reject("scalar and structured selections cannot be mixed");
     if (structured_payload_kinds > 1)
@@ -768,7 +841,9 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
                                                                ? step.gf3_affine_instances.size()
                                                                : !step.direct_csp_support_instances.empty()
                                                                      ? step.direct_csp_support_instances.size()
-                                                                     : step.gf3_gaussian_instances.size();
+                                                                     : !step.gf3_gaussian_instances.empty()
+                                                                           ? step.gf3_gaussian_instances.size()
+                                                                           : step.tseitin_cycle_instances.size();
     switch (step.granularity) {
     case InvocationGranularity::OneInstance:
       if ((structured_payload_kinds && structured_size != 1) ||
@@ -788,7 +863,8 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
     case InvocationGranularity::CompleteCurrentPass:
       if (step.rule == "Gf3AffineConsequence" ||
           step.rule == "DirectCspSupport" ||
-          step.rule == "Gf3GaussianConsequence")
+          step.rule == "Gf3GaussianConsequence" ||
+          step.rule == "TseitinCycleBreaking")
         return reject("structured theory action requires an explicit payload");
       if (!step.instances.empty() || structured_payload_kinds)
         return reject("complete pass carries explicit payloads");
@@ -796,7 +872,8 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
     case InvocationGranularity::CanonicalApplication:
       if (step.rule == "Gf3AffineConsequence" ||
           step.rule == "DirectCspSupport" ||
-          step.rule == "Gf3GaussianConsequence")
+          step.rule == "Gf3GaussianConsequence" ||
+          step.rule == "TseitinCycleBreaking")
         return reject("structured theory action has no canonical payload");
       if (!step.instances.empty() || structured_payload_kinds)
         return reject("canonical application carries explicit payloads");
@@ -1003,7 +1080,8 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
         step.independent_set_cover_instances.empty() &&
         step.gf3_affine_instances.empty() &&
         step.direct_csp_support_instances.empty() &&
-        step.gf3_gaussian_instances.empty()) {
+        step.gf3_gaussian_instances.empty() &&
+        step.tseitin_cycle_instances.empty()) {
       runtime.selection = step.instances;
     } else {
       const size_t size = !step.factor_grids.empty()
@@ -1018,7 +1096,9 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
                                                       ? step.gf3_affine_instances.size()
                                                       : !step.direct_csp_support_instances.empty()
                                                             ? step.direct_csp_support_instances.size()
-                                                            : step.gf3_gaussian_instances.size();
+                                                            : !step.gf3_gaussian_instances.empty()
+                                                                  ? step.gf3_gaussian_instances.size()
+                                                                  : step.tseitin_cycle_instances.size();
       runtime.selection.resize(size);
       for (size_t i = 0; i < runtime.selection.size(); ++i)
         runtime.selection[i] = i;
@@ -1541,6 +1621,7 @@ InvocationResult OnlineStrategyExecutor::advance(
     std::optional<DirectCspSupportActionResult> direct_csp_application;
     std::optional<DirectPhpActionResult> direct_php_application;
     std::optional<Gf3GaussianActionResult> gf3_gaussian_application;
+    std::optional<TseitinCycleBreakingResult> tseitin_cycle_application;
     const uint64_t affine_budget_before = k.stats.affine_model_budget;
     const uint64_t affine_interrupt_before = k.stats.affine_model_interrupted;
     const uint64_t affine_unavailable_before = k.stats.affine_model_unavailable;
@@ -1615,6 +1696,7 @@ InvocationResult OnlineStrategyExecutor::advance(
           Gf3AffineConsequenceParameters, DirectCspSupportParameters,
           DirectPhpRefutationParameters,
           Gf3GaussianConsequenceParameters,
+          TseitinCycleBreakingParameters,
           SemanticVariableAdviceParameters>
           parameters(k, step.parameters);
       // Invocation-level native work limits override a rule parameter which
@@ -1679,6 +1761,20 @@ InvocationResult OnlineStrategyExecutor::advance(
                       k, *gf3_gaussian_application);
                   return gf3_gaussian_application->result;
                 })
+          : !step.tseitin_cycle_instances.empty()
+              ? apply_rule_structured_preserve_startup(
+                    rule, k, "tseitin-cycle-breaking", [&] {
+                  const auto &parameters =
+                      std::get<TseitinCycleBreakingParameters>(step.parameters);
+                  tseitin_cycle_application.emplace(
+                      tseitin_cycle_breaking_apply(
+                          k, *k.tseitin_cycle_breaking_session,
+                          tseitin_cycle_limits(parameters),
+                          step.tseitin_cycle_instances[payload]));
+                  record_tseitin_cycle_breaking_feedback(
+                      k, *tseitin_cycle_application);
+                  return tseitin_cycle_application->result;
+                    })
           : !step.independent_set_cover_instances.empty()
               ? apply_rule_structured(rule, k, "independent-set-cover", [&] {
                   independent_set_application.emplace(
@@ -1967,6 +2063,59 @@ InvocationResult OnlineStrategyExecutor::advance(
         case DirectCspSupportActionStatus::NoConsequence:
         case DirectCspSupportActionStatus::AlreadyPublished:
         case DirectCspSupportActionStatus::Applied:
+          break;
+        }
+      }
+      if (gf3_gaussian_application) {
+        switch (gf3_gaussian_application->status) {
+        case Gf3GaussianActionStatus::Invalid:
+          out.status = InvocationStatus::InvalidRequest;
+          break;
+        case Gf3GaussianActionStatus::Inapplicable:
+        case Gf3GaussianActionStatus::UnsupportedProof:
+          out.status = InvocationStatus::Inapplicable;
+          break;
+        case Gf3GaussianActionStatus::ResourceExhausted:
+          out.status = InvocationStatus::ResourceExhausted;
+          retain_theory_selection();
+          break;
+        case Gf3GaussianActionStatus::Interrupted:
+          out.status = InvocationStatus::Interrupted;
+          retain_theory_selection();
+          break;
+        case Gf3GaussianActionStatus::Stale:
+          out.status = InvocationStatus::StaleRequest;
+          break;
+        case Gf3GaussianActionStatus::NoStructure:
+        case Gf3GaussianActionStatus::NoSupportedOutcome:
+        case Gf3GaussianActionStatus::AlreadyPublished:
+        case Gf3GaussianActionStatus::Applied:
+          break;
+        }
+      }
+      if (tseitin_cycle_application) {
+        switch (tseitin_cycle_application->status) {
+        case TseitinCycleBreakingStatus::Invalid:
+          out.status = InvocationStatus::InvalidRequest;
+          break;
+        case TseitinCycleBreakingStatus::Inapplicable:
+        case TseitinCycleBreakingStatus::UnsupportedProof:
+          out.status = InvocationStatus::Inapplicable;
+          break;
+        case TseitinCycleBreakingStatus::ResourceExhausted:
+          out.status = InvocationStatus::ResourceExhausted;
+          retain_theory_selection();
+          break;
+        case TseitinCycleBreakingStatus::Interrupted:
+          out.status = InvocationStatus::Interrupted;
+          retain_theory_selection();
+          break;
+        case TseitinCycleBreakingStatus::Stale:
+          out.status = InvocationStatus::StaleRequest;
+          break;
+        case TseitinCycleBreakingStatus::NoStructure:
+        case TseitinCycleBreakingStatus::AlreadyApplied:
+        case TseitinCycleBreakingStatus::Applied:
           break;
         }
       }

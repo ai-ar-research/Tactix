@@ -409,6 +409,7 @@ int tactix_apply_semantic_instance(tactix *, int rule_id, uint64_t instance);
 #define TACTIX_ONLINE_PARAMETERS_DIRECT_CSP_SUPPORT 38
 #define TACTIX_ONLINE_PARAMETERS_DIRECT_PHP_REFUTATION 39
 #define TACTIX_ONLINE_PARAMETERS_GF3_GAUSSIAN_CONSEQUENCE 40
+#define TACTIX_ONLINE_PARAMETERS_TSEITIN_CYCLE_BREAKING 41
 #define TACTIX_ONLINE_AFFINE_CONSEQUENCE_SELECTED_V1 1
 #define TACTIX_ONLINE_AFFINE_CONSEQUENCE_CERTIFIED_BASIS_V2 2
 #define TACTIX_ONLINE_BVE_TRAVERSAL_ELIMINATE 0
@@ -638,6 +639,25 @@ typedef struct {
   uint64_t maximum_session_keys, maximum_session_work;
   uint64_t maximum_session_identity_bytes;
 } tactix_online_gf3_gaussian_consequence_parameters;
+typedef struct {
+  uint64_t maximum_snapshot_clauses, maximum_snapshot_literals;
+  uint64_t maximum_snapshot_work;
+  uint32_t maximum_snapshot_variables;
+  uint64_t maximum_discovery_work, maximum_discovery_clauses;
+  uint64_t maximum_discovery_groups;
+  /* Logical canonical payload bytes, excluding allocator/control overhead. */
+  uint64_t maximum_discovery_retained_bytes;
+  uint64_t maximum_admission_work, maximum_planning_work;
+  uint32_t maximum_witness_length, maximum_planning_additions;
+  uint64_t maximum_transaction_work, maximum_transaction_additions;
+  uint64_t maximum_transaction_deletions, maximum_transaction_helpers;
+  uint64_t maximum_transaction_witness_literals, maximum_validation_ticks;
+  uint64_t maximum_components, maximum_identity_bytes;
+  uint64_t maximum_total_identity_bytes, maximum_identity_work;
+  uint64_t maximum_journal_bytes;
+  uint64_t maximum_session_keys, maximum_session_work;
+  uint64_t maximum_session_identity_bytes;
+} tactix_online_tseitin_cycle_breaking_parameters;
 typedef struct {
   /* Advice is H-only and consumes the currently staged semantic candidate.
    * Priorities are fixed additive doses for the two semantic roles. */
@@ -1004,6 +1024,7 @@ typedef struct {
     tactix_online_direct_csp_support_parameters direct_csp_support;
     tactix_online_direct_php_refutation_parameters direct_php_refutation;
     tactix_online_gf3_gaussian_consequence_parameters gf3_gaussian_consequence;
+    tactix_online_tseitin_cycle_breaking_parameters tseitin_cycle_breaking;
     tactix_online_semantic_variable_advice_parameters semantic_variable_advice;
     tactix_online_instantiate_parameters instantiate;
     tactix_online_backbone_parameters backbone;
@@ -1180,6 +1201,23 @@ typedef struct {
   uint64_t repeat_limit;
 } tactix_online_program_v6;
 
+/* Additive v7 payload for one selected authenticated Tseitin cycle-breaking
+ * component. The tcx2 identity is deep-copied during configuration. */
+typedef struct {
+  const char *identity;
+} tactix_online_tseitin_cycle_instance;
+typedef struct {
+  tactix_online_step_v6 base;
+  const tactix_online_tseitin_cycle_instance *tseitin_cycle_instances;
+  int tseitin_cycle_instance_count;
+} tactix_online_step_v7;
+typedef struct {
+  const tactix_online_step_v7 *steps;
+  int step_count;
+  int repeat_mode;
+  uint64_t repeat_limit;
+} tactix_online_program_v7;
+
 #define TACTIX_ONLINE_COMPLETED 0
 #define TACTIX_ONLINE_SCOPED_FIXPOINT 1
 #define TACTIX_ONLINE_NO_CHANGE 2
@@ -1219,6 +1257,8 @@ int tactix_online_configure_v4(tactix *, const tactix_online_program_v4 *,
 int tactix_online_configure_v5(tactix *, const tactix_online_program_v5 *,
                                uint64_t revision, int reconfigure_mode);
 int tactix_online_configure_v6(tactix *, const tactix_online_program_v6 *,
+                               uint64_t revision, int reconfigure_mode);
+int tactix_online_configure_v7(tactix *, const tactix_online_program_v7 *,
                                uint64_t revision, int reconfigure_mode);
 int tactix_online_advance(tactix *, tactix_online_result *);
 uint64_t tactix_online_step_consumed(tactix *, uint64_t step_id);

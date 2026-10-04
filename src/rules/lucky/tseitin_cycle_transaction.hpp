@@ -112,6 +112,9 @@ struct TransactionResult {
   TransactionStatus status = TransactionStatus::Declined;
   TransactionReason reason = TransactionReason::None;
   uint64_t work = 0;
+  uint64_t admission_work = 0;
+  uint64_t planning_work = 0;
+  uint64_t transaction_work = 0;
   // Populated atomically only for Ready.
   ProofTransaction transaction;
   bool ready() const { return status == TransactionStatus::Ready; }

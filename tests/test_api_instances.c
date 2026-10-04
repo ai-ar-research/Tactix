@@ -21,7 +21,8 @@ static const char *const NO_SURFACE[] = {"Propagate", "SubstitutionRedundancy",
                                          "Gf3AffineConsequence",
                                          "DirectCspSupport",
                                          "DirectPhpRefutation",
-                                         "Gf3GaussianConsequence"};
+                                         "Gf3GaussianConsequence",
+                                         "TseitinCycleBreaking"};
 
 /* Entries whose enumeration is exactly the canonical sentinel: an
  * `apply_instance` with nothing to choose between. Joining or leaving this set
@@ -38,7 +39,8 @@ static const char *const CANONICAL_ONLY[] = {"Congruence", "Propagate",
                                              "Gf3AffineConsequence",
                                              "DirectCspSupport",
                                              "DirectPhpRefutation",
-                                             "Gf3GaussianConsequence"};
+                                             "Gf3GaussianConsequence",
+                                             "TseitinCycleBreaking"};
 
 static int in_list(const char *const *list, size_t n, const char *name) {
   size_t i;
@@ -134,6 +136,7 @@ static tactix *prepare(int id) {
       !strcmp(name, "Gf3AffineConsequence") ||
       !strcmp(name, "DirectCspSupport") ||
       !strcmp(name, "Gf3GaussianConsequence") ||
+      !strcmp(name, "TseitinCycleBreaking") ||
       !strcmp(name, "SemanticVariableAdvice")) {
     structural_records = tmpfile(); assert(structural_records);
     assert(tactix_bind_structural_provenance(s, structural_records) == 0);
@@ -260,6 +263,12 @@ static void drive(tactix *s, int id) {
     return;
   }
   if (!strcmp(name, "Gf3GaussianConsequence")) {
+    const int count = tactix_rule_instances(s, id, insts, NINST);
+    assert(count == 1 && insts[0] == TACTIX_INSTANCE_CANONICAL);
+    hit_structured[id] = 1;
+    return;
+  }
+  if (!strcmp(name, "TseitinCycleBreaking")) {
     const int count = tactix_rule_instances(s, id, insts, NINST);
     assert(count == 1 && insts[0] == TACTIX_INSTANCE_CANONICAL);
     hit_structured[id] = 1;

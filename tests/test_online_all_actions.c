@@ -276,13 +276,14 @@ static void configure_parameters(const char *name,
 static void reaches_every_registered_action(void) {
   const int count = tactix_rule_count();
   int id;
-  assert(count == 38);
+  assert(count == 39);
   for (id = 0; id < count; ++id) {
     tactix *solver = prepare(id);
     const char *name = tactix_rule_name(id);
     if (!strcmp(name, "Gf3AffineConsequence") ||
         !strcmp(name, "DirectCspSupport") ||
-        !strcmp(name, "Gf3GaussianConsequence")) {
+        !strcmp(name, "Gf3GaussianConsequence") ||
+        !strcmp(name, "TseitinCycleBreaking")) {
       tactix_release(solver);
       continue;
     }

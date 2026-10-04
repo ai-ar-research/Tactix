@@ -30,6 +30,10 @@ struct AdmissionRequest {
   // Complete live-CNF snapshot.  Unclaimed clauses may not touch admitted
   // edge variables.
   std::vector<LiveClause> live_clauses;
+  // Read-only exact-root query supplied by the live adapter.  Admission calls
+  // it only for authenticated component edges, under its ordinary work meter.
+  bool (*edge_unavailable)(void *, Edge) = nullptr;
+  void *edge_unavailable_state = nullptr;
 };
 
 using InterruptPoll = bool (*)(void *);

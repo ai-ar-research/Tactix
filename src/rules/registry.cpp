@@ -7,6 +7,7 @@
 #include "rules/semantic_extension/gf3_affine_action.hpp"
 #include "rules/direct_php/direct_php_action.hpp"
 #include "rules/semantic_extension/gf3_gaussian_action.hpp"
+#include "rules/lucky/tseitin_cycle_action.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -24,6 +25,9 @@ ApplyResult direct_csp_support_canonical_noop(Kernel &) {
   return ApplyResult::NoOp;
 }
 ApplyResult gf3_gaussian_canonical_noop(Kernel &) { return ApplyResult::NoOp; }
+ApplyResult tseitin_cycle_breaking_canonical_noop(Kernel &) {
+  return ApplyResult::NoOp;
+}
 
 DirectPhpActionLimits direct_php_limits(const Kernel &kernel) {
   const auto &p = kernel.direct_php_refutation_parameters;
@@ -75,6 +79,12 @@ RuleEligibility gf3_gaussian_registry_guard(const Kernel &kernel) {
                      kernel.gf3_gaussian_action_session != nullptr);
 }
 
+RuleEligibility tseitin_cycle_breaking_registry_guard(const Kernel &kernel) {
+  RuleEligibility result = tseitin_cycle_breaking_guard(kernel);
+  return result.fact("session-bound",
+                     kernel.tseitin_cycle_breaking_session != nullptr);
+}
+
 TACTIX_REGISTER_RULE(Gf3AffineConsequence, RuleTier::Inprocess,
                      gf3_affine_registry_guard, gf3_affine_canonical_noop);
 TACTIX_REGISTER_RULE(DirectCspSupport, RuleTier::Inprocess,
@@ -85,6 +95,9 @@ TACTIX_REGISTER_RULE(DirectPhpRefutation, RuleTier::Inprocess,
 TACTIX_REGISTER_RULE(Gf3GaussianConsequence, RuleTier::Inprocess,
                      gf3_gaussian_registry_guard,
                      gf3_gaussian_canonical_noop);
+TACTIX_REGISTER_RULE(TseitinCycleBreaking, RuleTier::Inprocess,
+                     tseitin_cycle_breaking_registry_guard,
+                     tseitin_cycle_breaking_canonical_noop);
 
 } // namespace
 
@@ -189,7 +202,7 @@ const std::vector<RuleVTable> &tactix_rules() {
         "AffineConsequence", "ExactCoverExtension", "IndependentSetCover",
         "SemanticVariableAdvice", "Gf3AffineConsequence",
         "DirectCspSupport", "DirectPhpRefutation",
-        "Gf3GaussianConsequence"};
+        "Gf3GaussianConsequence", "TseitinCycleBreaking"};
     const auto &registered = mutable_rules();
     constexpr size_t count = sizeof names / sizeof *names;
     if (registered.size() != count) {
@@ -332,6 +345,13 @@ ApplyResult apply_rule_structured(const RuleVTable &vt, Kernel &k,
                                   const char *description,
                                   const std::function<ApplyResult()> &apply) {
   execution::execute_action(k, execution::CloseStartupCertificateRequest{});
+  return dispatch_rule(vt, k, [description] { return std::string(description); },
+                       apply);
+}
+
+ApplyResult apply_rule_structured_preserve_startup(
+    const RuleVTable &vt, Kernel &k, const char *description,
+    const std::function<ApplyResult()> &apply) {
   return dispatch_rule(vt, k, [description] { return std::string(description); },
                        apply);
 }

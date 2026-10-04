@@ -206,19 +206,24 @@ AdmissionResult admit(const AdmissionRequest &request,
   }
 
   for (const auto &[edge, incident] : endpoints) {
-    (void)edge;
     if (!meter.spend())
       return metered_stop(meter);
     if (incident.size() != 2 || incident[0] == incident[1])
       return stop(meter, AdmissionStatus::Declined,
                   AdmissionReason::EdgeNotInExactlyTwoEquations);
+    if (request.edge_unavailable &&
+        request.edge_unavailable(request.edge_unavailable_state, edge))
+      admitted.unavailable_edges.push_back(edge);
   }
   if (!odd_charge)
     return stop(meter, AdmissionStatus::Declined,
                 AdmissionReason::EvenCharge);
 
-  // Every live clause outside the authenticated groups is residual.  Any
-  // touch of a graph edge invalidates the cycle symmetry.
+  // Every stored nonunit clause outside the authenticated groups is residual.
+  // Any touch of a graph edge invalidates this deliberately conservative
+  // action domain, even when that clause is root-satisfied.  Root units are
+  // authenticated separately by the live snapshot; they may fix off-cycle
+  // edges and are therefore absent from this stored-clause census.
   for (const LiveClause &clause : request.live_clauses) {
     if (!meter.spend())
       return metered_stop(meter);

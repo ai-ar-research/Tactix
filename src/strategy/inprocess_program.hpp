@@ -70,6 +70,7 @@ using ActionParameters =
                  Gf3AffineConsequenceParameters, DirectCspSupportParameters,
                  DirectPhpRefutationParameters,
                  Gf3GaussianConsequenceParameters,
+                 TseitinCycleBreakingParameters,
                  SemanticVariableAdviceParameters>;
 
 // Compatibility name for the inprocessing scheduler. Online composition uses
@@ -122,6 +123,7 @@ inline std::vector<InprocessStep> reference_inprocess_program() {
       {24, "DirectCspSupport", Probe, false},
       {25, "DirectPhpRefutation", Probe, false},
       {26, "Gf3GaussianConsequence", Probe, false},
+      {27, "TseitinCycleBreaking", Probe, false},
       {2, "Substitute", Probe, true, true, AfterCongruence},
       {3, "HyperBinaryRes", Probe, false},
       {4, "Backbone", Probe, true, true, None},
@@ -228,6 +230,12 @@ inline bool validate_inprocess_program(std::span<const InprocessStep> program,
       if (step.rule != "Gf3GaussianConsequence" || !p->valid())
         return reject(
             "Gf3GaussianConsequence parameters are invalid or misplaced");
+    } else if (const auto *p =
+                   std::get_if<TseitinCycleBreakingParameters>(
+                       &step.parameters)) {
+      if (step.rule != "TseitinCycleBreaking" || !p->valid())
+        return reject(
+            "TseitinCycleBreaking parameters are invalid or misplaced");
     } else if (const auto *p =
                    std::get_if<InstantiateParameters>(&step.parameters)) {
       if (step.rule != "Instantiate")

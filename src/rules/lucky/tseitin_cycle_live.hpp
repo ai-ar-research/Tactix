@@ -34,6 +34,8 @@ struct Snapshot {
   std::vector<tseitin_cycle::LiveClause> clauses;
   std::vector<Var> internal_to_external;
   std::vector<Var> external_to_internal;
+  // Exact {-1,0,1} root assignment image in internal-variable order.
+  std::vector<int8_t> root_values;
   uint64_t arena_generation = 0;
   uint64_t touch_epoch = 0;
   uint64_t root_assignments = 0;
@@ -45,6 +47,7 @@ struct Snapshot {
     if (sources != other.sources ||
         internal_to_external != other.internal_to_external ||
         external_to_internal != other.external_to_internal ||
+        root_values != other.root_values ||
         arena_generation != other.arena_generation ||
         touch_epoch != other.touch_epoch ||
         root_assignments != other.root_assignments ||
@@ -131,6 +134,9 @@ struct Result {
   uint64_t admission_work = 0;
   uint64_t planning_work = 0;
   uint64_t transaction_work = 0;
+  uint64_t replay_admission_work = 0;
+  uint64_t replay_planning_work = 0;
+  uint64_t replay_transaction_work = 0;
   uint64_t validation_ticks = 0;
   uint64_t witness_literals = 0;
   ApplyResult result = ApplyResult::NoOp;
@@ -149,7 +155,7 @@ private:
   friend Result prepare(Kernel &, const Snapshot &,
                         const std::vector<tseitin_cycle::CertifiedGroup> &,
                         const Request &, Prepared &);
-  friend Result apply(Kernel &, const Prepared &);
+  friend Result apply(Kernel &, const Prepared &, const Request *);
   bool ready_ = false;
   Snapshot snapshot_;
   Request request_;
@@ -173,7 +179,10 @@ Result prepare(Kernel &, const Snapshot &,
 
 // Applies exactly one negative pivot unit.  Search propagation and discovery
 // of a later cycle are intentionally separate controller actions.
-Result apply(Kernel &, const Prepared &);
+// `current_callbacks` is optional, synchronous callback state for this apply
+// only. Prepared never retains it; its numeric bounds remain the authenticated
+// preparation bounds.
+Result apply(Kernel &, const Prepared &, const Request *current_callbacks = nullptr);
 
 const char *reason_name(Reason);
 

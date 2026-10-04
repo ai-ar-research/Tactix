@@ -7,6 +7,8 @@
 #include "rules/lucky/tseitin_cycle_live.hpp"
 
 #include <cstdint>
+#include <limits>
+#include <memory>
 #include <vector>
 
 namespace tactix::tseitin_cycle_discovery {
@@ -18,6 +20,10 @@ struct Limits {
   uint32_t maximum_width = 0;
   tseitin_cycle::InterruptPoll interrupted = nullptr;
   void *interrupt_state = nullptr;
+  uint64_t maximum_components = std::numeric_limits<uint64_t>::max();
+  // Bounds canonical retained payload bytes (vectors and their elements),
+  // excluding allocator and shared_ptr control-block overhead.
+  uint64_t maximum_retained_bytes = std::numeric_limits<uint64_t>::max();
 };
 
 enum class Status : uint8_t {
@@ -46,11 +52,13 @@ enum class Reason : uint8_t {
 };
 
 struct Result;
+class Plan;
+using ComponentSelector = bool (*)(const Plan &, void *);
 
 class Plan {
 public:
-  bool ready() const { return ready_; }
-  const tseitin_cycle_live::Snapshot &snapshot() const { return snapshot_; }
+  bool ready() const { return ready_ && snapshot_; }
+  const tseitin_cycle_live::Snapshot &snapshot() const { return *snapshot_; }
   const std::vector<tseitin_cycle::CertifiedGroup> &groups() const {
     return groups_;
   }
@@ -58,8 +66,15 @@ public:
 private:
   friend Result discover(const tseitin_cycle_live::Snapshot &, const Limits &,
                          Plan &);
+  friend Result enumerate(const tseitin_cycle_live::Snapshot &, const Limits &,
+                          std::vector<Plan> &);
+  friend Result select(const tseitin_cycle_live::Snapshot &, const Limits &,
+                       ComponentSelector, void *, Plan &);
+  friend Result enumerate_impl(const tseitin_cycle_live::Snapshot &,
+                               const Limits &, std::vector<Plan> *,
+                               ComponentSelector, void *, Plan *);
   bool ready_ = false;
-  tseitin_cycle_live::Snapshot snapshot_;
+  std::shared_ptr<const tseitin_cycle_live::Snapshot> snapshot_;
   std::vector<tseitin_cycle::CertifiedGroup> groups_;
 };
 
@@ -70,6 +85,8 @@ struct Result {
   uint64_t clauses = 0;
   uint64_t complete_groups = 0;
   uint64_t selected_groups = 0;
+  uint64_t components = 0;
+  uint64_t retained_bytes = 0;
   bool discovered() const { return status == Status::Discovered; }
 };
 
@@ -77,6 +94,18 @@ struct Result {
 // clause is classified; unsupported clauses remain residual and therefore
 // exclude any candidate edge they touch.
 Result discover(const tseitin_cycle_live::Snapshot &, const Limits &, Plan &);
+
+// Enumerate every independently legal connected component in deterministic
+// group order.  Each returned plan freezes the complete formula snapshot, so
+// an apply can exact-match the selected component after a fresh recapture.
+Result enumerate(const tseitin_cycle_live::Snapshot &, const Limits &,
+                 std::vector<Plan> &);
+
+// Visit legal components one at a time and retain only the first accepted
+// component.  The complete live snapshot and equation census are still built
+// before visitation; unrelated components are never copied into the result.
+Result select(const tseitin_cycle_live::Snapshot &, const Limits &,
+              ComponentSelector, void *, Plan &);
 
 // Capture the complete current population and then discover.  Both phases are
 // bounded and interruptible.  The output is replaced only on success.

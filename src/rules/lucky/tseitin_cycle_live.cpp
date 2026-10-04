@@ -4,18 +4,34 @@
 
 #include <algorithm>
 #include <climits>
+#include <cstdlib>
 #include <map>
 #include <set>
 
 namespace tactix::tseitin_cycle_live {
 namespace {
 
+bool edge_unavailable(void *opaque, tseitin_cycle::Edge edge) {
+  const auto &snapshot = *static_cast<const Snapshot *>(opaque);
+  if (edge <= 0 || static_cast<size_t>(edge) > snapshot.external_to_internal.size())
+    return true;
+  const Var internal = snapshot.external_to_internal[edge - 1];
+  return internal >= snapshot.root_values.size() ||
+         snapshot.root_values[internal] != 0;
+}
+
+void bind_root_boundary(const Snapshot &snapshot,
+                        tseitin_cycle::AdmissionRequest &request) {
+  request.edge_unavailable = edge_unavailable;
+  request.edge_unavailable_state = const_cast<Snapshot *>(&snapshot);
+}
+
 enum class CaptureStop { Complete, Invalid, ClauseLimit, LiteralLimit,
                          WorkLimit, VariableLimit, Interrupted };
 
 bool applicable(const Kernel &kernel) {
   return !kernel.inconsistent && !kernel.level && !kernel.conflict_valid &&
-         !kernel.pending.valid && kernel.trail.empty() && !kernel.dense &&
+         !kernel.pending.valid && !kernel.dense &&
          !kernel.probing.recording && kernel.large_watches_connected &&
          kernel_propagation_fixpoint(kernel);
 }
@@ -61,6 +77,16 @@ tseitin_cycle::AdmissionLimits admission_limits(
 
 tseitin_cycle::TransactionLimits transaction_limits(
     Kernel &kernel, const tseitin_cycle::TransactionLimits &source,
+    PollContext &context) {
+  context = {&kernel, source.interrupted, source.interrupt_state};
+  auto result = source;
+  result.interrupted = poll;
+  result.interrupt_state = &context;
+  return result;
+}
+
+tseitin_cycle::Limits planning_limits(
+    Kernel &kernel, const tseitin_cycle::Limits &source,
     PollContext &context) {
   context = {&kernel, source.interrupted, source.interrupt_state};
   auto result = source;
@@ -136,6 +162,7 @@ CaptureStop capture_impl(Kernel &kernel, const SnapshotLimits &limits,
   if (kernel.internal_to_external.size() != kernel.nvars)
     return CaptureStop::Invalid;
   partial.internal_to_external.reserve(kernel.internal_to_external.size());
+  partial.root_values.reserve(kernel.nvars);
   for (Var internal = 0; internal < kernel.nvars; ++internal) {
     if (!spend()) return failure;
     const Var external = kernel.internal_to_external[internal];
@@ -144,6 +171,8 @@ CaptureStop capture_impl(Kernel &kernel, const SnapshotLimits &limits,
         kernel.external_to_internal[external] != internal)
       return CaptureStop::Invalid;
     partial.internal_to_external.push_back(external);
+    partial.root_values.push_back(
+        kernel_root_value(kernel, make_lit(internal, false)));
   }
   partial.external_to_internal.reserve(kernel.external_to_internal.size());
   for (Var external = 0; external < kernel.external_to_internal.size();
@@ -158,7 +187,13 @@ CaptureStop capture_impl(Kernel &kernel, const SnapshotLimits &limits,
   }
   const auto take = [&](SourceKind kind, Ref ref, Lit first, Lit second,
                         uint64_t proof, const Lit *literals, uint32_t size) {
-    if (!proof || !size || !literals) {
+    // Input finalization releases binary ids when the selected proof route
+    // does not need them.  Such binaries receive deterministic capture-local
+    // identities below; large clauses and id-tracking proof routes must retain
+    // their native identities.
+    if ((!proof &&
+         (kind != SourceKind::Binary || kernel.binary_ids.tracks_values())) ||
+        !size || !literals) {
       failure = CaptureStop::Invalid;
       return false;
     }
@@ -251,9 +286,28 @@ CaptureStop capture_impl(Kernel &kernel, const SnapshotLimits &limits,
     const Lit pair[] = {occurrence.lower, occurrence.upper};
     if (!take(SourceKind::Binary, INVALID_REF, occurrence.lower,
               occurrence.upper,
-              kernel_binary_id(kernel, occurrence.lower, occurrence.upper),
+              kernel.binary_ids.tracks_values()
+                  ? kernel_binary_id(kernel, occurrence.lower,
+                                     occurrence.upper)
+                  : 0,
               pair, 2))
       return failure;
+  }
+
+  std::set<uint64_t> used_ids;
+  for (const Source &source : partial.sources)
+    if (source.native_proof_id &&
+        !used_ids.insert(source.native_proof_id).second)
+      return CaptureStop::Invalid;
+  uint64_t synthetic = UINT64_MAX;
+  for (Source &source : partial.sources) {
+    if (source.native_proof_id) continue;
+    while (used_ids.count(synthetic)) {
+      if (!synthetic--) return CaptureStop::Invalid;
+    }
+    source.native_proof_id = synthetic;
+    used_ids.insert(synthetic);
+    if (synthetic) --synthetic;
   }
 
   std::sort(partial.sources.begin(), partial.sources.end(),
@@ -310,6 +364,12 @@ Result map_transaction(const Kernel &kernel,
     if (!map(external_source, source) || !map(external_target, target) ||
         var_of(source) != var_of(target) || target != negate(source)) {
       result.reason = Reason::ExternalMapping;
+      instance = {};
+      return result;
+    }
+    if (kernel.value(source)) {
+      result.status = Status::Stale;
+      result.reason = Reason::AssignedPivot;
       instance = {};
       return result;
     }
@@ -435,6 +495,7 @@ Result prepare(Kernel &kernel, const Snapshot &snapshot,
   tseitin_cycle::AdmissionRequest admission_request;
   admission_request.groups = groups;
   admission_request.live_clauses = snapshot.clauses;
+  bind_root_boundary(snapshot, admission_request);
   PollContext admission_poll;
   const tseitin_cycle::AdmissionResult admission =
       tseitin_cycle::admit(
@@ -456,15 +517,25 @@ Result prepare(Kernel &kernel, const Snapshot &snapshot,
                         : Reason::AdmissionDeclined;
     return result;
   }
-  const tseitin_cycle::Result plan =
-      tseitin_cycle::plan_one(admission.input, request.planning);
+  PollContext planning_poll;
+  const tseitin_cycle::Result plan = tseitin_cycle::plan_one(
+      admission.input, planning_limits(kernel, request.planning, planning_poll));
   result.planning_work = plan.work;
   result.planning_reason = plan.decline;
   if (!plan.planned()) {
-    result.status = plan.decline == tseitin_cycle::DeclineReason::WorkLimit
-                        ? Status::ResourceExhausted
-                        : Status::Declined;
-    result.reason = Reason::PlanningDeclined;
+    result.status =
+        plan.decline == tseitin_cycle::DeclineReason::Interrupted
+            ? Status::Interrupted
+            : plan.decline == tseitin_cycle::DeclineReason::WorkLimit ||
+                plan.decline ==
+                    tseitin_cycle::DeclineReason::WitnessLengthLimit ||
+                plan.decline ==
+                    tseitin_cycle::DeclineReason::NoAdditionAllowance
+            ? Status::ResourceExhausted
+            : Status::Declined;
+    result.reason = plan.decline == tseitin_cycle::DeclineReason::Interrupted
+                        ? Reason::Interrupted
+                        : Reason::PlanningDeclined;
     return result;
   }
   if (kernel_terminating(kernel)) {
@@ -523,7 +594,18 @@ Result prepare(Kernel &kernel, const Snapshot &snapshot,
   }
   Snapshot revalidated;
   captured = capture(kernel, request.snapshot, revalidated);
-  if (captured.status == Status::Interrupted) return captured;
+  if (captured.snapshot_work <= UINT64_MAX - result.snapshot_work)
+    result.snapshot_work += captured.snapshot_work;
+  else {
+    result.status = Status::ResourceExhausted;
+    result.reason = Reason::SnapshotWorkLimit;
+    return result;
+  }
+  if (captured.status == Status::Interrupted) {
+    result.status = captured.status;
+    result.reason = captured.reason;
+    return result;
+  }
   if (captured.status != Status::Captured || !(revalidated == snapshot)) {
     result.status = Status::Stale;
     result.reason = Reason::SnapshotMismatch;
@@ -538,6 +620,8 @@ Result prepare(Kernel &kernel, const Snapshot &snapshot,
   local.request_.snapshot.interrupt_state = nullptr;
   local.request_.admission.interrupted = nullptr;
   local.request_.admission.interrupt_state = nullptr;
+  local.request_.planning.interrupted = nullptr;
+  local.request_.planning.interrupt_state = nullptr;
   local.request_.transaction.interrupted = nullptr;
   local.request_.transaction.interrupt_state = nullptr;
   local.transaction_ = transaction.transaction;
@@ -550,7 +634,8 @@ Result prepare(Kernel &kernel, const Snapshot &snapshot,
   return result;
 }
 
-Result apply(Kernel &kernel, const Prepared &prepared) {
+Result apply(Kernel &kernel, const Prepared &prepared,
+             const Request *current_callbacks) {
   Result result;
   if (!prepared.ready_) {
     result.reason = Reason::InvalidRequest;
@@ -571,8 +656,24 @@ Result apply(Kernel &kernel, const Prepared &prepared) {
     result.reason = Reason::StateNotApplicable;
     return result;
   }
+  Request active = prepared.request_;
+  if (current_callbacks) {
+    active.snapshot.interrupted = current_callbacks->snapshot.interrupted;
+    active.snapshot.interrupt_state =
+        current_callbacks->snapshot.interrupt_state;
+    active.admission.interrupted = current_callbacks->admission.interrupted;
+    active.admission.interrupt_state =
+        current_callbacks->admission.interrupt_state;
+    active.planning.interrupted = current_callbacks->planning.interrupted;
+    active.planning.interrupt_state =
+        current_callbacks->planning.interrupt_state;
+    active.transaction.interrupted =
+        current_callbacks->transaction.interrupted;
+    active.transaction.interrupt_state =
+        current_callbacks->transaction.interrupt_state;
+  }
   Snapshot current;
-  Result captured = capture(kernel, prepared.request_.snapshot, current);
+  Result captured = capture(kernel, active.snapshot, current);
   if (captured.status != Status::Captured) return captured;
   result.snapshot_clauses = current.sources.size();
   result.snapshot_literals = current.literals;
@@ -585,17 +686,23 @@ Result apply(Kernel &kernel, const Prepared &prepared) {
   tseitin_cycle::AdmissionRequest replay_request;
   replay_request.groups = prepared.groups_;
   replay_request.live_clauses = current.clauses;
-  PollContext replay_admission_poll, replay_transaction_poll;
+  bind_root_boundary(current, replay_request);
+  PollContext replay_admission_poll, replay_planning_poll,
+      replay_transaction_poll;
   tseitin_cycle::ReplayLimits replay_limits{
-      admission_limits(kernel, prepared.request_.admission,
+      admission_limits(kernel, active.admission,
                        replay_admission_poll),
-      prepared.request_.planning,
-      transaction_limits(kernel, prepared.request_.transaction,
+      planning_limits(kernel, active.planning,
+                      replay_planning_poll),
+      transaction_limits(kernel, active.transaction,
                          replay_transaction_poll)};
   const tseitin_cycle::TransactionResult replayed =
       tseitin_cycle::replay_transaction(replay_request,
                                         prepared.transaction_, replay_limits);
   result.transaction_work = replayed.work;
+  result.replay_admission_work = replayed.admission_work;
+  result.replay_planning_work = replayed.planning_work;
+  result.replay_transaction_work = replayed.transaction_work;
   result.transaction_reason = replayed.reason;
   if (!replayed.ready()) {
     result.status = replayed.status == tseitin_cycle::TransactionStatus::Interrupted
@@ -641,9 +748,12 @@ Result apply(Kernel &kernel, const Prepared &prepared) {
       kernel.next_clause_id == before_id + 1 &&
       kernel.value(instance.clause.front()) > 0 &&
       kernel.unit_ids[var_of(instance.clause.front())] == kernel.next_clause_id) {
+    kernel.close_startup_certificate();
     result.status = Status::Applied;
     return result;
   }
+  if (applied.status == SubstitutionRedundancyApplicationStatus::Applied)
+    std::abort();
   if (applied.status == SubstitutionRedundancyApplicationStatus::Interrupted) {
     result.status = Status::Interrupted;
     result.reason = Reason::Interrupted;
