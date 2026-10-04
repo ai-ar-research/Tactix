@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <sstream>
 #include <unistd.h>
 
 using namespace tactix;
@@ -14,7 +15,9 @@ using namespace tactix::strategy::controller;
 
 static std::string read(const char *path) {
   std::ifstream in(path);
-  return {(std::istreambuf_iterator<char>(in)), {}};
+  std::ostringstream bytes;
+  bytes << in.rdbuf();
+  return bytes.str();
 }
 static void write(const char *path, const std::string &text) {
   std::ofstream out(path);
@@ -54,6 +57,8 @@ static void synthetic(FeedbackTrace &trace, bool changed = false) {
   action.duration_nanos = changed ? 999 : 17;
   action.request.emplace();
   action.request->invocation.rule = "Rephase";
+  action.request->producer_effort.push_back(
+      {"Gf3AffineConsequence", 6, false, 11, 13, 24, 3, 1});
   action.allowance = ActionAllowance{WorkUnit::Applications, 0, {}};
   action.stop = StopReason::Budget;
   action.outcome.invocation.status = InvocationStatus::BudgetExhausted;
@@ -79,6 +84,9 @@ static void test_codec(const char *path) {
   assert(original.find("\"sweep_limit_depth\":5") != std::string::npos);
   assert(original.find("\"rule_calls\":[7,") != std::string::npos);
   assert(original.find("\"used_glue\":[[") != std::string::npos);
+  assert(original.find("\"producer_effort\":[{\"family\":"
+                       "\"Gf3AffineConsequence\"") != std::string::npos);
+  assert(original.find("\"total_work\":24") != std::string::npos);
   assert(original.find("rule_nanos") == std::string::npos);
   assert(original.find("solve_nanos") == std::string::npos);
   {
