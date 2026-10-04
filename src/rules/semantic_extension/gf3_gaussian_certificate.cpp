@@ -51,6 +51,18 @@ public:
     stats.work = next;
     return true;
   }
+
+  bool retain_source_reference() {
+    if (stats.retained_source_references >=
+        limits_.maximum_retained_source_references) {
+      limit = LimitKind::RetainedSourceReferences;
+      return false;
+    }
+    // Charge the fixed-size compact record independently of the source lookup.
+    if (!spend(1)) return false;
+    ++stats.retained_source_references;
+    return true;
+  }
 };
 
 Result stopped(const Meter &meter, Status ordinary) {
@@ -68,6 +80,7 @@ Result stopped(const Meter &meter, Status ordinary) {
 bool valid_limits(const Limits &limits) {
   return limits.maximum_work && limits.maximum_events &&
          limits.maximum_event_literals && limits.maximum_active_clauses &&
+         limits.maximum_retained_source_references &&
          limits.maximum_event_width && limits.maximum_branch_domains &&
          limits.maximum_consequences;
 }
@@ -244,6 +257,7 @@ struct LocalProof {
 };
 
 bool collect_premises(const gf3_affine::Theory &theory,
+                      const gf3_gaussian_bridge::Plan &bridge,
                       const Consequence &consequence, LocalProof &proof) {
   std::set<uint64_t> occurrences;
   const auto take = [&](const gf3_affine::SourceReference &reference) {
@@ -271,13 +285,19 @@ bool collect_premises(const gf3_affine::Theory &theory,
 
   std::set<uint32_t> domains;
   for (const AuthenticatedSource &source : consequence.sources) {
-    for (const auto &domain : source.authentication.domains) {
+    if (source.authentication_index >= bridge.authentication.size())
+      return false;
+    const gf3_gaussian_bridge::SourceAuthentication &authentication =
+        bridge.authentication[source.authentication_index];
+    if (authentication.source_id != source.combination.source_id)
+      return false;
+    for (const auto &domain : authentication.domains) {
       if (!take(domain.at_least_one)) return false;
       for (const auto &amo : domain.at_most_one)
         if (!take(amo)) return false;
       domains.insert(domain.domain);
     }
-    for (const auto &tuple : source.authentication.forbidden_tuples)
+    for (const auto &tuple : authentication.forbidden_tuples)
       if (!take(tuple.premise)) return false;
   }
   if (domains.size() > proof.limits.maximum_branch_domains) {
@@ -307,22 +327,21 @@ bool build_consequence(const gf3_affine::Theory &theory,
   consequence.first_event = events.size();
 
   for (const auto &combination : node.provenance) {
-    auto found = bridge.authentication.end();
-    for (auto candidate = bridge.authentication.begin();
-         candidate != bridge.authentication.end(); ++candidate) {
-      if (!meter.spend(1)) return false;
-      if (candidate->source_id == combination.source_id) {
-        found = candidate;
-        break;
-      }
-    }
-    if (found == bridge.authentication.end()) return false;
-    consequence.sources.push_back({combination, *found});
+    if (!meter.spend(1) || !combination.source_id ||
+        combination.source_id > bridge.authentication.size())
+      return false;
+    const uint64_t index = combination.source_id - 1;
+    if (index > std::numeric_limits<uint32_t>::max() ||
+        bridge.authentication[index].source_id != combination.source_id ||
+        !meter.retain_source_reference())
+      return false;
+    consequence.sources.push_back(
+        {combination, static_cast<uint32_t>(index)});
   }
 
   LocalProof proof{theory, limits, meter};
   proof.consequence = index;
-  if (!collect_premises(theory, consequence, proof)) return false;
+  if (!collect_premises(theory, bridge, consequence, proof)) return false;
 
   if (kind == ConsequenceKind::Conflict) {
     consequence.clauses.push_back({});

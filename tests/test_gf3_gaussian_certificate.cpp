@@ -5,6 +5,7 @@
 #include <climits>
 #include <cstdint>
 #include <iostream>
+#include <set>
 #include <vector>
 
 using namespace tactix;
@@ -123,6 +124,7 @@ gf3_gaussian_certificate::Limits limits() {
   result.maximum_events = 100000;
   result.maximum_event_literals = 1000000;
   result.maximum_active_clauses = 100000;
+  result.maximum_retained_source_references = 10000;
   result.maximum_event_width = 32;
   result.maximum_branch_domains = 32;
   result.maximum_consequences = 32;
@@ -187,15 +189,49 @@ bool independently_rup(const std::vector<std::vector<int32_t>> &active,
 
 void independently_check_events(
     const gf3_affine::Theory &theory,
+    const gf3_gaussian_bridge::Plan &bridge,
     const gf3_gaussian_certificate::Plan &plan) {
-  std::vector<std::vector<int32_t>> active;
-  for (const auto &premise : theory.source) active.push_back(premise.literals);
-  for (const auto &event : plan.events) {
-    assert(event.consequence < plan.consequences.size());
-    assert(independently_rup(active, event.clause,
-                             theory.maximum_variable));
-    active.push_back(event.clause);
+  uint64_t next_event = 0;
+  for (size_t index = 0; index < plan.consequences.size(); ++index) {
+    const auto &consequence = plan.consequences[index];
+    assert(consequence.first_event == next_event);
+    assert(next_event <= plan.events.size());
+    assert(consequence.event_count <= plan.events.size() - next_event);
+    std::vector<std::vector<int32_t>> active;
+    std::set<uint64_t> occurrences;
+    const auto take = [&](const gf3_affine::SourceReference &reference) {
+      assert(reference.occurrence);
+      const auto found = std::find_if(
+          theory.source.begin(), theory.source.end(), [&](const auto &premise) {
+            return premise.occurrence == reference.occurrence;
+          });
+      assert(found != theory.source.end());
+      assert(found->native_proof_id == reference.native_proof_id);
+      if (occurrences.insert(reference.occurrence).second)
+        active.push_back(found->literals);
+    };
+    for (const auto &source : consequence.sources) {
+      assert(source.authentication_index < bridge.authentication.size());
+      const auto &authentication =
+          bridge.authentication[source.authentication_index];
+      assert(authentication.source_id == source.combination.source_id);
+      for (const auto &domain : authentication.domains) {
+        take(domain.at_least_one);
+        for (const auto &amo : domain.at_most_one) take(amo);
+      }
+      for (const auto &tuple : authentication.forbidden_tuples)
+        take(tuple.premise);
+    }
+    for (uint64_t offset = 0; offset < consequence.event_count; ++offset) {
+      const auto &event = plan.events[next_event + offset];
+      assert(event.consequence == index);
+      assert(independently_rup(active, event.clause,
+                               theory.maximum_variable));
+      active.push_back(event.clause);
+    }
+    next_event += consequence.event_count;
   }
+  assert(next_event == plan.events.size());
 }
 
 bool literal_value(int32_t literal,
@@ -256,18 +292,24 @@ void test_units_are_pure_rup_and_semantic() {
   const auto result = gf3_gaussian_certificate::build(
       theory, gaussian, limits(), [](uint64_t) { return true; });
   assert(result.status == gf3_gaussian_certificate::Status::Complete);
-  assert(result.plan.version == 1);
+  assert(result.plan.version == 2);
   assert(result.plan.consequences.size() == 3);
   assert(result.consumed.supported_outcomes == 3);
   assert(result.consumed.unsupported_outcomes == 0);
   assert(result.consumed.events == result.plan.events.size());
   assert(result.consumed.event_literals > 0);
+  assert(result.consumed.retained_source_references > 0);
+  uint64_t retained_sources = 0;
   for (size_t i = 0; i < result.plan.consequences.size(); ++i) {
     const auto &consequence = result.plan.consequences[i];
     assert(consequence.kind ==
            gf3_gaussian_certificate::ConsequenceKind::UnitEquation);
     assert(consequence.row.size() == 1 && consequence.rhs == 0);
     assert(consequence.sources.size() >= 2);
+    retained_sources += consequence.sources.size();
+    for (const auto &source : consequence.sources)
+      assert(uint64_t{source.authentication_index} + 1 ==
+             source.combination.source_id);
     assert(consequence.clauses.size() == 3);
     assert(consequence.first_event + consequence.event_count <=
            result.plan.events.size());
@@ -278,7 +320,8 @@ void test_units_are_pure_rup_and_semantic() {
     assert(consequence.clauses[1].size() == 1);
     assert(consequence.clauses[2].size() == 1);
   }
-  independently_check_events(theory, result.plan);
+  assert(retained_sources == result.consumed.retained_source_references);
+  independently_check_events(theory, gaussian, result.plan);
   independently_check_semantics(theory, result.plan, true);
   const auto replayed = gf3_gaussian_certificate::validate(
       theory, gaussian, result.plan, limits(),
@@ -304,7 +347,7 @@ void test_conflict_is_terminal_empty_rup() {
   assert(result.plan.events.back().role ==
          gf3_gaussian_certificate::EventRole::Conflict);
   assert(result.plan.events.back().clause.empty());
-  independently_check_events(theory, result.plan);
+  independently_check_events(theory, gaussian, result.plan);
   independently_check_semantics(theory, result.plan, false);
 }
 
@@ -347,6 +390,12 @@ void test_exact_boundaries_and_atomic_declines() {
   bounded.maximum_event_literals = baseline.consumed.event_literals - 1;
   expect_limit(bounded,
                gf3_gaussian_certificate::LimitKind::EventLiterals);
+  bounded = limits();
+  bounded.maximum_retained_source_references =
+      baseline.consumed.retained_source_references - 1;
+  expect_limit(
+      bounded,
+      gf3_gaussian_certificate::LimitKind::RetainedSourceReferences);
   {
     const auto conflict_theory = recognize(wide_conflict_fixture());
     const auto conflict_gaussian = bridge(conflict_theory);
@@ -384,6 +433,47 @@ void test_exact_boundaries_and_atomic_declines() {
         return true;
       });
   assert(checked.status == gf3_gaussian_bridge::Status::Complete);
+
+  const auto expect_exact = [&](gf3_gaussian_certificate::Limits exact) {
+    const auto result = gf3_gaussian_certificate::build(
+        theory, gaussian, exact, [](uint64_t) { return true; });
+    assert(result.status == gf3_gaussian_certificate::Status::Complete);
+    assert(result.plan == baseline.plan);
+  };
+  auto exact = limits();
+  exact.maximum_work = baseline.consumed.work;
+  expect_exact(exact);
+  exact = limits();
+  exact.maximum_events = baseline.consumed.events;
+  expect_exact(exact);
+  exact = limits();
+  exact.maximum_event_literals = baseline.consumed.event_literals;
+  expect_exact(exact);
+  exact = limits();
+  exact.maximum_retained_source_references =
+      baseline.consumed.retained_source_references;
+  expect_exact(exact);
+  exact = limits();
+  exact.maximum_active_clauses =
+      theory.source.size() + baseline.consumed.events;
+  expect_exact(exact);
+  exact = limits();
+  exact.maximum_event_width = baseline.consumed.maximum_event_width;
+  expect_exact(exact);
+  exact = limits();
+  assert(theory.domains.size() <= UINT32_MAX);
+  exact.maximum_branch_domains =
+      static_cast<uint32_t>(theory.domains.size());
+  expect_exact(exact);
+  exact = limits();
+  assert(baseline.consumed.supported_outcomes <= UINT32_MAX);
+  exact.maximum_consequences =
+      static_cast<uint32_t>(baseline.consumed.supported_outcomes);
+  expect_exact(exact);
+  exact = limits();
+  exact.bridge.maximum_work = checked.consumed.work;
+  expect_exact(exact);
+
   uint64_t charged = 0;
   const auto interrupted = gf3_gaussian_certificate::build(
       theory, gaussian, limits(), [&](uint64_t amount) {
@@ -395,6 +485,24 @@ void test_exact_boundaries_and_atomic_declines() {
   assert(interrupted.status ==
          gf3_gaussian_certificate::Status::Interrupted);
   assert(interrupted.plan.events.empty());
+
+  // Decline near the end of certificate construction, after bridge replay and
+  // substantial recursive proof work, without publishing the partial plan.
+  const uint64_t late_allowance =
+      checked.consumed.work + baseline.consumed.work - 1;
+  charged = 0;
+  const auto late_interrupted = gf3_gaussian_certificate::build(
+      theory, gaussian, limits(), [&](uint64_t amount) {
+        if (amount > late_allowance - std::min(late_allowance, charged))
+          return false;
+        charged += amount;
+        return true;
+      });
+  assert(late_interrupted.status ==
+         gf3_gaussian_certificate::Status::Interrupted);
+  assert(charged > checked.consumed.work);
+  assert(late_interrupted.plan.events.empty() &&
+         late_interrupted.plan.consequences.empty());
 
   auto invalid = limits();
   invalid.maximum_events = 0;
@@ -439,8 +547,7 @@ void test_adversarial_identity_and_certificate_corruption() {
   corrupt_certificate = baseline.plan;
   ++corrupt_certificate.consequences[0]
         .sources[0]
-        .authentication.domains[0]
-        .at_least_one.native_proof_id;
+        .authentication_index;
   result = gf3_gaussian_certificate::validate(
       theory, gaussian, corrupt_certificate, limits(),
       [](uint64_t) { return true; });
