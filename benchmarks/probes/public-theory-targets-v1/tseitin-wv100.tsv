@@ -1,0 +1,4 @@
+coverage_rank	original_tierd_rank	instance	verdict
+80	720	tierD24-26/981c4e83c5dd3694af4c367958e0ee5f-tseitin_grid_n250_m250.cnf.xz	UNSAT
+83	327	tierD24-26/41d14756a06872844577fc0abddb58aa-tseitin_d3_n100000.cnf.xz	UNSAT
+86	1113	tierD24-26/f3abc375afaf48c7eae21500b773bd21-tseitin_grid_n400_m400.cnf.xz	UNSAT

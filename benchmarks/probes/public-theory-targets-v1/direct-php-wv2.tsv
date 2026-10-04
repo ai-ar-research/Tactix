@@ -1,0 +1,5 @@
+coverage_rank	original_tierd_rank	instance	verdict
+138	208	tierD24-26/292bedf65cee7cc38fe8b2725eb50868-cliquecoloring_n32_k5_c4.cnf.xz	UNSAT
+148	639	tierD24-26/8707ef793f0443b5804c56c2ffca322e-clqcl_40_6_5.normalised.cnf.xz	UNSAT
+153	175	tierD24-26/21415e807689ea75536e846a24623de1-clqcl_50_6_5.normalised.cnf.xz	UNSAT
+158	27	tierD24-26/06d2ca2ee0b47f00d93090495f7fd4f4-clqcl_100_6_5.normalised.cnf.xz	UNSAT

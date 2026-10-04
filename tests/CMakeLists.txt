@@ -386,6 +386,9 @@ add_test(NAME controller_native_producers
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_controller_native_producers.py
                  $<TARGET_FILE:tactix>)
+add_test(NAME public_theory_target_tables
+         COMMAND ${CMAKE_COMMAND} -E env python3
+                 ${CMAKE_CURRENT_SOURCE_DIR}/test_public_theory_target_tables.py)
 
 add_test(NAME startup_parity_check
          COMMAND ${CMAKE_COMMAND} -E env python3

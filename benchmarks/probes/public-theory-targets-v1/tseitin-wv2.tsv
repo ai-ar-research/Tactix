@@ -1,0 +1,7 @@
+coverage_rank	original_tierd_rank	instance	verdict
+132	189	tierD24-26/24bdfb34654b1aa703fae31ea91e7c7f-tseitin_d3_n158.sanitized.cnf.xz	UNSAT
+133	332	tierD24-26/42f1311ce504db8cc0cb590a568da20a-tseitin_n188_d3.cnf.xz	UNSAT
+139	271	tierD24-26/35789168b67a74985804902008251269-tseitingrid6x200_shuffled.cnf.xz	UNSAT
+141	419	tierD24-26/556cf803f9de4b2ec688825b5ff7e325-tseitin_d3_n174.sanitized.cnf.xz	UNSAT
+143	926	tierD24-26/c69c5163c9087ffe770743bd4cdafcc9-tseitin_d3_n162.sanitized.cnf.xz	UNSAT
+146	281	tierD24-26/36dbc206c7d9773bebb03f752070cee9-tseitin_grid_n11_m20.sanitized.cnf.xz	UNSAT
