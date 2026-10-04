@@ -1169,6 +1169,16 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.exact_cover_extension_attempts,
            (unsigned long long)kernel.stats.independent_set_cover_attempts,
            (unsigned long long)kernel.stats.semantic_variable_advice_attempts);
+    printf("c directphp  %llu attempts, %llu applied, %llu not-recognized, "
+           "%llu resource-exhausted, %llu interrupted, %llu stale, "
+           "%llu replay-mismatch\n",
+           (unsigned long long)kernel.stats.direct_php_attempts,
+           (unsigned long long)kernel.stats.direct_php_applied,
+           (unsigned long long)kernel.stats.direct_php_not_recognized,
+           (unsigned long long)kernel.stats.direct_php_resource_exhausted,
+           (unsigned long long)kernel.stats.direct_php_interrupted,
+           (unsigned long long)kernel.stats.direct_php_stale,
+           (unsigned long long)kernel.stats.direct_php_replay_mismatch);
     printf("c affine     %llu calls, %llu equations, %llu coordinates, "
            "%llu entries, %llu candidates, %llu SAT, %llu work, "
            "%llu budgets, %llu unavailable, %llu interrupted\n",

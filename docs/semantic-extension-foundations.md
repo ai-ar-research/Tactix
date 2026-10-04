@@ -176,19 +176,35 @@ references, event width, branch domains and consequences. The retained-byte
 limit is a logical plan bound, not an allocator/RSS promise. Invalid,
 unsupported, interrupted or exhausted construction exposes no partial plan.
 
+The private live adapter now completes this boundary through publication. It
+captures the exact current GF(3) owner, builds the full chained Gaussian plan,
+then independently validates both the algebra and every physical source before
+commit. A prepared transaction binds all recognition, bridge, Gaussian,
+certificate and publication limits, action/semantic identities, and its record
+stream. Its bounded journal records each source, authenticated equation image,
+derived row/RHS, original source combination, published clause and proof event.
+Only unit clauses and an empty conflict enter the solver; intermediate RUP
+clauses remain proof-only. DSR, DRAT and no-proof publication are supported,
+while LRAT/PBP and proof-backed split publication decline. The implementation
+is intentionally unregistered: public instance enumeration, controller replay,
+feedback, repeated eligibility and performance evidence remain open.
+
 ## Direct PHP terminal certificate
 
 The internal live adapter recaptures and revalidates at admission, preparation
 and publication. Its stale identity includes the complete source snapshot,
 clause namespace, arena generation, variable/external/reconstruction extents
-and proof pointer. Exact native identities authenticate every original AMO
-deletion; generated proof and variable IDs remain monotone. Bounds cover
+and proof pointer. Native identities authenticate large clauses. Parser-finalized
+non-LRAT binaries have no retained native ID, so capture assigns explicitly
+tagged, deterministic local replay identities. Those tokens are zeroed before
+the DSR/DRAT literal-based deletion call and can never be used as LRAT
+references. Generated proof and variable IDs remain monotone. Bounds cover
 snapshot clauses/literals/work, recognition clauses/literals/work/candidates/
 combinations/mapping trials/holes, certificate additions/deletions/literals/
 fresh variables/events, and action-record replay work. Publication is the
 noninterruptible commit boundary.
 
-The unregistered v1 action session is constructed with one Kernel, cannot be
+The public v1 action session is constructed with one Kernel, cannot be
 copied or moved, and must be destroyed first. There is no Kernel generation
 token, so it does not claim to detect address reincarnation. It validates a
 committed request and expected record before reporting `AlreadyApplied`.
@@ -196,6 +212,15 @@ Proofless callers may split prepare from publish. With a proof attached, the
 split API returns `UnsupportedProofSplit`; one-shot apply/replay keeps exact
 validation and terminal publication in one call because `Proof` exposes no
 complete mutation epoch.
+
+The append-only registry exposes `DirectPhpRefutation` as rule 36, disabled
+StepId 25 and C parameter tag 39. It has a canonical terminal payload and typed
+snapshot, recognition, certificate and replay limits. The online executor
+returns terminal UNSAT after successful publication, rejects a propagation
+follow-up, and reports raw status, capture/recognition/replay work and proof
+counts. DefaultPolicy omits it; the random controller and explicit replay can
+select it through the same action. This completes one public vertical but does
+not establish target recovery or production scheduling.
 
 ## Tseitin-cycle live step
 
@@ -208,15 +233,22 @@ bounds cover group admission, cycle planning and witness length, transaction
 events/additions/deletions/helpers/witness literals, semantic validation ticks
 and proof namespace.
 
+The private discovery frontend derives exact width-2--4 XOR groups from the
+complete captured population. It rejects opposite parities over one scope,
+incomplete encodings, multiple connected components, bad edge degree, even
+charge and every residual edge touch. Stable group identity and traversal are
+deterministic; capture and discovery have separate interruption-aware bounds.
+
 Prepare recaptures before admission and after shadow X7 preflight. It stores no
 raw callback pointer. Apply composes caller and Kernel stop flags, rechecks the
 proof pointer and full snapshot, reruns and exact-compares admission, planning,
 transaction, source identities, mapping, X7 instance, accounting and events,
-then calls ordinary SubstitutionRedundancy. Caller-supplied certified groups
-remain a prerequisite: this layer neither discovers XORs nor owns a durable
-session. DSR/no-proof publication is one step; another cycle requires fresh
-capture and planning. Public action, controller telemetry and target recovery
-remain open.
+then calls ordinary SubstitutionRedundancy. The discovery plan supplies the
+groups, but the live adapter does not trust it and authenticates them again.
+DSR/no-proof publication is one step; another cycle requires fresh capture and
+planning. The frontend currently declines multiple disconnected exact XOR
+populations rather than choosing a hidden component. Public component payloads,
+session/replay, controller telemetry and target recovery remain open.
 
 ## Direct CSP support consequence
 

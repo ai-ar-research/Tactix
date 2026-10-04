@@ -361,6 +361,10 @@ REACH_SPECS = [
      r"^c theory-act\s+\d+ parity, \d+ affine, \d+ exact-cover, (\d+) independent-set,"),
     ("SemanticVariableAdvice",
      r"^c theory-act\s+\d+ parity, \d+ affine, \d+ exact-cover, \d+ independent-set, (\d+) advice attempts"),
+    # Terminal public Direct PHP uses its own action counter.  `applied` alone
+    # would miss soundly reached recognition declines, while `attempts` moves
+    # only after the canonical action crosses its public execution boundary.
+    ("DirectPhpRefutation", r"^c directphp\s+(\d+) attempts,"),
     ("Vivify", r"^c vivify\s+(\d+) rounds,"),
     # These key on attempts, not rounds: they are `dosed` entries reached
     # through apply_instance, whose round counter never moves. See the note

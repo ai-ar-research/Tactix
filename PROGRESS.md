@@ -28,7 +28,7 @@ rule-specific derivation and measured clausal proof/check cost establish need.
 | Current scheduler repair | `f6d7453f6` | Lucky/8 restored as structured-root stage 0; combined checkpoint suite passes 10/10 in normal and ASan/UBSan builds; no benchmark result yet |
 | Partial-model guidance | `a49191bfa` | Exact immutable candidates can feed Walk and CDCL separately with raw telemetry; mechanics tested, campaign reach/effect still absent |
 | Certified theory actions v5 | [technical report](benchmarks/reports/2026-10-04-certified-theory-actions-v5.md) | Public GF(3)/DirectCSP consequences and random offerers implemented but unaccepted; ordinary fuzz had incomplete verdict coverage and no effective v5 reach |
-| Internal UNSAT verticals | `1b38deed7`, `672f8b764`, `8cb50cdea` | GF(3) unit/conflict certificate, direct-PHP terminal action, and one-step Tseitin X7 live adapter pass focused normal/sanitizer checks; missing live/public boundaries remain explicit |
+| Certified UNSAT verticals | `86d142984`, `048442c40`, `e4d76b336` | GF(3) now has private authenticated live Gaussian unit/conflict publication; Tseitin has private bounded autonomous exact-XOR discovery through live X7; Direct PHP completes a disabled-by-default public terminal controller action. Combined focused Debug and ASan/UBSan are each 17/17; target and gate acceptance remain open |
 | Naive target row-cover proof | [checker-censor report](benchmarks/reports/2026-10-04-row-cover-target-checker-censor.md) | Rejected: 6,783,269 additions and 187,733,915 bytes reached the 1,800-second checker cap |
 
 The corrected guidance fuzz jobs are terminal. Default job `1748417` found zero
@@ -42,21 +42,24 @@ the only user job, interactive allocation `1747502`, is unrelated.
 
 ## Next action
 
-Finish the documentation/report checkpoint for `f6d7453f6`. Before another
-full gate, and only when benchmark execution is authorized, run the three
-trajectory controls from that exact source. Require the accepted structural
-prefix: zero ULC binaries for `cabp` and Break; five SR applications and zero
-ULC binaries for Timetable. If restored, run the LymphoSAT-owned recovery subset
-and then B28+C5, Rank1--50, WV100, and WV2--89. Keep the 1,800-second proof-check
-cap and baseline plus `max(30%, 20s)` proof-check slowdown rule.
+The first certified UNSAT vertical is complete through the public controller:
+Direct PHP is registered at append-only ID 36 with typed replay, random reach,
+raw feedback and terminal DSR/DRAT/no-proof publication, while DefaultPolicy
+keeps it disabled. Next, give GF(3) a public action that enumerates and selects
+an authenticated live Gaussian outcome, with typed replay and raw feedback;
+then give Tseitin a typed connected-component payload. Neither private frontend
+may choose hidden opportunity policy. Every added
+constraint or definition must retain Boolean form, theory meaning, exact
+premises, action/parameters, variable mapping, proof reference,
+reconstruction/projection obligation, deletion state, and exact
+effort/yield/proof cost. Repeat only from a freshly authenticated live plan.
 
-In parallel, complete one certified UNSAT vertical through its missing live and
-public action/replay/feedback boundary before multiplying mechanisms. Direct PHP
-is closest; GF(3) still lacks live publication, while Tseitin lacks autonomous
-group discovery and public action. Every added constraint or definition must
-retain Boolean form, theory meaning, exact premises, action/parameters, variable
-mapping, proof reference, reconstruction/projection obligation, deletion state,
-and effort/yield/proof cost. Repeat only from a freshly authenticated live plan.
+Before another full gate, and only when benchmark execution is authorized, run
+the `cabp`, Break and Timetable trajectory controls from `f6d7453f6`. Require
+zero ULC binaries for `cabp` and Break, and five SR applications with zero ULC
+binaries for Timetable. If restored, run the owner subset and then B28+C5,
+Rank1--50, WV100 and WV2--89 with the 1,800-second proof-check cap and baseline
+plus `max(30%, 20s)` completed-proof slowdown rule.
 
 ## Established authorities and open gates
 
@@ -69,8 +72,7 @@ and effort/yield/proof cost. Repeat only from a freshly authenticated live plan.
 
 ## Recent changes
 
+- `86d142984`/`048442c40`/`e4d76b336` completed live GF(3), autonomous Tseitin discovery and public Direct PHP verticals.
+- `5c23c1f4c` aligned lifecycle tests with the affine stage; the combined 17-test Debug matrix passes.
 - `f6d7453f6` restored affine Lucky/8 to the accepted structured-root stage-0 lifecycle and pinned its execution signature.
-- `8cb50cdea` hardened the one-step live Tseitin X7 transaction boundary.
-- `672f8b764` hardened Kernel-bound direct-PHP action/replay sessions.
-- `1b38deed7` bounded compact GF(3) certificate provenance.
 - `666f8bad0` corrected current guidance reachability parsing and added its regression test.
