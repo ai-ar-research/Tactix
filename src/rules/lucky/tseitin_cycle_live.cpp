@@ -116,7 +116,8 @@ CaptureStop capture_impl(Kernel &kernel, const SnapshotLimits &limits,
 
   CaptureStop failure = CaptureStop::Invalid;
   const auto spend = [&](uint64_t amount = 1) {
-    if (kernel_terminating(kernel)) {
+    if (kernel_terminating(kernel) ||
+        (limits.interrupted && limits.interrupted(limits.interrupt_state))) {
       failure = CaptureStop::Interrupted;
       return false;
     }
@@ -533,6 +534,8 @@ Result prepare(Kernel &kernel, const Snapshot &snapshot,
   local.ready_ = true;
   local.snapshot_ = snapshot;
   local.request_ = request;
+  local.request_.snapshot.interrupted = nullptr;
+  local.request_.snapshot.interrupt_state = nullptr;
   local.request_.admission.interrupted = nullptr;
   local.request_.admission.interrupt_state = nullptr;
   local.request_.transaction.interrupted = nullptr;
