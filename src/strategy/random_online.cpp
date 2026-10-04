@@ -1685,7 +1685,12 @@ bool random_online_strategy_program(Kernel &k, uint64_t seed,
         static_cast<SettingOverride>(bounded(rng, 3));
     step.material.likely_kept_redundant =
         static_cast<SettingOverride>(bounded(rng, 3));
-    if (config.sample_post_propagation && bounded(rng, 2))
+    const bool sampled_post_propagation =
+        config.sample_post_propagation && bounded(rng, 2);
+    const bool requires_separate_propagation =
+        step.rule == "DirectPhpRefutation" ||
+        step.rule == "TseitinCycleBreaking";
+    if (sampled_post_propagation && !requires_separate_propagation)
       step.post_application = PostApplication::Propagate;
 
     std::vector<uint64_t> instances;
