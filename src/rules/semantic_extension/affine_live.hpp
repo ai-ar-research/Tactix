@@ -48,15 +48,37 @@ struct AffineLiveRequest {
   const AffineLiveSnapshot *snapshot = nullptr;
 };
 
+enum class AffineLiveStatus : uint8_t {
+  Invalid,
+  Inapplicable,
+  NoStructure,
+  ResourceExhausted,
+  Interrupted,
+  UnsupportedProof,
+  Stale,
+  Applied,
+};
+
 struct AffineLiveResult {
+  // Every recoverable decline is classified without mutating the formula,
+  // proof, provenance stream, or clause-id namespace. Applied covers both a
+  // continuing Ok result and a terminal Unsat result.
+  AffineLiveStatus status = AffineLiveStatus::Invalid;
   ApplyResult result = ApplyResult::NoOp;
   affine_semantic_extension::Status recognition =
       affine_semantic_extension::Status::NoStructure;
   uint64_t snapshot_clauses = 0, snapshot_literals = 0, snapshot_work = 0;
   uint64_t equations = 0, consequences = 0, recognition_work = 0;
   uint64_t selected_sources = 0, selected_premises = 0;
+  // RUP additions materialized by proof planning. On an addition-budget
+  // decline this is the complete consumed quota even though no plan commits.
+  uint64_t proof_addition_work = 0;
   uint64_t preflight_additions = 0, preflight_deletions = 0;
   uint64_t additions = 0, deletions = 0, published = 0;
+  // Bytes considered while constructing the bounded journal, and bytes
+  // actually committed to records. A journal-budget decline can have nonzero
+  // work while journal_bytes remains zero.
+  uint64_t journal_work = 0, journal_bytes = 0;
   bool contradiction = false;
   bool rhs = false;
   // Publication can re-arm root propagation. The adapter deliberately does

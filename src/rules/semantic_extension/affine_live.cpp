@@ -22,7 +22,13 @@ std::vector<External> key(std::vector<External> clause) {
 struct Journal {
   uint64_t limit;
   std::string bytes;
+  uint64_t work = 0;
   bool append(const std::string &text) {
+    if (text.size() > UINT64_MAX - work) {
+      work = UINT64_MAX;
+      return false;
+    }
+    work += text.size();
     if (text.size() > limit - bytes.size()) return false;
     bytes += text;
     return true;
@@ -74,14 +80,28 @@ bool plan_replay(uint64_t first_id, const ProofPlan &plan, Replay &replay) {
   return true;
 }
 
-bool snapshot_guard(const Kernel &k, const AffineLiveRequest &request) {
+bool request_valid(const AffineLiveRequest &request) {
   return request.records && request.action_id && request.semantic_id &&
-         request.maximum_snapshot_literals && request.maximum_snapshot_work &&
-         request.maximum_proof_additions && request.maximum_journal_bytes &&
-         !k.inconsistent && !k.level && !k.conflict_valid && !k.pending.valid &&
+         request.image.maximum_arity <= 8 &&
+         request.image.maximum_intermediate_width <= 16 &&
+         request.image.maximum_output_width <= 4;
+}
+
+bool request_has_work(const AffineLiveRequest &request) {
+  return request.image.maximum_clauses && request.image.maximum_groups &&
+         request.image.maximum_patterns &&
+         request.image.maximum_elimination_work &&
+         request.image.maximum_arity &&
+         request.image.maximum_intermediate_width &&
+         request.image.maximum_sources && request.maximum_snapshot_literals &&
+         request.maximum_snapshot_work && request.maximum_proof_additions &&
+         request.maximum_journal_bytes;
+}
+
+bool state_applicable(const Kernel &k) {
+  return !k.inconsistent && !k.level && !k.conflict_valid && !k.pending.valid &&
          !k.dense && !k.probing.recording && k.large_watches_connected &&
-         kernel_propagation_fixpoint(k) &&
-         !(k.proof && (k.proof->lrat() || k.proof->pb()));
+         kernel_propagation_fixpoint(k);
 }
 
 const Clause *large_source_at(const Kernel &k, Ref wanted) {
@@ -97,28 +117,34 @@ const Clause *large_source_at(const Kernel &k, Ref wanted) {
   return nullptr;
 }
 
-bool snapshot_payload_counters(const AffineLiveSnapshot &snapshot,
-                               const AffineLiveRequest &request,
-                               uint64_t &literals, uint64_t &work) {
+enum class PayloadStatus { Complete, Invalid, ResourceExhausted };
+
+PayloadStatus snapshot_payload_counters(const AffineLiveSnapshot &snapshot,
+                                        const AffineLiveRequest &request,
+                                        uint64_t &literals, uint64_t &work) {
   literals = work = 0;
   if (snapshot.premises.size() != snapshot.sources.size() ||
       snapshot.premises.size() > request.image.maximum_clauses)
-    return false;
+    return snapshot.premises.size() > request.image.maximum_clauses
+               ? PayloadStatus::ResourceExhausted
+               : PayloadStatus::Invalid;
   for (size_t i = 0; i < snapshot.premises.size(); ++i) {
     const auto &premise = snapshot.premises[i];
     const auto &source = snapshot.sources[i];
     if (premise.occurrence != i + 1 || source.occurrence != i + 1 ||
         premise.literals.size() != source.clause.size() ||
-        premise.literals.size() > request.maximum_snapshot_literals - literals)
-      return false;
-    const uint64_t charge = uint64_t(premise.literals.size()) + 1;
-    if (charge > request.maximum_snapshot_work - work ||
         premise.literals != source.clause)
-      return false;
+      return PayloadStatus::Invalid;
+    if (premise.literals.size() >
+        request.maximum_snapshot_literals - literals)
+      return PayloadStatus::ResourceExhausted;
+    const uint64_t charge = uint64_t(premise.literals.size()) + 1;
+    if (charge > request.maximum_snapshot_work - work)
+      return PayloadStatus::ResourceExhausted;
     literals += premise.literals.size();
     work += charge;
   }
-  return true;
+  return PayloadStatus::Complete;
 }
 
 bool same_clause(const Kernel &k, const Lit *literals, uint32_t size,
@@ -158,6 +184,28 @@ bool clause_covered(const Kernel &k, const std::vector<External> &clause) {
     if (key(std::move(current)) == wanted) return true;
   }
   return false;
+}
+
+bool proof_plan_supported(
+    const affine_semantic_extension::Image &image,
+    const affine_semantic_extension::Consequence &choice) {
+  if (choice.variables.size() > 4 || choice.sources.size() < 2)
+    return false;
+  std::set<External> variables;
+  for (size_t source : choice.sources) {
+    if (source >= image.equations.size()) return false;
+    const auto &equation = image.equations[source];
+    if (equation.premises.size() != equation.premise_clauses.size())
+      return false;
+    for (const auto &clause : equation.premise_clauses) {
+      if (clause.size() > 8) return false;
+      for (External literal : clause) {
+        if (!literal || literal == INT32_MIN) return false;
+        variables.insert(literal < 0 ? -literal : literal);
+      }
+    }
+  }
+  return variables.size() <= 16;
 }
 
 bool append_journal(const AffineLiveRequest &request,
@@ -266,22 +314,45 @@ bool append_journal(const AffineLiveRequest &request,
 
 } // namespace
 
-bool capture_affine_live_snapshot(Kernel &k, const AffineLiveRequest &request,
-                                  AffineLiveSnapshot &output) {
+namespace {
+
+enum class CaptureStatus { Complete, Invalid, ResourceExhausted, Interrupted };
+
+CaptureStatus capture_snapshot(Kernel &k, const AffineLiveRequest &request,
+                               AffineLiveSnapshot &output,
+                               AffineLiveResult *effort) {
   AffineLiveSnapshot result;
   result.arena_generation = k.arena_generation;
+  CaptureStatus failure = CaptureStatus::Invalid;
+  const auto finish = [&](CaptureStatus status) {
+    if (effort) {
+      effort->snapshot_clauses = result.premises.size();
+      effort->snapshot_literals = result.literals;
+      effort->snapshot_work = result.work;
+    }
+    if (status == CaptureStatus::Complete) output = std::move(result);
+    return status;
+  };
   auto charge = [&](uint64_t amount) {
-    if (kernel_terminating(k) ||
-        amount > request.maximum_snapshot_work - result.work)
+    if (kernel_terminating(k)) {
+      failure = CaptureStatus::Interrupted;
       return false;
+    }
+    if (amount > request.maximum_snapshot_work - result.work) {
+      failure = CaptureStatus::ResourceExhausted;
+      return false;
+    }
     result.work += amount;
     return true;
   };
   auto take = [&](AffineSourceKind kind, Ref ref, Lit first, Lit second,
                   uint64_t clause_id, const Lit *literals, uint32_t size) {
     if (result.premises.size() == request.image.maximum_clauses ||
-        size > request.maximum_snapshot_literals - result.literals ||
-        !charge(size + 1)) return false;
+        size > request.maximum_snapshot_literals - result.literals) {
+      failure = CaptureStatus::ResourceExhausted;
+      return false;
+    }
+    if (!charge(size + 1)) return false;
     AffineLiveSource source;
     source.occurrence = result.sources.size() + 1;
     source.kind = kind;
@@ -291,7 +362,10 @@ bool capture_affine_live_snapshot(Kernel &k, const AffineLiveRequest &request,
     source.clause_id = clause_id;
     source.clause.reserve(size);
     for (uint32_t i = 0; i < size; ++i) {
-      if (kernel_var_retired(k, var_of(literals[i]))) return false;
+      if (kernel_var_retired(k, var_of(literals[i]))) {
+        failure = CaptureStatus::Invalid;
+        return false;
+      }
       source.clause.push_back(kernel_externalize(k, literals[i]));
     }
     result.literals += size;
@@ -303,25 +377,33 @@ bool capture_affine_live_snapshot(Kernel &k, const AffineLiveRequest &request,
     const Ref current = ref;
     const Clause *clause = clause_at(k.arena, ref);
     ref += clause_actual_words(clause);
-    if (!charge(1)) return false;
+    if (!charge(1)) return finish(failure);
     if (!clause->garbage() && clause->size <= request.image.maximum_arity &&
         !take(AffineSourceKind::Large, current, INVALID_LIT, INVALID_LIT,
-              clause->id(), clause->lits, clause->size)) return false;
+              clause->id(), clause->lits, clause->size))
+      return finish(failure);
   }
   std::set<uint64_t> binaries;
   for (Lit first = 0; first < 2 * k.nvars; ++first)
     for (const WatchEntry watch : k.watches.entries(first)) {
-      if (!charge(1)) return false;
+      if (!charge(1)) return finish(failure);
       if (!watch.binary() || first >= watch.other()) continue;
       if (!binaries.insert(kernel_binary_key(first, watch.other())).second)
         continue;
       const Lit pair[] = {first, watch.other()};
       if (!take(AffineSourceKind::Binary, INVALID_REF, first, watch.other(),
                 kernel_binary_id(k, first, watch.other()), pair, 2))
-        return false;
+        return finish(failure);
     }
-  output = std::move(result);
-  return true;
+  return finish(CaptureStatus::Complete);
+}
+
+} // namespace
+
+bool capture_affine_live_snapshot(Kernel &k, const AffineLiveRequest &request,
+                                  AffineLiveSnapshot &output) {
+  return capture_snapshot(k, request, output, nullptr) ==
+         CaptureStatus::Complete;
 }
 
 bool affine_live_sources_valid(const Kernel &k,
@@ -358,74 +440,160 @@ bool affine_live_sources_valid(const Kernel &k,
 AffineLiveResult derive_affine_live(Kernel &k,
                                     const AffineLiveRequest &request) {
   AffineLiveResult result;
-  if (!snapshot_guard(k, request) || kernel_terminating(k)) return result;
+  if (!request_valid(request)) return result;
+  if (!request_has_work(request)) {
+    result.status = AffineLiveStatus::ResourceExhausted;
+    return result;
+  }
+  if (k.proof && (k.proof->lrat() || k.proof->pb())) {
+    result.status = AffineLiveStatus::UnsupportedProof;
+    return result;
+  }
+  if (!state_applicable(k)) {
+    result.status = AffineLiveStatus::Inapplicable;
+    return result;
+  }
+  if (kernel_terminating(k)) {
+    result.status = AffineLiveStatus::Interrupted;
+    return result;
+  }
   AffineLiveSnapshot owned;
   const AffineLiveSnapshot *snapshot = request.snapshot;
   if (!snapshot) {
-    if (!capture_affine_live_snapshot(k, request, owned)) return result;
+    const CaptureStatus captured = capture_snapshot(k, request, owned, &result);
+    if (captured != CaptureStatus::Complete) {
+      result.status = captured == CaptureStatus::Interrupted
+                          ? AffineLiveStatus::Interrupted
+                      : captured == CaptureStatus::ResourceExhausted
+                          ? AffineLiveStatus::ResourceExhausted
+                          : AffineLiveStatus::Invalid;
+      return result;
+    }
     snapshot = &owned;
   }
   // Ref identity is generation-scoped. Reject a cached view before doing any
   // semantic work; selected large sources are boundary-checked again just
   // before proof publication.
-  if (snapshot->arena_generation != k.arena_generation) return result;
-  uint64_t payload_literals = 0, payload_work = 0;
-  if (!snapshot_payload_counters(*snapshot, request, payload_literals,
-                                 payload_work))
+  if (snapshot->arena_generation != k.arena_generation) {
+    result.status = AffineLiveStatus::Stale;
     return result;
+  }
+  uint64_t payload_literals = 0, payload_work = 0;
+  const PayloadStatus payload = snapshot_payload_counters(
+      *snapshot, request, payload_literals, payload_work);
   result.snapshot_clauses = snapshot->premises.size();
   result.snapshot_literals = payload_literals;
+  if (payload != PayloadStatus::Complete) {
+    result.snapshot_work = request.snapshot ? payload_work : snapshot->work;
+    result.status = payload == PayloadStatus::ResourceExhausted
+                        ? AffineLiveStatus::ResourceExhausted
+                        : AffineLiveStatus::Invalid;
+    return result;
+  }
   // A freshly captured view reports its full arena/watch scan. Reusing a
   // caller-owned view charges a deterministic replay of every cached payload;
   // its stored counters are advisory and cannot bypass this action's limits.
   result.snapshot_work = request.snapshot ? payload_work : snapshot->work;
-  if (result.snapshot_work > request.maximum_snapshot_work) return result;
+  if (result.snapshot_work > request.maximum_snapshot_work) {
+    result.status = AffineLiveStatus::ResourceExhausted;
+    return result;
+  }
 
   affine_semantic_extension::Image image;
   uint64_t recognition_work = 0;
+  bool recognition_interrupted = false, recognition_exhausted = false;
   const auto charge = [&](uint64_t amount) {
-    if (kernel_terminating(k) ||
-        amount > request.image.maximum_elimination_work - recognition_work)
+    if (kernel_terminating(k)) {
+      recognition_interrupted = true;
       return false;
+    }
+    if (amount >
+        request.image.maximum_elimination_work - recognition_work) {
+      recognition_exhausted = true;
+      return false;
+    }
     recognition_work += amount;
     return true;
   };
   result.recognition = affine_semantic_extension::recognize(
       snapshot->premises, request.image, charge, image);
   result.recognition_work = recognition_work;
-  if (result.recognition != affine_semantic_extension::Status::Complete)
+  if (result.recognition != affine_semantic_extension::Status::Complete) {
+    using affine_semantic_extension::Status;
+    if (recognition_interrupted || result.recognition == Status::Interrupted)
+      result.status = recognition_exhausted
+                          ? AffineLiveStatus::ResourceExhausted
+                          : AffineLiveStatus::Interrupted;
+    else if (result.recognition == Status::Exhausted)
+      result.status = AffineLiveStatus::ResourceExhausted;
+    else if (result.recognition == Status::NoStructure)
+      result.status = AffineLiveStatus::NoStructure;
+    else
+      result.status = AffineLiveStatus::Invalid;
     return result;
+  }
   result.equations = image.equations.size();
   result.consequences = image.consequences.size();
-  if (request.consequence >= image.consequences.size()) return result;
+  if (request.consequence >= image.consequences.size()) {
+    result.status = AffineLiveStatus::NoStructure;
+    return result;
+  }
   const auto &choice = image.consequences[request.consequence];
   result.selected_sources = choice.sources.size();
   result.selected_premises = choice.premises.size();
   result.semantic_variables = choice.variables;
   result.rhs = choice.rhs;
   result.contradiction = choice.variables.empty() && choice.rhs;
-  if (!affine_live_sources_valid(k, *snapshot, choice.premises)) return result;
+  if (!affine_live_sources_valid(k, *snapshot, choice.premises)) {
+    result.status = AffineLiveStatus::Stale;
+    return result;
+  }
 
   ProofPlan plan;
-  if (!affine_semantic_extension::build_proof_plan(
-          image, request.consequence, request.maximum_proof_additions, plan))
+  if (!proof_plan_supported(image, choice)) {
+    result.status = AffineLiveStatus::UnsupportedProof;
     return result;
-  if (plan.additions > request.maximum_proof_additions) return result;
+  }
+  if (!affine_semantic_extension::build_proof_plan(
+          image, request.consequence, request.maximum_proof_additions, plan)) {
+    // After the structural support check above, the bounded planning sink can
+    // fail only when it has filled the caller's complete addition quota.
+    result.proof_addition_work = request.maximum_proof_additions;
+    result.status = AffineLiveStatus::ResourceExhausted;
+    return result;
+  }
+  result.proof_addition_work = plan.additions;
+  if (plan.additions > request.maximum_proof_additions) {
+    result.status = AffineLiveStatus::ResourceExhausted;
+    return result;
+  }
   std::vector<bool> missing;
   uint64_t arena_words = 0;
   for (const auto &target : plan.targets) {
     const bool needed = !clause_covered(k, target);
     missing.push_back(needed);
     if (needed && target.size() > 2) {
-      if (target.size() + CLAUSE_HEADER_WORDS > INVALID_REF - arena_words)
+      if (target.size() + CLAUSE_HEADER_WORDS > INVALID_REF - arena_words) {
+        result.status = AffineLiveStatus::ResourceExhausted;
         return result;
+      }
       arena_words += target.size() + CLAUSE_HEADER_WORDS;
     }
   }
-  if (std::none_of(missing.begin(), missing.end(), [](bool value) { return value; }))
+  if (std::none_of(missing.begin(), missing.end(),
+                   [](bool value) { return value; })) {
+    result.status = AffineLiveStatus::NoStructure;
     return result;
-  if (arena_words >= INVALID_REF - k.arena.size()) return result;
+  }
+  if (arena_words >= INVALID_REF - k.arena.size()) {
+    result.status = AffineLiveStatus::ResourceExhausted;
+    return result;
+  }
 
+  if (plan.additions > UINT64_MAX - k.next_clause_id) {
+    result.status = AffineLiveStatus::ResourceExhausted;
+    return result;
+  }
   Replay replay;
   if (!plan_replay(k.next_clause_id, plan, replay)) return result;
   bool false_unit = false;
@@ -443,8 +611,10 @@ AffineLiveResult derive_affine_live(Kernel &k,
     if (target.empty()) continue;
     if (target.size() == 1) {
       const Lit literal = kernel_internalize(k, target[0]);
-      if (literal == INVALID_LIT || kernel_var_retired(k, var_of(literal)))
+      if (literal == INVALID_LIT || kernel_var_retired(k, var_of(literal))) {
+        result.status = AffineLiveStatus::Stale;
         return result;
+      }
       if (k.value(literal) < 0) {
         if (k.proof && !k.unit_ids[var_of(literal)]) return result;
         false_unit = true;
@@ -458,8 +628,10 @@ AffineLiveResult derive_affine_live(Kernel &k,
     } else {
       for (External external : target) {
         const Lit literal = kernel_internalize(k, external);
-        if (literal == INVALID_LIT || kernel_var_retired(k, var_of(literal)))
+        if (literal == INVALID_LIT || kernel_var_retired(k, var_of(literal))) {
+          result.status = AffineLiveStatus::Stale;
           return result;
+        }
         propagation_pending |= k.value(literal) < 0;
       }
     }
@@ -468,10 +640,21 @@ AffineLiveResult derive_affine_live(Kernel &k,
   }
   const uint64_t total_additions = plan.additions + uint64_t(false_unit);
   if (total_additions > request.maximum_proof_additions ||
-      replay.last_id > uint64_t(INT64_MAX) - uint64_t(false_unit)) return result;
-  if (cleanup_deletions > UINT64_MAX - plan.deletions) return result;
+      replay.last_id > uint64_t(INT64_MAX) - uint64_t(false_unit)) {
+    result.status = AffineLiveStatus::ResourceExhausted;
+    return result;
+  }
+  if (cleanup_deletions > UINT64_MAX - plan.deletions) {
+    result.status = AffineLiveStatus::ResourceExhausted;
+    return result;
+  }
   const uint64_t total_deletions = plan.deletions + cleanup_deletions;
-  if (total_deletions > request.maximum_proof_deletions) return result;
+  if (total_deletions > request.maximum_proof_deletions) {
+    result.preflight_additions = total_additions;
+    result.preflight_deletions = total_deletions;
+    result.status = AffineLiveStatus::ResourceExhausted;
+    return result;
+  }
   result.preflight_additions = total_additions;
   result.preflight_deletions = total_deletions;
   Journal journal{request.maximum_journal_bytes, {}};
@@ -482,10 +665,20 @@ AffineLiveResult derive_affine_live(Kernel &k,
   journal_result.propagation_pending = !false_unit && propagation_pending;
   if (!append_journal(request, *snapshot, image, choice, plan, replay,
                       installed, delete_uninstalled, journal_result,
-                      false_unit ? replay.last_id + 1 : 0, journal))
+                      false_unit ? replay.last_id + 1 : 0, journal)) {
+    result.journal_work = journal.work;
+    result.status = AffineLiveStatus::ResourceExhausted;
     return result;
-  if (kernel_terminating(k) ||
-      !affine_live_sources_valid(k, *snapshot, choice.premises)) return result;
+  }
+  result.journal_work = journal.work;
+  if (kernel_terminating(k)) {
+    result.status = AffineLiveStatus::Interrupted;
+    return result;
+  }
+  if (!affine_live_sources_valid(k, *snapshot, choice.premises)) {
+    result.status = AffineLiveStatus::Stale;
+    return result;
+  }
 
   k.close_startup_certificate();
   for (size_t i = 0; i < plan.events.size(); ++i) {
@@ -552,6 +745,8 @@ AffineLiveResult derive_affine_live(Kernel &k,
   if (std::fwrite(journal.bytes.data(), 1, journal.bytes.size(), request.records) !=
           journal.bytes.size() ||
       std::fflush(request.records) || std::ferror(request.records)) std::abort();
+  result.journal_bytes = journal.bytes.size();
+  result.status = AffineLiveStatus::Applied;
   return result;
 }
 
