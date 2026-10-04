@@ -2,6 +2,8 @@
 # Fuzzing entry point (plan §8.2; fuzz skill). Wraps fuzz.py:
 #   run.sh --quick  --solver CMD     ~10k cases + regression corpus (per commit)
 #   run.sh --nightly --solver CMD    ~200k cases + full proof cross-checks
+#   run.sh --controller-v5 --quick --solver CMD
+#                                      10k typed GF3/DirectCSP mutations
 #   run.sh [fuzz.py args...]         pass-through
 # Sizes are the cluster scale (10x the workstation defaults); submit
 # via tools/fuzz/slurm.sh (50 physical cores/workers), never in the session shell.
@@ -17,6 +19,8 @@ EXTRA=()
 SOLVER=""
 ORACLE=""
 HAS_OUTDIR=0
+CONTROLLER_V5=0
+NIGHTLY=0
 # The corpus replays whole entries under the leg's own solver command, so a
 # schedule that starves M1 can leave one of them without a verdict. That is
 # fatal by default (a replay that reaches no verdict runs no oracle); the
@@ -25,7 +29,8 @@ CORPUS_EXTRA=()
 while [ $# -gt 0 ]; do
     case "$1" in
         --quick)   N=10000;   shift ;;
-        --nightly) N=200000; EXTRA+=(--lrat); shift ;;
+        --nightly) N=200000; NIGHTLY=1; shift ;;
+        --controller-v5) CONTROLLER_V5=1; shift ;;
         --solver)  SOLVER="$2"; shift 2 ;;
         --oracle)  ORACLE="$2"; shift 2 ;;
         --outdir)  HAS_OUTDIR=1; EXTRA+=("$1" "$2"); shift 2 ;;
@@ -40,12 +45,26 @@ while [ $# -gt 0 ]; do
     esac
 done
 [ -n "$SOLVER" ] || { echo "usage: run.sh [--quick|--nightly] --solver CMD [fuzz.py args]" >&2; exit 2; }
-[ "$HAS_OUTDIR" -eq 1 ] || EXTRA+=(--outdir "$DEFAULT_OUTDIR")
+[ "$HAS_OUTDIR" -eq 1 ] || {
+    if [ "$CONTROLLER_V5" -eq 1 ]; then
+        EXTRA+=(--outdir "$DEFAULT_OUTDIR/controller-v5")
+    else
+        EXTRA+=(--outdir "$DEFAULT_OUTDIR")
+    fi
+}
 
 if [ -z "$ORACLE" ]; then
     ORACLE="$ROOT/tools/solvers/bin/kissat"
     case "$SOLVER" in *kissat*) ORACLE="$ROOT/tools/solvers/bin/cadical" ;; esac
 fi
+
+if [ "$CONTROLLER_V5" -eq 1 ]; then
+    echo "== controller v5 typed fuzz: $N cases, solver=$SOLVER oracle=$ORACLE =="
+    exec python3 "$HERE/controller_v5.py" --solver "$SOLVER" --oracle "$ORACLE" \
+        --n "$N" ${EXTRA[@]+"${EXTRA[@]}"}
+fi
+
+[ "$NIGHTLY" -eq 0 ] || EXTRA+=(--lrat)
 
 echo "== regression corpus =="
 # The corpus gets a REAL budget, not the 5 s case default: its entries are

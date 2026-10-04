@@ -19,6 +19,7 @@ if [ -z "${TACTIX_FUZZ_CHECKERS:-}" ]; then
 fi
 python3 "$HERE/fuzz.py" checkers
 python3 "$HERE/controls/checker_collection_controls.py"
+python3 "$HERE/controls/controller_coverage_controls.py"
 
 # Fixed native/conversion dispatch, invalid-empty-lemma, strict status and
 # failure-artifact retention controls use the actual acceptance checkers.

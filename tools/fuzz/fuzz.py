@@ -466,6 +466,32 @@ def merge_controller_coverage(total, case, verdict):
         case["loop"].get("maximum-root-actions", 0) >= 2)
 
 
+def missing_controller_requirements(coverage, applications=(), effective=()):
+    """Return requested controller rows whose aggregate source counter is zero.
+
+    The controller prints all root families at every terminal, including
+    structured families that were unavailable because no typed witness was
+    offered.  Merely seeing a row therefore proves nothing.  Keep application
+    and effective-transition requirements distinct: an attempted semantic
+    action can consume one application and still publish no constraint.
+
+    ``coverage`` may be one case from :func:`controller_coverage` or the
+    aggregate written to controller-coverage.json; both use the same nested
+    ``rule`` field and differ only in whether counters live directly in the
+    row or under ``sum``.
+    """
+    missing = []
+    rules = coverage.get("rule", {}) if coverage else {}
+    for field, names in (("applications", applications),
+                         ("effective", effective)):
+        for name in names:
+            row = rules.get(name, {})
+            values = row.get("sum", row)
+            if values.get(field, 0) == 0:
+                missing.append(f"{name}:{field}")
+    return missing
+
+
 def rule_reachability(stdout):
     """(stats_present, {label: count}, {label: line_present}) for one case.
 
@@ -497,6 +523,11 @@ def substitute_seed(cmd, seed):
     return [a.replace("{seed}", str(seed)) for a in cmd]
 
 
+def substitute_workdir(cmd, workdir):
+    """Bind per-run outputs without baking a vanished temp dir into repros."""
+    return [a.replace("{workdir}", workdir) for a in cmd]
+
+
 def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
     """Run the solver under test on cnf_path and apply all oracles.
 
@@ -504,6 +535,7 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
     the corresponding compatibility oracle. Native LRAT is checked directly
     with cake_lpr; legacy lrat-check is not an acceptance oracle because it
     accepts a non-conflicting empty-lemma chain on a SAT input."""
+    solver = substitute_workdir(solver, workdir)
     out = CaseOutcome()
     def check(command):
         command = list(map(str, command))
@@ -721,7 +753,7 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
 
 
 def save_bundle(outdir, idx, seed, name, cnf_path, outcome, solver, oracle,
-                timeout, lrat, shrink):
+                timeout, lrat, shrink, repro_args=()):
     kinds = "+".join(sorted({k for k, _ in outcome.failures}))
     bundle = os.path.join(outdir, f"{idx:06d}-{kinds}-seed{seed}")
     os.makedirs(bundle, exist_ok=True)
@@ -758,6 +790,7 @@ def save_bundle(outdir, idx, seed, name, cnf_path, outcome, solver, oracle,
         check_cmd += ["--oracle", shlex.join(oracle)]
     if lrat:
         check_cmd += ["--lrat"]
+    check_cmd += list(repro_args)
     with open(os.path.join(bundle, "repro.sh"), "w") as f:
         f.write("#!/usr/bin/env bash\n# exit 0 iff the recorded failure "
                 "kind reproduces on $1 (default: case.cnf)\n"
@@ -1027,6 +1060,13 @@ def cmd_run(args):
               f"{controller['loop']['cases']} root-sequence>=2 in "
               f"{controller['loop']['cases_root_sequence_ge2']} cases "
               f"(detail: controller-coverage.json)")
+    missing_controller = missing_controller_requirements(
+        controller,
+        args.require_controller_applied or (),
+        args.require_controller_effective or ())
+    if missing_controller:
+        print("fuzz: REQUIRED CONTROLLER COVERAGE MISSING: "
+              f"{missing_controller}")
     missing_spec = [label for label, _ in REACH_SPECS
                     if stats_cases and reach_spec_seen[label] == 0]
     if missing_spec:
@@ -1051,7 +1091,8 @@ def cmd_run(args):
     if below_verdict_minimum:
         print(f"fuzz: verdict coverage {effective} is below required "
               f"minimum {args.minimum_verdicts}")
-    return 1 if (nfail or missing_spec or unreached or below_target_minimum
+    return 1 if (nfail or missing_spec or unreached or missing_controller
+                 or below_target_minimum
                  or over_budget
                  or below_verdict_minimum) else 0
 
@@ -1062,6 +1103,13 @@ def cmd_check_one(args):
     with tempfile.TemporaryDirectory(prefix="fuzz-check-") as workdir:
         outcome = run_case(args.cnf, solver, oracle, args.timeout,
                            args.lrat, workdir)
+    missing_controller = missing_controller_requirements(
+        controller_coverage(outcome.solver_out),
+        args.require_controller_applied or (),
+        args.require_controller_effective or ())
+    if missing_controller:
+        outcome.fail("coverage", "required controller coverage missing: " +
+                     ", ".join(missing_controller))
     kinds = {k for k, _ in outcome.failures}
     print(f"verdict={outcome.verdict} oracle={outcome.oracle_verdict} "
           f"failures={outcome.failures}"
@@ -1200,8 +1248,20 @@ def main() -> int:
                         "with cake_lpr (native DSR always runs its required "
                         "proof pipeline)")
 
+    def controller_requirements(p):
+        p.add_argument("--require-controller-applied", default=None,
+                       type=lambda s: [x for x in s.split(",") if x],
+                       help="comma-separated controller root families that "
+                            "must execute at least one application")
+        p.add_argument("--require-controller-effective", default=None,
+                       type=lambda s: [x for x in s.split(",") if x],
+                       help="comma-separated controller root families that "
+                            "must make at least one effective solver-state "
+                            "transition")
+
     p = sub.add_parser("run")
     common(p)
+    controller_requirements(p)
     p.add_argument("--n", type=int, default=1000)
     p.add_argument("--seed", type=int, default=20260709)
     p.add_argument("--outdir", default=os.path.join(HERE, "failures"))
@@ -1238,9 +1298,11 @@ def main() -> int:
 
     p = sub.add_parser("check-one")
     common(p)
+    controller_requirements(p)
     p.add_argument("cnf")
     p.add_argument("--fail-kind", default=None,
-                   choices=["crash", "io", "model", "proof", "differential"])
+                   choices=["crash", "io", "model", "proof", "differential",
+                            "coverage"])
     p.set_defaults(func=cmd_check_one)
 
     p = sub.add_parser("corpus")

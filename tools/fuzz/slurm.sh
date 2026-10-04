@@ -79,7 +79,10 @@ PIN_FUZZ="$PIN_ROOT/fuzz"
 mkdir -p "$PIN_FUZZ"
 cp -a "$HERE/run.sh" "$HERE/fuzz.py" "$HERE/generators.py" \
       "$HERE/modelcheck.py" "$HERE/shrink.py" "$HERE/stress.py" \
-      "$HERE/corpus" "$HERE/stress-scenarios" "$PIN_FUZZ/"
+      "$HERE/controller_v5.py" "$HERE/corpus" \
+      "$HERE/stress-scenarios" "$PIN_FUZZ/"
+mkdir -p "$PIN_FUZZ/controls"
+cp -a "$HERE/controls/controller-v5" "$PIN_FUZZ/controls/"
 cp -a "$ROOT/tools/bench/proof_oracle.py" "$PIN_FUZZ/"
 mkdir -p "$PIN_FUZZ/checkers"
 cp -a "$ROOT/benchmarks/baselines/sc24-26-32g-5000s/pins/veripb" \
