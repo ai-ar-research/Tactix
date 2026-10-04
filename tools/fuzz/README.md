@@ -5,17 +5,13 @@ Soundness pipeline per DEVELOPMENT_PLAN.md §8.2 (workflow: the `fuzz` skill).
 - `run.sh --quick --solver CMD` — per-commit gate: regression corpus + 10,000
   seeded cases; `--nightly` = 200,000 cases + LRAT chain. These counts are
   owned by `run.sh`; keep this summary synchronized with its defaults.
-- `run.sh --controller-v5 --quick --solver CMD` — focused public-action v5
-  leg: 10,000 deterministic structure-preserving mutations split across GF(3)
-  and Direct CSP and across SAT/model and UNSAT/proof oracles. GF(3) mutations
-  remain complete affine encodings (including a minimally inconsistent affine
-  cycle); Direct CSP mutations use a disjoint Boolean component. Ordinary random
-  CNFs cannot supply the caller-owned equation-pair/domain payloads and do not
-  cover these actions. This leg supplies exact typed action files, requires a
-  nonzero effective transition on every counted case, and checks seeded
-  controller trace/replay before the campaign. It supplements rather than
-  replaces the separate DefaultPolicy and full random-controller legs.
-  `--nightly` selects 200,000.
+- `run.sh --controller-v5 --quick --solver CMD` — 10,000 deterministic
+  structure-preserving GF(3)/Direct CSP mutations across SAT/model and
+  UNSAT/proof oracles. GF(3) stays a complete affine encoding, including a
+  minimally inconsistent cycle; Direct CSP uses a disjoint Boolean component.
+  Exact typed payloads must make an effective transition in every case, and
+  seeded trace/replay is checked first. Ordinary random CNFs cannot supply these
+  payloads, so this supplements the default/random legs. Nightly selects 200,000.
 - `slurm.sh` reserves 50 physical cores by default on the cluster's SMT-2
   nodes: 100 logical CPUs, 400,000 MiB, and 50 fuzz workers.  `--physical-cores
   P` changes all three coherently.  A worker count is parallelism within one
