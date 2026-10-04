@@ -1,6 +1,7 @@
 #pragma once
 
 #include "strategy/controller_action_space.hpp"
+#include "strategy/semantic_variable_advice.hpp"
 
 #include <optional>
 
@@ -31,6 +32,7 @@ struct Observation {
   uint64_t reluctant_u = 1, reluctant_v = 1, reluctant_wait = 0;
   double fast_glue = 0, slow_glue = 0;
   Stats cumulative;
+  std::vector<SemanticVariableCandidateInfo> semantic_variable_candidates;
   std::optional<ActionResult> last_action;
   // Optional native-policy scheduling state. Root-controller snapshots keep
   // their named configuration fields; other policies can retain native clocks.
@@ -54,6 +56,8 @@ inline Observation observe_kernel(const Kernel &k) {
   result.conflict = k.conflict_valid;
   result.propagation_fixpoint = kernel_propagation_fixpoint(k);
   result.cumulative = k.stats;
+  result.semantic_variable_candidates =
+      strategy::semantic_variable_candidates(k);
   return result;
 }
 

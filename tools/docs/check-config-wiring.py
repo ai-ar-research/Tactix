@@ -332,6 +332,12 @@ TABLE = {
     "conflict_reuse_chrono_levels":
                                 ("POLICY", "configured chronological-gap limit "
                                            "for the conflict-reuse shortcut"),
+    "semantic_variable_candidate_pending":
+                                ("RULE", "registry transaction state for one staged "
+                                         "producer declaration"),
+    "semantic_variable_publication":
+                                ("RULE", "monotone registry publication identity; "
+                                         "independent of resettable telemetry"),
     # --- a rule computes these -------------------------------------------
     "tier1":                   ("RULE", "reduce.cpp, from the live glue distribution"),
     "tier2":                   ("RULE", "reduce.cpp; 2 consumers (reduce, vivify) — SP-TIER-2 "

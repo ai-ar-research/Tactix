@@ -72,11 +72,31 @@ def observation(value):
          "root_population irredundant_clauses inconsistent conflict fixpoint searching "
          "have_configuration configuration rotation_intervals next_restart_conflicts "
          "reluctant fast_glue slow_glue last_action native", "observation",
-         optional="native_policy_state")
+         optional="native_policy_state semantic_variable_candidates")
     if "native_policy_state" in value:
         require(type(value["native_policy_state"]) is str, "invalid native policy state")
     require(integer(value["version"], "observation version") == 1,
             "unsupported observation version")
+    if "semantic_variable_candidates" in value:
+        candidates = value["semantic_variable_candidates"]
+        require(type(candidates) is list, "invalid semantic variable candidates")
+        ids = set()
+        for candidate in candidates:
+            keys(candidate, "id action_id arena_generation touch_epoch strategy_epoch "
+                 "producer existing_variables introduced_variables",
+                 "semantic variable candidate")
+            for key in ("id", "action_id", "arena_generation", "touch_epoch",
+                        "strategy_epoch", "producer", "existing_variables",
+                        "introduced_variables"):
+                integer(candidate[key], "semantic variable candidate " + key)
+            identity = candidate["id"]
+            require(identity >> 8 and identity not in ids,
+                    "invalid/repeated semantic variable candidate identity")
+            ids.add(identity)
+            integer(candidate["producer"], "semantic variable producer", 3)
+            require(candidate["existing_variables"] +
+                    candidate["introduced_variables"] > 0,
+                    "empty semantic variable candidate")
     state(value["state"])
     for key in ("sequence", "variables", "unassigned", "active_unassigned", "level", "trail",
                 "root_population", "irredundant_clauses", "rotation_intervals",

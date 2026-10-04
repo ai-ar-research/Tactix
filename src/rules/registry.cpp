@@ -2,6 +2,7 @@
 #include "diagnostics/event_trace.hpp"
 #include "diagnostics/rule_journal.hpp"
 #include "strategy/action_execution.hpp"
+#include "strategy/semantic_variable_advice.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -190,6 +191,7 @@ ApplyResult dispatch_rule(const RuleVTable &vt, Kernel &k,
         : previous(event_trace_rule_enter(name)) {}
     ~ScopedTraceRule() { event_trace_rule_leave(previous); }
   } trace_rule(vt.name);
+  strategy::begin_semantic_variable_candidate_action(k);
   ApplyResult result;
   if (vt.id >= Stats::MAX_TIMED_RULES) {
     result = apply();
@@ -200,6 +202,7 @@ ApplyResult dispatch_rule(const RuleVTable &vt, Kernel &k,
     k.stats.rule_calls[vt.id]++;
   }
   ++k.strategy_epoch;
+  strategy::finish_semantic_variable_candidate_action(k, result);
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
   if (journal) {
     journal_dispatch(vt, k, candidate.c_str(), pre_digest, formula_epoch,

@@ -1,27 +1,12 @@
 #pragma once
 
+#include "strategy/semantic_variable.hpp"
 #include "strategy/rule_invocation.hpp"
 
 #include <cstdint>
 #include <vector>
 
 namespace tactix::strategy {
-
-// A producer classifies identities by meaning. Only variables that represent
-// a declared theory fact are eligible for branch advice; encoding and
-// proof-only helpers remain implementation details.
-enum class SemanticVariableRole : uint8_t {
-  ExistingTheory,
-  IntroducedTheory,
-  EncodingHelper,
-  ProofOnly,
-};
-
-struct SemanticVariable {
-  uint32_t external = 0;
-  SemanticVariableRole role = SemanticVariableRole::ExistingTheory;
-  uint32_t priority = 1;
-};
 
 struct SemanticVariableAdvice {
   uint64_t action_id = 0;
@@ -53,8 +38,36 @@ struct SemanticVariableAdviceResult {
 // accounting complete before either ranking changes, so every decline has no
 // effect. The same advice is installed in VMTF and EVSIDS regardless of the
 // currently active mode.
+//
+// `commit_semantic_variable_advice` leaves epoch ownership to registry dispatch.
+// The direct wrapper below advances it once on success for non-registry callers.
+SemanticVariableAdviceResult commit_semantic_variable_advice(
+    Kernel &, const SemanticVariableAdvice &,
+    const SemanticVariableAdviceLimits &);
 SemanticVariableAdviceResult apply_semantic_variable_advice(
     Kernel &, const SemanticVariableAdvice &,
     const SemanticVariableAdviceLimits &);
+
+// Proof-rule adapters stage neutral producer declarations during their atomic
+// apply. Registry dispatch publishes them only after its single strategy-epoch
+// transition, so a learner can observe and select advice in that exact state.
+void begin_semantic_variable_candidate_action(Kernel &);
+bool stage_semantic_variable_candidate(
+    Kernel &, SemanticVariableProducer, uint64_t action_id,
+    const std::vector<SemanticVariable> &);
+void finish_semantic_variable_candidate_action(Kernel &, ApplyResult);
+
+const SemanticVariableCandidate *semantic_variable_candidate(
+    const Kernel &, uint64_t id);
+bool has_current_semantic_variable_candidate(const Kernel &);
+std::vector<SemanticVariableCandidateInfo> semantic_variable_candidates(
+    const Kernel &);
+
+// Resolve one current candidate into a state-bound advice request. Role doses
+// are controller choices; producers publish neutral priority one.
+bool make_semantic_variable_advice(const Kernel &, uint64_t candidate_id,
+                                   uint32_t existing_priority,
+                                   uint32_t introduced_priority,
+                                   SemanticVariableAdvice &);
 
 } // namespace tactix::strategy

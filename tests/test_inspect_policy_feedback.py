@@ -57,6 +57,12 @@ def main():
         changed[action + 1]["value"] = -1
         rejected(encode(changed), "elapsed nanos")
         changed = json.loads(json.dumps(rows))
+        changed[action]["before"]["semantic_variable_candidates"] = [{
+            "id": 0, "action_id": 1, "arena_generation": 0,
+            "touch_epoch": 0, "strategy_epoch": 0, "producer": 0,
+            "existing_variables": 1, "introduced_variables": 0}]
+        rejected(encode(changed), "semantic variable candidate identity")
+        changed = json.loads(json.dumps(rows))
         changed[action]["before"]["native"]["solve_nanos"] = 1
         rejected(encode(changed), "native timing")
         rejected(original.replace('"type":"header"', '"type":"header","type":"header"', 1),
