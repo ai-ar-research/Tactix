@@ -11,7 +11,7 @@ using namespace tactix::strategy;
 int main() {
   std::vector<InprocessStep> program = reference_inprocess_program();
   std::string error;
-  assert(program.size() == 24);
+  assert(program.size() == 25);
   assert(validate_inprocess_program(program, &error) && error.empty());
   std::vector<const InprocessStep *> substitutes;
   for (const InprocessStep &step : program)
@@ -29,7 +29,7 @@ int main() {
          parity == program.begin() + 1);
   static constexpr const char *theory_actions[] = {
       "AffineConsequence", "ExactCoverExtension", "IndependentSetCover",
-      "Gf3AffineConsequence", "DirectCspSupport"};
+      "Gf3AffineConsequence", "DirectCspSupport", "DirectPhpRefutation"};
   for (size_t i = 0; i < std::size(theory_actions); ++i) {
     const auto action = std::find_if(
         program.begin(), program.end(), [&](const InprocessStep &step) {

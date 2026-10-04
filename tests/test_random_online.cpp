@@ -6,6 +6,7 @@
 #include "rules/decide/decide.hpp"
 #include "rules/lucky/lucky.hpp"
 #include "rules/propagate/propagate.hpp"
+#include "rules/direct_php/direct_php_action.hpp"
 #include "rules/semantic_extension/exact_cover_action.hpp"
 #include "rules/semantic_extension/independent_set_cover_action.hpp"
 #include "strategy/random_online.hpp"
@@ -2210,6 +2211,8 @@ static void every_registry_action_has_random_support() {
   {
     Kernel k = broad_fixture();
     ScopedHeuristics heuristics(k);
+    DirectPhpActionSession direct_php_session(k);
+    k.direct_php_action_session = &direct_php_session;
     ExactCoverExtensionActionSession exact_session;
     IndependentSetCoverActionSession independent_session;
     k.exact_cover_extension_action_session = &exact_session;

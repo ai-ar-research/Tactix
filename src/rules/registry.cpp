@@ -5,6 +5,7 @@
 #include "strategy/semantic_variable_advice.hpp"
 #include "rules/semantic_extension/direct_csp_support_action.hpp"
 #include "rules/semantic_extension/gf3_affine_action.hpp"
+#include "rules/direct_php/direct_php_action.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -22,6 +23,30 @@ ApplyResult direct_csp_support_canonical_noop(Kernel &) {
   return ApplyResult::NoOp;
 }
 
+DirectPhpActionLimits direct_php_limits(const Kernel &kernel) {
+  const auto &p = kernel.direct_php_refutation_parameters;
+  return {{p.maximum_snapshot_clauses, p.maximum_snapshot_literals,
+           p.maximum_snapshot_work},
+          {p.maximum_recognition_clauses, p.maximum_recognition_literals,
+           p.maximum_recognition_work, p.maximum_row_candidates,
+           p.maximum_row_combinations, p.maximum_mapping_trials,
+           p.maximum_holes},
+          {p.maximum_proof_additions, p.maximum_proof_deletions,
+           p.maximum_proof_literals, p.maximum_fresh_variables,
+           p.maximum_proof_events},
+          p.maximum_replay_work};
+}
+
+ApplyResult direct_php_canonical_apply(Kernel &kernel) {
+  if (!kernel.direct_php_action_session) return ApplyResult::NoOp;
+  const DirectPhpActionRequest request{1, 1, direct_php_limits(kernel)};
+  const auto result = direct_php_action_apply(
+      kernel, *kernel.direct_php_action_session, request);
+  record_direct_php_action_feedback(kernel, result);
+  return result.status == DirectPhpActionStatus::Applied
+             ? ApplyResult::Unsat : ApplyResult::NoOp;
+}
+
 RuleEligibility gf3_affine_registry_guard(const Kernel &kernel) {
   RuleEligibility result = gf3_affine_action_guard(kernel);
   return result.fact("session-bound",
@@ -34,11 +59,21 @@ RuleEligibility direct_csp_support_registry_guard(const Kernel &kernel) {
                      kernel.direct_csp_support_action_session != nullptr);
 }
 
+RuleEligibility direct_php_registry_guard(const Kernel &kernel) {
+  RuleEligibility result = direct_php_action_guard(kernel);
+  return result
+      .fact("session-bound", kernel.direct_php_action_session &&
+                                 kernel.direct_php_action_session->belongs_to(kernel))
+      .fact("parameters-valid", direct_php_limits(kernel).valid());
+}
+
 TACTIX_REGISTER_RULE(Gf3AffineConsequence, RuleTier::Inprocess,
                      gf3_affine_registry_guard, gf3_affine_canonical_noop);
 TACTIX_REGISTER_RULE(DirectCspSupport, RuleTier::Inprocess,
                      direct_csp_support_registry_guard,
                      direct_csp_support_canonical_noop);
+TACTIX_REGISTER_RULE(DirectPhpRefutation, RuleTier::Inprocess,
+                     direct_php_registry_guard, direct_php_canonical_apply);
 
 } // namespace
 
@@ -142,7 +177,7 @@ const std::vector<RuleVTable> &tactix_rules() {
         "Walk",        "Condition", "ParityConsequence",
         "AffineConsequence", "ExactCoverExtension", "IndependentSetCover",
         "SemanticVariableAdvice", "Gf3AffineConsequence",
-        "DirectCspSupport"};
+        "DirectCspSupport", "DirectPhpRefutation"};
     const auto &registered = mutable_rules();
     constexpr size_t count = sizeof names / sizeof *names;
     if (registered.size() != count) {

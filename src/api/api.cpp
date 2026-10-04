@@ -20,6 +20,7 @@
 #include "rules/semantic_extension/independent_set_cover_action.hpp"
 #include "rules/semantic_extension/gf3_affine_action.hpp"
 #include "rules/semantic_extension/direct_csp_support_action.hpp"
+#include "rules/direct_php/direct_php_action.hpp"
 #include "strategy/online_inprocess.hpp"
 
 #include <algorithm>
@@ -43,6 +44,7 @@ struct tactix_solver {
   IndependentSetCoverActionSession independent_set_cover_session;
   Gf3AffineActionSession gf3_affine_action_session;
   DirectCspSupportActionSession direct_csp_support_action_session;
+  DirectPhpActionSession direct_php_action_session;
   std::vector<Lit> scratch;
   bool input_completed = false;
   bool pending_input_proof = false;
@@ -50,7 +52,7 @@ struct tactix_solver {
   // Additive and lazy: ordinary tactix_solve sessions retain the pre-online
   // object layout's allocation behavior and never construct program vectors.
   std::unique_ptr<strategy::OnlineInprocessExecutor> online;
-  tactix_solver() {
+  tactix_solver() : direct_php_action_session(kernel) {
     kernel.h = &heuristics;
     kernel.saved_phases = &heuristics.saved;
     kernel.affine_basis_action_session = &affine_basis_session;
@@ -61,6 +63,7 @@ struct tactix_solver {
     kernel.gf3_affine_action_session = &gf3_affine_action_session;
     kernel.direct_csp_support_action_session =
         &direct_csp_support_action_session;
+    kernel.direct_php_action_session = &direct_php_action_session;
     // Match the CLI/reference default; rule-level fixtures using a bare Kernel
     // can still exercise the non-reuse path explicitly.
     kernel.conflict_reuse = true;
@@ -542,6 +545,21 @@ bool online_parameters(const tactix_online_parameters &source,
         p.maximum_session_keys,
         p.maximum_session_work,
         p.allow_extension != 0};
+    if (!converted.valid()) return false;
+    target = converted;
+    return true;
+  }
+  case TACTIX_ONLINE_PARAMETERS_DIRECT_PHP_REFUTATION: {
+    const auto &p = source.value.direct_php_refutation;
+    strategy::DirectPhpRefutationParameters converted{
+        p.maximum_snapshot_clauses, p.maximum_snapshot_literals,
+        p.maximum_snapshot_work, p.maximum_recognition_clauses,
+        p.maximum_recognition_literals, p.maximum_recognition_work,
+        p.maximum_row_candidates, p.maximum_row_combinations,
+        p.maximum_mapping_trials, p.maximum_holes,
+        p.maximum_proof_additions, p.maximum_proof_deletions,
+        p.maximum_proof_literals, p.maximum_fresh_variables,
+        p.maximum_proof_events, p.maximum_replay_work};
     if (!converted.valid()) return false;
     target = converted;
     return true;

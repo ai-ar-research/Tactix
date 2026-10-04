@@ -189,7 +189,8 @@ bool same_source(const direct_php_live::Source &a,
                  const direct_php_live::Source &b, ReplayMeter &meter) {
   if (!meter.charge(1)) return false;
   if (a.occurrence != b.occurrence ||
-      a.native_proof_id != b.native_proof_id || a.kind != b.kind ||
+      a.native_proof_id != b.native_proof_id ||
+      a.identity_kind != b.identity_kind || a.kind != b.kind ||
       a.ref != b.ref || a.first != b.first || a.second != b.second ||
       a.clause.size() != b.clause.size())
     return false;
@@ -228,6 +229,7 @@ bool same_event(const direct_php_live::ReplayEvent &a,
   if (!meter.charge(1)) return false;
   if (a.kind != b.kind || a.role != b.role || a.layer != b.layer ||
       a.id != b.id || a.deleted_id != b.deleted_id ||
+      a.deleted_id_is_capture_local != b.deleted_id_is_capture_local ||
       a.source_occurrence != b.source_occurrence ||
       a.clause.size() != b.clause.size())
     return false;
@@ -495,6 +497,49 @@ DirectPhpActionResult direct_php_action_replay(
   result = direct_php_action_publish(kernel, session, prepared);
   result.replay_checked = true;
   return result;
+}
+
+void record_direct_php_action_feedback(Kernel &kernel,
+                                       const DirectPhpActionResult &result) {
+  auto &s = kernel.stats;
+  ++s.direct_php_attempts;
+  switch (result.status) {
+  case DirectPhpActionStatus::Invalid: ++s.direct_php_invalid; break;
+  case DirectPhpActionStatus::Inapplicable: ++s.direct_php_inapplicable; break;
+  case DirectPhpActionStatus::NotRecognized:
+    ++s.direct_php_not_recognized; break;
+  case DirectPhpActionStatus::Malformed: ++s.direct_php_malformed; break;
+  case DirectPhpActionStatus::Ambiguous: ++s.direct_php_ambiguous; break;
+  case DirectPhpActionStatus::ResourceExhausted:
+    ++s.direct_php_resource_exhausted; break;
+  case DirectPhpActionStatus::Interrupted: ++s.direct_php_interrupted; break;
+  case DirectPhpActionStatus::UnsupportedProof:
+    ++s.direct_php_unsupported_proof; break;
+  case DirectPhpActionStatus::UnsupportedProofSplit:
+    ++s.direct_php_unsupported_proof_split; break;
+  case DirectPhpActionStatus::Stale: ++s.direct_php_stale; break;
+  case DirectPhpActionStatus::AlreadyApplied:
+    ++s.direct_php_already_applied; break;
+  case DirectPhpActionStatus::ReplayMismatch:
+    ++s.direct_php_replay_mismatch; break;
+  case DirectPhpActionStatus::Prepared: ++s.direct_php_prepared; break;
+  case DirectPhpActionStatus::Applied: ++s.direct_php_applied; break;
+  }
+  s.direct_php_snapshot_clauses += result.effort.snapshot_clauses;
+  s.direct_php_snapshot_literals += result.effort.snapshot_literals;
+  s.direct_php_snapshot_work += result.effort.snapshot_work;
+  s.direct_php_recognition_work += result.effort.recognition_work;
+  s.direct_php_replay_work += result.effort.replay_work;
+  s.direct_php_proof_additions += result.proof.additions;
+  s.direct_php_proof_rup_additions += result.proof.rup_additions;
+  s.direct_php_proof_rat_additions += result.proof.rat_additions;
+  s.direct_php_proof_deletions += result.proof.deletions;
+  s.direct_php_proof_addition_literals += result.proof.addition_literals;
+  s.direct_php_proof_deletion_literals += result.proof.deletion_literals;
+  s.direct_php_proof_fresh_variables += result.proof.fresh_variables;
+  s.direct_php_proof_events += result.proof.events;
+  s.direct_php_proof_maximum_event_width = std::max(
+      s.direct_php_proof_maximum_event_width, result.proof.maximum_event_width);
 }
 
 } // namespace tactix

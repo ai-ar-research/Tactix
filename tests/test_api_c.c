@@ -625,7 +625,7 @@ static void test_action_kind(void) {
       "Vivify",     "Walk", "Condition", "ParityConsequence",
       "AffineConsequence", "ExactCoverExtension", "IndependentSetCover",
       "SemanticVariableAdvice", "Gf3AffineConsequence",
-      "DirectCspSupport"};
+      "DirectCspSupport", "DirectPhpRefutation"};
   const int n = (int)(sizeof(golden) / sizeof(golden[0]));
   assert(tactix_rule_count() == n);
   for (int i = 0; i < n; i++)

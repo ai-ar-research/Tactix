@@ -102,6 +102,7 @@ static ActionParameters reference_parameters(const Kernel &k,
   CONTROLLER_REFERENCE("IndependentSetCover", independent_set_cover_reference);
   CONTROLLER_REFERENCE("Gf3AffineConsequence", gf3_affine_consequence_reference);
   CONTROLLER_REFERENCE("DirectCspSupport", direct_csp_support_reference);
+  CONTROLLER_REFERENCE("DirectPhpRefutation", direct_php_refutation_reference);
   CONTROLLER_REFERENCE("SemanticVariableAdvice", semantic_variable_advice_reference);
   CONTROLLER_REFERENCE("Instantiate", instantiate_reference);
   CONTROLLER_REFERENCE("Backbone", backbone_reference);

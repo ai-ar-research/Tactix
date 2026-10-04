@@ -168,4 +168,8 @@ DirectPhpActionResult direct_php_action_replay(
     Kernel &, DirectPhpActionSession &, const DirectPhpActionRequest &,
     const DirectPhpActionRecord &);
 
+// Append one public invocation's exact terminal status, live effort, and proof
+// accounting to the observation counters.  Call exactly once per request.
+void record_direct_php_action_feedback(Kernel &, const DirectPhpActionResult &);
+
 } // namespace tactix

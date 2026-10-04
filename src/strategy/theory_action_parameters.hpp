@@ -141,6 +141,31 @@ struct DirectCspSupportParameters {
   static DirectCspSupportParameters from_kernel(const Kernel &);
 };
 
+// Exact controller-visible limits for the terminal direct pigeonhole
+// refutation.  The three producer budgets and replay budget remain distinct
+// so feedback can attribute work to the phase that consumed it.
+struct DirectPhpRefutationParameters {
+  uint64_t maximum_snapshot_clauses = 100000;
+  uint64_t maximum_snapshot_literals = 1000000;
+  uint64_t maximum_snapshot_work = 10000000;
+  uint64_t maximum_recognition_clauses = 100000;
+  uint64_t maximum_recognition_literals = 1000000;
+  uint64_t maximum_recognition_work = 100000000;
+  uint64_t maximum_row_candidates = 10000;
+  uint64_t maximum_row_combinations = 1000000;
+  uint64_t maximum_mapping_trials = 1000000;
+  uint32_t maximum_holes = 20;
+  uint64_t maximum_proof_additions = 1000000;
+  uint64_t maximum_proof_deletions = 1000000;
+  uint64_t maximum_proof_literals = 100000000;
+  uint64_t maximum_fresh_variables = 1000000;
+  uint64_t maximum_proof_events = 2000000;
+  uint64_t maximum_replay_work = 100000000;
+
+  bool valid() const;
+  static DirectPhpRefutationParameters from_kernel(const Kernel &);
+};
+
 struct SemanticVariableAdviceParameters {
   uint32_t maximum_variables = 0;
   uint64_t maximum_priority_sum = 0;
@@ -155,6 +180,7 @@ void install_rule_parameters(Kernel &, const ExactCoverExtensionParameters &);
 void install_rule_parameters(Kernel &, const IndependentSetCoverParameters &);
 void install_rule_parameters(Kernel &, const Gf3AffineConsequenceParameters &);
 void install_rule_parameters(Kernel &, const DirectCspSupportParameters &);
+void install_rule_parameters(Kernel &, const DirectPhpRefutationParameters &);
 void install_rule_parameters(Kernel &, const SemanticVariableAdviceParameters &);
 
 } // namespace strategy

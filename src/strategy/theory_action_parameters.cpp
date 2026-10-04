@@ -3,6 +3,7 @@
 #include "kernel/kernel.hpp"
 #include "rules/semantic_extension/direct_csp_support_action.hpp"
 #include "rules/semantic_extension/gf3_affine_action.hpp"
+#include "rules/direct_php/direct_php_action.hpp"
 
 namespace tactix::strategy {
 
@@ -48,6 +49,19 @@ bool DirectCspSupportParameters::valid() const {
       .valid();
 }
 
+bool DirectPhpRefutationParameters::valid() const {
+  return DirectPhpActionLimits{
+      {maximum_snapshot_clauses, maximum_snapshot_literals,
+       maximum_snapshot_work},
+      {maximum_recognition_clauses, maximum_recognition_literals,
+       maximum_recognition_work, maximum_row_candidates,
+       maximum_row_combinations, maximum_mapping_trials, maximum_holes},
+      {maximum_proof_additions, maximum_proof_deletions,
+       maximum_proof_literals, maximum_fresh_variables,
+       maximum_proof_events},
+      maximum_replay_work}.valid();
+}
+
 AffineConsequenceParameters
 AffineConsequenceParameters::from_kernel(const Kernel &k) {
   return k.affine_consequence_parameters;
@@ -67,6 +81,10 @@ Gf3AffineConsequenceParameters::from_kernel(const Kernel &k) {
 DirectCspSupportParameters
 DirectCspSupportParameters::from_kernel(const Kernel &k) {
   return k.direct_csp_support_parameters;
+}
+DirectPhpRefutationParameters
+DirectPhpRefutationParameters::from_kernel(const Kernel &k) {
+  return k.direct_php_refutation_parameters;
 }
 SemanticVariableAdviceParameters
 SemanticVariableAdviceParameters::from_kernel(const Kernel &k) {
@@ -92,6 +110,10 @@ void install_rule_parameters(
 void install_rule_parameters(Kernel &k,
                              const DirectCspSupportParameters &parameters) {
   k.direct_csp_support_parameters = parameters;
+}
+void install_rule_parameters(Kernel &k,
+                             const DirectPhpRefutationParameters &parameters) {
+  k.direct_php_refutation_parameters = parameters;
 }
 void install_rule_parameters(
     Kernel &k, const SemanticVariableAdviceParameters &parameters) {
