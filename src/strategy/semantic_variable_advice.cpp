@@ -68,8 +68,8 @@ SemanticVariableAdviceResult commit_semantic_variable_advice(
     out.status = SemanticVariableAdviceStatus::Stale;
     return out;
   }
-  if (k.inconsistent || k.conflict_valid || k.level ||
-      !kernel_propagation_fixpoint(k) || !k.h) {
+  if (k.inconsistent || k.conflict_valid || k.pending.valid || k.level ||
+      !k.h) {
     out.status = SemanticVariableAdviceStatus::Inapplicable;
     return out;
   }

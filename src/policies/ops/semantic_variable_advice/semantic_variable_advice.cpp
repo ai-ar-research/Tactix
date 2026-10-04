@@ -10,7 +10,6 @@ RuleEligibility semantic_variable_advice_guard(const Kernel &k) {
   return RuleEligibility{}
       .fact("consistent", !k.inconsistent)
       .fact("root", !k.level && !k.conflict_valid && !k.pending.valid)
-      .fact("propagated", kernel_propagation_fixpoint(k))
       .fact("heuristics-attached", k.h != nullptr)
       .fact("bounded", parameters.maximum_variables != 0 &&
                            parameters.maximum_priority_sum != 0)
