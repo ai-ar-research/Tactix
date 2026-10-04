@@ -166,8 +166,8 @@ random production and raw feedback. It remains disabled by default and lacks
 effective fuzz, scheduling, target and regression evidence. Next validate
 effective reach, then measure target recovery and the four gates. Every decline
 remains bounded and mutation free; every repeated step uses a fresh live plan.
-For n-ary finite-domain relations, internal `NaryCspPrefix` now live-captures complete one-hot domains and exact forbidden tuples, defines a selected all-but-one prefix as an exact-AND helper, publishes DSR/DRAT RUP residual exclusions, records projection/provenance, and retains durable owner/prefix keys; exhaustive projection, proof, live and action-session tests pass.
-Native offering, registry/C/replay/controller exposure, fuzz reach and noL recovery remain the next vertical; the action is not yet a public capability or performance result.
+For n-ary finite-domain relations, internal `NaryCspPrefix` now live-captures complete one-hot domains and exact forbidden tuples, defines a selected all-but-one prefix as an exact-AND helper, publishes DSR/DRAT RUP residual exclusions, records projection/provenance, and retains durable owner/prefix keys. Its bounded pure offerer discovers canonical signed domains, enumerates every tuple/residual prefix with deterministic pagination, revalidates retained owners and preflights session/live resources; exhaustive projection, proof, live, action-session and offer-surface tests pass.
+Registry/C/replay/controller exposure, fuzz reach and noL recovery remain the next vertical; the action is not yet a public capability or performance result.
 
 Record every added constraint/auxiliary definition: stable identity, Boolean formula
 and theory meaning, source clauses/structural premises, generating action and

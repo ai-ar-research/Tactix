@@ -140,4 +140,77 @@ NaryCspPrefixActionResult nary_csp_prefix_action_apply(
     const NaryCspPrefixActionLimits &,
     const NaryCspPrefixActionSelection &);
 
+// One caller-bounded deterministic page. relation_arity selects how many
+// disjoint exact-one domains form one relation candidate. The continuation key
+// is the last returned prefix and remains meaningful only while the root
+// formula and session are unchanged. Zero never means unlimited.
+struct NaryCspPrefixActionOfferWindow {
+  uint32_t relation_arity = 0;
+  uint64_t maximum_domain_candidates = 0;
+  uint64_t maximum_relation_candidates = 0;
+  uint64_t maximum_prefix_candidates = 0;
+  uint64_t maximum_offers = 0;
+  uint64_t maximum_enumeration_work = 0;
+  bool have_after = false;
+  NaryCspPrefixActionKey after;
+
+  bool valid() const;
+};
+
+enum class NaryCspPrefixActionOfferStatus : uint8_t {
+  Invalid,
+  Inapplicable,
+  NoStructure,
+  ResourceExhausted,
+  Interrupted,
+  Stale,
+  Ready,
+};
+
+struct NaryCspPrefixActionOfferEffort {
+  uint64_t formula_clauses = 0;
+  uint64_t formula_literals = 0;
+  uint64_t candidate_scan_work = 0;
+  uint64_t domain_candidates = 0;
+  uint64_t exact_domains = 0;
+  uint64_t relation_candidates = 0;
+  uint64_t owner_capture_work = 0;
+  uint64_t retained_owners_revalidated = 0;
+  uint64_t forbidden_tuples = 0;
+  uint64_t prefix_candidates = 0;
+  uint64_t resource_rejected_relations = 0;
+  uint64_t committed_prefixes_skipped = 0;
+  uint64_t session_preflight_work = 0;
+  uint64_t preflight_work = 0;
+  uint64_t planning_work = 0;
+  uint64_t revalidation_work = 0;
+  uint64_t proof_work = 0;
+  uint64_t journal_work = 0;
+  uint64_t planned_additions = 0;
+  uint64_t proof_literal_occurrences = 0;
+  uint64_t consequence_free_prefixes = 0;
+  uint64_t live_duplicate_prefixes = 0;
+  uint64_t resource_rejected_prefixes = 0;
+  uint64_t session_work = 0;
+  uint64_t enumeration_work = 0;
+};
+
+struct NaryCspPrefixActionOfferResult {
+  NaryCspPrefixActionOfferStatus status =
+      NaryCspPrefixActionOfferStatus::Invalid;
+  bool complete = false;
+  bool have_resume_after = false;
+  NaryCspPrefixActionKey resume_after;
+  std::vector<NaryCspPrefixActionSelection> offers;
+  NaryCspPrefixActionOfferEffort effort;
+};
+
+// Discover every productive residual-prefix identity for exact live n-ary
+// forbidden-tuple relations. The offerer changes no Kernel, proof, journal,
+// session, action-sequence, or semantic-candidate state.
+NaryCspPrefixActionOfferResult nary_csp_prefix_action_offer(
+    Kernel &, const NaryCspPrefixActionSession &,
+    const NaryCspPrefixActionLimits &,
+    const NaryCspPrefixActionOfferWindow &);
+
 } // namespace tactix

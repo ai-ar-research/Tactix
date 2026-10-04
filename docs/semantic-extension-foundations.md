@@ -302,15 +302,20 @@ small-model tests show that old models extend uniquely with
 `p = AND(prefix)` and that dropping `p` projects every extended model to the
 original formula; independent unit propagation replays every RUP step.
 
-The live adapter now captures those exact domains and tuples from the current
+The live adapter captures those exact domains and tuples from the current
 formula, preflights proof/namespace/arena/journal capacity, immediately
 recaptures the source, and atomically publishes DSR/DRAT plus complete JSONL
 provenance. A Kernel-bound action session retains exact owners and durable
 prefix keys across safe namespace growth; repeated keys cannot recreate a
-helper. It exports original values and the exact-AND helper through neutral
-semantic metadata but changes no heuristic state. Native offer enumeration,
-registry/C/replay/controller exposure, fuzz reach, and noL recovery remain
-pending; the current internal action is not a solve claim.
+helper. A pure native offerer discovers canonical signed exact-one domains,
+forms bounded fixed-arity disjoint collections, revalidates retained owners
+before discovery, enumerates every tuple/residual prefix, suppresses committed
+keys, and preflights session plus live resources. Hard census bounds clear
+partial output; the separate offer limit has an exclusive deterministic cursor.
+It exports original values and the exact-AND helper through neutral semantic
+metadata but changes no heuristic state. Registry/C/replay/controller exposure,
+fuzz reach, and noL recovery remain pending; the internal action is not a solve
+claim.
 
 ## Truth-table parity frontier
 

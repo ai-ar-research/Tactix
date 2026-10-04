@@ -4,7 +4,9 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <functional>
 #include <limits>
+#include <set>
 
 namespace tactix {
 
@@ -49,7 +51,9 @@ bool identity_valid(const NaryCspPrefixActionKey &key) {
   std::vector<uint32_t> variables;
   for (size_t domain = 0; domain < key.domains.size(); ++domain) {
     const auto &values = key.domains[domain];
-    if (values.size() < 2) return false;
+    if (values.size() < 2 ||
+        (domain && !(key.domains[domain - 1] < values)))
+      return false;
     for (size_t value = 0; value < values.size(); ++value) {
       const int32_t literal = values[value];
       if (!literal || literal == std::numeric_limits<int32_t>::min() ||
@@ -424,6 +428,114 @@ void publish_semantics(NaryCspPrefixActionResult &output) {
   output.semantic_candidate_ready = !output.semantic_variables.empty();
 }
 
+struct OfferMeter {
+  Kernel &kernel;
+  uint64_t maximum = 0;
+  uint64_t used = 0;
+  bool interrupted = false;
+  bool exhausted = false;
+
+  bool charge(uint64_t amount) {
+    if (kernel_terminating(kernel)) {
+      interrupted = true;
+      return false;
+    }
+    if (used > maximum || amount > maximum - used) {
+      exhausted = true;
+      return false;
+    }
+    used += amount;
+    return true;
+  }
+  bool absorb(uint64_t amount) {
+    if (used > maximum || amount > maximum - used) {
+      exhausted = true;
+      return false;
+    }
+    used += amount;
+    return true;
+  }
+  uint64_t remaining() const { return maximum - used; }
+};
+
+uint64_t saturated_product(uint64_t first, uint64_t second) {
+  return second && first > UINT64_MAX / second ? UINT64_MAX : first * second;
+}
+
+uint64_t comparison_levels(uint64_t entries) {
+  uint64_t levels = 1;
+  while (entries > 1) {
+    entries = (entries + 1) / 2;
+    ++levels;
+  }
+  return levels;
+}
+
+bool canonical_domain_candidate(const Kernel &kernel, const Lit *literals,
+                                uint32_t size, uint32_t maximum_size,
+                                std::vector<int32_t> &output) {
+  output.clear();
+  if (size < 2 || size > maximum_size) return false;
+  output.reserve(size);
+  for (uint32_t index = 0; index < size; ++index) {
+    const Var var = var_of(literals[index]);
+    if (kernel_var_retired(kernel, var) || kernel.value(literals[index]))
+      return false;
+    output.push_back(kernel_externalize(kernel, literals[index]));
+  }
+  std::sort(output.begin(), output.end(), literal_less);
+  for (size_t index = 1; index < output.size(); ++index)
+    if (variable(output[index - 1]) == variable(output[index])) return false;
+  return true;
+}
+
+enum class BinaryStatus : uint8_t { Absent, Present, Stopped };
+
+BinaryStatus binary_present(Kernel &kernel, Lit first, Lit second,
+                            OfferMeter &meter) {
+  if (!meter.charge(1)) return BinaryStatus::Stopped;
+  if (kernel.watches.binary_size(second) < kernel.watches.binary_size(first))
+    std::swap(first, second);
+  const bool stop_at_large = kernel.watches.heads[first].binaries_first();
+  for (const WatchEntry watch : kernel.watches.entries(first)) {
+    if (!meter.charge(1)) return BinaryStatus::Stopped;
+    if (!watch.binary()) {
+      if (stop_at_large) break;
+      continue;
+    }
+    if (watch.other() == second) return BinaryStatus::Present;
+  }
+  return BinaryStatus::Absent;
+}
+
+BinaryStatus complete_amo(Kernel &kernel,
+                          const std::vector<int32_t> &domain,
+                          OfferMeter &meter) {
+  for (size_t first = 0; first < domain.size(); ++first)
+    for (size_t second = first + 1; second < domain.size(); ++second) {
+      const Lit left = kernel_internalize(kernel, -domain[first]);
+      const Lit right = kernel_internalize(kernel, -domain[second]);
+      if (left == INVALID_LIT || right == INVALID_LIT)
+        return BinaryStatus::Absent;
+      const BinaryStatus status = binary_present(kernel, left, right, meter);
+      if (status != BinaryStatus::Present) return status;
+    }
+  return BinaryStatus::Present;
+}
+
+bool disjoint_domains(const std::vector<std::vector<int32_t>> &domains) {
+  std::set<uint32_t> seen;
+  for (const auto &domain : domains)
+    for (int32_t literal : domain)
+      if (!seen.insert(variable(literal)).second) return false;
+  return true;
+}
+
+NaryCspPrefixActionSelection selection_from_key(
+    const NaryCspPrefixActionKey &key) {
+  return {key.domains, key.prefix};
+}
+
 } // namespace
 
 const NaryCspPrefixOwnerSnapshot *NaryCspPrefixActionSession::snapshot(
@@ -443,6 +555,14 @@ bool NaryCspPrefixActionLimits::valid() const {
          maximum_journal_bytes && maximum_extent_growth &&
          maximum_external_extent && maximum_session_keys &&
          maximum_session_work;
+}
+
+bool NaryCspPrefixActionOfferWindow::valid() const {
+  return relation_arity >= 3 && maximum_domain_candidates &&
+         maximum_relation_candidates && maximum_prefix_candidates &&
+         maximum_offers && maximum_enumeration_work &&
+         (!have_after || (identity_valid(after) &&
+                          after.domains.size() == relation_arity));
 }
 
 RuleEligibility nary_csp_prefix_action_guard(const Kernel &kernel) {
@@ -556,6 +676,391 @@ NaryCspPrefixActionResult nary_csp_prefix_action_apply(
   publish_semantics(output);
   kernel.structural_action_sequence = output.proposed_action_id;
   return output;
+}
+
+NaryCspPrefixActionOfferResult nary_csp_prefix_action_offer(
+    Kernel &kernel, const NaryCspPrefixActionSession &session,
+    const NaryCspPrefixActionLimits &limits,
+    const NaryCspPrefixActionOfferWindow &window) {
+  NaryCspPrefixActionOfferResult output;
+  if (!nary_csp_prefix_action_guard(kernel)) {
+    output.status = NaryCspPrefixActionOfferStatus::Inapplicable;
+    return output;
+  }
+  if (!limits.valid() || !window.valid() ||
+      window.relation_arity > limits.maximum_domains)
+    return output;
+  if (session.retained() && !session.belongs_to(kernel)) {
+    output.status = NaryCspPrefixActionOfferStatus::Stale;
+    return output;
+  }
+  const SessionStatus session_status =
+      validate_session(session, limits, output.effort.session_work);
+  if (session_status == SessionStatus::Invalid) return output;
+  if (session_status == SessionStatus::Exhausted ||
+      session.committed_keys() >= limits.maximum_session_keys) {
+    output.status = NaryCspPrefixActionOfferStatus::ResourceExhausted;
+    return output;
+  }
+
+  OfferMeter meter{kernel, window.maximum_enumeration_work};
+  auto finish = [&](NaryCspPrefixActionOfferStatus status, bool complete) {
+    output.status = status;
+    output.complete = complete;
+    output.effort.enumeration_work = meter.used;
+    return output;
+  };
+  auto stopped = [&]() {
+    output.offers.clear();
+    output.have_resume_after = false;
+    return finish(meter.interrupted
+                      ? NaryCspPrefixActionOfferStatus::Interrupted
+                      : NaryCspPrefixActionOfferStatus::ResourceExhausted,
+                  false);
+  };
+
+  // A retained source remains authoritative only while an immediate exact
+  // recapture has the same clauses, native identities and relation tables.
+  // Do this independently of fresh discovery so deleting an ALO/AMO premise
+  // cannot turn a stale owner into a misleading NoStructure result.
+  for (const auto &retained : session.snapshots()) {
+    if (retained.relation.domains.size() != window.relation_arity) continue;
+    NaryCspPrefixActionSelection placeholder;
+    placeholder.domains = owner_domains(retained);
+    placeholder.prefix.residual_domain = window.relation_arity - 1;
+    for (uint32_t domain = 0; domain + 1 < window.relation_arity; ++domain)
+      placeholder.prefix.prefix.push_back({domain, 0});
+    NaryCspPrefixLiveRequest request =
+        make_request(kernel, limits, placeholder,
+                     kernel.structural_action_sequence + 1);
+    request.maximum_recognition_work =
+        std::min(request.maximum_recognition_work, meter.remaining());
+    if (!request.maximum_recognition_work) return stopped();
+    NaryCspPrefixOwnerSnapshot current;
+    const auto capture =
+        nary_csp_prefix_live_capture_owner(kernel, request, current);
+    if (!meter.absorb(capture.recognition_work)) return stopped();
+    output.effort.owner_capture_work += capture.recognition_work;
+    if (capture.status == NaryCspPrefixLiveStatus::Interrupted) {
+      meter.interrupted = true;
+      return stopped();
+    }
+    if (capture.status == NaryCspPrefixLiveStatus::ResourceExhausted) {
+      if (request.maximum_recognition_work < limits.maximum_recognition_work)
+        meter.exhausted = true;
+      return stopped();
+    }
+    if (capture.status != NaryCspPrefixLiveStatus::Applied)
+      return finish(NaryCspPrefixActionOfferStatus::Stale, false);
+    current.external_extent = retained.external_extent;
+    current.capture_work = retained.capture_work;
+    if (current != retained)
+      return finish(NaryCspPrefixActionOfferStatus::Stale, false);
+    ++output.effort.retained_owners_revalidated;
+  }
+
+  const uint64_t candidate_scan_begin = meter.used;
+  std::set<std::vector<int32_t>> candidates;
+  auto observe_domain = [&](const Lit *literals, uint32_t size) {
+    if (!meter.charge(uint64_t{1} + size)) return false;
+    std::vector<int32_t> domain;
+    if (!canonical_domain_candidate(kernel, literals, size,
+                                    limits.maximum_domain_values, domain))
+      return true;
+    const BinaryStatus exact = complete_amo(kernel, domain, meter);
+    if (exact == BinaryStatus::Stopped) return false;
+    if (exact == BinaryStatus::Absent) return true;
+    const uint64_t set_work = saturated_product(
+        uint64_t{1} + domain.size(),
+        comparison_levels(uint64_t{1} + candidates.size()));
+    if (!meter.charge(set_work)) return false;
+    if (candidates.contains(domain)) return true;
+    if (candidates.size() == window.maximum_domain_candidates) {
+      meter.exhausted = true;
+      return false;
+    }
+    const auto [where, inserted] = candidates.insert(std::move(domain));
+    (void)where;
+    if (!inserted) std::abort();
+    return true;
+  };
+  for (Ref reference = 0; reference < kernel.arena.size();) {
+    const Clause *clause = clause_at(kernel.arena, reference);
+    reference += clause_actual_words(clause);
+    if (!meter.charge(1)) return stopped();
+    if (clause->garbage()) continue;
+    ++output.effort.formula_clauses;
+    output.effort.formula_literals += clause->size;
+    if (!observe_domain(clause->lits, clause->size)) return stopped();
+  }
+  for (Lit first = 0; first < 2 * kernel.nvars; ++first)
+    for (const WatchEntry watch : kernel.watches.entries(first)) {
+      if (!meter.charge(1)) return stopped();
+      if (!watch.binary() || first >= watch.other()) continue;
+      ++output.effort.formula_clauses;
+      output.effort.formula_literals += 2;
+      const Lit pair[] = {first, watch.other()};
+      if (!observe_domain(pair, 2)) return stopped();
+    }
+  output.effort.candidate_scan_work = meter.used - candidate_scan_begin;
+  output.effort.domain_candidates = candidates.size();
+  output.effort.exact_domains = candidates.size();
+  std::vector<std::vector<int32_t>> domains(candidates.begin(),
+                                             candidates.end());
+  if (domains.size() < window.relation_arity)
+    return finish(NaryCspPrefixActionOfferStatus::NoStructure, true);
+
+  std::set<NaryCspPrefixActionKey> keys;
+  std::vector<NaryCspPrefixOwnerSnapshot> owners;
+  std::vector<size_t> chosen;
+  bool fatal = false;
+  bool invalid = false;
+  std::function<void(size_t)> enumerate = [&](size_t start) {
+    if (fatal || invalid) return;
+    if (chosen.size() == window.relation_arity) {
+      std::vector<std::vector<int32_t>> relation_domains;
+      relation_domains.reserve(chosen.size());
+      for (size_t index : chosen) relation_domains.push_back(domains[index]);
+      if (!disjoint_domains(relation_domains)) return;
+      if (output.effort.relation_candidates >=
+          window.maximum_relation_candidates || !meter.charge(1)) {
+        meter.exhausted = true;
+        fatal = true;
+        return;
+      }
+      ++output.effort.relation_candidates;
+      NaryCspPrefixOwnerSnapshot captured;
+      const auto *retained = session.snapshot(relation_domains);
+      if (retained) {
+        captured = *retained;
+      } else {
+        NaryCspPrefixActionSelection placeholder;
+        placeholder.domains = relation_domains;
+        placeholder.prefix.residual_domain = window.relation_arity - 1;
+        for (uint32_t domain = 0; domain + 1 < window.relation_arity;
+             ++domain)
+          placeholder.prefix.prefix.push_back({domain, 0});
+        NaryCspPrefixLiveRequest request =
+            make_request(kernel, limits, placeholder,
+                         kernel.structural_action_sequence + 1);
+        request.maximum_recognition_work =
+            std::min(request.maximum_recognition_work, meter.remaining());
+        if (!request.maximum_recognition_work) {
+          meter.exhausted = true;
+          fatal = true;
+          return;
+        }
+        const auto capture =
+            nary_csp_prefix_live_capture_owner(kernel, request, captured);
+        if (!meter.absorb(capture.recognition_work)) {
+          fatal = true;
+          return;
+        }
+        output.effort.owner_capture_work += capture.recognition_work;
+        if (capture.status == NaryCspPrefixLiveStatus::Interrupted) {
+          meter.interrupted = true;
+          fatal = true;
+          return;
+        }
+        if (capture.status != NaryCspPrefixLiveStatus::Applied) {
+          if (capture.status == NaryCspPrefixLiveStatus::ResourceExhausted) {
+            if (request.maximum_recognition_work <
+                limits.maximum_recognition_work) {
+              meter.exhausted = true;
+              fatal = true;
+            } else {
+              ++output.effort.resource_rejected_relations;
+            }
+          } else if (capture.status == NaryCspPrefixLiveStatus::Invalid ||
+                     capture.status ==
+                         NaryCspPrefixLiveStatus::Inapplicable) {
+            invalid = true;
+          }
+          return;
+        }
+      }
+      output.effort.forbidden_tuples +=
+          captured.relation.forbidden.size();
+      for (const auto &tuple : captured.relation.forbidden)
+        for (uint32_t residual = 0; residual < window.relation_arity;
+             ++residual) {
+          if (output.effort.prefix_candidates >=
+                  window.maximum_prefix_candidates ||
+              !meter.charge(uint64_t{1} + window.relation_arity)) {
+            meter.exhausted = true;
+            fatal = true;
+            return;
+          }
+          ++output.effort.prefix_candidates;
+          NaryCspPrefixActionKey key;
+          key.domains = relation_domains;
+          key.prefix.residual_domain = residual;
+          for (uint32_t domain = 0; domain < window.relation_arity; ++domain)
+            if (domain != residual)
+              key.prefix.prefix.push_back(
+                  {domain, tuple.value_indices[domain]});
+          keys.insert(std::move(key));
+        }
+      owners.push_back(std::move(captured));
+      return;
+    }
+    const size_t needed = window.relation_arity - chosen.size();
+    for (size_t index = start; index + needed <= domains.size(); ++index) {
+      if (!meter.charge(1)) {
+        fatal = true;
+        return;
+      }
+      chosen.push_back(index);
+      enumerate(index + 1);
+      chosen.pop_back();
+      if (fatal || invalid) return;
+    }
+  };
+  enumerate(0);
+  if (invalid)
+    return finish(NaryCspPrefixActionOfferStatus::Invalid, false);
+  if (fatal) return stopped();
+  if (keys.empty() && output.effort.resource_rejected_relations)
+    return finish(NaryCspPrefixActionOfferStatus::ResourceExhausted, false);
+  if (keys.empty())
+    return finish(NaryCspPrefixActionOfferStatus::NoStructure, true);
+
+  for (const auto &key : keys) {
+    if (window.have_after && !(window.after < key)) continue;
+    if (std::binary_search(session.keys().begin(), session.keys().end(), key)) {
+      ++output.effort.committed_prefixes_skipped;
+      continue;
+    }
+    const auto owner = std::find_if(
+        owners.begin(), owners.end(), [&](const auto &candidate) {
+          return owner_matches_domains(candidate, key.domains);
+        });
+    if (owner == owners.end()) {
+      output.status = NaryCspPrefixActionOfferStatus::Invalid;
+      output.complete = false;
+      output.offers.clear();
+      output.effort.enumeration_work = meter.used;
+      return output;
+    }
+
+    uint64_t candidate_session_work = 0;
+    std::vector<NaryCspPrefixActionKey> merged_keys;
+    const KeyStatus key_status = prepare_keys(
+        session, key, limits, candidate_session_work, merged_keys);
+    if (key_status == KeyStatus::Invalid) {
+      output.offers.clear();
+      output.have_resume_after = false;
+      return finish(NaryCspPrefixActionOfferStatus::Invalid, false);
+    }
+    if (key_status == KeyStatus::Exhausted) {
+      if (!meter.absorb(candidate_session_work)) return stopped();
+      output.effort.session_preflight_work += candidate_session_work;
+      ++output.effort.resource_rejected_prefixes;
+      continue;
+    }
+    if (key_status == KeyStatus::Present) {
+      if (!meter.absorb(candidate_session_work)) return stopped();
+      output.effort.session_preflight_work += candidate_session_work;
+      ++output.effort.committed_prefixes_skipped;
+      continue;
+    }
+    const auto *retained = session.snapshot(key.domains);
+    if (!retained) {
+      std::vector<NaryCspPrefixOwnerSnapshot> merged_owners;
+      const OwnerStatus owner_status = prepare_new_owner(
+          session, *owner, limits, candidate_session_work, merged_owners);
+      if (owner_status == OwnerStatus::Invalid) {
+        output.offers.clear();
+        output.have_resume_after = false;
+        return finish(NaryCspPrefixActionOfferStatus::Invalid, false);
+      }
+      if (owner_status == OwnerStatus::Exhausted) {
+        if (!meter.absorb(candidate_session_work)) return stopped();
+        output.effort.session_preflight_work += candidate_session_work;
+        ++output.effort.resource_rejected_prefixes;
+        continue;
+      }
+    }
+    if (!meter.absorb(candidate_session_work)) return stopped();
+    output.effort.session_preflight_work += candidate_session_work;
+
+    NaryCspPrefixLiveRequest request = make_request(
+        kernel, limits, selection_from_key(key),
+        kernel.structural_action_sequence + 1);
+    request.retained_owner = retained ? retained : &*owner;
+    const bool recognition_page_limited =
+        meter.remaining() < limits.maximum_recognition_work;
+    request.maximum_recognition_work =
+        std::min(request.maximum_recognition_work, meter.remaining());
+    if (!request.maximum_recognition_work) return stopped();
+    const auto preflight = nary_csp_prefix_live_preflight(kernel, request);
+    if (!meter.absorb(preflight.recognition_work)) return stopped();
+    output.effort.preflight_work += preflight.recognition_work;
+    output.effort.planning_work += preflight.planning_work;
+    output.effort.revalidation_work += preflight.revalidation_work;
+    output.effort.proof_work += preflight.proof_work;
+    output.effort.journal_work += preflight.journal_work;
+    output.effort.planned_additions += preflight.planned_additions;
+    output.effort.proof_literal_occurrences +=
+        preflight.proof_literal_occurrences;
+    for (uint64_t work :
+         {uint64_t{1}, preflight.proof_work, preflight.journal_work,
+          preflight.planned_additions,
+          preflight.proof_literal_occurrences}) {
+      if (!meter.charge(work)) return stopped();
+      output.effort.preflight_work += work;
+    }
+    if (preflight.status == NaryCspPrefixLiveStatus::Interrupted) {
+      meter.interrupted = true;
+      return stopped();
+    }
+    if (preflight.status == NaryCspPrefixLiveStatus::Stale)
+      return finish(NaryCspPrefixActionOfferStatus::Stale, false);
+    if (preflight.status != NaryCspPrefixLiveStatus::Applied) {
+      if (preflight.status == NaryCspPrefixLiveStatus::ResourceExhausted &&
+          preflight.recognition_limit_exhausted &&
+          recognition_page_limited) {
+        meter.exhausted = true;
+        return stopped();
+      }
+      switch (preflight.status) {
+      case NaryCspPrefixLiveStatus::NoConsequence:
+        ++output.effort.consequence_free_prefixes;
+        continue;
+      case NaryCspPrefixLiveStatus::Duplicate:
+        ++output.effort.live_duplicate_prefixes;
+        continue;
+      case NaryCspPrefixLiveStatus::ResourceExhausted:
+        ++output.effort.resource_rejected_prefixes;
+        continue;
+      case NaryCspPrefixLiveStatus::Inapplicable:
+        output.offers.clear();
+        return finish(NaryCspPrefixActionOfferStatus::Inapplicable, false);
+      case NaryCspPrefixLiveStatus::Invalid:
+      case NaryCspPrefixLiveStatus::NoStructure:
+      case NaryCspPrefixLiveStatus::UnsupportedProof:
+        output.offers.clear();
+        return finish(NaryCspPrefixActionOfferStatus::Invalid, false);
+      case NaryCspPrefixLiveStatus::Interrupted:
+      case NaryCspPrefixLiveStatus::Stale:
+      case NaryCspPrefixLiveStatus::Applied:
+        std::abort();
+      }
+    }
+    if (output.offers.size() == window.maximum_offers) {
+      output.status = NaryCspPrefixActionOfferStatus::Ready;
+      output.complete = false;
+      output.have_resume_after = true;
+      output.resume_after =
+          make_key(output.offers.back());
+      output.effort.enumeration_work = meter.used;
+      return output;
+    }
+    output.offers.push_back(selection_from_key(key));
+  }
+  if (output.offers.empty() && output.effort.resource_rejected_prefixes)
+    return finish(NaryCspPrefixActionOfferStatus::ResourceExhausted, false);
+  return finish(NaryCspPrefixActionOfferStatus::Ready, true);
 }
 
 } // namespace tactix

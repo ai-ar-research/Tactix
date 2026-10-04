@@ -28,7 +28,7 @@ rule-specific derivation and measured clausal proof/check cost establish need.
 | Current scheduler repair | `f6d7453f6` | Lucky/8 restored as structured-root stage 0; combined checkpoint suite passes 10/10 in normal and ASan/UBSan builds; no benchmark result yet |
 | Partial-model guidance | `a49191bfa` | Exact immutable candidates can feed Walk and CDCL separately with raw telemetry; mechanics tested, campaign reach/effect still absent |
 | Certified theory actions v5 | [technical report](benchmarks/reports/2026-10-04-certified-theory-actions-v5.md) | Public GF(3)/DirectCSP consequences and random offerers implemented but unaccepted; ordinary fuzz had incomplete verdict coverage and no effective v5 reach |
-| N-ary CSP prefix foundation | [planner](benchmarks/reports/2026-10-04-nary-csp-prefix-planner.md), [live/action checkpoint](benchmarks/reports/2026-10-04-nary-csp-prefix-live-action.md) | Exact live domains/tuples now feed atomic DSR/DRAT exact-AND helpers and RUP residual exclusions with full provenance, projection and durable Kernel-bound owner/prefix keys; Debug and ASan/UBSan planner/live/session tests pass. Native offerer, public controller, fuzz and noL recovery remain open |
+| N-ary CSP prefix foundation | [planner](benchmarks/reports/2026-10-04-nary-csp-prefix-planner.md), [live/action](benchmarks/reports/2026-10-04-nary-csp-prefix-live-action.md), [native offerer](benchmarks/reports/2026-10-04-nary-csp-prefix-native-offerer.md) | Exact live domains/tuples feed atomic DSR/DRAT exact-AND helpers and RUP residual exclusions with full provenance, projection and durable keys. The pure bounded offerer now enumerates every tuple/residual action with retained-owner revalidation, session/live preflight and deterministic pagination; Debug and fresh ASan/UBSan checks pass. Public controller, fuzz and noL recovery remain open |
 | Certified UNSAT verticals | [technical checkpoint](benchmarks/reports/2026-10-04-public-tseitin-cycle-breaking-action.md), [Andrew report](report-to-andrew/20261004T210026Z-public-tseitin-cycle-action/report.pdf) | Direct PHP is public and terminal; GF(3) has a public authenticated Gaussian batch through C v6; Tseitin X16 is public at registry 38/disabled StepId 27/C v7 tag 41 with exact `tcx2:` component replay, repeated propagated-root discovery, DSR/no-proof, random production and raw feedback. Independent fresh Debug is 10/10; ASan/UBSan action/discovery plus ASCII, binary and repeated-root DSR checks pass. Fuzz, targets and gates remain open |
 | Focused controller configuration | current checkpoint | CLI selection can enable any subset of the four native structured producers and independently restrict canonical root-action families. Both choices are replay-fingerprinted; malformed, excluded and ambiguous action collections fail closed. Focused frontend/action/API validation passes 9/9; effective campaign evidence remains open |
 | Public controller full Debug | [conformance report](benchmarks/reports/2026-10-04-public-controller-full-debug.md) | `ec7e0ac86` passes 285/285 Debug tests in 957.60 s. Terminal Direct-PHP random programs cannot acquire a bundled follow-up; append-only Tseitin registry contracts and restored Lucky/8 lifecycle tests are synchronized. Fresh immutable ASan+UBSan pin `build/pin-public-theory-ec7e0ac86-sanitize-01` passes its focused checks; effective both-policy fuzz, targets and gates remain open |
@@ -84,9 +84,9 @@ Rank1--50, WV100 and WV2--89 with the 1,800-second proof-check cap and baseline
 plus `max(30%, 20s)` completed-proof slowdown rule.
 
 While benchmark execution remains unauthorised, complete the n-ary CSP vertical
-from the verified live/session action: add bounded mutation-free native offers,
-then typed registry/C/replay/controller feedback and focused effective-reach
-tests. Do not infer noL recovery before checked target evidence.
+from the verified native offerer: add append-only typed registry/C/replay,
+Kernel-owned session, controller execution/raw feedback and focused effective-
+reach tests. Do not infer noL recovery before checked target evidence.
 
 ## Established authorities and open gates
 
@@ -102,9 +102,9 @@ tests. Do not infer noL recovery before checked target evidence.
 - The current N1--N4 audit passes 46/46 focused public-action/proof/controller
   checks and 69/69 proof-oracle tests; it keeps universal and performance
   verification explicitly pending.
-- The internal n-ary CSP live/session action now publishes conservative
-  exact-AND helpers and RUP residual exclusions with exact provenance,
-  projection and durable keys; native offering/public exposure remains open.
+- The internal n-ary CSP vertical now includes a pure bounded native offerer
+  with exact-domain discovery, retained-owner revalidation, deterministic
+  pagination and session/live preflight; public exposure remains open.
 - Current source repairs terminal-action random generation and synchronizes the
   append-only public registry tests; the complete Debug suite passes 285/285.
   The scripted-policy fixture retains all schedule transitions while reducing
