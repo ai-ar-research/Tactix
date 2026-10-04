@@ -2,7 +2,10 @@
 
 This living subplan owns the portfolio-convergence workstream linked from
 [DEVELOPMENT_PLAN.md](../DEVELOPMENT_PLAN.md#95-organic-winner-technique-integration).
-Status and next actions belong to PROGRESS.md; controller contracts to controller-interface.md. Mechanisms below are planned, not implemented.
+Status and next actions belong to PROGRESS.md; controller contracts to
+controller-interface.md. This document mixes accepted requirements, implemented
+foundations, and future mechanisms; `PROGRESS.md` is authoritative for which
+increments are currently wired, tested, or accepted.
 
 ## Objective and fixed targets
 
@@ -228,13 +231,5 @@ Retain exact ceilings, memory/coverage exceptions and bounded checking from plan
 1,800 seconds for the whole pipeline and at most `max(30% of baseline,20s)`
 extra completed check time. This regression exception never verifies a target.
 
-Future targeted candidate experiments, fuzz and preservation gates must follow
-their skills and the user's experiment authorization; recording this plan launches
-none. Do not recreate the baseline campaign. Measure actual work/cost and
-individual regressions; saved asynchronous timings are not causal speedups.
-Beyond the fixed gaps, evaluate generalization and additional checked solves on
-the union/held-out inputs against the frozen four-arm portfolio, preserving every
-reference-covered result as the intended parity floor. Define the broader
-evaluation protocol and a numerical meaning of "substantially more" before
-claiming the ultimate objective; do not invent that threshold now. The choice
-of first mechanism and concrete schedules follows the initial attribution review.
+Future targeted candidate experiments, fuzz and preservation gates follow their skills and the user's experiment authorization; this plan launches none. Do not recreate the baseline campaign. Measure actual work/cost and individual regressions; saved asynchronous timings are not causal speedups.
+Beyond the fixed gaps, evaluate generalization and additional checked solves on union/held-out inputs against the frozen four-arm portfolio, preserving every reference-covered result as the parity floor. Define the broader evaluation protocol and a numerical meaning of "substantially more" before claiming the ultimate objective; do not invent that threshold now. Mechanism and schedule choices follow the attribution review.

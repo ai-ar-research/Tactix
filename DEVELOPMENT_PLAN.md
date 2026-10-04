@@ -259,6 +259,7 @@ their owning documents.
 | S6 | `Walk` policy operation | none (`H`) | 3 |
 | S7 | `Reorder` policy operation | none (`H`) | 3 |
 | S8 | `LocalSearchGuidance` policy operation | none (`H`) | 3 |
+| S9 | `SemanticVariableAdvice` policy operation | none (`H`) | winner integration |
 | C1 | `SubsumeForward` | delete | 3 |
 | C2 | `SubsumeBackward` / strengthen | add-RUP + delete | 3 |
 | C3 | `Vivify` | add-RUP + delete | 3 |
@@ -278,6 +279,9 @@ their owning documents.
 | X6 | `HyperBinaryRes` | add-RUP + delete | 3 |
 | X7 | `SubstitutionRedundancy` | direct add-SR | 3 |
 | X8 | `ParityConsequence` | certified XOR sum: add-RAT + add-RUP + helper deletion | winner integration |
+| X9 | `AffineConsequence` | certified affine basis/consequence: add-RAT + add-RUP + helper deletion | winner integration |
+| X10 | `ExactCoverExtension` | conservative definitions: add-RAT + model projection | winner integration |
+| X11 | `IndependentSetCover` | certified theory consequence: add-RUP + helper deletion | winner integration |
 
 Support services—classification, reconstruction, internal checking, occurrence
 indexes—are not schedulable rules. Phase 3 requires every catalog family to be

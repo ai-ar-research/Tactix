@@ -67,7 +67,8 @@ controller_action_availability(const Kernel &k, const RandomControllerConfig &co
       entry.reason = "not-a-consistent-root-boundary";
     else if (!rule.guard(k))
       entry.reason = "guard-false";
-    else if (std::string_view(rule.name) == "Condition" &&
+    else if ((std::string_view(rule.name) == "Condition" ||
+              std::string_view(rule.name) == "IndependentSetCover") &&
              (!config.offered_actions.contains(rule.name) ||
               config.offered_actions.at(rule.name).empty()))
       entry.reason = "structured-witness-not-offered";
@@ -94,6 +95,10 @@ static ActionParameters reference_parameters(const Kernel &k,
   CONTROLLER_REFERENCE("Strengthen", strengthen_reference);
   CONTROLLER_REFERENCE("Congruence", congruence_reference);
   CONTROLLER_REFERENCE("ParityConsequence", parity_consequence_reference);
+  CONTROLLER_REFERENCE("AffineConsequence", affine_consequence_reference);
+  CONTROLLER_REFERENCE("ExactCoverExtension", exact_cover_extension_reference);
+  CONTROLLER_REFERENCE("IndependentSetCover", independent_set_cover_reference);
+  CONTROLLER_REFERENCE("SemanticVariableAdvice", semantic_variable_advice_reference);
   CONTROLLER_REFERENCE("Instantiate", instantiate_reference);
   CONTROLLER_REFERENCE("Backbone", backbone_reference);
   CONTROLLER_REFERENCE("Sweep", sweep_reference);

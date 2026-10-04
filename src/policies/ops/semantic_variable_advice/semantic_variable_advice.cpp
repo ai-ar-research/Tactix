@@ -6,13 +6,10 @@
 namespace tactix {
 
 RuleEligibility semantic_variable_advice_guard(const Kernel &k) {
-  const auto &parameters = k.semantic_variable_advice_parameters;
   return RuleEligibility{}
       .fact("consistent", !k.inconsistent)
       .fact("root", !k.level && !k.conflict_valid && !k.pending.valid)
       .fact("heuristics-attached", k.h != nullptr)
-      .fact("bounded", parameters.maximum_variables != 0 &&
-                           parameters.maximum_priority_sum != 0)
       .fact("candidate-current",
             strategy::has_current_semantic_variable_candidate(k));
 }
@@ -55,7 +52,10 @@ ApplyResult semantic_variable_advice_rule_apply(Kernel &k) {
   return semantic_variable_advice_rule_apply_instance(k, INSTANCE_CANONICAL);
 }
 
-// Registration is intentionally deferred until action-space/replay/API version
-// 4 lands with the three certified producer actions.
+TACTIX_REGISTER_POLICY_OP(SemanticVariableAdvice, RuleTier::Macro,
+                          semantic_variable_advice_guard,
+                          semantic_variable_advice_rule_apply,
+                          semantic_variable_advice_rule_instances,
+                          semantic_variable_advice_rule_apply_instance);
 
 } // namespace tactix

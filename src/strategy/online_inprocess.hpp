@@ -68,6 +68,9 @@ struct OnlineInvocation {
       substitution_redundancy_instances = {};
   // Both vectors retain external literal identities until each atomic apply.
   std::vector<ConditionInstance> condition_instances = {};
+  // Variable-length positive stable external vertex sets for certified
+  // IndependentSetCover consequences. Each inner vector is one action.
+  std::vector<std::vector<uint32_t>> independent_set_cover_instances = {};
   RepeatSpec repeat;
   PostApplication post_application = PostApplication::None;
   RuleWorkBudget rule_work_budget;

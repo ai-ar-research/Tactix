@@ -3,6 +3,9 @@
 #include "policies/heuristics.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/lucky/lucky.hpp"
+#include "rules/semantic_extension/affine_consequence_action.hpp"
+#include "rules/semantic_extension/exact_cover_action.hpp"
+#include "rules/semantic_extension/independent_set_cover_action.hpp"
 #include "rules/sweep/sweep.hpp"
 #include "strategy/bve_invocation.hpp"
 #include "strategy/rule_execution.hpp"
@@ -115,6 +118,14 @@ bool parameter_matches(const OnlineInvocation &step) {
     return step.rule == "Strengthen";
   if (std::holds_alternative<ParityConsequenceParameters>(step.parameters))
     return step.rule == "ParityConsequence";
+  if (std::holds_alternative<AffineConsequenceParameters>(step.parameters))
+    return step.rule == "AffineConsequence";
+  if (std::holds_alternative<ExactCoverExtensionParameters>(step.parameters))
+    return step.rule == "ExactCoverExtension";
+  if (std::holds_alternative<IndependentSetCoverParameters>(step.parameters))
+    return step.rule == "IndependentSetCover";
+  if (std::holds_alternative<SemanticVariableAdviceParameters>(step.parameters))
+    return step.rule == "SemanticVariableAdvice";
   if (std::holds_alternative<CongruenceParameters>(step.parameters))
     return step.rule == "Congruence";
   if (std::holds_alternative<InstantiateParameters>(step.parameters))
@@ -252,6 +263,21 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
     if (const auto *p = std::get_if<ParityConsequenceParameters>(&step.parameters);
         p && !p->valid())
       return reject("ParityConsequence parameters are invalid");
+    if (const auto *p = std::get_if<AffineConsequenceParameters>(&step.parameters);
+        p && !p->valid())
+      return reject("AffineConsequence parameters are invalid");
+    if (const auto *p =
+            std::get_if<ExactCoverExtensionParameters>(&step.parameters);
+        p && !p->valid())
+      return reject("ExactCoverExtension parameters are invalid");
+    if (const auto *p =
+            std::get_if<IndependentSetCoverParameters>(&step.parameters);
+        p && !p->valid())
+      return reject("IndependentSetCover parameters are invalid");
+    if (const auto *p =
+            std::get_if<SemanticVariableAdviceParameters>(&step.parameters);
+        p && !p->valid())
+      return reject("SemanticVariableAdvice parameters are invalid");
     if (const auto *p = std::get_if<CongruenceParameters>(&step.parameters);
         p && !p->valid())
       return reject("Congruence parameters are invalid");
@@ -350,6 +376,15 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
       return reject("SR instances are attached to a different rule");
     if (!step.condition_instances.empty() && step.rule != "Condition")
       return reject("Condition instances are attached to a different rule");
+    if (!step.independent_set_cover_instances.empty() &&
+        step.rule != "IndependentSetCover")
+      return reject("independent-set covers are attached to a different rule");
+    for (const auto &cover : step.independent_set_cover_instances)
+      if (cover.size() < 2 || !cover.front() ||
+          !std::is_sorted(cover.begin(), cover.end()) ||
+          std::adjacent_find(cover.begin(), cover.end()) != cover.end() ||
+          cover.back() > static_cast<uint32_t>(std::numeric_limits<int>::max()))
+        return reject("independent-set cover is not a sorted positive external set");
     // These are external Lit encodings. UINT32_MAX has no DIMACS spelling:
     // externalize() would overflow its signed result before a live-state
     // check, even if the malformed tuple came only from replay text.
@@ -367,7 +402,8 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
     const unsigned structured_payload_kinds =
         !step.factor_grids.empty() +
         !step.substitution_redundancy_instances.empty() +
-        !step.condition_instances.empty();
+        !step.condition_instances.empty() +
+        !step.independent_set_cover_instances.empty();
     if (structured_payload_kinds && !step.instances.empty())
       return reject("scalar and structured selections cannot be mixed");
     if (structured_payload_kinds > 1)
@@ -380,7 +416,9 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
                                        ? step.factor_grids.size()
                                        : !step.substitution_redundancy_instances.empty()
                                              ? step.substitution_redundancy_instances.size()
-                                             : step.condition_instances.size();
+                                             : !step.condition_instances.empty()
+                                                   ? step.condition_instances.size()
+                                                   : step.independent_set_cover_instances.size();
     switch (step.granularity) {
     case InvocationGranularity::OneInstance:
       if ((structured_payload_kinds && structured_size != 1) ||
@@ -603,14 +641,17 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
   } else if (step.granularity != InvocationGranularity::CompleteCurrentPass) {
     if (step.factor_grids.empty() &&
         step.substitution_redundancy_instances.empty() &&
-        step.condition_instances.empty()) {
+        step.condition_instances.empty() &&
+        step.independent_set_cover_instances.empty()) {
       runtime.selection = step.instances;
     } else {
       const size_t size = !step.factor_grids.empty()
                               ? step.factor_grids.size()
                               : !step.substitution_redundancy_instances.empty()
                                     ? step.substitution_redundancy_instances.size()
-                                    : step.condition_instances.size();
+                                    : !step.condition_instances.empty()
+                                          ? step.condition_instances.size()
+                                          : step.independent_set_cover_instances.size();
       runtime.selection.resize(size);
       for (size_t i = 0; i < runtime.selection.size(); ++i)
         runtime.selection[i] = i;
@@ -1128,6 +1169,7 @@ InvocationResult OnlineStrategyExecutor::advance(
     bool consume_generated_sr_noop = false;
     bool discard_generated_sr_batch = false;
     bool preserve_affine_selection = false;
+    bool preserve_theory_selection = false;
     const uint64_t affine_budget_before = k.stats.affine_model_budget;
     const uint64_t affine_interrupt_before = k.stats.affine_model_interrupted;
     const uint64_t affine_unavailable_before = k.stats.affine_model_unavailable;
@@ -1197,7 +1239,9 @@ InvocationResult OnlineStrategyExecutor::advance(
           SignedCardinalityProofParameters, ExactCoverModelParameters,
           IndependentSetModelParameters, AffineModelParameters, GraphLabelingParameters,
           RamseyStartupParameters,
-          ParityConsequenceParameters>
+          ParityConsequenceParameters, AffineConsequenceParameters,
+          ExactCoverExtensionParameters, IndependentSetCoverParameters,
+          SemanticVariableAdviceParameters>
           parameters(k, step.parameters);
       // Invocation-level native work limits override a rule parameter which
       // happens to share the legacy Kernel::work_budget handoff (Walk).  Both
@@ -1209,11 +1253,37 @@ InvocationResult OnlineStrategyExecutor::advance(
       const bool enumerated_sr =
           generated_sr_pass;
       std::optional<SubstitutionRedundancyApplicationResult> sr_application;
+      std::optional<AffineConsequenceActionResult> affine_application;
+      std::optional<ExactCoverExtensionActionResult> exact_cover_application;
+      std::optional<IndependentSetCoverActionResult>
+          independent_set_application;
       bool condition_declined = false;
       bool condition_interrupted = false;
       const ApplyResult result = execution::execute_action(
           k, execution::RuleApplicationRequest{}, [&] { return
-          !step.condition_instances.empty()
+          !step.independent_set_cover_instances.empty()
+              ? apply_rule_structured(rule, k, "independent-set-cover", [&] {
+                  independent_set_application.emplace(
+                      independent_set_cover_action_apply(
+                          k, *k.independent_set_cover_action_session,
+                          step.independent_set_cover_instances[payload]));
+                  return independent_set_application->result;
+                })
+          : step.rule == "AffineConsequence" && payload == INSTANCE_CANONICAL
+              ? apply_rule_structured(rule, k, "canonical", [&] {
+                  affine_application.emplace(
+                      affine_consequence_action_apply(k));
+                  return affine_application->result;
+                })
+          : step.rule == "ExactCoverExtension" &&
+                    payload == INSTANCE_CANONICAL
+              ? apply_rule_structured(rule, k, "canonical", [&] {
+                  exact_cover_application.emplace(
+                      exact_cover_extension_action_apply(
+                          k, *k.exact_cover_extension_action_session));
+                  return exact_cover_application->live.result;
+                })
+          : !step.condition_instances.empty()
               ? [&] {
                   const ConditionInstance &request =
                       step.condition_instances[payload];
@@ -1314,6 +1384,102 @@ InvocationResult OnlineStrategyExecutor::advance(
                              ? InvocationStatus::Completed
                              : detail::terminal_status(result);
       out.status = guidance_before.refine(k, result, out.status);
+      const auto retain_theory_selection = [&] {
+        // Recognition/proof attempts consume their one application dose even
+        // when their typed local limit or live-state recheck declines.  The
+        // detailed raw counters in the before/after observations carry the
+        // actual heterogeneous effort.  Keep the selected payload pending so
+        // an explicit reconfiguration can retry it with different limits.
+        out.selection_complete = false;
+        preserve_theory_selection = true;
+      };
+      if (affine_application) {
+        switch (affine_application->status) {
+        case AffineConsequenceActionStatus::Invalid:
+          out.status = InvocationStatus::InvalidRequest;
+          retain_theory_selection();
+          break;
+        case AffineConsequenceActionStatus::Inapplicable:
+        case AffineConsequenceActionStatus::UnsupportedProof:
+          out.status = InvocationStatus::Inapplicable;
+          retain_theory_selection();
+          break;
+        case AffineConsequenceActionStatus::ResourceExhausted:
+          out.status = InvocationStatus::ResourceExhausted;
+          retain_theory_selection();
+          break;
+        case AffineConsequenceActionStatus::Interrupted:
+          out.status = InvocationStatus::Interrupted;
+          retain_theory_selection();
+          break;
+        case AffineConsequenceActionStatus::Stale:
+          out.status = InvocationStatus::StaleRequest;
+          retain_theory_selection();
+          break;
+        case AffineConsequenceActionStatus::NoStructure:
+        case AffineConsequenceActionStatus::AlreadyPublished:
+        case AffineConsequenceActionStatus::Applied:
+          break;
+        }
+      }
+      if (exact_cover_application) {
+        switch (exact_cover_application->live.status) {
+        case ExactCoverLiveStatus::Invalid:
+          out.status = InvocationStatus::InvalidRequest;
+          retain_theory_selection();
+          break;
+        case ExactCoverLiveStatus::Inapplicable:
+        case ExactCoverLiveStatus::UnsupportedProof:
+          out.status = InvocationStatus::Inapplicable;
+          retain_theory_selection();
+          break;
+        case ExactCoverLiveStatus::ResourceExhausted:
+          out.status = InvocationStatus::ResourceExhausted;
+          retain_theory_selection();
+          break;
+        case ExactCoverLiveStatus::Interrupted:
+          out.status = InvocationStatus::Interrupted;
+          retain_theory_selection();
+          break;
+        case ExactCoverLiveStatus::Stale:
+          out.status = InvocationStatus::StaleRequest;
+          retain_theory_selection();
+          break;
+        case ExactCoverLiveStatus::NoStructure:
+        case ExactCoverLiveStatus::AlreadyPublished:
+        case ExactCoverLiveStatus::Applied:
+          break;
+        }
+      }
+      if (independent_set_application) {
+        switch (independent_set_application->status) {
+        case IndependentSetLiveStatus::Invalid:
+          out.status = InvocationStatus::InvalidRequest;
+          retain_theory_selection();
+          break;
+        case IndependentSetLiveStatus::Inapplicable:
+        case IndependentSetLiveStatus::UnsupportedProof:
+          out.status = InvocationStatus::Inapplicable;
+          retain_theory_selection();
+          break;
+        case IndependentSetLiveStatus::ResourceExhausted:
+          out.status = InvocationStatus::ResourceExhausted;
+          retain_theory_selection();
+          break;
+        case IndependentSetLiveStatus::Interrupted:
+          out.status = InvocationStatus::Interrupted;
+          retain_theory_selection();
+          break;
+        case IndependentSetLiveStatus::Stale:
+          out.status = InvocationStatus::StaleRequest;
+          retain_theory_selection();
+          break;
+        case IndependentSetLiveStatus::NoStructure:
+        case IndependentSetLiveStatus::Duplicate:
+        case IndependentSetLiveStatus::Applied:
+          break;
+        }
+      }
       if (sr_application) {
         switch (sr_application->status) {
         case SubstitutionRedundancyApplicationStatus::Invalid:
@@ -1444,14 +1610,16 @@ InvocationResult OnlineStrategyExecutor::advance(
     // complete preceding unit prefix. The expected-state check above rejects
     // external transitions. Preserve the batch instead of repeating expensive
     // structured discovery after each successful unit.
-    if (generated_sr_pass)
+    if (generated_sr_pass ||
+        !step.independent_set_cover_instances.empty())
       runtime.selection_generation = k.arena_generation;
     runtime.consumed = saturated_add(runtime.consumed, out.work);
     runtime.pass_progress |= out.made_rule_progress;
     sequence_progress_ |= out.made_rule_progress;
     if (discard_generated_sr_batch)
       runtime.cursor = runtime.selection.size();
-    else if (!preserve_affine_selection && (out.applications || consume_generated_sr_noop))
+    else if (!preserve_affine_selection && !preserve_theory_selection &&
+             (out.applications || consume_generated_sr_noop))
       ++runtime.cursor;
     out.configuration_revision = revision_;
     out.step_id = step.id;

@@ -19,11 +19,15 @@ struct IndependentSetCoverActionSession {
 };
 
 struct IndependentSetCoverActionEffort {
+  uint64_t source_clauses = 0;
+  uint64_t source_literals = 0;
   uint64_t recognition_work = 0;
   uint64_t source_scan_work = 0;
   uint64_t theory_recognition_work = 0;
   uint64_t proof_work = 0;
   uint64_t planned_proof_additions = 0;
+  uint64_t emitted_proof_additions = 0;
+  uint64_t emitted_proof_deletions = 0;
   uint64_t proof_literal_occurrences = 0;
   uint64_t journal_work = 0;
 };
@@ -52,9 +56,9 @@ ApplyResult independent_set_cover_rule_apply(Kernel &);
 
 // Apply one caller-selected positive cover.  The vector is a set encoded in
 // strictly increasing stable external variable identities.  Limits come only
-// from Kernel::independent_set_cover_parameters.  This feature-local adapter
-// neither registers a rule nor advances strategy_epoch; registry dispatch owns
-// that transition and publishes the staged semantic-variable candidate.
+// from Kernel::independent_set_cover_parameters.  The feature-local apply
+// routine does not advance strategy_epoch; its registered structured dispatch
+// owns that transition and publishes the staged semantic-variable candidate.
 IndependentSetCoverActionResult independent_set_cover_action_apply(
     Kernel &, IndependentSetCoverActionSession &,
     const std::vector<uint32_t> &cover_vertices);

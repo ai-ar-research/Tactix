@@ -1000,9 +1000,15 @@ static void test_inprocess_registry_requires_root(void) {
     if (rule.tier != RuleTier::Inprocess)
       continue;
     // Ordinary inprocessing rules must be positively eligible at a clean
-    // root. ParityConsequence additionally requires its bound provenance
-    // session, which this registry-level fixture intentionally lacks.
-    if (std::strcmp(rule.name, "ParityConsequence"))
+    // root. Certified theory actions additionally require provenance and, for
+    // retained-source actions, a solver-lifetime session. This registry-level
+    // fixture intentionally has neither.
+    const bool theory_action =
+        !std::strcmp(rule.name, "ParityConsequence") ||
+        !std::strcmp(rule.name, "AffineConsequence") ||
+        !std::strcmp(rule.name, "ExactCoverExtension") ||
+        !std::strcmp(rule.name, "IndependentSetCover");
+    if (!theory_action)
       assert(rule.guard(k));
     else
       assert(!rule.guard(k));
@@ -1106,6 +1112,7 @@ static void test_default_slot_membership_matches_kissat(void) {
       "HyperBinaryRes", "Probe", "HyperTernaryRes",
       "Instantiate",    "BCE",   "CCE", "SubsumeForward",
       "ParityConsequence",
+      "AffineConsequence", "ExactCoverExtension", "IndependentSetCover",
   };
   for (const auto &entry : p.inprocess().entries) {
     const char *name = rules[entry.rule].name;

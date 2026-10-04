@@ -5,7 +5,10 @@
 #include "policies/trace.hpp"
 #include "rules/decide/decide.hpp"
 #include "rules/propagate/propagate.hpp"
+#include "rules/semantic_extension/exact_cover_action.hpp"
+#include "rules/semantic_extension/independent_set_cover_action.hpp"
 #include "strategy/random_online.hpp"
+#include "strategy/semantic_variable_advice.hpp"
 
 #include <algorithm>
 #include <cassert>
@@ -1156,6 +1159,67 @@ static void affine_consequence_replay_round_trip() {
   assert(defaults.affine_consequence_reference.valid());
 }
 
+static void theory_action_v4_replay_round_trip() {
+  OnlineStrategyProgram program;
+
+  OnlineInvocation exact;
+  exact.id = 711;
+  exact.rule = "ExactCoverExtension";
+  exact.parameters = ExactCoverExtensionParameters{
+      3, 201, 202, 203, 204, 205, 6, 207, 208, 9, 210, 211};
+  exact.granularity = InvocationGranularity::CanonicalApplication;
+  exact.repeat = {RepeatMode::Once, 1};
+  exact.budget = WorkLimit::bounded(1);
+  program.sequence.push_back(exact);
+
+  OnlineInvocation independent;
+  independent.id = 712;
+  independent.rule = "IndependentSetCover";
+  independent.parameters = IndependentSetCoverParameters{
+      301, 302, 303, 304, 305, 306, 307, 308, 32, 7};
+  independent.granularity = InvocationGranularity::SelectedBatch;
+  independent.independent_set_cover_instances = {{1, 2, 3}, {1, 2, 4}};
+  independent.repeat = {RepeatMode::Once, 1};
+  independent.budget = WorkLimit::bounded(2);
+  program.sequence.push_back(independent);
+
+  OnlineStrategyProgram one_cover;
+  one_cover.sequence = {independent};
+  one_cover.sequence[0].granularity = InvocationGranularity::OneInstance;
+  one_cover.sequence[0].independent_set_cover_instances.resize(1);
+  std::string error;
+  assert(validate_online_strategy_program(one_cover, &error));
+
+  OnlineInvocation advice;
+  advice.id = 713;
+  advice.rule = "SemanticVariableAdvice";
+  advice.parameters = SemanticVariableAdviceParameters{64, 4096, 2, 7};
+  advice.granularity = InvocationGranularity::CanonicalApplication;
+  advice.repeat = {RepeatMode::Once, 1};
+  advice.budget = WorkLimit::bounded(1);
+  program.sequence.push_back(advice);
+
+  assert(validate_online_strategy_program(program, &error));
+  const std::string wire = serialize_online_strategy_program(program);
+  assert(wire.find(":exact-cover-extension1(") != std::string::npos);
+  assert(wire.find(":independent-set-cover1(") != std::string::npos);
+  assert(wire.find(":semantic-variable-advice1(") != std::string::npos);
+  assert(wire.find(":independent-set-cover[3,1,2,3;3,1,2,4]") !=
+         std::string::npos);
+  OnlineStrategyProgram replay;
+  assert(deserialize_online_strategy_program(wire, replay, &error));
+  assert(serialize_online_strategy_program(replay) == wire);
+  assert(std::get<ExactCoverExtensionParameters>(replay.sequence[0].parameters)
+             .maximum_journal_bytes == 211);
+  assert(replay.sequence[1].independent_set_cover_instances ==
+         independent.independent_set_cover_instances);
+  assert(std::get<SemanticVariableAdviceParameters>(
+             replay.sequence[2].parameters).introduced_theory_priority == 7);
+
+  program.sequence[1].independent_set_cover_instances = {{2, 1, 3}};
+  assert(!validate_online_strategy_program(program, &error));
+}
+
 static void random_walk_and_reorder_vary_scoring_parameters() {
   Kernel k = broad_fixture();
   ScopedHeuristics heuristics(k);
@@ -1969,6 +2033,11 @@ static void sample_each_applicable_action(Kernel &k,
   for (const RuleVTable &rule : tactix_rules()) {
     if (!rule.guard(k))
       continue;
+    if (!std::strcmp(rule.name, "IndependentSetCover")) {
+      // A legal cover is a variable-length caller/producer-owned request.
+      // Random generation must not fabricate one from a scalar payload.
+      continue;
+    }
     RandomOnlineConfig config;
     config.rules = {rule.name};
     config.maximum_sequence_length = 1;
@@ -1988,8 +2057,18 @@ static void every_registry_action_has_random_support() {
   {
     Kernel k = broad_fixture();
     ScopedHeuristics heuristics(k);
+    ExactCoverExtensionActionSession exact_session;
+    IndependentSetCoverActionSession independent_session;
+    k.exact_cover_extension_action_session = &exact_session;
+    k.independent_set_cover_action_session = &independent_session;
     FILE *records = std::tmpfile(); assert(records);
     k.structural_provenance = records;
+    begin_semantic_variable_candidate_action(k);
+    assert(stage_semantic_variable_candidate(
+        k, SemanticVariableProducer::Affine, 1,
+        {{1, SemanticVariableRole::ExistingTheory, 1}}));
+    ++k.strategy_epoch;
+    finish_semantic_variable_candidate_action(k, ApplyResult::Ok);
     sample_each_applicable_action(k, seen);
     k.structural_provenance = nullptr; std::fclose(records);
   }
@@ -2014,7 +2093,8 @@ static void every_registry_action_has_random_support() {
     assert(conflict_seen.count("Restart") && conflict_seen.count("Reduce"));
     seen.insert(conflict_seen.begin(), conflict_seen.end());
   }
-  assert(seen.size() == tactix_rules().size());
+  assert(seen.size() + 1 == tactix_rules().size());
+  assert(!seen.count("IndependentSetCover"));
 }
 
 static void random_search_choices_cover_phases_targets_and_parameters() {
@@ -2271,6 +2351,7 @@ static void graph_labeling_parameters_round_trip() {
 
 int main() {
   affine_consequence_replay_round_trip();
+  theory_action_v4_replay_round_trip();
   graph_labeling_parameters_round_trip();
   seeded_walk_parameters_round_trip();
   condition_cube_replay_round_trips();

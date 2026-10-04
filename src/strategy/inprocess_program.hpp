@@ -4,6 +4,7 @@
 #include "strategy/bve_invocation.hpp"
 #include "strategy/congruence_parameters.hpp"
 #include "strategy/parity_consequence_parameters.hpp"
+#include "strategy/theory_action_parameters.hpp"
 #include "strategy/forward_parameters.hpp"
 #include "strategy/failed_literal_parameters.hpp"
 #include "strategy/instantiate_parameters.hpp"
@@ -63,7 +64,10 @@ using ActionParameters =
                  IndependentSetModelParameters,
                  AffineModelParameters,
                  SubstitutionRedundancyParameters, GraphLabelingParameters,
-                 ParityConsequenceParameters, RamseyStartupParameters>;
+                 ParityConsequenceParameters, RamseyStartupParameters,
+                 AffineConsequenceParameters, ExactCoverExtensionParameters,
+                 IndependentSetCoverParameters,
+                 SemanticVariableAdviceParameters>;
 
 // Compatibility name for the inprocessing scheduler. Online composition uses
 // the same typed parameter vocabulary for every registered action.
@@ -108,6 +112,9 @@ inline std::vector<InprocessStep> reference_inprocess_program() {
       // position keeps future enablement adjacent to gate/parity discovery and
       // avoids the registry append fallback becoming an accidental policy.
       {19, "ParityConsequence", Probe, false},
+      {20, "AffineConsequence", Probe, false},
+      {21, "ExactCoverExtension", Probe, false},
+      {22, "IndependentSetCover", Probe, false},
       {2, "Substitute", Probe, true, true, AfterCongruence},
       {3, "HyperBinaryRes", Probe, false},
       {4, "Backbone", Probe, true, true, None},
@@ -185,6 +192,18 @@ inline bool validate_inprocess_program(std::span<const InprocessStep> program,
                    std::get_if<ParityConsequenceParameters>(&step.parameters)) {
       if (step.rule != "ParityConsequence" || !p->valid())
         return reject("ParityConsequence parameters are invalid or misplaced");
+    } else if (const auto *p =
+                   std::get_if<AffineConsequenceParameters>(&step.parameters)) {
+      if (step.rule != "AffineConsequence" || !p->valid())
+        return reject("AffineConsequence parameters are invalid or misplaced");
+    } else if (const auto *p =
+                   std::get_if<ExactCoverExtensionParameters>(&step.parameters)) {
+      if (step.rule != "ExactCoverExtension" || !p->valid())
+        return reject("ExactCoverExtension parameters are invalid or misplaced");
+    } else if (const auto *p =
+                   std::get_if<IndependentSetCoverParameters>(&step.parameters)) {
+      if (step.rule != "IndependentSetCover" || !p->valid())
+        return reject("IndependentSetCover parameters are invalid or misplaced");
     } else if (const auto *p =
                    std::get_if<InstantiateParameters>(&step.parameters)) {
       if (step.rule != "Instantiate")

@@ -151,6 +151,10 @@ static void success_stages_candidate_and_commits_identity() {
   assert(kernel.structural_action_sequence == 41);
   assert(session.live_session.committed_keys() == 3);
   assert(kernel.semantic_variable_candidate_pending);
+  assert(kernel.stats.exact_cover_extension_attempts == 1 &&
+         kernel.stats.exact_cover_extension_applied == 1 &&
+         kernel.stats.exact_cover_extension_definitions == 3 &&
+         kernel.stats.exact_cover_extension_candidate_variables == 3);
 
   strategy::finish_semantic_variable_candidate_action(kernel,
                                                        ApplyResult::Ok);
@@ -185,6 +189,8 @@ static void success_stages_candidate_and_commits_identity() {
   assert(kernel.external_to_internal == mapping &&
          kernel.next_clause_id == native_id && kernel.arena.size() == arena);
   assert(std::ftell(records) == journal);
+  assert(kernel.stats.exact_cover_extension_attempts == 2 &&
+         kernel.stats.exact_cover_extension_already_published == 1);
   std::fclose(records);
 }
 

@@ -1,4 +1,4 @@
-# Restart controller interface v3
+# Restart controller interface v4
 
 Concrete specification for DEVELOPMENT_PLAN.md §5.6. That section owns the
 architecture; this document owns the versioned interface and choice identities.
@@ -30,7 +30,7 @@ for per-family allowances and search/reference profiles. Legacy random-policy
 trace/replay flags belong to their existing format; controller replay uses its
 own versioned records.
 
-Action-space/observation version 3 enumerates Lucky probes 0--5 and proof actions
+Action-space/observation version 4 enumerates Lucky probes 0--5 and proof actions
 15, 16, 19, 20, 22, 23, and 24. Dedicated constructor IDs 6--14, 17, 18, and 21
 remain reserved but are absent from enumeration, DefaultPolicy, random generation,
 and typed replay; direct legacy application is a NoOp, and an old typed request is
@@ -44,13 +44,30 @@ transcript container and feedback envelope retain their existing formats; reques
 and observation versions identify these semantics. Old controller trajectories are
 not claimed equivalent. The feedback inspector accepts old v1 observations.
 
+Version 4 appends registry IDs 30--33 for `AffineConsequence`,
+`ExactCoverExtension`, `IndependentSetCover`, and `SemanticVariableAdvice`.
+Their C parameter tags are 33--36 and their replay tuples are
+`affine-consequence1`/`affine-consequence2`, `exact-cover-extension1`,
+`independent-set-cover1`, and `semantic-variable-advice1`. The additive
+`tactix_online_configure_v4` surface copies variable-length independent-set
+covers from `tactix_online_step_v4`; every cover is a sorted, duplicate-free
+vector of at least two positive stable external variable identities. Runtime
+action IDs, retained source snapshots, duplicate sets, provenance streams, and
+fresh identities remain solver-session state and never enter replay parameters.
+Versions 1--3 retain their layouts and meanings.
+`affine-consequence1` preserves the exact selected-small-consequence trajectory.
+V2 removes that ordinal and carries every image, basis, proof, extent, and
+session limit explicitly; it publishes a bounded certified basis and never
+falls back to V1 after a decline. New random-controller references use V2.
+
 `--controller-actions=FILE` reads the existing serialized OnlineStrategyProgram
 syntax as a collection of offered alternatives, not an ordered sequence. It
 selects those families and supplies their typed payloads and fixed allowances;
 choices in one family must agree on allowance. This also supplies structured
-Condition witnesses, which have no default native producer. Without an offered
-witness, Condition is accounted as unavailable rather than sampled as a
-canonical NoOp. Other unavailable/excluded choices have explicit reasons from
+Condition witnesses and independent-set covers, which have no scalar native
+producer. Without an offered witness, each structured family is accounted as
+unavailable rather than sampled as a canonical NoOp. Other
+unavailable/excluded choices have explicit reasons from
 `controller_action_availability`. The default collection includes every root
 family with a native producer. `--controller-restart-period=N` configures the
 reluctant period for focused lifecycle/coverage validation.
@@ -219,17 +236,33 @@ parameter tags are append-only, and retired constructor IDs and wire tags stay
 reserved. Independent-set's variable-length selection requires the additive
 structured-step surface rather than an opaque scalar token.
 
+The v4 public boundary is implemented. Canonical affine and exact-cover calls,
+structured independent-set calls, and semantic advice all pass through the
+same `OnlineStrategyExecutor`, registry dispatch, state-version checks, and
+after-action feedback path. Affine-basis, exact-cover, and independent-set
+sessions live for the solver lifetime in the CLI and C API; independent-set
+batches copy caller storage and
+retain their exact owner snapshot across distinct covers. The new proof actions
+remain absent from the reference DefaultPolicy schedule until their recovery,
+proof-cost, fuzz, and regression gates pass. Random selection can choose affine,
+exact-cover, and advice whenever their guards hold; independent-set selection
+requires a recognized structured cover offered by a producer or caller.
+
 A successful proof-rule dispatch stages immutable advice bound to the post-action
 state version and publishes it after the registry's single `strategy_epoch`
-transition. Exact-cover outputs have `IntroducedTheory` role; affine variables and
-independent-set vertices have `ExistingTheory` role. Encoding helpers and proof-only
+transition. Exact-cover and affine-basis extension outputs have `IntroducedTheory`
+role; affine source variables and independent-set vertices have `ExistingTheory`
+role. Encoding helpers and proof-only
 identities are never candidates. A later advice action applies bounded role-specific
 priority doses uniformly to VMTF and EVSIDS; producer actions never install rankings
 or phases themselves. Candidate IDs combine a monotone session publication generation
 with producer kind, and observation/feedback expose source versions, originating
 action IDs, and existing/introduced counts without mutable producer storage.
 
-Affine publication may leave root propagation pending. Its candidate is observable
+Affine publication may leave root propagation pending. V2 retains exact
+row/RHS/source/native-clause keys across calls, so deleting published clauses cannot
+authorize the same basis row again; a later call may publish genuinely novel rows.
+Its candidate is observable
 and optionally consumable at a conflict-free level-zero state before a separately
 selected `Propagate`; propagation advances the state version and expires an unconsumed
 candidate. `AffineConsequence` must not hide that propagation or republish advice
@@ -245,6 +278,14 @@ atomic application and does not invent a common reward. A costly near miss there
 cannot appear as zero effort. Scheduling and promotion gates remain owned by the
 [winner-integration plan](winner-integration-plan.md#learning-ready-acceptance),
 and current status stays in `PROGRESS.md`.
+
+Pure observations expose cumulative `affine_consequence_*`,
+`exact_cover_extension_*`, and `independent_set_cover_*` scalars. They separate
+attempt/result classes from captured clauses/literals, recognition and source
+scan work, proof preflight and emitted additions/deletions, published formula
+objects, journal cost, extent growth, and staged semantic-variable counts.
+Before/after differences are the raw feedback for one action. They are neither
+normalized nor combined into a reward.
 
 ## Effort and observation
 

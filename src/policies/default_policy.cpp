@@ -3297,7 +3297,10 @@ void DefaultInprocessScheduler::build(Kernel &k, PolicyCompletion *completion) {
         if (rules[i].tier == RuleTier::Inprocess && !placed[i] &&
             std::strcmp(rules[i].name, "SubstitutionRedundancy") &&
             std::strcmp(rules[i].name, "Condition") &&
-            std::strcmp(rules[i].name, "ParityConsequence"))
+            std::strcmp(rules[i].name, "ParityConsequence") &&
+            std::strcmp(rules[i].name, "AffineConsequence") &&
+            std::strcmp(rules[i].name, "ExactCoverExtension") &&
+            std::strcmp(rules[i].name, "IndependentSetCover"))
           add_entry(i);
     default_candidate_order_.arms.assign(rules.size(),
                                          CandidateOrder::Native);
@@ -5205,6 +5208,9 @@ DefaultInprocessScheduler::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVT
   execution::ParameterExecutionScope<
       strategy::SubsumeForwardParameters, strategy::StrengthenParameters,
       strategy::CongruenceParameters, strategy::ParityConsequenceParameters,
+      strategy::AffineConsequenceParameters,
+      strategy::ExactCoverExtensionParameters,
+      strategy::IndependentSetCoverParameters,
       strategy::InstantiateParameters,
       strategy::BackboneParameters, strategy::VivifyParameters>
       parameters(k, e.parameters);

@@ -255,9 +255,11 @@ static void test_native_effort_and_interruption() {
 }
 
 
-// Retained corpus 009 with the owner-reported seed refutes at Substitute,
-// after BVE and LocalSearchGuidance. Neither action nor session-end callbacks
-// may observe the round's temporary disconnected watch representation.
+// Retained corpus 009 refutes in one canonical Substitute action.  Select the
+// action explicitly: appending an unrelated eligible controller family must
+// not invalidate this restoration regression by perturbing a random draw.
+// Neither action nor session-end callbacks may observe the round's temporary
+// disconnected watch representation.
 static void test_terminal_substitute_publication() {
   for (bool reuse : {false, true}) {
     Kernel k;
@@ -293,10 +295,27 @@ static void test_terminal_substitute_publication() {
         ++ended;
       }
     } receiver(k);
+    struct SubstituteOnly final : ControllerSelection {
+      unsigned calls = 0;
+      bool choose(Kernel &kernel, const Observation &observation,
+                  const RandomControllerConfig &, ActionRequest &out,
+                  std::string &, volatile sig_atomic_t *) override {
+        ++calls;
+        out = {};
+        out.sequence = observation.sequence + 1;
+        out.expected = state_version(kernel);
+        out.invocation.rule = "Substitute";
+        out.invocation.granularity =
+            InvocationGranularity::CanonicalApplication;
+        return true;
+      }
+    } selector;
     RandomControllerConfig config;
     config.reuse_search_trail = reuse;
-    RandomControllerPolicy policy(2032000128, config, nullptr, nullptr, &receiver);
+    RandomControllerPolicy policy(2032000128, config, nullptr, &selector,
+                                  &receiver);
     assert(policy.solve(k) == 20);
+    assert(selector.calls == 1);
     assert(receiver.refutations == 1 && receiver.ended == 1);
     assert(k.large_watches_connected);
   }

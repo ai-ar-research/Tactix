@@ -48,14 +48,80 @@ static void fixture(tactix *solver) {
   add_clause(solver, (const int[]){24, -25, 0});
 }
 
+static void exact_cover_fixture(tactix *solver) {
+  int block, first, second, position, diagonal;
+  for (block = 0; block < 3; ++block)
+    for (first = 0; first < 3; ++first)
+      for (second = first + 1; second < 3; ++second)
+        add_clause(solver, (const int[]){-(3 * block + first + 1),
+                                         -(3 * block + second + 1), 0});
+  for (position = 0; position < 3; ++position) {
+    int clause[] = {position + 1, position + 4, position + 7, 0};
+    add_clause(solver, clause);
+  }
+  for (diagonal = 0; diagonal < 3; ++diagonal) {
+    int clause[4];
+    for (block = 0; block < 3; ++block)
+      clause[block] = 3 * block + (block + diagonal) % 3 + 1;
+    clause[3] = 0;
+    add_clause(solver, clause);
+  }
+}
+
+static void independent_set_fixture(tactix *solver) {
+  static const int clauses[][4] = {
+      {-1, -2, 0, 0}, {1, 5, 0, 0}, {-1, 6, 0, 0},
+      {-5, 2, 7, 0}, {-5, -2, 8, 0}, {-6, 2, 8, 0}, {-6, -2, 9, 0},
+      {-7, -8, 0, 0}, {-7, -9, 0, 0}, {-8, -9, 0, 0},
+      {-7, 3, 10, 0}, {-7, -3, 11, 0}, {-8, 3, 11, 0},
+      {-8, -3, 12, 0}, {-9, 3, 12, 0}, {-9, -3, 12, 0},
+      {-10, -11, 0, 0}, {-10, -12, 0, 0}, {-11, -12, 0, 0},
+      {-10, 4, 13, 0}, {-10, -4, 14, 0}, {-11, 4, 14, 0},
+      {-11, -4, 15, 0}, {-12, 4, 15, 0}, {-12, -4, 15, 0},
+      {-13, -14, 0, 0}, {-13, -15, 0, 0}, {-14, -15, 0, 0},
+      {-13, 15, 0, 0}, {-14, 15, 0, 0}, {13, 14, 15, 0}};
+  size_t i;
+  for (i = 0; i < sizeof clauses / sizeof clauses[0]; ++i)
+    add_clause(solver, clauses[i]);
+}
+
 static FILE *structural_records;
+static void configure_parameters(const char *, tactix_online_parameters *);
 static tactix *prepare(int id) {
   const char *name = tactix_rule_name(id);
   tactix *solver = tactix_init();
-  fixture(solver);
-  if (!strcmp(name, "ParityConsequence")) {
+  if (!strcmp(name, "SemanticVariableAdvice"))
+    exact_cover_fixture(solver);
+  else
+    fixture(solver);
+  if (!strcmp(name, "ParityConsequence") ||
+      !strcmp(name, "AffineConsequence") ||
+      !strcmp(name, "ExactCoverExtension") ||
+      !strcmp(name, "IndependentSetCover") ||
+      !strcmp(name, "SemanticVariableAdvice")) {
     structural_records = tmpfile(); assert(structural_records);
     assert(tactix_bind_structural_provenance(solver, structural_records) == 0);
+  }
+  if (!strcmp(name, "SemanticVariableAdvice")) {
+    tactix_online_step producer;
+    tactix_online_program program;
+    tactix_online_result result;
+    memset(&producer, 0, sizeof producer);
+    producer.step_id = 1000;
+    producer.rule_id = rule_id("ExactCoverExtension");
+    configure_parameters("ExactCoverExtension", &producer.parameters);
+    producer.granularity = TACTIX_ONLINE_GRANULARITY_CANONICAL;
+    producer.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
+    producer.repeat_limit = 1;
+    producer.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
+    producer.budget_unlimited = 1;
+    program = (tactix_online_program){
+        &producer, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
+    assert(tactix_online_configure(solver, &program, 1000,
+                                   TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+    assert(tactix_online_advance(solver, &result) == 0);
+    assert(result.status == TACTIX_ONLINE_COMPLETED &&
+           result.made_rule_progress);
   }
   if (!strcmp(name, "Propagate")) {
     assert(tactix_decide(solver, 5) == 0);
@@ -139,13 +205,71 @@ static void configure_parameters(const char *name,
     parameters->value.parity_model.refutation_probe_constraints = 32;
     parameters->value.parity_model.refutation_minimum_probe_repeats = 2;
     parameters->value.parity_model.refutation_maximum_proof_additions = 4096;
+  } else if (!strcmp(name, "AffineConsequence")) {
+    parameters->kind = TACTIX_ONLINE_PARAMETERS_AFFINE_CONSEQUENCE;
+    parameters->value.affine_consequence.maximum_clauses = 1000;
+    parameters->value.affine_consequence.maximum_snapshot_literals = 10000;
+    parameters->value.affine_consequence.maximum_snapshot_work = 10000;
+    parameters->value.affine_consequence.maximum_groups = 1000;
+    parameters->value.affine_consequence.maximum_patterns = 10000;
+    parameters->value.affine_consequence.maximum_elimination_work = 10000;
+    parameters->value.affine_consequence.maximum_arity = 4;
+    parameters->value.affine_consequence.maximum_intermediate_width = 8;
+    parameters->value.affine_consequence.maximum_sources = 32;
+    parameters->value.affine_consequence.maximum_output_width = 4;
+    parameters->value.affine_consequence.maximum_proof_additions = 10000;
+    parameters->value.affine_consequence.maximum_proof_deletions = 10000;
+    parameters->value.affine_consequence.maximum_journal_bytes = 100000;
+    parameters->value.affine_consequence.semantics =
+        TACTIX_ONLINE_AFFINE_CONSEQUENCE_CERTIFIED_BASIS_V2;
+    parameters->value.affine_consequence.basis_maximum_work = 100000;
+    parameters->value.affine_consequence.basis_maximum_intermediate_width = 16;
+    parameters->value.affine_consequence.basis_maximum_sources = 64;
+    parameters->value.affine_consequence.basis_maximum_premises = 1024;
+    parameters->value.affine_consequence.basis_maximum_nodes = 1024;
+    parameters->value.affine_consequence.basis_maximum_direct_width = 4;
+    parameters->value.affine_consequence.maximum_external_extent = 10000;
+    parameters->value.affine_consequence.maximum_session_keys = 10000;
+    parameters->value.affine_consequence.maximum_session_work = 100000;
+  } else if (!strcmp(name, "ExactCoverExtension")) {
+    parameters->kind = TACTIX_ONLINE_PARAMETERS_EXACT_COVER_EXTENSION;
+    parameters->value.exact_cover_extension.arity = 3;
+    parameters->value.exact_cover_extension.maximum_items = 100;
+    parameters->value.exact_cover_extension.maximum_source_clauses = 100;
+    parameters->value.exact_cover_extension.maximum_source_literals = 1000;
+    parameters->value.exact_cover_extension.maximum_recognition_work = 100000;
+    parameters->value.exact_cover_extension.maximum_premise_references = 1000;
+    parameters->value.exact_cover_extension.maximum_definitions = 10;
+    parameters->value.exact_cover_extension.maximum_additions = 100;
+    parameters->value.exact_cover_extension.maximum_literal_occurrences = 1000;
+    parameters->value.exact_cover_extension.maximum_extent_growth = 10;
+    parameters->value.exact_cover_extension.maximum_external_extent = 1000;
+    parameters->value.exact_cover_extension.maximum_journal_bytes = 100000;
+  } else if (!strcmp(name, "IndependentSetCover")) {
+    parameters->kind = TACTIX_ONLINE_PARAMETERS_INDEPENDENT_SET_COVER;
+    parameters->value.independent_set_cover.maximum_clauses = 10000;
+    parameters->value.independent_set_cover.maximum_literals = 100000;
+    parameters->value.independent_set_cover.maximum_recognition_work = 1000000;
+    parameters->value.independent_set_cover.maximum_proof_work = 1000000;
+    parameters->value.independent_set_cover.maximum_proof_additions = 100000;
+    parameters->value.independent_set_cover.maximum_proof_deletions = 100000;
+    parameters->value.independent_set_cover.maximum_proof_literal_occurrences = 1000000;
+    parameters->value.independent_set_cover.maximum_journal_bytes = 1000000;
+    parameters->value.independent_set_cover.maximum_vertices = 64;
+    parameters->value.independent_set_cover.maximum_target = 64;
+  } else if (!strcmp(name, "SemanticVariableAdvice")) {
+    parameters->kind = TACTIX_ONLINE_PARAMETERS_SEMANTIC_VARIABLE_ADVICE;
+    parameters->value.semantic_variable_advice.maximum_variables = 64;
+    parameters->value.semantic_variable_advice.maximum_priority_sum = 1024;
+    parameters->value.semantic_variable_advice.existing_theory_priority = 1;
+    parameters->value.semantic_variable_advice.introduced_theory_priority = 4;
   }
 }
 
 static void reaches_every_registered_action(void) {
   const int count = tactix_rule_count();
   int id;
-  assert(count == 30);
+  assert(count == 34);
   for (id = 0; id < count; ++id) {
     tactix *solver = prepare(id);
     const char *name = tactix_rule_name(id);
@@ -304,6 +428,80 @@ static void invalid_parity_parameters_are_transactional(void) {
   tactix_release(solver);
 }
 
+static void independent_set_v4_batch_retains_its_owner(void) {
+  tactix *solver = tactix_init();
+  FILE *records = tmpfile();
+  const uint32_t first_vertices[] = {1, 2, 3};
+  const uint32_t second_vertices[] = {1, 2, 4};
+  const tactix_online_independent_set_cover_instance covers[] = {
+      {first_vertices, 3}, {second_vertices, 3}};
+  tactix_online_step_v4 step;
+  tactix_online_program_v4 program;
+  tactix_online_result result;
+  assert(records);
+  independent_set_fixture(solver);
+  assert(tactix_bind_structural_provenance(solver, records) == 0);
+  memset(&step, 0, sizeof step);
+  step.base.base.base.step_id = 2000;
+  step.base.base.base.rule_id = rule_id("IndependentSetCover");
+  configure_parameters("IndependentSetCover",
+                       &step.base.base.base.parameters);
+  step.base.base.base.granularity = TACTIX_ONLINE_GRANULARITY_BATCH;
+  step.base.base.base.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
+  step.base.base.base.repeat_limit = 1;
+  step.base.base.base.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
+  step.independent_set_cover_instances = covers;
+  step.independent_set_cover_instance_count = 2;
+  program = (tactix_online_program_v4){
+      &step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
+
+  /* Composition budget zero declines before structural work. */
+  assert(tactix_online_configure_v4(solver, &program, 1998,
+                                    TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  assert(tactix_online_advance(solver, &result) == 0);
+  assert(result.status == TACTIX_ONLINE_BUDGET_EXHAUSTED &&
+         result.applications == 0 && !result.selection_complete);
+
+  /* A rule-local recognition limit is reported distinctly and retains the
+   * selected cover so a later explicit reconfiguration can retry it. */
+  step.base.base.base.budget_unlimited = 1;
+  step.base.base.base.parameters.value.independent_set_cover
+      .maximum_recognition_work = 2;
+  assert(tactix_online_configure_v4(solver, &program, 1999,
+                                    TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  assert(tactix_online_advance(solver, &result) == 0);
+  assert(result.status == TACTIX_ONLINE_RESOURCE_EXHAUSTED &&
+         result.applications == 1 && result.work == 1 &&
+         !result.selection_complete);
+
+  step.base.base.base.parameters.value.independent_set_cover
+      .maximum_recognition_work = 1000000;
+  assert(tactix_online_configure_v4(solver, &program, 2000,
+                                    TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  assert(tactix_online_advance(solver, &result) == 0);
+  assert(result.status == TACTIX_ONLINE_COMPLETED &&
+         result.made_rule_progress && result.applications == 1 &&
+         result.instance == 0 && !result.selection_complete);
+  assert(tactix_online_advance(solver, &result) == 0);
+  assert(result.status == TACTIX_ONLINE_COMPLETED &&
+         result.made_rule_progress && result.applications == 1 &&
+         result.instance == 1 && result.selection_complete);
+
+  /* The nested storage was copied. Malformed new storage is rejected without
+   * replacing the already completed configuration. */
+  {
+    const uint32_t unsorted[] = {2, 1, 3};
+    const tactix_online_independent_set_cover_instance malformed = {
+        unsorted, 3};
+    step.independent_set_cover_instances = &malformed;
+    step.independent_set_cover_instance_count = 1;
+    assert(tactix_online_configure_v4(solver, &program, 2001,
+                                      TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  }
+  tactix_release(solver);
+  fclose(records);
+}
+
 static void lucky_constructors_are_retired(void) {
   tactix *solver = tactix_init();
   /* Forbid the four even assignments on variables 1,2,3, then select one
@@ -387,6 +585,7 @@ int main(void) {
   reaches_every_registered_action();
   invalid_reduce_parameters_are_transactional();
   invalid_parity_parameters_are_transactional();
+  independent_set_v4_batch_retains_its_owner();
   lucky_constructors_are_retired();
   aba_transition_invalidates_a_pending_batch();
   puts("test_online_all_actions: all registered actions and ABA invalidation PASS");

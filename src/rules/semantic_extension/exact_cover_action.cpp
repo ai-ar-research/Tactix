@@ -7,6 +7,61 @@
 #include <vector>
 
 namespace tactix {
+namespace {
+
+struct RecordExactCoverExtension {
+  Kernel &kernel;
+  ExactCoverExtensionActionResult &result;
+  ~RecordExactCoverExtension() {
+    auto &stats = kernel.stats;
+    const auto &live = result.live;
+    ++stats.exact_cover_extension_attempts;
+    stats.exact_cover_extension_source_clauses += live.source_clauses;
+    stats.exact_cover_extension_source_literals += live.source_literals;
+    stats.exact_cover_extension_recognition_work += live.recognition_work;
+    stats.exact_cover_extension_revalidation_work += live.revalidation_work;
+    stats.exact_cover_extension_definitions += live.definitions;
+    stats.exact_cover_extension_additions += live.additions;
+    stats.exact_cover_extension_literal_occurrences +=
+        live.literal_occurrences;
+    stats.exact_cover_extension_journal_bytes += live.journal_bytes;
+    stats.exact_cover_extension_extent_growth += live.extent_growth;
+    if (result.semantic_candidate_staged)
+      stats.exact_cover_extension_candidate_variables +=
+          live.introduced_theory_variables.size();
+    switch (live.status) {
+    case ExactCoverLiveStatus::Applied:
+      ++stats.exact_cover_extension_applied;
+      break;
+    case ExactCoverLiveStatus::NoStructure:
+      ++stats.exact_cover_extension_no_structure;
+      break;
+    case ExactCoverLiveStatus::AlreadyPublished:
+      ++stats.exact_cover_extension_already_published;
+      break;
+    case ExactCoverLiveStatus::Invalid:
+      ++stats.exact_cover_extension_invalid;
+      break;
+    case ExactCoverLiveStatus::Inapplicable:
+      ++stats.exact_cover_extension_inapplicable;
+      break;
+    case ExactCoverLiveStatus::ResourceExhausted:
+      ++stats.exact_cover_extension_resource_exhausted;
+      break;
+    case ExactCoverLiveStatus::Interrupted:
+      ++stats.exact_cover_extension_interrupted;
+      break;
+    case ExactCoverLiveStatus::UnsupportedProof:
+      ++stats.exact_cover_extension_unsupported_proof;
+      break;
+    case ExactCoverLiveStatus::Stale:
+      ++stats.exact_cover_extension_stale;
+      break;
+    }
+  }
+};
+
+} // namespace
 
 RuleEligibility exact_cover_extension_action_guard(const Kernel &k) {
   return RuleEligibility{}
@@ -32,6 +87,7 @@ RuleEligibility exact_cover_extension_action_guard(const Kernel &k) {
 ExactCoverExtensionActionResult exact_cover_extension_action_apply(
     Kernel &k, ExactCoverExtensionActionSession &session) {
   ExactCoverExtensionActionResult result;
+  RecordExactCoverExtension record{k, result};
   if (!exact_cover_extension_action_guard(k) ||
       k.exact_cover_extension_action_session != &session) {
     result.live.status = ExactCoverLiveStatus::Inapplicable;
@@ -95,5 +151,9 @@ ApplyResult exact_cover_extension_rule_apply(Kernel &kernel) {
              kernel, *kernel.exact_cover_extension_action_session)
       .live.result;
 }
+
+TACTIX_REGISTER_RULE(ExactCoverExtension, RuleTier::Inprocess,
+                     exact_cover_extension_action_guard,
+                     exact_cover_extension_rule_apply);
 
 } // namespace tactix
