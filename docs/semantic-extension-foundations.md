@@ -16,16 +16,27 @@ unsupported proof modes, or incomplete plans have no solver effect. The controll
 later rank declared existing or introduced theory variables; producers do not alter
 VMTF, EVSIDS, phases, or other heuristic state.
 
-The public v4 boundary gives these transitions separate append-only actions:
-`AffineConsequence` and `ExactCoverExtension` use canonical payloads;
-`IndependentSetCover` uses a copied structured vector of stable positive
-external vertices. Typed parameters contain explicit limits only. Durable
-source ownership, duplicate keys, action/semantic identities, provenance
-streams, and fresh variables stay in solver-lifetime sessions. A productive
-proof action stages an immutable existing/introduced theory-variable candidate;
-the separate H-only `SemanticVariableAdvice` action may later apply bounded
-priority doses. Declines and failed recognition expose raw consumed work and
-charge the controller's one-application dose without committing logical state.
+The public v4 boundary gives affine, exact-cover, and independent-set
+transitions separate append-only actions. Action-space v5 adds
+`Gf3AffineConsequence` and `DirectCspSupport` with exact typed structured
+payloads, deep-copied C configuration, deterministic replay, and distinct
+semantic-variable producer identities. Typed parameters contain explicit limits
+only. Durable source ownership, duplicate keys, action/semantic identities,
+provenance streams, and fresh variables stay in solver-lifetime sessions. A
+productive proof action stages neutral existing/introduced theory variables;
+a configured propagation follow-up settles first, then the dispatcher publishes
+only still-branchable variables as a current immutable candidate for the
+separate H-only `SemanticVariableAdvice` action.
+
+Every attempt reports raw status, effort, proof, yield, and session-commit
+deltas and charges one application. `NoStructure`, `NoConsequence`, and
+`AlreadyPublished` consume that exact selection. Invalid, inapplicable,
+unsupported-proof, and stale selections are terminal for that cursor.
+`ResourceExhausted` and `Interrupted` retain the payload so explicit
+reconfiguration can retry it with changed limits; no outcome triggers fallback
+or rollback. DefaultPolicy omits both v5 actions, while random selection may use
+only exact payloads from its configured offered collection. `PROGRESS.md` owns
+acceptance status.
 
 ## Affine consequence
 
@@ -109,9 +120,32 @@ DSR and forward-DRAT replay check all 54 additions in the reference fixture. The
 commit leaves propagation to a later controller action and publishes existing
 semantic variables as advice metadata. Repeated clauses are detected against the
 live database. Unsupported proof modes, incomplete encodings, stale sources,
-interruption, or exhausted bounds decline before mutation. A public C++ action now
-retains the recognized owner, selected equation-pair keys and exact replay state;
-shared controller/C/replay/feedback wiring and target recovery remain pending.
+interruption, or exhausted bounds decline before mutation. The public v5 action
+retains the recognized owner, ordered equation-pair
+keys and exact replay state in a kernel-lifetime session. Its C and replay forms
+carry the same bounded parameters plus a canonical `first < second` pair;
+structured execution, raw feedback, and the distinct GF(3) advice producer are
+implemented under the shared contract. Target recovery remains pending.
+
+## Direct CSP support consequence
+
+At an assignment-free propagated root, recognize two complete signed one-hot
+domains and the exact directed table of forbidden value pairs. Selecting one
+left-domain row entails
+`not left[row] or OR(compatible right values)`: resolve the right-domain cover
+against every forbidden pair in that row. Emit the clause directly when it fits
+its bound. Otherwise, when enabled, define one fresh theory variable exactly as
+the OR of the compatible values by RAT clauses and publish the shorter support
+clause. The extension has a unique value, is omitted from the external model,
+and requires no reconstruction witness; direct publication has identity
+projection.
+
+The public v5 action carries both full canonically ordered signed domains and
+the selected row in C and replay payloads. A kernel-lifetime session retains one
+exact owner per ordered domain pair and committed row keys across later clause
+deletion. Atomic preflight, source revalidation, DSR/DRAT proof publication,
+raw feedback, and the distinct DirectCSP advice producer use the shared contract
+above. Target recovery remains pending.
 
 ## Truth-table parity frontier
 
@@ -149,10 +183,8 @@ recovery, and a complete UNSAT argument also remain pending.
 ## Broader recognition foundations
 
 The next integrations generalize these exact source contracts rather than
-reintroducing constructor search. `direct_csp_support` recognizes complete two-domain one-hot variables
-and forbidden pairs, then plans direct or exact-OR support clauses.
-`z3_amo_recognition` recognizes a closed Z3 totalizer/Tseitin
-`AtMost(...,1)` component only when its asserted root, complete OR gates,
-root-guarded exclusions, and every leaf pair are owned exactly once. These are
-foundations until their complete live producers are wired through the public
-actions and independently checked; recognition by itself publishes nothing.
+reintroducing constructor search. `z3_amo_recognition` recognizes a closed Z3
+totalizer/Tseitin `AtMost(...,1)` component only when its asserted root, complete
+OR gates, root-guarded exclusions, and every leaf pair are owned exactly once.
+It remains a foundation until its complete live producer is wired through a
+public action and independently checked; recognition by itself publishes nothing.
