@@ -36,6 +36,8 @@ IndependentSetLiveRequest request_from_kernel(
 
 void copy_effort(IndependentSetCoverActionResult &output,
                  const IndependentSetOwnerCaptureResult &capture) {
+  output.effort.source_clauses = capture.source_clauses;
+  output.effort.source_literals = capture.source_literals;
   output.effort.recognition_work = capture.recognition_work;
   output.effort.source_scan_work = capture.source_scan_work;
   output.effort.theory_recognition_work =
@@ -44,11 +46,15 @@ void copy_effort(IndependentSetCoverActionResult &output,
 
 void copy_effort(IndependentSetCoverActionResult &output,
                  const IndependentSetLiveResult &live) {
+  output.effort.source_clauses = live.source_clauses;
+  output.effort.source_literals = live.source_literals;
   output.effort.recognition_work = live.recognition_work;
   output.effort.source_scan_work = live.source_scan_work;
   output.effort.theory_recognition_work = live.theory_recognition_work;
   output.effort.proof_work = live.proof_work;
   output.effort.planned_proof_additions = live.planned_proof_additions;
+  output.effort.emitted_proof_additions = live.emitted_proof_additions;
+  output.effort.emitted_proof_deletions = live.emitted_proof_deletions;
   output.effort.proof_literal_occurrences =
       live.proof_literal_occurrences;
   output.effort.journal_work = live.journal_work;
@@ -59,6 +65,65 @@ bool valid_cover_payload(const std::vector<uint32_t> &cover) {
          std::is_sorted(cover.begin(), cover.end()) &&
          std::adjacent_find(cover.begin(), cover.end()) == cover.end();
 }
+
+struct RecordIndependentSetCover {
+  Kernel &kernel;
+  IndependentSetCoverActionResult &result;
+  ~RecordIndependentSetCover() {
+    auto &stats = kernel.stats;
+    const auto &effort = result.effort;
+    ++stats.independent_set_cover_attempts;
+    stats.independent_set_cover_source_clauses += effort.source_clauses;
+    stats.independent_set_cover_source_literals += effort.source_literals;
+    stats.independent_set_cover_recognition_work += effort.recognition_work;
+    stats.independent_set_cover_source_scan_work += effort.source_scan_work;
+    stats.independent_set_cover_theory_recognition_work +=
+        effort.theory_recognition_work;
+    stats.independent_set_cover_proof_work += effort.proof_work;
+    stats.independent_set_cover_planned_proof_additions +=
+        effort.planned_proof_additions;
+    stats.independent_set_cover_proof_additions +=
+        effort.emitted_proof_additions;
+    stats.independent_set_cover_proof_deletions +=
+        effort.emitted_proof_deletions;
+    stats.independent_set_cover_proof_literal_occurrences +=
+        effort.proof_literal_occurrences;
+    stats.independent_set_cover_journal_work += effort.journal_work;
+    stats.independent_set_cover_published +=
+        result.published_clause_id != 0;
+    if (result.candidate_staged)
+      stats.independent_set_cover_candidate_variables += result.vertices;
+    switch (result.status) {
+    case IndependentSetLiveStatus::Applied:
+      ++stats.independent_set_cover_applied;
+      break;
+    case IndependentSetLiveStatus::NoStructure:
+      ++stats.independent_set_cover_no_structure;
+      break;
+    case IndependentSetLiveStatus::Duplicate:
+      ++stats.independent_set_cover_duplicate;
+      break;
+    case IndependentSetLiveStatus::Invalid:
+      ++stats.independent_set_cover_invalid;
+      break;
+    case IndependentSetLiveStatus::Inapplicable:
+      ++stats.independent_set_cover_inapplicable;
+      break;
+    case IndependentSetLiveStatus::ResourceExhausted:
+      ++stats.independent_set_cover_resource_exhausted;
+      break;
+    case IndependentSetLiveStatus::Interrupted:
+      ++stats.independent_set_cover_interrupted;
+      break;
+    case IndependentSetLiveStatus::UnsupportedProof:
+      ++stats.independent_set_cover_unsupported_proof;
+      break;
+    case IndependentSetLiveStatus::Stale:
+      ++stats.independent_set_cover_stale;
+      break;
+    }
+  }
+};
 
 } // namespace
 
@@ -94,6 +159,7 @@ IndependentSetCoverActionResult independent_set_cover_action_apply(
     Kernel &kernel, IndependentSetCoverActionSession &session,
     const std::vector<uint32_t> &cover_vertices) {
   IndependentSetCoverActionResult output;
+  RecordIndependentSetCover record{kernel, output};
   output.owner_retained = session.retained();
   if (!independent_set_cover_action_guard(kernel) ||
       kernel.independent_set_cover_action_session != &session) {
@@ -165,5 +231,9 @@ IndependentSetCoverActionResult independent_set_cover_action_apply(
   kernel.structural_action_sequence = action_id;
   return output;
 }
+
+TACTIX_REGISTER_RULE(IndependentSetCover, RuleTier::Inprocess,
+                     independent_set_cover_action_guard,
+                     independent_set_cover_rule_apply);
 
 } // namespace tactix

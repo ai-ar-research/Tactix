@@ -133,6 +133,12 @@ ActionParameters random_parameters(const Kernel &, uint64_t &state, const std::s
   }
   if (rule == "AffineConsequence")
     return config.affine_consequence_reference;
+  if (rule == "ExactCoverExtension")
+    return config.exact_cover_extension_reference;
+  if (rule == "IndependentSetCover")
+    return config.independent_set_cover_reference;
+  if (rule == "SemanticVariableAdvice")
+    return config.semantic_variable_advice_reference;
   if (rule == "Congruence") {
     CongruenceParameters p;
     p.and_arity_limit =
@@ -667,6 +673,26 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
     U32_AT(19,p.maximum_external_extent);
     p.maximum_session_keys=v[20]; p.maximum_session_work=v[21];
     parameters=p;
+  } else if (tuple(text, "exact-cover-extension1", v) && v.size() == 12) {
+    ExactCoverExtensionParameters p;
+    U32_AT(0,p.arity); p.maximum_items=v[1]; p.maximum_source_clauses=v[2];
+    p.maximum_source_literals=v[3]; p.maximum_recognition_work=v[4];
+    p.maximum_premise_references=v[5]; U32_AT(6,p.maximum_definitions);
+    p.maximum_additions=v[7]; p.maximum_literal_occurrences=v[8];
+    U32_AT(9,p.maximum_extent_growth); U32_AT(10,p.maximum_external_extent);
+    p.maximum_journal_bytes=v[11]; parameters=p;
+  } else if (tuple(text, "independent-set-cover1", v) && v.size() == 10) {
+    IndependentSetCoverParameters p;
+    p.maximum_clauses=v[0]; p.maximum_literals=v[1];
+    p.maximum_recognition_work=v[2]; p.maximum_proof_work=v[3];
+    p.maximum_proof_additions=v[4]; p.maximum_proof_deletions=v[5];
+    p.maximum_proof_literal_occurrences=v[6]; p.maximum_journal_bytes=v[7];
+    U32_AT(8,p.maximum_vertices); U32_AT(9,p.maximum_target); parameters=p;
+  } else if (tuple(text, "semantic-variable-advice1", v) && v.size() == 4) {
+    SemanticVariableAdviceParameters p;
+    U32_AT(0,p.maximum_variables); p.maximum_priority_sum=v[1];
+    U32_AT(2,p.existing_theory_priority);
+    U32_AT(3,p.introduced_theory_priority); parameters=p;
   } else if (tuple(text, "congruence", v) && v.size() == 3) {
     CongruenceParameters p;
     U32_AT(0, p.and_arity_limit); p.gate_count_limit = v[1];
@@ -1276,6 +1302,20 @@ bool parse_condition_instance(std::string_view text,
          at == values.size();
 }
 
+bool parse_independent_set_cover(std::string_view text,
+                                 std::vector<uint32_t> &cover) {
+  std::vector<uint64_t> values;
+  if (!comma_values(text, values) || values.empty() ||
+      values.front() != values.size() - 1)
+    return false;
+  cover.reserve(values.size() - 1);
+  for (size_t i = 1; i < values.size(); ++i) {
+    if (!values[i] || values[i] > UINT32_MAX) return false;
+    cover.push_back(static_cast<uint32_t>(values[i]));
+  }
+  return true;
+}
+
 } // namespace
 
 bool random_online_strategy_program(Kernel &k, uint64_t seed,
@@ -1345,14 +1385,14 @@ bool random_online_strategy_program(Kernel &k, uint64_t seed,
   std::vector<int> available;
   if (config.rules.empty()) {
     for (const RuleVTable &rule : tactix_rules())
-      if (rule.guard(k))
+      if (rule.guard(k) && std::string_view(rule.name) != "IndependentSetCover")
         available.push_back(static_cast<int>(rule.id));
   } else {
     for (const std::string &name : config.rules) {
       const int id = tactix_rule_id(name.c_str());
       if (id < 0)
         return reject("random-online action is not registered");
-      if (tactix_rules()[id].guard(k))
+      if (tactix_rules()[id].guard(k) && name != "IndependentSetCover")
         available.push_back(id);
     }
   }
@@ -1606,6 +1646,30 @@ std::string serialize_online_strategy_program(
             << p->maximum_external_extent << ',' << p->maximum_session_keys
             << ',' << p->maximum_session_work << ')';
     }
+    else if (const auto *p =
+                 std::get_if<ExactCoverExtensionParameters>(&step.parameters))
+      out << ":exact-cover-extension1(" << p->arity << ',' << p->maximum_items
+          << ',' << p->maximum_source_clauses << ','
+          << p->maximum_source_literals << ',' << p->maximum_recognition_work
+          << ',' << p->maximum_premise_references << ','
+          << p->maximum_definitions << ',' << p->maximum_additions << ','
+          << p->maximum_literal_occurrences << ',' << p->maximum_extent_growth
+          << ',' << p->maximum_external_extent << ','
+          << p->maximum_journal_bytes << ')';
+    else if (const auto *p =
+                 std::get_if<IndependentSetCoverParameters>(&step.parameters))
+      out << ":independent-set-cover1(" << p->maximum_clauses << ','
+          << p->maximum_literals << ',' << p->maximum_recognition_work << ','
+          << p->maximum_proof_work << ',' << p->maximum_proof_additions << ','
+          << p->maximum_proof_deletions << ','
+          << p->maximum_proof_literal_occurrences << ','
+          << p->maximum_journal_bytes << ',' << p->maximum_vertices << ','
+          << p->maximum_target << ')';
+    else if (const auto *p =
+                 std::get_if<SemanticVariableAdviceParameters>(&step.parameters))
+      out << ":semantic-variable-advice1(" << p->maximum_variables << ','
+          << p->maximum_priority_sum << ',' << p->existing_theory_priority
+          << ',' << p->introduced_theory_priority << ')';
     else if (const auto *p =
                  std::get_if<CongruenceParameters>(&step.parameters))
       out << ":congruence(" << p->and_arity_limit << ','
@@ -1917,6 +1981,16 @@ std::string serialize_online_strategy_program(
       }
       out << ']';
     }
+    if (!step.independent_set_cover_instances.empty()) {
+      out << ":independent-set-cover[";
+      for (size_t i = 0; i < step.independent_set_cover_instances.size(); ++i) {
+        if (i) out << ';';
+        const auto &cover = step.independent_set_cover_instances[i];
+        out << cover.size();
+        for (const uint32_t external : cover) out << ',' << external;
+      }
+      out << ']';
+    }
   }
   return out.str();
 }
@@ -2077,6 +2151,23 @@ bool deserialize_online_strategy_program(const std::string &encoded,
         if (!parse_condition_instance(text.substr(0, semicolon), instance))
           return reject("online replay Condition instance is malformed");
         step.condition_instances.push_back(std::move(instance));
+        if (semicolon == std::string_view::npos)
+          text = {};
+        else
+          text.remove_prefix(semicolon + 1);
+      }
+    }
+    constexpr std::string_view independent_set_cover_marker =
+        ":independent-set-cover[";
+    if (text.starts_with(independent_set_cover_marker) && text.back() == ']') {
+      text.remove_prefix(independent_set_cover_marker.size());
+      text.remove_suffix(1);
+      while (!text.empty()) {
+        const size_t semicolon = text.find(';');
+        std::vector<uint32_t> cover;
+        if (!parse_independent_set_cover(text.substr(0, semicolon), cover))
+          return reject("online replay IndependentSetCover payload is malformed");
+        step.independent_set_cover_instances.push_back(std::move(cover));
         if (semicolon == std::string_view::npos)
           text = {};
         else

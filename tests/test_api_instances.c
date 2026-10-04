@@ -15,7 +15,9 @@
 /* Entries with no uint64 payload surface: a numeric payload is invalid.
  * Condition instead has a structured public tuple surface below. */
 static const char *const NO_SURFACE[] = {"Propagate", "SubstitutionRedundancy",
-                                         "SwitchMode", "Condition", "ParityConsequence"};
+                                         "SwitchMode", "Condition", "ParityConsequence",
+                                         "AffineConsequence", "ExactCoverExtension",
+                                         "IndependentSetCover"};
 
 /* Entries whose enumeration is exactly the canonical sentinel: an
  * `apply_instance` with nothing to choose between. Joining or leaving this set
@@ -26,7 +28,9 @@ static const char *const NO_SURFACE[] = {"Propagate", "SubstitutionRedundancy",
  * set when its seed-literal surface landed (`N1-FACTOR-INSTANCES`). */
 static const char *const CANONICAL_ONLY[] = {"Congruence", "Propagate",
                                              "SubstitutionRedundancy",
-                                             "SwitchMode", "Walk", "ParityConsequence"};
+                                             "SwitchMode", "Walk", "ParityConsequence",
+                                             "AffineConsequence", "ExactCoverExtension",
+                                             "IndependentSetCover"};
 
 static int in_list(const char *const *list, size_t n, const char *name) {
   size_t i;
@@ -86,16 +90,75 @@ static void fixture(tactix *s) {
   add_clause(s, (const int[]){24, -25, 0});
 }
 
+static void exact_cover_fixture(tactix *s) {
+  int block, first, second, position, diagonal;
+  for (block = 0; block < 3; ++block)
+    for (first = 0; first < 3; ++first)
+      for (second = first + 1; second < 3; ++second)
+        add_clause(s, (const int[]){-(3 * block + first + 1),
+                                    -(3 * block + second + 1), 0});
+  for (position = 0; position < 3; ++position)
+    add_clause(s, (const int[]){position + 1, position + 4,
+                                position + 7, 0});
+  for (diagonal = 0; diagonal < 3; ++diagonal) {
+    int clause[4];
+    for (block = 0; block < 3; ++block)
+      clause[block] = 3 * block + (block + diagonal) % 3 + 1;
+    clause[3] = 0;
+    add_clause(s, clause);
+  }
+}
+
 /* A fresh solver where `id`'s guard holds; search-state entries need more
  * than a quiescent root. */
 static FILE *structural_records;
 static tactix *prepare(int id) {
   const char *name = tactix_rule_name(id);
   tactix *s = tactix_init();
-  fixture(s);
-  if (!strcmp(name, "ParityConsequence")) {
+  if (!strcmp(name, "SemanticVariableAdvice"))
+    exact_cover_fixture(s);
+  else
+    fixture(s);
+  if (!strcmp(name, "ParityConsequence") ||
+      !strcmp(name, "AffineConsequence") ||
+      !strcmp(name, "ExactCoverExtension") ||
+      !strcmp(name, "IndependentSetCover") ||
+      !strcmp(name, "SemanticVariableAdvice")) {
     structural_records = tmpfile(); assert(structural_records);
     assert(tactix_bind_structural_provenance(s, structural_records) == 0);
+  }
+  if (!strcmp(name, "SemanticVariableAdvice")) {
+    tactix_online_step producer;
+    tactix_online_program program;
+    tactix_online_result result;
+    memset(&producer, 0, sizeof producer);
+    producer.step_id = 1000;
+    producer.rule_id = rule_id("ExactCoverExtension");
+    producer.parameters.kind = TACTIX_ONLINE_PARAMETERS_EXACT_COVER_EXTENSION;
+    producer.parameters.value.exact_cover_extension.arity = 3;
+    producer.parameters.value.exact_cover_extension.maximum_items = 100;
+    producer.parameters.value.exact_cover_extension.maximum_source_clauses = 100;
+    producer.parameters.value.exact_cover_extension.maximum_source_literals = 1000;
+    producer.parameters.value.exact_cover_extension.maximum_recognition_work = 100000;
+    producer.parameters.value.exact_cover_extension.maximum_premise_references = 1000;
+    producer.parameters.value.exact_cover_extension.maximum_definitions = 10;
+    producer.parameters.value.exact_cover_extension.maximum_additions = 100;
+    producer.parameters.value.exact_cover_extension.maximum_literal_occurrences = 1000;
+    producer.parameters.value.exact_cover_extension.maximum_extent_growth = 10;
+    producer.parameters.value.exact_cover_extension.maximum_external_extent = 1000;
+    producer.parameters.value.exact_cover_extension.maximum_journal_bytes = 100000;
+    producer.granularity = TACTIX_ONLINE_GRANULARITY_CANONICAL;
+    producer.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
+    producer.repeat_limit = 1;
+    producer.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
+    producer.budget_unlimited = 1;
+    program = (tactix_online_program){
+        &producer, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
+    assert(tactix_online_configure(s, &program, 1000,
+                                   TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+    assert(tactix_online_advance(s, &result) == 0);
+    assert(result.status == TACTIX_ONLINE_COMPLETED &&
+           result.made_rule_progress);
   }
   if (!strcmp(name, "Propagate")) {
     assert(tactix_decide(s, 5) == 0); /* a decision leaves the queue nonempty */

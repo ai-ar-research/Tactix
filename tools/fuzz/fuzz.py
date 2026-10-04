@@ -353,6 +353,14 @@ REACH_SPECS = [
     # S5 instance 6 is the structural affine candidate path. Its own call
     # counter distinguishes it from the six reference Lucky probes.
     ("ParityModel", r"^c parity\s+(\d+) calls,"),
+    ("ParityConsequence", r"^c theory-act\s+(\d+) parity,"),
+    ("AffineConsequence", r"^c theory-act\s+\d+ parity, (\d+) affine,"),
+    ("ExactCoverExtension",
+     r"^c theory-act\s+\d+ parity, \d+ affine, (\d+) exact-cover,"),
+    ("IndependentSetCover",
+     r"^c theory-act\s+\d+ parity, \d+ affine, \d+ exact-cover, (\d+) independent-set,"),
+    ("SemanticVariableAdvice",
+     r"^c theory-act\s+\d+ parity, \d+ affine, \d+ exact-cover, \d+ independent-set, (\d+) advice attempts"),
     ("Vivify", r"^c vivify\s+(\d+) rounds,"),
     # These key on attempts, not rounds: they are `dosed` entries reached
     # through apply_instance, whose round counter never moves. See the note

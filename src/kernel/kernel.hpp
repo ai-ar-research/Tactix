@@ -30,6 +30,7 @@
 namespace tactix {
 
 struct Kernel;
+struct AffineBasisActionSession;
 struct ExactCoverExtensionActionSession;
 struct IndependentSetCoverActionSession;
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
@@ -883,6 +884,82 @@ struct Stats {
   uint64_t parity_consequence_preflight_additions = 0;
   uint64_t parity_consequence_additions = 0, parity_consequence_deletions = 0;
   uint64_t parity_consequence_helpers = 0, parity_consequence_published = 0;
+  uint64_t affine_consequence_attempts = 0, affine_consequence_applied = 0;
+  uint64_t affine_consequence_no_structure = 0;
+  uint64_t affine_consequence_invalid = 0, affine_consequence_inapplicable = 0;
+  uint64_t affine_consequence_resource_exhausted = 0;
+  uint64_t affine_consequence_interrupted = 0;
+  uint64_t affine_consequence_unsupported_proof = 0;
+  uint64_t affine_consequence_stale = 0;
+  uint64_t affine_consequence_already_published = 0;
+  uint64_t affine_consequence_snapshot_clauses = 0;
+  uint64_t affine_consequence_snapshot_literals = 0;
+  uint64_t affine_consequence_snapshot_work = 0;
+  uint64_t affine_consequence_equations = 0;
+  uint64_t affine_consequence_consequences = 0;
+  uint64_t affine_consequence_recognition_work = 0;
+  uint64_t affine_consequence_selected_sources = 0;
+  uint64_t affine_consequence_selected_premises = 0;
+  uint64_t affine_consequence_proof_work = 0;
+  uint64_t affine_consequence_preflight_additions = 0;
+  uint64_t affine_consequence_preflight_deletions = 0;
+  uint64_t affine_consequence_additions = 0;
+  uint64_t affine_consequence_deletions = 0;
+  uint64_t affine_consequence_published = 0;
+  uint64_t affine_consequence_journal_work = 0;
+  uint64_t affine_consequence_journal_bytes = 0;
+  uint64_t affine_consequence_candidate_variables = 0;
+  uint64_t affine_consequence_basis_work = 0;
+  uint64_t affine_consequence_rows = 0;
+  uint64_t affine_consequence_definitions = 0;
+  uint64_t affine_consequence_extent_growth = 0;
+  uint64_t affine_consequence_session_work = 0;
+  uint64_t affine_consequence_excluded_rows = 0;
+  uint64_t affine_consequence_transaction_keys = 0;
+  uint64_t affine_consequence_committed_keys = 0;
+  uint64_t exact_cover_extension_attempts = 0;
+  uint64_t exact_cover_extension_applied = 0;
+  uint64_t exact_cover_extension_no_structure = 0;
+  uint64_t exact_cover_extension_already_published = 0;
+  uint64_t exact_cover_extension_invalid = 0;
+  uint64_t exact_cover_extension_inapplicable = 0;
+  uint64_t exact_cover_extension_resource_exhausted = 0;
+  uint64_t exact_cover_extension_interrupted = 0;
+  uint64_t exact_cover_extension_unsupported_proof = 0;
+  uint64_t exact_cover_extension_stale = 0;
+  uint64_t exact_cover_extension_source_clauses = 0;
+  uint64_t exact_cover_extension_source_literals = 0;
+  uint64_t exact_cover_extension_recognition_work = 0;
+  uint64_t exact_cover_extension_revalidation_work = 0;
+  uint64_t exact_cover_extension_definitions = 0;
+  uint64_t exact_cover_extension_additions = 0;
+  uint64_t exact_cover_extension_literal_occurrences = 0;
+  uint64_t exact_cover_extension_journal_bytes = 0;
+  uint64_t exact_cover_extension_extent_growth = 0;
+  uint64_t exact_cover_extension_candidate_variables = 0;
+  uint64_t independent_set_cover_attempts = 0;
+  uint64_t independent_set_cover_applied = 0;
+  uint64_t independent_set_cover_no_structure = 0;
+  uint64_t independent_set_cover_duplicate = 0;
+  uint64_t independent_set_cover_invalid = 0;
+  uint64_t independent_set_cover_inapplicable = 0;
+  uint64_t independent_set_cover_resource_exhausted = 0;
+  uint64_t independent_set_cover_interrupted = 0;
+  uint64_t independent_set_cover_unsupported_proof = 0;
+  uint64_t independent_set_cover_stale = 0;
+  uint64_t independent_set_cover_source_clauses = 0;
+  uint64_t independent_set_cover_source_literals = 0;
+  uint64_t independent_set_cover_recognition_work = 0;
+  uint64_t independent_set_cover_source_scan_work = 0;
+  uint64_t independent_set_cover_theory_recognition_work = 0;
+  uint64_t independent_set_cover_proof_work = 0;
+  uint64_t independent_set_cover_planned_proof_additions = 0;
+  uint64_t independent_set_cover_proof_additions = 0;
+  uint64_t independent_set_cover_proof_deletions = 0;
+  uint64_t independent_set_cover_proof_literal_occurrences = 0;
+  uint64_t independent_set_cover_journal_work = 0;
+  uint64_t independent_set_cover_published = 0;
+  uint64_t independent_set_cover_candidate_variables = 0;
   uint64_t congruence_rounds = 0;  // Congruence rounds — gate-closure passes
   uint64_t congruence_binary_rebuilds = 0;
   uint64_t congruence_unjustified = 0;
@@ -1687,6 +1764,7 @@ struct Kernel {
   uint64_t structural_action_sequence = 0;
   // Non-owning pointers to solver/controller-owned feature caches. They are
   // never serialized and may outlive online reconfiguration, but not Kernel.
+  AffineBasisActionSession *affine_basis_action_session = nullptr;
   ExactCoverExtensionActionSession *exact_cover_extension_action_session =
       nullptr;
   IndependentSetCoverActionSession *independent_set_cover_action_session =

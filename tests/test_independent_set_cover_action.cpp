@@ -169,6 +169,14 @@ void exercise() {
                  first.effort.theory_recognition_work &&
          session.retained() && session.belongs_to(kernel) &&
          kernel.structural_action_sequence == 1);
+  assert(kernel.stats.independent_set_cover_attempts == 4 &&
+         kernel.stats.independent_set_cover_invalid == 1 &&
+         kernel.stats.independent_set_cover_inapplicable == 1 &&
+         kernel.stats.independent_set_cover_resource_exhausted == 1 &&
+         kernel.stats.independent_set_cover_applied == 1 &&
+         kernel.stats.independent_set_cover_candidate_variables == 4 &&
+         kernel.stats.independent_set_cover_source_clauses ==
+             first.effort.source_clauses + declined.effort.source_clauses);
   const uint64_t captured_work =
       session.snapshot.capture_source_scan_work +
       session.snapshot.capture_theory_recognition_work;

@@ -18,6 +18,9 @@
 #include "proof/proof.hpp"
 #include "rules/bve/bve.hpp" // BveGate enum for --bve-gates
 #include "rules/registry.hpp" // now_nanos + the rule list for `c timing`
+#include "rules/semantic_extension/exact_cover_action.hpp"
+#include "rules/semantic_extension/affine_basis_action.hpp"
+#include "rules/semantic_extension/independent_set_cover_action.hpp"
 
 #include <algorithm>
 #include <charconv>
@@ -443,6 +446,14 @@ int main(int argc, char **argv) {
     return 1;
   }
   Kernel kernel;
+  AffineBasisActionSession affine_basis_session;
+  ExactCoverExtensionActionSession exact_cover_extension_session;
+  IndependentSetCoverActionSession independent_set_cover_session;
+  kernel.affine_basis_action_session = &affine_basis_session;
+  kernel.exact_cover_extension_action_session =
+      &exact_cover_extension_session;
+  kernel.independent_set_cover_action_session =
+      &independent_set_cover_session;
   const bool default_frontend =
       !random_policy && !controller_selected && !stress_policy && !replay_path;
   if (default_frontend)
@@ -1141,6 +1152,13 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.parity_refutation_unsat,
            (unsigned long long)kernel.stats.parity_refutation_proof_additions,
            (unsigned long long)kernel.stats.parity_refutation_proof_deletions);
+    printf("c theory-act %llu parity, %llu affine, %llu exact-cover, "
+           "%llu independent-set, %llu advice attempts\n",
+           (unsigned long long)kernel.stats.parity_consequence_attempts,
+           (unsigned long long)kernel.stats.affine_consequence_attempts,
+           (unsigned long long)kernel.stats.exact_cover_extension_attempts,
+           (unsigned long long)kernel.stats.independent_set_cover_attempts,
+           (unsigned long long)kernel.stats.semantic_variable_advice_attempts);
     printf("c affine     %llu calls, %llu equations, %llu coordinates, "
            "%llu entries, %llu candidates, %llu SAT, %llu work, "
            "%llu budgets, %llu unavailable, %llu interrupted\n",

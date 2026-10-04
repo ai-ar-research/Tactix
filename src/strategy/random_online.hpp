@@ -122,6 +122,9 @@ struct RandomOnlineConfig {
     result.maximum_session_work = 1000000;
     return result;
   }();
+  ExactCoverExtensionParameters exact_cover_extension_reference;
+  IndependentSetCoverParameters independent_set_cover_reference;
+  SemanticVariableAdviceParameters semantic_variable_advice_reference;
   InstantiateParameters instantiate_reference;
   BackboneParameters backbone_reference;
   SweepParameters sweep_reference;

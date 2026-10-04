@@ -403,6 +403,12 @@ int tactix_apply_semantic_instance(tactix *, int rule_id, uint64_t instance);
 #define TACTIX_ONLINE_PARAMETERS_GRAPH_LABELING 30
 #define TACTIX_ONLINE_PARAMETERS_PARITY_CONSEQUENCE 31
 #define TACTIX_ONLINE_PARAMETERS_RAMSEY_STARTUP 32
+#define TACTIX_ONLINE_PARAMETERS_AFFINE_CONSEQUENCE 33
+#define TACTIX_ONLINE_PARAMETERS_EXACT_COVER_EXTENSION 34
+#define TACTIX_ONLINE_PARAMETERS_INDEPENDENT_SET_COVER 35
+#define TACTIX_ONLINE_PARAMETERS_SEMANTIC_VARIABLE_ADVICE 36
+#define TACTIX_ONLINE_AFFINE_CONSEQUENCE_SELECTED_V1 1
+#define TACTIX_ONLINE_AFFINE_CONSEQUENCE_CERTIFIED_BASIS_V2 2
 #define TACTIX_ONLINE_BVE_TRAVERSAL_ELIMINATE 0
 #define TACTIX_ONLINE_BVE_TRAVERSAL_FAST_ELIMINATE 1
 #define TACTIX_ONLINE_AFFINE_BOUNDARY 0
@@ -532,6 +538,49 @@ typedef struct {
   uint32_t maximum_tree_variables;
   uint64_t consequence;
 } tactix_online_parity_consequence_parameters;
+typedef struct {
+  /* Exact, bounded GF(2) image extraction. The selected consequence is an
+   * ordinal in the deterministic bounded recognition result for semantics
+   * V1. Zero semantics retains that source-compatible V1 meaning. V2 emits a
+   * bounded certified basis transaction and ignores consequence. */
+  uint64_t maximum_clauses, maximum_snapshot_literals, maximum_snapshot_work;
+  uint64_t maximum_groups, maximum_patterns, maximum_elimination_work;
+  uint32_t maximum_arity, maximum_intermediate_width;
+  uint32_t maximum_sources, maximum_output_width;
+  uint64_t maximum_proof_additions, maximum_proof_deletions;
+  uint64_t maximum_journal_bytes, consequence;
+  int semantics;
+  uint64_t basis_maximum_work;
+  uint32_t basis_maximum_intermediate_width, basis_maximum_sources;
+  uint32_t basis_maximum_premises, basis_maximum_nodes;
+  uint32_t basis_maximum_direct_width, maximum_external_extent;
+  uint64_t maximum_session_keys, maximum_session_work;
+} tactix_online_affine_consequence_parameters;
+typedef struct {
+  /* All limits are explicit. An arity of zero accepts the recognizer's exact
+   * supported arity; any nonzero arity must be at least three. */
+  uint32_t arity;
+  uint64_t maximum_items, maximum_source_clauses, maximum_source_literals;
+  uint64_t maximum_recognition_work, maximum_premise_references;
+  uint32_t maximum_definitions;
+  uint64_t maximum_additions, maximum_literal_occurrences;
+  uint32_t maximum_extent_growth, maximum_external_extent;
+  uint64_t maximum_journal_bytes;
+} tactix_online_exact_cover_extension_parameters;
+typedef struct {
+  uint64_t maximum_clauses, maximum_literals, maximum_recognition_work;
+  uint64_t maximum_proof_work, maximum_proof_additions;
+  uint64_t maximum_proof_deletions, maximum_proof_literal_occurrences;
+  uint64_t maximum_journal_bytes;
+  uint32_t maximum_vertices, maximum_target;
+} tactix_online_independent_set_cover_parameters;
+typedef struct {
+  /* Advice is H-only and consumes the currently staged semantic candidate.
+   * Priorities are fixed additive doses for the two semantic roles. */
+  uint32_t maximum_variables;
+  uint64_t maximum_priority_sum;
+  uint32_t existing_theory_priority, introduced_theory_priority;
+} tactix_online_semantic_variable_advice_parameters;
 typedef struct {
   uint32_t and_arity_limit, xor_arity_limit;
   uint64_t gate_count_limit;
@@ -888,6 +937,10 @@ typedef struct {
     tactix_online_strengthen_parameters strengthen;
     tactix_online_congruence_parameters congruence;
     tactix_online_parity_consequence_parameters parity_consequence;
+    tactix_online_affine_consequence_parameters affine_consequence;
+    tactix_online_exact_cover_extension_parameters exact_cover_extension;
+    tactix_online_independent_set_cover_parameters independent_set_cover;
+    tactix_online_semantic_variable_advice_parameters semantic_variable_advice;
     tactix_online_instantiate_parameters instantiate;
     tactix_online_backbone_parameters backbone;
     tactix_online_sweep_parameters sweep;
@@ -998,6 +1051,27 @@ typedef struct {
   uint64_t repeat_limit;
 } tactix_online_program_v3;
 
+/* Additive v4 payload for a caller-selected independent-set cover. Every
+ * vertex is a positive stable external variable identity. The vector is
+ * copied by configure_v4 and must be strictly increasing with at least two
+ * members. */
+typedef struct {
+  const uint32_t *vertices;
+  int vertex_count;
+} tactix_online_independent_set_cover_instance;
+typedef struct {
+  tactix_online_step_v3 base;
+  const tactix_online_independent_set_cover_instance *
+      independent_set_cover_instances;
+  int independent_set_cover_instance_count;
+} tactix_online_step_v4;
+typedef struct {
+  const tactix_online_step_v4 *steps;
+  int step_count;
+  int repeat_mode;
+  uint64_t repeat_limit;
+} tactix_online_program_v4;
+
 #define TACTIX_ONLINE_COMPLETED 0
 #define TACTIX_ONLINE_SCOPED_FIXPOINT 1
 #define TACTIX_ONLINE_NO_CHANGE 2
@@ -1031,6 +1105,8 @@ int tactix_online_configure(tactix *, const tactix_online_program *,
 int tactix_online_configure_v2(tactix *, const tactix_online_program_v2 *,
                                uint64_t revision, int reconfigure_mode);
 int tactix_online_configure_v3(tactix *, const tactix_online_program_v3 *,
+                               uint64_t revision, int reconfigure_mode);
+int tactix_online_configure_v4(tactix *, const tactix_online_program_v4 *,
                                uint64_t revision, int reconfigure_mode);
 int tactix_online_advance(tactix *, tactix_online_result *);
 uint64_t tactix_online_step_consumed(tactix *, uint64_t step_id);

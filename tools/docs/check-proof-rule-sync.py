@@ -17,8 +17,8 @@ def duplicates(items):
 def main():
     calculus = CALCULUS.read_text(encoding="utf-8")
     guide = GUIDE.read_text(encoding="utf-8")
-    abstract = re.findall(r"^### ([A-Z]\d[a-z]?) ·", calculus, re.M)
-    cards = re.findall(r'<details class="rule-card" id="([A-Z]\d[a-z]?)"', guide)
+    abstract = re.findall(r"^### ([A-Z]\d+[a-z]?) ·", calculus, re.M)
+    cards = re.findall(r'<details class="rule-card" id="([A-Z]\d+[a-z]?)"', guide)
     expected = abstract + ["V6a"]  # documented internal channel inside V6
 
     errors = []
