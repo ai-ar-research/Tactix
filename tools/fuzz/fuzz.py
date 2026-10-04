@@ -387,7 +387,8 @@ REACH_SPECS = [
     ("Strengthen", r"^c strengthen\s+(\d+) rounds \("),
     ("Walk", r"^c walk\s+(\d+) walks"),
     ("LocalSearchGuidance",
-     r"^c localsearch\s+\d+ hints offered, (\d+) applied"),
+     r"^c localsearch\s+\d+ hints offered \(\d+ phases, \d+ replacements\), "
+     r"(\d+) applied"),
     # Known confound: `c rephased` is also incremented by Walk, so this row
     # alone cannot prove Rephase fired. It is kept because separating them
     # needs a new counter, and the separation was measured by hand: rephased

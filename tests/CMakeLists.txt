@@ -166,6 +166,9 @@ add_test(NAME orbitopal_group COMMAND test_orbitopal_group)
 add_test(NAME fuzz_slurm_snapshot
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_fuzz_slurm_snapshot.py)
+add_test(NAME fuzz_reachability
+         COMMAND ${CMAKE_COMMAND} -E env python3
+                 ${CMAKE_CURRENT_SOURCE_DIR}/test_fuzz_reachability.py)
 if(NOT TACTIX_ENABLE_EVENT_TRACE AND NOT TACTIX_ENABLE_RULE_JOURNAL)
   set(trace_symbol_test_args)
   if(CMAKE_BUILD_TYPE STREQUAL "Debug")
