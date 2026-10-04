@@ -395,6 +395,58 @@ void retained_payload_and_source_are_exact() {
   std::fclose(records);
 }
 
+void smaller_later_limits_exhaust_valid_retained_state() {
+  Kernel kernel = parse();
+  FILE *records = std::tmpfile();
+  assert(records);
+  attach(kernel, records);
+  DirectCspSupportActionSession session;
+  assert(direct_csp_support_action_apply(kernel, session, limits(),
+                                         selection(1))
+             .status == DirectCspSupportActionStatus::Applied);
+  assert(direct_csp_support_action_apply(kernel, session, limits(),
+                                         selection(2))
+             .status == DirectCspSupportActionStatus::Applied);
+  assert(session.committed_keys() == 2 && session.retained_owners() == 1);
+
+  const Image before = image(kernel);
+  const long journal = position(records);
+  const auto expect_exhausted = [&](DirectCspSupportActionLimits bounded) {
+    const auto result = direct_csp_support_action_apply(
+        kernel, session, bounded, selection(0));
+    assert(result.status == DirectCspSupportActionStatus::ResourceExhausted &&
+           result.live.status ==
+               DirectCspSupportLiveStatus::ResourceExhausted &&
+           result.result == ApplyResult::NoOp && image(kernel) == before &&
+           position(records) == journal && session.committed_keys() == 2 &&
+           session.retained_owners() == 1);
+  };
+
+  auto bounded = limits();
+  bounded.maximum_source_clauses = clauses().size() - 1;
+  expect_exhausted(bounded);
+
+  bounded = limits();
+  const auto *owner = session.snapshot(selection(0).left_values,
+                                       selection(0).right_values);
+  assert(owner && owner->source_literals > 1);
+  bounded.maximum_source_literals = owner->source_literals - 1;
+  expect_exhausted(bounded);
+
+  bounded = limits();
+  bounded.maximum_domain_values = 3;
+  expect_exhausted(bounded);
+
+  bounded = limits();
+  bounded.maximum_session_keys = 1;
+  expect_exhausted(bounded);
+
+  bounded = limits();
+  bounded.maximum_session_work = 1;
+  expect_exhausted(bounded);
+  std::fclose(records);
+}
+
 void malformed_retained_key_is_rejected_before_live_work() {
   Kernel kernel = parse();
   FILE *records = std::tmpfile();
@@ -413,9 +465,14 @@ void malformed_retained_key_is_rejected_before_live_work() {
   corrupted[0].selected_left_literal = 99;
   const Image before = image(kernel);
   const long journal = position(records);
+  auto bounded = limits();
+  bounded.maximum_source_clauses = 1;
+  bounded.maximum_source_literals = 1;
+  bounded.maximum_domain_values = 2;
   const auto rejected = direct_csp_support_action_apply(
-      kernel, session, limits(), selection(2));
+      kernel, session, bounded, selection(2));
   assert(rejected.status == DirectCspSupportActionStatus::Invalid &&
+         rejected.live.status == DirectCspSupportLiveStatus::Invalid &&
          rejected.result == ApplyResult::NoOp && image(kernel) == before &&
          position(records) == journal && session.committed_keys() == 1);
   std::fclose(records);
@@ -539,6 +596,7 @@ int main(int argc, char **argv) {
   declines_are_atomic_and_sessions_are_kernel_local();
   mapped_live_declines_are_atomic();
   retained_payload_and_source_are_exact();
+  smaller_later_limits_exhaust_valid_retained_state();
   malformed_retained_key_is_rejected_before_live_work();
   proof_modes_and_guard();
   projection_preserves_an_original_model();
