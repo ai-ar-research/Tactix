@@ -45,7 +45,7 @@ Kernel triangle(bool residual = false) {
 
 live::Request request() {
   live::Request result;
-  result.snapshot = {100, 1000, 10000};
+  result.snapshot = {100, 1000, 10000, 100};
   result.admission = {10000, nullptr, nullptr};
   result.planning = {10000, 16, 1};
   result.transaction = {10000, 3, 2, 2, 100, nullptr, nullptr};
@@ -190,6 +190,16 @@ std::string read_file(const std::string &path) {
   return output;
 }
 
+struct InterruptState {
+  uint64_t calls = 0;
+  uint64_t stop = UINT64_MAX;
+};
+
+bool interrupt_after(void *opaque) {
+  auto &state = *static_cast<InterruptState *>(opaque);
+  return ++state.calls >= state.stop;
+}
+
 void exact_snapshot_prepare_apply() {
   Kernel kernel = triangle();
   const live::Snapshot captured = snapshot(kernel);
@@ -261,13 +271,43 @@ void dsr_publication() {
 void resource_and_interrupt_boundaries() {
   {
     Kernel kernel = triangle();
+    const live::Snapshot baseline = snapshot(kernel);
+    auto exact = request().snapshot;
+    exact.maximum_clauses = baseline.sources.size();
+    exact.maximum_literals = baseline.literals;
+    exact.maximum_work = baseline.work;
+    exact.maximum_variables = kernel.nvars;
     live::Snapshot output;
+    const live::Result admitted = live::capture(kernel, exact, output);
+    assert(admitted.status == live::Status::Captured);
+    assert(output == baseline);
+    --exact.maximum_work;
+    const live::Result declined = live::capture(kernel, exact, output);
+    assert(declined.status == live::Status::ResourceExhausted);
+    assert(declined.reason == live::Reason::SnapshotWorkLimit);
+    assert(output.sources.empty());
+  }
+  {
+    Kernel kernel = triangle();
+    live::Snapshot output;
+    assert(live::capture(kernel, request().snapshot, output).status ==
+           live::Status::Captured);
+    assert(!output.sources.empty());
     auto limits = request().snapshot;
     limits.maximum_clauses = 5;
     const live::Result result = live::capture(kernel, limits, output);
     assert(result.status == live::Status::ResourceExhausted);
     assert(result.reason == live::Reason::SnapshotClauseLimit);
     assert(output.sources.empty());
+  }
+  {
+    Kernel kernel = triangle();
+    live::Snapshot output;
+    auto limits = request().snapshot;
+    limits.maximum_variables = 2;
+    const live::Result result = live::capture(kernel, limits, output);
+    assert(result.status == live::Status::ResourceExhausted);
+    assert(result.reason == live::Reason::SnapshotVariableLimit);
   }
   {
     Kernel kernel = triangle();
@@ -322,6 +362,18 @@ void resource_and_interrupt_boundaries() {
   }
   {
     Kernel kernel = triangle();
+    kernel.next_clause_id = UINT64_MAX;
+    const live::Snapshot captured = snapshot(kernel);
+    live::Prepared prepared;
+    const live::Result result =
+        live::prepare(kernel, captured, groups(captured), request(), prepared);
+    assert(result.status == live::Status::ResourceExhausted);
+    assert(result.reason == live::Reason::ProofNamespace);
+    assert(kernel.next_clause_id == UINT64_MAX);
+    assert(!prepared.ready());
+  }
+  {
+    Kernel kernel = triangle();
     volatile sig_atomic_t stop = 1;
     kernel.stop = &stop;
     live::Snapshot output;
@@ -341,6 +393,54 @@ void resource_and_interrupt_boundaries() {
     assert(result.status == live::Status::Interrupted);
     assert(kernel.next_clause_id == before_id);
     assert(!kernel.value(internalize(-3)));
+  }
+  {
+    Kernel kernel = triangle();
+    const live::Snapshot captured = snapshot(kernel);
+    auto interrupted = request();
+    InterruptState state{0, 1};
+    interrupted.admission.interrupted = interrupt_after;
+    interrupted.admission.interrupt_state = &state;
+    live::Prepared prepared;
+    const live::Result result = live::prepare(
+        kernel, captured, groups(captured), interrupted, prepared);
+    assert(result.status == live::Status::Interrupted);
+    assert(result.admission_reason == cycle::AdmissionReason::Interrupted);
+    assert(!prepared.ready());
+  }
+  {
+    Kernel kernel = triangle();
+    const live::Snapshot captured = snapshot(kernel);
+    auto interrupted = request();
+    InterruptState state{0, 1};
+    interrupted.transaction.interrupted = interrupt_after;
+    interrupted.transaction.interrupt_state = &state;
+    live::Prepared prepared;
+    const live::Result result = live::prepare(
+        kernel, captured, groups(captured), interrupted, prepared);
+    assert(result.status == live::Status::Interrupted);
+    assert(result.transaction_reason == cycle::TransactionReason::Interrupted);
+    assert(!prepared.ready());
+  }
+  {
+    // Caller polling context belongs only to prepare. Prepared strips those
+    // raw pointers before a later apply may outlive the caller's stack frame.
+    Kernel kernel = triangle();
+    const live::Snapshot captured = snapshot(kernel);
+    live::Prepared prepared;
+    {
+      auto bounded = request();
+      InterruptState state;
+      bounded.admission.interrupted = interrupt_after;
+      bounded.admission.interrupt_state = &state;
+      bounded.transaction.interrupted = interrupt_after;
+      bounded.transaction.interrupt_state = &state;
+      assert(live::prepare(kernel, captured, groups(captured), bounded,
+                           prepared)
+                 .status == live::Status::Prepared);
+      assert(state.calls > 0);
+    }
+    assert(live::apply(kernel, prepared).status == live::Status::Applied);
   }
 }
 
@@ -407,6 +507,135 @@ void stale_and_invalid_declines_are_atomic() {
     assert(result.status == live::Status::Invalid);
     assert(result.reason == live::Reason::InvalidKernelPopulation);
   }
+  {
+    Kernel kernel = triangle();
+    kernel.external_to_internal[0] = INVALID_VAR;
+    live::Snapshot output;
+    const live::Result result = live::capture(kernel, request().snapshot, output);
+    assert(result.status == live::Status::Invalid);
+    assert(result.reason == live::Reason::InvalidKernelPopulation);
+  }
+  {
+    Kernel kernel = triangle();
+    const live::Snapshot captured = snapshot(kernel);
+    const live::Source source = captured.sources.front();
+    bool removed = false;
+    kernel.watches.compact(source.first, [&](WatchEntry watch) {
+      if (!removed && watch.binary() && watch.other() == source.second) {
+        removed = true;
+        return false;
+      }
+      return true;
+    });
+    assert(removed);
+    live::Snapshot output;
+    const live::Result result = live::capture(kernel, request().snapshot, output);
+    assert(result.status == live::Status::Invalid);
+    assert(result.reason == live::Reason::InvalidKernelPopulation);
+  }
+}
+
+void corrupted_prepared_transactions_decline() {
+  const auto run = [](live::Status expected_status,
+                      live::Reason expected_reason,
+                      cycle::TransactionReason expected_transaction_reason,
+                      auto corrupt) {
+    Kernel kernel = triangle();
+    const live::Snapshot captured = snapshot(kernel);
+    live::Prepared prepared;
+    assert(live::prepare(kernel, captured, groups(captured), request(), prepared)
+               .status == live::Status::Prepared);
+    corrupt(prepared);
+    const uint64_t before_id = kernel.next_clause_id;
+    const live::Result result = live::apply(kernel, prepared);
+    assert(result.status == expected_status);
+    assert(result.reason == expected_reason);
+    assert(result.transaction_reason == expected_transaction_reason);
+    assert(kernel.next_clause_id == before_id);
+    assert(!kernel.value(internalize(-3)));
+  };
+  run(live::Status::Invalid, live::Reason::TransactionDeclined,
+      cycle::TransactionReason::ReplayMismatch, [](live::Prepared &prepared) {
+    auto &transaction = const_cast<cycle::ProofTransaction &>(
+        prepared.transaction());
+    ++transaction.identity.sources.front().premises.front().proof;
+  });
+  run(live::Status::Invalid, live::Reason::TransactionDeclined,
+      cycle::TransactionReason::ReplayMismatch, [](live::Prepared &prepared) {
+    auto &transaction = const_cast<cycle::ProofTransaction &>(
+        prepared.transaction());
+    transaction.x7.substitution.front().second =
+        transaction.x7.substitution.front().first;
+  });
+  run(live::Status::Invalid, live::Reason::TransactionDeclined,
+      cycle::TransactionReason::ReplayMismatch, [](live::Prepared &prepared) {
+    auto &transaction = const_cast<cycle::ProofTransaction &>(
+        prepared.transaction());
+    ++transaction.accounting.preflight_additions;
+  });
+  run(live::Status::Stale, live::Reason::SnapshotMismatch,
+      cycle::TransactionReason::None, [](live::Prepared &prepared) {
+    auto &instance = const_cast<SubstitutionRedundancyInstance &>(
+        prepared.instance());
+    instance.substitution.front().second =
+        instance.substitution.front().first;
+  });
+}
+
+void proof_writer_replacement_is_stale() {
+  const std::string first_path = temporary_path();
+  const std::string second_path = temporary_path();
+  Kernel kernel = triangle();
+  Proof first, second;
+  assert(first.open(first_path.c_str(), ProofFormat::DsrAscii));
+  assert(second.open(second_path.c_str(), ProofFormat::DsrAscii));
+  first.bind_variable_map(&kernel.internal_to_external);
+  first.bind_external_variable_map(&kernel.external_to_internal);
+  second.bind_variable_map(&kernel.internal_to_external);
+  second.bind_external_variable_map(&kernel.external_to_internal);
+  kernel.proof = &first;
+  const live::Snapshot captured = snapshot(kernel);
+  live::Prepared prepared;
+  assert(live::prepare(kernel, captured, groups(captured), request(), prepared)
+             .status == live::Status::Prepared);
+  kernel.proof = &second;
+  const uint64_t before_id = kernel.next_clause_id;
+  const live::Result result = live::apply(kernel, prepared);
+  assert(result.status == live::Status::Stale);
+  assert(result.reason == live::Reason::SnapshotMismatch);
+  assert(kernel.next_clause_id == before_id);
+  assert(!kernel.value(internalize(-3)));
+  kernel.proof = nullptr;
+  first.flush();
+  second.flush();
+  unlink(first_path.c_str());
+  unlink(second_path.c_str());
+}
+
+void proof_route_transition_is_precommit() {
+  const std::string path = temporary_path();
+  Kernel kernel = triangle();
+  Proof proof;
+  assert(proof.open(path.c_str(), ProofFormat::Automatic));
+  proof.bind_variable_map(&kernel.internal_to_external);
+  proof.bind_external_variable_map(&kernel.external_to_internal);
+  kernel.proof = &proof;
+  const live::Snapshot captured = snapshot(kernel);
+  live::Prepared prepared;
+  assert(live::prepare(kernel, captured, groups(captured), request(), prepared)
+             .status == live::Status::Prepared);
+  proof.finish_input_transaction();
+  assert(proof.startup_pb_available());
+  assert(proof.begin_pb());
+  const uint64_t before_id = kernel.next_clause_id;
+  const live::Result result = live::apply(kernel, prepared);
+  assert(result.status == live::Status::UnsupportedProof);
+  assert(result.reason == live::Reason::UnsupportedProof);
+  assert(kernel.next_clause_id == before_id);
+  assert(!kernel.value(internalize(-3)));
+  assert(proof.finish_pb());
+  kernel.proof = nullptr;
+  unlink(path.c_str());
 }
 
 void unsupported_proof_is_precommit() {
@@ -439,6 +668,9 @@ int main() {
   dsr_publication();
   resource_and_interrupt_boundaries();
   stale_and_invalid_declines_are_atomic();
+  corrupted_prepared_transactions_decline();
+  proof_writer_replacement_is_stale();
+  proof_route_transition_is_precommit();
   unsupported_proof_is_precommit();
   std::puts("test_tseitin_cycle_live: passed");
 }
