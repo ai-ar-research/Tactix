@@ -144,17 +144,30 @@ Gf3GaussianActionOfferResult gf3_gaussian_action_offer(
       prepared);
   if (output.live.status != gf3_gaussian_live::Status::Prepared) {
     output.status = status(output.live.status);
+    output.complete =
+        output.status == Gf3GaussianActionStatus::NoStructure ||
+        output.status == Gf3GaussianActionStatus::NoSupportedOutcome ||
+        output.status == Gf3GaussianActionStatus::AlreadyPublished;
     return output;
   }
   const std::string &identity = prepared.batch_identity();
+  output.candidates = 1;
   if (identity.size() > limits.maximum_session_identity_bytes ||
-      !add_work(1, limits.maximum_session_work, output.session_work)) {
+      !add_work(identity.size() + 1, limits.maximum_session_work,
+                output.session_work)) {
     output.status = Gf3GaussianActionStatus::ResourceExhausted;
     return output;
   }
+  for (const auto &key : session.keys())
+    if (!add_work(key.size() + 1, limits.maximum_session_work,
+                  output.session_work)) {
+      output.status = Gf3GaussianActionStatus::ResourceExhausted;
+      return output;
+    }
   output.session_identity_bytes = identity.size();
   if (!std::binary_search(session.keys().begin(), session.keys().end(), identity))
     output.offers.push_back(identity);
+  output.complete = true;
   output.status = output.offers.empty()
                       ? Gf3GaussianActionStatus::AlreadyPublished
                       : Gf3GaussianActionStatus::Applied;
@@ -190,11 +203,17 @@ Gf3GaussianActionResult gf3_gaussian_action_apply(
     return output;
   }
   if (session.keys().size() == limits.maximum_session_keys ||
-      !add_work(session.keys().size() + 1, limits.maximum_session_work,
+      !add_work(identity.size() + 1, limits.maximum_session_work,
                 output.session_work)) {
     output.status = Gf3GaussianActionStatus::ResourceExhausted;
     return output;
   }
+  for (const auto &key : session.keys())
+    if (!add_work(key.size() + 1, limits.maximum_session_work,
+                  output.session_work)) {
+      output.status = Gf3GaussianActionStatus::ResourceExhausted;
+      return output;
+    }
   uint64_t retained_bytes = identity.size();
   for (const auto &key : session.keys()) {
     if (key.size() > limits.maximum_session_identity_bytes - retained_bytes) {
@@ -248,6 +267,7 @@ void record_gf3_gaussian_action_feedback(
   kernel.stats.gf3_gaussian_journal_work += result.live.effort.journal_work;
   kernel.stats.gf3_gaussian_journal_bytes += result.live.effort.journal_bytes;
   kernel.stats.gf3_gaussian_session_work += result.session_work;
+  kernel.stats.gf3_gaussian_identity_work += result.live.effort.identity_work;
   kernel.stats.gf3_gaussian_identity_bytes += result.live.effort.identity_bytes;
   kernel.stats.gf3_gaussian_session_identity_bytes +=
       result.session_identity_bytes;

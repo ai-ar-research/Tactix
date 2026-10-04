@@ -131,6 +131,8 @@ void singular_batch_and_atomic_publication() {
   assert(offered.offers.size() == 1);
   assert(offered.offers[0].rfind("g3b1:", 0) == 0);
   assert(offered.live.effort.identity_bytes >= offered.offers[0].size());
+  assert(offered.live.effort.identity_work ==
+         offered.live.effort.identity_bytes);
   const auto applied = gf3_gaussian_action_apply(
       b.kernel, b.session, limits(), offered.offers[0]);
   assert(applied.status == Gf3GaussianActionStatus::Applied);
@@ -165,9 +167,12 @@ void corruption_rebinding_and_limits_decline_without_mutation() {
 
   Gf3GaussianConsequenceParameters small_session;
   small_session.maximum_session_identity_bytes = offered.offers[0].size() - 1;
-  assert(gf3_gaussian_action_offer(b.kernel, b.session,
-                                   limits(small_session)).status ==
-         Gf3GaussianActionStatus::ResourceExhausted);
+  const auto session_limited = gf3_gaussian_action_offer(
+      b.kernel, b.session, limits(small_session));
+  assert(session_limited.status ==
+             Gf3GaussianActionStatus::ResourceExhausted &&
+         session_limited.candidates == 1 && !session_limited.complete &&
+         session_limited.offers.empty());
   assert(b.kernel.next_clause_id == before_id && b.kernel.trail.empty());
 
   Kernel other = install();
@@ -249,6 +254,15 @@ void typed_replay_and_random_reach() {
       assert(request.invocation.rule == "Gf3GaussianConsequence");
       assert(request.invocation.gf3_gaussian_instances.size() == 1);
       assert(request.producer_effort.size() == 1);
+      const auto &effort = request.producer_effort.front();
+      const auto &raw = offered.live.effort;
+      const uint64_t expected =
+          raw.capture_work + raw.bridge_work + raw.certificate_work +
+          raw.validation_work + raw.revalidation_work + raw.journal_work +
+          raw.identity_work + offered.session_work;
+      assert(effort.complete && effort.candidates == 1 &&
+             effort.offers == 1 && effort.preparation_work == expected &&
+             effort.total_work == expected);
     }
   }
   assert(reached);

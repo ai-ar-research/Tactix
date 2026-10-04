@@ -403,6 +403,33 @@ RandomControllerConfig dynamic_direct_config() {
   return config;
 }
 
+class ResourceThenSearchSelection final : public ControllerSelection {
+public:
+  explicit ResourceThenSearchSelection(OnlineInvocation invocation)
+      : invocation_(std::move(invocation)) {}
+
+  bool choose(Kernel &kernel, const controller::Observation &observation,
+              const RandomControllerConfig &, controller::ActionRequest &request,
+              std::string &, volatile sig_atomic_t *) override {
+    request = {};
+    request.sequence = observation.sequence + 1;
+    request.expected = state_version(kernel);
+    if (!issued_) {
+      issued_ = true;
+      request.type = controller::ActionType::Rule;
+      request.invocation = invocation_;
+    } else {
+      request.type = controller::ActionType::ResumeSearch;
+      request.search = controller::search_configurations().front();
+    }
+    return true;
+  }
+
+private:
+  OnlineInvocation invocation_;
+  bool issued_ = false;
+};
+
 void disabled_dynamic_producers_preserve_configuration_and_selection() {
   RandomControllerConfig baseline;
   baseline.parameters.rules = {"Rephase"};
@@ -569,6 +596,7 @@ void dynamic_gf3_pagination_reaches_terminal_without_reoffering() {
       settled.type = request.type;
       settled.invocation.status = InvocationStatus::Completed;
       settled.invocation.selection_complete = true;
+      settled.invocation.after = state_version(kernel);
       observation.last_action = settled;
     } else {
       observation.last_action.reset();
@@ -586,7 +614,7 @@ void dynamic_gf3_pagination_reaches_terminal_without_reoffering() {
   std::fclose(records);
 }
 
-void recoverable_execution_outcomes_retry_the_exact_dynamic_payload() {
+void native_execution_outcomes_obey_pending_lifecycle() {
   Kernel kernel = parse_text(gf3_dimacs());
   FILE *records = std::tmpfile();
   assert(records);
@@ -594,53 +622,111 @@ void recoverable_execution_outcomes_retry_the_exact_dynamic_payload() {
   kernel.structural_provenance = records;
   kernel.gf3_affine_action_session = &session;
   const auto config = dynamic_gf3_config();
-  auto observation = controller::observe_kernel(kernel);
-
-  bool checked = false;
-  for (uint64_t seed = 1; seed != 128 && !checked; ++seed) {
-    RandomControllerSelector selector(seed);
-    controller::ActionRequest original;
-    std::string error;
+  controller::RestartController restart_controller(kernel);
+  RandomControllerSelector selector(1);
+  auto observation = restart_controller.observe();
+  controller::ActionRequest original;
+  std::string error;
+  bool selected = false;
+  for (uint32_t attempt = 0; attempt != 128 && !selected; ++attempt) {
     assert(selector.choose(kernel, observation, config, original, error));
-    if (original.type != controller::ActionType::Rule)
-      continue;
-    assert(original.producer_effort.size() == 1 &&
-           original.producer_effort.front().family ==
-               "Gf3AffineConsequence" &&
-           original.producer_effort.front().total_work &&
-           original.producer_effort.front().candidates == 1 &&
-           original.producer_effort.front().offers == 1);
-    const auto exact = original.invocation.gf3_affine_instances;
-
-    for (const InvocationStatus recoverable :
-         {InvocationStatus::StaleRequest,
-          InvocationStatus::ResourceExhausted,
-          InvocationStatus::InvalidRequest}) {
-      controller::ActionResult outcome;
-      outcome.sequence = original.sequence;
-      outcome.type = original.type;
-      outcome.invocation.status = recoverable;
-      outcome.invocation.selection_complete = false;
-      observation.last_action = outcome;
-      observation.sequence = original.sequence;
-
-      bool retried = false;
-      for (uint32_t attempt = 0; attempt != 128 && !retried; ++attempt) {
-        controller::ActionRequest request;
-        assert(selector.choose(kernel, observation, config, request, error));
-        observation.sequence = request.sequence;
-        if (request.type != controller::ActionType::Rule)
-          continue;
-        assert(request.invocation.gf3_affine_instances == exact &&
-               request.producer_effort.empty());
-        original = request;
-        retried = true;
-      }
-      assert(retried);
-    }
-    checked = true;
+    selected = original.type == controller::ActionType::Rule;
   }
-  assert(checked && !session.retained());
+  assert(selected);
+  const auto exact = original.invocation.gf3_affine_instances;
+
+  // Exercise the real executor/dispatch boundary.  The declined rule still
+  // advances strategy_epoch; the selector must absorb that expected transition
+  // instead of immediately rediscovering and reoffering the retained payload.
+  auto constrained =
+      std::get<Gf3AffineConsequenceParameters>(original.invocation.parameters);
+  constrained.maximum_planning_work = 1;
+  original.invocation.parameters = constrained;
+  const auto exhausted =
+      restart_controller.apply_rule(
+          original, config.allowance("Gf3AffineConsequence"));
+  assert(exhausted.invocation.status == InvocationStatus::ResourceExhausted);
+  observation = restart_controller.observe();
+  for (uint32_t attempt = 0; attempt != 64; ++attempt) {
+    controller::ActionRequest suspended;
+    assert(selector.choose(kernel, observation, config, suspended, error));
+    assert(suspended.type != controller::ActionType::Rule);
+  }
+
+  // A profile-only reconfiguration preserves and retries the exact pending
+  // identity without paying discovery work again.
+  auto reconfigured = config;
+  ++reconfigured.parameters.gf3_affine_consequence_reference.maximum_planning_work;
+  bool retried = false;
+  for (uint32_t attempt = 0; attempt != 128 && !retried; ++attempt) {
+    controller::ActionRequest request;
+    assert(selector.choose(kernel, observation, reconfigured, request, error));
+    if (request.type != controller::ActionType::Rule) continue;
+    assert(request.invocation.gf3_affine_instances == exact &&
+           request.producer_effort.empty());
+    retried = true;
+  }
+  assert(retried);
+
+  // Policy coverage distinguishes resource exhaustion from an ordinary
+  // no-change result just as it already does allowance exhaustion.
+  {
+    Kernel coverage_kernel = parse_text(gf3_dimacs());
+    Gf3AffineActionSession coverage_session;
+    coverage_kernel.structural_provenance = records;
+    coverage_kernel.gf3_affine_action_session = &coverage_session;
+    OnlineInvocation invocation = original.invocation;
+    invocation.gf3_affine_instances = exact;
+    invocation.parameters = constrained;
+    ResourceThenSearchSelection scripted(std::move(invocation));
+    RandomControllerPolicy policy(1, config, nullptr, &scripted);
+    assert(policy.solve(coverage_kernel) == 10);
+    const auto found =
+        policy.coverage().rules.find("Gf3AffineConsequence");
+    assert(found != policy.coverage().rules.end() &&
+           found->second.exhausted == 1);
+  }
+
+  // Invalid/stale exact requests are discarded.  They remain terminal at the
+  // same state and become discoverable only after a real context change.
+  for (const InvocationStatus terminal :
+       {InvocationStatus::StaleRequest, InvocationStatus::InvalidRequest}) {
+    Kernel fresh = parse_text(gf3_dimacs());
+    Gf3AffineActionSession fresh_session;
+    fresh.structural_provenance = records;
+    fresh.gf3_affine_action_session = &fresh_session;
+    RandomControllerSelector fresh_selector(1);
+    auto current = controller::observe_kernel(fresh);
+    controller::ActionRequest pending;
+    bool have_pending = false;
+    for (uint32_t attempt = 0; attempt != 128 && !have_pending; ++attempt) {
+      assert(fresh_selector.choose(fresh, current, config, pending, error));
+      have_pending = pending.type == controller::ActionType::Rule;
+    }
+    assert(have_pending);
+    controller::ActionResult outcome;
+    outcome.sequence = pending.sequence;
+    outcome.type = pending.type;
+    outcome.invocation.status = terminal;
+    outcome.invocation.after = state_version(fresh);
+    current.last_action = outcome;
+    current.sequence = pending.sequence;
+    for (uint32_t attempt = 0; attempt != 64; ++attempt) {
+      controller::ActionRequest suppressed;
+      assert(fresh_selector.choose(fresh, current, config, suppressed, error));
+      assert(suppressed.type != controller::ActionType::Rule);
+    }
+    ++fresh.strategy_epoch;
+    current = controller::observe_kernel(fresh);
+    bool refreshed = false;
+    for (uint32_t attempt = 0; attempt != 128 && !refreshed; ++attempt) {
+      controller::ActionRequest request;
+      assert(fresh_selector.choose(fresh, current, config, request, error));
+      refreshed = request.type == controller::ActionType::Rule;
+    }
+    assert(refreshed && !fresh_session.retained());
+  }
+  assert(!session.retained());
   std::fclose(records);
 }
 
@@ -878,7 +964,7 @@ int main() {
   static_structured_offer_precedes_native_discovery();
   dynamic_theory_offers_are_exact_deterministic_and_applicable();
   dynamic_gf3_pagination_reaches_terminal_without_reoffering();
-  recoverable_execution_outcomes_retry_the_exact_dynamic_payload();
+  native_execution_outcomes_obey_pending_lifecycle();
   public_c_api_executes_productive_v5_actions();
   random_policy_solves_after_executing_offered_v5_action();
   dynamic_direct_policy_trace_replays_exact_payload();

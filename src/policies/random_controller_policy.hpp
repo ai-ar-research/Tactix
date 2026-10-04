@@ -147,6 +147,7 @@ private:
     strategy::StateVersion state;
     size_t session_keys = 0;
     bool terminal = false;
+    bool reconfiguration_required = false;
     bool complete = false;
     bool have_after = false;
     std::string profile;
@@ -162,6 +163,7 @@ private:
     size_t session_keys = 0;
     size_t retained_owners = 0;
     bool terminal = false;
+    bool reconfiguration_required = false;
     bool complete = false;
     bool have_after = false;
     std::string profile;
@@ -176,6 +178,7 @@ private:
     strategy::StateVersion state;
     size_t session_keys = 0;
     bool terminal = false;
+    bool reconfiguration_required = false;
     std::string profile;
     std::optional<std::string> offer;
     std::optional<std::string> pending;

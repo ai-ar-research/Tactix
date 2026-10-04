@@ -652,7 +652,8 @@ Result prepare_internal(Kernel &kernel, const Request &request,
     std::string identity = outcome_identity(consequence, prepared.bridge_,
                                             prepared.owner_);
     if (identity.size() != encoded ||
-        !add(result.effort.identity_bytes, identity.size())) {
+        !add(result.effort.identity_bytes, identity.size()) ||
+        !add(result.effort.identity_work, identity.size())) {
       result.status = Status::ResourceExhausted;
       return result;
     }
@@ -685,7 +686,8 @@ Result prepare_internal(Kernel &kernel, const Request &request,
   PreparedAccess::batch_identity(prepared) = hex(batch_bytes);
   prepared.batch_identity_.replace(0, 5, "g3b1:");
   if (prepared.batch_identity_.size() != batch_encoded_bytes ||
-      !add(result.effort.identity_bytes, prepared.batch_identity_.size())) {
+      !add(result.effort.identity_bytes, prepared.batch_identity_.size()) ||
+      !add(result.effort.identity_work, prepared.batch_identity_.size())) {
     result.status = Status::ResourceExhausted;
     return result;
   }

@@ -349,42 +349,112 @@ bool RandomControllerSelector::choose(
             result.status == InvocationStatus::ScopedFixpoint ||
             result.status == InvocationStatus::NoChange);
   };
+  enum class NativeSettlement : uint8_t {
+    Pending,
+    Consume,
+    DiscardUntilContextChange,
+    RetainUntilReconfiguration,
+  };
+  const auto native_settlement = [&](const InvocationResult &result) {
+    switch (result.status) {
+    case InvocationStatus::ResourceExhausted:
+    case InvocationStatus::BudgetExhausted:
+    case InvocationStatus::Interrupted:
+      return NativeSettlement::RetainUntilReconfiguration;
+    case InvocationStatus::Inapplicable:
+    case InvocationStatus::InvalidRequest:
+    case InvocationStatus::StaleRequest:
+    case InvocationStatus::AccountingError:
+      return NativeSettlement::DiscardUntilContextChange;
+    default:
+      return settled_terminal(result) ? NativeSettlement::Consume
+                                      : NativeSettlement::Pending;
+    }
+  };
   if (gf3_discovery_.pending && observation.last_action &&
-      observation.last_action->sequence == gf3_discovery_.pending_sequence &&
-      settled_terminal(observation.last_action->invocation)) {
-    const auto pending = *gf3_discovery_.pending;
-    gf3_discovery_.offers.erase(
-        std::remove(gf3_discovery_.offers.begin(),
-                    gf3_discovery_.offers.end(), pending),
-        gf3_discovery_.offers.end());
-    gf3_discovery_.pending.reset();
-    gf3_discovery_.pending_sequence = 0;
-    if (gf3_discovery_.offers.empty() && gf3_discovery_.complete)
+      observation.last_action->sequence == gf3_discovery_.pending_sequence) {
+    const NativeSettlement settlement =
+        native_settlement(observation.last_action->invocation);
+    if (settlement == NativeSettlement::Consume) {
+      const auto pending = *gf3_discovery_.pending;
+      gf3_discovery_.offers.erase(
+          std::remove(gf3_discovery_.offers.begin(),
+                      gf3_discovery_.offers.end(), pending),
+          gf3_discovery_.offers.end());
+      gf3_discovery_.pending.reset();
+      gf3_discovery_.pending_sequence = 0;
+      gf3_discovery_.state = observation.last_action->invocation.after;
+      if (gf3_discovery_.offers.empty() && gf3_discovery_.complete)
+        gf3_discovery_.terminal = true;
+    } else if (settlement == NativeSettlement::DiscardUntilContextChange) {
+      gf3_discovery_.pending.reset();
+      gf3_discovery_.offers.clear();
+      gf3_discovery_.pending_sequence = 0;
       gf3_discovery_.terminal = true;
+      gf3_discovery_.state = observation.last_action->invocation.after;
+    } else if (settlement ==
+               NativeSettlement::RetainUntilReconfiguration) {
+      gf3_discovery_.pending_sequence = 0;
+      gf3_discovery_.reconfiguration_required = true;
+      gf3_discovery_.state = observation.last_action->invocation.after;
+    }
   }
   if (direct_csp_discovery_.pending && observation.last_action &&
       observation.last_action->sequence ==
-          direct_csp_discovery_.pending_sequence &&
-      settled_terminal(observation.last_action->invocation)) {
-    const auto pending = *direct_csp_discovery_.pending;
-    direct_csp_discovery_.offers.erase(
-        std::remove(direct_csp_discovery_.offers.begin(),
-                    direct_csp_discovery_.offers.end(), pending),
-        direct_csp_discovery_.offers.end());
-    direct_csp_discovery_.pending.reset();
-    direct_csp_discovery_.pending_sequence = 0;
-    if (direct_csp_discovery_.offers.empty() &&
-        direct_csp_discovery_.complete)
+          direct_csp_discovery_.pending_sequence) {
+    const NativeSettlement settlement =
+        native_settlement(observation.last_action->invocation);
+    if (settlement == NativeSettlement::Consume) {
+      const auto pending = *direct_csp_discovery_.pending;
+      direct_csp_discovery_.offers.erase(
+          std::remove(direct_csp_discovery_.offers.begin(),
+                      direct_csp_discovery_.offers.end(), pending),
+          direct_csp_discovery_.offers.end());
+      direct_csp_discovery_.pending.reset();
+      direct_csp_discovery_.pending_sequence = 0;
+      direct_csp_discovery_.state = observation.last_action->invocation.after;
+      if (direct_csp_discovery_.offers.empty() &&
+          direct_csp_discovery_.complete)
+        direct_csp_discovery_.terminal = true;
+    } else if (settlement == NativeSettlement::DiscardUntilContextChange) {
+      direct_csp_discovery_.pending.reset();
+      direct_csp_discovery_.offers.clear();
+      direct_csp_discovery_.pending_sequence = 0;
       direct_csp_discovery_.terminal = true;
+      direct_csp_discovery_.state = observation.last_action->invocation.after;
+    } else if (settlement ==
+               NativeSettlement::RetainUntilReconfiguration) {
+      direct_csp_discovery_.pending_sequence = 0;
+      direct_csp_discovery_.reconfiguration_required = true;
+      direct_csp_discovery_.state = observation.last_action->invocation.after;
+    }
   }
   if (gf3_gaussian_discovery_.pending && observation.last_action &&
       observation.last_action->sequence ==
-          gf3_gaussian_discovery_.pending_sequence &&
-      settled_terminal(observation.last_action->invocation)) {
-    gf3_gaussian_discovery_.pending.reset();
-    gf3_gaussian_discovery_.offer.reset();
-    gf3_gaussian_discovery_.pending_sequence = 0;
-    gf3_gaussian_discovery_.terminal = true;
+          gf3_gaussian_discovery_.pending_sequence) {
+    const NativeSettlement settlement =
+        native_settlement(observation.last_action->invocation);
+    if (settlement == NativeSettlement::Consume) {
+      gf3_gaussian_discovery_.pending.reset();
+      gf3_gaussian_discovery_.offer.reset();
+      gf3_gaussian_discovery_.pending_sequence = 0;
+      gf3_gaussian_discovery_.terminal = true;
+      gf3_gaussian_discovery_.state =
+          observation.last_action->invocation.after;
+    } else if (settlement == NativeSettlement::DiscardUntilContextChange) {
+      gf3_gaussian_discovery_.pending.reset();
+      gf3_gaussian_discovery_.offer.reset();
+      gf3_gaussian_discovery_.pending_sequence = 0;
+      gf3_gaussian_discovery_.terminal = true;
+      gf3_gaussian_discovery_.state =
+          observation.last_action->invocation.after;
+    } else if (settlement ==
+               NativeSettlement::RetainUntilReconfiguration) {
+      gf3_gaussian_discovery_.pending_sequence = 0;
+      gf3_gaussian_discovery_.reconfiguration_required = true;
+      gf3_gaussian_discovery_.state =
+          observation.last_action->invocation.after;
+    }
   }
   std::vector<ActionProducerEffort> producer_effort;
   const auto saturated_add = [](uint64_t left, uint64_t right) {
@@ -469,18 +539,29 @@ bool RandomControllerSelector::choose(
     const auto &session = *k.gf3_affine_action_session;
     const auto profile = gf3_profile();
     const auto state = state_version(k);
-    if (gf3_discovery_.owner != &k ||
-        gf3_discovery_.session != &session ||
-        !same_version(gf3_discovery_.state, state) ||
-        gf3_discovery_.session_keys != session.committed_keys() ||
-        gf3_discovery_.profile != profile) {
+    const bool owner_changed = gf3_discovery_.owner != &k ||
+                               gf3_discovery_.session != &session;
+    const bool profile_changed = gf3_discovery_.profile != profile;
+    const bool state_or_session_changed =
+        owner_changed || !same_version(gf3_discovery_.state, state) ||
+        gf3_discovery_.session_keys != session.committed_keys();
+    if (state_or_session_changed ||
+        (profile_changed &&
+         (!gf3_discovery_.reconfiguration_required ||
+          !gf3_discovery_.pending))) {
       gf3_discovery_ = {};
       gf3_discovery_.owner = &k;
       gf3_discovery_.session = &session;
       gf3_discovery_.state = state;
       gf3_discovery_.session_keys = session.committed_keys();
       gf3_discovery_.profile = profile;
+    } else if (gf3_discovery_.reconfiguration_required && profile_changed) {
+      gf3_discovery_.state = state;
+      gf3_discovery_.session_keys = session.committed_keys();
+      gf3_discovery_.profile = profile;
+      gf3_discovery_.reconfiguration_required = false;
     }
+    if (gf3_discovery_.reconfiguration_required) return false;
     if (gf3_discovery_.pending || !gf3_discovery_.offers.empty())
       return true;
     if (gf3_discovery_.terminal)
@@ -527,9 +608,9 @@ bool RandomControllerSelector::choose(
          offered.complete, preparation, offered.effort.enumeration_work,
          saturated_add(preparation, offered.effort.enumeration_work),
          offered.effort.pair_candidates, offered.offers.size()});
-    if (offered.status == Gf3AffineActionOfferStatus::Interrupted) {
-      error = "controller selection interrupted";
-      gf3_discovery_.terminal = true;
+    if (offered.status == Gf3AffineActionOfferStatus::Interrupted ||
+        offered.status == Gf3AffineActionOfferStatus::ResourceExhausted) {
+      gf3_discovery_.reconfiguration_required = true;
       return false;
     }
     if (offered.status != Gf3AffineActionOfferStatus::Ready) {
@@ -564,12 +645,17 @@ bool RandomControllerSelector::choose(
     const auto &session = *k.direct_csp_support_action_session;
     const auto profile = direct_profile();
     const auto state = state_version(k);
-    if (direct_csp_discovery_.owner != &k ||
-        direct_csp_discovery_.session != &session ||
-        !same_version(direct_csp_discovery_.state, state) ||
+    const bool owner_changed = direct_csp_discovery_.owner != &k ||
+                               direct_csp_discovery_.session != &session;
+    const bool profile_changed = direct_csp_discovery_.profile != profile;
+    const bool state_or_session_changed =
+        owner_changed || !same_version(direct_csp_discovery_.state, state) ||
         direct_csp_discovery_.session_keys != session.committed_keys() ||
-        direct_csp_discovery_.retained_owners != session.retained_owners() ||
-        direct_csp_discovery_.profile != profile) {
+        direct_csp_discovery_.retained_owners != session.retained_owners();
+    if (state_or_session_changed ||
+        (profile_changed &&
+         (!direct_csp_discovery_.reconfiguration_required ||
+          !direct_csp_discovery_.pending))) {
       direct_csp_discovery_ = {};
       direct_csp_discovery_.owner = &k;
       direct_csp_discovery_.session = &session;
@@ -577,7 +663,15 @@ bool RandomControllerSelector::choose(
       direct_csp_discovery_.session_keys = session.committed_keys();
       direct_csp_discovery_.retained_owners = session.retained_owners();
       direct_csp_discovery_.profile = profile;
+    } else if (direct_csp_discovery_.reconfiguration_required &&
+               profile_changed) {
+      direct_csp_discovery_.state = state;
+      direct_csp_discovery_.session_keys = session.committed_keys();
+      direct_csp_discovery_.retained_owners = session.retained_owners();
+      direct_csp_discovery_.profile = profile;
+      direct_csp_discovery_.reconfiguration_required = false;
     }
+    if (direct_csp_discovery_.reconfiguration_required) return false;
     if (direct_csp_discovery_.pending ||
         !direct_csp_discovery_.offers.empty())
       return true;
@@ -612,9 +706,10 @@ bool RandomControllerSelector::choose(
          offered.complete, preparation, offered.effort.enumeration_work,
          saturated_add(preparation, offered.effort.enumeration_work),
          offered.effort.row_candidates, offered.offers.size()});
-    if (offered.status == DirectCspSupportActionOfferStatus::Interrupted) {
-      error = "controller selection interrupted";
-      direct_csp_discovery_.terminal = true;
+    if (offered.status == DirectCspSupportActionOfferStatus::Interrupted ||
+        offered.status ==
+            DirectCspSupportActionOfferStatus::ResourceExhausted) {
+      direct_csp_discovery_.reconfiguration_required = true;
       return false;
     }
     if (offered.status != DirectCspSupportActionOfferStatus::Ready) {
@@ -645,18 +740,32 @@ bool RandomControllerSelector::choose(
     const auto &session = *k.gf3_gaussian_action_session;
     const auto profile = gaussian_profile();
     const auto state = state_version(k);
-    if (gf3_gaussian_discovery_.owner != &k ||
-        gf3_gaussian_discovery_.session != &session ||
+    const bool owner_changed = gf3_gaussian_discovery_.owner != &k ||
+                               gf3_gaussian_discovery_.session != &session;
+    const bool profile_changed =
+        gf3_gaussian_discovery_.profile != profile;
+    const bool state_or_session_changed =
+        owner_changed ||
         !same_version(gf3_gaussian_discovery_.state, state) ||
-        gf3_gaussian_discovery_.session_keys != session.keys().size() ||
-        gf3_gaussian_discovery_.profile != profile) {
+        gf3_gaussian_discovery_.session_keys != session.keys().size();
+    if (state_or_session_changed ||
+        (profile_changed &&
+         (!gf3_gaussian_discovery_.reconfiguration_required ||
+          !gf3_gaussian_discovery_.pending))) {
       gf3_gaussian_discovery_ = {};
       gf3_gaussian_discovery_.owner = &k;
       gf3_gaussian_discovery_.session = &session;
       gf3_gaussian_discovery_.state = state;
       gf3_gaussian_discovery_.session_keys = session.keys().size();
       gf3_gaussian_discovery_.profile = profile;
+    } else if (gf3_gaussian_discovery_.reconfiguration_required &&
+               profile_changed) {
+      gf3_gaussian_discovery_.state = state;
+      gf3_gaussian_discovery_.session_keys = session.keys().size();
+      gf3_gaussian_discovery_.profile = profile;
+      gf3_gaussian_discovery_.reconfiguration_required = false;
     }
+    if (gf3_gaussian_discovery_.reconfiguration_required) return false;
     if (gf3_gaussian_discovery_.pending || gf3_gaussian_discovery_.offer)
       return true;
     if (gf3_gaussian_discovery_.terminal) return false;
@@ -670,16 +779,20 @@ bool RandomControllerSelector::choose(
     preparation = saturated_add(preparation, offered.live.effort.bridge_work);
     preparation = saturated_add(preparation,
                                 offered.live.effort.certificate_work);
-    preparation = saturated_add(preparation, offered.live.effort.identity_bytes);
+    preparation = saturated_add(preparation,
+                                offered.live.effort.validation_work);
+    preparation = saturated_add(preparation,
+                                offered.live.effort.revalidation_work);
+    preparation = saturated_add(preparation, offered.live.effort.journal_work);
+    preparation = saturated_add(preparation, offered.live.effort.identity_work);
     preparation = saturated_add(preparation, offered.session_work);
-    preparation = saturated_add(preparation, offered.session_identity_bytes);
     producer_effort.push_back(
         {"Gf3GaussianConsequence", static_cast<uint8_t>(offered.status),
-         true, preparation, 0, preparation,
-         offered.live.effort.identity_bytes, offered.offers.size()});
-    if (offered.status == Gf3GaussianActionStatus::Interrupted) {
-      error = "controller selection interrupted";
-      gf3_gaussian_discovery_.terminal = true;
+         offered.complete, preparation, 0, preparation, offered.candidates,
+         offered.offers.size()});
+    if (offered.status == Gf3GaussianActionStatus::Interrupted ||
+        offered.status == Gf3GaussianActionStatus::ResourceExhausted) {
+      gf3_gaussian_discovery_.reconfiguration_required = true;
       return false;
     }
     if (offered.status != Gf3GaussianActionStatus::Applied ||
@@ -1108,7 +1221,9 @@ int RandomControllerPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       auto &counts = coverage_.rules[request.invocation.rule];
       counts.applications += result.invocation.applications;
       counts.effective += result.invocation.made_rule_progress;
-      counts.exhausted += result.invocation.status == InvocationStatus::BudgetExhausted;
+      counts.exhausted +=
+          result.invocation.status == InvocationStatus::BudgetExhausted ||
+          result.invocation.status == InvocationStatus::ResourceExhausted;
       counts.stale += result.invocation.status == InvocationStatus::StaleRequest;
       counts.interrupted += result.invocation.status == InvocationStatus::Interrupted;
       counts.work += result.invocation.work;
