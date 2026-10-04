@@ -92,38 +92,24 @@ by that review, with source-backed or derived defaults rather than guessed const
 
 ## General constructor guidance and CDCL phases
 
-The shared guidance interface remains available for existing eligible producers;
-it does not authorize dedicated LymphoSAT local-search integration. Such producers publish an owned
-candidate with stable external variable identities, known polarities, producer,
-formula provenance and actual effort. Complete validated models finish SAT;
-unsuccessful bounded searches may retain useful candidates. Recognition or an
-incomplete assignment alone never certifies SAT or authorizes a formula change.
-Extend existing hint producers/consumers rather than introducing a second channel.
-Keep producer objectives distinct; compare candidates only with a common,
-explicitly budgeted evaluation on the same current formula. Old scores are not
-comparable after an objective/formula change. Map surviving identities, respect
-root assignments, skip retired variables and leave unspecified/new variables to
-the ordinary phase rules; heuristic guidance does not become a logical premise.
+The shared interface remains available to eligible producers; this does not authorize a dedicated LymphoSAT local-search solver. Producers publish owned candidates with stable external identities, known polarities, producer, formula provenance and actual effort. Complete models finish SAT only after whole-CNF validation; incomplete candidates are guidance and never certify SAT or authorize formula mutation. Extend this channel rather than adding another.
 
-The policy chooses two independent uses at a full root boundary:
+Keep producer objectives distinct and compare candidates only by a common budgeted evaluation on the same current formula; scores expire when the objective or formula changes. Map surviving identities, respect roots, skip retired variables and leave unknown/new variables to ordinary phases. Guidance is never a proof premise.
 
-- **Walk seed:** initialize the walker's private assignment from the candidate;
-  constructors and seed import do not overwrite CDCL phase memory. Walk exports
-  its result through the existing rephase mechanism. Preserve the ordinary
-  Best/Walk/Inverted/Best/Walk/Original cadence and its reference-owned clocks.
-- **CDCL target initialization:** install known polarities as target phases,
-  initially preserving focused-mode polarity behavior. Leave saved/best phases
-  intact at installation and let normal CDCL target capture supersede advice;
-  do not repeatedly restore the candidate at each decision or restart.
+At a full root, the policy has two independent consumers:
 
-Construction remains effort-bounded and outside the decision hot path. Guidance
-changes polarity, not VMTF/EVSIDS variable ranking or root/trail assignments.
-The policy owns source selection and application; producers never silently
-install guidance. Type/serialize/replay consumer choices, candidate identity and
-parameter/effort profiles before changing the current controller interface.
-Preserve unselected search configurations; target advice is consumed only by a
-configuration that uses targets. No fallback, solver rollback or global root-loop
-budget is introduced. Direct guidance and Walk seeding need separate attribution.
+- **Walk seed:** overlay the candidate on the walker's private assignment without changing CDCL phase memory; export through the existing rephase mechanism and preserve the Best/Walk/Inverted/Best/Walk/Original cadence and clocks.
+- **CDCL target initialization:** install known polarities as targets, preserving focused-mode behavior and saved/best phases; ordinary target capture may supersede them, and the policy does not restore advice on every decision or restart.
+
+After the frozen constructor-restoration campaigns complete, enable both consumers through shared typed execution. One immutable policy-owned candidate and stable ID remain available to both. DefaultPolicy uses a declared producer order and records known-polarity conflicts/replacements; only known still-mapped variables may change a seed or target.
+
+For combined application, snapshot the exact candidate once and run seeded Walk before target installation so its ordinary baseline does not already contain the advice. After completed import and the normal Walk export decision, overlay the same snapshot on targets, leaving saved/best and unspecified targets unchanged. Stale, interrupted or budget-exhausted imports do not install targets implicitly; the independent target-only action remains available.
+
+Construction stays effort-bounded and outside the decision hot path. Guidance changes polarity, never ranking or assignments. Policy owns source selection; producers do not install advice. Type, serialize and replay the consumer, candidate identity and effort profile. Preserve unselected configurations; only target-using configurations consume target advice. Add no fallback, rollback or global root budget.
+
+On offer, record producer/action, candidate ID, full/partial status, known/unknown counts, epochs, objective and effort. For CDCL record installation attempts, eligible/mapped cells, changed/already-matching values, inter-candidate replacement, actual target decisions with agreement/disagreement, and later supersession. For Walk record import, imported cells, ordinary/guided initial objectives, steps, improvement and export. These are raw availability/use/search-influence data, not reward or causal credit.
+
+On a wider corpus, compare matched guidance-enabled/disabled arms with the same pin, limits and instances. Report availability, actual consumer use and checked outcomes separately because most formulas are expected to receive no useful guidance.
 
 ## SAT/UNSAT reasoning and proof production
 
@@ -167,12 +153,14 @@ architectural option for a particular future rule, but reconsider it only after
 a mechanism-specific derivation and measured clausal proof/check cost establish
 that practical DSR/DRAT certification has failed.
 The isolated first clausal verticals are: a normalized direct-PHP proof core for
-binary pigeonhole then clique-coloring; a pure bounded sparse GF(3) Gaussian
-planner with replayable source provenance before any live publication; and a
-pure-Tseitin cycle-space DSR construction after exact graph/source admission.
-Each begins with a proof planner and exhaustive microchecks, then one saved owner
-obligation. Integration into live actions follows only after independent DSR/DRAT
-checking and proof-volume preflight; replay and interruption remain mandatory.
+binary pigeonhole then clique-coloring; a bounded sparse GF(3) Gaussian planner
+with replayable source provenance; and a one-step Tseitin cycle-space DSR planner.
+Each vertical advances through the same reviewable stages: exact live source
+admission, mutation-free bounded planning, independent replay and DSR/DRAT
+checking with proof-volume preflight, then atomic publication. Any published
+step is followed by propagation and reconstruction of the live abstraction
+before another plan. Public action/replay/feedback wiring follows only after
+that end-to-end vertical passes; interruption and atomic decline remain mandatory.
 
 Record every added constraint/auxiliary definition: stable identity, Boolean formula
 and theory meaning, source clauses/structural premises, generating action and

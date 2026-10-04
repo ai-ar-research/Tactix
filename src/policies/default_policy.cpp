@@ -35,6 +35,7 @@
 #include "rules/lucky/parity_refutation.hpp"
 #include "rules/lucky/count_preservation.hpp"
 #include "rules/lucky/onehot_model.hpp"
+#include "rules/lucky/affine_model.hpp"
 #include "rules/lucky/exact_one_refutation.hpp"
 #include "rules/lucky/balanced_signature_model.hpp"
 #include "rules/lucky/fermat_model.hpp"
@@ -868,6 +869,20 @@ std::string DefaultStrategyConfig::serialize() const {
       << onehot_model.parameters.maximum_free_domains
       << " onehot_model.candidate_budget="
       << onehot_model.parameters.candidate_budget
+      << " affine_model.enabled=" << affine_model.enabled;
+  {
+    strategy::OnlineStrategyProgram affine;
+    strategy::OnlineInvocation invocation;
+    invocation.id = 1;
+    invocation.rule = "Lucky";
+    invocation.parameters = affine_model.parameters;
+    invocation.granularity = strategy::InvocationGranularity::OneInstance;
+    invocation.instances = {8};
+    affine.sequence.push_back(std::move(invocation));
+    out << " affine_model.parameters="
+        << strategy::serialize_online_strategy_program(affine);
+  }
+  out
       << " balanced_signature_model.enabled="
       << balanced_signature_model.enabled
       << " balanced_signature_model.maximum_balls="
@@ -3479,6 +3494,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                                    config_.parity_model.parameters}, completion_, "Lucky", LUCKY_PARITY_PROOF);
   execution::execute_action(k, execution::ParameterInstallationRequest{
                                    config_.onehot_model.parameters}, completion_, "Lucky", LUCKY_EXACT_ONE_PROOF);
+  execution::execute_action(k, execution::ParameterInstallationRequest{
+                                   config_.affine_model.parameters}, completion_, "Lucky", 8);
   execution::execute_action(
       k,
       execution::ParameterInstallationRequest{
@@ -3741,6 +3758,22 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       return finish(20);
     }
     event_trace.macro(k, "exact_one_refutation_end", "unknown");
+  }
+  // The accepted reference solves affine-image owners at this untouched-root
+  // boundary. Keep the constructor as the public Lucky-8 action so Default,
+  // random and future learned policies share parameters, replay and feedback.
+  // A complete assignment still needs whole-formula validation; an incomplete
+  // result may only publish heuristic guidance.
+  if (config_.affine_model.enabled && affine_model_guard(k)) {
+    event_trace.macro(k, "affine_model_begin");
+    const ApplyResult affine =
+        default_lucky_opportunity<LuckyOpportunity::Affine>(
+            k, "affine-model", completion_);
+    if (affine == ApplyResult::Sat) {
+      event_trace.macro(k, "affine_model_end", "sat");
+      return finish(10);
+    }
+    event_trace.macro(k, "affine_model_end", "unknown");
   }
   bool structured_root_grew_trail = false;
   uint64_t structured_root_amo_binaries_added = 0;

@@ -231,6 +231,11 @@ struct DefaultStrategyConfig {
     strategy::OnehotModelParameters parameters;
   } onehot_model;
 
+  struct AffineModel {
+    bool enabled = true;
+    strategy::AffineModelParameters parameters;
+  } affine_model;
+
   struct BalancedSignatureModel {
     bool enabled = true;
     strategy::BalancedSignatureModelParameters parameters;

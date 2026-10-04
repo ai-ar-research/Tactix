@@ -5,12 +5,27 @@
 #include "rules/reduce/reduce.hpp"
 
 #include <cassert>
+#include <bit>
 #include <cstdlib>
 #include <limits>
 #include <string>
 #include <vector>
 
 using namespace tactix;
+
+static void add_affine_model_fixture(Kernel &k) {
+  kernel_reserve_vars(k, 5);
+  for (unsigned mask = 0; mask < 16; ++mask) {
+    if (std::popcount(mask) % 2)
+      continue;
+    Lit clause[4];
+    for (unsigned i = 0; i < 4; ++i)
+      clause[i] = make_lit(i, (mask >> i) & 1);
+    kernel_add_large_clause(k, clause, 4, false, 0);
+  }
+  for (unsigned i = 0; i < 3; ++i)
+    kernel_add_binary_clause(k, make_lit(i, true), make_lit(i + 1, true));
+}
 
 static void add_php_4_3(Kernel &k) {
   kernel_reserve_vars(k, 12);
@@ -79,10 +94,12 @@ static bool schedules_lucky_instance(
 int main() {
   DefaultStrategyConfig defaults;
   const std::string default_snapshot = defaults.serialize();
-  // Affine construction (Lucky 8) has no production config arm or scheduled
-  // invocation. Keep both representations pinned so a new default path cannot
-  // silently acquire the experimental constructor.
-  assert(default_snapshot.find("affine_model") == std::string::npos);
+  // Affine construction is an explicit typed DefaultPolicy opportunity. It is
+  // scheduled directly at the untouched root rather than hidden inside a
+  // structured inprocessing program.
+  assert(default_snapshot.find("affine_model.enabled=1") != std::string::npos);
+  assert(default_snapshot.find("affine_model.parameters=") !=
+         std::string::npos);
   for (const auto &step : defaults.inprocess.program)
     assert(step.rule != "Lucky");
   for (const auto *stages : {&defaults.inprocess.structured_root_stages,
@@ -141,19 +158,33 @@ int main() {
          std::string::npos);
   {
     // Empty formulas exercise the guards and counters without constructor
-    // search. Defaults attempt neither experimental action; explicitly
-    // enabling graph labeling admits exactly its Lucky opportunity.
+    // search. The default attempts the accepted affine opportunity; graph
+    // labeling remains explicitly opt-in.
     Kernel production;
     assert(DefaultPolicy(defaults).solve(production) == 10);
-    assert(production.stats.affine_model_calls == 0);
+    assert(production.stats.affine_model_calls == 1);
     assert(production.stats.graph_labeling_calls == 0);
 
     DefaultStrategyConfig graph_enabled = defaults;
     graph_enabled.graph_labeling_model.enabled = true;
     Kernel graph;
     assert(DefaultPolicy(graph_enabled).solve(graph) == 10);
-    assert(graph.stats.affine_model_calls == 0);
+    assert(graph.stats.affine_model_calls == 1);
     assert(graph.stats.graph_labeling_calls == 1);
+  }
+  {
+    // The accepted Rank-50 behavior depends on Lucky 8 being a real
+    // DefaultPolicy opportunity before CDCL. Isolate that public action on a
+    // small affine image and require terminal whole-formula validation.
+    DefaultStrategyConfig config = defaults;
+    config.parity_model.enabled = false;
+    Kernel affine;
+    add_affine_model_fixture(affine);
+    assert(DefaultPolicy(config).solve(affine) == 10);
+    assert(affine.stats.affine_model_calls == 1);
+    assert(affine.stats.affine_model_sat == 1);
+    assert(affine.stats.decisions == 0 && affine.stats.conflicts == 0);
+    kernel_check_invariants(affine);
   }
   assert(!default_should_cleanup_unique_literal_amo(0, true, false));
   assert(!default_should_cleanup_unique_literal_amo(3, false, false));
