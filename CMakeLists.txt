@@ -48,6 +48,7 @@ add_library(tactix_lib OBJECT
   src/kernel/kernel.cpp
   src/population/population_observer.cpp
   src/proof/proof.cpp
+  src/proof/direct_php_recognition.cpp
   src/rules/registry.cpp
   ${TACTIX_RULE_SOURCES}
   ${TACTIX_POLICY_OP_SOURCES}
