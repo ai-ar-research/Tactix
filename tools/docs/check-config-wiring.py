@@ -349,6 +349,12 @@ TABLE = {
     "semantic_variable_publication":
                                 ("RULE", "monotone registry publication identity; "
                                          "independent of resettable telemetry"),
+    "local_search_last_target_decision_candidate":
+                                ("RULE", "most recent Decide boundary's exact "
+                                         "structural target attribution"),
+    "local_search_last_target_decision_matched":
+                                ("RULE", "whether that attributed decision matched "
+                                         "the structural target phase"),
     # --- a rule computes these -------------------------------------------
     "tier1":                   ("RULE", "reduce.cpp, from the live glue distribution"),
     "tier2":                   ("RULE", "reduce.cpp; 2 consumers (reduce, vivify) — SP-TIER-2 "

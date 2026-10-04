@@ -1,8 +1,8 @@
 # Semantic extension foundations
 
 This live companion to [the calculus](calculus.md) owns the internal affine,
-exact-cover, independent-set, and GF(3) transitions for private adapters and
-public rules.
+exact-cover, independent-set, GF(3), direct-PHP and Tseitin transitions for
+private adapters and public rules.
 The [controller interface](controller-interface.md) owns their
 action/session/replay shape; `PROGRESS.md` owns implementation and acceptance status.
 
@@ -155,6 +155,68 @@ keys and exact replay state in a kernel-lifetime session. Its C and replay forms
 carry the same bounded parameters plus a canonical `first < second` pair;
 structured execution, raw feedback, and the distinct GF(3) advice producer are
 implemented under the shared contract. Target recovery remains pending.
+
+### Gaussian unit/conflict certificate boundary
+
+The internal Gaussian bridge is stricter than the public two-equation action.
+It accepts only a theory whose source is exactly consumed by certified ternary
+domains and equations: unique occurrence/native-proof identities, three
+globally distinct atoms per domain, the exact ALO plus three AMOs, strictly
+ordered nonzero-coefficient rows, and every forbidden tuple. Replay checks each
+`Source`/`Scale`/`Add` parent, coefficient, provenance recomposition, outcome,
+accounting item and reduced-basis rank.
+
+The v2 certificate handles only unit rows and nonzero zero-row conflicts. Each
+consequence stores compact indices into the validated authentication table and
+is RUP-checked from exactly its declared source slice. Bridge bounds cover
+source clauses/literals, domains, equations, terms, authentication references,
+Gaussian work/fill/width/provenance/derivations and retained plan bytes;
+certificate bounds cover work, events/literals, active clauses, retained source
+references, event width, branch domains and consequences. The retained-byte
+limit is a logical plan bound, not an allocator/RSS promise. Invalid,
+unsupported, interrupted or exhausted construction exposes no partial plan.
+
+## Direct PHP terminal certificate
+
+The internal live adapter recaptures and revalidates at admission, preparation
+and publication. Its stale identity includes the complete source snapshot,
+clause namespace, arena generation, variable/external/reconstruction extents
+and proof pointer. Exact native identities authenticate every original AMO
+deletion; generated proof and variable IDs remain monotone. Bounds cover
+snapshot clauses/literals/work, recognition clauses/literals/work/candidates/
+combinations/mapping trials/holes, certificate additions/deletions/literals/
+fresh variables/events, and action-record replay work. Publication is the
+noninterruptible commit boundary.
+
+The unregistered v1 action session is constructed with one Kernel, cannot be
+copied or moved, and must be destroyed first. There is no Kernel generation
+token, so it does not claim to detect address reincarnation. It validates a
+committed request and expected record before reporting `AlreadyApplied`.
+Proofless callers may split prepare from publish. With a proof attached, the
+split API returns `UnsupportedProofSplit`; one-shot apply/replay keeps exact
+validation and terminal publication in one call because `Proof` exposes no
+complete mutation epoch.
+
+## Tseitin-cycle live step
+
+The internal snapshot includes exact internal/external maps, arena generation,
+touch epoch, root-assignment count, next clause ID, variable count, every live
+large clause, and both directions of every binary watch. Malformed or retired
+variables, duplicate proof IDs, asymmetric/duplicate binaries and exhausted
+clause/literal/work/variable limits decline with an empty output. Separate
+bounds cover group admission, cycle planning and witness length, transaction
+events/additions/deletions/helpers/witness literals, semantic validation ticks
+and proof namespace.
+
+Prepare recaptures before admission and after shadow X7 preflight. It stores no
+raw callback pointer. Apply composes caller and Kernel stop flags, rechecks the
+proof pointer and full snapshot, reruns and exact-compares admission, planning,
+transaction, source identities, mapping, X7 instance, accounting and events,
+then calls ordinary SubstitutionRedundancy. Caller-supplied certified groups
+remain a prerequisite: this layer neither discovers XORs nor owns a durable
+session. DSR/no-proof publication is one step; another cycle requires fresh
+capture and planning. Public action, controller telemetry and target recovery
+remain open.
 
 ## Direct CSP support consequence
 

@@ -101,7 +101,7 @@ At a full root, the policy has two independent consumers:
 - **Walk seed:** overlay the candidate on the walker's private assignment without changing CDCL phase memory; export through the existing rephase mechanism and preserve the Best/Walk/Inverted/Best/Walk/Original cadence and clocks.
 - **CDCL target initialization:** install known polarities as targets, preserving focused-mode behavior and saved/best phases; ordinary target capture may supersede them, and the policy does not restore advice on every decision or restart.
 
-After the frozen constructor-restoration campaigns complete, enable both consumers through shared typed execution. One immutable policy-owned candidate and stable ID remain available to both. DefaultPolicy uses a declared producer order and records known-polarity conflicts/replacements; only known still-mapped variables may change a seed or target.
+Both consumers use shared typed execution over one immutable policy-owned candidate and stable ID. DefaultPolicy uses a declared producer order and records known-polarity conflicts/replacements; only known still-mapped variables may change a seed or target. Promotion still requires observed availability and use on a wider checked corpus.
 
 For combined application, snapshot the exact candidate once and run seeded Walk before target installation so its ordinary baseline does not already contain the advice. After completed import and the normal Walk export decision, overlay the same snapshot on targets, leaving saved/best and unspecified targets unchanged. Stale, interrupted or budget-exhausted imports do not install targets implicitly; the independent target-only action remains available.
 
@@ -152,15 +152,16 @@ steps may use DRAT. Preserve the existing complete-startup PBP route and the
 architectural option for a particular future rule, but reconsider it only after
 a mechanism-specific derivation and measured clausal proof/check cost establish
 that practical DSR/DRAT certification has failed.
-The isolated first clausal verticals are: a normalized direct-PHP proof core for
-binary pigeonhole then clique-coloring; a bounded sparse GF(3) Gaussian planner
-with replayable source provenance; and a one-step Tseitin cycle-space DSR planner.
-Each vertical advances through the same reviewable stages: exact live source
-admission, mutation-free bounded planning, independent replay and DSR/DRAT
-checking with proof-volume preflight, then atomic publication. Any published
-step is followed by propagation and reconstruction of the live abstraction
-before another plan. Public action/replay/feedback wiring follows only after
-that end-to-end vertical passes; interruption and atomic decline remain mandatory.
+The isolated first clausal verticals currently have different boundaries.
+Direct PHP has exact live terminal admission/publication plus an unregistered,
+Kernel-bound DSR/DRAT action/replay adapter. GF(3) has an independently replayed
+pure Gaussian-to-RUP certificate for unit/conflict outcomes, but no live
+publisher. Tseitin has a one-step live X7 adapter with exact formula replay and
+DSR/no-proof publication, but no public action or autonomous group discovery.
+All remain internal and unaccepted. Complete each missing live proof boundary,
+then propagation/reconstruction where applicable, public action/replay/feedback,
+fuzz/regression and target measurement. Every decline remains bounded and
+mutation free; every repeated step requires a new authenticated live plan.
 
 Record every added constraint/auxiliary definition: stable identity, Boolean formula
 and theory meaning, source clauses/structural premises, generating action and

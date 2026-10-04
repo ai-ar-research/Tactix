@@ -69,23 +69,9 @@ Soundness pipeline per DEVELOPMENT_PLAN.md §8.2 (workflow: the `fuzz` skill).
   require the configured `dsr-trim` to elaborate the F2/F2w proofs forward
   correctly, so they fail with the historical root-clone build 02824056.
 
-- `retention.py` — which tracked per-job artifact is still cited as evidence
-  (job id, id range, or name — never the basename), for this directory's
-  `slurm-*.log` and for `benchmarks/probes/*.out`. Report-only unless
-  `--delete`. Uncited job logs belong in `$CLAUDE_JOB_DIR/tmp`, not in git.
+- `retention.py` — reports which tracked per-job artifact is still cited as evidence (job id, id range, or name, never the basename), for this directory's `slurm-*.log` and `benchmarks/probes/*.out`. Report-only unless `--delete`; uncited job logs belong in `$CLAUDE_JOB_DIR/tmp`, not in git.
 
-The solver under test must speak the competition CLI: `solver CNF [PROOF]`,
-`s`/`v` lines on stdout, exit 10/20. Every case is reproducible from the
-recorded seed. Each invocation gets a private artifact namespace. Cluster
-submissions use `failures/runs/slurm-<job-id>/<leg-name>/`; direct invocations
-use `failures/runs/local-<pid>/{seeded,controller-v5}/`. This keeps identical
-case indices and seeds from concurrent default, random-policy and typed legs
-from replacing each other's bundles or `nonterminating.json`. Set
-`TACTIX_FUZZ_RUN_ID` and `TACTIX_FUZZ_LEG_ID` for a stable custom namespace,
-or pass `--outdir` to select the exact directory explicitly. Run and leg
-identifiers are restricted to letters, digits, `.`, `_` and `-`.
+The solver under test must speak the competition CLI: `solver CNF [PROOF]`, `s`/`v` lines on stdout, exit 10/20. Every case is reproducible from the recorded seed and each invocation gets a private artifact namespace. Cluster submissions use `failures/runs/slurm-<job-id>/<leg-name>/`; direct invocations use `failures/runs/local-<pid>/{seeded,controller-v5}/`. This prevents concurrent default, random-policy and typed legs with identical indices/seeds from replacing bundles or `nonterminating.json`.
+Set `TACTIX_FUZZ_RUN_ID` and `TACTIX_FUZZ_LEG_ID` for a stable custom namespace, or pass `--outdir` for an exact directory. Run and leg identifiers are restricted to letters, digits, `.`, `_` and `-`.
 
-Failure bundles land in that private directory (untracked) and are promoted
-to the corpus manually once diagnosed. The immutable checker and replay
-harness stores remain shared under `failures/checkers/` and
-`failures/harnesses/` because their directory names are content hashes.
+Failure bundles land in that private directory (untracked) and are promoted to the corpus manually once diagnosed. Immutable checker and replay-harness stores remain shared under `failures/checkers/` and `failures/harnesses/` because their directory names are content hashes.
