@@ -60,6 +60,7 @@ inline NativeFeedbackSpec native_rule_feedback(
   else if (name == "IndependentSetCover") inv.parameters = k.independent_set_cover_parameters;
   else if (name == "Gf3AffineConsequence") inv.parameters = k.gf3_affine_consequence_parameters;
   else if (name == "DirectCspSupport") inv.parameters = k.direct_csp_support_parameters;
+  else if (name == "DirectPhpRefutation") inv.parameters = k.direct_php_refutation_parameters;
   else if (name == "SemanticVariableAdvice") inv.parameters = k.semantic_variable_advice_parameters;
   else if (name == "Congruence") inv.parameters = k.congruence_parameters;
   else if (name == "Instantiate") inv.parameters = k.instantiate_parameters;

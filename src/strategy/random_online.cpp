@@ -141,6 +141,8 @@ ActionParameters random_parameters(const Kernel &k, uint64_t &state, const std::
     return config.gf3_affine_consequence_reference;
   if (rule == "DirectCspSupport")
     return config.direct_csp_support_reference;
+  if (rule == "DirectPhpRefutation")
+    return config.direct_php_refutation_reference;
   if (rule == "SemanticVariableAdvice")
     return config.semantic_variable_advice_reference;
   if (rule == "Congruence") {
@@ -820,6 +822,17 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
     U32_AT(10,p.maximum_extent_growth); U32_AT(11,p.maximum_external_extent);
     p.maximum_session_keys=v[12]; p.maximum_session_work=v[13];
     if (!boolean(v[14], p.allow_extension)) return false;
+    parameters = p;
+  } else if (tuple(text, "direct-php-refutation1", v) && v.size() == 16) {
+    DirectPhpRefutationParameters p;
+    p.maximum_snapshot_clauses=v[0]; p.maximum_snapshot_literals=v[1];
+    p.maximum_snapshot_work=v[2]; p.maximum_recognition_clauses=v[3];
+    p.maximum_recognition_literals=v[4]; p.maximum_recognition_work=v[5];
+    p.maximum_row_candidates=v[6]; p.maximum_row_combinations=v[7];
+    p.maximum_mapping_trials=v[8]; U32_AT(9,p.maximum_holes);
+    p.maximum_proof_additions=v[10]; p.maximum_proof_deletions=v[11];
+    p.maximum_proof_literals=v[12]; p.maximum_fresh_variables=v[13];
+    p.maximum_proof_events=v[14]; p.maximum_replay_work=v[15];
     parameters = p;
   } else if (tuple(text, "semantic-variable-advice1", v) && v.size() == 4) {
     SemanticVariableAdviceParameters p;
@@ -1553,6 +1566,7 @@ bool random_online_strategy_program(Kernel &k, uint64_t seed,
       !config.signed_cardinality_proof_reference.valid() ||
       !config.ramsey_startup_reference.valid() ||
       !config.parity_consequence_reference.valid() ||
+      !config.direct_php_refutation_reference.valid() ||
       !config.maximum_sr_validation_ticks || !config.maximum_sr_matrices ||
       !config.maximum_sr_instances ||
       config.maximum_sr_orbitopal_clique_minimum_columns < 2 ||
@@ -1920,6 +1934,19 @@ std::string serialize_online_strategy_program(
           << p->maximum_journal_bytes << ',' << p->maximum_extent_growth << ','
           << p->maximum_external_extent << ',' << p->maximum_session_keys
           << ',' << p->maximum_session_work << ',' << p->allow_extension << ')';
+    else if (const auto *p =
+                 std::get_if<DirectPhpRefutationParameters>(&step.parameters))
+      out << ":direct-php-refutation1(" << p->maximum_snapshot_clauses << ','
+          << p->maximum_snapshot_literals << ',' << p->maximum_snapshot_work
+          << ',' << p->maximum_recognition_clauses << ','
+          << p->maximum_recognition_literals << ','
+          << p->maximum_recognition_work << ',' << p->maximum_row_candidates
+          << ',' << p->maximum_row_combinations << ','
+          << p->maximum_mapping_trials << ',' << p->maximum_holes << ','
+          << p->maximum_proof_additions << ',' << p->maximum_proof_deletions
+          << ',' << p->maximum_proof_literals << ','
+          << p->maximum_fresh_variables << ',' << p->maximum_proof_events
+          << ',' << p->maximum_replay_work << ')';
     else if (const auto *p =
                  std::get_if<SemanticVariableAdviceParameters>(&step.parameters))
       out << ":semantic-variable-advice1(" << p->maximum_variables << ','

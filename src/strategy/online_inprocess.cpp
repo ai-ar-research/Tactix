@@ -8,6 +8,7 @@
 #include "rules/semantic_extension/independent_set_cover_action.hpp"
 #include "rules/semantic_extension/gf3_affine_action.hpp"
 #include "rules/semantic_extension/direct_csp_support_action.hpp"
+#include "rules/direct_php/direct_php_action.hpp"
 #include "rules/sweep/sweep.hpp"
 #include "strategy/bve_invocation.hpp"
 #include "strategy/rule_execution.hpp"
@@ -131,6 +132,8 @@ bool parameter_matches(const OnlineInvocation &step) {
     return step.rule == "Gf3AffineConsequence";
   if (std::holds_alternative<DirectCspSupportParameters>(step.parameters))
     return step.rule == "DirectCspSupport";
+  if (std::holds_alternative<DirectPhpRefutationParameters>(step.parameters))
+    return step.rule == "DirectPhpRefutation";
   if (std::holds_alternative<SemanticVariableAdviceParameters>(step.parameters))
     return step.rule == "SemanticVariableAdvice";
   if (std::holds_alternative<CongruenceParameters>(step.parameters))
@@ -249,6 +252,20 @@ DirectCspSupportActionLimits direct_csp_limits(
           p.maximum_session_keys,
           p.maximum_session_work,
           p.allow_extension};
+}
+
+DirectPhpActionLimits direct_php_limits(
+    const DirectPhpRefutationParameters &p) {
+  return {{p.maximum_snapshot_clauses, p.maximum_snapshot_literals,
+           p.maximum_snapshot_work},
+          {p.maximum_recognition_clauses, p.maximum_recognition_literals,
+           p.maximum_recognition_work, p.maximum_row_candidates,
+           p.maximum_row_combinations, p.maximum_mapping_trials,
+           p.maximum_holes},
+          {p.maximum_proof_additions, p.maximum_proof_deletions,
+           p.maximum_proof_literals, p.maximum_fresh_variables,
+           p.maximum_proof_events},
+          p.maximum_replay_work};
 }
 
 void record_gf3_affine_feedback(Kernel &k,
@@ -377,6 +394,9 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
       return reject("step repeat specification is invalid");
     if (!valid_post_application(step.post_application))
       return reject("post-application action is invalid");
+    if (step.rule == "DirectPhpRefutation" &&
+        step.post_application != PostApplication::None)
+      return reject("DirectPhpRefutation is terminal and has no follow-up");
     if (!valid_rule_work_budget(step.rule_work_budget))
       return reject("rule work budget is invalid");
     if (!valid_setting_override(step.material.touch_filter) ||
@@ -384,6 +404,9 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
       return reject("rule material setting is invalid");
     if (!parameter_matches(step))
       return reject("parameters do not match rule");
+    if (step.rule == "DirectPhpRefutation" &&
+        !std::holds_alternative<DirectPhpRefutationParameters>(step.parameters))
+      return reject("DirectPhpRefutation requires exact typed limits");
     if (std::holds_alternative<ParityModelParameters>(step.parameters) &&
         (step.granularity != InvocationGranularity::OneInstance ||
          step.instances.size() != 1 ||
@@ -480,6 +503,10 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
             std::get_if<DirectCspSupportParameters>(&step.parameters);
         p && !p->valid())
       return reject("DirectCspSupport parameters are invalid");
+    if (const auto *p =
+            std::get_if<DirectPhpRefutationParameters>(&step.parameters);
+        p && !p->valid())
+      return reject("DirectPhpRefutation parameters are invalid");
     if (const auto *p =
             std::get_if<SemanticVariableAdviceParameters>(&step.parameters);
         p && !p->valid())
@@ -1446,6 +1473,7 @@ InvocationResult OnlineStrategyExecutor::advance(
     bool preserve_theory_selection = false;
     std::optional<Gf3AffineActionResult> gf3_affine_application;
     std::optional<DirectCspSupportActionResult> direct_csp_application;
+    std::optional<DirectPhpActionResult> direct_php_application;
     const uint64_t affine_budget_before = k.stats.affine_model_budget;
     const uint64_t affine_interrupt_before = k.stats.affine_model_interrupted;
     const uint64_t affine_unavailable_before = k.stats.affine_model_unavailable;
@@ -1518,6 +1546,7 @@ InvocationResult OnlineStrategyExecutor::advance(
           ParityConsequenceParameters, AffineConsequenceParameters,
           ExactCoverExtensionParameters, IndependentSetCoverParameters,
           Gf3AffineConsequenceParameters, DirectCspSupportParameters,
+          DirectPhpRefutationParameters,
           SemanticVariableAdviceParameters>
           parameters(k, step.parameters);
       // Invocation-level native work limits override a rule parameter which
@@ -1577,6 +1606,24 @@ InvocationResult OnlineStrategyExecutor::advance(
                           k, *k.independent_set_cover_action_session,
                           step.independent_set_cover_instances[payload]));
                   return independent_set_application->result;
+                })
+          : step.rule == "DirectPhpRefutation" &&
+                    payload == INSTANCE_CANONICAL
+              ? apply_rule_structured(rule, k, "canonical", [&] {
+                  if (!k.direct_php_action_session)
+                    return ApplyResult::NoOp;
+                  const auto &parameters =
+                      std::get<DirectPhpRefutationParameters>(step.parameters);
+                  direct_php_application.emplace(direct_php_action_apply(
+                      k, *k.direct_php_action_session,
+                      DirectPhpActionRequest{1, 1,
+                                             direct_php_limits(parameters)}));
+                  record_direct_php_action_feedback(k,
+                                                    *direct_php_application);
+                  return direct_php_application->status ==
+                                 DirectPhpActionStatus::Applied
+                             ? ApplyResult::Unsat
+                             : ApplyResult::NoOp;
                 })
           : step.rule == "AffineConsequence" && payload == INSTANCE_CANONICAL
               ? apply_rule_structured(rule, k, "canonical", [&] {
@@ -1840,6 +1887,37 @@ InvocationResult OnlineStrategyExecutor::advance(
         case DirectCspSupportActionStatus::NoConsequence:
         case DirectCspSupportActionStatus::AlreadyPublished:
         case DirectCspSupportActionStatus::Applied:
+          break;
+        }
+      }
+      if (direct_php_application) {
+        switch (direct_php_application->status) {
+        case DirectPhpActionStatus::Invalid:
+        case DirectPhpActionStatus::ReplayMismatch:
+        case DirectPhpActionStatus::Prepared:
+          out.status = InvocationStatus::InvalidRequest;
+          break;
+        case DirectPhpActionStatus::Inapplicable:
+        case DirectPhpActionStatus::UnsupportedProof:
+        case DirectPhpActionStatus::UnsupportedProofSplit:
+          out.status = InvocationStatus::Inapplicable;
+          break;
+        case DirectPhpActionStatus::ResourceExhausted:
+          out.status = InvocationStatus::ResourceExhausted;
+          retain_theory_selection();
+          break;
+        case DirectPhpActionStatus::Interrupted:
+          out.status = InvocationStatus::Interrupted;
+          retain_theory_selection();
+          break;
+        case DirectPhpActionStatus::Stale:
+          out.status = InvocationStatus::StaleRequest;
+          break;
+        case DirectPhpActionStatus::NotRecognized:
+        case DirectPhpActionStatus::Malformed:
+        case DirectPhpActionStatus::Ambiguous:
+        case DirectPhpActionStatus::AlreadyApplied:
+        case DirectPhpActionStatus::Applied:
           break;
         }
       }

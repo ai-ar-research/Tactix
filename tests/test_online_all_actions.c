@@ -263,13 +263,20 @@ static void configure_parameters(const char *name,
         (tactix_online_direct_csp_support_parameters){
             1000, 10000, 100000, 32, 1000, 1000, 100000, 10000,
             100000, 1000000, 0, 10000, 10000, 100000, 0};
+  } else if (!strcmp(name, "DirectPhpRefutation")) {
+    parameters->kind = TACTIX_ONLINE_PARAMETERS_DIRECT_PHP_REFUTATION;
+    parameters->value.direct_php_refutation =
+        (tactix_online_direct_php_refutation_parameters){
+            100000, 1000000, 10000000, 100000, 1000000, 100000000,
+            10000, 1000000, 1000000, 20, 1000000, 1000000, 100000000,
+            1000000, 2000000, 100000000};
   }
 }
 
 static void reaches_every_registered_action(void) {
   const int count = tactix_rule_count();
   int id;
-  assert(count == 36);
+  assert(count == 37);
   for (id = 0; id < count; ++id) {
     tactix *solver = prepare(id);
     const char *name = tactix_rule_name(id);

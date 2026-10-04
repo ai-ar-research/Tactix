@@ -22,10 +22,14 @@ namespace certificate = direct_php_certificate;
 namespace recognition = direct_php_recognition;
 
 enum class SourceKind : uint8_t { Large, Binary };
+enum class SourceIdentityKind : uint8_t { NativeProof, CaptureLocal };
 
 struct Source {
   uint64_t occurrence = 0;
+  // CaptureLocal values are exact replay tokens, never checker line ids.
+  // They occur only after non-LRAT input finalization releases binary ids.
   uint64_t native_proof_id = 0;
+  SourceIdentityKind identity_kind = SourceIdentityKind::NativeProof;
   SourceKind kind = SourceKind::Large;
   Ref ref = INVALID_REF;
   Lit first = INVALID_LIT;
@@ -126,6 +130,7 @@ struct ReplayEvent {
   std::vector<int32_t> clause;
   uint64_t id = 0;
   uint64_t deleted_id = 0;
+  bool deleted_id_is_capture_local = false;
   uint64_t source_occurrence = 0;
 };
 
@@ -223,7 +228,13 @@ inline CaptureStatus capture(Kernel &k, const SnapshotLimits &limits,
   };
   const auto take = [&](SourceKind kind, Ref ref, Lit first, Lit second,
                         uint64_t id, const Lit *literals, uint32_t size) {
-    if (!id) {
+    // Proofless/DRAT/DSR input finalization deliberately releases binary
+    // clause ids: those formats delete by literal multiset and no other
+    // kernel consumer needs the values.  Direct-PHP still needs a stable,
+    // unique identity for exact recognition/replay.  Admit an absent binary
+    // id here and assign a capture-local identity below; large clauses always
+    // retain their native id, while LRAT/PB were rejected before capture.
+    if (!id && (kind != SourceKind::Binary || k.binary_ids.tracks_values())) {
       failure = CaptureStatus::Invalid;
       return false;
     }
@@ -285,9 +296,27 @@ inline CaptureStatus capture(Kernel &k, const SnapshotLimits &limits,
         return finish(CaptureStatus::Invalid);
       const Lit pair[] = {first, watch.other()};
       if (!take(SourceKind::Binary, INVALID_REF, first, watch.other(),
-                kernel_binary_id(k, first, watch.other()), pair, 2))
+                k.binary_ids.tracks_values()
+                    ? kernel_binary_id(k, first, watch.other()) : 0,
+                pair, 2))
         return finish(failure);
     }
+  }
+
+  std::set<uint64_t> used_ids;
+  for (const Source &source : local.sources)
+    if (source.native_proof_id && !used_ids.insert(source.native_proof_id).second)
+      return finish(CaptureStatus::Invalid);
+  uint64_t synthetic = UINT64_MAX;
+  for (Source &source : local.sources) {
+    if (source.native_proof_id) continue;
+    while (used_ids.count(synthetic)) {
+      if (!synthetic--) return finish(CaptureStatus::Invalid);
+    }
+    source.native_proof_id = synthetic;
+    source.identity_kind = SourceIdentityKind::CaptureLocal;
+    used_ids.insert(synthetic);
+    if (synthetic) --synthetic;
   }
 
   std::sort(local.sources.begin(), local.sources.end(),
@@ -298,12 +327,9 @@ inline CaptureStatus capture(Kernel &k, const SnapshotLimits &limits,
                 return a.clause < b.clause;
               return a.kind < b.kind;
             });
-  std::set<uint64_t> proof_ids;
   local.premises.reserve(local.sources.size());
   for (size_t i = 0; i < local.sources.size(); ++i) {
     Source &source = local.sources[i];
-    if (!proof_ids.insert(source.native_proof_id).second)
-      return finish(CaptureStatus::Invalid);
     source.occurrence = i + 1;
     local.premises.push_back(
         {source.occurrence, source.clause, source.native_proof_id});
@@ -485,7 +511,12 @@ inline Result prepare(Kernel &kernel, const Admission &admission,
     return result;
   }
 
-  std::map<std::vector<int32_t>, std::pair<uint64_t, uint64_t>> originals;
+  struct OriginalIdentity {
+    uint64_t token = 0;
+    uint64_t occurrence = 0;
+    bool capture_local = false;
+  };
+  std::map<std::vector<int32_t>, OriginalIdentity> originals;
   for (const recognition::AmoPremise &amo : admission.image().amos) {
     const std::vector<int32_t> clause =
         {-amo.first_variable, -amo.second_variable};
@@ -496,8 +527,10 @@ inline Result prepare(Kernel &kernel, const Admission &admission,
       return result;
     }
     originals.emplace(detail::key(clause),
-                      std::make_pair(source->native_proof_id,
-                                     source->occurrence));
+                      OriginalIdentity{
+                          source->native_proof_id, source->occurrence,
+                          source->identity_kind ==
+                              SourceIdentityKind::CaptureLocal});
   }
   std::map<std::vector<int32_t>, std::vector<uint64_t>> generated;
   uint64_t next_id = local.starting_clause_id_;
@@ -523,8 +556,9 @@ inline Result prepare(Kernel &kernel, const Admission &admission,
         result.status = Status::Invalid;
         return result;
       }
-      event.deleted_id = found->second.first;
-      event.source_occurrence = found->second.second;
+      event.deleted_id = found->second.token;
+      event.source_occurrence = found->second.occurrence;
+      event.deleted_id_is_capture_local = found->second.capture_local;
       originals.erase(found);
     } else {
       auto found = generated.find(clause_key);
@@ -607,8 +641,9 @@ inline Result publish(Kernel &kernel, const Transaction &transaction) {
       if (kernel.proof) {
         if (event.source_occurrence) {
           // Original AMOs are live kernel clauses, so retain their ordinary
-          // checker-population classification as well as their authenticated
-          // input IDs.  Generated proof-only clauses use the external path.
+          // checker-population classification. Capture-local replay tokens
+          // are erased here: DSR/DRAT delete by literal multiset, while LRAT
+          // was rejected before admission.
           std::vector<Lit> internal;
           internal.reserve(event.clause.size());
           for (int32_t external : event.clause) {
@@ -617,7 +652,9 @@ inline Result publish(Kernel &kernel, const Transaction &transaction) {
               std::abort();
             internal.push_back(literal);
           }
-          kernel.proof->del(kernel.next_clause_id, event.deleted_id,
+          kernel.proof->del(kernel.next_clause_id,
+                            event.deleted_id_is_capture_local
+                                ? 0 : event.deleted_id,
                             internal.data(),
                             static_cast<uint32_t>(internal.size()));
         } else if (!kernel.proof->del_external(

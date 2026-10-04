@@ -407,6 +407,7 @@ int tactix_apply_semantic_instance(tactix *, int rule_id, uint64_t instance);
 #define TACTIX_ONLINE_PARAMETERS_SEMANTIC_VARIABLE_ADVICE 36
 #define TACTIX_ONLINE_PARAMETERS_GF3_AFFINE_CONSEQUENCE 37
 #define TACTIX_ONLINE_PARAMETERS_DIRECT_CSP_SUPPORT 38
+#define TACTIX_ONLINE_PARAMETERS_DIRECT_PHP_REFUTATION 39
 #define TACTIX_ONLINE_AFFINE_CONSEQUENCE_SELECTED_V1 1
 #define TACTIX_ONLINE_AFFINE_CONSEQUENCE_CERTIFIED_BASIS_V2 2
 #define TACTIX_ONLINE_BVE_TRAVERSAL_ELIMINATE 0
@@ -600,6 +601,18 @@ typedef struct {
   uint64_t maximum_session_keys, maximum_session_work;
   int allow_extension;
 } tactix_online_direct_csp_support_parameters;
+typedef struct {
+  uint64_t maximum_snapshot_clauses, maximum_snapshot_literals;
+  uint64_t maximum_snapshot_work;
+  uint64_t maximum_recognition_clauses, maximum_recognition_literals;
+  uint64_t maximum_recognition_work;
+  uint64_t maximum_row_candidates, maximum_row_combinations;
+  uint64_t maximum_mapping_trials;
+  uint32_t maximum_holes;
+  uint64_t maximum_proof_additions, maximum_proof_deletions;
+  uint64_t maximum_proof_literals, maximum_fresh_variables;
+  uint64_t maximum_proof_events, maximum_replay_work;
+} tactix_online_direct_php_refutation_parameters;
 typedef struct {
   /* Advice is H-only and consumes the currently staged semantic candidate.
    * Priorities are fixed additive doses for the two semantic roles. */
@@ -964,6 +977,7 @@ typedef struct {
     tactix_online_independent_set_cover_parameters independent_set_cover;
     tactix_online_gf3_affine_consequence_parameters gf3_affine_consequence;
     tactix_online_direct_csp_support_parameters direct_csp_support;
+    tactix_online_direct_php_refutation_parameters direct_php_refutation;
     tactix_online_semantic_variable_advice_parameters semantic_variable_advice;
     tactix_online_instantiate_parameters instantiate;
     tactix_online_backbone_parameters backbone;

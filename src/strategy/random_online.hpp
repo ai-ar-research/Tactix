@@ -126,6 +126,7 @@ struct RandomOnlineConfig {
   IndependentSetCoverParameters independent_set_cover_reference;
   Gf3AffineConsequenceParameters gf3_affine_consequence_reference;
   DirectCspSupportParameters direct_csp_support_reference;
+  DirectPhpRefutationParameters direct_php_refutation_reference;
   SemanticVariableAdviceParameters semantic_variable_advice_reference;
   InstantiateParameters instantiate_reference;
   BackboneParameters backbone_reference;

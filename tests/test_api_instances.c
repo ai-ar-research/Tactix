@@ -19,7 +19,8 @@ static const char *const NO_SURFACE[] = {"Propagate", "SubstitutionRedundancy",
                                          "AffineConsequence", "ExactCoverExtension",
                                          "IndependentSetCover",
                                          "Gf3AffineConsequence",
-                                         "DirectCspSupport"};
+                                         "DirectCspSupport",
+                                         "DirectPhpRefutation"};
 
 /* Entries whose enumeration is exactly the canonical sentinel: an
  * `apply_instance` with nothing to choose between. Joining or leaving this set
@@ -34,7 +35,8 @@ static const char *const CANONICAL_ONLY[] = {"Congruence", "Propagate",
                                              "AffineConsequence", "ExactCoverExtension",
                                              "IndependentSetCover",
                                              "Gf3AffineConsequence",
-                                             "DirectCspSupport"};
+                                             "DirectCspSupport",
+                                             "DirectPhpRefutation"};
 
 static int in_list(const char *const *list, size_t n, const char *name) {
   size_t i;
