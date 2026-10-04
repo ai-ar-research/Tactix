@@ -652,8 +652,22 @@ struct Stats {
   uint64_t signed_cardinality_proof_unsat = 0;
   uint64_t signed_cardinality_proof_interrupted = 0;
   uint64_t local_search_hints_offered = 0;
+  uint64_t local_search_hints_replaced = 0;
+  uint64_t local_search_hint_phases_offered = 0;
   uint64_t local_search_hints_applied = 0;
   uint64_t local_search_hints_stale = 0;
+  uint64_t local_search_target_install_attempts = 0;
+  uint64_t local_search_target_installs = 0;
+  uint64_t local_search_target_eligible_phases = 0;
+  uint64_t local_search_target_changed_phases = 0;
+  uint64_t local_search_target_matching_phases = 0;
+  uint64_t local_search_target_replaced_phases = 0;
+  uint64_t local_search_target_overwritten_native = 0;
+  uint64_t local_search_target_overwritten_rephase = 0;
+  uint64_t local_search_target_overwritten_walk = 0;
+  uint64_t local_search_target_decisions = 0;
+  uint64_t local_search_target_decision_matches = 0;
+  uint64_t local_search_target_decision_overrides = 0;
   uint64_t semantic_variable_candidates_published = 0;
   uint64_t semantic_variable_candidate_existing = 0;
   uint64_t semantic_variable_candidate_introduced = 0;
@@ -666,11 +680,14 @@ struct Stats {
   uint64_t semantic_variable_advice_variables = 0;
   uint64_t semantic_variable_advice_priority = 0;
   uint64_t walk_seed_imports = 0;
+  uint64_t walk_seed_imported_phases = 0;
   uint64_t walk_seed_steps = 0;
   uint64_t walk_seed_budget_exhausted = 0;
   uint64_t walk_seed_interrupted = 0;
   uint64_t walk_seed_ordinary_unsat = UINT64_MAX;
   uint64_t walk_seed_candidate_unsat = UINT64_MAX;
+  uint64_t walk_seed_improved = 0;
+  uint64_t walk_seed_exported = 0;
   uint64_t walks = 0;         // S6 Walk applications (policy op)
   uint64_t walk_flips = 0;    // literal flips
   uint64_t walk_steps = 0;    // native occurrence visits plus explicit seed work
@@ -1666,6 +1683,11 @@ struct Kernel {
   // advice: failed model searches never alter F, the trail, or proof state.
   std::array<strategy::LocalSearchHint, strategy::LOCAL_SEARCH_KIND_COUNT>
       local_search_hints;
+  // Exact attribution for the most recent successful Decide boundary. Zero
+  // means that decision did not consume a structural target; cumulative use
+  // counts remain in Stats.
+  uint64_t local_search_last_target_decision_candidate = 0;
+  bool local_search_last_target_decision_matched = false;
   // Publication identity is solver state, independent of resettable telemetry.
   uint64_t local_search_publication = 0;
   uint64_t walk_seed_candidate = 0;

@@ -129,6 +129,8 @@ Each producer retains its own latest published assignment under stable external
 variable identities. Publication never installs phases. A candidate carries
 an exact identity `(publication << 8) | producer`, formula touch/root-assignment
 stamps, external-domain size, producer objective/exactness and effort/currency.
+The observed metadata also gives the exact count of nonzero known phases; the
+assignment vector itself remains private to the kernel.
 Publications start at one independently of telemetry counters and never wrap;
 zero means an explicitly unseeded Walk. Partial candidates leave unknown entries
 zero; malformed or wholly unspecified publications are declined atomically. The bounded
@@ -147,8 +149,9 @@ Stored scores never certify SAT and never authorize formula transformations.
 
 `LocalSearchGuidance` enumerates exact identities and initializes only known
 target phases at a propagated root. It preserves saved/best, resets the target
-high-water mark only when targets change, and permits ordinary target capture
-to supersede the advice. Focused saved-phase behavior is unaffected. Legacy
+high-water mark when any eligible phase receives candidate provenance, including
+an already-matching value, and permits ordinary target capture to supersede the
+advice. Focused saved-phase behavior is unaffected. Legacy
 kind-only instance payloads remain explicit aliases for that producer's current
 publication; new random requests bind the observed exact identity.
 
@@ -157,9 +160,11 @@ select a publication for private Walk seeding. Zero retains the native path.
 The `walk2(step,random,identity,base,count,curve...)` tuple serializes a seeded
 request; old `walk(...)` syntax retains unseeded semantics. A missing/replaced
 identity declines rather than silently changing source. DefaultPolicy rotates
-available candidates for its ordinary Walk slots without a preceding target
-import; the random controller chooses either an observed candidate or unseeded
-Walk while retaining the configured allowance.
+all six producer kinds for its ordinary Walk slots without a preceding target
+import. After a completed private import and normal Walk export decision it
+executes the separate target-only action on the same exact identity. The random
+controller chooses seeded/unseeded Walk and target installation independently
+while retaining the configured allowance.
 
 Seed preparation charges the Walk allowance for each ordinary phase slot,
 candidate identity slot and literal evaluated in the ordinary/candidate copies
@@ -173,11 +178,17 @@ leaves phase memories untouched. Existing root-clause/watch normalization may
 already have occurred; no solver-state rollback is introduced. Ordinary unseeded
 Walk retains its reference behavior and effort/cadence.
 
-Raw feedback separates target imports, stale requests, successful private seed
-imports, seed work, budget/interruption stops and the two evaluated unsatisfied
-counts. `walk_steps` includes seed preparation for seeded calls; `walk_seed_steps`
-isolates that overhead. This interface work alone does not accept the planned
-graph-labeling constructor increment; current validation belongs to PROGRESS.
+Raw feedback distinguishes publications, replacements and known-phase volume;
+target-install attempts, stale requests, successful installs, eligible,
+changed, matching and replaced cells; native/Rephase/Walk supersession; exact
+candidate attribution for the latest target-sourced decision; and seeded-Walk
+imports, imported phases, seed work, budget/interruption stops, ordinary/guided
+unsatisfied counts, improvement and export. A candidate ID in the typed request
+supplies producer and publication provenance. `walk_steps` includes seed
+preparation for seeded calls; `walk_seed_steps` isolates that overhead. These
+counters report availability and use rather than reward or causal benefit. This
+interface work alone does not accept the planned graph-labeling constructor
+increment; current validation belongs to PROGRESS.
 
 ## Search collection
 

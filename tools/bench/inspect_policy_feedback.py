@@ -72,7 +72,9 @@ def observation(value):
          "root_population irredundant_clauses inconsistent conflict fixpoint searching "
          "have_configuration configuration rotation_intervals next_restart_conflicts "
          "reluctant fast_glue slow_glue last_action native", "observation",
-         optional="native_policy_state local_search_candidates semantic_variable_candidates")
+         optional="native_policy_state local_search_candidates semantic_variable_candidates "
+                  "local_search_last_target_decision_candidate "
+                  "local_search_last_target_decision_matched")
     if "native_policy_state" in value:
         require(type(value["native_policy_state"]) is str, "invalid native policy state")
     require(integer(value["version"], "observation version") in (1, 2, 3, 4, 5),
@@ -85,7 +87,8 @@ def observation(value):
         ids = set()
         for candidate in candidates:
             keys(candidate, "id formula_touch_epoch formula_root_assignments "
-                 "external_variables objective objective_exact effort effort_unit", "candidate")
+                 "external_variables objective objective_exact effort effort_unit", "candidate",
+                 optional="known_phases")
             for key in ("id", "formula_touch_epoch", "formula_root_assignments",
                         "external_variables", "objective", "effort"):
                 integer(candidate[key], "candidate " + key)
@@ -94,6 +97,16 @@ def observation(value):
             ids.add(identity)
             integer(candidate["effort_unit"], "candidate effort unit", 5)
             require(type(candidate["objective_exact"]) is bool, "invalid candidate objective flag")
+            if "known_phases" in candidate:
+                integer(candidate["known_phases"], "candidate known phases")
+                require(candidate["known_phases"] <= candidate["external_variables"],
+                        "candidate known phases exceed external variables")
+    if "local_search_last_target_decision_candidate" in value:
+        integer(value["local_search_last_target_decision_candidate"],
+                "last target decision candidate")
+    if "local_search_last_target_decision_matched" in value:
+        require(type(value["local_search_last_target_decision_matched"]) is bool,
+                "invalid last target decision match")
     if "semantic_variable_candidates" in value:
         candidates = value["semantic_variable_candidates"]
         require(type(candidates) is list, "invalid semantic variable candidates")

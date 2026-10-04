@@ -60,6 +60,10 @@ struct Heuristics {
   // target phases (kissat phases.c): assignment snapshot at the deepest
   // consistent trail seen while stable; preferred over saved phase there.
   std::vector<int8_t> target; // by var: +1/-1, 0 = never saved
+  // Exact structural-candidate publication that installed each target phase.
+  // Zero means the target is native search state.  This provenance is H-only:
+  // it never changes the formula, proof, or reconstruction state.
+  std::vector<uint64_t> target_candidate;
   uint32_t target_assigned = 0;
   // best phases (kissat phases.c, S3 Rephase): like target, but the watermark
   // only resets when Rephase consumes it (type Best).
@@ -68,6 +72,20 @@ struct Heuristics {
   // cadical phases.prev (S6 Walk, diagnostic arm TACTIX_WALK_PREV): the
   // previous walk's assignment, so local search resumes from it. Empty = none.
 };
+
+enum class TargetGuidanceOverwrite : uint8_t { NativeCapture, Rephase, Walk };
+
+// Clear candidate provenance when a native phase writer supersedes target
+// state.  The value itself is written by the caller at the same boundary.
+void heuristics_supersede_target_guidance(Kernel &, Var,
+                                          TargetGuidanceOverwrite);
+void heuristics_supersede_all_target_guidance(Kernel &,
+                                              TargetGuidanceOverwrite);
+
+// Record an actual successful Decide boundary.  `consumed_target` distinguishes
+// configurations that selected another phase source while a target happened to
+// be present.
+void heuristics_note_target_decision(Kernel &, Lit, bool consumed_target);
 
 // Grow the `H` per-variable state for vars [old, nvars) and set h->nvars.
 // Called whenever the kernel grows nvars.

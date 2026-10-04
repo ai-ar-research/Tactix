@@ -921,7 +921,11 @@ int RandomControllerPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       const auto identity = lit_instance(k, literal);
       const auto result = controller.search_service("Decide", identity, [&] {
         const auto native = execution::execute_action(k, execution::DecisionRequest{literal});
-        if (native == ApplyResult::Ok) ++k.strategy_epoch;
+        if (native == ApplyResult::Ok) {
+          heuristics_note_target_decision(
+              k, literal, observation.search.phase == Phase::Target);
+          ++k.strategy_epoch;
+        }
         return native;
       });
       if (result != ApplyResult::Ok) {

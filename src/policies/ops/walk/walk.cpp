@@ -265,7 +265,7 @@ bool seed_candidate(Walker &w, Kernel &k,
     }
     ordinary_unsat += !satisfied;
   }
-  bool imported = false;
+  uint64_t imported = 0;
   for (size_t external = 0; external < hint.external_phases.size(); ++external) {
     if (!charge()) return false;
     const int8_t phase = hint.external_phases[external];
@@ -273,7 +273,7 @@ bool seed_candidate(Walker &w, Kernel &k,
     const Var v = k.external_to_internal[external];
     if (v == INVALID_VAR || v >= k.nvars || kernel_var_retired(k, v) ||
         k.value(make_lit(v, false))) continue;
-    imported = true;
+    ++imported;
     w.values[make_lit(v, false)] = phase;
     w.values[make_lit(v, true)] = static_cast<int8_t>(-phase);
     w.best_values[v] = phase;
@@ -297,6 +297,7 @@ bool seed_candidate(Walker &w, Kernel &k,
   for (uint32_t c = 0; c < w.binary_clauses; ++c)
     w.initial_binary_unsat += w.count[c] == 0;
   ++k.stats.walk_seed_imports;
+  k.stats.walk_seed_imported_phases += imported;
   k.stats.walk_seed_ordinary_unsat = ordinary_unsat;
   k.stats.walk_seed_candidate_unsat = w.initial;
   return true;
@@ -539,6 +540,8 @@ static ApplyResult walk_apply_exact_steps(Kernel &k, uint64_t steps) {
     k.stats.walk_flips += w.flips;
     k.stats.walk_steps += w.steps;
     k.stats.walk_minimum = w.minimum;
+    if (hint && w.minimum < w.initial)
+      ++k.stats.walk_seed_improved;
     if (w.minimum < export_threshold) {
       sync_best(w); // materialise the winning prefix into best_values
       for (Var v = 0; v < k.nvars; v++)
@@ -546,6 +549,8 @@ static ApplyResult walk_apply_exact_steps(Kernel &k, uint64_t steps) {
             (!hint || !kernel_var_retired(k, v)))
           k.h->saved[v] = w.best_values[v];
       k.stats.walk_improved++;
+      if (hint)
+        ++k.stats.walk_seed_exported;
       improved = true;
     }
   } else if (hint) {
@@ -558,6 +563,7 @@ static ApplyResult walk_apply_exact_steps(Kernel &k, uint64_t steps) {
   // The rephase tail every type runs (kissat reset_phases): the fresh saved
   // phases become the target ones. `best` is not consumed here — kissat resets
   // its watermark only on type Best.
+  heuristics_supersede_all_target_guidance(k, TargetGuidanceOverwrite::Walk);
   std::copy(k.h->saved.begin(), k.h->saved.end(), k.h->target.begin());
   k.h->target_assigned = 0;
   k.stats.rephased++;

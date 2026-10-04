@@ -45,6 +45,14 @@ static void synthetic(FeedbackTrace &trace, bool changed = false) {
   before.cumulative.used_glue[1][127] = 3;
   before.cumulative.rule_calls[0] = 7;
   before.cumulative.sweep_limit_depth = 5;
+  LocalSearchCandidateInfo candidate;
+  candidate.id = 256;
+  candidate.external_variables = 2;
+  candidate.known_phases = 1;
+  candidate.objective = 3;
+  before.local_search_candidates = {candidate};
+  before.local_search_last_target_decision_candidate = candidate.id;
+  before.local_search_last_target_decision_matched = true;
   after = before;
   // These timestamps change deliberately and must not affect replay.
   after.cumulative.rule_nanos[0] = changed ? 99 : 17;
@@ -86,6 +94,11 @@ static void test_codec(const char *path) {
   assert(original.find("\"used_glue\":[[") != std::string::npos);
   assert(original.find("\"producer_effort\":[{\"family\":"
                        "\"Gf3AffineConsequence\"") != std::string::npos);
+  assert(original.find("\"known_phases\":1") != std::string::npos);
+  assert(original.find("\"local_search_last_target_decision_candidate\":256") !=
+         std::string::npos);
+  assert(original.find("\"local_search_last_target_decision_matched\":true") !=
+         std::string::npos);
   assert(original.find("\"total_work\":24") != std::string::npos);
   assert(original.find("rule_nanos") == std::string::npos);
   assert(original.find("solve_nanos") == std::string::npos);

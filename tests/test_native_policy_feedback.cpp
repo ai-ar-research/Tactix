@@ -241,6 +241,7 @@ static void test_graph_labeling_constructor_feedback() {
   assert(candidate.formula_touch_epoch == record.after.state.touch_epoch &&
          candidate.formula_root_assignments == record.after.root_population &&
          candidate.external_variables == record.after.variables);
+  assert(candidate.known_phases == record.after.variables);
 }
 
 // Leaf measurements precede the enclosing native publication, but receiver

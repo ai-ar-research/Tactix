@@ -22,7 +22,9 @@ ApplyResult local_search_guidance_apply_candidate(Kernel &k, uint64_t candidate)
     return ApplyResult::NoOp;
   }
   const auto &hint = *selected;
-  bool changed = false;
+  ++k.stats.local_search_target_install_attempts;
+  uint64_t eligible = 0, changed = 0, matching = 0, replaced = 0;
+  bool provenance_changed = false;
   for (Var external = 0; external < hint.external_phases.size(); ++external) {
     const int8_t phase = hint.external_phases[external];
     if (!phase || external >= k.external_to_internal.size())
@@ -32,13 +34,26 @@ ApplyResult local_search_guidance_apply_candidate(Kernel &k, uint64_t candidate)
         kernel_var_retired(k, internal) ||
         k.value(make_lit(internal, false)))
       continue;
-    changed |= k.h->target[internal] != phase;
+    ++eligible;
+    if (k.h->target[internal] == phase)
+      ++matching;
+    else
+      ++changed;
+    replaced += k.h->target_candidate[internal] &&
+                k.h->target_candidate[internal] != hint.id;
+    provenance_changed |= k.h->target_candidate[internal] != hint.id;
     k.h->target[internal] = phase;
+    k.h->target_candidate[internal] = hint.id;
   }
-  if (!changed)
+  k.stats.local_search_target_eligible_phases += eligible;
+  k.stats.local_search_target_changed_phases += changed;
+  k.stats.local_search_target_matching_phases += matching;
+  k.stats.local_search_target_replaced_phases += replaced;
+  if (!eligible || (!changed && !provenance_changed))
     return ApplyResult::NoOp;
   k.h->target_assigned = 0;
   ++k.stats.local_search_hints_applied;
+  ++k.stats.local_search_target_installs;
   return ApplyResult::Ok;
 }
 

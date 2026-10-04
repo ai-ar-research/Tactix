@@ -353,6 +353,7 @@ static void test_private_seed_budget_and_export() {
     strategy::WalkParameters p;
     p.seed_candidate = k.local_search_hints[0].id;
     p.step_budget = allowance;
+    k.h->target_candidate.assign(3, p.seed_candidate);
     const auto saved = k.h->saved, target = k.h->target, best = k.h->best;
     {
       strategy::ScopedWalkParameters scope(k, p);
@@ -360,6 +361,8 @@ static void test_private_seed_budget_and_export() {
       if (allowance < preparation) {
         assert(result == ApplyResult::NoOp);
         assert(k.h->saved == saved && k.h->target == target && k.h->best == best);
+        assert((k.h->target_candidate ==
+                std::vector<uint64_t>(3, p.seed_candidate)));
         assert(k.stats.walk_seed_budget_exhausted == 1);
       } else {
         assert(result == ApplyResult::Ok);
@@ -368,6 +371,11 @@ static void test_private_seed_budget_and_export() {
         assert(k.stats.walk_seed_ordinary_unsat == 3);
         assert(k.stats.walk_seed_candidate_unsat == 0);
         assert(k.stats.walk_seed_imports == 1);
+        assert(k.stats.walk_seed_imported_phases == 3);
+        assert(k.stats.walk_seed_improved == 0);
+        assert(k.stats.walk_seed_exported == 1);
+        assert((k.h->target_candidate == std::vector<uint64_t>(3, 0)));
+        assert(k.stats.local_search_target_overwritten_walk == 3);
         assert(k.stats.walk_flips == 0); // an already-good seed must export
       }
     }

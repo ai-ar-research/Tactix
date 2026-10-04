@@ -33,6 +33,8 @@ void publish_local_search_hint(
   // Each producer owns its within-search best. Scores from different calls
   // need not describe the same decoded objective, even on an unchanged CNF.
   // Publish the new candidate without making an ungrounded cross-call ranking.
+  if (hint.available())
+    ++k.stats.local_search_hints_replaced;
   hint.external_phases.assign(k.external_to_internal.size(), 0);
   for (Var internal = 0; internal < k.nvars; ++internal) {
     const Var external = k.internal_to_external[internal];
@@ -40,9 +42,13 @@ void publish_local_search_hint(
       hint.external_phases.resize(static_cast<size_t>(external) + 1, 0);
     hint.external_phases[external] = polarity(assignment[internal]);
   }
+  hint.known_phases = static_cast<uint64_t>(std::count_if(
+      hint.external_phases.begin(), hint.external_phases.end(),
+      [](int8_t phase) { return phase != 0; }));
   hint.objective = objective;
   hint.objective_exact = objective_exact;
   ++k.stats.local_search_hints_offered;
+  k.stats.local_search_hint_phases_offered += hint.known_phases;
   hint.id = (++k.local_search_publication << 8) |
             static_cast<uint64_t>(kind);
   hint.formula_touch_epoch = k.touch_epoch;

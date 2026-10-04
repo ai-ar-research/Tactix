@@ -3,6 +3,7 @@
 import importlib.util
 import json
 import pathlib
+import re
 import subprocess
 import sys
 import tempfile
@@ -111,6 +112,27 @@ def main():
         for default_path in default_records:
             default_summary = inspector.inspect(default_path)
             assert default_summary["terminal"]["verdict"] in (10, 20)
+        guided_path = pathlib.Path(directory) / "profile-6-pigeons-6.feedback.jsonl"
+        guided_rows = [json.loads(line) for line in guided_path.read_text().splitlines()]
+        guided_actions = [row for row in guided_rows if row["type"] == "action"]
+        imports = 0
+        for index, action in enumerate(guided_actions):
+            if action["identity"] != "Walk":
+                continue
+            before = action["before"]["native"]["walk_seed_imports"]
+            after = action["after"]["native"]["walk_seed_imports"]
+            if after == before:
+                continue
+            assert after == before + 1
+            imports += 1
+            invocation = action["native_request"]["invocation"]
+            match = re.search(r"walk2\([^,]+,[^,]+,(\d+),", invocation)
+            assert match
+            assert index + 1 < len(guided_actions)
+            target = guided_actions[index + 1]
+            assert target["identity"] == "LocalSearchGuidance"
+            assert target["instance"] == int(match.group(1))
+        assert imports > 0
         default_rows = [json.loads(line) for line in default_records[-1].read_text().splitlines()]
         native_action = next(i for i, row in enumerate(default_rows)
                              if row["type"] == "action" and "native_request" in row)
