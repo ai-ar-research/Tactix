@@ -65,6 +65,8 @@ struct Gf3GaussianActionResult {
 struct Gf3GaussianActionOfferResult {
   Gf3GaussianActionStatus status = Gf3GaussianActionStatus::Invalid;
   std::vector<std::string> offers;
+  uint64_t candidates = 0;
+  bool complete = false;
   uint64_t session_work = 0;
   uint64_t session_identity_bytes = 0;
   gf3_gaussian_live::Result live;

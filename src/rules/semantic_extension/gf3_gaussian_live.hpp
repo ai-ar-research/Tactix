@@ -59,6 +59,9 @@ struct Accounting {
   uint64_t duplicate_clauses = 0;
   uint64_t journal_work = 0;
   uint64_t journal_bytes = 0;
+  // One work unit per canonical identity byte materialized.  The same
+  // maximum_identity_bytes limit bounds both retained volume and this scan.
+  uint64_t identity_work = 0;
   uint64_t identity_bytes = 0;
 
   friend bool operator==(const Accounting &, const Accounting &) = default;

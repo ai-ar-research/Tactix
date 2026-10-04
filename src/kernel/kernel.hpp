@@ -1079,6 +1079,7 @@ struct Stats {
   uint64_t gf3_gaussian_journal_work = 0;
   uint64_t gf3_gaussian_journal_bytes = 0;
   uint64_t gf3_gaussian_session_work = 0;
+  uint64_t gf3_gaussian_identity_work = 0;
   uint64_t gf3_gaussian_identity_bytes = 0;
   uint64_t gf3_gaussian_session_identity_bytes = 0;
   uint64_t gf3_gaussian_units = 0, gf3_gaussian_conflicts = 0;
