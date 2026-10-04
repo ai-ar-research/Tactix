@@ -152,27 +152,29 @@ bool operator==(const KernelImage &left, const KernelImage &right) {
          left.watch_sizes == right.watch_sizes;
 }
 
-void assert_empty(const IndependentSetLiveResult &result) {
+void assert_declined(const IndependentSetLiveResult &result) {
+  assert(result.status != IndependentSetLiveStatus::Applied);
   assert(result.result == ApplyResult::NoOp);
-  assert(!result.vertices && !result.target && !result.source_clauses &&
-         !result.source_literals && !result.recognition_work &&
-         !result.proof_work && !result.planned_proof_additions &&
-         !result.emitted_proof_additions && !result.emitted_proof_deletions &&
-         !result.proof_literal_occurrences && !result.published_clause_id &&
+  assert(!result.emitted_proof_additions && !result.emitted_proof_deletions &&
+         !result.published_clause_id &&
          result.advice_vertex_literals.empty() &&
          result.published_cover.empty());
+  assert(result.recognition_work ==
+         result.source_scan_work + result.theory_recognition_work);
 }
 
-void assert_failed_unchanged(Kernel &kernel,
-                             const IndependentSetLiveRequest &candidate) {
+IndependentSetLiveResult
+assert_failed_unchanged(Kernel &kernel,
+                        const IndependentSetLiveRequest &candidate) {
   const KernelImage before = image(kernel);
   const long record_position = std::ftell(candidate.records);
   assert(record_position >= 0);
   const IndependentSetLiveResult result =
       independent_set_live_apply(kernel, candidate);
-  assert_empty(result);
+  assert_declined(result);
   assert(image(kernel) == before);
   assert(std::ftell(candidate.records) == record_position);
+  return result;
 }
 
 std::string read_all(FILE *file) {
@@ -249,25 +251,40 @@ void positive_and_continuing(const char *proof_path, ProofFormat format) {
 
   auto low = apply;
   low.maximum_proof_additions = 2;
-  assert_failed_unchanged(kernel, low);
+  auto declined = assert_failed_unchanged(kernel, low);
+  assert(declined.status == IndependentSetLiveStatus::ResourceExhausted);
   low = apply;
   low.maximum_proof_deletions = 1;
-  assert_failed_unchanged(kernel, low);
+  declined = assert_failed_unchanged(kernel, low);
+  assert(declined.status == IndependentSetLiveStatus::ResourceExhausted &&
+         declined.planned_proof_additions == 3);
   low = apply;
   low.maximum_recognition_work = 3;
-  assert_failed_unchanged(kernel, low);
+  declined = assert_failed_unchanged(kernel, low);
+  assert(declined.status == IndependentSetLiveStatus::ResourceExhausted &&
+         declined.recognition_work == 3 && declined.source_scan_work == 3);
   low = apply;
   low.maximum_proof_work = 1;
-  assert_failed_unchanged(kernel, low);
+  declined = assert_failed_unchanged(kernel, low);
+  assert(declined.status == IndependentSetLiveStatus::ResourceExhausted &&
+         declined.proof_work <= low.maximum_proof_work);
   low = apply;
   low.maximum_journal_bytes = 1;
-  assert_failed_unchanged(kernel, low);
+  declined = assert_failed_unchanged(kernel, low);
+  assert(declined.status == IndependentSetLiveStatus::ResourceExhausted &&
+         declined.journal_work > low.maximum_journal_bytes);
 
   const uint64_t prior_id = kernel.next_clause_id;
   const IndependentSetLiveResult result =
       independent_set_live_apply(kernel, apply);
-  assert(result.result == ApplyResult::Ok && result.vertices == 4 &&
+  assert(result.status == IndependentSetLiveStatus::Applied &&
+         result.result == ApplyResult::Ok && result.vertices == 4 &&
          result.target == 2 && result.source_clauses == encoding.clauses.size());
+  assert(result.recognition_work ==
+             result.source_scan_work + result.theory_recognition_work &&
+         result.source_scan_work > 0 &&
+         result.theory_recognition_work > 0 && result.proof_work > 0 &&
+         result.journal_work > 0);
   assert(result.planned_proof_additions == 3 &&
          result.proof_literal_occurrences == 11);
   assert(result.emitted_proof_additions == (proof_path ? 3 : 0));
@@ -281,6 +298,7 @@ void positive_and_continuing(const char *proof_path, ProofFormat format) {
          kernel.external_to_internal == initial_map);
   assert(!kernel.startup_certificate_open);
   const std::string journal = read_all(records);
+  assert(result.journal_work == journal.size());
   assert(journal.find("independent-set-live-source") != std::string::npos);
   assert(journal.find("forbidden-assignment") != std::string::npos);
   assert(journal.find("resolution") != std::string::npos);
@@ -298,7 +316,10 @@ void positive_and_continuing(const char *proof_path, ProofFormat format) {
 
   const KernelImage duplicate_before = image(kernel);
   const long journal_before = std::ftell(records);
-  assert_empty(independent_set_live_apply(kernel, apply));
+  const auto duplicate = independent_set_live_apply(kernel, apply);
+  assert_declined(duplicate);
+  assert(duplicate.status == IndependentSetLiveStatus::Duplicate &&
+         duplicate.source_scan_work > 0);
   assert(image(kernel) == duplicate_before &&
          std::ftell(records) == journal_before);
 
@@ -330,14 +351,39 @@ void retained_owner_repeated_covers() {
   assert(records);
   auto apply = request(records);
   IndependentSetOwnerSnapshot owner;
-  assert(independent_set_live_capture_owner(kernel, apply, owner));
+  const auto capture =
+      independent_set_live_capture_owner_detailed(kernel, apply, owner);
+  assert(capture.captured() && capture.source_scan_work > 0 &&
+         capture.theory_recognition_work > 0 &&
+         capture.recognition_work ==
+             capture.source_scan_work + capture.theory_recognition_work);
   assert(owner.external_variables == encoding.variables &&
          owner.vertices == encoding.vertices && owner.target == encoding.target &&
-         owner.clauses.size() == encoding.clauses.size());
+         owner.clauses.size() == encoding.clauses.size() &&
+         owner.capture_source_scan_work == capture.source_scan_work &&
+         owner.capture_theory_recognition_work ==
+             capture.theory_recognition_work);
 
-  // The first action deliberately uses strict uncached recognition.
+  // A capture and its first cached apply share one hard recognition ceiling.
+  // With no room after capture, application declines without retaining any
+  // formula, proof or journal effect and reports exactly the spent capture.
+  apply.owner_snapshot = &owner;
+  apply.include_owner_capture_effort = true;
+  apply.maximum_recognition_work = capture.recognition_work;
+  const auto no_apply_room = assert_failed_unchanged(kernel, apply);
+  assert(no_apply_room.status == IndependentSetLiveStatus::ResourceExhausted &&
+         no_apply_room.recognition_work == capture.recognition_work &&
+         no_apply_room.source_scan_work == capture.source_scan_work &&
+         no_apply_room.theory_recognition_work ==
+             capture.theory_recognition_work);
+
+  apply.maximum_recognition_work = 10000000;
   const auto first = independent_set_live_apply(kernel, apply);
-  assert(first.result == ApplyResult::Ok &&
+  assert(first.status == IndependentSetLiveStatus::Applied &&
+         first.result == ApplyResult::Ok &&
+         first.recognition_work > capture.recognition_work &&
+         first.source_scan_work >= capture.source_scan_work &&
+         first.theory_recognition_work >= capture.theory_recognition_work &&
          first.published_cover == std::vector<int32_t>({1, 2, 3}));
 
   // An unrelated later semantic consequence must not contaminate the retained
@@ -352,9 +398,11 @@ void retained_owner_repeated_covers() {
   apply.cover_vertices = {1, 2, 4};
   apply.action_id = 18;
   apply.semantic_id = 30;
-  apply.owner_snapshot = &owner;
+  apply.include_owner_capture_effort = false;
   const auto second = independent_set_live_apply(kernel, apply);
-  assert(second.result == ApplyResult::Ok &&
+  assert(second.status == IndependentSetLiveStatus::Applied &&
+         second.result == ApplyResult::Ok &&
+         second.recognition_work < first.recognition_work &&
          second.source_clauses == encoding.clauses.size() &&
          second.published_cover == std::vector<int32_t>({1, 2, 4}));
 
@@ -364,12 +412,33 @@ void retained_owner_repeated_covers() {
   apply.cover_vertices = {1, 3, 4};
   apply.action_id = 19;
   apply.semantic_id = 31;
-  assert_failed_unchanged(kernel, apply);
+  const auto stale = assert_failed_unchanged(kernel, apply);
+  assert(stale.status == IndependentSetLiveStatus::Stale &&
+         stale.source_scan_work > 0);
   std::fclose(records);
 }
 
 void negative_boundaries() {
   const Encoding encoding = make_encoding(4, 2, {{1, 2}});
+  {
+    Kernel kernel;
+    load(kernel, encoding);
+    FILE *records = std::tmpfile();
+    assert(records);
+    auto capture_request = request(records);
+    capture_request.maximum_recognition_work = 2;
+    IndependentSetOwnerSnapshot owner;
+    owner.external_variables = 77;
+    const auto capture = independent_set_live_capture_owner_detailed(
+        kernel, capture_request, owner);
+    assert(capture.status == IndependentSetLiveStatus::ResourceExhausted &&
+           capture.recognition_work <=
+               capture_request.maximum_recognition_work &&
+           capture.source_scan_work == capture.recognition_work &&
+           !capture.theory_recognition_work &&
+           owner.external_variables == 77 && owner.clauses.empty());
+    std::fclose(records);
+  }
   {
     const Encoding unit_encoding = make_encoding(3, 3, {{1, 2}});
     Kernel kernel;
@@ -377,7 +446,8 @@ void negative_boundaries() {
     FILE *records = std::tmpfile();
     assert(records);
     auto apply = request(records, {1});
-    assert_failed_unchanged(kernel, apply);
+    const auto unit = assert_failed_unchanged(kernel, apply);
+    assert(unit.status == IndependentSetLiveStatus::Inapplicable);
     std::fclose(records);
   }
   {
@@ -388,7 +458,8 @@ void negative_boundaries() {
     auto apply = request(records);
     volatile sig_atomic_t stop = 1;
     kernel.stop = &stop;
-    assert_failed_unchanged(kernel, apply);
+    const auto interrupted = assert_failed_unchanged(kernel, apply);
+    assert(interrupted.status == IndependentSetLiveStatus::Interrupted);
     kernel.stop = nullptr;
     std::fclose(records);
   }
@@ -425,7 +496,9 @@ void negative_boundaries() {
     kernel.stop_fuzz_state = UINT64_C(0xaa80754d1a1a8d4f);
     FILE *records = std::tmpfile();
     assert(records);
-    assert_failed_unchanged(kernel, request(records));
+    const auto interrupted =
+        assert_failed_unchanged(kernel, request(records));
+    assert(interrupted.status == IndependentSetLiveStatus::Interrupted);
     assert(kernel.stats.stop_fuzz_fires == 1);
     kernel.stop_fuzz = 0;
     std::fclose(records);
@@ -450,7 +523,9 @@ void negative_boundaries() {
                              ++kernel.next_clause_id);
     FILE *records = std::tmpfile();
     assert(records);
-    assert_failed_unchanged(kernel, request(records));
+    const auto contaminated =
+        assert_failed_unchanged(kernel, request(records));
+    assert(contaminated.status == IndependentSetLiveStatus::NoStructure);
     std::fclose(records);
   }
   {
@@ -463,7 +538,9 @@ void negative_boundaries() {
     assert_failed_unchanged(kernel, request(records, {1, 2, 99}));
     kernel_assign_decision(kernel, kernel_internalize(kernel, 1));
     assert(propagate_service(kernel) == ApplyResult::Ok);
-    assert_failed_unchanged(kernel, request(records));
+    const auto assigned =
+        assert_failed_unchanged(kernel, request(records));
+    assert(assigned.status == IndependentSetLiveStatus::Inapplicable);
     std::fclose(records);
   }
   {
@@ -477,7 +554,9 @@ void negative_boundaries() {
     kernel.proof = &proof;
     FILE *records = std::tmpfile();
     assert(records);
-    assert_failed_unchanged(kernel, request(records));
+    const auto unsupported =
+        assert_failed_unchanged(kernel, request(records));
+    assert(unsupported.status == IndependentSetLiveStatus::UnsupportedProof);
     kernel.proof = nullptr;
     proof.flush();
     std::fclose(records);
@@ -493,7 +572,9 @@ void negative_boundaries() {
     kernel.proof = &proof;
     FILE *records = std::tmpfile();
     assert(records);
-    assert_failed_unchanged(kernel, request(records));
+    const auto unsupported =
+        assert_failed_unchanged(kernel, request(records));
+    assert(unsupported.status == IndependentSetLiveStatus::UnsupportedProof);
     kernel.proof = nullptr;
     assert(proof.finish_pb());
     std::fclose(records);

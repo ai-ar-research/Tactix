@@ -25,6 +25,24 @@ struct IndependentSetOwnerSnapshot {
   uint32_t target = 0;
   uint64_t literals = 0;
   std::vector<IndependentSetOwnerClause> clauses;
+  // Exact effort spent when this owner was captured.  The public action can
+  // include it in the first capture-plus-apply dose without trusting a second
+  // caller-supplied accounting record.  Later applications over the retained
+  // owner leave `include_owner_capture_effort` false.
+  uint64_t capture_source_scan_work = 0;
+  uint64_t capture_theory_recognition_work = 0;
+};
+
+enum class IndependentSetLiveStatus : uint8_t {
+  Applied,
+  Invalid,
+  Inapplicable,
+  NoStructure,
+  Duplicate,
+  ResourceExhausted,
+  Interrupted,
+  UnsupportedProof,
+  Stale,
 };
 
 // Private composition boundary for the layered independent-set theory.  The
@@ -49,23 +67,45 @@ struct IndependentSetLiveRequest {
   // unrelated clauses joined the formula. Every retained clause is found and
   // revalidated in the current live formula before a commit.
   const IndependentSetOwnerSnapshot *owner_snapshot = nullptr;
+  // The first public application captures an owner and immediately applies
+  // through it. Include that capture in this action's one recognition
+  // allowance and returned effort. Repeated applications over the retained
+  // owner set this false, so capture cost is never charged twice.
+  bool include_owner_capture_effort = false;
 };
 
 struct IndependentSetLiveResult {
+  IndependentSetLiveStatus status = IndependentSetLiveStatus::Invalid;
   ApplyResult result = ApplyResult::NoOp;
   uint32_t vertices = 0;
   uint32_t target = 0;
   uint64_t source_clauses = 0;
   uint64_t source_literals = 0;
+  // `recognition_work` is the total shared recognition allowance consumed.
+  // Its two components distinguish live-source scanning/revalidation from
+  // exact theory recognition.
   uint64_t recognition_work = 0;
+  uint64_t source_scan_work = 0;
+  uint64_t theory_recognition_work = 0;
   uint64_t proof_work = 0;
   uint64_t planned_proof_additions = 0;
   uint64_t emitted_proof_additions = 0;
   uint64_t emitted_proof_deletions = 0;
   uint64_t proof_literal_occurrences = 0;
+  uint64_t journal_work = 0;
   uint64_t published_clause_id = 0;
   std::vector<int32_t> advice_vertex_literals;
   std::vector<int32_t> published_cover;
+};
+
+struct IndependentSetOwnerCaptureResult {
+  IndependentSetLiveStatus status = IndependentSetLiveStatus::Invalid;
+  uint64_t source_clauses = 0;
+  uint64_t source_literals = 0;
+  uint64_t recognition_work = 0;
+  uint64_t source_scan_work = 0;
+  uint64_t theory_recognition_work = 0;
+  bool captured() const { return status == IndependentSetLiveStatus::Applied; }
 };
 
 // Capture and strictly recognize the complete current live formula as an
@@ -76,13 +116,21 @@ bool independent_set_live_capture_owner(
     Kernel &, const IndependentSetLiveRequest &,
     IndependentSetOwnerSnapshot &output);
 
+// Detailed capture for controller accounting.  Failure leaves `output`
+// unchanged while reporting why capture declined and how much bounded work it
+// actually consumed.  The boolean wrapper above is retained for private
+// compatibility and delegates to this function.
+IndependentSetOwnerCaptureResult independent_set_live_capture_owner_detailed(
+    Kernel &, const IndependentSetLiveRequest &,
+    IndependentSetOwnerSnapshot &output);
+
 // At a fully propagated, assignment-free sparse root, recognize the exact live
 // owner encoding, certify the selected N-K+1 cover, and publish that clause for
 // continuing CDCL.  DSR/DRAT/no-proof are supported; LRAT/PBP decline before
 // mutation. Unit covers are conservatively declined until their propagation
 // proof delta can be bounded. Every recoverable failure leaves kernel, proof,
-// records, and the returned result unchanged. No new semantic or branchable
-// variable is made.
+// and records unchanged while returning its status and bounded work. No new
+// semantic or branchable variable is made.
 IndependentSetLiveResult independent_set_live_apply(
     Kernel &, const IndependentSetLiveRequest &);
 
