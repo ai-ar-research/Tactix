@@ -29,6 +29,8 @@
 namespace tactix {
 
 struct Kernel;
+struct ExactCoverExtensionActionSession;
+struct IndependentSetCoverActionSession;
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
 void rule_journal_note_clause_transition(const Kernel &, const char *,
                                          const uint32_t *, uint32_t,
@@ -1639,6 +1641,12 @@ struct Kernel {
   // it open; successful action identities are monotone across rule families.
   FILE *structural_provenance = nullptr;
   uint64_t structural_action_sequence = 0;
+  // Non-owning pointers to solver/controller-owned feature caches. They are
+  // never serialized and may outlive online reconfiguration, but not Kernel.
+  ExactCoverExtensionActionSession *exact_cover_extension_action_session =
+      nullptr;
+  IndependentSetCoverActionSession *independent_set_cover_action_session =
+      nullptr;
   strategy::InstantiateParameters instantiate_parameters;
   strategy::BackboneParameters backbone_parameters;
 
