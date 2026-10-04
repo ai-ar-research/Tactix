@@ -13,6 +13,8 @@
 #include "strategy/instantiate_parameters.hpp"
 #include "strategy/local_search.hpp"
 #include "strategy/rule_parameters.hpp"
+#include "strategy/semantic_variable.hpp"
+#include "strategy/theory_action_parameters.hpp"
 #include "strategy/vivify_parameters.hpp"
 
 #include <cassert>
@@ -620,6 +622,17 @@ struct Stats {
   uint64_t signed_cardinality_proof_interrupted = 0;
   uint64_t local_search_hints_offered = 0;
   uint64_t local_search_hints_applied = 0;
+  uint64_t semantic_variable_candidates_published = 0;
+  uint64_t semantic_variable_candidate_existing = 0;
+  uint64_t semantic_variable_candidate_introduced = 0;
+  uint64_t semantic_variable_advice_attempts = 0;
+  uint64_t semantic_variable_advice_applied = 0;
+  uint64_t semantic_variable_advice_invalid = 0;
+  uint64_t semantic_variable_advice_stale = 0;
+  uint64_t semantic_variable_advice_resource_exhausted = 0;
+  uint64_t semantic_variable_advice_inapplicable = 0;
+  uint64_t semantic_variable_advice_variables = 0;
+  uint64_t semantic_variable_advice_priority = 0;
   uint64_t walks = 0;         // S6 Walk applications (policy op)
   uint64_t walk_flips = 0;    // literal flips
   uint64_t walk_steps = 0;    // occurrence entries scanned (kissat walk_steps)
@@ -1467,6 +1480,14 @@ struct Kernel {
   // advice: failed model searches never alter F, the trail, or proof state.
   std::array<strategy::LocalSearchHint, strategy::LOCAL_SEARCH_KIND_COUNT>
       local_search_hints;
+  // Proof-rule declarations are staged until registry dispatch advances the
+  // action epoch. Only current post-action candidates are observable/applicable.
+  std::array<strategy::SemanticVariableCandidate,
+             strategy::SEMANTIC_VARIABLE_PRODUCER_COUNT>
+      semantic_variable_candidates;
+  strategy::SemanticVariableCandidate staged_semantic_variable_candidate;
+  bool semantic_variable_candidate_pending = false;
+  uint64_t semantic_variable_publication = 0;
   uint64_t work_budget = 0;
   // Work already charged before a rule call against a cumulative dose.
   // Vivify uses this to pose Kissat's successive absolute tier ceilings.
@@ -1609,6 +1630,10 @@ struct Kernel {
   strategy::StrengthenParameters strengthen_parameters;
   strategy::AnalyzeParameters analyze_parameters;
   strategy::CongruenceParameters congruence_parameters;
+  strategy::AffineConsequenceParameters affine_consequence_parameters;
+  strategy::ExactCoverExtensionParameters exact_cover_extension_parameters;
+  strategy::IndependentSetCoverParameters independent_set_cover_parameters;
+  strategy::SemanticVariableAdviceParameters semantic_variable_advice_parameters;
   strategy::InstantiateParameters instantiate_parameters;
   strategy::BackboneParameters backbone_parameters;
 
