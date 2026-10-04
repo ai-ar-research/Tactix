@@ -6,12 +6,16 @@
 #include <cassert>
 #include <cstdio>
 #include <limits>
+#include <type_traits>
 #include <unistd.h>
 #include <vector>
 
 using namespace tactix;
 
 namespace {
+
+static_assert(!std::is_copy_constructible_v<DirectPhpActionSession>);
+static_assert(!std::is_move_constructible_v<DirectPhpActionSession>);
 
 Kernel fixture(uint32_t holes = 3) {
   assert(holes >= 2);
@@ -59,7 +63,7 @@ void preparation_is_pure_and_accounted() {
   const uint64_t next_id = kernel.next_clause_id;
   const uint32_t variables = kernel.nvars;
   const size_t extent = kernel.external_to_internal.size();
-  DirectPhpActionSession session;
+  DirectPhpActionSession session(kernel);
   DirectPhpPreparedAction prepared;
   const auto result =
       direct_php_action_prepare(kernel, session, request(), prepared);
@@ -111,7 +115,7 @@ void preparation_is_pure_and_accounted() {
 
 void apply_commits_exact_session_once() {
   Kernel kernel = fixture();
-  DirectPhpActionSession session;
+  DirectPhpActionSession session(kernel);
   const auto applied = direct_php_action_apply(kernel, session, request());
   assert(applied.status == DirectPhpActionStatus::Applied);
   assert(applied.result == ApplyResult::Unsat && kernel.inconsistent);
@@ -127,6 +131,35 @@ void apply_commits_exact_session_once() {
   assert(kernel.next_clause_id == next_id &&
          kernel.external_to_internal.size() == extent);
 
+  const auto different_action =
+      direct_php_action_apply(kernel, session, request(38));
+  assert(different_action.status == DirectPhpActionStatus::ReplayMismatch);
+  assert(!different_action.replay_checked &&
+         different_action.proof == applied.proof);
+
+  auto different_limits = request();
+  --different_limits.limits.maximum_replay_work;
+  const auto changed_request =
+      direct_php_action_apply(kernel, session, different_limits);
+  assert(changed_request.status == DirectPhpActionStatus::ReplayMismatch);
+  assert(!changed_request.replay_checked &&
+         changed_request.proof == applied.proof);
+
+  const DirectPhpActionRecord exact = *session.record();
+  const auto exact_replay =
+      direct_php_action_replay(kernel, session, request(), exact);
+  assert(exact_replay.status == DirectPhpActionStatus::AlreadyApplied);
+  assert(exact_replay.replay_checked && exact_replay.proof == applied.proof);
+
+  auto changed = exact;
+  assert(!changed.events.empty());
+  changed.events.front().id ^= 1;
+  const auto mismatched_replay =
+      direct_php_action_replay(kernel, session, request(), changed);
+  assert(mismatched_replay.status == DirectPhpActionStatus::ReplayMismatch);
+  assert(mismatched_replay.replay_checked &&
+         mismatched_replay.proof == applied.proof);
+
   Kernel other = fixture();
   DirectPhpPreparedAction prepared;
   const auto stale =
@@ -136,7 +169,7 @@ void apply_commits_exact_session_once() {
 
 DirectPhpActionRecord record_for(const DirectPhpActionRequest &request) {
   Kernel kernel = fixture();
-  DirectPhpActionSession session;
+  DirectPhpActionSession session(kernel);
   DirectPhpPreparedAction prepared;
   const auto result =
       direct_php_action_prepare(kernel, session, request, prepared);
@@ -149,7 +182,7 @@ void exact_replay_accepts_only_exact_record() {
   const DirectPhpActionRecord exact = record_for(requested);
   {
     Kernel kernel = fixture();
-    DirectPhpActionSession session;
+    DirectPhpActionSession session(kernel);
     const auto replayed =
         direct_php_action_replay(kernel, session, requested, exact);
     assert(replayed.status == DirectPhpActionStatus::Applied);
@@ -159,7 +192,7 @@ void exact_replay_accepts_only_exact_record() {
   }
   {
     Kernel kernel = fixture();
-    DirectPhpActionSession session;
+    DirectPhpActionSession session(kernel);
     DirectPhpPreparedAction prepared;
     auto wrong_request = requested;
     ++wrong_request.action_id;
@@ -171,7 +204,7 @@ void exact_replay_accepts_only_exact_record() {
   }
   {
     Kernel kernel = fixture();
-    DirectPhpActionSession session;
+    DirectPhpActionSession session(kernel);
     DirectPhpPreparedAction prepared;
     auto changed = exact;
     assert(!changed.events.empty());
@@ -184,7 +217,7 @@ void exact_replay_accepts_only_exact_record() {
   }
   {
     Kernel kernel = fixture();
-    DirectPhpActionSession session;
+    DirectPhpActionSession session(kernel);
     DirectPhpPreparedAction prepared;
     auto changed = exact;
     changed.snapshot.sources.front().native_proof_id =
@@ -192,7 +225,8 @@ void exact_replay_accepts_only_exact_record() {
     const auto mismatch = direct_php_action_prepare_replay(
         kernel, session, requested, changed, prepared);
     assert(mismatch.status == DirectPhpActionStatus::ReplayMismatch);
-    assert(!prepared.ready() && !kernel.inconsistent);
+    assert(mismatch.replay_checked && !prepared.ready() &&
+           !kernel.inconsistent);
   }
 }
 
@@ -200,7 +234,7 @@ void replay_budget_and_interruption_are_atomic() {
   auto requested = request(101);
   DirectPhpActionRecord exact = record_for(requested);
   Kernel probe = fixture();
-  DirectPhpActionSession probe_session;
+  DirectPhpActionSession probe_session(probe);
   DirectPhpPreparedAction probe_prepared;
   const auto measured = direct_php_action_prepare(
       probe, probe_session, requested, probe_prepared);
@@ -214,7 +248,7 @@ void replay_budget_and_interruption_are_atomic() {
   exact.limits.maximum_replay_work = measured.effort.replay_work;
   {
     Kernel kernel = fixture();
-    DirectPhpActionSession session;
+    DirectPhpActionSession session(kernel);
     DirectPhpPreparedAction prepared;
     const auto exhausted = direct_php_action_prepare_replay(
         kernel, session, requested, exact, prepared);
@@ -230,18 +264,32 @@ void replay_budget_and_interruption_are_atomic() {
     Kernel kernel = fixture();
     volatile sig_atomic_t stop = 1;
     kernel.stop = &stop;
-    DirectPhpActionSession session;
+    DirectPhpActionSession session(kernel);
     const auto interrupted =
         direct_php_action_apply(kernel, session, ordinary);
     assert(interrupted.status == DirectPhpActionStatus::Interrupted);
     assert(!session.committed() && !kernel.inconsistent);
+  }
+  {
+    const auto replay_request = request(103);
+    const DirectPhpActionRecord replay_record = record_for(replay_request);
+    Kernel kernel = fixture();
+    volatile sig_atomic_t stop = 1;
+    kernel.stop = &stop;
+    DirectPhpActionSession session(kernel);
+    DirectPhpPreparedAction prepared;
+    const auto interrupted = direct_php_action_prepare_replay(
+        kernel, session, replay_request, replay_record, prepared);
+    assert(interrupted.status == DirectPhpActionStatus::Interrupted);
+    assert(!interrupted.replay_checked && !prepared.ready() &&
+           !session.committed() && !kernel.inconsistent);
   }
 }
 
 void stale_and_invalid_paths_do_not_leak_preparation() {
   {
     Kernel kernel = fixture();
-    DirectPhpActionSession session;
+    DirectPhpActionSession session(kernel);
     DirectPhpPreparedAction prepared;
     assert(direct_php_action_prepare(kernel, session, request(), prepared)
                .status == DirectPhpActionStatus::Prepared);
@@ -252,7 +300,21 @@ void stale_and_invalid_paths_do_not_leak_preparation() {
   }
   {
     Kernel kernel = fixture();
-    DirectPhpActionSession first, wrong;
+    DirectPhpActionSession session(kernel);
+    DirectPhpPreparedAction prepared;
+    assert(direct_php_action_prepare(kernel, session, request(), prepared)
+               .status == DirectPhpActionStatus::Prepared);
+    volatile sig_atomic_t stop = 1;
+    kernel.stop = &stop;
+    const auto interrupted =
+        direct_php_action_publish(kernel, session, prepared);
+    assert(interrupted.status == DirectPhpActionStatus::Interrupted);
+    assert(!session.committed() && !kernel.inconsistent);
+  }
+  {
+    Kernel kernel = fixture();
+    DirectPhpActionSession first(kernel);
+    DirectPhpActionSession wrong(kernel);
     DirectPhpPreparedAction prepared;
     assert(direct_php_action_prepare(kernel, first, request(), prepared)
                .status == DirectPhpActionStatus::Prepared);
@@ -262,7 +324,7 @@ void stale_and_invalid_paths_do_not_leak_preparation() {
   }
   {
     Kernel kernel = fixture();
-    DirectPhpActionSession session;
+    DirectPhpActionSession session(kernel);
     DirectPhpPreparedAction prepared;
     assert(direct_php_action_prepare(kernel, session, request(), prepared)
                .status == DirectPhpActionStatus::Prepared);
@@ -282,7 +344,7 @@ void stale_and_invalid_paths_do_not_leak_preparation() {
     close(descriptor);
     assert(proof.open(path, ProofFormat::Lrat));
     kernel.proof = &proof;
-    DirectPhpActionSession session;
+    DirectPhpActionSession session(kernel);
     const auto unsupported =
         direct_php_action_apply(kernel, session, request());
     assert(unsupported.status == DirectPhpActionStatus::UnsupportedProof);
@@ -291,13 +353,64 @@ void stale_and_invalid_paths_do_not_leak_preparation() {
   }
 }
 
+void proof_backed_execution_has_no_public_prepare_publish_gap() {
+  char path[] = "/tmp/direct-php-action-proof-XXXXXX";
+  const int descriptor = mkstemp(path);
+  assert(descriptor >= 0);
+  close(descriptor);
+  {
+    Kernel kernel = fixture();
+    Proof proof;
+    assert(proof.open(path, ProofFormat::DratAscii));
+    proof.bind_variable_map(&kernel.internal_to_external);
+    proof.bind_external_variable_map(&kernel.external_to_internal);
+    kernel.proof = &proof;
+    DirectPhpActionSession session(kernel);
+    DirectPhpPreparedAction prepared;
+    const auto split =
+        direct_php_action_prepare(kernel, session, request(), prepared);
+    assert(split.status == DirectPhpActionStatus::UnsupportedProofSplit);
+    assert(!prepared.ready() && !session.committed() && !kernel.inconsistent);
+
+    const auto applied = direct_php_action_apply(kernel, session, request());
+    assert(applied.status == DirectPhpActionStatus::Applied);
+    assert(applied.result == ApplyResult::Unsat && session.committed() &&
+           kernel.inconsistent);
+    proof.flush();
+    kernel.proof = nullptr;
+  }
+  unlink(path);
+
+  // A proof attached after a proofless preparation is detected by the live
+  // transaction before it can emit a byte or commit the session.
+  char changed_path[] = "/tmp/direct-php-action-proof-change-XXXXXX";
+  const int changed_descriptor = mkstemp(changed_path);
+  assert(changed_descriptor >= 0);
+  close(changed_descriptor);
+  {
+    Kernel kernel = fixture();
+    DirectPhpActionSession session(kernel);
+    DirectPhpPreparedAction prepared;
+    assert(direct_php_action_prepare(kernel, session, request(), prepared)
+               .status == DirectPhpActionStatus::Prepared);
+    Proof proof;
+    assert(proof.open(changed_path, ProofFormat::DratAscii));
+    kernel.proof = &proof;
+    const auto stale = direct_php_action_publish(kernel, session, prepared);
+    assert(stale.status == DirectPhpActionStatus::Stale);
+    assert(!session.committed() && !kernel.inconsistent);
+    kernel.proof = nullptr;
+  }
+  unlink(changed_path);
+}
+
 void guard_and_recognition_declines_are_typed() {
   Kernel kernel = fixture();
   assert(direct_php_action_guard(kernel));
   OccIndex dense;
   kernel.dense = &dense;
   assert(!direct_php_action_guard(kernel));
-  DirectPhpActionSession session;
+  DirectPhpActionSession session(kernel);
   assert(direct_php_action_apply(kernel, session, request()).status ==
          DirectPhpActionStatus::Inapplicable);
 
@@ -306,7 +419,7 @@ void guard_and_recognition_declines_are_typed() {
   const Lit clause[] = {internalize(1), internalize(2), internalize(3)};
   kernel_add_large_clause(unrelated, clause, 3, false, 0,
                           ++unrelated.next_clause_id);
-  DirectPhpActionSession unrelated_session;
+  DirectPhpActionSession unrelated_session(unrelated);
   const auto no_structure =
       direct_php_action_apply(unrelated, unrelated_session, request());
   assert(no_structure.status == DirectPhpActionStatus::NotRecognized);
@@ -321,6 +434,7 @@ int main() {
   exact_replay_accepts_only_exact_record();
   replay_budget_and_interruption_are_atomic();
   stale_and_invalid_paths_do_not_leak_preparation();
+  proof_backed_execution_has_no_public_prepare_publish_gap();
   guard_and_recognition_declines_are_typed();
   std::puts("test_direct_php_action: passed");
 }

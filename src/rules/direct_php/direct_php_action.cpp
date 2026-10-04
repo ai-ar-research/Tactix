@@ -14,9 +14,10 @@ struct DirectPhpActionSessionAccess {
     static_assert(
         std::is_nothrow_move_assignable_v<DirectPhpActionRecord>,
         "terminal publication must not be followed by a fallible commit");
-    session.owner_ = &kernel;
+    if (!session.belongs_to(kernel) || session.committed()) std::abort();
     session.action_id_ = action_id;
     session.record_ = std::move(record);
+    session.committed_ = true;
   }
 };
 
@@ -276,44 +277,85 @@ struct DirectPhpPreparedActionAccess {
   static DirectPhpActionResult prepare_impl(
     Kernel &kernel, DirectPhpActionSession &session,
     const DirectPhpActionRequest &request,
-    const DirectPhpActionRecord *expected, DirectPhpPreparedAction &output);
+    const DirectPhpActionRecord *expected, bool proof_atomic,
+    DirectPhpPreparedAction &output);
 };
 
 DirectPhpActionResult DirectPhpPreparedActionAccess::prepare_impl(
     Kernel &kernel, DirectPhpActionSession &session,
     const DirectPhpActionRequest &request,
-    const DirectPhpActionRecord *expected, DirectPhpPreparedAction &output) {
+    const DirectPhpActionRecord *expected, bool proof_atomic,
+    DirectPhpPreparedAction &output) {
   output = {};
   DirectPhpActionEffort effort;
   if (!request.limits.valid() || request.version != 1 || !request.action_id)
-    return stopped_result(DirectPhpActionStatus::Invalid, request, effort,
-                          expected);
-  if (session.committed()) {
-    const auto status = session.belongs_to(kernel)
-                            ? DirectPhpActionStatus::AlreadyApplied
-                            : DirectPhpActionStatus::Stale;
-    return stopped_result(status, request, effort, expected);
-  }
+    return stopped_result(DirectPhpActionStatus::Invalid, request, effort);
+  if (!session.belongs_to(kernel))
+    return stopped_result(DirectPhpActionStatus::Stale, request, effort);
   if (expected &&
       (expected->version != request.version ||
        expected->action_id != request.action_id ||
-       !(expected->limits == request.limits)))
-    return stopped_result(DirectPhpActionStatus::ReplayMismatch, request,
-                          effort, true);
+       !(expected->limits == request.limits))) {
+    DirectPhpActionResult result = stopped_result(
+        DirectPhpActionStatus::ReplayMismatch, request, effort, true);
+    if (const DirectPhpActionRecord *retained = session.record())
+      result.proof = retained->accounting;
+    return result;
+  }
+
+  if (session.committed()) {
+    const DirectPhpActionRecord *retained = session.record();
+    if (!retained || retained->version != request.version ||
+        retained->action_id != request.action_id ||
+        !(retained->limits == request.limits)) {
+      DirectPhpActionResult result = stopped_result(
+          DirectPhpActionStatus::ReplayMismatch, request, effort,
+          expected != nullptr);
+      if (retained) result.proof = retained->accounting;
+      return result;
+    }
+    DirectPhpActionResult result;
+    if (expected) {
+      ReplayMeter meter{kernel, request.limits.maximum_replay_work};
+      const bool exact = same_record(*retained, *expected, meter);
+      effort.replay_work = meter.work;
+      const DirectPhpActionStatus status =
+          exact ? DirectPhpActionStatus::AlreadyApplied
+          : meter.interrupted ? DirectPhpActionStatus::Interrupted
+          : meter.exhausted ? DirectPhpActionStatus::ResourceExhausted
+                            : DirectPhpActionStatus::ReplayMismatch;
+      result = stopped_result(status, request, effort, true);
+    } else {
+      result = stopped_result(DirectPhpActionStatus::AlreadyApplied, request,
+                              effort);
+    }
+    result.proof = retained->accounting;
+    return result;
+  }
+
+  // Proof has mutable private state beyond the Kernel pointer and clause
+  // namespace (buffered bytes, variable maps, and checker population).  The
+  // public split API cannot fingerprint it exactly, so expose that gap only
+  // for proofless kernels.  apply/replay set proof_atomic and publish in the
+  // same exclusive call.
+  if (!proof_atomic && kernel.proof) {
+    const auto status = kernel.proof->lrat() || kernel.proof->pb()
+                            ? DirectPhpActionStatus::UnsupportedProof
+                            : DirectPhpActionStatus::UnsupportedProofSplit;
+    return stopped_result(status, request, effort);
+  }
 
   direct_php_live::Admission admission;
   direct_php_live::Result live =
       direct_php_live::admit(kernel, live_request(request.limits), admission);
   copy_effort(live, effort);
   if (live.status != LiveStatus::Admitted)
-    return stopped_result(action_status(live.status), request, effort,
-                          expected);
+    return stopped_result(action_status(live.status), request, effort);
 
   direct_php_live::Transaction transaction;
   live = direct_php_live::prepare(kernel, admission, transaction);
   if (live.status != LiveStatus::Prepared)
-    return stopped_result(action_status(live.status), request, effort,
-                          expected);
+    return stopped_result(action_status(live.status), request, effort);
 
   ReplayMeter meter{kernel, request.limits.maximum_replay_work};
   DirectPhpActionRecord record;
@@ -322,7 +364,7 @@ DirectPhpActionResult DirectPhpPreparedActionAccess::prepare_impl(
   effort.replay_work = meter.work;
   if (built != RecordStatus::Complete) {
     DirectPhpActionResult result =
-        stopped_result(record_failure(built), request, effort, expected);
+        stopped_result(record_failure(built), request, effort);
     result.proof = transaction.accounting();
     return result;
   }
@@ -352,7 +394,7 @@ DirectPhpActionResult DirectPhpPreparedActionAccess::prepare_impl(
   output = std::move(prepared);
 
   DirectPhpActionResult result = stopped_result(
-      DirectPhpActionStatus::Prepared, request, effort, expected);
+      DirectPhpActionStatus::Prepared, request, effort, expected != nullptr);
   result.proof = output.record_.accounting;
   return result;
 }
@@ -394,7 +436,7 @@ DirectPhpActionResult direct_php_action_prepare(
     Kernel &kernel, DirectPhpActionSession &session,
     const DirectPhpActionRequest &request, DirectPhpPreparedAction &output) {
   return DirectPhpPreparedActionAccess::prepare_impl(
-      kernel, session, request, nullptr, output);
+      kernel, session, request, nullptr, false, output);
 }
 
 DirectPhpActionResult direct_php_action_prepare_replay(
@@ -403,7 +445,7 @@ DirectPhpActionResult direct_php_action_prepare_replay(
     const DirectPhpActionRecord &expected,
     DirectPhpPreparedAction &output) {
   return DirectPhpPreparedActionAccess::prepare_impl(
-      kernel, session, request, &expected, output);
+      kernel, session, request, &expected, false, output);
 }
 
 DirectPhpActionResult direct_php_action_publish(
@@ -436,8 +478,8 @@ DirectPhpActionResult direct_php_action_apply(
     Kernel &kernel, DirectPhpActionSession &session,
     const DirectPhpActionRequest &request) {
   DirectPhpPreparedAction prepared;
-  DirectPhpActionResult result =
-      direct_php_action_prepare(kernel, session, request, prepared);
+  DirectPhpActionResult result = DirectPhpPreparedActionAccess::prepare_impl(
+      kernel, session, request, nullptr, true, prepared);
   if (result.status != DirectPhpActionStatus::Prepared) return result;
   return direct_php_action_publish(kernel, session, prepared);
 }
@@ -447,8 +489,8 @@ DirectPhpActionResult direct_php_action_replay(
     const DirectPhpActionRequest &request,
     const DirectPhpActionRecord &expected) {
   DirectPhpPreparedAction prepared;
-  DirectPhpActionResult result = direct_php_action_prepare_replay(
-      kernel, session, request, expected, prepared);
+  DirectPhpActionResult result = DirectPhpPreparedActionAccess::prepare_impl(
+      kernel, session, request, &expected, true, prepared);
   if (result.status != DirectPhpActionStatus::Prepared) return result;
   result = direct_php_action_publish(kernel, session, prepared);
   result.replay_checked = true;
