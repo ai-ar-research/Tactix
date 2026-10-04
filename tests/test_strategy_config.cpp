@@ -66,8 +66,33 @@ static void add_blocked_amo_cleanup_fixture(Kernel &k) {
   }
 }
 
+static bool schedules_lucky_instance(
+    const strategy::OnlineStrategyProgram &program, uint64_t instance) {
+  for (const auto &step : program.sequence)
+    if (step.rule == "Lucky")
+      for (const uint64_t scheduled : step.instances)
+        if (scheduled == instance)
+          return true;
+  return false;
+}
+
 int main() {
   DefaultStrategyConfig defaults;
+  const std::string default_snapshot = defaults.serialize();
+  // Affine construction (Lucky 8) has no production config arm or scheduled
+  // invocation. Keep both representations pinned so a new default path cannot
+  // silently acquire the experimental constructor.
+  assert(default_snapshot.find("affine_model") == std::string::npos);
+  for (const auto &step : defaults.inprocess.program)
+    assert(step.rule != "Lucky");
+  for (const auto *stages : {&defaults.inprocess.structured_root_stages,
+                             &defaults.inprocess
+                                  .structured_root_bounded_backtracking_stages,
+                             &defaults.inprocess
+                                  .structured_root_large_domain_stages})
+    for (const auto &stage : *stages)
+      assert(!schedules_lucky_instance(stage.program, 8));
+  assert(!defaults.graph_labeling_model.enabled);
   assert(defaults.inprocess.structured_root_before_lucky);
   assert(defaults.inprocess.structured_root_residual_search_handoff);
   assert(defaults.inprocess.structured_root_progress_feedback);
@@ -91,27 +116,45 @@ int main() {
                SymmetryNonforcingCutAdmission::RequireCompoundProgress);
       }
   assert(saw_default_graph);
-  assert(defaults.serialize().find(
+  assert(default_snapshot.find(
              "inprocess.structured_root_sr_discovery_ticks=20000000000") !=
          std::string::npos);
-  assert(defaults.serialize().find(
+  assert(default_snapshot.find(
              "inprocess.structured_root_bce_after_unique_literal_amo=1") !=
          std::string::npos);
-  assert(defaults.serialize().find(
+  assert(default_snapshot.find(
              "inprocess.structured_root_residual_search_handoff=1") !=
          std::string::npos);
-  assert(defaults.serialize().find(
+  assert(default_snapshot.find(
              "inprocess.structured_root_progress_feedback=1") !=
          std::string::npos);
-  assert(defaults.serialize().find(
+  assert(default_snapshot.find(
              "inprocess.structured_root_large_domain_progress_feedback=0") !=
          std::string::npos);
-  assert(defaults.serialize().find(
+  assert(default_snapshot.find(
              "signed_cardinality_proof.enabled=1") != std::string::npos);
-  assert(defaults.serialize().find("exact_cover_model.enabled=0") !=
+  assert(default_snapshot.find("exact_cover_model.enabled=1") !=
          std::string::npos);
-  assert(defaults.serialize().find("independent_set_model.enabled=0") !=
+  assert(default_snapshot.find("independent_set_model.enabled=1") !=
          std::string::npos);
+  assert(default_snapshot.find("graph_labeling_model.enabled=0") !=
+         std::string::npos);
+  {
+    // Empty formulas exercise the guards and counters without constructor
+    // search. Defaults attempt neither experimental action; explicitly
+    // enabling graph labeling admits exactly its Lucky opportunity.
+    Kernel production;
+    assert(DefaultPolicy(defaults).solve(production) == 10);
+    assert(production.stats.affine_model_calls == 0);
+    assert(production.stats.graph_labeling_calls == 0);
+
+    DefaultStrategyConfig graph_enabled = defaults;
+    graph_enabled.graph_labeling_model.enabled = true;
+    Kernel graph;
+    assert(DefaultPolicy(graph_enabled).solve(graph) == 10);
+    assert(graph.stats.affine_model_calls == 0);
+    assert(graph.stats.graph_labeling_calls == 1);
+  }
   assert(!default_should_cleanup_unique_literal_amo(0, true, false));
   assert(!default_should_cleanup_unique_literal_amo(3, false, false));
   assert(default_should_cleanup_unique_literal_amo(3, true, false));

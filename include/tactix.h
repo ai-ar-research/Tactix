@@ -387,10 +387,8 @@ int tactix_apply_semantic_instance(tactix *, int rule_id, uint64_t instance);
 #define TACTIX_ONLINE_PARAMETERS_PARITY_MODEL 18
 #define TACTIX_ONLINE_PARAMETERS_ONEHOT_MODEL 19
 #define TACTIX_ONLINE_PARAMETERS_SUBSTITUTION_REDUNDANCY 20
-/* Wire tags 21--25 and 28--30 remain reserved so historical payloads can be
- * identified, but their Lucky constructor actions are retired. Configuring a
- * program with one of these parameter kinds is rejected; the tags must not be
- * reused for a Boolean inprocessing replacement. */
+/* Wire tags remain stable across constructor retirement and restoration.
+ * They must not be reused for a different action or Boolean replacement. */
 #define TACTIX_ONLINE_PARAMETERS_AFFINE_MODEL 21
 #define TACTIX_ONLINE_PARAMETERS_BALANCED_SIGNATURE_MODEL 22
 #define TACTIX_ONLINE_PARAMETERS_FERMAT_MODEL 23
@@ -686,8 +684,7 @@ typedef struct {
   uint32_t balanced_polarity_milli;
 } tactix_online_reorder_parameters;
 typedef struct {
-  /* Reserved ABI payload for retired Lucky instance 6.  Its structural
-   * recognizer is retained for theory-to-Boolean extraction. */
+  /* Lucky instance 6: bounded SAT-only GF(2) model construction. */
   uint32_t maximum_variables, maximum_groups, maximum_constraints;
   uint32_t minimum_group_clauses, minimum_equations;
   uint32_t maximum_free_variables;
@@ -700,8 +697,7 @@ typedef struct {
   uint64_t refutation_maximum_proof_additions;
 } tactix_online_parity_model_parameters;
 typedef struct {
-  /* Reserved ABI payload for retired Lucky instance 7.  Its one-hot
-   * recognizer is retained for theory-to-Boolean extraction. */
+  /* Lucky instances 7 and 9: bounded GF(3)/Direct-CSP SAT construction. */
   uint32_t maximum_variables, maximum_domains, maximum_constraints;
   uint32_t maximum_equation_arity, minimum_domains, minimum_equations;
   uint32_t maximum_free_domains;
@@ -713,7 +709,8 @@ typedef struct {
   uint64_t refutation_maximum_proof_additions;
 } tactix_online_onehot_model_parameters;
 typedef struct {
-  /* Reserved ABI payload for retired Lucky instance 10. */
+  /* Live typed profile for Lucky instance 10, the bounded Oddball SAT
+   * constructor and partial-model guidance producer. */
   uint32_t maximum_balls, maximum_width;
   uint64_t restarts, steps_per_restart;
   uint32_t samples_per_step;
@@ -721,18 +718,18 @@ typedef struct {
   uint32_t completion_rounds;
 } tactix_online_balanced_signature_model_parameters;
 typedef struct {
-  /* Reserved ABI payload for retired Lucky instance 11. */
+  /* Parameters for SAT-only Lucky instance 11 (Fermat construction). */
   uint32_t maximum_bits, comparator_tail_clauses;
   uint64_t rho_constants, rho_iterations;
 } tactix_online_fermat_model_parameters;
 typedef struct {
-  /* Reserved ABI payload for retired Lucky instance 13. */
+  /* Parameters for SAT-only Lucky instance 13 (lookup-circuit construction). */
   uint32_t maximum_fanin, maximum_fanout, maximum_primary_inputs;
   uint32_t maximum_support;
   uint64_t maximum_vector_gate_evaluations;
 } tactix_online_lookup_circuit_model_parameters;
 typedef struct {
-  /* Reserved ABI payload for retired Lucky instance 14. */
+  /* Parameters for SAT-only Lucky instance 14 (SIMON construction). */
   uint32_t maximum_rounds;
   uint64_t maximum_candidates;
 } tactix_online_simon_model_parameters;
@@ -750,14 +747,12 @@ typedef struct {
   uint64_t maximum_bdd_nodes, maximum_proof_additions;
 } tactix_online_signed_cardinality_proof_parameters;
 typedef struct {
-  /* Reserved ABI payload for retired Lucky instance 17.  Exact-cover
-   * recognition is retained for certified Boolean extraction. */
+  /* Lucky instance 17: signed at-most-one block exact-cover constructor. */
   uint32_t block_arity;
   uint64_t maximum_nodes, restarts, restart_nodes, seed;
 } tactix_online_exact_cover_model_parameters;
 typedef struct {
-  /* Reserved ABI payload for retired Lucky instance 18.  Independent-set
-   * recognition is retained for certified Boolean extraction. */
+  /* Lucky instance 18: layered exact-count independent-set constructor. */
   uint32_t maximum_vertices;
   uint64_t maximum_steps, completion_rounds, seed;
 } tactix_online_independent_set_model_parameters;
@@ -771,7 +766,7 @@ typedef struct {
 #define TACTIX_GRAPH_PUBLICATION 7
 #define TACTIX_GRAPH_STAGES 8
 typedef struct {
-  /* Reserved ABI payload for retired Lucky instance 21. */
+  /* Lucky instance 21: graph-labeling constructor and partial guidance. */
   uint32_t maximum_vertices;
   uint64_t workspace_bytes;
   uint64_t work[TACTIX_GRAPH_STAGES];
@@ -792,8 +787,7 @@ typedef struct {
   uint64_t left_size, left_weight, right_weight, total_weight;
 } tactix_online_affine_scope;
 typedef struct {
-  /* Reserved ABI payload for retired Lucky instance 8.  Affine recognition
-   * and scopes are retained for certified Boolean extraction. */
+  /* Lucky instance 8: bounded SAT-only affine projection/model construction. */
   uint64_t maximum_variables, maximum_constraints, maximum_arity;
   uint64_t maximum_projection, minimum_equations, maximum_entries;
   uint64_t import_bytes, linear_bytes, table_bytes, maximum_work;

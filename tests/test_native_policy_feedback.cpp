@@ -161,6 +161,88 @@ static void test_completion_accounting() {
   assert(capture.intervals.back().preceding_interval == 1);
 }
 
+static void test_graph_labeling_constructor_feedback() {
+  Kernel k;
+  ScopedHeuristics h(k);
+  constexpr uint32_t n = 4;
+  kernel_reserve_vars(k, n * n);
+  for (uint32_t column = 0; column < n; ++column) {
+    std::vector<Lit> cover;
+    for (uint32_t row = 0; row < n; ++row)
+      cover.push_back(make_lit(row * n + column, false));
+    kernel_add_large_clause(k, cover.data(), cover.size(), false, 0);
+  }
+  for (uint32_t row = 0; row < n; ++row)
+    for (uint32_t a = 0; a < n; ++a)
+      for (uint32_t b = a + 1; b < n; ++b)
+        kernel_add_binary_clause(k, make_lit(row * n + a, true),
+                                make_lit(row * n + b, true));
+  // Separation two makes this projected objective deliberately too strong,
+  // so the constructor publishes its best partial candidate instead of a
+  // terminal model.
+  for (uint32_t a = 0; a < n; ++a)
+    for (uint32_t b = a + 1; b < n; ++b)
+      kernel_add_binary_clause(k, make_lit(a * n + 2, true),
+                              make_lit(b * n + 2, true));
+  k.graph_labeling_parameters.work.fill(100000);
+  k.graph_labeling_parameters.workspace_bytes = 1 << 20;
+  k.graph_labeling_parameters.repair_rounds = 3;
+  k.graph_labeling_parameters.anneal_iterations = 20;
+  k.graph_labeling_parameters.stall_anneal_iterations = 3;
+  const auto configured = k.graph_labeling_parameters;
+
+  Capture capture;
+  execution::PolicyCompletion completion(k, &capture,
+      [](const Kernel &kernel, const void *) { return observe_kernel(kernel); },
+      nullptr);
+  completion.begin();
+  const auto result = completion.execute(
+      FeedbackKind::Rule, "Lucky", LUCKY_GRAPH_LABELING,
+      [&] {
+        return execution::native_rule_feedback(
+            k, "Lucky", LUCKY_GRAPH_LABELING, "graph-labeling");
+      },
+      [&] {
+        return execution::execute_action(
+            k, execution::LuckyRequest<
+                   execution::LuckyOpportunity::GraphLabeling>{});
+      });
+  completion.finish(0, StopReason::Completed);
+
+  assert(result == ApplyResult::Ok && capture.actions.size() == 1);
+  const auto &record = capture.actions.front();
+  assert(record.identity == "Lucky" && record.instance == LUCKY_GRAPH_LABELING);
+  assert(record.native_request && record.native_request->invocation);
+  const auto &invocation = *record.native_request->invocation;
+  assert(invocation.rule == "Lucky" &&
+         invocation.granularity == InvocationGranularity::OneInstance);
+  assert(invocation.instances == std::vector<uint64_t>{LUCKY_GRAPH_LABELING});
+  assert(std::holds_alternative<GraphLabelingParameters>(invocation.parameters));
+  const auto &parameters = std::get<GraphLabelingParameters>(invocation.parameters);
+  assert(parameters.work == configured.work &&
+         parameters.workspace_bytes == configured.workspace_bytes &&
+         parameters.repair_rounds == configured.repair_rounds);
+
+  assert(record.after.cumulative.graph_labeling_calls ==
+         record.before.cumulative.graph_labeling_calls + 1);
+  const uint64_t work = record.after.cumulative.graph_labeling_work -
+                        record.before.cumulative.graph_labeling_work;
+  assert(work > 0 && record.native_request->work == work);
+  assert(record.after.cumulative.local_search_hints_offered ==
+         record.before.cumulative.local_search_hints_offered + 1);
+  assert(record.before.local_search_candidates.empty() &&
+         record.after.local_search_candidates.size() == 1);
+  const auto &candidate = record.after.local_search_candidates.front();
+  assert(local_search_candidate_kind(candidate.id) ==
+         LocalSearchKind::GraphLabeling);
+  assert(candidate.objective > 0 && candidate.objective_exact);
+  assert(candidate.effort.unit == LocalSearchEffortUnit::GraphWork &&
+         candidate.effort.amount == work);
+  assert(candidate.formula_touch_epoch == record.after.state.touch_epoch &&
+         candidate.formula_root_assignments == record.after.root_population &&
+         candidate.external_variables == record.after.variables);
+}
+
 // Leaf measurements precede the enclosing native publication, but receiver
 // code must only run after temporary parameters and watch scopes are restored.
 static void test_deferred_publication_and_native_units() {
@@ -714,6 +796,7 @@ int main() {
   const int fd = mkstemp(temporary);
   assert(fd >= 0 && close(fd) == 0);
   test_completion_accounting();
+  test_graph_labeling_constructor_feedback();
   test_deferred_publication_and_native_units();
   test_native_batches(true, true);
   test_native_batches(false, true);

@@ -368,13 +368,20 @@ static void test_registry_surface() {
   const uint32_t count = r.instances(k, insts, LUCKY_INSTANCE_COUNT);
   assert(count == LUCKY_ACTIVE_INSTANCE_COUNT);
   assert(insts[0] == LUCKY_ALL_TRUE);
-  assert(insts[6] == 15); // first proof-only structural action
-  assert(!lucky_retired_constructor_instance(insts[6]));
-  for (uint64_t instance = 0; instance < LUCKY_INSTANCE_COUNT; ++instance)
-    if (lucky_retired_constructor_instance(instance)) {
-      assert(std::find(insts, insts + count, instance) == insts + count);
-      assert(r.apply_instance(k, instance) == ApplyResult::NoOp);
-    }
+  for (uint64_t instance = 0; instance < LUCKY_INSTANCE_COUNT; ++instance) {
+    assert(insts[instance] == instance);
+    assert(!lucky_retired_constructor_instance(instance));
+  }
+  assert(!lucky_retired_constructor_instance(INSTANCE_CANONICAL));
+  assert(lucky_retired_constructor_instance(99));
+  for (uint64_t instance = 11; instance <= 14; ++instance)
+    assert(std::find(insts, insts + count, instance) != insts + count);
+  assert(r.apply_instance(k, 17) == ApplyResult::NoOp);
+  assert(k.stats.exact_cover_model_calls == 1);
+  assert(r.apply_instance(k, 18) == ApplyResult::NoOp);
+  assert(k.stats.independent_set_model_calls == 1);
+  assert(r.apply_instance(k, LUCKY_GRAPH_LABELING) == ApplyResult::NoOp);
+  assert(k.stats.graph_labeling_calls == 1);
   assert(r.apply_instance(k, 99) == ApplyResult::NoOp); // unknown payload
   assert(r.apply_instance(k, INSTANCE_CANONICAL) == ApplyResult::Sat);
   // the guard reads state shape only; SAT comes from the status predicate
@@ -391,6 +398,24 @@ static void test_guard_needs_quiescent_root() {
   assert(!lucky_guard(k)); // not at the root (and unpropagated)
 }
 
+static void test_sat_constructors_do_not_refute_root_conflicts() {
+  const int id = tactix_rule_id("Lucky");
+  assert(id >= 0);
+  const RuleVTable &r = tactix_rules()[id];
+  for (const uint64_t instance : {uint64_t{6}, uint64_t{7}}) {
+    Kernel k;
+    ScopedHeuristics h(k);
+    kernel_reserve_vars(k, 2);
+    kernel_add_binary_clause(k, internalize(-1), internalize(2));
+    kernel_assign_unit(k, internalize(1));
+    kernel_assign_unit(k, internalize(-2));
+    assert(lucky_guard(k));
+    assert(!kernel_propagation_fixpoint(k));
+    assert(r.apply_instance(k, instance) == ApplyResult::NoOp);
+    assert(!k.inconsistent && !k.conflict_valid);
+  }
+}
+
 int main() {
   test_all_true();
   test_default_early_lucky_keeps_cold_state_deferred();
@@ -404,6 +429,7 @@ int main() {
   test_late_call_is_formula_shape_invariant();
   test_registry_surface();
   test_guard_needs_quiescent_root();
+  test_sat_constructors_do_not_refute_root_conflicts();
   puts("test_lucky OK");
   return 0;
 }

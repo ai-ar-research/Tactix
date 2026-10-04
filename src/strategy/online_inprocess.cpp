@@ -384,18 +384,67 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
       return reject("rule material setting is invalid");
     if (!parameter_matches(step))
       return reject("parameters do not match rule");
-    if (step.rule == "Lucky" &&
-        (std::holds_alternative<AffineModelParameters>(step.parameters) ||
-         std::holds_alternative<BalancedSignatureModelParameters>(
-             step.parameters) ||
-         std::holds_alternative<FermatModelParameters>(step.parameters) ||
-         std::holds_alternative<LookupCircuitModelParameters>(step.parameters) ||
-         std::holds_alternative<SimonModelParameters>(step.parameters) ||
-         std::holds_alternative<ExactCoverModelParameters>(step.parameters) ||
-         std::holds_alternative<IndependentSetModelParameters>(
-             step.parameters) ||
-         std::holds_alternative<GraphLabelingParameters>(step.parameters)))
-      return reject("Lucky constructor parameters are retired");
+    if (std::holds_alternative<ParityModelParameters>(step.parameters) &&
+        (step.granularity != InvocationGranularity::OneInstance ||
+         step.instances.size() != 1 ||
+         (step.instances[0] != 6 &&
+          step.instances[0] != LUCKY_STARTUP_PARITY &&
+          step.instances[0] != LUCKY_PARITY_PROOF)))
+      return reject("Lucky parity parameters require instance 6, 19, or 23");
+    if (std::holds_alternative<OnehotModelParameters>(step.parameters) &&
+        (step.granularity != InvocationGranularity::OneInstance ||
+         step.instances.size() != 1 ||
+         (step.instances[0] != 7 && step.instances[0] != 9 &&
+          step.instances[0] != LUCKY_EXACT_ONE_PROOF)))
+      return reject("Lucky onehot parameters require instance 7, 9, or 24");
+    if (std::holds_alternative<AffineModelParameters>(step.parameters) &&
+        (step.granularity != InvocationGranularity::OneInstance ||
+         step.instances != std::vector<uint64_t>{8}))
+      return reject("Lucky affine-model parameters require instance 8");
+    if (std::holds_alternative<BalancedSignatureModelParameters>(
+            step.parameters) &&
+        (step.granularity != InvocationGranularity::OneInstance ||
+         step.instances != std::vector<uint64_t>{10}))
+      return reject(
+          "Lucky balanced-signature parameters require instance 10");
+    if (std::holds_alternative<FermatModelParameters>(step.parameters) &&
+        (step.granularity != InvocationGranularity::OneInstance ||
+         step.instances != std::vector<uint64_t>{11}))
+      return reject("Lucky Fermat parameters require instance 11");
+    if (std::holds_alternative<LookupCircuitModelParameters>(step.parameters) &&
+        (step.granularity != InvocationGranularity::OneInstance ||
+         step.instances != std::vector<uint64_t>{13}))
+      return reject("Lucky lookup-circuit parameters require instance 13");
+    if (std::holds_alternative<SimonModelParameters>(step.parameters) &&
+        (step.granularity != InvocationGranularity::OneInstance ||
+         step.instances != std::vector<uint64_t>{14}))
+      return reject("Lucky Simon parameters require instance 14");
+    if (std::holds_alternative<StconnProofParameters>(step.parameters) &&
+        (step.granularity != InvocationGranularity::OneInstance ||
+         step.instances != std::vector<uint64_t>{15}))
+      return reject("Lucky stconn parameters require instance 15");
+    if (std::holds_alternative<SignedCardinalityProofParameters>(
+            step.parameters) &&
+        (step.granularity != InvocationGranularity::OneInstance ||
+         step.instances != std::vector<uint64_t>{16}))
+      return reject("Lucky signed-cardinality parameters require instance 16");
+    if (std::holds_alternative<ExactCoverModelParameters>(step.parameters) &&
+        (step.granularity != InvocationGranularity::OneInstance ||
+         step.instances != std::vector<uint64_t>{17}))
+      return reject("Lucky exact-cover parameters require instance 17");
+    if (std::holds_alternative<IndependentSetModelParameters>(step.parameters) &&
+        (step.granularity != InvocationGranularity::OneInstance ||
+         step.instances != std::vector<uint64_t>{18}))
+      return reject("Lucky independent-set parameters require instance 18");
+    if (std::holds_alternative<GraphLabelingParameters>(step.parameters) &&
+        (step.granularity != InvocationGranularity::OneInstance ||
+         step.instances != std::vector<uint64_t>{LUCKY_GRAPH_LABELING}))
+      return reject("Lucky graph-labeling parameters require instance 21");
+    if (std::holds_alternative<RamseyStartupParameters>(step.parameters) &&
+        (step.granularity != InvocationGranularity::OneInstance ||
+         step.instances !=
+             std::vector<uint64_t>{LUCKY_STARTUP_RAMSEY}))
+      return reject("Lucky Ramsey parameters require instance 22");
     if (const auto *p = std::get_if<AnalyzeParameters>(&step.parameters);
         p && !p->valid())
       return reject("Analyze parameters are invalid");

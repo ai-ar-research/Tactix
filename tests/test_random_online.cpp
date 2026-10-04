@@ -4,6 +4,7 @@
 #include "policies/random_policy.hpp"
 #include "policies/trace.hpp"
 #include "rules/decide/decide.hpp"
+#include "rules/lucky/lucky.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/semantic_extension/exact_cover_action.hpp"
 #include "rules/semantic_extension/independent_set_cover_action.hpp"
@@ -16,6 +17,7 @@
 #include <cstring>
 #include <cstdio>
 #include <fstream>
+#include <initializer_list>
 #include <limits>
 #include <set>
 #include <string>
@@ -144,6 +146,14 @@ static void invalid_configuration_is_rejected() {
   assert(error == "random-online joint SR probability is invalid");
   config.sr_joint_positive_denominator = 1;
   config.sr_joint_positive_numerator = 2;
+  assert(!random_online_strategy_program(k, 1, config, output, &error));
+
+  config = {};
+  config.affine_joint_positive_denominator = 0;
+  assert(!random_online_strategy_program(k, 1, config, output, &error));
+  assert(error == "random-online joint affine probability is invalid");
+  config.affine_joint_positive_denominator = 1;
+  config.affine_joint_positive_numerator = 2;
   assert(!random_online_strategy_program(k, 1, config, output, &error));
 
   config = {};
@@ -356,7 +366,8 @@ static void configurable_parameters_round_trip() {
   parity_parameters.refutation_minimum_probe_repeats = 5;
   parity_parameters.refutation_maximum_proof_additions = 1234567;
   parity.parameters = parity_parameters;
-  parity.granularity = InvocationGranularity::CanonicalApplication;
+  parity.granularity = InvocationGranularity::OneInstance;
+  parity.instances = {6};
   parity.repeat = {RepeatMode::Once, 1};
   parity.work_unit = WorkUnit::Applications;
   parity.budget = WorkLimit::bounded(1);
@@ -371,6 +382,7 @@ static void configurable_parameters_round_trip() {
   onehot_parameters.refutation_maximum_arity = 3;
   onehot_parameters.refutation_maximum_proof_additions = 1234568;
   onehot.parameters = onehot_parameters;
+  onehot.instances = {7};
   program.sequence.push_back(onehot);
 
   OnlineInvocation sr = parity;
@@ -2035,8 +2047,8 @@ static void parameter_domains_are_caller_controlled() {
     } else if (std::holds_alternative<std::monostate>(step.parameters) ||
                std::holds_alternative<RamseyStartupParameters>(
                    step.parameters)) {
-      // Generic probes/counting and the optional startup proof carry no
-      // retired constructor parameters.
+      // Generic catalog choices and the optional startup proof carry no
+      // constructor-specific parameters.
     } else {
       const auto *onehot_parameters =
           std::get_if<OnehotModelParameters>(&step.parameters);
@@ -2051,11 +2063,13 @@ static void parameter_domains_are_caller_controlled() {
     selected_affine_instance |=
         std::find(step.instances.begin(),step.instances.end(),uint64_t{8})!=step.instances.end();
     selected_parity_instance |=
-        std::find(step.instances.begin(), step.instances.end(), uint64_t{23}) !=
+        std::find(step.instances.begin(), step.instances.end(), uint64_t{6}) !=
         step.instances.end();
     selected_onehot_instance |=
-        std::find(step.instances.begin(), step.instances.end(), uint64_t{24}) !=
-        step.instances.end();
+        std::find(step.instances.begin(), step.instances.end(), uint64_t{7}) !=
+            step.instances.end() ||
+        std::find(step.instances.begin(), step.instances.end(), uint64_t{9}) !=
+            step.instances.end();
     selected_balanced_instance |=
         std::find(step.instances.begin(), step.instances.end(), uint64_t{10}) !=
         step.instances.end();
@@ -2087,13 +2101,13 @@ static void parameter_domains_are_caller_controlled() {
     assert(serialize_online_strategy_program(replay) ==
            serialize_online_strategy_program(program));
   }
-  assert(!selected_affine_instance && affine_variables.empty() &&
-         affine_work.empty());
+  assert(selected_affine_instance && !affine_variables.empty() &&
+         !affine_work.empty());
   assert(selected_parity_instance && selected_onehot_instance);
-  assert(!selected_balanced_instance && balanced_balls.empty());
-  assert(!selected_fermat_instance && fermat_bits.empty());
-  assert(!selected_lookup_instance && lookup_fanin.empty());
-  assert(!selected_simon_instance && simon_rounds.empty());
+  assert(selected_balanced_instance && !balanced_balls.empty());
+  assert(selected_fermat_instance && !fermat_bits.empty());
+  assert(selected_lookup_instance && !lookup_fanin.empty());
+  assert(selected_simon_instance && !simon_rounds.empty());
   assert(selected_stconn_instance && stconn_widths.size() > 4 &&
          stconn_columns.size() > 8 && stconn_rup_clauses.size() > 8);
   assert(selected_signed_cardinality_instance &&
@@ -2103,8 +2117,8 @@ static void parameter_domains_are_caller_controlled() {
          signed_cardinality_arities.size() > 4 &&
          signed_cardinality_nodes.size() > 8 &&
          signed_cardinality_additions.size() > 8);
-  assert(!selected_exact_cover_instance && exact_cover_arities.empty());
-  assert(!selected_independent_set_instance && independent_set_vertices.empty());
+  assert(selected_exact_cover_instance && !exact_cover_arities.empty());
+  assert(selected_independent_set_instance && !independent_set_vertices.empty());
   assert(parity_variables.size() > 8 && parity_groups.size() > 8 &&
          parity_constraints.size() > 8 && parity_free.size() > 8 &&
          parity_candidates.size() > 8);
@@ -2136,9 +2150,17 @@ static void parameter_domains_are_caller_controlled() {
              return std::holds_alternative<std::monostate>(p) ||
                     std::holds_alternative<ParityModelParameters>(p) ||
                     std::holds_alternative<OnehotModelParameters>(p) ||
+                    std::holds_alternative<AffineModelParameters>(p) ||
+                    std::holds_alternative<
+                        BalancedSignatureModelParameters>(p) ||
+                    std::holds_alternative<FermatModelParameters>(p) ||
+                    std::holds_alternative<LookupCircuitModelParameters>(p) ||
+                    std::holds_alternative<SimonModelParameters>(p) ||
                     std::holds_alternative<StconnProofParameters>(p) ||
                     std::holds_alternative<
                         SignedCardinalityProofParameters>(p) ||
+                    std::holds_alternative<ExactCoverModelParameters>(p) ||
+                    std::holds_alternative<IndependentSetModelParameters>(p) ||
                     std::holds_alternative<RamseyStartupParameters>(p);
            }},
       };
@@ -2451,6 +2473,35 @@ static void seeded_walk_parameters_round_trip() {
   assert(!validate_online_strategy_program(program, &error));
 }
 
+static void exact_cover_and_independent_set_parameters_round_trip() {
+  OnlineStrategyProgram program;
+  OnlineInvocation step;
+  step.id = 1;
+  step.rule = "Lucky";
+  step.granularity = InvocationGranularity::OneInstance;
+  step.instances = {17};
+  step.parameters = ExactCoverModelParameters{};
+  program.sequence = {step};
+  std::string error;
+  assert(validate_online_strategy_program(program, &error));
+  OnlineStrategyProgram replay;
+  const auto exact_wire = serialize_online_strategy_program(program);
+  assert(deserialize_online_strategy_program(exact_wire, replay, &error));
+  assert(serialize_online_strategy_program(replay) == exact_wire);
+  program.sequence[0].instances = {18};
+  assert(!validate_online_strategy_program(program, &error));
+  assert(error == "Lucky exact-cover parameters require instance 17");
+
+  program.sequence[0].parameters = IndependentSetModelParameters{};
+  assert(validate_online_strategy_program(program, &error));
+  const auto independent_wire = serialize_online_strategy_program(program);
+  assert(deserialize_online_strategy_program(independent_wire, replay, &error));
+  assert(serialize_online_strategy_program(replay) == independent_wire);
+  program.sequence[0].instances = {17};
+  assert(!validate_online_strategy_program(program, &error));
+  assert(error == "Lucky independent-set parameters require instance 18");
+}
+
 static void graph_labeling_parameters_round_trip() {
   OnlineStrategyProgram program;
   OnlineInvocation step;
@@ -2467,13 +2518,16 @@ static void graph_labeling_parameters_round_trip() {
   step.parameters = parameters;
   program.sequence.push_back(step);
   std::string error;
-  assert(!validate_online_strategy_program(program, &error));
-  assert(error == "Lucky constructor parameters are retired");
+  assert(validate_online_strategy_program(program, &error));
   const auto wire = serialize_online_strategy_program(program);
   assert(wire.find("graph-labeling1(") != std::string::npos);
   OnlineStrategyProgram replay;
-  assert(!deserialize_online_strategy_program(wire, replay, &error));
-  assert(error == "Lucky constructor parameters are retired");
+  assert(deserialize_online_strategy_program(wire, replay, &error));
+  assert(serialize_online_strategy_program(replay) == wire);
+  program.sequence[0].instances = {18};
+  assert(!validate_online_strategy_program(program, &error));
+  assert(error == "Lucky graph-labeling parameters require instance 21");
+  program.sequence[0].instances = {21};
   parameters.work[0] = UINT64_MAX;
   program.sequence[0].parameters = parameters;
   assert(!validate_online_strategy_program(program, &error));
@@ -2482,11 +2536,51 @@ static void graph_labeling_parameters_round_trip() {
   assert(!validate_online_strategy_program(program, &error));
 }
 
+static void lucky_typed_parameters_require_compatible_instances() {
+  const auto check = [](InprocessParameters parameters,
+                        std::initializer_list<uint64_t> allowed,
+                        const char *message) {
+    OnlineInvocation step;
+    step.id = 1;
+    step.rule = "Lucky";
+    step.granularity = InvocationGranularity::OneInstance;
+    step.parameters = std::move(parameters);
+    OnlineStrategyProgram program;
+    program.sequence = {step};
+    std::string error;
+    for (uint64_t instance = 0; instance < LUCKY_INSTANCE_COUNT; ++instance) {
+      program.sequence[0].instances = {instance};
+      const bool expected =
+          std::find(allowed.begin(), allowed.end(), instance) != allowed.end();
+      assert(validate_online_strategy_program(program, &error) == expected);
+      if (!expected)
+        assert(error == message);
+    }
+    program.sequence[0].granularity = InvocationGranularity::CanonicalApplication;
+    program.sequence[0].instances.clear();
+    assert(!validate_online_strategy_program(program, &error));
+    assert(error == message);
+  };
+  check(ParityModelParameters{},
+        {6, LUCKY_STARTUP_PARITY, LUCKY_PARITY_PROOF},
+        "Lucky parity parameters require instance 6, 19, or 23");
+  check(OnehotModelParameters{}, {7, 9, LUCKY_EXACT_ONE_PROOF},
+        "Lucky onehot parameters require instance 7, 9, or 24");
+  check(StconnProofParameters{}, {15},
+        "Lucky stconn parameters require instance 15");
+  check(SignedCardinalityProofParameters{}, {16},
+        "Lucky signed-cardinality parameters require instance 16");
+  check(RamseyStartupParameters{}, {LUCKY_STARTUP_RAMSEY},
+        "Lucky Ramsey parameters require instance 22");
+}
+
 int main() {
   affine_consequence_replay_round_trip();
   theory_action_v4_replay_round_trip();
   theory_action_v5_replay_round_trip();
+  exact_cover_and_independent_set_parameters_round_trip();
   graph_labeling_parameters_round_trip();
+  lucky_typed_parameters_require_compatible_instances();
   seeded_walk_parameters_round_trip();
   condition_cube_replay_round_trips();
   random_clausal_fixing_retains_known_orbit_targets();

@@ -1,6 +1,7 @@
 #undef NDEBUG
 #include "frontend/parse.hpp"
 #include "rules/lucky/cerny_model.hpp"
+#include "rules/lucky/lucky.hpp"
 
 #include <cassert>
 #include <cstdio>
@@ -78,6 +79,11 @@ int main() {
     Kernel k = fixture();
     k.level = 1;
     assert(!cerny_model_guard(k));
+  }
+  {
+    Kernel k = fixture();
+    const RuleVTable &lucky = tactix_rules()[tactix_rule_id("Lucky")];
+    assert(lucky.apply_instance(k, 12) == ApplyResult::Sat);
   }
   return 0;
 }
