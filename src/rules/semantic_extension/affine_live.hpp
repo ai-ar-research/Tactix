@@ -24,6 +24,9 @@ struct AffineLiveSource {
 struct AffineLiveSnapshot {
   std::vector<affine_semantic_extension::Premise> premises;
   std::vector<AffineLiveSource> sources;
+  // Every large-clause Ref is valid only in this arena generation. Cached
+  // snapshots from an earlier collection are rejected before any Ref is read.
+  uint64_t arena_generation = 0;
   uint64_t literals = 0;
   uint64_t work = 0;
 };
@@ -33,13 +36,15 @@ struct AffineLiveRequest {
   uint64_t maximum_snapshot_literals = 0;
   uint64_t maximum_snapshot_work = 0;
   uint64_t maximum_proof_additions = 0;
+  uint64_t maximum_proof_deletions = 0;
   uint64_t maximum_journal_bytes = 0;
   size_t consequence = 0;
   uint64_t action_id = 0;
   uint64_t semantic_id = 0;
   FILE *records = nullptr;
-  // Optional caller-cached exact source view. It is revalidated immediately
-  // before commit; stale selected occurrences make the action a clean NoOp.
+  // Optional caller-cached exact source view. Payload counters are recomputed,
+  // and selected sources are revalidated immediately before commit; stale
+  // occurrences make the action a clean NoOp.
   const AffineLiveSnapshot *snapshot = nullptr;
 };
 
@@ -54,6 +59,10 @@ struct AffineLiveResult {
   uint64_t additions = 0, deletions = 0, published = 0;
   bool contradiction = false;
   bool rhs = false;
+  // Publication can re-arm root propagation. The adapter deliberately does
+  // not drain it: the controller owns the following Propagate action and its
+  // separately budgeted proof/journal delta.
+  bool propagation_pending = false;
   // Controller-owned advice may rank these existing variables later. This
   // adapter never changes phase, EVSIDS, VMTF, or any other heuristic state.
   std::vector<int32_t> semantic_variables;
@@ -69,9 +78,10 @@ bool capture_affine_live_snapshot(Kernel &, const AffineLiveRequest &,
 bool affine_live_sources_valid(const Kernel &, const AffineLiveSnapshot &,
                                const std::vector<uint64_t> &occurrences);
 
-// Recognize, preflight, revalidate, emit the preflighted RUP plan, publish only
-// missing target clauses, and resume root propagation. No public action or
-// policy is registered here.
+// Recognize, preflight, revalidate, emit the preflighted RUP plan, and publish
+// only missing target clauses. Root propagation is left pending for the
+// controller so this action's proof IDs and effort remain exactly preflighted.
+// No public action or policy is registered here.
 AffineLiveResult derive_affine_live(Kernel &, const AffineLiveRequest &);
 
 } // namespace tactix
