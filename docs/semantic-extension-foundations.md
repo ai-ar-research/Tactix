@@ -302,12 +302,15 @@ small-model tests show that old models extend uniquely with
 `p = AND(prefix)` and that dropping `p` projects every extended model to the
 original formula; independent unit propagation replays every RUP step.
 
-This is currently an internal planner. The next increment must capture the
-domains and relation directly from the live formula, revalidate them at commit,
-publish DSR/DRAT atomically, retain a semantic key so the same prefix is not
-redefined, expose the helper through the shared semantic-variable advice path,
-and add a typed offerer/controller action. Only that public path can be tested
-for recovery of the noL cohort; this foundation alone is not a solve claim.
+The live adapter now captures those exact domains and tuples from the current
+formula, preflights proof/namespace/arena/journal capacity, immediately
+recaptures the source, and atomically publishes DSR/DRAT plus complete JSONL
+provenance. A Kernel-bound action session retains exact owners and durable
+prefix keys across safe namespace growth; repeated keys cannot recreate a
+helper. It exports original values and the exact-AND helper through neutral
+semantic metadata but changes no heuristic state. Native offer enumeration,
+registry/C/replay/controller exposure, fuzz reach, and noL recovery remain
+pending; the current internal action is not a solve claim.
 
 ## Truth-table parity frontier
 

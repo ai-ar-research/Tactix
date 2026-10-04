@@ -12,6 +12,8 @@ struct Premise {
   uint64_t occurrence = 0;
   std::vector<int32_t> literals;
   uint64_t native_proof_id = 0;
+
+  bool operator==(const Premise &) const = default;
 };
 
 // A complete exactly-one domain.  Values are strictly ordered by
@@ -22,6 +24,8 @@ struct Domain {
   std::vector<int32_t> values;
   uint64_t at_least_one = 0;
   std::vector<uint64_t> at_most_one;
+
+  bool operator==(const Domain &) const = default;
 };
 
 // One authenticated forbidden tuple.  value_indices has one coordinate per
@@ -32,11 +36,15 @@ struct Domain {
 struct ForbiddenTuple {
   std::vector<uint32_t> value_indices;
   uint64_t occurrence = 0;
+
+  bool operator==(const ForbiddenTuple &) const = default;
 };
 
 struct Relation {
   std::vector<Domain> domains;
   std::vector<ForbiddenTuple> forbidden;
+
+  bool operator==(const Relation &) const = default;
 };
 
 struct DomainValue {
@@ -44,6 +52,10 @@ struct DomainValue {
   uint32_t value = 0;
 
   bool operator==(const DomainValue &) const = default;
+  bool operator<(const DomainValue &other) const {
+    return domain < other.domain ||
+           (domain == other.domain && value < other.value);
+  }
 };
 
 // Select exactly one value in every domain except residual_domain.  Entries
