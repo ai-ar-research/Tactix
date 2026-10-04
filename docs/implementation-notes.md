@@ -412,7 +412,7 @@ DefaultPolicy has no Condition producer and omits X5 from its reference slot pro
 | M3 `ConflictAnalysis` | implemented |
 | M4 | folded into M3 |
 | S1 `Restart` · S2 `Reduce` · S5 `Lucky` | implemented |
-| S3 `Rephase` · S4 `SwitchMode` · S6 `Walk` · S7 `Reorder` · S8 `LocalSearchGuidance` | implemented H-only operations; S8 independently exposes retained DirectCSP, affine, parity, one-hot, and balanced-signature phase advice |
+| S3 `Rephase` · S4 `SwitchMode` · S6 `Walk` · S7 `Reorder` · S8 `LocalSearchGuidance` · S9 `SemanticVariableAdvice` | implemented H-only operations; S8 exposes retained phase advice; S9 applies bounded VMTF/EVSIDS doses to producer-local immutable candidates with pure observation, typed replay and raw feedback; current theory actions remain disabled in DefaultPolicy pending acceptance |
 | C1 `SubsumeForward` · C2 `Strengthen` · C3 `Vivify` | implemented |
 | V1 `Probe` · V2 `Backbone` · V3 `Substitute` · V4 `TransitiveReduce` | implemented |
 | V5 `Sweep` | implemented with embedded sub-solver |
@@ -424,6 +424,7 @@ DefaultPolicy has no Condition producer and omits X5 from its reference slot pro
 | X6 `HyperBinaryRes` | implemented; individual resolvent surface complete |
 | X7 `SubstitutionRedundancy` | implementation in progress; explicit/general/orbitopal surfaces and direct DSR micro proof pass, full acceptance pending |
 | X8 `ParityConsequence` | typed shared action; guard and provenance engineering contract above; full acceptance pending |
+| X9 `AffineConsequence` · X10 `ExactCoverExtension` · X11 `IndependentSetCover` | typed shared actions: persistent certified affine basis/consequences, exact-census fresh OR definitions with projection, and selected bounded RUP covers from an exact retained theory owner; durable identities and duplicate keys are implemented; unit independent-set covers and full acceptance remain pending |
 
 ## 18. Structured rule journal
 

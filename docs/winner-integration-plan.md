@@ -180,8 +180,11 @@ Record every added constraint/auxiliary definition: stable identity, Boolean for
 and theory meaning, source clauses/structural premises, generating action and
 parameters, variable mapping/model projection, and linked proof event or range.
 Track later deletion/replacement and per-action counts, effort and proof volume.
-Use a streamed derivation record linked to replay; do not retain an unbounded
-in-memory ledger. A certificate alone does not replace semantic provenance.
+Use a streamed derivation record linked to replay; do not retain unbounded proof
+history in memory. TTF exposure specifically requires a bounded live-population
+index over canonical clauses, current/raw proof identities, replacement/deletion
+state and mutation generation, or source pinning through commit. A certificate
+alone does not replace semantic provenance.
 
 Investigate policy-controlled branching on introduced or recovered semantic variables,
 distinguishing useful search choices from proof-only helpers. Assess EVSIDS boosts,
