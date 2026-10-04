@@ -272,6 +272,44 @@ bool install_clause(Kernel &kernel, const Event &event) {
   return true;
 }
 
+bool consumed_key(const affine::Image &image,
+                  const AffineLiveSnapshot &snapshot,
+                  const affine::BasisRow &row,
+                  AffineBasisConsumedKey &output) {
+  AffineBasisConsumedKey key;
+  key.variables = row.variables;
+  key.rhs = row.rhs;
+  for (size_t source_index : row.source_equations) {
+    if (source_index >= image.equations.size()) return false;
+    const affine::Equation &source = image.equations[source_index];
+    AffineBasisEquationIdentity equation;
+    equation.variables = source.variables;
+    equation.rhs = source.rhs;
+    for (uint64_t occurrence : source.premises) {
+      if (!occurrence || occurrence > snapshot.sources.size()) return false;
+      const AffineLiveSource &premise = snapshot.sources[occurrence - 1];
+      if (premise.occurrence != occurrence || !premise.clause_id)
+        return false;
+      AffineBasisSourceIdentity identity{premise.clause_id, premise.clause};
+      std::sort(identity.clause.begin(), identity.clause.end());
+      equation.premises.push_back(std::move(identity));
+    }
+    std::sort(equation.premises.begin(), equation.premises.end());
+    if (std::adjacent_find(equation.premises.begin(),
+                           equation.premises.end()) !=
+        equation.premises.end())
+      return false;
+    key.source_equations.push_back(std::move(equation));
+  }
+  std::sort(key.source_equations.begin(), key.source_equations.end());
+  if (std::adjacent_find(key.source_equations.begin(),
+                         key.source_equations.end()) !=
+      key.source_equations.end())
+    return false;
+  output = std::move(key);
+  return true;
+}
+
 } // namespace
 
 AffineBasisLiveResult prepare_affine_basis_live(
@@ -441,6 +479,11 @@ AffineBasisLiveResult prepare_affine_basis_live(
     if (row.source_equations.size() == 1 &&
         row.kind != affine::BasisRowKind::Extended)
       continue;
+    AffineBasisConsumedKey row_key;
+    if (!consumed_key(image, transaction.snapshot_, row, row_key)) {
+      result.status = AffineBasisLiveStatus::Invalid;
+      return result;
+    }
     parity_certificate::Clauses premises;
     std::set<int32_t> proof_variables;
     for (size_t source : row.source_equations) {
@@ -525,11 +568,21 @@ AffineBasisLiveResult prepare_affine_basis_live(
         break;
       }
     }
+    transaction.consumed_keys_.push_back(std::move(row_key));
   }
   transaction.additions_ = sink.additions;
   transaction.deletions_ = sink.deletions;
   if (!transaction.published_) {
     result.status = AffineBasisLiveStatus::NoStructure;
+    return result;
+  }
+  std::sort(transaction.consumed_keys_.begin(),
+            transaction.consumed_keys_.end());
+  if (transaction.consumed_keys_.empty() ||
+      std::adjacent_find(transaction.consumed_keys_.begin(),
+                         transaction.consumed_keys_.end()) !=
+          transaction.consumed_keys_.end()) {
+    result.status = AffineBasisLiveStatus::Invalid;
     return result;
   }
   if (transaction.additions_ > request.maximum_proof_additions ||
