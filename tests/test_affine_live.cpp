@@ -4,6 +4,7 @@
 #include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp"
 
+#include <algorithm>
 #include <cassert>
 #include <cstdio>
 #include <string>
@@ -38,13 +39,32 @@ static void install(Kernel &k, const std::vector<std::vector<int32_t>> &cnf,
 }
 
 static AffineLiveRequest request(FILE *records) {
-  return {{1000, 100, 1000, 1000000, 8, 16, 16, 4},
-          10000, 100000, 100000, 1000000, 0, 1, 7, records, nullptr};
+  AffineLiveRequest result;
+  result.image = {1000, 100, 1000, 1000000, 8, 16, 16, 4};
+  result.maximum_snapshot_literals = 10000;
+  result.maximum_snapshot_work = 100000;
+  result.maximum_proof_additions = 100000;
+  result.maximum_proof_deletions = 100000;
+  result.maximum_journal_bytes = 1000000;
+  result.action_id = 1;
+  result.semantic_id = 7;
+  result.records = records;
+  return result;
 }
 
 static long position(FILE *file) {
   const long result = std::ftell(file);
   assert(result >= 0);
+  return result;
+}
+
+static std::string read_all(FILE *file) {
+  assert(!std::fflush(file));
+  const long end = position(file);
+  std::rewind(file);
+  std::string result(static_cast<size_t>(end), '\0');
+  assert(std::fread(result.data(), 1, result.size(), file) == result.size());
+  assert(!std::fseek(file, end, SEEK_SET));
   return result;
 }
 
@@ -75,6 +95,7 @@ static void positive_and_continuing() {
   assert((result.semantic_variables == std::vector<int32_t>{5, 6}));
   assert(result.rhs && !result.contradiction);
   assert(result.published == 2 && result.additions > 2);
+  assert(!result.propagation_pending);
   assert(kernel_binary_live(k, kernel_internalize(k, 5),
                             kernel_internalize(k, 6)));
   assert(kernel_binary_live(k, kernel_internalize(k, -5),
@@ -126,13 +147,14 @@ static void clean_declines() {
     assert(k.next_clause_id == id && position(records) == 0);
     std::fclose(records);
   }
-  for (int mode : {0, 1}) {
+  for (int mode : {0, 1, 2}) {
     Kernel k;
     install(k, affine_formula());
     FILE *records = std::tmpfile(); assert(records);
     auto r = request(records);
     if (!mode) r.maximum_proof_additions = 1;
-    else r.maximum_journal_bytes = 1;
+    else if (mode == 1) r.maximum_journal_bytes = 1;
+    else r.maximum_proof_deletions = 0;
     const auto id = k.next_clause_id;
     const auto binaries = k.watches.binary_clauses();
     assert(derive_affine_live(k, r).result == ApplyResult::NoOp);
@@ -193,6 +215,123 @@ static void stale_snapshot() {
   std::fclose(records);
 }
 
+static void stale_large_snapshot_and_cached_counters() {
+  {
+    Kernel k;
+    install(k, affine_formula());
+    FILE *records = std::tmpfile(); assert(records);
+    auto r = request(records);
+    AffineLiveSnapshot snapshot;
+    assert(capture_affine_live_snapshot(k, r, snapshot));
+    const auto large = std::find_if(
+        snapshot.sources.begin(), snapshot.sources.end(), [](const auto &source) {
+          return source.kind == AffineSourceKind::Large;
+        });
+    assert(large != snapshot.sources.end());
+    const size_t index = static_cast<size_t>(large - snapshot.sources.begin());
+
+    AffineLiveSnapshot interior = snapshot;
+    ++interior.sources[index].ref;
+    assert(!affine_live_sources_valid(
+        k, interior, {interior.sources[index].occurrence}));
+
+    const uint64_t generation = k.arena_generation;
+    kernel_collect_garbage(k);
+    assert(k.arena_generation == generation + 1);
+    assert(!affine_live_sources_valid(
+        k, snapshot, {snapshot.sources[index].occurrence}));
+    r.snapshot = &snapshot;
+    const uint64_t id = k.next_clause_id;
+    assert(derive_affine_live(k, r).result == ApplyResult::NoOp);
+    assert(k.next_clause_id == id && position(records) == 0);
+    std::fclose(records);
+  }
+  {
+    Kernel k;
+    install(k, affine_formula());
+    FILE *records = std::tmpfile(); assert(records);
+    auto r = request(records);
+    AffineLiveSnapshot snapshot;
+    assert(capture_affine_live_snapshot(k, r, snapshot));
+    uint64_t literals = 0, payload_work = 0;
+    for (const auto &premise : snapshot.premises) {
+      literals += premise.literals.size();
+      payload_work += premise.literals.size() + 1;
+    }
+    snapshot.literals = 0;
+    snapshot.work = 0;
+    r.snapshot = &snapshot;
+    const auto result = derive_affine_live(k, r);
+    assert(result.result == ApplyResult::Ok);
+    assert(result.snapshot_literals == literals &&
+           result.snapshot_work == payload_work);
+    std::fclose(records);
+  }
+  {
+    Kernel k;
+    install(k, affine_formula());
+    FILE *records = std::tmpfile(); assert(records);
+    auto r = request(records);
+    AffineLiveSnapshot snapshot;
+    assert(capture_affine_live_snapshot(k, r, snapshot));
+    uint64_t literals = 0;
+    for (const auto &premise : snapshot.premises)
+      literals += premise.literals.size();
+    snapshot.literals = 0;
+    snapshot.work = 0;
+    r.snapshot = &snapshot;
+    r.maximum_snapshot_literals = literals - 1;
+    const uint64_t id = k.next_clause_id;
+    assert(derive_affine_live(k, r).result == ApplyResult::NoOp);
+    assert(k.next_clause_id == id && position(records) == 0);
+    std::fclose(records);
+  }
+}
+
+static void uninstalled_target_cleanup_and_deferred_propagation() {
+  {
+    Kernel k;
+    install(k, affine_formula());
+    add_clause(k, {5, 6});
+    FILE *records = std::tmpfile(); assert(records);
+    const auto result = derive_affine_live(k, request(records));
+    assert(result.result == ApplyResult::Ok && result.published == 1);
+    assert(result.preflight_deletions == result.deletions);
+    assert(read_all(records).find("affine-proof-delete-uninstalled") !=
+           std::string::npos);
+    assert(kernel_binary_live(k, kernel_internalize(k, 5),
+                              kernel_internalize(k, 6)));
+    assert(kernel_binary_live(k, kernel_internalize(k, -5),
+                              kernel_internalize(k, -6)));
+    std::fclose(records);
+  }
+  {
+    Kernel k;
+    install(k, affine_formula());
+    kernel_assign_unit(k, kernel_internalize(k, -5));
+    assert(propagate_service(k) == ApplyResult::Ok);
+    assert(!k.value(kernel_internalize(k, 6)) &&
+           kernel_propagation_fixpoint(k));
+    FILE *records = std::tmpfile(); assert(records);
+    const uint64_t before_id = k.next_clause_id;
+    const auto result = derive_affine_live(k, request(records));
+    assert(result.result == ApplyResult::Ok && result.published == 1);
+    assert(result.propagation_pending &&
+           !kernel_propagation_fixpoint(k));
+    assert(!k.value(kernel_internalize(k, 6)) &&
+           k.next_clause_id == before_id + result.additions);
+    const std::string journal = read_all(records);
+    assert(journal.find("\"propagation\":\"deferred-controller\"") !=
+               std::string::npos &&
+           journal.find("\"propagation_pending\":true") !=
+               std::string::npos);
+    assert(propagate_service(k) == ApplyResult::Ok);
+    assert(k.value(kernel_internalize(k, 6)) > 0 &&
+           kernel_propagation_fixpoint(k));
+    std::fclose(records);
+  }
+}
+
 static void contradiction_and_false_unit() {
   {
     Kernel k;
@@ -238,8 +377,9 @@ static void write_cnf(const char *path,
 }
 
 static void proof_run(const char *proof_path, const char *cnf_path,
-                      ProofFormat format) {
+                      ProofFormat format, bool covered_target = false) {
   auto cnf = affine_formula();
+  if (covered_target) cnf.push_back({5, 6});
   for (const auto &clause : std::vector<std::vector<int32_t>>{
            {7, 8}, {7, -8}, {-7, 8}, {-7, -8}})
     cnf.push_back(clause);
@@ -254,7 +394,11 @@ static void proof_run(const char *proof_path, const char *cnf_path,
   for (const auto &clause : cnf) add_clause(k, clause);
   FILE *records = std::tmpfile(); assert(records);
   const auto result = derive_affine_live(k, request(records));
-  assert(result.result == ApplyResult::Ok && result.published == 2);
+  assert(result.result == ApplyResult::Ok &&
+         result.published == (covered_target ? 1 : 2));
+  if (covered_target)
+    assert(read_all(records).find("affine-proof-delete-uninstalled") !=
+           std::string::npos);
   const int32_t seven = 7;
   assert(proof.add_external_rup(++k.next_clause_id, &seven, 1));
   assert(proof.add_external_rup(++k.next_clause_id, nullptr, 0));
@@ -284,9 +428,13 @@ int main(int argc, char **argv) {
   clean_declines();
   interruption_boundaries();
   stale_snapshot();
+  stale_large_snapshot_and_cached_counters();
+  uninstalled_target_cleanup_and_deferred_propagation();
   contradiction_and_false_unit();
   unsupported_format();
-  proof_run("/tmp/tactix-affine-live.dsr", nullptr, ProofFormat::DsrAscii);
-  if (argc == 3) proof_run(argv[2], argv[1], ProofFormat::DratAscii);
+  proof_run("/tmp/tactix-affine-live.dsr", nullptr, ProofFormat::DsrAscii,
+            true);
+  if (argc == 3)
+    proof_run(argv[2], argv[1], ProofFormat::DratAscii, true);
   std::puts("affine live adapter: atomic recognition, proof, liveness, and continuing CDCL PASS");
 }

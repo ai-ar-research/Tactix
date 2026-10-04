@@ -1,7 +1,6 @@
 #include "rules/semantic_extension/affine_live.hpp"
 
 #include "proof/proof.hpp"
-#include "rules/propagate/propagate.hpp"
 
 #include <algorithm>
 #include <cstdlib>
@@ -85,6 +84,43 @@ bool snapshot_guard(const Kernel &k, const AffineLiveRequest &request) {
          !(k.proof && (k.proof->lrat() || k.proof->pb()));
 }
 
+const Clause *large_source_at(const Kernel &k, Ref wanted) {
+  if (wanted == INVALID_REF || wanted >= k.arena.size()) return nullptr;
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *clause = clause_at(k.arena, ref);
+    if (ref == wanted) return clause;
+    if (ref > wanted) return nullptr;
+    const uint32_t words = clause_actual_words(clause);
+    if (!words || words > k.arena.size() - ref) return nullptr;
+    ref += words;
+  }
+  return nullptr;
+}
+
+bool snapshot_payload_counters(const AffineLiveSnapshot &snapshot,
+                               const AffineLiveRequest &request,
+                               uint64_t &literals, uint64_t &work) {
+  literals = work = 0;
+  if (snapshot.premises.size() != snapshot.sources.size() ||
+      snapshot.premises.size() > request.image.maximum_clauses)
+    return false;
+  for (size_t i = 0; i < snapshot.premises.size(); ++i) {
+    const auto &premise = snapshot.premises[i];
+    const auto &source = snapshot.sources[i];
+    if (premise.occurrence != i + 1 || source.occurrence != i + 1 ||
+        premise.literals.size() != source.clause.size() ||
+        premise.literals.size() > request.maximum_snapshot_literals - literals)
+      return false;
+    const uint64_t charge = uint64_t(premise.literals.size()) + 1;
+    if (charge > request.maximum_snapshot_work - work ||
+        premise.literals != source.clause)
+      return false;
+    literals += premise.literals.size();
+    work += charge;
+  }
+  return true;
+}
+
 bool same_clause(const Kernel &k, const Lit *literals, uint32_t size,
                  const std::vector<External> &external) {
   if (size != external.size()) return false;
@@ -129,7 +165,8 @@ bool append_journal(const AffineLiveRequest &request,
                     const affine_semantic_extension::Image &image,
                     const affine_semantic_extension::Consequence &choice,
                     const ProofPlan &plan, const Replay &replay,
-                    const std::vector<bool> &missing,
+                    const std::vector<bool> &installed,
+                    const std::vector<bool> &delete_uninstalled,
                     const AffineLiveResult &result, uint64_t root_conflict_id,
                     Journal &journal) {
   const std::string ids = "\"action\":" + std::to_string(request.action_id) +
@@ -140,6 +177,9 @@ bool append_journal(const AffineLiveRequest &request,
       std::to_string(request.consequence) +
       ",\"maximum_proof_additions\":" +
       std::to_string(request.maximum_proof_additions) +
+      ",\"maximum_proof_deletions\":" +
+      std::to_string(request.maximum_proof_deletions) +
+      ",\"propagation\":\"deferred-controller\"" +
       ",\"projection\":\"identity-existing-variables\"}\n")) return false;
   std::set<uint64_t> selected(choice.premises.begin(), choice.premises.end());
   for (uint64_t occurrence : selected) {
@@ -190,7 +230,7 @@ bool append_journal(const AffineLiveRequest &request,
     if (!journal.clause(prefix, clause)) return false;
   }
   for (size_t i = 0; i < plan.targets.size(); ++i) {
-    if (!missing[i]) continue;
+    if (!installed[i]) continue;
     const std::string prefix = "{" + ids +
         ",\"kind\":\"affine-publish\",\"id\":" +
         std::to_string(replay.target_ids[i]) + ",\"clause\":[";
@@ -201,6 +241,13 @@ bool append_journal(const AffineLiveRequest &request,
           ",\"kind\":\"affine-root-conflict\",\"id\":" +
           std::to_string(root_conflict_id) + ",\"clause\":[]}\n"))
     return false;
+  for (size_t i = 0; i < plan.targets.size(); ++i) {
+    if (!delete_uninstalled[i]) continue;
+    const std::string prefix = "{" + ids +
+        ",\"kind\":\"affine-proof-delete-uninstalled\",\"id\":" +
+        std::to_string(replay.target_ids[i]) + ",\"clause\":[";
+    if (!journal.clause(prefix, plan.targets[i])) return false;
+  }
   return journal.append("{" + ids +
       ",\"kind\":\"affine-complete\",\"snapshot_clauses\":" +
       std::to_string(result.snapshot_clauses) +
@@ -210,7 +257,11 @@ bool append_journal(const AffineLiveRequest &request,
       std::to_string(result.preflight_additions) +
       ",\"preflight_deletions\":" +
       std::to_string(result.preflight_deletions) +
-      ",\"published\":" + std::to_string(result.published) + "}\n");
+      ",\"additions\":" + std::to_string(result.additions) +
+      ",\"deletions\":" + std::to_string(result.deletions) +
+      ",\"published\":" + std::to_string(result.published) +
+      ",\"propagation_pending\":" +
+      (result.propagation_pending ? "true" : "false") + "}\n");
 }
 
 } // namespace
@@ -218,6 +269,7 @@ bool append_journal(const AffineLiveRequest &request,
 bool capture_affine_live_snapshot(Kernel &k, const AffineLiveRequest &request,
                                   AffineLiveSnapshot &output) {
   AffineLiveSnapshot result;
+  result.arena_generation = k.arena_generation;
   auto charge = [&](uint64_t amount) {
     if (kernel_terminating(k) ||
         amount > request.maximum_snapshot_work - result.work)
@@ -275,6 +327,7 @@ bool capture_affine_live_snapshot(Kernel &k, const AffineLiveRequest &request,
 bool affine_live_sources_valid(const Kernel &k,
                                const AffineLiveSnapshot &snapshot,
                                const std::vector<uint64_t> &occurrences) {
+  if (snapshot.arena_generation != k.arena_generation) return false;
   std::set<uint64_t> unique;
   for (uint64_t occurrence : occurrences) {
     if (!occurrence || occurrence > snapshot.sources.size()) return false;
@@ -282,8 +335,8 @@ bool affine_live_sources_valid(const Kernel &k,
     const AffineLiveSource &source = snapshot.sources[occurrence - 1];
     if (source.occurrence != occurrence) return false;
     if (source.kind == AffineSourceKind::Large) {
-      if (source.ref == INVALID_REF || source.ref >= k.arena.size()) return false;
-      const Clause *clause = clause_at(k.arena, source.ref);
+      const Clause *clause = large_source_at(k, source.ref);
+      if (!clause) return false;
       if (clause->garbage() || clause->id() != source.clause_id ||
           !same_clause(k, clause->lits, clause->size, source.clause))
         return false;
@@ -312,18 +365,21 @@ AffineLiveResult derive_affine_live(Kernel &k,
     if (!capture_affine_live_snapshot(k, request, owned)) return result;
     snapshot = &owned;
   }
+  // Ref identity is generation-scoped. Reject a cached view before doing any
+  // semantic work; selected large sources are boundary-checked again just
+  // before proof publication.
+  if (snapshot->arena_generation != k.arena_generation) return result;
+  uint64_t payload_literals = 0, payload_work = 0;
+  if (!snapshot_payload_counters(*snapshot, request, payload_literals,
+                                 payload_work))
+    return result;
   result.snapshot_clauses = snapshot->premises.size();
-  result.snapshot_literals = snapshot->literals;
-  result.snapshot_work = snapshot->work;
-  if (snapshot->premises.size() != snapshot->sources.size() ||
-      snapshot->premises.size() > request.image.maximum_clauses ||
-      snapshot->literals > request.maximum_snapshot_literals ||
-      snapshot->work > request.maximum_snapshot_work) return result;
-  for (size_t i = 0; i < snapshot->premises.size(); ++i)
-    if (snapshot->premises[i].occurrence != i + 1 ||
-        snapshot->sources[i].occurrence != i + 1 ||
-        snapshot->premises[i].literals != snapshot->sources[i].clause)
-      return result;
+  result.snapshot_literals = payload_literals;
+  // A freshly captured view reports its full arena/watch scan. Reusing a
+  // caller-owned view charges a deterministic replay of every cached payload;
+  // its stored counters are advisory and cannot bypass this action's limits.
+  result.snapshot_work = request.snapshot ? payload_work : snapshot->work;
+  if (result.snapshot_work > request.maximum_snapshot_work) return result;
 
   affine_semantic_extension::Image image;
   uint64_t recognition_work = 0;
@@ -354,7 +410,6 @@ AffineLiveResult derive_affine_live(Kernel &k,
   if (!affine_semantic_extension::build_proof_plan(
           image, request.consequence, request.maximum_proof_additions, plan))
     return result;
-  result.preflight_deletions = plan.deletions;
   if (plan.additions > request.maximum_proof_additions) return result;
   std::vector<bool> missing;
   uint64_t arena_words = 0;
@@ -374,32 +429,59 @@ AffineLiveResult derive_affine_live(Kernel &k,
   Replay replay;
   if (!plan_replay(k.next_clause_id, plan, replay)) return result;
   bool false_unit = false;
-  for (size_t i = 0; i < plan.targets.size(); ++i)
-    if (missing[i] && plan.targets[i].size() == 1 &&
-        k.value(kernel_internalize(k, plan.targets[i][0])) < 0) {
-      const Lit literal = kernel_internalize(k, plan.targets[i][0]);
-      if (k.proof && !k.unit_ids[var_of(literal)]) return result;
-      false_unit = true;
+  std::vector<bool> installed(plan.targets.size(), false);
+  std::vector<bool> delete_uninstalled(plan.targets.size(), false);
+  uint64_t planned_published = 0, cleanup_deletions = 0;
+  bool propagation_pending = false;
+  for (size_t i = 0; i < plan.targets.size(); ++i) {
+    if (!missing[i]) {
+      delete_uninstalled[i] = true;
+      ++cleanup_deletions;
+      continue;
     }
+    const auto &target = plan.targets[i];
+    if (target.empty()) continue;
+    if (target.size() == 1) {
+      const Lit literal = kernel_internalize(k, target[0]);
+      if (literal == INVALID_LIT || kernel_var_retired(k, var_of(literal)))
+        return result;
+      if (k.value(literal) < 0) {
+        if (k.proof && !k.unit_ids[var_of(literal)]) return result;
+        false_unit = true;
+        // The derived unit is proof-only: it supports the preflighted empty
+        // clause and is retired after that terminal addition.
+        delete_uninstalled[i] = true;
+        ++cleanup_deletions;
+        continue;
+      }
+      propagation_pending |= !k.value(literal);
+    } else {
+      for (External external : target) {
+        const Lit literal = kernel_internalize(k, external);
+        if (literal == INVALID_LIT || kernel_var_retired(k, var_of(literal)))
+          return result;
+        propagation_pending |= k.value(literal) < 0;
+      }
+    }
+    installed[i] = true;
+    ++planned_published;
+  }
   const uint64_t total_additions = plan.additions + uint64_t(false_unit);
   if (total_additions > request.maximum_proof_additions ||
       replay.last_id > uint64_t(INT64_MAX) - uint64_t(false_unit)) return result;
+  if (cleanup_deletions > UINT64_MAX - plan.deletions) return result;
+  const uint64_t total_deletions = plan.deletions + cleanup_deletions;
+  if (total_deletions > request.maximum_proof_deletions) return result;
   result.preflight_additions = total_additions;
-
-  std::vector<bool> publishable = missing;
-  uint64_t planned_published = 0;
-  for (size_t i = 0; i < missing.size(); ++i)
-    if (missing[i] && !plan.targets[i].empty() &&
-        !(plan.targets[i].size() == 1 &&
-          k.value(kernel_internalize(k, plan.targets[i][0])) < 0))
-      ++planned_published;
-    else
-      publishable[i] = false;
+  result.preflight_deletions = total_deletions;
   Journal journal{request.maximum_journal_bytes, {}};
   AffineLiveResult journal_result = result;
+  journal_result.additions = total_additions;
+  journal_result.deletions = total_deletions;
   journal_result.published = planned_published;
+  journal_result.propagation_pending = !false_unit && propagation_pending;
   if (!append_journal(request, *snapshot, image, choice, plan, replay,
-                      publishable, journal_result,
+                      installed, delete_uninstalled, journal_result,
                       false_unit ? replay.last_id + 1 : 0, journal))
     return result;
   if (kernel_terminating(k) ||
@@ -420,12 +502,8 @@ AffineLiveResult derive_affine_live(Kernel &k,
       std::abort();
   }
   for (size_t i = 0; i < plan.targets.size(); ++i) {
-    if (!missing[i]) continue;
+    if (!installed[i]) continue;
     const auto &target = plan.targets[i];
-    if (target.empty()) {
-      k.inconsistent = true;
-      continue;
-    }
     std::vector<Lit> literals;
     literals.reserve(target.size());
     for (External external : target) {
@@ -436,7 +514,6 @@ AffineLiveResult derive_affine_live(Kernel &k,
     }
     const uint64_t id = replay.target_ids[i];
     if (literals.size() == 1) {
-      if (k.value(literals[0]) < 0) continue;
       if (!k.value(literals[0])) {
         k.unit_ids[var_of(literals[0])] = id;
         kernel_assign_unit(k, literals[0]);
@@ -448,17 +525,30 @@ AffineLiveResult derive_affine_live(Kernel &k,
                               literals.size(), id);
     }
   }
+  if (result.contradiction) k.inconsistent = true;
   if (false_unit) {
     if (++k.next_clause_id > uint64_t(INT64_MAX)) std::abort();
     if (k.proof && !k.proof->add_external_rup(k.next_clause_id, nullptr, 0))
       std::abort();
     k.inconsistent = true;
   }
+  if (k.proof)
+    for (size_t i = 0; i < plan.targets.size(); ++i) {
+      if (!delete_uninstalled[i]) continue;
+      const auto &target = plan.targets[i];
+      if (!k.proof->del_external(
+              k.next_clause_id, replay.target_ids[i],
+              target.empty() ? nullptr : target.data(), target.size()))
+        std::abort();
+    }
   result.additions = total_additions;
-  result.deletions = plan.deletions;
+  result.deletions = total_deletions;
   result.published = planned_published;
-  result.result = k.inconsistent ? ApplyResult::Unsat : propagate_service(k);
-  if (result.result != ApplyResult::Unsat) result.result = ApplyResult::Ok;
+  result.result = k.inconsistent ? ApplyResult::Unsat : ApplyResult::Ok;
+  result.propagation_pending =
+      !k.inconsistent && !kernel_propagation_fixpoint(k);
+  if (result.propagation_pending != journal_result.propagation_pending)
+    std::abort();
   if (std::fwrite(journal.bytes.data(), 1, journal.bytes.size(), request.records) !=
           journal.bytes.size() ||
       std::fflush(request.records) || std::ferror(request.records)) std::abort();
