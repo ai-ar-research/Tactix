@@ -30,6 +30,7 @@ while [ $# -gt 0 ]; do
     case "$1" in
         --quick)   N=10000;   shift ;;
         --nightly) N=200000; NIGHTLY=1; shift ;;
+        --n)       N="$2"; shift 2 ;;
         --controller-v5) CONTROLLER_V5=1; shift ;;
         --solver)  SOLVER="$2"; shift 2 ;;
         --oracle)  ORACLE="$2"; shift 2 ;;
