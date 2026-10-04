@@ -24,6 +24,7 @@ static void publication_and_selection() {
   assert(observed.local_search_candidates.size() == 1);
   const auto info = observed.local_search_candidates.front();
   assert(info.id == 256 && info.effort.amount == 19);
+  assert(info.known_phases == 3);
   assert(info.formula_touch_epoch == k.touch_epoch && info.external_variables == 3);
   const RuleVTable &op = tactix_rules()[tactix_rule_id("LocalSearchGuidance")];
   assert(op.kind == ActionKind::PolicyOp && op.guard(k));
@@ -31,8 +32,13 @@ static void publication_and_selection() {
   assert(op.instances(k, instances, 4) == 1 && instances[0] == info.id);
   assert(op.apply_instance(k, info.id) == ApplyResult::Ok);
   assert((k.h->target == std::vector<int8_t>{1, -1, 1}));
+  assert((k.h->target_candidate == std::vector<uint64_t>{info.id, info.id, info.id}));
   assert(k.h->saved == saved && k.h->best == best);
   assert(k.stats.local_search_hints_applied == 1);
+  assert(k.stats.local_search_target_installs == 1);
+  assert(k.stats.local_search_target_eligible_phases == 3);
+  assert(k.stats.local_search_target_changed_phases == 3);
+  assert(k.stats.local_search_target_matching_phases == 0);
   kernel_offer_local_search_hint(k, strategy::LocalSearchKind::DirectCsp,
       {0, 2, 0}, 1, true);
   assert(k.stats.local_search_hints_offered == 1);
@@ -49,6 +55,7 @@ static void publication_and_selection() {
   assert(k.h->target == target && k.stats.local_search_hints_stale == 1);
   kernel_offer_local_search_hint(k, strategy::LocalSearchKind::Affine, {0, 1, 0});
   assert(k.stats.local_search_hints_offered == 3);
+  assert(k.stats.local_search_hints_replaced == 1);
   uint64_t cursor = 0;
   const std::vector<strategy::LocalSearchKind> rotation{
       strategy::LocalSearchKind::Parity, strategy::LocalSearchKind::Affine,
@@ -57,10 +64,28 @@ static void publication_and_selection() {
   assert(cursor == 2 && k.h->target == target); // selection does not import
   assert(op.apply_instance(k, selected) == ApplyResult::Ok);
   assert((k.h->target == std::vector<int8_t>{-1, 1, -1}));
+  assert(k.stats.local_search_target_replaced_phases == 3);
   assert(k.h->saved == saved && k.h->best == best);
   assert(op.apply_instance(k, 99) == ApplyResult::NoOp);
   // Historical kind-only payload still has an explicitly current meaning.
-  assert(op.apply_instance(k, 0) == ApplyResult::NoOp); // identical target
+  assert(op.apply_instance(k, 0) == ApplyResult::Ok); // provenance installs too
+  assert(k.stats.local_search_target_matching_phases >= 3);
+  const uint32_t watermark = k.h->target_assigned = 2;
+  const uint64_t installs = k.stats.local_search_target_installs;
+  assert(op.apply_instance(k, 0) == ApplyResult::NoOp); // exact repeat is idempotent
+  assert(k.h->target_assigned == watermark);
+  assert(k.stats.local_search_target_installs == installs);
+  assert(k.stats.local_search_target_install_attempts == installs + 1);
+  k.h->stable = true;
+  const Lit guided = heuristics_decide_lit(k, 0);
+  heuristics_note_target_decision(k, guided, true);
+  heuristics_note_target_decision(k, guided, false);
+  heuristics_note_target_decision(k, negate(guided), true);
+  assert(k.stats.local_search_target_decisions == 2);
+  assert(k.stats.local_search_target_decision_matches == 1);
+  assert(k.stats.local_search_target_decision_overrides == 1);
+  assert(k.local_search_last_target_decision_candidate == k.local_search_hints[0].id);
+  assert(!k.local_search_last_target_decision_matched);
 }
 
 static void identity_and_phase_lifecycle() {
@@ -82,6 +107,10 @@ static void identity_and_phase_lifecycle() {
   k.h->target.assign(4, 1);
   assert(local_search_guidance_apply_candidate(k, candidate) == ApplyResult::Ok);
   assert((k.h->target == std::vector<int8_t>{1, -1, -1, 1}));
+  assert(k.h->target_candidate[0] == 0);
+  assert(k.h->target_candidate[1] == candidate);
+  assert(k.h->target_candidate[2] == candidate);
+  assert(k.h->target_candidate[3] == 0);
   assert((k.h->saved == std::vector<int8_t>(4, 1)) && k.h->saved == k.h->best);
   assert(k.h->target_assigned == 0);
   k.h->stable = false;
@@ -92,6 +121,8 @@ static void identity_and_phase_lifecycle() {
   assert(!local_search_guidance_guard(k));
   kernel_update_target_phases(k);
   assert(k.h->target[1] == 1); // native capture supersedes the advice
+  assert(k.h->target_candidate[1] == 0);
+  assert(k.stats.local_search_target_overwritten_native == 1);
   kernel_backtrack(k, 0);
   kernel_check_invariants(k);
 }
@@ -103,6 +134,7 @@ static void partial_publication_and_identity_lifetime() {
   const auto kind = strategy::LocalSearchKind::Affine;
   kernel_offer_local_search_partial_hint(k, kind, {1, 0, -1}, 4, true);
   const auto first = k.local_search_hints[1].id;
+  assert(k.local_search_hints[1].known_phases == 2);
   k.h->saved.assign(3, -1);
   k.h->best.assign(3, 1);
   k.h->target = {-1, -1, 1};

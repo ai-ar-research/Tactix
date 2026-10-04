@@ -23,6 +23,19 @@ identities and reconstruction effects remain in the abstract state; no proof del
 
 Invariants: `F₀ ≡SAT (F ∪ ρ)`; `F ⊨ R` is proof-justified; every transition emits a checker-accepted delta. Rules may change `H`
 without proof. Only operations changing `σ` belong here; Rephase, SwitchMode, Walk, Reorder, and LocalSearchGuidance are H-only policy operations. Constructor candidates are heuristic advice, never logical premises; target initialization and private Walk seeding have no inference or reconstruction effect.
+For an exact retained candidate `c`, S6 Walk may overlay each known, live,
+unfixed external phase on its private assignment, evaluate ordinary and guided
+starts against the same current clause objective, and export saved phases only
+when its final minimum is strictly below the ordinary start. S8
+LocalSearchGuidance maps the same known phases at a propagated root and writes
+only eligible target phases plus their exact candidate provenance; an
+already-matching value still acquires that provenance, while an empty eligible
+image is a no-op. Native target capture, Rephase, or Walk may supersede the
+provenance at their ordinary write boundaries. Neither operation changes
+`σ`, emits a proof delta, asserts a candidate phase, or adds a reconstruction
+obligation. DefaultPolicy composes them by completing S6 first and invoking S8
+on the same identity only after S6 actually imported it; a stale, interrupted,
+budget-exhausted, or objective-free S6 attempt cannot implicitly invoke S8.
 Recorded-conflict/pending flags are engineering state, so guards mentioning them are deviations rather than abstract preconditions.
 
 The logical proof-event vocabulary is `add_rup`, `add_derived_unit`, `add_empty`, `del`, `add_rat`, `add_sr`, terminal original-input PB refutation, and internal `kernel_push_witness` (changes `ρ` without a proof line). Native DSR is the
@@ -153,7 +166,7 @@ target in `[jump_level, level-1]` is sound.
 ### S5 · Lucky
 - **Precondition (abstract):** consistent at level zero with no pending conflict. Every stable ID 0–24 is in the public catalog, typed replay and random selection. IDs 6–14, 17, 18 and 21 are SAT-only constructors; 15, 16, 19, 20 and 22–24 are proof actions. Constructor-specific guards may additionally require a fully propagated sparse root, connected watches, retained input order or an open startup boundary.
 - **Effect:** instances 0–5 run Kissat-style decision-free complete-assignment probes. Constructors 6–14, 17, 18 and 21 run their bounded historical model searches; incomplete 6–10 and 21 attempts may publish only known signed values as heuristic guidance. Instances 6 and 7 cannot refute: their XOR/exact-one contradictions belong exclusively to proof-only 23 and 24. Instances 15/16 emit st-connectivity and signed-cardinality refutations, while startup-only 19/20/22 emit parity, count-preservation and Ramsey refutations. Canonical Lucky remains the ordered 0–5 cascade.
-- **Parameters and termination:** every constructor and structural proof action uses its typed profile. DefaultPolicy restores historical scheduling for 6/7/9/11–14/17/18, retains 10, leaves graph constructor 21 disabled, and does not invent a default schedule for affine constructor 8. Exhausted or interrupted constructor search returns `NoOp` after at most publishing allowed guidance; proof actions preflight before atomic mutation. Startup actions close after ordinary dispatch. Exact parameters live in [controller-interface.md](controller-interface.md); related Boolean actions are tracked in the [refactoring inventory](../benchmarks/reports/2026-10-03-lymphosat-refactoring-inventory.md) and [semantic-extension foundations](semantic-extension-foundations.md).
+- **Parameters and termination:** every constructor and structural proof action uses its typed profile. DefaultPolicy restores historical scheduling for 6–14, 17 and 18, retains 10 in its historical position, and leaves graph constructor 21 disabled. In particular, affine constructor 8 runs after exact-one admission and before structure-changing preprocessing. Exhausted or interrupted constructor search returns `NoOp` after at most publishing allowed guidance; proof actions preflight before atomic mutation. Startup actions close after ordinary dispatch. Exact parameters live in [controller-interface.md](controller-interface.md); related Boolean actions are tracked in the [refactoring inventory](../benchmarks/reports/2026-10-03-lymphosat-refactoring-inventory.md) and [semantic-extension foundations](semantic-extension-foundations.md).
 - **Soundness:** every constructor returns SAT only after its completed assignment satisfies the whole live CNF and root assignment. Partial guidance proves neither SAT nor UNSAT, and 6/7 contradiction paths decline without invoking proof code. Each proof action admits an exact source structure and emits independently checkable RUP/RAT, DSR or PBP steps appropriate to its proof mode; unsupported formats decline before mutation. Failure preserves `σ`.
 
 ## 5. Subsumption & strengthening (C1–C3)

@@ -207,7 +207,8 @@ struct DefaultStrategyConfig {
         strategy::LocalSearchKind::Affine,
         strategy::LocalSearchKind::Parity,
         strategy::LocalSearchKind::Onehot,
-        strategy::LocalSearchKind::BalancedSignature};
+        strategy::LocalSearchKind::BalancedSignature,
+        strategy::LocalSearchKind::GraphLabeling};
     bool stable_only = true;
     bool late_lucky = true;
   } rephase;

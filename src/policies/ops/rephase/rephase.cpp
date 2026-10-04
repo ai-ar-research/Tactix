@@ -42,6 +42,8 @@ ApplyResult rephase_apply_type(Kernel &k, uint64_t type) {
     return ApplyResult::NoOp; // unknown payload: never unsound
   }
   // target phases restart from the fresh saved ones (kissat reset_phases)
+  heuristics_supersede_all_target_guidance(
+      k, TargetGuidanceOverwrite::Rephase);
   std::copy(k.h->saved.begin(), k.h->saved.end(), k.h->target.begin());
   k.h->target_assigned = 0;
   k.stats.rephased++;

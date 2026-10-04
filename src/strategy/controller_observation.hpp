@@ -33,6 +33,8 @@ struct Observation {
   double fast_glue = 0, slow_glue = 0;
   Stats cumulative;
   std::vector<LocalSearchCandidateInfo> local_search_candidates;
+  uint64_t local_search_last_target_decision_candidate = 0;
+  bool local_search_last_target_decision_matched = false;
   std::vector<SemanticVariableCandidateInfo> semantic_variable_candidates;
   std::optional<ActionResult> last_action;
   // Optional native-policy scheduling state. Root-controller snapshots keep
@@ -57,6 +59,10 @@ inline Observation observe_kernel(const Kernel &k) {
   result.conflict = k.conflict_valid;
   result.propagation_fixpoint = kernel_propagation_fixpoint(k);
   result.cumulative = k.stats;
+  result.local_search_last_target_decision_candidate =
+      k.local_search_last_target_decision_candidate;
+  result.local_search_last_target_decision_matched =
+      k.local_search_last_target_decision_matched;
   for (const auto &hint : k.local_search_hints)
     if (hint.available()) result.local_search_candidates.push_back(hint);
   result.semantic_variable_candidates =

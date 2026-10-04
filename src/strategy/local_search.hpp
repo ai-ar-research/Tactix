@@ -52,6 +52,9 @@ struct LocalSearchCandidateInfo {
   uint64_t formula_touch_epoch = 0;
   uint64_t formula_root_assignments = 0;
   uint64_t external_variables = 0;
+  // Number of signed phases supplied by this publication.  Unknown entries in
+  // a partial candidate remain zero and are never inferred by an observer.
+  uint64_t known_phases = 0;
   uint64_t objective = UINT64_MAX;
   bool objective_exact = false;
   LocalSearchEffort effort;

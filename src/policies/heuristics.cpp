@@ -108,6 +108,7 @@ void heuristics_reserve_vars(Kernel &k, uint32_t old, uint32_t nvars) {
   k.h->scores.pos.resize(nvars, UINT32_MAX);
   k.h->scores.score.resize(nvars, 0.0);
   k.h->target.resize(nvars, 0);
+  k.h->target_candidate.resize(nvars, 0);
   k.h->best.resize(nvars, 0);
   // enqueue new vars into the VMTF queue (most recent = preferred)
   for (Var v = old; v < nvars; v++) {
@@ -155,6 +156,7 @@ void heuristics_compact_vars(Kernel &k, const std::vector<Var> &old_to_new,
   };
   compact_values(h.saved, int8_t{0});
   compact_values(h.target, int8_t{0});
+  compact_values(h.target_candidate, uint64_t{0});
   compact_values(h.best, int8_t{0});
   compact_values(h.scores.score, 0.0);
 
@@ -1014,8 +1016,11 @@ static void capture_target_phases(Kernel &k) {
     event_trace_target_state(k, "target-save-pre", assigned);
     event_trace_target_save(k);
     k.h->target_assigned = assigned;
-    for (const Lit lit : k.trail)
+    for (const Lit lit : k.trail) {
+      heuristics_supersede_target_guidance(
+          k, var_of(lit), TargetGuidanceOverwrite::NativeCapture);
       k.h->target[var_of(lit)] = negated(lit) ? -1 : 1;
+    }
     k.stats.target_saved++;
     event_trace_target_state(k, "target-save-post", assigned);
   }
@@ -1025,6 +1030,63 @@ static void capture_target_phases(Kernel &k) {
       k.h->best[var_of(lit)] = negated(lit) ? -1 : 1;
     k.stats.best_saved++;
   }
+}
+
+namespace {
+uint64_t &target_overwrite_counter(Kernel &k,
+                                   TargetGuidanceOverwrite source) {
+  switch (source) {
+  case TargetGuidanceOverwrite::NativeCapture:
+    return k.stats.local_search_target_overwritten_native;
+  case TargetGuidanceOverwrite::Rephase:
+    return k.stats.local_search_target_overwritten_rephase;
+  case TargetGuidanceOverwrite::Walk:
+    return k.stats.local_search_target_overwritten_walk;
+  }
+  assert(false);
+  return k.stats.local_search_target_overwritten_native;
+}
+} // namespace
+
+void heuristics_supersede_target_guidance(Kernel &k, Var variable,
+                                          TargetGuidanceOverwrite source) {
+  assert(k.h && variable < k.h->target_candidate.size());
+  if (!k.h->target_candidate[variable])
+    return;
+  ++target_overwrite_counter(k, source);
+  k.h->target_candidate[variable] = 0;
+}
+
+void heuristics_supersede_all_target_guidance(
+    Kernel &k, TargetGuidanceOverwrite source) {
+  assert(k.h);
+  auto &counter = target_overwrite_counter(k, source);
+  for (uint64_t &candidate : k.h->target_candidate)
+    if (candidate) {
+      ++counter;
+      candidate = 0;
+    }
+}
+
+void heuristics_note_target_decision(Kernel &k, Lit decision,
+                                     bool consumed_target) {
+  assert(k.h && var_of(decision) < k.h->target_candidate.size());
+  k.local_search_last_target_decision_candidate = 0;
+  k.local_search_last_target_decision_matched = false;
+  if (!consumed_target)
+    return;
+  const Var variable = var_of(decision);
+  if (!k.h->target_candidate[variable] || !k.h->target[variable])
+    return;
+  ++k.stats.local_search_target_decisions;
+  k.local_search_last_target_decision_candidate =
+      k.h->target_candidate[variable];
+  const int8_t phase = negated(decision) ? -1 : 1;
+  if (phase == k.h->target[variable]) {
+    ++k.stats.local_search_target_decision_matches;
+    k.local_search_last_target_decision_matched = true;
+  } else
+    ++k.stats.local_search_target_decision_overrides;
 }
 
 void heuristics_update_target_phases(Kernel &k) {
@@ -1065,6 +1127,9 @@ void heuristics_check(const Kernel &k) {
   assert(k.h->scores.pos.size() == k.nvars);
   assert(k.h->scores.score.size() == k.nvars);
   assert(k.h->target.size() == k.nvars);
+  assert(k.h->target_candidate.size() == k.nvars);
+  for (Var v = 0; v < k.nvars; ++v)
+    assert(!k.h->target_candidate[v] || k.h->target[v]);
   assert(k.h->best.size() == k.nvars);
 
   // Every connected queue variable occurs exactly once with reciprocal links.

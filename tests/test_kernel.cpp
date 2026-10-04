@@ -294,6 +294,7 @@ static void test_variable_compaction() {
   // surviving nonzero phase entries.  Retired x2/x4 must not count, while the
   // mapped entries for x1/x3/x5 must retain both their values and population.
   hg.h.target = {1, -1, -1, 1, 0};
+  hg.h.target_candidate = {256, 999, 512, 998, 0};
   hg.h.best = {0, 1, -1, -1, 1};
   hg.h.target_assigned = 4;
   hg.h.best_assigned = 4;
@@ -318,6 +319,8 @@ static void test_variable_compaction() {
   assert(kernel_externalize(k, make_lit(2, true)) == -5);
   assert(kernel_externalize(k, make_lit(hg.h.search_idx, false)) == 5);
   assert((hg.h.target == std::vector<int8_t>{1, -1, 0}));
+  assert((hg.h.target_candidate ==
+          std::vector<uint64_t>{256, 512, 0}));
   assert((hg.h.best == std::vector<int8_t>{0, -1, 1}));
   assert(hg.h.target_assigned == 2);
   assert(hg.h.best_assigned == 2);

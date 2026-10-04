@@ -47,12 +47,15 @@ static void test_types() {
   kernel_backtrack(k, 0); // best = {-1, 0, +3, 0}, saved updated too
 
   // Inverted: every saved phase forced negative; target restarts
+  k.h->target_candidate = {256, 0, 512, 0};
   assert(rephase_apply_type(k, REPHASE_INVERTED) == ApplyResult::Ok);
   for (Var v = 0; v < 4; v++) {
     assert(k.h->saved[v] == -1);
     assert(k.h->target[v] == -1); // target = saved
   }
   assert(k.h->target_assigned == 0);
+  assert((k.h->target_candidate == std::vector<uint64_t>(4, 0)));
+  assert(k.stats.local_search_target_overwritten_rephase == 2);
   assert(k.h->best_assigned == 2); // Inverted does not consume best
 
   // Original: every saved phase back to the initial positive

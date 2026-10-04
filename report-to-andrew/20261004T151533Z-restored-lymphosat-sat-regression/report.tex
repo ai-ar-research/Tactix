@@ -1,0 +1,67 @@
+\documentclass{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\title{Restored LymphoSAT SAT constructors: terminal regression result}
+\author{Tactix development checkpoint}
+\date{October 4, 2026}
+\begin{document}
+\sloppy
+\maketitle
+
+Frozen checkpoint \texttt{156afef6b} is not accepted.  B28+C5 passes, but
+Rank1--50 exceeds its aggregate solver-time ceiling and WV100/WV2 lose seven
+retained SAT solves.  All 272 rows are terminal.  There is no wrong verdict,
+rejected model, rejected proof, or missing result.
+
+\begin{center}
+\begin{tabular}{lrrrrrr}
+\toprule
+Set & Gate & Solver s & Checked & Censored & Timeouts & Lost\\
+\midrule
+B28+C5 & pass & 998.177 & 32 & 1 & 0 & 0\\
+Rank1--50 & fail & 9,530.106 & 42 & 8 & 0 & 0\\
+WV100 & fail & 2,646.841 & 93 & 2 & 5 & 5\\
+WV2--89 & fail & 3,781.591 & 75 & 2 & 12 & 2\\
+\midrule
+Total & fail & -- & 242 & 13 & 17 & 7\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+B28+C5's ceiling is 999.876 seconds; Rank's is 8,521.522 seconds.  Solver
+limits are 1,200 seconds except WV2's 600 seconds.  Proof checking is bounded at
+1,800 seconds.  Twelve censored checks satisfy the agreed cost bound; the WV100
+\texttt{ncc} row is inconclusive because its baseline was already censored.
+Censoring is not independent proof verification, but it is not checker failure.
+
+\paragraph{Diagnosis.}
+The frozen DefaultPolicy omitted historical affine constructor instance 8.
+All seven lost retained solves and the three largest Rank regressions have one
+baseline affine call and no candidate affine call.  Six MDP rows were solved
+directly by the old affine constructor.  Rank \texttt{cabp-V-nos6}, WV100
+\texttt{Break\_20\_72}, and WV2 timetable entered affine without producing a
+model, so their association is trajectory evidence rather than proof of a
+direct constructor solution.
+
+Mutable commit \texttt{60446aa0d} restores instance 8 after exact-one admission
+and before structure-changing preprocessing, with a policy-path test requiring
+the productive case to solve with zero decisions and conflicts.  That repair
+postdates the frozen binary and does not change this campaign's negative
+verdict.
+
+\paragraph{Next check.}
+Use the repaired source first on the six directly solved MDP rows and the three
+trajectory-sensitive \texttt{cabp}, Break, and timetable rows.  Do not rerun the
+historical comparison or all four gates until this subset is recovered.  The
+parallel model-guidance work keeps Walk and CDCL as separate actions over the
+same exact candidate and records availability, installation, use, overwrite,
+improvement, and export without assigning a reward.
+
+The technical report is
+\path{benchmarks/reports/2026-10-04-restored-lymphosat-sat-regression-terminal.md}.
+Raw evidence remains under the four
+\path{benchmarks/runs/20261004-restored-lymphosat-sat-*} directories.  No
+historical comparison was rerun.
+
+\end{document}

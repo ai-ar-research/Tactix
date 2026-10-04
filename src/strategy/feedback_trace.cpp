@@ -176,12 +176,17 @@ std::string serialize_observation(const Observation &value) {
         << ",\"formula_touch_epoch\":" << candidate.formula_touch_epoch
         << ",\"formula_root_assignments\":" << candidate.formula_root_assignments
         << ",\"external_variables\":" << candidate.external_variables
+        << ",\"known_phases\":" << candidate.known_phases
         << ",\"objective\":" << candidate.objective
         << ",\"objective_exact\":" << candidate.objective_exact
         << ",\"effort\":" << candidate.effort.amount
         << ",\"effort_unit\":" << unsigned(candidate.effort.unit) << '}';
   }
   out << ']';
+  out << ",\"local_search_last_target_decision_candidate\":"
+      << value.local_search_last_target_decision_candidate
+      << ",\"local_search_last_target_decision_matched\":"
+      << value.local_search_last_target_decision_matched;
   if (!value.semantic_variable_candidates.empty()) {
     out << ",\"semantic_variable_candidates\":[";
     bool first_semantic_candidate = true;

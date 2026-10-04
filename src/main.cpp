@@ -1322,16 +1322,39 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.graph_labeling_interrupted,
            (unsigned long long)kernel.stats.graph_labeling_models_rejected,
            (unsigned long long)kernel.stats.graph_labeling_sat);
-    printf("c localsearch %llu hints offered, %llu applied\n",
+    printf("c localsearch %llu hints offered (%llu phases, %llu replacements), "
+           "%llu applied / %llu target installs from %llu attempts "
+           "(%llu eligible, %llu changed, "
+           "%llu matching, %llu replaced)\n",
            (unsigned long long)kernel.stats.local_search_hints_offered,
-           (unsigned long long)kernel.stats.local_search_hints_applied);
+           (unsigned long long)kernel.stats.local_search_hint_phases_offered,
+           (unsigned long long)kernel.stats.local_search_hints_replaced,
+           (unsigned long long)kernel.stats.local_search_hints_applied,
+           (unsigned long long)kernel.stats.local_search_target_installs,
+           (unsigned long long)kernel.stats.local_search_target_install_attempts,
+           (unsigned long long)kernel.stats.local_search_target_eligible_phases,
+           (unsigned long long)kernel.stats.local_search_target_changed_phases,
+           (unsigned long long)kernel.stats.local_search_target_matching_phases,
+           (unsigned long long)kernel.stats.local_search_target_replaced_phases);
+    printf("c localphase %llu decisions (%llu matched, %llu overridden), "
+           "%llu native / %llu rephase / %llu walk overwrites\n",
+           (unsigned long long)kernel.stats.local_search_target_decisions,
+           (unsigned long long)kernel.stats.local_search_target_decision_matches,
+           (unsigned long long)kernel.stats.local_search_target_decision_overrides,
+           (unsigned long long)kernel.stats.local_search_target_overwritten_native,
+           (unsigned long long)kernel.stats.local_search_target_overwritten_rephase,
+           (unsigned long long)kernel.stats.local_search_target_overwritten_walk);
     printf("c walk        %llu walks (%llu improved, %llu flips, %llu steps)\n",
            (unsigned long long)kernel.stats.walks,
            (unsigned long long)kernel.stats.walk_improved,
            (unsigned long long)kernel.stats.walk_flips,
            (unsigned long long)kernel.stats.walk_steps);
-    printf("c walkseed    %llu imports, %llu steps, %llu budget stops, %llu interrupted, %llu stale hints\n",
+    printf("c walkseed    %llu imports / %llu phases (%llu improved, %llu exported), %llu steps, "
+           "%llu budget stops, %llu interrupted, %llu stale hints\n",
            (unsigned long long)kernel.stats.walk_seed_imports,
+           (unsigned long long)kernel.stats.walk_seed_imported_phases,
+           (unsigned long long)kernel.stats.walk_seed_improved,
+           (unsigned long long)kernel.stats.walk_seed_exported,
            (unsigned long long)kernel.stats.walk_seed_steps,
            (unsigned long long)kernel.stats.walk_seed_budget_exhausted,
            (unsigned long long)kernel.stats.walk_seed_interrupted,
