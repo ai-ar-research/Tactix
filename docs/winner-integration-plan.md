@@ -153,15 +153,17 @@ architectural option for a particular future rule, but reconsider it only after
 a mechanism-specific derivation and measured clausal proof/check cost establish
 that practical DSR/DRAT certification has failed.
 The isolated first clausal verticals currently have different boundaries.
-Direct PHP has exact live terminal admission/publication plus an unregistered,
-Kernel-bound DSR/DRAT action/replay adapter. GF(3) has an independently replayed
-pure Gaussian-to-RUP certificate for unit/conflict outcomes, but no live
-publisher. Tseitin has a one-step live X7 adapter with exact formula replay and
-DSR/no-proof publication, but no public action or autonomous group discovery.
-All remain internal and unaccepted. Complete each missing live proof boundary,
-then propagation/reconstruction where applicable, public action/replay/feedback,
-fuzz/regression and target measurement. Every decline remains bounded and
-mutation free; every repeated step requires a new authenticated live plan.
+Direct PHP now completes one public terminal vertical: exact live admission,
+Kernel-bound replay, DSR/DRAT/no-proof publication, typed registry/C/online
+execution, random reach and raw feedback. It remains disabled by default and
+unaccepted. GF(3) now has a private live publisher for independently replayed
+chained Gaussian unit/conflict certificates; it still lacks public instance
+enumeration, controller replay/feedback and scheduling. Tseitin now has bounded
+autonomous exact-XOR discovery feeding its live X7 adapter, but lacks a public
+component payload, session and controller boundary. Complete those public
+boundaries, then propagation/reconstruction where applicable, fuzz/regression
+and target measurement. Every decline remains bounded and mutation free; every
+repeated step requires a new authenticated live plan.
 
 Record every added constraint/auxiliary definition: stable identity, Boolean formula
 and theory meaning, source clauses/structural premises, generating action and
