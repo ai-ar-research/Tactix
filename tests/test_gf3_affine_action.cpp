@@ -95,6 +95,36 @@ Gf3AffineActionLimits limits() {
   return result;
 }
 
+Gf3AffineActionOfferWindow offer_window() {
+  return {100, 100, 1000000, false, {}};
+}
+
+Gf3AffineLiveRequest live_request(const Gf3AffineActionLimits &action,
+                                  const Gf3AffineOwnerSnapshot *owner,
+                                  FILE *records) {
+  Gf3AffineLiveRequest result;
+  result.recognition = action.recognition;
+  result.elimination = action.elimination;
+  result.retained_owner = owner;
+  result.first_equation = 1;
+  result.second_equation = 2;
+  result.maximum_recognition_work = action.maximum_recognition_work;
+  result.maximum_planning_work = action.maximum_planning_work;
+  result.maximum_duplicate_scan_work = action.maximum_duplicate_scan_work;
+  result.maximum_revalidation_work = action.maximum_revalidation_work;
+  result.maximum_proof_work = action.maximum_proof_work;
+  result.maximum_proof_additions = action.maximum_proof_additions;
+  result.maximum_proof_literal_occurrences =
+      action.maximum_proof_literal_occurrences;
+  result.maximum_arena_words = action.maximum_arena_words;
+  result.maximum_journal_bytes = action.maximum_journal_bytes;
+  result.maximum_external_extent = action.maximum_external_extent;
+  result.action_id = 1000;
+  result.semantic_id = 1000;
+  result.records = records;
+  return result;
+}
+
 void attach(Kernel &kernel, FILE *records) {
   kernel.structural_provenance = records;
   kernel.structural_action_sequence = 80;
@@ -358,6 +388,337 @@ void retained_owner_is_revalidated_before_a_novel_pair() {
   std::fclose(records);
 }
 
+void offerer_is_exact_paged_deterministic_and_read_only() {
+  Kernel kernel = parse();
+  FILE *records = std::tmpfile();
+  assert(records);
+  attach(kernel, records);
+  Gf3AffineActionSession session;
+  const Image before = image(kernel);
+  const long journal = position(records);
+
+  const auto first =
+      gf3_affine_action_offer(kernel, session, limits(), offer_window());
+  const auto repeated =
+      gf3_affine_action_offer(kernel, session, limits(), offer_window());
+  assert(first.status == Gf3AffineActionOfferStatus::Ready &&
+         first.complete && !first.have_resume_after &&
+         !first.owner_retained &&
+         first.offers ==
+             std::vector<Gf3AffineActionKey>({{0, 1}, {1, 2}}));
+  assert(repeated.status == first.status &&
+         repeated.complete == first.complete &&
+         repeated.offers == first.offers &&
+         repeated.effort.source_clauses == first.effort.source_clauses &&
+         repeated.effort.source_literals == first.effort.source_literals &&
+         repeated.effort.source_work == first.effort.source_work &&
+         repeated.effort.recognition_work == first.effort.recognition_work &&
+         repeated.effort.enumeration_work == first.effort.enumeration_work);
+  assert(first.effort.source_clauses == formula().size() &&
+         first.effort.source_literals && first.effort.equations == 3 &&
+         first.effort.source_work && first.effort.recognition_work &&
+         first.effort.enumeration_work && first.effort.duplicate_scan_work &&
+         first.effort.pair_candidates == 3 &&
+         first.effort.structurally_ineligible_pairs == 1 &&
+         !first.effort.committed_pairs_skipped);
+  assert(image(kernel) == before && position(records) == journal &&
+         !session.retained() && !session.committed_keys());
+
+  auto one_offer = offer_window();
+  one_offer.maximum_offers = 1;
+  const auto page_one =
+      gf3_affine_action_offer(kernel, session, limits(), one_offer);
+  assert((page_one.status == Gf3AffineActionOfferStatus::Ready &&
+         !page_one.complete && page_one.have_resume_after &&
+         page_one.offers == std::vector<Gf3AffineActionKey>({{0, 1}}) &&
+         page_one.resume_after == Gf3AffineActionKey{0, 1}));
+  one_offer.have_after = true;
+  one_offer.after = page_one.resume_after;
+  const auto page_two =
+      gf3_affine_action_offer(kernel, session, limits(), one_offer);
+  assert(page_two.status == Gf3AffineActionOfferStatus::Ready &&
+         page_two.complete && !page_two.have_resume_after &&
+         page_two.offers == std::vector<Gf3AffineActionKey>({{1, 2}}));
+  auto late_exhaustion = offer_window();
+  late_exhaustion.maximum_enumeration_work =
+      page_one.effort.enumeration_work + 1;
+  const auto preserved =
+      gf3_affine_action_offer(kernel, session, limits(), late_exhaustion);
+  assert((preserved.status == Gf3AffineActionOfferStatus::Ready &&
+          !preserved.complete && preserved.have_resume_after &&
+          preserved.resume_after == Gf3AffineActionKey{0, 1} &&
+          preserved.offers ==
+              std::vector<Gf3AffineActionKey>({{0, 1}})));
+  one_offer.after = {1, 2};
+  const auto after_final =
+      gf3_affine_action_offer(kernel, session, limits(), one_offer);
+  assert(after_final.status == Gf3AffineActionOfferStatus::Ready &&
+         after_final.complete && !after_final.have_resume_after &&
+         after_final.offers.empty());
+
+  auto one_candidate = offer_window();
+  one_candidate.maximum_pair_candidates = 1;
+  const auto bounded =
+      gf3_affine_action_offer(kernel, session, limits(), one_candidate);
+  assert((bounded.status == Gf3AffineActionOfferStatus::Ready &&
+         !bounded.complete && bounded.have_resume_after &&
+         bounded.resume_after == Gf3AffineActionKey{0, 1} &&
+         bounded.effort.pair_candidates == 1 &&
+         bounded.offers == std::vector<Gf3AffineActionKey>({{0, 1}})));
+  assert(image(kernel) == before && position(records) == journal &&
+         !session.retained());
+  std::fclose(records);
+}
+
+void offerer_reuses_owner_and_suppresses_committed_pairs() {
+  Kernel kernel = parse();
+  FILE *records = std::tmpfile();
+  assert(records);
+  attach(kernel, records);
+  Gf3AffineActionSession session;
+  assert(gf3_affine_action_apply(kernel, session, limits(), 0, 1).status ==
+         Gf3AffineActionStatus::Applied);
+  const size_t keys = session.committed_keys();
+  const Image before = image(kernel);
+  const long journal = position(records);
+  const auto offered =
+      gf3_affine_action_offer(kernel, session, limits(), offer_window());
+  assert(offered.status == Gf3AffineActionOfferStatus::Ready &&
+         offered.complete && offered.owner_retained &&
+         offered.offers == std::vector<Gf3AffineActionKey>({{1, 2}}) &&
+         offered.effort.committed_pairs_skipped == 1 &&
+         offered.effort.recognition_work &&
+         offered.effort.revalidation_work);
+  assert(image(kernel) == before && position(records) == journal &&
+         session.committed_keys() == keys && session.belongs_to(kernel));
+
+  auto full_session = limits();
+  full_session.maximum_session_keys = session.committed_keys();
+  const auto capacity = gf3_affine_action_offer(
+      kernel, session, full_session, offer_window());
+  assert(capacity.status == Gf3AffineActionOfferStatus::ResourceExhausted &&
+         capacity.offers.empty() && !capacity.complete);
+
+  auto one_candidate = offer_window();
+  one_candidate.maximum_pair_candidates = 1;
+  const auto committed_page =
+      gf3_affine_action_offer(kernel, session, limits(), one_candidate);
+  assert((committed_page.status == Gf3AffineActionOfferStatus::Ready &&
+          !committed_page.complete && committed_page.have_resume_after &&
+          committed_page.offers.empty() &&
+          committed_page.resume_after == Gf3AffineActionKey{0, 1} &&
+          committed_page.effort.committed_pairs_skipped == 1));
+  one_candidate.have_after = true;
+  one_candidate.after = committed_page.resume_after;
+  const auto structural_page =
+      gf3_affine_action_offer(kernel, session, limits(), one_candidate);
+  assert((structural_page.status == Gf3AffineActionOfferStatus::Ready &&
+          !structural_page.complete && structural_page.have_resume_after &&
+          structural_page.offers.empty() &&
+          structural_page.resume_after == Gf3AffineActionKey{0, 2} &&
+          structural_page.effort.structurally_ineligible_pairs == 1));
+  one_candidate.after = structural_page.resume_after;
+  const auto productive_page =
+      gf3_affine_action_offer(kernel, session, limits(), one_candidate);
+  assert(productive_page.status == Gf3AffineActionOfferStatus::Ready &&
+         productive_page.complete && !productive_page.have_resume_after &&
+         productive_page.offers ==
+             std::vector<Gf3AffineActionKey>({{1, 2}}));
+  assert(image(kernel) == before && position(records) == journal &&
+         session.committed_keys() == keys);
+
+  const auto source = std::find_if(
+      session.snapshot()->sources.begin(), session.snapshot()->sources.end(),
+      [](const Gf3AffineLiveSource &item) {
+        return item.kind == Gf3AffineSourceKind::Large;
+      });
+  assert(source != session.snapshot()->sources.end());
+  kernel_delete_clause(kernel, clause_at(kernel.arena, source->ref));
+  const Image stale_before = image(kernel);
+  const long stale_journal = position(records);
+  const auto stale =
+      gf3_affine_action_offer(kernel, session, limits(), offer_window());
+  assert(stale.status == Gf3AffineActionOfferStatus::Stale &&
+         stale.offers.empty() && !stale.complete &&
+         stale.effort.revalidation_work);
+  assert(image(kernel) == stale_before && position(records) == stale_journal &&
+         session.committed_keys() == keys);
+  std::fclose(records);
+
+  Kernel other = parse();
+  FILE *other_records = std::tmpfile();
+  assert(other_records);
+  attach(other, other_records);
+  const Image other_before = image(other);
+  const auto wrong_owner =
+      gf3_affine_action_offer(other, session, limits(), offer_window());
+  assert(wrong_owner.status == Gf3AffineActionOfferStatus::Stale &&
+         wrong_owner.offers.empty() && image(other) == other_before &&
+         !position(other_records));
+  std::fclose(other_records);
+}
+
+void offerer_declines_negative_bounds_and_interrupt_atomically() {
+  {
+    Kernel kernel = parse(false);
+    FILE *records = std::tmpfile();
+    assert(records);
+    attach(kernel, records);
+    Gf3AffineActionSession session;
+    const Image before = image(kernel);
+    const auto no_structure =
+        gf3_affine_action_offer(kernel, session, limits(), offer_window());
+    assert(no_structure.status == Gf3AffineActionOfferStatus::NoStructure &&
+           no_structure.offers.empty() && image(kernel) == before &&
+           !position(records) && !session.retained());
+    std::fclose(records);
+  }
+  {
+    Kernel kernel = parse();
+    FILE *records = std::tmpfile();
+    assert(records);
+    attach(kernel, records);
+    Gf3AffineActionSession session;
+    const Image before = image(kernel);
+    auto recognition_bound = limits();
+    recognition_bound.maximum_recognition_work = 1;
+    const auto recognition_exhausted = gf3_affine_action_offer(
+        kernel, session, recognition_bound, offer_window());
+    assert(recognition_exhausted.status ==
+               Gf3AffineActionOfferStatus::ResourceExhausted &&
+           recognition_exhausted.offers.empty());
+    auto enumeration_bound = offer_window();
+    enumeration_bound.maximum_enumeration_work = 1;
+    const auto enumeration_exhausted = gf3_affine_action_offer(
+        kernel, session, limits(), enumeration_bound);
+    assert(enumeration_exhausted.status ==
+               Gf3AffineActionOfferStatus::ResourceExhausted &&
+           enumeration_exhausted.offers.empty() &&
+           enumeration_exhausted.effort.enumeration_work == 1);
+    auto pair_bound = limits();
+    pair_bound.elimination.maximum_result_arity = 3;
+    const auto locally_rejected = gf3_affine_action_offer(
+        kernel, session, pair_bound, offer_window());
+    assert(locally_rejected.status ==
+               Gf3AffineActionOfferStatus::ResourceExhausted &&
+           !locally_rejected.complete && locally_rejected.offers.empty() &&
+           locally_rejected.effort.pair_candidates == 3 &&
+           locally_rejected.effort.resource_rejected_pairs == 2 &&
+           locally_rejected.effort.structurally_ineligible_pairs == 1);
+    auto rejected_page = offer_window();
+    rejected_page.maximum_pair_candidates = 1;
+    const auto resumable_rejection = gf3_affine_action_offer(
+        kernel, session, pair_bound, rejected_page);
+    assert((resumable_rejection.status == Gf3AffineActionOfferStatus::Ready &&
+            !resumable_rejection.complete &&
+            resumable_rejection.have_resume_after &&
+            resumable_rejection.offers.empty() &&
+           resumable_rejection.resume_after == Gf3AffineActionKey{0, 1} &&
+            resumable_rejection.effort.resource_rejected_pairs == 1));
+    auto journal_bound = limits();
+    journal_bound.maximum_journal_bytes = 1;
+    const auto journal_rejected = gf3_affine_action_offer(
+        kernel, session, journal_bound, offer_window());
+    assert(journal_rejected.status ==
+               Gf3AffineActionOfferStatus::ResourceExhausted &&
+           journal_rejected.offers.empty() &&
+           journal_rejected.effort.resource_rejected_pairs == 2);
+    const auto journal_apply =
+        gf3_affine_action_apply(kernel, session, journal_bound, 0, 1);
+    assert(journal_apply.status == Gf3AffineActionStatus::ResourceExhausted &&
+           journal_apply.result == ApplyResult::NoOp);
+    for (uint32_t cap = 0; cap < 7; ++cap) {
+      auto bounded = limits();
+      if (cap == 0) bounded.maximum_recognition_work = 1;
+      if (cap == 1) bounded.maximum_planning_work = 1;
+      if (cap == 2) bounded.maximum_duplicate_scan_work = 1;
+      if (cap == 3) bounded.maximum_revalidation_work = 1;
+      if (cap == 4) bounded.maximum_proof_work = 1;
+      if (cap == 5) bounded.maximum_proof_additions = 1;
+      if (cap == 6) bounded.maximum_proof_literal_occurrences = 1;
+      const auto rejected = gf3_affine_action_offer(
+          kernel, session, bounded, offer_window());
+      assert(rejected.status ==
+                 Gf3AffineActionOfferStatus::ResourceExhausted &&
+             rejected.offers.empty());
+      const auto apply =
+          gf3_affine_action_apply(kernel, session, bounded, 0, 1);
+      assert(apply.status == Gf3AffineActionStatus::ResourceExhausted &&
+             apply.result == ApplyResult::NoOp);
+    }
+    auto arena_bound = limits();
+    arena_bound.maximum_arena_words = 1;
+    const auto arena_rejected = gf3_affine_action_offer(
+        kernel, session, arena_bound, offer_window());
+    assert(arena_rejected.status ==
+               Gf3AffineActionOfferStatus::ResourceExhausted &&
+           arena_rejected.offers.empty());
+    const auto arena_apply =
+        gf3_affine_action_apply(kernel, session, arena_bound, 0, 1);
+    assert(arena_apply.status == Gf3AffineActionStatus::ResourceExhausted &&
+           arena_apply.result == ApplyResult::NoOp);
+    auto extent_bound = limits();
+    extent_bound.maximum_external_extent =
+        static_cast<uint32_t>(kernel.external_to_internal.size() - 1);
+    const auto extent_rejected = gf3_affine_action_offer(
+        kernel, session, extent_bound, offer_window());
+    assert(extent_rejected.status ==
+               Gf3AffineActionOfferStatus::ResourceExhausted &&
+           extent_rejected.offers.empty());
+    auto invalid_window = offer_window();
+    invalid_window.have_after = true;
+    invalid_window.after = {1, 1};
+    const auto invalid = gf3_affine_action_offer(
+        kernel, session, limits(), invalid_window);
+    assert(invalid.status == Gf3AffineActionOfferStatus::Invalid &&
+           invalid.offers.empty());
+    assert(image(kernel) == before && !position(records) &&
+           !session.retained());
+
+    volatile sig_atomic_t stop = 1;
+    KernelStopPublisher publisher(kernel, &stop);
+    const auto interrupted =
+        gf3_affine_action_offer(kernel, session, limits(), offer_window());
+    assert(interrupted.status == Gf3AffineActionOfferStatus::Interrupted &&
+           interrupted.offers.empty() && image(kernel) == before &&
+           !position(records) && !session.retained());
+    std::fclose(records);
+  }
+}
+
+void offerer_suppresses_an_uncommitted_live_duplicate() {
+  Kernel kernel = parse();
+  FILE *records = std::tmpfile();
+  assert(records);
+  attach(kernel, records);
+  Gf3AffineActionSession session;
+  assert(gf3_affine_action_apply(kernel, session, limits(), 0, 1).status ==
+         Gf3AffineActionStatus::Applied);
+  assert(session.committed_keys() == 1);
+
+  // Publish the other productive consequence directly through the same live
+  // adapter.  This deliberately leaves its public action key uncommitted and
+  // isolates live-clause duplicate suppression from durable-key suppression.
+  const Gf3AffineLiveResult published = gf3_affine_live_apply(
+      kernel, live_request(limits(), session.snapshot(), records));
+  assert(published.status == Gf3AffineLiveStatus::Applied &&
+         published.result == ApplyResult::Ok &&
+         session.committed_keys() == 1);
+  const Image before = image(kernel);
+  const long journal = position(records);
+  const auto offered =
+      gf3_affine_action_offer(kernel, session, limits(), offer_window());
+  assert(offered.status == Gf3AffineActionOfferStatus::Ready &&
+         offered.complete && offered.offers.empty() &&
+         offered.effort.committed_pairs_skipped == 1 &&
+         offered.effort.structurally_ineligible_pairs == 1 &&
+         offered.effort.duplicate_pairs_skipped == 1 &&
+         offered.effort.duplicate_scan_work);
+  assert(image(kernel) == before && position(records) == journal &&
+         session.committed_keys() == 1);
+  std::fclose(records);
+}
+
 void proof_modes_and_guard() {
   for (const auto &[format, path] :
        {std::pair{ProofFormat::Lrat, "/tmp/gf3-action-decline.lrat"},
@@ -427,6 +788,10 @@ int main(int argc, char **argv) {
   success_replay_advice_and_repeated_pairs();
   declines_are_atomic_and_sessions_are_kernel_local();
   retained_owner_is_revalidated_before_a_novel_pair();
+  offerer_is_exact_paged_deterministic_and_read_only();
+  offerer_reuses_owner_and_suppresses_committed_pairs();
+  offerer_declines_negative_bounds_and_interrupt_atomically();
+  offerer_suppresses_an_uncommitted_live_duplicate();
   proof_modes_and_guard();
   if (argc == 4) {
     write_certificate(argv[1], argv[2], ProofFormat::DsrAscii);

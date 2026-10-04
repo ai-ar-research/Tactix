@@ -115,6 +115,67 @@ struct Gf3AffineActionResult {
   Gf3AffineLiveResult live;
 };
 
+// One bounded, deterministic page over canonical equation-pair identities.
+// The continuation key is owned by the caller and is stable for the lifetime
+// of the exact retained owner.  A zero field is never interpreted as
+// unlimited.
+struct Gf3AffineActionOfferWindow {
+  uint64_t maximum_pair_candidates = 0;
+  uint64_t maximum_offers = 0;
+  uint64_t maximum_enumeration_work = 0;
+  bool have_after = false;
+  Gf3AffineActionKey after;
+
+  bool valid() const {
+    return maximum_pair_candidates && maximum_offers &&
+           maximum_enumeration_work &&
+           (!have_after || after.first_equation < after.second_equation);
+  }
+};
+
+enum class Gf3AffineActionOfferStatus : uint8_t {
+  Invalid,
+  Inapplicable,
+  NoStructure,
+  ResourceExhausted,
+  Interrupted,
+  Stale,
+  Ready,
+};
+
+struct Gf3AffineActionOfferEffort {
+  uint64_t source_clauses = 0;
+  uint64_t source_literals = 0;
+  uint64_t equations = 0;
+  uint64_t source_work = 0;
+  uint64_t recognition_work = 0;
+  uint64_t revalidation_work = 0;
+  uint64_t session_work = 0;
+  uint64_t enumeration_work = 0;
+  uint64_t duplicate_scan_work = 0;
+  uint64_t proof_preflight_work = 0;
+  uint64_t proof_literal_occurrences = 0;
+  uint64_t arena_words = 0;
+  uint64_t journal_work = 0;
+  uint64_t journal_bytes = 0;
+  uint64_t pair_candidates = 0;
+  uint64_t committed_pairs_skipped = 0;
+  uint64_t duplicate_pairs_skipped = 0;
+  uint64_t structurally_ineligible_pairs = 0;
+  uint64_t consequence_free_pairs = 0;
+  uint64_t resource_rejected_pairs = 0;
+};
+
+struct Gf3AffineActionOfferResult {
+  Gf3AffineActionOfferStatus status = Gf3AffineActionOfferStatus::Invalid;
+  bool owner_retained = false;
+  bool complete = false;
+  bool have_resume_after = false;
+  Gf3AffineActionKey resume_after;
+  std::vector<Gf3AffineActionKey> offers;
+  Gf3AffineActionOfferEffort effort;
+};
+
 // Formula/proof-state eligibility only.  Selection, effort and session state
 // remain explicit inputs and this guard performs no recognition or mutation.
 RuleEligibility gf3_affine_action_guard(const Kernel &);
@@ -127,5 +188,14 @@ RuleEligibility gf3_affine_action_guard(const Kernel &);
 Gf3AffineActionResult gf3_affine_action_apply(
     Kernel &, Gf3AffineActionSession &, const Gf3AffineActionLimits &,
     uint32_t first_equation, uint32_t second_equation);
+
+// Discover exact productive pair payloads without changing the solver or the
+// retained session.  Fresh discovery uses the same complete recognizer as
+// apply; retained discovery re-recognizes and physically revalidates the same
+// owner.  Ready may contain a bounded page and a continuation key.  Every
+// non-Ready result has an empty offer set.
+Gf3AffineActionOfferResult gf3_affine_action_offer(
+    Kernel &, const Gf3AffineActionSession &,
+    const Gf3AffineActionLimits &, const Gf3AffineActionOfferWindow &);
 
 } // namespace tactix

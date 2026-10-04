@@ -87,6 +87,7 @@ Gf3AffineLiveStatus stopped_status(const Meter &meter,
 struct Capture {
   Gf3AffineOwnerSnapshot snapshot;
   Gf3AffineLiveStatus status = Gf3AffineLiveStatus::NoStructure;
+  uint64_t source_work = 0;
 };
 
 bool take_source(const Kernel &kernel, Gf3AffineSourceKind kind, Ref ref,
@@ -162,6 +163,7 @@ bool capture_and_recognize(const Kernel &kernel,
                        capture))
         return false;
     }
+  capture.source_work = meter.used;
   if (capture.snapshot.sources.empty()) return false;
 
   std::vector<gf3::Premise> premises;
@@ -552,15 +554,152 @@ Gf3AffineOwnerCaptureResult gf3_affine_live_capture_owner(
   Capture capture;
   if (!capture_and_recognize(kernel, request, meter, capture)) {
     result.status = recognition_failure(meter, capture.status);
+    result.source_work = capture.source_work ? capture.source_work : meter.used;
     result.recognition_work = meter.used;
     return result;
   }
   result.status = Gf3AffineLiveStatus::Applied;
   result.source_clauses = capture.snapshot.sources.size();
   result.source_literals = capture.snapshot.source_literals;
+  result.source_work = capture.source_work;
   result.recognition_work = meter.used;
   result.equations = capture.snapshot.theory.equations.size();
   output = std::move(capture.snapshot);
+  return result;
+}
+
+Gf3AffineOwnerValidationResult gf3_affine_live_validate_owner(
+    Kernel &kernel, const Gf3AffineLiveRequest &request,
+    const Gf3AffineOwnerSnapshot &owner) {
+  Gf3AffineOwnerValidationResult result;
+  if (!recognition_limits_valid(request) ||
+      !request.maximum_revalidation_work)
+    return result;
+  if (!root_guard(kernel)) {
+    result.status = kernel_terminating(kernel)
+                        ? Gf3AffineLiveStatus::Interrupted
+                        : Gf3AffineLiveStatus::Inapplicable;
+    return result;
+  }
+  if (owner.external_extent > kernel.external_to_internal.size())
+    return result;
+
+  Meter recognition_meter{kernel, request.maximum_recognition_work};
+  gf3::Theory checked;
+  result.status =
+      retained_owner_status(owner, request, recognition_meter, checked);
+  result.recognition_work = recognition_meter.used;
+  result.source_clauses = owner.sources.size();
+  result.source_literals = owner.source_literals;
+  result.equations = checked.equations.size();
+  if (result.status != Gf3AffineLiveStatus::Applied) return result;
+
+  Meter revalidation_meter{kernel, request.maximum_revalidation_work};
+  if (!revalidate_sources(kernel, owner, revalidation_meter)) {
+    result.revalidation_work = revalidation_meter.used;
+    result.status = stopped_status(revalidation_meter,
+                                   Gf3AffineLiveStatus::Stale);
+    return result;
+  }
+  result.revalidation_work = revalidation_meter.used;
+  return result;
+}
+
+Gf3AffinePreflightResult gf3_affine_live_preflight(
+    Kernel &kernel, const Gf3AffineLiveRequest &request,
+    const Gf3AffineOwnerSnapshot &owner,
+    const gf3_affine::PairEliminationPlan &plan) {
+  Gf3AffinePreflightResult result;
+  if (!apply_limits_valid(request) ||
+      plan.status != gf3_affine::PlanStatus::Planned ||
+      plan.additions.empty())
+    return result;
+  if (kernel.external_to_internal.size() > request.maximum_external_extent) {
+    result.status = Gf3AffinePreflightStatus::ResourceExhausted;
+    return result;
+  }
+
+  Meter meter{kernel, request.maximum_duplicate_scan_work};
+  std::set<ClauseKey> live;
+  if (!collect_live_clauses(kernel, meter, live)) {
+    result.duplicate_scan_work = meter.used;
+    result.duplicate_scan_exhausted = meter.exhausted;
+    result.status = meter.interrupted
+                        ? Gf3AffinePreflightStatus::Interrupted
+                        : Gf3AffinePreflightStatus::ResourceExhausted;
+    return result;
+  }
+  for (size_t index = 0; index < plan.additions.size(); ++index) {
+    const gf3_affine::Addition &addition = plan.additions[index];
+    if (!meter.charge(uint64_t{1} + addition.clause.size())) {
+      result.duplicate_scan_work = meter.used;
+      result.duplicate_scan_exhausted = meter.exhausted;
+      result.status = meter.interrupted
+                          ? Gf3AffinePreflightStatus::Interrupted
+                          : Gf3AffinePreflightStatus::ResourceExhausted;
+      return result;
+    }
+    if (live.count(normalized(addition.clause)))
+      ++result.duplicate_additions;
+    else
+      result.missing_additions.push_back(index);
+  }
+  result.duplicate_scan_work = meter.used;
+  if (result.missing_additions.empty()) {
+    result.status = Gf3AffinePreflightStatus::Duplicate;
+    return result;
+  }
+
+  for (size_t index : result.missing_additions) {
+    const gf3_affine::Addition &addition = plan.additions[index];
+    const uint64_t amount = uint64_t{1} + addition.clause.size() +
+                            addition.antecedents.size();
+    if (result.proof_work > request.maximum_proof_work ||
+        amount > request.maximum_proof_work - result.proof_work ||
+        result.proof_literal_occurrences >
+            request.maximum_proof_literal_occurrences ||
+        addition.clause.size() >
+            request.maximum_proof_literal_occurrences -
+                result.proof_literal_occurrences) {
+      result.status = Gf3AffinePreflightStatus::ResourceExhausted;
+      return result;
+    }
+    result.proof_work += amount;
+    result.proof_literal_occurrences += addition.clause.size();
+    if (addition.clause.size() >= 3) {
+      const uint64_t words = addition.clause.size() + CLAUSE_HEADER_WORDS;
+      if (result.arena_words > request.maximum_arena_words ||
+          words > request.maximum_arena_words - result.arena_words) {
+        result.status = Gf3AffinePreflightStatus::ResourceExhausted;
+        return result;
+      }
+      result.arena_words += words;
+    }
+  }
+  if (result.missing_additions.size() > request.maximum_proof_additions ||
+      result.missing_additions.size() > request.elimination.maximum_additions ||
+      kernel.next_clause_id >
+          uint64_t(INT64_MAX) - result.missing_additions.size() ||
+      kernel.arena.size() >= INVALID_REF ||
+      result.arena_words >= INVALID_REF - kernel.arena.size()) {
+    result.status = Gf3AffinePreflightStatus::ResourceExhausted;
+    return result;
+  }
+
+  result.published_clause_ids.assign(plan.additions.size(), 0);
+  uint64_t next_id = kernel.next_clause_id;
+  for (size_t index : result.missing_additions)
+    result.published_clause_ids[index] = ++next_id;
+  Journal journal{request.maximum_journal_bytes, 0, {}};
+  if (!render_journal(request, owner, plan, result.published_clause_ids,
+                      result.proof_work, journal)) {
+    result.journal_work = journal.work;
+    result.status = Gf3AffinePreflightStatus::ResourceExhausted;
+    return result;
+  }
+  result.journal_work = journal.work;
+  result.journal = std::move(journal.bytes);
+  result.status = Gf3AffinePreflightStatus::Ready;
   return result;
 }
 
@@ -631,71 +770,30 @@ Gf3AffineLiveResult gf3_affine_live_apply(
   }
   result.consequence = plan.consequence;
 
-  Meter duplicate_meter{kernel, request.maximum_duplicate_scan_work};
-  std::set<ClauseKey> live;
-  if (!collect_live_clauses(kernel, duplicate_meter, live)) {
-    result.duplicate_scan_work = duplicate_meter.used;
-    result.status = stopped_status(duplicate_meter,
-                                   Gf3AffineLiveStatus::ResourceExhausted);
-    return result;
-  }
-  result.duplicate_scan_work = duplicate_meter.used;
-  std::vector<size_t> missing;
-  std::vector<uint64_t> published_ids(plan.additions.size(), 0);
-  for (size_t index = 0; index < plan.additions.size(); ++index)
-    if (live.count(normalized(plan.additions[index].clause)))
-      ++result.duplicate_additions;
-    else
-      missing.push_back(index);
-  if (missing.empty()) {
+  Gf3AffinePreflightResult preflight =
+      gf3_affine_live_preflight(kernel, request, *owner, plan);
+  result.duplicate_scan_work = preflight.duplicate_scan_work;
+  result.duplicate_additions = preflight.duplicate_additions;
+  result.proof_work = preflight.proof_work;
+  result.proof_literal_occurrences = preflight.proof_literal_occurrences;
+  result.arena_words = preflight.arena_words;
+  result.journal_work = preflight.journal_work;
+  switch (preflight.status) {
+  case Gf3AffinePreflightStatus::Ready:
+    break;
+  case Gf3AffinePreflightStatus::Duplicate:
     result.status = Gf3AffineLiveStatus::Duplicate;
     return result;
-  }
-
-  uint64_t proof_work = 0, proof_literals = 0, arena_words = 0;
-  for (size_t index : missing) {
-    const gf3::Addition &addition = plan.additions[index];
-    const uint64_t amount = uint64_t{1} + addition.clause.size() +
-                            addition.antecedents.size();
-    if (amount > request.maximum_proof_work - proof_work ||
-        addition.clause.size() >
-            request.maximum_proof_literal_occurrences - proof_literals) {
-      result.status = Gf3AffineLiveStatus::ResourceExhausted;
-      return result;
-    }
-    proof_work += amount;
-    proof_literals += addition.clause.size();
-    if (addition.clause.size() >= 3) {
-      const uint64_t words = addition.clause.size() + CLAUSE_HEADER_WORDS;
-      if (words > request.maximum_arena_words - arena_words) {
-        result.status = Gf3AffineLiveStatus::ResourceExhausted;
-        return result;
-      }
-      arena_words += words;
-    }
-  }
-  result.proof_work = proof_work;
-  result.proof_literal_occurrences = proof_literals;
-  result.arena_words = arena_words;
-  if (missing.size() > request.maximum_proof_additions ||
-      missing.size() > request.elimination.maximum_additions ||
-      kernel.next_clause_id > uint64_t(INT64_MAX) - missing.size() ||
-      kernel.arena.size() >= INVALID_REF ||
-      arena_words >= INVALID_REF - kernel.arena.size()) {
+  case Gf3AffinePreflightStatus::ResourceExhausted:
     result.status = Gf3AffineLiveStatus::ResourceExhausted;
     return result;
-  }
-
-  uint64_t next_id = kernel.next_clause_id;
-  for (size_t index : missing) published_ids[index] = ++next_id;
-  Journal journal{request.maximum_journal_bytes, 0, {}};
-  if (!render_journal(request, *owner, plan, published_ids, proof_work,
-                      journal)) {
-    result.journal_work = journal.work;
-    result.status = Gf3AffineLiveStatus::ResourceExhausted;
+  case Gf3AffinePreflightStatus::Interrupted:
+    result.status = Gf3AffineLiveStatus::Interrupted;
+    return result;
+  case Gf3AffinePreflightStatus::Invalid:
+    result.status = Gf3AffineLiveStatus::Invalid;
     return result;
   }
-  result.journal_work = journal.work;
 
   Meter revalidation_meter{kernel, request.maximum_revalidation_work};
   if (!revalidate_sources(kernel, *owner, revalidation_meter)) {
@@ -713,8 +811,8 @@ Gf3AffineLiveResult gf3_affine_live_apply(
   // Commit starts here. Every recoverable proof, capacity, journal, source,
   // duplicate, and interruption check has completed without mutation.
   kernel.close_startup_certificate();
-  result.published_clause_ids.reserve(missing.size());
-  for (size_t index : missing) {
+  result.published_clause_ids.reserve(preflight.missing_additions.size());
+  for (size_t index : preflight.missing_additions) {
     const gf3::Addition &addition = plan.additions[index];
     std::vector<Lit> literals;
     literals.reserve(addition.clause.size());
@@ -725,7 +823,7 @@ Gf3AffineLiveResult gf3_affine_live_apply(
       literals.push_back(literal);
     }
     const uint64_t id = ++kernel.next_clause_id;
-    if (id != published_ids[index]) std::abort();
+    if (id != preflight.published_clause_ids[index]) std::abort();
     if (kernel.proof)
       kernel.proof->add_rup(id, literals.data(), literals.size(), nullptr, 0);
     if (literals.size() == 2)
@@ -735,15 +833,15 @@ Gf3AffineLiveResult gf3_affine_live_apply(
                               literals.size(), id);
     result.published_clause_ids.push_back(id);
   }
-  if (std::fwrite(journal.bytes.data(), 1, journal.bytes.size(),
-                  request.records) != journal.bytes.size() ||
+  if (std::fwrite(preflight.journal.data(), 1, preflight.journal.size(),
+                  request.records) != preflight.journal.size() ||
       std::fflush(request.records) || std::ferror(request.records))
     std::abort();
 
   result.status = Gf3AffineLiveStatus::Applied;
   result.result = ApplyResult::Ok;
-  result.emitted_additions = missing.size();
-  result.journal_bytes = journal.bytes.size();
+  result.emitted_additions = preflight.missing_additions.size();
+  result.journal_bytes = preflight.journal.size();
   result.first_published_clause_id = result.published_clause_ids.front();
   result.last_published_clause_id = result.published_clause_ids.back();
   result.propagation_pending = !kernel_propagation_fixpoint(kernel);
