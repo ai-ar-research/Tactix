@@ -17,7 +17,11 @@ RuleEligibility exact_cover_extension_action_guard(const Kernel &k) {
       .fact("propagated", kernel_propagation_fixpoint(k))
       .fact("sparse", !k.dense && k.large_watches_connected)
       .fact("no-probe-transaction", !k.probing.recording)
-      .fact("clausal-certificate", !k.proof || !k.proof->pb())
+      .fact("provenance-bound", k.structural_provenance != nullptr)
+      .fact("action-id-available",
+            k.structural_action_sequence != UINT64_MAX)
+      .fact("clausal-certificate",
+            !k.proof || (!k.proof->lrat() && !k.proof->pb()))
       .fact("candidate-slot-empty", !k.semantic_variable_candidate_pending)
       .fact("candidate-id-available",
             k.semantic_variable_publication != (UINT64_MAX >> 8));
@@ -32,11 +36,10 @@ ExactCoverExtensionActionResult exact_cover_extension_action_apply(
   }
 
   const auto &parameters = k.exact_cover_extension_parameters;
-  if (!parameters.valid() || !session.records ||
-      session.last_committed_structural_action_id == UINT64_MAX)
+  if (!parameters.valid())
     return result;
   const uint64_t prospective_action_id =
-      session.last_committed_structural_action_id + 1;
+      k.structural_action_sequence + 1;
 
   ExactCoverLiveRequest request;
   request.arity = parameters.arity;
@@ -54,7 +57,7 @@ ExactCoverExtensionActionResult exact_cover_extension_action_apply(
   request.maximum_extent_growth = parameters.maximum_extent_growth;
   request.maximum_external_extent = parameters.maximum_external_extent;
   request.action_id = prospective_action_id;
-  request.records = session.records;
+  request.records = k.structural_provenance;
   request.session = &session.live_session;
 
   result.live = exact_cover_live_apply(k, request);
@@ -78,7 +81,7 @@ ExactCoverExtensionActionResult exact_cover_extension_action_apply(
     result.semantic_candidate_staged = true;
   }
 
-  session.last_committed_structural_action_id = prospective_action_id;
+  k.structural_action_sequence = prospective_action_id;
   result.action_id = prospective_action_id;
   return result;
 }
