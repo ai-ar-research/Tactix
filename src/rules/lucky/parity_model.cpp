@@ -1,6 +1,5 @@
 #include "rules/lucky/parity_model.hpp"
 #include "rules/lucky/model.hpp"
-#include "rules/lucky/parity_refutation.hpp"
 
 #include <algorithm>
 #include <array>
@@ -93,9 +92,6 @@ ApplyResult parity_model_apply(Kernel &k) {
     return ApplyResult::NoOp;
   if (kernel_rule_interrupt(k, k.stats.parity_model_interrupted))
     return ApplyResult::NoOp;
-  const ApplyResult refutation = parity_refutation_apply(k, parameters);
-  if (refutation == ApplyResult::Unsat)
-    return refutation;
   if (k.nvars > parameters.maximum_variables || !parameters.candidate_budget)
     return ApplyResult::NoOp;
 
@@ -222,7 +218,7 @@ ApplyResult parity_model_apply(Kernel &k) {
   const uint64_t candidates =
       std::min(affine_size, parameters.candidate_budget);
   std::vector<uint8_t> assignment(k.nvars, 0);
-  std::vector<uint8_t> guidance;
+  std::vector<int8_t> guidance;
   for (uint64_t candidate = 0; candidate < candidates; ++candidate) {
     std::fill(assignment.begin(), assignment.end(), uint8_t{0});
     for (Var var = 0; var < k.nvars; ++var)
@@ -245,10 +241,16 @@ ApplyResult parity_model_apply(Kernel &k) {
       ++k.stats.parity_model_sat;
       return ApplyResult::Sat;
     }
-    if (guidance.empty())
-      guidance = assignment;
+    if (guidance.empty()) {
+      guidance.assign(k.nvars, 0);
+      for (Var var = 0; var < k.nvars; ++var) {
+        const int root = k.value(make_lit(var, false));
+        if (root) guidance[var] = static_cast<int8_t>(root);
+        else if (present[var]) guidance[var] = assignment[var] ? 1 : -1;
+      }
+    }
     if (kernel_rule_interrupt(k, k.stats.parity_model_interrupted)) {
-      kernel_offer_local_search_hint(k, strategy::LocalSearchKind::Parity,
+      kernel_offer_local_search_partial_hint(k, strategy::LocalSearchKind::Parity,
                                      guidance, UINT64_MAX, false,
                                      {k.stats.parity_model_candidates - candidates_before,
                                       strategy::LocalSearchEffortUnit::CandidateChecks});
@@ -256,7 +258,7 @@ ApplyResult parity_model_apply(Kernel &k) {
     }
   }
   if (!guidance.empty())
-    kernel_offer_local_search_hint(k, strategy::LocalSearchKind::Parity,
+    kernel_offer_local_search_partial_hint(k, strategy::LocalSearchKind::Parity,
                                    guidance, UINT64_MAX, false,
                                    {k.stats.parity_model_candidates - candidates_before,
                                     strategy::LocalSearchEffortUnit::CandidateChecks});

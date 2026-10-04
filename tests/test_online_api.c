@@ -1059,7 +1059,7 @@ static void walk_scoring_is_validated_and_copied(void) {
   tactix_release(solver);
 }
 
-static void affine_model_parameters_are_retired(void) {
+static void affine_model_parameters_require_instance_eight(void) {
   tactix *solver=tactix_init();
   for(unsigned mask=0;mask<16;++mask) {
     unsigned parity=0;for(unsigned i=0;i<4;++i)parity^=(mask>>i)&1;
@@ -1085,11 +1085,17 @@ static void affine_model_parameters_are_retired(void) {
   step.work_unit=TACTIX_ONLINE_WORK_APPLICATIONS;step.budget_unlimited=1;
   tactix_online_program program={&step,1,TACTIX_ONLINE_REPEAT_ONCE,1};
   assert(tactix_online_configure(solver,&program,1,
+             TACTIX_ONLINE_RECONFIGURE_RESET)==0);
+  instance=7;
+  assert(tactix_online_configure(solver,&program,2,
              TACTIX_ONLINE_RECONFIGURE_RESET)==-1);
+  tactix_online_result result;
+  assert(tactix_online_advance(solver,&result)==0);
+  assert(result.instance==8 && result.configuration_revision==1);
   tactix_release(solver);
 }
 
-static void balanced_signature_parameters_are_retired(void) {
+static void balanced_signature_parameters_are_public_and_validated(void) {
   tactix *solver = tactix_init();
   clause(solver, (const int[]){1, 2, 0});
   tactix_online_step step;
@@ -1117,11 +1123,18 @@ static void balanced_signature_parameters_are_retired(void) {
   tactix_online_program program = {
       &step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
   assert(tactix_online_configure(
+             solver, &program, 1, TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  p->maximum_balls = 2;
+  assert(tactix_online_configure(
              solver, &program, 2, TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  tactix_online_result result;
+  assert(tactix_online_advance(solver, &result) == 0);
+  assert(result.status == TACTIX_ONLINE_COMPLETED ||
+         result.status == TACTIX_ONLINE_NO_CHANGE);
   tactix_release(solver);
 }
 
-static void fermat_parameters_are_retired(void) {
+static void fermat_parameters_are_public_and_validated(void) {
   tactix *solver = tactix_init();
   clause(solver, (const int[]){1, 2, 0});
   tactix_online_step step;
@@ -1146,11 +1159,20 @@ static void fermat_parameters_are_retired(void) {
   tactix_online_program program = {
       &step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
   assert(tactix_online_configure(
+             solver, &program, 1, TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  instance = 12;
+  assert(tactix_online_configure(
              solver, &program, 2, TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  instance = 11;
+  p->maximum_bits = 0;
+  assert(tactix_online_configure(
+             solver, &program, 3, TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  tactix_online_result result;
+  assert(tactix_online_advance(solver, &result) == 0);
   tactix_release(solver);
 }
 
-static void lookup_circuit_parameters_are_retired(void) {
+static void lookup_circuit_parameters_are_public_and_validated(void) {
   tactix *solver = tactix_init();
   clause(solver, (const int[]){1, 2, 0});
   tactix_online_step step;
@@ -1176,11 +1198,20 @@ static void lookup_circuit_parameters_are_retired(void) {
   tactix_online_program program = {
       &step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
   assert(tactix_online_configure(
+             solver, &program, 1, TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  instance = 12;
+  assert(tactix_online_configure(
              solver, &program, 2, TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  instance = 13;
+  p->maximum_fanin = 0;
+  assert(tactix_online_configure(
+             solver, &program, 3, TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  tactix_online_result result;
+  assert(tactix_online_advance(solver, &result) == 0);
   tactix_release(solver);
 }
 
-static void simon_parameters_are_retired(void) {
+static void simon_parameters_are_public_and_validated(void) {
   tactix *solver = tactix_init();
   clause(solver, (const int[]){1, 2, 0});
   tactix_online_step step;
@@ -1202,7 +1233,16 @@ static void simon_parameters_are_retired(void) {
   tactix_online_program program = {
       &step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
   assert(tactix_online_configure(
+             solver, &program, 1, TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  instance = 12;
+  assert(tactix_online_configure(
              solver, &program, 2, TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  instance = 14;
+  p->maximum_rounds = 0;
+  assert(tactix_online_configure(
+             solver, &program, 3, TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  tactix_online_result result;
+  assert(tactix_online_advance(solver, &result) == 0);
   tactix_release(solver);
 }
 
@@ -1279,7 +1319,7 @@ static void signed_cardinality_parameters_are_public_and_validated(void) {
   tactix_release(solver);
 }
 
-static void exact_cover_parameters_are_retired(void) {
+static void exact_cover_parameters_are_public_and_validated(void) {
   tactix *solver = tactix_init();
   clause(solver, (const int[]){1, 2, 0});
   tactix_online_step step;
@@ -1304,12 +1344,20 @@ static void exact_cover_parameters_are_retired(void) {
   step.budget_unlimited = 1;
   tactix_online_program program = {
       &step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
+  uint64_t wrong = 18;
+  step.instances = &wrong;
   assert(tactix_online_configure(
              solver, &program, 1, TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  step.instances = &instance;
+  assert(tactix_online_configure(
+             solver, &program, 1, TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  tactix_online_result result;
+  assert(tactix_online_advance(solver, &result) == 0);
+  assert(result.instance == 17 && result.status == TACTIX_ONLINE_NO_CHANGE);
   tactix_release(solver);
 }
 
-static void independent_set_parameters_are_retired(void) {
+static void independent_set_parameters_are_public_and_validated(void) {
   tactix *solver = tactix_init();
   clause(solver, (const int[]){1, 2, 0});
   tactix_online_step step;
@@ -1333,12 +1381,20 @@ static void independent_set_parameters_are_retired(void) {
   step.budget_unlimited = 1;
   tactix_online_program program = {
       &step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
+  uint64_t wrong = 17;
+  step.instances = &wrong;
   assert(tactix_online_configure(
              solver, &program, 1, TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  step.instances = &instance;
+  assert(tactix_online_configure(
+             solver, &program, 1, TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  tactix_online_result result;
+  assert(tactix_online_advance(solver, &result) == 0);
+  assert(result.instance == 18 && result.status == TACTIX_ONLINE_NO_CHANGE);
   tactix_release(solver);
 }
 
-static void graph_labeling_parameters_are_retired(void) {
+static void graph_labeling_parameters_are_public_and_validated(void) {
   tactix *solver = tactix_init();
   clause(solver, (const int[]){-4, 0}); /* parser-shortened final column */
   for (int column = 0; column < 4; ++column) {
@@ -1379,27 +1435,38 @@ static void graph_labeling_parameters_are_retired(void) {
   step.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
   step.budget_unlimited = 1;
   tactix_online_program program = {&step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
+  uint64_t wrong = 18;
+  step.instances = &wrong;
   assert(tactix_online_configure(solver, &program, 1,
                                  TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  step.instances = &instance;
+  assert(tactix_online_configure(solver, &program, 1,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  tactix_online_result result;
+  assert(tactix_online_advance(solver, &result) == 0);
+  assert(result.instance == 21);
+  assert(result.status == TACTIX_ONLINE_SAT ||
+         result.status == TACTIX_ONLINE_COMPLETED ||
+         result.status == TACTIX_ONLINE_NO_CHANGE);
   tactix_release(solver);
 }
 
 int main(void) {
-  graph_labeling_parameters_are_retired();
+  graph_labeling_parameters_are_public_and_validated();
   rejected_configuration_keeps_input_open();
   condition_cube_v3_is_atomic_and_copied();
   late_lrat_root_refutation_is_terminal();
   canonical_bve_reaches_a_real_fixpoint();
   status_reconstructs_bve_models_and_refreshes_after_restart();
-  affine_model_parameters_are_retired();
-  balanced_signature_parameters_are_retired();
-  fermat_parameters_are_retired();
-  lookup_circuit_parameters_are_retired();
-  simon_parameters_are_retired();
+  affine_model_parameters_require_instance_eight();
+  balanced_signature_parameters_are_public_and_validated();
+  fermat_parameters_are_public_and_validated();
+  lookup_circuit_parameters_are_public_and_validated();
+  simon_parameters_are_public_and_validated();
   stconn_parameters_are_public_and_validated();
   signed_cardinality_parameters_are_public_and_validated();
-  exact_cover_parameters_are_retired();
-  independent_set_parameters_are_retired();
+  exact_cover_parameters_are_public_and_validated();
+  independent_set_parameters_are_public_and_validated();
   pure_bve_scope_is_public_and_validated();
   exact_factor_grid_is_copied_and_applied();
   complete_factor_grid_is_discovered_and_applied();

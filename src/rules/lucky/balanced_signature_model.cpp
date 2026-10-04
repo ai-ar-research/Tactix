@@ -450,12 +450,14 @@ ApplyResult balanced_signature_model_apply(Kernel &k) {
   std::vector<int8_t> signed_assignment;
   if (!build_primary_assignment(k, shape, solution, signed_assignment))
     return ApplyResult::NoOp;
-  std::vector<uint8_t> hint = boolean_assignment(signed_assignment);
-  kernel_offer_local_search_hint(k,
-                                 strategy::LocalSearchKind::BalancedSignature,
-                                 hint, solution.objective, true,
-                                 {k.stats.balanced_signature_steps - steps_before,
-                                  strategy::LocalSearchEffortUnit::SignatureSteps});
+  // The constructor fixes only the theory-level pair/signature variables.
+  // Preserve every other value as unknown so Walk/CDCL can complete it from
+  // the live formula rather than treating an absent assignment as false.
+  kernel_offer_local_search_partial_hint(
+      k, strategy::LocalSearchKind::BalancedSignature, signed_assignment,
+      solution.objective, true,
+      {k.stats.balanced_signature_steps - steps_before,
+       strategy::LocalSearchEffortUnit::SignatureSteps});
   if (!solved)
     return ApplyResult::NoOp;
 

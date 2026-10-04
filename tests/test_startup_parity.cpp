@@ -17,10 +17,13 @@
 using namespace tactix;
 
 static constexpr uint64_t ACTIVE_LUCKY_INSTANCES[] = {
-    LUCKY_ALL_TRUE, LUCKY_ALL_FALSE, LUCKY_FORWARD_FALSE,
-    LUCKY_FORWARD_TRUE, LUCKY_BACKWARD_FALSE, LUCKY_BACKWARD_TRUE,
-    15, 16, LUCKY_STARTUP_PARITY, LUCKY_STARTUP_COUNT,
-    LUCKY_STARTUP_RAMSEY, LUCKY_PARITY_PROOF, LUCKY_EXACT_ONE_PROOF};
+    0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12,
+    13, 14, 15, 16, 17, 18, LUCKY_STARTUP_PARITY, LUCKY_STARTUP_COUNT,
+    LUCKY_GRAPH_LABELING, LUCKY_STARTUP_RAMSEY, LUCKY_PARITY_PROOF,
+    LUCKY_EXACT_ONE_PROOF};
+static_assert(sizeof(ACTIVE_LUCKY_INSTANCES) /
+                  sizeof(*ACTIVE_LUCKY_INSTANCES) ==
+              LUCKY_ACTIVE_INSTANCE_COUNT);
 
 static std::string graph_formula(unsigned vertices, bool odd, bool renamed) {
   std::vector<std::vector<int>> incident(vertices), clauses;

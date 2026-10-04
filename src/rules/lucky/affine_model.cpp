@@ -29,7 +29,7 @@ ApplyResult affine_model_apply(Kernel &k) {
     ++k.stats.affine_model_budget; return ApplyResult::NoOp;
   }
   uint64_t validated=0, completions=0, equations_count=0, projected=0, right_entries=0;
-  std::vector<uint8_t> guidance;
+  std::vector<int8_t> guidance;
   const auto stop = [&] { return kernel_rule_interrupt(k, k.stats.affine_model_interrupted); };
   const uint64_t work_limit = kernel_has_work_budget(k)
       ? std::min(s.maximum_work, k.work_budget) : s.maximum_work;
@@ -52,7 +52,7 @@ ApplyResult affine_model_apply(Kernel &k) {
     k.stats.affine_model_work += meter.used();
     k.stats.affine_model_budget += meter.exhausted() || admission_failed;
     if (result != ApplyResult::Sat && !guidance.empty())
-      kernel_offer_local_search_hint(k, strategy::LocalSearchKind::Affine,
+      kernel_offer_local_search_partial_hint(k, strategy::LocalSearchKind::Affine,
                                      guidance, UINT64_MAX, false,
                                      {meter.used(), strategy::LocalSearchEffortUnit::AffineWork});
     return result;
@@ -245,9 +245,9 @@ ApplyResult affine_model_apply(Kernel &k) {
         if(open==1){assignment[var_of(unit)]=negated(unit)?-1:1;changed=true;}
       }
     }
+    if (guidance.empty()) guidance=assignment;
     for(auto&value:assignment)if(!value)value=s.residual_phase?1:-1;
     for (Var v=0;v<k.nvars;++v) model[v]=assignment[v]>0;
-    if (guidance.empty()) guidance=model;
     if (!lucky_model_valid(k, model, charge) || !charge(k.nvars)) return false;
     ++validated;
     return true;

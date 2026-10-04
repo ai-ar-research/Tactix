@@ -190,21 +190,8 @@ static void configure_parameters(const char *name,
     parameters->kind = TACTIX_ONLINE_PARAMETERS_REORDER;
     parameters->value.reorder.maximum_clause_size = 7;
   } else if (!strcmp(name, "Lucky")) {
-    parameters->kind = TACTIX_ONLINE_PARAMETERS_PARITY_MODEL;
-    parameters->value.parity_model.maximum_variables = 64;
-    parameters->value.parity_model.maximum_groups = 64;
-    parameters->value.parity_model.maximum_constraints = 256;
-    parameters->value.parity_model.minimum_group_clauses = 3;
-    parameters->value.parity_model.minimum_equations = 1;
-    parameters->value.parity_model.maximum_free_variables = 4;
-    parameters->value.parity_model.candidate_budget = 16;
-    parameters->value.parity_model.refutation_maximum_variables = 128;
-    parameters->value.parity_model.refutation_maximum_groups = 128;
-    parameters->value.parity_model.refutation_maximum_constraints = 512;
-    parameters->value.parity_model.refutation_maximum_arity = 4;
-    parameters->value.parity_model.refutation_probe_constraints = 32;
-    parameters->value.parity_model.refutation_minimum_probe_repeats = 2;
-    parameters->value.parity_model.refutation_maximum_proof_additions = 4096;
+    /* The generic smoke selects probe ID 0, whose exact payload is inherit. */
+    parameters->kind = TACTIX_ONLINE_PARAMETERS_INHERIT;
   } else if (!strcmp(name, "AffineConsequence")) {
     parameters->kind = TACTIX_ONLINE_PARAMETERS_AFFINE_CONSEQUENCE;
     parameters->value.affine_consequence.maximum_clauses = 1000;
@@ -431,7 +418,10 @@ static void invalid_parity_parameters_are_transactional(void) {
   step.parameters.value.parity_model.minimum_equations = 1;
   step.parameters.value.parity_model.maximum_free_variables = 4;
   step.parameters.value.parity_model.candidate_budget = 16;
-  step.granularity = TACTIX_ONLINE_GRANULARITY_CANONICAL;
+  const uint64_t parity_instance = 6;
+  step.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
+  step.instances = &parity_instance;
+  step.instance_count = 1;
   step.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
   step.repeat_limit = 1;
   step.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
@@ -671,7 +661,7 @@ static void invalid_theory_v5_inputs_are_transactional(void) {
   fclose(records);
 }
 
-static void lucky_constructors_are_retired(void) {
+static void lucky_sat_constructors_are_public(void) {
   tactix *solver = tactix_init();
   /* Forbid the four even assignments on variables 1,2,3, then select one
    * affine witness with a binary clause. */
@@ -685,18 +675,14 @@ static void lucky_constructors_are_retired(void) {
   uint64_t instances[NINST];
   const int count =
       tactix_rule_semantic_instances(solver, lucky, instances, NINST);
-  int parity_proof = 0, exact_one_proof = 0;
+  assert(count == 25);
   for (int i = 0; i < count; ++i)
-    {
-      assert(!((instances[i] >= 6 && instances[i] <= 14) ||
-               instances[i] == 17 || instances[i] == 18 ||
-               instances[i] == 21));
-      parity_proof |= instances[i] == 23;
-      exact_one_proof |= instances[i] == 24;
-    }
-  assert(parity_proof && exact_one_proof);
+    assert(instances[i] == (uint64_t)i);
+  for (uint64_t restored = 11; restored <= 14; ++restored)
+    assert(instances[restored] == restored);
+  assert(instances[17] == 17 && instances[18] == 18 && instances[21] == 21);
 
-  uint64_t selected = 6;
+  uint64_t selected = 99;
   tactix_online_step step;
   memset(&step, 0, sizeof step);
   step.step_id = 90;
@@ -757,7 +743,7 @@ int main(void) {
   independent_set_v4_batch_retains_its_owner();
   theory_action_v5_payloads_are_deep_copied();
   invalid_theory_v5_inputs_are_transactional();
-  lucky_constructors_are_retired();
+  lucky_sat_constructors_are_public();
   aba_transition_invalidates_a_pending_batch();
   puts("test_online_all_actions: all registered actions and ABA invalidation PASS");
   return 0;

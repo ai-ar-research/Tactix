@@ -201,8 +201,13 @@ struct DefaultStrategyConfig {
     // A failed structural model search can seed a later generic Walk.  Keep
     // each source distinct and rotate them so unlike objectives are composed
     // without pretending their scores are directly comparable.
-    bool structural_walk_seed = false;
-    std::vector<strategy::LocalSearchKind> structural_seed_rotation;
+    bool structural_walk_seed = true;
+    std::vector<strategy::LocalSearchKind> structural_seed_rotation{
+        strategy::LocalSearchKind::DirectCsp,
+        strategy::LocalSearchKind::Affine,
+        strategy::LocalSearchKind::Parity,
+        strategy::LocalSearchKind::Onehot,
+        strategy::LocalSearchKind::BalancedSignature};
     bool stable_only = true;
     bool late_lucky = true;
   } rephase;
@@ -217,36 +222,36 @@ struct DefaultStrategyConfig {
   } reorder;
 
   struct ParityModel {
-    bool enabled = false;
+    bool enabled = true;
     strategy::ParityModelParameters parameters;
   } parity_model;
 
   struct OnehotModel {
-    bool enabled = false;
+    bool enabled = true;
     strategy::OnehotModelParameters parameters;
   } onehot_model;
 
   struct BalancedSignatureModel {
-    bool enabled = false;
+    bool enabled = true;
     strategy::BalancedSignatureModelParameters parameters;
   } balanced_signature_model;
 
   struct FermatModel {
-    bool enabled = false;
+    bool enabled = true;
     strategy::FermatModelParameters parameters;
   } fermat_model;
 
   struct CernyModel {
-    bool enabled = false;
+    bool enabled = true;
   } cerny_model;
 
   struct LookupCircuitModel {
-    bool enabled = false;
+    bool enabled = true;
     strategy::LookupCircuitModelParameters parameters;
   } lookup_circuit_model;
 
   struct SimonModel {
-    bool enabled = false;
+    bool enabled = true;
     strategy::SimonModelParameters parameters;
   } simon_model;
 
@@ -261,12 +266,12 @@ struct DefaultStrategyConfig {
   } signed_cardinality_proof;
 
   struct ExactCoverModel {
-    bool enabled = false;
+    bool enabled = true;
     strategy::ExactCoverModelParameters parameters;
   } exact_cover_model;
 
   struct IndependentSetModel {
-    bool enabled = false;
+    bool enabled = true;
     strategy::IndependentSetModelParameters parameters;
   } independent_set_model;
 

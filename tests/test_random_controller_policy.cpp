@@ -101,10 +101,61 @@ static void finite_lucky_catalog_is_reachable() {
     const uint64_t instance = request.invocation.instances.front();
     seen.insert(instance);
     assert(!lucky_retired_constructor_instance(instance));
+    if (instance <= LUCKY_BACKWARD_TRUE || instance == 12 ||
+        instance == LUCKY_STARTUP_COUNT)
+      assert(std::holds_alternative<std::monostate>(
+          request.invocation.parameters));
+    else if (instance == 6 || instance == LUCKY_STARTUP_PARITY ||
+             instance == LUCKY_PARITY_PROOF)
+      assert(std::holds_alternative<ParityModelParameters>(
+          request.invocation.parameters));
+    else if (instance == 7 || instance == 9 ||
+             instance == LUCKY_EXACT_ONE_PROOF)
+      assert(std::holds_alternative<OnehotModelParameters>(
+          request.invocation.parameters));
+    else if (instance == 8)
+      assert(std::holds_alternative<AffineModelParameters>(
+          request.invocation.parameters));
+    else if (instance == 10)
+      assert(std::holds_alternative<BalancedSignatureModelParameters>(
+          request.invocation.parameters));
+    else if (instance == 11)
+      assert(std::holds_alternative<FermatModelParameters>(
+          request.invocation.parameters));
+    else if (instance == 13)
+      assert(std::holds_alternative<LookupCircuitModelParameters>(
+          request.invocation.parameters));
+    else if (instance == 14)
+      assert(std::holds_alternative<SimonModelParameters>(
+          request.invocation.parameters));
+    else if (instance == 15)
+      assert(std::holds_alternative<StconnProofParameters>(
+          request.invocation.parameters));
+    else if (instance == 16)
+      assert(std::holds_alternative<SignedCardinalityProofParameters>(
+          request.invocation.parameters));
+    else if (instance == 17)
+      assert(std::holds_alternative<ExactCoverModelParameters>(
+          request.invocation.parameters));
+    else if (instance == 18)
+      assert(std::holds_alternative<IndependentSetModelParameters>(
+          request.invocation.parameters));
+    else if (instance == LUCKY_GRAPH_LABELING)
+      assert(std::holds_alternative<GraphLabelingParameters>(
+          request.invocation.parameters));
+    else if (instance == LUCKY_STARTUP_RAMSEY)
+      assert(std::holds_alternative<RamseyStartupParameters>(
+          request.invocation.parameters));
+    else
+      assert(false && "unclassified Lucky instance");
   }
   assert(seen.size() == LUCKY_ACTIVE_INSTANCE_COUNT);
+  assert(seen.count(17) && seen.count(18) &&
+         seen.count(LUCKY_GRAPH_LABELING));
   config.parameters.graph_labeling_reference.work[0]++;
-  assert(controller_configuration(config) == original_config);
+  assert(controller_configuration(config) != original_config);
+  config.parameters.fermat_model_reference.rho_iterations++;
+  assert(controller_configuration(config) != original_config);
 }
 
 int main() {

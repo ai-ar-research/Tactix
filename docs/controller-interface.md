@@ -1,4 +1,4 @@
-# Restart controller interface v4
+# Restart controller interface v5
 
 Concrete specification for DEVELOPMENT_PLAN.md §5.6. That section owns the
 architecture; this document owns the versioned interface and choice identities.
@@ -30,16 +30,19 @@ for per-family allowances and search/reference profiles. Legacy random-policy
 trace/replay flags belong to their existing format; controller replay uses its
 own versioned records.
 
-Action-space/observation version 4 enumerates Lucky probes 0--5 and proof actions
-15, 16, 19, 20, 22, 23, and 24. Dedicated constructor IDs 6--14, 17, 18, and 21
-remain reserved but are absent from enumeration, DefaultPolicy, random generation,
-and typed replay; direct legacy application is a NoOp, and an old typed request is
-rejected rather than redirected. IDs 23 and 24 contain only the parity and exact-one
-proof portions formerly mixed into 6 and 7. Preserved constructor implementations
-remain reference controls; a recognizer may feed Boolean reasoning only after it
-returns exact current-formula premises and a declared semantic object. Private
-assignments and scores never license a clause. Version 2 added explicit constructor
-candidates and changed LocalSearchGuidance to target-only initialization. The
+Action-space/observation version 5 enumerates every Lucky ID 0--24. IDs 0--5 are
+the probes; 6--14, 17, 18 and 21 retain their historical SAT-constructor
+meanings; 15, 16, 19, 20 and 22--24 are proof actions. Every ID participates in
+public enumeration, typed replay and random generation under its own typed
+profile. A completed constructor assignment can return SAT only after
+whole-live-CNF validation. Incomplete searches for 6--10 and 21 may publish
+their known signed values for later Walk or CDCL phase guidance; unknown values
+remain explicit and failure proves nothing. Constructors 6 and 7 cannot refute:
+only proof IDs 23 and 24 run the parity and exact-one contradiction paths.
+DefaultPolicy restores historical scheduling for 6/7/9/11--14/17/18, retains
+10, leaves graph constructor 21 disabled, and adds no default schedule for 8.
+Private assignments and scores never license a clause. Version 2 added explicit
+constructor candidates and changed LocalSearchGuidance to target-only initialization. The
 transcript container and feedback envelope retain their existing formats; request
 and observation versions identify these semantics. Old controller trajectories are
 not claimed equivalent. The feedback inspector accepts old v1 observations.
@@ -59,6 +62,12 @@ Versions 1--3 retain their layouts and meanings.
 V2 removes that ordinal and carries every image, basis, proof, extent, and
 session limit explicitly; it publishes a bounded certified basis and never
 falls back to V1 after a decline. New random-controller references use V2.
+
+Version 5 appends exact structured `Gf3AffineConsequence` and
+`DirectCspSupport` payloads. Each binds retained source owners and durable
+duplicate keys to one solver session; configured propagation follow-ups settle
+before current semantic-variable advice is published. Their implementation and
+acceptance status remain in `PROGRESS.md`.
 
 `--controller-actions=FILE` reads the existing serialized OnlineStrategyProgram
 syntax as a collection of offered alternatives, not an ordered sequence. It
@@ -83,14 +92,13 @@ mandatory before root inprocessing or learner configuration changes. Transcript
 configuration records the profile and Restart service records carry keep-level;
 coverage separates full restarts, partial restarts and continuation intervals.
 
-## Startup proof and retired constructor references
+## Startup proofs and graph constructor
 
 Lucky instance 22 is the bounded original-input Ramsey DSR composition: typed `RamseyStartupParameters`, C tag 32 and `ramsey-startup1` replay carry recognition and certificate bounds. The shared action records source/proof provenance under the session action ID and exposes cumulative discovery/proof work, yield and stop counters; zero bounds disable it. It declines after the startup boundary closes. DefaultPolicy exposes an opt-in profile; random selection uses the same parameters. Production profile/scheduling acceptance is pending.
 
-Lucky instance 21 is retained only as a reference SAT constructor or
-partial-candidate producer. It is absent from the v3 action surface and from
-production scheduling; its recognizer remains source material for certified
-Boolean graph reasoning.
+Lucky instance 21 is an active SAT constructor and partial-candidate producer.
+It is available through public dispatch, typed replay and random selection, but
+its DefaultPolicy row remains disabled pending production-profile acceptance.
 `GraphLabelingParameters` and C `TACTIX_ONLINE_PARAMETERS_GRAPH_LABELING`
 expose the same `graph-labeling1` tuple: vertex/storage limits, DFS limits,
 repair/annealing iteration ceilings, seed and eight stage work allowances.
@@ -111,7 +119,8 @@ validation; ordinary model reconstruction and original-CNF verification remain
 mandatory. Partial candidates specify primary polarities and leave auxiliaries
 unknown. Producer objectives and actual GraphWork remain separate measurements.
 
-Preserved constructor implementations do not re-enter public or random dispatch.
+The other SAT constructors use the same complete-model and partial-guidance
+boundary described below; their DefaultPolicy status is stated above.
 Current scheduling, validation, and promotion status belong to `PROGRESS.md`.
 
 ## Constructor candidates and phase consumers
@@ -232,8 +241,8 @@ separate source-bound consequence action; `ExactCoverExtension` is one canonical
 all-block conservative-extension action; `IndependentSetCover` takes one sorted,
 duplicate-free variable-length vector of positive stable external vertex identities.
 `SemanticVariableAdvice` is a separate policy operation. Registry IDs and public
-parameter tags are append-only, and retired constructor IDs and wire tags stay
-reserved. Independent-set's variable-length selection requires the additive
+parameter tags, stable Lucky IDs, and wire tags are append-only.
+Independent-set's variable-length selection requires the additive
 structured-step surface rather than an opaque scalar token.
 
 The v4 public boundary is implemented. Canonical affine and exact-cover calls,

@@ -1,5 +1,6 @@
 #undef NDEBUG
 #include "policies/default_policy.hpp"
+#include "rules/lucky/lucky.hpp"
 #include "rules/lucky/parity_model.hpp"
 #include "rules/lucky/parity_refutation.hpp"
 
@@ -166,6 +167,20 @@ int main() {
   }
   {
     Kernel k = xor_fixture(true);
+    kernel_reserve_vars(k, 5);
+    kernel_add_binary_clause(k, make_lit(3, false), make_lit(4, false));
+    strategy::ParityModelParameters parameters;
+    parameters.candidate_budget = 1;
+    strategy::ScopedParityModelParameters posed(k, parameters);
+    assert(parity_model_apply(k) == ApplyResult::NoOp);
+    const auto &hint = k.local_search_hints[
+        static_cast<size_t>(strategy::LocalSearchKind::Parity)];
+    assert(hint.available());
+    assert(hint.external_phases[k.internal_to_external[3]] == 0);
+    assert(hint.external_phases[k.internal_to_external[4]] == 0);
+  }
+  {
+    Kernel k = xor_fixture(true);
     strategy::ParityModelParameters parameters;
     parameters.maximum_constraints = 4;
     strategy::ScopedParityModelParameters posed(k, parameters);
@@ -200,8 +215,11 @@ int main() {
   }
   {
     Kernel k = inconsistent_xor_cycle();
-    const strategy::ParityModelParameters parameters;
-    assert(parity_refutation_apply(k, parameters) == ApplyResult::Unsat);
+    const RuleVTable &lucky = tactix_rules()[tactix_rule_id("Lucky")];
+    assert(apply_rule_instance(lucky, k, 6) == ApplyResult::NoOp);
+    assert(!k.inconsistent && !k.stats.parity_refutation_recognized);
+    assert(apply_rule_instance(lucky, k, LUCKY_PARITY_PROOF) ==
+           ApplyResult::Unsat);
     assert(k.inconsistent && k.stats.parity_refutation_recognized == 1 &&
            k.stats.parity_refutation_unsat == 1);
   }

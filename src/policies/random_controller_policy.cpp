@@ -172,6 +172,40 @@ std::string controller_configuration(const RandomControllerConfig &config) {
     invocation.rule_work_budget = allowance.native;
     profiles.sequence.push_back(std::move(invocation));
     if (std::string_view(rule.name) == "Lucky") {
+      auto balanced = profiles.sequence.back();
+      balanced.id = profiles.sequence.size() + 1;
+      balanced.granularity = InvocationGranularity::OneInstance;
+      balanced.instances = {10};
+      balanced.parameters =
+          config.parameters.balanced_signature_model_reference;
+      profiles.sequence.push_back(std::move(balanced));
+      auto fermat = profiles.sequence.back();
+      fermat.id = profiles.sequence.size() + 1;
+      fermat.instances = {11};
+      fermat.parameters = config.parameters.fermat_model_reference;
+      profiles.sequence.push_back(std::move(fermat));
+      auto lookup = profiles.sequence.back();
+      lookup.id = profiles.sequence.size() + 1;
+      lookup.instances = {13};
+      lookup.parameters = config.parameters.lookup_circuit_model_reference;
+      profiles.sequence.push_back(std::move(lookup));
+      auto simon = profiles.sequence.back();
+      simon.id = profiles.sequence.size() + 1;
+      simon.instances = {14};
+      simon.parameters = config.parameters.simon_model_reference;
+      profiles.sequence.push_back(std::move(simon));
+      for (const auto &[instance, parameters] :
+           std::initializer_list<std::pair<uint64_t, ActionParameters>>{
+               {17, config.parameters.exact_cover_model_reference},
+               {18, config.parameters.independent_set_model_reference},
+               {LUCKY_GRAPH_LABELING,
+                config.parameters.graph_labeling_reference}}) {
+        auto constructor = profiles.sequence.back();
+        constructor.id = profiles.sequence.size() + 1;
+        constructor.instances = {instance};
+        constructor.parameters = parameters;
+        profiles.sequence.push_back(std::move(constructor));
+      }
       auto ramsey = profiles.sequence.back();
       ramsey.id = profiles.sequence.size() + 1;
       ramsey.instances = {LUCKY_STARTUP_RAMSEY};
@@ -647,12 +681,48 @@ bool RandomControllerSelector::choose(
           request.invocation.instances == std::vector<uint64_t>{LUCKY_STARTUP_RAMSEY})
         request.invocation.parameters = config.parameters.ramsey_startup_reference;
       if (request.invocation.rule == "Lucky" &&
+          request.invocation.instances == std::vector<uint64_t>{17})
+        request.invocation.parameters =
+            config.parameters.exact_cover_model_reference;
+      if (request.invocation.rule == "Lucky" &&
+          request.invocation.instances == std::vector<uint64_t>{18})
+        request.invocation.parameters =
+            config.parameters.independent_set_model_reference;
+      if (request.invocation.rule == "Lucky" &&
+          request.invocation.instances ==
+              std::vector<uint64_t>{LUCKY_GRAPH_LABELING})
+        request.invocation.parameters = config.parameters.graph_labeling_reference;
+      if (request.invocation.rule == "Lucky" &&
           request.invocation.instances == std::vector<uint64_t>{15})
         request.invocation.parameters = config.parameters.stconn_proof_reference;
       if (request.invocation.rule == "Lucky" &&
           request.invocation.instances == std::vector<uint64_t>{16})
         request.invocation.parameters =
             config.parameters.signed_cardinality_proof_reference;
+      if (request.invocation.rule == "Lucky" &&
+          request.invocation.instances == std::vector<uint64_t>{10})
+        request.invocation.parameters =
+            config.parameters.balanced_signature_model_reference;
+      if (request.invocation.rule == "Lucky" &&
+          request.invocation.instances == std::vector<uint64_t>{6})
+        request.invocation.parameters = config.parameters.parity_model_reference;
+      if (request.invocation.rule == "Lucky" &&
+          (request.invocation.instances == std::vector<uint64_t>{7} ||
+           request.invocation.instances == std::vector<uint64_t>{9}))
+        request.invocation.parameters = config.parameters.onehot_model_reference;
+      if (request.invocation.rule == "Lucky" &&
+          request.invocation.instances == std::vector<uint64_t>{8})
+        request.invocation.parameters = config.parameters.affine_model_reference;
+      if (request.invocation.rule == "Lucky" &&
+          request.invocation.instances == std::vector<uint64_t>{11})
+        request.invocation.parameters = config.parameters.fermat_model_reference;
+      if (request.invocation.rule == "Lucky" &&
+          request.invocation.instances == std::vector<uint64_t>{13})
+        request.invocation.parameters =
+            config.parameters.lookup_circuit_model_reference;
+      if (request.invocation.rule == "Lucky" &&
+          request.invocation.instances == std::vector<uint64_t>{14})
+        request.invocation.parameters = config.parameters.simon_model_reference;
       if (request.invocation.rule == "Lucky" &&
           (request.invocation.instances ==
                std::vector<uint64_t>{LUCKY_STARTUP_PARITY} ||

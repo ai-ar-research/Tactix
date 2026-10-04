@@ -49,16 +49,16 @@ int main() {
     step.rule = "Lucky";
     step.granularity = strategy::InvocationGranularity::OneInstance;
     step.instances = {21};
-    step.parameters = strategy::GraphLabelingParameters{};
+    step.parameters = original;
     program.sequence = {step};
     strategy::OnlineStrategyExecutor executor;
     std::string error;
-    assert(!executor.configure(program, 1,
-                               strategy::ReconfigureMode::ResetRuntime,
-                               &error));
-    assert(error.find("retired") != std::string::npos);
+    assert(executor.configure(program, 1,
+                              strategy::ReconfigureMode::ResetRuntime,
+                              &error));
+    assert(executor.advance(k).status == strategy::InvocationStatus::Sat);
     assert(k.graph_labeling_parameters.work == original.work);
-    assert(k.trail.empty() && !k.stats.local_search_hints_offered);
+    assert(k.stats.graph_labeling_sat == 1);
   }
   {
     Kernel k;
@@ -76,6 +76,7 @@ int main() {
     Kernel k;
     ScopedHeuristics h(k);
     permutation(k, true);
+    kernel_reserve_vars(k, 17);
     const auto saved = k.h->saved, target = k.h->target, best = k.h->best;
     assert(graph_labeling_model_apply(k) == ApplyResult::Ok);
     assert(!k.inconsistent && k.trail.empty());
@@ -83,6 +84,7 @@ int main() {
     assert(k.h->saved == saved && k.h->target == target && k.h->best == best);
     const auto &hint = k.local_search_hints[size_t(strategy::LocalSearchKind::GraphLabeling)];
     assert(hint.available() && hint.objective > 0 && hint.objective_exact);
+    assert(hint.external_phases[k.internal_to_external[16]] == 0);
     assert(hint.effort.amount == k.stats.graph_labeling_work);
     // Repeated bounded calls publish a fresh exact identity, without sharing
     // old scores as a logical premise or mutating any trail/proof state.

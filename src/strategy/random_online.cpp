@@ -58,7 +58,7 @@ uint64_t optional_positive(uint64_t &state, uint64_t maximum) {
   return 1 + bounded(state, maximum);
 }
 
-ActionParameters random_parameters(const Kernel &, uint64_t &state, const std::string &rule,
+ActionParameters random_parameters(const Kernel &k, uint64_t &state, const std::string &rule,
                                    const RandomOnlineConfig &config) {
   if (rule == "ConflictAnalysis") {
     AnalyzeParameters p = config.analyze_reference;
@@ -275,13 +275,116 @@ ActionParameters random_parameters(const Kernel &, uint64_t &state, const std::s
     return p;
   }
   if (rule == "Lucky") {
-    // Constructor parameter kinds remain decodable as reference artifacts but
-    // are no longer generated. Random policy explores only generic probes and
-    // proof-producing Lucky opportunities.
+    // SAT-only constructor profiles remain explicit and replayable. The
+    // generator binds each typed payload to its stable Lucky identity below.
     const uint64_t lucky_kind = bounded(
-        state, 5 + static_cast<uint64_t>(config.ramsey_startup_reference.enabled()));
-    if (lucky_kind == 5)
+        state, 12 + static_cast<uint64_t>(config.ramsey_startup_reference.enabled()));
+    if (lucky_kind == 12)
       return config.ramsey_startup_reference;
+    if (lucky_kind == 11) {
+      IndependentSetModelParameters p = config.independent_set_model_reference;
+      p.maximum_vertices =
+          2 + inclusive_u32(state, p.maximum_vertices - 2);
+      p.maximum_steps = bounded(state, p.maximum_steps);
+      p.completion_rounds = bounded(state, p.completion_rounds);
+      p.seed = draw(state);
+      return p;
+    }
+    if (lucky_kind == 10) {
+      ExactCoverModelParameters p = config.exact_cover_model_reference;
+      p.block_arity = 3 + inclusive_u32(state, p.block_arity - 3);
+      p.maximum_nodes = 1 + bounded(state, p.maximum_nodes);
+      p.restarts = bounded(state, p.restarts);
+      p.restart_nodes = 1 + bounded(state, p.restart_nodes);
+      p.seed = draw(state);
+      return p;
+    }
+    if (lucky_kind == 9) {
+      AffineModelParameters p = config.affine_model_reference;
+      const bool joint = bounded(state, config.affine_joint_positive_denominator) <
+                         config.affine_joint_positive_numerator;
+      const auto sample = [&](uint64_t maximum) {
+        return joint && maximum ? 1 + bounded(state, maximum)
+                                : optional_positive(state, maximum);
+      };
+      p.seed = draw(state);
+      p.maximum_variables = sample(p.maximum_variables);
+      p.maximum_constraints = sample(p.maximum_constraints);
+      p.maximum_arity = sample(p.maximum_arity);
+      p.maximum_projection = sample(p.maximum_projection);
+      p.minimum_equations = choice_limit(state, p.minimum_equations);
+      p.maximum_entries = sample(p.maximum_entries);
+      p.import_bytes = sample(p.import_bytes);
+      p.linear_bytes = sample(p.linear_bytes);
+      p.table_bytes = sample(p.table_bytes);
+      p.maximum_work = sample(
+          std::min(p.maximum_work, config.maximum_rule_work_budget));
+      p.candidate_budget = sample(p.candidate_budget);
+      p.permutations = sample(p.permutations);
+      p.automatic_negated = bounded(state, 2);
+      p.shuffle_first = bounded(state, 2);
+      p.free_phase = bounded(state, 2);
+      p.residual_phase = bounded(state, 2);
+      p.projection_mode = static_cast<AffineProjectionMode>(bounded(state, 3));
+      p.projection.clear();
+      if (p.projection_mode == AffineProjectionMode::Explicit) {
+        std::vector<int> coordinates;
+        for (Var v = 0; v < k.nvars; ++v)
+          if (!kernel_var_retired(k, v))
+            coordinates.push_back(kernel_externalize(k, make_lit(v, false)));
+        const size_t count = bounded(
+            state, 1 + std::min<size_t>(
+                           coordinates.size(),
+                           config.maximum_affine_projection_coordinates));
+        for (size_t i = 0; i < count; ++i) {
+          const size_t selected = i + bounded(state, coordinates.size() - i);
+          std::swap(coordinates[i], coordinates[selected]);
+          p.projection.push_back(bounded(state, 2) ? coordinates[i]
+                                                   : -coordinates[i]);
+        }
+      }
+      if (bounded(state, 2)) {
+        p.scopes.clear();
+        const size_t count = bounded(
+            state, uint64_t(config.maximum_affine_scopes) + 1);
+        for (size_t i = 0; i < count; ++i)
+          p.scopes.push_back(
+              {bounded(state, 2) ? AffineSearchScope::AUTO_SPLIT
+                                 : bounded(state, uint64_t(k.nvars) + 1),
+               inclusive_u32(state, config.maximum_affine_weight),
+               inclusive_u32(state, config.maximum_affine_weight),
+               inclusive_u32(state, config.maximum_affine_weight)});
+      }
+      return p;
+    }
+    if (lucky_kind == 8) {
+      SimonModelParameters p = config.simon_model_reference;
+      p.maximum_rounds = 1 + inclusive_u32(state, p.maximum_rounds - 1);
+      p.maximum_candidates = 1 + bounded(state, p.maximum_candidates);
+      return p;
+    }
+    if (lucky_kind == 7) {
+      LookupCircuitModelParameters p = config.lookup_circuit_model_reference;
+      p.maximum_fanin = 1 + inclusive_u32(state, p.maximum_fanin - 1);
+      p.maximum_fanout = 1 + inclusive_u32(state, p.maximum_fanout - 1);
+      p.maximum_primary_inputs =
+          1 + inclusive_u32(state, p.maximum_primary_inputs - 1);
+      p.maximum_support = 1 + inclusive_u32(state, p.maximum_support - 1);
+      p.maximum_vector_gate_evaluations =
+          1 + bounded(state, p.maximum_vector_gate_evaluations);
+      return p;
+    }
+    if (lucky_kind == 6) {
+      FermatModelParameters p = config.fermat_model_reference;
+      p.maximum_bits = 1 + inclusive_u32(state, p.maximum_bits - 1);
+      p.comparator_tail_clauses =
+          2 + inclusive_u32(state, p.comparator_tail_clauses - 2);
+      p.rho_constants = 1 + bounded(state, p.rho_constants);
+      p.rho_iterations = 1 + bounded(state, p.rho_iterations);
+      return p;
+    }
+    if (lucky_kind == 5)
+      return config.balanced_signature_model_reference;
     if (lucky_kind == 4) {
       SignedCardinalityProofParameters p =
           config.signed_cardinality_proof_reference;
@@ -1407,6 +1510,10 @@ bool random_online_strategy_program(Kernel &k, uint64_t seed,
   if (!config.sr_joint_positive_denominator ||
       config.sr_joint_positive_numerator > config.sr_joint_positive_denominator)
     return reject("random-online joint SR probability is invalid");
+  if (!config.affine_joint_positive_denominator ||
+      config.affine_joint_positive_numerator >
+          config.affine_joint_positive_denominator)
+    return reject("random-online joint affine probability is invalid");
   if (!config.maximum_sequence_length || !config.maximum_selected_batch ||
       !config.maximum_repeat_count || !config.maximum_application_budget ||
       !config.maximum_bve_tick_budget ||
@@ -1434,6 +1541,14 @@ bool random_online_strategy_program(Kernel &k, uint64_t seed,
       !config.maximum_onehot_model_equation_arity ||
       !config.maximum_onehot_model_candidates ||
       !config.onehot_model_reference.valid() ||
+      !config.balanced_signature_model_reference.valid() ||
+      !config.fermat_model_reference.valid() ||
+      !config.lookup_circuit_model_reference.valid() ||
+      !config.simon_model_reference.valid() ||
+      !config.affine_model_reference.valid() ||
+      !config.exact_cover_model_reference.valid() ||
+      !config.independent_set_model_reference.valid() ||
+      !config.graph_labeling_reference.valid() ||
       !config.stconn_proof_reference.valid() ||
       !config.signed_cardinality_proof_reference.valid() ||
       !config.ramsey_startup_reference.valid() ||
@@ -1564,10 +1679,43 @@ bool random_online_strategy_program(Kernel &k, uint64_t seed,
     const bool whole_rule_only =
         semantic_size == 0 ||
         (instances.size() == 1 && instances.front() == INSTANCE_CANONICAL);
-    const uint64_t granularity = whole_rule_only
-                                     ? 2 + bounded(rng, 2)
-                                     : bounded(rng, GRANULARITY_CHOICES);
-    if (granularity == 0) {
+    uint64_t fixed_lucky_instance = INSTANCE_CANONICAL;
+    if (std::holds_alternative<ParityModelParameters>(step.parameters))
+      fixed_lucky_instance = 6;
+    else if (std::holds_alternative<OnehotModelParameters>(step.parameters))
+      fixed_lucky_instance = bounded(rng, 2) ? 7 : 9;
+    else if (std::holds_alternative<BalancedSignatureModelParameters>(step.parameters))
+      fixed_lucky_instance = 10;
+    else if (std::holds_alternative<AffineModelParameters>(step.parameters))
+      fixed_lucky_instance = 8;
+    else if (std::holds_alternative<FermatModelParameters>(step.parameters))
+      fixed_lucky_instance = 11;
+    else if (std::holds_alternative<LookupCircuitModelParameters>(step.parameters))
+      fixed_lucky_instance = 13;
+    else if (std::holds_alternative<SimonModelParameters>(step.parameters))
+      fixed_lucky_instance = 14;
+    else if (std::holds_alternative<StconnProofParameters>(step.parameters))
+      fixed_lucky_instance = 15;
+    else if (std::holds_alternative<SignedCardinalityProofParameters>(
+                 step.parameters))
+      fixed_lucky_instance = 16;
+    else if (std::holds_alternative<ExactCoverModelParameters>(step.parameters))
+      fixed_lucky_instance = 17;
+    else if (std::holds_alternative<IndependentSetModelParameters>(step.parameters))
+      fixed_lucky_instance = 18;
+    else if (std::holds_alternative<GraphLabelingParameters>(step.parameters))
+      fixed_lucky_instance = 21;
+    else if (std::holds_alternative<RamseyStartupParameters>(step.parameters))
+      fixed_lucky_instance = 22;
+    const bool fixed_lucky = fixed_lucky_instance != INSTANCE_CANONICAL;
+    const uint64_t granularity =
+        fixed_lucky ? 0
+                    : whole_rule_only ? 2 + bounded(rng, 2)
+                                      : bounded(rng, GRANULARITY_CHOICES);
+    if (fixed_lucky) {
+      step.granularity = InvocationGranularity::OneInstance;
+      step.instances = {fixed_lucky_instance};
+    } else if (granularity == 0) {
       step.granularity = InvocationGranularity::OneInstance;
       const size_t selected = bounded(rng, semantic_size);
       if (step.rule == "SubstitutionRedundancy")

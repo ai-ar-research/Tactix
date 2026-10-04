@@ -1,6 +1,7 @@
 #undef NDEBUG
 #include "proof/proof.hpp"
 #include "rules/lucky/exact_one_refutation.hpp"
+#include "rules/lucky/lucky.hpp"
 #include "rules/lucky/onehot_model.hpp"
 
 #include <array>
@@ -214,7 +215,11 @@ int main() {
   {
     Kernel k = exact_one_bipartite_fixture(3, 2);
     assert(onehot_model_guard(k));
-    assert(onehot_model_apply(k) == ApplyResult::Unsat);
+    const RuleVTable &lucky = tactix_rules()[tactix_rule_id("Lucky")];
+    assert(apply_rule_instance(lucky, k, 7) == ApplyResult::NoOp);
+    assert(!k.inconsistent && !k.stats.exact_one_refutation_recognized);
+    assert(apply_rule_instance(lucky, k, LUCKY_EXACT_ONE_PROOF) ==
+           ApplyResult::Unsat);
     assert(k.inconsistent && k.stats.exact_one_refutation_recognized == 1 &&
            k.stats.exact_one_refutation_equations == 5 &&
            k.stats.exact_one_refutation_unsat == 1);
@@ -310,12 +315,19 @@ int main() {
   }
   {
     Kernel k = direct_csp_unsat_fixture();
+    kernel_reserve_vars(k, 7);
+    k.var_status.assign(k.nvars, VarStatus::Active);
+    k.var_status[6] = VarStatus::Eliminated;
     strategy::OnehotModelParameters parameters;
     parameters.candidate_budget = 1;
     strategy::ScopedOnehotModelParameters posed(k, parameters);
     const size_t arena_words = k.arena.size();
     assert(direct_csp_model_apply(k) == ApplyResult::NoOp);
     assert(k.stats.direct_csp_model_restarts == 1);
+    const auto &hint = k.local_search_hints[
+        static_cast<size_t>(strategy::LocalSearchKind::DirectCsp)];
+    assert(k.stats.local_search_hints_offered == 1 && hint.available());
+    assert(hint.external_phases[k.internal_to_external[6]] == 0);
     assert(k.trail.empty() && k.arena.size() == arena_words);
   }
   {
@@ -348,6 +360,20 @@ int main() {
     assert(k.stats.onehot_model_candidates == 1);
     assert(k.stats.onehot_model_sat == 1);
     assert(k.unassigned_active == 0 && satisfied(k));
+  }
+  {
+    Kernel k = fixture();
+    kernel_reserve_vars(k, 11);
+    kernel_add_binary_clause(k, make_lit(9, false), make_lit(10, false));
+    strategy::OnehotModelParameters parameters;
+    parameters.candidate_budget = 27;
+    strategy::ScopedOnehotModelParameters posed(k, parameters);
+    assert(onehot_model_apply(k) == ApplyResult::NoOp);
+    const auto &hint = k.local_search_hints[
+        static_cast<size_t>(strategy::LocalSearchKind::Onehot)];
+    assert(hint.available());
+    assert(hint.external_phases[k.internal_to_external[9]] == 0);
+    assert(hint.external_phases[k.internal_to_external[10]] == 0);
   }
   {
     Kernel k = fixture();

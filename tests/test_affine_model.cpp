@@ -140,6 +140,17 @@ int main() {
     assert(k.stats.affine_model_equations==0&&k.trail.empty());
   }
   {
+    Kernel k=fixture();ScopedHeuristics owner(k);
+    kernel_reserve_vars(k,7);
+    kernel_add_binary_clause(k,make_lit(5,false),make_lit(6,false));
+    assert(affine_model_apply(k)==ApplyResult::NoOp);
+    const auto &hint=k.local_search_hints[
+        static_cast<size_t>(strategy::LocalSearchKind::Affine)];
+    assert(hint.available());
+    assert(hint.external_phases[k.internal_to_external[5]]==0);
+    assert(hint.external_phases[k.internal_to_external[6]]==0);
+  }
+  {
     Kernel k=fixture();ScopedHeuristics owner(k);volatile sig_atomic_t stop=1;k.stop=&stop;
     assert(affine_model_apply(k)==ApplyResult::NoOp&&k.trail.empty());
     assert(k.stats.affine_model_interrupted);stop=0;
@@ -162,8 +173,14 @@ int main() {
   explicit_parameters.seed=UINT64_MAX;explicit_parameters.shuffle_first=true;
   auto p=program(explicit_parameters);
   const auto text=serialize_online_strategy_program(p);OnlineStrategyProgram replay;std::string error;
-  assert(!deserialize_online_strategy_program(text,replay,&error));
-  assert(error.find("retired")!=std::string::npos);
+  assert(deserialize_online_strategy_program(text,replay,&error));
+  assert(serialize_online_strategy_program(replay)==text);
+  {
+    Kernel k=fixture();ScopedHeuristics owner(k);OnlineStrategyExecutor executor;
+    assert(executor.configure(replay,1));
+    assert(executor.advance(k).status==InvocationStatus::Sat);check(k);
+    assert(k.affine_model_parameters.projection.empty());
+  }
   // Signed coordinates with zero support select ANY requested live assignment,
   // including non-parity variables. The oracle is the original fixture CNF.
   for(unsigned requested=0;requested<32;++requested) {
@@ -190,8 +207,7 @@ int main() {
   {
     DefaultStrategyConfig config;
     config.inprocess.structured_root_stages={{p,BudgetExhaustionPolicy::Stop}};
-    assert(!config.valid(&error));
-    assert(error.find("retired")!=std::string::npos);
+    assert(config.valid(&error));
   }
   {
     Kernel k=fixture();ScopedHeuristics owner(k);RandomOnlineConfig config;config.rules={"Lucky"};
@@ -207,7 +223,7 @@ int main() {
         ++affine;
       }
     }
-    assert(!affine);
+    assert(affine);
   }
-  std::cout<<"Affine reference model, "<<complete_work<<" exact budget boundaries, root negatives, and retired public scheduling PASS\n";
+  std::cout<<"Affine reference model, "<<complete_work<<" exact budget boundaries, root negatives, and public scheduling PASS\n";
 }

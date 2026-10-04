@@ -10,7 +10,7 @@ increments are currently wired, tested, or accepted.
 ## Objective and fixed targets
 
 The ultimate goal is to solve substantially more than the virtual portfolio of **LymphoSAT, Satsuma+Kissat, Kissat-sc2024 and AE-Kissat-MAB combined**.
-**Primary technical goal:** translate non-Boolean theory/structural information into compact Boolean constraints and new auxiliary variables that expose reusable reasoning to continuing CDCL on both SAT and UNSAT. Refactor existing SAT-only integrations as well as missing techniques; compact formula and proof representations, not merely successful model construction, are the intended outcome. **Retirement first, then recovery:** remove dedicated LymphoSAT-derived local-search/constructor paths from active production scheduling and default/random/public action selection now; do not defer retirement until their replacements recover performance. Preserve implementations and checked results as reference controls. Maintain a coverage ledger mapping every LymphoSAT-owned saved-comparison solve to its theory structure, emitted Boolean information, proof/model verification, and constructor-disabled final result. Every row must recover through sound theory-to-Boolean constraints, auxiliaries, or deductions feeding ordinary CDCL; slower initial recovery is acceptable, but detection alone or a related-family solve is not recovery. Retirement is an engineering checkpoint, not acceptance: independent SAT/UNSAT certification, both-policy fuzzing and all preservation gates remain required. Continued constructor dependence does not satisfy this goal. Retire or version their public selections explicitly without renumbering unrelated actions or silently redirecting old replays. Preserve the general Kissat-style Lucky/Walk/phase mechanisms and certified proof-producing capabilities; extract proof-only components from mixed constructor actions under explicit identities rather than silently changing old replay semantics. Retain and refactor useful recognition code into shared theory front ends: only private assignment search, constructor publication and constructor-specific phase guidance retire. Recognition must expose exact source premises and a declared semantic object before a Boolean producer may use it.
+**Primary technical goal:** recover every LymphoSAT-owned solve through the mechanism appropriate to its evidence. SAT-only techniques may remain bounded constructors/local search: complete candidates require independent original-CNF validation and incomplete candidates are heuristic guidance only. UNSAT capabilities and reusable deductions require source-authenticated theory reasoning followed by DSR/DRAT-certified Boolean consequences or definitions. Keep action identities append-only, serve default/random/future learned policies through shared execution and feedback, and map each owned row to its mechanism and checked outcome; detection or a related-family solve is not recovery.
 Performance and learning readiness are joint acceptance criteria: every capability serves DefaultPolicy, random and future learned selection.
 Parity is intermediate; each increment respects N1–N4 under plan §1.1 and retains formal T4/T5 targets.
 Use the owning API/proof/parity checks and ledger; no blanket N1–N4 pass is claimed.
@@ -43,16 +43,14 @@ They remain in scope after the 36-instance checkpoint; solving all 44 does not e
    Use structural recognition and explicit applicability, never filename/rank
    dispatch, hardcoded answers or external solver stages. Share clauses, root
    assignments, learned information, reconstruction and heuristic state with CDCL.
-3. Translate LymphoSAT structural/theory-level information into certified Boolean
-   constraints, auxiliary definitions and deductions for continuing CDCL; dedicated
-   LymphoSAT local search is not a planned integration path. Expose these native
-   passes/proof rules and their useful intermediate consequences to both
-   DefaultPolicy and the random controller through shared typed execution.
+3. Retain bounded SAT-only constructors as complete/partial candidate producers;
+   expose UNSAT reasoning and reusable deductions as DSR/DRAT-certified Boolean actions.
+   Both paths use shared typed execution, replay, feedback and policy selection.
 4. Establish proof/model feasibility and a bounded mechanism review before
    implementation. Integrate one complete increment at a time, with faithful
    reference controls, targeted causal validation and cumulative preservation.
-   Build learning-ready capabilities from the start; performance alone does not
-   accept an increment. O6/reward/training remain deferred; selection stays random.
+   Begin with Oddball construction/guidance, then extend the same contract to the
+   remaining owners. O6/reward/training remain deferred; selection stays random.
 
 ## Lightweight symmetry during inprocessing
 
@@ -129,20 +127,19 @@ budget is introduced. Direct guidance and Walk seeding need separate attribution
 
 ## SAT/UNSAT reasoning and proof production
 
-Review existing LymphoSAT-derived integrations as well as missing techniques. The primary integration is theory-to-Boolean translation: useful
-implied constraints, certified auxiliary definitions and justified symmetry breaking
-that strengthen continuing CDCL. Distinguish model-preserving
-consequences, conservative extensions with model projection, and restrictions
-requiring their own satisfiability-preservation proof. Chosen assignments are not implied facts.
+Review existing and missing LymphoSAT techniques. SAT-only construction may
+finish a validated model or publish partial guidance. Theory-to-Boolean transfer
+applies to UNSAT and reusable deductions: distinguish implied consequences,
+conservative definitions with projection, and proved satisfiability restrictions.
+Chosen assignments are not implied facts.
 
 Explain whether the advantage comes from deductions, representation, coordinated
 choices or a combination. Consider selective/lazy consequences; Boolean encoding
 alone does not establish efficient search. Assess generation effort, formula growth, propagation,
 memory, proof/checking cost and checked SAT/UNSAT outcomes. Share structural
 recognition between certified reasoning and constructive guidance where useful.
-Keep existing constructors temporarily as diagnostic/reference controls, not the destination
-for LymphoSAT integration. If a mechanism cannot be translated efficiently, record
-the limitation and discuss it before substituting dedicated local search.
+Share recognition between construction and proof paths where useful; a SAT-only
+owner does not need a redundant Boolean encoding to remain integrated.
 
 Extract structural information from LymphoSAT SAT constructors and UNSAT
 reasoning alike. Candidates include equivalence-chain, XOR/parity, Tseitin
@@ -150,31 +147,32 @@ and counting mechanisms identified by the existing
 [PB surface audit](../benchmarks/reports/2026-09-25-am402-winner-pb-rule-surface-audit.md);
 their relevance to a particular miss must be established, not inferred from names.
 For SAT, validate complete reconstructed models against the original CNF;
-guidance-only work changes heuristics, while permanent transformations still
-owe certificates and reconstruction. Preserve useful partial structural work. Each replacement must state the theory facts it recovers, the deductions performed before encoding, and why the Boolean representation faithfully captures that declared information (including auxiliary projection). Check soundness and theory-coverage separately; valid proofs alone do not establish coverage. Naming auxiliaries or boosting variables cannot substitute for theory deductions. Work toward complete constructor-disabled paths, not isolated helpers as acceptance milestones.
+guidance changes heuristics only. Permanent transformations owe certificates and
+reconstruction. Record the theory result before its Boolean representation,
+including auxiliary projection; new variables or score bumps do not replace reasoning.
 
-For UNSAT, develop the algorithm and its compact certified derivation together.
-**DSR remains the default**, with DRAT where a witness-free clausal derivation
-permits it; direct SR need not expand to DRAT. Express reusable deductions through
-RUP/RAT/SR, including certified auxiliary definitions where needed, and introduce
-a new public rule only for a missing semantic capability. Proof-size, generation/
-check cost and memory are part of feasibility. Checker failures/timeouts motivate
-more compact or checker-friendly proofs, but do not by themselves prove that
-proof size is the cause; retain the observed failure classification.
+For UNSAT, the theory module owns reasoning and returns authenticated premises,
+derived equations/conflicts, elimination steps or coefficients, and useful compact
+consequences. The SAT proof adapter validates that object, emits DSR by default
+(DRAT where witness-free), and atomically installs only the derived Boolean results;
+it does not redo the theory search. GF(3) therefore reduces/eliminates first and
+introduces certified auxiliaries only to compress useful results, never to eagerly
+encode the whole system. Proof/check cost remains part of feasibility, and a
+checker failure/timeout alone does not establish its cause.
 
-**Keep pseudo-Boolean proof (PBP) support as an option for particular rules**
-when necessary reasoning or impractical clausal certification justifies it.
-Do not reject a valuable technique solely because efficient DSR encoding is not
-available. Establish the need per mechanism from its derivation and cost, with
-DSR preferred when practical; routine proof generation must not all become PB.
-The existing complete-startup PBP route is available within its declared boundary.
-A new live PB rule needs a reviewed typed derivation interface, proof-format
-requirements and a complete independently checked original-CNF certificate chain,
-including preceding/following clausal work and transformations. PB commands cannot
-be spliced into DSR or cause an undeclared format switch after publication.
-Choose a coherent PB-capable whole-run certificate or a formally checked bridge
-before implementing mixed reasoning; exact architecture remains a design decision.
-Preserve replay, interruption, public applicability and model reconstruction; unsupported proof modes decline before mutation.
+**Do not develop a new pseudo-Boolean proof path while a compact clausal
+certificate remains plausible.** DSR is the required default and witness-free
+steps may use DRAT. Preserve the existing complete-startup PBP route and the
+architectural option for a particular future rule, but reconsider it only after
+a mechanism-specific derivation and measured clausal proof/check cost establish
+that practical DSR/DRAT certification has failed.
+The isolated first clausal verticals are: a normalized direct-PHP proof core for
+binary pigeonhole then clique-coloring; a pure bounded sparse GF(3) Gaussian
+planner with replayable source provenance before any live publication; and a
+pure-Tseitin cycle-space DSR construction after exact graph/source admission.
+Each begins with a proof planner and exhaustive microchecks, then one saved owner
+obligation. Integration into live actions follows only after independent DSR/DRAT
+checking and proof-volume preflight; replay and interruption remain mandatory.
 
 Record every added constraint/auxiliary definition: stable identity, Boolean formula
 and theory meaning, source clauses/structural premises, generating action and

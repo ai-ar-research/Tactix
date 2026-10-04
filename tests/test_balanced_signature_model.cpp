@@ -1,7 +1,9 @@
 #undef NDEBUG
 #include "rules/lucky/balanced_signature_model.hpp"
+#include "rules/lucky/lucky.hpp"
 #include "rules/propagate/propagate.hpp"
 
+#include <algorithm>
 #include <cassert>
 #include <cstdio>
 
@@ -10,7 +12,9 @@ using namespace tactix;
 static Kernel balance_fixture(bool complete_shape = true) {
   // N=3, W=2: P=(3^2-1)/2=4, pair block=18, signature boundary=42.
   Kernel k;
-  kernel_reserve_vars(k, 43);
+  // Variable 44 is deliberately outside the recognized shape and remains
+  // unconstrained when the partial hint is published.
+  kernel_reserve_vars(k, 44);
   for (const int unit : {-1, -5, -9, -10, -14, -18})
     kernel_assign_unit(k, internalize(unit));
   if (complete_shape)
@@ -45,6 +49,9 @@ int main() {
     assert(k.local_search_hints[static_cast<size_t>(
                strategy::LocalSearchKind::BalancedSignature)]
                .available());
+    assert(k.local_search_hints[static_cast<size_t>(
+               strategy::LocalSearchKind::BalancedSignature)]
+               .external_phases[43] == 0);
   }
   {
     Kernel k = balance_fixture(false);
@@ -71,6 +78,19 @@ int main() {
     strategy::ScopedBalancedSignatureModelParameters posed(k, parameters);
     assert(balanced_signature_model_apply(k) == ApplyResult::NoOp);
     assert(k.trail.size() == 7);
+  }
+  {
+    Kernel k = balance_fixture();
+    const int lucky_id = tactix_rule_id("Lucky");
+    assert(lucky_id >= 0);
+    const RuleVTable &lucky = tactix_rules()[lucky_id];
+    uint64_t instances[LUCKY_ACTIVE_INSTANCE_COUNT] = {};
+    const uint32_t count = lucky.instances(
+        k, instances, LUCKY_ACTIVE_INSTANCE_COUNT);
+    assert(count == LUCKY_ACTIVE_INSTANCE_COUNT);
+    assert(std::find(instances, instances + count, uint64_t{10}) !=
+           instances + count);
+    assert(lucky.apply_instance(k, 10) == ApplyResult::Sat);
   }
   return 0;
 }

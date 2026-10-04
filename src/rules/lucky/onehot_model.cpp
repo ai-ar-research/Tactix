@@ -1,6 +1,4 @@
 #include "rules/lucky/onehot_model.hpp"
-#include "strategy/lucky_execution.hpp"
-#include "rules/lucky/exact_one_refutation.hpp"
 #include "rules/lucky/model.hpp"
 
 #include <algorithm>
@@ -653,9 +651,16 @@ bool direct_csp_model(Kernel &k,
   k.stats.direct_csp_model_best =
       std::min(k.stats.direct_csp_model_best, best_seen);
   if (!best_value.empty()) {
-    std::vector<uint8_t> assignment =
-        direct_csp_boolean_assignment(csp, best_value, k.nvars);
-    kernel_offer_local_search_hint(k, strategy::LocalSearchKind::DirectCsp,
+    std::vector<int8_t> assignment(k.nvars, 0);
+    for (uint32_t domain = 0; domain < csp.domains.size(); ++domain)
+      for (uint32_t value = 0; value < csp.width; ++value) {
+        const Lit literal = csp.domains[domain][value];
+        const bool literal_true = value == best_value[domain];
+        assignment[var_of(literal)] =
+            literal_true != negated(literal) ? 1 : -1;
+      }
+    kernel_offer_local_search_partial_hint(
+                                   k, strategy::LocalSearchKind::DirectCsp,
                                    assignment, best_seen, true,
                                    {work, strategy::LocalSearchEffortUnit::CspWork});
   }
@@ -707,10 +712,6 @@ ApplyResult onehot_model_apply(Kernel &k) {
   ++k.stats.onehot_model_calls;
   const strategy::OnehotModelParameters parameters =
       strategy::OnehotModelParameters::from_kernel(k);
-  const ApplyResult refutation = execution::execute_action(
-      k, execution::ExactOneRefutationRequest{parameters});
-  if (refutation == ApplyResult::Unsat)
-    return refutation;
   if (!parameters.valid() || !k.nvars ||
       k.nvars > parameters.maximum_variables || !parameters.candidate_budget)
     return ApplyResult::NoOp;
@@ -915,7 +916,7 @@ ApplyResult onehot_model_apply(Kernel &k) {
 
   std::vector<uint8_t> field_values(domains.size(), 0);
   std::vector<uint8_t> assignment(k.nvars, 0);
-  std::vector<uint8_t> guidance;
+  std::vector<int8_t> guidance;
   for (uint64_t candidate = 0; candidate < parameters.candidate_budget;
        ++candidate) {
     uint64_t digits = candidate;
@@ -960,11 +961,20 @@ ApplyResult onehot_model_apply(Kernel &k) {
       ++k.stats.onehot_model_sat;
       return ApplyResult::Sat;
     }
-    if (root_compatible && guidance.empty())
-      guidance = assignment;
+    if (root_compatible && guidance.empty()) {
+      guidance.assign(k.nvars, 0);
+      for (Var var = 0; var < k.nvars; ++var) {
+        const int root = k.value(make_lit(var, false));
+        if (root) guidance[var] = static_cast<int8_t>(root);
+      }
+      for (uint32_t index = 0; index < domains.size(); ++index)
+        for (uint8_t value = 0; value != 3; ++value)
+          guidance[domains[index][value]] =
+              value == field_values[index] ? 1 : -1;
+    }
     if (kernel_rule_interrupt(k, k.stats.onehot_model_interrupted)) {
       if (!guidance.empty())
-        kernel_offer_local_search_hint(k, strategy::LocalSearchKind::Onehot,
+        kernel_offer_local_search_partial_hint(k, strategy::LocalSearchKind::Onehot,
                                        guidance, UINT64_MAX, false,
                                        {k.stats.onehot_model_candidates - candidates_before,
                                         strategy::LocalSearchEffortUnit::CandidateChecks});
@@ -972,7 +982,7 @@ ApplyResult onehot_model_apply(Kernel &k) {
     }
   }
   if (!guidance.empty())
-    kernel_offer_local_search_hint(k, strategy::LocalSearchKind::Onehot,
+    kernel_offer_local_search_partial_hint(k, strategy::LocalSearchKind::Onehot,
                                    guidance, UINT64_MAX, false,
                                    {k.stats.onehot_model_candidates - candidates_before,
                                     strategy::LocalSearchEffortUnit::CandidateChecks});
