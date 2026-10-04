@@ -61,6 +61,43 @@ struct AffineBasisLiveResult {
   std::vector<int32_t> introduced_theory_variables;
 };
 
+struct AffineBasisSourceIdentity {
+  uint64_t native_clause_id = 0;
+  std::vector<int32_t> clause;
+  bool operator==(const AffineBasisSourceIdentity &) const = default;
+  bool operator<(const AffineBasisSourceIdentity &other) const {
+    if (native_clause_id != other.native_clause_id)
+      return native_clause_id < other.native_clause_id;
+    return clause < other.clause;
+  }
+};
+
+struct AffineBasisEquationIdentity {
+  std::vector<int32_t> variables;
+  bool rhs = false;
+  std::vector<AffineBasisSourceIdentity> premises;
+  bool operator==(const AffineBasisEquationIdentity &) const = default;
+  bool operator<(const AffineBasisEquationIdentity &other) const {
+    if (variables != other.variables) return variables < other.variables;
+    if (rhs != other.rhs) return rhs < other.rhs;
+    return premises < other.premises;
+  }
+};
+
+// Exact semantic and proof-source identity of one row actually published by a
+// transaction.  Sessions retain these keys after clauses are later removed.
+struct AffineBasisConsumedKey {
+  std::vector<int32_t> variables;
+  bool rhs = false;
+  std::vector<AffineBasisEquationIdentity> source_equations;
+  bool operator==(const AffineBasisConsumedKey &) const = default;
+  bool operator<(const AffineBasisConsumedKey &other) const {
+    if (variables != other.variables) return variables < other.variables;
+    if (rhs != other.rhs) return rhs < other.rhs;
+    return source_equations < other.source_equations;
+  }
+};
+
 class AffineBasisLiveTransaction {
 public:
   bool ready() const { return ready_; }
@@ -78,6 +115,9 @@ public:
   };
 
   const std::vector<Event> &proof_events() const { return events_; }
+  const std::vector<AffineBasisConsumedKey> &consumed_keys() const {
+    return consumed_keys_;
+  }
 
 private:
   friend AffineBasisLiveResult prepare_affine_basis_live(
@@ -110,6 +150,7 @@ private:
   std::string journal_;
   std::vector<int32_t> existing_;
   std::vector<int32_t> introduced_;
+  std::vector<AffineBasisConsumedKey> consumed_keys_;
   AffineBasisLiveResult prepared_;
 };
 
