@@ -24,7 +24,10 @@ enum class ConsequenceKind : uint8_t { UnitEquation, Conflict };
 
 struct AuthenticatedSource {
   gf3_gaussian::ProvenanceTerm combination;
-  gf3_gaussian_bridge::SourceAuthentication authentication;
+  // Zero-based index into the separately validated bridge authentication
+  // table.  Keeping this fixed-size reference avoids copying every domain and
+  // forbidden-tuple identity into every consequence.
+  uint32_t authentication_index = 0;
 
   friend bool operator==(const AuthenticatedSource &,
                          const AuthenticatedSource &) = default;
@@ -36,7 +39,7 @@ struct Consequence {
   std::vector<gf3_gaussian::Term> row;
   uint8_t rhs = 0;
   // The exact nonzero source combination replayed by the bridge, together
-  // with every authenticated Boolean premise for those sources.
+  // with compact indices for resolving its authenticated Boolean premises.
   std::vector<AuthenticatedSource> sources;
   // Clauses intended for the solver.  Auxiliary RUP clauses in the event
   // range are proof-only.  A unit equation publishes both forbidden-value
@@ -54,6 +57,9 @@ struct Limits {
   uint64_t maximum_events = 0;
   uint64_t maximum_event_literals = 0;
   uint64_t maximum_active_clauses = 0;
+  // Counts compact AuthenticatedSource records retained across consequences,
+  // including repeated use of one bridge source by different consequences.
+  uint64_t maximum_retained_source_references = 0;
   uint32_t maximum_event_width = 0;
   uint32_t maximum_branch_domains = 0;
   uint32_t maximum_consequences = 0;
@@ -66,6 +72,7 @@ enum class LimitKind : uint8_t {
   Events,
   EventLiterals,
   ActiveClauses,
+  RetainedSourceReferences,
   EventWidth,
   BranchDomains,
   Consequences,
@@ -90,6 +97,7 @@ struct Statistics {
   uint64_t propagated_literals = 0;
   uint64_t events = 0;
   uint64_t event_literals = 0;
+  uint64_t retained_source_references = 0;
   uint64_t supported_outcomes = 0;
   uint64_t unsupported_outcomes = 0;
   uint32_t maximum_event_width = 0;
@@ -98,7 +106,7 @@ struct Statistics {
 };
 
 struct Plan {
-  uint32_t version = 1;
+  uint32_t version = 2;
   std::vector<Consequence> consequences;
   std::vector<Event> events;
   Statistics statistics;
