@@ -72,6 +72,43 @@
 
 namespace tactix {
 
+namespace {
+
+bool is_affine_structured_step(const strategy::OnlineInvocation &step) {
+  return step.id == 109 && step.rule == "Lucky" && step.instances.size() == 1 &&
+         step.instances.front() == 8;
+}
+
+void pose_affine_structured_stage(DefaultStrategyConfig &config) {
+  const auto pose = [&](std::vector<strategy::OnlineStrategyStage> &stages) {
+    for (auto stage = stages.begin(); stage != stages.end();) {
+      auto &sequence = stage->program.sequence;
+      bool removed = false;
+      if (!config.affine_model.enabled) {
+        const size_t before = sequence.size();
+        sequence.erase(
+            std::remove_if(sequence.begin(), sequence.end(),
+                           is_affine_structured_step),
+            sequence.end());
+        removed = sequence.size() != before;
+      } else {
+        for (auto &step : sequence)
+          if (is_affine_structured_step(step))
+            step.parameters = config.affine_model.parameters;
+      }
+      if (removed && sequence.empty())
+        stage = stages.erase(stage);
+      else
+        ++stage;
+    }
+  };
+  pose(config.inprocess.structured_root_stages);
+  pose(config.inprocess.structured_root_bounded_backtracking_stages);
+  pose(config.inprocess.structured_root_large_domain_stages);
+}
+
+} // namespace
+
 using execution::LuckyOpportunity;
 using execution::PolicyCompletion;
 using strategy::controller::FeedbackKind;
@@ -1365,6 +1402,8 @@ DefaultPolicy::DefaultPolicy()
       chrono_reuse_trail_(false), base_config_(), config_(base_config_),
       default_branching_(&config_.branching),
       default_reduction_(&config_.reduction), inprocess_(&config_.inprocess) {
+  pose_affine_structured_stage(base_config_);
+  pose_affine_structured_stage(config_);
   // Avoid constructing and then copying a third default program. Besides
   // needless startup allocation, that transient copy can cross a 2-MiB heap
   // arena boundary and become visible in peak-RSS comparisons.
@@ -1380,6 +1419,8 @@ DefaultPolicy::DefaultPolicy(const DefaultStrategyConfig &config)
       base_config_(config), config_(config),
       default_branching_(&config_.branching),
       default_reduction_(&config_.reduction), inprocess_(&config_.inprocess) {
+  pose_affine_structured_stage(base_config_);
+  pose_affine_structured_stage(config_);
   default_reduction_.ramp = config_.reduction.ramp_fraction;
   retier_.next_conflicts = retier_.interval =
       config_.reduction.retier_initial_interval;
@@ -3758,22 +3799,6 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       return finish(20);
     }
     event_trace.macro(k, "exact_one_refutation_end", "unknown");
-  }
-  // The accepted reference solves affine-image owners at this untouched-root
-  // boundary. Keep the constructor as the public Lucky-8 action so Default,
-  // random and future learned policies share parameters, replay and feedback.
-  // A complete assignment still needs whole-formula validation; an incomplete
-  // result may only publish heuristic guidance.
-  if (config_.affine_model.enabled && affine_model_guard(k)) {
-    event_trace.macro(k, "affine_model_begin");
-    const ApplyResult affine =
-        default_lucky_opportunity<LuckyOpportunity::Affine>(
-            k, "affine-model", completion_);
-    if (affine == ApplyResult::Sat) {
-      event_trace.macro(k, "affine_model_end", "sat");
-      return finish(10);
-    }
-    event_trace.macro(k, "affine_model_end", "unknown");
   }
   bool structured_root_grew_trail = false;
   uint64_t structured_root_amo_binaries_added = 0;

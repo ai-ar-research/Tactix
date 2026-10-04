@@ -543,6 +543,16 @@ static void test_dosed_bve_publication() {
 
 static void test_structured_root_feedback() {
   DefaultStrategyConfig config;
+  OnlineStrategyStage affine;
+  affine.on_budget_exhaustion = BudgetExhaustionPolicy::Continue;
+  OnlineInvocation affine_step;
+  affine_step.id = 109;
+  affine_step.rule = "Lucky";
+  affine_step.parameters = AffineModelParameters{};
+  affine_step.granularity = InvocationGranularity::OneInstance;
+  affine_step.instances = {8};
+  affine_step.budget = WorkLimit::bounded(1);
+  affine.program.sequence = {affine_step};
   OnlineStrategyStage stage;
   stage.on_budget_exhaustion = BudgetExhaustionPolicy::Continue;
   OnlineInvocation producer;
@@ -565,7 +575,7 @@ static void test_structured_root_feedback() {
   cleanup.id = 3;
   stage.program.sequence.push_back(cleanup);
   stage.progress_followups = {2, 3};
-  config.inprocess.structured_root_stages = {stage};
+  config.inprocess.structured_root_stages = {affine, stage};
   std::string preserved;
   for (bool feedback : {false, true}) {
     Kernel k;
@@ -585,27 +595,51 @@ static void test_structured_root_feedback() {
     completion.begin();
     assert(policy.inprocess().run_structured_root(k, nullptr, &completion) == 0);
     completion.finish(0, StopReason::Completed);
+    assert(k.stats.affine_model_calls == 1);
     assert(k.stats.sr_applied == 1 && k.arena.empty());
+    assert(policy.inprocess().structured_root.stages.size() == 2);
+    assert(policy.inprocess().structured_root.stages[0].runs == 1);
+    assert(policy.inprocess().structured_root.stages[0].terminal ==
+           InvocationStatus::Completed);
     kernel_check_invariants(k);
     const auto snapshot = serialize_observation(policy.observe(k));
     if (!feedback) preserved = snapshot;
     else {
       assert(snapshot == preserved);
       unsigned applications = 0;
-      bool witness = false, cleanup_called = false;
+      unsigned affine_records = 0;
+      bool affine_called = false, witness = false, cleanup_called = false;
       for (const auto &record : capture.actions) {
         const auto &request = *record.native_request;
         assert(request.invocation && request.invocation->id != 3);
         assert(request.invocation->rule == record.identity);
         assert(request.work == record.outcome.invocation.work);
         applications += record.outcome.invocation.applications;
-        if (request.invocation->id == 1) {
+        if (request.invocation->id == 109) {
+          ++affine_records;
+          assert(record.identity == "Lucky");
+          assert(request.invocation->instances == std::vector<uint64_t>{8});
+          if (record.outcome.invocation.applications) {
+            assert(!affine_called && !witness && !cleanup_called);
+            affine_called = true;
+            assert(record.outcome.invocation.status == InvocationStatus::NoChange);
+            assert(record.before.state.arena_generation ==
+                   record.after.state.arena_generation);
+            assert(record.before.state.touch_epoch == record.after.state.touch_epoch);
+            assert(record.after.state.strategy_epoch ==
+                   record.before.state.strategy_epoch + 1);
+          } else {
+            assert(affine_called && !witness && !cleanup_called);
+            assert(record.outcome.invocation.status == InvocationStatus::Completed);
+          }
+        } else if (request.invocation->id == 1) {
+          assert(affine_called);
           witness = true;
           assert(request.invocation->substitution_redundancy_instances.front().clause ==
                  producer.substitution_redundancy_instances.front().clause);
         } else cleanup_called = true;
       }
-      assert(witness && cleanup_called);
+      assert(affine_records == 2 && affine_called && witness && cleanup_called);
       assert(applications == policy.inprocess().structured_root.applications);
     }
   }
