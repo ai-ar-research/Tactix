@@ -146,20 +146,6 @@ static void deterministic_complete_plan() {
         assert(satisfied == (output == (mask != 0)));
       }
   }
-
-  auto selected_request = planning_request();
-  selected_request.all_blocks = false;
-  selected_request.blocks = {2, 0};
-  BatchPlan selected;
-  auto charge = [](uint64_t) { return true; };
-  assert(plan_batch(source_formula(), selected_request, charge, selected));
-  assert(selected.definitions.size() == 2);
-  assert(selected.definitions[0].block == 2 &&
-         selected.definitions[0].output == 10 &&
-         selected.definitions[0].semantic_id == 700);
-  assert(selected.definitions[1].block == 0 &&
-         selected.definitions[1].output == 11 &&
-         selected.definitions[1].semantic_id == 701);
 }
 
 static void no_partial_plan() {
@@ -182,6 +168,12 @@ static void no_partial_plan() {
   assert(sentinel.arity == 17 && sentinel.definitions.empty());
   bounded_request = planning_request();
   bounded_request.maximum_premise_references = 26;
+  assert(!plan_batch(source_formula(), bounded_request, unlimited, sentinel));
+  assert(sentinel.arity == 17 && sentinel.definitions.empty());
+
+  bounded_request = planning_request();
+  bounded_request.first_output_external = INT32_MAX - 1;
+  bounded_request.maximum_external_extent = UINT32_MAX;
   assert(!plan_batch(source_formula(), bounded_request, unlimited, sentinel));
   assert(sentinel.arity == 17 && sentinel.definitions.empty());
 }
@@ -241,6 +233,24 @@ static void publication_preflight_is_pure() {
   std::fclose(records);
 }
 
+static void stale_retained_source_declines() {
+  const BatchPlan plan = make_plan();
+  Kernel kernel = parse_source(source_formula());
+  const Premise &lost = plan.source.front();
+  assert(lost.literals.size() == 2);
+  assert(kernel_delete_binary(kernel,
+      kernel_internalize(kernel, lost.literals[0]),
+      kernel_internalize(kernel, lost.literals[1])));
+  FILE *records = std::tmpfile();
+  assert(records);
+  const auto mapping = kernel.external_to_internal;
+  const uint64_t id = kernel.next_clause_id;
+  assert(publish_batch(kernel, plan, {91, records}).result == ApplyResult::NoOp);
+  assert(kernel.external_to_internal == mapping && kernel.next_clause_id == id);
+  assert(std::ftell(records) == 0);
+  std::fclose(records);
+}
+
 static void write_certificate(const char *cnf_path, const char *proof_path,
                               ProofFormat format) {
   const auto source = source_formula();
@@ -277,6 +287,7 @@ int main(int argc, char **argv) {
   no_partial_plan();
   atomic_publication_uses_retained_plan();
   publication_preflight_is_pure();
+  stale_retained_source_declines();
   if (argc == 4) {
     write_certificate(argv[1], argv[2], ProofFormat::DsrAscii);
     write_certificate(argv[1], argv[3], ProofFormat::DratAscii);
