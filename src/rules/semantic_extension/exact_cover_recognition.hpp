@@ -66,7 +66,10 @@ struct DisjointSets {
   void unite(uint32_t first, uint32_t second) {
     first = find(first);
     second = find(second);
-    if (first != second) parent[second] = first;
+    if (first != second) {
+      if (first > second) std::swap(first, second);
+      parent[second] = first;
+    }
   }
 };
 

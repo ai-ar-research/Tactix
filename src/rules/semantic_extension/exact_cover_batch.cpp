@@ -4,6 +4,53 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <set>
+
+namespace {
+
+using tactix::Clause;
+using tactix::INVALID_LIT;
+using tactix::Kernel;
+using tactix::Lit;
+using tactix::Ref;
+using tactix::exact_cover_semantic::Premise;
+
+std::vector<int32_t> normalized_external(const Kernel &k, const Lit *begin,
+                                         uint32_t size) {
+  std::vector<int32_t> result;
+  result.reserve(size);
+  for (uint32_t i = 0; i < size; ++i)
+    result.push_back(tactix::kernel_externalize(k, begin[i]));
+  std::sort(result.begin(), result.end());
+  return result;
+}
+
+bool retained_source_is_live(const Kernel &k,
+                             const std::vector<Premise> &source) {
+  std::set<std::vector<int32_t>> live_large;
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *clause = tactix::clause_at(k.arena, ref);
+    ref += tactix::clause_actual_words(clause);
+    if (clause->garbage()) continue;
+    live_large.insert(normalized_external(k, clause->lits, clause->size));
+  }
+  for (const Premise &premise : source) {
+    std::vector<int32_t> wanted = premise.literals;
+    std::sort(wanted.begin(), wanted.end());
+    if (wanted.size() == 2) {
+      const Lit first = tactix::kernel_internalize(k, wanted[0]);
+      const Lit second = tactix::kernel_internalize(k, wanted[1]);
+      if (first == INVALID_LIT || second == INVALID_LIT ||
+          !tactix::kernel_binary_live(k, first, second))
+        return false;
+    } else if (!live_large.count(wanted)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+} // namespace
 
 namespace tactix::exact_cover_semantic {
 
@@ -16,11 +63,13 @@ BatchPublicationResult publish_batch(Kernel &k, const BatchPlan &plan,
       plan.first_output_external != extent + 1 ||
       plan.definitions.size() != plan.extent_growth ||
       plan.definitions.size() > UINT32_MAX - k.nvars ||
-      extent + plan.definitions.size() >= INT32_MAX ||
+      extent > INT32_MAX ||
+      plan.definitions.size() > uint64_t(INT32_MAX) - extent ||
       k.inconsistent || k.level || k.conflict_valid || k.pending.valid ||
       !k.trail.empty() || k.dense || k.probing.recording ||
       !k.large_watches_connected || !kernel_propagation_fixpoint(k) ||
-      (k.proof && k.proof->pb()) || kernel_terminating(k))
+      (k.proof && k.proof->pb()) || kernel_terminating(k) ||
+      !retained_source_is_live(k, plan.source))
     return result;
 
   uint64_t additions = 0, literal_occurrences = 0, arena_words = 0;
@@ -85,8 +134,9 @@ BatchPublicationResult publish_batch(Kernel &k, const BatchPlan &plan,
       k.next_clause_id > uint64_t(INT64_MAX) - additions)
     return result;
 
-  // Commit starts here.  Every vector used below was materialized by the pure
-  // plan and every kernel capacity/identity bound has already been checked.
+  // Commit starts here.  Semantic validity, termination, caller budgets, and
+  // kernel capacity/identity bounds have all been checked.  Allocation or
+  // record I/O failure remains fatal under the kernel's commit convention.
   k.close_startup_certificate();
   const Var first = kernel_new_extension_vars(
       k, static_cast<uint32_t>(plan.definitions.size()));

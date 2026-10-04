@@ -67,8 +67,6 @@ struct BatchPlanningRequest {
   uint32_t first_output_external = 0;
   uint32_t maximum_external_extent = 0;
   uint64_t first_semantic_id = 0;
-  bool all_blocks = true;
-  std::vector<uint32_t> blocks;
 };
 
 // Pure, transactional planning.  Recognition runs exactly once over `source`;
@@ -85,8 +83,6 @@ bool plan_batch(const std::vector<Premise> &source,
       !request.maximum_additions || !request.maximum_literal_occurrences ||
       !request.maximum_extent_growth || !request.first_output_external ||
       !request.first_semantic_id ||
-      (request.all_blocks && !request.blocks.empty()) ||
-      (!request.all_blocks && request.blocks.empty()) ||
       source.size() > request.maximum_source_clauses)
     return false;
 
@@ -110,19 +106,20 @@ bool plan_batch(const std::vector<Premise> &source,
   if (!recognize(source, request.arity, request.maximum_items, charge, image))
     return false;
 
-  std::vector<uint32_t> selected;
-  if (request.all_blocks) {
-    selected.resize(image.blocks.size());
-    for (uint32_t block = 0; block < selected.size(); ++block)
-      selected[block] = block;
-  } else {
-    selected = request.blocks;
-  }
-  if (selected.empty() || selected.size() > request.maximum_definitions ||
+  // The retained image is a one-shot batch: publish every recognized block
+  // before the fresh definitions make strict source recognition impossible.
+  // Selective/repeated publication needs a persistent controller-owned session
+  // with consumed keys, which this foundation deliberately does not claim.
+  std::vector<uint32_t> selected(image.blocks.size());
+  for (uint32_t block = 0; block < selected.size(); ++block)
+    selected[block] = block;
+  if (selected.empty()) return false;
+  const uint64_t last_output = uint64_t{request.first_output_external} +
+                               selected.size() - 1;
+  if (selected.size() > request.maximum_definitions ||
       selected.size() > request.maximum_extent_growth ||
-      selected.size() > UINT32_MAX - request.first_output_external + 1 ||
-      request.first_output_external + selected.size() - 1 >
-          request.maximum_external_extent ||
+      last_output > INT32_MAX ||
+      last_output > request.maximum_external_extent ||
       selected.size() - 1 > UINT64_MAX - request.first_semantic_id)
     return false;
   std::set<uint32_t> unique_blocks;
@@ -202,9 +199,10 @@ struct BatchPublicationResult {
   uint32_t extent_growth = 0;
 };
 
-// Atomically publish a completed plan.  All fallible semantic checks and
-// caller-limit checks precede the first kernel or record mutation; commit has
-// no interruption point and performs no recognition or search.
+// Atomically publish a completed plan with respect to semantic decline,
+// termination, and caller budgets.  Those checks precede the first mutation;
+// commit has no interruption point and follows the kernel convention that
+// allocation or record I/O failure is fatal rather than recoverable.
 BatchPublicationResult publish_batch(Kernel &, const BatchPlan &,
                                      const BatchPublicationRequest &);
 
