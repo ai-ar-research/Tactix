@@ -41,6 +41,11 @@ struct IndependentSetCoverActionResult {
   IndependentSetCoverActionEffort effort;
 };
 
+// Formula/proof-state eligibility only. The selected cover and typed limits
+// are validated by apply, so policies can discover the action without hidden
+// benchmark or payload-dependent scheduling predicates.
+RuleEligibility independent_set_cover_action_guard(const Kernel &);
+
 // Apply one caller-selected positive cover.  The vector is a set encoded in
 // strictly increasing stable external variable identities.  Limits come only
 // from Kernel::independent_set_cover_parameters.  This feature-local adapter
