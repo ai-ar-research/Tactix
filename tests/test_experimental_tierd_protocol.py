@@ -39,4 +39,27 @@ assert TIERD.slurm_time(wall) == "14:15:00"
 assert wall >= 5000 + 45000
 assert TIERD.scheduler_wall_seconds(1200, 16000) >= 18000
 
+assert TIERD.solver_arguments("dsr", [
+    "--controller-policy=17",
+    "--controller-native-producers=tseitin-cycle",
+    "--controller-families=TseitinCycleBreaking",
+]) == [
+    "--dsr",
+    "--controller-policy=17",
+    "--controller-native-producers=tseitin-cycle",
+    "--controller-families=TseitinCycleBreaking",
+]
+assert TIERD.solver_arguments("auto", []) == ["--auto-proof"]
+for invalid in ([""], ["--dsr"], ["--auto-proof"], ["--drat"], ["--lrat"]):
+    try:
+        TIERD.solver_arguments("dsr", invalid)
+        raise AssertionError("invalid extra solver argument was accepted")
+    except ValueError:
+        pass
+try:
+    TIERD.solver_arguments("drat", [])
+    raise AssertionError("invalid certificate mode was accepted")
+except ValueError:
+    pass
+
 print("Experimental Tier-D automatic-route protocol: PASS")

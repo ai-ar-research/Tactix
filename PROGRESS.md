@@ -54,7 +54,10 @@ root-family CLI selection now makes focused reach observable without a static
 payload suppressing discovery. Next freeze a sanitizer pin and require
 Claude-owned both-policy fuzz: disabled DefaultPolicy is the zero-reach
 compatibility control, while controller-random must show producer calls/offers
-and effective applications for every enabled structured family. Then evaluate
+and effective applications for every enabled structured family. The Tier-D
+preparer now records repeatable immutable solver arguments without permitting a
+certificate-mode override, so a passing focused fuzz report can feed exact
+controller configurations into saved-target diagnostics. Then evaluate
 the saved target set and regression gates only when benchmark execution is
 authorized. DefaultPolicy keeps all three actions disabled meanwhile.
 

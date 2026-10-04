@@ -17,6 +17,7 @@ FROZEN_DSR_HASHES={
     'dsr-compress':'a44102ce11162a4687450a4c3a640d27a49703072dd29802bd259676eb668d55',
     'srcheck':'19bf79f49e293bb0df82b1e4ec82ec45987c2791864598bada12525ef41a2945',
 }
+PROOF_ARGUMENTS={'--auto-proof','--dsr','--drat','--lrat'}
 
 def sha(p):
     h=hashlib.sha256()
@@ -61,6 +62,14 @@ def scheduler_wall_seconds(solve_timeout,checker_timeout):
 
 def slurm_time(seconds):
     return f'{seconds//3600:02d}:{(seconds//60)%60:02d}:{seconds%60:02d}'
+
+def solver_arguments(certificate, extra):
+    if certificate not in ('dsr','auto'):
+        raise ValueError('unsupported certificate mode: '+certificate)
+    proof='--auto-proof' if certificate=='auto' else '--dsr'
+    if any(not value or value in PROOF_ARGUMENTS for value in extra):
+        raise ValueError('extra solver arguments must be nonempty and may not override the certificate mode')
+    return [proof,*extra]
 
 def prepare(a):
     c=a.campaign.resolve(); ref=ROOT/'benchmarks/baselines/sc24-26-32g-5000s'
@@ -161,7 +170,7 @@ exec python3 {c}/pins/validate_anonymous_runtime.py {c}
     m=dict(schema='tactix-experimental-single-tierd-v3',created_at=dt.datetime.now(dt.timezone.utc).isoformat(),
         source_commit=commit,source_tree=str(source),source_files=sources,
         arms={'tactix':dict(path='pins/tactix',sha256=sha(c/'pins/tactix'),
-                           arguments=['--auto-proof' if a.certificate=='auto' else '--dsr'],
+                           arguments=solver_arguments(a.certificate,a.solver_argument),
                            certificate=a.certificate)},
         input_sha256=inputs,scratch_policy='anonymous-local-files-v1',
         dataset_authority=dict(path=str(ref/'manifest.json'),sha256=sha(ref/'manifest.json')),
@@ -206,6 +215,8 @@ if __name__=='__main__':
     p.add_argument('--array-throttle',type=int)
     p.add_argument('--afterany',type=int,help='submit only after this SLURM job or array terminates')
     p.add_argument('--certificate',choices=['dsr','auto'],default='dsr')
+    p.add_argument('--solver-argument',action='append',default=[],
+                   help='repeatable immutable solver argument for the prepared arm; use = before values beginning with --')
     p.add_argument('--instance',action='append',default=[])
     p.add_argument('--selection-table',type=Path)
     g=p.add_mutually_exclusive_group(required=True)
@@ -218,4 +229,6 @@ if __name__=='__main__':
         p.error('--array-throttle must be positive')
     if a.afterany is not None and (a.afterany < 1 or a.prepare):
         p.error('--afterany requires a positive job id and --submit or --validate')
+    if a.solver_argument and not a.prepare:
+        p.error('--solver-argument is valid only with --prepare')
     prepare(a) if a.prepare else submit(a)
