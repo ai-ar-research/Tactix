@@ -20,32 +20,46 @@ struct DirectCspSupportActionSelection {
 };
 
 struct DirectCspSupportActionKey {
+  std::vector<int32_t> left_values;
+  std::vector<int32_t> right_values;
   uint32_t selected_left_value = 0;
+  int32_t selected_left_literal = 0;
 
   bool operator==(const DirectCspSupportActionKey &) const = default;
   bool operator<(const DirectCspSupportActionKey &other) const {
-    return selected_left_value < other.selected_left_value;
+    if (left_values != other.left_values)
+      return left_values < other.left_values;
+    if (right_values != other.right_values)
+      return right_values < other.right_values;
+    if (selected_left_value != other.selected_left_value)
+      return selected_left_value < other.selected_left_value;
+    return selected_left_literal < other.selected_left_literal;
   }
 };
 
 // The controller owns one session for one Kernel lifetime.  Its first
-// productive action retains the exact pre-publication source snapshot.  Row
-// identities remain committed even if a later inprocessing rule deletes the
-// published support clause.
+// productive action for each ordered domain pair retains that pair's exact
+// pre-publication source snapshot. Row identities remain committed even if a
+// later inprocessing rule deletes the published support clause. Left/right
+// order is semantic: reversing a pair selects the reverse support direction.
 class DirectCspSupportActionSession {
 public:
   bool retained() const { return owner_ != nullptr; }
   bool belongs_to(const Kernel &kernel) const { return owner_ == &kernel; }
   size_t committed_keys() const { return keys_.size(); }
-  const DirectCspSupportOwnerSnapshot *snapshot() const {
-    return retained() ? &snapshot_ : nullptr;
+  size_t retained_owners() const { return snapshots_.size(); }
+  const DirectCspSupportOwnerSnapshot *snapshot(
+      const std::vector<int32_t> &left_values,
+      const std::vector<int32_t> &right_values) const;
+  const std::vector<DirectCspSupportOwnerSnapshot> &snapshots() const {
+    return snapshots_;
   }
   const std::vector<DirectCspSupportActionKey> &keys() const { return keys_; }
 
 private:
   friend struct DirectCspSupportActionSessionAccess;
   const Kernel *owner_ = nullptr;
-  DirectCspSupportOwnerSnapshot snapshot_;
+  std::vector<DirectCspSupportOwnerSnapshot> snapshots_;
   std::vector<DirectCspSupportActionKey> keys_;
 };
 
@@ -122,6 +136,7 @@ struct DirectCspSupportActionResult {
   uint64_t semantic_id = 0;
   DirectCspSupportActionKey key;
   uint64_t committed_keys = 0;
+  uint64_t retained_owners = 0;
   bool owner_retained = false;
   // The shared registry bridge can stage this neutral metadata once DirectCSP
   // receives its own SemanticVariableProducer value.
