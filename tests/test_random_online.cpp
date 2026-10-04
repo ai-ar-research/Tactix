@@ -2249,11 +2249,12 @@ static void every_registry_action_has_random_support() {
     assert(conflict_seen.count("Restart") && conflict_seen.count("Reduce"));
     seen.insert(conflict_seen.begin(), conflict_seen.end());
   }
-  assert(seen.size() + 4 == tactix_rules().size());
-  assert(!seen.count("IndependentSetCover"));
-  assert(!seen.count("Gf3AffineConsequence"));
-  assert(!seen.count("DirectCspSupport"));
-  assert(!seen.count("Gf3GaussianConsequence"));
+  static constexpr const char *PRODUCER_OWNED[] = {
+      "IndependentSetCover", "Gf3AffineConsequence", "DirectCspSupport",
+      "Gf3GaussianConsequence", "TseitinCycleBreaking"};
+  assert(seen.size() + std::size(PRODUCER_OWNED) == tactix_rules().size());
+  for (const char *name : PRODUCER_OWNED)
+    assert(!seen.count(name));
 }
 
 static void random_search_choices_cover_phases_targets_and_parameters() {

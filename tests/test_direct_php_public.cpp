@@ -140,6 +140,14 @@ void random_generator_reaches_the_same_action() {
   config.maximum_sequence_length = 1;
   OnlineStrategyProgram program;
   std::string error;
+  for (uint64_t seed = 1; seed <= 256; ++seed) {
+    assert(random_online_strategy_program(kernel, seed, config, program,
+                                          &error));
+    assert(program.sequence.size() == 1);
+    assert(program.sequence[0].rule == "DirectPhpRefutation");
+    assert(program.sequence[0].post_application == PostApplication::None);
+    assert(validate_online_strategy_program(program, &error));
+  }
   assert(random_online_strategy_program(kernel, 17, config, program, &error));
   assert(program.sequence.size() == 1);
   assert(program.sequence[0].rule == "DirectPhpRefutation");

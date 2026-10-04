@@ -383,16 +383,17 @@ static const int STATS[] = {
 #define NSTATS (int)(sizeof(STATS) / sizeof(STATS[0]))
 
 int main(int argc, char **argv) {
-  /* pinned size: every schedule component must fire on BOTH runs (first mode
+  /* Pinned formula: every schedule component fires on BOTH runs (first mode
    * switch at 1000 conflicts, first reduce at REDUCE_INTERVAL_INIT = 2000,
-   * restart floor 50) while the stepped side stays fast under the
-   * per-application invariant checker of debug builds. Size it so every
-   * threshold is cleared by several times over on BOTH runs: a size that only
-   * just clears them makes the coverage assertions fail on any ordinary
-   * trajectory shift, i.e. on changes that are performance-neutral.
+   * restart floor 50) while the stepped side remains practical under the
+   * per-application invariant checker of Debug builds.  The earlier seed
+   * drove the external schedule through about 75,000 conflicts and made this
+   * conformance test take tens of minutes without covering another API state.
+   * This seed retains every asserted schedule transition with about 4,000
+   * external conflicts.  A trajectory that loses one remains a test failure.
    * argv overrides for exploration: demo3 [N M SEED] */
-  int N = 160, M = 681; /* m/n = 4.26 */
-  uint64_t SEED = 20260714;
+  int N = 140, M = 596; /* m/n = 4.26 */
+  uint64_t SEED = 75;
   if (argc == 4) {
     N = atoi(argv[1]);
     M = atoi(argv[2]);

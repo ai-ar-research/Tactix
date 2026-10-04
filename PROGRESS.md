@@ -30,6 +30,7 @@ rule-specific derivation and measured clausal proof/check cost establish need.
 | Certified theory actions v5 | [technical report](benchmarks/reports/2026-10-04-certified-theory-actions-v5.md) | Public GF(3)/DirectCSP consequences and random offerers implemented but unaccepted; ordinary fuzz had incomplete verdict coverage and no effective v5 reach |
 | Certified UNSAT verticals | [technical checkpoint](benchmarks/reports/2026-10-04-public-tseitin-cycle-breaking-action.md), [Andrew report](report-to-andrew/20261004T210026Z-public-tseitin-cycle-action/report.pdf) | Direct PHP is public and terminal; GF(3) has a public authenticated Gaussian batch through C v6; Tseitin X16 is public at registry 38/disabled StepId 27/C v7 tag 41 with exact `tcx2:` component replay, repeated propagated-root discovery, DSR/no-proof, random production and raw feedback. Independent fresh Debug is 10/10; ASan/UBSan action/discovery plus ASCII, binary and repeated-root DSR checks pass. Fuzz, targets and gates remain open |
 | Focused controller configuration | current checkpoint | CLI selection can enable any subset of the four native structured producers and independently restrict canonical root-action families. Both choices are replay-fingerprinted; malformed, excluded and ambiguous action collections fail closed. Focused frontend/action/API validation passes 9/9; effective campaign evidence remains open |
+| Public controller full Debug | [conformance report](benchmarks/reports/2026-10-04-public-controller-full-debug.md) | Current source passes 285/285 Debug tests in 957.60 s. Terminal Direct-PHP random programs cannot acquire a bundled follow-up; append-only Tseitin registry contracts and restored Lucky/8 lifecycle tests are synchronized. Effective both-policy fuzz, targets and gates remain open |
 | Naive target row-cover proof | [checker-censor report](benchmarks/reports/2026-10-04-row-cover-target-checker-censor.md) | Rejected: 6,783,269 additions and 187,733,915 bytes reached the 1,800-second checker cap |
 
 The corrected guidance fuzz jobs are terminal. Default job `1748417` found zero
@@ -84,6 +85,10 @@ plus `max(30%, 20s)` completed-proof slowdown rule.
 
 ## Recent changes
 
+- Current source repairs terminal-action random generation and synchronizes the
+  append-only public registry tests; the complete Debug suite passes 285/285.
+  The scripted-policy fixture retains all schedule transitions while reducing
+  its externally stepped conflict path from about 75,000 to about 4,000.
 - The current controller checkpoint exposes replay-fingerprinted native-producer and root-family selection for non-vacuous focused fuzz.
 - `46a7db1cd` exposed public X16 with exact component choice, C v7, repeated-root DSR, random reach and raw feedback; `2921c784d` fixed native structured pending settlement.
 - `cd956aea` exposed the authenticated complete GF(3) Gaussian closure as public X14 with C v6, replay, random reach and raw feedback.

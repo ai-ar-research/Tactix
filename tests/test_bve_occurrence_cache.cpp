@@ -98,7 +98,7 @@ static void cache_lifetime_and_invalidation() {
   }
 }
 
-static void online_rejects_retired_lucky() {
+static void online_accepts_restored_affine_lucky() {
   Kernel k = fixture();
   OnlineStrategyExecutor executor;
   auto p = program();
@@ -110,8 +110,10 @@ static void online_rejects_retired_lucky() {
   lucky.instances = {8};
   p.sequence.push_back(lucky);
   std::string error;
-  assert(!executor.configure(p, 1, ReconfigureMode::ResetRuntime, &error));
-  assert(error.find("retired") != std::string::npos);
+  assert(executor.configure(p, 1, ReconfigureMode::ResetRuntime, &error));
+  assert(error.empty());
+  // Configuration is pure: restoring Lucky/8 to the shared action surface
+  // must not touch the BVE cache or run either action before advance().
   assert(k.stats.bve_eliminated == 0 && k.stats.affine_model_calls == 0);
   assert(!k.dense && k.dense_order_scratch.empty());
   kernel_check_invariants(k);
@@ -164,7 +166,7 @@ static void redundant_fallback() {
 
 int main() {
   cache_lifetime_and_invalidation();
-  online_rejects_retired_lucky();
+  online_accepts_restored_affine_lucky();
   external_changes_and_budget();
   redundant_fallback();
   std::puts("BVE occurrence cache: lifetime, invalidation, borrowing and sparse boundaries passed");
