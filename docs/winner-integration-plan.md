@@ -166,6 +166,8 @@ random production and raw feedback. It remains disabled by default and lacks
 effective fuzz, scheduling, target and regression evidence. Next validate
 effective reach, then measure target recovery and the four gates. Every decline
 remains bounded and mutation free; every repeated step uses a fresh live plan.
+For n-ary finite-domain relations, the internal `NaryCspPrefix` planner defines a selected all-but-one tuple prefix as one exact-AND helper and derives RUP binary exclusions for authenticated residual values. It validates complete one-hot domains and exact source ownership and has exhaustive projection/RUP tests.
+Live capture, publication, durable duplicate keys, typed action/offerer, fuzz reach and noL recovery remain the next vertical; the planner is not a public capability or performance result.
 
 Record every added constraint/auxiliary definition: stable identity, Boolean formula
 and theory meaning, source clauses/structural premises, generating action and

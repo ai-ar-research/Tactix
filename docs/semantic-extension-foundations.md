@@ -279,6 +279,36 @@ deletion. Atomic preflight, source revalidation, DSR/DRAT proof publication,
 raw feedback, and the distinct DirectCSP advice producer use the shared contract
 above. Target recovery remains pending.
 
+## N-ary CSP prefix foundation
+
+The next finite-domain increment generalizes the Boolean representation without
+pretending an n-ary relation is a collection of unrelated binary domains. Its
+pure planner accepts at least three disjoint, complete signed one-hot domains
+and a sparse, strictly lexicographic list of exact forbidden tuples. A typed
+selection fixes one value in every domain except a named residual domain. The
+planner introduces one fresh semantic helper `p` exactly equal to the
+conjunction of that prefix and derives a binary `(~p or ~v)` for each forbidden
+extension value `v`. When all residual values are forbidden, it additionally
+derives `~p` from those binaries and the residual ALO.
+
+Every definition is fresh-pivot RAT and every relation consequence is RUP from
+the exact tuple clause plus the definition. The planner verifies all domain
+ALO/AMO clauses, tuple coordinates, signed literals, premise occurrences and
+native proof IDs; an extra, missing, duplicate, unordered, overlapping or
+mis-spelled source item declines. Bounds cover source clauses/literals, domains,
+domain values, tuples, prefix arity, additions, addition literals and charged
+work. Declines return no partial additions or projection record. Exhaustive
+small-model tests show that old models extend uniquely with
+`p = AND(prefix)` and that dropping `p` projects every extended model to the
+original formula; independent unit propagation replays every RUP step.
+
+This is currently an internal planner. The next increment must capture the
+domains and relation directly from the live formula, revalidate them at commit,
+publish DSR/DRAT atomically, retain a semantic key so the same prefix is not
+redefined, expose the helper through the shared semantic-variable advice path,
+and add a typed offerer/controller action. Only that public path can be tested
+for recovery of the noL cohort; this foundation alone is not a solve claim.
+
 ## Truth-table parity frontier
 
 The TTF recognizer starts from a caller-retained checker-formula snapshot because
