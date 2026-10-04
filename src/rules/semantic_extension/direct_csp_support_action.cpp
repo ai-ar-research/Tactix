@@ -57,12 +57,8 @@ bool literal_less(int32_t first, int32_t second) {
 }
 
 bool pair_identity_valid(const std::vector<int32_t> &left,
-                         const std::vector<int32_t> &right,
-                         const DirectCspSupportActionLimits &limits) {
-  if (left.size() < 2 || right.size() < 2 ||
-      left.size() > limits.maximum_domain_values ||
-      right.size() > limits.maximum_domain_values)
-    return false;
+                         const std::vector<int32_t> &right) {
+  if (left.size() < 2 || right.size() < 2) return false;
   std::vector<uint32_t> variables;
   variables.reserve(left.size() + right.size());
   const auto append = [&](const std::vector<int32_t> &domain) {
@@ -93,12 +89,18 @@ DirectCspSupportActionKey make_key(
   return key;
 }
 
-bool key_valid(const DirectCspSupportActionKey &key,
-               const DirectCspSupportActionLimits &limits) {
-  return pair_identity_valid(key.left_values, key.right_values, limits) &&
+bool key_valid(const DirectCspSupportActionKey &key) {
+  return pair_identity_valid(key.left_values, key.right_values) &&
          key.selected_left_value < key.left_values.size() &&
          key.selected_left_literal ==
              key.left_values[key.selected_left_value];
+}
+
+bool pair_within_limits(const std::vector<int32_t> &left,
+                        const std::vector<int32_t> &right,
+                        const DirectCspSupportActionLimits &limits) {
+  return left.size() <= limits.maximum_domain_values &&
+         right.size() <= limits.maximum_domain_values;
 }
 
 bool owner_less(const DirectCspSupportOwnerSnapshot &first,
@@ -139,13 +141,10 @@ bool domain_payload_valid(const direct_csp_support::Domain &domain,
   return true;
 }
 
-bool owner_payload_valid(const DirectCspSupportOwnerSnapshot &owner,
-                         const DirectCspSupportActionLimits &limits) {
+bool owner_payload_valid(const DirectCspSupportOwnerSnapshot &owner) {
   if (!owner.external_extent || owner.source.empty() ||
-      owner.source.size() > limits.maximum_source_clauses ||
-      owner.source_literals > limits.maximum_source_literals ||
       !pair_identity_valid(owner.relation.left.values,
-                           owner.relation.right.values, limits) ||
+                           owner.relation.right.values) ||
       !domain_payload_valid(owner.relation.left, owner.source.size()) ||
       !domain_payload_valid(owner.relation.right, owner.source.size()) ||
       owner.relation.left.values.size() >
@@ -160,7 +159,7 @@ bool owner_payload_valid(const DirectCspSupportOwnerSnapshot &owner,
     const auto &premise = owner.source[index];
     if (premise.occurrence != index + 1 || premise.literals.empty() ||
         premise.literals.size() >
-            limits.maximum_source_literals - source_literals)
+            std::numeric_limits<uint64_t>::max() - source_literals)
       return false;
     source_literals += premise.literals.size();
   }
@@ -169,6 +168,14 @@ bool owner_payload_valid(const DirectCspSupportOwnerSnapshot &owner,
     if (occurrence && !occurrence_valid(occurrence, owner.source.size()))
       return false;
   return true;
+}
+
+bool owner_within_limits(const DirectCspSupportOwnerSnapshot &owner,
+                         const DirectCspSupportActionLimits &limits) {
+  return owner.source.size() <= limits.maximum_source_clauses &&
+         owner.source_literals <= limits.maximum_source_literals &&
+         pair_within_limits(owner.relation.left.values,
+                            owner.relation.right.values, limits);
 }
 
 bool charge_owner(const DirectCspSupportOwnerSnapshot &owner,
@@ -189,15 +196,14 @@ SessionStatus validate_session(const DirectCspSupportActionSession &session,
                                const DirectCspSupportActionLimits &limits,
                                uint64_t &work) {
   if (session.retained() != (session.retained_owners() != 0) ||
-      session.committed_keys() < session.retained_owners() ||
-      session.committed_keys() > limits.maximum_session_keys)
+      session.committed_keys() < session.retained_owners())
     return SessionStatus::Invalid;
   const auto &owners = session.snapshots();
   for (size_t index = 0; index < owners.size(); ++index) {
     const auto &owner = owners[index];
     if (!charge_owner(owner, limits.maximum_session_work, work))
       return SessionStatus::Exhausted;
-    if (!owner_payload_valid(owner, limits) ||
+    if (!owner_payload_valid(owner) ||
         (index && !owner_less(owners[index - 1], owner)))
       return SessionStatus::Invalid;
   }
@@ -209,7 +215,7 @@ SessionStatus validate_session(const DirectCspSupportActionSession &session,
                   limits.maximum_session_work, work) ||
         !add_work(owners.size(), limits.maximum_session_work, work))
       return SessionStatus::Exhausted;
-    if (!key_valid(key, limits) ||
+    if (!key_valid(key) ||
         (index && !(keys[index - 1] < key)) ||
         std::none_of(owners.begin(), owners.end(),
                      [&](const DirectCspSupportOwnerSnapshot &owner) {
@@ -226,6 +232,18 @@ SessionStatus validate_session(const DirectCspSupportActionSession &session,
                      }))
       return SessionStatus::Invalid;
   }
+
+  // Invocation limits are resource policy, not part of a retained identity.
+  // Once the metered integrity scan completes, corruption remains Invalid even
+  // when the caller also supplies caps smaller than the retained state.
+  if (keys.size() > limits.maximum_session_keys)
+    return SessionStatus::Exhausted;
+  for (const DirectCspSupportOwnerSnapshot &owner : owners)
+    if (!owner_within_limits(owner, limits))
+      return SessionStatus::Exhausted;
+  for (const DirectCspSupportActionKey &key : keys)
+    if (!pair_within_limits(key.left_values, key.right_values, limits))
+      return SessionStatus::Exhausted;
   return SessionStatus::Valid;
 }
 
@@ -238,11 +256,13 @@ KeyStatus prepare_keys(const DirectCspSupportActionSession &session,
                     key.right_values.size(),
                 limits.maximum_session_work, work))
     return KeyStatus::Exhausted;
-  if (!key_valid(key, limits)) return KeyStatus::Invalid;
+  if (!key_valid(key)) return KeyStatus::Invalid;
   const SessionStatus session_status =
       validate_session(session, limits, work);
   if (session_status == SessionStatus::Invalid) return KeyStatus::Invalid;
   if (session_status == SessionStatus::Exhausted)
+    return KeyStatus::Exhausted;
+  if (!pair_within_limits(key.left_values, key.right_values, limits))
     return KeyStatus::Exhausted;
   const auto &old = session.keys();
   const auto position = std::lower_bound(old.begin(), old.end(), key);
@@ -276,15 +296,20 @@ OwnerStatus prepare_new_owner(
     const DirectCspSupportActionLimits &limits, uint64_t &work,
     std::vector<DirectCspSupportOwnerSnapshot> &merged) {
   const auto &old = session.snapshots();
-  if (old.size() >= limits.maximum_session_keys)
+  if (!charge_owner(incoming, limits.maximum_session_work, work))
     return OwnerStatus::Exhausted;
-  if (!owner_payload_valid(incoming, limits))
+  if (!owner_payload_valid(incoming))
     return OwnerStatus::Invalid;
   const auto position =
       std::lower_bound(old.begin(), old.end(), incoming, owner_less);
   if (position != old.end() && !owner_less(incoming, *position) &&
       !owner_less(*position, incoming))
     return OwnerStatus::Invalid;
+  if (old.size() >= limits.maximum_session_keys ||
+      !owner_within_limits(incoming, limits))
+    return OwnerStatus::Exhausted;
+  // Charge separately for materializing the post-commit copy after the
+  // integrity scan above.
   if (!charge_owner(incoming, limits.maximum_session_work, work))
     return OwnerStatus::Exhausted;
   for (const DirectCspSupportOwnerSnapshot &retained : old)

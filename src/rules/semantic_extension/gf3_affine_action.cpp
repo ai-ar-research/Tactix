@@ -35,13 +35,140 @@ Gf3AffineActionKey canonical_key(uint32_t first, uint32_t second) {
 
 enum class KeyStatus : uint8_t { Novel, Present, Invalid, Exhausted };
 
+bool same_domain(const gf3_affine::Domain &first,
+                 const gf3_affine::Domain &second) {
+  return first.values == second.values &&
+         first.at_least_one == second.at_least_one &&
+         first.at_most_one == second.at_most_one;
+}
+
+bool same_equation(const gf3_affine::Equation &first,
+                   const gf3_affine::Equation &second) {
+  return first.domains == second.domains &&
+         first.coefficients == second.coefficients && first.rhs == second.rhs &&
+         first.forbidden_by_tuple == second.forbidden_by_tuple;
+}
+
+bool same_theory(const gf3_affine::Theory &first,
+                 const gf3_affine::Theory &second) {
+  if (first.maximum_variable != second.maximum_variable ||
+      first.source.size() != second.source.size() ||
+      first.domains.size() != second.domains.size() ||
+      first.equations.size() != second.equations.size())
+    return false;
+  for (size_t index = 0; index < first.source.size(); ++index) {
+    const auto &a = first.source[index];
+    const auto &b = second.source[index];
+    if (a.occurrence != b.occurrence ||
+        a.native_proof_id != b.native_proof_id || a.literals != b.literals)
+      return false;
+  }
+  for (size_t index = 0; index < first.domains.size(); ++index)
+    if (!same_domain(first.domains[index], second.domains[index])) return false;
+  for (size_t index = 0; index < first.equations.size(); ++index)
+    if (!same_equation(first.equations[index], second.equations[index]))
+      return false;
+  return true;
+}
+
+enum class OwnerLimitStatus : uint8_t { Within, Invalid, Exhausted };
+
+OwnerLimitStatus retained_owner_limit_status(
+    const Gf3AffineOwnerSnapshot &owner,
+    const Gf3AffineActionLimits &limits, uint64_t &work) {
+  bool exceeded =
+      owner.sources.size() > limits.recognition.maximum_source_clauses ||
+      owner.source_literals > limits.recognition.maximum_source_literals ||
+      owner.theory.domains.size() > limits.recognition.maximum_domains ||
+      owner.theory.equations.size() > limits.recognition.maximum_equations;
+  uint32_t maximum_arity = 0;
+  uint64_t maximum_tuples = 0;
+  for (const auto &equation : owner.theory.equations) {
+    // Reading the three vector extents is constant work.  Their contents are
+    // charged only on the exceptional deep-validation path below.
+    if (!add_work(1, limits.maximum_session_work, work))
+      return OwnerLimitStatus::Exhausted;
+    if (equation.domains.size() > UINT32_MAX)
+      return OwnerLimitStatus::Invalid;
+    maximum_arity =
+        std::max(maximum_arity,
+                 static_cast<uint32_t>(equation.domains.size()));
+    maximum_tuples =
+        std::max(maximum_tuples,
+                 static_cast<uint64_t>(equation.forbidden_by_tuple.size()));
+  }
+  exceeded = exceeded ||
+             maximum_arity > limits.recognition.maximum_equation_arity ||
+             maximum_tuples >
+                 limits.recognition.maximum_tuples_per_equation;
+  if (!exceeded) return OwnerLimitStatus::Within;
+
+  // A retained owner was admitted under an earlier configuration.  Validate
+  // it independently of the newly lowered recognition bounds before
+  // classifying the mismatch: malformed retained identity is Invalid, while
+  // an intrinsically valid owner that merely no longer fits is Exhausted.
+  if (!owner.external_extent || owner.external_extent > INT32_MAX ||
+      owner.sources.empty() ||
+      owner.sources.size() != owner.theory.source.size() ||
+      owner.theory.domains.empty() || owner.theory.equations.empty() ||
+      owner.theory.domains.size() > UINT32_MAX ||
+      owner.theory.equations.size() > UINT32_MAX)
+    return OwnerLimitStatus::Invalid;
+  std::vector<gf3_affine::Premise> premises;
+  premises.reserve(owner.sources.size());
+  uint64_t source_literals = 0;
+  for (size_t index = 0; index < owner.sources.size(); ++index) {
+    const Gf3AffineLiveSource &source = owner.sources[index];
+    if (!add_work(uint64_t{1} + source.clause.size(),
+                  limits.maximum_session_work, work))
+      return OwnerLimitStatus::Exhausted;
+    const bool invalid_identity =
+        source.kind == Gf3AffineSourceKind::Large
+            ? source.ref == INVALID_REF || source.first != INVALID_LIT ||
+                  source.second != INVALID_LIT
+            : source.kind == Gf3AffineSourceKind::Binary
+                  ? source.ref != INVALID_REF || source.first == INVALID_LIT ||
+                        source.second == INVALID_LIT ||
+                        source.first == source.second ||
+                        source.clause.size() != 2
+                  : true;
+    if (invalid_identity || source.clause.empty() ||
+        source.occurrence != index + 1 ||
+        source.clause.size() > UINT64_MAX - source_literals)
+      return OwnerLimitStatus::Invalid;
+    source_literals += source.clause.size();
+    premises.push_back(
+        {source.occurrence, source.clause, source.native_proof_id});
+  }
+  if (source_literals != owner.source_literals)
+    return OwnerLimitStatus::Invalid;
+
+  gf3_affine::RecognitionBounds relaxed;
+  relaxed.maximum_source_clauses = owner.sources.size();
+  relaxed.maximum_source_literals = source_literals;
+  relaxed.maximum_domains = owner.theory.domains.size();
+  relaxed.maximum_equations = owner.theory.equations.size();
+  relaxed.maximum_equation_arity = maximum_arity;
+  relaxed.maximum_tuples_per_equation = maximum_tuples;
+  const auto charge = [&](uint64_t amount) {
+    return add_work(amount, limits.maximum_session_work, work);
+  };
+  const gf3_affine::RecognitionResult recognized =
+      gf3_affine::recognize(premises, relaxed, charge);
+  if (recognized.status == gf3_affine::RecognitionStatus::EffortExhausted)
+    return OwnerLimitStatus::Exhausted;
+  if (recognized.status != gf3_affine::RecognitionStatus::Recognized ||
+      !same_theory(owner.theory, recognized.theory) ||
+      recognized.theory.maximum_variable > owner.external_extent)
+    return OwnerLimitStatus::Invalid;
+  return OwnerLimitStatus::Exhausted;
+}
+
 KeyStatus prepare_keys(const Gf3AffineActionSession &session,
                        const Gf3AffineActionKey &key,
                        const Gf3AffineActionLimits &limits, uint64_t &work,
                        std::vector<Gf3AffineActionKey> &merged) {
   const auto &old = session.keys();
-  if (old.size() > limits.maximum_session_keys)
-    return KeyStatus::Invalid;
   for (size_t index = 0; index < old.size(); ++index) {
     if (!add_work(1, limits.maximum_session_work, work))
       return KeyStatus::Exhausted;
@@ -49,6 +176,8 @@ KeyStatus prepare_keys(const Gf3AffineActionSession &session,
         (index && !(old[index - 1] < old[index])))
       return KeyStatus::Invalid;
   }
+  if (old.size() > limits.maximum_session_keys)
+    return KeyStatus::Exhausted;
   const auto position = std::lower_bound(old.begin(), old.end(), key);
   if (position != old.end() && *position == key) return KeyStatus::Present;
   if (old.size() == limits.maximum_session_keys)
@@ -236,6 +365,16 @@ Gf3AffineActionResult gf3_affine_action_apply(
     output.status = Gf3AffineActionStatus::ResourceExhausted;
     output.live.status = Gf3AffineLiveStatus::ResourceExhausted;
     return output;
+  }
+  if (session.retained()) {
+    const OwnerLimitStatus owner_status = retained_owner_limit_status(
+        *session.snapshot(), limits, output.effort.session_work);
+    if (owner_status == OwnerLimitStatus::Invalid) return output;
+    if (owner_status == OwnerLimitStatus::Exhausted) {
+      output.status = Gf3AffineActionStatus::ResourceExhausted;
+      output.live.status = Gf3AffineLiveStatus::ResourceExhausted;
+      return output;
+    }
   }
   if (key_status == KeyStatus::Present) {
     output.status = Gf3AffineActionStatus::AlreadyPublished;

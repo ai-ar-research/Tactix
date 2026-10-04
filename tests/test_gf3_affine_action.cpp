@@ -193,6 +193,40 @@ void success_replay_advice_and_repeated_pairs() {
   while (kernel.level) kernel_backtrack(kernel, kernel.level - 1);
   assert(kernel.trail.empty() && kernel_propagation_fixpoint(kernel));
 
+  // A retained owner can outlive online parameter reconfiguration.  Its
+  // source image remains valid, so lowering a capacity below that image is a
+  // retryable resource decline rather than an invalid-session diagnosis.
+  auto smaller_owner_limit = limits();
+  assert(session.snapshot()->sources.size() > 1);
+  smaller_owner_limit.recognition.maximum_source_clauses =
+      session.snapshot()->sources.size() - 1;
+  const Image before_owner_limit = image(kernel);
+  const long owner_limit_journal = position(records);
+  // Even when the same lower cap is present, malformed retained accounting is
+  // still an invalid identity rather than a capacity decline.
+  auto *mutable_snapshot =
+      const_cast<Gf3AffineOwnerSnapshot *>(session.snapshot());
+  ++mutable_snapshot->source_literals;
+  const auto corrupt = gf3_affine_action_apply(
+      kernel, session, smaller_owner_limit, 1, 2);
+  --mutable_snapshot->source_literals;
+  assert(corrupt.status == Gf3AffineActionStatus::Invalid &&
+         corrupt.live.status == Gf3AffineLiveStatus::Invalid &&
+         corrupt.result == ApplyResult::NoOp &&
+         corrupt.committed_keys == 1 && session.committed_keys() == 1 &&
+         image(kernel) == before_owner_limit &&
+         position(records) == owner_limit_journal);
+  const auto owner_exhausted = gf3_affine_action_apply(
+      kernel, session, smaller_owner_limit, 1, 2);
+  assert(owner_exhausted.status ==
+             Gf3AffineActionStatus::ResourceExhausted &&
+         owner_exhausted.live.status ==
+             Gf3AffineLiveStatus::ResourceExhausted &&
+         owner_exhausted.result == ApplyResult::NoOp &&
+         owner_exhausted.committed_keys == 1 && session.committed_keys() == 1 &&
+         image(kernel) == before_owner_limit &&
+         position(records) == owner_limit_journal);
+
   // A different caller-selected pair reuses and revalidates the exact owner.
   const auto second =
       gf3_affine_action_apply(kernel, session, limits(), 1, 2);
@@ -209,6 +243,18 @@ void success_replay_advice_and_repeated_pairs() {
   // replay after every clause published by this pair has been deleted.
   delete_published(kernel, second.live.published_clause_ids);
   assert(kernel.trail.empty() && kernel_propagation_fixpoint(kernel));
+  auto smaller_key_limit = limits();
+  smaller_key_limit.maximum_session_keys = 1;
+  const Image before_key_limit = image(kernel);
+  const long key_limit_journal = position(records);
+  const auto key_exhausted = gf3_affine_action_apply(
+      kernel, session, smaller_key_limit, 2, 1);
+  assert(key_exhausted.status == Gf3AffineActionStatus::ResourceExhausted &&
+         key_exhausted.live.status == Gf3AffineLiveStatus::ResourceExhausted &&
+         key_exhausted.result == ApplyResult::NoOp &&
+         key_exhausted.committed_keys == 2 && session.committed_keys() == 2 &&
+         image(kernel) == before_key_limit &&
+         position(records) == key_limit_journal);
   // Reverse parent order is the same durable semantic selection.  It consumes
   // neither an action id nor provenance bytes and never enters the live layer.
   const Image before = image(kernel);
