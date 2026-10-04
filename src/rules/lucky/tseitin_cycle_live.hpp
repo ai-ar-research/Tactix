@@ -67,6 +67,8 @@ struct SnapshotLimits {
   uint64_t maximum_literals = 0;
   uint64_t maximum_work = 0;
   uint32_t maximum_variables = 0;
+  tseitin_cycle::InterruptPoll interrupted = nullptr;
+  void *interrupt_state = nullptr;
 };
 
 struct Request {
