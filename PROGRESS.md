@@ -29,6 +29,7 @@ rule-specific derivation and measured clausal proof/check cost establish need.
 | Partial-model guidance | `a49191bfa` | Exact immutable candidates can feed Walk and CDCL separately with raw telemetry; mechanics tested, campaign reach/effect still absent |
 | Certified theory actions v5 | [technical report](benchmarks/reports/2026-10-04-certified-theory-actions-v5.md) | Public GF(3)/DirectCSP consequences and random offerers implemented but unaccepted; ordinary fuzz had incomplete verdict coverage and no effective v5 reach |
 | Certified UNSAT verticals | [technical checkpoint](benchmarks/reports/2026-10-04-public-tseitin-cycle-breaking-action.md), [Andrew report](report-to-andrew/20261004T210026Z-public-tseitin-cycle-action/report.pdf) | Direct PHP is public and terminal; GF(3) has a public authenticated Gaussian batch through C v6; Tseitin X16 is public at registry 38/disabled StepId 27/C v7 tag 41 with exact `tcx2:` component replay, repeated propagated-root discovery, DSR/no-proof, random production and raw feedback. Independent fresh Debug is 10/10; ASan/UBSan action/discovery plus ASCII, binary and repeated-root DSR checks pass. Fuzz, targets and gates remain open |
+| Focused controller configuration | current checkpoint | CLI selection can enable any subset of the four native structured producers and independently restrict canonical root-action families. Both choices are replay-fingerprinted; malformed, excluded and ambiguous action collections fail closed. Focused frontend/action/API validation passes 9/9; effective campaign evidence remains open |
 | Naive target row-cover proof | [checker-censor report](benchmarks/reports/2026-10-04-row-cover-target-checker-censor.md) | Rejected: 6,783,269 additions and 187,733,915 bytes reached the 1,800-second checker cap |
 
 The corrected guidance fuzz jobs are terminal. Default job `1748417` found zero
@@ -48,8 +49,12 @@ X16 offers exact connected-component identities without a private component
 choice, publishes one authenticated X7 unit, leaves Propagate separate, and
 then permits a fresh root-aware census. Every constraint still retains Boolean
 form, theory meaning, exact premises, parameters, mapping, proof link,
-projection/deletion state and exact effort/yield/proof cost. Next require
-effective both-policy fuzz reach, then evaluate
+projection/deletion state and exact effort/yield/proof cost. Native-producer and
+root-family CLI selection now makes focused reach observable without a static
+payload suppressing discovery. Next freeze a sanitizer pin and require
+Claude-owned both-policy fuzz: disabled DefaultPolicy is the zero-reach
+compatibility control, while controller-random must show producer calls/offers
+and effective applications for every enabled structured family. Then evaluate
 the saved target set and regression gates only when benchmark execution is
 authorized. DefaultPolicy keeps all three actions disabled meanwhile.
 
@@ -71,8 +76,8 @@ plus `max(30%, 20s)` completed-proof slowdown rule.
 
 ## Recent changes
 
+- The current controller checkpoint exposes replay-fingerprinted native-producer and root-family selection for non-vacuous focused fuzz.
 - `46a7db1cd` exposed public X16 with exact component choice, C v7, repeated-root DSR, random reach and raw feedback; `2921c784d` fixed native structured pending settlement.
 - `cd956aea` exposed the authenticated complete GF(3) Gaussian closure as public X14 with C v6, replay, random reach and raw feedback.
 - `5c23c1f4c` aligned lifecycle tests with the affine stage; the combined 17-test Debug matrix passes.
 - `f6d7453f6` restored affine Lucky/8 to the accepted structured-root stage-0 lifecycle and pinned its execution signature.
-- `666f8bad0` corrected current guidance reachability parsing and added its regression test.
