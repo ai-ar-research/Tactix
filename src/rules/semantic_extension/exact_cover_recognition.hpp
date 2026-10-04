@@ -16,6 +16,7 @@ namespace tactix::exact_cover_semantic {
 struct Premise {
   uint64_t occurrence = 0;
   std::vector<int32_t> literals;
+  bool operator==(const Premise &) const = default;
 };
 
 struct Block {
