@@ -3,11 +3,46 @@
 #include "policies/policy.hpp"
 #include "policies/controller_trace.hpp"
 #include "policies/restart_controller.hpp"
+#include "rules/semantic_extension/direct_csp_support_action.hpp"
+#include "rules/semantic_extension/gf3_affine_action.hpp"
 #include "strategy/random_online.hpp"
 
 #include <map>
+#include <optional>
 
 namespace tactix {
+
+// Native structured-action discovery is an opt-in controller facility.  The
+// producer window is separate from the rule's semantic/proof limits: one
+// selection call inspects at most one such page, while the exact returned
+// payload is still governed by the typed reference parameters below.
+struct Gf3ActionProducerConfig {
+  bool enabled = false;
+  uint64_t maximum_pair_candidates = 64;
+  uint64_t maximum_offers = 8;
+  uint64_t maximum_enumeration_work = 100000;
+
+  bool valid() const {
+    return !enabled || (maximum_pair_candidates && maximum_offers &&
+                        maximum_enumeration_work);
+  }
+};
+
+struct DirectCspActionProducerConfig {
+  bool enabled = false;
+  uint64_t maximum_domain_candidates = 64;
+  uint64_t maximum_pair_candidates = 64;
+  uint64_t maximum_row_candidates = 64;
+  uint64_t maximum_offers = 8;
+  uint64_t maximum_enumeration_work = 100000;
+
+  bool valid() const {
+    return !enabled ||
+           (maximum_domain_candidates && maximum_pair_candidates &&
+            maximum_row_candidates && maximum_offers &&
+            maximum_enumeration_work);
+  }
+};
 
 struct RandomControllerConfig {
   DefaultStrategyConfig search;
@@ -16,8 +51,11 @@ struct RandomControllerConfig {
   bool reuse_search_trail = true;
   strategy::RandomOnlineConfig parameters;
   // Caller-provided semantic choices, including structured Condition/SR/Factor
-  // payloads. These supplement native producers without hiding API capability.
+  // payloads.  A non-empty structured family takes precedence over the native
+  // producer below, making an explicit collection exact and replay-stable.
   std::map<std::string, std::vector<strategy::OnlineInvocation>> offered_actions;
+  Gf3ActionProducerConfig gf3_action_producer;
+  DirectCspActionProducerConfig direct_csp_action_producer;
   strategy::controller::ActionAllowance default_allowance{
       strategy::WorkUnit::Applications, 1,
       {strategy::RuleWorkBudgetMode::Bounded,
@@ -59,6 +97,8 @@ std::string controller_configuration(const RandomControllerConfig &);
 struct ControllerRuleCoverage {
   uint64_t requests = 0, applications = 0, effective = 0;
   uint64_t exhausted = 0, stale = 0, interrupted = 0, work = 0, overshoot = 0;
+  uint64_t producer_calls = 0, producer_work = 0;
+  uint64_t producer_candidates = 0, producer_offers = 0;
 };
 struct ControllerSearchCoverage {
   uint64_t requests = 0, intervals = 0, decisions = 0, conflicts = 0;
@@ -94,7 +134,39 @@ public:
               volatile sig_atomic_t *stop = nullptr) override;
 
 private:
+  struct Gf3DiscoveryState {
+    const Kernel *owner = nullptr;
+    const Gf3AffineActionSession *session = nullptr;
+    strategy::StateVersion state;
+    size_t session_keys = 0;
+    bool terminal = false;
+    bool complete = false;
+    bool have_after = false;
+    std::string profile;
+    Gf3AffineActionKey after;
+    std::vector<Gf3AffineActionKey> offers;
+    std::optional<Gf3AffineActionKey> pending;
+    uint64_t pending_sequence = 0;
+  };
+  struct DirectCspDiscoveryState {
+    const Kernel *owner = nullptr;
+    const DirectCspSupportActionSession *session = nullptr;
+    strategy::StateVersion state;
+    size_t session_keys = 0;
+    size_t retained_owners = 0;
+    bool terminal = false;
+    bool complete = false;
+    bool have_after = false;
+    std::string profile;
+    DirectCspSupportActionKey after;
+    std::vector<DirectCspSupportActionSelection> offers;
+    std::optional<DirectCspSupportActionSelection> pending;
+    uint64_t pending_sequence = 0;
+  };
+
   uint64_t draw(uint64_t bound);
+  Gf3DiscoveryState gf3_discovery_;
+  DirectCspDiscoveryState direct_csp_discovery_;
   uint64_t rng_;
 };
 

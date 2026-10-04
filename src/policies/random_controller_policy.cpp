@@ -186,6 +186,36 @@ std::string controller_configuration(const RandomControllerConfig &config) {
     out << " offered " << std::quoted(family) << ' '
         << std::quoted(serialize_online_strategy_program(offered));
   }
+  // Disabled producers are deliberately absent so introducing the opt-in
+  // mechanism cannot alter an existing controller fingerprint.
+  if (config.gf3_action_producer.enabled) {
+    const auto &producer = config.gf3_action_producer;
+    OnlineInvocation profile;
+    profile.rule = "Gf3AffineConsequence";
+    profile.parameters = config.parameters.gf3_affine_consequence_reference;
+    profile.granularity = InvocationGranularity::OneInstance;
+    profile.gf3_affine_instances = {{0, 1}};
+    out << " producer " << std::quoted(profile.rule) << ' '
+        << producer.maximum_pair_candidates << ' '
+        << producer.maximum_offers << ' '
+        << producer.maximum_enumeration_work << ' '
+        << std::quoted(serialize_online_strategy_program({{profile}, {}}));
+  }
+  if (config.direct_csp_action_producer.enabled) {
+    const auto &producer = config.direct_csp_action_producer;
+    OnlineInvocation profile;
+    profile.rule = "DirectCspSupport";
+    profile.parameters = config.parameters.direct_csp_support_reference;
+    profile.granularity = InvocationGranularity::OneInstance;
+    profile.direct_csp_support_instances = {{{1, 2}, {3, 4}, 0}};
+    out << " producer " << std::quoted(profile.rule) << ' '
+        << producer.maximum_domain_candidates << ' '
+        << producer.maximum_pair_candidates << ' '
+        << producer.maximum_row_candidates << ' '
+        << producer.maximum_offers << ' '
+        << producer.maximum_enumeration_work << ' '
+        << std::quoted(serialize_online_strategy_program({{profile}, {}}));
+  }
   return out.str();
 }
 
@@ -201,6 +231,12 @@ static std::string request_record(const ActionRequest &request) {
     program.sequence.push_back(request.invocation);
     out << "Rule " << serialize_online_strategy_program(program);
   }
+  for (const auto &effort : request.producer_effort)
+    out << " producer " << std::quoted(effort.family) << ' '
+        << static_cast<unsigned>(effort.status) << ' ' << effort.complete << ' '
+        << effort.preparation_work << ' ' << effort.enumeration_work << ' '
+        << effort.total_work << ' ' << effort.candidates << ' '
+        << effort.offers;
   return out.str();
 }
 
@@ -251,10 +287,288 @@ bool RandomControllerSelector::choose(
     error = "controller selection requires a consistent root boundary";
     return false;
   }
-  std::vector<const RuleVTable *> eligible;
-  for (const auto &entry : controller_action_availability(k, config))
-    if (entry.eligible)
-      eligible.push_back(&tactix_rules()[tactix_rule_id(entry.rule.c_str())]);
+  error.clear();
+
+  const auto same_version = [](StateVersion left, StateVersion right) {
+    return left.arena_generation == right.arena_generation &&
+           left.touch_epoch == right.touch_epoch &&
+           left.strategy_epoch == right.strategy_epoch;
+  };
+  const auto settled_terminal = [](const InvocationResult &result) {
+    if (result.made_rule_progress || result.status == InvocationStatus::Sat ||
+        result.status == InvocationStatus::Unsat)
+      return true;
+    return result.selection_complete &&
+           (result.status == InvocationStatus::Completed ||
+            result.status == InvocationStatus::ScopedFixpoint ||
+            result.status == InvocationStatus::NoChange);
+  };
+  if (gf3_discovery_.pending && observation.last_action &&
+      observation.last_action->sequence == gf3_discovery_.pending_sequence &&
+      settled_terminal(observation.last_action->invocation)) {
+    const auto pending = *gf3_discovery_.pending;
+    gf3_discovery_.offers.erase(
+        std::remove(gf3_discovery_.offers.begin(),
+                    gf3_discovery_.offers.end(), pending),
+        gf3_discovery_.offers.end());
+    gf3_discovery_.pending.reset();
+    gf3_discovery_.pending_sequence = 0;
+    if (gf3_discovery_.offers.empty() && gf3_discovery_.complete)
+      gf3_discovery_.terminal = true;
+  }
+  if (direct_csp_discovery_.pending && observation.last_action &&
+      observation.last_action->sequence ==
+          direct_csp_discovery_.pending_sequence &&
+      settled_terminal(observation.last_action->invocation)) {
+    const auto pending = *direct_csp_discovery_.pending;
+    direct_csp_discovery_.offers.erase(
+        std::remove(direct_csp_discovery_.offers.begin(),
+                    direct_csp_discovery_.offers.end(), pending),
+        direct_csp_discovery_.offers.end());
+    direct_csp_discovery_.pending.reset();
+    direct_csp_discovery_.pending_sequence = 0;
+    if (direct_csp_discovery_.offers.empty() &&
+        direct_csp_discovery_.complete)
+      direct_csp_discovery_.terminal = true;
+  }
+  std::vector<ActionProducerEffort> producer_effort;
+  const auto saturated_add = [](uint64_t left, uint64_t right) {
+    return right > UINT64_MAX - left ? UINT64_MAX : left + right;
+  };
+  const auto has_static_offer = [&](const char *family) {
+    const auto found = config.offered_actions.find(family);
+    return found != config.offered_actions.end() && !found->second.empty();
+  };
+  const auto gf3_profile = [&] {
+    OnlineInvocation invocation;
+    invocation.rule = "Gf3AffineConsequence";
+    invocation.parameters = config.parameters.gf3_affine_consequence_reference;
+    invocation.granularity = InvocationGranularity::OneInstance;
+    invocation.gf3_affine_instances = {{0, 1}};
+    std::ostringstream out;
+    const auto &producer = config.gf3_action_producer;
+    out << producer.maximum_pair_candidates << ' ' << producer.maximum_offers
+        << ' ' << producer.maximum_enumeration_work << ' '
+        << serialize_online_strategy_program({{invocation}, {}});
+    return out.str();
+  };
+  const auto direct_profile = [&] {
+    OnlineInvocation invocation;
+    invocation.rule = "DirectCspSupport";
+    invocation.parameters = config.parameters.direct_csp_support_reference;
+    invocation.granularity = InvocationGranularity::OneInstance;
+    invocation.direct_csp_support_instances = {{{1, 2}, {3, 4}, 0}};
+    std::ostringstream out;
+    const auto &producer = config.direct_csp_action_producer;
+    out << producer.maximum_domain_candidates << ' '
+        << producer.maximum_pair_candidates << ' '
+        << producer.maximum_row_candidates << ' ' << producer.maximum_offers
+        << ' ' << producer.maximum_enumeration_work << ' '
+        << serialize_online_strategy_program({{invocation}, {}});
+    return out.str();
+  };
+
+  const auto discover_gf3 = [&]() -> bool {
+    if (!config.gf3_action_producer.enabled || has_static_offer("Gf3AffineConsequence") ||
+        !k.gf3_affine_action_session)
+      return false;
+    if (!config.gf3_action_producer.valid()) {
+      error = "GF3 structured action producer window is invalid";
+      return false;
+    }
+    const auto &session = *k.gf3_affine_action_session;
+    const auto profile = gf3_profile();
+    const auto state = state_version(k);
+    if (gf3_discovery_.owner != &k ||
+        gf3_discovery_.session != &session ||
+        !same_version(gf3_discovery_.state, state) ||
+        gf3_discovery_.session_keys != session.committed_keys() ||
+        gf3_discovery_.profile != profile) {
+      gf3_discovery_ = {};
+      gf3_discovery_.owner = &k;
+      gf3_discovery_.session = &session;
+      gf3_discovery_.state = state;
+      gf3_discovery_.session_keys = session.committed_keys();
+      gf3_discovery_.profile = profile;
+    }
+    if (gf3_discovery_.pending || !gf3_discovery_.offers.empty())
+      return true;
+    if (gf3_discovery_.terminal)
+      return false;
+    const auto &producer = config.gf3_action_producer;
+    Gf3AffineActionOfferWindow window{
+        producer.maximum_pair_candidates, producer.maximum_offers,
+        producer.maximum_enumeration_work, gf3_discovery_.have_after,
+        gf3_discovery_.after};
+    const Gf3AffineActionLimits limits{
+        {config.parameters.gf3_affine_consequence_reference.maximum_source_clauses,
+         config.parameters.gf3_affine_consequence_reference.maximum_source_literals,
+         config.parameters.gf3_affine_consequence_reference.maximum_domains,
+         config.parameters.gf3_affine_consequence_reference.maximum_equations,
+         config.parameters.gf3_affine_consequence_reference.maximum_equation_arity,
+         config.parameters.gf3_affine_consequence_reference.maximum_tuples_per_equation},
+        {config.parameters.gf3_affine_consequence_reference.maximum_result_arity,
+         config.parameters.gf3_affine_consequence_reference.maximum_result_tuples,
+         config.parameters.gf3_affine_consequence_reference.maximum_additions,
+         config.parameters.gf3_affine_consequence_reference.maximum_addition_literals},
+        config.parameters.gf3_affine_consequence_reference.maximum_recognition_work,
+        config.parameters.gf3_affine_consequence_reference.maximum_planning_work,
+        config.parameters.gf3_affine_consequence_reference.maximum_duplicate_scan_work,
+        config.parameters.gf3_affine_consequence_reference.maximum_revalidation_work,
+        config.parameters.gf3_affine_consequence_reference.maximum_proof_work,
+        config.parameters.gf3_affine_consequence_reference.maximum_proof_additions,
+        config.parameters.gf3_affine_consequence_reference.maximum_proof_literal_occurrences,
+        config.parameters.gf3_affine_consequence_reference.maximum_arena_words,
+        config.parameters.gf3_affine_consequence_reference.maximum_journal_bytes,
+        config.parameters.gf3_affine_consequence_reference.maximum_external_extent,
+        config.parameters.gf3_affine_consequence_reference.maximum_session_keys,
+        config.parameters.gf3_affine_consequence_reference.maximum_session_work};
+    if (!limits.valid()) {
+      error = "GF3 structured action producer parameters are invalid";
+      return false;
+    }
+    const auto offered = gf3_affine_action_offer(k, session, limits, window);
+    uint64_t preparation = offered.effort.source_work;
+    preparation = saturated_add(preparation, offered.effort.recognition_work);
+    preparation = saturated_add(preparation, offered.effort.revalidation_work);
+    preparation = saturated_add(preparation, offered.effort.session_work);
+    producer_effort.push_back(
+        {"Gf3AffineConsequence", static_cast<uint8_t>(offered.status),
+         offered.complete, preparation, offered.effort.enumeration_work,
+         saturated_add(preparation, offered.effort.enumeration_work),
+         offered.effort.pair_candidates, offered.offers.size()});
+    if (offered.status == Gf3AffineActionOfferStatus::Interrupted) {
+      error = "controller selection interrupted";
+      gf3_discovery_.terminal = true;
+      return false;
+    }
+    if (offered.status != Gf3AffineActionOfferStatus::Ready) {
+      gf3_discovery_.terminal = true;
+      return false;
+    }
+    const bool cursor_advanced =
+        offered.have_resume_after &&
+        (!gf3_discovery_.have_after ||
+         !(offered.resume_after == gf3_discovery_.after));
+    gf3_discovery_.offers = offered.offers;
+    gf3_discovery_.complete = offered.complete;
+    gf3_discovery_.have_after = offered.have_resume_after;
+    if (offered.have_resume_after)
+      gf3_discovery_.after = offered.resume_after;
+    if (offered.complete && offered.offers.empty())
+      gf3_discovery_.terminal = true;
+    else if (offered.offers.empty() && !cursor_advanced)
+      gf3_discovery_.terminal = true;
+    return !gf3_discovery_.offers.empty();
+  };
+
+  const auto discover_direct = [&]() -> bool {
+    if (!config.direct_csp_action_producer.enabled ||
+        has_static_offer("DirectCspSupport") ||
+        !k.direct_csp_support_action_session)
+      return false;
+    if (!config.direct_csp_action_producer.valid()) {
+      error = "DirectCSP structured action producer window is invalid";
+      return false;
+    }
+    const auto &session = *k.direct_csp_support_action_session;
+    const auto profile = direct_profile();
+    const auto state = state_version(k);
+    if (direct_csp_discovery_.owner != &k ||
+        direct_csp_discovery_.session != &session ||
+        !same_version(direct_csp_discovery_.state, state) ||
+        direct_csp_discovery_.session_keys != session.committed_keys() ||
+        direct_csp_discovery_.retained_owners != session.retained_owners() ||
+        direct_csp_discovery_.profile != profile) {
+      direct_csp_discovery_ = {};
+      direct_csp_discovery_.owner = &k;
+      direct_csp_discovery_.session = &session;
+      direct_csp_discovery_.state = state;
+      direct_csp_discovery_.session_keys = session.committed_keys();
+      direct_csp_discovery_.retained_owners = session.retained_owners();
+      direct_csp_discovery_.profile = profile;
+    }
+    if (direct_csp_discovery_.pending ||
+        !direct_csp_discovery_.offers.empty())
+      return true;
+    if (direct_csp_discovery_.terminal)
+      return false;
+    const auto &producer = config.direct_csp_action_producer;
+    DirectCspSupportActionOfferWindow window{
+        producer.maximum_domain_candidates, producer.maximum_pair_candidates,
+        producer.maximum_row_candidates, producer.maximum_offers,
+        producer.maximum_enumeration_work, direct_csp_discovery_.have_after,
+        direct_csp_discovery_.after};
+    const auto &parameters = config.parameters.direct_csp_support_reference;
+    const DirectCspSupportActionLimits limits{
+        parameters.maximum_source_clauses, parameters.maximum_source_literals,
+        parameters.maximum_recognition_work, parameters.maximum_domain_values,
+        parameters.maximum_direct_clause_literals,
+        parameters.maximum_definition_clause_literals,
+        parameters.maximum_proof_work, parameters.maximum_proof_additions,
+        parameters.maximum_proof_literal_occurrences,
+        parameters.maximum_journal_bytes, parameters.maximum_extent_growth,
+        parameters.maximum_external_extent, parameters.maximum_session_keys,
+        parameters.maximum_session_work, parameters.allow_extension};
+    if (!limits.valid()) {
+      error = "DirectCSP structured action producer parameters are invalid";
+      return false;
+    }
+    const auto offered =
+        direct_csp_support_action_offer(k, session, limits, window);
+    const uint64_t preparation = offered.effort.session_work;
+    producer_effort.push_back(
+        {"DirectCspSupport", static_cast<uint8_t>(offered.status),
+         offered.complete, preparation, offered.effort.enumeration_work,
+         saturated_add(preparation, offered.effort.enumeration_work),
+         offered.effort.row_candidates, offered.offers.size()});
+    if (offered.status == DirectCspSupportActionOfferStatus::Interrupted) {
+      error = "controller selection interrupted";
+      direct_csp_discovery_.terminal = true;
+      return false;
+    }
+    if (offered.status != DirectCspSupportActionOfferStatus::Ready) {
+      direct_csp_discovery_.terminal = true;
+      return false;
+    }
+    const bool cursor_advanced =
+        offered.have_resume_after &&
+        (!direct_csp_discovery_.have_after ||
+         !(offered.resume_after == direct_csp_discovery_.after));
+    direct_csp_discovery_.offers = offered.offers;
+    direct_csp_discovery_.complete = offered.complete;
+    direct_csp_discovery_.have_after = offered.have_resume_after;
+    if (offered.have_resume_after)
+      direct_csp_discovery_.after = offered.resume_after;
+    if (offered.complete && offered.offers.empty())
+      direct_csp_discovery_.terminal = true;
+    else if (offered.offers.empty() && !cursor_advanced)
+      direct_csp_discovery_.terminal = true;
+    return !direct_csp_discovery_.offers.empty();
+  };
+
+  enum class NativeOffer : uint8_t { None, Gf3, DirectCsp };
+  struct Eligible {
+    const RuleVTable *rule = nullptr;
+    NativeOffer native = NativeOffer::None;
+  };
+  std::vector<Eligible> eligible;
+  for (const auto &entry : controller_action_availability(k, config)) {
+    if (entry.eligible) {
+      eligible.push_back(
+          {&tactix_rules()[tactix_rule_id(entry.rule.c_str())], NativeOffer::None});
+    } else if (entry.reason == "structured-witness-not-offered" &&
+               entry.rule == "Gf3AffineConsequence" && discover_gf3()) {
+      eligible.push_back(
+          {&tactix_rules()[tactix_rule_id(entry.rule.c_str())], NativeOffer::Gf3});
+    } else if (entry.reason == "structured-witness-not-offered" &&
+               entry.rule == "DirectCspSupport" && discover_direct()) {
+      eligible.push_back({&tactix_rules()[tactix_rule_id(entry.rule.c_str())],
+                          NativeOffer::DirectCsp});
+    } else if (!error.empty()) {
+      return false;
+    }
+  }
   const bool can_resume = kernel_propagation_fixpoint(k);
   if (eligible.empty() && !can_resume) {
     error = "no eligible controller action";
@@ -268,7 +582,8 @@ bool RandomControllerSelector::choose(
     const auto configurations = search_configurations();
     request.search = configurations[draw(configurations.size())];
   } else {
-    const auto &rule = *eligible[choice];
+    const auto selected_action = eligible[choice];
+    const auto &rule = *selected_action.rule;
     const auto offered = config.offered_actions.find(rule.name);
     if (offered != config.offered_actions.end() && !offered->second.empty()) {
       request.invocation = offered->second[draw(offered->second.size())];
@@ -276,6 +591,29 @@ bool RandomControllerSelector::choose(
         error = "offered invocation identity differs from its action family";
         return false;
       }
+    } else if (selected_action.native == NativeOffer::Gf3) {
+      if (!gf3_discovery_.pending)
+        gf3_discovery_.pending =
+            gf3_discovery_.offers[draw(gf3_discovery_.offers.size())];
+      const auto key = *gf3_discovery_.pending;
+      gf3_discovery_.pending_sequence = request.sequence;
+      request.invocation.rule = rule.name;
+      request.invocation.parameters =
+          config.parameters.gf3_affine_consequence_reference;
+      request.invocation.granularity = InvocationGranularity::OneInstance;
+      request.invocation.gf3_affine_instances = {
+          {key.first_equation, key.second_equation}};
+    } else if (selected_action.native == NativeOffer::DirectCsp) {
+      if (!direct_csp_discovery_.pending)
+        direct_csp_discovery_.pending = direct_csp_discovery_.offers[
+            draw(direct_csp_discovery_.offers.size())];
+      const auto exact = *direct_csp_discovery_.pending;
+      direct_csp_discovery_.pending_sequence = request.sequence;
+      request.invocation.rule = rule.name;
+      request.invocation.parameters =
+          config.parameters.direct_csp_support_reference;
+      request.invocation.granularity = InvocationGranularity::OneInstance;
+      request.invocation.direct_csp_support_instances = {exact};
     } else {
       request.invocation.rule = rule.name;
       request.invocation.parameters = reference_parameters(k, rule.name, config.parameters);
@@ -359,6 +697,7 @@ bool RandomControllerSelector::choose(
   // Discovery can refresh a native scope. Bind to the resulting safe boundary
   // rather than falsely report the chooser's own discovery as external ABA.
   request.expected = state_version(k);
+  request.producer_effort = std::move(producer_effort);
   return true;
 }
 
@@ -401,6 +740,14 @@ int RandomControllerPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                   (unsigned long long)counts.interrupted,
                   (unsigned long long)counts.work,
                   (unsigned long long)counts.overshoot);
+    for (const auto &[rule, counts] : coverage_.rules)
+      if (counts.producer_calls)
+        std::printf("c controller-producer %s calls=%llu work=%llu "
+                    "candidates=%llu offers=%llu\n", rule.c_str(),
+                    (unsigned long long)counts.producer_calls,
+                    (unsigned long long)counts.producer_work,
+                    (unsigned long long)counts.producer_candidates,
+                    (unsigned long long)counts.producer_offers);
     for (const auto &[configuration, counts] : coverage_.search)
       std::printf("c controller-search %s requests=%llu intervals=%llu "
                   "decisions=%llu conflicts=%llu continuations=%llu\n", configuration.c_str(),
@@ -522,6 +869,20 @@ int RandomControllerPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       if (!(stop && *stop))
         std::fprintf(stderr, "c ERROR: controller selection: %s\n", error.c_str());
       return finish(0, stop && *stop ? StopReason::Interrupted : StopReason::Error);
+    }
+    for (const auto &effort : request.producer_effort) {
+      auto &counts = coverage_.rules[effort.family];
+      ++counts.producer_calls;
+      counts.producer_work = counts.producer_work > UINT64_MAX - effort.total_work
+                                 ? UINT64_MAX
+                                 : counts.producer_work + effort.total_work;
+      counts.producer_candidates =
+          counts.producer_candidates > UINT64_MAX - effort.candidates
+              ? UINT64_MAX
+              : counts.producer_candidates + effort.candidates;
+      counts.producer_offers = counts.producer_offers > UINT64_MAX - effort.offers
+                                   ? UINT64_MAX
+                                   : counts.producer_offers + effort.offers;
     }
     if (trace_ && !emit(request_record(request)))
       return -1;

@@ -82,6 +82,23 @@ inline std::string_view root_exclusion(const RuleVTable &rule) {
 
 enum class ActionType : uint8_t { Rule, ResumeSearch };
 
+// Read-only producer work performed while choosing an exact structured action.
+// This is request metadata: it neither consumes the selected rule allowance nor
+// alters solver statistics.  Raw feedback and deterministic controller traces
+// retain it so learning code can price discovery separately from execution.
+struct ActionProducerEffort {
+  std::string family;
+  uint8_t status = 0;
+  bool complete = false;
+  uint64_t preparation_work = 0;
+  uint64_t enumeration_work = 0;
+  uint64_t total_work = 0;
+  uint64_t candidates = 0;
+  uint64_t offers = 0;
+
+  bool operator==(const ActionProducerEffort &) const = default;
+};
+
 // Allowances are controller configuration, not learner-selected payloads.
 // One application is the default atomic action dose. Native limits may be
 // bounded independently in the rule's own meter; actual overshoot is retained.
@@ -98,6 +115,7 @@ struct ActionRequest {
   ActionType type = ActionType::Rule;
   OnlineInvocation invocation;
   SearchConfiguration search;
+  std::vector<ActionProducerEffort> producer_effort;
 };
 
 struct ActionResult {

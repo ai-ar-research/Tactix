@@ -67,7 +67,24 @@ void request(std::ostream &out, const ActionRequest &value) {
       << "],\"invocation\":";
   OnlineStrategyProgram program;
   if (value.type == ActionType::Rule) program.sequence.push_back(value.invocation);
-  out << quote(serialize_online_strategy_program(program)) << '}';
+  out << quote(serialize_online_strategy_program(program));
+  if (!value.producer_effort.empty()) {
+    out << ",\"producer_effort\":[";
+    for (size_t index = 0; index < value.producer_effort.size(); ++index) {
+      if (index) out << ',';
+      const auto &effort = value.producer_effort[index];
+      out << "{\"family\":" << quote(effort.family)
+          << ",\"status\":" << unsigned(effort.status)
+          << ",\"complete\":" << effort.complete
+          << ",\"preparation_work\":" << effort.preparation_work
+          << ",\"enumeration_work\":" << effort.enumeration_work
+          << ",\"total_work\":" << effort.total_work
+          << ",\"candidates\":" << effort.candidates
+          << ",\"offers\":" << effort.offers << '}';
+    }
+    out << ']';
+  }
+  out << '}';
 }
 
 void allowance(std::ostream &out, const ActionAllowance &value) {
