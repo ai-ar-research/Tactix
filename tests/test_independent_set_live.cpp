@@ -4,10 +4,10 @@
 #include "frontend/parse.hpp"
 #include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp"
-#include "rules/semantic_extension/independent_set_recognition.hpp"
 
 #include <algorithm>
 #include <cassert>
+#include <climits>
 #include <csignal>
 #include <cstdio>
 #include <initializer_list>
@@ -17,7 +17,6 @@
 #include <vector>
 
 using namespace tactix;
-namespace independent = tactix::independent_set_extension;
 
 namespace {
 
@@ -283,6 +282,15 @@ void positive_and_continuing(const char *proof_path, ProofFormat format) {
   assert(journal.find("resolution") != std::string::npos);
   assert(journal.find("advice_vertices\":[1,2,3,4]") != std::string::npos);
   assert(journal.find("independent-set-publish-cover") != std::string::npos);
+  assert(journal.find("independent-set-conclusion-binding") !=
+         std::string::npos);
+  if (!proof_path) {
+    assert(journal.find("\"proof_mode\":\"none\"") != std::string::npos);
+    assert(journal.find("\"conclusion_proof_id\":0,"
+                        "\"published_clause_id\":" +
+                        std::to_string(result.published_clause_id)) !=
+           std::string::npos);
+  }
 
   const KernelImage duplicate_before = image(kernel);
   const long journal_before = std::ftell(records);
@@ -310,6 +318,52 @@ void positive_and_continuing(const char *proof_path, ProofFormat format) {
   std::fclose(records);
 }
 
+void retained_owner_repeated_covers() {
+  const Encoding encoding = make_encoding(4, 2, {{1, 2}});
+  Kernel kernel;
+  load(kernel, encoding);
+  FILE *records = std::tmpfile();
+  assert(records);
+  auto apply = request(records);
+  IndependentSetOwnerSnapshot owner;
+  assert(independent_set_live_capture_owner(kernel, apply, owner));
+  assert(owner.external_variables == encoding.variables &&
+         owner.vertices == encoding.vertices && owner.target == encoding.target &&
+         owner.clauses.size() == encoding.clauses.size());
+
+  // The first action deliberately uses strict uncached recognition.
+  const auto first = independent_set_live_apply(kernel, apply);
+  assert(first.result == ApplyResult::Ok &&
+         first.published_cover == std::vector<int32_t>({1, 2, 3}));
+
+  // An unrelated later semantic consequence must not contaminate the retained
+  // owner image used for a second, distinct cover.
+  const std::vector<int32_t> unrelated_external = {1, 2, 3, 4};
+  std::vector<Lit> unrelated;
+  for (int32_t external : unrelated_external)
+    unrelated.push_back(kernel_internalize(kernel, external));
+  kernel_add_large_clause(kernel, unrelated.data(), unrelated.size(), true,
+                          unrelated.size(), ++kernel.next_clause_id);
+
+  apply.cover_vertices = {1, 2, 4};
+  apply.action_id = 18;
+  apply.semantic_id = 30;
+  apply.owner_snapshot = &owner;
+  const auto second = independent_set_live_apply(kernel, apply);
+  assert(second.result == ApplyResult::Ok &&
+         second.source_clauses == encoding.clauses.size() &&
+         second.published_cover == std::vector<int32_t>({1, 2, 4}));
+
+  // Every retained source is checked again immediately before commit.
+  assert(kernel_delete_binary(kernel, kernel_internalize(kernel, -1),
+                              kernel_internalize(kernel, -2)));
+  apply.cover_vertices = {1, 3, 4};
+  apply.action_id = 19;
+  apply.semantic_id = 31;
+  assert_failed_unchanged(kernel, apply);
+  std::fclose(records);
+}
+
 void negative_boundaries() {
   const Encoding encoding = make_encoding(4, 2, {{1, 2}});
   {
@@ -322,6 +376,29 @@ void negative_boundaries() {
     kernel.stop = &stop;
     assert_failed_unchanged(kernel, apply);
     kernel.stop = nullptr;
+    std::fclose(records);
+  }
+  {
+    Kernel kernel;
+    load(kernel, encoding);
+    FILE *records = std::tmpfile();
+    assert(records);
+    auto apply = request(records);
+    kernel.next_clause_id = uint64_t(INT64_MAX) + 1;
+    assert_failed_unchanged(kernel, apply);
+    std::fclose(records);
+  }
+  {
+    Kernel kernel;
+    load(kernel, encoding);
+    FILE *records = std::tmpfile();
+    assert(records);
+    auto apply = request(records);
+    IndependentSetOwnerSnapshot owner;
+    assert(independent_set_live_capture_owner(kernel, apply, owner));
+    --owner.literals;
+    apply.owner_snapshot = &owner;
+    assert_failed_unchanged(kernel, apply);
     std::fclose(records);
   }
   {
@@ -409,36 +486,6 @@ void negative_boundaries() {
   }
 }
 
-independent::Image recognize_source(const Encoding &encoding) {
-  std::vector<independent::Premise> source;
-  for (size_t index = 0; index < encoding.clauses.size(); ++index)
-    source.push_back({index + 1, encoding.clauses[index]});
-  independent::Limits limits{10000, 100000, 10000000, 64, 64};
-  independent::Image image;
-  assert(independent::recognize(source, encoding.variables, limits, nullptr,
-                                nullptr, image));
-  return image;
-}
-
-void append_cover(Proof &proof, Kernel &kernel,
-                  const independent::Image &image,
-                  const std::vector<uint32_t> &cover) {
-  independent::CertificateLimits limits{100000, 10000000, 10000000};
-  independent::CoverCertificate certificate;
-  assert(independent::derive_cover_certificate(image, cover, limits, nullptr,
-                                                nullptr, certificate));
-  std::vector<uint64_t> ids;
-  for (const auto &step : certificate.steps) {
-    const uint64_t id = ++kernel.next_clause_id;
-    assert(proof.add_external_rup(id, step.clause.data(), step.clause.size()));
-    ids.push_back(id);
-  }
-  for (size_t index = 0; index + 1 < certificate.steps.size(); ++index)
-    assert(proof.del_external(kernel.next_clause_id, ids[index],
-                              certificate.steps[index].clause.data(),
-                              certificate.steps[index].clause.size()));
-}
-
 void add_rup(Proof &proof, Kernel &kernel, std::vector<int32_t> clause) {
   assert(proof.add_external_rup(++kernel.next_clause_id,
                                 clause.empty() ? nullptr : clause.data(),
@@ -465,14 +512,22 @@ void emit_checked_refutation(const char *cnf_path, const char *proof_path,
   FILE *records = std::fopen(records_path, "w");
   assert(records);
   IndependentSetLiveRequest apply = request(records, {1, 2});
+  IndependentSetOwnerSnapshot owner;
+  assert(independent_set_live_capture_owner(kernel, apply, owner));
   const IndependentSetLiveResult result =
       independent_set_live_apply(kernel, apply);
   assert(result.result == ApplyResult::Ok && result.published_cover ==
                                                 std::vector<int32_t>({1, 2}));
 
-  const independent::Image theory = recognize_source(encoding);
-  append_cover(proof, kernel, theory, {1, 3});
-  append_cover(proof, kernel, theory, {2, 3});
+  apply.owner_snapshot = &owner;
+  apply.cover_vertices = {1, 3};
+  ++apply.action_id;
+  ++apply.semantic_id;
+  assert(independent_set_live_apply(kernel, apply).result == ApplyResult::Ok);
+  apply.cover_vertices = {2, 3};
+  ++apply.action_id;
+  ++apply.semantic_id;
+  assert(independent_set_live_apply(kernel, apply).result == ApplyResult::Ok);
   add_rup(proof, kernel, {2, -3});
   add_rup(proof, kernel, {-3});
   add_rup(proof, kernel, {1});
@@ -496,6 +551,7 @@ int main(int argc, char **argv) {
                           ProofFormat::DsrAscii);
   positive_and_continuing("/tmp/independent-set-live-test.drat",
                           ProofFormat::DratAscii);
+  retained_owner_repeated_covers();
   negative_boundaries();
   std::puts("test_independent_set_live OK");
   return 0;

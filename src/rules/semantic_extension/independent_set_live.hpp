@@ -8,6 +8,25 @@
 
 namespace tactix {
 
+struct IndependentSetOwnerClause {
+  uint64_t occurrence = 0;
+  uint64_t native_id = 0;
+  std::vector<int32_t> literals;
+
+  bool operator==(const IndependentSetOwnerClause &) const = default;
+};
+
+// Exact source retained before semantic consequences join the live formula.
+// The clauses use stable external literals and native proof identities; no raw
+// arena reference or internal variable identity survives the capture.
+struct IndependentSetOwnerSnapshot {
+  uint32_t external_variables = 0;
+  uint32_t vertices = 0;
+  uint32_t target = 0;
+  uint64_t literals = 0;
+  std::vector<IndependentSetOwnerClause> clauses;
+};
+
 // Private composition boundary for the layered independent-set theory.  The
 // caller selects one positive cover over stable external vertex identities;
 // this module makes no scheduling, ranking, phase, or score decision.
@@ -25,6 +44,10 @@ struct IndependentSetLiveRequest {
   uint64_t action_id = 0;
   uint64_t semantic_id = 0;
   FILE *records = nullptr;
+  // Optional exact owner source captured before earlier consequences or
+  // unrelated clauses joined the formula. Every retained clause is found and
+  // revalidated in the current live formula before a commit.
+  const IndependentSetOwnerSnapshot *owner_snapshot = nullptr;
 };
 
 struct IndependentSetLiveResult {
@@ -43,6 +66,14 @@ struct IndependentSetLiveResult {
   std::vector<int32_t> advice_vertex_literals;
   std::vector<int32_t> published_cover;
 };
+
+// Capture and strictly recognize the complete current live formula as an
+// owner source. On failure `output` is unchanged. This is a pure lifecycle
+// operation: it emits neither proof nor journal records and changes no kernel
+// state. The request contributes only recognition/source bounds.
+bool independent_set_live_capture_owner(
+    Kernel &, const IndependentSetLiveRequest &,
+    IndependentSetOwnerSnapshot &output);
 
 // At a fully propagated, assignment-free sparse root, recognize the exact live
 // owner encoding, certify the selected N-K+1 cover, and publish that clause for
