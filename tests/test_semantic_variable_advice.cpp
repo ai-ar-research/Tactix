@@ -73,6 +73,22 @@ int main() {
   assert(scores(k) == after_scores && k.h->queue_last == after_last);
   assert(original_scores.size() == scores(k).size() && original_last != INVALID_VAR);
 
+  // Advice is H-only and remains legal while a producer's new root material
+  // is waiting for the separately scheduled Propagate action. It must neither
+  // drain nor otherwise disguise that propagation debt.
+  kernel_assign_unit(k, make_lit(k.external_to_internal[2], false));
+  assert(!kernel_propagation_fixpoint(k));
+  SemanticVariableAdvice pending_advice;
+  pending_advice.action_id = 8;
+  pending_advice.source = state_version(k);
+  pending_advice.variables = {
+      {1, SemanticVariableRole::ExistingTheory, 1}};
+  assert(apply_semantic_variable_advice(k, pending_advice, limits).status ==
+         SemanticVariableAdviceStatus::Applied);
+  assert(!kernel_propagation_fixpoint(k));
+  assert(k.stats.semantic_variable_advice_attempts == 6);
+  assert(k.stats.semantic_variable_advice_applied == 2);
+
   // Producer declarations become visible only after the registry-owned epoch
   // transition and bind advice to that exact post-action state.
   begin_semantic_variable_candidate_action(k);
@@ -103,10 +119,10 @@ int main() {
          selected.variables[1].priority == 2);
   assert(apply_semantic_variable_advice(k, selected, limits).status ==
          SemanticVariableAdviceStatus::Applied);
-  assert(k.stats.semantic_variable_advice_attempts == 6);
-  assert(k.stats.semantic_variable_advice_applied == 2);
-  assert(k.stats.semantic_variable_advice_variables == 4);
-  assert(k.stats.semantic_variable_advice_priority == 8);
+  assert(k.stats.semantic_variable_advice_attempts == 7);
+  assert(k.stats.semantic_variable_advice_applied == 3);
+  assert(k.stats.semantic_variable_advice_variables == 5);
+  assert(k.stats.semantic_variable_advice_priority == 9);
   assert(semantic_variable_candidates(k).empty());
 
   begin_semantic_variable_candidate_action(k);
@@ -129,10 +145,10 @@ int main() {
   const uint64_t before_rule_epoch = k.strategy_epoch;
   assert(semantic_variable_advice_rule_apply_instance(k, instance) ==
          ApplyResult::Ok);
-  assert(k.stats.semantic_variable_advice_attempts == 7);
-  assert(k.stats.semantic_variable_advice_applied == 3);
-  assert(k.stats.semantic_variable_advice_variables == 5);
-  assert(k.stats.semantic_variable_advice_priority == 10);
+  assert(k.stats.semantic_variable_advice_attempts == 8);
+  assert(k.stats.semantic_variable_advice_applied == 4);
+  assert(k.stats.semantic_variable_advice_variables == 6);
+  assert(k.stats.semantic_variable_advice_priority == 11);
   // The rule body leaves the single epoch transition to registry dispatch.
   assert(k.strategy_epoch == before_rule_epoch);
   ++k.strategy_epoch;

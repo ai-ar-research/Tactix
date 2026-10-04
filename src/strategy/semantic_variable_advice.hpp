@@ -34,10 +34,12 @@ struct SemanticVariableAdviceResult {
   uint64_t priority_sum = 0;
 };
 
-// Controller-owned application at a propagated root. Validation and resource
-// accounting complete before either ranking changes, so every decline has no
-// effect. The same advice is installed in VMTF and EVSIDS regardless of the
-// currently active mode.
+// Controller-owned application at a conflict-free root. It may run while root
+// propagation is pending, which lets a producer publish Boolean consequences,
+// expose its semantic variables, and leave Propagate as the learner's next
+// separately accounted action. Validation and resource accounting complete
+// before either ranking changes, so every decline has no effect. The same
+// advice is installed in VMTF and EVSIDS regardless of the active mode.
 //
 // `commit_semantic_variable_advice` leaves epoch ownership to registry dispatch.
 // The direct wrapper below advances it once on success for non-registry callers.
