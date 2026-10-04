@@ -138,8 +138,9 @@ static void test_discarded_only_variables_extend_model(void) {
 }
 
 /* Retired identities may remain unassigned after inprocessing. Continuing
- * CDCL must still return a public SAT model without invoking a retired Lucky
- * constructor identity. */
+ * CDCL must still return a public SAT model when the structured-root affine
+ * opportunity is a no-op.  Lucky-8 now belongs to that lifecycle and must not
+ * be invoked out of order by this API/model-reconstruction fixture. */
 static void test_model_status_after_inprocessing(void) {
   tactix *s = tactix_init();
   add_clause(s, (const int[]){-24, -8, 0});
@@ -155,7 +156,6 @@ static void test_model_status_after_inprocessing(void) {
   static const int expected[] = {1, 0, 1, 1, 1, 1, 1};
   for (size_t i = 0; i < sizeof steps / sizeof *steps; ++i)
     assert(tactix_apply(s, rule_id(steps[i])) == expected[i]);
-  assert(tactix_apply_instance(s, rule_id("Lucky"), 8) == 1);
   assert(tactix_solve(s) == 10);
   assert(tactix_status(s) == 10);
   assert(tactix_value(s, -24) == -24 || tactix_value(s, -8) == -8);

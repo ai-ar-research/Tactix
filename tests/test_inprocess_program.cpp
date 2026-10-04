@@ -100,30 +100,40 @@ int main() {
          graph.graph_symmetry.maximum_fixing_instances == 128 &&
          graph.graph_symmetry.maximum_generator_instances_per_pass == 1);
 
-  assert(defaults.inprocess.structured_root_stages.size() == 3);
+  assert(defaults.inprocess.structured_root_stages.size() == 4);
   assert(defaults.inprocess.structured_root_backtracking_domain_limit ==
          32'000);
   assert(defaults.inprocess.structured_root_bounded_backtracking_stages.size() ==
          defaults.inprocess.structured_root_stages.size());
   assert(defaults.inprocess.structured_root_large_domain_limit == 50'000);
   assert(defaults.inprocess.structured_root_large_domain_stages.size() == 2);
-  for (const auto &stage : defaults.inprocess.structured_root_stages)
-    for (const auto &step : stage.program.sequence)
+  const auto &affine_stage = defaults.inprocess.structured_root_stages[0];
+  assert(affine_stage.program.sequence.size() == 1);
+  const auto &affine = affine_stage.program.sequence.front();
+  assert(affine.id == 109 && affine.rule == "Lucky" &&
+         affine.granularity == InvocationGranularity::OneInstance &&
+         affine.instances == std::vector<uint64_t>{8} &&
+         std::holds_alternative<AffineModelParameters>(
+             affine.parameters));
+  for (size_t stage = 1;
+       stage < defaults.inprocess.structured_root_stages.size(); ++stage)
+    for (const auto &step :
+         defaults.inprocess.structured_root_stages[stage].program.sequence)
       assert(step.rule != "Lucky");
-  assert(defaults.inprocess.structured_root_stages[1]
+  assert(defaults.inprocess.structured_root_stages[2]
              .structured_handoff_after_prior_progress);
   const auto no_progress =
       tactix::DefaultStrategyConfig::structured_root_stage_after_feedback(
-          defaults.inprocess.structured_root_stages[1], false, false, false);
+          defaults.inprocess.structured_root_stages[2], false, false, false);
   const auto progress =
       tactix::DefaultStrategyConfig::structured_root_stage_after_feedback(
-          defaults.inprocess.structured_root_stages[1], true, false, false);
+          defaults.inprocess.structured_root_stages[2], true, false, false);
   const auto helper_progress =
       tactix::DefaultStrategyConfig::structured_root_stage_after_feedback(
-          defaults.inprocess.structured_root_stages[1], true, true, false);
+          defaults.inprocess.structured_root_stages[2], true, true, false);
   const auto prior_cut_progress =
       tactix::DefaultStrategyConfig::structured_root_stage_after_feedback(
-          defaults.inprocess.structured_root_stages[2], true, false, true);
+          defaults.inprocess.structured_root_stages[3], true, false, true);
   const auto &no_progress_graph =
       std::get<tactix::SubstitutionRedundancyParameters>(
           no_progress.program.sequence[2].parameters).graph_symmetry;
