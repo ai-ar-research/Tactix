@@ -169,11 +169,47 @@ static void repeated_selection_is_durable_and_atomic() {
   assert(second.status == AffineBasisActionStatus::AlreadyPublished);
   assert(second.result == ApplyResult::NoOp);
   assert(second.proposed_action_id == 42 && !second.committed_action_id);
-  assert(second.transaction_keys == 1 && second.session_work > 0);
+  assert(!second.transaction_keys && second.live.excluded_rows == 1 &&
+         second.session_work > 0);
   assert(kernel.structural_action_sequence == action_id);
   assert(kernel.next_clause_id == next_clause_id &&
          kernel.arena.size() == arena_words && std::ftell(records) == journal);
   assert(session.committed_keys() == 1);
+  std::fclose(records);
+}
+
+static void mixed_old_and_novel_rows_publish_only_novel() {
+  Kernel kernel = direct_fixture();
+  FILE *records = std::tmpfile();
+  attach(kernel, records);
+  AffineBasisActionSession session;
+
+  const auto first = affine_basis_action_apply(kernel, session, limits());
+  assert(first.status == AffineBasisActionStatus::Applied &&
+         first.transaction_keys == 1 && session.committed_keys() == 1);
+  strategy::begin_semantic_variable_candidate_action(kernel);
+  assert(kernel_delete_binary(kernel, internalize(3), internalize(4)));
+  assert(kernel_delete_binary(kernel, internalize(-3), internalize(-4)));
+
+  kernel_reserve_vars(kernel, 8);
+  add_equation(kernel, {5, 6, 7}, false);
+  add_equation(kernel, {5, 6, 8}, true);
+  const uint64_t before_id = kernel.next_clause_id;
+  const long before_journal = std::ftell(records);
+  const auto second = affine_basis_action_apply(kernel, session, limits());
+  assert(second.status == AffineBasisActionStatus::Applied &&
+         second.result == ApplyResult::Ok);
+  assert(second.live.excluded_rows == 1 &&
+         second.live.exclusion_work > 0 && second.transaction_keys == 1 &&
+         second.committed_keys == 2 && session.committed_keys() == 2);
+  assert(second.live.existing_theory_variables ==
+         std::vector<int32_t>({7, 8}));
+  assert(kernel.next_clause_id > before_id &&
+         std::ftell(records) > before_journal);
+  assert(kernel_binary_live(kernel, internalize(7), internalize(8)));
+  assert(kernel_binary_live(kernel, internalize(-7), internalize(-8)));
+  assert(!kernel_binary_live(kernel, internalize(3), internalize(4)) &&
+         !kernel_binary_live(kernel, internalize(-3), internalize(-4)));
   std::fclose(records);
 }
 
@@ -242,6 +278,7 @@ static void guard_is_state_only() {
 int main() {
   success_preserves_identity_and_metadata();
   repeated_selection_is_durable_and_atomic();
+  mixed_old_and_novel_rows_publish_only_novel();
   declines_do_not_commit_session_or_action();
   guard_is_state_only();
   std::puts("test_affine_basis_action: passed");

@@ -32,7 +32,8 @@ bool valid_request(const AffineBasisLiveRequest &request) {
          request.image.maximum_elimination_work &&
          request.image.maximum_arity && request.image.maximum_arity <= 8 &&
          request.image.maximum_intermediate_width &&
-         request.image.maximum_sources;
+         request.image.maximum_sources &&
+         (!request.excluded_keys || request.maximum_exclusion_work);
 }
 
 std::vector<int32_t> clause_key(std::vector<int32_t> clause) {
@@ -310,6 +311,191 @@ bool consumed_key(const affine::Image &image,
   return true;
 }
 
+enum class FilterStatus : uint8_t {
+  Complete,
+  AllExcluded,
+  Invalid,
+  Exhausted,
+};
+
+bool exclusion_charge(uint64_t amount, uint64_t maximum, uint64_t &work) {
+  if (amount > maximum - work) return false;
+  work += amount;
+  return true;
+}
+
+bool measure_excluded_key(const AffineBasisConsumedKey &key,
+                          uint64_t maximum, uint64_t &work) {
+  if (!exclusion_charge(1, maximum, work) ||
+      !exclusion_charge(key.variables.size(), maximum, work))
+    return false;
+  for (const auto &equation : key.source_equations) {
+    if (!exclusion_charge(1, maximum, work) ||
+        !exclusion_charge(equation.variables.size(), maximum, work))
+      return false;
+    for (const auto &premise : equation.premises)
+      if (!exclusion_charge(1, maximum, work) ||
+          !exclusion_charge(premise.clause.size(), maximum, work))
+        return false;
+  }
+  return true;
+}
+
+FilterStatus excluded_key(const std::vector<AffineBasisConsumedKey> &excluded,
+                          const AffineBasisConsumedKey &key,
+                          uint64_t maximum, uint64_t &work, bool &found) {
+  size_t begin = 0, end = excluded.size();
+  while (begin < end) {
+    if (!exclusion_charge(1, maximum, work))
+      return FilterStatus::Exhausted;
+    const size_t middle = begin + (end - begin) / 2;
+    if (excluded[middle] < key)
+      begin = middle + 1;
+    else
+      end = middle;
+  }
+  found = begin < excluded.size() && !(key < excluded[begin]);
+  return FilterStatus::Complete;
+}
+
+bool remap_atom(affine::BasisAtom &atom,
+                const std::vector<uint32_t> &node_map) {
+  if (atom.kind == affine::BasisAtomKind::Existing) return atom.value != 0;
+  if (!atom.value || atom.value > node_map.size() ||
+      !node_map[atom.value - 1])
+    return false;
+  atom.value = node_map[atom.value - 1];
+  return true;
+}
+
+bool remap_clauses(std::vector<affine::BasisClause> &clauses,
+                   const std::vector<uint32_t> &node_map) {
+  for (auto &clause : clauses)
+    for (auto &literal : clause)
+      if (!remap_atom(literal.atom, node_map)) return false;
+  return true;
+}
+
+FilterStatus filter_excluded_rows(
+    const affine::Image &image, const AffineLiveSnapshot &snapshot,
+    const std::vector<AffineBasisConsumedKey> &excluded, uint64_t maximum,
+    affine::BasisPlan &plan, uint64_t &work, uint64_t &excluded_rows) {
+  if (excluded.empty()) return FilterStatus::Complete;
+  for (size_t i = 0; i < excluded.size(); ++i) {
+    if (!measure_excluded_key(excluded[i], maximum, work))
+      return FilterStatus::Exhausted;
+    if (i) {
+      if (!exclusion_charge(1, maximum, work))
+        return FilterStatus::Exhausted;
+      if (!(excluded[i - 1] < excluded[i])) return FilterStatus::Invalid;
+    }
+  }
+
+  std::vector<size_t> retained;
+  retained.reserve(plan.rows.size());
+  for (size_t row_index = 0; row_index < plan.rows.size(); ++row_index) {
+    const affine::BasisRow &row = plan.rows[row_index];
+    // One-source direct rows are the source CNF itself and have never been
+    // publication/session entries.  They are removed from a filtered plan so
+    // its journal and row count describe only novel output.
+    if (row.source_equations.size() == 1 &&
+        row.kind != affine::BasisRowKind::Extended)
+      continue;
+    AffineBasisConsumedKey key;
+    if (!consumed_key(image, snapshot, row, key))
+      return FilterStatus::Invalid;
+    if (!measure_excluded_key(key, maximum, work))
+      return FilterStatus::Exhausted;
+    bool found = false;
+    const FilterStatus lookup =
+        excluded_key(excluded, key, maximum, work, found);
+    if (lookup != FilterStatus::Complete) return lookup;
+    if (found)
+      ++excluded_rows;
+    else
+      retained.push_back(row_index);
+  }
+  if (retained.empty())
+    return excluded_rows ? FilterStatus::AllExcluded
+                         : FilterStatus::Complete;
+
+  if (plan.projection.size() != plan.definitions.size())
+    return FilterStatus::Invalid;
+  std::vector<size_t> row_map(plan.rows.size(), SIZE_MAX);
+  for (size_t i = 0; i < retained.size(); ++i) row_map[retained[i]] = i;
+
+  std::vector<uint8_t> needed(plan.definitions.size(), 0);
+  for (size_t old_node = 0; old_node < plan.definitions.size(); ++old_node)
+    for (size_t old_row : plan.definitions[old_node].used_by_rows)
+      if (old_row < row_map.size() && row_map[old_row] != SIZE_MAX) {
+        needed[old_node] = 1;
+        break;
+      }
+  // Definitions are topological; a needed node's extension operands precede
+  // it, so the reverse closure visits each dependency after marking it.
+  for (size_t cursor = plan.definitions.size(); cursor; --cursor) {
+    const size_t node = cursor - 1;
+    if (!needed[node]) continue;
+    for (const affine::BasisAtom operand :
+         {plan.definitions[node].first, plan.definitions[node].second}) {
+      if (operand.kind != affine::BasisAtomKind::Extension) continue;
+      if (!operand.value || operand.value > node)
+        return FilterStatus::Invalid;
+      needed[operand.value - 1] = 1;
+    }
+  }
+
+  std::vector<uint32_t> node_map(plan.definitions.size(), 0);
+  uint32_t next_node = 0;
+  for (size_t node = 0; node < needed.size(); ++node)
+    if (needed[node]) node_map[node] = ++next_node;
+
+  std::vector<affine::XorDefinition> definitions;
+  std::vector<affine::ProjectionObligation> projection;
+  definitions.reserve(next_node);
+  projection.reserve(next_node);
+  for (size_t node = 0; node < plan.definitions.size(); ++node) {
+    if (!needed[node]) continue;
+    affine::XorDefinition definition = plan.definitions[node];
+    if (!remap_atom(definition.output, node_map) ||
+        !remap_atom(definition.first, node_map) ||
+        !remap_atom(definition.second, node_map) ||
+        !remap_clauses(definition.clauses, node_map))
+      return FilterStatus::Invalid;
+    std::vector<size_t> uses;
+    for (size_t old_row : definition.used_by_rows)
+      if (old_row < row_map.size() && row_map[old_row] != SIZE_MAX)
+        uses.push_back(row_map[old_row]);
+    if (uses.empty()) return FilterStatus::Invalid;
+    definition.used_by_rows = std::move(uses);
+    definitions.push_back(std::move(definition));
+
+    affine::ProjectionObligation obligation = plan.projection[node];
+    if (!remap_atom(obligation.extension, node_map) ||
+        !remap_atom(obligation.first, node_map) ||
+        !remap_atom(obligation.second, node_map))
+      return FilterStatus::Invalid;
+    projection.push_back(std::move(obligation));
+  }
+
+  std::vector<affine::BasisRow> rows;
+  rows.reserve(retained.size());
+  for (size_t old_row : retained) {
+    affine::BasisRow row = plan.rows[old_row];
+    if (!remap_clauses(row.clauses, node_map))
+      return FilterStatus::Invalid;
+    if ((row.kind == affine::BasisRowKind::DirectUnit ||
+         row.kind == affine::BasisRowKind::Extended) &&
+        !remap_atom(row.root, node_map))
+      return FilterStatus::Invalid;
+    rows.push_back(std::move(row));
+  }
+  plan.rows = std::move(rows);
+  plan.definitions = std::move(definitions);
+  plan.projection = std::move(projection);
+  return FilterStatus::Complete;
+}
+
 } // namespace
 
 AffineBasisLiveResult prepare_affine_basis_live(
@@ -403,6 +589,20 @@ AffineBasisLiveResult prepare_affine_basis_live(
                         ? AffineBasisLiveStatus::ResourceExhausted
                         : AffineBasisLiveStatus::Invalid;
     return result;
+  }
+  if (request.excluded_keys) {
+    const FilterStatus filtered = filter_excluded_rows(
+        image, transaction.snapshot_, *request.excluded_keys,
+        request.maximum_exclusion_work, basis, result.exclusion_work,
+        result.excluded_rows);
+    if (filtered != FilterStatus::Complete) {
+      result.status = filtered == FilterStatus::AllExcluded
+                          ? AffineBasisLiveStatus::NoStructure
+                      : filtered == FilterStatus::Exhausted
+                          ? AffineBasisLiveStatus::ResourceExhausted
+                          : AffineBasisLiveStatus::Invalid;
+      return result;
+    }
   }
   result.rows = basis.rows.size();
   result.definitions = basis.definitions.size();

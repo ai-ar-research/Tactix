@@ -9,6 +9,8 @@
 
 namespace tactix {
 
+struct AffineBasisConsumedKey;
+
 enum class AffineBasisLiveStatus : uint8_t {
   Invalid,
   Inapplicable,
@@ -33,6 +35,11 @@ struct AffineBasisLiveRequest {
   uint64_t action_id = 0;
   uint64_t semantic_id = 0;
   FILE *records = nullptr;
+  // Optional sorted exact identities already committed by the controller's
+  // solver-lifetime session.  Planning removes matching rows before it
+  // allocates extension variables or constructs proof/journal events.
+  const std::vector<AffineBasisConsumedKey> *excluded_keys = nullptr;
+  uint64_t maximum_exclusion_work = 0;
 };
 
 struct AffineBasisLiveResult {
@@ -51,6 +58,8 @@ struct AffineBasisLiveResult {
   uint64_t deletions = 0;
   uint64_t published_clauses = 0;
   uint64_t journal_bytes = 0;
+  uint64_t exclusion_work = 0;
+  uint64_t excluded_rows = 0;
   uint32_t extent_growth = 0;
   bool contradiction = false;
   bool propagation_pending = false;

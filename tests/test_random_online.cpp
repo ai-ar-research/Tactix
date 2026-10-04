@@ -1086,6 +1086,76 @@ static void configurable_parameters_round_trip() {
          legacy_sr5.orbitopal_completion == OrbitopalCompletion::MatrixOnly);
 }
 
+static void affine_consequence_replay_round_trip() {
+  OnlineStrategyProgram program;
+  OnlineInvocation affine;
+  affine.id = 710;
+  affine.rule = "AffineConsequence";
+  affine.parameters = AffineConsequenceParameters{
+      101, 102, 103, 104, 105, 106, 4, 8, 9, 3, 107, 108, 109, 2};
+  affine.granularity = InvocationGranularity::CanonicalApplication;
+  affine.repeat = {RepeatMode::Once, 1};
+  affine.budget = WorkLimit::bounded(1);
+  program.sequence.push_back(affine);
+
+  OnlineInvocation affine_basis;
+  affine_basis.id = 714;
+  affine_basis.rule = "AffineConsequence";
+  AffineConsequenceParameters basis;
+  basis.maximum_clauses = 401;
+  basis.maximum_snapshot_literals = 402;
+  basis.maximum_snapshot_work = 403;
+  basis.maximum_groups = 404;
+  basis.maximum_patterns = 405;
+  basis.maximum_elimination_work = 406;
+  basis.maximum_arity = 4;
+  basis.maximum_intermediate_width = 408;
+  basis.maximum_sources = 9;
+  basis.maximum_output_width = 3;
+  basis.maximum_proof_additions = 410;
+  basis.maximum_proof_deletions = 411;
+  basis.maximum_journal_bytes = 412;
+  basis.semantics = AffineConsequenceSemantics::CertifiedBasisV2;
+  basis.basis_maximum_work = 413;
+  basis.basis_maximum_intermediate_width = 14;
+  basis.basis_maximum_sources = 15;
+  basis.basis_maximum_premises = 416;
+  basis.basis_maximum_nodes = 417;
+  basis.basis_maximum_direct_width = 3;
+  basis.maximum_external_extent = 419;
+  basis.maximum_session_keys = 420;
+  basis.maximum_session_work = 421;
+  affine_basis.parameters = basis;
+  affine_basis.granularity = InvocationGranularity::CanonicalApplication;
+  affine_basis.repeat = {RepeatMode::Once, 1};
+  affine_basis.budget = WorkLimit::bounded(1);
+  program.sequence.push_back(affine_basis);
+
+  std::string error;
+  assert(validate_online_strategy_program(program, &error));
+  const std::string wire = serialize_online_strategy_program(program);
+  assert(wire.find(
+      ":affine-consequence1(101,102,103,104,105,106,4,8,9,3,107,108,109,2)") !=
+      std::string::npos);
+  assert(wire.find(":affine-consequence2(") != std::string::npos);
+  OnlineStrategyProgram replay;
+  assert(deserialize_online_strategy_program(wire, replay, &error));
+  assert(serialize_online_strategy_program(replay) == wire);
+  assert(std::get<AffineConsequenceParameters>(replay.sequence[0].parameters)
+             .consequence == 2);
+  const auto &basis_replay =
+      std::get<AffineConsequenceParameters>(replay.sequence[1].parameters);
+  assert(basis_replay.semantics ==
+             AffineConsequenceSemantics::CertifiedBasisV2 &&
+         basis_replay.basis_maximum_work == 413 &&
+         basis_replay.maximum_session_work == 421);
+
+  const RandomOnlineConfig defaults;
+  assert(defaults.affine_consequence_reference.semantics ==
+         AffineConsequenceSemantics::CertifiedBasisV2);
+  assert(defaults.affine_consequence_reference.valid());
+}
+
 static void random_walk_and_reorder_vary_scoring_parameters() {
   Kernel k = broad_fixture();
   ScopedHeuristics heuristics(k);
@@ -2200,6 +2270,7 @@ static void graph_labeling_parameters_round_trip() {
 }
 
 int main() {
+  affine_consequence_replay_round_trip();
   graph_labeling_parameters_round_trip();
   seeded_walk_parameters_round_trip();
   condition_cube_replay_round_trips();
