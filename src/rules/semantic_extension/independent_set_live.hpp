@@ -39,6 +39,7 @@ struct IndependentSetLiveRequest {
   uint64_t maximum_proof_additions = 0;
   uint64_t maximum_proof_deletions = 0;
   uint64_t maximum_proof_literal_occurrences = 0;
+  uint64_t maximum_journal_bytes = 0;
   uint32_t maximum_vertices = 0;
   uint32_t maximum_target = 0;
   uint64_t action_id = 0;
@@ -78,8 +79,10 @@ bool independent_set_live_capture_owner(
 // At a fully propagated, assignment-free sparse root, recognize the exact live
 // owner encoding, certify the selected N-K+1 cover, and publish that clause for
 // continuing CDCL.  DSR/DRAT/no-proof are supported; LRAT/PBP decline before
-// mutation.  Every recoverable failure leaves kernel, proof, records, and the
-// returned result unchanged.  No new semantic or branchable variable is made.
+// mutation. Unit covers are conservatively declined until their propagation
+// proof delta can be bounded. Every recoverable failure leaves kernel, proof,
+// records, and the returned result unchanged. No new semantic or branchable
+// variable is made.
 IndependentSetLiveResult independent_set_live_apply(
     Kernel &, const IndependentSetLiveRequest &);
 

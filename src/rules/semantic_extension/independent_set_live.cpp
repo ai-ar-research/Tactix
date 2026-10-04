@@ -10,6 +10,7 @@
 #include <limits>
 #include <map>
 #include <set>
+#include <string>
 #include <utility>
 
 namespace tactix {
@@ -272,6 +273,151 @@ void journal_clause(FILE *records, uint64_t action, uint64_t semantic,
   std::fputs("]}\n", records);
 }
 
+bool render_journal(const IndependentSetLiveRequest &request,
+                    const Snapshot &source,
+                    const independent::Image &image,
+                    const independent::CoverCertificate &certificate,
+                    const std::vector<uint64_t> &proof_ids,
+                    uint64_t published_id,
+                    const IndependentSetLiveResult &result,
+                    std::string &output) {
+  FILE *records = std::tmpfile();
+  if (!records)
+    return false;
+  const bool proof_mode = !proof_ids.empty();
+  std::fprintf(records,
+               "{\"action\":%llu,\"semantic\":%llu,"
+               "\"kind\":\"independent-set-live-begin\","
+               "\"maximum_clauses\":%llu,\"maximum_literals\":%llu,"
+               "\"maximum_recognition_work\":%llu,"
+               "\"maximum_proof_work\":%llu,"
+               "\"maximum_proof_additions\":%llu,"
+               "\"maximum_proof_deletions\":%llu,"
+               "\"maximum_proof_literal_occurrences\":%llu,"
+               "\"maximum_journal_bytes\":%llu}\n",
+               (unsigned long long)request.action_id,
+               (unsigned long long)request.semantic_id,
+               (unsigned long long)request.maximum_clauses,
+               (unsigned long long)request.maximum_literals,
+               (unsigned long long)request.maximum_recognition_work,
+               (unsigned long long)request.maximum_proof_work,
+               (unsigned long long)request.maximum_proof_additions,
+               (unsigned long long)request.maximum_proof_deletions,
+               (unsigned long long)request.maximum_proof_literal_occurrences,
+               (unsigned long long)request.maximum_journal_bytes);
+  for (const SourceClause &source_clause : source.clauses) {
+    std::fprintf(records,
+                 "{\"action\":%llu,\"semantic\":%llu,"
+                 "\"kind\":\"independent-set-live-source\","
+                 "\"occurrence\":%llu,\"native_id\":%llu,\"clause\":[",
+                 (unsigned long long)request.action_id,
+                 (unsigned long long)request.semantic_id,
+                 (unsigned long long)source_clause.occurrence,
+                 (unsigned long long)source_clause.native_id);
+    for (size_t index = 0; index < source_clause.literals.size(); ++index)
+      std::fprintf(records, "%s%d", index ? "," : "",
+                   source_clause.literals[index]);
+    std::fputs("]}\n", records);
+  }
+  std::fprintf(records,
+               "{\"action\":%llu,\"semantic\":%llu,"
+               "\"kind\":\"independent-set-theory\",\"vertices\":%u,"
+               "\"target\":%u,\"meaning\":\"selected vertices form an "
+               "independent set of cardinality at least target\","
+               "\"projection\":\"original variables unchanged\","
+               "\"advice_vertices\":[",
+               (unsigned long long)request.action_id,
+               (unsigned long long)request.semantic_id, image.vertices,
+               image.target);
+  for (size_t index = 0; index < image.vertex_literals.size(); ++index)
+    std::fprintf(records, "%s%d", index ? "," : "",
+                 image.vertex_literals[index]);
+  std::fputs("]}\n", records);
+  for (size_t index = 0; index < certificate.steps.size(); ++index) {
+    const auto &step = certificate.steps[index];
+    const uint64_t id = proof_mode ? proof_ids[index] : 0;
+    std::fprintf(records,
+                 "{\"action\":%llu,\"semantic\":%llu,"
+                 "\"kind\":\"independent-set-cover-rup\",\"id\":%llu,"
+                 "\"step\":%zu,\"role\":\"%s\",\"clause\":[",
+                 (unsigned long long)request.action_id,
+                 (unsigned long long)request.semantic_id,
+                 (unsigned long long)id, index,
+                 step.kind == independent::CertificateStepKind::ForbiddenAssignment
+                     ? "forbidden-assignment"
+                     : "resolution");
+    for (size_t literal = 0; literal < step.clause.size(); ++literal)
+      std::fprintf(records, "%s%d", literal ? "," : "",
+                   step.clause[literal]);
+    std::fputs("],\"premises\":[", records);
+    for (size_t premise = 0; premise < step.premise_occurrences.size();
+         ++premise)
+      std::fprintf(records, "%s%llu", premise ? "," : "",
+                   (unsigned long long)step.premise_occurrences[premise]);
+    std::fprintf(records,
+                 "],\"left\":%u,\"right\":%u,\"pivot\":%d}\n",
+                 step.left, step.right, step.pivot);
+  }
+  std::fprintf(records,
+               "{\"action\":%llu,\"semantic\":%llu,"
+               "\"kind\":\"independent-set-conclusion-binding\","
+               "\"proof_mode\":\"%s\",\"conclusion_step\":%zu,"
+               "\"conclusion_proof_id\":%llu,"
+               "\"published_clause_id\":%llu,\"clause\":[",
+               (unsigned long long)request.action_id,
+               (unsigned long long)request.semantic_id,
+               proof_mode ? "rup" : "none", certificate.steps.size() - 1,
+               (unsigned long long)(proof_mode ? proof_ids.back() : 0),
+               (unsigned long long)published_id);
+  for (size_t index = 0; index < certificate.conclusion.size(); ++index)
+    std::fprintf(records, "%s%d", index ? "," : "",
+                 certificate.conclusion[index]);
+  std::fputs("]}\n", records);
+  if (proof_mode)
+    for (size_t index = 0; index + 1 < certificate.steps.size(); ++index)
+      journal_clause(records, request.action_id, request.semantic_id,
+                     "independent-set-delete-proof-only", proof_ids[index],
+                     certificate.steps[index].clause);
+  journal_clause(records, request.action_id, request.semantic_id,
+                 "independent-set-publish-cover", published_id,
+                 certificate.conclusion);
+  std::fprintf(records,
+               "{\"action\":%llu,\"semantic\":%llu,"
+               "\"kind\":\"independent-set-live-complete\","
+               "\"result\":%u,\"recognition_work\":%llu,"
+               "\"proof_work\":%llu,\"planned_additions\":%llu,"
+               "\"emitted_additions\":%llu,\"emitted_deletions\":%llu,"
+               "\"proof_literal_occurrences\":%llu,"
+               "\"published_clause_id\":%llu}\n",
+               (unsigned long long)request.action_id,
+               (unsigned long long)request.semantic_id,
+               static_cast<unsigned>(result.result),
+               (unsigned long long)result.recognition_work,
+               (unsigned long long)result.proof_work,
+               (unsigned long long)result.planned_proof_additions,
+               (unsigned long long)result.emitted_proof_additions,
+               (unsigned long long)result.emitted_proof_deletions,
+               (unsigned long long)result.proof_literal_occurrences,
+               (unsigned long long)result.published_clause_id);
+  bool ok = !std::fflush(records) && !std::ferror(records);
+  const long bytes = ok ? std::ftell(records) : -1;
+  ok = bytes >= 0 && uint64_t(bytes) <= request.maximum_journal_bytes;
+  std::string rendered;
+  if (ok) {
+    rendered.resize(static_cast<size_t>(bytes));
+    std::rewind(records);
+    ok = std::fread(rendered.data(), 1, rendered.size(), records) ==
+             rendered.size() &&
+         !std::ferror(records);
+  }
+  if (std::fclose(records))
+    std::abort();
+  if (!ok)
+    return false;
+  output = std::move(rendered);
+  return true;
+}
+
 } // namespace
 
 bool independent_set_live_capture_owner(
@@ -309,6 +455,7 @@ IndependentSetLiveResult independent_set_live_apply(
       request.cover_vertices.empty() || !owner_request_valid(request) ||
       !request.maximum_proof_work || !request.maximum_proof_additions ||
       !request.maximum_proof_literal_occurrences ||
+      !request.maximum_journal_bytes ||
       !root_snapshot_guard(kernel) ||
       (kernel.proof && (kernel.proof->lrat() || kernel.proof->pb())) ||
       kernel_terminating(kernel))
@@ -316,7 +463,7 @@ IndependentSetLiveResult independent_set_live_apply(
 
   std::vector<uint32_t> selected = request.cover_vertices;
   std::sort(selected.begin(), selected.end());
-  if (!selected.front() ||
+  if (selected.size() < 2 || !selected.front() ||
       selected.back() > kernel.external_to_internal.size() ||
       std::adjacent_find(selected.begin(), selected.end()) != selected.end())
     return unchanged;
@@ -406,32 +553,57 @@ IndependentSetLiveResult independent_set_live_apply(
       ids_needed > uint64_t(INT64_MAX) - kernel.next_clause_id)
     return unchanged;
 
+  std::vector<uint64_t> proof_ids;
+  if (kernel.proof) {
+    proof_ids.resize(certificate.steps.size());
+    for (size_t index = 0; index < proof_ids.size(); ++index)
+      proof_ids[index] = kernel.next_clause_id + index + 1;
+  }
+  const uint64_t published_id =
+      kernel.proof ? proof_ids.back() : kernel.next_clause_id + 1;
+  IndependentSetLiveResult result;
+  result.result = ApplyResult::Ok;
+  result.vertices = image.vertices;
+  result.target = image.target;
+  result.source_clauses = first.clauses.size();
+  result.source_literals = first.literals;
+  result.recognition_work = recognition.used;
+  result.proof_work = proof_work.used;
+  result.planned_proof_additions = certificate.steps.size();
+  result.emitted_proof_additions = emitted_additions;
+  result.emitted_proof_deletions =
+      kernel.proof ? certificate.steps.size() - 1 : 0;
+  result.proof_literal_occurrences = certificate.literal_occurrences;
+  result.published_clause_id = published_id;
+  result.advice_vertex_literals = image.vertex_literals;
+  result.published_cover = external_cover;
+  std::string journal;
+  if (!render_journal(request, first, image, certificate, proof_ids,
+                      published_id, result, journal))
+    return unchanged;
+
   // Commit begins here.  Every bounded, structural, liveness, proof-format,
-  // and interruption check has completed.  The proof writer and records sink
-  // are fatal I/O boundaries: a short write aborts instead of returning a
-  // partially published kernel state.
+  // interruption, clause-identity, and journal-size check has completed. The
+  // proof writer and records sink are fatal I/O boundaries: a short write
+  // aborts instead of returning a partially published kernel state.
   kernel.close_startup_certificate();
-  std::vector<uint64_t> proof_ids(certificate.steps.size(), 0);
-  uint64_t published_id = 0;
   if (kernel.proof) {
     for (size_t index = 0; index < certificate.steps.size(); ++index) {
       const auto &step = certificate.steps[index];
       const uint64_t id = ++kernel.next_clause_id;
-      proof_ids[index] = id;
+      if (id != proof_ids[index])
+        std::abort();
       if (!kernel.proof->add_external_rup(
               id, step.clause.empty() ? nullptr : step.clause.data(),
               static_cast<uint32_t>(step.clause.size())))
         std::abort();
     }
-    published_id = proof_ids.back();
   } else {
-    published_id = ++kernel.next_clause_id;
+    if (++kernel.next_clause_id != published_id)
+      std::abort();
   }
 
-  if (internal_cover.size() == 1) {
-    kernel.unit_ids[var_of(internal_cover[0])] = published_id;
-    kernel_assign_unit(kernel, internal_cover[0]);
-  } else if (internal_cover.size() == 2) {
+  if (internal_cover.size() == 2) {
     kernel_add_binary_clause(kernel, internal_cover[0], internal_cover[1],
                              published_id);
   } else {
@@ -449,139 +621,11 @@ IndependentSetLiveResult independent_set_live_apply(
               static_cast<uint32_t>(step.clause.size())))
         std::abort();
     }
-
-  std::fprintf(request.records,
-               "{\"action\":%llu,\"semantic\":%llu,"
-               "\"kind\":\"independent-set-live-begin\","
-               "\"maximum_clauses\":%llu,\"maximum_literals\":%llu,"
-               "\"maximum_recognition_work\":%llu,"
-               "\"maximum_proof_work\":%llu,"
-               "\"maximum_proof_additions\":%llu,"
-               "\"maximum_proof_deletions\":%llu,"
-               "\"maximum_proof_literal_occurrences\":%llu}\n",
-               (unsigned long long)request.action_id,
-               (unsigned long long)request.semantic_id,
-               (unsigned long long)request.maximum_clauses,
-               (unsigned long long)request.maximum_literals,
-               (unsigned long long)request.maximum_recognition_work,
-               (unsigned long long)request.maximum_proof_work,
-               (unsigned long long)request.maximum_proof_additions,
-               (unsigned long long)request.maximum_proof_deletions,
-               (unsigned long long)request.maximum_proof_literal_occurrences);
-  for (const SourceClause &source_clause : first.clauses) {
-    std::fprintf(request.records,
-                 "{\"action\":%llu,\"semantic\":%llu,"
-                 "\"kind\":\"independent-set-live-source\","
-                 "\"occurrence\":%llu,\"native_id\":%llu,\"clause\":[",
-                 (unsigned long long)request.action_id,
-                 (unsigned long long)request.semantic_id,
-                 (unsigned long long)source_clause.occurrence,
-                 (unsigned long long)source_clause.native_id);
-    for (size_t index = 0; index < source_clause.literals.size(); ++index)
-      std::fprintf(request.records, "%s%d", index ? "," : "",
-                   source_clause.literals[index]);
-    std::fputs("]}\n", request.records);
-  }
-  std::fprintf(request.records,
-               "{\"action\":%llu,\"semantic\":%llu,"
-               "\"kind\":\"independent-set-theory\",\"vertices\":%u,"
-               "\"target\":%u,\"meaning\":\"selected vertices form an "
-               "independent set of cardinality at least target\","
-               "\"projection\":\"original variables unchanged\","
-               "\"advice_vertices\":[",
-               (unsigned long long)request.action_id,
-               (unsigned long long)request.semantic_id, image.vertices,
-               image.target);
-  for (size_t index = 0; index < image.vertex_literals.size(); ++index)
-    std::fprintf(request.records, "%s%d", index ? "," : "",
-                 image.vertex_literals[index]);
-  std::fputs("]}\n", request.records);
-  for (size_t index = 0; index < certificate.steps.size(); ++index) {
-    const auto &step = certificate.steps[index];
-    const uint64_t id = kernel.proof ? proof_ids[index] : 0;
-    std::fprintf(request.records,
-                 "{\"action\":%llu,\"semantic\":%llu,"
-                 "\"kind\":\"independent-set-cover-rup\",\"id\":%llu,"
-                 "\"step\":%zu,\"role\":\"%s\",\"clause\":[",
-                 (unsigned long long)request.action_id,
-                 (unsigned long long)request.semantic_id,
-                 (unsigned long long)id, index,
-                 step.kind == independent::CertificateStepKind::ForbiddenAssignment
-                     ? "forbidden-assignment"
-                     : "resolution");
-    for (size_t literal = 0; literal < step.clause.size(); ++literal)
-      std::fprintf(request.records, "%s%d", literal ? "," : "",
-                   step.clause[literal]);
-    std::fputs("],\"premises\":[", request.records);
-    for (size_t premise = 0; premise < step.premise_occurrences.size();
-         ++premise)
-      std::fprintf(request.records, "%s%llu", premise ? "," : "",
-                   (unsigned long long)step.premise_occurrences[premise]);
-    std::fprintf(request.records,
-                 "],\"left\":%u,\"right\":%u,\"pivot\":%d}\n",
-                 step.left, step.right, step.pivot);
-  }
-  std::fprintf(request.records,
-               "{\"action\":%llu,\"semantic\":%llu,"
-               "\"kind\":\"independent-set-conclusion-binding\","
-               "\"proof_mode\":\"%s\",\"conclusion_step\":%zu,"
-               "\"conclusion_proof_id\":%llu,"
-               "\"published_clause_id\":%llu,\"clause\":[",
-               (unsigned long long)request.action_id,
-               (unsigned long long)request.semantic_id,
-               kernel.proof ? "rup" : "none", certificate.steps.size() - 1,
-               (unsigned long long)(kernel.proof ? proof_ids.back() : 0),
-               (unsigned long long)published_id);
-  for (size_t index = 0; index < external_cover.size(); ++index)
-    std::fprintf(request.records, "%s%d", index ? "," : "",
-                 external_cover[index]);
-  std::fputs("]}\n", request.records);
-  if (kernel.proof)
-    for (size_t index = 0; index + 1 < certificate.steps.size(); ++index)
-      journal_clause(request.records, request.action_id, request.semantic_id,
-                     "independent-set-delete-proof-only", proof_ids[index],
-                     certificate.steps[index].clause);
-  journal_clause(request.records, request.action_id, request.semantic_id,
-                 "independent-set-publish-cover", published_id,
-                 external_cover);
-
-  const ApplyResult propagated = propagate_service(kernel);
-  IndependentSetLiveResult result;
-  result.result = propagated == ApplyResult::Unsat ? ApplyResult::Unsat
-                                                    : ApplyResult::Ok;
-  result.vertices = image.vertices;
-  result.target = image.target;
-  result.source_clauses = first.clauses.size();
-  result.source_literals = first.literals;
-  result.recognition_work = recognition.used;
-  result.proof_work = proof_work.used;
-  result.planned_proof_additions = certificate.steps.size();
-  result.emitted_proof_additions = emitted_additions;
-  result.emitted_proof_deletions =
-      kernel.proof ? certificate.steps.size() - 1 : 0;
-  result.proof_literal_occurrences = certificate.literal_occurrences;
-  result.published_clause_id = published_id;
-  result.advice_vertex_literals = image.vertex_literals;
-  result.published_cover = external_cover;
-  std::fprintf(request.records,
-               "{\"action\":%llu,\"semantic\":%llu,"
-               "\"kind\":\"independent-set-live-complete\","
-               "\"result\":%u,\"recognition_work\":%llu,"
-               "\"proof_work\":%llu,\"planned_additions\":%llu,"
-               "\"emitted_additions\":%llu,\"emitted_deletions\":%llu,"
-               "\"proof_literal_occurrences\":%llu,"
-               "\"published_clause_id\":%llu}\n",
-               (unsigned long long)request.action_id,
-               (unsigned long long)request.semantic_id,
-               static_cast<unsigned>(result.result),
-               (unsigned long long)result.recognition_work,
-               (unsigned long long)result.proof_work,
-               (unsigned long long)result.planned_proof_additions,
-               (unsigned long long)result.emitted_proof_additions,
-               (unsigned long long)result.emitted_proof_deletions,
-               (unsigned long long)result.proof_literal_occurrences,
-               (unsigned long long)result.published_clause_id);
-  if (std::fflush(request.records) || std::ferror(request.records))
+  if (propagate_service(kernel) != ApplyResult::Ok)
+    std::abort();
+  if (std::fwrite(journal.data(), 1, journal.size(), request.records) !=
+          journal.size() ||
+      std::fflush(request.records) || std::ferror(request.records))
     std::abort();
   return result;
 }

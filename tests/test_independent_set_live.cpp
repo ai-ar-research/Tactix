@@ -101,6 +101,7 @@ IndependentSetLiveRequest request(FILE *records,
   result.maximum_proof_additions = 100000;
   result.maximum_proof_deletions = 100000;
   result.maximum_proof_literal_occurrences = 10000000;
+  result.maximum_journal_bytes = 10000000;
   result.maximum_vertices = 64;
   result.maximum_target = 64;
   result.action_id = 17;
@@ -258,6 +259,9 @@ void positive_and_continuing(const char *proof_path, ProofFormat format) {
   low = apply;
   low.maximum_proof_work = 1;
   assert_failed_unchanged(kernel, low);
+  low = apply;
+  low.maximum_journal_bytes = 1;
+  assert_failed_unchanged(kernel, low);
 
   const uint64_t prior_id = kernel.next_clause_id;
   const IndependentSetLiveResult result =
@@ -366,6 +370,16 @@ void retained_owner_repeated_covers() {
 
 void negative_boundaries() {
   const Encoding encoding = make_encoding(4, 2, {{1, 2}});
+  {
+    const Encoding unit_encoding = make_encoding(3, 3, {{1, 2}});
+    Kernel kernel;
+    load(kernel, unit_encoding);
+    FILE *records = std::tmpfile();
+    assert(records);
+    auto apply = request(records, {1});
+    assert_failed_unchanged(kernel, apply);
+    std::fclose(records);
+  }
   {
     Kernel kernel;
     load(kernel, encoding);
