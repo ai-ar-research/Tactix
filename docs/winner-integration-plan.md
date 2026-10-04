@@ -159,12 +159,13 @@ execution, random reach and raw feedback. It remains disabled by default and
 unaccepted. GF(3) now exposes one authenticated complete Gaussian unit/conflict
 batch through typed replay, C v6, an opt-in random producer and raw feedback;
 it remains disabled by default and lacks effective fuzz, scheduling and target
-evidence. Tseitin now has bounded
-autonomous exact-XOR discovery feeding its live X7 adapter, but lacks a public
-component payload, session and controller boundary. Complete those public
-boundaries, then propagation/reconstruction where applicable, fuzz/regression
-and target measurement. Every decline remains bounded and mutation free; every
-repeated step requires a new authenticated live plan.
+evidence. Tseitin X16 now exposes every bounded authenticated connected XOR
+component through exact `tcx2:` replay, a Kernel-bound semantic-key session,
+C v7, DSR/no-proof publication, repeated propagated-root discovery, opt-in
+random production and raw feedback. It remains disabled by default and lacks
+effective fuzz, scheduling, target and regression evidence. Next validate
+effective reach, then measure target recovery and the four gates. Every decline
+remains bounded and mutation free; every repeated step uses a fresh live plan.
 
 Record every added constraint/auxiliary definition: stable identity, Boolean formula
 and theory meaning, source clauses/structural premises, generating action and

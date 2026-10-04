@@ -1196,6 +1196,16 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.gf3_gaussian_interrupted,
            (unsigned long long)kernel.stats.gf3_gaussian_stale,
            (unsigned long long)kernel.stats.gf3_gaussian_unsupported_proof);
+    printf("c tseitin-cycle %llu attempts, %llu applied, %llu no-structure, "
+           "%llu exhausted, %llu interrupted, %llu stale, "
+           "%llu unsupported-proof\n",
+           (unsigned long long)kernel.stats.tseitin_cycle_attempts,
+           (unsigned long long)kernel.stats.tseitin_cycle_applied,
+           (unsigned long long)kernel.stats.tseitin_cycle_no_structure,
+           (unsigned long long)kernel.stats.tseitin_cycle_exhausted,
+           (unsigned long long)kernel.stats.tseitin_cycle_interrupted,
+           (unsigned long long)kernel.stats.tseitin_cycle_stale,
+           (unsigned long long)kernel.stats.tseitin_cycle_unsupported_proof);
     printf("c affine     %llu calls, %llu equations, %llu coordinates, "
            "%llu entries, %llu candidates, %llu SAT, %llu work, "
            "%llu budgets, %llu unavailable, %llu interrupted\n",

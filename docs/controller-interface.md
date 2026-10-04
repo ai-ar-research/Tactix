@@ -1,4 +1,4 @@
-# Restart controller interface v5
+# Restart controller interface v7
 
 Concrete specification for DEVELOPMENT_PLAN.md §5.6. That section owns the
 architecture; this document owns the versioned interface and choice identities.
@@ -74,6 +74,12 @@ native producer may offer exactly one `g3b1:` identity for the complete current
 authenticated Gaussian closure; replay stores that exact identity, and apply
 must rebuild and match it before mutation. Separate limits bound identity
 generation and solver-session retention. Earlier layouts remain unchanged.
+
+Version 7 appends registry ID 38, disabled reference StepId 27 and parameter
+tag 41 for `TseitinCycleBreaking`. `tactix_online_step_v7` carries exactly one
+bounded, NUL-terminated `tcx2:` identity for that rule and
+`tactix_online_configure_v7` deep-copies it; other v7 steps carry no Tseitin
+payload. Versions 1--6 retain their layouts and meanings.
 
 `--controller-actions=FILE` reads the existing serialized OnlineStrategyProgram
 syntax as a collection of offered alternatives, not an ordered sequence. It
@@ -252,6 +258,25 @@ revalidation, then one uninterrupted commit. Runtime action and semantic IDs,
 fresh-variable identities, provenance streams, retained sources, and duplicate
 keys belong to a solver-lifetime controller session and are absent from serialized
 parameters. Every serialized limit is explicit; zero permits zero work.
+
+X16 extends this shape with a complete bounded census of physically isolated
+connected XOR components. Every eligible component is an exact selectable
+`tcx2:` payload; deterministic available-edge cycle planning is part of that
+payload's semantics, never a private component choice. Apply freshly captures,
+rebuilds and exact-matches the component, current root image, sources, X7
+witness and transaction before publishing one unit. Propagate is a separate
+action. After it reaches a new root closure, the producer discards its stale
+offer cache and performs a fresh census, so another independent component or
+alternate unassigned cycle can be selected.
+
+Native exact producers classify settlement uniformly. Applied, duplicate and
+complete no-structure/no-outcome results consume the payload. Invalid,
+inapplicable, unsupported-proof and stale results discard it until context
+changes. Resource exhaustion and interruption retain the exact payload but
+suspend eligibility until explicit profile reconfiguration; a profile-only
+change retries it without rediscovery, while formula/session/owner change
+discards it. Producer telemetry separates candidates, offers and completeness
+from byte volumes; only measured work currencies enter preparation/total work.
 
 Keep `ParityConsequence` under its existing identity. `AffineConsequence` is a
 separate source-bound consequence action; `ExactCoverExtension` is one canonical

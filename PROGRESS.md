@@ -12,8 +12,8 @@ Current work is the unaccepted organic winner-integration stage in
 shared actions, deterministic replay, pure observation, after-action raw
 feedback, both-policy fuzz, and independent proof/model checking remain active.
 
-The primary objective is still all 44 misses from the saved four-winner
-portfolio, first closing the fixed 36-instance gap. Use the saved `d170b4a5`
+The primary objective is all 44 misses from the saved four-winner portfolio;
+the original fixed 36 remain a diagnostic subgroup. Use the saved `d170b4a5`
 comparison; do not rerun it. LymphoSAT-owned WV100/WV2 rows are recovery
 obligations, other rows are preservation controls, and B28+C5 plus Rank1--50
 are mandatory gates. DSR is the default; add PB support only after a
@@ -28,7 +28,7 @@ rule-specific derivation and measured clausal proof/check cost establish need.
 | Current scheduler repair | `f6d7453f6` | Lucky/8 restored as structured-root stage 0; combined checkpoint suite passes 10/10 in normal and ASan/UBSan builds; no benchmark result yet |
 | Partial-model guidance | `a49191bfa` | Exact immutable candidates can feed Walk and CDCL separately with raw telemetry; mechanics tested, campaign reach/effect still absent |
 | Certified theory actions v5 | [technical report](benchmarks/reports/2026-10-04-certified-theory-actions-v5.md) | Public GF(3)/DirectCSP consequences and random offerers implemented but unaccepted; ordinary fuzz had incomplete verdict coverage and no effective v5 reach |
-| Certified UNSAT verticals | `86d142984`, `048442c40`, `e4d76b336`, `cd956aea` | GF(3) now has a disabled-by-default public authenticated complete Gaussian unit/conflict batch with typed/C v6 replay, opt-in random reach and raw feedback; Tseitin has private bounded autonomous exact-XOR discovery through live X7; Direct PHP is public and terminal. Focused GF(3) Debug is 7/7 and ASan/UBSan is 2/2; target, fuzz and gate acceptance remain open |
+| Certified UNSAT verticals | [technical checkpoint](benchmarks/reports/2026-10-04-public-tseitin-cycle-breaking-action.md), [Andrew report](report-to-andrew/20261004T210026Z-public-tseitin-cycle-action/report.pdf) | Direct PHP is public and terminal; GF(3) has a public authenticated Gaussian batch through C v6; Tseitin X16 is public at registry 38/disabled StepId 27/C v7 tag 41 with exact `tcx2:` component replay, repeated propagated-root discovery, DSR/no-proof, random production and raw feedback. Independent fresh Debug is 10/10; ASan/UBSan action/discovery plus ASCII, binary and repeated-root DSR checks pass. Fuzz, targets and gates remain open |
 | Naive target row-cover proof | [checker-censor report](benchmarks/reports/2026-10-04-row-cover-target-checker-censor.md) | Rejected: 6,783,269 additions and 187,733,915 bytes reached the 1,800-second checker cap |
 
 The corrected guidance fuzz jobs are terminal. Default job `1748417` found zero
@@ -42,17 +42,16 @@ the only user job, interactive allocation `1747502`, is unrelated.
 
 ## Next action
 
-The first two certified UNSAT verticals reach the public controller. Direct PHP
-is append-only ID 36; GF(3) Gaussian is ID 37 and exposes one exact complete
-batch so simultaneous consequences remain reachable before root units close
-its assignment-free boundary. Both provide typed replay, random reach, raw
-feedback and DSR/DRAT/no-proof publication while DefaultPolicy keeps them
-disabled. Next, give Tseitin a typed connected-component payload; no private
-frontend may choose hidden opportunity policy. Every added
-constraint or definition must retain Boolean form, theory meaning, exact
-premises, action/parameters, variable mapping, proof reference,
-reconstruction/projection obligation, deletion state, and exact
-effort/yield/proof cost. Repeat only from a freshly authenticated live plan.
+All three certified UNSAT verticals now reach the public controller. Direct PHP
+is append-only ID 36, GF(3) Gaussian ID 37, and Tseitin cycle breaking ID 38.
+X16 offers exact connected-component identities without a private component
+choice, publishes one authenticated X7 unit, leaves Propagate separate, and
+then permits a fresh root-aware census. Every constraint still retains Boolean
+form, theory meaning, exact premises, parameters, mapping, proof link,
+projection/deletion state and exact effort/yield/proof cost. Next require
+effective both-policy fuzz reach, then evaluate
+the saved target set and regression gates only when benchmark execution is
+authorized. DefaultPolicy keeps all three actions disabled meanwhile.
 
 Before another full gate, and only when benchmark execution is authorized, run
 the `cabp`, Break and Timetable trajectory controls from `f6d7453f6`. Require
@@ -72,8 +71,8 @@ plus `max(30%, 20s)` completed-proof slowdown rule.
 
 ## Recent changes
 
+- `46a7db1cd` exposed public X16 with exact component choice, C v7, repeated-root DSR, random reach and raw feedback; `2921c784d` fixed native structured pending settlement.
 - `cd956aea` exposed the authenticated complete GF(3) Gaussian closure as public X14 with C v6, replay, random reach and raw feedback.
-- `86d142984`/`048442c40`/`e4d76b336` completed private GF(3), autonomous Tseitin discovery and public Direct PHP verticals.
 - `5c23c1f4c` aligned lifecycle tests with the affine stage; the combined 17-test Debug matrix passes.
 - `f6d7453f6` restored affine Lucky/8 to the accepted structured-root stage-0 lifecycle and pinned its execution signature.
 - `666f8bad0` corrected current guidance reachability parsing and added its regression test.
