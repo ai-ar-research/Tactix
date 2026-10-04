@@ -29,10 +29,18 @@ struct WorkMeter {
   const Kernel &kernel;
   uint64_t limit = 0;
   uint64_t used = 0;
+  bool interrupted = false;
+  bool exhausted = false;
 
   bool charge(uint64_t amount) {
-    if (kernel_terminating(kernel) || amount > limit - used)
+    if (kernel_terminating(kernel)) {
+      interrupted = true;
       return false;
+    }
+    if (used > limit || amount > limit - used) {
+      exhausted = true;
+      return false;
+    }
     used += amount;
     return true;
   }
@@ -42,13 +50,25 @@ struct WorkMeter {
   }
 };
 
+IndependentSetLiveStatus meter_status(const WorkMeter &meter,
+                                      IndependentSetLiveStatus otherwise) {
+  if (meter.interrupted)
+    return IndependentSetLiveStatus::Interrupted;
+  if (meter.exhausted)
+    return IndependentSetLiveStatus::ResourceExhausted;
+  return otherwise;
+}
+
 bool take_clause(const Kernel &kernel,
                  const IndependentSetLiveRequest &request, WorkMeter &meter,
                  Snapshot &snapshot, const Lit *literals, uint32_t size,
                  uint64_t native_id) {
   if (snapshot.clauses.size() == request.maximum_clauses ||
-      size > request.maximum_literals - snapshot.literals ||
-      !meter.charge(uint64_t(size) + 1))
+      size > request.maximum_literals - snapshot.literals) {
+    meter.exhausted = true;
+    return false;
+  }
+  if (!meter.charge(uint64_t(size) + 1))
     return false;
   SourceClause source;
   source.native_id = native_id;
@@ -127,7 +147,8 @@ bool owner_request_valid(const IndependentSetLiveRequest &request) {
 
 bool import_owner_snapshot(const IndependentSetOwnerSnapshot &owner,
                            const IndependentSetLiveRequest &request,
-                           const Kernel &kernel, Snapshot &snapshot) {
+                           const Kernel &kernel, WorkMeter &meter,
+                           Snapshot &snapshot) {
   if (!owner.external_variables || owner.external_variables > INT32_MAX ||
       owner.external_variables > kernel.external_to_internal.size() ||
       owner.vertices < 2 || !owner.target || owner.target > owner.vertices ||
@@ -138,6 +159,8 @@ bool import_owner_snapshot(const IndependentSetOwnerSnapshot &owner,
   result.clauses.reserve(owner.clauses.size());
   for (size_t index = 0; index < owner.clauses.size(); ++index) {
     const SourceClause &source = owner.clauses[index];
+    if (!meter.charge(uint64_t(source.literals.size()) + 1))
+      return false;
     if (source.occurrence != index + 1 || source.literals.empty() ||
         source.literals.size() > request.maximum_literals - result.literals ||
         !std::is_sorted(source.literals.begin(), source.literals.end()) ||
@@ -226,38 +249,51 @@ bool retained_sources_live(const Kernel &kernel, const Snapshot &snapshot,
   return !remaining;
 }
 
-bool cover_live(const Kernel &kernel, const std::vector<int32_t> &external) {
+enum class CoverLiveness : uint8_t { Absent, Present, Stopped };
+
+CoverLiveness cover_live(const Kernel &kernel,
+                         const std::vector<int32_t> &external,
+                         WorkMeter &meter) {
   std::vector<Lit> internal;
   internal.reserve(external.size());
   for (int32_t literal : external) {
+    if (!meter.charge(1))
+      return CoverLiveness::Stopped;
     const Lit converted = kernel_internalize(kernel, literal);
     if (converted == INVALID_LIT ||
         kernel_var_retired(kernel, var_of(converted)))
-      return false;
+      return CoverLiveness::Absent;
     if (kernel.value(converted) > 0)
-      return true;
+      return CoverLiveness::Present;
     internal.push_back(converted);
   }
   if (internal.size() == 1)
-    return kernel.value(internal.front()) > 0;
+    return kernel.value(internal.front()) > 0 ? CoverLiveness::Present
+                                             : CoverLiveness::Absent;
   if (internal.size() == 2)
-    return kernel_binary_live(kernel, internal[0], internal[1]);
+    return kernel_binary_live(kernel, internal[0], internal[1])
+               ? CoverLiveness::Present
+               : CoverLiveness::Absent;
   std::vector<int32_t> wanted = external;
   std::sort(wanted.begin(), wanted.end());
   for (Ref reference = 0; reference < kernel.arena.size();) {
     const Clause *clause = clause_at(kernel.arena, reference);
     reference += clause_actual_words(clause);
+    if (!meter.charge(1))
+      return CoverLiveness::Stopped;
     if (clause->garbage() || clause->size != wanted.size())
       continue;
+    if (!meter.charge(clause->size))
+      return CoverLiveness::Stopped;
     std::vector<int32_t> found;
     found.reserve(clause->size);
     for (const Lit literal : *clause)
       found.push_back(kernel_externalize(kernel, literal));
     std::sort(found.begin(), found.end());
     if (found == wanted)
-      return true;
+      return CoverLiveness::Present;
   }
-  return false;
+  return CoverLiveness::Absent;
 }
 
 void journal_clause(FILE *records, uint64_t action, uint64_t semantic,
@@ -280,7 +316,8 @@ bool render_journal(const IndependentSetLiveRequest &request,
                     const std::vector<uint64_t> &proof_ids,
                     uint64_t published_id,
                     const IndependentSetLiveResult &result,
-                    std::string &output) {
+                    std::string &output, uint64_t &work) {
+  work = 0;
   FILE *records = std::tmpfile();
   if (!records)
     return false;
@@ -401,6 +438,8 @@ bool render_journal(const IndependentSetLiveRequest &request,
                (unsigned long long)result.published_clause_id);
   bool ok = !std::fflush(records) && !std::ferror(records);
   const long bytes = ok ? std::ftell(records) : -1;
+  if (bytes >= 0)
+    work = static_cast<uint64_t>(bytes);
   ok = bytes >= 0 && uint64_t(bytes) <= request.maximum_journal_bytes;
   std::string rendered;
   if (ok) {
@@ -420,91 +459,204 @@ bool render_journal(const IndependentSetLiveRequest &request,
 
 } // namespace
 
-bool independent_set_live_capture_owner(
+IndependentSetOwnerCaptureResult
+independent_set_live_capture_owner_detailed(
     Kernel &kernel, const IndependentSetLiveRequest &request,
     IndependentSetOwnerSnapshot &output) {
-  if (!owner_request_valid(request) || !root_snapshot_guard(kernel))
-    return false;
+  IndependentSetOwnerCaptureResult result;
+  if (!owner_request_valid(request))
+    return result;
+  if (!root_snapshot_guard(kernel)) {
+    result.status = kernel_terminating(kernel)
+                        ? IndependentSetLiveStatus::Interrupted
+                        : IndependentSetLiveStatus::Inapplicable;
+    return result;
+  }
   WorkMeter recognition{kernel, request.maximum_recognition_work, 0};
   Snapshot snapshot;
-  if (!snapshot_live(kernel, request, recognition, snapshot))
-    return false;
+  const uint64_t scan_before = recognition.used;
+  if (!snapshot_live(kernel, request, recognition, snapshot)) {
+    result.source_scan_work = recognition.used - scan_before;
+    result.recognition_work = recognition.used;
+    result.status = meter_status(recognition,
+                                 IndependentSetLiveStatus::NoStructure);
+    return result;
+  }
+  result.source_scan_work = recognition.used - scan_before;
   independent::Image image;
   const independent::Limits limits{
       request.maximum_clauses, request.maximum_literals,
       request.maximum_recognition_work, request.maximum_vertices,
       request.maximum_target};
+  const uint64_t recognition_before = recognition.used;
   if (!independent::recognize(
           premises(snapshot), kernel.external_to_internal.size(), limits,
-          WorkMeter::callback, &recognition, image))
-    return false;
-  IndependentSetOwnerSnapshot result;
-  result.external_variables = image.external_variables;
-  result.vertices = image.vertices;
-  result.target = image.target;
-  result.literals = snapshot.literals;
-  result.clauses = std::move(snapshot.clauses);
-  output = std::move(result);
-  return true;
+          WorkMeter::callback, &recognition, image)) {
+    result.theory_recognition_work = recognition.used - recognition_before;
+    result.recognition_work = recognition.used;
+    result.status = meter_status(recognition,
+                                 IndependentSetLiveStatus::NoStructure);
+    return result;
+  }
+  result.theory_recognition_work = recognition.used - recognition_before;
+  result.recognition_work = recognition.used;
+  IndependentSetOwnerSnapshot captured;
+  captured.external_variables = image.external_variables;
+  captured.vertices = image.vertices;
+  captured.target = image.target;
+  captured.literals = snapshot.literals;
+  captured.clauses = std::move(snapshot.clauses);
+  captured.capture_source_scan_work = result.source_scan_work;
+  captured.capture_theory_recognition_work =
+      result.theory_recognition_work;
+  result.source_clauses = captured.clauses.size();
+  result.source_literals = captured.literals;
+  result.status = IndependentSetLiveStatus::Applied;
+  output = std::move(captured);
+  return result;
+}
+
+bool independent_set_live_capture_owner(
+    Kernel &kernel, const IndependentSetLiveRequest &request,
+    IndependentSetOwnerSnapshot &output) {
+  return independent_set_live_capture_owner_detailed(kernel, request, output)
+      .captured();
 }
 
 IndependentSetLiveResult independent_set_live_apply(
     Kernel &kernel, const IndependentSetLiveRequest &request) {
-  IndependentSetLiveResult unchanged;
+  IndependentSetLiveResult result;
   if (!request.records || !request.action_id || !request.semantic_id ||
       request.cover_vertices.empty() || !owner_request_valid(request) ||
       !request.maximum_proof_work || !request.maximum_proof_additions ||
       !request.maximum_proof_literal_occurrences ||
       !request.maximum_journal_bytes ||
-      !root_snapshot_guard(kernel) ||
-      (kernel.proof && (kernel.proof->lrat() || kernel.proof->pb())) ||
-      kernel_terminating(kernel))
-    return unchanged;
+      (request.include_owner_capture_effort && !request.owner_snapshot))
+    return result;
+  if (kernel.proof && (kernel.proof->lrat() || kernel.proof->pb())) {
+    result.status = IndependentSetLiveStatus::UnsupportedProof;
+    return result;
+  }
+  if (!root_snapshot_guard(kernel)) {
+    result.status = kernel_terminating(kernel)
+                        ? IndependentSetLiveStatus::Interrupted
+                        : IndependentSetLiveStatus::Inapplicable;
+    return result;
+  }
 
   std::vector<uint32_t> selected = request.cover_vertices;
   std::sort(selected.begin(), selected.end());
-  if (selected.size() < 2 || !selected.front() ||
+  if (selected.size() < 2) {
+    result.status = IndependentSetLiveStatus::Inapplicable;
+    return result;
+  }
+  if (!selected.front() ||
       selected.back() > kernel.external_to_internal.size() ||
       std::adjacent_find(selected.begin(), selected.end()) != selected.end())
-    return unchanged;
+    return result;
   std::vector<int32_t> external_cover;
   external_cover.reserve(selected.size());
-  for (uint32_t variable : selected) {
-    const Lit literal = kernel_internalize(kernel, static_cast<int32_t>(variable));
-    if (literal == INVALID_LIT || kernel_var_retired(kernel, var_of(literal)))
-      return unchanged;
+  for (uint32_t variable : selected)
     external_cover.push_back(static_cast<int32_t>(variable));
-  }
-  if (cover_live(kernel, external_cover))
-    return unchanged;
 
-  WorkMeter recognition{kernel, request.maximum_recognition_work, 0};
+  uint64_t capture_source_work = 0;
+  uint64_t capture_theory_work = 0;
+  if (request.include_owner_capture_effort) {
+    capture_source_work = request.owner_snapshot->capture_source_scan_work;
+    capture_theory_work =
+        request.owner_snapshot->capture_theory_recognition_work;
+    if (capture_theory_work >
+        std::numeric_limits<uint64_t>::max() - capture_source_work)
+      return result;
+  }
+  const uint64_t capture_work = capture_source_work + capture_theory_work;
+  result.source_scan_work = capture_source_work;
+  result.theory_recognition_work = capture_theory_work;
+  result.recognition_work = capture_work;
+  if (capture_work > request.maximum_recognition_work) {
+    result.status = IndependentSetLiveStatus::ResourceExhausted;
+    return result;
+  }
+
+  WorkMeter recognition{kernel, request.maximum_recognition_work,
+                        capture_work};
+  const auto update_recognition = [&] {
+    result.recognition_work = recognition.used;
+  };
+  const auto scan = [&](auto &&operation) {
+    const uint64_t before = recognition.used;
+    const auto outcome = operation();
+    result.source_scan_work += recognition.used - before;
+    update_recognition();
+    return outcome;
+  };
+  const auto recognize = [&](auto &&operation) {
+    const uint64_t before = recognition.used;
+    const bool outcome = operation();
+    result.theory_recognition_work += recognition.used - before;
+    update_recognition();
+    return outcome;
+  };
+  const auto recognition_decline = [&](IndependentSetLiveStatus fallback) {
+    result.status = meter_status(recognition, fallback);
+    update_recognition();
+    return result;
+  };
+
+  const CoverLiveness duplicate =
+      scan([&] { return cover_live(kernel, external_cover, recognition); });
+  if (duplicate == CoverLiveness::Stopped)
+    return recognition_decline(IndependentSetLiveStatus::Stale);
+  if (duplicate == CoverLiveness::Present) {
+    result.status = IndependentSetLiveStatus::Duplicate;
+    return result;
+  }
+
   Snapshot first;
   uint32_t source_external_variables = kernel.external_to_internal.size();
   if (request.owner_snapshot) {
-    if (!import_owner_snapshot(*request.owner_snapshot, request, kernel,
-                               first) ||
-        !retained_sources_live(kernel, first, recognition))
-      return unchanged;
+    if (!scan([&] {
+          return import_owner_snapshot(*request.owner_snapshot, request,
+                                       kernel, recognition, first);
+        }))
+      return recognition_decline(IndependentSetLiveStatus::Invalid);
+    if (!scan([&] {
+          return retained_sources_live(kernel, first, recognition);
+        }))
+      return recognition_decline(IndependentSetLiveStatus::Stale);
     source_external_variables = request.owner_snapshot->external_variables;
-  } else if (!snapshot_live(kernel, request, recognition, first)) {
-    return unchanged;
+  } else if (!scan([&] {
+               return snapshot_live(kernel, request, recognition, first);
+             })) {
+    return recognition_decline(IndependentSetLiveStatus::NoStructure);
   }
+  result.source_clauses = first.clauses.size();
+  result.source_literals = first.literals;
   const std::vector<independent::Premise> source = premises(first);
   independent::Limits recognition_limits{
       request.maximum_clauses, request.maximum_literals,
       request.maximum_recognition_work, request.maximum_vertices,
       request.maximum_target};
   independent::Image image;
-  if (!independent::recognize(source, source_external_variables,
-                              recognition_limits, WorkMeter::callback,
-                              &recognition, image) ||
-      (request.owner_snapshot &&
-       (image.external_variables !=
-            request.owner_snapshot->external_variables ||
-        image.vertices != request.owner_snapshot->vertices ||
-        image.target != request.owner_snapshot->target)))
-    return unchanged;
+  if (!recognize([&] {
+        return independent::recognize(
+            source, source_external_variables, recognition_limits,
+            WorkMeter::callback, &recognition, image);
+      }))
+    return recognition_decline(IndependentSetLiveStatus::NoStructure);
+  if (request.owner_snapshot &&
+      (image.external_variables != request.owner_snapshot->external_variables ||
+       image.vertices != request.owner_snapshot->vertices ||
+       image.target != request.owner_snapshot->target)) {
+    result.status = IndependentSetLiveStatus::Stale;
+    return result;
+  }
+  result.vertices = image.vertices;
+  result.target = image.target;
+  if (selected.size() != image.vertices - image.target + 1) {
+    result.status = IndependentSetLiveStatus::Invalid;
+    return result;
+  }
 
   WorkMeter proof_work{kernel, request.maximum_proof_work, 0};
   independent::CertificateLimits certificate_limits{
@@ -513,45 +665,79 @@ IndependentSetLiveResult independent_set_live_apply(
   independent::CoverCertificate certificate;
   if (!independent::derive_cover_certificate(
           image, selected, certificate_limits, WorkMeter::callback,
-          &proof_work, certificate) ||
-      certificate.steps.empty() ||
+          &proof_work, certificate)) {
+    result.proof_work = proof_work.used;
+    result.status = meter_status(proof_work,
+                                 IndependentSetLiveStatus::ResourceExhausted);
+    return result;
+  }
+  result.proof_work = proof_work.used;
+  result.planned_proof_additions = certificate.steps.size();
+  result.proof_literal_occurrences = certificate.literal_occurrences;
+  if (certificate.steps.empty() ||
       certificate.steps.size() > request.maximum_proof_additions ||
       certificate.steps.size() - 1 > request.maximum_proof_deletions ||
-      certificate.conclusion != external_cover)
-    return unchanged;
+      certificate.conclusion != external_cover) {
+    result.status = IndependentSetLiveStatus::ResourceExhausted;
+    return result;
+  }
 
   if (request.owner_snapshot) {
-    if (!retained_sources_live(kernel, first, recognition))
-      return unchanged;
+    if (!scan([&] {
+          return retained_sources_live(kernel, first, recognition);
+        }))
+      return recognition_decline(IndependentSetLiveStatus::Stale);
   } else {
     Snapshot second;
-    if (!snapshot_live(kernel, request, recognition, second) ||
+    if (!scan([&] {
+          return snapshot_live(kernel, request, recognition, second);
+        }) ||
         first.clauses != second.clauses ||
-        first.literals != second.literals)
-      return unchanged;
+        first.literals != second.literals) {
+      if (recognition.interrupted || recognition.exhausted)
+        return recognition_decline(IndependentSetLiveStatus::Stale);
+      result.status = IndependentSetLiveStatus::Stale;
+      return result;
+    }
   }
-  if (kernel_terminating(kernel) || cover_live(kernel, external_cover))
-    return unchanged;
+  if (kernel_terminating(kernel)) {
+    result.status = IndependentSetLiveStatus::Interrupted;
+    return result;
+  }
+  const CoverLiveness postflight =
+      scan([&] { return cover_live(kernel, external_cover, recognition); });
+  if (postflight == CoverLiveness::Stopped)
+    return recognition_decline(IndependentSetLiveStatus::Stale);
+  if (postflight == CoverLiveness::Present) {
+    result.status = IndependentSetLiveStatus::Duplicate;
+    return result;
+  }
 
   std::vector<Lit> internal_cover;
   internal_cover.reserve(external_cover.size());
   for (int32_t external : external_cover) {
     const Lit literal = kernel_internalize(kernel, external);
     if (literal == INVALID_LIT || kernel_var_retired(kernel, var_of(literal)) ||
-        kernel.value(literal))
-      return unchanged;
+        kernel.value(literal)) {
+      result.status = IndependentSetLiveStatus::Stale;
+      return result;
+    }
     internal_cover.push_back(literal);
   }
   if (internal_cover.size() > 2 &&
       (kernel.arena.size() > INVALID_REF - CLAUSE_HEADER_WORDS ||
        internal_cover.size() >
-           INVALID_REF - CLAUSE_HEADER_WORDS - kernel.arena.size()))
-    return unchanged;
+           INVALID_REF - CLAUSE_HEADER_WORDS - kernel.arena.size())) {
+    result.status = IndependentSetLiveStatus::ResourceExhausted;
+    return result;
+  }
   const uint64_t emitted_additions = kernel.proof ? certificate.steps.size() : 0;
   const uint64_t ids_needed = kernel.proof ? emitted_additions : 1;
   if (kernel.next_clause_id > uint64_t(INT64_MAX) ||
-      ids_needed > uint64_t(INT64_MAX) - kernel.next_clause_id)
-    return unchanged;
+      ids_needed > uint64_t(INT64_MAX) - kernel.next_clause_id) {
+    result.status = IndependentSetLiveStatus::ResourceExhausted;
+    return result;
+  }
 
   std::vector<uint64_t> proof_ids;
   if (kernel.proof) {
@@ -561,26 +747,31 @@ IndependentSetLiveResult independent_set_live_apply(
   }
   const uint64_t published_id =
       kernel.proof ? proof_ids.back() : kernel.next_clause_id + 1;
-  IndependentSetLiveResult result;
+  result.status = IndependentSetLiveStatus::Applied;
   result.result = ApplyResult::Ok;
-  result.vertices = image.vertices;
-  result.target = image.target;
-  result.source_clauses = first.clauses.size();
-  result.source_literals = first.literals;
-  result.recognition_work = recognition.used;
-  result.proof_work = proof_work.used;
-  result.planned_proof_additions = certificate.steps.size();
   result.emitted_proof_additions = emitted_additions;
   result.emitted_proof_deletions =
       kernel.proof ? certificate.steps.size() - 1 : 0;
-  result.proof_literal_occurrences = certificate.literal_occurrences;
   result.published_clause_id = published_id;
   result.advice_vertex_literals = image.vertex_literals;
   result.published_cover = external_cover;
   std::string journal;
+  uint64_t journal_work = 0;
   if (!render_journal(request, first, image, certificate, proof_ids,
-                      published_id, result, journal))
-    return unchanged;
+                      published_id, result, journal, journal_work)) {
+    result.status = kernel_terminating(kernel)
+                        ? IndependentSetLiveStatus::Interrupted
+                        : IndependentSetLiveStatus::ResourceExhausted;
+    result.result = ApplyResult::NoOp;
+    result.emitted_proof_additions = 0;
+    result.emitted_proof_deletions = 0;
+    result.published_clause_id = 0;
+    result.advice_vertex_literals.clear();
+    result.published_cover.clear();
+    result.journal_work = journal_work;
+    return result;
+  }
+  result.journal_work = journal_work;
 
   // Commit begins here.  Every bounded, structural, liveness, proof-format,
   // interruption, clause-identity, and journal-size check has completed. The
