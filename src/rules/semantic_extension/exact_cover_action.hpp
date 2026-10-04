@@ -12,8 +12,6 @@ namespace tactix {
 // serialized as action parameters.
 struct ExactCoverExtensionActionSession {
   ExactCoverLiveSession live_session;
-  FILE *records = nullptr;
-  uint64_t last_committed_structural_action_id = 0;
 };
 
 struct ExactCoverExtensionActionResult {

@@ -95,15 +95,14 @@ static void declines_do_not_consume_identity() {
   ExactCoverExtensionActionSession session;
   FILE *records = std::tmpfile();
   assert(records);
-  session.records = records;
-  session.last_committed_structural_action_id = 40;
+  kernel.structural_provenance = records;
+  kernel.structural_action_sequence = 40;
 
   // Eligibility is state-only: disabled parameters do not hide the action.
   assert(exact_cover_extension_action_guard(kernel));
   const auto disabled = exact_cover_extension_action_apply(kernel, session);
   assert(disabled.live.status == ExactCoverLiveStatus::Invalid);
-  assert(disabled.action_id == 0 &&
-         session.last_committed_structural_action_id == 40);
+  assert(disabled.action_id == 0 && kernel.structural_action_sequence == 40);
   assert(std::ftell(records) == 0);
 
   kernel.exact_cover_extension_parameters = parameters();
@@ -112,17 +111,16 @@ static void declines_do_not_consume_identity() {
   assert(exhausted.live.status == ExactCoverLiveStatus::ResourceExhausted);
   assert(exhausted.live.journal_bytes == 0 && exhausted.action_id == 0);
   assert(exhausted.live.recognition_work > 0);
-  assert(session.last_committed_structural_action_id == 40);
+  assert(kernel.structural_action_sequence == 40);
   assert(session.live_session.committed_keys() == 0);
   assert(std::ftell(records) == 0);
 
   kernel.exact_cover_extension_parameters = parameters();
-  session.last_committed_structural_action_id =
-      std::numeric_limits<uint64_t>::max();
+  kernel.structural_action_sequence = std::numeric_limits<uint64_t>::max();
   const auto overflow = exact_cover_extension_action_apply(kernel, session);
-  assert(overflow.live.status == ExactCoverLiveStatus::Invalid);
+  assert(overflow.live.status == ExactCoverLiveStatus::Inapplicable);
   assert(overflow.action_id == 0 &&
-         session.last_committed_structural_action_id ==
+         kernel.structural_action_sequence ==
              std::numeric_limits<uint64_t>::max());
   assert(session.live_session.committed_keys() == 0);
   assert(std::ftell(records) == 0);
@@ -135,8 +133,8 @@ static void success_stages_candidate_and_commits_identity() {
   ExactCoverExtensionActionSession session;
   FILE *records = std::tmpfile();
   assert(records);
-  session.records = records;
-  session.last_committed_structural_action_id = 40;
+  kernel.structural_provenance = records;
+  kernel.structural_action_sequence = 40;
 
   strategy::begin_semantic_variable_candidate_action(kernel);
   const auto applied = exact_cover_extension_action_apply(kernel, session);
@@ -148,7 +146,7 @@ static void success_stages_candidate_and_commits_identity() {
          applied.live.literal_occurrences == 30 &&
          applied.live.journal_bytes > 0);
   assert(applied.semantic_candidate_staged);
-  assert(session.last_committed_structural_action_id == 41);
+  assert(kernel.structural_action_sequence == 41);
   assert(session.live_session.committed_keys() == 3);
   assert(kernel.semantic_variable_candidate_pending);
 
@@ -180,7 +178,7 @@ static void success_stages_candidate_and_commits_identity() {
   assert(duplicate.live.status == ExactCoverLiveStatus::AlreadyPublished);
   assert(duplicate.live.result == ApplyResult::NoOp &&
          duplicate.action_id == 0);
-  assert(session.last_committed_structural_action_id == 41);
+  assert(kernel.structural_action_sequence == 41);
   assert(session.live_session.committed_keys() == 3);
   assert(kernel.external_to_internal == mapping &&
          kernel.next_clause_id == native_id && kernel.arena.size() == arena);
@@ -190,9 +188,13 @@ static void success_stages_candidate_and_commits_identity() {
 
 static void state_guard_rejects_assignments() {
   Kernel kernel = parse();
+  FILE *records = std::tmpfile();
+  assert(records);
+  kernel.structural_provenance = records;
   assert(exact_cover_extension_action_guard(kernel));
   kernel_assign_decision(kernel, kernel_internalize(kernel, 1));
   assert(!exact_cover_extension_action_guard(kernel));
+  std::fclose(records);
 }
 
 int main() {
