@@ -34,4 +34,8 @@ RuleEligibility exact_cover_extension_action_guard(const Kernel &);
 ExactCoverExtensionActionResult exact_cover_extension_action_apply(
     Kernel &, ExactCoverExtensionActionSession &);
 
+// Registry body. The owning solver/controller attaches the session to Kernel;
+// canonical dispatch uses that same durable cache.
+ApplyResult exact_cover_extension_rule_apply(Kernel &);
+
 } // namespace tactix

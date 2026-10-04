@@ -46,6 +46,10 @@ struct IndependentSetCoverActionResult {
 // benchmark or payload-dependent scheduling predicates.
 RuleEligibility independent_set_cover_action_guard(const Kernel &);
 
+// The action has no canonical cover choice; registry canonical dispatch is a
+// deliberate NoOp while the structured v4/direct surfaces supply a vector.
+ApplyResult independent_set_cover_rule_apply(Kernel &);
+
 // Apply one caller-selected positive cover.  The vector is a set encoded in
 // strictly increasing stable external variable identities.  Limits come only
 // from Kernel::independent_set_cover_parameters.  This feature-local adapter

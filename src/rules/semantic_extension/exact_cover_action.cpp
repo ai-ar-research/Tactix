@@ -17,6 +17,8 @@ RuleEligibility exact_cover_extension_action_guard(const Kernel &k) {
       .fact("propagated", kernel_propagation_fixpoint(k))
       .fact("sparse", !k.dense && k.large_watches_connected)
       .fact("no-probe-transaction", !k.probing.recording)
+      .fact("session-attached",
+            k.exact_cover_extension_action_session != nullptr)
       .fact("provenance-bound", k.structural_provenance != nullptr)
       .fact("action-id-available",
             k.structural_action_sequence != UINT64_MAX)
@@ -30,7 +32,8 @@ RuleEligibility exact_cover_extension_action_guard(const Kernel &k) {
 ExactCoverExtensionActionResult exact_cover_extension_action_apply(
     Kernel &k, ExactCoverExtensionActionSession &session) {
   ExactCoverExtensionActionResult result;
-  if (!exact_cover_extension_action_guard(k)) {
+  if (!exact_cover_extension_action_guard(k) ||
+      k.exact_cover_extension_action_session != &session) {
     result.live.status = ExactCoverLiveStatus::Inapplicable;
     return result;
   }
@@ -84,6 +87,13 @@ ExactCoverExtensionActionResult exact_cover_extension_action_apply(
   k.structural_action_sequence = prospective_action_id;
   result.action_id = prospective_action_id;
   return result;
+}
+
+ApplyResult exact_cover_extension_rule_apply(Kernel &kernel) {
+  if (!exact_cover_extension_action_guard(kernel)) return ApplyResult::NoOp;
+  return exact_cover_extension_action_apply(
+             kernel, *kernel.exact_cover_extension_action_session)
+      .live.result;
 }
 
 } // namespace tactix

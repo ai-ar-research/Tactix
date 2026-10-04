@@ -72,6 +72,8 @@ RuleEligibility independent_set_cover_action_guard(const Kernel &kernel) {
       .fact("propagated", kernel_propagation_fixpoint(kernel))
       .fact("sparse", !kernel.dense && kernel.large_watches_connected)
       .fact("no-probe-transaction", !kernel.probing.recording)
+      .fact("session-attached",
+            kernel.independent_set_cover_action_session != nullptr)
       .fact("provenance-bound", kernel.structural_provenance != nullptr)
       .fact("action-id-available",
             kernel.structural_action_sequence != UINT64_MAX)
@@ -83,12 +85,18 @@ RuleEligibility independent_set_cover_action_guard(const Kernel &kernel) {
             !kernel.proof || (!kernel.proof->lrat() && !kernel.proof->pb()));
 }
 
+ApplyResult independent_set_cover_rule_apply(Kernel &kernel) {
+  (void)kernel;
+  return ApplyResult::NoOp;
+}
+
 IndependentSetCoverActionResult independent_set_cover_action_apply(
     Kernel &kernel, IndependentSetCoverActionSession &session,
     const std::vector<uint32_t> &cover_vertices) {
   IndependentSetCoverActionResult output;
   output.owner_retained = session.retained();
-  if (!independent_set_cover_action_guard(kernel)) {
+  if (!independent_set_cover_action_guard(kernel) ||
+      kernel.independent_set_cover_action_session != &session) {
     output.status = IndependentSetLiveStatus::Inapplicable;
     return output;
   }
