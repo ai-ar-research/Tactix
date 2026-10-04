@@ -16,27 +16,29 @@ unsupported proof modes, or incomplete plans have no solver effect. The controll
 later rank declared existing or introduced theory variables; producers do not alter
 VMTF, EVSIDS, phases, or other heuristic state.
 
-The public v4 boundary gives affine, exact-cover, and independent-set
-transitions separate append-only actions. Action-space v5 adds
-`Gf3AffineConsequence` and `DirectCspSupport` with exact typed structured
-payloads, deep-copied C configuration, deterministic replay, and distinct
-semantic-variable producer identities. Typed parameters contain explicit limits
-only. Durable source ownership, duplicate keys, action/semantic identities,
-provenance streams, and fresh variables stay in solver-lifetime sessions. A
-productive proof action stages neutral existing/introduced theory variables;
-a configured propagation follow-up settles first, then the dispatcher publishes
-only still-branchable variables as a current immutable candidate for the
-separate H-only `SemanticVariableAdvice` action.
+The public boundary grows additively: v4 gives affine, exact-cover and
+independent-set separate actions; v5 adds exact selected GF(3)-pair and DirectCSP
+row consequences plus terminal Direct PHP; v6 adds the complete authenticated
+GF(3) Gaussian batch; v7 adds an exact selected Tseitin component. Structured
+payloads are deep-copied by the corresponding C configuration, survive typed
+replay, and carry explicit limits only. Durable source ownership, duplicate
+keys, action/semantic identities, provenance streams and fresh variables stay
+in solver-lifetime sessions. A productive nonterminal proof action may stage
+neutral existing/introduced theory variables; a configured propagation
+follow-up settles first, then the dispatcher publishes only still-branchable
+variables as a current immutable candidate for the separate H-only
+`SemanticVariableAdvice` action.
 
-Every attempt reports raw status, effort, proof, yield, and session-commit
-deltas and charges one application. `NoStructure`, `NoConsequence`, and
-`AlreadyPublished` consume that exact selection. Invalid, inapplicable,
-unsupported-proof, and stale selections are terminal for that cursor.
-`ResourceExhausted` and `Interrupted` retain the payload so explicit
-reconfiguration can retry it with changed limits; no outcome triggers fallback
-or rollback. DefaultPolicy omits both v5 actions, while random selection may use
-only exact payloads from its configured offered collection. `PROGRESS.md` owns
-acceptance status.
+Every attempt reports raw status, effort, proof, yield and session-commit deltas
+and charges one application. Applied, duplicate and complete
+no-structure/no-outcome results consume the exact selection. Invalid,
+inapplicable, unsupported-proof and stale results discard it until context
+changes. Resource exhaustion and interruption retain the exact payload but
+suspend eligibility until an explicit profile change retries it; formula,
+session or owner change discards it. No outcome triggers fallback or rollback.
+DefaultPolicy omits the unaccepted theory actions. Random selection may use only
+exact caller-supplied or native-produced payloads. `PROGRESS.md` owns acceptance
+status.
 
 ## Live population and source authentication
 
@@ -235,22 +237,27 @@ bounds cover group admission, cycle planning and witness length, transaction
 events/additions/deletions/helpers/witness literals, semantic validation ticks
 and proof namespace.
 
-The private discovery frontend derives exact width-2--4 XOR groups from the
-complete captured population. It rejects opposite parities over one scope,
-incomplete encodings, multiple connected components, bad edge degree, even
-charge and every residual edge touch. Stable group identity and traversal are
-deterministic; capture and discovery have separate interruption-aware bounds.
+Public X16 enumerates every eligible connected component as an exact `tcx2:`
+payload. The complete stored-clause census derives width-2--4 XOR groups,
+quarantines ambiguous/even/bad-degree components and conservatively rejects any
+unclaimed stored clause touching a component edge, even when root satisfied.
+Exact root units are a separate authenticated part of the live formula: they
+may fix off-cycle edges, while available-edge Kruskal planning selects a cycle
+whose substituted edges are all unassigned. This physical residual boundary is
+the declared public domain; it is stricter than the mathematical X7 condition.
 
-Prepare recaptures before admission and after shadow X7 preflight. It stores no
-raw callback pointer. Apply composes caller and Kernel stop flags, rechecks the
-proof pointer and full snapshot, reruns and exact-compares admission, planning,
-transaction, source identities, mapping, X7 instance, accounting and events,
-then calls ordinary SubstitutionRedundancy. The discovery plan supplies the
-groups, but the live adapter does not trust it and authenticates them again.
-DSR/no-proof publication is one step; another cycle requires fresh capture and
-planning. The frontend currently declines multiple disconnected exact XOR
-populations rather than choosing a hidden component. Public component payloads,
-session/replay, controller telemetry and target recovery remain open.
+Offer is mutation free and records no proof or journal event. Apply recaptures,
+selects only the named component, rebuilds admission/planning/transaction and
+exact-matches source occurrences, native proof IDs, canonical clauses, root
+image, incidence, cycle, witness and substitution. The Kernel-bound session
+stores a semantic `tcd1:` key distinct from replay identity. Prebuilt JSONL
+records the action/parameters, mappings and root units, exact sources, proof
+events, installed unit, projection/deletion state and effort/proof volume.
+Native DSR emits two temporary helpers, one RUP unit and two deletions; no-proof
+performs the same kernel transition. DRAT/LRAT/PBP decline before mutation.
+Propagation remains separate. Fresh discovery after a changed root may expose
+another component; typed replay, C v7, random production and raw feedback share
+the same path, while DefaultPolicy remains disabled pending acceptance.
 
 ## Direct CSP support consequence
 

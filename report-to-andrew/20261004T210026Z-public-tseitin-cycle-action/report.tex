@@ -1,0 +1,130 @@
+\documentclass[11pt]{article}
+\usepackage[margin=0.85in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{microtype}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage[hidelinks]{hyperref}
+\usepackage{xcolor}
+\setlength{\emergencystretch}{2em}
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\pending}{\textcolor{orange!70!black}{pending}}
+\newcommand{\pass}{\textcolor{green!45!black}{pass}}
+\title{Tactix public Tseitin cycle-breaking action\\Certified reasoning checkpoint}
+\author{Development report for Andrew}
+\date{4 October 2026}
+
+\begin{document}
+\maketitle
+
+\section*{Outcome}
+
+Tseitin cycle breaking now reaches the public controller boundary. Commit
+\code{46a7db1cd} registers X16 at append-only rule ID 38, disabled reference
+StepId 27, and C parameter tag 41 in API version 7. Its parent
+\code{2921c784d} repairs the common native structured-producer lifecycle.
+Explicit programs and an opt-in random producer use the same typed executor;
+DefaultPolicy remains disabled pending fuzz, recovery, and regression evidence.
+
+This is a correctness and architecture checkpoint. No target, WV/WV2, Tier-D,
+fuzz, or regression campaign was launched. The saved \code{d170b4a5}
+comparison was not rerun.
+
+\section*{Controller-visible component choice}
+
+The bounded native census returns every eligible connected XOR component as a
+separate exact \code{tcx2:} payload. It does not privately choose which
+component the controller receives. The payload commits the stored clauses,
+native proof identities, variable mapping, root image, admitted XOR groups,
+incidence, available-edge cycle, X7 witness, transaction, and limits. A
+distinct \code{tcd1:} identity records semantic duplicate state in one
+Kernel-bound session.
+
+Apply recaptures the formula, selects only the named component, rebuilds the
+complete plan, and exact-matches it before mutation. Success publishes one
+cycle-breaking unit. Propagation remains a separate action. A fresh census at
+the next propagated root can expose another component or an alternative cycle.
+Root-fixed off-cycle edges are authenticated; selected cycle edges must remain
+unassigned.
+
+The present domain is conservative: any unclaimed stored clause touching a
+component edge excludes the component, even when root-satisfied. This physical
+residual boundary is stronger than the abstract X7 condition and remains an
+explicit N1 review item.
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}lXl@{}}
+\toprule
+Boundary & Contract & State \\
+\midrule
+Offer & Mutation-free complete census; one exact payload per component & \pass \\
+Apply & Fresh component/root/source rebuild and exact match & \pass \\
+Proof & No-proof or native DSR; unsupported formats decline first & \pass \\
+Replay & C++ serialization and additive C v7 deep-copy & \pass \\
+Default scheduling & Explicit disabled row; production admission unmeasured & \pending \\
+Recovery and gates & Fixed 44, WV/WV2, B28+C5, and Rank & \pending \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\section*{Proof, provenance, and retry behavior}
+
+Native DSR emits two temporary helpers, one RUP unit, two deletions, and one
+proof-only variable. It adds no branchable auxiliary and needs no model
+reconstruction witness. DRAT, LRAT, and PBP decline before mutation. This keeps
+the first public route in the default DSR proof vocabulary without adding a
+rule-specific pseudo-Boolean path.
+
+The prebuilt JSONL record binds action and semantic identities, typed limits,
+the mapping and authenticated root units, exact source occurrences and proof
+IDs, the cycle and witness, proof events, installed unit, projection/deletion
+state, and exact effort and proof volume. Failed publication neither consumes
+the duplicate key nor closes the certificate boundary.
+
+Applied, duplicate, and complete no-structure outcomes consume the offer.
+Invalid, inapplicable, unsupported-proof, and stale results discard it until
+context changes. Exhaustion and interruption retain it while suspending
+eligibility; an explicit profile-only change retries it without rediscovery.
+Formula, session, or owner changes discard it. There is no fallback or rollback.
+
+\section*{Validation}
+
+Independent review found no core soundness, reachability, ABI, lifecycle, or
+proof blocker. A separate fresh Debug build passed 10/10 focused tests covering
+the public action, admission, discovery, live adapter, planning, transaction,
+journal, API instances, all online actions, and inprocessing programs.
+
+The journal test independently checks ASCII and binary DSR through the proof
+oracle with every-lemma checking. It also verifies a repeated two-action,
+propagated-root proof with forward \code{dsr-trim}. The action test covers exact
+proof accounting, unsupported modes, stale and corrupt identities, repeated
+root discovery, alternative-cycle recovery, typed replay, random reach, and C
+v7 compatibility and deep-copy. Focused ASan/UBSan action and discovery tests
+passed 2/2 with leak detection disabled because LSAN is unavailable under the
+environment's tracing.
+
+Catalog, proof-rule synchronization, effort governance, policy boundaries,
+configuration wiring, section references, progress and document-size checks
+pass. The feedback inventory contains 736 native fields and no wall timers. A
+synthetic one-unit CLI smoke confirms the stable Tseitin attempt counter used by
+the fuzz reach ledger; it is not a benchmark campaign.
+
+\section*{N1--N4 and next work}
+
+N1 now has public exact component selection, repeated-root discovery, and
+alternative-cycle recovery, with broad public-sequence coverage still open. N2
+has focused checked DSR and no-proof evidence, while broad both-policy fuzz and
+target checking remain open. N3 is unchanged because the rule is disabled in
+the reference default. N4 has typed scheduling, raw effort, replay, and retry
+mechanics, but no accepted interval, allowance, ordering, or default admission.
+
+Next require effective default/random fuzz reach. When benchmark execution is
+authorized, measure the saved fixed-44 and LymphoSAT-owned WV/WV2 targets, then
+run B28+C5, Rank1--50, WV100, and WV2--89 with the 1,800-second proof-check cap
+and the completed-proof slowdown rule. No target or formal gate is relabeled
+complete by this checkpoint.
+
+The detailed record is the repository's
+\href{../../benchmarks/reports/2026-10-04-public-tseitin-cycle-breaking-action.md}{technical checkpoint}.
+
+\end{document}
