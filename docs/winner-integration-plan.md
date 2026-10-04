@@ -156,9 +156,10 @@ The isolated first clausal verticals currently have different boundaries.
 Direct PHP now completes one public terminal vertical: exact live admission,
 Kernel-bound replay, DSR/DRAT/no-proof publication, typed registry/C/online
 execution, random reach and raw feedback. It remains disabled by default and
-unaccepted. GF(3) now has a private live publisher for independently replayed
-chained Gaussian unit/conflict certificates; it still lacks public instance
-enumeration, controller replay/feedback and scheduling. Tseitin now has bounded
+unaccepted. GF(3) now exposes one authenticated complete Gaussian unit/conflict
+batch through typed replay, C v6, an opt-in random producer and raw feedback;
+it remains disabled by default and lacks effective fuzz, scheduling and target
+evidence. Tseitin now has bounded
 autonomous exact-XOR discovery feeding its live X7 adapter, but lacks a public
 component payload, session and controller boundary. Complete those public
 boundaries, then propagation/reconstruction where applicable, fuzz/regression

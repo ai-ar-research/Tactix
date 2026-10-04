@@ -69,6 +69,12 @@ duplicate keys to one solver session; configured propagation follow-ups settle
 before current semantic-variable advice is published. Their implementation and
 acceptance status remain in `PROGRESS.md`.
 
+Version 6 appends one opaque `Gf3GaussianConsequence` string identity. The
+native producer may offer exactly one `g3b1:` identity for the complete current
+authenticated Gaussian closure; replay stores that exact identity, and apply
+must rebuild and match it before mutation. Separate limits bound identity
+generation and solver-session retention. Earlier layouts remain unchanged.
+
 `--controller-actions=FILE` reads the existing serialized OnlineStrategyProgram
 syntax as a collection of offered alternatives, not an ordered sequence. It
 selects those families and supplies their typed payloads and fixed allowances;

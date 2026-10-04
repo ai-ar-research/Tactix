@@ -155,6 +155,13 @@ TABLE = {
                            r'random_generator_reaches_the_same_action\('),
                           ("tests/test_direct_php_public.cpp",
                            r'c_api_executes_terminal_action\(')]),
+    "Gf3GaussianConsequence":
+                        (EXPLICIT, "typed authenticated complete-batch GF(3) action; default schedule pending",
+                         [r'std::strcmp\(rules\[i\]\.name, "Gf3GaussianConsequence"\)'],
+                         [("src/rules/semantic_extension/gf3_gaussian_action.cpp",
+                           r'gf3_gaussian_action_apply\('),
+                          ("tests/test_gf3_gaussian_public.cpp",
+                           r'singular_batch_and_atomic_publication\(')]),
     "Condition":        (EXPLICIT, "typed (clause,cube) API; no default producer",
                          [EV_CONDITION_SKIP],
                          [("src/rules/condition/condition.cpp",

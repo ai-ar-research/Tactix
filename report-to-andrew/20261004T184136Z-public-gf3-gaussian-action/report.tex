@@ -1,0 +1,123 @@
+\documentclass[11pt]{article}
+\usepackage[margin=0.85in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{microtype}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage[hidelinks]{hyperref}
+\usepackage{xcolor}
+\setlength{\emergencystretch}{2em}
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\pending}{\textcolor{orange!70!black}{pending}}
+\newcommand{\pass}{\textcolor{green!45!black}{pass}}
+\title{Tactix public GF(3) Gaussian batch action\\Certified reasoning checkpoint}
+\author{Development report for Andrew}
+\date{4 October 2026}
+
+\begin{document}
+\maketitle
+
+\section*{Outcome}
+
+The chained GF(3) Gaussian reasoning path now reaches the public controller
+boundary. Commit \code{cd956aea} registers X14
+\code{Gf3GaussianConsequence} at append-only rule ID 37, disabled reference
+StepId 26, and C parameter tag 40 in API version 6. Explicit programs and an
+opt-in random-controller producer can select it through the shared executor;
+DefaultPolicy remains disabled pending performance and regression acceptance.
+
+This is a correctness and architecture checkpoint. No new solver benchmark,
+fixed-44 recovery run, WV/WV2 run, or regression campaign was launched. The
+saved \code{d170b4a5} comparison was not rerun.
+
+\section*{Why the action is one complete batch}
+
+Gaussian elimination may derive several root units from the same authenticated
+closure. Applying one unit closes the action's assignment-free boundary, so a
+per-unit public action could make the remaining simultaneous deductions
+unreachable. Discovery therefore offers exactly one deterministic
+\code{g3b1:} identity for the complete closure.
+
+That identity commits every supported unit or conflict, the complete
+\code{Source}/\code{Scale}/\code{Add} derivation, authentication references,
+and exact source clauses. Apply recaptures the live formula, rebuilds the
+algebraic and Boolean certificate, exact-matches the identity, and atomically
+publishes the whole batch. This preserves a controller-visible choice without
+hiding which subset the frontend selected.
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}lXl@{}}
+\toprule
+Boundary & Contract & State \\
+\midrule
+Offer & Mutation-free construction of one authenticated complete-batch key &
+\pass \\
+Apply & Fresh rebuild and exact identity match before any publication & \pass \\
+Proof & Ordinary RUP units/conflict in DSR, DRAT, or no-proof mode & \pass \\
+Replay & Typed C++ serialization and additive C v6 deep-copy & \pass \\
+Default scheduling & Explicit disabled row; production admission unmeasured &
+\pending \\
+Target recovery & Fixed-44 and WV/WV2 evidence & \pending \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\section*{Safety, proof, and accounting}
+
+Corrupt, stale, cross-kernel, interrupted, exhausted, or unsupported-proof
+requests decline before solver, proof, journal, or session mutation. One
+Kernel-bound session retains durable duplicate keys. Identity construction and
+total retained session identity bytes have separate limits and raw counters,
+avoiding an unmetered replay payload.
+
+Only entailed unit clauses or the empty clause enter search. Intermediate
+case-split clauses remain proof-only. The rule adds no search auxiliary, RAT
+definition, PB step, or reconstruction entry. DSR, DRAT, and no-proof are
+supported; LRAT and PBP decline before mutation. Nonunit reduced rows remain
+outside this first public action.
+
+The action journal records typed limits, exact premises, authenticated
+equations, reduced rows, original-source combinations, proof events, installed
+clauses, and action identities. Feedback separately records capture, bridge,
+certificate, validation, revalidation, proof, journal, identity, session,
+unit/conflict, and terminal-status measurements. Fuzz reach is keyed to the
+\code{gf3-gauss} attempt counter, which moves only when an exact batch enters
+the shared executor.
+
+\section*{Validation}
+
+Independent review confirmed that offer is mutation-free and apply performs a
+fresh exact rebuild before atomic commit. The current Debug build passed 7/7
+selected integration tests: GF(3) live/public, API instances, all online
+actions, inprocessing program, random online selection, and scheduling. The
+public test covers multi-unit publication, corrupt and stale identities,
+cross-kernel sessions, both byte limits, typed replay, shared online execution,
+random reach, C v6 validation, and DSR output.
+
+ASan/UBSan passed the live and public tests 2/2 with leak detection disabled
+because LSAN is unsupported under the environment's tracing. The feedback
+inventory has 699 native fields and no wall timers. Effort classification,
+catalog/inventory, calculus/HTML synchronization, document size, progress, and
+Python syntax checks pass.
+
+\section*{Campaign assessment and next work}
+
+The partial recovery campaign remains correct but incomplete. Six direct
+structured MDP instances were recovered quickly with independently checked
+models. \code{cabp} took about 1,026 seconds versus the accepted 222 seconds;
+Break timed out at 1,200 seconds and Timetable at 600 seconds. No wrong verdict
+or checker failure occurred, but partial phase guidance was never offered or
+consumed. The new X14 boundary has not yet been measured on those rows.
+
+The next public vertical is Tseitin connected-component selection: expose an
+exact component payload, session, replay, feedback, and scheduling without a
+private frontend choosing the opportunity. Once benchmark work is authorized,
+run the three trajectory controls and targeted owner subsets, then the fixed 44
+and the B28+C5, Rank1--50, WV100, and WV2--89 gates. Effective default/random
+fuzz must require X14 reach. Independent proof/model checking, the 1,800-second
+proof-check cap and slowdown rule, and N1--N4 remain mandatory.
+
+The detailed record is
+\code{benchmarks/reports/2026-10-04-public-gf3-gaussian-action.md}.
+
+\end{document}

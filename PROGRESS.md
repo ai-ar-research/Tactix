@@ -28,7 +28,7 @@ rule-specific derivation and measured clausal proof/check cost establish need.
 | Current scheduler repair | `f6d7453f6` | Lucky/8 restored as structured-root stage 0; combined checkpoint suite passes 10/10 in normal and ASan/UBSan builds; no benchmark result yet |
 | Partial-model guidance | `a49191bfa` | Exact immutable candidates can feed Walk and CDCL separately with raw telemetry; mechanics tested, campaign reach/effect still absent |
 | Certified theory actions v5 | [technical report](benchmarks/reports/2026-10-04-certified-theory-actions-v5.md) | Public GF(3)/DirectCSP consequences and random offerers implemented but unaccepted; ordinary fuzz had incomplete verdict coverage and no effective v5 reach |
-| Certified UNSAT verticals | `86d142984`, `048442c40`, `e4d76b336` | GF(3) now has private authenticated live Gaussian unit/conflict publication; Tseitin has private bounded autonomous exact-XOR discovery through live X7; Direct PHP completes a disabled-by-default public terminal controller action. Combined focused Debug and ASan/UBSan are each 17/17; target and gate acceptance remain open |
+| Certified UNSAT verticals | `86d142984`, `048442c40`, `e4d76b336`, `cd956aea` | GF(3) now has a disabled-by-default public authenticated complete Gaussian unit/conflict batch with typed/C v6 replay, opt-in random reach and raw feedback; Tseitin has private bounded autonomous exact-XOR discovery through live X7; Direct PHP is public and terminal. Focused GF(3) Debug is 7/7 and ASan/UBSan is 2/2; target, fuzz and gate acceptance remain open |
 | Naive target row-cover proof | [checker-censor report](benchmarks/reports/2026-10-04-row-cover-target-checker-censor.md) | Rejected: 6,783,269 additions and 187,733,915 bytes reached the 1,800-second checker cap |
 
 The corrected guidance fuzz jobs are terminal. Default job `1748417` found zero
@@ -42,13 +42,13 @@ the only user job, interactive allocation `1747502`, is unrelated.
 
 ## Next action
 
-The first certified UNSAT vertical is complete through the public controller:
-Direct PHP is registered at append-only ID 36 with typed replay, random reach,
-raw feedback and terminal DSR/DRAT/no-proof publication, while DefaultPolicy
-keeps it disabled. Next, give GF(3) a public action that enumerates and selects
-an authenticated live Gaussian outcome, with typed replay and raw feedback;
-then give Tseitin a typed connected-component payload. Neither private frontend
-may choose hidden opportunity policy. Every added
+The first two certified UNSAT verticals reach the public controller. Direct PHP
+is append-only ID 36; GF(3) Gaussian is ID 37 and exposes one exact complete
+batch so simultaneous consequences remain reachable before root units close
+its assignment-free boundary. Both provide typed replay, random reach, raw
+feedback and DSR/DRAT/no-proof publication while DefaultPolicy keeps them
+disabled. Next, give Tseitin a typed connected-component payload; no private
+frontend may choose hidden opportunity policy. Every added
 constraint or definition must retain Boolean form, theory meaning, exact
 premises, action/parameters, variable mapping, proof reference,
 reconstruction/projection obligation, deletion state, and exact
@@ -72,7 +72,8 @@ plus `max(30%, 20s)` completed-proof slowdown rule.
 
 ## Recent changes
 
-- `86d142984`/`048442c40`/`e4d76b336` completed live GF(3), autonomous Tseitin discovery and public Direct PHP verticals.
+- `cd956aea` exposed the authenticated complete GF(3) Gaussian closure as public X14 with C v6, replay, random reach and raw feedback.
+- `86d142984`/`048442c40`/`e4d76b336` completed private GF(3), autonomous Tseitin discovery and public Direct PHP verticals.
 - `5c23c1f4c` aligned lifecycle tests with the affine stage; the combined 17-test Debug matrix passes.
 - `f6d7453f6` restored affine Lucky/8 to the accepted structured-root stage-0 lifecycle and pinned its execution signature.
 - `666f8bad0` corrected current guidance reachability parsing and added its regression test.

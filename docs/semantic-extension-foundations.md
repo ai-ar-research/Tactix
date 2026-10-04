@@ -176,9 +176,9 @@ references, event width, branch domains and consequences. The retained-byte
 limit is a logical plan bound, not an allocator/RSS promise. Invalid,
 unsupported, interrupted or exhausted construction exposes no partial plan.
 
-The private live adapter now completes this boundary through publication. It
-captures the exact current GF(3) owner, builds the full chained Gaussian plan,
-then independently validates both the algebra and every physical source before
+The live adapter and public X14 action complete this boundary through publication. They
+capture the exact current GF(3) owner, build the full chained Gaussian plan,
+then independently validate both the algebra and every physical source before
 commit. A prepared transaction binds all recognition, bridge, Gaussian,
 certificate and publication limits, action/semantic identities, and its record
 stream. Its bounded journal records each source, authenticated equation image,
@@ -186,8 +186,10 @@ derived row/RHS, original source combination, published clause and proof event.
 Only unit clauses and an empty conflict enter the solver; intermediate RUP
 clauses remain proof-only. DSR, DRAT and no-proof publication are supported,
 while LRAT/PBP and proof-backed split publication decline. The implementation
-is intentionally unregistered: public instance enumeration, controller replay,
-feedback, repeated eligibility and performance evidence remain open.
+offers one deterministic complete-batch identity committing every consequence,
+derivation and exact premise. Apply freshly rebuilds and exact-matches it before
+atomic publication. C v6, typed replay, opt-in random production and raw
+feedback are implemented; effective fuzz, scheduling and performance evidence remain open.
 
 ## Direct PHP terminal certificate
 

@@ -365,6 +365,9 @@ REACH_SPECS = [
     # would miss soundly reached recognition declines, while `attempts` moves
     # only after the canonical action crosses its public execution boundary.
     ("DirectPhpRefutation", r"^c directphp\s+(\d+) attempts,"),
+    # This opt-in structured action moves its attempt count only after an exact
+    # authenticated batch crosses the shared executor.
+    ("Gf3GaussianConsequence", r"^c gf3-gauss\s+(\d+) attempts,"),
     ("Vivify", r"^c vivify\s+(\d+) rounds,"),
     # These key on attempts, not rounds: they are `dosed` entries reached
     # through apply_instance, whose round counter never moves. See the note
