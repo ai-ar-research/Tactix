@@ -123,6 +123,7 @@ void exercise() {
   assert(records);
   configure(kernel, records);
   IndependentSetCoverActionSession session;
+  assert(independent_set_cover_action_guard(kernel));
 
   const long initial_records = std::ftell(records);
   const size_t initial_arena = kernel.arena.size();
@@ -136,6 +137,13 @@ void exercise() {
   assert(!kernel.semantic_variable_candidate_pending);
   assert(kernel.arena.size() == initial_arena);
   assert(std::ftell(records) == initial_records);
+
+  kernel.structural_provenance = nullptr;
+  assert(!independent_set_cover_action_guard(kernel));
+  declined = independent_set_cover_action_apply(kernel, session, {1, 2, 3});
+  assert(declined.status == IndependentSetLiveStatus::Inapplicable &&
+         !declined.action_id && !session.retained());
+  kernel.structural_provenance = records;
 
   const uint64_t recognition_limit =
       kernel.independent_set_cover_parameters.maximum_recognition_work;

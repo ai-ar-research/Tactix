@@ -1,6 +1,7 @@
 #include "rules/semantic_extension/independent_set_cover_action.hpp"
 
 #include "kernel/kernel.hpp"
+#include "proof/proof.hpp"
 #include "strategy/semantic_variable_advice.hpp"
 
 #include <algorithm>
@@ -61,28 +62,42 @@ bool valid_cover_payload(const std::vector<uint32_t> &cover) {
 
 } // namespace
 
+RuleEligibility independent_set_cover_action_guard(const Kernel &kernel) {
+  return RuleEligibility{}
+      .fact("consistent", !kernel.inconsistent)
+      .fact("root", !kernel.level)
+      .fact("assignment-free", kernel.trail.empty())
+      .fact("no-conflict",
+            !kernel.conflict_valid && !kernel.pending.valid)
+      .fact("propagated", kernel_propagation_fixpoint(kernel))
+      .fact("sparse", !kernel.dense && kernel.large_watches_connected)
+      .fact("no-probe-transaction", !kernel.probing.recording)
+      .fact("provenance-bound", kernel.structural_provenance != nullptr)
+      .fact("action-id-available",
+            kernel.structural_action_sequence != UINT64_MAX)
+      .fact("candidate-slot-empty",
+            !kernel.semantic_variable_candidate_pending)
+      .fact("candidate-id-available",
+            kernel.semantic_variable_publication != (UINT64_MAX >> 8))
+      .fact("clausal-certificate",
+            !kernel.proof || (!kernel.proof->lrat() && !kernel.proof->pb()));
+}
+
 IndependentSetCoverActionResult independent_set_cover_action_apply(
     Kernel &kernel, IndependentSetCoverActionSession &session,
     const std::vector<uint32_t> &cover_vertices) {
   IndependentSetCoverActionResult output;
   output.owner_retained = session.retained();
+  if (!independent_set_cover_action_guard(kernel)) {
+    output.status = IndependentSetLiveStatus::Inapplicable;
+    return output;
+  }
   if (!valid_cover_payload(cover_vertices) ||
       (session.retained() && !session.belongs_to(kernel))) {
     if (session.retained() && !session.belongs_to(kernel))
       output.status = IndependentSetLiveStatus::Stale;
     return output;
   }
-  if (!kernel.structural_provenance ||
-      kernel.semantic_variable_candidate_pending) {
-    output.status = IndependentSetLiveStatus::Inapplicable;
-    return output;
-  }
-  if (kernel.structural_action_sequence == UINT64_MAX ||
-      kernel.semantic_variable_publication == (UINT64_MAX >> 8)) {
-    output.status = IndependentSetLiveStatus::ResourceExhausted;
-    return output;
-  }
-
   const uint64_t action_id = kernel.structural_action_sequence + 1;
   IndependentSetLiveRequest request =
       request_from_kernel(kernel, cover_vertices, action_id);
