@@ -263,9 +263,73 @@ void stale_owner_and_clean_limits() {
     case 7: bounded.maximum_external_extent = 7; break;
     }
     const auto result = decline_unchanged(bounded_kernel, bounded);
-    assert(result.status == DirectCspSupportLiveStatus::ResourceExhausted ||
-           result.status == DirectCspSupportLiveStatus::NoStructure);
+    assert(result.status == DirectCspSupportLiveStatus::ResourceExhausted);
     std::fclose(bounded_records);
+  }
+}
+
+void source_capture_caps_are_resources() {
+  for (int mode = 0; mode < 2; ++mode) {
+    Kernel kernel = parse();
+    FILE *records = std::tmpfile();
+    assert(records);
+    auto bounded = request(records);
+    if (mode == 0)
+      bounded.maximum_source_clauses = clauses().size() - 1;
+    else
+      bounded.maximum_source_literals = 34;
+    DirectCspSupportOwnerSnapshot owner;
+    owner.external_extent = 99;
+    const auto captured =
+        direct_csp_support_live_capture_owner(kernel, bounded, owner);
+    assert(captured.status ==
+               DirectCspSupportLiveStatus::ResourceExhausted &&
+           !captured.recognition_limit_exhausted &&
+           owner.external_extent == 99 && owner.source.empty());
+    const auto applied = decline_unchanged(kernel, bounded);
+    assert(applied.status == DirectCspSupportLiveStatus::ResourceExhausted &&
+           !applied.recognition_limit_exhausted);
+    std::fclose(records);
+  }
+}
+
+void duplicate_scans_have_exact_work_boundaries() {
+  for (uint32_t selected : {0u, 1u}) {
+    Kernel kernel = parse();
+    FILE *records = std::tmpfile();
+    assert(records);
+    auto candidate = request(records, selected);
+    DirectCspSupportOwnerSnapshot owner;
+    assert(direct_csp_support_live_capture_owner(kernel, candidate, owner)
+               .status == DirectCspSupportLiveStatus::Applied);
+    candidate.retained_owner = &owner;
+    candidate.left_values.clear();
+    candidate.right_values.clear();
+    assert(direct_csp_support_live_apply(kernel, candidate).status ==
+           DirectCspSupportLiveStatus::Applied);
+
+    FILE *duplicate_records = std::tmpfile();
+    assert(duplicate_records);
+    candidate.records = duplicate_records;
+    ++candidate.action_id;
+    const Image before = image(kernel);
+    const auto measured = direct_csp_support_live_preflight(kernel, candidate);
+    assert(measured.status == DirectCspSupportLiveStatus::Duplicate &&
+           measured.recognition_work && image(kernel) == before &&
+           !std::ftell(duplicate_records));
+
+    candidate.maximum_recognition_work = measured.recognition_work;
+    const auto exact = decline_unchanged(kernel, candidate);
+    assert(exact.status == DirectCspSupportLiveStatus::Duplicate &&
+           exact.recognition_work == measured.recognition_work);
+
+    --candidate.maximum_recognition_work;
+    const auto short_by_one = decline_unchanged(kernel, candidate);
+    assert(short_by_one.status ==
+               DirectCspSupportLiveStatus::ResourceExhausted &&
+           short_by_one.recognition_limit_exhausted);
+    std::fclose(duplicate_records);
+    std::fclose(records);
   }
 }
 
@@ -351,6 +415,8 @@ int main(int argc, char **argv) {
   extension_and_retained_owner_reuse();
   unit_support_records_pending_propagation();
   stale_owner_and_clean_limits();
+  source_capture_caps_are_resources();
+  duplicate_scans_have_exact_work_boundaries();
   interruption_and_capture_output_stability();
   unsupported_proofs_decline_before_mutation();
   if (argc == 4) {
