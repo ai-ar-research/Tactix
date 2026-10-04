@@ -21,6 +21,7 @@
 #include <array>
 #include <csignal>
 #include <cstddef>
+#include <cstdio>
 #include <cstdint>
 #include <unordered_map>
 #include <vector>
@@ -1634,6 +1635,10 @@ struct Kernel {
   strategy::ExactCoverExtensionParameters exact_cover_extension_parameters;
   strategy::IndependentSetCoverParameters independent_set_cover_parameters;
   strategy::SemanticVariableAdviceParameters semantic_variable_advice_parameters;
+  // Borrowed session stream shared by every structural action. The owner keeps
+  // it open; successful action identities are monotone across rule families.
+  FILE *structural_provenance = nullptr;
+  uint64_t structural_action_sequence = 0;
   strategy::InstantiateParameters instantiate_parameters;
   strategy::BackboneParameters backbone_parameters;
 
